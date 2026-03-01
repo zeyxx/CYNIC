@@ -30,11 +30,12 @@ class TestRouterHTTPRegistration:
         assert "consciousness_ecosystem_router" in _routers_registered
 
     def test_all_routers_have_api_prefix(self):
-        """Verify all routers use /api/ prefix (except health endpoints)."""
+        """Verify all routers use /api/ prefix (except health and WebSocket endpoints)."""
         for route in app.routes:
             path = getattr(route, "path", "")
             # Skip non-route items like Mount and standard exception paths
-            if not path or path.startswith("/api/") or path.startswith("/static") or path.startswith("/openapi") or path.startswith("/docs") or "oauth2-redirect" in path or path.startswith("/health") or path == "/" or path == "/stats":
+            # WebSocket routes (starting with /ws/) are allowed at root level
+            if not path or path.startswith("/api/") or path.startswith("/ws/") or path.startswith("/static") or path.startswith("/openapi") or path.startswith("/docs") or "oauth2-redirect" in path or path.startswith("/health") or path == "/" or path == "/stats":
                 continue
             # All API routes should have /api/ prefix
             assert path.startswith("/api/"), (
@@ -86,14 +87,14 @@ class TestRouterHTTPRegistration:
             )
 
     def test_no_routes_outside_api_prefix(self):
-        """Guard: Verify no API routes exist outside /api/ prefix (except health/stats)."""
+        """Guard: Verify no API routes exist outside /api/ prefix (except health/WebSocket/stats)."""
         # This prevents accidental creation of routes without /api/ prefix
-        # Exception: health endpoints (/, /health*, /stats) are allowed at root per REST standards
+        # Exceptions: health endpoints (/, /health*, /stats) and WebSocket routes (/ws/*) are allowed at root
         invalid_routes = []
         for route in app.routes:
             path = getattr(route, "path", "")
-            # Skip static, openapi, health, stats, and documentation
-            if any(skip in path for skip in ["/static", "/openapi", "/docs", "/redoc", "oauth2-redirect", "/health", "/stats"]) or path == "/":
+            # Skip static, openapi, health, stats, WebSocket, and documentation
+            if any(skip in path for skip in ["/static", "/openapi", "/docs", "/redoc", "oauth2-redirect", "/health", "/stats", "/ws/"]) or path == "/":
                 continue
             # Warn if we find routes not under /api/
             if path and not path.startswith("/api/"):
