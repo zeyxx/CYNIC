@@ -65,6 +65,7 @@ class SonaEmitter:
         self._start_time = time.time()
         self._qtable: Any | None = None
         self._orchestrator: Any | None = None
+        self._escore_tracker: Any | None = None
 
     def set_qtable(self, qtable: Any) -> None:
         """Inject QTable for telemetry. Called by organism.py after construction."""
@@ -73,6 +74,10 @@ class SonaEmitter:
     def set_orchestrator(self, orchestrator: Any) -> None:
         """Inject JudgeOrchestrator for judgment count. Called by organism.py."""
         self._orchestrator = orchestrator
+
+    def set_escore_tracker(self, escore_tracker: Any) -> None:
+        """Inject EScoreTracker for reputation broadcast."""
+        self._escore_tracker = escore_tracker
 
     def start(self) -> None:
         """
@@ -120,6 +125,10 @@ class SonaEmitter:
 
                 # Emit SONA_TICK with current organism state
                 await self._emit_sona_tick()
+                
+                # Broadcast reputation via Îº-NET
+                if self._escore_tracker:
+                    await self._escore_tracker.broadcast_reputation()
 
             except asyncio.CancelledError:
                 break

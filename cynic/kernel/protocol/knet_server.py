@@ -1,6 +1,6 @@
 """
-Îº-NET Server â€” Somatic WebSocket Broadcaster.
-Runs on a dedicated high port (58765) using IPv6.
+Îº-NET Server — Somatic WebSocket Broadcaster.
+Runs on a dedicated high port (58766) using IPv6.
 Distributes Îº-PULSE messages to all connected nerves (CLI, Web, etc.).
 """
 
@@ -14,6 +14,7 @@ from typing import Any
 import websockets
 
 from cynic.kernel.protocol.kpulse import PulseMessage, PulseType
+from cynic.kernel.core.event_bus import EventBus, CoreEvent, Event
 
 logger = logging.getLogger("cynic.kernel.protocol.knet_server")
 
@@ -24,12 +25,25 @@ class KNetServer:
     Maintains a pool of WebSocket connections and streams the organism's state.
     """
 
-    def __init__(self, host: str = "::", port: int = 58766):
+    def __init__(self, bus: EventBus, host: str = "::", port: int = 58766):
+        self.bus = bus
         self.host = host
         self.port = port
         self.clients: set[Any] = set()
         self._server = None
         self._running = False
+        
+        # Subscribe to reputation syncs for broadcasting
+        self.bus.on(CoreEvent.REPUTATION_SYNC, self._on_reputation_sync)
+
+    async def _on_reputation_sync(self, event: Event) -> None:
+        """Broadcast reputation profile to all connected nerves."""
+        payload = event.dict_payload
+        pulse = PulseMessage(
+            type=PulseType.SOMATIC_SYNC,  # Or a new REPUTATION_SYNC pulse type
+            data={"reputation": payload}
+        )
+        await self.broadcast(pulse)
 
     async def start(self):
         """Start the WebSocket server with IPv4 fallback."""
@@ -41,7 +55,7 @@ class KNetServer:
                 family=socket.AF_INET6 if ":" in self.host else socket.AF_INET,
             )
             self._running = True
-            logger.info(f"K-NET Server active on [{self.host}]:{self.port}")
+            logger.info(f"[{self.bus.instance_id}] K-NET Server active on [{self.host}]:{self.port}")
         except Exception as e:
             if self.host == "::":
                 self.host = "0.0.0.0"
@@ -55,7 +69,7 @@ class KNetServer:
         if self._server:
             self._server.close()
             await self._server.wait_closed()
-            logger.info("Îº-NET Server detached.")
+            logger.info(f"[{self.bus.instance_id}] Îº-NET Server detached.")
 
     async def _handler(self, websocket, path):
         """Handle new nerve connections."""
@@ -120,19 +134,32 @@ class KNetServer:
         try:
             data = json.loads(raw_message)
             pulse = PulseMessage.from_dict(data)
-            logger.debug(f"Îº-NET: Received {pulse.type.value} from body")
-            # TODO: Dispatch to Organism Event Bus
+            logger.debug(f"[{self.bus.instance_id}] Îº-NET: Received {pulse.type.value} from body")
+            
+            # Translate Pulse to Core Event
+            await self.bus.emit(Event.typed(
+                CoreEvent.PERCEPTION_RECEIVED,
+                payload={
+                    "content": pulse.data,
+                    "reality": "SOMATIC",
+                    "pulse_type": pulse.type.value
+                },
+                source="knet"
+            ))
         except Exception as e:
             logger.warning(f"Îº-NET: Failed to process message: {e}")
 
 
-# Global instance for the container
+# DEPRECATED: Use Factory-managed instance instead
 _KNET_SERVER: KNetServer | None = None
 
-
-async def get_knet_server() -> KNetServer:
+async def get_knet_server(bus: EventBus | None = None) -> KNetServer:
+    """Legacy singleton accessor — updated to support instance bus."""
     global _KNET_SERVER
     if _KNET_SERVER is None:
-        _KNET_SERVER = KNetServer()
+        if bus is None:
+            from cynic.kernel.core.event_bus import get_core_bus
+            bus = get_core_bus("DEFAULT")
+        _KNET_SERVER = KNetServer(bus=bus)
         await _KNET_SERVER.start()
     return _KNET_SERVER

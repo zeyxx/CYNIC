@@ -35,12 +35,13 @@ EWC (Elastic Weight Consolidation):
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import random
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from cynic.kernel.core.event_bus import Event
@@ -267,26 +268,49 @@ class QTable:
     async def flush_to_db(self) -> int:
         """
         Flush pending QEntry updates to SurrealDB.
+
+        PRIORITY 3 FIX: Async/sync boundary safety.
+        - Takes atomic snapshot of _pending_flush (copy+clear pattern)
+        - Creates immutable dict copies to prevent concurrent mutation
+        - No interference between sync update() and async flush()
+        - If update() is called during flush, new entries go to new batch
         """
-        if not self.storage or not self._pending_flush:
+        if not self.storage:
             return 0
 
+        # Atomic snapshot: copy list, then clear original
+        # This prevents race where update() adds entries while flush is reading
         batch = self._pending_flush.copy()
         self._pending_flush.clear()
+
+        if not batch:
+            return 0
 
         count = 0
         for e in batch:
             try:
+                # Create immutable snapshot of entry to prevent concurrent mutation
+                # If update() modifies entry while flush is running, this snapshot stays consistent
+                entry_snapshot = {
+                    "state_key": e.state_key,
+                    "action": e.action,
+                    "q_value": e.q_value,
+                    "visits": e.visits,
+                    "wins": e.wins,
+                    "losses": e.losses,
+                    "last_updated": e.last_updated,
+                }
+
                 # Delegate to the real repository
                 await self.storage.update(
-                    state_key=e.state_key,
-                    action=e.action,
-                    q_value=e.q_value,
-                    visits=e.visits
+                    state_key=entry_snapshot["state_key"],
+                    action=entry_snapshot["action"],
+                    q_value=entry_snapshot["q_value"],
+                    visits=entry_snapshot["visits"]
                 )
                 count += 1
             except Exception as exc:
-                logger.debug("QTable flush failed for %s: %s", e.state_key, exc)
+                logger.error("QTable flush failed for %s: %s", e.state_key, exc)
 
         if count > 0:
             logger.debug("Flushed %d Q-entries to SurrealDB", count)

@@ -66,6 +66,7 @@ class CoreEvent(str, Enum):
     SDK_TOOL_JUDGED = "core.sdk_tool_judged"
     SDK_SESSION_STARTED = "core.sdk_session_started"
     SDK_SESSION_ENDED = "core.sdk_session_ended"
+    REPUTATION_SYNC = "core.reputation_sync"
 
 class Event:
     def __init__(self, type: str, payload: Any = None, source: str = "unknown"):

@@ -29,10 +29,11 @@ class CognitionCore:
 
 @dataclass
 class MetabolicCore:
-    """BODY â€” Execution, scheduling, routing, telemetry, physical hardware."""
+    """BODY — Execution, scheduling, routing, telemetry, physical hardware."""
 
     scheduler: Any  # ConsciousnessRhythm
     body: Any | None = None  # HardwareBody
+    motor: Any | None = None  # MotorSystem
     runner: Any | None = None  # ClaudeCodeRunner
     llm_router: Any | None = None  # LLMRouter
     telemetry_store: Any = field(default_factory=lambda: None)  # TelemetryStore
@@ -49,6 +50,7 @@ class SensoryCore:
     mcp_bridge: Any  # MCPBridge
     convergence_validator: Any = None
     internal_sensor: Any | None = None
+    knet_server: Any | None = None
 
 
 @dataclass

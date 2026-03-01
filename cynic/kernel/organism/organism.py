@@ -260,7 +260,11 @@ class Organism:
                 # WorldModelUpdater.start is sync event registration
                 self.senses.world_model.start()
 
-            # 4. Start Gossip (Federation) if applicable
+            # 6. Start K-NET Somatic Server
+            if hasattr(self.senses, "knet_server") and self.senses.knet_server:
+                await self.senses.knet_server.start()
+
+            # 7. Start Gossip (Federation) if applicable
             if hasattr(self.memory, "gossip_manager"):
                 if hasattr(self.memory.gossip_manager, "start"):
                     await self.memory.gossip_manager.start()
@@ -286,13 +290,18 @@ class Organism:
             raise RuntimeError("Integrity Error: CognitionCore missing orchestrator")
 
     async def stop(self) -> None:
-        """Graceful shutdown of all loops."""
+        """Gracefully shutdown of all loops."""
         await self.state.stop_processing()
         if hasattr(self.memory, "sona_emitter"):
             await self.memory.sona_emitter.stop()
         if hasattr(self.memory, "gossip_manager") and hasattr(self.memory.gossip_manager, "stop"):
             await self.memory.gossip_manager.stop()
+
+        if hasattr(self.senses, "knet_server") and self.senses.knet_server:
+            await self.senses.knet_server.stop()
+
         logger.info("Organism: Dormant.")
+
 
 
 async def awaken(db_pool=None, registry=None) -> Organism:

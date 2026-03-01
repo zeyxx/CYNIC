@@ -38,11 +38,13 @@ from cynic.kernel.organism.reflexes import (
     discover_handler_groups,
 )
 from cynic.kernel.organism.layers.embodiment import HardwareBody
+from cynic.kernel.organism.layers.motor import MotorSystem
 from cynic.kernel.organism.metabolism.llm_router import LLMRouter
 from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
 from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
 from cynic.kernel.organism.sona_emitter import SonaEmitter
-from cynic.kernel.organism.state_manager import OrganismState
+from cynic.kernel.protocol.knet_server import KNetServer
+from cynic.kernel.core.config import CynicConfig
 
 logger = logging.getLogger("cynic.kernel.organism.factory")
 
@@ -146,12 +148,20 @@ class _OrganismAwakener:
         self.lod_controller = LODController()
 
         # E-Score with DB persistence
-        self.escore_tracker = EScoreTracker(state_manager=self.state, instance_id=instance_id)
+        self.escore_tracker = EScoreTracker(bus=instance_bus, state_manager=self.state, instance_id=instance_id)
 
         self.axiom_monitor = AxiomMonitor(bus=instance_bus)
 
         # 4. METABOLISM (Body & Rhythm)
         self.body = HardwareBody(bus=instance_bus)
+        self.motor = MotorSystem(bus=instance_bus, body=self.body, state_manager=self.state)
+        
+        # Îº-NET Somatic Server
+        self.knet_server = KNetServer(
+            bus=instance_bus,
+            host=self.config.knet_host,
+            port=self.config.knet_port
+        )
         self.scheduler = ConsciousnessRhythm(
             self.orchestrator, 
             bus=instance_bus,
@@ -173,7 +183,7 @@ class _OrganismAwakener:
         # 5. SENSES (Perception)
         self.context_compressor = ContextCompressor()
         self.world_model = WorldModelUpdater(bus=instance_bus)
-        self.source_watcher = SourceWatcher()
+        self.source_watcher = SourceWatcher(bus=instance_bus)
         self.topology_builder = IncrementalTopologyBuilder()
         self.mcp_bridge = MCPBridge(bus_name="CORE")
         self.convergence_validator = ConvergenceValidator()
@@ -242,6 +252,10 @@ class _OrganismAwakener:
         self.handler_registry.wire(instance_bus)
 
         # 8. START AGENTS
+        self.sona_emitter.set_qtable(self.qtable)
+        self.sona_emitter.set_orchestrator(self.orchestrator)
+        self.sona_emitter.set_escore_tracker(self.escore_tracker)
+        
         self.account_agent.set_escore_tracker(self.escore_tracker)
         self.account_agent.start()
 
@@ -272,6 +286,7 @@ class _OrganismAwakener:
         metabolism = MetabolicCore(
             scheduler=self.scheduler,
             body=self.body,
+            motor=self.motor,
             runner=self.runner,
             llm_router=self.llm_router,
             telemetry_store=self.telemetry_store,
@@ -285,6 +300,7 @@ class _OrganismAwakener:
             mcp_bridge=self.mcp_bridge,
             convergence_validator=self.convergence_validator,
             internal_sensor=self.internal_sensor,
+            knet_server=self.knet_server,
         )
 
         memory = ArchiveCore(

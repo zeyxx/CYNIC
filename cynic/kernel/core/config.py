@@ -114,6 +114,8 @@ class CynicConfig:
             # Runtime
             port=int(os.getenv("PORT", "8765")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
+            knet_host=os.getenv("KNET_HOST", "::"),
+            knet_port=int(os.getenv("KNET_PORT", "58766")),
         )
 
     def validate(self) -> list[str]:

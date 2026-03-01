@@ -566,3 +566,15 @@ class ChangeAnalyzedPayload(BaseModel):
     timestamp: float = 0.0
     file_count: int = 0
     total_lines: int = 0
+
+
+class ReputationSyncPayload(BaseModel):
+    """REPUTATION_SYNC — system-wide reputation metrics broadcast."""
+
+    model_config = _BASE
+
+    entity_id: str = ""
+    overall_score: float = 50.0
+    dimensions: dict[str, float] = Field(default_factory=dict)
+    reality_scores: dict[str, float] = Field(default_factory=dict)
+    last_updated: float = 0.0

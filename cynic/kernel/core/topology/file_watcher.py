@@ -42,10 +42,11 @@ class SourceWatcher:
         "cli": _CYNIC_ROOT / "cli",
     }
 
-    def __init__(self):
+    def __init__(self, bus: EventBus):
+        self.bus = bus
         self._previous_state: dict[str, dict[str, float]] = {}
-        self._snapshot_failures: dict[str, int] = {}  # category â†’ failure count
-        self._last_successful_snapshot: dict[str, float] = {}  # category â†’ timestamp
+        self._snapshot_failures: dict[str, int] = {}  # category → failure count
+        self._last_successful_snapshot: dict[str, float] = {}  # category → timestamp
 
     async def watch(self) -> None:
         """
@@ -53,8 +54,6 @@ class SourceWatcher:
 
         Polls every 13s, emits SOURCE_CHANGED events on delta.
         """
-        bus = get_core_bus("DEFAULT")
-
         # Initial snapshot
         self._previous_state = self._snapshot_tree()
         logger.info("SourceWatcher initialized: monitoring %s directories", len(self._WATCHED_DIRS))
@@ -73,7 +72,7 @@ class SourceWatcher:
                         files=files,
                         timestamp=time.time(),
                     )
-                    await bus.emit(
+                    await self.bus.emit(
                         Event.typed(CoreEvent.SOURCE_CHANGED, payload, source="watcher:filesystem")
                     )
                     logger.info("SOURCE_CHANGED: %s (%d files)", category, len(files))
