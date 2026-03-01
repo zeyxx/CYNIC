@@ -43,6 +43,7 @@ from cynic.nervous.event_metrics import (
     AnomalyRecord,
 )
 from cynic.nervous.bus_metrics_adapter import BusMetricsAdapter
+from cynic.nervous.metrics_analyzer import MetricsAnalyzer, MetricsProposal
 
 __all__ = [
     "ServiceStateRegistry",
@@ -67,4 +68,6 @@ __all__ = [
     "EventTypeMetrics",
     "AnomalyRecord",
     "BusMetricsAdapter",
+    "MetricsAnalyzer",
+    "MetricsProposal",
 ]

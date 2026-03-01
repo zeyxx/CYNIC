@@ -33,11 +33,14 @@ import os
 import random
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.kernel.core.events_schema import SelfImprovementProposedPayload
 from cynic.kernel.core.phi import PHI_INV_2, fibonacci
+
+if TYPE_CHECKING:
+    from cynic.nervous.event_metrics import EventMetricsCollector
 
 logger = logging.getLogger("cynic.judge.self_probe")
 
@@ -134,6 +137,7 @@ class SelfProber:
         self._qtable: Any | None = None
         self._residual: Any | None = None
         self._escore: Any | None = None
+        self._metrics_collector: Any | None = None
         self._registered: bool = False
         from cynic.kernel.core.event_bus import CoreEvent, Event
         self._bus = bus or get_core_bus("DEFAULT")
@@ -149,6 +153,10 @@ class SelfProber:
 
     def set_escore_tracker(self, tracker: Any) -> None:
         self._escore = tracker
+
+    def set_metrics_collector(self, collector: Any) -> None:
+        """Inject EventMetricsCollector for metrics-driven analysis."""
+        self._metrics_collector = collector
 
     def set_handler_registry(self, registry: Any) -> None:
         """Inject HandlerRegistry for architecture analysis."""

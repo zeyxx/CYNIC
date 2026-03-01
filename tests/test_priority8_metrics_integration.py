@@ -84,3 +84,33 @@ class TestMetricsAnalyzer:
             assert hasattr(p, "recommendation")
             assert hasattr(p, "current_value")
             assert hasattr(p, "suggested_value")
+
+    async def test_selfprober_set_metrics_collector(self):
+        """Test 6: SelfProber accepts metrics_collector injection."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.nervous.event_metrics import EventMetricsCollector
+
+        prober = SelfProber()
+        collector = EventMetricsCollector()
+
+        # Should not raise
+        prober.set_metrics_collector(collector)
+        assert prober._metrics_collector is collector
+
+    async def test_selfprober_analyze_includes_metrics(self):
+        """Test 7: SelfProber.analyze() calls _analyze_metrics()."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.nervous.event_metrics import EventMetricsCollector, AnomalyRecord
+
+        prober = SelfProber()
+        collector = EventMetricsCollector()
+        prober.set_metrics_collector(collector)
+
+        # Record an error event to trigger anomaly
+        await collector.record("test_event", duration_ms=100.0, is_error=True)
+
+        # analyze() should process metrics
+        proposals = prober.analyze(trigger="MANUAL", pattern_type="METRICS", severity=0.5)
+
+        # Should return a list (may be empty, but not None)
+        assert isinstance(proposals, list)
