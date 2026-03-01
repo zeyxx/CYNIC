@@ -114,3 +114,67 @@ class TestMetricsAnalyzer:
 
         # Should return a list (may be empty, but not None)
         assert isinstance(proposals, list)
+
+    async def test_analyze_metrics_returns_proposals(self):
+        """Test 8: _analyze_metrics() returns SelfProposal list."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.nervous.event_metrics import EventMetricsCollector, AnomalyRecord
+
+        prober = SelfProber()
+        collector = EventMetricsCollector()
+        prober.set_metrics_collector(collector)
+
+        # Create a mock anomaly
+        anomaly = AnomalyRecord(
+            detected_at_ms=1000.0,
+            anomaly_type="RATE_SPIKE",
+            event_type="judgment_created",
+            metric_value=100.0,
+            threshold_value=60.0,
+            severity=0.5,
+            message="Test rate spike"
+        )
+
+        # Call _analyze_metrics directly
+        proposals = prober._analyze_metrics(
+            anomalies=[anomaly],
+            trigger="MANUAL",
+            pattern_type="METRICS",
+            severity=0.5
+        )
+
+        assert isinstance(proposals, list)
+        assert len(proposals) > 0
+        assert all(hasattr(p, "dimension") for p in proposals)
+        assert all(p.dimension == "METRICS" for p in proposals)
+
+    async def test_analyze_metrics_filters_by_severity(self):
+        """Test 9: _analyze_metrics() filters anomalies by severity threshold."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.nervous.event_metrics import AnomalyRecord
+
+        prober = SelfProber()
+        collector = EventMetricsCollector()
+        prober.set_metrics_collector(collector)
+
+        # Create low-severity anomaly
+        low_severity_anomaly = AnomalyRecord(
+            detected_at_ms=1000.0,
+            anomaly_type="RATE_SPIKE",
+            event_type="test",
+            metric_value=100.0,
+            threshold_value=95.0,
+            severity=0.1,  # Low severity
+            message="Low severity spike"
+        )
+
+        # High severity threshold should filter it out
+        proposals = prober._analyze_metrics(
+            anomalies=[low_severity_anomaly],
+            trigger="MANUAL",
+            pattern_type="METRICS",
+            severity=0.5  # High threshold
+        )
+
+        # Should be empty or only include high-severity items
+        assert all(p.severity >= 0.5 for p in proposals)

@@ -35,9 +35,13 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
+import httpx
+
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.kernel.core.events_schema import SelfImprovementProposedPayload
+from cynic.kernel.core.exceptions import CynicError
 from cynic.kernel.core.phi import PHI_INV_2, fibonacci
+from cynic.nervous.metrics_analyzer import MetricsAnalyzer
 
 if TYPE_CHECKING:
     from cynic.nervous.event_metrics import EventMetricsCollector
@@ -224,7 +228,7 @@ class SelfProber:
         severity: float = 0.5,
     ) -> list[SelfProposal]:
         """
-        Run all three analyses and return new proposals generated.
+        Run all five analyses and return new proposals generated.
 
         Can be called manually (e.g. from CLI or test) or automatically
         via _on_emergence().
@@ -234,6 +238,7 @@ class SelfProber:
         new_proposals.extend(self._analyze_escore(trigger, pattern_type, severity))
         new_proposals.extend(self._analyze_residual(trigger, pattern_type, severity))
         new_proposals.extend(self._analyze_architecture(trigger, pattern_type, severity))
+        new_proposals.extend(self._analyze_metrics(anomalies=None, trigger=trigger, pattern_type=pattern_type, severity=severity))
 
         for proposal in new_proposals:
             self._proposals.append(proposal)
@@ -464,7 +469,63 @@ class SelfProber:
 
         return proposals
 
-    # â”€â”€ Event handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # — Analysis: Metrics —————————————————————————————————————————————————————
+
+    def _analyze_metrics(
+        self,
+        anomalies: list | None = None,
+        trigger: str = "MANUAL",
+        pattern_type: str = "METRICS",
+        severity: float = 0.0,
+    ) -> list[SelfProposal]:
+        """
+        Analyze metrics anomalies and generate proposals.
+
+        If anomalies not provided, fetch from EventMetricsCollector.
+        """
+        if not self._metrics_collector:
+            return []
+
+        # Get anomalies from collector if not provided
+        if anomalies is None:
+            try:
+                import asyncio
+                anomalies = asyncio.run(self._metrics_collector.recent_anomalies(limit=10))
+            except Exception as e:
+                logger.debug(f"_analyze_metrics: error fetching anomalies: {e}")
+                return []
+
+        # Translate anomalies to proposals using MetricsAnalyzer
+        try:
+            analyzer = MetricsAnalyzer(self._metrics_collector)
+            metrics_proposals = analyzer.analyze_anomalies(
+                anomalies,
+                severity_threshold=severity,
+            )
+        except Exception as e:
+            logger.debug(f"_analyze_metrics error: {e}", exc_info=True)
+            return []
+
+        # Convert MetricsProposal → SelfProposal
+        proposals: list[SelfProposal] = []
+        for mp in metrics_proposals:
+            probe_id = _short_id()
+            proposal = SelfProposal(
+                probe_id=probe_id,
+                trigger=trigger,
+                pattern_type=pattern_type,
+                severity=mp.severity,
+                dimension="METRICS",
+                target=mp.target,
+                recommendation=mp.recommendation,
+                current_value=mp.current_value,
+                suggested_value=mp.suggested_value,
+            )
+            proposals.append(proposal)
+
+        return proposals
+
+    # — Event handler ————————————————————————————————————————————————————————— â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def _on_emergence(self, event: Event) -> None:
         """Handle EMERGENCE_DETECTED â†’ analyze â†’ emit SELF_IMPROVEMENT_PROPOSED."""
