@@ -72,7 +72,7 @@ async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_con
     # Emit JUDGMENT_REQUESTED
     from cynic.kernel.core.events_schema import JudgmentRequestedPayload
     try:
-        await get_core_bus(container.instance_id).emit(Event.typed(
+        await container.organism.cognition.orchestrator.bus.emit(Event.typed(
             CoreEvent.JUDGMENT_REQUESTED,
             JudgmentRequestedPayload(
                 cell_id=cell.cell_id,
@@ -121,7 +121,7 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
     judgment_id = str(uuid.uuid4())
 
     try:
-        await get_core_bus(container.instance_id).emit(Event.typed(
+        await container.organism.cognition.orchestrator.bus.emit(Event.typed(
             CoreEvent.PERCEPTION_RECEIVED,
             PerceptionReceivedPayload(
                 content=str(req.data),
@@ -180,7 +180,7 @@ async def get_judgment(judgment_id: str, container: AppContainer = Depends(get_a
 
 @router_core.post("/learn", response_model=LearnResponse)
 async def learn(req: LearnRequest, container: AppContainer = Depends(get_app_container)) -> LearnResponse:
-    await get_core_bus(container.instance_id).emit(Event.typed(
+    await container.organism.cognition.orchestrator.bus.emit(Event.typed(
         CoreEvent.LEARNING_EVENT,
         {"state_key": req.state_key, "action": req.action, "reward": req.reward},
         source="api:learn"

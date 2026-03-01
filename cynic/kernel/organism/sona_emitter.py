@@ -1,21 +1,9 @@
 """
-SONA Emitter â€” Organism Self-Assessment Loop (Component 10/11)
+SONA Emitter — Organism Self-Assessment Loop (Component 10/11)
 
-SONA = Ï†-scaled organism self-assessment
+SONA = φ-scaled organism self-assessment
 Frequency: F(9) = 34 minutes = 2,040 seconds
 Level: META (consciousness level 4)
-
-"Every 34 minutes, the organism checks its own heartbeat."
-
-The SONA_TICK is THE UNNAMEABLE's feedback loop â€” if judgments are failing
-to converge, learning is stagnating, or anomalies spike, SONA_TICK triggers
-meta-cognition to realign.
-
-Lifecycle:
-  sona = SonaEmitter(bus, pool)
-  sona.start()           # Begin periodic SONA_TICK emission
-  # ... run ...
-  await sona.stop()      # Cancel gracefully
 """
 
 from __future__ import annotations
@@ -23,46 +11,32 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any
+from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import (
-    CoreEvent,
-    Event,
-    EventBus,
-)
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.events_schema import SonaTickPayload
 from cynic.kernel.core.phi import fibonacci
 
 logger = logging.getLogger("cynic.kernel.organism.sona_emitter")
 
-# F(9) = 34 minutes = 2,040 seconds (SONA heartbeat)
-SONA_INTERVAL_S: float = float(fibonacci(9))  # 34
+# F(9) = 34
+SONA_INTERVAL_S: float = float(fibonacci(9)) 
 
 
 class SonaEmitter:
     """
-    Emits SONA_TICK events at META consciousness level.
-
-    The SONA (Self-Assessment Organism) is the feedback loop that tells CYNIC
-    whether it's healthy or in crisis. Every F(9) seconds, SONA emits a packet
-    of telemetry: Q-table population, judgment flow rate, EWC consolidation,
-    uptime, etc.
-
-    Subscribers (consumers of SONA_TICK):
-      - Meta-cognition: Adjust learning rates based on health
-      - E-Score updater: Recalibrate agent reputation
-      - Budget manager: Check if costs are sustainable
-      - The human: (dashboard shows SONA ticks)
+    Periodic self-assessment heartbeat.
+    Triggers internal reflection and cross-domain synchronization.
     """
 
-    def __init__(self, bus: EventBus, db_pool: Any = None, instance_id: str = "DEFAULT") -> None:
+    def __init__(self, bus: EventBus, db_pool: Any = None, instance_id: str = "") -> None:
         self._instance_id = instance_id
         self._bus = bus
-        self._db_pool = db_pool
-        self._task: asyncio.Task | None = None
         self._running = False
+        self._task: Optional[asyncio.Task] = None
         self._tick_count = 0
         self._start_time = time.time()
+        
         self._qtable: Any | None = None
         self._orchestrator: Any | None = None
         self._escore_tracker: Any | None = None
@@ -79,27 +53,17 @@ class SonaEmitter:
         """Inject EScoreTracker for reputation broadcast."""
         self._escore_tracker = escore_tracker
 
-    def start(self) -> None:
-        """
-        Begin SONA_TICK emission at F(9)-second intervals.
-
-        Safe to call multiple times â€” idempotent.
-        """
-        if self._running:
+    async def start(self) -> None:
+        """Launch the background loop."""
+        if self._task is not None:
             return
 
         self._running = True
-        self._start_time = time.time()
-        self._task = asyncio.create_task(self._run_loop())
-        self._task.set_name("cynic.kernel.organism.sona_emitter")
-        self._task.add_done_callback(self._on_task_done)
-        logger.info(f"SonaEmitter started (interval={SONA_INTERVAL_S}s)")
+        self._task = asyncio.create_task(self._loop())
+        logger.info("SonaEmitter started (interval=%.1fs)", SONA_INTERVAL_S)
 
     async def stop(self) -> None:
-        """Cancel the SONA_TICK emission loop gracefully."""
-        if not self._running:
-            return
-
+        """Stop the background loop."""
         self._running = False
         if self._task:
             self._task.cancel()
@@ -107,102 +71,43 @@ class SonaEmitter:
                 await self._task
             except asyncio.CancelledError:
                 pass
+            self._task = None
+        logger.info("SonaEmitter stopped (emitted %d ticks)", self._tick_count)
 
-        logger.info(f"SonaEmitter stopped (emitted {self._tick_count} ticks)")
-
-    async def _run_loop(self) -> None:
-        """
-        Main SONA heartbeat loop.
-
-        Every F(9) seconds, collect telemetry and emit SONA_TICK.
-        """
+    async def _loop(self) -> None:
+        """Main SONA cycle."""
         while self._running:
             try:
-                await asyncio.sleep(SONA_INTERVAL_S)
-
-                if not self._running:
-                    break
-
-                # Emit SONA_TICK with current organism state
+                # 1. EMIT HEARTBEAT
                 await self._emit_sona_tick()
                 
-                # Broadcast reputation via Îº-NET
+                # 2. BROADCAST REPUTATION
                 if self._escore_tracker:
                     await self._escore_tracker.broadcast_reputation()
 
+                self._tick_count += 1
+                await asyncio.sleep(SONA_INTERVAL_S)
             except asyncio.CancelledError:
                 break
-            except Exception as exc:
-                logger.error(f"SonaEmitter error in _run_loop: {exc}", exc_info=True)
-                # Continue ticking even if one emission fails
-                if not self._running:
-                    break
+            except Exception as e:
+                logger.error("SonaEmitter cycle error: %s", e)
+                await asyncio.sleep(5)
 
     async def _emit_sona_tick(self) -> None:
-        """Collect telemetry and emit a SONA_TICK event."""
-        self._tick_count += 1
-        uptime_s = time.time() - self._start_time
-
-        # Collect real telemetry from injected components
-        q_table_entries = 0
-        learning_rate = 0.0
-        ewc_consolidated = 0
-        total_judgments = 0
-
-        if self._qtable is not None:
-            try:
-                stats = self._qtable.stats()
-                q_table_entries = stats.get("entries", 0)
-                learning_rate = stats.get("learning_rate", 0.0)
-                ewc_consolidated = stats.get("ewc_consolidated", 0)
-            except Exception as exc:
-                logger.warning("SonaEmitter: failed to get QTable stats: %s", exc)
-
-        if self._orchestrator is not None:
-            try:
-                total_judgments = getattr(self._orchestrator, "_judgment_count", 0)
-            except Exception as exc:
-                logger.warning("SonaEmitter: failed to get orchestrator judgment count: %s", exc)
-
-        payload = SonaTickPayload(
-            instance_id=self._instance_id,
-            q_table_entries=q_table_entries,
-            total_judgments=total_judgments,
-            learning_rate=learning_rate,
-            ewc_consolidated=ewc_consolidated,
-            uptime_s=uptime_s,
-            interval_s=SONA_INTERVAL_S,
-            tick_number=self._tick_count,
-        )
-
+        """Emit detailed system-wide state snapshot."""
+        stats = self._get_sona_stats()
         await self._bus.emit(
             Event.typed(
                 CoreEvent.SONA_TICK,
-                payload,
-                source="sona_emitter",
+                SonaTickPayload(**stats),
+                source="sona_emitter"
             )
         )
 
-        logger.debug(
-            f"SONA_TICK #{self._tick_count} emitted (uptime={uptime_s:.1f}s, "
-            f"q_entries={payload.q_table_entries})"
-        )
-
-    def _on_task_done(self, task: asyncio.Task) -> None:
-        """Handle task completion (cancellation or crash)."""
-        try:
-            task.result()
-        except asyncio.CancelledError:
-            logger.debug("SonaEmitter task cancelled (expected)")
-        except Exception as exc:
-            logger.error(f"SonaEmitter task crashed: {exc}", exc_info=True)
-
-    # â”€â”€ Stats / Observability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-    def stats(self) -> dict[str, Any]:
-        """Return SONA telemetry."""
+    def _get_sona_stats(self) -> dict[str, Any]:
+        """Collect current metrics for self-assessment."""
         return {
-            "running": self._running,
+            "timestamp": time.time(),
             "tick_count": self._tick_count,
             "uptime_s": time.time() - self._start_time,
             "interval_s": SONA_INTERVAL_S,

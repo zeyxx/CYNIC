@@ -525,10 +525,11 @@ class LearningLoop:
 
     FLUSH_INTERVAL = fibonacci(8)  # F(8) = 21 updates before flush
 
-    def __init__(self, qtable: QTable, pool=None, instance_id: str = "DEFAULT") -> None:
+    def __init__(self, qtable: QTable, instance_id: str, pool=None) -> None:
         self.qtable = qtable
         self._pool = pool
-        self._active = False
+        self._instance_id = instance_id
+
         self._updates_since_flush: int = 0
         self._learning_rate = qtable._alpha  # Reference to QTable's Î±
         self.instance_id = instance_id  # Level 2 multi-instance support
@@ -550,7 +551,7 @@ class LearningLoop:
 
     def start(self, event_bus: Optional[Any] = None) -> None:
         """Register LEARNING_EVENT listener on the event bus."""
-        from cynic.kernel.core.event_bus import CoreEvent
+        from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
 
         target_bus = event_bus or get_core_bus(self.instance_id)
         self._bus = target_bus  # Cache for use in _on_learning_event

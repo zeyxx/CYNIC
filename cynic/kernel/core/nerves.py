@@ -1,10 +1,8 @@
 """
-CYNIC Nerve Endings â€” Domain-specific communication facades.
+CYNIC Nerve Endings — Domain-specific communication facades.
 
 Reduces coupling to the global event bus by providing typed gateways for
-each functional domain.
-
-Ï†-Law: VERIFY â€” only valid, domain-typed events pass through these nerves.
+each functional domain. Requires explicit instance_id for multi-tenancy.
 """
 
 from __future__ import annotations
@@ -15,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from cynic.kernel.core.judgment import Cell
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_bus
 from cynic.kernel.core.events_schema import DecisionMadePayload, JudgmentCreatedPayload
 
 logger = logging.getLogger("cynic.kernel.nerves")
@@ -24,7 +22,7 @@ logger = logging.getLogger("cynic.kernel.nerves")
 class DomainNerve:
     """Base facade for a communication domain."""
 
-    def __init__(self, bus_id: str, instance_id: str = "DEFAULT"):
+    def __init__(self, bus_id: str, instance_id: str):
         self._bus_id = bus_id
         self._instance_id = instance_id
 
@@ -36,7 +34,7 @@ class DomainNerve:
 class CognitionNerves(DomainNerve):
     """Gateways for Brain/Mind signals."""
 
-    def __init__(self, instance_id: str = "DEFAULT"):
+    def __init__(self, instance_id: str):
         super().__init__("CORE", instance_id)
 
     async def emit_judgment(self, payload: dict[str, Any]):
@@ -55,21 +53,11 @@ class CognitionNerves(DomainNerve):
             Event.typed(CoreEvent.DECISION_MADE, payload, source="cognition_nerves")
         )
 
-    async def emit_config_mutation(self, target: str, parameter: str, value: Any):
-        """Signal a self-tuning configuration change."""
-        await self.bus.emit(
-            Event.typed(
-                CoreEvent.CONFIGURATION_MUTATED,
-                {"target": target, "parameter": parameter, "new_value": value},
-                source="cognition_nerves",
-            )
-        )
-
 
 class SomaticNerves(DomainNerve):
     """Gateways for Body/Metabolism signals."""
 
-    def __init__(self, instance_id: str = "DEFAULT"):
+    def __init__(self, instance_id: str):
         super().__init__("AUTOMATION", instance_id)
 
     async def emit_anomaly(self, error_type: str, value: Any, source: str):
@@ -82,73 +70,11 @@ class SomaticNerves(DomainNerve):
             )
         )
 
-    async def emit_resource_update(self, resource_type: str, usage_pct: float):
-        """Standard signal for hardware usage."""
-        await self.bus.emit(
-            Event.typed(
-                CoreEvent.PERCEPTION_RECEIVED,
-                payload={"reality": "SOMATIC", "type": resource_type, "value": usage_pct},
-                source="somatic_nerves",
-            )
-        )
-
-    async def emit_memory_pressure(self, pressure: str, used_pct: float, free_gb: float):
-        """Signal RAM stress."""
-        from cynic.kernel.core.events_schema import MemoryPressurePayload
-
-        await self.bus.emit(
-            Event.typed(
-                CoreEvent.MEMORY_PRESSURE,
-                MemoryPressurePayload(
-                    pressure=pressure, used_pct=used_pct, memory_pct=used_pct, free_gb=free_gb
-                ),
-                source="somatic_nerves",
-            )
-        )
-
-    async def emit_memory_cleared(self, used_pct: float, free_gb: float):
-        """Signal RAM recovery."""
-        from cynic.kernel.core.events_schema import MemoryClearedPayload
-
-        await self.bus.emit(
-            Event.typed(
-                CoreEvent.MEMORY_CLEARED,
-                MemoryClearedPayload(memory_pct=used_pct, free_gb=free_gb),
-                source="somatic_nerves",
-            )
-        )
-
-    async def emit_disk_pressure(self, pressure: str, used_pct: float, free_gb: float):
-        """Signal Disk stress."""
-        from cynic.kernel.core.events_schema import DiskPressurePayload
-
-        await self.bus.emit(
-            Event.typed(
-                CoreEvent.DISK_PRESSURE,
-                DiskPressurePayload(
-                    pressure=pressure, used_pct=used_pct, disk_pct=used_pct, free_gb=free_gb
-                ),
-                source="somatic_nerves",
-            )
-        )
-
-    async def emit_disk_cleared(self, used_pct: float, free_gb: float):
-        """Signal Disk recovery."""
-        from cynic.kernel.core.events_schema import DiskClearedPayload
-
-        await self.bus.emit(
-            Event.typed(
-                CoreEvent.DISK_CLEARED,
-                DiskClearedPayload(disk_pct=used_pct, free_gb=free_gb),
-                source="somatic_nerves",
-            )
-        )
-
 
 class PerceptionNerves(DomainNerve):
     """Gateways for Input/Sensing signals."""
 
-    def __init__(self, instance_id: str = "DEFAULT"):
+    def __init__(self, instance_id: str):
         super().__init__("CORE", instance_id)
 
     async def ingest(self, cell: Cell):
@@ -158,7 +84,3 @@ class PerceptionNerves(DomainNerve):
                 CoreEvent.PERCEPTION_RECEIVED, payload=cell.model_dump(), source="perception_nerves"
             )
         )
-
-
-# --- LEGACY SINGLETONS REMOVED ---
-# Components must use instance-specific nerves injected via Organism.

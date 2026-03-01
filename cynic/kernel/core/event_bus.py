@@ -15,7 +15,7 @@ from typing import Any, Optional, TypeVar, Union
 
 logger = logging.getLogger("cynic.kernel.core.event_bus")
 
-current_instance_id: ContextVar[str] = ContextVar("current_instance_id", default="DEFAULT")
+current_instance_id: ContextVar[str] = ContextVar("current_instance_id")
 
 T = TypeVar("T")
 
@@ -69,12 +69,23 @@ class CoreEvent(str, Enum):
     REPUTATION_SYNC = "core.reputation_sync"
 
 class Event:
-    def __init__(self, type: str, payload: Any = None, source: str = "unknown"):
+    def __init__(self, type: str, payload: Any = None, source: str = "unknown", instance_id: str | None = None):
         self.type = type
         self.payload = payload
         self.source = source
+        self.instance_id = instance_id or current_instance_id.get(None) or "unknown"
         self.event_id = str(time.time_ns())
         self.timestamp = time.time()
+
+    @property
+    def metadata(self) -> dict:
+        """SRE-standard metadata for the event."""
+        return {
+            "event_id": self.event_id,
+            "instance_id": self.instance_id,
+            "source": self.source,
+            "timestamp": self.timestamp
+        }
 
     @property
     def dict_payload(self) -> dict:

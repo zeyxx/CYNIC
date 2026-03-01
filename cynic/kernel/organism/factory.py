@@ -78,7 +78,7 @@ class _OrganismAwakener:
         instance_bus = get_core_bus(instance_id)
 
         # 1. BASE STATE
-        self.state = OrganismState(storage=self.storage, instance_id=instance_id)
+        self.state = OrganismState(instance_id=instance_id, storage=self.storage)
         
         # 1b. LLM REGISTRY (Isolated)
         from cynic.kernel.organism.brain.llm.adapter import LLMRegistry

@@ -41,21 +41,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Manage the Organism's life cycle: Awaken -> Breathe -> Sleep.
     """
     t0 = time.perf_counter()
-    instance_id = os.environ.get("CYNIC_INSTANCE_ID", os.urandom(4).hex())
+    
+    # 1. AWAKEN the Organism (The Organism defines the identity)
+    organism = await awaken()
+    instance_id = organism.instance_id
     set_instance_id(instance_id)
     
-    logger.info("ðŸ§¬ CYNIC Awakening (instance=%s)...", instance_id)
+    logger.info("🧪 CYNIC Awakening (instance=%s)...", instance_id)
 
-    # 1. AWAKEN the Organism (Load components and wire nervous system)
-    organism = await awaken()
-    
     # 2. START (Launch background processing loops)
     await organism.start(db=None)
     
-    # 2b. AWAKEN Îº-NET (Somatic Broadcaster)
-    from cynic.kernel.protocol.knet_server import get_knet_server
-    await get_knet_server()
-    logger.info("[KNET] Somatic Broadcaster awakened.")
+    # 2b. Îº-NET is managed by the Organism/Factory now
+    logger.info("[KNET] Somatic Broadcaster active via SensoryCore.")
 
     # 3. CONTEXT (Create the API gateway)
     container = AppContainer(
@@ -65,14 +63,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     set_app_container(container)
     
-    # Inject legacy state for backward compatibility with old routes
+    # Inject legacy state for backward compatibility
     from cynic.interfaces.api.state import set_state
     set_state(organism)
 
-    logger.info("âœ… CYNIC is AWAKE and RESPIRING (ready in %.2fs)", time.perf_counter() - t0)
+    logger.info("✅ CYNIC is AWAKE and RESPIRING (ready in %.2fs)", time.perf_counter() - t0)
 
-    # 3b. SPARK (Initial perception to trigger life)
-    await get_core_bus(instance_id).emit(Event.typed(
+    # 3b. SPARK (Initial perception using the REAL bus)
+    await organism.cognition.orchestrator.bus.emit(Event.typed(
         CoreEvent.PERCEPTION_RECEIVED,
         payload={"content": "Organism awakened. System check initiated.", "reality": "CYNIC"},
         source="system"

@@ -64,7 +64,7 @@ class JudgeOrchestrator:
         residual_detector=None,
         gasdf_executor=None,
         state_manager=None,
-        instance_id: str = "DEFAULT",
+        instance_id: str = "", # Force explicit string
         llm_registry: Any | None = None,
         consciousness: Any | None = None,
     ) -> None:
