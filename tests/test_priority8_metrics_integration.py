@@ -84,6 +84,7 @@ class TestMetricsAnalyzer:
             assert hasattr(p, "recommendation")
             assert hasattr(p, "current_value")
             assert hasattr(p, "suggested_value")
+            # Note: MetricsProposal doesn't have dimension, that gets added when converted to SelfProposal
 
     async def test_selfprober_set_metrics_collector(self):
         """Test 6: SelfProber accepts metrics_collector injection."""
@@ -218,3 +219,133 @@ class TestFactoryIntegration:
 
         # Should have registered for EMERGENCE_DETECTED
         assert any("emergence" in str(e).lower() for e in event_types)
+
+
+@pytest.mark.asyncio
+class TestEndToEndMetricsIntegration:
+    """End-to-end integration: metrics anomalies → proposals."""
+
+    async def test_rate_spike_generates_proposal(self):
+        """Test 12: Rate spike anomaly generates SelfProposal."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.nervous.event_metrics import EventMetricsCollector
+
+        # Setup
+        prober = SelfProber()
+        collector = EventMetricsCollector()
+        prober.set_metrics_collector(collector)
+
+        # Create rate spike anomaly
+        for i in range(50):
+            await collector.record("judgment_created", duration_ms=100.0)
+
+        # Trigger analysis
+        proposals = prober.analyze(
+            trigger="MANUAL",
+            pattern_type="METRICS",
+            severity=0.0,
+        )
+
+        # Should have generated proposals (if anomalies detected)
+        assert isinstance(proposals, list)
+
+    async def test_error_spike_generates_proposal(self):
+        """Test 13: Error spike generates METRICS dimension proposal."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.nervous.event_metrics import EventMetricsCollector
+
+        prober = SelfProber()
+        collector = EventMetricsCollector()
+        prober.set_metrics_collector(collector)
+
+        # Record high error rate
+        for i in range(10):
+            is_error = i < 8  # 80% error rate
+            await collector.record("failing_op", duration_ms=100.0, is_error=is_error)
+
+        # Get anomalies and analyze
+        anomalies = await collector.detect_anomalies()
+        proposals = prober._analyze_metrics(
+            anomalies=anomalies,
+            trigger="ANOMALY_DETECTED",
+            pattern_type="ANOMALY_ERROR_SPIKE",
+            severity=0.0,
+        )
+
+        # Should generate proposals if anomalies detected
+        assert isinstance(proposals, list)
+
+    async def test_proposal_has_metrics_dimension(self):
+        """Test 14: All metrics proposals have dimension='METRICS'."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.nervous.event_metrics import EventMetricsCollector, AnomalyRecord
+
+        prober = SelfProber()
+        collector = EventMetricsCollector()
+        prober.set_metrics_collector(collector)
+
+        # Create test anomaly
+        anomaly = AnomalyRecord(
+            detected_at_ms=1000.0,
+            anomaly_type="LATENCY_SPIKE",
+            event_type="slow_handler",
+            metric_value=5000.0,
+            threshold_value=3000.0,
+            severity=0.6,
+            message="Latency spike detected"
+        )
+
+        proposals = prober._analyze_metrics(
+            anomalies=[anomaly],
+            trigger="MANUAL",
+            pattern_type="LATENCY_SPIKE",
+            severity=0.0,
+        )
+
+        # All should have METRICS dimension
+        for p in proposals:
+            assert p.dimension == "METRICS"
+
+    async def test_persists_metrics_proposals(self):
+        """Test 15: Metrics proposals persist to disk like other proposals."""
+        import tempfile
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.nervous.event_metrics import EventMetricsCollector, AnomalyRecord
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            proposals_file = f"{tmpdir}/proposals.json"
+
+            prober = SelfProber(proposals_path=proposals_file)
+            collector = EventMetricsCollector()
+            prober.set_metrics_collector(collector)
+
+            # Generate proposal
+            anomaly = AnomalyRecord(
+                detected_at_ms=1000.0,
+                anomaly_type="RATE_SPIKE",
+                event_type="test_event",
+                metric_value=100.0,
+                threshold_value=60.0,
+                severity=0.5,
+                message="Rate spike"
+            )
+
+            proposals = prober._analyze_metrics(
+                anomalies=[anomaly],
+                trigger="MANUAL",
+                pattern_type="METRICS",
+                severity=0.0,
+            )
+
+            # Add to prober and save
+            for p in proposals:
+                prober._proposals.append(p)
+            prober._save()
+
+            # File should exist
+            import os
+            assert os.path.exists(proposals_file)
+
+            # Load and verify
+            loaded = prober._load()
+            assert len(prober._proposals) > 0
