@@ -307,6 +307,10 @@ class _OrganismAwakener:
         self.self_prober.set_qtable(self.qtable)
         self.self_prober.set_residual_detector(self.residual_detector)
         self.self_prober.set_escore_tracker(self.escore_tracker)
+
+        # 6b. METRICS → SELFPROBER WIRING
+        self.self_prober.set_metrics_collector(self.metrics_collector)
+
         self.self_prober.start()
 
         from cynic.kernel.organism.brain.agents.sovereignty import SovereigntyAgent

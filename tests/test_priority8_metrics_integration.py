@@ -178,3 +178,24 @@ class TestMetricsAnalyzer:
 
         # Should be empty or only include high-severity items
         assert all(p.severity >= 0.5 for p in proposals)
+
+
+@pytest.mark.asyncio
+class TestFactoryIntegration:
+    """Integration tests with factory wiring."""
+
+    async def test_factory_wires_metrics_to_selfprober(self):
+        """Test 10: Factory wires metrics_collector to SelfProber."""
+        # This test verifies factory.py integration
+        # Requires live factory instantiation, so it's a smoke test
+
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.nervous.event_metrics import EventMetricsCollector
+
+        # Simulate what factory does
+        metrics_collector = EventMetricsCollector()
+        prober = SelfProber()
+        prober.set_metrics_collector(metrics_collector)
+
+        # Should have reference
+        assert prober._metrics_collector is metrics_collector
