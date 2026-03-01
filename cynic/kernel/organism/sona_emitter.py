@@ -40,6 +40,8 @@ class SonaEmitter:
         self._qtable: Any | None = None
         self._orchestrator: Any | None = None
         self._escore_tracker: Any | None = None
+        self._state: Any | None = None
+        self._recent_anomalies: list[dict] = []
 
     def set_qtable(self, qtable: Any) -> None:
         """Inject QTable for telemetry. Called by organism.py after construction."""
@@ -52,6 +54,10 @@ class SonaEmitter:
     def set_escore_tracker(self, escore_tracker: Any) -> None:
         """Inject EScoreTracker for reputation broadcast."""
         self._escore_tracker = escore_tracker
+
+    def set_state(self, state: Any) -> None:
+        """Inject OrganismState for metabolic and survival reporting."""
+        self._state = state
 
     async def start(self) -> None:
         """Launch the background loop."""
@@ -94,7 +100,7 @@ class SonaEmitter:
                 await asyncio.sleep(5)
 
     async def _emit_sona_tick(self) -> None:
-        """Emit detailed system-wide state snapshot."""
+        """Emit detailed system-wide state snapshot and Sovereignty Report."""
         stats = self._get_sona_stats()
         await self._bus.emit(
             Event.typed(
@@ -103,6 +109,25 @@ class SonaEmitter:
                 source="sona_emitter"
             )
         )
+        
+        # UPLINK STUDIO Alignment: "Message Clair" (Sovereignty Report)
+        if self._state:
+            state_stats = await self._state.get_stats()
+            budget_used = state_stats.get("total_spent_usd", 0.0)
+            
+            report = {
+                "instance_id": self._instance_id,
+                "uptime_s": stats["uptime_s"],
+                "total_judgments": state_stats.get("total_judgments", 0),
+                "budget_used_usd": budget_used,
+                "anomalies_count": len(self._recent_anomalies),
+                "priorities": "MAINTENANCE" if len(self._recent_anomalies) > 0 else "GROWTH"
+            }
+            
+            logger.info(f"[{self._instance_id}] 📜 Sovereignty Report: {report['priorities']} | Judgments: {report['total_judgments']} | Burn: ${budget_used:.4f}")
+            
+            # Reset anomalies after reporting
+            self._recent_anomalies.clear()
 
     def _get_sona_stats(self) -> dict[str, Any]:
         """Collect current metrics for self-assessment."""

@@ -265,6 +265,7 @@ class _OrganismAwakener:
         self.sona_emitter.set_qtable(self.qtable)
         self.sona_emitter.set_orchestrator(self.orchestrator)
         self.sona_emitter.set_escore_tracker(self.escore_tracker)
+        self.sona_emitter.set_state(self.state)
         
         self.account_agent.set_escore_tracker(self.escore_tracker)
         self.account_agent.start()
