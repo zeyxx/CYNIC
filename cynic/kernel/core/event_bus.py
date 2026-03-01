@@ -183,6 +183,7 @@ class Event:
         self.source = source
         self.event_id = str(time.time_ns())
         self.timestamp = time.time()
+        self._genealogy: list[str] = []  # Track which buses have seen this event
 
     @property
     def dict_payload(self) -> dict:
@@ -216,6 +217,19 @@ class Event:
             return payload_type.parse_obj(self.payload)
         else:
             raise EventBusError(f"Cannot convert payload to {payload_type.__name__}")
+
+    def already_seen(self, bus_name: str) -> bool:
+        """Check if this event has already been processed by a bus (genealogy tracking)."""
+        return bus_name in self._genealogy
+
+    def with_genealogy(self, bus_name: str) -> "Event":
+        """Return a new event with the bus added to the genealogy path.
+
+        This tracks which buses have processed the event to prevent re-forwarding loops.
+        """
+        if bus_name not in self._genealogy:
+            self._genealogy.append(bus_name)
+        return self
 
     def to_dict(self) -> dict:
         return {
