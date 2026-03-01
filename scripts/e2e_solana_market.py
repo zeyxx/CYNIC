@@ -37,7 +37,7 @@ async def solana_market_test():
             source="test_harness"
         )
         
-        bus = get_core_bus()
+        bus = get_core_bus("DEFAULT")
         # MarketSensor usually emits PERCEPTION_RECEIVED
         await bus.emit(Event.typed(
             CoreEvent.PERCEPTION_RECEIVED,

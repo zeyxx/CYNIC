@@ -52,7 +52,7 @@ async def ws_telemetry(websocket: WebSocket) -> None:
     Queue overflow (>100) → events dropped silently.
     """
     await websocket.accept()
-    bus = get_core_bus()
+    bus = get_core_bus("DEFAULT")
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
 
     async def on_event(event: Event) -> None:

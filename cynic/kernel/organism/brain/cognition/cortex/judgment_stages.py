@@ -74,7 +74,7 @@ class PerceiveStage(JudgmentStage):
 
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
         cell = pipeline.cell
-        await get_core_bus().emit(
+        await self.orchestrator.bus.emit(
             Event.typed(
                 CoreEvent.PERCEPTION_RECEIVED,
                 PerceptionReceivedPayload(reality=cell.reality, cell_id=cell.cell_id),
@@ -278,12 +278,21 @@ class ActStage(JudgmentStage):
             return pipeline
 
         orch = self.orchestrator
-        # Use existing _act_phase method from orchestrator
-        action_result = await orch._act_phase(judgment, pipeline)
-        if action_result:
-            pipeline.action_executed = True
-            pipeline.action_result = action_result
+        
+        # We need to execute the action if one is recommended and approved.
+        # Instead of calling private orch._act_phase, we'll implement the 
+        # delegator logic here or ensure the orchestrator has the method.
+        
+        if hasattr(orch, "_act_phase"):
+            action_result = await orch._act_phase(judgment, pipeline)
+            if action_result:
+                pipeline.action_executed = True
+                pipeline.action_result = action_result
+            else:
+                pipeline.action_executed = False
         else:
+            # Fallback for handlers acting as orchestrator context
+            logger.debug("ActStage: context has no _act_phase implementation")
             pipeline.action_executed = False
 
         logger.debug("ActStage: action_executed=%s", pipeline.action_executed)
@@ -387,7 +396,7 @@ class EmergeStage(JudgmentStage):
 
         # If residual is high, emit emergence signal
         if judgment.unnameable_detected:
-            await get_core_bus().emit(
+            await self.orchestrator.bus.emit(
                 Event.typed(
                     CoreEvent.RESIDUAL_HIGH,
                     ResidualHighPayload(

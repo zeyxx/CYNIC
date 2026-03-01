@@ -41,8 +41,10 @@ class BudgetManager(BaseHandler):
         self,
         axiom_monitor: Any | None = None,
         lod_controller: Any | None = None,
+        bus: Optional[EventBus] = None,
         **kwargs: Any,
     ) -> None:
+        super().__init__(bus=bus)
         self.axiom_monitor = axiom_monitor
         self.lod_controller = lod_controller
         self._budget_stress = False

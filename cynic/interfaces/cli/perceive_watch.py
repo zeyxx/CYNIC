@@ -31,7 +31,7 @@ async def cmd_perceive_watch() -> None:
 
         # Start fresh
         reset_all_buses()
-        get_core_bus()
+        get_core_bus("DEFAULT")
 
         # Create watcher
         watcher = GitWatcher()

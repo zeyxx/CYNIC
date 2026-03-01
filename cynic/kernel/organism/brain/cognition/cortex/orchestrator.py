@@ -98,6 +98,7 @@ class JudgeOrchestrator:
         gasdf_executor=None,
         state_manager=None, # Added for cycle feedback
         instance_id: str = "DEFAULT",  # Level 2 multi-instance support
+        llm_registry: Any | None = None, # Isolated registry
     ) -> None:
         self.dogs = dogs  # {dog_id: AbstractDog}
         self.axiom_arch = axiom_arch
@@ -105,39 +106,33 @@ class JudgeOrchestrator:
         self.residual_detector = residual_detector
         self.gasdf_executor = gasdf_executor
         self.state_manager = state_manager
-        self.instance_id = instance_id  # Store for event emission
-        self.benchmark_registry = None  # Optional[BenchmarkRegistry] — set via state.py
-        self.escore_tracker = None  # Optional[EScoreTracker] — injected via state.py
-
-        # Inject dynamic facet dreaming callback
-        self.axiom_arch.on_facets_missing = self._on_facets_missing
-
-        # State and services
-        self.axiom_monitor = None  # Optional[AxiomMonitor] — γ3: axiom health → budget multiplier
-        self.lod_controller = None  # Optional[LODController] — δ2: system health → level cap
-        self.context_compressor = (
-            None  # Optional[ContextCompressor] — γ5: memory injection into SAGE
-        )
-        self.service_registry = None  # Optional[ServiceStateRegistry] — Tier 1 nervous system
-        self.consciousness_scheduler = (
-            None  # Optional[ConsciousnessScheduler] — Task #8: blended escalation
-        )
-        self._composer = None  # Optional[HandlerComposer] — Phase 2B: explicit DAG composition
-        self.gossip_manager = None  # Optional[GossipManager] — federation P2P gossip
+        self.instance_id = instance_id
+        from cynic.kernel.core.event_bus import get_core_bus
+        self.bus = get_core_bus(instance_id)
+        # ... (rest of attributes) ...
+        self.axiom_monitor = None
+        self.lod_controller = None
+        self.context_compressor = None
+        self.service_registry = None
+        self.consciousness_scheduler = None
+        self._composer = None
+        self.gossip_manager = None
+        self.benchmark_registry = None
+        self.escore_tracker = None
+        self.decision_validator = None
+        
         self._judgment_count = 0
+        from cynic.kernel.core.consciousness import get_consciousness
         self._consciousness = get_consciousness()
-        # evolve() history — last F(8)=21 META cycles
         self._evolve_history: list[dict[str, Any]] = []
-        # Circuit breaker — prevents cascade failures (topology M1)
+        from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker
         self._circuit_breaker = CircuitBreaker()
-        # Budget stress flags — set by BUDGET_WARNING/EXHAUSTED events
-        self._budget_stress: bool = False  # cap at MICRO when True
-        self._budget_exhausted: bool = False  # cap at REFLEX when True
+        self._budget_stress: bool = False
+        self._budget_exhausted: bool = False
 
         # --- Voice of the Organism (Dialogue) ---
         from cynic.kernel.organism.brain.dialogue.agent import DialogueAgent
-
-        self._dialogue_agent = DialogueAgent()
+        self._dialogue_agent = DialogueAgent(llm_registry=llm_registry)
 
     def _get_instance_bus(self):
         """Get the instance-specific bus for event emission (Level 2 multi-instance support)."""
@@ -186,10 +181,10 @@ class JudgeOrchestrator:
         registry = HandlerRegistry()
         registry.register(
             "level_selector",
-            LevelSelector(axiom_monitor=self.axiom_monitor, lod_controller=self.lod_controller),
+            LevelSelector(axiom_monitor=self.axiom_monitor, lod_controller=self.lod_controller, bus=self.bus),
         )
         registry.register(
-            "cycle_reflex", ReflexCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch)
+            "cycle_reflex", ReflexCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch, bus=self.bus)
         )
         registry.register(
             "cycle_micro",
@@ -198,6 +193,7 @@ class JudgeOrchestrator:
                 axiom_arch=self.axiom_arch,
                 cynic_dog=self.cynic_dog,
                 lod_controller=self.lod_controller,
+                bus=self.bus,
             ),
         )
         registry.register(
@@ -208,13 +204,14 @@ class JudgeOrchestrator:
                 cynic_dog=self.cynic_dog,
                 lod_controller=self.lod_controller,
                 axiom_monitor=self.axiom_monitor,
+                bus=self.bus,
             ),
         )
         registry.register(
-            "act_executor", ActHandler(runner=None, gasdf_executor=self.gasdf_executor)
+            "act_executor", ActHandler(runner=None, gasdf_executor=self.gasdf_executor, bus=self.bus)
         )
-        registry.register("evolve", EvolveHandler(orchestrator=self))
-        registry.register("budget_manager", BudgetManager())
+        registry.register("evolve", EvolveHandler(orchestrator=self, bus=self.bus))
+        registry.register("budget_manager", BudgetManager(bus=self.bus))
 
         self._composer = HandlerComposer(registry)
         logger.debug("HandlerComposer auto-initialized (test/manual setup mode)")
@@ -312,9 +309,14 @@ class JudgeOrchestrator:
             jc_payload["reasoning"] = getattr(judgment, "reasoning", "")
             jc_payload["context"] = cell.context or ""
 
-            from cynic.kernel.core.nerves import COGNITION
-
-            await COGNITION.emit_judgment(jc_payload)
+            from cynic.kernel.core.events_schema import JudgmentCreatedPayload
+            await self.bus.emit(
+                Event.typed(
+                    CoreEvent.JUDGMENT_CREATED,
+                    JudgmentCreatedPayload.model_validate(jc_payload),
+                    source="orchestrator",
+                )
+            )
 
             # Tier 1 Nervous System: Record judgment in Service State Registry
             if self.service_registry is not None:
@@ -986,7 +988,7 @@ class JudgeOrchestrator:
             except CynicError as exc:
                 logger.warning("BenchmarkRegistry.record_evolve() failed: %s", exc)
 
-        await get_core_bus().emit(
+        await self.bus.emit(
             Event.typed(
                 CoreEvent.META_CYCLE,
                 MetaCyclePayload(evolve=summary),

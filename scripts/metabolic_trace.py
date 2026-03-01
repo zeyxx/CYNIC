@@ -43,7 +43,7 @@ async def run_metabolic_trace():
         async def on_lod_change(event):
             pass
 
-        get_core_bus().on(CoreEvent.LOD_CHANGED, on_lod_change)
+        get_core_bus("DEFAULT").on(CoreEvent.LOD_CHANGED, on_lod_change)
 
         # 5. Run
         judgment = await organism.orchestrator.run(

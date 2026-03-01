@@ -38,7 +38,7 @@ async def test_phase1_meta_cognition_responds_to_sona():
     handler = organism.meta_cognition
 
     # Manually emit a SONA_TICK to test handler response
-    bus = get_core_bus()
+    bus = get_core_bus("DEFAULT")
 
     # (We'd capture handler activity here once logging is integrated)
 

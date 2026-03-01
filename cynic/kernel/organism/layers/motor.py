@@ -23,10 +23,11 @@ class MotorSystem:
     Coordinates gestures (actions) with the physical body and energy budget.
     """
 
-    def __init__(self, body: Any | None = None, budget_manager: Any | None = None) -> None:
+    def __init__(self, body: Any | None = None, budget_manager: Any | None = None, bus: Optional[EventBus] = None) -> None:
         self.body = body  # HardwareBody
         self.budget_manager = budget_manager
-        self._bus = get_core_bus()
+        from cynic.kernel.core.event_bus import get_core_bus
+        self._bus = bus or get_core_bus("DEFAULT")
         self._gestures_executed = 0
 
     async def execute_gesture(

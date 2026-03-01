@@ -54,14 +54,15 @@ class ActionProposer:
     Persistence is fully handled by SurrealDB via the injected repository.
     """
 
-    def __init__(self, repo: ActionProposalRepoInterface):
+    def __init__(self, repo: ActionProposalRepoInterface, bus: Optional[EventBus] = None):
         self.repo = repo
         self._last_stats = {"pending": 0, "total": 0}
+        from cynic.kernel.core.event_bus import get_core_bus
+        self._bus = bus or get_core_bus("DEFAULT")
 
     def start(self):
         """Subscribe to decision events."""
-        bus = get_core_bus()
-        bus.on(CoreEvent.DECISION_MADE, self.on_decision_made)
+        self._bus.on(CoreEvent.DECISION_MADE, self.on_decision_made)
         logger.info("ActionProposer started — linked to SurrealDB")
 
     async def on_decision_made(self, event: Event) -> None:
@@ -94,7 +95,7 @@ class ActionProposer:
             await self.repo.upsert(action.to_dict())
 
             # Emit ACTION_PROPOSED
-            await get_core_bus().emit(
+            await self._bus.emit(
                 Event.typed(
                     CoreEvent.ACTION_PROPOSED,
                     ActionProposedPayload(

@@ -23,12 +23,14 @@ class AccountAgent:
     Tracks expenditures and enforces the financial boundary of the organism.
     """
 
-    def __init__(self, budget_limit_usd: Optional[float] = None):
+    def __init__(self, budget_limit_usd: Optional[float] = None, bus: Optional[EventBus] = None):
         self.limit = budget_limit_usd or BUDGET_HARD_CAP_USD
         self.total_cost_usd = 0.0
         self._warning_sent = False
         self._exhausted_sent = False
         self.escore_tracker = None
+        from cynic.kernel.core.event_bus import get_core_bus
+        self._bus = bus or get_core_bus("DEFAULT")
 
     def set_escore_tracker(self, tracker: Any) -> None:
         """Inject E-Score tracker for reputation updates."""
@@ -36,8 +38,7 @@ class AccountAgent:
 
     def start(self):
         """Subscribe to judgment events to track costs."""
-        bus = get_core_bus()
-        bus.on(CoreEvent.JUDGMENT_CREATED, self.on_judgment_created)
+        self._bus.on(CoreEvent.JUDGMENT_CREATED, self.on_judgment_created)
         logger.info("AccountAgent started — budget=$%.2f, EScore=wired", self.limit)
 
     async def on_judgment_created(self, event: Event) -> None:
@@ -53,7 +54,8 @@ class AccountAgent:
 
     async def _check_thresholds(self) -> None:
         """Check if we've crossed budget boundaries."""
-        bus = get_core_bus()
+        # Use instance-specific bus
+        bus = self._bus
 
         # 1. Budget Warning (e.g. 61.8% of limit reached)
         warning_threshold = self.limit * (BUDGET_WARNING_PCT / 100.0)

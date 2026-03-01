@@ -78,7 +78,7 @@ class IncrementalTopologyBuilder:
             return
 
         # Emit: TOPOLOGY_CHANGED
-        bus = get_core_bus()
+        bus = get_core_bus("DEFAULT")
         await bus.emit(
             Event.typed(
                 CoreEvent.TOPOLOGY_CHANGED,

@@ -53,7 +53,7 @@ class SourceWatcher:
 
         Polls every 13s, emits SOURCE_CHANGED events on delta.
         """
-        bus = get_core_bus()
+        bus = get_core_bus("DEFAULT")
 
         # Initial snapshot
         self._previous_state = self._snapshot_tree()

@@ -20,15 +20,18 @@ logger = logging.getLogger("cynic.kernel.organism.metabolism.scheduler")
 _QUEUE_CAPACITY = 100
 
 class ConsciousnessRhythm:
-    """Manages the timing and execution of consciousness cycles."""
+    """γ2 biological scheduler — manages concurrent consciousness loops."""
 
-    def __init__(self, orchestrator: Any, body: Optional[Any] = None) -> None:
+    def __init__(self, orchestrator: Any, body: Optional[Any] = None, bus: Optional[EventBus] = None) -> None:
         self._orchestrator = orchestrator
-        self.body = body  # HardwareBody (Public attribute for factory access)
+        self.body = body
         self._consciousness = get_consciousness()
         self._queues = {l: asyncio.Queue(maxsize=_QUEUE_CAPACITY) for l in ConsciousnessLevel}
         self._tasks: list[asyncio.Task] = []
         self._running = False
+        
+        # Use provided bus or fallback to orchestrator bus if available
+        self.bus = bus or getattr(orchestrator, "bus", get_core_bus("DEFAULT"))
 
     def start(self) -> None:
         """Launch all tier workers."""
@@ -103,7 +106,7 @@ class ConsciousnessRhythm:
             self._orchestrator.record_cycle(ConsciousnessLevel.META)
 
         # Meta-analysis triggers
-        await get_core_bus().emit(Event.typed(
+        await self.bus.emit(Event.typed(
             CoreEvent.SONA_TICK,
             {"timestamp": time.time(), "source": "scheduler"},
             source="scheduler"

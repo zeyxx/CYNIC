@@ -51,16 +51,19 @@ class WorldModelUpdater:
         state = updater.world_state()  # read current snapshot
     """
 
-    def __init__(self) -> None:
+    def __init__(self, bus: Optional[EventBus] = None) -> None:
         self._state = WorldState()
         self._judgment_count = 0
         self._conflict_count = 0
         self._started = False
+        self._bus = bus
 
     def start(self, bus=None) -> None:
         if self._started:
             return
-        target = bus or get_core_bus()
+        target = bus or self._bus
+        if target is None:
+             raise RuntimeError("WorldModelUpdater started without a bus instance")
         target.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment)
         self._started = True
         logger.info("WorldModelUpdater subscribed to JUDGMENT_CREATED")

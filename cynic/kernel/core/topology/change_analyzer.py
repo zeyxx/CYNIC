@@ -118,7 +118,7 @@ class ChangeAnalyzer:
         self._analysis_count += 1
 
         # Emit CHANGE_ANALYZED event
-        await get_core_bus().emit(
+        await get_core_bus("DEFAULT").emit(
             Event.typed(
                 CoreEvent.CHANGE_ANALYZED,
                 ChangeAnalyzedPayload(

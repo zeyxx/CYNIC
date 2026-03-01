@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.kernel.core.events_schema import JudgmentCreatedPayload, JudgmentFailedPayload
 from cynic.kernel.core.exceptions import CynicError
 from cynic.kernel.core.judgment import Cell
@@ -50,12 +51,15 @@ class JudgmentExecutorHandler(HandlerGroup):
         cognition: CognitionServices,
         *,
         orchestrator: JudgeOrchestrator,
+        escore_tracker: Any | None = None,
+        axiom_monitor: Any | None = None,
         bus: Optional[EventBus] = None,
     ) -> None:
         super().__init__(bus=bus)
         self._cognition = cognition
-
         self._orchestrator = orchestrator
+        self._escore_tracker = escore_tracker
+        self._axiom_monitor = axiom_monitor
 
     @property
     def name(self) -> str:

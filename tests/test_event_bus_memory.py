@@ -45,7 +45,7 @@ async def test_three_buses_total_memory_bounded(event_bus):
     max_per_bus = fibonacci(10)  # 55
 
     # Emit to all three buses
-    buses = [get_core_bus(), get_automation_bus(), get_agent_bus()]
+    buses = [get_core_bus("DEFAULT"), get_automation_bus("DEFAULT"), get_agent_bus("DEFAULT")]
 
     for bus_idx, bus in enumerate(buses):
         for i in range(100):

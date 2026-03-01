@@ -54,6 +54,7 @@ class MicroCycleHandler(BaseHandler):
         escore_tracker: Any | None = None,
         axiom_monitor: Any | None = None,
         context_compressor: Any | None = None,
+        bus: Optional[EventBus] = None,
     ) -> None:
         self.dogs = dogs
         self.axiom_arch = axiom_arch
@@ -62,6 +63,12 @@ class MicroCycleHandler(BaseHandler):
         self.escore_tracker = escore_tracker
         self.axiom_monitor = axiom_monitor
         self.context_compressor = context_compressor
+        from cynic.kernel.core.event_bus import get_core_bus
+        self.bus = bus or get_core_bus("DEFAULT")
+
+    async def _act_phase(self, judgment: Any, pipeline: Any) -> Any:
+        """Micro cycle skips ACT phase by default."""
+        return None
 
     async def execute(self, pipeline: JudgmentPipeline, **kwargs: Any) -> HandlerResult:
         """

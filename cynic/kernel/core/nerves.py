@@ -24,19 +24,20 @@ logger = logging.getLogger("cynic.kernel.nerves")
 class DomainNerve:
     """Base facade for a communication domain."""
 
-    def __init__(self, bus_id: str):
+    def __init__(self, bus_id: str, instance_id: str = "DEFAULT"):
         self._bus_id = bus_id
+        self._instance_id = instance_id
 
     @property
     def bus(self):
-        return get_bus(self._bus_id)
+        return get_bus(self._bus_id, self._instance_id)
 
 
 class CognitionNerves(DomainNerve):
     """Gateways for Brain/Mind signals."""
 
-    def __init__(self):
-        super().__init__("CORE")
+    def __init__(self, instance_id: str = "DEFAULT"):
+        super().__init__("CORE", instance_id)
 
     async def emit_judgment(self, payload: dict[str, Any]):
         """Signal a new judgment has been formed."""
@@ -68,8 +69,8 @@ class CognitionNerves(DomainNerve):
 class SomaticNerves(DomainNerve):
     """Gateways for Body/Metabolism signals."""
 
-    def __init__(self):
-        super().__init__("AUTOMATION")
+    def __init__(self, instance_id: str = "DEFAULT"):
+        super().__init__("AUTOMATION", instance_id)
 
     async def emit_anomaly(self, error_type: str, value: Any, source: str):
         """Signal internal pain or resource stress."""
@@ -147,8 +148,8 @@ class SomaticNerves(DomainNerve):
 class PerceptionNerves(DomainNerve):
     """Gateways for Input/Sensing signals."""
 
-    def __init__(self):
-        super().__init__("CORE")
+    def __init__(self, instance_id: str = "DEFAULT"):
+        super().__init__("CORE", instance_id)
 
     async def ingest(self, cell: Cell):
         """Inject a new perception cell into the organism."""
@@ -159,7 +160,5 @@ class PerceptionNerves(DomainNerve):
         )
 
 
-# --- SINGLETONS ---
-COGNITION = CognitionNerves()
-SOMATIC = SomaticNerves()
-PERCEPTION = PerceptionNerves()
+# --- LEGACY SINGLETONS REMOVED ---
+# Components must use instance-specific nerves injected via Organism.

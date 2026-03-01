@@ -19,7 +19,7 @@ def detector():
 async def test_detector_integration_empirical(detector):
     """Verify that detector processes real JUDGMENT_CREATED events."""
     detector.start() # Subscribes to real global core bus
-    bus = get_core_bus()
+    bus = get_core_bus("DEFAULT")
     
     # 1. EMIT real event
     # We need at least 2 dog votes for the detector to calculate stdev
@@ -46,7 +46,7 @@ async def test_detector_integration_empirical(detector):
 async def test_detector_high_entropy_signal(detector):
     """Verify that detector emits RESIDUAL_HIGH after enough stable high variance."""
     detector.start()
-    bus = get_core_bus()
+    bus = get_core_bus("DEFAULT")
     
     # Capture high residual events
     captured = []

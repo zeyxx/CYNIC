@@ -20,7 +20,7 @@ def analyzer():
 async def bus():
     """Get the core bus."""
     reset_all_buses()
-    yield get_core_bus()
+    yield get_core_bus("DEFAULT")
     reset_all_buses()
 
 

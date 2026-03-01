@@ -225,7 +225,7 @@ class MCPRouter:
                 },
                 source="mcp_router",
             )
-            await get_core_bus().emit(event)
+            await get_core_bus("DEFAULT").emit(event)
 
             try:
                 # Route ask_cynic to orchestrator (returns Judgment result)

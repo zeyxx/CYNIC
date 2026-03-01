@@ -44,10 +44,13 @@ class EvolveHandler(BaseHandler):
         orchestrator: Any | None = None,
         benchmark_registry: Any | None = None,
         evolve_history: list[dict] | None = None,
+        bus: Optional[EventBus] = None,
     ) -> None:
         self.orchestrator = orchestrator
         self.benchmark_registry = benchmark_registry
         self._evolve_history = evolve_history or []
+        from cynic.kernel.core.event_bus import get_core_bus
+        self.bus = bus or get_core_bus("DEFAULT")
 
     async def execute(self, **kwargs: Any) -> HandlerResult:
         """
@@ -165,7 +168,7 @@ class EvolveHandler(BaseHandler):
             except Exception as exc:
                 logger.warning("BenchmarkRegistry.record_evolve() failed: %s", exc)
 
-        await get_core_bus().emit(
+        await self.bus.emit(
             Event.typed(
                 CoreEvent.META_CYCLE,
                 MetaCyclePayload(evolve=summary),

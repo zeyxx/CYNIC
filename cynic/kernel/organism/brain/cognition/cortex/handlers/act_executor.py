@@ -53,8 +53,10 @@ class ActHandler(BaseHandler):
         agency_manager: Any | None = None,
         body: Any | None = None,
         motor_system: Any | None = None,
+        bus: Optional[EventBus] = None,
         **kwargs: Any,
     ) -> None:
+        super().__init__(bus=bus)
         self.decide_agent = decide_agent
         self.decision_validator = decision_validator
         self.runner = runner
@@ -133,7 +135,7 @@ class ActHandler(BaseHandler):
             if not should_execute:
                 logger.warning("ACT: Manager VETO applied: %s", reason)
                 # Emit ACT_FAILED to notify the bus that the action was intentionally blocked
-                await get_core_bus().emit(
+                await self.bus.emit(
                     Event.typed(
                         CoreEvent.ACT_FAILED,
                         {
@@ -155,7 +157,7 @@ class ActHandler(BaseHandler):
 
         # Helper: emit DECISION_MADE for human review (consolidates duplicate emissions)
         async def emit_decision_made(trigger: str, error: str | None = None) -> None:
-            await get_core_bus().emit(
+            await self.bus.emit(
                 Event.typed(
                     CoreEvent.DECISION_MADE,
                     DecisionMadePayload(
@@ -252,7 +254,7 @@ class ActHandler(BaseHandler):
                     )
 
                     # Emit ACT_COMPLETED event
-                    await get_core_bus().emit(
+                    await self.bus.emit(
                         Event.typed(
                             CoreEvent.ACT_COMPLETED,
                             ActCompletedPayload(
@@ -317,7 +319,7 @@ class ActHandler(BaseHandler):
             }
 
             # Emit ACT_COMPLETED event (for feedback loops L3, L4)
-            await get_core_bus().emit(
+            await self.bus.emit(
                 Event.typed(
                     CoreEvent.ACT_COMPLETED,
                     ActCompletedPayload(

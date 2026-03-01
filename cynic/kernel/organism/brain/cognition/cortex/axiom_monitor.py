@@ -70,13 +70,17 @@ class AxiomState:
         return self.state() == _STATE_ACTIVE
 
 
+from typing import Any, Optional
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus, EventBus
+
 class AxiomMonitor:
     """Tracks the evolution of CYNIC's emergent philosophy."""
 
-    def __init__(self) -> None:
+    def __init__(self, bus: Optional[EventBus] = None) -> None:
         self._axioms = {name: AxiomState(name=name) for name in EMERGENT_AXIOMS}
         self._total_signals = 0
         self._transcendence_achieved = False
+        self._bus = bus or get_core_bus("DEFAULT")
 
     async def signal(
         self, axiom: str, source: str = "internal", count: int = 1, **kwargs: Any
@@ -99,7 +103,7 @@ class AxiomMonitor:
                 if axiom in _CORE_EMERGENT:
                     self._maybe_signal_transcendence()
 
-            await get_core_bus().emit(
+            await self._bus.emit(
                 Event.typed(
                     CoreEvent.AXIOM_ACTIVATED,
                     {"axiom": axiom, "source": source, "new_state": new_state, **kwargs},

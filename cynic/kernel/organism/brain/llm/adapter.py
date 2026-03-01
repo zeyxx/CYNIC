@@ -186,8 +186,5 @@ class LLMRegistry:
         return sorted(avail, key=lambda a: prio.get(a.provider, 99))[0]
 
 
-_registry = LLMRegistry()
-
-
-def get_registry() -> LLMRegistry:
-    return _registry
+# --- REGISTRY SINGLETON REMOVED ---
+# Each Organism instance must manage its own LLMRegistry.

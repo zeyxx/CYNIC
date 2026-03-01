@@ -218,15 +218,15 @@ class HealthChecker:
             # Check if event buses exist and are accessible
             from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
 
-            core_bus = get_core_bus()
+            core_bus = get_core_bus("DEFAULT")
             if core_bus is None:
                 raise RuntimeError("Core bus not initialized")
 
-            auto_bus = get_automation_bus()
+            auto_bus = get_automation_bus("DEFAULT")
             if auto_bus is None:
                 raise RuntimeError("Automation bus not initialized")
 
-            agent_bus = get_agent_bus()
+            agent_bus = get_agent_bus("DEFAULT")
             if agent_bus is None:
                 raise RuntimeError("Agent bus not initialized")
 

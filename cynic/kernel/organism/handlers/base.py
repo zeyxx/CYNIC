@@ -28,19 +28,14 @@ if TYPE_CHECKING:
 class HandlerGroup(ABC):
     """
     Base class for handler groups — like AbstractDog for event handlers.
-
-    Every group declares:
-    - name: unique identifier
-    - subscriptions: which (event, callable) pairs it handles
-    - dependencies: which components it needs (for introspection)
-
-    This is the "driver interface" — enforcement point for architecture.
     """
 
     def __init__(self, bus: Optional[EventBus] = None):
         """Initialize handler with instance-specific bus."""
-        from cynic.kernel.core.event_bus import get_core_bus
-        self.bus = bus or get_core_bus()
+        # Note: bus must be provided by factory.py
+        if bus is None:
+             raise RuntimeError(f"HandlerGroup {self.name} initialized without a bus. This violates isolation.")
+        self.bus = bus
 
     @property
     @abstractmethod

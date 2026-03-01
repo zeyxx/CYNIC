@@ -18,14 +18,18 @@ from cynic.kernel.core.phi import PHI_INV
 
 logger = logging.getLogger("cynic.senses.market")
 
+from typing import Any, Optional
+from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent, EventBus
+
 class MarketSensor:
     """
     Connects CYNIC to the pulse of the markets.
     """
-    def __init__(self, interval_s: float = 60.0):
+    def __init__(self, interval_s: float = 60.0, bus: Optional[EventBus] = None):
         self.interval_s = interval_s
         self._running = False
         self._task: asyncio.Task | None = None
+        self._bus = bus or get_core_bus("DEFAULT")
 
     def start(self):
         if self._running: return
@@ -68,7 +72,7 @@ class MarketSensor:
         logger.debug(f"MarketSensor: Perceived SOL at ${price:.2f} (vol={volatility:.2f})")
         
         # Emit to NERVES
-        await get_core_bus().emit(Event.typed(
+        await self._bus.emit(Event.typed(
             CoreEvent.PERCEPTION_RECEIVED,
             payload.model_dump(),
             source="market_sensor"

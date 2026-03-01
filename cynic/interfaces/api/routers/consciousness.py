@@ -294,9 +294,9 @@ async def ecosystem(container: AppContainer = Depends(get_app_container)) -> dic
     """
     from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
 
-    core_bus = get_core_bus()
-    automation_bus = get_automation_bus()
-    agent_bus = get_agent_bus()
+    core_bus = get_core_bus("DEFAULT")
+    automation_bus = get_automation_bus("DEFAULT")
+    agent_bus = get_agent_bus("DEFAULT")
 
     return {
         "timestamp": round(time.time(), 3),
@@ -357,9 +357,9 @@ async def nervous_system(container: AppContainer = Depends(get_app_container)) -
     """
     from cynic.kernel.core.event_bus import get_agent_bus, get_automation_bus, get_core_bus
 
-    core_bus = get_core_bus()
-    automation_bus = get_automation_bus()
-    agent_bus = get_agent_bus()
+    core_bus = get_core_bus("DEFAULT")
+    automation_bus = get_automation_bus("DEFAULT")
+    agent_bus = get_agent_bus("DEFAULT")
 
     all_events = (
         getattr(core_bus, "_event_history", []) +

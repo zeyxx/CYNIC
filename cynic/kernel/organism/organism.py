@@ -22,6 +22,14 @@ MemoryCore = ArchiveCore
 logger = logging.getLogger("cynic.kernel.organism")
 
 
+from dataclasses import dataclass, field
+from typing import Any, Optional
+
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_agent_bus, get_automation_bus, get_core_bus
+from cynic.kernel.core.nerves import CognitionNerves, PerceptionNerves, SomaticNerves
+from cynic.kernel.organism.anatomy import ArchiveCore, CognitionCore, MetabolicCore, SensoryCore
+from cynic.kernel.organism.state_manager import OrganismState
+
 @dataclass
 class Organism:
     """
@@ -36,6 +44,11 @@ class Organism:
     state: OrganismState
     instance_id: str = "DEFAULT"
 
+    # Instance-specific nerves
+    nerves_cognition: CognitionNerves = field(init=False)
+    nerves_somatic: SomaticNerves = field(init=False)
+    nerves_perception: PerceptionNerves = field(init=False)
+
     _pool: Any | None = None
     container: Any = None
     _handler_registry: Any | None = None
@@ -47,6 +60,11 @@ class Organism:
         self.bus = get_core_bus(self.instance_id)
         self.agent_bus = get_agent_bus(self.instance_id)
         self.automation_bus = get_automation_bus(self.instance_id)
+
+        # Initialize instance-specific nerves
+        self.nerves_cognition = CognitionNerves(self.instance_id)
+        self.nerves_somatic = SomaticNerves(self.instance_id)
+        self.nerves_perception = PerceptionNerves(self.instance_id)
 
         self._wire_event_handlers()
         from cynic.interfaces.bots.telegram_bridge import TelegramBridge

@@ -56,8 +56,9 @@ class SonaEmitter:
       - The human: (dashboard shows SONA ticks)
     """
 
-    def __init__(self, bus: EventBus | None = None, db_pool: Any = None) -> None:
-        self._bus = bus or get_core_bus()
+    def __init__(self, bus: EventBus, db_pool: Any = None, instance_id: str = "DEFAULT") -> None:
+        self._instance_id = instance_id
+        self._bus = bus
         self._db_pool = db_pool
         self._task: asyncio.Task | None = None
         self._running = False
@@ -156,7 +157,7 @@ class SonaEmitter:
                 logger.warning("SonaEmitter: failed to get orchestrator judgment count: %s", exc)
 
         payload = SonaTickPayload(
-            instance_id="",  # Set by organism.py if multi-instance
+            instance_id=self._instance_id,
             q_table_entries=q_table_entries,
             total_judgments=total_judgments,
             learning_rate=learning_rate,

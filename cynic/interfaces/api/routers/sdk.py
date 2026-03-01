@@ -150,7 +150,7 @@ async def ws_sdk(
     """
     await websocket.accept()
     state = container.organism
-    bus = get_core_bus()
+    bus = get_core_bus("DEFAULT")
 
     session_id = str(uuid.uuid4())
     session = SDKSession(session_id=session_id, ws=websocket)

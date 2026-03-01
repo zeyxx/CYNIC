@@ -46,7 +46,7 @@ async def ws_stream(websocket: WebSocket) -> None:
     Queue overflow (>100 buffered events) -> events dropped silently.
     """
     await websocket.accept()
-    bus = get_core_bus()
+    bus = get_core_bus("DEFAULT")
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
 
     async def on_event(event: Event) -> None:
@@ -226,7 +226,7 @@ async def ws_events(websocket: WebSocket) -> None:
     Queue overflow (>100 buffered events) → events dropped silently.
     """
     await websocket.accept()
-    bus = get_core_bus()
+    bus = get_core_bus("DEFAULT")
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
 
     # All CoreEvent names → used for connected banner + subscribe validation

@@ -34,8 +34,6 @@ from cynic.nervous.service_registry import (
     HealthStatus,
     RegistrySnapshot,
     ServiceStateRegistry,
-    get_service_registry,
-    reset_service_registry,
 )
 
 __all__ = [
@@ -44,8 +42,6 @@ __all__ = [
     "RegistrySnapshot",
     "ComponentType",
     "HealthStatus",
-    "get_service_registry",
-    "reset_service_registry",
     "EventJournal",
     "EventCategory",
     "JournalEntry",

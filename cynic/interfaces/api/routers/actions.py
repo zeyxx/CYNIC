@@ -79,7 +79,7 @@ async def accept_action(
     try:
         new_state = state.axiom_monitor.signal("ANTIFRAGILITY")
         if new_state == "ACTIVE":
-            await get_core_bus().emit(Event.typed(
+            await get_core_bus("DEFAULT").emit(Event.typed(
                 CoreEvent.AXIOM_ACTIVATED,
                 AxiomActivatedPayload(axiom="ANTIFRAGILITY", maturity=state.axiom_monitor.get_maturity("ANTIFRAGILITY"), trigger="action_accept"),
                 source="action_accept",
@@ -90,7 +90,7 @@ async def accept_action(
     # ── L1 closure: accepted → fire ACT_REQUESTED → runner executes ──────
     # This closes the Machine→Actions loop: accept = authorize execution.
     if action.prompt:
-        await get_core_bus().emit(Event.typed(
+        await get_core_bus("DEFAULT").emit(Event.typed(
             CoreEvent.ACT_REQUESTED,
             ActRequestedPayload(
                 action=action.prompt,

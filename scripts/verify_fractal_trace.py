@@ -40,7 +40,7 @@ async def test_traceability():
     # 2. Setup a listener on Beta to check for leaks
     leaked_events = []
     async def beta_leak_listener(event):
-        logger.error(f"🚨 LEAK DETECTED: Beta received event from A: {event.topic}")
+        logger.error(f"🚨 LEAK DETECTED: Beta received event from A: {event.type}")
         leaked_events.append(event)
     
     org_b.bus.on("*", beta_leak_listener)

@@ -72,12 +72,13 @@ class OrganismState:
     Thread-safe implementation for concurrent UI/Kernel access.
     """
 
-    def __init__(self, storage_dir: str | None = None, storage: Optional[SurrealStorage] = None):
+    def __init__(self, storage_dir: str | None = None, storage: Optional[SurrealStorage] = None, instance_id: str = "DEFAULT"):
         self.storage_dir = Path(
             storage_dir or os.path.join(os.path.expanduser("~"), ".cynic", "organism_state")
         )
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.storage = storage  # Real persistence layer (SurrealDB)
+        self.instance_id = instance_id
 
         # Internal State Layers
         self._memory_state: dict[str, Any] = {}
@@ -149,7 +150,7 @@ class OrganismState:
 
         # Subscribe to internal events
         from cynic.kernel.core.event_bus import get_core_bus
-        bus = get_core_bus()
+        bus = get_core_bus(self.instance_id)
         bus.on("organism.somatic_sensation", self._on_somatic_sensation)
 
         self._loop_task = asyncio.create_task(self._process_updates_loop())
@@ -178,7 +179,7 @@ class OrganismState:
 
         # Drain EventBus (nervous system)
         from cynic.kernel.core.event_bus import get_core_bus
-        await get_core_bus().drain(timeout=1.0)
+        await get_core_bus(self.instance_id).drain(timeout=1.0)
 
         logger.info("OrganismState processing stopped")
 

@@ -66,7 +66,7 @@ async def ultimate_test():
         from cynic.kernel.core.events_schema import LearningEventPayload
         
         # We manually emit the learning event to simulate the feedback loop
-        await get_core_bus().emit(Event.typed(
+        await get_core_bus("DEFAULT").emit(Event.typed(
             CoreEvent.LEARNING_EVENT,
             LearningEventPayload(
                 state_key="dilemma:unstable_fn",

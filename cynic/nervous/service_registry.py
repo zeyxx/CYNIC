@@ -341,27 +341,5 @@ class ServiceStateRegistry:
             logger.debug("ServiceStateRegistry: reset for testing")
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# SINGLETON ACCESSOR
-# ════════════════════════════════════════════════════════════════════════════
-
-_registry_instance: ServiceStateRegistry | None = None
-
-
-def get_service_registry() -> ServiceStateRegistry:
-    """Get or create global Service State Registry singleton."""
-    global _registry_instance
-    if _registry_instance is None:
-        _registry_instance = ServiceStateRegistry()
-    return _registry_instance
-
-
-def get_global_registry() -> ServiceStateRegistry:
-    """Alias for get_service_registry() used by factory."""
-    return get_service_registry()
-
-
-def reset_service_registry() -> None:
-    """Reset registry singleton (for testing)."""
-    global _registry_instance
-    _registry_instance = None
+# --- SINGLETONS REMOVED ---
+# Each Organism instance must manage its own ServiceStateRegistry.

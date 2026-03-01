@@ -219,12 +219,14 @@ class AbstractDog(ABC):
     The organism is the sum of all Dogs, coordinated by PBFT.
     """
 
-    def __init__(self, dog_id: str) -> None:
+    def __init__(self, dog_id: str, bus: Optional[EventBus] = None) -> None:
         self.dog_id = dog_id
         self._judgment_count = 0
         self._error_count = 0
         self._total_latency_ms = 0.0
         self._active = False
+        from cynic.kernel.core.event_bus import get_core_bus
+        self.bus = bus or get_core_bus("DEFAULT")
 
     @abstractmethod
     async def analyze(self, cell: Cell, **kwargs: Any) -> DogJudgment:
@@ -306,8 +308,8 @@ class LLMDog(AbstractDog):
       - Graceful degradation: if LLM unavailable → GROWL verdict, low confidence
     """
 
-    def __init__(self, dog_id: str, task_type: str = "general") -> None:
-        super().__init__(dog_id)
+    def __init__(self, dog_id: str, task_type: str = "general", bus: Optional[EventBus] = None) -> None:
+        super().__init__(dog_id, bus=bus)
         self.task_type = task_type
         self._llm_registry: LLMRegistry | None = None
         self._llm_id: str | None = None

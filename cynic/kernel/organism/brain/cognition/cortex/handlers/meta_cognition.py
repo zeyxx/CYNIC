@@ -88,7 +88,7 @@ class MetaCognitionHandler(BaseHandler):
         self.qtable = qtable
         self.learning_loop = learning_loop
         self.escore_tracker = escore_tracker
-        self.bus = bus or get_core_bus()
+        self.bus = bus or get_core_bus("DEFAULT")
 
         # ── Health tracking (rolling window, Fibonacci size) ──
         self._health_window: list[OrganismHealthMetrics] = []

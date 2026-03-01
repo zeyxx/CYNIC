@@ -88,8 +88,9 @@ class EScoreTracker:
     Persistence is handled via StateManager (StateLayer.PERSISTENT).
     """
 
-    def __init__(self, state_manager: Any | None = None):
+    def __init__(self, state_manager: Any | None = None, instance_id: str = "DEFAULT"):
         self.state = state_manager
+        self.instance_id = instance_id
         self._profiles: dict[str, EScoreProfile] = {}
         self._external_sync_url: str | None = None  # For k-NET reputation sharing
 

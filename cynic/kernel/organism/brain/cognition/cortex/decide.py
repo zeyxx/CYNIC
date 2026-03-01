@@ -200,7 +200,7 @@ class DecideAgent:
     action selection under uncertainty (UCT balances exploration/exploitation).
     """
 
-    def __init__(self, qtable: Any) -> None:
+    def __init__(self, qtable: Any, bus: Optional[EventBus] = None) -> None:
         """
         qtable: cynic.kernel.organism.brain.learning.qlearning.QTable — consulted for best action.
         """
@@ -209,12 +209,14 @@ class DecideAgent:
         self._decisions_made: int = 0
         self._skipped: int = 0
         self._handler = self._on_judgment
+        from cynic.kernel.core.event_bus import get_core_bus
+        self._bus = bus or get_core_bus("DEFAULT")
 
     # ---- Lifecycle --------------------------------------------------------
 
     def start(self, bus: Optional[Any] = None) -> None:
         """Subscribe to JUDGMENT_CREATED. Must be called with a running event loop."""
-        target_bus = bus or get_core_bus()
+        target_bus = bus or self._bus
         target_bus.on(CoreEvent.JUDGMENT_CREATED, self._handler)
         logger.info("DecideAgent started — subscribed to JUDGMENT_CREATED")
 
@@ -318,8 +320,7 @@ class DecideAgent:
         # Build action prompt (non-empty only for ACT_REALITIES — others get generic)
         action_prompt = _build_action_prompt(reality, analysis, verdict, content_preview, context)
 
-        bus = get_core_bus()
-        await bus.emit(
+        await self._bus.emit(
             Event.typed(
                 CoreEvent.DECISION_MADE,
                 DecisionMadePayload(

@@ -35,7 +35,7 @@ async def cmd_full_loop(auto: bool = False) -> None:
         from cynic.kernel.organism.perception.senses.workers.git import GitWatcher
 
         reset_all_buses()
-        get_core_bus()
+        get_core_bus("DEFAULT")
 
 
         watcher = GitWatcher()

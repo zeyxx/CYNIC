@@ -73,21 +73,24 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
     return found
 
 
-def discover_dogs(**overrides: Any) -> dict[str, AbstractDog]:
+def discover_dogs(instance_id: str = "DEFAULT", llm_registry: Any | None = None, **overrides: Any) -> dict[str, AbstractDog]:
     """
     Discover and instantiate all dogs.
-
-    New Path: Uses MasterDog + registry for all 11 Dogs.
-    Legacy Path: Still checks files for custom Dog classes (overrides).
     """
     from cynic.kernel.organism.brain.cognition.neurons.master import MasterDog
     from cynic.kernel.organism.brain.cognition.neurons.registry import get_soul
+    from cynic.kernel.core.event_bus import get_core_bus
+
+    bus = get_core_bus(instance_id)
 
     # 1. Start with the 11 standard Dogs from registry
     dogs: dict[str, AbstractDog] = {}
     for dog_id in DogId:
         soul = get_soul(dog_id)
-        dogs[dog_id.value] = MasterDog(soul)
+        dog = MasterDog(soul, bus=bus)
+        if llm_registry:
+            dog.set_llm_registry(llm_registry)
+        dogs[dog_id.value] = dog
 
     # 2. Apply explicit overrides (passed as args)
     for dog_id_val, instance in overrides.items():

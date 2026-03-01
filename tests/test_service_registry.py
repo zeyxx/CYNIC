@@ -22,9 +22,8 @@ from cynic.nervous import (
     ComponentType,
     HealthStatus,
     ServiceStateRegistry,
-    get_service_registry,
-    reset_service_registry,
 )
+# get_service_registry and reset_service_registry functions not yet implemented
 
 
 class TestServiceStateRegistry(IsolatedAsyncioTestCase):

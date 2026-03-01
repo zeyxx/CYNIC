@@ -318,7 +318,7 @@ class MCPServer:
 
             # Emit USER_FEEDBACK event on CORE bus for learning loops + EScore
             try:
-                await get_core_bus().emit(Event.typed(
+                await get_core_bus("DEFAULT").emit(Event.typed(
                     CoreEvent.USER_FEEDBACK,
                     UserFeedbackPayload(
                         rating=req.signal.rating,

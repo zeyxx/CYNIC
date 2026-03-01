@@ -102,7 +102,7 @@ async def stream_changes() -> None:
 #   3. Merge + return combined view
 #
 # The /changes/stream endpoint needs:
-#   1. bus = get_core_bus()
+#   1. bus = get_core_bus("DEFAULT")
 #   2. queue = asyncio.Queue(maxsize=100)
 #   3. handler subscribes to CoreEvent.CHANGE_ANALYZED
 #   4. yield SSE format: "data: {...}\n\n"

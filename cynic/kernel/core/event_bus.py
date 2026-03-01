@@ -351,23 +351,23 @@ class EventBus:
 _buses: dict[str, EventBus] = {}
 
 
-def get_bus(bus_id: str, instance_id: str = "DEFAULT") -> EventBus:
-    """Retrieve or create an isolated EventBus."""
+def get_bus(bus_id: str, instance_id: str) -> EventBus:
+    """Retrieve or create an isolated EventBus. instance_id is REQUIRED."""
     key = f"{instance_id}:{bus_id}"
     if key not in _buses:
         _buses[key] = EventBus(bus_id=key)
     return _buses[key]
 
 
-def get_core_bus(instance_id: str = "DEFAULT") -> EventBus:
+def get_core_bus(instance_id: str) -> EventBus:
     return get_bus("CORE", instance_id)
 
 
-def get_automation_bus(instance_id: str = "DEFAULT") -> EventBus:
+def get_automation_bus(instance_id: str) -> EventBus:
     return get_bus("AUTOMATION", instance_id)
 
 
-def get_agent_bus(instance_id: str = "DEFAULT") -> EventBus:
+def get_agent_bus(instance_id: str) -> EventBus:
     return get_bus("AGENT", instance_id)
 
 

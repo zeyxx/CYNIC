@@ -43,6 +43,8 @@ class IntelligenceHandlers(HandlerGroup):
         scheduler: ConsciousnessRhythm,
         db_pool: Any | None,
         compressor,  # ContextCompressor
+        escore_tracker: Any | None = None,
+        axiom_monitor: Any | None = None,
         bus: Optional[EventBus] = None,
     ) -> None:
         super().__init__(bus=bus)
@@ -51,6 +53,8 @@ class IntelligenceHandlers(HandlerGroup):
         self._scheduler = scheduler
         self._db_pool = db_pool
         self._compressor = compressor
+        self._escore_tracker = escore_tracker
+        self._axiom_monitor = axiom_monitor
 
         # Group-local mutable state
         self._outcome_window: list[bool] = []

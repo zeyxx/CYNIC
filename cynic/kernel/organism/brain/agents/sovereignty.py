@@ -12,9 +12,9 @@ This agent turns raw actions into Sovereign Reputation (E-Score).
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.phi import PHI, PHI_INV
 from cynic.kernel.core.unified_state import ImpactMeasurement, ValueCreation
 
@@ -26,14 +26,15 @@ class SovereigntyAgent:
     Calculates and persists the impact of every creator in the system.
     """
 
-    def __init__(self, state_manager: Any):
+    def __init__(self, state_manager: Any, bus: Optional[EventBus] = None):
         self.state = state_manager
         self._total_value_observed = 0.0
+        from cynic.kernel.core.event_bus import get_core_bus
+        self._bus = bus or get_core_bus("DEFAULT")
 
     def start(self):
         """Subscribe to the nervous system."""
-        bus = get_core_bus()
-        bus.on(CoreEvent.VALUE_CREATED, self._on_value_created)
+        self._bus.on(CoreEvent.VALUE_CREATED, self._on_value_created)
         logger.info("SovereigntyAgent active — measuring impact.")
 
     async def _on_value_created(self, event: Event) -> None:
@@ -49,7 +50,7 @@ class SovereigntyAgent:
             await self.state.add_impact_measurement(impact)
 
             # Signal the E-Score tracker to update reputation
-            await get_core_bus().emit(
+            await self._bus.emit(
                 Event.typed(
                     CoreEvent.Q_TABLE_UPDATED,  # Trigger reputation recalculation
                     {

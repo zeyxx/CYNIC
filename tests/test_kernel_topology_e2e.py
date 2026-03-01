@@ -18,7 +18,7 @@ async def test_topology_integration_empirical(organism):
     
     try:
         # 2. EMIT: Simulate a source change event
-        bus = get_core_bus()
+        bus = get_core_bus("DEFAULT")
         await bus.emit(Event.typed(
             CoreEvent.SOURCE_CHANGED,
             {"path": str(test_file), "type": "modified"},

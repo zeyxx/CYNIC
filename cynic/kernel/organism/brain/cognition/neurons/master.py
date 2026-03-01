@@ -70,8 +70,8 @@ class MasterDog(LLMDog):
     Includes PBFT coordination logic for the CYNIC DogId.
     """
 
-    def __init__(self, soul: DogSoul) -> None:
-        super().__init__(soul.dog_id, task_type=soul.task_type)
+    def __init__(self, soul: DogSoul, bus: Optional[Any] = None) -> None:
+        super().__init__(soul.dog_id, task_type=soul.task_type, bus=bus)
         self.soul = soul
         self._lookups = 0
         self._errors = 0

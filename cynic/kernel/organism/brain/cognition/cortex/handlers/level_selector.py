@@ -26,8 +26,10 @@ class LevelSelector(BaseHandler):
 
     handler_id = "level_selector"
 
-    def __init__(self, axiom_monitor: Any = None, lod_controller: Any = None, **kwargs):
+    def __init__(self, axiom_monitor: Any = None, lod_controller: Any = None, bus: Optional[EventBus] = None, **kwargs):
         self.profiler = ModelProfiler()
+        from cynic.kernel.core.event_bus import get_core_bus
+        self.bus = bus or get_core_bus("DEFAULT")
         logger.info("LevelSelector active (Hardware-Aware)")
 
     async def execute(self, pipeline: Any, **kwargs) -> HandlerResult:
@@ -61,7 +63,7 @@ class LevelSelector(BaseHandler):
         pipeline.level = selected_level
 
         # Announce the choice to the bus
-        await get_core_bus().emit(
+        await self.bus.emit(
             Event.typed(
                 CoreEvent.LOD_CHANGED,
                 {

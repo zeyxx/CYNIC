@@ -51,7 +51,7 @@ async def run_trace():
             events_captured.append(event.type)
             event.type.value if hasattr(event.type, "value") else str(event.type)
 
-        bus = get_core_bus()
+        bus = get_core_bus("DEFAULT")
         bus.on(CoreEvent.JUDGMENT_CREATED, trace_listener)
         bus.on(CoreEvent.ACT_COMPLETED, trace_listener)
 

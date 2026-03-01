@@ -22,7 +22,7 @@ Lifecycle:
   prober.set_qtable(qtable)
   prober.set_residual_detector(residual_detector)
   prober.set_escore_tracker(escore_tracker)
-  prober.start(get_core_bus())   # subscibe to EMERGENCE_DETECTED
+  prober.start(get_core_bus("DEFAULT"))   # subscibe to EMERGENCE_DETECTED
 """
 
 from __future__ import annotations
@@ -124,10 +124,10 @@ class SelfProber:
       prober.set_qtable(qtable)
       prober.set_residual_detector(residual_detector)
       prober.set_escore_tracker(escore_tracker)
-      prober.start(get_core_bus())
+      prober.start(get_core_bus("DEFAULT"))
     """
 
-    def __init__(self, proposals_path: str = _PROPOSALS_PATH) -> None:
+    def __init__(self, proposals_path: str = _PROPOSALS_PATH, bus: Optional[EventBus] = None) -> None:
         self._path = proposals_path
         self._proposals: list[SelfProposal] = []
         self._total_proposed: int = 0
@@ -135,6 +135,8 @@ class SelfProber:
         self._residual: Any | None = None
         self._escore: Any | None = None
         self._registered: bool = False
+        from cynic.kernel.core.event_bus import get_core_bus
+        self._bus = bus or get_core_bus("DEFAULT")
         self._load()
 
     # ── Injection ─────────────────────────────────────────────────────────
@@ -158,7 +160,7 @@ class SelfProber:
         """Subscribe to EMERGENCE_DETECTED. Call once at kernel startup."""
         if self._registered:
             return
-        target_bus = bus or get_core_bus()
+        target_bus = bus or self._bus
         target_bus.on(CoreEvent.EMERGENCE_DETECTED, self._on_emergence)
         self._registered = True
         logger.info("SelfProber subscribed to EMERGENCE_DETECTED")
@@ -472,7 +474,7 @@ class SelfProber:
             if not new_proposals:
                 return
 
-            await get_core_bus().emit(
+            await self._bus.emit(
                 Event.typed(
                     CoreEvent.SELF_IMPROVEMENT_PROPOSED,
                     SelfImprovementProposedPayload(

@@ -51,6 +51,9 @@ class BaseHandler(ABC):
     version: str = "1.0"
     description: str = "Base handler (abstract)"
 
+    def __init__(self, bus: Optional[Any] = None, **kwargs: Any) -> None:
+        self.bus = bus
+
     @abstractmethod
     async def execute(self, **kwargs: Any) -> HandlerResult:
         """

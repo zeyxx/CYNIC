@@ -39,7 +39,7 @@ async def test_phase3_organism_sona_initialized():
 async def test_phase3_sona_tick_events():
     """Test that SONA_TICK events are actually emitted."""
     organism = awaken()
-    bus = get_core_bus()
+    bus = get_core_bus("DEFAULT")
     events_received = []
 
     async def capture_sona_tick(event):

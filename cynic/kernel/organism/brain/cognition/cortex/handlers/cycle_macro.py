@@ -81,6 +81,7 @@ class MacroCycleHandler(BaseHandler):
         axiom_monitor: Any | None = None,
         context_compressor: Any | None = None,
         act_phase_fn: Callable | None = None,
+        bus: Optional[EventBus] = None,
     ) -> None:
         self.dogs = dogs
         self.axiom_arch = axiom_arch
@@ -90,6 +91,14 @@ class MacroCycleHandler(BaseHandler):
         self.axiom_monitor = axiom_monitor
         self.context_compressor = context_compressor
         self.act_phase_fn = act_phase_fn
+        from cynic.kernel.core.event_bus import get_core_bus
+        self.bus = bus or get_core_bus("DEFAULT")
+
+    async def _act_phase(self, judgment: Any, pipeline: Any) -> Any:
+        """Call injected act phase logic."""
+        if self.act_phase_fn:
+            return await self.act_phase_fn(judgment, pipeline)
+        return None
 
     async def execute(self, pipeline: JudgmentPipeline, **kwargs: Any) -> HandlerResult:
         """

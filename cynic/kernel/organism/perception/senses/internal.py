@@ -10,7 +10,8 @@ from __future__ import annotations
 import logging
 import time
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
+from typing import Optional
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus, EventBus
 from cynic.kernel.core.judgment import Cell
 
 logger = logging.getLogger("cynic.senses.internal")
@@ -21,12 +22,13 @@ class InternalSensor:
     Listens to system-level anomalies and re-injects them as perceptions.
     """
 
-    def __init__(self):
-        self._bus = get_core_bus()
+    def __init__(self, bus: EventBus):
+        self._bus = bus
 
-    def start(self):
+    def start(self, bus: Optional[EventBus] = None):
         """Subscribe to anomalies."""
-        self._bus.on(CoreEvent.ANOMALY_DETECTED, self._on_anomaly)
+        target_bus = bus or self._bus
+        target_bus.on(CoreEvent.ANOMALY_DETECTED, self._on_anomaly)
         logger.info("InternalSensor: Proprioception active — listening for anomalies")
 
     async def _on_anomaly(self, event: Event) -> None:
@@ -48,8 +50,17 @@ class InternalSensor:
             risk=0.9,
         )
 
-        from cynic.kernel.core.nerves import PERCEPTION
-
-        await PERCEPTION.ingest(cell)
+        from cynic.kernel.core.events_schema import PerceptionReceivedPayload
+        await self._bus.emit(Event.typed(
+            CoreEvent.PERCEPTION_RECEIVED,
+            PerceptionReceivedPayload(
+                reality="INTERNAL",
+                analysis="ANOMALY",
+                data=f"Organism feels stress: {anomaly_type}={value}",
+                risk=0.9,
+                run_judgment=True
+            ),
+            source="internal_sensor"
+        ))
 
         logger.info("InternalSensor: Anomaly translated to INTERNAL perception.")

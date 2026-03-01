@@ -27,15 +27,16 @@ class ResidualDetector:
     Trigger for L4 META cycles and self-improvement proposals.
     """
 
-    def __init__(self):
+    def __init__(self, bus: Optional[EventBus] = None):
         self._history: list[float] = []
         self._high_residual_count = 0
         self._threshold = PHI_INV_2 * 100  # ~38.2
+        from cynic.kernel.core.event_bus import get_core_bus
+        self._bus = bus or get_core_bus("DEFAULT")
 
     def start(self):
         """Subscribe to judgment events."""
-        bus = get_core_bus()
-        bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment)
+        self._bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment)
         logger.info("ResidualDetector started — listening for JUDGMENT_CREATED")
 
     def observe(self, judgment: Judgment) -> float:
@@ -88,7 +89,7 @@ class ResidualDetector:
         """Emit alert if entropy stays high."""
         if self._high_residual_count >= RESIDUAL_STABLE_HIGH_N:
             logger.warning("HIGH RESIDUAL DETECTED: %.2f (entropy stable)", value)
-            await get_core_bus().emit(
+            await self._bus.emit(
                 Event.typed(
                     CoreEvent.RESIDUAL_HIGH,
                     payload={"residual": value, "count": self._high_residual_count},
