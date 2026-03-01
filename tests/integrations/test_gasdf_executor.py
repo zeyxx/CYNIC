@@ -19,7 +19,7 @@ class TestGASdfExecutor:
         return AsyncMock(spec=GASdfClient)
 
     async def test_execute_approved_verdict(self, mock_client: AsyncMock) -> None:
-        """Test execution flow for APPROVED verdict."""
+        """Test execution flow for HOWL verdict (strong approval)."""
         # Setup mock responses
         mock_quote = GASdfQuote(
             quote_id="q123",
@@ -37,7 +37,7 @@ class TestGASdfExecutor:
         executor = GASdfExecutor(mock_client)
         result = await executor.execute_verdict(
             proposal_id="prop_1",
-            verdict="APPROVED",
+            verdict="HOWL",
             community_id="com_1",
             payment_token="usdc",
             user_pubkey="user_pub",
@@ -55,7 +55,7 @@ class TestGASdfExecutor:
     async def test_execute_tentative_approve_verdict(
         self, mock_client: AsyncMock
     ) -> None:
-        """Test execution flow for TENTATIVE_APPROVE verdict."""
+        """Test execution flow for WAG verdict (mild approval)."""
         mock_quote = GASdfQuote(
             quote_id="q456",
             payment_token="usdc",
@@ -72,7 +72,7 @@ class TestGASdfExecutor:
         executor = GASdfExecutor(mock_client)
         result = await executor.execute_verdict(
             proposal_id="prop_2",
-            verdict="TENTATIVE_APPROVE",
+            verdict="WAG",
             community_id="com_1",
             payment_token="usdc",
             user_pubkey="user_pub",
@@ -85,11 +85,11 @@ class TestGASdfExecutor:
         assert result.status == "pending"
 
     async def test_skip_caution_verdict(self, mock_client: AsyncMock) -> None:
-        """Test that CAUTION verdicts are not executed."""
+        """Test that GROWL verdicts are not executed."""
         executor = GASdfExecutor(mock_client)
         result = await executor.execute_verdict(
             proposal_id="prop_3",
-            verdict="CAUTION",
+            verdict="GROWL",
             community_id="com_1",
             payment_token="usdc",
             user_pubkey="user_pub",
