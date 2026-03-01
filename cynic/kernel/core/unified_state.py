@@ -7,6 +7,7 @@ Enforces Ï†-bounds and allows extra metadata for topological flexibility.
 
 from __future__ import annotations
 
+import dataclasses
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -90,32 +91,62 @@ class UnifiedLearningOutcome:
     timestamp: float = field(default_factory=time.time)
 
 
-class ValueCreation(UnifiedModel):
-    """Phase 3: Immutable record of a value-creating event."""
+@dataclass(frozen=True)
+class ValueCreation:
+    """Phase 3: Immutable record of a value-creating event.
+
+    Frozen=True: Cannot be modified after creation.
+    Use evolve() method to create updated instances.
+    """
 
     creation_id: str
     creator_id: str
     creation_type: str
     description: str
-    timestamp: float = Field(default_factory=time.time)
+    timestamp: float = field(default_factory=time.time)
     direct_impact: float = 0.0
     indirect_impact: float = 0.0
     collective_impact: float = 0.0
     temporal_impact: float = 0.0
 
+    def evolve(self, **kwargs) -> ValueCreation:
+        """Create new instance with updated fields."""
+        return dataclasses.replace(self, **kwargs)
 
-class ImpactMeasurement(UnifiedModel):
-    """Phase 3: Computed impact metrics."""
+
+@dataclass(frozen=True)
+class ImpactMeasurement:
+    """Phase 3: Computed impact metrics.
+
+    Frozen=True: Cannot be modified after creation.
+    Use evolve() method to create updated instances.
+    """
 
     human_id: str
     total_impact: float
-    dimension_scores: dict[str, float] = Field(default_factory=dict)
+    dimension_scores: dict[str, float] = field(default_factory=dict)
     governance_weight: float = 0.01
-    timestamp: float = Field(default_factory=time.time)
+    timestamp: float = field(default_factory=time.time)
+
+    def __post_init__(self):
+        """Wrap dimension_scores in MappingProxyType for deep immutability."""
+        if self.dimension_scores and not isinstance(self.dimension_scores, MappingProxyType):
+            object.__setattr__(self, "dimension_scores", MappingProxyType(self.dimension_scores))
+        elif not self.dimension_scores:
+            object.__setattr__(self, "dimension_scores", MappingProxyType({}))
+
+    def evolve(self, **kwargs) -> ImpactMeasurement:
+        """Create new instance with updated fields."""
+        return dataclasses.replace(self, **kwargs)
 
 
-class GovernanceCommunity(UnifiedModel):
-    """Immutable record of a community."""
+@dataclass(frozen=True)
+class GovernanceCommunity:
+    """Immutable record of a community.
+
+    Frozen=True: Cannot be modified after creation.
+    Use evolve() method to create updated instances.
+    """
 
     community_id: str
     name: str
@@ -126,11 +157,20 @@ class GovernanceCommunity(UnifiedModel):
     threshold_pct: float = 50.0
     gasdf_enabled: bool = True
     near_address: str | None = None
-    created_at: float = Field(default_factory=time.time)
+    created_at: float = field(default_factory=time.time)
+
+    def evolve(self, **kwargs) -> GovernanceCommunity:
+        """Create new instance with updated fields."""
+        return dataclasses.replace(self, **kwargs)
 
 
-class GovernanceProposal(UnifiedModel):
-    """Immutable record of a governance proposal."""
+@dataclass(frozen=True)
+class GovernanceProposal:
+    """Immutable record of a governance proposal.
+
+    Frozen=True: Cannot be modified after creation.
+    Use evolve() method to create updated instances.
+    """
 
     proposal_id: str
     community_id: str
@@ -139,23 +179,36 @@ class GovernanceProposal(UnifiedModel):
     description: str
     category: str
     status: str = "PENDING"
-    created_at: float = Field(default_factory=time.time)
+    created_at: float = field(default_factory=time.time)
     voting_end: float = 0.0
     yes_votes: float = 0.0
     no_votes: float = 0.0
     judgment_id: str | None = None
     verdict: str | None = None
 
+    def evolve(self, **kwargs) -> GovernanceProposal:
+        """Create new instance with updated fields."""
+        return dataclasses.replace(self, **kwargs)
 
-class GovernanceVote(UnifiedModel):
-    """Immutable record of a user vote."""
+
+@dataclass(frozen=True)
+class GovernanceVote:
+    """Immutable record of a user vote.
+
+    Frozen=True: Cannot be modified after creation.
+    Use evolve() method to create updated instances.
+    """
 
     vote_id: str
     proposal_id: str
     voter_id: str
     choice: str
     weight: float = 1.0
-    timestamp: float = Field(default_factory=time.time)
+    timestamp: float = field(default_factory=time.time)
+
+    def evolve(self, **kwargs) -> GovernanceVote:
+        """Create new instance with updated fields."""
+        return dataclasses.replace(self, **kwargs)
 
 
 # â”€â”€ Buffers â”€â”€
@@ -212,6 +265,8 @@ class ProposalBuffer(BaseModel):
 class UnifiedConsciousState(BaseModel):
     """Consolidated state of CYNIC's consciousness."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     recent_judgments: JudgmentBuffer = Field(default_factory=JudgmentBuffer)
     learning_outcomes: OutcomeBuffer = Field(default_factory=OutcomeBuffer)
     value_creations: ValueBuffer = Field(default_factory=ValueBuffer)
@@ -221,9 +276,9 @@ class UnifiedConsciousState(BaseModel):
     total_judgments: int = 0
     dog_agreement_scores: dict[int, float] = Field(default_factory=dict)
     consciousness_level: str = "REFLEX"
-    active_axioms: list[str] = Field(default_factory=list)
+    active_axioms: tuple[str, ...] = Field(default_factory=tuple)
     emergent_states: dict[str, bool] = Field(default_factory=dict)
-    activation_log: list[dict] = Field(default_factory=list)
+    activation_log: tuple[dict, ...] = Field(default_factory=tuple)
 
     @field_validator("dog_agreement_scores", mode="before")
     @classmethod
@@ -231,6 +286,7 @@ class UnifiedConsciousState(BaseModel):
         """Validate that all dog agreement scores are in [0.0, 1.0]."""
         if v is None:
             return {}
+
         for dog_id, score in v.items():
             if not isinstance(score, int | float):
                 raise ValueError(f"Dog {dog_id} score must be numeric, got {type(score)}")
@@ -249,6 +305,34 @@ class UnifiedConsciousState(BaseModel):
             return 0.0
         scores = list(self.dog_agreement_scores.values())
         return sum(scores) / len(scores)
+
+    def update_dog_agreement_score(self, dog_id: int, score: float) -> None:
+        """Update a dog agreement score.
+
+        Note: This mutates the dict. For true immutability, phase 3 will convert
+        to a fully immutable pattern with evolve() methods.
+        """
+        if not (0.0 <= score <= 1.0):
+            raise ValueError(f"Dog agreement score must be in [0.0, 1.0], got {score}")
+
+        self.dog_agreement_scores[dog_id] = score
+
+    def add_axiom(self, axiom: str) -> None:
+        """Add active axiom immutably (creates new tuple)."""
+        if axiom not in self.active_axioms:
+            self.active_axioms = self.active_axioms + (axiom,)
+
+    def set_emergent_state(self, key: str, value: bool) -> None:
+        """Set emergent state.
+
+        Note: This mutates the dict. For true immutability, phase 3 will convert
+        to a fully immutable pattern with evolve() methods.
+        """
+        self.emergent_states[key] = value
+
+    def log_activation(self, log_entry: dict) -> None:
+        """Add to activation log immutably (creates new tuple)."""
+        self.activation_log = self.activation_log + (log_entry,)
 
     def add_judgment(self, j: UnifiedJudgment):
         self.recent_judgments.add(j)

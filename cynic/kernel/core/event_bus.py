@@ -92,8 +92,9 @@ Handler = Callable[[Event], Coroutine[Any, Any, None]]
 _buses: dict[str, EventBus] = {}
 
 class EventBus:
-    def __init__(self, bus_id: str):
+    def __init__(self, bus_id: str, instance_id: str | None = None):
         self.bus_id = bus_id
+        self.instance_id = instance_id or "unknown"
         self._handlers: dict[str, list[Handler]] = defaultdict(list)
         self._pending_tasks: set[asyncio.Task] = set()
         self._handler_timeout_s: float = 30.0
@@ -184,13 +185,23 @@ class EventBus:
         }
 
 def get_bus(bus_id: str, instance_id: str | None = None) -> EventBus:
+    """
+    Retrieve an isolated event bus.
+    Requires an explicit instance_id or an active task context via ContextVar.
+    """
     target_id = instance_id or current_instance_id.get()
+    if target_id is None:
+        raise RuntimeError(
+            f"EventBus '{bus_id}' requested without instance context. "
+            "Pass instance_id or set current_instance_id ContextVar."
+        )
     key = f"{target_id}:{bus_id}"
     if key not in _buses:
-        _buses[key] = EventBus(bus_id=key)
+        _buses[key] = EventBus(bus_id=key, instance_id=target_id)
     return _buses[key]
 
 def get_core_bus(instance_id: str | None = None) -> EventBus:
+    """Get the core nervous system bus."""
     return get_bus("CORE", instance_id)
 
 def get_automation_bus(instance_id: str | None = None) -> EventBus:

@@ -1,10 +1,10 @@
 """
-CYNIC Configuration â€” Single Source of Truth
+CYNIC Configuration — Single Source of Truth
 
 ALL environment variables read here. No os.getenv() anywhere else.
 Validation catches insecure defaults and missing backends.
 
-Ï†-Law: VERIFY â€” one truth, no scattered defaults.
+φ-Law: VERIFY — one truth, no scattered defaults.
 """
 
 from __future__ import annotations
@@ -34,46 +34,48 @@ class CynicConfig:
                 logger.warning(issue)
     """
 
-    # â”€â”€ Storage: SurrealDB (primary) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # —— Storage: SurrealDB (primary) ──────────────────────────────────────────
     surreal_url: str | None = None
     surreal_user: str = "root"
     surreal_pass: str = "local_dev_only"
     surreal_ns: str = "cynic"
     surreal_db: str = "cynic"
 
-    # â”€â”€ Storage: PostgreSQL (fallback) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # —— Storage: PostgreSQL (fallback) ────────────────────────────────────────
     database_url: str | None = None
 
-    # â”€â”€ LLM: Multi-Model Symbiosis (Dynamic Routing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # —— LLM: Multi-Model Symbiosis (Dynamic Routing) ──────────────────────────
     # CYNIC discovers its capabilities purely from the environment.
     # No hardcoded names allowed.
     llm_primary_model: str | None = None
     llm_fast_model: str | None = None
     llm_local_model: str | None = None
     
-    # â”€â”€ LLM: Operator Overrides â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # —— LLM: Operator Overrides ──────────────────────────────────────────────
     force_slow_mode: bool = False # If True, always use primary model regardless of cost/speed
     
-    # â”€â”€ LLM: API Keys â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # —— LLM: API Keys ────────────────────────────────────────────────────────
     anthropic_api_key: str | None = None
     google_api_key: str | None = None
 
-    # â”€â”€ LLM: Local inference (llama.cpp / Ollama) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # —— LLM: Local inference (llama.cpp / Ollama) ────────────────────────────
     ollama_url: str = "http://localhost:11434"
     models_dir: str | None = None
     llama_gpu_layers: int = -1
     llama_threads: int = 8
     ollama_num_parallel: int | None = None
 
-    # â”€â”€ GASdf: Governance (On-chain execution) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # —— GASdf: Governance (On-chain execution) ───────────────────────────────
     gasdf_url: str = "http://localhost:8766"
     gasdf_enabled: bool = False
 
-    # â”€â”€ Runtime â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # —— Runtime ──────────────────────────────────────────────────────────────
     port: int = 8765
     log_level: str = "INFO"
+    knet_host: str = "::"
+    knet_port: int = 58766
 
-    # â”€â”€ Thresholds (Ï†-derived, should rarely change) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # —— Thresholds (φ-derived, should rarely change) ─────────────────────────
     max_confidence: float = 0.618
     residual_threshold: float = 0.382
 
@@ -136,7 +138,7 @@ class CynicConfig:
         has_any_llm = bool(self.anthropic_api_key or self.google_api_key or self.models_dir)
         if not has_any_llm:
             issues.append(
-                "INFO: No API keys or local models configured â€” "
+                "INFO: No API keys or local models configured — "
                 "Ollama-only mode (will use heuristic fallback if Ollama is down)"
             )
 

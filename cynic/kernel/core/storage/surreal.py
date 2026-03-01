@@ -1,5 +1,5 @@
 """
-CYNIC SurrealDB Storage â€” AsyncSurreal + Ï†-aligned multi-model DB
+CYNIC SurrealDB Storage — AsyncSurreal + φ-aligned multi-model DB
 
 Why SurrealDB over PostgreSQL:
   - SCHEMALESS records: no migrations when schema evolves
@@ -19,7 +19,7 @@ Auth:
   SURREAL_NS   = cynic
   SURREAL_DB   = cynic
 
-Ï†-Laws obeyed:
+φ-Laws obeyed:
   - SCHEMALESS = BURN (don't over-engineer fixed schemas)
   - HNSW cosine = PHI (geometric similarity, not Euclidean noise)
   - Single connection = VERIFY (one truth, no pool state drift)
@@ -28,12 +28,9 @@ Auth:
 from __future__ import annotations
 
 import logging
-import os
 import time
 import uuid
-from typing import Any
-
-import httpx
+from typing import Any, TYPE_CHECKING
 
 from cynic.kernel.core.formulas import ACT_LOG_CAP
 from cynic.kernel.core.storage.interface import (
@@ -50,15 +47,16 @@ from cynic.kernel.core.storage.interface import (
     StorageInterface,
 )
 
+if TYPE_CHECKING:
+    from cynic.kernel.core.config import CynicConfig
+
 logger = logging.getLogger("cynic.storage.surreal")
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# SCHEMA â€” SurrealQL (SCHEMALESS + indexes)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═ SCHEMA — SurrealQL (SCHEMALESS + indexes) ═════════════════════════════════
 
 _SCHEMA_STATEMENTS = [
-    # Tables â€” SCHEMALESS means fields can vary without ALTER TABLE
+    # Tables — SCHEMALESS means fields can vary without ALTER TABLE
     "DEFINE TABLE IF NOT EXISTS judgment SCHEMALESS",
     "DEFINE TABLE IF NOT EXISTS cell SCHEMALESS",
     "DEFINE TABLE IF NOT EXISTS q_entry SCHEMALESS",
@@ -72,7 +70,7 @@ _SCHEMA_STATEMENTS = [
     "DEFINE TABLE IF NOT EXISTS action_proposal SCHEMALESS",
     "DEFINE TABLE IF NOT EXISTS dog_soul SCHEMALESS",
     "DEFINE TABLE IF NOT EXISTS axiom_facet SCHEMALESS",
-    # Indexes â€” optimize common query paths
+    # Indexes — optimize common query paths
     "DEFINE INDEX IF NOT EXISTS idx_judgment_reality ON judgment FIELDS reality",
     "DEFINE INDEX IF NOT EXISTS idx_judgment_verdict ON judgment FIELDS verdict",
     "DEFINE INDEX IF NOT EXISTS idx_judgment_created ON judgment FIELDS created_at",
@@ -82,7 +80,7 @@ _SCHEMA_STATEMENTS = [
     "DEFINE INDEX IF NOT EXISTS idx_sdk_created ON sdk_session FIELDS created_at",
     "DEFINE INDEX IF NOT EXISTS idx_residual_observed ON residual FIELDS observed_at",
     "DEFINE INDEX IF NOT EXISTS idx_scholar_created ON scholar FIELDS created_at",
-    # HNSW vector index â€” cosine similarity for Scholar semantic search
+    # HNSW vector index — cosine similarity for Scholar semantic search
     "DEFINE INDEX IF NOT EXISTS idx_scholar_vec ON scholar FIELDS embedding HNSW DIMENSION 768 DIST COSINE",
     "DEFINE INDEX IF NOT EXISTS idx_action_status ON action_proposal FIELDS status",
     "DEFINE INDEX IF NOT EXISTS idx_dog_soul_id ON dog_soul FIELDS dog_id UNIQUE",
@@ -114,9 +112,7 @@ def _rows(result: Any) -> list[dict]:
     return []
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# REPOSITORIES
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═ REPOSITORIES ═════════════════════════════════════════════════════════════
 
 
 class JudgmentRepo(JudgmentRepoInterface):
@@ -210,7 +206,7 @@ class QTableRepo(QTableRepoInterface):
         return {r["action"]: float(r["q_value"]) for r in _rows(result)}
 
     async def get_all(self) -> list[dict[str, Any]]:
-        """Return all Q-entries â€” used for warm-start."""
+        """Return all Q-entries — used for warm-start."""
         result = await self._db.query("SELECT state_key, action, q_value, visit_count FROM q_entry")
         return _rows(result)
 
@@ -388,7 +384,7 @@ class ScholarRepo(ScholarRepoInterface):
         )
 
     async def recent_entries(self, limit: int = ACT_LOG_CAP) -> list[dict[str, Any]]:
-        # Default: ACT_LOG_CAP (F(11)=89) â€” keep last 89 scholar entries
+        # Default: ACT_LOG_CAP (F(11)=89) — keep last 89 scholar entries
         result = await self._db.query(
             "SELECT cell_id, cell_text, q_score, reality, ts "
             "FROM scholar ORDER BY created_at DESC LIMIT $n",
@@ -403,7 +399,7 @@ class ScholarRepo(ScholarRepoInterface):
         limit: int = 10,
         min_similarity: float = 0.38,
     ) -> list[dict[str, Any]]:
-        """Native HNSW cosine search â€” replaces Python cosine loop."""
+        """Native HNSW cosine search — replaces Python cosine loop."""
         result = await self._db.query(
             "SELECT cell_id, cell_text, q_score, reality, ts, "
             "vector::similarity::cosine(embedding, $q) AS similarity "
@@ -517,9 +513,7 @@ class AxiomFacetRepo(AxiomFacetRepoInterface):
         return _rows(result)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# STORAGE FACADE â€” one object, all repos
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ═ STORAGE FACADE — one object, all repos ═══════════════════════════════════
 
 
 class SurrealStorage(StorageInterface):
@@ -530,7 +524,7 @@ class SurrealStorage(StorageInterface):
     Replaces asyncpg + qdrant + ~/.cynic/*.json files.
 
     Usage:
-        storage = await SurrealStorage.create()
+        storage = await SurrealStorage.create(config)
         await storage.judgments.save(judgment_dict)
         q = await storage.qtable.get("CODE:JUDGE:PRESENT:1", "WAG")
         await storage.close()
@@ -567,31 +561,20 @@ class SurrealStorage(StorageInterface):
         self._axiom_facets = AxiomFacetRepo(self._db)
 
     @classmethod
-    def from_env(cls) -> SurrealStorage:
-        return cls(
-            url=os.environ.get("SURREAL_URL", "ws://localhost:8080/rpc"),
-            user=os.environ.get("SURREAL_USER", "root"),
-            password=os.environ.get("SURREAL_PASS", "local_dev_only"),
-            namespace=os.environ.get("SURREAL_NS", "cynic"),
-            database=os.environ.get("SURREAL_DB", "cynic"),
-        )
+    async def create(cls, config: CynicConfig) -> SurrealStorage:
+        """
+        Create and initialize a new storage instance.
+        Requires an explicit configuration object (No Singletons).
+        """
+        if not config.surreal_url:
+            raise ValueError("SurrealStorage requires surreal_url in config")
 
-    @classmethod
-    async def create(
-        cls,
-        url: str | None = None,
-        user: str | None = None,
-        password: str | None = None,
-        namespace: str | None = None,
-        database: str | None = None,
-    ) -> SurrealStorage:
-        """Factory: connect + create schema. Call once at startup."""
         storage = cls(
-            url=url or os.environ.get("SURREAL_URL", "ws://localhost:8080/rpc"),
-            user=user or os.environ.get("SURREAL_USER", "root"),
-            password=password or os.environ.get("SURREAL_PASS", "local_dev_only"),
-            namespace=namespace or os.environ.get("SURREAL_NS", "cynic"),
-            database=database or os.environ.get("SURREAL_DB", "cynic"),
+            url=config.surreal_url,
+            user=config.surreal_user,
+            password=config.surreal_pass,
+            namespace=config.surreal_ns,
+            database=config.surreal_db,
         )
         await storage.connect()
         await storage.create_schema()
@@ -602,7 +585,7 @@ class SurrealStorage(StorageInterface):
         await self._db.signin({"username": self._user, "password": self._password})
         await self._db.use(self._ns, self._db_name)
         logger.info(
-            "*sniff* SurrealDB connected: %s â†’ %s.%s",
+            "*sniff* SurrealDB connected: %s → %s.%s",
             self._url,
             self._ns,
             self._db_name,
@@ -622,7 +605,7 @@ class SurrealStorage(StorageInterface):
                 logger.error(f"❌ SurrealDB Schema Error in statement: {stmt[:50]}... | Error: {exc}")
         logger.info("*tail wag* SurrealDB schema ready (%d statements)", len(_SCHEMA_STATEMENTS))
 
-    # â”€â”€ Repository accessors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ═ Repository accessors ═════════════════════════════════════════════════
 
     @property
     def judgments(self) -> JudgmentRepo:
@@ -671,61 +654,3 @@ class SurrealStorage(StorageInterface):
             return True
         except Exception:
             return False
-
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# MODULE-LEVEL SINGLETON (Phase 1B: Wrapper for server.py bootstrap)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-_storage: SurrealStorage | None = None
-
-
-async def init_storage(
-    url: str | None = None,
-    user: str | None = None,
-    password: str | None = None,
-    namespace: str | None = None,
-    database: str | None = None,
-) -> SurrealStorage:
-    """Initialize module-level storage singleton."""
-    global _storage
-
-    if _storage is not None:
-        logger.warning("init_storage: already initialized, returning existing instance")
-        return _storage
-
-    _storage = await SurrealStorage.create(
-        url=url,
-        user=user,
-        password=password,
-        namespace=namespace,
-        database=database,
-    )
-    return _storage
-
-
-def get_storage() -> SurrealStorage:
-    """Retrieve module-level storage singleton."""
-    if _storage is None:
-        raise RuntimeError(
-            "SurrealStorage not initialized. Call init_storage() in lifespan startup first."
-        )
-    return _storage
-
-
-async def close_storage() -> None:
-    """Close module-level storage singleton."""
-    global _storage
-
-    if _storage is not None:
-        await _storage.close()
-        _storage = None
-        logger.info("*yawn* SurrealDB singleton closed")
-    else:
-        logger.debug("close_storage: no storage to close")
-
-
-def reset_storage() -> None:
-    """Reset module-level storage singleton (TEST ONLY)."""
-    global _storage
-    _storage = None

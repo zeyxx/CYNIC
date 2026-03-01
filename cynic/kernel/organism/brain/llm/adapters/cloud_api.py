@@ -16,12 +16,13 @@ logger = logging.getLogger("cynic.kernel.organism.brain.llm.cloud_api")
 
 
 class AnthropicAdapter(LLMAdapter):
-    def __init__(self, model: str = "claude-3-sonnet-20240229", api_key: str = None):
+    def __init__(self, model: str = "claude-3-sonnet-20240229", api_key: str | None = None):
         super().__init__(model=model, provider="anthropic")
-        self._key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+        self._key = api_key
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         if not self._key:
+            logger.error("AnthropicAdapter: No API Key provided.")
             return LLMResponse(
                 content="", model=self.model, provider="anthropic", error="No API Key"
             )
@@ -35,12 +36,13 @@ class AnthropicAdapter(LLMAdapter):
 
 
 class GeminiAdapter(LLMAdapter):
-    def __init__(self, model: str = "gemini-1.5-pro", api_key: str = None):
+    def __init__(self, model: str = "gemini-1.5-pro", api_key: str | None = None):
         super().__init__(model=model, provider="gemini")
-        self._key = api_key or os.environ.get("GOOGLE_API_KEY")
+        self._key = api_key
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         if not self._key:
+            logger.error("GeminiAdapter: No API Key provided.")
             return LLMResponse(content="", model=self.model, provider="gemini", error="No API Key")
         # Implementation logic here...
         return LLMResponse(content="Simulated Gemini Response", model=self.model, provider="gemini")

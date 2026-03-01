@@ -16,7 +16,7 @@ from cynic.kernel.core.container import get_container
 from cynic.kernel.core.convergence import ConvergenceValidator
 from cynic.kernel.core.escore import EScoreTracker
 from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
-from cynic.kernel.core.storage.surreal import init_storage
+from cynic.kernel.core.storage.surreal import SurrealStorage
 from cynic.kernel.core.topology.file_watcher import SourceWatcher
 from cynic.kernel.core.topology.topology_builder import IncrementalTopologyBuilder
 from cynic.kernel.core.world_model import WorldModelUpdater
@@ -43,7 +43,9 @@ from cynic.kernel.organism.metabolism.llm_router import LLMRouter
 from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
 from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
 from cynic.kernel.organism.sona_emitter import SonaEmitter
+from cynic.kernel.organism.state_manager import OrganismState
 from cynic.kernel.protocol.knet_server import KNetServer
+from cynic.kernel.core.storage.surreal import SurrealStorage
 from cynic.kernel.core.config import CynicConfig
 
 logger = logging.getLogger("cynic.kernel.organism.factory")
@@ -55,19 +57,17 @@ class _OrganismAwakener:
     def __init__(self, db_pool=None, registry=None):
         self.db_pool = db_pool
         self.registry = registry
-        from cynic.kernel.core.config import CynicConfig
-
         self.config = get_container().get(CynicConfig)
-        self.storage = None
+        self.storage: SurrealStorage | None = None
 
     async def build(self):
         """Assembles the 4 cores into a living Organism."""
         from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 
-        # 0. STORAGE (SurrealDB)
+        # 0. STORAGE (SurrealDB) - Isolated per instance config
         try:
-            self.storage = await init_storage()
-            logger.info("Factory: SurrealDB Storage linked.")
+            self.storage = await SurrealStorage.create(self.config)
+            logger.info(f"Factory: SurrealDB Storage linked to {self.config.surreal_db}")
         except Exception as e:
             logger.warning(f"Factory: SurrealDB not available, falling back to local memory: {e}")
 

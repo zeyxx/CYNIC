@@ -51,14 +51,13 @@ class HardwareBody:
     Pulls hardware metrics and injects them into the Organism's consciousness.
     """
 
-    def __init__(self, bus: Optional[EventBus] = None) -> None:
+    def __init__(self, bus: EventBus) -> None:
         from cynic.kernel.core.formulas import get_respiration_interval_s
 
         self.update_interval = get_respiration_interval_s()
         self._last_state: SomaticState | None = None
         self._start_time = time.time()
-        from cynic.kernel.core.event_bus import CoreEvent, Event
-        self._bus = bus or get_core_bus("DEFAULT")
+        self._bus = bus
         # Initial synchronous pulse to seed the state
         self._sync_pulse()
 
