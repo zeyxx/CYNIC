@@ -31,7 +31,7 @@ CONSCIOUSNESS_BLENDING_WEIGHTS = {
 }
 
 # Service Registry Judgment Log Cap (rolling window)
-SERVICE_REGISTRY_JUDGMENT_CAP = int(fibonacci(10))  # 55 judgments in rolling log
+SERVICE_REGISTRY_JUDGMENT_CAP = int(fibonacci(11))  # 89 judgments in rolling log
 
 # ════════════════════════════════════════════════════════════════════════════
 # 1. LATENCY BUDGETS (Time-to-Judgment)
@@ -102,7 +102,7 @@ ACT_LOG_CAP = fibonacci(11)  # 89
 EVENT_JOURNAL_CAP = fibonacci(12)  # 144
 DECISION_TRACE_CAP = fibonacci(10)  # 55
 LOOP_CLOSURE_CAP = fibonacci(8)  # 21
-SERVICE_REGISTRY_JUDGMENT_CAP = fibonacci(7)  # 13
+SERVICE_REGISTRY_JUDGMENT_CAP = fibonacci(11)  # 89
 
 # Monitoring and Health (Fibonacci-aligned)
 SIGNAL_TTL_SEC = fibonacci(10)  # 55s

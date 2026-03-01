@@ -73,14 +73,14 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
     """
     state = container.organism
     consciousness = get_consciousness()
-    judge_stats = state.orchestrator.stats()
-    learn_stats = state.qtable.stats()
+    judge_stats = state.cognition.orchestrator.stats()
+    learn_stats = state.cognition.qtable.stats()
 
-    sched_stats = state.scheduler.stats()
+    sched_stats = state.metabolism.scheduler.stats()
 
     # Determine status
     status = "alive"
-    if not state.learning_loop._active:
+    if not state.cognition.learning_loop._active:
         status = "degraded"
 
     # T02: check SurrealDB singleton status (no I/O — just checks if initialized)
@@ -101,7 +101,7 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
         dogs=[str(d) for d in state.dogs.keys()],
 
         learning={
-            "active": state.learning_loop._active,
+            "active": state.cognition.learning_loop._active,
             "states": learn_stats["states"],
             "total_updates": learn_stats["total_updates"],
             "pending_flush": learn_stats["pending_flush"],
@@ -125,11 +125,11 @@ async def stats(container: AppContainer = Depends(get_app_container)) -> StatsRe
     consciousness = get_consciousness()
 
     return StatsResponse(
-        judgments=state.orchestrator.stats(),
-        learning=state.qtable.stats(),
-        top_states=state.qtable.top_states(n=10),
+        judgments=state.cognition.orchestrator.stats(),
+        learning=state.cognition.qtable.stats(),
+        top_states=state.cognition.qtable.top_states(n=10),
         consciousness=consciousness.model_dump(),
-        compressor=state.context_compressor.stats(),
+        compressor=state.senses.context_compressor.stats(),
     )
 
 
@@ -288,9 +288,9 @@ async def health_full(container: AppContainer = Depends(get_app_container)) -> d
         # Learning metrics
         learning_stats = {}
         try:
-            learn_stats = state.qtable.stats()
+            learn_stats = state.cognition.qtable.stats()
             learning_stats = {
-                "active": state.learning_loop._active,
+                "active": state.cognition.learning_loop._active,
                 "q_table_size": learn_stats.get("states", 0),
                 "total_entries": learn_stats.get("entries", 0),
                 "total_updates": learn_stats.get("total_updates", 0),
@@ -394,7 +394,7 @@ async def health_ready(
                 llm_ok = False
 
             dogs_ok = len(state.dogs) > 0
-            learning_ok = state.learning_loop._active
+            learning_ok = state.cognition.learning_loop._active
             consciousness_ok = get_consciousness() is not None
 
             all_ready = db_ok and llm_ok and dogs_ok and consciousness_ok

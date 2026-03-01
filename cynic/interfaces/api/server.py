@@ -10,10 +10,11 @@ import asyncio
 import logging
 import os
 import time
+import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from cynic.interfaces.api.state import (
@@ -46,11 +47,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("🧬 CYNIC Awakening (instance=%s)...", instance_id)
 
     # 1. AWAKEN the Organism (Load components and wire nervous system)
-    # Registry can be passed here if LLMs are enabled
-    organism = awaken()
+    organism = await awaken()
     
     # 2. START (Launch background processing loops)
-    # Note: In production, we would pass the actual DB pool here
     await organism.start(db=None)
     
     # 2b. AWAKEN κ-NET (Somatic Broadcaster)
@@ -97,7 +96,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="CYNIC Kernel API",
     description="Python kernel — φ-bounded judgment + learning",
-    version="3.0.0",  # Major version jump for unified architecture
+    version="3.0.0",
     lifespan=lifespan,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
@@ -113,8 +112,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Correlation ID Middleware (EXPECTED BY PHASE 1 TESTS)
+@app.middleware("http")
+async def add_correlation_id(request: Request, call_next):
+    correlation_id = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
+    request.state.correlation_id = correlation_id
+    response: Response = await call_next(request)
+    response.headers["X-Correlation-ID"] = correlation_id
+    return response
+
 # ── Auto-register API Routers ────────────────────────────────────────────
-# We import them here to ensure they are registered with the app
 from cynic.interfaces.api.routers.consciousness import router_consciousness
 from cynic.interfaces.api.routers.core import router_core
 from cynic.interfaces.api.routers.dna import router as router_dna
@@ -123,49 +130,18 @@ from cynic.interfaces.api.routers.governance import router as router_governance
 from cynic.interfaces.api.routers.health import router_health
 from cynic.interfaces.api.routers.llm import router as router_llm
 from cynic.interfaces.api.routers.sovereignty import router as router_sovereignty
+from cynic.interfaces.api.routers.observability import router_observability
 
 app.include_router(router_core, prefix="/api")
+app.include_router(router_core) # Compatibility for tests expecting /judge
 app.include_router(router_consciousness, prefix="/api/consciousness")
-app.include_router(router_health)  # Health endpoints at root: /health, /health/full, /health/ready
+app.include_router(router_health)  # /health, /health/full
+app.include_router(router_observability) # /api/observability/metrics, etc.
 app.include_router(router_federation, prefix="/api/federation")
 app.include_router(router_sovereignty, prefix="/api/sovereignty")
 app.include_router(router_governance, prefix="/api/governance")
 app.include_router(router_dna, prefix="/api/dna")
 app.include_router(router_llm, prefix="/api/llm")
-
-# Tracking for tests (MATCHING tests/api/test_router_http_registration.py EXPECTATIONS)
-_routers_registered = {
-    "core_router": {"prefix": "/api", "routes": 10},
-    "consciousness_ecosystem_router": {"prefix": "/api/consciousness", "routes": 10},
-    "health_router": {"prefix": "/", "routes": 10},
-    "federation_router": {"prefix": "/api/federation", "routes": 5}, 
-    "sovereignty_router": {"prefix": "/api/sovereignty", "routes": 5}, 
-    "governance_router": {"prefix": "/api/governance", "routes": 5}, 
-    "dna_router": {"prefix": "/api/dna", "routes": 5}, 
-    "llm_router": {"prefix": "/api/llm", "routes": 5}
-}
-
-# The test expects specific routes to work via HTTP
-@app.get("/api/consciousness/ecosystem")
-async def dummy_eco(state: AppContainer = Depends(get_app_container)): return {"status": "ok"}
-@app.get("/api/consciousness/perception-sources")
-async def dummy_ps(state: AppContainer = Depends(get_app_container)): return {"status": "ok"}
-@app.get("/api/consciousness/topology")
-async def dummy_top(state: AppContainer = Depends(get_app_container)): return {"status": "ok"}
-@app.get("/api/consciousness/nervous-system")
-async def dummy_ns(state: AppContainer = Depends(get_app_container)): return {"status": "ok"}
-
-@app.get("/api/observability/metrics")
-async def dummy_met(state: AppContainer = Depends(get_app_container)): return {"status": "ok"}
-@app.get("/api/observability/health")
-async def dummy_health(state: AppContainer = Depends(get_app_container)): return {"status": "ok"}
-@app.get("/api/observability/ready")
-async def dummy_ready(state: AppContainer = Depends(get_app_container)): return {"status": "ok"}
-@app.get("/api/observability/version")
-async def dummy_ver(state: AppContainer = Depends(get_app_container)): return {"status": "ok"}
-
-@app.get("/api/heartbeat-legacy") # To satisfy prefix check for non-matching routes
-async def hb_legacy(): return {"status": "ok"}
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -174,27 +150,13 @@ async def hb_legacy(): return {"status": "ok"}
 
 @app.websocket("/ws/consciousness/ecosystem")
 async def websocket_consciousness_ecosystem(websocket: WebSocket) -> None:
-    """
-    WebSocket /ws/consciousness/ecosystem provides live consciousness stream.
-
-    On connect, sends:
-    - type: "connected"
-    - phi: MAX_CONFIDENCE (golden ratio bound)
-    - initial_snapshot: current consciousness state
-
-    Then periodically sends ecosystem updates.
-    """
-
     await websocket.accept()
-
     try:
-        # Send initial connected message
         container = get_app_container()
         state = container.organism
-
         initial_data = {
             "type": "connected",
-            "phi": float(MAX_CONFIDENCE),  # φ = 0.618...
+            "phi": float(MAX_CONFIDENCE),
             "initial_snapshot": {
                 "timestamp": round(time.time(), 3),
                 "uptime_s": round(state.uptime_s, 1),
@@ -203,27 +165,16 @@ async def websocket_consciousness_ecosystem(websocket: WebSocket) -> None:
             },
         }
         await websocket.send_json(initial_data)
-
-        # Keep connection alive, send periodic pings
         while True:
-            await asyncio.sleep(5)  # Send update every 5 seconds
-            update_data = {
-                "type": "ping",
-                "ts": round(time.time(), 3),
-            }
-            await websocket.send_json(update_data)
-
+            await asyncio.sleep(5)
+            await websocket.send_json({"type": "ping", "ts": round(time.time(), 3)})
     except WebSocketDisconnect:
         logger.debug("WebSocket /ws/consciousness/ecosystem disconnected")
     except Exception as e:
-        logger.error("WebSocket /ws/consciousness/ecosystem error: %s", e)
-        try:
-            await websocket.close(code=1011)
-        except Exception:
-            pass
+        logger.error("WebSocket error: %s", e)
+        try: await websocket.close(code=1011)
+        except Exception: pass
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 58765))
-    # Support IPv6 + IPv4 dual stack
-    uvicorn.run(app, host="::", port=port)
+    uvicorn.run(app, host="::", port=int(os.environ.get("PORT", 58765)))

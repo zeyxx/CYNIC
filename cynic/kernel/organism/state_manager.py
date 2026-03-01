@@ -44,8 +44,8 @@ class StateLayer(Enum):
 class StateUpdate:
     key: str
     value: Any
-    layer: StateLayer
-    source: str
+    layer: StateLayer = StateLayer.MEMORY
+    source: str = "internal"
     timestamp: float = field(default_factory=time.time)
 
 
@@ -157,10 +157,23 @@ class OrganismState:
 
         # Drain EventBus (nervous system)
         from cynic.kernel.core.event_bus import get_core_bus
-
         await get_core_bus().drain(timeout=1.0)
 
         logger.info("OrganismState processing stopped")
+
+    # ── Track E: Polling Support ────────────────────────────────────────
+
+    async def record_pending_judgment(self, judgment_id: str) -> None:
+        """Record a judgment ID as pending (Track E)."""
+        await self.update(
+            key=f"judgment:{judgment_id}:status",
+            value="PENDING",
+            source="api"
+        )
+
+    def get_judgment_status(self, judgment_id: str) -> str:
+        """Retrieve status of a judgment (PENDING/COMPLETED/etc)."""
+        return self.query(f"judgment:{judgment_id}:status", default="UNKNOWN")
 
     # ── CORE OPERATIONS ─────────────────────────────────────────────────
 
@@ -189,10 +202,7 @@ class OrganismState:
         """Record a judgment in consciousness and queue for persistence."""
         if not isinstance(judgment, UnifiedJudgment):
             if isinstance(judgment, dict):
-                # Convert dict to UnifiedJudgment (dataclass, not Pydantic)
-                # Filter dict to only include fields that UnifiedJudgment expects
                 import dataclasses
-
                 unified_fields = {f.name for f in dataclasses.fields(UnifiedJudgment)}
                 filtered_dict = {k: v for k, v in judgment.items() if k in unified_fields}
                 try:
@@ -212,6 +222,10 @@ class OrganismState:
         )
         await self.update(
             f"judg:record:{judgment.judgment_id}", judgment, layer=StateLayer.PERSISTENT
+        )
+        # Mark as completed for polling
+        await self.update(
+            f"judgment:{judgment.judgment_id}:status", "COMPLETED", layer=StateLayer.MEMORY
         )
 
     async def update_consciousness_level(self, level: str) -> None:
@@ -308,6 +322,8 @@ class OrganismState:
                 self._update_queue.task_done()
             except TimeoutError:
                 continue
+            except asyncio.CancelledError:
+                break
             except Exception as e:
                 logger.error("State Manager update error: %s", e)
 

@@ -18,8 +18,9 @@ from cynic.interfaces.api.server import app
 
 @pytest.fixture
 def client():
-    """FastAPI test client."""
-    return TestClient(app)
+    """FastAPI test client with lifespan support."""
+    with TestClient(app) as client:
+        yield client
 
 
 class TestMetricsEndpoint:

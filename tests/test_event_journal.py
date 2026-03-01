@@ -285,7 +285,7 @@ async def test_rolling_cap_behavior(journal):
     assert stats["total_recorded"] == JOURNAL_CAP + 10  # Total ever recorded
 
     # Oldest entries should be gone
-    recent = await journal.recent(limit=100)
+    recent = await journal.recent(limit=200)
     assert len(recent) == JOURNAL_CAP
 
     # Verify oldest are JOURNAL_CAP+10-89, JOURNAL_CAP+10-88, etc.

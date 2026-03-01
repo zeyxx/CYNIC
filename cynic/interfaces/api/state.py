@@ -79,16 +79,21 @@ class AppContainer:
 
 # Process-level singleton — set during lifespan startup
 _app_container: AppContainer | None = None
+container: AppContainer | None = None  # Global alias for test patching
 
 
 def set_app_container(c: AppContainer) -> None:
     """Set the app container during lifespan startup."""
-    global _app_container
+    global _app_container, container
     _app_container = c
+    container = c
 
 
 def get_app_container() -> AppContainer:
     """Get the app container (FastAPI dependency)."""
+    # Check global alias first (common for test patching)
+    if container is not None:
+        return container
     if _app_container is None:
         raise RuntimeError("AppContainer not initialized — lifespan not started")
     return _app_container
