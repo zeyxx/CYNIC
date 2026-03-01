@@ -59,6 +59,16 @@ def _format_openmetrics(metrics_data: dict) -> str:
             safe_name = event_type.replace(".", "_").replace("-", "_")
             lines.append(f'cynic_error_rate{{event_type="{safe_name}"}} {rate:.4f}')
 
+    # Latency histograms (5 LOD buckets)
+    if "histograms" in metrics_data:
+        lines.append("# HELP cynic_event_latency_seconds Event latency distribution")
+        lines.append("# TYPE cynic_event_latency_seconds histogram")
+        for event_type, buckets in metrics_data["histograms"].items():
+            safe_name = event_type.replace(".", "_").replace("-", "_")
+            # Output histogram buckets
+            for bucket_label, count in buckets.items():
+                lines.append(f'cynic_event_latency_seconds_bucket{{event_type="{safe_name}",le="{bucket_label}"}} {count}')
+
     # Anomaly count
     if "anomaly_count" in metrics_data:
         lines.append("# HELP cynic_anomalies_detected Total anomalies detected")
@@ -125,6 +135,11 @@ async def metrics(request: Request) -> Response:
                 }
                 metrics_data["error_rates"] = {
                     m.event_type: m.error_rate
+                    for m in all_metrics.values()
+                }
+                # Get histograms
+                metrics_data["histograms"] = {
+                    m.event_type: m.histogram
                     for m in all_metrics.values()
                 }
             except Exception as e:

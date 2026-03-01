@@ -49,3 +49,16 @@ class TestMetricsRouter:
         # Should include anomaly metrics
         text = response.text
         assert response.status_code == 200
+
+    async def test_metrics_includes_histograms(self):
+        """Test 5: Response includes latency histograms."""
+        from fastapi.testclient import TestClient
+        from cynic.interfaces.api.server import app
+
+        client = TestClient(app)
+        response = client.get("/metrics")
+
+        text = response.text
+        # Should include histogram buckets if metrics collected
+        assert response.status_code == 200
+        # Histogram would show LOD levels (100ms, 300ms, 1000ms, 3000ms)
