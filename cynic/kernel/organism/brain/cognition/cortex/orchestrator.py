@@ -55,7 +55,6 @@ from cynic.kernel.core.events_schema import (
     DecisionMadePayload,
 )
 from cynic.kernel.organism.brain.cognition.neurons.base import AbstractDog, DogJudgment, DogId
-from cynic.kernel.organism.brain.cognition.neurons.cynic_dog import CynicDog
 from cynic.kernel.organism.brain.cognition.cortex.circuit_breaker import CircuitBreaker, CircuitState
 from cynic.kernel.organism.brain.cognition.cortex.decision_validator import DecisionValidator, BlockedDecision
 from cynic.kernel.organism.brain.cognition.cortex.handlers import HandlerComposer
@@ -87,7 +86,7 @@ class JudgeOrchestrator:
         self,
         dogs: dict[str, AbstractDog],
         axiom_arch: AxiomArchitecture,
-        cynic_dog: CynicDog,
+        cynic_dog: AbstractDog,
         residual_detector=None,
         gasdf_executor=None,
     ) -> None:

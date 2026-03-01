@@ -15,8 +15,6 @@ from cynic.kernel.organism.anatomy import CognitionCore, MetabolicCore, SensoryC
 
 # All component imports
 from cynic.kernel.organism.brain.cognition.neurons.discovery import discover_dogs
-from cynic.kernel.organism.brain.cognition.neurons.cynic_dog import CynicDog
-from cynic.kernel.organism.brain.cognition.neurons.oracle import OracleDog
 from cynic.kernel.core.axioms import AxiomArchitecture
 from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningLoop
 from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
@@ -69,7 +67,7 @@ class _OrganismAwakener:
         
         # 1. BRAIN COMPONENTS
         self.qtable = QTable()
-        self.dogs = discover_dogs(ORACLE=OracleDog(qtable=self.qtable))
+        self.dogs = discover_dogs()  # Auto-discover available dogs
         cynic_dog = self.dogs.get("CYNIC")
         
         # Inject LLM Registry into dogs
