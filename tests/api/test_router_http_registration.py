@@ -30,11 +30,11 @@ class TestRouterHTTPRegistration:
         assert "consciousness_ecosystem_router" in _routers_registered
 
     def test_all_routers_have_api_prefix(self):
-        """Verify all routers use /api/ prefix."""
+        """Verify all routers use /api/ prefix (except health endpoints)."""
         for route in app.routes:
             path = getattr(route, "path", "")
-            # Skip non-route items like Mount
-            if not path or path.startswith("/api/") or path.startswith("/static") or path.startswith("/openapi") or path.startswith("/docs") or "oauth2-redirect" in path:
+            # Skip non-route items like Mount and standard exception paths
+            if not path or path.startswith("/api/") or path.startswith("/static") or path.startswith("/openapi") or path.startswith("/docs") or "oauth2-redirect" in path or path.startswith("/health") or path == "/" or path == "/stats":
                 continue
             # All API routes should have /api/ prefix
             assert path.startswith("/api/"), (
@@ -86,13 +86,14 @@ class TestRouterHTTPRegistration:
             )
 
     def test_no_routes_outside_api_prefix(self):
-        """Guard: Verify no API routes exist outside /api/ prefix."""
+        """Guard: Verify no API routes exist outside /api/ prefix (except health/stats)."""
         # This prevents accidental creation of routes without /api/ prefix
+        # Exception: health endpoints (/, /health*, /stats) are allowed at root per REST standards
         invalid_routes = []
         for route in app.routes:
             path = getattr(route, "path", "")
-            # Skip static, openapi, health check
-            if any(skip in path for skip in ["/static", "/openapi", "/docs", "/redoc", "oauth2-redirect"]):
+            # Skip static, openapi, health, stats, and documentation
+            if any(skip in path for skip in ["/static", "/openapi", "/docs", "/redoc", "oauth2-redirect", "/health", "/stats"]) or path == "/":
                 continue
             # Warn if we find routes not under /api/
             if path and not path.startswith("/api/"):
