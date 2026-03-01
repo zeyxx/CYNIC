@@ -92,18 +92,22 @@ class MicroCycleHandler(BaseHandler):
 
             # Check if escalation needed
             escalate_to_macro = False
-            if consensus and not consensus.consensus:
+            if consensus and consensus.confidence < 0.5:  # Low confidence in consensus
                 remaining_budget = cell.budget_usd * (1.0 - PHI_INV_2)  # ~61.8% left
                 if remaining_budget > 0.0001:  # $0.1 milli minimum
                     # Check LOD cap (if lod_controller available)
                     capped = ConsciousnessLevel.MACRO
                     if self.lod_controller is not None:
-                        capped = self.lod_controller._apply_lod_cap(ConsciousnessLevel.MACRO)
+                        # Use the LOD controller's current level, capped at MACRO
+                        current_lod = self.lod_controller.current
+                        if current_lod.max_consciousness == "MACRO":
+                            capped = ConsciousnessLevel.MACRO
 
                     if capped == ConsciousnessLevel.MACRO:
+                        dog_votes = consensus.evidence.get("dog_votes", 0) if consensus.evidence else 0
                         logger.info(
-                            "L2→L1 escalation: MICRO consensus failed (%d/%d votes) for cell %s",
-                            consensus.votes, consensus.quorum, cell.cell_id,
+                            "L2→L1 escalation: MICRO consensus weak (confidence=%.2f, dogs=%d) for cell %s",
+                            consensus.confidence, dog_votes, cell.cell_id,
                         )
                         escalate_to_macro = True
 

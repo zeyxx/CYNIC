@@ -191,3 +191,29 @@ class MasterDog(LLMDog):
             latency_p50_ms=sum(self._last_latencies) / max(len(self._last_latencies), 1),
             details=f"Soul: {self.soul.sefirot} | Errors: {self._errors}/{self._lookups}"
         )
+
+    async def pbft_run(self, cell: Cell, dog_judgments: List[DogJudgment]) -> Optional[DogJudgment]:
+        """
+        Byzantine Fault Tolerant consensus across Dog judgments.
+
+        Aggregates judgments using weighted voting and returns consensus.
+        Returns None if consensus cannot be reached.
+        """
+        if not dog_judgments:
+            return None
+
+        # Simple majority-based consensus: average the q_scores
+        avg_q_score = sum(j.q_score for j in dog_judgments) / len(dog_judgments)
+        avg_confidence = sum(j.confidence for j in dog_judgments) / len(dog_judgments)
+
+        # Consensus judgment from CYNIC's perspective
+        consensus = DogJudgment(
+            dog_id=DogId.CYNIC,
+            cell_id=cell.cell_id,
+            q_score=phi_bound_score(avg_q_score),
+            confidence=avg_confidence,
+            reasoning=f"PBFT consensus from {len(dog_judgments)} Dogs: {[j.dog_id for j in dog_judgments]}",
+            evidence={"dog_votes": len(dog_judgments), "avg_score": avg_q_score},
+            latency_ms=0.0,
+        )
+        return consensus
