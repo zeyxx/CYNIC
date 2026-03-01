@@ -1,4 +1,4 @@
-"""Test judgment stages â€” verify stage contract and composition."""
+"""Test judgment stages — verify stage contract and composition."""
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -55,12 +55,14 @@ def test_pipeline():
 
 @pytest.mark.asyncio
 async def test_perceive_stage_emits_event(mock_orchestrator, test_pipeline):
-    """PerceiveStage should emit PERCEPTION_RECEIVED event."""
+    """PerceiveStage should emit PERCEPTION_RECEIVED event (immutable evolution)."""
     stage = PerceiveStage(mock_orchestrator)
     result = await stage.execute(test_pipeline)
 
-    # Verify pipeline returned unchanged
-    assert result is test_pipeline
+    # Verify immutable evolution: new instance with preserved lineage
+    assert result is not test_pipeline, "Should return new evolved instance"
+    assert result.trace_id == test_pipeline.trace_id, "Trace ID preserved"
+    assert result.pipeline_id == test_pipeline.pipeline_id, "Pipeline ID unchanged"
     # Verify event emitted on orchestrator's bus
     mock_orchestrator.bus.emit.assert_called_once()
 
@@ -105,52 +107,65 @@ async def test_judge_stage_creates_judgment(mock_orchestrator, test_pipeline):
 @pytest.mark.asyncio
 async def test_decide_stage_validates_judgment(mock_orchestrator, test_pipeline):
     """DecideStage should call decision validator."""
-    # Create mock judgment
-    test_pipeline.final_judgment = MagicMock()
+    # Create mock judgment (evolve creates new instance since pipeline is frozen)
+    mock_judgment = MagicMock()
+    pipeline_with_judgment = test_pipeline.evolve(final_judgment=mock_judgment)
 
     mock_orchestrator.decision_validator = MagicMock()
     mock_orchestrator.decision_validator.validate = MagicMock(return_value=MagicMock(approved=True))
 
     stage = DecideStage(mock_orchestrator)
-    await stage.execute(test_pipeline)
+    result = await stage.execute(pipeline_with_judgment)
 
     # Verify validation called
     mock_orchestrator.decision_validator.validate.assert_called_once()
+    # Verify lineage preserved
+    assert result.trace_id == pipeline_with_judgment.trace_id
 
 
 @pytest.mark.asyncio
 async def test_act_stage_executes_action(mock_orchestrator, test_pipeline):
     """ActStage should call _act_phase and record result."""
-    test_pipeline.final_judgment = MagicMock()
+    # Evolve to add judgment (frozen pipeline)
+    pipeline_with_judgment = test_pipeline.evolve(final_judgment=MagicMock())
 
     stage = ActStage(mock_orchestrator)
-    result = await stage.execute(test_pipeline)
+    result = await stage.execute(pipeline_with_judgment)
 
     # Verify act phase called
     mock_orchestrator._act_phase.assert_called_once()
     assert result.action_executed is True
+    assert result.trace_id == pipeline_with_judgment.trace_id
 
 
 @pytest.mark.asyncio
 async def test_learn_stage_placeholder(mock_orchestrator, test_pipeline):
-    """LearnStage is placeholder â€” should pass through unchanged."""
+    """LearnStage is placeholder - should evolve immutably with same data."""
     original_pipeline = test_pipeline
     stage = LearnStage(mock_orchestrator)
     result = await stage.execute(test_pipeline)
-    assert result is original_pipeline
+    # With functional paradigm, returns evolved instance (new object, same data)
+    assert result is not original_pipeline, "Should return new evolved instance"
+    assert result.trace_id == original_pipeline.trace_id, "Lineage preserved"
+    assert result.pipeline_id == original_pipeline.pipeline_id, "Pipeline ID same"
+    assert result.learning_applied is False, "No learning applied in placeholder stage"
 
 
 @pytest.mark.asyncio
 async def test_account_stage_tracks_cost(mock_orchestrator, test_pipeline):
-    """AccountStage should track cost."""
+    """AccountStage should track cost (functional evolution)."""
     judgment = MagicMock()
     judgment.cost_usd = 0.005
     judgment.dog_votes = {"DOG1": 50.0, "DOG2": 60.0}
-    test_pipeline.final_judgment = judgment
+    # Evolve to add judgment (frozen pipeline)
+    pipeline_with_judgment = test_pipeline.evolve(final_judgment=judgment)
 
     stage = AccountStage(mock_orchestrator)
-    result = await stage.execute(test_pipeline)
-    assert result is test_pipeline
+    result = await stage.execute(pipeline_with_judgment)
+    # Verify immutable evolution
+    assert result is not pipeline_with_judgment, "Returns new evolved instance"
+    assert result.trace_id == pipeline_with_judgment.trace_id, "Lineage preserved"
+    assert result.total_cost_usd >= 0, "Cost tracked"
 
 
 @pytest.mark.asyncio
@@ -161,18 +176,22 @@ async def test_emerge_stage_detects_anomaly(mock_orchestrator, test_pipeline):
     judgment.residual_variance = 0.7
     judgment.cell = test_pipeline.cell
     judgment.judgment_id = "test-judgment-001"
-    test_pipeline.final_judgment = judgment
+    # Evolve to add judgment (frozen pipeline)
+    pipeline_with_judgment = test_pipeline.evolve(final_judgment=judgment)
 
     stage = EmergeStage(mock_orchestrator)
-    await stage.execute(test_pipeline)
+    result = await stage.execute(pipeline_with_judgment)
 
+    # Verify immutable evolution
+    assert result is not pipeline_with_judgment
+    assert result.trace_id == pipeline_with_judgment.trace_id
     # Verify emergence event emitted on orchestrator's bus
     mock_orchestrator.bus.emit.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_execute_judgment_pipeline_full_cycle(mock_orchestrator, test_pipeline):
-    """Test execute_judgment_pipeline runs all 7 stages."""
+    """Test execute_judgment_pipeline runs all 7 stages (functional DAG)."""
     # Mock minimal orchestrator for full cycle
     dog_judgment = MagicMock(
         q_score=50.0,
@@ -199,12 +218,10 @@ async def test_execute_judgment_pipeline_full_cycle(mock_orchestrator, test_pipe
         active_axioms=[],
     ))
 
-    with patch("cynic.kernel.organism.brain.cognition.cortex.judgment_stages.get_core_bus") as mock_bus:
-        mock_bus_instance = AsyncMock()
-        mock_bus.return_value = mock_bus_instance
+    # No patch needed: refactor uses instance bus (orchestrator.bus)
+    result = await execute_judgment_pipeline(mock_orchestrator, test_pipeline)
 
-        result = await execute_judgment_pipeline(mock_orchestrator, test_pipeline)
-
-        # Verify all stages executed
-        assert result.final_judgment is not None
-        assert result.action_executed is not None
+    # Verify all stages executed
+    assert result.final_judgment is not None, "Judgment should be created"
+    assert result.action_executed is not None, "Action should be recorded"
+    assert result.trace_id == test_pipeline.trace_id, "Lineage preserved through DAG"
