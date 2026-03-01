@@ -45,10 +45,10 @@ POOL_MAX = fibonacci(8)   # 21 connections
 # CONNECTION POOL SINGLETON
 # ════════════════════════════════════════════════════════════════════════════
 
-_pool: Optional[Pool] = None
+_pool: Pool | None = None
 
 
-async def get_pool(dsn: Optional[str] = None) -> Pool:
+async def get_pool(dsn: str | None = None) -> Pool:
     """
     Get (or create) the shared asyncpg connection pool.
 
@@ -291,7 +291,7 @@ CREATE INDEX IF NOT EXISTS idx_scholar_created     ON scholar_buffer (created_at
 """
 
 
-async def create_schema(dsn: Optional[str] = None) -> None:
+async def create_schema(dsn: str | None = None) -> None:
     """Create all tables and indexes. Idempotent (IF NOT EXISTS)."""
     async with acquire() as conn:
         await conn.execute(SCHEMA_SQL)
@@ -353,7 +353,7 @@ class JudgmentRepository(JudgmentRepoInterface):
                 judgment.get("duration_ms", 0.0),
             )
 
-    async def get(self, judgment_id: str) -> Optional[dict[str, Any]]:
+    async def get(self, judgment_id: str) -> dict[str, Any] | None:
         """Fetch a judgment by ID."""
         async with acquire() as conn:
             row = await conn.fetchrow(
@@ -362,7 +362,7 @@ class JudgmentRepository(JudgmentRepoInterface):
             )
             return dict(row) if row else None
 
-    async def recent(self, reality: Optional[str] = None, limit: int = 55) -> list[dict[str, Any]]:
+    async def recent(self, reality: str | None = None, limit: int = 55) -> list[dict[str, Any]]:
         """Fetch recent judgments, optionally filtered by reality."""
         async with acquire() as conn:
             if reality:
@@ -512,7 +512,7 @@ class BenchmarkRepository(BenchmarkRepoInterface):
                 result.get("cost_usd", 0.0),
             )
 
-    async def best_llm_for(self, dog_id: str, task_type: str) -> Optional[str]:
+    async def best_llm_for(self, dog_id: str, task_type: str) -> str | None:
         """Return the LLM with the highest composite score (EMA of recent runs)."""
         async with acquire() as conn:
             row = await conn.fetchrow("""
@@ -593,11 +593,11 @@ class ResidualRepository(ResidualRepoInterface):
 # REPOSITORY FACTORY
 # ════════════════════════════════════════════════════════════════════════════
 
-_judgment_repo: Optional[JudgmentRepository] = None
-_qtable_repo: Optional[QTableRepository] = None
-_learning_repo: Optional[LearningRepository] = None
-_benchmark_repo: Optional[BenchmarkRepository] = None
-_residual_repo: Optional[ResidualRepository] = None
+_judgment_repo: JudgmentRepository | None = None
+_qtable_repo: QTableRepository | None = None
+_learning_repo: LearningRepository | None = None
+_benchmark_repo: BenchmarkRepository | None = None
+_residual_repo: ResidualRepository | None = None
 
 
 def judgments() -> JudgmentRepository:
@@ -714,7 +714,7 @@ class SDKSessionRepository(SDKSessionRepoInterface):
             return dict(row) if row else {}
 
 
-_sdk_session_repo: Optional[SDKSessionRepository] = None
+_sdk_session_repo: SDKSessionRepository | None = None
 
 
 def sdk_sessions() -> SDKSessionRepository:
@@ -833,7 +833,7 @@ class ScholarRepository(ScholarRepoInterface):
             return await conn.fetchval("SELECT COUNT(*) FROM scholar_buffer")
 
 
-_scholar_repo: Optional[ScholarRepository] = None
+_scholar_repo: ScholarRepository | None = None
 
 
 def scholar() -> ScholarRepository:

@@ -162,6 +162,7 @@ class OrganismState:
             self.consciousness.consciousness_level = level
         await self.update("consciousness_level", level, layer=StateLayer.PERSISTENT)
 
+
     def get_consciousness_level(self) -> str:
         return self.query("consciousness_level", "REFLEX")
 

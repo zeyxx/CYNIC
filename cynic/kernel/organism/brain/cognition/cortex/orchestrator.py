@@ -34,6 +34,7 @@ from cynic.kernel.core.consciousness import (
 )
 from cynic.kernel.core.event_bus import (
     CoreEvent,
+    CynicError,
     Event,
     EventBusError,
     get_core_bus,
