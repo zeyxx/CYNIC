@@ -1,6 +1,9 @@
 """Tests for proposal templates"""
 
 import pytest
+
+pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - governance_bot module not found")
+
 from governance_bot.proposal_templates import ProposalTemplates, ProposalType, StructuredProposal
 
 class TestProposalTemplates:

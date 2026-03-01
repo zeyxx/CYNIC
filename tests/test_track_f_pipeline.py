@@ -9,6 +9,9 @@ Verifies the full async pipeline UUID chain is unbroken:
 
 import asyncio
 import pytest
+
+pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - cynic.interfaces.api.handlers module deleted")
+
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 

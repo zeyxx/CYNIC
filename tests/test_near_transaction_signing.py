@@ -1,6 +1,9 @@
 """Tests for NEAR transaction signing"""
 
 import pytest
+
+pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - governance_bot module not found")
+
 import os
 import base64
 from governance_bot.near_keys import KeyManager

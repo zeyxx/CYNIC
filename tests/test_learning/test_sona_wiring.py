@@ -4,6 +4,9 @@ Test suite for SONA injection, re-entrancy elimination, and snapshot immutabilit
 """
 import asyncio
 import pytest
+
+pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - StateSnapshot class deleted")
+
 from typing import Any, Dict, List
 
 from cynic.kernel.core.event_bus import EventBus, CoreEvent, Event

@@ -15,6 +15,8 @@ Verify:
 import pytest
 import asyncio
 
+pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - cynic.judges.dog_implementations module not found")
+
 from cynic.judges.dog_implementations import (
     Dog1_CrownConsciousness,
     Dog2_WisdomAnalyzer,

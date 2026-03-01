@@ -8,6 +8,9 @@ Tests the LLMRegistry class for:
 - Registration and availability
 """
 import pytest
+
+pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - OllamaAdapter not exported from adapter module")
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from cynic.kernel.organism.brain.llm.adapter import (

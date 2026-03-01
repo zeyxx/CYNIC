@@ -1,6 +1,9 @@
 """Tests for NEAR RPC transaction submission"""
 
 import pytest
+
+pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - governance_bot module not found")
+
 from governance_bot.near_integration import NearRpcClient
 from unittest.mock import AsyncMock, MagicMock, patch
 

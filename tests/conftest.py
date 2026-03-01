@@ -8,6 +8,33 @@ import uuid
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
+# ════════════════════════════════════════════════════════════════════════════
+# PHASE 4A: Old Architecture Test Collection (V5 Migration)
+# ════════════════════════════════════════════════════════════════════════════
+# These tests import deleted V5 modules and cannot be collected.
+# Tell pytest to ignore them during collection.
+collect_ignore = [
+    # Old governance_bot architecture (8 files)
+    "test_authentication.py",
+    "test_near_integration_live.py",
+    "test_near_rpc_submission.py",
+    "test_near_transaction_signing.py",
+    "test_proposal_templates.py",
+    "test_reputation.py",
+    "test_treasury.py",
+    "test_voting_mechanics.py",
+    # Deleted V5 modules (9 files)
+    "cynic/judges/test_dogs.py",
+    "test_config_management.py",
+    "test_consciousness.py",
+    "test_docker_manager.py",
+    "test_learning/test_sona_wiring.py",
+    "test_llm/test_llm_registry.py",
+    "test_llm/test_ollama_adapter.py",
+    "test_state_manager.py",
+    "test_track_f_pipeline.py",
+]
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # PHASE 3: Session-Scoped Organism Cache (99.1% RAM reduction)

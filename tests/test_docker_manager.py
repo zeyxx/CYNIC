@@ -6,6 +6,9 @@ Paradigm: Docker = CYNIC capability, no CLI friction.
 import asyncio
 import json
 import pytest
+
+pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - cynic.deployment module not found")
+
 from pathlib import Path
 from unittest.mock import Mock, AsyncMock, MagicMock, patch
 
