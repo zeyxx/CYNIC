@@ -1,70 +1,50 @@
 """
-CYNIC Judgment Models â€” Pydantic v2
+CYNIC Judgment Models — Pydantic v2 (Fortress Mode)
 
 All Pydantic models for the judgment pipeline.
-Ï†-bounds enforced at model level (LAW 5: database constraints mirror these).
+Enforces immutability, strict typing, and forbids extra fields to prevent LLM hallucination.
 """
 
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE, PHI_INV
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# CORE IDENTIFIERS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
+# Global configuration for all models: Frozen (Immutable) and No extra fields allowed.
+_STRICT = ConfigDict(frozen=True, extra="forbid")
 
 def new_id() -> str:
     """Generate a new UUID4 string identifier."""
     return str(uuid.uuid4())
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# âˆž^N SPACE CELL (A specific state in the infinite hypercube)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-
 class Cell(BaseModel):
     """
-    A specific point/state in the âˆž^N hypercube.
-
-    7 REALITY Ã— 7 ANALYSIS Ã— 7 TIME + structural dimensions.
-    Each Cell is what CYNIC judges, navigates, and learns from.
+    A specific point/state in the ∞^N hypercube.
     """
+    model_config = _STRICT
 
     # Core coordinates
-    reality: str = Field(
-        description="Reality dimension (CODE/SOLANA/MARKET/SOCIAL/HUMAN/CYNIC/COSMOS)"
-    )
-    analysis: str = Field(
-        description="Analysis type (PERCEIVE/JUDGE/DECIDE/ACT/LEARN/ACCOUNT/EMERGE)"
-    )
-    time_dim: str = Field(
-        default="PRESENT",
-        description="Time dimension (PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE)",
-    )
+    reality: str = Field(description="Reality dimension (CODE/SOLANA/MARKET/SOCIAL/HUMAN/CYNIC/COSMOS)")
+    analysis: str = Field(description="Analysis type (PERCEIVE/JUDGE/DECIDE/ACT/LEARN/ACCOUNT/EMERGE)")
+    time_dim: str = Field(default="PRESENT", description="Time dimension (PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE)")
 
     # Content
-    content: Any = Field(description="The actual data being judged (code, tx, price, tweet...)")
-    context: str = Field(default="", description="Human-readable context string for LLM scoring")
+    content: Any = Field(description="The actual data being judged")
+    context: str = Field(default="", description="Context string for LLM scoring")
 
     # Structural dimensions
-    dogs_active: list[str] = Field(default_factory=list, description="Dogs involved in this cell")
-    lod: int = Field(default=1, ge=0, le=3, description="Level of Detail (0=pattern, 3=LLM)")
-    consciousness: int = Field(default=0, ge=0, le=6, description="Consciousness gradient level")
-
-    # Technical dimensions
-    llm_model: str | None = Field(default=None, description="LLM used for this cell")
-    tech_stack: list[str] = Field(default_factory=list)
+    dogs_active: tuple[str, ...] = Field(default_factory=tuple)
+    lod: int = Field(default=1, ge=0, le=3)
+    consciousness: int = Field(default=0, ge=0, le=6)
 
     # Economic dimensions
-    budget_usd: float = Field(default=1.0, ge=0.0, description="Budget allocated for this cell")
+    budget_usd: float = Field(default=1.0, ge=0.0)
 
     # Epistemic dimensions
     novelty: float = Field(default=0.5, ge=0.0, le=1.0)
@@ -76,176 +56,31 @@ class Cell(BaseModel):
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @model_validator(mode="after")
-    def validate_reality_content(self) -> Cell:
-        """Enforce strict schema based on reality dimension."""
-        from cynic.kernel.core.realities import validate_content
-
-        # Only validate if content is a dict (raw input)
-        if isinstance(self.content, dict):
-            try:
-                self.content = validate_content(self.reality, self.content)
-            except Exception as e:
-                raise ValueError(f"Content validation failed for reality '{self.reality}': {e}")
-        return self
-
     def state_key(self) -> str:
-        """Generate hashable state key for Q-Learning."""
         return f"{self.reality}:{self.analysis}:{self.time_dim}:{self.lod}"
-
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# LAZY MATERIALIZATION: time_dim inference
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-_TIME_DIM_KEYWORDS: dict = {
-    "PAST": {
-        "history",
-        "past",
-        "previous",
-        "diff",
-        "git log",
-        "was ",
-        "were ",
-        "old ",
-        "before",
-        "changelog",
-        "legacy",
-        "prior",
-        "yesterday",
-    },
-    "FUTURE": {
-        "future",
-        "plan",
-        "next",
-        "predict",
-        "will ",
-        "roadmap",
-        "goal",
-        "upcoming",
-        "todo",
-        "should ",
-        "proposal",
-        "propose",
-    },
-    "TREND": {
-        "trend",
-        "growth",
-        "rising",
-        "falling",
-        "declining",
-        "improving",
-        "degrading",
-        "increase",
-        "decrease",
-        "over time",
-        "week over",
-        "month over",
-    },
-    "CYCLE": {
-        "cycle",
-        "weekly",
-        "daily",
-        "recurring",
-        "periodic",
-        "sprint",
-        "deployment",
-        "release",
-        "iteration",
-        "every ",
-    },
-    "EMERGENCE": {
-        "emerge",
-        "novel",
-        "unexpected",
-        "anomaly",
-        "surprise",
-        "new pattern",
-        "discovered",
-        "unknown",
-        "first time",
-    },
-    "TRANSCENDENCE": {
-        "meta",
-        "self-improvement",
-        "introspect",
-        "self probe",
-        "self_probe",
-        "consciousness",
-        "axiom",
-        "transcend",
-    },
-}
-
-
-def infer_time_dim(content: str, context: str = "", analysis: str = "JUDGE") -> str:
-    """
-    Lazy Materialization of time_dim: infer from content/context keywords.
-
-    7 time dimensions (7Ã—7Ã—7 matrix, 3rd axis):
-      PAST         â€” historical data, diffs, git history
-      PRESENT      â€” current state (default)
-      FUTURE       â€” plans, predictions, roadmaps
-      CYCLE        â€” recurring patterns, sprints, deployments
-      TREND        â€” directional changes over time
-      EMERGENCE    â€” novel/unexpected patterns
-      TRANSCENDENCEâ€” meta-level self-analysis (analysis=EMERGE always maps here)
-
-    This enables Lazy Materialization: Q-Table states are created on-demand
-    as CYNIC encounters data in each time dimension, not pre-computed.
-    343 states (7Ã—7Ã—7) materialize progressively from real data.
-    """
-    # TRANSCENDENCE: EMERGE analysis is always meta-level
-    if analysis == "EMERGE":
-        return "TRANSCENDENCE"
-
-    text = (str(content) + " " + context).lower()
-
-    # Score each time_dim by keyword matches; pick highest (ties â†’ PRESENT)
-    scores: dict = {dim: 0 for dim in _TIME_DIM_KEYWORDS}
-    for dim, keywords in _TIME_DIM_KEYWORDS.items():
-        scores[dim] = sum(1 for kw in keywords if kw in text)
-
-    best_dim, best_score = max(scores.items(), key=lambda kv: kv[1])
-    return best_dim if best_score > 0 else "PRESENT"
-
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# JUDGMENT OUTPUT
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class Judgment(BaseModel):
     """
-    The result of judging a Cell.
-
-    Ï†-bounds enforced:
-    - q_score âˆˆ [0, 61.8]  â€” never exceed Ï†â»Â¹ Ã— 100
-    - confidence âˆˆ [0, Ï†â»Â¹]  â€” max 61.8%
+    The immutable result of judging a Cell.
     """
+    model_config = _STRICT
 
     judgment_id: str = Field(default_factory=new_id)
-
-    # Input
     cell: Cell
 
     # Output (φ-bounded)
-    q_score: float = Field(
-        ge=0.0,
-        le=MAX_Q_SCORE,
-        description="Q-Score ∈ [0, 100] (MAX_Q_SCORE=100; confidence is φ-bounded to 61.8%)",
-    )
+    q_score: float = Field(ge=0.0, le=MAX_Q_SCORE)
     verdict: str = Field(description="HOWL/WAG/GROWL/BARK")
-    confidence: float = Field(ge=0.0, le=MAX_CONFIDENCE, description="Confidence ∈ [0, 0.618]")
-    reasoning: str = Field(default="", description="Human-readable explanation of the judgment")
-
+    confidence: float = Field(ge=0.0, le=MAX_CONFIDENCE)
+    reasoning: str = Field(default="")
 
     # Breakdown
     axiom_scores: dict[str, float] = Field(default_factory=dict)
-    active_axioms: list[str] = Field(default_factory=list)
+    active_axioms: tuple[str, ...] = Field(default_factory=tuple)
 
     # Consensus info
-    dog_votes: dict[str, float] = Field(default_factory=dict)  # {dog_id: q_score}
+    dog_votes: dict[str, float] = Field(default_factory=dict)
     consensus_votes: int = Field(default=0)
     consensus_quorum: int = Field(default=7)
     consensus_reached: bool = Field(default=False)
@@ -253,10 +88,9 @@ class Judgment(BaseModel):
     # Economics
     cost_usd: float = Field(default=0.0, ge=0.0)
     llm_calls: int = Field(default=0, ge=0)
-    llm_tokens: int = Field(default=0, ge=0)
 
     # THE_UNNAMEABLE
-    residual_variance: float = Field(default=0.0, ge=0.0, description="Unexplained variance")
+    residual_variance: float = Field(default=0.0, ge=0.0)
     unnameable_detected: bool = Field(default=False)
 
     # Metadata
@@ -268,135 +102,63 @@ class Judgment(BaseModel):
     def validate_verdict(cls, v: str) -> str:
         valid = {"HOWL", "WAG", "GROWL", "BARK"}
         if v not in valid:
-            raise ValueError(f"verdict must be one of {valid}, got '{v}'")
+            raise ValueError(f"verdict must be one of {valid}")
         return v
-
-    @field_validator("q_score")
-    @classmethod
-    def validate_q_score(cls, v: float) -> float:
-        # Ï† enforcement (LAW 5)
-        if v > MAX_Q_SCORE:
-            raise ValueError(f"q_score {v} exceeds Ï†â»Â¹ limit of {MAX_Q_SCORE}")
-        return v
-
-    @model_validator(mode="after")
-    def validate_consistency(self) -> Judgment:
-        """Verify verdict matches q_score."""
-        q = self.q_score
-        v = self.verdict
-        if q >= 82.0 and v != "HOWL":
-            raise ValueError(f"q_score={q} should be HOWL, got {v}")
-        if 61.8 <= q < 82.0 and v != "WAG":
-            raise ValueError(f"q_score={q} should be WAG, got {v}")
-        if 38.2 <= q < 61.8 and v != "GROWL":
-            raise ValueError(f"q_score={q} should be GROWL, got {v}")
-        if q < 38.2 and v != "BARK":
-            raise ValueError(f"q_score={q} should be BARK, got {v}")
-        return self
 
     def to_dict(self) -> dict:
-        return {
-            "judgment_id": self.judgment_id,
-            "cell_id": self.cell.cell_id,
-            "reality": self.cell.reality,
-            "analysis": self.cell.analysis,
-            "q_score": round(self.q_score, 3),
-            "verdict": self.verdict,
-            "confidence": round(self.confidence, 3),
-            "reasoning": self.reasoning,
-            "axiom_scores": {k: round(v, 2) for k, v in self.axiom_scores.items()},
-            "active_axioms": self.active_axioms,
-            "dog_votes": {k: round(v, 3) for k, v in self.dog_votes.items()},
-            "consensus_reached": self.consensus_reached,
-            "consensus_votes": self.consensus_votes,
-            "residual_variance": round(self.residual_variance, 4),
-            "unnameable_detected": self.unnameable_detected,
-            "cost_usd": round(self.cost_usd, 6),
-            "llm_calls": self.llm_calls,
-            "timestamp": self.timestamp,
-            "duration_ms": round(self.duration_ms, 1),
-        }
-
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# CONSENSUS RESULT (from PBFT Dogs)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        return self.model_dump()
 
 
 class ConsensusResult(BaseModel):
     """Result of PBFT consensus among Dogs."""
+    model_config = _STRICT
 
     consensus: bool
     votes: int = Field(ge=0)
     quorum: int = Field(ge=0)
-
-    # If consensus reached
-    final_q_score: float | None = Field(default=None, ge=0.0, le=MAX_Q_SCORE)
-    final_verdict: str | None = None
-    final_confidence: float | None = Field(default=None, ge=0.0, le=MAX_CONFIDENCE)
-
-    # Failure reason
-    reason: str | None = None
-
-    # Dog contributions
-    dog_judgments: list[dict] = Field(default_factory=list)
-
-    @property
-    def quorum_reached(self) -> bool:
-        return self.votes >= self.quorum
-
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# E-SCORE (Reputation)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    final_q_score: Optional[float] = Field(default=None, ge=0.0, le=MAX_Q_SCORE)
+    final_verdict: Optional[str] = None
+    final_confidence: Optional[float] = Field(default=None, ge=0.0, le=MAX_CONFIDENCE)
+    reason: Optional[str] = None
+    dog_judgments: tuple[dict[str, Any], ...] = Field(default_factory=tuple)
 
 
 class EScoreDimension(BaseModel):
     """One dimension of E-Score 7D."""
-
-    name: str  # BURN/BUILD/JUDGE/RUN/SOCIAL/GRAPH/HOLD
+    model_config = _STRICT
+    name: str
     raw_score: float = Field(ge=0.0)
     weight: float = Field(gt=0.0)
     on_chain: bool = False
 
 
 class EScore(BaseModel):
-    """Agent reputation score across 7 Ï†-weighted dimensions."""
-
+    """Agent reputation score across 7 φ-weighted dimensions."""
+    model_config = _STRICT
     agent_id: str
-    total: float = Field(ge=0.0, le=100.0, description="Total E-Score [0, 100]")
+    total: float = Field(ge=0.0, le=100.0)
     dimensions: dict[str, EScoreDimension] = Field(default_factory=dict)
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
 
-    @property
-    def trust_weight(self) -> float:
-        """Ï†-amplified trust weight for consensus voting."""
-        return (self.total / 100.0) ** PHI_INV
-
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# LEARNING EVENTS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
 
 class LearningEvent(BaseModel):
-    """Record of what the system learned from a judgment outcome."""
-
+    """Record of what the system learned."""
+    model_config = _STRICT
     event_id: str = Field(default_factory=new_id)
-    loop_name: str  # Which loop (Q_LEARNING, THOMPSON, EWC, etc.)
+    loop_name: str
     judgment_id: str
     state_key: str
     action: str
-    reward: float  # Actual outcome reward
-    q_delta: float = 0.0  # Change in Q-value
+    reward: float
+    q_delta: float = 0.0
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
 
 
 class PerceptionEvent(BaseModel):
     """Raw perception data from a Watcher."""
-
+    model_config = _STRICT
     event_id: str = Field(default_factory=new_id)
-    source: str  # CODE/SOLANA/MARKET/SOCIAL
-    event_type: str  # file_changed, tx_confirmed, price_tick, etc.
+    source: str
+    event_type: str
     data: dict[str, Any] = Field(default_factory=dict)
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())

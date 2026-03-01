@@ -46,22 +46,48 @@ class KNetServer:
         await self.broadcast(pulse)
 
     async def start(self):
-        """Start the WebSocket server with IPv4 fallback."""
-        try:
-            self._server = await websockets.serve(
-                self._handler,
-                self.host,
-                self.port,
-                family=socket.AF_INET6 if ":" in self.host else socket.AF_INET,
-            )
-            self._running = True
-            logger.info(f"[{self.bus.instance_id}] K-NET Server active on [{self.host}]:{self.port}")
-        except Exception as e:
-            if self.host == "::":
-                self.host = "0.0.0.0"
-                await self.start()
-            else:
-                logger.error(f"Failed to start K-NET Server: {e}")
+        """
+        Start the WebSocket server with IPv4 fallback and dynamic port retry.
+        If port is 0, binds to a random free port.
+        """
+        max_retries = 5
+        retry_count = 0
+        current_port = self.port
+
+        while retry_count < max_retries:
+            try:
+                self._server = await websockets.serve(
+                    self._handler,
+                    self.host,
+                    current_port,
+                    family=socket.AF_INET6 if ":" in self.host else socket.AF_INET,
+                )
+                self._running = True
+                
+                # Update port if it was 0 or changed due to retry
+                actual_port = self._server.sockets[0].getsockname()[1]
+                self.port = actual_port
+                
+                logger.info(f"[{self.bus.instance_id}] Îº-NET Server active on [{self.host}]:{self.port}")
+                return # Success
+            except OSError as e:
+                if e.errno == 10048 or "already in use" in str(e).lower():
+                    logger.warning(f"[{self.bus.instance_id}] Îº-NET port {current_port} busy. Retrying...")
+                    current_port += 1
+                    retry_count += 1
+                else:
+                    logger.error(f"Failed to start K-NET Server: {e}")
+                    raise
+            except Exception as e:
+                if self.host == "::":
+                    logger.debug("Falling back to 0.0.0.0 for K-NET Server")
+                    self.host = "0.0.0.0"
+                    # Don't increment retry_count for family fallback
+                else:
+                    logger.error(f"Critical K-NET Server error: {e}")
+                    raise
+
+        raise RuntimeError(f"Could not bind K-NET server after {max_retries} attempts.")
 
     async def stop(self):
         """Gracefully stop the server."""

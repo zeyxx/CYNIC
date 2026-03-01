@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import dataclasses
 import time
-from collections import deque
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
@@ -215,51 +214,136 @@ class GovernanceVote:
 
 
 class JudgmentBuffer(BaseModel):
-    buffer: deque = Field(default_factory=lambda: deque(maxlen=fibonacci(11)))
+    """Immutable buffer of UnifiedJudgment entries.
 
-    def add(self, item: UnifiedJudgment):
-        self.buffer.append(item)
+    Uses tuple internally for immutability. add() returns new buffer instance.
+    Automatically trims to fibonacci(11) = 89 entries.
+    """
 
-    def get_recent(self, n: int):
-        return list(self.buffer)[-n:]
+    buffer: tuple[UnifiedJudgment, ...] = Field(default_factory=tuple)
+    max_len: int = Field(default=fibonacci(11), init=False)
+
+    def add(self, item: UnifiedJudgment) -> JudgmentBuffer:
+        """Add item and return new buffer (immutable operation)."""
+        new_buffer = self.buffer + (item,)
+        # Trim to maxlen if exceeded
+        if len(new_buffer) > self.max_len:
+            new_buffer = new_buffer[-self.max_len:]
+        return JudgmentBuffer(buffer=new_buffer)
+
+    def get_recent(self, n: int) -> list[UnifiedJudgment]:
+        """Get last n items."""
+        return list(self.buffer)[-n:] if n > 0 else []
 
 
 class OutcomeBuffer(BaseModel):
-    buffer: deque = Field(default_factory=lambda: deque(maxlen=fibonacci(10)))
+    """Immutable buffer of UnifiedLearningOutcome entries.
 
-    def add(self, item: UnifiedLearningOutcome):
-        self.buffer.append(item)
+    Uses tuple internally for immutability. add() returns new buffer instance.
+    Automatically trims to fibonacci(10) = 55 entries.
+    """
 
-    def get_recent(self, n: int):
-        return list(self.buffer)[-n:]
+    buffer: tuple[UnifiedLearningOutcome, ...] = Field(default_factory=tuple)
+    max_len: int = Field(default=fibonacci(10), init=False)
+
+    def add(self, item: UnifiedLearningOutcome) -> OutcomeBuffer:
+        """Add item and return new buffer (immutable operation)."""
+        new_buffer = self.buffer + (item,)
+        # Trim to maxlen if exceeded
+        if len(new_buffer) > self.max_len:
+            new_buffer = new_buffer[-self.max_len:]
+        return OutcomeBuffer(buffer=new_buffer)
+
+    def get_recent(self, n: int) -> list[UnifiedLearningOutcome]:
+        """Get last n items."""
+        return list(self.buffer)[-n:] if n > 0 else []
 
 
 class ValueBuffer(BaseModel):
-    buffer: deque = Field(default_factory=lambda: deque(maxlen=fibonacci(12)))
+    """Immutable buffer of ValueCreation entries.
 
-    def add(self, item: ValueCreation):
-        self.buffer.append(item)
+    Uses tuple internally for immutability. add() returns new buffer instance.
+    Automatically trims to fibonacci(12) = 144 entries.
+    """
+
+    buffer: tuple[ValueCreation, ...] = Field(default_factory=tuple)
+    max_len: int = Field(default=fibonacci(12), init=False)
+
+    def add(self, item: ValueCreation) -> ValueBuffer:
+        """Add item and return new buffer (immutable operation)."""
+        new_buffer = self.buffer + (item,)
+        # Trim to maxlen if exceeded
+        if len(new_buffer) > self.max_len:
+            new_buffer = new_buffer[-self.max_len:]
+        return ValueBuffer(buffer=new_buffer)
 
 
 class ImpactBuffer(BaseModel):
-    buffer: deque = Field(default_factory=lambda: deque(maxlen=fibonacci(10)))
+    """Immutable buffer of ImpactMeasurement entries.
 
-    def add(self, item: ImpactMeasurement):
-        self.buffer.append(item)
+    Uses tuple internally for immutability. add() returns new buffer instance.
+    Automatically trims to fibonacci(10) = 55 entries.
+    """
+
+    buffer: tuple[ImpactMeasurement, ...] = Field(default_factory=tuple)
+    max_len: int = Field(default=fibonacci(10), init=False)
+
+    def add(self, item: ImpactMeasurement) -> ImpactBuffer:
+        """Add item and return new buffer (immutable operation)."""
+        new_buffer = self.buffer + (item,)
+        # Trim to maxlen if exceeded
+        if len(new_buffer) > self.max_len:
+            new_buffer = new_buffer[-self.max_len:]
+        return ImpactBuffer(buffer=new_buffer)
 
 
 class CommunityBuffer(BaseModel):
+    """Immutable buffer of GovernanceCommunity entries indexed by community_id.
+
+    Uses dict internally but add() returns new buffer instance for immutability.
+    Communities are accessed by ID for quick lookup.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     buffer: dict[str, GovernanceCommunity] = Field(default_factory=dict)
 
-    def add(self, item: GovernanceCommunity):
-        self.buffer[item.community_id] = item
+    def add(self, item: GovernanceCommunity) -> CommunityBuffer:
+        """Add or update community and return new buffer (immutable operation)."""
+        new_buffer = dict(self.buffer)
+        new_buffer[item.community_id] = item
+        return CommunityBuffer(buffer=new_buffer)
+
+    def get(self, community_id: str) -> GovernanceCommunity | None:
+        """Get community by ID."""
+        return self.buffer.get(community_id)
+
+    def all_communities(self) -> list[GovernanceCommunity]:
+        """Get all communities."""
+        return list(self.buffer.values())
 
 
 class ProposalBuffer(BaseModel):
-    buffer: deque = Field(default_factory=lambda: deque(maxlen=fibonacci(11)))
+    """Immutable buffer of GovernanceProposal entries.
 
-    def add(self, item: GovernanceProposal):
-        self.buffer.append(item)
+    Uses tuple internally for immutability. add() returns new buffer instance.
+    Automatically trims to fibonacci(11) = 89 entries.
+    """
+
+    buffer: tuple[GovernanceProposal, ...] = Field(default_factory=tuple)
+    max_len: int = Field(default=fibonacci(11), init=False)
+
+    def add(self, item: GovernanceProposal) -> ProposalBuffer:
+        """Add item and return new buffer (immutable operation)."""
+        new_buffer = self.buffer + (item,)
+        # Trim to maxlen if exceeded
+        if len(new_buffer) > self.max_len:
+            new_buffer = new_buffer[-self.max_len:]
+        return ProposalBuffer(buffer=new_buffer)
+
+    def get_recent(self, n: int) -> list[GovernanceProposal]:
+        """Get last n proposals."""
+        return list(self.buffer)[-n:] if n > 0 else []
 
 
 class UnifiedConsciousState(BaseModel):
@@ -335,23 +419,29 @@ class UnifiedConsciousState(BaseModel):
         self.activation_log = self.activation_log + (log_entry,)
 
     def add_judgment(self, j: UnifiedJudgment):
-        self.recent_judgments.add(j)
+        """Add judgment to buffer (returns new buffer instance)."""
+        self.recent_judgments = self.recent_judgments.add(j)
         self.total_judgments += 1
 
     def add_outcome(self, o: UnifiedLearningOutcome):
-        self.learning_outcomes.add(o)
+        """Add learning outcome to buffer (returns new buffer instance)."""
+        self.learning_outcomes = self.learning_outcomes.add(o)
 
     def add_value_creation(self, v: ValueCreation):
-        self.value_creations.add(v)
+        """Add value creation to buffer (returns new buffer instance)."""
+        self.value_creations = self.value_creations.add(v)
 
     def add_impact_measurement(self, i: ImpactMeasurement):
-        self.impact_measurements.add(i)
+        """Add impact measurement to buffer (returns new buffer instance)."""
+        self.impact_measurements = self.impact_measurements.add(i)
 
     def add_community(self, c: GovernanceCommunity):
-        self.communities.add(c)
+        """Add community to buffer (returns new buffer instance)."""
+        self.communities = self.communities.add(c)
 
     def add_proposal(self, p: GovernanceProposal):
-        self.proposals.add(p)
+        """Add proposal to buffer (returns new buffer instance)."""
+        self.proposals = self.proposals.add(p)
 
     async def reach_consensus_judgment(self, judgments: list[UnifiedJudgment]) -> UnifiedJudgment:
         """Reach consensus using PBFT engine (convenience wrapper)."""

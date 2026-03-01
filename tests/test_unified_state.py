@@ -56,7 +56,7 @@ class TestJudgmentBufferManagement:
         """Test adding 10 judgments to buffer and retrieving them."""
         buffer = JudgmentBuffer()
 
-        # Add 10 judgments
+        # Add 10 judgments (immutable: buffer.add() returns new buffer)
         for i in range(10):
             judgment = UnifiedJudgment(
                 judgment_id=f"j{i}",
@@ -68,7 +68,7 @@ class TestJudgmentBufferManagement:
                 reasoning=f"Judgment {i}",
                 latency_ms=100.0 + i,
             )
-            buffer.add(judgment)
+            buffer = buffer.add(judgment)
 
         # Should have 10 items
         assert len(buffer.buffer) == 10
@@ -111,9 +111,9 @@ class TestBufferAutoPruning:
 
     def test_buffer_auto_pruning(self):
         """Add 100 items to 89-capacity buffer and verify oldest are pruned."""
-        buffer = JudgmentBuffer()  # maxlen=89
+        buffer = JudgmentBuffer()  # max_len=89
 
-        # Add 100 judgments
+        # Add 100 judgments (immutable: buffer.add() returns new buffer)
         for i in range(100):
             judgment = UnifiedJudgment(
                 judgment_id=f"j{i}",
@@ -125,7 +125,7 @@ class TestBufferAutoPruning:
                 reasoning=f"Judgment {i}",
                 latency_ms=100.0,
             )
-            buffer.add(judgment)
+            buffer = buffer.add(judgment)
 
         # Should only have 89 items (oldest 11 should be pruned)
         assert len(buffer.buffer) == 89
@@ -135,8 +135,8 @@ class TestBufferAutoPruning:
         assert recent[0].judgment_id == "j11"
         assert recent[88].judgment_id == "j99"
 
-        # Verify maxlen is Fibonacci(11)=89
-        assert buffer.buffer.maxlen == 89
+        # Verify max_len is Fibonacci(11)=89
+        assert buffer.max_len == 89
 
 
 class TestOutcomeBufferAutoPruning:
@@ -144,9 +144,9 @@ class TestOutcomeBufferAutoPruning:
 
     def test_outcome_buffer_auto_pruning(self):
         """Add 100 outcomes to 55-capacity buffer and verify oldest are pruned."""
-        buffer = OutcomeBuffer()  # maxlen=55
+        buffer = OutcomeBuffer()  # max_len=55
 
-        # Add 100 outcomes
+        # Add 100 outcomes (immutable: buffer.add() returns new buffer)
         for i in range(100):
             outcome = UnifiedLearningOutcome(
                 judgment_id=f"j{i}",
@@ -154,7 +154,7 @@ class TestOutcomeBufferAutoPruning:
                 actual_verdict="WAG",
                 satisfaction_rating=0.7,
             )
-            buffer.add(outcome)
+            buffer = buffer.add(outcome)
 
         # Should only have 55 items (oldest 45 should be pruned)
         assert len(buffer.buffer) == 55
@@ -164,8 +164,8 @@ class TestOutcomeBufferAutoPruning:
         assert recent[0].judgment_id == "j45"
         assert recent[54].judgment_id == "j99"
 
-        # Verify maxlen is Fibonacci(10)=55
-        assert buffer.buffer.maxlen == 55
+        # Verify max_len is Fibonacci(10)=55
+        assert buffer.max_len == 55
 
 
 class TestConsensusScoreCalculation:
