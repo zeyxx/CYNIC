@@ -67,6 +67,12 @@ class ResidualDetector:
 
             res = self.observe_dict(votes)
 
+            # Update high residual count (same logic as observe())
+            if res > self._threshold:
+                self._high_residual_count += 1
+            else:
+                self._high_residual_count = 0
+
             if res > self._threshold:
                 await self._signal_high_entropy(res)
         except Exception as e:

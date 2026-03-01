@@ -1,3 +1,10 @@
+"""
+Federation Peer — Network abstraction for P2P message passing.
+
+Represents a federation peer with transport abstraction, allowing
+network-agnostic message passing between CYNIC instances.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable

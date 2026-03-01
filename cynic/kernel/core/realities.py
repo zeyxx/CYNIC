@@ -54,12 +54,20 @@ class InternalPayload(BaseModel):
 
 class MarketPayload(BaseModel):
     """Data from external market sensors."""
-
     symbol: str
     price: float
+    change_24h: float | None = None
     volume_24h: float | None = None
+    volatility: float = 0.0 # PHI-scaled volatility
     source: str
 
+class SolanaPayload(BaseModel):
+    """Data from Solana Blockchain sensors."""
+    slot: int
+    tps: float | None = None
+    block_time: float | None = None
+    recent_prioritization_fee: float | None = None
+    health: str = "ok" # status of the cluster
 
 # ── DISPATCHER ────────────────────────────────────────────────────────────
 
@@ -68,7 +76,7 @@ REALITY_SCHEMAS = {
     "CODE": CodePayload,
     "INTERNAL": InternalPayload,
     "MARKET": MarketPayload,
-    # Fallback for others
+    "SOLANA": SolanaPayload,
 }
 
 

@@ -165,8 +165,14 @@ class OrganismState:
 
     async def record_pending_judgment(self, judgment_id: str) -> None:
         """Record a judgment ID as pending (Track E)."""
+        # Store immediately in memory state for fast lookup
+        key = f"judgment:{judgment_id}:status"
+        with self._lock:
+            self._memory_state[key] = "PENDING"
+
+        # Also queue for persistence
         await self.update(
-            key=f"judgment:{judgment_id}:status",
+            key=key,
             value="PENDING",
             source="api"
         )

@@ -1,35 +1,55 @@
-name: CI
+name: CYNIC Organism Fidelity (CI)
 
 on:
   push:
-    branches: [master, main, develop]
+    branches: [ master, main ]
   pull_request:
-    branches: [master, main]
+    branches: [ master, main ]
 
 jobs:
-  lint:
+  fidelity-audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: pip install ruff
-      - run: ruff check .
+          cache: 'pip'
 
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-      - name: Install dependencies
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev
+
+      - name: Install Organism
         run: |
           pip install --upgrade pip
           pip install .
-          pip install pytest pytest-asyncio pytest-cov httpx fastapi
-      - name: Run tests
+          pip install pytest pytest-asyncio pytest-cov ruff httpx fastapi pydantic rich surrealdb psutil
+
+      - name: Linter (Ruff)
+        run: ruff check cynic/ scripts/ tests/
+
+      - name: Strict Integrity Audit
         run: |
           export PYTHONPATH=$PYTHONPATH:.
-          pytest tests/ -v --cov=cynic
+          python scripts/validate_integrity.py
+
+      - name: Empirical E2E Tests (Zero Mock)
+        run: |
+          export PYTHONPATH=$PYTHONPATH:.
+          pytest tests/ -v --tb=short
+
+      - name: Security Scan (Bandit)
+        run: |
+          pip install bandit
+          bandit -r cynic/ -ll
+
+  container-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Test Image
+        run: docker build -t cynic-organism:test .

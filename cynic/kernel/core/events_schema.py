@@ -209,7 +209,10 @@ class PerceptionReceivedPayload(BaseModel):
     cell_id: str = ""
     reality: str = "CODE"
     source: str = ""
-    data: str = ""  # truncated perception content
+    data: Any = None  # Generic perception data (dict or str)
+    run_judgment: bool = False
+    judgment_id: str = ""
+    context: str = ""
 
 
 class AnomalyDetectedPayload(BaseModel):

@@ -175,6 +175,55 @@ async def dream_facets_expertise(
         return {}
 
 
+# --- MARKET EXPERTISE ---
+async def market_health_expertise(cell: Cell) -> dict[str, Any]:
+    """Expertise for price volatility and market sentiment."""
+    if cell.reality != "MARKET":
+        return {"q_score": 50.0, "confidence": 0.0, "reasoning": "Incompatible reality."}
+    
+    # We assume content is MarketPayload (validated by realities.py)
+    content = cell.content
+    if not isinstance(content, dict):
+        return {"q_score": 50.0, "confidence": 0.1, "reasoning": "Raw content, no structured market data."}
+    
+    volatility = content.get("volatility", 0.0)
+    change = content.get("change_24h", 0.0)
+    
+    # Logic: High volatility or sharp drops reduce Q-Score
+    penalty = (volatility * 50.0) + (abs(change) if change < 0 else 0.0)
+    q_score = max(0.0, 100.0 - penalty)
+    
+    return {
+        "q_score": q_score,
+        "confidence": 0.618,
+        "reasoning": f"Market analysis for {content.get('symbol')}: vol={volatility:.2f}, change={change:.2f}%",
+        "evidence": {"volatility": volatility, "change_24h": change}
+    }
+
+# --- SOLANA EXPERTISE ---
+async def solana_integrity_expertise(cell: Cell) -> dict[str, Any]:
+    """Expertise for Solana on-chain health."""
+    if cell.reality != "SOLANA":
+        return {"q_score": 50.0, "confidence": 0.0, "reasoning": "Incompatible reality."}
+    
+    content = cell.content
+    if not isinstance(content, dict):
+        return {"q_score": 50.0, "confidence": 0.1, "reasoning": "No on-chain data."}
+    
+    health = content.get("health", "ok")
+    tps = content.get("tps", 0.0)
+    
+    q_score = 90.0 if health == "ok" else 20.0
+    if tps < 1000: # Arbitrary threshold for congestion
+        q_score -= 20.0
+
+    return {
+        "q_score": max(0.0, q_score),
+        "confidence": 0.75,
+        "reasoning": f"Solana Health: {health}, TPS: {tps:.0f}",
+        "evidence": {"health": health, "tps": tps}
+    }
+
 # --- REGISTRY OF EXPERTISE ---
 EXPERTISE_MAP = {
     "web_discovery": scout_expertise,
@@ -182,6 +231,8 @@ EXPERTISE_MAP = {
     "static_analysis": static_analysis_expertise,
     "anomaly_detection": anomaly_detection_expertise,
     "qtable_lookup": qtable_prediction_expertise,
+    "market_health": market_health_expertise,
+    "solana_integrity": solana_integrity_expertise,
 }
 
 

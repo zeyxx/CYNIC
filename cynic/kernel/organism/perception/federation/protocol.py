@@ -1,3 +1,10 @@
+"""
+Federation Protocol — Data structures for P2P message passing.
+
+Defines the FederationMessage protocol for sharing Q-Table snapshots,
+judgment history, and unnameable patterns across federated CYNIC instances.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

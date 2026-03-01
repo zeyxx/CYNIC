@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cynic-organism
+  labels:
+    app: cynic
+    component: kernel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cynic
+  template:
+    metadata:
+      labels:
+        app: cynic
+    spec:
+      containers:
+      - name: kernel
+        image: cynic-organism:latest
+        ports:
+        - containerPort: 58765
+        env:
+        - name: SURREAL_URL
+          value: "http://surrealdb:8000"
+        - name: CONSCIOUSNESS_LEVEL
+          value: "MICRO"
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 58765
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 58765
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cynic-organism
+spec:
+  selector:
+    app: cynic
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 58765
+  type: ClusterIP

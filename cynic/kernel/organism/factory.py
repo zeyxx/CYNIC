@@ -149,9 +149,13 @@ class _OrganismAwakener:
         self.convergence_validator = ConvergenceValidator()
 
         from cynic.kernel.organism.perception.senses.internal import InternalSensor
-
         self.internal_sensor = InternalSensor()
         self.internal_sensor.start()
+
+        from cynic.kernel.organism.perception.senses.market import MarketSensor
+        self.market_sensor = MarketSensor(interval_s=30.0)
+        self.market_sensor.start()
+
 
         # 6. REFLECTION (Memory & Self)
         self.sona_emitter = SonaEmitter(bus=get_core_bus(), db_pool=self.db_pool)

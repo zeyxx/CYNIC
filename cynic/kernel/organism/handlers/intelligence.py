@@ -1,21 +1,27 @@
 """
 PHASE 3: Intelligence cycle handlers — LOD assessment, error tracking, budget response.
 
-Handlers: emergence, budget_warning, budget_exhausted, judgment_requested,
-          judgment_for_intelligence, judgment_failed, judgment_for_compressor.
+This group coordinates the high-level cognitive state of the organism.
+It bridges perception to judgment and manages the Level of Detail (LOD).
 """
-
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+import time
+import asyncio
+import uuid
+from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus
 from cynic.kernel.core.judgment import Cell
-from cynic.kernel.core.phi import GROWL_MIN
+from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.organism.handlers.base import HandlerGroup
 from cynic.kernel.organism.handlers.services import CognitionServices
+from cynic.kernel.core.events_schema import (
+    PerceptionReceivedPayload, 
+    JudgmentRequestedPayload,
+    JudgmentCreatedPayload
+)
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
@@ -46,36 +52,16 @@ class IntelligenceHandlers(HandlerGroup):
 
         # Group-local mutable state
         self._outcome_window: list[bool] = []
-        self._escore_persist_counter = 0
         self._checkpoint_counter = 0
 
     @property
     def name(self) -> str:
         return "intelligence"
 
-    def dependencies(self) -> frozenset[str]:
-        return frozenset(
-            {
-                "escore_tracker",
-                "lod_controller",
-                "axiom_monitor",
-                "orchestrator",
-                "scheduler",
-                "db_pool",
-                "compressor",
-            }
-        )
-
     def subscriptions(self) -> list[tuple[CoreEvent, callable]]:
         return [
-            (CoreEvent.EMERGENCE_DETECTED, self._on_emergence),
-            (CoreEvent.BUDGET_WARNING, self._on_budget_warning),
-            (CoreEvent.BUDGET_EXHAUSTED, self._on_budget_exhausted),
             (CoreEvent.PERCEPTION_RECEIVED, self._on_perception_received),
-            (CoreEvent.JUDGMENT_REQUESTED, self._on_judgment_requested),
-            (CoreEvent.JUDGMENT_CREATED, self._on_judgment_for_intelligence),
-            (CoreEvent.JUDGMENT_FAILED, self._on_judgment_failed),
-            (CoreEvent.JUDGMENT_CREATED, self._on_judgment_for_compressor),
+            (CoreEvent.JUDGMENT_CREATED, self._on_judgment_created),
         ]
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -83,99 +69,56 @@ class IntelligenceHandlers(HandlerGroup):
     # ═══════════════════════════════════════════════════════════════════════
 
     async def _on_perception_received(self, event: Event) -> None:
-        """PERCEPTION_RECEIVED → Trigger REFLEX cycle."""
+        """PERCEPTION_RECEIVED → Trigger Full Judgment if run_judgment is True."""
         try:
-            p = event.dict_payload or {}
-            content = p.get("content", "")
-            reality = p.get("reality", "CYNIC")
-
-            # Create a Reflex Cell
-            cell = Cell(
-                reality=reality,
-                analysis="PERCEIVE",
-                time_dim="PRESENT",
-                content=content,
-                context="Automated reflex from perception",
-                risk=0.1,
-                complexity=0.1,
-                budget_usd=0.01,
-                metadata={"source": event.source},
-            )
-
-            # Submit to scheduler
-            self._scheduler.submit(
-                cell, level=ConsciousnessLevel.REFLEX, source=f"perception_{event.source}"
-            )
-            logger.info(
-                "Intelligence: Perception received from %s → Triggered REFLEX cycle", event.source
-            )
+            p = PerceptionReceivedPayload.model_validate(event.dict_payload or {})
+            
+            if p.run_judgment:
+                # Transform into a judgment request
+                content = p.data if p.data else ""
+                
+                # IMPORTANT: Use real ConsciousnessLevel and integer LOD
+                level = ConsciousnessLevel.MICRO
+                
+                cell = Cell(
+                    reality=p.reality,
+                    analysis="JUDGE",
+                    content=str(content),
+                    context=p.context or f"Automated analysis of {p.reality} from {p.source}",
+                    lod=1 # Numeric LOD is fine here
+                )
+                
+                await get_core_bus().emit(Event.typed(
+                    CoreEvent.JUDGMENT_REQUESTED,
+                    JudgmentRequestedPayload(
+                        cell_id=cell.cell_id,
+                        reality=cell.reality,
+                        level=level.name, # Pass the NAME of the level
+                        cell=cell.model_dump(),
+                        source=f"intelligence:bridge:{p.source}",
+                        judgment_id=p.judgment_id or str(uuid.uuid4())
+                    ),
+                    source="intelligence"
+                ))
+                logger.info("Intelligence: Bridged perception to judgment for %s", p.source)
 
         except Exception as e:
-            logger.debug("Intelligence: Failed to handle perception: %s", e)
+            logger.error("Intelligence: Failed to bridge perception: %s", e)
 
-    def _update_error_rate(self) -> None:
-        """Compute rolling error rate from outcome window."""
-        if not self._outcome_window:
-            return
-        sum(1 for ok in self._outcome_window if not ok)
-        # Note: health_cache removed - using local state only
-
-    async def _on_emergence(self, event: Event) -> None:
-        """META cycle trigger when ResidualDetector fires."""
+    async def _on_judgment_created(self, event: Event) -> None:
+        """Feed judgments to the context compressor and update health."""
         try:
-            p = event.dict_payload or {}
-            cell = Cell(
-                reality="CYNIC",
-                analysis="EMERGE",
-                time_dim="PRESENT",
-                content=str(p),
-                context="Emergence detected — META cycle triggered",
-                risk=0.5,
-                complexity=0.6,
-                budget_usd=0.1,
-                metadata={
-                    "source": "emergence_trigger",
-                },
-            )
-            self._scheduler.submit(cell, level=ConsciousnessLevel.META, source="emergence")
+            p = JudgmentCreatedPayload.model_validate(event.dict_payload or {})
+            
+            # 1. Update health cache for LOD controller
+            self._cognition.update_health_cache(last_q_score=p.q_score)
+            
+            # 2. Feed compressor
+            if self._compressor:
+                try:
+                    self._compressor.add_judgment(p.model_dump())
+                except Exception as e:
+                    logger.debug("Intelligence: Compressor feed failed: %s", e)
+
         except Exception as e:
-            logger.error("Intelligence: Failed to trigger emergence cycle: %s", e)
-
-    async def _on_budget_warning(self, event: Event) -> None:
-        """React to budget pressure."""
-        logger.warning("Intelligence: Budget warning received — scaling down")
-
-    async def _on_budget_exhausted(self, event: Event) -> None:
-        """React to zero budget."""
-        logger.error("Intelligence: Budget exhausted — emergency mode")
-
-    async def _on_judgment_requested(self, event: Event) -> None:
-        """API requested a judgment."""
-        pass
-
-    async def _on_judgment_for_intelligence(self, event: Event) -> None:
-        """Track outcome for error rate."""
-        success = event.dict_payload.get("verdict") != "BARK"
-        self._outcome_window.append(success)
-        if len(self._outcome_window) > self._OUTCOME_WINDOW:
-            self._outcome_window.pop(0)
-        self._update_error_rate()
-
-    async def _on_judgment_failed(self, event: Event) -> None:
-        """Track failure in window."""
-        self._outcome_window.append(False)
-        if len(self._outcome_window) > self._OUTCOME_WINDOW:
-            self._outcome_window.pop(0)
-        self._update_error_rate()
-
-    async def _on_judgment_for_compressor(self, event: Event) -> None:
-        """Feed high-quality judgments into the compressor."""
-        verdict = event.dict_payload.get("verdict", "")
-        confidence = event.dict_payload.get("confidence", 0.0)
-
-        if verdict in ("HOWL", "WAG") and confidence > GROWL_MIN:
-            try:
-                # Add to compressor for future context summaries
-                self._compressor.add_judgment(event.dict_payload)
-            except Exception as e:
-                logger.debug("Intelligence: Failed to feed compressor: %s", e)
+            logger.error("Intelligence: Judgment processing failed: %s", e)
