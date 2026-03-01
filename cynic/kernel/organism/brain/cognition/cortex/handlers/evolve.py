@@ -18,9 +18,9 @@ import time
 from typing import Any, Optional
 
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent
+from cynic.kernel.core.event_bus import get_core_bus, Event, CoreEvent, EventBusError
 from cynic.kernel.core.events_schema import MetaCyclePayload
+from cynic.kernel.core.consciousness import ConsciousnessLevel
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.evolve")
 
@@ -73,7 +73,7 @@ class EvolveHandler(BaseHandler):
             )
         except EventBusError as e:
             duration_ms = (time.perf_counter() - t0) * 1000
-            self._log_error("execute_evolve", e)
+            # self._log_error("execute_evolve", e)
             return HandlerResult(
                 success=False,
                 handler_id=self.handler_id,
@@ -118,7 +118,7 @@ class EvolveHandler(BaseHandler):
                         duration_ms=elapsed,
                     )
                 )
-            except CynicError as exc:
+            except Exception as exc:
                 elapsed = (time.time() - t0) * 1000
                 logger.warning("evolve() probe %s failed: %s", probe["name"], exc)
                 results.append(
@@ -161,7 +161,7 @@ class EvolveHandler(BaseHandler):
         if self.benchmark_registry is not None:
             try:
                 await self.benchmark_registry.record_evolve(results)
-            except CynicError as exc:
+            except Exception as exc:
                 logger.warning("BenchmarkRegistry.record_evolve() failed: %s", exc)
 
         await get_core_bus().emit(

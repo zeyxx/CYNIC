@@ -102,18 +102,7 @@ class JudgeOrchestrator:
         # Inject dynamic facet dreaming callback
         self.axiom_arch.on_facets_missing = self._on_facets_missing
 
-    async def _on_facets_missing(self, axiom: str, reality: str) -> None:
-        """
-        Callback triggered when AxiomArchitecture needs facets for a new reality.
-        SAGE (Chokmah) is the Faiseur de Mondes.
-        """
-        from cynic.kernel.organism.brain.cognition.neurons.base import DogId
-        sage = self.dogs.get(DogId.SAGE)
-        if sage and hasattr(sage, "dream_facets"):
-            logger.info(f"Orchestrator: Triggering SAGE to dream facets for {axiom} in {reality}")
-            await sage.dream_facets(axiom, reality, self.axiom_arch.registry)
-        else:
-            logger.warning(f"Orchestrator: Facets missing for {axiom}/{reality}, but SAGE unavailable to dream.")
+        # State and services
         self.axiom_monitor = None  # Optional[AxiomMonitor] — γ3: axiom health → budget multiplier
         self.lod_controller = None  # Optional[LODController] — δ2: system health → level cap
         self.context_compressor = None  # Optional[ContextCompressor] — γ5: memory injection into SAGE
@@ -134,6 +123,19 @@ class JudgeOrchestrator:
         # --- Voice of the Organism (Dialogue) ---
         from cynic.kernel.organism.brain.dialogue.agent import DialogueAgent
         self._dialogue_agent = DialogueAgent()
+
+    async def _on_facets_missing(self, axiom: str, reality: str) -> None:
+        """
+        Callback triggered when AxiomArchitecture needs facets for a new reality.
+        SAGE (Chokmah) is the Faiseur de Mondes.
+        """
+        from cynic.kernel.organism.brain.cognition.neurons.base import DogId
+        sage = self.dogs.get(DogId.SAGE)
+        if sage and hasattr(sage, "dream_facets"):
+            logger.info(f"Orchestrator: Triggering SAGE to dream facets for {axiom} in {reality}")
+            await sage.dream_facets(axiom, reality, self.axiom_arch.registry)
+        else:
+            logger.warning(f"Orchestrator: Facets missing for {axiom}/{reality}, but SAGE unavailable to dream.")
 
     def _ensure_composer(self) -> None:
         """
@@ -160,7 +162,7 @@ class JudgeOrchestrator:
         registry.register("cycle_micro", MicroCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch, cynic_dog=self.cynic_dog, lod_controller=self.lod_controller))
         registry.register("cycle_macro", MacroCycleHandler(dogs=self.dogs, axiom_arch=self.axiom_arch, cynic_dog=self.cynic_dog, lod_controller=self.lod_controller, axiom_monitor=self.axiom_monitor))
         registry.register("act_executor", ActHandler(runner=None, gasdf_executor=self.gasdf_executor))
-        registry.register("evolve", EvolveHandler())
+        registry.register("evolve", EvolveHandler(orchestrator=self))
         registry.register("budget_manager", BudgetManager())
 
         self._composer = HandlerComposer(registry)
