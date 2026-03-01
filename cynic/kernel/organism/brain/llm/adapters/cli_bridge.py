@@ -24,9 +24,7 @@ class CLIAdapter(LLMAdapter):
         
         # Build command: binary -p "prompt"
         # Note: We combine system and user prompt for CLI tools
-        full_prompt = f"{request.system}
-
-{request.prompt}" if request.system else request.prompt
+        full_prompt = f"{request.system}\n\n{request.prompt}" if request.system else request.prompt
         cmd = [self._binary, "-p", full_prompt]
         
         # Gemini specific adjustment

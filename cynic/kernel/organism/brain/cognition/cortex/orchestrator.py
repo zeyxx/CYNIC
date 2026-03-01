@@ -897,7 +897,7 @@ class JudgeOrchestrator:
         return {
             "judgments_total": self._judgment_count,
             "dogs_active": len(self.dogs),
-            "consciousness": self._consciousness.to_dict(),
+            "consciousness": self._consciousness.model_dump() if hasattr(self._consciousness, "model_dump") else str(self._consciousness),
             "evolve_cycles": len(self._evolve_history),
             "last_evolve_pass_rate": last_evolve["pass_rate"] if last_evolve else None,
             "last_evolve_regression": last_evolve["regression"] if last_evolve else False,

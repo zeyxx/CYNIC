@@ -294,3 +294,7 @@ class _OrganismAwakener:
 def awaken(db_pool=None, registry=None):
     """Entry point to wake up CYNIC."""
     return _OrganismAwakener(db_pool, registry).build()
+
+def create_organism(db_pool=None, registry=None):
+    """Alias for awaken() used by tests."""
+    return awaken(db_pool, registry)

@@ -75,6 +75,14 @@ class ConsciousnessState:
     active_anchors: List[str] = field(default_factory=list)
     cycle_budget: int = 144 # F(12) — Total available cycles per session
     cycles_consumed: int = 0
+    timers: dict[str, Any] = field(default_factory=dict)
+    
+    # Cycle counters
+    reflex_cycles: int = 0
+    micro_cycles: int = 0
+    macro_cycles: int = 0
+    meta_cycles: int = 0
+    total_cycles: int = 0
     
     def can_afford(self, level: ConsciousnessLevel, anchor: RealityAnchor) -> bool:
         """Check if metabolic capacity allows this level of thinking."""
@@ -95,7 +103,25 @@ class ConsciousnessState:
             ConsciousnessLevel.MACRO: 21,
             ConsciousnessLevel.META: 55,
         }
-        self.consume(costs.get(level, 1))
+        cost = costs.get(level, 1)
+        self.consume(cost)
+        
+        # Track counts
+        self.total_cycles += 1
+        if level == ConsciousnessLevel.REFLEX: self.reflex_cycles += 1
+        elif level == ConsciousnessLevel.MICRO: self.micro_cycles += 1
+        elif level == ConsciousnessLevel.MACRO: self.macro_cycles += 1
+        elif level == ConsciousnessLevel.META: self.meta_cycles += 1
+
+    def model_dump(self) -> dict[str, Any]:
+        """Convert state to dict for Pydantic/API serialization."""
+        return {
+            "level": self.level.name,
+            "active_anchors": self.active_anchors,
+            "cycle_budget": self.cycle_budget,
+            "cycles_consumed": self.cycles_consumed,
+            "timers": self.timers
+        }
 
 # Global singleton
 _conscious_state: Optional[ConsciousnessState] = None

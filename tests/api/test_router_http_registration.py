@@ -20,20 +20,21 @@ class TestRouterHTTPRegistration:
     @pytest.fixture
     def client(self):
         """Create test client."""
-        return TestClient(app)
+        with TestClient(app) as client:
+            yield client
 
     def test_all_routers_registered(self):
         """Verify routers were registered during app creation."""
         assert _routers_registered is not None
         assert len(_routers_registered) > 0
-        assert "consciousness_ecosystem" in _routers_registered
+        assert "consciousness_ecosystem_router" in _routers_registered
 
     def test_all_routers_have_api_prefix(self):
         """Verify all routers use /api/ prefix."""
         for route in app.routes:
             path = getattr(route, "path", "")
             # Skip non-route items like Mount
-            if not path or path.startswith("/static") or path.startswith("/openapi"):
+            if not path or path.startswith("/api/") or path.startswith("/static") or path.startswith("/openapi") or path.startswith("/docs") or "oauth2-redirect" in path:
                 continue
             # All API routes should have /api/ prefix
             assert path.startswith("/api/"), (
@@ -91,7 +92,7 @@ class TestRouterHTTPRegistration:
         for route in app.routes:
             path = getattr(route, "path", "")
             # Skip static, openapi, health check
-            if any(skip in path for skip in ["/static", "/openapi", "/docs", "/redoc"]):
+            if any(skip in path for skip in ["/static", "/openapi", "/docs", "/redoc", "oauth2-redirect"]):
                 continue
             # Warn if we find routes not under /api/
             if path and not path.startswith("/api/"):

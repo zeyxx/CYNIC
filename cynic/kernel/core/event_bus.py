@@ -169,6 +169,8 @@ class CoreEvent(StrEnum):
     MCP_TOOL_CALLED      = "mcp.tool_called"
     MCP_RESOURCE_READ    = "mcp.resource_read"
 
+EventType = Union[str, CoreEvent, AgentEvent, AutomationEvent]
+
 class Event:
     """A generic event container."""
     def __init__(self, type: str, payload: Any = None, source: str = "unknown"):

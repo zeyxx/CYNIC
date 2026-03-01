@@ -11,7 +11,7 @@ Provides:
 import jwt
 from datetime import datetime, timedelta
 from typing import Dict, Optional
-from governance_bot.config import cynic.interfaces.bots.governance.core.config as config
+from . import config
 
 
 class AuthManager:

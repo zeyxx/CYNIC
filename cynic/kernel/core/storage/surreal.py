@@ -26,11 +26,12 @@ Auth:
 """
 from __future__ import annotations
 
+import httpx
 import logging
 import os
 import time
 import uuid
-from typing import Any
+from typing import Any, Optional
 
 from cynic.kernel.core.formulas import ACT_LOG_CAP
 from cynic.kernel.core.storage.interface import (
@@ -44,6 +45,7 @@ from cynic.kernel.core.storage.interface import (
     ScholarRepoInterface,
     ActionProposalRepoInterface,
     DogSoulRepoInterface,
+    AxiomFacetRepoInterface,
 )
 
 logger = logging.getLogger("cynic.storage.surreal")
@@ -79,8 +81,6 @@ _SCHEMA_STATEMENTS = [
     "DEFINE INDEX IF NOT EXISTS idx_residual_observed ON residual FIELDS observed_at",
     "DEFINE INDEX IF NOT EXISTS idx_scholar_created ON scholar FIELDS created_at",
     # HNSW vector index — cosine similarity for Scholar semantic search
-    # Dimension 768 = standard BERT/sentence-transformers output
-    # Falls back gracefully if no embeddings stored
     "DEFINE INDEX IF NOT EXISTS idx_scholar_vec ON scholar FIELDS embedding HNSW DIMENSION 768 DIST COSINE",
     "DEFINE INDEX IF NOT EXISTS idx_action_status ON action_proposal FIELDS status",
     "DEFINE INDEX IF NOT EXISTS idx_dog_soul_id ON dog_soul FIELDS dog_id UNIQUE",
@@ -180,8 +180,8 @@ class QTableRepo(QTableRepoInterface):
             rec = await self._db.select(self._rec_id(state_key, action))
             if rec and isinstance(rec, dict):
                 return float(rec.get("q_value", 0.0))
-        except httpx.RequestError:
-            logger.debug("QTable get failed for %s/%s", state_key, action, exc_info=True)
+        except (httpx.RequestError, Exception):
+            logger.debug("QTable get failed for %s/%s", state_key, action)
         return 0.0
 
     async def update(self, state_key: str, action: str, q_value: float) -> None:
@@ -190,8 +190,8 @@ class QTableRepo(QTableRepoInterface):
         existing: Optional[dict] = None
         try:
             existing = await self._db.select(rec_id)
-        except httpx.RequestError:
-            logger.debug("QTable visit fetch failed for %s", rec_id, exc_info=True)
+        except (httpx.RequestError, Exception):
+            logger.debug("QTable visit fetch failed for %s", rec_id)
         visits = 1
         if existing and isinstance(existing, dict):
             visits = int(existing.get("visit_count", 0)) + 1
@@ -409,10 +409,6 @@ class ScholarRepo(ScholarRepoInterface):
         return rows[0]["n"] if rows else 0
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# ACTION PROPOSAL REPOSITORY
-# ════════════════════════════════════════════════════════════════════════════
-
 class ActionProposalRepo(ActionProposalRepoInterface):
     """Persist ProposedAction queue to SurrealDB (mirrors ~/.cynic/pending_actions.json)."""
 
@@ -450,10 +446,6 @@ class ActionProposalRepo(ActionProposalRepoInterface):
         )
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# DOG SOUL REPOSITORY
-# ════════════════════════════════════════════════════════════════════════════
-
 class DogSoulRepo(DogSoulRepoInterface):
     """Persist DogSoul cross-session identity to SurrealDB (mirrors ~/.cynic/dogs/{id}/soul.md)."""
 
@@ -483,25 +475,25 @@ class DogSoulRepo(DogSoulRepoInterface):
 
 
 class AxiomFacetRepo(AxiomFacetRepoInterface):
-    """Dynamic facet storage for Axioms."""
+    """Persist dynamic axiom facets to SurrealDB."""
 
     def __init__(self, db: Any) -> None:
         self._db = db
 
     async def save(self, facet: dict[str, Any]) -> None:
-        """Save a dynamic facet (axiom, reality, facet, description)."""
-        # Composite key for record ID
-        key = f"{facet['axiom']}_{facet['reality']}_{facet['facet']}"
-        await self._db.upsert(_rec("axiom_facet", key), {
+        """Upsert a dynamic facet record."""
+        # ID: axiom_facet:{axiom}_{reality}_{facet_name}
+        fid = f"{facet['axiom']}_{facet['reality']}_{facet['facet']}"
+        await self._db.upsert(_rec("axiom_facet", fid), {
             **facet,
-            "created_at": time.time(),
+            "updated_at": time.time(),
         })
 
     async def get_all(self, axiom: str, reality: str) -> list[dict[str, Any]]:
-        """Fetch all facets for an axiom in a specific reality."""
+        """Load all facets for a given axiom/reality."""
         result = await self._db.query(
-            "SELECT * FROM axiom_facet WHERE axiom = $axiom AND reality = $reality",
-            {"axiom": axiom, "reality": reality},
+            "SELECT * FROM axiom_facet WHERE axiom = $a AND reality = $r",
+            {"a": axiom, "r": reality},
         )
         return _rows(result)
 
@@ -532,12 +524,26 @@ class SurrealStorage(StorageInterface):
         namespace: str,
         database: str,
     ) -> None:
+        from surrealdb import AsyncSurreal
         self._url = url
         self._user = user
         self._password = password
         self._ns = namespace
         self._db_name = database
-        self._conn: Any = None  # AsyncSurreal instance
+        self._db = AsyncSurreal(self._url)
+        self._conn = self._db # for backward compatibility
+
+        # Repos
+        self._judgments = JudgmentRepo(self._db)
+        self._qtable = QTableRepo(self._db)
+        self._learning = LearningRepo(self._db)
+        self._benchmarks = BenchmarkRepo(self._db)
+        self._residuals = ResidualRepo(self._db)
+        self._sdk_sessions = SDKSessionRepo(self._db)
+        self._scholar = ScholarRepo(self._db)
+        self._action_proposals = ActionProposalRepo(self._db)
+        self._dog_souls = DogSoulRepo(self._db)
+        self._axiom_facets = AxiomFacetRepo(self._db)
 
     @classmethod
     def from_env(cls) -> SurrealStorage:
@@ -571,27 +577,24 @@ class SurrealStorage(StorageInterface):
         return storage
 
     async def connect(self) -> None:
-        from surrealdb import AsyncSurreal  # type: ignore
-        self._conn = AsyncSurreal(self._url)
-        await self._conn.connect()
-        await self._conn.signin({"username": self._user, "password": self._password})
-        await self._conn.use(self._ns, self._db_name)
+        await self._db.connect()
+        await self._db.signin({"username": self._user, "password": self._password})
+        await self._db.use(self._ns, self._db_name)
         logger.info(
             "*sniff* SurrealDB connected: %s → %s.%s",
             self._url, self._ns, self._db_name,
         )
 
     async def close(self) -> None:
-        if self._conn is not None:
-            await self._conn.close()
-            self._conn = None
+        if self._db is not None:
+            await self._db.close()
             logger.info("SurrealDB connection closed")
 
     async def create_schema(self) -> None:
         """Define tables and indexes. Idempotent (IF NOT EXISTS)."""
         for stmt in _SCHEMA_STATEMENTS:
             try:
-                await self._conn.query(stmt)
+                await self._db.query(stmt)
             except OSError as exc:
                 logger.debug("Schema stmt skipped (%s): %s", stmt[:40], exc)
         logger.info("*tail wag* SurrealDB schema ready (%d statements)", len(_SCHEMA_STATEMENTS))
@@ -600,64 +603,55 @@ class SurrealStorage(StorageInterface):
 
     @property
     def judgments(self) -> JudgmentRepo:
-        return JudgmentRepo(self._conn)
+        return self._judgments
 
     @property
     def qtable(self) -> QTableRepo:
-        return QTableRepo(self._conn)
+        return self._qtable
 
     @property
     def learning(self) -> LearningRepo:
-        return LearningRepo(self._conn)
+        return self._learning
 
     @property
     def benchmarks(self) -> BenchmarkRepo:
-        return BenchmarkRepo(self._conn)
+        return self._benchmarks
 
     @property
     def residuals(self) -> ResidualRepo:
-        return ResidualRepo(self._conn)
+        return self._residuals
 
     @property
     def sdk_sessions(self) -> SDKSessionRepo:
-        return SDKSessionRepo(self._conn)
+        return self._sdk_sessions
 
     @property
     def scholar(self) -> ScholarRepo:
-        return ScholarRepo(self._conn)
+        return self._scholar
 
     @property
     def action_proposals(self) -> ActionProposalRepo:
-        return ActionProposalRepo(self._conn)
+        return self._action_proposals
 
     @property
     def dog_souls(self) -> DogSoulRepo:
-        return DogSoulRepo(self._conn)
+        return self._dog_souls
 
     @property
     def axiom_facets(self) -> AxiomFacetRepo:
-        return AxiomFacetRepo(self._conn)
+        return self._axiom_facets
 
     async def ping(self) -> bool:
         """Return True if connection is alive."""
         try:
-            await self._conn.query("SELECT 1")
+            await self._db.query("SELECT 1")
             return True
-        except asyncpg.Error:
+        except Exception:
             return False
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # MODULE-LEVEL SINGLETON (Phase 1B: Wrapper for server.py bootstrap)
-# ════════════════════════════════════════════════════════════════════════════
-#
-# CRITICAL: These functions provide backward compatibility with server.py's
-# lifespan bootstrap. They manage a module-level _storage singleton.
-#
-# FUTURE: Will be replaced with injectable pattern in Phase 2A+ once
-# server.py refactored to pass storage through CynicOrganism.state.
-#
-# TODO (Phase 2A): Move storage lifecycle to CynicOrganism + remove these functions
 # ════════════════════════════════════════════════════════════════════════════
 
 _storage: Optional[SurrealStorage] = None
@@ -670,26 +664,7 @@ async def init_storage(
     namespace: Optional[str] = None,
     database: Optional[str] = None,
 ) -> SurrealStorage:
-    """
-    Initialize module-level storage singleton.
-
-    Call once from FastAPI lifespan startup (in server.py).
-    Connects to SurrealDB and creates schema.
-
-    Args:
-        url: SurrealDB WebSocket URL (default: SURREAL_URL env var)
-        user: Username (default: SURREAL_USER env var)
-        password: Password (default: SURREAL_PASS env var)
-        namespace: Database namespace (default: SURREAL_NS env var)
-        database: Database name (default: SURREAL_DB env var)
-
-    Returns:
-        The initialized SurrealStorage instance (also stored in _storage global)
-
-    Raises:
-        ImportError: If surrealdb package not installed
-        Exception: If connection fails
-    """
+    """Initialize module-level storage singleton."""
     global _storage
 
     if _storage is not None:
@@ -707,18 +682,7 @@ async def init_storage(
 
 
 def get_storage() -> SurrealStorage:
-    """
-    Retrieve module-level storage singleton.
-
-    Call anywhere in the codebase after init_storage() has been called
-    (i.e., after lifespan startup).
-
-    Returns:
-        The SurrealStorage instance
-
-    Raises:
-        RuntimeError: If init_storage() hasn't been called yet
-    """
+    """Retrieve module-level storage singleton."""
     if _storage is None:
         raise RuntimeError(
             "SurrealStorage not initialized. Call init_storage() in lifespan startup first."
@@ -727,12 +691,7 @@ def get_storage() -> SurrealStorage:
 
 
 async def close_storage() -> None:
-    """
-    Close module-level storage singleton.
-
-    Call from FastAPI lifespan shutdown (in server.py).
-    Closes the WebSocket connection to SurrealDB.
-    """
+    """Close module-level storage singleton."""
     global _storage
 
     if _storage is not None:
@@ -744,13 +703,6 @@ async def close_storage() -> None:
 
 
 def reset_storage() -> None:
-    """
-    Reset module-level storage singleton (TEST ONLY).
-
-    Used in test teardown to clear the singleton for the next test.
-    Should NOT be called in production code.
-    """
+    """Reset module-level storage singleton (TEST ONLY)."""
     global _storage
     _storage = None
-
-

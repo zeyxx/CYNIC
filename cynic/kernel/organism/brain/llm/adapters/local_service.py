@@ -23,9 +23,7 @@ class OllamaAdapter(LLMAdapter):
         start = time.time()
         payload = {
             "model": self.model,
-            "prompt": f"{request.system}
-
-{request.prompt}" if request.system else request.prompt,
+            "prompt": f"{request.system}\n\n{request.prompt}" if request.system else request.prompt,
             "stream": False,
             "options": {"temperature": request.temperature}
         }

@@ -14,6 +14,9 @@ from cynic.kernel.core.event_bus import get_core_bus, CoreEvent, Event
 from cynic.kernel.organism.anatomy import CognitionCore, MetabolicCore, SensoryCore, ArchiveCore
 from cynic.kernel.organism.state_manager import OrganismState
 
+# Aliases for assembler/builders
+MemoryCore = ArchiveCore
+
 logger = logging.getLogger("cynic.kernel.organism")
 
 @dataclass
@@ -46,6 +49,8 @@ class Organism:
     def orchestrator(self): return self.cognition.orchestrator
     @property
     def qtable(self): return self.cognition.qtable
+    @property
+    def learning_loop(self): return self.cognition.learning_loop
     @property
     def dogs(self): return self.cognition.orchestrator.dogs
     @property

@@ -99,8 +99,9 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
     return HealthResponse(
         status=status,
         uptime_s=round(state.uptime_s, 1),
-        consciousness=consciousness.to_dict(),
-        dogs=state.dogs,
+        consciousness=consciousness.model_dump(),
+        dogs=[str(d) for d in state.dogs.keys()],
+
         learning={
             "active": state.learning_loop._active,
             "states": learn_stats["states"],
@@ -123,12 +124,13 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
 async def stats(container: AppContainer = Depends(get_app_container)) -> StatsResponse:
     """Detailed kernel metrics — everything CYNIC knows about itself."""
     state = container.organism
+    consciousness = get_consciousness()
 
     return StatsResponse(
         judgments=state.orchestrator.stats(),
         learning=state.qtable.stats(),
         top_states=state.qtable.top_states(n=10),
-        consciousness=get_consciousness().to_dict(),
+        consciousness=consciousness.model_dump(),
         compressor=state.context_compressor.stats(),
     )
 
@@ -264,7 +266,7 @@ async def health_full(container: AppContainer = Depends(get_app_container)) -> d
         # Consciousness
         components["consciousness"] = {
             "status": "healthy",
-            "details": consciousness.to_dict(),
+            "details": consciousness.model_dump(),
         }
 
         # Dogs status
