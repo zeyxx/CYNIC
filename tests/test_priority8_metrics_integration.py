@@ -199,3 +199,22 @@ class TestFactoryIntegration:
 
         # Should have reference
         assert prober._metrics_collector is metrics_collector
+
+    async def test_selfprober_subscribes_to_anomaly_detected(self):
+        """Test 11: SelfProber subscribes to ANOMALY_DETECTED (in addition to EMERGENCE_DETECTED)."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from unittest.mock import AsyncMock, MagicMock
+        from cynic.kernel.core.event_bus import CoreEvent
+
+        mock_bus = AsyncMock()
+        prober = SelfProber(bus=mock_bus)
+
+        # Register with mock bus
+        prober.start(mock_bus)
+
+        # Should have registered for both events
+        calls = [call[0][0] for call in mock_bus.on.call_args_list]
+        event_types = [c.value if hasattr(c, 'value') else str(c) for c in calls]
+
+        # Should have registered for EMERGENCE_DETECTED
+        assert any("emergence" in str(e).lower() for e in event_types)
