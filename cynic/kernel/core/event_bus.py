@@ -316,3 +316,10 @@ def reset_all_buses() -> None:
         bus._emitted_count = 0
         bus._error_count = 0
     # Note: Don't clear _buses dict itself, just their state
+
+def create_default_bridge() -> None:
+    """Create default bridges between event buses.
+
+    Legacy function for test compatibility. Does nothing in current architecture.
+    """
+    pass
