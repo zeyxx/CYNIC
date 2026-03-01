@@ -539,7 +539,7 @@ class JudgeOrchestrator:
         final_q = 0.0 if veto else phi_bound_score(avg_q)
 
         # Axiom scoring kept for active_axioms tracking and emergent activation only.
-        axiom_result = self.axiom_arch.score_and_compute(
+        axiom_result = await self.axiom_arch.score_and_compute(
             domain=cell.reality,
             context=str(cell.content)[:500],
             fractal_depth=1,
@@ -615,7 +615,7 @@ class JudgeOrchestrator:
         # Axiom scoring at medium depth
         q_scores_micro = [j.q_score for j in pipeline.dog_judgments]
         avg_q_micro = sum(q_scores_micro) / len(q_scores_micro) if q_scores_micro else 0.0
-        axiom_result = self.axiom_arch.score_and_compute(
+        axiom_result = await self.axiom_arch.score_and_compute(
             domain=cell.reality,
             context=str(cell.content)[:500],
             fractal_depth=2,

@@ -143,6 +143,9 @@ class UnifiedConsciousState(BaseModel):
     total_judgments: int = 0
     dog_agreement_scores: Dict[int, float] = Field(default_factory=dict)
     consciousness_level: str = "REFLEX"
+    active_axioms: list[str] = Field(default_factory=list)
+    emergent_states: Dict[str, bool] = Field(default_factory=dict)
+    activation_log: list[Dict] = Field(default_factory=list)
 
     def add_judgment(self, j: UnifiedJudgment):
         self.recent_judgments.add(j)

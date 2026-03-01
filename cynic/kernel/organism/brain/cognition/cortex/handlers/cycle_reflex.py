@@ -91,7 +91,7 @@ class ReflexCycleHandler(BaseHandler):
             final_q = 0.0 if veto else phi_bound_score(avg_q)
 
             # Axiom scoring for active_axioms tracking and emergent activation
-            axiom_result = self.axiom_arch.score_and_compute(
+            axiom_result = await self.axiom_arch.score_and_compute(
                 domain=cell.reality,
                 context=str(cell.content)[:500],
                 fractal_depth=1,

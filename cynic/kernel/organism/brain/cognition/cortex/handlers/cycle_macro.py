@@ -165,8 +165,8 @@ class MacroCycleHandler(BaseHandler):
             
             # Use fractal_depth from pipeline (defaults to 3 for MACRO)
             depth = getattr(pipeline, 'fractal_depth', 3)
-            
-            axiom_result = self.axiom_arch.score_and_compute(
+
+            axiom_result = await self.axiom_arch.score_and_compute(
                 domain=cell.reality,
                 context=str(cell.content)[:500],
                 fractal_depth=depth,

@@ -71,12 +71,18 @@ class OrganismState:
         self.macro_cycles = 0
         self.meta_cycles = 0
         self.total_cycles = 0
-        
+
+        # Axiom state (for AxiomArchitecture)
+        self.active_axioms: List[str] = []
+        self.emergent_states: Dict[str, bool] = {}
+        self.activation_log: List[Dict[str, Any]] = []
+        self.learned_weights: Dict[str, Dict[str, float]] = {}
+
         # Async Pipeline
         self._update_queue: asyncio.Queue[StateUpdate] = asyncio.Queue()
         self._processing = False
         self._loop_task: Optional[asyncio.Task] = None
-        
+
         # Concurrency protection
         self._lock = threading.RLock() # Use threading.RLock for synchronous accessors
 

@@ -150,7 +150,7 @@ class JudgeStage(JudgmentStage):
         avg_q = sum(q_scores) / len(q_scores) if q_scores else 0.0
         consensus_strength = (consensus.votes / consensus.quorum) if consensus and consensus.quorum else 0.0
 
-        axiom_result = orch.axiom_arch.score_and_compute(
+        axiom_result = await orch.axiom_arch.score_and_compute(
             domain=cell.reality,
             context=str(cell.content)[:500],
             fractal_depth=3,
