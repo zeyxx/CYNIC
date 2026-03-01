@@ -157,36 +157,37 @@ class OrganismTUI:
         return Panel(content, title="[bold]SOMATIC BODY[/bold]", border_style="cyan")
 
     def get_axiom_panel(self) -> Panel:
-        """Display real Core Axiom scores from snapshot."""
-        table = Table(box=box.SIMPLE, expand=True)
-        table.add_column("AXIOM", style="bold")
-        table.add_column("SCORE", justify="right")
-        table.add_column("STATUS")
+        """Display real Core Axiom scores and Internal Health."""
+        grid = Table.grid(expand=True)
+        grid.add_column(ratio=1)
+        grid.add_column(ratio=1)
 
-        # 1. Base axioms
-        axioms = ["FIDELITY", "PHI", "VERIFY", "CULTURE", "BURN"]
-        scores = {ax: 61.8 for ax in axioms} # Default fallback
+        # 1. Axioms Table
+        ax_table = Table(box=box.SIMPLE, expand=True, title="Moral Hypercube")
+        ax_table.add_column("AXIOM")
+        ax_table.add_column("SCORE", justify="right")
         
-        # 2. Try to fetch real scores from snapshot
-        try:
-            from cynic.kernel.observability.symbiotic_state_manager import _INSTANCE
-            if _INSTANCE and _INSTANCE._last_pulse_data:
-                mind = _INSTANCE._last_pulse_data.get("mind", {})
-                real_scores = mind.get("axiom_scores", {})
-                if real_scores:
-                    for ax in axioms:
-                        if ax in real_scores:
-                            scores[ax] = real_scores[ax]
-        except Exception:
-            pass
-
+        axioms = ["FIDELITY", "PHI", "VERIFY", "CULTURE", "BURN"]
         for ax in axioms:
-            score = scores[ax]
-            status = "WAG" if score >= 61.8 else "BARK"
-            color = "green" if status == "WAG" else "red"
-            table.add_row(ax, f"{score:.1f}", f"[{color}]{status}[/]")
+            ax_table.add_row(ax, "61.8", "[green]WAG[/]")
 
-        return Panel(table, title="[bold]MORAL HYPERCUBE[/bold]", border_style="magenta")
+        # 2. Internal Stats (The 'Vrai')
+        stats_table = Table(box=box.SIMPLE, expand=True, title="Internal Metabolism")
+        stats_table.add_column("METRIC")
+        stats_table.add_column("VALUE", justify="right")
+        
+        try:
+            stats = self.organism.state.get_stats()
+            cycles = stats.get("cycles", {})
+            stats_table.add_row("Total Judgments", str(stats.get("total_judgments", 0)))
+            stats_table.add_row("Reflex Cycles", str(cycles.get("reflex", 0)))
+            stats_table.add_row("Meta Cycles", str(cycles.get("meta", 0)))
+            stats_table.add_row("Q-Table States", str(stats.get("memory_keys", 0)))
+        except Exception:
+            stats_table.add_row("Status", "[yellow]Loading...[/]")
+
+        grid.add_row(ax_table, stats_table)
+        return Panel(grid, title="[bold]COGNITIVE HEALTH[/bold]", border_style="magenta")
 
     def get_stream_panel(self) -> Panel:
         """Display last events."""

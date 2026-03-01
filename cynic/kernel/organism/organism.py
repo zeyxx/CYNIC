@@ -110,6 +110,7 @@ class Organism:
         bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
         bus.on(CoreEvent.CONSCIOUSNESS_CHANGED, self._on_consciousness_changed)
         bus.on(CoreEvent.ANOMALY_DETECTED, self._on_anomaly_detected)
+        bus.on(CoreEvent.LEARNING_EVENT, self._on_learning_event)
 
     async def _on_judgment_created(self, event: Event) -> None:
         await self.state.add_judgment(event.dict_payload)
@@ -127,6 +128,22 @@ class Organism:
                 error=data.get("type", "Unknown Anomaly"),
                 details=str(data.get("value", ""))
             )
+
+    async def _on_learning_event(self, event: Event) -> None:
+        """Notify Telegram when CYNIC updates its Q-Table (Learning)."""
+        if hasattr(self, "_telegram") and self._telegram.active:
+            p = event.dict_payload
+            reward = p.get("reward", 0.0)
+            # Only notify major learning (high reward or major penalty)
+            if abs(reward) > 0.5:
+                msg = (
+                    f"🧠 <b>CYNIC LEARNED SOMETHING</b>\n\n"
+                    f"<b>State:</b> <code>{p.get('state_key')}</code>\n"
+                    f"<b>Action:</b> <code>{p.get('action')}</code>\n"
+                    f"<b>Reward:</b> {'🟢' if reward > 0 else '🔴'} {reward:+.3f}\n"
+                    f"<b>New Q-Value:</b> {p.get('q_value_new', 0.0):.3f}"
+                )
+                await self._telegram.notify(msg)
 
     async def start(self, db=None) -> None:
         """
