@@ -49,9 +49,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Registry can be passed here if LLMs are enabled
     organism = awaken()
     
-    # 2. BREATHE (Start async processing loops for state and sensors)
+    # 2. START (Launch background processing loops)
     # Note: In production, we would pass the actual DB pool here
-    await organism.state.start_processing(db=None)
+    await organism.start(db=None)
     
     # 2b. AWAKEN κ-NET (Somatic Broadcaster)
     from cynic.kernel.protocol.knet_server import get_knet_server

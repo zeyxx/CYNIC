@@ -86,6 +86,35 @@ class Organism:
         level = event.dict_payload.get("level", "REFLEX")
         await self.state.update_consciousness_level(level)
 
+    async def start(self, db=None) -> None:
+        """
+        Start the organism's background processing loops.
+        Must be called within an active event loop.
+        """
+        # 1. Start state processing (metrics, history)
+        await self.state.start_processing(db=db)
+        
+        # 2. Start SONA heartbeat (self-assessment)
+        if hasattr(self.memory, "sona_emitter"):
+            self.memory.sona_emitter.start()
+            
+        # 3. Start Gossip (Federation) if applicable
+        if hasattr(self.memory, "gossip_manager"):
+            # GossipManager might need an async start too if it creates tasks
+            if hasattr(self.memory.gossip_manager, "start"):
+                await self.memory.gossip_manager.start()
+
+        logger.info("Organism: All background loops started.")
+
+    async def stop(self) -> None:
+        """Graceful shutdown of all loops."""
+        await self.state.stop_processing()
+        if hasattr(self.memory, "sona_emitter"):
+            await self.memory.sona_emitter.stop()
+        if hasattr(self.memory, "gossip_manager") and hasattr(self.memory.gossip_manager, "stop"):
+            await self.memory.gossip_manager.stop()
+        logger.info("Organism: Dormant.")
+
 def awaken(db_pool=None, registry=None) -> Organism:
     """Delegates to the factory for awakening."""
     from .factory import _OrganismAwakener

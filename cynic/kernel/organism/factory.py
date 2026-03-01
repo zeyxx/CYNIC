@@ -171,7 +171,6 @@ class _OrganismAwakener:
 
         # 4. MEMORY & FEDERATION
         self.sona_emitter = SonaEmitter(bus=get_core_bus(), db_pool=self.db_pool)
-        self.sona_emitter.start()
 
         from cynic.kernel.organism.perception.federation.gossip import GossipManager
         instance_id = os.environ.get("CYNIC_INSTANCE_ID", os.urandom(4).hex())

@@ -27,6 +27,21 @@ class CliApp:
     def __init__(self) -> None:
         """Initialize CliApp with running flag."""
         self._running = True
+        self._organism = None
+
+    async def _ensure_organism(self) -> Any:
+        """Ensure local organism is awakened and started."""
+        if self._organism is None:
+            from cynic.kernel.organism.organism import awaken
+            self._organism = awaken()
+            await self._organism.start()
+            
+            # Connect to symbiotic state manager
+            from cynic.kernel.observability.symbiotic_state_manager import get_symbiotic_state_manager
+            mgr = await get_symbiotic_state_manager()
+            mgr.set_organism(self._organism)
+            
+        return self._organism
 
     def get_menu_items(self) -> list[tuple[str, str]]:
         """Get menu items as list of (key, label) tuples.
@@ -152,12 +167,7 @@ class CliApp:
         """Launch the live Embodied TUI."""
         print("\n🦴 Launching LIVE BODY TUI...")
         
-        from cynic.kernel.observability.symbiotic_state_manager import get_symbiotic_state_manager
-        mgr = await get_symbiotic_state_manager()
-        organism = mgr._organism
-        
-        if organism is None:
-            print("⚠️  Organism not awakened. Body TUI might show limited data.")
+        organism = await self._ensure_organism()
         
         from cynic.interfaces.cli.organism_tui import OrganismTUI
         tui = OrganismTUI(organism)
@@ -281,6 +291,9 @@ class CliApp:
         except EOFError:
             print("\n\nEnd of input. Shutting down...")
             self._running = False
+        finally:
+            if self._organism:
+                await self._organism.stop()
 
 
 async def main() -> None:

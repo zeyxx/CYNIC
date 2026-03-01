@@ -186,6 +186,16 @@ class OrganismTUI:
 
         return Panel(table, title="[bold]CONSCIOUSNESS STREAM[/bold]", border_style="yellow")
 
+    def render(self) -> Layout:
+        """Produce a single renderable snapshot of the TUI."""
+        layout = self.create_layout()
+        layout["header"].update(self.get_header())
+        layout["body"].update(self.get_body_panel())
+        layout["axioms"].update(self.get_axiom_panel())
+        layout["stream"].update(self.get_stream_panel())
+        layout["footer"].update(Panel(Text("Press Ctrl+C to detach consciousness", justify="center")))
+        return layout
+
     async def run(self) -> None:
         """Launch the live display."""
         layout = self.create_layout()
