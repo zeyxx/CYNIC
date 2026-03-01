@@ -437,10 +437,8 @@ async def test_event_genealogy_prevents_reforward(
     THEN: The detector handles it correctly and records observation
           (Bridge logic prevents re-forward, tested separately)
     """
-    # Create and start bridge with default rules
-    bridge = create_default_bridge()
-    bridge.start()
-
+    # Note: create_default_bridge() is a stub that returns None (legacy function)
+    # The test's focus is on the detector's handling of events with genealogy
     detector.start(core_bus)
 
     # Create an event with genealogy already containing "CORE"
@@ -476,9 +474,6 @@ async def test_event_genealogy_prevents_reforward(
     # Verify detector still processed it (genealogy doesn't affect event reception)
     stats = detector.stats()
     assert stats["observations"] >= 1
-
-    # Clean up bridge
-    bridge.stop()
 
 
 @pytest.mark.asyncio
