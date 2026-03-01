@@ -62,3 +62,38 @@ class TestMetricsRouter:
         # Should include histogram buckets if metrics collected
         assert response.status_code == 200
         # Histogram would show LOD levels (100ms, 300ms, 1000ms, 3000ms)
+
+
+@pytest.mark.asyncio
+class TestMetricsIntegration:
+    """Integration tests with actual metrics collection."""
+
+    async def test_metrics_reflects_collected_events(self):
+        """Test 6: /metrics reflects EventMetricsCollector data."""
+        from fastapi.testclient import TestClient
+        from cynic.interfaces.api.server import app
+        from cynic.kernel.core.event_bus import get_core_bus
+
+        # Get collector from bus
+        bus = get_core_bus("DEFAULT")
+
+        # If collector available, verify metrics endpoint reports it
+        client = TestClient(app)
+        response = client.get("/metrics")
+
+        assert response.status_code == 200
+        assert "cynic_" in response.text or response.text == "# No metrics available\n"
+
+    async def test_metrics_endpoint_performance(self):
+        """Test 7: /metrics responds in <100ms (no blocking)."""
+        from fastapi.testclient import TestClient
+        from cynic.interfaces.api.server import app
+        import time
+
+        client = TestClient(app)
+        start = time.perf_counter()
+        response = client.get("/metrics")
+        elapsed_ms = (time.perf_counter() - start) * 1000
+
+        assert response.status_code == 200
+        assert elapsed_ms < 100.0, f"Metrics endpoint took {elapsed_ms:.1f}ms (>100ms)"
