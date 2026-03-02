@@ -660,7 +660,7 @@ async def _call_cynic(endpoint: str, data: dict) -> dict:
             try:
                 import os
                 os.unlink(temp_file)
-            except:
+            except OSError:
                 pass
 
     except TimeoutError:

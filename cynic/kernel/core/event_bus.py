@@ -136,8 +136,8 @@ class Event:
         try:
             if hasattr(payload_type, "model_validate"):
                 return payload_type.model_validate(self.payload)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Pydantic validation failed for %s: %s", payload_type.__name__, e, exc_info=True)
 
         # Try direct instantiation if dict
         try:
@@ -170,6 +170,7 @@ class EventBus:
         
         # Backpressure Settings (Lentille : Backend)
         self.MAX_PENDING = 1000 # Critical threshold for 10k TPS readiness
+        self._backpressure_emitting: bool = False  # Guard against recursive emit
 
     def set_bridge(self, bridge: Any):
         """Attach a distributed bridge (e.g. Redis)."""
@@ -212,14 +213,21 @@ class EventBus:
             self._peak_pending = pending_count
             
         if pending_count > self.MAX_PENDING:
-            logger.error(f"[{self.instance_id}] CRITICAL BACKPRESSURE: {pending_count} tasks. DROPPING EVENT {event.type}")
-            if event.type != CoreEvent.ANOMALY_DETECTED:
-                asyncio.create_task(self.emit(Event.typed(
-                    CoreEvent.ANOMALY_DETECTED, 
-                    {"type": "backpressure_drop", "pending": pending_count, "dropped": event.type},
+            logger.warning(
+                f"[{self.instance_id}] BACKPRESSURE: {pending_count} pending tasks. Throttling active.",
+                extra={"bus_id": self.bus_id}
+            )
+            # Mandatory anomaly signal (guard against recursive emit)
+            if event.type != CoreEvent.ANOMALY_DETECTED and not self._backpressure_emitting:
+                self._backpressure_emitting = True
+                def reset_flag(task):
+                    self._backpressure_emitting = False
+                task = asyncio.create_task(self.emit(Event.typed(
+                    CoreEvent.ANOMALY_DETECTED,
+                    {"type": "backpressure", "pending": pending_count},
                     source="event_bus"
-                ), distributed=False))
-            return # DROP THE EVENT
+                )))
+                task.add_done_callback(reset_flag)
 
         handlers = self._handlers.get(event.type, [])
         wildcards = self._handlers.get("*", [])
@@ -244,8 +252,10 @@ class EventBus:
             return
             
         try:
+            # Snapshot pending tasks to avoid race with done_callbacks
+            pending = list(self._pending_tasks)
             await asyncio.wait_for(
-                asyncio.gather(*list(self._pending_tasks), return_exceptions=True),
+                asyncio.gather(*pending, return_exceptions=True),
                 timeout=timeout
             )
         except asyncio.TimeoutError:
@@ -253,7 +263,10 @@ class EventBus:
         except Exception as e:
             logger.error(f"[{self.instance_id}] EventBus drain failed: {e}")
         finally:
-            self._pending_tasks.clear()
+            # Let done_callbacks clean up individual tasks
+            # Only clear if nothing new was added during drain
+            if self._pending_tasks:
+                self._pending_tasks.clear()
 
     def stats(self) -> dict[str, Any]:
         """Return high-frequency observability statistics."""
