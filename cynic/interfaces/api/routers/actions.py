@@ -183,7 +183,7 @@ async def trigger_self_analysis(
     if prober is None:
         raise HTTPException(status_code=503, detail="SelfProber not active")
 
-    new_proposals = prober.analyze(
+    new_proposals = await prober.analyze(
         trigger="MANUAL",
         pattern_type=pattern_type,
         severity=severity,

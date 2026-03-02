@@ -119,16 +119,15 @@ async def metrics(request: Request) -> Response:
             collector = bus._metrics_adapter._collector
 
             # Get current rates
-            import asyncio
             try:
-                rates = asyncio.run(collector.current_rates())
+                rates = await collector.current_rates()
                 metrics_data["event_rates"] = rates
             except Exception as e:
-                logger.debug(f"Failed to get event rates: {e}")
+                logger.warning("Failed to get event rates: %s", e, exc_info=True)
 
             # Get metrics for all types
             try:
-                all_metrics = asyncio.run(collector.all_metrics())
+                all_metrics = await collector.all_metrics()
                 metrics_data["event_counts"] = {
                     m.event_type: m.count_in_window
                     for m in all_metrics.values()
@@ -143,14 +142,14 @@ async def metrics(request: Request) -> Response:
                     for m in all_metrics.values()
                 }
             except Exception as e:
-                logger.debug(f"Failed to get all metrics: {e}")
+                logger.warning("Failed to get all metrics: %s", e, exc_info=True)
 
             # Get anomaly count
             try:
-                anomalies = asyncio.run(collector.recent_anomalies(limit=1000))
+                anomalies = await collector.recent_anomalies(limit=1000)
                 metrics_data["anomaly_count"] = len(anomalies)
             except Exception as e:
-                logger.debug(f"Failed to get anomalies: {e}")
+                logger.warning("Failed to get anomalies: %s", e, exc_info=True)
 
         text = _format_openmetrics(metrics_data)
         return Response(content=text, media_type="application/openmetrics-text; charset=utf-8")

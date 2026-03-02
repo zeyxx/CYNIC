@@ -299,7 +299,7 @@ class SelfProber:
 
     # â"€â"€ Analysis â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
-    def analyze(
+    async def analyze(
         self,
         trigger: str = "MANUAL",
         pattern_type: str = "UNKNOWN",
@@ -316,7 +316,7 @@ class SelfProber:
         new_proposals.extend(self._analyze_escore(trigger, pattern_type, severity))
         new_proposals.extend(self._analyze_residual(trigger, pattern_type, severity))
         new_proposals.extend(self._analyze_architecture(trigger, pattern_type, severity))
-        new_proposals.extend(self._analyze_metrics(anomalies=None, trigger=trigger, pattern_type=pattern_type, severity=severity))
+        new_proposals.extend(await self._analyze_metrics(anomalies=None, trigger=trigger, pattern_type=pattern_type, severity=severity))
 
         for proposal in new_proposals:
             self._proposals.append(proposal)
@@ -549,7 +549,7 @@ class SelfProber:
 
     # — Analysis: Metrics —————————————————————————————————————————————————————
 
-    def _analyze_metrics(
+    async def _analyze_metrics(
         self,
         anomalies: list | None = None,
         trigger: str = "MANUAL",
@@ -567,8 +567,7 @@ class SelfProber:
         # Get anomalies from collector if not provided
         if anomalies is None:
             try:
-                import asyncio
-                anomalies = asyncio.run(self._metrics_collector.recent_anomalies(limit=10))
+                anomalies = await self._metrics_collector.recent_anomalies(limit=10)
             except Exception as e:
                 logger.debug(f"_analyze_metrics: error fetching anomalies: {e}")
                 return []
@@ -612,7 +611,7 @@ class SelfProber:
             pattern_type = payload.get("pattern_type", "UNKNOWN")
             severity = float(payload.get("severity", 0.5))
 
-            new_proposals = self.analyze(
+            new_proposals = await self.analyze(
                 trigger="EMERGENCE",
                 pattern_type=pattern_type,
                 severity=severity,
@@ -653,7 +652,7 @@ class SelfProber:
         severity = payload.get("severity", 0.5)
 
         # Trigger analysis with anomaly context
-        proposals = self.analyze(
+        proposals = await self.analyze(
             trigger="ANOMALY_DETECTED",
             pattern_type=f"ANOMALY_{anomaly_type}",
             severity=severity,
