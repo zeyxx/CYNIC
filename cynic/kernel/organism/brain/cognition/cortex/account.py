@@ -37,9 +37,17 @@ class AccountAgent:
         self.escore_tracker = tracker
 
     def start(self):
-        """Subscribe to judgment events to track costs."""
+        “””Subscribe to judgment events to track costs.”””
         self._bus.on(CoreEvent.JUDGMENT_CREATED, self.on_judgment_created)
-        logger.info("AccountAgent started â€” budget=$%.2f, EScore=wired", self.limit)
+        logger.info(“AccountAgent started â€” budget=$%.2f, EScore=wired”, self.limit)
+
+    def stop(self) -> None:
+        “””Unregister from bus judgment events.”””
+        try:
+            self._bus.off(CoreEvent.JUDGMENT_CREATED, self.on_judgment_created)
+        except Exception as e:
+            logger.debug(f”Error unregistering AccountAgent listener: {e}”)
+        logger.info(“AccountAgent stopped”)
 
     async def on_judgment_created(self, event: Event) -> None:
         """Accumulate cost from a new judgment."""

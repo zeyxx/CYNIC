@@ -33,9 +33,17 @@ class SovereigntyAgent:
         self._bus = bus or get_core_bus("DEFAULT")
 
     def start(self):
-        """Subscribe to the nervous system."""
+        “””Subscribe to the nervous system.”””
         self._bus.on(CoreEvent.VALUE_CREATED, self._on_value_created)
-        logger.info("SovereigntyAgent active â€” measuring impact.")
+        logger.info(“SovereigntyAgent active â€” measuring impact.”)
+
+    def stop(self) -> None:
+        “””Unregister from bus value events.”””
+        try:
+            self._bus.off(CoreEvent.VALUE_CREATED, self._on_value_created)
+        except Exception as e:
+            logger.debug(f”Error unregistering SovereigntyAgent listener: {e}”)
+        logger.info(“SovereigntyAgent stopped”)
 
     async def _on_value_created(self, event: Event) -> None:
         """A new creation event has occurred."""
