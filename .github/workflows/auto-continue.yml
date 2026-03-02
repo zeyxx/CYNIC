@@ -1,0 +1,32 @@
+name: Auto-Continue (Ralph Loop)
+
+on:
+  schedule:
+    # Run every 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch:  # Can trigger manually
+
+jobs:
+  detect-and-suggest:
+    name: Detect Blockers & Suggest Actions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Run blocker detection
+        run: python scripts/detect_blockers.py
+
+      - name: Create status update comment
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "ℹ️ Blocker detection run complete."
+          echo "Check GitHub Actions logs for details."
