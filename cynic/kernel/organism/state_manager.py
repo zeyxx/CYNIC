@@ -115,7 +115,7 @@ class OrganismState:
                     "meta": self.meta_cycles,
                     "total": self.total_cycles,
                 },
-                "consensus_score": self.get_consensus_score(),
+                "consensus_score": self.consciousness.get_consensus_score(),
             }
 
             # Inject bus stats if available
