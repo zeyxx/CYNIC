@@ -11,17 +11,32 @@ from cynic.kernel.organism.brain.dialogue.models import CynicMessage, UserMessag
 from cynic.kernel.organism.brain.dialogue.reasoning import ReasoningEngine
 from cynic.kernel.organism.brain.dialogue.storage import get_dialogue_store
 from cynic.kernel.organism.brain.learning.memory_store import get_memory_store
+from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
 
 
 class DialogueMode:
     """Interactive dialogue mode for conversing with CYNIC."""
 
-    def __init__(self):
+    def __init__(self, llm_registry: LLMRegistry | None = None):
+        """Initialize dialogue mode with optional LLMRegistry injection.
+
+        Args:
+            llm_registry: LLMRegistry for multi-provider routing (injected from factory).
+                          If not provided, LLMBridge will attempt to retrieve from container.
+        """
         self.storage = None
         self.memory_store = None
-        # Load API key from centralized config (Rule 3)
+        self.llm_registry = llm_registry
+
+        # Load configuration from centralized config (Rule 3)
         config = CynicConfig.from_env()
-        self.llm_bridge = LLMBridge(api_key=config.anthropic_api_key)
+
+        # Initialize LLMBridge with registry injection and fallback API key
+        self.llm_bridge = LLMBridge(
+            registry=llm_registry,
+            api_key=config.anthropic_api_key,
+            dog_id="CYNIC",
+        )
         self.reasoning_engine = ReasoningEngine()
         self._initialized = False
 
