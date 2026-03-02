@@ -64,6 +64,7 @@ class CynicConfig:
     llama_gpu_layers: int = -1
     llama_threads: int = 8
     ollama_num_parallel: int | None = None
+    dialogue_llm_provider: str = "auto"
 
     # —— Bots: Discord & Telegram ──────────────────────────────────────────────
     discord_token: str | None = None
@@ -126,6 +127,9 @@ class CynicConfig:
             llama_gpu_layers=int(os.getenv("LLAMA_CPP_GPU_LAYERS", "-1")),
             llama_threads=int(os.getenv("LLAMA_CPP_THREADS", "8")),
             ollama_num_parallel=_opt_int(os.getenv("OLLAMA_NUM_PARALLEL")),
+
+            # Dialogue LLM Provider
+            dialogue_llm_provider=os.getenv("DIALOGUE_LLM_PROVIDER", "auto"),
 
             # Bots
             discord_token=os.getenv("DISCORD_TOKEN"),

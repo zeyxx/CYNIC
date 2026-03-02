@@ -54,6 +54,16 @@ class OutcomeRequest(BaseModel):
     executor_id: str = Field(default="", alias="executor")
 
 # â”€â”€ Response Models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class RegisterCommunityRequest(BaseModel):
+    """Request to register or update a governance community."""
+    community_id: str = Field(..., min_length=1, max_length=255)
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
+    governance_type: str = "consensus"
+    member_count: int = Field(default=0, ge=0)
+    is_active: bool = True
+
 class VerdictResponse(BaseModel):
     """CYNIC's verdict for a proposal."""
     proposal_id: str
@@ -80,9 +90,16 @@ class GovernanceStatusResponse(BaseModel):
 router = APIRouter(tags=["governance"])
 
 @router.post("/communities")
-async def register_community(req: dict, container: AppContainer = Depends(get_app_container)):
-    """Register or update a community."""
-    community = GovernanceCommunity(**req)
+async def register_community(req: RegisterCommunityRequest, container: AppContainer = Depends(get_app_container)):
+    """Register or update a community (with Pydantic validation)."""
+    community = GovernanceCommunity(
+        community_id=req.community_id,
+        name=req.name,
+        description=req.description,
+        governance_type=req.governance_type,
+        member_count=req.member_count,
+        is_active=req.is_active,
+    )
     await container.organism.state.register_community(community)
     return {"status": "SUCCESS", "community_id": community.community_id}
 

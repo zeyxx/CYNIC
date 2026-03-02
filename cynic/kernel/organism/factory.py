@@ -119,6 +119,9 @@ class _OrganismAwakener:
         self.state = OrganismState(instance_id=instance_id, storage=self.storage, bus=instance_bus)
         
         # 1b. LLM REGISTRY (Isolated)
+        # Multi-provider routing with sovereignty-first selection:
+        # Priority: local GGUF > Ollama > CLI tools > cloud APIs
+        # Used by DialogueMode for universal LLM access (not hardcoded to single provider)
         from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
         self.llm_registry = LLMRegistry(vascular=self.vascular)
 
