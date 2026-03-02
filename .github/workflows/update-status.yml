@@ -1,0 +1,40 @@
+name: Update Status Dashboard
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  workflow_run:
+    workflows: ["CI Gates"]
+    types: [completed]
+  schedule:
+    # Run every 30 minutes
+    - cron: '*/30 * * * *'
+
+jobs:
+  update-dashboard:
+    name: Generate & Commit Status Dashboard
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Get full history
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Generate dashboard
+        run: python scripts/generate_status_dashboard.py
+
+      - name: Commit and push (if changed)
+        run: |
+          git config user.name "CYNIC Dashboard Bot"
+          git config user.email "dashboard@cynic"
+          git add docs/status.md
+          git diff --cached --quiet || git commit -m "chore: update project status dashboard"
+          git push || true
