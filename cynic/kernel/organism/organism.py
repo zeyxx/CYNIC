@@ -205,7 +205,9 @@ class Organism:
         try:
             # Stop scheduler
             if hasattr(self.metabolism, "scheduler") and hasattr(self.metabolism.scheduler, "stop"):
-                self.metabolism.scheduler.stop()
+                result = self.metabolism.scheduler.stop()
+                if result and hasattr(result, '__await__'):
+                    await result
         except Exception as e:
             logger.debug(f"Error stopping scheduler: {e}")
 

@@ -73,5 +73,5 @@ class CLIAdapter(LLMAdapter):
             return proc.returncode == 0
         except asyncio.CancelledError:
             raise
-        except (OSError, FileNotFoundError, asyncio.SubprocessError):
+        except (OSError, FileNotFoundError):
             return False
