@@ -962,3 +962,310 @@ class TestCLIInterface:
         finally:
             import os
             os.unlink(temp_path)
+
+
+class TestProposalExecutorGuardrails:
+    """Tests for Priority 10 Task 4: Safety Guardrails & Rollback."""
+
+    @pytest.mark.asyncio
+    async def test_25_rate_limit_blocks_excessive_auto_apply(self):
+        """Test 25: Rate limit blocks excessive auto-apply (3 proposals, 1/sec = 2+ seconds elapsed)."""
+        import time
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber, SelfProposal
+        from cynic.kernel.core.event_bus import EventBus
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        executor = ProposalExecutor()
+
+        # Set rate limit to 1 per second
+        executor.set_rate_limit(1.0)
+
+        # Create mock qtable
+        class MockQTable:
+            def __init__(self):
+                self._table = {
+                    f"state_{i}": {f"action_{i}": {"value": 0.15, "visits": 5}}
+                    for i in range(3)
+                }
+
+            def update(self, state, action, new_value):
+                if state in self._table and action in self._table[state]:
+                    self._table[state][action]["value"] = new_value
+
+        executor.set_qtable(MockQTable())
+        prober.set_executor(executor)
+
+        # Create 3 LOW_RISK proposals
+        proposals = []
+        for i in range(3):
+            proposal = SelfProposal(
+                probe_id=f"p25_{i}",
+                trigger="MANUAL",
+                pattern_type="TEST",
+                severity=0.15,
+                dimension="QTABLE",
+                target=f"state_{i}:action_{i}",
+                recommendation="Test proposal",
+                current_value=0.15,
+                suggested_value=0.30,
+            )
+            prober._proposals.append(proposal)
+            proposals.append(proposal)
+
+        # Execute 3 proposals in rapid succession
+        start_time = time.time()
+        for proposal in proposals:
+            await prober.apply_async(proposal.probe_id)
+        elapsed = time.time() - start_time
+
+        # Should take 2+ seconds due to rate limiting (3 executions at 1/sec = 2 seconds wait)
+        assert elapsed >= 2.0, f"Expected >= 2.0s elapsed, got {elapsed}"
+
+    @pytest.mark.asyncio
+    async def test_26_circuit_breaker_opens_after_max_failures(self):
+        """Test 26: Circuit breaker disables after N failures (5 failures -> circuit open)."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber, SelfProposal
+        from cynic.kernel.core.event_bus import EventBus
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        executor = ProposalExecutor()
+
+        # Set circuit breaker to open after 5 failures
+        executor.set_circuit_breaker_threshold(5)
+
+        # Don't inject qtable - all executions will fail
+        prober.set_executor(executor)
+
+        # Create 6 LOW_RISK QTABLE proposals (all will fail due to missing qtable)
+        for i in range(6):
+            proposal = SelfProposal(
+                probe_id=f"p26_{i}",
+                trigger="MANUAL",
+                pattern_type="TEST",
+                severity=0.15,
+                dimension="QTABLE",
+                target=f"state_{i}:action_{i}",
+                recommendation="Test proposal",
+                current_value=0.15,
+                suggested_value=0.30,
+            )
+            prober._proposals.append(proposal)
+
+        # Apply first 5 proposals - should all fail
+        for i in range(5):
+            await prober.apply_async(f"p26_{i}")
+
+        # Verify circuit is now open
+        assert executor.is_circuit_open() is True
+
+    @pytest.mark.asyncio
+    async def test_27_circuit_breaker_blocks_execution(self):
+        """Test 27: Circuit breaker blocks execution (blocked proposal returns error with 'circuit breaker')."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber, SelfProposal
+        from cynic.kernel.core.event_bus import EventBus
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        executor = ProposalExecutor()
+
+        # Set circuit breaker to open after 2 failures
+        executor.set_circuit_breaker_threshold(2)
+
+        # Don't inject qtable - all executions will fail
+        prober.set_executor(executor)
+
+        # Create 3 LOW_RISK QTABLE proposals
+        for i in range(3):
+            proposal = SelfProposal(
+                probe_id=f"p27_{i}",
+                trigger="MANUAL",
+                pattern_type="TEST",
+                severity=0.15,
+                dimension="QTABLE",
+                target=f"state_{i}:action_{i}",
+                recommendation="Test proposal",
+                current_value=0.15,
+                suggested_value=0.30,
+            )
+            prober._proposals.append(proposal)
+
+        # Apply first 2 proposals - should fail and open circuit
+        for i in range(2):
+            await prober.apply_async(f"p27_{i}")
+
+        # Apply third proposal - should be blocked by circuit breaker
+        result = await executor.execute(prober.get(f"p27_2"))
+        assert result.success is False
+        assert "circuit breaker" in result.error_message.lower()
+
+    def test_28_proposal_rollback_records_executions(self):
+        """Test 28: ProposalRollback records executions."""
+        import tempfile
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import ProposalRollback
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            rollback = ProposalRollback(rollback_path=temp_path)
+
+            # Record execution
+            rollback.record(
+                proposal_id="p1",
+                dimension="QTABLE",
+                target="state:action",
+                old_value=0.15,
+                new_value=0.30,
+                reversible=True,
+            )
+
+            # Verify recorded
+            history = rollback.history(limit=10)
+            assert len(history) == 1
+            assert history[0]["proposal_id"] == "p1"
+            assert history[0]["old_value"] == 0.15
+            assert history[0]["new_value"] == 0.30
+        finally:
+            import os
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+    def test_29_proposal_rollback_last_n_proposals(self):
+        """Test 29: Rollback last N proposals."""
+        import tempfile
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import ProposalRollback
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            rollback = ProposalRollback(rollback_path=temp_path)
+
+            # Record 3 executions
+            for i in range(3):
+                rollback.record(
+                    proposal_id=f"p{i}",
+                    dimension="QTABLE",
+                    target=f"state_{i}:action_{i}",
+                    old_value=0.1 + i * 0.1,
+                    new_value=0.3 + i * 0.1,
+                    reversible=True,
+                )
+
+            # Rollback last 2
+            rolled_back = rollback.rollback_last(2)
+
+            # Should have rolled back 2 entries
+            assert len(rolled_back) == 2
+            assert rolled_back[0]["proposal_id"] == "p2"
+            assert rolled_back[1]["proposal_id"] == "p1"
+
+            # History should only have 1 entry now
+            history = rollback.history(limit=10)
+            assert len(history) == 1
+            assert history[0]["proposal_id"] == "p0"
+        finally:
+            import os
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+    def test_30_proposal_rollback_since_minutes_ago(self):
+        """Test 30: Rollback since X minutes ago."""
+        import time
+        import tempfile
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import ProposalRollback
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            rollback = ProposalRollback(rollback_path=temp_path)
+
+            # Record 2 entries with old timestamps
+            now = time.time()
+            old_time = now - (10 * 60)  # 10 minutes ago
+
+            # Manually add old entries
+            from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import RollbackEntry
+            rollback._entries.append(RollbackEntry(
+                proposal_id="p0",
+                dimension="QTABLE",
+                target="state_0:action_0",
+                old_value=0.1,
+                new_value=0.3,
+                executed_at=old_time,
+                reversible=True,
+            ))
+            rollback._entries.append(RollbackEntry(
+                proposal_id="p1",
+                dimension="QTABLE",
+                target="state_1:action_1",
+                old_value=0.1,
+                new_value=0.3,
+                executed_at=old_time + 1,
+                reversible=True,
+            ))
+
+            # Record a recent entry
+            rollback.record(
+                proposal_id="p2",
+                dimension="METRICS",
+                target="test",
+                old_value=1.0,
+                new_value=0.5,
+                reversible=True,
+            )
+
+            # Rollback entries from last 1 minute
+            rolled_back = rollback.rollback_since(minutes_ago=1.0)
+
+            # Should have rolled back only the most recent entry
+            assert len(rolled_back) == 1
+            assert rolled_back[0]["proposal_id"] == "p2"
+
+            # Old entries should still be there
+            history = rollback.history(limit=10)
+            assert len(history) == 2
+            assert history[0]["proposal_id"] == "p1"
+            assert history[1]["proposal_id"] == "p0"
+        finally:
+            import os
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+    def test_31_proposal_rollback_history_returns_recent_entries(self):
+        """Test 31: History returns recent entries."""
+        import tempfile
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import ProposalRollback
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            rollback = ProposalRollback(rollback_path=temp_path)
+
+            # Record 10 entries
+            for i in range(10):
+                rollback.record(
+                    proposal_id=f"p{i}",
+                    dimension="QTABLE",
+                    target=f"state_{i}:action_{i}",
+                    old_value=0.1,
+                    new_value=0.3,
+                    reversible=True,
+                )
+
+            # Get history with limit=5
+            history = rollback.history(limit=5)
+
+            # Should return last 5 entries in reverse order
+            assert len(history) == 5
+            assert history[0]["proposal_id"] == "p9"
+            assert history[1]["proposal_id"] == "p8"
+            assert history[4]["proposal_id"] == "p5"
+        finally:
+            import os
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)

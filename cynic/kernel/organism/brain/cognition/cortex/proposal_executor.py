@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
@@ -83,6 +84,13 @@ class ProposalExecutor:
         self._metrics_collector: Any | None = None
         self._escore_tracker: Any | None = None
 
+        # Rate limiting and circuit breaker
+        self._rate_limit: float | None = None  # Executions per second
+        self._last_execution_times: list[float] = []  # Last 10 execution times
+        self._circuit_breaker_threshold: int | None = None  # Max failures before opening
+        self._consecutive_failures: int = 0
+        self._circuit_open: bool = False
+
     # — Injection —————————————————————————————————————————————————————————————
 
     def set_qtable(self, qtable: Any) -> None:
@@ -96,6 +104,68 @@ class ProposalExecutor:
     def set_escore_tracker(self, tracker: Any) -> None:
         """Inject EScore tracker for ESCORE dimension execution."""
         self._escore_tracker = tracker
+
+    def set_rate_limit(self, max_per_second: float) -> None:
+        """
+        Set rate limit for auto-apply.
+
+        Args:
+            max_per_second: Maximum executions per second (e.g., 1.0 = 1 execution per second)
+        """
+        self._rate_limit = max_per_second
+        logger.info("ProposalExecutor: Rate limit set to %.2f executions/sec", max_per_second)
+
+    def set_circuit_breaker_threshold(self, max_failures: int) -> None:
+        """
+        Set circuit breaker threshold.
+
+        After N consecutive failures, disable auto-apply entirely.
+
+        Args:
+            max_failures: Number of consecutive failures before opening circuit
+        """
+        self._circuit_breaker_threshold = max_failures
+        logger.info("ProposalExecutor: Circuit breaker threshold set to %d failures", max_failures)
+
+    def is_circuit_open(self) -> bool:
+        """
+        Check if circuit breaker is open.
+
+        Returns:
+            True if circuit is open (too many recent failures), False otherwise
+        """
+        return self._circuit_open
+
+    async def _apply_rate_limit(self) -> None:
+        """
+        Enforce rate limit before execution.
+
+        If rate_limit is set, ensures we don't exceed max_per_second.
+        Uses last 10 execution timestamps to calculate current rate.
+        """
+        if self._rate_limit is None or self._rate_limit <= 0:
+            return
+
+        now = time.time()
+        # Keep only recent timestamps (within 1 second window)
+        self._last_execution_times = [t for t in self._last_execution_times if now - t < 1.0]
+
+        # Calculate current rate
+        executions_in_window = len(self._last_execution_times)
+        if executions_in_window >= self._rate_limit:
+            # Need to wait
+            oldest = self._last_execution_times[0]
+            wait_time = 1.0 - (now - oldest) + 0.01  # Small buffer
+            if wait_time > 0:
+                logger.debug("ProposalExecutor: Rate limit wait %.3fs", wait_time)
+                await asyncio.sleep(wait_time)
+                now = time.time()
+
+        # Record execution time
+        self._last_execution_times.append(now)
+        # Keep only last 10
+        if len(self._last_execution_times) > 10:
+            self._last_execution_times.pop(0)
 
     # — Risk Classification ————————————————————————————————————————————————————
 
@@ -146,25 +216,55 @@ class ProposalExecutor:
         Returns:
             ExecutionResult with success flag and outcome message
         """
+        # Check circuit breaker first
+        if self._circuit_open:
+            return ExecutionResult(
+                success=False,
+                proposal_id=proposal.probe_id,
+                dimension=proposal.dimension,
+                message=f"Execution blocked",
+                error_message="Circuit breaker is open (too many recent failures)",
+            )
+
+        # Apply rate limiting
+        await self._apply_rate_limit()
+
         dimension = proposal.dimension
 
+        # Execute based on dimension
+        result: ExecutionResult
         if dimension == "QTABLE":
-            return await self._execute_qtable(proposal)
+            result = await self._execute_qtable(proposal)
         elif dimension == "METRICS":
-            return await self._execute_metrics(proposal)
+            result = await self._execute_metrics(proposal)
         elif dimension == "ESCORE":
-            return await self._execute_escore(proposal)
+            result = await self._execute_escore(proposal)
         elif dimension == "RESIDUAL":
-            return await self._execute_residual(proposal)
+            result = await self._execute_residual(proposal)
         elif dimension == "ARCHITECTURE" or dimension == "COUPLING":
-            return await self._execute_architecture(proposal)
+            result = await self._execute_architecture(proposal)
         else:
-            return ExecutionResult(
+            result = ExecutionResult(
                 success=False,
                 proposal_id=proposal.probe_id,
                 dimension=dimension,
                 message=f"Unknown dimension: {dimension}",
             )
+
+        # Update circuit breaker state based on result
+        if self._circuit_breaker_threshold is not None:
+            if result.success:
+                self._consecutive_failures = 0
+            else:
+                self._consecutive_failures += 1
+                if self._consecutive_failures >= self._circuit_breaker_threshold:
+                    self._circuit_open = True
+                    logger.warning(
+                        "ProposalExecutor: Circuit breaker opened after %d failures",
+                        self._consecutive_failures,
+                    )
+
+        return result
 
     # — Dimension Handlers —————————————————————————————————————————————————————
 
