@@ -46,7 +46,7 @@ async def sync_commands():
         logger.info(f"âœ“ Found {len(bot.tree._get_all_commands())} commands registered locally")
 
         try:
-            logger.info("â†’ Synchronizing commands with Discord...")
+            logger.info("â’ Synchronizing commands with Discord...")
             synced = await bot.tree.sync()
             logger.info(f"âœ“ Successfully synced {len(synced)} commands to Discord:")
             for cmd in synced:

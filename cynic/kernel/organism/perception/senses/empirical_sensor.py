@@ -20,7 +20,7 @@ class EmpiricalSensor(Sensor):
     Replays a fixed sequence of Observations.
 
     Used by Track C to inject synthetic observations with controlled
-    quality scores (0.0â€“1.0 confidence) to test perception â†’ judgment
+    quality scores (0.0â€“1.0 confidence) to test perception â’ judgment
     pipelines.
     """
 

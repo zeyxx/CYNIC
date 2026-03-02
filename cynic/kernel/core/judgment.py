@@ -11,9 +11,9 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE, PHI_INV
+from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE
 
 # Global configuration for all models: Frozen (Immutable) and No extra fields allowed.
 _STRICT = ConfigDict(frozen=True, extra="forbid")

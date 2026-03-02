@@ -6,7 +6,9 @@ import asyncio
 import logging
 import os
 import shutil
-from typing import Any
+from typing import Any, Optional
+
+from pydantic import ValidationError
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
@@ -15,26 +17,26 @@ from cynic.kernel.organism.perception.senses.workers.base import PerceiveWorker
 
 logger = logging.getLogger("cynic.kernel.organism.perception.senses")
 
-# Ï†-derived disk usage thresholds (fraction of disk used)
-_DISK_WARN = PHI_INV  # 0.618 â€” 61.8% full â†’ GROWL / LOD 1
-_DISK_CRITICAL = 1 - PHI_INV_3  # 0.764 â€” 76.4% full â†’ LOD 2
-_DISK_EMERGENCY = 0.90  # 90%   full â†’ BARK  / LOD 3
+# Ï-derived disk usage thresholds (fraction of disk used)
+_DISK_WARN = PHI_INV  # 0.618 â€” 61.8% full â’ GROWL / LOD 1
+_DISK_CRITICAL = 1 - PHI_INV_3  # 0.764 â€” 76.4% full â’ LOD 2
+_DISK_EMERGENCY = 0.90  # 90%   full â’ BARK  / LOD 3
 
 
 class DiskWatcher(PerceiveWorker):
     """
     Monitors disk usage via shutil.disk_usage() (stdlib, no psutil needed).
 
-    Submits CYNICÃ—PERCEIVE at REFLEX when disk exceeds Ï†-thresholds.
-    Also emits DISK_PRESSURE on the core bus â†’ triggers StorageGC.
+    Submits CYNICÃ—PERCEIVE at REFLEX when disk exceeds Ï-thresholds.
+    Also emits DISK_PRESSURE on the core bus â’ triggers StorageGC.
 
     Deduplicates: only emits when the pressure level CHANGES
-    (WARN â†’ CRITICAL â†’ EMERGENCY, or back to OK).
+    (WARN â’ CRITICAL â’ EMERGENCY, or back to OK).
 
-    Thresholds (Ï†-derived, fraction of disk used):
-      WARN      â‰¥ 0.618 (61.8%) â†’ LOD 1, GC pre-warm
-      CRITICAL  â‰¥ 0.764 (76.4%) â†’ LOD 2, GC aggressive
-      EMERGENCY â‰¥ 0.90  (90%)   â†’ LOD 3, BARK
+    Thresholds (Ï-derived, fraction of disk used):
+      WARN      â‰¥ 0.618 (61.8%) â’ LOD 1, GC pre-warm
+      CRITICAL  â‰¥ 0.764 (76.4%) â’ LOD 2, GC aggressive
+      EMERGENCY â‰¥ 0.90  (90%)   â’ LOD 3, BARK
 
     interval: F(9)=34s â€” same cadence as MarketWatcher/SolanaWatcher.
     """

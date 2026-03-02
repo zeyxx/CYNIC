@@ -33,8 +33,8 @@ _SOLANA_RPC_HEADERS = {
     "Content-Type": "application/json",
     "User-Agent": "CYNIC/1.0 SolanaWatcher",
 }
-_TPS_WARNING_THRESHOLD = 1000  # below this â†’ slow network
-_SLOT_LAG_WARNING = 10  # >10 behind tip â†’ lagging
+_TPS_WARNING_THRESHOLD = 1000  # below this â’ slow network
+_SLOT_LAG_WARNING = 10  # >10 behind tip â’ lagging
 _HTTP_TIMEOUT = 5.0
 
 # Track current RPC index for round-robin fallback

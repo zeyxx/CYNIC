@@ -10,7 +10,7 @@ This is the core amplification hypothesis:
 
 Design:
   WarmStartLearner:
-    Phase 1 â€” accumulate W judgments on real probe data â†’ snapshot Q-values
+    Phase 1 â€” accumulate W judgments on real probe data â’ snapshot Q-values
     Phase 2 â€” fresh learner inherits those Q-values + visit counts (EWC uses them)
               runs T test steps on same task
   ColdStartLearner:
@@ -19,19 +19,19 @@ Design:
 
 Amplification ratio at step T:
   ratio(T) = cold_error(T) / warm_error(T)
-  ratio > 1 â†’ amplification confirmed (warm start is better)
-  ratio â‰ˆ 1 â†’ no amplification
-  ratio < 1 â†’ negative transfer (warm start hurts)
+  ratio > 1 â’ amplification confirmed (warm start is better)
+  ratio â‰ˆ 1 â’ no amplification
+  ratio < 1 â’ negative transfer (warm start hurts)
 
 Grid:
   warm_levels: {0, 50, 100, 200, 500}  (session history depth)
-  configs: phi (Î±=0.038, EWC=True) vs standard (Î±=0.1, EWC=False)
+  configs: phi (Î=0.038, EWC=True) vs standard (Î=0.1, EWC=False)
   n_seeds: 7
 
 Key phi advantage:
   phi + EWC = warm values are PROTECTED after consolidation.
   standard RL: warm values get overwritten as fast as cold values.
-  â†’ phi amplification_ratio should be systematically higher than standard.
+  â’ phi amplification_ratio should be systematically higher than standard.
 """
 
 from __future__ import annotations
@@ -136,7 +136,7 @@ def _run_warm_cold(
     t0 = time.perf_counter()
 
     # â”€â”€ Phase 2 task (shared between warm and cold) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    # Same seed â†’ same noisy reward sequence for fair comparison
+    # Same seed â’ same noisy reward sequence for fair comparison
     task_cold = RealKernelTask(rng=random.Random(seed + _SEED_OFFSET))
     task_warm = RealKernelTask(rng=random.Random(seed + _SEED_OFFSET))
 
@@ -199,7 +199,7 @@ class AmplificationBenchmark:
 
     Runs warm vs cold comparison across:
       - warm_levels: depth of prior session knowledge
-      - phi (Î±=0.038, EWC=True) vs standard (Î±=0.1, EWC=False)
+      - phi (Î=0.038, EWC=True) vs standard (Î=0.1, EWC=False)
       - n_seeds: statistical robustness
 
     Key outputs:

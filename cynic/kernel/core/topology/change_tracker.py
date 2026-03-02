@@ -35,7 +35,7 @@ class ChangeTracker:
 
     def __init__(self):
         self._change_count = 0
-        self._last_file_states: dict[str, float] = {}  # filepath â†’ mtime
+        self._last_file_states: dict[str, float] = {}  # filepath â’ mtime
 
     async def on_source_changed(self, event: Event) -> None:
         """

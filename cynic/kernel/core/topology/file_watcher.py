@@ -8,14 +8,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusError
 from cynic.kernel.core.phi import fibonacci
 from cynic.kernel.core.topology.payloads import SourceChangedPayload
 
 logger = logging.getLogger("cynic.kernel.core.topology.file_watcher")
 
 # Compute package root from this file's location
-_CYNIC_ROOT = Path(__file__).resolve().parent.parent.parent  # â†’ /app/cynic
+_CYNIC_ROOT = Path(__file__).resolve().parent.parent.parent  # â’ /app/cynic
 
 
 class SourceWatcher:
@@ -26,15 +26,15 @@ class SourceWatcher:
     Emits: SOURCE_CHANGED events with file path + timestamp.
 
     Watched directories:
-      - cynic/api/handlers/ â†’ category="handlers"
-      - cynic/dogs/ â†’ category="dogs"
-      - cynic/judge/ â†’ category="judge"
-      - cynic/cli/ â†’ category="cli"
+      - cynic/api/handlers/ â’ category="handlers"
+      - cynic/dogs/ â’ category="dogs"
+      - cynic/judge/ â’ category="judge"
+      - cynic/cli/ â’ category="cli"
 
     Polling: Every F(7)=13 seconds (efficient, not continuous)
     """
 
-    # Directories to watch â†’ category name (absolute paths from package root)
+    # Directories to watch â’ category name (absolute paths from package root)
     _WATCHED_DIRS = {
         "handlers": _CYNIC_ROOT / "api" / "handlers",
         "dogs": _CYNIC_ROOT / "dogs",

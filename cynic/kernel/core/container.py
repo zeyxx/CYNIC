@@ -13,7 +13,7 @@ Factory support:
     container.register_factory(QTable, lambda c: QTable())
     qtable = container.get(QTable)  # factory called lazily
 
-Ï†-Law: BURN â€” simplest possible DI, not Spring.
+Ï-Law: BURN â€” simplest possible DI, not Spring.
 """
 
 from __future__ import annotations
@@ -74,8 +74,8 @@ class DependencyContainer:
         # 2. Factory (lazy creation)
         if interface in self._factories:
             if interface in self._resolving:
-                chain = " â†’ ".join(t.__name__ for t in self._resolving)
-                raise RuntimeError(f"Circular dependency detected: {chain} â†’ {interface.__name__}")
+                chain = " â’ ".join(t.__name__ for t in self._resolving)
+                raise RuntimeError(f"Circular dependency detected: {chain} â’ {interface.__name__}")
             self._resolving.add(interface)
             try:
                 instance = self._factories[interface](self)

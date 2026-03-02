@@ -9,7 +9,6 @@ Validates everything that GitHub Actions would validate.
 
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 def run_command(name: str, cmd: list[str], timeout: int = 60) -> tuple[bool, str]:
@@ -34,7 +33,7 @@ def run_command(name: str, cmd: list[str], timeout: int = 60) -> tuple[bool, str
         print(f"[TIMEOUT after {timeout}s]")
         return False, f"Command timed out after {timeout}s"
     except Exception as e:
-        print(f"[ERROR]")
+        print("[ERROR]")
         return False, str(e)
 
 def main():

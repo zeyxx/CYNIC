@@ -15,7 +15,7 @@ from typing import Any
 
 import psutil
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.phi import PHI_INV
 
 logger = logging.getLogger("cynic.kernel.organism.layers.embodiment")
@@ -106,7 +106,7 @@ class HardwareBody:
 
             # 2. Emit somatic sensation to the bus
             # This allows cognition to 'feel' the hardware pressure
-            await self._bus.emit(Event(topic="organism.somatic_sensation", payload=state.to_dict()))
+            await self._bus.emit(Event(type="organism.somatic_sensation", payload=state.to_dict()))
 
             # 3. Log and Emit critical somatic alerts
             if cpu > 80.0:

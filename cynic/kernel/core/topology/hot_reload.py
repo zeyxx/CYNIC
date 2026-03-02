@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
+from cynic.kernel.core.exceptions import CynicError
 from cynic.kernel.core.topology.payloads import (
     TopologyAppliedPayload,
     TopologyChangedPayload,

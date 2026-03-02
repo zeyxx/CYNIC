@@ -417,7 +417,7 @@ async def cmd_cynic_stats(interaction: discord.Interaction):
 
 **Community Feedback:**
 â€¢ Rated: {rated}/{learned} outcomes
-â€¢ Average rating: {avg_rating:.1f}/5 â˜†
+â€¢ Average rating: {avg_rating:.1f}/5 â˜
 
 **CYNIC Accuracy:**
 â€¢ Total judgments: {e_score.total_judgments or 0}

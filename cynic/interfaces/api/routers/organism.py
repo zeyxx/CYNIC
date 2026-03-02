@@ -5,13 +5,13 @@ These endpoints expose read-only organism state for external monitoring.
 All responses are immutable (frozen Pydantic models).
 
 Endpoints:
-  GET /api/organism/state/snapshot     â†’ Full organism state snapshot
-  GET /api/organism/consciousness      â†’ Current consciousness level
-  GET /api/organism/dogs               â†’ All dogs and their status
-  GET /api/organism/actions            â†’ Pending proposed actions
-  GET /api/organism/account            â†’ Account and budget status
-  GET /api/organism/policy/actions     â†’ Learned best actions per state
-  GET /api/organism/policy/stats       â†’ Policy coverage and learning metrics
+  GET /api/organism/state/snapshot     â’ Full organism state snapshot
+  GET /api/organism/consciousness      â’ Current consciousness level
+  GET /api/organism/dogs               â’ All dogs and their status
+  GET /api/organism/actions            â’ Pending proposed actions
+  GET /api/organism/account            â’ Account and budget status
+  GET /api/organism/policy/actions     â’ Learned best actions per state
+  GET /api/organism/policy/stats       â’ Policy coverage and learning metrics
 """
 from __future__ import annotations
 
@@ -248,7 +248,7 @@ async def get_organism_account(
     - Current session budget (balance_usd)
     - Total cumulative spend (spent_usd)
     - Budget remaining (budget_remaining_usd)
-    - Learning rate [0, Ï†â»Â¹=0.618]
+    - Learning rate [0, Ïâ»Â¹=0.618]
     - Reputation score [0, 100]
 
     Response is AccountStatusResponse (frozen, immutable).
@@ -267,7 +267,7 @@ async def get_organism_account(
         spent_usd = float(account_stats.get("total_cost_usd", 0.0))
         budget_remaining_usd = float(account_stats.get("budget_remaining_usd", balance_usd - spent_usd))
 
-        # Learn rate: fixed Ï†â»Â¹ = 0.618 for now (can be dynamic later)
+        # Learn rate: fixed Ïâ»Â¹ = 0.618 for now (can be dynamic later)
         learn_rate = 0.618
 
         # Reputation: compute from E-Score tracker if available

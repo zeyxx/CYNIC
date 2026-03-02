@@ -210,24 +210,19 @@ class HealthChecker:
             raise
 
     async def _check_event_bus(self) -> bool:
-        """Test core event bus responsiveness."""
+        """Test event bus responsiveness via organism references."""
         if self.organism is None:
             return True
 
         try:
-            # Check if event buses exist and are accessible
-            from cynic.kernel.core.event_bus import get_agent_bus
-
-            core_bus = get_core_bus("DEFAULT")
-            if core_bus is None:
+            # Check if event buses are present in the organism
+            if not self.organism.bus:
                 raise RuntimeError("Core bus not initialized")
 
-            auto_bus = get_automation_bus("DEFAULT")
-            if auto_bus is None:
+            if not self.organism.automation_bus:
                 raise RuntimeError("Automation bus not initialized")
 
-            agent_bus = get_agent_bus("DEFAULT")
-            if agent_bus is None:
+            if not self.organism.agent_bus:
                 raise RuntimeError("Agent bus not initialized")
 
             return True

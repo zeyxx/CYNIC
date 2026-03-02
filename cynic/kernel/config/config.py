@@ -4,7 +4,7 @@ CYNIC Unified Configuration System
 Consolidates scattered configuration into a single source of truth.
 All environment variables are read hereâ€”no os.getenv() elsewhere.
 
-Ï†-Law: VERIFY â€” one truth, no scattered defaults.
+Ï-Law: VERIFY â€” one truth, no scattered defaults.
 """
 
 from __future__ import annotations

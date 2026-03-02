@@ -4,9 +4,9 @@ CYNIC Handler Composer â€” Orchestrates judgment handler chains.
 Composes handlers in optimal sequence for each consciousness level:
 
 Handler Chains:
-    REFLEX: level_selector â†’ cycle_reflex â†’ act_executor
-    MICRO: level_selector â†’ cycle_micro â†’ act_executor
-    MACRO: level_selector â†’ cycle_macro â†’ act_executor â†’ evolve (optional)
+    REFLEX: level_selector â’ cycle_reflex â’ act_executor
+    MICRO: level_selector â’ cycle_micro â’ act_executor
+    MACRO: level_selector â’ cycle_macro â’ act_executor â’ evolve (optional)
 
 Each chain is optimized for latency, cost, and thoroughness:
     REFLEX: <10ms, minimal LLM, rule-based decisions

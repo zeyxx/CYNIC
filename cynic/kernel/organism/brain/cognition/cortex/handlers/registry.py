@@ -76,7 +76,7 @@ class HandlerRegistry:
         Get copy of all registered handlers.
 
         Returns:
-            dict mapping handler_id â†’ BaseHandler instance
+            dict mapping handler_id â’ BaseHandler instance
         """
         return self.handlers.copy()
 
@@ -130,7 +130,7 @@ class HandlerRegistry:
         Get summary metadata for all registered handlers.
 
         Returns:
-            dict mapping handler_id â†’ {version, description, handler_class}
+            dict mapping handler_id â’ {version, description, handler_class}
         """
         result = {}
         for handler_id, handler in self.handlers.items():

@@ -27,6 +27,7 @@ Auth:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
@@ -654,3 +655,24 @@ class SurrealStorage(StorageInterface):
             return True
         except Exception:
             return False
+
+    async def subscribe(self, table: str, callback: Any) -> str:
+        """
+        Subscribe to live updates on a table.
+        The callback should be an async function receiving (action, result).
+        Returns the query UUID for unsubscription.
+        """
+        logger.info(f"✨ SurrealDB: Subscribing to LIVE updates on table '{table}'")
+        query_id = await self._db.query(f"LIVE SELECT * FROM {table}")
+        
+        # Note: In a real production system, we would manage these tasks 
+        # in a central registry. Here we start a dedicated listener.
+        asyncio.create_task(self._live_listener(table, callback))
+        return str(query_id)
+
+    async def _live_listener(self, table: str, callback: Any):
+        """Internal background task to process live query results."""
+        # This is a simplified version. The SurrealDB Python SDK 
+        # handling of LIVE queries varies by version.
+        # Assuming AsyncSurreal provides a stream of updates.
+        pass # To be fully implemented once SDK behavior confirmed

@@ -2,13 +2,13 @@
 CYNIC Chat Tool Executor â€” Execute tools with REFLEX judgment safety.
 
 Every dangerous tool (bash, write, edit) gets a REFLEX judgment from the
-GuardianDog before execution. BARK â†’ blocked. Everything else â†’ proceed.
+GuardianDog before execution. BARK â’ blocked. Everything else â’ proceed.
 
 Read-only tools (read, glob, grep) execute without judgment overhead.
 
 NOTE: The bash tool intentionally uses create_subprocess_shell because
 it must support pipes, redirects, and other shell features. CYNIC's
-GuardianDog REFLEX judgment provides the safety layer (BARK â†’ blocked).
+GuardianDog REFLEX judgment provides the safety layer (BARK â’ blocked).
 """
 from __future__ import annotations
 

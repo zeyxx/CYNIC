@@ -1,7 +1,7 @@
 """
-CYNIC PostgreSQL Storage â€” asyncpg + Ï†-bound DB constraints
+CYNIC PostgreSQL Storage â€” asyncpg + Ï-bound DB constraints
 
-LAW 5: Database constraints MIRROR Ï†-bounds in Pydantic models.
+LAW 5: Database constraints MIRROR Ï-bounds in Pydantic models.
   - q_score CHECK (q_score >= 0 AND q_score <= 100)
   - confidence CHECK (confidence >= 0 AND confidence <= 0.618)
   - verdict CHECK (verdict IN ('HOWL', 'WAG', 'GROWL', 'BARK'))
@@ -98,12 +98,12 @@ async def acquire() -> AsyncIterator[Connection]:
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# SCHEMA CREATION (Ï†-bound CHECK constraints)
+# SCHEMA CREATION (Ï-bound CHECK constraints)
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 SCHEMA_SQL = f"""
 -- CYNIC Core Schema
--- Ï†-bound constraints enforced at DB level (mirrors Pydantic validators)
+-- Ï-bound constraints enforced at DB level (mirrors Pydantic validators)
 
 -- Judgments table
 CREATE TABLE IF NOT EXISTS judgments (
@@ -305,7 +305,7 @@ async def create_schema(dsn: str | None = None) -> None:
 
 
 class JudgmentRepository(JudgmentRepoInterface):
-    """CRUD for judgments. Ï†-bound enforced by DB constraints."""
+    """CRUD for judgments. Ï-bound enforced by DB constraints."""
 
     async def save(self, judgment: dict[str, Any]) -> None:
         """Persist a judgment (upsert by judgment_id)."""
@@ -402,7 +402,7 @@ class JudgmentRepository(JudgmentRepoInterface):
 
 
 class QTableRepository(QTableRepoInterface):
-    """Persistent Q-Table for Q-Learning (state_key Ã— action â†’ q_value)."""
+    """Persistent Q-Table for Q-Learning (state_key Ã— action â’ q_value)."""
 
     async def get(self, state_key: str, action: str) -> float:
         """Get Q-value, returns 0.0 if not found."""
@@ -556,7 +556,7 @@ class BenchmarkRepository(BenchmarkRepoInterface):
             return [dict(r) for r in rows]
 
     async def matrix(self) -> list[dict[str, Any]]:
-        """Full benchmark matrix (dog Ã— task Ã— llm â†’ score)."""
+        """Full benchmark matrix (dog Ã— task Ã— llm â’ score)."""
         async with acquire() as conn:
             rows = await conn.fetch("""
                 SELECT dog_id, task_type, llm_id,

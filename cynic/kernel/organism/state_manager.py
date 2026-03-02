@@ -17,16 +17,10 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, get_core_bus
 from cynic.kernel.core.unified_state import (
-    GovernanceCommunity,
-    GovernanceProposal,
-    GovernanceVote,
     UnifiedConsciousState,
-    UnifiedJudgment,
-    UnifiedLearningOutcome,
 )
 
 if TYPE_CHECKING:
@@ -106,9 +100,9 @@ class OrganismState:
         self._lock = asyncio.Lock()
 
     async def get_stats(self) -> dict:
-        """thread-safe statistics."""
+        """thread-safe statistics enriched with bus metrics."""
         async with self._lock:
-            return {
+            stats = {
                 "instance_id": self.instance_id,
                 "total_judgments": self.total_judgments,
                 "total_spent_usd": round(self.total_spent_usd, 4),
@@ -121,7 +115,14 @@ class OrganismState:
                     "meta": self.meta_cycles,
                     "total": self.total_cycles,
                 },
+                "consensus_score": self.get_consensus_score(),
             }
+
+            # Inject bus stats if available
+            if self._bus:
+                stats["nervous_system"] = self._bus.stats()
+
+            return stats
 
     async def _on_act_completed(self, event: Any) -> None:
         """Reactive listener for metabolic spending (BURN)."""
@@ -181,13 +182,18 @@ class OrganismState:
         while self._processing:
             try:
                 update = await asyncio.wait_for(self._update_queue.get(), timeout=0.5)
-                if update is None: break
+                if update is None:
+                    break
                 async with self._lock:
-                    if update.layer == StateLayer.MEMORY: self._memory_state[update.key] = update.value
-                    elif update.layer == StateLayer.PERSISTENT: self._persistent_state[update.key] = update.value
+                    if update.layer == StateLayer.MEMORY:
+                        self._memory_state[update.key] = update.value
+                    elif update.layer == StateLayer.PERSISTENT:
+                        self._persistent_state[update.key] = update.value
                 self._update_queue.task_done()
-            except (asyncio.TimeoutError, TimeoutError): continue
-            except Exception as e: logger.error(f"State update error: {e}")
+            except (asyncio.TimeoutError, TimeoutError):
+                continue
+            except Exception as e:
+                logger.error(f"State update error: {e}")
 
     async def recover(self) -> None:
         cp_path = self.storage_dir / "state_checkpoint.json"
@@ -195,12 +201,17 @@ class OrganismState:
             try:
                 with open(cp_path) as f:
                     data = json.load(f)
-                    async with self._lock: self._checkpoint_state = data
-            except Exception: pass
+                    async with self._lock:
+                        self._checkpoint_state = data
+            except Exception:
+                pass
 
     async def save_checkpoint(self) -> None:
         cp_path = self.storage_dir / "state_checkpoint.json"
         try:
-            async with self._lock: snapshot = dict(self._persistent_state)
-            with open(cp_path, "w") as f: json.dump(snapshot, f, indent=2, default=str)
-        except Exception: pass
+            async with self._lock:
+                snapshot = dict(self._persistent_state)
+            with open(cp_path, "w") as f:
+                json.dump(snapshot, f, indent=2, default=str)
+        except Exception:
+            pass

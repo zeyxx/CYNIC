@@ -6,7 +6,9 @@ import asyncio
 import logging
 import subprocess
 import sys
-from typing import Any
+from typing import Any, Optional
+
+from pydantic import ValidationError
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
@@ -15,25 +17,25 @@ from cynic.kernel.organism.perception.senses.workers.base import PerceiveWorker
 
 logger = logging.getLogger("cynic.kernel.organism.perception.senses")
 
-# Ï†-derived RAM usage thresholds (fraction of RAM used)
-_MEM_WARN = PHI_INV  # 0.618 â€” 61.8% used â†’ LOD 1
-_MEM_CRITICAL = 1 - PHI_INV_3  # 0.764 â€” 76.4% used â†’ LOD 2
-_MEM_EMERGENCY = 0.90  # 90%   used â†’ LOD 3
+# Ï-derived RAM usage thresholds (fraction of RAM used)
+_MEM_WARN = PHI_INV  # 0.618 â€” 61.8% used â’ LOD 1
+_MEM_CRITICAL = 1 - PHI_INV_3  # 0.764 â€” 76.4% used â’ LOD 2
+_MEM_EMERGENCY = 0.90  # 90%   used â’ LOD 3
 
 
 class MemoryWatcher(PerceiveWorker):
     """
     Monitors RAM usage. No psutil needed â€” uses wmic on Windows, /proc/meminfo on Linux.
 
-    Submits CYNICÃ—PERCEIVE at REFLEX when RAM exceeds Ï†-thresholds.
-    Also emits MEMORY_PRESSURE on the core bus â†’ LODController reacts.
+    Submits CYNICÃ—PERCEIVE at REFLEX when RAM exceeds Ï-thresholds.
+    Also emits MEMORY_PRESSURE on the core bus â’ LODController reacts.
 
     Deduplicates: only emits when the pressure level CHANGES.
 
-    Thresholds (Ï†-derived, fraction of RAM used):
-      WARN      â‰¥ 0.618 (61.8%) â†’ LOD 1
-      CRITICAL  â‰¥ 0.764 (76.4%) â†’ LOD 2
-      EMERGENCY â‰¥ 0.90  (90%)   â†’ LOD 3
+    Thresholds (Ï-derived, fraction of RAM used):
+      WARN      â‰¥ 0.618 (61.8%) â’ LOD 1
+      CRITICAL  â‰¥ 0.764 (76.4%) â’ LOD 2
+      EMERGENCY â‰¥ 0.90  (90%)   â’ LOD 3
 
     interval: F(9)=34s â€” same cadence as DiskWatcher.
     """

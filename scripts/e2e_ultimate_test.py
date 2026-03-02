@@ -9,15 +9,12 @@ Proves that CYNIC can:
 import asyncio
 import os
 import sys
-import time
 from pathlib import Path
 
 # Add root to path
 sys.path.append(os.getcwd())
 
 from cynic.kernel.organism.organism import awaken
-from cynic.kernel.core.judgment import Cell
-from cynic.kernel.core.consciousness import ConsciousnessLevel
 
 async def ultimate_test():
     print("\n--- ðŸ§¬ CYNIC ULTIMATE LIFE TEST ---")

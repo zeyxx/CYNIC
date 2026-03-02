@@ -1,5 +1,5 @@
 """
-CYNIC Full Loop â€” Phase 3-5: PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT â†’ LEARN (integrated)
+CYNIC Full Loop â€” Phase 3-5: PERCEIVE â’ JUDGE â’ DECIDE â’ ACT â’ LEARN (integrated)
 
 Demonstrates the real end-to-end loop with human in the loop:
   1. PERCEIVE: Watch git changes
@@ -27,21 +27,18 @@ logger = logging.getLogger("cynic.interfaces.cli.full_loop")
 
 
 async def cmd_full_loop(auto: bool = False) -> None:
-    """Run the complete PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT â†’ LEARN loop."""
+    """Run the complete PERCEIVE â’ JUDGE â’ DECIDE â’ ACT â’ LEARN loop."""
     try:
-        from cynic.kernel.core.event_bus import CoreEvent, Event
-        from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
-        from cynic.kernel.organism.metabolism.universal import UniversalActuator
-        from cynic.kernel.organism.perception.senses.workers.git import GitWatcher
-
-        reset_all_buses()
-        get_core_bus("DEFAULT")
-
-
-        watcher = GitWatcher()
-        registry = LLMRegistry()
-        await registry.discover()
-        actuator = UniversalActuator()
+        from cynic.kernel.organism.factory import awaken
+        
+        # Awaken the full organism
+        org = await awaken()
+        await org.start()
+        
+        bus = org.bus
+        registry = org.llm_registry
+        actuator = org.metabolism.universal_actuator
+        watcher = org.senses.source_watcher
 
         available_adapters = registry.get_available()
         if not available_adapters:

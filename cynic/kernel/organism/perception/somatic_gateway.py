@@ -57,6 +57,16 @@ class SomaticGateway:
         self._running = False
         self._task: Optional[asyncio.Task] = None
         
+        # Metabolic Flow Control (Lentille : SRE)
+        self._last_emission_time: Dict[str, float] = {}
+        self._last_content_hash: Dict[str, int] = {}
+        self._min_interval_s: Dict[str, float] = {
+            "GAMBLING": 0.05,  # 20Hz max for high-freq games
+            "MARKET": 0.5,     # 2Hz for prices
+            "INTERNAL": 1.0,   # 1Hz for health/proprioception
+        }
+        self._default_interval = 0.1
+        
         # Metrics
         self._ingested_count = 0
         self._dropped_count = 0
@@ -99,6 +109,8 @@ class SomaticGateway:
         """
         self._ingested_count += 1
         reality = self._mappings.get(conduit_id, "INTERNAL")
+        
+        logger.debug(f"[{self.instance_id}] Ingesting from {conduit_id} (Reality: {reality})")
         
         payload = {
             "source": conduit_id,
@@ -146,21 +158,49 @@ class SomaticGateway:
 
     def _should_filter(self, reality: str, data: Any) -> bool:
         """
-        Heuristic filtering logic.
-        Can be extended with per-reality thresholding.
+        Flow control: Drop events if they arrive too fast OR if content is identical.
         """
-        # Example: Don't flood with identical data
-        return False # Passthrough for now
+        now = time.time()
+        last_time = self._last_emission_time.get(reality, 0.0)
+        min_interval = self._min_interval_s.get(reality, self._default_interval)
+        
+        # 1. Time-based filtering
+        if now - last_time < min_interval:
+            self._dropped_count += 1
+            logger.debug(f"[{self.instance_id}] Filtered {reality} (Time: delta={now - last_time:.3f}s < {min_interval}s)")
+            return True
+            
+        # 2. Content-based deduplication (Lentille : Data Engineer)
+        try:
+            content_hash = hash(str(data))
+            if self._last_content_hash.get(reality) == content_hash:
+                self._dropped_count += 1
+                logger.debug(f"[{self.instance_id}] Filtered {reality} (Deduplication: content matches)")
+                return True
+        except Exception:
+            pass # Fallback to time-only if hash fails
+            
+        return False
 
     async def _emit(self, source: str, reality: str, data: Any):
         """Translate to internal Cell and emit to Nervous System."""
         self._emitted_count += 1
+        self._last_emission_time[reality] = time.time()
+        try:
+            self._last_content_hash[reality] = hash(str(data))
+        except Exception:
+            pass
+        
+        logger.info(f"[{self.instance_id}] Somatic Gateway: Emitting PERCEPTION_RECEIVED for {reality} from {source}")
         
         # Wrap in a Cell
         cell = Cell(
             reality=reality,
             analysis="PERCEPTION",
-            content=data,
+            content={
+                **(data if isinstance(data, dict) else {"raw": data}),
+                "origin_instance": self.instance_id
+            },
             budget_usd=0.0
         )
         
@@ -169,6 +209,16 @@ class SomaticGateway:
             cell.model_dump(),
             source=source
         ))
+
+    async def drain(self, timeout: float = 5.0):
+        """Wait for the buffer to be empty."""
+        start_wait = time.time()
+        while not self._buffer.empty():
+            if time.time() - start_wait > timeout:
+                logger.warning(f"[{self.instance_id}] Somatic Gateway: Drain timeout.")
+                break
+            await asyncio.sleep(0.1)
+        await self._buffer.join()
 
     def stats(self) -> dict:
         """SRE metrics for the gateway."""

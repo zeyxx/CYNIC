@@ -169,11 +169,11 @@ async def test_phase1_learning_rate_adjustment():
         "judgments_per_second": 0.05,
     }
 
-    adjustment = handler._compute_Î±_adjustment(trend)
+    adjustment = handler._compute_Î_adjustment(trend)
 
-    # Should increase Î± when learning well
+    # Should increase Î when learning well
     assert adjustment > 0, "Should increase learning rate when system is healthy"
-    assert adjustment <= 0.618, "Should be Ï†-bounded"
+    assert adjustment <= 0.618, "Should be Ï-bounded"
 
 
 @pytest.mark.asyncio

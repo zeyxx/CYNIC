@@ -4,7 +4,7 @@ CYNIC Dog Auto-Discovery â€” pkgutil-based registration.
 Scans cynic.kernel.organism.brain.cognition.neurons for all AbstractDog subclasses with a DOG_ID class attribute.
 Replaces manual import lists â€” adding a new dog = add the file + DOG_ID.
 
-Ï†-Law: BURN â€” discovery replaces boilerplate.
+Ï-Law: BURN â€” discovery replaces boilerplate.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
     Scan cynic.kernel.organism.brain.cognition.neurons for all concrete AbstractDog subclasses with DOG_ID.
 
     Returns:
-        dict mapping DogId value â†’ Dog class (NOT instances).
+        dict mapping DogId value â’ Dog class (NOT instances).
 
     Raises:
         ValueError: if a Dog class has a DOG_ID not in DogId enum,

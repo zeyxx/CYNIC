@@ -47,12 +47,12 @@ class FederationHandler(HandlerGroup):
         return frozenset({"gossip_manager"})
 
     async def _on_judgment_created(self, event: Event) -> None:
-        """JUDGMENT_CREATED â†’ increment count and check for gossip trigger."""
+        """JUDGMENT_CREATED â’ increment count and check for gossip trigger."""
         self._judgment_count += 1
         self.gossip_manager.on_judgment(self._judgment_count)
 
     async def _on_residual_high(self, event: Event) -> None:
-        """RESIDUAL_HIGH â†’ record unnameable pattern for sharing."""
+        """RESIDUAL_HIGH â’ record unnameable pattern for sharing."""
         try:
             payload = event.dict_payload or {}
             reality = payload.get("reality", "UNKNOWN")

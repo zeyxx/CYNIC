@@ -4,14 +4,14 @@ DogCognition â€” Mini-Orchestrator enabling autonomous dog judgment
 Each dog is a mini-CYNIC that can:
   1. PERCEIVE: Observe signals in its domain (no gossip needed yet)
   2. JUDGE: Run local analysis (fast, domain-specific)
-  3. DECIDE: Create verdict (bounded by Ï†, domain-aware)
+  3. DECIDE: Create verdict (bounded by Ï, domain-aware)
   4. ACT: Execute local action (if needed)
   5. LEARN: Update local Q-table from feedback
   6. RESIDUAL: Detect anomalies in domain
   7. EVOLVE: Adjust strategy based on residuals
 
 This removes the orchestrator bottleneck:
-  - Old: Dog perceives â†’ sends to Orchestrator â†’ Orchestrator judges all dogs
+  - Old: Dog perceives â’ sends to Orchestrator â’ Orchestrator judges all dogs
   - New: Dog perceives, judges locally, gossips summary
 
 Result: Cost âˆ log(N) instead of N
@@ -48,7 +48,7 @@ class DogCognitionConfig:
 
     max_q_score: float = 100.0
     min_confidence: float = 0.0
-    max_confidence: float = 0.618  # Ï†-bounded
+    max_confidence: float = 0.618  # Ï-bounded
     confidence_decay: float = CONFIDENCE_DECAY_FACTOR  # Imported from formulas.py
     local_qtable_size: int = QTABLE_ENTRY_CAP  # F(11) = 89 rolling cap (imported from formulas.py)
     gossip_threshold: float = GOSSIP_THRESHOLD  # Imported from formulas.py
@@ -71,14 +71,14 @@ class DogCognition:
 
     async def judge_cell(self, cell: Cell, dog_state: DogState) -> DogJudgment:
         """
-        Independent judgment: Perceive â†’ Judge â†’ Decide â†’ Act
+        Independent judgment: Perceive â’ Judge â’ Decide â’ Act
 
         Dog analyzes cell in its domain WITHOUT orchestrator involvement.
         Returns judgment immediately, then learns from feedback asynchronously.
 
         **Returns**: DogJudgment with:
           - q_score: domain-specific quality [0, 100]
-          - confidence: Ï†-bounded [0, 0.618]
+          - confidence: Ï-bounded [0, 0.618]
           - reasoning: why this dog thinks X
         """
         start_ms = time.time() * 1000
@@ -250,7 +250,7 @@ class DogCognition:
 
     def _decide_verdict(self, q_score: float) -> str:
         """DECIDE: Classify q_score into verdict."""
-        # Ï†-based thresholds (same as organism)
+        # Ï-based thresholds (same as organism)
         if q_score >= 82.0:
             return "HOWL"
         elif q_score >= 61.8:

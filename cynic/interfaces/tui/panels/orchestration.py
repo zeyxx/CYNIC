@@ -135,9 +135,9 @@ Release History:
   v0.9.0    â”€  2026-02-19  Beta: Learning loops + Axiom unlock
 
 Commands:
-  [1] Bump patch (1.0.0 â†’ 1.0.1)
-  [2] Bump minor (1.0.0 â†’ 1.1.0)
-  [3] Bump major (1.0.0 â†’ 2.0.0)
+  [1] Bump patch (1.0.0 â’ 1.0.1)
+  [2] Bump minor (1.0.0 â’ 1.1.0)
+  [3] Bump major (1.0.0 â’ 2.0.0)
   [4] Create release
   [5] View changelog
 """

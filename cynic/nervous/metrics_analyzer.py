@@ -9,7 +9,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.core.phi import PHI, PHI_INV
+from cynic.kernel.core.phi import PHI
 
 if TYPE_CHECKING:
     from cynic.nervous.event_metrics import AnomalyRecord, EventMetricsCollector

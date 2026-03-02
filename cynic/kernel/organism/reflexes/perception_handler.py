@@ -44,6 +44,10 @@ class PerceptionHandler(HandlerGroup):
         React to new perception.
         """
         try:
+            # BREAK THE LOOP: Ignore perceptions emitted by the brain itself
+            if event.source in ["orchestrator", "perception_handler", "self_prober"]:
+                return
+
             data = event.dict_payload
             reality = data.get("reality", "INTERNAL")
             

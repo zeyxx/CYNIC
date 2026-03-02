@@ -5,9 +5,9 @@ Streams live CYNIC activity: judgments, learning events, SONA heartbeats, meta-c
 Claude Code watches this stream to observe CYNIC's internal state without consuming context.
 
 Protocol:
-  connect  â†’ {"type": "connected", "ts": ..., "phi": 1.618}
-  event    â†’ {"type": "judgment|learning|meta_cycle|sona_tick", "payload": {...}, "ts": <float>}
-  heartbeat â†’ {"type": "heartbeat", "ts": <float>} (every 30s if no real events)
+  connect  â’ {"type": "connected", "ts": ..., "phi": 1.618}
+  event    â’ {"type": "judgment|learning|meta_cycle|sona_tick", "payload": {...}, "ts": <float>}
+  heartbeat â’ {"type": "heartbeat", "ts": <float>} (every 30s if no real events)
 """
 from __future__ import annotations
 
@@ -16,8 +16,9 @@ import logging
 import time
 from typing import Any
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
+from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.phi import PHI
 
@@ -27,32 +28,15 @@ router = APIRouter(tags=["telemetry"])
 
 
 @router.websocket("/ws/telemetry")
-async def ws_telemetry(websocket: WebSocket) -> None:
+async def ws_telemetry(
+    websocket: WebSocket,
+    container: AppContainer = Depends(get_app_container),
+) -> None:
     """
     WebSocket stream: /ws/telemetry
-
-    Streams real-time CYNIC activity for external monitoring.
-    Useful for Claude Code to watch CYNIC without polling.
-
-    Streamed events:
-      JUDGMENT_CREATED  â€” every judgment with Q-score and verdict
-      LEARNING_EVENT    â€” learning rate updates, Q-table changes
-      META_CYCLE        â€” periodic meta-cognition ticks (health, cycle_n)
-      SONA_TICK         â€” SONA heartbeat (uptime, total_judgments)
-
-    Returns:
-      {"type": "connected", "ts": <float>, "phi": 1.618}
-      {"type": "judgment", "q_score": 72, "verdict": "WAG", "ts": <float>}
-      {"type": "learning", "learning_rate": 0.001, "q_table_entries": 1024, "ts": <float>}
-      {"type": "meta_cycle", "cycle_n": 5, "health": 0.82, "ts": <float>}
-      {"type": "sona_tick", "uptime_s": 3600, "total_judgments": 12500, "ts": <float>}
-      {"type": "heartbeat", "ts": <float>}  â† 30s keepalive if no real events
-
-    Client disconnect â†’ automatic unsubscribe.
-    Queue overflow (>100) â†’ events dropped silently.
     """
     await websocket.accept()
-    bus = get_core_bus("DEFAULT")
+    bus = container.organism.bus
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
 
     async def on_event(event: Event) -> None:
@@ -64,7 +48,7 @@ async def ws_telemetry(websocket: WebSocket) -> None:
                 else str(event.event_type)
             )
 
-            # Map CoreEvent type â†’ message type + extract fields
+            # Map CoreEvent type â’ message type + extract fields
             msg: dict[str, Any] = {"ts": time.time()}
 
             if event_type_name == "JUDGMENT_CREATED":

@@ -158,7 +158,6 @@ class OrganismTUI:
         self._running = True
         
         # Subscribe to ALL events to populate the Nervous Pulse panel
-        from cynic.kernel.core.event_bus import CoreEvent, Event
         bus = get_core_bus("DEFAULT")
         
         async def _on_any_event(event):

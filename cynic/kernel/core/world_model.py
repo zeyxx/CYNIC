@@ -12,9 +12,9 @@ import logging
 import math
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.phi import phi_bound_score
 
 logger = logging.getLogger("cynic.kernel.core.world_model")

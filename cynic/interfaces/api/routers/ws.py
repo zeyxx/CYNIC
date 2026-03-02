@@ -7,9 +7,12 @@ import asyncio
 import logging
 import time
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+import httpx
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from pydantic import ValidationError
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.interfaces.api.state import AppContainer, get_app_container
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
 from cynic.kernel.core.events_schema import ActRequestedPayload
 from cynic.kernel.core.phi import PHI
 
@@ -23,30 +26,15 @@ router_ws = APIRouter(tags=["ws"])
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_ws.websocket("/ws/stream")
-async def ws_stream(websocket: WebSocket) -> None:
+async def ws_stream(
+    websocket: WebSocket,
+    container: AppContainer = Depends(get_app_container),
+) -> None:
     """
     WebSocket stream â€” bidirectional real-time kernel events.
-
-    Events streamed (server -> client):
-      JUDGMENT_CREATED  â€” every judgment result
-      LEARNING_EVENT    â€” Q-table updates
-      META_CYCLE        â€” periodic evolution ticks
-
-    Messages received (client -> server):
-      {"type": "ACT", "action": "...", "target": "..."} â€” emitted as ACT_REQUESTED
-      {"type": "ping"}  â€” responds with {"type": "pong", "ts": ...}
-      Any other type    â€” ignored silently
-
-    Protocol:
-      connect -> {"type": "connected", "phi": 1.618...}
-      event   -> {"type": <CoreEvent.name>, "payload": {...}, "ts": <float>}
-      ping    -> {"type": "ping", "ts": <float>}  (30s keepalive)
-
-    Client disconnect -> clean unsubscribe from all events.
-    Queue overflow (>100 buffered events) -> events dropped silently.
     """
     await websocket.accept()
-    bus = get_core_bus("DEFAULT")
+    bus = container.organism.bus
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
 
     async def on_event(event: Event) -> None:
@@ -211,25 +199,18 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_ws.websocket("/ws/events")
-async def ws_events(websocket: WebSocket) -> None:
+async def ws_events(
+    websocket: WebSocket,
+    container: AppContainer = Depends(get_app_container),
+) -> None:
     """
     Read-only WebSocket â€” streams ALL CoreEvents with client-side filtering.
-
-    Protocol:
-      connect  â†’ {"type": "connected", "ts": ..., "phi": 1.618, "all_events": [...]}
-      subscribe â†’ client sends {"type": "subscribe", "events": ["JUDGMENT_CREATED", ...]}
-                 â†’ server only sends matching events (default: all)
-      event    â†’ {"type": <event_name>, "payload": {...}, "source": str, "ts": float}
-      ping     â†’ client sends {"type": "ping"} â†’ server responds {"type": "pong", "ts": ...}
-
-    Client disconnect â†’ clean unsubscribe from all events.
-    Queue overflow (>100 buffered events) â†’ events dropped silently.
     """
     await websocket.accept()
-    bus = get_core_bus("DEFAULT")
+    bus = container.organism.bus
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
 
-    # All CoreEvent names â†’ used for connected banner + subscribe validation
+    # All CoreEvent names â’ used for connected banner + subscribe validation
     all_event_names: list = [e.name for e in CoreEvent]
 
     # Active filter â€” None = all events pass; set = only matching names pass

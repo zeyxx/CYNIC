@@ -146,10 +146,10 @@ async def learn_cynic(
 
         from cynic.interfaces.bots.governance.core.config import CYNIC_MCP_URL
 
-        # Normalize rating: 1-5 stars â†’ -1.0 to +1.0
-        base = (satisfaction / 5.0) * 2.0 - 1.0  # 1â†’-0.6, 3â†’0.2, 5â†’1.0
+        # Normalize rating: 1-5 stars â’ -1.0 to +1.0
+        base = (satisfaction / 5.0) * 2.0 - 1.0  # 1â’-0.6, 3â’0.2, 5â’1.0
         if not approved:
-            base = -abs(base)  # rejected â†’ always negative
+            base = -abs(base)  # rejected â’ always negative
         rating = max(-1.0, min(1.0, base))
 
         payload = {

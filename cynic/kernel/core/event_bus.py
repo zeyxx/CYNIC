@@ -11,7 +11,7 @@ from collections import defaultdict
 from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
 from enum import Enum
-from typing import Any, TypeVar, Union
+from typing import Any, Optional, TypeVar, Union
 
 logger = logging.getLogger("cynic.kernel.core.event_bus")
 
@@ -29,6 +29,7 @@ class CoreEvent(str, Enum):
     AWAKENED = "core.awakened"
     DORMANT = "core.dormant"
     PERCEPTION_RECEIVED = "core.perception_received"
+    CYCLE_STARTED = "core.cycle_started"
     JUDGMENT_REQUESTED = "core.judgment_requested"
     JUDGMENT_CREATED = "core.judgment_created"
     JUDGMENT_FAILED = "core.judgment_failed"
@@ -100,9 +101,12 @@ class Event:
 
     @property
     def dict_payload(self) -> dict:
-        if self.payload is None: return {}
-        if isinstance(self.payload, dict): return self.payload
-        if hasattr(self.payload, "model_dump"): return self.payload.model_dump()
+        if self.payload is None:
+            return {}
+        if isinstance(self.payload, dict):
+            return self.payload
+        if hasattr(self.payload, "model_dump"):
+            return self.payload.model_dump()
         return vars(self.payload) if hasattr(self.payload, "__dict__") else {"data": self.payload}
 
     @classmethod
@@ -155,6 +159,7 @@ class EventBus:
         self._handlers: dict[str, list[Handler]] = defaultdict(list)
         self._pending_tasks: set[asyncio.Task] = set()
         self._handler_timeout_s: float = 30.0
+        self._bridge: Optional[Any] = None # Distributed bridge hook
         
         # High-Frequency Metrics (SRE Standard)
         self._emitted_count: int = 0
@@ -166,6 +171,10 @@ class EventBus:
         # Backpressure Settings (Lentille : Backend)
         self.MAX_PENDING = 1000 # Critical threshold for 10k TPS readiness
 
+    def set_bridge(self, bridge: Any):
+        """Attach a distributed bridge (e.g. Redis)."""
+        self._bridge = bridge
+
     def on(self, event_type: Union[str, CoreEvent], handler: Handler) -> None:
         name = event_type.value if hasattr(event_type, "value") else str(event_type)
         self._handlers[name].append(handler)
@@ -176,58 +185,41 @@ class EventBus:
             self._handlers[name] = [h for h in self._handlers[name] if h != handler]
 
     async def _safe_handler_wrapper(self, handler: Handler, event: Event, handler_name: str) -> None:
-        """Wrap handler execution with timeout and error handling.
-
-        OPTIMIZATION: Minimize allocations in hot path by:
-        - Pre-computing timeout to avoid repeated __getattr__ calls
-        - Lazy formatting of error messages (only on error path, not success path)
-        - Handler name passed as parameter (already computed in emit())
-
-        Observable error handling: catches exceptions, logs with context, continues.
-        Prevents one failing handler from blocking others.
-        """
-        # Pre-compute timeout in hot path — avoids repeated __getattr__ on self
+        """Wrap handler execution with timeout and error handling."""
         timeout = self._handler_timeout_s
-
         try:
             await asyncio.wait_for(handler(event), timeout=timeout)
         except asyncio.TimeoutError:
-            # Lazy format only on error path (not in success path)
             error_msg = f"Handler {handler_name} timed out after {timeout}s for event {event.type}"
             logger.warning(error_msg, extra={"event_id": event.event_id, "handler": handler_name})
             self._error_count += 1
             self._handler_errors[event.type].append(error_msg)
         except asyncio.CancelledError:
-            # Task was cancelled, this is expected during shutdown
             logger.debug(f"Handler {handler_name} was cancelled for event {event.type}")
         except Exception as exc:
-            # Lazy format only on error path
             error_msg = f"Handler {handler_name} failed: {type(exc).__name__}: {str(exc)}"
             logger.error(error_msg, exc_info=True, extra={"event_id": event.event_id, "handler": handler_name})
             self._error_count += 1
             self._handler_errors[event.type].append(error_msg)
 
-    async def emit(self, event: Event) -> None:
-        """Emit event to all registered handlers with backpressure monitoring."""
+    async def emit(self, event: Event, distributed: bool = True) -> None:
+        """Emit event locally and optionally distribute it via bridge."""
         self._emitted_count += 1
         
-        # Backpressure Monitor (SRE lens)
+        # 1. Local Processing (Reflex path)
         pending_count = len(self._pending_tasks)
         if pending_count > self._peak_pending:
             self._peak_pending = pending_count
             
         if pending_count > self.MAX_PENDING:
-            logger.warning(
-                f"[{self.instance_id}] BACKPRESSURE: {pending_count} pending tasks. Throttling active.",
-                extra={"bus_id": self.bus_id}
-            )
-            # Mandatory anomaly signal
+            logger.error(f"[{self.instance_id}] CRITICAL BACKPRESSURE: {pending_count} tasks. DROPPING EVENT {event.type}")
             if event.type != CoreEvent.ANOMALY_DETECTED:
                 asyncio.create_task(self.emit(Event.typed(
                     CoreEvent.ANOMALY_DETECTED, 
-                    {"type": "backpressure", "pending": pending_count},
+                    {"type": "backpressure_drop", "pending": pending_count, "dropped": event.type},
                     source="event_bus"
-                )))
+                ), distributed=False))
+            return # DROP THE EVENT
 
         handlers = self._handlers.get(event.type, [])
         wildcards = self._handlers.get("*", [])
@@ -241,27 +233,25 @@ class EventBus:
         
         self._total_latency_ms += (time.perf_counter() - t_start) * 1000
 
-    async def drain(self, timeout: float = 2.0) -> None:
-        """Wait for all pending handler tasks to complete.
+        # 2. Distributed Path (Consciousness synchronization)
+        if distributed and self._bridge:
+            # Fire and forget to the bridge
+            asyncio.create_task(self._bridge.publish(event))
 
-        Observable error handling: logs timeout but doesn't raise.
-        Ensures graceful shutdown even if handlers are slow.
-        """
+    async def drain(self, timeout: float = 10.0) -> None:
+        """Wait for all pending handler tasks to complete."""
         if not self._pending_tasks:
             return
+            
         try:
             await asyncio.wait_for(
-                asyncio.gather(*self._pending_tasks, return_exceptions=True),
+                asyncio.gather(*list(self._pending_tasks), return_exceptions=True),
                 timeout=timeout
             )
         except asyncio.TimeoutError:
-            pending_count = len(self._pending_tasks)
-            logger.warning(
-                f"EventBus drain timed out with {pending_count} pending handler tasks still running",
-                extra={"bus_id": self.bus_id, "timeout_s": timeout}
-            )
-        except Exception as exc:
-            logger.error(f"Unexpected error during drain: {exc}", exc_info=True, extra={"bus_id": self.bus_id})
+            logger.warning(f"[{self.instance_id}] EventBus drain timed out with {len(self._pending_tasks)} tasks remaining")
+        except Exception as e:
+            logger.error(f"[{self.instance_id}] EventBus drain failed: {e}")
         finally:
             self._pending_tasks.clear()
 
@@ -278,6 +268,8 @@ class EventBus:
             "error_rate": self._error_count / max(self._emitted_count, 1),
             "load_factor": len(self._pending_tasks) / self.MAX_PENDING
         }
+
+_buses: dict[str, EventBus] = {}
 
 def get_bus(bus_id: str, instance_id: str | None = None) -> EventBus:
     """

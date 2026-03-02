@@ -11,13 +11,13 @@ Architecture:
 â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
 â”‚                                                         â”‚
 â”‚  Discord Event (interaction, message, etc)              â”‚
-â”‚  â†“ (Discord adapter translates)                         â”‚
+â”‚  â“ (Discord adapter translates)                         â”‚
 â”‚  BotCommand(name, args, user_id, platform="discord")   â”‚
-â”‚  â†“ (Core logic routes)                                  â”‚
+â”‚  â“ (Core logic routes)                                  â”‚
 â”‚  UnifiedConsciousState.judge/record/query              â”‚
-â”‚  â†“ (Core returns)                                       â”‚
+â”‚  â“ (Core returns)                                       â”‚
 â”‚  BotResponse(success, message, data, ephemeral)        â”‚
-â”‚  â†“ (Discord adapter converts)                          â”‚
+â”‚  â“ (Discord adapter converts)                          â”‚
 â”‚  Discord Embed + Buttons + Message                     â”‚
 â”‚                                                         â”‚
 â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
@@ -54,7 +54,7 @@ class DiscordAdapter(BotInterface):
     Discord adapter implementing unified BotInterface.
 
     Bridges Discord interactions to CYNIC consciousness system. Translates
-    Discord events â†” BotCommand/BotResponse and handles platform-specific
+    Discord events â” BotCommand/BotResponse and handles platform-specific
     formatting (embeds, buttons, views).
 
     Attributes:

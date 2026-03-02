@@ -21,7 +21,6 @@ import pstats
 import sys
 import argparse
 import logging
-from io import StringIO
 from pathlib import Path
 
 logger = logging.getLogger("profile_tps_baseline")
@@ -101,7 +100,7 @@ def main():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
-    logger.info(f"TPS Baseline Profiling")
+    logger.info("TPS Baseline Profiling")
     logger.info(f"Output file: {args.output}")
     logger.info(f"Events to emit: {args.num_events}")
     logger.info(f"Top functions: {args.top}")

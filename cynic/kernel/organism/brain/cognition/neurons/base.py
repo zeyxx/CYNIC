@@ -2,44 +2,43 @@
 CYNIC AbstractDog â€” Base interface for all 11 Dogs (Sefirot)
 
 Every Dog MUST implement:
-  - analyze(cell) â†’ DogJudgment
-  - get_capabilities() â†’ DogCapabilities
-  - health_check() â†’ HealthStatus
+  - analyze(cell) â’ DogJudgment
+  - get_capabilities() â’ DogCapabilities
+  - health_check() â’ HealthStatus
 
 Dogs are categorized by consciousness level:
   L3 REFLEX (non-LLM):  CYNIC-PBFT, GUARDIAN, ANALYST, JANITOR
   L2/L1 (LLM-capable):  SAGE, SCHOLAR, ORACLE, ARCHITECT, DEPLOYER, SCOUT, CARTOGRAPHER
 
 E-Score weights and Dog priority:
-  CYNIC (Keter)      â€” Ï†Â³ priority (consensus coordinator)
-  SAGE (Chokmah)     â€” Ï†Â² priority (wisdom, knowledge graph)
-  ANALYST (Binah)    â€” Ï†Â² priority (formal verification)
-  GUARDIAN (Gevurah) â€” Ï† priority (security, anomaly)
-  ORACLE (Tiferet)   â€” Ï† priority (MCTS, Thompson)
+  CYNIC (Keter)      â€” ÏÂ³ priority (consensus coordinator)
+  SAGE (Chokmah)     â€” ÏÂ² priority (wisdom, knowledge graph)
+  ANALYST (Binah)    â€” ÏÂ² priority (formal verification)
+  GUARDIAN (Gevurah) â€” Ï priority (security, anomaly)
+  ORACLE (Tiferet)   â€” Ï priority (MCTS, Thompson)
   ARCHITECT (Netzach)â€” 1.0 priority (code structure)
   CARTOGRAPHER (Daat)â€” 1.0 priority (graph, topology)
-  SCHOLAR (Chesed)   â€” Ï†â»Â¹ priority (vector RAG)
-  DEPLOYER (Hod)     â€” Ï†â»Â¹ priority (execution)
-  SCOUT (Malkuth)    â€” Ï†â»Â² priority (web, discovery)
-  JANITOR (Yesod)    â€” Ï†â»Â² priority (cleanup, linting)
+  SCHOLAR (Chesed)   â€” Ïâ»Â¹ priority (vector RAG)
+  DEPLOYER (Hod)     â€” Ïâ»Â¹ priority (execution)
+  SCOUT (Malkuth)    â€” Ïâ»Â² priority (web, discovery)
+  JANITOR (Yesod)    â€” Ïâ»Â² priority (cleanup, linting)
 """
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 # Python 3.9 compatibility: StrEnum added in Python 3.11
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from cynic.kernel.core.event_bus import CoreEvent, Event
-
-if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRegistry
-    from cynic.kernel.core.event_bus import EventBus
-
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import (
@@ -49,8 +48,13 @@ from cynic.kernel.core.phi import (
     PHI_3,
     PHI_INV,
     PHI_INV_2,
-    phi_bound_score,
 )
+
+if TYPE_CHECKING:
+    from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRegistry
+    from cynic.kernel.core.event_bus import EventBus
+
+logger = logging.getLogger("cynic.kernel.organism.brain.cognition.neurons.base")
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # DOG REGISTRY (all 11 Dogs with their Sefirot)
@@ -73,19 +77,19 @@ class DogId(StrEnum):
     JANITOR = "JANITOR"  # Yesod â€” Foundation (Ruff AST)
 
 
-# Ï†-symmetric priority weights per Dog
+# Ï-symmetric priority weights per Dog
 DOG_PRIORITY: dict[str, float] = {
-    DogId.CYNIC: PHI_3,  # Ï†Â³ = 4.236 â€” highest, consensus critical
-    DogId.SAGE: PHI_2,  # Ï†Â² = 2.618
-    DogId.ANALYST: PHI_2,  # Ï†Â² = 2.618
-    DogId.GUARDIAN: PHI,  # Ï†  = 1.618
-    DogId.ORACLE: PHI,  # Ï†  = 1.618
-    DogId.ARCHITECT: 1.0,  # Ï†â° = 1.000
-    DogId.CARTOGRAPHER: 1.0,  # Ï†â° = 1.000
-    DogId.SCHOLAR: PHI_INV,  # Ï†â»Â¹ = 0.618
-    DogId.DEPLOYER: PHI_INV,  # Ï†â»Â¹ = 0.618
-    DogId.SCOUT: PHI_INV_2,  # Ï†â»Â² = 0.382
-    DogId.JANITOR: PHI_INV_2,  # Ï†â»Â² = 0.382
+    DogId.CYNIC: PHI_3,  # ÏÂ³ = 4.236 â€” highest, consensus critical
+    DogId.SAGE: PHI_2,  # ÏÂ² = 2.618
+    DogId.ANALYST: PHI_2,  # ÏÂ² = 2.618
+    DogId.GUARDIAN: PHI,  # Ï  = 1.618
+    DogId.ORACLE: PHI,  # Ï  = 1.618
+    DogId.ARCHITECT: 1.0,  # Ïâ° = 1.000
+    DogId.CARTOGRAPHER: 1.0,  # Ïâ° = 1.000
+    DogId.SCHOLAR: PHI_INV,  # Ïâ»Â¹ = 0.618
+    DogId.DEPLOYER: PHI_INV,  # Ïâ»Â¹ = 0.618
+    DogId.SCOUT: PHI_INV_2,  # Ïâ»Â² = 0.382
+    DogId.JANITOR: PHI_INV_2,  # Ïâ»Â² = 0.382
 }
 
 # Non-LLM Dogs (L3 REFLEX capable)
@@ -99,7 +103,6 @@ NON_LLM_DOGS: set[str] = {
 }
 
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # DOG JUDGMENT OUTPUT
@@ -215,9 +218,9 @@ class AbstractDog(ABC):
     Base class for all 11 CYNIC Dogs.
 
     Subclasses MUST implement:
-      - analyze(cell) â†’ DogJudgment
-      - get_capabilities() â†’ DogCapabilities
-      - health_check() â†’ DogHealth
+      - analyze(cell) â’ DogJudgment
+      - get_capabilities() â’ DogCapabilities
+      - health_check() â’ DogHealth
 
     The organism is the sum of all Dogs, coordinated by PBFT.
     """
@@ -248,7 +251,7 @@ class AbstractDog(ABC):
     @abstractmethod
     async def analyze(self, cell: Cell, **kwargs: Any) -> DogJudgment:
         """
-        Judge a Cell. Returns DogJudgment with Ï†-bounded q_score.
+        Judge a Cell. Returns DogJudgment with Ï-bounded q_score.
 
         kwargs may include: budget_usd, llm_registry, context_hint
         """
@@ -293,9 +296,10 @@ class AbstractDog(ABC):
             return 0.0
         return self._error_count / total
 
+
     @property
     def priority(self) -> float:
-        """Ï†-weighted priority for DogScheduler."""
+        """Ï-weighted priority for DogScheduler."""
         return DOG_PRIORITY.get(self.dog_id, 1.0)
 
     def stats(self) -> dict[str, Any]:
@@ -322,7 +326,7 @@ class LLMDog(AbstractDog):
     Provides:
       - LLM routing via LLMRegistry (best model for this Dog Ã— task_type)
       - Automatic benchmark recording after each judgment
-      - Graceful degradation: if LLM unavailable â†’ GROWL verdict, low confidence
+      - Graceful degradation: if LLM unavailable â’ GROWL verdict, low confidence
     """
 
     def __init__(self, dog_id: str, task_type: str = "general", bus: "EventBus" | None = None) -> None:
@@ -444,17 +448,17 @@ class LLMDog(AbstractDog):
         Feed judgment outcome back into LLMRegistry routing table.
 
         Converts DogJudgment into a BenchmarkResult and calls
-        registry.update_benchmark() â†’ EMA update â†’ better routing next time.
+        registry.update_benchmark() â’ EMA update â’ better routing next time.
 
         Speed target: 3000ms (L1 MACRO budget â€” longer is penalized)
         Cost budget:  $0.01 per judgment (Ollama = free = 1.0 score)
         """
         from cynic.kernel.organism.brain.llm.adapter import BenchmarkResult
 
-        # Normalize speed: 0ms â†’ 1.0, 3000ms â†’ 0.0, beyond â†’ capped at 0
+        # Normalize speed: 0ms â’ 1.0, 3000ms â’ 0.0, beyond â’ capped at 0
         speed_score = max(0.0, 1.0 - judgment.latency_ms / _SPEED_TARGET_MS)
 
-        # Normalize cost: free (Ollama) â†’ 1.0, over budget â†’ 0.0
+        # Normalize cost: free (Ollama) â’ 1.0, over budget â’ 0.0
         if judgment.cost_usd <= 0.0:
             cost_score = 1.0  # Local inference is free
         else:
@@ -464,7 +468,7 @@ class LLMDog(AbstractDog):
             llm_id=judgment.llm_id,
             dog_id=self.dog_id,
             task_type=self.task_type,
-            quality_score=judgment.q_score,  # [0, 61.8] â€” Ï†-bounded
+            quality_score=judgment.q_score,  # [0, 61.8] â€” Ï-bounded
             speed_score=speed_score,  # [0, 1]
             cost_score=cost_score,  # [0, 1]
             error_rate=0.0,
@@ -479,4 +483,4 @@ class LLMDog(AbstractDog):
 
 # â”€â”€ Benchmark normalisation constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _SPEED_TARGET_MS: float = 3000.0  # L1 MACRO target â€” 3s budget per call
-_COST_BUDGET_USD: float = 0.01  # $0.01 per judgment â€” Ollama = 0 â†’ 1.0
+_COST_BUDGET_USD: float = 0.01  # $0.01 per judgment â€” Ollama = 0 â’ 1.0

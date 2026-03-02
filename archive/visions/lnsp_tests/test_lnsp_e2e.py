@@ -1,6 +1,6 @@
 """End-to-end tests for complete LNSP pipeline.
 
-Tests the full observation â†’ aggregation â†’ judgment â†’ action â†’ feedback cycle,
+Tests the full observation â’ aggregation â’ judgment â’ action â’ feedback cycle,
 verifying all layers work together as an integrated system.
 """
 from __future__ import annotations
@@ -209,11 +209,11 @@ class TestLNSPManagerSetup:
 
 
 class TestFullPipeline:
-    """Test complete LNSP pipeline: Observation â†’ Aggregation â†’ Judgment â†’ Action."""
+    """Test complete LNSP pipeline: Observation â’ Aggregation â’ Judgment â’ Action."""
 
     @pytest.mark.asyncio
     async def test_lnsp_full_pipeline_basic(self, sample_observations):
-        """Test complete LNSP pipeline: obs â†’ agg â†’ judgment â†’ action."""
+        """Test complete LNSP pipeline: obs â’ agg â’ judgment â’ action."""
         # Setup
         manager = LNSPManager()
         manager.wire_layers()
@@ -420,7 +420,7 @@ class TestWithRealComponents:
         handler = RecordingHandler("handler:test")
         manager.layer4.register_handler(handler)
 
-        # Manually test the judgmentâ†’action flow
+        # Manually test the judgmentâ’action flow
         # Create a test aggregation
         test_agg = await aggregator.aggregate(sample_observations)
         if test_agg:
@@ -435,7 +435,7 @@ class TestWithRealComponents:
 
     @pytest.mark.asyncio
     async def test_lnsp_feedback_loop(self, sample_observations):
-        """Test feedback loop: Layer4 â†’ Layer1."""
+        """Test feedback loop: Layer4 â’ Layer1."""
         manager = LNSPManager()
         manager.wire_layers()
 
@@ -453,7 +453,7 @@ class TestWithRealComponents:
         # Track feedback messages
         feedback_count_before = manager.layer1.ringbuffer.size()
 
-        # Manually execute the judgmentâ†’feedback flow
+        # Manually execute the judgmentâ’feedback flow
         test_agg = await aggregator.aggregate(sample_observations)
         if test_agg:
             judgment = await manager.layer3.judge(test_agg)

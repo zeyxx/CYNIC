@@ -10,7 +10,7 @@ GET /mcp/resource â€” Fetch specific MCP resource by URI
   - /mcp/learning/patterns â€” What has CYNIC learned?
   - /mcp/events/recent â€” Live event stream
 
-This bridges L2 feedback loop: Claude Code â†” CYNIC observation
+This bridges L2 feedback loop: Claude Code â” CYNIC observation
 """
 from __future__ import annotations
 

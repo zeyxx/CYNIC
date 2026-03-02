@@ -12,7 +12,7 @@ import logging
 from typing import Any
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel, get_anchor
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 from cynic.kernel.organism.metabolism.model_profiler import ModelProfiler
 
@@ -26,10 +26,9 @@ class LevelSelector(BaseHandler):
 
     handler_id = "level_selector"
 
-    def __init__(self, axiom_monitor: Any = None, lod_controller: Any = None, bus: Optional[EventBus] = None, **kwargs):
+    def __init__(self, bus: EventBus, axiom_monitor: Any = None, lod_controller: Any = None, **kwargs):
         self.profiler = ModelProfiler()
-        from cynic.kernel.core.event_bus import CoreEvent, Event
-        self.bus = bus or get_core_bus("DEFAULT")
+        self.bus = bus
         logger.info("LevelSelector active (Hardware-Aware)")
 
     async def execute(self, pipeline: Any, **kwargs) -> HandlerResult:

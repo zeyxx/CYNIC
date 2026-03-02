@@ -14,8 +14,11 @@ POST /nervous/journal/clear         â€” Clear journal (testing only)
 from __future__ import annotations
 
 import logging
+from typing import Any
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import ValidationError
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.nervous import EventCategory

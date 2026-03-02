@@ -9,14 +9,11 @@ Proves that CYNIC can:
 import asyncio
 import os
 import sys
-import time
-from pathlib import Path
 
 # Add root to path
 sys.path.append(os.getcwd())
 
 from cynic.kernel.organism.organism import awaken
-from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.nerves import COGNITION, SOMATIC
 from cynic.kernel.organism.brain.cognition.neurons.registry import get_soul, SOULS
 from cynic.kernel.organism.brain.cognition.neurons.base import DogId

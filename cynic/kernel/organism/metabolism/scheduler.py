@@ -8,11 +8,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-import random
 from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
-from cynic.kernel.core.phi import PHI, fibonacci
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
+
+from cynic.kernel.core.phi import fibonacci
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 
 logger = logging.getLogger("cynic.kernel.organism.metabolism.scheduler")

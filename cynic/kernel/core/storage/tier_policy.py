@@ -7,13 +7,13 @@ Maps each opcode (CoreEvent type) to storage tier(s).
 - COLD: Historical, rarely accessed (compressed/archived)
 
 Timing:
-- PERCEPTION_RECEIVED â†’ HOT (immediate processing)
-- JUDGMENT_CREATED â†’ [HOT, WARM, COLD] (replicated everywhere)
-- DECISION_MADE â†’ WARM (stable, not urgent)
-- ACTION_EXECUTED â†’ COLD (historical record)
-- LEARNING_SIGNAL_PROCESSED â†’ WARM (learning is important, not urgent)
-- COST_ACCOUNTED â†’ COLD (financial record, archived)
-- EMERGENCE_DETECTED â†’ [WARM, COLD] (replicate for analysis)
+- PERCEPTION_RECEIVED â’ HOT (immediate processing)
+- JUDGMENT_CREATED â’ [HOT, WARM, COLD] (replicated everywhere)
+- DECISION_MADE â’ WARM (stable, not urgent)
+- ACTION_EXECUTED â’ COLD (historical record)
+- LEARNING_SIGNAL_PROCESSED â’ WARM (learning is important, not urgent)
+- COST_ACCOUNTED â’ COLD (financial record, archived)
+- EMERGENCE_DETECTED â’ [WARM, COLD] (replicate for analysis)
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ class StorageTier(str, Enum):
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# OPCODE â†’ STORAGE TIER MAPPING
+# OPCODE â’ STORAGE TIER MAPPING
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 OPCODE_STORAGE_MAP: dict[CoreEvent, StorageTier | list[StorageTier]] = {
@@ -143,7 +143,7 @@ class StorageTierPolicy:
                 f"{', '.join(t.value for t in tiers)}"
             )
         else:
-            logger.debug(f"Event {event.type} â†’ {tiers[0].value}")
+            logger.debug(f"Event {event.type} â’ {tiers[0].value}")
 
         return tiers
 
@@ -151,7 +151,7 @@ class StorageTierPolicy:
         self, event_id: str, from_tier: StorageTier, to_tier: StorageTier
     ) -> None:
         """
-        Promote an event from one tier to another (e.g., COLD â†’ WARM â†’ HOT).
+        Promote an event from one tier to another (e.g., COLD â’ WARM â’ HOT).
 
         Useful for events that become "hot" after being in cold storage.
         For example, a judgment that users start frequently querying should

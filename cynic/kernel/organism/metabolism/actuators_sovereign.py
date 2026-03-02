@@ -9,9 +9,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import subprocess
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from pathlib import Path
 
 from cynic.kernel.organism.metabolism.actuators import AbstractActuator, ActResult

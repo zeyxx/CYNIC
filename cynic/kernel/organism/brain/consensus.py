@@ -4,15 +4,15 @@ L2 Consensus Voting Engine â€” Wire network consensus to judgment blocks.
 Task 1.3: Add consensus voting mechanism to finalize judgments.
 
 PARADIGM:
-  CURRENT (BROKEN):  Judgment â†’ PoJ Block â†’ [SKIP VOTING] â†’ Anchor (unverified)
-  FIXED:             Judgment â†’ PoJ Block â†’ Gossip â†’ Consensus Vote â†’ Finality â†’ Anchor
+  CURRENT (BROKEN):  Judgment â’ PoJ Block â’ [SKIP VOTING] â’ Anchor (unverified)
+  FIXED:             Judgment â’ PoJ Block â’ Gossip â’ Consensus Vote â’ Finality â’ Anchor
 
 PHASE:
   Î²-phase: LOCAL consensus only (3/5 local Dogs vote)
   v1.1:    Network consensus (gossip to validators, quorum across instances)
 
 LAWS:
-  1. Ï†-bounded: max 61.8% confidence in consensus
+  1. Ï-bounded: max 61.8% confidence in consensus
   2. Quorum required: min_quorum votes for finality
   3. Timeout graceful: local consensus if network unavailable
   4. No blocking: async only, never blocks judgment response

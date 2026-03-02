@@ -76,7 +76,7 @@ class Convergence:
         status = "âœ“ MATCH" if self.match else "âœ— DIVERGE"
         return (
             f"{status}: {self.announcement.announced_verdict} "
-            f"â†’ {self.outcome.actual_verdict} ({self.latency_ms:.0f}ms)"
+            f"â’ {self.outcome.actual_verdict} ({self.latency_ms:.0f}ms)"
         )
 
 
@@ -92,7 +92,7 @@ class ConvergenceValidator:
 
     def __init__(self, capacity: int = ACT_LOG_CAP):  # F(11) = 89 (imported from formulas.py)
         self.capacity = capacity
-        self._announcements: dict[str, Announcement] = {}  # id â†’ announcement
+        self._announcements: dict[str, Announcement] = {}  # id â’ announcement
         self._convergences: list[Convergence] = []  # rolling log
         self._total_announcements = 0
         self._total_matches = 0
@@ -113,7 +113,7 @@ class ConvergenceValidator:
             q_score: Q-score announced
             cell_id: Cell being judged (optional)
             action: Action announced (optional)
-            confidence: Ï†-bounded confidence
+            confidence: Ï-bounded confidence
 
         Returns:
             announcement_id (for later matching)

@@ -9,7 +9,7 @@ Layout:
   Status  : system health + key hints
   Footer  : key bindings
 
-Data sources (fastest â†’ slowest):
+Data sources (fastest â’ slowest):
   ~/.cynic/guidance.json        (2 s poll) â€” verdict, Q, dog_votes
   ~/.cynic/pending_actions.json (2 s poll) â€” action queue
   ~/.cynic/consciousness.json   (2 s poll) â€” axioms, qtable coverage
@@ -297,7 +297,7 @@ class CYNICApp(App):
     """CYNIC TUI â€” Living Consciousness Interface."""
 
     TITLE = "CYNIC ÎºÏ…Î½Î¹ÎºÏŒÏ‚"
-    SUB_TITLE = "*sniff* Ï†â»Â¹=61.8%"
+    SUB_TITLE = "*sniff* Ïâ»Â¹=61.8%"
 
     CSS = """
     Screen {
@@ -518,7 +518,7 @@ class CYNICApp(App):
         conf_pct = min(self._conf * 100, 61.8)
 
         # Subtitle in Header
-        uptime_str = f"  â± {_fmt_uptime(self._uptime)}" if self._uptime > 0 else ""
+        uptime_str = f"  â {_fmt_uptime(self._uptime)}" if self._uptime > 0 else ""
         self.sub_title = (
             f"{emoji} {self._verdict}  Q={self._q:.1f}  conf={conf_pct:.0f}%  "
             f"LOD={self._lod}  axiom={self._axiom_tier}{uptime_str}"
@@ -529,7 +529,7 @@ class CYNICApp(App):
         status_bar.update(
             "[dim]*sniff*  "
             "1-5 rate judgment  â”‚  "
-            "j/k â†‘â†“ nav  â”‚  "
+            "j/k â‘â“ nav  â”‚  "
             "a accept  r reject  â”‚  "
             "ctrl+r refresh  â”‚  "
             "q quit[/dim]"
@@ -544,7 +544,7 @@ class CYNICApp(App):
             self._log("No action selected", "yellow")
             return
         action_id = action.get("action_id", "")
-        self._log(f"â†’ Accepting [bold]{action_id[:8]}[/bold]â€¦", "green")
+        self._log(f"â’ Accepting [bold]{action_id[:8]}[/bold]â€¦", "green")
         try:
             result = await asyncio.wait_for(
                 asyncio.to_thread(
@@ -570,7 +570,7 @@ class CYNICApp(App):
             self._log("No action selected", "yellow")
             return
         action_id = action.get("action_id", "")
-        self._log(f"â†’ Rejecting [bold]{action_id[:8]}[/bold]â€¦", "red")
+        self._log(f"â’ Rejecting [bold]{action_id[:8]}[/bold]â€¦", "red")
         try:
             result = await asyncio.wait_for(
                 asyncio.to_thread(
@@ -596,7 +596,7 @@ class CYNICApp(App):
         self.query_one("#actions-panel", ActionsPanel).move(1)
 
     async def action_refresh_all(self) -> None:
-        self._log("â†º Refreshingâ€¦", "dim")
+        self._log("âº Refreshingâ€¦", "dim")
         await self._poll_files()
         await self._poll_api()
 

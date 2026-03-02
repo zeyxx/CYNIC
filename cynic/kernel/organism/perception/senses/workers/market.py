@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import urllib.request
-from typing import Any
+from typing import Any, Optional
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell

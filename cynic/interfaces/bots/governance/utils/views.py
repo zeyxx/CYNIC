@@ -411,11 +411,11 @@ class OutcomeRatingView(discord.ui.View):
     def _build_star_buttons(self):
         """Build the 5-star rating buttons"""
         star_configs = [
-            (1, "â˜†", discord.ButtonStyle.red),
-            (2, "â˜†â˜†", discord.ButtonStyle.red),
-            (3, "â˜†â˜†â˜†", discord.ButtonStyle.grey),
-            (4, "â˜†â˜†â˜†â˜†", discord.ButtonStyle.green),
-            (5, "â˜†â˜†â˜†â˜†â˜†", discord.ButtonStyle.green),
+            (1, "â˜", discord.ButtonStyle.red),
+            (2, "â˜â˜", discord.ButtonStyle.red),
+            (3, "â˜â˜â˜", discord.ButtonStyle.grey),
+            (4, "â˜â˜â˜â˜", discord.ButtonStyle.green),
+            (5, "â˜â˜â˜â˜â˜", discord.ButtonStyle.green),
         ]
 
         for stars, label, style in star_configs:
@@ -452,7 +452,7 @@ class OutcomeRatingView(discord.ui.View):
                 approved = proposal.approval_status == "APPROVED"
                 comment = f"Community rated {stars}/5 stars"
 
-                star_display = "â˜†" * stars
+                star_display = "â˜" * stars
                 status_msg = ""
 
                 if cynic_circuit_breaker.is_available():

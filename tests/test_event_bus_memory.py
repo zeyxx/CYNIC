@@ -40,7 +40,6 @@ async def test_event_history_bounded_at_fibonacci_10(event_bus):
 @pytest.mark.asyncio
 async def test_three_buses_total_memory_bounded(event_bus):
     """Combined 3 buses should not hold 3000 events in memory."""
-    from cynic.kernel.core.event_bus import get_agent_bus
 
     max_per_bus = fibonacci(10)  # 55
 

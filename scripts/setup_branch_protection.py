@@ -33,7 +33,7 @@ def run_gh_api(method: str, endpoint: str, data: dict[str, Any] | None = None) -
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
-        print(f"âŒ GitHub API error:")
+        print("âŒ GitHub API error:")
         print(result.stderr)
         sys.exit(1)
 

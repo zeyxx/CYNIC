@@ -172,7 +172,11 @@
       "Bash(PYTHONIOENCODING=utf-8 python:*)",
       "Bash(PYTHONPATH=. timeout 600 pytest:*)",
       "Bash(PYTHONPATH=. timeout 120 pytest:*)",
-      "Bash(/tmp/test_all_categories.sh:*)"
+      "Bash(/tmp/test_all_categories.sh:*)",
+      "Bash(anchor test:*)",
+      "Bash(cargo build:*)",
+      "Bash(docker build:*)",
+      "Bash(gh run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

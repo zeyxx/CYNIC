@@ -7,12 +7,10 @@ It bridges perception to judgment and manages the Level of Detail (LOD).
 from __future__ import annotations
 
 import logging
-import time
-import asyncio
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.organism.reflexes.base import HandlerGroup
@@ -75,7 +73,7 @@ class IntelligenceHandlers(HandlerGroup):
     # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     async def _on_perception_received(self, event: Event) -> None:
-        """PERCEPTION_RECEIVED â†’ Trigger Full Judgment if run_judgment is True."""
+        """PERCEPTION_RECEIVED â’ Trigger Full Judgment if run_judgment is True."""
         try:
             p = PerceptionReceivedPayload.model_validate(event.dict_payload or {})
             

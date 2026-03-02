@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+import httpx
+
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.phi import fibonacci
@@ -16,7 +18,7 @@ class SelfWatcher(PerceiveWorker):
 
     Submits CYNICÃ—LEARN at MICRO level every ~55s.
     Creates a self-judgment loop: "How well am I learning?"
-    The judgment system judges its own learning state â†’ feeds more Q-Learning.
+    The judgment system judges its own learning state â’ feeds more Q-Learning.
 
     interval: F(10)=55s â€” ~1 minute is the right granularity for learning checks.
     """

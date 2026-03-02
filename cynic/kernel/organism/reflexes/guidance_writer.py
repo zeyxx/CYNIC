@@ -48,7 +48,7 @@ class GuidanceWriter(HandlerGroup):
 
     async def _on_judgment_created(self, event: Event) -> None:
         """
-        JUDGMENT_CREATED â†’ write guidance.json atomically.
+        JUDGMENT_CREATED â’ write guidance.json atomically.
         """
         try:
             p = event.dict_payload or {}

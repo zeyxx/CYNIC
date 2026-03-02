@@ -29,7 +29,7 @@ class AxiomConstraint(Enum):
 
     FIDELITY = {
         "name": "FIDELITY",
-        "description": "Loyal to truth over comfort. Never exceed Ï†-bounded confidence.",
+        "description": "Loyal to truth over comfort. Never exceed Ï-bounded confidence.",
         "constraint": lambda judgment: judgment.confidence <= MAX_CONFIDENCE,  # 0.618
         "violations": [],
     }

@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import logging
 import statistics
+from typing import Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.formulas import RESIDUAL_STABLE_HIGH_N
 from cynic.kernel.core.judgment import Judgment
 from cynic.kernel.core.phi import PHI_INV_2
@@ -27,12 +28,11 @@ class ResidualDetector:
     Trigger for L4 META cycles and self-improvement proposals.
     """
 
-    def __init__(self, bus: Optional[EventBus] = None):
+    def __init__(self, bus: EventBus):
         self._history: list[float] = []
         self._high_residual_count = 0
         self._threshold = PHI_INV_2 * 100  # ~38.2
-        from cynic.kernel.core.event_bus import CoreEvent, Event
-        self._bus = bus or get_core_bus("DEFAULT")
+        self._bus = bus
 
     def start(self):
         """Subscribe to judgment events."""

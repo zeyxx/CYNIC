@@ -13,7 +13,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Optional
+from typing import Optional
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.organism.reflexes.base import HandlerGroup

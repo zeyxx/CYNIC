@@ -1,13 +1,13 @@
 """
-CYNIC Agent Loop â€” LLM â†’ tools â†’ results â†’ LLM (max F(7)=13 iterations).
+CYNIC Agent Loop â€” LLM â’ tools â’ results â’ LLM (max F(7)=13 iterations).
 
 The agentic core that makes CYNIC Code work. Yields AgentEvents so both
 the CLI REPL and WebSocket UI can consume the same stream.
 
 Flow:
-  user_msg â†’ LLM(messages+tools) â†’
-    tool_calls? â†’ judge each â†’ execute â†’ append results â†’ LLM again
-    text only?  â†’ yield final response â†’ done
+  user_msg â’ LLM(messages+tools) â’
+    tool_calls? â’ judge each â’ execute â’ append results â’ LLM again
+    text only?  â’ yield final response â’ done
     max 13 iterations (F(7))
 """
 from __future__ import annotations

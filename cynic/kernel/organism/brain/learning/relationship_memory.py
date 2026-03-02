@@ -15,7 +15,7 @@ class RelationshipMemory:
     """User's axiom value weights [0, 1]. E.g. PHI: 0.9 (cares about harmony)"""
 
     user_preferences: dict[str, str]
-    """Topic-specific verdict preferences. E.g. financial â†’ GROWL (caution)"""
+    """Topic-specific verdict preferences. E.g. financial â’ GROWL (caution)"""
 
     user_style: str
     """User decision-making style: analytical, intuitive, careful, exploratory"""
@@ -59,7 +59,7 @@ class RelationshipMemory:
 
         inferred = dict(self.communication_style)
 
-        # Short messages â†’ concise preference
+        # Short messages â’ concise preference
         if avg_length < 30:
             inferred["verbosity"] = "concise"
         elif avg_length > 100:

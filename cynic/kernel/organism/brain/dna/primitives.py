@@ -333,7 +333,7 @@ async def run_dna_chain(
     qtable: Any = None,
 ) -> dict:
     """
-    Run all 5 primitives in sequence (PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT â†’ LEARN).
+    Run all 5 primitives in sequence (PERCEIVE â’ JUDGE â’ DECIDE â’ ACT â’ LEARN).
 
     Example:
         >>> result = await run_dna_chain(cell, orchestrator=orch, qtable=qtable)

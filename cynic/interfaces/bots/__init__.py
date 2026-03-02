@@ -25,22 +25,22 @@ Architecture:
 â”‚  â””â”€ error: Optional[str] (error if not success)    â”‚
 â”‚                                                     â”‚
 â”‚  BotInterface (abstract)                            â”‚
-â”‚  â”œâ”€ start() â†’ None (connect to platform)           â”‚
-â”‚  â”œâ”€ stop() â†’ None (disconnect cleanly)             â”‚
-â”‚  â””â”€ handle_command(BotCommand) â†’ BotResponse       â”‚
+â”‚  â”œâ”€ start() â’ None (connect to platform)           â”‚
+â”‚  â”œâ”€ stop() â’ None (disconnect cleanly)             â”‚
+â”‚  â””â”€ handle_command(BotCommand) â’ BotResponse       â”‚
 â”‚                                                     â”‚
 â”‚  Platform Adapters (concrete implementations)       â”‚
-â”‚  â”œâ”€ DiscordBot: Platform Event â†’ BotCommand        â”‚
-â”‚  â”œâ”€ TelegramBot: Platform Event â†’ BotCommand       â”‚
-â”‚  â”œâ”€ CLIBot: Platform Input â†’ BotCommand            â”‚
-â”‚  â””â”€ WebBot: Platform Request â†’ BotCommand          â”‚
+â”‚  â”œâ”€ DiscordBot: Platform Event â’ BotCommand        â”‚
+â”‚  â”œâ”€ TelegramBot: Platform Event â’ BotCommand       â”‚
+â”‚  â”œâ”€ CLIBot: Platform Input â’ BotCommand            â”‚
+â”‚  â””â”€ WebBot: Platform Request â’ BotCommand          â”‚
 â”‚                                                     â”‚
 â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 
 Key principle:
 - All platform-specific logic is in adapters
 - Core logic operates on BotCommand/BotResponse
-- Adapters translate: Platform â†’ BotCommand â†’ Logic â†’ BotResponse â†’ Platform
+- Adapters translate: Platform â’ BotCommand â’ Logic â’ BotResponse â’ Platform
 """
 
 from cynic.interfaces.bots.bot_interface import BotCommand, BotInterface, BotResponse

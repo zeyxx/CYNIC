@@ -1,41 +1,40 @@
 """
 CYNIC Q-Learning â€” TD(0) with Thompson Sampling Exploration
 
-State  = cell.state_key() â†’ "CODE:JUDGE:PRESENT:1" (reality:analysis:time:lod)
-Action = verdict           â†’ "BARK" | "GROWL" | "WAG" | "HOWL"
-Reward = q_score / 61.8   â†’ [0, 1] (normalized Ï†-bounded reward)
+State  = cell.state_key() â’ "CODE:JUDGE:PRESENT:1" (reality:analysis:time:lod)
+Action = verdict           â’ "BARK" | "GROWL" | "WAG" | "HOWL"
+Reward = q_score / 61.8   â’ [0, 1] (normalized Ï-bounded reward)
 
 Algorithm: TD(0) â€” simplest correct Q-Learning variant.
-  Q(s,a) â† Q(s,a) + Î± Ã— (r âˆ’ Q(s,a))
+  Q(s,a) â Q(s,a) + Î Ã— (r âˆ’ Q(s,a))
 
 Where:
-  Î± = LEARNING_RATE = Ï†â»Â² / 10 â‰ˆ 0.038 (conservative, avoids catastrophic forgetting)
+  Î = LEARNING_RATE = Ïâ»Â² / 10 â‰ˆ 0.038 (conservative, avoids catastrophic forgetting)
   r = reward âˆˆ [0, 1] (normalized Q-Score from judgment)
   Q(s,a) âˆˆ [0, 1] (stored, maps to quality of action in state)
 
 Exploration: Thompson Sampling via Beta distribution
-  For each action: sample Beta(Î±_wins + 1, Î±_losses + 1)
-  Pick action with highest sample â†’ natural Bayesian exploration
+  For each action: sample Beta(Î_wins + 1, Î_losses + 1)
+  Pick action with highest sample â’ natural Bayesian exploration
 
 Persistence:
   In-memory dict (fast) + async flush to PostgreSQL q_table (durable).
-  On startup: load q_table from DB â†’ warm start.
+  On startup: load q_table from DB â’ warm start.
 
-Ï†-Integration:
-  - Learning rate = Ï†â»Â² / 10 (conservative homeostasis)
-  - Confidence cap = Ï†â»Â¹ (61.8% max certainty in any prediction)
-  - Thompson Î±/Î² = Fibonacci-seeded (F(5)=5 prior, balanced exploration)
+Ï-Integration:
+  - Learning rate = Ïâ»Â² / 10 (conservative homeostasis)
+  - Confidence cap = Ïâ»Â¹ (61.8% max certainty in any prediction)
+  - Thompson Î/Î² = Fibonacci-seeded (F(5)=5 prior, balanced exploration)
 
 EWC (Elastic Weight Consolidation):
   - Fisher weight = min(visits / F(8), 1.0) â€” visit count as importance proxy
-  - effective_Î± = Î± Ã— (1 - Î» Ã— fisher), Î» = EWC_PENALTY = Ï†â»Â¹ = 0.618
-  - Effect: New states learn at full Î±; consolidated states (â‰¥21 visits) learn at 0.382Ã—Î±
-  - Prevents catastrophic forgetting when task distribution shifts (CODEâ†’MARKETâ†’CODE)
+  - effective_Î = Î Ã— (1 - Î» Ã— fisher), Î» = EWC_PENALTY = Ïâ»Â¹ = 0.618
+  - Effect: New states learn at full Î; consolidated states (â‰¥21 visits) learn at 0.382Ã—Î
+  - Prevents catastrophic forgetting when task distribution shifts (CODEâ’MARKETâ’CODE)
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import random
 import time
@@ -76,7 +75,7 @@ class QEntry:
 
     q_value: TD(0) estimate âˆˆ [0, 1]
     visits:  How many times this (s,a) was observed
-    wins:    Thompson Î± â€” positive reward observations (reward > 0.5)
+    wins:    Thompson Î â€” positive reward observations (reward > 0.5)
     losses:  Thompson Î² â€” negative reward observations (reward â‰¤ 0.5)
     last_updated: Unix timestamp
     """
@@ -91,7 +90,7 @@ class QEntry:
 
     def thompson_sample(self) -> float:
         """Sample from Beta(wins+1, losses+1) for Thompson exploration."""
-        # Beta(Î±, Î²) via ratio of Gamma samples (fast Python impl)
+        # Beta(Î, Î²) via ratio of Gamma samples (fast Python impl)
         a = self.wins + 1
         b = self.losses + 1
         x = random.gammavariate(a, 1.0)
@@ -118,15 +117,15 @@ class LearningSignal:
     Matches the LEARNING_EVENT payload emitted by JudgeOrchestrator.
     """
 
-    state_key: str  # cell.state_key() â†’ "CODE:JUDGE:PRESENT:1"
-    action: str  # verdict â†’ "GROWL"
-    reward: float  # q_score / MAX_Q_SCORE â†’ [0, 1]
+    state_key: str  # cell.state_key() â’ "CODE:JUDGE:PRESENT:1"
+    action: str  # verdict â’ "GROWL"
+    reward: float  # q_score / MAX_Q_SCORE â’ [0, 1]
     judgment_id: str = ""
     loop_name: str = "JUDGE_ORCHESTRATOR"
     timestamp: float = field(default_factory=time.time)
 
     def __post_init__(self) -> None:
-        # Ï†-bound reward to [0, 1]
+        # Ï-bound reward to [0, 1]
         self.reward = max(0.0, min(1.0, self.reward))
         if self.action not in VERDICTS:
             raise ValueError(f"action must be one of {VERDICTS}, got '{self.action}'")
@@ -162,7 +161,7 @@ class QTable:
     def __init__(
         self,
         learning_rate: float = LEARNING_RATE,
-        discount: float = PHI_INV_2,  # Î³ = Ï†â»Â² = 0.382 (short-horizon)
+        discount: float = PHI_INV_2,  # Î³ = Ïâ»Â² = 0.382 (short-horizon)
         storage: Optional[Any] = None,
     ) -> None:
         self._alpha = learning_rate  # â‰ˆ 0.038
@@ -179,7 +178,7 @@ class QTable:
 
     def update(self, signal: LearningSignal) -> QEntry:
         """
-        TD(0) update: Q(s,a) â† Q(s,a) + Î± Ã— (r âˆ’ Q(s,a))
+        TD(0) update: Q(s,a) â Q(s,a) + Î Ã— (r âˆ’ Q(s,a))
 
         Also updates Thompson arms (wins/losses).
         Returns the updated QEntry.
@@ -188,9 +187,9 @@ class QTable:
 
         # TD(0) update with EWC (Elastic Weight Consolidation).
         # Fisher weight â‰ˆ visits / F(8): heavily-visited entries resist overwriting.
-        # effective_Î± = Î± Ã— (1 - Î» Ã— fisher)
-        # At visits=0:     effective_Î± = Î±         (full learning â€” unknown state)
-        # At visits=F(8):  effective_Î± = Î± Ã— 0.382 (consolidated â€” resist forgetting)
+        # effective_Î = Î Ã— (1 - Î» Ã— fisher)
+        # At visits=0:     effective_Î = Î         (full learning â€” unknown state)
+        # At visits=F(8):  effective_Î = Î Ã— 0.382 (consolidated â€” resist forgetting)
         old_q = entry.q_value
         fisher_weight = min(entry.visits / fibonacci(8), 1.0)
         effective_alpha = self._alpha * (1.0 - EWC_PENALTY * fisher_weight)
@@ -210,7 +209,7 @@ class QTable:
         self._pending_flush.append(entry)
 
         logger.debug(
-            "Q[%s][%s]: %.3f â†’ %.3f (reward=%.3f, visits=%d)",
+            "Q[%s][%s]: %.3f â’ %.3f (reward=%.3f, visits=%d)",
             signal.state_key,
             signal.action,
             old_q,
@@ -226,7 +225,7 @@ class QTable:
     def exploit(self, state_key: str) -> str:
         """
         Greedy policy: return action with highest Q-value.
-        If unseen state â†’ GROWL (cautious default, Ï†-aligned).
+        If unseen state â’ GROWL (cautious default, Ï-aligned).
         """
         actions = self._table.get(state_key, {})
         if not actions:
@@ -255,9 +254,9 @@ class QTable:
         """
         Confidence in predictions for this state = visits-based.
 
-        confidence = min(visits / F(8), Ï†â»Â¹)
+        confidence = min(visits / F(8), Ïâ»Â¹)
         where F(8)=21 = "well-seen" threshold.
-        Caps at Ï†â»Â¹ = 61.8% (LAW OF DOUBT).
+        Caps at Ïâ»Â¹ = 61.8% (LAW OF DOUBT).
         """
         total_visits = sum(e.visits for e in self._table.get(state_key, {}).values())
         raw = total_visits / fibonacci(8)  # F(8) = 21 â€” "enough data" threshold
@@ -513,7 +512,7 @@ class LearningLoop:
     """
     Connects QTable to the CYNIC event bus.
 
-    Subscribes to LEARNING_EVENT â†’ calls qtable.update().
+    Subscribes to LEARNING_EVENT â’ calls qtable.update().
     Flushes to DB every F(8)=21 updates.
 
     Usage:
@@ -531,23 +530,23 @@ class LearningLoop:
         self._instance_id = instance_id
 
         self._updates_since_flush: int = 0
-        self._learning_rate = qtable._alpha  # Reference to QTable's Î±
+        self._learning_rate = qtable._alpha  # Reference to QTable's Î
         self.instance_id = instance_id  # Level 2 multi-instance support
         self._bus = None  # Cached bus reference (set in start())
 
     def adjust_learning_rate(self, delta: float) -> None:
         """
-        Adjust the learning rate (Î±) by delta.
+        Adjust the learning rate (Î) by delta.
 
         Called by MetaCognitionHandler to adapt exploration/exploitation.
-        Delta is Ï†-bounded: max Â±0.618 per call.
+        Delta is Ï-bounded: max Â0.618 per call.
         """
         new_rate = self._learning_rate + delta
-        # Clamp to Ï†-bounded range: [0.01, 0.2]
+        # Clamp to Ï-bounded range: [0.01, 0.2]
         self._learning_rate = max(0.01, min(0.2, new_rate))
         # Also update the underlying QTable
         self.qtable._alpha = self._learning_rate
-        logger.info("Learning rate Î± adjusted to %.4f (delta=%.3f)", self._learning_rate, delta)
+        logger.info("Learning rate Î adjusted to %.4f (delta=%.3f)", self._learning_rate, delta)
 
     def start(self, event_bus: Optional[Any] = None) -> None:
         """Register LEARNING_EVENT listener on the event bus."""

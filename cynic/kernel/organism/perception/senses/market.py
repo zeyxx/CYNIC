@@ -8,38 +8,37 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 import random
-from typing import Any
+from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.realities import MarketPayload
-from cynic.kernel.core.phi import PHI_INV
 
 logger = logging.getLogger("cynic.senses.market")
 
-from typing import Any, Optional
-from cynic.kernel.core.event_bus import CoreEvent, Event
 
 class MarketSensor:
     """
     Connects CYNIC to the pulse of the markets.
     """
-    def __init__(self, interval_s: float = 60.0, bus: Optional[EventBus] = None):
+    def __init__(self, bus: EventBus, interval_s: float = 60.0, vascular: Optional[Any] = None):
         self.interval_s = interval_s
+        self.vascular = vascular
         self._running = False
         self._task: asyncio.Task | None = None
-        self._bus = bus or get_core_bus("DEFAULT")
+        self._bus = bus
 
     def start(self):
-        if self._running: return
+        if self._running:
+            return
         self._running = True
         self._task = asyncio.create_task(self._run_loop())
         logger.info("MarketSensor: Started polling.")
 
     def stop(self):
         self._running = False
-        if self._task: self._task.cancel()
+        if self._task:
+            self._task.cancel()
 
     async def _run_loop(self):
         while self._running:

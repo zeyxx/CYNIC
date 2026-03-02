@@ -60,6 +60,9 @@ async def test_crucible_lifecycle():
         # Now start everything
         await organism.start()
         
+        # Stabilization sleep (SRE best practice)
+        await asyncio.sleep(0.1)
+        
         # 4. Inject Stimulus: A high-multiplier "Black Swan" in Cannon
         # This should trigger a Macro cycle because GAMBLING is high priority
         stimulus = {
@@ -72,7 +75,10 @@ async def test_crucible_lifecycle():
         print(f"[Crucible] Injecting stimulus: {stimulus}")
         await mock_conduit.inject("GAMBLING", stimulus)
         
-        # 5. Wait for the ripple effect (Asynchronous processing)
+        # Await somatic processing (The Suture of Truth)
+        await organism.senses.somatic_gateway.drain()
+        await organism.bus.drain()
+        
         # Give it up to 10 seconds to reach LEARNING_EVENT
         timeout = 10.0
         start_wait = time.time()

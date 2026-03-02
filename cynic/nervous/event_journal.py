@@ -10,7 +10,7 @@ Every event gets captured:
   - payload (event data)
   - duration (how long it took to propagate)
 
-Pattern: Append-only rolling buffer, Ï†-indexed by type, queryable by time range.
+Pattern: Append-only rolling buffer, Ï-indexed by type, queryable by time range.
 Rolling cap: F(11) = 89 events (oldest dropped when 90th arrives).
 
 Queryable via:
@@ -41,7 +41,7 @@ from cynic.kernel.core.formulas import EVENT_JOURNAL_CAP
 
 logger = logging.getLogger("cynic.nervous.event_journal")
 
-# Ï†-derived rolling cap: F(11) = 89 (imported from formulas.py)
+# Ï-derived rolling cap: F(11) = 89 (imported from formulas.py)
 JOURNAL_CAP = EVENT_JOURNAL_CAP
 
 
@@ -100,9 +100,9 @@ class EventJournal:
     def __init__(self):
         self._entries: deque = deque(maxlen=JOURNAL_CAP)  # Auto-drops oldest
         self._lock = asyncio.Lock()
-        self._index_by_type: dict[str, list[str]] = {}  # type â†’ [event_ids]
-        self._index_by_source: dict[str, list[str]] = {}  # source â†’ [event_ids]
-        self._event_map: dict[str, JournalEntry] = {}  # event_id â†’ entry
+        self._index_by_type: dict[str, list[str]] = {}  # type â’ [event_ids]
+        self._index_by_source: dict[str, list[str]] = {}  # source â’ [event_ids]
+        self._event_map: dict[str, JournalEntry] = {}  # event_id â’ entry
         self._stats = {
             "total_recorded": 0,
             "by_category": {},

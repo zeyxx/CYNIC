@@ -40,7 +40,6 @@ async def _get_or_create_organism_async():
     """Get cached organism or create new one (async version for test fixture)."""
     global _CACHED_ORGANISM, _CACHED_CONTAINER
 
-    from cynic.interfaces.api.server import app
     from cynic.interfaces.api.state import AppContainer, restore_state, set_app_container
     from cynic.kernel.organism.organism import awaken
 

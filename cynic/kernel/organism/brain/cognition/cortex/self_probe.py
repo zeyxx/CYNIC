@@ -1,11 +1,11 @@
 """
-CYNIC SelfProber â€" L4 CYNICâ†'CYNIC Self-improvement loop
+CYNIC SelfProber â€" L4 CYNICâ'CYNIC Self-improvement loop
 
 Listens to EMERGENCE_DETECTED (from ResidualDetector). When a pattern
 (SPIKE / RISING / STABLE_HIGH) is flagged, SelfProber analyzes three
 internal signals and generates improvement proposals:
 
-  1. QTABLE   â€" state-action pairs with Q-value < Ï†Â² (38.2%) after â‰¥3 visits
+  1. QTABLE   â€" state-action pairs with Q-value < ÏÂ² (38.2%) after â‰¥3 visits
   2. ESCORE   â€" dogs with JUDGE reputation score < 38.2 (below GROWL floor)
   3. CONFIG   â€" pattern-specific parameter suggestions (axiom weights, thresholds)
 
@@ -44,7 +44,7 @@ from cynic.kernel.core.phi import PHI_INV_2, fibonacci
 from cynic.nervous.metrics_analyzer import MetricsAnalyzer
 
 if TYPE_CHECKING:
-    from cynic.nervous.event_metrics import EventMetricsCollector
+    pass
 
 logger = logging.getLogger("cynic.judge.self_probe")
 
@@ -121,7 +121,7 @@ class SelfProposal:
 
 class SelfProber:
     """
-    L4 CYNICâ†'CYNIC self-improvement loop.
+    L4 CYNICâ'CYNIC self-improvement loop.
 
     Subscribes to EMERGENCE_DETECTED. On each event, runs three analyses
     and generates SelfProposal recommendations. Persists to disk.
@@ -144,7 +144,6 @@ class SelfProber:
         self._metrics_collector: Any | None = None
         self._registered: bool = False
         self._executor: Any | None = None
-        from cynic.kernel.core.event_bus import CoreEvent, Event
         self._bus = bus or get_core_bus("DEFAULT")
         self._load()
 
@@ -366,7 +365,7 @@ class SelfProber:
         value, visits, state_key, action = worst
         rec = (
             f"QTable: '{state_key[:40]}' action '{action}' Q={value:.3f} "
-            f"after {visits} visits (below Ï†Â² threshold {_LOW_Q_THRESHOLD:.3f}). "
+            f"after {visits} visits (below ÏÂ² threshold {_LOW_Q_THRESHOLD:.3f}). "
             f"Investigate heuristic coverage or axiom weights for this cell."
         )
         return [
@@ -443,8 +442,8 @@ class SelfProber:
     ) -> list[SelfProposal]:
         """
         Pattern-specific parameter suggestions.
-          STABLE_HIGH â†' re-run probe calibration (axiom weights drift)
-          RISING      â†' reduce ANOMALY_THRESHOLD or add dog diversity
+          STABLE_HIGH â' re-run probe calibration (axiom weights drift)
+          RISING      â' reduce ANOMALY_THRESHOLD or add dog diversity
         """
         if self._residual is None:
             return []
@@ -475,7 +474,7 @@ class SelfProber:
         rec = (
             f"RISING residual pattern (severity={severity:.3f}): "
             f"Dog disagreement is escalating. "
-            f"Consider lowering ANOMALY_THRESHOLD (0.382â†'0.300) or adding dog diversity."
+            f"Consider lowering ANOMALY_THRESHOLD (0.382â'0.300) or adding dog diversity."
         )
         return [
             SelfProposal(
@@ -606,7 +605,7 @@ class SelfProber:
     # — Event handler ————————————————————————————————————————————————————————— â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     async def _on_emergence(self, event: Event) -> None:
-        """Handle EMERGENCE_DETECTED â†' analyze â†' emit SELF_IMPROVEMENT_PROPOSED."""
+        """Handle EMERGENCE_DETECTED â' analyze â' emit SELF_IMPROVEMENT_PROPOSED."""
         try:
             payload = event.dict_payload if isinstance(event.dict_payload, dict) else {}
             pattern_type = payload.get("pattern_type", "UNKNOWN")

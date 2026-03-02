@@ -30,7 +30,7 @@ logging.basicConfig(
 
 @dataclass
 class BattleRecord:
-    """One complete battle (propose â†’ execute â†’ measure â†’ log)."""
+    """One complete battle (propose â’ execute â’ measure â’ log)."""
     battle_id: str                  # unique ID
     timestamp_ms: float             # when battle started
     duration_ms: float              # how long execution took
@@ -80,7 +80,7 @@ class BattleRunner:
             elapsed = time.time() - self.start_time
             if elapsed > max_duration_s:
                 logger.info(
-                    _c("yellow", f"â±  Time limit reached ({max_duration_s//3600}h)")
+                    _c("yellow", f"â  Time limit reached ({max_duration_s//3600}h)")
                 )
                 break
 

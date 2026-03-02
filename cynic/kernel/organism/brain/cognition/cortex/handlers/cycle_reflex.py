@@ -11,16 +11,11 @@ Responsibility:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.core.axioms import verdict_from_q_score
-from cynic.kernel.core.consciousness import ConsciousnessLevel, dogs_for_level
-from cynic.kernel.core.exceptions import CynicError
-from cynic.kernel.core.judgment import Judgment
-from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE, PHI_INV_2, phi_bound_score
+from cynic.kernel.core.event_bus import EventBus
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 
 if TYPE_CHECKING:
@@ -45,13 +40,13 @@ class ReflexCycleHandler(BaseHandler):
 
     def __init__(
         self,
+        bus: EventBus,
         dogs: dict[str, Any],
         axiom_arch: Any,
         consciousness_state: Any | None = None,
         escore_tracker: Any | None = None,
         axiom_monitor: Any | None = None,
         lod_controller: Any | None = None,
-        bus: Optional[EventBus] = None,
     ) -> None:
         self.dogs = dogs
         self.axiom_arch = axiom_arch
@@ -59,8 +54,7 @@ class ReflexCycleHandler(BaseHandler):
         self.escore_tracker = escore_tracker
         self.axiom_monitor = axiom_monitor
         self.lod_controller = lod_controller
-        from cynic.kernel.core.event_bus import CoreEvent, Event
-        self.bus = bus or get_core_bus("DEFAULT")
+        self.bus = bus
 
     async def _act_phase(self, judgment: Any, pipeline: Any) -> Any:
         """Reflex cycle skips ACT phase."""

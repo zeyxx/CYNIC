@@ -152,7 +152,7 @@ def cmd_feedback() -> None:
     Requires server to be running.
 
     Example:
-      python -m cynic.interfaces.cli feedback 4   â†’ reward 0.70 â†’ QTable update
+      python -m cynic.interfaces.cli feedback 4   â’ reward 0.70 â’ QTable update
     """
     args = sys.argv[2:]
     if not args:

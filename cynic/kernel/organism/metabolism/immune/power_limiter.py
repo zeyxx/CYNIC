@@ -13,7 +13,7 @@ during self-improvement cycles, causing system instability or denial-of-service.
 Architecture:
   - Monitors: scheduler._tasks count, queue sizes, cycle rates
   - Actions: throttle workers, cap consciousness level, emit warnings
-  - Safety: graceful degradation (MACRO â†’ MICRO â†’ REFLEX)
+  - Safety: graceful degradation (MACRO â’ MICRO â’ REFLEX)
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from cynic.kernel.core.phi import fibonacci
 
 logger = logging.getLogger("cynic.kernel.organism.metabolism.immune.power_limiter")
 
-# Resource thresholds (Ï†-derived for sustainable growth)
+# Resource thresholds (Ï-derived for sustainable growth)
 _CPU_THRESHOLD_PCT = 80.0  # Auto-throttle at 80% CPU
 _MEMORY_THRESHOLD_PCT = 85.0  # Auto-throttle at 85% memory
 _QUEUE_DEPTH_CRITICAL = fibonacci(8)  # 21 â€” beyond this, cap to REFLEX
@@ -137,9 +137,9 @@ class PowerLimiter:
         Recommend consciousness level based on resource availability.
 
         Strategy: graceful degradation
-          - All healthy â†’ MACRO (full depth)
-          - CPU/Memory warning â†’ MICRO (limited LLM)
-          - Critical queue depth â†’ REFLEX (minimal)
+          - All healthy â’ MACRO (full depth)
+          - CPU/Memory warning â’ MICRO (limited LLM)
+          - Critical queue depth â’ REFLEX (minimal)
 
         Args:
             scheduler: ConsciousnessRhythm instance

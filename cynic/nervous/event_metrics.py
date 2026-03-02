@@ -25,7 +25,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from cynic.kernel.core.formulas import (
-    HISTORY_REPLAY_BATCH,
     LOG_TAIL_CAP,
     LOD_LEVEL0_LATENCY_MS,
     LOD_LEVEL1_LATENCY_MS,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Optional
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel, get_consciousness
 from cynic.kernel.core.judgment import Cell

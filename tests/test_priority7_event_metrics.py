@@ -6,20 +6,16 @@ Tests for EventMetricsCollector and BusMetricsAdapter.
 """
 
 import asyncio
-import time
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
+from cynic.kernel.core.event_bus import Event, EventBus
 from cynic.kernel.core.formulas import (
     HISTORY_REPLAY_BATCH,
     LOD_LEVEL0_LATENCY_MS,
-    LOD_LEVEL1_LATENCY_MS,
     LOD_LEVEL2_LATENCY_MS,
-    LOD_LEVEL3_LATENCY_MS,
 )
-from cynic.kernel.core.phi import PHI, PHI_INV
 from cynic.nervous.event_metrics import EventMetricsCollector
 from cynic.nervous.bus_metrics_adapter import BusMetricsAdapter
 

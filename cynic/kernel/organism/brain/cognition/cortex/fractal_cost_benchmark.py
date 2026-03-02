@@ -11,7 +11,7 @@ Hypothesis: Cost âˆ log(N), not O(N)
 NOT 1 dog cost Ã— 5 or 1 dog cost Ã— 11 (linear growth)
 
 Key Mechanism:
-  - Dogs judge independently (PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT)
+  - Dogs judge independently (PERCEIVE â’ JUDGE â’ DECIDE â’ ACT)
   - Dogs gossip compressed context (~200 bytes) instead of full state (~1000 bytes)
   - Orchestrator = consensus layer (geometric mean aggregation, NO re-judgment)
   - Cost scales with: gossip bandwidth, consensus computation, per-dog storage
@@ -285,7 +285,7 @@ class FractalCostBenchmark:
 
     async def benchmark_scaling(self, n_cells: int = 50) -> CostScalingResult:
         """
-        Benchmark cost scaling: 1 dog â†’ 5 dogs â†’ 11 dogs.
+        Benchmark cost scaling: 1 dog â’ 5 dogs â’ 11 dogs.
 
         Validates: cost_11 / cost_1 â‰¤ logâ‚‚(11) â‰ˆ 3.46
         """

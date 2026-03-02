@@ -14,10 +14,11 @@ def event_bus():
 
 
 @pytest.fixture
-def self_prober(event_bus):
-    """Create a fresh SelfProber instance."""
-    prober = SelfProber(bus=event_bus)
-    # Load existing proposals from disk
+def self_prober(event_bus, tmp_path):
+    """Create a fresh SelfProber instance with isolated temp storage."""
+    # Use a temporary file path to avoid loading real proposals from disk
+    temp_proposals_file = tmp_path / "self_proposals.json"
+    prober = SelfProber(proposals_path=str(temp_proposals_file), bus=event_bus)
     return prober
 
 
@@ -54,26 +55,28 @@ def prober_with_executor(self_prober, mock_executor):
 @pytest.fixture
 def sample_proposals(self_prober):
     """Generate 10 sample proposals with mixed statuses."""
+    from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProposal
+    import time
+
     proposals = []
 
-    # Generate 10 proposals
+    # Directly create 10 sample proposals
     for i in range(10):
-        new_proposals = self_prober.analyze(
+        proposal = SelfProposal(
+            probe_id=f"probe_{i:02d}",
             trigger="MANUAL",
             pattern_type="TEST",
-            severity=0.5
+            severity=0.5,
+            dimension="QTABLE" if i < 5 else "ESCORE" if i < 8 else "CONFIG",
+            target=f"target_{i}",
+            recommendation=f"Test recommendation {i}",
+            current_value=float(i) / 10,
+            suggested_value=float(i + 1) / 10,
+            proposed_at=time.time(),
+            status="PENDING" if i < 5 else "APPLIED" if i < 8 else "DISMISSED"
         )
-        if new_proposals:
-            proposals.extend(new_proposals)
+        proposals.append(proposal)
+        self_prober._proposals.append(proposal)
 
-    # Assign statuses
-    for i, proposal in enumerate(proposals[:10]):
-        if i < 5:
-            proposal.status = "PENDING"
-        elif i < 8:
-            proposal.status = "APPLIED"
-        else:
-            proposal.status = "DISMISSED"
-        self_prober._save()
-
-    return proposals[:10]
+    self_prober._save()
+    return proposals

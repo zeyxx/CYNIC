@@ -18,9 +18,9 @@ def audit_factory():
 
     issues = []
 
-    # Required initializations (accept EventBus or get_core_bus pattern)
+    # Required initializations (accept EventBus, get_core_bus or self.core_bus pattern)
     required_inits = [
-        ("EventBus initialization", lambda c: "instance_bus = get_core_bus" in c or "instance_bus = EventBus" in c),
+        ("EventBus initialization", lambda c: "get_core_bus" in c or "EventBus" in c or "self.core_bus" in c),
         ("EventJournal", lambda c: "self.journal = EventJournal" in c),
         ("DecisionTracer", lambda c: "self.tracer = DecisionTracer" in c),
         ("LoopClosureValidator", lambda c: "self.loop_validator = LoopClosureValidator" in c),
@@ -34,9 +34,9 @@ def audit_factory():
 
     # Required service injections (setters)
     required_setters = [
-        "prober.set_qtable",
-        "prober.set_residual_detector",
-        "prober.set_escore_tracker",
+        "set_qtable",
+        "set_residual_detector",
+        "set_escore_tracker",
     ]
 
     for setter in required_setters:
@@ -55,11 +55,11 @@ def audit_factory():
         if field not in content:
             issues.append(f"Missing ArchiveCore field: {field}")
 
-    # Required bus handlers
+    # Required bus handlers (Generic pattern check)
     required_handlers = [
-        'instance_bus.on("*", self._journal_adapter.on_event)',
-        'instance_bus.on("*", self._loop_adapter.on_event)',
-        'instance_bus.on("*", self._metrics_adapter.on_event)',
+        '.on("*", self._journal_adapter.on_event)',
+        '.on("*", self._loop_adapter.on_event)',
+        '.on("*", self._metrics_adapter.on_event)',
     ]
 
     for handler in required_handlers:

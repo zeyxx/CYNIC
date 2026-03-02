@@ -37,11 +37,11 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from cynic.kernel.core.formulas import DECISION_TRACE_CAP, HISTORY_REPLAY_BATCH
+from cynic.kernel.core.formulas import DECISION_TRACE_CAP
 
 logger = logging.getLogger("cynic.nervous.decision_trace")
 
-# Ï†-derived rolling cap: F(10) = 55 (imported from formulas.py)
+# Ï-derived rolling cap: F(10) = 55 (imported from formulas.py)
 TRACE_CAP = DECISION_TRACE_CAP
 
 
@@ -59,7 +59,7 @@ class DogVote:
     dog_id: str
     role: DogRole
     q_score: float              # Their score (0-100)
-    confidence: float           # Their confidence (0-Ï†â»Â¹)
+    confidence: float           # Their confidence (0-Ïâ»Â¹)
     reasoning: str | None = None  # Short reasoning summary
 
 
@@ -151,15 +151,15 @@ class DecisionTracer:
     """
     Converts event sequences into executable DAGs.
 
-    Tracks reasoning path for each judgment: inputs â†’ voting â†’ decision â†’ action.
+    Tracks reasoning path for each judgment: inputs â’ voting â’ decision â’ action.
     Thread-safe (asyncio.Lock), rolling buffer with cap F(10)=55.
     """
 
     def __init__(self):
         self._traces: deque = deque(maxlen=TRACE_CAP)  # Auto-drops oldest
         self._lock = asyncio.Lock()
-        self._trace_map: dict[str, DecisionTrace] = {}  # trace_id â†’ trace
-        self._judgment_to_trace: dict[str, str] = {}  # judgment_id â†’ trace_id
+        self._trace_map: dict[str, DecisionTrace] = {}  # trace_id â’ trace
+        self._judgment_to_trace: dict[str, str] = {}  # judgment_id â’ trace_id
         self._stats = {
             "total_traced": 0,
             "by_verdict": {},

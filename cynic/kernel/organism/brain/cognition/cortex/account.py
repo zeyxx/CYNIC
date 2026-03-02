@@ -4,14 +4,15 @@ AccountAgent â€” The Organism's Auditor.
 Tracks the total cost of all LLM judgments and manages the session budget.
 Emits BUDGET_WARNING and BUDGET_EXHAUSTED events when thresholds are crossed.
 
-Ï†-Law: BURN â€” resources are finite. Monitoring them is an Axiomatic requirement.
+Ï-Law: BURN â€” resources are finite. Monitoring them is an Axiomatic requirement.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.events_schema import BudgetExhaustedPayload, BudgetWarningPayload
 from cynic.kernel.core.formulas import BUDGET_HARD_CAP_USD, BUDGET_WARNING_PCT
 
@@ -23,14 +24,13 @@ class AccountAgent:
     Tracks expenditures and enforces the financial boundary of the organism.
     """
 
-    def __init__(self, budget_limit_usd: Optional[float] = None, bus: Optional[EventBus] = None):
+    def __init__(self, bus: EventBus, budget_limit_usd: Optional[float] = None):
         self.limit = budget_limit_usd or BUDGET_HARD_CAP_USD
         self.total_cost_usd = 0.0
         self._warning_sent = False
         self._exhausted_sent = False
         self.escore_tracker = None
-        from cynic.kernel.core.event_bus import CoreEvent, Event
-        self._bus = bus or get_core_bus("DEFAULT")
+        self._bus = bus
 
     def set_escore_tracker(self, tracker: Any) -> None:
         """Inject E-Score tracker for reputation updates."""

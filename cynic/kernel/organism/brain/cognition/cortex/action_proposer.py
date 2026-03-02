@@ -15,7 +15,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.events_schema import ActionProposedPayload, DecisionMadePayload
 from cynic.kernel.core.storage.interface import ActionProposalRepoInterface
 
@@ -54,11 +54,10 @@ class ActionProposer:
     Persistence is fully handled by SurrealDB via the injected repository.
     """
 
-    def __init__(self, repo: ActionProposalRepoInterface, bus: Optional[EventBus] = None):
+    def __init__(self, bus: EventBus, repo: ActionProposalRepoInterface):
         self.repo = repo
         self._last_stats = {"pending": 0, "total": 0}
-        from cynic.kernel.core.event_bus import CoreEvent, Event
-        self._bus = bus or get_core_bus("DEFAULT")
+        self._bus = bus
 
     def start(self):
         """Subscribe to decision events."""

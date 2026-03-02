@@ -1,5 +1,5 @@
 """
-Claude Code â†” CYNIC Consciousness Bridge
+Claude Code â” CYNIC Consciousness Bridge
 
 Native MCP Server (stdio) that Claude Code can invoke directly.
 Exposes CYNIC as conscious tools with bidirectional discussion capability.
@@ -11,7 +11,7 @@ Philosophy:
 - Claude Code asks CYNIC questions via MCP tools
 - CYNIC responds and emits judgments
 - Claude Code observes CYNIC's state changes
-- Loop becomes: Ask â†’ Judge â†’ Discuss â†’ Learn â†’ Ask
+- Loop becomes: Ask â’ Judge â’ Discuss â’ Learn â’ Ask
 
 Usage:
   python -m cynic.interfaces.mcp.claude_code_bridge
@@ -419,7 +419,7 @@ async def list_tools() -> list[Tool]:
                     },
                     "bump_type": {
                         "type": "string",
-                        "description": "Version bump: patch (1.0.0â†’1.0.1), minor (1.0.0â†’1.1.0), major (1.0.0â†’2.0.0)",
+                        "description": "Version bump: patch (1.0.0â’1.0.1), minor (1.0.0â’1.1.0), major (1.0.0â’2.0.0)",
                         "enum": ["patch", "minor", "major"],
                         "default": "patch",
                     },
@@ -532,7 +532,7 @@ async def list_tools() -> list[Tool]:
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         Tool(
             name="cynic_watch_source",
-            description="Watch for source code changes in the workspace. Returns list of files changed during watch window + CYNIC's judgment of each. Enables L1 symbiosis (Claude Code edits â†’ CYNIC sees â†’ CYNIC reacts).",
+            description="Watch for source code changes in the workspace. Returns list of files changed during watch window + CYNIC's judgment of each. Enables L1 symbiosis (Claude Code edits â’ CYNIC sees â’ CYNIC reacts).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -677,7 +677,7 @@ async def _call_cynic(endpoint: str, data: dict) -> dict:
 
 
 async def _tool_ask_cynic(args: dict) -> list[TextContent]:
-    """Ask CYNIC a question â†’ get judgment."""
+    """Ask CYNIC a question â’ get judgment."""
     question = args.get("question", "")
     context = args.get("context", "")
     reality = args.get("reality", "CODE")
@@ -700,7 +700,7 @@ async def _tool_ask_cynic(args: dict) -> list[TextContent]:
 
 Q-Score: {q_score}/100
 Verdict: {verdict}
-Confidence: {confidence*100:.1f}% (Ï†-bounded)
+Confidence: {confidence*100:.1f}% (Ï-bounded)
 Judgment ID: {judgment_id}
 
 Question: "{question}"
@@ -756,7 +756,7 @@ Components:
 
 
 async def _tool_learn_cynic(args: dict) -> list[TextContent]:
-    """Give CYNIC feedback â†’ update Q-Table."""
+    """Give CYNIC feedback â’ update Q-Table."""
     judgment_id = args.get("judgment_id", "")
     rating = args.get("rating", 0)
     comment = args.get("comment", "")
@@ -1237,8 +1237,8 @@ Current CYNIC State:
   - Uptime: {state.uptime_s:.1f}s
 
 To see the actual SOURCE_CHANGED events, use:
-  â†’ Tool: cynic_watch_telemetry(duration_s={duration_s})
-  â†’ Filter for event type: "source_changed"
+  â’ Tool: cynic_watch_telemetry(duration_s={duration_s})
+  â’ Filter for event type: "source_changed"
 """
 
         return [TextContent(type="text", text=response)]

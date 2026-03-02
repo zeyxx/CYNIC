@@ -13,7 +13,7 @@ This is Layer 9 of the organism (Immune System) applied to handler architecture.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.reflexes.base import HandlerGroup

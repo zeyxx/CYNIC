@@ -29,13 +29,13 @@ logger = logging.getLogger("cynic.nervous.bus_metrics_adapter")
 # Request → Response event pairs for latency measurement
 _LATENCY_PAIRS: dict[str, str] = {
     "core.judgment_requested": "core.judgment_created",
-    "core.judgment_requested": "core.judgment_failed",   # either outcome
     "core.act_requested":      "core.act_completed",
     "core.perception_received": "core.decision_made",
 }
 
-# Reverse map: response type → request type
+# Add failure paths separately to map to the same request type
 _RESPONSE_TO_REQUEST: dict[str, str] = {v: k for k, v in _LATENCY_PAIRS.items()}
+_RESPONSE_TO_REQUEST["core.judgment_failed"] = "core.judgment_requested"
 
 # Error event types
 _ERROR_EVENTS = {"core.judgment_failed", "core.consensus_failed", "core.internal_error",

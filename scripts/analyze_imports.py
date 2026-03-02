@@ -7,7 +7,7 @@ import sys
 import argparse
 import ast
 from pathlib import Path
-from collections import defaultdict, deque
+from collections import defaultdict
 
 # Ensure stdout uses UTF-8 encoding
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':

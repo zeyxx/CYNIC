@@ -8,7 +8,7 @@ SDK_RESULT_RECEIVED, and returns the result.
 
 No human needed. CYNIC does it entirely.
 
-This closes the PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT loop.
+This closes the PERCEIVE â’ JUDGE â’ DECIDE â’ ACT loop.
 
 Security note: subprocess is launched with a hardcoded argument list (no shell=True,
 no string interpolation of untrusted input). This is equivalent to execFile, not exec.
@@ -74,7 +74,7 @@ class ClaudeCodeRunner:
         self._bus = bus
         self._sessions = sessions_registry
         self._port = port
-        self._running: dict[str, Any] = {}  # exec_id â†’ process handle
+        self._running: dict[str, Any] = {}  # exec_id â’ process handle
 
     async def execute(
         self,
@@ -160,7 +160,7 @@ class ClaudeCodeRunner:
                     },
                 }
                 await session.ws.send_text(json.dumps(set_model_msg) + "\n")
-                logger.debug("*sniff* Model routed â†’ %s (exec=%s)", model, exec_id)
+                logger.debug("*sniff* Model routed â’ %s (exec=%s)", model, exec_id)
 
             # â”€â”€ Send the task â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             task_msg = {

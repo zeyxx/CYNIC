@@ -109,7 +109,7 @@ class DogStatus(BaseModel):
         default=None,
         ge=0.0,
         le=0.618,
-        description="Confidence bound [0, 0.618] (Ï†â»Â¹)",
+        description="Confidence bound [0, 0.618] (Ïâ»Â¹)",
     )
     activity: str | None = Field(
         default=None,
@@ -127,7 +127,7 @@ class DogsResponse(BaseModel):
     """
 
     dogs: dict[str, DogStatus] = Field(
-        description="Map of dog_id â†’ DogStatus",
+        description="Map of dog_id â’ DogStatus",
     )
     count: int = Field(
         ge=0,
@@ -217,7 +217,7 @@ class AccountStatusResponse(BaseModel):
     learn_rate: float = Field(
         ge=0.0,
         le=0.618,
-        description="Learning rate [0, Ï†â»Â¹=0.618]",
+        description="Learning rate [0, Ïâ»Â¹=0.618]",
     )
     reputation: float = Field(
         ge=0.0,
@@ -240,7 +240,7 @@ class AgentScore(BaseModel):
     Nested model used in EScoreResponse.
     Frozen (immutable).
 
-    7 dimensions (Ï†-weighted):
+    7 dimensions (Ï-weighted):
       BURN:   Irreversible token burn (commitment signal)
       BUILD:  Code/artifact quality contributions
       JUDGE:  Judgment accuracy (prediction vs reality)
@@ -291,7 +291,7 @@ class AgentScore(BaseModel):
     total: float = Field(
         ge=0.0,
         le=100.0,
-        description="Aggregate E-Score (Ï†-weighted geometric mean) [0, 100]",
+        description="Aggregate E-Score (Ï-weighted geometric mean) [0, 100]",
     )
 
     model_config = ConfigDict(frozen=True)
@@ -345,7 +345,7 @@ class PolicyAction(BaseModel):
     confidence: float = Field(
         ge=0.0,
         le=0.618,
-        description="Confidence in prediction [0, Ï†â»Â¹=0.618]",
+        description="Confidence in prediction [0, Ïâ»Â¹=0.618]",
     )
 
     model_config = ConfigDict(frozen=True)
@@ -364,7 +364,7 @@ class PolicyActionsResponse(BaseModel):
     )
     actions: list[PolicyAction] = Field(
         default_factory=list,
-        description="List of learned policy actions (state â†’ best action)",
+        description="List of learned policy actions (state â’ best action)",
     )
     count: int = Field(
         ge=0,
@@ -401,7 +401,7 @@ class PolicyStatsResponse(BaseModel):
     average_confidence: float = Field(
         ge=0.0,
         le=0.618,
-        description="Mean confidence across all learned actions [0, Ï†â»Â¹=0.618]",
+        description="Mean confidence across all learned actions [0, Ïâ»Â¹=0.618]",
     )
     max_q_value: float = Field(
         ge=0.0,

@@ -6,7 +6,7 @@ Defines the 4 biological systems that compose the Organism.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -28,9 +28,9 @@ if TYPE_CHECKING:
     from cynic.kernel.core.world_model import WorldModelUpdater
     from cynic.kernel.core.topology.file_watcher import SourceWatcher
     from cynic.kernel.core.topology.topology_builder import IncrementalTopologyBuilder
+    from cynic.kernel.organism.perception.somatic_gateway import SomaticGateway
     from cynic.interfaces.mcp.service import MCPBridge
     from cynic.kernel.core.convergence import ConvergenceValidator
-    from cynic.kernel.organism.perception.senses.internal import InternalSensor
     from cynic.kernel.protocol.knet_server import KNetServer
 
     from cynic.kernel.organism.state_manager import OrganismState
@@ -38,7 +38,6 @@ if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
     from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
     from cynic.kernel.organism.sona_emitter import SonaEmitter
-    from cynic.kernel.perception.federation.gossip import GossipManager
     from cynic.nervous.event_journal import EventJournal
     from cynic.nervous.loop_closure import LoopClosureValidator
     from cynic.nervous.state_reconstructor import StateReconstructor
@@ -80,6 +79,7 @@ class SensoryCore:
     world_model: WorldModelUpdater
     source_watcher: SourceWatcher
     topology_builder: IncrementalTopologyBuilder
+    somatic_gateway: SomaticGateway
     mcp_bridge: MCPBridge
     market_sensor: Optional[Any] = None
     web_eye: Optional[Any] = None

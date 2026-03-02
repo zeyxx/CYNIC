@@ -7,7 +7,6 @@ perfectly isolated via ContextVars and instance-specific EventBuses.
 
 import asyncio
 import logging
-import uuid
 import os
 import sys
 
@@ -103,7 +102,7 @@ async def test_traceability():
         logger.info(f"  ALPHA captured {len(alpha['events'])} internal events.")
         logger.info(f"  BETA captured {len(beta['events'])} internal events.")
     else:
-        logger.error(f"☢️  FAILURE: Leaks detected!")
+        logger.error("☢️  FAILURE: Leaks detected!")
         if leaks_in_alpha: logger.error(f"  ALPHA received BETA events: {leaks_in_alpha}")
         if leaks_in_beta: logger.error(f"  BETA received ALPHA events: {leaks_in_beta}")
 

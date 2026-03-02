@@ -1,7 +1,6 @@
 import pytest
 from cynic.nervous.metrics_analyzer import MetricsAnalyzer
 from cynic.nervous.event_metrics import EventMetricsCollector, AnomalyRecord
-from cynic.kernel.core.phi import PHI, PHI_INV
 
 
 @pytest.mark.asyncio
@@ -65,7 +64,6 @@ class TestMetricsAnalyzer:
         analyzer = MetricsAnalyzer(collector)
 
         # Create a mock anomaly
-        from cynic.nervous.event_metrics import AnomalyRecord
         anomaly = AnomalyRecord(
             detected_at_ms=1000.0,
             anomaly_type="RATE_SPIKE",
@@ -101,7 +99,7 @@ class TestMetricsAnalyzer:
     async def test_selfprober_analyze_includes_metrics(self):
         """Test 7: SelfProber.analyze() calls _analyze_metrics()."""
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
-        from cynic.nervous.event_metrics import EventMetricsCollector, AnomalyRecord
+        from cynic.nervous.event_metrics import EventMetricsCollector
 
         prober = SelfProber()
         collector = EventMetricsCollector()
@@ -119,7 +117,7 @@ class TestMetricsAnalyzer:
     async def test_analyze_metrics_returns_proposals(self):
         """Test 8: _analyze_metrics() returns SelfProposal list."""
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
-        from cynic.nervous.event_metrics import EventMetricsCollector, AnomalyRecord
+        from cynic.nervous.event_metrics import EventMetricsCollector
 
         prober = SelfProber()
         collector = EventMetricsCollector()
@@ -152,7 +150,6 @@ class TestMetricsAnalyzer:
     async def test_analyze_metrics_filters_by_severity(self):
         """Test 9: _analyze_metrics() filters anomalies by severity threshold."""
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
-        from cynic.nervous.event_metrics import AnomalyRecord
 
         prober = SelfProber()
         collector = EventMetricsCollector()
@@ -204,8 +201,7 @@ class TestFactoryIntegration:
     async def test_selfprober_subscribes_to_anomaly_detected(self):
         """Test 11: SelfProber subscribes to ANOMALY_DETECTED (in addition to EMERGENCE_DETECTED)."""
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
-        from unittest.mock import AsyncMock, MagicMock
-        from cynic.kernel.core.event_bus import CoreEvent
+        from unittest.mock import AsyncMock
 
         mock_bus = AsyncMock()
         prober = SelfProber(bus=mock_bus)
@@ -278,7 +274,7 @@ class TestEndToEndMetricsIntegration:
     async def test_proposal_has_metrics_dimension(self):
         """Test 14: All metrics proposals have dimension='METRICS'."""
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
-        from cynic.nervous.event_metrics import EventMetricsCollector, AnomalyRecord
+        from cynic.nervous.event_metrics import EventMetricsCollector
 
         prober = SelfProber()
         collector = EventMetricsCollector()
@@ -310,7 +306,7 @@ class TestEndToEndMetricsIntegration:
         """Test 15: Metrics proposals persist to disk like other proposals."""
         import tempfile
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
-        from cynic.nervous.event_metrics import EventMetricsCollector, AnomalyRecord
+        from cynic.nervous.event_metrics import EventMetricsCollector
 
         with tempfile.TemporaryDirectory() as tmpdir:
             proposals_file = f"{tmpdir}/proposals.json"

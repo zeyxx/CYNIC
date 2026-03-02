@@ -9,11 +9,9 @@ Validates:
 """
 
 import asyncio
-import time
 import pytest
 from fastapi.testclient import TestClient
 from cynic.interfaces.api.server import app
-from cynic.interfaces.api.state import get_app_container
 
 @pytest.fixture(scope="module")
 def real_client():

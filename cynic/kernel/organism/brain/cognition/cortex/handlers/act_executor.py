@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusError
 from cynic.kernel.core.events_schema import ActCompletedPayload, DecisionMadePayload
 from cynic.kernel.core.exceptions import CynicError
 from cynic.kernel.core.judgment import Judgment
@@ -35,7 +35,7 @@ class ActHandler(BaseHandler):
     DECIDE + ACT phase handler.
 
     Injects:
-    - decide_agent: DecideAgent (for judgmentâ†’decision recommendation)
+    - decide_agent: DecideAgent (for judgmentâ’decision recommendation)
     - decision_validator: DecisionValidator (optional, for guardrail checks)
     - runner: Runner (for action execution)
     """
@@ -187,11 +187,11 @@ class ActHandler(BaseHandler):
                     scheduler=scheduler,
                 )
                 # Decision passed all guardrails
-                logger.info(f"Decision validated: {decision['verdict']} â†’ proceeding to ACT")
+                logger.info(f"Decision validated: {decision['verdict']} â’ proceeding to ACT")
             except BlockedDecision as e:
                 # Decision blocked by guardrail
                 logger.warning(
-                    f"Decision BLOCKED [{e.guardrail}]: {e.reason} " f"â†’ {e.recommendation}"
+                    f"Decision BLOCKED [{e.guardrail}]: {e.reason} " f"â’ {e.recommendation}"
                 )
                 await emit_decision_made(trigger="guardrail_blocked")
                 # Return block result without executing

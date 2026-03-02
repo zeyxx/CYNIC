@@ -3,7 +3,7 @@ CYNIC Tier 1 Nervous System â€” Loop Closure Validator
 
 Component 4 (Feedback Completeness): Detects incomplete cycles and stalled loops.
 
-The 7-step cycle MUST complete: PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT â†’ LEARN â†’ ACCOUNT â†’ EMERGE
+The 7-step cycle MUST complete: PERCEIVE â’ JUDGE â’ DECIDE â’ ACT â’ LEARN â’ ACCOUNT â’ EMERGE
 
 If any step stalls (event doesn't propagate), CYNIC detects it and raises alert.
 If any step is missing (judgment made but never acted on), CYNIC detects orphan.
@@ -39,7 +39,7 @@ from cynic.kernel.core.formulas import LOOP_CLOSURE_CAP
 
 logger = logging.getLogger("cynic.nervous.loop_closure")
 
-# Ï†-derived rolling cap: F(9) = 34 (imported from formulas.py)
+# Ï-derived rolling cap: F(9) = 34 (imported from formulas.py)
 CLOSURE_CAP = LOOP_CLOSURE_CAP
 
 # Timeout thresholds (milliseconds)
@@ -136,14 +136,14 @@ class LoopClosureValidator:
     """
     Detects incomplete/stalled feedback cycles.
 
-    Tracks 7-step cycle: PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT â†’ LEARN â†’ ACCOUNT â†’ EMERGE.
+    Tracks 7-step cycle: PERCEIVE â’ JUDGE â’ DECIDE â’ ACT â’ LEARN â’ ACCOUNT â’ EMERGE.
     Detects stalls, orphans, and missing phases.
     Thread-safe (asyncio.Lock), rolling buffer with cap F(9)=34.
     """
 
     def __init__(self):
         self._closures: deque = deque(maxlen=CLOSURE_CAP)
-        self._open_cycles: dict[str, LoopClosureEvent] = {}  # judgment_id â†’ event
+        self._open_cycles: dict[str, LoopClosureEvent] = {}  # judgment_id â’ event
         self._lock = asyncio.Lock()
         self._stats = {
             "total_cycles": 0,
@@ -254,7 +254,7 @@ class LoopClosureValidator:
             closure.last_phase = phase
             closure.phase_count = len(closure.phases)
 
-            logger.debug(f"Phase recorded: {judgment_id} â†’ {phase}")
+            logger.debug(f"Phase recorded: {judgment_id} â’ {phase}")
 
             return True
 

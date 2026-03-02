@@ -11,8 +11,8 @@ Layers:
   L4: TopologyMirror â€” Continuous awareness
 
 Events flow:
-  SOURCE_CHANGED â†’ TOPOLOGY_CHANGED â†’ TOPOLOGY_APPLIED â†’ TOPOLOGY_SNAPSHOT
-                                   â†’ TOPOLOGY_ROLLBACK (on failure)
+  SOURCE_CHANGED â’ TOPOLOGY_CHANGED â’ TOPOLOGY_APPLIED â’ TOPOLOGY_SNAPSHOT
+                                   â’ TOPOLOGY_ROLLBACK (on failure)
 """
 
 from cynic.kernel.core.topology.change_analyzer import ChangeAnalyzer

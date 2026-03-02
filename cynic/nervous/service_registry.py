@@ -9,7 +9,7 @@ Every Dog, Bus, Worker, and Storage system registers itself. The registry provid
   - get_component(name) â€” query single component
   - changed_since(snapshot_t) â€” detect state changes
 
-Pattern: Non-blocking (async), Ï†-bounded queries, rolled indices for efficiency.
+Pattern: Non-blocking (async), Ï-bounded queries, rolled indices for efficiency.
 Queryable via: GET /internal/registry
 
 This component enables all other Tier 1 components (EventJournal, DecisionTrace, LoopClosureValidator).

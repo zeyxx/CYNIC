@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Any
+from typing import Any, Optional
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.events_schema import DecisionMadePayload
@@ -35,7 +35,7 @@ _ALERT_VERDICTS = {"BARK", "GROWL"}
 # Realities that produce actionable prompts for the runner
 _ACT_REALITIES = frozenset({"CODE", "CYNIC"})
 
-# NestedMCTS hyperparameters (Ï†-derived)
+# NestedMCTS hyperparameters (Ï-derived)
 _MCTS_DEPTH: int = 2  # rollout depth
 _MCTS_N_SIM: int = 7  # simulations per action (F(4+1) ensures full VERDICTS coverage)
 _UCT_C: float = MCTS_UCT_C  # Imported from formulas.py (exploration constant â‰ˆ 1/âˆš2)
@@ -155,7 +155,7 @@ def _build_action_prompt(
     context: str,
 ) -> str:
     """
-    Convert judgment context â†’ actionable Claude prompt.
+    Convert judgment context â’ actionable Claude prompt.
     Rule-based templates â€” no LLM needed for routing.
     Called only for BARK/GROWL verdicts.
     """

@@ -18,13 +18,13 @@ class FederationPeer:
 
     Attributes:
         peer_id: Unique identifier for this peer
-        transport: Callable that sends a message to this peer (signature: (FederationMessage) â†’ None)
+        transport: Callable that sends a message to this peer (signature: (FederationMessage) â’ None)
         last_sync: When we last synced with this peer
         messages_received: Count of messages received from this peer
     """
 
     peer_id: str
-    transport: Callable  # (FederationMessage) â†’ None
+    transport: Callable  # (FederationMessage) â’ None
     last_sync: datetime | None = None
     messages_received: int = 0
 

@@ -301,7 +301,7 @@ class CYNICDashboard:
         ))
 
         # Check 7: Memory Budget (simulate from introspect)
-        phi_assess = introspect.get("Ï†_self_assessment", {})
+        phi_assess = introspect.get("Ï_self_assessment", {})
         kernel_integrity = phi_assess.get("kernel_integrity", 0)
         memory_pct = (1 - kernel_integrity) * 100  # Rough estimate
         checks.append(BreathingCheck(
@@ -361,8 +361,8 @@ async def run_dashboard(kernel_url: str = "http://localhost:8000") -> None:
         # Kernel metrics
         health.get("uptime_s", 0) / 3600
 
-        # Ï† Self-assessment
-        introspect.get("Ï†_self_assessment", {})
+        # Ï Self-assessment
+        introspect.get("Ï_self_assessment", {})
 
         # Learning
         health.get("learning", {})

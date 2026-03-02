@@ -52,7 +52,7 @@ class StateReconstructor:
         journal_events = []
         errors = []
         if trace:
-            # ±1 s around the trace window
+            # 1 s around the trace window
             start_ms = trace.created_at_ms - 1000.0
             end_ms = trace.created_at_ms + trace.total_duration_ms + 1000.0
             journal_events = await self._journal.time_range(start_ms, end_ms)

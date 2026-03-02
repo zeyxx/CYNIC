@@ -39,7 +39,7 @@ async def root(request: Request) -> dict:
     Returns:
         - status: "alive" if all systems nominal
         - name: "CYNIC Kernel"
-        - Ï†: The golden ratio (for identity)
+        - Ï: The golden ratio (for identity)
         - routes: List of available API routes
     """
     # Collect available routes from the app
@@ -53,7 +53,7 @@ async def root(request: Request) -> dict:
     return {
         "status": "AWAKE",
         "name": "CYNIC Kernel",
-        "Ï†": f"{PHI:.6f}",  # The golden ratio
+        "Ï": f"{PHI:.6f}",  # The golden ratio
         "routes": routes,
     }
 
@@ -67,9 +67,9 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
     """
     Kernel health â€” the organism's vital signs.
 
-    status=alive    â†’ all systems nominal
-    status=degraded â†’ partial functionality (e.g. no DB, no LLM)
-    status=dead     â†’ kernel not initialized (should never reach this route)
+    status=alive    â’ all systems nominal
+    status=degraded â’ partial functionality (e.g. no DB, no LLM)
+    status=dead     â’ kernel not initialized (should never reach this route)
     """
     state = container.organism
     consciousness = get_consciousness()

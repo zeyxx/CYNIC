@@ -4,7 +4,7 @@ CYNIC Motor System â€” Actuators for physical impact.
 Defines the interface for all components that can change the
 external or internal world (Files, API calls, CLI commands).
 
-Ï†-Law: BURN â€” Every action has a cost and must be justified by judgment.
+Ï-Law: BURN â€” Every action has a cost and must be justified by judgment.
 """
 
 from __future__ import annotations

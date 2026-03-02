@@ -147,7 +147,7 @@ async def account_stats(container: AppContainer = Depends(get_app_container)) ->
     Returns per-reality and per-dog cost breakdown, budget remaining,
     and BUDGET_WARNING / BUDGET_EXHAUSTED event emission status.
 
-    Step 6 of the 7-step cycle: PERCEIVE â†’ JUDGE â†’ DECIDE â†’ ACT â†’ LEARN â†’ ACCOUNT â†’ EMERGE
+    Step 6 of the 7-step cycle: PERCEIVE â’ JUDGE â’ DECIDE â’ ACT â’ LEARN â’ ACCOUNT â’ EMERGE
     """
     state = container.organism
     if state.account_agent is None:
@@ -175,8 +175,8 @@ async def sage_stats(container: AppContainer = Depends(get_app_container)) -> di
     SAGE Dog temporal MCTS activation stats.
 
     Shows heuristic vs LLM (temporal) judgment counts.
-    llm_activation_rate > 0 â†’ Temporal MCTS is firing (Ollama available).
-    llm_activation_rate == 0 â†’ Heuristic-only mode (Ollama unavailable).
+    llm_activation_rate > 0 â’ Temporal MCTS is firing (Ollama available).
+    llm_activation_rate == 0 â’ Heuristic-only mode (Ollama unavailable).
     """
     from cynic.kernel.organism.brain.cognition.neurons.base import DogId
     state = container.organism
@@ -202,9 +202,9 @@ async def residual_stats(container: AppContainer = Depends(get_app_container)) -
     """
     ResidualDetector stats â€” residual variance history + pattern detection (T04).
 
-    observations > 0  â†’ warm-start succeeded (SurrealDB loaded history on boot)
-    anomaly_rate > 0  â†’ some judgments had high residual variance (>=38.2%)
-    patterns_detected â†’ EMERGENCE patterns found (SPIKE / RISING / STABLE_HIGH)
+    observations > 0  â’ warm-start succeeded (SurrealDB loaded history on boot)
+    anomaly_rate > 0  â’ some judgments had high residual variance (>=38.2%)
+    patterns_detected â’ EMERGENCE patterns found (SPIKE / RISING / STABLE_HIGH)
     """
     state = container.organism
     return state.residual_detector.stats()
@@ -292,17 +292,16 @@ async def ecosystem(container: AppContainer = Depends(get_app_container)) -> dic
 
     Returns events from CORE_BUS, AUTOMATION_BUS, and AGENT_BUS.
     """
-    from cynic.kernel.core.event_bus import get_agent_bus
-
-    core_bus = get_core_bus("DEFAULT")
-    automation_bus = get_automation_bus("DEFAULT")
-    agent_bus = get_agent_bus("DEFAULT")
+    org = container.organism
+    core_bus = org.bus
+    automation_bus = org.automation_bus
+    agent_bus = org.agent_bus
 
     return {
         "timestamp": round(time.time(), 3),
-        "core_events": getattr(core_bus, "_event_history", [])[:10],
-        "automation_events": getattr(automation_bus, "_event_history", [])[:10],
-        "agent_events": getattr(agent_bus, "_event_history", [])[:10],
+        "core_events": getattr(core_bus, "_event_history", [])[:10] if core_bus else [],
+        "automation_events": getattr(automation_bus, "_event_history", [])[:10] if automation_bus else [],
+        "agent_events": getattr(agent_bus, "_event_history", [])[:10] if agent_bus else [],
     }
 
 
@@ -355,16 +354,12 @@ async def nervous_system(container: AppContainer = Depends(get_app_container)) -
     """
     GET /api/consciousness/nervous-system returns audit trail.
     """
-    from cynic.kernel.core.event_bus import get_agent_bus
-
-    core_bus = get_core_bus("DEFAULT")
-    automation_bus = get_automation_bus("DEFAULT")
-    agent_bus = get_agent_bus("DEFAULT")
-
+    org = container.organism
+    
     all_events = (
-        getattr(core_bus, "_event_history", []) +
-        getattr(automation_bus, "_event_history", []) +
-        getattr(agent_bus, "_event_history", [])
+        (getattr(org.bus, "_event_history", []) if org.bus else []) +
+        (getattr(org.automation_bus, "_event_history", []) if org.automation_bus else []) +
+        (getattr(org.agent_bus, "_event_history", []) if org.agent_bus else [])
     )
 
     return {
@@ -435,7 +430,7 @@ async def websocket_ecosystem(websocket: WebSocket) -> None:
 
         initial_data = {
             "type": "connected",
-            "phi": float(MAX_CONFIDENCE),  # Ï† = 0.618...
+            "phi": float(MAX_CONFIDENCE),  # Ï = 0.618...
             "initial_snapshot": {
                 "timestamp": round(time.time(), 3),
                 "uptime_s": round(state.uptime_s, 1),

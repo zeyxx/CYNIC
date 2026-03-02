@@ -41,6 +41,9 @@ class CynicConfig:
     surreal_ns: str = "cynic"
     surreal_db: str = "cynic"
 
+    # —— Network: Redis (Nervous System backbone) ─────────────────────────────
+    redis_url: str = "redis://localhost:6379/0"
+
     # —— Storage: PostgreSQL (fallback) ────────────────────────────────────────
     database_url: str | None = None
 
@@ -70,10 +73,10 @@ class CynicConfig:
     gasdf_enabled: bool = False
 
     # —— Runtime ──────────────────────────────────────────────────────────────
-    port: int = 8765
+    port: int = 8765 # Main API port (0 for dynamic)
     log_level: str = "INFO"
     knet_host: str = "::"
-    knet_port: int = 58766
+    knet_port: int = 0 # 0 = OS selects free port (Standard SRE)
 
     # —— Thresholds (φ-derived, should rarely change) ─────────────────────────
     max_confidence: float = 0.618
@@ -90,6 +93,7 @@ class CynicConfig:
             surreal_pass=os.getenv("SURREAL_PASS", "local_dev_only"),
             surreal_ns=os.getenv("SURREAL_NS", "cynic"),
             surreal_db=os.getenv("SURREAL_DB", "cynic"),
+            redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
             database_url=(os.getenv("CYNIC_DATABASE_URL") or os.getenv("DATABASE_URL")),
             
             # Symbiosis Routing (Discovered by default)
@@ -117,7 +121,7 @@ class CynicConfig:
             port=int(os.getenv("PORT", "8765")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             knet_host=os.getenv("KNET_HOST", "::"),
-            knet_port=int(os.getenv("KNET_PORT", "58766")),
+            knet_port=int(os.getenv("KNET_PORT", "0")),
         )
 
     def validate(self) -> list[str]:

@@ -58,10 +58,14 @@ class ConsciousnessState:
 
     def increment(self, level: ConsciousnessLevel) -> None:
         self.total_cycles += 1
-        if level == ConsciousnessLevel.REFLEX: self.reflex_cycles += 1
-        elif level == ConsciousnessLevel.MICRO: self.micro_cycles += 1
-        elif level == ConsciousnessLevel.MACRO: self.macro_cycles += 1
-        elif level == ConsciousnessLevel.META: self.meta_cycles += 1
+        if level == ConsciousnessLevel.REFLEX:
+            self.reflex_cycles += 1
+        elif level == ConsciousnessLevel.MICRO:
+            self.micro_cycles += 1
+        elif level == ConsciousnessLevel.MACRO:
+            self.macro_cycles += 1
+        elif level == ConsciousnessLevel.META:
+            self.meta_cycles += 1
 
     def model_dump(self) -> dict[str, Any]:
         return {
@@ -78,6 +82,8 @@ def get_consciousness() -> ConsciousnessState:
         return ConsciousnessState()
 
 def dogs_for_level(level: ConsciousnessLevel) -> list[str]:
-    if level == ConsciousnessLevel.REFLEX: return ["ANALYST", "ARCHITECT", "GUARDIAN"]
-    if level == ConsciousnessLevel.MICRO: return ["ANALYST", "ARCHITECT", "GUARDIAN", "JANITOR", "SCOUT", "CYNIC", "DEPLOYER"]
+    if level == ConsciousnessLevel.REFLEX:
+        return ["ANALYST", "ARCHITECT", "GUARDIAN"]
+    if level == ConsciousnessLevel.MICRO:
+        return ["ANALYST", "ARCHITECT", "GUARDIAN", "JANITOR", "SCOUT", "CYNIC", "DEPLOYER"]
     return ["ANALYST", "ARCHITECT", "GUARDIAN", "JANITOR", "SCOUT", "CYNIC", "DEPLOYER", "ORACLE", "SAGE", "SCHOLAR", "CARTOGRAPHER"]

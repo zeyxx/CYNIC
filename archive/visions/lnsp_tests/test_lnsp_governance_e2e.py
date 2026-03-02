@@ -12,7 +12,7 @@ from cynic.kernel.protocol.lnsp.types import LNSPMessage
 
 @pytest.mark.asyncio
 async def test_full_governance_cycle() -> None:
-    """Test complete governance cycle: proposal â†’ verdict â†’ execution â†’ feedback."""
+    """Test complete governance cycle: proposal â’ verdict â’ execution â’ feedback."""
     manager = LNSPManager(instance_id="instance:dogecoin", region="governance")
     bridge = GovernanceLNSP(manager)
     await bridge.setup()

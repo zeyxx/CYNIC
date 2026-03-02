@@ -1,8 +1,8 @@
 """Layer 4: Action Execution and Feedback Loop
 
 Layer 4 executes verdicts from Layer 3 as actions on the system, and creates a
-feedback loop back to Layer 1. This closes the observation â†’ judgment â†’ action
-â†’ observation cycle.
+feedback loop back to Layer 1. This closes the observation â’ judgment â’ action
+â’ observation cycle.
 
 Components:
 - Handler: Abstract base class for verdict execution

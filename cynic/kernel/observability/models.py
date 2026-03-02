@@ -32,7 +32,7 @@ class SymbioticState:
     """CYNIC's confidence level in current state [0.0, 1.0]."""
 
     cynic_e_score: float
-    """CYNIC's E-Score (Ï†-bounded energy/consciousness metric)."""
+    """CYNIC's E-Score (Ï-bounded energy/consciousness metric)."""
 
     # Human's state
     human_energy: float

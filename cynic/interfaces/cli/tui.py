@@ -18,7 +18,7 @@ def cmd_tui() -> None:
 
     Keys:
       a / r      accept / reject selected action
-      j / k / â†‘â†“ navigate actions
+      j / k / â‘â“ navigate actions
       1-5        rate last judgment (L3 feedback)
       ctrl+r     force refresh
       q          quit

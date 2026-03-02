@@ -66,7 +66,7 @@ class EcosystemObserver:
         Groups perception events by source and counts occurrences.
 
         Returns:
-            Dict mapping source name â†’ count of perception events
+            Dict mapping source name â’ count of perception events
         """
         perception_events = await self.journal.filter_by_category(EventCategory.PERCEPTION)
         sources: dict[str, int] = {}

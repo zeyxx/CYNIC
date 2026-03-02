@@ -10,7 +10,7 @@ Maps CYNIC's core axiomes to reputation dimensions:
 - Emergence: Capacity to contribute to collective intelligence
 - Learning: Rate of improvement and adaptation
 
-E-Scores are Ï†-bounded (max 0.618) for natural confidence limits.
+E-Scores are Ï-bounded (max 0.618) for natural confidence limits.
 """
 
 import math
@@ -23,7 +23,7 @@ class EScore:
     7-dimensional E-Score for user reputation and emergence capability.
 
     Maps CYNIC's 5 Axiomes + 2 cross-axiom dimensions to reputation.
-    All scores are Ï†-bounded (0.618 maximum) for natural confidence limits.
+    All scores are Ï-bounded (0.618 maximum) for natural confidence limits.
 
     Attributes:
         fidelity: Commitment to truth [0-0.618]
@@ -45,19 +45,19 @@ class EScore:
     PHI_BOUND = 0.618  # Golden ratio bound for natural confidence limit
 
     def __post_init__(self):
-        """Ensure all scores are Ï†-bounded after initialization"""
+        """Ensure all scores are Ï-bounded after initialization"""
         for attr in ['fidelity', 'phi', 'verify', 'culture', 'burn', 'emergence', 'learning']:
             val = getattr(self, attr)
-            # Clamp to [0, Ï†]
+            # Clamp to [0, Ï]
             clamped = max(0.0, min(self.PHI_BOUND, val))
             setattr(self, attr, clamped)
 
     def geometric_mean(self) -> float:
         """
-        Calculate Ï†-bounded overall E-Score using geometric mean.
+        Calculate Ï-bounded overall E-Score using geometric mean.
 
         Returns:
-            Geometric mean of all 7 dimensions, Ï†-bounded
+            Geometric mean of all 7 dimensions, Ï-bounded
         """
         values = [
             self.fidelity,
@@ -208,14 +208,14 @@ class EScoreManager:
         Args:
             user_id: User identifier
             dimension: Dimension name
-            value: New value (will be Ï†-bounded)
+            value: New value (will be Ï-bounded)
         """
         score = self.get_e_score(user_id)
         valid_dims = ['fidelity', 'phi', 'verify', 'culture', 'burn', 'emergence', 'learning']
 
         if dimension in valid_dims:
             setattr(score, dimension, value)
-            # Re-apply Ï†-bound
+            # Re-apply Ï-bound
             score.__post_init__()
 
     def update_multiple(self, user_id: str, updates: dict):

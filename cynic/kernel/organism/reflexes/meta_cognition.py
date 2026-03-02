@@ -67,7 +67,7 @@ class MetaCognitionHandler(HandlerGroup):
 
     async def _on_sona_tick(self, event: Event) -> None:
         """
-        SONA_TICK (every 34s) â†’ Analyze organism state and tune.
+        SONA_TICK (every 34s) â’ Analyze organism state and tune.
         """
         try:
             self._ticks_processed += 1

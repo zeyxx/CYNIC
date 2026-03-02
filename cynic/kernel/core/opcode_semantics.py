@@ -124,12 +124,12 @@ JUDGE_SPEC = OpcodeSpec(
         "PERCEIVE completed and Cell is immutable",
         "Consciousness level is known (L3/L2/L1/L4)",
         "Dogs available for this level exist",
-        "Cell.confidence still in [0, Ï†â»Â¹] (unknown state)",
+        "Cell.confidence still in [0, Ïâ»Â¹] (unknown state)",
     ],
     postconditions=[
         "Judgment created with immutable Q-Score âˆˆ [0, 100]",
         "Verdict assigned: HOWL (â‰¥82) | WAG (â‰¥61.8) | GROWL (â‰¥38.2) | BARK (<38.2)",
-        "Confidence Ï†-bounded to [0, 0.618]",
+        "Confidence Ï-bounded to [0, 0.618]",
         "Dog votes recorded (for audit)",
         "PBFT consensus algorithm applied (if L1+)",
         "Event JUDGMENT_CREATED emitted with full breakdown",
@@ -171,7 +171,7 @@ DECIDE_SPEC = OpcodeSpec(
     postconditions=[
         "Decision status: APPROVED | REJECTED | HUMAN_REVIEW_REQUIRED",
         "If APPROVED: ProposedAction created and PENDING",
-        "TIER constraints applied (low TIER â†’ fewer action types)",
+        "TIER constraints applied (low TIER â’ fewer action types)",
         "Event DECISION_MADE emitted",
     ],
     state_transitions=["ACT"],  # If approved. Otherwise loop back to PERCEIVE
@@ -238,8 +238,8 @@ LEARN_SPEC = OpcodeSpec(
         "State-action pair identified for Q-Table",
     ],
     postconditions=[
-        "Q-Table updated with Fisher-weighted Î±",
-        "E-Score dimension updated (EMA Î±=0.618)",
+        "Q-Table updated with Fisher-weighted Î",
+        "E-Score dimension updated (EMA Î=0.618)",
         "Calibration tracked for confidence adjustment",
         "High-visit entries (21+) 4Ã— more resistant to change (EWC)",
         "Event LEARNING_SIGNAL_PROCESSED emitted",

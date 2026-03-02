@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, Optional
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
-from cynic.kernel.core.event_bus import EventBusError
+from cynic.kernel.core.event_bus import EventBus, EventBusError
 from cynic.kernel.core.phi import PHI
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
 
@@ -102,14 +102,14 @@ class BudgetManager(BaseHandler):
         Active axioms signal a healthy, coordinated organism â€” it can afford
         deeper judgment (MACRO). Dormant axioms signal stress â€” conserve budget.
 
-        Multiplier table (Ï†-derived):
-            0 active axioms â†’ PHI_INV_2 = 0.382  (stressed  â†’ REFLEX/MICRO)
-            1 active axiom  â†’ PHI_INV   = 0.618  (stirring  â†’ MICRO)
-            2 active axioms â†’ 1.0                (balanced  â†’ MACRO)
-            3 active axioms â†’ PHI       = 1.618  (healthy   â†’ deeper MACRO)
-            4 active axioms â†’ PHIÂ²      = 2.618  (peak      â†’ max depth)
+        Multiplier table (Ï-derived):
+            0 active axioms â’ PHI_INV_2 = 0.382  (stressed  â’ REFLEX/MICRO)
+            1 active axiom  â’ PHI_INV   = 0.618  (stirring  â’ MICRO)
+            2 active axioms â’ 1.0                (balanced  â’ MACRO)
+            3 active axioms â’ PHI       = 1.618  (healthy   â’ deeper MACRO)
+            4 active axioms â’ PHIÂ²      = 2.618  (peak      â’ max depth)
 
-        Formula: PHI ** (active_count - 2)  â†’  range [0.382, 2.618]
+        Formula: PHI ** (active_count - 2)  â’  range [0.382, 2.618]
 
         Returns:
             Budget multiplier in range [0.382, 2.618]
@@ -172,12 +172,12 @@ class BudgetManager(BaseHandler):
         if lod >= SurvivalLOD.EMERGENCY:
             if level != ConsciousnessLevel.REFLEX:
                 logger.warning(
-                    "LOD cap: %s â†’ REFLEX (LOD=%s, system under stress)",
+                    "LOD cap: %s â’ REFLEX (LOD=%s, system under stress)",
                     level.name,
                     lod.name,
                 )
             return ConsciousnessLevel.REFLEX
         if lod == SurvivalLOD.REDUCED and level == ConsciousnessLevel.MACRO:
-            logger.info("LOD cap: MACRO â†’ MICRO (LOD=REDUCED)")
+            logger.info("LOD cap: MACRO â’ MICRO (LOD=REDUCED)")
             return ConsciousnessLevel.MICRO
         return level

@@ -77,7 +77,7 @@ def cmd_status() -> None:
         if recent:
             last_t = recent[-1]
             lines.append(
-                f"  last: {_c('dim', last_t.get('from','?'))} â†’ {_c('dim', last_t.get('to','?'))}"
+                f"  last: {_c('dim', last_t.get('from','?'))} â’ {_c('dim', last_t.get('to','?'))}"
                 f"  err={last_t.get('error_rate',0):.2f}"
                 f"  lat={last_t.get('latency_ms',0):.0f}ms"
             )

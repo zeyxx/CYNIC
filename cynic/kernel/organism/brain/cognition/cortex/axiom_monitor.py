@@ -14,7 +14,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.formulas import AXIOM_MATURITY_WINDOW_SIZE, SIGNAL_TTL_SEC
 from cynic.kernel.core.phi import GROWL_MIN, MAX_Q_SCORE, WAG_MIN
 
@@ -70,17 +70,14 @@ class AxiomState:
         return self.state() == _STATE_ACTIVE
 
 
-from typing import Any, Optional
-from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
-
 class AxiomMonitor:
     """Tracks the evolution of CYNIC's emergent philosophy."""
 
-    def __init__(self, bus: Optional[EventBus] = None) -> None:
+    def __init__(self, bus: EventBus) -> None:
         self._axioms = {name: AxiomState(name=name) for name in EMERGENT_AXIOMS}
         self._total_signals = 0
         self._transcendence_achieved = False
-        self._bus = bus or get_core_bus("DEFAULT")
+        self._bus = bus
 
     async def signal(
         self, axiom: str, source: str = "internal", count: int = 1, **kwargs: Any

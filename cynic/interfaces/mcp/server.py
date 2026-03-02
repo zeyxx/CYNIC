@@ -4,7 +4,7 @@ MCP Server â€” Lightweight async bootstrap bridge.
 Exposes CYNIC organism state to Claude Code via three endpoints:
 - POST /observe  â€” Get current CYNIC state
 - POST /act      â€” Execute Claude Code action
-- POST /learn    â€” Human feedback â†’ Q-Table learning
+- POST /learn    â€” Human feedback â’ Q-Table learning
 
 Uses aiohttp (stdlib-adjacent) for minimal dependencies.
 Connects to ServiceStateRegistry (Component 1 Tier 1 nervous system).
@@ -41,7 +41,7 @@ logger = logging.getLogger("cynic.interfaces.mcp.server")
 
 
 class MCPServer:
-    """MCP bootstrap bridge â€” connects Claude Code â†” CYNIC organism."""
+    """MCP bootstrap bridge â€” connects Claude Code â” CYNIC organism."""
 
     def __init__(
         self,
@@ -264,7 +264,7 @@ class MCPServer:
 
     async def _handle_learn(self, request: web.Request) -> web.Response:
         """
-        Human feedback â†’ Q-Table learning (REAL, not mock).
+        Human feedback â’ Q-Table learning (REAL, not mock).
 
         Takes feedback signal (rating: -1 to +1) and updates Q-Table.
         Rating is normalized to reward [0, 1] for TD(0) update.
@@ -300,7 +300,7 @@ class MCPServer:
 
             # Look up judgment by ID to get state_key and action
             # For now, extract from signal context (will be passed by client)
-            # Rating: -1 to +1 â†’ Reward: 0 to 1 (normalize via (rating + 1) / 2)
+            # Rating: -1 to +1 â’ Reward: 0 to 1 (normalize via (rating + 1) / 2)
             reward = (req.signal.rating + 1.0) / 2.0
 
             # Build learning signal - use judgment_id as state_key (simplified mapping)

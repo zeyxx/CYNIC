@@ -2,8 +2,8 @@
 Unit tests for Q-Learning â€” TD(0) + Thompson Sampling + EWC
 
 Tests:
-  1. TD(0) update: Q(s,a) â† Q(s,a) + Î± Ã— (r âˆ’ Q(s,a))
-  2. Thompson Sampling: Beta(Î±_wins + 1, Î²_losses + 1) exploration
+  1. TD(0) update: Q(s,a) â Q(s,a) + Î Ã— (r âˆ’ Q(s,a))
+  2. Thompson Sampling: Beta(Î_wins + 1, Î²_losses + 1) exploration
   3. EWC consolidation: fisher_weight = visits / F(8)
   4. Persistence: flush_to_db, load_from_db, load_from_entries
   5. Policy: exploit (greedy), explore (Thompson)
@@ -67,7 +67,7 @@ def test_qtable_creates_entry_on_first_update(qtable: QTable, learning_signal: L
 
 
 def test_td0_update_exact(qtable: QTable) -> None:
-    """Test TD(0) formula: Q(s,a) â† Q(s,a) + Î± Ã— (r âˆ’ Q(s,a))"""
+    """Test TD(0) formula: Q(s,a) â Q(s,a) + Î Ã— (r âˆ’ Q(s,a))"""
     signal = LearningSignal(
         state_key="test:state:1",
         action="WAG",
@@ -76,7 +76,7 @@ def test_td0_update_exact(qtable: QTable) -> None:
     
     entry = qtable.update(signal)
     
-    # Q_new = Q_old + Î± Ã— (r - Q_old)
+    # Q_new = Q_old + Î Ã— (r - Q_old)
     # Q_new = 0.5 + 0.038 Ã— (1.0 - 0.5)
     # Q_new = 0.5 + 0.019 = 0.519
     expected_q = 0.5 + LEARNING_RATE * (1.0 - 0.5)
@@ -146,7 +146,7 @@ def test_thompson_sample_skewed_toward_wins(qtable: QTable) -> None:
         signal = LearningSignal(
             state_key="skewed:test:1",
             action="HOWL",
-            reward=0.9,  # High reward â†’ win
+            reward=0.9,  # High reward â’ win
         )
         qtable.update(signal)
     
@@ -170,7 +170,7 @@ def test_thompson_sample_skewed_toward_losses(qtable: QTable) -> None:
         signal = LearningSignal(
             state_key="losing:test:1",
             action="BARK",
-            reward=0.1,  # Low reward â†’ loss
+            reward=0.1,  # Low reward â’ loss
         )
         qtable.update(signal)
     
@@ -219,7 +219,7 @@ def test_ewc_fisher_weight_increases_with_visits(qtable: QTable) -> None:
 
 
 def test_ewc_effective_alpha_decreases_with_consolidation(qtable: QTable) -> None:
-    """Test effective_Î± = Î± Ã— (1 - Î» Ã— fisher) decreases with consolidation."""
+    """Test effective_Î = Î Ã— (1 - Î» Ã— fisher) decreases with consolidation."""
     state = "ewc:alpha:test:1"
     action = "GROWL"
     
@@ -232,8 +232,8 @@ def test_ewc_effective_alpha_decreases_with_consolidation(qtable: QTable) -> Non
         entry = qtable._table[state][action]
         q_values.append(entry.q_value)
     
-    # First updates should learn fast (high effective Î±)
-    # Later updates should learn slow (low effective Î±)
+    # First updates should learn fast (high effective Î)
+    # Later updates should learn slow (low effective Î)
     early_change = q_values[5] - q_values[0]
     late_change = q_values[25] - q_values[20]
     
@@ -242,7 +242,7 @@ def test_ewc_effective_alpha_decreases_with_consolidation(qtable: QTable) -> Non
 
 
 def test_ewc_unvisited_states_learn_fast(qtable: QTable) -> None:
-    """Test unvisited states learn at full Î±."""
+    """Test unvisited states learn at full Î."""
     # Update state A 30 times
     for _ in range(30):
         qtable.update(LearningSignal(state_key="visited:a:1", action="WAG", reward=0.8))
@@ -255,7 +255,7 @@ def test_ewc_unvisited_states_learn_fast(qtable: QTable) -> None:
     
     # State A is consolidated, B is fresh
     # Both received same reward, but B should have larger change from initial
-    # because it has higher effective Î±
+    # because it has higher effective Î
     assert entry_b.visits == 1
     assert entry_a.visits == 30
 
@@ -305,7 +305,7 @@ def test_explore_returns_all_verdicts(qtable: QTable) -> None:
 
 
 def test_confidence_bounded_by_phi_inv(qtable: QTable) -> None:
-    """Test confidence = min(visits / F(8), Ï†â»Â¹) caps at 0.618."""
+    """Test confidence = min(visits / F(8), Ïâ»Â¹) caps at 0.618."""
     state = "confidence:test:1"
     
     # Update many times

@@ -3,16 +3,10 @@ CYNIC core router â€” judge Â· perceive Â· learn Â· feedback Â· pol
 """
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
-import os
-import time
 import uuid
-from typing import Any
 
-import httpx
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Depends
 
 from cynic.interfaces.api.models import (
     FeedbackRequest,

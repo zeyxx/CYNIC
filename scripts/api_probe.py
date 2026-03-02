@@ -9,7 +9,6 @@ import sys
 import threading
 import time
 import urllib.request
-import os
 from pathlib import Path
 
 # Setup path

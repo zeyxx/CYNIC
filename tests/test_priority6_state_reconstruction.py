@@ -7,14 +7,12 @@ Tests for:
   3. StateReconstructor — audit_decision() and events_in_window()
 """
 
-import asyncio
 import time
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from cynic.kernel.core.event_bus import Event, CoreEvent
-from cynic.nervous.decision_trace import DecisionTracer, TraceNode
+from cynic.nervous.decision_trace import DecisionTracer
 from cynic.nervous.loop_closure import LoopClosureValidator, CyclePhase
 from cynic.nervous.bus_loop_closure_adapter import BusLoopClosureAdapter
 from cynic.nervous.event_journal import EventJournal, EventCategory

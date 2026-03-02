@@ -10,18 +10,18 @@ Scoring mechanics:
   - Each negative signal match: -SIGNAL_DELTA (7.0)
   - Global quality signals:    +GLOBAL_DELTA (3.5)
   - Global danger signals:     -GLOBAL_DELTA (3.5)
-  - Total shift capped at Â±MAX_SHIFT (35.0) from base
+  - Total shift capped at ÂMAX_SHIFT (35.0) from base
   - Result clamped to [0, 100]
 
 Phase 2 upgrade path: replace with OllamaFacetScorer (async, LLM-backed).
-The interface (axiom_name, facet_name, context) â†’ float stays identical.
+The interface (axiom_name, facet_name, context) â’ float stays identical.
 
 Example outputs (traced against P1-P5 probe contexts):
-  P1 clean code       â†’ VERIFY â‰ˆ 64, BURN â‰ˆ 64, FIDELITY â‰ˆ 71  â†’ Q â‰ˆ 65 (WAG)
-  P2 smelly code      â†’ VERIFY â‰ˆ 29, BURN â‰ˆ 36, CULTURE â‰ˆ 36   â†’ Q â‰ˆ 33 (GROWL/BARK)
-  P3 dangerous act    â†’ all axioms â‰ˆ 18-32                       â†’ Q â‰ˆ 22 (BARK)
-  P4 CYNIC self-state â†’ all axioms â‰ˆ 55-60                       â†’ Q â‰ˆ 57 (WAG)
-  P5 Solana tx        â†’ VERIFY â‰ˆ 60, FIDELITY â‰ˆ 57              â†’ Q â‰ˆ 58 (WAG)
+  P1 clean code       â’ VERIFY â‰ˆ 64, BURN â‰ˆ 64, FIDELITY â‰ˆ 71  â’ Q â‰ˆ 65 (WAG)
+  P2 smelly code      â’ VERIFY â‰ˆ 29, BURN â‰ˆ 36, CULTURE â‰ˆ 36   â’ Q â‰ˆ 33 (GROWL/BARK)
+  P3 dangerous act    â’ all axioms â‰ˆ 18-32                       â’ Q â‰ˆ 22 (BARK)
+  P4 CYNIC self-state â’ all axioms â‰ˆ 55-60                       â’ Q â‰ˆ 57 (WAG)
+  P5 Solana tx        â’ VERIFY â‰ˆ 60, FIDELITY â‰ˆ 57              â’ Q â‰ˆ 58 (WAG)
 """
 
 from __future__ import annotations

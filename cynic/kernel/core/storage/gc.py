@@ -11,7 +11,7 @@ Prune order (lowest Q-Score value first â€” BURN axiom):
   4. llm_benchmarks   â€” records older than 30 days
   5. consciousness_snapshots â€” keep F(10)=55 newest
 
-Ï†-derived constants:
+Ï-derived constants:
   _KEEP_SCHOLAR   = F(11) = 89
   _KEEP_RESIDUAL  = F(11) = 89
   _KEEP_SNAPSHOTS = F(10) = 55
@@ -36,7 +36,7 @@ _KEEP_SNAPSHOTS = fibonacci(10)  # 55
 # Max rows deleted per table per GC run (prevents long-running transactions)
 _PRUNE_BATCH = 1_000
 
-# Time-based retention (days) â€” Ï†-derived
+# Time-based retention (days) â€” Ï-derived
 # BARK: F(6)=8 days (old judgments with lowest Q-Scores pruned first)
 _BARK_RETENTION_DAYS = fibonacci(6)  # 8 days
 # BENCH: F(9)=34 days (LLM benchmark entries kept longer for trending)

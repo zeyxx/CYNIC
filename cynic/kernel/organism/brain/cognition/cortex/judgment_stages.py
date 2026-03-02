@@ -22,9 +22,7 @@ from cynic.kernel.core.judgment import Judgment
 from cynic.kernel.core.phi import (
     MAX_CONFIDENCE,
     MAX_Q_SCORE,
-    PHI_INV,
     PHI_INV_2,
-    fibonacci,
     phi_bound_score,
 )
 from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
@@ -52,8 +50,9 @@ class PerceiveStage(JudgmentStage):
         cell = pipeline.cell
         await self.orchestrator.bus.emit(
             Event.typed(
-                CoreEvent.PERCEPTION_RECEIVED,
-                PerceptionReceivedPayload(reality=cell.reality, cell_id=cell.cell_id),
+                CoreEvent.CYCLE_STARTED,
+                {"reality": cell.reality, "cell_id": cell.cell_id},
+                source="perceive_stage"
             )
         )
         logger.debug(f"[{pipeline.trace_id}] Stage 1: Perceive (reality={cell.reality})")

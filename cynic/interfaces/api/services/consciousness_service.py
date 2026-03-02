@@ -36,12 +36,12 @@ class ConsciousnessService:
     Each method queries nervous system components + aggregates results.
 
     Public methods:
-    - get_ecosystem_state() â†’ Layer 1: cross-bus event topology
-    - get_decision_trace(decision_id) â†’ Layer 2: guardrail decision path
-    - get_topology_consciousness() â†’ Layer 3: L0 architecture consciousness
-    - get_guardrail_decisions(limit) â†’ Layer 4: immune system decisions
-    - get_self_awareness() â†’ Layer 5: kernel_mirror insights
-    - get_nervous_system_audit(limit) â†’ Layer 6: full audit trail
+    - get_ecosystem_state() â’ Layer 1: cross-bus event topology
+    - get_decision_trace(decision_id) â’ Layer 2: guardrail decision path
+    - get_topology_consciousness() â’ Layer 3: L0 architecture consciousness
+    - get_guardrail_decisions(limit) â’ Layer 4: immune system decisions
+    - get_self_awareness() â’ Layer 5: kernel_mirror insights
+    - get_nervous_system_audit(limit) â’ Layer 6: full audit trail
     """
 
     def __init__(self):

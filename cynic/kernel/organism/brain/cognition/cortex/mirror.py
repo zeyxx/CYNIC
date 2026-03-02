@@ -18,9 +18,9 @@ Subsystems aggregated:
   - SAGE: temporal MCTS vs heuristic ratio (LLM activation rate)
   - Dogs: judgment counts, hit rates, latency profiles
 
-Ï†-integration:
+Ï-integration:
   - overall_health [0, 100] â€” geometric mean of subsystem health indicators
-  - If overall_health â‰¥ WAG_MIN (61.8) â†’ signals A10 CONSCIOUSNESS
+  - If overall_health â‰¥ WAG_MIN (61.8) â’ signals A10 CONSCIOUSNESS
 """
 
 from __future__ import annotations
@@ -28,8 +28,10 @@ from __future__ import annotations
 import logging
 import time
 from math import exp, log
-from typing import Any
+from typing import Any, Optional
 
+from cynic.kernel.core.event_bus import EventBusError
+from cynic.kernel.core.exceptions import CynicError
 from cynic.kernel.core.formulas import AXIOM_MATURITY_WINDOW_SIZE
 from cynic.kernel.core.phi import GROWL_MIN, MAX_Q_SCORE, WAG_MIN
 
@@ -152,7 +154,7 @@ class KernelMirror:
         snap["overall_health"] = self._compute_health(snap)
         snap["tier"] = self._health_tier(snap["overall_health"])
 
-        # Keep penultimate for diff comparison (N-2 â†’ allows diff after N snapshot)
+        # Keep penultimate for diff comparison (N-2 â’ allows diff after N snapshot)
         self._penultimate_snapshot = self._prev_snapshot
         self._prev_snapshot = snap
         self._snapshot_count += 1
@@ -169,7 +171,7 @@ class KernelMirror:
             d = mirror.diff(snap2)   # shows what changed between snap1 and snap2
 
         Returns:
-            Dict of changed paths â†’ {"old": ..., "new": ...}
+            Dict of changed paths â’ {"old": ..., "new": ...}
             Empty dict if fewer than 2 snapshots have been taken.
         """
         if self._penultimate_snapshot is None:
@@ -269,7 +271,7 @@ class KernelMirror:
         sage = snap.get("sage", {})
         if isinstance(sage, dict) and sage.get("available"):
             llm_rate = sage.get("llm_activation_rate", 0.0)
-            # Map: 0â†’25 (heuristic-only still useful), 1â†’100 (full temporal)
+            # Map: 0â’25 (heuristic-only still useful), 1â’100 (full temporal)
             scores.append(25.0 + 75.0 * llm_rate)
 
         if not scores:

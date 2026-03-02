@@ -6,7 +6,7 @@ Decomposes the organism into three functional areas:
 - MetabolicServices (BODY: hardware, scheduler, sdk, actuators)
 - SensoryServices   (NERVES: perception, world model, topology, MCP)
 
-Ï†-Law: VERIFY â€” explicit dependency injection via domain facades.
+Ï-Law: VERIFY â€” explicit dependency injection via domain facades.
 """
 
 from __future__ import annotations

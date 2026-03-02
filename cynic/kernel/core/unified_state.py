@@ -2,7 +2,7 @@
 Unified State Models for CYNIC Consciousness
 
 Consolidates immutable state contracts for judgments, learning, and value creation.
-Enforces Ï†-bounds and allows extra metadata for topological flexibility.
+Enforces Ï-bounds and allows extra metadata for topological flexibility.
 """
 
 from __future__ import annotations

@@ -141,7 +141,7 @@ def _file_set_status(action_id: str, status: str) -> bool:
         return False
 
 
-# â”€â”€ Verdict â†’ color â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â”€â”€ Verdict â’ color â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _VERDICT_COLOR = {
     "HOWL":  "green",
@@ -167,7 +167,7 @@ def _verdict_str(verdict: str, q: float = 0.0) -> str:
 # â”€â”€ Progress bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _bar(score: float, max_score: float = 100.0, width: int = 10) -> str:
-    """Render a Ï†-styled bar: [â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–‘â–‘â–‘â–‘] (10 chars)."""
+    """Render a Ï-styled bar: [â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–‘â–‘â–‘â–‘] (10 chars)."""
     filled = int(round(min(score / max_score, 1.0) * width))
     return f"[{'â–ˆ' * filled}{'â–‘' * (width - filled)}]"
 
@@ -187,13 +187,13 @@ def _lod_str(lod_val: int) -> str:
 # â”€â”€ Loop completion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _LOOPS = {
-    "L1 Machineâ†’Actions":   (82, "âœ…  acceptâ†’ACT_REQUESTED, rejectâ†’QTable, auto_executed linked"),
-    "L2 CYNICâ†”Claude Code": (82, "âœ…  prompt enrichment + JSONL persist + L2â†’L1 cross-feed"),
-    "L3 Humanâ†’CYNICâ†’Human": (82, "âœ…  review/watch/feedback commands live"),
-    "L4 CYNICâ†’CYNIC Self":  (82, "âœ…  SelfProber: QTable/EScore/Residual analysis live"),
+    "L1 Machineâ’Actions":   (82, "âœ…  acceptâ’ACT_REQUESTED, rejectâ’QTable, auto_executed linked"),
+    "L2 CYNICâ”Claude Code": (82, "âœ…  prompt enrichment + JSONL persist + L2â’L1 cross-feed"),
+    "L3 Humanâ’CYNICâ’Human": (82, "âœ…  review/watch/feedback commands live"),
+    "L4 CYNICâ’CYNIC Self":  (82, "âœ…  SelfProber: QTable/EScore/Residual analysis live"),
 }
 
-# Action type â†’ display color
+# Action type â’ display color
 _ATYPE_COLOR = {
     "INVESTIGATE": "red",
     "REFACTOR":    "orange",
@@ -201,7 +201,7 @@ _ATYPE_COLOR = {
     "MONITOR":     "dim",
 }
 
-# Priority â†’ color
+# Priority â’ color
 _PRIORITY_COLOR = {1: "red", 2: "orange", 3: "cyan", 4: "dim"}
 
 

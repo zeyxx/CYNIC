@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 import httpx
 
@@ -62,7 +62,7 @@ class SDKHandlers(HandlerGroup):
         ]
 
     async def _on_act_completed(self, event: Event) -> None:
-        """ACT_COMPLETED â†’ emit ACT_COMPLETED with rich metadata."""
+        """ACT_COMPLETED â’ emit ACT_COMPLETED with rich metadata."""
         try:
             p = event.dict_payload or {}
             is_success = p.get("success", False)
@@ -75,7 +75,7 @@ class SDKHandlers(HandlerGroup):
                 "agent:cynic", "RUN", success_rate * MAX_Q_SCORE
             )
             logger.info(
-                "ACT_COMPLETED: success=%s duration=%.0fms â†’ RUN=%.1f",
+                "ACT_COMPLETED: success=%s duration=%.0fms â’ RUN=%.1f",
                 is_success,
                 duration,
                 success_rate * MAX_Q_SCORE,
@@ -84,7 +84,7 @@ class SDKHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_act_requested_for_organism(self, event: Event) -> None:
-        """ACT_REQUESTED â†’ organism execution signal."""
+        """ACT_REQUESTED â’ organism execution signal."""
         try:
             p = event.dict_payload or {}
             prompt_lines = len(str(p.get("prompt", "")).split("\n"))
@@ -93,7 +93,7 @@ class SDKHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_sdk_tool_judged(self, event: Event) -> None:
-        """SDK_TOOL_JUDGED â†’ QTable feedback + EScore update."""
+        """SDK_TOOL_JUDGED â’ QTable feedback + EScore update."""
         try:
             p = event.dict_payload or {}
             tool_name = p.get("tool_name", "")
@@ -107,7 +107,7 @@ class SDKHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_sdk_session_started(self, event: Event) -> None:
-        """SDK_SESSION_STARTED â†’ session tracking."""
+        """SDK_SESSION_STARTED â’ session tracking."""
         try:
             p = event.dict_payload or {}
             session_id = p.get("session_id", "")
@@ -116,7 +116,7 @@ class SDKHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_sdk_result_received(self, event: Event) -> None:
-        """SDK_RESULT_RECEIVED â†’ outcome tracking + QTable reward."""
+        """SDK_RESULT_RECEIVED â’ outcome tracking + QTable reward."""
         try:
             p = event.dict_payload or {}
             is_error = p.get("is_error", False)

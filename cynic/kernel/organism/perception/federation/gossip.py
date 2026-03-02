@@ -18,7 +18,7 @@ each other's judgment outcomes and emergence patterns.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.learning.qlearning import QTable

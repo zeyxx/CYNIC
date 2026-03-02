@@ -1,6 +1,6 @@
 """Layer 3: Judge with Axiom Evaluation and Verdict Emission
 
-Layer 3 transforms aggregated state (Layer 2) into Ï†-bounded verdicts through
+Layer 3 transforms aggregated state (Layer 2) into Ï-bounded verdicts through
 axiom evaluation. The Judge coordinates axiom scorers, computes geometric-mean
 Q-Scores, determines verdicts, and emits judgments to Layer 4 handlers.
 
@@ -44,7 +44,7 @@ class RoutingRule:
         axiom_filter: Specific axioms to show, or None for all
         emergence_only: Only route emergent patterns (default False)
         priority: Rule priority ("high", "medium", "low", default "medium")
-        confidence: Rule confidence score (default 0.618, Ï†)
+        confidence: Rule confidence score (default 0.618, Ï)
     """
 
     target_agent_type: str
@@ -134,7 +134,7 @@ class Layer3:
         1. Check message is Layer 2 (AGGREGATED)
         2. Extract state data from payload
         3. Score each axiom
-        4. Compute geometric-mean Q-Score (Ï†-weighted)
+        4. Compute geometric-mean Q-Score (Ï-weighted)
         5. Determine verdict based on Q-Score thresholds
         6. Create judgment message
         7. Emit to subscribers
@@ -169,7 +169,7 @@ class Layer3:
             score = await evaluator.score(state)
             axiom_scores[axiom_name] = max(0.0, min(score, 1.0))  # Clamp to [0, 1]
 
-        # Compute Q-Score using geometric mean, Ï†-weighted
+        # Compute Q-Score using geometric mean, Ï-weighted
         q_score = self._compute_q_score(list(axiom_scores.values()))
 
         # Determine verdict
@@ -180,7 +180,7 @@ class Layer3:
             judgment_type=JudgmentType.STATE_EVALUATION,
             verdict=verdict,
             q_score=q_score,
-            confidence=0.618,  # Ï†
+            confidence=0.618,  # Ï
             axiom_scores=axiom_scores,
             data={
                 "state_summary": state,
@@ -200,12 +200,12 @@ class Layer3:
         return judgment
 
     def _compute_q_score(self, scores: list[float]) -> float:
-        """Compute Ï†-weighted geometric mean Q-Score.
+        """Compute Ï-weighted geometric mean Q-Score.
 
         Q-Score uses geometric mean to emphasize average performance:
         geometric_mean = exp(sum(ln(score_i + 0.001)) / n)
 
-        Then Ï†-weighted (multiply by golden ratio conjugate):
+        Then Ï-weighted (multiply by golden ratio conjugate):
         q_score = geometric_mean * 0.618
 
         Finally clamped to [0, 1].
@@ -230,7 +230,7 @@ class Layer3:
         except (ValueError, ZeroDivisionError):
             return 0.5  # Neutral on calculation error
 
-        # Ï†-weight (golden ratio conjugate: Ï†â»Â¹ = 0.618)
+        # Ï-weight (golden ratio conjugate: Ïâ»Â¹ = 0.618)
         phi = 0.618
         q_score = geometric_mean * phi
 
@@ -246,7 +246,7 @@ class Layer3:
         Returns:
             VerdictType enum value
 
-        Thresholds (Ï†-weighted, max ~0.618):
+        Thresholds (Ï-weighted, max ~0.618):
         - Q < 0.4: HOWL (problem)
         - Q 0.4-0.6: GROWL (caution)
         - Q 0.6-0.8: WAG (healthy)

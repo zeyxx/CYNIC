@@ -40,7 +40,7 @@ class TimeoutConfig:
     adjust timeout policies without changing adapter code.
     """
 
-    # Tool name â†’ TimeoutCategory
+    # Tool name â’ TimeoutCategory
     TOOL_TIMEOUTS: dict[str, TimeoutCategory] = {
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         # FAST TOOLS (2s timeout) â€” Health checks, status, monitoring

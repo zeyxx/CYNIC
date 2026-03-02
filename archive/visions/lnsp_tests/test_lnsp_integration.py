@@ -294,7 +294,7 @@ class TestLNSPManagerWithComponents:
 
     @pytest.mark.asyncio
     async def test_manager_run_cycle_async(self) -> None:
-        """Test manager can execute a complete observation â†’ aggregation cycle.
+        """Test manager can execute a complete observation â’ aggregation cycle.
 
         Verifies:
         - run_cycle() completes without error

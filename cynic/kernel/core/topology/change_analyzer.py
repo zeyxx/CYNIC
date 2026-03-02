@@ -3,7 +3,7 @@
 Subscribes to SOURCE_CHANGED events and enriches them with impact analysis:
   - subsystem classification (kernel, api, cognition, senses, learning, tests)
   - impact_level assessment (LOW, MEDIUM, HIGH, CRITICAL)
-  - risk_estimate Ï†-bounded [0, 1]
+  - risk_estimate Ï-bounded [0, 1]
   - suggested_action (MONITOR, REVIEW, ALERT)
 
 Maintains in-memory ring buffer of F(8)=21 recent analyses (no DB).
@@ -32,14 +32,14 @@ class ChangeAnalyzer:
     Subscribes to SOURCE_CHANGED. Enriches each change with:
     - subsystem: "kernel", "api", "cognition", "senses", "learning", "tests"
     - impact_level: "LOW", "MEDIUM", "HIGH", "CRITICAL"
-    - risk_estimate: 0.0-1.0 (Ï†-bounded for display)
+    - risk_estimate: 0.0-1.0 (Ï-bounded for display)
     - suggested_action: "MONITOR", "REVIEW", "ALERT"
 
     Keeps in-memory ring buffer of F(8)=21 analyses (no DB).
     Emits CHANGE_ANALYZED event.
     """
 
-    # File path prefix â†’ (subsystem, impact_level, risk)
+    # File path prefix â’ (subsystem, impact_level, risk)
     _CLASSIFICATION: dict[str, tuple[str, str, float]] = {
         "cynic/core/": ("kernel", "CRITICAL", 0.9),
         "cynic/cognition/cortex/": ("cognition", "HIGH", 0.7),
@@ -107,7 +107,7 @@ class ChangeAnalyzer:
             "files": payload.files,
             "subsystems": subsystems_list,
             "impact_level": impact_max,
-            "risk_estimate": min(risk_max, 1.0),  # Ï†-bound for display
+            "risk_estimate": min(risk_max, 1.0),  # Ï-bound for display
             "suggested_action": suggested,
             "file_count": len(payload.files),
             "total_lines": total_lines,
@@ -136,7 +136,7 @@ class ChangeAnalyzer:
         )
 
         logger.info(
-            "CHANGE ANALYZED: %s files â†’ %s subsystem(s), impact=%s, risk=%.2f, action=%s",
+            "CHANGE ANALYZED: %s files â’ %s subsystem(s), impact=%s, risk=%.2f, action=%s",
             len(payload.files),
             ", ".join(subsystems_list),
             impact_max,

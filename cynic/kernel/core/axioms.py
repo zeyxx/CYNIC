@@ -13,7 +13,7 @@ TIER 0 â€” CORE (A1-A5, always active, never deactivate):
 TIER 2 â€” EMERGENT (A6-A9, activate at maturity thresholds):
     A6. AUTONOMY    â€” Dogs coordinate without human approval
     A7. SYMBIOSIS   â€” HumanÃ—Machine mutual value creation
-    A8. EMERGENCE   â€” Patterns beyond core axioms (residual > Ï†â»Â²)
+    A8. EMERGENCE   â€” Patterns beyond core axioms (residual > Ïâ»Â²)
     A9. ANTIFRAGILITY â€” System improves from chaos
 
 TIER 2 TRANSCENDENT (A10-A11, states not directly implementable):
@@ -25,8 +25,8 @@ TIER 3: THE_UNNAMEABLE â€” Residual inexplicable variance (pointer to âˆ�
 Scoring:
     - Each axiom scored 0-100 across dynamic fractal facets
     - Contextual weights per domain (CODE/SOLANA/MARKET/SOCIAL/HUMAN/CYNIC/COSMOS)
-    - Weighted geometric mean â†’ Q-Score âˆˆ [0, 100] (confidence Ï†-bounded to 61.8%)
-    - Fractal recursion: facets â†’ sub-facets (max 3 levels deep)
+    - Weighted geometric mean â’ Q-Score âˆˆ [0, 100] (confidence Ï-bounded to 61.8%)
+    - Fractal recursion: facets â’ sub-facets (max 3 levels deep)
 """
 
 from __future__ import annotations
@@ -122,7 +122,7 @@ AXIOM_FACETS: dict[str, dict[str, str]] = {
         "HARMONY": "Balance between all components (none dominates)",
         "PRECISION": "Exactitude in measurement and language",
         "COMPLETENESS": "Nothing essential is missing",
-        "PROPORTION": "Ï†-aligned ratios in scale and scope",
+        "PROPORTION": "Ï-aligned ratios in scale and scope",
     },
     "VERIFY": {
         "ACCURACY": "Correctness of facts and computations",

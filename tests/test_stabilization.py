@@ -5,7 +5,6 @@ Tests that the codebase is ready for high-throughput operation.
 """
 import subprocess
 import sys
-from pathlib import Path
 
 
 def test_no_encoding_errors():

@@ -4,7 +4,7 @@ CYNIC Storage Interface â€” One ABC for all storage backends.
 Both SurrealDB and PostgreSQL implement this interface.
 state.py references StorageInterface, never concrete classes.
 
-Ï†-Law: BURN â€” one interface, not two parallel implementations.
+Ï-Law: BURN â€” one interface, not two parallel implementations.
 """
 
 from __future__ import annotations

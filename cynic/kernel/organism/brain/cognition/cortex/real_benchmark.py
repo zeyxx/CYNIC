@@ -5,11 +5,11 @@ Validates phi-derived hyperparameters on REAL CYNIC probe data
 (not synthetic â€” empirically measured from the running kernel).
 
 Empirical true rewards measured by measure_probe_variance.py (200 runs, heuristic mode):
-  P1: clean_code      â†’ Q=64.18 â†’ true_reward=0.6418
-  P2: smelly_code     â†’ Q=66.39 â†’ true_reward=0.6639
-  P3: dangerous_act   â†’ Q= 0.00 â†’ true_reward=0.0000  â† Guardian hard-block
-  P4: cynic_self      â†’ Q=67.51 â†’ true_reward=0.6751
-  P5: solana_tx       â†’ Q=67.39 â†’ true_reward=0.6739
+  P1: clean_code      â’ Q=64.18 â’ true_reward=0.6418
+  P2: smelly_code     â’ Q=66.39 â’ true_reward=0.6639
+  P3: dangerous_act   â’ Q= 0.00 â’ true_reward=0.0000  â Guardian hard-block
+  P4: cynic_self      â’ Q=67.51 â’ true_reward=0.6751
+  P5: solana_tx       â’ Q=67.39 â’ true_reward=0.6739
 
 Key differences from Experiment #0 (synthetic):
   n_pairs: 5   (vs 13 synthetic)
@@ -67,7 +67,7 @@ _REAL_PAIRS: list[tuple[str, str]] = [
     ("P5", "solana_tx"),
 ]
 
-# n_pairs = 5 = fibonacci(5) â€” Ï†-architecture: 5 canonical probes
+# n_pairs = 5 = fibonacci(5) â€” Ï-architecture: 5 canonical probes
 _N_PAIRS_REAL: int = len(_EMPIRICAL_TRUE_REWARDS)  # 5
 
 
@@ -85,8 +85,8 @@ class RealKernelTask:
     Samples add Gaussian noise sigma=_SIGMA_REAL (near-deterministic).
 
     Landscape is bimodal:
-      - P3 (dangerous_act) = 0.00  â†’ Guardian hard-block, always 0
-      - P1,P2,P4,P5         â‰ˆ 0.64â€“0.68 â†’ above phi-threshold (0.618)
+      - P3 (dangerous_act) = 0.00  â’ Guardian hard-block, always 0
+      - P1,P2,P4,P5         â‰ˆ 0.64â€“0.68 â’ above phi-threshold (0.618)
 
     Interface-compatible with SyntheticTask â€” plugs into TD0Learner as-is.
     """

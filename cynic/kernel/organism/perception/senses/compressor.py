@@ -9,7 +9,7 @@ Strategy: TF-IDF sentence ranking â€” sentences with rare, discriminating
 terms score higher. The compressor keeps the top-scored sentences that fit
 within the budget (preserving original order in output).
 
-Ï†-derived constants:
+Ï-derived constants:
   PHI_INV_2 = 0.382 â€” minimum essential ratio always preserved
   PHI_INV   = 0.618 â€” default target compression ratio
 
@@ -41,8 +41,8 @@ _TOKENS_PER_WORD: float = 1.3
 # Minimum chunk tokens to consider non-trivial
 _MIN_CHUNK_TOKENS: int = 5
 
-# Attention feedback (SAGE â†’ Compressor bidirectional loop)
-_ATTENTION_ALPHA: float = PHI_INV_2  # EMA Î± = 0.382 â€” conservative; past dominates
+# Attention feedback (SAGE â’ Compressor bidirectional loop)
+_ATTENTION_ALPHA: float = PHI_INV_2  # EMA Î = 0.382 â€” conservative; past dominates
 _ATTENTION_THRESHOLD: float = 0.05  # Min Jaccard similarity to boost a chunk
 
 
@@ -191,7 +191,7 @@ class ContextCompressor:
         to query get attention boosted; future compressions will prioritize them.
 
         Called by SageDog after each judgment to close the feedback loop:
-          Compressor â†’ (context) â†’ SAGE â†’ (attention signal) â†’ Compressor
+          Compressor â’ (context) â’ SAGE â’ (attention signal) â’ Compressor
 
         Args:
             query:  Text that SAGE just judged (cell content + context).
@@ -221,10 +221,10 @@ class ContextCompressor:
             if sim < _ATTENTION_THRESHOLD:
                 continue  # Below noise floor â€” skip
 
-            # Attention boost: neutral=1.0, max = 1 + weightÃ—simÃ—Ï†â»Â¹
+            # Attention boost: neutral=1.0, max = 1 + weightÃ—simÃ—Ïâ»Â¹
             boost_val = 1.0 + weight * sim * PHI_INV
 
-            # EMA update (Î± = PHI_INV_2 = 0.382 â€” conservative; past dominates)
+            # EMA update (Î = PHI_INV_2 = 0.382 â€” conservative; past dominates)
             self._chunk_attention[i] = (1.0 - _ATTENTION_ALPHA) * self._chunk_attention[
                 i
             ] + _ATTENTION_ALPHA * boost_val
@@ -260,7 +260,7 @@ class ContextCompressor:
 
         self._compressions += 1
         logger.debug(
-            "ContextCompressor: compressing %dâ†’%d tokens (ratio=%.2f)",
+            "ContextCompressor: compressing %dâ’%d tokens (ratio=%.2f)",
             total_tokens,
             budget,
             budget / total_tokens,

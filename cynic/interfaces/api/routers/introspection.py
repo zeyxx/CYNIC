@@ -40,10 +40,10 @@ async def introspect(container: AppContainer = Depends(get_app_container)) -> di
     - Dog health (hit rates, latencies, capability breakdown)
     - Scholar buffer (similarity memory richness)
     - Kernel integrity (9/9 components, their status)
-    - Ï†-bound assessment (is CYNIC within its own axioms?)
+    - Ï-bound assessment (is CYNIC within its own axioms?)
 
     This is CYNIC judging itself â€” meta-cognitive self-assessment.
-    "Ï† distrusts Ï†" â€” the organism reflects on its own biases.
+    "Ï distrusts Ï" â€” the organism reflects on its own biases.
     """
     from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 
@@ -84,10 +84,10 @@ async def introspect(container: AppContainer = Depends(get_app_container)) -> di
     # 9-component kernel integrity check
     components = {
         "1_AXIOMS":         {"status": "ACTIVE", "description": "5 axioms Ã— 7 facets scoring"},
-        "2_PHI_BOUND":      {"status": "ACTIVE", "description": "Ï†â»Â¹=61.8% max confidence enforced"},
+        "2_PHI_BOUND":      {"status": "ACTIVE", "description": "Ïâ»Â¹=61.8% max confidence enforced"},
         "3_MULTI_AGENT":    {"status": "ACTIVE", "description": f"{len(state.orchestrator.dogs)}/11 Dogs active"},
         "4_EVENT_DRIVEN":   {"status": "ACTIVE", "description": "Core bus wired, JUDGMENT_CREATED flowing"},
-        "5_JUDGMENT":       {"status": "ACTIVE", "description": "7-step PERCEIVEâ†’EMERGE pipeline"},
+        "5_JUDGMENT":       {"status": "ACTIVE", "description": "7-step PERCEIVEâ’EMERGE pipeline"},
         "6_LEARNING":       {
             "status": "ACTIVE" if qtable_stats.get("total_updates", 0) > 0 else "WARM",
             "description": f"QTable: {qtable_stats.get('unique_states', 0)} states learned",
@@ -106,20 +106,20 @@ async def introspect(container: AppContainer = Depends(get_app_container)) -> di
     active_count = sum(1 for c in components.values() if c["status"] == "ACTIVE")
     kernel_integrity = round(active_count / 9, 3)
 
-    # Ï† self-assessment
+    # Ï self-assessment
     # Is CYNIC operating within its own axioms?
     phi_violations = []
     max_conf = qtable_stats.get("max_confidence") or 0.0
     if max_conf > PHI_INV + 0.01:
-        phi_violations.append(f"Q-table confidence exceeds Ï†â»Â¹: {max_conf:.3f}")
+        phi_violations.append(f"Q-table confidence exceeds Ïâ»Â¹: {max_conf:.3f}")
     if residual_stats.get("anomaly_rate", 0) > PHI_INV:
-        phi_violations.append(f"Residual anomaly rate exceeds Ï†â»Â¹: {residual_stats['anomaly_rate']:.3f}")
+        phi_violations.append(f"Residual anomaly rate exceeds Ïâ»Â¹: {residual_stats['anomaly_rate']:.3f}")
 
     return {
         "introspect_id": str(uuid.uuid4()),
         "timestamp": time.time(),
         "uptime_s": round(state.uptime_s, 1),
-        "Ï†_self_assessment": {
+        "Ï_self_assessment": {
             "kernel_integrity": kernel_integrity,
             "phi_violations": phi_violations,
             "self_confidence": round(min(kernel_integrity * PHI_INV, PHI_INV), 3),

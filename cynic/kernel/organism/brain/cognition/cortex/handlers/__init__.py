@@ -18,7 +18,7 @@ Architecture:
     â”œâ”€â”€ ActHandler (DECIDE + ACT phases)
     â”œâ”€â”€ EvolveHandler (L4 meta-cycle)
     â”œâ”€â”€ BudgetManager (resource limits + LOD enforcement)
-    â””â”€â”€ OrchestrationController (router: run â†’ select level â†’ dispatch handler)
+    â””â”€â”€ OrchestrationController (router: run â’ select level â’ dispatch handler)
 
 Benefits:
 - Single Responsibility Principle (each handler does one thing)

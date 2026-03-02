@@ -19,7 +19,6 @@ async def validate():
         print("Step 1: Core Imports...", end=" ", flush=True)
         from cynic.kernel.organism.brain.cognition.neurons.discovery import discover_dogs
         from cynic.kernel.organism.organism import awaken
-        from cynic.kernel.core.formulas import get_respiration_interval_s
         print("OK")
 
         # 2. Dog Discovery
@@ -41,7 +40,7 @@ async def validate():
         print("\nâœ… ALL SYSTEMS NOMINAL")
         return True
 
-    except Exception as e:
+    except Exception:
         print("\nâŒ CRITICAL INTEGRITY FAILURE")
         print("-" * 40)
         traceback.print_exc()

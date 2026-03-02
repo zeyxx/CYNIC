@@ -2,12 +2,12 @@
 Empirical Testing Router â€” HTTP endpoints for Claude Code access to autonomous testing.
 
 Endpoints:
-  POST /empirical/test/start       â†’ Spawn new empirical test job
-  GET  /empirical/test/{job_id}    â†’ Get job status and progress
-  GET  /empirical/test/{job_id}/results â†’ Get completed results
-  POST /empirical/axioms/test      â†’ Test axiom irreducibility
-  GET  /empirical/telemetry        â†’ Query SONA metrics
-  GET  /empirical/health           â†’ Check runner status
+  POST /empirical/test/start       â’ Spawn new empirical test job
+  GET  /empirical/test/{job_id}    â’ Get job status and progress
+  GET  /empirical/test/{job_id}/results â’ Get completed results
+  POST /empirical/axioms/test      â’ Test axiom irreducibility
+  GET  /empirical/telemetry        â’ Query SONA metrics
+  GET  /empirical/health           â’ Check runner status
 
 Design:
   - Wraps EmpiricalRunner for job lifecycle

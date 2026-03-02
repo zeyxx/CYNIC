@@ -12,7 +12,6 @@ from cynic.kernel.core.unified_state import (
     CommunityBuffer,
     GovernanceCommunity,
     GovernanceProposal,
-    GovernanceVote,
     ImpactBuffer,
     ImpactMeasurement,
     JudgmentBuffer,

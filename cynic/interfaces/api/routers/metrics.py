@@ -13,7 +13,7 @@ from fastapi import APIRouter, Request, Response
 from cynic.kernel.core.event_bus import get_core_bus
 
 if TYPE_CHECKING:
-    from cynic.nervous.event_metrics import EventMetricsCollector
+    pass
 
 logger = logging.getLogger("cynic.interfaces.api.routers.metrics")
 

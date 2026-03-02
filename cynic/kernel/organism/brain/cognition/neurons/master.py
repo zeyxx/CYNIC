@@ -4,7 +4,7 @@ CYNIC MasterDog â€” The Unified Sefirotic Intelligence.
 A single class to rule all 11 Dogs.
 Reduces 5000+ LOC of duplication to one robust engine driven by a "DogSoul".
 
-Ï†-Law: BURN â€” delete redundant code, keep the data essence.
+Ï-Law: BURN â€” delete redundant code, keep the data essence.
 """
 
 from __future__ import annotations
@@ -195,7 +195,6 @@ class MasterDog(LLMDog):
         4. Veto: If high-priority dog (GUARDIAN) says BARK, final q_score is capped.
         """
         from cynic.kernel.core.axioms import verdict_from_q_score
-        from cynic.kernel.core.phi import DOG_PRIORITY, weighted_geometric_mean
 
         votes = len(dog_judgments)
         # f = (n-1)//3 = 3. Quorum = 2f+1 = 7.

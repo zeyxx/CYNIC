@@ -4,7 +4,6 @@ Verifies that the race condition between sync update() and async flush_to_db()
 is properly handled.
 """
 
-import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 

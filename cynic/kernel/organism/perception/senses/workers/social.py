@@ -6,7 +6,7 @@ import asyncio
 import json
 import os
 import time
-from typing import Any
+from typing import Any, Optional
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
@@ -87,7 +87,7 @@ class SocialWatcher(PerceiveWorker):
         volume = float(sig.get("volume", 0.0))
         source = sig.get("source", "unknown")
 
-        # Positive sentiment â†’ low risk; negative â†’ higher risk
+        # Positive sentiment â’ low risk; negative â’ higher risk
         risk = max(0.0, min(1.0, (0.5 - sentiment * 0.5)))
 
         return Cell(

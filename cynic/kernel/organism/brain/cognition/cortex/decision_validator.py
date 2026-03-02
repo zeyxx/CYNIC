@@ -2,10 +2,10 @@
 CYNIC DecisionValidator â€” Integration layer for all guardrails
 
 Chains guardrails in sequence:
-  1. PowerLimiter.check_available() â†’ blocks if overloaded
-  2. AlignmentChecker.check_alignment() â†’ blocks if axioms violated
-  3. HumanApprovalGate.requires_approval() â†’ gates execution
-  4. TransparencyAuditTrail.record_*() â†’ audit trail
+  1. PowerLimiter.check_available() â’ blocks if overloaded
+  2. AlignmentChecker.check_alignment() â’ blocks if axioms violated
+  3. HumanApprovalGate.requires_approval() â’ gates execution
+  4. TransparencyAuditTrail.record_*() â’ audit trail
 
 Single entry point for decision validation. All guardrails must pass
 before decision proceeds to ACT phase.

@@ -7,11 +7,15 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusError
 from cynic.kernel.core.phi import fibonacci
 from cynic.kernel.core.topology.payloads import TopologySnapshotPayload
+
+if TYPE_CHECKING:
+    from cynic.interfaces.api.state import AppContainer
+    from cynic.kernel.organism.brain.cognition.cortex.mirror import KernelMirror
 
 logger = logging.getLogger("cynic.kernel.core.topology.topology_mirror")
 
@@ -71,7 +75,7 @@ class TopologyMirror:
         self,
         bus: EventBus,
         kernel_mirror: KernelMirror,
-        state: AppState,
+        state: AppContainer,
     ) -> None:
         """
         Capture current kernel state and write to files.

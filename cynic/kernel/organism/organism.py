@@ -24,7 +24,17 @@ class Organism:
     state: OrganismState
     instance_id: str
     container: DependencyContainer
+    vascular: Any = None
+    bridge: Any = None
+    automation_bus: Any = None
+    agent_bus: Any = None
     _pool: Any = None
+    _start_time: float = 0.0 # Initialized in start() or factory
+
+    @property
+    def bus(self):
+        """Unified access to the core event bus."""
+        return self.cognition.orchestrator.bus
 
     async def start(self) -> None:
         """Awaken all cores and loops."""
@@ -39,11 +49,15 @@ class Organism:
             if hasattr(self.cognition, "learning_loop"):
                 self.cognition.learning_loop.start()
 
-            # 3. Start Senses
-            if hasattr(self.senses, "market_sensor") and self.senses.market_sensor:
-                self.senses.market_sensor.start()
+            # 3. Start Senses (Selective)
+            if hasattr(self.senses, "somatic_gateway") and self.senses.somatic_gateway:
+                await self.senses.somatic_gateway.start()
+                
             if hasattr(self.senses, "internal_sensor") and self.senses.internal_sensor:
                 self.senses.internal_sensor.start()
+            
+            # Note: market_sensor is NOT started by default to avoid noise
+            # It must be started explicitly by the orchestrator if needed
 
             # 4. Start World Model
             if hasattr(self.senses, "world_model"):
@@ -78,6 +92,15 @@ class Organism:
     async def stop(self) -> None:
         """Gracefully shutdown."""
         await self.state.stop_processing()
+        
+        # Shutdown distributed bridge
+        if self.bridge:
+            await self.bridge.stop()
+            
+        # Shutdown vascular system (IO pools)
+        if self.vascular:
+            await self.vascular.close()
+
         if self.memory.sona_emitter:
             await self.memory.sona_emitter.stop()
         if hasattr(self.senses, "knet_server") and self.senses.knet_server:

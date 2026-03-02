@@ -328,7 +328,6 @@ class TestSelfProberExecutorIntegration:
     @pytest.mark.asyncio
     async def test_11_apply_async_emits_proposal_executed_on_success(self):
         """Test 11: apply_async() emits PROPOSAL_EXECUTED event on successful execution."""
-        import asyncio
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
         from cynic.kernel.core.event_bus import EventBus, CoreEvent
 
@@ -390,7 +389,6 @@ class TestSelfProberExecutorIntegration:
     @pytest.mark.asyncio
     async def test_12_apply_async_emits_proposal_failed_on_execution_failure(self):
         """Test 12: apply_async() emits PROPOSAL_FAILED event on execution failure."""
-        import asyncio
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
         from cynic.kernel.core.event_bus import EventBus, CoreEvent
 
@@ -488,7 +486,6 @@ class TestSelfProberExecutorIntegration:
     @pytest.mark.asyncio
     async def test_15_apply_async_event_payload_includes_all_fields(self):
         """Test 15: PROPOSAL_EXECUTED event payload includes all relevant fields."""
-        import asyncio
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
         from cynic.kernel.core.event_bus import EventBus, CoreEvent
 
@@ -569,7 +566,6 @@ class TestCLIInterface:
         """Test 17: list command without --status shows PENDING proposals."""
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import (
             SelfProber,
-            SelfProposal,
         )
         import tempfile
         import json
@@ -1096,7 +1092,7 @@ class TestProposalExecutorGuardrails:
             await prober.apply_async(f"p27_{i}")
 
         # Apply third proposal - should be blocked by circuit breaker
-        result = await executor.execute(prober.get(f"p27_2"))
+        result = await executor.execute(prober.get("p27_2"))
         assert result.success is False
         assert "circuit breaker" in result.error_message.lower()
 

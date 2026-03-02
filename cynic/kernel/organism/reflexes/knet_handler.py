@@ -46,9 +46,9 @@ class KNetHandler(HandlerGroup):
 
             # 2. Map event to PulseType
             p_type = PulseType.SOMATIC_SYNC
-            if event.topic == CoreEvent.JUDGMENT_CREATED:
+            if event.type == CoreEvent.JUDGMENT_CREATED:
                 p_type = PulseType.NEURAL_PULSE
-            elif event.topic == CoreEvent.ACTION_PROPOSED:
+            elif event.type == CoreEvent.ACTION_PROPOSED:
                 p_type = PulseType.INTENT_SIGNAL
 
             # 3. Build the Pulse
@@ -57,7 +57,7 @@ class KNetHandler(HandlerGroup):
 
             org = get_state()
 
-            pulse_data = {"event_topic": event.topic, "payload": event.dict_payload}
+            pulse_data = {"event_type": event.type, "payload": event.dict_payload}
 
             # Enrich with global health if it's a heartbeat
             if p_type == PulseType.SOMATIC_SYNC and org:

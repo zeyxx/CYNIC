@@ -1,5 +1,5 @@
 """Test judgment stages — verify stage contract and composition."""
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 

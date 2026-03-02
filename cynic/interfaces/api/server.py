@@ -14,7 +14,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect, Request, Response
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from cynic.interfaces.api.state import (
@@ -28,6 +28,35 @@ from cynic.interfaces.api.state import (
 from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.phi import MAX_CONFIDENCE
 from cynic.kernel.organism.organism import awaken
+
+# -- API Routers --------------------------------------------------------
+from cynic.interfaces.api.routers.act import router_act
+from cynic.interfaces.api.routers.actions import router_actions
+from cynic.interfaces.api.routers.benchmarks import router_benchmarks
+from cynic.interfaces.api.routers.chat import router as router_chat
+from cynic.interfaces.api.routers.consciousness import router_consciousness
+from cynic.interfaces.api.routers.core import router_core
+from cynic.interfaces.api.routers.dashboard import router_dashboard
+from cynic.interfaces.api.routers.dna import router as router_dna
+from cynic.interfaces.api.routers.empirical import router as router_empirical
+from cynic.interfaces.api.routers.federation import router as router_federation
+from cynic.interfaces.api.routers.governance import router as router_governance
+from cynic.interfaces.api.routers.health import router_health
+from cynic.interfaces.api.routers.introspection import router_introspection
+from cynic.interfaces.api.routers.llm import router as router_llm
+from cynic.interfaces.api.routers.mcp import router as router_mcp
+from cynic.interfaces.api.routers.mcp_observability import router as router_mcp_observability
+from cynic.interfaces.api.routers.mcp_websocket import router as router_mcp_websocket
+from cynic.interfaces.api.routers.metrics import router as router_metrics
+from cynic.interfaces.api.routers.nervous import router as router_nervous
+from cynic.interfaces.api.routers.observability import router_observability
+from cynic.interfaces.api.routers.orchestration import router as router_orchestration
+from cynic.interfaces.api.routers.organism import router as router_organism
+from cynic.interfaces.api.routers.sdk import router_sdk
+from cynic.interfaces.api.routers.sovereignty import router as router_sovereignty
+from cynic.interfaces.api.routers.telemetry_ws import router as router_telemetry_ws
+from cynic.interfaces.api.routers.topology import router_topology
+from cynic.interfaces.api.routers.ws import router_ws
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 
@@ -93,7 +122,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(
     title="CYNIC Kernel API",
-    description="Python kernel â€” Ï†-bounded judgment + learning",
+    description="Python kernel â€” Ï-bounded judgment + learning",
     version="3.0.0",
     lifespan=lifespan,
     docs_url="/api/docs",
@@ -119,35 +148,7 @@ async def add_correlation_id(request: Request, call_next):
     response.headers["X-Correlation-ID"] = correlation_id
     return response
 
-# -- Auto-register API Routers ------------------------------------------
-from cynic.interfaces.api.routers.act import router_act
-from cynic.interfaces.api.routers.actions import router_actions
-from cynic.interfaces.api.routers.benchmarks import router_benchmarks
-from cynic.interfaces.api.routers.chat import router as router_chat
-from cynic.interfaces.api.routers.consciousness import router_consciousness
-from cynic.interfaces.api.routers.core import router_core
-from cynic.interfaces.api.routers.dashboard import router_dashboard
-from cynic.interfaces.api.routers.dna import router as router_dna
-from cynic.interfaces.api.routers.empirical import router as router_empirical
-from cynic.interfaces.api.routers.federation import router as router_federation
-from cynic.interfaces.api.routers.governance import router as router_governance
-from cynic.interfaces.api.routers.health import router_health
-from cynic.interfaces.api.routers.introspection import router_introspection
-from cynic.interfaces.api.routers.llm import router as router_llm
-from cynic.interfaces.api.routers.mcp import router as router_mcp
-from cynic.interfaces.api.routers.mcp_observability import router as router_mcp_observability
-from cynic.interfaces.api.routers.mcp_websocket import router as router_mcp_websocket
-from cynic.interfaces.api.routers.metrics import router as router_metrics
-from cynic.interfaces.api.routers.nervous import router as router_nervous
-from cynic.interfaces.api.routers.observability import router_observability
-from cynic.interfaces.api.routers.orchestration import router as router_orchestration
-from cynic.interfaces.api.routers.organism import router as router_organism
-from cynic.interfaces.api.routers.sdk import router_sdk
-from cynic.interfaces.api.routers.sovereignty import router as router_sovereignty
-from cynic.interfaces.api.routers.telemetry_ws import router as router_telemetry_ws
-from cynic.interfaces.api.routers.topology import router_topology
-from cynic.interfaces.api.routers.ws import router_ws
-
+# -- Register API Routers ------------------------------------------
 app.include_router(router_core, prefix="/api")
 app.include_router(router_core) # Compatibility for tests expecting /judge
 app.include_router(router_consciousness, prefix="/api/consciousness")
@@ -208,4 +209,6 @@ async def websocket_consciousness_ecosystem(websocket: WebSocket) -> None:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="::", port=int(os.environ.get("PORT", 58765)))
+    from cynic.kernel.core.config import CynicConfig
+    config = CynicConfig.from_env()
+    uvicorn.run(app, host="::", port=config.port)

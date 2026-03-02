@@ -83,8 +83,8 @@ async def stream_changes() -> None:
       : keepalive (comment)
       data: {"type":"CHANGE_ANALYZED","files":[...], ...}\n\n
 
-    Client disconnect â†’ clean unsubscribe from bus.
-    Queue overflow (>100 buffered) â†’ events dropped silently.
+    Client disconnect â’ clean unsubscribe from bus.
+    Queue overflow (>100 buffered) â’ events dropped silently.
     """
     # This endpoint needs to be implemented as a StreamingResponse
     # with asyncio.Queue + bus.on/off pattern (see ws.py for reference).

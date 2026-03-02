@@ -4,7 +4,7 @@ CYNIC Exception Hierarchy
 All CYNIC-specific exceptions inherit from CynicError.
 Critical paths use specific exceptions instead of bare 'except Exception'.
 
-Ï†-Law: VERIFY â€” typed errors, not silent swallowing.
+Ï-Law: VERIFY â€” typed errors, not silent swallowing.
 """
 
 from __future__ import annotations

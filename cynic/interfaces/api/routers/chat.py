@@ -2,7 +2,7 @@
 CYNIC chat router â€” message handling endpoints.
 
 Endpoints:
-  POST /api/chat/message    â†’ Send a chat message and receive response
+  POST /api/chat/message    â’ Send a chat message and receive response
 
 Note: Learning endpoints are in core.py (/api/learn)
 """

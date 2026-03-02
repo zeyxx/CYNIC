@@ -14,11 +14,9 @@ All commands work with SelfProber and persist to ~/.cynic/self_proposals.json.
 from __future__ import annotations
 
 import sys
-from typing import Optional
 
-from cynic.interfaces.cli.utils import _api_get, _c, _read_json, _CYNIC_DIR
+from cynic.interfaces.cli.utils import _api_get, _c
 from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
-import os
 
 
 # Dimension → color mapping

@@ -11,15 +11,15 @@ Architecture:
 â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
 â”‚                                                         â”‚
 â”‚  Telegram Message (text with slash command)             â”‚
-â”‚  â†“ (Telegram adapter translates)                        â”‚
+â”‚  â“ (Telegram adapter translates)                        â”‚
 â”‚  BotCommand(name, args, user_id, platform="telegram")  â”‚
-â”‚  â†“ (Core logic routes)                                  â”‚
+â”‚  â“ (Core logic routes)                                  â”‚
 â”‚  UnifiedConsciousState.judge/record/query              â”‚
-â”‚  â†“ (Core returns)                                       â”‚
+â”‚  â“ (Core returns)                                       â”‚
 â”‚  BotResponse(success, message, data, ephemeral)        â”‚
-â”‚  â†“ (Telegram adapter converts)                         â”‚
+â”‚  â“ (Telegram adapter converts)                         â”‚
 â”‚  Telegram Markdown Message (bold, code blocks)         â”‚
-â”‚  â†“ (Handle pagination for long messages)               â”‚
+â”‚  â“ (Handle pagination for long messages)               â”‚
 â”‚  Telegram API send                                      â”‚
 â”‚                                                         â”‚
 â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
@@ -62,7 +62,7 @@ class TelegramAdapter(BotInterface):
     Telegram adapter implementing unified BotInterface.
 
     Bridges Telegram interactions to CYNIC consciousness system. Translates
-    Telegram messages â†” BotCommand/BotResponse and handles platform-specific
+    Telegram messages â” BotCommand/BotResponse and handles platform-specific
     formatting (markdown, message pagination).
 
     Attributes:
@@ -202,9 +202,9 @@ class TelegramAdapter(BotInterface):
             Tuple of (command_name, args_dict) or None if not a valid command
 
         Examples:
-            "/propose My Title" â†’ ("propose", {"title": "My Title", ...})
-            "/vote prop-123 yes" â†’ ("vote", {"proposal_id": "prop-123", "vote": "yes"})
-            "/proposals 2" â†’ ("proposals", {"page": 2})
+            "/propose My Title" â’ ("propose", {"title": "My Title", ...})
+            "/vote prop-123 yes" â’ ("vote", {"proposal_id": "prop-123", "vote": "yes"})
+            "/proposals 2" â’ ("proposals", {"page": 2})
         """
         if not text or not text.startswith("/"):
             return None

@@ -12,11 +12,13 @@ from datetime import datetime, timedelta
 
 import jwt
 
+from cynic.kernel.core.config import CynicConfig
+
 
 class AuthManager:
     """Manage JWT authentication and token lifecycle"""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: CynicConfig):
         """
         Initialize AuthManager with configuration.
 

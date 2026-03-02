@@ -7,7 +7,6 @@ sends a test 'HEARTBEAT' signal. Supports .env files.
 import os
 import asyncio
 import sys
-from pathlib import Path
 
 # Try to load .env if python-dotenv is installed
 try:

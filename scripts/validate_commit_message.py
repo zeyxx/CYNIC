@@ -15,7 +15,6 @@ Where:
 Exit code 1 if validation fails.
 """
 import sys
-import os
 from pathlib import Path
 
 
@@ -74,7 +73,7 @@ def validate_commit_message():
 
             # Validate scope (must contain at least one character)
             if not scope or len(scope.strip()) == 0:
-                print(f"[FAIL] Scope cannot be empty")
+                print("[FAIL] Scope cannot be empty")
                 return False
         else:
             # Format: type: description
@@ -100,10 +99,10 @@ def validate_commit_message():
         return False
 
     if len(description) == 0:
-        print(f"[FAIL] Description cannot be empty")
+        print("[FAIL] Description cannot be empty")
         return False
 
-    print(f"[PASS] Commit message format is valid")
+    print("[PASS] Commit message format is valid")
     return True
 
 

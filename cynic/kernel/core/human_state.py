@@ -4,8 +4,8 @@ CYNIC HumanStateModel â€” Live model of the human operator's state (T34)
 Tracks signals about the human's cognitive and emotional state.
 Updated by external events (session start, feedback, corrections, long gaps).
 Used by Orchestrator to adapt judgment depth:
-  LOW energy â†’ REFLEX only (don't overload)
-  HIGH focus â†’ MACRO allowed (deep analysis welcome)
+  LOW energy â’ REFLEX only (don't overload)
+  HIGH focus â’ MACRO allowed (deep analysis welcome)
 
 Dimensions (all 0-100, phi-bounded thresholds):
   energy:  overall cognitive energy (100 = fresh, 0 = exhausted)
@@ -14,18 +14,18 @@ Dimensions (all 0-100, phi-bounded thresholds):
   valence: mood / affect tone (100 = very positive, 0 = very negative)
 
 Signals (what updates each dimension):
-  session_started  â†’ energy/focus mild reset (+5 each, capped at 100)
-  feedback         â†’ valence tracks rating; 5-star = +10 valence, 1-star = -10
-  correction       â†’ stress += 15 (human had to correct = friction = stress)
-  idle_gap         â†’ energy restores +10 per 10min gap (rest = recovery)
-  burst_activity   â†’ energy -= 10 per burst (3+ judgments in 60s)
+  session_started  â’ energy/focus mild reset (+5 each, capped at 100)
+  feedback         â’ valence tracks rating; 5-star = +10 valence, 1-star = -10
+  correction       â’ stress += 15 (human had to correct = friction = stress)
+  idle_gap         â’ energy restores +10 per 10min gap (rest = recovery)
+  burst_activity   â’ energy -= 10 per burst (3+ judgments in 60s)
 
 Decay: energy/focus/valence decay 1pt per minute of activity (natural fatigue).
 
 phi-derived thresholds:
-  energy/focus >= WAG_MIN (61.8)   â†’ organism at normal capacity
-  energy/focus <  GROWL_MIN (38.2) â†’ organism stressed â†’ cap at MICRO
-  energy/focus <  PHI_INV_3 (23.6) â†’ organism exhausted â†’ cap at REFLEX
+  energy/focus >= WAG_MIN (61.8)   â’ organism at normal capacity
+  energy/focus <  GROWL_MIN (38.2) â’ organism stressed â’ cap at MICRO
+  energy/focus <  PHI_INV_3 (23.6) â’ organism exhausted â’ cap at REFLEX
 """
 
 from __future__ import annotations
@@ -84,9 +84,9 @@ class HumanStateModel:
     Maintains a rolling estimate of the human's cognitive state.
 
     Wired to event bus by state.py:
-      USER_FEEDBACK  â†’ update valence / stress
-      USER_CORRECTION â†’ increase stress
-      SDK_SESSION_STARTED â†’ mild energy reset
+      USER_FEEDBACK  â’ update valence / stress
+      USER_CORRECTION â’ increase stress
+      SDK_SESSION_STARTED â’ mild energy reset
       periodic decay via _apply_decay()
     """
 
@@ -105,7 +105,7 @@ class HumanStateModel:
         self._state.updated_at = time.time()
         self._touch()
         logger.debug(
-            "HumanStateModel: session_started â†’ energy=%.1f focus=%.1f",
+            "HumanStateModel: session_started â’ energy=%.1f focus=%.1f",
             self._state.energy,
             self._state.focus,
         )
@@ -125,7 +125,7 @@ class HumanStateModel:
         self._touch()
         self._signal_count += 1
         logger.debug(
-            "HumanStateModel: feedback=%.1f â†’ valence=%.1f stress=%.1f",
+            "HumanStateModel: feedback=%.1f â’ valence=%.1f stress=%.1f",
             rating,
             self._state.valence,
             self._state.stress,
@@ -140,7 +140,7 @@ class HumanStateModel:
         self._state.updated_at = time.time()
         self._touch()
         logger.debug(
-            "HumanStateModel: correction â†’ stress=%.1f focus=%.1f",
+            "HumanStateModel: correction â’ stress=%.1f focus=%.1f",
             self._state.stress,
             self._state.focus,
         )
@@ -150,12 +150,12 @@ class HumanStateModel:
         now = time.time()
         gap = now - self._last_activity_ts
         if gap > _REST_THRESHOLD_S:
-            # Human was idle â†’ rested â†’ energy restored
+            # Human was idle â’ rested â’ energy restored
             rest_cycles = gap / 60.0
             restore = min(rest_cycles * _REST_RESTORE, 20.0)
             self._state.energy = min(100.0, self._state.energy + restore)
             self._state.stress = max(0.0, self._state.stress - restore * 0.5)
-            logger.debug("HumanStateModel: rest gap %.0fs â†’ energy restored +%.1f", gap, restore)
+            logger.debug("HumanStateModel: rest gap %.0fs â’ energy restored +%.1f", gap, restore)
         else:
             self._apply_decay()
         self._last_activity_ts = now

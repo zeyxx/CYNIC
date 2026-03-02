@@ -22,11 +22,11 @@ Formula:
   H(output):
     - Binary: verdict or confidence level?
     - For judgment: H âˆ -confidence*logâ‚‚(confidence) - (1-confidence)*logâ‚‚(1-confidence)
-    - Low confidence â†’ high entropy (uncertain)
-    - High confidence â†’ low entropy (certain)
+    - Low confidence â’ high entropy (uncertain)
+    - High confidence â’ low entropy (certain)
 
   Efficiency = H(input) - H(output)
-    - >0: Good (compressed observation â†’ certain decision)
+    - >0: Good (compressed observation â’ certain decision)
     - â‰¤0: Bad (observations didn't guide decision)
 """
 
@@ -71,7 +71,7 @@ class EntropyMetrics:
     efficiency: float  # Compression ratio (input - output)
     signal_count: int  # How many signals observed
     verdict: str  # BARK/GROWL/WAG/HOWL
-    confidence: float  # [0, 0.618] Ï†-bounded
+    confidence: float  # [0, 0.618] Ï-bounded
     timestamp: float = field(default_factory=lambda: __import__("time").time())
 
     @property
@@ -145,8 +145,8 @@ class EntropyCalculator:
 
         Where p = confidence in the verdict.
 
-        High confidence â†’ low entropy (judgment is certain)
-        Low confidence â†’ high entropy (judgment is uncertain)
+        High confidence â’ low entropy (judgment is certain)
+        Low confidence â’ high entropy (judgment is uncertain)
 
         **Args**:
           confidence: Certainty in judgment [0, 1]

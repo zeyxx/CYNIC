@@ -5,12 +5,12 @@ Saves ContextCompressor state to ~/.cynic/session-latest.json so the session
 context survives process crashes and disk-pressure events.
 
 Strategy:
-  - Atomic write: JSON â†’ .tmp file â†’ os.replace() (crash-safe)
+  - Atomic write: JSON â’ .tmp file â’ os.replace() (crash-safe)
   - Checkpoint every CHECKPOINT_EVERY (F(8)=21) judgments
   - Skip restore if checkpoint is older than MAX_AGE_H hours (stale)
   - Skip save if disk is critically full (avoid making things worse)
 
-Ï†-derived constants:
+Ï-derived constants:
   CHECKPOINT_EVERY = F(8) = 21 judgments
   MAX_AGE_H        = 24 hours (one full day)
 """

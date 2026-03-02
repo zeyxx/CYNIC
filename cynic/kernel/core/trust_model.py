@@ -1,13 +1,13 @@
 """
-TrustModel: Bidirectional confidence tracking for humanâ†”CYNIC symbiosis.
+TrustModel: Bidirectional confidence tracking for humanâ”CYNIC symbiosis.
 
 CRITICAL: This is the foundation for all later phases.
 - Measures human trust in CYNIC (accept_rate - reject_rate)
 - Measures CYNIC utility (Q-Score, completion rate)
-- Enables SYMBIOSIS axiom activation (requires both â‰¥ Ï†â»Â² = 38.2%)
+- Enables SYMBIOSIS axiom activation (requires both â‰¥ Ïâ»Â² = 38.2%)
 - Enables co-decision blending (blended_conf = human_conf Ã— cynic_conf)
 
-Ï†-bounded: All confidence values âˆˆ [0, MAX_CONFIDENCE=0.618]
+Ï-bounded: All confidence values âˆˆ [0, MAX_CONFIDENCE=0.618]
 """
 
 from dataclasses import dataclass, field
@@ -23,7 +23,7 @@ class TrustMetrics:
     human_accept_count: int = 0
     human_reject_count: int = 0
     human_accept_rate: float = 0.0  # (accepts - rejects) / total
-    human_confidence: float = 0.0  # Ï†-bounded [0, MAX_CONFIDENCE]
+    human_confidence: float = 0.0  # Ï-bounded [0, MAX_CONFIDENCE]
 
     machine_q_score_avg: float = 50.0  # Average Q-Score over last N decisions
     machine_completion_rate: float = 0.0  # Actions completed successfully

@@ -28,8 +28,8 @@ def _append_social_signal(
     SocialWatcher reads this file every 89s and submits SOCIALÃ—PERCEIVE
     cells. The read=False flag ensures each signal is processed exactly once.
 
-    Closes the Social loop: human interactions â†’ sentiment â†’ SocialWatcher â†’
-    MICRO judgment â†’ QTable + SYMBIOSIS axiom signal.
+    Closes the Social loop: human interactions â’ sentiment â’ SocialWatcher â’
+    MICRO judgment â’ QTable + SYMBIOSIS axiom signal.
     """
     try:
         import time as _t

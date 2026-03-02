@@ -61,42 +61,22 @@ class MCPBridge:
         await bridge.shutdown()
     """
 
-    def __init__(self, bus_name: str = "CORE") -> None:
-        self.bus_name = bus_name
+    def __init__(self, bus: EventBus) -> None:
         self.is_running = False
         self.tools: dict[str, MCPTool] = {}
-        self._bus: EventBus | None = None
+        self._bus = bus
         self.metrics = MCPMetrics()
 
-    def _get_bus(self) -> EventBus:
-        """Resolve the event bus by name."""
-        if self._bus is not None:
-            return self._bus
-
-        buses = {
-            "CORE": get_core_bus,
-            "AUTOMATION": get_automation_bus,
-            "AGENT": get_agent_bus,
-        }
-        factory = buses.get(self.bus_name)
-        if factory is None:
-            raise ValueError(f"Unknown bus: {self.bus_name!r} (expected CORE, AUTOMATION, or AGENT)")
-        return factory()
-
     async def startup(self) -> None:
-        """Start the bridge. Idempotent â€” safe to call twice."""
+        """Start the bridge. Idempotent — safe to call twice."""
         if self.is_running:
             return
-        self._bus = self._get_bus()
         self.is_running = True
-        logger.info("MCPBridge started on bus=%s with %d tools", self.bus_name, len(self.tools))
+        logger.info("MCPBridge active with %d tools", len(self.tools))
 
     async def shutdown(self) -> None:
-        """Stop the bridge. Idempotent â€” safe to call without startup."""
-        if not self.is_running:
-            return
+        """Stop the bridge and cleanup resources."""
         self.is_running = False
-        self._bus = None
         logger.info("MCPBridge stopped")
 
     def register_tool(self, tool: MCPTool) -> None:
@@ -132,8 +112,7 @@ class MCPBridge:
                 source="mcp_bridge",
             )
 
-            bus = self._get_bus()
-            await bus.emit(event)
+            await self._bus.emit(event)
 
             latency_ms = (time.perf_counter() - start) * 1000
             self.metrics.record_call(latency_ms, success=True)

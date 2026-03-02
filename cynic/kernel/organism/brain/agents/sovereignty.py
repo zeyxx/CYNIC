@@ -12,7 +12,7 @@ This agent turns raw actions into Sovereign Reputation (E-Score).
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.phi import PHI, PHI_INV
@@ -26,11 +26,10 @@ class SovereigntyAgent:
     Calculates and persists the impact of every creator in the system.
     """
 
-    def __init__(self, state_manager: Any, bus: Optional[EventBus] = None):
+    def __init__(self, bus: EventBus, state_manager: Any):
         self.state = state_manager
         self._total_value_observed = 0.0
-        from cynic.kernel.core.event_bus import CoreEvent, Event
-        self._bus = bus or get_core_bus("DEFAULT")
+        self._bus = bus
 
     def start(self):
         """Subscribe to the nervous system."""

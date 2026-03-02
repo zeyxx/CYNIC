@@ -5,7 +5,6 @@ Tests that the session-scoped organism cache in conftest.py works
 and that the organism remains stable across tests.
 """
 import pytest
-import asyncio
 
 @pytest.mark.asyncio
 class TestOrganismCaching:

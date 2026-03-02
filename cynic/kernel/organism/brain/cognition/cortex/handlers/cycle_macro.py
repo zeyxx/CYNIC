@@ -1,5 +1,5 @@
 """
-MacroCycleHandler â€” L1 MACRO consciousness cycle (full 7-step PERCEIVEâ†’JUDGEâ†’DECIDEâ†’ACTâ†’LEARNâ†’ACCOUNTâ†’EMERGE).
+MacroCycleHandler â€” L1 MACRO consciousness cycle (full 7-step PERCEIVEâ’JUDGEâ’DECIDEâ’ACTâ’LEARNâ’ACCOUNTâ’EMERGE).
 
 Extracted from JudgeOrchestrator._cycle_macro().
 
@@ -14,34 +14,17 @@ Responsibility:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from cynic.kernel.core.axioms import verdict_from_q_score
-from cynic.kernel.core.judgment import Judgment
-from cynic.kernel.core.phi import (
-    MAX_CONFIDENCE,
-    MAX_Q_SCORE,
-    PHI_INV,
-    PHI_INV_2,
-    fibonacci,
-    phi_bound_score,
-)
+from cynic.kernel.core.event_bus import EventBus
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
-from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
-from cynic.kernel.core.event_bus import CoreEvent, Event
 
-from cynic.kernel.core.events_schema import (
-    PerceptionReceivedPayload,
-    ResidualHighPayload,
-)
-from cynic.kernel.organism.brain.cognition.neurons.base import DogJudgment
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_macro")
 
@@ -69,6 +52,7 @@ class MacroCycleHandler(BaseHandler):
 
     def __init__(
         self,
+        bus: EventBus,
         dogs: dict[str, Any],
         axiom_arch: Any,
         cynic_dog: Any | None = None,
@@ -77,7 +61,6 @@ class MacroCycleHandler(BaseHandler):
         axiom_monitor: Any | None = None,
         context_compressor: Any | None = None,
         act_phase_fn: Callable | None = None,
-        bus: Optional[EventBus] = None,
     ) -> None:
         self.dogs = dogs
         self.axiom_arch = axiom_arch
@@ -87,8 +70,7 @@ class MacroCycleHandler(BaseHandler):
         self.axiom_monitor = axiom_monitor
         self.context_compressor = context_compressor
         self.act_phase_fn = act_phase_fn
-        from cynic.kernel.core.event_bus import CoreEvent, Event
-        self.bus = bus or get_core_bus("DEFAULT")
+        self.bus = bus
 
     async def _act_phase(self, judgment: Any, pipeline: Any) -> Any:
         """Call injected act phase logic."""

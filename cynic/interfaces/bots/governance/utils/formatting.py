@@ -112,7 +112,7 @@ def format_cynic_verdict(judgment_data: dict) -> str:
 {verdict_interpretations.get(verdict, verdict)}
 
 **Q-Score:** {q_score:.1f}/100
-**Confidence:** {confidence:.1%} (Ï†-bounded)
+**Confidence:** {confidence:.1%} (Ï-bounded)
 
 **Reasoning:**
 {judgment_data.get('reasoning', 'No details available')[:500]}

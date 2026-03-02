@@ -116,7 +116,8 @@ class WebEye:
                 "timestamp": time.time(),
                 "game_id": "cannon-session"
             }
-        except:
+        except Exception as e:
+            logger.debug(f"WebEye: Data extraction failed: {e}")
             return {}
 
     def _should_emit(self, state: dict) -> bool:

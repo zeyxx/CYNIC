@@ -60,7 +60,7 @@ async def test_event_emission_tps_baseline(organism):
     stats = bus.stats()
     assert stats["emitted"] - initial_emitted >= num_events, "Not all events were emitted"
 
-    print(f"\n=== Event Emission TPS Baseline ===")
+    print("\n=== Event Emission TPS Baseline ===")
     print(f"Events emitted: {num_events}")
     print(f"Elapsed time: {elapsed_time:.4f}s")
     print(f"TPS: {tps:.2f}")
@@ -140,7 +140,7 @@ async def test_judgment_cycle_tps_baseline(organism):
         assert stats["emitted"] - initial_emitted >= (num_cycles * 2), "Not all cycle events were emitted"
         assert cycle_count == num_cycles, f"Expected {num_cycles} judgment callbacks, got {cycle_count}"
 
-        print(f"\n=== Judgment Cycle TPS Baseline ===")
+        print("\n=== Judgment Cycle TPS Baseline ===")
         print(f"Judgment cycles: {num_cycles}")
         print(f"Elapsed time: {elapsed_time:.4f}s")
         print(f"TPS: {tps:.2f}")
@@ -204,7 +204,7 @@ async def test_event_bus_backpressure_handling(organism):
 
         stats = bus.stats()
 
-        print(f"\n=== Event Bus Backpressure Test ===")
+        print("\n=== Event Bus Backpressure Test ===")
         print(f"Events emitted: {num_events}")
         print(f"Total time: {t_end - t_start:.4f}s")
         print(f"Backpressure anomalies: {len(anomalies_detected)}")
@@ -248,7 +248,7 @@ async def test_event_bus_metrics_collection(organism):
     # Get final stats
     final_stats = bus.stats()
 
-    print(f"\n=== Event Bus Metrics ===")
+    print("\n=== Event Bus Metrics ===")
     print(f"Events emitted (delta): {final_stats['emitted'] - initial_emitted}")
     print(f"Avg latency: {final_stats['avg_latency_ms']:.4f}ms")
     print(f"Error rate: {final_stats['error_rate']:.4%}")

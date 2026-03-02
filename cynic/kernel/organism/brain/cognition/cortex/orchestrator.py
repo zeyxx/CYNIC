@@ -15,37 +15,26 @@ This implementation uses a deterministic Pipeline DAG for total auditability.
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import time
-from typing import Any, Optional
+from typing import Any
 
-import httpx
 
-from cynic.kernel.core.axioms import AxiomArchitecture, verdict_from_q_score
+from cynic.kernel.core.axioms import AxiomArchitecture
 from cynic.kernel.core.consciousness import (
     ConsciousnessLevel,
-    dogs_for_level,
 )
 from cynic.kernel.core.event_bus import (
     CoreEvent,
-    CynicError,
     Event,
-    EventBusError,
     get_core_bus,
 )
 from cynic.kernel.core.events_schema import (
-    ConsensusFailedPayload,
-    ConsensusReachedPayload,
     JudgmentFailedPayload,
-    LearningEventPayload,
-    MetaCyclePayload,
 )
 from cynic.kernel.core.judgment import Cell, Judgment
-from cynic.kernel.core.phi import MAX_Q_SCORE, PHI_INV
 from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import execute_judgment_pipeline
 from cynic.kernel.organism.brain.cognition.cortex.pipeline import JudgmentPipeline
-from cynic.kernel.organism.brain.cognition.neurons.base import AbstractDog, DogId
+from cynic.kernel.organism.brain.cognition.neurons.base import AbstractDog
 
 logger = logging.getLogger("cynic.kernel.brain.orchestrator")
 
@@ -61,6 +50,7 @@ class JudgeOrchestrator:
         dogs: dict[str, AbstractDog],
         axiom_arch: AxiomArchitecture,
         cynic_dog: AbstractDog,
+        bus: EventBus,
         residual_detector=None,
         gasdf_executor=None,
         state_manager=None,
@@ -75,7 +65,7 @@ class JudgeOrchestrator:
         self.gasdf_executor = gasdf_executor
         self.state_manager = state_manager
         self.instance_id = instance_id
-        self.bus = get_core_bus(instance_id)
+        self.bus = bus
         self._consciousness = consciousness
         
         # Optional managers (injected via state.py or factory)
@@ -151,6 +141,13 @@ class JudgeOrchestrator:
 
             # Record success for SRE visibility
             self._circuit_breaker.record_success()
+            
+            # 6. Emit Result to Nervous System
+            await self.bus.emit(Event.typed(
+                CoreEvent.JUDGMENT_CREATED,
+                judgment.model_dump(),
+                source="orchestrator"
+            ))
             
             logger.info(f"[{pipeline.trace_id}] ✨ DAG COMPLETE: {judgment.verdict} (Q={judgment.q_score:.1f})")
             return judgment

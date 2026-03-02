@@ -14,7 +14,7 @@ from cynic.interfaces.cli.utils import (
     _read_json,
 )
 
-# Probe dimension â†’ color
+# Probe dimension â’ color
 _PROBE_DIM_COLOR = {
     "QTABLE":   "orange",
     "ESCORE":   "yellow",

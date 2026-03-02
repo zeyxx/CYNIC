@@ -263,7 +263,7 @@ class ProposalExecutor:
                 success=False,
                 proposal_id=proposal.probe_id,
                 dimension=proposal.dimension,
-                message=f"Execution blocked",
+                message="Execution blocked",
                 error_message="Circuit breaker is open (too many recent failures)",
             )
 

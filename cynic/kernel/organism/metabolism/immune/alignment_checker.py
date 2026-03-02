@@ -22,8 +22,8 @@ from cynic.kernel.organism.brain.learning.qlearning import VERDICTS
 
 logger = logging.getLogger("cynic.kernel.organism.metabolism.immune.alignment_checker")
 
-# Axiom thresholds (Ï†-derived)
-_MIN_CONFIDENCE_FOR_HIGH_IMPACT = 0.382  # Ï†â»Â² â€” minimum for BARK decisions
+# Axiom thresholds (Ï-derived)
+_MIN_CONFIDENCE_FOR_HIGH_IMPACT = 0.382  # Ïâ»Â² â€” minimum for BARK decisions
 _VERDICT_BALANCE_WINDOW = fibonacci(6)  # 8 judgments â€” check balance
 _MAX_CONTRADICTIONS_BEFORE_BLOCK = 2  # Contradiction threshold
 
@@ -165,7 +165,7 @@ class AlignmentSafetyChecker:
         return violations
 
     def _check_phi_balance(self, verdict: str) -> list[AlignmentViolation]:
-        """Check verdict distribution maintains Ï† balance (PHI)."""
+        """Check verdict distribution maintains Ï balance (PHI)."""
         violations = []
 
         if not self._recent_verdicts or verdict not in VERDICTS:
@@ -175,8 +175,8 @@ class AlignmentSafetyChecker:
         verdict_counts = {v: self._recent_verdicts.count(v) for v in VERDICTS}
         current_count = verdict_counts.get(verdict, 0)
 
-        # BARK should be â‰¤ Ï†â»Â² Ã— window (38.2% of verdicts)
-        # Other verdicts should be â‰¤ Ï†â»Â¹ Ã— window (61.8% of verdicts)
+        # BARK should be â‰¤ Ïâ»Â² Ã— window (38.2% of verdicts)
+        # Other verdicts should be â‰¤ Ïâ»Â¹ Ã— window (61.8% of verdicts)
         bark_limit = int(self._window_size * 0.382)
         int(self._window_size * 0.618)
 
@@ -185,7 +185,7 @@ class AlignmentSafetyChecker:
                 AlignmentViolation(
                     axiom="PHI",
                     severity="WARNING",
-                    reason=f"BARK at {current_count}/{self._window_size} exceeds Ï†â»Â² threshold",
+                    reason=f"BARK at {current_count}/{self._window_size} exceeds Ïâ»Â² threshold",
                     blocking=False,
                     recommendation="Consider escalating to GROWL/WAG if less critical",
                 )

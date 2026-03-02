@@ -42,7 +42,7 @@ class DecisionClassifier:
     }
 
     def __init__(self):
-        # Track approval/rejection patterns: action â†’ (approvals, rejections)
+        # Track approval/rejection patterns: action â’ (approvals, rejections)
         self.decision_history: dict[str, tuple[int, int]] = defaultdict(lambda: (0, 0))
         # Learned classifications
         self.learned_classes: dict[str, DecisionClass] = {}

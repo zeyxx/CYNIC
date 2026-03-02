@@ -5,9 +5,9 @@ Routes SDK tasks between Primary (Brain), Fast (Nerves), and Local (Spine)
 models based on accumulated Q-Table confidence and system configuration.
 
 Bootstrap Philosophy:
-  Phase 1 (cold start): All tasks â†’ Primary Model (build Q-Table)
-  Phase 2 (warming):    Simple/trivial â†’ Fast Model (save cost)
-  Phase 3 (hot):        80%+ tasks â†’ Fast/Local (maximum savings)
+  Phase 1 (cold start): All tasks â’ Primary Model (build Q-Table)
+  Phase 2 (warming):    Simple/trivial â’ Fast Model (save cost)
+  Phase 3 (hot):        80%+ tasks â’ Fast/Local (maximum savings)
 
 Safety: NEVER route complex/review/unknown tasks automatically unless in Sovereign mode.
 Always returns a RoutingDecision â€” callers decide whether to act on it.
@@ -115,14 +115,14 @@ class LLMRouter:
         # Get Q-Table confidence for this state
         confidence = qtable.confidence(state_key)
 
-        # Gate 1: Minimum confidence threshold (Ï†â»Â¹ = 0.618)
+        # Gate 1: Minimum confidence threshold (Ïâ»Â¹ = 0.618)
         if confidence < PHI_INV:
             self._routes_to_full += 1
             return RoutingDecision(
                 recommended_model=self.config.llm_primary_model,
                 route_to_local=False,
                 confidence=confidence,
-                reason=f"Cold start â€” confidence {confidence:.3f} < Ï†â»Â¹ ({PHI_INV:.3f})",
+                reason=f"Cold start â€” confidence {confidence:.3f} < Ïâ»Â¹ ({PHI_INV:.3f})",
                 task_type=task_type,
                 complexity=complexity,
             )
@@ -166,7 +166,7 @@ class LLMRouter:
                 complexity=complexity,
             )
 
-        # All gates passed â†’ route to Fast Model (or Local)
+        # All gates passed â’ route to Fast Model (or Local)
         self._total_routes += 1
         self._routes_to_local += 1
         
@@ -174,7 +174,7 @@ class LLMRouter:
         target_model = self.config.llm_local_model if complexity == "trivial" else self.config.llm_fast_model
         
         logger.info(
-            "LLM_ROUTE: %s/%s â†’ %s (conf=%.3f, visits=%d)",
+            "LLM_ROUTE: %s/%s â’ %s (conf=%.3f, visits=%d)",
             task_type,
             complexity,
             target_model,
@@ -187,7 +187,7 @@ class LLMRouter:
             confidence=confidence,
             reason=(
                 f"Q-Table confident (conf={confidence:.3f}, visits={visits}): "
-                f"'{task_type}/{complexity}' â†’ {target_model} (optimization)"
+                f"'{task_type}/{complexity}' â’ {target_model} (optimization)"
             ),
             task_type=task_type,
             complexity=complexity,

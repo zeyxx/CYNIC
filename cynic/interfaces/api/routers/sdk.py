@@ -13,11 +13,13 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.exceptions import CynicError
 from cynic.kernel.core.events_schema import (
     DecisionMadePayload as _DecisionMadePayload,
 )
@@ -132,25 +134,25 @@ async def ws_sdk(
 
     Message flow (NDJSON â€” each line is one JSON object):
 
-      CLI â†’ CYNIC: system/init        â†’ record session metadata
-      CLI â†’ CYNIC: can_use_tool       â†’ CYNIC judges â†’ control_response allow/deny
-      CLI â†’ CYNIC: assistant          â†’ record to session log
-      CLI â†’ CYNIC: result             â†’ record cost, emit SDK_RESULT_RECEIVED
-      CLI â†’ CYNIC: keep_alive         â†’ respond keep_alive
+      CLI â’ CYNIC: system/init        â’ record session metadata
+      CLI â’ CYNIC: can_use_tool       â’ CYNIC judges â’ control_response allow/deny
+      CLI â’ CYNIC: assistant          â’ record to session log
+      CLI â’ CYNIC: result             â’ record cost, emit SDK_RESULT_RECEIVED
+      CLI â’ CYNIC: keep_alive         â’ respond keep_alive
 
-      CYNIC â†’ CLI: keep_alive         â†’ heartbeat
-      CYNIC â†’ CLI: user               â†’ send task (via POST /sdk/task)
-      CYNIC â†’ CLI: control_response   â†’ approve/deny/modify tool use
-      CYNIC â†’ CLI: set_model          â†’ switch Sonnet/Haiku mid-session
+      CYNIC â’ CLI: keep_alive         â’ heartbeat
+      CYNIC â’ CLI: user               â’ send task (via POST /sdk/task)
+      CYNIC â’ CLI: control_response   â’ approve/deny/modify tool use
+      CYNIC â’ CLI: set_model          â’ switch Sonnet/Haiku mid-session
 
     Bootstrap loop:
-      Phase 1: CYNIC intercepts all tool calls â†’ builds Q-Table from real Claude sessions
-      Phase 2: Q-Table confidence rises â†’ CYNIC routes simple tasks to Ollama
-      Phase 3: 80%+ tasks â†’ Ollama ($0 cost). Claude only for novel tasks.
+      Phase 1: CYNIC intercepts all tool calls â’ builds Q-Table from real Claude sessions
+      Phase 2: Q-Table confidence rises â’ CYNIC routes simple tasks to Ollama
+      Phase 3: 80%+ tasks â’ Ollama ($0 cost). Claude only for novel tasks.
     """
     await websocket.accept()
     state = container.organism
-    bus = get_core_bus("DEFAULT")
+    bus = state.bus
 
     session_id = str(uuid.uuid4())
     session = SDKSession(session_id=session_id, ws=websocket)
@@ -265,7 +267,7 @@ async def ws_sdk(
                         }
                         logger.warning("*GROWL* SDK BLOCKED: %s", tool_name)
                     else:
-                        # WAG / GROWL / HOWL â†’ allow (GROWL logs warning)
+                        # WAG / GROWL / HOWL â’ allow (GROWL logs warning)
                         if verdict == "GROWL":
                             logger.warning("*sniff* SDK WARNED: %s (Q low)", tool_name)
                         response = {
@@ -414,8 +416,8 @@ async def ws_sdk(
                     # â”€â”€ JSONL persistence (survives restarts) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                     _append_sdk_session_jsonl(telemetry_record)
 
-                    # â”€â”€ L2â†’L1 cross-feed: BARK/error â†’ ActionProposer â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                    # Links L2 (SDK result) â†’ L1 (action queue) automatically.
+                    # â”€â”€ L2â’L1 cross-feed: BARK/error â’ ActionProposer â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    # Links L2 (SDK result) â’ L1 (action queue) automatically.
                     if is_error or verdict == "BARK":
                         await bus.emit(Event.typed(
                             CoreEvent.DECISION_MADE,
@@ -476,7 +478,7 @@ async def ws_sdk(
                         )
                         if routing.route_to_local:
                             logger.info(
-                                "LLM_ROUTER: %s â†’ %s (%s)",
+                                "LLM_ROUTER: %s â’ %s (%s)",
                                 rich_state_key, routing.recommended_model, routing.reason,
                             )
 
@@ -524,7 +526,7 @@ async def sdk_routing(container: AppContainer = Depends(get_app_container)) -> d
     """
     LLM routing stats â€” Ring 4 Q-Table driven model selection.
 
-    Shows how often CYNIC routes SDK tasks from Sonnet â†’ Haiku based on
+    Shows how often CYNIC routes SDK tasks from Sonnet â’ Haiku based on
     accumulated Q-Table confidence. local_rate rises as Q-Table warms up.
     """
     state = container.organism

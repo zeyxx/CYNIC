@@ -58,8 +58,8 @@ class JudgmentCreatedPayload(BaseModel):
 
     state_key: str = ""
     verdict: str = "WAG"  # BARK|GROWL|WAG|HOWL
-    q_score: float = 0.0  # [0, 100] â€” NOT Ï†-bounded
-    confidence: float = 0.0  # Ï†-bounded â‰¤ 0.618
+    q_score: float = 0.0  # [0, 100] â€” NOT Ï-bounded
+    confidence: float = 0.0  # Ï-bounded â‰¤ 0.618
     reality: str = "CODE"  # CODE|CYNIC|SOLANA|HUMAN|MARKET|SOCIAL|COSMOS
     dog_votes: dict[str, float] = Field(default_factory=dict)
     judgment_id: str = ""
@@ -190,7 +190,7 @@ class SonaTickPayload(BaseModel):
     instance_id: str = ""  # For Type I network identity
     q_table_entries: int = 0  # Q-Table population
     total_judgments: int = 0  # Cumulative judgment count
-    learning_rate: float = 0.0  # Current Î± [0, 1]
+    learning_rate: float = 0.0  # Current Î [0, 1]
     ewc_consolidated: int = 0  # Consolidated fisher entries
     uptime_s: float = 0.0  # Organism uptime in seconds
     interval_s: float = 0.0  # Emission interval (should be ~2040)
@@ -236,7 +236,7 @@ class DecisionMadePayload(BaseModel):
     DECISION_MADE â€” Decider selected an action from Q-Table/MCTS.
 
     Used by ActionProposer (L1), AxiomMonitor (AUTONOMY signal),
-    and the feedback loop cross-feed (L2â†’L1 when verdict==BARK).
+    and the feedback loop cross-feed (L2â’L1 when verdict==BARK).
     """
 
     model_config = _BASE
@@ -279,11 +279,11 @@ class ActionProposedPayload(BaseModel):
     """
     ACTION_PROPOSED â€” ActionProposer queued a new ProposedAction.
 
-    Priority mapping â†’ EScore BUILD:
-      1 (critical) â†’ MAX_Q_SCORE (100.0)
-      2 (high)     â†’ HOWL_MIN    (82.0)
-      3 (normal)   â†’ WAG_MIN     (68.2)
-      else         â†’ GROWL_MIN   (38.2)
+    Priority mapping â’ EScore BUILD:
+      1 (critical) â’ MAX_Q_SCORE (100.0)
+      2 (high)     â’ HOWL_MIN    (82.0)
+      3 (normal)   â’ WAG_MIN     (68.2)
+      else         â’ GROWL_MIN   (38.2)
     """
 
     model_config = _BASE
@@ -318,7 +318,7 @@ class EmergenceDetectedPayload(BaseModel):
 
 class ResidualHighPayload(BaseModel):
     """
-    RESIDUAL_HIGH â€” unnameable signal detected (Ï†-level residual variance).
+    RESIDUAL_HIGH â€” unnameable signal detected (Ï-level residual variance).
 
     Emitted by orchestrator when judgment.unnameable_detected == True.
     Triggers SelfProber L4 analysis and EMERGENCE EScore update.
@@ -385,7 +385,7 @@ class ConsciousnessChangedPayload(BaseModel):
 
 
 class BudgetWarningPayload(BaseModel):
-    """BUDGET_WARNING â€” spend approaching session budget Ï†-threshold."""
+    """BUDGET_WARNING â€” spend approaching session budget Ï-threshold."""
 
     model_config = _BASE
 
@@ -411,7 +411,7 @@ class BudgetExhaustedPayload(BaseModel):
 
 
 class DiskPressurePayload(BaseModel):
-    """DISK_PRESSURE â€” DiskHealthMonitor reports disk > Ï† threshold."""
+    """DISK_PRESSURE â€” DiskHealthMonitor reports disk > Ï threshold."""
 
     model_config = _BASE
 
@@ -421,7 +421,7 @@ class DiskPressurePayload(BaseModel):
 
 
 class MemoryPressurePayload(BaseModel):
-    """MEMORY_PRESSURE â€” MemoryWatcher reports RAM > Ï† threshold."""
+    """MEMORY_PRESSURE â€” MemoryWatcher reports RAM > Ï threshold."""
 
     model_config = _BASE
 
@@ -465,11 +465,11 @@ class SdkToolJudgedPayload(BaseModel):
     """
     SDK_TOOL_JUDGED â€” GUARDIAN judged a Claude SDK tool invocation.
 
-    Verdict â†’ GRAPH EScore:
-      HOWL  â†’ HOWL_MIN (82.0) + SYMBIOSIS signal
-      WAG   â†’ WAG_MIN  (61.8)
-      GROWL â†’ GROWL_MIN (38.2)
-      BARK  â†’ 0.0 (trust breakdown)
+    Verdict â’ GRAPH EScore:
+      HOWL  â’ HOWL_MIN (82.0) + SYMBIOSIS signal
+      WAG   â’ WAG_MIN  (61.8)
+      GROWL â’ GROWL_MIN (38.2)
+      BARK  â’ 0.0 (trust breakdown)
     """
 
     model_config = _BASE
@@ -561,7 +561,7 @@ class ChangeAnalyzedPayload(BaseModel):
     files: list[str] = Field(default_factory=list)  # changed filepaths
     subsystems: list[str] = Field(default_factory=list)  # affected subsystems
     impact_level: str = "MEDIUM"  # LOW|MEDIUM|HIGH|CRITICAL
-    risk_estimate: float = 0.5  # [0, 1] Ï†-bounded for display
+    risk_estimate: float = 0.5  # [0, 1] Ï-bounded for display
     suggested_action: str = "MONITOR"  # MONITOR|REVIEW|ALERT
     timestamp: float = 0.0
     file_count: int = 0

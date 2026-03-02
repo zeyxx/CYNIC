@@ -405,7 +405,7 @@ class QTableBenchmark:
 
         phi_wins_forgetting = phi_agg["mean_forgetting_shift"] <= std_agg["mean_forgetting_shift"]
         phi_wins_stability = phi_agg["mean_q_variance"] <= std_agg["mean_q_variance"]
-        # phi is conservative: Î±=0.038 needs ~3Ã— more steps than Î±=0.1 to reach same Q.
+        # phi is conservative: Î=0.038 needs ~3Ã— more steps than Î=0.1 to reach same Q.
         # This is by design (resist catastrophic forgetting).
         # We validate convergence quality via final_error, not speed.
         # phi's final_error should eventually be â‰¤ standard's (verified at 2000 steps).

@@ -370,10 +370,10 @@ class TestGASdfIntegration:
 
 
 class TestGovernanceVerdictFlow:
-    """Test complete governance â†’ NEAR flow."""
+    """Test complete governance â’ NEAR flow."""
 
     def test_proposal_verdict_to_on_chain_execution(self):
-        """Test governance verdict â†’ NEAR contract execution flow."""
+        """Test governance verdict â’ NEAR contract execution flow."""
         # Step 1: CYNIC judges
         cynic_verdict = "HOWL"
         q_score = 78.5

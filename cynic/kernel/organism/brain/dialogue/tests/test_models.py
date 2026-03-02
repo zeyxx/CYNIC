@@ -46,8 +46,8 @@ def test_message_immutability():
         msg.content = "Modified"
 
 
-def test_user_message_Ï†_bounded_confidence_valid():
-    """user_confidence must be Ï†-bounded [0, 0.618] - valid values."""
+def test_user_message_Ï_bounded_confidence_valid():
+    """user_confidence must be Ï-bounded [0, 0.618] - valid values."""
     # At lower boundary
     msg1 = UserMessage(message_type="question", content="Why?", user_confidence=0.0)
     assert msg1.user_confidence == 0.0
@@ -61,19 +61,19 @@ def test_user_message_Ï†_bounded_confidence_valid():
     assert msg3.user_confidence == 0.4
 
 
-def test_user_message_Ï†_bounded_confidence_invalid():
-    """user_confidence must be Ï†-bounded [0, 0.618] - invalid values."""
-    # Exceeds Ï†-bound (0.7 > 0.618)
-    with pytest.raises(ValueError, match="user_confidence must be Ï†-bounded"):
+def test_user_message_Ï_bounded_confidence_invalid():
+    """user_confidence must be Ï-bounded [0, 0.618] - invalid values."""
+    # Exceeds Ï-bound (0.7 > 0.618)
+    with pytest.raises(ValueError, match="user_confidence must be Ï-bounded"):
         UserMessage(message_type="question", content="Why?", user_confidence=0.7)
 
     # Negative
-    with pytest.raises(ValueError, match="user_confidence must be Ï†-bounded"):
+    with pytest.raises(ValueError, match="user_confidence must be Ï-bounded"):
         UserMessage(message_type="question", content="Why?", user_confidence=-0.1)
 
 
-def test_cynic_message_Ï†_bounded_confidence_valid():
-    """confidence must be Ï†-bounded [0, 0.618] - valid values."""
+def test_cynic_message_Ï_bounded_confidence_valid():
+    """confidence must be Ï-bounded [0, 0.618] - valid values."""
     # At lower boundary
     msg1 = CynicMessage(message_type="reasoning", content="Because...", confidence=0.0)
     assert msg1.confidence == 0.0
@@ -87,14 +87,14 @@ def test_cynic_message_Ï†_bounded_confidence_valid():
     assert msg3.confidence == 0.4
 
 
-def test_cynic_message_Ï†_bounded_confidence_invalid():
-    """confidence must be Ï†-bounded [0, 0.618] - invalid values."""
-    # Exceeds Ï†-bound (0.73 > 0.618)
-    with pytest.raises(ValueError, match="confidence must be Ï†-bounded"):
+def test_cynic_message_Ï_bounded_confidence_invalid():
+    """confidence must be Ï-bounded [0, 0.618] - invalid values."""
+    # Exceeds Ï-bound (0.73 > 0.618)
+    with pytest.raises(ValueError, match="confidence must be Ï-bounded"):
         CynicMessage(message_type="reasoning", content="Because...", confidence=0.73)
 
     # Negative
-    with pytest.raises(ValueError, match="confidence must be Ï†-bounded"):
+    with pytest.raises(ValueError, match="confidence must be Ï-bounded"):
         CynicMessage(message_type="reasoning", content="Because...", confidence=-0.1)
 
 

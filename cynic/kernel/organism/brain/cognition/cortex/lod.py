@@ -2,9 +2,9 @@
 CYNIC SurvivalLOD â€” Tiered Graceful Degradation (Î´2)
 
 Level of Detail (LOD) defines CYNIC's operating mode under resource constraints.
-When the system is healthy â†’ full operation. Under stress â†’ progressive degradation.
+When the system is healthy â’ full operation. Under stress â’ progressive degradation.
 
-4 LOD Levels (Ï†-derived thresholds):
+4 LOD Levels (Ï-derived thresholds):
     LOD 0 â€” FULL       Quality threshold â‰¥ WAG_MIN (61.8%)
     LOD 1 â€” REDUCED    Quality threshold â‰¥ GROWL_MIN (38.2%)
     LOD 2 â€” EMERGENCY  Quality threshold â‰¥ PHI_INV_3 (23.6%)
@@ -17,12 +17,12 @@ What changes at each LOD:
     LOD 3 MINIMAL:   GUARDIAN only, heuristic scoring, health reports only
 
 Trigger metrics:
-    error_rate     â†’ recent error rate (0.0-1.0)
-    latency_ms     â†’ recent 95th-percentile response time (ms)
-    queue_depth    â†’ current scheduler queue depth (cells waiting)
-    memory_pct     â†’ heap memory usage (0.0-1.0)
+    error_rate     â’ recent error rate (0.0-1.0)
+    latency_ms     â’ recent 95th-percentile response time (ms)
+    queue_depth    â’ current scheduler queue depth (cells waiting)
+    memory_pct     â’ heap memory usage (0.0-1.0)
 
-Thresholds (Ï†-symmetric):
+Thresholds (Ï-symmetric):
     LOD 1: error_rate â‰¥ PHI_INV_2 (0.382) OR latency_ms â‰¥ 1000 OR queue_depth â‰¥ 34 OR disk_pct â‰¥ 0.618 OR memory_pct â‰¥ 0.618
     LOD 2: error_rate â‰¥ PHI_INV   (0.618) OR latency_ms â‰¥ 2850 OR queue_depth â‰¥ 89  OR disk_pct â‰¥ 0.764 OR memory_pct â‰¥ 0.764
     LOD 3: error_rate â‰¥ 1.0       OR latency_ms â‰¥ 5000 OR queue_depth â‰¥ 144         OR disk_pct â‰¥ 0.90  OR memory_pct â‰¥ 0.90
@@ -30,7 +30,7 @@ Thresholds (Ï†-symmetric):
 Usage:
     lod = LODController()
     level = lod.assess(error_rate=0.05, latency_ms=300, queue_depth=5)
-    # â†’ SurvivalLOD.FULL
+    # â’ SurvivalLOD.FULL
 
     lod.force(SurvivalLOD.EMERGENCY)  # Manual override
     lod.clear_force()                  # Remove override
@@ -42,7 +42,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 from cynic.kernel.core.formulas import (
     LOD_LEVEL0_LATENCY_MS,
@@ -70,7 +70,7 @@ _LATENCY_LOD1 = LOD_LEVEL1_LATENCY_MS  # 100ms
 _LATENCY_LOD2 = LOD_LEVEL2_LATENCY_MS  # 500ms (MACRO target)
 _LATENCY_LOD3 = LOD_LEVEL3_LATENCY_MS  # 2850ms (META target)
 
-# Error rate thresholds (Ï†-symmetric)
+# Error rate thresholds (Ï-symmetric)
 _ERR_LOD1 = PHI_INV_2  # 0.382
 _ERR_LOD2 = PHI_INV  # 0.618
 _ERR_LOD3 = 1.0  # Full failure
@@ -120,15 +120,15 @@ class SurvivalLOD(int, Enum):
 
 # â”€â”€ HealthMetrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-# Disk usage thresholds (Ï†-derived, fraction of disk used)
-_DISK_LOD1 = PHI_INV  # 0.618 â€” 61.8% full â†’ REDUCED
-_DISK_LOD2 = 1 - PHI_INV_3  # 0.764 â€” 76.4% full â†’ EMERGENCY
-_DISK_LOD3 = 0.90  # 90%   full â†’ MINIMAL
+# Disk usage thresholds (Ï-derived, fraction of disk used)
+_DISK_LOD1 = PHI_INV  # 0.618 â€” 61.8% full â’ REDUCED
+_DISK_LOD2 = 1 - PHI_INV_3  # 0.764 â€” 76.4% full â’ EMERGENCY
+_DISK_LOD3 = 0.90  # 90%   full â’ MINIMAL
 
-# Memory usage thresholds (same Ï†-scale as disk â€” fraction of RAM used)
-_MEM_LOD1 = PHI_INV  # 0.618 â€” 61.8% used â†’ REDUCED
-_MEM_LOD2 = 1 - PHI_INV_3  # 0.764 â€” 76.4% used â†’ EMERGENCY
-_MEM_LOD3 = 0.90  # 90%   used â†’ MINIMAL
+# Memory usage thresholds (same Ï-scale as disk â€” fraction of RAM used)
+_MEM_LOD1 = PHI_INV  # 0.618 â€” 61.8% used â’ REDUCED
+_MEM_LOD2 = 1 - PHI_INV_3  # 0.764 â€” 76.4% used â’ EMERGENCY
+_MEM_LOD3 = 0.90  # 90%   used â’ MINIMAL
 
 
 @dataclass
@@ -332,7 +332,7 @@ class LODController:
 
         if new_lod > old:
             logger.warning(
-                "LOD DEGRADATION: %s â†’ %s (err=%.2f lat=%.0fms q=%d)",
+                "LOD DEGRADATION: %s â’ %s (err=%.2f lat=%.0fms q=%d)",
                 old.name,
                 new_lod.name,
                 metrics.error_rate,
@@ -341,7 +341,7 @@ class LODController:
             )
         else:
             logger.info(
-                "LOD RECOVERY: %s â†’ %s",
+                "LOD RECOVERY: %s â’ %s",
                 old.name,
                 new_lod.name,
             )

@@ -169,7 +169,7 @@ class Cortex(Static):
 
                 cortex_text.append(f"  â‰ˆ {trace.get('judgment_id', '?')}", style="white")
                 cortex_text.append(
-                    f" â†’ {trace.get('final_verdict', '?')} ",
+                    f" â’ {trace.get('final_verdict', '?')} ",
                     style=verdict_color,
                 )
                 cortex_text.append(
@@ -263,7 +263,7 @@ class Soul(Static):
             "ðŸ”¥ ANTIFRAGILITY",
             "âš–ï¸  AUTONOMY",
             "ðŸ¤ SYMBIOSIS",
-            "ðŸŒ± EMERGENCE",
+            "ðŸŒ EMERGENCE",
         ]
         for i, name in enumerate(axiom_names):
             if i < self.axioms_active:
@@ -312,7 +312,7 @@ class CynicOrganism(Static):
                     â””â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 
 
-        Ï† = 1.618...  |  Confidence â‰¤ 61.8%  |  "Don't trust, verify"
+        Ï = 1.618...  |  Confidence â‰¤ 61.8%  |  "Don't trust, verify"
         """
         return Panel(organism, title="ORGANISM TOPOLOGY", border_style="cyan")
 

@@ -5,9 +5,7 @@ Part of the "Ralph Loop" auto-continue system.
 """
 
 import subprocess
-import json
 import sys
-from datetime import datetime, timedelta
 
 # Ensure UTF-8 output on all platforms
 if sys.stdout.encoding and 'utf' not in sys.stdout.encoding.lower():
@@ -39,7 +37,7 @@ def detect_blockers():
         # Check if this branch is behind main
         try:
             result = subprocess.run(
-                ['git', 'merge-base', '--is-ancestor', f'origin/main', f'origin/{pr_branch}'],
+                ['git', 'merge-base', '--is-ancestor', 'origin/main', f'origin/{pr_branch}'],
                 capture_output=True
             )
             if result.returncode != 0:
@@ -55,7 +53,7 @@ def detect_blockers():
                     blockers.append({
                         'branch': pr_branch,
                         'issue': f'{commits_ahead} commits ahead of main (might be blocked)',
-                        'action': f'Pull main: git rebase origin/main',
+                        'action': 'Pull main: git rebase origin/main',
                     })
         except:
             pass
