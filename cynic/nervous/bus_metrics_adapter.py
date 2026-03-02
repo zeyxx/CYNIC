@@ -66,6 +66,14 @@ class BusMetricsAdapter:
         self._open_latencies: dict[str, float] = {}
         self._event_count = 0
 
+    async def stop(self) -> None:
+        """Unregister from bus wildcard subscription."""
+        try:
+            if self._bus is not None:
+                self._bus.off("*", self.on_event)
+        except Exception as e:
+            logger.debug(f"Error unregistering BusMetricsAdapter listener: {e}")
+
     async def on_event(self, event: Event) -> None:
         """Record event in collector; track pair latency; check for anomalies periodically."""
         is_error = event.type in _ERROR_EVENTS

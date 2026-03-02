@@ -560,6 +560,15 @@ class LearningLoop:
 
     def stop(self) -> None:
         self._active = False
+
+        # Unregister event bus listener
+        if self._bus:
+            try:
+                from cynic.kernel.core.event_bus import CoreEvent
+                self._bus.off(CoreEvent.LEARNING_EVENT, self._on_learning_event)
+            except Exception as e:
+                logger.debug(f"Error unregistering LearningLoop listener: {e}")
+
         logger.info("LearningLoop stopped")
 
     async def _on_learning_event(self, event: Event) -> None:

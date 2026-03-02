@@ -74,6 +74,20 @@ class BusJournalAdapter:
 
     def __init__(self, journal: EventJournal) -> None:
         self._journal = journal
+        self._bus: Any = None  # Set via attach()
+
+
+    def attach(self, bus: Any) -> None:
+        """Store bus reference for cleanup."""
+        self._bus = bus
+
+    async def stop(self) -> None:
+        """Unregister from bus wildcard subscription."""
+        try:
+            if self._bus is not None:
+                self._bus.off("*", self.on_event)
+        except Exception:
+            pass
 
     async def on_event(self, event: Event) -> None:
         """Called by EventBus for every event (registered on "*")."""
