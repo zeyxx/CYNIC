@@ -1,17 +1,18 @@
 """
-AccountAgent â€” The Organism's Auditor.
+AccountAgent - The Organism's Auditor.
 
 Tracks the total cost of all LLM judgments and manages the session budget.
 Emits BUDGET_WARNING and BUDGET_EXHAUSTED events when thresholds are crossed.
 
-Ï†-Law: BURN â€” resources are finite. Monitoring them is an Axiomatic requirement.
+phi-Law: BURN - resources are finite. Monitoring them is an Axiomatic requirement.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.kernel.core.events_schema import BudgetExhaustedPayload, BudgetWarningPayload
 from cynic.kernel.core.formulas import BUDGET_HARD_CAP_USD, BUDGET_WARNING_PCT
 
@@ -29,7 +30,6 @@ class AccountAgent:
         self._warning_sent = False
         self._exhausted_sent = False
         self.escore_tracker = None
-        from cynic.kernel.core.event_bus import CoreEvent, Event
         self._bus = bus or get_core_bus("DEFAULT")
 
     def set_escore_tracker(self, tracker: Any) -> None:
@@ -37,17 +37,17 @@ class AccountAgent:
         self.escore_tracker = tracker
 
     def start(self):
-        “””Subscribe to judgment events to track costs.”””
+        """Subscribe to judgment events to track costs."""
         self._bus.on(CoreEvent.JUDGMENT_CREATED, self.on_judgment_created)
-        logger.info(“AccountAgent started â€” budget=$%.2f, EScore=wired”, self.limit)
+        logger.info("AccountAgent started - budget=$%.2f, EScore=wired", self.limit)
 
     def stop(self) -> None:
-        “””Unregister from bus judgment events.”””
+        """Unregister from bus judgment events."""
         try:
             self._bus.off(CoreEvent.JUDGMENT_CREATED, self.on_judgment_created)
         except Exception as e:
-            logger.debug(f”Error unregistering AccountAgent listener: {e}”)
-        logger.info(“AccountAgent stopped”)
+            logger.debug(f"Error unregistering AccountAgent listener: {e}")
+        logger.info("AccountAgent stopped")
 
     async def on_judgment_created(self, event: Event) -> None:
         """Accumulate cost from a new judgment."""
@@ -65,7 +65,7 @@ class AccountAgent:
         # Use instance-specific bus
         bus = self._bus
 
-        # 1. Budget Warning (e.g. 61.8% of limit reached)
+        # 1. Budget Warning (e.g 61.8% of limit reached)
         warning_threshold = self.limit * (BUDGET_WARNING_PCT / 100.0)
         if self.total_cost_usd >= warning_threshold and not self._warning_sent:
             self._warning_sent = True

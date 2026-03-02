@@ -1,5 +1,5 @@
 """
-ActionProposer â€” The Strategy Layer.
+ActionProposer - The Strategy Layer.
 
 Receives DECISION_MADE events from the JudgeOrchestrator and translates them
 into actionable proposals for the organism's motor system (ActHandlers).
@@ -13,9 +13,9 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
-from cynic.kernel.core.event_bus import CoreEvent, Event
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, get_core_bus
 from cynic.kernel.core.events_schema import ActionProposedPayload, DecisionMadePayload
 from cynic.kernel.core.storage.interface import ActionProposalRepoInterface
 
@@ -57,21 +57,20 @@ class ActionProposer:
     def __init__(self, repo: ActionProposalRepoInterface, bus: Optional[EventBus] = None):
         self.repo = repo
         self._last_stats = {"pending": 0, "total": 0}
-        from cynic.kernel.core.event_bus import CoreEvent, Event
         self._bus = bus or get_core_bus("DEFAULT")
 
     def start(self):
-        “””Subscribe to decision events.”””
+        """Subscribe to decision events."""
         self._bus.on(CoreEvent.DECISION_MADE, self.on_decision_made)
-        logger.info(“ActionProposer started â€” linked to SurrealDB”)
+        logger.info("ActionProposer started - linked to SurrealDB")
 
     def stop(self) -> None:
-        “””Unregister from bus decision events.”””
+        """Unregister from bus decision events."""
         try:
             self._bus.off(CoreEvent.DECISION_MADE, self.on_decision_made)
         except Exception as e:
-            logger.debug(f”Error unregistering ActionProposer listener: {e}”)
-        logger.info(“ActionProposer stopped”)
+            logger.debug(f"Error unregistering ActionProposer listener: {e}")
+        logger.info("ActionProposer stopped")
 
     async def on_decision_made(self, event: Event) -> None:
         """Handle new decisions from the orchestrator."""
