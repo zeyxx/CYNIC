@@ -8,12 +8,25 @@ import logging
 from typing import Any
 from dataclasses import dataclass
 
+from prometheus_client import Counter, Gauge
+
 from cynic.kernel.core.container import DependencyContainer
 from cynic.kernel.core.event_bus import CoreEvent, Event, current_instance_id
 from cynic.kernel.organism.anatomy import ArchiveCore, CognitionCore, MetabolicCore, SensoryCore
 from cynic.kernel.organism.state_manager import OrganismState
 
 logger = logging.getLogger("cynic.kernel.organism")
+
+# Prometheus metrics for organism observability
+organism_consciousness_level = Gauge(
+    "cynic_organism_consciousness_level",
+    "Current consciousness level of the organism (0-100)"
+)
+
+organism_judgments_total = Counter(
+    "cynic_organism_judgments_total",
+    "Total number of judgments created by the organism"
+)
 
 @dataclass
 class Organism:
@@ -72,7 +85,12 @@ class Organism:
                 await self.memory.sona_emitter.start()
 
             logger.info(f"Organism [{self.instance_id}]: All systems NOMINAL. Respiration active.")
-            
+
+            # Wire observability metrics handlers
+            bus = self.cognition.orchestrator.bus
+            bus.on(CoreEvent.CONSCIOUSNESS_CHANGED, self._on_consciousness_changed)
+            bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
+
             # Initial Spark
             await self.cognition.orchestrator.bus.emit(Event.typed(
                 CoreEvent.AWAKENED,
@@ -205,6 +223,22 @@ class Organism:
             logger.debug(f"Error stopping state: {e}")
 
         logger.info(f"Organism [{self.instance_id}]: Dormant. Shutdown complete.")
+
+    async def _on_consciousness_changed(self, event: Event) -> None:
+        """Update consciousness level metric when consciousness changes."""
+        try:
+            payload = event.dict_payload
+            level = payload.get("level", 0)
+            organism_consciousness_level.set(level)
+        except Exception as e:
+            logger.debug(f"Error updating consciousness metric: {e}")
+
+    async def _on_judgment_created(self, event: Event) -> None:
+        """Increment judgment counter when judgment is created."""
+        try:
+            organism_judgments_total.inc()
+        except Exception as e:
+            logger.debug(f"Error updating judgment counter: {e}")
 
 async def awaken(db_pool=None, registry=None) -> Organism:
     """Delegates to the factory for awakening."""
