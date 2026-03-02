@@ -6,13 +6,21 @@ import asyncio
 import time
 import pytest
 
-from cynic.kernel.core.event_bus import EventBus, Event, CoreEvent
+from cynic.kernel.core.event_bus import EventBus, Event, CoreEvent, reset_all_buses
+
+
+@pytest.fixture(autouse=True)
+def cleanup_buses():
+    """Ensure bus state is clean before and after each test."""
+    reset_all_buses()
+    yield
+    reset_all_buses()
 
 
 @pytest.mark.asyncio
 @pytest.mark.performance
-async def test_batch_emit_vs_sequential():
-    """Batch-style emit should be faster than sequential."""
+async def test_sequential_emit_throughput():
+    """Measure raw sequential event emission throughput without batching optimization."""
     bus = EventBus("batch_test", "instance1")
 
     handler_calls = []
@@ -74,9 +82,10 @@ async def test_handler_wrapper_latency():
     print(f"\nHandler wrapper latency: {avg_latency:.2f}ms per event")
     print(f"Total time for 100 events: {total_time:.3f}s")
 
-    # Should be close to (1ms work + handler overhead) per event in concurrent execution
-    # With concurrent asyncio, 100 tasks with 1ms sleep each complete in ~1ms + scheduling
-    assert avg_latency < 50.0, f"Latency too high: {avg_latency:.2f}ms"
+    # With concurrent asyncio, 100 tasks with 1ms sleep each complete in ~1ms + scheduling overhead
+    # Per-event latency = total_time / 100, which should be well under 5ms even with overhead
+    # This threshold would catch if _safe_handler_wrapper added significant per-event cost
+    assert avg_latency < 5.0, f"Handler wrapper latency too high: {avg_latency:.2f}ms"
     assert total_time > 0.001, "Time measurement valid"  # At minimum, should be > 1ms for concurrent 1ms sleeps
 
 
