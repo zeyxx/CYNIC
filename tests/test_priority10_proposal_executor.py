@@ -231,3 +231,320 @@ class TestExecutionResult:
         assert result.error_message == ""
         assert result.old_value == 0.3
         assert result.new_value == 0.45
+
+
+class TestSelfProberExecutorIntegration:
+    """Test SelfProber + ProposalExecutor integration (Priority 10 Task 2)."""
+
+    @pytest.mark.asyncio
+    async def test_8_selfprober_accepts_executor_injection(self):
+        """Test 8: SelfProber accepts executor injection via set_executor()."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+
+        prober = SelfProber()
+        executor = ProposalExecutor()
+
+        # Should not raise
+        prober.set_executor(executor)
+        assert prober._executor is executor
+
+    @pytest.mark.asyncio
+    async def test_9_apply_async_executes_low_risk_proposal(self):
+        """Test 9: apply_async() executes LOW_RISK proposals."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.kernel.core.event_bus import EventBus
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        executor = ProposalExecutor()
+
+        # Create mock qtable
+        class MockQTable:
+            def __init__(self):
+                self._table = {
+                    "state_a": {"action_1": {"value": 0.15, "visits": 5}}
+                }
+
+            def update(self, state, action, new_value):
+                if state in self._table and action in self._table[state]:
+                    self._table[state][action]["value"] = new_value
+
+        executor.set_qtable(MockQTable())
+        prober.set_executor(executor)
+
+        # Create LOW_RISK proposal
+        proposal = SelfProposal(
+            probe_id="p9",
+            trigger="MANUAL",
+            pattern_type="TEST",
+            severity=0.15,  # < 0.2, so LOW_RISK for METRICS/QTABLE
+            dimension="QTABLE",
+            target="state_a:action_1",
+            recommendation="Test proposal",
+            current_value=0.15,
+            suggested_value=0.30,
+        )
+        prober._proposals.append(proposal)
+
+        # Apply the proposal
+        updated_proposal = await prober.apply_async("p9")
+
+        # Should be marked as APPLIED and execution should succeed
+        assert updated_proposal is not None
+        assert updated_proposal.status == "APPLIED"
+
+    @pytest.mark.asyncio
+    async def test_10_apply_async_skips_review_required_proposals(self):
+        """Test 10: apply_async() skips execution for REVIEW_REQUIRED, just marks APPLIED."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.kernel.core.event_bus import EventBus
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        executor = ProposalExecutor()
+        prober.set_executor(executor)
+
+        # Create REVIEW_REQUIRED proposal (high severity METRICS)
+        proposal = SelfProposal(
+            probe_id="p10",
+            trigger="MANUAL",
+            pattern_type="TEST",
+            severity=0.75,  # >= 0.5, so REVIEW_REQUIRED
+            dimension="METRICS",
+            target="test_metric",
+            recommendation="Test proposal",
+            current_value=1.0,
+            suggested_value=0.5,
+        )
+        prober._proposals.append(proposal)
+
+        # Apply the proposal
+        updated_proposal = await prober.apply_async("p10")
+
+        # Should be marked as APPLIED but not executed (no event emitted)
+        assert updated_proposal is not None
+        assert updated_proposal.status == "APPLIED"
+
+    @pytest.mark.asyncio
+    async def test_11_apply_async_emits_proposal_executed_on_success(self):
+        """Test 11: apply_async() emits PROPOSAL_EXECUTED event on successful execution."""
+        import asyncio
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.kernel.core.event_bus import EventBus, CoreEvent
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        executor = ProposalExecutor()
+
+        # Track emitted events
+        emitted_events = []
+
+        async def capture_event(event):
+            emitted_events.append(event)
+
+        bus.on(CoreEvent.PROPOSAL_EXECUTED, capture_event)
+
+        # Create mock qtable
+        class MockQTable:
+            def __init__(self):
+                self._table = {
+                    "state_b": {"action_2": {"value": 0.10, "visits": 5}}
+                }
+
+            def update(self, state, action, new_value):
+                if state in self._table and action in self._table[state]:
+                    self._table[state][action]["value"] = new_value
+
+        executor.set_qtable(MockQTable())
+        prober.set_executor(executor)
+
+        # Create LOW_RISK QTABLE proposal
+        proposal = SelfProposal(
+            probe_id="p11",
+            trigger="MANUAL",
+            pattern_type="TEST",
+            severity=0.15,
+            dimension="QTABLE",
+            target="state_b:action_2",
+            recommendation="Test proposal",
+            current_value=0.10,
+            suggested_value=0.25,
+        )
+        prober._proposals.append(proposal)
+
+        # Apply the proposal
+        await prober.apply_async("p11")
+
+        # Wait for async event handlers to complete
+        await bus.drain(timeout=1.0)
+
+        # Should have emitted PROPOSAL_EXECUTED event
+        assert len(emitted_events) > 0
+        executed_event = emitted_events[0]
+        assert executed_event.type == CoreEvent.PROPOSAL_EXECUTED.value
+        payload = executed_event.dict_payload
+        assert payload["proposal_id"] == "p11"
+        assert payload["success"] is True
+        assert payload["dimension"] == "QTABLE"
+
+    @pytest.mark.asyncio
+    async def test_12_apply_async_emits_proposal_failed_on_execution_failure(self):
+        """Test 12: apply_async() emits PROPOSAL_FAILED event on execution failure."""
+        import asyncio
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.kernel.core.event_bus import EventBus, CoreEvent
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        executor = ProposalExecutor()
+
+        # Track emitted events
+        emitted_events = []
+
+        async def capture_event(event):
+            emitted_events.append(event)
+
+        bus.on(CoreEvent.PROPOSAL_FAILED, capture_event)
+
+        # Don't inject qtable - should cause execution failure
+        prober.set_executor(executor)
+
+        # Create QTABLE proposal (will fail due to missing qtable)
+        proposal = SelfProposal(
+            probe_id="p12",
+            trigger="MANUAL",
+            pattern_type="TEST",
+            severity=0.15,
+            dimension="QTABLE",
+            target="state_c:action_3",
+            recommendation="Test proposal",
+            current_value=0.10,
+            suggested_value=0.25,
+        )
+        prober._proposals.append(proposal)
+
+        # Apply the proposal
+        await prober.apply_async("p12")
+
+        # Wait for async event handlers to complete
+        await bus.drain(timeout=1.0)
+
+        # Should have emitted PROPOSAL_FAILED event
+        assert len(emitted_events) > 0
+        failed_event = emitted_events[0]
+        assert failed_event.type == CoreEvent.PROPOSAL_FAILED.value
+        payload = failed_event.dict_payload
+        assert payload["proposal_id"] == "p12"
+        assert payload["success"] is False
+        assert payload["dimension"] == "QTABLE"
+
+    @pytest.mark.asyncio
+    async def test_13_apply_async_missing_proposal_returns_none(self):
+        """Test 13: apply_async() returns None if proposal not found."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.kernel.core.event_bus import EventBus
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        executor = ProposalExecutor()
+        prober.set_executor(executor)
+
+        # Try to apply non-existent proposal
+        result = await prober.apply_async("nonexistent")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_14_apply_async_without_executor_still_marks_applied(self):
+        """Test 14: apply_async() without executor still marks proposal as APPLIED."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.kernel.core.event_bus import EventBus
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        # Don't inject executor
+
+        # Create proposal
+        proposal = SelfProposal(
+            probe_id="p14",
+            trigger="MANUAL",
+            pattern_type="TEST",
+            severity=0.15,
+            dimension="QTABLE",
+            target="state_d:action_4",
+            recommendation="Test proposal",
+            current_value=0.10,
+            suggested_value=0.25,
+        )
+        prober._proposals.append(proposal)
+
+        # Apply the proposal without executor
+        updated_proposal = await prober.apply_async("p14")
+
+        # Should still mark as APPLIED
+        assert updated_proposal is not None
+        assert updated_proposal.status == "APPLIED"
+
+    @pytest.mark.asyncio
+    async def test_15_apply_async_event_payload_includes_all_fields(self):
+        """Test 15: PROPOSAL_EXECUTED event payload includes all relevant fields."""
+        import asyncio
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.kernel.core.event_bus import EventBus, CoreEvent
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        executor = ProposalExecutor()
+
+        # Track emitted events
+        emitted_events = []
+
+        async def capture_event(event):
+            emitted_events.append(event)
+
+        bus.on(CoreEvent.PROPOSAL_EXECUTED, capture_event)
+
+        # Create mock qtable
+        class MockQTable:
+            def __init__(self):
+                self._table = {
+                    "state_e": {"action_5": {"value": 0.10, "visits": 5}}
+                }
+
+            def update(self, state, action, new_value):
+                if state in self._table and action in self._table[state]:
+                    self._table[state][action]["value"] = new_value
+
+        executor.set_qtable(MockQTable())
+        prober.set_executor(executor)
+
+        # Create LOW_RISK QTABLE proposal
+        proposal = SelfProposal(
+            probe_id="p15",
+            trigger="MANUAL",
+            pattern_type="TEST",
+            severity=0.15,
+            dimension="QTABLE",
+            target="state_e:action_5",
+            recommendation="Test proposal",
+            current_value=0.10,
+            suggested_value=0.25,
+        )
+        prober._proposals.append(proposal)
+
+        # Apply the proposal
+        await prober.apply_async("p15")
+
+        # Wait for async event handlers to complete
+        await bus.drain(timeout=1.0)
+
+        # Verify event payload
+        assert len(emitted_events) > 0
+        event = emitted_events[0]
+        payload = event.dict_payload
+        assert "proposal_id" in payload
+        assert "dimension" in payload
+        assert "success" in payload
+        assert "message" in payload
+        assert "old_value" in payload
+        assert "new_value" in payload

@@ -143,6 +143,7 @@ class SelfProber:
         self._escore: Any | None = None
         self._metrics_collector: Any | None = None
         self._registered: bool = False
+        self._executor: Any | None = None
         from cynic.kernel.core.event_bus import CoreEvent, Event
         self._bus = bus or get_core_bus("DEFAULT")
         self._load()
@@ -165,6 +166,10 @@ class SelfProber:
     def set_handler_registry(self, registry: Any) -> None:
         """Inject HandlerRegistry for architecture analysis."""
         self._handler_registry = registry
+
+    def set_executor(self, executor: Any) -> None:
+        """Inject ProposalExecutor for auto-apply functionality."""
+        self._executor = executor
 
     # â"€â"€ Lifecycle â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
@@ -207,6 +212,78 @@ class SelfProber:
                 self._save()
                 return p
         return None
+
+    async def apply_async(self, probe_id: str) -> SelfProposal | None:
+        """
+        Apply a proposal asynchronously with automatic execution for LOW_RISK proposals.
+
+        If executor is available and proposal is LOW_RISK, executes it immediately
+        and emits PROPOSAL_EXECUTED or PROPOSAL_FAILED event.
+
+        If proposal is REVIEW_REQUIRED, marks as APPLIED but doesn't execute.
+
+        Args:
+            probe_id: The proposal ID to apply
+
+        Returns:
+            Updated SelfProposal or None if not found
+        """
+        proposal = self.get(probe_id)
+        if proposal is None:
+            return None
+
+        # Mark as applied
+        proposal.status = "APPLIED"
+
+        # If no executor, just save and return
+        if self._executor is None:
+            self._save()
+            return proposal
+
+        # Classify risk
+        risk = self._executor.classify_risk(proposal)
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import RiskLevel
+
+        # If LOW_RISK, execute immediately
+        if risk == RiskLevel.LOW_RISK:
+            try:
+                result = await self._executor.execute(proposal)
+                self._save()
+
+                # Emit event based on execution result
+                event_type = (
+                    CoreEvent.PROPOSAL_EXECUTED
+                    if result.success
+                    else CoreEvent.PROPOSAL_FAILED
+                )
+                await self._bus.emit(
+                    Event.typed(
+                        event_type,
+                        payload={
+                            "proposal_id": result.proposal_id,
+                            "dimension": result.dimension,
+                            "success": result.success,
+                            "message": result.message,
+                            "error_message": result.error_message,
+                            "old_value": result.old_value,
+                            "new_value": result.new_value,
+                        },
+                        source="self_prober",
+                    )
+                )
+                logger.info(
+                    "SelfProber.apply_async: %s proposal %s",
+                    "EXECUTED" if result.success else "FAILED",
+                    probe_id,
+                )
+            except Exception as exc:
+                logger.warning("SelfProber.apply_async execution error: %s", exc)
+                self._save()
+        else:
+            # REVIEW_REQUIRED or NOT_EXECUTABLE: just mark as applied
+            self._save()
+
+        return proposal
 
     def stats(self) -> dict[str, Any]:
         counts = {"PENDING": 0, "APPLIED": 0, "DISMISSED": 0}

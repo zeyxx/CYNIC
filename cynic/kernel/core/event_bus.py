@@ -72,6 +72,9 @@ class CoreEvent(str, Enum):
     INTERNAL_ERROR = "core.internal_error"
     BUDGET_WARNING = "core.budget_warning"
     BUDGET_EXHAUSTED = "core.budget_exhausted"
+    # --- Priority 10: Proposal execution events ---
+    PROPOSAL_EXECUTED = "core.proposal_executed"
+    PROPOSAL_FAILED = "core.proposal_failed"
 
 class Event:
     def __init__(self, type: str, payload: Any = None, source: str = "unknown", instance_id: str | None = None):
