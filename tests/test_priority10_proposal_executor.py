@@ -1100,6 +1100,154 @@ class TestProposalExecutorGuardrails:
         assert result.success is False
         assert "circuit breaker" in result.error_message.lower()
 
+    @pytest.mark.asyncio
+    async def test_32_circuit_breaker_auto_resets_after_timeout(self):
+        """Test 32: Circuit breaker auto-resets after timeout period (5 minutes)."""
+        import time
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber, SelfProposal
+        from cynic.kernel.core.event_bus import EventBus
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        executor = ProposalExecutor()
+
+        # Set circuit breaker to open after 2 failures
+        executor.set_circuit_breaker_threshold(2)
+
+        # Set timeout to very short (0.1 seconds) for testing
+        executor._circuit_reset_timeout_s = 0.1
+
+        # Don't inject qtable - all executions will fail
+        prober.set_executor(executor)
+
+        # Create 2 LOW_RISK QTABLE proposals to trigger circuit open
+        for i in range(2):
+            proposal = SelfProposal(
+                probe_id=f"p32_{i}",
+                trigger="MANUAL",
+                pattern_type="TEST",
+                severity=0.15,
+                dimension="QTABLE",
+                target=f"state_{i}:action_{i}",
+                recommendation="Test proposal",
+                current_value=0.15,
+                suggested_value=0.30,
+            )
+            prober._proposals.append(proposal)
+
+        # Apply first 2 proposals - should fail and open circuit
+        for i in range(2):
+            await prober.apply_async(f"p32_{i}")
+
+        # Verify circuit is open
+        assert executor.is_circuit_open() is True
+
+        # Wait for timeout to elapse
+        time.sleep(0.15)
+
+        # Inject qtable for next execution to succeed
+        class MockQTable:
+            def __init__(self):
+                self._table = {"state_recovery": {"action_recovery": {"value": 0.15, "visits": 5}}}
+
+            def update(self, state, action, new_value):
+                if state in self._table and action in self._table[state]:
+                    self._table[state][action]["value"] = new_value
+
+        executor.set_qtable(MockQTable())
+
+        # Create a successful proposal
+        recovery_proposal = SelfProposal(
+            probe_id="p32_recovery",
+            trigger="MANUAL",
+            pattern_type="TEST",
+            severity=0.15,
+            dimension="QTABLE",
+            target="state_recovery:action_recovery",
+            recommendation="Test proposal",
+            current_value=0.15,
+            suggested_value=0.30,
+        )
+        prober._proposals.append(recovery_proposal)
+
+        # Try to apply - circuit should auto-reset and execute successfully
+        result = await executor.execute(recovery_proposal)
+        assert result.success is True
+        assert executor.is_circuit_open() is False
+
+    @pytest.mark.asyncio
+    async def test_33_circuit_breaker_manual_reset(self):
+        """Test 33: Circuit breaker can be manually reset by calling reset_circuit()."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber, SelfProposal
+        from cynic.kernel.core.event_bus import EventBus
+
+        bus = EventBus("test_bus")
+        prober = SelfProber(bus=bus)
+        executor = ProposalExecutor()
+
+        # Set circuit breaker to open after 2 failures
+        executor.set_circuit_breaker_threshold(2)
+
+        # Don't inject qtable - all executions will fail
+        prober.set_executor(executor)
+
+        # Create 2 LOW_RISK QTABLE proposals to trigger circuit open
+        for i in range(2):
+            proposal = SelfProposal(
+                probe_id=f"p33_{i}",
+                trigger="MANUAL",
+                pattern_type="TEST",
+                severity=0.15,
+                dimension="QTABLE",
+                target=f"state_{i}:action_{i}",
+                recommendation="Test proposal",
+                current_value=0.15,
+                suggested_value=0.30,
+            )
+            prober._proposals.append(proposal)
+
+        # Apply first 2 proposals - should fail and open circuit
+        for i in range(2):
+            await prober.apply_async(f"p33_{i}")
+
+        # Verify circuit is open
+        assert executor.is_circuit_open() is True
+
+        # Manually reset the circuit
+        executor.reset_circuit()
+
+        # Verify circuit is now closed
+        assert executor.is_circuit_open() is False
+
+        # Inject qtable and verify we can execute again
+        class MockQTable:
+            def __init__(self):
+                self._table = {"state_manual": {"action_manual": {"value": 0.15, "visits": 5}}}
+
+            def update(self, state, action, new_value):
+                if state in self._table and action in self._table[state]:
+                    self._table[state][action]["value"] = new_value
+
+        executor.set_qtable(MockQTable())
+
+        # Create a new proposal
+        recovery_proposal = SelfProposal(
+            probe_id="p33_recovery",
+            trigger="MANUAL",
+            pattern_type="TEST",
+            severity=0.15,
+            dimension="QTABLE",
+            target="state_manual:action_manual",
+            recommendation="Test proposal",
+            current_value=0.15,
+            suggested_value=0.30,
+        )
+        prober._proposals.append(recovery_proposal)
+
+        # Should be able to execute successfully
+        result = await executor.execute(recovery_proposal)
+        assert result.success is True
+
     def test_28_proposal_rollback_records_executions(self):
         """Test 28: ProposalRollback records executions."""
         import tempfile

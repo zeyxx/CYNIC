@@ -90,6 +90,8 @@ class ProposalExecutor:
         self._circuit_breaker_threshold: int | None = None  # Max failures before opening
         self._consecutive_failures: int = 0
         self._circuit_open: bool = False
+        self._circuit_open_at: float | None = None  # Timestamp when circuit opened
+        self._circuit_reset_timeout_s: float = 300.0  # 5 minutes
 
     # — Injection —————————————————————————————————————————————————————————————
 
@@ -135,6 +137,42 @@ class ProposalExecutor:
             True if circuit is open (too many recent failures), False otherwise
         """
         return self._circuit_open
+
+    def _check_circuit_reset(self) -> bool:
+        """
+        Check if circuit breaker should auto-reset after timeout.
+
+        After the circuit opens due to consecutive failures, it automatically
+        transitions to a closed state after _circuit_reset_timeout_s seconds,
+        allowing one test execution to verify recovery.
+
+        Returns:
+            True if circuit was auto-reset, False otherwise
+        """
+        if self._circuit_open and self._circuit_open_at is not None:
+            elapsed = time.time() - self._circuit_open_at
+            if elapsed >= self._circuit_reset_timeout_s:
+                logger.info(
+                    "ProposalExecutor: Circuit breaker auto-reset after %.1f seconds timeout",
+                    self._circuit_reset_timeout_s,
+                )
+                self._circuit_open = False
+                self._circuit_open_at = None
+                self._consecutive_failures = 0
+                return True
+        return False
+
+    def reset_circuit(self) -> None:
+        """
+        Manually reset circuit breaker (for emergency recovery).
+
+        Can be called by operators to force recovery from failure cascade.
+        """
+        if self._circuit_open:
+            logger.warning("ProposalExecutor: Circuit breaker manually reset")
+            self._circuit_open = False
+            self._circuit_open_at = None
+            self._consecutive_failures = 0
 
     async def _apply_rate_limit(self) -> None:
         """
@@ -216,7 +254,10 @@ class ProposalExecutor:
         Returns:
             ExecutionResult with success flag and outcome message
         """
-        # Check circuit breaker first
+        # Check if circuit should auto-reset
+        self._check_circuit_reset()
+
+        # Check circuit breaker state
         if self._circuit_open:
             return ExecutionResult(
                 success=False,
@@ -259,9 +300,11 @@ class ProposalExecutor:
                 self._consecutive_failures += 1
                 if self._consecutive_failures >= self._circuit_breaker_threshold:
                     self._circuit_open = True
+                    self._circuit_open_at = time.time()  # Record timestamp for timeout
                     logger.warning(
-                        "ProposalExecutor: Circuit breaker opened after %d failures",
+                        "ProposalExecutor: Circuit breaker opened after %d failures (will auto-reset after %.1f seconds)",
                         self._consecutive_failures,
+                        self._circuit_reset_timeout_s,
                     )
 
         return result

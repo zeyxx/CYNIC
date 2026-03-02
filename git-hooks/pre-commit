@@ -1,0 +1,31 @@
+#!/bin/bash
+set -e
+
+# Get the repository root
+REPO_ROOT=$(git rev-parse --show-toplevel)
+export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH}"
+
+echo "🔍 Running pre-commit gates..."
+
+# Gate 1: Encoding Validation
+echo "  [1/5] Validating UTF-8 encoding..."
+python scripts/validate_encoding.py || exit 1
+
+# Gate 2: Import Analysis
+echo "  [2/5] Checking for circular imports..."
+python scripts/analyze_imports.py || exit 1
+
+# Gate 3: Factory Audit
+echo "  [3/5] Auditing factory wiring..."
+python scripts/audit_factory_wiring.py || exit 1
+
+# Gate 4: Unit Tests
+echo "  [4/5] Running unit tests + coverage..."
+cd "${REPO_ROOT}" && pytest tests/test_priority10_proposal_executor.py -x --cov=cynic --cov-fail-under=82 -q || exit 1
+
+# Gate 5: Commit Message Format
+echo "  [5/5] Validating commit message format..."
+python scripts/validate_commit_message.py || exit 1
+
+echo "✅ All pre-commit gates passed!"
+exit 0
