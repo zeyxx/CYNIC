@@ -223,8 +223,7 @@ async def governance_status(container: AppContainer = Depends(get_app_container)
     )
 
 @router.post("/votes")
-async def record_vote(req: dict, container: AppContainer = Depends(get_app_container)):
-    """Record a user vote (legacy endpoint)."""
-    vote = GovernanceVote(**req)
+async def record_vote(vote: GovernanceVote, container: AppContainer = Depends(get_app_container)):
+    """Record a user vote with validated payload."""
     await container.organism.state.record_vote(vote)
     return {"status": "SUCCESS", "vote_id": vote.vote_id}
