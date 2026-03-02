@@ -119,8 +119,8 @@ class OrganismState:
             }
 
             # Inject bus stats if available
-            if self._bus:
-                stats["nervous_system"] = self._bus.stats()
+            if self.bus:
+                stats["nervous_system"] = self.bus.stats()
 
             return stats
 
