@@ -116,7 +116,10 @@ class WebEye:
                 "timestamp": time.time(),
                 "game_id": "cannon-session"
             }
-        except:
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.debug("web_eye: error fetching multiplier: %s", e)
             return {}
 
     def _should_emit(self, state: dict) -> bool:
