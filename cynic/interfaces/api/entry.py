@@ -27,6 +27,24 @@ logger = logging.getLogger("cynic.interfaces.api.entry")
 
 def main() -> None:
     _config = CynicConfig.from_env()
+
+    # Validate configuration at startup (fail-fast for critical issues)
+    issues = _config.validate()
+    for issue in issues:
+        if issue.startswith("CRITICAL:"):
+            logger.error(issue)
+        elif issue.startswith("WARN:"):
+            logger.warning(issue)
+        else:
+            logger.info(issue)
+
+    # Exit on critical production issues
+    critical_issues = [i for i in issues if i.startswith("CRITICAL:")]
+    is_prod = _config.environment not in ("development", "test", "local")
+    if critical_issues and is_prod:
+        logger.error("Cannot start in production with critical configuration issues. Exiting.")
+        raise RuntimeError(f"Configuration validation failed: {critical_issues}")
+
     parser = argparse.ArgumentParser(description="CYNIC Kernel API Server")
     parser.add_argument("--host", default="0.0.0.0", help="Bind host")
     parser.add_argument("--port", type=int, default=_config.port, help="Bind port")

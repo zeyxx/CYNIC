@@ -169,7 +169,12 @@ class CynicConfig:
         )
 
     def validate(self) -> list[str]:
-        """Return list of warnings/errors about this configuration."""
+        """
+        Return list of warnings/errors about this configuration.
+
+        Separates issues into CRITICAL (fail-fast), WARN (degraded), and INFO levels.
+        Call this at startup and exit if CRITICAL issues are found in production.
+        """
         issues: list[str] = []
         is_prod = self.environment not in ("development", "test", "local")
 
@@ -193,6 +198,12 @@ class CynicConfig:
                 issues.append("CRITICAL: SURREAL_PASS not set for production")
             if not self.discord_token:
                 issues.append("WARN: DISCORD_TOKEN not set (Discord bot disabled)")
+
+        # Telegram integration
+        if self.telegram_token and not self.telegram_chat_id:
+            issues.append("WARN: TELEGRAM_BOT_TOKEN set but TELEGRAM_CHAT_ID missing")
+        if self.telegram_chat_id and not self.telegram_token:
+            issues.append("WARN: TELEGRAM_CHAT_ID set but TELEGRAM_BOT_TOKEN missing")
 
         # LLM warnings
         has_any_llm = bool(self.anthropic_api_key or self.google_api_key or self.models_dir)
