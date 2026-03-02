@@ -11,7 +11,6 @@ Requirements:
 from __future__ import annotations
 
 import logging
-import os
 
 import httpx
 
@@ -23,8 +22,19 @@ class TelegramBridge:
     Uses httpx directly to avoid heavy bot framework dependencies.
     """
     def __init__(self, token: str | None = None, chat_id: str | None = None):
-        self.token = token or os.environ.get("TELEGRAM_BOT_TOKEN")
-        self.chat_id = chat_id or os.environ.get("TELEGRAM_CHAT_ID")
+        # Dependency injection (preferred)
+        if token is None or chat_id is None:
+            # Fall back to unified config system (Rule 3: single source of truth)
+            try:
+                from cynic.kernel.core.config import CynicConfig
+                config = CynicConfig.from_env()
+                token = token or config.telegram_token
+                chat_id = chat_id or config.telegram_chat_id
+            except Exception:
+                pass  # If config unavailable, token/chat_id remain None
+
+        self.token = token
+        self.chat_id = chat_id
         self.base_url = f"https://api.telegram.org/bot{self.token}"
         self.active = all([self.token, self.chat_id])
         

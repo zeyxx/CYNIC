@@ -73,6 +73,10 @@ class CynicConfig:
     discord_token: str | None = None
     discord_guild_id: str | None = None
     telegram_token: str | None = None
+    telegram_chat_id: str | None = None
+
+    # —— Integrations: Web3 & Market Data ──────────────────────────────────────
+    helius_api_key: str | None = None
 
     # —— GASdf: Governance (On-chain execution) ───────────────────────────────
     gasdf_url: str = "http://localhost:8766"
@@ -139,6 +143,10 @@ class CynicConfig:
             discord_token=os.getenv("DISCORD_TOKEN"),
             discord_guild_id=os.getenv("DISCORD_GUILD_ID"),
             telegram_token=os.getenv("TELEGRAM_BOT_TOKEN"),
+            telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID"),
+
+            # Integrations
+            helius_api_key=os.getenv("HELIUS_API_KEY"),
 
             # GASdf
             gasdf_url=os.getenv("GASDF_URL", "http://localhost:8766"),
