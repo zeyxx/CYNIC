@@ -75,7 +75,7 @@ class TopologyMirror:
         self,
         bus: EventBus,
         kernel_mirror: KernelMirror,
-        state: AppContainer,
+        state: AppState,
     ) -> None:
         """
         Capture current kernel state and write to files.
