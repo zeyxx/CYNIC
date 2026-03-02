@@ -1,5 +1,5 @@
 """
-ActionProposer â€” The Strategy Layer.
+ActionProposer - The Strategy Layer.
 
 Receives DECISION_MADE events from the JudgeOrchestrator and translates them
 into actionable proposals for the organism's motor system (ActHandlers).
@@ -60,17 +60,17 @@ class ActionProposer:
         self._bus = bus
 
     def start(self):
-        “””Subscribe to decision events.”””
+        """Subscribe to decision events."""
         self._bus.on(CoreEvent.DECISION_MADE, self.on_decision_made)
-        logger.info(“ActionProposer started â€” linked to SurrealDB”)
+        logger.info("ActionProposer started - linked to SurrealDB")
 
     def stop(self) -> None:
-        “””Unregister from bus decision events.”””
+        """Unregister from bus decision events."""
         try:
             self._bus.off(CoreEvent.DECISION_MADE, self.on_decision_made)
         except Exception as e:
-            logger.debug(f”Error unregistering ActionProposer listener: {e}”)
-        logger.info(“ActionProposer stopped”)
+            logger.debug(f"Error unregistering ActionProposer listener: {e}")
+        logger.info("ActionProposer stopped")
 
     async def on_decision_made(self, event: Event) -> None:
         """Handle new decisions from the orchestrator."""

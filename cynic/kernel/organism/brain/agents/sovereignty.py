@@ -1,5 +1,5 @@
 """
-SovereigntyAgent â€” Amplifying creator impact.
+SovereigntyAgent - Amplifying creator impact.
 
 Subscribes to VALUE_CREATED events and calculates multidimensional impact:
 - Direct: Immediate utility of the creation.
@@ -32,17 +32,17 @@ class SovereigntyAgent:
         self._bus = bus
 
     def start(self):
-        “””Subscribe to the nervous system.”””
+        """Subscribe to the nervous system."""
         self._bus.on(CoreEvent.VALUE_CREATED, self._on_value_created)
-        logger.info(“SovereigntyAgent active â€” measuring impact.”)
+        logger.info("SovereigntyAgent active - measuring impact.")
 
     def stop(self) -> None:
-        “””Unregister from bus value events.”””
+        """Unregister from bus value events."""
         try:
             self._bus.off(CoreEvent.VALUE_CREATED, self._on_value_created)
         except Exception as e:
-            logger.debug(f”Error unregistering SovereigntyAgent listener: {e}”)
-        logger.info(“SovereigntyAgent stopped”)
+            logger.debug(f"Error unregistering SovereigntyAgent listener: {e}")
+        logger.info("SovereigntyAgent stopped")
 
     async def _on_value_created(self, event: Event) -> None:
         """A new creation event has occurred."""
@@ -59,7 +59,7 @@ class SovereigntyAgent:
             # Signal the E-Score tracker to update reputation
             await self._bus.emit(
                 Event.typed(
-                    CoreEvent.Q_TABLE_UPDATED,  # Trigger reputation recalculation
+                    CoreEvent.Q_TABLE_UPDATED,
                     {
                         "agent_id": creation.creator_id,
                         "impact_score": impact.total_impact,

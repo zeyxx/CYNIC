@@ -1,5 +1,5 @@
 """
-Sovereignty Router â€” Value Impact Measurement Interface.
+Sovereignty Router - Value Impact Measurement Interface.
 """
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ router = APIRouter(prefix="/sovereignty", tags=["sovereignty"])
 
 @router.post("/create")
 async def record_value_creation(
-    creator_id: str, 
-    creation_type: str, 
+    creator_id: str,
+    creation_type: str,
     description: str,
     container: AppContainer = Depends(get_app_container)
 ):
@@ -35,6 +35,6 @@ async def get_impact(human_id: str, container: AppContainer = Depends(get_app_co
     return {
         "human_id": human_id,
         "total_impact": 0.0,
-        "governance_weight": 0.01, # Floor
+        "governance_weight": 0.01,
         "status": "CALCULATING"
     }

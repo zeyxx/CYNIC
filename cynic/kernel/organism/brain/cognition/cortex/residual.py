@@ -1,5 +1,5 @@
 """
-ResidualDetector â€” Î³1 entropy sensor.
+ResidualDetector - γ1 entropy sensor.
 
 Measures the variance between Dog judgments.
 High variance = High 'Unnameable' content = Emergence potential.
@@ -35,17 +35,17 @@ class ResidualDetector:
         self._bus = bus
 
     def start(self):
-        “””Subscribe to judgment events.”””
+        """Subscribe to judgment events."""
         self._bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment)
-        logger.info(“ResidualDetector started â€” listening for JUDGMENT_CREATED”)
+        logger.info("ResidualDetector started - listening for JUDGMENT_CREATED")
 
     def stop(self) -> None:
-        “””Unregister from bus judgment events.”””
+        """Unregister from bus judgment events."""
         try:
             self._bus.off(CoreEvent.JUDGMENT_CREATED, self._on_judgment)
         except Exception as e:
-            logger.debug(f”Error unregistering ResidualDetector listener: {e}”)
-        logger.info(“ResidualDetector stopped”)
+            logger.debug(f"Error unregistering ResidualDetector listener: {e}")
+        logger.info("ResidualDetector stopped")
 
     def observe(self, judgment: Judgment) -> float:
         """Synchronous observation of judgment variance."""
