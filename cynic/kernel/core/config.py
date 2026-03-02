@@ -77,6 +77,9 @@ class CynicConfig:
     gasdf_url: str = "http://localhost:8766"
     gasdf_enabled: bool = False
 
+    # —— MCP Server Configuration ───────────────────────────────────────────────
+    mcp_stdio_only: bool = True  # If True, only start stdio MCP (not HTTP)
+
     # —— Judgment & Consensus ──────────────────────────────────────────────────
     num_dogs: int = 11
     max_judgments_batch: int = 10
@@ -136,6 +139,9 @@ class CynicConfig:
             # GASdf
             gasdf_url=os.getenv("GASDF_URL", "http://localhost:8766"),
             gasdf_enabled=os.getenv("GASDF_ENABLED") == "1",
+
+            # MCP Server
+            mcp_stdio_only=os.getenv("CYNIC_MCP_STDIO_ONLY", "1") == "1",
 
             # Judgment
             num_dogs=int(os.getenv("NUM_DOGS", "11")),

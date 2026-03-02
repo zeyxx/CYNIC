@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from cynic.kernel.core.config import CynicConfig
 from cynic.kernel.observability.symbiotic_state_manager import get_current_state
 from cynic.kernel.organism.brain.dialogue.llm_bridge import LLMBridge
 from cynic.kernel.organism.brain.dialogue.models import CynicMessage, UserMessage
@@ -18,7 +19,9 @@ class DialogueMode:
     def __init__(self):
         self.storage = None
         self.memory_store = None
-        self.llm_bridge = LLMBridge()
+        # Load API key from centralized config (Rule 3)
+        config = CynicConfig.from_env()
+        self.llm_bridge = LLMBridge(api_key=config.anthropic_api_key)
         self.reasoning_engine = ReasoningEngine()
         self._initialized = False
 

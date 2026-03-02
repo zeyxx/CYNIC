@@ -2,19 +2,29 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from anthropic import AsyncAnthropic
 
 
 class LLMBridge:
-    """Interface to Claude API for dialogue responses."""
+    """Interface to Claude API for dialogue responses.
+
+    Note: API key must be passed via constructor or provided through CynicConfig.
+    Do not call os.getenv() directly - use config system instead.
+    """
 
     def __init__(self, api_key: str | None = None):
-        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        """
+        Initialize LLM bridge.
+
+        Args:
+            api_key: Anthropic API key. If not provided, must be set before generate_response() is called.
+                    Callers should obtain this from CynicConfig.anthropic_api_key
+        """
+        self.api_key = api_key
         self.client = AsyncAnthropic(api_key=self.api_key) if self.api_key else None
-        self.model = "claude- opus-4-6"  # Use latest available model
+        self.model = "claude-opus-4-6"  # Use latest available model
 
     async def generate_response(self, context: dict[str, Any]) -> str:
         """Generate natural language response from reasoning context."""
