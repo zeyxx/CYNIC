@@ -41,7 +41,7 @@ class AppContainer:
     The AppContainer is the single gateway to the CYNIC Organism for the API.
     It encapsulates the organism instance and process-specific metadata.
     """
-    organism: Organism  # type: ignore[name-defined]
+    organism: "Organism"
     instance_id: str  # Unique per process
     guidance_path: str  # ~/.cynic/guidance-{instance_id}.json
     started_at: float = field(default_factory=time.time)

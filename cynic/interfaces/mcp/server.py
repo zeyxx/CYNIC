@@ -17,10 +17,11 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+web: Any = None
 try:
-    from aiohttp import web
+    from aiohttp import web  # type: ignore[import-not-found]
 except ImportError:
-    web = None  # type: ignore[assignment]
+    pass
 
 from cynic.interfaces.mcp.models import (
     ActRequest,
