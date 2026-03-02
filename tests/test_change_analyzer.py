@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, reset_all_buses
+from cynic.kernel.core.event_bus import CoreEvent, Event, get_core_bus, reset_all_buses
 from cynic.kernel.core.events_schema import ChangeAnalyzedPayload
 from cynic.kernel.core.topology.change_analyzer import ChangeAnalyzer
 from cynic.kernel.core.topology.payloads import SourceChangedPayload

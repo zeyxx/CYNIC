@@ -256,3 +256,8 @@ def get_automation_bus(instance_id: str | None = None) -> EventBus:
 
 def get_agent_bus(instance_id: str | None = None) -> EventBus:
     return get_bus("AGENT", instance_id)
+
+def reset_all_buses() -> None:
+    """Reset all buses — useful for testing to clear state between tests."""
+    global _buses
+    _buses.clear()
