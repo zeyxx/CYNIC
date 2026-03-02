@@ -2,10 +2,13 @@
 MCP Server Entry Point - Start CYNIC as MCP server for Cline.
 
 Can run in two modes:
-1. HTTP mode (default): python -m cynic.interfaces.mcp
+1. HTTP mode: python -m cynic.interfaces.mcp (if CYNIC_MCP_STDIO_ONLY=0)
    Starts FastAPI at :8766 + stdio MCP server
-2. stdio mode only: CYNIC_MCP_STDIO_ONLY=1 python -m cynic.interfaces.mcp
+2. stdio mode only: CYNIC_MCP_STDIO_ONLY=1 python -m cynic.interfaces.mcp (default)
    Starts only stdio MCP (no HTTP)
+
+Configuration is loaded from environment variables via CynicConfig.
+No direct os.getenv() calls - all config goes through the config system.
 
 Usage:
   docker-compose up cynic-mcp
@@ -43,6 +46,14 @@ logger = logging.getLogger("cynic.interfaces.mcp.__main__")
 async def main() -> None:
     """Initialize CYNIC organism and start MCP servers."""
 
+    # Load configuration (Rule 3: centralize config reads)
+    try:
+        from cynic.kernel.core.config import CynicConfig
+        config = CynicConfig.from_env()
+    except ImportError as e:
+        logger.error(f"Failed to load config: {e}")
+        sys.exit(1)
+
     # Import here to ensure async context is ready
     try:
         from cynic.interfaces.mcp.stdio_server import CynicMCPServer
@@ -65,8 +76,8 @@ async def main() -> None:
     def get_organism() -> object | None:
         return organism
 
-    # Check if stdio-only mode (default for Claude Code)
-    stdio_only = os.getenv("CYNIC_MCP_STDIO_ONLY", "1") == "1"
+    # Check if stdio-only mode (from config, not direct os.getenv)
+    stdio_only = config.mcp_stdio_only
 
     if not stdio_only:
         # Start HTTP MCP server (backwards compatible, disabled by default)
