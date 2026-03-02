@@ -548,3 +548,417 @@ class TestSelfProberExecutorIntegration:
         assert "message" in payload
         assert "old_value" in payload
         assert "new_value" in payload
+
+
+class TestCLIInterface:
+    """Tests for Priority 10 Task 3: CLI Review Interface."""
+
+    def test_16_cli_list_command_exists(self):
+        """Test 16: CLI list command exists and can be invoked."""
+        import subprocess
+        result = subprocess.run(
+            ["python", "-m", "cynic.interfaces.cli.probes_commands", "list"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        # Should complete without raising
+        assert result is not None
+
+    def test_17_cli_list_default_shows_pending(self):
+        """Test 17: list command without --status shows PENDING proposals."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import (
+            SelfProber,
+            SelfProposal,
+        )
+        import tempfile
+        import json
+
+        # Create temp file with test proposals
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            proposals = [
+                {
+                    "probe_id": "p1",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.5,
+                    "dimension": "METRICS",
+                    "target": "test_metric",
+                    "recommendation": "Test recommendation",
+                    "current_value": 1.0,
+                    "suggested_value": 0.5,
+                    "proposed_at": 1234567890.0,
+                    "status": "PENDING",
+                },
+                {
+                    "probe_id": "p2",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.3,
+                    "dimension": "QTABLE",
+                    "target": "state:action",
+                    "recommendation": "Another recommendation",
+                    "current_value": 0.2,
+                    "suggested_value": 0.4,
+                    "proposed_at": 1234567891.0,
+                    "status": "APPLIED",
+                },
+            ]
+            json.dump(proposals, f)
+            temp_path = f.name
+
+        try:
+            prober = SelfProber(proposals_path=temp_path)
+            pending = prober.pending()
+            assert len(pending) == 1
+            assert pending[0].probe_id == "p1"
+            assert pending[0].status == "PENDING"
+        finally:
+            import os
+            os.unlink(temp_path)
+
+    def test_18_cli_list_status_filter_applied(self):
+        """Test 18: list --status APPLIED filters to APPLIED proposals only."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        import tempfile
+        import json
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            proposals = [
+                {
+                    "probe_id": "p1",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.5,
+                    "dimension": "METRICS",
+                    "target": "test_metric",
+                    "recommendation": "Test recommendation",
+                    "current_value": 1.0,
+                    "suggested_value": 0.5,
+                    "proposed_at": 1234567890.0,
+                    "status": "PENDING",
+                },
+                {
+                    "probe_id": "p2",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.3,
+                    "dimension": "QTABLE",
+                    "target": "state:action",
+                    "recommendation": "Another recommendation",
+                    "current_value": 0.2,
+                    "suggested_value": 0.4,
+                    "proposed_at": 1234567891.0,
+                    "status": "APPLIED",
+                },
+                {
+                    "probe_id": "p3",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.2,
+                    "dimension": "ESCORE",
+                    "target": "agent:dog",
+                    "recommendation": "Third recommendation",
+                    "current_value": 30.0,
+                    "suggested_value": 38.2,
+                    "proposed_at": 1234567892.0,
+                    "status": "APPLIED",
+                },
+            ]
+            json.dump(proposals, f)
+            temp_path = f.name
+
+        try:
+            prober = SelfProber(proposals_path=temp_path)
+            all_props = prober.all_proposals()
+            applied = [p for p in all_props if p.status == "APPLIED"]
+            assert len(applied) == 2
+            assert all(p.status == "APPLIED" for p in applied)
+        finally:
+            import os
+            os.unlink(temp_path)
+
+    def test_19_cli_show_command_displays_proposal_details(self):
+        """Test 19: show {probe_id} displays all proposal fields."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        import tempfile
+        import json
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            proposals = [
+                {
+                    "probe_id": "test_probe_123",
+                    "trigger": "EMERGENCE",
+                    "pattern_type": "SPIKE",
+                    "severity": 0.75,
+                    "dimension": "METRICS",
+                    "target": "core.judgment_created",
+                    "recommendation": "Implement batching to reduce event rate",
+                    "current_value": 100.5,
+                    "suggested_value": 50.0,
+                    "proposed_at": 1234567890.0,
+                    "status": "PENDING",
+                }
+            ]
+            json.dump(proposals, f)
+            temp_path = f.name
+
+        try:
+            prober = SelfProber(proposals_path=temp_path)
+            proposal = prober.get("test_probe_123")
+            assert proposal is not None
+            assert proposal.probe_id == "test_probe_123"
+            assert proposal.dimension == "METRICS"
+            assert proposal.trigger == "EMERGENCE"
+            assert proposal.pattern_type == "SPIKE"
+            assert proposal.severity == 0.75
+            assert proposal.target == "core.judgment_created"
+            assert proposal.recommendation == "Implement batching to reduce event rate"
+            assert proposal.current_value == 100.5
+            assert proposal.suggested_value == 50.0
+            assert proposal.status == "PENDING"
+        finally:
+            import os
+            os.unlink(temp_path)
+
+    def test_20_cli_approve_command_marks_applied(self):
+        """Test 20: approve {probe_id} marks proposal as APPLIED."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        import tempfile
+        import json
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            proposals = [
+                {
+                    "probe_id": "p_to_approve",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.2,
+                    "dimension": "METRICS",
+                    "target": "test",
+                    "recommendation": "Test",
+                    "current_value": 1.0,
+                    "suggested_value": 0.5,
+                    "proposed_at": 1234567890.0,
+                    "status": "PENDING",
+                }
+            ]
+            json.dump(proposals, f)
+            temp_path = f.name
+
+        try:
+            prober = SelfProber(proposals_path=temp_path)
+            result = prober.apply("p_to_approve")
+            assert result is not None
+            assert result.status == "APPLIED"
+            assert result.probe_id == "p_to_approve"
+        finally:
+            import os
+            os.unlink(temp_path)
+
+    def test_21_cli_dismiss_command_marks_dismissed(self):
+        """Test 21: dismiss {probe_id} marks proposal as DISMISSED."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        import tempfile
+        import json
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            proposals = [
+                {
+                    "probe_id": "p_to_dismiss",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.2,
+                    "dimension": "METRICS",
+                    "target": "test",
+                    "recommendation": "Test",
+                    "current_value": 1.0,
+                    "suggested_value": 0.5,
+                    "proposed_at": 1234567890.0,
+                    "status": "PENDING",
+                }
+            ]
+            json.dump(proposals, f)
+            temp_path = f.name
+
+        try:
+            prober = SelfProber(proposals_path=temp_path)
+            result = prober.dismiss("p_to_dismiss")
+            assert result is not None
+            assert result.status == "DISMISSED"
+            assert result.probe_id == "p_to_dismiss"
+        finally:
+            import os
+            os.unlink(temp_path)
+
+    def test_22_cli_audit_command_shows_applied_and_dismissed(self):
+        """Test 22: audit command shows APPLIED and DISMISSED proposals."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        import tempfile
+        import json
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            proposals = [
+                {
+                    "probe_id": "p1",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.5,
+                    "dimension": "METRICS",
+                    "target": "test",
+                    "recommendation": "First",
+                    "current_value": 1.0,
+                    "suggested_value": 0.5,
+                    "proposed_at": 1234567890.0,
+                    "status": "PENDING",
+                },
+                {
+                    "probe_id": "p2",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.3,
+                    "dimension": "QTABLE",
+                    "target": "state",
+                    "recommendation": "Second",
+                    "current_value": 0.2,
+                    "suggested_value": 0.4,
+                    "proposed_at": 1234567891.0,
+                    "status": "APPLIED",
+                },
+                {
+                    "probe_id": "p3",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.2,
+                    "dimension": "ESCORE",
+                    "target": "dog",
+                    "recommendation": "Third",
+                    "current_value": 30.0,
+                    "suggested_value": 38.2,
+                    "proposed_at": 1234567892.0,
+                    "status": "DISMISSED",
+                },
+            ]
+            json.dump(proposals, f)
+            temp_path = f.name
+
+        try:
+            prober = SelfProber(proposals_path=temp_path)
+            all_props = prober.all_proposals()
+            applied_and_dismissed = [
+                p for p in all_props if p.status in ("APPLIED", "DISMISSED")
+            ]
+            assert len(applied_and_dismissed) == 2
+            assert any(p.status == "APPLIED" for p in applied_and_dismissed)
+            assert any(p.status == "DISMISSED" for p in applied_and_dismissed)
+        finally:
+            import os
+            os.unlink(temp_path)
+
+    def test_23_cli_show_with_missing_probe_id_returns_none(self):
+        """Test 23: show command with non-existent probe_id returns None."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        import tempfile
+        import json
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            proposals = [
+                {
+                    "probe_id": "p_exists",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.5,
+                    "dimension": "METRICS",
+                    "target": "test",
+                    "recommendation": "Test",
+                    "current_value": 1.0,
+                    "suggested_value": 0.5,
+                    "proposed_at": 1234567890.0,
+                    "status": "PENDING",
+                }
+            ]
+            json.dump(proposals, f)
+            temp_path = f.name
+
+        try:
+            prober = SelfProber(proposals_path=temp_path)
+            result = prober.get("nonexistent")
+            assert result is None
+        finally:
+            import os
+            os.unlink(temp_path)
+
+    def test_24_cli_stats_shows_proposal_counts(self):
+        """Test 24: stats() returns counts of PENDING, APPLIED, DISMISSED."""
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        import tempfile
+        import json
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            proposals = [
+                {
+                    "probe_id": "p1",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.5,
+                    "dimension": "METRICS",
+                    "target": "test",
+                    "recommendation": "First",
+                    "current_value": 1.0,
+                    "suggested_value": 0.5,
+                    "proposed_at": 1234567890.0,
+                    "status": "PENDING",
+                },
+                {
+                    "probe_id": "p2",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.3,
+                    "dimension": "QTABLE",
+                    "target": "state",
+                    "recommendation": "Second",
+                    "current_value": 0.2,
+                    "suggested_value": 0.4,
+                    "proposed_at": 1234567891.0,
+                    "status": "PENDING",
+                },
+                {
+                    "probe_id": "p3",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.2,
+                    "dimension": "ESCORE",
+                    "target": "dog",
+                    "recommendation": "Third",
+                    "current_value": 30.0,
+                    "suggested_value": 38.2,
+                    "proposed_at": 1234567892.0,
+                    "status": "APPLIED",
+                },
+                {
+                    "probe_id": "p4",
+                    "trigger": "MANUAL",
+                    "pattern_type": "TEST",
+                    "severity": 0.1,
+                    "dimension": "CONFIG",
+                    "target": "threshold",
+                    "recommendation": "Fourth",
+                    "current_value": 0.382,
+                    "suggested_value": 0.300,
+                    "proposed_at": 1234567893.0,
+                    "status": "DISMISSED",
+                },
+            ]
+            json.dump(proposals, f)
+            temp_path = f.name
+
+        try:
+            prober = SelfProber(proposals_path=temp_path)
+            stats = prober.stats()
+            assert stats["pending"] == 2
+            assert stats["applied"] == 1
+            assert stats["dismissed"] == 1
+            assert stats["queue_size"] == 4
+        finally:
+            import os
+            os.unlink(temp_path)

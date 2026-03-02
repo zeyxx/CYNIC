@@ -40,7 +40,7 @@ from cynic.kernel.core.config import CynicConfig as _CynicConfig
 
 _PORT = _CynicConfig.from_env().port
 _API  = f"http://localhost:{_PORT}"
-_API_TIMEOUT = 2.0   # never block the CLI for more than 2s
+_API_TIMEOUT = 0.5   # fail fast if API unavailable (socket timeout)
 
 
 # â”€â”€ Colors (ANSI) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -83,7 +83,7 @@ def _api_get(path: str) -> Optional[dict[str, Any]]:
         )
         with urllib.request.urlopen(req, timeout=_API_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, urllib.error.URLError, OSError):
         return None
 
 
@@ -99,7 +99,7 @@ def _api_post(path: str, body: Optional[dict] = None) -> Optional[dict[str, Any]
         )
         with urllib.request.urlopen(req, timeout=_API_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, urllib.error.URLError, OSError):
         return None
 
 
