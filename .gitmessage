@@ -1,0 +1,23 @@
+feat(priority-XX-pY): One-line summary
+
+## Description
+What was changed and why.
+
+## Impacts
+- P10 CLI module (if applicable)
+- P9 metrics endpoint (if applicable)
+- Testing changes (if applicable)
+
+## Breaking Changes
+(Yes/No) If yes, explain migration path.
+
+## Testing
+- Unit tests: X new, Y modified
+- Integration tests: Z new
+- Manual testing: Done/Not applicable
+
+## Tech Debt
+(+1 / 0 / -1) Introduced / Neutral / Improved
+
+Co-Authored-By: Claude Code <session@cynic>
+Reviewed-By: @architect, @operator
