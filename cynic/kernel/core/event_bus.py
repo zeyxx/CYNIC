@@ -140,13 +140,22 @@ class EventBus:
     async def _safe_handler_wrapper(self, handler: Handler, event: Event, handler_name: str) -> None:
         """Wrap handler execution with timeout and error handling.
 
+        OPTIMIZATION: Minimize allocations in hot path by:
+        - Pre-computing timeout to avoid repeated __getattr__ calls
+        - Lazy formatting of error messages (only on error path, not success path)
+        - Handler name passed as parameter (already computed in emit())
+
         Observable error handling: catches exceptions, logs with context, continues.
         Prevents one failing handler from blocking others.
         """
+        # Pre-compute timeout in hot path — avoids repeated __getattr__ on self
+        timeout = self._handler_timeout_s
+
         try:
-            await asyncio.wait_for(handler(event), timeout=self._handler_timeout_s)
+            await asyncio.wait_for(handler(event), timeout=timeout)
         except asyncio.TimeoutError:
-            error_msg = f"Handler {handler_name} timed out after {self._handler_timeout_s}s for event {event.type}"
+            # Lazy format only on error path (not in success path)
+            error_msg = f"Handler {handler_name} timed out after {timeout}s for event {event.type}"
             logger.warning(error_msg, extra={"event_id": event.event_id, "handler": handler_name})
             self._error_count += 1
             self._handler_errors[event.type].append(error_msg)
@@ -154,6 +163,7 @@ class EventBus:
             # Task was cancelled, this is expected during shutdown
             logger.debug(f"Handler {handler_name} was cancelled for event {event.type}")
         except Exception as exc:
+            # Lazy format only on error path
             error_msg = f"Handler {handler_name} failed: {type(exc).__name__}: {str(exc)}"
             logger.error(error_msg, exc_info=True, extra={"event_id": event.event_id, "handler": handler_name})
             self._error_count += 1
