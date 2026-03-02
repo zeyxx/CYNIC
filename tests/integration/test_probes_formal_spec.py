@@ -45,6 +45,32 @@ class TestFormalSpecListFiltering:
 
         assert len(all_proposals) == 10
 
+    @pytest.mark.integration
+    def test_list_filters_by_status_dismissed(self, sample_proposals, self_prober):
+        """
+        Spec: list_probes("DISMISSED") returns ONLY proposals with status="DISMISSED"
+        """
+        from cynic.kernel.organism.brain.cognition.cortex.probes_service import ProbesService
+        service = ProbesService(self_prober, None)
+
+        dismissed = service.list_probes("DISMISSED")
+
+        assert len(dismissed) == 2
+        assert all(p["status"] == "DISMISSED" for p in dismissed)
+
+    @pytest.mark.integration
+    def test_list_probes_default_status_pending(self, sample_proposals, self_prober):
+        """
+        Spec: list_probes() with no args defaults to PENDING filter
+        """
+        from cynic.kernel.organism.brain.cognition.cortex.probes_service import ProbesService
+        service = ProbesService(self_prober, None)
+
+        default_list = service.list_probes()
+
+        assert len(default_list) == 5
+        assert all(p["status"] == "PENDING" for p in default_list)
+
 
 class TestFormalSpecGetProbe:
     """Formal Spec: Get single probe by ID."""
