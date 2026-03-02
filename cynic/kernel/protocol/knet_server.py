@@ -90,8 +90,15 @@ class KNetServer:
         raise RuntimeError(f"Could not bind K-NET server after {max_retries} attempts.")
 
     async def stop(self):
-        """Gracefully stop the server."""
+        """Gracefully stop the server and unregister event listeners."""
         self._running = False
+
+        # Unregister event bus listener
+        try:
+            self.bus.off(CoreEvent.REPUTATION_SYNC, self._on_reputation_sync)
+        except Exception as e:
+            logger.debug(f"Error unregistering KNetServer listener: {e}")
+
         if self._server:
             self._server.close()
             await self._server.wait_closed()

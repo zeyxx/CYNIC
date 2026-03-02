@@ -163,6 +163,16 @@ class OrganismState:
 
     async def stop_processing(self) -> None:
         self._processing = False
+
+        # Unregister event bus listeners
+        if self.bus:
+            from cynic.kernel.core.event_bus import CoreEvent
+            try:
+                self.bus.off(CoreEvent.ACT_COMPLETED, self._on_act_completed)
+                self.bus.off(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
+            except Exception as e:
+                logger.debug(f"Error unregistering state listeners: {e}")
+
         if self._loop_task:
             await self._update_queue.put(None)
             await self._loop_task
