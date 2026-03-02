@@ -14,7 +14,39 @@ from contextvars import ContextVar
 from enum import Enum
 from typing import Any, TypeVar, Union
 
+from prometheus_client import Counter, Histogram, Gauge
+
 logger = logging.getLogger("cynic.kernel.core.event_bus")
+
+# Prometheus metrics for observability
+events_emitted_total = Counter(
+    "cynic_kernel_events_emitted_total",
+    "Total number of events emitted",
+    ["event_type"]
+)
+
+handler_duration_seconds = Histogram(
+    "cynic_kernel_handler_duration_seconds",
+    "Time spent executing event handlers",
+    ["event_type", "handler"],
+    buckets=(0.001, 0.01, 0.1, 0.5, 1.0, 5.0)
+)
+
+pending_tasks_gauge = Gauge(
+    "cynic_kernel_pending_tasks",
+    "Current number of pending event handler tasks"
+)
+
+backpressure_triggers_total = Counter(
+    "cynic_kernel_backpressure_triggers_total",
+    "Total number of backpressure events triggered"
+)
+
+handler_errors_total = Counter(
+    "cynic_kernel_handler_errors_total",
+    "Total number of handler errors",
+    ["event_type", "error_type"]
+)
 
 current_instance_id: ContextVar[str] = ContextVar("current_instance_id")
 
@@ -194,13 +226,20 @@ class EventBus:
         """
         # Pre-compute timeout in hot path — avoids repeated __getattr__ on self
         timeout = self._handler_timeout_s
+        t_start = time.perf_counter()
 
         try:
             await asyncio.wait_for(handler(event), timeout=timeout)
+            # Record successful handler duration
+            duration = time.perf_counter() - t_start
+            handler_duration_seconds.labels(event_type=event.type, handler=handler_name).observe(duration)
         except asyncio.TimeoutError:
             # Lazy format only on error path (not in success path)
+            duration = time.perf_counter() - t_start
+            handler_duration_seconds.labels(event_type=event.type, handler=handler_name).observe(duration)
             error_msg = f"Handler {handler_name} timed out after {timeout}s for event {event.type}"
             logger.warning(error_msg, extra={"event_id": event.event_id, "handler": handler_name})
+            handler_errors_total.labels(event_type=event.type, error_type="timeout").inc()
             self._error_count += 1
             self._handler_errors[event.type].append(error_msg)
         except asyncio.CancelledError:
@@ -208,21 +247,30 @@ class EventBus:
             logger.debug(f"Handler {handler_name} was cancelled for event {event.type}")
         except Exception as exc:
             # Lazy format only on error path
+            duration = time.perf_counter() - t_start
+            handler_duration_seconds.labels(event_type=event.type, handler=handler_name).observe(duration)
             error_msg = f"Handler {handler_name} failed: {type(exc).__name__}: {str(exc)}"
             logger.error(error_msg, exc_info=True, extra={"event_id": event.event_id, "handler": handler_name})
+            handler_errors_total.labels(event_type=event.type, error_type=type(exc).__name__).inc()
             self._error_count += 1
             self._handler_errors[event.type].append(error_msg)
 
     async def emit(self, event: Event) -> None:
         """Emit event to all registered handlers with backpressure monitoring."""
         self._emitted_count += 1
-        
+
+        # Record event emission metric
+        events_emitted_total.labels(event_type=event.type).inc()
+
         # Backpressure Monitor (SRE lens)
         pending_count = len(self._pending_tasks)
+        pending_tasks_gauge.set(pending_count)
+
         if pending_count > self._peak_pending:
             self._peak_pending = pending_count
-            
+
         if pending_count > self.MAX_PENDING:
+            backpressure_triggers_total.inc()
             logger.warning(
                 f"[{self.instance_id}] BACKPRESSURE: {pending_count} pending tasks. Throttling active.",
                 extra={"bus_id": self.bus_id}
@@ -250,7 +298,7 @@ class EventBus:
             task = asyncio.create_task(self._safe_handler_wrapper(h, event, handler_name))
             self._pending_tasks.add(task)
             task.add_done_callback(self._pending_tasks.discard)
-        
+
         self._total_latency_ms += (time.perf_counter() - t_start) * 1000
 
     async def drain(self, timeout: float = 2.0) -> None:
