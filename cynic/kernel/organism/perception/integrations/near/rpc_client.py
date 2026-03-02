@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, cast, Optional
+from typing import Any, Optional
 import httpx
 
-from .types import NEARError, NEARNetworkConfig
+from .types import NEARError, NEARNetworkConfig, NEARRPCResponse, NEARAccountInfo, NEARBlockHeader
 from cynic.kernel.core.vascular import VascularSystem
 
 
@@ -23,7 +23,7 @@ class NEARRPCClient:
         return httpx.AsyncClient(timeout=float(self.timeout))
 
     async def _post(self, payload: dict) -> dict[str, Any]:
-        """Centralized POST for NEAR RPC."""
+        """Centralized POST for NEAR RPC with validation."""
         try:
             client = await self._get_client()
             response = await client.post(
@@ -33,7 +33,13 @@ class NEARRPCClient:
             )
             if response.status_code != 200:
                 raise NEARError(f"RPC request failed: {response.status_code}")
-            return cast(dict[str, Any], response.json())
+            try:
+                rpc_response = NEARRPCResponse.model_validate(response.json())
+                if rpc_response.error:
+                    raise NEARError(f"RPC error: {rpc_response.error}")
+                return rpc_response.result or {}
+            except Exception as e:
+                raise NEARError(f"Invalid RPC response format: {e}")
         except httpx.RequestError as e:
             raise NEARError(f"RPC connection failed: {e}")
 
@@ -56,9 +62,11 @@ class NEARRPCClient:
                 "finality": "optimistic",
             },
         })
-        if "error" in data:
-            raise NEARError(f"RPC error: {data['error']}")
-        return cast(dict[str, Any], data.get("result", {}))
+        try:
+            validated = NEARAccountInfo.model_validate(data)
+            return validated.model_dump()
+        except Exception as e:
+            raise NEARError(f"Invalid account info: {e}")
 
     async def get_nonce(self, account_id: str) -> int:
         account = await self.get_account(account_id)
@@ -71,9 +79,13 @@ class NEARRPCClient:
             "method": "block",
             "params": {"finality": "optimistic"},
         })
-        if "error" in data:
-            raise NEARError(f"RPC error: {data['error']}")
-        return cast(str, data["result"]["header"]["hash"])
+        try:
+            if "header" not in data:
+                raise NEARError("Missing block header in RPC response")
+            validated = NEARBlockHeader.model_validate(data["header"])
+            return validated.hash
+        except Exception as e:
+            raise NEARError(f"Invalid block hash response: {e}")
 
     async def call_contract(self, contract_id: str, method: str, args: dict) -> dict[str, Any]:
         import base64

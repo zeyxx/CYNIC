@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pydantic import BaseModel, Field
 
 
 class GASdfError(Exception):
@@ -64,3 +65,28 @@ class GASdfStats:
     total_transactions: int
     burned_formatted: str
     treasury: dict[str, object]
+
+
+# ——— Pydantic Validation Models ——————————————————————————————————————
+# Used for strict validation of HTTP responses (Rule 3: VERIFY)
+
+
+class HealthResponse(BaseModel):
+    """Validated response from GASdf /health endpoint."""
+    status: str
+    timestamp: int | None = None
+
+
+class TokenInfo(BaseModel):
+    """Validated token information from GASdf."""
+    address: str
+    symbol: str
+    decimals: int = Field(ge=0, le=18)
+    name: str | None = None
+
+
+class SubmitResponse(BaseModel):
+    """Validated response from GASdf /v1/submit endpoint."""
+    transaction_id: str = Field(alias="transactionId")
+    status: str
+    confirmed: bool = False
