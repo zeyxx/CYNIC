@@ -176,7 +176,8 @@
       "Bash(anchor test:*)",
       "Bash(cargo build:*)",
       "Bash(docker build:*)",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "WebFetch(domain:www.trader-ralph.com)"
     ]
   },
   "enableAllProjectMcpServers": true,
