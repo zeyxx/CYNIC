@@ -69,8 +69,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Manage the Organism's life cycle: Awaken -> Breathe -> Sleep.
     """
+    # 0. CONFIGURE OBSERVABILITY (Structured JSON logging for production)
+    from cynic.kernel.observability.structured_logger import JSONFormatter
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        handler.setFormatter(JSONFormatter())
+
     t0 = time.perf_counter()
-    
+
     # 1. AWAKEN the Organism (The Organism defines the identity)
     organism = await awaken()
     instance_id = organism.instance_id
