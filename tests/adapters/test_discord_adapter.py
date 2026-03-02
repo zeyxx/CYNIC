@@ -420,11 +420,10 @@ class TestDiscordAdapterErrorHandling:
     async def test_exception_in_command_handling_returns_failure(self):
         """Exceptions during command handling are caught and returned as failure."""
         mock_client = Mock()
-        from cynic.kernel.organism.state_manager import OrganismState
-        mock_state = Mock(spec=OrganismState)
+        mock_state = Mock()
 
-        # Make state raise an exception
-        mock_state.get_recent_judgments.side_effect = Exception("Database error")
+        # Make state raise an exception when any method is called
+        mock_state.get_stats.side_effect = Exception("Database error")
 
         adapter = DiscordAdapter(client=mock_client, conscious_state=mock_state)
 
