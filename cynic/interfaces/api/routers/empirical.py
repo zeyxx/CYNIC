@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from cynic.interfaces.mcp.empirical_runner import EmpiricalRunner
 
@@ -62,7 +62,10 @@ router = APIRouter(prefix="/empirical", tags=["empirical"])
 
 
 @router.post("/test/start")
-async def start_empirical_test(count: int = 1000, seed: int | None = None):
+async def start_empirical_test(
+    count: int = Query(default=1000, ge=1, le=100_000),
+    seed: int | None = None,
+):
     """
     Start a new empirical test job.
 
@@ -70,7 +73,7 @@ async def start_empirical_test(count: int = 1000, seed: int | None = None):
     Returns immediately with job_id (doesn't block).
 
     Args:
-        count: Number of judgment iterations (default: 1000)
+        count: Number of judgment iterations (default: 1000, range: 1-100,000)
         seed: Random seed for reproducibility (optional)
 
     Returns:
