@@ -26,6 +26,7 @@ from cynic.kernel.organism.brain.cognition.cortex.axiom_monitor import AxiomMoni
 from cynic.kernel.organism.brain.cognition.cortex.decide import DecideAgent
 from cynic.kernel.organism.brain.cognition.cortex.lod import LODController
 from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
+from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
 from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
 from cynic.kernel.organism.brain.cognition.neurons.discovery import discover_dogs
 from cynic.kernel.organism.brain.learning.qlearning import LearningLoop, QTable
@@ -311,6 +312,10 @@ class _OrganismAwakener:
         # 6b. METRICS → SELFPROBER WIRING
         self.self_prober.set_metrics_collector(self.metrics_collector)
 
+        # 6c. PROPOSAL EXECUTOR → SELFPROBER WIRING
+        self.executor = ProposalExecutor()
+        self.self_prober.set_executor(self.executor)
+
         self.self_prober.start()
 
         from cynic.kernel.organism.brain.agents.sovereignty import SovereigntyAgent
@@ -362,6 +367,7 @@ class _OrganismAwakener:
             loop_validator=self.loop_validator,
             reconstructor=self.reconstructor,
             metrics_collector=self.metrics_collector,
+            executor=self.executor,
         )
 
         from cynic.kernel.organism.organism import Organism

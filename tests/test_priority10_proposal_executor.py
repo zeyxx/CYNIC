@@ -1417,3 +1417,54 @@ class TestProposalExecutorGuardrails:
             import os
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
+
+
+@pytest.mark.asyncio
+class TestFactoryIntegration:
+    """Test factory wiring of ProposalExecutor into SelfProber and ArchiveCore."""
+
+    async def test_34_factory_injects_executor_into_selfprober(self):
+        """Test 34: Factory creates executor and injects into prober."""
+        # Verify the wiring method exists
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+
+        executor = ProposalExecutor()
+        prober = SelfProber()
+        prober.set_executor(executor)
+
+        assert prober._executor is executor
+
+    async def test_35_factory_executor_in_archivecore(self):
+        """Test 35: ArchiveCore accepts executor field."""
+        from cynic.kernel.organism.anatomy import ArchiveCore
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
+        from cynic.kernel.organism.state_manager import OrganismState
+
+        executor = ProposalExecutor()
+        state = OrganismState(instance_id="test-instance")
+
+        # ArchiveCore should accept executor as optional field
+        core = ArchiveCore(state=state, executor=executor)
+        assert core.executor is executor
+
+    async def test_36_factory_full_integration(self):
+        """Test 36: Full factory integration - executor flows through system."""
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+        from cynic.kernel.organism.anatomy import ArchiveCore
+        from cynic.kernel.organism.state_manager import OrganismState
+
+        # Simulate factory wiring
+        executor = ProposalExecutor()
+        prober = SelfProber()
+        prober.set_executor(executor)
+
+        # Simulate ArchiveCore creation
+        state = OrganismState(instance_id="test-instance")
+        memory = ArchiveCore(state=state, executor=executor)
+
+        # Verify end-to-end wiring
+        assert prober._executor is executor
+        assert memory.executor is executor
+        assert prober._executor is memory.executor  # Same instance

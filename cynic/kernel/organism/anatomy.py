@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from cynic.kernel.organism.state_manager import OrganismState
     from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
     from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
+    from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
     from cynic.kernel.organism.sona_emitter import SonaEmitter
     from cynic.kernel.perception.federation.gossip import GossipManager
     from cynic.nervous.event_journal import EventJournal
@@ -101,3 +102,4 @@ class ArchiveCore:
     loop_validator: Optional[LoopClosureValidator] = None
     reconstructor: Optional[StateReconstructor] = None
     metrics_collector: Optional[EventMetricsCollector] = None
+    executor: Optional[ProposalExecutor] = None
