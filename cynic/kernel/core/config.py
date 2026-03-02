@@ -65,15 +65,30 @@ class CynicConfig:
     llama_threads: int = 8
     ollama_num_parallel: int | None = None
 
+    # —— Bots: Discord & Telegram ──────────────────────────────────────────────
+    discord_token: str | None = None
+    discord_guild_id: str | None = None
+    telegram_token: str | None = None
+
     # —— GASdf: Governance (On-chain execution) ───────────────────────────────
     gasdf_url: str = "http://localhost:8766"
     gasdf_enabled: bool = False
 
-    # —— Runtime ──────────────────────────────────────────────────────────────
+    # —— Judgment & Consensus ──────────────────────────────────────────────────
+    num_dogs: int = 11
+    max_judgments_batch: int = 10
+    judgment_timeout_seconds: float = 30.0
+
+    # —— Learning & Q-Learning ─────────────────────────────────────────────────
+    learning_rate: float = 0.1
+    discount_factor: float = 0.99
+
+    # —— Runtime ──────────────────────────────────────────────────────────────────
     port: int = 8765
     log_level: str = "INFO"
     knet_host: str = "::"
     knet_port: int = 58766
+    environment: str = "development"
 
     # —— Thresholds (φ-derived, should rarely change) ─────────────────────────
     max_confidence: float = 0.618
@@ -101,38 +116,65 @@ class CynicConfig:
             # LLM Keys
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
             google_api_key=os.getenv("GOOGLE_API_KEY"),
-            
+
             # Local Inference
             ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
             models_dir=os.getenv("CYNIC_MODELS_DIR", default_models_dir),
             llama_gpu_layers=int(os.getenv("LLAMA_CPP_GPU_LAYERS", "-1")),
             llama_threads=int(os.getenv("LLAMA_CPP_THREADS", "8")),
             ollama_num_parallel=_opt_int(os.getenv("OLLAMA_NUM_PARALLEL")),
-            
+
+            # Bots
+            discord_token=os.getenv("DISCORD_TOKEN"),
+            discord_guild_id=os.getenv("DISCORD_GUILD_ID"),
+            telegram_token=os.getenv("TELEGRAM_BOT_TOKEN"),
+
             # GASdf
             gasdf_url=os.getenv("GASDF_URL", "http://localhost:8766"),
             gasdf_enabled=os.getenv("GASDF_ENABLED") == "1",
-            
+
+            # Judgment
+            num_dogs=int(os.getenv("NUM_DOGS", "11")),
+            max_judgments_batch=int(os.getenv("MAX_JUDGMENTS_BATCH", "10")),
+            judgment_timeout_seconds=float(os.getenv("JUDGMENT_TIMEOUT_S", "30.0")),
+
+            # Learning
+            learning_rate=float(os.getenv("LEARNING_RATE", "0.1")),
+            discount_factor=float(os.getenv("DISCOUNT_FACTOR", "0.99")),
+
             # Runtime
             port=int(os.getenv("PORT", "8765")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             knet_host=os.getenv("KNET_HOST", "::"),
             knet_port=int(os.getenv("KNET_PORT", "58766")),
+            environment=os.getenv("ENVIRONMENT", "development"),
         )
 
     def validate(self) -> list[str]:
         """Return list of warnings/errors about this configuration."""
         issues: list[str] = []
+        is_prod = self.environment not in ("development", "test", "local")
 
         # Storage warnings
         if self.surreal_url is None and self.database_url is None:
             issues.append(
-                "WARN: No storage backend configured " "(set SURREAL_URL or DATABASE_URL)"
+                "WARN: No storage backend configured (set SURREAL_URL or DATABASE_URL)"
             )
 
+        # Security: Default passwords
         if self.surreal_pass in ("root", "local_dev_only", "cynic_phi_618"):
-            if self.surreal_url and "localhost" not in self.surreal_url:
-                issues.append("CRITICAL: Using default SurrealDB password on non-local URL")
+            if is_prod or (self.surreal_url and "localhost" not in self.surreal_url):
+                issues.append(
+                    "CRITICAL: Using default SurrealDB password in production. "
+                    "Set SURREAL_PASS environment variable."
+                )
+
+        # Security: Required credentials in production
+        if is_prod:
+            if not self.surreal_pass or self.surreal_pass in ("root", "local_dev_only"):
+                issues.append("CRITICAL: SURREAL_PASS not set for production")
+            if not self.discord_token:
+                issues.append("WARN: DISCORD_TOKEN not set (Discord bot disabled)")
 
         # LLM warnings
         has_any_llm = bool(self.anthropic_api_key or self.google_api_key or self.models_dir)
