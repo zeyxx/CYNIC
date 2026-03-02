@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, cast, Optional
+from typing import Any, Optional
 import httpx
 
-from .types import GASdfError, GASdfQuote, GASdfStats
+from .types import GASdfError, GASdfQuote, GASdfStats, HealthResponse, TokenInfo, SubmitResponse
 from cynic.kernel.core.vascular import VascularSystem
 
 
@@ -27,16 +27,24 @@ class GASdfClient:
         response = await client.get(f"{self.base_url}/health")
         if response.status_code != 200:
             raise GASdfError(f"Health check failed: {response.status_code} {response.text}")
-        return cast(dict[str, Any], response.json())
+        try:
+            validated = HealthResponse.model_validate(response.json())
+            return validated.model_dump()
+        except Exception as e:
+            raise GASdfError(f"Invalid health response: {e}")
 
     async def get_tokens(self) -> list[dict[str, Any]]:
         client = await self._get_client()
         response = await client.get(f"{self.base_url}/v1/tokens")
         if response.status_code != 200:
             raise GASdfError(f"Get tokens failed: {response.status_code} {response.text}")
-        data = response.json()
-        tokens = data.get("tokens", []) if isinstance(data, dict) else data
-        return cast(list[dict[str, Any]], tokens)
+        try:
+            data = response.json()
+            tokens = data.get("tokens", []) if isinstance(data, dict) else data
+            validated = [TokenInfo.model_validate(t) for t in tokens]
+            return [t.model_dump() for t in validated]
+        except Exception as e:
+            raise GASdfError(f"Invalid tokens response: {e}")
 
     async def get_quote(self, payment_token: str, user_pubkey: str, amount: int) -> GASdfQuote:
         client = await self._get_client()
@@ -72,7 +80,11 @@ class GASdfClient:
         response = await client.post(f"{self.base_url}/v1/submit", json=payload)
         if response.status_code != 200:
             raise GASdfError(f"Submit failed: {response.status_code} {response.text}")
-        return cast(dict[str, Any], response.json())
+        try:
+            validated = SubmitResponse.model_validate(response.json())
+            return validated.model_dump()
+        except Exception as e:
+            raise GASdfError(f"Invalid submit response: {e}")
 
     async def get_stats(self) -> GASdfStats:
         client = await self._get_client()
