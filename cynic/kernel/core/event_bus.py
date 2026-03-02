@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import time
 from collections import defaultdict
 from collections.abc import Callable, Coroutine
@@ -147,34 +148,38 @@ class Event:
 Handler = Callable[[Event], Coroutine[Any, Any, None]]
 
 _buses: dict[str, EventBus] = {}
+_buses_lock: threading.Lock = threading.Lock()  # Protect global buses dict
 
 class EventBus:
     def __init__(self, bus_id: str, instance_id: str | None = None):
         self.bus_id = bus_id
         self.instance_id = instance_id or "unknown"
         self._handlers: dict[str, list[Handler]] = defaultdict(list)
+        self._handlers_lock: threading.Lock = threading.Lock()  # Protect handler mutation (sync safe)
         self._pending_tasks: set[asyncio.Task] = set()
         self._handler_timeout_s: float = 30.0
-        
+
         # High-Frequency Metrics (SRE Standard)
         self._emitted_count: int = 0
         self._error_count: int = 0
         self._handler_errors: dict[str, list[str]] = defaultdict(list)
         self._total_latency_ms: float = 0.0
         self._peak_pending: int = 0
-        
+
         # Backpressure Settings (Lentille : Backend)
         self.MAX_PENDING = 1000 # Critical threshold for 10k TPS readiness
         self._backpressure_emitting: bool = False  # Guard against recursive emit
 
     def on(self, event_type: Union[str, CoreEvent], handler: Handler) -> None:
         name = event_type.value if hasattr(event_type, "value") else str(event_type)
-        self._handlers[name].append(handler)
+        with self._handlers_lock:
+            self._handlers[name].append(handler)
 
     def off(self, event_type: Union[str, CoreEvent], handler: Handler) -> None:
         name = event_type.value if hasattr(event_type, "value") else str(event_type)
-        if name in self._handlers:
-            self._handlers[name] = [h for h in self._handlers[name] if h != handler]
+        with self._handlers_lock:
+            if name in self._handlers:
+                self._handlers[name] = [h for h in self._handlers[name] if h != handler]
 
     async def _safe_handler_wrapper(self, handler: Handler, event: Event, handler_name: str) -> None:
         """Wrap handler execution with timeout and error handling.
@@ -234,8 +239,10 @@ class EventBus:
                 )))
                 task.add_done_callback(reset_flag)
 
-        handlers = self._handlers.get(event.type, [])
-        wildcards = self._handlers.get("*", [])
+        # Snapshot handlers under lock to prevent concurrent modification
+        with self._handlers_lock:
+            handlers = list(self._handlers.get(event.type, []))
+            wildcards = list(self._handlers.get("*", []))
 
         t_start = time.perf_counter()
         for i, h in enumerate(handlers + wildcards):
@@ -294,16 +301,17 @@ def get_bus(bus_id: str, instance_id: str | None = None) -> EventBus:
     Retrieve an isolated event bus.
     Requires an explicit instance_id or an active task context via ContextVar.
     """
-    target_id = instance_id or current_instance_id.get()
+    target_id = instance_id or current_instance_id.get(None)
     if target_id is None:
         raise RuntimeError(
             f"EventBus '{bus_id}' requested without instance context. "
             "Pass instance_id or set current_instance_id ContextVar."
         )
     key = f"{target_id}:{bus_id}"
-    if key not in _buses:
-        _buses[key] = EventBus(bus_id=key, instance_id=target_id)
-    return _buses[key]
+    with _buses_lock:
+        if key not in _buses:
+            _buses[key] = EventBus(bus_id=key, instance_id=target_id)
+        return _buses[key]
 
 def get_core_bus(instance_id: str | None = None) -> EventBus:
     """Get the core nervous system bus."""
@@ -312,10 +320,22 @@ def get_core_bus(instance_id: str | None = None) -> EventBus:
 def get_automation_bus(instance_id: str | None = None) -> EventBus:
     return get_bus("AUTOMATION", instance_id)
 
+async def reset_all_buses() -> None:
+    """
+    Safely reset all event buses.
+    Drains all pending tasks before clearing the global registry.
+    Use during shutdown or testing.
+    """
+    with _buses_lock:
+        buses_to_drain = list(_buses.values())
+
+    # Drain all buses (outside lock to avoid deadlock)
+    for bus in buses_to_drain:
+        await bus.drain(timeout=5.0)
+
+    # Clear after draining
+    with _buses_lock:
+        _buses.clear()
+
 def get_agent_bus(instance_id: str | None = None) -> EventBus:
     return get_bus("AGENT", instance_id)
-
-def reset_all_buses() -> None:
-    """Reset all buses — useful for testing to clear state between tests."""
-    global _buses
-    _buses.clear()

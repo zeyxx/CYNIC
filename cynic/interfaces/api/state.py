@@ -1,5 +1,5 @@
 """
-CYNIC API State â€” Gateway to the unified Organism.
+CYNIC API State -- Gateway to the unified Organism.
 
 One AppContainer per process. Initialized via FastAPI lifespan.
 All routes get this via Depends(get_app_container).
@@ -75,16 +75,18 @@ class AppContainer:
     def container(self): return self.organism.container
 
 
-# Process-level singleton â€” set during lifespan startup
+# Process-level singleton -- set during lifespan startup
 _app_container: AppContainer | None = None
+_initialized: bool = False  # Flag tracking initialization state
 container: AppContainer | None = None  # Global alias for test patching
 
 
 def set_app_container(c: AppContainer) -> None:
     """Set the app container during lifespan startup."""
-    global _app_container, container
+    global _app_container, container, _initialized
     _app_container = c
     container = c
+    _initialized = True
 
 
 def get_app_container() -> AppContainer:
@@ -93,11 +95,16 @@ def get_app_container() -> AppContainer:
     if container is not None:
         return container
     if _app_container is None:
-        raise RuntimeError("AppContainer not initialized â€” lifespan not started")
+        if not _initialized:
+            raise RuntimeError(
+                "AppContainer not initialized: lifespan startup not complete. "
+                "Ensure FastAPI application is running."
+            )
+        raise RuntimeError("AppContainer initialization failed or was cleared")
     return _app_container
 
 
-# â”€â”€ Legacy Compatibility Layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# --- Legacy Compatibility Layer ---
 
 def build_kernel(db_pool=None, registry=None) -> "Organism":
     """DEPRECATED: Use awaken()."""
