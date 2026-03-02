@@ -10,22 +10,16 @@ These tests establish baseline performance metrics for 10k TPS readiness verific
 
 from __future__ import annotations
 
+import asyncio
 import time
 import pytest
-import pytest_asyncio
 
 from cynic.kernel.core.event_bus import Event, CoreEvent
 
 
-@pytest_asyncio.fixture
-async def perf_organism(organism):
-    """Get organism for performance tests."""
-    return organism
-
-
 @pytest.mark.asyncio
 @pytest.mark.performance
-async def test_event_emission_tps_baseline(perf_organism):
+async def test_event_emission_tps_baseline(organism):
     """
     Measure raw event bus throughput (Event Emission TPS).
 
@@ -34,7 +28,10 @@ async def test_event_emission_tps_baseline(perf_organism):
 
     Expected baseline: 500+ TPS with current setup.
     """
-    bus = perf_organism.cognition.orchestrator.bus
+    bus = organism.cognition.orchestrator.bus
+
+    # Snapshot counter before this test emits anything
+    initial_emitted = bus.stats()["emitted"]
 
     # Create 1000 test events
     num_events = 1000
@@ -61,7 +58,7 @@ async def test_event_emission_tps_baseline(perf_organism):
 
     # Log baseline result
     stats = bus.stats()
-    assert stats["emitted"] >= num_events, "Not all events were emitted"
+    assert stats["emitted"] - initial_emitted >= num_events, "Not all events were emitted"
 
     print(f"\n=== Event Emission TPS Baseline ===")
     print(f"Events emitted: {num_events}")
@@ -78,7 +75,7 @@ async def test_event_emission_tps_baseline(perf_organism):
 
 @pytest.mark.asyncio
 @pytest.mark.performance
-async def test_judgment_cycle_tps_baseline(perf_organism):
+async def test_judgment_cycle_tps_baseline(organism):
     """
     Measure judgment cycle TPS (complete request→response cycles).
 
@@ -88,11 +85,14 @@ async def test_judgment_cycle_tps_baseline(perf_organism):
 
     Expected baseline: 10+ TPS.
     """
-    bus = perf_organism.cognition.orchestrator.bus
+    bus = organism.cognition.orchestrator.bus
+
+    # Snapshot counter before this test emits anything
+    initial_emitted = bus.stats()["emitted"]
 
     num_cycles = 100
     cycle_count = 0
-    cycle_lock = __import__("asyncio").Lock()
+    cycle_lock = asyncio.Lock()
 
     async def judgment_created_handler(event: Event):
         """Track when judgment cycles complete."""
@@ -137,7 +137,8 @@ async def test_judgment_cycle_tps_baseline(perf_organism):
 
         # Log baseline result
         stats = bus.stats()
-        assert stats["emitted"] >= (num_cycles * 2), "Not all cycle events were emitted"
+        assert stats["emitted"] - initial_emitted >= (num_cycles * 2), "Not all cycle events were emitted"
+        assert cycle_count == num_cycles, f"Expected {num_cycles} judgment callbacks, got {cycle_count}"
 
         print(f"\n=== Judgment Cycle TPS Baseline ===")
         print(f"Judgment cycles: {num_cycles}")
@@ -160,7 +161,7 @@ async def test_judgment_cycle_tps_baseline(perf_organism):
 @pytest.mark.asyncio
 @pytest.mark.performance
 @pytest.mark.ci_required
-async def test_event_bus_backpressure_handling(perf_organism):
+async def test_event_bus_backpressure_handling(organism):
     """
     Verify event bus handles backpressure correctly under load.
 
@@ -169,8 +170,11 @@ async def test_event_bus_backpressure_handling(perf_organism):
     - Anomaly events are triggered on backpressure
     - All events are eventually processed
     """
-    bus = perf_organism.cognition.orchestrator.bus
+    bus = organism.cognition.orchestrator.bus
     initial_max_pending = bus.MAX_PENDING
+
+    # Snapshot counter before this test emits anything
+    initial_emitted = bus.stats()["emitted"]
 
     # Lower MAX_PENDING to trigger backpressure testing
     bus.MAX_PENDING = 50
@@ -208,7 +212,7 @@ async def test_event_bus_backpressure_handling(perf_organism):
         print(f"Load factor: {stats['load_factor']:.2%}")
 
         # Verify backpressure handling
-        assert stats["emitted"] >= num_events, "All events should be emitted despite backpressure"
+        assert stats["emitted"] - initial_emitted >= num_events, "All events should be emitted despite backpressure"
         assert stats["error_rate"] < 0.05, "Backpressure should not cause errors"
 
     finally:
@@ -218,13 +222,13 @@ async def test_event_bus_backpressure_handling(perf_organism):
 
 @pytest.mark.asyncio
 @pytest.mark.performance
-async def test_event_bus_metrics_collection(perf_organism):
+async def test_event_bus_metrics_collection(organism):
     """
     Verify event bus metrics are collected correctly.
 
     Validates that stats() method returns accurate metrics after event emission.
     """
-    bus = perf_organism.cognition.orchestrator.bus
+    bus = organism.cognition.orchestrator.bus
 
     # Get initial stats
     initial_stats = bus.stats()
