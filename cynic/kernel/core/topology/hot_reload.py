@@ -1,19 +1,41 @@
-"""HotReloadCoordinator â€” Apply topology changes safely with rollback."""
+"""HotReloadCoordinator - Apply topology changes safely with rollback."""
 
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, TYPE_CHECKING
+from typing_extensions import Protocol
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
-from cynic.kernel.core.exceptions import CynicError
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusError, CynicError
 from cynic.kernel.core.topology.payloads import (
     TopologyAppliedPayload,
     TopologyChangedPayload,
     TopologyRollbackPayload,
 )
 
+if TYPE_CHECKING:
+    pass
+
 logger = logging.getLogger("cynic.kernel.core.topology.hot_reload")
+
+
+# === PROTOCOL DEFINITIONS ====================================================
+class HandlerRegistry(Protocol):
+    """Protocol for handler registry (structural typing)."""
+
+    _groups: list
+    _wired: bool
+
+    def wire(self, bus: EventBus) -> None:
+        """Wire all handlers to the event bus."""
+        ...
+
+
+class KernelServices(Protocol):
+    """Protocol for kernel services container."""
+
+    # Minimal protocol - just enough for type checking
+    pass
 
 
 class HotReloadCoordinator:
@@ -29,9 +51,9 @@ class HotReloadCoordinator:
     async def on_topology_changed(
         self,
         event: Event,
-        registry: Any,  # HandlerRegistry
-        bus: Any,  # EventBus
-        svc: Any,  # KernelServices
+        registry: HandlerRegistry,
+        bus: EventBus,
+        svc: KernelServices,
     ) -> None:
         """
         Apply topology delta with rollback safety.
@@ -93,7 +115,7 @@ class HotReloadCoordinator:
             logger.info("TOPOLOGY_APPLIED: +%d handlers now active", len(payload.added_handlers))
 
         except EventBusError as e:
-            logger.error("Hot-reload failed: %s â€” rolling back to snapshot", e)
+            logger.error("Hot-reload failed: %s - rolling back to snapshot", e)
 
             # 6. Rollback to snapshot
             try:
@@ -102,7 +124,7 @@ class HotReloadCoordinator:
                 logger.debug("Rolled back to previous topology")
             except CynicError as rollback_e:
                 logger.error(
-                    "Rollback FAILED: %s â€” organism may be in inconsistent state", rollback_e
+                    "Rollback FAILED: %s - organism may be in inconsistent state", rollback_e
                 )
 
             # 7. Emit: TOPOLOGY_ROLLBACK
@@ -119,9 +141,9 @@ class HotReloadCoordinator:
 
     async def _add_handler(
         self,
-        registry: Any,  # HandlerRegistry
+        registry: HandlerRegistry,
         handler_name: str,
-        svc: Any,  # KernelServices
+        svc: KernelServices,
     ) -> None:
         """
         Instantiate and register a new handler.
@@ -139,7 +161,7 @@ class HotReloadCoordinator:
         # For now, we'll assume the discovery already happened
         logger.debug("_add_handler stub: %s", handler_name)
 
-    def _snapshot_registry(self, registry: Any) -> dict:  # registry: HandlerRegistry
+    def _snapshot_registry(self, registry: HandlerRegistry) -> dict:
         """Snapshot current handler registry state (for rollback)."""
         # Return whatever state we need to restore
         # For now, a simple copy of registered groups
@@ -147,7 +169,7 @@ class HotReloadCoordinator:
             "groups": list(registry._groups),
         }
 
-    def _restore_registry(self, registry: Any, snapshot: dict) -> None:  # registry: HandlerRegistry
+    def _restore_registry(self, registry: HandlerRegistry, snapshot: dict) -> None:
         """Restore registry to snapshot state."""
         # Re-assign the groups from snapshot
         registry._groups = snapshot.get("groups", [])

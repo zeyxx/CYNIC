@@ -1,4 +1,4 @@
-"""TopologyMirror â€” Real-time kernel architecture snapshot."""
+"""TopologyMirror - Real-time kernel architecture snapshot."""
 
 from __future__ import annotations
 
@@ -7,15 +7,15 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any, TYPE_CHECKING
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusError
 from cynic.kernel.core.phi import fibonacci
 from cynic.kernel.core.topology.payloads import TopologySnapshotPayload
 
 if TYPE_CHECKING:
-    from cynic.interfaces.api.state import AppContainer
     from cynic.kernel.organism.brain.cognition.cortex.mirror import KernelMirror
+    from cynic.interfaces.api.state import AppState
 
 logger = logging.getLogger("cynic.kernel.core.topology.topology_mirror")
 
@@ -37,9 +37,9 @@ class TopologyMirror:
 
     async def continuous_snapshot(
         self,
-        bus: Any,  # EventBus
-        kernel_mirror: Any,  # KernelMirror
-        state: Any,  # AppState
+        bus: EventBus,
+        kernel_mirror: KernelMirror,
+        state: AppState,
     ) -> None:
         """
         Continuously snapshot organism topology.
@@ -63,12 +63,12 @@ class TopologyMirror:
 
     async def _on_topology_applied(self, event: Event) -> None:
         """Force immediate snapshot on topology change."""
-        logger.debug("TOPOLOGY_APPLIED detected â€” immediate snapshot")
+        logger.debug("TOPOLOGY_APPLIED detected - immediate snapshot")
         self._last_snapshot_time = 0.0  # Force next snapshot immediately
 
     async def _on_topology_rollback(self, event: Event) -> None:
         """Force immediate snapshot on rollback."""
-        logger.debug("TOPOLOGY_ROLLBACK detected â€” immediate snapshot")
+        logger.debug("TOPOLOGY_ROLLBACK detected - immediate snapshot")
         self._last_snapshot_time = 0.0
 
     async def _take_snapshot(
@@ -113,7 +113,7 @@ class TopologyMirror:
         """
         Write current topology to ~/.cynic/topology.json.
 
-        This is the "live" view â€” humans can inspect organism's current structure.
+        This is the "live" view - humans can inspect organism's current structure.
         """
         try:
             path = Path.home() / ".cynic" / "topology.json"

@@ -32,6 +32,7 @@ import logging
 import time
 import uuid
 from typing import Any, TYPE_CHECKING
+from typing_extensions import Protocol
 
 from cynic.kernel.core.formulas import ACT_LOG_CAP
 from cynic.kernel.core.storage.interface import (
@@ -100,6 +101,23 @@ def _rec(table: str, key: str) -> str:
     return f"{table}:{_safe_id(key)}"
 
 
+# ═ SURREAL DB CLIENT PROTOCOL ═══════════════════════════════════════════════════
+class SurrealDBClient(Protocol):
+    """Protocol for SurrealDB async client (asyncsurreal.Surreal)."""
+
+    async def upsert(self, record_id: str, data: dict[str, Any]) -> None:
+        """Upsert a record (insert or update)."""
+        ...
+
+    async def query(self, sql: str, params: dict[str, Any] | None = None) -> Any:
+        """Execute SurrealQL query with parameters."""
+        ...
+
+    async def select(self, record_id: str) -> dict[str, Any] | None:
+        """Select a single record by ID."""
+        ...
+
+
 def _rows(result: Any) -> list[dict]:
     """Extract row list from a SurrealDB query result."""
     if not result:
@@ -117,7 +135,7 @@ def _rows(result: Any) -> list[dict]:
 
 
 class JudgmentRepo(JudgmentRepoInterface):
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: SurrealDBClient) -> None:
         self._db = db
 
     async def save(self, judgment: dict[str, Any]) -> None:
@@ -168,7 +186,7 @@ class JudgmentRepo(JudgmentRepoInterface):
 
 
 class QTableRepo(QTableRepoInterface):
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: SurrealDBClient) -> None:
         self._db = db
 
     def _rec_id(self, state_key: str, action: str) -> str:
@@ -213,7 +231,7 @@ class QTableRepo(QTableRepoInterface):
 
 
 class LearningRepo(LearningRepoInterface):
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: SurrealDBClient) -> None:
         self._db = db
 
     async def save(self, event: dict[str, Any]) -> None:
@@ -243,7 +261,7 @@ class LearningRepo(LearningRepoInterface):
 
 
 class BenchmarkRepo(BenchmarkRepoInterface):
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: SurrealDBClient) -> None:
         self._db = db
 
     async def save(self, result: dict[str, Any]) -> None:
@@ -292,7 +310,7 @@ class BenchmarkRepo(BenchmarkRepoInterface):
 
 
 class ResidualRepo(ResidualRepoInterface):
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: SurrealDBClient) -> None:
         self._db = db
 
     async def append(self, point: dict[str, Any]) -> None:
@@ -316,7 +334,7 @@ class ResidualRepo(ResidualRepoInterface):
 
 
 class SDKSessionRepo(SDKSessionRepoInterface):
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: SurrealDBClient) -> None:
         self._db = db
 
     async def save(self, telemetry: dict[str, Any]) -> None:
@@ -370,7 +388,7 @@ class SDKSessionRepo(SDKSessionRepoInterface):
 
 
 class ScholarRepo(ScholarRepoInterface):
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: SurrealDBClient) -> None:
         self._db = db
 
     async def append(self, entry: dict[str, Any]) -> None:
@@ -421,7 +439,7 @@ class ScholarRepo(ScholarRepoInterface):
 class ActionProposalRepo(ActionProposalRepoInterface):
     """Persist ProposedAction queue to SurrealDB (mirrors ~/.cynic/pending_actions.json)."""
 
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: SurrealDBClient) -> None:
         self._db = db
 
     async def upsert(self, action: dict[str, Any]) -> None:
@@ -459,7 +477,7 @@ class ActionProposalRepo(ActionProposalRepoInterface):
 class DogSoulRepo(DogSoulRepoInterface):
     """Persist DogSoul cross-session identity to SurrealDB (mirrors ~/.cynic/dogs/{id}/soul.md)."""
 
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: SurrealDBClient) -> None:
         self._db = db
 
     async def save(self, soul: dict[str, Any]) -> None:
@@ -490,7 +508,7 @@ class DogSoulRepo(DogSoulRepoInterface):
 class AxiomFacetRepo(AxiomFacetRepoInterface):
     """Persist dynamic axiom facets to SurrealDB."""
 
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: SurrealDBClient) -> None:
         self._db = db
 
     async def save(self, facet: dict[str, Any]) -> None:
