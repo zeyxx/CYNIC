@@ -110,7 +110,7 @@ def cmd_probes_list(status: str = "PENDING") -> None:
         sys.exit(1)
 
     # Try API first
-    path = "/self-probes" + ("" if status == "PENDING" else f"?status={status}")
+    path = "/self-probes" + ("" if status in ("PENDING", "ALL") else f"?status={status}")
     api_data = _api_get(path)
 
     if api_data is not None:
