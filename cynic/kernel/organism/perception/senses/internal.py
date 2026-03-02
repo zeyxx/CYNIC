@@ -26,10 +26,18 @@ class InternalSensor:
         self._bus = bus
 
     def start(self, bus: Optional[EventBus] = None):
-        """Subscribe to anomalies."""
+        “””Subscribe to anomalies.”””
         target_bus = bus or self._bus
         target_bus.on(CoreEvent.ANOMALY_DETECTED, self._on_anomaly)
-        logger.info("InternalSensor: Proprioception active â€” listening for anomalies")
+        logger.info(“InternalSensor: Proprioception active â€” listening for anomalies”)
+
+    def stop(self) -> None:
+        “””Unregister from bus anomaly events.”””
+        try:
+            self._bus.off(CoreEvent.ANOMALY_DETECTED, self._on_anomaly)
+        except Exception as e:
+            logger.debug(f”Error unregistering InternalSensor listener: {e}”)
+        logger.info(“InternalSensor: Proprioception stopped”)
 
     async def _on_anomaly(self, event: Event) -> None:
         """Translate technical anomaly to conscious perception."""

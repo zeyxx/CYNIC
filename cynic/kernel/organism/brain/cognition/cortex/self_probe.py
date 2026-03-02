@@ -182,6 +182,17 @@ class SelfProber:
         self._registered = True
         logger.info("SelfProber subscribed to EMERGENCE_DETECTED and ANOMALY_DETECTED")
 
+    def stop(self) -> None:
+        """Unregister from bus events."""
+        if self._registered and self._bus:
+            try:
+                self._bus.off(CoreEvent.EMERGENCE_DETECTED, self._on_emergence)
+                self._bus.off(CoreEvent.ANOMALY_DETECTED, self._on_anomaly_detected)
+            except Exception as e:
+                logger.debug(f"Error unregistering SelfProber listeners: {e}")
+            self._registered = False
+            logger.info("SelfProber stopped")
+
     # â"€â"€ Public API â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def all_proposals(self) -> list[SelfProposal]:

@@ -68,6 +68,16 @@ class WorldModelUpdater:
         self._started = True
         logger.info("WorldModelUpdater subscribed to JUDGMENT_CREATED")
 
+    def stop(self) -> None:
+        """Unregister from bus judgment events."""
+        if self._started and self._bus:
+            try:
+                self._bus.off(CoreEvent.JUDGMENT_CREATED, self._on_judgment)
+            except Exception as e:
+                logger.debug(f"Error unregistering WorldModelUpdater listener: {e}")
+            self._started = False
+            logger.info("WorldModelUpdater stopped")
+
     async def _on_judgment(self, event: Event) -> None:
         try:
             p = event.dict_payload or {}
