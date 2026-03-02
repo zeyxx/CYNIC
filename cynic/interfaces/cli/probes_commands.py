@@ -2,10 +2,10 @@
 CYNIC CLI -- `probes` command interface (Priority 10 Task 3).
 
 Provides five commands for managing self-improvement proposals:
-  1. list [--status PENDING|APPLIED|DISMISSED|all] — List proposals by status
-  2. show {probe_id} — Show details of a single proposal
-  3. approve {probe_id} — Approve and apply a proposal
-  4. dismiss {probe_id} — Dismiss a proposal
+  1. list [--status PENDING|APPLIED|DISMISSED|all] — List proposals by status (default: PENDING)
+  2. show <probe_id> — Show details of a single proposal
+  3. approve <probe_id> — Approve and apply a proposal
+  4. dismiss <probe_id> — Dismiss a proposal
   5. audit [--limit 50] — Show audit log of applied/dismissed proposals
 
 All commands work with SelfProber and persist to ~/.cynic/self_proposals.json.
@@ -265,7 +265,11 @@ def main() -> None:
     command = args[0].lower()
 
     if command == "list":
-        status = args[1].upper() if len(args) > 1 else "PENDING"
+        status = "PENDING"  # default
+        if "--status" in args:
+            idx = args.index("--status")
+            if idx + 1 < len(args):
+                status = args[idx + 1].upper()
         cmd_probes_list(status)
     elif command == "show":
         if len(args) < 2:
@@ -296,16 +300,17 @@ def main() -> None:
         print("""CYNIC Probes CLI - Self-Improvement Proposal Management
 
 Usage:
-  cynic-probes list [PENDING|APPLIED|DISMISSED|all]  - List proposals (default: PENDING)
-  cynic-probes show <probe_id>                        - Show proposal details
-  cynic-probes approve <probe_id>                     - Approve a proposal
-  cynic-probes dismiss <probe_id>                     - Dismiss a proposal
-  cynic-probes audit [--limit 50]                     - Show applied/dismissed audit log
-  cynic-probes help                                   - Show this help
+  cynic-probes list [--status PENDING|APPLIED|DISMISSED|all]  - List proposals (default: PENDING)
+  cynic-probes show <probe_id>                                 - Show proposal details
+  cynic-probes approve <probe_id>                              - Approve a proposal
+  cynic-probes dismiss <probe_id>                              - Dismiss a proposal
+  cynic-probes audit [--limit 50]                              - Show applied/dismissed audit log
+  cynic-probes help                                            - Show this help
 
 Examples:
   cynic-probes                        # Show pending proposals
-  cynic-probes list all               # Show all proposals
+  cynic-probes list --status all      # Show all proposals
+  cynic-probes list --status applied  # Show applied proposals
   cynic-probes show abc12345          # Show details for proposal abc12345
   cynic-probes approve abc12345       # Mark proposal as applied
   cynic-probes audit --limit 100      # Show last 100 audit entries
