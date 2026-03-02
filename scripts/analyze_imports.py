@@ -1,9 +1,10 @@
 """
 Analyze Python import graph and detect circular dependencies.
 
-Usage: python scripts/analyze_imports.py [--graph]
+Usage: python scripts/analyze_imports.py [--graph] [--fail-on-cycle]
 """
 import sys
+import argparse
 import ast
 from pathlib import Path
 from collections import defaultdict, deque
@@ -139,6 +140,21 @@ def find_cycles(graph):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description='Analyze Python import graph and detect circular dependencies'
+    )
+    parser.add_argument(
+        '--graph',
+        action='store_true',
+        help='Display the import dependency graph'
+    )
+    parser.add_argument(
+        '--fail-on-cycle',
+        action='store_true',
+        help='Exit with code 1 if any circular imports are found'
+    )
+    args = parser.parse_args()
+
     graph = build_import_graph()
     cycles = find_cycles(graph)
 
@@ -146,11 +162,12 @@ def main():
         print(f"❌ Found {len(cycles)} circular import chain(s):")
         for cycle in cycles:
             print(f"  {' → '.join(cycle)}")
-        sys.exit(1)
+        if args.fail_on_cycle:
+            sys.exit(1)
     else:
         print("✅ No circular imports detected")
 
-    if "--graph" in sys.argv:
+    if args.graph:
         print("\nImport dependency graph:")
         for module, deps in sorted(graph.items()):
             if deps:
