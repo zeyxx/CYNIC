@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import urllib.request
 from typing import Any
 
@@ -16,19 +15,32 @@ from cynic.kernel.organism.perception.senses.workers.base import PerceiveWorker
 
 logger = logging.getLogger(__name__)
 
-# Helius RPC - primary choice (user has 1M free credits)
-# Set HELIUS_API_KEY env var to use it, otherwise falls back to public RPCs
-_HELIUS_API_KEY = os.environ.get("HELIUS_API_KEY", "")
-_SOLANA_RPC_URLS = []
-if _HELIUS_API_KEY:
-    _SOLANA_RPC_URLS = [f"https://mainnet.helius-rpc.com/?api-key={_HELIUS_API_KEY}"]
-else:
-    # Fallback to public RPCs (rate limited)
-    _SOLANA_RPC_URLS = [
-        "https://api.mainnet-beta.solana.com",
-        "https://solana-api.projectserum.com",
-        "https://rpc.ankr.com/solana",
-    ]
+
+def _get_helius_api_key() -> str:
+    """Get Helius API key from unified config (Rule 3: single source of truth)."""
+    try:
+        from cynic.kernel.core.config import CynicConfig
+        config = CynicConfig.from_env()
+        return config.helius_api_key or ""
+    except Exception:
+        return ""
+
+
+def _build_solana_rpc_urls() -> list[str]:
+    """Build Solana RPC URL list with optional Helius priority."""
+    helius_key = _get_helius_api_key()
+    if helius_key:
+        return [f"https://mainnet.helius-rpc.com/?api-key={helius_key}"]
+    else:
+        # Fallback to public RPCs (rate limited)
+        return [
+            "https://api.mainnet-beta.solana.com",
+            "https://solana-api.projectserum.com",
+            "https://rpc.ankr.com/solana",
+        ]
+
+
+_SOLANA_RPC_URLS = _build_solana_rpc_urls()
 _SOLANA_RPC_HEADERS = {
     "Content-Type": "application/json",
     "User-Agent": "CYNIC/1.0 SolanaWatcher",
