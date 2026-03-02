@@ -17,7 +17,7 @@ import time
 from collections import deque
 from typing import Any
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError
+from cynic.kernel.core.event_bus import CoreEvent, Event, EventBusError, get_core_bus
 from cynic.kernel.core.events_schema import ChangeAnalyzedPayload
 from cynic.kernel.core.phi import fibonacci
 from cynic.kernel.core.topology.payloads import SourceChangedPayload

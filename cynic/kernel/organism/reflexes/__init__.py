@@ -120,6 +120,7 @@ def discover_handler_groups(
         "meta_cognition": (cognition, "cognition"),
         "guidance_writer": (cognition, "cognition"),
         "consciousness_writer": (cognition, "cognition"),
+        "perception_handler": (sensory, "sensory"),
         "direct": (metabolic, "metabolism"),
         "sdk": (metabolic, "metabolism"),
         "knet_handler": (sensory, "sensory"),

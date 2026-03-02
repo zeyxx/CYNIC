@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("🧪 CYNIC Awakening (instance=%s)...", instance_id)
 
     # 2. START (Launch background processing loops)
-    await organism.start(db=None)
+    await organism.start()
     
     # 2b. Îº-NET is managed by the Organism/Factory now
     logger.info("[KNET] Somatic Broadcaster active via SensoryCore.")

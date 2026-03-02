@@ -75,6 +75,9 @@ class CoreEvent(str, Enum):
     # --- Priority 10: Proposal execution events ---
     PROPOSAL_EXECUTED = "core.proposal_executed"
     PROPOSAL_FAILED = "core.proposal_failed"
+    # --- Topology & Change Analysis events ---
+    SOURCE_CHANGED = "core.source_changed"
+    CHANGE_ANALYZED = "core.change_analyzed"
 
 class Event:
     def __init__(self, type: str, payload: Any = None, source: str = "unknown", instance_id: str | None = None):
@@ -105,6 +108,41 @@ class Event:
     @classmethod
     def typed(cls, type: CoreEvent, payload: Any = None, source: str = "unknown") -> Event:
         return cls(type.value if hasattr(type, "value") else str(type), payload, source)
+
+    def as_typed(self, payload_type: type[T]) -> T:
+        """Validate and cast payload to the specified type.
+
+        Args:
+            payload_type: Pydantic model or dataclass to validate against
+
+        Returns:
+            Validated payload instance
+
+        Raises:
+            EventBusError: If payload is None or fails validation
+        """
+        if self.payload is None:
+            raise EventBusError(f"Event payload is None, cannot cast to {payload_type.__name__}")
+
+        # If payload is already the correct type, return it
+        if isinstance(self.payload, payload_type):
+            return self.payload
+
+        # Try Pydantic validation if available
+        try:
+            if hasattr(payload_type, "model_validate"):
+                return payload_type.model_validate(self.payload)
+        except Exception:
+            pass
+
+        # Try direct instantiation if dict
+        try:
+            if isinstance(self.payload, dict):
+                return payload_type(**self.payload)
+        except Exception as e:
+            raise EventBusError(f"Failed to validate payload as {payload_type.__name__}: {e}")
+
+        raise EventBusError(f"Payload type {type(self.payload).__name__} cannot be cast to {payload_type.__name__}")
 
 Handler = Callable[[Event], Coroutine[Any, Any, None]]
 
