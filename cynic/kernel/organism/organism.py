@@ -90,22 +90,121 @@ class Organism:
             pass
 
     async def stop(self) -> None:
-        """Gracefully shutdown."""
-        await self.state.stop_processing()
-        
-        # Shutdown distributed bridge
-        if self.bridge:
-            await self.bridge.stop()
-            
-        # Shutdown vascular system (IO pools)
-        if self.vascular:
-            await self.vascular.close()
+        """Gracefully shutdown all components in reverse order of startup."""
+        logger.info(f"Organism [{self.instance_id}]: Initiating shutdown sequence...")
 
-        if self.memory.sona_emitter:
-            await self.memory.sona_emitter.stop()
-        if hasattr(self.senses, "knet_server") and self.senses.knet_server:
-            await self.senses.knet_server.stop()
-        logger.info(f"Organism [{self.instance_id}]: Dormant.")
+        # 1. COGNITION SHUTDOWN
+        try:
+            # Stop orchestrator first (stops judgment flow)
+            if hasattr(self.cognition, "orchestrator") and hasattr(self.cognition.orchestrator, "stop"):
+                await self.cognition.orchestrator.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping orchestrator: {e}")
+
+        try:
+            # Stop residual detector
+            if hasattr(self.cognition, "residual_detector") and hasattr(self.cognition.residual_detector, "stop"):
+                self.cognition.residual_detector.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping residual_detector: {e}")
+
+        try:
+            # Stop learning loop
+            if hasattr(self.cognition, "learning_loop") and hasattr(self.cognition.learning_loop, "stop"):
+                self.cognition.learning_loop.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping learning_loop: {e}")
+
+        # 2. MEMORY/ARCHIVE SHUTDOWN
+        try:
+            # Stop self-prober
+            if hasattr(self.memory, "self_prober") and hasattr(self.memory.self_prober, "stop"):
+                self.memory.self_prober.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping self_prober: {e}")
+
+        try:
+            # Stop SONA emitter
+            if self.memory.sona_emitter and hasattr(self.memory.sona_emitter, "stop"):
+                await self.memory.sona_emitter.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping sona_emitter: {e}")
+
+        try:
+            # Stop executor
+            if hasattr(self.memory, "executor") and hasattr(self.memory.executor, "stop"):
+                self.memory.executor.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping executor: {e}")
+
+        try:
+            # Stop gossip manager
+            if hasattr(self.memory, "gossip_manager") and hasattr(self.memory.gossip_manager, "stop"):
+                self.memory.gossip_manager.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping gossip_manager: {e}")
+
+        # 3. SENSORY SHUTDOWN
+        try:
+            # Stop world model
+            if hasattr(self.senses, "world_model") and hasattr(self.senses.world_model, "stop"):
+                self.senses.world_model.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping world_model: {e}")
+
+        try:
+            # Stop internal sensor
+            if hasattr(self.senses, "internal_sensor") and self.senses.internal_sensor:
+                if hasattr(self.senses.internal_sensor, "stop"):
+                    self.senses.internal_sensor.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping internal_sensor: {e}")
+
+        try:
+            # Stop market sensor
+            if hasattr(self.senses, "market_sensor") and self.senses.market_sensor:
+                if hasattr(self.senses.market_sensor, "stop"):
+                    self.senses.market_sensor.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping market_sensor: {e}")
+
+        try:
+            # Stop source watcher
+            if hasattr(self.senses, "source_watcher") and hasattr(self.senses.source_watcher, "stop"):
+                self.senses.source_watcher.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping source_watcher: {e}")
+
+        try:
+            # Stop K-NET server
+            if hasattr(self.senses, "knet_server") and self.senses.knet_server:
+                if hasattr(self.senses.knet_server, "stop"):
+                    await self.senses.knet_server.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping knet_server: {e}")
+
+        # 4. METABOLISM/BODY SHUTDOWN
+        try:
+            # Stop scheduler
+            if hasattr(self.metabolism, "scheduler") and hasattr(self.metabolism.scheduler, "stop"):
+                self.metabolism.scheduler.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping scheduler: {e}")
+
+        try:
+            # Stop motor
+            if hasattr(self.metabolism, "motor") and hasattr(self.metabolism.motor, "stop"):
+                self.metabolism.motor.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping motor: {e}")
+
+        # 5. STATE SHUTDOWN (last)
+        try:
+            await self.state.stop_processing()
+        except Exception as e:
+            logger.debug(f"Error stopping state: {e}")
+
+        logger.info(f"Organism [{self.instance_id}]: Dormant. Shutdown complete.")
 
 async def awaken(db_pool=None, registry=None) -> Organism:
     """Delegates to the factory for awakening."""
