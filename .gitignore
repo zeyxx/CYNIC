@@ -55,3 +55,4 @@ poetry.lock
 
 # Git worktrees
 .worktrees/
+.worktrees/
