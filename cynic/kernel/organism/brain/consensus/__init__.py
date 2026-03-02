@@ -10,15 +10,21 @@ Key concepts:
 - For 11 Dogs: need >= 8 votes (Byzantine majority)
 """
 
+import threading
+
 from cynic.kernel.organism.brain.consensus.pbft_engine import PBFTEngine
 
 _ENGINE = None
+_ENGINE_LOCK = threading.Lock()
 
 
 def get_consensus_engine() -> PBFTEngine:
     global _ENGINE
     if _ENGINE is None:
-        _ENGINE = PBFTEngine()
+        with _ENGINE_LOCK:
+            # Double-check pattern under lock
+            if _ENGINE is None:
+                _ENGINE = PBFTEngine()
     return _ENGINE
 
 
