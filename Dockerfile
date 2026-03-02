@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Create non-root user
 RUN groupadd -r cynic && useradd -r -g cynic cynic
-RUN mkdir -p /home/cynic/.cynic && chown -r cynic:cynic /home/cynic
+RUN mkdir -p /home/cynic/.cynic && chown -R cynic:cynic /home/cynic
 
 # Copy wheels from builder
 COPY --from=builder /build/wheels /wheels

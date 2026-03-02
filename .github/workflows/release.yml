@@ -44,9 +44,9 @@ jobs:
       run: |
         VERSION=${{ steps.version.outputs.version }}
         if [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "✅ Valid version format: $VERSION"
+          echo "[OK] Valid version format: $VERSION"
         else
-          echo "❌ Invalid version format: $VERSION"
+          echo "[FAIL] Invalid version format: $VERSION"
           echo "Expected format: X.Y.Z (e.g., 1.0.0)"
           exit 1
         fi
@@ -109,45 +109,18 @@ jobs:
     - name: Check CHANGELOG
       run: |
         if [ ! -f "CHANGELOG.md" ]; then
-          echo "⚠️  CHANGELOG.md not found"
-          echo "Creating template..."
-          cat > CHANGELOG.md << 'EOF'
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-### Added
-- New features
-
-### Changed
-- Changes to existing functionality
-
-### Fixed
-- Bug fixes
-
-### Removed
-- Removed features
-
-## [1.0.0] - 2024-01-01
-
-### Added
-- Initial release
-EOF
+          echo "[WARNING] CHANGELOG.md not found"
+          echo "See docs/CHANGELOG_TEMPLATE.md for template"
+        else
+          echo "[OK] CHANGELOG.md exists"
         fi
-
-        echo "✅ CHANGELOG.md exists"
 
     - name: Validate version in CHANGELOG
       if: github.event_name == 'push'
       run: |
         VERSION=${GITHUB_REF#refs/tags/v}
         if grep -q "## \[$VERSION\]" CHANGELOG.md; then
-          echo "✅ Version $VERSION found in CHANGELOG"
+          echo "[OK] Version $VERSION found in CHANGELOG"
         else
-          echo "⚠️  Version $VERSION not found in CHANGELOG"
+          echo "[WARN]  Version $VERSION not found in CHANGELOG"
         fi
