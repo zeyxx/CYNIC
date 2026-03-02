@@ -17,3 +17,13 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "lf"
+
+# PYTEST Configuration — Performance Markers & Test Filtering
+[tool.pytest.ini_options]
+markers = [
+    "performance: Marks tests as performance benchmarks (deselect with '-m \"not performance\"')",
+    "ci_required: Marks tests that must pass in CI/CD pipeline",
+    "asyncio: Marks async tests for pytest-asyncio",
+]
+testpaths = ["tests"]
+asyncio_mode = "auto"
