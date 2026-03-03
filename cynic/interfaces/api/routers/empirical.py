@@ -139,7 +139,7 @@ async def get_job_status(job_id: str):
         raise
     except Exception as e:
         logger.exception(f"Failed to get job status: {job_id}")
-        raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/test/{job_id}/results")
@@ -180,7 +180,7 @@ async def get_test_results(job_id: str):
         raise
     except Exception as e:
         logger.exception(f"Failed to get results: {job_id}")
-        raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 # 
@@ -225,7 +225,7 @@ async def test_axiom_irreducibility(axiom: str | None = None):
         return results
     except Exception as e:
         logger.exception(f"Failed to run axiom test: {axiom}")
-        raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 # 
@@ -266,7 +266,7 @@ async def query_telemetry(metric: str = "uptime_s"):
         raise
     except Exception as e:
         logger.exception(f"Failed to query telemetry: {metric}")
-        raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 # 

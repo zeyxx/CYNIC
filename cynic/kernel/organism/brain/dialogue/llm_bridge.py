@@ -140,7 +140,7 @@ class LLMBridge:
 
         except Exception as e:
             logger.exception("Error in generate_response: %s", e)
-            return f"I'm unable to explain my reasoning right now: {str(e)[:100]}"
+                return f"I'm unable to explain my reasoning right now: {str(e)[:100]}"
 
     async def _try_fallback(self, request: LLMRequest) -> str:
         """Try next available adapter if primary fails.

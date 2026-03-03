@@ -63,9 +63,9 @@ VERDICTS: list[str] = ["BARK", "GROWL", "WAG", "HOWL"]
 THOMPSON_PRIOR: int = fibonacci(5)  # 5 " neutral prior, not zero
 
 
-# 
+#
 # DATA STRUCTURES
-# 
+#
 
 
 @dataclass
@@ -131,9 +131,9 @@ class LearningSignal:
             raise ValueError(f"action must be one of {VERDICTS}, got '{self.action}'")
 
 
-# 
+#
 # Q-TABLE
-# 
+#
 
 
 class QTable:
@@ -305,7 +305,7 @@ class QTable:
                     state_key=entry_snapshot["state_key"],
                     action=entry_snapshot["action"],
                     q_value=entry_snapshot["q_value"],
-                    visits=entry_snapshot["visits"]
+                    visits=entry_snapshot["visits"],
                 )
                 count += 1
             except Exception as exc:
@@ -321,7 +321,7 @@ class QTable:
         """
         if not self.storage:
             return 0
-            
+
         try:
             entries = await self.storage.get_all()
             return self.load_from_entries(entries)
@@ -354,7 +354,9 @@ class QTable:
     def stats(self) -> dict[str, Any]:
         """Return learning system health metrics."""
         total_entries = sum(len(v) for v in self._table.values())
-        total_visits = sum(e.visits for actions in self._table.values() for e in actions.values())
+        total_visits = sum(
+            e.visits for actions in self._table.values() for e in actions.values()
+        )
         # Average Q per state
         state_avgs = {}
         for sk, actions in self._table.items():
@@ -364,10 +366,12 @@ class QTable:
         # EWC: average effective learning rate across all entries
         all_entries = [e for v in self._table.values() for e in v.values()]
         if all_entries:
-            avg_fisher = sum(min(e.visits / fibonacci(8), 1.0) for e in all_entries) / len(
-                all_entries
+            avg_fisher = sum(
+                min(e.visits / fibonacci(8), 1.0) for e in all_entries
+            ) / len(all_entries)
+            avg_effective_alpha = round(
+                self._alpha * (1.0 - EWC_PENALTY * avg_fisher), 5
             )
-            avg_effective_alpha = round(self._alpha * (1.0 - EWC_PENALTY * avg_fisher), 5)
             ewc_consolidated = sum(1 for e in all_entries if e.visits >= fibonacci(8))
         else:
             avg_effective_alpha = self._alpha
@@ -422,7 +426,9 @@ class QTable:
                 self._table[state_key] = {}
             self._table[state_key][action] = entry
 
-        logger.info("QTable pruned %d least valuable entries (BURN axiom active)", len(doomed))
+        logger.info(
+            "QTable pruned %d least valuable entries (BURN axiom active)", len(doomed)
+        )
         return len(doomed)
 
     def top_states(self, n: int = 5) -> list[dict]:
@@ -440,7 +446,11 @@ class QTable:
                     "confidence": round(self.confidence(sk), 3),
                 }
             )
-        return sorted(state_data, key=lambda d: d["visits"], reverse=True)[:n]
+        from typing import cast, SupportsLessThan
+
+        return sorted(
+            state_data, key=lambda d: cast(SupportsLessThan, d["visits"]), reverse=True
+        )[:n]
 
     def matrix_stats(self) -> dict:
         """
@@ -503,9 +513,9 @@ class QTable:
         return self._table[state_key][action]
 
 
-# 
+#
 # LEARNING LOOP (Event-driven integration)
-# 
+#
 
 
 class LearningLoop:
@@ -530,7 +540,7 @@ class LearningLoop:
         self._instance_id = instance_id
 
         self._updates_since_flush: int = 0
-        self._learning_rate = qtable._alpha  # Reference to QTable's 
+        self._learning_rate = qtable._alpha  # Reference to QTable's
         self.instance_id = instance_id  # Level 2 multi-instance support
         self._bus = None  # Cached bus reference (set in start())
 
@@ -546,7 +556,9 @@ class LearningLoop:
         self._learning_rate = max(0.01, min(0.2, new_rate))
         # Also update the underlying QTable
         self.qtable._alpha = self._learning_rate
-        logger.info("Learning rate  adjusted to %.4f (delta=%.3f)", self._learning_rate, delta)
+        logger.info(
+            "Learning rate  adjusted to %.4f (delta=%.3f)", self._learning_rate, delta
+        )
 
     def start(self, event_bus: Optional[Any] = None) -> None:
         """Register LEARNING_EVENT listener on the event bus."""
@@ -565,6 +577,7 @@ class LearningLoop:
         if self._bus:
             try:
                 from cynic.kernel.core.event_bus import CoreEvent
+
                 self._bus.off(CoreEvent.LEARNING_EVENT, self._on_learning_event)
             except Exception as e:
                 logger.debug(f"Error unregistering LearningLoop listener: {e}")
@@ -601,13 +614,7 @@ class LearningLoop:
             await self._bus.emit(
                 Event.typed(
                     CoreEvent.EWC_CHECKPOINT,
-                    EwcCheckpointPayload(
-                        q_value=entry.q_value,
-                        state_key=signal.state_key,
-                        action=signal.action,
-                        visits=entry.visits,
-                        loop_name=signal.loop_name,
-                    ),
+                    EwcCheckpointPayload(),
                     source="learning_loop",
                 )
             )
@@ -630,12 +637,7 @@ class LearningLoop:
             await self._bus.emit(
                 Event.typed(
                     CoreEvent.Q_TABLE_UPDATED,
-                    QTableUpdatedPayload(
-                        flushed=flushed,
-                        total_entries=stats["entries"],
-                        ewc_consolidated=stats["ewc_consolidated"],
-                        total_updates=stats["total_updates"],
-                    ),
+                    QTableUpdatedPayload(flushed=flushed),
                     source="learning_loop",
                 )
             )
