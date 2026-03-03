@@ -177,6 +177,22 @@ class _OrganismAwakener:
         except Exception as e:
             logger.warning(f"Factory: EventForwarder not available, SIEM logging disabled: {e}")
 
+        # 0i. COGNITIVE SCIENTIST (MCTS + Surgery)
+        from cynic.kernel.organism.brain.cognition.cortex.mcts_scientist import ScientificMCTS, Hypothesis
+        from cynic.kernel.organism.brain.cognition.cortex.surgery import AutoSurgeon
+        from cynic.nervous.flight_recorder import FlightRecorder
+        
+        self.auto_surgeon = AutoSurgeon(root_dir=str(self.root_dir if hasattr(self, 'root_dir') else "."))
+        self.flight_recorder = FlightRecorder(storage=self.storage, bus=self.core_bus)
+        
+        # Initial MCTS state (will be expanded by Gemini 3 at hackathon)
+        self.mcts_scientist = ScientificMCTS(Hypothesis(
+            id="ROOT", 
+            description="Initial architectural state", 
+            target_metric="system_integrity", 
+            expected_trend="increase"
+        ))
+
         # 1. BASE STATE
         self.state = OrganismState(instance_id=instance_id, storage=self.storage, bus=self.core_bus)
         

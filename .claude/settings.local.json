@@ -179,7 +179,8 @@
       "Bash(gh run:*)",
       "WebFetch(domain:www.trader-ralph.com)",
       "Bash(/tmp/phase1_summary.md:*)",
-      "Bash(do:*)"
+      "Bash(do:*)",
+      "Bash(/c/Users/zeyxm/Desktop/asdfasdfa/CYNIC-clean/audit/README.md:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -262,35 +262,38 @@ class EventBus:
     async def emit(self, event: Event, distributed: bool = True) -> None:
         """Emit event locally and optionally distribute it via bridge."""
         t_start = time.perf_counter()
-        self._emitted_count += 1
-
-        # Record event emission metric
-        events_emitted_total.labels(event_type=event.type).inc()
-
-        # Backpressure Monitor (SRE lens)
+        
+        # 1. Backpressure Enforcement (Lentille: Backend / SRE)
         pending_count = len(self._pending_tasks)
         pending_tasks_gauge.set(pending_count)
 
+        if pending_count > self.MAX_PENDING:
+            # List of event types that MUST NOT be dropped (Survival signals)
+            critical_events = {
+                CoreEvent.JUDGMENT_CREATED,
+                CoreEvent.JUDGMENT_FAILED,
+                CoreEvent.SECURITY_EVENT,
+                CoreEvent.AUTH_ATTEMPT,
+                CoreEvent.PROPOSAL_EXECUTED,
+                CoreEvent.DISK_PRESSURE,
+                CoreEvent.MEMORY_PRESSURE,
+                CoreEvent.ANOMALY_DETECTED
+            }
+            
+            if event.type not in critical_events:
+                # Drop non-critical signal to save the kernel
+                logger.warning(
+                    f"[{self.instance_id}] BACKPRESSURE: Dropping non-critical event {event.type} "
+                    f"({pending_count} pending tasks)."
+                )
+                backpressure_triggers_total.inc()
+                return
+
+        self._emitted_count += 1
+        events_emitted_total.labels(event_type=event.type).inc()
+
         if pending_count > self._peak_pending:
             self._peak_pending = pending_count
-
-        if pending_count > self.MAX_PENDING:
-            backpressure_triggers_total.inc()
-            logger.warning(
-                f"[{self.instance_id}] BACKPRESSURE: {pending_count} pending tasks. Throttling active.",
-                extra={"bus_id": self.bus_id}
-            )
-            # Mandatory anomaly signal (guard against recursive emit)
-            if event.type != CoreEvent.ANOMALY_DETECTED and not self._backpressure_emitting:
-                self._backpressure_emitting = True
-                def reset_flag(task):
-                    self._backpressure_emitting = False
-                task = asyncio.create_task(self.emit(Event.typed(
-                    CoreEvent.ANOMALY_DETECTED,
-                    {"type": "backpressure", "pending": pending_count},
-                    source="event_bus"
-                )))
-                task.add_done_callback(reset_flag)
 
         # Snapshot handlers under lock to prevent concurrent modification
         with self._handlers_lock:

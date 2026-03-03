@@ -107,18 +107,25 @@ def _rec(table: str, key: str) -> str:
     return f"{table}:{_safe_id(key)}"
 
 
+from cynic.kernel.core.resilience import async_retry
+
+# ... (imports continue)
+
 #  SURREAL DB CLIENT PROTOCOL 
 class SurrealDBClient(Protocol):
     """Protocol for SurrealDB async client (asyncsurreal.Surreal)."""
 
+    @async_retry(retries=3, delay=0.5)
     async def upsert(self, record_id: str, data: dict[str, Any]) -> None:
         """Upsert a record (insert or update)."""
         ...
 
+    @async_retry(retries=3, delay=0.5)
     async def query(self, sql: str, params: dict[str, Any] | None = None) -> Any:
         """Execute SurrealQL query with parameters."""
         ...
 
+    @async_retry(retries=3, delay=0.5)
     async def select(self, record_id: str) -> dict[str, Any] | None:
         """Select a single record by ID."""
         ...

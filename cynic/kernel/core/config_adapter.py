@@ -70,9 +70,6 @@ class ConfigurationAdaptationEngine:
         # Step 5: Remember for future
         self._save_preference(key, final_value)
 
-        # Platform-aware output (Windows cp1252 can't render ")
-        "[OK]" if platform.system() == "Windows" else """
-
         return final_value
 
     def _get_known_preference(self, key: str) -> Any | None:

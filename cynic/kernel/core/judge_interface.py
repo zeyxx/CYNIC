@@ -5,27 +5,20 @@ This module defines the abstract interface for all CYNIC judges (Dogs) and provi
 the base class with common functionality.
 
 Architecture:
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-"          UNIFIED JUDGE ARCHITECTURE                     "
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-"                                                         "
-"  JudgeInterface (abstract)                              "
-"  "" Defines: judge(proposal_text, context) ' Judgment  "
-"  """ Async requirement                                  "
-"                                                         "
-"  BaseJudge (foundation)                                 "
-"  "" Dog ID (1-11)                                       "
-"  "" Dog Name (e.g., "Crown Consciousness")             "
-"  "" Axiom Focus (FIDELITY, PHI, VERIFY, CULTURE, BURN) "
-"  "" Helpers:                                            "
-"  "  "" _calculate_phi_bounded_confidence()              "
-"  "  """ Performance tracking                             "
-"  """ Abstract judge() method                             "
-"                                                         "
-"  Dog1-Dog11 (specialized implementations)               "
-"  """ Each implements judge() with axiom-specific logic   "
-"                                                         "
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    UNIFIED JUDGE ARCHITECTURE
+    - JudgeInterface (abstract)
+      - Defines: judge(proposal_text, context) -> Judgment
+      - Async requirement
+    - BaseJudge (foundation)
+      - Dog ID (1-11)
+      - Dog Name (e.g., "Crown Consciousness")
+      - Axiom Focus (FIDELITY, PHI, VERIFY, CULTURE, BURN)
+      - Helpers:
+        - _calculate_phi_bounded_confidence()
+        - Performance tracking
+      - Abstract judge() method
+    - Dog1-Dog11 (specialized implementations)
+      - Each implements judge() with axiom-specific logic
 
 Key principles:
 1. All judges are async
