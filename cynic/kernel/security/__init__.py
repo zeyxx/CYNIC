@@ -25,6 +25,18 @@ from cynic.kernel.security.encryption import (
     EncryptionService,
     TransparentEncryption,
 )
+from cynic.kernel.security.rbac import (
+    APIKey,
+    AccessController,
+    AccessControlConfig,
+    AuthorizationService,
+    InMemoryKeyStore,
+    KeyStore,
+    Permission,
+    RequestSigner,
+    Resource,
+    Role,
+)
 from cynic.kernel.security.vault import (
     EnvironmentSecretStore,
     SecretManager,
@@ -56,4 +68,14 @@ __all__ = [
     "EncryptedColumn",
     "EncryptedJournalEntry",
     "TransparentEncryption",
+    "Role",
+    "Permission",
+    "Resource",
+    "APIKey",
+    "KeyStore",
+    "InMemoryKeyStore",
+    "AuthorizationService",
+    "RequestSigner",
+    "AccessControlConfig",
+    "AccessController",
 ]
