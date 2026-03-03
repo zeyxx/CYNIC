@@ -85,7 +85,7 @@ def auto_register_routers(app: FastAPI) -> dict[str, Any]:
                 }
 
                 logger.info(
-                    f"" Registered router: {module_name} "
+                    f"" Registered router: {module_name} ""
                     f"({routes} routes, tags={tags})"
                 )
             else:

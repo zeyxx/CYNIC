@@ -612,7 +612,7 @@ class CYNICApp(App):
                 timeout=5.0,
             )
             if result:
-                self._log(f" Rated {n}/5 " feedback sent to kernel", "cyan")
+                self._log(f" Rated {n}/5 " feedback sent to kernel", "cyan")"
             else:
                 self._log(f" Rated {n}/5 (server offline, not persisted)", "yellow")
         except httpx.RequestError:

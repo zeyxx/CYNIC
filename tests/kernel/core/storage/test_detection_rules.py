@@ -4,11 +4,8 @@ Tests Rule base class, RuleRegistry, RuleExecutor, and all 18+ kill chain rules
 """
 
 import pytest
-import time
-import uuid
 
 from cynic.kernel.core.storage.detection_rules import (
-    Rule,
     RuleRegistry,
     RuleExecutor,
     Stage1_APIScanning,

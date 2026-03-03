@@ -6,7 +6,7 @@ a unified entry point for all fractal judgments.
 """
 from __future__ import annotations
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 from cynic.kernel.organism.brain.cognition.router import router as cognitive_router
 from cynic.kernel.core.vascular import VascularSystem

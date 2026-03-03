@@ -26,7 +26,6 @@ from cynic.kernel.core.consciousness import (
 from cynic.kernel.core.event_bus import (
     CoreEvent,
     Event,
-    get_core_bus,
 )
 from cynic.kernel.core.events_schema import (
     JudgmentFailedPayload,

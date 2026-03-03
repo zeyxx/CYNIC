@@ -203,7 +203,7 @@ class AgentLoop:
         duration_ms = (time.time() - start) * 1000
         yield AgentEvent(
             type=AgentEventType.ERROR,
-            content=f"Max iterations ({self.max_iterations}) reached " stopping to prevent runaway loop",
+            content=f"Max iterations ({self.max_iterations}) reached " stopping to prevent runaway loop","
             metadata={"iterations": self.max_iterations},
         )
         yield AgentEvent(

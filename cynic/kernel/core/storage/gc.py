@@ -79,7 +79,7 @@ class StorageGarbageCollector:
         async with pool.acquire() as conn:
             # "" 1. judgments " BARK verdicts older than N days """""""""""""
             # Lowest Q-Score first (burn the worst first)
-            r = await conn.execute(f"""
+            r = await conn.execute(f""""
                 DELETE FROM judgments
                 WHERE judgment_id IN (
                     SELECT judgment_id FROM judgments
@@ -92,7 +92,7 @@ class StorageGarbageCollector:
             results["judgments"] = int(r.split()[-1])
 
             # "" 2. scholar_buffer " keep F(11)=89 newest """"""""""""""""""
-            r = await conn.execute(f"""
+            r = await conn.execute(f""""
                 DELETE FROM scholar_buffer
                 WHERE id NOT IN (
                     SELECT id FROM scholar_buffer
@@ -108,7 +108,7 @@ class StorageGarbageCollector:
             results["scholar_buffer"] = int(r.split()[-1])
 
             # "" 3. residual_history " keep F(11)=89 newest """"""""""""""""
-            r = await conn.execute(f"""
+            r = await conn.execute(f""""
                 DELETE FROM residual_history
                 WHERE id NOT IN (
                     SELECT id FROM residual_history
@@ -124,7 +124,7 @@ class StorageGarbageCollector:
             results["residual_history"] = int(r.split()[-1])
 
             # "" 4. llm_benchmarks " older than 30 days """"""""""""""""""""
-            r = await conn.execute(f"""
+            r = await conn.execute(f""""
                 DELETE FROM llm_benchmarks
                 WHERE benchmark_id IN (
                     SELECT benchmark_id FROM llm_benchmarks
@@ -136,7 +136,7 @@ class StorageGarbageCollector:
             results["llm_benchmarks"] = int(r.split()[-1])
 
             # "" 5. consciousness_snapshots " keep F(10)=55 newest """""""""
-            r = await conn.execute(f"""
+            r = await conn.execute(f""""
                 DELETE FROM consciousness_snapshots
                 WHERE snapshot_id NOT IN (
                     SELECT snapshot_id FROM consciousness_snapshots

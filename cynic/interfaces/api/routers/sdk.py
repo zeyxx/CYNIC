@@ -171,7 +171,7 @@ async def ws_sdk(
         """
         from cynic.kernel.core.judgment import Cell, infer_time_dim
         _tool_content = f"{tool_name}: {json.dumps(tool_input)[:400]}"
-        _tool_ctx = f"SDK tool use " session {session_id[:8]}"
+        _tool_ctx = f"SDK tool use " session {session_id[:8]}""
         cell = Cell(
             reality="CODE",
             analysis="JUDGE",
@@ -370,7 +370,7 @@ async def ws_sdk(
                             reality="CODE", analysis="JUDGE",
                             time_dim=_itd(judgment_content, "", "JUDGE"),
                             content=judgment_content,
-                            context=f"SDK quality " session {session_id[:8]}",
+                            context=f"SDK quality " session {session_id[:8]}","
                             lod=0, budget_usd=0.001,
                         )
                         qj = await state.orchestrator.run(
@@ -503,7 +503,7 @@ async def ws_sdk(
     finally:
         _sdk_sessions.pop(session_id, None)
         logger.info(
-            "*yawn* SDK session ended: %s " %d events, cost=$%.4f",
+            "*yawn* SDK session ended: %s " %d events, cost=$%.4f","
             session_id, len(session.log), session.total_cost_usd,
         )
 

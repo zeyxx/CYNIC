@@ -117,7 +117,7 @@ class TransparencyAuditTrail:
 
     def start(self) -> None:
         """Start audit trail monitoring."""
-        logger.info(f"TransparencyAuditTrail started " recording to {self._storage_path}")
+        logger.info(f"TransparencyAuditTrail started " recording to {self._storage_path}")"
 
     def record_decision(
         self,

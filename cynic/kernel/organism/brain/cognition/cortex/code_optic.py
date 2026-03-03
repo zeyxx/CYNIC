@@ -5,7 +5,7 @@ Allows the organism to ingest its own source code for meta-cognition.
 import os
 import logging
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.code_optic")
 

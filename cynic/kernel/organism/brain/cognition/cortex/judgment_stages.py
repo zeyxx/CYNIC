@@ -15,7 +15,6 @@ from cynic.kernel.core.axioms import verdict_from_q_score
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.event_bus import CoreEvent, Event
 from cynic.kernel.core.events_schema import (
-    PerceptionReceivedPayload,
     ResidualHighPayload,
 )
 from cynic.kernel.core.judgment import Judgment

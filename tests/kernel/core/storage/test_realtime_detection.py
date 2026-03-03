@@ -3,16 +3,13 @@ Real-Time Detection Engine Tests — Comprehensive falsification scenarios
 Tests BaselineCalculator, AnomalyScorer, RuleEngine, and StreamDetector
 """
 
-import asyncio
 import pytest
 import time
 import uuid
-from collections import defaultdict
 
 from cynic.kernel.core.storage.realtime_detection import (
     BaselineCalculator,
     AnomalyScorer,
-    DetectionRule,
     RuleEngine,
     StreamDetector,
 )

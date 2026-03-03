@@ -3,7 +3,7 @@ Sovereignty Router - Value Impact Measurement Interface.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.core.unified_state import ValueCreation

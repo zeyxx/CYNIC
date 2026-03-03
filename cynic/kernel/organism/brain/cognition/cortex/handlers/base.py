@@ -71,7 +71,7 @@ class BaseHandler(ABC):
         """Log handler execution for observability."""
         msg = f"[{self.handler_id}] {action}"
         if details:
-            msg += f" " {details}"
+            msg += f" " {details}""
         logger.info(msg)
 
     def _log_error(self, action: str, error: Exception) -> None:

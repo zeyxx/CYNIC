@@ -142,7 +142,7 @@ def render_observe_view(state: SymbioticState) -> str:
     if state.shared_objectives:
         lines.append("  Shared Objectives:")
         for obj in state.shared_objectives:
-            lines.append(f"    " {obj}")
+            lines.append(f"    " {obj}")"
 
     lines.append("\n" + "=" * 70)
 

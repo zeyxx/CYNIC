@@ -5,8 +5,6 @@ Tests audit logging, integrity verification, forensics queries, and compliance r
 
 import pytest
 import time
-import json
-import hashlib
 
 from cynic.kernel.core.storage.compliance import (
     AuditEvent,

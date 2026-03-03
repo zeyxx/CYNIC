@@ -9,8 +9,6 @@ Tests cover:
 - Error handling for missing/invalid credentials
 """
 
-import base64
-from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -22,13 +20,10 @@ from cynic.interfaces.api.middleware.authz import (
     RBACAuthConfig,
     RBACAuthorizer,
     get_authorized_key_id,
-    get_global_authorizer,
     require_authz,
 )
 from cynic.kernel.security.rbac import (
     AccessController,
-    APIKey,
-    InMemoryKeyStore,
     Permission,
     Resource,
     Role,

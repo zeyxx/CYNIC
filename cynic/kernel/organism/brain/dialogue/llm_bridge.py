@@ -17,7 +17,6 @@ from cynic.kernel.organism.brain.llm.adapter import (
     LLMAdapter,
     LLMRegistry,
     LLMRequest,
-    LLMResponse,
 )
 
 logger = logging.getLogger("cynic.kernel.organism.brain.dialogue.llm_bridge")

@@ -15,7 +15,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from cynic.kernel.security.mtls import MTLSConfig, MTLSSSLContext, MTLSVerifier

@@ -177,8 +177,8 @@ class SomaticGateway:
                 self._dropped_count += 1
                 logger.debug(f"[{self.instance_id}] Filtered {reality} (Deduplication: content matches)")
                 return True
-        except Exception:
-            pass # Fallback to time-only if hash fails
+        except Exception as _e:
+            logger.debug(f'Silenced: {_e}') # Fallback to time-only if hash fails
             
         return False
 
@@ -188,8 +188,8 @@ class SomaticGateway:
         self._last_emission_time[reality] = time.time()
         try:
             self._last_content_hash[reality] = hash(str(data))
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug(f'Silenced: {_e}')
         
         logger.info(f"[{self.instance_id}] Somatic Gateway: Emitting PERCEPTION_RECEIVED for {reality} from {source}")
         

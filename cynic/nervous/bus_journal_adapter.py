@@ -86,8 +86,8 @@ class BusJournalAdapter:
         try:
             if self._bus is not None:
                 self._bus.off("*", self.on_event)
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug(f'Silenced: {_e}')
 
     async def on_event(self, event: Event) -> None:
         """Called by EventBus for every event (registered on "*")."""

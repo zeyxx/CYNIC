@@ -17,7 +17,6 @@ from cynic.kernel.core.vascular import VascularSystem
 logger = logging.getLogger("cynic.kernel.organism.brain.llm.local_service")
 
 
-import ollama
 from ollama import AsyncClient
 
 class OllamaAdapter(LLMAdapter):

@@ -42,13 +42,13 @@ async def sync_commands():
 
     @bot.event
     async def on_ready():
-        logger.info(f"" Bot logged in as {bot.user}")
-        logger.info(f"" Found {len(bot.tree._get_all_commands())} commands registered locally")
+        logger.info(f"" Bot logged in as {bot.user}")"
+        logger.info(f"" Found {len(bot.tree._get_all_commands())} commands registered locally")"
 
         try:
             logger.info("' Synchronizing commands with Discord...")
             synced = await bot.tree.sync()
-            logger.info(f"" Successfully synced {len(synced)} commands to Discord:")
+            logger.info(f"" Successfully synced {len(synced)} commands to Discord:")"
             for cmd in synced:
                 logger.info(f"   /{cmd.name}")
 

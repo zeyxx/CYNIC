@@ -6,7 +6,7 @@ import asyncio
 import logging
 import time
 from functools import wraps
-from typing import Any, Callable, TypeVar, Union
+from typing import Any, Callable, TypeVar
 
 logger = logging.getLogger("cynic.kernel.resilience")
 

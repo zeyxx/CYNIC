@@ -95,7 +95,7 @@ Commands:
         table.add_row("postgres-py", " Running", "5433", "2h 34m")
         table.add_row("ollama", " Running", "11434", "2h 34m")
 
-        content = f"""
+        content = f""""
 "-
 '                    Docker Management                         '
 
@@ -118,7 +118,7 @@ Commands:
         """Version management section."""
         current = self.version_manager.get_current()
 
-        content = f"""
+        content = f""""
 "-
 '                  Version Management                          '
 
@@ -156,7 +156,7 @@ Commands:
         table.add_row("postgres-py", " Healthy", "1.1%", "128 MB", "0")
         table.add_row("ollama", " Healthy", "0.0%", "4.2 GB", "0")
 
-        content = f"""
+        content = f""""
 "-
 '               Health Monitoring & Alerts                     '
 

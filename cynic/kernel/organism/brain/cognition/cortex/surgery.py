@@ -7,9 +7,7 @@ Uses git worktrees for zero-overhead, isolated branching.
 
 Lentille: Security / SRE
 """
-import asyncio
 import logging
-import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -79,7 +77,7 @@ class AutoSurgeon:
         Runs the test suite inside the sandbox.
         Returns True if the organism survives the mutation.
         """
-        logger.info(f"[*] Validating mutation in sandbox...")
+        logger.info("[*] Validating mutation in sandbox...")
         
         # 1. Syntax & Linting (Ruff)
         code, out, err = self._run_cmd("ruff check .", cwd=sandbox_path)
@@ -97,12 +95,44 @@ class AutoSurgeon:
         logger.info("[*] Mutation validation SUCCESS. Organism survives.")
         return True
 
-    def suture(self, experiment_id: str) -> bool:
+    def suture(self, experiment_id: str, mutations: Optional[Dict[str, str]] = None) -> bool:
         """
-        Merges the successful experiment back into the main organism (master branch).
+        Merges the successful experiment back into the main organism (master branch)
+        ONLY if it passes the HeresyGuard rails.
         """
+        sandbox_path = self.worktree_base / f"surgery_{experiment_id}"
+        
+        # 1. Heresy Guard Gate (The Rails)
+        logger.info(f"[*] Guarding suture: Checking for architectural heresies in {experiment_id}...")
+        from cynic.kernel.core.rails import HeresyGuard
+        guard = HeresyGuard()
+        
+        violations = []
+        
+        # Scan explicitly mutated files first
+        if mutations:
+            for filepath in mutations.keys():
+                full_path = sandbox_path / filepath
+                if full_path.exists():
+                    violations.extend(guard.check_file(full_path))
+
+        # Also scan everything else in sandbox just in case
+        for path in sandbox_path.rglob("*.py"):
+            if any(part in {".git", "__pycache__", ".worktrees"} for part in path.parts):
+                continue
+            violations.extend(guard.check_file(path))
+            
+        if violations:
+            # Deduplicate violations
+            violations = list(set(violations))
+            logger.error(f"[!] SUTURE REJECTED: {len(violations)} Heresies found in mutation.")
+            for loc, msg in violations:
+                logger.error(f"    - {loc}: {msg}")
+            return False
+
+        # 2. Proceed with Merge
         branch_name = f"experiment/{experiment_id}"
-        logger.info(f"[*] Commencing suture... merging {branch_name} into main.")
+        logger.info(f"[*] Rails PASS. Commencing suture... merging {branch_name} into main.")
         
         # Merge the experiment branch
         code, out, err = self._run_cmd(f"git merge {branch_name} --no-ff -m 'feat(auto-surgery): apply successful mutation {experiment_id}'")
@@ -112,7 +142,7 @@ class AutoSurgeon:
             self._run_cmd("git merge --abort")
             return False
             
-        logger.info("[*] Suture complete. Organism evolved.")
+        logger.info("[*] Suture complete. Organism evolved correctly.")
         return True
 
     def cleanup_sandbox(self, experiment_id: str) -> None:

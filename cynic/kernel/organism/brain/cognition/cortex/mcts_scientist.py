@@ -11,9 +11,9 @@ import logging
 import math
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
-from cynic.kernel.core.phi import PHI, PHI_INV
+from cynic.kernel.core.phi import PHI
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.mcts_scientist")
 

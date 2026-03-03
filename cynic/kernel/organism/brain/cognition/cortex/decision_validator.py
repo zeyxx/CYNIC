@@ -88,7 +88,7 @@ class DecisionValidator:
             await execute_action(validated)
         except BlockedDecision as e:
             # Decision blocked
-            logger.error(f"Decision blocked: {e.guardrail} " {e.reason}")
+            logger.error(f"Decision blocked: {e.guardrail} " {e.reason}")"
             # Human will review via approval gate
     """
 

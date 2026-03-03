@@ -216,8 +216,8 @@ class CliApp:
 
         except KeyboardInterrupt:
             pass
-        except Exception:
-            pass
+        except Exception as _e:
+        logger.debug(f'Silenced: {_e}')
         finally:
             await dialogue_mode.close()
 

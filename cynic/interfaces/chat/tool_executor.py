@@ -240,7 +240,7 @@ class ToolExecutor:
         if count == 0:
             raise ValueError(f"old_string not found in {path}")
         if count > 1:
-            raise ValueError(f"old_string found {count} times in {path} " must be unique")
+            raise ValueError(f"old_string found {count} times in {path} " must be unique")"
 
         new_content = content.replace(old_string, new_string, 1)
         with open(path, "w", encoding="utf-8") as fh:

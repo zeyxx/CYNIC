@@ -196,16 +196,16 @@ async def test_governance_flow():
         if test_db_path.exists():
             try:
                 test_db_path.unlink()
-            except Exception:
-                pass
+            except Exception as _e:
+        logger.debug(f'Silenced: {_e}')
 
         # Close any CYNIC adapter sessions
         try:
             from cynic.interfaces.mcp.claude_code_bridge import _adapter
             if _adapter and hasattr(_adapter, 'session') and _adapter.session:
                 await _adapter.session.close()
-        except Exception:
-            pass  # Adapter may not be initialized or already closed
+        except Exception as _e:
+        logger.debug(f'Silenced: {_e}')  # Adapter may not be initialized or already closed
 
 
 if __name__ == "__main__":

@@ -60,7 +60,7 @@ async def run_multimodal_test():
         
         # Verify that SAGE can access the vascular system
         if hasattr(sage, 'vascular') and sage.vascular:
-            print(f"SAGE Vascular Access: OK")
+            print("SAGE Vascular Access: OK")
             
             # Simulate the internal lookup that _llm_path would do
             packets = await sage.vascular.perception.flush()

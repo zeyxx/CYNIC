@@ -9,7 +9,6 @@ Lentille: Data Engineer / Backend
 """
 import logging
 import time
-from typing import Any
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.storage.surreal import SurrealStorage

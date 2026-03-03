@@ -17,14 +17,14 @@ def fix_unicode_on_windows():
         if hasattr(sys.stdout, "reconfigure"):
             try:
                 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
+            except Exception as _e:
+        logger.debug(f'Silenced: {_e}')
         
         if hasattr(sys.stderr, "reconfigure"):
             try:
                 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
+            except Exception as _e:
+        logger.debug(f'Silenced: {_e}')
 
 # Auto-fix on import
 fix_unicode_on_windows()

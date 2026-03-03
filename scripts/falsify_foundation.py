@@ -13,7 +13,6 @@ import logging
 import sys
 import time
 import uuid
-from typing import Any
 
 from cynic.kernel.organism.factory import awaken
 from cynic.kernel.core.event_bus import CoreEvent, Event

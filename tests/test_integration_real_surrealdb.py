@@ -19,9 +19,11 @@ def has_surrealdb():
     """Check if SurrealDB is available at localhost:8000."""
     try:
         import surrealdb
-        # Simple check: try to import module (doesn't validate connection yet)
-        return True
-    except ImportError:
+        import socket
+        # Check if the port is actually open
+        with socket.create_connection(("localhost", 8000), timeout=1):
+            return True
+    except (ImportError, OSError):
         return False
 
 

@@ -13,11 +13,8 @@ from typing import Optional
 logger = logging.getLogger("cynic.kernel.infrastructure.compute_hal")
 
 import logging
-import torch
 import psutil
-import platform
-import time
-from typing import Optional, Any
+from typing import Any
 
 logger = logging.getLogger("cynic.kernel.infrastructure.compute_hal")
 

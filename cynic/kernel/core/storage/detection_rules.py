@@ -14,10 +14,10 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cynic.kernel.core.storage.interface import StorageInterface
+    pass
 
 logger = logging.getLogger("cynic.storage.detection_rules")
 

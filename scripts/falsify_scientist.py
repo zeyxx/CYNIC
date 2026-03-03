@@ -5,7 +5,6 @@ Attempts to break the new Optic, MCTS and Surgery components.
 import asyncio
 import logging
 import os
-import shutil
 from pathlib import Path
 from cynic.kernel.organism.brain.cognition.cortex.code_optic import CodebaseOptic
 from cynic.kernel.organism.brain.cognition.cortex.mcts_scientist import ScientificMCTS, Hypothesis

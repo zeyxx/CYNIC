@@ -1,8 +1,7 @@
 """Tests for EventForwarder (PHASE 2, COMPONENT 2)."""
 
 import pytest
-import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 from cynic.kernel.core.event_bus import Event, EventBus, CoreEvent
 from cynic.kernel.core.storage.event_forwarder import EventForwarder, EventQueue

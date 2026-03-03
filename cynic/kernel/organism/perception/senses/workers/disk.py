@@ -124,7 +124,7 @@ class DiskWatcher(PerceiveWorker):
                 "disk_pressure": pressure,
             },
             context=(
-                f"Disk watcher: {used_pct * 100:.1f}% full " f"({free_gb:.1f} GB free) " {pressure}"
+                f"Disk watcher: {used_pct * 100:.1f}% full " f"({free_gb:.1f} GB free) " {pressure}""
             ),
             risk=risk,
             complexity=0.2,

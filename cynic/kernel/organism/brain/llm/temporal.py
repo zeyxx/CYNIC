@@ -16,14 +16,13 @@ Perspectives:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from cynic.kernel.core.phi import PHI, PHI_INV, PHI_INV_2, weighted_geometric_mean
-from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest, LLMResponse
+from cynic.kernel.core.phi import PHI, PHI_INV, weighted_geometric_mean
+from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest
 
 logger = logging.getLogger("cynic.kernel.brain.llm.temporal")
 

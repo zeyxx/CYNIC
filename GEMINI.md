@@ -27,7 +27,7 @@ Chaque modification doit être validée mentalement par ces experts :
 1.  **Analyse** : Explorer le contexte fractal avant de proposer un design.
 2.  **Design** : Présenter les changements via les 9 lentilles.
 3.  **Exécution** : Chirurgie précise, pas de remplacements globaux par script.
-4.  **Validation** : `ruff` doit être vert sur tous les fichiers modifiés.
+4.  **Validation (HeresyGuard)** : Chaque fichier modifié **doit** passer `python scripts/verify_surgery.py <fichiers>` avant toute annonce de succès.
 5.  **Preuve** : `verify_fractal_trace.py` doit passer avec 0 fuite.
 
 ## 🌌 5. Vision de l'Infini

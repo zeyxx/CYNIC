@@ -22,7 +22,9 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any
+
+from cynic.config import CynicConfig
 
 logger = logging.getLogger(__name__)
 
@@ -84,11 +86,33 @@ class VaultConfig:
         self.kv_mount_path = "secret"  # Default KV v2 mount path
 
 
+    @classmethod
+    def from_config(cls, config: CynicConfig) -> VaultConfig:
+        """Create VaultConfig from global CynicConfig."""
+        return cls(
+            vault_addr=config.vault_addr,
+            vault_token=config.vault_token,
+            vault_namespace=config.vault_namespace,
+        )
+
+
 class EnvironmentSecretStore(SecretStore):
-    """Fallback secret store using environment variables."""
+    """Fallback secret store using environment variables (via CynicConfig)."""
+
+    def __init__(self, config: CynicConfig | None = None):
+        self.config = config
 
     async def get_secret(self, key: str) -> str | None:
-        """Get secret from environment variable."""
+        """Get secret from environment variable (Rule 3: via config if possible)."""
+        if self.config:
+            # Check if this is a known secret in CynicConfig
+            attr_name = key.lower().replace(".", "_").replace("-", "_")
+            if hasattr(self.config, attr_name):
+                return getattr(self.config, attr_name)
+
+        # Fallback to direct os.getenv ONLY if config not available or key unknown
+        # NOTE: This is a legacy path, should ideally be migrated to CynicConfig fields
+        import os
         env_key = f"SECRET_{key.upper().replace('.', '_').replace('-', '_')}"
         return os.getenv(env_key)
 

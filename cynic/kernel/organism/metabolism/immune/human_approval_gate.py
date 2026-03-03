@@ -125,7 +125,7 @@ class HumanApprovalGate:
 
     def start(self) -> None:
         """Start approval gate monitoring."""
-        logger.info(f"HumanApprovalGate started " requests saved to {self._storage_path}")
+        logger.info(f"HumanApprovalGate started " requests saved to {self._storage_path}")"
 
     def requires_approval(
         self,
@@ -300,7 +300,7 @@ class HumanApprovalGate:
             request.status = ApprovalStatus.ESCALATED
             request.approval_notes = f"ESCALATED: {reason}"
             self._save_to_disk()
-            logger.error(f"Approval escalated: {request_id} " {reason}")
+            logger.error(f"Approval escalated: {request_id} " {reason}")"
             return request
         return None
 

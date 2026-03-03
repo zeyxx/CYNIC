@@ -9,21 +9,16 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from unittest.mock import Mock, AsyncMock, patch
 
 import pytest
-from prometheus_client import REGISTRY, CollectorRegistry
-from prometheus_client.core import CounterMetricFamily, GaugeMetricFamily, HistogramMetricFamily
+from prometheus_client import REGISTRY
 
 from cynic.kernel.core.event_bus import (
     CoreEvent,
     Event,
     get_core_bus,
-    events_emitted_total,
-    handler_duration_seconds,
     pending_tasks_gauge,
     backpressure_triggers_total,
-    handler_errors_total,
 )
 
 
@@ -307,7 +302,6 @@ class TestStructuredLoggerIntegration:
         3. Verify output is valid JSON
         4. Verify required fields present
         """
-        from cynic.kernel.observability.structured_logger import StructuredLogger
         import json
         from io import StringIO
 

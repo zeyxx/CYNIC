@@ -36,7 +36,7 @@ class TestVaultConfig:
         """Vault config has sensible defaults."""
         config = VaultConfig()
 
-        assert config.vault_addr == ""  # Reads from VAULT_ADDR env, defaults to ""
+        assert config.vault_addr == ""
         assert config.auto_rotate_days == 60
         assert config.kv_mount_path == "secret"
 
@@ -70,7 +70,8 @@ class TestVaultConfig:
 class TestEnvironmentSecretStore:
     """Tests for environment variable secret store (fallback via CynicConfig)."""
 
-    def test_get_secret_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.asyncio
+    async def test_get_secret_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Secrets can be retrieved from environment variables via CynicConfig."""
         monkeypatch.setenv("ANTHROPIC_API_KEY", "secret123")
         
@@ -78,38 +79,31 @@ class TestEnvironmentSecretStore:
         config = CynicConfig.from_env()
         store = EnvironmentSecretStore(config)
 
-        import asyncio
-
         # "anthropic.api.key" maps to "anthropic_api_key" attribute in CynicConfig
-        secret = asyncio.run(store.get_secret("anthropic.api.key"))
+        secret = await store.get_secret("anthropic.api.key")
         assert secret == "secret123"
 
-    def test_get_secret_legacy_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.asyncio
+    async def test_get_secret_legacy_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Legacy secrets can still be retrieved directly from environment."""
         monkeypatch.setenv("SECRET_API_KEY", "legacy123")
         store = EnvironmentSecretStore()
 
-        import asyncio
-
-        secret = asyncio.run(store.get_secret("api.key"))
+        secret = await store.get_secret("api.key")
         assert secret == "legacy123"
 
-    def test_get_secret_not_found(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_secret_not_found(self) -> None:
         """Non-existent secret returns None."""
         store = EnvironmentSecretStore()
-
-        import asyncio
-
-        secret = asyncio.run(store.get_secret("nonexistent.key"))
+        secret = await store.get_secret("nonexistent.key")
         assert secret is None
 
-    def test_put_secret_to_env(self) -> None:
+    @pytest.mark.asyncio
+    async def test_put_secret_to_env(self) -> None:
         """Secrets can be stored in environment variables."""
         store = EnvironmentSecretStore()
-
-        import asyncio
-
-        asyncio.run(store.put_secret("test.key", "test_value"))
+        await store.put_secret("test.key", "test_value")
 
         # Verify it's in the environment
         env_key = "SECRET_TEST_KEY"
@@ -119,37 +113,32 @@ class TestEnvironmentSecretStore:
         if env_key in os.environ:
             del os.environ[env_key]
 
-    def test_delete_secret_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.asyncio
+    async def test_delete_secret_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Secrets can be deleted from environment."""
         monkeypatch.setenv("SECRET_TEST_KEY", "test_value")
         store = EnvironmentSecretStore()
 
-        import asyncio
-
-        asyncio.run(store.delete_secret("test.key"))
+        await store.delete_secret("test.key")
 
         # Verify it's deleted
         assert os.getenv("SECRET_TEST_KEY") is None
 
-    def test_rotate_secret(self) -> None:
+    @pytest.mark.asyncio
+    async def test_rotate_secret(self) -> None:
         """Secrets can be rotated."""
         store = EnvironmentSecretStore()
-
-        import asyncio
-
-        new_value = asyncio.run(store.rotate_secret("test.key"))
+        new_value = await store.rotate_secret("test.key")
 
         # Verify new value is not empty and stored
         assert new_value is not None
         assert len(new_value) > 0
 
-    def test_health_check_always_ok(self) -> None:
+    @pytest.mark.asyncio
+    async def test_health_check_always_ok(self) -> None:
         """Environment store health check always returns True."""
         store = EnvironmentSecretStore()
-
-        import asyncio
-
-        health = asyncio.run(store.health_check())
+        health = await store.health_check()
         assert health is True
 
 

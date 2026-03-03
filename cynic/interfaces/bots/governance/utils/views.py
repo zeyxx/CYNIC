@@ -198,7 +198,7 @@ class VotingView(discord.ui.View):
                 if existing:
                     view = ChangeVoteConfirmView(self.proposal_id, existing.vote, vote_choice)
                     await interaction.response.send_message(
-                        f"You voted **{existing.vote}** " change to **{vote_choice}**?",
+                        f"You voted **{existing.vote}** " change to **{vote_choice}**?","
                         view=view, ephemeral=True
                     )
                     return
@@ -481,7 +481,7 @@ class OutcomeRatingView(discord.ui.View):
 
                 # Respond with confirmation
                 await interaction.response.send_message(
-                    f"Rated {star_display} ({stars}/5) " {status_msg}",
+                    f"Rated {star_display} ({stars}/5) " {status_msg}","
                     ephemeral=True
                 )
 

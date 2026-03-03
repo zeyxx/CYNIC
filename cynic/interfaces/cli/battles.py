@@ -103,7 +103,7 @@ class BattleRunner:
         # Summary
         elapsed = time.time() - self.start_time
         logger.info(
-            _c("green", f"" Battle arena completed: {self.battle_count} battles in {elapsed:.0f}s")
+            _c("green", f"" Battle arena completed: {self.battle_count} battles in {elapsed:.0f}s")"
         )
 
     async def _battle_cycle(self, iteration: int) -> None:

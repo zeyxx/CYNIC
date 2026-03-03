@@ -4,7 +4,6 @@ Simulates heavy load and storage failure to verify Resilience & Backpressure.
 """
 import asyncio
 import logging
-import time
 from cynic.kernel.organism.factory import awaken
 from cynic.kernel.core.event_bus import Event, CoreEvent
 

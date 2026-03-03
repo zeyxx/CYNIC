@@ -11,10 +11,8 @@ from __future__ import annotations
 
 import importlib
 import logging
-import pkgutil
 from typing import Any
 
-import cynic.kernel.organism.brain.cognition.neurons as dogs_pkg
 from cynic.kernel.organism.brain.cognition.neurons.base import AbstractDog, DogId
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.neurons.discovery")

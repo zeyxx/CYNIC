@@ -145,4 +145,3 @@ def cmd_status() -> None:
         lines.append(f"{_c(col, bar)} {pct}%  {loop_name}")
         lines.append(f"   {_c('dim', note)}")
     _section("FEEDBACK LOOPS", lines)
-

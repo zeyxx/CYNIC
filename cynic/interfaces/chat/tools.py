@@ -225,7 +225,7 @@ class ToolResult:
     def to_message_content(self) -> str:
         """Format for inclusion in chat messages back to the LLM."""
         if self.blocked:
-            return f"[BLOCKED by CYNIC Guardian " verdict: {self.verdict} Q={self.q_score:.1f}] {self.error}"
+            return f"[BLOCKED by CYNIC Guardian " verdict: {self.verdict} Q={self.q_score:.1f}] {self.error}""
         if self.error:
             return f"[ERROR] {self.error}"
         return self.output

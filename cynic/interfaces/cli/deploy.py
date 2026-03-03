@@ -40,7 +40,7 @@ async def cmd_status():
             pass
 
     for _name, container in status.containers.items():
-        f" " {', '.join(container.ports)}" if container.ports else ""
+        f" " {', '.join(container.ports)}" if container.ports else """
 
 
     return 0 if status.all_healthy else 1

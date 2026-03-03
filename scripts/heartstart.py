@@ -13,7 +13,6 @@ import asyncio
 import logging
 import subprocess
 import socket
-import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("cynic.heartstart")

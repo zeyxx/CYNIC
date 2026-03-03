@@ -31,8 +31,8 @@ import secrets
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
-from enum import Enum, auto
-from typing import Any, Optional
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

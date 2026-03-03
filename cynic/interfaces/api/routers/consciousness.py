@@ -455,5 +455,5 @@ async def websocket_ecosystem(websocket: WebSocket) -> None:
         logger.error("WebSocket /ws/consciousness/ecosystem error: %s", e)
         try:
             await websocket.close(code=1011)
-        except Exception:
-            pass
+        except Exception as _e:
+        logger.debug(f'Silenced: {_e}')

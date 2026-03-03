@@ -24,12 +24,10 @@ Success criteria (task 1.4):
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
 import secrets
-from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +85,7 @@ class EncryptionKeyManager:
 
             # Verify connection
             auth_info = self.client.auth.token.lookup_self()
-            logger.info(f" Connected to Vault for encryption keys")
+            logger.info(" Connected to Vault for encryption keys")
             self._authenticated = True
             return True
         except ImportError:

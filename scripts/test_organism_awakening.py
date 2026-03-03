@@ -41,7 +41,7 @@ async def run_awakening():
 
     # 5. Verify Vascular & HAL presence
     print("\n[RESOURCE CHECK]")
-    print(f"Vascular System: ONLINE")
+    print("Vascular System: ONLINE")
     print(f"Compute Engine: {cynic.vascular.hal.announce_compute()}")
     
     # 6. Sleep

@@ -245,8 +245,8 @@ class FacetRegistry:
                 db_facets = await self.storage.axiom_facets.get_all(axiom, reality)
                 if db_facets:
                     facets = {f["facet"]: f.get("description", "") for f in db_facets}
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug(f'Silenced: {_e}')
 
         if not facets and axiom in AXIOM_FACETS:
             facets = AXIOM_FACETS[axiom]

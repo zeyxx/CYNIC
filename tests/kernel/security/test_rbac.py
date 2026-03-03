@@ -17,7 +17,6 @@ import pytest
 from cynic.kernel.security.rbac import (
     APIKey,
     AccessController,
-    AccessControlConfig,
     AuthorizationService,
     InMemoryKeyStore,
     Permission,

@@ -10,13 +10,12 @@ import time
 import re
 import sys
 import os
-from typing import List
 
 # Ensure the project root is in PYTHONPATH
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from cynic.kernel.organism.brain.llm.adapter import LLMRegistry, LLMRequest
-from cynic.kernel.core.phi import weighted_geometric_mean, PHI, PHI_INV, PHI_2
+from cynic.kernel.core.phi import weighted_geometric_mean, PHI, PHI_2
 
 async def get_agent_score(adapter, role, prompt):
     print(f"  -> {role} is thinking (Timeout: 120s)...")
@@ -99,7 +98,7 @@ async def run_first_judgment():
     print("\n[2] Waking up Agents...")
 
     analyst_score, analyst_text = await get_agent_score(analyst_adapter, "ANALYST", f"Context: {context}\nCode to audit:\n{code_snippet}")
-    sage_score, sage_text = await get_agent_score(sage_adapter, "SAGE", f"Architectural vision: Decentralized Sovereign AI on APU hardware.")
+    sage_score, sage_text = await get_agent_score(sage_adapter, "SAGE", "Architectural vision: Decentralized Sovereign AI on APU hardware.")
 
     # 5. Fractal Aggregation (The PHI-Heartbeat)
     print("\n[3] PHI-Aggregation (Geometric Mean)")

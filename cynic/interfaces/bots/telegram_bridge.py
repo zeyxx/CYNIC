@@ -30,8 +30,8 @@ class TelegramBridge:
                 config = CynicConfig.from_env()
                 token = token or config.telegram_token
                 chat_id = chat_id or config.telegram_chat_id
-            except Exception:
-                pass  # If config unavailable, token/chat_id remain None
+            except Exception as _e:
+        logger.debug(f'Silenced: {_e}')  # If config unavailable, token/chat_id remain None
 
         self.token = token
         self.chat_id = chat_id

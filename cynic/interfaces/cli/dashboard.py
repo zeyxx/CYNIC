@@ -93,7 +93,7 @@ class MatrixPanel(Static):
         lines.append("     " + """ * 55)
 
         for r_idx, reality in enumerate(realities):
-            row = f"{reality:>6}""
+            row = f"{reality:>6}"""
             # For now, show dummy cells (in production: fetch actual cell status)
             for a_idx in range(7):
                 # Cell state: " (working), - (partial), - (not started)

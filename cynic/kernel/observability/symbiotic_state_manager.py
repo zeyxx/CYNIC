@@ -75,8 +75,8 @@ class SymbioticStateManager:
             if not self.knet._running:
                 try:
                     await asyncio.wait_for(self.start_nerves(), timeout=1.0)
-                except Exception:
-                    pass
+                except Exception as _e:
+        logger.debug(f'Silenced: {_e}')
 
             # 1. Collect human metrics (Local) - Default to safe empty if fails
             try:
@@ -153,8 +153,8 @@ class SymbioticStateManager:
                             "disk": hw.get("disk", 0.0),
                         }
                         machine_health = {"is_healthy": True, "remote": True}
-                except Exception:
-                    pass
+                except Exception as _e:
+        logger.debug(f'Silenced: {_e}')
 
             snapshot = SymbioticState(
                 # CYNIC
@@ -209,8 +209,8 @@ async def get_symbiotic_state_manager() -> SymbioticStateManager:
                 if local_org:
                     _INSTANCE.set_organism(local_org)
                     return _INSTANCE
-            except Exception:
-                pass
+            except Exception as _e:
+        logger.debug(f'Silenced: {_e}')
 
     return _INSTANCE
 

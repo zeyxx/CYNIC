@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.organism.brain.dna import assembly

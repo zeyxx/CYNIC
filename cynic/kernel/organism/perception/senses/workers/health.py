@@ -58,7 +58,7 @@ class HealthWatcher(PerceiveWorker):
             },
             context=(
                 f"Health watcher: {len(degraded)} level(s) degraded "
-                f"" worst={worst.health} p95={worst.p95_ms:.0f}ms"
+                f"" worst={worst.health} p95={worst.p95_ms:.0f}ms""
             ),
             risk=0.2 if worst.health == "DEGRADED" else 0.5,
             complexity=0.3,

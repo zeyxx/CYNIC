@@ -156,7 +156,7 @@ class TestCertificateInfo:
         pki.generate_service_cert("api")
         cert_path = pki_config.service_cert_path("api")
 
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         expiry = pki.get_cert_expiry(cert_path)
         now = datetime.utcnow()

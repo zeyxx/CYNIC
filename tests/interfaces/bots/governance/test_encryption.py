@@ -10,7 +10,7 @@ Tests cover:
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 from cynic.interfaces.bots.governance.encryption import (
     EncryptedGovernanceData,

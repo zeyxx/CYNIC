@@ -2,7 +2,7 @@
 
 import pytest
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 from cynic.kernel.core.storage.interface import SecurityEventRepoInterface
 from cynic.kernel.core.storage.surreal import SecurityEventRepo

@@ -68,7 +68,7 @@ async def format_voting_status(proposal: Proposal, community: Community) -> str:
     hours_remaining = max(0, int(time_remaining.total_seconds() / 3600))
     minutes_remaining = int((time_remaining.total_seconds() % 3600) / 60)
 
-    status = f"""
+    status = f""""
 - **VOTING STATUS**
 
 **Proposal:** {proposal.title}
@@ -106,7 +106,7 @@ def format_cynic_verdict(judgment_data: dict) -> str:
         "PENDING": " **PENDING** " Judgment in progress"
     }
 
-    text = f"""
+    text = f""""
  **CYNIC JUDGMENT**
 
 {verdict_interpretations.get(verdict, verdict)}
@@ -130,7 +130,7 @@ def format_proposal_created(proposal_id: str, verdict: str, q_score: float) -> s
         "BARK": ""
     }.get(verdict, """)
 
-    text = f"""
+    text = f""""
  **PROPOSAL SUBMITTED**
 
 **ID:** {proposal_id}
@@ -153,7 +153,7 @@ Quorum Required: 25%
 def format_voting_started(proposal_id: str, title: str) -> str:
     """Format voting started announcement"""
 
-    text = f"""
+    text = f""""
 - **VOTING STARTED**
 
 **Proposal:** {title}
@@ -173,7 +173,7 @@ def format_vote_recorded(voter_id: str, proposal_id: str, vote: str) -> str:
 
     emoji = {"YES": "", "NO": "", "ABSTAIN": ""}.get(vote, """)
 
-    text = f"""
+    text = f""""
 {emoji} **VOTE RECORDED**
 
 Your vote: **{vote}**
@@ -189,7 +189,7 @@ Your vote has been recorded. You can change it anytime before voting closes.
 def format_proposal_approved(proposal_id: str, title: str) -> str:
     """Format proposal approved announcement"""
 
-    text = f"""
+    text = f""""
  **PROPOSAL APPROVED**
 
 **Title:** {title}
@@ -207,7 +207,7 @@ Execution scheduled for 24 hours from now.
 def format_proposal_rejected(proposal_id: str, title: str) -> str:
     """Format proposal rejected announcement"""
 
-    text = f"""
+    text = f""""
  **PROPOSAL REJECTED**
 
 **Title:** {title}
@@ -227,7 +227,7 @@ Community feedback:
 def format_error(error_message: str) -> str:
     """Format error message"""
 
-    text = f"""
+    text = f""""
  **ERROR**
 
 {error_message}
@@ -351,7 +351,7 @@ def build_outcome_embed(proposal) -> discord.Embed:
     # Title
     title_prefix = " APPROVED" if is_approved else " REJECTED"
     embed = discord.Embed(
-        title=f"{title_prefix} " {proposal.title}",
+        title=f"{title_prefix} " {proposal.title}","
         color=color
     )
 

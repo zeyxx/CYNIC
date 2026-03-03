@@ -3,7 +3,7 @@ Federation Router " P2P Knowledge Sharing Interface.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.organism.perception.federation.peer import FederationPeer

@@ -6,7 +6,6 @@ registration, preventing data corruption at 10k TPS target.
 """
 
 import asyncio
-import threading
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest

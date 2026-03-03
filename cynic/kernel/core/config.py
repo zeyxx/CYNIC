@@ -4,7 +4,7 @@ CYNIC Configuration - Single Source of Truth
 ALL environment variables read here. No os.getenv() anywhere else.
 Validation catches insecure defaults and missing backends.
 
-Ï-Law: VERIFY - one truth, no scatter
+-Law: VERIFY - one truth, no scatter
 """
 from __future__ import annotations
 

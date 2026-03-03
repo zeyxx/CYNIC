@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from typing_extensions import Protocol
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusError, CynicError

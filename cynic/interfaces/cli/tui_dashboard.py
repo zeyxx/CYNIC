@@ -267,7 +267,7 @@ class Soul(Static):
         ]
         for i, name in enumerate(axiom_names):
             if i < self.axioms_active:
-                soul_text.append(f"  " {name}\n", style="bold green")
+                soul_text.append(f"  " {name}\n", style="bold green")"
             else:
                 soul_text.append(f"  - {name}\n", style="dim gray")
 

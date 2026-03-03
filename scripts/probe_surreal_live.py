@@ -19,7 +19,6 @@ import logging
 import os
 import time
 import uuid
-from typing import Any
 
 from surrealdb import Surreal
 

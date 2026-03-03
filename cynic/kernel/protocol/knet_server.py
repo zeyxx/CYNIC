@@ -132,8 +132,8 @@ class KNetServer:
 
                 welcome_pulse = PulseMessage(type=PulseType.SOMATIC_SYNC, data=data)
                 await websocket.send(json.dumps(welcome_pulse.to_dict()))
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug(f'Silenced: {_e}')
 
         try:
             async for message in websocket:

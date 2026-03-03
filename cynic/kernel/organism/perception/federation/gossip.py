@@ -158,20 +158,8 @@ class GossipManager:
             try:
                 peer.send(message)
                 delivered += 1
-            except Exception:
-                pass
-
-        self._sync_count += 1
-        self._last_sync = datetime.now(UTC)
-        return delivered
-
-        delivered = 0
-        for peer in self._peers:
-            try:
-                peer.send(message)
-                delivered += 1
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug(f'Silenced: {_e}')
 
         self._sync_count += 1
         self._last_sync = datetime.now(UTC)

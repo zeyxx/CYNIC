@@ -1,5 +1,5 @@
 """
-CYNIC health router - core vitals: health · stats
+CYNIC health router - core vitals: health  stats
 """
 from __future__ import annotations
 
@@ -191,8 +191,8 @@ async def health_full(container: AppContainer = Depends(get_app_container)) -> H
             from cynic.kernel.core.storage.surreal import get_storage as _get_storage
             _get_storage()
             _db_status = "healthy"
-        except Exception:
-            pass
+        except Exception as _e:
+        logger.debug(f'Silenced: {_e}')
 
         # LLM
         _llm_status = "unhealthy"
@@ -200,8 +200,8 @@ async def health_full(container: AppContainer = Depends(get_app_container)) -> H
             from cynic.kernel.organism.brain.llm.adapter import get_registry
             if get_registry().get_available():
                 _llm_status = "healthy"
-        except Exception:
-            pass
+        except Exception as _e:
+        logger.debug(f'Silenced: {_e}')
 
         # Dogs
         dogs_list = []
@@ -282,8 +282,8 @@ async def health_ready(
             from cynic.kernel.organism.brain.llm.adapter import get_registry
             if get_registry().get_available():
                 llm_ok = True
-        except Exception:
-            pass
+        except Exception as _e:
+        logger.debug(f'Silenced: {_e}')
 
         if db_ok and llm_ok:
             return HealthReadyResponse(

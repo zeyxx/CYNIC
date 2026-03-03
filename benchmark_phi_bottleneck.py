@@ -1,5 +1,4 @@
 import time
-import math
 import numpy as np
 import sys
 from cynic.kernel.core.phi import weighted_geometric_mean, geometric_mean, PHI_INV, PHI_2, PHI_3, PHI
@@ -55,12 +54,12 @@ def run_benchmark(iterations=100, n_depth=8):
     total_time = end_time - start_time
     tps = iterations / total_time
     
-    print(f"\n[PYTHON RESULTS - CPU COLLAPSE]")
+    print("\n[PYTHON RESULTS - CPU COLLAPSE]")
     print(f"Total Time: {total_time:.4f} seconds")
     print(f"Throughput: {tps:.6f} Judgments/sec")
     print(f"Latency: {(total_time/iterations)*1000:.4f} ms/judgment")
 
-    print(f"\n[HELION HACKATHON POTENTIAL]")
+    print("\n[HELION HACKATHON POTENTIAL]")
     print(f"A GPU kernel can flatten this {n_depth}D tensor and reduce it in O(1) steps.")
     print(f"Target Throughput: >10,000 Judgments/sec (even at N={n_depth})")
     speedup = 10000 / (tps if tps > 0 else 0.0001)

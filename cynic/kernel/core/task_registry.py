@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Dict, Set
+from typing import Set
 
 logger = logging.getLogger("cynic.kernel.task_registry")
 

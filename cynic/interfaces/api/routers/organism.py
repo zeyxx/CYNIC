@@ -9,14 +9,11 @@ import time
 from fastapi import APIRouter, Depends, HTTPException
 
 from cynic.interfaces.api.models import (
-    ActionsResponse,
     ConsciousnessResponse,
     DogsResponse,
     DogStatus,
-    ProposedAction,
     StateSnapshotResponse,
     AccountResponse as AccountStatusResponse,
-    PolicyResponse,
 )
 from cynic.interfaces.api.state import AppContainer, get_app_container
 

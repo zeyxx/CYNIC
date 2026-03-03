@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import Any, Optional
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 

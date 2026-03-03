@@ -110,7 +110,7 @@ class StorageTierPolicy:
         mapping = OPCODE_STORAGE_MAP.get(event_type)
 
         if mapping is None:
-            logger.warning(f"Unknown event type: {event_type} " defaulting to WARM")
+            logger.warning(f"Unknown event type: {event_type} " defaulting to WARM")"
             return [StorageTier.WARM]
 
         if isinstance(mapping, StorageTier):

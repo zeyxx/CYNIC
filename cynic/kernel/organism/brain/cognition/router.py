@@ -6,9 +6,7 @@ Implements metabolic gating: saves costs by using local models for simple tasks.
 """
 
 import logging
-import re
-from typing import Dict, Any, Optional
-from cynic.kernel.core.phi import PHI, PHI_INV
+from typing import Dict, Any
 
 logger = logging.getLogger("cynic.kernel.cognition.router")
 

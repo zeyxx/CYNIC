@@ -5,7 +5,6 @@ Tests Alert, deduplication, routing, escalation, and audit logging
 
 import pytest
 import time
-import asyncio
 
 from cynic.kernel.core.storage.alerting import (
     AlertSeverity,

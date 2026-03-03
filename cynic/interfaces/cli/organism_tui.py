@@ -168,8 +168,8 @@ class OrganismTUI:
                 source = event.source[:15]
                 self._event_buffer.append({"time": t, "topic": topic, "source": source})
                 if len(self._event_buffer) > 50: self._event_buffer.pop(0)
-            except Exception:
-                pass
+            except Exception as _e:
+        logger.debug(f'Silenced: {_e}')
 
         bus.on("*", _on_any_event)
 

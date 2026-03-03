@@ -156,7 +156,7 @@ class MemoryWatcher(PerceiveWorker):
             },
             context=(
                 f"Memory watcher: {used_pct * 100:.1f}% RAM used "
-                f"({free_gb:.1f} GB free) " {pressure}"
+                f"({free_gb:.1f} GB free) " {pressure}""
             ),
             risk=risk,
             complexity=0.2,
