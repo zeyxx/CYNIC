@@ -21,13 +21,22 @@ from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusErro
 from cynic.kernel.core.events_schema import ActCompletedPayload, DecisionMadePayload
 from cynic.kernel.core.exceptions import CynicError
 from cynic.kernel.core.judgment import Judgment
-from cynic.kernel.organism.brain.cognition.cortex.decision_validator import BlockedDecision
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
+from cynic.kernel.organism.brain.cognition.cortex.decision_validator import (
+    BlockedDecision,
+)
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+)
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
+    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import (
+        JudgmentPipeline,
+    )
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.act_executor")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.handlers.act_executor"
+)
 
 
 class ActHandler(BaseHandler):
@@ -187,7 +196,9 @@ class ActHandler(BaseHandler):
                     scheduler=scheduler,
                 )
                 # Decision passed all guardrails
-                logger.info(f"Decision validated: {decision['verdict']} ' proceeding to ACT")
+                logger.info(
+                    f"Decision validated: {decision['verdict']} ' proceeding to ACT"
+                )
             except BlockedDecision as e:
                 # Decision blocked by guardrail
                 logger.warning(
@@ -264,7 +275,10 @@ class ActHandler(BaseHandler):
                                 success=True,
                                 action_id=proposal_id[:8],
                                 duration_ms=duration_ms,
-                                metadata={"signature": result.signature, "status": result.status},
+                                metadata={
+                                    "signature": result.signature,
+                                    "status": result.status,
+                                },
                             ),
                         )
                     )
