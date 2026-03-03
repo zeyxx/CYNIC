@@ -158,3 +158,19 @@ def format_error_for_user(error_msg: str) -> str:
             enhanced_friendly = f"{friendly} (Valid range: {constraint})"
 
     return f"{enhanced_friendly}\n\n {action}\n\nError code: {error_code}"
+
+
+def setup_error_handlers(app) -> None:
+    """Register FastAPI exception handlers for user-friendly error messages."""
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        """Catch-all exception handler that converts errors to user-friendly responses."""
+        error_msg = str(exc)
+        friendly = format_error_for_user(error_msg)
+        return JSONResponse(
+            status_code=500,
+            content={"error": friendly, "type": type(exc).__name__},
+        )

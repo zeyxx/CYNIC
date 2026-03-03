@@ -39,10 +39,10 @@ logger = logging.getLogger("cynic.nervous.event_metrics")
 
 # Histogram bucket boundaries and labels (inclusive upper bound)
 _BUCKETS: list[tuple[float, str]] = [
-    (LOD_LEVEL0_LATENCY_MS, f"{int(LOD_LEVEL0_LATENCY_MS)}ms"),  # 100ms  REFLEX
-    (LOD_LEVEL1_LATENCY_MS, f"{int(LOD_LEVEL1_LATENCY_MS)}ms"),  # 300ms  MICRO
-    (LOD_LEVEL2_LATENCY_MS, f"{int(LOD_LEVEL2_LATENCY_MS)}ms"),  # 1000ms MACRO
-    (LOD_LEVEL3_LATENCY_MS, f"{int(LOD_LEVEL3_LATENCY_MS)}ms"),  # 3000ms META
+    (LOD_LEVEL0_LATENCY_MS, f"≤{int(LOD_LEVEL0_LATENCY_MS)}ms"),  # 100ms  REFLEX
+    (LOD_LEVEL1_LATENCY_MS, f"≤{int(LOD_LEVEL1_LATENCY_MS)}ms"),  # 300ms  MICRO
+    (LOD_LEVEL2_LATENCY_MS, f"≤{int(LOD_LEVEL2_LATENCY_MS)}ms"),  # 1000ms MACRO
+    (LOD_LEVEL3_LATENCY_MS, f"≤{int(LOD_LEVEL3_LATENCY_MS)}ms"),  # 3000ms META
     (float("inf"), f">{int(LOD_LEVEL3_LATENCY_MS)}ms"),  # >3000ms OVER
 ]
 

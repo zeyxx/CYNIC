@@ -61,7 +61,7 @@ async def get_organism_state_snapshot(
 
     except Exception as exc:
         logger.exception("Error getting organism state snapshot: %s", exc)
-            raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get("/consciousness", response_model=ConsciousnessResponse)

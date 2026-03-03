@@ -16,23 +16,41 @@ from typing import Optional
 from cynic.kernel.organism.metabolism.embodiment import HardwareBody
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.phi import PHI, PHI_INV
+from cynic.kernel.security.siem_kill_chain import SiemCorrelationEngine, SecurityIncident, SiemPriority
 
 logger = logging.getLogger("cynic.kernel.organism.metabolism.throttler")
 
 
 class MetabolicThrottler:
     """
-    Applies active backpressure (sleep) based on somatic pain.
+    Applies active backpressure (sleep) based on somatic pain and Security Incidents.
     """
 
     def __init__(self, body: Optional[HardwareBody] = None):
         self.body = body
+        self.active_incident: Optional[SecurityIncident] = None
+
+    def trigger_incident(self, anomaly_type: str, context: str) -> None:
+        """SIEM L1/L2: Classify anomaly and update internal state."""
+        incident = SiemCorrelationEngine.classify_anomaly(anomaly_type, context)
+        logger.warning(f"🚨 SIEM ALERT: [Stage {incident.stage.value}] {incident.priority.name} - {incident.description}")
+        
+        if incident.priority in (SiemPriority.HIGH, SiemPriority.CRITICAL):
+            self.active_incident = incident
+            logger.critical("Metabolic Throttler engaging EMERGENCY FREEZE PROTOCOL.")
 
     async def wait_for_breath(self, level: ConsciousnessLevel) -> None:
         """
-        Pause the current worker if metabolic cost is too high.
-        Higher consciousness levels (META, MACRO) are throttled more than basic reflexes.
+        Pause the current worker if metabolic cost is too high OR if an incident is active.
         """
+        # SIEM L3: Incident Response (Freeze Protocol)
+        if self.active_incident and not self.active_incident.remediation_applied:
+            # Only reflexes are allowed to run during a critical incident (to try and heal)
+            if level != ConsciousnessLevel.REFLEX:
+                logger.debug(f"SIEM FREEZE: {level.name} suspended due to active incident.")
+                await asyncio.sleep(5.0) # Massive penalty to stop the kill chain
+                return
+
         if not self.body:
             return  # No body, no pain
 

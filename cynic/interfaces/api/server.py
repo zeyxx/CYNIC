@@ -19,7 +19,7 @@ from cynic.interfaces.api.error_handler import setup_error_handlers
 from cynic.interfaces.api.metrics import router_metrics
 from cynic.interfaces.api.routers.act import router_act
 from cynic.interfaces.api.routers.actions import router as router_actions
-from cynic.interfaces.api.routers.chat import router_chat
+from cynic.interfaces.api.routers.chat import router as router_chat
 from cynic.interfaces.api.routers.core import router_core
 from cynic.interfaces.api.routers.health import router_health
 from cynic.interfaces.api.routers.introspection import router_introspection

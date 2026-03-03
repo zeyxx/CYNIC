@@ -73,6 +73,18 @@ def get_metrics_text() -> tuple[bytes, str]:
     return generate_latest(), CONTENT_TYPE_LATEST
 
 
+from fastapi import APIRouter, Response
+
+router_metrics = APIRouter(prefix="", tags=["metrics"])
+
+
+@router_metrics.get("/metrics")
+async def get_metrics() -> Response:
+    """Prometheus metrics endpoint in OpenMetrics format."""
+    metrics_bytes, content_type = get_metrics_text()
+    return Response(content=metrics_bytes, media_type=content_type)
+
+
 __all__ = [
     "REQUESTS_TOTAL",
     "REQUEST_DURATION_SECONDS",
@@ -82,4 +94,5 @@ __all__ = [
     "SERVICE_QUERY_DURATION",
     "HEALTH_CHECK_STATUS",
     "get_metrics_text",
+    "router_metrics",
 ]

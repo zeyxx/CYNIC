@@ -46,7 +46,16 @@ class ConsciousnessRhythm:
         # Use provided bus or fallback to orchestrator bus if available
         self.bus = bus or getattr(orchestrator, "bus", None)
         if self.bus is None:
-            raise RuntimeError("ConsciousnessRhythm initialized without a bus")
+             raise RuntimeError("ConsciousnessRhythm initialized without a bus")
+
+        # Connect SIEM (Somatic SOC)
+        self.bus.on(CoreEvent.ANOMALY_DETECTED, self._on_anomaly)
+
+    async def _on_anomaly(self, event: Event) -> None:
+        """SIEM L1: Ingest anomalies from the nervous system."""
+        anomaly_type = event.payload.get("type", "UNKNOWN")
+        context = str(event.payload)
+        self._throttler.trigger_incident(anomaly_type, context)
 
     def start(self) -> None:
         """Launch all tier workers."""

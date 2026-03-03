@@ -254,3 +254,7 @@ async def apply_probe(
         raise HTTPException(status_code=404, detail=f"Probe {probe_id} not found")
     logger.info("*tail wag* Self-probe %s APPLIED", probe_id)
     return {"applied": True, "proposal": proposal.to_dict()}
+
+
+# Alias for backward compatibility
+router = router_actions
