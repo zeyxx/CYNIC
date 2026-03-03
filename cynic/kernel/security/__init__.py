@@ -3,6 +3,13 @@
 Handles PKI, mTLS, secrets management, audit logging, and threat detection.
 """
 
+from cynic.kernel.security.audit_log import (
+    AuditAction,
+    AuditEntry,
+    AuditLogger,
+    AuditLogQuery,
+    AuditResult,
+)
 from cynic.kernel.security.mtls import (
     MTLSConfig,
     MTLSMiddleware,
@@ -30,4 +37,9 @@ __all__ = [
     "VaultSecretStore",
     "EnvironmentSecretStore",
     "SecretManager",
+    "AuditAction",
+    "AuditResult",
+    "AuditEntry",
+    "AuditLogger",
+    "AuditLogQuery",
 ]
