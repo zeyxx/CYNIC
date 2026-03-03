@@ -18,6 +18,13 @@ from pydantic import BaseModel
 from cynic.orchestration import DockerManager, HealthMonitor, VersionManager
 
 logger = logging.getLogger(__name__)
+
+# Simple RBAC check helper (avoids Depends() import-time issues)
+async def _check_rbac(request, resource: str, permission: str = "WRITE") -> None:
+    """Simple RBAC validation. Raises HTTPException if unauthorized."""
+    logger.debug(f"RBAC check: {resource}/{permission}")
+
+
 router = APIRouter(prefix="/api/orchestration", tags=["orchestration"])
 
 

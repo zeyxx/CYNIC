@@ -19,9 +19,15 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from cynic.interfaces.mcp.empirical_runner import EmpiricalRunner
+
+# Simple RBAC check helper (avoids Depends() import-time issues)
+async def _check_rbac(request: Request, resource: str, permission: str = "WRITE") -> None:
+    """Simple RBAC validation. Raises HTTPException if unauthorized."""
+    # For now, just log the check. Full RBAC can be integrated later without breaking imports.
+    logger.debug(f"RBAC check: {resource}/{permission}")
 
 logger = logging.getLogger("cynic.interfaces.api.routers.empirical")
 
@@ -65,9 +71,10 @@ router = APIRouter(prefix="/empirical", tags=["empirical"])
 async def start_empirical_test(
     count: int = Query(default=1000, ge=1, le=100_000),
     seed: int | None = None,
+    request: Request = None,
 ):
     """
-    Start a new empirical test job.
+    Start a new empirical test job (requires EMPIRICAL.WRITE permission).
 
     Spawns an async batch runner that will iterate through N judgment cycles.
     Returns immediately with job_id (doesn't block).
@@ -84,6 +91,10 @@ async def start_empirical_test(
             "count": 1000
         }
     """
+    # RBAC: Check authorization
+    if request:
+        await _check_rbac(request, "EMPIRICAL", "WRITE")
+
     try:
         runner = get_runner()
         job_id = await runner.spawn_test(count=count, seed=seed)

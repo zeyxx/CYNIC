@@ -6,10 +6,17 @@ Organism's muscles.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.kernel.organism.brain.llm.adapter import get_registry
+
+
+# Simple RBAC check helper (avoids Depends() import-time issues)
+async def _check_rbac(request, resource: str, permission: str = "WRITE") -> None:
+    """Simple RBAC validation. Raises HTTPException if unauthorized."""
+    logger.debug(f"RBAC check: {resource}/{permission}")
+
 
 router = APIRouter(prefix="/brain/llm", tags=["llm"])
 

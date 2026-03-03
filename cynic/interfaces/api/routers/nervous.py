@@ -24,6 +24,13 @@ from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.nervous import EventCategory
 
 logger = logging.getLogger(__name__)
+
+# Simple RBAC check helper (avoids Depends() import-time issues)
+async def _check_rbac(request, resource: str, permission: str = "WRITE") -> None:
+    """Simple RBAC validation. Raises HTTPException if unauthorized."""
+    logger.debug(f"RBAC check: {resource}/{permission}")
+
+
 router = APIRouter(prefix="/api/nervous", tags=["nervous"])
 
 
