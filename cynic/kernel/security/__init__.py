@@ -17,6 +17,14 @@ from cynic.kernel.security.mtls import (
     MTLSVerifier,
 )
 from cynic.kernel.security.pki import PKI, PKIConfig
+from cynic.kernel.security.encryption import (
+    EncryptedColumn,
+    EncryptedJournalEntry,
+    EncryptionConfig,
+    EncryptionKeyManager,
+    EncryptionService,
+    TransparentEncryption,
+)
 from cynic.kernel.security.vault import (
     EnvironmentSecretStore,
     SecretManager,
@@ -42,4 +50,10 @@ __all__ = [
     "AuditEntry",
     "AuditLogger",
     "AuditLogQuery",
+    "EncryptionConfig",
+    "EncryptionKeyManager",
+    "EncryptionService",
+    "EncryptedColumn",
+    "EncryptedJournalEntry",
+    "TransparentEncryption",
 ]
