@@ -1,9 +1,16 @@
-"""
+“””
 Governance Router â€” Bridge between the Bot and the Organism Memory.
 
 REST API for governance proposals, voting, verdicts, and outcomes.
 Integrates with UnifiedConsciousState for persistent governance records.
-"""
+
+Security:
+- POST /proposals: Requires OPERATOR role on GOVERNANCE resource
+- POST /proposals/{id}/vote: Requires OPERATOR role on GOVERNANCE resource
+- POST /proposals/{id}/outcome: Requires OPERATOR role on GOVERNANCE resource
+- POST /votes: Requires OPERATOR role on GOVERNANCE resource
+- All other endpoints: Read-only (public or minimal auth)
+“””
 from __future__ import annotations
 
 import time
@@ -13,11 +20,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
+from cynic.interfaces.api.middleware.authz import require_authz, RBACAuthorizer
 from cynic.kernel.core.unified_state import (
     GovernanceCommunity,
     GovernanceProposal,
     GovernanceVote,
 )
+from cynic.kernel.security.rbac import Resource, Permission
 
 
 # â”€â”€ Request Models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -104,9 +113,14 @@ async def register_community(req: RegisterCommunityRequest, container: AppContai
     return {"status": "SUCCESS", "community_id": community.community_id}
 
 @router.post("/proposals")
-async def submit_proposal(proposal_req: ProposalRequest, container: AppContainer = Depends(get_app_container)):
+async def submit_proposal(
+    proposal_req: ProposalRequest,
+    container: AppContainer = Depends(get_app_container),
+    authz: RBACAuthorizer = Depends(require_authz(Resource.GOVERNANCE, Permission.WRITE)),
+):
     """Submit a new governance proposal.
 
+    Requires OPERATOR or ADMIN role with WRITE permission on GOVERNANCE resource.
     Returns the full proposal with generated proposal_id and initial status.
     """
     proposal_data = {
@@ -145,8 +159,16 @@ async def get_proposal(proposal_id: str, container: AppContainer = Depends(get_a
     return proposal
 
 @router.post("/proposals/{proposal_id}/vote")
-async def cast_vote(proposal_id: str, vote_req: VoteRequest, container: AppContainer = Depends(get_app_container)):
-    """Cast a vote on a proposal."""
+async def cast_vote(
+    proposal_id: str,
+    vote_req: VoteRequest,
+    container: AppContainer = Depends(get_app_container),
+    authz: RBACAuthorizer = Depends(require_authz(Resource.GOVERNANCE, Permission.WRITE)),
+):
+    """Cast a vote on a proposal.
+
+    Requires OPERATOR or ADMIN role with WRITE permission on GOVERNANCE resource.
+    """
     proposal = await container.organism.state.get_proposal(proposal_id)
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
@@ -190,9 +212,15 @@ async def get_verdict(proposal_id: str, container: AppContainer = Depends(get_ap
     )
 
 @router.post("/proposals/{proposal_id}/outcome")
-async def record_outcome(proposal_id: str, outcome_req: OutcomeRequest, container: AppContainer = Depends(get_app_container)):
+async def record_outcome(
+    proposal_id: str,
+    outcome_req: OutcomeRequest,
+    container: AppContainer = Depends(get_app_container),
+    authz: RBACAuthorizer = Depends(require_authz(Resource.GOVERNANCE, Permission.WRITE)),
+):
     """Record the community outcome for a proposal.
 
+    Requires OPERATOR or ADMIN role with WRITE permission on GOVERNANCE resource.
     Accepts outcome for both existing and hypothetical proposals,
     allowing flexible outcome recording workflows.
     """
@@ -223,7 +251,14 @@ async def governance_status(container: AppContainer = Depends(get_app_container)
     )
 
 @router.post("/votes")
-async def record_vote(vote: GovernanceVote, container: AppContainer = Depends(get_app_container)):
-    """Record a user vote with validated payload."""
+async def record_vote(
+    vote: GovernanceVote,
+    container: AppContainer = Depends(get_app_container),
+    authz: RBACAuthorizer = Depends(require_authz(Resource.GOVERNANCE, Permission.WRITE)),
+):
+    """Record a user vote with validated payload.
+
+    Requires OPERATOR or ADMIN role with WRITE permission on GOVERNANCE resource.
+    """
     await container.organism.state.record_vote(vote)
     return {"status": "SUCCESS", "vote_id": vote.vote_id}
