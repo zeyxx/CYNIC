@@ -1,27 +1,39 @@
 version: "3.9"
 
 services:
-  # ── DATABASE: PostgreSQL 16 + pgvector ────────────────────────────────
-  postgres:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-cynic}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cynic_dev}
-      POSTGRES_DB: ${POSTGRES_DB:-cynic_py}
+  # ── DATABASE: SurrealDB (Primary Reality) ─────────────────────────────
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: cynic-surreal
+    command: start --user root --pass cynic_phi_618 --bind 0.0.0.0:8000
     ports:
-      - "5433:5432"
+      - "8000:8000"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - surreal_data:/data
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cynic} -d ${POSTGRES_DB:-cynic_py}"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 5
+
+  # ── NERVOUS BACKBONE: Redis (Distributed Influx) ───────────────────────
+  redis:
+    image: redis:alpine
+    container_name: cynic-redis
+    ports:
+      - "6379:6379"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # ── LLM: Ollama Local Server ──────────────────────────────────────────
   ollama:
     image: ollama/ollama:latest
+    container_name: cynic-ollama
     ports:
       - "11434:11434"
     volumes:
@@ -33,46 +45,26 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cynic
+    container_name: cynic-core
     ports:
-      - "58765:58765" # κ-NET Protocol (IPv6/v4)
+      - "8765:8765" # Main API (FastAPI)
+      - "58766:58766" # κ-NET Protocol
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-cynic}:${POSTGRES_PASSWORD:-cynic_dev}@postgres:5432/${POSTGRES_DB:-cynic_py}
+      SURREAL_URL: ws://surrealdb:8000/rpc
+      SURREAL_USER: root
+      SURREAL_PASS: cynic_phi_618
+      REDIS_URL: redis://redis:6379/0
       OLLAMA_URL: http://ollama:11434
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
     depends_on:
-      postgres:
+      surrealdb:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8765/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-
-  # ── BOT: Governance Member (Discord) ──────────────────────────────────
-  governance-bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: cynic-governance-bot
-    command: ["python", "cynic/bots/governance/bot.py"]
-    environment:
-      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
-      # Use the same database as the core organism
-      DATABASE_URL: postgresql://${POSTGRES_USER:-cynic}:${POSTGRES_PASSWORD:-cynic_dev}@postgres:5432/${POSTGRES_DB:-cynic_py}
-      CYNIC_URL: http://cynic:8765
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    depends_on:
-      cynic:
+      redis:
         condition: service_healthy
     restart: unless-stopped
-    profiles:
-      - "governance"
 
 volumes:
-  pgdata:
+  surreal_data:
   ollama_models:
   cynic_data:

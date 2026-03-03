@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
+
 from cynic.kernel.core.events_schema import DecisionMadePayload
 from cynic.kernel.core.formulas import MCTS_UCT_C
 

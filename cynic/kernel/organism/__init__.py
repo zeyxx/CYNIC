@@ -15,11 +15,10 @@ The organism is:
 """
 
 from .organism import Organism, awaken
-from .state_manager import OrganismState, StateLayer
+from .state_manager import OrganismState
 
 __all__ = [
     "Organism",
     "awaken",
     "OrganismState",
-    "StateLayer",
 ]

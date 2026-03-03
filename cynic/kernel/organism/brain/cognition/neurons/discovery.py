@@ -73,7 +73,7 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
     return found
 
 
-def discover_dogs(bus: Any, llm_registry: Any | None = None, **overrides: Any) -> dict[str, AbstractDog]:
+def discover_dogs(bus: Any, llm_registry: Any | None = None, vascular: Any | None = None, **overrides: Any) -> dict[str, AbstractDog]:
     """
     Discover and instantiate all dogs.
     """
@@ -84,7 +84,7 @@ def discover_dogs(bus: Any, llm_registry: Any | None = None, **overrides: Any) -
     dogs: dict[str, AbstractDog] = {}
     for dog_id in DogId:
         soul = get_soul(dog_id)
-        dog = MasterDog(soul, bus=bus)
+        dog = MasterDog(soul, bus=bus, vascular=vascular)
         if llm_registry:
             dog.set_llm_registry(llm_registry)
         dogs[dog_id.value] = dog

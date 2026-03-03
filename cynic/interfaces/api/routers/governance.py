@@ -1,5 +1,5 @@
 “””
-Governance Router â€” Bridge between the Bot and the Organism Memory.
+Governance Router -- Bridge between the Bot and the Organism Memory.
 
 REST API for governance proposals, voting, verdicts, and outcomes.
 Integrates with UnifiedConsciousState for persistent governance records.

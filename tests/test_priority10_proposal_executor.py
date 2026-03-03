@@ -1436,9 +1436,11 @@ class TestFactoryIntegration:
         from cynic.kernel.organism.anatomy import ArchiveCore
         from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
         from cynic.kernel.organism.state_manager import OrganismState
+        from cynic.kernel.core.event_bus import EventBus
 
         executor = ProposalExecutor()
-        state = OrganismState(instance_id="test-instance")
+        bus = EventBus(bus_id="test-bus")
+        state = OrganismState(instance_id="test-instance", bus=bus)
 
         # ArchiveCore should accept executor as optional field
         core = ArchiveCore(state=state, executor=executor)
@@ -1450,6 +1452,7 @@ class TestFactoryIntegration:
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
         from cynic.kernel.organism.anatomy import ArchiveCore
         from cynic.kernel.organism.state_manager import OrganismState
+        from cynic.kernel.core.event_bus import EventBus
 
         # Simulate factory wiring
         executor = ProposalExecutor()
@@ -1457,7 +1460,8 @@ class TestFactoryIntegration:
         prober.set_executor(executor)
 
         # Simulate ArchiveCore creation
-        state = OrganismState(instance_id="test-instance")
+        bus = EventBus(bus_id="test-bus")
+        state = OrganismState(instance_id="test-instance", bus=bus)
         memory = ArchiveCore(state=state, executor=executor)
 
         # Verify end-to-end wiring

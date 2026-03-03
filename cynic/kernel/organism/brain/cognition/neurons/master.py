@@ -73,14 +73,15 @@ class MasterDog(LLMDog):
     Includes PBFT coordination logic for the CYNIC DogId.
     """
 
-    def __init__(self, soul: DogSoul, bus: Optional["EventBus"] = None) -> None:
+    def __init__(self, soul: DogSoul, bus: Optional["EventBus"] = None, vascular: Optional["VascularSystem"] = None) -> None:
         """Initialize MasterDog with a DogSoul configuration.
 
         Args:
             soul: DogSoul configuration defining personality, axioms, and prompts
-            bus: Event bus for emitting observations. REQUIRED - no global fallback.
+            bus: Event bus for emitting observations. REQUIRED.
+            vascular: Vascular system for multimodal IO and acceleration. OPTIONAL.
         """
-        super().__init__(soul.dog_id, task_type=soul.task_type, bus=bus)
+        super().__init__(soul.dog_id, task_type=soul.task_type, bus=bus, vascular=vascular)
         self.soul = soul
         self._lookups = 0
         self._errors = 0
@@ -135,8 +136,27 @@ class MasterDog(LLMDog):
     async def _llm_path(self, cell: Cell, adapter: Any, start: float) -> DogJudgment:
         from cynic.kernel.organism.brain.llm.temporal import temporal_judgment
 
+        # 1. Handle Multimodal Data if present
+        multimodal_data = []
+        if cell.multimodal_packet_id and self.vascular:
+            # We look for the packet in the perception buffer
+            # In a real scenario, we might want a more persistent lookup
+            packets = await self.vascular.perception.flush() # Simplified: get all for now
+            for p in packets:
+                if p.packet_id == cell.multimodal_packet_id:
+                    multimodal_data.append(p)
+                    # Put back others
+                else:
+                    await self.vascular.perception.push(p)
+
+        # 2. Execute Temporal Analysis
         content = f"{self.soul.system_prompt}\n\nCONTEXT:\n{cell.content}"
-        tj = await temporal_judgment(adapter, content)
+        tj = await temporal_judgment(
+            adapter, 
+            content, 
+            multimodal_data=multimodal_data
+        )
+        
         latency = (time.perf_counter() - start) * 1000
         self._last_latencies.append(latency)
 

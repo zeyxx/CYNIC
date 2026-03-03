@@ -78,27 +78,32 @@ class RedisEventBridge:
             logger.error(f"Redis Bridge: Failed to publish event {event.type}: {e}")
 
     async def _listen_loop(self):
-        """Listen for events coming from the network."""
+        """Listen for events coming from the network with robust reconnection."""
+        retry_delay = 1.0
+        max_delay = 60.0
+
         while self._running:
             try:
                 redis_client = await self.vascular.get_redis()
-                pubsub = redis_client.pubsub()
-                await pubsub.subscribe(self.channel)
-                
-                logger.debug(f"Redis Bridge: Subscribed to {self.channel}")
-                
-                async for message in pubsub.listen():
-                    if not self._running:
-                        break
+                async with redis_client.pubsub() as pubsub:
+                    await pubsub.subscribe(self.channel)
+                    logger.info(f"Redis Bridge: Subscribed to {self.channel}")
                     
-                    if message["type"] == "message":
-                        await self._handle_remote_message(message["data"])
+                    # Reset backoff on successful connection
+                    retry_delay = 1.0
+                    
+                    while self._running:
+                        message = await pubsub.get_message(ignore_subscribe_metadata=True, timeout=1.0)
+                        if message is not None:
+                            await self._handle_remote_message(message["data"])
+                        await asyncio.sleep(0.01) # Yield to event loop
                         
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Redis Bridge: Listen loop error: {e}")
-                await asyncio.sleep(5) # Exponential backoff would be better (SRE lens)
+                logger.error(f"Redis Bridge: Connection lost ({e}). Retrying in {retry_delay:.1f}s...")
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 1.618, max_delay) # phi-scaled backoff
 
     async def _handle_remote_message(self, data_str: str):
         """Re-inject a network event into the local bus."""

@@ -17,38 +17,58 @@ from cynic.kernel.core.vascular import VascularSystem
 logger = logging.getLogger("cynic.kernel.organism.brain.llm.local_service")
 
 
+import ollama
+from ollama import AsyncClient
+
 class OllamaAdapter(LLMAdapter):
     def __init__(self, model: str, base_url: str = "http://localhost:11434", vascular: Optional[VascularSystem] = None):
         super().__init__(model=model, provider="ollama", vascular=vascular)
-        self._url = base_url.rstrip("/")
+        self._client = AsyncClient(host=base_url)
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         start = time.time()
-        payload = {
-            "model": self.model,
-            "prompt": f"{request.system}\n\n{request.prompt}" if request.system else request.prompt,
-            "stream": False,
-            "options": {"temperature": request.temperature},
-        }
+        # Metadata can carry a keep_alive instruction
+        # If not specified, we default to 5m (Ollama default) or 0 for metabolic saving
+        keep_alive = request.metadata.get("keep_alive", "5m")
+        
         try:
-            client = await self._get_client()
-            resp = await client.post(f"{self._url}/api/generate", json=payload, timeout=60.0)
-            resp.raise_for_status()
-            data = resp.json()
+            # Using the official SDK
+            response = await self._client.generate(
+                model=self.model,
+                prompt=request.prompt,
+                system=request.system,
+                options={"temperature": request.temperature},
+                keep_alive=keep_alive
+            )
+            
+            latency_ms = (time.time() - start) * 1000
+            
             return LLMResponse(
-                content=data["response"],
+                content=response['response'],
                 model=self.model,
                 provider="ollama",
-                latency_ms=(time.time() - start) * 1000,
+                prompt_tokens=response.get('prompt_eval_count', 0),
+                completion_tokens=response.get('eval_count', 0),
+                latency_ms=latency_ms,
             )
         except Exception as e:
-            logger.error(f"Ollama failure: {e}")
+            logger.error(f"Ollama SDK failure: {e}")
             return LLMResponse(content="", model=self.model, provider="ollama", error=str(e))
+
+    async def unload(self) -> bool:
+        """Forcefully unload the model from VRAM/RAM."""
+        try:
+            # In Ollama, sending a request with keep_alive=0 unloads the model
+            await self._client.generate(model=self.model, keep_alive=0)
+            logger.info(f"HAL: Metaphorical 'breathing out' - Model {self.model} unloaded.")
+            return True
+        except Exception as e:
+            logger.error(f"HAL: Failed to unload {self.model}: {e}")
+            return False
 
     async def check_available(self) -> bool:
         try:
-            client = await self._get_client()
-            resp = await client.get(f"{self._url}/api/tags", timeout=2.0)
-            return resp.status_code == 200
+            await self._client.ps()
+            return True
         except Exception:
             return False

@@ -177,7 +177,8 @@
       "Bash(cargo build:*)",
       "Bash(docker build:*)",
       "Bash(gh run:*)",
-      "WebFetch(domain:www.trader-ralph.com)"
+      "WebFetch(domain:www.trader-ralph.com)",
+      "Bash(/tmp/phase1_summary.md:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

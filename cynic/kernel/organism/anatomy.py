@@ -52,6 +52,7 @@ class CognitionCore:
     qtable: QTable
     learning_loop: LearningLoop
     residual_detector: ResidualDetector
+    llm_registry: Any # LLMRegistry
     decide_agent: Optional[DecideAgent] = None
     account_agent: Optional[AccountAgent] = None
     axiom_monitor: Optional[AxiomMonitor] = None

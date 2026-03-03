@@ -1,11 +1,14 @@
 # CYNIC — The Living Organism
 # Unified Workflow & Quality Control
 
-.PHONY: help check fix verify tests integrity clean
+.PHONY: help check fix verify tests integrity clean awaken sleep status
 
 help:
 	@echo "CYNIC DevOps Command Center"
 	@echo "---------------------------"
+	@echo "make awaken    : Heartstart infra + Foundation falsification"
+	@echo "make sleep     : Stop all infrastructure containers"
+	@echo "make status    : Check health of infra & organism"
 	@echo "make check     : Run strict linting & type checking (Ruff + Mypy)"
 	@echo "make fix       : Auto-fix linting issues"
 	@echo "make verify    : Full validation (Lint + Typage + Integrity)"
@@ -38,3 +41,18 @@ verify: check integrity tests
 clean:
 	rm -rf .ruff_cache .mypy_cache .pytest_cache
 	find . -type d -name "__pycache__" -exec rm -rf {} +
+
+awaken:
+	@echo "--- 🧪 AWAKENING CYNIC ---"
+	set PYTHONPATH=. && python scripts/heartstart.py
+	set PYTHONPATH=. && python scripts/falsify_foundation.py
+
+sleep:
+	@echo "--- 💤 PUTTING CYNIC TO SLEEP ---"
+	docker-compose stop
+
+status:
+	@echo "--- 🏥 INFRASTRUCTURE STATUS ---"
+	docker-compose ps
+	@echo "--- 🧠 ORGANISM HEALTH ---"
+	set PYTHONPATH=. && python scripts/hardware_audit.py

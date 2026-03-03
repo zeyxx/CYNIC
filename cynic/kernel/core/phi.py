@@ -203,39 +203,57 @@ def phi_classify(value: float) -> str:
         return "CRITICAL"
 
 
-def geometric_mean(values: list[float]) -> float:
-    """
-    Geometric mean (Ï-punishes outlier failures).
+from typing import Protocol, List
 
-    Q-Score = geometric_mean(axiom_scores) â€” more conservative than arithmetic.
-    One axiom at 0 â’ Q-Score = 0 (correct: total failure on one axiom = failure overall).
-    """
-    if not values:
-        return 0.0
-    if any(v <= 0 for v in values):
-        return 0.0
+# ==============================================================================
+# AGGREGATION STRATEGY (Preparation for High-Performance Kernels)
+# ==============================================================================
 
-    log_sum = sum(math.log(v) for v in values)
-    return math.exp(log_sum / len(values))
+class Aggregator(Protocol):
+    """Protocol for fractal score aggregation strategies."""
+    def compute(self, values: List[float], weights: List[float]) -> float:
+        ...
 
+class PythonAggregator:
+    """Standard CPU-bound Python implementation of the weighted geometric mean."""
+    def compute(self, values: List[float], weights: List[float]) -> float:
+        if not values or len(values) != len(weights):
+            return 0.0
+        if any(v <= 0 for v in values):
+            return 0.0
+
+        total_weight = sum(weights)
+        if total_weight == 0:
+            return 0.0
+
+        log_sum = sum(w * math.log(v) for v, w in zip(values, weights, strict=False))
+        return math.exp(log_sum / total_weight)
+
+# Global Registry for the current active aggregator
+_ACTIVE_AGGREGATOR: Aggregator = PythonAggregator()
+
+def set_aggregator(aggregator: Aggregator) -> None:
+    """Switch the global aggregator (e.g., to a Helion/GPU kernel)."""
+    global _ACTIVE_AGGREGATOR
+    _ACTIVE_AGGREGATOR = aggregator
 
 def weighted_geometric_mean(values: list[float], weights: list[float]) -> float:
     """
     Weighted geometric mean for Q-Score computation.
-
-    Q = product(v_i ^ w_i) ^ (1 / sum(w_i))
+    Delegates to the active aggregator strategy.
     """
-    if not values or len(values) != len(weights):
-        return 0.0
-    if any(v <= 0 for v in values):
-        return 0.0
+    return _ACTIVE_AGGREGATOR.compute(values, weights)
 
-    total_weight = sum(weights)
-    if total_weight == 0:
-        return 0.0
 
-    log_sum = sum(w * math.log(v) for v, w in zip(values, weights, strict=False))
-    return math.exp(log_sum / total_weight)
+def geometric_mean(values: list[float]) -> float:
+    """
+    Geometric mean (Ï-punishes outlier failures).
+    Delegates to weighted_geometric_mean with equal weights.
+    """
+    if not values:
+        return 0.0
+    return weighted_geometric_mean(values, [1.0] * len(values))
+
 
 
 def phi_ratio_split(total: float) -> tuple[float, float]:

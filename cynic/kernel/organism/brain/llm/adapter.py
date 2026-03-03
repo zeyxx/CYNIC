@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from cynic.kernel.core.formulas import LLM_TIMEOUT_SEC
-from cynic.kernel.core.phi import MAX_Q_SCORE, PHI, PHI_INV, weighted_geometric_mean
+from cynic.kernel.core.phi import MAX_Q_SCORE, PHI, PHI_INV, PHI_INV_2, weighted_geometric_mean
 from cynic.kernel.core.vascular import VascularSystem
 import httpx
 
@@ -31,6 +31,7 @@ class LLMRequest:
     max_tokens: int = 2048
     temperature: float = 0.0
     stream: bool = False
+    multimodal_data: list[Any] = field(default_factory=list) # List of MultimodalPacket
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -71,6 +72,11 @@ class LLMAdapter(ABC):
     def adapter_id(self) -> str:
         return f"{self.provider}:{self.model}"
 
+    @property
+    def llm_id(self) -> str:
+        """Alias for adapter_id to maintain consistency across the organism."""
+        return self.adapter_id
+
     @abstractmethod
     async def complete(self, request: LLMRequest) -> LLMResponse: ...
 
@@ -93,14 +99,17 @@ class BenchmarkResult:
     quality_score: float
     speed_score: float
     cost_score: float
+    error_rate: float = 0.0 # [0, 1] where 1 is total failure
     timestamp: float = field(default_factory=time.time)
 
     @property
     def composite_score(self) -> float:
-        return weighted_geometric_mean(
-            [self.quality_score / MAX_Q_SCORE, self.speed_score, self.cost_score],
+        # Quality, Speed, and Cost are rewarded. Error rate is heavily punished.
+        base_score = weighted_geometric_mean(
+            [max(0.001, self.quality_score / MAX_Q_SCORE), max(0.001, self.speed_score), max(0.001, self.cost_score)],
             [PHI, 1.0, PHI_INV],
         )
+        return base_score * (1.0 - self.error_rate)
 
 
 class LLMRegistry:
@@ -157,13 +166,24 @@ class LLMRegistry:
             except ImportError:
                 pass
 
-        # 2. Local Service (Level 1: Local Network)
+        # 2. Local Service (Level 1: Local Network - Ollama)
         from cynic.kernel.organism.brain.llm.adapters.local_service import OllamaAdapter
+        import httpx
 
-        probe = OllamaAdapter(model="probe", base_url=ollama_url, vascular=self.vascular)
-        if await probe.check_available():
-            self.register(probe)
-            self._manifest["available"].append("ollama:local_service")
+        try:
+            # Query Ollama for the list of actually installed models
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                resp = await client.get(f"{ollama_url}/api/tags")
+                if resp.status_code == 200:
+                    models_data = resp.json().get("models", [])
+                    for m in models_data:
+                        m_name = m["name"]
+                        adapter = OllamaAdapter(model=m_name, base_url=ollama_url, vascular=self.vascular)
+                        self.register(adapter)
+                        self._manifest["available"].append(f"ollama:{m_name}")
+                    logger.info(f"Discovered {len(models_data)} local models via Ollama.")
+        except Exception as e:
+            logger.debug(f"Ollama not found at {ollama_url}: {e}")
 
         # 3. CLI Bridges (Level 2: Binary control)
         from cynic.kernel.organism.brain.llm.adapters.cli_bridge import CLIAdapter
@@ -180,21 +200,59 @@ class LLMRegistry:
         return self._manifest
 
     def get_best_for(self, dog_id: str, task_type: str) -> LLMAdapter | None:
-        """Sovereignty-first routing."""
+        """
+        Dynamic routing based on PHI-weighted performance scores.
+        Favors Local/Open-Source models if they meet the quality threshold.
+        """
         avail = self.get_available_for_generation()
         if not avail:
             return None
 
-        # Priority: llama_cpp > ollama > cli > cloud
-        prio = {
-            "llama_cpp": 0,
-            "ollama": 1,
-            "claude_cli": 2,
-            "gemini_cli": 2,
-            "anthropic": 3,
-            "gemini": 3,
-        }
-        return sorted(avail, key=lambda a: prio.get(a.provider, 99))[0]
+        # 1. Gather all adapters and their latest benchmarks
+        scored_adapters = []
+        for adapter in avail:
+            # Get the last benchmark for this specific dog/task
+            bench = self._benchmarks.get((adapter.adapter_id, dog_id, task_type))
+            
+            if bench:
+                score = bench.composite_score
+            else:
+                # Default scores if no benchmark exists yet
+                # We default to high priority for Local/OS to encourage discovery
+                if adapter.provider in ["llama_cpp", "ollama"]:
+                    score = PHI_INV  # 0.618 (Good starting point)
+                else:
+                    score = PHI_INV_2 # 0.382 (Conservative for Cloud)
+            
+            scored_adapters.append((score, adapter))
+
+        # 2. Sort by highest composite score
+        # In case of tie, prefer the one with the lowest cost (inherent in composite_score)
+        scored_adapters.sort(key=lambda x: x[0], reverse=True)
+        
+        return scored_adapters[0][1]
+
+    def update_benchmark(self, dog_id: str, task_type: str, llm_id: str, result: BenchmarkResult) -> None:
+        """Update the performance record for a specific model+dog+task combination."""
+        key = (llm_id, dog_id, task_type)
+        
+        if key in self._benchmarks:
+            # PHI-weighted EMA update: PHI_INV (0.618) old + PHI_INV_2 (0.382) new
+            old = self._benchmarks[key]
+            self._benchmarks[key] = BenchmarkResult(
+                llm_id=llm_id,
+                dog_id=dog_id,
+                task_type=task_type,
+                quality_score=(old.quality_score * PHI_INV) + (result.quality_score * PHI_INV_2),
+                speed_score=(old.speed_score * PHI_INV) + (result.speed_score * PHI_INV_2),
+                cost_score=(old.cost_score * PHI_INV) + (result.cost_score * PHI_INV_2),
+                error_rate=(old.error_rate * PHI_INV) + (result.error_rate * PHI_INV_2),
+                timestamp=time.time()
+            )
+        else:
+            self._benchmarks[key] = result
+        
+        logger.debug(f"Registry: Updated benchmark for {llm_id} ({dog_id}:{task_type})")
 
 
 # --- REGISTRY SINGLETON REMOVED ---

@@ -53,6 +53,7 @@ from cynic.kernel.core.phi import (
 if TYPE_CHECKING:
     from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRegistry
     from cynic.kernel.core.event_bus import EventBus
+    from cynic.kernel.core.vascular import VascularSystem
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.neurons.base")
 
@@ -225,28 +226,27 @@ class AbstractDog(ABC):
     The organism is the sum of all Dogs, coordinated by PBFT.
     """
 
-    def __init__(self, dog_id: str, bus: "EventBus") -> None:
-        """Initialize Dog with dependency injection of event bus.
+    def __init__(self, dog_id: str, bus: "EventBus", vascular: Optional["VascularSystem"] = None) -> None:
+        """Initialize Dog with dependency injection of event bus and vascular system.
 
         Args:
             dog_id: Identifier for this Dog
-            bus: Event bus for emitting observations. REQUIRED - no global fallback.
-                 This enables test isolation and multi-tenancy.
-
-        Raises:
-            TypeError: If bus is None (no global coupling allowed)
+            bus: Event bus for emitting observations. REQUIRED.
+            vascular: Vascular system for multimodal IO and acceleration. OPTIONAL.
         """
         if bus is None:
             raise TypeError(
                 f"{self.__class__.__name__}.__init__() requires explicit 'bus' parameter. "
-                "No global EventBus fallback - pass orchestrator.bus explicitly for test isolation."
+                "No global EventBus fallback."
             )
         self.dog_id = dog_id
+        self.bus = bus
+        self.vascular = vascular
+        
         self._judgment_count = 0
         self._error_count = 0
         self._total_latency_ms = 0.0
         self._active = False
-        self.bus = bus
 
     @abstractmethod
     async def analyze(self, cell: Cell, **kwargs: Any) -> DogJudgment:
@@ -329,15 +329,22 @@ class LLMDog(AbstractDog):
       - Graceful degradation: if LLM unavailable â’ GROWL verdict, low confidence
     """
 
-    def __init__(self, dog_id: str, task_type: str = "general", bus: "EventBus" | None = None) -> None:
+    def __init__(
+        self, 
+        dog_id: str, 
+        task_type: str = "general", 
+        bus: "EventBus" | None = None,
+        vascular: Optional["VascularSystem"] = None
+    ) -> None:
         """Initialize LLM Dog with optional task type specialization.
 
         Args:
             dog_id: Identifier for this Dog
             task_type: Specialization type (e.g., "wisdom", "security", "logic")
-            bus: Event bus for emitting observations. REQUIRED - passed to parent.
+            bus: Event bus for emitting observations. REQUIRED.
+            vascular: Vascular system for multimodal IO and acceleration. OPTIONAL.
         """
-        super().__init__(dog_id, bus=bus)
+        super().__init__(dog_id, bus=bus, vascular=vascular)
         self.task_type = task_type
         self._llm_registry: LLMRegistry | None = None
         self._llm_id: str | None = None
@@ -377,6 +384,7 @@ class LLMDog(AbstractDog):
 
         from cynic.kernel.organism.brain.llm.adapter import LLMRequest
 
+        from cynic.kernel.core.phi import PHI_INV_2
         req = LLMRequest(
             prompt=prompt,
             system=system,

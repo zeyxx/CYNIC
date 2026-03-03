@@ -126,9 +126,9 @@ MCTS_DEPTH_LIMIT = lucas(4)  # L(4)=7
 MCTS_SIMULATIONS = fibonacci(10)  # F(10)=55
 
 # LLM Operational Constants
-LLM_TIMEOUT_SEC = 30.0  # Standard safety timeout
+LLM_TIMEOUT_SEC = 120.0  # Increased for CPU-bound local inference (Ryzen 5700G)
 LLM_DEFAULT_TEMPERATURE = PHI_INV  # 0.618
-MAX_CONTEXT_WINDOW = fibonacci(15)  # 610
+MAX_CONTEXT_WINDOW = fibonacci(20)  # 6765 (High resolution reasoning)
 
 # Learning Parameters
 Q_LEARNING_GAMMA = PHI_INV  # 0.618 (Discount factor)

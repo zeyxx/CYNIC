@@ -51,6 +51,9 @@ class Cell(BaseModel):
     complexity: float = Field(default=0.5, ge=0.0, le=1.0)
     risk: float = Field(default=0.0, ge=0.0, le=1.0)
 
+    # Multimodal support
+    multimodal_packet_id: Optional[str] = Field(default=None, description="Reference to rich data in VascularSystem")
+
     # Metadata
     cell_id: str = Field(default_factory=new_id)
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
