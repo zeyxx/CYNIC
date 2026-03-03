@@ -29,7 +29,8 @@ class Community(Base):
     community_id = Column(String, primary_key=True)
     platform = Column(String)  # "discord" or "telegram"
     community_name = Column(String)
-    community_token = Column(String)
+    community_token = Column(String, nullable=True)  # Deprecated: use _community_token_encrypted
+    _community_token_encrypted = Column(String, nullable=True)  # Encrypted token
 
     # Governance settings
     voting_period_hours = Column(Integer, default=72)
@@ -42,7 +43,8 @@ class Community(Base):
     # Integration
     gasdf_enabled = Column(Boolean, default=True)
     near_contract_address = Column(String, nullable=True)
-    treasury_address = Column(String, nullable=True)
+    treasury_address = Column(String, nullable=True)  # Deprecated: use _treasury_address_encrypted
+    _treasury_address_encrypted = Column(String, nullable=True)  # Encrypted treasury address
     fee_burn_percentage = Column(Integer, default=100)
 
     # CYNIC
