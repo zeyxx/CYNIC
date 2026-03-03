@@ -84,6 +84,11 @@ class Organism:
             if self.memory.sona_emitter:
                 await self.memory.sona_emitter.start()
 
+            # 7. Start EventForwarder (PHASE 2: SIEM Foundation)
+            if hasattr(self, "event_forwarder") and self.event_forwarder:
+                await self.event_forwarder.start()
+                logger.info(f"Organism [{self.instance_id}]: EventForwarder started (SIEM logging active)")
+
             logger.info(f"Organism [{self.instance_id}]: All systems NOMINAL. Respiration active.")
 
             # Wire observability metrics handlers
@@ -218,7 +223,14 @@ class Organism:
         except Exception as e:
             logger.debug(f"Error stopping motor: {e}")
 
-        # 5. STATE SHUTDOWN (last)
+        # 5. EVENT FORWARDER SHUTDOWN (PHASE 2: SIEM Foundation)
+        try:
+            if hasattr(self, "event_forwarder") and self.event_forwarder:
+                await self.event_forwarder.stop()
+        except Exception as e:
+            logger.debug(f"Error stopping event_forwarder: {e}")
+
+        # 6. STATE SHUTDOWN (last)
         try:
             await self.state.stop_processing()
         except Exception as e:

@@ -134,6 +134,36 @@ class _OrganismAwakener:
         self._metrics_adapter = BusMetricsAdapter(self.metrics_collector, bus=self.core_bus)
         self.core_bus.on("*", self._metrics_adapter.on_event)
 
+        # 0g. ENCRYPTION SERVICE (Vault Integration)
+        self.encryption_service = None
+        try:
+            from cynic.kernel.security.encryption import EncryptionService, EncryptionKeyManager, EncryptionConfig
+            encryption_config = EncryptionConfig(
+                vault_addr=self.config.vault_addr,
+                vault_token=self.config.vault_token,
+            )
+            key_manager = EncryptionKeyManager(encryption_config)
+            self.encryption_service = EncryptionService(key_manager)
+            logger.info("Factory: EncryptionService initialized from Vault")
+        except Exception as e:
+            logger.warning(f"Factory: EncryptionService not available, continuing without encryption: {e}")
+
+        # 0h. EVENT FORWARDER (PHASE 2: SIEM Foundation)
+        self.event_forwarder = None
+        try:
+            from cynic.kernel.core.storage.event_forwarder import EventForwarder
+            if self.storage:
+                self.event_forwarder = EventForwarder(
+                    bus=self.core_bus,
+                    storage=self.storage,
+                    encryption_service=self.encryption_service,
+                    batch_size=100,
+                    flush_interval_sec=5.0,
+                )
+                logger.info("Factory: EventForwarder initialized (PHASE 2)")
+        except Exception as e:
+            logger.warning(f"Factory: EventForwarder not available, SIEM logging disabled: {e}")
+
         # 1. BASE STATE
         self.state = OrganismState(instance_id=instance_id, storage=self.storage, bus=self.core_bus)
         
@@ -159,7 +189,7 @@ class _OrganismAwakener:
         self.consciousness = ConsciousnessState()
 
         # 2. NEURONS (Dogs)
-        self.dogs = discover_dogs(bus=self.core_bus, llm_registry=self.llm_registry)
+        self.dogs = discover_dogs(bus=self.core_bus, llm_registry=self.llm_registry, vascular=self.vascular)
         cynic_dog = self.dogs.get(DogId.CYNIC.value)
 
         # 3. COGNITION & STRATEGY
@@ -355,6 +385,7 @@ class _OrganismAwakener:
             qtable=self.qtable,
             learning_loop=self.learning_loop,
             residual_detector=self.residual_detector,
+            llm_registry=self.llm_registry,
             decide_agent=self.decide_agent,
             account_agent=self.account_agent,
             axiom_monitor=self.axiom_monitor,
@@ -400,7 +431,7 @@ class _OrganismAwakener:
 
         from cynic.kernel.organism.organism import Organism
 
-        return Organism(
+        organism = Organism(
             cognition=cognition,
             metabolism=metabolism,
             senses=senses,
@@ -414,6 +445,11 @@ class _OrganismAwakener:
             _pool=self.db_pool,
             container=get_container(),
         )
+
+        # Attach EventForwarder for SIEM logging (PHASE 2)
+        organism.event_forwarder = self.event_forwarder
+
+        return organism
 
 
 async def awaken(db_pool=None, registry=None):
