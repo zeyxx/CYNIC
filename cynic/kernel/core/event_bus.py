@@ -112,6 +112,11 @@ class CoreEvent(str, Enum):
     # --- Topology & Change Analysis events ---
     SOURCE_CHANGED = "core.source_changed"
     CHANGE_ANALYZED = "core.change_analyzed"
+    # --- Security & Audit events ---
+    AUTH_ATTEMPT = "security.auth_attempt"
+    AUTHZ_DECISION = "security.authz_decision"
+    DATA_ACCESSED = "security.data_accessed"
+    SECURITY_EVENT = "security.event"
 
 class Event:
     def __init__(self, type: str, payload: Any = None, source: str = "unknown", instance_id: str | None = None):
@@ -187,9 +192,10 @@ _buses: dict[str, EventBus] = {}
 _buses_lock: threading.Lock = threading.Lock()  # Protect global buses dict
 
 class EventBus:
-    def __init__(self, bus_id: str, instance_id: str | None = None):
+    def __init__(self, bus_id: str, instance_id: str | None = None, task_registry: Any = None):
         self.bus_id = bus_id
         self.instance_id = instance_id or "unknown"
+        self.task_registry = task_registry
         self._handlers: dict[str, list[Handler]] = defaultdict(list)
         self._handlers_lock: threading.Lock = threading.Lock()  # Protect handler mutation (sync safe)
         self._pending_tasks: set[asyncio.Task] = set()
@@ -255,6 +261,7 @@ class EventBus:
 
     async def emit(self, event: Event, distributed: bool = True) -> None:
         """Emit event locally and optionally distribute it via bridge."""
+        t_start = time.perf_counter()
         self._emitted_count += 1
 
         # Record event emission metric
@@ -290,10 +297,14 @@ class EventBus:
             handlers = list(self._handlers.get(event.type, []))
             wildcards = list(self._handlers.get("*", []))
 
-        t_start = time.perf_counter()
         for i, h in enumerate(handlers + wildcards):
             handler_name = getattr(h, "__name__", f"handler_{i}")
             task = asyncio.create_task(self._safe_handler_wrapper(h, event, handler_name))
+            
+            # Register task synchronously for immediate tracking
+            if self.task_registry:
+                self.task_registry.register(task)
+                
             self._pending_tasks.add(task)
             task.add_done_callback(self._pending_tasks.discard)
 
@@ -302,7 +313,9 @@ class EventBus:
         # 2. Distributed Path (Consciousness synchronization)
         if distributed and self._bridge:
             # Fire and forget to the bridge
-            asyncio.create_task(self._bridge.publish(event))
+            publish_task = asyncio.create_task(self._bridge.publish(event))
+            if self.task_registry:
+                self.task_registry.register(publish_task)
 
     async def drain(self, timeout: float = 10.0) -> None:
         """Wait for all pending handler tasks to complete."""

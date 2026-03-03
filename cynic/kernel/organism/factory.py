@@ -14,6 +14,7 @@ from cynic.interfaces.mcp.service import MCPBridge
 from cynic.kernel.core.container import get_container
 from cynic.kernel.core.convergence import ConvergenceValidator
 from cynic.kernel.core.escore import EScoreTracker
+from cynic.kernel.core.storage.compliance import AuditLogger, AuditLoggingHandler
 from cynic.kernel.core.storage.surreal import SurrealStorage
 from cynic.kernel.core.topology.file_watcher import SourceWatcher
 from cynic.kernel.core.topology.topology_builder import IncrementalTopologyBuilder
@@ -80,8 +81,10 @@ class _OrganismAwakener:
         except Exception as e:
             logger.warning(f"Factory: SurrealDB not available, falling back to local memory: {e}")
 
-        # Generate instance identity (SRE standard)
+        # 0a. IDENTITY & TASK MANAGEMENT
         instance_id = f"CYNIC-{os.environ.get('NODE_NAME', 'LOCAL')}-{uuid.uuid4().hex[:8]}"
+        from cynic.kernel.core.task_registry import TaskRegistry
+        self.task_registry = TaskRegistry(instance_id=instance_id)
         
         # 0b. VASCULAR SYSTEM (Network IO Pool)
         self.vascular = VascularSystem(
@@ -134,7 +137,16 @@ class _OrganismAwakener:
         self._metrics_adapter = BusMetricsAdapter(self.metrics_collector, bus=self.core_bus)
         self.core_bus.on("*", self._metrics_adapter.on_event)
 
-        # 0g. ENCRYPTION SERVICE (Vault Integration)
+        # 0g. AUDIT LOGGING HANDLER — subscribes to security/auth events for compliance
+        audit_logger = AuditLogger() if self.storage is None else AuditLogger(storage=self.storage)
+        self._audit_handler = AuditLoggingHandler(audit_logger)
+        # Subscribe to security-related events
+        self.core_bus.on("security.auth_attempt", self._audit_handler.on_auth_attempt)
+        self.core_bus.on("security.authz_decision", self._audit_handler.on_authz_decision)
+        self.core_bus.on("security.data_accessed", self._audit_handler.on_data_accessed)
+        self.core_bus.on("security.event", self._audit_handler.on_security_event)
+
+        # 0h. ENCRYPTION SERVICE (Vault Integration)
         self.encryption_service = None
         try:
             from cynic.kernel.security.encryption import EncryptionService, EncryptionKeyManager, EncryptionConfig
@@ -431,7 +443,7 @@ class _OrganismAwakener:
 
         from cynic.kernel.organism.organism import Organism
 
-        organism = Organism(
+        return Organism(
             cognition=cognition,
             metabolism=metabolism,
             senses=senses,
@@ -442,9 +454,11 @@ class _OrganismAwakener:
             bridge=self.bridge,
             automation_bus=self.automation_bus,
             agent_bus=self.agent_bus,
+            task_registry=self.task_registry,
             _pool=self.db_pool,
             container=get_container(),
         )
+
 
         # Attach EventForwarder for SIEM logging (PHASE 2)
         organism.event_forwarder = self.event_forwarder
