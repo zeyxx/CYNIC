@@ -139,6 +139,46 @@ class DogSoulRepoInterface(ABC):
     async def all(self) -> list[dict[str, Any]]: ...
 
 
+class SecurityEventRepoInterface(ABC):
+    """Repository for security events (SIEM Foundation — PHASE 2)."""
+
+    @abstractmethod
+    async def save_event(self, event: dict[str, Any]) -> str:
+        """Save event and return event_id."""
+        ...
+
+    @abstractmethod
+    async def get_event(self, event_id: str) -> dict[str, Any] | None:
+        """Get event by ID."""
+        ...
+
+    @abstractmethod
+    async def list_events(
+        self, filters: dict[str, Any] | None = None, limit: int = 1000, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        """List events with optional filters (type, actor_id, timestamp range, etc.)."""
+        ...
+
+    @abstractmethod
+    async def correlate(
+        self, event: dict[str, Any], window_seconds: int = 300
+    ) -> list[dict[str, Any]]:
+        """Find related events within time window (for anomaly detection)."""
+        ...
+
+    @abstractmethod
+    async def detect_anomaly(
+        self, event: dict[str, Any], baselines: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Detect anomalies in event based on baselines."""
+        ...
+
+    @abstractmethod
+    async def get_stats(self) -> dict[str, Any]:
+        """Get storage statistics (event count, disk usage, etc.)."""
+        ...
+
+
 class AxiomFacetRepoInterface(ABC):
     @abstractmethod
     async def save(self, facet: dict[str, Any]) -> None: ...
@@ -212,3 +252,7 @@ class StorageInterface(ABC):
     @property
     @abstractmethod
     def axiom_facets(self) -> AxiomFacetRepoInterface: ...
+
+    @property
+    @abstractmethod
+    def security_events(self) -> SecurityEventRepoInterface: ...

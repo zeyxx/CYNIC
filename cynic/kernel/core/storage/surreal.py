@@ -46,6 +46,7 @@ from cynic.kernel.core.storage.interface import (
     ResidualRepoInterface,
     ScholarRepoInterface,
     SDKSessionRepoInterface,
+    SecurityEventRepoInterface,
     StorageInterface,
 )
 
@@ -72,6 +73,7 @@ _SCHEMA_STATEMENTS = [
     "DEFINE TABLE IF NOT EXISTS action_proposal SCHEMALESS",
     "DEFINE TABLE IF NOT EXISTS dog_soul SCHEMALESS",
     "DEFINE TABLE IF NOT EXISTS axiom_facet SCHEMALESS",
+    "DEFINE TABLE IF NOT EXISTS security_event SCHEMALESS",
     # Indexes — optimize common query paths
     "DEFINE INDEX IF NOT EXISTS idx_judgment_reality ON judgment FIELDS reality",
     "DEFINE INDEX IF NOT EXISTS idx_judgment_verdict ON judgment FIELDS verdict",
@@ -88,6 +90,10 @@ _SCHEMA_STATEMENTS = [
     "DEFINE INDEX IF NOT EXISTS idx_dog_soul_id ON dog_soul FIELDS dog_id UNIQUE",
     # Unique index for dynamic facets to prevent duplicates
     "DEFINE INDEX IF NOT EXISTS idx_axiom_facet_unique ON axiom_facet FIELDS axiom, reality, facet UNIQUE",
+    # Indexes for security events (SIEM)
+    "DEFINE INDEX IF NOT EXISTS idx_security_event_type ON security_event FIELDS type",
+    "DEFINE INDEX IF NOT EXISTS idx_security_event_timestamp ON security_event FIELDS timestamp DESC",
+    "DEFINE INDEX IF NOT EXISTS idx_security_event_actor ON security_event FIELDS actor_id",
 ]
 
 
@@ -532,6 +538,147 @@ class AxiomFacetRepo(AxiomFacetRepoInterface):
         return _rows(result)
 
 
+class SecurityEventRepo(SecurityEventRepoInterface):
+    """Persist security events for SIEM (Phase 2)."""
+
+    def __init__(self, db: SurrealDBClient) -> None:
+        self._db = db
+
+    async def save_event(self, event: dict[str, Any]) -> str:
+        """Save event and return event_id."""
+        event_id = str(uuid.uuid4())
+        event_record = {
+            "id": event_id,
+            "timestamp": time.time(),
+            **event,
+        }
+        await self._db.create(_rec("security_event", event_id), event_record)
+        return event_id
+
+    async def get_event(self, event_id: str) -> dict[str, Any] | None:
+        """Get event by ID."""
+        result = await self._db.select(_rec("security_event", event_id))
+        rows = _rows(result)
+        return rows[0] if rows else None
+
+    async def list_events(
+        self, filters: dict[str, Any] | None = None, limit: int = 1000, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        """List events with optional filters (type, actor_id, timestamp range, etc.)."""
+        query = "SELECT * FROM security_event"
+        params: dict[str, Any] = {}
+
+        # Build WHERE clauses from filters
+        where_parts = []
+        if filters:
+            if "type" in filters:
+                where_parts.append("type = $type")
+                params["type"] = filters["type"]
+            if "actor_id" in filters:
+                where_parts.append("actor_id = $actor_id")
+                params["actor_id"] = filters["actor_id"]
+            if "timestamp_gte" in filters:
+                where_parts.append("timestamp >= $timestamp_gte")
+                params["timestamp_gte"] = filters["timestamp_gte"]
+            if "timestamp_lte" in filters:
+                where_parts.append("timestamp <= $timestamp_lte")
+                params["timestamp_lte"] = filters["timestamp_lte"]
+
+        if where_parts:
+            query += " WHERE " + " AND ".join(where_parts)
+
+        # Order and pagination
+        query += " ORDER BY timestamp DESC LIMIT $limit OFFSET $offset"
+        params["limit"] = limit
+        params["offset"] = offset
+
+        result = await self._db.query(query, params)
+        return _rows(result)
+
+    async def correlate(
+        self, event: dict[str, Any], window_seconds: int = 300
+    ) -> list[dict[str, Any]]:
+        """Find related events within time window (for anomaly detection)."""
+        # Find events from same actor within time window
+        event_time = event.get("timestamp", time.time())
+        actor_id = event.get("actor_id")
+
+        if not actor_id:
+            return []
+
+        result = await self._db.query(
+            """
+            SELECT * FROM security_event
+            WHERE actor_id = $actor_id
+            AND timestamp >= $time_start
+            AND timestamp <= $time_end
+            ORDER BY timestamp DESC
+            """,
+            {
+                "actor_id": actor_id,
+                "time_start": event_time - window_seconds,
+                "time_end": event_time,
+            },
+        )
+        return _rows(result)
+
+    async def detect_anomaly(
+        self, event: dict[str, Any], baselines: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Detect anomalies in event based on baselines."""
+        # Simple anomaly detection: compare event fields to baselines
+        anomalies = {}
+
+        if baselines is None:
+            baselines = {}
+
+        # Check for unusual values
+        for field, expected_value in baselines.items():
+            if field in event:
+                actual_value = event[field]
+                # Simple threshold check: if value is >2x different, flag it
+                if isinstance(expected_value, (int, float)) and isinstance(actual_value, (int, float)):
+                    if expected_value > 0:
+                        ratio = actual_value / expected_value
+                        if ratio > 2.0 or ratio < 0.5:
+                            anomalies[field] = {
+                                "expected": expected_value,
+                                "actual": actual_value,
+                                "ratio": ratio,
+                            }
+
+        return {
+            "is_anomalous": len(anomalies) > 0,
+            "anomalies": anomalies,
+            "anomaly_score": min(len(anomalies) / max(len(baselines), 1), 1.0),
+        }
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get storage statistics (event count, disk usage, etc.)."""
+        result = await self._db.query(
+            """
+            SELECT
+                count() as total_events,
+                type as event_type,
+                count() as count_by_type
+            FROM security_event
+            GROUP BY type
+            """
+        )
+        type_counts = _rows(result)
+
+        # Get total count
+        total_result = await self._db.query("SELECT count() as total FROM security_event")
+        total_rows = _rows(total_result)
+        total_events = total_rows[0].get("total", 0) if total_rows else 0
+
+        return {
+            "total_events": total_events,
+            "by_type": {row.get("event_type"): row.get("count_by_type") for row in type_counts},
+            "storage_table": "security_event",
+        }
+
+
 # ═ STORAGE FACADE — one object, all repos ═══════════════════════════════════
 
 
@@ -557,14 +704,14 @@ class SurrealStorage(StorageInterface):
         namespace: str,
         database: str,
     ) -> None:
-        from surrealdb import AsyncSurreal
+        from surrealdb import Surreal
 
         self._url = url
         self._user = user
         self._password = password
         self._ns = namespace
         self._db_name = database
-        self._db = AsyncSurreal(self._url)
+        self._db = Surreal(self._url)
         self._conn = self._db  # for backward compatibility
 
         # Repos
@@ -578,6 +725,7 @@ class SurrealStorage(StorageInterface):
         self._action_proposals = ActionProposalRepo(self._db)
         self._dog_souls = DogSoulRepo(self._db)
         self._axiom_facets = AxiomFacetRepo(self._db)
+        self._security_events = SecurityEventRepo(self._db)
 
     @classmethod
     async def create(cls, config: CynicConfig) -> SurrealStorage:
@@ -666,6 +814,10 @@ class SurrealStorage(StorageInterface):
     def axiom_facets(self) -> AxiomFacetRepo:
         return self._axiom_facets
 
+    @property
+    def security_events(self) -> SecurityEventRepo:
+        return self._security_events
+
     async def ping(self) -> bool:
         """Return True if connection is alive."""
         try:
@@ -689,8 +841,33 @@ class SurrealStorage(StorageInterface):
         return str(query_id)
 
     async def _live_listener(self, table: str, callback: Any):
-        """Internal background task to process live query results."""
-        # This is a simplified version. The SurrealDB Python SDK 
-        # handling of LIVE queries varies by version.
-        # Assuming AsyncSurreal provides a stream of updates.
-        pass # To be fully implemented once SDK behavior confirmed
+        """Internal background task to process live query results with auto-recovery."""
+        retry_delay = 1.0
+        
+        while True:
+            try:
+                # We start a NEW live query session
+                # In SurrealDB Python SDK, live queries are handled via 
+                # async for notifications in db.subscribe(query_id)
+                # But we'll use a simpler approach: raw query and listen
+                # Note: This implementation targets SDK 0.3.x stability.
+                
+                async with self._db.subscribe(table) as stream:
+                    # Reset backoff on success
+                    retry_delay = 1.0
+                    async for notification in stream:
+                        action = notification.get("action", "CREATE")
+                        result = notification.get("result", {})
+                        
+                        # Execute callback (protected from crashes)
+                        try:
+                            await callback(action, result)
+                        except Exception as cb_err:
+                            logger.error(f"Live Query Callback Error ({table}): {cb_err}")
+                            
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.warning(f"✨ SurrealDB Live Stream lost for '{table}': {e}. Retrying in {retry_delay:.1f}s...")
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 1.618, 30.0)
