@@ -151,7 +151,7 @@ class HealthChecker:
                 await self.surreal.qtable.get_all()
                 return True
             except Exception as e:
-                logger.warning("SurrealDB health check failed: %s", e)
+            logger.warning("SurrealDB health check failed: %s", e)
                 raise
 
         # Fall back to asyncpg
@@ -161,7 +161,7 @@ class HealthChecker:
                     await conn.fetchval("SELECT 1")
                 return True
             except Exception as e:
-                logger.warning("PostgreSQL health check failed: %s", e)
+            logger.warning("PostgreSQL health check failed: %s", e)
                 raise
 
         # No database configured " assume ok

@@ -41,7 +41,7 @@ async def start_infra():
         subprocess.run(["docker-compose", "up", "-d", "surrealdb", "redis"], check=True)
         logger.info("🚀 Docker containers launched.")
     except Exception as e:
-        logger.error(f"❌ Heartstart failed: {e}")
+            logger.error(f"❌ Heartstart failed: {e}")
         return False
 
     # 3. Stabilization (Wait for life signs)

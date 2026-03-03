@@ -14,20 +14,10 @@ import logging
 import pkgutil
 from typing import TYPE_CHECKING, Any, Optional
 
-from .introspect import (
-    ArchitectureSnapshot,
-    CouplingGrowth,
-    HandlerAnalysis,
-    HandlerArchitectureIntrospector,
-)
 from .services import (
     CognitionServices,
     MetabolicServices,
     SensoryServices,
-)
-from .validator import (
-    HandlerValidator,
-    ValidationIssue,
 )
 
 if TYPE_CHECKING:
@@ -65,15 +55,18 @@ class HandlerRegistry:
                 bus.on(event_type, handler_fn)
                 total_handlers += 1
             logger.debug(
-                f"Wired reflex group '{group.name}': " f"{len(group.subscriptions())} handlers"
+                f"Wired reflex group '{group.name}': "
+                f"{len(group.subscriptions())} handlers"
             )
 
         self._wired = True
-        logger.info(f"HandlerRegistry wired: {len(self._groups)} groups, {total_handlers} handlers")
+        logger.info(
+            f"HandlerRegistry wired: {len(self._groups)} groups, {total_handlers} handlers"
+        )
 
     def introspect(self) -> dict:
         """Reflex topology snapshot."""
-        all_deps = set()
+        all_deps: set[str] = set()
         groups_meta = []
 
         for group in self._groups:
@@ -84,7 +77,10 @@ class HandlerRegistry:
                     "name": group.name,
                     "handler_count": len(group.subscriptions()),
                     "dependencies": sorted(deps),
-                    "events": [e.value if hasattr(e, 'value') else str(e) for e, _ in group.subscriptions()],
+                    "events": [
+                        e.value if hasattr(e, "value") else str(e)
+                        for e, _ in group.subscriptions()
+                    ],
                 }
             )
 
@@ -132,7 +128,9 @@ def discover_handler_groups(
             continue
 
         try:
-            mod = importlib.import_module(f"cynic.kernel.organism.reflexes.{module_name}")
+            mod = importlib.import_module(
+                f"cynic.kernel.organism.reflexes.{module_name}"
+            )
         except ImportError as e:
             logger.warning(f"Failed to import reflex module {module_name}: {e}")
             continue
@@ -154,11 +152,13 @@ def discover_handler_groups(
                     init_args = {param_name: svc_facade, "bus": bus}
                     init_args.update(group_kwargs)
 
-                    instance = attr(**init_args)
+                    instance = attr(**init_args)  # type: ignore
                     groups.append(instance)
                     logger.debug(f"Discovered reflex group: {instance.name}")
                 except Exception as e:
-                    logger.warning(f"Failed to instantiate {attr_name} from {module_name}: {e}")
+                    logger.warning(
+                        f"Failed to instantiate {attr_name} from {module_name}: {e}"
+                    )
 
     logger.info(f"Discovered {len(groups)} reflex groups")
     return groups

@@ -17,6 +17,7 @@ each other's judgment outcomes and emergence patterns.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -25,6 +26,8 @@ if TYPE_CHECKING:
 from cynic.kernel.organism.perception.federation.merge import merge_q_tables
 from cynic.kernel.organism.perception.federation.peer import FederationPeer
 from cynic.kernel.organism.perception.federation.protocol import FederationMessage
+
+logger = logging.getLogger("cynic.kernel.organism.perception.federation.gossip")
 
 DEFAULT_K = 3
 DEFAULT_BATCH = 10
@@ -159,7 +162,7 @@ class GossipManager:
                 peer.send(message)
                 delivered += 1
             except Exception as _e:
-                logger.debug(f'Silenced: {_e}')
+                logger.debug(f"Silenced: {_e}")
 
         self._sync_count += 1
         self._last_sync = datetime.now(UTC)
@@ -178,7 +181,11 @@ class GossipManager:
         Returns:
             Count of keys merged
         """
-        merged = merge_q_tables(self.q_table, message.q_table_snapshot, message.total_judgments)
+        merged = merge_q_tables(
+            self.q_table,  # type: ignore
+            message.q_table_snapshot,
+            message.total_judgments,
+        )
         self._total_merged += merged
         return merged
 

@@ -98,7 +98,7 @@ async def run_trace():
             logger.warning("âœ— Failure: guidance.json missing")
 
     except Exception as e:
-        logger.error(f"Trace failed with error: {e}", exc_info=True)
+            logger.error(f"Trace failed with error: {e}", exc_info=True)
     finally:
         if 'organism' in locals():
             await organism.state.stop_processing()

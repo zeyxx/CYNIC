@@ -296,7 +296,7 @@ async def empirical_health():
             "total_jobs": len(runner.jobs),
         }
     except Exception as e:
-        logger.warning(f"Empirical health check failed: {e}")
+            logger.warning(f"Empirical health check failed: {e}")
         return {
             "status": "degraded",
             "error": str(e),

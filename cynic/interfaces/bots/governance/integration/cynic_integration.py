@@ -107,7 +107,7 @@ async def ask_cynic(question: str, context: str = "", reality: str = "SOCIAL") -
             }
 
     except Exception as e:
-        logger.error(f"Error calling ask_cynic API: {e}", exc_info=True)
+            logger.error(f"Error calling ask_cynic API: {e}", exc_info=True)
         return {
             "verdict": "PENDING",
             "q_score": 0.0,
@@ -187,7 +187,7 @@ async def learn_cynic(
             "q_table_updated": False
         }
     except Exception as e:
-        logger.error(f"Error calling learn_cynic: {e}", exc_info=True)
+            logger.error(f"Error calling learn_cynic: {e}", exc_info=True)
         return {
             "learning_status": "skipped",
             "q_table_updated": False
@@ -244,7 +244,7 @@ async def observe_cynic(aspect: str = "consciousness", detailed: bool = False) -
         }
 
     except Exception as e:
-        logger.error(f"Error calling observe_cynic: {e}", exc_info=True)
+            logger.error(f"Error calling observe_cynic: {e}", exc_info=True)
         return {
             "status": "error",
             "error": str(e)
@@ -270,7 +270,7 @@ async def get_cynic_status() -> dict:
         }
 
     except Exception as e:
-        logger.error(f"Error getting CYNIC status: {e}")
+            logger.error(f"Error getting CYNIC status: {e}")
         return {
             "status": "error",
             "error": str(e)

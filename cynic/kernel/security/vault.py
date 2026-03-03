@@ -24,7 +24,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from cynic.config import CynicConfig
+from cynic.kernel.core.config import CynicConfig
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,6 @@ class VaultConfig:
         self.auto_rotate_days = auto_rotate_days
         self.kv_mount_path = "secret"  # Default KV v2 mount path
 
-
     @classmethod
     def from_config(cls, config: CynicConfig) -> VaultConfig:
         """Create VaultConfig from global CynicConfig."""
@@ -113,14 +112,13 @@ class EnvironmentSecretStore(SecretStore):
         # Fallback to direct os.getenv ONLY if config not available or key unknown
         # NOTE: This is a legacy path, should ideally be migrated to CynicConfig fields
         import os
+
         env_key = f"SECRET_{key.upper().replace('.', '_').replace('-', '_')}"
         return os.getenv(env_key)
 
     async def put_secret(self, key: str, value: str) -> None:
         """Store secret in environment (not recommended for production)."""
-        logger.warning(
-            f"Storing secret {key} in environment variable (fallback only)"
-        )
+        logger.warning(f"Storing secret {key} in environment variable (fallback only)")
         env_key = f"SECRET_{key.upper().replace('.', '_').replace('-', '_')}"
         os.environ[env_key] = value
 
@@ -322,9 +320,7 @@ class SecretManager:
             raise RuntimeError("Secret manager not initialized")
 
         # Rotate in both stores to keep in sync
-        new_value = await (self.primary_store or self.fallback_store).rotate_secret(
-            key
-        )
+        new_value = await (self.primary_store or self.fallback_store).rotate_secret(key)
         self._rotation_schedule[key] = datetime.now(timezone.utc)
         return new_value
 
@@ -341,15 +337,17 @@ class SecretManager:
 
     async def health_check(self) -> dict[str, bool]:
         """Check health of secret stores."""
+        primary_health = False
+        if self.primary_store:
+            primary_health = await self.primary_store.health_check()
+
         return {
-            "primary": await (
-                self.primary_store.health_check()
-                if self.primary_store
-                else False
-            ),
+            "primary": primary_health,
             "fallback": await self.fallback_store.health_check(),
         }
 
-    def register_rotation_schedule(self, key: str, rotated_at: datetime | None = None) -> None:
+    def register_rotation_schedule(
+        self, key: str, rotated_at: datetime | None = None
+    ) -> None:
         """Register a secret for auto-rotation tracking."""
         self._rotation_schedule[key] = rotated_at or datetime.now(timezone.utc)

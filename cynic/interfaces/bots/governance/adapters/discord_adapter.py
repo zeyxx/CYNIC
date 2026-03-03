@@ -5,23 +5,6 @@ This module bridges Discord interactions to the unified CYNIC consciousness syst
 It translates Discord events into platform-agnostic BotCommand objects and converts
 BotResponse objects back to Discord embeds, buttons, and messages.
 
-Architecture:
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-"          DISCORD ADAPTER FLOW                            "
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-"                                                         "
-"  Discord Event (interaction, message, etc)              "
-"  " (Discord adapter translates)                         "
-"  BotCommand(name, args, user_id, platform="discord")   "
-"  " (Core logic routes)                                  "
-"  UnifiedConsciousState.judge/record/query              "
-"  " (Core returns)                                       "
-"  BotResponse(success, message, data, ephemeral)        "
-"  " (Discord adapter converts)                          "
-"  Discord Embed + Buttons + Message                     "
-"                                                         "
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
 Key principles:
 1. DiscordAdapter implements BotInterface contract
 2. All commands route through handle_command()

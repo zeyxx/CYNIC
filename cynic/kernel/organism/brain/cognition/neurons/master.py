@@ -122,7 +122,7 @@ class MasterDog(LLMDog):
                     try:
                         self._compressor.boost(str(cell.content), judgment.q_score)
                     except Exception as _e:
-                        logger.debug(f'Silenced: {_e}')
+            logger.debug(f'Silenced: {_e}')
                 return judgment
 
             # 3. Fallback to Heuristic

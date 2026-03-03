@@ -66,7 +66,7 @@ async def sync_commands():
         async with bot:
             await bot.start(DISCORD_TOKEN)
     except Exception as e:
-        logger.error(f"- Bot startup failed: {e}", exc_info=True)
+            logger.error(f"- Bot startup failed: {e}", exc_info=True)
         return False
 
 

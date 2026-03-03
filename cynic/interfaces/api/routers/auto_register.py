@@ -4,9 +4,10 @@ Auto-Register Routers " Self-discovery and registration.
 When CYNIC starts, it automatically finds and registers all routers.
 No manual configuration needed.
 """
+
 from __future__ import annotations
 
-import importlib
+import importlib.util
 import logging
 import sys
 from pathlib import Path
@@ -52,6 +53,9 @@ def auto_register_routers(app: FastAPI) -> dict[str, Any]:
                 module = sys.modules[module_path]
             else:
                 spec = importlib.util.spec_from_file_location(module_path, router_file)
+                if spec is None or spec.loader is None:
+                    logger.warning(f"Could not load spec for {router_file}")
+                    continue
                 module = importlib.util.module_from_spec(spec)
                 sys.modules[module_path] = module
                 spec.loader.exec_module(module)
@@ -67,26 +71,37 @@ def auto_register_routers(app: FastAPI) -> dict[str, Any]:
                         break
 
             if found_router:
-                logger.debug(f"DEBUG: Registering {module_name} router with prefix {found_router.prefix}")
+                logger.debug(
+                    f"DEBUG: Registering {module_name} router with prefix {found_router.prefix}"
+                )
                 app.include_router(found_router)
-                logger.debug("DEBUG: After registration, checking if routes exist in app")
-                obs_routes = [r for r in app.routes if "observability" in getattr(r, "path", "")]
+                logger.debug(
+                    "DEBUG: After registration, checking if routes exist in app"
+                )
+                obs_routes = [
+                    r for r in app.routes if "observability" in getattr(r, "path", "")
+                ]
                 if obs_routes:
-                    logger.debug(f"DEBUG: Found {len(obs_routes)} observability routes in app.routes")
+                    logger.debug(
+                        f"DEBUG: Found {len(obs_routes)} observability routes in app.routes"
+                    )
 
                 # Extract metadata
                 tags = found_router.tags if hasattr(found_router, "tags") else []
-                routes = len(found_router.routes) if hasattr(found_router, "routes") else 0
+                routes = (
+                    len(found_router.routes) if hasattr(found_router, "routes") else 0
+                )
 
                 registered[module_name] = {
                     "tags": tags,
                     "routes": routes,
-                    "prefix": found_router.prefix if hasattr(found_router, "prefix") else "",
+                    "prefix": found_router.prefix
+                    if hasattr(found_router, "prefix")
+                    else "",
                 }
 
                 logger.info(
-                    f"" Registered router: {module_name} ""
-                    f"({routes} routes, tags={tags})"
+                    f"Registered router: {module_name} ({routes} routes, tags={tags})"
                 )
             else:
                 logger.debug(f"No APIRouter found in {module_name}")

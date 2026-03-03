@@ -5,25 +5,6 @@ This module bridges Telegram interactions to the unified CYNIC consciousness sys
 It translates Telegram message events into platform-agnostic BotCommand objects and
 converts BotResponse objects back to Telegram markdown messages.
 
-Architecture:
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-"          TELEGRAM ADAPTER FLOW                           "
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-"                                                         "
-"  Telegram Message (text with slash command)             "
-"  " (Telegram adapter translates)                        "
-"  BotCommand(name, args, user_id, platform="telegram")  "
-"  " (Core logic routes)                                  "
-"  UnifiedConsciousState.judge/record/query              "
-"  " (Core returns)                                       "
-"  BotResponse(success, message, data, ephemeral)        "
-"  " (Telegram adapter converts)                         "
-"  Telegram Markdown Message (bold, code blocks)         "
-"  " (Handle pagination for long messages)               "
-"  Telegram API send                                      "
-"                                                         "
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
 Key principles:
 1. TelegramAdapter implements BotInterface contract
 2. All commands route through handle_command()

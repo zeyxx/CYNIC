@@ -452,8 +452,8 @@ async def websocket_ecosystem(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         logger.debug("WebSocket /ws/consciousness/ecosystem disconnected")
     except Exception as e:
-        logger.error("WebSocket /ws/consciousness/ecosystem error: %s", e)
+            logger.error("WebSocket /ws/consciousness/ecosystem error: %s", e)
         try:
             await websocket.close(code=1011)
         except Exception as _e:
-        logger.debug(f'Silenced: {_e}')
+            logger.debug(f'Silenced: {_e}')

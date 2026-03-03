@@ -46,10 +46,8 @@ if __name__ == "__main__":
     
     files = sys.argv[1:]
     if audit_files(files):
-        print("
-🛡️  HERESYGUARD: Surgery verified. No anomalies detected.")
+        print("\n🛡️  HERESYGUARD: Surgery verified. No anomalies detected.")
         sys.exit(0)
     else:
-        print("
-☢️  ANOMALY DETECTED: Heresies found in your surgery. Fix them before claiming completion.")
+        print("\n☢️  ANOMALY DETECTED: Heresies found in your surgery. Fix them before claiming completion.")
         sys.exit(1)

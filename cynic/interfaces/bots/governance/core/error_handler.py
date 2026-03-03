@@ -289,7 +289,7 @@ async def log_error_to_discord(
                     return
 
     except Exception as e:
-        logger.error(f"Failed to log error to Discord: {e}")
+            logger.error(f"Failed to log error to Discord: {e}")
 
 
 class ErrorMetrics:

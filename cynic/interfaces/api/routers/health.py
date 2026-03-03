@@ -1,6 +1,7 @@
 """
 CYNIC health router - core vitals: health  stats
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -11,12 +12,12 @@ from typing import Any
 
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import ValidationError
 
 from cynic.interfaces.api.models import (
     HealthEventsResponse,
@@ -34,7 +35,9 @@ logger = logging.getLogger("cynic.interfaces.api.server")
 
 router_health = APIRouter(tags=["health"])
 
-_CONSCIOUSNESS_FILE = os.path.join(os.path.expanduser("~"), ".cynic", "consciousness.json")
+_CONSCIOUSNESS_FILE = os.path.join(
+    os.path.expanduser("~"), ".cynic", "consciousness.json"
+)
 
 
 # -- Root route: API alive status ---------------------------------------------
@@ -65,8 +68,11 @@ async def root(request: Request) -> RootResponse:
 # GET /health
 # ==============================================================================
 
+
 @router_health.get("/health", response_model=HealthResponse)
-async def health(container: AppContainer = Depends(get_app_container)) -> HealthResponse:
+async def health(
+    container: AppContainer = Depends(get_app_container),
+) -> HealthResponse:
     """
     Kernel health - the organism's vital signs.
     """
@@ -86,6 +92,7 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
     _storage_status: dict[str, Any] = {}
     try:
         from cynic.kernel.core.storage.surreal import get_storage as _get_storage
+
         _get_storage()
         _storage_status["surreal"] = "connected"
     except RuntimeError:
@@ -106,10 +113,12 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
         },
         scheduler=sched_stats,
         llm_adapters=[
-            a.adapter_id for a in __import__(
-                "cynic.kernel.organism.brain.llm.adapter", 
-                fromlist=["get_registry"]
-            ).get_registry().get_available()
+            a.adapter_id
+            for a in __import__(
+                "cynic.kernel.organism.brain.llm.adapter", fromlist=["get_registry"]
+            )
+            .get_registry()
+            .get_available()
         ],
         judgments_total=judge_stats["judgments_total"],
         phi=PHI,
@@ -121,11 +130,12 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
 # GET /stats
 # ==============================================================================
 
+
 @router_health.get("/stats", response_model=StatsResponse)
 async def stats(container: AppContainer = Depends(get_app_container)) -> StatsResponse:
     """Detailed kernel metrics - everything CYNIC knows about itself."""
     state = container.organism
-    
+
     return StatsResponse(
         judgments=state.cognition.orchestrator.stats(),
         learning=state.cognition.qtable.stats(),
@@ -138,8 +148,11 @@ async def stats(container: AppContainer = Depends(get_app_container)) -> StatsRe
 # GET /health/events
 # ==============================================================================
 
+
 @router_health.get("/health/events", response_model=HealthEventsResponse)
-async def health_events(container: AppContainer = Depends(get_app_container)) -> HealthEventsResponse:
+async def health_events(
+    container: AppContainer = Depends(get_app_container),
+) -> HealthEventsResponse:
     """Event handler pipeline health + metrics."""
     try:
         state = container.organism
@@ -179,8 +192,11 @@ async def health_events(container: AppContainer = Depends(get_app_container)) ->
 # GET /health/full
 # ==============================================================================
 
+
 @router_health.get("/health/full", response_model=HealthFullResponse)
-async def health_full(container: AppContainer = Depends(get_app_container)) -> HealthFullResponse:
+async def health_full(
+    container: AppContainer = Depends(get_app_container),
+) -> HealthFullResponse:
     """Comprehensive system health for Claude Code."""
     try:
         state = container.organism
@@ -189,33 +205,37 @@ async def health_full(container: AppContainer = Depends(get_app_container)) -> H
         _db_status = "unhealthy"
         try:
             from cynic.kernel.core.storage.surreal import get_storage as _get_storage
+
             _get_storage()
             _db_status = "healthy"
         except Exception as _e:
-        logger.debug(f'Silenced: {_e}')
+            logger.debug(f"Silenced: {_e}")
 
         # LLM
         _llm_status = "unhealthy"
         try:
             from cynic.kernel.organism.brain.llm.adapter import get_registry
+
             if get_registry().get_available():
                 _llm_status = "healthy"
         except Exception as _e:
-        logger.debug(f'Silenced: {_e}')
+            logger.debug(f"Silenced: {_e}")
 
         # Dogs
         dogs_list = []
         for dog_id, dog in state.dogs.items():
             stats = dog.stats() if hasattr(dog, "stats") else {}
-            dogs_list.append({
-                "name": dog_id,
-                "status": "active",
-                "judgments": stats.get("judgments_total", 0),
-                "errors": stats.get("errors_total", 0),
-                "error_rate": 0.0,
-                "avg_latency_ms": 0.0,
-                "priority": 1.0,
-            })
+            dogs_list.append(
+                {
+                    "name": dog_id,
+                    "status": "active",
+                    "judgments": stats.get("judgments_total", 0),
+                    "errors": stats.get("errors_total", 0),
+                    "error_rate": 0.0,
+                    "avg_latency_ms": 0.0,
+                    "priority": 1.0,
+                }
+            )
 
         # Resources
         res = {"note": "psutil not available"}
@@ -258,6 +278,7 @@ async def health_full(container: AppContainer = Depends(get_app_container)) -> H
 # GET /health/ready
 # ==============================================================================
 
+
 @router_health.get("/health/ready", response_model=HealthReadyResponse)
 async def health_ready(
     timeout: int = 30,
@@ -273,6 +294,7 @@ async def health_ready(
         db_ok = True
         try:
             from cynic.kernel.core.storage.surreal import get_storage as _get_storage
+
             _get_storage()
         except Exception:
             db_ok = False
@@ -280,10 +302,11 @@ async def health_ready(
         llm_ok = False
         try:
             from cynic.kernel.organism.brain.llm.adapter import get_registry
+
             if get_registry().get_available():
                 llm_ok = True
         except Exception as _e:
-        logger.debug(f'Silenced: {_e}')
+            logger.debug(f"Silenced: {_e}")
 
         if db_ok and llm_ok:
             return HealthReadyResponse(

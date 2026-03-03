@@ -197,7 +197,7 @@ async def test_governance_flow():
             try:
                 test_db_path.unlink()
             except Exception as _e:
-        logger.debug(f'Silenced: {_e}')
+            logger.debug(f'Silenced: {_e}')
 
         # Close any CYNIC adapter sessions
         try:
@@ -205,7 +205,7 @@ async def test_governance_flow():
             if _adapter and hasattr(_adapter, 'session') and _adapter.session:
                 await _adapter.session.close()
         except Exception as _e:
-        logger.debug(f'Silenced: {_e}')  # Adapter may not be initialized or already closed
+            logger.debug(f'Silenced: {_e}')  # Adapter may not be initialized or already closed
 
 
 if __name__ == "__main__":

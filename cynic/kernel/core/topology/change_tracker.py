@@ -71,7 +71,9 @@ class ChangeTracker:
                 try:
                     if file_path.exists():
                         lines = len(
-                            file_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+                            file_path.read_text(
+                                encoding="utf-8", errors="ignore"
+                            ).splitlines()
                         )
                 except Exception:
                     lines = 0
@@ -127,7 +129,9 @@ class ChangeTracker:
             if not self._CHANGES_PATH.exists():
                 return
 
-            lines = self._CHANGES_PATH.read_text(encoding="utf-8", errors="ignore").splitlines()
+            lines = self._CHANGES_PATH.read_text(
+                encoding="utf-8", errors="ignore"
+            ).splitlines()
             if len(lines) > self._CHANGE_HISTORY_CAP:
                 # Keep only the most recent entries
                 kept_lines = lines[-self._CHANGE_HISTORY_CAP :]
@@ -141,7 +145,9 @@ class ChangeTracker:
             if not self._CHANGES_PATH.exists():
                 return []
 
-            lines = self._CHANGES_PATH.read_text(encoding="utf-8", errors="ignore").splitlines()
+            lines = self._CHANGES_PATH.read_text(
+                encoding="utf-8", errors="ignore"
+            ).splitlines()
             changes = []
             for line in lines[-limit:]:
                 if line.strip():

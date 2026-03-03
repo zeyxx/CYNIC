@@ -131,7 +131,7 @@ async def _process_closed_proposal(proposal):
                         await channel.send(embed=embed, view=OutcomeRatingView(proposal.proposal_id))
                         logger.info(f"Outcome embed posted for {proposal.proposal_id} in {guild.name}")
                     except Exception as e:
-                        logger.error(f"Failed to post outcome embed: {e}")
+            logger.error(f"Failed to post outcome embed: {e}")
                 break
 
         # 5. Auto-learn with placeholder rating (with circuit breaker check)
@@ -157,7 +157,7 @@ async def _process_closed_proposal(proposal):
             logger.warning(f"CYNIC unavailable for {proposal.proposal_id}: {cynic_circuit_breaker.get_status()}")
 
     except Exception as e:
-        logger.error(f"Error processing closed proposal {proposal.proposal_id}: {e}", exc_info=True)
+            logger.error(f"Error processing closed proposal {proposal.proposal_id}: {e}", exc_info=True)
 
 
 # Bot setup
@@ -179,7 +179,7 @@ async def on_ready():
         synced = await bot.tree.sync()
         logger.info(f"Synced {len(synced)} slash commands to Discord")
     except Exception as e:
-        logger.error(f"Failed to sync slash commands: {e}")
+            logger.error(f"Failed to sync slash commands: {e}")
 
     await init_db()
 
@@ -197,14 +197,14 @@ async def on_ready():
             check_voting_status.start()
             logger.info("Background task check_voting_status started")
     except Exception as e:
-        logger.error(f"Failed to start background task: {e}", exc_info=True)
+            logger.error(f"Failed to start background task: {e}", exc_info=True)
 
     # Log health status
     try:
         health = await health_check(bot)
         logger.info(f"Health check on ready: {health['bot_status']}, latency={health['discord_latency_ms']}ms")
     except Exception as e:
-        logger.warning(f"Failed to get health status on startup: {e}")
+            logger.warning(f"Failed to get health status on startup: {e}")
 
 
 # ============================================================================
@@ -243,7 +243,7 @@ async def cmd_proposal_details(
             await interaction.followup.send(embed=embed, view=VotingView(proposal_id=proposal_id))
 
     except Exception as e:
-        logger.error(f"Error fetching proposal: {e}")
+            logger.error(f"Error fetching proposal: {e}")
         await interaction.followup.send(format_error(str(e)))
 
 
@@ -271,7 +271,7 @@ async def cmd_proposals(
             await interaction.followup.send(embed=list_view._build_list_embed(), view=list_view)
 
     except Exception as e:
-        logger.error(f"Error listing proposals: {e}")
+            logger.error(f"Error listing proposals: {e}")
         await interaction.followup.send(format_error(str(e)))
 
 
@@ -302,7 +302,7 @@ async def cmd_voting_status(
             await interaction.followup.send(response)
 
     except Exception as e:
-        logger.error(f"Error fetching voting status: {e}")
+            logger.error(f"Error fetching voting status: {e}")
         await interaction.followup.send(format_error(str(e)))
 
 
@@ -345,7 +345,7 @@ async def cmd_cynic_verdict(
             await interaction.followup.send(response)
 
     except Exception as e:
-        logger.error(f"Error fetching CYNIC verdict: {e}")
+            logger.error(f"Error fetching CYNIC verdict: {e}")
         await interaction.followup.send(format_error(str(e)))
 
 
@@ -368,7 +368,7 @@ async def cmd_cynic_status(interaction: discord.Interaction):
         await interaction.followup.send(response[:2000])  # Discord message limit
 
     except Exception as e:
-        logger.error(f"Error getting CYNIC status: {e}")
+            logger.error(f"Error getting CYNIC status: {e}")
         await interaction.followup.send(format_error(str(e)))
 
 
@@ -431,7 +431,7 @@ Community ratings (1-5 stars) inform reward signal for next judgment cycle.
             await interaction.followup.send(text)
 
     except Exception as e:
-        logger.error(f"Error fetching CYNIC stats: {e}")
+            logger.error(f"Error fetching CYNIC stats: {e}")
         await interaction.followup.send(format_error(str(e)))
 
 
@@ -476,7 +476,7 @@ async def cmd_community_info(interaction: discord.Interaction):
             await interaction.followup.send(text)
 
     except Exception as e:
-        logger.error(f"Error fetching community info: {e}")
+            logger.error(f"Error fetching community info: {e}")
         await interaction.followup.send(format_error(str(e)))
 
 
@@ -513,7 +513,7 @@ async def cmd_governance_stats(interaction: discord.Interaction):
             await interaction.followup.send(text)
 
     except Exception as e:
-        logger.error(f"Error fetching governance stats: {e}")
+            logger.error(f"Error fetching governance stats: {e}")
         await interaction.followup.send(format_error(str(e)))
 
 
@@ -559,7 +559,7 @@ async def cmd_health(interaction: discord.Interaction):
         await interaction.followup.send(health_text)
 
     except Exception as e:
-        logger.error(f"Error checking health: {e}")
+            logger.error(f"Error checking health: {e}")
         await interaction.followup.send(format_error(f"Health check failed: {e}"))
 
 
@@ -593,7 +593,7 @@ async def cmd_database_status(interaction: discord.Interaction):
         await interaction.followup.send(db_text)
 
     except Exception as e:
-        logger.error(f"Error checking database status: {e}")
+            logger.error(f"Error checking database status: {e}")
         await interaction.followup.send(format_error(f"Database check failed: {e}"))
 
 
@@ -613,7 +613,7 @@ async def cmd_database_backup(interaction: discord.Interaction):
             await interaction.followup.send(" Backup failed. Check logs for details.")
 
     except Exception as e:
-        logger.error(f"Error creating backup: {e}")
+            logger.error(f"Error creating backup: {e}")
         await interaction.followup.send(format_error(f"Backup failed: {e}"))
 
 
@@ -657,14 +657,14 @@ async def check_voting_status():
                 try:
                     await _process_closed_proposal(proposal)
                 except Exception as e:
-                    logger.error(f"Failed to process proposal {proposal.proposal_id}: {e}", exc_info=True)
+            logger.error(f"Failed to process proposal {proposal.proposal_id}: {e}", exc_info=True)
             if proposals_needing_outcome:
                 logger.debug("Pass 2 complete: outcomes processed")
         except Exception as e:
             logger.error(f"Error in Pass 2: {e}", exc_info=True)
 
     except Exception as e:
-        logger.error(f"Critical error in check_voting_status: {e}", exc_info=True)
+            logger.error(f"Critical error in check_voting_status: {e}", exc_info=True)
 
 
 # ============================================================================
@@ -700,7 +700,7 @@ async def on_command_error(interaction: discord.Interaction, error: discord.app_
         else:
             logger.error(f"HTTP error sending error response: {e}")
     except Exception as e:
-        logger.error(f"Error sending error response: {e}", exc_info=True)
+            logger.error(f"Error sending error response: {e}", exc_info=True)
 
 
 # ============================================================================
@@ -714,7 +714,7 @@ async def main():
     except KeyboardInterrupt:
         logger.info("Bot stopping via KeyboardInterrupt...")
     except Exception as e:
-        logger.error(f"Failed to start bot: {e}")
+            logger.error(f"Failed to start bot: {e}")
     finally:
         # Final cleanup: close database connections and other resources
         try:

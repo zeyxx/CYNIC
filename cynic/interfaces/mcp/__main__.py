@@ -28,12 +28,12 @@ if sys.platform == "win32":
         try:
             sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         except Exception as _e:
-        logger.debug(f'Silenced: {_e}')
+            logger.debug(f'Silenced: {_e}')
     if hasattr(sys.stderr, "reconfigure"):
         try:
             sys.stderr.reconfigure(encoding="utf-8", errors="replace")
         except Exception as _e:
-        logger.debug(f'Silenced: {_e}')
+            logger.debug(f'Silenced: {_e}')
 
 # Setup logging
 logging.basicConfig(
@@ -69,7 +69,7 @@ async def main() -> None:
         organism = get_consciousness()
         logger.info("CYNIC organism awakened successfully")
     except Exception as e:
-        logger.error(f"Failed to awaken CYNIC: {e}")
+            logger.error(f"Failed to awaken CYNIC: {e}")
         sys.exit(1)
 
     # Define organism getter for MCP server

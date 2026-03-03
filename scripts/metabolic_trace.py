@@ -59,7 +59,7 @@ async def run_metabolic_trace():
             pass
 
     except Exception as e:
-        logger.error(f"Metabolic trace failed: {e}")
+            logger.error(f"Metabolic trace failed: {e}")
     finally:
         if 'organism' in locals():
             await organism.state.stop_processing()

@@ -120,7 +120,7 @@ def main():
         logger.info("Profiler complete")
 
     except Exception as e:
-        logger.error(f"Profiling failed: {e}", exc_info=True)
+            logger.error(f"Profiling failed: {e}", exc_info=True)
         sys.exit(1)
 
     # Save profiling results

@@ -205,7 +205,7 @@ class KernelBootstrap:
                 try:
                     await self.lock_manager.release()
                 except Exception as e:
-                    logger.warning("Failed to release lock: %s", e)
+            logger.warning("Failed to release lock: %s", e)
 
     async def _spawn_kernel(self):
         """Spawn CYNIC kernel as subprocess."""

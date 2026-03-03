@@ -63,7 +63,7 @@ class WorldModelUpdater:
             return
         target = bus or self._bus
         if target is None:
-             raise RuntimeError("WorldModelUpdater started without a bus instance")
+            raise RuntimeError("WorldModelUpdater started without a bus instance")
         target.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment)
         self._started = True
         logger.info("WorldModelUpdater subscribed to JUDGMENT_CREATED")

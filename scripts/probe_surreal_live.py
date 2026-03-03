@@ -109,7 +109,7 @@ async def probe_live_query():
                     logger.info(f"Available DB attributes: {dir(db)}")
 
             except Exception as e:
-                logger.error(f"Error during notification probe: {e}")
+            logger.error(f"Error during notification probe: {e}")
 
             await stimulus_task
             

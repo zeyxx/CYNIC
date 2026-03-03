@@ -74,7 +74,7 @@ async def test_cynic_health():
         logger.info("TEST 2: PASSED")
 
     except Exception as e:
-        logger.error(f"Tool call failed: {e}", exc_info=True)
+            logger.error(f"Tool call failed: {e}", exc_info=True)
         logger.warning("TEST 2: Tool may not be fully ready yet (expected during early startup)")
 
 
@@ -108,7 +108,7 @@ async def test_cynic_status():
         logger.info("TEST 3: PASSED")
 
     except Exception as e:
-        logger.error(f"Tool call failed: {e}", exc_info=True)
+            logger.error(f"Tool call failed: {e}", exc_info=True)
         logger.warning("TEST 3: Tool may not be fully ready yet (expected during early startup)")
 
 
@@ -140,7 +140,7 @@ async def test_observe_cynic():
         logger.info("TEST 4: PASSED")
 
     except Exception as e:
-        logger.error(f"Tool call failed: {e}", exc_info=True)
+            logger.error(f"Tool call failed: {e}", exc_info=True)
         logger.warning("TEST 4: Tool may not be fully ready yet (expected during early startup)")
 
 
@@ -172,7 +172,7 @@ async def test_ask_cynic():
         logger.info("TEST 5: PASSED")
 
     except Exception as e:
-        logger.error(f"Tool call failed: {e}", exc_info=True)
+            logger.error(f"Tool call failed: {e}", exc_info=True)
         logger.warning("TEST 5: Tool may not be fully ready yet (expected during early startup)")
 
 
@@ -203,7 +203,7 @@ async def test_json_rpc_protocol():
         logger.info("TEST 6: PASSED")
 
     except Exception as e:
-        logger.error(f"JSON-RPC test failed: {e}", exc_info=True)
+            logger.error(f"JSON-RPC test failed: {e}", exc_info=True)
         logger.warning("TEST 6: Skipping (may require specific MCP setup)")
 
 
@@ -241,7 +241,7 @@ async def main():
         return 0
 
     except Exception as e:
-        logger.error(f"Test suite failed: {e}", exc_info=True)
+            logger.error(f"Test suite failed: {e}", exc_info=True)
         return 1
 
 

@@ -20,7 +20,7 @@ from cynic.kernel.core.phi import fibonacci
 logger = logging.getLogger("cynic.kernel.organism.sona_emitter")
 
 # F(9) = 34
-SONA_INTERVAL_S: float = float(fibonacci(9)) 
+SONA_INTERVAL_S: float = float(fibonacci(9))
 
 
 class SonaEmitter:
@@ -29,14 +29,16 @@ class SonaEmitter:
     Triggers internal reflection and cross-domain synchronization.
     """
 
-    def __init__(self, bus: EventBus, db_pool: Any = None, instance_id: str = "") -> None:
+    def __init__(
+        self, bus: EventBus, db_pool: Any = None, instance_id: str = ""
+    ) -> None:
         self._instance_id = instance_id
         self._bus = bus
         self._running = False
         self._task: Optional[asyncio.Task] = None
         self._tick_count = 0
         self._start_time = time.time()
-        
+
         self._qtable: Any | None = None
         self._orchestrator: Any | None = None
         self._escore_tracker: Any | None = None
@@ -86,7 +88,7 @@ class SonaEmitter:
             try:
                 # 1. EMIT HEARTBEAT
                 await self._emit_sona_tick()
-                
+
                 # 2. BROADCAST REPUTATION
                 if self._escore_tracker:
                     await self._escore_tracker.broadcast_reputation()
@@ -104,28 +106,30 @@ class SonaEmitter:
         stats = self._get_sona_stats()
         await self._bus.emit(
             Event.typed(
-                CoreEvent.SONA_TICK,
-                SonaTickPayload(**stats),
-                source="sona_emitter"
+                CoreEvent.SONA_TICK, SonaTickPayload(**stats), source="sona_emitter"
             )
         )
-        
+
         # UPLINK STUDIO Alignment: "Message Clair" (Sovereignty Report)
         if self._state:
             state_stats = await self._state.get_stats()
             budget_used = state_stats.get("total_spent_usd", 0.0)
-            
+
             report = {
                 "instance_id": self._instance_id,
                 "uptime_s": stats["uptime_s"],
                 "total_judgments": state_stats.get("total_judgments", 0),
                 "budget_used_usd": budget_used,
                 "anomalies_count": len(self._recent_anomalies),
-                "priorities": "MAINTENANCE" if len(self._recent_anomalies) > 0 else "GROWTH"
+                "priorities": "MAINTENANCE"
+                if len(self._recent_anomalies) > 0
+                else "GROWTH",
             }
-            
-            logger.info(f"[{self._instance_id}]  Sovereignty Report: {report['priorities']} | Judgments: {report['total_judgments']} | Burn: ${budget_used:.4f}")
-            
+
+            logger.info(
+                f"[{self._instance_id}]  Sovereignty Report: {report['priorities']} | Judgments: {report['total_judgments']} | Burn: ${budget_used:.4f}"
+            )
+
             # Reset anomalies after reporting
             self._recent_anomalies.clear()
 
@@ -136,5 +140,6 @@ class SonaEmitter:
             "tick_count": self._tick_count,
             "uptime_s": time.time() - self._start_time,
             "interval_s": SONA_INTERVAL_S,
-            "next_tick_in_s": SONA_INTERVAL_S - (time.time() - self._start_time) % SONA_INTERVAL_S,
+            "next_tick_in_s": SONA_INTERVAL_S
+            - (time.time() - self._start_time) % SONA_INTERVAL_S,
         }

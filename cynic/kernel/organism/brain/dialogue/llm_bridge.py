@@ -101,7 +101,9 @@ class LLMBridge:
             Natural language explanation string.
         """
         # 1. Check if we should use Remote Proxy (Docker)
-        from cynic.kernel.observability.symbiotic_state_manager import get_symbiotic_state_manager
+        from cynic.kernel.observability.symbiotic_state_manager import (
+            get_symbiotic_state_manager,
+        )
 
         try:
             mgr = await get_symbiotic_state_manager()

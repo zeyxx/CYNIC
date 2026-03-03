@@ -48,7 +48,7 @@ async def run_dna_chain():
 
 
     except Exception as e:
-        logger.error(f"DNA Chain failed: {e}")
+            logger.error(f"DNA Chain failed: {e}")
     finally:
         await organism.state.stop_processing()
 

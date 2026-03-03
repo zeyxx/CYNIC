@@ -36,11 +36,14 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.proposal_executor")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.proposal_executor"
+)
 
 
 class RiskLevel(Enum):
     """Risk level classification for proposals."""
+
     LOW_RISK = "LOW_RISK"
     REVIEW_REQUIRED = "REVIEW_REQUIRED"
     NOT_EXECUTABLE = "NOT_EXECUTABLE"
@@ -49,6 +52,7 @@ class RiskLevel(Enum):
 @dataclass
 class ExecutionResult:
     """Result of proposal execution."""
+
     success: bool
     proposal_id: str
     dimension: str
@@ -87,13 +91,15 @@ class ProposalExecutor:
         # Rate limiting and circuit breaker
         self._rate_limit: float | None = None  # Executions per second
         self._last_execution_times: list[float] = []  # Last 10 execution times
-        self._circuit_breaker_threshold: int | None = None  # Max failures before opening
+        self._circuit_breaker_threshold: int | None = (
+            None  # Max failures before opening
+        )
         self._consecutive_failures: int = 0
         self._circuit_open: bool = False
         self._circuit_open_at: float | None = None  # Timestamp when circuit opened
         self._circuit_reset_timeout_s: float = 300.0  # 5 minutes
 
-    #  Injection 
+    #  Injection
 
     def set_qtable(self, qtable: Any) -> None:
         """Inject QTable for QTABLE dimension execution."""
@@ -115,7 +121,9 @@ class ProposalExecutor:
             max_per_second: Maximum executions per second (e.g., 1.0 = 1 execution per second)
         """
         self._rate_limit = max_per_second
-        logger.info("ProposalExecutor: Rate limit set to %.2f executions/sec", max_per_second)
+        logger.info(
+            "ProposalExecutor: Rate limit set to %.2f executions/sec", max_per_second
+        )
 
     def set_circuit_breaker_threshold(self, max_failures: int) -> None:
         """
@@ -127,7 +135,10 @@ class ProposalExecutor:
             max_failures: Number of consecutive failures before opening circuit
         """
         self._circuit_breaker_threshold = max_failures
-        logger.info("ProposalExecutor: Circuit breaker threshold set to %d failures", max_failures)
+        logger.info(
+            "ProposalExecutor: Circuit breaker threshold set to %d failures",
+            max_failures,
+        )
 
     def is_circuit_open(self) -> bool:
         """
@@ -186,7 +197,9 @@ class ProposalExecutor:
 
         now = time.time()
         # Keep only recent timestamps (within 1 second window)
-        self._last_execution_times = [t for t in self._last_execution_times if now - t < 1.0]
+        self._last_execution_times = [
+            t for t in self._last_execution_times if now - t < 1.0
+        ]
 
         # Calculate current rate
         executions_in_window = len(self._last_execution_times)
@@ -205,7 +218,7 @@ class ProposalExecutor:
         if len(self._last_execution_times) > 10:
             self._last_execution_times.pop(0)
 
-    #  Risk Classification 
+    #  Risk Classification
 
     def classify_risk(self, proposal: Any) -> RiskLevel:
         """
@@ -242,7 +255,7 @@ class ProposalExecutor:
         # Step 3: Unknown dimensions
         return RiskLevel.NOT_EXECUTABLE
 
-    #  Execution 
+    #  Execution
 
     async def execute(self, proposal: Any) -> ExecutionResult:
         """
@@ -309,7 +322,7 @@ class ProposalExecutor:
 
         return result
 
-    #  Dimension Handlers 
+    #  Dimension Handlers
 
     async def _execute_qtable(self, proposal: Any) -> ExecutionResult:
         """
@@ -521,6 +534,8 @@ class ProposalExecutor:
         return ExecutionResult(
             success=False,
             proposal_id=proposal.probe_id,
-            dimension="ARCHITECTURE" if proposal.dimension == "ARCHITECTURE" else "COUPLING",
+            dimension="ARCHITECTURE"
+            if proposal.dimension == "ARCHITECTURE"
+            else "COUPLING",
             message=message,
         )

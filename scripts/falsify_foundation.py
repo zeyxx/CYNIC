@@ -30,7 +30,7 @@ async def falsify():
         await org.start()
         logger.info(f"Instance {org.instance_id} awakened.")
     except Exception as e:
-        logger.error(f"❌ FATAL: Organism failed to awaken: {e}")
+            logger.error(f"❌ FATAL: Organism failed to awaken: {e}")
         sys.exit(1)
 
     # --- PILLAR 1: LLM AWARENESS ---

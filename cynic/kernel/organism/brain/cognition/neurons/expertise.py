@@ -171,7 +171,7 @@ async def dream_facets_expertise(
                     await registry.register_facet(axiom, reality, name, desc)
         return facets
     except Exception as e:
-        logger.error(f"Expertise: SAGE dream failed: {e}")
+            logger.error(f"Expertise: SAGE dream failed: {e}")
         return {}
 
 

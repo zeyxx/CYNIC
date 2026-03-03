@@ -38,7 +38,7 @@ async def test_cynic_status():
 
         return True
     except Exception as e:
-        logger.error(f"  [FAIL] {e}", exc_info=True)
+            logger.error(f"  [FAIL] {e}", exc_info=True)
         return False
 
 
@@ -59,7 +59,7 @@ async def test_observe_cynic():
 
         return True
     except Exception as e:
-        logger.error(f"  [FAIL] {e}", exc_info=True)
+            logger.error(f"  [FAIL] {e}", exc_info=True)
         return False
 
 

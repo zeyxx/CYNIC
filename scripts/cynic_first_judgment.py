@@ -88,7 +88,7 @@ async def run_first_judgment():
                     return data.to(target_device)
                 return data
             except Exception as e:
-                logger.error(f"HAL: Sync failed: {e}")
+            logger.error(f"HAL: Sync failed: {e}")
                 return torch.tensor(data).to("cpu")
     """
 

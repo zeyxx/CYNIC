@@ -351,7 +351,7 @@ class MCPRouter:
                 try:
                     result["consciousness"] = container.consciousness.to_dict()
                 except Exception as e:
-                    logger.debug("Failed to snapshot consciousness: %s", e)
+            logger.debug("Failed to snapshot consciousness: %s", e)
                     result["consciousness"] = {"error": str(e)}
 
             # Snapshot Q-Table stats
@@ -360,7 +360,7 @@ class MCPRouter:
                     stats = container.qtable.stats()
                     result["qtable"] = stats
                 except Exception as e:
-                    logger.debug("Failed to get Q-Table stats: %s", e)
+            logger.debug("Failed to get Q-Table stats: %s", e)
                     result["qtable"] = {"error": str(e)}
 
             # Snapshot service registry if available
@@ -375,7 +375,7 @@ class MCPRouter:
                         "failed": snapshot.failed_count,
                     }
                 except Exception as e:
-                    logger.debug("Failed to snapshot registry: %s", e)
+            logger.debug("Failed to snapshot registry: %s", e)
                     result["registry"] = {"error": str(e)}
 
             return _jsonrpc_result(msg_id, result)

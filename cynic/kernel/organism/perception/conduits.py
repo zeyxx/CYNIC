@@ -57,7 +57,7 @@ class StreamConduit(Conduit):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"StreamConduit {self.conduit_id} error: {e}")
+            logger.error(f"StreamConduit {self.conduit_id} error: {e}")
                 await asyncio.sleep(5) # Backoff
 
 class BrowserConduit(Conduit):

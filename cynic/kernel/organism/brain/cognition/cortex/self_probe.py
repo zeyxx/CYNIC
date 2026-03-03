@@ -134,7 +134,9 @@ class SelfProber:
       prober.start(get_core_bus("DEFAULT"))
     """
 
-    def __init__(self, proposals_path: str = _PROPOSALS_PATH, bus: Optional[EventBus] = None) -> None:
+    def __init__(
+        self, proposals_path: str = _PROPOSALS_PATH, bus: Optional[EventBus] = None
+    ) -> None:
         self._path = proposals_path
         self._proposals: list[SelfProposal] = []
         self._total_proposed: int = 0
@@ -252,7 +254,9 @@ class SelfProber:
 
         # Classify risk
         risk = self._executor.classify_risk(proposal)
-        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import RiskLevel
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import (
+            RiskLevel,
+        )
 
         # If LOW_RISK, execute immediately
         if risk == RiskLevel.LOW_RISK:
@@ -325,8 +329,17 @@ class SelfProber:
         new_proposals.extend(self._analyze_qtable(trigger, pattern_type, severity))
         new_proposals.extend(self._analyze_escore(trigger, pattern_type, severity))
         new_proposals.extend(self._analyze_residual(trigger, pattern_type, severity))
-        new_proposals.extend(self._analyze_architecture(trigger, pattern_type, severity))
-        new_proposals.extend(await self._analyze_metrics(anomalies=None, trigger=trigger, pattern_type=pattern_type, severity=severity))
+        new_proposals.extend(
+            self._analyze_architecture(trigger, pattern_type, severity)
+        )
+        new_proposals.extend(
+            await self._analyze_metrics(
+                anomalies=None,
+                trigger=trigger,
+                pattern_type=pattern_type,
+                severity=severity,
+            )
+        )
 
         for proposal in new_proposals:
             self._proposals.append(proposal)
@@ -557,7 +570,7 @@ class SelfProber:
 
         return proposals
 
-    #  Analysis: Metrics 
+    #  Analysis: Metrics
 
     async def _analyze_metrics(
         self,
@@ -650,7 +663,7 @@ class SelfProber:
                 severity,
             )
         except CynicError as exc:
-            logger.warning('SelfProber._on_emergence error: %s', exc)
+            logger.warning("SelfProber._on_emergence error: %s", exc)
 
     async def _on_anomaly_detected(self, event: Event) -> None:
         """Handle ANOMALY_DETECTED from BusMetricsAdapter."""
@@ -669,14 +682,18 @@ class SelfProber:
         )
 
         if proposals:
-            logger.info(f"SelfProber: {len(proposals)} proposals from ANOMALY_DETECTED ({anomaly_type})")
+            logger.info(
+                f"SelfProber: {len(proposals)} proposals from ANOMALY_DETECTED ({anomaly_type})"
+            )
             for proposal in proposals:
                 try:
-                    await self._bus.emit(Event.typed(
-                        CoreEvent.SELF_IMPROVEMENT_PROPOSED,
-                        payload=proposal.to_dict(),
-                        source="self_prober",
-                    ))
+                    await self._bus.emit(
+                        Event.typed(
+                            CoreEvent.SELF_IMPROVEMENT_PROPOSED,
+                            payload=proposal.to_dict(),
+                            source="self_prober",
+                        )
+                    )
                 except Exception as e:
                     logger.debug(f"Failed to emit SELF_IMPROVEMENT_PROPOSED: {e}")
 

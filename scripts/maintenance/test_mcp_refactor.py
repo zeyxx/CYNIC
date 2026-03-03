@@ -186,7 +186,7 @@ async def main():
         return 0
 
     except Exception as e:
-        logger.error(f"Test failed: {e}", exc_info=True)
+            logger.error(f"Test failed: {e}", exc_info=True)
         return 1
 
 

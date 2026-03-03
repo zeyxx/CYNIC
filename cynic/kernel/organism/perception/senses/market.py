@@ -48,7 +48,7 @@ class MarketSensor:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"MarketSensor: Error: {e}")
+            logger.error(f"MarketSensor: Error: {e}")
                 await asyncio.sleep(10)
 
     async def perceive_market(self):

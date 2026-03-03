@@ -18,7 +18,7 @@ async def run_crash_test():
         organism = await awaken()
         logger.info("✅ Organism Awake.")
     except Exception as e:
-        logger.error(f"❌ Awakening Failed: {e}")
+            logger.error(f"❌ Awakening Failed: {e}")
         return
 
     # 2. Backpressure Test (Spam non-critical events)

@@ -3,7 +3,7 @@ Alerting & Escalation Engine  L1/L2/L3 incident triage (PHASE 2, COMPONENT 6)
 
 Architecture:
   RuleMatch  Alert  Deduplicator  Queue  Router  Channels
-                           
+
                     EscalationPath (L1L2L3)
 """
 
@@ -25,10 +25,10 @@ logger = logging.getLogger("cynic.storage.alerting")
 class AlertSeverity(Enum):
     """Alert severity levels with routing implications."""
 
-    LOW = "LOW"           # Log only
-    MEDIUM = "MEDIUM"     # Slack notification
-    HIGH = "HIGH"         # Slack + Jira ticket
-    CRITICAL = "CRITICAL" # Ops + PagerDuty + Slack + Jira
+    LOW = "LOW"  # Log only
+    MEDIUM = "MEDIUM"  # Slack notification
+    HIGH = "HIGH"  # Slack + Jira ticket
+    CRITICAL = "CRITICAL"  # Ops + PagerDuty + Slack + Jira
 
 
 class Alert:
@@ -70,10 +70,22 @@ class Alert:
                 {
                     "color": self._severity_color(),
                     "fields": [
-                        {"title": "Severity", "value": self.severity.value, "short": True},
+                        {
+                            "title": "Severity",
+                            "value": self.severity.value,
+                            "short": True,
+                        },
                         {"title": "Rule", "value": self.rule_id, "short": True},
-                        {"title": "Actor", "value": self.event.get("actor_id", "unknown"), "short": True},
-                        {"title": "Timestamp", "value": str(self.timestamp), "short": True},
+                        {
+                            "title": "Actor",
+                            "value": self.event.get("actor_id", "unknown"),
+                            "short": True,
+                        },
+                        {
+                            "title": "Timestamp",
+                            "value": str(self.timestamp),
+                            "short": True,
+                        },
                         {
                             "title": "Composite Anomaly Score",
                             "value": f"{self.anomaly_scores.get('composite', 0):.2%}",
@@ -134,15 +146,16 @@ class AlertDeduplicator:
 
         # Clean up old alerts
         self.recent_alerts = [
-            a for a in self.recent_alerts
-            if now - a.timestamp < self.dedup_window
+            a for a in self.recent_alerts if now - a.timestamp < self.dedup_window
         ]
 
         # Check similarity with recent alerts
         for recent_alert in self.recent_alerts:
             similarity = self._calculate_similarity(alert, recent_alert)
             if similarity > self.threshold:
-                logger.debug(f"Alert deduplicated: {alert.alert_id} (similar to {recent_alert.alert_id})")
+                logger.debug(
+                    f"Alert deduplicated: {alert.alert_id} (similar to {recent_alert.alert_id})"
+                )
                 self.deduplicated_count += 1
                 return False
 
@@ -153,10 +166,9 @@ class AlertDeduplicator:
     def _calculate_similarity(self, alert1: Alert, alert2: Alert) -> float:
         """Calculate similarity between two alerts."""
         # Same rule + same actor = duplicate
-        if (
-            alert1.rule_id == alert2.rule_id
-            and alert1.event.get("actor_id") == alert2.event.get("actor_id")
-        ):
+        if alert1.rule_id == alert2.rule_id and alert1.event.get(
+            "actor_id"
+        ) == alert2.event.get("actor_id"):
             return 0.95
 
         # Same rule = likely duplicate
@@ -298,46 +310,54 @@ class AlertAuditLog:
     async def log_alert_created(self, alert: Alert, rule_id: str) -> None:
         """Log when alert is created."""
         if self.storage:
-            await self.storage.security_events.save_event({
-                "type": "alert_created",
-                "alert_id": alert.alert_id,
-                "rule_id": rule_id,
-                "severity": alert.severity.value,
-                "actor_id": alert.event.get("actor_id"),
-                "timestamp": time.time(),
-            })
+            await self.storage.security_events.save_event(
+                {
+                    "type": "alert_created",
+                    "alert_id": alert.alert_id,
+                    "rule_id": rule_id,
+                    "severity": alert.severity.value,
+                    "actor_id": alert.event.get("actor_id"),
+                    "timestamp": time.time(),
+                }
+            )
 
     async def log_alert_routed(self, alert: Alert, channel: str, success: bool) -> None:
         """Log when alert is routed."""
         if self.storage:
-            await self.storage.security_events.save_event({
-                "type": "alert_routed",
-                "alert_id": alert.alert_id,
-                "channel": channel,
-                "success": success,
-                "timestamp": time.time(),
-            })
+            await self.storage.security_events.save_event(
+                {
+                    "type": "alert_routed",
+                    "alert_id": alert.alert_id,
+                    "channel": channel,
+                    "success": success,
+                    "timestamp": time.time(),
+                }
+            )
 
     async def log_alert_acknowledged(self, alert: Alert, acknowledger: str) -> None:
         """Log when analyst acknowledges alert."""
         if self.storage:
-            await self.storage.security_events.save_event({
-                "type": "alert_acknowledged",
-                "alert_id": alert.alert_id,
-                "acknowledger": acknowledger,
-                "timestamp": time.time(),
-            })
+            await self.storage.security_events.save_event(
+                {
+                    "type": "alert_acknowledged",
+                    "alert_id": alert.alert_id,
+                    "acknowledger": acknowledger,
+                    "timestamp": time.time(),
+                }
+            )
 
     async def log_alert_closed(self, alert: Alert, reason: str, closer: str) -> None:
         """Log when alert is closed."""
         if self.storage:
-            await self.storage.security_events.save_event({
-                "type": "alert_closed",
-                "alert_id": alert.alert_id,
-                "reason": reason,
-                "closer": closer,
-                "timestamp": time.time(),
-            })
+            await self.storage.security_events.save_event(
+                {
+                    "type": "alert_closed",
+                    "alert_id": alert.alert_id,
+                    "reason": reason,
+                    "closer": closer,
+                    "timestamp": time.time(),
+                }
+            )
 
 
 class AlertAccessControl:
@@ -387,7 +407,9 @@ class EscalationPath:
 
     async def escalate(self, alert: Alert, from_level: str, to_level: str) -> None:
         """Escalate alert to next level."""
-        logger.warning(f"Alert {alert.alert_id} escalated from {from_level} to {to_level}")
+        logger.warning(
+            f"Alert {alert.alert_id} escalated from {from_level} to {to_level}"
+        )
 
 
 class AlertMetrics:

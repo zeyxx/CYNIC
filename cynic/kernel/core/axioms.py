@@ -31,6 +31,7 @@ Scoring:
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -53,9 +54,11 @@ from cynic.kernel.core.phi import (
     weighted_geometric_mean,
 )
 
-# 
+logger = logging.getLogger("cynic.kernel.core.axioms")
+
+#
 # AXIOM NAMES & TIER DEFINITIONS
-# 
+#
 
 
 class Axiom(StrEnum):
@@ -82,7 +85,13 @@ class Axiom(StrEnum):
     THE_UNNAMEABLE = "THE_UNNAMEABLE"
 
 
-CORE_AXIOMS: list[Axiom] = [Axiom.FIDELITY, Axiom.PHI, Axiom.VERIFY, Axiom.CULTURE, Axiom.BURN]
+CORE_AXIOMS: list[Axiom] = [
+    Axiom.FIDELITY,
+    Axiom.PHI,
+    Axiom.VERIFY,
+    Axiom.CULTURE,
+    Axiom.BURN,
+]
 
 EMERGENT_AXIOMS: list[Axiom] = [
     Axiom.AUTONOMY,
@@ -101,9 +110,9 @@ PRACTICAL_AXIOMS: list[Axiom] = CORE_AXIOMS + [
 ]
 
 
-# 
+#
 # BOOTSTRAP FACETS (STATIC FALLBACK)
-# 
+#
 
 AXIOM_FACETS: dict[str, dict[str, str]] = {
     "FIDELITY": {
@@ -154,9 +163,9 @@ AXIOM_FACETS: dict[str, dict[str, str]] = {
 }
 
 
-# 
+#
 # CONTEXTUAL WEIGHTS PER DOMAIN
-# 
+#
 
 
 class Domain(StrEnum):
@@ -246,7 +255,7 @@ class FacetRegistry:
                 if db_facets:
                     facets = {f["facet"]: f.get("description", "") for f in db_facets}
             except Exception as _e:
-                logger.debug(f'Silenced: {_e}')
+                logger.debug(f"Silenced: {_e}")
 
         if not facets and axiom in AXIOM_FACETS:
             facets = AXIOM_FACETS[axiom]
@@ -273,9 +282,9 @@ class FacetRegistry:
         self._cache[cache_key][facet] = description
 
 
-# 
+#
 # ACTIVATION THRESHOLDS
-# 
+#
 
 
 @dataclass
@@ -308,14 +317,13 @@ EMERGENT_THRESHOLDS: dict[str, EmergentThreshold] = {
     "TRANSCENDENCE": EmergentThreshold(
         conditions={"all_axioms_active": 1.0, "phase_transition": 1.0},
         description="Qualitative leap - THE_UNNAMEABLE understood",
-
     ),
 }
 
 
-# 
+#
 # VERDICT & RESULTS
-# 
+#
 
 
 class Verdict(StrEnum):
@@ -367,19 +375,23 @@ class FullAxiomResult:
 
 @dataclass
 class AxiomArchitectureState:
-    active_axioms: list[str] = field(default_factory=lambda: [a.value for a in CORE_AXIOMS])
+    active_axioms: list[str] = field(
+        default_factory=lambda: [a.value for a in CORE_AXIOMS]
+    )
     emergent_states: dict[str, bool] = field(
         default_factory=lambda: {a.value: False for a in EMERGENT_AXIOMS}
     )
     learned_weights: dict[str, dict[str, float]] = field(
-        default_factory=lambda: {k: dict(v) for k, v in DEFAULT_CONTEXTUAL_WEIGHTS.items()}
+        default_factory=lambda: {
+            k: dict(v) for k, v in DEFAULT_CONTEXTUAL_WEIGHTS.items()
+        }
     )
     activation_log: list[dict] = field(default_factory=list)
 
 
-# 
+#
 # AXIOM ARCHITECTURE
-# 
+#
 
 
 class AxiomArchitecture:
@@ -458,13 +470,18 @@ class AxiomArchitecture:
         return 50.0
 
     def compute_q_score(
-        self, domain: str, axiom_scores: dict[str, float], metrics: dict[str, float] | None = None
+        self,
+        domain: str,
+        axiom_scores: dict[str, float],
+        metrics: dict[str, float] | None = None,
     ) -> float:
         if metrics:
             self.check_emergent_activation(metrics)
         active = self.active_axioms
         vals, weights = [], []
-        dw = self.state.learned_weights.get(domain, DEFAULT_CONTEXTUAL_WEIGHTS.get(domain, {}))
+        dw = self.state.learned_weights.get(
+            domain, DEFAULT_CONTEXTUAL_WEIGHTS.get(domain, {})
+        )
         for axiom in active:
             vals.append(max(0.0, min(100.0, axiom_scores.get(axiom, 50.0))))
             weights.append(dw.get(axiom, 1.0))
@@ -484,14 +501,18 @@ class AxiomArchitecture:
             score = (
                 inputs[name]
                 if name in inputs
-                else await self.score_axiom_fractal(name, context, domain, fractal_depth)
+                else await self.score_axiom_fractal(
+                    name, context, domain, fractal_depth
+                )
             )
             axiom_scores[name] = score
             f_scores = {}
             facets = await self.registry.get_facets(name, domain)
             if facets:
                 for f_name in facets:
-                    f_scores[f_name] = inputs.get(f_name, self._facet_scorer(name, f_name, context))
+                    f_scores[f_name] = inputs.get(
+                        f_name, self._facet_scorer(name, f_name, context)
+                    )
             axiom_details[name] = AxiomScore(
                 axiom=name, score=score, facet_scores=f_scores, depth=fractal_depth
             )
@@ -511,7 +532,9 @@ class AxiomArchitecture:
         self, domain: str, gradient: dict[str, float], lr: float = 0.038
     ) -> None:
         if domain not in self.state.learned_weights:
-            self.state.learned_weights[domain] = dict(DEFAULT_CONTEXTUAL_WEIGHTS.get(domain, {}))
+            self.state.learned_weights[domain] = dict(
+                DEFAULT_CONTEXTUAL_WEIGHTS.get(domain, {})
+            )
         w = self.state.learned_weights[domain]
         for axiom, grad in gradient.items():
             if axiom in w:

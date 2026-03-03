@@ -58,7 +58,7 @@ async def run_social_chain():
 
 
     except Exception as e:
-        logger.error(f"Social Chain failed: {e}")
+            logger.error(f"Social Chain failed: {e}")
     finally:
         await organism.state.stop_processing()
 

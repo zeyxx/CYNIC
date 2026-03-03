@@ -48,7 +48,7 @@ class DogSoul:
                 await repo.save(self.to_dict())
                 return
             except Exception as e:
-                logger.error(f"Failed to save soul to DB: {e}")
+            logger.error(f"Failed to save soul to DB: {e}")
 
         # Fallback to local JSON
         path = Path.home() / ".cynic" / "dogs" / self.dog_id.lower() / "soul.json"
@@ -68,7 +68,7 @@ class DogSoul:
                 if data:
                     return cls(**data)
             except Exception as e:
-                logger.warning(f"Failed to load soul from DB for {dog_id}: {e}")
+            logger.warning(f"Failed to load soul from DB for {dog_id}: {e}")
 
         # Fallback to disk
         path = Path.home() / ".cynic" / "dogs" / dog_id.lower() / "soul.json"
@@ -78,6 +78,6 @@ class DogSoul:
                     data = json.load(f)
                     return cls(**data)
             except Exception as e:
-                logger.warning(f"Failed to load soul from disk, using fresh one: {e}")
+            logger.warning(f"Failed to load soul from disk, using fresh one: {e}")
 
         return cls(dog_id=dog_id)
