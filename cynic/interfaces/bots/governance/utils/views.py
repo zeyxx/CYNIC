@@ -98,7 +98,7 @@ class ProposalModal(discord.ui.Modal, title="Submit Governance Proposal"):
                     if not cynic_circuit_breaker.is_available():
                         logger.warning(f"CYNIC unavailable (circuit breaker open): {cynic_circuit_breaker.get_status()}")
                         await interaction.followup.send(
-                            "âš ï¸ CYNIC is temporarily unavailable. Proposal created but judgment deferred.",
+                            " CYNIC is temporarily unavailable. Proposal created but judgment deferred.",
                             ephemeral=True
                         )
                     else:
@@ -124,7 +124,7 @@ class ProposalModal(discord.ui.Modal, title="Submit Governance Proposal"):
                             logger.error(f"CYNIC judgment failed: {cynic_err}")
                             cynic_circuit_breaker.record_failure()
                             await interaction.followup.send(
-                                "âš ï¸ CYNIC judgment failed. Continuing without verdict.",
+                                " CYNIC judgment failed. Continuing without verdict.",
                                 ephemeral=True
                             )
 
@@ -137,12 +137,12 @@ class ProposalModal(discord.ui.Modal, title="Submit Governance Proposal"):
 
         except Exception as e:
             logger.error(f"Error creating proposal: {e}", exc_info=True)
-            await interaction.followup.send(f"âŒ Error creating proposal: {e}", ephemeral=True)
+            await interaction.followup.send(f" Error creating proposal: {e}", ephemeral=True)
 
     async def on_error(self, interaction: discord.Interaction, error: Exception):
         """Handle modal errors"""
         logger.error(f"Modal error: {error}", exc_info=True)
-        await interaction.response.send_message(f"âŒ Error: {error}", ephemeral=True)
+        await interaction.response.send_message(f" Error: {error}", ephemeral=True)
 
 
 class VotingView(discord.ui.View):
@@ -156,9 +156,9 @@ class VotingView(discord.ui.View):
     def _build_buttons(self):
         """Build the voting buttons"""
         for choice, style, label in [
-            ("YES", discord.ButtonStyle.green, "âœ… YES"),
-            ("NO", discord.ButtonStyle.red, "âŒ NO"),
-            ("ABSTAIN", discord.ButtonStyle.grey, "â­ï¸ ABSTAIN"),
+            ("YES", discord.ButtonStyle.green, " YES"),
+            ("NO", discord.ButtonStyle.red, " NO"),
+            ("ABSTAIN", discord.ButtonStyle.grey, " ABSTAIN"),
         ]:
             btn = discord.ui.Button(
                 label=label,
@@ -181,7 +181,7 @@ class VotingView(discord.ui.View):
             async with session_context() as session:
                 # Check if voting is active
                 if not await is_voting_active(session, self.proposal_id):
-                    await interaction.response.send_message("ðŸ-³ï¸ Voting is closed.", ephemeral=True)
+                    await interaction.response.send_message("- Voting is closed.", ephemeral=True)
                     return
 
                 voter_id = str(interaction.user.id)
@@ -198,7 +198,7 @@ class VotingView(discord.ui.View):
                 if existing:
                     view = ChangeVoteConfirmView(self.proposal_id, existing.vote, vote_choice)
                     await interaction.response.send_message(
-                        f"You voted **{existing.vote}** â€" change to **{vote_choice}**?",
+                        f"You voted **{existing.vote}** " change to **{vote_choice}**?",
                         view=view, ephemeral=True
                     )
                     return
@@ -226,7 +226,7 @@ class VotingView(discord.ui.View):
 
         except Exception as e:
             logger.error(f"Error handling vote: {e}", exc_info=True)
-            await interaction.response.send_message(f"âŒ Error: {e}", ephemeral=True)
+            await interaction.response.send_message(f" Error: {e}", ephemeral=True)
 
 
 class ChangeVoteConfirmView(discord.ui.View):
@@ -238,7 +238,7 @@ class ChangeVoteConfirmView(discord.ui.View):
         self.old_vote = old_vote
         self.new_vote = new_vote
 
-    @discord.ui.button(label="âœ… Confirm", style=discord.ButtonStyle.green)
+    @discord.ui.button(label=" Confirm", style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Confirm vote change"""
         try:
@@ -261,15 +261,15 @@ class ChangeVoteConfirmView(discord.ui.View):
                 proposal = await get_proposal(session, self.proposal_id)
 
                 await interaction.response.edit_message(
-                    content=f"âœ… Vote changed to **{self.new_vote}**! YES: {proposal.yes_votes:.0f} | NO: {proposal.no_votes:.0f} | ABSTAIN: {proposal.abstain_votes:.0f}",
+                    content=f" Vote changed to **{self.new_vote}**! YES: {proposal.yes_votes:.0f} | NO: {proposal.no_votes:.0f} | ABSTAIN: {proposal.abstain_votes:.0f}",
                     view=None
                 )
 
         except Exception as e:
             logger.error(f"Error confirming vote: {e}", exc_info=True)
-            await interaction.response.edit_message(content=f"âŒ Error: {e}", view=None)
+            await interaction.response.edit_message(content=f" Error: {e}", view=None)
 
-    @discord.ui.button(label="âŒ Cancel", style=discord.ButtonStyle.grey)
+    @discord.ui.button(label=" Cancel", style=discord.ButtonStyle.grey)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Cancel vote change"""
         await interaction.response.edit_message(
@@ -377,7 +377,7 @@ class ProposalListView(discord.ui.View):
     def _build_list_embed(self) -> discord.Embed:
         """Build the proposal list embed for current page"""
         embed = discord.Embed(
-            title="ðŸ"‹ Governance Proposals",
+            title="" Governance Proposals",
             color=0x3498db
         )
 
@@ -411,11 +411,11 @@ class OutcomeRatingView(discord.ui.View):
     def _build_star_buttons(self):
         """Build the 5-star rating buttons"""
         star_configs = [
-            (1, "â˜", discord.ButtonStyle.red),
-            (2, "â˜â˜", discord.ButtonStyle.red),
-            (3, "â˜â˜â˜", discord.ButtonStyle.grey),
-            (4, "â˜â˜â˜â˜", discord.ButtonStyle.green),
-            (5, "â˜â˜â˜â˜â˜", discord.ButtonStyle.green),
+            (1, "", discord.ButtonStyle.red),
+            (2, "", discord.ButtonStyle.red),
+            (3, "", discord.ButtonStyle.grey),
+            (4, "", discord.ButtonStyle.green),
+            (5, "", discord.ButtonStyle.green),
         ]
 
         for stars, label, style in star_configs:
@@ -452,7 +452,7 @@ class OutcomeRatingView(discord.ui.View):
                 approved = proposal.approval_status == "APPROVED"
                 comment = f"Community rated {stars}/5 stars"
 
-                star_display = "â˜" * stars
+                star_display = "" * stars
                 status_msg = ""
 
                 if cynic_circuit_breaker.is_available():
@@ -481,10 +481,10 @@ class OutcomeRatingView(discord.ui.View):
 
                 # Respond with confirmation
                 await interaction.response.send_message(
-                    f"Rated {star_display} ({stars}/5) â€" {status_msg}",
+                    f"Rated {star_display} ({stars}/5) " {status_msg}",
                     ephemeral=True
                 )
 
         except Exception as e:
             logger.error(f"Error handling outcome rating: {e}", exc_info=True)
-            await interaction.response.send_message(f"âŒ Error: {e}", ephemeral=True)
+            await interaction.response.send_message(f" Error: {e}", ephemeral=True)

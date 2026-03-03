@@ -1,11 +1,11 @@
 """
-Real-Time Detection Engine — Stream-based threat detection (PHASE 2, COMPONENT 4)
+Real-Time Detection Engine  Stream-based threat detection (PHASE 2, COMPONENT 4)
 
 Architecture:
-  StreamDetector (LIVE SELECT) → BaselineCalculator → AnomalyScorer
-                                                          ↓
+  StreamDetector (LIVE SELECT)  BaselineCalculator  AnomalyScorer
+                                                          
                                                     Detection Rules
-                                                          ↓
+                                                          
                                                     Alert Generation
 """
 

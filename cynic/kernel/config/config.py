@@ -2,9 +2,9 @@
 CYNIC Unified Configuration System
 
 Consolidates scattered configuration into a single source of truth.
-All environment variables are read hereâ€"no os.getenv() elsewhere.
+All environment variables are read here"no os.getenv() elsewhere.
 
-Ï-Law: VERIFY â€" one truth, no scattered defaults.
+-Law: VERIFY " one truth, no scattered defaults.
 """
 
 from __future__ import annotations
@@ -26,32 +26,32 @@ class Config:
         print(config.discord_token)
     """
 
-    # â"€â"€ Discord Bot Configuration â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Discord Bot Configuration """"""""""""""""""""""""""""""""""""""
     discord_token: str
     discord_guild_id: str | None = None
 
-    # â"€â"€ Telegram Bot Configuration (Optional) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Telegram Bot Configuration (Optional) """"""""""""""""""""""""""
     telegram_token: str | None = None
 
-    # â"€â"€ Database Configuration â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Database Configuration """""""""""""""""""""""""""""""""""""""""
     database_url: str = "sqlite:///cynic.db"
 
-    # â"€â"€ Judgment & Governance Settings â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Judgment & Governance Settings """""""""""""""""""""""""""""""""
     max_judgments_batch: int = 10
     judgment_timeout_seconds: float = 30.0
     num_dogs: int = 11
 
-    # â"€â"€ Learning & Q-Table Settings â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Learning & Q-Table Settings """"""""""""""""""""""""""""""""""""
     learning_rate: float = 0.1
     discount_factor: float = 0.99
 
-    # â"€â"€ Application Settings â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Application Settings """""""""""""""""""""""""""""""""""""""""""
     environment: str = "development"
     log_level: str = "INFO"
     log_file: str | None = None
     debug: bool = False
 
-    # â"€â"€ Advanced Settings â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Advanced Settings """"""""""""""""""""""""""""""""""""""""""""""
     consensus_timeout_ms: int = 5000
     e_score_decay: float = 0.95
     judgment_buffer_max: int = 89
@@ -98,7 +98,7 @@ class Config:
             raise ValueError(f"consensus_timeout_ms must be > 0, got {self.consensus_timeout_ms}")
 
 
-# â"€â"€ Singleton pattern for global configuration â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" Singleton pattern for global configuration """""""""""""""""""""""""""""
 _GLOBAL_CONFIG: Config | None = None
 
 

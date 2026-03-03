@@ -1,5 +1,5 @@
 """
-CYNIC Heuristic Facet Scorer â€" Domain-Aware Axiom Scoring Without LLM
+CYNIC Heuristic Facet Scorer " Domain-Aware Axiom Scoring Without LLM
 
 Replaces the flat 50.0 default scorer with keyword-signal-based scores.
 Each axiom/facet scores based on positive/negative signals found in context.
@@ -10,30 +10,30 @@ Scoring mechanics:
   - Each negative signal match: -SIGNAL_DELTA (7.0)
   - Global quality signals:    +GLOBAL_DELTA (3.5)
   - Global danger signals:     -GLOBAL_DELTA (3.5)
-  - Total shift capped at ÂMAX_SHIFT (35.0) from base
+  - Total shift capped at MAX_SHIFT (35.0) from base
   - Result clamped to [0, 100]
 
 Phase 2 upgrade path: replace with OllamaFacetScorer (async, LLM-backed).
-The interface (axiom_name, facet_name, context) â' float stays identical.
+The interface (axiom_name, facet_name, context) ' float stays identical.
 
 Example outputs (traced against P1-P5 probe contexts):
-  P1 clean code       â' VERIFY â‰ˆ 64, BURN â‰ˆ 64, FIDELITY â‰ˆ 71  â' Q â‰ˆ 65 (WAG)
-  P2 smelly code      â' VERIFY â‰ˆ 29, BURN â‰ˆ 36, CULTURE â‰ˆ 36   â' Q â‰ˆ 33 (GROWL/BARK)
-  P3 dangerous act    â' all axioms â‰ˆ 18-32                       â' Q â‰ˆ 22 (BARK)
-  P4 CYNIC self-state â' all axioms â‰ˆ 55-60                       â' Q â‰ˆ 57 (WAG)
-  P5 Solana tx        â' VERIFY â‰ˆ 60, FIDELITY â‰ˆ 57              â' Q â‰ˆ 58 (WAG)
+  P1 clean code       ' VERIFY  64, BURN  64, FIDELITY  71  ' Q  65 (WAG)
+  P2 smelly code      ' VERIFY  29, BURN  36, CULTURE  36   ' Q  33 (GROWL/BARK)
+  P3 dangerous act    ' all axioms  18-32                       ' Q  22 (BARK)
+  P4 CYNIC self-state ' all axioms  55-60                       ' Q  57 (WAG)
+  P5 Solana tx        ' VERIFY  60, FIDELITY  57              ' Q  58 (WAG)
 """
 
 from __future__ import annotations
 
-# â"€â"€ Scoring constants â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" Scoring constants """"""""""""""""""""""""""""""""""""""""""""""""""""""
 
 _BASE = 50.0  # Neutral starting point
 _SIGNAL_DELTA = 7.0  # Per axiom-signal shift
 _GLOBAL_DELTA = 3.5  # Per global-signal shift (half weight)
 _MAX_SHIFT = 35.0  # Cap total shift from base in each direction
 
-# â"€â"€ Axiom-specific signal tables â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" Axiom-specific signal tables """"""""""""""""""""""""""""""""""""""""""
 # Each axiom: (positive_keywords, negative_keywords)
 # Keywords are lowercased substrings to match against lowercased context.
 
@@ -212,7 +212,7 @@ _FACET_MODIFIERS: dict[str, tuple[list[str], list[str]]] = {
     "EFFICIENCY": (["minimal", "efficient", "lean"], ["bloated", "wasteful", "massive"]),
 }
 
-# â"€â"€ Global signals (applied to ALL axioms at half weight) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" Global signals (applied to ALL axioms at half weight) """""""""""""""""
 
 _GLOBAL_QUALITY: list[str] = [
     "well-structured",
@@ -244,7 +244,7 @@ _GLOBAL_DANGER: list[str] = [
 ]
 
 
-# â"€â"€ HeuristicFacetScorer â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" HeuristicFacetScorer """""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 class HeuristicFacetScorer:

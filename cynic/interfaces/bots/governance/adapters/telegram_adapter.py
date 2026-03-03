@@ -6,23 +6,23 @@ It translates Telegram message events into platform-agnostic BotCommand objects 
 converts BotResponse objects back to Telegram markdown messages.
 
 Architecture:
-â"Œâ"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"
-â"‚          TELEGRAM ADAPTER FLOW                           â"‚
-â"œâ"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"¤
-â"‚                                                         â"‚
-â"‚  Telegram Message (text with slash command)             â"‚
-â"‚  â" (Telegram adapter translates)                        â"‚
-â"‚  BotCommand(name, args, user_id, platform="telegram")  â"‚
-â"‚  â" (Core logic routes)                                  â"‚
-â"‚  UnifiedConsciousState.judge/record/query              â"‚
-â"‚  â" (Core returns)                                       â"‚
-â"‚  BotResponse(success, message, data, ephemeral)        â"‚
-â"‚  â" (Telegram adapter converts)                         â"‚
-â"‚  Telegram Markdown Message (bold, code blocks)         â"‚
-â"‚  â" (Handle pagination for long messages)               â"‚
-â"‚  Telegram API send                                      â"‚
-â"‚                                                         â"‚
-â""â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"˜
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+"          TELEGRAM ADAPTER FLOW                           "
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+"                                                         "
+"  Telegram Message (text with slash command)             "
+"  " (Telegram adapter translates)                        "
+"  BotCommand(name, args, user_id, platform="telegram")  "
+"  " (Core logic routes)                                  "
+"  UnifiedConsciousState.judge/record/query              "
+"  " (Core returns)                                       "
+"  BotResponse(success, message, data, ephemeral)        "
+"  " (Telegram adapter converts)                         "
+"  Telegram Markdown Message (bold, code blocks)         "
+"  " (Handle pagination for long messages)               "
+"  Telegram API send                                      "
+"                                                         "
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Key principles:
 1. TelegramAdapter implements BotInterface contract
@@ -62,7 +62,7 @@ class TelegramAdapter(BotInterface):
     Telegram adapter implementing unified BotInterface.
 
     Bridges Telegram interactions to CYNIC consciousness system. Translates
-    Telegram messages â" BotCommand/BotResponse and handles platform-specific
+    Telegram messages " BotCommand/BotResponse and handles platform-specific
     formatting (markdown, message pagination).
 
     Attributes:
@@ -184,9 +184,9 @@ class TelegramAdapter(BotInterface):
                 ephemeral=True,
             )
 
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # 
     # MESSAGE PARSING
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # 
 
     def _parse_telegram_message(self, text: str) -> tuple[str, dict[str, Any]] | None:
         """
@@ -202,9 +202,9 @@ class TelegramAdapter(BotInterface):
             Tuple of (command_name, args_dict) or None if not a valid command
 
         Examples:
-            "/propose My Title" â' ("propose", {"title": "My Title", ...})
-            "/vote prop-123 yes" â' ("vote", {"proposal_id": "prop-123", "vote": "yes"})
-            "/proposals 2" â' ("proposals", {"page": 2})
+            "/propose My Title" ' ("propose", {"title": "My Title", ...})
+            "/vote prop-123 yes" ' ("vote", {"proposal_id": "prop-123", "vote": "yes"})
+            "/proposals 2" ' ("proposals", {"page": 2})
         """
         if not text or not text.startswith("/"):
             return None
@@ -279,9 +279,9 @@ class TelegramAdapter(BotInterface):
 
         return args
 
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # 
     # COMMAND HANDLERS
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # 
 
     async def _handle_propose(self, command: BotCommand) -> BotResponse:
         """
@@ -494,9 +494,9 @@ class TelegramAdapter(BotInterface):
                 ephemeral=True,
             )
 
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # 
     # RESPONSE FORMATTING
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # 
 
     def _format_response_for_telegram(self, response: BotResponse) -> str:
         """
@@ -516,9 +516,9 @@ class TelegramAdapter(BotInterface):
 
         # Status indicator
         if response.success:
-            status_emoji = "âœ…"
+            status_emoji = ""
         else:
-            status_emoji = "âŒ"
+            status_emoji = ""
 
         message_parts.append(f"{status_emoji} {response.message}")
 

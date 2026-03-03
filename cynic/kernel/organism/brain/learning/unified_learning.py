@@ -3,12 +3,12 @@ Unified Q-Learning System for CYNIC
 
 This module consolidates learning logic into a single Q-Table for all judgment domains.
 
-Q-Learning maps: (predicted_verdict, actual_verdict) â’ quality_score [0, 1]
+Q-Learning maps: (predicted_verdict, actual_verdict)  quality_score [0, 1]
 Updated as community provides feedback (satisfaction_rating).
 Used to adjust future prediction confidence based on past accuracy.
 
 Key classes:
-- UnifiedQTable: Q-Learning table with Ï-bounded confidence
+- UnifiedQTable: Q-Learning table with -bounded confidence
 - LearningSession: Tracks outcomes and computes learning statistics
 """
 
@@ -25,7 +25,7 @@ class UnifiedQTable:
     """
     Q-Learning table for judgment prediction quality.
 
-    Maps (predicted_verdict, actual_verdict) â’ Q-value [0, 1].
+    Maps (predicted_verdict, actual_verdict)  Q-value [0, 1].
     Updated as community provides feedback (satisfaction_rating).
     Used to adjust future prediction confidence based on past accuracy.
 
@@ -36,13 +36,13 @@ class UnifiedQTable:
     - reward = satisfaction_rating (0-1, 1 = perfect prediction)
     - learning_rate = how much feedback affects Q-value
 
-    Ï-bounded constraints:
-    - Confidence âˆˆ [0, PHI_INV] (max 0.618 = 61.8%)
-    - Q-values âˆˆ [0, 1]
-    - All verdicts âˆˆ {HOWL, WAG, GROWL, BARK}
+    -bounded constraints:
+    - Confidence  [0, PHI_INV] (max 0.618 = 61.8%)
+    - Q-values  [0, 1]
+    - All verdicts  {HOWL, WAG, GROWL, BARK}
     """
 
-    # Q-values: Dict[(predicted_verdict, actual_verdict)] â’ float [0, 1]
+    # Q-values: Dict[(predicted_verdict, actual_verdict)]  float [0, 1]
     values: dict[tuple[str, str], float] = field(default_factory=dict)
 
     # Learning rate (how much feedback affects Q-values)
@@ -107,7 +107,7 @@ class UnifiedQTable:
         Higher average = more confident we predict this verdict correctly.
 
         Returns:
-            confidence [0, PHI_INV], Ï-bounded to max 0.618
+            confidence [0, PHI_INV], -bounded to max 0.618
         """
         matching_qs = [q for (pred, _), q in self.values.items() if pred == verdict]
         if not matching_qs:
@@ -115,7 +115,7 @@ class UnifiedQTable:
 
         avg_q = sum(matching_qs) / len(matching_qs)
 
-        # Bound to Ïâ»Â¹ = 0.618 (max confidence)
+        # Bound to  = 0.618 (max confidence)
         return min(avg_q, self.PHI_INV)
 
     def reset(self) -> None:

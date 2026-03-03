@@ -1,15 +1,15 @@
 """
 Nervous System API Routes
 
-GET  /nervous/journal/recent        â€" Last N events
-GET  /nervous/journal/by-type       â€" Events filtered by type
-GET  /nervous/journal/by-source     â€" Events from a component
-GET  /nervous/journal/by-category   â€" Events in a phase
-GET  /nervous/journal/time-range    â€" Events in time window
-GET  /nervous/journal/causality     â€" Causality chain from event
-GET  /nervous/journal/errors        â€" Errors since timestamp
-GET  /nervous/journal/stats         â€" Journal statistics
-POST /nervous/journal/clear         â€" Clear journal (testing only)
+GET  /nervous/journal/recent        " Last N events
+GET  /nervous/journal/by-type       " Events filtered by type
+GET  /nervous/journal/by-source     " Events from a component
+GET  /nervous/journal/by-category   " Events in a phase
+GET  /nervous/journal/time-range    " Events in time window
+GET  /nervous/journal/causality     " Causality chain from event
+GET  /nervous/journal/errors        " Errors since timestamp
+GET  /nervous/journal/stats         " Journal statistics
+POST /nervous/journal/clear         " Clear journal (testing only)
 """
 from __future__ import annotations
 
@@ -232,9 +232,9 @@ async def clear_journal(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # DECISION TRACE ENDPOINTS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 @router.get("/trace/recent")
@@ -373,9 +373,9 @@ async def clear_traces(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # LOOP CLOSURE ENDPOINTS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 @router.get("/closure/open")

@@ -1,8 +1,8 @@
 """
-CYNIC Chat Session â€" Multi-turn conversation with persistence.
+CYNIC Chat Session " Multi-turn conversation with persistence.
 
 Sessions are stored as JSON in ~/.cynic/chats/{session_id}.json.
-Rolling cap: F(11)=89 messages â€" older messages compressed via ContextCompressor.
+Rolling cap: F(11)=89 messages " older messages compressed via ContextCompressor.
 """
 from __future__ import annotations
 
@@ -15,17 +15,17 @@ from typing import Any
 
 from cynic.kernel.core.formulas import CHAT_MESSAGE_CAP
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # CONSTANTS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 _CHATS_DIR = os.path.join(os.path.expanduser("~"), ".cynic", "chats")
 _MAX_MESSAGES = CHAT_MESSAGE_CAP  # F(11) = 89 (imported from formulas.py)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # CHAT MESSAGE
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 @dataclass
 class ChatMessage:
@@ -80,15 +80,15 @@ class ChatMessage:
         )
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # CHAT SESSION
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 class ChatSession:
     """
     Multi-turn chat session with persistence.
 
-    Messages roll at F(11)=89 â€" oldest messages are dropped (future:
+    Messages roll at F(11)=89 " oldest messages are dropped (future:
     compressed via ContextCompressor before drop).
     """
 
@@ -150,7 +150,7 @@ class ChatSession:
                 return m.content
         return ""
 
-    # â"€â"€ Persistence â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Persistence """""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def save(self) -> str:
         """Save session to ~/.cynic/chats/{id}.json. Returns path."""

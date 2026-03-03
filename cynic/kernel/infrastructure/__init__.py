@@ -1,5 +1,5 @@
 """
-CYNIC Infrastructure Layer — Database Connection Pooling and Low-Level I/O Abstractions.
+CYNIC Infrastructure Layer  Database Connection Pooling and Low-Level I/O Abstractions.
 
 Provides optimized infrastructure primitives for CYNIC's performance tier:
 - DatabasePool: SQLAlchemy QueuePool wrapper for connection reuse

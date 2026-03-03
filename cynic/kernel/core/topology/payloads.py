@@ -1,4 +1,4 @@
-"""Topology change event payloads â€" data structures for real-time architecture updates."""
+"""Topology change event payloads " data structures for real-time architecture updates."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class TopologyDelta:
 
 @dataclass
 class TopologyChangedPayload:
-    """Architecture changed â€" handlers added/removed/modified."""
+    """Architecture changed " handlers added/removed/modified."""
 
     added_handlers: list[str]
     removed_handlers: list[str]
@@ -35,7 +35,7 @@ class TopologyChangedPayload:
 
 @dataclass
 class TopologyAppliedPayload:
-    """Hot-reload succeeded â€" new handlers now wired and active."""
+    """Hot-reload succeeded " new handlers now wired and active."""
 
     handlers_added: int
     handlers_removed: int
@@ -44,7 +44,7 @@ class TopologyAppliedPayload:
 
 @dataclass
 class TopologyRollbackPayload:
-    """Hot-reload failed â€" rolled back to previous state."""
+    """Hot-reload failed " rolled back to previous state."""
 
     reason: str
     timestamp: float

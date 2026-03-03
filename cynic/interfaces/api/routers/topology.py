@@ -1,5 +1,5 @@
 """
-CYNIC Topology router â€" /changes Â· /changes/stream
+CYNIC Topology router " /changes  /changes/stream
 
 Real-time visibility into code changes with semantic analysis.
 """
@@ -20,9 +20,9 @@ logger = logging.getLogger("cynic.interfaces.api.routers.topology")
 router_topology = APIRouter(tags=["topology"], prefix="/api/changes")
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# REST: GET /changes â€" Recent changes + analysis
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
+# REST: GET /changes " Recent changes + analysis
+# 
 
 @router_topology.get("")
 async def get_changes(
@@ -63,13 +63,13 @@ async def get_changes(
         "changes": [],
         "total_tracked": 0,
         "last_updated": time.time(),
-        "note": "Wired via FastAPI lifespan â€" requires state injection",
+        "note": "Wired via FastAPI lifespan " requires state injection",
     }
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# SSE: GET /changes/stream â€" Real-time change stream
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
+# SSE: GET /changes/stream " Real-time change stream
+# 
 
 @router_topology.get("/stream", response_class=None)
 async def stream_changes() -> None:
@@ -83,8 +83,8 @@ async def stream_changes() -> None:
       : keepalive (comment)
       data: {"type":"CHANGE_ANALYZED","files":[...], ...}\n\n
 
-    Client disconnect â' clean unsubscribe from bus.
-    Queue overflow (>100 buffered) â' events dropped silently.
+    Client disconnect ' clean unsubscribe from bus.
+    Queue overflow (>100 buffered) ' events dropped silently.
     """
     # This endpoint needs to be implemented as a StreamingResponse
     # with asyncio.Queue + bus.on/off pattern (see ws.py for reference).
@@ -92,9 +92,9 @@ async def stream_changes() -> None:
     pass
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # IMPLEMENTATION NOTE (for lifespan wiring)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 #
 # The /changes endpoint needs:
 #   1. state.change_tracker.get_recent_changes(limit)

@@ -59,7 +59,7 @@ class TestKernelStartupCycle:
         # Must use mock pool to avoid DB connection requirement
         try:
             # awaken() creates a real kernel - validate structure only
-            state = awaken()
+            state = await awaken()
             assert state is not None
             assert isinstance(state, AppState)
         except RuntimeError as e:
@@ -71,7 +71,7 @@ class TestKernelStartupCycle:
     async def test_kernel_critical_components_present(self):
         """All critical kernel components properly initialized."""
         try:
-            state = awaken()
+            state = await awaken()
 
             # Validate critical components exist
             assert hasattr(state, 'orchestrator')
@@ -94,7 +94,7 @@ class TestKernelStartupCycle:
     async def test_kernel_dogs_collection(self):
         """All 11 dogs properly initialized in orchestrator."""
         try:
-            state = awaken()
+            state = await awaken()
 
             # Dogs in orchestrator
             orchestrator = state.orchestrator
@@ -302,7 +302,7 @@ class TestConsciousnessLevelTransitions:
         try:
             from cynic.interfaces.api.state import awaken
 
-            organism = awaken()
+            organism = await awaken()
             orchestrator = organism.cognition.orchestrator
 
             # Orchestrator should have escalation-related methods/attributes
@@ -341,7 +341,7 @@ class TestLearningLoopIntegration:
         try:
             from cynic.interfaces.api.state import awaken
 
-            organism = awaken()
+            organism = await awaken()
 
             # Q-table should be in cognition core
             qtable = organism.cognition.qtable
@@ -389,7 +389,7 @@ class TestLearningLoopIntegration:
         try:
             from cynic.interfaces.api.state import awaken
 
-            organism = awaken()
+            organism = await awaken()
 
             # Learning loop should be accessible
             learning_loop = organism.cognition.learning_loop

@@ -1,4 +1,4 @@
-"""CYNIC MarketWatcher â€" MARKETÃ-PERCEIVE/REFLEX every F(9)=34s."""
+"""CYNIC MarketWatcher " MARKET-PERCEIVE/REFLEX every F(9)=34s."""
 
 from __future__ import annotations
 
@@ -24,11 +24,11 @@ class MarketWatcher(PerceiveWorker):
     """
     Monitors SOL/USD price via CoinGecko public API (no key needed).
 
-    Submits MARKETÃ-PERCEIVE at REFLEX level only on significant moves
-    (>2% from last observed price) â€" not on every tick.
+    Submits MARKET-PERCEIVE at REFLEX level only on significant moves
+    (>2% from last observed price) " not on every tick.
 
     Graceful degradation: returns None on network errors or rate limits.
-    interval: F(9)=34s â€" respectful of CoinGecko free tier rate limits.
+    interval: F(9)=34s " respectful of CoinGecko free tier rate limits.
     """
 
     level = ConsciousnessLevel.REFLEX
@@ -40,7 +40,7 @@ class MarketWatcher(PerceiveWorker):
         self._consecutive_errors: int = 0
 
     def _fetch_price(self) -> Optional[dict[str, Any]]:
-        """Blocking fetch â€" called via run_in_executor."""
+        """Blocking fetch " called via run_in_executor."""
         try:
             req = urllib.request.Request(
                 _COINGECKO_URL,

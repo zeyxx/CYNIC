@@ -1,7 +1,7 @@
 """MCPBridge metrics collection.
 
 Tracks tool call activity: counts, latency, uptime.
-Designed for observability â€" consumed by get_metrics() and get_health()
+Designed for observability " consumed by get_metrics() and get_health()
 on the MCPBridge.
 
 All latency values are in milliseconds.

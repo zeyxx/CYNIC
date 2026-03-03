@@ -2,11 +2,11 @@
 CYNIC CLI -- `probes` command interface (Priority 10 Task 3).
 
 Provides five commands for managing self-improvement proposals:
-  1. list [--status PENDING|APPLIED|DISMISSED|all] — List proposals by status (default: PENDING)
-  2. show <probe_id> — Show details of a single proposal
-  3. approve <probe_id> — Approve and apply a proposal
-  4. dismiss <probe_id> — Dismiss a proposal
-  5. audit [--limit 50] — Show audit log of applied/dismissed proposals
+  1. list [--status PENDING|APPLIED|DISMISSED|all]  List proposals by status (default: PENDING)
+  2. show <probe_id>  Show details of a single proposal
+  3. approve <probe_id>  Approve and apply a proposal
+  4. dismiss <probe_id>  Dismiss a proposal
+  5. audit [--limit 50]  Show audit log of applied/dismissed proposals
 
 All commands work with SelfProber and persist to ~/.cynic/self_proposals.json.
 """
@@ -19,7 +19,7 @@ from cynic.interfaces.cli.utils import _api_get, _c
 from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
 
 
-# Dimension → color mapping
+# Dimension  color mapping
 _PROBE_DIM_COLOR = {
     "QTABLE": "orange",
     "ESCORE": "yellow",
@@ -31,7 +31,7 @@ _PROBE_DIM_COLOR = {
 
 
 def _format_proposal_short(proposal) -> str:
-    """Format a proposal for list view: [probe_id] DIMENSION — recommendation[:60]."""
+    """Format a proposal for list view: [probe_id] DIMENSION  recommendation[:60]."""
     probe_id = proposal.probe_id[:8]
     dim = proposal.dimension
     rec = proposal.recommendation[:60]
@@ -40,11 +40,11 @@ def _format_proposal_short(proposal) -> str:
     cur = proposal.current_value
     sug = proposal.suggested_value
 
-    # Format: [probe_id] DIMENSION — recommendation
-    #         severity: X.XX | current → suggested
+    # Format: [probe_id] DIMENSION  recommendation
+    #         severity: X.XX | current  suggested
     return (
-        f"[{_c(color, probe_id)}] {_c(color, dim)} — {rec}\n"
-        f"  severity: {sev:.2f} | {cur:.2f} → {sug:.2f}"
+        f"[{_c(color, probe_id)}] {_c(color, dim)}  {rec}\n"
+        f"  severity: {sev:.2f} | {cur:.2f}  {sug:.2f}"
     )
 
 
@@ -85,14 +85,14 @@ def _format_timestamp(timestamp: float) -> str:
 
 
 def _format_audit_entry(proposal) -> str:
-    """Format proposal for audit view: ✓ [probe_id] DIMENSION + recommendation[:60]."""
-    status_icon = "✓" if proposal.status == "APPLIED" else "✗"
+    """Format proposal for audit view:  [probe_id] DIMENSION + recommendation[:60]."""
+    status_icon = "" if proposal.status == "APPLIED" else ""
     probe_id = proposal.probe_id[:8]
     dim = proposal.dimension
     rec = proposal.recommendation[:60]
     color = _PROBE_DIM_COLOR.get(dim, "white")
 
-    return f"{status_icon} [{_c(color, probe_id)}] {_c(color, dim)} — {rec}"
+    return f"{status_icon} [{_c(color, probe_id)}] {_c(color, dim)}  {rec}"
 
 
 def cmd_probes_list(status: str = "PENDING") -> None:
@@ -203,9 +203,9 @@ def cmd_probes_approve(probe_id: str) -> None:
         print(f"{_c('red', 'Error')}: Proposal '{probe_id}' not found")
         sys.exit(1)
 
-    print(f"{_c('green', '✓ Approved')}: {proposal.probe_id}")
+    print(f"{_c('green', ' Approved')}: {proposal.probe_id}")
     print(f"  Recommendation: {proposal.recommendation[:80]}")
-    print(f"  Change: {proposal.current_value:.4f} → {proposal.suggested_value:.4f}")
+    print(f"  Change: {proposal.current_value:.4f}  {proposal.suggested_value:.4f}")
 
 
 def cmd_probes_dismiss(probe_id: str) -> None:
@@ -221,7 +221,7 @@ def cmd_probes_dismiss(probe_id: str) -> None:
         print(f"{_c('red', 'Error')}: Proposal '{probe_id}' not found")
         sys.exit(1)
 
-    print(f"{_c('dim', '✗ Dismissed')}: {proposal.probe_id}")
+    print(f"{_c('dim', ' Dismissed')}: {proposal.probe_id}")
     print(f"  Recommendation: {proposal.recommendation[:80]}")
 
 

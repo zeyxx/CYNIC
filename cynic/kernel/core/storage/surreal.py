@@ -1,5 +1,5 @@
 """
-CYNIC SurrealDB Storage — AsyncSurreal + φ-aligned multi-model DB
+CYNIC SurrealDB Storage  AsyncSurreal + -aligned multi-model DB
 
 Why SurrealDB over PostgreSQL:
   - SCHEMALESS records: no migrations when schema evolves
@@ -19,7 +19,7 @@ Auth:
   SURREAL_NS   = cynic
   SURREAL_DB   = cynic
 
-φ-Laws obeyed:
+-Laws obeyed:
   - SCHEMALESS = BURN (don't over-engineer fixed schemas)
   - HNSW cosine = PHI (geometric similarity, not Euclidean noise)
   - Single connection = VERIFY (one truth, no pool state drift)
@@ -56,10 +56,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger("cynic.storage.surreal")
 
 
-# ═ SCHEMA — SurrealQL (SCHEMALESS + indexes) ═════════════════════════════════
+#  SCHEMA  SurrealQL (SCHEMALESS + indexes) 
 
 _SCHEMA_STATEMENTS = [
-    # Tables — SCHEMALESS means fields can vary without ALTER TABLE
+    # Tables  SCHEMALESS means fields can vary without ALTER TABLE
     "DEFINE TABLE IF NOT EXISTS judgment SCHEMALESS",
     "DEFINE TABLE IF NOT EXISTS cell SCHEMALESS",
     "DEFINE TABLE IF NOT EXISTS q_entry SCHEMALESS",
@@ -74,7 +74,7 @@ _SCHEMA_STATEMENTS = [
     "DEFINE TABLE IF NOT EXISTS dog_soul SCHEMALESS",
     "DEFINE TABLE IF NOT EXISTS axiom_facet SCHEMALESS",
     "DEFINE TABLE IF NOT EXISTS security_event SCHEMALESS",
-    # Indexes — optimize common query paths
+    # Indexes  optimize common query paths
     "DEFINE INDEX IF NOT EXISTS idx_judgment_reality ON judgment FIELDS reality",
     "DEFINE INDEX IF NOT EXISTS idx_judgment_verdict ON judgment FIELDS verdict",
     "DEFINE INDEX IF NOT EXISTS idx_judgment_created ON judgment FIELDS created_at",
@@ -84,7 +84,7 @@ _SCHEMA_STATEMENTS = [
     "DEFINE INDEX IF NOT EXISTS idx_sdk_created ON sdk_session FIELDS created_at",
     "DEFINE INDEX IF NOT EXISTS idx_residual_observed ON residual FIELDS observed_at",
     "DEFINE INDEX IF NOT EXISTS idx_scholar_created ON scholar FIELDS created_at",
-    # HNSW vector index — cosine similarity for Scholar semantic search
+    # HNSW vector index  cosine similarity for Scholar semantic search
     "DEFINE INDEX IF NOT EXISTS idx_scholar_vec ON scholar FIELDS embedding HNSW DIMENSION 768 DIST COSINE",
     "DEFINE INDEX IF NOT EXISTS idx_action_status ON action_proposal FIELDS status",
     "DEFINE INDEX IF NOT EXISTS idx_dog_soul_id ON dog_soul FIELDS dog_id UNIQUE",
@@ -107,7 +107,7 @@ def _rec(table: str, key: str) -> str:
     return f"{table}:{_safe_id(key)}"
 
 
-# ═ SURREAL DB CLIENT PROTOCOL ═══════════════════════════════════════════════════
+#  SURREAL DB CLIENT PROTOCOL 
 class SurrealDBClient(Protocol):
     """Protocol for SurrealDB async client (asyncsurreal.Surreal)."""
 
@@ -137,7 +137,7 @@ def _rows(result: Any) -> list[dict]:
     return []
 
 
-# ═ REPOSITORIES ═════════════════════════════════════════════════════════════
+#  REPOSITORIES 
 
 
 class JudgmentRepo(JudgmentRepoInterface):
@@ -204,7 +204,7 @@ class QTableRepo(QTableRepoInterface):
             if rec and isinstance(rec, dict):
                 return float(rec.get("q_value", 0.0))
         except Exception as exc:
-            logger.error(f"❌ QTable persistence failure (GET) for {state_key}: {exc}")
+            logger.error(f" QTable persistence failure (GET) for {state_key}: {exc}")
         return 0.0
 
     async def update(self, state_key: str, action: str, q_value: float, visits: int = 1) -> None:
@@ -221,7 +221,7 @@ class QTableRepo(QTableRepoInterface):
                 },
             )
         except Exception as exc:
-            logger.error(f"❌ QTable persistence failure (UPDATE) for {rec_id}: {exc}")
+            logger.error(f" QTable persistence failure (UPDATE) for {rec_id}: {exc}")
 
     async def get_all_actions(self, state_key: str) -> dict[str, float]:
         result = await self._db.query(
@@ -231,7 +231,7 @@ class QTableRepo(QTableRepoInterface):
         return {r["action"]: float(r["q_value"]) for r in _rows(result)}
 
     async def get_all(self) -> list[dict[str, Any]]:
-        """Return all Q-entries — used for warm-start."""
+        """Return all Q-entries  used for warm-start."""
         result = await self._db.query("SELECT state_key, action, q_value, visit_count FROM q_entry")
         return _rows(result)
 
@@ -409,7 +409,7 @@ class ScholarRepo(ScholarRepoInterface):
         )
 
     async def recent_entries(self, limit: int = ACT_LOG_CAP) -> list[dict[str, Any]]:
-        # Default: ACT_LOG_CAP (F(11)=89) — keep last 89 scholar entries
+        # Default: ACT_LOG_CAP (F(11)=89)  keep last 89 scholar entries
         result = await self._db.query(
             "SELECT cell_id, cell_text, q_score, reality, ts "
             "FROM scholar ORDER BY created_at DESC LIMIT $n",
@@ -424,7 +424,7 @@ class ScholarRepo(ScholarRepoInterface):
         limit: int = 10,
         min_similarity: float = 0.38,
     ) -> list[dict[str, Any]]:
-        """Native HNSW cosine search — replaces Python cosine loop."""
+        """Native HNSW cosine search  replaces Python cosine loop."""
         result = await self._db.query(
             "SELECT cell_id, cell_text, q_score, reality, ts, "
             "vector::similarity::cosine(embedding, $q) AS similarity "
@@ -679,7 +679,7 @@ class SecurityEventRepo(SecurityEventRepoInterface):
         }
 
 
-# ═ STORAGE FACADE — one object, all repos ═══════════════════════════════════
+#  STORAGE FACADE  one object, all repos 
 
 
 class SurrealStorage(StorageInterface):
@@ -754,7 +754,7 @@ class SurrealStorage(StorageInterface):
         await self._db.signin({"user": self._user, "pass": self._password})
         await self._db.use(self._ns, self._db_name)
         logger.info(
-            "*sniff* SurrealDB connected: %s → %s.%s",
+            "*sniff* SurrealDB connected: %s  %s.%s",
             self._url,
             self._ns,
             self._db_name,
@@ -771,10 +771,10 @@ class SurrealStorage(StorageInterface):
             try:
                 await self._db.query(stmt)
             except Exception as exc:
-                logger.error(f"❌ SurrealDB Schema Error in statement: {stmt[:50]}... | Error: {exc}")
+                logger.error(f" SurrealDB Schema Error in statement: {stmt[:50]}... | Error: {exc}")
         logger.info("*tail wag* SurrealDB schema ready (%d statements)", len(_SCHEMA_STATEMENTS))
 
-    # ═ Repository accessors ═════════════════════════════════════════════════
+    #  Repository accessors 
 
     @property
     def judgments(self) -> JudgmentRepo:
@@ -832,7 +832,7 @@ class SurrealStorage(StorageInterface):
         """
         Subscribe to live updates on a table.
         """
-        logger.info(f"✨ SurrealDB: Subscribing to LIVE updates on table '{table}'")
+        logger.info(f" SurrealDB: Subscribing to LIVE updates on table '{table}'")
         
         task = asyncio.create_task(self._live_listener(table, callback))
         
@@ -870,6 +870,6 @@ class SurrealStorage(StorageInterface):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.warning(f"✨ SurrealDB Live Stream lost for '{table}': {e}. Retrying in {retry_delay:.1f}s...")
+                logger.warning(f" SurrealDB Live Stream lost for '{table}': {e}. Retrying in {retry_delay:.1f}s...")
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 1.618, 30.0)

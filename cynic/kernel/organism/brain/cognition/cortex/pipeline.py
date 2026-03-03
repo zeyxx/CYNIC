@@ -1,5 +1,5 @@
 """
-Judgment Pipeline — Context for one complete judgment cycle (DAG State).
+Judgment Pipeline  Context for one complete judgment cycle (DAG State).
 
 Extracted from orchestrator.py to reduce god object complexity.
 Uses Pydantic V2 for strict data lineage and immutability.

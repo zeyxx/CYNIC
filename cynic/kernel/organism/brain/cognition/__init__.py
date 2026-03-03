@@ -1,5 +1,5 @@
 """
-CYNIC Cognition â€" Judgment orchestration and decision-making cortex.
+CYNIC Cognition " Judgment orchestration and decision-making cortex.
 
 Houses the fractally-organized judgment pipeline that processes cells through:
 1. Level selection (which consciousness level is appropriate?)
@@ -9,7 +9,7 @@ Houses the fractally-organized judgment pipeline that processes cells through:
 
 Architecture:
     cortex: Judgment pipeline orchestrator and handler registry
-    neurons: 11 Dogs (judge implementations) â€" SEFIROT-based
+    neurons: 11 Dogs (judge implementations) " SEFIROT-based
     handlers: Individual judgment decision handlers
 
 Typical usage:

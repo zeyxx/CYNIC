@@ -1,4 +1,4 @@
-"""CYNIC DNA Examples â€" Real usage patterns."""
+"""CYNIC DNA Examples " Real usage patterns."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from .primitives import ACT, DECIDE, JUDGE, LEARN, PERCEIVE
 
 async def example_linear_chain():
     """
-    Simplest possible usage: perceive â' judge â' decide â' act
+    Simplest possible usage: perceive ' judge ' decide ' act
 
     This is what you'd do if you have orchestrator + qtable available.
     """

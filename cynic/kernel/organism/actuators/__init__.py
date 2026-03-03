@@ -1,4 +1,4 @@
-"""Actuators â€" Output Mechanisms
+"""Actuators " Output Mechanisms
 
 Actuators execute commands in the outside world.
 

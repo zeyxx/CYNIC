@@ -1,14 +1,14 @@
-"""ConsciousnessService â€" 7-Layer HUB aggregating all consciousness layers.
+"""ConsciousnessService " 7-Layer HUB aggregating all consciousness layers.
 
 This service sits on top of EcosystemObserver and CynicOrganism,
 aggregating all 7 consciousness layers into a unified interface:
 
-1. Ecosystem State â€" cross-bus event topology
-2. Decision Trace â€" full path of decision through guardrails
-3. Topology Consciousness â€" architecture consciousness (L0 system)
-4. Guardrail Decisions â€" decisions made by immune system
-5. Self Awareness â€" organism's meta-cognition (kernel_mirror insights)
-6. Nervous System Audit â€" full audit trail of all components
+1. Ecosystem State " cross-bus event topology
+2. Decision Trace " full path of decision through guardrails
+3. Topology Consciousness " architecture consciousness (L0 system)
+4. Guardrail Decisions " decisions made by immune system
+5. Self Awareness " organism's meta-cognition (kernel_mirror insights)
+6. Nervous System Audit " full audit trail of all components
 7. (Reserved for future) Transcendence gates
 """
 
@@ -36,12 +36,12 @@ class ConsciousnessService:
     Each method queries nervous system components + aggregates results.
 
     Public methods:
-    - get_ecosystem_state() â' Layer 1: cross-bus event topology
-    - get_decision_trace(decision_id) â' Layer 2: guardrail decision path
-    - get_topology_consciousness() â' Layer 3: L0 architecture consciousness
-    - get_guardrail_decisions(limit) â' Layer 4: immune system decisions
-    - get_self_awareness() â' Layer 5: kernel_mirror insights
-    - get_nervous_system_audit(limit) â' Layer 6: full audit trail
+    - get_ecosystem_state() ' Layer 1: cross-bus event topology
+    - get_decision_trace(decision_id) ' Layer 2: guardrail decision path
+    - get_topology_consciousness() ' Layer 3: L0 architecture consciousness
+    - get_guardrail_decisions(limit) ' Layer 4: immune system decisions
+    - get_self_awareness() ' Layer 5: kernel_mirror insights
+    - get_nervous_system_audit(limit) ' Layer 6: full audit trail
     """
 
     def __init__(self):
@@ -125,7 +125,7 @@ class ConsciousnessService:
                     handlers_registry=registry,
                 )
             except RuntimeError:
-                # AppContainer not initialized â€" create bare observer for testing
+                # AppContainer not initialized " create bare observer for testing
                 self._ecosystem_observer = EcosystemObserver(
                     journal=EventJournal(),
                     decision_trace=DecisionTracer(),
@@ -278,7 +278,7 @@ class ConsciousnessService:
                 announcements = getattr(convergence, "announcements", [])
                 outcomes = getattr(convergence, "outcomes", [])
 
-            # Fix Issue 4: Build set once for O(1) membership tests (not O(nÂ²))
+            # Fix Issue 4: Build set once for O(1) membership tests (not O(n))
             announced_ids = {
                 o.get("announcement")
                 for o in outcomes

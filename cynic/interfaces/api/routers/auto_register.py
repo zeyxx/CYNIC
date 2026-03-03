@@ -1,5 +1,5 @@
 """
-Auto-Register Routers â€" Self-discovery and registration.
+Auto-Register Routers " Self-discovery and registration.
 
 When CYNIC starts, it automatically finds and registers all routers.
 No manual configuration needed.
@@ -85,7 +85,7 @@ def auto_register_routers(app: FastAPI) -> dict[str, Any]:
                 }
 
                 logger.info(
-                    f"âœ" Registered router: {module_name} "
+                    f"" Registered router: {module_name} "
                     f"({routes} routes, tags={tags})"
                 )
             else:

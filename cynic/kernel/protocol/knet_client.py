@@ -1,6 +1,6 @@
 """
-Îº-NET Client â€" Somatic Nerve Receiver.
-Connects to the Îº-NET Server using IPv6 and WebSockets.
+-NET Client " Somatic Nerve Receiver.
+Connects to the -NET Server using IPv6 and WebSockets.
 Implements 'Suturing' logic (Fibonacci backoff) for maximum reliability.
 """
 
@@ -81,7 +81,7 @@ class KNetClient:
                 await asyncio.sleep(wait)
 
     async def _handle_message(self, raw_message: str):
-        """Process incoming Îº-PULSE."""
+        """Process incoming -PULSE."""
         try:
             data = json.loads(raw_message)
             pulse = PulseMessage.from_dict(data)

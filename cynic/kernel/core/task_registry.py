@@ -1,10 +1,10 @@
 """
-CYNIC Task Registry — Asynchronous Life-Cycle Guard.
+CYNIC Task Registry  Asynchronous Life-Cycle Guard.
 
 Tracks every background task created by the organism to prevent 
 zombie processes and memory leaks.
 
-Ï†-Law: FIDELITY — Ensure every process has a clear end.
+-Law: FIDELITY  Ensure every process has a clear end.
 """
 
 from __future__ import annotations

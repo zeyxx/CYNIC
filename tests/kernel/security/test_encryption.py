@@ -45,13 +45,17 @@ class TestEncryptionConfig:
         assert config.enable_journal_encryption is False
 
     def test_config_from_environment(self, monkeypatch):
-        """Test loading configuration from environment variables."""
+        """Test loading configuration from environment variables via CynicConfig."""
         monkeypatch.setenv("VAULT_ADDR", "https://vault.example.com:8200")
         monkeypatch.setenv("VAULT_TOKEN", "s.test1234567890")
 
-        config = EncryptionConfig()
+        from cynic.kernel.core.config import CynicConfig
+        cynic_config = CynicConfig.from_env()
+        config = EncryptionConfig.from_config(cynic_config)
+
         assert config.vault_addr == "https://vault.example.com:8200"
         assert config.vault_token == "s.test1234567890"
+
 
 
 @pytest.mark.asyncio

@@ -1,5 +1,5 @@
 """
-CYNIC Web Hand — Somatic actuator for web interaction.
+CYNIC Web Hand  Somatic actuator for web interaction.
 
 Allows the organism to physically interact with the DOM.
 Specifically tuned for https://cannon.pumpparty.com/

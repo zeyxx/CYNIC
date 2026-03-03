@@ -1,4 +1,4 @@
-"""CYNIC Learning System â€" Q-Learning + Thompson Sampling + SONA."""
+"""CYNIC Learning System " Q-Learning + Thompson Sampling + SONA."""
 
 from cynic.kernel.organism.brain.learning.loops import (
     LEARNING_LOOPS,

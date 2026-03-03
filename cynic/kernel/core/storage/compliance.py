@@ -1,10 +1,10 @@
 """
-Compliance & Audit Engine — Forensics and regulatory compliance (PHASE 2, COMPONENT 7)
+Compliance & Audit Engine  Forensics and regulatory compliance (PHASE 2, COMPONENT 7)
 
 Architecture:
-  SecurityEvent → AuditLogger → ImmutableHash → ForensicsQuery
-                       ↓
-                RetentionPolicy → SOC2/GDPR Reports
+  SecurityEvent  AuditLogger  ImmutableHash  ForensicsQuery
+                       
+                RetentionPolicy  SOC2/GDPR Reports
 """
 
 from __future__ import annotations
@@ -291,7 +291,7 @@ class ForensicsQuery:
         return events
 
     async def get_alert_timeline(self, alert_id: str) -> list[dict]:
-        """Get complete timeline for an alert (created → routed → acknowledged → closed)."""
+        """Get complete timeline for an alert (created  routed  acknowledged  closed)."""
         events = await self.get_events_by_resource("alert", alert_id)
         return sorted(events, key=lambda e: e.get("timestamp", 0))
 

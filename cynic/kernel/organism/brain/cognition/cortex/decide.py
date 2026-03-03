@@ -1,5 +1,5 @@
 """
-CYNIC DecideAgent â€" JUDGMENT_CREATED -> DECISION_MADE
+CYNIC DecideAgent " JUDGMENT_CREATED -> DECISION_MADE
 
 Subscribes to JUDGMENT_CREATED events. For BARK/GROWL verdicts with
 sufficient confidence (>= phi^-2 = 0.382), runs a NestedMCTS rollout
@@ -7,9 +7,9 @@ over the Q-Table to pick the best action, then emits DECISION_MADE.
 
 Nested MCTS (Ring 2 enhancement):
   Instead of greedy Q-Table exploit(), runs UCT-based tree search:
-    UCT(s, a) = Q(s, a) + C_UCT Ã- âˆš(ln(Î£ visits) / max(visits(a), 1))
+    UCT(s, a) = Q(s, a) + C_UCT - (ln( visits) / max(visits(a), 1))
   Depth-2 rollout using Q-Table values as leaf estimates.
-  7 rollout simulations (F(4)=3 branches Ã- 2 depth = explores all VERDICTS).
+  7 rollout simulations (F(4)=3 branches - 2 depth = explores all VERDICTS).
 
 Fire-and-forget: never blocks. All logic is async + bus.emit().
 """
@@ -27,7 +27,7 @@ from cynic.kernel.core.formulas import MCTS_UCT_C
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.decide")
 
-# phi^-2 = 0.382 â€" minimum confidence to trigger auto-decide
+# phi^-2 = 0.382 " minimum confidence to trigger auto-decide
 _PHI_INV_2 = 0.382
 
 # Verdicts that warrant a policy consultation
@@ -36,13 +36,13 @@ _ALERT_VERDICTS = {"BARK", "GROWL"}
 # Realities that produce actionable prompts for the runner
 _ACT_REALITIES = frozenset({"CODE", "CYNIC"})
 
-# NestedMCTS hyperparameters (Ï-derived)
+# NestedMCTS hyperparameters (-derived)
 _MCTS_DEPTH: int = 2  # rollout depth
 _MCTS_N_SIM: int = 7  # simulations per action (F(4+1) ensures full VERDICTS coverage)
-_UCT_C: float = MCTS_UCT_C  # Imported from formulas.py (exploration constant â‰ˆ 1/âˆš2)
+_UCT_C: float = MCTS_UCT_C  # Imported from formulas.py (exploration constant  1/2)
 
 
-# â"€â"€ NestedMCTS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" NestedMCTS """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 class NestedMCTS:
@@ -50,14 +50,14 @@ class NestedMCTS:
     Lightweight 2-ply MCTS rollout using Q-Table as value oracle.
 
     Used by DecideAgent to replace greedy exploit() with proper UCT search.
-    No actual environment transitions â€" Q-Table entries ARE the value function.
+    No actual environment transitions " Q-Table entries ARE the value function.
 
     Algorithm:
       For each candidate action:
         1. Get Q-Table value Q(s, a) as leaf estimate.
         2. Simulate _MCTS_N_SIM rollouts: sample action from sibling states
            using Thompson Sampling (via qtable.explore), average Q values.
-        3. Compute UCT score = avg_q + C Ã- âˆš(ln(total_visits) / max(visits_a, 1))
+        3. Compute UCT score = avg_q + C - (ln(total_visits) / max(visits_a, 1))
       Return action with highest UCT score.
 
     Cold-start safe: if Q-Table is empty, falls back to lexicographic action order.
@@ -82,7 +82,7 @@ class NestedMCTS:
             Best action string from candidates.
         """
         if not candidates:
-            return "WAG"  # Neutral fallback â€" no options
+            return "WAG"  # Neutral fallback " no options
 
         actions_dict = self._qtable._table.get(state_key, {})
 
@@ -129,20 +129,20 @@ class NestedMCTS:
         Uses the heuristic: successor_state_key = same prefix, LOD promoted by 1.
         If no entry found, returns neutral 0.5 (prior).
         """
-        # Successor: LOD is the last segment â€" increment by 1 (or use "1" default)
+        # Successor: LOD is the last segment " increment by 1 (or use "1" default)
         parts = state_key.rsplit(":", 1)
         if len(parts) == 2:
             try:
                 lod = int(parts[1])
                 successor_key = f"{parts[0]}:{lod + 1}"
             except ValueError:
-                successor_key = state_key  # non-numeric suffix â€" stay in place
+                successor_key = state_key  # non-numeric suffix " stay in place
         else:
             successor_key = state_key
 
         successor_actions = self._qtable._table.get(successor_key, {})
         if not successor_actions:
-            return 0.5  # Cold start â€" neutral
+            return 0.5  # Cold start " neutral
 
         best_successor_q = max(e.q_value for e in successor_actions.values())
         return best_successor_q
@@ -156,8 +156,8 @@ def _build_action_prompt(
     context: str,
 ) -> str:
     """
-    Convert judgment context â' actionable Claude prompt.
-    Rule-based templates â€" no LLM needed for routing.
+    Convert judgment context ' actionable Claude prompt.
+    Rule-based templates " no LLM needed for routing.
     Called only for BARK/GROWL verdicts.
     """
     body = (content_preview or context or "(no detail available)").strip()[:400]
@@ -176,11 +176,11 @@ def _build_action_prompt(
         if verdict == "BARK":
             return (
                 f"[CYNIC AUTO-ACT] BARK on self-assessment ({analysis}).\n"
-                f"Critical organism issue â€" please investigate:\n\n{body}"
+                f"Critical organism issue - please investigate:\n\n{body}"
             )
         return (
             f"[CYNIC AUTO-ACT] GROWL on self-assessment ({analysis}).\n"
-            f"Organism quality degradation â€" please review:\n\n{body}"
+            f"Organism quality degradation - please review:\n\n{body}"
         )
     # Generic fallback for other realities
     return (
@@ -191,7 +191,7 @@ def _build_action_prompt(
 
 class DecideAgent:
     """
-    Autonomous decision layer â€" sits between Judge and Act.
+    Autonomous decision layer " sits between Judge and Act.
 
     Listens for judgments, runs NestedMCTS over Q-Table for BARK/GROWL,
     and emits DECISION_MADE so downstream actors can react without
@@ -219,7 +219,7 @@ class DecideAgent:
         """Subscribe to JUDGMENT_CREATED. Must be called with a running event loop."""
         target_bus = bus or self._bus
         target_bus.on(CoreEvent.JUDGMENT_CREATED, self._handler)
-        logger.info("DecideAgent started â€" subscribed to JUDGMENT_CREATED")
+        logger.info("DecideAgent started - subscribed to JUDGMENT_CREATED")
 
     def stop(self, bus: EventBus) -> None:
         """Unsubscribe from JUDGMENT_CREATED."""
@@ -230,7 +230,7 @@ class DecideAgent:
 
     def decide_for_judgment(self, judgment: Any) -> Optional[dict[str, Any]]:
         """
-        Synchronous decision extraction â€" used by orchestrator._act_phase().
+        Synchronous decision extraction " used by orchestrator._act_phase().
 
         Takes a Judgment and returns a decision dict, or None if no action needed.
         Does NOT emit DECISION_MADE (that's handled by the event handler).
@@ -318,7 +318,7 @@ class DecideAgent:
         q_entry = self._qtable._table.get(state_key, {}).get(recommended_action)
         q_value = q_entry.q_value if q_entry is not None else 0.0
 
-        # Build action prompt (non-empty only for ACT_REALITIES â€" others get generic)
+        # Build action prompt (non-empty only for ACT_REALITIES " others get generic)
         action_prompt = _build_action_prompt(reality, analysis, verdict, content_preview, context)
 
         await self._bus.emit(

@@ -1,5 +1,5 @@
 """
-CYNIC Organism — The living unified system.
+CYNIC Organism  The living unified system.
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ class Organism:
     state: OrganismState
     instance_id: str
     container: DependencyContainer
+    storage: Any = None  # SurrealStorage
     vascular: Any = None
     bridge: Any = None
     automation_bus: Any = None
@@ -46,9 +47,44 @@ class Organism:
     _start_time: float = 0.0 # Initialized in start() or factory
 
     @property
+    def identity(self) -> Any:
+        """Alias for cognition.identity (Backward compatibility)."""
+        return self.cognition.identity
+
+    @property
+    def orchestrator(self) -> Any:
+        """Alias for cognition.orchestrator (Backward compatibility)."""
+        return self.cognition.orchestrator
+
+    @property
+    def qtable(self) -> Any:
+        """Alias for cognition.learning_loop.qtable (Backward compatibility)."""
+        return self.cognition.learning_loop.qtable
+
+    @property
+    def learning_loop(self) -> Any:
+        """Alias for cognition.learning_loop (Backward compatibility)."""
+        return self.cognition.learning_loop
+
+    @property
     def bus(self):
         """Unified access to the core event bus."""
         return self.cognition.orchestrator.bus
+
+    @property
+    def event_bus(self):
+        """Alias for bus (Backward compatibility)."""
+        return self.bus
+
+    @property
+    def scheduler(self) -> Any:
+        """Alias for metabolism.scheduler (Backward compatibility)."""
+        return self.metabolism.scheduler
+
+    @property
+    def event_journal(self) -> Any:
+        """Alias for memory.event_journal (Backward compatibility)."""
+        return self.memory.event_journal
 
     async def start(self) -> None:
         """Awaken all cores and loops."""
@@ -263,3 +299,7 @@ async def awaken(db_pool=None, registry=None) -> Organism:
     """Delegates to the factory for awakening."""
     from .factory import _OrganismAwakener
     return await _OrganismAwakener(db_pool, registry).build()
+
+async def create_organism(db_pool=None, registry=None) -> Organism:
+    """Alias for awaken (Backward compatibility)."""
+    return await awaken(db_pool, registry)

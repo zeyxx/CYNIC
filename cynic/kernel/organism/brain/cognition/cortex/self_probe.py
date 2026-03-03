@@ -1,21 +1,21 @@
 """
-CYNIC SelfProber â€" L4 CYNICâ'CYNIC Self-improvement loop
+CYNIC SelfProber " L4 CYNIC'CYNIC Self-improvement loop
 
 Listens to EMERGENCE_DETECTED (from ResidualDetector). When a pattern
 (SPIKE / RISING / STABLE_HIGH) is flagged, SelfProber analyzes three
 internal signals and generates improvement proposals:
 
-  1. QTABLE   â€" state-action pairs with Q-value < ÏÂ² (38.2%) after â‰¥3 visits
-  2. ESCORE   â€" dogs with JUDGE reputation score < 38.2 (below GROWL floor)
-  3. CONFIG   â€" pattern-specific parameter suggestions (axiom weights, thresholds)
+  1. QTABLE   " state-action pairs with Q-value <  (38.2%) after 3 visits
+  2. ESCORE   " dogs with JUDGE reputation score < 38.2 (below GROWL floor)
+  3. CONFIG   " pattern-specific parameter suggestions (axiom weights, thresholds)
 
 Each analysis produces zero or more SelfProposal dataclasses.
 Proposals are:
-  â€¢ Persisted to ~/.cynic/self_proposals.json (rolling cap F(10)=55)
-  â€¢ Emitted as SELF_IMPROVEMENT_PROPOSED on the core bus
-  â€¢ Exposed via /self-probes API and CLI `probes` command
+   Persisted to ~/.cynic/self_proposals.json (rolling cap F(10)=55)
+   Emitted as SELF_IMPROVEMENT_PROPOSED on the core bus
+   Exposed via /self-probes API and CLI `probes` command
 
-No LLM calls. Pure in-memory analysis â€" runs in <1ms.
+No LLM calls. Pure in-memory analysis " runs in <1ms.
 
 Lifecycle:
   prober = SelfProber()
@@ -65,7 +65,7 @@ def _short_id() -> str:
     return f"{random.getrandbits(32):08x}"
 
 
-# â"€â"€ Dataclass â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" Dataclass """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 @dataclass
@@ -116,12 +116,12 @@ class SelfProposal:
         )
 
 
-# â"€â"€ SelfProber â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" SelfProber """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 class SelfProber:
     """
-    L4 CYNICâ'CYNIC self-improvement loop.
+    L4 CYNIC'CYNIC self-improvement loop.
 
     Subscribes to EMERGENCE_DETECTED. On each event, runs three analyses
     and generates SelfProposal recommendations. Persists to disk.
@@ -147,7 +147,7 @@ class SelfProber:
         self._bus = bus or get_core_bus("DEFAULT")
         self._load()
 
-    # â"€â"€ Injection â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Injection """""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def set_qtable(self, qtable: Any) -> None:
         self._qtable = qtable
@@ -170,7 +170,7 @@ class SelfProber:
         """Inject ProposalExecutor for auto-apply functionality."""
         self._executor = executor
 
-    # â"€â"€ Lifecycle â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Lifecycle """""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def start(self, bus=None) -> None:
         """Subscribe to EMERGENCE_DETECTED and ANOMALY_DETECTED. Call once at kernel startup."""
@@ -193,7 +193,7 @@ class SelfProber:
             self._registered = False
             logger.info("SelfProber stopped")
 
-    # â"€â"€ Public API â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Public API """"""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def all_proposals(self) -> list[SelfProposal]:
         return list(self._proposals)
@@ -307,7 +307,7 @@ class SelfProber:
             "dismissed": counts["DISMISSED"],
         }
 
-    # â"€â"€ Analysis â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Analysis """"""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     async def analyze(
         self,
@@ -332,7 +332,7 @@ class SelfProber:
             self._proposals.append(proposal)
             self._total_proposed += 1
 
-        # Rolling cap â€" evict oldest first
+        # Rolling cap " evict oldest first
         while len(self._proposals) > _MAX_PROPOSALS:
             self._proposals.pop(0)
 
@@ -341,7 +341,7 @@ class SelfProber:
 
         return new_proposals
 
-    # â"€â"€ Analysis: QTable â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Analysis: QTable """"""""""""""""""""""""""""""""""""""""""""""""""
 
     def _analyze_qtable(
         self,
@@ -376,7 +376,7 @@ class SelfProber:
         value, visits, state_key, action = worst
         rec = (
             f"QTable: '{state_key[:40]}' action '{action}' Q={value:.3f} "
-            f"after {visits} visits (below ÏÂ² threshold {_LOW_Q_THRESHOLD:.3f}). "
+            f"after {visits} visits (below  threshold {_LOW_Q_THRESHOLD:.3f}). "
             f"Investigate heuristic coverage or axiom weights for this cell."
         )
         return [
@@ -393,7 +393,7 @@ class SelfProber:
             )
         ]
 
-    # â"€â"€ Analysis: EScore â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Analysis: EScore """"""""""""""""""""""""""""""""""""""""""""""""""
 
     def _analyze_escore(
         self,
@@ -443,7 +443,7 @@ class SelfProber:
 
         return proposals
 
-    # â"€â"€ Analysis: Residual / Config â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Analysis: Residual / Config """""""""""""""""""""""""""""""""""""""
 
     def _analyze_residual(
         self,
@@ -453,8 +453,8 @@ class SelfProber:
     ) -> list[SelfProposal]:
         """
         Pattern-specific parameter suggestions.
-          STABLE_HIGH â' re-run probe calibration (axiom weights drift)
-          RISING      â' reduce ANOMALY_THRESHOLD or add dog diversity
+          STABLE_HIGH ' re-run probe calibration (axiom weights drift)
+          RISING      ' reduce ANOMALY_THRESHOLD or add dog diversity
         """
         if self._residual is None:
             return []
@@ -485,7 +485,7 @@ class SelfProber:
         rec = (
             f"RISING residual pattern (severity={severity:.3f}): "
             f"Dog disagreement is escalating. "
-            f"Consider lowering ANOMALY_THRESHOLD (0.382â'0.300) or adding dog diversity."
+            f"Consider lowering ANOMALY_THRESHOLD (0.382'0.300) or adding dog diversity."
         )
         return [
             SelfProposal(
@@ -501,7 +501,7 @@ class SelfProber:
             )
         ]
 
-    # â"€â"€ Analysis: Architecture â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Analysis: Architecture """"""""""""""""""""""""""""""""""""""""""""""""
 
     def _analyze_architecture(
         self,
@@ -509,7 +509,7 @@ class SelfProber:
         pattern_type: str,
         severity: float,
     ) -> list[SelfProposal]:
-        """Handler coupling analysis â€" the organism understands its own structure."""
+        """Handler coupling analysis " the organism understands its own structure."""
         proposals: list[SelfProposal] = []
         if not hasattr(self, "_handler_registry") or self._handler_registry is None:
             return proposals
@@ -557,7 +557,7 @@ class SelfProber:
 
         return proposals
 
-    # — Analysis: Metrics —————————————————————————————————————————————————————
+    #  Analysis: Metrics 
 
     async def _analyze_metrics(
         self,
@@ -593,7 +593,7 @@ class SelfProber:
             logger.debug(f"_analyze_metrics error: {e}", exc_info=True)
             return []
 
-        # Convert MetricsProposal → SelfProposal
+        # Convert MetricsProposal  SelfProposal
         proposals: list[SelfProposal] = []
         for mp in metrics_proposals:
             probe_id = _short_id()
@@ -612,10 +612,10 @@ class SelfProber:
 
         return proposals
 
-    # — Event handler ————————————————————————————————————————————————————————— â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    #  Event handler  """""""""""""""""""""""""""""""""""""""""""""""""""""
 
     async def _on_emergence(self, event: Event) -> None:
-        """Handle EMERGENCE_DETECTED â' analyze â' emit SELF_IMPROVEMENT_PROPOSED."""
+        """Handle EMERGENCE_DETECTED ' analyze ' emit SELF_IMPROVEMENT_PROPOSED."""
         try:
             payload = event.dict_payload if isinstance(event.dict_payload, dict) else {}
             pattern_type = payload.get("pattern_type", "UNKNOWN")
@@ -680,7 +680,7 @@ class SelfProber:
                 except Exception as e:
                     logger.debug(f"Failed to emit SELF_IMPROVEMENT_PROPOSED: {e}")
 
-    # â"€â"€ Persistence â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Persistence """""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def _save(self) -> None:
         try:

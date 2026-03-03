@@ -4,7 +4,7 @@ AccountAgent - The Organism's Auditor.
 Tracks the total cost of all LLM judgments and manages the session budget.
 Emits BUDGET_WARNING and BUDGET_EXHAUSTED events when thresholds are crossed.
 
-φ-Law: BURN - resources are finite. Monitoring them is an Axiomatic requirement.
+-Law: BURN - resources are finite. Monitoring them is an Axiomatic requirement.
 """
 
 from __future__ import annotations

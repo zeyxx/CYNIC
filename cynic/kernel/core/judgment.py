@@ -1,5 +1,5 @@
 """
-CYNIC Judgment Models — Pydantic v2 (Fortress Mode)
+CYNIC Judgment Models  Pydantic v2 (Fortress Mode)
 
 All Pydantic models for the judgment pipeline.
 Enforces immutability, strict typing, and forbids extra fields to prevent LLM hallucination.
@@ -25,7 +25,7 @@ def new_id() -> str:
 
 class Cell(BaseModel):
     """
-    A specific point/state in the ∞^N hypercube.
+    A specific point/state in the ^N hypercube.
     """
     model_config = _STRICT
 
@@ -72,7 +72,7 @@ class Judgment(BaseModel):
     judgment_id: str = Field(default_factory=new_id)
     cell: Cell
 
-    # Output (φ-bounded)
+    # Output (-bounded)
     q_score: float = Field(ge=0.0, le=MAX_Q_SCORE)
     verdict: str = Field(description="HOWL/WAG/GROWL/BARK")
     confidence: float = Field(ge=0.0, le=MAX_CONFIDENCE)
@@ -136,7 +136,7 @@ class EScoreDimension(BaseModel):
 
 
 class EScore(BaseModel):
-    """Agent reputation score across 7 φ-weighted dimensions."""
+    """Agent reputation score across 7 -weighted dimensions."""
     model_config = _STRICT
     agent_id: str
     total: float = Field(ge=0.0, le=100.0)

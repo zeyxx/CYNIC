@@ -1,5 +1,5 @@
 """
-ReflexCycleHandler â€" L3 REFLEX consciousness cycle (fast, non-LLM).
+ReflexCycleHandler " L3 REFLEX consciousness cycle (fast, non-LLM).
 
 Extracted from JudgeOrchestrator._cycle_reflex().
 

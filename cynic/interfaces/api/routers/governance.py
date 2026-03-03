@@ -29,7 +29,7 @@ from cynic.kernel.core.unified_state import (
 from cynic.kernel.security.rbac import Resource, Permission
 
 
-# â"€â"€ Request Models â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" Request Models """"""""""""""""""""""""""""""""""""""""""""""""""
 class ProposalRequest(BaseModel):
     """Request to submit a new governance proposal."""
     community_id: str
@@ -62,7 +62,7 @@ class OutcomeRequest(BaseModel):
     outcome: str
     executor_id: str = Field(default="", alias="executor")
 
-# â"€â"€ Response Models â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" Response Models """""""""""""""""""""""""""""""""""""""""""""""""
 
 class RegisterCommunityRequest(BaseModel):
     """Request to register or update a governance community."""

@@ -27,7 +27,7 @@ class TopologyLayer(Static):
 
         return Panel(
             table,
-            title="ðŸ—ï¸ TOPOLOGY CONSCIOUSNESS",
+            title=" TOPOLOGY CONSCIOUSNESS",
             border_style="magenta",
             expand=False
         )

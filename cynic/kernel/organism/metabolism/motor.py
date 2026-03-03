@@ -1,9 +1,9 @@
 """
-Motor System — CYNIC's Muscles.
+Motor System  CYNIC's Muscles.
 Anatomy: Central Nervous System (Motor Cortex) to Effectors.
 
 Coordinates actions with metabolic costs and hardware constraints.
-Axiom Alignment: BURN — gestures must have a measurable physical impact and cost.
+Axiom Alignment: BURN  gestures must have a measurable physical impact and cost.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ class MotorSystem:
 
         # 2. Budget Check (Energy survival)
         if actual_cost > self.MAX_ACTION_COST:
-            logger.warning(f"[{self.bus.instance_id}] 🚫 Action blocked: cost {actual_cost:.4f} > MAX {self.MAX_ACTION_COST}")
+            logger.warning(f"[{self.bus.instance_id}]  Action blocked: cost {actual_cost:.4f} > MAX {self.MAX_ACTION_COST}")
             return {"success": False, "error": "cost_too_high"}
 
         if self.state:
@@ -63,7 +63,7 @@ class MotorSystem:
             stats = await self.state.get_stats()
             total_spent = stats.get("total_spent_usd", 0.0)
             if total_spent + actual_cost > self.DAILY_BUDGET:
-                logger.critical(f"[{self.bus.instance_id}] 🛑 DAILY BUDGET EXHAUSTED ({total_spent:.2f}). Blocking action.")
+                logger.critical(f"[{self.bus.instance_id}]  DAILY BUDGET EXHAUSTED ({total_spent:.2f}). Blocking action.")
                 return {"success": False, "error": "budget_exhausted"}
 
         # 3. Effector execution

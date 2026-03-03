@@ -1,4 +1,4 @@
-"""CYNIC GitWatcher â€" CODEÃ-PERCEIVE/REFLEX every F(5)=5s."""
+"""CYNIC GitWatcher " CODE-PERCEIVE/REFLEX every F(5)=5s."""
 
 from __future__ import annotations
 
@@ -15,10 +15,10 @@ class GitWatcher(PerceiveWorker):
     """
     Monitors git working tree for uncommitted changes.
 
-    Submits CODEÃ-PERCEIVE at REFLEX level when new changes are detected.
+    Submits CODE-PERCEIVE at REFLEX level when new changes are detected.
     Deduplicates: only submits when the change set actually differs from last check.
 
-    interval: F(5)=5s â€" git status is fast (<50ms), harmless to run often.
+    interval: F(5)=5s " git status is fast (<50ms), harmless to run often.
     """
 
     level = ConsciousnessLevel.REFLEX

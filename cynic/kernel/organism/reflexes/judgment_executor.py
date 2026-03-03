@@ -5,10 +5,10 @@ Listens to JUDGMENT_REQUESTED events and executes the full judgment cycle.
 This handler bridges the event-driven API layer with the orchestrator.
 
 Pattern:
-  1. POST /judge â’ emit JUDGMENT_REQUESTED (return immediately)
-  2. JudgmentExecutorHandler listens â’ orchestrator.run(cell, level)
-  3. orchestrator returns Judgment â’ emit JUDGMENT_CREATED
-  4. GET /judge/{id} â’ query ConsciousState (has result from JUDGMENT_CREATED)
+  1. POST /judge  emit JUDGMENT_REQUESTED (return immediately)
+  2. JudgmentExecutorHandler listens  orchestrator.run(cell, level)
+  3. orchestrator returns Judgment  emit JUDGMENT_CREATED
+  4. GET /judge/{id}  query ConsciousState (has result from JUDGMENT_CREATED)
 """
 
 from __future__ import annotations

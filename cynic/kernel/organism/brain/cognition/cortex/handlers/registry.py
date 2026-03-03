@@ -1,7 +1,7 @@
 """
-HandlerRegistry â€" Centralized consciousness handler instance storage.
+HandlerRegistry " Centralized consciousness handler instance storage.
 
-Part of Phase 2B: Orchestration Refactoring â€" explicit handler composition DAG.
+Part of Phase 2B: Orchestration Refactoring " explicit handler composition DAG.
 
 Responsibility:
 - Register handler instances by ID
@@ -76,7 +76,7 @@ class HandlerRegistry:
         Get copy of all registered handlers.
 
         Returns:
-            dict mapping handler_id â' BaseHandler instance
+            dict mapping handler_id ' BaseHandler instance
         """
         return self.handlers.copy()
 
@@ -130,7 +130,7 @@ class HandlerRegistry:
         Get summary metadata for all registered handlers.
 
         Returns:
-            dict mapping handler_id â' {version, description, handler_class}
+            dict mapping handler_id ' {version, description, handler_class}
         """
         result = {}
         for handler_id, handler in self.handlers.items():

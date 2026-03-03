@@ -1,5 +1,5 @@
 """
-CYNIC Handler Groups â€" N-Tier Orchestrator Decomposition
+CYNIC Handler Groups " N-Tier Orchestrator Decomposition
 
 Phase 2A: Break JudgeOrchestrator (1159 LOC, 15 methods) into 8 composable handlers.
 
@@ -11,14 +11,14 @@ Each handler:
 
 Architecture:
   BaseHandler (interface)
-    â"œâ"€â"€ LevelSelector (consciousness level selection + budget control)
-    â"œâ"€â"€ Reflex CycleHandler (L3 non-LLM path)
-    â"œâ"€â"€ MicroCycleHandler (L2 voting dogs path)
-    â"œâ"€â"€ MacroCycleHandler (L1 full cycle)
-    â"œâ"€â"€ ActHandler (DECIDE + ACT phases)
-    â"œâ"€â"€ EvolveHandler (L4 meta-cycle)
-    â"œâ"€â"€ BudgetManager (resource limits + LOD enforcement)
-    â""â"€â"€ OrchestrationController (router: run â' select level â' dispatch handler)
+    """ LevelSelector (consciousness level selection + budget control)
+    """ Reflex CycleHandler (L3 non-LLM path)
+    """ MicroCycleHandler (L2 voting dogs path)
+    """ MacroCycleHandler (L1 full cycle)
+    """ ActHandler (DECIDE + ACT phases)
+    """ EvolveHandler (L4 meta-cycle)
+    """ BudgetManager (resource limits + LOD enforcement)
+    """" OrchestrationController (router: run ' select level ' dispatch handler)
 
 Benefits:
 - Single Responsibility Principle (each handler does one thing)

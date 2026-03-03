@@ -35,7 +35,7 @@ class ReasoningEngine:
 
             lines.append("Key axiom influences:")
             for axiom, score in high_axioms:
-                lines.append(f"  â€¢ {axiom}: {score:.1%}")
+                lines.append(f"   {axiom}: {score:.1%}")
 
         # Add dog vote summary
         dog_votes = judgment.get("dog_votes", {})

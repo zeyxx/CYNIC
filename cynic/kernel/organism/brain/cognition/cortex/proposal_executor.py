@@ -1,18 +1,18 @@
 """
-ProposalExecutor — Risk classification and dimension-specific execution handlers.
+ProposalExecutor  Risk classification and dimension-specific execution handlers.
 
 Classifies SelfProposal instances by risk level and executes them with appropriate
 handlers for each dimension (QTABLE, METRICS, ESCORE, RESIDUAL, ARCHITECTURE).
 
 Risk levels:
-  LOW_RISK        — Severity < 0.2 (METRICS/QTABLE only); auto-executable
-  REVIEW_REQUIRED — Severity >= 0.5 OR special dimensions (ESCORE/RESIDUAL/ARCH);
+  LOW_RISK         Severity < 0.2 (METRICS/QTABLE only); auto-executable
+  REVIEW_REQUIRED  Severity >= 0.5 OR special dimensions (ESCORE/RESIDUAL/ARCH);
                      requires manual approval before execution
-  NOT_EXECUTABLE  — No handler available for dimension
+  NOT_EXECUTABLE   No handler available for dimension
 
 Execution flow:
-  1. classify_risk(proposal) → RiskLevel
-  2. execute(proposal) → ExecutionResult (success, dimension, message, new_value)
+  1. classify_risk(proposal)  RiskLevel
+  2. execute(proposal)  ExecutionResult (success, dimension, message, new_value)
 
 Usage:
     executor = ProposalExecutor()
@@ -93,7 +93,7 @@ class ProposalExecutor:
         self._circuit_open_at: float | None = None  # Timestamp when circuit opened
         self._circuit_reset_timeout_s: float = 300.0  # 5 minutes
 
-    # — Injection —————————————————————————————————————————————————————————————
+    #  Injection 
 
     def set_qtable(self, qtable: Any) -> None:
         """Inject QTable for QTABLE dimension execution."""
@@ -205,18 +205,18 @@ class ProposalExecutor:
         if len(self._last_execution_times) > 10:
             self._last_execution_times.pop(0)
 
-    # — Risk Classification ————————————————————————————————————————————————————
+    #  Risk Classification 
 
     def classify_risk(self, proposal: Any) -> RiskLevel:
         """
         Classify proposal by risk level.
 
         Rules:
-        - ESCORE/RESIDUAL/ARCHITECTURE → always REVIEW_REQUIRED
-        - METRICS/QTABLE + severity < 0.2 → LOW_RISK
-        - METRICS/QTABLE + severity >= 0.5 → REVIEW_REQUIRED
-        - METRICS/QTABLE + 0.2 <= severity < 0.5 → REVIEW_REQUIRED (cautious)
-        - Other dimensions → NOT_EXECUTABLE
+        - ESCORE/RESIDUAL/ARCHITECTURE  always REVIEW_REQUIRED
+        - METRICS/QTABLE + severity < 0.2  LOW_RISK
+        - METRICS/QTABLE + severity >= 0.5  REVIEW_REQUIRED
+        - METRICS/QTABLE + 0.2 <= severity < 0.5  REVIEW_REQUIRED (cautious)
+        - Other dimensions  NOT_EXECUTABLE
 
         Args:
             proposal: SelfProposal instance
@@ -242,7 +242,7 @@ class ProposalExecutor:
         # Step 3: Unknown dimensions
         return RiskLevel.NOT_EXECUTABLE
 
-    # — Execution ——————————————————————————————————————————————————————————————
+    #  Execution 
 
     async def execute(self, proposal: Any) -> ExecutionResult:
         """
@@ -309,7 +309,7 @@ class ProposalExecutor:
 
         return result
 
-    # — Dimension Handlers —————————————————————————————————————————————————————
+    #  Dimension Handlers 
 
     async def _execute_qtable(self, proposal: Any) -> ExecutionResult:
         """

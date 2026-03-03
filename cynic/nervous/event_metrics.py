@@ -2,10 +2,10 @@
 EventMetricsCollector - Rolling-window metrics over the EventBus stream.
 
 Tracks per-event-type rates, latency histograms, and error rates
-within a φ-derived observation window (SIGNAL_TTL_SEC = 55 s).
+within a -derived observation window (SIGNAL_TTL_SEC = 55 s).
 
 Anomaly types:
-  RATE_SPIKE   - recent rate > baseline × PHI (1.618)
+  RATE_SPIKE   - recent rate > baseline  PHI (1.618)
   ERROR_SPIKE  - error_rate > PHI_INV (0.618)
   LATENCY_SPIKE - duration_ms > LOD_LEVEL3 (3000 ms)
 
@@ -38,10 +38,10 @@ logger = logging.getLogger("cynic.nervous.event_metrics")
 
 # Histogram bucket boundaries and labels (inclusive upper bound)
 _BUCKETS: list[tuple[float, str]] = [
-    (LOD_LEVEL0_LATENCY_MS, f"≤{int(LOD_LEVEL0_LATENCY_MS)}ms"),   # ≤100ms  REFLEX
-    (LOD_LEVEL1_LATENCY_MS, f"≤{int(LOD_LEVEL1_LATENCY_MS)}ms"),   # ≤300ms  MICRO
-    (LOD_LEVEL2_LATENCY_MS, f"≤{int(LOD_LEVEL2_LATENCY_MS)}ms"),   # ≤1000ms MACRO
-    (LOD_LEVEL3_LATENCY_MS, f"≤{int(LOD_LEVEL3_LATENCY_MS)}ms"),   # ≤3000ms META
+    (LOD_LEVEL0_LATENCY_MS, f"{int(LOD_LEVEL0_LATENCY_MS)}ms"),   # 100ms  REFLEX
+    (LOD_LEVEL1_LATENCY_MS, f"{int(LOD_LEVEL1_LATENCY_MS)}ms"),   # 300ms  MICRO
+    (LOD_LEVEL2_LATENCY_MS, f"{int(LOD_LEVEL2_LATENCY_MS)}ms"),   # 1000ms MACRO
+    (LOD_LEVEL3_LATENCY_MS, f"{int(LOD_LEVEL3_LATENCY_MS)}ms"),   # 3000ms META
     (float("inf"),          f">{int(LOD_LEVEL3_LATENCY_MS)}ms"),    # >3000ms OVER
 ]
 
@@ -59,10 +59,10 @@ class EventTypeMetrics:
     """Computed metrics for a single event type within the observation window."""
     event_type: str
     count_in_window: int        # events within SIGNAL_TTL_SEC
-    rate_per_min: float         # count_in_window × 60 / SIGNAL_TTL_SEC
+    rate_per_min: float         # count_in_window  60 / SIGNAL_TTL_SEC
     error_count: int
     error_rate: float           # error_count / max(count_in_window, 1)
-    histogram: dict[str, int]   # bucket_label → count (duration_ms distribution)
+    histogram: dict[str, int]   # bucket_label  count (duration_ms distribution)
     last_seen_ms: float
 
     def to_dict(self) -> dict[str, Any]:
@@ -175,7 +175,7 @@ class EventMetricsCollector:
                 recent = [s for s in all_samples if (now_ms - s.timestamp_ms) <= half_window]
                 older  = [s for s in all_samples if half_window < (now_ms - s.timestamp_ms) <= self._window_ms]
 
-                # RATE_SPIKE: recent half-window rate > older half-window rate × PHI
+                # RATE_SPIKE: recent half-window rate > older half-window rate  PHI
                 if older and recent:
                     recent_rate = len(recent) / (half_window / 1000.0 / 60.0)  # /min
                     older_rate  = len(older)  / (half_window / 1000.0 / 60.0)
@@ -189,7 +189,7 @@ class EventMetricsCollector:
                             metric_value=recent_rate,
                             threshold_value=threshold,
                             severity=severity,
-                            message=f"{event_type} rate {recent_rate:.1f}/min > {threshold:.1f}/min (×PHI baseline)",
+                            message=f"{event_type} rate {recent_rate:.1f}/min > {threshold:.1f}/min (PHI baseline)",
                         )
                         self._anomalies.append(record)
                         newly_detected.append(record)

@@ -56,16 +56,16 @@ class CliApp:
             Labels are descriptive text for the menu option.
         """
         return [
-            ("1", "ðŸ'ï¸  OBSERVE     - Watch all three streams"),
-            ("2", "ðŸ'­ CYNIC MIND   - Deep dive into CYNIC"),
-            ("3", "ðŸ§  YOUR STATE   - Your energy, focus"),
-            ("4", "âš™ï¸  MACHINE      - Resources"),
-            ("B", "ðŸ¦´ BODY         - Live Embodied TUI (NEW)"),
-            ("5", "ðŸ¤ FEDERATION   - P2P gossip status"),
-            ("6", "ðŸ'¬ TALK         - Chat"),
-            ("7", "ðŸ"Š HISTORY      - Decisions"),
-            ("8", "ðŸŽ›ï¸  FEEDBACK     - Feedback"),
-            ("9", "ðŸš€ ACTUATE      - Actions"),
+            ("1", "'  OBSERVE     - Watch all three streams"),
+            ("2", "' CYNIC MIND   - Deep dive into CYNIC"),
+            ("3", " YOUR STATE   - Your energy, focus"),
+            ("4", "  MACHINE      - Resources"),
+            ("B", " BODY         - Live Embodied TUI (NEW)"),
+            ("5", " FEDERATION   - P2P gossip status"),
+            ("6", "' TALK         - Chat"),
+            ("7", "" HISTORY      - Decisions"),
+            ("8", "  FEEDBACK     - Feedback"),
+            ("9", " ACTUATE      - Actions"),
             ("0", "EXIT"),
         ]
 

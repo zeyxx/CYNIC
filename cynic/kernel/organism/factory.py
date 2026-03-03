@@ -1,5 +1,5 @@
 """
-CYNIC Organism Factory — The Awakening Logic.
+CYNIC Organism Factory - The Awakening Logic.
 
 Handles the complex instantiation and wiring of all organism components.
 """
@@ -37,8 +37,9 @@ from cynic.kernel.organism.reflexes import (
     SensoryServices,
     discover_handler_groups,
 )
-from cynic.kernel.organism.layers.embodiment import HardwareBody
-from cynic.kernel.organism.layers.motor import MotorSystem
+from cynic.kernel.organism.metabolism.embodiment import HardwareBody
+from cynic.kernel.organism.metabolism.motor import MotorSystem
+
 from cynic.kernel.organism.metabolism.llm_router import LLMRouter
 from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
 from cynic.kernel.organism.perception.senses.compressor import ContextCompressor
@@ -112,32 +113,32 @@ class _OrganismAwakener:
         except Exception as e:
             logger.warning(f"Factory: Redis not available, running in Local-Only mode: {e}")
 
-        # 0e. EVENT JOURNAL — records every bus event automatically
+        # 0e. EVENT JOURNAL - records every bus event automatically
         self.journal = EventJournal()
         self._journal_adapter = BusJournalAdapter(self.journal)
         self.core_bus.on("*", self._journal_adapter.on_event)
 
-        # 0c. DECISION TRACER — builds reasoning DAGs per judgment
+        # 0c. DECISION TRACER - builds reasoning DAGs per judgment
         self.tracer = DecisionTracer()
 
-        # 0d. LOOP CLOSURE VALIDATOR — detects stalled / orphaned judgment cycles
+        # 0d. LOOP CLOSURE VALIDATOR - detects stalled / orphaned judgment cycles
         self.loop_validator = LoopClosureValidator()
         self._loop_adapter = BusLoopClosureAdapter(self.loop_validator)
         self.core_bus.on("*", self._loop_adapter.on_event)
 
-        # 0e. STATE RECONSTRUCTOR — audit journal + traces + loop state
+        # 0e. STATE RECONSTRUCTOR - audit journal + traces + loop state
         self.reconstructor = StateReconstructor(
             journal=self.journal,
             tracer=self.tracer,
             validator=self.loop_validator,
         )
 
-        # 0f. EVENT METRICS COLLECTOR — rolling rates, histograms, anomaly detection
+        # 0f. EVENT METRICS COLLECTOR - rolling rates, histograms, anomaly detection
         self.metrics_collector = EventMetricsCollector()
         self._metrics_adapter = BusMetricsAdapter(self.metrics_collector, bus=self.core_bus)
         self.core_bus.on("*", self._metrics_adapter.on_event)
 
-        # 0g. AUDIT LOGGING HANDLER — subscribes to security/auth events for compliance
+        # 0g. AUDIT LOGGING HANDLER - subscribes to security/auth events for compliance
         audit_logger = AuditLogger() if self.storage is None else AuditLogger(storage=self.storage)
         self._audit_handler = AuditLoggingHandler(audit_logger)
         # Subscribe to security-related events
@@ -179,10 +180,21 @@ class _OrganismAwakener:
         # 1. BASE STATE
         self.state = OrganismState(instance_id=instance_id, storage=self.storage, bus=self.core_bus)
         
+        # 1a. DNA & WILL (Axiomatic Foundation)
+        import time
+        from cynic.kernel.organism.brain.identity import OrganismIdentity
+        from cynic.kernel.organism.brain.judgment_engine import JudgmentEngine
+        
+        self.identity = OrganismIdentity(
+            name="CYNIC",
+            birth_timestamp=time.time()
+        )
+        self.judgment_engine = JudgmentEngine(
+            identity=self.identity,
+            algorithm="pbft"
+        )
+
         # 1b. LLM REGISTRY (Isolated)
-        # Multi-provider routing with sovereignty-first selection:
-        # Priority: local GGUF > Ollama > CLI tools > cloud APIs
-        # Used by DialogueMode for universal LLM access (not hardcoded to single provider)
         from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
         self.llm_registry = LLMRegistry(vascular=self.vascular)
         await self.llm_registry.discover(
@@ -242,6 +254,8 @@ class _OrganismAwakener:
             instance_id=instance_id,
             llm_registry=self.llm_registry,
             consciousness=self.consciousness,
+            identity=self.identity,
+            judgment_engine=self.judgment_engine,
         )
         self.orchestrator.service_registry = self.service_registry
 
@@ -265,7 +279,7 @@ class _OrganismAwakener:
         self.body = HardwareBody(bus=self.core_bus)
         self.motor = MotorSystem(bus=self.core_bus, body=self.body, state_manager=self.state)
         
-        # Îº-NET Somatic Server
+        # -NET Somatic Server
         self.knet_server = KNetServer(
             bus=self.core_bus,
             host=self.config.knet_host,
@@ -286,7 +300,8 @@ class _OrganismAwakener:
         from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
 
         self.runner = ClaudeCodeRunner(bus=self.agent_bus, sessions_registry={})
-        self.telemetry_store = None  # Placeholder
+        from cynic.kernel.organism.metabolism.telemetry import TelemetryStore
+        self.telemetry_store = TelemetryStore(maxlen=1000)
 
         # 5. SENSES (Perception)
         self.context_compressor = ContextCompressor()
@@ -378,10 +393,10 @@ class _OrganismAwakener:
         self.self_prober.set_residual_detector(self.residual_detector)
         self.self_prober.set_escore_tracker(self.escore_tracker)
 
-        # 6b. METRICS → SELFPROBER WIRING
+        # 6b. METRICS - SELFPROBER WIRING
         self.self_prober.set_metrics_collector(self.metrics_collector)
 
-        # 6c. PROPOSAL EXECUTOR → SELFPROBER WIRING
+        # 6c. PROPOSAL EXECUTOR - SELFPROBER WIRING
         self.executor = ProposalExecutor()
         self.self_prober.set_executor(self.executor)
 
@@ -402,6 +417,8 @@ class _OrganismAwakener:
             account_agent=self.account_agent,
             axiom_monitor=self.axiom_monitor,
             lod_controller=self.lod_controller,
+            identity=self.identity,
+            judgment_engine=self.judgment_engine,
         )
 
         metabolism = MetabolicCore(
@@ -443,13 +460,14 @@ class _OrganismAwakener:
 
         from cynic.kernel.organism.organism import Organism
 
-        return Organism(
+        organism = Organism(
             cognition=cognition,
             metabolism=metabolism,
             senses=senses,
             memory=memory,
             state=self.state,
             instance_id=instance_id,
+            storage=self.storage,
             vascular=self.vascular,
             bridge=self.bridge,
             automation_bus=self.automation_bus,
@@ -458,7 +476,6 @@ class _OrganismAwakener:
             _pool=self.db_pool,
             container=get_container(),
         )
-
 
         # Attach EventForwarder for SIEM logging (PHASE 2)
         organism.event_forwarder = self.event_forwarder

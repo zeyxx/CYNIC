@@ -1,5 +1,5 @@
 """
-OrganismState — Single source of truth for all CYNIC state.
+OrganismState  Single source of truth for all CYNIC state.
 
 REACTIVE MATERIALIZED VIEW:
 This class acts as a fast, RAM-based cache of the truth stored in SurrealDB.

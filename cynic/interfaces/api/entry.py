@@ -6,8 +6,8 @@ Usage:
   python -m cynic.interfaces.api.entry --port 9000
   DATABASE_URL=postgresql://... python -m cynic.interfaces.api.entry
 
-Port 8765 = Ï-derived: 8 (F(6)) Ã- 765... just looks good.
-Actually: floor(Ïâµ Ã- 1000) = floor(11.09 Ã- 1000) = 11090 â' too big â' 8765 (manual pick).
+Port 8765 = -derived: 8 (F(6)) - 765... just looks good.
+Actually: floor( - 1000) = floor(11.09 - 1000) = 11090 ' too big ' 8765 (manual pick).
 The real reason: it doesn't conflict with common ports (3000, 8000, 8080, 8888).
 """
 import argparse
@@ -19,7 +19,7 @@ from cynic.kernel.core.config import CynicConfig
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(name)s] %(levelname)s â€" %(message)s",
+    format="%(asctime)s [%(name)s] %(levelname)s " %(message)s",
 )
 
 logger = logging.getLogger("cynic.interfaces.api.entry")

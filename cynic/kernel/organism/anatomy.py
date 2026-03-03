@@ -1,5 +1,5 @@
 """
-CYNIC Organism Anatomy â€" Structural cores.
+CYNIC Organism Anatomy - Structural cores.
 
 Defines the 4 biological systems that compose the Organism.
 """
@@ -19,8 +19,8 @@ if TYPE_CHECKING:
     from cynic.kernel.organism.brain.cognition.cortex.lod import LODController
 
     from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
-    from cynic.kernel.organism.layers.embodiment import HardwareBody
-    from cynic.kernel.organism.layers.motor import MotorSystem
+    from cynic.kernel.organism.metabolism.embodiment import HardwareBody
+    from cynic.kernel.organism.metabolism.motor import MotorSystem
     from cynic.kernel.organism.metabolism.claude_sdk import ClaudeCodeRunner
     from cynic.kernel.organism.metabolism.llm_router import LLMRouter
 
@@ -57,6 +57,8 @@ class CognitionCore:
     account_agent: Optional[AccountAgent] = None
     axiom_monitor: Optional[AxiomMonitor] = None
     lod_controller: Optional[LODController] = None
+    identity: Optional[Any] = None
+    judgment_engine: Optional[Any] = None
 
 
 @dataclass(frozen=True)

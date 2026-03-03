@@ -3,30 +3,30 @@ CYNIC Fractal-Dynamic-Contextual Axiom Architecture
 
 9 Practical Axioms (5 Core + 4 Measurable Emergent) + 2 Transcendent States:
 
-TIER 0 â€" CORE (A1-A5, always active, never deactivate):
-    A1. FIDELITY    â€" Truth loyalty, dynamic facets
-    A2. PHI         â€" Harmonic proportion, dynamic facets
-    A3. VERIFY      â€" Evidence & consensus, dynamic facets
-    A4. CULTURE     â€" Memory & patterns, dynamic facets
-    A5. BURN        â€" Simplicity & action, dynamic facets
+TIER 0 " CORE (A1-A5, always active, never deactivate):
+    A1. FIDELITY    " Truth loyalty, dynamic facets
+    A2. PHI         " Harmonic proportion, dynamic facets
+    A3. VERIFY      " Evidence & consensus, dynamic facets
+    A4. CULTURE     " Memory & patterns, dynamic facets
+    A5. BURN        " Simplicity & action, dynamic facets
 
-TIER 2 â€" EMERGENT (A6-A9, activate at maturity thresholds):
-    A6. AUTONOMY    â€" Dogs coordinate without human approval
-    A7. SYMBIOSIS   â€" HumanÃ-Machine mutual value creation
-    A8. EMERGENCE   â€" Patterns beyond core axioms (residual > Ïâ»Â²)
-    A9. ANTIFRAGILITY â€" System improves from chaos
+TIER 2 " EMERGENT (A6-A9, activate at maturity thresholds):
+    A6. AUTONOMY    " Dogs coordinate without human approval
+    A7. SYMBIOSIS   " Human-Machine mutual value creation
+    A8. EMERGENCE   " Patterns beyond core axioms (residual > )
+    A9. ANTIFRAGILITY " System improves from chaos
 
 TIER 2 TRANSCENDENT (A10-A11, states not directly implementable):
-    A10. CONSCIOUSNESS â€" System observes its own thinking accurately
-    A11. TRANSCENDENCE â€" All axioms active + phase transition detected
+    A10. CONSCIOUSNESS " System observes its own thinking accurately
+    A11. TRANSCENDENCE " All axioms active + phase transition detected
 
-TIER 3: THE_UNNAMEABLE â€" Residual inexplicable variance (pointer to âˆž)
+TIER 3: THE_UNNAMEABLE " Residual inexplicable variance (pointer to )
 
 Scoring:
     - Each axiom scored 0-100 across dynamic fractal facets
     - Contextual weights per domain (CODE/SOLANA/MARKET/SOCIAL/HUMAN/CYNIC/COSMOS)
-    - Weighted geometric mean â' Q-Score âˆˆ [0, 100] (confidence Ï-bounded to 61.8%)
-    - Fractal recursion: facets â' sub-facets (max 3 levels deep)
+    - Weighted geometric mean ' Q-Score  [0, 100] (confidence -bounded to 61.8%)
+    - Fractal recursion: facets ' sub-facets (max 3 levels deep)
 """
 
 from __future__ import annotations
@@ -53,9 +53,9 @@ from cynic.kernel.core.phi import (
     weighted_geometric_mean,
 )
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # AXIOM NAMES & TIER DEFINITIONS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class Axiom(StrEnum):
@@ -101,9 +101,9 @@ PRACTICAL_AXIOMS: list[Axiom] = CORE_AXIOMS + [
 ]
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # BOOTSTRAP FACETS (STATIC FALLBACK)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 AXIOM_FACETS: dict[str, dict[str, str]] = {
     "FIDELITY": {
@@ -122,7 +122,7 @@ AXIOM_FACETS: dict[str, dict[str, str]] = {
         "HARMONY": "Balance between all components (none dominates)",
         "PRECISION": "Exactitude in measurement and language",
         "COMPLETENESS": "Nothing essential is missing",
-        "PROPORTION": "Ï-aligned ratios in scale and scope",
+        "PROPORTION": "-aligned ratios in scale and scope",
     },
     "VERIFY": {
         "ACCURACY": "Correctness of facts and computations",
@@ -154,9 +154,9 @@ AXIOM_FACETS: dict[str, dict[str, str]] = {
 }
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # CONTEXTUAL WEIGHTS PER DOMAIN
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class Domain(StrEnum):
@@ -273,9 +273,9 @@ class FacetRegistry:
         self._cache[cache_key][facet] = description
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # ACTIVATION THRESHOLDS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 @dataclass
@@ -291,7 +291,7 @@ EMERGENT_THRESHOLDS: dict[str, EmergentThreshold] = {
     ),
     "SYMBIOSIS": EmergentThreshold(
         conditions={"human_trust": PHI_INV_2, "machine_utility": PHI_INV_2},
-        description="Mutual humanÃ-machine value creation demonstrated",
+        description="Mutual human-machine value creation demonstrated",
     ),
     "EMERGENCE": EmergentThreshold(
         conditions={"residual_variance": PHI_INV_2},
@@ -307,14 +307,15 @@ EMERGENT_THRESHOLDS: dict[str, EmergentThreshold] = {
     ),
     "TRANSCENDENCE": EmergentThreshold(
         conditions={"all_axioms_active": 1.0, "phase_transition": 1.0},
-        description="Qualitative leap â€" THE_UNNAMEABLE understood",
+        description="Qualitative leap - THE_UNNAMEABLE understood",
+
     ),
 }
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # VERDICT & RESULTS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class Verdict(StrEnum):
@@ -376,9 +377,9 @@ class AxiomArchitectureState:
     activation_log: list[dict] = field(default_factory=list)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # AXIOM ARCHITECTURE
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class AxiomArchitecture:

@@ -1,6 +1,6 @@
 """
-Îº-NET Handler â€" Bridges Organism Events to the Îº-NET Protocol.
-Listens to internal events and broadcasts them as Îº-PULSE messages.
+-NET Handler " Bridges Organism Events to the -NET Protocol.
+Listens to internal events and broadcasts them as -PULSE messages.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from cynic.kernel.protocol.kpulse import PulseMessage, PulseType
 logger = logging.getLogger("cynic.kernel.organism.reflexes.knet")
 
 class KNetHandler(HandlerGroup):
-    """Bridges internal consciousness to the distributed Îº-NET nerves."""
+    """Bridges internal consciousness to the distributed -NET nerves."""
 
     def __init__(self, sensory: SensoryServices, bus: Optional[EventBus] = None) -> None:
         super().__init__(bus=bus)
@@ -35,7 +35,7 @@ class KNetHandler(HandlerGroup):
         ]
 
     async def _on_pulse(self, event: Event) -> None:
-        """Capture internal event and broadcast as Îº-PULSE."""
+        """Capture internal event and broadcast as -PULSE."""
         try:
             # 1. Get the knet server (async lazy init)
             if not self._server:
@@ -81,4 +81,4 @@ class KNetHandler(HandlerGroup):
             await self._server.broadcast(pulse)
 
         except Exception as e:
-            logger.debug(f"Îº-NET Handler error: {e}")
+            logger.debug(f"-NET Handler error: {e}")

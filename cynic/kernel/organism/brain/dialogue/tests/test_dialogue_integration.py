@@ -13,7 +13,7 @@ from cynic.kernel.organism.brain.learning.memory_store import MemoryStore
 
 @pytest.mark.asyncio
 async def test_full_dialogue_workflow(tmp_path):
-    """Full workflow: user question â’ reasoning â’ response â’ storage."""
+    """Full workflow: user question  reasoning  response  storage."""
     # Initialize storage
     storage = DialogueStore(tmp_path / "dialogue.db")
     await storage.initialize()
@@ -164,7 +164,7 @@ async def test_decision_rejection_handling():
 
 @pytest.mark.asyncio
 async def test_full_integration_dialogue_to_memory(tmp_path):
-    """Complete flow: dialogue â’ feedback â’ memory update â’ learning rate change."""
+    """Complete flow: dialogue  feedback  memory update  learning rate change."""
     # Setup
     storage = DialogueStore(tmp_path / "dialogue.db")
     await storage.initialize()

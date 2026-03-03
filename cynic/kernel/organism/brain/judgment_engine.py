@@ -1,4 +1,4 @@
-"""Layer 1: Judgment Engine â€" Unified Will (Not Averaging)
+"""Layer 1: Judgment Engine " Unified Will (Not Averaging)
 
 The organism doesn't take votes from dogs and average them.
 The organism judges. Dogs provide INPUT. The engine DECIDES.
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from math import exp, log
 
 from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE
-from cynic.kernel.organism.layers.identity import OrganismIdentity
+from cynic.kernel.organism.brain.identity import OrganismIdentity
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ class JudgmentEngine:
         Args:
             identity: Layer 0 (OrganismIdentity with axiom constraints)
             algorithm: How to compute unified will from dog inputs
-                - "geometric_mean": log-weighted average (Ï-respecting)
+                - "geometric_mean": log-weighted average (-respecting)
                 - "highest_confidence": pick dog with highest confidence
                 - "pbft": Byzantine fault tolerant consensus
             axiom_penalty: If dog violates axiom, multiply confidence by this (0.0-1.0)
@@ -115,7 +115,7 @@ class JudgmentEngine:
             # Penalize if violated
             if violations:
                 logger.debug(
-                    "Dog %s violated axioms: %s. Penalizing confidence %.3f â' %.3f",
+                    "Dog %s violated axioms: %s. Penalizing confidence %.3f ' %.3f",
                     dog_input.dog_id,
                     violations,
                     dog_input.confidence,
@@ -128,14 +128,14 @@ class JudgmentEngine:
         return penalized
 
     def _compute_geometric_mean(self, dog_inputs: list[DogInput]) -> float:
-        """Compute Q-Score as Ï-bounded geometric mean.
+        """Compute Q-Score as -bounded geometric mean.
 
         Formula (from MEMORY.md):
             log_sum = sum(weight[p] * log(max(score, 0.1)) for each dog)
             geo_mean = exp(log_sum / total_weight)
             return clamp(geo_mean, 0, 100)
 
-        This respects Ï and prevents extreme values.
+        This respects  and prevents extreme values.
         """
         if not dog_inputs:
             return 50.0  # Neutral default
@@ -212,7 +212,7 @@ class JudgmentEngine:
     def _compute_unified_confidence(self, dog_inputs: list[DogInput]) -> float:
         """Compute unified confidence from dog inputs.
 
-        Average confidence, capped at Ïâ»Â¹ (0.618).
+        Average confidence, capped at  (0.618).
         High agreement increases confidence; disagreement decreases it.
         """
         if not dog_inputs:
@@ -224,7 +224,7 @@ class JudgmentEngine:
         disagreement_penalty = 1.0 - min(variance / 0.1, 1.0)  # 0 variance = 1.0, high variance = 0
 
         unified_conf = avg_conf * disagreement_penalty
-        return min(unified_conf, MAX_CONFIDENCE)  # Ï-bound
+        return min(unified_conf, MAX_CONFIDENCE)  # -bound
 
     async def judge(
         self,
@@ -241,7 +241,7 @@ class JudgmentEngine:
             UnifiedJudgment (single, unified, Layer 0 validated)
         """
         if not dog_inputs:
-            # No dogs available â€" neutral judgment
+            # No dogs available " neutral judgment
             judgment = UnifiedJudgment(
                 q_score=50.0,
                 verdict="WAG",
@@ -292,7 +292,7 @@ class JudgmentEngine:
         if violations:
             logger.warning(
                 "Unified judgment violated axioms: %s. Q=%.1f, Conf=%.3f. "
-                "This should not happen â€" Layer 0 constraint bug.",
+                "This should not happen - Layer 0 constraint bug.",
                 violations,
                 judgment.q_score,
                 judgment.confidence,

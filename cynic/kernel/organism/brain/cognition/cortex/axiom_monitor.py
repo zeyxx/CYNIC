@@ -1,5 +1,5 @@
 """
-CYNIC AxiomMonitor â€" Emergence and Transcendence Tracking (Î³3)
+CYNIC AxiomMonitor " Emergence and Transcendence Tracking (3)
 
 Monitors the activation levels of emergent axioms (A6-A9).
 Signals decay over time unless reinforced by system events.
@@ -20,7 +20,7 @@ from cynic.kernel.core.phi import GROWL_MIN, MAX_Q_SCORE, WAG_MIN
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.axiom_monitor")
 
-# Valid emergent axioms (A6-A9) â€" signal-able by external events
+# Valid emergent axioms (A6-A9) " signal-able by external events
 EMERGENT_AXIOMS = frozenset(
     {"AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY", "CONSCIOUSNESS", "TRANSCENDENCE"}
 )

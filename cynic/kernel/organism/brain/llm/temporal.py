@@ -1,5 +1,5 @@
 """
-CYNIC Temporal Judgment — 7-Perspective Fractal Scoring.
+CYNIC Temporal Judgment  7-Perspective Fractal Scoring.
 
 Evaluates a Cell across 7 temporal dimensions to build a robust Q-Score.
 This is the core reasoning engine for high-level Dogs like SAGE.

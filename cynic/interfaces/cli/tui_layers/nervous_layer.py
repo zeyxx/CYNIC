@@ -27,7 +27,7 @@ class NervousLayer(Static):
 
         return Panel(
             table,
-            title="ðŸ§  NERVOUS SYSTEM AUDIT",
+            title=" NERVOUS SYSTEM AUDIT",
             border_style="blue",
             expand=False
         )

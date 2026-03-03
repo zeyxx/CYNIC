@@ -1,36 +1,36 @@
 """
-CYNIC Q-Learning â€" TD(0) with Thompson Sampling Exploration
+CYNIC Q-Learning " TD(0) with Thompson Sampling Exploration
 
-State  = cell.state_key() â' "CODE:JUDGE:PRESENT:1" (reality:analysis:time:lod)
-Action = verdict           â' "BARK" | "GROWL" | "WAG" | "HOWL"
-Reward = q_score / 61.8   â' [0, 1] (normalized Ï-bounded reward)
+State  = cell.state_key() ' "CODE:JUDGE:PRESENT:1" (reality:analysis:time:lod)
+Action = verdict           ' "BARK" | "GROWL" | "WAG" | "HOWL"
+Reward = q_score / 61.8   ' [0, 1] (normalized -bounded reward)
 
-Algorithm: TD(0) â€" simplest correct Q-Learning variant.
-  Q(s,a) â Q(s,a) + Î Ã- (r âˆ' Q(s,a))
+Algorithm: TD(0) " simplest correct Q-Learning variant.
+  Q(s,a)  Q(s,a) +  - (r ' Q(s,a))
 
 Where:
-  Î = LEARNING_RATE = Ïâ»Â² / 10 â‰ˆ 0.038 (conservative, avoids catastrophic forgetting)
-  r = reward âˆˆ [0, 1] (normalized Q-Score from judgment)
-  Q(s,a) âˆˆ [0, 1] (stored, maps to quality of action in state)
+   = LEARNING_RATE =  / 10  0.038 (conservative, avoids catastrophic forgetting)
+  r = reward  [0, 1] (normalized Q-Score from judgment)
+  Q(s,a)  [0, 1] (stored, maps to quality of action in state)
 
 Exploration: Thompson Sampling via Beta distribution
-  For each action: sample Beta(Î_wins + 1, Î_losses + 1)
-  Pick action with highest sample â' natural Bayesian exploration
+  For each action: sample Beta(_wins + 1, _losses + 1)
+  Pick action with highest sample ' natural Bayesian exploration
 
 Persistence:
   In-memory dict (fast) + async flush to PostgreSQL q_table (durable).
-  On startup: load q_table from DB â' warm start.
+  On startup: load q_table from DB ' warm start.
 
-Ï-Integration:
-  - Learning rate = Ïâ»Â² / 10 (conservative homeostasis)
-  - Confidence cap = Ïâ»Â¹ (61.8% max certainty in any prediction)
-  - Thompson Î/Î² = Fibonacci-seeded (F(5)=5 prior, balanced exploration)
+-Integration:
+  - Learning rate =  / 10 (conservative homeostasis)
+  - Confidence cap =  (61.8% max certainty in any prediction)
+  - Thompson / = Fibonacci-seeded (F(5)=5 prior, balanced exploration)
 
 EWC (Elastic Weight Consolidation):
-  - Fisher weight = min(visits / F(8), 1.0) â€" visit count as importance proxy
-  - effective_Î = Î Ã- (1 - Î» Ã- fisher), Î» = EWC_PENALTY = Ïâ»Â¹ = 0.618
-  - Effect: New states learn at full Î; consolidated states (â‰¥21 visits) learn at 0.382Ã-Î
-  - Prevents catastrophic forgetting when task distribution shifts (CODEâ'MARKETâ'CODE)
+  - Fisher weight = min(visits / F(8), 1.0) " visit count as importance proxy
+  - effective_ =  - (1 -  - fisher),  = EWC_PENALTY =  = 0.618
+  - Effect: New states learn at full ; consolidated states (21 visits) learn at 0.382-
+  - Prevents catastrophic forgetting when task distribution shifts (CODE'MARKET'CODE)
 """
 
 from __future__ import annotations
@@ -60,12 +60,12 @@ logger = logging.getLogger("cynic.kernel.organism.brain.learning.qlearning")
 VERDICTS: list[str] = ["BARK", "GROWL", "WAG", "HOWL"]
 
 # Thompson prior: Fibonacci(5) = 5 pseudo-observations per arm before real data
-THOMPSON_PRIOR: int = fibonacci(5)  # 5 â€" neutral prior, not zero
+THOMPSON_PRIOR: int = fibonacci(5)  # 5 " neutral prior, not zero
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # DATA STRUCTURES
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 @dataclass
@@ -73,10 +73,10 @@ class QEntry:
     """
     One (state, action) pair in the Q-Table.
 
-    q_value: TD(0) estimate âˆˆ [0, 1]
+    q_value: TD(0) estimate  [0, 1]
     visits:  How many times this (s,a) was observed
-    wins:    Thompson Î â€" positive reward observations (reward > 0.5)
-    losses:  Thompson Î² â€" negative reward observations (reward â‰¤ 0.5)
+    wins:    Thompson  " positive reward observations (reward > 0.5)
+    losses:  Thompson  " negative reward observations (reward  0.5)
     last_updated: Unix timestamp
     """
 
@@ -90,7 +90,7 @@ class QEntry:
 
     def thompson_sample(self) -> float:
         """Sample from Beta(wins+1, losses+1) for Thompson exploration."""
-        # Beta(Î, Î²) via ratio of Gamma samples (fast Python impl)
+        # Beta(, ) via ratio of Gamma samples (fast Python impl)
         a = self.wins + 1
         b = self.losses + 1
         x = random.gammavariate(a, 1.0)
@@ -117,23 +117,23 @@ class LearningSignal:
     Matches the LEARNING_EVENT payload emitted by JudgeOrchestrator.
     """
 
-    state_key: str  # cell.state_key() â' "CODE:JUDGE:PRESENT:1"
-    action: str  # verdict â' "GROWL"
-    reward: float  # q_score / MAX_Q_SCORE â' [0, 1]
+    state_key: str  # cell.state_key() ' "CODE:JUDGE:PRESENT:1"
+    action: str  # verdict ' "GROWL"
+    reward: float  # q_score / MAX_Q_SCORE ' [0, 1]
     judgment_id: str = ""
     loop_name: str = "JUDGE_ORCHESTRATOR"
     timestamp: float = field(default_factory=time.time)
 
     def __post_init__(self) -> None:
-        # Ï-bound reward to [0, 1]
+        # -bound reward to [0, 1]
         self.reward = max(0.0, min(1.0, self.reward))
         if self.action not in VERDICTS:
             raise ValueError(f"action must be one of {VERDICTS}, got '{self.action}'")
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # Q-TABLE
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class QTable:
@@ -161,11 +161,11 @@ class QTable:
     def __init__(
         self,
         learning_rate: float = LEARNING_RATE,
-        discount: float = PHI_INV_2,  # Î³ = Ïâ»Â² = 0.382 (short-horizon)
+        discount: float = PHI_INV_2,  #  =  = 0.382 (short-horizon)
         storage: Optional[Any] = None,
     ) -> None:
-        self._alpha = learning_rate  # â‰ˆ 0.038
-        self._gamma = discount  # 0.382 â€" discount future rewards conservatively
+        self._alpha = learning_rate  #  0.038
+        self._gamma = discount  # 0.382 " discount future rewards conservatively
         self.storage = storage
         # Nested dict: {state_key: {action: QEntry}}
         self._table: dict[str, dict[str, QEntry]] = defaultdict(dict)
@@ -174,11 +174,11 @@ class QTable:
         self._pending_flush: list[QEntry] = []  # batch for async DB write
         self._created_at: float = time.time()
 
-    # â"€â"€ Core Update â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Core Update """"""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def update(self, signal: LearningSignal) -> QEntry:
         """
-        TD(0) update: Q(s,a) â Q(s,a) + Î Ã- (r âˆ' Q(s,a))
+        TD(0) update: Q(s,a)  Q(s,a) +  - (r ' Q(s,a))
 
         Also updates Thompson arms (wins/losses).
         Returns the updated QEntry.
@@ -186,10 +186,10 @@ class QTable:
         entry = self._get_or_create(signal.state_key, signal.action)
 
         # TD(0) update with EWC (Elastic Weight Consolidation).
-        # Fisher weight â‰ˆ visits / F(8): heavily-visited entries resist overwriting.
-        # effective_Î = Î Ã- (1 - Î» Ã- fisher)
-        # At visits=0:     effective_Î = Î         (full learning â€" unknown state)
-        # At visits=F(8):  effective_Î = Î Ã- 0.382 (consolidated â€" resist forgetting)
+        # Fisher weight  visits / F(8): heavily-visited entries resist overwriting.
+        # effective_ =  - (1 -  - fisher)
+        # At visits=0:     effective_ =          (full learning " unknown state)
+        # At visits=F(8):  effective_ =  - 0.382 (consolidated " resist forgetting)
         old_q = entry.q_value
         fisher_weight = min(entry.visits / fibonacci(8), 1.0)
         effective_alpha = self._alpha * (1.0 - EWC_PENALTY * fisher_weight)
@@ -209,7 +209,7 @@ class QTable:
         self._pending_flush.append(entry)
 
         logger.debug(
-            "Q[%s][%s]: %.3f â' %.3f (reward=%.3f, visits=%d)",
+            "Q[%s][%s]: %.3f ' %.3f (reward=%.3f, visits=%d)",
             signal.state_key,
             signal.action,
             old_q,
@@ -220,12 +220,12 @@ class QTable:
 
         return entry
 
-    # â"€â"€ Policy â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Policy """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def exploit(self, state_key: str) -> str:
         """
         Greedy policy: return action with highest Q-value.
-        If unseen state â' GROWL (cautious default, Ï-aligned).
+        If unseen state ' GROWL (cautious default, -aligned).
         """
         actions = self._table.get(state_key, {})
         if not actions:
@@ -236,7 +236,7 @@ class QTable:
     def explore(self, state_key: str) -> str:
         """
         Thompson Sampling policy: sample Beta per action, pick max.
-        Natural exploration â€" no Îµ-greedy hacks needed.
+        Natural exploration " no -greedy hacks needed.
         """
         samples: dict[str, float] = {}
         for action in VERDICTS:
@@ -246,7 +246,7 @@ class QTable:
         return max(samples.items(), key=lambda kv: kv[1])[0]
 
     def predict_q(self, state_key: str, action: str) -> float:
-        """Return Q(s,a) âˆˆ [0,1]. Returns 0.5 (neutral) if unseen."""
+        """Return Q(s,a)  [0,1]. Returns 0.5 (neutral) if unseen."""
         entry = self._table.get(state_key, {}).get(action)
         return entry.q_value if entry else 0.5
 
@@ -254,15 +254,15 @@ class QTable:
         """
         Confidence in predictions for this state = visits-based.
 
-        confidence = min(visits / F(8), Ïâ»Â¹)
+        confidence = min(visits / F(8), )
         where F(8)=21 = "well-seen" threshold.
-        Caps at Ïâ»Â¹ = 61.8% (LAW OF DOUBT).
+        Caps at  = 61.8% (LAW OF DOUBT).
         """
         total_visits = sum(e.visits for e in self._table.get(state_key, {}).values())
-        raw = total_visits / fibonacci(8)  # F(8) = 21 â€" "enough data" threshold
+        raw = total_visits / fibonacci(8)  # F(8) = 21 " "enough data" threshold
         return phi_bound(raw, 0.0, MAX_CONFIDENCE)
 
-    # â"€â"€ Batch Flush â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Batch Flush """""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     async def flush_to_db(self) -> int:
         """
@@ -349,7 +349,7 @@ class QTable:
         logger.info("Loaded %d Q-entries from entries (warm start)", len(entries))
         return len(entries)
 
-    # â"€â"€ Introspection â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Introspection """"""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def stats(self) -> dict[str, Any]:
         """Return learning system health metrics."""
@@ -384,7 +384,7 @@ class QTable:
             "pending_flush": len(self._pending_flush),
             "uptime_s": round(time.time() - self._created_at, 1),
             "ewc_effective_alpha": avg_effective_alpha,  # adaptive learning rate
-            "ewc_consolidated": ewc_consolidated,  # entries with visits â‰¥ F(8)
+            "ewc_consolidated": ewc_consolidated,  # entries with visits  F(8)
         }
 
     def prune(self, max_entries: int = 10000) -> int:
@@ -444,15 +444,15 @@ class QTable:
 
     def matrix_stats(self) -> dict:
         """
-        7Ã-7Ã-7 Lazy Materialization coverage report.
+        7-7-7 Lazy Materialization coverage report.
 
         Shows which cells of the 343-cell matrix have been visited.
         State keys follow format: "REALITY:ANALYSIS:TIME_DIM:LOD"
 
         Returns dict with:
           total_cells: states seen (materialized)
-          matrix_343: max possible (7Ã-7Ã-7 = 343, ignoring LOD)
-          coverage_pct: % of 7Ã-7Ã-7 matrix materialized
+          matrix_343: max possible (7-7-7 = 343, ignoring LOD)
+          coverage_pct: % of 7-7-7 matrix materialized
           by_reality, by_analysis, by_time_dim: per-dimension counts
         """
         by_reality: dict = {}
@@ -468,7 +468,7 @@ class QTable:
                 by_time_dim[time_dim] = by_time_dim.get(time_dim, 0) + 1
 
         total = len(self._table)
-        coverage = round(total / 343 * 100, 1)  # 7Ã-7Ã-7 = 343
+        coverage = round(total / 343 * 100, 1)  # 7-7-7 = 343
 
         return {
             "total_cells": total,
@@ -486,7 +486,7 @@ class QTable:
         self._total_updates = 0
         self._created_at = time.time()
 
-    # â"€â"€ Internal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Internal """""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def _get_or_create(self, state_key: str, action: str) -> QEntry:
         """Get or create QEntry for (state, action). Tracks new states."""
@@ -503,16 +503,16 @@ class QTable:
         return self._table[state_key][action]
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # LEARNING LOOP (Event-driven integration)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class LearningLoop:
     """
     Connects QTable to the CYNIC event bus.
 
-    Subscribes to LEARNING_EVENT â' calls qtable.update().
+    Subscribes to LEARNING_EVENT ' calls qtable.update().
     Flushes to DB every F(8)=21 updates.
 
     Usage:
@@ -530,23 +530,23 @@ class LearningLoop:
         self._instance_id = instance_id
 
         self._updates_since_flush: int = 0
-        self._learning_rate = qtable._alpha  # Reference to QTable's Î
+        self._learning_rate = qtable._alpha  # Reference to QTable's 
         self.instance_id = instance_id  # Level 2 multi-instance support
         self._bus = None  # Cached bus reference (set in start())
 
     def adjust_learning_rate(self, delta: float) -> None:
         """
-        Adjust the learning rate (Î) by delta.
+        Adjust the learning rate () by delta.
 
         Called by MetaCognitionHandler to adapt exploration/exploitation.
-        Delta is Ï-bounded: max Â0.618 per call.
+        Delta is -bounded: max 0.618 per call.
         """
         new_rate = self._learning_rate + delta
-        # Clamp to Ï-bounded range: [0.01, 0.2]
+        # Clamp to -bounded range: [0.01, 0.2]
         self._learning_rate = max(0.01, min(0.2, new_rate))
         # Also update the underlying QTable
         self.qtable._alpha = self._learning_rate
-        logger.info("Learning rate Î adjusted to %.4f (delta=%.3f)", self._learning_rate, delta)
+        logger.info("Learning rate  adjusted to %.4f (delta=%.3f)", self._learning_rate, delta)
 
     def start(self, event_bus: Optional[Any] = None) -> None:
         """Register LEARNING_EVENT listener on the event bus."""
@@ -593,7 +593,7 @@ class LearningLoop:
         self._updates_since_flush += 1
 
         # Emit EWC_CHECKPOINT when entry first consolidates (visits == F(8) = 21).
-        # Only on the EXACT crossing â€" never re-emitted for the same entry.
+        # Only on the EXACT crossing " never re-emitted for the same entry.
         if entry.visits == fibonacci(8):
             from cynic.kernel.core.event_bus import CoreEvent, Event
             from cynic.kernel.core.events_schema import EwcCheckpointPayload

@@ -1,5 +1,5 @@
 """
-CYNIC Somatic Gateway — The Scalable Perception Baselayer.
+CYNIC Somatic Gateway  The Scalable Perception Baselayer.
 
 This is the 'Thalamus' of CYNIC. It manages all incoming sensory data,
 providing:

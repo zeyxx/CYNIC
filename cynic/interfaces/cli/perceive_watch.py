@@ -1,7 +1,7 @@
 """
-PERCEIVE watch â€" Real git change detection + JUDGE scoring.
+PERCEIVE watch " Real git change detection + JUDGE scoring.
 
-Demonstrates the real PERCEIVE â' JUDGE loop (Phase 2):
+Demonstrates the real PERCEIVE ' JUDGE loop (Phase 2):
   1. Watch git working tree for actual changes
   2. Emit PERCEIVE events with real file deltas
   3. Get real JUDGE scores from Ollama

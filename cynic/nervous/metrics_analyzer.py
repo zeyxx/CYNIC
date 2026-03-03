@@ -1,5 +1,5 @@
 """
-MetricsAnalyzer — Translate EventMetricsCollector output into SelfProposal recommendations.
+MetricsAnalyzer  Translate EventMetricsCollector output into SelfProposal recommendations.
 
 Used by SelfProber to generate METRICS dimension proposals from anomaly records.
 """
@@ -88,7 +88,7 @@ class MetricsAnalyzer:
         return proposals
 
     def _analyze_rate_spike(self, anomaly: AnomalyRecord) -> MetricsProposal:
-        """Rate spike: event frequency exceeded PHI × baseline."""
+        """Rate spike: event frequency exceeded PHI  baseline."""
         suggested_rate = anomaly.metric_value / PHI  # Scale back by PHI
         return MetricsProposal(
             anomaly_type="RATE_SPIKE",

@@ -67,7 +67,7 @@ class GASdfStats:
     treasury: dict[str, object]
 
 
-# ——— Pydantic Validation Models ——————————————————————————————————————
+#  Pydantic Validation Models 
 # Used for strict validation of HTTP responses (Rule 3: VERIFY)
 
 

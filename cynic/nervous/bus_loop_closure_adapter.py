@@ -1,5 +1,5 @@
 """
-BusLoopClosureAdapter — Wires LoopClosureValidator to EventBus.
+BusLoopClosureAdapter  Wires LoopClosureValidator to EventBus.
 
 Routes judgment lifecycle events into LoopClosureValidator to detect
 stalls and orphaned judgments.

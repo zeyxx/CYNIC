@@ -1,13 +1,13 @@
 """
-CYNIC telemetry WebSocket router â€" /ws/telemetry
+CYNIC telemetry WebSocket router " /ws/telemetry
 
 Streams live CYNIC activity: judgments, learning events, SONA heartbeats, meta-cycles.
 Claude Code watches this stream to observe CYNIC's internal state without consuming context.
 
 Protocol:
-  connect  â' {"type": "connected", "ts": ..., "phi": 1.618}
-  event    â' {"type": "judgment|learning|meta_cycle|sona_tick", "payload": {...}, "ts": <float>}
-  heartbeat â' {"type": "heartbeat", "ts": <float>} (every 30s if no real events)
+  connect  ' {"type": "connected", "ts": ..., "phi": 1.618}
+  event    ' {"type": "judgment|learning|meta_cycle|sona_tick", "payload": {...}, "ts": <float>}
+  heartbeat ' {"type": "heartbeat", "ts": <float>} (every 30s if no real events)
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ async def ws_telemetry(
                 else str(event.event_type)
             )
 
-            # Map CoreEvent type â' message type + extract fields
+            # Map CoreEvent type ' message type + extract fields
             msg: dict[str, Any] = {"ts": time.time()}
 
             if event_type_name == "JUDGMENT_CREATED":
@@ -76,13 +76,13 @@ async def ws_telemetry(
                 msg["total_judgments"] = payload.get("total_judgments", 0)
 
             else:
-                # Unknown event type â€" skip
+                # Unknown event type " skip
                 return
 
             queue.put_nowait(msg)
 
         except asyncio.QueueFull:
-            pass  # Drop silently â€" client is slow, kernel must not block
+            pass  # Drop silently " client is slow, kernel must not block
 
     # Subscribe to telemetry events
     telemetry_events = [

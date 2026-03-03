@@ -1,5 +1,5 @@
 """
-CYNIC Probe Cells â€" Canonical benchmarks for self-evolution (Task #4).
+CYNIC Probe Cells " Canonical benchmarks for self-evolution (Task #4).
 
 Probes are fixed, high-novelty cells used by EvolveHandler to detect
 regressions in the judgment pack.
@@ -35,7 +35,7 @@ class ProbeResult:
         }
 
 
-# â"€â"€ PROBE DEFINITIONS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" PROBE DEFINITIONS """"""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 PROBE_CELLS = [
     {

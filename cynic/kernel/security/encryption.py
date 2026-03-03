@@ -15,11 +15,11 @@ Integration points:
 - EventBus: Journal entries encrypted before storage, decrypted on retrieval
 
 Success criteria (task 1.4):
-- ✓ All PII (community_token, treasury_address, etc.) encrypted
-- ✓ All secrets encrypted (API keys, wallet secrets, etc.)
-- ✓ EventBus journal entries encrypted
-- ✓ Database files unreadable without Vault
-- ✓ Zero plaintext secrets in database
+-  All PII (community_token, treasury_address, etc.) encrypted
+-  All secrets encrypted (API keys, wallet secrets, etc.)
+-  EventBus journal entries encrypted
+-  Database files unreadable without Vault
+-  Zero plaintext secrets in database
 """
 
 from __future__ import annotations
@@ -87,7 +87,7 @@ class EncryptionKeyManager:
 
             # Verify connection
             auth_info = self.client.auth.token.lookup_self()
-            logger.info(f"✓ Connected to Vault for encryption keys")
+            logger.info(f" Connected to Vault for encryption keys")
             self._authenticated = True
             return True
         except ImportError:
@@ -362,13 +362,13 @@ class TransparentEncryption:
         vault_ready = await self.key_manager.connect()
 
         if not vault_ready:
-            logger.warning("⚠ Vault unavailable for encryption keys, using temporary keys")
+            logger.warning(" Vault unavailable for encryption keys, using temporary keys")
 
         self.encryption_service = EncryptionService(self.key_manager)
         self.journal_encryption = EncryptedJournalEntry(self.encryption_service)
 
         self._initialized = True
-        logger.info("✓ Encryption service started")
+        logger.info(" Encryption service started")
 
     async def shutdown(self) -> None:
         """Clean up encryption resources."""

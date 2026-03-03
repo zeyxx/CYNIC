@@ -1,5 +1,5 @@
 """
-CYNIC Chat Formatter â€" Rich terminal rendering for the coding assistant.
+CYNIC Chat Formatter " Rich terminal rendering for the coding assistant.
 
 Renders tool calls, judgments, responses, and status in CYNIC's visual style.
 Uses ANSI escape codes directly (no external dependency like Rich).
@@ -12,7 +12,7 @@ import sys
 from cynic.interfaces.chat.agent_loop import AgentEvent, AgentEventType
 from cynic.interfaces.chat.tools import ToolCall, ToolResult
 
-# â"€â"€ Windows UTF-8 fix (same as cli/utils.py) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" Windows UTF-8 fix (same as cli/utils.py) """""""""""""""""""""""""""""
 if sys.platform == "win32":
     try:
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -21,9 +21,9 @@ if sys.platform == "win32":
         pass
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # ANSI COLORS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 _C = {
     "reset": "\033[0m",
@@ -48,15 +48,15 @@ def _c(color: str, text: str) -> str:
 
 def _bar(score: float, max_score: float = 100.0, width: int = 10) -> str:
     filled = int(round(min(score / max_score, 1.0) * width))
-    return f"[{'â-ˆ' * filled}{'â-'' * (width - filled)}]"
+    return f"[{'-' * filled}{'-'' * (width - filled)}]"
 
 
-_VERDICT_SYMBOL = {"HOWL": "ðŸŸ¢", "WAG": "ðŸŸ¡", "GROWL": "ðŸŸ ", "BARK": "ðŸ"´"}
+_VERDICT_SYMBOL = {"HOWL": "", "WAG": "", "GROWL": "", "BARK": """}
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # CHAT FORMATTER
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 class ChatFormatter:
     """Renders AgentEvents to the terminal."""
@@ -106,7 +106,7 @@ class ChatFormatter:
             return
 
         if result.blocked:
-            _VERDICT_SYMBOL.get(result.verdict, "ðŸ"´")
+            _VERDICT_SYMBOL.get(result.verdict, """)
             if result.error:
                 pass
         elif result.error:
@@ -146,7 +146,7 @@ class ChatFormatter:
             pass
         self._tool_count = 0
 
-    # â"€â"€ Static helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Static helpers """"""""""""""""""""""""""""""""""""""""""""""""""""
 
     @staticmethod
     def welcome(model: str, cwd: str) -> None:
@@ -156,6 +156,6 @@ class ChatFormatter:
     def prompt() -> str:
         """Display the input prompt and return user input."""
         try:
-            return input(_c("cyan", "â¯ ")).strip()
+            return input(_c("cyan", " ")).strip()
         except (EOFError, KeyboardInterrupt):
             return "/quit"

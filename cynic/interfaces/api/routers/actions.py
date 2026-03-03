@@ -1,5 +1,5 @@
 """
-CYNIC actions router — proposed-actions · self-probes
+CYNIC actions router  proposed-actions  self-probes
 """
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ async def accept_action(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
-    Accept a proposed action — marks it ACCEPTED and signals ANTIFRAGILITY axiom.
+    Accept a proposed action  marks it ACCEPTED and signals ANTIFRAGILITY axiom.
     """
     org = container.organism
     proposer = org.memory.action_proposer
@@ -90,7 +90,7 @@ async def accept_action(
             ),
             source="action_accept",
         ))
-        logger.info("*ears perk* Action %s → ACT_REQUESTED fired", action_id)
+        logger.info("*ears perk* Action %s  ACT_REQUESTED fired", action_id)
 
     # Social loop
     _append_social_signal(
@@ -110,7 +110,7 @@ async def reject_action(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
-    Reject a proposed action — marks it REJECTED.
+    Reject a proposed action  marks it REJECTED.
     """
     org = container.organism
     proposer = org.memory.action_proposer
@@ -147,7 +147,7 @@ async def list_self_probes(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
-    List SelfProber proposals — CYNIC's analysis of its own performance gaps.
+    List SelfProber proposals  CYNIC's analysis of its own performance gaps.
     """
     org = container.organism
     prober = org.memory.self_prober

@@ -1,4 +1,4 @@
-"""PHASE 1: Direct actions â€" ACT_REQUESTED â' UniversalActuator execution."""
+"""PHASE 1: Direct actions " ACT_REQUESTED ' UniversalActuator execution."""
 
 from __future__ import annotations
 
@@ -17,9 +17,9 @@ logger = logging.getLogger("cynic.kernel.organism.reflexes.direct")
 
 
 class DirectActionsHandler(HandlerGroup):
-    """ACT_REQUESTED â' UniversalActuator.dispatch() â€" real execution, real feedback."""
+    """ACT_REQUESTED ' UniversalActuator.dispatch() " real execution, real feedback."""
 
-    _EXECUTION_WINDOW = 13  # F(7) â€" rolling success tracking
+    _EXECUTION_WINDOW = 13  # F(7) " rolling success tracking
 
     def __init__(
         self,
@@ -55,7 +55,7 @@ class DirectActionsHandler(HandlerGroup):
         ]
 
     async def _on_act_requested(self, event: Event) -> None:
-        """ACT_REQUESTED â' UniversalActuator.dispatch() â' real execution."""
+        """ACT_REQUESTED ' UniversalActuator.dispatch() ' real execution."""
         try:
             p = event.dict_payload or {}
             action_type = p.get("action_type", "unknown")

@@ -1,7 +1,7 @@
 """
-SONA Emitter — Organism Self-Assessment Loop (Component 10/11)
+SONA Emitter  Organism Self-Assessment Loop (Component 10/11)
 
-SONA = φ-scaled organism self-assessment
+SONA = -scaled organism self-assessment
 Frequency: F(9) = 34 minutes = 2,040 seconds
 Level: META (consciousness level 4)
 """
@@ -124,7 +124,7 @@ class SonaEmitter:
                 "priorities": "MAINTENANCE" if len(self._recent_anomalies) > 0 else "GROWTH"
             }
             
-            logger.info(f"[{self._instance_id}] 📜 Sovereignty Report: {report['priorities']} | Judgments: {report['total_judgments']} | Burn: ${budget_used:.4f}")
+            logger.info(f"[{self._instance_id}]  Sovereignty Report: {report['priorities']} | Judgments: {report['total_judgments']} | Burn: ${budget_used:.4f}")
             
             # Reset anomalies after reporting
             self._recent_anomalies.clear()

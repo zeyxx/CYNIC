@@ -1,5 +1,5 @@
 """
-CYNIC Nerve Endings — Domain-specific communication facades.
+CYNIC Nerve Endings  Domain-specific communication facades.
 
 Reduces coupling to the global event bus by providing typed gateways for
 each functional domain. Requires explicit instance_id for multi-tenancy.

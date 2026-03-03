@@ -1,5 +1,5 @@
 """
-ConfigurationAdaptationEngine â€" When CYNIC sees something new, it asks
+ConfigurationAdaptationEngine " When CYNIC sees something new, it asks
 
 Axiom: CULTURE (adapt to your machine's culture)
        VERIFY (never assume, always ask)
@@ -12,7 +12,7 @@ Pattern:
   5. Remember their preference
   6. Auto-adapt for future runs
 
-This is how CYNIC becomes smarter over time â€" learning YOUR machine.
+This is how CYNIC becomes smarter over time " learning YOUR machine.
 """
 
 import asyncio
@@ -61,7 +61,7 @@ class ConfigurationAdaptationEngine:
             user_input = await loop.run_in_executor(None, input, "> ")
             user_input = user_input.strip()
         except (EOFError, KeyboardInterrupt):
-            # Non-interactive mode (e.g., Docker) â€" use detected value
+            # Non-interactive mode (e.g., Docker) " use detected value
             user_input = ""
 
         # Step 4: Determine final value
@@ -70,8 +70,8 @@ class ConfigurationAdaptationEngine:
         # Step 5: Remember for future
         self._save_preference(key, final_value)
 
-        # Platform-aware output (Windows cp1252 can't render âœ")
-        "[OK]" if platform.system() == "Windows" else "âœ""
+        # Platform-aware output (Windows cp1252 can't render ")
+        "[OK]" if platform.system() == "Windows" else """
 
         return final_value
 

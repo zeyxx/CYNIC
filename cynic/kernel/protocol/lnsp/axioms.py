@@ -91,7 +91,7 @@ class FidelityEvaluator(AxiomEvaluator):
 class PhiEvaluator(AxiomEvaluator):
     """PHI Axiom: Golden ratio balance and harmony.
 
-    The golden ratio (Ï = 1.618) represents perfect balance and harmony.
+    The golden ratio ( = 1.618) represents perfect balance and harmony.
     This axiom checks if value distribution approaches this ratio.
 
     Score:

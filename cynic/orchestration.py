@@ -1,5 +1,5 @@
 """
-CYNIC Organism Orchestrator — Central Cognitive Command.
+CYNIC Organism Orchestrator  Central Cognitive Command.
 
 Integrates the CognitiveRouter, VascularSystem, and Agent Registry to provide
 a unified entry point for all fractal judgments.
@@ -26,7 +26,7 @@ class OrganismOrchestrator:
 
     async def awake(self):
         """Initialize all systems and discover muscles."""
-        logger.info(f"🌀 Organism '{self.instance_id}' is awakening...")
+        logger.info(f" Organism '{self.instance_id}' is awakening...")
         await self.registry.discover()
         logger.info("Organism: All systems online and vascularized.")
 

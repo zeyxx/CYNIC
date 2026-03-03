@@ -1,5 +1,5 @@
 """
-CYNIC Event Bus — The asynchronous nervous system.
+CYNIC Event Bus  The asynchronous nervous system.
 """
 
 from __future__ import annotations

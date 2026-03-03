@@ -1,5 +1,5 @@
 """
-BusJournalAdapter — Wires EventJournal to EventBus via wildcard subscription.
+BusJournalAdapter  Wires EventJournal to EventBus via wildcard subscription.
 
 Usage:
     adapter = BusJournalAdapter(journal)
@@ -10,7 +10,7 @@ from __future__ import annotations
 from cynic.kernel.core.event_bus import Event
 from cynic.nervous.event_journal import EventCategory, EventJournal
 
-# Maps CoreEvent.value strings → EventCategory
+# Maps CoreEvent.value strings  EventCategory
 _CATEGORY_MAP: dict[str, EventCategory] = {
     # PERCEPTION
     "core.perception_received": EventCategory.PERCEPTION,

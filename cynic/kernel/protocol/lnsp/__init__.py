@@ -1,4 +1,4 @@
-"""LNSP â€" Layered Nervous System Protocol."""
+"""LNSP " Layered Nervous System Protocol."""
 
 from __future__ import annotations
 

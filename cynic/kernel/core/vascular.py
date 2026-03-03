@@ -1,5 +1,5 @@
 """
-CYNIC Vascular System — Optimized Resource Pooling (HTTP & Redis).
+CYNIC Vascular System  Optimized Resource Pooling (HTTP & Redis).
 
 Centralizes all network IO to prevent resource exhaustion.
 Acts as the physical transport layer for the nervous system.

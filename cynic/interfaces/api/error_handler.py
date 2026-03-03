@@ -157,4 +157,4 @@ def format_error_for_user(error_msg: str) -> str:
             constraint = parts[1].split(",")[0].strip()
             enhanced_friendly = f"{friendly} (Valid range: {constraint})"
 
-    return f"{enhanced_friendly}\n\nâ„¹ï¸ {action}\n\nError code: {error_code}"
+    return f"{enhanced_friendly}\n\n {action}\n\nError code: {error_code}"

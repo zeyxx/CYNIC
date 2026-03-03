@@ -55,28 +55,44 @@ class TestVaultConfig:
         assert config.auto_rotate_days == 45
 
     def test_vault_config_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Vault config reads from environment variables."""
+        """Vault config reads from environment variables via CynicConfig."""
         monkeypatch.setenv("VAULT_ADDR", "https://vault.local:8200")
         monkeypatch.setenv("VAULT_TOKEN", "s.env_token")
 
-        config = VaultConfig()
+        from cynic.kernel.core.config import CynicConfig
+        cynic_config = CynicConfig.from_env()
+        config = VaultConfig.from_config(cynic_config)
 
         assert config.vault_addr == "https://vault.local:8200"
         assert config.vault_token == "s.env_token"
 
 
 class TestEnvironmentSecretStore:
-    """Tests for environment variable secret store (fallback)."""
+    """Tests for environment variable secret store (fallback via CynicConfig)."""
 
     def test_get_secret_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Secrets can be retrieved from environment variables."""
-        monkeypatch.setenv("SECRET_API_KEY", "secret123")
+        """Secrets can be retrieved from environment variables via CynicConfig."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "secret123")
+        
+        from cynic.kernel.core.config import CynicConfig
+        config = CynicConfig.from_env()
+        store = EnvironmentSecretStore(config)
+
+        import asyncio
+
+        # "anthropic.api.key" maps to "anthropic_api_key" attribute in CynicConfig
+        secret = asyncio.run(store.get_secret("anthropic.api.key"))
+        assert secret == "secret123"
+
+    def test_get_secret_legacy_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Legacy secrets can still be retrieved directly from environment."""
+        monkeypatch.setenv("SECRET_API_KEY", "legacy123")
         store = EnvironmentSecretStore()
 
         import asyncio
 
         secret = asyncio.run(store.get_secret("api.key"))
-        assert secret == "secret123"
+        assert secret == "legacy123"
 
     def test_get_secret_not_found(self) -> None:
         """Non-existent secret returns None."""

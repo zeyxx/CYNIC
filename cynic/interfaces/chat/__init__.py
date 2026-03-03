@@ -1,5 +1,5 @@
 """
-CYNIC Chat â€" Agentic coding assistant powered by local LLMs + CYNIC judgment.
+CYNIC Chat " Agentic coding assistant powered by local LLMs + CYNIC judgment.
 
 cynic/chat/ is the user-facing brain: LLM tool-calling loop, session management,
 terminal rendering, and safety judgment on every tool execution.

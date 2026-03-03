@@ -1,5 +1,5 @@
 """
-CYNIC Compute HAL — Universal Hardware Abstraction.
+CYNIC Compute HAL  Universal Hardware Abstraction.
 
 Routes tensor operations to the best available compute engine.
 Specialized for Windows APUs (Ryzen 5700G + Radeon Vega 8).

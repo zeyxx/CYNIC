@@ -1,5 +1,5 @@
 """
-CYNIC Cortex â€" Fractal judgment orchestration and decision pipeline.
+CYNIC Cortex " Fractal judgment orchestration and decision pipeline.
 
 The cortex orchestrates judgment flows by:
 1. Selecting consciousness level (REFLEX/MICRO/MACRO) based on cell complexity

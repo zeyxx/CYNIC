@@ -1,7 +1,7 @@
 """PKI infrastructure for mTLS service-to-service authentication.
 
 Handles certificate generation, storage, and validation for mutual TLS.
-Implements 3-tier hierarchy: Root CA → Intermediate CA → Leaf Certs (per service).
+Implements 3-tier hierarchy: Root CA  Intermediate CA  Leaf Certs (per service).
 
 Design:
 - Root CA: Generated once, stored securely (should be in Vault by Task 1.2)

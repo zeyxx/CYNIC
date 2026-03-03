@@ -1,5 +1,5 @@
 """
-PHASE 4: Axiom activation chain â€" axiom signaling toward TRANSCENDENCE.
+PHASE 4: Axiom activation chain " axiom signaling toward TRANSCENDENCE.
 
 Handlers: emergence_signal, decision_made_for_axiom, decision_made_for_run,
           axiom_activated, self_improvement_proposed, transcendence,
@@ -66,32 +66,32 @@ class AxiomHandlers(HandlerGroup):
             (CoreEvent.META_CYCLE, self._on_meta_cycle),
         ]
 
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # 
     # HANDLER IMPLEMENTATIONS
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # 
 
     async def _on_emergence_signal(self, event: Event) -> None:
-        """EMERGENCE_DETECTED â' signal EMERGENCE axiom."""
+        """EMERGENCE_DETECTED ' signal EMERGENCE axiom."""
         try:
             await self._cognition.signal_axiom("EMERGENCE", "emergence_detector")
         except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_decision_made_for_axiom(self, event: Event) -> None:
-        """DECISION_MADE â' signal AUTONOMY axiom."""
+        """DECISION_MADE ' signal AUTONOMY axiom."""
         try:
             await self._cognition.signal_axiom("AUTONOMY", "decide_agent")
         except EventBusError:
             logger.debug("handler error", exc_info=True)
 
     async def _on_decision_made_for_run(self, event: Event) -> None:
-        """DECISION_MADE â' RUN EScore + EMERGENCE on confident BARK."""
+        """DECISION_MADE ' RUN EScore + EMERGENCE on confident BARK."""
         try:
             p = event.dict_payload or {}
             q_value = float(p.get("q_value", 0.0))
             verdict = p.get("recommended_action", "")
 
-            # RUN EScore â€" decision quality as execution efficiency
+            # RUN EScore " decision quality as execution efficiency
             run_score = q_value * MAX_Q_SCORE
             self._cognition.escore_tracker.update_dimension("agent:cynic", "RUN", run_score)
 
@@ -106,7 +106,7 @@ class AxiomHandlers(HandlerGroup):
                 emergence_signalled = True
 
             logger.debug(
-                "DECISION_MADE: action=%s q=%.3f â' RUN EScore=%.1f%s",
+                "DECISION_MADE: action=%s q=%.3f ' RUN EScore=%.1f%s",
                 verdict,
                 q_value,
                 run_score,
@@ -116,14 +116,14 @@ class AxiomHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_axiom_activated(self, event: Event) -> None:
-        """AXIOM_ACTIVATED â' log milestone; emit TRANSCENDENCE when all A6-A9 active."""
+        """AXIOM_ACTIVATED ' log milestone; emit TRANSCENDENCE when all A6-A9 active."""
         try:
             axiom_name = event.dict_payload.get("axiom", "?")
             maturity = event.dict_payload.get("maturity", 0.0)
             active = self._cognition.axiom_monitor.active_axioms()
 
             logger.info(
-                "AXIOM_ACTIVATED: %s (maturity=%.1f) â€" active: %s",
+                "AXIOM_ACTIVATED: %s (maturity=%.1f) - active: %s",
                 axiom_name,
                 maturity,
                 active,
@@ -148,7 +148,7 @@ class AxiomHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_self_improvement_proposed(self, event: Event) -> None:
-        """SELF_IMPROVEMENT_PROPOSED â' ActionProposer + CONSCIOUSNESS + JUDGE."""
+        """SELF_IMPROVEMENT_PROPOSED ' ActionProposer + CONSCIOUSNESS + JUDGE."""
         try:
             p = event.dict_payload or {}
             proposals = p.get("proposals", [])
@@ -174,7 +174,7 @@ class AxiomHandlers(HandlerGroup):
             self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
 
             logger.info(
-                "SELF_IMPROVEMENT_PROPOSED: count=%d severity=%.3f â' "
+                "SELF_IMPROVEMENT_PROPOSED: count=%d severity=%.3f ' "
                 "CONSCIOUSNESS signalled, JUDGE=%.1f",
                 len(proposals),
                 severity,
@@ -184,11 +184,11 @@ class AxiomHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_transcendence(self, event: Event) -> None:
-        """TRANSCENDENCE â' EScore self-reward + milestone log."""
+        """TRANSCENDENCE ' EScore self-reward + milestone log."""
         try:
             active = (event.dict_payload or {}).get("active_axioms", [])
             logger.warning(
-                "TRANSCENDENCE â€" all 4 emergent axioms active: %s",
+                "TRANSCENDENCE - all 4 emergent axioms active: %s",
                 active,
             )
             self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", MAX_Q_SCORE)
@@ -196,7 +196,7 @@ class AxiomHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_residual_high(self, event: Event) -> None:
-        """RESIDUAL_HIGH â' EMERGENCE signal + JUDGE penalty."""
+        """RESIDUAL_HIGH ' EMERGENCE signal + JUDGE penalty."""
         try:
             p = event.dict_payload or {}
             residual = float(p.get("residual_variance", 0.0))
@@ -210,7 +210,7 @@ class AxiomHandlers(HandlerGroup):
             self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", penalty_score)
 
             logger.warning(
-                "RESIDUAL_HIGH: cell=%s residual=%.3f â' EMERGENCE signal, " "JUDGE penalty=%.1f",
+                "RESIDUAL_HIGH: cell=%s residual=%.3f ' EMERGENCE signal, " "JUDGE penalty=%.1f",
                 cell_id,
                 residual,
                 penalty_score,
@@ -219,7 +219,7 @@ class AxiomHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_action_proposed(self, event: Event) -> None:
-        """ACTION_PROPOSED â' EScore BUILD update."""
+        """ACTION_PROPOSED ' EScore BUILD update."""
         try:
             p = event.dict_payload or {}
             priority = int(p.get("priority", 3))
@@ -233,7 +233,7 @@ class AxiomHandlers(HandlerGroup):
 
             self._cognition.escore_tracker.update_dimension("agent:cynic", "BUILD", score)
             logger.info(
-                "ACTION_PROPOSED: type=%s priority=%d â' BUILD EScore=%.1f",
+                "ACTION_PROPOSED: type=%s priority=%d ' BUILD EScore=%.1f",
                 action_type,
                 priority,
                 score,
@@ -242,7 +242,7 @@ class AxiomHandlers(HandlerGroup):
             logger.debug("handler error", exc_info=True)
 
     async def _on_meta_cycle(self, event: Event) -> None:
-        """META_CYCLE â' ANTIFRAGILITY signal + CONSCIOUSNESS + JUDGE update."""
+        """META_CYCLE ' ANTIFRAGILITY signal + CONSCIOUSNESS + JUDGE update."""
         try:
             p = event.dict_payload or {}
             evolve = p.get("evolve", {})
@@ -277,7 +277,7 @@ class AxiomHandlers(HandlerGroup):
             self._cognition.escore_tracker.update_dimension("agent:cynic", "JUDGE", judge_score)
 
             logger.info(
-                "META_CYCLE: pass_rate=%.1f%% regression=%s â' " "JUDGE EScore=%.1f%s",
+                "META_CYCLE: pass_rate=%.1f%% regression=%s ' " "JUDGE EScore=%.1f%s",
                 pass_rate * 100,
                 regression,
                 judge_score,

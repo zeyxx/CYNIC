@@ -1,10 +1,10 @@
 """
-CYNIC Dog Auto-Discovery â€" pkgutil-based registration.
+CYNIC Dog Auto-Discovery " pkgutil-based registration.
 
 Scans cynic.kernel.organism.brain.cognition.neurons for all AbstractDog subclasses with a DOG_ID class attribute.
-Replaces manual import lists â€" adding a new dog = add the file + DOG_ID.
+Replaces manual import lists " adding a new dog = add the file + DOG_ID.
 
-Ï-Law: BURN â€" discovery replaces boilerplate.
+-Law: BURN " discovery replaces boilerplate.
 """
 
 from __future__ import annotations

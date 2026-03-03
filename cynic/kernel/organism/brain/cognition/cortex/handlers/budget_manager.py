@@ -1,10 +1,10 @@
 """
-BudgetManager Handler â€" ACCOUNT phase resource management.
+BudgetManager Handler " ACCOUNT phase resource management.
 
 Extracted from JudgeOrchestrator budget methods + LevelSelector.
 
 Responsibility:
-- Calculate axiom-based budget multiplier (Î³3 loop)
+- Calculate axiom-based budget multiplier (3 loop)
 - React to BUDGET_WARNING / BUDGET_EXHAUSTED signals
 - Apply LOD cap enforcement to consciousness levels
 - Track stress state for level selection
@@ -29,13 +29,13 @@ class BudgetManager(BaseHandler):
     ACCOUNT phase budget manager.
 
     Injects:
-    - axiom_monitor: AxiomMonitor (optional, for Î³3 multiplier)
+    - axiom_monitor: AxiomMonitor (optional, for 3 multiplier)
     - lod_controller: LODController (optional, for emergency enforcement)
     """
 
     handler_id = "budget_manager"
     version = "1.0"
-    description = "ACCOUNT: budget multiplier (Î³3), stress enforcement, LOD cap"
+    description = "ACCOUNT: budget multiplier (3), stress enforcement, LOD cap"
 
     def __init__(
         self,
@@ -97,19 +97,19 @@ class BudgetManager(BaseHandler):
 
     def compute_axiom_budget_multiplier(self) -> float:
         """
-        Compute budget multiplier from emergent axiom health (Î³3 loop).
+        Compute budget multiplier from emergent axiom health (3 loop).
 
-        Active axioms signal a healthy, coordinated organism â€" it can afford
-        deeper judgment (MACRO). Dormant axioms signal stress â€" conserve budget.
+        Active axioms signal a healthy, coordinated organism " it can afford
+        deeper judgment (MACRO). Dormant axioms signal stress " conserve budget.
 
-        Multiplier table (Ï-derived):
-            0 active axioms â' PHI_INV_2 = 0.382  (stressed  â' REFLEX/MICRO)
-            1 active axiom  â' PHI_INV   = 0.618  (stirring  â' MICRO)
-            2 active axioms â' 1.0                (balanced  â' MACRO)
-            3 active axioms â' PHI       = 1.618  (healthy   â' deeper MACRO)
-            4 active axioms â' PHIÂ²      = 2.618  (peak      â' max depth)
+        Multiplier table (-derived):
+            0 active axioms ' PHI_INV_2 = 0.382  (stressed  ' REFLEX/MICRO)
+            1 active axiom  ' PHI_INV   = 0.618  (stirring  ' MICRO)
+            2 active axioms ' 1.0                (balanced  ' MACRO)
+            3 active axioms ' PHI       = 1.618  (healthy   ' deeper MACRO)
+            4 active axioms ' PHI      = 2.618  (peak      ' max depth)
 
-        Formula: PHI ** (active_count - 2)  â'  range [0.382, 2.618]
+        Formula: PHI ** (active_count - 2)  '  range [0.382, 2.618]
 
         Returns:
             Budget multiplier in range [0.382, 2.618]
@@ -121,7 +121,7 @@ class BudgetManager(BaseHandler):
 
     def on_budget_warning(self) -> None:
         """
-        React to BUDGET_WARNING â€" cap future judgments at MICRO level.
+        React to BUDGET_WARNING " cap future judgments at MICRO level.
 
         Called by state.py when AccountAgent emits BUDGET_WARNING (38.2% budget left).
         Prevents Ollama MACRO calls while budget is low.
@@ -135,10 +135,10 @@ class BudgetManager(BaseHandler):
 
     def on_budget_exhausted(self) -> None:
         """
-        React to BUDGET_EXHAUSTED â€" cap future judgments at REFLEX level.
+        React to BUDGET_EXHAUSTED " cap future judgments at REFLEX level.
 
         Called by state.py when AccountAgent emits BUDGET_EXHAUSTED (budget=0).
-        Zero LLM calls â€" pure heuristic until session resets.
+        Zero LLM calls " pure heuristic until session resets.
         """
         if not self._budget_exhausted:
             self._budget_exhausted = True
@@ -172,12 +172,12 @@ class BudgetManager(BaseHandler):
         if lod >= SurvivalLOD.EMERGENCY:
             if level != ConsciousnessLevel.REFLEX:
                 logger.warning(
-                    "LOD cap: %s â' REFLEX (LOD=%s, system under stress)",
+                    "LOD cap: %s ' REFLEX (LOD=%s, system under stress)",
                     level.name,
                     lod.name,
                 )
             return ConsciousnessLevel.REFLEX
         if lod == SurvivalLOD.REDUCED and level == ConsciousnessLevel.MACRO:
-            logger.info("LOD cap: MACRO â' MICRO (LOD=REDUCED)")
+            logger.info("LOD cap: MACRO ' MICRO (LOD=REDUCED)")
             return ConsciousnessLevel.MICRO
         return level

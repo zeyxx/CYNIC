@@ -1,5 +1,5 @@
 """
-CYNIC Cloud API Adapter — Anthropic & Google.
+CYNIC Cloud API Adapter  Anthropic & Google.
 
 Production-grade adapters using VascularSystem for pooling.
 Handles real network IO with retry and error boundary.

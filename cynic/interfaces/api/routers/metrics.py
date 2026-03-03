@@ -1,8 +1,8 @@
 """
-Prometheus Metrics Bridge — HTTP /metrics endpoint
+Prometheus Metrics Bridge  HTTP /metrics endpoint
 
 Exports EventMetricsCollector data in OpenMetrics format for Prometheus scraping.
-No external prometheus_client dependency — pure format generation.
+No external prometheus_client dependency  pure format generation.
 """
 from __future__ import annotations
 

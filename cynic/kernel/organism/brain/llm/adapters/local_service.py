@@ -1,5 +1,5 @@
 """
-CYNIC Local Service Adapter — Ollama / LocalAI.
+CYNIC Local Service Adapter  Ollama / LocalAI.
 
 Connects to locally running LLM servers via HTTP API.
 Now using VascularSystem for persistent connection pooling.

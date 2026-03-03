@@ -5,14 +5,14 @@ Enables the organism to be conscious of its own architecture in real-time,
 detecting and applying code changes without restart.
 
 Layers:
-  L1: SourceWatcher â€" File system monitoring
-  L2: IncrementalTopologyBuilder â€" Change discovery
-  L3: HotReloadCoordinator â€" Safe application
-  L4: TopologyMirror â€" Continuous awareness
+  L1: SourceWatcher " File system monitoring
+  L2: IncrementalTopologyBuilder " Change discovery
+  L3: HotReloadCoordinator " Safe application
+  L4: TopologyMirror " Continuous awareness
 
 Events flow:
-  SOURCE_CHANGED â' TOPOLOGY_CHANGED â' TOPOLOGY_APPLIED â' TOPOLOGY_SNAPSHOT
-                                   â' TOPOLOGY_ROLLBACK (on failure)
+  SOURCE_CHANGED ' TOPOLOGY_CHANGED ' TOPOLOGY_APPLIED ' TOPOLOGY_SNAPSHOT
+                                   ' TOPOLOGY_ROLLBACK (on failure)
 """
 
 from cynic.kernel.core.topology.change_analyzer import ChangeAnalyzer

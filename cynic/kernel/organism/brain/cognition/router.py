@@ -1,5 +1,5 @@
 """
-CYNIC Cognitive Router — Dual-Process Theory (S1/S2).
+CYNIC Cognitive Router  Dual-Process Theory (S1/S2).
 
 Routes tasks between local "System 1" (Ollama) and cloud "System 2" (Gemini/Claude).
 Implements metabolic gating: saves costs by using local models for simple tasks.

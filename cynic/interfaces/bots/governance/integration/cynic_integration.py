@@ -146,10 +146,10 @@ async def learn_cynic(
 
         from cynic.interfaces.bots.governance.core.config import CYNIC_MCP_URL
 
-        # Normalize rating: 1-5 stars â’ -1.0 to +1.0
-        base = (satisfaction / 5.0) * 2.0 - 1.0  # 1â’-0.6, 3â’0.2, 5â’1.0
+        # Normalize rating: 1-5 stars  -1.0 to +1.0
+        base = (satisfaction / 5.0) * 2.0 - 1.0  # 1-0.6, 30.2, 51.0
         if not approved:
-            base = -abs(base)  # rejected â’ always negative
+            base = -abs(base)  # rejected  always negative
         rating = max(-1.0, min(1.0, base))
 
         payload = {
@@ -330,11 +330,11 @@ def format_verdict_embed(judgment_data: dict, proposal_title: str = "") -> dict:
 
     # Verdict emoji
     verdict_emoji = {
-        "HOWL": "ðŸŽº",
-        "WAG": "ðŸ‘",
-        "GROWL": "âš ï¸",
-        "BARK": "ðŸš«",
-        "PENDING": "â³"
+        "HOWL": "",
+        "WAG": "",
+        "GROWL": "",
+        "BARK": "",
+        "PENDING": ""
     }
 
     embed = {

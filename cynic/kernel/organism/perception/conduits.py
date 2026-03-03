@@ -1,5 +1,5 @@
 """
-CYNIC Somatic Conduits — The IO Drivers.
+CYNIC Somatic Conduits  The IO Drivers.
 
 Implements specific protocol drivers for the Somatic Gateway.
 Includes:

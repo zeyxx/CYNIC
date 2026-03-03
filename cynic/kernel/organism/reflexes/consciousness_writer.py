@@ -1,5 +1,5 @@
 """
-ConsciousnessWriter â€" Periodic persistence of OrganismState to consciousness.json.
+ConsciousnessWriter " Periodic persistence of OrganismState to consciousness.json.
 
 This handler ensures the TUI and other external tools have a fresh view of 
 the organism's internal metrics (cycles, health, axioms, reputation).

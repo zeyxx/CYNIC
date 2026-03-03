@@ -21,13 +21,13 @@ class SelfAwareLayer(Static):
         table.add_column("Category", style="white")
         table.add_column("Count", justify="right", style="green")
 
-        table.add_row("Observations ðŸ'€", str(self.observation_count))
-        table.add_row("Insights ðŸ'¡", str(self.insight_count))
-        table.add_row("Proposals ðŸ"§", str(self.proposal_count))
+        table.add_row("Observations '", str(self.observation_count))
+        table.add_row("Insights '", str(self.insight_count))
+        table.add_row("Proposals "", str(self.proposal_count))
 
         return Panel(
             table,
-            title="ðŸªž SELF-AWARENESS (Kernel Mirror)",
+            title=" SELF-AWARENESS (Kernel Mirror)",
             border_style="white",
             expand=False
         )

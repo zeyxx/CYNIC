@@ -1,5 +1,5 @@
 """
-Database Connection Pooling — Optimized SQLAlchemy QueuePool wrapper.
+Database Connection Pooling  Optimized SQLAlchemy QueuePool wrapper.
 
 Provides reusable connection pool with graceful degradation when database
 is unavailable. Fibonacci-aligned pool sizing ensures predictable performance

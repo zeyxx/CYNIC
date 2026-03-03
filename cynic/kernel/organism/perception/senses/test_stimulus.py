@@ -1,5 +1,5 @@
 """
-Test Stimulus Generator — Inject test market data for E2E testing.
+Test Stimulus Generator  Inject test market data for E2E testing.
 
 Simulates market events without requiring external sources.
 Allows CYNIC to perceive, judge, and respond to synthetic stimulus.

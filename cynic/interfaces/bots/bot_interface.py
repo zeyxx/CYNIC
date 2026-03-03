@@ -9,16 +9,16 @@ Key principles:
 1. All bots implement BotInterface (abstract base class)
 2. All commands are BotCommand objects (platform-agnostic)
 3. All responses are BotResponse objects (platform-agnostic)
-4. Platform adapters handle: Platform Format â" BotCommand/BotResponse
+4. Platform adapters handle: Platform Format " BotCommand/BotResponse
 5. Core logic is platform-independent
 
 Example flow:
     Discord Message
-        â" (Discord adapter)
+        " (Discord adapter)
     BotCommand(name="propose", args={...}, platform="discord")
-        â" (Core logic)
+        " (Core logic)
     BotResponse(success=True, message="...", data={...})
-        â" (Discord adapter)
+        " (Discord adapter)
     Discord Embed + Buttons
 """
 
@@ -35,7 +35,7 @@ class BotCommand:
     """Platform-agnostic command representation.
 
     Encapsulates a user command regardless of platform.
-    Platform adapters translate: Platform Event â' BotCommand â' Logic â' BotResponse.
+    Platform adapters translate: Platform Event ' BotCommand ' Logic ' BotResponse.
 
     Attributes:
         name: Command name ("propose", "vote", "status", etc)
@@ -70,7 +70,7 @@ class BotCommand:
 class BotResponse:
     """Platform-agnostic response representation.
 
-    Platform adapters translate: BotResponse â' Platform Format.
+    Platform adapters translate: BotResponse ' Platform Format.
     Represents the result of handling a BotCommand.
 
     Attributes:

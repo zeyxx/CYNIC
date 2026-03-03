@@ -1,5 +1,5 @@
 """
-CYNIC Consciousness Models — Dynamic attention allocation.
+CYNIC Consciousness Models  Dynamic attention allocation.
 """
 
 from __future__ import annotations

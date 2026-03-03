@@ -6,7 +6,7 @@ SymbioticStateManager aggregates observations from:
 - CYNIC Core: Observations, thinking, planning, confidence, E-Score
 
 Returns a unified, immutable SymbioticState snapshot on demand.
-Uses Îº-NET Protocol for real-time synchronization.
+Uses -NET Protocol for real-time synchronization.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class SymbioticStateManager:
         self.remote_mode = False
         self.api_url = "http://localhost:58765"
 
-        # Îº-NET Nerve Client (IPv6 Default)
+        # -NET Nerve Client (IPv6 Default)
         from cynic.kernel.protocol.knet_client import KNetClient
 
         self.knet = KNetClient(uri="ws://[::1]:58766")
@@ -56,7 +56,7 @@ class SymbioticStateManager:
         self.remote_mode = False
 
     async def start_nerves(self):
-        """Start the Îº-NET listener."""
+        """Start the -NET listener."""
         await self.knet.connect()
 
     async def _on_knet_pulse(self, pulse: PulseMessage):
@@ -135,12 +135,12 @@ class SymbioticStateManager:
                 except Exception as e:
                     logger.debug(f"SymbioticState Local fetch error: {e}")
 
-            # 3b. Remote Instance via Îº-NET (Pulse)
+            # 3b. Remote Instance via -NET (Pulse)
             elif self.remote_mode and self._last_pulse_data:
                 try:
                     data = self._last_pulse_data
                     mind = data.get("mind", {})
-                    cynic_thinking = mind.get("thinking", "Awake (Îº-NET)")
+                    cynic_thinking = mind.get("thinking", "Awake (-NET)")
                     cynic_confidence = mind.get("confidence", 0.618)
                     cynic_e_score = mind.get("e_score", 50.0)
 

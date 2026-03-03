@@ -1,5 +1,5 @@
 """
-Perception Layer â€" Sensory input, federation, and external integrations.
+Perception Layer " Sensory input, federation, and external integrations.
 
 Provides:
 - Sensor interfaces (disk, git, health, market, social, solana, etc.)

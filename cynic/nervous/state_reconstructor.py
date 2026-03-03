@@ -1,12 +1,12 @@
 """
-StateReconstructor — Combines journal, traces, and loop closures for audit.
+StateReconstructor  Combines journal, traces, and loop closures for audit.
 
 Answers two questions:
-  1. audit_decision(judgment_id) — full causal record for one judgment
-  2. events_in_window(start_ms, end_ms) — summary of all activity in a time window
+  1. audit_decision(judgment_id)  full causal record for one judgment
+  2. events_in_window(start_ms, end_ms)  summary of all activity in a time window
 
 NOTE: EventJournal stores payload_keys only (not values). Reconstruction
-means "what events happened, in what order, with what causality" —
+means "what events happened, in what order, with what causality" 
 not full value replay.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from cynic.nervous.loop_closure import LoopClosureValidator
 
 class StateReconstructor:
     """
-    Audit service — combines journal, decision traces, and loop closure state.
+    Audit service  combines journal, decision traces, and loop closure state.
     Thread-safe: delegates to async-safe sub-components.
     """
 
@@ -39,12 +39,12 @@ class StateReconstructor:
 
         Returns:
             judgment_id: str
-            trace: dict | None         — DecisionTrace.to_dict()
-            replay: list[dict]         — nodes in topological order
-            journal_context: list[dict]— journal events in the trace time window
-            errors: list[dict]         — error entries from journal_context
-            loop_stalled: bool         — did this cycle stall?
-            loop_orphan: bool          — no ACT phase recorded?
+            trace: dict | None          DecisionTrace.to_dict()
+            replay: list[dict]          nodes in topological order
+            journal_context: list[dict] journal events in the trace time window
+            errors: list[dict]          error entries from journal_context
+            loop_stalled: bool          did this cycle stall?
+            loop_orphan: bool           no ACT phase recorded?
         """
         trace = await self._tracer.get_trace_by_judgment(judgment_id)
         replay = await self._tracer.replay_by_judgment(judgment_id)
@@ -81,8 +81,8 @@ class StateReconstructor:
         Returns:
             start_ms, end_ms, duration_ms
             event_count: int
-            events: list[dict]         — JournalEntry.to_dict()
-            traces: list[dict]         — DecisionTrace.to_dict() started in window
+            events: list[dict]          JournalEntry.to_dict()
+            traces: list[dict]          DecisionTrace.to_dict() started in window
             error_count: int
         """
         journal_events = await self._journal.time_range(start_ms, end_ms)

@@ -1,10 +1,10 @@
 """
-Alerting & Escalation Engine — L1/L2/L3 incident triage (PHASE 2, COMPONENT 6)
+Alerting & Escalation Engine  L1/L2/L3 incident triage (PHASE 2, COMPONENT 6)
 
 Architecture:
-  RuleMatch → Alert → Deduplicator → Queue → Router → Channels
-                           ↓
-                    EscalationPath (L1→L2→L3)
+  RuleMatch  Alert  Deduplicator  Queue  Router  Channels
+                           
+                    EscalationPath (L1L2L3)
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ class Alert:
     def to_slack_message(self) -> dict:
         """Format alert for Slack."""
         return {
-            "text": f"⚠️ Security Alert: {self.rule_id}",
+            "text": f" Security Alert: {self.rule_id}",
             "attachments": [
                 {
                     "color": self._severity_color(),

@@ -1,5 +1,5 @@
 """
-CYNIC WorldModelUpdater â€" Unified cross-reality state aggregator.
+CYNIC WorldModelUpdater " Unified cross-reality state aggregator.
 
 Subscribes to JUDGMENT_CREATED, maintains a live WorldState snapshot
 indexed by reality. Computes composite_risk (phi-weighted geo mean).

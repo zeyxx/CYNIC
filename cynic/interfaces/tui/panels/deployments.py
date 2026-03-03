@@ -1,5 +1,5 @@
 """
-TUI Panel â€" Active Deployments
+TUI Panel " Active Deployments
 
 Shows real-time deployment status, logs, and results.
 """
@@ -81,7 +81,7 @@ class DeploymentsPanel(Static):
         """Mark deployment as complete."""
         for dep in self.deployments:
             if dep["id"] == dep_id:
-                dep["status"] = "âœ" Success" if success else "âœ- Failed"
+                dep["status"] = "" Success" if success else "- Failed"
                 elapsed = (datetime.now() - dep["started"]).total_seconds()
                 dep["duration"] = f"{elapsed:.0f}s"
                 break

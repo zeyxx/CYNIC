@@ -68,7 +68,7 @@ class Resource(str, Enum):
     BLOCKCHAIN = "blockchain"
 
 
-# RBAC Matrix: Role → Permissions → Resources
+# RBAC Matrix: Role  Permissions  Resources
 RBAC_MATRIX = {
     Role.ADMIN: {
         Resource.JUDGMENTS: [Permission.READ, Permission.WRITE, Permission.DELETE, Permission.EXECUTE],
@@ -407,7 +407,7 @@ class AccessController:
         """Initialize access control system."""
         logger.info("Starting access control system...")
         self._initialized = True
-        logger.info("✓ Access control system started")
+        logger.info(" Access control system started")
 
     async def shutdown(self) -> None:
         """Clean up resources."""
@@ -479,7 +479,7 @@ class AccessController:
             return False, key.role, authz_error
 
         # Step 3: Success
-        logger.debug(f"Access granted: {key.role.value} → {resource.value}:{permission.value}")
+        logger.debug(f"Access granted: {key.role.value}  {resource.value}:{permission.value}")
         return True, key.role, ""
 
     def create_request_signer(self, service_key: str) -> RequestSigner:

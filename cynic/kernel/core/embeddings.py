@@ -1,19 +1,19 @@
 """
-CYNIC Embedding Provider â€" Dense Vector Representations for ScholarDog
+CYNIC Embedding Provider " Dense Vector Representations for ScholarDog
 
 Provides a unified interface for generating text embeddings used in
-PostgreSQL pgvector semantic search (Î²1 implementation).
+PostgreSQL pgvector semantic search (1 implementation).
 
 Providers:
-  OllamaEmbedder  â€" Real embeddings via Ollama /api/embeddings endpoint
+  OllamaEmbedder  " Real embeddings via Ollama /api/embeddings endpoint
                     (requires Ollama running with an embedding model)
                     Models: nomic-embed-text (768d), all-minilm (384d)
 
-  DummyEmbedder   â€" Returns zero vectors (for testing/no-Ollama mode)
+  DummyEmbedder   " Returns zero vectors (for testing/no-Ollama mode)
                     Useful for DB schema testing without real Ollama
 
-Embedding dimension: 384 (all-minilm) â€" pgvector vector(384) compatible
-Fallback dimension:  768 (nomic-embed-text) â€" also supported
+Embedding dimension: 384 (all-minilm) " pgvector vector(384) compatible
+Fallback dimension:  768 (nomic-embed-text) " also supported
 
 Usage:
     embedder = OllamaEmbedder(base_url="http://localhost:11434", model="nomic-embed-text")
@@ -51,7 +51,7 @@ DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
 DEFAULT_EMBEDDING_DIM = 768  # nomic-embed-text dimension
 
 
-# â"€â"€ Abstract base â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" Abstract base """""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 class EmbeddingProvider(ABC):
@@ -74,7 +74,7 @@ class EmbeddingProvider(ABC):
         """Whether the provider is currently usable."""
 
 
-# â"€â"€ OllamaEmbedder â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" OllamaEmbedder """"""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 class OllamaEmbedder(EmbeddingProvider):
@@ -99,7 +99,7 @@ class OllamaEmbedder(EmbeddingProvider):
         self._model = model
         self._timeout = aiohttp.ClientTimeout(total=timeout_s)
         self._dim: int = _MODEL_DIMS.get(model, DEFAULT_EMBEDDING_DIM)
-        self._available: bool = True  # Optimistic â€" flipped on connection error
+        self._available: bool = True  # Optimistic " flipped on connection error
         self._error_count: int = 0
         self._MAX_ERRORS = 3  # Stop trying after 3 consecutive failures
 
@@ -168,14 +168,14 @@ class OllamaEmbedder(EmbeddingProvider):
             return [0.0] * self._dim
 
 
-# â"€â"€ DummyEmbedder â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" DummyEmbedder """"""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 class DummyEmbedder(EmbeddingProvider):
     """
     Deterministic pseudo-embeddings via SHA256 hashing.
 
-    Not real semantic embeddings â€" but reproducible and non-zero.
+    Not real semantic embeddings " but reproducible and non-zero.
     Useful for:
       - DB schema testing without a running Ollama
       - CI/CD test pipelines

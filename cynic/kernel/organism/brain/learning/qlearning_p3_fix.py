@@ -7,7 +7,7 @@ and async flush_to_db() in the QTable class.
 Problem:
   - update() is sync, mutates _pending_flush and _table
   - flush_to_db() is async, reads _pending_flush and clears it
-  - No synchronization → entries can be corrupted during concurrent access
+  - No synchronization  entries can be corrupted during concurrent access
 
 Solution:
   - Use asyncio.Queue for pending entries (thread-safe by design)
@@ -16,10 +16,10 @@ Solution:
   - Make update() async-aware (can be called from async contexts)
 
 This fix ensures:
-  ✅ No race conditions between sync mutations and async flushes
-  ✅ All pending entries are safely tracked
-  ✅ flush_to_db() never interferes with active updates
-  ✅ Backward compatibility (update() still syncronous for now)
+   No race conditions between sync mutations and async flushes
+   All pending entries are safely tracked
+   flush_to_db() never interferes with active updates
+   Backward compatibility (update() still syncronous for now)
 """
 
 import asyncio
@@ -142,7 +142,7 @@ class QTableP3Fix:
 
 class Pattern1_AsyncQueueSafety:
     """
-    Pattern: Use asyncio.Queue for sync→async handoff.
+    Pattern: Use asyncio.Queue for syncasync handoff.
 
     Benefit: Queue is designed for this exact use case (thread-safe).
     Trade-off: Small memory overhead per item.
@@ -225,16 +225,16 @@ class Pattern3_AsyncLockProtection:
 # =========================
 #
 # QTable uses Pattern 1 (asyncio.Queue):
-#   ✅ update() is sync (can't change it → backward compat)
-#   ✅ flush_to_db() is async
-#   ✅ Queue handles the boundary safely
+#    update() is sync (can't change it  backward compat)
+#    flush_to_db() is async
+#    Queue handles the boundary safely
 #
 # Why not Pattern 2 (CopyOnWrite)?
-#   ❌ QEntry objects are mutable references
-#   ❌ Entries in pending_flush can be modified after snapshot
-#   ❌ Flush sees inconsistent state
+#    QEntry objects are mutable references
+#    Entries in pending_flush can be modified after snapshot
+#    Flush sees inconsistent state
 #
 # Why not Pattern 3 (AsyncLock)?
-#   ❌ update() is sync - can't await lock
-#   ❌ Would require major refactor
-#   ❌ Defeats purpose of sync update
+#    update() is sync - can't await lock
+#    Would require major refactor
+#    Defeats purpose of sync update

@@ -1,14 +1,14 @@
 """
-CYNIC Judge Orchestrator — Full 7-Step Cycle (Pipeline DAG).
+CYNIC Judge Orchestrator  Full 7-Step Cycle (Pipeline DAG).
 
 Orchestrates the complete judgment pipeline:
-  1. PERCEIVE  → Cell is received (perception event)
-  2. JUDGE     → Dogs analyze, PHI-BFT consensus
-  3. DECIDE    → Governance approval/rejection
-  4. ACT       → Real-world effector execution
-  5. LEARN     → Q-Table reinforcement & Thompson Sampling
-  6. ACCOUNT   → Cost tracking & E-Score updates
-  7. EMERGE    → Pattern detection & self-improvement signals
+  1. PERCEIVE   Cell is received (perception event)
+  2. JUDGE      Dogs analyze, PHI-BFT consensus
+  3. DECIDE     Governance approval/rejection
+  4. ACT        Real-world effector execution
+  5. LEARN      Q-Table reinforcement & Thompson Sampling
+  6. ACCOUNT    Cost tracking & E-Score updates
+  7. EMERGE     Pattern detection & self-improvement signals
 
 This implementation uses a deterministic Pipeline DAG for total auditability.
 """
@@ -54,9 +54,11 @@ class JudgeOrchestrator:
         residual_detector=None,
         gasdf_executor=None,
         state_manager=None,
-        instance_id: str = "", # Force explicit string
+        instance_id: str = "",
         llm_registry: Any | None = None,
         consciousness: Any | None = None,
+        identity: Any | None = None,
+        judgment_engine: Any | None = None,
     ) -> None:
         self.dogs = dogs
         self.axiom_arch = axiom_arch
@@ -67,6 +69,9 @@ class JudgeOrchestrator:
         self.instance_id = instance_id
         self.bus = bus
         self._consciousness = consciousness
+        self.identity = identity
+        self.judgment_engine = judgment_engine
+
         
         # Optional managers (injected via state.py or factory)
         self.axiom_monitor = None
@@ -109,11 +114,11 @@ class JudgeOrchestrator:
             fractal_depth=fractal_depth
         )
         
-        logger.info(f"[{pipeline.trace_id}] ⚡ STARTING DAG: {selected_level.name} | Cell: {cell.cell_id[:8]}")
+        logger.info(f"[{pipeline.trace_id}]  STARTING DAG: {selected_level.name} | Cell: {cell.cell_id[:8]}")
 
         # Check Circuit Breaker
         if not self._circuit_breaker.allow():
-            logger.warning(f"[{pipeline.trace_id}] 🛡️ Circuit Breaker OPEN - Suspending judgment.")
+            logger.warning(f"[{pipeline.trace_id}]  Circuit Breaker OPEN - Suspending judgment.")
             raise RuntimeError("CircuitBreaker OPEN")
 
         try:
@@ -149,12 +154,12 @@ class JudgeOrchestrator:
                 source="orchestrator"
             ))
             
-            logger.info(f"[{pipeline.trace_id}] ✨ DAG COMPLETE: {judgment.verdict} (Q={judgment.q_score:.1f})")
+            logger.info(f"[{pipeline.trace_id}]  DAG COMPLETE: {judgment.verdict} (Q={judgment.q_score:.1f})")
             return judgment
 
         except Exception as e:
             self._circuit_breaker.record_failure()
-            logger.error(f"[{pipeline.trace_id}] ❌ DAG CRASH: {e}", exc_info=True)
+            logger.error(f"[{pipeline.trace_id}]  DAG CRASH: {e}", exc_info=True)
             await self.bus.emit(Event.typed(
                 CoreEvent.JUDGMENT_FAILED,
                 JudgmentFailedPayload(cell_id=cell.cell_id, error=str(e)),

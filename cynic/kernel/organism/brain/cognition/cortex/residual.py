@@ -1,5 +1,5 @@
 """
-ResidualDetector - γ1 entropy sensor.
+ResidualDetector - 1 entropy sensor.
 
 Measures the variance between Dog judgments.
 High variance = High 'Unnameable' content = Emergence potential.

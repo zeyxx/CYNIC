@@ -1,5 +1,5 @@
 """
-CYNIC Web Eye — Advanced perception via Playwright.
+CYNIC Web Eye  Advanced perception via Playwright.
 
 Connects the organism to the web world. 
 Specifically tuned for https://cannon.pumpparty.com/
@@ -42,7 +42,7 @@ class WebEye:
         self._game_active = False
 
     async def start(self):
-        """Awaken the eye — launch the browser."""
+        """Awaken the eye  launch the browser."""
         if self._running:
             return
             
@@ -66,7 +66,7 @@ class WebEye:
             await self.stop()
 
     async def stop(self):
-        """Detach the eye — close browser."""
+        """Detach the eye  close browser."""
         self._running = False
         if self._task:
             self._task.cancel()

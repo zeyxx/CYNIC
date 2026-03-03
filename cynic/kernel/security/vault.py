@@ -146,7 +146,7 @@ class VaultSecretStore(SecretStore):
 
             # Verify auth
             auth_info = self.client.auth.token.lookup_self()
-            logger.info(f"✓ Connected to Vault as {auth_info['data']['display_name']}")
+            logger.info(f" Connected to Vault as {auth_info['data']['display_name']}")
             self._authenticated = True
             return True
         except ImportError:
@@ -242,9 +242,9 @@ class SecretManager:
         vault_store = VaultSecretStore(self.config)
         if await vault_store.connect():
             self.primary_store = vault_store
-            logger.info("✓ Using Vault for secret storage")
+            logger.info(" Using Vault for secret storage")
         else:
-            logger.warning("⚠ Vault unavailable, using environment variable fallback")
+            logger.warning(" Vault unavailable, using environment variable fallback")
             self.primary_store = self.fallback_store
 
         self._initialized = True

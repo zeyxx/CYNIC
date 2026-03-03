@@ -1,12 +1,12 @@
 """
-Detection Rules Engine — Kill Chain pattern matching (PHASE 2, COMPONENT 5)
+Detection Rules Engine  Kill Chain pattern matching (PHASE 2, COMPONENT 5)
 
 Architecture:
-  Rule (base class) → RuleRegistry (lifecycle management) → RuleEngine (evaluation)
-                           ↓
+  Rule (base class)  RuleRegistry (lifecycle management)  RuleEngine (evaluation)
+                           
                     25-50 rules by stage
-                           ↓
-                    Matches → Alert context
+                           
+                    Matches  Alert context
 """
 
 from __future__ import annotations

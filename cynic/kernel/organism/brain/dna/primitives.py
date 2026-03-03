@@ -1,4 +1,4 @@
-"""CYNIC DNA Primitives â€" Five core operations (PERCEIVE, JUDGE, DECIDE, ACT, LEARN)."""
+"""CYNIC DNA Primitives " Five core operations (PERCEIVE, JUDGE, DECIDE, ACT, LEARN)."""
 
 from __future__ import annotations
 
@@ -333,7 +333,7 @@ async def run_dna_chain(
     qtable: Any = None,
 ) -> dict:
     """
-    Run all 5 primitives in sequence (PERCEIVE â' JUDGE â' DECIDE â' ACT â' LEARN).
+    Run all 5 primitives in sequence (PERCEIVE ' JUDGE ' DECIDE ' ACT ' LEARN).
 
     Example:
         >>> result = await run_dna_chain(cell, orchestrator=orch, qtable=qtable)

@@ -1,4 +1,4 @@
-"""MCPBridge â€" Base service for MCP protocol integration.
+"""MCPBridge " Base service for MCP protocol integration.
 
 Translates MCP tool calls into organism events.
 Lives inside the SensoryCore as a subsystem.
@@ -12,7 +12,7 @@ Architecture:
 - Emits to one of the 3 buses (CORE by default)
 - Each tool call becomes an "mcp.tool_called" event
 - The organism reacts to these events via its normal event handlers
-- MCPBridge does NOT process results â€" it only translates input
+- MCPBridge does NOT process results " it only translates input
 """
 
 from __future__ import annotations
@@ -101,7 +101,7 @@ class MCPBridge:
         start = time.perf_counter()
         try:
             if not self.is_running:
-                raise RuntimeError("MCPBridge is not running â€" call startup() first")
+                raise RuntimeError("MCPBridge is not running - call startup() first")
 
             if tool_name not in self.tools:
                 raise KeyError(f"Tool {tool_name!r} not registered")

@@ -1,5 +1,5 @@
 """
-Handler Compile-Time Discovery & Validation â€" Verify all handlers are properly wired.
+Handler Compile-Time Discovery & Validation " Verify all handlers are properly wired.
 
 Validates:
 1. All handler modules in cynic.kernel.organism.reflexes are discovered
@@ -59,7 +59,7 @@ class HandlerValidator:
         self._discovered_names.clear()
         self._all_module_names.clear()
 
-        # â"€â"€ Phase 1: Index discovered handlers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        # "" Phase 1: Index discovered handlers """""""""""""""""""""""""""""
         for group in discovered_groups:
             if group.name in self._discovered_names:
                 self._issues.append(
@@ -72,10 +72,10 @@ class HandlerValidator:
                 )
             self._discovered_names.add(group.name)
 
-        # â"€â"€ Phase 2: Scan all handler modules (detect orphans) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        # "" Phase 2: Scan all handler modules (detect orphans) """""""""""""
         self._scan_all_modules()
 
-        # â"€â"€ Phase 3: Check for orphan handlers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        # "" Phase 3: Check for orphan handlers """"""""""""""""""""""""""""
         orphan_modules = self._all_module_names - self._discovered_names
         for module_name in sorted(orphan_modules):
             self._issues.append(
@@ -87,11 +87,11 @@ class HandlerValidator:
                 )
             )
 
-        # â"€â"€ Phase 4: Validate each handler â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        # "" Phase 4: Validate each handler """""""""""""""""""""""""""""""
         for group in discovered_groups:
             self._validate_handler(group)
 
-        # â"€â"€ Phase 5: Check for duplicate subscriptions â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        # "" Phase 5: Check for duplicate subscriptions """"""""""""""""""""
         self._check_duplicate_subscriptions(discovered_groups)
 
         return self._issues
@@ -220,9 +220,9 @@ class HandlerValidator:
     def report(self) -> str:
         """Generate human-readable validation report."""
         if not self._issues:
-            return "âœ… Handler validation: OK (0 issues)"
+            return " Handler validation: OK (0 issues)"
 
-        lines = [f"âš ï¸  Handler validation: {len(self._issues)} issues"]
+        lines = [f"  Handler validation: {len(self._issues)} issues"]
         lines.append("")
 
         errors = [i for i in self._issues if i.severity == "ERROR"]
@@ -230,19 +230,19 @@ class HandlerValidator:
         infos = [i for i in self._issues if i.severity == "INFO"]
 
         if errors:
-            lines.append(f"ðŸ"´ ERRORS ({len(errors)}):")
+            lines.append(f"!!! ERRORS ({len(errors)}):")
             for issue in errors:
                 lines.append(f"  [{issue.category}] {issue.handler_name}: {issue.message}")
             lines.append("")
 
         if warnings:
-            lines.append(f"ðŸŸ¡ WARNINGS ({len(warnings)}):")
+            lines.append(f"! WARNINGS ({len(warnings)}):")
             for issue in warnings:
                 lines.append(f"  [{issue.category}] {issue.handler_name}: {issue.message}")
             lines.append("")
 
         if infos:
-            lines.append(f"â"¹ï¸  INFO ({len(infos)}):")
+            lines.append(f"i INFO ({len(infos)}):")
             for issue in infos:
                 lines.append(f"  [{issue.category}] {issue.handler_name}: {issue.message}")
 

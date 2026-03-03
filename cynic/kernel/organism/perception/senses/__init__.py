@@ -1,5 +1,5 @@
 """
-CYNIC Senses â€" Environmental perception and input processing.
+CYNIC Senses " Environmental perception and input processing.
 
 Provides sensory interfaces for CYNIC to perceive external events:
 - Discord messages and reactions

@@ -1,5 +1,5 @@
 """
-CYNIC AlignmentSafetyChecker â€" Guardrail 2: Alignment validation
+CYNIC AlignmentSafetyChecker " Guardrail 2: Alignment validation
 
 Validates that decisions conform to CYNIC's 5 axioms before ACT phase.
 
@@ -22,9 +22,9 @@ from cynic.kernel.organism.brain.learning.qlearning import VERDICTS
 
 logger = logging.getLogger("cynic.kernel.organism.metabolism.immune.alignment_checker")
 
-# Axiom thresholds (Ï-derived)
-_MIN_CONFIDENCE_FOR_HIGH_IMPACT = 0.382  # Ïâ»Â² â€" minimum for BARK decisions
-_VERDICT_BALANCE_WINDOW = fibonacci(6)  # 8 judgments â€" check balance
+# Axiom thresholds (-derived)
+_MIN_CONFIDENCE_FOR_HIGH_IMPACT = 0.382  #  " minimum for BARK decisions
+_VERDICT_BALANCE_WINDOW = fibonacci(6)  # 8 judgments " check balance
 _MAX_CONTRADICTIONS_BEFORE_BLOCK = 2  # Contradiction threshold
 
 
@@ -60,7 +60,7 @@ class AlignmentSafetyChecker:
 
     def start(self) -> None:
         """Start alignment checker monitoring."""
-        logger.info("AlignmentSafetyChecker started â€" validating axiom alignment")
+        logger.info("AlignmentSafetyChecker started " validating axiom alignment")
 
     def check_alignment(
         self,
@@ -122,7 +122,7 @@ class AlignmentSafetyChecker:
         if len(self._recent_verdicts) > self._window_size:
             self._recent_verdicts.pop(0)
 
-    # â"€â"€ Private â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Private """"""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def _check_fidelity(
         self,
@@ -165,7 +165,7 @@ class AlignmentSafetyChecker:
         return violations
 
     def _check_phi_balance(self, verdict: str) -> list[AlignmentViolation]:
-        """Check verdict distribution maintains Ï balance (PHI)."""
+        """Check verdict distribution maintains  balance (PHI)."""
         violations = []
 
         if not self._recent_verdicts or verdict not in VERDICTS:
@@ -175,8 +175,8 @@ class AlignmentSafetyChecker:
         verdict_counts = {v: self._recent_verdicts.count(v) for v in VERDICTS}
         current_count = verdict_counts.get(verdict, 0)
 
-        # BARK should be â‰¤ Ïâ»Â² Ã- window (38.2% of verdicts)
-        # Other verdicts should be â‰¤ Ïâ»Â¹ Ã- window (61.8% of verdicts)
+        # BARK should be   - window (38.2% of verdicts)
+        # Other verdicts should be   - window (61.8% of verdicts)
         bark_limit = int(self._window_size * 0.382)
         int(self._window_size * 0.618)
 
@@ -185,7 +185,7 @@ class AlignmentSafetyChecker:
                 AlignmentViolation(
                     axiom="PHI",
                     severity="WARNING",
-                    reason=f"BARK at {current_count}/{self._window_size} exceeds Ïâ»Â² threshold",
+                    reason=f"BARK at {current_count}/{self._window_size} exceeds  threshold",
                     blocking=False,
                     recommendation="Consider escalating to GROWL/WAG if less critical",
                 )
@@ -203,7 +203,7 @@ class AlignmentSafetyChecker:
                 AlignmentViolation(
                     axiom="VERIFY",
                     severity="CRITICAL",
-                    reason=f"BARK verdict requires confidence â‰¥ {_MIN_CONFIDENCE_FOR_HIGH_IMPACT:.1%}, got {confidence:.1%}",
+                    reason=f"BARK verdict requires confidence  {_MIN_CONFIDENCE_FOR_HIGH_IMPACT:.1%}, got {confidence:.1%}",
                     blocking=True,
                     recommendation="Lower to GROWL or improve confidence before proceeding",
                 )
@@ -253,7 +253,7 @@ class AlignmentSafetyChecker:
         """Check decision is minimal and focused (BURN)."""
         violations = []
 
-        # Action prompt length â€" extract bloat detector
+        # Action prompt length " extract bloat detector
         action_prompt = decision.get("action_prompt", "")
         if len(action_prompt) > 1000:
             violations.append(

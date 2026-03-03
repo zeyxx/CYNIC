@@ -49,7 +49,7 @@ class GASdfExecutor:
 
         Args:
             verdict: CYNIC verdict (HOWL/WAG/GROWL/BARK)
-            q_score: CYNIC confidence score (0-1, Ï-bounded at 0.618)
+            q_score: CYNIC confidence score (0-1, -bounded at 0.618)
 
         Returns:
             True if verdict should execute, False otherwise

@@ -1,5 +1,5 @@
 """
-GuidanceWriter â€" Writes guidance.json from JUDGMENT_CREATED events.
+GuidanceWriter " Writes guidance.json from JUDGMENT_CREATED events.
 
 This handler ensures the feedback loop is maintained by persisting the
 latest judgment to a local JSON file. This file is read by external hooks
@@ -48,7 +48,7 @@ class GuidanceWriter(HandlerGroup):
 
     async def _on_judgment_created(self, event: Event) -> None:
         """
-        JUDGMENT_CREATED â' write guidance.json atomically.
+        JUDGMENT_CREATED ' write guidance.json atomically.
         """
         try:
             p = event.dict_payload or {}

@@ -1,5 +1,5 @@
 """
-CYNIC PowerLimiter â€" Guardrail 1: Resource consumption bounds
+CYNIC PowerLimiter " Guardrail 1: Resource consumption bounds
 
 Prevents unbounded resource growth as CYNIC self-improves by enforcing:
   1. CPU limits: max concurrent workers per tier
@@ -13,7 +13,7 @@ during self-improvement cycles, causing system instability or denial-of-service.
 Architecture:
   - Monitors: scheduler._tasks count, queue sizes, cycle rates
   - Actions: throttle workers, cap consciousness level, emit warnings
-  - Safety: graceful degradation (MACRO â' MICRO â' REFLEX)
+  - Safety: graceful degradation (MACRO ' MICRO ' REFLEX)
 """
 
 from __future__ import annotations
@@ -35,10 +35,10 @@ from cynic.kernel.core.phi import fibonacci
 
 logger = logging.getLogger("cynic.kernel.organism.metabolism.immune.power_limiter")
 
-# Resource thresholds (Ï-derived for sustainable growth)
+# Resource thresholds (-derived for sustainable growth)
 _CPU_THRESHOLD_PCT = 80.0  # Auto-throttle at 80% CPU
 _MEMORY_THRESHOLD_PCT = 85.0  # Auto-throttle at 85% memory
-_QUEUE_DEPTH_CRITICAL = fibonacci(8)  # 21 â€" beyond this, cap to REFLEX
+_QUEUE_DEPTH_CRITICAL = fibonacci(8)  # 21 " beyond this, cap to REFLEX
 _MAX_JUDGMENTS_PER_SEC = fibonacci(5)  # 5 judgments/sec hard limit
 _MAX_ACTIONS_PER_MIN = fibonacci(7)  # 13 actions/min hard limit
 
@@ -82,7 +82,7 @@ class PowerLimiter:
 
     def start(self) -> None:
         """Start power limiter monitoring."""
-        logger.info("PowerLimiter started â€" monitoring CPU/memory/queue limits")
+        logger.info("PowerLimiter started " monitoring CPU/memory/queue limits")
 
     def check_available(self, scheduler: Any) -> bool:
         """
@@ -137,9 +137,9 @@ class PowerLimiter:
         Recommend consciousness level based on resource availability.
 
         Strategy: graceful degradation
-          - All healthy â' MACRO (full depth)
-          - CPU/Memory warning â' MICRO (limited LLM)
-          - Critical queue depth â' REFLEX (minimal)
+          - All healthy ' MACRO (full depth)
+          - CPU/Memory warning ' MICRO (limited LLM)
+          - Critical queue depth ' REFLEX (minimal)
 
         Args:
             scheduler: ConsciousnessRhythm instance
@@ -152,7 +152,7 @@ class PowerLimiter:
         # Critical queue backlog
         if metrics.queue_depth > _QUEUE_DEPTH_CRITICAL:
             logger.warning(
-                "Queue backlog critical: %d > %d â€" capping to REFLEX",
+                "Queue backlog critical: %d > %d " capping to REFLEX",
                 metrics.queue_depth,
                 _QUEUE_DEPTH_CRITICAL,
             )
@@ -160,15 +160,15 @@ class PowerLimiter:
 
         # Memory pressure
         if metrics.memory_pct > _MEMORY_THRESHOLD_PCT:
-            logger.info("Memory pressure: %.1f%% â€" capping to REFLEX", metrics.memory_pct)
+            logger.info("Memory pressure: %.1f%% " capping to REFLEX", metrics.memory_pct)
             return ConsciousnessLevel.REFLEX
 
         # CPU pressure (but not critical)
         if metrics.cpu_pct > 70.0:  # Softer threshold for CPU
-            logger.info("CPU pressure: %.1f%% â€" capping to MICRO", metrics.cpu_pct)
+            logger.info("CPU pressure: %.1f%% " capping to MICRO", metrics.cpu_pct)
             return ConsciousnessLevel.MICRO
 
-        # Healthy â€" allow MACRO
+        # Healthy " allow MACRO
         return ConsciousnessLevel.MACRO
 
     def record_judgment(self) -> None:
@@ -213,7 +213,7 @@ class PowerLimiter:
             "action_buffer_size": len(self._action_timestamps),
         }
 
-    # â"€â"€ Private â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Private """"""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def _get_metrics(self, scheduler: Any) -> ResourceMetrics:
         """Extract resource metrics from scheduler and system."""

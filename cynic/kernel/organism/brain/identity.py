@@ -1,4 +1,4 @@
-"""Layer 0: Identity â€" CYNIC's Immutable DNA (Axioms as Constraints)
+"""Layer 0: Identity " CYNIC's Immutable DNA (Axioms as Constraints)
 
 Axioms are NOT maturity scores or behavior labels.
 Axioms are CONSTRAINTS that filter all behavior before execution.
@@ -29,7 +29,7 @@ class AxiomConstraint(Enum):
 
     FIDELITY = {
         "name": "FIDELITY",
-        "description": "Loyal to truth over comfort. Never exceed Ï-bounded confidence.",
+        "description": "Loyal to truth over comfort. Never exceed -bounded confidence.",
         "constraint": lambda judgment: judgment.confidence <= MAX_CONFIDENCE,  # 0.618
         "violations": [],
     }
@@ -75,9 +75,9 @@ class OrganismIdentity:
     Is DNA (not phenotype).
 
     Public API:
-    - __init__(...) â€" create identity
-    - validate_judgment(judgment) -> list[str] â€" check axiom violations
-    - __str__() â€" readable representation
+    - __init__(...) " create identity
+    - validate_judgment(judgment) -> list[str] " check axiom violations
+    - __str__() " readable representation
     """
 
     axioms: dict[str, dict] = None
@@ -119,7 +119,7 @@ class OrganismIdentity:
                     violations.append(axiom_name)
                     axiom_def["violations"].append(axiom_name)
             except CynicError as e:
-                # Constraint evaluation failed â€" also a violation
+                # Constraint evaluation failed " also a violation
                 # (object missing required attributes)
                 violations.append(f"{axiom_name}:error")
                 axiom_def["violations"].append(f"{axiom_name}:error:{str(e)}")

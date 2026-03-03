@@ -1,14 +1,14 @@
 """
-CYNIC Chat Tool Executor â€" Execute tools with REFLEX judgment safety.
+CYNIC Chat Tool Executor " Execute tools with REFLEX judgment safety.
 
 Every dangerous tool (bash, write, edit) gets a REFLEX judgment from the
-GuardianDog before execution. BARK â' blocked. Everything else â' proceed.
+GuardianDog before execution. BARK ' blocked. Everything else ' proceed.
 
 Read-only tools (read, glob, grep) execute without judgment overhead.
 
 NOTE: The bash tool intentionally uses create_subprocess_shell because
 it must support pipes, redirects, and other shell features. CYNIC's
-GuardianDog REFLEX judgment provides the safety layer (BARK â' blocked).
+GuardianDog REFLEX judgment provides the safety layer (BARK ' blocked).
 """
 from __future__ import annotations
 
@@ -116,11 +116,11 @@ class ToolExecutor:
                     q_score=judgment.q_score,
                     error=f"Blocked by GuardianDog: {judgment.verdict} Q={judgment.q_score:.1f}",
                 )
-            # Not blocked â€" proceed with execution
+            # Not blocked " proceed with execution
             return None
         except OSError as exc:
             logger.debug("REFLEX judgment skipped: %s", exc)
-            return None  # Fail open â€" don't block on judgment errors
+            return None  # Fail open " don't block on judgment errors
 
     async def _dispatch(self, call: ToolCall) -> str:
         """Dispatch to the appropriate tool handler."""
@@ -142,7 +142,7 @@ class ToolExecutor:
 
         return f"Unknown tool: {name}"
 
-    # â"€â"€ Individual tool implementations â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # "" Individual tool implementations """""""""""""""""""""""""""""""""""
 
     async def _exec_bash(self, command: str, timeout: int = 120) -> str:
         """Execute shell command. Uses subprocess_shell intentionally for pipe/redirect support.
@@ -240,7 +240,7 @@ class ToolExecutor:
         if count == 0:
             raise ValueError(f"old_string not found in {path}")
         if count > 1:
-            raise ValueError(f"old_string found {count} times in {path} â€" must be unique")
+            raise ValueError(f"old_string found {count} times in {path} " must be unique")
 
         new_content = content.replace(old_string, new_string, 1)
         with open(path, "w", encoding="utf-8") as fh:

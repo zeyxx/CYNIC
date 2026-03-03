@@ -1,5 +1,5 @@
 """
-Perception Handler — Bridges Sensory Input to Cognitive Judgment.
+Perception Handler  Bridges Sensory Input to Cognitive Judgment.
 
 This reflex listens for PERCEPTION_RECEIVED events from the Somatic Gateway,
 translates them into Cells, and requests a Judgment cycle.

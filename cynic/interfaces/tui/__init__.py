@@ -1,5 +1,5 @@
 """
-CYNIC TUI â€" Terminal user interface for organism monitoring and control.
+CYNIC TUI " Terminal user interface for organism monitoring and control.
 
 Provides interactive terminal dashboard for:
 - Real-time consciousness level and activity monitoring

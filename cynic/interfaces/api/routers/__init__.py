@@ -1,5 +1,5 @@
 """
-CYNIC API routers â€" REST endpoints for organism judgment and governance.
+CYNIC API routers " REST endpoints for organism judgment and governance.
 
 Organizes API routes by domain:
 - act: Physical/blockchain actions

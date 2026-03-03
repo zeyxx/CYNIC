@@ -1,5 +1,5 @@
 """
-CYNIC Opcode Semantics â€" Formal specification of 7-step instruction set
+CYNIC Opcode Semantics " Formal specification of 7-step instruction set
 
 Each opcode has immutable semantics:
 - Preconditions: What must be true before executing
@@ -18,23 +18,23 @@ from enum import Enum
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # STORAGE TIER ENUM
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class StorageTier(Enum):
     """Storage tier mapping (HOT, WARM, COLD, FROZEN)."""
 
-    HOT = "hot"  # PostgreSQL â€" indexed, queryable, immediate
-    WARM = "warm"  # Qdrant â€" semantic vectors, searchable, ~1-30 days
-    COLD = "cold"  # Solana PoJ â€" immutable proof, archived, 30+ days
+    HOT = "hot"  # PostgreSQL " indexed, queryable, immediate
+    WARM = "warm"  # Qdrant " semantic vectors, searchable, ~1-30 days
+    COLD = "cold"  # Solana PoJ " immutable proof, archived, 30+ days
     FROZEN = "frozen"  # Deleted but hash recorded, audit trail only
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # OPCODE SPECIFICATION
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 @dataclass
@@ -76,9 +76,9 @@ class OpcodeSpec:
         return float(self.cost_usd)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # OPCODE 1: [PERCEIVE]
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 PERCEIVE_SPEC = OpcodeSpec(
     name="PERCEIVE",
@@ -87,8 +87,8 @@ PERCEIVE_SPEC = OpcodeSpec(
         "Immutable after creation. May trigger consciousness level escalation."
     ),
     preconditions=[
-        "System is alive (any consciousness level â‰¥ L3)",
-        "Source is validated (reality âˆˆ {CODE, SOLANA, MARKET, SOCIAL, HUMAN, CYNIC, COSMOS})",
+        "System is alive (any consciousness level  L3)",
+        "Source is validated (reality  {CODE, SOLANA, MARKET, SOCIAL, HUMAN, CYNIC, COSMOS})",
         "No ongoing PERCEIVE for identical content (dedup)",
     ],
     postconditions=[
@@ -99,7 +99,7 @@ PERCEIVE_SPEC = OpcodeSpec(
     ],
     state_transitions=["JUDGE"],
     storage_tiers=[StorageTier.HOT],
-    cost_usd=0.001,  # Cheap â€" no LLM
+    cost_usd=0.001,  # Cheap " no LLM
     consciousness_gates={
         ConsciousnessLevel.REFLEX: True,  # Always runs
         ConsciousnessLevel.MICRO: True,
@@ -109,9 +109,9 @@ PERCEIVE_SPEC = OpcodeSpec(
 )
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # OPCODE 2: [JUDGE]
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 JUDGE_SPEC = OpcodeSpec(
     name="JUDGE",
@@ -124,12 +124,12 @@ JUDGE_SPEC = OpcodeSpec(
         "PERCEIVE completed and Cell is immutable",
         "Consciousness level is known (L3/L2/L1/L4)",
         "Dogs available for this level exist",
-        "Cell.confidence still in [0, Ïâ»Â¹] (unknown state)",
+        "Cell.confidence still in [0, ] (unknown state)",
     ],
     postconditions=[
-        "Judgment created with immutable Q-Score âˆˆ [0, 100]",
-        "Verdict assigned: HOWL (â‰¥82) | WAG (â‰¥61.8) | GROWL (â‰¥38.2) | BARK (<38.2)",
-        "Confidence Ï-bounded to [0, 0.618]",
+        "Judgment created with immutable Q-Score  [0, 100]",
+        "Verdict assigned: HOWL (82) | WAG (61.8) | GROWL (38.2) | BARK (<38.2)",
+        "Confidence -bounded to [0, 0.618]",
         "Dog votes recorded (for audit)",
         "PBFT consensus algorithm applied (if L1+)",
         "Event JUDGMENT_CREATED emitted with full breakdown",
@@ -139,7 +139,7 @@ JUDGE_SPEC = OpcodeSpec(
     cost_usd=lambda level: {
         "L3": 0.02,  # Local pattern matching
         "L2": 0.15,  # Quick LLM calls (7 dogs)
-        "L1": 2.50,  # Full MCTS (7 parallel LLM Ã- ~350ms each)
+        "L1": 2.50,  # Full MCTS (7 parallel LLM - ~350ms each)
         "L4": 5.00,  # Evolution + consolidation
     }.get(str(level), 1.0),
     consciousness_gates={
@@ -151,9 +151,9 @@ JUDGE_SPEC = OpcodeSpec(
 )
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # OPCODE 3: [DECIDE]
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 DECIDE_SPEC = OpcodeSpec(
     name="DECIDE",
@@ -171,7 +171,7 @@ DECIDE_SPEC = OpcodeSpec(
     postconditions=[
         "Decision status: APPROVED | REJECTED | HUMAN_REVIEW_REQUIRED",
         "If APPROVED: ProposedAction created and PENDING",
-        "TIER constraints applied (low TIER â' fewer action types)",
+        "TIER constraints applied (low TIER ' fewer action types)",
         "Event DECISION_MADE emitted",
     ],
     state_transitions=["ACT"],  # If approved. Otherwise loop back to PERCEIVE
@@ -186,9 +186,9 @@ DECIDE_SPEC = OpcodeSpec(
 )
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # OPCODE 4: [ACT]
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 ACT_SPEC = OpcodeSpec(
     name="ACT",
@@ -221,9 +221,9 @@ ACT_SPEC = OpcodeSpec(
 )
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # OPCODE 5: [LEARN]
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 LEARN_SPEC = OpcodeSpec(
     name="LEARN",
@@ -238,10 +238,10 @@ LEARN_SPEC = OpcodeSpec(
         "State-action pair identified for Q-Table",
     ],
     postconditions=[
-        "Q-Table updated with Fisher-weighted Î",
-        "E-Score dimension updated (EMA Î=0.618)",
+        "Q-Table updated with Fisher-weighted ",
+        "E-Score dimension updated (EMA =0.618)",
         "Calibration tracked for confidence adjustment",
-        "High-visit entries (21+) 4Ã- more resistant to change (EWC)",
+        "High-visit entries (21+) 4- more resistant to change (EWC)",
         "Event LEARNING_SIGNAL_PROCESSED emitted",
     ],
     state_transitions=["ACCOUNT"],
@@ -256,9 +256,9 @@ LEARN_SPEC = OpcodeSpec(
 )
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # OPCODE 6: [ACCOUNT]
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 ACCOUNT_SPEC = OpcodeSpec(
     name="ACCOUNT",
@@ -292,9 +292,9 @@ ACCOUNT_SPEC = OpcodeSpec(
 )
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # OPCODE 7: [EMERGE]
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 EMERGE_SPEC = OpcodeSpec(
     name="EMERGE",
@@ -305,7 +305,7 @@ EMERGE_SPEC = OpcodeSpec(
     ),
     preconditions=[
         "ACCOUNT completed",
-        "Ring buffer has â‰¥ F(9)=34 entries (sufficient history)",
+        "Ring buffer has  F(9)=34 entries (sufficient history)",
         "L4 META scheduler triggered (or manual probe)",
     ],
     postconditions=[
@@ -328,9 +328,9 @@ EMERGE_SPEC = OpcodeSpec(
 )
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # OPCODE REGISTRY (Immutable)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 OPCODE_REGISTRY: dict[str, OpcodeSpec] = {
     "PERCEIVE": PERCEIVE_SPEC,
@@ -353,9 +353,9 @@ OPCODE_NAMES: list[str] = [
 ]
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # HELPER FUNCTIONS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 def get_opcode_spec(name: str) -> OpcodeSpec | None:

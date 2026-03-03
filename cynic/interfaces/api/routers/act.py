@@ -1,5 +1,5 @@
 """
-CYNIC act router — act/execute · act/telemetry
+CYNIC act router  act/execute  act/telemetry
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ router_act = APIRouter(tags=["act"])
 
 def _enrich_prompt(prompt: str, state) -> str:
     """
-    Inject CYNIC context into Claude's prompt (CYNIC→Claude direction of L2).
+    Inject CYNIC context into Claude's prompt (CYNICClaude direction of L2).
     """
     task_type = classify_task(prompt)
     state_key = f"SDK:default:{task_type}:medium"
@@ -93,7 +93,7 @@ async def act_telemetry(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
-    Session telemetry — CYNIC's learning measurement layer.
+    Session telemetry  CYNIC's learning measurement layer.
     """
     state = container.organism
     store = state.metabolism.telemetry_store

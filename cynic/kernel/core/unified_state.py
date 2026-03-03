@@ -2,7 +2,7 @@
 Unified State Models for CYNIC Consciousness
 
 Consolidates immutable state contracts for judgments, learning, and value creation.
-Enforces Ï-bounds and allows extra metadata for topological flexibility.
+Enforces -bounds and allows extra metadata for topological flexibility.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from cynic.kernel.core.phi import MAX_CONFIDENCE, fibonacci
 
 
-# â"€â"€ Base Model for Pydantic-based models with flexibility â"€â"€
+# "" Base Model for Pydantic-based models with flexibility ""
 class UnifiedModel(BaseModel):
     model_config = ConfigDict(extra="allow", frozen=False)
 
@@ -210,7 +210,7 @@ class GovernanceVote:
         return dataclasses.replace(self, **kwargs)
 
 
-# â"€â"€ Buffers â"€â"€
+# "" Buffers ""
 
 
 class JudgmentBuffer(BaseModel):

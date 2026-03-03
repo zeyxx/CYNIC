@@ -1,5 +1,5 @@
 """
-TIER B2: Storage Tier Mapping â€" Route events to HOT/WARM/COLD tiers.
+TIER B2: Storage Tier Mapping " Route events to HOT/WARM/COLD tiers.
 
 Maps each opcode (CoreEvent type) to storage tier(s).
 - HOT: Recent, frequently accessed (memory + fresh writes)
@@ -7,13 +7,13 @@ Maps each opcode (CoreEvent type) to storage tier(s).
 - COLD: Historical, rarely accessed (compressed/archived)
 
 Timing:
-- PERCEPTION_RECEIVED â' HOT (immediate processing)
-- JUDGMENT_CREATED â' [HOT, WARM, COLD] (replicated everywhere)
-- DECISION_MADE â' WARM (stable, not urgent)
-- ACTION_EXECUTED â' COLD (historical record)
-- LEARNING_SIGNAL_PROCESSED â' WARM (learning is important, not urgent)
-- COST_ACCOUNTED â' COLD (financial record, archived)
-- EMERGENCE_DETECTED â' [WARM, COLD] (replicate for analysis)
+- PERCEPTION_RECEIVED ' HOT (immediate processing)
+- JUDGMENT_CREATED ' [HOT, WARM, COLD] (replicated everywhere)
+- DECISION_MADE ' WARM (stable, not urgent)
+- ACTION_EXECUTED ' COLD (historical record)
+- LEARNING_SIGNAL_PROCESSED ' WARM (learning is important, not urgent)
+- COST_ACCOUNTED ' COLD (financial record, archived)
+- EMERGENCE_DETECTED ' [WARM, COLD] (replicate for analysis)
 """
 
 from __future__ import annotations
@@ -27,9 +27,9 @@ from cynic.kernel.core.event_bus import CoreEvent, Event
 logger = logging.getLogger(__name__)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # STORAGE TIER ENUMERATION
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class StorageTier(str, Enum):
@@ -40,9 +40,9 @@ class StorageTier(str, Enum):
     COLD = "cold"  # Compressed/archived (rare access, historical)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# OPCODE â' STORAGE TIER MAPPING
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
+# OPCODE ' STORAGE TIER MAPPING
+# 
 
 OPCODE_STORAGE_MAP: dict[CoreEvent, StorageTier | list[StorageTier]] = {
     # Step 1: PERCEIVE
@@ -74,9 +74,9 @@ OPCODE_STORAGE_MAP: dict[CoreEvent, StorageTier | list[StorageTier]] = {
 }
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # STORAGE TIER POLICY
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class StorageTierPolicy:
@@ -110,7 +110,7 @@ class StorageTierPolicy:
         mapping = OPCODE_STORAGE_MAP.get(event_type)
 
         if mapping is None:
-            logger.warning(f"Unknown event type: {event_type} â€" defaulting to WARM")
+            logger.warning(f"Unknown event type: {event_type} " defaulting to WARM")
             return [StorageTier.WARM]
 
         if isinstance(mapping, StorageTier):
@@ -143,7 +143,7 @@ class StorageTierPolicy:
                 f"{', '.join(t.value for t in tiers)}"
             )
         else:
-            logger.debug(f"Event {event.type} â' {tiers[0].value}")
+            logger.debug(f"Event {event.type} ' {tiers[0].value}")
 
         return tiers
 
@@ -151,7 +151,7 @@ class StorageTierPolicy:
         self, event_id: str, from_tier: StorageTier, to_tier: StorageTier
     ) -> None:
         """
-        Promote an event from one tier to another (e.g., COLD â' WARM â' HOT).
+        Promote an event from one tier to another (e.g., COLD ' WARM ' HOT).
 
         Useful for events that become "hot" after being in cold storage.
         For example, a judgment that users start frequently querying should

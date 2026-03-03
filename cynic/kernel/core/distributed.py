@@ -1,5 +1,5 @@
 """
-CYNIC Distributed Bridge — The Redis-backed synchronization layer.
+CYNIC Distributed Bridge  The Redis-backed synchronization layer.
 
 Connects the local EventBus to a global Redis backbone.
 Allows multiple CYNIC instances to share a unified nervous system.

@@ -1,5 +1,5 @@
 """
-ProposalRollback — Tracking and reverting executed proposals.
+ProposalRollback  Tracking and reverting executed proposals.
 
 Maintains a persistent log of executed proposals with enough information
 to reverse them if needed. Supports:
@@ -89,7 +89,7 @@ class ProposalRollback:
         self._entries: list[RollbackEntry] = []
         self._load()
 
-    # — Public API ——————————————————————————————————————————————————————————————
+    #  Public API 
 
     def record(
         self,
@@ -127,7 +127,7 @@ class ProposalRollback:
 
         self._save()
         logger.info(
-            "ProposalRollback: Recorded %s [%s:%s] = %.4f → %.4f",
+            "ProposalRollback: Recorded %s [%s:%s] = %.4f  %.4f",
             proposal_id,
             dimension,
             target,
@@ -152,7 +152,7 @@ class ProposalRollback:
             entry = self._entries.pop()
             rolled_back.append(entry)
             logger.info(
-                "ProposalRollback: Rolled back %s [%s:%s] = %.4f → %.4f",
+                "ProposalRollback: Rolled back %s [%s:%s] = %.4f  %.4f",
                 entry.proposal_id,
                 entry.dimension,
                 entry.target,
@@ -211,7 +211,7 @@ class ProposalRollback:
         reversed_entries = list(reversed(self._entries))
         return [e.to_dict() for e in reversed_entries[:limit]]
 
-    # — Persistence —————————————————————————————————————————————————————————————
+    #  Persistence 
 
     def _save(self) -> None:
         try:

@@ -1,5 +1,5 @@
 """
-CYNIC Kernel Lifecycle Lock â€" Atomic Initialization
+CYNIC Kernel Lifecycle Lock " Atomic Initialization
 
 File-based locking system ensuring only one CYNIC kernel is initialized,
 even when multiple MCP bridges (Claude Code instances) start concurrently.

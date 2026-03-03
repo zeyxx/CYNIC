@@ -1,5 +1,5 @@
 """
-Federation Protocol â€" P2P gossip and distributed Q-Table learning.
+Federation Protocol " P2P gossip and distributed Q-Table learning.
 
 Enables:
 - Peer-to-peer communication and message passing

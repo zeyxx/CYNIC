@@ -1,5 +1,5 @@
 """
-CYNIC E-Score 7D — Reputation Tracker (γ4)
+CYNIC E-Score 7D  Reputation Tracker (4)
 
 E-Score = Entity Reputation Score across 7 contribution dimensions.
 Purely memory-based for performance, with async background persistence.

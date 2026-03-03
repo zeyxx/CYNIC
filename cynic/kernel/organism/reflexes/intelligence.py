@@ -1,5 +1,5 @@
 """
-PHASE 3: Intelligence cycle handlers â€" LOD assessment, error tracking, budget response.
+PHASE 3: Intelligence cycle handlers " LOD assessment, error tracking, budget response.
 
 This group coordinates the high-level cognitive state of the organism.
 It bridges perception to judgment and manages the Level of Detail (LOD).
@@ -68,12 +68,12 @@ class IntelligenceHandlers(HandlerGroup):
             (CoreEvent.JUDGMENT_CREATED, self._on_judgment_created),
         ]
 
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # 
     # HANDLER IMPLEMENTATIONS
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # 
 
     async def _on_perception_received(self, event: Event) -> None:
-        """PERCEPTION_RECEIVED â' Trigger Full Judgment if run_judgment is True."""
+        """PERCEPTION_RECEIVED ' Trigger Full Judgment if run_judgment is True."""
         try:
             p = PerceptionReceivedPayload.model_validate(event.dict_payload or {})
             

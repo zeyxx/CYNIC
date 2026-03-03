@@ -1,5 +1,5 @@
 """
-CYNIC core router â€" judge Â· perceive Â· learn Â· feedback Â· policy
+CYNIC core router " judge  perceive  learn  feedback  policy
 """
 from __future__ import annotations
 
@@ -30,15 +30,15 @@ logger = logging.getLogger("cynic.interfaces.api.server")
 
 router_core = APIRouter(tags=["core"])
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # POST /judge
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 @router_core.post("/judge", response_model=JudgeResponse)
 async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_container)) -> JudgeResponse:
     """
     Run the full CYNIC judgment pipeline on any content.
-    Event-first API â€" returns PENDING immediately.
+    Event-first API " returns PENDING immediately.
     """
     state = container.organism
 
@@ -104,9 +104,9 @@ async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_con
     )
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # POST /perceive
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 @router_core.post("/perceive", response_model=PerceiveResponse)
 async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_app_container)) -> PerceiveResponse:
@@ -142,9 +142,9 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# GET /judge/{id} â€" Polling
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
+# GET /judge/{id} " Polling
+# 
 
 @router_core.get("/judge/{judgment_id}")
 async def get_judgment(judgment_id: str, container: AppContainer = Depends(get_app_container)) -> dict:
@@ -168,9 +168,9 @@ async def get_judgment(judgment_id: str, container: AppContainer = Depends(get_a
     return {"status": status, "judgment_id": judgment_id, "verdict": status}
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # OTHER CORE ENDPOINTS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 @router_core.post("/learn", response_model=LearnResponse)
 async def learn(req: LearnRequest, container: AppContainer = Depends(get_app_container)) -> LearnResponse:

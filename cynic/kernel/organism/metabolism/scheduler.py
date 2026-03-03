@@ -1,5 +1,5 @@
 """
-ConsciousnessRhythm â€" Î³2 biological scheduler.
+ConsciousnessRhythm " 2 biological scheduler.
 
 Manages 4-tier concurrent consciousness loops as N asyncio workers.
 """
@@ -20,7 +20,7 @@ logger = logging.getLogger("cynic.kernel.organism.metabolism.scheduler")
 _QUEUE_CAPACITY = 100
 
 class ConsciousnessRhythm:
-    """Î³2 biological scheduler â€" manages concurrent consciousness loops."""
+    """2 biological scheduler " manages concurrent consciousness loops."""
 
     def __init__(self, orchestrator: Any, body: Optional[Any] = None, bus: Optional[EventBus] = None, consciousness: Any | None = None) -> None:
         self._orchestrator = orchestrator
@@ -99,7 +99,7 @@ class ConsciousnessRhythm:
                 await asyncio.sleep(1)
 
     async def _meta_pulse(self):
-        """Respiration pulse â€" check body, axioms, and health."""
+        """Respiration pulse " check body, axioms, and health."""
         if self.body:
             await self.body.pulse()
         

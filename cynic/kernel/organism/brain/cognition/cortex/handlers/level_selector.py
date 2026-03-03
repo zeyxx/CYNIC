@@ -1,5 +1,5 @@
 """
-LevelSelector â€" Strategic Consciousness Allocation.
+LevelSelector " Strategic Consciousness Allocation.
 
 Arbitrates between Reality requirements (Anchors) and Hardware constraints (Profiler).
 Ensures the organism chooses the highest possible level of detail without

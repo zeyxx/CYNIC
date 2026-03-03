@@ -1,5 +1,5 @@
 """
-CYNIC API Request/Response models â€" Pydantic v2
+CYNIC API Request/Response models - Pydantic v2
 
 All API models are separate from internal models.
 This lets the API contract evolve independently from the kernel.
@@ -10,12 +10,25 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+# ==============================================================================
+# ROOT
+# ==============================================================================
+
+class RootResponse(BaseModel):
+    """Response from GET /."""
+    status: str
+    name: str
+    phi: float = Field(alias="PHI")
+    routes: list[str]
+
+
+# ==============================================================================
 # JUDGE
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ==============================================================================
 
 class JudgeRequest(BaseModel):
-    """POST /judge â€" judge any content through the CYNIC pipeline."""
+    """POST /judge - judge any content through the CYNIC pipeline."""
     content: Any = Field(description="Content to judge (code, text, data...)")
     reality: str = Field(
         default="CODE",
@@ -36,6 +49,7 @@ class JudgeRequest(BaseModel):
     )
     budget_usd: float = Field(default=0.01, ge=0.0, description="Max USD budget for this judgment")
     lod: int = Field(default=1, ge=0, le=3, description="Level of Detail (0=pattern, 3=LLM)")
+    fractal_depth: int = Field(default=1, ge=1, le=55, description="Recursion depth for axiom facets")
 
     @field_validator("reality")
     @classmethod
@@ -51,7 +65,7 @@ class JudgeRequest(BaseModel):
     def validate_level(cls, v: str | None) -> str | None:
         if v is None:
             return None
-        valid = {"REFLEX", "MICRO", "MACRO"}
+        valid = {"REFLEX", "MICRO", "MACRO", "META"}
         v = v.upper()
         if v not in valid:
             raise ValueError(f"level must be one of {valid}")
@@ -61,69 +75,91 @@ class JudgeRequest(BaseModel):
 class JudgeResponse(BaseModel):
     """Response from POST /judge."""
     judgment_id: str
-    q_score: float = Field(description="Quality score [0, 100]")
-    verdict: str = Field(description="HOWL/WAG/GROWL/BARK")
-    confidence: float = Field(description="Confidence [0, 0.618]")
+    q_score: float
+    verdict: str
+    confidence: float
     axiom_scores: dict[str, float]
     dog_votes: dict[str, float]
     consensus_reached: bool
     consensus_votes: int
-    residual_variance: float = 0.0
-    unnameable_detected: bool = False
     cost_usd: float
-    llm_calls: int
     duration_ms: float
-    level_used: str
+    reasoning: str | None = None
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# PERCEIVE (JS hooks â' Python kernel)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ==============================================================================
+# PERCEIVE
+# ==============================================================================
 
 class PerceiveRequest(BaseModel):
-    """
-    POST /perceive â€" receive raw perception from JS hooks (or any source).
-
-    This is the bridge: JS thin hooks POST here instead of to JS daemon.
-    Python kernel runs the full judgment cycle on the incoming perception.
-    """
-    source: str = Field(description="Source identifier (hook name, service name, etc.)")
-    reality: str = Field(
-        default="CYNIC",
-        description="Reality dimension of this perception",
-    )
-    data: Any = Field(default=None, description="Raw perception data (legacy â€" now optional)")
-    content: Any = Field(default=None, description="Raw perception data (new: Track E clients send 'content')")
-    context: str = Field(default="", description="Human-readable context")
-    time_dim: str | None = Field(
-        default=None,
-        description="Time dimension: PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE (inferred if None)",
-    )
-    run_judgment: bool = Field(
-        default=True,
-        description="If True, run full judgment pipeline on this perception",
-    )
-    level: str | None = Field(default="REFLEX", description="Judgment level")
+    """POST /perceive - feed raw data into the organism's sensory layer."""
+    content: Any = Field(description="Raw data to perceive")
+    reality: str = Field(default="SOLANA", description="Reality dimension")
+    analysis: str = Field(default="PERCEIVE", description="Analysis mode")
+    source: str = Field(default="api", description="Signal source")
 
 
 class PerceiveResponse(BaseModel):
     """Response from POST /perceive."""
-    cell_id: str
-    source: str
-    reality: str
-    judgment_id: str = ""             # new: top-level for polling
-    verdict: str = "PENDING"          # new: top-level status
-    judgment: JudgeResponse | None = None
-    enqueued: bool = False
-    message: str = ""
+    status: str = Field(default="RECEIVED")
+    judgment_id: str | None = None
+    message: str
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# LEARN
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ==============================================================================
+# ACT
+# ==============================================================================
+
+class ActRequest(BaseModel):
+    """POST /act/execute - execute a task via Claude Code."""
+    prompt: str = Field(description="Task description for Claude Code")
+    cwd: str | None = Field(default=None, description="Working directory for task")
+    model: str | None = Field(default=None, description="Claude model override")
+    timeout: float = Field(default=300.0, ge=10.0, le=3600.0, description="Max execution time in seconds")
+
+
+class ActResponse(BaseModel):
+    """Response from POST /act/execute."""
+    success: bool
+    session_id: str | None = None
+    cost_usd: float = 0.0
+    error: str | None = None
+
+
+class TelemetryResponse(BaseModel):
+    """Response from GET /act/telemetry."""
+    stats: dict[str, Any]
+    sessions: list[dict[str, Any]]
+    message: str
+
+
+# ==============================================================================
+# MCP
+# ==============================================================================
+
+class MCPToolCallRequest(BaseModel):
+    """POST /mcp/call - call an MCP tool."""
+    name: str = Field(description="Tool name")
+    arguments: dict[str, Any] = Field(default_factory=dict, description="Tool arguments")
+
+
+class MCPToolCallResponse(BaseModel):
+    """Response from MCP tool call."""
+    content: list[dict[str, Any]]
+    is_error: bool = False
+
+
+class MCPResourceResponse(BaseModel):
+    """Response from GET /mcp/resources."""
+    resources: list[dict[str, Any]]
+
+
+# ==============================================================================
+# FEEDBACK & LEARNING
+# ==============================================================================
 
 class LearnRequest(BaseModel):
-    """POST /learn â€" inject a learning signal directly into the Q-Table."""
+    """POST /learn - inject a learning signal directly into the Q-Table."""
     state_key: str = Field(description="State key (e.g. 'CODE:JUDGE:PRESENT:1')")
     action: str = Field(description="Verdict action: BARK/GROWL/WAG/HOWL")
     reward: float = Field(ge=0.0, le=1.0, description="Normalized reward [0, 1]")
@@ -151,190 +187,204 @@ class LearnResponse(BaseModel):
     losses: int
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# POLICY
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-class PolicyResponse(BaseModel):
-    """Response from GET /policy/{state_key}."""
-    state_key: str
-    mode: str  # exploit / explore
-    recommended_action: str
-    q_value: float
-    confidence: float
-    top_actions: list[dict[str, Any]]
-
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# FEEDBACK (explicit user reward signal â' Q-Table update)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
 class FeedbackRequest(BaseModel):
-    """POST /feedback â€" user rates the last kernel judgment (1=bad, 5=good)."""
-    rating: int = Field(ge=1, le=5, description="1=very bad, 5=very good")
+    """POST /feedback - user feedback on a judgment."""
+    judgment_id: str
+    correct: bool
+    comment: str | None = None
 
 
 class FeedbackResponse(BaseModel):
     """Response from POST /feedback."""
-    state_key: str
-    action: str
-    reward: float = Field(description="Normalized reward applied to Q-Table [0.1, 0.9]")
-    q_value: float = Field(description="Updated Q(s,a) after feedback")
-    visits: int
+    success: bool
     message: str
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# ACCOUNT (Step 6: Cost accounting + EMERGE pattern detection)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ==============================================================================
+# POLICY & STATE
+# ==============================================================================
+
+class PolicyResponse(BaseModel):
+    """GET /policy - current learned policy snapshot."""
+    table_size: int
+    top_states: list[dict[str, Any]]
+    stats: dict[str, Any]
+
 
 class AccountRequest(BaseModel):
-    """POST /account â€" execute ACCOUNT opcode (cost recording + EMERGE detection)."""
-    judgment_id: str = Field(default="", description="Optional: cost a specific judgment")
-    trigger_emerge: bool = Field(default=True, description="Trigger EMERGE pattern detection")
+    """POST /account/budget - update budget limits."""
+    limit_usd: float = Field(ge=0.0)
 
 
 class AccountResponse(BaseModel):
-    """Response from POST /account."""
-    cost_usd: float = Field(description="Total cost accumulated this session")
-    budget_remaining_usd: float = Field(description="Budget still available")
-    budget_ratio: float = Field(description="Ratio remaining (0-1)")
-    judgment_count: int = Field(description="Number of judgments processed")
-    warning_emitted: bool = Field(description="Budget warning reached")
-    exhausted_emitted: bool = Field(description="Budget exhausted")
-    emergence_detected: bool = Field(default=False, description="EMERGE triggered")
-    emergence_pattern: str = Field(default="", description="Pattern type (SPIKE/RISING/STABLE_HIGH)")
-    message: str
+    """Response from account endpoints."""
+    limit_usd: float
+    spent_usd: float
+    remaining_usd: float
+    usage_pct: float
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# HEALTH
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ==============================================================================
+# INFRASTRUCTURE & HEALTH
+# ==============================================================================
 
 class HealthResponse(BaseModel):
-    """Response from GET /health."""
-    status: str  # alive / degraded / dead
-    version: str = "2.0.0"
+    """GET /health - kernel vital signs."""
+    status: str
     uptime_s: float
     consciousness: dict[str, Any]
     dogs: list[str]
     learning: dict[str, Any]
-    scheduler: dict[str, Any] = Field(default_factory=dict)
+    scheduler: dict[str, Any]
     llm_adapters: list[str]
     judgments_total: int
-    phi: float  # 1.618... (always displayed as reminder)
-    storage: dict[str, Any] = Field(default_factory=dict)  # T02: surreal/asyncpg status
+    phi: float
+    storage: dict[str, Any]
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# STATS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+class HealthEventsResponse(BaseModel):
+    """Response from GET /health/events."""
+    status: str
+    event_handlers: dict[str, Any]
+    judgment_pipeline: dict[str, Any]
+    timestamp: float
+
+
+class DogHealthMetric(BaseModel):
+    """Health metrics for a single Dog."""
+    name: str
+    status: str
+    judgments: int
+    errors: int
+    error_rate: float
+    avg_latency_ms: float
+    priority: float
+
+
+class HealthFullResponse(BaseModel):
+    """Response from GET /health/full."""
+    timestamp: float
+    status: str
+    uptime_seconds: float
+    components: dict[str, dict[str, Any]]
+    dogs: dict[str, Any]
+    learning: dict[str, Any]
+    resources: dict[str, Any]
+
+
+class HealthReadyResponse(BaseModel):
+    """Response from GET /health/ready."""
+    status: str
+    waited_seconds: float
+    ready_components: dict[str, bool]
+    timestamp: float
+
 
 class StatsResponse(BaseModel):
-    """Response from GET /stats â€" detailed kernel metrics."""
+    """GET /stats - cumulative kernel performance."""
     judgments: dict[str, Any]
     learning: dict[str, Any]
-    top_states: list[dict[str, Any]]
-    consciousness: dict[str, Any]
-    compressor: dict[str, Any] = Field(default_factory=dict)  # Î³2 ContextCompressor stats
+    metabolism: dict[str, Any]
+    timestamp: float
 
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# CONSCIOUSNESS ECOSYSTEM (7-Layer HUB)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class EventSnapshot(BaseModel):
-    """Single event in ecosystem cross-bus topology."""
-    event_id: str = Field(description="Unique event ID")
-    type: str = Field(description="Event type (JUDGMENT_CREATED, LEARNING_EVENT, etc)")
-    bus: str = Field(description="Bus name (core, automation, agent)")
-    source: str = Field(description="Event source (SAGE, JUDGE, SCHEDULER, etc)")
-    timestamp: float = Field(description="Event timestamp (seconds since epoch)")
-    payload: dict[str, Any] = Field(default_factory=dict, description="Event payload")
+    """Single event snapshot for timeline."""
+    event_id: str
+    type: str
+    timestamp: float
+    source: str
+    payload: dict[str, Any]
 
 
 class EcosystemStateResponse(BaseModel):
-    """Layer 1: Cross-bus ecosystem state (all 3 buses)."""
-    core_events: list[EventSnapshot] = Field(description="Core judgment events")
-    automation_events: list[EventSnapshot] = Field(description="Scheduler + automation events")
-    agent_events: list[EventSnapshot] = Field(description="Agent-driven events")
-    timestamp: float = Field(description="Response timestamp")
+    """Full ecosystem snapshot."""
+    instance_id: str
+    health: HealthResponse
+    active_dogs: list[str]
+    recent_events: list[EventSnapshot]
 
 
 class DecisionPathStage(BaseModel):
-    """One stage in decision path through guardrails."""
-    stage: str = Field(description="Stage name (power_limiter, alignment_checker, etc)")
-    verdict: str = Field(description="Verdict at this stage (approve/reject/pending)")
-    reason: str = Field(description="Reason for verdict")
-    component: str | None = Field(default=None, description="Component name")
-    duration_ms: float | None = Field(default=None, description="Stage duration in ms")
+    """Single stage in a decision trace."""
+    stage: str
+    duration_ms: float
+    outcome: dict[str, Any]
 
 
 class DecisionTraceResponse(BaseModel):
-    """Layer 2: Decision trace through guardrails."""
-    decision_id: str = Field(description="Decision ID")
-    timestamp: float = Field(description="Trace timestamp")
-    path: list[DecisionPathStage] = Field(default_factory=list, description="Path through guardrails")
+    """Full decision audit trail."""
+    trace_id: str
+    judgment_id: str
+    stages: list[DecisionPathStage]
+    final_verdict: str
+    confidence: float
+
+
+class DecisionTraceSingleResponse(BaseModel):
+    """Response for a single decision trace."""
+    trace: dict[str, Any]
+
+
+class DecisionTracesResponse(BaseModel):
+    """Response for multiple decision traces."""
+    traces: list[dict[str, Any]]
+    count: int
+    verdict: str | None = None
+    component: str | None = None
 
 
 class TopologyConsciousnessResponse(BaseModel):
-    """Layer 3: Architecture consciousness (L0 system topology awareness)."""
-    source_changes_detected: int = Field(description="Count of detected source changes")
-    topology_deltas_computed: int = Field(description="Count of computed topology deltas")
-    convergence_validations: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Convergence validation stats (total_announced, verified, pending)"
-    )
-    recent_changes: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Recent topology changes"
-    )
-    timestamp: float = Field(description="Response timestamp")
+    """Kernel topology and handler graph."""
+    instance_id: str
+    handlers: dict[str, Any]
+    topology: dict[str, Any]
 
 
 class GuardrailDecision(BaseModel):
-    """Single guardrail decision record."""
-    guardrail_type: str = Field(description="Type of guardrail (power_limiter, alignment, etc)")
-    decision: str = Field(description="Decision made (approve/reject/throttle)")
-    reason: str = Field(description="Reason for decision")
-    timestamp: float = Field(description="Decision timestamp")
+    """Result of a safety guardrail check."""
+    guardrail: str
+    passed: bool
+    reason: str | None = None
 
 
 class NervousSystemAuditResponse(BaseModel):
-    """Layer 6: Nervous system audit trail (complete event + decision history)."""
-    all_events: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="All events in chronological order"
-    )
-    decision_reasons: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Decision traces (why was action taken)"
-    )
-    loop_integrity_checks: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Loop closure validation checks"
-    )
-    event_count: int = Field(description="Total event count")
-    decision_count: int = Field(description="Total decision count")
-    timestamp: float = Field(description="Response timestamp")
+    """Complete event + decision history."""
+    all_events: list[dict[str, Any]]
+    decision_reasons: list[dict[str, Any]]
+    loop_integrity_checks: list[dict[str, Any]]
+    event_count: int
+    decision_count: int
+    timestamp: float
 
 
 class SelfAwarenessResponse(BaseModel):
-    """Layer 5: Organism's self-awareness (kernel_mirror insights & meta-cognition)."""
-    kernel_observations: list[Any] = Field(
-        default_factory=list,
-        description="Introspective observations from kernel_mirror"
-    )
-    meta_insights: list[Any] = Field(
-        default_factory=list,
-        description="Meta-cognitive insights (patterns recognized)"
-    )
-    improvement_proposals: list[Any] = Field(
-        default_factory=list,
-        description="Proposed improvements to self"
-    )
-    self_assessment: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Overall self-assessment (counts, health scores)"
-    )
-    timestamp: float = Field(description="Response timestamp")
+    """Organism's self-model snapshot."""
+    self_identity: dict[str, Any]
+    self_assessment: dict[str, Any]
+    timestamp: float
+
+
+class JournalEventsResponse(BaseModel):
+    """Generic response for journal event queries."""
+    events: list[dict[str, Any]]
+    count: int
+    event_type: str | None = None
+    source: str | None = None
+    category: str | None = None
+
+
+class JournalStatsResponse(BaseModel):
+    """Response for journal statistics."""
+    stats: dict[str, Any]
+
+
+class LoopClosureResponse(BaseModel):
+    """Response for loop closure queries."""
+    open_cycles: list[dict[str, Any]] | None = None
+    stalled_cycles: list[dict[str, Any]] | None = None
+    orphan_judgments: list[dict[str, Any]] | None = None
+    recent_closures: list[dict[str, Any]] | None = None
+    count: int
+    threshold_ms: float | None = None
+    complete_only: bool | None = None

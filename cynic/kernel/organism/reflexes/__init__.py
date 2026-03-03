@@ -1,10 +1,10 @@
 """
-Reflex registry and discovery — the nervous system routing table.
+Reflex registry and discovery  the nervous system routing table.
 
 Manages reflex lifecycle:
-1. register() — add reflex groups
-2. wire() — subscribe all to event bus
-3. introspect() — reveal coupling and topology
+1. register()  add reflex groups
+2. wire()  subscribe all to event bus
+3. introspect()  reveal coupling and topology
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ logger = logging.getLogger("cynic.kernel.organism.reflexes")
 
 class HandlerRegistry:
     """
-    Reflex lifecycle manager — register, wire, introspect.
+    Reflex lifecycle manager  register, wire, introspect.
     """
 
     def __init__(self) -> None:
@@ -56,7 +56,7 @@ class HandlerRegistry:
     def wire(self, bus: EventBus) -> None:
         """Subscribe all reflex groups to the event bus."""
         if self._wired:
-            logger.warning("HandlerRegistry already wired — skipping")
+            logger.warning("HandlerRegistry already wired  skipping")
             return
 
         total_handlers = 0

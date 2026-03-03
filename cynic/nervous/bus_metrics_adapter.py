@@ -1,8 +1,8 @@
 """
-BusMetricsAdapter — Wires EventMetricsCollector to EventBus.
+BusMetricsAdapter  Wires EventMetricsCollector to EventBus.
 
 Every bus event is recorded in EventMetricsCollector. Key event pairs
-(JUDGMENT_REQUESTED → JUDGMENT_CREATED, ACT_REQUESTED → ACT_COMPLETED)
+(JUDGMENT_REQUESTED  JUDGMENT_CREATED, ACT_REQUESTED  ACT_COMPLETED)
 are used to compute real end-to-end latencies.
 
 Every HISTORY_REPLAY_BATCH events, anomaly detection runs. If anomalies
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("cynic.nervous.bus_metrics_adapter")
 
-# Request → Response event pairs for latency measurement
+# Request  Response event pairs for latency measurement
 _LATENCY_PAIRS: dict[str, str] = {
     "core.judgment_requested": "core.judgment_created",
     "core.act_requested":      "core.act_completed",
@@ -62,7 +62,7 @@ class BusMetricsAdapter:
     ) -> None:
         self._collector = collector
         self._bus = bus
-        # Tracks open latency pairs: (request_type + ":" + key) → request_timestamp_s
+        # Tracks open latency pairs: (request_type + ":" + key)  request_timestamp_s
         self._open_latencies: dict[str, float] = {}
         self._event_count = 0
 
@@ -88,7 +88,7 @@ class BusMetricsAdapter:
                 self._open_latencies[pair_key] = event.timestamp  # Unix seconds
 
             elif event.type in _RESPONSE_TO_REQUEST:
-                # Closing side — compute latency
+                # Closing side  compute latency
                 request_type = _RESPONSE_TO_REQUEST[event.type]
                 pair_key = f"{request_type}:{key}"
                 if pair_key in self._open_latencies:

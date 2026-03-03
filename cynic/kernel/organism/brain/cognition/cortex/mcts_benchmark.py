@@ -1,29 +1,29 @@
 """
-CYNIC Temporal MCTS Benchmark (Î´3)
+CYNIC Temporal MCTS Benchmark (3)
 
-Measures the convergence speedup of Temporal MCTS (7 Ï-weighted perspectives)
+Measures the convergence speedup of Temporal MCTS (7 -weighted perspectives)
 vs Standard MCTS (single perspective, uniform weight).
 
-Hypothesis: Temporal MCTS converges â‰ˆÏÂ² faster than Standard MCTS
+Hypothesis: Temporal MCTS converges  faster than Standard MCTS
   - Standard: needs ~800 iterations to find optimal (high-variance estimates)
-  - Temporal:  needs ~250 iterations (3.2Ã- faster due to Ï-weighted averaging)
+  - Temporal:  needs ~250 iterations (3.2- faster due to -weighted averaging)
 
 Key Mechanism:
-  Standard MCTS: each node visit = 1 noisy sample â' high per-node variance
-  Temporal MCTS: each node visit = 7 Ï-weighted samples â' lower variance,
-                 more signal per UCB update â' exploits optimal faster
+  Standard MCTS: each node visit = 1 noisy sample ' high per-node variance
+  Temporal MCTS: each node visit = 7 -weighted samples ' lower variance,
+                 more signal per UCB update ' exploits optimal faster
 
-Design (no LLM, no DB â€" pure in-memory simulation):
+Design (no LLM, no DB " pure in-memory simulation):
   SearchProblem: synthetic 1D landscape with known optimum + controlled noise
   MCTSNode: UCB1 selection, simulation, backpropagation
   Standard scoring: single uniform sample from true distribution
-  Temporal scoring: 7 Ï-weighted perspective samples (past/present/future/etc)
+  Temporal scoring: 7 -weighted perspective samples (past/present/future/etc)
   BenchmarkResult: convergence iteration + quality + speedup ratio
 
 Usage:
   bench = MCTSBenchmark()
   result = bench.run(max_iterations=1000, seed=42)
-  assert result.speedup_ratio >= 1.5  # Expect â‰¥ ÏÂ² improvement
+  assert result.speedup_ratio >= 1.5  # Expect   improvement
 """
 
 from __future__ import annotations
@@ -42,22 +42,22 @@ from cynic.kernel.core.phi import (
     phi_bound_score,
 )
 
-# â"€â"€ Temporal weights (same as temporal.py) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" Temporal weights (same as temporal.py) """"""""""""""""""""""""""""""""""""
 
 _TEMPORAL_WEIGHTS: dict[str, float] = {
-    "IDEAL": PHI_2,  # ÏÂ² = 2.618
-    "FUTURE": PHI,  # Ï  = 1.618
-    "PRESENT": 1.0,  # Ïâ° = 1.000
-    "PAST": PHI_INV,  # Ïâ»Â¹= 0.618
-    "CYCLES": PHI_INV,  # Ïâ»Â¹= 0.618
-    "FLOW": PHI_INV_2,  # Ïâ»Â²= 0.382
-    "NEVER": PHI_INV_2,  # Ïâ»Â²= 0.382 (inverted: high = safe)
+    "IDEAL": PHI_2,  #  = 2.618
+    "FUTURE": PHI,  #   = 1.618
+    "PRESENT": 1.0,  #  = 1.000
+    "PAST": PHI_INV,  # = 0.618
+    "CYCLES": PHI_INV,  # = 0.618
+    "FLOW": PHI_INV_2,  # = 0.382
+    "NEVER": PHI_INV_2,  # = 0.382 (inverted: high = safe)
 }
-_TOTAL_TEMPORAL_WEIGHT = sum(_TEMPORAL_WEIGHTS.values())  # â‰ˆ 8.854
+_TOTAL_TEMPORAL_WEIGHT = sum(_TEMPORAL_WEIGHTS.values())  #  8.854
 _PERSPECTIVES = list(_TEMPORAL_WEIGHTS.keys())
 
 
-# â"€â"€ SearchProblem â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" SearchProblem """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 @dataclass
@@ -90,17 +90,17 @@ class SearchProblem:
 
     def temporal_sample(self, action: int) -> float:
         """
-        7 Ï-weighted perspective samples â' lower variance estimate.
+        7 -weighted perspective samples ' lower variance estimate.
 
         Each perspective sees the same true value but with independent noise.
-        The NEVER perspective is inverted (higher true value â' lower NEVER signal).
-        Ï-weighted geometric mean reduces variance vs single sample.
+        The NEVER perspective is inverted (higher true value ' lower NEVER signal).
+        -weighted geometric mean reduces variance vs single sample.
         """
         true_q = self.true_value(action)
         log_sum = 0.0
         for p, w in _TEMPORAL_WEIGHTS.items():
             if p == "NEVER":
-                # NEVER: inverted â€" constraint safety (high true_q = safe = high score)
+                # NEVER: inverted " constraint safety (high true_q = safe = high score)
                 s = max(0.1, true_q + self.rng.gauss(0, self.sigma * 0.5))
             else:
                 s = max(0.1, true_q + self.rng.gauss(0, self.sigma))
@@ -109,7 +109,7 @@ class SearchProblem:
         return phi_bound_score(geo_mean)
 
 
-# â"€â"€ MCTSNode â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" MCTSNode """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 @dataclass
@@ -139,7 +139,7 @@ class MCTSNode:
         self.value_sum += reward
 
 
-# â"€â"€ MCTSVariant â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" MCTSVariant """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 @dataclass
@@ -168,7 +168,7 @@ class MCTSVariant:
         return self.problem.sample(node.action)
 
     def step(self) -> None:
-        """One MCTS iteration: select â' simulate â' backprop."""
+        """One MCTS iteration: select ' simulate ' backprop."""
         node = self._select()
         reward = self._simulate(node)
         node.update(reward)
@@ -185,7 +185,7 @@ class MCTSVariant:
             self.convergence_iter = self.iteration
 
     def run(self, max_iterations: int) -> None:
-        """Run until max_iterations or convergence (whichever comes last â€" measure quality too)."""
+        """Run until max_iterations or convergence (whichever comes last " measure quality too)."""
         for _ in range(max_iterations):
             self.step()
 
@@ -204,7 +204,7 @@ class MCTSVariant:
         return opt_node.visits / total if total > 0 else 0.0
 
 
-# â"€â"€ BenchmarkResult â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" BenchmarkResult """""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 @dataclass
@@ -255,7 +255,7 @@ class BenchmarkResult:
         }
 
 
-# â"€â"€ MCTSBenchmark â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# "" MCTSBenchmark """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 class MCTSBenchmark:
@@ -264,7 +264,7 @@ class MCTSBenchmark:
 
     The benchmark runs BOTH variants with the same random seed for fairness.
     Reports: convergence speedup ratio, quality gain %, and whether
-    temporal MCTS achieves â‰¥ ÏÂ² speedup (the architectural hypothesis).
+    temporal MCTS achieves   speedup (the architectural hypothesis).
     """
 
     def __init__(self, problem: SearchProblem | None = None) -> None:
@@ -373,7 +373,7 @@ class MCTSBenchmark:
             "max_iterations": max_iterations,
             "mean_speedup": round(mean_speedup, 3),
             "median_speedup": round(median_speedup, 3),
-            "phi2_hypothesis_passed": mean_speedup >= PHI,  # â‰¥ Ï = 1.618
+            "phi2_hypothesis_passed": mean_speedup >= PHI,  #   = 1.618
             "temporal_found_optimum_rate": round(temporal_opt, 3),
             "standard_found_optimum_rate": round(standard_opt, 3),
             "runs": [r.to_dict() for r in results],

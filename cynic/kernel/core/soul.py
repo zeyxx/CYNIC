@@ -1,5 +1,5 @@
 """
-CYNIC DogSoul â€" Cross-Session Identity Memory.
+CYNIC DogSoul " Cross-Session Identity Memory.
 
 Unified Identity: Now supports SurrealDB as the primary memory,
 falling back to local JSON for bootstrapping or local dev.

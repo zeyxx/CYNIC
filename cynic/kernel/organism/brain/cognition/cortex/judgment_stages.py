@@ -1,5 +1,5 @@
 """
-Judgment Stages — Modular 7-step CYNIC cycle (DAG Stages).
+Judgment Stages  Modular 7-step CYNIC cycle (DAG Stages).
 
 Each stage is a pure transition that returns a NEW evolved pipeline instance.
 """
@@ -44,7 +44,7 @@ class JudgmentStage(ABC):
 
 
 class PerceiveStage(JudgmentStage):
-    """STEP 1: PERCEIVE — Signal cycle start."""
+    """STEP 1: PERCEIVE  Signal cycle start."""
 
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
         cell = pipeline.cell
@@ -60,7 +60,7 @@ class PerceiveStage(JudgmentStage):
 
 
 class JudgeStage(JudgmentStage):
-    """STEP 2: JUDGE — Dogs analysis & consensus."""
+    """STEP 2: JUDGE  Dogs analysis & consensus."""
 
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
         cell = pipeline.cell
@@ -129,7 +129,7 @@ class JudgeStage(JudgmentStage):
 
 
 class DecideStage(JudgmentStage):
-    """STEP 3: DECIDE — Governance validation."""
+    """STEP 3: DECIDE  Governance validation."""
 
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
         if pipeline.final_judgment is None or pipeline.level in (ConsciousnessLevel.REFLEX, ConsciousnessLevel.MICRO):
@@ -144,7 +144,7 @@ class DecideStage(JudgmentStage):
 
 
 class ActStage(JudgmentStage):
-    """STEP 4: ACT — Effector execution."""
+    """STEP 4: ACT  Effector execution."""
 
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
         if pipeline.final_judgment is None:
@@ -160,7 +160,7 @@ class ActStage(JudgmentStage):
 
 
 class LearnStage(JudgmentStage):
-    """STEP 5: LEARN — Placeholder for future hooks."""
+    """STEP 5: LEARN  Placeholder for future hooks."""
 
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
         # Real learning is in Orchestrator.run post-cycle for now
@@ -168,7 +168,7 @@ class LearnStage(JudgmentStage):
 
 
 class AccountStage(JudgmentStage):
-    """STEP 6: ACCOUNT — Cost tracking."""
+    """STEP 6: ACCOUNT  Cost tracking."""
 
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
         # pipeline.total_cost_usd is already updated in JudgeStage
@@ -176,7 +176,7 @@ class AccountStage(JudgmentStage):
 
 
 class EmergeStage(JudgmentStage):
-    """STEP 7: EMERGE — Detect patterns."""
+    """STEP 7: EMERGE  Detect patterns."""
 
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
         if pipeline.final_judgment and pipeline.final_judgment.unnameable_detected:

@@ -1,12 +1,12 @@
 """
-CYNIC PostgreSQL Storage â€" asyncpg + Ï-bound DB constraints
+CYNIC PostgreSQL Storage " asyncpg + -bound DB constraints
 
-LAW 5: Database constraints MIRROR Ï-bounds in Pydantic models.
+LAW 5: Database constraints MIRROR -bounds in Pydantic models.
   - q_score CHECK (q_score >= 0 AND q_score <= 100)
   - confidence CHECK (confidence >= 0 AND confidence <= 0.618)
   - verdict CHECK (verdict IN ('HOWL', 'WAG', 'GROWL', 'BARK'))
 
-Use asyncpg directly â€" NOT SQLAlchemy ORM. Direct SQL = transparency.
+Use asyncpg directly " NOT SQLAlchemy ORM. Direct SQL = transparency.
 
 Connection pool size: F(6)=8 min, F(8)=21 max (Fibonacci-aligned).
 """
@@ -42,9 +42,9 @@ POOL_MIN = fibonacci(6)  # 8 connections
 POOL_MAX = fibonacci(8)  # 21 connections
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # CONNECTION POOL SINGLETON
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 _pool: Pool | None = None
 
@@ -75,7 +75,7 @@ async def get_pool(dsn: str | None = None) -> Pool:
         min_size=POOL_MIN,
         max_size=POOL_MAX,
         command_timeout=30.0,
-        max_inactive_connection_lifetime=300.0,  # F(7)Ã-60=780s Ã· 2.6 â‰ˆ 300s
+        max_inactive_connection_lifetime=300.0,  # F(7)-60=780s  2.6  300s
     )
     return _pool
 
@@ -97,13 +97,13 @@ async def acquire() -> AsyncIterator[Connection]:
         yield conn
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# SCHEMA CREATION (Ï-bound CHECK constraints)
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
+# SCHEMA CREATION (-bound CHECK constraints)
+# 
 
 SCHEMA_SQL = f"""
 -- CYNIC Core Schema
--- Ï-bound constraints enforced at DB level (mirrors Pydantic validators)
+-- -bound constraints enforced at DB level (mirrors Pydantic validators)
 
 -- Judgments table
 CREATE TABLE IF NOT EXISTS judgments (
@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS e_scores (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- LLM Benchmark results (per Dog Ã- Task type Ã- LLM)
+-- LLM Benchmark results (per Dog - Task type - LLM)
 CREATE TABLE IF NOT EXISTS llm_benchmarks (
     benchmark_id    TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,
     dog_id          TEXT        NOT NULL,
@@ -262,7 +262,7 @@ CREATE TABLE IF NOT EXISTS action_proposals (
 );
 
 -- Scholar buffer (TF-IDF memory warm-start + PGVector semantic search)
--- Î²1: embedding column added for pgvector cosine similarity
+-- 1: embedding column added for pgvector cosine similarity
 -- Requires: CREATE EXTENSION IF NOT EXISTS vector (run separately if pgvector installed)
 CREATE TABLE IF NOT EXISTS scholar_buffer (
     id          BIGSERIAL   PRIMARY KEY,
@@ -299,13 +299,13 @@ async def create_schema(dsn: str | None = None) -> None:
         logger.info("CYNIC schema created/verified")
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # JUDGMENT REPOSITORY
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class JudgmentRepository(JudgmentRepoInterface):
-    """CRUD for judgments. Ï-bound enforced by DB constraints."""
+    """CRUD for judgments. -bound enforced by DB constraints."""
 
     async def save(self, judgment: dict[str, Any]) -> None:
         """Persist a judgment (upsert by judgment_id)."""
@@ -396,13 +396,13 @@ class JudgmentRepository(JudgmentRepoInterface):
             }
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # Q-TABLE REPOSITORY
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class QTableRepository(QTableRepoInterface):
-    """Persistent Q-Table for Q-Learning (state_key Ã- action â' q_value)."""
+    """Persistent Q-Table for Q-Learning (state_key - action ' q_value)."""
 
     async def get(self, state_key: str, action: str) -> float:
         """Get Q-value, returns 0.0 if not found."""
@@ -446,15 +446,15 @@ class QTableRepository(QTableRepoInterface):
             return {r["action"]: float(r["q_value"]) for r in rows}
 
     async def get_all(self) -> list[dict[str, Any]]:
-        """Return all Q-entries â€" used for warm-start."""
+        """Return all Q-entries " used for warm-start."""
         async with acquire() as conn:
             rows = await conn.fetch("SELECT state_key, action, q_value, visit_count FROM q_table")
             return [dict(r) for r in rows]
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # LEARNING EVENTS REPOSITORY
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class LearningRepository(LearningRepoInterface):
@@ -496,9 +496,9 @@ class LearningRepository(LearningRepoInterface):
             return {r["loop_name"]: r["cnt"] for r in rows}
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # LLM BENCHMARK REPOSITORY
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class BenchmarkRepository(BenchmarkRepoInterface):
@@ -556,7 +556,7 @@ class BenchmarkRepository(BenchmarkRepoInterface):
             return [dict(r) for r in rows]
 
     async def matrix(self) -> list[dict[str, Any]]:
-        """Full benchmark matrix (dog Ã- task Ã- llm â' score)."""
+        """Full benchmark matrix (dog - task - llm ' score)."""
         async with acquire() as conn:
             rows = await conn.fetch("""
                 SELECT dog_id, task_type, llm_id,
@@ -571,9 +571,9 @@ class BenchmarkRepository(BenchmarkRepoInterface):
             return [dict(r) for r in rows]
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # RESIDUAL HISTORY REPOSITORY
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class ResidualRepository(ResidualRepoInterface):
@@ -612,9 +612,9 @@ class ResidualRepository(ResidualRepoInterface):
             return list(reversed([dict(r) for r in rows]))
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # REPOSITORY FACTORY
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 _judgment_repo: JudgmentRepository | None = None
 _qtable_repo: QTableRepository | None = None
@@ -658,9 +658,9 @@ def residuals() -> ResidualRepository:
     return _residual_repo
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # SDK SESSION REPOSITORY
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class SDKSessionRepository(SDKSessionRepoInterface):
@@ -669,7 +669,7 @@ class SDKSessionRepository(SDKSessionRepoInterface):
     async def save(self, telemetry: dict[str, Any]) -> None:
         """
         Persist one SessionTelemetry record (upsert by session_id).
-        Safe to call multiple times â€" ON CONFLICT updates the row.
+        Safe to call multiple times " ON CONFLICT updates the row.
         """
         import json as _json
 
@@ -725,7 +725,7 @@ class SDKSessionRepository(SDKSessionRepoInterface):
             return [dict(r) for r in rows]
 
     async def stats(self) -> dict[str, Any]:
-        """Aggregate statistics â€" for /act/telemetry enrichment."""
+        """Aggregate statistics " for /act/telemetry enrichment."""
         async with acquire() as conn:
             row = await conn.fetchrow("""
                 SELECT
@@ -750,9 +750,9 @@ def sdk_sessions() -> SDKSessionRepository:
     return _sdk_session_repo
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # SCHOLAR BUFFER REPOSITORY
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 
 class ScholarRepository(ScholarRepoInterface):
@@ -763,9 +763,9 @@ class ScholarRepository(ScholarRepoInterface):
     On startup, Scholar loads the last BUFFER_MAX entries to recover memory.
     On learn(), new entries are appended (fire-and-forget, best-effort).
 
-    Î²1 PGVector: append() now optionally stores embedding vector.
+    1 PGVector: append() now optionally stores embedding vector.
     search_similar_by_embedding() performs cosine similarity via Python
-    (no pgvector extension required â€" upgradeable to operator <=> later).
+    (no pgvector extension required " upgradeable to operator <=> later).
     """
 
     async def append(self, entry: dict[str, Any]) -> None:
@@ -815,7 +815,7 @@ class ScholarRepository(ScholarRepoInterface):
         Fetches recent entries with embeddings, computes cosine similarity
         in Python. Upgradeable to pgvector <=> operator when extension available.
 
-        Returns entries with similarity â‰¥ min_similarity, sorted desc by sim.
+        Returns entries with similarity  min_similarity, sorted desc by sim.
         """
         import math
 

@@ -1,18 +1,18 @@
 """
-EventForwarder: Bridge EventBus (in-memory) → SurrealDB (persistent)
+EventForwarder: Bridge EventBus (in-memory)  SurrealDB (persistent)
 
 PHASE 2, COMPONENT 2: Event Ingestion Pipeline
 
 Architecture:
   EventBus (30+ CoreEvent types)
-    ↓ emits events
-    ↓
+     emits events
+    
   EventForwarder (this class)
-    ↓ normalizes + batches
-    ↓
+     normalizes + batches
+    
   SurrealDB via SecurityEventRepo
-    ↓ persists to security_event table
-    ↓
+     persists to security_event table
+    
   Real-Time Detection (COMPONENT 4: LIVE SELECT)
 """
 

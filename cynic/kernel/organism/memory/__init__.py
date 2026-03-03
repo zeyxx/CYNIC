@@ -1,4 +1,4 @@
-"""Memory â€" State Persistence
+"""Memory " State Persistence
 
 The memory stores and retrieves state.
 

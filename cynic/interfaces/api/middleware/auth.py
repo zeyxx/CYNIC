@@ -187,10 +187,10 @@ class APIAuthManager:
         # Setup certificate chain (idempotent)
         try:
             root_cert, root_key = self.pki.setup_root_ca()
-            logger.info(f"✓ Root CA: {self.config.pki_config.root_ca_cert_path()}")
+            logger.info(f" Root CA: {self.config.pki_config.root_ca_cert_path()}")
 
             int_cert, int_key = self.pki.setup_intermediate_ca()
-            logger.info(f"✓ Intermediate CA: {self.config.pki_config.intermediate_ca_cert_path()}")
+            logger.info(f" Intermediate CA: {self.config.pki_config.intermediate_ca_cert_path()}")
 
             # Generate service certificate for this API instance
             svc_cert, svc_key = self.pki.generate_service_cert(
@@ -203,13 +203,13 @@ class APIAuthManager:
                 ],
             )
             logger.info(
-                f"✓ Service cert ({self.config.service_name}): "
+                f" Service cert ({self.config.service_name}): "
                 f"{self.config.pki_config.service_cert_path(self.config.service_name)}"
             )
 
             # Create SSL context for server
             self.ssl_context = MTLSSSLContext(self.config.mtls_config)
-            logger.info("✓ SSL context configured")
+            logger.info(" SSL context configured")
 
             logger.info("API authentication manager started")
         except Exception as e:

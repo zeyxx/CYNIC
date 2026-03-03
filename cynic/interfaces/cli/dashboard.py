@@ -1,9 +1,9 @@
 """
-CYNIC Health Dashboard â€" TUI visualization of the living organism.
+CYNIC Health Dashboard " TUI visualization of the living organism.
 
 Displays:
 - 8 breathing checks (organism vitals)
-- 7Ã-7 consciousness matrix snapshot
+- 7-7 consciousness matrix snapshot
 - Q-Table health (learning state)
 - Dog consensus (voting patterns)
 - Real-time kernel metrics
@@ -21,9 +21,9 @@ from textual.app import RenderableType
 from textual.reactive import reactive
 from textual.widgets import Static
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # DATA MODELS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 @dataclass
 class BreathingCheck:
@@ -35,14 +35,14 @@ class BreathingCheck:
 
     def render(self) -> str:
         """Render as colored line."""
-        symbol = "âœ"" if self.status == "OK" else "âš " if self.status == "WARN" else "âœ-"
+        symbol = """ if self.status == "OK" else "" if self.status == "WARN" else "-"
         color = "green" if self.status == "OK" else "yellow" if self.status == "WARN" else "red"
         return f"[{color}]{symbol}[/{color}] {self.name:<20} {self.value:>12} / {self.threshold}"
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # TUI WIDGETS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 class BreathingCheckWidget(Static):
     """Single breathing check row."""
@@ -64,7 +64,7 @@ class BreathingPanel(Static):
         if not self.checks:
             return "[yellow]Loading health checks...[/yellow]"
 
-        lines = ["[bold cyan]ðŸ« 8 Breathing Checks[/bold cyan]", ""]
+        lines = ["[bold cyan] 8 Breathing Checks[/bold cyan]", ""]
         for check in self.checks:
             lines.append(check.render())
 
@@ -76,7 +76,7 @@ class BreathingPanel(Static):
 
 
 class MatrixPanel(Static):
-    """7Ã-7 consciousness matrix snapshot."""
+    """7-7 consciousness matrix snapshot."""
 
     matrix_data: reactive[dict[str, Any] | None] = reactive(None)
 
@@ -88,16 +88,16 @@ class MatrixPanel(Static):
         realities = ["CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"]
         analyses = ["PERCEIVE", "JUDGE", "DECIDE", "ACT", "LEARN", "ACCOUNT", "EMERGE"]
 
-        lines = ["[bold cyan]7Ã-7 Consciousness Matrix[/bold cyan]", ""]
+        lines = ["[bold cyan]7-7 Consciousness Matrix[/bold cyan]", ""]
         lines.append("       " + "  ".join(f"{a:^6}" for a in analyses))
-        lines.append("     " + "â"€" * 55)
+        lines.append("     " + """ * 55)
 
         for r_idx, reality in enumerate(realities):
-            row = f"{reality:>6}â"‚"
+            row = f"{reality:>6}""
             # For now, show dummy cells (in production: fetch actual cell status)
             for a_idx in range(7):
-                # Cell state: âœ" (working), â-‹ (partial), âœ- (not started)
-                cell_char = "âœ"" if (r_idx + a_idx) % 3 != 0 else "â-‹" if (r_idx + a_idx) % 2 == 0 else "âœ-"
+                # Cell state: " (working), - (partial), - (not started)
+                cell_char = """ if (r_idx + a_idx) % 3 != 0 else "-" if (r_idx + a_idx) % 2 == 0 else "-"
                 row += f" {cell_char:^6}"
             lines.append(row)
 
@@ -119,7 +119,7 @@ class DogPanel(Static):
         elif isinstance(self.dog_stats, list):
             dogs = self.dog_stats
 
-        lines = ["[bold cyan]ðŸ• 11 Dogs Consensus[/bold cyan]", ""]
+        lines = ["[bold cyan] 11 Dogs Consensus[/bold cyan]", ""]
 
         if not dogs:
             lines.append("[yellow]No dog data available[/yellow]")
@@ -140,7 +140,7 @@ class DogPanel(Static):
                 name = str(dog_id)
                 count = "?"
 
-            lines.append(f"  ðŸ• {name:15} [{count:>3}]")
+            lines.append(f"   {name:15} [{count:>3}]")
 
         return "\n".join(lines)
 
@@ -159,7 +159,7 @@ class QLearningPanel(Static):
         updates = stats.get("total_updates", 0)
         pending = stats.get("pending_flush", 0)
 
-        lines = ["[bold cyan]ðŸ§  Q-Learning Health[/bold cyan]", ""]
+        lines = ["[bold cyan] Q-Learning Health[/bold cyan]", ""]
         lines.append(f"  States discovered: {states}")
         lines.append(f"  Total updates:     {updates}")
         lines.append(f"  Pending flush:     {pending}")
@@ -182,7 +182,7 @@ class KernelMetrics(Static):
     def render(self) -> RenderableType:
         uptime_h = self.uptime_s / 3600
 
-        lines = ["[bold cyan]âš™ï¸ Kernel Metrics[/bold cyan]", ""]
+        lines = ["[bold cyan] Kernel Metrics[/bold cyan]", ""]
         lines.append(f"  Uptime:     {uptime_h:.2f}h")
         lines.append(f"  Judgments:  {self.judgments}")
         lines.append(f"  LLM adapters: {len(self.adapters)}")
@@ -194,12 +194,12 @@ class KernelMetrics(Static):
         return "\n".join(lines)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # MAIN DASHBOARD APP
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 class CYNICDashboard:
-    """TUI Health Dashboard â€" fetch and display CYNIC vitals."""
+    """TUI Health Dashboard " fetch and display CYNIC vitals."""
 
     def __init__(self, kernel_url: str = "http://localhost:8000"):
         self.kernel_url = kernel_url
@@ -232,8 +232,8 @@ class CYNICDashboard:
         Breathing checks (COMPLETION-CRITERIA.md):
         1. Process Alive
         2. DB Connected
-        3. Dogs Responsive (â‰¥3 active)
-        4. Event Bus Flowing (â‰¥1 event/s)
+        3. Dogs Responsive (3 active)
+        4. Event Bus Flowing (1 event/s)
         5. Judgment Latency (<2s MACRO)
         6. Q-Table Healthy (>10 states)
         7. Memory Budget OK (<80% used)
@@ -266,7 +266,7 @@ class CYNICDashboard:
             name="Dogs Active",
             status="OK" if dogs_count >= 3 else "WARN" if dogs_count > 0 else "FAIL",
             value=str(dogs_count),
-            threshold="â‰¥3",
+            threshold="3",
         ))
 
         # Check 4: Event Bus Flowing (simulate from judgment count)
@@ -277,7 +277,7 @@ class CYNICDashboard:
             name="Event Bus",
             status="OK" if events_per_sec >= 0.1 else "WARN",
             value=f"{events_per_sec:.1f}/s",
-            threshold="â‰¥0.1/s",
+            threshold="0.1/s",
         ))
 
         # Check 5: Judgment Latency (from consciousness if available)
@@ -301,7 +301,7 @@ class CYNICDashboard:
         ))
 
         # Check 7: Memory Budget (simulate from introspect)
-        phi_assess = introspect.get("Ï_self_assessment", {})
+        phi_assess = introspect.get("_self_assessment", {})
         kernel_integrity = phi_assess.get("kernel_integrity", 0)
         memory_pct = (1 - kernel_integrity) * 100  # Rough estimate
         checks.append(BreathingCheck(
@@ -333,9 +333,9 @@ class CYNICDashboard:
         await self.client.aclose()
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 # CLI ENTRY POINT
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
 
 async def run_dashboard(kernel_url: str = "http://localhost:8000") -> None:
     """
@@ -361,8 +361,8 @@ async def run_dashboard(kernel_url: str = "http://localhost:8000") -> None:
         # Kernel metrics
         health.get("uptime_s", 0) / 3600
 
-        # Ï Self-assessment
-        introspect.get("Ï_self_assessment", {})
+        #  Self-assessment
+        introspect.get("_self_assessment", {})
 
         # Learning
         health.get("learning", {})

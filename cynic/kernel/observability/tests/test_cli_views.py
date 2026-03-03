@@ -74,17 +74,17 @@ class TestProgressBar:
     def test_progress_bar_empty(self):
         """Progress bar with 0 value should be all empty."""
         result = _render_progress_bar(0.0, 100.0, width=10)
-        assert result == "â-'" * 10
+        assert result == "-'" * 10
 
     def test_progress_bar_full(self):
         """Progress bar with max value should be all filled."""
         result = _render_progress_bar(100.0, 100.0, width=10)
-        assert result == "â-ˆ" * 10
+        assert result == "-" * 10
 
     def test_progress_bar_half(self):
         """Progress bar with half value should be half filled."""
         result = _render_progress_bar(50.0, 100.0, width=10)
-        assert result == "â-ˆ" * 5 + "â-'" * 5
+        assert result == "-" * 5 + "-'" * 5
 
     def test_progress_bar_custom_width(self):
         """Progress bar respects custom width parameter."""
@@ -95,8 +95,8 @@ class TestProgressBar:
         """Progress bar clamps values outside [0, max]."""
         result_over = _render_progress_bar(150.0, 100.0, width=10)
         result_under = _render_progress_bar(-50.0, 100.0, width=10)
-        assert result_over == "â-ˆ" * 10
-        assert result_under == "â-'" * 10
+        assert result_over == "-" * 10
+        assert result_under == "-'" * 10
 
 
 class TestFormatPercentage:
@@ -195,10 +195,10 @@ class TestObserveView:
         assert "Growth" in result
 
     def test_render_observe_view_includes_progress_bars(self, sample_state):
-        """OBSERVE view includes progress bars with â-ˆ and â-'."""
+        """OBSERVE view includes progress bars with - and -'."""
         result = render_observe_view(sample_state)
-        assert "â-ˆ" in result
-        assert "â-'" in result
+        assert "-" in result
+        assert "-'" in result
 
     def test_render_observe_view_includes_shared_objectives(self, sample_state):
         """OBSERVE view includes shared objectives."""
@@ -404,28 +404,28 @@ class TestMachineView:
         """MACHINE view shows overall health check."""
         result = render_machine_view(sample_state)
         assert "Overall Health" in result
-        assert "âœ"" in result
+        assert """ in result
 
     def test_render_machine_view_cpu_health_ok(self, sample_state):
         """MACHINE view shows CPU health status."""
         result = render_machine_view(sample_state)
         assert "CPU OK" in result
-        assert "âœ"" in result
+        assert """ in result
 
     def test_render_machine_view_memory_health_ok(self, sample_state):
         """MACHINE view shows memory health status."""
         result = render_machine_view(sample_state)
         assert "Memory OK" in result
-        assert "âœ"" in result
+        assert """ in result
 
     def test_render_machine_view_disk_health_ok(self, sample_state):
         """MACHINE view shows disk health status."""
         result = render_machine_view(sample_state)
         assert "Disk OK" in result
-        assert "âœ"" in result
+        assert """ in result
 
     def test_render_machine_view_health_failed(self):
-        """MACHINE view shows failed health checks with âœ-."""
+        """MACHINE view shows failed health checks with -."""
         state = SymbioticState(
             cynic_observations={},
             cynic_thinking="Thinking",
@@ -458,8 +458,8 @@ class TestMachineView:
             timestamp=time.time(),
         )
         result = render_machine_view(state)
-        # Should have multiple âœ- marks
-        assert result.count("âœ-") >= 3
+        # Should have multiple - marks
+        assert result.count("-") >= 3
 
     def test_render_machine_view_constraints_shown(self):
         """MACHINE view shows constraint warnings."""
@@ -531,8 +531,8 @@ class TestMachineView:
     def test_render_machine_view_progress_bars(self, sample_state):
         """MACHINE view includes progress bars."""
         result = render_machine_view(sample_state)
-        assert "â-ˆ" in result
-        assert "â-'" in result
+        assert "-" in result
+        assert "-'" in result
 
 
 class TestViewsIntegration:

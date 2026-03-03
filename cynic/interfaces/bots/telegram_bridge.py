@@ -1,5 +1,5 @@
 """
-Telegram Bridge â€" The Organism's Outward Voice.
+Telegram Bridge " The Organism's Outward Voice.
 
 Simple async notifier to send system alerts and internal 'pain' signals
 to the human operator.
@@ -66,7 +66,7 @@ class TelegramBridge:
     async def notify_anomaly(self, source: str, error: str, details: str | None = None):
         """Standardized format for system errors."""
         msg = (
-            f"ðŸš¨ <b>CYNIC ANOMALY DETECTED</b>\n\n"
+            f" <b>CYNIC ANOMALY DETECTED</b>\n\n"
             f"<b>Source:</b> <code>{source}</code>\n"
             f"<b>Error:</b> <code>{error}</code>\n"
         )
@@ -78,7 +78,7 @@ class TelegramBridge:
     async def notify_resource_stress(self, cpu: float, ram: float):
         """Standardized format for hardware stress."""
         msg = (
-            f"âš ï¸ <b>CYNIC METABOLIC STRESS</b>\n\n"
+            f" <b>CYNIC METABOLIC STRESS</b>\n\n"
             f"<b>CPU:</b> {cpu:.1f}%\n"
             f"<b>RAM:</b> {ram:.1f}%\n"
             f"<i>Organism is slowing down to survive.</i>"

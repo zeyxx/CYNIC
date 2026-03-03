@@ -1,5 +1,5 @@
 """
-DogState â€" Each Dog is a Mini-CYNIC with Ï-Explicit Fractal Structure
+DogState " Each Dog is a Mini-CYNIC with -Explicit Fractal Structure
 
 When CYNIC scales from 1 organism to 11 dogs, each dog needs its own:
   - Cognition (local judgment engine)
@@ -14,7 +14,7 @@ This enables:
   1. **Autonomy**: Each dog judges its domain independently
   2. **Gossip**: Dogs exchange compressed context, not raw decisions
   3. **Consensus**: Orchestrator aggregates dog votes (not re-judges)
-  4. **Scaling**: Cost âˆ log(N), not N (no orchestrator bottleneck per dog)
+  4. **Scaling**: Cost  log(N), not N (no orchestrator bottleneck per dog)
 """
 
 from __future__ import annotations
@@ -22,9 +22,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# DOG COGNITION â€" Mini-BRAIN
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
+# DOG COGNITION " Mini-BRAIN
+# 
 
 
 @dataclass
@@ -33,13 +33,13 @@ class DogCognitionState:
     Local judgment engine for one dog.
 
     Unlike CognitionCore (8 required fields), DogCognition is minimal:
-    - Can run PERCEIVEâ'JUDGEâ'DECIDEâ'ACT independently
+    - Can run PERCEIVE'JUDGE'DECIDE'ACT independently
     - No guardrails (those are organism-level)
     - Own Q-learning for domain-specific patterns
     """
 
     local_qtable: dict[str, float] = field(default_factory=dict)
-    # state_key â' Q-value for domain-specific decisions
+    # state_key ' Q-value for domain-specific decisions
 
     judgment_count: int = 0
     # How many judgments this dog has made (local counter)
@@ -54,9 +54,9 @@ class DogCognitionState:
     # Most recent Q-score
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# DOG METABOLISM â€" Mini-BODY
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
+# DOG METABOLISM " Mini-BODY
+# 
 
 
 @dataclass
@@ -65,9 +65,9 @@ class DogMetabolismState:
     Local action execution for one dog.
 
     Actions that this specific dog can execute in its domain:
-    - Code analysis â' suggest refactoring
-    - Security check â' flag vulnerability
-    - Documentation â' generate docstring
+    - Code analysis ' suggest refactoring
+    - Security check ' flag vulnerability
+    - Documentation ' generate docstring
     """
 
     pending_actions: list[dict[str, Any]] = field(default_factory=list)
@@ -80,9 +80,9 @@ class DogMetabolismState:
     # Recent execution times (for performance tracking)
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# DOG SENSES â€" Mini-NERVOUS SYSTEM
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
+# DOG SENSES " Mini-NERVOUS SYSTEM
+# 
 
 
 @dataclass
@@ -109,9 +109,9 @@ class DogSensoryState:
     # When was this context last updated
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# DOG MEMORY â€" Mini-ARCHIVE
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
+# DOG MEMORY " Mini-ARCHIVE
+# 
 
 
 @dataclass
@@ -126,7 +126,7 @@ class DogMemoryState:
     """
 
     learned_patterns: dict[str, float] = field(default_factory=dict)
-    # pattern_name â' effectiveness_score
+    # pattern_name ' effectiveness_score
 
     residual_cases: list[dict[str, Any]] = field(default_factory=list)
     # Cases where this dog's judgment was wrong (for learning)
@@ -135,12 +135,12 @@ class DogMemoryState:
     # Other dogs this dog exchanges context with
 
     trust_scores: dict[str, float] = field(default_factory=dict)
-    # peer_dog_id â' how much we trust their judgments
+    # peer_dog_id ' how much we trust their judgments
 
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# DOGSTATE â€" COMPLETE MINI-CYNIC
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# 
+# DOGSTATE " COMPLETE MINI-CYNIC
+# 
 
 
 @dataclass
@@ -148,16 +148,16 @@ class DogState:
     """
     Complete fractal state for one dog.
 
-    Each of 11 dogs has its own DogState, mirroring the 4-faÃ§ade organism structure:
+    Each of 11 dogs has its own DogState, mirroring the 4-faade organism structure:
       - cognition: DogCognitionState (independent judgment)
       - metabolism: DogMetabolismState (independent action)
       - senses: DogSensoryState (domain perception)
       - memory: DogMemoryState (learning from domain)
 
-    Dogs run their 7-step cycle (PERCEIVEâ'JUDGEâ'DECIDEâ'ACTâ'LEARNâ'RESIDUALâ'EVOLVE)
+    Dogs run their 7-step cycle (PERCEIVE'JUDGE'DECIDE'ACT'LEARN'RESIDUAL'EVOLVE)
     independently and in parallel, then gossip summaries with siblings.
 
-    Ï-Explicit: Structure mirrors organism's 4 faÃ§ades.
+    -Explicit: Structure mirrors organism's 4 faades.
     Fractal: Each dog is autonomous, not dependent on orchestrator for decisions.
     Gossip: Dogs exchange compressed_context + verdict, not raw observations.
     """
