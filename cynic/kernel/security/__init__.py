@@ -10,6 +10,13 @@ from cynic.kernel.security.mtls import (
     MTLSVerifier,
 )
 from cynic.kernel.security.pki import PKI, PKIConfig
+from cynic.kernel.security.vault import (
+    EnvironmentSecretStore,
+    SecretManager,
+    SecretStore,
+    VaultConfig,
+    VaultSecretStore,
+)
 
 __all__ = [
     "PKI",
@@ -18,4 +25,9 @@ __all__ = [
     "MTLSVerifier",
     "MTLSSSLContext",
     "MTLSMiddleware",
+    "SecretStore",
+    "VaultConfig",
+    "VaultSecretStore",
+    "EnvironmentSecretStore",
+    "SecretManager",
 ]
