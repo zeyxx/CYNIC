@@ -131,7 +131,7 @@ async def _process_closed_proposal(proposal):
                         await channel.send(embed=embed, view=OutcomeRatingView(proposal.proposal_id))
                         logger.info(f"Outcome embed posted for {proposal.proposal_id} in {guild.name}")
                     except Exception as e:
-            logger.error(f"Failed to post outcome embed: {e}")
+                logger.error(f"Failed to post outcome embed: {e}")
                 break
 
         # 5. Auto-learn with placeholder rating (with circuit breaker check)
@@ -657,7 +657,7 @@ async def check_voting_status():
                 try:
                     await _process_closed_proposal(proposal)
                 except Exception as e:
-            logger.error(f"Failed to process proposal {proposal.proposal_id}: {e}", exc_info=True)
+                logger.error(f"Failed to process proposal {proposal.proposal_id}: {e}", exc_info=True)
             if proposals_needing_outcome:
                 logger.debug("Pass 2 complete: outcomes processed")
         except Exception as e:

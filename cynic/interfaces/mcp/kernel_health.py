@@ -101,7 +101,7 @@ class KernelHealthMonitor:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-            logger.error("Monitor loop error: %s", e, exc_info=True)
+                logger.error("Monitor loop error: %s", e, exc_info=True)
                 await asyncio.sleep(5.0)  # Backoff on error
 
     async def _perform_check(self):

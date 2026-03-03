@@ -18,13 +18,13 @@ def fix_unicode_on_windows():
             try:
                 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
             except Exception as _e:
-            logger.debug(f'Silenced: {_e}')
+                logger.debug(f'Silenced: {_e}')
         
         if hasattr(sys.stderr, "reconfigure"):
             try:
                 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
             except Exception as _e:
-            logger.debug(f'Silenced: {_e}')
+                logger.debug(f'Silenced: {_e}')
 
 # Auto-fix on import
 fix_unicode_on_windows()

@@ -123,7 +123,7 @@ async def metrics(request: Request) -> Response:
                 rates = await collector.current_rates()
                 metrics_data["event_rates"] = rates
             except Exception as e:
-            logger.warning("Failed to get event rates: %s", e, exc_info=True)
+                logger.warning("Failed to get event rates: %s", e, exc_info=True)
 
             # Get metrics for all types
             try:
@@ -142,14 +142,14 @@ async def metrics(request: Request) -> Response:
                     for m in all_metrics.values()
                 }
             except Exception as e:
-            logger.warning("Failed to get all metrics: %s", e, exc_info=True)
+                logger.warning("Failed to get all metrics: %s", e, exc_info=True)
 
             # Get anomaly count
             try:
                 anomalies = await collector.recent_anomalies(limit=1000)
                 metrics_data["anomaly_count"] = len(anomalies)
             except Exception as e:
-            logger.warning("Failed to get anomalies: %s", e, exc_info=True)
+                logger.warning("Failed to get anomalies: %s", e, exc_info=True)
 
         text = _format_openmetrics(metrics_data)
         return Response(content=text, media_type="application/openmetrics-text; charset=utf-8")

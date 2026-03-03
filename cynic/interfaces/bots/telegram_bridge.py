@@ -31,7 +31,7 @@ class TelegramBridge:
                 token = token or config.telegram_token
                 chat_id = chat_id or config.telegram_chat_id
             except Exception as _e:
-            logger.debug(f'Silenced: {_e}')  # If config unavailable, token/chat_id remain None
+                logger.debug(f'Silenced: {_e}')  # If config unavailable, token/chat_id remain None
 
         self.token = token
         self.chat_id = chat_id

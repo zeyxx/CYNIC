@@ -222,7 +222,7 @@ class JudgmentExecutorHandler(HandlerGroup):
 
                 await get_conscious_state().record_judgment_failed(judgment_id, reason)
             except Exception as e:
-            logger.debug("Could not record failure in ConsciousState: %s", e)
+                logger.debug("Could not record failure in ConsciousState: %s", e)
 
         except Exception as e:
             logger.error("Failed to emit JUDGMENT_FAILED: %s", e, exc_info=True)

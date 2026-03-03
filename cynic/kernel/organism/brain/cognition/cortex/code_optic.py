@@ -39,7 +39,7 @@ class CodebaseOptic:
                     content = f.read().decode('ascii', 'ignore')
                 code_map[rel_path] = content
             except Exception as e:
-            logger.error(f"Failed to read {path}: {e}")
+                logger.error(f"Failed to read {path}: {e}")
         
         logger.info(f"Scan complete. Found {len(code_map)} files.")
         return code_map

@@ -197,7 +197,7 @@ async def test_governance_flow():
             try:
                 test_db_path.unlink()
             except Exception as _e:
-            logger.debug(f'Silenced: {_e}')
+                logger.debug(f'Silenced: {_e}')
 
         # Close any CYNIC adapter sessions
         try:

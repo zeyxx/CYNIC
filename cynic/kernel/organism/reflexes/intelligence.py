@@ -122,7 +122,7 @@ class IntelligenceHandlers(HandlerGroup):
                 try:
                     self._compressor.add_judgment(p.model_dump())
                 except Exception as e:
-            logger.debug("Intelligence: Compressor feed failed: %s", e)
+                logger.debug("Intelligence: Compressor feed failed: %s", e)
 
         except Exception as e:
             logger.error("Intelligence: Judgment processing failed: %s", e)

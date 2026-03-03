@@ -115,7 +115,7 @@ class QTableP3Fix:
                     )
                     count += 1
                 except Exception as e:
-            logger.error(f"Flush failed for {entry}: {e}")
+                logger.error(f"Flush failed for {entry}: {e}")
 
             if count > 0:
                 logger.debug(f"Flushed {count} entries to storage")

@@ -109,7 +109,7 @@ class KernelManager:
                 return True
 
             except Exception as e:
-            logger.error("Kernel initialization failed: %s", e, exc_info=True)
+                logger.error("Kernel initialization failed: %s", e, exc_info=True)
                 self._initialized = True
                 return False
 
@@ -120,7 +120,7 @@ class KernelManager:
                 await self.health_monitor.stop()
                 logger.info("Health monitor stopped")
             except Exception as e:
-            logger.error("Failed to stop health monitor: %s", e)
+                logger.error("Failed to stop health monitor: %s", e)
 
     async def is_healthy(self) -> bool:
         """Check if kernel is currently healthy."""
