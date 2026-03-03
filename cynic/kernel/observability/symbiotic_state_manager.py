@@ -76,8 +76,7 @@ class SymbioticStateManager:
                 try:
                     await asyncio.wait_for(self.start_nerves(), timeout=1.0)
                 except Exception as _e:
-                logger.debug(f'Silenced: {_e}')
-
+                    logger.debug(f"Silenced: {_e}")
             # 1. Collect human metrics (Local) - Default to safe empty if fails
             try:
                 human = await self.human_tracker.get_snapshot()
@@ -130,10 +129,13 @@ class SymbioticStateManager:
                     stats = await self._organism.state.get_stats()
                     cynic_thinking = stats.get("current_analysis", "Processing...")
                     cynic_confidence = stats.get("confidence", 0.618)
-                    if hasattr(self._organism, "escore_tracker") and self._organism.escore_tracker:
+                    if (
+                        hasattr(self._organism, "escore_tracker")
+                        and self._organism.escore_tracker
+                    ):
                         cynic_e_score = self._organism.escore_tracker.get_total_escore()
                 except Exception as e:
-                logger.debug(f"SymbioticState Local fetch error: {e}")
+                    logger.debug(f"SymbioticState Local fetch error: {e}")
 
             # 3b. Remote Instance via -NET (Pulse)
             elif self.remote_mode and self._last_pulse_data:
@@ -154,8 +156,7 @@ class SymbioticStateManager:
                         }
                         machine_health = {"is_healthy": True, "remote": True}
                 except Exception as _e:
-                logger.debug(f'Silenced: {_e}')
-
+                    logger.debug(f"Silenced: {_e}")
             snapshot = SymbioticState(
                 # CYNIC
                 cynic_observations={},
@@ -210,8 +211,7 @@ async def get_symbiotic_state_manager() -> SymbioticStateManager:
                     _INSTANCE.set_organism(local_org)
                     return _INSTANCE
             except Exception as _e:
-                logger.debug(f'Silenced: {_e}')
-
+                logger.debug(f"Silenced: {_e}")
     return _INSTANCE
 
 

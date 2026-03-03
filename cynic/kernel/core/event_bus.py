@@ -8,13 +8,15 @@ import asyncio
 import logging
 import threading
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
 from enum import Enum
 from typing import Any, Optional, TypeVar, Union
 
 from prometheus_client import Counter, Histogram, Gauge
+
+from cynic.kernel.core.phi import fibonacci
 
 logger = logging.getLogger("cynic.kernel.core.event_bus")
 
@@ -202,6 +204,9 @@ class EventBus:
         self._handler_timeout_s: float = 30.0
         self._bridge: Optional[Any] = None  # Distributed bridge hook
 
+        # Event History (Fibonacci-bounded memory management)
+        self._history: deque = deque(maxlen=fibonacci(10))  # F(10) = 55 events max
+
         # High-Frequency Metrics (SRE Standard)
         self._emitted_count: int = 0
         self._error_count: int = 0
@@ -291,6 +296,9 @@ class EventBus:
 
         self._emitted_count += 1
         events_emitted_total.labels(event_type=event.type).inc()
+
+        # Record event in history (automatically bounded by deque maxlen=F(10)=55)
+        self._history.append(event)
 
         if pending_count > self._peak_pending:
             self._peak_pending = pending_count

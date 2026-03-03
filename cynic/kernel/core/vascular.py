@@ -9,13 +9,16 @@ Lentilles : Backend (Pooling), SRE (Resilience), Security (Centralized Connectio
 
 from __future__ import annotations
 
-import logging
-import httpx
 import asyncio
-import redis.asyncio as redis
-from typing import Optional, Any, Dict, List
-from dataclasses import dataclass, field
+import logging
 import time
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+import httpx
+import redis.asyncio as redis
+
+from cynic.kernel.infrastructure.compute_hal import ComputeHAL, get_compute_hal
 
 logger = logging.getLogger("cynic.kernel.vascular")
 
@@ -51,7 +54,6 @@ class PerceptionBuffer:
             self._buffer.clear()
             return data
 
-from cynic.kernel.infrastructure.compute_hal import get_compute_hal, ComputeHAL
 
 class VascularSystem:
     """
