@@ -36,6 +36,7 @@ Usage:
   result = bench.run(n_dogs=11, n_cells=100)
   assert result.cost_scaling_ratio <= 3.5  # Logarithmic: logâ‚‚(11) â‰ˆ 3.46
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -71,6 +72,7 @@ from cynic.kernel.organism.brain.cognition.neurons.dog_state import (
 @dataclass
 class CostMetrics:
     """Metrics for one benchmark run (N dogs, M cells)."""
+
     n_dogs: int
     n_cells: int
     total_latency_ms: float  # Wall-clock time for all judgments
@@ -113,6 +115,7 @@ class CostMetrics:
 @dataclass
 class CostScalingResult:
     """Analysis of cost scaling across multiple N values."""
+
     baseline_1dog: CostMetrics
     moderate_5dog: CostMetrics
     full_11dog: CostMetrics
@@ -134,9 +137,11 @@ class CostScalingResult:
             "theoretical_log2_11": round(self.theoretical_log2_11, 3),
             "is_logarithmic": self.is_logarithmic,
             "analysis": {
-                "scaling_type": "LOGARITHMIC (O(log N))" if self.is_logarithmic else "LINEAR or worse (O(N))",
+                "scaling_type": "LOGARITHMIC (O(log N))"
+                if self.is_logarithmic
+                else "LINEAR or worse (O(N))",
                 "verdict": "PASS âœ“" if self.is_logarithmic else "FAIL âœ—",
-            }
+            },
         }
 
 
@@ -210,16 +215,18 @@ class FractalCostBenchmark:
             # All dogs judge in parallel
             judgment_tasks = []
             for dog_id, dog_state, cognition in dogs:
-                judgment_tasks.append(
-                    cognition.judge_cell(cell, dog_state)
-                )
+                judgment_tasks.append(cognition.judge_cell(cell, dog_state))
 
             # Wait for all judgments
             judgments = await asyncio.gather(*judgment_tasks)
 
             # Track entropy for each judgment
             for (dog_id, dog_state, _), judgment in zip(dogs, judgments, strict=False):
-                signals = dog_state.senses.observed_signals[-5:] if dog_state.senses.observed_signals else []
+                signals = (
+                    dog_state.senses.observed_signals[-5:]
+                    if dog_state.senses.observed_signals
+                    else []
+                )
                 metrics = await self.entropy_tracker.track_judgment(
                     dog_id=dog_id,
                     cell_id=cell.id,
@@ -233,16 +240,20 @@ class FractalCostBenchmark:
             gossip_messages = []
             for dog_id, dog_state, _ in dogs:
                 # Compress context
-                context = f"dog={dog_id} q_scores={dog_state.cognition.local_qtable} " \
-                         f"confidence={sum(dog_state.cognition.confidence_history) / max(len(dog_state.cognition.confidence_history), 1):.3f}"
+                context = (
+                    f"dog={dog_id} q_scores={dog_state.cognition.local_qtable} "
+                    f"confidence={sum(dog_state.cognition.confidence_history) / max(len(dog_state.cognition.confidence_history), 1):.3f}"
+                )
 
                 # Message size (dog_id + compressed_context + verdict + q_score + confidence)
                 msg_size = (
-                    len(dog_id.encode()) +
-                    len(context.encode()) +
-                    len(judgments[dogs.index((dog_id, dog_state, _))].verdict.encode()) +
-                    8 +  # float q_score
-                    8    # float confidence
+                    len(dog_id.encode())
+                    + len(context.encode())
+                    + len(
+                        judgments[dogs.index((dog_id, dog_state, _))].verdict.encode()
+                    )
+                    + 8  # float q_score
+                    + 8  # float confidence
                 )
                 gossip_messages.append(msg_size)
                 total_gossip_bytes += msg_size
@@ -254,10 +265,16 @@ class FractalCostBenchmark:
 
         # Calculate metrics
         total_latency_ms = (end_time - start_time) * 1000
-        avg_latency_per_judgment_ms = total_latency_ms / (n_dogs * n_cells) if n_dogs * n_cells > 0 else 0
+        avg_latency_per_judgment_ms = (
+            total_latency_ms / (n_dogs * n_cells) if n_dogs * n_cells > 0 else 0
+        )
         peak_memory_mb = max(memory_samples) if memory_samples else 0
         total_judgments = n_dogs * n_cells
-        avg_efficiency = sum(m.efficiency for m in all_metrics) / len(all_metrics) if all_metrics else 0.0
+        avg_efficiency = (
+            sum(m.efficiency for m in all_metrics) / len(all_metrics)
+            if all_metrics
+            else 0.0
+        )
 
         return CostMetrics(
             n_dogs=n_dogs,
@@ -287,13 +304,17 @@ class FractalCostBenchmark:
 
         # Calculate scaling ratios
         baseline_cost = result_1.cost_per_judgment_ms
-        scaling_5 = (result_5.cost_per_judgment_ms / baseline_cost) if baseline_cost > 0 else 0
-        scaling_11 = (result_11.cost_per_judgment_ms / baseline_cost) if baseline_cost > 0 else 0
+        scaling_5 = (
+            (result_5.cost_per_judgment_ms / baseline_cost) if baseline_cost > 0 else 0
+        )
+        scaling_11 = (
+            (result_11.cost_per_judgment_ms / baseline_cost) if baseline_cost > 0 else 0
+        )
 
         # Validate logarithmic scaling
         log2_5 = math.log2(5)
         log2_11 = math.log2(11)
-        is_logarithmic = (scaling_5 <= log2_5 * 1.1 and scaling_11 <= log2_11 * 1.1)
+        is_logarithmic = scaling_5 <= log2_5 * 1.1 and scaling_11 <= log2_11 * 1.1
 
         return CostScalingResult(
             baseline_1dog=result_1,
@@ -313,6 +334,7 @@ class FractalCostBenchmark:
 @dataclass
 class Cell:
     """Dummy cell for benchmark."""
+
     id: str
     type: str
     path: str
@@ -328,7 +350,6 @@ async def main() -> None:
     """Run full Phase 4 cost benchmark."""
     bench = FractalCostBenchmark()
 
-
     # Run scaling benchmark
 
     result = await bench.benchmark_scaling(n_cells=50)
@@ -343,8 +364,6 @@ async def main() -> None:
 
     for _k, _v in output["full_11dog"].items():
         pass
-
-
 
 
 if __name__ == "__main__":

@@ -189,7 +189,9 @@ class RealBenchmark:
           dangerous_probe_shift_standard: same for standard config
           phi_protects_dangerous:        bool " phi resists P3 reversal better
         """
-        configs: list[tuple[float, bool]] = [(a, ewc) for a in _ALPHA_GRID for ewc in (True, False)]
+        configs: list[tuple[float, bool]] = [
+            (a, ewc) for a in _ALPHA_GRID for ewc in (True, False)
+        ]
 
         all_results: dict[tuple[float, bool], list[ConvergenceResult]] = {}
         for cfg in configs:
@@ -213,11 +215,15 @@ class RealBenchmark:
                 "use_ewc": runs[0].use_ewc,
                 "converged_rate": sum(r.converged for r in runs) / len(runs),
                 "mean_convergence_step": round(sum(conv_steps) / len(conv_steps), 1),
-                "mean_final_error": round(sum(r.final_mean_error for r in runs) / len(runs), 4),
+                "mean_final_error": round(
+                    sum(r.final_mean_error for r in runs) / len(runs), 4
+                ),
                 "mean_forgetting_shift": round(
                     sum(r.forgetting_shift for r in runs) / len(runs), 4
                 ),
-                "mean_q_variance": round(sum(r.q_variance for r in runs) / len(runs), 5),
+                "mean_q_variance": round(
+                    sum(r.q_variance for r in runs) / len(runs), 5
+                ),
             }
 
         configs_agg = [agg(all_results[cfg]) for cfg in configs]
@@ -227,9 +233,13 @@ class RealBenchmark:
         phi_agg = agg(all_results[phi_key])
         std_agg = agg(all_results[std_key])
 
-        phi_wins_forgetting = phi_agg["mean_forgetting_shift"] <= std_agg["mean_forgetting_shift"]
+        phi_wins_forgetting = (
+            phi_agg["mean_forgetting_shift"] <= std_agg["mean_forgetting_shift"]
+        )
         phi_wins_stability = phi_agg["mean_q_variance"] <= std_agg["mean_q_variance"]
-        phi_wins_convergence = phi_agg["mean_final_error"] <= std_agg["mean_final_error"] * 3.0
+        phi_wins_convergence = (
+            phi_agg["mean_final_error"] <= std_agg["mean_final_error"] * 3.0
+        )
 
         # Dangerous probe: measure P3 shift specifically under shock
         # (P3 at 0.0 is the hardest anchor " any shock toward 1.0 is a full reversal)

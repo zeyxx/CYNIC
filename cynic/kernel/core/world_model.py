@@ -38,6 +38,8 @@ class WorldState:
     conflicts: list[str] = field(default_factory=list)
     composite_risk: float = 50.0  # phi-weighted geometric mean [0, 100]
     dominant_reality: str = "CODE"  # reality with highest risk (lowest q_score)
+    # Tensor-ready vector representation [0, 1] across all 7 realities
+    state_vector: list[float] = field(default_factory=lambda: [0.5] * len(REALITIES))
     last_updated: float = field(default_factory=time.time)
 
 
@@ -123,6 +125,12 @@ class WorldModelUpdater:
         self._state.conflicts = conflicts
         if conflicts:
             self._conflict_count += 1
+
+        # Update state vector for ML consumption (Lentille AI Infra)
+        # Vector order matches REALITIES list, normalized 0-1
+        self._state.state_vector = [
+            snaps[r].q_score / 100.0 if r in snaps else 0.5 for r in REALITIES
+        ]
 
         self._state.last_updated = time.time()
 

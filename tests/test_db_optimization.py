@@ -19,7 +19,9 @@ class TestDatabasePoolInitialization:
         assert pool.pool_size == 8, "pool_size should default to F(6)=8"
         assert pool.max_overflow == 5, "max_overflow should default to F(5)=5"
         assert pool.db_url is None, "db_url should default to None"
-        assert pool._is_no_op is True, "pool should be in no-op mode when db_url is None"
+        assert (
+            pool._is_no_op is True
+        ), "pool should be in no-op mode when db_url is None"
         assert pool._engine is None, "engine should be None in no-op mode"
 
     def test_connection_pool_initialization_with_custom_sizes(self):
@@ -35,7 +37,9 @@ class TestDatabasePoolInitialization:
         pool = DatabasePool(pool_size=8, max_overflow=5)
 
         available = pool.available_connections()
-        assert available == 8, "available_connections should return pool_size in no-op mode"
+        assert (
+            available == 8
+        ), "available_connections should return pool_size in no-op mode"
 
     def test_get_connection_returns_none_in_no_op_mode(self):
         """Verify get_connection() returns None in no-op mode."""
@@ -50,7 +54,9 @@ class TestDatabasePoolInitialization:
 
         # Should not raise, just log
         pool.dispose()
-        assert pool._engine is None, "engine should remain None after dispose in no-op mode"
+        assert (
+            pool._engine is None
+        ), "engine should remain None after dispose in no-op mode"
 
 
 @pytest.mark.performance
@@ -72,7 +78,9 @@ class TestDatabasePoolGracefulDegradation:
         # If init failed (no SQLAlchemy or bad URL), pool is no-op
         if pool._is_no_op:
             available = pool.available_connections()
-            assert available >= 0, "available_connections should return safe value even in degraded mode"
+            assert (
+                available >= 0
+            ), "available_connections should return safe value even in degraded mode"
             conn = pool.get_connection()
             assert conn is None, "get_connection should return None safely"
 
@@ -83,7 +91,9 @@ class TestDatabasePoolGracefulDegradation:
         # Multiple calls should be safe
         available1 = pool.available_connections()
         available2 = pool.available_connections()
-        assert available1 == available2, "multiple calls should return consistent values"
+        assert (
+            available1 == available2
+        ), "multiple calls should return consistent values"
 
         conn1 = pool.get_connection()
         conn2 = pool.get_connection()
@@ -129,9 +139,9 @@ class TestDatabasePoolResourceManagement:
             available = pool.available_connections()
             assert isinstance(available, int), "available_connections should return int"
             assert available >= 0, "available connections should never be negative"
-            assert available <= (pool.pool_size + pool.max_overflow), (
-                "available should not exceed pool_size + max_overflow"
-            )
+            assert available <= (
+                pool.pool_size + pool.max_overflow
+            ), "available should not exceed pool_size + max_overflow"
 
 
 @pytest.mark.performance

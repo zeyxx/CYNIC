@@ -70,7 +70,9 @@ class MCPMetrics:
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize metrics to a plain dict for JSON responses."""
-        min_latency = self.min_latency_ms if self.min_latency_ms != float("inf") else 0.0
+        min_latency = (
+            self.min_latency_ms if self.min_latency_ms != float("inf") else 0.0
+        )
         return {
             "total_calls": self.total_calls,
             "successful_calls": self.successful_calls,

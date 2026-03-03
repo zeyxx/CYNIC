@@ -113,7 +113,9 @@ class TestSecurityEventRepoInterface:
     @pytest.mark.asyncio
     async def test_list_events_with_type_filter(self, security_repo, mock_db):
         """Test list_events with type filter."""
-        mock_db.query.return_value = [{"result": [{"id": "evt-1", "type": "judgment_created"}]}]
+        mock_db.query.return_value = [
+            {"result": [{"id": "evt-1", "type": "judgment_created"}]}
+        ]
 
         events = await security_repo.list_events(filters={"type": "judgment_created"})
 
@@ -126,7 +128,9 @@ class TestSecurityEventRepoInterface:
     @pytest.mark.asyncio
     async def test_list_events_with_actor_id_filter(self, security_repo, mock_db):
         """Test list_events with actor_id filter."""
-        mock_db.query.return_value = [{"result": [{"id": "evt-1", "actor_id": "dog_1"}]}]
+        mock_db.query.return_value = [
+            {"result": [{"id": "evt-1", "actor_id": "dog_1"}]}
+        ]
 
         events = await security_repo.list_events(filters={"actor_id": "dog_1"})
 

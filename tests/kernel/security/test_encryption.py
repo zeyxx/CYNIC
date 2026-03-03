@@ -49,13 +49,13 @@ class TestEncryptionConfig:
         monkeypatch.setenv("VAULT_ADDR", "https://vault.example.com:8200")
         monkeypatch.setenv("VAULT_TOKEN", "s.test1234567890")
 
-        from cynic.kernel.core.config import CynicConfig
+        from cynic.config import CynicConfig
+
         cynic_config = CynicConfig.from_env()
         config = EncryptionConfig.from_config(cynic_config)
 
         assert config.vault_addr == "https://vault.example.com:8200"
         assert config.vault_token == "s.test1234567890"
-
 
 
 @pytest.mark.asyncio
@@ -145,7 +145,9 @@ class TestEncryptionService:
         decrypted = await encryption_service.decrypt_string(encrypted_hex)
         assert decrypted == plaintext
 
-    async def test_different_nonces_produce_different_ciphertexts(self, encryption_service):
+    async def test_different_nonces_produce_different_ciphertexts(
+        self, encryption_service
+    ):
         """Test that random nonces prevent pattern leakage."""
         plaintext = b"Same plaintext"
 
@@ -377,7 +379,9 @@ class TestTransparentEncryption:
 
         # Each decrypts with its own key
         assert await encryption.decrypt_string(encrypted_db, "db-column") == data
-        assert await encryption.decrypt_string(encrypted_journal, "journal-errors") == data
+        assert (
+            await encryption.decrypt_string(encrypted_journal, "journal-errors") == data
+        )
 
         await encryption.shutdown()
 

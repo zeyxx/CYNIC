@@ -40,7 +40,9 @@ def mtls_verifier(mtls_config: MTLSConfig) -> MTLSVerifier:
 class TestMTLSVerifier:
     """Tests for mTLS certificate verification."""
 
-    def test_extract_client_identity(self, mtls_verifier: MTLSVerifier, pki: PKI) -> None:
+    def test_extract_client_identity(
+        self, mtls_verifier: MTLSVerifier, pki: PKI
+    ) -> None:
         """Client identity can be extracted from certificate CN."""
         svc_cert, _ = pki.generate_service_cert("api")
         client_identity = mtls_verifier.extract_client_identity(svc_cert)

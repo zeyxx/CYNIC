@@ -10,13 +10,17 @@ Validates:
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
 
 
 import pytest
+
 pytestmark = pytest.mark.skip(reason="Old architecture, modules removed")
 
 import asyncio
@@ -44,20 +48,14 @@ class TestConcurrentCallsBasic:
             "jsonrpc": "2.0",
             "id": 1,
             "method": "tools/call",
-            "params": {
-                "name": "ask_cynic",
-                "arguments": {"prompt": "Question 1"}
-            }
+            "params": {"name": "ask_cynic", "arguments": {"prompt": "Question 1"}},
         }
 
         msg2 = {
             "jsonrpc": "2.0",
             "id": 2,
             "method": "tools/call",
-            "params": {
-                "name": "observe_cynic",
-                "arguments": {"aspect": "health"}
-            }
+            "params": {"name": "observe_cynic", "arguments": {"aspect": "health"}},
         }
 
         # Execute both concurrently
@@ -84,10 +82,7 @@ class TestConcurrentCallsBasic:
                 "jsonrpc": "2.0",
                 "id": msg_id,
                 "method": "tools/call",
-                "params": {
-                    "name": "ask_cynic",
-                    "arguments": {"prompt": prompt}
-                }
+                "params": {"name": "ask_cynic", "arguments": {"prompt": prompt}},
             }
             await router.handle_message_async(msg)
 
@@ -113,20 +108,14 @@ class TestConcurrentCallsBasic:
             "jsonrpc": "2.0",
             "id": 100,
             "method": "tools/call",
-            "params": {
-                "name": "ask_cynic",
-                "arguments": {"prompt": "First question"}
-            }
+            "params": {"name": "ask_cynic", "arguments": {"prompt": "First question"}},
         }
 
         msg2 = {
             "jsonrpc": "2.0",
             "id": 200,
             "method": "tools/call",
-            "params": {
-                "name": "observe_cynic",
-                "arguments": {"aspect": "dogs"}
-            }
+            "params": {"name": "observe_cynic", "arguments": {"aspect": "dogs"}},
         }
 
         # Execute concurrently
@@ -160,8 +149,8 @@ class TestConcurrentObserveCalls:
                 "method": "tools/call",
                 "params": {
                     "name": "observe_cynic",
-                    "arguments": {"aspect": f"aspect_{i}"}
-                }
+                    "arguments": {"aspect": f"aspect_{i}"},
+                },
             }
             for i in range(3)
         ]
@@ -197,10 +186,7 @@ class TestConcurrentObserveCalls:
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": {
-                    "name": "observe_cynic",
-                    "arguments": {"aspect": "health"}
-                }
+                "params": {"name": "observe_cynic", "arguments": {"aspect": "health"}},
             }
             result = await router.handle_message_async(msg)
 
@@ -210,7 +196,7 @@ class TestConcurrentObserveCalls:
             return {
                 "before": snapshot_before,
                 "after": snapshot_after,
-                "result": result
+                "result": result,
             }
 
         # Run one observe call
@@ -236,10 +222,7 @@ class TestCallTracking:
             "jsonrpc": "2.0",
             "id": 1,
             "method": "tools/call",
-            "params": {
-                "name": "ask_cynic",
-                "arguments": {"prompt": "Test"}
-            }
+            "params": {"name": "ask_cynic", "arguments": {"prompt": "Test"}},
         }
 
         await router.handle_message_async(msg)
@@ -257,24 +240,17 @@ class TestCallTracking:
             "jsonrpc": "2.0",
             "id": 1,
             "method": "tools/call",
-            "params": {
-                "name": "nonexistent_tool",
-                "arguments": {}
-            }
+            "params": {"name": "nonexistent_tool", "arguments": {}},
         }
 
         await router.handle_message_async(msg1)
-
 
         # Make another call (should succeed or fail gracefully)
         msg2 = {
             "jsonrpc": "2.0",
             "id": 2,
             "method": "tools/call",
-            "params": {
-                "name": "observe_cynic",
-                "arguments": {}
-            }
+            "params": {"name": "observe_cynic", "arguments": {}},
         }
 
         await router.handle_message_async(msg2)
@@ -291,10 +267,7 @@ class TestCallTracking:
             "jsonrpc": "2.0",
             "id": 1,
             "method": "tools/call",
-            "params": {
-                "name": "observe_cynic",
-                "arguments": {}
-            }
+            "params": {"name": "observe_cynic", "arguments": {}},
         }
 
         await router.handle_message_async(msg)
@@ -331,8 +304,8 @@ class TestGetActiveCalls:
                     "name": "ask_cynic" if i % 2 == 0 else "observe_cynic",
                     "arguments": {
                         "prompt": f"Q{i}" if i % 2 == 0 else {"aspect": f"a{i}"}
-                    }
-                }
+                    },
+                },
             }
             for i in range(5)
         ]
@@ -370,10 +343,7 @@ class TestMessageRoutingConcurrency:
             "jsonrpc": "2.0",
             "id": 2,
             "method": "tools/call",
-            "params": {
-                "name": "observe_cynic",
-                "arguments": {}
-            }
+            "params": {"name": "observe_cynic", "arguments": {}},
         }
 
         # Execute concurrently
@@ -405,8 +375,8 @@ class TestErrorHandlingConcurrency:
             "method": "tools/call",
             "params": {
                 "name": "ask_cynic",
-                "arguments": {}  # Missing 'prompt'
-            }
+                "arguments": {},  # Missing 'prompt'
+            },
         }
 
         # One message that should work
@@ -414,10 +384,7 @@ class TestErrorHandlingConcurrency:
             "jsonrpc": "2.0",
             "id": 2,
             "method": "tools/call",
-            "params": {
-                "name": "observe_cynic",
-                "arguments": {}
-            }
+            "params": {"name": "observe_cynic", "arguments": {}},
         }
 
         # Execute concurrently
@@ -443,8 +410,8 @@ class TestErrorHandlingConcurrency:
                 "method": "tools/call",
                 "params": {
                     "name": "ask_cynic",
-                    "arguments": {"prompt": f"Question {i}"}
-                }
+                    "arguments": {"prompt": f"Question {i}"},
+                },
             }
             for i in range(3)
         ]

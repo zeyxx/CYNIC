@@ -27,6 +27,7 @@ async def test_concurrent_handler_registration(event_bus):
 
     # Create handlers
     for i in range(num_handlers):
+
         async def handler(event, handler_id=i):
             await asyncio.sleep(0.001)
 
@@ -41,9 +42,9 @@ async def test_concurrent_handler_registration(event_bus):
 
     # Verify all handlers were registered
     registered = event_bus._handlers.get(CoreEvent.PERCEPTION_RECEIVED.value, [])
-    assert len(registered) == num_handlers, (
-        f"Expected {num_handlers} handlers, got {len(registered)}"
-    )
+    assert (
+        len(registered) == num_handlers
+    ), f"Expected {num_handlers} handlers, got {len(registered)}"
 
 
 @pytest.mark.asyncio
@@ -54,6 +55,7 @@ async def test_concurrent_handler_unregistration(event_bus):
 
     # Create and register handlers
     for i in range(num_handlers):
+
         async def handler(event, handler_id=i):
             await asyncio.sleep(0.001)
 
@@ -118,6 +120,7 @@ async def test_concurrent_emit_during_unregistration(event_bus):
 
     # Register initial handlers
     for i in range(20):
+
         async def handler(event, handler_id=i):
             events_received.append(f"h{handler_id}")
             await asyncio.sleep(0.005)

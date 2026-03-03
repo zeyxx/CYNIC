@@ -15,6 +15,7 @@ Usage:
     metrics = await collector.get_metrics("core.judgment_created")
     anomalies = await collector.detect_anomalies()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -38,17 +39,18 @@ logger = logging.getLogger("cynic.nervous.event_metrics")
 
 # Histogram bucket boundaries and labels (inclusive upper bound)
 _BUCKETS: list[tuple[float, str]] = [
-    (LOD_LEVEL0_LATENCY_MS, f"{int(LOD_LEVEL0_LATENCY_MS)}ms"),   # 100ms  REFLEX
-    (LOD_LEVEL1_LATENCY_MS, f"{int(LOD_LEVEL1_LATENCY_MS)}ms"),   # 300ms  MICRO
-    (LOD_LEVEL2_LATENCY_MS, f"{int(LOD_LEVEL2_LATENCY_MS)}ms"),   # 1000ms MACRO
-    (LOD_LEVEL3_LATENCY_MS, f"{int(LOD_LEVEL3_LATENCY_MS)}ms"),   # 3000ms META
-    (float("inf"),          f">{int(LOD_LEVEL3_LATENCY_MS)}ms"),    # >3000ms OVER
+    (LOD_LEVEL0_LATENCY_MS, f"{int(LOD_LEVEL0_LATENCY_MS)}ms"),  # 100ms  REFLEX
+    (LOD_LEVEL1_LATENCY_MS, f"{int(LOD_LEVEL1_LATENCY_MS)}ms"),  # 300ms  MICRO
+    (LOD_LEVEL2_LATENCY_MS, f"{int(LOD_LEVEL2_LATENCY_MS)}ms"),  # 1000ms MACRO
+    (LOD_LEVEL3_LATENCY_MS, f"{int(LOD_LEVEL3_LATENCY_MS)}ms"),  # 3000ms META
+    (float("inf"), f">{int(LOD_LEVEL3_LATENCY_MS)}ms"),  # >3000ms OVER
 ]
 
 
 @dataclass
 class _EventSample:
     """Single event sample in the rolling buffer."""
+
     timestamp_ms: float
     duration_ms: float
     is_error: bool
@@ -57,12 +59,13 @@ class _EventSample:
 @dataclass
 class EventTypeMetrics:
     """Computed metrics for a single event type within the observation window."""
+
     event_type: str
-    count_in_window: int        # events within SIGNAL_TTL_SEC
-    rate_per_min: float         # count_in_window  60 / SIGNAL_TTL_SEC
+    count_in_window: int  # events within SIGNAL_TTL_SEC
+    rate_per_min: float  # count_in_window  60 / SIGNAL_TTL_SEC
     error_count: int
-    error_rate: float           # error_count / max(count_in_window, 1)
-    histogram: dict[str, int]   # bucket_label  count (duration_ms distribution)
+    error_rate: float  # error_count / max(count_in_window, 1)
+    histogram: dict[str, int]  # bucket_label  count (duration_ms distribution)
     last_seen_ms: float
 
     def to_dict(self) -> dict[str, Any]:
@@ -80,12 +83,13 @@ class EventTypeMetrics:
 @dataclass
 class AnomalyRecord:
     """A detected anomaly from the metrics stream."""
+
     detected_at_ms: float
-    anomaly_type: str           # "RATE_SPIKE" | "ERROR_SPIKE" | "LATENCY_SPIKE"
+    anomaly_type: str  # "RATE_SPIKE" | "ERROR_SPIKE" | "LATENCY_SPIKE"
     event_type: str
-    metric_value: float         # observed value that crossed the threshold
-    threshold_value: float      # the PHI-derived threshold that was crossed
-    severity: float             # [0, 1] - capped at PHI_INV (0.618)
+    metric_value: float  # observed value that crossed the threshold
+    threshold_value: float  # the PHI-derived threshold that was crossed
+    severity: float  # [0, 1] - capped at PHI_INV (0.618)
     message: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -127,7 +131,9 @@ class EventMetricsCollector:
         async with self._lock:
             now_ms = time.time() * 1000.0
             self._samples[event_type].append(
-                _EventSample(timestamp_ms=now_ms, duration_ms=duration_ms, is_error=is_error)
+                _EventSample(
+                    timestamp_ms=now_ms, duration_ms=duration_ms, is_error=is_error
+                )
             )
             self._total_recorded += 1
 
@@ -147,7 +153,9 @@ class EventMetricsCollector:
             for event_type, deque_ in self._samples.items():
                 window_samples = self._in_window(list(deque_))
                 if window_samples:
-                    result[event_type] = self._compute_metrics(event_type, window_samples)
+                    result[event_type] = self._compute_metrics(
+                        event_type, window_samples
+                    )
             return result
 
     async def current_rates(self) -> dict[str, float]:
@@ -172,16 +180,24 @@ class EventMetricsCollector:
 
             for event_type, deque_ in self._samples.items():
                 all_samples = list(deque_)
-                recent = [s for s in all_samples if (now_ms - s.timestamp_ms) <= half_window]
-                older  = [s for s in all_samples if half_window < (now_ms - s.timestamp_ms) <= self._window_ms]
+                recent = [
+                    s for s in all_samples if (now_ms - s.timestamp_ms) <= half_window
+                ]
+                older = [
+                    s
+                    for s in all_samples
+                    if half_window < (now_ms - s.timestamp_ms) <= self._window_ms
+                ]
 
                 # RATE_SPIKE: recent half-window rate > older half-window rate  PHI
                 if older and recent:
                     recent_rate = len(recent) / (half_window / 1000.0 / 60.0)  # /min
-                    older_rate  = len(older)  / (half_window / 1000.0 / 60.0)
-                    threshold   = older_rate * PHI
+                    older_rate = len(older) / (half_window / 1000.0 / 60.0)
+                    threshold = older_rate * PHI
                     if older_rate > 0 and recent_rate > threshold:
-                        severity = min((recent_rate / threshold - 1.0) * PHI_INV, PHI_INV)
+                        severity = min(
+                            (recent_rate / threshold - 1.0) * PHI_INV, PHI_INV
+                        )
                         record = AnomalyRecord(
                             detected_at_ms=now_ms,
                             anomaly_type="RATE_SPIKE",
@@ -197,7 +213,9 @@ class EventMetricsCollector:
                 # ERROR_SPIKE: error_rate in window > PHI_INV (0.618)
                 window_samples = self._in_window(all_samples)
                 if window_samples:
-                    error_rate = sum(1 for s in window_samples if s.is_error) / len(window_samples)
+                    error_rate = sum(1 for s in window_samples if s.is_error) / len(
+                        window_samples
+                    )
                     if error_rate > PHI_INV:
                         record = AnomalyRecord(
                             detected_at_ms=now_ms,
@@ -212,15 +230,22 @@ class EventMetricsCollector:
                         newly_detected.append(record)
 
                 # LATENCY_SPIKE: any sample in window exceeds LOD_LEVEL3 (3000ms)
-                latency_outliers = [s for s in window_samples if s.duration_ms > LOD_LEVEL3_LATENCY_MS]
-                for outlier in latency_outliers[:1]:  # at most 1 per check to avoid flood
+                latency_outliers = [
+                    s for s in window_samples if s.duration_ms > LOD_LEVEL3_LATENCY_MS
+                ]
+                for outlier in latency_outliers[
+                    :1
+                ]:  # at most 1 per check to avoid flood
                     record = AnomalyRecord(
                         detected_at_ms=now_ms,
                         anomaly_type="LATENCY_SPIKE",
                         event_type=event_type,
                         metric_value=outlier.duration_ms,
                         threshold_value=LOD_LEVEL3_LATENCY_MS,
-                        severity=min(outlier.duration_ms / LOD_LEVEL3_LATENCY_MS * PHI_INV, PHI_INV),
+                        severity=min(
+                            outlier.duration_ms / LOD_LEVEL3_LATENCY_MS * PHI_INV,
+                            PHI_INV,
+                        ),
                         message=f"{event_type} latency {outlier.duration_ms:.0f}ms > {LOD_LEVEL3_LATENCY_MS:.0f}ms (LOD3)",
                     )
                     self._anomalies.append(record)

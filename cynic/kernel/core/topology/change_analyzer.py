@@ -50,7 +50,11 @@ class ChangeAnalyzer:
         "cynic/senses/": ("senses", "MEDIUM", 0.4),
         "cynic/metabolism/": ("metabolism", "MEDIUM", 0.4),
         "cynic/nervous/": ("nervous", "HIGH", 0.65),
-        "cynic/cognition/": ("cognition", "MEDIUM", 0.5),  # fallback for other cognition dirs
+        "cynic/cognition/": (
+            "cognition",
+            "MEDIUM",
+            0.5,
+        ),  # fallback for other cognition dirs
         "cynic/cli/": ("interface", "LOW", 0.2),
         "cynic/tui/": ("interface", "LOW", 0.2),
         "tests/": ("tests", "LOW", 0.1),

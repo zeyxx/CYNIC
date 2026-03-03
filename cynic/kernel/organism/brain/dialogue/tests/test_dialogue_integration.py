@@ -114,7 +114,11 @@ async def test_dialogue_axiom_tracking(tmp_path):
         "reasoning", "Prioritizing harmony", 0.4, {"PHI": 0.9, "CULTURE": 0.7}, "j456"
     )
     msg2 = CynicMessage(
-        "reasoning", "Considering skepticism", 0.45, {"VERIFY": 0.85, "BURN": 0.6}, "j456"
+        "reasoning",
+        "Considering skepticism",
+        0.45,
+        {"VERIFY": 0.85, "BURN": 0.6},
+        "j456",
     )
 
     await storage.save_message(msg1)
@@ -173,7 +177,9 @@ async def test_full_integration_dialogue_to_memory(tmp_path):
     await memory_store.initialize()
 
     # Step 1: User asks a question
-    user_question = UserMessage("question", "Should we prioritize caution or harmony?", 0.3, "j789")
+    user_question = UserMessage(
+        "question", "Should we prioritize caution or harmony?", 0.3, "j789"
+    )
     await storage.save_message(user_question)
 
     # Step 2: CYNIC responds with reasoning

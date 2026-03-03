@@ -8,6 +8,7 @@ Tests validate:
 - Input validation for all configuration options
 - Immutability (frozen dataclass)
 """
+
 from __future__ import annotations
 
 import pytest

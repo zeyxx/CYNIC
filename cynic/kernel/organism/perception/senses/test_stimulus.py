@@ -51,7 +51,9 @@ class TestStimulusGenerator:
 
         logger.info(f"TestStimulus: Injected market spike (multiplier={multiplier})")
 
-    async def inject_anomaly(self, anomaly_type: str = "LATENCY_SPIKE", value: float = 0.85):
+    async def inject_anomaly(
+        self, anomaly_type: str = "LATENCY_SPIKE", value: float = 0.85
+    ):
         """Inject a system anomaly for self-prober detection."""
         perception = PerceptionReceivedPayload(
             reality="INTERNAL",
@@ -89,7 +91,7 @@ class TestStimulusGenerator:
                 if iteration == 5:
                     mult = 42.0  # Spike
                 elif iteration == 10:
-                    mult = 0.5   # Crash
+                    mult = 0.5  # Crash
                 else:
                     mult = base + (iteration % 3) * 0.5
 

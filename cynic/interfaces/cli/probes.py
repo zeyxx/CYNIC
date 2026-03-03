@@ -1,6 +1,7 @@
 """
 CYNIC CLI " `probes` command (L4 SelfProber proposals).
 """
+
 from __future__ import annotations
 
 import os
@@ -16,9 +17,9 @@ from cynic.interfaces.cli.utils import (
 
 # Probe dimension ' color
 _PROBE_DIM_COLOR = {
-    "QTABLE":   "orange",
-    "ESCORE":   "yellow",
-    "CONFIG":   "cyan",
+    "QTABLE": "orange",
+    "ESCORE": "yellow",
+    "CONFIG": "cyan",
     "RESIDUAL": "dim",
 }
 
@@ -34,10 +35,12 @@ def cmd_probes() -> None:
       status: PENDING (default) | all | APPLIED | DISMISSED
     """
     args = sys.argv[2:]
-    filter_status = (args[0].upper() if args else "PENDING")
+    filter_status = args[0].upper() if args else "PENDING"
 
     # Try API first
-    path = "/self-probes" + ("" if filter_status == "PENDING" else f"?status={filter_status}")
+    path = "/self-probes" + (
+        "" if filter_status == "PENDING" else f"?status={filter_status}"
+    )
     data = _api_get(path)
 
     if data is None:
@@ -63,12 +66,12 @@ def cmd_probes() -> None:
     "API mode" if api_ok else _c("orange", "file mode (server offline)")
 
     for p in proposals:
-        dim     = p.get("dimension", "?")
+        dim = p.get("dimension", "?")
         p.get("target", "?")
         p.get("recommendation", "")
-        cur     = float(p.get("current_value", 0))
-        sug     = float(p.get("suggested_value", 0))
-        sev     = float(p.get("severity", 0))
+        cur = float(p.get("current_value", 0))
+        sug = float(p.get("suggested_value", 0))
+        sev = float(p.get("severity", 0))
         float(p.get("proposed_at", 0))
         p.get("probe_id", "?")
         p.get("pattern_type", "?")

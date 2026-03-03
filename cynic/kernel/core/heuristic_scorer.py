@@ -195,10 +195,16 @@ _FACET_MODIFIERS: dict[str, tuple[list[str], list[str]]] = {
     # FIDELITY facets
     "CANDOR": (["honest", "clear", "explicit"], ["spin", "hidden", "obfuscated"]),
     "ACCOUNTABILITY": (["tested", "verified", "documented"], ["no tests", "untested"]),
-    "VIGILANCE": (["type hint", "validated", "checked"], ["magic number", "unverified"]),
+    "VIGILANCE": (
+        ["type hint", "validated", "checked"],
+        ["magic number", "unverified"],
+    ),
     # PHI facets
     "ELEGANCE": (["simple", "clean", "minimal"], ["bloated", "messy", "complex"]),
-    "STRUCTURE": (["well-structured", "organized", "coherent"], ["god class", "tangled"]),
+    "STRUCTURE": (
+        ["well-structured", "organized", "coherent"],
+        ["god class", "tangled"],
+    ),
     "PRECISION": (["typed", "exact", "verified"], ["magic number", "approximate"]),
     # VERIFY facets
     "ACCURACY": (["verified", "correct", "accurate"], ["incorrect", "wrong", "error"]),
@@ -209,7 +215,10 @@ _FACET_MODIFIERS: dict[str, tuple[list[str], list[str]]] = {
     "ALIGNMENT": (["consistent", "follows", "compatible"], ["breaks", "incompatible"]),
     # BURN facets
     "UTILITY": (["utility", "useful", "focused"], ["useless", "bloated"]),
-    "EFFICIENCY": (["minimal", "efficient", "lean"], ["bloated", "wasteful", "massive"]),
+    "EFFICIENCY": (
+        ["minimal", "efficient", "lean"],
+        ["bloated", "wasteful", "massive"],
+    ),
 }
 
 # "" Global signals (applied to ALL axioms at half weight) """""""""""""""""

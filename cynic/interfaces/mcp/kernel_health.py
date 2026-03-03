@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class HealthState(Enum):
     """Kernel health state."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     CRITICAL = "critical"
@@ -30,6 +31,7 @@ class HealthState(Enum):
 @dataclass
 class HealthStatus:
     """Current kernel health status."""
+
     state: HealthState
     last_check: float | None
     consecutive_failures: int
@@ -75,7 +77,9 @@ class KernelHealthMonitor:
 
         self._running = True
         self._monitor_task = asyncio.create_task(self._monitor_loop())
-        logger.info("Kernel health monitor started (interval=%.1fs)", self.check_interval)
+        logger.info(
+            "Kernel health monitor started (interval=%.1fs)", self.check_interval
+        )
 
     async def stop(self):
         """Stop health monitoring."""
@@ -111,10 +115,7 @@ class KernelHealthMonitor:
             self.last_check = time.time()
 
             # Run health check
-            is_healthy = await asyncio.wait_for(
-                self.health_check_fn(),
-                timeout=5.0
-            )
+            is_healthy = await asyncio.wait_for(self.health_check_fn(), timeout=5.0)
 
             old_state = self.state
 
@@ -125,7 +126,9 @@ class KernelHealthMonitor:
 
                 if old_state != HealthState.HEALTHY:
                     self.state = HealthState.HEALTHY
-                    logger.info("Kernel health: HEALTHY (recovered from %s)", old_state.value)
+                    logger.info(
+                        "Kernel health: HEALTHY (recovered from %s)", old_state.value
+                    )
 
             else:
                 # Kernel is unhealthy
@@ -143,14 +146,18 @@ class KernelHealthMonitor:
                         "Kernel health: %s (failures=%d/%d)",
                         new_state.value,
                         self.consecutive_failures,
-                        self.max_consecutive_failures
+                        self.max_consecutive_failures,
                     )
 
         except TimeoutError:
             self.consecutive_failures += 1
             self.last_error = "Health check timeout (5s)"
 
-            new_state = HealthState.CRITICAL if self.consecutive_failures >= self.max_consecutive_failures else HealthState.DEGRADED
+            new_state = (
+                HealthState.CRITICAL
+                if self.consecutive_failures >= self.max_consecutive_failures
+                else HealthState.DEGRADED
+            )
             old_state = self.state
 
             if old_state != new_state:
@@ -159,14 +166,18 @@ class KernelHealthMonitor:
                     "Kernel health: %s (timeout, failures=%d/%d)",
                     new_state.value,
                     self.consecutive_failures,
-                    self.max_consecutive_failures
+                    self.max_consecutive_failures,
                 )
 
         except Exception as e:
             self.consecutive_failures += 1
             self.last_error = f"Check error: {type(e).__name__}"
 
-            new_state = HealthState.CRITICAL if self.consecutive_failures >= self.max_consecutive_failures else HealthState.DEGRADED
+            new_state = (
+                HealthState.CRITICAL
+                if self.consecutive_failures >= self.max_consecutive_failures
+                else HealthState.DEGRADED
+            )
             old_state = self.state
 
             if old_state != new_state:
@@ -176,7 +187,7 @@ class KernelHealthMonitor:
                     new_state.value,
                     type(e).__name__,
                     self.consecutive_failures,
-                    self.max_consecutive_failures
+                    self.max_consecutive_failures,
                 )
 
     def get_status(self) -> HealthStatus:

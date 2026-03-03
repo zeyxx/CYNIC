@@ -201,6 +201,7 @@ class TestRetryWithBackoff:
 
     async def test_retry_succeeds_on_first_attempt(self):
         """Retry returns immediately on success"""
+
         async def success_func():
             return "result"
 
@@ -218,10 +219,7 @@ class TestRetryWithBackoff:
 
         with pytest.raises(ConnectionError):
             await retry_with_backoff(
-                failing_func,
-                max_retries=2,
-                initial_delay=0.01,
-                backoff_factor=1.5
+                failing_func, max_retries=2, initial_delay=0.01, backoff_factor=1.5
             )
 
         # Should have tried 3 times (initial + 2 retries)
@@ -239,9 +237,7 @@ class TestRetryWithBackoff:
             return "success"
 
         result = await retry_with_backoff(
-            sometimes_failing_func,
-            max_retries=3,
-            initial_delay=0.01
+            sometimes_failing_func, max_retries=3, initial_delay=0.01
         )
 
         assert result == "success"
@@ -276,10 +272,7 @@ class TestRetryWithBackoff:
 
         start = time.time()
         result = await retry_with_backoff(
-            timing_func,
-            max_retries=2,
-            initial_delay=0.05,
-            backoff_factor=2.0
+            timing_func, max_retries=2, initial_delay=0.05, backoff_factor=2.0
         )
 
         elapsed = time.time() - start

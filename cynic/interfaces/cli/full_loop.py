@@ -30,11 +30,11 @@ async def cmd_full_loop(auto: bool = False) -> None:
     """Run the complete PERCEIVE ' JUDGE ' DECIDE ' ACT ' LEARN loop."""
     try:
         from cynic.kernel.organism.factory import awaken
-        
+
         # Awaken the full organism
         org = await awaken()
         await org.start()
-        
+
         bus = org.bus
         registry = org.llm_registry
         actuator = org.metabolism.universal_actuator
@@ -43,7 +43,6 @@ async def cmd_full_loop(auto: bool = False) -> None:
         available_adapters = registry.get_available()
         if not available_adapters:
             sys.exit(1)
-
 
         # """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
         # PHASE 1: PERCEIVE
@@ -86,7 +85,6 @@ Provide JSON: {{"score": 0-100, "verdict": "BARK|GROWL|WAG|HOWL", "reason": "...
             verdict = "WAG" if score >= 50 else "GROWL"
             response[:50]
 
-
         # """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
         # PHASE 3: DECIDE
         # """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -95,7 +93,6 @@ Provide JSON: {{"score": 0-100, "verdict": "BARK|GROWL|WAG|HOWL", "reason": "...
 
         if not should_act:
             return
-
 
         # """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
         # PHASE 4: ACT (with user confirmation)
@@ -107,10 +104,13 @@ Provide JSON: {{"score": 0-100, "verdict": "BARK|GROWL|WAG|HOWL", "reason": "...
                 return
 
         # Execute a real action via UniversalActuator
-        result = await actuator.dispatch("git", {
-            "args": ["git", "status", "--short"],
-            "timeout": 10.0,
-        })
+        result = await actuator.dispatch(
+            "git",
+            {
+                "args": ["git", "status", "--short"],
+                "timeout": 10.0,
+            },
+        )
 
         if result.success:
             pass

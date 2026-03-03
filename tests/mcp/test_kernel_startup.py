@@ -84,10 +84,15 @@ async def test_kernel_startup_success_fast(healthy_health_response):
     - No sleep/backoff delays invoked
     """
     # Use patch.dict to mock MCP before importing
-    with patch.dict('sys.modules', {'mcp': MagicMock(), 'mcp.server': MagicMock(), 'mcp.types': MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"mcp": MagicMock(), "mcp.server": MagicMock(), "mcp.types": MagicMock()},
+    ):
         from cynic.interfaces.mcp.claude_code_bridge import _ensure_kernel_running
 
-        with patch("cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession") as mock_session_cls:
+        with patch(
+            "cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession"
+        ) as mock_session_cls:
             # Setup mock response
             mock_response = AsyncMock()
             mock_response.status = 200
@@ -124,9 +129,11 @@ async def test_kernel_startup_spawns_if_down():
     - Second health check succeeds (kernel started)
     - Returns True
     """
-    with patch.dict('sys.modules', {'mcp': MagicMock(), 'mcp.server': MagicMock(), 'mcp.types': MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"mcp": MagicMock(), "mcp.server": MagicMock(), "mcp.types": MagicMock()},
+    ):
         from cynic.interfaces.mcp.claude_code_bridge import _ensure_kernel_running
-
 
         call_count = {"get": 0}
 
@@ -138,6 +145,7 @@ async def test_kernel_startup_spawns_if_down():
                 # First call raises error (kernel not running)
                 async def raise_error():
                     raise aiohttp.ClientConnectionError("Connection refused")
+
                 cm = AsyncMock()
                 cm.__aenter__ = AsyncMock(side_effect=raise_error)
                 return cm
@@ -147,14 +155,18 @@ async def test_kernel_startup_spawns_if_down():
                 mock_response.status = 200
                 return make_async_context_manager(mock_response)
 
-        with patch("cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession") as mock_session_cls:
+        with patch(
+            "cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession"
+        ) as mock_session_cls:
             mock_session = MagicMock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
             mock_session.get = MagicMock(side_effect=mock_get_side_effect)
             mock_session_cls.return_value = mock_session
 
-            with patch("cynic.interfaces.mcp.claude_code_bridge._spawn_kernel") as mock_spawn:
+            with patch(
+                "cynic.interfaces.mcp.claude_code_bridge._spawn_kernel"
+            ) as mock_spawn:
                 mock_spawn.return_value = MagicMock(spec=subprocess.Popen)
 
                 # Execute (with short timeout to avoid long test)
@@ -175,25 +187,34 @@ async def test_kernel_startup_timeout_30s():
     - Timeout is enforced (within 31s)
     - Returns False after timeout
     """
-    with patch.dict('sys.modules', {'mcp': MagicMock(), 'mcp.server': MagicMock(), 'mcp.types': MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"mcp": MagicMock(), "mcp.server": MagicMock(), "mcp.types": MagicMock()},
+    ):
         from cynic.interfaces.mcp.claude_code_bridge import _ensure_kernel_running
 
         def mock_get_always_fails(url):
             """Simulate kernel never coming up."""
+
             async def raise_error():
                 raise aiohttp.ClientConnectionError("Connection refused")
+
             cm = AsyncMock()
             cm.__aenter__ = AsyncMock(side_effect=raise_error)
             return cm
 
-        with patch("cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession") as mock_session_cls:
+        with patch(
+            "cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession"
+        ) as mock_session_cls:
             mock_session = MagicMock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
             mock_session.get = MagicMock(side_effect=mock_get_always_fails)
             mock_session_cls.return_value = mock_session
 
-            with patch("cynic.interfaces.mcp.claude_code_bridge._spawn_kernel") as mock_spawn:
+            with patch(
+                "cynic.interfaces.mcp.claude_code_bridge._spawn_kernel"
+            ) as mock_spawn:
                 mock_spawn.side_effect = RuntimeError("Spawn failed")
 
                 # Execute with 5s timeout (shorter for test speed)
@@ -216,7 +237,10 @@ async def test_kernel_startup_exponential_backoff():
     - Each retry attempts health check with increasing delays
     - Total time respects timeout limit
     """
-    with patch.dict('sys.modules', {'mcp': MagicMock(), 'mcp.server': MagicMock(), 'mcp.types': MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"mcp": MagicMock(), "mcp.server": MagicMock(), "mcp.types": MagicMock()},
+    ):
         from cynic.interfaces.mcp.claude_code_bridge import _ensure_kernel_running
 
         attempts = []
@@ -224,13 +248,17 @@ async def test_kernel_startup_exponential_backoff():
         def mock_get_track_attempts(url):
             """Track attempt timing."""
             attempts.append(time.time())
+
             async def raise_error():
                 raise aiohttp.ClientConnectionError("Connection refused")
+
             cm = AsyncMock()
             cm.__aenter__ = AsyncMock(side_effect=raise_error)
             return cm
 
-        with patch("cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession") as mock_session_cls:
+        with patch(
+            "cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession"
+        ) as mock_session_cls:
             mock_session = MagicMock()
             mock_session.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -251,7 +279,9 @@ async def test_kernel_startup_exponential_backoff():
             if len(attempts) >= 2:
                 delay_1 = attempts[1] - attempts[0]
                 # First backoff should be close to 0.5s (with some tolerance)
-                assert 0.4 < delay_1 < 0.8, f"First backoff was {delay_1:.2f}s, expected ~0.5s"
+                assert (
+                    0.4 < delay_1 < 0.8
+                ), f"First backoff was {delay_1:.2f}s, expected ~0.5s"
 
 
 @pytest.mark.asyncio
@@ -263,11 +293,15 @@ async def test_kernel_startup_logging(caplog):
     - Logs initial startup attempt
     - Logs result (success or failure)
     """
-    with patch.dict('sys.modules', {'mcp': MagicMock(), 'mcp.server': MagicMock(), 'mcp.types': MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"mcp": MagicMock(), "mcp.server": MagicMock(), "mcp.types": MagicMock()},
+    ):
         from cynic.interfaces.mcp.claude_code_bridge import _ensure_kernel_running
 
-
-        with patch("cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession") as mock_session_cls:
+        with patch(
+            "cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession"
+        ) as mock_session_cls:
             mock_response = AsyncMock()
             mock_response.status = 200
 
@@ -288,7 +322,9 @@ async def test_kernel_startup_logging(caplog):
             log_text = caplog.text
 
             # Verify key log messages
-            assert "Ensuring kernel is running" in log_text or "kernel" in log_text.lower()
+            assert (
+                "Ensuring kernel is running" in log_text or "kernel" in log_text.lower()
+            )
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -305,10 +341,15 @@ async def test_spawn_kernel_success():
     - Calls subprocess.Popen with correct arguments
     - Returns Popen object
     """
-    with patch.dict('sys.modules', {'mcp': MagicMock(), 'mcp.server': MagicMock(), 'mcp.types': MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"mcp": MagicMock(), "mcp.server": MagicMock(), "mcp.types": MagicMock()},
+    ):
         from cynic.interfaces.mcp.claude_code_bridge import _spawn_kernel
 
-        with patch("cynic.interfaces.mcp.claude_code_bridge.subprocess.Popen") as mock_popen:
+        with patch(
+            "cynic.interfaces.mcp.claude_code_bridge.subprocess.Popen"
+        ) as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_popen.return_value = mock_process
@@ -319,8 +360,10 @@ async def test_spawn_kernel_success():
             def mock_get_side_effect(url):
                 call_count["get"] += 1
                 if call_count["get"] == 1:
+
                     async def raise_error():
                         raise aiohttp.ClientConnectionError("Not running")
+
                     cm = AsyncMock()
                     cm.__aenter__ = AsyncMock(side_effect=raise_error)
                     return cm
@@ -329,7 +372,9 @@ async def test_spawn_kernel_success():
                     mock_response.status = 200
                     return make_async_context_manager(mock_response)
 
-            with patch("cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession") as mock_session_cls:
+            with patch(
+                "cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession"
+            ) as mock_session_cls:
                 mock_session = MagicMock()
                 mock_session.__aenter__ = AsyncMock(return_value=mock_session)
                 mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -355,10 +400,15 @@ async def test_spawn_kernel_already_running():
     - Health check succeeds on first call
     - _spawn_kernel() returns None (no spawn needed)
     """
-    with patch.dict('sys.modules', {'mcp': MagicMock(), 'mcp.server': MagicMock(), 'mcp.types': MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"mcp": MagicMock(), "mcp.server": MagicMock(), "mcp.types": MagicMock()},
+    ):
         from cynic.interfaces.mcp.claude_code_bridge import _spawn_kernel
 
-        with patch("cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession") as mock_session_cls:
+        with patch(
+            "cynic.interfaces.mcp.claude_code_bridge.aiohttp.ClientSession"
+        ) as mock_session_cls:
             mock_response = AsyncMock()
             mock_response.status = 200
 
@@ -370,7 +420,9 @@ async def test_spawn_kernel_already_running():
             mock_session.get = MagicMock(return_value=response_cm)
             mock_session_cls.return_value = mock_session
 
-            with patch("cynic.interfaces.mcp.claude_code_bridge.subprocess.Popen") as mock_popen:
+            with patch(
+                "cynic.interfaces.mcp.claude_code_bridge.subprocess.Popen"
+            ) as mock_popen:
                 # Execute
                 result = await _spawn_kernel()
 

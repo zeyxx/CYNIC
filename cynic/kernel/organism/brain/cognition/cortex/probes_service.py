@@ -115,7 +115,7 @@ class ProbesService:
             "probe_id": proposal.probe_id,
             "applied_status": proposal.status,
             "dimension": proposal.dimension,
-            "message": f"Proposal {probe_id} applied"
+            "message": f"Proposal {probe_id} applied",
         }
 
     def dismiss_probe(self, probe_id: str) -> dict[str, Any]:
@@ -140,5 +140,5 @@ class ProbesService:
             "status": "success",
             "probe_id": proposal.probe_id,
             "dismissed_status": proposal.status,
-            "message": f"Proposal {probe_id} dismissed"
+            "message": f"Proposal {probe_id} dismissed",
         }

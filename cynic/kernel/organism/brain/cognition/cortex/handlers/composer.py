@@ -32,11 +32,17 @@ from typing import TYPE_CHECKING
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.event_bus import EventBusError
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import HandlerResult
-from cynic.kernel.organism.brain.cognition.cortex.handlers.registry import HandlerRegistry
+from cynic.kernel.organism.brain.cognition.cortex.handlers.registry import (
+    HandlerRegistry,
+)
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.composer")
+    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import (
+        JudgmentPipeline,
+    )
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.handlers.composer"
+)
 
 
 class HandlerError(Exception):
@@ -137,7 +143,10 @@ class HandlerComposer:
                 handler_id="composer",
                 error=f"Handler '{e.handler_id}' failed: {e.error}",
                 duration_ms=duration_ms,
-                metadata={"handlers_executed": handlers_executed, "failed_at": e.handler_id},
+                metadata={
+                    "handlers_executed": handlers_executed,
+                    "failed_at": e.handler_id,
+                },
             )
         except EventBusError as e:
             duration_ms = (time.perf_counter() - t0) * 1000

@@ -1,7 +1,7 @@
 """
 CYNIC Task Registry  Asynchronous Life-Cycle Guard.
 
-Tracks every background task created by the organism to prevent 
+Tracks every background task created by the organism to prevent
 zombie processes and memory leaks.
 
 -Law: FIDELITY  Ensure every process has a clear end.
@@ -14,6 +14,7 @@ import logging
 from typing import Set
 
 logger = logging.getLogger("cynic.kernel.task_registry")
+
 
 class TaskRegistry:
     """
@@ -40,21 +41,23 @@ class TaskRegistry:
         async with self._lock:
             if not self._tasks:
                 return
-            
+
             count = len(self._tasks)
             logger.info(f"[{self.instance_id}] TaskRegistry: Closing {count} tasks...")
-            
+
             for task in self._tasks:
                 task.cancel()
-            
+
             # Wait for tasks to acknowledge cancellation
             try:
                 await asyncio.wait_for(
                     asyncio.gather(*list(self._tasks), return_exceptions=True),
-                    timeout=timeout
+                    timeout=timeout,
                 )
             except asyncio.TimeoutError:
-                logger.warning(f"[{self.instance_id}] TaskRegistry: Some tasks did not stop in time.")
+                logger.warning(
+                    f"[{self.instance_id}] TaskRegistry: Some tasks did not stop in time."
+                )
             finally:
                 self._tasks.clear()
                 logger.info(f"[{self.instance_id}] TaskRegistry: All tasks purged.")

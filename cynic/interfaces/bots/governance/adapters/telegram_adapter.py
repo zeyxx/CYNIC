@@ -165,9 +165,9 @@ class TelegramAdapter(BotInterface):
                 ephemeral=True,
             )
 
-    # 
+    #
     # MESSAGE PARSING
-    # 
+    #
 
     def _parse_telegram_message(self, text: str) -> tuple[str, dict[str, Any]] | None:
         """
@@ -260,9 +260,9 @@ class TelegramAdapter(BotInterface):
 
         return args
 
-    # 
+    #
     # COMMAND HANDLERS
-    # 
+    #
 
     async def _handle_propose(self, command: BotCommand) -> BotResponse:
         """
@@ -348,7 +348,9 @@ class TelegramAdapter(BotInterface):
             proposals = []  # Would be fetched from DB
             total_pages = (len(proposals) + limit - 1) // limit if limit > 0 else 1
 
-            logger.info(f"Proposals list requested by user {command.user_id}, page={page}")
+            logger.info(
+                f"Proposals list requested by user {command.user_id}, page={page}"
+            )
 
             return BotResponse(
                 success=True,
@@ -475,9 +477,9 @@ class TelegramAdapter(BotInterface):
                 ephemeral=True,
             )
 
-    # 
+    #
     # RESPONSE FORMATTING
-    # 
+    #
 
     def _format_response_for_telegram(self, response: BotResponse) -> str:
         """
@@ -528,7 +530,9 @@ class TelegramAdapter(BotInterface):
         # Return first page (in production, would send all pages)
         return pages[0] if pages else full_message
 
-    def _paginate_message(self, text: str, max_length: int = TELEGRAM_MAX_LENGTH) -> list[str]:
+    def _paginate_message(
+        self, text: str, max_length: int = TELEGRAM_MAX_LENGTH
+    ) -> list[str]:
         """
         Split long message into pages for Telegram.
 
@@ -559,7 +563,7 @@ class TelegramAdapter(BotInterface):
 
         while pos < len(text):
             # Try to take up to max_length characters
-            chunk = text[pos:pos + max_length]
+            chunk = text[pos : pos + max_length]
 
             # If we can fit the chunk as-is, use it
             if pos + max_length >= len(text):
@@ -575,12 +579,12 @@ class TelegramAdapter(BotInterface):
             if last_para_break != -1:
                 # Found paragraph break, break after it
                 break_pos = last_para_break + 2  # Include both newlines
-                pages.append(text[pos:pos + break_pos])
+                pages.append(text[pos : pos + break_pos])
                 pos += break_pos
             elif last_line_break != -1:
                 # Found line break, break after it
                 break_pos = last_line_break + 1  # Include the newline
-                pages.append(text[pos:pos + break_pos])
+                pages.append(text[pos : pos + break_pos])
                 pos += break_pos
             else:
                 # No good break found, take max_length characters anyway

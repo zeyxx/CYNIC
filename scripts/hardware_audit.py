@@ -1,9 +1,10 @@
 """
 CYNIC Hardware Audit â€” Remove the fog of infrastructure.
 
-Detects CPU/iGPU capabilities (optimized for Ryzen 5700G) and 
+Detects CPU/iGPU capabilities (optimized for Ryzen 5700G) and
 recommends LLM inference settings for the V3.1 Organism.
 """
+
 import multiprocessing
 import platform
 
@@ -11,7 +12,6 @@ import psutil
 
 
 def audit():
-
     # 1. OS & Platform
 
     # 2. CPU (The Ryzen Core)
@@ -22,7 +22,7 @@ def audit():
     psutil.virtual_memory()
 
     # 4. Recommendation (The Unfoggy extension)
-    
+
     cpu_name = platform.processor()
     if "AMD" in cpu_name or "Ryzen" in cpu_name:
         pass

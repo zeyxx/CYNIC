@@ -3,7 +3,7 @@ OrganismState  Single source of truth for all CYNIC state.
 
 REACTIVE MATERIALIZED VIEW:
 This class acts as a fast, RAM-based cache of the truth stored in SurrealDB.
-The 'dual-write drift' is eliminated by using SurrealDB Live Queries as the 
+The 'dual-write drift' is eliminated by using SurrealDB Live Queries as the
 sole trigger for internal memory updates.
 
 Patterns: Reactive, DB-First, phi-weighted.
@@ -24,9 +24,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("cynic.kernel.organism.state_manager")
 
+
 class StateLayer(str, Enum):
     MEMORY = "memory"
     PERSISTENT = "persistent"
+
 
 class OrganismState:
     """
@@ -34,7 +36,9 @@ class OrganismState:
     Slaves internal RAM dictionaries to SurrealDB Live Query streams.
     """
 
-    def __init__(self, instance_id: str, bus: EventBus, storage: Optional[SurrealStorage] = None):
+    def __init__(
+        self, instance_id: str, bus: EventBus, storage: Optional[SurrealStorage] = None
+    ):
         self.instance_id = instance_id
         self.storage = storage
         self.bus = bus
@@ -42,12 +46,12 @@ class OrganismState:
         # RAM Cache (The Materialized View)
         self._memory_state: dict[str, Any] = {}
         self._persistent_cache: dict[str, Any] = {}
-        
+
         # Core Indicators
         self.total_judgments = 0
         self.total_spent_usd = 0.0
         self.consciousness = UnifiedConsciousState()
-        
+
         self._running = False
         self._subscriptions: List[str] = []
         self._lock = asyncio.Lock()
@@ -56,16 +60,17 @@ class OrganismState:
         """Awaken the state. Subscribes to SurrealDB Live Streams."""
         if self._running or not self.storage:
             return
-        
+
         self._running = True
         logger.info(f"[{self.instance_id}] State Manager: Awakening Reactive View.")
 
         # 1. Subscribe to Judgments (to update counters)
         sub_id = await self.storage.subscribe("judgment", self._on_db_judgment)
         self._subscriptions.append(sub_id)
-        
+
         # 2. Wire reactive listeners for external stimuli (if any)
         from cynic.kernel.core.event_bus import CoreEvent
+
         self.bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
 
     async def stop_processing(self) -> None:
@@ -80,7 +85,7 @@ class OrganismState:
             async with self._lock:
                 self.total_judgments += 1
                 # Here we could update more complex metrics derived from the record
-                
+
     async def _on_judgment_created(self, event: Any) -> None:
         """
         Triggered when a judgment is emitted.
@@ -88,11 +93,19 @@ class OrganismState:
         The internal counter 'total_judgments' will be updated by _on_db_judgment.
         """
         if self.storage:
-            payload = event.dict_payload if hasattr(event, 'dict_payload') else event.payload
+            payload = (
+                event.dict_payload if hasattr(event, "dict_payload") else event.payload
+            )
             # DB-FIRST: The write is the source of truth
             asyncio.create_task(self.storage.judgments.save(payload))
 
-    async def update(self, key: str, value: Any, layer: StateLayer = StateLayer.MEMORY, source: str = "internal") -> bool:
+    async def update(
+        self,
+        key: str,
+        value: Any,
+        layer: StateLayer = StateLayer.MEMORY,
+        source: str = "internal",
+    ) -> bool:
         """
         Standard update method.
         If layer is PERSISTENT, writes to SurrealDB first.
@@ -101,14 +114,14 @@ class OrganismState:
         if layer == StateLayer.PERSISTENT and self.storage:
             # For specific keys, we might want specialized repo calls
             # For generic state, we use a generic table or specialized logic
-            pass # We will refine this based on the CCM requirements
-            
+            pass  # We will refine this based on the CCM requirements
+
         async with self._lock:
             if layer == StateLayer.MEMORY:
                 self._memory_state[key] = value
             elif layer == StateLayer.PERSISTENT:
                 self._persistent_cache[key] = value
-                
+
         return True
 
     async def get_stats(self) -> dict:

@@ -42,6 +42,7 @@ class RoutingDecision:
     """
     LLM routing recommendation from Q-Table analysis.
     """
+
     recommended_model: str
     route_to_local: bool
     confidence: float
@@ -60,23 +61,26 @@ class LLMRouter:
         self._total_routes: int = 0
         self._routes_to_local: int = 0
         self._routes_to_full: int = 0
-        
+
         # Pull configuration dynamically
-        from cynic.kernel.core.config import CynicConfig
+        from cynic.config import CynicConfig
+
         try:
             from cynic.kernel.core.container import get_container
+
             self.config = get_container().get(CynicConfig)
         except Exception:
             self.config = CynicConfig.from_env()
 
         # Sovereignty Check: Do we have any cloud keys?
-        self.sovereign_mode = not any([
-            self.config.anthropic_api_key,
-            self.config.google_api_key
-        ])
-        
+        self.sovereign_mode = not any(
+            [self.config.anthropic_api_key, self.config.google_api_key]
+        )
+
         if self.sovereign_mode:
-            logger.warning("Sovereign Mode Active: No cloud API keys found. Defaulting to Local-First.")
+            logger.warning(
+                "Sovereign Mode Active: No cloud API keys found. Defaulting to Local-First."
+            )
 
     def route(
         self,
@@ -86,10 +90,10 @@ class LLMRouter:
         complexity: str,
     ) -> RoutingDecision:
         """Determine optimal model, prioritizing operator overrides and sovereignty."""
-        
+
         # 0. Operator Override: Deep Thought / Slow Mode
         # If the human forces deep thought, always use the primary "Brain"
-        if getattr(self.config, 'force_slow_mode', False):
+        if getattr(self.config, "force_slow_mode", False):
             self._routes_to_full += 1
             return RoutingDecision(
                 recommended_model=self.config.llm_primary_model,
@@ -97,7 +101,7 @@ class LLMRouter:
                 confidence=1.0,
                 reason="Operator override: Deep Thought / Slow Mode active.",
                 task_type=task_type,
-                complexity=complexity
+                complexity=complexity,
             )
 
         # 1. Sovereign override: If no keys, always use local
@@ -109,7 +113,7 @@ class LLMRouter:
                 confidence=1.0,
                 reason="Sovereign override: Local-First enforcement (no cloud keys).",
                 task_type=task_type,
-                complexity=complexity
+                complexity=complexity,
             )
 
         # Get Q-Table confidence for this state
@@ -169,10 +173,14 @@ class LLMRouter:
         # All gates passed ' route to Fast Model (or Local)
         self._total_routes += 1
         self._routes_to_local += 1
-        
+
         # Decide between Fast Cloud or Local based on complexity
-        target_model = self.config.llm_local_model if complexity == "trivial" else self.config.llm_fast_model
-        
+        target_model = (
+            self.config.llm_local_model
+            if complexity == "trivial"
+            else self.config.llm_fast_model
+        )
+
         logger.info(
             "LLM_ROUTE: %s/%s ' %s (conf=%.3f, visits=%d)",
             task_type,

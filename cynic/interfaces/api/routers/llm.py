@@ -1,9 +1,10 @@
 """
 LLM Router " Cognitive Inventory Control.
 
-Exposes the LLM manifest and allows dynamic rescanning of the 
+Exposes the LLM manifest and allows dynamic rescanning of the
 Organism's muscles.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,34 +21,39 @@ async def _check_rbac(request, resource: str, permission: str = "WRITE") -> None
 
 router = APIRouter(prefix="/brain/llm", tags=["llm"])
 
+
 @router.get("/manifest")
 async def get_llm_manifest(container: AppContainer = Depends(get_app_container)):
     """Get the current discovery manifest (Hardware status + model fit)."""
     registry = get_registry()
     if not registry._manifest:
         # If not discovered yet, trigger one
-        from cynic.kernel.core.config import CynicConfig
+        from cynic.config import CynicConfig
+
         config = CynicConfig.from_env()
         await registry.discover(
             ollama_url=config.ollama_url,
             claude_api_key=config.anthropic_api_key,
-            models_dir=config.models_dir
+            models_dir=config.models_dir,
         )
     return registry._manifest
+
 
 @router.post("/rescan")
 async def rescan_muscles(container: AppContainer = Depends(get_app_container)):
     """Force a new hardware-aware discovery cycle."""
-    from cynic.kernel.core.config import CynicConfig
+    from cynic.config import CynicConfig
+
     config = CynicConfig.from_env()
     registry = get_registry()
-    
+
     manifest = await registry.discover(
         ollama_url=config.ollama_url,
         claude_api_key=config.anthropic_api_key,
-        models_dir=config.models_dir
+        models_dir=config.models_dir,
     )
     return {"status": "SUCCESS", "manifest": manifest}
+
 
 @router.get("/best/{dog_id}/{task_type}")
 async def get_routing_decision(dog_id: str, task_type: str):
@@ -61,5 +67,5 @@ async def get_routing_decision(dog_id: str, task_type: str):
         "task_type": task_type,
         "selected_adapter": adapter.adapter_id,
         "provider": adapter.provider,
-        "model": adapter.model
+        "model": adapter.model,
     }

@@ -23,13 +23,17 @@ Success Criteria (Task 8):
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
 
 
 import pytest
+
 pytestmark = pytest.mark.skip(reason="Old architecture, modules removed")
 
 import os
@@ -66,23 +70,26 @@ class TestPhase1AllToolsAvailable:
 
         # Register a few tools for testing
         from cynic.interfaces.mcp.service import MCPTool
-        router.bridge.register_tool(MCPTool(
-            name="test_tool_1",
-            description="Test tool 1",
-            input_schema={"type": "object"}
-        ))
-        router.bridge.register_tool(MCPTool(
-            name="test_tool_2",
-            description="Test tool 2",
-            input_schema={"type": "object"}
-        ))
+
+        router.bridge.register_tool(
+            MCPTool(
+                name="test_tool_1",
+                description="Test tool 1",
+                input_schema={"type": "object"},
+            )
+        )
+        router.bridge.register_tool(
+            MCPTool(
+                name="test_tool_2",
+                description="Test tool 2",
+                input_schema={"type": "object"},
+            )
+        )
 
         # Call tools/list
-        response = router.handle_message({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/list"
-        })
+        response = router.handle_message(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+        )
 
         assert response["jsonrpc"] == "2.0"
         assert response["id"] == 1
@@ -102,19 +109,19 @@ class TestPhase1AllToolsAvailable:
         """Verify the 13 expected MCP tools are available (from Task 2-7)."""
         # These are the tools mentioned in the spec
         expected_tools = [
-            "ask_cynic",              # Task 1: Base tool
-            "observe_cynic",          # Task 1: Base tool
-            "learn_cynic",            # Task 2: Streaming
-            "discuss_cynic",          # Task 2: Streaming
-            "cynic_health",           # Task 6: Health
-            "cynic_status",           # Task 6: Health
-            "cynic_run_empirical_test",    # Task 3: Kernel
-            "cynic_get_job_status",        # Task 3: Kernel
-            "cynic_get_test_results",      # Task 3: Kernel
+            "ask_cynic",  # Task 1: Base tool
+            "observe_cynic",  # Task 1: Base tool
+            "learn_cynic",  # Task 2: Streaming
+            "discuss_cynic",  # Task 2: Streaming
+            "cynic_health",  # Task 6: Health
+            "cynic_status",  # Task 6: Health
+            "cynic_run_empirical_test",  # Task 3: Kernel
+            "cynic_get_job_status",  # Task 3: Kernel
+            "cynic_get_test_results",  # Task 3: Kernel
             "cynic_test_axiom_irreducibility",  # Task 6: Health
-            "cynic_query_telemetry",       # Task 6: Health
-            "cynic_watch_telemetry",       # Task 2: Streaming
-            "cynic_watch_source",          # Task 2: Streaming
+            "cynic_query_telemetry",  # Task 6: Health
+            "cynic_watch_telemetry",  # Task 2: Streaming
+            "cynic_watch_source",  # Task 2: Streaming
         ]
 
         # Note: We verify these in timeouts and router separately
@@ -133,10 +140,7 @@ class TestPhase1ErrorHandling:
         router = MCPRouter()
 
         # Missing method
-        response = router.handle_message({
-            "jsonrpc": "2.0",
-            "id": 1
-        })
+        response = router.handle_message({"jsonrpc": "2.0", "id": 1})
 
         assert response["jsonrpc"] == "2.0"
         assert response["id"] == 1
@@ -148,11 +152,9 @@ class TestPhase1ErrorHandling:
         """Verify unknown method returns JSON-RPC error."""
         router = MCPRouter()
 
-        response = router.handle_message({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "unknown_method"
-        })
+        response = router.handle_message(
+            {"jsonrpc": "2.0", "id": 1, "method": "unknown_method"}
+        )
 
         assert "error" in response
         assert response["error"]["code"] == -32601  # Method not found
@@ -161,15 +163,14 @@ class TestPhase1ErrorHandling:
         """Verify tool call with invalid arguments returns structured error."""
         router = MCPRouter()
 
-        response = await router.handle_message_async({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {
-                "name": "nonexistent_tool",
-                "arguments": {}
+        response = await router.handle_message_async(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "nonexistent_tool", "arguments": {}},
             }
-        })
+        )
 
         assert "error" in response
         assert response["error"]["code"] == -32603  # Internal error
@@ -178,11 +179,9 @@ class TestPhase1ErrorHandling:
         """Verify error responses match JSON-RPC 2.0 spec."""
         router = MCPRouter()
 
-        response = router.handle_message({
-            "jsonrpc": "2.0",
-            "id": 999,
-            "method": "invalid"
-        })
+        response = router.handle_message(
+            {"jsonrpc": "2.0", "id": 999, "method": "invalid"}
+        )
 
         # Must have these fields for JSON-RPC 2.0
         assert response["jsonrpc"] == "2.0"
@@ -219,7 +218,7 @@ class TestPhase1PortConfiguration:
 
     def test_port_default_value(self):
         """Verify default port is 8765."""
-        from cynic.kernel.core.config import CynicConfig
+        from cynic.config import CynicConfig
 
         # Reset env var first
         os.environ.pop("PORT", None)
@@ -279,7 +278,7 @@ class TestPhase1TimeoutsApplied:
             "cynic_status",
             "cynic_get_job_status",
             "cynic_get_kernel_status",
-            "cynic_ping"
+            "cynic_ping",
         ]
 
         for tool in fast_tools:
@@ -297,7 +296,7 @@ class TestPhase1TimeoutsApplied:
             "cynic_query_telemetry",
             "cynic_get_axioms",
             "cynic_get_dogs",
-            "cynic_get_q_table"
+            "cynic_get_q_table",
         ]
 
         for tool in normal_tools:
@@ -311,7 +310,7 @@ class TestPhase1TimeoutsApplied:
             "cynic_run_empirical_test",
             "cynic_test_axiom_irreducibility",
             "cynic_benchmark_learning_efficiency",
-            "cynic_run_load_test"
+            "cynic_run_load_test",
         ]
 
         for tool in batch_tools:
@@ -324,7 +323,7 @@ class TestPhase1TimeoutsApplied:
         stream_tools = [
             "cynic_watch_telemetry",
             "cynic_watch_source",
-            "cynic_stream_judgments"
+            "cynic_stream_judgments",
         ]
 
         for tool in stream_tools:
@@ -334,11 +333,7 @@ class TestPhase1TimeoutsApplied:
 
     def test_unknown_tools_default_to_normal(self):
         """Verify unknown tools default to NORMAL (30s) timeout."""
-        unknown_tools = [
-            "unknown_tool_xyz",
-            "fake_tool_123",
-            "nonexistent_method"
-        ]
+        unknown_tools = ["unknown_tool_xyz", "fake_tool_123", "nonexistent_method"]
 
         for tool in unknown_tools:
             timeout = TimeoutConfig.get_timeout(tool)
@@ -424,7 +419,9 @@ class TestPhase1HealthEndpointsAvailable:
             # Component should have status field
             if components:
                 for comp_name, comp_data in components.items():
-                    assert "status" in comp_data, f"Component {comp_name} missing status"
+                    assert (
+                        "status" in comp_data
+                    ), f"Component {comp_name} missing status"
 
     def test_health_full_has_dogs_info(self):
         """Verify GET /health/full includes Dogs information."""
@@ -500,11 +497,9 @@ class TestPhase1IntegrationE2E:
         router = MCPRouter()
 
         # 1. List tools
-        list_response = router.handle_message({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/list"
-        })
+        list_response = router.handle_message(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+        )
         assert "result" in list_response
         assert len(list_response["result"]["tools"]) > 0
 
@@ -529,11 +524,9 @@ class TestPhase1IntegrationE2E:
 
         # Verify error handling doesn't interfere
         router = MCPRouter()
-        response = router.handle_message({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "invalid"
-        })
+        response = router.handle_message(
+            {"jsonrpc": "2.0", "id": 1, "method": "invalid"}
+        )
         assert "error" in response
         assert "code" in response["error"]
 
@@ -541,6 +534,7 @@ class TestPhase1IntegrationE2E:
         """Verify all Phase 1 components can be imported and initialized."""
         # Task 1: Error handling
         from cynic.interfaces.mcp.router import MCPRouter
+
         router = MCPRouter()
         assert router.bridge is not None
 
@@ -549,26 +543,30 @@ class TestPhase1IntegrationE2E:
 
         # Task 3: Kernel (will be tested separately)
         # Task 4: Port config
-        from cynic.kernel.core.config import CynicConfig
+        from cynic.config import CynicConfig
+
         config = CynicConfig()
         assert config.port > 0
 
         # Task 5: Timeout strategy
         from cynic.interfaces.mcp.timeouts import TimeoutConfig
+
         summary = TimeoutConfig.summary()
         assert len(summary) == 4  # 4 categories
 
         # Task 6: Health endpoints
         from cynic.interfaces.api.server import app
+
         assert app is not None
 
         # Task 7: Concurrent calls (tracked in router)
-        assert hasattr(router, 'active_calls')
+        assert hasattr(router, "active_calls")
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # PHASE 1 FINAL VALIDATION
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
 
 class TestPhase1FinalValidation:
     """Final validation that Phase 1 is complete and ready for Phase 2."""
@@ -578,11 +576,17 @@ class TestPhase1FinalValidation:
         components = {
             "Task 1 - Error Handling": MCPRouter,
             "Task 2 - Stream Tools": lambda: "ask_cynic" in MCPRouter().bridge.tools,
-            "Task 3 - Kernel Startup": lambda: "cynic_run_empirical_test" in TimeoutConfig.TOOL_TIMEOUTS,
-            "Task 4 - Port Config": lambda: hasattr(__import__('cynic.kernel.core.config', fromlist=['CynicConfig']).CynicConfig, 'port'),
+            "Task 3 - Kernel Startup": lambda: "cynic_run_empirical_test"
+            in TimeoutConfig.TOOL_TIMEOUTS,
+            "Task 4 - Port Config": lambda: hasattr(
+                __import__(
+                    "cynic.kernel.core.config", fromlist=["CynicConfig"]
+                ).CynicConfig,
+                "port",
+            ),
             "Task 5 - Timeout Strategy": TimeoutConfig,
             "Task 6 - Health Endpoints": lambda: True,  # Verified in HTTP tests
-            "Task 7 - Concurrent Calls": lambda: hasattr(MCPRouter(), 'active_calls'),
+            "Task 7 - Concurrent Calls": lambda: hasattr(MCPRouter(), "active_calls"),
         }
 
         for task_name, component in components.items():
@@ -657,15 +661,14 @@ class TestPhase1AsyncIntegration:
         router = MCPRouter()
 
         # Invalid tool call
-        response = await router.handle_message_async({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {
-                "name": "nonexistent_tool",
-                "arguments": {}
+        response = await router.handle_message_async(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "nonexistent_tool", "arguments": {}},
             }
-        })
+        )
 
         assert "error" in response
         assert response["error"]["code"] == -32603

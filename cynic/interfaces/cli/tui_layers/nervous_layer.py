@@ -1,4 +1,5 @@
 """Layer 4: Nervous system audit trail."""
+
 from __future__ import annotations
 
 from rich.console import RenderableType
@@ -26,10 +27,7 @@ class NervousLayer(Static):
         table.add_row("Loop Checks", str(self.loop_integrity))
 
         return Panel(
-            table,
-            title=" NERVOUS SYSTEM AUDIT",
-            border_style="blue",
-            expand=False
+            table, title=" NERVOUS SYSTEM AUDIT", border_style="blue", expand=False
         )
 
     def update_from_snapshot(self, snapshot: dict) -> None:

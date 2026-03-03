@@ -55,7 +55,9 @@ def populated_registry():
         MultiActorCoordination("MULTI_ACTOR_COORD", "Delivery", "HIGH"),
         ProposalValueExplosion("PROPOSAL_VALUE_EXPLOSION", "Weaponization", "CRITICAL"),
         VotingVelocitySpike("VOTING_VELOCITY_SPIKE", "Reconnaissance", "HIGH"),
-        GovernanceParameterChange("GOVERNANCE_PARAM_CHANGE", "Exploitation", "CRITICAL"),
+        GovernanceParameterChange(
+            "GOVERNANCE_PARAM_CHANGE", "Exploitation", "CRITICAL"
+        ),
         TreasuryAddressChange("TREASURY_ADDRESS_CHANGE", "Actions", "CRITICAL"),
         AnomalousConsensusVariance("ANOMALOUS_CONSENSUS", "Exploitation", "HIGH"),
         RapidProposalCreation("RAPID_PROPOSAL_CREATION", "Weaponization", "HIGH"),
@@ -145,8 +147,7 @@ async def test_stage1_api_scanning_match():
 
     event = {"type": "api_request", "actor_id": "attacker"}
     related = [event] + [
-        {"type": "api_request", "actor_id": "attacker"}
-        for _ in range(100)
+        {"type": "api_request", "actor_id": "attacker"} for _ in range(100)
     ]
 
     matched = await rule.evaluate(event, related, {}, {})
@@ -410,11 +411,13 @@ async def test_stage6_coordinated_voting():
     # Coordinator votes on 9/10 proposals
     related = []
     for i in range(10):
-        related.append({
-            "type": "governance_vote",
-            "actor_id": "coordinator" if i < 9 else "other",
-            "payload": {"proposal_id": f"prop_{i}"},
-        })
+        related.append(
+            {
+                "type": "governance_vote",
+                "actor_id": "coordinator" if i < 9 else "other",
+                "payload": {"proposal_id": f"prop_{i}"},
+            }
+        )
 
     matched = await rule.evaluate(event, related, {}, {})
     assert matched is True
@@ -558,14 +561,16 @@ async def test_missing_justification_no_text():
     related = []
     for i in range(10):
         has_justification = i < 2
-        related.append({
-            "type": "governance_vote",
-            "actor_id": actor_id,
-            "payload": {
-                "proposal_id": f"prop_{i}",
-                "justification": "Valid reason" if has_justification else "",
-            },
-        })
+        related.append(
+            {
+                "type": "governance_vote",
+                "actor_id": actor_id,
+                "payload": {
+                    "proposal_id": f"prop_{i}",
+                    "justification": "Valid reason" if has_justification else "",
+                },
+            }
+        )
 
     matched = await rule.evaluate(event, related, {}, {})
     assert matched is True

@@ -37,7 +37,9 @@ from typing import Any
 
 from cynic.kernel.core.phi import PHI_INV_2, fibonacci
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.circuit_breaker")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.circuit_breaker"
+)
 
 # -derived thresholds
 _FAILURE_THRESHOLD: int = fibonacci(5)  # 5 consecutive failures ' OPEN
@@ -139,7 +141,10 @@ class CircuitBreaker:
                 "CircuitBreaker: HALF_OPEN ' OPEN (probe failed, total failures=%d)",
                 self._failure_count,
             )
-        elif self._state == CircuitState.CLOSED and self._failure_count >= self._failure_threshold:
+        elif (
+            self._state == CircuitState.CLOSED
+            and self._failure_count >= self._failure_threshold
+        ):
             self._state = CircuitState.OPEN
             self._last_opened_at = time.time()
             logger.warning(
@@ -150,7 +155,9 @@ class CircuitBreaker:
     def stats(self) -> dict[str, Any]:
         """Return circuit breaker health snapshot."""
         elapsed_since_open = (
-            round(time.time() - self._last_opened_at, 1) if self._last_opened_at > 0 else 0.0
+            round(time.time() - self._last_opened_at, 1)
+            if self._last_opened_at > 0
+            else 0.0
         )
         return {
             "state": self._state.value,

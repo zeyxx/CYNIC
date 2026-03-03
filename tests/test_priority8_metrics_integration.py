@@ -71,7 +71,7 @@ class TestMetricsAnalyzer:
             metric_value=50.0,
             threshold_value=30.0,
             severity=0.5,
-            message="Test rate spike"
+            message="Test rate spike",
         )
 
         proposals = analyzer.analyze_anomalies([anomaly], severity_threshold=0.0)
@@ -109,7 +109,9 @@ class TestMetricsAnalyzer:
         await collector.record("test_event", duration_ms=100.0, is_error=True)
 
         # analyze() should process metrics
-        proposals = prober.analyze(trigger="MANUAL", pattern_type="METRICS", severity=0.5)
+        proposals = prober.analyze(
+            trigger="MANUAL", pattern_type="METRICS", severity=0.5
+        )
 
         # Should return a list (may be empty, but not None)
         assert isinstance(proposals, list)
@@ -131,15 +133,12 @@ class TestMetricsAnalyzer:
             metric_value=100.0,
             threshold_value=60.0,
             severity=0.5,
-            message="Test rate spike"
+            message="Test rate spike",
         )
 
         # Call _analyze_metrics directly
         proposals = prober._analyze_metrics(
-            anomalies=[anomaly],
-            trigger="MANUAL",
-            pattern_type="METRICS",
-            severity=0.5
+            anomalies=[anomaly], trigger="MANUAL", pattern_type="METRICS", severity=0.5
         )
 
         assert isinstance(proposals, list)
@@ -163,7 +162,7 @@ class TestMetricsAnalyzer:
             metric_value=100.0,
             threshold_value=95.0,
             severity=0.1,  # Low severity
-            message="Low severity spike"
+            message="Low severity spike",
         )
 
         # High severity threshold should filter it out
@@ -171,7 +170,7 @@ class TestMetricsAnalyzer:
             anomalies=[low_severity_anomaly],
             trigger="MANUAL",
             pattern_type="METRICS",
-            severity=0.5  # High threshold
+            severity=0.5,  # High threshold
         )
 
         # Should be empty or only include high-severity items
@@ -211,7 +210,7 @@ class TestFactoryIntegration:
 
         # Should have registered for both events
         calls = [call[0][0] for call in mock_bus.on.call_args_list]
-        event_types = [c.value if hasattr(c, 'value') else str(c) for c in calls]
+        event_types = [c.value if hasattr(c, "value") else str(c) for c in calls]
 
         # Should have registered for EMERGENCE_DETECTED
         assert any("emergence" in str(e).lower() for e in event_types)
@@ -288,7 +287,7 @@ class TestEndToEndMetricsIntegration:
             metric_value=5000.0,
             threshold_value=3000.0,
             severity=0.6,
-            message="Latency spike detected"
+            message="Latency spike detected",
         )
 
         proposals = prober._analyze_metrics(
@@ -323,7 +322,7 @@ class TestEndToEndMetricsIntegration:
                 metric_value=100.0,
                 threshold_value=60.0,
                 severity=0.5,
-                message="Rate spike"
+                message="Rate spike",
             )
 
             proposals = prober._analyze_metrics(
@@ -340,6 +339,7 @@ class TestEndToEndMetricsIntegration:
 
             # File should exist
             import os
+
             assert os.path.exists(proposals_file)
 
             # Load and verify

@@ -129,7 +129,9 @@ async def test_complete_alert_lifecycle(alert_pipeline, compliance_pipeline):
         is_valid = await verifier.verify_event(event_dict)
         assert is_valid, f"Event {event.event_id} should have valid hash"
 
-    print("\n✅ Complete Alert Lifecycle: Created → Routed → Escalated → Closed → Audited")
+    print(
+        "\n✅ Complete Alert Lifecycle: Created → Routed → Escalated → Closed → Audited"
+    )
 
 
 # ============================================================================
@@ -169,7 +171,9 @@ async def test_deduplication_prevents_spam(alert_pipeline):
         anomaly_scores={},
     )
 
-    assert await dedup.should_route(alert2) is False, "Identical alert should be deduplicated"
+    assert (
+        await dedup.should_route(alert2) is False
+    ), "Identical alert should be deduplicated"
 
     # Different actor routes (new threat)
     alert3 = Alert(
@@ -186,7 +190,9 @@ async def test_deduplication_prevents_spam(alert_pipeline):
     stats = dedup.get_stats()
     assert stats["deduplicated_count"] == 1, "Should have deduplicated 1 alert"
 
-    print("\n✅ Deduplication: 2 identical alerts → 1 suppressed, 1 different actor → routed")
+    print(
+        "\n✅ Deduplication: 2 identical alerts → 1 suppressed, 1 different actor → routed"
+    )
 
 
 # ============================================================================
@@ -330,7 +336,9 @@ async def test_multi_component_alert_volume(alert_pipeline):
     dedup_stats = dedup.get_stats()
     assert "deduplicated_count" in dedup_stats, "Should track deduplication"
 
-    print(f"\n✅ Multi-Component Stress: {len(alerts)} alerts → {routed_count} routed, {dedup_stats['deduplicated_count']} deduplicated")
+    print(
+        f"\n✅ Multi-Component Stress: {len(alerts)} alerts → {routed_count} routed, {dedup_stats['deduplicated_count']} deduplicated"
+    )
 
 
 # ============================================================================
@@ -358,7 +366,9 @@ async def test_forensics_query_interface(compliance_pipeline):
     )
 
     # Query by resource (returns empty since no storage)
-    events_by_resource = await forensics.get_events_by_resource("alert", "forensics_alert_1")
+    events_by_resource = await forensics.get_events_by_resource(
+        "alert", "forensics_alert_1"
+    )
     assert isinstance(events_by_resource, list), "Should return list"
 
     # Query by actor (returns empty since no storage)
@@ -421,7 +431,9 @@ def test_severity_routing_channels():
         anomaly_scores={},
     )
     channels_high = alert_high.get_routing_channels()
-    assert "slack" in channels_high and "jira" in channels_high, f"HIGH should include slack+jira, got {channels_high}"
+    assert (
+        "slack" in channels_high and "jira" in channels_high
+    ), f"HIGH should include slack+jira, got {channels_high}"
 
     # CRITICAL severity
     alert_crit = Alert(
@@ -434,8 +446,10 @@ def test_severity_routing_channels():
     )
     channels_crit = alert_crit.get_routing_channels()
     assert (
-        "ops_team" in channels_crit and "pagerduty" in channels_crit
-        and "slack" in channels_crit and "jira" in channels_crit
+        "ops_team" in channels_crit
+        and "pagerduty" in channels_crit
+        and "slack" in channels_crit
+        and "jira" in channels_crit
     ), f"CRITICAL should include ops_team+pagerduty+slack+jira, got {channels_crit}"
 
     print("\n✅ Severity Routing: LOW→log, MEDIUM→slack, HIGH→slack+jira, CRITICAL→all")
@@ -447,7 +461,9 @@ def test_severity_routing_channels():
 
 
 @pytest.mark.asyncio
-async def test_all_components_initialized(rule_pipeline, alert_pipeline, compliance_pipeline):
+async def test_all_components_initialized(
+    rule_pipeline, alert_pipeline, compliance_pipeline
+):
     """
     Sanity Check: Verify all components initialize without errors
     """

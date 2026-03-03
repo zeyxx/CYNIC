@@ -42,9 +42,9 @@ POOL_MIN = fibonacci(6)  # 8 connections
 POOL_MAX = fibonacci(8)  # 21 connections
 
 
-# 
+#
 # CONNECTION POOL SINGLETON
-# 
+#
 
 _pool: Pool | None = None
 
@@ -97,9 +97,9 @@ async def acquire() -> AsyncIterator[Connection]:
         yield conn
 
 
-# 
+#
 # SCHEMA CREATION (-bound CHECK constraints)
-# 
+#
 
 SCHEMA_SQL = f"""
 -- CYNIC Core Schema
@@ -299,9 +299,9 @@ async def create_schema(dsn: str | None = None) -> None:
         logger.info("CYNIC schema created/verified")
 
 
-# 
+#
 # JUDGMENT REPOSITORY
-# 
+#
 
 
 class JudgmentRepository(JudgmentRepoInterface):
@@ -365,7 +365,9 @@ class JudgmentRepository(JudgmentRepoInterface):
             )
             return dict(row) if row else None
 
-    async def recent(self, reality: str | None = None, limit: int = 55) -> list[dict[str, Any]]:
+    async def recent(
+        self, reality: str | None = None, limit: int = 55
+    ) -> list[dict[str, Any]]:
         """Fetch recent judgments, optionally filtered by reality."""
         async with acquire() as conn:
             if reality:
@@ -396,9 +398,9 @@ class JudgmentRepository(JudgmentRepoInterface):
             }
 
 
-# 
+#
 # Q-TABLE REPOSITORY
-# 
+#
 
 
 class QTableRepository(QTableRepoInterface):
@@ -448,13 +450,15 @@ class QTableRepository(QTableRepoInterface):
     async def get_all(self) -> list[dict[str, Any]]:
         """Return all Q-entries " used for warm-start."""
         async with acquire() as conn:
-            rows = await conn.fetch("SELECT state_key, action, q_value, visit_count FROM q_table")
+            rows = await conn.fetch(
+                "SELECT state_key, action, q_value, visit_count FROM q_table"
+            )
             return [dict(r) for r in rows]
 
 
-# 
+#
 # LEARNING EVENTS REPOSITORY
-# 
+#
 
 
 class LearningRepository(LearningRepoInterface):
@@ -478,7 +482,9 @@ class LearningRepository(LearningRepoInterface):
                 event.get("q_delta", 0.0),
             )
 
-    async def recent_for_loop(self, loop_name: str, limit: int = 34) -> list[dict[str, Any]]:
+    async def recent_for_loop(
+        self, loop_name: str, limit: int = 34
+    ) -> list[dict[str, Any]]:
         async with acquire() as conn:
             rows = await conn.fetch(
                 "SELECT * FROM learning_events WHERE loop_name=$1 ORDER BY created_at DESC LIMIT $2",
@@ -496,9 +502,9 @@ class LearningRepository(LearningRepoInterface):
             return {r["loop_name"]: r["cnt"] for r in rows}
 
 
-# 
+#
 # LLM BENCHMARK REPOSITORY
-# 
+#
 
 
 class BenchmarkRepository(BenchmarkRepoInterface):
@@ -571,9 +577,9 @@ class BenchmarkRepository(BenchmarkRepoInterface):
             return [dict(r) for r in rows]
 
 
-# 
+#
 # RESIDUAL HISTORY REPOSITORY
-# 
+#
 
 
 class ResidualRepository(ResidualRepoInterface):
@@ -612,9 +618,9 @@ class ResidualRepository(ResidualRepoInterface):
             return list(reversed([dict(r) for r in rows]))
 
 
-# 
+#
 # REPOSITORY FACTORY
-# 
+#
 
 _judgment_repo: JudgmentRepository | None = None
 _qtable_repo: QTableRepository | None = None
@@ -658,9 +664,9 @@ def residuals() -> ResidualRepository:
     return _residual_repo
 
 
-# 
+#
 # SDK SESSION REPOSITORY
-# 
+#
 
 
 class SDKSessionRepository(SDKSessionRepoInterface):
@@ -750,9 +756,9 @@ def sdk_sessions() -> SDKSessionRepository:
     return _sdk_session_repo
 
 
-# 
+#
 # SCHOLAR BUFFER REPOSITORY
-# 
+#
 
 
 class ScholarRepository(ScholarRepoInterface):

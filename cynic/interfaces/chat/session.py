@@ -4,6 +4,7 @@ CYNIC Chat Session " Multi-turn conversation with persistence.
 Sessions are stored as JSON in ~/.cynic/chats/{session_id}.json.
 Rolling cap: F(11)=89 messages " older messages compressed via ContextCompressor.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,26 +16,28 @@ from typing import Any
 
 from cynic.kernel.core.formulas import CHAT_MESSAGE_CAP
 
-# 
+#
 # CONSTANTS
-# 
+#
 
 _CHATS_DIR = os.path.join(os.path.expanduser("~"), ".cynic", "chats")
 _MAX_MESSAGES = CHAT_MESSAGE_CAP  # F(11) = 89 (imported from formulas.py)
 
 
-# 
+#
 # CHAT MESSAGE
-# 
+#
+
 
 @dataclass
 class ChatMessage:
     """One message in a chat session."""
-    role: str                           # user / assistant / system / tool
+
+    role: str  # user / assistant / system / tool
     content: str = ""
     tool_calls: Optional[list[dict]] = None  # From assistant
-    tool_call_id: str = ""              # For tool result messages
-    name: str = ""                      # Tool name (for role=tool)
+    tool_call_id: str = ""  # For tool result messages
+    name: str = ""  # Tool name (for role=tool)
     timestamp: float = field(default_factory=time.time)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -80,9 +83,10 @@ class ChatMessage:
         )
 
 
-# 
+#
 # CHAT SESSION
-# 
+#
+
 
 class ChatSession:
     """
@@ -111,13 +115,17 @@ class ChatSession:
         self._append(msg)
         return msg
 
-    def add_assistant(self, content: str, tool_calls: Optional[list[dict]] = None) -> ChatMessage:
+    def add_assistant(
+        self, content: str, tool_calls: Optional[list[dict]] = None
+    ) -> ChatMessage:
         """Add an assistant message (text and/or tool calls)."""
         msg = ChatMessage(role="assistant", content=content, tool_calls=tool_calls)
         self._append(msg)
         return msg
 
-    def add_tool_result(self, name: str, content: str, call_id: str = "") -> ChatMessage:
+    def add_tool_result(
+        self, name: str, content: str, call_id: str = ""
+    ) -> ChatMessage:
         """Add a tool result message."""
         msg = ChatMessage(role="tool", content=content, name=name, tool_call_id=call_id)
         self._append(msg)
@@ -204,12 +212,14 @@ class ChatSession:
             try:
                 with open(path, encoding="utf-8") as fh:
                     data = json.load(fh)
-                sessions.append({
-                    "session_id": data.get("session_id", name.replace(".json", "")),
-                    "created_at": data.get("created_at", 0.0),
-                    "model": data.get("model", ""),
-                    "message_count": len(data.get("messages", [])),
-                })
+                sessions.append(
+                    {
+                        "session_id": data.get("session_id", name.replace(".json", "")),
+                        "created_at": data.get("created_at", 0.0),
+                        "model": data.get("model", ""),
+                        "message_count": len(data.get("messages", [])),
+                    }
+                )
             except json.JSONDecodeError:
                 continue
         return sessions

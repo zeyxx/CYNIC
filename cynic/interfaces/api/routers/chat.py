@@ -6,6 +6,7 @@ Endpoints:
 
 Note: Learning endpoints are in core.py (/api/learn)
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,12 +23,14 @@ router = APIRouter(prefix="/api", tags=["chat"])
 
 class ChatMessageRequest(BaseModel):
     """POST /api/chat/message " send a chat message."""
+
     text: str = Field(description="User message text")
     session_id: str = Field(description="Session identifier")
 
 
 class ChatMessageResponse(BaseModel):
     """Response from chat message endpoint."""
+
     text: str = Field(description="Response text from CYNIC")
     session_id: str = Field(description="Session identifier")
     message_count: int = Field(description="Total messages in session")
@@ -51,7 +54,9 @@ async def chat_message(req: ChatMessageRequest) -> ChatMessageResponse:
         # Try to load existing session, or create new one
         try:
             session = ChatSession.load(req.session_id)
-            logger.debug(f"Loaded session {req.session_id} with {session.message_count} messages")
+            logger.debug(
+                f"Loaded session {req.session_id} with {session.message_count} messages"
+            )
         except (FileNotFoundError, ValueError):
             session = ChatSession(session_id=req.session_id)
             logger.debug(f"Created new session {req.session_id}")
@@ -62,17 +67,21 @@ async def chat_message(req: ChatMessageRequest) -> ChatMessageResponse:
 
         # Generate response (MVP: echo confirmation + message count)
         # Phase 2: Wire to LLM orchestrator for real responses
-        response_text = f"*wag* Message received. Session has {session.message_count} message(s)."
+        response_text = (
+            f"*wag* Message received. Session has {session.message_count} message(s)."
+        )
         session.add_assistant(response_text)
 
         # Persist session
         session.save()
-        logger.debug(f"Session {req.session_id} saved with {session.message_count} messages")
+        logger.debug(
+            f"Session {req.session_id} saved with {session.message_count} messages"
+        )
 
         return ChatMessageResponse(
             text=response_text,
             session_id=req.session_id,
-            message_count=session.message_count
+            message_count=session.message_count,
         )
 
     except Exception as exc:
@@ -81,5 +90,5 @@ async def chat_message(req: ChatMessageRequest) -> ChatMessageResponse:
         return ChatMessageResponse(
             text=f"*growl* Error processing message: {str(exc)[:100]}",
             session_id=req.session_id,
-            message_count=0
+            message_count=0,
         )

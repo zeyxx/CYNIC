@@ -69,7 +69,9 @@ class DNA_Judgment:
 
         return cls(
             id=getattr(judgment, "judgment_id", ""),
-            cell_id=getattr(judgment.cell, "cell_id", "") if hasattr(judgment, "cell") else "",
+            cell_id=getattr(judgment.cell, "cell_id", "")
+            if hasattr(judgment, "cell")
+            else "",
             q_score=getattr(judgment, "q_score", 50.0),
             verdict=getattr(judgment, "verdict", "WAG"),
             confidence=getattr(judgment, "confidence", 0.618),

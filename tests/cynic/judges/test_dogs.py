@@ -5,7 +5,10 @@ This module tests Dog implementations but the modules have been removed in V5.
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
@@ -13,13 +16,17 @@ pytest.skip("Skipping old architecture test module", allow_module_level=True)
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Old architecture removed, cynic.judges.dog_implementations not available")
+pytestmark = pytest.mark.skip(
+    reason="Old architecture removed, cynic.judges.dog_implementations not available"
+)
 
 import asyncio
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - cynic.judges.dog_implementations module not found")
+pytestmark = pytest.mark.skip(
+    reason="Old architecture removed in V5 - cynic.judges.dog_implementations module not found"
+)
 
 from cynic.judges.dog_implementations import (
     Dog1_CrownConsciousness,
@@ -46,7 +53,9 @@ class TestDog1CrownConsciousness:
     async def test_dog1_judges_fidelity(self):
         """Dog 1 judges with FIDELITY focus."""
         dog = Dog1_CrownConsciousness()
-        judgment = await dog.judge("Test proposal", {"community_values": ["transparency"]})
+        judgment = await dog.judge(
+            "Test proposal", {"community_values": ["transparency"]}
+        )
 
         assert isinstance(judgment, UnifiedJudgment)
         assert judgment.verdict in {"HOWL", "WAG", "GROWL", "BARK"}
@@ -253,7 +262,9 @@ class TestAllDogsContract:
 
         for dog in dogs:
             judgment = await dog.judge("Test", {})
-            assert 0 <= judgment.q_score <= 100, f"{dog.dog_name} q_score={judgment.q_score}"
+            assert (
+                0 <= judgment.q_score <= 100
+            ), f"{dog.dog_name} q_score={judgment.q_score}"
 
     @pytest.mark.asyncio
     async def test_all_dogs_confidence_phi_bounded(self):
@@ -262,9 +273,9 @@ class TestAllDogsContract:
 
         for dog in dogs:
             judgment = await dog.judge("Test", {})
-            assert 0 <= judgment.confidence <= MAX_CONFIDENCE, (
-                f"{dog.dog_name} confidence={judgment.confidence}"
-            )
+            assert (
+                0 <= judgment.confidence <= MAX_CONFIDENCE
+            ), f"{dog.dog_name} confidence={judgment.confidence}"
 
     @pytest.mark.asyncio
     async def test_all_dogs_axiom_scores_valid(self):
@@ -274,9 +285,7 @@ class TestAllDogsContract:
         for dog in dogs:
             judgment = await dog.judge("Test", {})
             for axiom, score in judgment.axiom_scores.items():
-                assert 0 <= score <= 100, (
-                    f"{dog.dog_name} axiom {axiom} = {score}"
-                )
+                assert 0 <= score <= 100, f"{dog.dog_name} axiom {axiom} = {score}"
 
     @pytest.mark.asyncio
     async def test_all_dogs_verdict_valid(self):
@@ -285,9 +294,12 @@ class TestAllDogsContract:
 
         for dog in dogs:
             judgment = await dog.judge("Test", {})
-            assert judgment.verdict in {"HOWL", "WAG", "GROWL", "BARK"}, (
-                f"{dog.dog_name} verdict={judgment.verdict}"
-            )
+            assert judgment.verdict in {
+                "HOWL",
+                "WAG",
+                "GROWL",
+                "BARK",
+            }, f"{dog.dog_name} verdict={judgment.verdict}"
 
     @pytest.mark.asyncio
     async def test_all_dogs_have_judgment_id(self):
@@ -301,9 +313,9 @@ class TestAllDogsContract:
 
             assert j1.judgment_id
             assert j2.judgment_id
-            assert j1.judgment_id != j2.judgment_id, (
-                f"{dog.dog_name} produced duplicate judgment_id"
-            )
+            assert (
+                j1.judgment_id != j2.judgment_id
+            ), f"{dog.dog_name} produced duplicate judgment_id"
             judgment_ids.add(j1.judgment_id)
             judgment_ids.add(j2.judgment_id)
 
@@ -315,9 +327,9 @@ class TestAllDogsContract:
         for dog in dogs:
             judgment = await dog.judge("Test proposal", {})
             assert judgment.reasoning
-            assert len(judgment.reasoning) > 10, (
-                f"{dog.dog_name} reasoning too short: {judgment.reasoning}"
-            )
+            assert (
+                len(judgment.reasoning) > 10
+            ), f"{dog.dog_name} reasoning too short: {judgment.reasoning}"
 
     @pytest.mark.asyncio
     async def test_all_dogs_have_dog_votes(self):
@@ -373,7 +385,7 @@ class TestAllDogsContract:
         j3 = await dog.judge(
             "A comprehensive proposal that addresses all community concerns "
             "with detailed analysis and clear implementation plan",
-            {}
+            {},
         )
 
         verdicts = [j1.verdict, j2.verdict, j3.verdict]
@@ -411,7 +423,9 @@ class TestDogInteraction:
             "with transparent quarterly reports and community voting oversight"
         )
 
-        judgments = await asyncio.gather(*[dog.judge(good_proposal, {}) for dog in dogs])
+        judgments = await asyncio.gather(
+            *[dog.judge(good_proposal, {}) for dog in dogs]
+        )
         verdicts = [j.verdict for j in judgments]
 
         # All Dogs should return valid verdicts

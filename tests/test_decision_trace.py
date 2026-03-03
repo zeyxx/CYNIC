@@ -231,16 +231,24 @@ async def test_traces_by_component(tracer):
     """Test filtering traces by component involvement."""
     tid1 = await tracer.start_trace(judgment_id="j1")
     await tracer.add_node(
-        tid1, phase="JUDGE", component="SAGE",
-        duration_ms=10.0, input_keys=[], input_sources=[],
+        tid1,
+        phase="JUDGE",
+        component="SAGE",
+        duration_ms=10.0,
+        input_keys=[],
+        input_sources=[],
         output_keys=[],
     )
     await tracer.close_trace(tid1)
 
     tid2 = await tracer.start_trace(judgment_id="j2")
     await tracer.add_node(
-        tid2, phase="JUDGE", component="ANALYST",
-        duration_ms=10.0, input_keys=[], input_sources=[],
+        tid2,
+        phase="JUDGE",
+        component="ANALYST",
+        duration_ms=10.0,
+        input_keys=[],
+        input_sources=[],
         output_keys=[],
     )
     await tracer.close_trace(tid2)
@@ -277,8 +285,12 @@ async def test_stats_accuracy(tracer):
     for i, verdict in enumerate(verdicts):
         tid = await tracer.start_trace(judgment_id=f"j{i}")
         await tracer.add_node(
-            tid, phase="JUDGE", component="SAGE",
-            duration_ms=50.0, input_keys=[], input_sources=[],
+            tid,
+            phase="JUDGE",
+            component="SAGE",
+            duration_ms=50.0,
+            input_keys=[],
+            input_sources=[],
             output_keys=[],
         )
         await tracer.close_trace(tid, final_verdict=verdict)
@@ -300,8 +312,12 @@ async def test_depth_calculation(tracer):
     phases = ["JUDGE", "DECIDE", "ACT"]
     for phase in phases:
         await tracer.add_node(
-            trace_id, phase=phase, component="TEST",
-            duration_ms=10.0, input_keys=[], input_sources=[],
+            trace_id,
+            phase=phase,
+            component="TEST",
+            duration_ms=10.0,
+            input_keys=[],
+            input_sources=[],
             output_keys=[],
         )
 
@@ -319,13 +335,21 @@ async def test_branching_factor(tracer):
 
     # Single chain (branching = 1.0)
     await tracer.add_node(
-        trace_id, phase="JUDGE", component="SAGE",
-        duration_ms=10.0, input_keys=[], input_sources=[],
+        trace_id,
+        phase="JUDGE",
+        component="SAGE",
+        duration_ms=10.0,
+        input_keys=[],
+        input_sources=[],
         output_keys=[],
     )
     await tracer.add_node(
-        trace_id, phase="DECIDE", component="BRAIN",
-        duration_ms=10.0, input_keys=[], input_sources=[],
+        trace_id,
+        phase="DECIDE",
+        component="BRAIN",
+        duration_ms=10.0,
+        input_keys=[],
+        input_sources=[],
         output_keys=[],
     )
 
@@ -342,8 +366,12 @@ async def test_error_tracking(tracer):
 
     # Normal node
     await tracer.add_node(
-        trace_id, phase="JUDGE", component="SAGE",
-        duration_ms=10.0, input_keys=[], input_sources=[],
+        trace_id,
+        phase="JUDGE",
+        component="SAGE",
+        duration_ms=10.0,
+        input_keys=[],
+        input_sources=[],
         output_keys=[],
     )
 
@@ -359,8 +387,12 @@ async def test_trace_to_dict(tracer):
     """Test trace serialization."""
     trace_id = await tracer.start_trace(judgment_id="j001")
     await tracer.add_node(
-        trace_id, phase="JUDGE", component="SAGE",
-        duration_ms=10.0, input_keys=["a"], input_sources=[],
+        trace_id,
+        phase="JUDGE",
+        component="SAGE",
+        duration_ms=10.0,
+        input_keys=["a"],
+        input_sources=[],
         output_keys=["q"],
     )
     await tracer.close_trace(trace_id, final_verdict="WAG", final_q_score=75.0)
@@ -403,6 +435,7 @@ async def test_clear_tracer(tracer):
 @pytest.mark.asyncio
 async def test_concurrent_trace_creation(tracer):
     """Test concurrent trace creation is thread-safe."""
+
     async def create_traces(count: int, offset: int) -> None:
         for i in range(count):
             tid = await tracer.start_trace(judgment_id=f"j_{offset}_{i}")

@@ -12,7 +12,10 @@ class TestFormalSpecListFiltering:
         Spec: list_probes("PENDING") returns ONLY proposals with status="PENDING"
         """
         # This test will fail until ProbesService is implemented
-        from cynic.kernel.organism.brain.cognition.cortex.probes_service import ProbesService
+        from cynic.kernel.organism.brain.cognition.cortex.probes_service import (
+            ProbesService,
+        )
+
         service = ProbesService(self_prober, None)
 
         pending = service.list_probes("PENDING")
@@ -25,7 +28,10 @@ class TestFormalSpecListFiltering:
         """
         Spec: list_probes("APPLIED") returns ONLY proposals with status="APPLIED"
         """
-        from cynic.kernel.organism.brain.cognition.cortex.probes_service import ProbesService
+        from cynic.kernel.organism.brain.cognition.cortex.probes_service import (
+            ProbesService,
+        )
+
         service = ProbesService(self_prober, None)
 
         applied = service.list_probes("APPLIED")
@@ -38,7 +44,10 @@ class TestFormalSpecListFiltering:
         """
         Spec: list_probes("ALL") returns all proposals regardless of status
         """
-        from cynic.kernel.organism.brain.cognition.cortex.probes_service import ProbesService
+        from cynic.kernel.organism.brain.cognition.cortex.probes_service import (
+            ProbesService,
+        )
+
         service = ProbesService(self_prober, None)
 
         all_proposals = service.list_probes("ALL")
@@ -50,7 +59,10 @@ class TestFormalSpecListFiltering:
         """
         Spec: list_probes("DISMISSED") returns ONLY proposals with status="DISMISSED"
         """
-        from cynic.kernel.organism.brain.cognition.cortex.probes_service import ProbesService
+        from cynic.kernel.organism.brain.cognition.cortex.probes_service import (
+            ProbesService,
+        )
+
         service = ProbesService(self_prober, None)
 
         dismissed = service.list_probes("DISMISSED")
@@ -63,7 +75,10 @@ class TestFormalSpecListFiltering:
         """
         Spec: list_probes() with no args defaults to PENDING filter
         """
-        from cynic.kernel.organism.brain.cognition.cortex.probes_service import ProbesService
+        from cynic.kernel.organism.brain.cognition.cortex.probes_service import (
+            ProbesService,
+        )
+
         service = ProbesService(self_prober, None)
 
         default_list = service.list_probes()
@@ -80,7 +95,10 @@ class TestFormalSpecGetProbe:
         """
         Spec: get_probe(probe_id) returns probe dict if found
         """
-        from cynic.kernel.organism.brain.cognition.cortex.probes_service import ProbesService
+        from cynic.kernel.organism.brain.cognition.cortex.probes_service import (
+            ProbesService,
+        )
+
         service = ProbesService(self_prober, None)
 
         probe_id = sample_proposals[0].probe_id
@@ -96,7 +114,10 @@ class TestFormalSpecGetProbe:
         """
         Spec: get_probe(invalid_id) returns None
         """
-        from cynic.kernel.organism.brain.cognition.cortex.probes_service import ProbesService
+        from cynic.kernel.organism.brain.cognition.cortex.probes_service import (
+            ProbesService,
+        )
+
         service = ProbesService(self_prober, None)
 
         result = service.get_probe("nonexistent_id")
@@ -113,7 +134,10 @@ class TestFormalSpecStats:
         Spec: stats() counts match actual proposal state.
         Verify: pending + applied + dismissed == queue_size
         """
-        from cynic.kernel.organism.brain.cognition.cortex.probes_service import ProbesService
+        from cynic.kernel.organism.brain.cognition.cortex.probes_service import (
+            ProbesService,
+        )
+
         service = ProbesService(self_prober, None)
 
         stats = service.get_stats()

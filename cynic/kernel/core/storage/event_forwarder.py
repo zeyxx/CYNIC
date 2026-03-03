@@ -6,13 +6,13 @@ PHASE 2, COMPONENT 2: Event Ingestion Pipeline
 Architecture:
   EventBus (30+ CoreEvent types)
      emits events
-    
+
   EventForwarder (this class)
      normalizes + batches
-    
+
   SurrealDB via SecurityEventRepo
      persists to security_event table
-    
+
   Real-Time Detection (COMPONENT 4: LIVE SELECT)
 """
 
@@ -209,7 +209,9 @@ class EventForwarder:
             "version": "1.0",
         }
 
-    async def _encrypt_sensitive_fields(self, normalized: dict[str, Any]) -> dict[str, Any]:
+    async def _encrypt_sensitive_fields(
+        self, normalized: dict[str, Any]
+    ) -> dict[str, Any]:
         """Encrypt sensitive fields in payload."""
         if not self.encryption or "payload" not in normalized:
             return normalized
@@ -268,9 +270,7 @@ class EventForwarder:
             batches_flushed_total.inc()
             self.total_batches_flushed += 1
 
-            logger.debug(
-                f"Flushed {len(events)} events to storage in {latency:.3f}s"
-            )
+            logger.debug(f"Flushed {len(events)} events to storage in {latency:.3f}s")
         except Exception as exc:
             logger.error(f"Failed to flush batch to storage: {exc}", exc_info=True)
             # Requeue events on failure? For now, log and continue

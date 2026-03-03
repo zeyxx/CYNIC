@@ -6,6 +6,7 @@ Protocol (LNSP) pipeline, coordinating all 4 layers and their subscriptions.
 This enables easy setup and execution of the complete observation â’ aggregation â’
 judgment â’ action â’ feedback cycle.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -84,6 +85,7 @@ class LNSPManager:
         After calling wire_layers(), run_cycle() will execute the complete
         pipeline in order.
         """
+
         # Layer 1 â’ Layer 2: Observations trigger aggregation
         def on_observation(msg: LNSPMessage) -> None:
             """Forward Layer 1 observations to Layer 2."""

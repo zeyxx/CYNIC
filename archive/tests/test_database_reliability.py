@@ -122,7 +122,9 @@ class TestDataConsistencyChecking:
         """verify_data_consistency is an async function"""
         import inspect
 
-        from cynic.interfaces.bots.governance.core.database import verify_data_consistency
+        from cynic.interfaces.bots.governance.core.database import (
+            verify_data_consistency,
+        )
 
         assert inspect.iscoroutinefunction(verify_data_consistency)
 
@@ -233,9 +235,11 @@ class TestDatabaseReliabilityDocumentation:
         doc = database.__doc__
 
         assert doc is not None
-        assert ("pooling" in doc.lower() or
-                "reliability" in doc.lower() or
-                "consistency" in doc.lower())
+        assert (
+            "pooling" in doc.lower()
+            or "reliability" in doc.lower()
+            or "consistency" in doc.lower()
+        )
 
     def test_database_health_check_class_documented(self):
         """DatabaseHealthCheck class is documented"""

@@ -3,6 +3,7 @@ Analyze Python import graph and detect circular dependencies.
 
 Usage: python scripts/analyze_imports.py [--graph] [--fail-on-cycle]
 """
+
 import sys
 import argparse
 import ast
@@ -10,8 +11,8 @@ from pathlib import Path
 from collections import defaultdict
 
 # Ensure stdout uses UTF-8 encoding
-if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 class ImportAnalyzer(ast.NodeVisitor):
@@ -44,13 +45,13 @@ class ImportAnalyzer(ast.NodeVisitor):
         lines = set()
         in_block = False
         indent_level = 0
-        for i, line in enumerate(content.split('\n'), 1):
+        for i, line in enumerate(content.split("\n"), 1):
             stripped = line.lstrip()
-            if 'if TYPE_CHECKING:' in line:
+            if "if TYPE_CHECKING:" in line:
                 in_block = True
                 indent_level = len(line) - len(stripped)
             elif in_block:
-                if stripped and not stripped.startswith('#'):
+                if stripped and not stripped.startswith("#"):
                     current_indent = len(line) - len(stripped)
                     if current_indent <= indent_level and stripped:
                         in_block = False
@@ -82,7 +83,7 @@ class ImportAnalyzer(ast.NodeVisitor):
         # This is a heuristic - we check if the node is deeply nested
         # A proper check would need to track the AST context
         # For now, we'll consider imports at module level as real imports
-        return getattr(node, 'col_offset', 0) > 0  # Indented imports are lazy
+        return getattr(node, "col_offset", 0) > 0  # Indented imports are lazy
 
 
 def build_import_graph():
@@ -91,7 +92,7 @@ def build_import_graph():
 
     for py_file in Path("cynic").rglob("*.py"):
         try:
-            content = py_file.read_text(encoding='utf-8')
+            content = py_file.read_text(encoding="utf-8")
             tree = ast.parse(content)
         except (SyntaxError, UnicodeDecodeError):
             continue
@@ -141,17 +142,15 @@ def find_cycles(graph):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Analyze Python import graph and detect circular dependencies'
+        description="Analyze Python import graph and detect circular dependencies"
     )
     parser.add_argument(
-        '--graph',
-        action='store_true',
-        help='Display the import dependency graph'
+        "--graph", action="store_true", help="Display the import dependency graph"
     )
     parser.add_argument(
-        '--fail-on-cycle',
-        action='store_true',
-        help='Exit with code 1 if any circular imports are found'
+        "--fail-on-cycle",
+        action="store_true",
+        help="Exit with code 1 if any circular imports are found",
     )
     args = parser.parse_args()
 

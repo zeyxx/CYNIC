@@ -36,7 +36,7 @@ _SDK_SESSIONS_LOG = os.path.join(_CYNIC_DIR, "sdk_sessions.jsonl")
 _CONSCIOUSNESS    = os.path.join(_CYNIC_DIR, "consciousness.json")
 
 # Server (default port from CynicConfig " single source of truth)
-from cynic.kernel.core.config import CynicConfig as _CynicConfig
+from cynic.config import CynicConfig as _CynicConfig
 
 _PORT = _CynicConfig.from_env().port
 _API  = f"http://localhost:{_PORT}"

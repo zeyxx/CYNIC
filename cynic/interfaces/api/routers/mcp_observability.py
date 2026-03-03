@@ -5,6 +5,7 @@ Three read-only endpoints for monitoring the MCP protocol layer.
 
 Auto-registered by auto_register_routers().
 """
+
 from __future__ import annotations
 
 from typing import Any

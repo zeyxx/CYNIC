@@ -7,14 +7,13 @@ Checks: Has Reviewed-By field, has Impacts section, etc.
 import sys
 import subprocess
 
+
 def validate_merge_commit():
     """Check the current commit message format."""
     # Get last commit message
     try:
         result = subprocess.run(
-            ["git", "log", "-1", "--pretty=%B"],
-            capture_output=True,
-            text=True
+            ["git", "log", "-1", "--pretty=%B"], capture_output=True, text=True
         )
         commit_msg = result.stdout.strip()
     except Exception as e:
@@ -33,5 +32,6 @@ def validate_merge_commit():
     print("Merge commit format is correct")
     return True
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(0 if validate_merge_commit() else 1)

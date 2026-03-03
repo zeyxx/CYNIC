@@ -11,7 +11,10 @@ Verifies that:
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
@@ -19,7 +22,9 @@ pytest.skip("Skipping old architecture test module", allow_module_level=True)
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - CYNICSettings configuration structure changed")
+pytestmark = pytest.mark.skip(
+    reason="Old architecture removed in V5 - CYNICSettings configuration structure changed"
+)
 
 import sys
 from pathlib import Path
@@ -278,9 +283,7 @@ class TestMasterConfig:
         if "DISCORD_TOKEN" in os.environ:
             del os.environ["DISCORD_TOKEN"]
 
-        config = Config(
-            discord=DiscordSettings(token="YOUR_DISCORD_TOKEN_HERE")
-        )
+        config = Config(discord=DiscordSettings(token="YOUR_DISCORD_TOKEN_HERE"))
 
         with pytest.raises(ValueError) as exc_info:
             config.validate_critical_settings()

@@ -33,16 +33,24 @@ from cynic.kernel.core.events_schema import ReputationSyncPayload
 logger = logging.getLogger("cynic.kernel.core.escore")
 
 E_SCORE_WEIGHTS = {
-    "BURN": PHI_3, "BUILD": PHI_2, "JUDGE": PHI, "RUN": 1.0,
-    "SOCIAL": PHI_INV, "GRAPH": PHI_INV_2, "HOLD": PHI_INV_3,
+    "BURN": PHI_3,
+    "BUILD": PHI_2,
+    "JUDGE": PHI,
+    "RUN": 1.0,
+    "SOCIAL": PHI_INV,
+    "GRAPH": PHI_INV_2,
+    "HOLD": PHI_INV_3,
 }
 E_SCORE_TOTAL_WEIGHT = sum(E_SCORE_WEIGHTS.values())
+
 
 @dataclass
 class EScoreProfile:
     entity_id: str
     overall_score: float = 50.0
-    dimensions: dict[str, float] = field(default_factory=lambda: {k: 50.0 for k in E_SCORE_WEIGHTS})
+    dimensions: dict[str, float] = field(
+        default_factory=lambda: {k: 50.0 for k in E_SCORE_WEIGHTS}
+    )
     reality_scores: dict[str, float] = field(default_factory=dict)
     last_updated: float = field(default_factory=time.time)
 
@@ -55,8 +63,11 @@ class EScoreProfile:
             "last_updated": self.last_updated,
         }
 
+
 class EScoreTracker:
-    def __init__(self, bus: EventBus, instance_id: str, state_manager: Any | None = None):
+    def __init__(
+        self, bus: EventBus, instance_id: str, state_manager: Any | None = None
+    ):
         self.bus = bus
         self.state = state_manager
         self.instance_id = instance_id
@@ -68,7 +79,14 @@ class EScoreTracker:
             self._profiles[entity_id] = EScoreProfile(entity_id=entity_id)
         return self._profiles[entity_id]
 
-    def update_dimension(self, entity_id: str, dimension: str, value: float, weight: float = 1.0, **kwargs: Any) -> float:
+    def update_dimension(
+        self,
+        entity_id: str,
+        dimension: str,
+        value: float,
+        weight: float = 1.0,
+        **kwargs: Any,
+    ) -> float:
         if dimension not in E_SCORE_WEIGHTS:
             return 0.0
 
@@ -85,27 +103,33 @@ class EScoreTracker:
         profile.last_updated = time.time()
 
         if self.state:
-            asyncio.create_task(self.state.update(f"escore:profile:{entity_id}", profile.to_dict()))
-        
+            asyncio.create_task(
+                self.state.update(f"escore:profile:{entity_id}", profile.to_dict())
+            )
+
         return profile.overall_score
 
     def _calculate_aggregate(self, dimensions: dict[str, float]) -> float:
-        log_sum = sum(E_SCORE_WEIGHTS[d] * math.log(max(v, 0.1)) for d, v in dimensions.items())
+        log_sum = sum(
+            E_SCORE_WEIGHTS[d] * math.log(max(v, 0.1)) for d, v in dimensions.items()
+        )
         return phi_bound_score(math.exp(log_sum / E_SCORE_TOTAL_WEIGHT))
 
     async def broadcast_reputation(self) -> None:
         for profile in self._profiles.values():
-            await self.bus.emit(Event.typed(
-                CoreEvent.REPUTATION_SYNC,
-                ReputationSyncPayload(
-                    entity_id=profile.entity_id,
-                    overall_score=profile.overall_score,
-                    dimensions=profile.dimensions,
-                    reality_scores=profile.reality_scores,
-                    last_updated=profile.last_updated
-                ),
-                source="escore_tracker"
-            ))
+            await self.bus.emit(
+                Event.typed(
+                    CoreEvent.REPUTATION_SYNC,
+                    ReputationSyncPayload(
+                        entity_id=profile.entity_id,
+                        overall_score=profile.overall_score,
+                        dimensions=profile.dimensions,
+                        reality_scores=profile.reality_scores,
+                        last_updated=profile.last_updated,
+                    ),
+                    source="escore_tracker",
+                )
+            )
 
     def stats(self) -> dict:
         return {"entities": len(self._profiles)}

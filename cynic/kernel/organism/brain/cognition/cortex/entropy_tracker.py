@@ -42,12 +42,14 @@ if TYPE_CHECKING:
 
 from cynic.kernel.core.formulas import CHAT_MESSAGE_CAP
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.entropy_tracker")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.entropy_tracker"
+)
 
 
-# 
+#
 # ENTROPY MEASUREMENT
-# 
+#
 
 
 @dataclass
@@ -94,9 +96,9 @@ class EntropyMetrics:
         }
 
 
-# 
+#
 # ENTROPY CALCULATOR
-# 
+#
 
 
 class EntropyCalculator:
@@ -178,9 +180,9 @@ class EntropyCalculator:
         return h_input - h_output
 
 
-# 
+#
 # ENTROPY TRACKER
-# 
+#
 
 
 class EntropyTracker:

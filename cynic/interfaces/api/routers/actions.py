@@ -1,6 +1,7 @@
 """
 CYNIC actions router  proposed-actions  self-probes
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,7 +22,10 @@ router_actions = APIRouter(tags=["actions"])
 
 @router_actions.get("/actions")
 async def list_actions(
-    status: str | None = Query(default=None, description="Filter by status: PENDING/ACCEPTED/REJECTED/AUTO_EXECUTED"),
+    status: str | None = Query(
+        default=None,
+        description="Filter by status: PENDING/ACCEPTED/REJECTED/AUTO_EXECUTED",
+    ),
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
@@ -31,7 +35,12 @@ async def list_actions(
     proposer = org.memory.action_proposer
 
     if proposer is None:
-        return {"actions": [], "count": 0, "stats": {}, "message": "ActionProposer not active"}
+        return {
+            "actions": [],
+            "count": 0,
+            "stats": {},
+            "message": "ActionProposer not active",
+        }
 
     if status is None or status == "PENDING":
         actions = proposer.pending()
@@ -70,26 +79,32 @@ async def accept_action(
     if org.cognition.axiom_monitor:
         new_state = org.cognition.axiom_monitor.signal("ANTIFRAGILITY")
         if new_state == "ACTIVE":
-            await bus.emit(Event.typed(
-                CoreEvent.AXIOM_ACTIVATED,
-                AxiomActivatedPayload(
-                    axiom="ANTIFRAGILITY", 
-                    maturity=org.cognition.axiom_monitor.get_maturity("ANTIFRAGILITY"), 
-                    trigger="action_accept"
-                ),
-                source="action_accept",
-            ))
+            await bus.emit(
+                Event.typed(
+                    CoreEvent.AXIOM_ACTIVATED,
+                    AxiomActivatedPayload(
+                        axiom="ANTIFRAGILITY",
+                        maturity=org.cognition.axiom_monitor.get_maturity(
+                            "ANTIFRAGILITY"
+                        ),
+                        trigger="action_accept",
+                    ),
+                    source="action_accept",
+                )
+            )
 
     # L1 closure: fire ACT_REQUESTED
     if action.prompt:
-        await bus.emit(Event.typed(
-            CoreEvent.ACT_REQUESTED,
-            ActRequestedPayload(
-                action=action.prompt,
-                action_id=action.action_id,
-            ),
-            source="action_accept",
-        ))
+        await bus.emit(
+            Event.typed(
+                CoreEvent.ACT_REQUESTED,
+                ActRequestedPayload(
+                    action=action.prompt,
+                    action_id=action.action_id,
+                ),
+                source="action_accept",
+            )
+        )
         logger.info("*ears perk* Action %s  ACT_REQUESTED fired", action_id)
 
     # Social loop
@@ -101,7 +116,11 @@ async def accept_action(
     )
 
     logger.info("*tail wag* Action %s ACCEPTED", action_id)
-    return {"accepted": True, "action": action.to_dict(), "executing": bool(action.prompt)}
+    return {
+        "accepted": True,
+        "action": action.to_dict(),
+        "executing": bool(action.prompt),
+    }
 
 
 @router_actions.post("/actions/{action_id}/reject")
@@ -122,13 +141,15 @@ async def reject_action(
         raise HTTPException(status_code=404, detail=f"Action {action_id} not found")
 
     if action.state_key:
-        org.cognition.learning_loop.qtable.update(LearningSignal(
-            state_key=action.state_key,
-            action=action.verdict,
-            reward=0.10,
-            judgment_id=action.judgment_id,
-            loop_name="ACTION_REJECTED",
-        ))
+        org.cognition.learning_loop.qtable.update(
+            LearningSignal(
+                state_key=action.state_key,
+                action=action.verdict,
+                reward=0.10,
+                judgment_id=action.judgment_id,
+                loop_name="ACTION_REJECTED",
+            )
+        )
 
     _append_social_signal(
         source="cynic_interaction",
@@ -143,7 +164,9 @@ async def reject_action(
 
 @router_actions.get("/self-probes")
 async def list_self_probes(
-    status: str | None = Query(default=None, description="Filter by status: PENDING/APPLIED/DISMISSED/all"),
+    status: str | None = Query(
+        default=None, description="Filter by status: PENDING/APPLIED/DISMISSED/all"
+    ),
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
     """
@@ -153,7 +176,12 @@ async def list_self_probes(
     prober = org.memory.self_prober
 
     if prober is None:
-        return {"proposals": [], "count": 0, "stats": {}, "message": "SelfProber not active"}
+        return {
+            "proposals": [],
+            "count": 0,
+            "stats": {},
+            "message": "SelfProber not active",
+        }
 
     if status is None or status == "PENDING":
         proposals = prober.pending()

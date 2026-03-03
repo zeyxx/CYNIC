@@ -19,9 +19,14 @@ from typing import Any, Optional
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.event_bus import EventBus, EventBusError
 from cynic.kernel.core.phi import PHI
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+)
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.budget_manager")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.handlers.budget_manager"
+)
 
 
 class BudgetManager(BaseHandler):
@@ -67,11 +72,14 @@ class BudgetManager(BaseHandler):
                 "budget_stress": self._budget_stress,
                 "budget_exhausted": self._budget_exhausted,
                 "axiom_multiplier": round(multiplier, 3),
-                "effective_budget": round(budget_usd * multiplier, 6) if budget_usd else 0.0,
+                "effective_budget": round(budget_usd * multiplier, 6)
+                if budget_usd
+                else 0.0,
             }
             duration_ms = (time.perf_counter() - t0) * 1000
             self._log_execution(
-                "budget_check", f"stress={self._budget_stress} exhausted={self._budget_exhausted}"
+                "budget_check",
+                f"stress={self._budget_stress} exhausted={self._budget_exhausted}",
             )
 
             return HandlerResult(
@@ -142,7 +150,9 @@ class BudgetManager(BaseHandler):
         """
         if not self._budget_exhausted:
             self._budget_exhausted = True
-            logger.error("*GROWL* Budget exhausted: forcing REFLEX-only mode " "(zero LLM calls)")
+            logger.error(
+                "*GROWL* Budget exhausted: forcing REFLEX-only mode " "(zero LLM calls)"
+            )
 
     def reset_budget_state(self) -> None:
         """Reset stress and exhaustion flags when budget refills."""

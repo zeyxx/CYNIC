@@ -5,13 +5,14 @@ Respects Backend, SRE & Solutions Architect Lenses.
 The central entry point that orchestrates the entire organism's lifecycle.
 Ensures that all systems (Vascular, Somatic, Cognitive) are synchronized.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import signal
 import sys
-from typing import Optional
+from typing import Optional, Any
 
 from cynic.config import CynicConfig
 from cynic.kernel.core.vascular import VascularSystem
@@ -21,25 +22,25 @@ from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
 
 logger = logging.getLogger("cynic.daemon")
 
+
 class CynicDaemon:
     """The master controller of the CYNIC organism."""
-    
+
     def __init__(self, config: Optional[CynicConfig] = None):
         self.config = config or CynicConfig()
-        self.bus = EventBus()
+        self.bus = EventBus(bus_id=self.config.instance_id)
         self.vascular = VascularSystem(
-            instance_id=self.config.instance_id,
-            redis_url=self.config.redis_url
+            instance_id=self.config.instance_id, redis_url=self.config.redis_url
         )
         self.body = UniversalHardwareBody(bus=self.bus)
-        
+
         # Scheduler requires orchestrator, which we'll bridge here
         self.rhythm = ConsciousnessRhythm(
-            orchestrator=self, # Bridges to run()
+            orchestrator=self,  # Bridges to run()
             body=self.body,
-            bus=self.bus
+            bus=self.bus,
         )
-        
+
         self._running = False
 
     async def run(self, cell: Any, level: Any):
@@ -53,17 +54,17 @@ class CynicDaemon:
         if self._running:
             return
         self._running = True
-        
+
         print("--- 🌀 CYNIC DAEMON: AWAKENING ---")
         logger.info(f"Starting CYNIC Daemon [{self.config.instance_id}]")
-        
+
         # 1. Start Vascular (Pooling)
         # 2. Start Body (Senses)
         # 3. Start Rhythm (Cognition)
         self.rhythm.start()
-        
+
         logger.info("Organism is fully awake and synchronized.")
-        
+
         try:
             while self._running:
                 # Standard pulse
@@ -77,15 +78,15 @@ class CynicDaemon:
         if not self._running:
             return
         self._running = False
-        print("
---- 💤 CYNIC DAEMON: PUTTING TO SLEEP ---")
+        print("\n--- 💤 CYNIC DAEMON: PUTTING TO SLEEP ---")
         await self.rhythm.stop()
         await self.vascular.close()
         logger.info("Shutdown complete.")
 
+
 async def main():
     daemon = CynicDaemon()
-    
+
     # Handle OS signals
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -96,6 +97,7 @@ async def main():
     except Exception as e:
         logger.critical(f"Daemon CRASHED: {e}", exc_info=True)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

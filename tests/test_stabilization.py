@@ -3,6 +3,7 @@ Stabilization tests — verify foundational integrity for 10k TPS.
 
 Tests that the codebase is ready for high-throughput operation.
 """
+
 import subprocess
 import sys
 
@@ -14,7 +15,9 @@ def test_no_encoding_errors():
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, f"Encoding validation failed:\n{result.stdout}\n{result.stderr}"
+    assert (
+        result.returncode == 0
+    ), f"Encoding validation failed:\n{result.stdout}\n{result.stderr}"
 
 
 def test_no_circular_imports():
@@ -24,7 +27,9 @@ def test_no_circular_imports():
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, f"Circular import detected:\n{result.stdout}\n{result.stderr}"
+    assert (
+        result.returncode == 0
+    ), f"Circular import detected:\n{result.stdout}\n{result.stderr}"
 
 
 def test_factory_wiring_complete():
@@ -34,7 +39,9 @@ def test_factory_wiring_complete():
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, f"Factory wiring incomplete:\n{result.stdout}\n{result.stderr}"
+    assert (
+        result.returncode == 0
+    ), f"Factory wiring incomplete:\n{result.stdout}\n{result.stderr}"
 
 
 def test_api_routers_mounted():
@@ -44,7 +51,9 @@ def test_api_routers_mounted():
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, f"Router mounting incomplete:\n{result.stdout}\n{result.stderr}"
+    assert (
+        result.returncode == 0
+    ), f"Router mounting incomplete:\n{result.stdout}\n{result.stderr}"
 
 
 def test_priority_tests_pass():
@@ -63,9 +72,12 @@ def test_priority_tests_pass():
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, f"Priority tests failed:\n{result.stdout}\n{result.stderr}"
+    assert (
+        result.returncode == 0
+    ), f"Priority tests failed:\n{result.stdout}\n{result.stderr}"
 
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v"])

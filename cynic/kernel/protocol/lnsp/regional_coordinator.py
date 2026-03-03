@@ -230,7 +230,9 @@ class RegionalCoordinator:
 
         # Clean up old cache entries
         self._message_cache = {
-            mid: ts for mid, ts in self._message_cache.items() if now - ts <= self.dedup_window_sec
+            mid: ts
+            for mid, ts in self._message_cache.items()
+            if now - ts <= self.dedup_window_sec
         }
 
         # Check if this message_id is in the cache

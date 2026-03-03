@@ -31,11 +31,12 @@ from cynic.kernel.organism.perception.integrations.near.types import (
 @dataclass
 class GovernanceDecision:
     """Represents a governance decision ready for on-chain execution."""
+
     proposal_id: str
     title: str
     description: str
     cynic_verdict: str  # HOWL/WAG/GROWL/BARK
-    q_score: float     # 0-100 confidence
+    q_score: float  # 0-100 confidence
     vote_yes: int
     vote_no: int
     vote_abstain: int
@@ -63,7 +64,7 @@ class TestNEARExecutorInitialization:
             network_id="testnet",
             rpc_url="https://rpc.testnet.near.org",
             contract_id="governance.testnet",
-            master_account="owner.testnet"
+            master_account="owner.testnet",
         )
 
         executor = NEARExecutor(config)
@@ -78,7 +79,7 @@ class TestNEARExecutorInitialization:
             network_id="testnet",
             rpc_url="https://rpc.testnet.near.org",
             contract_id="cynic-gov.testnet",
-            master_account="cynic.testnet"
+            master_account="cynic.testnet",
         )
 
         assert config.network_id == "testnet"
@@ -91,7 +92,7 @@ class TestNEARExecutorInitialization:
             network_id="mainnet",
             rpc_url="https://rpc.mainnet.near.org",
             contract_id="cynic-gov.near",
-            master_account="cynic.near"
+            master_account="cynic.near",
         )
 
         assert config.network_id == "mainnet"
@@ -178,7 +179,7 @@ class TestGovernanceVerdictToNEAR:
             vote_yes=150,
             vote_no=30,
             vote_abstain=20,
-            community_treasury="treasury.near"
+            community_treasury="treasury.near",
         )
 
         assert decision.cynic_verdict == "HOWL"
@@ -196,7 +197,7 @@ class TestGovernanceVerdictToNEAR:
                 "cynic_verdict": decision.cynic_verdict,
                 "cynic_q_score": decision.q_score,
                 "community_approved": decision.approved,
-            }
+            },
         )
 
         assert call.args["cynic_verdict"] == "HOWL"
@@ -213,7 +214,7 @@ class TestGovernanceVerdictToNEAR:
             vote_yes=120,
             vote_no=60,
             vote_abstain=20,
-            community_treasury="treasury.near"
+            community_treasury="treasury.near",
         )
 
         assert decision.cynic_verdict == "WAG"
@@ -231,7 +232,7 @@ class TestGovernanceVerdictToNEAR:
             vote_yes=80,
             vote_no=100,
             vote_abstain=20,
-            community_treasury="treasury.near"
+            community_treasury="treasury.near",
         )
 
         assert decision.cynic_verdict == "GROWL"
@@ -249,7 +250,7 @@ class TestGovernanceVerdictToNEAR:
             vote_yes=20,
             vote_no=170,
             vote_abstain=10,
-            community_treasury="treasury.near"
+            community_treasury="treasury.near",
         )
 
         assert decision.cynic_verdict == "BARK"
@@ -269,7 +270,7 @@ class TestNEARExecutionResult:
             gas_used=0,
             outcome={"method": "create_proposal", "contract": "governance.testnet"},
             cynic_verdict="HOWL",
-            proposal_id="prop_001"
+            proposal_id="prop_001",
         )
 
         assert result.status == TxStatus.PENDING
@@ -286,10 +287,10 @@ class TestNEARExecutionResult:
             outcome={
                 "method": "create_proposal",
                 "contract": "governance.testnet",
-                "result": "success"
+                "result": "success",
             },
             cynic_verdict="WAG",
-            proposal_id="prop_002"
+            proposal_id="prop_002",
         )
 
         assert result.status == TxStatus.CONFIRMED
@@ -305,7 +306,7 @@ class TestNEARExecutionResult:
             gas_used=0,
             outcome={"error": "InsufficientFunds"},
             cynic_verdict="GROWL",
-            proposal_id="prop_003"
+            proposal_id="prop_003",
         )
 
         assert result.status == TxStatus.FAILED
@@ -348,7 +349,7 @@ class TestGASdfIntegration:
             vote_yes=100,
             vote_no=40,
             vote_abstain=10,
-            community_treasury="treasury.near"
+            community_treasury="treasury.near",
         )
 
         # Create proposal with fee burning
@@ -400,7 +401,7 @@ class TestGovernanceVerdictFlow:
                 "q_score": q_score,
             },
             cynic_verdict=cynic_verdict,
-            proposal_id="prop_001"
+            proposal_id="prop_001",
         )
 
         # Verify complete flow
@@ -418,8 +419,10 @@ class TestGovernanceVerdictFlow:
                 description="...",
                 cynic_verdict="HOWL",
                 q_score=85.0,
-                vote_yes=100, vote_no=20, vote_abstain=10,
-                community_treasury="treasury.near"
+                vote_yes=100,
+                vote_no=20,
+                vote_abstain=10,
+                community_treasury="treasury.near",
             ),
             GovernanceDecision(
                 proposal_id="prop_002",
@@ -427,8 +430,10 @@ class TestGovernanceVerdictFlow:
                 description="...",
                 cynic_verdict="WAG",
                 q_score=62.0,
-                vote_yes=80, vote_no=60, vote_abstain=20,
-                community_treasury="treasury.near"
+                vote_yes=80,
+                vote_no=60,
+                vote_abstain=20,
+                community_treasury="treasury.near",
             ),
             GovernanceDecision(
                 proposal_id="prop_003",
@@ -436,8 +441,10 @@ class TestGovernanceVerdictFlow:
                 description="...",
                 cynic_verdict="GROWL",
                 q_score=45.0,
-                vote_yes=70, vote_no=80, vote_abstain=20,
-                community_treasury="treasury.near"
+                vote_yes=70,
+                vote_no=80,
+                vote_abstain=20,
+                community_treasury="treasury.near",
             ),
         ]
 
@@ -451,7 +458,7 @@ class TestGovernanceVerdictFlow:
                 gas_used=250_000_000_000_000,
                 outcome={"verdict": proposal.cynic_verdict},
                 cynic_verdict=proposal.cynic_verdict,
-                proposal_id=proposal.proposal_id
+                proposal_id=proposal.proposal_id,
             )
             results.append(result)
 

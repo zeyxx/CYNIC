@@ -1,13 +1,19 @@
 """Tests for GASdf burn sensor."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
 import pytest
 
-from cynic.kernel.organism.perception.integrations.gasdf.burn_sensor import GASdfBurnSensor
+from cynic.kernel.organism.perception.integrations.gasdf.burn_sensor import (
+    GASdfBurnSensor,
+)
 from cynic.kernel.organism.perception.integrations.gasdf.client import GASdfClient
-from cynic.kernel.organism.perception.integrations.gasdf.types import GASdfError, GASdfStats
+from cynic.kernel.organism.perception.integrations.gasdf.types import (
+    GASdfError,
+    GASdfStats,
+)
 from cynic.kernel.protocol.lnsp.types import LNSPMessage, ObservationType
 
 
@@ -19,9 +25,7 @@ class TestGASdfBurnSensor:
         """Create a mock GASdfClient."""
         return AsyncMock(spec=GASdfClient)
 
-    async def test_burn_sensor_emits_observation(
-        self, mock_client: AsyncMock
-    ) -> None:
+    async def test_burn_sensor_emits_observation(self, mock_client: AsyncMock) -> None:
         """Test that sensor emits LNSP observation on successful stats fetch."""
         mock_stats = GASdfStats(
             total_burned=1000000,
@@ -41,7 +45,9 @@ class TestGASdfBurnSensor:
 
         assert result is not None
         assert isinstance(result, LNSPMessage)
-        assert result.payload["observation_type"] == ObservationType.ECOSYSTEM_EVENT.value
+        assert (
+            result.payload["observation_type"] == ObservationType.ECOSYSTEM_EVENT.value
+        )
         assert result.header.source == "sensor:gasdf_burn"
 
     async def test_burn_sensor_observation_payload(
@@ -128,9 +134,7 @@ class TestGASdfBurnSensor:
         assert result2 is not None
         assert result2.payload["data"]["total_burned"] == 2000000
 
-    async def test_burn_sensor_handles_api_error(
-        self, mock_client: AsyncMock
-    ) -> None:
+    async def test_burn_sensor_handles_api_error(self, mock_client: AsyncMock) -> None:
         """Test that sensor silently returns None on API error."""
         mock_client.get_stats.side_effect = GASdfError("API unavailable")
 
@@ -142,9 +146,7 @@ class TestGASdfBurnSensor:
         result = await sensor.observe()
         assert result is None
 
-    async def test_burn_sensor_observation_type(
-        self, mock_client: AsyncMock
-    ) -> None:
+    async def test_burn_sensor_observation_type(self, mock_client: AsyncMock) -> None:
         """Test that observation type is ECOSYSTEM_EVENT."""
         mock_stats = GASdfStats(
             total_burned=1000000,
@@ -162,11 +164,11 @@ class TestGASdfBurnSensor:
         result = await sensor.observe()
 
         assert result is not None
-        assert result.payload["observation_type"] == ObservationType.ECOSYSTEM_EVENT.value
+        assert (
+            result.payload["observation_type"] == ObservationType.ECOSYSTEM_EVENT.value
+        )
 
-    async def test_burn_sensor_custom_instance_id(
-        self, mock_client: AsyncMock
-    ) -> None:
+    async def test_burn_sensor_custom_instance_id(self, mock_client: AsyncMock) -> None:
         """Test that sensor respects custom instance_id."""
         mock_stats = GASdfStats(
             total_burned=1000000,

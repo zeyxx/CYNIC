@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 def _get_helius_api_key() -> str:
     """Get Helius API key from unified config (Rule 3: single source of truth)."""
     try:
-        from cynic.kernel.core.config import CynicConfig
+        from cynic.config import CynicConfig
+
         config = CynicConfig.from_env()
         return config.helius_api_key or ""
     except Exception:
@@ -105,7 +106,9 @@ def _rpc_call(method: str, params: list) -> dict[str, Any] | None:
             continue
 
     # All RPCs failed
-    logger.error("All Solana RPC endpoints failed after %d attempts", len(_SOLANA_RPC_URLS))
+    logger.error(
+        "All Solana RPC endpoints failed after %d attempts", len(_SOLANA_RPC_URLS)
+    )
     return None
 
 

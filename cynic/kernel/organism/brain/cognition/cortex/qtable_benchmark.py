@@ -96,7 +96,9 @@ class SyntheticTask:
     def __post_init__(self) -> None:
         # Deterministic true rewards (set once, phi-distributed)
         # Pairs are (state_key, action) tuples -- labels don't matter for convergence
-        self._true_rewards: list[float] = [self._compute_true(i) for i in range(self.n_pairs)]
+        self._true_rewards: list[float] = [
+            self._compute_true(i) for i in range(self.n_pairs)
+        ]
         self._pair_labels: list[tuple[str, str]] = [
             (f"STATE_{i}", _action_label(i)) for i in range(self.n_pairs)
         ]
@@ -193,12 +195,18 @@ class TD0Learner:
 
     def max_error(self) -> float:
         """Max |Q(s,a) - true_reward| across all pairs."""
-        return max(abs(e.q_value - self.task.true_reward(i)) for i, e in enumerate(self._entries))
+        return max(
+            abs(e.q_value - self.task.true_reward(i))
+            for i, e in enumerate(self._entries)
+        )
 
     def mean_error(self) -> float:
         """Mean |Q(s,a) - true_reward| across all pairs."""
         return (
-            sum(abs(e.q_value - self.task.true_reward(i)) for i, e in enumerate(self._entries))
+            sum(
+                abs(e.q_value - self.task.true_reward(i))
+                for i, e in enumerate(self._entries)
+            )
             / self.task.n_pairs
         )
 
@@ -364,7 +372,9 @@ class QTableBenchmark:
           phi_wins_stability:   bool " phi has lower Q-variance vs standard
           phi_wins_convergence: bool " phi converges in fewer or equal steps vs standard
         """
-        configs: list[tuple[float, bool]] = [(a, ewc) for a in _ALPHA_GRID for ewc in (True, False)]
+        configs: list[tuple[float, bool]] = [
+            (a, ewc) for a in _ALPHA_GRID for ewc in (True, False)
+        ]
 
         all_results: dict[tuple[float, bool], list[ConvergenceResult]] = {}
         for cfg in configs:
@@ -388,11 +398,15 @@ class QTableBenchmark:
                 "use_ewc": runs[0].use_ewc,
                 "converged_rate": sum(r.converged for r in runs) / len(runs),
                 "mean_convergence_step": round(sum(conv_steps) / len(conv_steps), 1),
-                "mean_final_error": round(sum(r.final_mean_error for r in runs) / len(runs), 4),
+                "mean_final_error": round(
+                    sum(r.final_mean_error for r in runs) / len(runs), 4
+                ),
                 "mean_forgetting_shift": round(
                     sum(r.forgetting_shift for r in runs) / len(runs), 4
                 ),
-                "mean_q_variance": round(sum(r.q_variance for r in runs) / len(runs), 5),
+                "mean_q_variance": round(
+                    sum(r.q_variance for r in runs) / len(runs), 5
+                ),
             }
 
         configs_agg = [agg(all_results[cfg]) for cfg in configs]
@@ -403,14 +417,18 @@ class QTableBenchmark:
         phi_agg = agg(all_results[phi_key])
         std_agg = agg(all_results[std_key])
 
-        phi_wins_forgetting = phi_agg["mean_forgetting_shift"] <= std_agg["mean_forgetting_shift"]
+        phi_wins_forgetting = (
+            phi_agg["mean_forgetting_shift"] <= std_agg["mean_forgetting_shift"]
+        )
         phi_wins_stability = phi_agg["mean_q_variance"] <= std_agg["mean_q_variance"]
         # phi is conservative: =0.038 needs ~3- more steps than =0.1 to reach same Q.
         # This is by design (resist catastrophic forgetting).
         # We validate convergence quality via final_error, not speed.
         # phi's final_error should eventually be  standard's (verified at 2000 steps).
         # At shorter budgets, allow phi up to 3- higher error (it's still learning).
-        phi_wins_convergence = phi_agg["mean_final_error"] <= std_agg["mean_final_error"] * 3.0
+        phi_wins_convergence = (
+            phi_agg["mean_final_error"] <= std_agg["mean_final_error"] * 3.0
+        )
 
         return {
             "n_seeds": n_seeds,

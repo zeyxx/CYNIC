@@ -59,7 +59,8 @@ class TestVaultConfig:
         monkeypatch.setenv("VAULT_ADDR", "https://vault.local:8200")
         monkeypatch.setenv("VAULT_TOKEN", "s.env_token")
 
-        from cynic.kernel.core.config import CynicConfig
+        from cynic.config import CynicConfig
+
         cynic_config = CynicConfig.from_env()
         config = VaultConfig.from_config(cynic_config)
 
@@ -74,8 +75,9 @@ class TestEnvironmentSecretStore:
     async def test_get_secret_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Secrets can be retrieved from environment variables via CynicConfig."""
         monkeypatch.setenv("ANTHROPIC_API_KEY", "secret123")
-        
-        from cynic.kernel.core.config import CynicConfig
+
+        from cynic.config import CynicConfig
+
         config = CynicConfig.from_env()
         store = EnvironmentSecretStore(config)
 
@@ -114,7 +116,9 @@ class TestEnvironmentSecretStore:
             del os.environ[env_key]
 
     @pytest.mark.asyncio
-    async def test_delete_secret_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_delete_secret_from_env(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Secrets can be deleted from environment."""
         monkeypatch.setenv("SECRET_TEST_KEY", "test_value")
         store = EnvironmentSecretStore()
@@ -146,9 +150,7 @@ class TestSecretManager:
     """Tests for SecretManager with fallback."""
 
     @pytest.mark.asyncio
-    async def test_startup_without_vault(
-        self, vault_config: VaultConfig
-    ) -> None:
+    async def test_startup_without_vault(self, vault_config: VaultConfig) -> None:
         """SecretManager starts without Vault (uses fallback)."""
         vault_config.vault_addr = ""  # No Vault
         manager = SecretManager(vault_config)
@@ -275,7 +277,9 @@ class TestSecretRotation:
     """Tests for secret rotation scheduling."""
 
     @pytest.mark.asyncio
-    async def test_rotation_schedule_tracking(self, secret_manager: SecretManager) -> None:
+    async def test_rotation_schedule_tracking(
+        self, secret_manager: SecretManager
+    ) -> None:
         """Rotation schedule is tracked correctly."""
         await secret_manager.startup()
 

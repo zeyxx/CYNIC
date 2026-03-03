@@ -7,7 +7,10 @@ NOTE: These tests require:
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
@@ -15,7 +18,9 @@ pytest.skip("Skipping old architecture test module", allow_module_level=True)
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - governance_bot module not found")
+pytestmark = pytest.mark.skip(
+    reason="Old architecture removed in V5 - governance_bot module not found"
+)
 
 import os
 
@@ -29,7 +34,7 @@ def near_config():
         "account_id": os.getenv("NEAR_ACCOUNT_ID"),
         "private_key": os.getenv("NEAR_PRIVATE_KEY"),
         "contract_id": os.getenv("NEAR_CONTRACT_ID"),
-        "rpc_url": os.getenv("NEAR_RPC_URL", "https://rpc.testnet.near.org")
+        "rpc_url": os.getenv("NEAR_RPC_URL", "https://rpc.testnet.near.org"),
     }
 
 
@@ -50,11 +55,14 @@ class TestNearIntegrationLive:
         async with NearRpcClient(near_config["rpc_url"]) as client:
             # Try to call view method
             try:
-                result = await client._call_rpc("query", {
-                    "request_type": "view_code",
-                    "account_id": near_config["contract_id"],
-                    "finality": "final"
-                })
+                result = await client._call_rpc(
+                    "query",
+                    {
+                        "request_type": "view_code",
+                        "account_id": near_config["contract_id"],
+                        "finality": "final",
+                    },
+                )
 
                 assert result.get("result") is not None
             except Exception as e:
@@ -64,8 +72,7 @@ class TestNearIntegrationLive:
     async def test_create_proposal_transaction(self, near_config):
         """Test creating a proposal via transaction"""
         signer = TransactionSigner(
-            near_config["private_key"],
-            near_config["account_id"]
+            near_config["private_key"], near_config["account_id"]
         )
 
         async with NearRpcClient(near_config["rpc_url"]) as client:
@@ -76,25 +83,24 @@ class TestNearIntegrationLive:
             block_hash = await client.get_block_hash()
 
             # Create transaction
-            actions = [{
-                "type": "FunctionCall",
-                "params": {
-                    "methodName": "create_proposal",
-                    "args": {
-                        "id": "test_proposal_001",
-                        "title": "Test Proposal",
-                        "description": "Integration test proposal"
+            actions = [
+                {
+                    "type": "FunctionCall",
+                    "params": {
+                        "methodName": "create_proposal",
+                        "args": {
+                            "id": "test_proposal_001",
+                            "title": "Test Proposal",
+                            "description": "Integration test proposal",
+                        },
+                        "gas": 30000000000000,
+                        "deposit": "0",
                     },
-                    "gas": 30000000000000,
-                    "deposit": "0"
                 }
-            }]
+            ]
 
             transaction = signer.create_transaction(
-                near_config["contract_id"],
-                actions,
-                nonce,
-                block_hash
+                near_config["contract_id"], actions, nonce, block_hash
             )
 
             assert transaction["signer_id"] == near_config["account_id"]
@@ -104,32 +110,27 @@ class TestNearIntegrationLive:
     async def test_vote_on_proposal_transaction(self, near_config):
         """Test voting on a proposal via transaction"""
         signer = TransactionSigner(
-            near_config["private_key"],
-            near_config["account_id"]
+            near_config["private_key"], near_config["account_id"]
         )
 
         async with NearRpcClient(near_config["rpc_url"]) as client:
             nonce = await client.get_account_nonce(near_config["account_id"])
             block_hash = await client.get_block_hash()
 
-            actions = [{
-                "type": "FunctionCall",
-                "params": {
-                    "methodName": "vote",
-                    "args": {
-                        "proposal_id": "test_proposal_001",
-                        "choice": True
+            actions = [
+                {
+                    "type": "FunctionCall",
+                    "params": {
+                        "methodName": "vote",
+                        "args": {"proposal_id": "test_proposal_001", "choice": True},
+                        "gas": 30000000000000,
+                        "deposit": "0",
                     },
-                    "gas": 30000000000000,
-                    "deposit": "0"
                 }
-            }]
+            ]
 
             transaction = signer.create_transaction(
-                near_config["contract_id"],
-                actions,
-                nonce,
-                block_hash
+                near_config["contract_id"], actions, nonce, block_hash
             )
 
             assert transaction["nonce"] > 0

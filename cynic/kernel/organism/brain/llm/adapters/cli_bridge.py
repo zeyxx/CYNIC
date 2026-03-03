@@ -26,7 +26,11 @@ class CLIAdapter(LLMAdapter):
 
         # Build command: binary -p "prompt"
         # Note: We combine system and user prompt for CLI tools
-        full_prompt = f"{request.system}\n\n{request.prompt}" if request.system else request.prompt
+        full_prompt = (
+            f"{request.system}\n\n{request.prompt}"
+            if request.system
+            else request.prompt
+        )
         cmd = [self._binary, "-p", full_prompt]
 
         # Gemini specific adjustment
@@ -59,7 +63,9 @@ class CLIAdapter(LLMAdapter):
                     latency_ms=latency_ms,
                 )
         except Exception as e:
-            return LLMResponse(content="", model=self.model, provider=self.provider, error=str(e))
+            return LLMResponse(
+                content="", model=self.model, provider=self.provider, error=str(e)
+            )
 
     async def check_available(self) -> bool:
         try:

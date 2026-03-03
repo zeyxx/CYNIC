@@ -7,29 +7,33 @@ Inspired by OpenSandbox (Alibaba). Allows CYNIC to:
 2. Falsify hypotheses without risking the host system.
 3. Measure performance metrics in a controlled lab.
 """
+
 from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
+
 
 @dataclass
 class SandboxResult:
     """The outcome of an experiment run inside the sandbox."""
+
     success: bool
     stdout: str
     stderr: str
     exit_code: int
     duration_ms: float
-    metrics: Dict[str, float] = field(default_factory=dict) # CPU, RAM, Latency
+    metrics: Dict[str, float] = field(default_factory=dict)  # CPU, RAM, Latency
+
 
 class SandboxEnvironment(ABC):
     """
     Abstract contract for isolated execution.
     Can be implemented via Docker, OpenSandbox, or simple Subprocess.
     """
-    
+
     @abstractmethod
     async def create(self) -> str:
         """Initialize the isolated environment."""
@@ -50,10 +54,12 @@ class SandboxEnvironment(ABC):
         """Cleanup resources."""
         pass
 
+
 class OpenSandboxAdapter(SandboxEnvironment):
     """
     Industrial implementation using OpenSandbox principles.
     """
+
     def __init__(self, sandbox_url: str = "http://localhost:8080"):
         self.url = sandbox_url
         self.session_id: Optional[str] = None

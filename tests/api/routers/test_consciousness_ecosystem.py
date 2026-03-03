@@ -8,7 +8,10 @@ Test-driven development:
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
@@ -45,14 +48,18 @@ class TestEcosystemEndpoints:
 
     def test_get_perception_sources(self, ecosystemendpoints_client):
         """GET /api/consciousness/perception-sources returns perceive worker activity."""
-        response = ecosystemendpoints_client.get("/api/consciousness/perception-sources")
+        response = ecosystemendpoints_client.get(
+            "/api/consciousness/perception-sources"
+        )
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, dict)
 
     def test_get_decision_trace(self, ecosystemendpoints_client):
         """GET /api/consciousness/decision-trace/{id} traces decision through guardrails."""
-        response = ecosystemendpoints_client.get("/api/consciousness/decision-trace/test_123")
+        response = ecosystemendpoints_client.get(
+            "/api/consciousness/decision-trace/test_123"
+        )
         assert response.status_code == 200
         data = response.json()
         assert "decision_id" in data

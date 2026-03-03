@@ -62,7 +62,9 @@ class TestBotCommand:
         )
 
         # Should not be able to modify attributes
-        with pytest.raises((AttributeError, TypeError, dataclasses.FrozenInstanceError)):
+        with pytest.raises(
+            (AttributeError, TypeError, dataclasses.FrozenInstanceError)
+        ):
             cmd.name = "modified"
 
     def test_bot_command_timestamp_default(self):
@@ -138,7 +140,9 @@ class TestBotResponse:
         resp = BotResponse(success=True, message="Test")
 
         # Should not be able to modify attributes
-        with pytest.raises((AttributeError, TypeError, dataclasses.FrozenInstanceError)):
+        with pytest.raises(
+            (AttributeError, TypeError, dataclasses.FrozenInstanceError)
+        ):
             resp.success = False
 
     def test_bot_response_defaults(self):
@@ -168,6 +172,7 @@ class TestBotInterface:
         class IncompleteBot(BotInterface):
             async def stop(self) -> None:
                 pass
+
             async def handle_command(self, command: BotCommand) -> BotResponse:
                 pass
 
@@ -180,6 +185,7 @@ class TestBotInterface:
         class IncompleteBot(BotInterface):
             async def start(self) -> None:
                 pass
+
             async def handle_command(self, command: BotCommand) -> BotResponse:
                 pass
 
@@ -192,6 +198,7 @@ class TestBotInterface:
         class IncompleteBot(BotInterface):
             async def start(self) -> None:
                 pass
+
             async def stop(self) -> None:
                 pass
 

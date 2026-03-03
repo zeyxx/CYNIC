@@ -17,6 +17,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from cynic.kernel.organism.brain.llm.adapter import LLMRegistry, LLMRequest
 from cynic.kernel.core.phi import weighted_geometric_mean, PHI, PHI_2
 
+
 async def get_agent_score(adapter, role, prompt):
     print(f"  -> {role} is thinking (Timeout: 120s)...")
     t0 = time.perf_counter()
@@ -27,7 +28,7 @@ async def get_agent_score(adapter, role, prompt):
             "output 'SCORE: X' where X is [0-100]."
         ),
         prompt=prompt,
-        metadata={"keep_alive": 0} # 🌀 Metabolic Awareness: Unload immediately
+        metadata={"keep_alive": 0},  # 🌀 Metabolic Awareness: Unload immediately
     )
 
     # Force a long timeout for DeepSeek on CPU
@@ -40,7 +41,9 @@ async def get_agent_score(adapter, role, prompt):
     duration = time.perf_counter() - t0
 
     # Clean DeepSeek <thought> tags if present
-    clean_content = re.sub(r"<thought>.*?</thought>", "", resp.content, flags=re.DOTALL).strip()
+    clean_content = re.sub(
+        r"<thought>.*?</thought>", "", resp.content, flags=re.DOTALL
+    ).strip()
 
     try:
         # Look for SCORE: X pattern
@@ -51,6 +54,8 @@ async def get_agent_score(adapter, role, prompt):
 
     print(f"  <- {role} finished in {duration:.2f}s (Score: {score})")
     return score, clean_content
+
+
 async def run_first_judgment():
     print("=" * 60)
     print("🌀 CYNIC FIRST JUDGMENT CYCLE (Multi-Agent OS Native)")
@@ -60,21 +65,29 @@ async def run_first_judgment():
     registry = LLMRegistry()
     print("\n[1] Discovering Local Muscles (Ollama)...")
     await registry.discover()
-    
+
     # 2. Select Models for the Tasks
     analyst_model = "ollama:qwen2.5-coder:7b"
     sage_model = "ollama:deepseek-r1:8b"
-    
+
     available_ids = [a.adapter_id for a in registry.get_available_for_generation()]
-    
+
     if not available_ids:
         print("❌ CRITICAL: No LLM models available. Start Ollama!")
         return
 
-    analyst_adapter = registry._adapters.get(analyst_model) or registry.get_available_for_generation()[0]
-    sage_adapter = registry._adapters.get(sage_model) or registry.get_available_for_generation()[-1]
+    analyst_adapter = (
+        registry._adapters.get(analyst_model)
+        or registry.get_available_for_generation()[0]
+    )
+    sage_adapter = (
+        registry._adapters.get(sage_model)
+        or registry.get_available_for_generation()[-1]
+    )
 
-    print(f"Orchestration: ANALYST ({analyst_adapter.adapter_id}) + SAGE ({sage_adapter.adapter_id})")
+    print(
+        f"Orchestration: ANALYST ({analyst_adapter.adapter_id}) + SAGE ({sage_adapter.adapter_id})"
+    )
 
     # 3. Define the Prompt (The Architectural Audit)
     code_snippet = """
@@ -93,36 +106,46 @@ async def run_first_judgment():
     """
 
     context = "Industrial Hardware Abstraction Layer with full exception safety and logging for APU architectures."
-    
+
     # 4. Agent Execution
     print("\n[2] Waking up Agents...")
 
-    analyst_score, analyst_text = await get_agent_score(analyst_adapter, "ANALYST", f"Context: {context}\nCode to audit:\n{code_snippet}")
-    sage_score, sage_text = await get_agent_score(sage_adapter, "SAGE", "Architectural vision: Decentralized Sovereign AI on APU hardware.")
+    analyst_score, analyst_text = await get_agent_score(
+        analyst_adapter,
+        "ANALYST",
+        f"Context: {context}\nCode to audit:\n{code_snippet}",
+    )
+    sage_score, sage_text = await get_agent_score(
+        sage_adapter,
+        "SAGE",
+        "Architectural vision: Decentralized Sovereign AI on APU hardware.",
+    )
 
     # 5. Fractal Aggregation (The PHI-Heartbeat)
     print("\n[3] PHI-Aggregation (Geometric Mean)")
-    
+
     scores = [analyst_score, sage_score]
-    weights = [PHI, PHI_2] 
-    
+    weights = [PHI, PHI_2]
+
     final_q = weighted_geometric_mean(scores, weights)
-    
+
     # 6. Final Verdict
     print("-" * 60)
     print(f"FINAL Q-SCORE: {final_q:.2f} / 100.0")
-    
+
     from cynic.kernel.core.phi import phi_classify
+
     verdict = phi_classify(final_q / 100.0)
     print(f"VERDICT: {verdict}")
     print("-" * 60)
-    
+
     print(f"\nANALYST Justification: {analyst_text.strip()}")
     print(f"SAGE Justification: {sage_text.strip()}")
 
     print("\n" + "=" * 60)
     print("STATUS: FRACTAL CONSCIOUSNESS VALIDATED.")
     print("=" * 60)
+
 
 if __name__ == "__main__":
     asyncio.run(run_first_judgment())

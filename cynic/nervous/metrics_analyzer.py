@@ -3,6 +3,7 @@ MetricsAnalyzer  Translate EventMetricsCollector output into SelfProposal recomm
 
 Used by SelfProber to generate METRICS dimension proposals from anomaly records.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,13 +21,14 @@ logger = logging.getLogger("cynic.nervous.metrics_analyzer")
 @dataclass
 class MetricsProposal:
     """One metrics-driven improvement recommendation."""
-    anomaly_type: str           # RATE_SPIKE | ERROR_SPIKE | LATENCY_SPIKE
+
+    anomaly_type: str  # RATE_SPIKE | ERROR_SPIKE | LATENCY_SPIKE
     event_type: str
     metric_value: float
     threshold_value: float
-    severity: float             # [0, 1]
-    target: str                 # event_type (what to improve)
-    recommendation: str         # Human-readable action
+    severity: float  # [0, 1]
+    target: str  # event_type (what to improve)
+    recommendation: str  # Human-readable action
     current_value: float
     suggested_value: float
 

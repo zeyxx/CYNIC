@@ -12,6 +12,7 @@ GET /mcp/resource " Fetch specific MCP resource by URI
 
 This bridges L2 feedback loop: Claude Code " CYNIC observation
 """
+
 from __future__ import annotations
 
 import logging

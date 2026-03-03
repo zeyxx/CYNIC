@@ -66,7 +66,9 @@ class LlamaCppAdapter(LLMAdapter):
                 latency_ms=(time.time() - start) * 1000,
             )
         except Exception as e:
-            return LLMResponse(content="", model=self.model, provider="llama_cpp", error=str(e))
+            return LLMResponse(
+                content="", model=self.model, provider="llama_cpp", error=str(e)
+            )
 
     async def check_available(self) -> bool:
         return os.path.exists(self._model_path)

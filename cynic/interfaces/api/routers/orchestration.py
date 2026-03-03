@@ -8,6 +8,7 @@ GET  /orchestration/status     " Status overview
 POST /orchestration/stop       " Stop services
 POST /orchestration/release    " Create release
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,7 @@ from cynic.orchestration import DockerManager, HealthMonitor, VersionManager
 
 logger = logging.getLogger(__name__)
 
+
 # Simple RBAC check helper (avoids Depends() import-time issues)
 async def _check_rbac(request, resource: str, permission: str = "WRITE") -> None:
     """Simple RBAC validation. Raises HTTPException if unauthorized."""
@@ -28,19 +30,21 @@ async def _check_rbac(request, resource: str, permission: str = "WRITE") -> None
 router = APIRouter(prefix="/api/orchestration", tags=["orchestration"])
 
 
-# 
+#
 # MODELS
-# 
+#
 
 
 class BuildRequest(BaseModel):
     """Build request."""
+
     version: str = "latest"
     services: list[str] | None = None
 
 
 class BuildResponse(BaseModel):
     """Build response."""
+
     success: bool
     image: str
     version: str
@@ -51,12 +55,14 @@ class BuildResponse(BaseModel):
 
 class DeployRequest(BaseModel):
     """Deploy request."""
+
     environment: str = "dev"  # dev, staging, prod
     pull: bool = True
 
 
 class DeployResponse(BaseModel):
     """Deploy response."""
+
     success: bool
     services: list[str]
     timestamp: str
@@ -66,6 +72,7 @@ class DeployResponse(BaseModel):
 
 class HealthCheckResponse(BaseModel):
     """Health check response."""
+
     service: str
     status: str  # healthy, unhealthy, starting
     timestamp: str
@@ -75,6 +82,7 @@ class HealthCheckResponse(BaseModel):
 
 class OrchestratorStatus(BaseModel):
     """Overall orchestrator status."""
+
     kernel_running: bool
     postgres_running: bool
     ollama_running: bool
@@ -85,6 +93,7 @@ class OrchestratorStatus(BaseModel):
 
 class ReleaseRequest(BaseModel):
     """Release request."""
+
     notes: str
     bump_type: str = "patch"  # patch, minor, major
     docker_image: str | None = None
@@ -92,15 +101,16 @@ class ReleaseRequest(BaseModel):
 
 class ReleaseResponse(BaseModel):
     """Release response."""
+
     version: str
     timestamp: str
     notes: str
     status: str
 
 
-# 
+#
 # DEPENDENCIES
-# 
+#
 
 
 def get_docker_manager() -> DockerManager:
@@ -118,9 +128,9 @@ def get_health_monitor() -> HealthMonitor:
     return HealthMonitor()
 
 
-# 
+#
 # ROUTES
-# 
+#
 
 
 @router.post("/build", response_model=BuildResponse)
@@ -216,7 +226,9 @@ async def get_status(
     health_dict = {h.service: h.status for h in health_results}
 
     kernel_running = "cynic" in health_dict and health_dict["cynic"] == "healthy"
-    postgres_running = "postgres-py" in health_dict and health_dict["postgres-py"] == "healthy"
+    postgres_running = (
+        "postgres-py" in health_dict and health_dict["postgres-py"] == "healthy"
+    )
     ollama_running = "ollama" in health_dict and health_dict["ollama"] == "healthy"
 
     return OrchestratorStatus(

@@ -9,6 +9,7 @@ Exposes CYNIC organism state to Claude Code via three endpoints:
 Uses aiohttp (stdlib-adjacent) for minimal dependencies.
 Connects to ServiceStateRegistry (Component 1 Tier 1 nervous system).
 """
+
 from __future__ import annotations
 
 import json
@@ -67,7 +68,9 @@ class MCPServer:
     async def start(self) -> None:
         """Start the MCP server."""
         if web is None:
-            raise RuntimeError("aiohttp not installed. Install with: pip install aiohttp")
+            raise RuntimeError(
+                "aiohttp not installed. Install with: pip install aiohttp"
+            )
 
         self.app = web.Application()
         self._setup_routes()
@@ -94,9 +97,9 @@ class MCPServer:
         self.app.router.add_get("/health", self._handle_health)
         logger.info("Routes registered: /observe, /act, /learn, /health")
 
-    # 
+    #
     # ENDPOINT HANDLERS
-    # 
+    #
 
     async def _handle_observe(self, request: web.Request) -> web.Response:
         """
@@ -223,6 +226,7 @@ class MCPServer:
                 output_summary = error or "Unknown error"
 
             from cynic.interfaces.mcp.models import ActResult
+
             result = ActResult(
                 action_id=req.action.action_id,
                 success=success,
@@ -233,7 +237,9 @@ class MCPServer:
                     "session_id": result_dict.get("session_id"),
                     "cost_usd": result_dict.get("cost_usd"),
                     "exec_id": result_dict.get("exec_id"),
-                } if success else None,
+                }
+                if success
+                else None,
             )
 
             resp = ActResponse(
@@ -306,9 +312,10 @@ class MCPServer:
 
             # Build learning signal - use judgment_id as state_key (simplified mapping)
             from cynic.kernel.organism.brain.learning.qlearning import LearningSignal
+
             learning_signal = LearningSignal(
                 state_key=req.signal.judgment_id,
-                action=req.signal.action if hasattr(req.signal, 'action') else "WAG",
+                action=req.signal.action if hasattr(req.signal, "action") else "WAG",
                 reward=reward,
                 judgment_id=req.signal.judgment_id,
                 timestamp=time.time(),
@@ -319,23 +326,28 @@ class MCPServer:
 
             # Emit USER_FEEDBACK event on CORE bus for learning loops + EScore
             try:
-                await get_core_bus("DEFAULT").emit(Event.typed(
-                    CoreEvent.USER_FEEDBACK,
-                    UserFeedbackPayload(
-                        rating=req.signal.rating,
-                        reward=reward,
-                        sentiment=reward - 0.5,  # [-0.5, 0.5]
-                        state_key=req.signal.judgment_id,
-                        action=req.signal.action if hasattr(req.signal, 'action') else "WAG",
-                        judgment_id=req.signal.judgment_id,
-                        comment=getattr(req.signal, "comment", ""),
-                    ),
-                ))
+                await get_core_bus("DEFAULT").emit(
+                    Event.typed(
+                        CoreEvent.USER_FEEDBACK,
+                        UserFeedbackPayload(
+                            rating=req.signal.rating,
+                            reward=reward,
+                            sentiment=reward - 0.5,  # [-0.5, 0.5]
+                            state_key=req.signal.judgment_id,
+                            action=req.signal.action
+                            if hasattr(req.signal, "action")
+                            else "WAG",
+                            judgment_id=req.signal.judgment_id,
+                            comment=getattr(req.signal, "comment", ""),
+                        ),
+                    )
+                )
             except Exception as event_err:
                 logger.warning("Failed to emit USER_FEEDBACK event: %s", event_err)
                 # Don't fail the whole learn endpoint " continue
 
             from cynic.interfaces.mcp.models import LearnResult
+
             result = LearnResult(
                 judgment_id=req.signal.judgment_id,
                 qtable_updated=req.update_qtable,
@@ -364,9 +376,9 @@ class MCPServer:
         """Health check endpoint."""
         return self._json_response({"status": "ok", "timestamp": time.time()})
 
-    # 
+    #
     # RESPONSE HELPERS
-    # 
+    #
 
     def _json_response(
         self,
@@ -379,7 +391,9 @@ class MCPServer:
             json_str = json.dumps(data.model_dump(), default=str)
         else:
             json_str = json.dumps(data, default=str)
-        return web.Response(text=json_str, status=status, content_type="application/json")
+        return web.Response(
+            text=json_str, status=status, content_type="application/json"
+        )
 
 
 async def run_mcp_server(

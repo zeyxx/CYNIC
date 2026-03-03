@@ -13,7 +13,10 @@ from contextvars import ContextVar
 logger = logging.getLogger("cynic.kernel.core.consciousness")
 
 # Context-local consciousness state
-current_consciousness: ContextVar[ConsciousnessState] = ContextVar("current_consciousness")
+current_consciousness: ContextVar[ConsciousnessState] = ContextVar(
+    "current_consciousness"
+)
+
 
 class ConsciousnessLevel(Enum):
     REFLEX = 0
@@ -25,13 +28,16 @@ class ConsciousnessLevel(Enum):
     def name(self) -> str:
         return super().name
 
+
 @dataclass(frozen=True)
 class RealityAnchor:
     """Defines the 'weight' of a reality and its cycle requirements."""
+
     reality: str
     min_cycles: int
     metabolic_priority: float  # [0, 1]
     default_level: ConsciousnessLevel
+
 
 REALITY_ANCHORS = {
     "CODE": RealityAnchor("CODE", 21, 0.9, ConsciousnessLevel.MACRO),
@@ -40,8 +46,10 @@ REALITY_ANCHORS = {
     "CYNIC": RealityAnchor("CYNIC", 34, 1.0, ConsciousnessLevel.MACRO),
 }
 
+
 def get_anchor(reality: str) -> RealityAnchor:
     return REALITY_ANCHORS.get(reality.upper(), REALITY_ANCHORS["SOCIAL"])
+
 
 @dataclass
 class ConsciousnessState:
@@ -75,15 +83,37 @@ class ConsciousnessState:
             "cycles_consumed": self.cycles_consumed,
         }
 
+
 def get_consciousness() -> ConsciousnessState:
     try:
         return current_consciousness.get()
     except LookupError:
         return ConsciousnessState()
 
+
 def dogs_for_level(level: ConsciousnessLevel) -> list[str]:
     if level == ConsciousnessLevel.REFLEX:
         return ["ANALYST", "ARCHITECT", "GUARDIAN"]
     if level == ConsciousnessLevel.MICRO:
-        return ["ANALYST", "ARCHITECT", "GUARDIAN", "JANITOR", "SCOUT", "CYNIC", "DEPLOYER"]
-    return ["ANALYST", "ARCHITECT", "GUARDIAN", "JANITOR", "SCOUT", "CYNIC", "DEPLOYER", "ORACLE", "SAGE", "SCHOLAR", "CARTOGRAPHER"]
+        return [
+            "ANALYST",
+            "ARCHITECT",
+            "GUARDIAN",
+            "JANITOR",
+            "SCOUT",
+            "CYNIC",
+            "DEPLOYER",
+        ]
+    return [
+        "ANALYST",
+        "ARCHITECT",
+        "GUARDIAN",
+        "JANITOR",
+        "SCOUT",
+        "CYNIC",
+        "DEPLOYER",
+        "ORACLE",
+        "SAGE",
+        "SCHOLAR",
+        "CARTOGRAPHER",
+    ]

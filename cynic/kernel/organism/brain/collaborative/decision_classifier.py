@@ -66,7 +66,9 @@ class DecisionClassifier:
         # Default: ask (consultation) for unknown decisions
         return DecisionClass.CONSULTATION
 
-    def learn_approval(self, decision: dict[str, Any], actual_class: DecisionClass) -> None:
+    def learn_approval(
+        self, decision: dict[str, Any], actual_class: DecisionClass
+    ) -> None:
         """Record approval of a decision type."""
         action = decision.get("action", "unknown")
         approvals, rejections = self.decision_history.get(action, (0, 0))
@@ -95,7 +97,11 @@ class DecisionClassifier:
             [d for d in self.learned_classes.values() if d == DecisionClass.AUTONOMOUS]
         )
         total_consultation = len(
-            [d for d in self.learned_classes.values() if d == DecisionClass.CONSULTATION]
+            [
+                d
+                for d in self.learned_classes.values()
+                if d == DecisionClass.CONSULTATION
+            ]
         )
         total_exploration = len(
             [d for d in self.learned_classes.values() if d == DecisionClass.EXPLORATION]

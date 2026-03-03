@@ -234,7 +234,9 @@ class MTLSMiddleware:
         # Note: The actual certificate is set by the SSL context
         # In production, the reverse proxy/load balancer would handle TLS termination
         # and pass the client cert via header (e.g., X-Client-Cert)
-        client_cert_der = scope.get("client_cert")  # Implementation depends on deployment
+        client_cert_der = scope.get(
+            "client_cert"
+        )  # Implementation depends on deployment
 
         if self.config.require_client_cert and not client_cert_der:
             # Send 401 Unauthorized
@@ -260,7 +262,9 @@ class MTLSMiddleware:
             from cryptography.hazmat.backends import default_backend
 
             try:
-                cert = x509.load_der_x509_certificate(client_cert_der, default_backend())
+                cert = x509.load_der_x509_certificate(
+                    client_cert_der, default_backend()
+                )
                 scope["client_identity"] = self.verifier.extract_client_identity(cert)
                 scope["client_cert_info"] = self.verifier.get_cert_info(cert)
             except Exception as e:

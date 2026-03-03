@@ -10,6 +10,7 @@ Coverage:
 - Timeout application in adapter
 - Fallback to NORMAL for unknown tools
 """
+
 import asyncio
 
 import pytest
@@ -81,7 +82,11 @@ class TestTimeoutConfig:
 
     def test_stream_tools_have_no_timeout(self):
         """Test that streaming tools have no timeout."""
-        stream_tools = ["cynic_watch_telemetry", "cynic_watch_source", "cynic_stream_judgments"]
+        stream_tools = [
+            "cynic_watch_telemetry",
+            "cynic_watch_source",
+            "cynic_stream_judgments",
+        ]
         for tool in stream_tools:
             timeout = TimeoutConfig.get_timeout(tool)
             assert timeout is None, f"{tool} should have None (indefinite) timeout"
@@ -90,8 +95,14 @@ class TestTimeoutConfig:
         """Test get_category returns correct TimeoutCategory."""
         assert TimeoutConfig.get_category("cynic_health") == TimeoutCategory.FAST
         assert TimeoutConfig.get_category("ask_cynic") == TimeoutCategory.NORMAL
-        assert TimeoutConfig.get_category("cynic_run_empirical_test") == TimeoutCategory.BATCH
-        assert TimeoutConfig.get_category("cynic_watch_telemetry") == TimeoutCategory.STREAM
+        assert (
+            TimeoutConfig.get_category("cynic_run_empirical_test")
+            == TimeoutCategory.BATCH
+        )
+        assert (
+            TimeoutConfig.get_category("cynic_watch_telemetry")
+            == TimeoutCategory.STREAM
+        )
 
     def test_unknown_tool_defaults_to_normal(self):
         """Test that unknown tools default to NORMAL timeout."""
@@ -197,7 +208,9 @@ class TestTimeoutApplication:
             return {"result": "done"}
 
         # Should complete successfully without timeout
-        result = await adapter._call_with_timeout("cynic_watch_telemetry", quick_operation())
+        result = await adapter._call_with_timeout(
+            "cynic_watch_telemetry", quick_operation()
+        )
         assert result == {"result": "done"}
 
     @pytest.mark.asyncio
@@ -258,7 +271,9 @@ class TestTimeoutEdgeCases:
         ]
 
         for tool in essential_tools:
-            assert tool in TimeoutConfig.TOOL_TIMEOUTS, f"Tool {tool} should be registered"
+            assert (
+                tool in TimeoutConfig.TOOL_TIMEOUTS
+            ), f"Tool {tool} should be registered"
 
     def test_timeout_values_are_reasonable(self):
         """Test that timeout values are reasonable and ordered correctly."""
@@ -268,7 +283,9 @@ class TestTimeoutEdgeCases:
         # All timeouts should be positive or None
         for tool_name, category in TimeoutConfig.TOOL_TIMEOUTS.items():
             timeout = category.value
-            assert timeout is None or timeout > 0, f"{tool_name} has invalid timeout {timeout}"
+            assert (
+                timeout is None or timeout > 0
+            ), f"{tool_name} has invalid timeout {timeout}"
 
     @pytest.mark.asyncio
     async def test_timeout_at_boundary(self):

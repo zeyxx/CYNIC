@@ -57,6 +57,7 @@ TEST_PROPOSALS = [
 @dataclass
 class Instance:
     """Represents a CYNIC instance."""
+
     instance_id: str
     community_id: str
     verdicts: dict = None
@@ -84,9 +85,7 @@ class MultiInstanceTest:
             "escore_check": {},
         }
 
-    async def run_instance_judgment(
-        self, instance: Instance, proposal: dict
-    ) -> dict:
+    async def run_instance_judgment(self, instance: Instance, proposal: dict) -> dict:
         """Run a judgment through an instance."""
         try:
             from cynic_integration import ask_cynic
@@ -117,11 +116,9 @@ class MultiInstanceTest:
         """Run test proposals through both instances."""
 
         for instance in self.instances:
-
             judgments = []
 
             for _i, proposal in enumerate(TEST_PROPOSALS, 1):
-
                 result = await self.run_instance_judgment(instance, proposal)
 
                 if "error" not in result:
@@ -176,7 +173,6 @@ class MultiInstanceTest:
                     }
                 )
 
-
         # Compare Q-Scores
 
         q_deltas = []
@@ -187,7 +183,6 @@ class MultiInstanceTest:
             delta = abs(q_a - q_b)
 
             q_deltas.append(delta)
-
 
         # Analysis
         avg_delta = sum(q_deltas) / len(q_deltas) if q_deltas else 0
@@ -206,7 +201,6 @@ class MultiInstanceTest:
         }
 
         self.results["isolation_analysis"] = analysis
-
 
         if analysis["isolation_status"] == "ISOLATED":
             return True
@@ -229,7 +223,6 @@ class MultiInstanceTest:
                 "global_reputation_synced": True,
                 "last_sync": datetime.now().isoformat(),
             }
-
 
             self.results["escore_check"] = escore_check
 
@@ -258,14 +251,10 @@ class MultiInstanceTest:
     def generate_report(self, passed: bool):
         """Generate final report."""
 
-
-
         if passed:
             pass
         else:
             pass
-
-
 
         # Save results
         results_file = Path("governance_bot/MULTI_INSTANCE_TEST_RESULTS.json")

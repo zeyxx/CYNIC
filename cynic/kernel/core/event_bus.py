@@ -24,41 +24,43 @@ logger = logging.getLogger("cynic.kernel.core.event_bus")
 events_emitted_total = Counter(
     "cynic_kernel_events_emitted_total",
     "Total number of events emitted",
-    ["event_type"]
+    ["event_type"],
 )
 
 handler_duration_seconds = Histogram(
     "cynic_kernel_handler_duration_seconds",
     "Time spent executing event handlers",
     ["event_type", "handler"],
-    buckets=(0.001, 0.01, 0.1, 0.5, 1.0, 5.0)
+    buckets=(0.001, 0.01, 0.1, 0.5, 1.0, 5.0),
 )
 
 pending_tasks_gauge = Gauge(
-    "cynic_kernel_pending_tasks",
-    "Current number of pending event handler tasks"
+    "cynic_kernel_pending_tasks", "Current number of pending event handler tasks"
 )
 
 backpressure_triggers_total = Counter(
     "cynic_kernel_backpressure_triggers_total",
-    "Total number of backpressure events triggered"
+    "Total number of backpressure events triggered",
 )
 
 handler_errors_total = Counter(
     "cynic_kernel_handler_errors_total",
     "Total number of handler errors",
-    ["event_type", "error_type"]
+    ["event_type", "error_type"],
 )
 
 current_instance_id: ContextVar[str] = ContextVar("current_instance_id")
 
 T = TypeVar("T")
 
+
 class CynicError(Exception):
     pass
 
+
 class EventBusError(CynicError):
     pass
+
 
 class CoreEvent(str, Enum):
     AWAKENED = "core.awakened"
@@ -120,8 +122,15 @@ class CoreEvent(str, Enum):
     DATA_ACCESSED = "security.data_accessed"
     SECURITY_EVENT = "security.event"
 
+
 class Event:
-    def __init__(self, type: str, payload: Any = None, source: str = "unknown", instance_id: str | None = None):
+    def __init__(
+        self,
+        type: str,
+        payload: Any = None,
+        source: str = "unknown",
+        instance_id: str | None = None,
+    ):
         self.type = type
         self.payload = payload
         self.source = source
@@ -136,7 +145,7 @@ class Event:
             "event_id": self.event_id,
             "instance_id": self.instance_id,
             "source": self.source,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
         }
 
     @property
@@ -147,10 +156,16 @@ class Event:
             return self.payload
         if hasattr(self.payload, "model_dump"):
             return self.payload.model_dump()
-        return vars(self.payload) if hasattr(self.payload, "__dict__") else {"data": self.payload}
+        return (
+            vars(self.payload)
+            if hasattr(self.payload, "__dict__")
+            else {"data": self.payload}
+        )
 
     @classmethod
-    def typed(cls, type: CoreEvent, payload: Any = None, source: str = "unknown") -> Event:
+    def typed(
+        cls, type: CoreEvent, payload: Any = None, source: str = "unknown"
+    ) -> Event:
         return cls(type.value if hasattr(type, "value") else str(type), payload, source)
 
     def as_typed(self, payload_type: type[T]) -> T:
@@ -166,7 +181,9 @@ class Event:
             EventBusError: If payload is None or fails validation
         """
         if self.payload is None:
-            raise EventBusError(f"Event payload is None, cannot cast to {payload_type.__name__}")
+            raise EventBusError(
+                f"Event payload is None, cannot cast to {payload_type.__name__}"
+            )
 
         # If payload is already the correct type, return it
         if isinstance(self.payload, payload_type):
@@ -177,29 +194,44 @@ class Event:
             if hasattr(payload_type, "model_validate"):
                 return payload_type.model_validate(self.payload)
         except Exception as e:
-            logger.debug("Pydantic validation failed for %s: %s", payload_type.__name__, e, exc_info=True)
+            logger.debug(
+                "Pydantic validation failed for %s: %s",
+                payload_type.__name__,
+                e,
+                exc_info=True,
+            )
 
         # Try direct instantiation if dict
         try:
             if isinstance(self.payload, dict):
                 return payload_type(**self.payload)
         except Exception as e:
-            raise EventBusError(f"Failed to validate payload as {payload_type.__name__}: {e}")
+            raise EventBusError(
+                f"Failed to validate payload as {payload_type.__name__}: {e}"
+            )
 
-        raise EventBusError(f"Payload type {type(self.payload).__name__} cannot be cast to {payload_type.__name__}")
+        raise EventBusError(
+            f"Payload type {type(self.payload).__name__} cannot be cast to {payload_type.__name__}"
+        )
+
 
 Handler = Callable[[Event], Coroutine[Any, Any, None]]
 
 _buses: dict[str, EventBus] = {}
 _buses_lock: threading.Lock = threading.Lock()  # Protect global buses dict
 
+
 class EventBus:
-    def __init__(self, bus_id: str, instance_id: str | None = None, task_registry: Any = None):
+    def __init__(
+        self, bus_id: str, instance_id: str | None = None, task_registry: Any = None
+    ):
         self.bus_id = bus_id
         self.instance_id = instance_id or "unknown"
         self.task_registry = task_registry
         self._handlers: dict[str, list[Handler]] = defaultdict(list)
-        self._handlers_lock: threading.Lock = threading.Lock()  # Protect handler mutation (sync safe)
+        self._handlers_lock: threading.Lock = (
+            threading.Lock()
+        )  # Protect handler mutation (sync safe)
         self._pending_tasks: set[asyncio.Task] = set()
         self._handler_timeout_s: float = 30.0
         self._bridge: Optional[Any] = None  # Distributed bridge hook
@@ -215,7 +247,7 @@ class EventBus:
         self._peak_pending: int = 0
 
         # Backpressure Settings (Lentille : Backend)
-        self.MAX_PENDING = 1000 # Critical threshold for 10k TPS readiness
+        self.MAX_PENDING = 1000  # Critical threshold for 10k TPS readiness
         self._backpressure_emitting: bool = False  # Guard against recursive emit
 
     def set_bridge(self, bridge: Any):
@@ -233,7 +265,9 @@ class EventBus:
             if name in self._handlers:
                 self._handlers[name] = [h for h in self._handlers[name] if h != handler]
 
-    async def _safe_handler_wrapper(self, handler: Handler, event: Event, handler_name: str) -> None:
+    async def _safe_handler_wrapper(
+        self, handler: Handler, event: Event, handler_name: str
+    ) -> None:
         """Wrap handler execution with timeout and error handling."""
         timeout = self._handler_timeout_s
         t_start = time.perf_counter()
@@ -242,14 +276,22 @@ class EventBus:
             await asyncio.wait_for(handler(event), timeout=timeout)
             # Record successful handler duration
             duration = time.perf_counter() - t_start
-            handler_duration_seconds.labels(event_type=event.type, handler=handler_name).observe(duration)
+            handler_duration_seconds.labels(
+                event_type=event.type, handler=handler_name
+            ).observe(duration)
         except asyncio.TimeoutError:
             # Lazy format only on error path (not in success path)
             duration = time.perf_counter() - t_start
-            handler_duration_seconds.labels(event_type=event.type, handler=handler_name).observe(duration)
+            handler_duration_seconds.labels(
+                event_type=event.type, handler=handler_name
+            ).observe(duration)
             error_msg = f"Handler {handler_name} timed out after {timeout}s for event {event.type}"
-            logger.warning(error_msg, extra={"event_id": event.event_id, "handler": handler_name})
-            handler_errors_total.labels(event_type=event.type, error_type="timeout").inc()
+            logger.warning(
+                error_msg, extra={"event_id": event.event_id, "handler": handler_name}
+            )
+            handler_errors_total.labels(
+                event_type=event.type, error_type="timeout"
+            ).inc()
             self._error_count += 1
             self._handler_errors[event.type].append(error_msg)
         except asyncio.CancelledError:
@@ -257,17 +299,27 @@ class EventBus:
         except Exception as exc:
             # Lazy format only on error path
             duration = time.perf_counter() - t_start
-            handler_duration_seconds.labels(event_type=event.type, handler=handler_name).observe(duration)
-            error_msg = f"Handler {handler_name} failed: {type(exc).__name__}: {str(exc)}"
-            logger.error(error_msg, exc_info=True, extra={"event_id": event.event_id, "handler": handler_name})
-            handler_errors_total.labels(event_type=event.type, error_type=type(exc).__name__).inc()
+            handler_duration_seconds.labels(
+                event_type=event.type, handler=handler_name
+            ).observe(duration)
+            error_msg = (
+                f"Handler {handler_name} failed: {type(exc).__name__}: {str(exc)}"
+            )
+            logger.error(
+                error_msg,
+                exc_info=True,
+                extra={"event_id": event.event_id, "handler": handler_name},
+            )
+            handler_errors_total.labels(
+                event_type=event.type, error_type=type(exc).__name__
+            ).inc()
             self._error_count += 1
             self._handler_errors[event.type].append(error_msg)
 
     async def emit(self, event: Event, distributed: bool = True) -> None:
         """Emit event locally and optionally distribute it via bridge."""
         t_start = time.perf_counter()
-        
+
         # 1. Backpressure Enforcement (Lentille: Backend / SRE)
         pending_count = len(self._pending_tasks)
         pending_tasks_gauge.set(pending_count)
@@ -282,9 +334,9 @@ class EventBus:
                 CoreEvent.PROPOSAL_EXECUTED,
                 CoreEvent.DISK_PRESSURE,
                 CoreEvent.MEMORY_PRESSURE,
-                CoreEvent.ANOMALY_DETECTED
+                CoreEvent.ANOMALY_DETECTED,
             }
-            
+
             if event.type not in critical_events:
                 # Drop non-critical signal to save the kernel
                 logger.warning(
@@ -310,12 +362,14 @@ class EventBus:
 
         for i, h in enumerate(handlers + wildcards):
             handler_name = getattr(h, "__name__", f"handler_{i}")
-            task = asyncio.create_task(self._safe_handler_wrapper(h, event, handler_name))
-            
+            task = asyncio.create_task(
+                self._safe_handler_wrapper(h, event, handler_name)
+            )
+
             # Register task synchronously for immediate tracking
             if self.task_registry:
                 self.task_registry.register(task)
-                
+
             self._pending_tasks.add(task)
             task.add_done_callback(self._pending_tasks.discard)
 
@@ -332,16 +386,17 @@ class EventBus:
         """Wait for all pending handler tasks to complete."""
         if not self._pending_tasks:
             return
-            
+
         try:
             # Snapshot pending tasks to avoid race with done_callbacks
             pending = list(self._pending_tasks)
             await asyncio.wait_for(
-                asyncio.gather(*pending, return_exceptions=True),
-                timeout=timeout
+                asyncio.gather(*pending, return_exceptions=True), timeout=timeout
             )
         except asyncio.TimeoutError:
-            logger.warning(f"[{self.instance_id}] EventBus drain timed out with {len(self._pending_tasks)} tasks remaining")
+            logger.warning(
+                f"[{self.instance_id}] EventBus drain timed out with {len(self._pending_tasks)} tasks remaining"
+            )
         except Exception as e:
             logger.error(f"[{self.instance_id}] EventBus drain failed: {e}")
         finally:
@@ -361,10 +416,12 @@ class EventBus:
             "peak_pending": self._peak_pending,
             "avg_latency_ms": self._total_latency_ms / max(self._emitted_count, 1),
             "error_rate": self._error_count / max(self._emitted_count, 1),
-            "load_factor": len(self._pending_tasks) / self.MAX_PENDING
+            "load_factor": len(self._pending_tasks) / self.MAX_PENDING,
         }
 
+
 _buses: dict[str, EventBus] = {}
+
 
 def get_bus(bus_id: str, instance_id: str | None = None) -> EventBus:
     """
@@ -383,12 +440,15 @@ def get_bus(bus_id: str, instance_id: str | None = None) -> EventBus:
             _buses[key] = EventBus(bus_id=key, instance_id=target_id)
         return _buses[key]
 
+
 def get_core_bus(instance_id: str | None = None) -> EventBus:
     """Get the core nervous system bus."""
     return get_bus("CORE", instance_id)
 
+
 def get_automation_bus(instance_id: str | None = None) -> EventBus:
     return get_bus("AUTOMATION", instance_id)
+
 
 async def reset_all_buses() -> None:
     """
@@ -406,6 +466,7 @@ async def reset_all_buses() -> None:
     # Clear after draining
     with _buses_lock:
         _buses.clear()
+
 
 def get_agent_bus(instance_id: str | None = None) -> EventBus:
     return get_bus("AGENT", instance_id)

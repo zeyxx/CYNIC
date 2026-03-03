@@ -1,4 +1,5 @@
 """7-layer consciousness dashboard panels."""
+
 from .ecosystem_layer import EcosystemLayer
 from .guardrails_layer import GuardrailsLayer
 from .nervous_layer import NervousLayer

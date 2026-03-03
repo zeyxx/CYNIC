@@ -45,11 +45,15 @@ class CynicMessage:
         """Validate -bounded confidence and wrap axiom_scores in MappingProxyType."""
         # Validate -bounded confidence
         if not (0 <= self.confidence <= 0.618):
-            raise ValueError(f"confidence must be -bounded [0, 0.618], got {self.confidence}")
+            raise ValueError(
+                f"confidence must be -bounded [0, 0.618], got {self.confidence}"
+            )
 
         # Wrap axiom_scores in MappingProxyType for true immutability
         if self.axiom_scores and not isinstance(self.axiom_scores, MappingProxyType):
-            object.__setattr__(self, "axiom_scores", MappingProxyType(self.axiom_scores))
+            object.__setattr__(
+                self, "axiom_scores", MappingProxyType(self.axiom_scores)
+            )
 
     @property
     def is_user_message(self) -> bool:

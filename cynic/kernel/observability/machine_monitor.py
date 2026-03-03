@@ -157,7 +157,10 @@ class MachineMonitor:
             current_bytes = net_io.bytes_sent + net_io.bytes_recv
             current_time = time.time()
 
-            if self._last_network_bytes is not None and self._last_network_time is not None:
+            if (
+                self._last_network_bytes is not None
+                and self._last_network_time is not None
+            ):
                 time_delta = current_time - self._last_network_time
                 if time_delta > 0:
                     bandwidth = (current_bytes - self._last_network_bytes) / time_delta

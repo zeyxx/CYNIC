@@ -89,7 +89,9 @@ class TestBaseJudge:
 
         # Test values below PHI_INV are preserved
         assert dog._calculate_phi_bounded_confidence(0.5) == 0.5
-        assert dog._calculate_phi_bounded_confidence(0.618) < PHI_INV  # 0.618 is less than PHI_INV
+        assert (
+            dog._calculate_phi_bounded_confidence(0.618) < PHI_INV
+        )  # 0.618 is less than PHI_INV
         assert dog._calculate_phi_bounded_confidence(0.0) == 0.0
 
         # Test that PHI_INV itself is returned for values >= PHI_INV

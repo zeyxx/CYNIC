@@ -8,6 +8,7 @@ Tests the core.phi module for:
 - Judgment thresholds
 - UCB formulas
 """
+
 import math
 
 import pytest
@@ -59,12 +60,12 @@ class TestPhiConstants:
 
     def test_phi_inv_relationship(self):
         """PHI_INV should equal 1/PHI."""
-        assert abs(PHI_INV - 1/PHI) < 1e-12
+        assert abs(PHI_INV - 1 / PHI) < 1e-12
         assert abs(PHI * PHI_INV - 1.0) < 1e-12
 
     def test_phi_inv_2_relationship(self):
         """PHI_INV_2 should equal 1/PHIÂ²."""
-        assert abs(PHI_INV_2 - 1/(PHI**2)) < 1e-12
+        assert abs(PHI_INV_2 - 1 / (PHI**2)) < 1e-12
 
     def test_phi_inv_sum(self):
         """PHI_INV + PHI_INV_2 should equal 1."""
@@ -296,7 +297,7 @@ class TestGeometricMean:
         """Higher weight on higher value should give higher result."""
         result1 = weighted_geometric_mean([0.8, 0.2], [0.9, 0.1])
         result2 = weighted_geometric_mean([0.8, 0.2], [0.1, 0.9])
-        
+
         # result1 should be closer to 0.8
         assert result1 > result2
 
@@ -322,7 +323,7 @@ class TestUCB:
     def test_phi_ucb_zero_visits(self):
         """Zero visits should return infinity."""
         result = phi_ucb(0.5, 0, 100)
-        assert result == float('inf')
+        assert result == float("inf")
 
     def test_phi_ucb_normal(self):
         """Should compute UCB."""
@@ -332,7 +333,7 @@ class TestUCB:
     def test_temporal_ucb_zero_visits(self):
         """Zero visits should return infinity."""
         result = phi_temporal_ucb(0.5, 0, 100, 3)
-        assert result == float('inf')
+        assert result == float("inf")
 
     def test_temporal_ucb_depth_decay(self):
         """Deeper nodes should have temporal decay (less exploration)."""

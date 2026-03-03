@@ -1,6 +1,7 @@
 """
 CYNIC CLI " `tui` command (Textual terminal interface).
 """
+
 from __future__ import annotations
 
 import sys
@@ -46,9 +47,11 @@ def cmd_tui() -> None:
             import asyncio
 
             from cynic.interfaces.cli.tui_dashboard import run_tui
+
             asyncio.run(run_tui(cynic_url=url or "http://localhost:8000"))
         else:
             from cynic.interfaces.tui.app import run as tui_run
+
             tui_run(base_url=url)
     except ImportError:
         sys.exit(1)

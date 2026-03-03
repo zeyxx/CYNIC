@@ -1,6 +1,7 @@
 """
 CYNIC benchmarks router " performance monitoring: auto-benchmark  probe  drift
 """
+
 from __future__ import annotations
 
 import logging
@@ -15,12 +16,15 @@ logger = logging.getLogger("cynic.interfaces.api.server")
 router_benchmarks = APIRouter(tags=["benchmarks"])
 
 
-# 
+#
 # GET /auto-benchmark/stats
-# 
+#
+
 
 @router_benchmarks.get("/auto-benchmark/stats")
-async def auto_benchmark_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
+async def auto_benchmark_stats(
+    container: AppContainer = Depends(get_app_container),
+) -> dict[str, Any]:
     """AutoBenchmark probe stats " interval, runs, enabled flag (T09)."""
     state = container.organism
     if state.auto_benchmark is None:
@@ -28,12 +32,15 @@ async def auto_benchmark_stats(container: AppContainer = Depends(get_app_contain
     return state.auto_benchmark.stats()
 
 
-# 
+#
 # POST /auto-benchmark/run
-# 
+#
+
 
 @router_benchmarks.post("/auto-benchmark/run")
-async def auto_benchmark_run(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
+async def auto_benchmark_run(
+    container: AppContainer = Depends(get_app_container),
+) -> dict[str, Any]:
     """Trigger an immediate AutoBenchmark round (T09)."""
     state = container.organism
     if state.auto_benchmark is None:
@@ -42,9 +49,10 @@ async def auto_benchmark_run(container: AppContainer = Depends(get_app_container
     return {"completed": completed}
 
 
-# 
+#
 # GET /benchmark/probe-snapshot
-# 
+#
+
 
 @router_benchmarks.get("/benchmark/probe-snapshot")
 async def benchmark_probe_snapshot(
@@ -66,9 +74,10 @@ async def benchmark_probe_snapshot(
     return {"available": True, "window": window, "source": source, "probes": probes}
 
 
-# 
+#
 # GET /benchmark/drift-alerts
-# 
+#
+
 
 @router_benchmarks.get("/benchmark/drift-alerts")
 async def benchmark_drift_alerts(

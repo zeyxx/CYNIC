@@ -14,10 +14,13 @@ from cynic.kernel.organism.reflexes.services import CognitionServices
 
 logger = logging.getLogger("cynic.kernel.organism.reflexes.meta_cognition")
 
+
 class MetaCognitionHandler(HandlerGroup):
     """Organism self-tuning and parameter adjustment."""
 
-    def __init__(self, cognition: CognitionServices, bus: Optional[EventBus] = None) -> None:
+    def __init__(
+        self, cognition: CognitionServices, bus: Optional[EventBus] = None
+    ) -> None:
         super().__init__(bus=bus)
         self._cognition = cognition
         self._ticks_processed = 0
@@ -51,14 +54,16 @@ class MetaCognitionHandler(HandlerGroup):
             if target == "DOG_REGISTRY":
                 from cynic.kernel.organism.brain.cognition.neurons.registry import SOULS
                 from cynic.kernel.organism.brain.cognition.neurons.base import DogId
-                
+
                 # Update the global registry
                 for dog_id in DogId:
                     soul = SOULS.get(dog_id)
                     if soul and hasattr(soul, parameter):
                         setattr(soul, parameter, new_value)
-                        logger.info(f"Meta-Cognition: Mutated {dog_id.name}.{parameter} -> {new_value}")
-                
+                        logger.info(
+                            f"Meta-Cognition: Mutated {dog_id.name}.{parameter} -> {new_value}"
+                        )
+
                 # Note: MasterDog instances share the soul objects in our implementation
                 # so the change is live.
 
@@ -77,17 +82,22 @@ class MetaCognitionHandler(HandlerGroup):
 
             # 1. Suppression du spam au dmarrage (Rigueur Senior)
             if self._ticks_processed < 5:
-                logger.debug("Meta-Cognition: Warm-up phase (tick %d)", self._ticks_processed)
+                logger.debug(
+                    "Meta-Cognition: Warm-up phase (tick %d)", self._ticks_processed
+                )
                 return
 
             # 2. Logique de rglage (en DEBUG pour ne pas polluer)
             if q_stability < 0.382:  # Below PHI_INV_2
                 logger.debug(
-                    "Meta-Cognition: Q-Stability low (%.3f). Tuning exploration.", q_stability
+                    "Meta-Cognition: Q-Stability low (%.3f). Tuning exploration.",
+                    q_stability,
                 )
 
             if axiom_health < 0.618:  # Below PHI_INV
-                logger.debug("Meta-Cognition: Axiom health suboptimal (%.3f).", axiom_health)
+                logger.debug(
+                    "Meta-Cognition: Axiom health suboptimal (%.3f).", axiom_health
+                )
 
         except Exception as e:
             logger.debug(f"MetaCognitionHandler error: {e}")

@@ -37,7 +37,9 @@ class OrganismManager:
     """
 
     def __init__(self, confidence_provider: Any):
-        self.confidence_provider = confidence_provider  # Usually OrganismState or Consciousness
+        self.confidence_provider = (
+            confidence_provider  # Usually OrganismState or Consciousness
+        )
 
     def should_execute(self, judgment: UnifiedJudgment) -> tuple[bool, str]:
         """
@@ -59,7 +61,10 @@ class OrganismManager:
 
         # 2. Epistemic Humility (phi^-2 threshold)
         if confidence < 0.382:
-            return False, f"VETO: Confidence too low ({confidence:.3f}) for autonomous action"
+            return (
+                False,
+                f"VETO: Confidence too low ({confidence:.3f}) for autonomous action",
+            )
 
         # 3. Verdict Alignment
         if verdict in ("BARK", "GROWL"):

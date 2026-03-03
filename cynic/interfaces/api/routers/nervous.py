@@ -11,6 +11,7 @@ GET  /nervous/journal/errors        " Errors since timestamp
 GET  /nervous/journal/stats         " Journal statistics
 POST /nervous/journal/clear         " Clear journal (testing only)
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,6 +25,7 @@ from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.nervous import EventCategory
 
 logger = logging.getLogger(__name__)
+
 
 # Simple RBAC check helper (avoids Depends() import-time issues)
 async def _check_rbac(request, resource: str, permission: str = "WRITE") -> None:
@@ -59,7 +61,9 @@ async def get_events_by_type(
 ) -> dict[str, Any]:
     """Get events of a specific type."""
     try:
-        events = await container.organism.event_journal.filter_by_type(event_type, limit=limit)
+        events = await container.organism.event_journal.filter_by_type(
+            event_type, limit=limit
+        )
         return {
             "event_type": event_type,
             "events": [e.to_dict() for e in events],
@@ -78,7 +82,9 @@ async def get_events_by_source(
 ) -> dict[str, Any]:
     """Get events from a specific component."""
     try:
-        events = await container.organism.event_journal.filter_by_source(source, limit=limit)
+        events = await container.organism.event_journal.filter_by_source(
+            source, limit=limit
+        )
         return {
             "source": source,
             "events": [e.to_dict() for e in events],
@@ -103,10 +109,12 @@ async def get_events_by_category(
         except ValueError:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid category. Valid: {[c.value for c in EventCategory]}"
+                detail=f"Invalid category. Valid: {[c.value for c in EventCategory]}",
             )
 
-        events = await container.organism.event_journal.filter_by_category(cat, limit=limit)
+        events = await container.organism.event_journal.filter_by_category(
+            cat, limit=limit
+        )
         return {
             "category": category,
             "events": [e.to_dict() for e in events],
@@ -153,9 +161,13 @@ async def get_causality_chain(
     """Trace causality chain (up=causes, down=effects)."""
     try:
         if direction not in ["up", "down"]:
-            raise HTTPException(status_code=400, detail="direction must be 'up' or 'down'")
+            raise HTTPException(
+                status_code=400, detail="direction must be 'up' or 'down'"
+            )
 
-        chain = await container.organism.event_journal.causality_chain(event_id, direction=direction)
+        chain = await container.organism.event_journal.causality_chain(
+            event_id, direction=direction
+        )
         return {
             "event_id": event_id,
             "direction": direction,
@@ -177,6 +189,7 @@ async def get_recent_errors(
     """Get error events since timestamp."""
     try:
         import time
+
         if since_ms is None:
             # Default: last hour
             since_ms = (time.time() - 3600) * 1000.0
@@ -232,9 +245,9 @@ async def clear_journal(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# 
+#
 # DECISION TRACE ENDPOINTS
-# 
+#
 
 
 @router.get("/trace/recent")
@@ -279,11 +292,12 @@ async def get_trace_by_judgment(
 ) -> dict[str, Any]:
     """Get decision trace for a judgment."""
     try:
-        trace = await container.organism.decision_tracer.get_trace_by_judgment(judgment_id)
+        trace = await container.organism.decision_tracer.get_trace_by_judgment(
+            judgment_id
+        )
         if not trace:
             raise HTTPException(
-                status_code=404,
-                detail=f"No trace for judgment {judgment_id}"
+                status_code=404, detail=f"No trace for judgment {judgment_id}"
             )
         return {"trace": trace.to_dict()}
     except HTTPException:
@@ -301,7 +315,9 @@ async def get_traces_by_verdict(
 ) -> dict[str, Any]:
     """Get traces filtered by final verdict."""
     try:
-        traces = await container.organism.decision_tracer.traces_by_verdict(verdict, limit=limit)
+        traces = await container.organism.decision_tracer.traces_by_verdict(
+            verdict, limit=limit
+        )
         return {
             "verdict": verdict,
             "traces": [t.to_dict() for t in traces],
@@ -373,9 +389,9 @@ async def clear_traces(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# 
+#
 # LOOP CLOSURE ENDPOINTS
-# 
+#
 
 
 @router.get("/closure/open")
@@ -385,7 +401,9 @@ async def get_open_cycles(
 ) -> dict[str, Any]:
     """Get cycles currently in progress."""
     try:
-        cycles = await container.organism.loop_closure_validator.get_open_cycles(max_age_ms)
+        cycles = await container.organism.loop_closure_validator.get_open_cycles(
+            max_age_ms
+        )
         return {
             "open_cycles": [c.to_dict() for c in cycles],
             "count": len(cycles),
@@ -402,7 +420,9 @@ async def get_stalled_phases(
 ) -> dict[str, Any]:
     """Get cycles with stalled phases."""
     try:
-        stalled = await container.organism.loop_closure_validator.get_stalled_phases(threshold_ms)
+        stalled = await container.organism.loop_closure_validator.get_stalled_phases(
+            threshold_ms
+        )
         return {
             "threshold_ms": threshold_ms,
             "stalled_cycles": [c.to_dict() for c in stalled],

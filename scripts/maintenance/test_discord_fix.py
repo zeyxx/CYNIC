@@ -52,7 +52,9 @@ async def test_error_handler_already_deferred():
     try:
         if not interaction.response.is_done():
             # This branch shouldn't execute
-            raise AssertionError("Should not try to defer an already-deferred interaction")
+            raise AssertionError(
+                "Should not try to defer an already-deferred interaction"
+            )
 
         await interaction.followup.send("Error message", ephemeral=True)
 
@@ -123,8 +125,12 @@ async def main():
     results = []
 
     # Run tests
-    results.append(("Error Handler Race Condition", await test_error_handler_defer_race()))
-    results.append(("Error Handler Already Deferred", await test_error_handler_already_deferred()))
+    results.append(
+        ("Error Handler Race Condition", await test_error_handler_defer_race())
+    )
+    results.append(
+        ("Error Handler Already Deferred", await test_error_handler_already_deferred())
+    )
     results.append(("Command Definitions", await test_command_signature()))
     results.append(("Fix Scripts Available", await test_sync_script_exists()))
 
@@ -135,7 +141,6 @@ async def main():
 
     for _test_name, _result in results:
         pass
-
 
     if passed == total:
         return 0

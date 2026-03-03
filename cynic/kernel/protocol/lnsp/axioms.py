@@ -75,7 +75,9 @@ class FidelityEvaluator(AxiomEvaluator):
             return 0.5  # Neutral for empty state
 
         numeric_values = [
-            v for v in state.values() if isinstance(v, int | float) and not isinstance(v, bool)
+            v
+            for v in state.values()
+            if isinstance(v, int | float) and not isinstance(v, bool)
         ]
 
         if not numeric_values:
@@ -275,7 +277,9 @@ class EmergenceEvaluator(AxiomEvaluator):
 
         # High emergence when variance is moderate (not unanimous, not chaotic)
         emergence_score = 1.0 - abs(consensus_variance - 0.5) * 2
-        emergence_score *= min(1.0, novel_patterns / 3.0)  # Scale by number of new patterns
+        emergence_score *= min(
+            1.0, novel_patterns / 3.0
+        )  # Scale by number of new patterns
 
         return float(max(0.0, min(emergence_score, 1.0)))
 
@@ -298,7 +302,9 @@ class AutonomyEvaluator(AxiomEvaluator):
             return 0.5
 
         # Autonomy high when decisions account for minority views
-        minority_representation = min(dog_votes) / max(dog_votes) if max(dog_votes) > 0 else 0.5
+        minority_representation = (
+            min(dog_votes) / max(dog_votes) if max(dog_votes) > 0 else 0.5
+        )
 
         # Also score based on decision confidence (autonomous = confident but not dogmatic)
         confidence = state.get("confidence", 0.5)

@@ -10,12 +10,13 @@ Port 8765 = -derived: 8 (F(6)) - 765... just looks good.
 Actually: floor( - 1000) = floor(11.09 - 1000) = 11090 ' too big ' 8765 (manual pick).
 The real reason: it doesn't conflict with common ports (3000, 8000, 8080, 8888).
 """
+
 import argparse
 import logging
 
 import uvicorn
 
-from cynic.kernel.core.config import CynicConfig
+from cynic.config import CynicConfig
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,14 +43,20 @@ def main() -> None:
     critical_issues = [i for i in issues if i.startswith("CRITICAL:")]
     is_prod = _config.environment not in ("development", "test", "local")
     if critical_issues and is_prod:
-        logger.error("Cannot start in production with critical configuration issues. Exiting.")
+        logger.error(
+            "Cannot start in production with critical configuration issues. Exiting."
+        )
         raise RuntimeError(f"Configuration validation failed: {critical_issues}")
 
     parser = argparse.ArgumentParser(description="CYNIC Kernel API Server")
     parser.add_argument("--host", default="0.0.0.0", help="Bind host")
     parser.add_argument("--port", type=int, default=_config.port, help="Bind port")
-    parser.add_argument("--reload", action="store_true", help="Auto-reload on code changes (dev only)")
-    parser.add_argument("--log-level", default="info", choices=["debug", "info", "warning", "error"])
+    parser.add_argument(
+        "--reload", action="store_true", help="Auto-reload on code changes (dev only)"
+    )
+    parser.add_argument(
+        "--log-level", default="info", choices=["debug", "info", "warning", "error"]
+    )
     args = parser.parse_args()
 
     logger.info("*sniff* Starting CYNIC kernel on %s:%d", args.host, args.port)

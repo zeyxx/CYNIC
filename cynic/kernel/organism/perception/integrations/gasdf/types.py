@@ -67,18 +67,20 @@ class GASdfStats:
     treasury: dict[str, object]
 
 
-#  Pydantic Validation Models 
+#  Pydantic Validation Models
 # Used for strict validation of HTTP responses (Rule 3: VERIFY)
 
 
 class HealthResponse(BaseModel):
     """Validated response from GASdf /health endpoint."""
+
     status: str
     timestamp: int | None = None
 
 
 class TokenInfo(BaseModel):
     """Validated token information from GASdf."""
+
     address: str
     symbol: str
     decimals: int = Field(ge=0, le=18)
@@ -87,6 +89,7 @@ class TokenInfo(BaseModel):
 
 class SubmitResponse(BaseModel):
     """Validated response from GASdf /v1/submit endpoint."""
+
     transaction_id: str = Field(alias="transactionId")
     status: str
     confirmed: bool = False

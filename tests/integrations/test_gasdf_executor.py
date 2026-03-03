@@ -1,4 +1,5 @@
 """Tests for GASdf executor."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -122,9 +123,7 @@ class TestGASdfExecutor:
         mock_client.get_quote.assert_not_called()
         mock_client.submit.assert_not_called()
 
-    async def test_execution_result_structure(
-        self, mock_client: AsyncMock
-    ) -> None:
+    async def test_execution_result_structure(self, mock_client: AsyncMock) -> None:
         """Test that execution result has correct structure."""
         mock_quote = GASdfQuote(
             quote_id="q_struct",

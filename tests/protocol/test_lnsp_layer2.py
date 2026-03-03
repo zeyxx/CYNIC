@@ -1,4 +1,5 @@
 """Comprehensive tests for LNSP Layer 2 aggregation and temporal windows."""
+
 from __future__ import annotations
 
 import time
@@ -6,8 +7,15 @@ import time
 import pytest
 
 from cynic.kernel.protocol.lnsp.layer2 import Aggregator, Layer2, TemporalWindow
-from cynic.kernel.protocol.lnsp.messages import create_aggregated_state, create_raw_observation
-from cynic.kernel.protocol.lnsp.types import AggregationType, LNSPMessage, ObservationType
+from cynic.kernel.protocol.lnsp.messages import (
+    create_aggregated_state,
+    create_raw_observation,
+)
+from cynic.kernel.protocol.lnsp.types import (
+    AggregationType,
+    LNSPMessage,
+    ObservationType,
+)
 
 # ============================================================================
 # Test Fixtures
@@ -460,7 +468,9 @@ class TestLayer2Aggregation:
         assert len(received2) == 1
 
     @pytest.mark.asyncio
-    async def test_layer2_aggregate_respects_should_aggregate(self, sample_observations):
+    async def test_layer2_aggregate_respects_should_aggregate(
+        self, sample_observations
+    ):
         """Test aggregate() only aggregates ready windows."""
         layer2 = Layer2()
         agg = CountingAggregator("agg_001")

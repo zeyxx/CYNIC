@@ -1,9 +1,10 @@
 """
 CYNIC Kernel API - FastAPI Gateway.
 
-Unified entry point for all CYNIC interactions. 
+Unified entry point for all CYNIC interactions.
 No logic resides here; it only exposes the Organism via HTTP.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,26 +27,31 @@ from cynic.interfaces.api.routers.mcp import router as router_mcp
 from cynic.interfaces.api.routers.nervous import router as router_nervous
 from cynic.interfaces.api.routers.organism import router as router_organism
 from cynic.interfaces.api.routers.sovereignty import router as router_sovereignty
-from cynic.interfaces.api.state import AppContainer, get_app_container, set_app_container
+from cynic.interfaces.api.state import (
+    AppContainer,
+    get_app_container,
+    set_app_container,
+)
 from cynic.kernel.organism.factory import awaken
 
 logger = logging.getLogger("cynic.interfaces.api.server")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manages the lifecycle of the CYNIC Organism within FastAPI."""
     instance_id = f"API-{uuid.uuid4().hex[:8]}"
-    
+
     # Initialize the Organism (Industrial Awakening)
     try:
         logger.info("CYNIC Awakening (instance=%s)...", instance_id)
         organism = await awaken()
         await organism.start()
-        
+
         # Set the global app container
         container = AppContainer(organism=organism)
         set_app_container(container)
-        
+
         logger.info("CYNIC Organism is ALIVE and serving API.")
         yield
     finally:
@@ -54,6 +60,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if container and container.organism:
             await container.organism.stop()
         logger.info("CYNIC Organism is DORMANT.")
+
 
 def create_app() -> FastAPI:
     """Creates and configures the FastAPI application."""
@@ -89,5 +96,6 @@ def create_app() -> FastAPI:
     app.include_router(router_metrics)
 
     return app
+
 
 app = create_app()

@@ -9,6 +9,7 @@ Protocol:
   event    ' {"type": "judgment|learning|meta_cycle|sona_tick", "payload": {...}, "ts": <float>}
   heartbeat ' {"type": "heartbeat", "ts": <float>} (every 30s if no real events)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -124,11 +125,13 @@ async def ws_telemetry(
 
     try:
         # Send connection banner
-        await websocket.send_json({
-            "type": "connected",
-            "ts": time.time(),
-            "phi": PHI,
-        })
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "ts": time.time(),
+                "phi": PHI,
+            }
+        )
         # Run both loops
         await asyncio.gather(_emit_loop(), _receive_loop())
     except WebSocketDisconnect:

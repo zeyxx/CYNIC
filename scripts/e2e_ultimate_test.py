@@ -1,99 +1,127 @@
 """
-CYNIC Ultimate Life Test â€” Prediction vs Reality.
+🌀 CYNIC E2E ULTIMATE TEST : The Ordeal of Materialization.
+Respects all 9 Lentilles.
 
-Proves that CYNIC can:
-1. Predict an outcome from code.
-2. Execute an action to verify it.
-3. Learn from the delta between dream and reality.
+This is the TRUE falsification of our session. It tests if the
+Daemon, Vascular, WorldModel, and Throttler work as ONE organism.
 """
+
 import asyncio
-import os
-import sys
-from pathlib import Path
+import logging
+from cynic.kernel.core.daemon import CynicDaemon
+from cynic.kernel.core.event_bus import CoreEvent, Event
 
-# Add root to path
-sys.path.append(os.getcwd())
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("cynic.e2e")
 
-from cynic.kernel.organism.organism import awaken
 
-async def ultimate_test():
-    print("\n--- ðŸ§¬ CYNIC ULTIMATE LIFE TEST ---")
-    
-    # 1. AWAKEN
-    o = await awaken()
-    await o.start()
-    
+async def run_ordeal():
+    print("============================================================")
+    print("🔥 INITIATING ULTIMATE FALSIFICATION (E2E Materialization)")
+    print("============================================================")
+
+    # 1. Initialize the Daemon
+    daemon = CynicDaemon()
+
     try:
-        # 2. CREATE DILEMMA (Instable Code)
-        dilemma_path = Path("dilemma.py")
-        dilemma_path.write_text("def unstable_fn():\n    # This function is intentionally broken\n    return 1 / 0\n", encoding="utf-8")
-        print(f"Step 1: Created physical dilemma at {dilemma_path}")
+        # 2. Start the Organism (Partial start for testing)
+        print("[1/4] AWAKENING CORE...")
+        daemon.rhythm.start()
 
-        # 3. PREDICT (Oracle Dog)
-        # Use BARK as the action because it's a valid verdict
-        target_action = "BARK" 
-        
-        print(f"Step 2: Asking ORACLE to predict outcome for action '{target_action}'...")
-        prediction_q = o.cognition.qtable.predict_q("dilemma:unstable_fn", target_action)
-        print(f"   - Oracle Current Q-Prediction: {prediction_q:.3f} (Before Learning)")
+        # 3. Simulate Reality (Data Injection)
+        print("[2/4] INJECTING SENSORY DATA...")
+        for i in range(5):
+            await daemon.bus.emit(
+                Event.typed(
+                    CoreEvent.JUDGMENT_CREATED,
+                    {
+                        "reality": "CODE",
+                        "verdict": "BARK",
+                        "q_score": 20.0 + i,
+                        "judgment_id": f"test-judge-{i}",
+                    },
+                    source="test_injector",
+                )
+            )
 
-        # 4. EXECUTE (Verify Reality)
-        print("Step 3: Verifying Reality via execution...")
-        success = False
-        error = ""
-        try:
-            import importlib
-            import dilemma
-            importlib.reload(dilemma)
-            dilemma.unstable_fn()
-            success = True
-        except Exception as e:
-            success = False
-            error = str(e)
-        
-        # Reality Score: 0.0 for failure, 1.0 for success
-        reality_reward = 0.0 if not success else 1.0
-        print(f"   - Reality Check: SUCCESS={success}, ERROR='{error}'")
-        print(f"   - Reality Reward Signal: {reality_reward}")
+        # Give time for the WorldModel to process
+        await asyncio.sleep(2)
 
-        # 5. LEARN (The Delta)
-        print("Step 4: Feeding the Prediction Error to the Learning Loop...")
-        
-        from cynic.kernel.core.event_bus import CoreEvent, Event
-        from cynic.kernel.core.events_schema import LearningEventPayload
-        
-        # We manually emit the learning event to simulate the feedback loop
-        await get_core_bus("DEFAULT").emit(Event.typed(
-            CoreEvent.LEARNING_EVENT,
-            LearningEventPayload(
-                state_key="dilemma:unstable_fn",
-                action=target_action,
-                reward=reality_reward,
-                q_value_old=prediction_q,
-                q_value_new=0.0 # Will be calculated by loop
-            ),
-            source="ultimate_test"
-        ))
-        
-        # Wait for async learning loop to process
-        await asyncio.sleep(0.5)
-        
-        # Final check: Q-Table update
-        new_q = o.cognition.qtable.predict_q("dilemma:unstable_fn", target_action)
-        print(f"   - Q-Table Verification: New Q-Value = {new_q:.3f}")
-        
-        if new_q < prediction_q or (reality_reward == 1.0 and new_q > prediction_q):
-            print("\nâœ… ULTIMATE TEST PASSED: CYNIC has learned from Reality.")
+        # 4. Falsify WorldModel Vectorization
+        print("[3/4] AUDITING WORLD VECTOR...")
+        # We need to access the WorldModel through the daemon (we'll add it if missing)
+        # For now, let's check if we can get a snapshot
+        from cynic.kernel.core.world_model import WorldModelUpdater
+
+        updater = WorldModelUpdater(bus=daemon.bus)
+        updater.start()
+
+        # Wait for another judgment
+        await daemon.bus.emit(
+            Event.typed(
+                CoreEvent.JUDGMENT_CREATED,
+                {"reality": "MARKET", "verdict": "WAG", "q_score": 88.0},
+                source="test_injector",
+            )
+        )
+        await asyncio.sleep(1)
+
+        state = updater.world_state()
+        vector = state.state_vector
+        print(f"  -> World Vector: {vector}")
+
+        if len(vector) == 7 and any(v != 0.5 for v in vector):
+            print("  ✅ VECTORIZATION VALIDATED.")
         else:
-            print("\nâŒ ULTIMATE TEST FAILED: Q-Value did not evolve as expected.")
+            print("  ❌ VECTORIZATION FAILED (Still neutral or wrong size).")
+            raise RuntimeError("Falsification: WorldModel is dead.")
+
+        # 5. Falsify Metabolic Throttling
+        print("[4/4] TESTING SOMATIC PULSE...")
+        metrics = await daemon.body.pulse()
+        print(f"  -> CPU: {metrics.cpu_percent}% | Mem: {metrics.memory_percent}%")
+
+        cost = daemon.body.get_metabolic_cost()
+        print(f"  -> Metabolic Cost: {cost:.4f}")
+
+        if cost >= 1.0:
+            print("  ✅ METABOLISM VALIDATED.")
+        else:
+            print("  ❌ METABOLISM FAILED.")
+            raise RuntimeError("Falsification: No heartbeat detected.")
+
+        # 6. Falsify Phi Incorruptibility
+        print("[5/5] SEALING TRUTH (PhiAuditor)...")
+        from cynic.kernel.security.vault import VaultSecretStore, VaultConfig
+        from cynic.kernel.security.phi_auditor import PhiAuditor
+        
+        vault = VaultSecretStore(config=VaultConfig(vault_addr="http://localhost:8200", vault_token="root"))
+        auditor = PhiAuditor(vault=vault)
+        
+        signature = await auditor.seal_truth(state)
+        print(f"  -> Truth Signature: {signature}")
+        
+        if signature.startswith("phi-sig-"):
+            print("  ✅ INCORRUPTIBILITY VALIDATED.")
+        else:
+            print("  ❌ AUDIT FAILED.")
+            raise RuntimeError("Falsification: Auditor is corrupt.")
+
+        print("\n" + "=" * 60)
+        print("RESULT: CYNIC MATERIALIZATION SUCCESSFUL.")
+        print("THE SYSTEM IS REAL AND INTERCONNECTED.")
+        print("=" * 60)
 
     except Exception as e:
-        print(f"\nâŒ ULTIMATE TEST FAILED: {e}")
+        print("\n" + "!" * 60)
+        print(f"RESULT: CYNIC IS FRAGILE. CRASH DETECTED: {e}")
+        print("!" * 60)
         import traceback
+
         traceback.print_exc()
     finally:
-        if dilemma_path.exists(): os.remove(dilemma_path)
-        await o.stop()
+        await daemon.stop()
+
 
 if __name__ == "__main__":
-    asyncio.run(ultimate_test())
+    asyncio.run(run_ordeal())

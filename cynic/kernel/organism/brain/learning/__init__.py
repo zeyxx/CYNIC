@@ -6,7 +6,11 @@ from cynic.kernel.organism.brain.learning.loops import (
     create_learning_loops,
     get_sona,
 )
-from cynic.kernel.organism.brain.learning.qlearning import LearningSignal, QEntry, QTable
+from cynic.kernel.organism.brain.learning.qlearning import (
+    LearningSignal,
+    QEntry,
+    QTable,
+)
 from cynic.kernel.organism.brain.learning.relationship_memory import RelationshipMemory
 
 __all__ = [

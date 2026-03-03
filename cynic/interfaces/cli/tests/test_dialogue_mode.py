@@ -47,13 +47,10 @@ async def test_dialogue_mode_context_for_explanation():
         "verdict": "WAG",
         "q_score": 78,
         "confidence": 0.5,
-        "axiom_scores": {"PHI": 0.8, "BURN": 0.6}
+        "axiom_scores": {"PHI": 0.8, "BURN": 0.6},
     }
 
-    context = dialogue_mode._prepare_context_for_llm(
-        "Why WAG?",
-        judgment
-    )
+    context = dialogue_mode._prepare_context_for_llm("Why WAG?", judgment)
 
     assert "question" in context
     assert "verdict" in context

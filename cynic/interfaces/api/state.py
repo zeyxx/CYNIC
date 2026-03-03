@@ -4,6 +4,7 @@ CYNIC API State -- Gateway to the unified Organism.
 One AppContainer per process. Initialized via FastAPI lifespan.
 All routes get this via Depends(get_app_container).
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,6 +42,7 @@ class AppContainer:
     The AppContainer is the single gateway to the CYNIC Organism for the API.
     It encapsulates the organism instance and process-specific metadata.
     """
+
     organism: "Organism"
     instance_id: str  # Unique per process
     guidance_path: str  # ~/.cynic/guidance-{instance_id}.json
@@ -52,27 +54,48 @@ class AppContainer:
 
     # --- Convenience properties mapping to Organism components ---
     @property
-    def orchestrator(self): return self.organism.orchestrator
+    def orchestrator(self):
+        return self.organism.orchestrator
+
     @property
-    def qtable(self): return self.organism.qtable
+    def qtable(self):
+        return self.organism.qtable
+
     @property
-    def learning_loop(self): return self.organism.learning_loop
+    def learning_loop(self):
+        return self.organism.learning_loop
+
     @property
-    def scheduler(self): return self.organism.scheduler
+    def scheduler(self):
+        return self.organism.scheduler
+
     @property
-    def runner(self): return self.organism.runner
+    def runner(self):
+        return self.organism.runner
+
     @property
-    def decide_agent(self): return self.organism.decide_agent
+    def decide_agent(self):
+        return self.organism.decide_agent
+
     @property
-    def escore_tracker(self): return self.organism.escore_tracker
+    def escore_tracker(self):
+        return self.organism.escore_tracker
+
     @property
-    def axiom_monitor(self): return self.organism.axiom_monitor
+    def axiom_monitor(self):
+        return self.organism.axiom_monitor
+
     @property
-    def lod_controller(self): return self.organism.lod_controller
+    def lod_controller(self):
+        return self.organism.lod_controller
+
     @property
-    def world_model(self): return self.organism.world_model
+    def world_model(self):
+        return self.organism.world_model
+
     @property
-    def container(self): return self.organism.container
+    def container(self):
+        return self.organism.container
 
 
 # Process-level singleton -- set during lifespan startup
@@ -106,6 +129,7 @@ def get_app_container() -> AppContainer:
 
 # --- Legacy Compatibility Layer ---
 
+
 def build_kernel(db_pool=None, registry=None) -> "Organism":
     """DEPRECATED: Use awaken()."""
     return awaken(db_pool, registry)
@@ -130,6 +154,7 @@ def get_state() -> "Organism":
 def awaken(db_pool=None, registry=None) -> "Organism":
     """Gateway to the true awakening in cynic.kernel.organism.organism."""
     from cynic.kernel.organism.organism import awaken as organism_awaken
+
     return organism_awaken(db_pool, registry)
 
 

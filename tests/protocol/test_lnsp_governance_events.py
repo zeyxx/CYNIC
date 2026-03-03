@@ -1,4 +1,5 @@
 """Test governance event payloads."""
+
 from __future__ import annotations
 
 from cynic.kernel.protocol.lnsp.governance_events import (

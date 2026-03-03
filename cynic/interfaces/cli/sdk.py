@@ -1,6 +1,7 @@
 """
 CYNIC CLI " `sdk` command (recent Claude Code SDK sessions, L2).
 """
+
 from __future__ import annotations
 
 import json
@@ -57,12 +58,17 @@ def cmd_sdk() -> None:
     if not sessions:
         return
 
-    _VERDICT_COLOR = {"BARK": "red", "GROWL": "orange", "WAG": "yellow", "HOWL": "green"}
+    _VERDICT_COLOR = {
+        "BARK": "red",
+        "GROWL": "orange",
+        "WAG": "yellow",
+        "HOWL": "green",
+    }
 
     for s in sessions:
-        verdict   = s.get("output_verdict", "?")
-        q_score   = float(s.get("output_q_score", 0))
-        task      = (s.get("task") or "")[:60]
+        verdict = s.get("output_verdict", "?")
+        q_score = float(s.get("output_q_score", 0))
+        task = (s.get("task") or "")[:60]
         s.get("task_type", "?")
         s.get("complexity", "?")
         float(s.get("total_cost_usd", 0))

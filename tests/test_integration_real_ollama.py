@@ -21,6 +21,7 @@ def has_ollama():
     """Check if Ollama is available at localhost:11434."""
     try:
         import requests
+
         resp = requests.get("http://localhost:11434/api/tags", timeout=3)
         return resp.status_code == 200
     except httpx.RequestError:
@@ -59,10 +60,11 @@ class TestOllamaConnection:
 
         # Create a real LLM request
         from cynic.kernel.organism.brain.llm.adapter import LLMRequest
+
         request = LLMRequest(
             messages=[
                 {"role": "system", "content": "You are a code quality analyzer."},
-                {"role": "user", "content": "Rate this code: def foo(): pass"}
+                {"role": "user", "content": "Rate this code: def foo(): pass"},
             ],
             model=selected_model,
             temperature=0.3,
@@ -77,7 +79,6 @@ class TestOllamaConnection:
         assert len(response.raw_message) > 0, "Response should not be empty"
         # Ollama returns plain text by default
         assert isinstance(response.raw_message, str), "Should be string"
-
 
     @pytest.mark.asyncio
     async def test_dog_judgment_with_real_ollama(self, has_ollama):
@@ -109,10 +110,18 @@ class TestOllamaConnection:
         judgment = await dog.judge_cell(cell, state)
 
         # Validate judgment properties
-        assert 0 <= judgment.q_score <= 100, f"Q-score out of bounds: {judgment.q_score}"
-        assert 0 <= judgment.confidence <= 0.618, f"Confidence exceeds Ï†â»Â¹: {judgment.confidence}"
-        assert judgment.verdict in ("BARK", "GROWL", "WAG", "HOWL"), f"Invalid verdict: {judgment.verdict}"
-
+        assert (
+            0 <= judgment.q_score <= 100
+        ), f"Q-score out of bounds: {judgment.q_score}"
+        assert (
+            0 <= judgment.confidence <= 0.618
+        ), f"Confidence exceeds Ï†â»Â¹: {judgment.confidence}"
+        assert judgment.verdict in (
+            "BARK",
+            "GROWL",
+            "WAG",
+            "HOWL",
+        ), f"Invalid verdict: {judgment.verdict}"
 
     @pytest.mark.asyncio
     async def test_ollama_model_discovery(self, has_ollama):
@@ -130,7 +139,9 @@ class TestOllamaConnection:
 
         # Get generation models (exclude embedding-only models like nomic-embed-text)
         gen_models = registry.get_available_for_generation()
-        assert len(gen_models) > 0, f"Should have generation models, got only: {all_models}"
+        assert (
+            len(gen_models) > 0
+        ), f"Should have generation models, got only: {all_models}"
 
         for _adapter in gen_models:
             pass
@@ -163,14 +174,17 @@ class TestOllamaConnection:
             analysis="JUDGE",
             registry=registry,
             model=model,
-            base_url="http://localhost:11434"
+            base_url="http://localhost:11434",
         )
 
         # Validate temporal judgment
-        assert 0 <= judgment.q_score <= 100, f"Q-score out of bounds: {judgment.q_score}"
-        assert 0 <= judgment.confidence <= 0.618, f"Confidence exceeds Ï†â»Â¹: {judgment.confidence}"
+        assert (
+            0 <= judgment.q_score <= 100
+        ), f"Q-score out of bounds: {judgment.q_score}"
+        assert (
+            0 <= judgment.confidence <= 0.618
+        ), f"Confidence exceeds Ï†â»Â¹: {judgment.confidence}"
         assert len(judgment.perspective_scores) > 0, "Should have perspective scores"
-
 
 
 class TestOllamaPerformance:
@@ -184,7 +198,11 @@ class TestOllamaPerformance:
 
         import time
 
-        from cynic.kernel.organism.brain.llm.adapter import LLMRegistry, LLMRequest, OllamaAdapter
+        from cynic.kernel.organism.brain.llm.adapter import (
+            LLMRegistry,
+            LLMRequest,
+            OllamaAdapter,
+        )
 
         registry = LLMRegistry()
         models = await registry.discover(ollama_url="http://localhost:11434")
@@ -218,7 +236,11 @@ class TestOllamaPerformance:
         import asyncio
         import time
 
-        from cynic.kernel.organism.brain.llm.adapter import LLMRegistry, LLMRequest, OllamaAdapter
+        from cynic.kernel.organism.brain.llm.adapter import (
+            LLMRegistry,
+            LLMRequest,
+            OllamaAdapter,
+        )
 
         registry = LLMRegistry()
         models = await registry.discover(ollama_url="http://localhost:11434")
@@ -237,10 +259,7 @@ class TestOllamaPerformance:
         )
 
         start = time.perf_counter()
-        responses = await asyncio.gather(*[
-            adapter.complete(request)
-            for _ in range(7)
-        ])
+        responses = await asyncio.gather(*[adapter.complete(request) for _ in range(7)])
         (time.perf_counter() - start) * 1000
 
         assert len(responses) == 7, "Should complete all 7 calls"
@@ -248,5 +267,6 @@ class TestOllamaPerformance:
 
 if __name__ == "__main__":
     import sys
+
     # Run with: py -3.13 -m pytest tests/test_integration_real_ollama.py -v -m integration
     sys.exit(__import__("pytest").main([__file__, "-v", "-m", "integration"]))

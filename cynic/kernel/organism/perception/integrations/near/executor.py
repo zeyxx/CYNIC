@@ -165,7 +165,9 @@ class NEARExecutor:
             gas=200_000_000_000_000,  # 200 TGas
         )
 
-        return await self._execute_contract_call(executor_id, contract_call, proposal_id, "execute")
+        return await self._execute_contract_call(
+            executor_id, contract_call, proposal_id, "execute"
+        )
 
     async def query_proposal(self, proposal_id: str) -> NEARGovernanceProposal:
         """Query proposal state from blockchain.
@@ -293,7 +295,9 @@ class NEARExecutor:
 
         while time.time() - start_time < timeout_seconds:
             try:
-                result = await self.rpc_client.get_transaction_result(tx_hash, signer_id)
+                result = await self.rpc_client.get_transaction_result(
+                    tx_hash, signer_id
+                )
 
                 # Check transaction status
                 outcome = result.get("transaction_outcome", {})
@@ -302,7 +306,9 @@ class NEARExecutor:
                 if "SuccessValue" in status_obj:
                     return NEARExecutionResult(
                         transaction_hash=tx_hash,
-                        block_height=result.get("transaction", {}).get("block_height", 0),
+                        block_height=result.get("transaction", {}).get(
+                            "block_height", 0
+                        ),
                         status=TxStatus.CONFIRMED,
                         gas_used=outcome.get("outcome", {}).get("gas_burnt", 0),
                         outcome=outcome,
@@ -310,7 +316,9 @@ class NEARExecutor:
                 elif "Failure" in status_obj:
                     return NEARExecutionResult(
                         transaction_hash=tx_hash,
-                        block_height=result.get("transaction", {}).get("block_height", 0),
+                        block_height=result.get("transaction", {}).get(
+                            "block_height", 0
+                        ),
                         status=TxStatus.FAILED,
                         gas_used=outcome.get("outcome", {}).get("gas_burnt", 0),
                         outcome=outcome,

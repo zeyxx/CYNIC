@@ -115,7 +115,9 @@ class TestProposalExecution:
         assert result.success is True
         assert result.proposal_id == "p5"
         assert result.dimension == "METRICS"
-        assert "logging" in result.message.lower() or "recorded" in result.message.lower()
+        assert (
+            "logging" in result.message.lower() or "recorded" in result.message.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_6_execute_qtable_proposal_succeeds(self):
@@ -125,11 +127,7 @@ class TestProposalExecution:
         # Create mock qtable
         class MockQTable:
             def __init__(self):
-                self._table = {
-                    "state_test": {
-                        "action_a": {"value": 0.3, "visits": 5}
-                    }
-                }
+                self._table = {"state_test": {"action_a": {"value": 0.3, "visits": 5}}}
 
             def update(self, state, action, new_value):
                 """Mock update method."""
@@ -154,7 +152,9 @@ class TestProposalExecution:
         assert result.success is True
         assert result.proposal_id == "p6"
         assert result.dimension == "QTABLE"
-        assert "updated" in result.message.lower() or "applied" in result.message.lower()
+        assert (
+            "updated" in result.message.lower() or "applied" in result.message.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_7_execute_qtable_when_not_injected_fails_gracefully(self):
@@ -177,7 +177,10 @@ class TestProposalExecution:
         result = await executor.execute(proposal)
         assert result.success is False
         assert result.proposal_id == "p7"
-        assert "not available" in result.message.lower() or "not injected" in result.message.lower()
+        assert (
+            "not available" in result.message.lower()
+            or "not injected" in result.message.lower()
+        )
 
 
 class TestExecutionResult:
@@ -261,9 +264,7 @@ class TestSelfProberExecutorIntegration:
         # Create mock qtable
         class MockQTable:
             def __init__(self):
-                self._table = {
-                    "state_a": {"action_1": {"value": 0.15, "visits": 5}}
-                }
+                self._table = {"state_a": {"action_1": {"value": 0.15, "visits": 5}}}
 
             def update(self, state, action, new_value):
                 if state in self._table and action in self._table[state]:
@@ -346,9 +347,7 @@ class TestSelfProberExecutorIntegration:
         # Create mock qtable
         class MockQTable:
             def __init__(self):
-                self._table = {
-                    "state_b": {"action_2": {"value": 0.10, "visits": 5}}
-                }
+                self._table = {"state_b": {"action_2": {"value": 0.10, "visits": 5}}}
 
             def update(self, state, action, new_value):
                 if state in self._table and action in self._table[state]:
@@ -504,9 +503,7 @@ class TestSelfProberExecutorIntegration:
         # Create mock qtable
         class MockQTable:
             def __init__(self):
-                self._table = {
-                    "state_e": {"action_5": {"value": 0.10, "visits": 5}}
-                }
+                self._table = {"state_e": {"action_5": {"value": 0.10, "visits": 5}}}
 
             def update(self, state, action, new_value):
                 if state in self._table and action in self._table[state]:
@@ -553,6 +550,7 @@ class TestCLIInterface:
     def test_16_cli_list_command_exists(self):
         """Test 16: CLI list command exists and can be invoked."""
         import subprocess
+
         result = subprocess.run(
             ["python", "-m", "cynic.interfaces.cli.probes_commands", "list"],
             capture_output=True,
@@ -611,6 +609,7 @@ class TestCLIInterface:
             assert pending[0].status == "PENDING"
         finally:
             import os
+
             os.unlink(temp_path)
 
     def test_18_cli_list_status_filter_applied(self):
@@ -672,6 +671,7 @@ class TestCLIInterface:
             assert all(p.status == "APPLIED" for p in applied)
         finally:
             import os
+
             os.unlink(temp_path)
 
     def test_19_cli_show_command_displays_proposal_details(self):
@@ -715,6 +715,7 @@ class TestCLIInterface:
             assert proposal.status == "PENDING"
         finally:
             import os
+
             os.unlink(temp_path)
 
     def test_20_cli_approve_command_marks_applied(self):
@@ -750,6 +751,7 @@ class TestCLIInterface:
             assert result.probe_id == "p_to_approve"
         finally:
             import os
+
             os.unlink(temp_path)
 
     def test_21_cli_dismiss_command_marks_dismissed(self):
@@ -785,6 +787,7 @@ class TestCLIInterface:
             assert result.probe_id == "p_to_dismiss"
         finally:
             import os
+
             os.unlink(temp_path)
 
     def test_22_cli_audit_command_shows_applied_and_dismissed(self):
@@ -849,6 +852,7 @@ class TestCLIInterface:
             assert any(p.status == "DISMISSED" for p in applied_and_dismissed)
         finally:
             import os
+
             os.unlink(temp_path)
 
     def test_23_cli_show_with_missing_probe_id_returns_none(self):
@@ -882,6 +886,7 @@ class TestCLIInterface:
             assert result is None
         finally:
             import os
+
             os.unlink(temp_path)
 
     def test_24_cli_stats_shows_proposal_counts(self):
@@ -957,6 +962,7 @@ class TestCLIInterface:
             assert stats["queue_size"] == 4
         finally:
             import os
+
             os.unlink(temp_path)
 
 
@@ -967,7 +973,10 @@ class TestProposalExecutorGuardrails:
     async def test_25_rate_limit_blocks_excessive_auto_apply(self):
         """Test 25: Rate limit blocks excessive auto-apply (3 proposals, 1/sec = 2+ seconds elapsed)."""
         import time
-        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber, SelfProposal
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import (
+            SelfProber,
+            SelfProposal,
+        )
         from cynic.kernel.core.event_bus import EventBus
 
         bus = EventBus("test_bus")
@@ -1021,7 +1030,10 @@ class TestProposalExecutorGuardrails:
     @pytest.mark.asyncio
     async def test_26_circuit_breaker_opens_after_max_failures(self):
         """Test 26: Circuit breaker disables after N failures (5 failures -> circuit open)."""
-        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber, SelfProposal
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import (
+            SelfProber,
+            SelfProposal,
+        )
         from cynic.kernel.core.event_bus import EventBus
 
         bus = EventBus("test_bus")
@@ -1059,7 +1071,10 @@ class TestProposalExecutorGuardrails:
     @pytest.mark.asyncio
     async def test_27_circuit_breaker_blocks_execution(self):
         """Test 27: Circuit breaker blocks execution (blocked proposal returns error with 'circuit breaker')."""
-        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber, SelfProposal
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import (
+            SelfProber,
+            SelfProposal,
+        )
         from cynic.kernel.core.event_bus import EventBus
 
         bus = EventBus("test_bus")
@@ -1100,7 +1115,10 @@ class TestProposalExecutorGuardrails:
     async def test_32_circuit_breaker_auto_resets_after_timeout(self):
         """Test 32: Circuit breaker auto-resets after timeout period (5 minutes)."""
         import time
-        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber, SelfProposal
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import (
+            SelfProber,
+            SelfProposal,
+        )
         from cynic.kernel.core.event_bus import EventBus
 
         bus = EventBus("test_bus")
@@ -1144,7 +1162,9 @@ class TestProposalExecutorGuardrails:
         # Inject qtable for next execution to succeed
         class MockQTable:
             def __init__(self):
-                self._table = {"state_recovery": {"action_recovery": {"value": 0.15, "visits": 5}}}
+                self._table = {
+                    "state_recovery": {"action_recovery": {"value": 0.15, "visits": 5}}
+                }
 
             def update(self, state, action, new_value):
                 if state in self._table and action in self._table[state]:
@@ -1174,7 +1194,10 @@ class TestProposalExecutorGuardrails:
     @pytest.mark.asyncio
     async def test_33_circuit_breaker_manual_reset(self):
         """Test 33: Circuit breaker can be manually reset by calling reset_circuit()."""
-        from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber, SelfProposal
+        from cynic.kernel.organism.brain.cognition.cortex.self_probe import (
+            SelfProber,
+            SelfProposal,
+        )
         from cynic.kernel.core.event_bus import EventBus
 
         bus = EventBus("test_bus")
@@ -1218,7 +1241,9 @@ class TestProposalExecutorGuardrails:
         # Inject qtable and verify we can execute again
         class MockQTable:
             def __init__(self):
-                self._table = {"state_manual": {"action_manual": {"value": 0.15, "visits": 5}}}
+                self._table = {
+                    "state_manual": {"action_manual": {"value": 0.15, "visits": 5}}
+                }
 
             def update(self, state, action, new_value):
                 if state in self._table and action in self._table[state]:
@@ -1247,7 +1272,9 @@ class TestProposalExecutorGuardrails:
     def test_28_proposal_rollback_records_executions(self):
         """Test 28: ProposalRollback records executions."""
         import tempfile
-        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import ProposalRollback
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import (
+            ProposalRollback,
+        )
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
@@ -1273,13 +1300,16 @@ class TestProposalExecutorGuardrails:
             assert history[0]["new_value"] == 0.30
         finally:
             import os
+
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
     def test_29_proposal_rollback_last_n_proposals(self):
         """Test 29: Rollback last N proposals."""
         import tempfile
-        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import ProposalRollback
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import (
+            ProposalRollback,
+        )
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
@@ -1312,6 +1342,7 @@ class TestProposalExecutorGuardrails:
             assert history[0]["proposal_id"] == "p0"
         finally:
             import os
+
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
@@ -1319,7 +1350,9 @@ class TestProposalExecutorGuardrails:
         """Test 30: Rollback since X minutes ago."""
         import time
         import tempfile
-        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import ProposalRollback
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import (
+            ProposalRollback,
+        )
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
@@ -1332,25 +1365,32 @@ class TestProposalExecutorGuardrails:
             old_time = now - (10 * 60)  # 10 minutes ago
 
             # Manually add old entries
-            from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import RollbackEntry
-            rollback._entries.append(RollbackEntry(
-                proposal_id="p0",
-                dimension="QTABLE",
-                target="state_0:action_0",
-                old_value=0.1,
-                new_value=0.3,
-                executed_at=old_time,
-                reversible=True,
-            ))
-            rollback._entries.append(RollbackEntry(
-                proposal_id="p1",
-                dimension="QTABLE",
-                target="state_1:action_1",
-                old_value=0.1,
-                new_value=0.3,
-                executed_at=old_time + 1,
-                reversible=True,
-            ))
+            from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import (
+                RollbackEntry,
+            )
+
+            rollback._entries.append(
+                RollbackEntry(
+                    proposal_id="p0",
+                    dimension="QTABLE",
+                    target="state_0:action_0",
+                    old_value=0.1,
+                    new_value=0.3,
+                    executed_at=old_time,
+                    reversible=True,
+                )
+            )
+            rollback._entries.append(
+                RollbackEntry(
+                    proposal_id="p1",
+                    dimension="QTABLE",
+                    target="state_1:action_1",
+                    old_value=0.1,
+                    new_value=0.3,
+                    executed_at=old_time + 1,
+                    reversible=True,
+                )
+            )
 
             # Record a recent entry
             rollback.record(
@@ -1376,13 +1416,16 @@ class TestProposalExecutorGuardrails:
             assert history[1]["proposal_id"] == "p0"
         finally:
             import os
+
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
     def test_31_proposal_rollback_history_returns_recent_entries(self):
         """Test 31: History returns recent entries."""
         import tempfile
-        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import ProposalRollback
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_rollback import (
+            ProposalRollback,
+        )
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
@@ -1411,6 +1454,7 @@ class TestProposalExecutorGuardrails:
             assert history[4]["proposal_id"] == "p5"
         finally:
             import os
+
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
@@ -1422,7 +1466,9 @@ class TestFactoryIntegration:
     async def test_34_factory_injects_executor_into_selfprober(self):
         """Test 34: Factory creates executor and injects into prober."""
         # Verify the wiring method exists
-        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import (
+            ProposalExecutor,
+        )
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
 
         executor = ProposalExecutor()
@@ -1434,7 +1480,9 @@ class TestFactoryIntegration:
     async def test_35_factory_executor_in_archivecore(self):
         """Test 35: ArchiveCore accepts executor field."""
         from cynic.kernel.organism.anatomy import ArchiveCore
-        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import (
+            ProposalExecutor,
+        )
         from cynic.kernel.organism.state_manager import OrganismState
         from cynic.kernel.core.event_bus import EventBus
 
@@ -1448,7 +1496,9 @@ class TestFactoryIntegration:
 
     async def test_36_factory_full_integration(self):
         """Test 36: Full factory integration - executor flows through system."""
-        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
+        from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import (
+            ProposalExecutor,
+        )
         from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
         from cynic.kernel.organism.anatomy import ArchiveCore
         from cynic.kernel.organism.state_manager import OrganismState

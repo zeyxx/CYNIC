@@ -1,6 +1,7 @@
 """
 CYNIC CLI " `review`, `watch`, `feedback` commands + `_print_action` helper.
 """
+
 from __future__ import annotations
 
 import sys
@@ -21,11 +22,11 @@ from cynic.interfaces.cli.utils import (
 def _print_action(action: dict, index: int, total: int) -> None:
     """Render one proposed action for the review screen."""
     action.get("action_id", "?")
-    atype     = action.get("action_type", "?")
-    verdict   = action.get("verdict", "?")
-    priority  = action.get("priority", 3)
+    atype = action.get("action_type", "?")
+    verdict = action.get("verdict", "?")
+    priority = action.get("priority", 3)
     action.get("description", "")
-    prompt    = action.get("prompt", "")[:120]
+    prompt = action.get("prompt", "")[:120]
     float(action.get("proposed_at", 0))
 
     _ATYPE_COLOR.get(atype, "white")
@@ -93,7 +94,6 @@ def cmd_review() -> None:
             skipped += 1
 
 
-
 def cmd_watch() -> None:
     """
     Poll for new pending actions every N seconds.
@@ -108,7 +108,6 @@ def cmd_watch() -> None:
     except ValueError:
         interval = 10
 
-
     last_count = -1
     last_ids: set = set()
 
@@ -119,14 +118,16 @@ def cmd_watch() -> None:
             pending, _api_ok = [], False
 
         current_ids = {a.get("action_id") for a in pending}
-        new_ids     = current_ids - last_ids
-        count       = len(pending)
+        new_ids = current_ids - last_ids
+        count = len(pending)
 
         if new_ids and last_ids:
             # New actions arrived
             for action_id in new_ids:
-                action = next((a for a in pending if a.get("action_id") == action_id), {})
-                atype  = action.get("action_type", "?")
+                action = next(
+                    (a for a in pending if a.get("action_id") == action_id), {}
+                )
+                atype = action.get("action_type", "?")
                 action.get("description", "")[:60]
                 _ATYPE_COLOR.get(atype, "white")
         elif count != last_count:
@@ -136,7 +137,7 @@ def cmd_watch() -> None:
                 pass
 
         last_count = count
-        last_ids   = current_ids
+        last_ids = current_ids
 
         try:
             time.sleep(interval)
@@ -172,9 +173,9 @@ def cmd_feedback() -> None:
     if result is None:
         sys.exit(1)
 
-    msg     = result.get("message", "")
+    msg = result.get("message", "")
     result.get("q_value", 0.0)
-    reward  = result.get("reward", 0.0)
+    reward = result.get("reward", 0.0)
     result.get("action", "?")
     result.get("state_key", "")[:40]
 

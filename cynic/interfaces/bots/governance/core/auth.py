@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 import jwt
 
-from cynic.kernel.core.config import CynicConfig
+from cynic.config import CynicConfig
 
 
 class AuthManager:
@@ -51,7 +51,7 @@ class AuthManager:
             "user_id": user_id,
             "roles": roles or [],
             "exp": datetime.utcnow() + timedelta(hours=self.expiry_hours),
-            "iat": datetime.utcnow()
+            "iat": datetime.utcnow(),
         }
 
         return jwt.encode(payload, self.secret, algorithm=self.algorithm)

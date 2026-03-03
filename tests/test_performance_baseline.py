@@ -37,9 +37,7 @@ async def test_event_emission_tps_baseline(organism):
     num_events = 1000
     events = [
         Event.typed(
-            CoreEvent.PERCEPTION_RECEIVED,
-            {"event_index": i},
-            source="performance_test"
+            CoreEvent.PERCEPTION_RECEIVED, {"event_index": i}, source="performance_test"
         )
         for i in range(num_events)
     ]
@@ -58,7 +56,9 @@ async def test_event_emission_tps_baseline(organism):
 
     # Log baseline result
     stats = bus.stats()
-    assert stats["emitted"] - initial_emitted >= num_events, "Not all events were emitted"
+    assert (
+        stats["emitted"] - initial_emitted >= num_events
+    ), "Not all events were emitted"
 
     print("\n=== Event Emission TPS Baseline ===")
     print(f"Events emitted: {num_events}")
@@ -109,24 +109,22 @@ async def test_judgment_cycle_tps_baseline(organism):
 
         for i in range(num_cycles):
             # Emit JUDGMENT_REQUESTED event
-            await bus.emit(Event.typed(
-                CoreEvent.JUDGMENT_REQUESTED,
-                {
-                    "judgment_id": f"judgment_{i}",
-                    "cycle_index": i
-                },
-                source="performance_test"
-            ))
+            await bus.emit(
+                Event.typed(
+                    CoreEvent.JUDGMENT_REQUESTED,
+                    {"judgment_id": f"judgment_{i}", "cycle_index": i},
+                    source="performance_test",
+                )
+            )
 
             # Emit corresponding JUDGMENT_CREATED response
-            await bus.emit(Event.typed(
-                CoreEvent.JUDGMENT_CREATED,
-                {
-                    "judgment_id": f"judgment_{i}",
-                    "cycle_index": i
-                },
-                source="performance_test"
-            ))
+            await bus.emit(
+                Event.typed(
+                    CoreEvent.JUDGMENT_CREATED,
+                    {"judgment_id": f"judgment_{i}", "cycle_index": i},
+                    source="performance_test",
+                )
+            )
 
         # Drain pending tasks
         await bus.drain(timeout=5.0)
@@ -137,8 +135,12 @@ async def test_judgment_cycle_tps_baseline(organism):
 
         # Log baseline result
         stats = bus.stats()
-        assert stats["emitted"] - initial_emitted >= (num_cycles * 2), "Not all cycle events were emitted"
-        assert cycle_count == num_cycles, f"Expected {num_cycles} judgment callbacks, got {cycle_count}"
+        assert stats["emitted"] - initial_emitted >= (
+            num_cycles * 2
+        ), "Not all cycle events were emitted"
+        assert (
+            cycle_count == num_cycles
+        ), f"Expected {num_cycles} judgment callbacks, got {cycle_count}"
 
         print("\n=== Judgment Cycle TPS Baseline ===")
         print(f"Judgment cycles: {num_cycles}")
@@ -193,11 +195,13 @@ async def test_event_bus_backpressure_handling(organism):
         t_start = time.perf_counter()
 
         for i in range(num_events):
-            await bus.emit(Event.typed(
-                CoreEvent.PERCEPTION_RECEIVED,
-                {"event_index": i},
-                source="performance_test"
-            ))
+            await bus.emit(
+                Event.typed(
+                    CoreEvent.PERCEPTION_RECEIVED,
+                    {"event_index": i},
+                    source="performance_test",
+                )
+            )
 
         await bus.drain(timeout=10.0)
         t_end = time.perf_counter()
@@ -212,7 +216,9 @@ async def test_event_bus_backpressure_handling(organism):
         print(f"Load factor: {stats['load_factor']:.2%}")
 
         # Verify backpressure handling
-        assert stats["emitted"] - initial_emitted >= num_events, "All events should be emitted despite backpressure"
+        assert (
+            stats["emitted"] - initial_emitted >= num_events
+        ), "All events should be emitted despite backpressure"
         assert stats["error_rate"] < 0.05, "Backpressure should not cause errors"
 
     finally:
@@ -237,11 +243,13 @@ async def test_event_bus_metrics_collection(organism):
     # Emit a known number of events
     num_events = 100
     for i in range(num_events):
-        await bus.emit(Event.typed(
-            CoreEvent.PERCEPTION_RECEIVED,
-            {"event_index": i},
-            source="performance_test"
-        ))
+        await bus.emit(
+            Event.typed(
+                CoreEvent.PERCEPTION_RECEIVED,
+                {"event_index": i},
+                source="performance_test",
+            )
+        )
 
     await bus.drain(timeout=5.0)
 
@@ -256,7 +264,9 @@ async def test_event_bus_metrics_collection(organism):
     print(f"Peak pending: {final_stats['peak_pending']}")
 
     # Verify metrics are accurate
-    assert final_stats["emitted"] >= initial_emitted + num_events, "Event count mismatch"
+    assert (
+        final_stats["emitted"] >= initial_emitted + num_events
+    ), "Event count mismatch"
     assert final_stats["avg_latency_ms"] >= 0, "Latency should be non-negative"
     assert 0 <= final_stats["error_rate"] <= 1.0, "Error rate should be 0-1"
     assert 0 <= final_stats["load_factor"] <= 2.0, "Load factor should be reasonable"

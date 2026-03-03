@@ -37,9 +37,9 @@ from cynic.kernel.core.formulas import (
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.dog_cognition")
 
 
-# 
+#
 # DOGCOGNITION " INDEPENDENT JUDGMENT ENGINE
-# 
+#
 
 
 @dataclass
@@ -50,7 +50,9 @@ class DogCognitionConfig:
     min_confidence: float = 0.0
     max_confidence: float = 0.618  # -bounded
     confidence_decay: float = CONFIDENCE_DECAY_FACTOR  # Imported from formulas.py
-    local_qtable_size: int = QTABLE_ENTRY_CAP  # F(11) = 89 rolling cap (imported from formulas.py)
+    local_qtable_size: int = (
+        QTABLE_ENTRY_CAP  # F(11) = 89 rolling cap (imported from formulas.py)
+    )
     gossip_threshold: float = GOSSIP_THRESHOLD  # Imported from formulas.py
 
 
@@ -88,7 +90,9 @@ class DogCognition:
             signals = self._perceive_domain(dog_state, cell)
 
             # STEP 2: JUDGE " Analyze with local expertise
-            q_score, confidence, reasoning = await self._judge_domain(dog_state, cell, signals)
+            q_score, confidence, reasoning = await self._judge_domain(
+                dog_state, cell, signals
+            )
 
             # STEP 3: DECIDE " Create verdict
             verdict = self._decide_verdict(q_score)
@@ -191,7 +195,9 @@ class DogCognition:
             if signal_types.get("security_issue", 0) > 0:
                 # Critical findings boost concern
                 base_score -= min(signal_types["security_issue"] * 8, 25)
-                reasoning_points.append(f"security_issue-{signal_types['security_issue']}")
+                reasoning_points.append(
+                    f"security_issue-{signal_types['security_issue']}"
+                )
 
             if signal_types.get("performance_gap", 0) > 0:
                 base_score -= signal_types["performance_gap"] * 3
@@ -228,13 +234,19 @@ class DogCognition:
 
         # Pattern frequency: how many times seen this state
         pattern_hits = len(
-            [q for q in dog_state.cognition.local_qtable.values() if abs(q - base_score) < 5]
+            [
+                q
+                for q in dog_state.cognition.local_qtable.values()
+                if abs(q - base_score) < 5
+            ]
         )  # Similar past judgments
 
         confidence = min(
             0.15  # Baseline
             + (clarity * 0.3)  # Signal clarity matters
-            + (pattern_hits / max(len(dog_state.cognition.local_qtable), 1) * 0.2),  # Pattern freq
+            + (
+                pattern_hits / max(len(dog_state.cognition.local_qtable), 1) * 0.2
+            ),  # Pattern freq
             self.config.max_confidence,
         )
 
@@ -273,7 +285,9 @@ class DogCognition:
             }
             dog_state.metabolism.pending_actions.append(action)
 
-    async def _learn_from_judgment(self, dog_state: DogState, cell: Cell, q_score: float) -> None:
+    async def _learn_from_judgment(
+        self, dog_state: DogState, cell: Cell, q_score: float
+    ) -> None:
         """LEARN: Update local Q-table and confidence history."""
         cell_id = str(getattr(cell, "id", "unknown"))
 
@@ -287,7 +301,9 @@ class DogCognition:
         if len(dog_state.cognition.local_qtable) > self.config.local_qtable_size:
             # Remove oldest entries
             items = list(dog_state.cognition.local_qtable.items())
-            dog_state.cognition.local_qtable = dict(items[-self.config.local_qtable_size :])
+            dog_state.cognition.local_qtable = dict(
+                items[-self.config.local_qtable_size :]
+            )
 
         # Update confidence history
         dog_state.cognition.confidence_history.append(
@@ -324,14 +340,18 @@ class DogCognition:
 
         return None
 
-    async def _evolve_strategy(self, dog_state: DogState, residual: dict[str, Any]) -> None:
+    async def _evolve_strategy(
+        self, dog_state: DogState, residual: dict[str, Any]
+    ) -> None:
         """EVOLVE: Adjust judgment strategy based on residuals."""
         # Record residual for learning
         dog_state.memory.residual_cases.append(residual)
 
         # Adjust confidence decay if residuals detected
         if residual["type"] == "SPIKE":
-            self.config.confidence_decay = max(0.90, self.config.confidence_decay - 0.01)
+            self.config.confidence_decay = max(
+                0.90, self.config.confidence_decay - 0.01
+            )
 
         logger.debug(f"[{self.dog_id}] Evolution triggered by {residual['type']}")
 

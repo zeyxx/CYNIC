@@ -18,6 +18,7 @@ from cynic.kernel.core.phi import MAX_CONFIDENCE, MAX_Q_SCORE
 # Global configuration for all models: Frozen (Immutable) and No extra fields allowed.
 _STRICT = ConfigDict(frozen=True, extra="forbid")
 
+
 def new_id() -> str:
     """Generate a new UUID4 string identifier."""
     return str(uuid.uuid4())
@@ -27,12 +28,20 @@ class Cell(BaseModel):
     """
     A specific point/state in the ^N hypercube.
     """
+
     model_config = _STRICT
 
     # Core coordinates
-    reality: str = Field(description="Reality dimension (CODE/SOLANA/MARKET/SOCIAL/HUMAN/CYNIC/COSMOS)")
-    analysis: str = Field(description="Analysis type (PERCEIVE/JUDGE/DECIDE/ACT/LEARN/ACCOUNT/EMERGE)")
-    time_dim: str = Field(default="PRESENT", description="Time dimension (PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE)")
+    reality: str = Field(
+        description="Reality dimension (CODE/SOLANA/MARKET/SOCIAL/HUMAN/CYNIC/COSMOS)"
+    )
+    analysis: str = Field(
+        description="Analysis type (PERCEIVE/JUDGE/DECIDE/ACT/LEARN/ACCOUNT/EMERGE)"
+    )
+    time_dim: str = Field(
+        default="PRESENT",
+        description="Time dimension (PAST/PRESENT/FUTURE/CYCLE/TREND/EMERGENCE/TRANSCENDENCE)",
+    )
 
     # Content
     content: Any = Field(description="The actual data being judged")
@@ -52,7 +61,9 @@ class Cell(BaseModel):
     risk: float = Field(default=0.0, ge=0.0, le=1.0)
 
     # Multimodal support
-    multimodal_packet_id: Optional[str] = Field(default=None, description="Reference to rich data in VascularSystem")
+    multimodal_packet_id: Optional[str] = Field(
+        default=None, description="Reference to rich data in VascularSystem"
+    )
 
     # Metadata
     cell_id: str = Field(default_factory=new_id)
@@ -67,6 +78,7 @@ class Judgment(BaseModel):
     """
     The immutable result of judging a Cell.
     """
+
     model_config = _STRICT
 
     judgment_id: str = Field(default_factory=new_id)
@@ -114,6 +126,7 @@ class Judgment(BaseModel):
 
 class ConsensusResult(BaseModel):
     """Result of PBFT consensus among Dogs."""
+
     model_config = _STRICT
 
     consensus: bool
@@ -128,6 +141,7 @@ class ConsensusResult(BaseModel):
 
 class EScoreDimension(BaseModel):
     """One dimension of E-Score 7D."""
+
     model_config = _STRICT
     name: str
     raw_score: float = Field(ge=0.0)
@@ -137,6 +151,7 @@ class EScoreDimension(BaseModel):
 
 class EScore(BaseModel):
     """Agent reputation score across 7 -weighted dimensions."""
+
     model_config = _STRICT
     agent_id: str
     total: float = Field(ge=0.0, le=100.0)
@@ -146,6 +161,7 @@ class EScore(BaseModel):
 
 class LearningEvent(BaseModel):
     """Record of what the system learned."""
+
     model_config = _STRICT
     event_id: str = Field(default_factory=new_id)
     loop_name: str
@@ -159,6 +175,7 @@ class LearningEvent(BaseModel):
 
 class PerceptionEvent(BaseModel):
     """Raw perception data from a Watcher."""
+
     model_config = _STRICT
     event_id: str = Field(default_factory=new_id)
     source: str

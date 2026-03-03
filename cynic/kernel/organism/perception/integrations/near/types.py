@@ -143,12 +143,13 @@ class NEARNetworkConfig:
     master_account: str
 
 
-#  Pydantic Validation Models 
+#  Pydantic Validation Models
 # Used for strict validation of NEAR RPC responses (Rule 3: VERIFY)
 
 
 class NEARRPCResponse(BaseModel):
     """Base response from NEAR RPC (JSON-RPC 2.0)."""
+
     jsonrpc: str = "2.0"
     id: str | int | None = None
     result: dict | None = None
@@ -157,8 +158,9 @@ class NEARRPCResponse(BaseModel):
 
 class NEARAccountInfo(BaseModel):
     """Validated NEAR account information from RPC."""
-    amount: str = Field(pattern=r'^\d+$')
-    locked: str = Field(pattern=r'^\d+$')
+
+    amount: str = Field(pattern=r"^\d+$")
+    locked: str = Field(pattern=r"^\d+$")
     code_hash: str
     storage_usage: int = Field(ge=0)
     storage_paid_at: int = Field(ge=0)
@@ -167,6 +169,7 @@ class NEARAccountInfo(BaseModel):
 
 class NEARBlockHeader(BaseModel):
     """Validated NEAR block header from RPC."""
+
     hash: str = Field(min_length=43, max_length=43)
     height: int = Field(ge=0)
     timestamp: int = Field(ge=0)

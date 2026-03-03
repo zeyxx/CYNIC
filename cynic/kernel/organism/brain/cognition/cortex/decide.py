@@ -270,11 +270,15 @@ class DecideAgent:
         reality = judgment.cell.reality if hasattr(judgment, "cell") else ""
         analysis = judgment.cell.analysis if hasattr(judgment, "cell") else ""
         content_preview = (
-            str(getattr(judgment.cell, "content", ""))[:200] if hasattr(judgment, "cell") else ""
+            str(getattr(judgment.cell, "content", ""))[:200]
+            if hasattr(judgment, "cell")
+            else ""
         )
         context = judgment.cell.context if hasattr(judgment, "cell") else ""
 
-        action_prompt = _build_action_prompt(reality, analysis, verdict, content_preview, context)
+        action_prompt = _build_action_prompt(
+            reality, analysis, verdict, content_preview, context
+        )
 
         return {
             "verdict": verdict,
@@ -319,7 +323,9 @@ class DecideAgent:
         q_value = q_entry.q_value if q_entry is not None else 0.0
 
         # Build action prompt (non-empty only for ACT_REALITIES " others get generic)
-        action_prompt = _build_action_prompt(reality, analysis, verdict, content_preview, context)
+        action_prompt = _build_action_prompt(
+            reality, analysis, verdict, content_preview, context
+        )
 
         await self._bus.emit(
             Event.typed(

@@ -22,9 +22,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-# 
+#
 # DOG COGNITION " Mini-BRAIN
-# 
+#
 
 
 @dataclass
@@ -54,9 +54,9 @@ class DogCognitionState:
     # Most recent Q-score
 
 
-# 
+#
 # DOG METABOLISM " Mini-BODY
-# 
+#
 
 
 @dataclass
@@ -80,9 +80,9 @@ class DogMetabolismState:
     # Recent execution times (for performance tracking)
 
 
-# 
+#
 # DOG SENSES " Mini-NERVOUS SYSTEM
-# 
+#
 
 
 @dataclass
@@ -109,9 +109,9 @@ class DogSensoryState:
     # When was this context last updated
 
 
-# 
+#
 # DOG MEMORY " Mini-ARCHIVE
-# 
+#
 
 
 @dataclass
@@ -138,9 +138,9 @@ class DogMemoryState:
     # peer_dog_id ' how much we trust their judgments
 
 
-# 
+#
 # DOGSTATE " COMPLETE MINI-CYNIC
-# 
+#
 
 
 @dataclass

@@ -44,21 +44,24 @@ class AxiomConstraint(Enum):
     VERIFY = {
         "name": "VERIFY",
         "description": "Don't trust, verify. Every judgment must explain itself.",
-        "constraint": lambda judgment: hasattr(judgment, 'justification') and judgment.justification is not None,
+        "constraint": lambda judgment: hasattr(judgment, "justification")
+        and judgment.justification is not None,
         "violations": [],
     }
 
     CULTURE = {
         "name": "CULTURE",
         "description": "Patterns matter. Every judgment learns from history.",
-        "constraint": lambda judgment: hasattr(judgment, 'precedent') and judgment.precedent is not None,
+        "constraint": lambda judgment: hasattr(judgment, "precedent")
+        and judgment.precedent is not None,
         "violations": [],
     }
 
     BURN = {
         "name": "BURN",
         "description": "Account for everything. No hidden costs, no free lunch.",
-        "constraint": lambda judgment: hasattr(judgment, 'cost_usd') and judgment.cost_usd is not None,
+        "constraint": lambda judgment: hasattr(judgment, "cost_usd")
+        and judgment.cost_usd is not None,
         "violations": [],
     }
 

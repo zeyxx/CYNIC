@@ -34,7 +34,13 @@ SDK_PATH = "/ws/sdk"
 
 # Claude Code CLI command " hardcoded, no shell interpolation
 _CLAUDE_BIN = "claude"
-_CLAUDE_FLAGS = ["--print", "--output-format", "stream-json", "--input-format", "stream-json"]
+_CLAUDE_FLAGS = [
+    "--print",
+    "--output-format",
+    "stream-json",
+    "--input-format",
+    "stream-json",
+]
 
 # Default model for CYNIC's own autonomous tasks.
 # Haiku: fast, cheap, sufficient for known-pattern tasks (debug/refactor/test).
@@ -143,7 +149,9 @@ class ClaudeCodeRunner:
 
             session = self._sessions.get(target_session_id)
             if session is None:
-                raise RuntimeError(f"Session {target_session_id} not in registry after connect")
+                raise RuntimeError(
+                    f"Session {target_session_id} not in registry after connect"
+                )
 
             # Tag session with task prompt for telemetry (runner path)
             if hasattr(session, "_task_prompt"):
@@ -180,7 +188,11 @@ class ClaudeCodeRunner:
             payload = await asyncio.wait_for(result_future, timeout=timeout)
             # cli_session_id from session registry (captured at system/init)
             completed_session = self._sessions.get(target_session_id)
-            cli_sid = getattr(completed_session, "cli_session_id", "") if completed_session else ""
+            cli_sid = (
+                getattr(completed_session, "cli_session_id", "")
+                if completed_session
+                else ""
+            )
             return {
                 "success": not payload.get("is_error", False),
                 "session_id": target_session_id,
@@ -191,7 +203,9 @@ class ClaudeCodeRunner:
             }
 
         except FileNotFoundError:
-            logger.warning("*head tilt* claude binary not found - install Claude Code CLI")
+            logger.warning(
+                "*head tilt* claude binary not found - install Claude Code CLI"
+            )
             return {
                 "success": False,
                 "error": "claude binary not found",

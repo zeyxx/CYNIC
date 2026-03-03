@@ -126,7 +126,9 @@ class PersistenceMetricsCollector:
             return {"status": "no_metrics", "metrics_collected": 0}
 
         recent_errors = [m for m in self.metrics[-100:] if not m.success]
-        error_rate = len(recent_errors) / len(self.metrics[-100:]) if self.metrics[-100:] else 0
+        error_rate = (
+            len(recent_errors) / len(self.metrics[-100:]) if self.metrics[-100:] else 0
+        )
 
         status = "healthy"
         if error_rate > 0.1:
@@ -167,5 +169,7 @@ async def measure_persistence(operation: str, coro):
         return result
     except CynicError as e:
         duration_ms = (time.time() - start) * 1000
-        metrics_collector.record_metric(operation, duration_ms, success=False, error=str(e))
+        metrics_collector.record_metric(
+            operation, duration_ms, success=False, error=str(e)
+        )
         raise

@@ -80,7 +80,6 @@ class Convergence:
         )
 
 
-
 class ConvergenceValidator:
     """
     Track organism announcements and verify outcomes.
@@ -91,7 +90,9 @@ class ConvergenceValidator:
     - Compare: did reality match announcement?
     """
 
-    def __init__(self, capacity: int = ACT_LOG_CAP):  # F(11) = 89 (imported from formulas.py)
+    def __init__(
+        self, capacity: int = ACT_LOG_CAP
+    ):  # F(11) = 89 (imported from formulas.py)
         self.capacity = capacity
         self._announcements: dict[str, Announcement] = {}  # id ' announcement
         self._convergences: list[Convergence] = []  # rolling log

@@ -33,11 +33,9 @@ async def test_sequential_emit_throughput():
     # Sequential emit baseline
     start = time.perf_counter()
     for i in range(500):
-        await bus.emit(Event(
-            type=CoreEvent.SONA_TICK.value,
-            payload={"i": i},
-            source="test"
-        ))
+        await bus.emit(
+            Event(type=CoreEvent.SONA_TICK.value, payload={"i": i}, source="test")
+        )
     await bus.drain()
     sequential_time = time.perf_counter() - start
 
@@ -69,11 +67,9 @@ async def test_handler_wrapper_latency():
     # Emit a batch and measure individual latencies
     start = time.perf_counter()
     for i in range(100):
-        await bus.emit(Event(
-            type=CoreEvent.SONA_TICK.value,
-            payload={"i": i},
-            source="test"
-        ))
+        await bus.emit(
+            Event(type=CoreEvent.SONA_TICK.value, payload={"i": i}, source="test")
+        )
     await bus.drain()
     total_time = time.perf_counter() - start
 
@@ -86,7 +82,9 @@ async def test_handler_wrapper_latency():
     # Per-event latency = total_time / 100, which should be well under 5ms even with overhead
     # This threshold would catch if _safe_handler_wrapper added significant per-event cost
     assert avg_latency < 5.0, f"Handler wrapper latency too high: {avg_latency:.2f}ms"
-    assert total_time > 0.001, "Time measurement valid"  # At minimum, should be > 1ms for concurrent 1ms sleeps
+    assert (
+        total_time > 0.001
+    ), "Time measurement valid"  # At minimum, should be > 1ms for concurrent 1ms sleeps
 
 
 @pytest.mark.asyncio
@@ -102,11 +100,9 @@ async def test_handler_error_path_latency():
 
     start = time.perf_counter()
     for i in range(100):
-        await bus.emit(Event(
-            type=CoreEvent.SONA_TICK.value,
-            payload={"i": i},
-            source="test"
-        ))
+        await bus.emit(
+            Event(type=CoreEvent.SONA_TICK.value, payload={"i": i}, source="test")
+        )
     await bus.drain()
     error_time = time.perf_counter() - start
 

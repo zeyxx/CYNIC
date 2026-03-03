@@ -1,4 +1,5 @@
 """Layer 2: Perceive worker activity."""
+
 from __future__ import annotations
 
 from rich.console import RenderableType
@@ -30,10 +31,7 @@ class PerceptionLayer(Static):
         table.add_row("SocialWatcher", self.social_status)
 
         return Panel(
-            table,
-            title=" PERCEPTION SOURCES",
-            border_style="yellow",
-            expand=False
+            table, title=" PERCEPTION SOURCES", border_style="yellow", expand=False
         )
 
     def update_from_snapshot(self, snapshot: dict) -> None:

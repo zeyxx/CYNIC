@@ -55,7 +55,11 @@ class KNetClient:
             try:
                 self._status = "SUTURING"
                 # Switch URI every retry to test both stacks
-                uri = self.primary_uri if self._retry_count % 2 == 0 else self.fallback_uri
+                uri = (
+                    self.primary_uri
+                    if self._retry_count % 2 == 0
+                    else self.fallback_uri
+                )
                 logger.debug(f"Nerve: Attempting connection to {uri}")
 
                 async with websockets.connect(uri, open_timeout=2.0) as ws:

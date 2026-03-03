@@ -79,7 +79,9 @@ def test_cynic_message__bounded_confidence_valid():
     assert msg1.confidence == 0.0
 
     # At upper boundary
-    msg2 = CynicMessage(message_type="reasoning", content="Because...", confidence=0.618)
+    msg2 = CynicMessage(
+        message_type="reasoning", content="Because...", confidence=0.618
+    )
     assert msg2.confidence == 0.618
 
     # In the middle

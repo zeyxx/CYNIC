@@ -5,6 +5,7 @@ Usage:
     adapter = BusJournalAdapter(journal)
     bus.on("*", adapter.on_event)
 """
+
 from __future__ import annotations
 
 from cynic.kernel.core.event_bus import Event
@@ -76,7 +77,6 @@ class BusJournalAdapter:
         self._journal = journal
         self._bus: Any = None  # Set via attach()
 
-
     def attach(self, bus: Any) -> None:
         """Store bus reference for cleanup."""
         self._bus = bus
@@ -87,7 +87,7 @@ class BusJournalAdapter:
             if self._bus is not None:
                 self._bus.off("*", self.on_event)
         except Exception as _e:
-            logger.debug(f'Silenced: {_e}')
+            logger.debug(f"Silenced: {_e}")
 
     async def on_event(self, event: Event) -> None:
         """Called by EventBus for every event (registered on "*")."""

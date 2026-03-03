@@ -11,6 +11,7 @@ Tests verify:
   - Thread safety (async lock protection)
   - Rolling cap enforcement (F(11)=89 judgments)
 """
+
 import asyncio
 import time
 from unittest import IsolatedAsyncioTestCase
@@ -360,15 +361,11 @@ class TestServiceStateRegistry(IsolatedAsyncioTestCase):
 
         # 20 concurrent registrations
         for i in range(20):
-            tasks.append(
-                self.registry.register(f"dog{i}", ComponentType.DOG)
-            )
+            tasks.append(self.registry.register(f"dog{i}", ComponentType.DOG))
 
         # 40 concurrent judgments
         for i in range(20):
-            tasks.append(
-                self.registry.record_judgment(f"dog{i}", f"j{i}", "WAG", 50.0)
-            )
+            tasks.append(self.registry.record_judgment(f"dog{i}", f"j{i}", "WAG", 50.0))
 
         await asyncio.gather(*tasks)
 
@@ -420,12 +417,16 @@ class TestServiceStateRegistry(IsolatedAsyncioTestCase):
     # SINGLETON TESTS
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    @pytest.mark.skip(reason="Singletons removed from design - each Organism manages its own registry")
+    @pytest.mark.skip(
+        reason="Singletons removed from design - each Organism manages its own registry"
+    )
     async def test_singleton_accessor(self) -> None:
         """get_service_registry returns singleton instance."""
         pass
 
-    @pytest.mark.skip(reason="Singletons removed from design - each Organism manages its own registry")
+    @pytest.mark.skip(
+        reason="Singletons removed from design - each Organism manages its own registry"
+    )
     async def test_singleton_reset(self) -> None:
         """reset_service_registry clears state."""
         pass

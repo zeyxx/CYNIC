@@ -6,6 +6,7 @@ Includes async-aware caching, concurrency control, and timeout management.
 
 Lentille: Backend / Site Reliability Engineer
 """
+
 import asyncio
 import functools
 import logging
@@ -15,13 +16,14 @@ logger = logging.getLogger("cynic.kernel.core.async_util")
 
 T = TypeVar("T")
 
+
 def async_cached(maxsize: int = 128):
     """
-    LRU Cache for coroutines. 
+    LRU Cache for coroutines.
     Correctly awaits and caches the RESULT, not the coroutine object.
     """
     cache: Dict[tuple, Any] = {}
-    
+
     def decorator(func: Callable[..., Coroutine[Any, Any, T]]):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
@@ -33,10 +35,12 @@ def async_cached(maxsize: int = 128):
                 cache.pop(next(iter(cache)))
             cache[key] = result
             return result
-        
+
         wrapper.cache_clear = lambda: cache.clear()
         return wrapper
+
     return decorator
+
 
 async def gather_with_concurrency(n: int, *coros: Coroutine[Any, Any, T]) -> list[T]:
     """Limits the number of concurrent coroutines."""
@@ -48,7 +52,10 @@ async def gather_with_concurrency(n: int, *coros: Coroutine[Any, Any, T]) -> lis
 
     return await asyncio.gather(*(sem_coro(c) for c in coros))
 
-async def wait_with_timeout(coro: Coroutine[Any, Any, T], timeout: float, name: str = "task") -> T:
+
+async def wait_with_timeout(
+    coro: Coroutine[Any, Any, T], timeout: float, name: str = "task"
+) -> T:
     """Standard timeout wrapper with structured logging."""
     try:
         return await asyncio.wait_for(coro, timeout=timeout)
@@ -56,13 +63,17 @@ async def wait_with_timeout(coro: Coroutine[Any, Any, T], timeout: float, name: 
         logger.warning(f"Async Timeout: {name} exceeded {timeout}s")
         raise
 
+
 class TaskTracker:
     """Tracks background tasks to ensure they are all awaited or cancelled on shutdown."""
+
     def __init__(self, name: str = "tracker"):
         self.name = name
         self._tasks: set[asyncio.Task] = set()
 
-    def create_task(self, coro: Coroutine[Any, Any, Any], name: Optional[str] = None) -> asyncio.Task:
+    def create_task(
+        self, coro: Coroutine[Any, Any, Any], name: Optional[str] = None
+    ) -> asyncio.Task:
         task = asyncio.create_task(coro, name=name)
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)

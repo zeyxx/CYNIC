@@ -24,6 +24,7 @@ Enables:
   - L2 Feedback loop: Claude Code can audit judgment reasoning
   - Meta-cognition: CYNIC analyzes its own decision patterns
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -47,34 +48,37 @@ TRACE_CAP = DECISION_TRACE_CAP
 
 class DogRole(StrEnum):
     """Role of a dog in judgment."""
-    PRIMARY = "primary"        # Initiated judgment
-    VOTER = "voter"            # Scored + voted
-    WITNESS = "witness"        # Observed but didn't influence
-    OVERRIDE = "override"      # Rejected other dogs' votes
+
+    PRIMARY = "primary"  # Initiated judgment
+    VOTER = "voter"  # Scored + voted
+    WITNESS = "witness"  # Observed but didn't influence
+    OVERRIDE = "override"  # Rejected other dogs' votes
 
 
 @dataclass
 class DogVote:
     """Single dog's contribution to judgment."""
+
     dog_id: str
     role: DogRole
-    q_score: float              # Their score (0-100)
-    confidence: float           # Their confidence (0-)
+    q_score: float  # Their score (0-100)
+    confidence: float  # Their confidence (0-)
     reasoning: str | None = None  # Short reasoning summary
 
 
 @dataclass
 class TraceNode:
     """Single node in decision trace DAG."""
-    node_id: str                # Hash of (judgment_id, phase)
-    phase: str                  # PERCEIVE / JUDGE / DECIDE / ACT / LEARN / etc
-    component: str              # Which component emitted
+
+    node_id: str  # Hash of (judgment_id, phase)
+    phase: str  # PERCEIVE / JUDGE / DECIDE / ACT / LEARN / etc
+    component: str  # Which component emitted
     timestamp_ms: float
     duration_ms: float
 
     # Inputs to this phase
-    input_keys: list[str]       # What data entered
-    input_sources: list[str]    # Where it came from
+    input_keys: list[str]  # What data entered
+    input_sources: list[str]  # Where it came from
 
     # Processing in this phase
     dog_votes: list[DogVote] = field(default_factory=list)  # If JUDGE phase
@@ -107,8 +111,9 @@ class TraceNode:
 @dataclass
 class DecisionTrace:
     """Complete trace of a judgment decision."""
-    trace_id: str               # Hash of judgment_id
-    judgment_id: str            # Which judgment this traces
+
+    trace_id: str  # Hash of judgment_id
+    judgment_id: str  # Which judgment this traces
     created_at_ms: float
 
     # DAG structure
@@ -117,7 +122,7 @@ class DecisionTrace:
 
     # Summary metrics
     total_duration_ms: float = 0.0
-    max_depth: int = 0          # Longest path from root to leaf
+    max_depth: int = 0  # Longest path from root to leaf
     branching_factor: float = 0.0  # Avg children per node
 
     # Final verdict (from leaf node)
@@ -270,7 +275,9 @@ class DecisionTracer:
         async with self._lock:
             trace = self._trace_map.get(trace_id)
             if not trace or phase_index >= len(trace.nodes):
-                logger.warning(f"Cannot add votes: trace={trace_id}, phase={phase_index}")
+                logger.warning(
+                    f"Cannot add votes: trace={trace_id}, phase={phase_index}"
+                )
                 return
 
             trace.nodes[phase_index].dog_votes = dog_votes
@@ -290,7 +297,7 @@ class DecisionTracer:
             # Build in-degree and adjacency from edge list
             in_degree: dict[str, int] = {n.node_id: 0 for n in trace.nodes}
             adjacency: dict[str, list[str]] = {n.node_id: [] for n in trace.nodes}
-            for (u, v) in trace.edges:
+            for u, v in trace.edges:
                 adjacency[u].append(v)
                 in_degree[v] += 1
 
@@ -298,21 +305,24 @@ class DecisionTracer:
 
             # Kahn's topological sort
             from collections import deque as _dq
+
             queue = _dq(nid for nid, deg in in_degree.items() if deg == 0)
             ordered = []
             while queue:
                 nid = queue.popleft()
                 node = node_map.get(nid)
                 if node:
-                    ordered.append({
-                        "node_id": node.node_id,
-                        "phase": node.phase,
-                        "component": node.component,
-                        "verdict": node.output_verdict,
-                        "q_score": node.output_q_score,
-                        "duration_ms": node.duration_ms,
-                        "is_error": node.is_error,
-                    })
+                    ordered.append(
+                        {
+                            "node_id": node.node_id,
+                            "phase": node.phase,
+                            "component": node.component,
+                            "verdict": node.output_verdict,
+                            "q_score": node.output_q_score,
+                            "duration_ms": node.duration_ms,
+                            "is_error": node.is_error,
+                        }
+                    )
                 for neighbor in adjacency.get(nid, []):
                     in_degree[neighbor] -= 1
                     if in_degree[neighbor] == 0:
@@ -366,11 +376,11 @@ class DecisionTracer:
             if self._stats["total_traced"] > 0:
                 n = self._stats["total_traced"]
                 self._stats["avg_duration_ms"] = (
-                    (self._stats["avg_duration_ms"] * (n - 1) + trace.total_duration_ms) / n
-                )
+                    self._stats["avg_duration_ms"] * (n - 1) + trace.total_duration_ms
+                ) / n
                 self._stats["avg_depth"] = (
-                    (self._stats["avg_depth"] * (n - 1) + trace.max_depth) / n
-                )
+                    self._stats["avg_depth"] * (n - 1) + trace.max_depth
+                ) / n
 
             logger.debug(f"Trace finalized: {trace_id} | verdict={final_verdict}")
 
@@ -416,7 +426,9 @@ class DecisionTracer:
 
         children_count = [0] * len(trace.nodes)
         for src, _dst in trace.edges:
-            src_idx = next((i for i, n in enumerate(trace.nodes) if n.node_id == src), -1)
+            src_idx = next(
+                (i for i, n in enumerate(trace.nodes) if n.node_id == src), -1
+            )
             if src_idx >= 0:
                 children_count[src_idx] += 1
 
@@ -445,20 +457,22 @@ class DecisionTracer:
             traces = list(self._traces)
             return traces[-limit:][::-1]
 
-    async def traces_by_verdict(self, verdict: str, limit: int = 50) -> list[DecisionTrace]:
+    async def traces_by_verdict(
+        self, verdict: str, limit: int = 50
+    ) -> list[DecisionTrace]:
         """Get traces with specific verdict."""
         async with self._lock:
-            matching = [
-                t for t in self._traces
-                if t.final_verdict == verdict
-            ]
+            matching = [t for t in self._traces if t.final_verdict == verdict]
             return matching[-limit:][::-1]
 
-    async def traces_by_component(self, component: str, limit: int = 50) -> list[DecisionTrace]:
+    async def traces_by_component(
+        self, component: str, limit: int = 50
+    ) -> list[DecisionTrace]:
         """Get traces that involved a component."""
         async with self._lock:
             matching = [
-                t for t in self._traces
+                t
+                for t in self._traces
                 if any(n.component == component for n in t.nodes)
             ]
             return matching[-limit:][::-1]

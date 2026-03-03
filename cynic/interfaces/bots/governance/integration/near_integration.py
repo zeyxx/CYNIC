@@ -17,11 +17,7 @@ class TransactionSigner:
         return self.key_manager.sign(message)
 
     def create_transaction(
-        self,
-        receiver_id: str,
-        actions: list,
-        nonce: int,
-        block_hash: str
+        self, receiver_id: str, actions: list, nonce: int, block_hash: str
     ) -> dict[str, Any]:
         """Create a signed transaction"""
         # Transaction structure for NEAR
@@ -31,7 +27,7 @@ class TransactionSigner:
             "nonce": nonce,
             "receiver_id": receiver_id,
             "block_hash": block_hash,
-            "actions": actions
+            "actions": actions,
         }
 
         return transaction
@@ -66,6 +62,7 @@ class NearRpcClient:
 
     async def __aenter__(self):
         import aiohttp
+
         self.session = aiohttp.ClientSession()
         return self
 
@@ -76,34 +73,31 @@ class NearRpcClient:
     async def _call_rpc(self, method: str, params: dict[str, Any]) -> dict:
         """Call NEAR RPC method"""
         import aiohttp
+
         if not self.session:
             self.session = aiohttp.ClientSession()
 
-        payload = {
-            "jsonrpc": "2.0",
-            "id": "1",
-            "method": method,
-            "params": params
-        }
+        payload = {"jsonrpc": "2.0", "id": "1", "method": method, "params": params}
 
         async with self.session.post(self.rpc_url, json=payload) as resp:
             return await resp.json()
 
     async def get_account_nonce(self, account_id: str) -> int:
         """Get current nonce for account"""
-        result = await self._call_rpc("query", {
-            "request_type": "view_account",
-            "account_id": account_id,
-            "finality": "final"
-        })
+        result = await self._call_rpc(
+            "query",
+            {
+                "request_type": "view_account",
+                "account_id": account_id,
+                "finality": "final",
+            },
+        )
 
         return result["result"]["nonce"]
 
     async def send_transaction(self, transaction: dict[str, Any]) -> str:
         """Send transaction and return hash"""
-        result = await self._call_rpc("broadcast_tx_commit", {
-            "signed_tx": transaction
-        })
+        result = await self._call_rpc("broadcast_tx_commit", {"signed_tx": transaction})
 
         if "result" in result:
             return result["result"]["hash"]
@@ -111,18 +105,15 @@ class NearRpcClient:
             raise RuntimeError(f"Transaction failed: {result}")
 
     async def poll_transaction_status(
-        self,
-        tx_hash: str,
-        max_polls: int = 10,
-        poll_interval: float = 1.0
+        self, tx_hash: str, max_polls: int = 10, poll_interval: float = 1.0
     ) -> dict[str, Any]:
         """Poll for transaction confirmation"""
         import asyncio
+
         for attempt in range(max_polls):
-            result = await self._call_rpc("tx", {
-                "hash": tx_hash,
-                "wait_until": "FINAL"
-            })
+            result = await self._call_rpc(
+                "tx", {"hash": tx_hash, "wait_until": "FINAL"}
+            )
 
             if result.get("result"):
                 return result["result"]
@@ -130,12 +121,12 @@ class NearRpcClient:
             if attempt < max_polls - 1:
                 await asyncio.sleep(poll_interval)
 
-        raise TimeoutError(f"Transaction {tx_hash} did not confirm within {max_polls * poll_interval}s")
+        raise TimeoutError(
+            f"Transaction {tx_hash} did not confirm within {max_polls * poll_interval}s"
+        )
 
     async def get_block_hash(self) -> str:
         """Get latest block hash for transactions"""
-        result = await self._call_rpc("block", {
-            "finality": "final"
-        })
+        result = await self._call_rpc("block", {"finality": "final"})
 
         return result["result"]["header"]["hash"]

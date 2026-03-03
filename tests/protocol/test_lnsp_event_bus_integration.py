@@ -1,4 +1,5 @@
 """Test LNSP integration with CYNIC event bus."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -42,15 +43,17 @@ async def test_governance_verdicts_through_pipeline() -> None:
     manager.layer4.on_feedback(capture_verdict)
 
     # Process a proposal
-    await bridge.process_proposal({
-        "proposal_id": "prop_001",
-        "title": "Test",
-        "content": "Test proposal",
-        "submitter_id": "user_1",
-        "community_id": "test",
-        "submission_timestamp": 1708982400.0,
-        "voting_period_hours": 48,
-    })
+    await bridge.process_proposal(
+        {
+            "proposal_id": "prop_001",
+            "title": "Test",
+            "content": "Test proposal",
+            "submitter_id": "user_1",
+            "community_id": "test",
+            "submission_timestamp": 1708982400.0,
+            "voting_period_hours": 48,
+        }
+    )
 
     # Verdict should have been emitted (feedback captured)
     # Note: May be empty if no axioms registered, but pipeline should execute

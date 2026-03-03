@@ -1,4 +1,5 @@
 """Comprehensive tests for LNSP Layer 4: Action Execution and Feedback Loop."""
+
 from __future__ import annotations
 
 import pytest
@@ -301,8 +302,7 @@ class TestLayer4Feedback:
         assert feedback is not None
         assert feedback.header.source == "test:handler"
         assert (
-            feedback.payload["observation_type"]
-            == ObservationType.ACTION_RESULT.value
+            feedback.payload["observation_type"] == ObservationType.ACTION_RESULT.value
         )
 
     @pytest.mark.asyncio

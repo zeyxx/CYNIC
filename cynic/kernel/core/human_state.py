@@ -155,7 +155,9 @@ class HumanStateModel:
             restore = min(rest_cycles * _REST_RESTORE, 20.0)
             self._state.energy = min(100.0, self._state.energy + restore)
             self._state.stress = max(0.0, self._state.stress - restore * 0.5)
-            logger.debug("HumanStateModel: rest gap %.0fs ' energy restored +%.1f", gap, restore)
+            logger.debug(
+                "HumanStateModel: rest gap %.0fs ' energy restored +%.1f", gap, restore
+            )
         else:
             self._apply_decay()
         self._last_activity_ts = now
@@ -200,7 +202,9 @@ class HumanStateModel:
         decay = elapsed * _DECAY_RATE_PER_S
         self._state.energy = max(0.0, self._state.energy - decay)
         self._state.focus = max(0.0, self._state.focus - decay)
-        self._state.stress = max(0.0, self._state.stress - decay * 0.5)  # stress decays slower
+        self._state.stress = max(
+            0.0, self._state.stress - decay * 0.5
+        )  # stress decays slower
         self._state.updated_at = now
 
     def _touch(self) -> None:

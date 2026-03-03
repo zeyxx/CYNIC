@@ -6,6 +6,7 @@ Spawns batch judgment loops via orchestrator.
 Collects telemetry from SONA heartbeat every N iterations.
 Persists results to ~/.cynic/results/ asynchronously.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -117,8 +118,14 @@ class EmpiricalRunner:
             for i in range(count):
                 try:
                     # Call orchestrator to run one judgment cycle
-                    judgment_result = await orchestrator.judge()  # Returns {q_score, verdict, ...}
-                    q_score = judgment_result.get("q_score", 0.0) if isinstance(judgment_result, dict) else 0.0
+                    judgment_result = (
+                        await orchestrator.judge()
+                    )  # Returns {q_score, verdict, ...}
+                    q_score = (
+                        judgment_result.get("q_score", 0.0)
+                        if isinstance(judgment_result, dict)
+                        else 0.0
+                    )
 
                     result.q_scores.append(q_score)
 
@@ -140,12 +147,16 @@ class EmpiricalRunner:
                 result.avg_q = sum(result.q_scores) / len(result.q_scores)
                 result.min_q = min(result.q_scores)
                 result.max_q = max(result.q_scores)
-                result.learning_efficiency = result.avg_q / baseline_q if baseline_q > 0 else 1.0
+                result.learning_efficiency = (
+                    result.avg_q / baseline_q if baseline_q > 0 else 1.0
+                )
 
             result.duration_s = time.time() - start_time
             result.status = "complete"
 
-            logger.info(f"Test job {job_id} complete: avg_q={result.avg_q:.1f}, eff={result.learning_efficiency:.2f}x, time={result.duration_s:.1f}s")
+            logger.info(
+                f"Test job {job_id} complete: avg_q={result.avg_q:.1f}, eff={result.learning_efficiency:.2f}x, time={result.duration_s:.1f}s"
+            )
 
             # Persist result
             await self._persist_result(job_id, result)
@@ -167,7 +178,9 @@ class EmpiricalRunner:
 
         result = self.jobs[job_id]
         iterations_done = len(result.q_scores)
-        progress_pct = (iterations_done / result.iterations * 100) if result.iterations > 0 else 0
+        progress_pct = (
+            (iterations_done / result.iterations * 100) if result.iterations > 0 else 0
+        )
 
         # Estimate time remaining
         elapsed = time.time() - result.timestamp
@@ -227,13 +240,15 @@ class EmpiricalRunner:
         impacts = []
         for ax in axioms:
             # Would disable axiom, run 1000 judgments, measure Q degradation
-            impacts.append({
-                "name": ax,
-                "baseline_q": 52.4,
-                "disabled_q": 38.1,
-                "impact_percent": 27.3,
-                "irreducible": True,
-            })
+            impacts.append(
+                {
+                    "name": ax,
+                    "baseline_q": 52.4,
+                    "disabled_q": 38.1,
+                    "impact_percent": 27.3,
+                    "irreducible": True,
+                }
+            )
 
         return {"axiom_impacts": impacts}
 

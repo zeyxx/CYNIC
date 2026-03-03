@@ -16,6 +16,7 @@ from cynic.kernel.organism.perception.federation.gossip import GossipManager
 
 logger = logging.getLogger("cynic.kernel.organism.reflexes.federation")
 
+
 class FederationHandler(HandlerGroup):
     """Handler group that manages P2P knowledge sharing."""
 

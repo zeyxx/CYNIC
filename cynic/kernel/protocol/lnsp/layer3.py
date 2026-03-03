@@ -180,7 +180,7 @@ class Layer3:
             judgment_type=JudgmentType.STATE_EVALUATION,
             verdict=verdict,
             q_score=q_score,
-            confidence=0.618,  # 
+            confidence=0.618,  #
             axiom_scores=axiom_scores,
             data={
                 "state_summary": state,

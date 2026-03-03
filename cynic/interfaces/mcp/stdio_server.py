@@ -98,7 +98,7 @@ class CynicMCPServer:
                     server_name="CYNIC",
                     server_version="1.0.0",
                     capabilities=self.mcp_server.get_capabilities(
-                        notification_options=self.mcp_server.get_notification_options(),
+                        notification_options={},  # type: ignore
                         experimental_capabilities={},
                     ),
                 ),

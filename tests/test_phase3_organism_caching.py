@@ -4,7 +4,9 @@ PHASE 3: Organism Caching and Lifecycle Integration â€” EMPIRICAL VERSION
 Tests that the session-scoped organism cache in conftest.py works
 and that the organism remains stable across tests.
 """
+
 import pytest
+
 
 @pytest.mark.asyncio
 class TestOrganismCaching:
@@ -20,6 +22,7 @@ class TestOrganismCaching:
         assert organism is not None
         # Verify it's still breathing
         assert organism.state._processing is True
+
 
 @pytest.mark.asyncio
 class TestOrganismStateConsistency:

@@ -11,13 +11,17 @@ Tests verify that:
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
 
 
 import pytest
+
 pytestmark = pytest.mark.skip(reason="Old architecture, modules removed")
 
 import pytest
@@ -44,7 +48,10 @@ class TestMetricsEndpoint:
     def test_metrics_returns_prometheus_format(self, client):
         """GET /metrics should return Prometheus text format."""
         response = client.get("/api/observability/metrics")
-        assert response.headers.get("content-type") == "text/plain; version=1.0.0; charset=utf-8"
+        assert (
+            response.headers.get("content-type")
+            == "text/plain; version=1.0.0; charset=utf-8"
+        )
 
     def test_metrics_contains_help_lines(self, client):
         """Prometheus metrics should have HELP comments."""
@@ -130,8 +137,7 @@ class TestCorrelationIds:
         """Custom correlation_id should be preserved."""
         custom_id = "test-correlation-123"
         response = client.get(
-            "/api/observability/version",
-            headers={"X-Correlation-ID": custom_id}
+            "/api/observability/version", headers={"X-Correlation-ID": custom_id}
         )
         assert response.headers.get("X-Correlation-ID") == custom_id
 
@@ -193,13 +199,17 @@ class TestReadinessProbe:
     For production testing, use uvicorn server directly.
     """
 
-    @pytest.mark.skip(reason="Requires AppContainer initialization via lifespan context")
+    @pytest.mark.skip(
+        reason="Requires AppContainer initialization via lifespan context"
+    )
     def test_ready_returns_200_or_500(self, client):
         """Readiness probe should return 200 or 503 when container is initialized."""
         response = client.get("/api/observability/ready")
         assert response.status_code in [200, 503]
 
-    @pytest.mark.skip(reason="Requires AppContainer initialization via lifespan context")
+    @pytest.mark.skip(
+        reason="Requires AppContainer initialization via lifespan context"
+    )
     def test_ready_returns_json_or_error(self, client):
         """Readiness probe should return JSON."""
         response = client.get("/api/observability/ready")
@@ -226,7 +236,9 @@ class TestObservabilityRoutesRegistered:
         response = client.get("/api/observability/version")
         assert response.status_code != 404
 
-    @pytest.mark.skip(reason="Requires AppContainer initialization via lifespan context")
+    @pytest.mark.skip(
+        reason="Requires AppContainer initialization via lifespan context"
+    )
     def test_ready_route_exists(self, client):
         """Route /api/observability/ready should exist (requires full lifespan)."""
         response = client.get("/api/observability/ready")

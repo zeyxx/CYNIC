@@ -33,9 +33,9 @@ CONSCIOUSNESS_BLENDING_WEIGHTS = {
 # Service Registry Judgment Log Cap (rolling window)
 SERVICE_REGISTRY_JUDGMENT_CAP = int(fibonacci(11))  # 89 judgments in rolling log
 
-# 
+#
 # 1. LATENCY BUDGETS (Time-to-Judgment)
-# 
+#
 
 
 def get_latency_budget_ms(level: ConsciousnessLevel) -> float:
@@ -71,9 +71,9 @@ def get_timeout_s(level: ConsciousnessLevel, metabolic_pressure: float = 1.0) ->
     return timeout / metabolic_pressure
 
 
-# 
+#
 # 2. MEMORY & BUFFER CAPACITIES
-# 
+#
 
 
 def get_buffer_capacity(importance: int = 1) -> int:
@@ -103,7 +103,7 @@ EVENT_JOURNAL_CAP = fibonacci(12)  # 144
 DECISION_TRACE_CAP = fibonacci(10)  # 55
 LOOP_CLOSURE_CAP = fibonacci(8)  # 21
 SERVICE_REGISTRY_JUDGMENT_CAP = fibonacci(11)  # 89
-CHAT_MESSAGE_CAP = fibonacci(10) # 55
+CHAT_MESSAGE_CAP = fibonacci(10)  # 55
 
 # Monitoring and Health (Fibonacci-aligned)
 SIGNAL_TTL_SEC = fibonacci(10)  # 55s
@@ -136,7 +136,9 @@ Q_LEARNING_ALPHA = PHI_INV_2 / 10  # ~0.038 (Learning rate)
 EXPLORATION_EPSILON = PHI_INV_2  # 0.382 (Initial epsilon)
 
 # Confidence Thresholds (PHI-aligned)
-CONFIDENCE_ENRICHMENT_MIN_THRESHOLD = PHI_INV  # 0.618 (Minimum confidence for context enrichment)
+CONFIDENCE_ENRICHMENT_MIN_THRESHOLD = (
+    PHI_INV  # 0.618 (Minimum confidence for context enrichment)
+)
 
 # Kernel Integrity Thresholds (Health-based)
 KERNEL_INTEGRITY_WAG_THRESHOLD = 85.0  # 85% health = wagging (good)
@@ -158,10 +160,10 @@ READ_FILE_CAP = 20000
 GLOB_MATCH_CAP = 1000
 GREP_OUTPUT_CAP = 10000
 
-# 
+#
 # 3. RESILIENCE & BACKOFF
 
-# 
+#
 
 
 def get_backoff_delay_s(retry_count: int) -> float:
@@ -183,9 +185,9 @@ def get_max_retries(criticality: float = 0.5) -> int:
     return max(1, round(lucas(4) * criticality))
 
 
-# 
+#
 # 4. RESPIRATION & HEARTBEAT
-# 
+#
 
 
 def get_respiration_interval_s(health_score: float = 100.0) -> float:
@@ -199,9 +201,9 @@ def get_respiration_interval_s(health_score: float = 100.0) -> float:
     return base_interval * health_factor
 
 
-# 
+#
 # 5. ECONOMIC SCALING
-# 
+#
 
 
 def get_cost_threshold_usd(level: ConsciousnessLevel) -> float:

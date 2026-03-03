@@ -5,14 +5,26 @@ from __future__ import annotations
 from typing import Any, Optional
 import httpx
 
-from .types import GASdfError, GASdfQuote, GASdfStats, HealthResponse, TokenInfo, SubmitResponse
+from .types import (
+    GASdfError,
+    GASdfQuote,
+    GASdfStats,
+    HealthResponse,
+    TokenInfo,
+    SubmitResponse,
+)
 from cynic.kernel.core.vascular import VascularSystem
 
 
 class GASdfClient:
     """Async HTTP client for GASdf REST API using VascularSystem connection pool."""
 
-    def __init__(self, base_url: str = "https://www.asdfasdfa.tech", vascular: Optional[VascularSystem] = None, timeout: int = 30):
+    def __init__(
+        self,
+        base_url: str = "https://www.asdfasdfa.tech",
+        vascular: Optional[VascularSystem] = None,
+        timeout: int = 30,
+    ):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.vascular = vascular
@@ -26,7 +38,9 @@ class GASdfClient:
         client = await self._get_client()
         response = await client.get(f"{self.base_url}/health")
         if response.status_code != 200:
-            raise GASdfError(f"Health check failed: {response.status_code} {response.text}")
+            raise GASdfError(
+                f"Health check failed: {response.status_code} {response.text}"
+            )
         try:
             validated = HealthResponse.model_validate(response.json())
             return validated.model_dump()
@@ -37,7 +51,9 @@ class GASdfClient:
         client = await self._get_client()
         response = await client.get(f"{self.base_url}/v1/tokens")
         if response.status_code != 200:
-            raise GASdfError(f"Get tokens failed: {response.status_code} {response.text}")
+            raise GASdfError(
+                f"Get tokens failed: {response.status_code} {response.text}"
+            )
         try:
             data = response.json()
             tokens = data.get("tokens", []) if isinstance(data, dict) else data
@@ -46,7 +62,9 @@ class GASdfClient:
         except Exception as e:
             raise GASdfError(f"Invalid tokens response: {e}")
 
-    async def get_quote(self, payment_token: str, user_pubkey: str, amount: int) -> GASdfQuote:
+    async def get_quote(
+        self, payment_token: str, user_pubkey: str, amount: int
+    ) -> GASdfQuote:
         client = await self._get_client()
         payload = {
             "paymentToken": payment_token,
@@ -55,7 +73,9 @@ class GASdfClient:
         }
         response = await client.post(f"{self.base_url}/v1/quote", json=payload)
         if response.status_code != 200:
-            raise GASdfError(f"Quote request failed: {response.status_code} {response.text}")
+            raise GASdfError(
+                f"Quote request failed: {response.status_code} {response.text}"
+            )
         data = response.json()
         return GASdfQuote(
             quote_id=data["quote_id"],
@@ -90,7 +110,9 @@ class GASdfClient:
         client = await self._get_client()
         response = await client.get(f"{self.base_url}/v1/stats")
         if response.status_code != 200:
-            raise GASdfError(f"Stats request failed: {response.status_code} {response.text}")
+            raise GASdfError(
+                f"Stats request failed: {response.status_code} {response.text}"
+            )
         data = response.json()
         return GASdfStats(
             total_burned=data["totalBurned"],

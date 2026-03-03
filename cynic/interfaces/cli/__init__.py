@@ -34,6 +34,7 @@ Optionally queries (falls back gracefully if server is down):
 
 -bound: confidence never shown above 61.8%.
 """
+
 from __future__ import annotations
 
 import sys
@@ -79,26 +80,26 @@ __all__ = [
 
 def main() -> None:
     args = sys.argv[1:]
-    cmd  = args[0] if args else "status"
+    cmd = args[0] if args else "status"
 
     dispatch = {
-        "status":        cmd_status,
-        "health":        cmd_health,
-        "lod":           cmd_lod,
-        "loops":         cmd_loops,
-        "review":        cmd_review,
-        "watch":         cmd_watch,
-        "feedback":      cmd_feedback,
-        "probes":        cmd_probes,
-        "execute":       cmd_execute,
-        "sdk":           cmd_sdk,
+        "status": cmd_status,
+        "health": cmd_health,
+        "lod": cmd_lod,
+        "loops": cmd_loops,
+        "review": cmd_review,
+        "watch": cmd_watch,
+        "feedback": cmd_feedback,
+        "probes": cmd_probes,
+        "execute": cmd_execute,
+        "sdk": cmd_sdk,
         "consciousness": cmd_consciousness,
-        "tui":           cmd_tui,
-        "chat":          cmd_chat,
+        "tui": cmd_tui,
+        "chat": cmd_chat,
         "perceive-watch": cmd_perceive_watch,
-        "full-loop":     cmd_full_loop,
-        "battles":       cmd_battles,
-        "dashboard":     cmd_dashboard,
+        "full-loop": cmd_full_loop,
+        "battles": cmd_battles,
+        "dashboard": cmd_dashboard,
     }
 
     fn = dispatch.get(cmd)

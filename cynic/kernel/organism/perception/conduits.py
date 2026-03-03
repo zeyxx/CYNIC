@@ -23,9 +23,10 @@ from cynic.kernel.organism.perception.somatic_gateway import Conduit
 
 logger = logging.getLogger("cynic.perception.conduits")
 
+
 class StreamConduit(Conduit):
     """Direct WebSocket driver."""
-    
+
     def __init__(self, conduit_id: str, url: str, vascular: VascularSystem):
         super().__init__(conduit_id)
         self.url = url
@@ -58,11 +59,12 @@ class StreamConduit(Conduit):
                 break
             except Exception as e:
                 logger.error(f"StreamConduit {self.conduit_id} error: {e}")
-                await asyncio.sleep(5) # Backoff
+                await asyncio.sleep(5)  # Backoff
+
 
 class BrowserConduit(Conduit):
     """Playwright-based driver for complex sites."""
-    
+
     def __init__(self, conduit_id: str, url: str):
         super().__init__(conduit_id)
         self.url = url
@@ -82,12 +84,12 @@ class BrowserConduit(Conduit):
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) CYNIC/V2.0"
             )
             self.page = await self._context.new_page()
-            
+
             # Intercept WebSockets if possible
             self.page.on("websocket", self._on_websocket)
-            
+
             await self.page.goto(self.url, wait_until="networkidle")
-            
+
             self._running = True
             logger.info(f"BrowserConduit {self.conduit_id} active on {self.url}")
         except Exception as e:
@@ -101,11 +103,12 @@ class BrowserConduit(Conduit):
     def _on_frame(self, url: str, frame: Any):
         if self._ingest_cb:
             # Inject frame into gateway
-            asyncio.create_task(self._ingest_cb(self.conduit_id, {
-                "type": "websocket_frame",
-                "url": url,
-                "payload": frame
-            }))
+            asyncio.create_task(
+                self._ingest_cb(
+                    self.conduit_id,
+                    {"type": "websocket_frame", "url": url, "payload": frame},
+                )
+            )
 
     async def stop(self):
         self._running = False

@@ -30,7 +30,9 @@ async def test_generate_response_from_reasoning():
     ) as mock_client_class:
         mock_response = AsyncMock()
         mock_response.content = [AsyncMock()]
-        mock_response.content[0].text = "I chose WAG because it balances fairness with efficiency."
+        mock_response.content[
+            0
+        ].text = "I chose WAG because it balances fairness with efficiency."
 
         mock_client_instance = AsyncMock()
         mock_client_instance.messages.create = AsyncMock(return_value=mock_response)
@@ -75,7 +77,9 @@ async def test_handle_api_error():
         "cynic.kernel.organism.brain.dialogue.llm_bridge.AsyncAnthropic"
     ) as mock_client_class:
         mock_client_instance = AsyncMock()
-        mock_client_instance.messages.create = AsyncMock(side_effect=Exception("API Error"))
+        mock_client_instance.messages.create = AsyncMock(
+            side_effect=Exception("API Error")
+        )
         mock_client_instance.close = AsyncMock()
         mock_client_class.return_value = mock_client_instance
 

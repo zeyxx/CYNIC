@@ -1,4 +1,5 @@
 """Comprehensive tests for LNSP Judge Communication Architecture."""
+
 from __future__ import annotations
 
 import asyncio
@@ -319,9 +320,7 @@ class TestVerdictRouting:
         assert conn.verdict_count > 0
 
     @pytest.mark.asyncio
-    async def test_route_verdict_broadcast(
-        self, central_judge: CentralJudge
-    ) -> None:
+    async def test_route_verdict_broadcast(self, central_judge: CentralJudge) -> None:
         """Test routing verdict to all instances (broadcast)."""
         await central_judge.register_instance("instance:001", "host1", 5001)
         await central_judge.register_instance("instance:002", "host2", 5002)
@@ -353,9 +352,7 @@ class TestVerdictRouting:
             assert conn.verdict_count > 0
 
     @pytest.mark.asyncio
-    async def test_route_verdict_by_target(
-        self, central_judge: CentralJudge
-    ) -> None:
+    async def test_route_verdict_by_target(self, central_judge: CentralJudge) -> None:
         """Test routing different verdicts to different instances."""
         await central_judge.register_instance("instance:001", "host1", 5001)
         await central_judge.register_instance("instance:002", "host2", 5002)
@@ -538,9 +535,7 @@ class TestAggregationToVerdictFlow:
     """Test full flow from aggregation to verdict routing."""
 
     @pytest.mark.asyncio
-    async def test_aggregation_to_verdict_flow(
-        self, judge: Layer3
-    ) -> None:
+    async def test_aggregation_to_verdict_flow(self, judge: Layer3) -> None:
         """Test full pipeline from aggregation to routing."""
         # Create central judge with the judge
         cj = CentralJudge(judge=judge, batch_size=1, batch_timeout_sec=0.2)
@@ -578,9 +573,7 @@ class TestAggregationToVerdictFlow:
         cj.stop_batching()
 
     @pytest.mark.asyncio
-    async def test_judge_connection_state(
-        self, central_judge: CentralJudge
-    ) -> None:
+    async def test_judge_connection_state(self, central_judge: CentralJudge) -> None:
         """Test per-instance connection state tracking."""
         await central_judge.register_instance("instance:001", "host1", 5001)
         await central_judge.register_instance("instance:002", "host2", 5002)

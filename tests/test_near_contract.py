@@ -24,7 +24,7 @@ class TestNearContract:
             "create_proposal",
             "vote",
             "get_proposal",
-            "execute_proposal"
+            "execute_proposal",
         ]
 
         for method in required_methods:

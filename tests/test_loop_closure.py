@@ -348,6 +348,7 @@ async def test_stats_accuracy(validator):
 @pytest.mark.asyncio
 async def test_concurrent_cycles(validator):
     """Test managing concurrent cycles."""
+
     async def create_cycle(idx: int) -> None:
         await validator.start_cycle(
             judgment_id=f"j{idx}",

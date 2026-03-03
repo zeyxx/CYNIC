@@ -8,6 +8,7 @@ Tests cover:
 - File change detection and filtering
 - Data format validation
 """
+
 from __future__ import annotations
 
 import time
@@ -26,7 +27,12 @@ class TestWatchTelemetryStreaming:
         # Mock WebSocket messages
         test_events = [
             {"type": "judgment", "q_score": 75, "verdict": "WAG", "ts": 1.0},
-            {"type": "learning", "learning_rate": 0.001, "q_table_entries": 512, "ts": 2.0},
+            {
+                "type": "learning",
+                "learning_rate": 0.001,
+                "q_table_entries": 512,
+                "ts": 2.0,
+            },
             {"type": "meta_cycle", "cycle_n": 5, "health": 0.82, "ts": 3.0},
         ]
 
@@ -152,7 +158,12 @@ class TestWatchTelemetryStreaming:
         # Simulate processing only valid events (malformed ones were filtered)
         valid_events = [
             {"type": "judgment", "q_score": 80, "verdict": "WAG", "ts": 1.0},
-            {"type": "learning", "learning_rate": 0.001, "q_table_entries": 512, "ts": 3.0},
+            {
+                "type": "learning",
+                "learning_rate": 0.001,
+                "q_table_entries": 512,
+                "ts": 3.0,
+            },
         ]
 
         result = ClaudeCodeAdapter._summarize_telemetry_events(valid_events, 5.0)
@@ -293,7 +304,12 @@ class TestTelemetrySummarization:
             {"type": "judgment", "q_score": 75, "verdict": "WAG", "ts": 1.0},
             {"type": "heartbeat", "ts": 1.5},
             {"type": "heartbeat", "ts": 2.0},
-            {"type": "learning", "learning_rate": 0.001, "q_table_entries": 512, "ts": 2.5},
+            {
+                "type": "learning",
+                "learning_rate": 0.001,
+                "q_table_entries": 512,
+                "ts": 2.5,
+            },
         ]
 
         summary = ClaudeCodeAdapter._summarize_telemetry_events(events, 10.0)
@@ -309,12 +325,22 @@ class TestTelemetrySummarization:
         events = [
             {"type": "judgment", "q_score": 70, "verdict": "WAG", "ts": 0.1},
             {"type": "judgment", "q_score": 80, "verdict": "HOWL", "ts": 0.2},
-            {"type": "learning", "learning_rate": 0.001, "q_table_entries": 512, "ts": 0.3},
+            {
+                "type": "learning",
+                "learning_rate": 0.001,
+                "q_table_entries": 512,
+                "ts": 0.3,
+            },
             {"type": "meta_cycle", "cycle_n": 1, "health": 0.8, "ts": 0.4},
             {"type": "judgment", "q_score": 60, "verdict": "WAG", "ts": 0.5},
             {"type": "sona_tick", "uptime_s": 600, "total_judgments": 1200, "ts": 0.6},
             {"type": "heartbeat", "ts": 0.7},
-            {"type": "learning", "learning_rate": 0.0008, "q_table_entries": 768, "ts": 0.8},
+            {
+                "type": "learning",
+                "learning_rate": 0.0008,
+                "q_table_entries": 768,
+                "ts": 0.8,
+            },
             {"type": "judgment", "q_score": 75, "verdict": "HOWL", "ts": 0.9},
         ]
 
@@ -354,7 +380,9 @@ class TestTelemetrySummarization:
 class TestStreamingToolIntegration:
     """Integration tests for streaming tools with bridge."""
 
-    @pytest.mark.skip(reason="Requires mcp.server SDK not installed in test environment")
+    @pytest.mark.skip(
+        reason="Requires mcp.server SDK not installed in test environment"
+    )
     @pytest.mark.asyncio
     async def test_tool_watch_telemetry_invocation(self):
         """Test cynic_watch_telemetry tool can be invoked."""
@@ -362,14 +390,18 @@ class TestStreamingToolIntegration:
         # In production, the tool is invoked through the MCP bridge
         pass
 
-    @pytest.mark.skip(reason="Requires mcp.server SDK not installed in test environment")
+    @pytest.mark.skip(
+        reason="Requires mcp.server SDK not installed in test environment"
+    )
     @pytest.mark.asyncio
     async def test_tool_watch_telemetry_error_handling(self):
         """Test cynic_watch_telemetry handles errors gracefully."""
         # This test requires mcp.server which may not be available
         pass
 
-    @pytest.mark.skip(reason="Requires mcp.server SDK not installed in test environment")
+    @pytest.mark.skip(
+        reason="Requires mcp.server SDK not installed in test environment"
+    )
     @pytest.mark.asyncio
     async def test_tool_watch_telemetry_default_duration(self):
         """Test default duration is applied."""

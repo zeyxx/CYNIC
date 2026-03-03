@@ -13,7 +13,10 @@ from typing import Any
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel, get_anchor
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+)
 from cynic.kernel.organism.metabolism.model_profiler import ModelProfiler
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.level_selector")
@@ -26,7 +29,13 @@ class LevelSelector(BaseHandler):
 
     handler_id = "level_selector"
 
-    def __init__(self, bus: EventBus, axiom_monitor: Any = None, lod_controller: Any = None, **kwargs):
+    def __init__(
+        self,
+        bus: EventBus,
+        axiom_monitor: Any = None,
+        lod_controller: Any = None,
+        **kwargs,
+    ):
         self.profiler = ModelProfiler()
         self.bus = bus
         logger.info("LevelSelector active (Hardware-Aware)")
@@ -44,7 +53,10 @@ class LevelSelector(BaseHandler):
         selected_level = anchor.default_level
 
         # 2. Downgrade if Hardware Fit is poor (< 30%)
-        if metabolic_cap.memory_fit_score < 0.3 and selected_level == ConsciousnessLevel.MACRO:
+        if (
+            metabolic_cap.memory_fit_score < 0.3
+            and selected_level == ConsciousnessLevel.MACRO
+        ):
             logger.warning(
                 "LevelSelector: Poor memory fit (%.1f%%). Downgrading to MICRO.",
                 metabolic_cap.memory_fit_score * 100,
@@ -55,7 +67,8 @@ class LevelSelector(BaseHandler):
         if anchor.metabolic_priority > 0.8 and metabolic_cap.cycles_per_second > 10.0:
             if selected_level == ConsciousnessLevel.MICRO:
                 logger.info(
-                    "LevelSelector: High priority reality (%s). Upgrading to MACRO.", cell.reality
+                    "LevelSelector: High priority reality (%s). Upgrading to MACRO.",
+                    cell.reality,
                 )
                 selected_level = ConsciousnessLevel.MACRO
 
@@ -74,5 +87,7 @@ class LevelSelector(BaseHandler):
         )
 
         return HandlerResult(
-            success=True, handler_id=self.handler_id, output={"selected_level": selected_level.name}
+            success=True,
+            handler_id=self.handler_id,
+            output={"selected_level": selected_level.name},
         )

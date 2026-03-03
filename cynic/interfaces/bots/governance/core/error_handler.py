@@ -160,9 +160,7 @@ async def handle_error(
         )
 
     elif isinstance(error, asyncio.TimeoutError):
-        user_message = (
-            " Operation timed out. Please try again."
-        )
+        user_message = " Operation timed out. Please try again."
 
     else:
         user_message = (
@@ -282,14 +280,16 @@ async def log_error_to_discord(
                     embed = discord.Embed(
                         title=f"[{severity}] {error_type}",
                         description=error_message[:2000],
-                        color=discord.Color.red() if severity == "ERROR" else discord.Color.yellow(),
+                        color=discord.Color.red()
+                        if severity == "ERROR"
+                        else discord.Color.yellow(),
                         timestamp=datetime.utcnow(),
                     )
                     await channel.send(embed=embed)
                     return
 
     except Exception as e:
-            logger.error(f"Failed to log error to Discord: {e}")
+        logger.error(f"Failed to log error to Discord: {e}")
 
 
 class ErrorMetrics:

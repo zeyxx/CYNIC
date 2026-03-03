@@ -1,4 +1,5 @@
 """LNSP message factory functions for creating messages at each layer."""
+
 from __future__ import annotations
 
 import time
@@ -31,6 +32,7 @@ def _get_timestamp() -> float:
 # ============================================================================
 # Layer 1: Raw Observations
 # ============================================================================
+
 
 def create_raw_observation(
     observation_type: ObservationType,
@@ -96,6 +98,7 @@ def create_raw_observation(
 # ============================================================================
 # Layer 2: Aggregated State
 # ============================================================================
+
 
 def create_aggregated_state(
     aggregation_type: AggregationType,
@@ -164,6 +167,7 @@ def create_aggregated_state(
 # ============================================================================
 # Layer 3: Judgments
 # ============================================================================
+
 
 def create_judgment(
     judgment_type: JudgmentType,
@@ -252,6 +256,7 @@ def create_judgment(
 # ============================================================================
 # Layer 4: Actions
 # ============================================================================
+
 
 def create_action(
     action_type: ActionType,

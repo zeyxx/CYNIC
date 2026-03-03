@@ -1,4 +1,5 @@
 """Test governance sensors for LNSP integration."""
+
 from __future__ import annotations
 
 import pytest

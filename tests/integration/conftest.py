@@ -1,13 +1,16 @@
 """Shared fixtures for P10 probes testing (skipped)."""
 
 import pytest
+
 pytest.skip("Integration tests: dependencies being resolved", allow_module_level=True)
 
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 from cynic.kernel.core.event_bus import EventBus
 from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
-from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
+from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import (
+    ProposalExecutor,
+)
 
 
 @pytest.fixture
@@ -76,7 +79,7 @@ def sample_proposals(self_prober):
             current_value=float(i) / 10,
             suggested_value=float(i + 1) / 10,
             proposed_at=time.time(),
-            status="PENDING" if i < 5 else "APPLIED" if i < 8 else "DISMISSED"
+            status="PENDING" if i < 5 else "APPLIED" if i < 8 else "DISMISSED",
         )
         proposals.append(proposal)
         self_prober._proposals.append(proposal)

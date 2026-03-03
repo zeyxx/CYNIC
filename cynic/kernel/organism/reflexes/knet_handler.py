@@ -15,10 +15,13 @@ from cynic.kernel.protocol.kpulse import PulseMessage, PulseType
 
 logger = logging.getLogger("cynic.kernel.organism.reflexes.knet")
 
+
 class KNetHandler(HandlerGroup):
     """Bridges internal consciousness to the distributed -NET nerves."""
 
-    def __init__(self, sensory: SensoryServices, bus: Optional[EventBus] = None) -> None:
+    def __init__(
+        self, sensory: SensoryServices, bus: Optional[EventBus] = None
+    ) -> None:
         super().__init__(bus=bus)
         self._sensory = sensory
         self._server = None

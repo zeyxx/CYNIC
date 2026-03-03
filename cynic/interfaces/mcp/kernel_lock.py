@@ -27,21 +27,25 @@ STALE_THRESHOLD = 300.0  # 5 minutes
 
 class KernelLockError(Exception):
     """Base exception for kernel lock operations."""
+
     pass
 
 
 class KernelLockTimeout(KernelLockError):
     """Lock acquisition timed out."""
+
     pass
 
 
 class KernelLockConflict(KernelLockError):
     """Lock is held by another process."""
+
     pass
 
 
 class KernelLockInvalid(KernelLockError):
     """Lock file is corrupted or invalid."""
+
     pass
 
 
@@ -53,6 +57,7 @@ def _is_process_alive(pid: int) -> bool:
     try:
         if platform.system() == "Windows":
             import psutil
+
             return psutil.pid_exists(pid)
         else:
             # Unix: signal 0 doesn't kill but checks if process exists
@@ -107,7 +112,9 @@ class KernelLockManager:
 
                     logger.debug(
                         "Lock exists: PID=%s, hostname=%s, age=%.1fs",
-                        holder_pid, holder_hostname, lock_age
+                        holder_pid,
+                        holder_hostname,
+                        lock_age,
                     )
 
                     # Check if lock holder is alive
@@ -116,7 +123,8 @@ class KernelLockManager:
                         remaining = timeout - (time.time() - start_time)
                         logger.debug(
                             "Lock held by PID %s, waiting (remaining: %.1fs)",
-                            holder_pid, remaining
+                            holder_pid,
+                            remaining,
                         )
                         await asyncio.sleep(min(1.0, remaining))
                         continue
@@ -125,7 +133,8 @@ class KernelLockManager:
                     if lock_age > self.stale_threshold:
                         logger.warning(
                             "Releasing stale lock: PID=%s age=%.1fs",
-                            holder_pid, lock_age
+                            holder_pid,
+                            lock_age,
                         )
                         try:
                             self.lock_file.unlink()
@@ -157,8 +166,7 @@ class KernelLockManager:
                 self.acquired_at = time.time()
 
                 logger.info(
-                    "Kernel lock acquired (PID=%s, attempt=%d)",
-                    current_pid, attempt
+                    "Kernel lock acquired (PID=%s, attempt=%d)", current_pid, attempt
                 )
                 return True
 
@@ -169,7 +177,8 @@ class KernelLockManager:
         elapsed = time.time() - start_time
         logger.error(
             "Failed to acquire kernel lock after %.1fs (timeout=%.1fs)",
-            elapsed, timeout
+            elapsed,
+            timeout,
         )
         raise KernelLockTimeout(f"Could not acquire lock within {timeout}s")
 

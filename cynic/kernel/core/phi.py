@@ -17,9 +17,9 @@ from __future__ import annotations
 
 import math
 
-# 
+#
 # PRIMARY CONSTANT (15-decimal precision)
-# 
+#
 
 PHI: float = (1 + math.sqrt(5)) / 2
 """Golden Ratio  = 1.618033988749895"""
@@ -34,9 +34,9 @@ PHI_4: float = PHI_3 * PHI  #  = 6.854101966249685
 PHI_5: float = PHI_4 * PHI  #  = 11.090169943749474
 
 
-# 
+#
 # JUDGMENT THRESHOLDS (-aligned)
-# 
+#
 
 # Max confidence in any judgment (Law of Doubt " " distrusts ")
 MAX_CONFIDENCE: float = PHI_INV  # 0.618 = 61.8%
@@ -86,9 +86,9 @@ DOG_PRIORITY: dict[str, float] = {
 }
 
 
-# 
+#
 # FIBONACCI SEQUENCE (for timing, intervals, counts)
-# 
+#
 
 
 def fibonacci(n: int) -> int:
@@ -128,7 +128,7 @@ FIBONACCI: list[int] = [fibonacci(n) for n in range(21)]
 # Precomputed Lucas sequence (L(0) to L(10))
 LUCAS: list[int] = [lucas(n) for n in range(11)]
 
-# Architecture derivations from 
+# Architecture derivations from
 #  IMMUTABLE: These constants are -locked-in by fractal geometry.
 #    NEVER change these values " all architecture depends on them.
 #    Each is L(4) = 7 = lucas(4) = fundamental to CYNIC's hypercube structure.
@@ -140,9 +140,9 @@ ANALYSIS_DIMS: int = lucas(4)  # L(4) = 7 ' 7 Analysis dimensions (IMMUTABLE)
 TIME_DIMS: int = lucas(4)  # L(4) = 7 ' 7 Time dimensions (IMMUTABLE)
 
 
-# 
+#
 # CYCLE TIMING (-aligned Fibonacci windows, in seconds)
-# 
+#
 
 # Perception frequencies (Fibonacci minutes - 60)
 PERCEIVE_CODE_SEC: int = fibonacci(8) * 60  # F(8)=21 ' 1260s (21 min)
@@ -170,12 +170,14 @@ STUCK_REPETITIONS: int = max(2, round(PHI))  # 2
 STUCK_STAGNATION: int = max(3, round(PHI_2))  # 3
 
 
-# 
+#
 #  MATHEMATICS
-# 
+#
 
 
-def phi_bound(value: float, min_val: float = 0.0, max_val: float = MAX_CONFIDENCE) -> float:
+def phi_bound(
+    value: float, min_val: float = 0.0, max_val: float = MAX_CONFIDENCE
+) -> float:
     """Clamp value to -aligned range [min_val, max_val]."""
     return max(min_val, min(value, max_val))
 
@@ -209,13 +211,16 @@ from typing import Protocol, List
 # AGGREGATION STRATEGY (Preparation for High-Performance Kernels)
 # ==============================================================================
 
+
 class Aggregator(Protocol):
     """Protocol for fractal score aggregation strategies."""
-    def compute(self, values: List[float], weights: List[float]) -> float:
-        ...
+
+    def compute(self, values: List[float], weights: List[float]) -> float: ...
+
 
 class PythonAggregator:
     """Standard CPU-bound Python implementation of the weighted geometric mean."""
+
     def compute(self, values: List[float], weights: List[float]) -> float:
         if not values or len(values) != len(weights):
             return 0.0
@@ -229,13 +234,16 @@ class PythonAggregator:
         log_sum = sum(w * math.log(v) for v, w in zip(values, weights, strict=False))
         return math.exp(log_sum / total_weight)
 
+
 # Global Registry for the current active aggregator
 _ACTIVE_AGGREGATOR: Aggregator = PythonAggregator()
+
 
 def set_aggregator(aggregator: Aggregator) -> None:
     """Switch the global aggregator (e.g., to a Helion/GPU kernel)."""
     global _ACTIVE_AGGREGATOR
     _ACTIVE_AGGREGATOR = aggregator
+
 
 def weighted_geometric_mean(values: list[float], weights: list[float]) -> float:
     """
@@ -253,7 +261,6 @@ def geometric_mean(values: list[float]) -> float:
     if not values:
         return 0.0
     return weighted_geometric_mean(values, [1.0] * len(values))
-
 
 
 def phi_ratio_split(total: float) -> tuple[float, float]:
@@ -282,7 +289,11 @@ def phi_ucb(
 
 
 def phi_temporal_ucb(
-    q_value: float, visits: int, parent_visits: int, depth: int, exploration: float = math.sqrt(2)
+    q_value: float,
+    visits: int,
+    parent_visits: int,
+    depth: int,
+    exploration: float = math.sqrt(2),
 ) -> float:
     """
     Temporal UCB1 (Temporal MCTS innovation).
@@ -297,9 +308,9 @@ def phi_temporal_ucb(
     return exploitation + exploration_term * temporal_decay
 
 
-# 
+#
 # E-SCORE 7D WEIGHTS (-symmetric sequence)
-# 
+#
 
 E_SCORE_WEIGHTS: dict[str, float] = {
     "BURN": PHI_3,  #  = 4.236 " Highest (irreversible commitment)
@@ -315,9 +326,9 @@ E_SCORE_TOTAL_WEIGHT: float = sum(E_SCORE_WEIGHTS.values())
 # = 4.236 + 2.618 + 1.618 + 1.000 + 0.618 + 0.382 + 0.236 = 10.708
 
 
-# 
+#
 # VALIDATION (run at import time)
-# 
+#
 
 
 def validate_phi_constants() -> None:
@@ -349,7 +360,7 @@ def validate_phi_constants() -> None:
     assert DOGS_QUORUM == 2 * DOGS_BYZANTINE + 1, "PBFT quorum violated"
     assert DOGS_TOTAL == 11, "Total dogs  11"
 
-    # Fibonacci convergence to 
+    # Fibonacci convergence to
     for n in range(10, 18):
         ratio = fibonacci(n) / fibonacci(n - 1)
         assert abs(ratio - PHI) < 0.01, f"F({n})/F({n-1}) doesn't converge to "

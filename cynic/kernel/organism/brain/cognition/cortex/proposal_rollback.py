@@ -22,7 +22,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.proposal_rollback")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.proposal_rollback"
+)
 
 _CYNIC_DIR = os.path.join(os.path.expanduser("~"), ".cynic")
 _ROLLBACK_PATH = os.path.join(_CYNIC_DIR, "proposal_rollback.json")
@@ -89,7 +91,7 @@ class ProposalRollback:
         self._entries: list[RollbackEntry] = []
         self._load()
 
-    #  Public API 
+    #  Public API
 
     def record(
         self,
@@ -211,7 +213,7 @@ class ProposalRollback:
         reversed_entries = list(reversed(self._entries))
         return [e.to_dict() for e in reversed_entries[:limit]]
 
-    #  Persistence 
+    #  Persistence
 
     def _save(self) -> None:
         try:

@@ -93,7 +93,9 @@ class APIAuthMiddleware(BaseHTTPMiddleware):
                 logger.warning(
                     f"{request.method} {request.url.path} - No client certificate"
                 )
-                raise HTTPException(status_code=401, detail="Client certificate required")
+                raise HTTPException(
+                    status_code=401, detail="Client certificate required"
+                )
 
             # Verify the cert (would check against CA in production)
             is_valid, error = self.verifier.verify_certificate(
@@ -107,7 +109,9 @@ class APIAuthMiddleware(BaseHTTPMiddleware):
                     f"{request.method} {request.url.path} - "
                     f"Invalid client certificate: {error}"
                 )
-                raise HTTPException(status_code=401, detail=f"Invalid certificate: {error}")
+                raise HTTPException(
+                    status_code=401, detail=f"Invalid certificate: {error}"
+                )
 
         # Extract client identity and add to scope
         if client_cert:
@@ -128,7 +132,9 @@ class APIAuthMiddleware(BaseHTTPMiddleware):
             except Exception as e:
                 logger.error(f"Failed to parse client certificate: {e}")
                 if self.config.require_mtls:
-                    raise HTTPException(status_code=401, detail="Invalid certificate format")
+                    raise HTTPException(
+                        status_code=401, detail="Invalid certificate format"
+                    )
 
         # Call the next middleware/route
         response = await call_next(request)
@@ -190,7 +196,9 @@ class APIAuthManager:
             logger.info(f" Root CA: {self.config.pki_config.root_ca_cert_path()}")
 
             int_cert, int_key = self.pki.setup_intermediate_ca()
-            logger.info(f" Intermediate CA: {self.config.pki_config.intermediate_ca_cert_path()}")
+            logger.info(
+                f" Intermediate CA: {self.config.pki_config.intermediate_ca_cert_path()}"
+            )
 
             # Generate service certificate for this API instance
             svc_cert, svc_key = self.pki.generate_service_cert(

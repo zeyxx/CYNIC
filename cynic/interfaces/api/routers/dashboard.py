@@ -1,6 +1,7 @@
 """
 CYNIC dashboard router " UI serving
 """
+
 from __future__ import annotations
 
 import logging

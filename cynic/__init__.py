@@ -15,6 +15,7 @@ CYNIC " Living Conscious Organism ()
 
 ONE cycle: PERCEIVE ' JUDGE ' DECIDE ' ACT ' LEARN ' ACCOUNT ' EMERGE
 """
+
 from cynic.kernel.core.phi import MAX_Q_SCORE, PHI, PHI_INV
 
 __version__ = "0.1.0"

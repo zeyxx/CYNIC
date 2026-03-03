@@ -67,7 +67,9 @@ class Layer4:
     """
 
     handlers: dict[str, Handler] = field(default_factory=dict)
-    feedback_callbacks: list[Callable[[LNSPMessage], None]] = field(default_factory=list)
+    feedback_callbacks: list[Callable[[LNSPMessage], None]] = field(
+        default_factory=list
+    )
 
     def register_handler(self, handler: Handler) -> None:
         """Register an action handler.
@@ -187,7 +189,9 @@ class Layer4:
         target_prefix = target.split(":")[0] if ":" in target else target
 
         for handler_id, handler in self.handlers.items():
-            handler_prefix = handler_id.split(":")[0] if ":" in handler_id else handler_id
+            handler_prefix = (
+                handler_id.split(":")[0] if ":" in handler_id else handler_id
+            )
 
             if handler_id == f"{handler_prefix}:*" and target_prefix == handler_prefix:
                 return handler

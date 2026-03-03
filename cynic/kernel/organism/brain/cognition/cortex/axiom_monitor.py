@@ -22,7 +22,14 @@ logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.axiom_m
 
 # Valid emergent axioms (A6-A9) " signal-able by external events
 EMERGENT_AXIOMS = frozenset(
-    {"AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY", "CONSCIOUSNESS", "TRANSCENDENCE"}
+    {
+        "AUTONOMY",
+        "SYMBIOSIS",
+        "EMERGENCE",
+        "ANTIFRAGILITY",
+        "CONSCIOUSNESS",
+        "TRANSCENDENCE",
+    }
 )
 
 _CORE_EMERGENT = frozenset({"AUTONOMY", "SYMBIOSIS", "EMERGENCE", "ANTIFRAGILITY"})
@@ -103,7 +110,12 @@ class AxiomMonitor:
             await self._bus.emit(
                 Event.typed(
                     CoreEvent.AXIOM_ACTIVATED,
-                    {"axiom": axiom, "source": source, "new_state": new_state, **kwargs},
+                    {
+                        "axiom": axiom,
+                        "source": source,
+                        "new_state": new_state,
+                        **kwargs,
+                    },
                     source="axiom_monitor",
                 )
             )

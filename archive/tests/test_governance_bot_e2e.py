@@ -24,18 +24,22 @@ import pytest
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.judgment import Cell
 from cynic.kernel.core.unified_state import UnifiedLearningOutcome
-from cynic.kernel.organism.brain.learning.unified_learning import LearningSession, UnifiedQTable
+from cynic.kernel.organism.brain.learning.unified_learning import (
+    LearningSession,
+    UnifiedQTable,
+)
 from cynic.kernel.organism.organism import awaken
 
 
 @dataclass
 class ProposalRound:
     """Represents one complete governance round."""
+
     proposal_id: str
     title: str
     description: str
     predicted_verdict: str  # What CYNIC said
-    vote_yes: int           # Community vote counts
+    vote_yes: int  # Community vote counts
     vote_no: int
     vote_abstain: int
     satisfaction_rating: float  # How satisfied (1-5, normalize to 0-1)
@@ -92,12 +96,14 @@ class TestGovernanceBotE2E:
             vote_yes=15,
             vote_no=3,
             vote_abstain=2,
-            satisfaction_rating=4.5  # Very satisfied (4.5/5)
+            satisfaction_rating=4.5,  # Very satisfied (4.5/5)
         )
 
         # Verify proposal state
         assert proposal.approval_percentage == 75.0  # 15/20 = 75%
-        assert proposal.actual_verdict == "HOWL"  # 75% approval â’ HOWL (strong consensus)
+        assert (
+            proposal.actual_verdict == "HOWL"
+        )  # 75% approval â’ HOWL (strong consensus)
         assert proposal.satisfaction_normalized == pytest.approx(0.875)
 
         # Create learning outcome
@@ -105,7 +111,7 @@ class TestGovernanceBotE2E:
             judgment_id=proposal.proposal_id,
             predicted_verdict=proposal.predicted_verdict,
             actual_verdict=proposal.actual_verdict,
-            satisfaction_rating=proposal.satisfaction_normalized
+            satisfaction_rating=proposal.satisfaction_normalized,
         )
 
         # Add to session and update Q-Table
@@ -129,40 +135,50 @@ class TestGovernanceBotE2E:
                 title="Treasury allocation",
                 description="...",
                 predicted_verdict="HOWL",  # Recommend
-                vote_yes=15, vote_no=3, vote_abstain=2,
-                satisfaction_rating=4.5  # Happy
+                vote_yes=15,
+                vote_no=3,
+                vote_abstain=2,
+                satisfaction_rating=4.5,  # Happy
             ),
             ProposalRound(
                 proposal_id="prop_002",
                 title="Partnership opportunity",
                 description="...",
-                predicted_verdict="WAG",   # Lean approve
-                vote_yes=12, vote_no=6, vote_abstain=2,
-                satisfaction_rating=4.0   # Happy
+                predicted_verdict="WAG",  # Lean approve
+                vote_yes=12,
+                vote_no=6,
+                vote_abstain=2,
+                satisfaction_rating=4.0,  # Happy
             ),
             ProposalRound(
                 proposal_id="prop_003",
                 title="Change governance rules",
                 description="...",
-                predicted_verdict="GROWL", # Caution
-                vote_yes=8, vote_no=10, vote_abstain=2,
-                satisfaction_rating=3.5   # Neutral
+                predicted_verdict="GROWL",  # Caution
+                vote_yes=8,
+                vote_no=10,
+                vote_abstain=2,
+                satisfaction_rating=3.5,  # Neutral
             ),
             ProposalRound(
                 proposal_id="prop_004",
                 title="Increase fees",
                 description="...",
                 predicted_verdict="BARK",  # Strongly against
-                vote_yes=3, vote_no=15, vote_abstain=2,
-                satisfaction_rating=4.8   # Very happy
+                vote_yes=3,
+                vote_no=15,
+                vote_abstain=2,
+                satisfaction_rating=4.8,  # Very happy
             ),
             ProposalRound(
                 proposal_id="prop_005",
                 title="Community charity",
                 description="...",
                 predicted_verdict="HOWL",  # Recommend
-                vote_yes=18, vote_no=1, vote_abstain=1,
-                satisfaction_rating=5.0   # Perfect
+                vote_yes=18,
+                vote_no=1,
+                vote_abstain=1,
+                satisfaction_rating=5.0,  # Perfect
             ),
         ]
 
@@ -172,7 +188,7 @@ class TestGovernanceBotE2E:
                 judgment_id=round_data.proposal_id,
                 predicted_verdict=round_data.predicted_verdict,
                 actual_verdict=round_data.actual_verdict,
-                satisfaction_rating=round_data.satisfaction_normalized
+                satisfaction_rating=round_data.satisfaction_normalized,
             )
             session.add_outcome(outcome)
             q_table.update(outcome)
@@ -181,7 +197,6 @@ class TestGovernanceBotE2E:
         assert len(session.outcomes) == 5
         session.accuracy_rate()
         session.satisfaction_average()
-
 
         # Verify specific Q-value transitions
         # HOWLâ’HOWL appeared in round 1 and 5 with high satisfaction
@@ -202,8 +217,10 @@ class TestGovernanceBotE2E:
             title="Controversial proposal",
             description="...",
             predicted_verdict="BARK",
-            vote_yes=12, vote_no=6, vote_abstain=2,
-            satisfaction_rating=3.0  # Moderate satisfaction
+            vote_yes=12,
+            vote_no=6,
+            vote_abstain=2,
+            satisfaction_rating=3.0,  # Moderate satisfaction
         )
 
         assert proposal.actual_verdict == "WAG"
@@ -214,7 +231,7 @@ class TestGovernanceBotE2E:
             judgment_id=proposal.proposal_id,
             predicted_verdict=proposal.predicted_verdict,
             actual_verdict=proposal.actual_verdict,
-            satisfaction_rating=proposal.satisfaction_normalized
+            satisfaction_rating=proposal.satisfaction_normalized,
         )
 
         q_table.get_q_value("BARK", "WAG")
@@ -233,18 +250,18 @@ class TestGovernanceBotE2E:
         budget_outcomes = [
             ("HOWL", "HOWL", 1.0),  # Correct, satisfied
             ("HOWL", "HOWL", 1.0),  # Correct, satisfied
-            ("WAG", "WAG", 1.0),    # Correct, satisfied
-            ("WAG", "WAG", 1.0),    # Correct, satisfied
-            ("GROWL", "BARK", 0.6), # Wrong, less satisfied
+            ("WAG", "WAG", 1.0),  # Correct, satisfied
+            ("WAG", "WAG", 1.0),  # Correct, satisfied
+            ("GROWL", "BARK", 0.6),  # Wrong, less satisfied
         ]
 
         # Policy proposals: CYNIC is worse (2/5 correct)
         policy_outcomes = [
             ("HOWL", "GROWL", 0.2),  # Wrong
-            ("WAG", "BARK", 0.3),    # Wrong
+            ("WAG", "BARK", 0.3),  # Wrong
             ("GROWL", "HOWL", 0.4),  # Wrong
-            ("BARK", "WAG", 0.4),    # Wrong
-            ("WAG", "WAG", 1.0),     # Correct
+            ("BARK", "WAG", 0.4),  # Wrong
+            ("WAG", "WAG", 1.0),  # Correct
         ]
 
         # Train on both categories
@@ -253,7 +270,7 @@ class TestGovernanceBotE2E:
                 judgment_id=f"prop_{pred}_{actual}",
                 predicted_verdict=pred,
                 actual_verdict=actual,
-                satisfaction_rating=satisfaction
+                satisfaction_rating=satisfaction,
             )
             q_table.update(outcome)
 
@@ -261,7 +278,6 @@ class TestGovernanceBotE2E:
         # (This is simplified; in reality you'd separate Q-Tables by category)
         all_values = list(q_table.values.values())
         sum(all_values) / len(all_values)
-
 
     def test_satisfaction_drives_q_learning(self):
         """Test that satisfaction rating directly affects Q-Table updates."""
@@ -276,14 +292,14 @@ class TestGovernanceBotE2E:
             judgment_id="prop_high",
             predicted_verdict=prediction,
             actual_verdict=actual,
-            satisfaction_rating=1.0  # Perfect satisfaction
+            satisfaction_rating=1.0,  # Perfect satisfaction
         )
 
         low_sat_outcome = UnifiedLearningOutcome(
             judgment_id="prop_low",
             predicted_verdict=prediction,
             actual_verdict=actual,
-            satisfaction_rating=0.0  # No satisfaction
+            satisfaction_rating=0.0,  # No satisfaction
         )
 
         q_table_high_sat.update(high_sat_outcome)
@@ -310,7 +326,7 @@ class TestGovernanceBotE2E:
             vote_yes=120,  # Out of 200 members
             vote_no=60,
             vote_abstain=20,
-            satisfaction_rating=4.2
+            satisfaction_rating=4.2,
         )
 
         # Verify metrics
@@ -349,14 +365,12 @@ class TestGovernanceBotWithOrchestrator:
                 context="Community treasury: Monthly revenue allocation",
                 reality="SOCIAL",
                 analysis="JUDGE",
-                lod=1
+                lod=1,
             )
 
             # Get CYNIC's judgment
             judgment = await organism.orchestrator.run(
-                cell,
-                level=ConsciousnessLevel.MICRO,
-                budget_usd=0.01
+                cell, level=ConsciousnessLevel.MICRO, budget_usd=0.01
             )
 
             if judgment:
@@ -370,7 +384,7 @@ class TestGovernanceBotWithOrchestrator:
                     judgment_id=judgment.judgment_id,
                     predicted_verdict=judgment.verdict,
                     actual_verdict=actual_verdict,
-                    satisfaction_rating=satisfaction
+                    satisfaction_rating=satisfaction,
                 )
 
                 # Learn

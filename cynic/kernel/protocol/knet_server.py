@@ -32,7 +32,7 @@ class KNetServer:
         self.clients: set[Any] = set()
         self._server = None
         self._running = False
-        
+
         # Subscribe to reputation syncs for broadcasting
         self.bus.on(CoreEvent.REPUTATION_SYNC, self._on_reputation_sync)
 
@@ -41,7 +41,7 @@ class KNetServer:
         payload = event.dict_payload
         pulse = PulseMessage(
             type=PulseType.SOMATIC_SYNC,  # Or a new REPUTATION_SYNC pulse type
-            data={"reputation": payload}
+            data={"reputation": payload},
         )
         await self.broadcast(pulse)
 
@@ -63,16 +63,20 @@ class KNetServer:
                     family=socket.AF_INET6 if ":" in self.host else socket.AF_INET,
                 )
                 self._running = True
-                
+
                 # Update port if it was 0 or changed due to retry
                 actual_port = self._server.sockets[0].getsockname()[1]
                 self.port = actual_port
-                
-                logger.info(f"[{self.bus.instance_id}] -NET Server active on [{self.host}]:{self.port}")
-                return # Success
+
+                logger.info(
+                    f"[{self.bus.instance_id}] -NET Server active on [{self.host}]:{self.port}"
+                )
+                return  # Success
             except OSError as e:
                 if e.errno == 10048 or "already in use" in str(e).lower():
-                    logger.warning(f"[{self.bus.instance_id}] -NET port {current_port} busy. Retrying...")
+                    logger.warning(
+                        f"[{self.bus.instance_id}] -NET port {current_port} busy. Retrying..."
+                    )
                     current_port += 1
                     retry_count += 1
                 else:
@@ -133,7 +137,7 @@ class KNetServer:
                 welcome_pulse = PulseMessage(type=PulseType.SOMATIC_SYNC, data=data)
                 await websocket.send(json.dumps(welcome_pulse.to_dict()))
         except Exception as _e:
-            logger.debug(f'Silenced: {_e}')
+            logger.debug(f"Silenced: {_e}")
 
         try:
             async for message in websocket:
@@ -167,18 +171,22 @@ class KNetServer:
         try:
             data = json.loads(raw_message)
             pulse = PulseMessage.from_dict(data)
-            logger.debug(f"[{self.bus.instance_id}] -NET: Received {pulse.type.value} from body")
-            
+            logger.debug(
+                f"[{self.bus.instance_id}] -NET: Received {pulse.type.value} from body"
+            )
+
             # Translate Pulse to Core Event
-            await self.bus.emit(Event.typed(
-                CoreEvent.PERCEPTION_RECEIVED,
-                payload={
-                    "content": pulse.data,
-                    "reality": "SOMATIC",
-                    "pulse_type": pulse.type.value
-                },
-                source="knet"
-            ))
+            await self.bus.emit(
+                Event.typed(
+                    CoreEvent.PERCEPTION_RECEIVED,
+                    payload={
+                        "content": pulse.data,
+                        "reality": "SOMATIC",
+                        "pulse_type": pulse.type.value,
+                    },
+                    source="knet",
+                )
+            )
         except Exception as e:
             logger.warning(f"-NET: Failed to process message: {e}")
 
@@ -186,12 +194,14 @@ class KNetServer:
 # DEPRECATED: Use Factory-managed instance instead
 _KNET_SERVER: KNetServer | None = None
 
+
 async def get_knet_server(bus: EventBus | None = None) -> KNetServer:
     """Legacy singleton accessor  updated to support instance bus."""
     global _KNET_SERVER
     if _KNET_SERVER is None:
         if bus is None:
             from cynic.kernel.core.event_bus import get_core_bus
+
             bus = get_core_bus("DEFAULT")
         _KNET_SERVER = KNetServer(bus=bus)
         await _KNET_SERVER.start()

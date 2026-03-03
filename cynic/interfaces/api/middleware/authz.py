@@ -118,7 +118,11 @@ class RBACAuthorizer:
             return False, None, error
 
         # Validate API key and check permissions using AccessController
-        is_authorized, role, authz_error = await self.access_controller.validate_request(
+        (
+            is_authorized,
+            role,
+            authz_error,
+        ) = await self.access_controller.validate_request(
             key_id,
             key_secret,
             resource,

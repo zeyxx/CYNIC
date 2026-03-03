@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
+    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import (
+        JudgeOrchestrator,
+    )
     from cynic.kernel.organism.brain.learning.qlearning import QTable, LearningLoop
     from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
     from cynic.kernel.organism.brain.cognition.cortex.decide import DecideAgent
@@ -34,9 +36,13 @@ if TYPE_CHECKING:
     from cynic.kernel.protocol.knet_server import KNetServer
 
     from cynic.kernel.organism.state_manager import OrganismState
-    from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
+    from cynic.kernel.organism.brain.cognition.cortex.action_proposer import (
+        ActionProposer,
+    )
     from cynic.kernel.organism.brain.cognition.cortex.self_probe import SelfProber
-    from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
+    from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import (
+        ProposalExecutor,
+    )
     from cynic.kernel.organism.sona_emitter import SonaEmitter
     from cynic.nervous.event_journal import EventJournal
     from cynic.nervous.loop_closure import LoopClosureValidator
@@ -52,7 +58,7 @@ class CognitionCore:
     qtable: QTable
     learning_loop: LearningLoop
     residual_detector: ResidualDetector
-    llm_registry: Any # LLMRegistry
+    llm_registry: Any  # LLMRegistry
     decide_agent: Optional[DecideAgent] = None
     account_agent: Optional[AccountAgent] = None
     axiom_monitor: Optional[AxiomMonitor] = None
@@ -99,7 +105,7 @@ class ArchiveCore:
     action_proposer: Optional[ActionProposer] = None
     self_prober: Optional[SelfProber] = None
     sona_emitter: Optional[SonaEmitter] = None
-    gossip_manager: Optional[Any] = None # GossipManager can have complex cycles
+    gossip_manager: Optional[Any] = None  # GossipManager can have complex cycles
     meta_cognition: Optional[Any] = None
     journal: Optional[EventJournal] = None
     loop_validator: Optional[LoopClosureValidator] = None

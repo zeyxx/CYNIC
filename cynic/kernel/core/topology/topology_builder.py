@@ -101,7 +101,9 @@ class IncrementalTopologyBuilder:
         # Update inventory
         self._previous_inventory = new_handlers
 
-    async def _discover_changed_modules(self, files: list[str]) -> dict[str, HandlerGroup]:
+    async def _discover_changed_modules(
+        self, files: list[str]
+    ) -> dict[str, HandlerGroup]:
         """
         Import only changed .py files, extract HandlerGroup classes.
 
@@ -136,7 +138,9 @@ class IncrementalTopologyBuilder:
                         # Use handler name as key
                         handler_name = getattr(cls, "name", name.lower())
                         result[handler_name] = cls
-                        logger.debug("Discovered handler: %s (%s)", handler_name, cls.__name__)
+                        logger.debug(
+                            "Discovered handler: %s (%s)", handler_name, cls.__name__
+                        )
 
             except EventBusError as e:
                 logger.warning("Failed to discover %s: %s", filepath, e)

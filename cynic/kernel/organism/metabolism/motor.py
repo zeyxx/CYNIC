@@ -23,15 +23,17 @@ class MotorSystem:
     Coordinates gestures (actions) with the physical body and energy budget.
     """
 
-    def __init__(self, bus: EventBus, body: Any | None = None, state_manager: Any | None = None):
+    def __init__(
+        self, bus: EventBus, body: Any | None = None, state_manager: Any | None = None
+    ):
         self.bus = bus
         self.body = body  # HardwareBody
         self.state = state_manager
         self._gestures_executed = 0
-        
+
         # Survival Thresholds
         self.MAX_ACTION_COST = 0.50  # USD
-        self.DAILY_BUDGET = 10.00   # USD
+        self.DAILY_BUDGET = 10.00  # USD
 
     async def execute_gesture(
         self,
@@ -55,7 +57,9 @@ class MotorSystem:
 
         # 2. Budget Check (Energy survival)
         if actual_cost > self.MAX_ACTION_COST:
-            logger.warning(f"[{self.bus.instance_id}]  Action blocked: cost {actual_cost:.4f} > MAX {self.MAX_ACTION_COST}")
+            logger.warning(
+                f"[{self.bus.instance_id}]  Action blocked: cost {actual_cost:.4f} > MAX {self.MAX_ACTION_COST}"
+            )
             return {"success": False, "error": "cost_too_high"}
 
         if self.state:
@@ -63,7 +67,9 @@ class MotorSystem:
             stats = await self.state.get_stats()
             total_spent = stats.get("total_spent_usd", 0.0)
             if total_spent + actual_cost > self.DAILY_BUDGET:
-                logger.critical(f"[{self.bus.instance_id}]  DAILY BUDGET EXHAUSTED ({total_spent:.2f}). Blocking action.")
+                logger.critical(
+                    f"[{self.bus.instance_id}]  DAILY BUDGET EXHAUSTED ({total_spent:.2f}). Blocking action."
+                )
                 return {"success": False, "error": "budget_exhausted"}
 
         # 3. Effector execution
@@ -75,11 +81,13 @@ class MotorSystem:
         )
 
         try:
-            await self.bus.emit(Event.typed(
-                CoreEvent.ACT_REQUESTED,
-                {"type": action_type, "cost": actual_cost},
-                source="motor"
-            ))
+            await self.bus.emit(
+                Event.typed(
+                    CoreEvent.ACT_REQUESTED,
+                    {"type": action_type, "cost": actual_cost},
+                    source="motor",
+                )
+            )
 
             # Real work happens here
             result = await effector.execute(**params)
@@ -87,16 +95,18 @@ class MotorSystem:
             duration_ms = (time.perf_counter() - t0) * 1000
             self._gestures_executed += 1
 
-            await self.bus.emit(Event.typed(
-                CoreEvent.ACT_COMPLETED,
-                {
-                    "type": action_type,
-                    "success": result.get("success", False),
-                    "duration_ms": duration_ms,
-                    "cost": actual_cost
-                },
-                source="motor"
-            ))
+            await self.bus.emit(
+                Event.typed(
+                    CoreEvent.ACT_COMPLETED,
+                    {
+                        "type": action_type,
+                        "success": result.get("success", False),
+                        "duration_ms": duration_ms,
+                        "cost": actual_cost,
+                    },
+                    source="motor",
+                )
+            )
 
             return {**result, "metabolic_cost": actual_cost, "duration_ms": duration_ms}
 
@@ -108,5 +118,5 @@ class MotorSystem:
         return {
             "gestures_count": self._gestures_executed,
             "body_linked": self.body is not None,
-            "instance_id": self.bus.instance_id
+            "instance_id": self.bus.instance_id,
         }

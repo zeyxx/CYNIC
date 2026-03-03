@@ -59,7 +59,9 @@ class UnifiedJudgment:
 
         # Validate confidence is in [0, MAX_CONFIDENCE (0.618)]
         if not (0 <= self.confidence <= MAX_CONFIDENCE):
-            raise ValueError(f"confidence must be in [0, {MAX_CONFIDENCE}], got {self.confidence}")
+            raise ValueError(
+                f"confidence must be in [0, {MAX_CONFIDENCE}], got {self.confidence}"
+            )
 
         # Validate verdict is in {HOWL, WAG, GROWL, BARK}
         valid_verdicts = {"HOWL", "WAG", "GROWL", "BARK"}
@@ -68,7 +70,9 @@ class UnifiedJudgment:
 
         # Wrap axiom_scores
         if self.axiom_scores and not isinstance(self.axiom_scores, MappingProxyType):
-            object.__setattr__(self, "axiom_scores", MappingProxyType(self.axiom_scores))
+            object.__setattr__(
+                self, "axiom_scores", MappingProxyType(self.axiom_scores)
+            )
         elif not self.axiom_scores:
             object.__setattr__(self, "axiom_scores", MappingProxyType({}))
 
@@ -129,8 +133,12 @@ class ImpactMeasurement:
 
     def __post_init__(self):
         """Wrap dimension_scores in MappingProxyType for deep immutability."""
-        if self.dimension_scores and not isinstance(self.dimension_scores, MappingProxyType):
-            object.__setattr__(self, "dimension_scores", MappingProxyType(self.dimension_scores))
+        if self.dimension_scores and not isinstance(
+            self.dimension_scores, MappingProxyType
+        ):
+            object.__setattr__(
+                self, "dimension_scores", MappingProxyType(self.dimension_scores)
+            )
         elif not self.dimension_scores:
             object.__setattr__(self, "dimension_scores", MappingProxyType({}))
 
@@ -228,7 +236,7 @@ class JudgmentBuffer(BaseModel):
         new_buffer = self.buffer + (item,)
         # Trim to maxlen if exceeded
         if len(new_buffer) > self.max_len:
-            new_buffer = new_buffer[-self.max_len:]
+            new_buffer = new_buffer[-self.max_len :]
         return JudgmentBuffer(buffer=new_buffer)
 
     def get_recent(self, n: int) -> list[UnifiedJudgment]:
@@ -251,7 +259,7 @@ class OutcomeBuffer(BaseModel):
         new_buffer = self.buffer + (item,)
         # Trim to maxlen if exceeded
         if len(new_buffer) > self.max_len:
-            new_buffer = new_buffer[-self.max_len:]
+            new_buffer = new_buffer[-self.max_len :]
         return OutcomeBuffer(buffer=new_buffer)
 
     def get_recent(self, n: int) -> list[UnifiedLearningOutcome]:
@@ -274,7 +282,7 @@ class ValueBuffer(BaseModel):
         new_buffer = self.buffer + (item,)
         # Trim to maxlen if exceeded
         if len(new_buffer) > self.max_len:
-            new_buffer = new_buffer[-self.max_len:]
+            new_buffer = new_buffer[-self.max_len :]
         return ValueBuffer(buffer=new_buffer)
 
 
@@ -293,7 +301,7 @@ class ImpactBuffer(BaseModel):
         new_buffer = self.buffer + (item,)
         # Trim to maxlen if exceeded
         if len(new_buffer) > self.max_len:
-            new_buffer = new_buffer[-self.max_len:]
+            new_buffer = new_buffer[-self.max_len :]
         return ImpactBuffer(buffer=new_buffer)
 
 
@@ -338,7 +346,7 @@ class ProposalBuffer(BaseModel):
         new_buffer = self.buffer + (item,)
         # Trim to maxlen if exceeded
         if len(new_buffer) > self.max_len:
-            new_buffer = new_buffer[-self.max_len:]
+            new_buffer = new_buffer[-self.max_len :]
         return ProposalBuffer(buffer=new_buffer)
 
     def get_recent(self, n: int) -> list[GovernanceProposal]:
@@ -373,10 +381,13 @@ class UnifiedConsciousState(BaseModel):
 
         for dog_id, score in v.items():
             if not isinstance(score, int | float):
-                raise ValueError(f"Dog {dog_id} score must be numeric, got {type(score)}")
+                raise ValueError(
+                    f"Dog {dog_id} score must be numeric, got {type(score)}"
+                )
             if not (0.0 <= score <= 1.0):
                 raise ValueError(
-                    f"Dog {dog_id} agreement score must be in [0.0, 1.0], " f"got {score}"
+                    f"Dog {dog_id} agreement score must be in [0.0, 1.0], "
+                    f"got {score}"
                 )
         return v
 
@@ -436,7 +447,9 @@ class UnifiedConsciousState(BaseModel):
         """Add proposal to buffer (returns new buffer instance)."""
         self.proposals = self.proposals.add(p)
 
-    async def reach_consensus_judgment(self, judgments: list[UnifiedJudgment]) -> UnifiedJudgment:
+    async def reach_consensus_judgment(
+        self, judgments: list[UnifiedJudgment]
+    ) -> UnifiedJudgment:
         """Reach consensus using PBFT engine (convenience wrapper)."""
         from cynic.kernel.organism.brain.consensus.pbft_engine import PBFTEngine
 

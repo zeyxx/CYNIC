@@ -15,11 +15,13 @@ from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, get_bus
 
 logger = logging.getLogger("cynic.kernel.brain.cognition.residual")
 
+
 class ResidualDetector:
     """
     Subscribes to JUDGMENT_CREATED events and calculates the variance
     between dog scores to detect emergence potential.
     """
+
     def __init__(self, bus: Optional[EventBus] = None):
         self._history: list[float] = []
         self._high_residual_count = 0
@@ -50,28 +52,30 @@ class ResidualDetector:
         """Analyze the variance of a new judgment."""
         payload = event.dict_payload
         dog_votes = payload.get("dog_votes", {})
-        
+
         if not dog_votes or len(dog_votes) < 2:
             return
 
         scores = list(dog_votes.values())
         residual = statistics.stdev(scores) if len(scores) > 1 else 0.0
-        
+
         self._history.append(residual)
         if len(self._history) > 100:
             self._history.pop(0)
 
         if residual > self._threshold:
             self._high_residual_count += 1
-            await self._bus.emit(Event.typed(
-                CoreEvent.ANOMALY_DETECTED,
-                {
-                    "type": "high_residual",
-                    "residual": round(residual, 2),
-                    "judgment_id": payload.get("judgment_id")
-                },
-                source="residual_detector"
-            ))
+            await self._bus.emit(
+                Event.typed(
+                    CoreEvent.ANOMALY_DETECTED,
+                    {
+                        "type": "high_residual",
+                        "residual": round(residual, 2),
+                        "judgment_id": payload.get("judgment_id"),
+                    },
+                    source="residual_detector",
+                )
+            )
 
     def stats(self) -> dict[str, Any]:
         """Return detector metrics."""

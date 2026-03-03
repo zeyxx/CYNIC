@@ -1,4 +1,5 @@
 """Comprehensive tests for LNSP Layer 3: Judge and Verdict Emission."""
+
 from __future__ import annotations
 
 import pytest
@@ -11,7 +12,10 @@ from cynic.kernel.protocol.lnsp.axioms import (
     VerifyEvaluator,
 )
 from cynic.kernel.protocol.lnsp.layer3 import Layer3, RoutingRule
-from cynic.kernel.protocol.lnsp.messages import create_aggregated_state, create_raw_observation
+from cynic.kernel.protocol.lnsp.messages import (
+    create_aggregated_state,
+    create_raw_observation,
+)
 from cynic.kernel.protocol.lnsp.types import (
     AggregationType,
     JudgmentType,
@@ -411,8 +415,10 @@ class TestLayer3Judge:
 
         judgment = await judge.judge(msg)
         assert judgment is not None
-        assert judgment.header.layer == Layer3.__dict__.get("JUDGMENT_LAYER", None) or \
-               judgment.header.source == "judge:primary"
+        assert (
+            judgment.header.layer == Layer3.__dict__.get("JUDGMENT_LAYER", None)
+            or judgment.header.source == "judge:primary"
+        )
         assert judgment.payload["judgment_type"] == JudgmentType.STATE_EVALUATION.value
 
 

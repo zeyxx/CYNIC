@@ -9,7 +9,10 @@ Tests:
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
@@ -17,7 +20,9 @@ pytest.skip("Skipping old architecture test module", allow_module_level=True)
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - governance_bot module not found")
+pytestmark = pytest.mark.skip(
+    reason="Old architecture removed in V5 - governance_bot module not found"
+)
 
 from governance_bot.auth import AuthManager
 from governance_bot.config import Config
@@ -170,7 +175,9 @@ class TestRolePermissions:
         actions = ["create_proposal", "delete_proposal"]
         assert RoleManager.has_any_permission(UserRole.MEMBER, actions)
         assert RoleManager.has_any_permission(UserRole.GUEST, ["view_proposals"])
-        assert not RoleManager.has_any_permission(UserRole.GUEST, ["create_proposal", "vote"])
+        assert not RoleManager.has_any_permission(
+            UserRole.GUEST, ["create_proposal", "vote"]
+        )
 
     def test_has_all_permissions(self):
         """Test checking for all permissions"""

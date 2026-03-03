@@ -26,9 +26,11 @@ from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest
 
 logger = logging.getLogger("cynic.kernel.brain.llm.temporal")
 
+
 @dataclass
 class TemporalJudgment:
     """The aggregate result of a 7-perspective temporal analysis."""
+
     phi_aggregate: float
     confidence: float
     reasoning: str
@@ -43,21 +45,22 @@ class TemporalJudgment:
             "reasoning": self.reasoning,
             "perspective_scores": self.perspective_scores,
             "llm_id": self.llm_id,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
+
 async def temporal_judgment(
-    adapter: LLMAdapter, 
-    content: str, 
+    adapter: LLMAdapter,
+    content: str,
     system_prompt: str = "You are a fractal reasoning agent.",
-    multimodal_data: Optional[List[Any]] = None
+    multimodal_data: Optional[List[Any]] = None,
 ) -> TemporalJudgment:
     """
     Performs a full temporal audit of the provided content.
     For simplicity in this version, we use a single LLM call that evaluates all 7 perspectives.
     """
     t0 = time.perf_counter()
-    
+
     # 1. Construct the 7-perspective prompt
     full_prompt = f"""
     AUDIT TASK: Analyze the following content across 7 temporal perspectives.
@@ -86,45 +89,60 @@ async def temporal_judgment(
     TRANSCENDENCE: X
     REASONING: [Your justification]
     """
-    
+
     # 2. Execute LLM Call
     request = LLMRequest(
         prompt=full_prompt,
         system=system_prompt,
         multimodal_data=multimodal_data or [],
-        temperature=PHI_INV # 0.618 for creative but bounded reasoning
+        temperature=PHI_INV,  # 0.618 for creative but bounded reasoning
     )
-    
+
     response = await adapter.complete_safe(request)
-    
+
     if not response.is_success:
         logger.error(f"Temporal judgment failed: {response.error}")
-        return TemporalJudgment(0.0, 0.0, f"Error: {response.error}", {}, adapter.adapter_id)
+        return TemporalJudgment(
+            0.0, 0.0, f"Error: {response.error}", {}, adapter.adapter_id
+        )
 
     # 3. Parse Scores
     import re
+
     scores = {}
-    perspectives = ["PAST", "PRESENT", "FUTURE", "CYCLE", "TREND", "EMERGENCE", "TRANSCENDENCE"]
-    
+    perspectives = [
+        "PAST",
+        "PRESENT",
+        "FUTURE",
+        "CYCLE",
+        "TREND",
+        "EMERGENCE",
+        "TRANSCENDENCE",
+    ]
+
     for p in perspectives:
-        match = re.search(fr"{p}:\s*(\d+)", response.content)
+        match = re.search(rf"{p}:\s*(\d+)", response.content)
         scores[p] = float(match.group(1)) if match else 50.0
-        
+
     reasoning_match = re.search(r"REASONING:\s*(.*)", response.content, re.DOTALL)
-    reasoning = reasoning_match.group(1).strip() if reasoning_match else "No reasoning provided."
-    
+    reasoning = (
+        reasoning_match.group(1).strip()
+        if reasoning_match
+        else "No reasoning provided."
+    )
+
     # 4. PHI-Weighted Aggregation
     # We weight TRANSCENDENCE and FUTURE higher
     weights = [1.0, 1.0, PHI, 1.0, 1.0, PHI, PHI**2]
     score_list = [scores[p] for p in perspectives]
-    
+
     phi_aggregate = weighted_geometric_mean(score_list, weights)
-    
+
     return TemporalJudgment(
         phi_aggregate=phi_aggregate,
-        confidence=0.618, # Base confidence for LLM reasoning
+        confidence=0.618,  # Base confidence for LLM reasoning
         reasoning=reasoning,
         perspective_scores=scores,
         llm_id=adapter.llm_id,
-        metadata={"latency_ms": (time.perf_counter() - t0) * 1000}
+        metadata={"latency_ms": (time.perf_counter() - t0) * 1000},
     )

@@ -2,6 +2,7 @@
 Audit API router mounting. Verify all routers in cynic/interfaces/api/routers/
 are imported and mounted in server.py.
 """
+
 from pathlib import Path
 import re
 
@@ -15,12 +16,15 @@ def audit_routers():
     excluded = {"__init__", "auto_register", "utils"}
 
     # Find all router modules
-    router_modules = sorted([
-        f.stem for f in routers_dir.glob("*.py")
-        if f.stem not in excluded and not f.stem.startswith("_")
-    ])
+    router_modules = sorted(
+        [
+            f.stem
+            for f in routers_dir.glob("*.py")
+            if f.stem not in excluded and not f.stem.startswith("_")
+        ]
+    )
 
-    server_content = server_path.read_text(encoding='utf-8')
+    server_content = server_path.read_text(encoding="utf-8")
 
     issues = []
     imported_routers = []
@@ -52,21 +56,32 @@ def audit_routers():
         print(f"[FAIL] API router audit found {len(issues)} issues:")
         for issue in issues:
             print(f"  - {issue}")
-        print(f"\nAvailable routers ({len(router_modules)} total): {', '.join(router_modules)}")
-        print(f"Imported routers ({len(imported_routers)}): {', '.join(imported_routers)}")
+        print(
+            f"\nAvailable routers ({len(router_modules)} total): {', '.join(router_modules)}"
+        )
+        print(
+            f"Imported routers ({len(imported_routers)}): {', '.join(imported_routers)}"
+        )
         print(f"Mounted routers ({len(mounted_routers)}): {', '.join(mounted_routers)}")
         return False
     else:
         print(f"[PASS] All {len(router_modules)} API routers are mounted")
-        print(f"   Routers: {', '.join(router_modules[:5])}{'...' if len(router_modules) > 5 else ''}")
+        print(
+            f"   Routers: {', '.join(router_modules[:5])}{'...' if len(router_modules) > 5 else ''}"
+        )
         if len(router_modules) > 5:
-            print(f"            {', '.join(router_modules[5:10])}{'...' if len(router_modules) > 10 else ''}")
+            print(
+                f"            {', '.join(router_modules[5:10])}{'...' if len(router_modules) > 10 else ''}"
+            )
             if len(router_modules) > 10:
-                print(f"            {', '.join(router_modules[10:15])}{'...' if len(router_modules) > 15 else ''}")
+                print(
+                    f"            {', '.join(router_modules[10:15])}{'...' if len(router_modules) > 15 else ''}"
+                )
         return True
 
 
 if __name__ == "__main__":
     import sys
+
     if not audit_routers():
         sys.exit(1)

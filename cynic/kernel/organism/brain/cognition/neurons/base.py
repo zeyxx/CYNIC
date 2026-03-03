@@ -57,9 +57,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.neurons.base")
 
-# 
+#
 # DOG REGISTRY (all 11 Dogs with their Sefirot)
-# 
+#
 
 
 class DogId(StrEnum):
@@ -104,10 +104,9 @@ NON_LLM_DOGS: set[str] = {
 }
 
 
-
-# 
+#
 # DOG JUDGMENT OUTPUT
-# 
+#
 
 
 class DogJudgment(BaseModel):
@@ -116,9 +115,10 @@ class DogJudgment(BaseModel):
 
     Dogs vote with q_score + confidence.
     PBFT aggregates dog_judgments into ConsensusResult.
-    
+
     Supports fractal growth: extra fields are allowed but validated.
     """
+
     model_config = ConfigDict(extra="allow", frozen=False)
 
     dog_id: str
@@ -153,9 +153,9 @@ class DogJudgment(BaseModel):
         return self.model_dump()
 
 
-# 
+#
 # DOG CAPABILITIES
-# 
+#
 
 
 @dataclass
@@ -179,12 +179,15 @@ class DogCapabilities:
     @property
     def can_analyze(self, cell: Cell) -> bool:
         """Check if this Dog can analyze a given Cell."""
-        return cell.reality in self.supported_realities and cell.analysis in self.supported_analyses
+        return (
+            cell.reality in self.supported_realities
+            and cell.analysis in self.supported_analyses
+        )
 
 
-# 
+#
 # HEALTH STATUS
-# 
+#
 
 
 class HealthStatus(StrEnum):
@@ -209,9 +212,9 @@ class DogHealth:
         return self.status == HealthStatus.HEALTHY
 
 
-# 
+#
 # ABSTRACT DOG
-# 
+#
 
 
 class AbstractDog(ABC):
@@ -226,7 +229,9 @@ class AbstractDog(ABC):
     The organism is the sum of all Dogs, coordinated by PBFT.
     """
 
-    def __init__(self, dog_id: str, bus: "EventBus", vascular: Optional["VascularSystem"] = None) -> None:
+    def __init__(
+        self, dog_id: str, bus: "EventBus", vascular: Optional["VascularSystem"] = None
+    ) -> None:
         """Initialize Dog with dependency injection of event bus and vascular system.
 
         Args:
@@ -242,7 +247,7 @@ class AbstractDog(ABC):
         self.dog_id = dog_id
         self.bus = bus
         self.vascular = vascular
-        
+
         self._judgment_count = 0
         self._error_count = 0
         self._total_latency_ms = 0.0
@@ -296,7 +301,6 @@ class AbstractDog(ABC):
             return 0.0
         return self._error_count / total
 
-
     @property
     def priority(self) -> float:
         """-weighted priority for DogScheduler."""
@@ -314,9 +318,9 @@ class AbstractDog(ABC):
         }
 
 
-# 
+#
 # LLM DOG BASE (extends AbstractDog with LLM routing)
-# 
+#
 
 
 class LLMDog(AbstractDog):
@@ -330,11 +334,11 @@ class LLMDog(AbstractDog):
     """
 
     def __init__(
-        self, 
-        dog_id: str, 
-        task_type: str = "general", 
+        self,
+        dog_id: str,
+        task_type: str = "general",
         bus: "EventBus" | None = None,
-        vascular: Optional["VascularSystem"] = None
+        vascular: Optional["VascularSystem"] = None,
     ) -> None:
         """Initialize LLM Dog with optional task type specialization.
 
@@ -375,23 +379,26 @@ class LLMDog(AbstractDog):
         adapter = await self.get_llm()
         if adapter is None:
             logger.error(f"[{self.dog_id}]  NO LLM ADAPTER FOUND")
-            await self.bus.emit(Event.typed(
-                CoreEvent.INTERNAL_ERROR,
-                {"dog_id": self.dog_id, "error": "no_adapter_available"},
-                source=f"dog:{self.dog_id}"
-            ))
+            await self.bus.emit(
+                Event.typed(
+                    CoreEvent.INTERNAL_ERROR,
+                    {"dog_id": self.dog_id, "error": "no_adapter_available"},
+                    source=f"dog:{self.dog_id}",
+                )
+            )
             raise RuntimeError(f"No LLM available for Dog {self.dog_id}")
 
         from cynic.kernel.organism.brain.llm.adapter import LLMRequest
 
         from cynic.kernel.core.phi import PHI_INV_2
+
         req = LLMRequest(
             prompt=prompt,
             system=system,
             max_tokens=min(2048, int(budget_usd * 10000)),
             temperature=PHI_INV_2,
         )
-        
+
         t_start = time.perf_counter()
         try:
             # Mandatary Timeout (LAW: An infinite wait is a slow death)
@@ -401,20 +408,23 @@ class LLMDog(AbstractDog):
             latency = (time.perf_counter() - t_start) * 1000
             logger.error(f"[{self.dog_id}]  LLM TIMEOUT after {latency:.0f}ms")
             self.record_error()
-            await self.bus.emit(Event.typed(
-                CoreEvent.INTERNAL_ERROR,
-                {"dog_id": self.dog_id, "error": "timeout", "latency_ms": latency},
-                source=f"dog:{self.dog_id}"
-            ))
+            await self.bus.emit(
+                Event.typed(
+                    CoreEvent.INTERNAL_ERROR,
+                    {"dog_id": self.dog_id, "error": "timeout", "latency_ms": latency},
+                    source=f"dog:{self.dog_id}",
+                )
+            )
             raise RuntimeError(f"Dog {self.dog_id} LLM timed out")
         except Exception as e:
             latency = (time.perf_counter() - t_start) * 1000
             logger.error(f"[{self.dog_id}]  LLM FAILURE ({adapter.llm_id}): {e}")
-            
+
             # Record failure in benchmarks to avoid this model next time
             self.record_error()
             if self._llm_registry:
                 from cynic.kernel.organism.brain.llm.adapter import BenchmarkResult
+
                 self._llm_registry.update_benchmark(
                     dog_id=self.dog_id,
                     task_type=self.task_type,
@@ -426,22 +436,24 @@ class LLMDog(AbstractDog):
                         quality_score=0.0,
                         speed_score=0.0,
                         cost_score=0.0,
-                        error_rate=1.0 # 100% error for this call
-                    )
+                        error_rate=1.0,  # 100% error for this call
+                    ),
                 )
 
             # Mandatory Telemetry
-            await self.bus.emit(Event.typed(
-                CoreEvent.INTERNAL_ERROR,
-                {
-                    "dog_id": self.dog_id, 
-                    "llm_id": adapter.llm_id,
-                    "error": str(e),
-                    "latency_ms": latency
-                },
-                source=f"dog:{self.dog_id}"
-            ))
-            
+            await self.bus.emit(
+                Event.typed(
+                    CoreEvent.INTERNAL_ERROR,
+                    {
+                        "dog_id": self.dog_id,
+                        "llm_id": adapter.llm_id,
+                        "error": str(e),
+                        "latency_ms": latency,
+                    },
+                    source=f"dog:{self.dog_id}",
+                )
+            )
+
             # Re-raise to let the stage handle fallback or crash
             raise RuntimeError(f"Dog {self.dog_id} LLM execution failed: {e}") from e
 

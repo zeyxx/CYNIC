@@ -151,15 +151,23 @@ class TestHealthChecker:
 
         for key in ["database", "llm", "consciousness", "event_bus"]:
             value = status.get(key)
-            assert value in ["ok", "down", "unknown"], f"Invalid status for {key}: {value}"
+            assert value in [
+                "ok",
+                "down",
+                "unknown",
+            ], f"Invalid status for {key}: {value}"
 
     @pytest.mark.asyncio
     async def test_health_overall_critical_on_consciousness_fail(self):
         """Overall should be critical if consciousness check fails."""
         mock_organism = MagicMock()
-        mock_organism.uptime_s = -999  # Invalid " will cause consciousness check to fail
+        mock_organism.uptime_s = (
+            -999
+        )  # Invalid " will cause consciousness check to fail
         mock_organism.kernel_mirror = MagicMock()
-        mock_organism.kernel_mirror.snapshot = MagicMock(side_effect=Exception("Snapshot failed"))
+        mock_organism.kernel_mirror.snapshot = MagicMock(
+            side_effect=Exception("Snapshot failed")
+        )
 
         health = HealthChecker(organism=mock_organism)
         status = await health.check()
@@ -171,7 +179,9 @@ class TestHealthChecker:
     async def test_health_overall_degraded_on_llm_fail(self):
         """Overall should be degraded if only LLM fails (optional system)."""
         mock_registry = MagicMock()
-        mock_registry.get_available = MagicMock(side_effect=Exception("Registry unavailable"))
+        mock_registry.get_available = MagicMock(
+            side_effect=Exception("Registry unavailable")
+        )
 
         # No organism, db, or buses provided (they'll default to ok)
         health = HealthChecker(registry=mock_registry)

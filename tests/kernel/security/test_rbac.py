@@ -190,7 +190,9 @@ class TestAuthorizationService:
         """Test validation of valid key."""
         service, key = auth_service
 
-        is_valid, retrieved_key, error = await service.validate_api_key("sk_auth", "secret_auth")
+        is_valid, retrieved_key, error = await service.validate_api_key(
+            "sk_auth", "secret_auth"
+        )
 
         assert is_valid is True
         assert retrieved_key is not None
@@ -200,7 +202,9 @@ class TestAuthorizationService:
         """Test validation with invalid key ID."""
         service, _ = auth_service
 
-        is_valid, key, error = await service.validate_api_key("sk_nonexistent", "secret")
+        is_valid, key, error = await service.validate_api_key(
+            "sk_nonexistent", "secret"
+        )
 
         assert is_valid is False
         assert key is None
@@ -270,7 +274,10 @@ class TestAuthorizationService:
                     permission,
                 )
                 # Admin should have access to resources (may not have all permissions but most)
-                if resource != Resource.VAULT_SECRETS or permission != Permission.DELETE:
+                if (
+                    resource != Resource.VAULT_SECRETS
+                    or permission != Permission.DELETE
+                ):
                     # Skip some restrictive checks
                     pass
 
@@ -303,7 +310,9 @@ class TestRequestSigner:
         signer = RequestSigner("shared_secret")
         timestamp = int(time.time())
 
-        signature = signer.sign_request("POST", "/api/govern", b"proposal_data", timestamp)
+        signature = signer.sign_request(
+            "POST", "/api/govern", b"proposal_data", timestamp
+        )
 
         is_valid, error = signer.verify_request(
             "POST",
@@ -359,7 +368,9 @@ class TestRequestSigner:
         signer = RequestSigner("secret")
         old_timestamp = int(time.time()) - 600  # 10 minutes ago
 
-        signature = signer.sign_request("POST", "/api/execute", b"action", old_timestamp)
+        signature = signer.sign_request(
+            "POST", "/api/execute", b"action", old_timestamp
+        )
 
         is_valid, error = signer.verify_request(
             "POST",
@@ -377,7 +388,9 @@ class TestRequestSigner:
         signer = RequestSigner("secret")
         future_timestamp = int(time.time()) + 3600  # 1 hour in future
 
-        signature = signer.sign_request("POST", "/api/execute", b"action", future_timestamp)
+        signature = signer.sign_request(
+            "POST", "/api/execute", b"action", future_timestamp
+        )
 
         is_valid, error = signer.verify_request(
             "POST",

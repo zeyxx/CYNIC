@@ -20,16 +20,17 @@ logger = logging.getLogger("cynic.kernel.organism.brain.cognition.neurons.discov
 
 import pathlib
 
+
 def discover_dog_classes() -> dict[str, type[AbstractDog]]:
     """
     Scan cynic.kernel.organism.brain.cognition.neurons for all concrete AbstractDog subclasses with DOG_ID.
     """
     found: dict[str, type[AbstractDog]] = {}
     valid_ids = set(DogId)
-    
+
     # Noble Path Discovery (Robust on Windows/Linux)
     pkg_dir = pathlib.Path(__file__).parent
-    
+
     for py_file in pkg_dir.glob("*.py"):
         module_name = py_file.stem
         if module_name.startswith("_") or module_name in ("base", "discovery"):
@@ -54,7 +55,9 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
             ):
                 dog_id = attr.DOG_ID
                 if dog_id not in valid_ids:
-                    raise ValueError(f"{attr.__name__}.DOG_ID = {dog_id!r} is not a valid DogId")
+                    raise ValueError(
+                        f"{attr.__name__}.DOG_ID = {dog_id!r} is not a valid DogId"
+                    )
                 if dog_id in found:
                     raise ValueError(
                         f"Duplicate DOG_ID {dog_id}: "
@@ -66,7 +69,12 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
     return found
 
 
-def discover_dogs(bus: Any, llm_registry: Any | None = None, vascular: Any | None = None, **overrides: Any) -> dict[str, AbstractDog]:
+def discover_dogs(
+    bus: Any,
+    llm_registry: Any | None = None,
+    vascular: Any | None = None,
+    **overrides: Any,
+) -> dict[str, AbstractDog]:
     """
     Discover and instantiate all dogs.
     """

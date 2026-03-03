@@ -11,6 +11,7 @@ then runs the AgentLoop with REFLEX judgment on dangerous tools.
 
 Lightweight: no server, no DB, no full kernel needed.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -129,7 +130,9 @@ def _handle_command(cmd: str, session: ChatSession, model: str) -> bool:
     return True
 
 
-async def _run_repl(model_name: str | None = None, resume_id: str | None = None) -> None:
+async def _run_repl(
+    model_name: str | None = None, resume_id: str | None = None
+) -> None:
     """Main REPL loop."""
 
     # Discover model

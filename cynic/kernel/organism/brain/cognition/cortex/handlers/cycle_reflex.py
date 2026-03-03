@@ -16,12 +16,19 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from cynic.kernel.core.event_bus import EventBus
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+)
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
+    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import (
+        JudgmentPipeline,
+    )
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_reflex")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_reflex"
+)
 
 
 class ReflexCycleHandler(BaseHandler):
@@ -73,11 +80,13 @@ class ReflexCycleHandler(BaseHandler):
         t0 = time.perf_counter()
         try:
             from cynic.kernel.core.consciousness import ConsciousnessLevel
-            from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import execute_judgment_pipeline
-            
+            from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import (
+                execute_judgment_pipeline,
+            )
+
             pipeline.level = ConsciousnessLevel.REFLEX
             pipeline = await execute_judgment_pipeline(self, pipeline)
-            
+
             judgment = pipeline.final_judgment
             if judgment is None:
                 raise RuntimeError("7-step pipeline failed to produce a judgment")
@@ -88,7 +97,11 @@ class ReflexCycleHandler(BaseHandler):
                 handler_id=self.handler_id,
                 output=judgment,
                 duration_ms=duration_ms,
-                metadata={"cell_id": pipeline.cell.cell_id, "level": "REFLEX", "verdict": judgment.verdict},
+                metadata={
+                    "cell_id": pipeline.cell.cell_id,
+                    "level": "REFLEX",
+                    "verdict": judgment.verdict,
+                },
             )
         except Exception as e:
             duration_ms = (time.perf_counter() - t0) * 1000

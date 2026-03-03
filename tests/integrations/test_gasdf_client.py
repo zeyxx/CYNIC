@@ -1,4 +1,5 @@
 """Tests for GASdf client."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -34,9 +35,7 @@ class TestGASdfClient:
             result = await client.health()
 
             assert result == {"status": "healthy"}
-            mock_client.get.assert_called_once_with(
-                f"{client.base_url}/health"
-            )
+            mock_client.get.assert_called_once_with(f"{client.base_url}/health")
 
     async def test_health_check_error(self) -> None:
         """Test health check error handling."""

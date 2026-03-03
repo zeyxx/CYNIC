@@ -26,10 +26,15 @@ from cynic.kernel.core.escore import EScoreTracker
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus
 from cynic.kernel.core.events_schema import SonaTickPayload
 from cynic.kernel.core.phi import PHI_INV, fibonacci
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+)
 from cynic.kernel.organism.brain.learning.qlearning import LearningLoop, QTable
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.meta_cognition")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.meta_cognition"
+)
 
 
 @dataclass
@@ -236,7 +241,9 @@ class MetaCognitionHandler(BaseHandler):
         oldest = self._health_window[0].total_judgments
         newest = self._health_window[-1].total_judgments
         judgments_delta = newest - oldest
-        uptime_delta = self._health_window[-1].uptime_s - self._health_window[0].uptime_s
+        uptime_delta = (
+            self._health_window[-1].uptime_s - self._health_window[0].uptime_s
+        )
 
         if uptime_delta > 0:
             judgments_per_second = judgments_delta / uptime_delta
@@ -261,7 +268,9 @@ class MetaCognitionHandler(BaseHandler):
             PHI_INV,  # 61.8% max
             (q_saturation * 0.5)
             + (min(1.0, latest.judgments_per_minute / 100) * 0.3)
-            + (min(1.0, latest.ewc_consolidated / 100) / 1000 * 0.2),  # EWC contribution small
+            + (
+                min(1.0, latest.ewc_consolidated / 100) / 1000 * 0.2
+            ),  # EWC contribution small
         )
 
         return {

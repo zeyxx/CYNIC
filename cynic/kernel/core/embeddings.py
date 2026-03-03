@@ -205,7 +205,9 @@ class DummyEmbedder(EmbeddingProvider):
         digest = hashlib.sha256(text.encode("utf-8")).digest()
         # Repeat digest to fill dim floats (4 bytes each = 32 floats per digest)
         raw_bytes = (digest * ((self._dim * 4 // 32) + 1))[: self._dim * 4]
-        floats = [struct.unpack_from(">f", raw_bytes, i * 4)[0] for i in range(self._dim)]
+        floats = [
+            struct.unpack_from(">f", raw_bytes, i * 4)[0] for i in range(self._dim)
+        ]
         # L2-normalize to unit vector
         norm = sum(f * f for f in floats) ** 0.5
         if norm < 1e-9:

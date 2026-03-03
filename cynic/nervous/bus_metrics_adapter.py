@@ -12,6 +12,7 @@ Usage:
     adapter = BusMetricsAdapter(collector, bus=instance_bus)
     bus.on("*", adapter.on_event)
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,7 +30,7 @@ logger = logging.getLogger("cynic.nervous.bus_metrics_adapter")
 # Request  Response event pairs for latency measurement
 _LATENCY_PAIRS: dict[str, str] = {
     "core.judgment_requested": "core.judgment_created",
-    "core.act_requested":      "core.act_completed",
+    "core.act_requested": "core.act_completed",
     "core.perception_received": "core.decision_made",
 }
 
@@ -38,18 +39,18 @@ _RESPONSE_TO_REQUEST: dict[str, str] = {v: k for k, v in _LATENCY_PAIRS.items()}
 _RESPONSE_TO_REQUEST["core.judgment_failed"] = "core.judgment_requested"
 
 # Error event types
-_ERROR_EVENTS = {"core.judgment_failed", "core.consensus_failed", "core.internal_error",
-                 "core.budget_exhausted"}
+_ERROR_EVENTS = {
+    "core.judgment_failed",
+    "core.consensus_failed",
+    "core.internal_error",
+    "core.budget_exhausted",
+}
 
 
 def _extract_key(event: Event) -> str | None:
     """Extract correlation key (judgment_id or id) from payload."""
     payload = event.dict_payload
-    return (
-        payload.get("judgment_id")
-        or payload.get("id")
-        or payload.get("cell_id")
-    )
+    return payload.get("judgment_id") or payload.get("id") or payload.get("cell_id")
 
 
 class BusMetricsAdapter:
@@ -92,9 +93,13 @@ class BusMetricsAdapter:
                 request_type = _RESPONSE_TO_REQUEST[event.type]
                 pair_key = f"{request_type}:{key}"
                 if pair_key in self._open_latencies:
-                    duration_ms = (event.timestamp - self._open_latencies.pop(pair_key)) * 1000.0
+                    duration_ms = (
+                        event.timestamp - self._open_latencies.pop(pair_key)
+                    ) * 1000.0
 
-        await self._collector.record(event.type, duration_ms=duration_ms, is_error=is_error)
+        await self._collector.record(
+            event.type, duration_ms=duration_ms, is_error=is_error
+        )
 
         self._event_count += 1
         if self._event_count % HISTORY_REPLAY_BATCH == 0:
@@ -105,14 +110,16 @@ class BusMetricsAdapter:
         anomalies = await self._collector.detect_anomalies()
         if anomalies and self._bus:
             for anomaly in anomalies:
-                await self._bus.emit(Event(
-                    type=CoreEvent.ANOMALY_DETECTED.value,
-                    source="bus_metrics_adapter",
-                    payload={
-                        "anomaly_type": anomaly.anomaly_type,
-                        "event_type": anomaly.event_type,
-                        "severity": anomaly.severity,
-                        "message": anomaly.message,
-                    },
-                ))
+                await self._bus.emit(
+                    Event(
+                        type=CoreEvent.ANOMALY_DETECTED.value,
+                        source="bus_metrics_adapter",
+                        payload={
+                            "anomaly_type": anomaly.anomaly_type,
+                            "event_type": anomaly.event_type,
+                            "severity": anomaly.severity,
+                            "message": anomaly.message,
+                        },
+                    )
+                )
                 logger.warning(f"Anomaly detected: {anomaly.message}")

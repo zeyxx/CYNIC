@@ -57,7 +57,9 @@ class JudgeInterface(ABC):
     """
 
     @abstractmethod
-    async def judge(self, proposal_text: str, context: dict[str, Any]) -> UnifiedJudgment:
+    async def judge(
+        self, proposal_text: str, context: dict[str, Any]
+    ) -> UnifiedJudgment:
         """
         Judge a proposal and return structured verdict.
 
@@ -128,7 +130,9 @@ class BaseJudge(JudgeInterface):
         return min(base_confidence, MAX_CONFIDENCE)
 
     @abstractmethod
-    async def judge(self, proposal_text: str, context: dict[str, Any]) -> UnifiedJudgment:
+    async def judge(
+        self, proposal_text: str, context: dict[str, Any]
+    ) -> UnifiedJudgment:
         """
         Judge a proposal (must be implemented by subclass).
 

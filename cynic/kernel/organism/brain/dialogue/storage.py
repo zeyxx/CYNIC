@@ -8,7 +8,11 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from cynic.kernel.organism.brain.dialogue.models import CynicMessage, DialogueMessage, UserMessage
+from cynic.kernel.organism.brain.dialogue.models import (
+    CynicMessage,
+    DialogueMessage,
+    UserMessage,
+)
 
 
 class DialogueStore:

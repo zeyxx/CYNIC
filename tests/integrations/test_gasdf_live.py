@@ -7,6 +7,7 @@ to be skipped by default. Run with:
 
 Requires network access to https://asdfasdfa.tech
 """
+
 from __future__ import annotations
 
 import pytest
@@ -64,7 +65,6 @@ class TestGASdfLiveAPI:
         assert isinstance(stats.burned_formatted, str)
         assert isinstance(stats.treasury, dict)
 
-
     @pytest.mark.integration
     async def test_get_quote_live(self, client: GASdfClient) -> None:
         """Test getting a fee quote from real GASdf API.
@@ -87,7 +87,6 @@ class TestGASdfLiveAPI:
             assert quote.quote_id is not None
             assert quote.fee_amount > 0
             assert quote.burn_amount > 0
-
 
         except GASdfError as e:
             # Quote might fail with invalid token/pubkey - that's OK for this test
@@ -154,7 +153,9 @@ class TestGASdfExecutorIntegration:
         This tests the full executor flow (quote â†’ submit) against real API
         without actually submitting a transaction (using test data).
         """
-        from cynic.kernel.organism.perception.integrations.gasdf.executor import GASdfExecutor
+        from cynic.kernel.organism.perception.integrations.gasdf.executor import (
+            GASdfExecutor,
+        )
 
         client = GASdfClient()
         executor = GASdfExecutor(client)
@@ -171,4 +172,3 @@ class TestGASdfExecutorIntegration:
         )
 
         assert result is None  # Should skip REJECT verdict
-

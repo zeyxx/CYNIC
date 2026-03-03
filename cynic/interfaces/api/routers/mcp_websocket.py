@@ -15,6 +15,7 @@ Design:
   - Graceful disconnect handling
   - JSON-RPC error responses for unknown methods
 """
+
 from __future__ import annotations
 
 import logging

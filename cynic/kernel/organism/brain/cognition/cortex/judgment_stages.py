@@ -51,10 +51,12 @@ class PerceiveStage(JudgmentStage):
             Event.typed(
                 CoreEvent.CYCLE_STARTED,
                 {"reality": cell.reality, "cell_id": cell.cell_id},
-                source="perceive_stage"
+                source="perceive_stage",
             )
         )
-        logger.debug(f"[{pipeline.trace_id}] Stage 1: Perceive (reality={cell.reality})")
+        logger.debug(
+            f"[{pipeline.trace_id}] Stage 1: Perceive (reality={cell.reality})"
+        )
         return pipeline.evolve()
 
 
@@ -69,18 +71,23 @@ class JudgeStage(JudgmentStage):
         # Filter Dogs based on level and E-Score
         dog_items = list(orch.dogs.items())
         from cynic.kernel.core.consciousness import dogs_for_level
+
         active_ids = dogs_for_level(level)
         dog_items = [(did, d) for did, d in dog_items if did in active_ids]
 
         if orch.escore_tracker is not None:
             GROWL_MIN = PHI_INV_2 * MAX_Q_SCORE
             dog_items = [
-                (did, d) for did, d in dog_items 
-                if orch.escore_tracker.get_score(f"agent:{did}") >= GROWL_MIN or did == DogId.CYNIC
+                (did, d)
+                for did, d in dog_items
+                if orch.escore_tracker.get_score(f"agent:{did}") >= GROWL_MIN
+                or did == DogId.CYNIC
             ]
 
         all_dogs = [d for _, d in dog_items]
-        effective_budget = cell.budget_usd * (PHI_INV_2 if level == ConsciousnessLevel.MICRO else 1.0)
+        effective_budget = cell.budget_usd * (
+            PHI_INV_2 if level == ConsciousnessLevel.MICRO else 1.0
+        )
         per_dog_budget = effective_budget / max(len(all_dogs), 1)
 
         tasks = [dog.analyze(cell, budget_usd=per_dog_budget) for dog in all_dogs]
@@ -89,11 +96,15 @@ class JudgeStage(JudgmentStage):
 
         # Consensus & Axioms
         consensus = await orch.cynic_dog.phi_bft_run(cell, valid_judgments)
-        
+
         q_scores = [j.q_score for j in valid_judgments]
         avg_q = sum(q_scores) / len(q_scores) if q_scores else 0.0
-        depth = 1 if level == ConsciousnessLevel.REFLEX else (2 if level == ConsciousnessLevel.MICRO else 3)
-        
+        depth = (
+            1
+            if level == ConsciousnessLevel.REFLEX
+            else (2 if level == ConsciousnessLevel.MICRO else 3)
+        )
+
         axiom_result = await orch.axiom_arch.score_and_compute(
             domain=cell.reality,
             context=str(cell.content)[:500],
@@ -102,7 +113,7 @@ class JudgeStage(JudgmentStage):
         )
 
         final_q = phi_bound_score(consensus.final_q_score or axiom_result.q_score)
-        
+
         judgment = Judgment(
             cell=cell,
             q_score=final_q,
@@ -118,12 +129,14 @@ class JudgeStage(JudgmentStage):
             duration_ms=pipeline.elapsed_ms(),
         )
 
-        logger.debug(f"[{pipeline.trace_id}] Stage 2: Judge (Q={final_q:.1f} Verdict={judgment.verdict})")
+        logger.debug(
+            f"[{pipeline.trace_id}] Stage 2: Judge (Q={final_q:.1f} Verdict={judgment.verdict})"
+        )
         return pipeline.evolve(
             dog_judgments=tuple(valid_judgments),
             consensus=consensus,
             final_judgment=judgment,
-            total_cost_usd=judgment.cost_usd
+            total_cost_usd=judgment.cost_usd,
         )
 
 
@@ -131,14 +144,21 @@ class DecideStage(JudgmentStage):
     """STEP 3: DECIDE  Governance validation."""
 
     async def execute(self, pipeline: JudgmentPipeline) -> JudgmentPipeline:
-        if pipeline.final_judgment is None or pipeline.level in (ConsciousnessLevel.REFLEX, ConsciousnessLevel.MICRO):
+        if pipeline.final_judgment is None or pipeline.level in (
+            ConsciousnessLevel.REFLEX,
+            ConsciousnessLevel.MICRO,
+        ):
             return pipeline.evolve()
 
         if self.orchestrator.decision_validator:
-            decision = self.orchestrator.decision_validator.validate(pipeline.final_judgment)
-            logger.debug(f"[{pipeline.trace_id}] Stage 3: Decide (Approved={decision.approved})")
+            decision = self.orchestrator.decision_validator.validate(
+                pipeline.final_judgment
+            )
+            logger.debug(
+                f"[{pipeline.trace_id}] Stage 3: Decide (Approved={decision.approved})"
+            )
             return pipeline.evolve(decision=decision)
-        
+
         return pipeline.evolve()
 
 
@@ -152,9 +172,13 @@ class ActStage(JudgmentStage):
         orch = self.orchestrator
         if hasattr(orch, "_act_phase"):
             result = await orch._act_phase(pipeline.final_judgment, pipeline)
-            logger.debug(f"[{pipeline.trace_id}] Stage 4: Act (Executed={result is not None})")
-            return pipeline.evolve(action_executed=result is not None, action_result=result)
-        
+            logger.debug(
+                f"[{pipeline.trace_id}] Stage 4: Act (Executed={result is not None})"
+            )
+            return pipeline.evolve(
+                action_executed=result is not None, action_result=result
+            )
+
         return pipeline.evolve()
 
 
@@ -189,7 +213,9 @@ class EmergeStage(JudgmentStage):
                     ),
                 )
             )
-            logger.info(f"[{pipeline.trace_id}] Stage 7: Emerge (THE_UNNAMEABLE detected)")
+            logger.info(
+                f"[{pipeline.trace_id}] Stage 7: Emerge (THE_UNNAMEABLE detected)"
+            )
         return pipeline.evolve()
 
 
@@ -201,8 +227,13 @@ async def execute_judgment_pipeline(
     """Execute complete 7-step judgment pipeline DAG."""
     if stages is None:
         stages = [
-            PerceiveStage, JudgeStage, DecideStage, 
-            ActStage, LearnStage, AccountStage, EmergeStage
+            PerceiveStage,
+            JudgeStage,
+            DecideStage,
+            ActStage,
+            LearnStage,
+            AccountStage,
+            EmergeStage,
         ]
 
     current = pipeline

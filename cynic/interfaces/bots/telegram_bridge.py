@@ -8,6 +8,7 @@ Requirements:
   - TELEGRAM_BOT_TOKEN
   - TELEGRAM_CHAT_ID
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,30 +17,37 @@ import httpx
 
 logger = logging.getLogger("cynic.interfaces.telegram")
 
+
 class TelegramBridge:
     """
     Minimalist Telegram Notifier.
     Uses httpx directly to avoid heavy bot framework dependencies.
     """
+
     def __init__(self, token: str | None = None, chat_id: str | None = None):
         # Dependency injection (preferred)
         if token is None or chat_id is None:
             # Fall back to unified config system (Rule 3: single source of truth)
             try:
-                from cynic.kernel.core.config import CynicConfig
+                from cynic.config import CynicConfig
+
                 config = CynicConfig.from_env()
                 token = token or config.telegram_token
                 chat_id = chat_id or config.telegram_chat_id
             except Exception as _e:
-                logger.debug(f'Silenced: {_e}')  # If config unavailable, token/chat_id remain None
+                logger.debug(
+                    f"Silenced: {_e}"
+                )  # If config unavailable, token/chat_id remain None
 
         self.token = token
         self.chat_id = chat_id
         self.base_url = f"https://api.telegram.org/bot{self.token}"
         self.active = all([self.token, self.chat_id])
-        
+
         if not self.active:
-            logger.warning("TelegramBridge: Missing credentials. Notifications disabled.")
+            logger.warning(
+                "TelegramBridge: Missing credentials. Notifications disabled."
+            )
 
     async def notify(self, message: str, silent: bool = False) -> bool:
         """Send a message to the configured chat."""
@@ -51,7 +59,7 @@ class TelegramBridge:
             "chat_id": self.chat_id,
             "text": message,
             "parse_mode": "HTML",
-            "disable_notification": silent
+            "disable_notification": silent,
         }
 
         try:
@@ -72,7 +80,7 @@ class TelegramBridge:
         )
         if details:
             msg += f"\n<b>Context:</b>\n<pre>{details[:500]}</pre>"
-            
+
         await self.notify(msg)
 
     async def notify_resource_stress(self, cpu: float, ram: float):

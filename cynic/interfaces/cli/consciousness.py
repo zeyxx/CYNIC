@@ -1,6 +1,7 @@
 """
 CYNIC CLI " `consciousness` command (Ring 3 unified metathinking TUI dashboard).
 """
+
 from __future__ import annotations
 
 import time
@@ -33,14 +34,13 @@ def cmd_consciousness() -> None:
 
     mirror = data.get("mirror", {})
     float(data.get("uptime_s", 0.0))
-    ts      = float(data.get("timestamp", 0.0))
+    ts = float(data.get("timestamp", 0.0))
     time.time() - ts if ts else 0.0
 
     # "" Header """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     float(mirror.get("overall_health", 50.0))
-    tier    = mirror.get("tier", "?")
+    tier = mirror.get("tier", "?")
     _VERDICT_COLOR.get(tier, "white")
-
 
     # "" QTable """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     qt = mirror.get("qtable", {})
@@ -56,8 +56,11 @@ def cmd_consciousness() -> None:
         axioms.get("active_count", 0)
         axioms.get("total_signals", 0)
         {
-            "TRANSCENDENT": "green", "AWAKENING": "cyan",
-            "EMERGENCE": "yellow", "STIRRING": "orange", "DORMANT": "gray",
+            "TRANSCENDENT": "green",
+            "AWAKENING": "cyan",
+            "EMERGENCE": "yellow",
+            "STIRRING": "orange",
+            "DORMANT": "gray",
         }.get(atier, "white")
         # Per-axiom breakdown
         for _aname, ainfo in (axioms.get("axioms") or {}).items():
@@ -94,4 +97,3 @@ def cmd_consciousness() -> None:
         for _path, change in list(diff.items())[:8]:
             change.get("old", "?")
             change.get("new", "?")
-

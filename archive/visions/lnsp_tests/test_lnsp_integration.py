@@ -11,6 +11,7 @@ Tests:
 2. test_manager_with_components: Registration and wiring of actual components
 3. test_manager_statistics: Aggregation of stats from all layers
 """
+
 from __future__ import annotations
 
 import asyncio

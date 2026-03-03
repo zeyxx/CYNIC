@@ -83,7 +83,9 @@ def merge_q_tables(
                 remote_weight = remote_visits / total
 
                 # Weighted merge of q_score
-                merged_q_score = local_weight * local_q_score + remote_weight * remote_q_score
+                merged_q_score = (
+                    local_weight * local_q_score + remote_weight * remote_q_score
+                )
 
                 # Clamp merged q_score to [0, 100]
                 merged_q_score = max(0.0, min(100.0, merged_q_score))

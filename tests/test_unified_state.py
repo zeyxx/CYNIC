@@ -7,6 +7,7 @@ TDD approach:
 3. Test consensus score calculation
 4. Test learning outcome recording
 """
+
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
@@ -194,7 +195,9 @@ class TestConsensusScoreCalculation:
         }
 
         # Consensus should be average
-        expected = sum(state.dog_agreement_scores.values()) / len(state.dog_agreement_scores)
+        expected = sum(state.dog_agreement_scores.values()) / len(
+            state.dog_agreement_scores
+        )
         actual = state.get_consensus_score()
         assert abs(actual - expected) < 0.0001
 
@@ -297,8 +300,8 @@ class TestDataclassTypes:
         assert isinstance(judgment.confidence, float)
         # axiom_scores and dog_votes are wrapped in MappingProxyType (read-only views)
         # They behave like dicts but are immutable at the top level
-        assert hasattr(judgment.axiom_scores, '__getitem__')  # Dict-like interface
-        assert hasattr(judgment.dog_votes, '__getitem__')     # Dict-like interface
+        assert hasattr(judgment.axiom_scores, "__getitem__")  # Dict-like interface
+        assert hasattr(judgment.dog_votes, "__getitem__")  # Dict-like interface
         assert isinstance(judgment.reasoning, str)
         assert isinstance(judgment.latency_ms, float)
 

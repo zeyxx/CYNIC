@@ -1,6 +1,7 @@
 """
 CYNIC act router  act/execute  act/telemetry
 """
+
 from __future__ import annotations
 
 import logging
@@ -76,7 +77,9 @@ async def act_execute(
     logger.info("*ears perk* ACT requested: %s...", prompt[:80])
 
     enriched = _enrich_prompt(prompt, state)
-    result = await state.metabolism.runner.execute(enriched, cwd=cwd, model=model, timeout=timeout)
+    result = await state.metabolism.runner.execute(
+        enriched, cwd=cwd, model=model, timeout=timeout
+    )
 
     return {
         "success": result.get("success", False),
@@ -99,7 +102,11 @@ async def act_telemetry(
     store = state.metabolism.telemetry_store
 
     if store is None:
-        return {"stats": {}, "sessions": [], "message": "Telemetry store not initialized"}
+        return {
+            "stats": {},
+            "sessions": [],
+            "message": "Telemetry store not initialized",
+        }
 
     result = {
         "stats": store.stats(),

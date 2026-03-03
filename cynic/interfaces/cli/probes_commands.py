@@ -80,6 +80,7 @@ def _status_color(status: str) -> str:
 def _format_timestamp(timestamp: float) -> str:
     """Format Unix timestamp as human-readable string."""
     import datetime
+
     dt = datetime.datetime.fromtimestamp(timestamp)
     return dt.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -104,7 +105,9 @@ def cmd_probes_list(status: str = "PENDING") -> None:
     # Normalize status input
     status = status.upper()
     if status not in ("PENDING", "APPLIED", "DISMISSED", "ALL"):
-        print(f"{_c('red', 'Error')}: Invalid status '{status}'. Use PENDING, APPLIED, DISMISSED, or all")
+        print(
+            f"{_c('red', 'Error')}: Invalid status '{status}'. Use PENDING, APPLIED, DISMISSED, or all"
+        )
         sys.exit(1)
 
     # Try API first
@@ -136,6 +139,7 @@ def cmd_probes_list(status: str = "PENDING") -> None:
         # Convert dict to object if needed
         if isinstance(proposal, dict):
             from dataclasses import dataclass
+
             @dataclass
             class ProposalProxy:
                 probe_id: str
@@ -162,15 +166,15 @@ def cmd_probes_list(status: str = "PENDING") -> None:
     # Show stats
     if api_data and "stats" in api_data:
         stats = api_data["stats"]
-        pending_str = _c('yellow', f"{stats['pending']} pending")
-        applied_str = _c('green', f"{stats['applied']} applied")
-        dismissed_str = _c('dim', f"{stats['dismissed']} dismissed")
+        pending_str = _c("yellow", f"{stats['pending']} pending")
+        applied_str = _c("green", f"{stats['applied']} applied")
+        dismissed_str = _c("dim", f"{stats['dismissed']} dismissed")
         print(f"Stats: {pending_str}, {applied_str}, {dismissed_str}")
     elif not api_ok:
         stats = prober.stats()
-        pending_str = _c('yellow', f"{stats['pending']} pending")
-        applied_str = _c('green', f"{stats['applied']} applied")
-        dismissed_str = _c('dim', f"{stats['dismissed']} dismissed")
+        pending_str = _c("yellow", f"{stats['pending']} pending")
+        applied_str = _c("green", f"{stats['applied']} applied")
+        dismissed_str = _c("dim", f"{stats['dismissed']} dismissed")
         print(f"Stats: {pending_str}, {applied_str}, {dismissed_str}")
 
 

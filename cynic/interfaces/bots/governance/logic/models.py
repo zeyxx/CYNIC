@@ -24,12 +24,15 @@ Base = declarative_base()
 
 class Community(Base):
     """Community governance configuration"""
+
     __tablename__ = "communities"
 
     community_id = Column(String, primary_key=True)
     platform = Column(String)  # "discord" or "telegram"
     community_name = Column(String)
-    community_token = Column(String, nullable=True)  # Deprecated: use _community_token_encrypted
+    community_token = Column(
+        String, nullable=True
+    )  # Deprecated: use _community_token_encrypted
     _community_token_encrypted = Column(String, nullable=True)  # Encrypted token
 
     # Governance settings
@@ -38,13 +41,19 @@ class Community(Base):
     quorum_percentage = Column(Float, default=25.0)
     approval_threshold_percentage = Column(Float, default=50.0)
     proposal_submission_fee_tokens = Column(Float, default=100.0)
-    voting_method = Column(String, default="token_weighted")  # "token_weighted" or "one_person_one_vote"
+    voting_method = Column(
+        String, default="token_weighted"
+    )  # "token_weighted" or "one_person_one_vote"
 
     # Integration
     gasdf_enabled = Column(Boolean, default=True)
     near_contract_address = Column(String, nullable=True)
-    treasury_address = Column(String, nullable=True)  # Deprecated: use _treasury_address_encrypted
-    _treasury_address_encrypted = Column(String, nullable=True)  # Encrypted treasury address
+    treasury_address = Column(
+        String, nullable=True
+    )  # Deprecated: use _treasury_address_encrypted
+    _treasury_address_encrypted = Column(
+        String, nullable=True
+    )  # Encrypted treasury address
     fee_burn_percentage = Column(Integer, default=100)
 
     # CYNIC
@@ -60,6 +69,7 @@ class Community(Base):
 
 class Proposal(Base):
     """Governance proposal"""
+
     __tablename__ = "proposals"
 
     proposal_id = Column(String, primary_key=True)
@@ -78,9 +88,15 @@ class Proposal(Base):
     execution_date = Column(DateTime, nullable=True)
 
     # Status
-    voting_status = Column(String, default="PENDING")  # PENDING, ACTIVE, CLOSED, CANCELLED
-    execution_status = Column(String, default="PENDING")  # PENDING, SCHEDULED, EXECUTING, COMPLETED, FAILED
-    approval_status = Column(String, default="PENDING")  # APPROVED, REJECTED, TIED, PENDING
+    voting_status = Column(
+        String, default="PENDING"
+    )  # PENDING, ACTIVE, CLOSED, CANCELLED
+    execution_status = Column(
+        String, default="PENDING"
+    )  # PENDING, SCHEDULED, EXECUTING, COMPLETED, FAILED
+    approval_status = Column(
+        String, default="PENDING"
+    )  # APPROVED, REJECTED, TIED, PENDING
 
     # CYNIC judgment
     judgment_id = Column(String, nullable=True)
@@ -112,6 +128,7 @@ class Proposal(Base):
 
 class Vote(Base):
     """User vote on proposal"""
+
     __tablename__ = "votes"
 
     vote_id = Column(String, primary_key=True)
@@ -127,11 +144,14 @@ class Vote(Base):
 
     proposal = relationship("Proposal", back_populates="votes")
 
-    __table_args__ = (UniqueConstraint("proposal_id", "voter_id", name="unique_vote_per_voter"),)
+    __table_args__ = (
+        UniqueConstraint("proposal_id", "voter_id", name="unique_vote_per_voter"),
+    )
 
 
 class EScore(Base):
     """Entity reputation score (E-Score)"""
+
     __tablename__ = "e_scores"
 
     e_score_id = Column(String, primary_key=True)
@@ -160,6 +180,7 @@ class EScore(Base):
 
 class LearningOutcome(Base):
     """Outcome of proposal execution for CYNIC learning"""
+
     __tablename__ = "learning_outcomes"
 
     outcome_id = Column(String, primary_key=True)
@@ -176,6 +197,7 @@ class LearningOutcome(Base):
 
 class CommunityUser(Base):
     """User metadata for community"""
+
     __tablename__ = "community_users"
 
     user_id = Column(String, primary_key=True)

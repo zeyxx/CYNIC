@@ -17,7 +17,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from cynic.interfaces.mcp.kernel_lock import KernelLockError, KernelLockManager, get_lock_manager
+from cynic.interfaces.mcp.kernel_lock import (
+    KernelLockError,
+    KernelLockManager,
+    get_lock_manager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +34,7 @@ HEALTH_CHECK_TIMEOUT = 5.0
 @dataclass
 class BootstrapResult:
     """Result of kernel bootstrap operation."""
+
     kernel_running: bool
     startup_type: Literal["docker", "subprocess", "already_running", "error"]
     duration_s: float
@@ -73,8 +78,11 @@ class DockerClient:
                 if self.container_name in container.name:
                     # Check container status
                     if container.status != "running":
-                        logger.debug("Container %s not running (status=%s)",
-                                     self.container_name, container.status)
+                        logger.debug(
+                            "Container %s not running (status=%s)",
+                            self.container_name,
+                            container.status,
+                        )
                         return False
 
                     # Check health if available
@@ -88,7 +96,9 @@ class DockerClient:
                         return False
 
                     # No health check configured, assume OK if running
-                    logger.debug("Container %s running (no health check)", self.container_name)
+                    logger.debug(
+                        "Container %s running (no health check)", self.container_name
+                    )
                     return True
 
             logger.debug("Container %s not found", self.container_name)
@@ -211,7 +221,13 @@ class KernelBootstrap:
         """Spawn CYNIC kernel as subprocess."""
         try:
             repo_root = Path(__file__).parent.parent.parent
-            cmd = [sys.executable, "-m", "cynic.interfaces.api.entry", "--port", str(CYNIC_PORT)]
+            cmd = [
+                sys.executable,
+                "-m",
+                "cynic.interfaces.api.entry",
+                "--port",
+                str(CYNIC_PORT),
+            ]
 
             logger.info("Spawning kernel: %s (cwd=%s)", " ".join(cmd), repo_root)
 
@@ -220,7 +236,9 @@ class KernelBootstrap:
                 cwd=str(repo_root),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                if sys.platform == "win32"
+                else 0,
             )
 
             logger.info("Kernel spawned with PID: %s", self.kernel_process.pid)
@@ -256,20 +274,27 @@ class KernelBootstrap:
                         ["curl", "-s", "-m", "5", f"{self.cynic_url}/health"],
                         capture_output=True,
                         text=True,
-                        timeout=6
-                    )
+                        timeout=6,
+                    ),
                 )
 
                 if result.returncode == 0:
                     elapsed = time.time() - start_time
-                    logger.debug("Health check passed after %.1fs (attempt %d)",
-                                 elapsed, attempt)
+                    logger.debug(
+                        "Health check passed after %.1fs (attempt %d)", elapsed, attempt
+                    )
                     return True
 
-                logger.debug("Health check failed (attempt %d, curl exit code %d)", attempt, result.returncode)
+                logger.debug(
+                    "Health check failed (attempt %d, curl exit code %d)",
+                    attempt,
+                    result.returncode,
+                )
 
             except (TimeoutError, OSError, Exception) as e:
-                logger.debug("Health check error (attempt %d): %s", attempt, type(e).__name__)
+                logger.debug(
+                    "Health check error (attempt %d): %s", attempt, type(e).__name__
+                )
 
             # Backoff before retry
             if attempt < len(backoff):

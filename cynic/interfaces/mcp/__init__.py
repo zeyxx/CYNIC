@@ -16,6 +16,7 @@ Two implementations:
 
 Pure async, Pydantic v2, OpenTelemetry-ready.
 """
+
 from cynic.interfaces.mcp.empirical_runner import EmpiricalRunner, JobResult
 from cynic.interfaces.mcp.models import (
     ActionProposal,
@@ -36,6 +37,7 @@ from cynic.interfaces.mcp.utils import setup_logging
 # Optional: stdio_server requires 'mcp' package (pip install mcp)
 try:
     from cynic.interfaces.mcp.stdio_server import CynicMCPServer, start_mcp_server
+
     _HAS_MCP = True
 except ImportError:
     CynicMCPServer = None  # type: ignore

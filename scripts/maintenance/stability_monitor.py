@@ -108,7 +108,6 @@ class StabilityMonitor:
             else:
                 pass
 
-
             self.metrics.append(
                 {
                     "iteration": iteration,
@@ -185,7 +184,9 @@ AttributeErrors:     {log_info['attribute_errors']}
 """
 
         if log_info["attribute_errors"] > 0:
-            report += "ðŸ”´ CRITICAL: AttributeErrors detected - memory leak NOT fixed!\n"
+            report += (
+                "ðŸ”´ CRITICAL: AttributeErrors detected - memory leak NOT fixed!\n"
+            )
         elif log_info["error_count"] == 0:
             report += "âœ… GOOD: No errors logged\n"
         else:

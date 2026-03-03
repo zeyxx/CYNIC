@@ -81,6 +81,8 @@ class PerceptionNerves(DomainNerve):
         """Inject a new perception cell into the organism."""
         await self.bus.emit(
             Event.typed(
-                CoreEvent.PERCEPTION_RECEIVED, payload=cell.model_dump(), source="perception_nerves"
+                CoreEvent.PERCEPTION_RECEIVED,
+                payload=cell.model_dump(),
+                source="perception_nerves",
             )
         )

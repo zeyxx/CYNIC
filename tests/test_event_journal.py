@@ -377,6 +377,7 @@ async def test_get_nonexistent_event(journal):
 @pytest.mark.asyncio
 async def test_concurrent_writes(journal):
     """Test thread-safe concurrent writes."""
+
     async def write_events(count: int, source_id: int) -> None:
         for i in range(count):
             await journal.record(

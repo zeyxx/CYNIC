@@ -13,7 +13,9 @@ from cynic.kernel.organism.reflexes.base import HandlerGroup
 from cynic.kernel.organism.reflexes.services import MetabolicServices
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
+    from cynic.kernel.organism.brain.cognition.cortex.action_proposer import (
+        ActionProposer,
+    )
     from cynic.kernel.organism.brain.learning.qlearning import QTable
 
 logger = logging.getLogger("cynic.kernel.organism.reflexes.sdk")

@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DogInput:
     """Raw judgment from a dog (input sensor)."""
+
     dog_id: str
     q_score: float
     confidence: float
@@ -40,6 +41,7 @@ class UnifiedJudgment:
 
     NOT a vote. NOT an average. An EXECUTIVE DECISION.
     """
+
     q_score: float
     verdict: str
     confidence: float
@@ -62,10 +64,10 @@ class JudgmentEngine:
     """
 
     # Verdict thresholds (from MEMORY.md critical rules)
-    BARK_MAX = 38.2    # Q < 38.2
-    GROWL_MAX = 61.8   # Q < 61.8
-    WAG_MAX = 82.0     # Q < 82.0
-    HOWL_MIN = 82.0    # Q >= 82.0
+    BARK_MAX = 38.2  # Q < 38.2
+    GROWL_MAX = 61.8  # Q < 61.8
+    WAG_MAX = 82.0  # Q < 82.0
+    HOWL_MIN = 82.0  # Q >= 82.0
 
     def __init__(
         self,
@@ -88,7 +90,9 @@ class JudgmentEngine:
         self.axiom_penalty = axiom_penalty
 
         if not (0.0 <= axiom_penalty <= 1.0):
-            raise ValueError(f"axiom_penalty must be in [0.0, 1.0], got {axiom_penalty}")
+            raise ValueError(
+                f"axiom_penalty must be in [0.0, 1.0], got {axiom_penalty}"
+            )
 
     def _apply_axiom_penalties(self, dog_inputs: list[DogInput]) -> list[DogInput]:
         """Apply Layer 0 constraints to dog inputs.
@@ -218,8 +222,12 @@ class JudgmentEngine:
 
         avg_conf = sum(di.confidence for di in dog_inputs) / len(dog_inputs)
         # Compute disagreement (variance)
-        variance = sum((di.confidence - avg_conf) ** 2 for di in dog_inputs) / len(dog_inputs)
-        disagreement_penalty = 1.0 - min(variance / 0.1, 1.0)  # 0 variance = 1.0, high variance = 0
+        variance = sum((di.confidence - avg_conf) ** 2 for di in dog_inputs) / len(
+            dog_inputs
+        )
+        disagreement_penalty = 1.0 - min(
+            variance / 0.1, 1.0
+        )  # 0 variance = 1.0, high variance = 0
 
         unified_conf = avg_conf * disagreement_penalty
         return min(unified_conf, MAX_CONFIDENCE)  # Ï†-bound
@@ -278,7 +286,9 @@ class JudgmentEngine:
             verdict=verdict,
             confidence=confidence,
             justification=f"Engine unified {len(dog_inputs)} dog inputs via {self.algorithm}",
-            precedent=context.get("precedent", "engine_judgment") if context else "engine_judgment",
+            precedent=context.get("precedent", "engine_judgment")
+            if context
+            else "engine_judgment",
             cost_usd=context.get("cost_usd", 0.01) if context else 0.01,
             dog_votes={di.dog_id: di.q_score for di in dog_inputs},
             algorithm=self.algorithm,

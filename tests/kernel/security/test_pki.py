@@ -69,7 +69,9 @@ class TestPKISetup:
 
         # Verify it's a CA cert
         assert int_cert.extensions.get_extension_for_class(
-            __import__("cryptography.x509", fromlist=["BasicConstraints"]).BasicConstraints
+            __import__(
+                "cryptography.x509", fromlist=["BasicConstraints"]
+            ).BasicConstraints
         ).value.ca
 
     def test_setup_intermediate_ca_idempotent(
@@ -97,7 +99,9 @@ class TestServiceCertificates:
         assert pki_config.service_cert_path("api").exists()
         assert pki_config.service_key_path("api").exists()
 
-    def test_generate_multiple_service_certs(self, pki: PKI, pki_config: PKIConfig) -> None:
+    def test_generate_multiple_service_certs(
+        self, pki: PKI, pki_config: PKIConfig
+    ) -> None:
         """Multiple services can have different certificates."""
         api_cert, _ = pki.generate_service_cert("api")
         event_bus_cert, _ = pki.generate_service_cert("event-bus")
@@ -106,7 +110,9 @@ class TestServiceCertificates:
         assert api_cert.serial_number != event_bus_cert.serial_number
         assert event_bus_cert.serial_number != core_cert.serial_number
 
-    def test_generate_service_cert_with_san(self, pki: PKI, pki_config: PKIConfig) -> None:
+    def test_generate_service_cert_with_san(
+        self, pki: PKI, pki_config: PKIConfig
+    ) -> None:
         """Service certificate can have Subject Alternative Names."""
         san_names = ["api.local", "api.cynic.local", "127.0.0.1"]
         svc_cert, _ = pki.generate_service_cert("api", san_names=san_names)
@@ -169,7 +175,10 @@ class TestCertificateInfo:
 class TestCertificateStorage:
     """Tests for certificate file I/O."""
 
-    @pytest.mark.skipif(platform.system() == "Windows", reason="Unix permissions not applicable on Windows")
+    @pytest.mark.skipif(
+        platform.system() == "Windows",
+        reason="Unix permissions not applicable on Windows",
+    )
     def test_key_file_permissions(self, pki: PKI, pki_config: PKIConfig) -> None:
         """Private keys are stored with restricted permissions (0o600)."""
         pki.generate_service_cert("api")
@@ -180,7 +189,10 @@ class TestCertificateStorage:
         mode = stat.st_mode & 0o777
         assert mode == 0o600  # Read-write owner only
 
-    @pytest.mark.skipif(platform.system() == "Windows", reason="Unix permissions not applicable on Windows")
+    @pytest.mark.skipif(
+        platform.system() == "Windows",
+        reason="Unix permissions not applicable on Windows",
+    )
     def test_cert_file_permissions(self, pki: PKI, pki_config: PKIConfig) -> None:
         """Certificates are readable (0o644)."""
         pki.generate_service_cert("api")
@@ -190,7 +202,10 @@ class TestCertificateStorage:
         mode = stat.st_mode & 0o777
         assert mode == 0o644  # Read-only except owner
 
-    @pytest.mark.skipif(platform.system() == "Windows", reason="Unix permissions not applicable on Windows")
+    @pytest.mark.skipif(
+        platform.system() == "Windows",
+        reason="Unix permissions not applicable on Windows",
+    )
     def test_cert_dir_permissions(self, pki_config: PKIConfig) -> None:
         """Cert directory has restricted permissions (0o700)."""
         stat = pki_config.cert_dir.stat()
@@ -215,7 +230,9 @@ class TestCertificateLoadingAndValidation:
         with pytest.raises(FileNotFoundError):
             pki._load_key(pki_config.service_key_path("nonexistent"))
 
-    def test_load_nonexistent_cert_raises(self, pki: PKI, pki_config: PKIConfig) -> None:
+    def test_load_nonexistent_cert_raises(
+        self, pki: PKI, pki_config: PKIConfig
+    ) -> None:
         """Loading nonexistent cert raises FileNotFoundError."""
         with pytest.raises(FileNotFoundError):
             pki._load_cert(pki_config.service_cert_path("nonexistent"))
@@ -232,7 +249,9 @@ class TestCertificateLoadingAndValidation:
         # Different certs (different serials)
         assert serial_1 != serial_2
 
-    def test_force_regenerate_service_cert(self, pki: PKI, pki_config: PKIConfig) -> None:
+    def test_force_regenerate_service_cert(
+        self, pki: PKI, pki_config: PKIConfig
+    ) -> None:
         """force=True regenerates service cert even if it exists."""
         svc_cert_1, _ = pki.generate_service_cert("api")
         serial_1 = svc_cert_1.serial_number

@@ -1,4 +1,5 @@
 """Layer 3: Architecture consciousness (L0 system)."""
+
 from __future__ import annotations
 
 from rich.console import RenderableType
@@ -26,10 +27,7 @@ class TopologyLayer(Static):
         table.add_row("Verified", str(self.convergence_verified))
 
         return Panel(
-            table,
-            title=" TOPOLOGY CONSCIOUSNESS",
-            border_style="magenta",
-            expand=False
+            table, title=" TOPOLOGY CONSCIOUSNESS", border_style="magenta", expand=False
         )
 
     def update_from_snapshot(self, snapshot: dict) -> None:

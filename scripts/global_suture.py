@@ -2,18 +2,19 @@ import os
 import re
 
 MAPPINGS = [
-    (r'cynic\.brain\b', 'cynic.kernel.organism.brain'),
-    (r'cynic\.perception\b', 'cynic.kernel.organism.perception'),
-    (r'cynic\.metabolism\b', 'cynic.kernel.organism.metabolism'),
+    (r"cynic\.brain\b", "cynic.kernel.organism.brain"),
+    (r"cynic\.perception\b", "cynic.kernel.organism.perception"),
+    (r"cynic\.metabolism\b", "cynic.kernel.organism.metabolism"),
 ]
 
-EXCLUDE_DIRS = {'.git', '__pycache__', '.pytest_cache', '.mypy_cache'}
+EXCLUDE_DIRS = {".git", "__pycache__", ".pytest_cache", ".mypy_cache"}
+
 
 def suture_file(file_path):
     try:
-        with open(file_path, encoding='utf-8') as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
-        
+
         new_content = content
         changes = 0
         for pattern, replacement in MAPPINGS:
@@ -21,23 +22,25 @@ def suture_file(file_path):
             if updated != new_content:
                 new_content = updated
                 changes += 1
-        
+
         if changes > 0:
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 f.write(new_content)
             return True
     except Exception:
         pass
     return False
 
+
 def run_global_suture():
     count = 0
-    for root, dirs, files in os.walk('.'):
+    for root, dirs, files in os.walk("."):
         dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
         for file in files:
-            if file.endswith(('.py', '.md', '.toml', '.yml', '.yaml', '.sh')):
+            if file.endswith((".py", ".md", ".toml", ".yml", ".yaml", ".sh")):
                 if suture_file(os.path.join(root, file)):
                     count += 1
+
 
 if __name__ == "__main__":
     run_global_suture()

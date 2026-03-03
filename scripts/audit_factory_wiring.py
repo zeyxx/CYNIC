@@ -7,6 +7,7 @@ Checks:
   - All service setters called (set_qtable, set_metrics_collector, etc.)
   - No missing wiring steps
 """
+
 import re
 from pathlib import Path
 
@@ -14,18 +15,30 @@ from pathlib import Path
 def audit_factory():
     """Check factory.py for completeness."""
     factory_path = Path("cynic/kernel/organism/factory.py")
-    content = factory_path.read_text(encoding='utf-8')
+    content = factory_path.read_text(encoding="utf-8")
 
     issues = []
 
     # Required initializations (accept EventBus, get_core_bus or self.core_bus pattern)
     required_inits = [
-        ("EventBus initialization", lambda c: "get_core_bus" in c or "EventBus" in c or "self.core_bus" in c),
+        (
+            "EventBus initialization",
+            lambda c: "get_core_bus" in c or "EventBus" in c or "self.core_bus" in c,
+        ),
         ("EventJournal", lambda c: "self.journal = EventJournal" in c),
         ("DecisionTracer", lambda c: "self.tracer = DecisionTracer" in c),
-        ("LoopClosureValidator", lambda c: "self.loop_validator = LoopClosureValidator" in c),
-        ("StateReconstructor", lambda c: "self.reconstructor = StateReconstructor" in c),
-        ("EventMetricsCollector", lambda c: "self.metrics_collector = EventMetricsCollector" in c),
+        (
+            "LoopClosureValidator",
+            lambda c: "self.loop_validator = LoopClosureValidator" in c,
+        ),
+        (
+            "StateReconstructor",
+            lambda c: "self.reconstructor = StateReconstructor" in c,
+        ),
+        (
+            "EventMetricsCollector",
+            lambda c: "self.metrics_collector = EventMetricsCollector" in c,
+        ),
     ]
 
     for init_name, check in required_inits:
@@ -64,8 +77,8 @@ def audit_factory():
 
     for handler in required_handlers:
         # Normalize whitespace for matching
-        handler_normalized = re.sub(r'\s+', ' ', handler)
-        content_normalized = re.sub(r'\s+', ' ', content)
+        handler_normalized = re.sub(r"\s+", " ", handler)
+        content_normalized = re.sub(r"\s+", " ", content)
         if handler_normalized not in content_normalized:
             issues.append(f"Missing bus handler: {handler}")
 
@@ -81,5 +94,6 @@ def audit_factory():
 
 if __name__ == "__main__":
     import sys
+
     if not audit_factory():
         sys.exit(1)

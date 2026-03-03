@@ -17,12 +17,19 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from cynic.kernel.core.event_bus import EventBus
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+)
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
+    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import (
+        JudgmentPipeline,
+    )
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_micro")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_micro"
+)
 
 
 class MicroCycleHandler(BaseHandler):
@@ -77,11 +84,13 @@ class MicroCycleHandler(BaseHandler):
         t0 = time.perf_counter()
         try:
             from cynic.kernel.core.consciousness import ConsciousnessLevel
-            from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import execute_judgment_pipeline
-            
+            from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import (
+                execute_judgment_pipeline,
+            )
+
             pipeline.level = ConsciousnessLevel.MICRO
             pipeline = await execute_judgment_pipeline(self, pipeline)
-            
+
             judgment = pipeline.final_judgment
             if judgment is None:
                 raise RuntimeError("7-step pipeline failed to produce a judgment")
@@ -89,9 +98,9 @@ class MicroCycleHandler(BaseHandler):
             # Check if escalation needed (Consensus weak)
             escalate_to_macro = False
             if judgment.confidence < 0.5:
-                 # Budget check for escalation
-                 # (Simplified here, in real kernel this is more complex)
-                 escalate_to_macro = True
+                # Budget check for escalation
+                # (Simplified here, in real kernel this is more complex)
+                escalate_to_macro = True
 
             duration_ms = (time.perf_counter() - t0) * 1000
             metadata = {

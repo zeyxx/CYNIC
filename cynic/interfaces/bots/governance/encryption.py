@@ -59,7 +59,9 @@ class EncryptedGovernanceData:
                 token,
                 key_id="governance-community-token",
             )
-            logger.debug(f"Encrypted community token (length: {len(token)} -> {len(encrypted)})")
+            logger.debug(
+                f"Encrypted community token (length: {len(token)} -> {len(encrypted)})"
+            )
             return encrypted
         except Exception as e:
             logger.error(f"Failed to encrypt community token: {e}")
@@ -78,7 +80,9 @@ class EncryptedGovernanceData:
             return None
 
         if not self._encryption_service:
-            logger.warning("Encryption service not configured, returning ciphertext as-is")
+            logger.warning(
+                "Encryption service not configured, returning ciphertext as-is"
+            )
             return encrypted_token
 
         try:
@@ -105,7 +109,9 @@ class EncryptedGovernanceData:
             return None
 
         if not self._encryption_service:
-            logger.warning("Encryption service not configured, storing address plaintext")
+            logger.warning(
+                "Encryption service not configured, storing address plaintext"
+            )
             return address
 
         try:
@@ -113,7 +119,9 @@ class EncryptedGovernanceData:
                 address,
                 key_id="governance-treasury-address",
             )
-            logger.debug(f"Encrypted treasury address (length: {len(address)} -> {len(encrypted)})")
+            logger.debug(
+                f"Encrypted treasury address (length: {len(address)} -> {len(encrypted)})"
+            )
             return encrypted
         except Exception as e:
             logger.error(f"Failed to encrypt treasury address: {e}")
@@ -132,7 +140,9 @@ class EncryptedGovernanceData:
             return None
 
         if not self._encryption_service:
-            logger.warning("Encryption service not configured, returning ciphertext as-is")
+            logger.warning(
+                "Encryption service not configured, returning ciphertext as-is"
+            )
             return encrypted_address
 
         try:
@@ -177,7 +187,9 @@ class EncryptedCommunityModel:
                     prepared.pop("community_token", None)
                     logger.info("Community token encrypted for storage")
                 except Exception as e:
-                    logger.error(f"Failed to encrypt community token during create: {e}")
+                    logger.error(
+                        f"Failed to encrypt community token during create: {e}"
+                    )
                     raise
 
             # Encrypt treasury_address if present
@@ -192,7 +204,9 @@ class EncryptedCommunityModel:
                     prepared.pop("treasury_address", None)
                     logger.info("Treasury address encrypted for storage")
                 except Exception as e:
-                    logger.error(f"Failed to encrypt treasury address during create: {e}")
+                    logger.error(
+                        f"Failed to encrypt treasury address during create: {e}"
+                    )
                     raise
 
         return prepared
@@ -217,7 +231,9 @@ class EncryptedCommunityModel:
             "approval_threshold_percentage": community.approval_threshold_percentage,
             "gasdf_enabled": community.gasdf_enabled,
             "cynic_enabled": community.cynic_enabled,
-            "created_at": community.created_at.isoformat() if community.created_at else None,
+            "created_at": community.created_at.isoformat()
+            if community.created_at
+            else None,
         }
 
         # Decrypt community token if present

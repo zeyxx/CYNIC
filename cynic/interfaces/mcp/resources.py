@@ -13,6 +13,7 @@ These resources bridge L2 feedback loop:
 
 MCP protocol: text/uri-list + application/json payloads
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,15 +38,16 @@ class HyperEdge:
     6. action: Executed behavior (what actually happened)
     7. integration: Loop completion status (cycle closed? residual?)
     """
-    edge_id: str                    # unique identifier
-    timestamp_ms: float             # when edge was created
-    signal: dict[str, Any]          # raw event + source
-    symbol: str                     # semantic category
-    meaning: dict[str, Any]         # judgment (verdict, Q, confidence)
-    value: float                    # estimated Q-value
-    decision: dict[str, Any]        # proposed action
-    action: dict[str, Any]          # executed action
-    integration: dict[str, Any]     # cycle status
+
+    edge_id: str  # unique identifier
+    timestamp_ms: float  # when edge was created
+    signal: dict[str, Any]  # raw event + source
+    symbol: str  # semantic category
+    meaning: dict[str, Any]  # judgment (verdict, Q, confidence)
+    value: float  # estimated Q-value
+    decision: dict[str, Any]  # proposed action
+    action: dict[str, Any]  # executed action
+    integration: dict[str, Any]  # cycle status
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
@@ -75,10 +77,7 @@ class MCPResourceManager:
             all_traces = await self.state.decision_tracer.recent_traces(limit=100)
 
             # Filter by verdict
-            matching = [
-                t for t in all_traces
-                if t.final_verdict == query_verdict
-            ]
+            matching = [t for t in all_traces if t.final_verdict == query_verdict]
 
             # Score by proximity to query_q_score
             scored = [
@@ -178,7 +177,9 @@ class MCPResourceManager:
                     "orphan_judgments": len(orphans),
                     "completion_rate": stats.get("completion_rate_percent", 0),
                     "is_healthy": (
-                        len(stalled) == 0 and len(orphans) == 0 and len(open_cycles) < 100
+                        len(stalled) == 0
+                        and len(orphans) == 0
+                        and len(open_cycles) < 100
                     ),
                 },
                 "alerts": {
@@ -337,13 +338,13 @@ class MCPResourceManager:
                         if trace
                         else {"verdict": None, "q_score": 0.0, "confidence": 0.0}
                     ),
-                    value=(
-                        trace.final_q_score if trace else 0.0
-                    ),
+                    value=(trace.final_q_score if trace else 0.0),
                     decision=(
                         {
                             "phase": "JUDGE",
-                            "dogs": len(trace.nodes[0].dog_votes) if trace and trace.nodes else 0,
+                            "dogs": len(trace.nodes[0].dog_votes)
+                            if trace and trace.nodes
+                            else 0,
                         }
                         if trace
                         else {}

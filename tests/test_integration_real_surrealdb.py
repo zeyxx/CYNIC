@@ -20,6 +20,7 @@ def has_surrealdb():
     try:
         import surrealdb
         import socket
+
         # Check if the port is actually open
         with socket.create_connection(("localhost", 8000), timeout=1):
             return True
@@ -54,7 +55,6 @@ class TestSurrealDBConnection:
             # Test basic query
             result = await db.query("RETURN 'connected'")
             assert result, "Should get response from SurrealDB"
-
 
     @pytest.mark.asyncio
     async def test_surrealdb_create_and_retrieve(self, has_surrealdb):
@@ -100,7 +100,6 @@ class TestSurrealDBConnection:
             final = await db.select(test_id)
             assert len(final) == 0, "Should be deleted"
 
-
     @pytest.mark.asyncio
     async def test_surrealdb_judgment_table_schema(self, has_surrealdb):
         """Test creating and querying judgment table with real schema."""
@@ -128,14 +127,17 @@ class TestSurrealDBConnection:
             """)
 
             # Insert test judgment
-            result = await db.create("judgment:test_schema_001", {
-                "state_key": "schema_test",
-                "verdict": "HOWL",
-                "q_score": 88.5,
-                "confidence": 0.618,
-                "dog_votes": {"ANALYST": 89, "GUARDIAN": 88},
-                "timestamp": 1708000001,
-            })
+            result = await db.create(
+                "judgment:test_schema_001",
+                {
+                    "state_key": "schema_test",
+                    "verdict": "HOWL",
+                    "q_score": 88.5,
+                    "confidence": 0.618,
+                    "dog_votes": {"ANALYST": 89, "GUARDIAN": 88},
+                    "timestamp": 1708000001,
+                },
+            )
 
             assert result, "Should create record in schema"
 
@@ -144,7 +146,6 @@ class TestSurrealDBConnection:
                 "SELECT * FROM judgment WHERE verdict = 'HOWL'"
             )
             assert len(query_result) > 0, "Should find HOWL judgments"
-
 
     @pytest.mark.asyncio
     async def test_surrealdb_vector_search_setup(self, has_surrealdb):
@@ -172,14 +173,16 @@ class TestSurrealDBConnection:
 
             # Insert test embedding
             test_vector = [0.1] * 384  # 384-dim vector for semantic search
-            result = await db.create("embedding:test_001", {
-                "cell_id": "code_001",
-                "vector": test_vector,
-                "metadata": {"content": "test code snippet"},
-            })
+            result = await db.create(
+                "embedding:test_001",
+                {
+                    "cell_id": "code_001",
+                    "vector": test_vector,
+                    "metadata": {"content": "test code snippet"},
+                },
+            )
 
             assert result, "Should create embedding"
-
 
 
 class TestSurrealDBPerformance:
@@ -203,12 +206,15 @@ class TestSurrealDBPerformance:
             await db.use("cynic", "perf_test")
 
             start = time.perf_counter()
-            await db.create("judgment:perf_001", {
-                "state_key": "perf_test",
-                "verdict": "WAG",
-                "q_score": 50.0,
-                "confidence": 0.382,
-            })
+            await db.create(
+                "judgment:perf_001",
+                {
+                    "state_key": "perf_test",
+                    "verdict": "WAG",
+                    "q_score": 50.0,
+                    "confidence": 0.382,
+                },
+            )
             write_ms = (time.perf_counter() - start) * 1000
 
             assert write_ms < 100, f"Write too slow: {write_ms:.1f}ms"
@@ -231,11 +237,14 @@ class TestSurrealDBPerformance:
             await db.use("cynic", "perf_test_read")
 
             # Create test record first
-            await db.create("judgment:perf_read_001", {
-                "state_key": "perf_read",
-                "verdict": "WAG",
-                "q_score": 50.0,
-            })
+            await db.create(
+                "judgment:perf_read_001",
+                {
+                    "state_key": "perf_read",
+                    "verdict": "WAG",
+                    "q_score": 50.0,
+                },
+            )
 
             # Measure read
             start = time.perf_counter()
@@ -265,18 +274,24 @@ class TestSurrealDBPerformance:
             # Write 100 records
             start = time.perf_counter()
             for i in range(100):
-                await db.create(f"judgment:batch_{i:03d}", {
-                    "state_key": f"batch_{i}",
-                    "verdict": "WAG",
-                    "q_score": 50.0 + i,
-                })
+                await db.create(
+                    f"judgment:batch_{i:03d}",
+                    {
+                        "state_key": f"batch_{i}",
+                        "verdict": "WAG",
+                        "q_score": 50.0 + i,
+                    },
+                )
             batch_ms = (time.perf_counter() - start) * 1000
 
             per_record_ms = batch_ms / 100
-            assert per_record_ms < 50, f"Batch write too slow: {per_record_ms:.1f}ms/record"
+            assert (
+                per_record_ms < 50
+            ), f"Batch write too slow: {per_record_ms:.1f}ms/record"
 
 
 if __name__ == "__main__":
     import sys
+
     # Run with: py -3.13 -m pytest tests/test_integration_real_surrealdb.py -v -m integration
     sys.exit(__import__("pytest").main([__file__, "-v", "-m", "integration"]))

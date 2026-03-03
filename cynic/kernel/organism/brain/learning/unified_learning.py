@@ -160,7 +160,9 @@ class LearningSession:
         if not self.outcomes:
             return 0.0
 
-        correct = sum(1 for o in self.outcomes if o.predicted_verdict == o.actual_verdict)
+        correct = sum(
+            1 for o in self.outcomes if o.predicted_verdict == o.actual_verdict
+        )
         return correct / len(self.outcomes)
 
     def satisfaction_average(self) -> float:

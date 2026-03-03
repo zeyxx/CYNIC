@@ -23,14 +23,18 @@ class Observation:
     Quality score allows Track C to inject synthetic high/low confidence signals.
     """
 
-    sensor_id: str  # Unique sensor identifier (e.g., "disk", "solana", "mock_empirical")
+    sensor_id: (
+        str  # Unique sensor identifier (e.g., "disk", "solana", "mock_empirical")
+    )
     timestamp: float  # When observation was made
     data: dict[str, Any]  # Sensor-specific payload
     quality: float = 1.0  # 0.0"1.0 confidence in observation (1.0 = certain)
 
     def is_synthetic(self) -> bool:
         """Returns True if this observation was synthesized (not from real sensor)."""
-        return self.sensor_id.startswith("synthetic_") or self.sensor_id.startswith("mock_")
+        return self.sensor_id.startswith("synthetic_") or self.sensor_id.startswith(
+            "mock_"
+        )
 
 
 class Sensor(ABC):

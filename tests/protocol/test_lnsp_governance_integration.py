@@ -1,4 +1,5 @@
 """Test LNSP governance integration bridge."""
+
 from __future__ import annotations
 
 import pytest

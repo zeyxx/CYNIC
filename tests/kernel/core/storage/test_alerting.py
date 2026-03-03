@@ -32,7 +32,11 @@ def alert():
         alert_id="alert_1",
         rule_id="STAGE_2_WEAPONIZATION",
         severity=AlertSeverity.HIGH,
-        event={"type": "proposal_created", "actor_id": "attacker", "payload": {"proposal_value": 50000}},
+        event={
+            "type": "proposal_created",
+            "actor_id": "attacker",
+            "payload": {"proposal_value": 50000},
+        },
         related_events=[],
         anomaly_scores={"composite": 0.75},
     )
@@ -557,7 +561,9 @@ def test_metrics_no_division_by_zero(metrics):
 
 
 @pytest.mark.asyncio
-async def test_end_to_end_alert_lifecycle(deduplicator, router, escalation, access_control):
+async def test_end_to_end_alert_lifecycle(
+    deduplicator, router, escalation, access_control
+):
     """Test complete alert lifecycle."""
     # Create alert
     alert = Alert(

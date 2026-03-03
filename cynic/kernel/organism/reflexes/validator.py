@@ -148,12 +148,19 @@ class HandlerValidator:
 
         for event_type, _handler_fn in subs:
             try:
-                event_value = event_type.value if hasattr(event_type, "value") else str(event_type)
+                event_value = (
+                    event_type.value
+                    if hasattr(event_type, "value")
+                    else str(event_type)
+                )
             except EventBusError:
                 event_value = str(event_type)
 
             # Event should be in CoreEvent
-            if hasattr(event_type, "__class__") and event_type.__class__.__name__ == "CoreEvent":
+            if (
+                hasattr(event_type, "__class__")
+                and event_type.__class__.__name__ == "CoreEvent"
+            ):
                 # Valid CoreEvent
                 pass
             else:
@@ -232,19 +239,25 @@ class HandlerValidator:
         if errors:
             lines.append(f"!!! ERRORS ({len(errors)}):")
             for issue in errors:
-                lines.append(f"  [{issue.category}] {issue.handler_name}: {issue.message}")
+                lines.append(
+                    f"  [{issue.category}] {issue.handler_name}: {issue.message}"
+                )
             lines.append("")
 
         if warnings:
             lines.append(f"! WARNINGS ({len(warnings)}):")
             for issue in warnings:
-                lines.append(f"  [{issue.category}] {issue.handler_name}: {issue.message}")
+                lines.append(
+                    f"  [{issue.category}] {issue.handler_name}: {issue.message}"
+                )
             lines.append("")
 
         if infos:
             lines.append(f"i INFO ({len(infos)}):")
             for issue in infos:
-                lines.append(f"  [{issue.category}] {issue.handler_name}: {issue.message}")
+                lines.append(
+                    f"  [{issue.category}] {issue.handler_name}: {issue.message}"
+                )
 
         return "\n".join(lines)
 

@@ -1,4 +1,5 @@
 """Test LNSP learning loop for governance."""
+
 from __future__ import annotations
 
 import pytest
@@ -16,25 +17,29 @@ async def test_feedback_loop_on_execution() -> None:
     await bridge.setup()
 
     # Process a proposal first
-    await bridge.process_proposal({
-        "proposal_id": "prop_001",
-        "title": "Test",
-        "content": "Test proposal",
-        "submitter_id": "user_1",
-        "community_id": "test",
-        "submission_timestamp": 1708982400.0,
-        "voting_period_hours": 48,
-    })
+    await bridge.process_proposal(
+        {
+            "proposal_id": "prop_001",
+            "title": "Test",
+            "content": "Test proposal",
+            "submitter_id": "user_1",
+            "community_id": "test",
+            "submission_timestamp": 1708982400.0,
+            "voting_period_hours": 48,
+        }
+    )
 
     # Then process execution outcome
-    await bridge.process_execution({
-        "proposal_id": "prop_001",
-        "success": True,
-        "tx_hash": "0xabc",
-        "result": {"burned": 1000000},
-        "timestamp": 1708982600.0,
-        "community_id": "test",
-    })
+    await bridge.process_execution(
+        {
+            "proposal_id": "prop_001",
+            "success": True,
+            "tx_hash": "0xabc",
+            "result": {"burned": 1000000},
+            "timestamp": 1708982600.0,
+            "community_id": "test",
+        }
+    )
 
     # Verify feedback was processed
     # (Layer 1 should have both proposal and execution observations)
@@ -49,15 +54,17 @@ async def test_outcome_feedback_processing() -> None:
     await bridge.setup()
 
     # Process outcome feedback
-    await bridge.process_outcome({
-        "proposal_id": "prop_001",
-        "accepted": True,
-        "funds_received": True,
-        "community_sentiment": 0.89,
-        "feedback_text": "Great decision!",
-        "timestamp": 1708982700.0,
-        "community_id": "test",
-    })
+    await bridge.process_outcome(
+        {
+            "proposal_id": "prop_001",
+            "accepted": True,
+            "funds_received": True,
+            "community_sentiment": 0.89,
+            "feedback_text": "Great decision!",
+            "timestamp": 1708982700.0,
+            "community_id": "test",
+        }
+    )
 
     # Verify observation was created
     obs = manager.layer1.ringbuffer.peek()

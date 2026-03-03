@@ -257,27 +257,35 @@ class TestGovernanceEndpointProtection:
         @app.post("/api/governance/proposals")
         async def submit_proposal(
             req: ProposalRequest,
-            authz: RBACAuthorizer = require_authz(Resource.GOVERNANCE, Permission.WRITE),
+            authz: RBACAuthorizer = require_authz(
+                Resource.GOVERNANCE, Permission.WRITE
+            ),
         ):
             return {"status": "SUCCESS", "proposal_id": "prop_123"}
 
         @app.post("/api/governance/proposals/{proposal_id}/vote")
         async def cast_vote(
             proposal_id: str,
-            authz: RBACAuthorizer = require_authz(Resource.GOVERNANCE, Permission.WRITE),
+            authz: RBACAuthorizer = require_authz(
+                Resource.GOVERNANCE, Permission.WRITE
+            ),
         ):
             return {"status": "SUCCESS", "vote_id": "vote_123"}
 
         @app.post("/api/governance/proposals/{proposal_id}/outcome")
         async def record_outcome(
             proposal_id: str,
-            authz: RBACAuthorizer = require_authz(Resource.GOVERNANCE, Permission.WRITE),
+            authz: RBACAuthorizer = require_authz(
+                Resource.GOVERNANCE, Permission.WRITE
+            ),
         ):
             return {"status": "SUCCESS"}
 
         @app.post("/api/governance/votes")
         async def record_vote(
-            authz: RBACAuthorizer = require_authz(Resource.GOVERNANCE, Permission.WRITE),
+            authz: RBACAuthorizer = require_authz(
+                Resource.GOVERNANCE, Permission.WRITE
+            ),
         ):
             return {"status": "SUCCESS", "vote_id": "vote_456"}
 

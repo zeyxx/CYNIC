@@ -2,6 +2,7 @@
 CI/CD Integrity Script â€” Agent-side validation.
 STRICT VERSION: No silent failures.
 """
+
 import asyncio
 import logging
 import sys
@@ -11,14 +12,18 @@ import traceback
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("integrity")
 
+
 async def validate():
     print("\n--- ðŸ” CYNIC STRICT INTEGRITY AUDIT ---")
-    
+
     try:
         # 1. Module Imports
         print("Step 1: Core Imports...", end=" ", flush=True)
-        from cynic.kernel.organism.brain.cognition.neurons.discovery import discover_dogs
+        from cynic.kernel.organism.brain.cognition.neurons.discovery import (
+            discover_dogs,
+        )
         from cynic.kernel.organism.organism import awaken
+
         print("OK")
 
         # 2. Dog Discovery
@@ -46,6 +51,7 @@ async def validate():
         traceback.print_exc()
         print("-" * 40)
         return False
+
 
 if __name__ == "__main__":
     success = asyncio.run(validate())

@@ -84,7 +84,9 @@ class MCPBridge:
         self.tools[tool.name] = tool
         logger.debug("Registered MCP tool: %s", tool.name)
 
-    async def handle_call(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    async def handle_call(
+        self, tool_name: str, arguments: dict[str, Any]
+    ) -> dict[str, Any]:
         """Handle an MCP tool call by emitting an event.
 
         Args:
@@ -117,7 +119,12 @@ class MCPBridge:
             latency_ms = (time.perf_counter() - start) * 1000
             self.metrics.record_call(latency_ms, success=True)
 
-            logger.info("MCP call: tool=%s event_id=%s latency=%.1fms", tool_name, event.event_id, latency_ms)
+            logger.info(
+                "MCP call: tool=%s event_id=%s latency=%.1fms",
+                tool_name,
+                event.event_id,
+                latency_ms,
+            )
 
             return {
                 "status": "emitted",

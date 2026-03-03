@@ -12,7 +12,10 @@ MEMORY FIX (2026-02-27):
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
@@ -235,7 +238,9 @@ class TestHealthIntegration:
         elif response.status_code == 503:
             data = response.json()
             # When timeout, waited_seconds is in the detail or top-level
-            waited = data.get("waited_seconds") or data.get("detail", {}).get("waited_seconds")
+            waited = data.get("waited_seconds") or data.get("detail", {}).get(
+                "waited_seconds"
+            )
         else:
             raise AssertionError(f"Unexpected status code: {response.status_code}")
 

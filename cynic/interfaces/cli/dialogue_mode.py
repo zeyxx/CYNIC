@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from cynic.kernel.core.config import CynicConfig
+from cynic.config import CynicConfig
 from cynic.kernel.observability.symbiotic_state_manager import get_current_state
 from cynic.kernel.organism.brain.dialogue.llm_bridge import LLMBridge
 from cynic.kernel.organism.brain.dialogue.models import CynicMessage, UserMessage
@@ -66,7 +66,7 @@ class DialogueMode:
             message_type=message_type,
             content=user_input,
             user_confidence=0.5,
-            related_judgment_id=None
+            related_judgment_id=None,
         )
         await self.storage.save_message(user_msg)
 
@@ -81,7 +81,7 @@ class DialogueMode:
                 "verdict": "UNKNOWN",
                 "q_score": 0,
                 "confidence": 0,
-                "axiom_scores": {}
+                "axiom_scores": {},
             }
         except Exception:
             # Fallback if state is not available
@@ -89,7 +89,7 @@ class DialogueMode:
                 "verdict": "UNKNOWN",
                 "q_score": 0,
                 "confidence": 0,
-                "axiom_scores": {}
+                "axiom_scores": {},
             }
 
         # Prepare context for LLM
@@ -104,7 +104,7 @@ class DialogueMode:
             content=response_text,
             confidence=0.3,
             axiom_scores={},
-            source_judgment_id=None
+            source_judgment_id=None,
         )
         await self.storage.save_message(cynic_msg)
 
@@ -130,9 +130,9 @@ class DialogueMode:
         else:
             return "statement"
 
-    def _prepare_context_for_llm(self, user_input: str,
-                                 judgment: dict[str, Any],
-                                 memory: Any | None = None) -> dict[str, Any]:
+    def _prepare_context_for_llm(
+        self, user_input: str, judgment: dict[str, Any], memory: Any | None = None
+    ) -> dict[str, Any]:
         """Prepare structured context for Claude API.
 
         Args:
@@ -149,7 +149,7 @@ class DialogueMode:
                 "verdict": "UNKNOWN",
                 "q_score": 0,
                 "confidence": 0,
-                "axiom_scores": {}
+                "axiom_scores": {},
             }
 
         context = {
@@ -157,7 +157,7 @@ class DialogueMode:
             "verdict": judgment.get("verdict", "UNKNOWN"),
             "q_score": judgment.get("q_score", 0),
             "confidence": judgment.get("confidence", 0),
-            "axiom_scores": judgment.get("axiom_scores", {})
+            "axiom_scores": judgment.get("axiom_scores", {}),
         }
 
         if memory:

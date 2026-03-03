@@ -14,6 +14,7 @@ Where:
 
 Exit code 1 if validation fails.
 """
+
 import sys
 from pathlib import Path
 
@@ -30,7 +31,7 @@ def validate_commit_message():
         return True
 
     try:
-        message = msg_file.read_text(encoding='utf-8').strip()
+        message = msg_file.read_text(encoding="utf-8").strip()
     except Exception as e:
         print(f"[WARN] Could not read commit message: {e}")
         return True  # Don't fail if we can't read it
@@ -40,31 +41,41 @@ def validate_commit_message():
         return False
 
     # Get the first line (subject)
-    lines = message.split('\n')
+    lines = message.split("\n")
     subject = lines[0].strip()
 
     # Valid types
-    valid_types = {'feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'chore', 'ci'}
+    valid_types = {
+        "feat",
+        "fix",
+        "docs",
+        "style",
+        "refactor",
+        "perf",
+        "test",
+        "chore",
+        "ci",
+    }
 
     # Parse "type(scope): description" OR "type: description"
-    if ':' not in subject:
+    if ":" not in subject:
         print(f"[FAIL] Commit message format invalid: {subject}")
         print("  Expected: type(scope): description OR type: description")
         return False
 
     # Check if there's a scope (parentheses BEFORE the colon)
-    colon_idx = subject.find(': ')
+    colon_idx = subject.find(": ")
     if colon_idx == -1:
-        colon_idx = subject.find(':')
+        colon_idx = subject.find(":")
 
-    has_scope = '(' in subject[:colon_idx] and ')' in subject[:colon_idx]
+    has_scope = "(" in subject[:colon_idx] and ")" in subject[:colon_idx]
 
     try:
         if has_scope:
-            type_part, rest = subject.split('(', 1)
-            scope, after_scope = rest.split(')', 1)
+            type_part, rest = subject.split("(", 1)
+            scope, after_scope = rest.split(")", 1)
 
-            if not after_scope.startswith(': '):
+            if not after_scope.startswith(": "):
                 print(f"[FAIL] Missing ': ' after scope: {subject}")
                 return False
 
@@ -77,10 +88,10 @@ def validate_commit_message():
                 return False
         else:
             # Format: type: description
-            if ': ' not in subject:
+            if ": " not in subject:
                 print(f"[FAIL] Missing ': ' separator: {subject}")
                 return False
-            type_part, description = subject.split(': ', 1)
+            type_part, description = subject.split(": ", 1)
             type_part = type_part.strip()
             description = description.strip()
 
@@ -90,7 +101,9 @@ def validate_commit_message():
 
     # Validate type
     if type_part not in valid_types:
-        print(f"[FAIL] Invalid type '{type_part}'. Must be one of: {', '.join(valid_types)}")
+        print(
+            f"[FAIL] Invalid type '{type_part}'. Must be one of: {', '.join(valid_types)}"
+        )
         return False
 
     # Validate description length

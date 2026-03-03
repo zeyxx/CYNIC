@@ -5,13 +5,17 @@ is properly handled.
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
 
 
 import pytest
+
 pytestmark = pytest.mark.skip(reason="Old architecture, modules removed")
 
 import pytest

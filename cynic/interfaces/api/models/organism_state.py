@@ -23,9 +23,9 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# 
+#
 # STATE SNAPSHOT
-# 
+#
 
 
 class StateSnapshotResponse(BaseModel):
@@ -65,9 +65,9 @@ class StateSnapshotResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# 
+#
 # CONSCIOUSNESS
-# 
+#
 
 
 class ConsciousnessResponse(BaseModel):
@@ -84,9 +84,9 @@ class ConsciousnessResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# 
+#
 # DOGS
-# 
+#
 
 
 class DogStatus(BaseModel):
@@ -137,9 +137,9 @@ class DogsResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# 
+#
 # ACTIONS
-# 
+#
 
 
 class ProposedAction(BaseModel):
@@ -187,9 +187,9 @@ class ActionsResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# 
+#
 # ACCOUNT
-# 
+#
 
 
 class AccountStatusResponse(BaseModel):
@@ -228,9 +228,9 @@ class AccountStatusResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# 
+#
 # E-SCORE (REPUTATION)
-# 
+#
 
 
 class AgentScore(BaseModel):
@@ -318,9 +318,9 @@ class EScoreResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# 
+#
 # POLICY
-# 
+#
 
 
 class PolicyAction(BaseModel):

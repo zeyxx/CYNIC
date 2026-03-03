@@ -22,6 +22,7 @@ class JudgmentPipeline(BaseModel):
     Immutable snapshot of a judgment cycle's progress.
     Each stage of the DAG produces a new evolved instance.
     """
+
     model_config = ConfigDict(frozen=True, extra="allow")
 
     cell: Cell

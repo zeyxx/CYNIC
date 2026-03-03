@@ -91,7 +91,6 @@ async def test_memory_under_load():
         growth = mem_end - mem_start
         growth_pct = (growth / mem_start) * 100
 
-
         if growth_pct < 10:
             return True
         else:
@@ -113,7 +112,10 @@ async def test_no_attribute_errors():
 
     class TestHandler(logging.Handler):
         def emit(self, record):
-            if "AttributeError" in record.getMessage() or "has no attribute" in record.getMessage():
+            if (
+                "AttributeError" in record.getMessage()
+                or "has no attribute" in record.getMessage()
+            ):
                 errors_caught.append(record.getMessage())
 
     logger = logging.getLogger("cynic_integration")
@@ -121,7 +123,6 @@ async def test_no_attribute_errors():
     logger.addHandler(handler)
 
     try:
-
         for _ in range(10):
             await get_cynic_status()
             await observe_cynic(aspect="health")

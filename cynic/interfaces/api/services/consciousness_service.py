@@ -20,7 +20,11 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any
 
-from cynic.interfaces.api.metrics import ERRORS_TOTAL, REQUESTS_TOTAL, SERVICE_QUERY_DURATION
+from cynic.interfaces.api.metrics import (
+    ERRORS_TOTAL,
+    REQUESTS_TOTAL,
+    SERVICE_QUERY_DURATION,
+)
 from cynic.interfaces.api.services.ecosystem_observer import EcosystemObserver
 from cynic.interfaces.api.state import get_app_container
 from cynic.kernel.core.exceptions import CynicError
@@ -73,9 +77,7 @@ class ConsciousnessService:
             duration_sec = time.time() - start_time
             SERVICE_QUERY_DURATION.labels(method=operation_name).observe(duration_sec)
             REQUESTS_TOTAL.labels(
-                endpoint=f"/consciousness/{operation_name}",
-                method="GET",
-                status="200"
+                endpoint=f"/consciousness/{operation_name}", method="GET", status="200"
             ).inc()
 
             logger.info(
@@ -84,16 +86,17 @@ class ConsciousnessService:
                     "duration_ms": duration_sec * 1000,
                     "operation": operation_name,
                     "status": "success",
-                }
+                },
             )
 
             return result
 
         except (RuntimeError, AttributeError) as e:
-            logger.warning(f"AppContainer or component not available for {operation_name}: {e}")
+            logger.warning(
+                f"AppContainer or component not available for {operation_name}: {e}"
+            )
             ERRORS_TOTAL.labels(
-                error_type=type(e).__name__,
-                endpoint=operation_name
+                error_type=type(e).__name__, endpoint=operation_name
             ).inc()
             return fallback
         except CynicError as e:
@@ -102,8 +105,7 @@ class ConsciousnessService:
                 exc_info=True,
             )
             ERRORS_TOTAL.labels(
-                error_type=type(e).__name__,
-                endpoint=operation_name
+                error_type=type(e).__name__, endpoint=operation_name
             ).inc()
             return fallback
 
@@ -166,7 +168,9 @@ class ConsciousnessService:
                 if e.source in ["SCHEDULER", "MACRO", "AUTOMATION"]
             ]
             agent_events = [
-                e.to_dict() for e in all_events if e.source in ["AGENT", "API", "PERCEIVE"]
+                e.to_dict()
+                for e in all_events
+                if e.source in ["AGENT", "API", "PERCEIVE"]
             ]
 
             return {
@@ -459,8 +463,12 @@ class ConsciousnessService:
                 {
                     "judgment_id": t.judgment_id,
                     "phase_count": len(t.nodes) if hasattr(t, "nodes") else 0,
-                    "final_verdict": t.final_verdict if hasattr(t, "final_verdict") else "pending",
-                    "created_at_ms": t.created_at_ms if hasattr(t, "created_at_ms") else 0,
+                    "final_verdict": t.final_verdict
+                    if hasattr(t, "final_verdict")
+                    else "pending",
+                    "created_at_ms": t.created_at_ms
+                    if hasattr(t, "created_at_ms")
+                    else 0,
                 }
                 for t in recent_traces
             ]

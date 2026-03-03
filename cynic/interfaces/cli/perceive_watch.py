@@ -25,11 +25,11 @@ async def cmd_perceive_watch() -> None:
     """Watch git tree for real changes, emit PERCEIVE, score with JUDGE."""
     try:
         from cynic.kernel.organism.factory import awaken
-        
+
         # Awaken the full organism
         org = await awaken()
         await org.start()
-        
+
         bus = org.bus
         watcher = org.senses.source_watcher
         registry = org.llm_registry
@@ -43,7 +43,9 @@ async def cmd_perceive_watch() -> None:
             # Run perceive cycle
             changes = await watcher.perceive()
 
-            if changes is None or (isinstance(changes, dict) and not changes.get("files")):
+            if changes is None or (
+                isinstance(changes, dict) and not changes.get("files")
+            ):
                 await asyncio.sleep(5)
                 continue
 
@@ -102,9 +104,10 @@ Return JSON: {{"score": 0-100, "verdict": "BARK|GROWL|WAG|HOWL", "reason": "brie
                         verdict = "GROWL"
                     else:
                         verdict = "BARK"
-                    score = 50 if verdict == "WAG" else (88 if verdict == "HOWL" else 38)
+                    score = (
+                        50 if verdict == "WAG" else (88 if verdict == "HOWL" else 38)
+                    )
                     reason = response[:50]
-
 
                 # Store this perception + judgment for next phase
                 # Use CYNIC_STATE_DIR env var if available (portable across host/container)
@@ -116,20 +119,25 @@ Return JSON: {{"score": 0-100, "verdict": "BARK|GROWL|WAG|HOWL", "reason": "brie
                     perception_dir = Path.home() / ".cynic"
                 perception_file = perception_dir / "phase2_perception.json"
                 perception_file.parent.mkdir(parents=True, exist_ok=True)
-                perception_file.write_text(json.dumps({
-                    "timestamp": time.time(),
-                    "changes": changes if isinstance(changes, dict) else {"raw": str(changes)},
-                    "verdict": verdict,
-                    "score": score,
-                    "reason": reason,
-                }, indent=2))
-
+                perception_file.write_text(
+                    json.dumps(
+                        {
+                            "timestamp": time.time(),
+                            "changes": changes
+                            if isinstance(changes, dict)
+                            else {"raw": str(changes)},
+                            "verdict": verdict,
+                            "score": score,
+                            "reason": reason,
+                        },
+                        indent=2,
+                    )
+                )
 
             except asyncpg.Error:
                 logger.exception("JUDGE evaluation error")
 
             await asyncio.sleep(5)
-
 
     except TimeoutError:
         logger.exception("PERCEIVE watch error")

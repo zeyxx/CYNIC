@@ -1,4 +1,5 @@
 """Integration tests for GASdf with CYNIC governance."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -112,6 +113,7 @@ class TestGASdfGovernanceIntegration:
 
         # Allow async task to complete
         import asyncio
+
         await asyncio.sleep(0.1)
 
         # Verify verdict was cached
@@ -122,7 +124,9 @@ class TestGASdfGovernanceIntegration:
         self, mock_manager: AsyncMock, mock_gasdf_executor: AsyncMock
     ) -> None:
         """Test that executor is called for APPROVED verdicts."""
-        from cynic.kernel.organism.perception.integrations.gasdf.types import GASdfExecutionResult
+        from cynic.kernel.organism.perception.integrations.gasdf.types import (
+            GASdfExecutionResult,
+        )
 
         # Mock execution result
         exec_result = GASdfExecutionResult(
@@ -187,6 +191,7 @@ class TestGASdfGovernanceIntegration:
 
         # Allow async execution
         import asyncio
+
         await asyncio.sleep(0.1)
 
         # Verify executor was called with correct parameters
@@ -195,9 +200,7 @@ class TestGASdfGovernanceIntegration:
         assert call_args[1]["proposal_id"] == "prop_456"
         assert call_args[1]["verdict"] == "APPROVED"
 
-    def test_verdict_cache_structure(
-        self, mock_manager: AsyncMock
-    ) -> None:
+    def test_verdict_cache_structure(self, mock_manager: AsyncMock) -> None:
         """Test that verdict cache has correct structure."""
         governance = GovernanceLNSP(manager=mock_manager)
 

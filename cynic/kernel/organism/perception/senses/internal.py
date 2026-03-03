@@ -25,7 +25,7 @@ class InternalSensor:
     def __init__(self, bus: EventBus):
         self._bus = bus
         self._last_alert_time = 0.0
-        self._cooldown = 5.0 # 5 seconds minimum between internal perceptions
+        self._cooldown = 5.0  # 5 seconds minimum between internal perceptions
 
     def start(self, bus: Optional[EventBus] = None):
         """Subscribe to anomalies."""
@@ -45,8 +45,8 @@ class InternalSensor:
         """Translate technical anomaly to conscious perception."""
         now = time.time()
         if now - self._last_alert_time < self._cooldown:
-            return # Ignore: sensory fatigue
-            
+            return  # Ignore: sensory fatigue
+
         self._last_alert_time = now
         data = event.dict_payload
         anomaly_type = data.get("type", "UNKNOWN_ERROR")
@@ -66,16 +66,19 @@ class InternalSensor:
         )
 
         from cynic.kernel.core.events_schema import PerceptionReceivedPayload
-        await self._bus.emit(Event.typed(
-            CoreEvent.PERCEPTION_RECEIVED,
-            PerceptionReceivedPayload(
-                reality="INTERNAL",
-                analysis="ANOMALY",
-                data=f"Organism feels stress: {anomaly_type}={value}",
-                risk=0.9,
-                run_judgment=True
-            ),
-            source="internal_sensor"
-        ))
+
+        await self._bus.emit(
+            Event.typed(
+                CoreEvent.PERCEPTION_RECEIVED,
+                PerceptionReceivedPayload(
+                    reality="INTERNAL",
+                    analysis="ANOMALY",
+                    data=f"Organism feels stress: {anomaly_type}={value}",
+                    risk=0.9,
+                    run_judgment=True,
+                ),
+                source="internal_sensor",
+            )
+        )
 
         logger.info("InternalSensor: Anomaly translated to INTERNAL perception.")

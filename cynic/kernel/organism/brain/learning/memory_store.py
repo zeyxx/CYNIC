@@ -34,7 +34,10 @@ class MemoryStore:
                     },
                     "user_preferences": {},
                     "user_style": "balanced",
-                    "communication_style": {"verbosity": "balanced", "formality": "casual"},
+                    "communication_style": {
+                        "verbosity": "balanced",
+                        "formality": "casual",
+                    },
                     "learning_rate": 0.01,
                     "knowledge_areas": [],
                 }

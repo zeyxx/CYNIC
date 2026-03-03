@@ -24,7 +24,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from cynic.kernel.core.config import CynicConfig
+from cynic.config import CynicConfig
 
 logger = logging.getLogger(__name__)
 

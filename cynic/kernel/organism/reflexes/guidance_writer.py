@@ -22,6 +22,7 @@ logger = logging.getLogger("cynic.kernel.organism.reflexes.guidance_writer")
 
 _GUIDANCE_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "guidance.json")
 
+
 class GuidanceWriter(HandlerGroup):
     """Handler group that writes guidance.json when judgments are created."""
 
@@ -57,9 +58,13 @@ class GuidanceWriter(HandlerGroup):
                 "state_key": p.get("state_key", ""),
                 "verdict": p.get("verdict", "WAG"),
                 "q_score": round(float(p.get("q_score", 0.0)), 3),
-                "confidence": round(min(float(p.get("confidence", 0.0)), MAX_CONFIDENCE), 4),
+                "confidence": round(
+                    min(float(p.get("confidence", 0.0)), MAX_CONFIDENCE), 4
+                ),
                 "reality": p.get("reality", "CODE"),
-                "dog_votes": {k: round(float(v), 3) for k, v in (p.get("dog_votes") or {}).items()},
+                "dog_votes": {
+                    k: round(float(v), 3) for k, v in (p.get("dog_votes") or {}).items()
+                },
             }
 
             os.makedirs(os.path.dirname(_GUIDANCE_PATH), exist_ok=True)

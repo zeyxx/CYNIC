@@ -51,12 +51,12 @@ from cynic.kernel.core.storage.interface import (
 )
 
 if TYPE_CHECKING:
-    from cynic.kernel.core.config import CynicConfig
+    from cynic.config import CynicConfig
 
 logger = logging.getLogger("cynic.storage.surreal")
 
 
-#  SCHEMA  SurrealQL (SCHEMALESS + indexes) 
+#  SCHEMA  SurrealQL (SCHEMALESS + indexes)
 
 _SCHEMA_STATEMENTS = [
     # Tables  SCHEMALESS means fields can vary without ALTER TABLE
@@ -111,7 +111,8 @@ from cynic.kernel.core.resilience import async_retry
 
 # ... (imports continue)
 
-#  SURREAL DB CLIENT PROTOCOL 
+
+#  SURREAL DB CLIENT PROTOCOL
 class SurrealDBClient(Protocol):
     """Protocol for SurrealDB async client (asyncsurreal.Surreal)."""
 
@@ -144,7 +145,7 @@ def _rows(result: Any) -> list[dict]:
     return []
 
 
-#  REPOSITORIES 
+#  REPOSITORIES
 
 
 class JudgmentRepo(JudgmentRepoInterface):
@@ -169,7 +170,9 @@ class JudgmentRepo(JudgmentRepoInterface):
         rows = _rows(result)
         return rows[0] if rows else None
 
-    async def recent(self, reality: str | None = None, limit: int = 55) -> list[dict[str, Any]]:
+    async def recent(
+        self, reality: str | None = None, limit: int = 55
+    ) -> list[dict[str, Any]]:
         if reality:
             result = await self._db.query(
                 "SELECT * FROM judgment WHERE reality = $r ORDER BY created_at DESC LIMIT $n",
@@ -214,7 +217,9 @@ class QTableRepo(QTableRepoInterface):
             logger.error(f" QTable persistence failure (GET) for {state_key}: {exc}")
         return 0.0
 
-    async def update(self, state_key: str, action: str, q_value: float, visits: int = 1) -> None:
+    async def update(
+        self, state_key: str, action: str, q_value: float, visits: int = 1
+    ) -> None:
         rec_id = self._rec_id(state_key, action)
         try:
             await self._db.upsert(
@@ -239,7 +244,9 @@ class QTableRepo(QTableRepoInterface):
 
     async def get_all(self) -> list[dict[str, Any]]:
         """Return all Q-entries  used for warm-start."""
-        result = await self._db.query("SELECT state_key, action, q_value, visit_count FROM q_entry")
+        result = await self._db.query(
+            "SELECT state_key, action, q_value, visit_count FROM q_entry"
+        )
         return _rows(result)
 
 
@@ -476,14 +483,20 @@ class ActionProposalRepo(ActionProposalRepoInterface):
 
     async def all(self) -> list[dict[str, Any]]:
         """Return all proposals (any status), newest first."""
-        result = await self._db.query("SELECT * FROM action_proposal ORDER BY proposed_at DESC")
+        result = await self._db.query(
+            "SELECT * FROM action_proposal ORDER BY proposed_at DESC"
+        )
         return _rows(result)
 
     async def update_status(self, action_id: str, status: str) -> None:
         """Update the lifecycle status of a proposal."""
         await self._db.query(
             "UPDATE $id SET status = $status, updated_at = $ts",
-            {"id": _rec("action_proposal", action_id), "status": status, "ts": time.time()},
+            {
+                "id": _rec("action_proposal", action_id),
+                "status": status,
+                "ts": time.time(),
+            },
         )
 
 
@@ -644,7 +657,9 @@ class SecurityEventRepo(SecurityEventRepoInterface):
             if field in event:
                 actual_value = event[field]
                 # Simple threshold check: if value is >2x different, flag it
-                if isinstance(expected_value, (int, float)) and isinstance(actual_value, (int, float)):
+                if isinstance(expected_value, (int, float)) and isinstance(
+                    actual_value, (int, float)
+                ):
                     if expected_value > 0:
                         ratio = actual_value / expected_value
                         if ratio > 2.0 or ratio < 0.5:
@@ -675,18 +690,22 @@ class SecurityEventRepo(SecurityEventRepoInterface):
         type_counts = _rows(result)
 
         # Get total count
-        total_result = await self._db.query("SELECT count() as total FROM security_event")
+        total_result = await self._db.query(
+            "SELECT count() as total FROM security_event"
+        )
         total_rows = _rows(total_result)
         total_events = total_rows[0].get("total", 0) if total_rows else 0
 
         return {
             "total_events": total_events,
-            "by_type": {row.get("event_type"): row.get("count_by_type") for row in type_counts},
+            "by_type": {
+                row.get("event_type"): row.get("count_by_type") for row in type_counts
+            },
             "storage_table": "security_event",
         }
 
 
-#  STORAGE FACADE  one object, all repos 
+#  STORAGE FACADE  one object, all repos
 
 
 class SurrealStorage(StorageInterface):
@@ -778,10 +797,14 @@ class SurrealStorage(StorageInterface):
             try:
                 await self._db.query(stmt)
             except Exception as exc:
-                logger.error(f" SurrealDB Schema Error in statement: {stmt[:50]}... | Error: {exc}")
-        logger.info("*tail wag* SurrealDB schema ready (%d statements)", len(_SCHEMA_STATEMENTS))
+                logger.error(
+                    f" SurrealDB Schema Error in statement: {stmt[:50]}... | Error: {exc}"
+                )
+        logger.info(
+            "*tail wag* SurrealDB schema ready (%d statements)", len(_SCHEMA_STATEMENTS)
+        )
 
-    #  Repository accessors 
+    #  Repository accessors
 
     @property
     def judgments(self) -> JudgmentRepo:
@@ -840,43 +863,47 @@ class SurrealStorage(StorageInterface):
         Subscribe to live updates on a table.
         """
         logger.info(f" SurrealDB: Subscribing to LIVE updates on table '{table}'")
-        
+
         task = asyncio.create_task(self._live_listener(table, callback))
-        
+
         # Register for clean shutdown
         if self._task_registry:
             await self._task_registry.register(task)
-            
-        return table # Simple ID for now
+
+        return table  # Simple ID for now
 
     async def _live_listener(self, table: str, callback: Any):
         """Internal background task to process live query results with auto-recovery."""
         retry_delay = 1.0
-        
+
         while True:
             try:
                 # We start a NEW live query session
-                # In SurrealDB Python SDK, live queries are handled via 
+                # In SurrealDB Python SDK, live queries are handled via
                 # async for notifications in db.subscribe(query_id)
                 # But we'll use a simpler approach: raw query and listen
                 # Note: This implementation targets SDK 0.3.x stability.
-                
+
                 async with self._db.subscribe(table) as stream:
                     # Reset backoff on success
                     retry_delay = 1.0
                     async for notification in stream:
                         action = notification.get("action", "CREATE")
                         result = notification.get("result", {})
-                        
+
                         # Execute callback (protected from crashes)
                         try:
                             await callback(action, result)
                         except Exception as cb_err:
-                            logger.error(f"Live Query Callback Error ({table}): {cb_err}")
-                            
+                            logger.error(
+                                f"Live Query Callback Error ({table}): {cb_err}"
+                            )
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.warning(f" SurrealDB Live Stream lost for '{table}': {e}. Retrying in {retry_delay:.1f}s...")
+                logger.warning(
+                    f" SurrealDB Live Stream lost for '{table}': {e}. Retrying in {retry_delay:.1f}s..."
+                )
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 1.618, 30.0)

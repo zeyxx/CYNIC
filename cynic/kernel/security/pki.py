@@ -236,9 +236,7 @@ class PKI:
 
         if san_names:
             builder = builder.add_extension(
-                x509.SubjectAlternativeName(
-                    [x509.DNSName(name) for name in san_names]
-                ),
+                x509.SubjectAlternativeName([x509.DNSName(name) for name in san_names]),
                 critical=False,
             )
 
@@ -262,7 +260,9 @@ class PKI:
 
     # ==================== Public API ====================
 
-    def setup_root_ca(self, force: bool = False) -> tuple[x509.Certificate, rsa.RSAPrivateKey]:
+    def setup_root_ca(
+        self, force: bool = False
+    ) -> tuple[x509.Certificate, rsa.RSAPrivateKey]:
         """Set up root CA (one-time operation).
 
         Args:

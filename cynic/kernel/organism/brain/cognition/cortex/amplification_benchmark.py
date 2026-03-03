@@ -154,7 +154,9 @@ def _run_warm_cold(
         prior_learner.run(warm_steps)
 
         # Transfer: copy Q-values + visit counts (EWC uses visits for consolidation)
-        for src, dst in zip(prior_learner._entries, warm_learner._entries, strict=False):
+        for src, dst in zip(
+            prior_learner._entries, warm_learner._entries, strict=False
+        ):
             dst.q_value = src.q_value
             dst.visits = src.visits
 
@@ -238,8 +240,12 @@ class AmplificationBenchmark:
             "n_seeds": n_seeds,
             "mean_amplification_ratio": round(sum(ratios) / len(ratios), 4),
             "mean_knowledge_retention": round(sum(retentions) / len(retentions), 4),
-            "mean_cold_error": round(sum(r.cold_final_error for r in results) / len(results), 4),
-            "mean_warm_error": round(sum(r.warm_final_error for r in results) / len(results), 4),
+            "mean_cold_error": round(
+                sum(r.cold_final_error for r in results) / len(results), 4
+            ),
+            "mean_warm_error": round(
+                sum(r.warm_final_error for r in results) / len(results), 4
+            ),
             "amplified_rate": sum(1 for r in results if r.amplified) / len(results),
         }
 

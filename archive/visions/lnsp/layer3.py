@@ -8,6 +8,7 @@ Components:
 - RoutingRule: Defines what agents should observe
 - Layer3: Judge that evaluates state and emits verdicts
 """
+
 from __future__ import annotations
 
 import math
@@ -157,7 +158,8 @@ class Layer3:
 
         # Extract state data from payload (exclude metadata fields)
         state = {
-            k: v for k, v in aggregated_state.payload.items()
+            k: v
+            for k, v in aggregated_state.payload.items()
             if k not in ["aggregation_type", "based_on"]
         }
 
@@ -268,10 +270,7 @@ class Layer3:
         Returns:
             List of RoutingRule instances for this agent
         """
-        return [
-            rule for rule in self.routing_rules
-            if rule.target_agent_id == agent_id
-        ]
+        return [rule for rule in self.routing_rules if rule.target_agent_id == agent_id]
 
     def stats(self) -> dict[str, Any]:
         """Return current statistics about Layer 3 state.

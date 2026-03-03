@@ -64,7 +64,9 @@ class TestKernelStartupCycle:
             assert isinstance(state, AppState)
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
-                pytest.skip("AppContainer requires FastAPI lifespan (test_api_lifespan should run instead)")
+                pytest.skip(
+                    "AppContainer requires FastAPI lifespan (test_api_lifespan should run instead)"
+                )
             raise
 
     @pytest.mark.asyncio
@@ -74,10 +76,10 @@ class TestKernelStartupCycle:
             state = await awaken()
 
             # Validate critical components exist
-            assert hasattr(state, 'orchestrator')
-            assert hasattr(state, 'qtable')
-            assert hasattr(state, 'learning_loop')
-            assert hasattr(state, 'scheduler')
+            assert hasattr(state, "orchestrator")
+            assert hasattr(state, "qtable")
+            assert hasattr(state, "learning_loop")
+            assert hasattr(state, "scheduler")
 
             # Validate they're not None
             assert state.orchestrator is not None
@@ -98,14 +100,16 @@ class TestKernelStartupCycle:
 
             # Dogs in orchestrator
             orchestrator = state.orchestrator
-            dogs = orchestrator.dogs if hasattr(orchestrator, 'dogs') else {}
+            dogs = orchestrator.dogs if hasattr(orchestrator, "dogs") else {}
 
             # Should have 11 dogs (or at least > 0 for this test)
             assert len(dogs) > 0, "At least some dogs should be initialized"
 
             # Each dog should have minimal attributes
             for dog_name, dog in dogs.items():
-                assert hasattr(dog, 'name') or dog_name, f"Dog {dog_name} missing identity"
+                assert (
+                    hasattr(dog, "name") or dog_name
+                ), f"Dog {dog_name} missing identity"
 
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
@@ -163,7 +167,6 @@ class TestDependencyContainerIsolation:
 
         # Verify isolation (container1 state unchanged)
         assert container1.instance_id == "inst-1"
-
 
     @pytest.mark.asyncio
     async def test_thread_safe_container_access(self):
@@ -280,21 +283,20 @@ class TestConsciousnessLevelTransitions:
         from cynic.kernel.core import phi
 
         # Verify Ï† constants are available (used in level thresholds)
-        assert hasattr(phi, 'MAX_Q_SCORE')
+        assert hasattr(phi, "MAX_Q_SCORE")
         assert phi.MAX_Q_SCORE == 100.0
 
         # Level thresholds (from code, Ï†-derived)
         level_thresholds = {
-            "REFLEX": 0,          # Always active
-            "MICRO": 0.382,       # Ï†â»Â²
-            "MACRO": 0.618,       # Ï†â»Â¹
-            "META": 0.888,        # Ï†Â²
+            "REFLEX": 0,  # Always active
+            "MICRO": 0.382,  # Ï†â»Â²
+            "MACRO": 0.618,  # Ï†â»Â¹
+            "META": 0.888,  # Ï†Â²
         }
 
         # Verify ascending order
         levels = list(level_thresholds.values())
         assert levels == sorted(levels), "Consciousness levels should be ordered"
-
 
     @pytest.mark.asyncio
     async def test_escalation_decision_structure(self):
@@ -308,15 +310,15 @@ class TestConsciousnessLevelTransitions:
             # Orchestrator should have escalation-related methods/attributes
             # Note: This may be partially implemented (TIER 1 work)
             (
-                hasattr(orchestrator, 'escalate') or
-                hasattr(orchestrator, '_escalate') or
-                hasattr(orchestrator, 'level') or
-                hasattr(orchestrator, 'dogs')  # At minimum, has dogs for escalation
+                hasattr(orchestrator, "escalate")
+                or hasattr(orchestrator, "_escalate")
+                or hasattr(orchestrator, "level")
+                or hasattr(orchestrator, "dogs")  # At minimum, has dogs for escalation
             )
 
             # For now, just verify orchestrator exists and has basic structure
             assert orchestrator is not None
-            assert hasattr(orchestrator, 'dogs'), "Orchestrator should have dogs"
+            assert hasattr(orchestrator, "dogs"), "Orchestrator should have dogs"
 
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
@@ -348,9 +350,10 @@ class TestLearningLoopIntegration:
             assert qtable is not None, "Q-table not initialized"
 
             # Should have methods for update/query
-            assert hasattr(qtable, 'exploit') or hasattr(qtable, 'explore'), "Q-table missing query method"
-            assert hasattr(qtable, 'update'), "Q-table missing update method"
-
+            assert hasattr(qtable, "exploit") or hasattr(
+                qtable, "explore"
+            ), "Q-table missing query method"
+            assert hasattr(qtable, "update"), "Q-table missing update method"
 
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):
@@ -360,7 +363,10 @@ class TestLearningLoopIntegration:
     @pytest.mark.asyncio
     async def test_learning_signal_flow(self):
         """Learning signals integrate without crashing."""
-        from cynic.kernel.organism.brain.learning.qlearning import LearningSignal, QTable
+        from cynic.kernel.organism.brain.learning.qlearning import (
+            LearningSignal,
+            QTable,
+        )
 
         # Create minimal Q-table with correct parameters
         qtable = QTable(learning_rate=0.1, discount=0.382)
@@ -397,11 +403,10 @@ class TestLearningLoopIntegration:
 
             # Should have core learning methods
             assert (
-                hasattr(learning_loop, 'start') or
-                hasattr(learning_loop, 'stop') or
-                hasattr(learning_loop, 'qtable')
+                hasattr(learning_loop, "start")
+                or hasattr(learning_loop, "stop")
+                or hasattr(learning_loop, "qtable")
             ), "Learning loop missing core methods"
-
 
         except RuntimeError as e:
             if "AppContainer not initialized" in str(e):

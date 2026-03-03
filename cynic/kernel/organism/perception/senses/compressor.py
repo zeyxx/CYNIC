@@ -116,7 +116,9 @@ def _tf_score_sentences(sentences: list[str]) -> list[tuple[str, float]]:
 
     # Compute IDF-like inverse frequency weight
     len(sentences)
-    idf: dict[str, float] = {word: 1.0 / (count + 1) for word, count in all_words.items()}
+    idf: dict[str, float] = {
+        word: 1.0 / (count + 1) for word, count in all_words.items()
+    }
 
     def score(sentence: str) -> float:
         words = re.findall(r"\b\w+\b", sentence.lower())
@@ -150,7 +152,9 @@ class ContextCompressor:
     def __init__(self, max_tokens: int = DEFAULT_MAX_TOKENS) -> None:
         self._max_tokens = max_tokens
         self._chunks: list[str] = []
-        self._chunk_attention: list[float] = []  # Per-chunk attention weight (default 1.0)
+        self._chunk_attention: list[
+            float
+        ] = []  # Per-chunk attention weight (default 1.0)
         self._total_input_tokens: int = 0
         self._total_output_tokens: int = 0
         self._compressions: int = 0
@@ -364,7 +368,9 @@ class ContextCompressor:
 
         # Direct restore " skip add() to preserve attention weights
         self._chunks = list(chunks)
-        self._chunk_attention = [attns[i] if i < len(attns) else 1.0 for i in range(len(chunks))]
+        self._chunk_attention = [
+            attns[i] if i < len(attns) else 1.0 for i in range(len(chunks))
+        ]
         self._compressions = data.get("compressions", 0)
         self._total_input_tokens = data.get("total_input_tokens", 0)
 

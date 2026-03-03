@@ -18,7 +18,9 @@ from pydantic import BaseModel, Field
 class SomaticPayload(BaseModel):
     """Data from HardwareBody/InternalSensor."""
 
-    type: str = Field(description="CPU_STRESS, RAM_STRESS, DISK_STRESS, TEMP_ALERT, etc.")
+    type: str = Field(
+        description="CPU_STRESS, RAM_STRESS, DISK_STRESS, TEMP_ALERT, etc."
+    )
     value: float | str | dict
     source: str = Field(default="hardware")
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -54,20 +56,24 @@ class InternalPayload(BaseModel):
 
 class MarketPayload(BaseModel):
     """Data from external market sensors."""
+
     symbol: str
     price: float
     change_24h: float | None = None
     volume_24h: float | None = None
-    volatility: float = 0.0 # PHI-scaled volatility
+    volatility: float = 0.0  # PHI-scaled volatility
     source: str
+
 
 class SolanaPayload(BaseModel):
     """Data from Solana Blockchain sensors."""
+
     slot: int
     tps: float | None = None
     block_time: float | None = None
     recent_prioritization_fee: float | None = None
-    health: str = "ok" # status of the cluster
+    health: str = "ok"  # status of the cluster
+
 
 # "" DISPATCHER """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 

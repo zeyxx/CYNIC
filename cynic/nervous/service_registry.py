@@ -14,6 +14,7 @@ Queryable via: GET /internal/registry
 
 This component enables all other Tier 1 components (EventJournal, DecisionTrace, LoopClosureValidator).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -30,27 +31,30 @@ from cynic.kernel.core.formulas import SERVICE_REGISTRY_JUDGMENT_CAP
 logger = logging.getLogger("cynic.nervous.service_registry")
 
 
-# 
+#
 # DATA STRUCTURES
-# 
+#
+
 
 class ComponentType(StrEnum):
     """Component types that register with the registry."""
-    DOG = "dog"                    # Sefirot dogs (judge perspectives)
-    BUS = "bus"                    # Event bus (core, agent, automation)
-    WORKER = "worker"              # Background workers (perceive, learn, evolve)
-    STORAGE = "storage"            # Database (SurrealDB, Postgres, SQLite)
-    LEARNER = "learner"            # Learning modules (QTable, Thompson, EWC)
-    DETECTOR = "detector"          # Detectors (residual, emergence, axiom)
+
+    DOG = "dog"  # Sefirot dogs (judge perspectives)
+    BUS = "bus"  # Event bus (core, agent, automation)
+    WORKER = "worker"  # Background workers (perceive, learn, evolve)
+    STORAGE = "storage"  # Database (SurrealDB, Postgres, SQLite)
+    LEARNER = "learner"  # Learning modules (QTable, Thompson, EWC)
+    DETECTOR = "detector"  # Detectors (residual, emergence, axiom)
     ORCHESTRATOR = "orchestrator"  # Decision orchestrators
-    ROUTER = "router"              # Action routers and runners
+    ROUTER = "router"  # Action routers and runners
 
 
 class HealthStatus(StrEnum):
     """Component health status."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
-    STALLED = "stalled"           # Not updated recently
+    STALLED = "stalled"  # Not updated recently
     FAILED = "failed"
     UNKNOWN = "unknown"
 
@@ -58,10 +62,11 @@ class HealthStatus(StrEnum):
 @dataclass
 class ComponentSnapshot:
     """State snapshot of a single component."""
+
     name: str
     type: ComponentType
     status: HealthStatus
-    last_update_ms: float         # Time.time() * 1000
+    last_update_ms: float  # Time.time() * 1000
     metrics: dict[str, Any] = field(default_factory=dict)  # Type-specific metrics
 
     # Judgment-specific (if applicable)
@@ -80,12 +85,19 @@ class ComponentSnapshot:
         d_copy = dict(d)
         d_copy["type"] = ComponentType(d_copy["type"])
         d_copy["status"] = HealthStatus(d_copy["status"])
-        return ComponentSnapshot(**{k: v for k, v in d_copy.items() if k in ComponentSnapshot.__dataclass_fields__})
+        return ComponentSnapshot(
+            **{
+                k: v
+                for k, v in d_copy.items()
+                if k in ComponentSnapshot.__dataclass_fields__
+            }
+        )
 
 
 @dataclass
 class RegistrySnapshot:
     """Full snapshot of all registered components."""
+
     timestamp_ms: float
     components: dict[str, ComponentSnapshot] = field(default_factory=dict)
     total_components: int = 0
@@ -112,12 +124,19 @@ class RegistrySnapshot:
         for k, v in d_copy.get("components", {}).items():
             components[k] = ComponentSnapshot.from_dict(v)
         d_copy["components"] = components
-        return RegistrySnapshot(**{k: v for k, v in d_copy.items() if k in RegistrySnapshot.__dataclass_fields__})
+        return RegistrySnapshot(
+            **{
+                k: v
+                for k, v in d_copy.items()
+                if k in RegistrySnapshot.__dataclass_fields__
+            }
+        )
 
 
-# 
+#
 # SERVICE STATE REGISTRY
-# 
+#
+
 
 class ServiceStateRegistry:
     """
@@ -160,7 +179,9 @@ class ServiceStateRegistry:
                 last_update_ms=now_ms,
                 metrics=metrics or {},
             )
-            logger.debug("ServiceStateRegistry: registered %s (%s)", name, component_type)
+            logger.debug(
+                "ServiceStateRegistry: registered %s (%s)", name, component_type
+            )
 
     async def record_judgment(
         self,
@@ -196,14 +217,16 @@ class ServiceStateRegistry:
             comp.last_judgment_q_score = q_score
 
             # Append to judgment log (rolling cap = F(11) = 89)
-            self._judgment_log.append({
-                "timestamp_ms": now_ms,
-                "component": component_name,
-                "judgment_id": judgment_id,
-                "verdict": verdict,
-                "q_score": q_score,
-                "metadata": metadata or {},
-            })
+            self._judgment_log.append(
+                {
+                    "timestamp_ms": now_ms,
+                    "component": component_name,
+                    "judgment_id": judgment_id,
+                    "verdict": verdict,
+                    "q_score": q_score,
+                    "metadata": metadata or {},
+                }
+            )
 
             # Apply rolling cap (imported from formulas.py)
             if len(self._judgment_log) > SERVICE_REGISTRY_JUDGMENT_CAP:
@@ -261,10 +284,20 @@ class ServiceStateRegistry:
                         comp.status = HealthStatus.STALLED
 
             # Count statuses
-            healthy = sum(1 for c in self._components.values() if c.status == HealthStatus.HEALTHY)
-            degraded = sum(1 for c in self._components.values() if c.status == HealthStatus.DEGRADED)
-            stalled = sum(1 for c in self._components.values() if c.status == HealthStatus.STALLED)
-            failed = sum(1 for c in self._components.values() if c.status == HealthStatus.FAILED)
+            healthy = sum(
+                1 for c in self._components.values() if c.status == HealthStatus.HEALTHY
+            )
+            degraded = sum(
+                1
+                for c in self._components.values()
+                if c.status == HealthStatus.DEGRADED
+            )
+            stalled = sum(
+                1 for c in self._components.values() if c.status == HealthStatus.STALLED
+            )
+            failed = sum(
+                1 for c in self._components.values() if c.status == HealthStatus.FAILED
+            )
 
             return RegistrySnapshot(
                 timestamp_ms=now_ms,

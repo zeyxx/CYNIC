@@ -22,6 +22,7 @@ Enables:
   - L4 Self-improvement: SelfProber reacts to stalled loops
   - Circuit breaker: Prevents infinite waits
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -49,6 +50,7 @@ ORPHAN_THRESHOLD_MS = 10000  # 10 seconds = orphan (judgment without action)
 
 class CyclePhase(StrEnum):
     """Phases in the 7-step cycle."""
+
     PERCEIVE = "perceive"
     JUDGE = "judge"
     DECIDE = "decide"
@@ -73,6 +75,7 @@ CYCLE_PHASES = [
 @dataclass
 class PhaseEntry:
     """Entry for a phase in a cycle."""
+
     phase: CyclePhase
     event_id: str
     timestamp_ms: float
@@ -84,6 +87,7 @@ class PhaseEntry:
 @dataclass
 class LoopClosureEvent:
     """Record of a cycle closure or failure."""
+
     event_id: str
     judgment_id: str
     created_at_ms: float
@@ -125,7 +129,9 @@ class LoopClosureEvent:
             "is_stalled": self.is_stalled,
             "is_orphan": self.is_orphan,
             "last_phase": str(self.last_phase) if self.last_phase else None,
-            "stalled_at_phase": str(self.stalled_at_phase) if self.stalled_at_phase else None,
+            "stalled_at_phase": str(self.stalled_at_phase)
+            if self.stalled_at_phase
+            else None,
             "stall_duration_ms": self.stall_duration_ms,
             "total_cycle_ms": self.total_cycle_ms,
             "phase_count": self.phase_count,
@@ -280,9 +286,14 @@ class LoopClosureValidator:
 
             # Check if orphaned (judgment with no ACT phase)
             has_act = any(p.phase == CyclePhase.ACT for p in closure.phases)
-            if not has_act and (timestamp_ms - closure.created_at_ms) > ORPHAN_THRESHOLD_MS:
+            if (
+                not has_act
+                and (timestamp_ms - closure.created_at_ms) > ORPHAN_THRESHOLD_MS
+            ):
                 closure.is_orphan = True
-                logger.warning(f"Orphan judgment detected: {judgment_id} (no ACT phase)")
+                logger.warning(
+                    f"Orphan judgment detected: {judgment_id} (no ACT phase)"
+                )
 
             # Compute total duration
             if closure.phases:
@@ -312,7 +323,9 @@ class LoopClosureValidator:
 
             return closure
 
-    async def get_open_cycles(self, max_age_ms: float | None = None) -> list[LoopClosureEvent]:
+    async def get_open_cycles(
+        self, max_age_ms: float | None = None
+    ) -> list[LoopClosureEvent]:
         """Get cycles still in progress (not yet closed)."""
         async with self._lock:
             if max_age_ms is None:
@@ -322,8 +335,7 @@ class LoopClosureValidator:
             threshold_ms = timestamp_ms - max_age_ms
 
             return [
-                c for c in self._open_cycles.values()
-                if c.created_at_ms >= threshold_ms
+                c for c in self._open_cycles.values() if c.created_at_ms >= threshold_ms
             ]
 
     async def get_stalled_phases(

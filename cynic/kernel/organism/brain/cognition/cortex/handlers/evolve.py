@@ -21,9 +21,14 @@ from typing import Any
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusError
 from cynic.kernel.core.events_schema import MetaCyclePayload
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+)
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.evolve")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.handlers.evolve"
+)
 
 
 class EvolveHandler(BaseHandler):
@@ -94,7 +99,10 @@ class EvolveHandler(BaseHandler):
         Returns summary dict:
           pass_rate, pass_count, total, regression, results[]
         """
-        from cynic.kernel.organism.brain.cognition.cortex.probes import PROBE_CELLS, ProbeResult
+        from cynic.kernel.organism.brain.cognition.cortex.probes import (
+            PROBE_CELLS,
+            ProbeResult,
+        )
 
         if not self.orchestrator:
             raise ValueError("EvolveHandler requires orchestrator instance")

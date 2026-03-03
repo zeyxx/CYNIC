@@ -20,13 +20,20 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from cynic.kernel.core.event_bus import EventBus
-from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler, HandlerResult
+from cynic.kernel.organism.brain.cognition.cortex.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+)
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgmentPipeline
+    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import (
+        JudgmentPipeline,
+    )
 
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_macro")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.handlers.cycle_macro"
+)
 
 
 class MacroCycleHandler(BaseHandler):
@@ -46,9 +53,7 @@ class MacroCycleHandler(BaseHandler):
 
     handler_id = "cycle_macro"
     version = "1.0"
-    description = (
-        "L1 MACRO cycle: full 7-step cycle with E-Score filtering, PBFT, and action execution"
-    )
+    description = "L1 MACRO cycle: full 7-step cycle with E-Score filtering, PBFT, and action execution"
 
     def __init__(
         self,
@@ -90,17 +95,19 @@ class MacroCycleHandler(BaseHandler):
         """
         t0 = time.perf_counter()
         try:
-            from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import execute_judgment_pipeline
-            
+            from cynic.kernel.organism.brain.cognition.cortex.judgment_stages import (
+                execute_judgment_pipeline,
+            )
+
             # The orchestrator is needed by the stages to access Dogs, monitors etc.
             # We assume the caller (Composer) or the pipeline has access to it.
-            # In our current architecture, the registry handlers are initialized with 
+            # In our current architecture, the registry handlers are initialized with
             # references to these components.
-            
+
             # We create a shim orchestrator if needed, or pass self if we have the dogs.
             # Since MacroCycleHandler already has dogs and monitors, it can act as the stage context.
             pipeline = await execute_judgment_pipeline(self, pipeline)
-            
+
             judgment = pipeline.final_judgment
             if judgment is None:
                 raise RuntimeError("7-step pipeline failed to produce a judgment")

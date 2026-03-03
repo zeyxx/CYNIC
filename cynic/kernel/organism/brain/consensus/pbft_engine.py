@@ -84,7 +84,9 @@ class PBFTEngine:
             f"fault_tolerance={fault_tolerance}, required_votes={self.required_votes}"
         )
 
-    async def reach_consensus(self, judgments: list[UnifiedJudgment]) -> UnifiedJudgment:
+    async def reach_consensus(
+        self, judgments: list[UnifiedJudgment]
+    ) -> UnifiedJudgment:
         """
         Reach Byzantine consensus among Dogs using supermajority voting.
 

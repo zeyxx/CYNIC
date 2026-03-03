@@ -6,7 +6,13 @@ import logging
 from typing import TYPE_CHECKING
 from typing_extensions import Protocol
 
-from cynic.kernel.core.event_bus import CoreEvent, Event, EventBus, EventBusError, CynicError
+from cynic.kernel.core.event_bus import (
+    CoreEvent,
+    Event,
+    EventBus,
+    EventBusError,
+    CynicError,
+)
 from cynic.kernel.core.topology.payloads import (
     TopologyAppliedPayload,
     TopologyChangedPayload,
@@ -84,7 +90,9 @@ class HotReloadCoordinator:
             # 2. Handle removals (if any)
             # For now, removals are not supported (would require unwiring from bus)
             if payload.removed_handlers:
-                logger.warning("Handler removal not yet supported: %s", payload.removed_handlers)
+                logger.warning(
+                    "Handler removal not yet supported: %s", payload.removed_handlers
+                )
 
             # 3. Handle additions
             for handler_name in payload.added_handlers:
@@ -112,7 +120,9 @@ class HotReloadCoordinator:
                 )
             )
 
-            logger.info("TOPOLOGY_APPLIED: +%d handlers now active", len(payload.added_handlers))
+            logger.info(
+                "TOPOLOGY_APPLIED: +%d handlers now active", len(payload.added_handlers)
+            )
 
         except EventBusError as e:
             logger.error("Hot-reload failed: %s - rolling back to snapshot", e)
@@ -124,7 +134,8 @@ class HotReloadCoordinator:
                 logger.debug("Rolled back to previous topology")
             except CynicError as rollback_e:
                 logger.error(
-                    "Rollback FAILED: %s - organism may be in inconsistent state", rollback_e
+                    "Rollback FAILED: %s - organism may be in inconsistent state",
+                    rollback_e,
                 )
 
             # 7. Emit: TOPOLOGY_ROLLBACK

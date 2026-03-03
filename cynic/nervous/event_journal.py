@@ -24,6 +24,7 @@ This component enables:
   - Component 4 (LoopClosureValidator): Uses events to detect stalls
   - L2 Feedback loop: Claude Code sees event patterns
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -47,27 +48,29 @@ JOURNAL_CAP = EVENT_JOURNAL_CAP
 
 class EventCategory(StrEnum):
     """Event type categories for grouping."""
-    PERCEPTION = "perception"       # PERCEIVE phase
-    JUDGMENT = "judgment"            # JUDGE phase
-    DECISION = "decision"            # DECIDE phase
-    ACTION = "action"                # ACT phase
-    LEARNING = "learning"            # LEARN phase
-    ACCOUNTING = "accounting"        # ACCOUNT phase
-    EMERGENCE = "emergence"          # EMERGE phase
-    SYSTEM = "system"                # Internal (startup, shutdown, errors)
-    ADMIN = "admin"                  # Manual interventions
+
+    PERCEPTION = "perception"  # PERCEIVE phase
+    JUDGMENT = "judgment"  # JUDGE phase
+    DECISION = "decision"  # DECIDE phase
+    ACTION = "action"  # ACT phase
+    LEARNING = "learning"  # LEARN phase
+    ACCOUNTING = "accounting"  # ACCOUNT phase
+    EMERGENCE = "emergence"  # EMERGE phase
+    SYSTEM = "system"  # Internal (startup, shutdown, errors)
+    ADMIN = "admin"  # Manual interventions
 
 
 @dataclass
 class JournalEntry:
     """Single event recorded in the journal."""
-    event_id: str                    # Hash of (timestamp, source, type)
-    timestamp_ms: float              # Time.time() * 1000
-    event_type: str                  # CoreEvent enum value
-    category: EventCategory          # Parent category
-    source: str                       # Component that emitted it
-    payload_keys: list[str]          # Keys from payload (not full payload, for privacy)
-    duration_ms: float = 0.0         # How long processing took
+
+    event_id: str  # Hash of (timestamp, source, type)
+    timestamp_ms: float  # Time.time() * 1000
+    event_type: str  # CoreEvent enum value
+    category: EventCategory  # Parent category
+    source: str  # Component that emitted it
+    payload_keys: list[str]  # Keys from payload (not full payload, for privacy)
+    duration_ms: float = 0.0  # How long processing took
 
     # Causality tracking
     parent_event_id: str | None = None  # Which event triggered this
@@ -86,7 +89,13 @@ class JournalEntry:
     def from_dict(d: dict[str, Any]) -> JournalEntry:
         d_copy = dict(d)
         d_copy["category"] = EventCategory(d_copy["category"])
-        return JournalEntry(**{k: v for k, v in d_copy.items() if k in JournalEntry.__dataclass_fields__})
+        return JournalEntry(
+            **{
+                k: v
+                for k, v in d_copy.items()
+                if k in JournalEntry.__dataclass_fields__
+            }
+        )
 
 
 class EventJournal:
@@ -170,7 +179,9 @@ class EventJournal:
             # Update stats
             self._stats["total_recorded"] += 1
             cat_str = str(category)
-            self._stats["by_category"][cat_str] = self._stats["by_category"].get(cat_str, 0) + 1
+            self._stats["by_category"][cat_str] = (
+                self._stats["by_category"].get(cat_str, 0) + 1
+            )
             self._stats["last_updated_ms"] = timestamp_ms
 
             logger.debug(
@@ -212,21 +223,31 @@ class EventJournal:
             entries = list(self._entries)
             return entries[-limit:][::-1]  # Reverse to get newest first
 
-    async def filter_by_type(self, event_type: str, limit: int = 50) -> list[JournalEntry]:
+    async def filter_by_type(
+        self, event_type: str, limit: int = 50
+    ) -> list[JournalEntry]:
         """Get all events of a specific type."""
         async with self._lock:
             event_ids = self._index_by_type.get(event_type, [])
-            entries = [self._event_map[eid] for eid in event_ids if eid in self._event_map]
+            entries = [
+                self._event_map[eid] for eid in event_ids if eid in self._event_map
+            ]
             return entries[-limit:][::-1]  # Newest first
 
-    async def filter_by_source(self, source: str, limit: int = 50) -> list[JournalEntry]:
+    async def filter_by_source(
+        self, source: str, limit: int = 50
+    ) -> list[JournalEntry]:
         """Get all events from a specific component."""
         async with self._lock:
             event_ids = self._index_by_source.get(source, [])
-            entries = [self._event_map[eid] for eid in event_ids if eid in self._event_map]
+            entries = [
+                self._event_map[eid] for eid in event_ids if eid in self._event_map
+            ]
             return entries[-limit:][::-1]
 
-    async def filter_by_category(self, category: EventCategory, limit: int = 50) -> list[JournalEntry]:
+    async def filter_by_category(
+        self, category: EventCategory, limit: int = 50
+    ) -> list[JournalEntry]:
         """Get all events in a category."""
         async with self._lock:
             entries = [e for e in self._entries if e.category == category]
@@ -235,10 +256,7 @@ class EventJournal:
     async def time_range(self, start_ms: float, end_ms: float) -> list[JournalEntry]:
         """Get events within time window [start_ms, end_ms]."""
         async with self._lock:
-            entries = [
-                e for e in self._entries
-                if start_ms <= e.timestamp_ms <= end_ms
-            ]
+            entries = [e for e in self._entries if start_ms <= e.timestamp_ms <= end_ms]
             return entries  # Chronological order
 
     async def get_event(self, event_id: str) -> JournalEntry | None:
@@ -246,7 +264,9 @@ class EventJournal:
         async with self._lock:
             return self._event_map.get(event_id)
 
-    async def causality_chain(self, event_id: str, direction: str = "down") -> list[JournalEntry]:
+    async def causality_chain(
+        self, event_id: str, direction: str = "down"
+    ) -> list[JournalEntry]:
         """
         Trace causality: follow parent_event_id (up) or child_event_ids (down).
 
@@ -289,7 +309,8 @@ class EventJournal:
         """Get all error events since timestamp."""
         async with self._lock:
             errors = [
-                e for e in self._entries
+                e
+                for e in self._entries
                 if e.is_error and e.timestamp_ms >= timestamp_ms
             ]
             return errors

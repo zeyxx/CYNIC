@@ -425,9 +425,7 @@ class TestEventForwarderEdgeCases:
         event_forwarder._pause_event.set()
 
         # Mock queue.add to raise exception
-        event_forwarder.queue.add = AsyncMock(
-            side_effect=Exception("Queue error")
-        )
+        event_forwarder.queue.add = AsyncMock(side_effect=Exception("Queue error"))
 
         event = Event.typed(CoreEvent.JUDGMENT_CREATED)
 

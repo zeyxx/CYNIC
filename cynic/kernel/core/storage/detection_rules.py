@@ -3,9 +3,9 @@ Detection Rules Engine  Kill Chain pattern matching (PHASE 2, COMPONENT 5)
 
 Architecture:
   Rule (base class)  RuleRegistry (lifecycle management)  RuleEngine (evaluation)
-                           
+
                     25-50 rules by stage
-                           
+
                     Matches  Alert context
 """
 
@@ -58,11 +58,13 @@ class RuleRegistry:
     def register(self, rule: Rule) -> None:
         """Register a new rule."""
         self._rules[rule.rule_id] = rule
-        self._rule_versions[rule.rule_id].append({
-            "version": 1,
-            "timestamp": time.time(),
-            "status": "active",
-        })
+        self._rule_versions[rule.rule_id].append(
+            {
+                "version": 1,
+                "timestamp": time.time(),
+                "status": "active",
+            }
+        )
         logger.info(f"Rule registered: {rule.rule_id} ({rule.stage})")
 
     def disable(self, rule_id: str) -> None:
@@ -79,14 +81,16 @@ class RuleRegistry:
     def get_active_rules(self) -> list[Rule]:
         """Get all active rules."""
         return [
-            rule for rule_id, rule in self._rules.items()
+            rule
+            for rule_id, rule in self._rules.items()
             if rule_id not in self._disabled_rules
         ]
 
     def get_rules_by_stage(self, stage: str) -> list[Rule]:
         """Get rules for specific Kill Chain stage."""
         return [
-            rule for rule in self._rules.values()
+            rule
+            for rule in self._rules.values()
             if rule.stage == stage and rule.rule_id not in self._disabled_rules
         ]
 
@@ -205,7 +209,9 @@ class Stage3_LargeVotingBloc(Rule):
             return False
 
         proposal_id = event.get("payload", {}).get("proposal_id")
-        votes = [e for e in related if e.get("payload", {}).get("proposal_id") == proposal_id]
+        votes = [
+            e for e in related if e.get("payload", {}).get("proposal_id") == proposal_id
+        ]
 
         # 50+ votes for same proposal = bloc attack
         return len(votes) > 50
@@ -251,12 +257,12 @@ class Stage6_CoordinatedVoting(Rule):
 
         actor = event.get("actor_id")
         actor_votes = [e for e in related if e.get("actor_id") == actor]
-        proposal_count = len(set(
-            e.get("payload", {}).get("proposal_id") for e in actor_votes
-        ))
-        all_proposals = len(set(
-            e.get("payload", {}).get("proposal_id") for e in related
-        ))
+        proposal_count = len(
+            set(e.get("payload", {}).get("proposal_id") for e in actor_votes)
+        )
+        all_proposals = len(
+            set(e.get("payload", {}).get("proposal_id") for e in related)
+        )
 
         if all_proposals == 0:
             return False
@@ -276,7 +282,8 @@ class Stage7_MaliciousExecution(Rule):
 
         proposal_id = event.get("payload", {}).get("proposal_id")
         suspicious = [
-            e for e in related
+            e
+            for e in related
             if e.get("type") == "proposal_created"
             and e.get("payload", {}).get("proposal_id") == proposal_id
         ]
@@ -325,8 +332,7 @@ class MultiActorCoordination(Rule):
 
         proposal_id = event.get("payload", {}).get("proposal_id")
         votes_for_proposal = [
-            e for e in related
-            if e.get("payload", {}).get("proposal_id") == proposal_id
+            e for e in related if e.get("payload", {}).get("proposal_id") == proposal_id
         ]
 
         # Count unique actors voting on same proposal
@@ -435,7 +441,8 @@ class RapidProposalCreation(Rule):
 
         actor = event.get("actor_id")
         actor_proposals = [
-            e for e in related
+            e
+            for e in related
             if e.get("type") == "proposal_created" and e.get("actor_id") == actor
         ]
 
@@ -485,8 +492,7 @@ class MissingJustification(Rule):
         actor = event.get("actor_id")
         actor_votes = [e for e in related if e.get("actor_id") == actor]
         no_justification = sum(
-            1 for e in actor_votes
-            if not e.get("payload", {}).get("justification")
+            1 for e in actor_votes if not e.get("payload", {}).get("justification")
         )
 
         # > 50% without justification = suspicious

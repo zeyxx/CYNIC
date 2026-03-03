@@ -34,7 +34,9 @@ class HandlerGroup(ABC):
         """Initialize handler with instance-specific bus."""
         # Note: bus must be provided by factory.py
         if bus is None:
-             raise RuntimeError(f"HandlerGroup {self.name} initialized without a bus. This violates isolation.")
+            raise RuntimeError(
+                f"HandlerGroup {self.name} initialized without a bus. This violates isolation."
+            )
         self.bus = bus
 
     @property

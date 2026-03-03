@@ -15,7 +15,13 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from cynic.kernel.core.formulas import LLM_TIMEOUT_SEC
-from cynic.kernel.core.phi import MAX_Q_SCORE, PHI, PHI_INV, PHI_INV_2, weighted_geometric_mean
+from cynic.kernel.core.phi import (
+    MAX_Q_SCORE,
+    PHI,
+    PHI_INV,
+    PHI_INV_2,
+    weighted_geometric_mean,
+)
 from cynic.kernel.core.vascular import VascularSystem
 import httpx
 
@@ -31,7 +37,7 @@ class LLMRequest:
     max_tokens: int = 2048
     temperature: float = 0.0
     stream: bool = False
-    multimodal_data: list[Any] = field(default_factory=list) # List of MultimodalPacket
+    multimodal_data: list[Any] = field(default_factory=list)  # List of MultimodalPacket
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -56,7 +62,9 @@ class LLMResponse:
 class LLMAdapter(ABC):
     """Base for all LLM muscles."""
 
-    def __init__(self, model: str, provider: str, vascular: Optional[VascularSystem] = None) -> None:
+    def __init__(
+        self, model: str, provider: str, vascular: Optional[VascularSystem] = None
+    ) -> None:
         self.model = model
         self.provider = provider
         self.vascular = vascular
@@ -86,9 +94,13 @@ class LLMAdapter(ABC):
     async def complete_safe(self, request: LLMRequest) -> LLMResponse:
         """Contain errors and log call."""
         try:
-            return await asyncio.wait_for(self.complete(request), timeout=LLM_TIMEOUT_SEC)
+            return await asyncio.wait_for(
+                self.complete(request), timeout=LLM_TIMEOUT_SEC
+            )
         except Exception as e:
-            return LLMResponse(content="", model=self.model, provider=self.provider, error=str(e))
+            return LLMResponse(
+                content="", model=self.model, provider=self.provider, error=str(e)
+            )
 
 
 @dataclass
@@ -99,14 +111,18 @@ class BenchmarkResult:
     quality_score: float
     speed_score: float
     cost_score: float
-    error_rate: float = 0.0 # [0, 1] where 1 is total failure
+    error_rate: float = 0.0  # [0, 1] where 1 is total failure
     timestamp: float = field(default_factory=time.time)
 
     @property
     def composite_score(self) -> float:
         # Quality, Speed, and Cost are rewarded. Error rate is heavily punished.
         base_score = weighted_geometric_mean(
-            [max(0.001, self.quality_score / MAX_Q_SCORE), max(0.001, self.speed_score), max(0.001, self.cost_score)],
+            [
+                max(0.001, self.quality_score / MAX_Q_SCORE),
+                max(0.001, self.speed_score),
+                max(0.001, self.cost_score),
+            ],
             [PHI, 1.0, PHI_INV],
         )
         return base_score * (1.0 - self.error_rate)
@@ -127,7 +143,9 @@ class LLMRegistry:
         self._available[adapter.adapter_id] = available
 
     def get_available(self) -> list[LLMAdapter]:
-        return [a for aid, a in self._adapters.items() if self._available.get(aid, False)]
+        return [
+            a for aid, a in self._adapters.items() if self._available.get(aid, False)
+        ]
 
     def _is_generation_adapter(self, adapter: LLMAdapter) -> bool:
         name = adapter.model.lower()
@@ -160,7 +178,9 @@ class LLMRegistry:
         # 1. Local GGUF (Level 0: Pure Sovereignty)
         if models_dir:
             try:
-                from cynic.kernel.organism.brain.llm.adapters.local_gguf import LlamaCppAdapter
+                from cynic.kernel.organism.brain.llm.adapters.local_gguf import (
+                    LlamaCppAdapter,
+                )
                 # Placeholder for listing models, in real it scans models_dir
                 # ...
             except ImportError:
@@ -178,10 +198,14 @@ class LLMRegistry:
                     models_data = resp.json().get("models", [])
                     for m in models_data:
                         m_name = m["name"]
-                        adapter = OllamaAdapter(model=m_name, base_url=ollama_url, vascular=self.vascular)
+                        adapter = OllamaAdapter(
+                            model=m_name, base_url=ollama_url, vascular=self.vascular
+                        )
                         self.register(adapter)
                         self._manifest["available"].append(f"ollama:{m_name}")
-                    logger.info(f"Discovered {len(models_data)} local models via Ollama.")
+                    logger.info(
+                        f"Discovered {len(models_data)} local models via Ollama."
+                    )
         except Exception as e:
             logger.debug(f"Ollama not found at {ollama_url}: {e}")
 
@@ -213,7 +237,7 @@ class LLMRegistry:
         for adapter in avail:
             # Get the last benchmark for this specific dog/task
             bench = self._benchmarks.get((adapter.adapter_id, dog_id, task_type))
-            
+
             if bench:
                 score = bench.composite_score
             else:
@@ -222,20 +246,22 @@ class LLMRegistry:
                 if adapter.provider in ["llama_cpp", "ollama"]:
                     score = PHI_INV  # 0.618 (Good starting point)
                 else:
-                    score = PHI_INV_2 # 0.382 (Conservative for Cloud)
-            
+                    score = PHI_INV_2  # 0.382 (Conservative for Cloud)
+
             scored_adapters.append((score, adapter))
 
         # 2. Sort by highest composite score
         # In case of tie, prefer the one with the lowest cost (inherent in composite_score)
         scored_adapters.sort(key=lambda x: x[0], reverse=True)
-        
+
         return scored_adapters[0][1]
 
-    def update_benchmark(self, dog_id: str, task_type: str, llm_id: str, result: BenchmarkResult) -> None:
+    def update_benchmark(
+        self, dog_id: str, task_type: str, llm_id: str, result: BenchmarkResult
+    ) -> None:
         """Update the performance record for a specific model+dog+task combination."""
         key = (llm_id, dog_id, task_type)
-        
+
         if key in self._benchmarks:
             # PHI-weighted EMA update: PHI_INV (0.618) old + PHI_INV_2 (0.382) new
             old = self._benchmarks[key]
@@ -243,15 +269,17 @@ class LLMRegistry:
                 llm_id=llm_id,
                 dog_id=dog_id,
                 task_type=task_type,
-                quality_score=(old.quality_score * PHI_INV) + (result.quality_score * PHI_INV_2),
-                speed_score=(old.speed_score * PHI_INV) + (result.speed_score * PHI_INV_2),
+                quality_score=(old.quality_score * PHI_INV)
+                + (result.quality_score * PHI_INV_2),
+                speed_score=(old.speed_score * PHI_INV)
+                + (result.speed_score * PHI_INV_2),
                 cost_score=(old.cost_score * PHI_INV) + (result.cost_score * PHI_INV_2),
                 error_rate=(old.error_rate * PHI_INV) + (result.error_rate * PHI_INV_2),
-                timestamp=time.time()
+                timestamp=time.time(),
             )
         else:
             self._benchmarks[key] = result
-        
+
         logger.debug(f"Registry: Updated benchmark for {llm_id} ({dog_id}:{task_type})")
 
 
@@ -262,6 +290,7 @@ class LLMRegistry:
 def get_registry() -> LLMRegistry:
     """Get the LLMRegistry from the current organism (via container)."""
     from cynic.interfaces.api.state import get_app_container
+
     container = get_app_container()
     if container is None:
         raise RuntimeError("No app container available (organism not awake)")

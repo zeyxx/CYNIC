@@ -1,4 +1,5 @@
 """Comprehensive tests for LNSP Layer 1 sensor interface and ringbuffer."""
+
 from __future__ import annotations
 
 import pytest

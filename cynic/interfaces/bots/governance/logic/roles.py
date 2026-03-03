@@ -13,6 +13,7 @@ from enum import Enum
 
 class UserRole(str, Enum):
     """User roles in governance system"""
+
     ADMIN = "admin"
     MODERATOR = "moderator"
     MEMBER = "member"
@@ -58,7 +59,7 @@ class RoleManager:
         UserRole.GUEST: [
             "view_proposals",
             "view_treasury",
-        ]
+        ],
     }
 
     @classmethod

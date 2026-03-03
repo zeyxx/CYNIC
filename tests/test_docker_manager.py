@@ -5,7 +5,10 @@ Paradigm: Docker = CYNIC capability, no CLI friction.
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
@@ -14,7 +17,9 @@ import json
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - cynic.deployment module not found")
+pytestmark = pytest.mark.skip(
+    reason="Old architecture removed in V5 - cynic.deployment module not found"
+)
 
 from unittest.mock import MagicMock, Mock, patch
 
@@ -193,7 +198,11 @@ class TestDockerManagerStatusPersistence:
 
         status = StackStatus(
             timestamp="2026-02-20T10:00:00",
-            containers={"cynic-kernel": ContainerStatus(name="cynic-kernel", image="kernel:latest", status="running")},
+            containers={
+                "cynic-kernel": ContainerStatus(
+                    name="cynic-kernel", image="kernel:latest", status="running"
+                )
+            },
             all_healthy=True,
             failures=[],
         )
@@ -238,7 +247,9 @@ class TestDockerManagerLogsRetrieval:
         mgr = DockerManager()
 
         mock_client = MagicMock()
-        mock_client.containers.get = Mock(side_effect=docker.errors.DockerException("Container not found"))
+        mock_client.containers.get = Mock(
+            side_effect=docker.errors.DockerException("Container not found")
+        )
         mgr.client = mock_client
 
         logs = await mgr.get_logs("cynic-kernel")

@@ -41,9 +41,9 @@ from pydantic import BaseModel, ConfigDict, Field
 _BASE = ConfigDict(extra="allow", frozen=False)
 
 
-# 
+#
 # JUDGMENT LIFECYCLE
-# 
+#
 
 
 class JudgmentCreatedPayload(BaseModel):
@@ -78,7 +78,9 @@ class JudgmentRequestedPayload(BaseModel):
     reality: str = "CODE"
     level: str = ""  # REFLEX|MICRO|MACRO
     fractal_depth: int = 1
-    cell: dict = Field(default_factory=dict)  # full Cell dict for JudgmentExecutorHandler
+    cell: dict = Field(
+        default_factory=dict
+    )  # full Cell dict for JudgmentExecutorHandler
     source: str = ""  # "api:judge" | "api:perceive"
     judgment_id: str = (
         ""  # UUID from POST /judge or POST /perceive, so executor matches PENDING entry
@@ -118,9 +120,9 @@ class ConsensusFailedPayload(BaseModel):
     reason: str = ""
 
 
-# 
+#
 # LEARNING
-# 
+#
 
 
 class LearningEventPayload(BaseModel):
@@ -197,9 +199,9 @@ class SonaTickPayload(BaseModel):
     tick_number: int = 0  # Sequence counter
 
 
-# 
+#
 # PERCEPTION
-# 
+#
 
 
 class PerceptionReceivedPayload(BaseModel):
@@ -226,9 +228,9 @@ class AnomalyDetectedPayload(BaseModel):
     analysis: str = ""
 
 
-# 
+#
 # DECISION / ACT
-# 
+#
 
 
 class DecisionMadePayload(BaseModel):
@@ -296,9 +298,9 @@ class ActionProposedPayload(BaseModel):
     description: str = ""
 
 
-# 
+#
 # EMERGENCE
-# 
+#
 
 
 class EmergenceDetectedPayload(BaseModel):
@@ -367,9 +369,9 @@ class SelfImprovementProposedPayload(BaseModel):
     total_pending: int = 0
 
 
-# 
+#
 # CONSCIOUSNESS
-# 
+#
 
 
 class ConsciousnessChangedPayload(BaseModel):
@@ -405,9 +407,9 @@ class BudgetExhaustedPayload(BaseModel):
     overspend_usd: float = 0.0
 
 
-# 
+#
 # STORAGE / SYSTEM HEALTH
-# 
+#
 
 
 class DiskPressurePayload(BaseModel):
@@ -448,9 +450,9 @@ class MemoryClearedPayload(BaseModel):
     free_gb: float = 0.0
 
 
-# 
+#
 # SDK (Claude Code --sdk-url sessions)
-# 
+#
 
 
 class SdkSessionStartedPayload(BaseModel):
@@ -491,9 +493,9 @@ class SdkResultReceivedPayload(BaseModel):
     output: str = ""
 
 
-# 
+#
 # USER
-# 
+#
 
 
 class UserFeedbackPayload(BaseModel):
@@ -520,9 +522,9 @@ class UserCorrectionPayload(BaseModel):
     reason: str = ""
 
 
-# 
+#
 # MCP (Model Context Protocol bridge)
-# 
+#
 
 
 class McpToolCalledPayload(BaseModel):
@@ -541,9 +543,9 @@ class McpToolCalledPayload(BaseModel):
     source: str = "websocket"
 
 
-# 
+#
 # TOPOLOGY (Real-time source code changes)
-# 
+#
 
 
 class ChangeAnalyzedPayload(BaseModel):

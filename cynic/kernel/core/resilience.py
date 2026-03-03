@@ -2,6 +2,7 @@
 CYNIC Resilience Utilities - Retry and Breaker logic.
 Implemented for 10k TPS Industrial Scale.
 """
+
 import asyncio
 import logging
 import time
@@ -12,16 +13,18 @@ logger = logging.getLogger("cynic.kernel.resilience")
 
 T = TypeVar("T")
 
+
 def async_retry(
     retries: int = 3,
-    delay: float = 0.382, # PHI_INV_2 base
-    backoff: float = 1.618, # PHI
+    delay: float = 0.382,  # PHI_INV_2 base
+    backoff: float = 1.618,  # PHI
     exceptions: tuple = (Exception,),
 ):
     """
     Decorator for robust async retries with exponential backoff.
     Lentille: Data Engineer / Backend
     """
+
     def decorator(func: Callable[..., Any]):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -40,8 +43,11 @@ def async_retry(
                     await asyncio.sleep(current_delay)
                     current_delay *= backoff
             raise last_exc
+
         return wrapper
+
     return decorator
+
 
 class ResilienceStats:
     def __init__(self):
@@ -55,5 +61,7 @@ class ResilienceStats:
             "failures": self.failures,
             "successes": self.successes,
             "total_retries": self.total_retries,
-            "uptime_s": time.time() - self.last_failure_at if self.last_failure_at > 0 else 0
+            "uptime_s": time.time() - self.last_failure_at
+            if self.last_failure_at > 0
+            else 0,
         }

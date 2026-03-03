@@ -28,7 +28,9 @@ BOOTSTRAP_TIMEOUT = 30.0
 class KernelManager:
     """Unified kernel lifecycle management with health monitoring."""
 
-    def __init__(self, cynic_url: str = CYNIC_URL, bootstrap_timeout: float = BOOTSTRAP_TIMEOUT):
+    def __init__(
+        self, cynic_url: str = CYNIC_URL, bootstrap_timeout: float = BOOTSTRAP_TIMEOUT
+    ):
         """
         Initialize kernel manager.
 
@@ -64,19 +66,25 @@ class KernelManager:
         async with self._initialization_lock:
             if self._initialized:
                 logger.debug("Kernel already initialized, returning cached state")
-                return self.bootstrap_result.kernel_running if self.bootstrap_result else False
+                return (
+                    self.bootstrap_result.kernel_running
+                    if self.bootstrap_result
+                    else False
+                )
 
             logger.info("Initializing CYNIC kernel...")
 
             try:
                 # Bootstrap the kernel
-                self.bootstrap = KernelBootstrap(self.cynic_url, timeout=self.bootstrap_timeout)
+                self.bootstrap = KernelBootstrap(
+                    self.cynic_url, timeout=self.bootstrap_timeout
+                )
                 self.bootstrap_result = await self.bootstrap.initialize()
 
                 if not self.bootstrap_result.kernel_running:
                     logger.error(
                         "Kernel bootstrap failed: %s",
-                        self.bootstrap_result.error or "Unknown error"
+                        self.bootstrap_result.error or "Unknown error",
                     )
                     self._initialized = True
                     return False
@@ -146,10 +154,18 @@ class KernelManager:
         """Get detailed health status."""
         return {
             "initialized": self._initialized,
-            "kernel_running": self.bootstrap_result.kernel_running if self.bootstrap_result else False,
-            "startup_type": self.bootstrap_result.startup_type if self.bootstrap_result else None,
-            "bootstrap_duration_s": self.bootstrap_result.duration_s if self.bootstrap_result else None,
-            "health_status": self.health_monitor.get_status() if self.health_monitor else None,
+            "kernel_running": self.bootstrap_result.kernel_running
+            if self.bootstrap_result
+            else False,
+            "startup_type": self.bootstrap_result.startup_type
+            if self.bootstrap_result
+            else None,
+            "bootstrap_duration_s": self.bootstrap_result.duration_s
+            if self.bootstrap_result
+            else None,
+            "health_status": self.health_monitor.get_status()
+            if self.health_monitor
+            else None,
         }
 
     async def _check_instance_count(self):

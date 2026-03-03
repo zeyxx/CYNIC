@@ -1,4 +1,5 @@
 """Test Sensor interface â€” contract validation."""
+
 import asyncio
 
 import pytest

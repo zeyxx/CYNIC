@@ -6,9 +6,10 @@ Answers two questions:
   2. events_in_window(start_ms, end_ms)  summary of all activity in a time window
 
 NOTE: EventJournal stores payload_keys only (not values). Reconstruction
-means "what events happened, in what order, with what causality" 
+means "what events happened, in what order, with what causality"
 not full value replay.
 """
+
 from __future__ import annotations
 
 from cynic.kernel.core.formulas import HISTORY_REPLAY_BATCH
@@ -87,9 +88,7 @@ class StateReconstructor:
         """
         journal_events = await self._journal.time_range(start_ms, end_ms)
         recent = await self._tracer.recent_traces(limit=HISTORY_REPLAY_BATCH)
-        window_traces = [
-            t for t in recent if start_ms <= t.created_at_ms <= end_ms
-        ]
+        window_traces = [t for t in recent if start_ms <= t.created_at_ms <= end_ms]
 
         return {
             "start_ms": start_ms,

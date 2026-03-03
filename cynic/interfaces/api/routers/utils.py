@@ -1,6 +1,7 @@
 """
 Shared helpers used across multiple CYNIC API routers.
 """
+
 from __future__ import annotations
 
 import json
@@ -33,6 +34,7 @@ def _append_social_signal(
     """
     try:
         import time as _t
+
         os.makedirs(os.path.dirname(_SOCIAL_SIGNAL_PATH), exist_ok=True)
         signal = {
             "ts": _t.time(),

@@ -72,7 +72,7 @@ IMPACT_EMOJI = {
     "LOW": "",
 }
 
-from cynic.kernel.core.config import CynicConfig as _CynicConfig
+from cynic.config import CynicConfig as _CynicConfig
 
 _DEFAULT_PORT = _CynicConfig.from_env().port
 

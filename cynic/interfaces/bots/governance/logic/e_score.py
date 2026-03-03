@@ -34,6 +34,7 @@ class EScore:
         emergence: Collective intelligence contribution [0-0.618]
         learning: Rate of improvement [0-0.618]
     """
+
     fidelity: float
     phi: float
     verify: float
@@ -46,7 +47,15 @@ class EScore:
 
     def __post_init__(self):
         """Ensure all scores are -bounded after initialization"""
-        for attr in ['fidelity', 'phi', 'verify', 'culture', 'burn', 'emergence', 'learning']:
+        for attr in [
+            "fidelity",
+            "phi",
+            "verify",
+            "culture",
+            "burn",
+            "emergence",
+            "learning",
+        ]:
             val = getattr(self, attr)
             # Clamp to [0, ]
             clamped = max(0.0, min(self.PHI_BOUND, val))
@@ -66,7 +75,7 @@ class EScore:
             self.culture,
             self.burn,
             self.emergence,
-            self.learning
+            self.learning,
         ]
 
         if all(v > 0 for v in values):
@@ -90,7 +99,7 @@ class EScore:
             self.culture,
             self.burn,
             self.emergence,
-            self.learning
+            self.learning,
         ]
         return sum(values) / len(values) if values else 0.5
 
@@ -123,7 +132,15 @@ class EScore:
         Returns:
             Dimension value, or None if not found
         """
-        valid_dims = ['fidelity', 'phi', 'verify', 'culture', 'burn', 'emergence', 'learning']
+        valid_dims = [
+            "fidelity",
+            "phi",
+            "verify",
+            "culture",
+            "burn",
+            "emergence",
+            "learning",
+        ]
         if name in valid_dims:
             return getattr(self, name)
         return None
@@ -153,10 +170,18 @@ class EScore:
             True if all dimensions > 0.4, False otherwise
         """
         threshold = 0.4
-        return all(v >= threshold for v in [
-            self.fidelity, self.phi, self.verify, self.culture,
-            self.burn, self.emergence, self.learning
-        ])
+        return all(
+            v >= threshold
+            for v in [
+                self.fidelity,
+                self.phi,
+                self.verify,
+                self.culture,
+                self.burn,
+                self.emergence,
+                self.learning,
+            ]
+        )
 
 
 class EScoreManager:
@@ -184,7 +209,7 @@ class EScoreManager:
                 culture=0.5,
                 burn=0.5,
                 emergence=0.5,
-                learning=0.5
+                learning=0.5,
             )
 
         return self.scores[user_id]
@@ -211,7 +236,15 @@ class EScoreManager:
             value: New value (will be -bounded)
         """
         score = self.get_e_score(user_id)
-        valid_dims = ['fidelity', 'phi', 'verify', 'culture', 'burn', 'emergence', 'learning']
+        valid_dims = [
+            "fidelity",
+            "phi",
+            "verify",
+            "culture",
+            "burn",
+            "emergence",
+            "learning",
+        ]
 
         if dimension in valid_dims:
             setattr(score, dimension, value)
@@ -244,7 +277,7 @@ class EScoreManager:
             culture=0.5,
             burn=0.5,
             emergence=0.5,
-            learning=0.5
+            learning=0.5,
         )
 
     def get_top_users(self, limit: int = 10) -> list:
@@ -258,8 +291,7 @@ class EScoreManager:
             List of (user_id, overall_score) tuples sorted by score
         """
         user_scores = [
-            (user_id, score.geometric_mean())
-            for user_id, score in self.scores.items()
+            (user_id, score.geometric_mean()) for user_id, score in self.scores.items()
         ]
         # Sort by score descending
         user_scores.sort(key=lambda x: x[1], reverse=True)
@@ -282,11 +314,27 @@ class EScoreManager:
             Dictionary with average for each dimension
         """
         if not self.scores:
-            return {d: 0.5 for d in ['fidelity', 'phi', 'verify', 'culture', 'burn', 'emergence', 'learning']}
+            return {
+                d: 0.5
+                for d in [
+                    "fidelity",
+                    "phi",
+                    "verify",
+                    "culture",
+                    "burn",
+                    "emergence",
+                    "learning",
+                ]
+            }
 
         dimension_sums = {
-            'fidelity': 0, 'phi': 0, 'verify': 0, 'culture': 0,
-            'burn': 0, 'emergence': 0, 'learning': 0
+            "fidelity": 0,
+            "phi": 0,
+            "verify": 0,
+            "culture": 0,
+            "burn": 0,
+            "emergence": 0,
+            "learning": 0,
         }
 
         for score in self.scores.values():
@@ -308,6 +356,7 @@ class EScoreManager:
             List of user IDs
         """
         return [
-            user_id for user_id, score in self.scores.items()
+            user_id
+            for user_id, score in self.scores.items()
             if score.is_fully_established() == fully_established
         ]

@@ -11,6 +11,7 @@ Verify that:
 
 Integration test (real components, not mocked).
 """
+
 import asyncio
 
 import pytest
@@ -26,7 +27,9 @@ async def test_phase1_meta_cognition_initialized():
     organism = awaken()
 
     # Verify handler exists
-    assert hasattr(organism, 'meta_cognition'), "organism should have meta_cognition attribute"
+    assert hasattr(
+        organism, "meta_cognition"
+    ), "organism should have meta_cognition attribute"
     assert organism.meta_cognition is not None
     assert organism.meta_cognition.handler_id == "meta_cognition"
 
@@ -56,11 +59,14 @@ async def test_phase1_meta_cognition_responds_to_sona():
 
     # Emit the event
     from cynic.kernel.core.event_bus import Event
-    await bus.emit(Event.typed(
-        CoreEvent.SONA_TICK,
-        test_payload,
-        source="test",
-    ))
+
+    await bus.emit(
+        Event.typed(
+            CoreEvent.SONA_TICK,
+            test_payload,
+            source="test",
+        )
+    )
 
     # Wait for async handler to process
     await asyncio.sleep(0.5)

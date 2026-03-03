@@ -70,7 +70,9 @@ class ConsensusEngine:
             min_quorum: Minimum votes required for consensus (default: 3)
         """
         self.min_quorum = min_quorum
-        logger.info(f"ConsensusEngine initialized (-phase, local consensus, quorum={min_quorum})")
+        logger.info(
+            f"ConsensusEngine initialized (-phase, local consensus, quorum={min_quorum})"
+        )
 
     async def gather_votes(self, judgment: Any, timeout: float = 5.0) -> VoteResult:
         """
@@ -106,7 +108,9 @@ class ConsensusEngine:
             return VoteResult(
                 status="finalized" if is_finalized else "local_only",
                 votes=len(votes),
-                timestamp=datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                timestamp=datetime.now(UTC)
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z"),
                 voted_by=[v.get("dog", "unknown") for v in votes],
             )
 
@@ -120,7 +124,9 @@ class ConsensusEngine:
             return VoteResult(
                 status="local_only",
                 votes=0,
-                timestamp=datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                timestamp=datetime.now(UTC)
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z"),
             )
 
         except Exception as exc:
@@ -129,10 +135,14 @@ class ConsensusEngine:
             return VoteResult(
                 status="local_only",
                 votes=0,
-                timestamp=datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                timestamp=datetime.now(UTC)
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z"),
             )
 
-    async def _simulate_local_votes(self, judgment: Any, timeout: float) -> list[dict[str, Any]]:
+    async def _simulate_local_votes(
+        self, judgment: Any, timeout: float
+    ) -> list[dict[str, Any]]:
         """
         Simulate local consensus votes from this instance's Dogs.
 

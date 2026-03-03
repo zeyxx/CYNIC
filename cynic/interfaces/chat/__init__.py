@@ -7,6 +7,7 @@ terminal rendering, and safety judgment on every tool execution.
 Usage:
     python -m cynic.interfaces.cli chat
 """
+
 from cynic.interfaces.chat.agent_loop import AgentEvent, AgentEventType, AgentLoop
 from cynic.interfaces.chat.session import ChatMessage, ChatSession
 from cynic.interfaces.chat.tool_executor import ToolExecutor

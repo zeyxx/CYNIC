@@ -7,6 +7,7 @@ Tests for:
 3. BusJournalAdapter event recording (events flow to journal)
 4. Scheduler emits META_CYCLE, not SONA_TICK
 """
+
 import asyncio
 import pytest
 
@@ -41,26 +42,31 @@ class TestBusJournalAdapterCategoryMapping:
     def test_judgment_created_maps_to_judgment(self):
         """JUDGMENT_CREATED event → EventCategory.JUDGMENT."""
         from cynic.nervous.bus_journal_adapter import _CATEGORY_MAP
+
         assert _CATEGORY_MAP["core.judgment_created"] == EventCategory.JUDGMENT
 
     def test_learning_event_maps_to_learning(self):
         """LEARNING_EVENT event → EventCategory.LEARNING."""
         from cynic.nervous.bus_journal_adapter import _CATEGORY_MAP
+
         assert _CATEGORY_MAP["core.learning_event"] == EventCategory.LEARNING
 
     def test_budget_warning_maps_to_accounting(self):
         """BUDGET_WARNING event → EventCategory.ACCOUNTING."""
         from cynic.nervous.bus_journal_adapter import _CATEGORY_MAP
+
         assert _CATEGORY_MAP["core.budget_warning"] == EventCategory.ACCOUNTING
 
     def test_internal_error_maps_to_system(self):
         """INTERNAL_ERROR event → EventCategory.SYSTEM."""
         from cynic.nervous.bus_journal_adapter import _CATEGORY_MAP
+
         assert _CATEGORY_MAP["core.internal_error"] == EventCategory.SYSTEM
 
     def test_unknown_event_defaults_to_system(self):
         """Unknown event type defaults to EventCategory.SYSTEM."""
         from cynic.nervous.bus_journal_adapter import _CATEGORY_MAP
+
         category = _CATEGORY_MAP.get("unknown.event.type", EventCategory.SYSTEM)
         assert category == EventCategory.SYSTEM
 
@@ -80,7 +86,7 @@ class TestBusJournalAdapterRecordsEvents:
         event = Event(
             type=CoreEvent.JUDGMENT_CREATED.value,
             payload={"test": "data"},
-            source="test_source"
+            source="test_source",
         )
 
         await adapter.on_event(event)
@@ -97,7 +103,7 @@ class TestBusJournalAdapterRecordsEvents:
         event = Event(
             type=CoreEvent.JUDGMENT_CREATED.value,
             payload={"foo": "bar", "baz": "qux"},
-            source="test_source"
+            source="test_source",
         )
 
         await adapter.on_event(event)
@@ -120,7 +126,7 @@ class TestBusJournalAdapterRecordsEvents:
             event = Event(
                 type=CoreEvent.JUDGMENT_CREATED.value,
                 payload={"index": i},
-                source="test_source"
+                source="test_source",
             )
             await adapter.on_event(event)
             await asyncio.sleep(0.01)  # Ensure ordering
@@ -141,7 +147,7 @@ class TestBusJournalAdapterRecordsEvents:
         event = Event(
             type=CoreEvent.JUDGMENT_CREATED.value,
             payload={"data": "value"},
-            source="test_source"
+            source="test_source",
         )
 
         await adapter.on_event(event)
@@ -159,9 +165,7 @@ class TestBusJournalAdapterRecordsEvents:
 
         # Create event with None payload (Event.dict_payload will return {})
         event = Event(
-            type=CoreEvent.JUDGMENT_CREATED.value,
-            payload=None,
-            source="test_source"
+            type=CoreEvent.JUDGMENT_CREATED.value, payload=None, source="test_source"
         )
 
         # Should not raise
@@ -203,9 +207,7 @@ class TestSchedulerEmitsMetaCycle:
                 self.bus = bus
 
         scheduler = ConsciousnessRhythm(
-            MockOrchestrator(),
-            bus=bus,
-            consciousness=ConsciousnessState()
+            MockOrchestrator(), bus=bus, consciousness=ConsciousnessState()
         )
 
         # Call _meta_pulse

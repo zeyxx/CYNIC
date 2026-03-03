@@ -15,10 +15,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from cynic.interfaces.bots.governance.integration.cynic_integration import ask_cynic
-from cynic.interfaces.bots.governance.logic.models import Base, Community, Proposal, Vote
+from cynic.interfaces.bots.governance.logic.models import (
+    Base,
+    Community,
+    Proposal,
+    Vote,
+)
 
 # Test database
 TEST_DB_URL = "sqlite+aiosqlite:///governance_bot_test.db"
+
 
 async def init_test_db():
     """Initialize test database"""
@@ -30,15 +36,17 @@ async def init_test_db():
 
     return engine
 
+
 async def test_governance_flow():
     """Test the complete governance flow"""
-
 
     # Initialize database
     engine = None
     try:
         engine = await init_test_db()
-        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async_session = async_sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
 
         async with async_session() as session:
             # PART 1: Create community
@@ -48,7 +56,7 @@ async def test_governance_flow():
                 community_name="Test Governance Community",
                 voting_period_hours=24,
                 quorum_percentage=25.0,
-                approval_threshold_percentage=50.0
+                approval_threshold_percentage=50.0,
             )
             session.add(community)
             await session.commit()
@@ -69,7 +77,7 @@ async def test_governance_flow():
                 voting_end_time=now + timedelta(hours=24),
                 voting_status="PENDING",
                 judgment_verdict=None,
-                judgment_q_score=None
+                judgment_q_score=None,
             )
             session.add(proposal)
             await session.commit()
@@ -79,7 +87,7 @@ async def test_governance_flow():
                 judgment = await ask_cynic(
                     question=proposal.title,
                     context=proposal.description,
-                    reality="GOVERNANCE"
+                    reality="GOVERNANCE",
                 )
 
                 if judgment.get("verdict") and judgment.get("verdict") != "PENDING":
@@ -106,7 +114,7 @@ async def test_governance_flow():
             votes_data = [
                 ("user_001", "YES", "I agree with this allocation"),
                 ("user_002", "NO", "Treasury should stay as is"),
-                ("user_003", "ABSTAIN", "Not enough information")
+                ("user_003", "ABSTAIN", "Not enough information"),
             ]
 
             vote_count = 0
@@ -119,7 +127,7 @@ async def test_governance_flow():
                     vote=vote_choice,
                     vote_weight=1.0,
                     reasoning=reasoning,
-                    voted_at=datetime.now(UTC)
+                    voted_at=datetime.now(UTC),
                 )
                 session.add(vote)
                 vote_count += 1
@@ -141,7 +149,6 @@ async def test_governance_flow():
             no_votes = sum(1 for v in votes if v.vote == "NO")
             abstain_votes = sum(1 for v in votes if v.vote == "ABSTAIN")
 
-
             if yes_votes + no_votes + abstain_votes > 0:
                 total = yes_votes + no_votes + abstain_votes
                 (yes_votes / total) * 100
@@ -154,25 +161,35 @@ async def test_governance_flow():
             )
             final_proposal = final_proposal.scalar_one()
 
-
             results = {
                 "Proposal Creation": "[PASS]" if final_proposal else "[FAIL]",
                 "Proposal Stored": "[PASS]" if final_proposal else "[FAIL]",
-                "CYNIC Verdict": "[PASS]" if final_proposal.judgment_verdict else "[FAIL]",
-                "Q-Score Recorded": "[PASS]" if (final_proposal.judgment_q_score == 0.0 if final_proposal.judgment_verdict == "PENDING" else final_proposal.judgment_q_score is not None) else "[FAIL]",
+                "CYNIC Verdict": "[PASS]"
+                if final_proposal.judgment_verdict
+                else "[FAIL]",
+                "Q-Score Recorded": "[PASS]"
+                if (
+                    final_proposal.judgment_q_score == 0.0
+                    if final_proposal.judgment_verdict == "PENDING"
+                    else final_proposal.judgment_q_score is not None
+                )
+                else "[FAIL]",
                 "Votes Recorded": "[PASS]" if len(votes) == 3 else "[FAIL]",
-                "All Data Consistent": "[PASS]" if all([
-                    final_proposal,
-                    len(votes) == 3,
-                    yes_votes == 1,
-                    no_votes == 1,
-                    abstain_votes == 1
-                ]) else "[FAIL]"
+                "All Data Consistent": "[PASS]"
+                if all(
+                    [
+                        final_proposal,
+                        len(votes) == 3,
+                        yes_votes == 1,
+                        no_votes == 1,
+                        abstain_votes == 1,
+                    ]
+                )
+                else "[FAIL]",
             }
 
             for _check, result in results.items():
                 pass
-
 
             # Determine overall result
             all_passed = all(v == "[PASS]" for v in results.values())
@@ -190,6 +207,7 @@ async def test_governance_flow():
 
         # Clean up test database file
         import gc
+
         gc.collect()
 
         test_db_path = Path("governance_bot_test.db")
@@ -197,15 +215,18 @@ async def test_governance_flow():
             try:
                 test_db_path.unlink()
             except Exception as _e:
-                logger.debug(f'Silenced: {_e}')
+                logger.debug(f"Silenced: {_e}")
 
         # Close any CYNIC adapter sessions
         try:
             from cynic.interfaces.mcp.claude_code_bridge import _adapter
-            if _adapter and hasattr(_adapter, 'session') and _adapter.session:
+
+            if _adapter and hasattr(_adapter, "session") and _adapter.session:
                 await _adapter.session.close()
         except Exception as _e:
-            logger.debug(f'Silenced: {_e}')  # Adapter may not be initialized or already closed
+            logger.debug(
+                f"Silenced: {_e}"
+            )  # Adapter may not be initialized or already closed
 
 
 if __name__ == "__main__":

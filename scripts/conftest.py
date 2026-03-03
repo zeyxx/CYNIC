@@ -4,6 +4,7 @@ CYNIC root conftest â€” global pytest fixtures and Windows encoding fix.
 Must stay at cynic/ (one level above tests/) so it's loaded before
 any test module is imported.
 """
+
 from __future__ import annotations
 
 import io

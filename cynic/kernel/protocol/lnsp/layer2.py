@@ -50,7 +50,9 @@ class TemporalWindow:
         now = time.time()
         # Filter observations to keep only those within window
         self.observations = [
-            obs for obs in self.observations if now - obs.header.timestamp <= self.window_size_sec
+            obs
+            for obs in self.observations
+            if now - obs.header.timestamp <= self.window_size_sec
         ]
         # Add new observation
         self.observations.append(msg)
@@ -133,7 +135,9 @@ class Layer2:
         self.windows: dict[str, dict[float, TemporalWindow]] = {}
         self.subscribers: list[Callable[[LNSPMessage], None]] = []
 
-    def register_aggregator(self, aggregator: Aggregator, window_sizes: list[float]) -> None:
+    def register_aggregator(
+        self, aggregator: Aggregator, window_sizes: list[float]
+    ) -> None:
         """Register an aggregator with multiple temporal window sizes.
 
         Creates a TemporalWindow for each window size and registers them

@@ -21,6 +21,7 @@ from cynic.kernel.organism.reflexes.services import SensoryServices
 
 logger = logging.getLogger(__name__)
 
+
 class PerceptionHandler(HandlerGroup):
     """
     Reflex that reacts to new sensory data.
@@ -50,29 +51,31 @@ class PerceptionHandler(HandlerGroup):
 
             data = event.dict_payload
             reality = data.get("reality", "INTERNAL")
-            
+
             logger.info(f"PerceptionHandler: Reacting to {reality} from {event.source}")
-            
+
             # 1. Create a Cell from perception
             cell = Cell(
                 cell_id=str(uuid.uuid4()),
                 reality=reality,
                 analysis="PERCEPTION",
                 content=data.get("data", {}),
-                budget_usd=0.01
+                budget_usd=0.01,
             )
-            
+
             # 2. Request Judgment
-            await self.bus.emit(Event.typed(
-                CoreEvent.JUDGMENT_REQUESTED,
-                JudgmentRequestedPayload(
-                    judgment_id=str(uuid.uuid4()),
-                    cell=cell.model_dump(),
-                    level="AUTO", # Let the selector decide
-                    reality=reality
-                ),
-                source="perception_handler"
-            ))
-            
+            await self.bus.emit(
+                Event.typed(
+                    CoreEvent.JUDGMENT_REQUESTED,
+                    JudgmentRequestedPayload(
+                        judgment_id=str(uuid.uuid4()),
+                        cell=cell.model_dump(),
+                        level="AUTO",  # Let the selector decide
+                        reality=reality,
+                    ),
+                    source="perception_handler",
+                )
+            )
+
         except Exception as e:
             logger.error(f"PerceptionHandler crash: {e}", exc_info=True)

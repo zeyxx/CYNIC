@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 class Role(str, Enum):
     """RBAC role hierarchy."""
+
     ADMIN = "admin"  # Full access
     OPERATOR = "operator"  # Read/write data, manage governance
     VIEWER = "viewer"  # Read-only access
@@ -48,6 +49,7 @@ class Role(str, Enum):
 
 class Permission(str, Enum):
     """Fine-grained resource permissions."""
+
     READ = "read"  # Get, list operations
     WRITE = "write"  # Create, update operations
     DELETE = "delete"  # Delete operations
@@ -57,6 +59,7 @@ class Permission(str, Enum):
 
 class Resource(str, Enum):
     """Resources that can be protected."""
+
     JUDGMENTS = "judgments"
     DECISIONS = "decisions"
     GOVERNANCE = "governance"
@@ -71,15 +74,45 @@ class Resource(str, Enum):
 # RBAC Matrix: Role  Permissions  Resources
 RBAC_MATRIX = {
     Role.ADMIN: {
-        Resource.JUDGMENTS: [Permission.READ, Permission.WRITE, Permission.DELETE, Permission.EXECUTE],
-        Resource.DECISIONS: [Permission.READ, Permission.WRITE, Permission.DELETE, Permission.EXECUTE],
-        Resource.GOVERNANCE: [Permission.READ, Permission.WRITE, Permission.DELETE, Permission.EXECUTE],
-        Resource.VAULT_SECRETS: [Permission.READ, Permission.WRITE, Permission.DELETE, Permission.ADMIN],
+        Resource.JUDGMENTS: [
+            Permission.READ,
+            Permission.WRITE,
+            Permission.DELETE,
+            Permission.EXECUTE,
+        ],
+        Resource.DECISIONS: [
+            Permission.READ,
+            Permission.WRITE,
+            Permission.DELETE,
+            Permission.EXECUTE,
+        ],
+        Resource.GOVERNANCE: [
+            Permission.READ,
+            Permission.WRITE,
+            Permission.DELETE,
+            Permission.EXECUTE,
+        ],
+        Resource.VAULT_SECRETS: [
+            Permission.READ,
+            Permission.WRITE,
+            Permission.DELETE,
+            Permission.ADMIN,
+        ],
         Resource.AUDIT_LOG: [Permission.READ, Permission.ADMIN],
         Resource.CONFIGURATION: [Permission.READ, Permission.WRITE, Permission.ADMIN],
-        Resource.USERS: [Permission.READ, Permission.WRITE, Permission.DELETE, Permission.ADMIN],
+        Resource.USERS: [
+            Permission.READ,
+            Permission.WRITE,
+            Permission.DELETE,
+            Permission.ADMIN,
+        ],
         Resource.WALLETS: [Permission.READ, Permission.WRITE, Permission.ADMIN],
-        Resource.BLOCKCHAIN: [Permission.READ, Permission.WRITE, Permission.EXECUTE, Permission.ADMIN],
+        Resource.BLOCKCHAIN: [
+            Permission.READ,
+            Permission.WRITE,
+            Permission.EXECUTE,
+            Permission.ADMIN,
+        ],
     },
     Role.OPERATOR: {
         Resource.JUDGMENTS: [Permission.READ, Permission.WRITE, Permission.EXECUTE],
@@ -219,7 +252,9 @@ class AuthorizationService:
     def __init__(self, key_store: KeyStore):
         self.key_store = key_store
 
-    async def validate_api_key(self, key_id: str, key_secret: str) -> tuple[bool, APIKey | None, str]:
+    async def validate_api_key(
+        self, key_id: str, key_secret: str
+    ) -> tuple[bool, APIKey | None, str]:
         """Validate API key credentials.
 
         Args:
@@ -295,7 +330,9 @@ class RequestSigner:
         Args:
             service_key: Shared secret between services
         """
-        self.service_key = service_key.encode() if isinstance(service_key, str) else service_key
+        self.service_key = (
+            service_key.encode() if isinstance(service_key, str) else service_key
+        )
 
     def sign_request(
         self,
@@ -466,7 +503,9 @@ class AccessController:
             (is_authorized, role, error_message)
         """
         # Step 1: Authenticate
-        is_valid, key, auth_error = await self.auth_service.validate_api_key(key_id, key_secret)
+        is_valid, key, auth_error = await self.auth_service.validate_api_key(
+            key_id, key_secret
+        )
         if not is_valid:
             return False, None, auth_error
 
@@ -479,7 +518,9 @@ class AccessController:
             return False, key.role, authz_error
 
         # Step 3: Success
-        logger.debug(f"Access granted: {key.role.value}  {resource.value}:{permission.value}")
+        logger.debug(
+            f"Access granted: {key.role.value}  {resource.value}:{permission.value}"
+        )
         return True, key.role, ""
 
     def create_request_signer(self, service_key: str) -> RequestSigner:

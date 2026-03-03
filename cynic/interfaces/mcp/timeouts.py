@@ -12,6 +12,7 @@ maintaining responsiveness for quick operations.
 
 See `.claude/KERNEL_GUIDANCE.md` for timeout philosophy.
 """
+
 from __future__ import annotations
 
 from enum import Enum
@@ -42,18 +43,17 @@ class TimeoutConfig:
 
     # Tool name ' TimeoutCategory
     TOOL_TIMEOUTS: dict[str, TimeoutCategory] = {
-        # 
+        #
         # FAST TOOLS (2s timeout) " Health checks, status, monitoring
-        # 
+        #
         "cynic_health": TimeoutCategory.FAST,
         "cynic_status": TimeoutCategory.FAST,
         "cynic_get_job_status": TimeoutCategory.FAST,
         "cynic_get_kernel_status": TimeoutCategory.FAST,
         "cynic_ping": TimeoutCategory.FAST,
-
-        # 
+        #
         # NORMAL TOOLS (30s timeout) " Standard cognitive operations
-        # 
+        #
         "ask_cynic": TimeoutCategory.NORMAL,
         "observe_cynic": TimeoutCategory.NORMAL,
         "learn_cynic": TimeoutCategory.NORMAL,
@@ -62,18 +62,16 @@ class TimeoutConfig:
         "cynic_get_axioms": TimeoutCategory.NORMAL,
         "cynic_get_dogs": TimeoutCategory.NORMAL,
         "cynic_get_q_table": TimeoutCategory.NORMAL,
-
-        # 
+        #
         # BATCH TOOLS (300s timeout) " Long-running empirical tests
-        # 
+        #
         "cynic_run_empirical_test": TimeoutCategory.BATCH,
         "cynic_test_axiom_irreducibility": TimeoutCategory.BATCH,
         "cynic_benchmark_learning_efficiency": TimeoutCategory.BATCH,
         "cynic_run_load_test": TimeoutCategory.BATCH,
-
-        # 
+        #
         # STREAM TOOLS ( timeout) " Indefinite observation
-        # 
+        #
         "cynic_watch_telemetry": TimeoutCategory.STREAM,
         "cynic_watch_source": TimeoutCategory.STREAM,
         "cynic_stream_judgments": TimeoutCategory.STREAM,

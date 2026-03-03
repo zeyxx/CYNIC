@@ -56,7 +56,10 @@ class SourceWatcher:
         """
         # Initial snapshot
         self._previous_state = self._snapshot_tree()
-        logger.info("SourceWatcher initialized: monitoring %s directories", len(self._WATCHED_DIRS))
+        logger.info(
+            "SourceWatcher initialized: monitoring %s directories",
+            len(self._WATCHED_DIRS),
+        )
 
         while True:
             await asyncio.sleep(fibonacci(7))  # 13 seconds
@@ -73,7 +76,11 @@ class SourceWatcher:
                         timestamp=time.time(),
                     )
                     await self.bus.emit(
-                        Event.typed(CoreEvent.SOURCE_CHANGED, payload, source="watcher:filesystem")
+                        Event.typed(
+                            CoreEvent.SOURCE_CHANGED,
+                            payload,
+                            source="watcher:filesystem",
+                        )
                     )
                     logger.info("SOURCE_CHANGED: %s (%d files)", category, len(files))
 
@@ -116,7 +123,9 @@ class SourceWatcher:
                 self._last_successful_snapshot[category] = time.time()
             except EventBusError as e:
                 # Track failure + emit alert
-                self._snapshot_failures[category] = self._snapshot_failures.get(category, 0) + 1
+                self._snapshot_failures[category] = (
+                    self._snapshot_failures.get(category, 0) + 1
+                )
                 logger.error(
                     "*GROWL* Snapshot FAILED %s (attempt %d): %s",
                     category,

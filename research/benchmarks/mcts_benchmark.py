@@ -25,6 +25,7 @@ Usage:
   result = bench.run(max_iterations=1000, seed=42)
   assert result.speedup_ratio >= 1.5  # Expect â‰¥ Ï†Â² improvement
 """
+
 from __future__ import annotations
 
 import math
@@ -44,19 +45,20 @@ from cynic.kernel.core.phi import (
 # â”€â”€ Temporal weights (same as temporal.py) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _TEMPORAL_WEIGHTS: dict[str, float] = {
-    "IDEAL":   PHI_2,    # Ï†Â² = 2.618
-    "FUTURE":  PHI,      # Ï†  = 1.618
-    "PRESENT": 1.0,      # Ï†â° = 1.000
-    "PAST":    PHI_INV,  # Ï†â»Â¹= 0.618
-    "CYCLES":  PHI_INV,  # Ï†â»Â¹= 0.618
-    "FLOW":    PHI_INV_2,# Ï†â»Â²= 0.382
-    "NEVER":   PHI_INV_2,# Ï†â»Â²= 0.382 (inverted: high = safe)
+    "IDEAL": PHI_2,  # Ï†Â² = 2.618
+    "FUTURE": PHI,  # Ï†  = 1.618
+    "PRESENT": 1.0,  # Ï†â° = 1.000
+    "PAST": PHI_INV,  # Ï†â»Â¹= 0.618
+    "CYCLES": PHI_INV,  # Ï†â»Â¹= 0.618
+    "FLOW": PHI_INV_2,  # Ï†â»Â²= 0.382
+    "NEVER": PHI_INV_2,  # Ï†â»Â²= 0.382 (inverted: high = safe)
 }
 _TOTAL_TEMPORAL_WEIGHT = sum(_TEMPORAL_WEIGHTS.values())  # â‰ˆ 8.854
 _PERSPECTIVES = list(_TEMPORAL_WEIGHTS.keys())
 
 
 # â”€â”€ SearchProblem â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 
 @dataclass
 class SearchProblem:
@@ -67,9 +69,10 @@ class SearchProblem:
     Action `optimum_idx` has the global maximum.
     Noise sigma controls how hard the problem is.
     """
-    n_actions: int = 34      # F(9) actions = 34
-    optimum_idx: int = 21    # F(8) = 21 = best action index
-    sigma: float = 12.0      # Noise per sample (~MAX_Q_SCORE/8)
+
+    n_actions: int = 34  # F(9) actions = 34
+    optimum_idx: int = 21  # F(8) = 21 = best action index
+    sigma: float = 12.0  # Noise per sample (~MAX_Q_SCORE/8)
     rng: random.Random = field(default_factory=random.Random)
 
     def true_value(self, action: int) -> float:
@@ -108,9 +111,11 @@ class SearchProblem:
 
 # â”€â”€ MCTSNode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+
 @dataclass
 class MCTSNode:
     """Single MCTS tree node representing one action."""
+
     action: int
     visits: int = 0
     value_sum: float = 0.0
@@ -136,12 +141,14 @@ class MCTSNode:
 
 # â”€â”€ MCTSVariant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+
 @dataclass
 class MCTSVariant:
     """
     One MCTS variant (Standard or Temporal) running on a SearchProblem.
     Tracks convergence: first iteration where best action = optimum.
     """
+
     problem: SearchProblem
     use_temporal: bool = False
     exploration: float = PHI
@@ -155,7 +162,9 @@ class MCTSVariant:
         self.iteration: int = 0
 
     def _select(self) -> MCTSNode:
-        return max(self.nodes, key=lambda n: n.ucb(max(self.total_visits, 1), self.exploration))
+        return max(
+            self.nodes, key=lambda n: n.ucb(max(self.total_visits, 1), self.exploration)
+        )
 
     def _simulate(self, node: MCTSNode) -> float:
         if self.use_temporal:
@@ -172,9 +181,11 @@ class MCTSVariant:
 
         # Check convergence: is the best-visited action the optimum?
         best = max(self.nodes, key=lambda n: n.value if n.visits > 0 else -1)
-        if (self.convergence_iter is None
-                and best.action == self.problem.optimum_idx
-                and best.visits >= 3):
+        if (
+            self.convergence_iter is None
+            and best.action == self.problem.optimum_idx
+            and best.visits >= 3
+        ):
             self.convergence_iter = self.iteration
 
     def run(self, max_iterations: int) -> None:
@@ -199,11 +210,13 @@ class MCTSVariant:
 
 # â”€â”€ BenchmarkResult â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+
 @dataclass
 class BenchmarkResult:
     """
     Results of one Standard vs Temporal MCTS comparison run.
     """
+
     seed: int
     max_iterations: int
 
@@ -220,8 +233,8 @@ class BenchmarkResult:
     temporal_found_optimum: bool
 
     # Derived
-    speedup_ratio: float        # standard_iter / temporal_iter (>1 = temporal faster)
-    quality_gain_pct: float     # (temporal_value - standard_value) / standard_value * 100
+    speedup_ratio: float  # standard_iter / temporal_iter (>1 = temporal faster)
+    quality_gain_pct: float  # (temporal_value - standard_value) / standard_value * 100
     duration_ms: float
 
     def to_dict(self) -> dict:
@@ -247,6 +260,7 @@ class BenchmarkResult:
 
 
 # â”€â”€ MCTSBenchmark â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 
 class MCTSBenchmark:
     """
@@ -356,8 +370,12 @@ class MCTSBenchmark:
         mid = len(sorted_speedups) // 2
         median_speedup = sorted_speedups[mid]
 
-        temporal_opt = sum(1 for r in results if r.temporal_found_optimum) / len(results)
-        standard_opt = sum(1 for r in results if r.standard_found_optimum) / len(results)
+        temporal_opt = sum(1 for r in results if r.temporal_found_optimum) / len(
+            results
+        )
+        standard_opt = sum(1 for r in results if r.standard_found_optimum) / len(
+            results
+        )
 
         return {
             "n_seeds": n_seeds,

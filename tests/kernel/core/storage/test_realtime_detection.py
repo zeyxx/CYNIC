@@ -28,7 +28,9 @@ class MockStorageInterface:
         self.security_events = self
 
 
-async def mock_list_events(self, filters: dict | None = None, limit: int = 10000) -> list:
+async def mock_list_events(
+    self, filters: dict | None = None, limit: int = 10000
+) -> list:
     """Mock list_events from security_events table."""
     if not filters:
         return self.events[-limit:]
@@ -53,7 +55,9 @@ async def mock_save_event(self, event: dict) -> None:
 def mock_storage():
     """Create mock storage with event methods."""
     storage = MockStorageInterface()
-    storage.list_events = lambda filters=None, limit=10000: mock_list_events(storage, filters, limit)
+    storage.list_events = lambda filters=None, limit=10000: mock_list_events(
+        storage, filters, limit
+    )
     storage.correlate = lambda event: mock_correlate(storage, event)
     storage.save_event = lambda event: mock_save_event(storage, event)
     return storage
@@ -111,35 +115,43 @@ async def test_baseline_calculator_caching(baseline_calculator):
 
 
 @pytest.mark.asyncio
-async def test_baseline_calculator_calculates_from_events(mock_storage, baseline_calculator):
+async def test_baseline_calculator_calculates_from_events(
+    mock_storage, baseline_calculator
+):
     """Test baseline calculation from actual events."""
     now = time.time()
 
     # Add governance vote events
     for i in range(5):
-        await mock_storage.save_event({
-            "id": str(uuid.uuid4()),
-            "type": "governance_vote",
-            "actor_id": f"actor_{i}",
-            "timestamp": now - 1000 + i * 100,
-            "payload": {"proposal_id": "prop_1"},
-        })
+        await mock_storage.save_event(
+            {
+                "id": str(uuid.uuid4()),
+                "type": "governance_vote",
+                "actor_id": f"actor_{i}",
+                "timestamp": now - 1000 + i * 100,
+                "payload": {"proposal_id": "prop_1"},
+            }
+        )
 
     # Add proposal events with known values
-    await mock_storage.save_event({
-        "id": str(uuid.uuid4()),
-        "type": "proposal_created",
-        "actor_id": "actor_0",
-        "timestamp": now - 500,
-        "payload": {"proposal_value": 500},
-    })
-    await mock_storage.save_event({
-        "id": str(uuid.uuid4()),
-        "type": "proposal_created",
-        "actor_id": "actor_1",
-        "timestamp": now - 400,
-        "payload": {"proposal_value": 2000},
-    })
+    await mock_storage.save_event(
+        {
+            "id": str(uuid.uuid4()),
+            "type": "proposal_created",
+            "actor_id": "actor_0",
+            "timestamp": now - 500,
+            "payload": {"proposal_value": 500},
+        }
+    )
+    await mock_storage.save_event(
+        {
+            "id": str(uuid.uuid4()),
+            "type": "proposal_created",
+            "actor_id": "actor_1",
+            "timestamp": now - 400,
+            "payload": {"proposal_value": 2000},
+        }
+    )
 
     baselines = await baseline_calculator.get_baselines(force_recalculate=True)
 
@@ -238,11 +250,13 @@ async def test_anomaly_scorer_actor_activity_anomaly(anomaly_scorer):
     # Create voting record: coordinator votes on 9/10 proposals
     related = []
     for i in range(10):
-        related.append({
-            "type": "governance_vote",
-            "actor_id": "coordinator" if i < 9 else "other_actor",
-            "payload": {"proposal_id": f"prop_{i}"},
-        })
+        related.append(
+            {
+                "type": "governance_vote",
+                "actor_id": "coordinator" if i < 9 else "other_actor",
+                "payload": {"proposal_id": f"prop_{i}"},
+            }
+        )
 
     scores = await anomaly_scorer.score(event, related)
 
@@ -419,11 +433,13 @@ async def test_stage6_coordinated_voting_detection():
     # Coordinator votes on 9/10 proposals
     related = []
     for i in range(10):
-        related.append({
-            "type": "governance_vote",
-            "actor_id": "coordinator" if i < 9 else "other",
-            "payload": {"proposal_id": f"prop_{i}"},
-        })
+        related.append(
+            {
+                "type": "governance_vote",
+                "actor_id": "coordinator" if i < 9 else "other",
+                "payload": {"proposal_id": f"prop_{i}"},
+            }
+        )
 
     matched = await rule.evaluate(event, related, {}, {})
     assert matched is True
@@ -525,11 +541,13 @@ async def test_stream_detector_alerts_on_rule_match(stream_detector, mock_storag
 
     # Create 100+ API calls from same actor to trigger Stage 1
     for i in range(101):
-        await mock_storage.save_event({
-            "type": "api_request",
-            "actor_id": "attacker",
-            "timestamp": time.time() - 300 + i,
-        })
+        await mock_storage.save_event(
+            {
+                "type": "api_request",
+                "actor_id": "attacker",
+                "timestamp": time.time() - 300 + i,
+            }
+        )
 
     await mock_storage.save_event(event)
     alert = await stream_detector.process_event(event)
@@ -559,56 +577,68 @@ async def test_falsification_full_kill_chain_attack(mock_storage, stream_detecto
 
     # STAGE 1: Reconnaissance (API scanning)
     for i in range(101):
-        await mock_storage.save_event({
-            "type": "api_request",
-            "actor_id": "attacker",
-            "timestamp": now - 600 + i,
-        })
+        await mock_storage.save_event(
+            {
+                "type": "api_request",
+                "actor_id": "attacker",
+                "timestamp": now - 600 + i,
+            }
+        )
 
     # STAGE 2: Weaponization (suspicious proposal)
-    await mock_storage.save_event({
-        "type": "proposal_created",
-        "actor_id": "attacker",
-        "payload": {
-            "proposal_value": 50000,
-            "execution_delay_hours": 0.5,
-        },
-        "timestamp": now - 400,
-    })
+    await mock_storage.save_event(
+        {
+            "type": "proposal_created",
+            "actor_id": "attacker",
+            "payload": {
+                "proposal_value": 50000,
+                "execution_delay_hours": 0.5,
+            },
+            "timestamp": now - 400,
+        }
+    )
 
     # STAGE 3: Delivery (voting bloc)
     for i in range(51):
-        await mock_storage.save_event({
-            "type": "governance_vote",
-            "actor_id": f"bot_{i}",
-            "payload": {"proposal_id": "malicious_prop"},
-            "timestamp": now - 300 + i,
-        })
+        await mock_storage.save_event(
+            {
+                "type": "governance_vote",
+                "actor_id": f"bot_{i}",
+                "payload": {"proposal_id": "malicious_prop"},
+                "timestamp": now - 300 + i,
+            }
+        )
 
     # STAGE 4: Exploitation (consensus manipulation)
-    await mock_storage.save_event({
-        "type": "judgment_created",
-        "payload": {"consensus_variance": 0.01},
-        "timestamp": now - 200,
-    })
+    await mock_storage.save_event(
+        {
+            "type": "judgment_created",
+            "payload": {"consensus_variance": 0.01},
+            "timestamp": now - 200,
+        }
+    )
 
     # STAGE 5: Installation (persistent actor)
     for i in range(15):
-        await mock_storage.save_event({
-            "type": "governance_vote",
-            "actor_id": "attacker",
-            "payload": {"proposal_id": f"prop_{i}"},
-            "timestamp": now - 150 + i,
-        })
+        await mock_storage.save_event(
+            {
+                "type": "governance_vote",
+                "actor_id": "attacker",
+                "payload": {"proposal_id": f"prop_{i}"},
+                "timestamp": now - 150 + i,
+            }
+        )
 
     # STAGE 6: C2 (coordinated voting)
     for i in range(10):
-        await mock_storage.save_event({
-            "type": "governance_vote",
-            "actor_id": "attacker" if i < 9 else "other",
-            "payload": {"proposal_id": f"prop_{i}"},
-            "timestamp": now - 100 + i,
-        })
+        await mock_storage.save_event(
+            {
+                "type": "governance_vote",
+                "actor_id": "attacker" if i < 9 else "other",
+                "payload": {"proposal_id": f"prop_{i}"},
+                "timestamp": now - 100 + i,
+            }
+        )
 
     # STAGE 7: Actions on Objectives (execution)
     execution_event = {
@@ -632,9 +662,21 @@ async def test_falsification_low_false_positive_rate(rule_engine, mock_storage):
     total_tests = 0
 
     normal_events = [
-        {"type": "governance_vote", "actor_id": "user_1", "payload": {"proposal_id": "prop_1"}},
-        {"type": "proposal_created", "actor_id": "user_2", "payload": {"proposal_value": 100}},
-        {"type": "judgment_created", "actor_id": "judge", "payload": {"consensus_variance": 0.5}},
+        {
+            "type": "governance_vote",
+            "actor_id": "user_1",
+            "payload": {"proposal_id": "prop_1"},
+        },
+        {
+            "type": "proposal_created",
+            "actor_id": "user_2",
+            "payload": {"proposal_value": 100},
+        },
+        {
+            "type": "judgment_created",
+            "actor_id": "judge",
+            "payload": {"consensus_variance": 0.5},
+        },
     ]
 
     for event in normal_events:
@@ -711,7 +753,9 @@ async def test_falsification_detects_voting_coordinated_bloc(rule_engine):
 async def test_edge_case_empty_event():
     """Test handling of minimal event."""
     mock_storage = MockStorageInterface()
-    mock_storage.list_events = lambda filters=None, limit=10000: mock_list_events(mock_storage, filters, limit)
+    mock_storage.list_events = lambda filters=None, limit=10000: mock_list_events(
+        mock_storage, filters, limit
+    )
     calculator = BaselineCalculator(mock_storage)
     baselines = await calculator.get_baselines(force_recalculate=True)
     assert isinstance(baselines, dict)
@@ -721,7 +765,9 @@ async def test_edge_case_empty_event():
 async def test_edge_case_missing_fields():
     """Test handling of events with missing fields."""
     mock_storage = MockStorageInterface()
-    mock_storage.list_events = lambda filters=None, limit=10000: mock_list_events(mock_storage, filters, limit)
+    mock_storage.list_events = lambda filters=None, limit=10000: mock_list_events(
+        mock_storage, filters, limit
+    )
     mock_storage.correlate = lambda event: mock_correlate(mock_storage, event)
     scorer = AnomalyScorer(mock_storage)
     event = {}  # Empty event
@@ -735,7 +781,9 @@ async def test_edge_case_missing_fields():
 async def test_edge_case_zero_baselines():
     """Test anomaly scoring with zero baseline."""
     mock_storage = MockStorageInterface()
-    mock_storage.list_events = lambda filters=None, limit=10000: mock_list_events(mock_storage, filters, limit)
+    mock_storage.list_events = lambda filters=None, limit=10000: mock_list_events(
+        mock_storage, filters, limit
+    )
     mock_storage.correlate = lambda event: mock_correlate(mock_storage, event)
     scorer = AnomalyScorer(mock_storage)
     event = {"type": "proposal_created", "payload": {"proposal_value": 100}}
@@ -753,12 +801,14 @@ async def test_edge_case_very_large_dataset(mock_storage, baseline_calculator):
 
     # Add 1000 events
     for i in range(1000):
-        await mock_storage.save_event({
-            "type": "governance_vote",
-            "actor_id": f"actor_{i % 100}",
-            "timestamp": now - 3600 + i,
-            "payload": {"proposal_value": 1000 + i % 500},
-        })
+        await mock_storage.save_event(
+            {
+                "type": "governance_vote",
+                "actor_id": f"actor_{i % 100}",
+                "timestamp": now - 3600 + i,
+                "payload": {"proposal_value": 1000 + i % 500},
+            }
+        )
 
     baselines = await baseline_calculator.get_baselines(force_recalculate=True)
 
@@ -778,11 +828,13 @@ async def test_performance_baseline_calculation(mock_storage, baseline_calculato
 
     # Add 100 events
     for i in range(100):
-        await mock_storage.save_event({
-            "type": "governance_vote",
-            "actor_id": f"actor_{i % 10}",
-            "timestamp": now - 3600 + i,
-        })
+        await mock_storage.save_event(
+            {
+                "type": "governance_vote",
+                "actor_id": f"actor_{i % 10}",
+                "timestamp": now - 3600 + i,
+            }
+        )
 
     start = time.time()
     baselines = await baseline_calculator.get_baselines(force_recalculate=True)

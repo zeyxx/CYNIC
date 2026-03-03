@@ -3,7 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from cynic.kernel.organism.brain.learning.experiment_log import Experiment, ExperimentLog
+from cynic.kernel.organism.brain.learning.experiment_log import (
+    Experiment,
+    ExperimentLog,
+)
 
 
 def test_experiment_creation():
@@ -11,7 +14,11 @@ def test_experiment_creation():
     exp = Experiment(
         hypothesis="Dog 7 + Dog 11 produces better fairness",
         approach=["dogs: [7, 11]", "weights: {BURN: 0.8, CULTURE: 0.7}"],
-        results={"user_satisfaction": 0.85, "q_score_accuracy": 0.78, "fairness_metric": 0.91},
+        results={
+            "user_satisfaction": 0.85,
+            "q_score_accuracy": 0.78,
+            "fairness_metric": 0.91,
+        },
         status="successful",
         iterations=1,
     )
@@ -24,7 +31,9 @@ def test_experiment_creation():
 
 def test_experiment_immutability():
     """Experiments are frozen (immutable)."""
-    exp = Experiment(hypothesis="Test", approach=[], results={}, status="successful", iterations=1)
+    exp = Experiment(
+        hypothesis="Test", approach=[], results={}, status="successful", iterations=1
+    )
 
     with pytest.raises((AttributeError, TypeError)):
         exp.hypothesis = "Modified"

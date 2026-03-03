@@ -14,9 +14,9 @@ from typing import Any
 
 from cynic.kernel.core.formulas import ACT_LOG_CAP, DECISION_TRACE_CAP
 
-# 
+#
 # REPOSITORY INTERFACES
-# 
+#
 
 
 class JudgmentRepoInterface(ABC):
@@ -187,9 +187,9 @@ class AxiomFacetRepoInterface(ABC):
     async def get_all(self, axiom: str, reality: str) -> list[dict[str, Any]]: ...
 
 
-# 
+#
 # STORAGE INTERFACE " the ONE abstraction
-# 
+#
 
 
 class StorageInterface(ABC):

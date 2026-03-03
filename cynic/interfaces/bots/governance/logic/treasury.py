@@ -7,14 +7,17 @@ from enum import Enum
 
 class TransactionType(str, Enum):
     """Types of treasury transactions"""
+
     DEPOSIT = "deposit"
     WITHDRAWAL = "withdrawal"
     ALLOCATION = "allocation"
     BURN = "burn"
 
+
 @dataclass
 class Transaction:
     """Treasury transaction record"""
+
     transaction_id: str
     tx_type: TransactionType
     amount: float
@@ -23,9 +26,11 @@ class Transaction:
     approved_by: str
     proposal_id: str | None = None
 
+
 @dataclass
 class TreasuryBudget:
     """Budget allocation"""
+
     category: str
     total_allocation: float
     spent: float = 0.0
@@ -43,6 +48,7 @@ class TreasuryBudget:
         self.spent += amount
         self.remaining -= amount
         return True
+
 
 class Treasury:
     """Manage community treasury"""
@@ -65,12 +71,14 @@ class Treasury:
             amount=amount,
             description=description,
             timestamp=datetime.now(UTC),
-            approved_by=approved_by
+            approved_by=approved_by,
         )
         self.transactions.append(tx)
         return True
 
-    def withdraw(self, amount: float, description: str, approved_by: str, proposal_id: str = None) -> bool:
+    def withdraw(
+        self, amount: float, description: str, approved_by: str, proposal_id: str = None
+    ) -> bool:
         """Withdraw funds"""
         if amount <= 0 or amount > self.balance:
             return False
@@ -83,7 +91,7 @@ class Treasury:
             description=description,
             timestamp=datetime.now(UTC),
             approved_by=approved_by,
-            proposal_id=proposal_id
+            proposal_id=proposal_id,
         )
         self.transactions.append(tx)
         return True
@@ -93,7 +101,9 @@ class Treasury:
         if category in self.budgets:
             return False
 
-        self.budgets[category] = TreasuryBudget(category=category, total_allocation=amount)
+        self.budgets[category] = TreasuryBudget(
+            category=category, total_allocation=amount
+        )
         return True
 
     def get_balance(self) -> float:

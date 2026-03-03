@@ -3,9 +3,9 @@ Real-Time Detection Engine  Stream-based threat detection (PHASE 2, COMPONENT 4)
 
 Architecture:
   StreamDetector (LIVE SELECT)  BaselineCalculator  AnomalyScorer
-                                                          
+
                                                     Detection Rules
-                                                          
+
                                                     Alert Generation
 """
 
@@ -63,18 +63,25 @@ class BaselineCalculator:
         # Calculate metrics
         governance_events = [e for e in events if e.get("type") == "governance_vote"]
         proposal_values = [
-            e.get("payload", {}).get("proposal_value", 0) for e in events
+            e.get("payload", {}).get("proposal_value", 0)
+            for e in events
             if e.get("type") == "proposal_created"
         ]
         judgment_events = [e for e in events if e.get("type") == "judgment_created"]
 
         return {
             "voting_velocity": self._calc_voting_velocity(governance_events),
-            "proposal_value_median": statistics.median(proposal_values) if proposal_values else 0,
-            "proposal_value_p95": self._percentile(proposal_values, 95) if proposal_values else 0,
+            "proposal_value_median": statistics.median(proposal_values)
+            if proposal_values
+            else 0,
+            "proposal_value_p95": self._percentile(proposal_values, 95)
+            if proposal_values
+            else 0,
             "consensus_variance": self._calc_consensus_variance(judgment_events),
             "new_actor_rate": self._calc_new_actor_rate(governance_events),
-            "active_actors": len(set(e.get("actor_id") for e in events if e.get("actor_id"))),
+            "active_actors": len(
+                set(e.get("actor_id") for e in events if e.get("actor_id"))
+            ),
             "event_count": len(events),
         }
 
@@ -155,19 +162,25 @@ class AnomalyScorer:
         scores = {}
 
         # 1. VOTING VELOCITY ANOMALY
-        scores["voting_velocity"] = await self._score_voting_velocity(event, related_events, baselines)
+        scores["voting_velocity"] = await self._score_voting_velocity(
+            event, related_events, baselines
+        )
 
         # 2. PROPOSAL VALUE ANOMALY
         scores["proposal_value"] = await self._score_proposal_value(event, baselines)
 
         # 3. CONSENSUS VARIANCE ANOMALY
-        scores["consensus_variance"] = await self._score_consensus_variance(event, related_events, baselines)
+        scores["consensus_variance"] = await self._score_consensus_variance(
+            event, related_events, baselines
+        )
 
         # 4. NEW ACTOR ANOMALY
         scores["new_actor"] = await self._score_new_actor(event, related_events)
 
         # 5. ACTOR ACTIVITY ANOMALY
-        scores["actor_activity"] = await self._score_actor_activity(event, related_events)
+        scores["actor_activity"] = await self._score_actor_activity(
+            event, related_events
+        )
 
         # Composite score (geometric mean)
         values = [v for v in scores.values() if isinstance(v, float)]
@@ -181,16 +194,24 @@ class AnomalyScorer:
 
         return scores
 
-    async def _score_voting_velocity(self, event: dict, related: list, baselines: dict) -> float:
+    async def _score_voting_velocity(
+        self, event: dict, related: list, baselines: dict
+    ) -> float:
         """Score based on voting speed."""
         if event.get("type") != "governance_vote":
             return 0.0
 
         actor = event.get("actor_id")
-        actor_votes = [e for e in related if e.get("actor_id") == actor and e.get("type") == "governance_vote"]
+        actor_votes = [
+            e
+            for e in related
+            if e.get("actor_id") == actor and e.get("type") == "governance_vote"
+        ]
 
         baseline_velocity = baselines.get("voting_velocity", 0.1)
-        actual_velocity = len(actor_votes) / max(self.baseline_calculator.window_hours * 3600, 1)
+        actual_velocity = len(actor_votes) / max(
+            self.baseline_calculator.window_hours * 3600, 1
+        )
 
         if baseline_velocity == 0:
             return 0.0
@@ -214,7 +235,9 @@ class AnomalyScorer:
         # 20x = max score
         return min(ratio / 20, 1.0)
 
-    async def _score_consensus_variance(self, event: dict, related: list, baselines: dict) -> float:
+    async def _score_consensus_variance(
+        self, event: dict, related: list, baselines: dict
+    ) -> float:
         """Score based on consensus variance (too perfect = suspicious)."""
         if event.get("type") != "judgment_created":
             return 0.0
@@ -249,8 +272,16 @@ class AnomalyScorer:
         actor_events = [e for e in related if e.get("actor_id") == actor]
 
         # Actors voting on 80%+ of proposals = coordinated
-        proposal_count = len(set(e.get("payload", {}).get("proposal_id") for e in actor_events))
-        all_proposals = len(set(e.get("payload", {}).get("proposal_id") for e in related if e.get("type") == "governance_vote"))
+        proposal_count = len(
+            set(e.get("payload", {}).get("proposal_id") for e in actor_events)
+        )
+        all_proposals = len(
+            set(
+                e.get("payload", {}).get("proposal_id")
+                for e in related
+                if e.get("type") == "governance_vote"
+            )
+        )
 
         if all_proposals == 0:
             return 0.0
@@ -292,9 +323,16 @@ class RuleEngine:
 
     def _register_default_rules(self) -> None:
         """Register default Kill Chain rules."""
+
         # Stage 1: Reconnaissance
         class Stage1_APIScanning(DetectionRule):
-            async def evaluate(self, event: dict, related: list, baselines: dict, anomaly_scores: dict = None) -> bool:
+            async def evaluate(
+                self,
+                event: dict,
+                related: list,
+                baselines: dict,
+                anomaly_scores: dict = None,
+            ) -> bool:
                 if event.get("type") != "api_request":
                     return False
                 actor = event.get("actor_id")
@@ -303,7 +341,13 @@ class RuleEngine:
 
         # Stage 2: Weaponization
         class Stage2_SuspiciousProposal(DetectionRule):
-            async def evaluate(self, event: dict, related: list, baselines: dict, anomaly_scores: dict = None) -> bool:
+            async def evaluate(
+                self,
+                event: dict,
+                related: list,
+                baselines: dict,
+                anomaly_scores: dict = None,
+            ) -> bool:
                 if event.get("type") != "proposal_created":
                     return False
                 payload = event.get("payload", {})
@@ -319,16 +363,32 @@ class RuleEngine:
 
         # Stage 3: Delivery
         class Stage3_LargeVotingBloc(DetectionRule):
-            async def evaluate(self, event: dict, related: list, baselines: dict, anomaly_scores: dict = None) -> bool:
+            async def evaluate(
+                self,
+                event: dict,
+                related: list,
+                baselines: dict,
+                anomaly_scores: dict = None,
+            ) -> bool:
                 if event.get("type") != "governance_vote":
                     return False
                 proposal_id = event.get("payload", {}).get("proposal_id")
-                votes = [e for e in related if e.get("payload", {}).get("proposal_id") == proposal_id]
+                votes = [
+                    e
+                    for e in related
+                    if e.get("payload", {}).get("proposal_id") == proposal_id
+                ]
                 return len(votes) > 50
 
         # Stage 4: Exploitation
         class Stage4_ConsensusManipulation(DetectionRule):
-            async def evaluate(self, event: dict, related: list, baselines: dict, anomaly_scores: dict = None) -> bool:
+            async def evaluate(
+                self,
+                event: dict,
+                related: list,
+                baselines: dict,
+                anomaly_scores: dict = None,
+            ) -> bool:
                 if event.get("type") != "judgment_created":
                     return False
                 variance = event.get("payload", {}).get("consensus_variance", 0)
@@ -339,19 +399,35 @@ class RuleEngine:
 
         # Stage 5: Installation
         class Stage5_PersistentActor(DetectionRule):
-            async def evaluate(self, event: dict, related: list, baselines: dict, anomaly_scores: dict = None) -> bool:
+            async def evaluate(
+                self,
+                event: dict,
+                related: list,
+                baselines: dict,
+                anomaly_scores: dict = None,
+            ) -> bool:
                 # Actor present in > 10 events = persistence
                 return len(related) > 10
 
         # Stage 6: Command & Control
         class Stage6_CoordinatedVoting(DetectionRule):
-            async def evaluate(self, event: dict, related: list, baselines: dict, anomaly_scores: dict = None) -> bool:
+            async def evaluate(
+                self,
+                event: dict,
+                related: list,
+                baselines: dict,
+                anomaly_scores: dict = None,
+            ) -> bool:
                 if event.get("type") != "governance_vote":
                     return False
                 actor = event.get("actor_id")
                 actor_votes = [e for e in related if e.get("actor_id") == actor]
-                proposal_count = len(set(e.get("payload", {}).get("proposal_id") for e in actor_votes))
-                all_proposals = len(set(e.get("payload", {}).get("proposal_id") for e in related))
+                proposal_count = len(
+                    set(e.get("payload", {}).get("proposal_id") for e in actor_votes)
+                )
+                all_proposals = len(
+                    set(e.get("payload", {}).get("proposal_id") for e in related)
+                )
 
                 if all_proposals == 0:
                     return False
@@ -359,11 +435,22 @@ class RuleEngine:
 
         # Stage 7: Actions on Objectives
         class Stage7_MaliciousExecution(DetectionRule):
-            async def evaluate(self, event: dict, related: list, baselines: dict, anomaly_scores: dict = None) -> bool:
+            async def evaluate(
+                self,
+                event: dict,
+                related: list,
+                baselines: dict,
+                anomaly_scores: dict = None,
+            ) -> bool:
                 if event.get("type") != "proposal_executed":
                     return False
                 proposal_id = event.get("payload", {}).get("proposal_id")
-                suspicious = [e for e in related if e.get("type") == "proposal_created" and e.get("payload", {}).get("proposal_id") == proposal_id]
+                suspicious = [
+                    e
+                    for e in related
+                    if e.get("type") == "proposal_created"
+                    and e.get("payload", {}).get("proposal_id") == proposal_id
+                ]
                 return len(suspicious) > 0
 
         # Register rules
@@ -371,7 +458,9 @@ class RuleEngine:
             Stage1_APIScanning("STAGE_1_API_SCANNING", "Reconnaissance", "MEDIUM"),
             Stage2_SuspiciousProposal("STAGE_2_WEAPONIZATION", "Weaponization", "HIGH"),
             Stage3_LargeVotingBloc("STAGE_3_VOTING_BLOC", "Delivery", "HIGH"),
-            Stage4_ConsensusManipulation("STAGE_4_CONSENSUS", "Exploitation", "CRITICAL"),
+            Stage4_ConsensusManipulation(
+                "STAGE_4_CONSENSUS", "Exploitation", "CRITICAL"
+            ),
             Stage5_PersistentActor("STAGE_5_PERSISTENCE", "Installation", "HIGH"),
             Stage6_CoordinatedVoting("STAGE_6_COORDINATION", "C2", "CRITICAL"),
             Stage7_MaliciousExecution("STAGE_7_EXECUTION", "Actions", "CRITICAL"),
@@ -392,7 +481,9 @@ class RuleEngine:
 
         for rule in self._rules.values():
             try:
-                matched = await rule.evaluate(event, related_events, baselines, anomaly_scores)
+                matched = await rule.evaluate(
+                    event, related_events, baselines, anomaly_scores
+                )
                 if matched:
                     matches.append((rule, matched))
                     rule.match_count += 1
@@ -405,7 +496,9 @@ class RuleEngine:
         """Get rule statistics."""
         return {
             "total_rules": len(self._rules),
-            "rule_matches": {rule_id: rule.match_count for rule_id, rule in self._rules.items()},
+            "rule_matches": {
+                rule_id: rule.match_count for rule_id, rule in self._rules.items()
+            },
         }
 
 
@@ -431,7 +524,9 @@ class StreamDetector:
         anomaly_scores = await self.anomaly_scorer.score(event, related)
 
         # Evaluate rules
-        rule_matches = await self.rule_engine.evaluate_all(event, related, baselines, anomaly_scores)
+        rule_matches = await self.rule_engine.evaluate_all(
+            event, related, baselines, anomaly_scores
+        )
 
         # Generate alert if rules matched
         if rule_matches:
@@ -440,7 +535,10 @@ class StreamDetector:
                 "event_id": event.get("id"),
                 "timestamp": time.time(),
                 "matched_rules": [rule.rule_id for rule, _ in rule_matches],
-                "severity": max([rule.severity for rule, _ in rule_matches], key=lambda x: ["LOW", "MEDIUM", "HIGH", "CRITICAL"].index(x)),
+                "severity": max(
+                    [rule.severity for rule, _ in rule_matches],
+                    key=lambda x: ["LOW", "MEDIUM", "HIGH", "CRITICAL"].index(x),
+                ),
                 "anomaly_scores": anomaly_scores,
                 "event": event,
             }

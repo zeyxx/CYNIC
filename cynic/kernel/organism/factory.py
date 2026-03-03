@@ -19,14 +19,21 @@ from cynic.kernel.core.storage.surreal import SurrealStorage
 from cynic.kernel.core.topology.file_watcher import SourceWatcher
 from cynic.kernel.core.topology.topology_builder import IncrementalTopologyBuilder
 from cynic.kernel.core.world_model import WorldModelUpdater
-from cynic.kernel.organism.anatomy import ArchiveCore, CognitionCore, MetabolicCore, SensoryCore
+from cynic.kernel.organism.anatomy import (
+    ArchiveCore,
+    CognitionCore,
+    MetabolicCore,
+    SensoryCore,
+)
 from cynic.kernel.organism.brain.cognition.cortex.account import AccountAgent
 from cynic.kernel.organism.brain.cognition.cortex.action_proposer import ActionProposer
 from cynic.kernel.organism.brain.cognition.cortex.axiom_monitor import AxiomMonitor
 from cynic.kernel.organism.brain.cognition.cortex.decide import DecideAgent
 from cynic.kernel.organism.brain.cognition.cortex.lod import LODController
 from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
-from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import ProposalExecutor
+from cynic.kernel.organism.brain.cognition.cortex.proposal_executor import (
+    ProposalExecutor,
+)
 from cynic.kernel.organism.brain.cognition.cortex.residual import ResidualDetector
 from cynic.kernel.organism.brain.cognition.neurons.discovery import discover_dogs
 from cynic.kernel.organism.brain.learning.qlearning import LearningLoop, QTable
@@ -49,7 +56,7 @@ from cynic.kernel.organism.perception.senses.web_eye import WebEye
 from cynic.kernel.organism.metabolism.web_hand import WebHand
 from cynic.kernel.protocol.knet_server import KNetServer
 from cynic.kernel.core.vascular import VascularSystem
-from cynic.kernel.core.config import CynicConfig
+from cynic.config import CynicConfig
 from cynic.nervous.event_journal import EventJournal
 from cynic.nervous.bus_journal_adapter import BusJournalAdapter
 from cynic.nervous.decision_trace import DecisionTracer
@@ -78,40 +85,50 @@ class _OrganismAwakener:
         # 0. STORAGE (SurrealDB) - Isolated per instance config
         try:
             self.storage = await SurrealStorage.create(self.config)
-            logger.info(f"Factory: SurrealDB Storage linked to {self.config.surreal_db}")
+            logger.info(
+                f"Factory: SurrealDB Storage linked to {self.config.surreal_db}"
+            )
         except Exception as e:
-            logger.warning(f"Factory: SurrealDB not available, falling back to local memory: {e}")
+            logger.warning(
+                f"Factory: SurrealDB not available, falling back to local memory: {e}"
+            )
 
         # 0a. IDENTITY & TASK MANAGEMENT
-        instance_id = f"CYNIC-{os.environ.get('NODE_NAME', 'LOCAL')}-{uuid.uuid4().hex[:8]}"
+        instance_id = (
+            f"CYNIC-{os.environ.get('NODE_NAME', 'LOCAL')}-{uuid.uuid4().hex[:8]}"
+        )
         from cynic.kernel.core.task_registry import TaskRegistry
+
         self.task_registry = TaskRegistry(instance_id=instance_id)
-        
+
         # 0b. VASCULAR SYSTEM (Network IO Pool)
         self.vascular = VascularSystem(
-            instance_id=instance_id,
-            redis_url=self.config.redis_url
+            instance_id=instance_id, redis_url=self.config.redis_url
         )
 
         # 0c. NERVOUS SYSTEM (Event Buses)
         from cynic.kernel.core.event_bus import EventBus
+
         self.core_bus = EventBus(bus_id="CORE", instance_id=instance_id)
         self.automation_bus = EventBus(bus_id="AUTOMATION", instance_id=instance_id)
         self.agent_bus = EventBus(bus_id="AGENT", instance_id=instance_id)
 
-
         # 0d. SOMATIC GATEWAY (Universal Perception Baselayer)
         from cynic.kernel.organism.perception.somatic_gateway import SomaticGateway
+
         self.somatic_gateway = SomaticGateway(bus=self.core_bus)
 
         # 0e. DISTRIBUTED BRIDGE (Nervous System Sync)
         from cynic.kernel.core.distributed import RedisEventBridge
+
         self.bridge = RedisEventBridge(bus=self.core_bus, vascular=self.vascular)
         try:
             await self.bridge.start()
             logger.info(f"Factory: Redis Bridge active for {instance_id}")
         except Exception as e:
-            logger.warning(f"Factory: Redis not available, running in Local-Only mode: {e}")
+            logger.warning(
+                f"Factory: Redis not available, running in Local-Only mode: {e}"
+            )
 
         # 0e. EVENT JOURNAL - records every bus event automatically
         self.journal = EventJournal()
@@ -135,22 +152,33 @@ class _OrganismAwakener:
 
         # 0f. EVENT METRICS COLLECTOR - rolling rates, histograms, anomaly detection
         self.metrics_collector = EventMetricsCollector()
-        self._metrics_adapter = BusMetricsAdapter(self.metrics_collector, bus=self.core_bus)
+        self._metrics_adapter = BusMetricsAdapter(
+            self.metrics_collector, bus=self.core_bus
+        )
         self.core_bus.on("*", self._metrics_adapter.on_event)
 
         # 0g. AUDIT LOGGING HANDLER - subscribes to security/auth events for compliance
-        audit_logger = AuditLogger() if self.storage is None else AuditLogger(storage=self.storage)
+        audit_logger = (
+            AuditLogger() if self.storage is None else AuditLogger(storage=self.storage)
+        )
         self._audit_handler = AuditLoggingHandler(audit_logger)
         # Subscribe to security-related events
         self.core_bus.on("security.auth_attempt", self._audit_handler.on_auth_attempt)
-        self.core_bus.on("security.authz_decision", self._audit_handler.on_authz_decision)
+        self.core_bus.on(
+            "security.authz_decision", self._audit_handler.on_authz_decision
+        )
         self.core_bus.on("security.data_accessed", self._audit_handler.on_data_accessed)
         self.core_bus.on("security.event", self._audit_handler.on_security_event)
 
         # 0h. ENCRYPTION SERVICE (Vault Integration)
         self.encryption_service = None
         try:
-            from cynic.kernel.security.encryption import EncryptionService, EncryptionKeyManager, EncryptionConfig
+            from cynic.kernel.security.encryption import (
+                EncryptionService,
+                EncryptionKeyManager,
+                EncryptionConfig,
+            )
+
             encryption_config = EncryptionConfig(
                 vault_addr=self.config.vault_addr,
                 vault_token=self.config.vault_token,
@@ -159,12 +187,15 @@ class _OrganismAwakener:
             self.encryption_service = EncryptionService(key_manager)
             logger.info("Factory: EncryptionService initialized from Vault")
         except Exception as e:
-            logger.warning(f"Factory: EncryptionService not available, continuing without encryption: {e}")
+            logger.warning(
+                f"Factory: EncryptionService not available, continuing without encryption: {e}"
+            )
 
         # 0h. EVENT FORWARDER (PHASE 2: SIEM Foundation)
         self.event_forwarder = None
         try:
             from cynic.kernel.core.storage.event_forwarder import EventForwarder
+
             if self.storage:
                 self.event_forwarder = EventForwarder(
                     bus=self.core_bus,
@@ -175,61 +206,71 @@ class _OrganismAwakener:
                 )
                 logger.info("Factory: EventForwarder initialized (PHASE 2)")
         except Exception as e:
-            logger.warning(f"Factory: EventForwarder not available, SIEM logging disabled: {e}")
+            logger.warning(
+                f"Factory: EventForwarder not available, SIEM logging disabled: {e}"
+            )
 
         # 0i. COGNITIVE SCIENTIST (MCTS + Surgery)
-        from cynic.kernel.organism.brain.cognition.cortex.mcts_scientist import ScientificMCTS, Hypothesis
+        from cynic.kernel.organism.brain.cognition.cortex.mcts_scientist import (
+            ScientificMCTS,
+            Hypothesis,
+        )
         from cynic.kernel.organism.brain.cognition.cortex.surgery import AutoSurgeon
         from cynic.nervous.flight_recorder import FlightRecorder
-        
-        self.auto_surgeon = AutoSurgeon(root_dir=str(self.root_dir if hasattr(self, 'root_dir') else "."))
+
+        self.auto_surgeon = AutoSurgeon(
+            root_dir=str(self.root_dir if hasattr(self, "root_dir") else ".")
+        )
         self.flight_recorder = FlightRecorder(storage=self.storage, bus=self.core_bus)
-        
+
         # Initial MCTS state (will be expanded by Gemini 3 at hackathon)
-        self.mcts_scientist = ScientificMCTS(Hypothesis(
-            id="ROOT", 
-            description="Initial architectural state", 
-            target_metric="system_integrity", 
-            expected_trend="increase"
-        ))
+        self.mcts_scientist = ScientificMCTS(
+            Hypothesis(
+                id="ROOT",
+                description="Initial architectural state",
+                target_metric="system_integrity",
+                expected_trend="increase",
+            )
+        )
 
         # 1. BASE STATE
-        self.state = OrganismState(instance_id=instance_id, storage=self.storage, bus=self.core_bus)
-        
+        self.state = OrganismState(
+            instance_id=instance_id, storage=self.storage, bus=self.core_bus
+        )
+
         # 1a. DNA & WILL (Axiomatic Foundation)
         import time
         from cynic.kernel.organism.brain.identity import OrganismIdentity
         from cynic.kernel.organism.brain.judgment_engine import JudgmentEngine
-        
-        self.identity = OrganismIdentity(
-            name="CYNIC",
-            birth_timestamp=time.time()
-        )
-        self.judgment_engine = JudgmentEngine(
-            identity=self.identity,
-            algorithm="pbft"
-        )
+
+        self.identity = OrganismIdentity(name="CYNIC", birth_timestamp=time.time())
+        self.judgment_engine = JudgmentEngine(identity=self.identity, algorithm="pbft")
 
         # 1b. LLM REGISTRY (Isolated)
         from cynic.kernel.organism.brain.llm.adapter import LLMRegistry
+
         self.llm_registry = LLMRegistry(vascular=self.vascular)
         await self.llm_registry.discover(
             ollama_url=self.config.ollama_url,
             claude_api_key=self.config.anthropic_api_key,
             google_api_key=self.config.google_api_key,
-            models_dir=self.config.models_dir
+            models_dir=self.config.models_dir,
         )
 
         # 1c. SERVICE REGISTRY (Isolated)
         from cynic.nervous.service_registry import ServiceStateRegistry
+
         self.service_registry = ServiceStateRegistry()
 
         # 1d. CONSCIOUSNESS (Isolated)
         from cynic.kernel.core.consciousness import ConsciousnessState
+
         self.consciousness = ConsciousnessState()
 
         # 2. NEURONS (Dogs)
-        self.dogs = discover_dogs(bus=self.core_bus, llm_registry=self.llm_registry, vascular=self.vascular)
+        self.dogs = discover_dogs(
+            bus=self.core_bus, llm_registry=self.llm_registry, vascular=self.vascular
+        )
         cynic_dog = self.dogs.get(DogId.CYNIC.value)
 
         # 3. COGNITION & STRATEGY
@@ -244,7 +285,9 @@ class _OrganismAwakener:
         axiom_arch = AxiomArchitecture()
         axiom_arch.state = self.state
 
-        self.learning_loop = LearningLoop(qtable=self.qtable, pool=self.db_pool, instance_id=instance_id)
+        self.learning_loop = LearningLoop(
+            qtable=self.qtable, pool=self.db_pool, instance_id=instance_id
+        )
         self.learning_loop.start(event_bus=self.core_bus)
 
         self.residual_detector = ResidualDetector(bus=self.core_bus)
@@ -253,8 +296,12 @@ class _OrganismAwakener:
         # GASdf Executor
         gasdf_executor = None
         if hasattr(self.config, "gasdf_enabled") and self.config.gasdf_enabled:
-            from cynic.kernel.organism.perception.integrations.gasdf.client import GASdfClient
-            from cynic.kernel.organism.perception.integrations.gasdf.executor import GASdfExecutor
+            from cynic.kernel.organism.perception.integrations.gasdf.client import (
+                GASdfClient,
+            )
+            from cynic.kernel.organism.perception.integrations.gasdf.executor import (
+                GASdfExecutor,
+            )
 
             client = GASdfClient(base_url=self.config.gasdf_url)
             gasdf_executor = GASdfExecutor(client=client)
@@ -287,28 +334,31 @@ class _OrganismAwakener:
         self.lod_controller = LODController()
 
         # E-Score with DB persistence
-        self.escore_tracker = EScoreTracker(bus=self.core_bus, state_manager=self.state, instance_id=instance_id)
+        self.escore_tracker = EScoreTracker(
+            bus=self.core_bus, state_manager=self.state, instance_id=instance_id
+        )
 
         self.axiom_monitor = AxiomMonitor(bus=self.core_bus)
 
         # 4. METABOLISM (Body & Rhythm)
         self.body = HardwareBody(bus=self.core_bus)
-        self.motor = MotorSystem(bus=self.core_bus, body=self.body, state_manager=self.state)
-        
+        self.motor = MotorSystem(
+            bus=self.core_bus, body=self.body, state_manager=self.state
+        )
+
         # -NET Somatic Server
         self.knet_server = KNetServer(
-            bus=self.core_bus,
-            host=self.config.knet_host,
-            port=self.config.knet_port
+            bus=self.core_bus, host=self.config.knet_host, port=self.config.knet_port
         )
         self.scheduler = ConsciousnessRhythm(
-            self.orchestrator, 
-            bus=self.core_bus,
-            consciousness=self.consciousness
+            self.orchestrator, bus=self.core_bus, consciousness=self.consciousness
         )
         self.scheduler.body = self.body
 
-        from cynic.kernel.organism.metabolism.actuators import FileActuator, UniversalActuator
+        from cynic.kernel.organism.metabolism.actuators import (
+            FileActuator,
+            UniversalActuator,
+        )
 
         self.universal_actuator = UniversalActuator()
         self.universal_actuator.register("file_write", FileActuator())
@@ -317,6 +367,7 @@ class _OrganismAwakener:
 
         self.runner = ClaudeCodeRunner(bus=self.agent_bus, sessions_registry={})
         from cynic.kernel.organism.metabolism.telemetry import TelemetryStore
+
         self.telemetry_store = TelemetryStore(maxlen=1000)
 
         # 5. SENSES (Perception)
@@ -326,24 +377,29 @@ class _OrganismAwakener:
         self.topology_builder = IncrementalTopologyBuilder(bus=self.core_bus)
         self.mcp_bridge = MCPBridge(bus=self.core_bus)
         self.convergence_validator = ConvergenceValidator()
-        
+
         # Web Incarnation
         self.web_eye = WebEye(bus=self.core_bus)
-        self.web_hand = WebHand() # Bound later in organism.start()
+        self.web_hand = WebHand()  # Bound later in organism.start()
 
         from cynic.kernel.organism.perception.senses.internal import InternalSensor
+
         self.internal_sensor = InternalSensor(bus=self.core_bus)
         self.internal_sensor.start()
 
         # market_sensor is disabled by default to avoid noise
         self.market_sensor = None
 
-
         # 6. REFLECTION (Memory & Self)
-        self.sona_emitter = SonaEmitter(bus=self.core_bus, db_pool=self.db_pool, instance_id=instance_id)
+        self.sona_emitter = SonaEmitter(
+            bus=self.core_bus, db_pool=self.db_pool, instance_id=instance_id
+        )
 
         from cynic.kernel.organism.perception.federation.gossip import GossipManager
-        self.gossip_manager = GossipManager(instance_id=instance_id, q_table=self.qtable)
+
+        self.gossip_manager = GossipManager(
+            instance_id=instance_id, q_table=self.qtable
+        )
 
         # 7. WIRING HANDLERS (New Domain-Specific Pattern)
         cog_svc = CognitionServices(
@@ -353,7 +409,9 @@ class _OrganismAwakener:
             qtable=self.qtable,
             health_cache={},  # Shared health cache
         )
-        meta_svc = MetabolicServices(scheduler=self.scheduler, body=self.body, runner=self.runner)
+        meta_svc = MetabolicServices(
+            scheduler=self.scheduler, body=self.body, runner=self.runner
+        )
         sens_svc = SensoryServices(
             compressor=self.context_compressor,
             service_registry=self.service_registry,
@@ -369,7 +427,10 @@ class _OrganismAwakener:
             # Extra kwargs for specific handlers (MUST match module names)
             axiom={"action_proposer": self.action_proposer},
             sdk={"action_proposer": self.action_proposer, "qtable": self.qtable},
-            direct={"universal_actuator": self.universal_actuator, "qtable": self.qtable},
+            direct={
+                "universal_actuator": self.universal_actuator,
+                "qtable": self.qtable,
+            },
             federation={"gossip_manager": self.gossip_manager},
             health={"storage_gc": None, "db_pool": self.db_pool},
             intelligence={
@@ -398,7 +459,7 @@ class _OrganismAwakener:
         self.sona_emitter.set_orchestrator(self.orchestrator)
         self.sona_emitter.set_escore_tracker(self.escore_tracker)
         self.sona_emitter.set_state(self.state)
-        
+
         self.account_agent.set_escore_tracker(self.escore_tracker)
         self.account_agent.start()
 
@@ -419,7 +480,10 @@ class _OrganismAwakener:
         self.self_prober.start()
 
         from cynic.kernel.organism.brain.agents.sovereignty import SovereigntyAgent
-        self.sovereignty_agent = SovereigntyAgent(state_manager=self.state, bus=self.core_bus)
+
+        self.sovereignty_agent = SovereigntyAgent(
+            state_manager=self.state, bus=self.core_bus
+        )
         self.sovereignty_agent.start()
 
         # Assembly

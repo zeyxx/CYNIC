@@ -40,7 +40,11 @@ async def scout_expertise(cell: Cell) -> dict[str, Any]:
     content = str(cell.content)
     urls = _URL_PATTERN.findall(content)
     if not urls:
-        return {"q_score": 50.0, "confidence": 0.2, "reasoning": "No URLs found to scout."}
+        return {
+            "q_score": 50.0,
+            "confidence": 0.2,
+            "reasoning": "No URLs found to scout.",
+        }
 
     found = len(urls)
     return {
@@ -69,7 +73,9 @@ async def ast_analysis_expertise(cell: Cell) -> dict[str, Any]:
     try:
         tree = ast.parse(code)
         import_count = sum(
-            1 for node in ast.walk(tree) if isinstance(node, ast.Import | ast.ImportFrom)
+            1
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import | ast.ImportFrom)
         )
 
         def get_depth(node, depth=0):
@@ -79,7 +85,9 @@ async def ast_analysis_expertise(cell: Cell) -> dict[str, Any]:
             return max(get_depth(c, depth + 1) for c in children)
 
         max_depth = get_depth(tree)
-        penalty = max(0, (import_count - MAX_IMPORTS) * 3) + max(0, (max_depth - MAX_NESTING) * 5)
+        penalty = max(0, (import_count - MAX_IMPORTS) * 3) + max(
+            0, (max_depth - MAX_NESTING) * 5
+        )
         q_score = max(0.0, 100.0 - penalty)
 
         return {
@@ -133,7 +141,11 @@ async def anomaly_detection_expertise(cell: Cell) -> dict[str, Any]:
         "q_score": q_score,
         "confidence": 0.382,
         "reasoning": f"Guardian: Anomaly risk {score:.2f}. {'CRITICAL THREAT' if threat_found else 'Safe'}.",
-        "evidence": {"risk": cell.risk, "novelty": cell.novelty, "threat_detected": threat_found},
+        "evidence": {
+            "risk": cell.risk,
+            "novelty": cell.novelty,
+            "threat_detected": threat_found,
+        },
     }
 
 
@@ -155,9 +167,7 @@ async def dream_facets_expertise(
     adapter: Any, axiom: str, reality: str, registry: Any
 ) -> dict[str, str]:
     """World-Maker: Generate 7 dynamic facets via LLM."""
-    prompt = (
-        f"Generate exactly 7 distinct dimensions (facets) to evaluate {axiom} in {reality} context."
-    )
+    prompt = f"Generate exactly 7 distinct dimensions (facets) to evaluate {axiom} in {reality} context."
     try:
         response = await adapter.generate(prompt)
         facets = {}
@@ -179,50 +189,64 @@ async def dream_facets_expertise(
 async def market_health_expertise(cell: Cell) -> dict[str, Any]:
     """Expertise for price volatility and market sentiment."""
     if cell.reality != "MARKET":
-        return {"q_score": 50.0, "confidence": 0.0, "reasoning": "Incompatible reality."}
-    
+        return {
+            "q_score": 50.0,
+            "confidence": 0.0,
+            "reasoning": "Incompatible reality.",
+        }
+
     # We assume content is MarketPayload (validated by realities.py)
     content = cell.content
     if not isinstance(content, dict):
-        return {"q_score": 50.0, "confidence": 0.1, "reasoning": "Raw content, no structured market data."}
-    
+        return {
+            "q_score": 50.0,
+            "confidence": 0.1,
+            "reasoning": "Raw content, no structured market data.",
+        }
+
     volatility = content.get("volatility", 0.0)
     change = content.get("change_24h", 0.0)
-    
+
     # Logic: High volatility or sharp drops reduce Q-Score
     penalty = (volatility * 50.0) + (abs(change) if change < 0 else 0.0)
     q_score = max(0.0, 100.0 - penalty)
-    
+
     return {
         "q_score": q_score,
         "confidence": 0.618,
         "reasoning": f"Market analysis for {content.get('symbol')}: vol={volatility:.2f}, change={change:.2f}%",
-        "evidence": {"volatility": volatility, "change_24h": change}
+        "evidence": {"volatility": volatility, "change_24h": change},
     }
+
 
 # --- SOLANA EXPERTISE ---
 async def solana_integrity_expertise(cell: Cell) -> dict[str, Any]:
     """Expertise for Solana on-chain health."""
     if cell.reality != "SOLANA":
-        return {"q_score": 50.0, "confidence": 0.0, "reasoning": "Incompatible reality."}
-    
+        return {
+            "q_score": 50.0,
+            "confidence": 0.0,
+            "reasoning": "Incompatible reality.",
+        }
+
     content = cell.content
     if not isinstance(content, dict):
         return {"q_score": 50.0, "confidence": 0.1, "reasoning": "No on-chain data."}
-    
+
     health = content.get("health", "ok")
     tps = content.get("tps", 0.0)
-    
+
     q_score = 90.0 if health == "ok" else 20.0
-    if tps < 1000: # Arbitrary threshold for congestion
+    if tps < 1000:  # Arbitrary threshold for congestion
         q_score -= 20.0
 
     return {
         "q_score": max(0.0, q_score),
         "confidence": 0.75,
         "reasoning": f"Solana Health: {health}, TPS: {tps:.0f}",
-        "evidence": {"health": health, "tps": tps}
+        "evidence": {"health": health, "tps": tps},
     }
+
 
 # --- REGISTRY OF EXPERTISE ---
 EXPERTISE_MAP = {

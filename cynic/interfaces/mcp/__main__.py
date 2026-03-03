@@ -48,7 +48,7 @@ async def main() -> None:
 
     # Load configuration (Rule 3: centralize config reads)
     try:
-        from cynic.kernel.core.config import CynicConfig
+        from cynic.config import CynicConfig
         config = CynicConfig.from_env()
     except ImportError as e:
         logger.error(f"Failed to load config: {e}")

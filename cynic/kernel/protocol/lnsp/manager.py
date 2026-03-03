@@ -3,7 +3,7 @@
 LNSPManager provides a unified interface to the complete Layered Nervous System
 Protocol (LNSP) pipeline, coordinating all 4 layers and their subscriptions.
 
-This enables easy setup and execution of the complete observation  aggregation 
+This enables easy setup and execution of the complete observation  aggregation
 judgment  action  feedback cycle.
 """
 

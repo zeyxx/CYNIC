@@ -11,6 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 def run_command(name: str, cmd: list[str], timeout: int = 60) -> tuple[bool, str]:
     """Run a validation command and return (success, output)."""
     print(f"\n[*] {name}...", end=" ", flush=True)
@@ -20,7 +21,7 @@ def run_command(name: str, cmd: list[str], timeout: int = 60) -> tuple[bool, str
             capture_output=True,
             text=True,
             timeout=timeout,
-            cwd=str(Path(__file__).parent.parent)
+            cwd=str(Path(__file__).parent.parent),
         )
         output = result.stdout + result.stderr
         if result.returncode == 0:
@@ -35,6 +36,7 @@ def run_command(name: str, cmd: list[str], timeout: int = 60) -> tuple[bool, str
     except Exception as e:
         print("[ERROR]")
         return False, str(e)
+
 
 def main():
     print("=" * 80)
@@ -51,9 +53,37 @@ def main():
     ]
 
     test_commands = [
-        ("Adapter Tests", ["python", "-m", "pytest", "tests/adapters/", "-q", "--tb=no"], 60),
-        ("Change Analyzer Tests", ["python", "-m", "pytest", "tests/test_change_analyzer.py", "-q", "--tb=no"], 60),
-        ("Core Tests (sample)", ["python", "-m", "pytest", "tests/", "-q", "--tb=no", "-k", "test_event or test_discord"], 120),
+        (
+            "Adapter Tests",
+            ["python", "-m", "pytest", "tests/adapters/", "-q", "--tb=no"],
+            60,
+        ),
+        (
+            "Change Analyzer Tests",
+            [
+                "python",
+                "-m",
+                "pytest",
+                "tests/test_change_analyzer.py",
+                "-q",
+                "--tb=no",
+            ],
+            60,
+        ),
+        (
+            "Core Tests (sample)",
+            [
+                "python",
+                "-m",
+                "pytest",
+                "tests/",
+                "-q",
+                "--tb=no",
+                "-k",
+                "test_event or test_discord",
+            ],
+            120,
+        ),
     ]
 
     results = {"gates": [], "tests": []}
@@ -91,7 +121,8 @@ def main():
 
     # Show failures
     all_failures = [
-        (name, output) for name, success, output in results["gates"] + results["tests"]
+        (name, output)
+        for name, success, output in results["gates"] + results["tests"]
         if not success
     ]
 
@@ -106,6 +137,7 @@ def main():
         print("Code is ready to be pushed to GitHub.")
         print("Once GitHub billing is resolved, CI/CD will auto-validate on push.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

@@ -81,7 +81,8 @@ class JudgmentExecutorHandler(HandlerGroup):
         """
         try:
             logger.debug(
-                "[HANDLER] JudgmentExecutor received JUDGMENT_REQUESTED: %s", event.event_id
+                "[HANDLER] JudgmentExecutor received JUDGMENT_REQUESTED: %s",
+                event.event_id,
             )
             from cynic.kernel.core.events_schema import JudgmentRequestedPayload
 
@@ -90,7 +91,9 @@ class JudgmentExecutorHandler(HandlerGroup):
             # ANTI-RECURSION GUARD (Lentille : SRE)
             # If the organism is recursively judging its own internal thoughts too deeply, stop.
             if p.fractal_depth > 2:
-                logger.warning(f"JudgmentExecutor: RECURSION BLOCKED (depth={p.fractal_depth}) for cell {p.cell.get('cell_id') if isinstance(p.cell, dict) else 'unknown'}")
+                logger.warning(
+                    f"JudgmentExecutor: RECURSION BLOCKED (depth={p.fractal_depth}) for cell {p.cell.get('cell_id') if isinstance(p.cell, dict) else 'unknown'}"
+                )
                 return
 
             # Extract judgment_id from payload (thread it through the pipeline to match PENDING entry)
@@ -103,7 +106,9 @@ class JudgmentExecutorHandler(HandlerGroup):
             if cell_dict:
                 try:
                     cell = Cell(**cell_dict)
-                    logger.debug("[HANDLER] Cell reconstructed from model data: %s", cell.cell_id)
+                    logger.debug(
+                        "[HANDLER] Cell reconstructed from model data: %s", cell.cell_id
+                    )
                 except Exception as cell_err:
                     logger.warning("[HANDLER] Failed to reconstruct cell: %s", cell_err)
 
@@ -136,7 +141,10 @@ class JudgmentExecutorHandler(HandlerGroup):
             # Check circuit breaker
             if not _orchestrator_breaker.allow():
                 await self._emit_judgment_failed(
-                    judgment_id, cell.cell_id, "circuit_breaker_open", "Circuit breaker OPEN"
+                    judgment_id,
+                    cell.cell_id,
+                    "circuit_breaker_open",
+                    "Circuit breaker OPEN",
                 )
                 return
 

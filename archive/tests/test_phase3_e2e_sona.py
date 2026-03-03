@@ -10,6 +10,7 @@ Verify that:
 
 This is a real integration test (not mocked).
 """
+
 import asyncio
 
 import pytest
@@ -59,7 +60,9 @@ async def test_phase3_sona_tick_events():
     await asyncio.sleep(0.1)
 
     # Should have captured the manual emit
-    assert len(events_received) >= 1, f"Expected â‰¥1 SONA_TICK, got {len(events_received)}"
+    assert (
+        len(events_received) >= 1
+    ), f"Expected â‰¥1 SONA_TICK, got {len(events_received)}"
 
     event = events_received[0]
     payload = SonaTickPayload.model_validate(event.payload or {})

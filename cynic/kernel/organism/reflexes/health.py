@@ -76,7 +76,11 @@ class HealthHandlers(HandlerGroup):
             await self._cognition.assess_lod()
 
             # Active Defense against Infinity (BURN Axiom)
-            if memory_pct > 85.0 and hasattr(self._cognition, "qtable") and self._cognition.qtable:
+            if (
+                memory_pct > 85.0
+                and hasattr(self._cognition, "qtable")
+                and self._cognition.qtable
+            ):
                 # Keep top 2000 entries, burn the rest
                 pruned_count = self._cognition.qtable.prune(max_entries=2000)
                 if pruned_count > 0:

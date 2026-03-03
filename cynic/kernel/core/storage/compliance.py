@@ -3,7 +3,7 @@ Compliance & Audit Engine  Forensics and regulatory compliance (PHASE 2, COMPONE
 
 Architecture:
   SecurityEvent  AuditLogger  ImmutableHash  ForensicsQuery
-                       
+
                 RetentionPolicy  SOC2/GDPR Reports
 """
 
@@ -47,16 +47,19 @@ class AuditEvent:
 
     def _compute_hash(self) -> str:
         """Compute SHA256 hash of event (immutability proof)."""
-        event_string = json.dumps({
-            "event_id": self.event_id,
-            "resource_type": self.resource_type,
-            "resource_id": self.resource_id,
-            "action": self.action,
-            "actor": self.actor,
-            "timestamp": self.timestamp,
-            "details": self.details,
-            "status": self.status,
-        }, sort_keys=True)
+        event_string = json.dumps(
+            {
+                "event_id": self.event_id,
+                "resource_type": self.resource_type,
+                "resource_id": self.resource_id,
+                "action": self.action,
+                "actor": self.actor,
+                "timestamp": self.timestamp,
+                "details": self.details,
+                "status": self.status,
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(event_string.encode()).hexdigest()
 
     def to_dict(self) -> dict:
@@ -167,7 +170,9 @@ class AuditLogger:
             details={"rule_id": rule_id},
         )
 
-    async def log_rule_executed(self, rule_id: str, matched: bool, actor: str = "system") -> str:
+    async def log_rule_executed(
+        self, rule_id: str, matched: bool, actor: str = "system"
+    ) -> str:
         """Log rule execution."""
         return await self.log_event(
             resource_type="rule",
@@ -199,10 +204,7 @@ class IntegrityVerifier:
         stored_hash = event["hash"]
 
         # Reconstruct hash without the hash and type fields (matching _compute_hash behavior)
-        event_copy = {
-            k: v for k, v in event.items()
-            if k not in ("hash", "type")
-        }
+        event_copy = {k: v for k, v in event.items() if k not in ("hash", "type")}
         event_string = json.dumps(event_copy, sort_keys=True)
         computed_hash = hashlib.sha256(event_string.encode()).hexdigest()
 
@@ -455,7 +457,9 @@ class ComplianceReport:
             "end_time": timeline[-1].get("timestamp") if timeline else 0,
             "total_events": len(events),
             "events": timeline,
-            "actors_involved": list(set(e.get("actor") for e in events if e.get("actor"))),
+            "actors_involved": list(
+                set(e.get("actor") for e in events if e.get("actor"))
+            ),
         }
 
 

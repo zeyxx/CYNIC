@@ -27,6 +27,7 @@ class ReputationScore:
         community_feedback: Peer ratings [0-1]
         learning_ability: Rate of improvement [0-1]
     """
+
     user_id: str
     governance_quality: float = 0.5
     participation_rate: float = 0.5
@@ -129,7 +130,9 @@ class ReputationManager:
         """
         return user_id in self.scores
 
-    def update_participation(self, user_id: str, activity_count: int, total_activities: int):
+    def update_participation(
+        self, user_id: str, activity_count: int, total_activities: int
+    ):
         """
         Update participation rate.
 
@@ -227,16 +230,17 @@ class ReputationManager:
             score.governance_quality,
             score.participation_rate,
             score.consensus_alignment,
-            score.expertise_level
+            score.expertise_level,
         ]
 
         # Geometric mean for -bounded confidence
         import math
+
         if all(m > 0 for m in metrics):
             # Avoid taking nth root of 0
             product = math.prod(metrics)
             if product > 0:
-                return product ** (1/len(metrics))
+                return product ** (1 / len(metrics))
 
         return 0.5
 
@@ -251,8 +255,7 @@ class ReputationManager:
             List of (user_id, average_score) tuples sorted by score
         """
         user_scores = [
-            (user_id, score.average_score())
-            for user_id, score in self.scores.items()
+            (user_id, score.average_score()) for user_id, score in self.scores.items()
         ]
         # Sort by score descending
         user_scores.sort(key=lambda x: x[1], reverse=True)

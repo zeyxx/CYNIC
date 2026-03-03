@@ -202,18 +202,22 @@ async def test_adapter_decision_made_records_decide_phase():
     adapter = BusLoopClosureAdapter(validator)
 
     # Start cycle
-    await adapter.on_event(Event(
-        type="core.judgment_requested",
-        source="perceiver",
-        payload={"judgment_id": "judgment_001"},
-    ))
+    await adapter.on_event(
+        Event(
+            type="core.judgment_requested",
+            source="perceiver",
+            payload={"judgment_id": "judgment_001"},
+        )
+    )
 
     # Record DECIDE phase
-    await adapter.on_event(Event(
-        type="core.decision_made",
-        source="decide_agent",
-        payload={"judgment_id": "judgment_001"},
-    ))
+    await adapter.on_event(
+        Event(
+            type="core.decision_made",
+            source="decide_agent",
+            payload={"judgment_id": "judgment_001"},
+        )
+    )
 
     open_cycles = await validator.get_open_cycles()
     assert any(p.phase == CyclePhase.DECIDE for p in open_cycles[0].phases)
@@ -226,18 +230,22 @@ async def test_adapter_emergence_detected_closes_cycle():
     adapter = BusLoopClosureAdapter(validator)
 
     # Start and progress through cycle
-    await adapter.on_event(Event(
-        type="core.judgment_requested",
-        source="perceiver",
-        payload={"judgment_id": "judgment_001"},
-    ))
+    await adapter.on_event(
+        Event(
+            type="core.judgment_requested",
+            source="perceiver",
+            payload={"judgment_id": "judgment_001"},
+        )
+    )
 
     # Directly emit emergence event (shortcut for testing)
-    await adapter.on_event(Event(
-        type="core.emergence_detected",
-        source="scheduler",
-        payload={"judgment_id": "judgment_001"},
-    ))
+    await adapter.on_event(
+        Event(
+            type="core.emergence_detected",
+            source="scheduler",
+            payload={"judgment_id": "judgment_001"},
+        )
+    )
 
     # Cycle should be closed (moved from open to closed)
     open_cycles = await validator.get_open_cycles()

@@ -3,6 +3,7 @@
 Tests the full observation â’ aggregation â’ judgment â’ action â’ feedback cycle,
 verifying all layers work together as an integrated system.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -33,7 +34,10 @@ class CountingSensor(Sensor):
     """Sensor that returns preset observations."""
 
     def __init__(
-        self, sensor_id: str, observations: list[LNSPMessage | None], instance_id: str = "instance:local"
+        self,
+        sensor_id: str,
+        observations: list[LNSPMessage | None],
+        instance_id: str = "instance:local",
     ):
         super().__init__(sensor_id, instance_id)
         self.observations = observations

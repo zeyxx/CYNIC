@@ -89,7 +89,9 @@ class EncryptionKeyManager:
             self._authenticated = True
             return True
         except ImportError:
-            logger.warning("hvac library not installed, cannot use Vault for encryption keys")
+            logger.warning(
+                "hvac library not installed, cannot use Vault for encryption keys"
+            )
             return False
         except Exception as e:
             logger.error(f"Failed to connect to Vault for encryption: {e}")
@@ -110,18 +112,23 @@ class EncryptionKeyManager:
             return self._key_cache[key_id]
 
         if not self._authenticated:
-            logger.warning(f"Not authenticated to Vault, generating temporary key for {key_id}")
+            logger.warning(
+                f"Not authenticated to Vault, generating temporary key for {key_id}"
+            )
             key = secrets.token_bytes(key_size)
             self._key_cache[key_id] = key
             return key
 
         try:
             path = f"{self.config.kv_mount_path}/data/encryption/{key_id}"
-            response = self.client.secrets.kv.v2.read_secret_version(path=f"encryption/{key_id}")
+            response = self.client.secrets.kv.v2.read_secret_version(
+                path=f"encryption/{key_id}"
+            )
             key_b64 = response["data"]["data"].get("key")
 
             if key_b64:
                 import base64
+
                 key = base64.b64decode(key_b64)
                 self._key_cache[key_id] = key
                 return key
@@ -133,6 +140,7 @@ class EncryptionKeyManager:
         key = secrets.token_bytes(key_size)
         try:
             import base64
+
             self.client.secrets.kv.v2.create_or_update_secret(
                 path=f"encryption/{key_id}",
                 secret_data={"key": base64.b64encode(key).decode()},
@@ -264,7 +272,11 @@ class EncryptedColumn:
             treasury_address = Column(EncryptedColumn())
     """
 
-    def __init__(self, encryption_service: EncryptionService | None = None, key_id: str = "default"):
+    def __init__(
+        self,
+        encryption_service: EncryptionService | None = None,
+        key_id: str = "default",
+    ):
         self.encryption_service = encryption_service
         self.key_id = key_id
 
@@ -281,7 +293,9 @@ class EncryptedColumn:
             return encrypted_value
 
         try:
-            return await self.encryption_service.decrypt_string(encrypted_value, self.key_id)
+            return await self.encryption_service.decrypt_string(
+                encrypted_value, self.key_id
+            )
         except ValueError as e:
             logger.error(f"Failed to decrypt value: {e}")
             raise
@@ -310,7 +324,9 @@ class EncryptedJournalEntry:
 
         # Encrypt error messages
         if encrypted_entry.get("error_message"):
-            encrypted_entry["error_message"] = await self.encryption_service.encrypt_string(
+            encrypted_entry[
+                "error_message"
+            ] = await self.encryption_service.encrypt_string(
                 encrypted_entry["error_message"], "journal-errors"
             )
             encrypted_entry["_error_encrypted"] = True
@@ -329,9 +345,13 @@ class EncryptedJournalEntry:
         decrypted_entry = dict(encrypted_dict)
 
         # Decrypt error messages
-        if decrypted_entry.get("_error_encrypted") and decrypted_entry.get("error_message"):
+        if decrypted_entry.get("_error_encrypted") and decrypted_entry.get(
+            "error_message"
+        ):
             try:
-                decrypted_entry["error_message"] = await self.encryption_service.decrypt_string(
+                decrypted_entry[
+                    "error_message"
+                ] = await self.encryption_service.decrypt_string(
                     decrypted_entry["error_message"], "journal-errors"
                 )
             except ValueError as e:
@@ -360,7 +380,9 @@ class TransparentEncryption:
         vault_ready = await self.key_manager.connect()
 
         if not vault_ready:
-            logger.warning(" Vault unavailable for encryption keys, using temporary keys")
+            logger.warning(
+                " Vault unavailable for encryption keys, using temporary keys"
+            )
 
         self.encryption_service = EncryptionService(self.key_manager)
         self.journal_encryption = EncryptedJournalEntry(self.encryption_service)
@@ -409,7 +431,9 @@ class TransparentEncryption:
 
         return await self.journal_encryption.encrypt_entry(entry_dict)
 
-    async def decrypt_journal_entry(self, encrypted_dict: dict[str, Any]) -> dict[str, Any]:
+    async def decrypt_journal_entry(
+        self, encrypted_dict: dict[str, Any]
+    ) -> dict[str, Any]:
         """Decrypt journal entry."""
         if not self._initialized:
             raise RuntimeError("Encryption service not initialized")
@@ -420,5 +444,7 @@ class TransparentEncryption:
         """Check encryption service health."""
         return {
             "initialized": self._initialized,
-            "vault_ready": await self.key_manager.health_check() if self.key_manager else False,
+            "vault_ready": await self.key_manager.health_check()
+            if self.key_manager
+            else False,
         }

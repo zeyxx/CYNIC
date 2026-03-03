@@ -9,14 +9,19 @@ Tests the 4-level consciousness system:
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - ConsciousnessGradient not exported")
+pytestmark = pytest.mark.skip(
+    reason="Old architecture removed in V5 - ConsciousnessGradient not exported"
+)
 
 
 from cynic.kernel.core.consciousness import (
@@ -79,7 +84,7 @@ class TestDogsForLevel:
     def test_reflex_dogs(self):
         """REFLEX should have non-LLM dogs."""
         dogs = dogs_for_level(ConsciousnessLevel.REFLEX)
-        
+
         assert "CYNIC" in dogs
         assert "GUARDIAN" in dogs
         assert "ANALYST" in dogs
@@ -88,14 +93,14 @@ class TestDogsForLevel:
     def test_micro_dogs(self):
         """MICRO should include REFLEX + fast LLM dogs."""
         dogs = dogs_for_level(ConsciousnessLevel.MICRO)
-        
+
         assert dogs.issuperset(REFLEX_DOGS)
         assert "SCHOLAR" in dogs
 
     def test_macro_dogs(self):
         """MACRO should have all 11 dogs."""
         dogs = dogs_for_level(ConsciousnessLevel.MACRO)
-        
+
         assert len(dogs) == 11
         assert "SAGE" in dogs
         assert "DEPLOYER" in dogs
@@ -103,7 +108,7 @@ class TestDogsForLevel:
     def test_meta_dogs(self):
         """META should have all dogs."""
         dogs = dogs_for_level(ConsciousnessLevel.META)
-        
+
         assert dogs == MACRO_DOGS
 
 
@@ -167,15 +172,16 @@ class TestCycleTimer:
         timer.start()
         # Simulate some work
         import time
+
         time.sleep(0.01)  # 10ms
         elapsed = timer.stop()
-        
+
         assert elapsed > 0
 
     def test_record(self, timer):
         """Should record pre-measured elapsed time."""
         timer.record(100.0)
-        
+
         assert len(timer._samples) == 1
         assert timer._samples[0] == 100.0
 
@@ -184,14 +190,14 @@ class TestCycleTimer:
         timer.record(50.0)
         timer.record(100.0)
         timer.record(150.0)
-        
+
         assert timer.p50_ms == 100.0
 
     def test_p95(self, timer):
         """Should compute p95 correctly."""
         for i in range(20):
             timer.record(float(i * 10))
-        
+
         p95 = timer.p95_ms
         assert p95 > 100  # Should be high percentile
 
@@ -199,35 +205,35 @@ class TestCycleTimer:
         """Should check if within target."""
         # Record times well under target
         timer.record(10.0)
-        
+
         assert timer.within_target is True
 
     def test_health_excellent(self, timer):
         """Should return EXCELLENT when well under target."""
         timer.record(100.0)  # Way under MACRO target (~2850ms)
-        
+
         assert timer.health == "EXCELLENT"
 
     def test_health_degraded(self, timer):
         """Should return DEGRADED when over target."""
         timer = CycleTimer(level=ConsciousnessLevel.REFLEX)
         timer.record(50.0)  # Way over REFLEX target (~8ms)
-        
+
         assert timer.health in ["DEGRADED", "CRITICAL"]
 
     def test_max_samples(self, timer):
         """Should cap samples at F(10) = 55."""
         for i in range(100):
             timer.record(float(i))
-        
+
         assert len(timer._samples) == 55
 
     def test_to_dict(self, timer):
         """Should serialize to dict."""
         timer.record(100.0)
-        
+
         d = timer.to_dict()
-        
+
         assert "level" in d
         assert "target_ms" in d
         assert "p50_ms" in d
@@ -251,7 +257,7 @@ class TestConsciousnessState:
     def test_increment_reflex(self, state):
         """Should increment REFLEX counter."""
         state.increment(ConsciousnessLevel.REFLEX)
-        
+
         assert state.reflex_cycles == 1
 
     def test_increment_all_levels(self, state):
@@ -260,7 +266,7 @@ class TestConsciousnessState:
         state.increment(ConsciousnessLevel.MICRO)
         state.increment(ConsciousnessLevel.MACRO)
         state.increment(ConsciousnessLevel.META)
-        
+
         assert state.reflex_cycles == 1
         assert state.micro_cycles == 1
         assert state.macro_cycles == 1
@@ -271,19 +277,19 @@ class TestConsciousnessState:
         state.increment(ConsciousnessLevel.REFLEX)
         state.increment(ConsciousnessLevel.REFLEX)
         state.increment(ConsciousnessLevel.MACRO)
-        
+
         assert state.total_cycles == 3
 
     def test_should_downgrade_budget_exhausted(self, state):
         """Should downgrade when budget exhausted."""
         downgrade = state.should_downgrade(0.001)
-        
+
         assert downgrade == ConsciousnessLevel.REFLEX
 
     def test_should_downgrade_budget_low(self, state):
         """Should downgrade when budget low."""
         downgrade = state.should_downgrade(0.02)
-        
+
         assert downgrade == ConsciousnessLevel.MICRO
 
     def test_should_downgrade_timer_critical(self, state):
@@ -292,9 +298,9 @@ class TestConsciousnessState:
         timer = state.timers["MACRO"]
         for _ in range(10):
             timer.record(10000.0)  # Way over target
-        
+
         downgrade = state.should_downgrade(100.0)
-        
+
         # May or may not downgrade based on timer
         assert downgrade is None or downgrade == ConsciousnessLevel.MICRO
 
@@ -308,9 +314,9 @@ class TestConsciousnessState:
     def test_to_dict(self, state):
         """Should serialize to dict."""
         state.increment(ConsciousnessLevel.MACRO)
-        
+
         d = state.to_dict()
-        
+
         assert "active_level" in d
         assert "gradient" in d
         assert "cycles" in d
@@ -323,18 +329,18 @@ class TestGetConsciousness:
     def test_singleton(self):
         """Should return same instance."""
         reset_consciousness()
-        
+
         c1 = get_consciousness()
         c2 = get_consciousness()
-        
+
         assert c1 is c2
 
     def test_reset(self):
         """Reset should clear singleton."""
         c1 = get_consciousness()
-        
+
         reset_consciousness()
-        
+
         c2 = get_consciousness()
         assert c1 is not c2
 

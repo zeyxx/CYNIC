@@ -4,6 +4,7 @@ The Ringbuffer provides a fixed-capacity circular buffer that automatically
 drops the oldest item when new items are added to a full buffer. This provides
 natural backpressure for high-frequency sensor streams.
 """
+
 from __future__ import annotations
 
 from typing import Generic, TypeVar

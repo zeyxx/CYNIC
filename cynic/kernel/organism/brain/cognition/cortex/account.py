@@ -70,12 +70,16 @@ class AccountAgent:
         if self.total_cost_usd >= warning_threshold and not self._warning_sent:
             self._warning_sent = True
             logger.warning(
-                "BUDGET WARNING: %.2f USD spent (limit=%.2f)", self.total_cost_usd, self.limit
+                "BUDGET WARNING: %.2f USD spent (limit=%.2f)",
+                self.total_cost_usd,
+                self.limit,
             )
             await bus.emit(
                 Event.typed(
                     CoreEvent.BUDGET_WARNING,
-                    BudgetWarningPayload(current_cost=self.total_cost_usd, limit=self.limit),
+                    BudgetWarningPayload(
+                        current_cost=self.total_cost_usd, limit=self.limit
+                    ),
                 )
             )
 
@@ -86,7 +90,9 @@ class AccountAgent:
             await bus.emit(
                 Event.typed(
                     CoreEvent.BUDGET_EXHAUSTED,
-                    BudgetExhaustedPayload(total_cost=self.total_cost_usd, limit=self.limit),
+                    BudgetExhaustedPayload(
+                        total_cost=self.total_cost_usd, limit=self.limit
+                    ),
                 )
             )
 

@@ -29,15 +29,19 @@ class DialogueAgent:
         Structure a judgment into a natural language explanation.
         """
         if self._llm_registry is None:
-            logger.warning("DialogueAgent: No LLM registry available. Returning raw reasoning.")
+            logger.warning(
+                "DialogueAgent: No LLM registry available. Returning raw reasoning."
+            )
             return getattr(judgment, "reasoning", "No reasoning provided.")
 
         context = getattr(judgment, "reasoning", "")
-        
+
         # Select the best model for explanation
         adapter = self._llm_registry.get_best_for("DIALOGUE", "EXPLAIN")
         if not adapter:
-            logger.warning("DialogueAgent: No LLM adapter available. Returning raw reasoning.")
+            logger.warning(
+                "DialogueAgent: No LLM adapter available. Returning raw reasoning."
+            )
             return context
 
         prompt = f"""
@@ -49,7 +53,9 @@ class DialogueAgent:
         """
 
         try:
-            response = await adapter.complete(LLMRequest(prompt=prompt, system="You are the Voice of CYNIC."))
+            response = await adapter.complete(
+                LLMRequest(prompt=prompt, system="You are the Voice of CYNIC.")
+            )
             if response.is_success:
                 return response.content
             return f"{context}\n(Note: LLM explanation failed: {response.error})"

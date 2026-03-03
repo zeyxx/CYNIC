@@ -22,9 +22,9 @@ from collections import Counter, deque
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-# 
+#
 # TASK CLASSIFIER
-# 
+#
 
 _TASK_KEYWORDS: dict[str, list[str]] = {
     "debug": [
@@ -132,9 +132,9 @@ def classify_task(prompt: str) -> str:
     return best_type
 
 
-# 
+#
 # COMPLEXITY ESTIMATOR
-# 
+#
 
 
 def estimate_complexity(tool_sequence: list[str]) -> str:
@@ -157,9 +157,9 @@ def estimate_complexity(tool_sequence: list[str]) -> str:
         return "complex"
 
 
-# 
+#
 # REWARD FUNCTION
-# 
+#
 
 
 def compute_reward(
@@ -193,9 +193,9 @@ def compute_reward(
     return round(max(0.10, min(0.75, reward)), 3)
 
 
-# 
+#
 # SESSION TELEMETRY RECORD
-# 
+#
 
 
 @dataclass
@@ -241,9 +241,9 @@ class SessionTelemetry:
     timestamp: float = field(default_factory=time.time)
 
 
-# 
+#
 # TELEMETRY STORE
-# 
+#
 
 
 class TelemetryStore:
@@ -289,7 +289,9 @@ class TelemetryStore:
             "count": len(records),
             "total_cost_usd": round(sum(costs), 6),
             "mean_cost_usd": round(sum(costs) / len(costs), 6),
-            "error_rate": round(sum(1 for r in records if r.is_error) / len(records), 3),
+            "error_rate": round(
+                sum(1 for r in records if r.is_error) / len(records), 3
+            ),
             "mean_q_score": round(sum(q_scores) / len(q_scores), 2),
             "mean_reward": round(sum(rewards) / len(rewards), 3),
             "verdicts": dict(Counter(r.output_verdict for r in records)),

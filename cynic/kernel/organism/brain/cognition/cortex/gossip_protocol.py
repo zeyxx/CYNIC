@@ -35,12 +35,14 @@ if TYPE_CHECKING:
 
 from cynic.kernel.core.formulas import CHAT_MESSAGE_CAP
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.gossip_protocol")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.gossip_protocol"
+)
 
 
-# 
+#
 # GOSSIP MESSAGE
-# 
+#
 
 
 @dataclass
@@ -89,9 +91,9 @@ class GossipMessage:
         return self.age_seconds > max_age_sec
 
 
-# 
+#
 # GOSSIP PROTOCOL
-# 
+#
 
 
 class GossipProtocol:
@@ -154,7 +156,9 @@ class GossipProtocol:
         )
 
         self._gossip_count += 1
-        logger.debug(f"[{dog_state.dog_id}] Gossiped: {message.verdict} Q={message.q_score:.1f}")
+        logger.debug(
+            f"[{dog_state.dog_id}] Gossiped: {message.verdict} Q={message.q_score:.1f}"
+        )
 
         return message
 
@@ -273,7 +277,9 @@ class GossipProtocol:
         geo_mean = math.exp(log_sum / len(gossip_messages))
 
         # Average confidence
-        avg_confidence = sum(msg.confidence for msg in gossip_messages) / len(gossip_messages)
+        avg_confidence = sum(msg.confidence for msg in gossip_messages) / len(
+            gossip_messages
+        )
 
         # Determine verdict
         if geo_mean >= 82.0:

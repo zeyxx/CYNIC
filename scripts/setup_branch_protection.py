@@ -16,6 +16,7 @@ if sys.platform == "win32":
     os.environ["PYTHONIOENCODING"] = "utf-8"
     sys.stdout.reconfigure(encoding="utf-8")
 
+
 def run_gh_api(method: str, endpoint: str, data: dict[str, Any] | None = None) -> dict:
     """Execute GitHub API call via gh CLI"""
     cmd = ["gh", "api", endpoint, "-X", method]
@@ -54,7 +55,7 @@ def setup_branch_protection():
         "tests (3.13)",
         "Code Quality",
         "Coverage Gate",
-        "Security Scan"
+        "Security Scan",
     ]
 
     print("ðŸ” Setting up branch protection...")
@@ -66,18 +67,18 @@ def setup_branch_protection():
     protection_config = {
         "required_status_checks": {
             "strict": True,  # Must be up to date
-            "contexts": required_checks
+            "contexts": required_checks,
         },
         "required_pull_request_reviews": {
             "dismiss_stale_reviews": True,
             "require_code_owner_reviews": False,
-            "required_approving_review_count": 1
+            "required_approving_review_count": 1,
         },
         "enforce_admins": True,
         "required_linear_history": True,
         "allow_force_pushes": False,
         "allow_deletions": False,
-        "restrictions": None
+        "restrictions": None,
     }
 
     print("ðŸ“‹ Applying configuration...")
@@ -118,7 +119,9 @@ def setup_branch_protection():
 
         if verify_result.get("required_pull_request_reviews"):
             reviews = verify_result["required_pull_request_reviews"]
-            print(f"âœ“ PR reviews: {reviews.get('required_approving_review_count', 0)} required")
+            print(
+                f"âœ“ PR reviews: {reviews.get('required_approving_review_count', 0)} required"
+            )
 
         print()
         print("ðŸŽ¯ Master branch is now protected!")

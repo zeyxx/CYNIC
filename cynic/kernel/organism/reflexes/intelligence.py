@@ -4,6 +4,7 @@ PHASE 3: Intelligence cycle handlers " LOD assessment, error tracking, budget re
 This group coordinates the high-level cognitive state of the organism.
 It bridges perception to judgment and manages the Level of Detail (LOD).
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,13 +17,15 @@ from cynic.kernel.core.consciousness import ConsciousnessLevel
 from cynic.kernel.organism.reflexes.base import HandlerGroup
 from cynic.kernel.organism.reflexes.services import CognitionServices
 from cynic.kernel.core.events_schema import (
-    PerceptionReceivedPayload, 
+    PerceptionReceivedPayload,
     JudgmentRequestedPayload,
-    JudgmentCreatedPayload
+    JudgmentCreatedPayload,
 )
 
 if TYPE_CHECKING:
-    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import JudgeOrchestrator
+    from cynic.kernel.organism.brain.cognition.cortex.orchestrator import (
+        JudgeOrchestrator,
+    )
     from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
 
 logger = logging.getLogger("cynic.kernel.organism.reflexes.intelligence")
@@ -68,43 +71,48 @@ class IntelligenceHandlers(HandlerGroup):
             (CoreEvent.JUDGMENT_CREATED, self._on_judgment_created),
         ]
 
-    # 
+    #
     # HANDLER IMPLEMENTATIONS
-    # 
+    #
 
     async def _on_perception_received(self, event: Event) -> None:
         """PERCEPTION_RECEIVED ' Trigger Full Judgment if run_judgment is True."""
         try:
             p = PerceptionReceivedPayload.model_validate(event.dict_payload or {})
-            
+
             if p.run_judgment:
                 # Transform into a judgment request
                 content = p.data if p.data else ""
-                
+
                 # IMPORTANT: Use real ConsciousnessLevel and integer LOD
                 level = ConsciousnessLevel.MICRO
-                
+
                 cell = Cell(
                     reality=p.reality,
                     analysis="JUDGE",
                     content=str(content),
-                    context=p.context or f"Automated analysis of {p.reality} from {p.source}",
-                    lod=1 # Numeric LOD is fine here
+                    context=p.context
+                    or f"Automated analysis of {p.reality} from {p.source}",
+                    lod=1,  # Numeric LOD is fine here
                 )
-                
-                await self.bus.emit(Event.typed(
-                    CoreEvent.JUDGMENT_REQUESTED,
-                    JudgmentRequestedPayload(
-                        cell_id=cell.cell_id,
-                        reality=cell.reality,
-                        level=level.name, # Pass the NAME of the level
-                        cell=cell.model_dump(),
-                        source=f"intelligence:bridge:{p.source}",
-                        judgment_id=p.judgment_id or str(uuid.uuid4())
-                    ),
-                    source="intelligence"
-                ))
-                logger.info("Intelligence: Bridged perception to judgment for %s", p.source)
+
+                await self.bus.emit(
+                    Event.typed(
+                        CoreEvent.JUDGMENT_REQUESTED,
+                        JudgmentRequestedPayload(
+                            cell_id=cell.cell_id,
+                            reality=cell.reality,
+                            level=level.name,  # Pass the NAME of the level
+                            cell=cell.model_dump(),
+                            source=f"intelligence:bridge:{p.source}",
+                            judgment_id=p.judgment_id or str(uuid.uuid4()),
+                        ),
+                        source="intelligence",
+                    )
+                )
+                logger.info(
+                    "Intelligence: Bridged perception to judgment for %s", p.source
+                )
 
         except Exception as e:
             logger.error("Intelligence: Failed to bridge perception: %s", e)
@@ -113,10 +121,10 @@ class IntelligenceHandlers(HandlerGroup):
         """Feed judgments to the context compressor and update health."""
         try:
             p = JudgmentCreatedPayload.model_validate(event.dict_payload or {})
-            
+
             # 1. Update health cache for LOD controller
             self._cognition.update_health_cache(last_q_score=p.q_score)
-            
+
             # 2. Feed compressor
             if self._compressor:
                 try:

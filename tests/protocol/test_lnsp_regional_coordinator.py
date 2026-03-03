@@ -1,4 +1,5 @@
 """Comprehensive tests for LNSP Regional Coordinator."""
+
 from __future__ import annotations
 
 import time
@@ -342,9 +343,7 @@ class TestCorrelation:
 
         # Should have only the new message (old one expired)
         assert len(coordinator._correlation_window.observations) == 1
-        assert (
-            coordinator._correlation_window.observations[0].payload["value"] == 2
-        )
+        assert coordinator._correlation_window.observations[0].payload["value"] == 2
 
 
 # ============================================================================
@@ -378,9 +377,7 @@ class TestHeartbeatMonitoring:
         assert conn.is_alive() is True
 
         # Set heartbeat to past (simulate timeout)
-        conn.last_heartbeat = time.time() - (
-            coordinator.instance_timeout_sec + 1
-        )
+        conn.last_heartbeat = time.time() - (coordinator.instance_timeout_sec + 1)
 
         # Should be marked as not alive
         assert conn.is_alive() is False
@@ -686,8 +683,8 @@ class TestIntegration:
         await coordinator.process_aggregation(sample_aggregation)
 
         # Simulate timeout for instance 002
-        coordinator._instances["instance:002"].last_heartbeat = (
-            time.time() - (coordinator.instance_timeout_sec + 1)
+        coordinator._instances["instance:002"].last_heartbeat = time.time() - (
+            coordinator.instance_timeout_sec + 1
         )
 
         # Check health

@@ -40,7 +40,8 @@ def app_with_json_logging():
         )
         response = await call_next(request)
         app_logger.info(
-            f"Response {response.status_code}", extra={"status_code": response.status_code}
+            f"Response {response.status_code}",
+            extra={"status_code": response.status_code},
         )
         return response
 

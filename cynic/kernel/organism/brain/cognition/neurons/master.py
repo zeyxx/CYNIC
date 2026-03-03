@@ -59,7 +59,15 @@ class DogSoul:
     temperature: float = 0.618
     consciousness_min: ConsciousnessLevel = ConsciousnessLevel.MICRO
     supported_realities: set[str] = field(
-        default_factory=lambda: {"CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"}
+        default_factory=lambda: {
+            "CODE",
+            "SOLANA",
+            "MARKET",
+            "SOCIAL",
+            "HUMAN",
+            "CYNIC",
+            "COSMOS",
+        }
     )
 
     # Specialized logic (optional plugins)
@@ -73,7 +81,12 @@ class MasterDog(LLMDog):
     Includes PBFT coordination logic for the CYNIC DogId.
     """
 
-    def __init__(self, soul: DogSoul, bus: Optional["EventBus"] = None, vascular: Optional["VascularSystem"] = None) -> None:
+    def __init__(
+        self,
+        soul: DogSoul,
+        bus: Optional["EventBus"] = None,
+        vascular: Optional["VascularSystem"] = None,
+    ) -> None:
         """Initialize MasterDog with a DogSoul configuration.
 
         Args:
@@ -81,7 +94,9 @@ class MasterDog(LLMDog):
             bus: Event bus for emitting observations. REQUIRED.
             vascular: Vascular system for multimodal IO and acceleration. OPTIONAL.
         """
-        super().__init__(soul.dog_id, task_type=soul.task_type, bus=bus, vascular=vascular)
+        super().__init__(
+            soul.dog_id, task_type=soul.task_type, bus=bus, vascular=vascular
+        )
         self.soul = soul
         self._lookups = 0
         self._errors = 0
@@ -95,7 +110,15 @@ class MasterDog(LLMDog):
             consciousness_min=self.soul.consciousness_min,
             uses_llm=True,
             supported_realities=self.soul.supported_realities,
-            supported_analyses={"PERCEIVE", "JUDGE", "DECIDE", "ACT", "LEARN", "ACCOUNT", "EMERGE"},
+            supported_analyses={
+                "PERCEIVE",
+                "JUDGE",
+                "DECIDE",
+                "ACT",
+                "LEARN",
+                "ACCOUNT",
+                "EMERGE",
+            },
             technology=f"MasterDog Engine (Soul: {self.soul.task_type})",
             max_concurrent=4,
         )
@@ -108,7 +131,9 @@ class MasterDog(LLMDog):
         try:
             # 1. Attempt Expertise Plugin (Heuristic Specialist)
             if self.soul.expertise_fn:
-                from cynic.kernel.organism.brain.cognition.neurons.expertise import call_expertise
+                from cynic.kernel.organism.brain.cognition.neurons.expertise import (
+                    call_expertise,
+                )
 
                 ext_result = await call_expertise(self.soul.expertise_fn, cell)
                 if ext_result and ext_result.get("confidence", 0) > 0.3:
@@ -122,7 +147,7 @@ class MasterDog(LLMDog):
                     try:
                         self._compressor.boost(str(cell.content), judgment.q_score)
                     except Exception as _e:
-                        logger.debug(f'Silenced: {_e}')
+                        logger.debug(f"Silenced: {_e}")
                 return judgment
 
             # 3. Fallback to Heuristic
@@ -141,7 +166,9 @@ class MasterDog(LLMDog):
         if cell.multimodal_packet_id and self.vascular:
             # We look for the packet in the perception buffer
             # In a real scenario, we might want a more persistent lookup
-            packets = await self.vascular.perception.flush() # Simplified: get all for now
+            packets = (
+                await self.vascular.perception.flush()
+            )  # Simplified: get all for now
             for p in packets:
                 if p.packet_id == cell.multimodal_packet_id:
                     multimodal_data.append(p)
@@ -151,12 +178,8 @@ class MasterDog(LLMDog):
 
         # 2. Execute Temporal Analysis
         content = f"{self.soul.system_prompt}\n\nCONTEXT:\n{cell.content}"
-        tj = await temporal_judgment(
-            adapter, 
-            content, 
-            multimodal_data=multimodal_data
-        )
-        
+        tj = await temporal_judgment(adapter, content, multimodal_data=multimodal_data)
+
         latency = (time.perf_counter() - start) * 1000
         self._last_latencies.append(latency)
 
@@ -188,7 +211,9 @@ class MasterDog(LLMDog):
         return judgment
 
     # --- SAGE EXPERTISE (World-Maker) ---
-    async def dream_facets(self, axiom: str, reality: str, registry: Any) -> dict[str, str]:
+    async def dream_facets(
+        self, axiom: str, reality: str, registry: Any
+    ) -> dict[str, str]:
         if self.dog_id == DogId.SAGE:
             from cynic.kernel.organism.brain.cognition.neurons.expertise import (
                 dream_facets_expertise,
@@ -204,10 +229,12 @@ class MasterDog(LLMDog):
             self._compressor = compressor
 
     # --- phi-BFT CONSENSUS (CYNIC Coordinator Role) ---
-    async def phi_bft_run(self, cell: Cell, dog_judgments: list[DogJudgment]) -> ConsensusResult:
+    async def phi_bft_run(
+        self, cell: Cell, dog_judgments: list[DogJudgment]
+    ) -> ConsensusResult:
         """
         phi-BFT: PHI-weighted Byzantine Fault Tolerance.
-        
+
         Logic:
         1. Quorum Check: Requires 2f+1 votes (7/11).
         2. Priority Weighting: Each dog's vote is multiplied by its Sefirotic priority (phi^n).
@@ -240,7 +267,11 @@ class MasterDog(LLMDog):
             weights.append(priority)
 
             # 2. Veto Logic (Guardian/Cynic high confidence BARK)
-            if j.dog_id in ["GUARDIAN", "CYNIC"] and j.q_score < 38.2 and j.confidence > 0.5:
+            if (
+                j.dog_id in ["GUARDIAN", "CYNIC"]
+                and j.q_score < 38.2
+                and j.confidence > 0.5
+            ):
                 veto_active = True
 
         # 3. Weighted Aggregation (phi-weighted geometric mean)
@@ -263,7 +294,9 @@ class MasterDog(LLMDog):
             dog_judgments=[j.to_dict() for j in dog_judgments],
         )
 
-    def _create_judgment(self, cell: Cell, start: float, data: dict[str, Any]) -> DogJudgment:
+    def _create_judgment(
+        self, cell: Cell, start: float, data: dict[str, Any]
+    ) -> DogJudgment:
         latency = (time.perf_counter() - start) * 1000
         judgment = DogJudgment(
             dog_id=self.dog_id,

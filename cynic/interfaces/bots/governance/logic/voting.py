@@ -7,19 +7,23 @@ from enum import Enum
 
 class VotingType(str, Enum):
     """Types of voting mechanisms"""
+
     SIMPLE = "simple"  # 1 vote per user
     QUADRATIC = "quadratic"  # Cost increases quadratically
     WEIGHTED = "weighted"  # Weight based on reputation
     DELEGATED = "delegated"  # Votes can be delegated
 
+
 @dataclass
 class Vote:
     """Single vote record"""
+
     voter_id: str
     proposal_id: str
     choice: bool  # True = for, False = against
     weight: float = 1.0  # Vote weight (reputation-based)
     delegated_from: str = None  # If delegated, who it came from
+
 
 class VoteCounter:
     """Count and tally votes with different mechanisms"""
@@ -67,6 +71,7 @@ class VoteCounter:
 
         approval_rate = for_weight / total_weight
         return for_weight > total_weight / 2, approval_rate
+
 
 class DelegationManager:
     """Manage vote delegation"""

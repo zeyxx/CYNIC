@@ -6,20 +6,24 @@ from enum import Enum
 
 class ProposalType(str, Enum):
     """Types of proposals"""
+
     GOVERNANCE = "governance"  # Governance changes
     BUDGET = "budget"  # Treasury/budget
     FEATURE = "feature"  # New feature proposal
     EMERGENCY = "emergency"  # Emergency action
     STANDARD = "standard"  # Generic proposal
 
+
 @dataclass
 class ProposalTemplate:
     """Template for standardized proposals"""
+
     title_template: str
     description_template: str
     required_fields: list[str]
     voting_period_days: int = 3
     approval_threshold_percent: float = 50.0
+
 
 class ProposalTemplates:
     """Collection of proposal templates"""
@@ -29,7 +33,7 @@ class ProposalTemplates:
         description_template="Governance Change Proposal:\n\nChange Type: {change_type}\n\nRationale: {rationale}\n\nImpact: {impact}",
         required_fields=["change_type", "rationale", "impact"],
         voting_period_days=7,
-        approval_threshold_percent=66.0
+        approval_threshold_percent=66.0,
     )
 
     BUDGET_TEMPLATE = ProposalTemplate(
@@ -37,7 +41,7 @@ class ProposalTemplates:
         description_template="Budget Proposal:\n\nCategory: {budget_category}\n\nAmount: {amount}\n\nJustification: {justification}\n\nBenefits: {benefits}",
         required_fields=["budget_category", "amount", "justification", "benefits"],
         voting_period_days=5,
-        approval_threshold_percent=50.0
+        approval_threshold_percent=50.0,
     )
 
     FEATURE_TEMPLATE = ProposalTemplate(
@@ -45,15 +49,20 @@ class ProposalTemplates:
         description_template="Feature Proposal:\n\nFeature: {feature_name}\n\nDescription: {description}\n\nBenefits: {benefits}\n\nEstimated Cost: {estimated_cost}",
         required_fields=["feature_name", "description", "benefits", "estimated_cost"],
         voting_period_days=5,
-        approval_threshold_percent=50.0
+        approval_threshold_percent=50.0,
     )
 
     EMERGENCY_TEMPLATE = ProposalTemplate(
         title_template="[EMERGENCY] {emergency_type}",
         description_template="Emergency Action:\n\nType: {emergency_type}\n\nSituation: {situation}\n\nProposed Action: {proposed_action}\n\nJustification: {justification}",
-        required_fields=["emergency_type", "situation", "proposed_action", "justification"],
+        required_fields=[
+            "emergency_type",
+            "situation",
+            "proposed_action",
+            "justification",
+        ],
         voting_period_days=1,
-        approval_threshold_percent=75.0
+        approval_threshold_percent=75.0,
     )
 
     @classmethod
@@ -69,15 +78,17 @@ class ProposalTemplates:
                 description_template="{description}",
                 required_fields=["title", "description"],
                 voting_period_days=3,
-                approval_threshold_percent=50.0
-            )
+                approval_threshold_percent=50.0,
+            ),
         }
 
         return templates.get(proposal_type, templates[ProposalType.STANDARD])
 
+
 @dataclass
 class StructuredProposal:
     """Structured proposal with validated fields"""
+
     proposal_id: str
     proposal_type: ProposalType
     fields: dict[str, str]

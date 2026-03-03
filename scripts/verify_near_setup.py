@@ -6,7 +6,10 @@ import os
 import sys
 from datetime import datetime, timedelta
 
-from cynic.kernel.organism.perception.integrations.near import NEARExecutor, NEARNetworkConfig
+from cynic.kernel.organism.perception.integrations.near import (
+    NEARExecutor,
+    NEARNetworkConfig,
+)
 from cynic.kernel.organism.perception.integrations.near.types import NEARError
 
 
@@ -70,8 +73,7 @@ async def test_proposal_submission(config: NEARNetworkConfig) -> bool:
 
     try:
         # Create test proposal
-        expires_at = int(
-            (datetime.now() + timedelta(days=7)).timestamp())
+        expires_at = int((datetime.now() + timedelta(days=7)).timestamp())
 
         await executor.submit_proposal(
             proposal_id="verify_test_" + datetime.now().isoformat()[:10],
@@ -82,7 +84,6 @@ async def test_proposal_submission(config: NEARNetworkConfig) -> bool:
             signer_id=config.master_account,
             expires_at=expires_at,
         )
-
 
         return True
 
@@ -105,7 +106,6 @@ async def test_vote_recording(config: NEARNetworkConfig) -> bool:
             weight=1,
         )
 
-
         return True
 
     except NEARError:
@@ -125,7 +125,6 @@ async def test_proposal_execution(config: NEARNetworkConfig) -> bool:
             executor_id="executor.testnet",
         )
 
-
         return True
 
     except NEARError:
@@ -136,7 +135,6 @@ async def test_proposal_execution(config: NEARNetworkConfig) -> bool:
 
 async def show_next_steps():
     """Show next steps for testnet deployment."""
-
 
 
 async def main():

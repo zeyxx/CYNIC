@@ -17,7 +17,9 @@ from typing import Any
 
 from cynic.kernel.organism.brain.cognition.cortex.handlers.base import BaseHandler
 
-logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.handlers.registry")
+logger = logging.getLogger(
+    "cynic.kernel.organism.brain.cognition.cortex.handlers.registry"
+)
 
 
 class HandlerRegistry:

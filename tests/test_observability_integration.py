@@ -61,7 +61,9 @@ class TestPrometheusEventBusMetrics:
         # Verify counter was incremented 5 times by checking internal counter
         # Prometheus metrics are asynchronous, so we check the bus stats instead
         stats = bus.stats()
-        assert stats["emitted"] >= 5, f"Bus should have emitted 5+ events, got {stats['emitted']}"
+        assert (
+            stats["emitted"] >= 5
+        ), f"Bus should have emitted 5+ events, got {stats['emitted']}"
 
         # Emit 3 more events
         for i in range(3):
@@ -70,7 +72,9 @@ class TestPrometheusEventBusMetrics:
 
         # Stats should show cumulative count
         stats = bus.stats()
-        assert stats["emitted"] >= 8, f"Bus should have emitted 8+ events, got {stats['emitted']}"
+        assert (
+            stats["emitted"] >= 8
+        ), f"Bus should have emitted 8+ events, got {stats['emitted']}"
 
     @pytest.mark.asyncio
     async def test_handler_duration_histogram_records_latency(self):
@@ -241,7 +245,9 @@ class TestPrometheusEventBusMetrics:
 
         # Verify bus error count increased
         final_errors = bus._error_count
-        assert final_errors > initial_errors, "Bus should have tracked the handler error"
+        assert (
+            final_errors > initial_errors
+        ), "Bus should have tracked the handler error"
 
 
 class TestOrganismMetrics:
@@ -262,11 +268,15 @@ class TestOrganismMetrics:
         # Update consciousness
         organism_consciousness_level.set(50)
         # Prometheus gauge doesn't expose _value in the same way, so we just verify it doesn't error
-        assert organism_consciousness_level is not None, "Consciousness gauge should exist"
+        assert (
+            organism_consciousness_level is not None
+        ), "Consciousness gauge should exist"
 
         # Update again
         organism_consciousness_level.set(75)
-        assert organism_consciousness_level is not None, "Consciousness gauge should still exist"
+        assert (
+            organism_consciousness_level is not None
+        ), "Consciousness gauge should still exist"
 
     @pytest.mark.asyncio
     async def test_organism_judgments_total_counter_increments(self):
@@ -308,9 +318,11 @@ class TestStructuredLoggerIntegration:
         # Capture log output
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(logging.Formatter(
-            '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "message": "%(message)s"}'
-        ))
+        handler.setFormatter(
+            logging.Formatter(
+                '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "message": "%(message)s"}'
+            )
+        )
 
         logger = logging.getLogger("test_structured")
         logger.addHandler(handler)

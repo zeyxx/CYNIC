@@ -11,6 +11,7 @@ This tests the complete pipeline for memocoin governance:
 5. NEAR records proposal on-chain
 6. Learning loop updates Q-Table based on burn statistics
 """
+
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -434,9 +435,7 @@ class TestNEARIntegration:
 class TestCompleteGovernanceWorkflow:
     """Test the complete end-to-end governance workflow."""
 
-    async def test_proposal_to_execution_workflow(
-        self, gasdf_executor, near_executor
-    ):
+    async def test_proposal_to_execution_workflow(self, gasdf_executor, near_executor):
         """Test complete workflow: proposal â†’ verdict â†’ execution â†’ learning."""
 
         # Step 1: Simulate CYNIC verdict
@@ -503,15 +502,13 @@ class TestCompleteGovernanceWorkflow:
         # Reward should be proportional to burn
         assert reward["average_fee"] > 0
 
-    async def test_multiple_verdicts_learning_signal(
-        self, gasdf_executor
-    ):
+    async def test_multiple_verdicts_learning_signal(self, gasdf_executor):
         """Test that multiple executions generate learning signal."""
 
         verdicts = [
             ("HOWL", 0.85),  # Strong yes
-            ("WAG", 0.70),   # Yes
-            ("WAG", 0.65),   # Yes, lower confidence
+            ("WAG", 0.70),  # Yes
+            ("WAG", 0.65),  # Yes, lower confidence
             ("HOWL", 0.80),  # Strong yes
         ]
 
@@ -568,9 +565,7 @@ class TestCompleteGovernanceWorkflow:
 
         assert bark_result is None
 
-    async def test_treasury_health_improves_with_executions(
-        self, gasdf_executor
-    ):
+    async def test_treasury_health_improves_with_executions(self, gasdf_executor):
         """Test that treasury health improves as executions accumulate."""
 
         # Initial state
@@ -596,9 +591,7 @@ class TestCompleteGovernanceWorkflow:
         assert final_reward["total_transactions"] == 10
         assert final_reward["total_burned"] > initial_reward["total_burned"]
 
-    async def test_proposal_context_metadata(
-        self, gasdf_executor
-    ):
+    async def test_proposal_context_metadata(self, gasdf_executor):
         """Test that proposal context is tracked in execution."""
 
         context = {
@@ -629,9 +622,7 @@ class TestCompleteGovernanceWorkflow:
 class TestGovernanceStackIntegration:
     """Integration tests for the complete governance stack."""
 
-    async def test_discord_to_near_proposal_flow(
-        self, gasdf_executor, near_executor
-    ):
+    async def test_discord_to_near_proposal_flow(self, gasdf_executor, near_executor):
         """Simulate Discord proposal â†’ CYNIC â†’ GASdf â†’ NEAR flow."""
 
         # Simulate Discord bot receiving proposal
@@ -664,9 +655,7 @@ class TestGovernanceStackIntegration:
             cynic_verdict=cynic_verdict,
             q_score=cynic_q_score,
             signer_id="governance.near",
-            expires_at=int(
-                (datetime.now() + timedelta(days=7)).timestamp()
-            ),
+            expires_at=int((datetime.now() + timedelta(days=7)).timestamp()),
         )
 
         assert near_result.status == TxStatus.PENDING
@@ -688,9 +677,7 @@ class TestGovernanceStackIntegration:
         reward = await gasdf_executor.get_execution_reward()
         assert reward["total_transactions"] >= 1
 
-    async def test_verdict_confidence_affects_execution(
-        self, gasdf_executor
-    ):
+    async def test_verdict_confidence_affects_execution(self, gasdf_executor):
         """Test that verdict confidence (q_score) affects execution."""
 
         low_confidence = await gasdf_executor.execute_verdict(
@@ -741,8 +728,7 @@ class TestGovernanceStackIntegration:
         reward = await gasdf_executor.get_execution_reward()
         assert reward["total_transactions"] == executed_count
         assert reward["total_burned"] == (
-            executed_count
-            * int(int(1000000 * 0.005) * 0.764)  # Fee * burn ratio
+            executed_count * int(int(1000000 * 0.005) * 0.764)  # Fee * burn ratio
         )
 
 

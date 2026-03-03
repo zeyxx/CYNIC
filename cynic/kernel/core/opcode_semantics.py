@@ -18,9 +18,9 @@ from enum import Enum
 
 from cynic.kernel.core.consciousness import ConsciousnessLevel
 
-# 
+#
 # STORAGE TIER ENUM
-# 
+#
 
 
 class StorageTier(Enum):
@@ -32,9 +32,9 @@ class StorageTier(Enum):
     FROZEN = "frozen"  # Deleted but hash recorded, audit trail only
 
 
-# 
+#
 # OPCODE SPECIFICATION
-# 
+#
 
 
 @dataclass
@@ -76,9 +76,9 @@ class OpcodeSpec:
         return float(self.cost_usd)
 
 
-# 
+#
 # OPCODE 1: [PERCEIVE]
-# 
+#
 
 PERCEIVE_SPEC = OpcodeSpec(
     name="PERCEIVE",
@@ -109,9 +109,9 @@ PERCEIVE_SPEC = OpcodeSpec(
 )
 
 
-# 
+#
 # OPCODE 2: [JUDGE]
-# 
+#
 
 JUDGE_SPEC = OpcodeSpec(
     name="JUDGE",
@@ -151,9 +151,9 @@ JUDGE_SPEC = OpcodeSpec(
 )
 
 
-# 
+#
 # OPCODE 3: [DECIDE]
-# 
+#
 
 DECIDE_SPEC = OpcodeSpec(
     name="DECIDE",
@@ -186,9 +186,9 @@ DECIDE_SPEC = OpcodeSpec(
 )
 
 
-# 
+#
 # OPCODE 4: [ACT]
-# 
+#
 
 ACT_SPEC = OpcodeSpec(
     name="ACT",
@@ -221,9 +221,9 @@ ACT_SPEC = OpcodeSpec(
 )
 
 
-# 
+#
 # OPCODE 5: [LEARN]
-# 
+#
 
 LEARN_SPEC = OpcodeSpec(
     name="LEARN",
@@ -256,9 +256,9 @@ LEARN_SPEC = OpcodeSpec(
 )
 
 
-# 
+#
 # OPCODE 6: [ACCOUNT]
-# 
+#
 
 ACCOUNT_SPEC = OpcodeSpec(
     name="ACCOUNT",
@@ -292,9 +292,9 @@ ACCOUNT_SPEC = OpcodeSpec(
 )
 
 
-# 
+#
 # OPCODE 7: [EMERGE]
-# 
+#
 
 EMERGE_SPEC = OpcodeSpec(
     name="EMERGE",
@@ -328,9 +328,9 @@ EMERGE_SPEC = OpcodeSpec(
 )
 
 
-# 
+#
 # OPCODE REGISTRY (Immutable)
-# 
+#
 
 OPCODE_REGISTRY: dict[str, OpcodeSpec] = {
     "PERCEIVE": PERCEIVE_SPEC,
@@ -353,9 +353,9 @@ OPCODE_NAMES: list[str] = [
 ]
 
 
-# 
+#
 # HELPER FUNCTIONS
-# 
+#
 
 
 def get_opcode_spec(name: str) -> OpcodeSpec | None:
@@ -377,9 +377,13 @@ def verify_state_transition(from_opcode: str, to_opcode: str) -> bool:
 
 def opcodes_for_level(level: ConsciousnessLevel) -> list[str]:
     """Return list of opcodes available at given consciousness level."""
-    return [name for name, spec in OPCODE_REGISTRY.items() if spec.gate_for_level(level)]
+    return [
+        name for name, spec in OPCODE_REGISTRY.items() if spec.gate_for_level(level)
+    ]
 
 
 def all_opcodes_documented() -> bool:
     """Verify all 7 opcodes are documented."""
-    return len(OPCODE_REGISTRY) == 7 and set(OPCODE_REGISTRY.keys()) == set(OPCODE_NAMES)
+    return len(OPCODE_REGISTRY) == 7 and set(OPCODE_REGISTRY.keys()) == set(
+        OPCODE_NAMES
+    )

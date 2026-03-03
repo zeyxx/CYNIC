@@ -9,7 +9,9 @@ DEPRECATED: ConsciousState refactored to UnifiedConsciousState in V5.
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="ConsciousState refactored to UnifiedConsciousState in V5")
+pytestmark = pytest.mark.skip(
+    reason="ConsciousState refactored to UnifiedConsciousState in V5"
+)
 
 try:
     from cynic.kernel.core.phi import fibonacci
@@ -92,14 +94,14 @@ async def test_burn_ordered_pruning(conscious_state):
     q_scores_in_buffer = [j.q_score for j in judgments]
 
     # The lowest original Q-Score (10.0) should be pruned
-    assert 10.0 not in q_scores_in_buffer, (
-        "Lowest Q-Score (10.0) should have been pruned under BURN axiom"
-    )
+    assert (
+        10.0 not in q_scores_in_buffer
+    ), "Lowest Q-Score (10.0) should have been pruned under BURN axiom"
 
     # Higher Q-Scores should remain
-    assert 95.0 in q_scores_in_buffer or 90.0 in q_scores_in_buffer, (
-        "Higher Q-Scores should be preserved"
-    )
+    assert (
+        95.0 in q_scores_in_buffer or 90.0 in q_scores_in_buffer
+    ), "Higher Q-Scores should be preserved"
 
 
 @pytest.mark.asyncio
@@ -149,15 +151,16 @@ async def test_memory_footprint_reasonable(conscious_state):
 
     # Estimate memory usage
     import sys
+
     total_size = sum(
         sys.getsizeof(j) + sys.getsizeof(j.dog_votes)
         for j in conscious_state._recent_judgments
     )
 
     # Should be under 200KB (reasonable)
-    assert total_size < 200_000, (
-        f"Buffer memory footprint {total_size} bytes exceeds reasonable threshold"
-    )
+    assert (
+        total_size < 200_000
+    ), f"Buffer memory footprint {total_size} bytes exceeds reasonable threshold"
 
 
 if __name__ == "__main__":

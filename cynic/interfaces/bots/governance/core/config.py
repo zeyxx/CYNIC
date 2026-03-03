@@ -48,28 +48,17 @@ class CYNICSettings(BaseSettings):
     """CYNIC Integration Configuration"""
 
     url: AnyUrl = Field(
-        default="http://127.0.0.1:8765",
-        description="CYNIC organism URL"
+        default="http://127.0.0.1:8765", description="CYNIC organism URL"
     )
-    mcp_enabled: bool = Field(
-        default=True,
-        description="Enable CYNIC MCP integration"
-    )
+    mcp_enabled: bool = Field(default=True, description="Enable CYNIC MCP integration")
     mcp_url: AnyUrl = Field(
-        default="http://127.0.0.1:8766",
-        description="CYNIC MCP server URL"
+        default="http://127.0.0.1:8766", description="CYNIC MCP server URL"
     )
     timeout_seconds: int = Field(
-        default=30,
-        description="Timeout for CYNIC requests",
-        ge=1,
-        le=300
+        default=30, description="Timeout for CYNIC requests", ge=1, le=300
     )
     retry_count: int = Field(
-        default=3,
-        description="Number of retries for failed CYNIC calls",
-        ge=0,
-        le=10
+        default=3, description="Number of retries for failed CYNIC calls", ge=0, le=10
     )
 
     class Config:
@@ -81,33 +70,18 @@ class DatabaseSettings(BaseSettings):
 
     url: str = Field(
         default=f"sqlite+aiosqlite:///{Path(__file__).parent.parent}/data/governance_bot.db",
-        description="Database URL"
+        description="Database URL",
     )
-    pool_size: int = Field(
-        default=5,
-        description="Connection pool size",
-        ge=1,
-        le=100
-    )
+    pool_size: int = Field(default=5, description="Connection pool size", ge=1, le=100)
     max_overflow: int = Field(
-        default=10,
-        description="Max overflow connections",
-        ge=0,
-        le=100
+        default=10, description="Max overflow connections", ge=0, le=100
     )
     pool_recycle_seconds: int = Field(
-        default=3600,
-        description="Recycle connections after N seconds",
-        ge=60,
-        le=86400
+        default=3600, description="Recycle connections after N seconds", ge=60, le=86400
     )
-    backup_enabled: bool = Field(
-        default=True,
-        description="Enable automatic backups"
-    )
+    backup_enabled: bool = Field(default=True, description="Enable automatic backups")
     backup_dir: str = Field(
-        default="./backups",
-        description="Directory for database backups"
+        default="./backups", description="Directory for database backups"
     )
 
     class Config:
@@ -118,39 +92,22 @@ class CommunityDefaults(BaseSettings):
     """Default Community Governance Settings"""
 
     voting_period_hours: int = Field(
-        default=72,
-        description="Default voting period",
-        ge=1,
-        le=720
+        default=72, description="Default voting period", ge=1, le=720
     )
     execution_delay_hours: int = Field(
-        default=24,
-        description="Delay before executing proposals",
-        ge=0,
-        le=720
+        default=24, description="Delay before executing proposals", ge=0, le=720
     )
     quorum_percentage: int = Field(
-        default=25,
-        description="Minimum quorum percentage",
-        ge=1,
-        le=100
+        default=25, description="Minimum quorum percentage", ge=1, le=100
     )
     approval_threshold_percentage: int = Field(
-        default=50,
-        description="Approval threshold percentage",
-        ge=1,
-        le=100
+        default=50, description="Approval threshold percentage", ge=1, le=100
     )
     proposal_submission_fee: float = Field(
-        default=100,
-        description="Fee to submit proposal",
-        ge=0
+        default=100, description="Fee to submit proposal", ge=0
     )
     min_dogs_consensus: int = Field(
-        default=6,
-        description="Minimum Dogs for consensus",
-        ge=1,
-        le=11
+        default=6, description="Minimum Dogs for consensus", ge=1, le=11
     )
 
     class Config:
@@ -160,21 +117,15 @@ class CommunityDefaults(BaseSettings):
 class Features(BaseSettings):
     """Feature Flags"""
 
-    gasdf_enabled: bool = Field(
-        default=True,
-        description="Enable GASdf integration"
-    )
+    gasdf_enabled: bool = Field(default=True, description="Enable GASdf integration")
     near_execution_enabled: bool = Field(
-        default=False,
-        description="Enable NEAR transaction execution"
+        default=False, description="Enable NEAR transaction execution"
     )
     learning_loop_enabled: bool = Field(
-        default=True,
-        description="Enable CYNIC learning loop"
+        default=True, description="Enable CYNIC learning loop"
     )
     agent_members_enabled: bool = Field(
-        default=False,
-        description="Enable agent member participation"
+        default=False, description="Enable agent member participation"
     )
 
     class Config:
@@ -185,27 +136,14 @@ class LoggingSettings(BaseSettings):
     """Logging Configuration"""
 
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
-        default="INFO",
-        description="Logging level"
+        default="INFO", description="Logging level"
     )
-    file: str = Field(
-        default="governance_bot.log",
-        description="Log file path"
-    )
-    file_enabled: bool = Field(
-        default=True,
-        description="Enable file logging"
-    )
+    file: str = Field(default="governance_bot.log", description="Log file path")
+    file_enabled: bool = Field(default=True, description="Enable file logging")
     max_file_size_mb: int = Field(
-        default=10,
-        description="Max log file size in MB",
-        ge=1
+        default=10, description="Max log file size in MB", ge=1
     )
-    backup_count: int = Field(
-        default=5,
-        description="Number of backup log files",
-        ge=1
-    )
+    backup_count: int = Field(default=5, description="Number of backup log files", ge=1)
 
     class Config:
         env_prefix = "LOGGING_"
@@ -215,16 +153,13 @@ class BotSettings(BaseSettings):
     """Bot Runtime Configuration"""
 
     activity: str = Field(
-        default="governance decisions",
-        description="Bot activity status"
+        default="governance decisions", description="Bot activity status"
     )
     status: Literal["ACTIVE", "IDLE", "DND", "INVISIBLE"] = Field(
-        default="ACTIVE",
-        description="Bot status"
+        default="ACTIVE", description="Bot status"
     )
     environment: Literal["development", "staging", "production"] = Field(
-        default="development",
-        description="Deployment environment"
+        default="development", description="Deployment environment"
     )
 
     class Config:
@@ -235,24 +170,17 @@ class NearSettings(BaseSettings):
     """NEAR blockchain settings"""
 
     account_id: str = Field(
-        default="",
-        description="NEAR account ID (e.g., governance.testnet)"
+        default="", description="NEAR account ID (e.g., governance.testnet)"
     )
     network: str = Field(
-        default="testnet",
-        description="NEAR network (testnet or mainnet)"
+        default="testnet", description="NEAR network (testnet or mainnet)"
     )
     rpc_url: str = Field(
-        default="https://rpc.testnet.near.org",
-        description="NEAR RPC endpoint"
+        default="https://rpc.testnet.near.org", description="NEAR RPC endpoint"
     )
-    contract_id: str = Field(
-        default="",
-        description="Governance contract ID"
-    )
+    contract_id: str = Field(default="", description="Governance contract ID")
     private_key: str = Field(
-        default="",
-        description="ed25519 private key (base64 encoded)"
+        default="", description="ed25519 private key (base64 encoded)"
     )
 
     class Config:
@@ -263,24 +191,14 @@ class NearSettings(BaseSettings):
 class AuthSettings(BaseSettings):
     """Authentication and authorization settings"""
 
-    jwt_secret: str = Field(
-        default="",
-        description="JWT secret key for signing tokens"
-    )
+    jwt_secret: str = Field(default="", description="JWT secret key for signing tokens")
     jwt_algorithm: str = Field(
-        default="HS256",
-        description="JWT algorithm for token signing"
+        default="HS256", description="JWT algorithm for token signing"
     )
     jwt_expiry_hours: int = Field(
-        default=24,
-        description="JWT token expiry time in hours",
-        ge=1,
-        le=720
+        default=24, description="JWT token expiry time in hours", ge=1, le=720
     )
-    enable_auth: bool = Field(
-        default=False,
-        description="Enable JWT authentication"
-    )
+    enable_auth: bool = Field(default=False, description="Enable JWT authentication")
 
     class Config:
         env_prefix = "AUTH_"
@@ -346,17 +264,24 @@ class Config(BaseSettings):
             if not self.cynic.url:
                 issues.append("CYNIC_URL is not configured (required when MCP enabled)")
             if not self.cynic.interfaces.mcp_url:
-                issues.append("CYNIC_MCP_URL is not configured (required when MCP enabled)")
+                issues.append(
+                    "CYNIC_MCP_URL is not configured (required when MCP enabled)"
+                )
 
         # Check community defaults
-        if self.community.quorum_percentage > self.community.approval_threshold_percentage:
+        if (
+            self.community.quorum_percentage
+            > self.community.approval_threshold_percentage
+        ):
             issues.append(
                 f"Quorum ({self.community.quorum_percentage}%) > "
                 f"Approval Threshold ({self.community.approval_threshold_percentage}%)"
             )
 
         if issues:
-            error_msg = "Configuration validation failed:\n" + "\n".join(f"  - {issue}" for issue in issues)
+            error_msg = "Configuration validation failed:\n" + "\n".join(
+                f"  - {issue}" for issue in issues
+            )
             raise ValueError(error_msg)
 
         return {"status": "VALID", "issues": 0}
@@ -388,7 +313,11 @@ class Config(BaseSettings):
                 "agent_members": self.features.agent_members_enabled,
             },
             "database": {
-                "type": "sqlite" if "sqlite" in self.database.url else "postgresql" if "postgres" in self.database.url else "unknown",
+                "type": "sqlite"
+                if "sqlite" in self.database.url
+                else "postgresql"
+                if "postgres" in self.database.url
+                else "unknown",
                 "pool_size": self.database.pool_size,
             },
             "logging": {
@@ -403,7 +332,9 @@ class Config(BaseSettings):
 
     def is_testnet(self) -> bool:
         """Check if configured for testnet"""
-        return "testnet" in self.database.url.lower() or self.bot.environment == "staging"
+        return (
+            "testnet" in self.database.url.lower() or self.bot.environment == "staging"
+        )
 
     def log_configuration(self) -> None:
         """Log configuration summary (without secrets)"""
@@ -411,10 +342,18 @@ class Config(BaseSettings):
         logger.info(f"Environment: {self.bot.environment}")
         logger.info(f"Logging Level: {self.logging.level}")
         logger.info(f"Database: {self.database.url.split('/')[-1]}")
-        logger.info(f"CYNIC MCP: {'Enabled' if self.cynic.interfaces.mcp_enabled else 'Disabled'}")
-        logger.info(f"NEAR Execution: {'Enabled' if self.features.near_execution_enabled else 'Disabled'}")
-        logger.info(f"Learning Loop: {'Enabled' if self.features.learning_loop_enabled else 'Disabled'}")
-        logger.info(f"Agent Members: {'Enabled' if self.features.agent_members_enabled else 'Disabled'}")
+        logger.info(
+            f"CYNIC MCP: {'Enabled' if self.cynic.interfaces.mcp_enabled else 'Disabled'}"
+        )
+        logger.info(
+            f"NEAR Execution: {'Enabled' if self.features.near_execution_enabled else 'Disabled'}"
+        )
+        logger.info(
+            f"Learning Loop: {'Enabled' if self.features.learning_loop_enabled else 'Disabled'}"
+        )
+        logger.info(
+            f"Agent Members: {'Enabled' if self.features.agent_members_enabled else 'Disabled'}"
+        )
         logger.info("=" * 30)
 
 

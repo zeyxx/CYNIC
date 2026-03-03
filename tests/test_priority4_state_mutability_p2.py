@@ -267,16 +267,28 @@ class TestBufferChaining:
         buffer = JudgmentBuffer()
 
         j1 = UnifiedJudgment(
-            judgment_id="j1", verdict="HOWL", q_score=85.0, confidence=0.618,
-            axiom_scores={}, dog_votes={}
+            judgment_id="j1",
+            verdict="HOWL",
+            q_score=85.0,
+            confidence=0.618,
+            axiom_scores={},
+            dog_votes={},
         )
         j2 = UnifiedJudgment(
-            judgment_id="j2", verdict="WAG", q_score=75.0, confidence=0.5,
-            axiom_scores={}, dog_votes={}
+            judgment_id="j2",
+            verdict="WAG",
+            q_score=75.0,
+            confidence=0.5,
+            axiom_scores={},
+            dog_votes={},
         )
         j3 = UnifiedJudgment(
-            judgment_id="j3", verdict="GROWL", q_score=65.0, confidence=0.4,
-            axiom_scores={}, dog_votes={}
+            judgment_id="j3",
+            verdict="GROWL",
+            q_score=65.0,
+            confidence=0.4,
+            axiom_scores={},
+            dog_votes={},
         )
 
         # Chain adds

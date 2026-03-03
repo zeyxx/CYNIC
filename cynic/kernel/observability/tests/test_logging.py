@@ -48,7 +48,9 @@ def test_json_includes_timestamp():
 def test_extra_fields_included():
     """Extra fields should be included in JSON"""
     logger = StructuredLogger("test")
-    json_str = logger._format_json("INFO", "test", {"user_id": "123", "action": "query"})
+    json_str = logger._format_json(
+        "INFO", "test", {"user_id": "123", "action": "query"}
+    )
     parsed = json.loads(json_str)
 
     assert parsed["user_id"] == "123"

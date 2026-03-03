@@ -1,4 +1,5 @@
 """Dashboard orchestrator " wires 7 layers + WebSocket client."""
+
 from __future__ import annotations
 
 import logging

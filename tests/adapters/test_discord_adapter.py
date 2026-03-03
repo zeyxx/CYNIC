@@ -151,7 +151,10 @@ class TestDiscordAdapterHandleCommand:
         response = await adapter.handle_command(cmd)
 
         assert response.success is False
-        assert "unknown" in response.message.lower() or "not found" in response.message.lower()
+        assert (
+            "unknown" in response.message.lower()
+            or "not found" in response.message.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_handle_command_invalid_raises_or_returns_failure(self):

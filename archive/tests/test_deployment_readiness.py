@@ -30,7 +30,9 @@ class TestDockerConfiguration:
 
         # Count FROM statements
         from_count = content.count("FROM ")
-        assert from_count >= 2, "Dockerfile should use multi-stage build (at least 2 FROM statements)"
+        assert (
+            from_count >= 2
+        ), "Dockerfile should use multi-stage build (at least 2 FROM statements)"
 
     def test_dockerfile_has_health_check(self):
         """Dockerfile includes HEALTHCHECK"""
@@ -81,7 +83,9 @@ class TestDockerCompose:
             config = yaml.safe_load(f)
 
         assert "services" in config, "No services defined in docker-compose"
-        assert "governance-bot" in config["services"], "governance-bot service not defined"
+        assert (
+            "governance-bot" in config["services"]
+        ), "governance-bot service not defined"
 
     def test_docker_compose_defines_volumes(self):
         """docker-compose.governance.yml defines persistent volumes"""

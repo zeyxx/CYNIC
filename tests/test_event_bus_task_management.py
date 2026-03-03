@@ -48,6 +48,7 @@ async def test_pending_tasks_tracked(event_bus):
 @pytest.mark.asyncio
 async def test_completed_tasks_cleaned_up(event_bus):
     """Completed tasks should be removed from tracking."""
+
     async def quick_handler(event):
         await asyncio.sleep(0.001)
 
@@ -93,6 +94,7 @@ async def test_handler_timeout_protection(event_bus):
 @pytest.mark.asyncio
 async def test_multiple_handlers_dont_accumulate(event_bus):
     """Multiple handlers firing should not cause unbounded task accumulation."""
+
     async def handler_1(event):
         await asyncio.sleep(0.01)
 
@@ -117,8 +119,7 @@ async def test_multiple_handlers_dont_accumulate(event_bus):
     # Stats should show bounded tasks (not 150)
     stats = event_bus.stats()
     assert stats["pending_tasks"] <= 10, (
-        f"Too many pending tasks: {stats['pending_tasks']} "
-        "(should be cleaned up)"
+        f"Too many pending tasks: {stats['pending_tasks']} " "(should be cleaned up)"
     )
 
 

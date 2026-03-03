@@ -91,7 +91,9 @@ class TrustModel:
         # 3. Update human confidence via EMA
         # Acceptance increases confidence, rejection decreases it
         feedback_signal = 1.0 if accepted else -0.5
-        user_conf_boosted = min(max(user_confidence * feedback_signal, 0.0), MAX_CONFIDENCE)
+        user_conf_boosted = min(
+            max(user_confidence * feedback_signal, 0.0), MAX_CONFIDENCE
+        )
 
         new_conf = (
             1 - self.alpha_ema
@@ -135,7 +137,8 @@ class TrustModel:
     def _check_symbiosis_ready(self):
         """Can SYMBIOSIS axiom activate?"""
         self.metrics.symbiosis_ready = (
-            self.metrics.human_confidence >= PHI_INV_2 and self.metrics.machine_utility >= PHI_INV_2
+            self.metrics.human_confidence >= PHI_INV_2
+            and self.metrics.machine_utility >= PHI_INV_2
         )
 
     async def blend_confidence(

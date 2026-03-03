@@ -9,6 +9,7 @@ using temporal windows. It provides:
 4. Subscription pattern for Layer 3 Judge callbacks
 5. Auto-expiration of old observations within windows
 """
+
 from __future__ import annotations
 
 import time
@@ -49,7 +50,8 @@ class TemporalWindow:
         now = time.time()
         # Filter observations to keep only those within window
         self.observations = [
-            obs for obs in self.observations
+            obs
+            for obs in self.observations
             if now - obs.header.timestamp <= self.window_size_sec
         ]
         # Add new observation

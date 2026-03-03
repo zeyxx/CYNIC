@@ -44,7 +44,9 @@ def test_extract_axiom_explanations():
     explanations = engine.extract_axiom_explanations(axiom_scores)
     assert len(explanations) == 3
     assert "FIDELITY" in explanations
-    assert any("harmony" in e.lower() or "elegance" in e.lower() for e in explanations.values())
+    assert any(
+        "harmony" in e.lower() or "elegance" in e.lower() for e in explanations.values()
+    )
 
 
 def test_create_context_for_claude(mock_conscious_state):

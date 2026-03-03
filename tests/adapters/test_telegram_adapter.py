@@ -153,7 +153,10 @@ class TestTelegramAdapterHandleCommand:
         response = await adapter.handle_command(cmd)
 
         assert response.success is False
-        assert "unknown" in response.message.lower() or "not found" in response.message.lower()
+        assert (
+            "unknown" in response.message.lower()
+            or "not found" in response.message.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_handle_command_validates_platform(self):
@@ -587,7 +590,9 @@ class TestTelegramAdapterMessagePagination:
         adapter = TelegramAdapter(client=mock_client, conscious_state=mock_state)
 
         # Create a message longer than Telegram's limit
-        long_text = "\n".join([f"Line {i}: content content content" for i in range(200)])
+        long_text = "\n".join(
+            [f"Line {i}: content content content" for i in range(200)]
+        )
 
         pages = adapter._paginate_message(long_text, max_length=100)
 
@@ -691,9 +696,9 @@ class TestTelegramAdapterConcurrentMessages:
         ]
 
         # Execute concurrently
-        responses = await asyncio.gather(*[
-            adapter.handle_command(cmd) for cmd in commands
-        ])
+        responses = await asyncio.gather(
+            *[adapter.handle_command(cmd) for cmd in commands]
+        )
 
         # All should return responses
         assert len(responses) == 5
@@ -753,7 +758,11 @@ class TestTelegramAdapterPaginationEdgeCases:
             # (text, max_length, description)
             ("x" * 500, 100, "Single 500-char line with limit 100"),
             ("a" * 1000 + "\n" + "b" * 2000, 150, "Two lines, both exceeding limit"),
-            ("Short\n" + "y" * 3000 + "\nShort", 200, "Long line sandwiched between short lines"),
+            (
+                "Short\n" + "y" * 3000 + "\nShort",
+                200,
+                "Long line sandwiched between short lines",
+            ),
         ]
 
         for text, max_length, description in test_cases:
@@ -768,9 +777,9 @@ class TestTelegramAdapterPaginationEdgeCases:
 
             # Content must be preserved
             reconstructed = "".join(pages)
-            assert reconstructed == text, (
-                f"Test case '{description}': Content was lost or modified"
-            )
+            assert (
+                reconstructed == text
+            ), f"Test case '{description}': Content was lost or modified"
 
     def test_paginate_message_handles_unicode_long_lines(self):
         """_paginate_message handles unicode characters in long lines."""

@@ -12,6 +12,7 @@ Provides:
 This adapter is used by claude_code_bridge.py to implement all tool calls.
 It's optimized for Claude Code's token-constrained environment.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -76,10 +77,13 @@ class ClaudeCodeAdapter:
         """Context manager entry."""
         # On Windows, use ThreadedResolver to avoid aiodns SelectorEventLoop requirement
         import platform
+
         if platform.system() == "Windows":
             resolver = aiohttp.ThreadedResolver()
             connector = aiohttp.TCPConnector(resolver=resolver, ssl=False)
-            self.session = aiohttp.ClientSession(timeout=self.timeout, connector=connector)
+            self.session = aiohttp.ClientSession(
+                timeout=self.timeout, connector=connector
+            )
         else:
             self.session = aiohttp.ClientSession(timeout=self.timeout)
         return self
@@ -89,9 +93,9 @@ class ClaudeCodeAdapter:
         if self.session:
             await self.session.close()
 
-    # 
+    #
     # TIMEOUT HANDLING
-    # 
+    #
 
     def _get_timeout_for_tool(self, tool_name: str) -> float | None:
         """
@@ -108,9 +112,7 @@ class ClaudeCodeAdapter:
         logger.debug(f"Tool '{tool_name}' ' {category.name} ({timeout}s)")
         return timeout
 
-    async def _call_with_timeout(
-        self, tool_name: str, coro: Any
-    ) -> Any:
+    async def _call_with_timeout(self, tool_name: str, coro: Any) -> Any:
         """
         Execute a coroutine with context-aware timeout.
 
@@ -136,9 +138,9 @@ class ClaudeCodeAdapter:
             logger.error(f"Tool '{tool_name}' timed out after {timeout}s")
             raise
 
-    # 
+    #
     # AUTO-DISCOVERY
-    # 
+    #
 
     async def is_cynic_ready(self, force_refresh: bool = False) -> bool:
         """
@@ -155,7 +157,11 @@ class ClaudeCodeAdapter:
             True if CYNIC is healthy and ready
         """
         try:
-            if not force_refresh and self._state_cache and not self._state_cache.is_stale():
+            if (
+                not force_refresh
+                and self._state_cache
+                and not self._state_cache.is_stale()
+            ):
                 return self._state_cache.healthy
 
             # Fresh health check with FAST timeout
@@ -166,15 +172,21 @@ class ClaudeCodeAdapter:
 
                     data = await resp.json()
                     health = data.get("health", {})
-                    kernel_status = health.get("cynic-kernel", {}).get("status", "unknown")
+                    kernel_status = health.get("cynic-kernel", {}).get(
+                        "status", "unknown"
+                    )
                     is_healthy = kernel_status == "healthy"
 
                     if is_healthy:
                         # Cache state
                         self._state_cache = CynicState(
                             healthy=True,
-                            consciousness_level=data.get("consciousness", {}).get("level", 0),
-                            dogs_active=data.get("consciousness", {}).get("dogs_active", 0),
+                            consciousness_level=data.get("consciousness", {}).get(
+                                "level", 0
+                            ),
+                            dogs_active=data.get("consciousness", {}).get(
+                                "dogs_active", 0
+                            ),
                             uptime_s=data.get("uptime_s", 0),
                             q_table_entries=data.get("q_table_entries", 0),
                             total_judgments=data.get("total_judgments", 0),
@@ -203,9 +215,9 @@ class ClaudeCodeAdapter:
         is_ready = await self.is_cynic_ready(force_refresh=True)
         return self._state_cache if is_ready else None
 
-    # 
+    #
     # CONSCIOUSNESS OPERATIONS
-    # 
+    #
 
     async def ask_cynic(
         self, question: str, context: str | None = None, reality: str = "CODE"
@@ -224,6 +236,7 @@ class ClaudeCodeAdapter:
             {q_score, verdict, confidence, judgment_id, ...}
         """
         try:
+
             async def do_ask():
                 async with self.session.post(
                     f"{self.cynic_url}/judge",
@@ -263,11 +276,16 @@ class ClaudeCodeAdapter:
             {status, qtable_updated, new_q_score, ...}
         """
         try:
+
             async def do_teach():
                 async with self.session.post(
                     f"{self.cynic_url}/learn",
                     json={
-                        "signal": {"judgment_id": judgment_id, "rating": rating, "comment": comment},
+                        "signal": {
+                            "judgment_id": judgment_id,
+                            "rating": rating,
+                            "comment": comment,
+                        },
                         "update_qtable": True,
                     },
                 ) as resp:
@@ -281,9 +299,9 @@ class ClaudeCodeAdapter:
         except (TimeoutError, aiohttp.ClientError) as e:
             return {"error": str(e)}
 
-    # 
+    #
     # EMPIRICAL TESTING OPERATIONS
-    # 
+    #
 
     async def start_empirical_test(
         self, count: int = 1000, seed: int | None = None
@@ -301,9 +319,11 @@ class ClaudeCodeAdapter:
             {job_id, status, message, count}
         """
         try:
+
             async def do_start():
                 async with self.session.post(
-                    f"{self.cynic_url}/empirical/test/start", json={"count": count, "seed": seed}
+                    f"{self.cynic_url}/empirical/test/start",
+                    json={"count": count, "seed": seed},
                 ) as resp:
                     if resp.status != 200:
                         return {"error": f"HTTP {resp.status}"}
@@ -341,8 +361,11 @@ class ClaudeCodeAdapter:
 
         while time.time() - start_time < max_wait_s:
             try:
+
                 async def do_poll():
-                    async with self.session.get(f"{self.cynic_url}/empirical/test/{job_id}") as resp:
+                    async with self.session.get(
+                        f"{self.cynic_url}/empirical/test/{job_id}"
+                    ) as resp:
                         if resp.status != 200:
                             return {"error": f"HTTP {resp.status}"}
 
@@ -364,7 +387,9 @@ class ClaudeCodeAdapter:
 
                         return {"status": status_str, "progress_percent": progress}
 
-                result = await self._call_with_timeout("cynic_run_empirical_test", do_poll())
+                result = await self._call_with_timeout(
+                    "cynic_run_empirical_test", do_poll()
+                )
 
                 if "error" in result or result.get("status") == "complete":
                     return result
@@ -390,6 +415,7 @@ class ClaudeCodeAdapter:
             {q_scores, avg_q, learning_efficiency, emergences, duration_s}
         """
         try:
+
             async def do_get_results():
                 async with self.session.get(
                     f"{self.cynic_url}/empirical/test/{job_id}/results"
@@ -399,7 +425,9 @@ class ClaudeCodeAdapter:
 
                     return await resp.json()
 
-            return await self._call_with_timeout("cynic_query_telemetry", do_get_results())
+            return await self._call_with_timeout(
+                "cynic_query_telemetry", do_get_results()
+            )
 
         except (TimeoutError, aiohttp.ClientError) as e:
             return {"error": str(e)}
@@ -419,6 +447,7 @@ class ClaudeCodeAdapter:
             {axiom_impacts: [{name, baseline_q, disabled_q, impact_percent, irreducible}]}
         """
         try:
+
             async def do_test():
                 async with self.session.post(
                     f"{self.cynic_url}/empirical/axioms/test", json={"axiom": axiom}
@@ -428,14 +457,16 @@ class ClaudeCodeAdapter:
 
                     return await resp.json()
 
-            return await self._call_with_timeout("cynic_test_axiom_irreducibility", do_test())
+            return await self._call_with_timeout(
+                "cynic_test_axiom_irreducibility", do_test()
+            )
 
         except (TimeoutError, aiohttp.ClientError) as e:
             return {"error": str(e)}
 
-    # 
+    #
     # TELEMETRY
-    # 
+    #
 
     async def query_telemetry(self, metric: str = "uptime_s") -> dict[str, Any]:
         """
@@ -450,6 +481,7 @@ class ClaudeCodeAdapter:
             {metric, value, ...}
         """
         try:
+
             async def do_query():
                 async with self.session.get(
                     f"{self.cynic_url}/empirical/telemetry", params={"metric": metric}
@@ -464,9 +496,9 @@ class ClaudeCodeAdapter:
         except (TimeoutError, aiohttp.ClientError) as e:
             return {"error": str(e)}
 
-    # 
+    #
     # CONVENIENCE METHODS
-    # 
+    #
 
     async def run_test_and_wait(
         self,
@@ -495,9 +527,7 @@ class ClaudeCodeAdapter:
         job_id = start_result.get("job_id")
 
         # Poll until complete
-        final_status = await self.poll_test_progress(
-            job_id, callback=progress_callback
-        )
+        final_status = await self.poll_test_progress(job_id, callback=progress_callback)
         if "error" in final_status or final_status.get("status") != "complete":
             return final_status
 
@@ -565,8 +595,13 @@ class ClaudeCodeAdapter:
                                 if on_update:
                                     on_update(data)
                             except json.JSONDecodeError:
-                                logger.warning("Failed to decode WebSocket message: %s", msg.data)
-                        elif msg.type in (aiohttp.WSMsgType.ERROR, aiohttp.WSMsgType.CLOSED):
+                                logger.warning(
+                                    "Failed to decode WebSocket message: %s", msg.data
+                                )
+                        elif msg.type in (
+                            aiohttp.WSMsgType.ERROR,
+                            aiohttp.WSMsgType.CLOSED,
+                        ):
                             break
 
                 actual_duration = time.time() - (deadline - duration_s)
@@ -579,7 +614,9 @@ class ClaudeCodeAdapter:
             return {"error": str(e)}
 
     @staticmethod
-    def _summarize_telemetry_events(events: list[dict], duration_s: float) -> dict[str, Any]:
+    def _summarize_telemetry_events(
+        events: list[dict], duration_s: float
+    ) -> dict[str, Any]:
         """
         Aggregate telemetry events into a summary.
 

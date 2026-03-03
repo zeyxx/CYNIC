@@ -24,7 +24,9 @@ class FederationMessage:
     version: str = FEDERATION_VERSION
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "q_table_snapshot", MappingProxyType(self.q_table_snapshot))
+        object.__setattr__(
+            self, "q_table_snapshot", MappingProxyType(self.q_table_snapshot)
+        )
         object.__setattr__(self, "unnameable_patterns", tuple(self.unnameable_patterns))
 
     def to_dict(self) -> dict:
@@ -49,4 +51,6 @@ class FederationMessage:
                 version=data.get("version", FEDERATION_VERSION),
             )
         except KeyError as exc:
-            raise ValueError(f"FederationMessage.from_dict missing required field: {exc}") from exc
+            raise ValueError(
+                f"FederationMessage.from_dict missing required field: {exc}"
+            ) from exc

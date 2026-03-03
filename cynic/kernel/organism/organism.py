@@ -12,7 +12,12 @@ from prometheus_client import Counter, Gauge
 
 from cynic.kernel.core.container import DependencyContainer
 from cynic.kernel.core.event_bus import CoreEvent, Event, current_instance_id
-from cynic.kernel.organism.anatomy import ArchiveCore, CognitionCore, MetabolicCore, SensoryCore
+from cynic.kernel.organism.anatomy import (
+    ArchiveCore,
+    CognitionCore,
+    MetabolicCore,
+    SensoryCore,
+)
 from cynic.kernel.organism.state_manager import OrganismState
 
 logger = logging.getLogger("cynic.kernel.organism")
@@ -20,13 +25,14 @@ logger = logging.getLogger("cynic.kernel.organism")
 # Prometheus metrics for organism observability
 organism_consciousness_level = Gauge(
     "cynic_organism_consciousness_level",
-    "Current consciousness level of the organism (0-100)"
+    "Current consciousness level of the organism (0-100)",
 )
 
 organism_judgments_total = Counter(
     "cynic_organism_judgments_total",
-    "Total number of judgments created by the organism"
+    "Total number of judgments created by the organism",
 )
+
 
 @dataclass
 class Organism:
@@ -44,7 +50,7 @@ class Organism:
     agent_bus: Any = None
     task_registry: Any = None
     _pool: Any = None
-    _start_time: float = 0.0 # Initialized in start() or factory
+    _start_time: float = 0.0  # Initialized in start() or factory
 
     @property
     def identity(self) -> Any:
@@ -90,7 +96,7 @@ class Organism:
         """Awaken all cores and loops."""
         # Force context identity for all underlying calls
         token = current_instance_id.set(self.instance_id)
-        
+
         try:
             # 1. Start State Respiration
             await self.state.start_processing()
@@ -102,10 +108,10 @@ class Organism:
             # 3. Start Senses (Selective)
             if hasattr(self.senses, "somatic_gateway") and self.senses.somatic_gateway:
                 await self.senses.somatic_gateway.start()
-                
+
             if hasattr(self.senses, "internal_sensor") and self.senses.internal_sensor:
                 self.senses.internal_sensor.start()
-            
+
             # Note: market_sensor is NOT started by default to avoid noise
             # It must be started explicitly by the orchestrator if needed
 
@@ -124,9 +130,13 @@ class Organism:
             # 7. Start EventForwarder (PHASE 2: SIEM Foundation)
             if hasattr(self, "event_forwarder") and self.event_forwarder:
                 await self.event_forwarder.start()
-                logger.info(f"Organism [{self.instance_id}]: EventForwarder started (SIEM logging active)")
+                logger.info(
+                    f"Organism [{self.instance_id}]: EventForwarder started (SIEM logging active)"
+                )
 
-            logger.info(f"Organism [{self.instance_id}]: All systems NOMINAL. Respiration active.")
+            logger.info(
+                f"Organism [{self.instance_id}]: All systems NOMINAL. Respiration active."
+            )
 
             # Wire observability metrics handlers
             bus = self.cognition.orchestrator.bus
@@ -134,11 +144,13 @@ class Organism:
             bus.on(CoreEvent.JUDGMENT_CREATED, self._on_judgment_created)
 
             # Initial Spark
-            await self.cognition.orchestrator.bus.emit(Event.typed(
-                CoreEvent.AWAKENED,
-                {"instance_id": self.instance_id},
-                source="organism"
-            ))
+            await self.cognition.orchestrator.bus.emit(
+                Event.typed(
+                    CoreEvent.AWAKENED,
+                    {"instance_id": self.instance_id},
+                    source="organism",
+                )
+            )
 
         except Exception as e:
             logger.critical(f"Organism: FAILED TO START: {e}", exc_info=True)
@@ -156,21 +168,27 @@ class Organism:
         # 1. COGNITION SHUTDOWN
         try:
             # Stop orchestrator first (stops judgment flow)
-            if hasattr(self.cognition, "orchestrator") and hasattr(self.cognition.orchestrator, "stop"):
+            if hasattr(self.cognition, "orchestrator") and hasattr(
+                self.cognition.orchestrator, "stop"
+            ):
                 await self.cognition.orchestrator.stop()
         except Exception as e:
             logger.debug(f"Error stopping orchestrator: {e}")
 
         try:
             # Stop residual detector
-            if hasattr(self.cognition, "residual_detector") and hasattr(self.cognition.residual_detector, "stop"):
+            if hasattr(self.cognition, "residual_detector") and hasattr(
+                self.cognition.residual_detector, "stop"
+            ):
                 self.cognition.residual_detector.stop()
         except Exception as e:
             logger.debug(f"Error stopping residual_detector: {e}")
 
         try:
             # Stop learning loop
-            if hasattr(self.cognition, "learning_loop") and hasattr(self.cognition.learning_loop, "stop"):
+            if hasattr(self.cognition, "learning_loop") and hasattr(
+                self.cognition.learning_loop, "stop"
+            ):
                 self.cognition.learning_loop.stop()
         except Exception as e:
             logger.debug(f"Error stopping learning_loop: {e}")
@@ -178,7 +196,9 @@ class Organism:
         # 2. MEMORY/ARCHIVE SHUTDOWN
         try:
             # Stop self-prober
-            if hasattr(self.memory, "self_prober") and hasattr(self.memory.self_prober, "stop"):
+            if hasattr(self.memory, "self_prober") and hasattr(
+                self.memory.self_prober, "stop"
+            ):
                 self.memory.self_prober.stop()
         except Exception as e:
             logger.debug(f"Error stopping self_prober: {e}")
@@ -192,14 +212,18 @@ class Organism:
 
         try:
             # Stop executor
-            if hasattr(self.memory, "executor") and hasattr(self.memory.executor, "stop"):
+            if hasattr(self.memory, "executor") and hasattr(
+                self.memory.executor, "stop"
+            ):
                 self.memory.executor.stop()
         except Exception as e:
             logger.debug(f"Error stopping executor: {e}")
 
         try:
             # Stop gossip manager
-            if hasattr(self.memory, "gossip_manager") and hasattr(self.memory.gossip_manager, "stop"):
+            if hasattr(self.memory, "gossip_manager") and hasattr(
+                self.memory.gossip_manager, "stop"
+            ):
                 self.memory.gossip_manager.stop()
         except Exception as e:
             logger.debug(f"Error stopping gossip_manager: {e}")
@@ -207,7 +231,9 @@ class Organism:
         # 3. SENSORY SHUTDOWN
         try:
             # Stop world model
-            if hasattr(self.senses, "world_model") and hasattr(self.senses.world_model, "stop"):
+            if hasattr(self.senses, "world_model") and hasattr(
+                self.senses.world_model, "stop"
+            ):
                 self.senses.world_model.stop()
         except Exception as e:
             logger.debug(f"Error stopping world_model: {e}")
@@ -230,7 +256,9 @@ class Organism:
 
         try:
             # Stop source watcher
-            if hasattr(self.senses, "source_watcher") and hasattr(self.senses.source_watcher, "stop"):
+            if hasattr(self.senses, "source_watcher") and hasattr(
+                self.senses.source_watcher, "stop"
+            ):
                 self.senses.source_watcher.stop()
         except Exception as e:
             logger.debug(f"Error stopping source_watcher: {e}")
@@ -246,16 +274,20 @@ class Organism:
         # 4. METABOLISM/BODY SHUTDOWN
         try:
             # Stop scheduler
-            if hasattr(self.metabolism, "scheduler") and hasattr(self.metabolism.scheduler, "stop"):
+            if hasattr(self.metabolism, "scheduler") and hasattr(
+                self.metabolism.scheduler, "stop"
+            ):
                 result = self.metabolism.scheduler.stop()
-                if result and hasattr(result, '__await__'):
+                if result and hasattr(result, "__await__"):
                     await result
         except Exception as e:
             logger.debug(f"Error stopping scheduler: {e}")
 
         try:
             # Stop motor
-            if hasattr(self.metabolism, "motor") and hasattr(self.metabolism.motor, "stop"):
+            if hasattr(self.metabolism, "motor") and hasattr(
+                self.metabolism.motor, "stop"
+            ):
                 self.metabolism.motor.stop()
         except Exception as e:
             logger.debug(f"Error stopping motor: {e}")
@@ -295,10 +327,13 @@ class Organism:
         except Exception as e:
             logger.debug(f"Error updating judgment counter: {e}")
 
+
 async def awaken(db_pool=None, registry=None) -> Organism:
     """Delegates to the factory for awakening."""
     from .factory import _OrganismAwakener
+
     return await _OrganismAwakener(db_pool, registry).build()
+
 
 async def create_organism(db_pool=None, registry=None) -> Organism:
     """Alias for awaken (Backward compatibility)."""

@@ -7,6 +7,7 @@ even if the kernel crashes during auto-surgery.
 
 Lentille: Data Engineer / Backend
 """
+
 import logging
 import time
 
@@ -15,10 +16,12 @@ from cynic.kernel.core.storage.surreal import SurrealStorage
 
 logger = logging.getLogger("cynic.nervous.flight_recorder")
 
+
 class FlightRecorder:
     """
     Subscribes to experimental events and persists them asynchronously.
     """
+
     def __init__(self, storage: SurrealStorage, bus: EventBus):
         self.storage = storage
         self.bus = bus
@@ -35,21 +38,21 @@ class FlightRecorder:
         """Record MCTS hypothesis generation and evaluation."""
         if not hasattr(self.storage, "learning"):
             return
-            
+
         payload = event.dict_payload
         # Only process if it's tagged as an experiment
         if payload.get("source") != "mcts_scientist":
             return
-            
+
         record = {
             "timestamp": time.time(),
             "event_type": "experiment",
             "node_id": payload.get("node_id"),
             "hypothesis": payload.get("hypothesis"),
             "q_score": payload.get("q_score", 0.0),
-            "status": payload.get("status", "UNKNOWN")
+            "status": payload.get("status", "UNKNOWN"),
         }
-        
+
         try:
             # We reuse the learning repo as it's the closest fit for experimentation
             await self.storage.learning.save(record)
@@ -61,15 +64,15 @@ class FlightRecorder:
         payload = event.dict_payload
         if payload.get("executor") != "auto_surgeon":
             return
-            
+
         record = {
             "timestamp": time.time(),
             "event_type": "surgery_attempt",
             "experiment_id": payload.get("experiment_id"),
             "success": payload.get("success", False),
-            "diff_summary": payload.get("diff_summary", "")
+            "diff_summary": payload.get("diff_summary", ""),
         }
-        
+
         try:
             await self.storage.learning.save(record)
         except Exception as e:
@@ -80,14 +83,14 @@ class FlightRecorder:
         payload = event.dict_payload
         if payload.get("context") != "sandbox":
             return
-            
+
         record = {
             "timestamp": time.time(),
             "event_type": "sandbox_crash",
             "experiment_id": payload.get("experiment_id"),
-            "error_trace": payload.get("error_trace", "")
+            "error_trace": payload.get("error_trace", ""),
         }
-        
+
         try:
             await self.storage.learning.save(record)
         except Exception as e:

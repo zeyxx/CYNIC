@@ -68,7 +68,9 @@ class EcosystemObserver:
         Returns:
             Dict mapping source name ' count of perception events
         """
-        perception_events = await self.journal.filter_by_category(EventCategory.PERCEPTION)
+        perception_events = await self.journal.filter_by_category(
+            EventCategory.PERCEPTION
+        )
         sources: dict[str, int] = {}
 
         for event in perception_events:
@@ -115,13 +117,15 @@ class EcosystemObserver:
         recent_traces = await self.decision_trace.recent_traces(limit=5)
         recent_judgments = []
         for trace in recent_traces:
-            recent_judgments.append({
-                "judgment_id": trace.judgment_id,
-                "created_at_ms": trace.created_at_ms,
-                "final_verdict": trace.final_verdict,
-                "final_q_score": trace.final_q_score,
-                "final_confidence": trace.final_confidence,
-            })
+            recent_judgments.append(
+                {
+                    "judgment_id": trace.judgment_id,
+                    "created_at_ms": trace.created_at_ms,
+                    "final_verdict": trace.final_verdict,
+                    "final_q_score": trace.final_q_score,
+                    "final_confidence": trace.final_confidence,
+                }
+            )
 
         # Get perception sources
         perception_agg = await self.perception_sources()
@@ -129,8 +133,7 @@ class EcosystemObserver:
         # Get component health
         registry_snapshot = await self.handlers_registry.snapshot()
         component_health = {
-            name: comp.to_dict()
-            for name, comp in registry_snapshot.components.items()
+            name: comp.to_dict() for name, comp in registry_snapshot.components.items()
         }
 
         return {

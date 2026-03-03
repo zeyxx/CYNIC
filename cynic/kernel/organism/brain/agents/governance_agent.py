@@ -157,7 +157,11 @@ class GovernanceAgent:
             # GROWL: Moderate caution
             vote = "ABSTAIN" if random.random() < 0.75 else "NO"
             conf = 0.6
-            return vote, conf, f"CYNIC GROWL verdict (q={q_score:.2f})  proceed cautiously"
+            return (
+                vote,
+                conf,
+                f"CYNIC GROWL verdict (q={q_score:.2f})  proceed cautiously",
+            )
 
         elif cynic_verdict == "BARK":
             return "NO", 0.9, f"CYNIC BARK verdict (q={q_score:.2f})  strong rejection"
@@ -173,7 +177,11 @@ class GovernanceAgent:
         # 30% of the time, vote opposite to CYNIC
         if random.random() < 0.3:
             if cynic_verdict in ["HOWL", "WAG"]:
-                return "NO", 0.4, f"Exploring: Contrary to CYNIC {cynic_verdict} (test alternative)"
+                return (
+                    "NO",
+                    0.4,
+                    f"Exploring: Contrary to CYNIC {cynic_verdict} (test alternative)",
+                )
             else:
                 return (
                     "YES",
@@ -186,9 +194,17 @@ class GovernanceAgent:
             if cynic_verdict == "HOWL":
                 return "YES", 0.7, f"Exploring: CYNIC {cynic_verdict} but questioning"
             elif cynic_verdict == "WAG":
-                return "YES" if random.random() < 0.6 else "ABSTAIN", 0.6, "Exploring WAG sentiment"
+                return (
+                    "YES" if random.random() < 0.6 else "ABSTAIN",
+                    0.6,
+                    "Exploring WAG sentiment",
+                )
             elif cynic_verdict == "GROWL":
-                return "ABSTAIN" if random.random() < 0.6 else "NO", 0.5, "Exploring GROWL caution"
+                return (
+                    "ABSTAIN" if random.random() < 0.6 else "NO",
+                    0.5,
+                    "Exploring GROWL caution",
+                )
             elif cynic_verdict == "BARK":
                 return "NO", 0.7, f"Exploring: CYNIC {cynic_verdict} but questioning"
             else:
@@ -235,9 +251,9 @@ class GovernanceAgent:
         """Community: Adopt community-specific governance culture."""
 
         # Vote based on what past proposals in this community did
-        community_approval_rate = sum(1 for v in self.vote_history if v.vote == "YES") / max(
-            1, len(self.vote_history)
-        )
+        community_approval_rate = sum(
+            1 for v in self.vote_history if v.vote == "YES"
+        ) / max(1, len(self.vote_history))
 
         # If community tends to approve, approve this
         if community_approval_rate > 0.6:
@@ -291,12 +307,16 @@ class GovernanceAgent:
                 break
 
         if not agent_vote:
-            logger.warning(f"Agent {self.agent_id} has no vote record for {proposal_id}")
+            logger.warning(
+                f"Agent {self.agent_id} has no vote record for {proposal_id}"
+            )
             return None
 
         # Determine if agent's vote was "correct" (aligned with actual outcome)
         expected_vote = "YES" if actual_outcome == "APPROVED" else "NO"
-        prediction_correct = (agent_vote.vote == expected_vote) or (agent_vote.vote == "ABSTAIN")
+        prediction_correct = (agent_vote.vote == expected_vote) or (
+            agent_vote.vote == "ABSTAIN"
+        )
 
         # Create learning record
         record = AgentLearningRecord(

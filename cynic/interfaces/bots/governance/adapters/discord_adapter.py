@@ -149,9 +149,9 @@ class DiscordAdapter(BotInterface):
                 ephemeral=True,
             )
 
-    # 
+    #
     # COMMAND HANDLERS
-    # 
+    #
 
     async def _handle_propose(self, command: BotCommand) -> BotResponse:
         """
@@ -237,7 +237,9 @@ class DiscordAdapter(BotInterface):
             proposals = []  # Would be fetched from DB
             total_pages = (len(proposals) + limit - 1) // limit if limit > 0 else 1
 
-            logger.info(f"Proposals list requested by user {command.user_id}, page={page}")
+            logger.info(
+                f"Proposals list requested by user {command.user_id}, page={page}"
+            )
 
             return BotResponse(
                 success=True,

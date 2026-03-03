@@ -154,13 +154,17 @@ class MCTSVariant:
     exploration: float = PHI
 
     def __post_init__(self) -> None:
-        self.nodes: list[MCTSNode] = [MCTSNode(action=i) for i in range(self.problem.n_actions)]
+        self.nodes: list[MCTSNode] = [
+            MCTSNode(action=i) for i in range(self.problem.n_actions)
+        ]
         self.total_visits: int = 0
         self.convergence_iter: int | None = None
         self.iteration: int = 0
 
     def _select(self) -> MCTSNode:
-        return max(self.nodes, key=lambda n: n.ucb(max(self.total_visits, 1), self.exploration))
+        return max(
+            self.nodes, key=lambda n: n.ucb(max(self.total_visits, 1), self.exploration)
+        )
 
     def _simulate(self, node: MCTSNode) -> float:
         if self.use_temporal:
@@ -357,7 +361,8 @@ class MCTSBenchmark:
             }
         """
         results = [
-            self.run(max_iterations=max_iterations, seed=base_seed + i) for i in range(n_seeds)
+            self.run(max_iterations=max_iterations, seed=base_seed + i)
+            for i in range(n_seeds)
         ]
         speedups = [r.speedup_ratio for r in results]
         mean_speedup = sum(speedups) / len(speedups)
@@ -365,8 +370,12 @@ class MCTSBenchmark:
         mid = len(sorted_speedups) // 2
         median_speedup = sorted_speedups[mid]
 
-        temporal_opt = sum(1 for r in results if r.temporal_found_optimum) / len(results)
-        standard_opt = sum(1 for r in results if r.standard_found_optimum) / len(results)
+        temporal_opt = sum(1 for r in results if r.temporal_found_optimum) / len(
+            results
+        )
+        standard_opt = sum(1 for r in results if r.standard_found_optimum) / len(
+            results
+        )
 
         return {
             "n_seeds": n_seeds,

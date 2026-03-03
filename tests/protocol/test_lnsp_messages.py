@@ -1,4 +1,5 @@
 """Comprehensive tests for LNSP message types and factories."""
+
 from __future__ import annotations
 
 import time
@@ -29,6 +30,7 @@ from cynic.kernel.protocol.lnsp.types import (
 # Test Helpers & Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def instance_id():
     """Provide a test instance ID."""
@@ -44,6 +46,7 @@ def timestamp():
 # ============================================================================
 # Tests for Enums
 # ============================================================================
+
 
 class TestLayerEnum:
     """Test Layer enumeration."""
@@ -171,6 +174,7 @@ class TestActionTypeEnum:
 # Tests for MessageHeader
 # ============================================================================
 
+
 class TestMessageHeader:
     """Test MessageHeader dataclass."""
 
@@ -225,6 +229,7 @@ class TestMessageHeader:
 # Tests for Metadata
 # ============================================================================
 
+
 class TestMetadata:
     """Test Metadata dataclass."""
 
@@ -272,6 +277,7 @@ class TestMetadata:
 # ============================================================================
 # Tests for LNSPMessage
 # ============================================================================
+
 
 class TestLNSPMessage:
     """Test LNSPMessage dataclass."""
@@ -337,6 +343,7 @@ class TestLNSPMessage:
 # ============================================================================
 # Tests for Message Factories
 # ============================================================================
+
 
 class TestMessageIDGeneration:
     """Test message ID generation."""
@@ -713,6 +720,7 @@ class TestCreateAction:
 # Integration Tests
 # ============================================================================
 
+
 class TestLNSPMessageIntegration:
     """Integration tests for LNSP message pipeline."""
 
@@ -798,7 +806,10 @@ class TestLNSPMessageIntegration:
         """Test that multiple messages have unique IDs."""
         msgs = [
             create_raw_observation(
-                ObservationType.METRIC_SAMPLE, data={}, source="S", instance_id=instance_id
+                ObservationType.METRIC_SAMPLE,
+                data={},
+                source="S",
+                instance_id=instance_id,
             )
             for _ in range(10)
         ]

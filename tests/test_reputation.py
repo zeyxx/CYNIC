@@ -9,7 +9,10 @@ Tests:
 """
 
 import pytest
-pytestmark = pytest.mark.skip(reason="Old architecture: module imports not available in V5")
+
+pytestmark = pytest.mark.skip(
+    reason="Old architecture: module imports not available in V5"
+)
 
 # Block all imports that would fail
 pytest.skip("Skipping old architecture test module", allow_module_level=True)
@@ -17,7 +20,9 @@ pytest.skip("Skipping old architecture test module", allow_module_level=True)
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Old architecture removed in V5 - governance_bot module not found")
+pytestmark = pytest.mark.skip(
+    reason="Old architecture removed in V5 - governance_bot module not found"
+)
 
 from governance_bot.e_score import EScore, EScoreManager
 from governance_bot.reputation import ReputationManager, ReputationScore
@@ -224,7 +229,7 @@ class TestEScore:
             culture=0.5,
             burn=0.4,
             emergence=0.5,
-            learning=0.6
+            learning=0.6,
         )
 
         assert e_score.fidelity == 0.6
@@ -239,7 +244,7 @@ class TestEScore:
             culture=0.5,
             burn=0.5,
             emergence=0.5,
-            learning=0.5
+            learning=0.5,
         )
 
         phi_bound = 0.618
@@ -254,13 +259,19 @@ class TestEScore:
             culture=2.0,
             burn=2.0,
             emergence=2.0,
-            learning=2.0
+            learning=2.0,
         )
 
         phi_bound = 0.618
-        for dim in [e_score.fidelity, e_score.phi, e_score.verify,
-                    e_score.culture, e_score.burn, e_score.emergence,
-                    e_score.learning]:
+        for dim in [
+            e_score.fidelity,
+            e_score.phi,
+            e_score.verify,
+            e_score.culture,
+            e_score.burn,
+            e_score.emergence,
+            e_score.learning,
+        ]:
             assert dim <= phi_bound
 
     def test_geometric_mean_calculation(self):
@@ -272,7 +283,7 @@ class TestEScore:
             culture=0.5,
             burn=0.5,
             emergence=0.5,
-            learning=0.5
+            learning=0.5,
         )
 
         mean = e_score.geometric_mean()
@@ -289,7 +300,7 @@ class TestEScore:
             culture=0.5,
             burn=0.5,
             emergence=0.5,
-            learning=0.5
+            learning=0.5,
         )
 
         mean = e_score.arithmetic_mean()
@@ -305,7 +316,7 @@ class TestEScore:
             culture=0.5,
             burn=0.4,
             emergence=0.5,
-            learning=0.6
+            learning=0.6,
         )
 
         score_dict = e_score.to_dict()
@@ -324,7 +335,7 @@ class TestEScore:
             culture=0.5,
             burn=0.4,
             emergence=0.5,
-            learning=0.6
+            learning=0.6,
         )
 
         assert e_score.get_dimension("fidelity") == 0.6
@@ -340,7 +351,7 @@ class TestEScore:
             culture=0.5,
             burn=0.4,
             emergence=0.5,
-            learning=0.6
+            learning=0.6,
         )
 
         dims = e_score.all_dimensions()
@@ -358,7 +369,7 @@ class TestEScore:
             culture=0.5,
             burn=0.5,
             emergence=0.5,
-            learning=0.5
+            learning=0.5,
         )
         assert e_score_high.is_fully_established()
 
@@ -370,7 +381,7 @@ class TestEScore:
             culture=0.5,
             burn=0.5,
             emergence=0.5,
-            learning=0.5
+            learning=0.5,
         )
         assert not e_score_low.is_fully_established()
 
@@ -405,11 +416,7 @@ class TestEScoreManager:
     def test_update_multiple(self):
         """Test updating multiple dimensions"""
         manager = EScoreManager()
-        updates = {
-            "fidelity": 0.6,
-            "phi": 0.5,
-            "verify": 0.4
-        }
+        updates = {"fidelity": 0.6, "phi": 0.5, "verify": 0.4}
         manager.update_multiple("user_123", updates)
 
         score = manager.get_e_score("user_123")
@@ -466,15 +473,18 @@ class TestEScoreManager:
         manager = EScoreManager()
 
         # Create established user
-        manager.update_multiple("user_1", {
-            "fidelity": 0.5,
-            "phi": 0.5,
-            "verify": 0.5,
-            "culture": 0.5,
-            "burn": 0.5,
-            "emergence": 0.5,
-            "learning": 0.5
-        })
+        manager.update_multiple(
+            "user_1",
+            {
+                "fidelity": 0.5,
+                "phi": 0.5,
+                "verify": 0.5,
+                "culture": 0.5,
+                "burn": 0.5,
+                "emergence": 0.5,
+                "learning": 0.5,
+            },
+        )
 
         # Create emerging user
         manager.update_dimension("user_2", "fidelity", 0.3)

@@ -3,6 +3,7 @@ Validate all Python files are valid UTF-8 with correct phi, times, sqrt, arrow s
 
 Exit code 1 if any file has encoding issues.
 """
+
 import sys
 from pathlib import Path
 
@@ -11,7 +12,7 @@ def validate_file(path: Path) -> list[str]:
     """Check file for UTF-8 validity and mathematical symbol correctness."""
     errors = []
     try:
-        content = path.read_text(encoding='utf-8')
+        content = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as e:
         errors.append(f"{path}: UTF-8 decode error at position {e.start}: {e.reason}")
         return errors
@@ -22,10 +23,10 @@ def validate_file(path: Path) -> list[str]:
     # \xe2\x86\x92 = corrupted arrow-like
     # \xce\xc6 = corrupted phi-like
     corruption_patterns = [
-        '\xc3\x97',  # Ã—
-        '\xe2\x80\x9a',  # â€š
-        '\xe2\x86\x92',  # â†'
-        '\xce\xc6',  # Ï†
+        "\xc3\x97",  # Ã—
+        "\xe2\x80\x9a",  # â€š
+        "\xe2\x86\x92",  # â†'
+        "\xce\xc6",  # Ï†
     ]
 
     for pattern in corruption_patterns:

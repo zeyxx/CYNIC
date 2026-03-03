@@ -75,13 +75,17 @@ class GovernanceLNSP:
                     # Schedule async execution (non-blocking)
                     import asyncio
 
-                    asyncio.create_task(self._execute_verdict_on_chain(data, proposal_id))
+                    asyncio.create_task(
+                        self._execute_verdict_on_chain(data, proposal_id)
+                    )
 
         self.manager.layer4.on_feedback(capture_verdict)
 
     async def process_proposal(self, proposal: dict[str, Any]) -> None:
         """Process a governance proposal."""
-        from cynic.kernel.protocol.lnsp.governance_events import GovernanceProposalPayload
+        from cynic.kernel.protocol.lnsp.governance_events import (
+            GovernanceProposalPayload,
+        )
 
         payload = GovernanceProposalPayload(**proposal)
         self.proposal_sensor.pending_payloads.append(payload)
@@ -97,7 +101,9 @@ class GovernanceLNSP:
 
     async def process_execution(self, execution: dict[str, Any]) -> None:
         """Process a governance execution outcome."""
-        from cynic.kernel.protocol.lnsp.governance_events import GovernanceExecutionPayload
+        from cynic.kernel.protocol.lnsp.governance_events import (
+            GovernanceExecutionPayload,
+        )
 
         payload = GovernanceExecutionPayload(**execution)
         self.execution_sensor.pending_payloads.append(payload)
@@ -105,7 +111,9 @@ class GovernanceLNSP:
 
     async def process_outcome(self, outcome: dict[str, Any]) -> None:
         """Process community outcome feedback."""
-        from cynic.kernel.protocol.lnsp.governance_events import GovernanceOutcomePayload
+        from cynic.kernel.protocol.lnsp.governance_events import (
+            GovernanceOutcomePayload,
+        )
 
         payload = GovernanceOutcomePayload(**outcome)
         self.outcome_sensor.pending_payloads.append(payload)

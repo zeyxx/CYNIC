@@ -16,9 +16,10 @@ from playwright.async_api import Page
 
 logger = logging.getLogger("cynic.metabolism.web_hand")
 
+
 class WebHand:
     """
-    The 'Hand' of CYNIC. 
+    The 'Hand' of CYNIC.
     Executes clicks and inputs on a Playwright Page.
     """
 
@@ -42,16 +43,17 @@ class WebHand:
         try:
             if action_type == "CLICK":
                 selector = kwargs.get("selector")
-                if not selector: return {"success": False, "error": "Missing selector"}
-                
+                if not selector:
+                    return {"success": False, "error": "Missing selector"}
+
                 logger.info(f"WebHand: Clicking {selector}")
                 await self.page.click(selector, timeout=5000)
-                
+
             elif action_type == "BET":
                 # Macro-action specifically for Cannon
                 # TODO: Update selectors
                 await self.page.click(".bet-button")
-                
+
             elif action_type == "CASHOUT":
                 # Macro-action specifically for Cannon
                 await self.page.click(".cashout-button")
@@ -61,9 +63,9 @@ class WebHand:
 
             self._actions_executed += 1
             return {
-                "success": True, 
-                "action": action_type, 
-                "duration_ms": (time.perf_counter() - t0) * 1000
+                "success": True,
+                "action": action_type,
+                "duration_ms": (time.perf_counter() - t0) * 1000,
             }
 
         except Exception as e:

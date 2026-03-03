@@ -1,6 +1,7 @@
 """
 CYNIC ws router " ws/stream  ws/events
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,9 +22,10 @@ logger = logging.getLogger("cynic.interfaces.api.server")
 router_ws = APIRouter(tags=["ws"])
 
 
-# 
+#
 # WS /ws/stream  (real-time event stream)
-# 
+#
+
 
 @router_ws.websocket("/ws/stream")
 async def ws_stream(
@@ -39,11 +41,15 @@ async def ws_stream(
 
     async def on_event(event: Event) -> None:
         try:
-            queue.put_nowait({
-                "type": event.event_type.name if hasattr(event.event_type, "name") else str(event.event_type),
-                "payload": event.dict_payload,
-                "ts": time.time(),
-            })
+            queue.put_nowait(
+                {
+                    "type": event.event_type.name
+                    if hasattr(event.event_type, "name")
+                    else str(event.event_type),
+                    "payload": event.dict_payload,
+                    "ts": time.time(),
+                }
+            )
         except asyncio.QueueFull:
             pass  # Drop silently " client is slow, kernel must not block
 
@@ -82,14 +88,16 @@ async def ws_stream(
                 if msg_type == "ping":
                     await websocket.send_json({"type": "pong", "ts": time.time()})
                 elif msg_type == "ACT":
-                    await bus.emit(Event.typed(
-                        CoreEvent.ACT_REQUESTED,
-                        ActRequestedPayload(
-                            action=data.get("action", ""),
-                            target=data.get("target", ""),
-                        ),
-                        source="ws_client",
-                    ))
+                    await bus.emit(
+                        Event.typed(
+                            CoreEvent.ACT_REQUESTED,
+                            ActRequestedPayload(
+                                action=data.get("action", ""),
+                                target=data.get("target", ""),
+                            ),
+                            source="ws_client",
+                        )
+                    )
                 # Any other type: ignored silently
             except EventBusError as exc:
                 logger.error("ws/stream receive error: %s", exc, exc_info=True)
@@ -105,9 +113,10 @@ async def ws_stream(
             bus.off(ev_type, on_event)
 
 
-# 
+#
 # WS /ws/consciousness/ecosystem  (live ecosystem snapshot stream)
-# 
+#
+
 
 @router_ws.websocket("/ws/consciousness/ecosystem")
 async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
@@ -158,7 +167,9 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
                     logger.debug("ws/consciousness/ecosystem ping failed: %s", exc)
                     raise
             except EventBusError as exc:
-                logger.error("ws/consciousness/ecosystem emit error: %s", exc, exc_info=True)
+                logger.error(
+                    "ws/consciousness/ecosystem emit error: %s", exc, exc_info=True
+                )
                 raise
 
     async def _periodic_loop() -> None:
@@ -168,11 +179,13 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
                 await asyncio.sleep(5.0)
                 snapshot = await service.get_ecosystem_state()
                 try:
-                    queue.put_nowait({
-                        "type": "ecosystem_update",
-                        "payload": snapshot,
-                        "ts": time.time(),
-                    })
+                    queue.put_nowait(
+                        {
+                            "type": "ecosystem_update",
+                            "payload": snapshot,
+                            "ts": time.time(),
+                        }
+                    )
                 except asyncio.QueueFull:
                     pass  # Drop silently if queue is full
             except ValidationError as exc:
@@ -181,11 +194,13 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
 
     try:
         # Send initial connection message
-        await websocket.send_json({
-            "type": "connected",
-            "phi": PHI,
-            "initial_snapshot": initial,
-        })
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "phi": PHI,
+                "initial_snapshot": initial,
+            }
+        )
         # Run both loops " if either fails, the whole connection closes
         await asyncio.gather(_emit_loop(), _periodic_loop())
     except WebSocketDisconnect:
@@ -194,9 +209,10 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
         logger.error("ws/consciousness/ecosystem error: %s", exc, exc_info=True)
 
 
-# 
+#
 # WS /ws/events  (read-only all-events stream with client-side filter)
-# 
+#
+
 
 @router_ws.websocket("/ws/events")
 async def ws_events(
@@ -218,18 +234,24 @@ async def ws_events(
     _filter_lock = asyncio.Lock()
 
     async def on_any_event(event: Event) -> None:
-        name = event.event_type.name if hasattr(event.event_type, "name") else str(event.event_type)
+        name = (
+            event.event_type.name
+            if hasattr(event.event_type, "name")
+            else str(event.event_type)
+        )
         async with _filter_lock:
             passes = (not _active_filter) or (name in _active_filter)
         if not passes:
             return
         try:
-            queue.put_nowait({
-                "type":    name,
-                "payload": event.dict_payload,
-                "source":  getattr(event, "source", ""),
-                "ts":      time.time(),
-            })
+            queue.put_nowait(
+                {
+                    "type": name,
+                    "payload": event.dict_payload,
+                    "source": getattr(event, "source", ""),
+                    "ts": time.time(),
+                }
+            )
         except asyncio.QueueFull:
             pass  # Drop silently " client is slow, kernel must not block
 
@@ -263,26 +285,32 @@ async def ws_events(
                 if msg_type == "ping":
                     await websocket.send_json({"type": "pong", "ts": time.time()})
                 elif msg_type == "subscribe":
-                    requested = [e for e in (data.get("events") or []) if e in all_event_names]
+                    requested = [
+                        e for e in (data.get("events") or []) if e in all_event_names
+                    ]
                     async with _filter_lock:
                         _active_filter = requested
-                    await websocket.send_json({
-                        "type":       "subscribed",
-                        "events":     requested or all_event_names,
-                        "filter_all": not requested,
-                        "ts":         time.time(),
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "subscribed",
+                            "events": requested or all_event_names,
+                            "filter_all": not requested,
+                            "ts": time.time(),
+                        }
+                    )
             except httpx.RequestError as exc:
                 logger.error("ws/events receive error: %s", exc, exc_info=True)
                 raise
 
     try:
-        await websocket.send_json({
-            "type":       "connected",
-            "ts":         time.time(),
-            "phi":        PHI,
-            "all_events": all_event_names,
-        })
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "ts": time.time(),
+                "phi": PHI,
+                "all_events": all_event_names,
+            }
+        )
         await asyncio.gather(_emit_loop(), _receive_loop())
     except WebSocketDisconnect:
         pass
