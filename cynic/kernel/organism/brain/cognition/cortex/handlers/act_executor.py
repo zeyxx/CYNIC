@@ -191,7 +191,10 @@ class ActHandler(BaseHandler):
             except BlockedDecision as e:
                 # Decision blocked by guardrail
                 logger.warning(
-                    f"Decision BLOCKED [{e.guardrail}]: {e.reason} " f"' {e.recommendation}"
+                    "Decision BLOCKED [%s]: %s ' %s",
+                    e.guardrail,
+                    e.reason,
+                    e.recommendation,
                 )
                 await emit_decision_made(trigger="guardrail_blocked")
                 # Return block result without executing
@@ -203,7 +206,7 @@ class ActHandler(BaseHandler):
                     "error": f"[{e.guardrail}] {e.reason}",
                 }
         else:
-            logger.debug("No DecisionValidator available " skipping guardrail checks")
+            logger.debug("No DecisionValidator available - skipping guardrail checks")
 
         # Filter: only execute for actionable realities
         from cynic.kernel.organism.brain.cognition.cortex.decide import _ACT_REALITIES
@@ -288,7 +291,7 @@ class ActHandler(BaseHandler):
 
         # 4b: SYSTEM ACTION (Runner)
         if not self.runner:
-            logger.warning("No runner available " cannot execute system action")
+            logger.warning("No runner available - cannot execute system action")
             return None
 
         t0 = time.perf_counter()

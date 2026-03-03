@@ -84,7 +84,7 @@ async def _spawn_kernel(cynic_url: str = "http://127.0.0.1:8765") -> subprocess.
                         logger.info("Kernel already running, skipping spawn")
                         return None
         except Exception as _e:
-            logger.debug(f'Silenced: {_e}')  # Kernel is not responding, proceed with spawn
+        logger.debug(f'Silenced: {_e}')  # Kernel is not responding, proceed with spawn
 
         # Spawn kernel as subprocess
         repo_root = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -696,7 +696,7 @@ async def _tool_ask_cynic(args: dict) -> list[TextContent]:
     confidence = judgment.get("confidence", "N/A")
     judgment_id = judgment.get("judgment_id", "N/A")
 
-    response = f"""CYNIC Judgment:
+    response = f"""CYNIC Judgment
 
 Q-Score: {q_score}/100
 Verdict: {verdict}
@@ -734,7 +734,7 @@ async def _tool_observe_cynic(args: dict) -> list[TextContent]:
     consciousness = snapshot.get('consciousness_state', {})
     components = snapshot.get('components', {})
 
-    response = f"""CYNIC Consciousness Snapshot:
+    response = f"""CYNIC Consciousness Snapshot
 
 Status: {status}
 Timestamp: {snapshot.get('timestamp', 'N/A')}
@@ -769,7 +769,7 @@ async def _tool_learn_cynic(args: dict) -> list[TextContent]:
     if "error" in result:
         return [TextContent(type="text", text=f"Error: {result['error']}")]
 
-    response = f"""CYNIC Learning Update:
+    response = f"""CYNIC Learning Update
 
 Status: {result.get('status', 'updated')}
 Judgment ID: {result.get('judgment_id', 'N/A')}
@@ -793,7 +793,7 @@ async def _tool_discuss_cynic(args: dict) -> list[TextContent]:
     # Build discussion context
     context_str = "\n".join(previous[-3:]) if previous else ""  # Last 3 messages
 
-    discussion = f"""CYNIC Discussion Mode
+    discussion = f"""CYNIC Discussion Mode"
 Topic: {topic}
 
 Conversation so far:
@@ -822,10 +822,10 @@ async def _tool_cynic_build(args: dict) -> list[TextContent]:
 
     # TODO: Wire to actual /build endpoint when implemented
     # For now: graceful response indicating the feature is planned
-    response = f"""CYNIC Build - PLANNING PHASE
+    response = f"""CYNIC Build " PLANNING PHASE
 
 Version:  {version}
-Status:   Orchestration endpoint not yet implemented
+Status:   " Orchestration endpoint not yet implemented
 Message:  The /build endpoint will be available after Phase 1 bootstrap
 
 To build CYNIC manually:
@@ -845,11 +845,11 @@ async def _tool_cynic_deploy(args: dict) -> list[TextContent]:
 
     # TODO: Wire to actual /deploy endpoint when implemented
     # For now: graceful response indicating the feature is planned
-    response = f"""CYNIC Deploy - PLANNING PHASE
+    response = f"""CYNIC Deploy " PLANNING PHASE
 
 Environment: {environment}
 Pull latest: {pull}
-Status:      Orchestration endpoint not yet implemented
+Status:      " Orchestration endpoint not yet implemented
 Message:     The /deploy endpoint will be available after Phase 1 bootstrap
 
 To deploy CYNIC manually:
@@ -859,7 +859,7 @@ To deploy CYNIC manually:
   # Staging/Prod
   # (deployment workflow to be defined)
 
-This tool will automate deployment to dev/staging/prod in a future phase.""
+This tool will automate deployment to dev/staging/prod in a future phase."""
 
     return [TextContent(type="text", text=response)]
 
@@ -876,7 +876,7 @@ async def _tool_cynic_health(args: dict) -> list[TextContent]:
 
     for service, status_info in health_data.items():
         status = status_info.get("status", "unknown")
-        status_icon = "✓" if status == "healthy" else "…" if status == "starting" else "✗"
+        status_icon = "" if status == "healthy" else "" if status == "starting" else """
         latency = status_info.get("latency_ms", 0)
         checks.append(f"{status_icon} {service}: {status} ({latency:.0f}ms)")
 
@@ -899,7 +899,7 @@ async def _tool_cynic_status(args: dict) -> list[TextContent]:
     health_data = result.get("health", {})
     services = ", ".join(health_data.keys())
 
-    response = f"""CYNIC Orchestration Status:
+    response = f"""CYNIC Orchestration Status
 
 Services Running: {services}
 Overall Health: {' Healthy' if all(s.get('status') == 'healthy' for s in health_data.values()) else '" Degraded'}
@@ -922,7 +922,7 @@ async def _tool_cynic_release(args: dict) -> list[TextContent]:
         {"notes": notes, "bump_type": bump_type},
     )
 
-    response = f"""CYNIC Release Created:
+    response = f"""CYNIC Release Created
 
 Version:   {result.get('version', 'N/A')}
 Bump Type: {bump_type}
@@ -977,7 +977,7 @@ async def _tool_cynic_run_empirical_test(args: dict) -> list[TextContent]:
     job_id = result.get("job_id", "N/A")
     status = result.get("status", "unknown")
 
-    response = f"""CYNIC Empirical Test Started
+    response = f"""CYNIC Empirical Test Started"
 
 Job ID: {job_id}
 Status: {status}
@@ -1016,7 +1016,7 @@ async def _tool_cynic_get_job_status(args: dict) -> list[TextContent]:
     filled = int(bar_length * progress / 100)
     bar = "-" * filled + "-'" * (bar_length - filled)
 
-    response = f"""CYNIC Test Job Status
+    response = f"""CYNIC Test Job Status"
 
 Job ID: {job_id}
 Status: {job_status}
@@ -1052,7 +1052,7 @@ async def _tool_cynic_get_test_results(args: dict) -> list[TextContent]:
     emergences = results.get("emergences", 0)
     duration = results.get("duration_s", 0)
 
-    response = f"""CYNIC Empirical Test Results
+    response = f"""CYNIC Empirical Test Results"
 
 Job ID: {job_id}
 Duration: {duration:.1f} seconds (~{duration/60:.1f} minutes)
@@ -1108,7 +1108,7 @@ async def _tool_cynic_test_axiom_irreducibility(args: dict) -> list[TextContent]
         baseline = impact.get("baseline_q", 0)
         disabled = impact.get("disabled_q", 0)
         pct = impact.get("impact_percent", 0)
-        irreducible = "!" if impact.get("irreducible") else "-"
+        irreducible = """ if impact.get("irreducible") else "-"
 
         lines.append(f"{name:14} | {baseline:10.1f} | {disabled:10.1f} | {pct:8.1f} | {irreducible}")
 
@@ -1134,7 +1134,7 @@ async def _tool_cynic_query_telemetry(args: dict) -> list[TextContent]:
     if "error" in telemetry:
         return [TextContent(type="text", text=f"Error: {telemetry.get('error')}")]
 
-    response = f"""CYNIC Telemetry Snapshot
+    response = f"""CYNIC Telemetry Snapshot"
 
 Metric Requested: {metric}
 
@@ -1168,7 +1168,7 @@ async def _tool_cynic_watch_telemetry(args: dict) -> list[TextContent]:
             return [TextContent(type="text", text=f"Telemetry error: {result['error']}")]
 
         # Format summary for display
-        response = f"""CYNIC Telemetry Stream (last {result['duration_s']:.1f}s):
+        response = f"""CYNIC Telemetry Stream (last {result['duration_s']:.1f}s)
 
 Judgments:       {result['judgments_seen']} observed
   - Avg Q:       {result['avg_q_score']:.1f}
@@ -1211,7 +1211,7 @@ async def _tool_cynic_watch_source(args: dict) -> list[TextContent]:
             )]
 
         # Construct response explaining L1 symbiosis status
-        response = f"""L1 Symbiosis Status:
+        response = f"""L1 Symbiosis Status
 
 SourceWatcher is ACTIVE and monitoring:
   - cynic/api/handlers/ (handler changes)

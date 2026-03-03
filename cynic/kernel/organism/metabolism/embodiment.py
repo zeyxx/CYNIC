@@ -1,16 +1,21 @@
 """
-Embodiment Layer " The physical body of CYNIC.
-Anatomy: Peripheral Nervous System & Somatic Sensors.
+Universal Embodiment Layer - The Physical-to-Digital Interface.
+Respects SRE & Robotics Lenses.
 
-This layer connects the abstract organism to the hardware reality.
-Axiom Alignment: BURN " resources are finite and costly.
+This module provides a hardware-agnostic somatic system that:
+1. Detects the execution environment (Container, Cloud, Physical).
+2. Normalizes resource metrics.
+3. Provides a standard 'SomaticPulse' for the organism.
 """
 
+from __future__ import annotations
+
 import logging
+import os
 import platform
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import psutil
 
@@ -21,122 +26,104 @@ logger = logging.getLogger("cynic.kernel.organism.layers.embodiment")
 
 
 @dataclass
-class SomaticState:
-    """The physical state of the hardware body."""
+class SomaticMetrics:
+    """Standardized hardware metrics across all platforms."""
 
     cpu_percent: float = 0.0
-    ram_percent: float = 0.0
-    disk_usage: float = 0.0
-    battery_percent: float | None = None
-    is_charging: bool = True
-    cpu_temp: float | None = None
-    cpu_count: int = field(default_factory=psutil.cpu_count)
-    architecture: str = field(default_factory=platform.machine)
-    processor: str = field(default_factory=platform.processor)
+    memory_percent: float = 0.0
+    io_wait: float = 0.0
+    load_average: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
+    is_containerized: bool = field(
+        default_factory=lambda: os.path.exists("/.dockerenv")
+    )
+    platform: str = field(default_factory=lambda: platform.system())
+    architecture: str = field(default_factory=lambda: platform.machine())
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "cpu": self.cpu_percent,
-            "ram": self.ram_percent,
-            "disk": self.disk_usage,
-            "temp": self.cpu_temp,
-            "processor": self.processor,
-            "architecture": self.architecture,
-            "cpu_count": self.cpu_count,
+            "memory": self.memory_percent,
+            "platform": self.platform,
+            "container": self.is_containerized,
+            "load_1m": self.load_average[0],
             "timestamp": self.timestamp,
         }
 
 
-class HardwareBody:
+class UniversalHardwareBody:
     """
-    The 'Skin' and 'Nerves' of CYNIC.
-    Pulls hardware metrics and injects them into the Organism's consciousness.
-    Optimized for Ryzen 5700G baselines.
+    Industrial-grade Somatic Sensor.
+    Handles environment discovery without hardcoding specific hardware.
     """
 
-    def __init__(self, bus: EventBus) -> None:
-        self._last_state: SomaticState | None = None
-        self._start_time = time.time()
+    def __init__(self, bus: EventBus):
         self._bus = bus
-        # Initial synchronous pulse to seed the state
-        self._sync_pulse()
+        self._last_metrics: Optional[SomaticMetrics] = None
+        self._start_time = time.time()
+        logger.info(
+            f"Somatic System initialized on {platform.system()} ({platform.machine()})"
+        )
 
-    def _sync_pulse(self) -> None:
-        """Synchronous pulse for initialization."""
+    async def pulse(self) -> SomaticMetrics:
+        """Collect and broadcast standardized somatic metrics."""
         try:
-            cpu = psutil.cpu_percent(interval=0.1)
-            ram = psutil.virtual_memory().percent
-            disk = psutil.disk_usage("/").percent
-            self._last_state = SomaticState(
-                cpu_percent=cpu, ram_percent=ram, disk_usage=disk
-            )
-        except Exception:
-            self._last_state = SomaticState()
-
-    async def pulse(self) -> SomaticState:
-        """One heartbeat of the physical body."""
-        try:
-            # 1. Gather hardware metrics (Non-blocking)
+            # 1. Non-blocking metric collection
+            # Note: interval=None for psutil.cpu_percent is non-blocking
             cpu = psutil.cpu_percent(interval=None)
-            ram = psutil.virtual_memory().percent
-            disk = psutil.disk_usage("/").percent
+            mem = psutil.virtual_memory().percent
 
-            # Temperature (OS Dependent)
-            temp = None
-            if hasattr(psutil, "sensors_temperatures"):
-                temps = psutil.sensors_temperatures()
-                # Try common Ryzen sensors
-                for name in ["k10temp", "amdgpu", "coretemp"]:
-                    if name in temps and temps[name]:
-                        temp = temps[name][0].current
-                        break
+            # Load averages (not available on Windows directly via psutil)
+            load = [0.0, 0.0, 0.0]
+            if hasattr(os, "getloadavg"):
+                load = list(os.getloadavg())
 
-            state = SomaticState(
-                cpu_percent=cpu,
-                ram_percent=ram,
-                disk_usage=disk,
-                cpu_temp=temp,
+            metrics = SomaticMetrics(
+                cpu_percent=cpu, memory_percent=mem, load_average=load
             )
+            self._last_metrics = metrics
 
-            self._last_state = state
-
-            # 2. Emit somatic sensation to the bus
+            # 2. Emit to the nervous system
             await self._bus.emit(
-                Event(type="organism.somatic_sensation", payload=state.to_dict())
+                Event(
+                    type="organism.somatic_pulse",
+                    payload=metrics.to_dict(),
+                    source="embodiment",
+                )
             )
 
-            # 3. High-stress detection
-            if cpu > 80.0:
+            # 3. Industrial Alerting (Thresholds should be in config, here hardcoded for safety)
+            if cpu > 90.0:
                 await self._bus.emit(
                     Event.typed(
                         CoreEvent.ANOMALY_DETECTED,
-                        payload={
-                            "type": "CPU_STRESS",
+                        {
+                            "type": "RESOURCE_EXHAUSTION",
+                            "resource": "cpu",
                             "value": cpu,
-                            "source": "somatic",
                         },
-                        source="hardware_body",
+                        source="embodiment",
                     )
                 )
 
-            return state
+            return metrics
 
         except Exception as e:
-            logger.debug(f"HardwareBody pulse error: {e}")
-            return SomaticState()
+            logger.error(f"Somatic Pulse Failure: {e}")
+            return SomaticMetrics()
 
     def get_metabolic_cost(self) -> float:
-        """
-        Calculate current energy price. 
-        Scales with CPU/RAM pressure.
-        """
-        if not self._last_state:
+        """Universal cost calculation based on normalized load."""
+        if not self._last_metrics:
             return 1.0
 
-        # Base load normalized [0, 1]
-        load = (self._last_state.cpu_percent + self._last_state.ram_percent) / 200.0
-        # Quadratic penalty phi-scaled
-        penalty = (load**2) * (1.0 / PHI_INV)
+        # Combined load factor [0, 1]
+        load_factor = (
+            self._last_metrics.cpu_percent + self._last_metrics.memory_percent
+        ) / 200.0
+        # Industrial Scale: Penalty grows quadratically to trigger backpressure early
+        return 1.0 + (load_factor**2) * (1.0 / PHI_INV)
 
-        return 1.0 + penalty
+
+# Alias for backward compatibility
+HardwareBody = UniversalHardwareBody
