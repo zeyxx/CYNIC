@@ -1,4 +1,4 @@
-"""CYNIC Organism â€” 10-Layer Architecture
+"""CYNIC Organism â€" 10-Layer Architecture
 
 Layers operate in precedence order:
 0. Identity (axioms, immutable DNA)

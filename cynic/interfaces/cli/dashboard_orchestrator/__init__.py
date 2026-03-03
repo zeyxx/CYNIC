@@ -1,4 +1,4 @@
-"""Dashboard orchestrator package â€” wires 7 layers into unified dashboard.
+"""Dashboard orchestrator package â€" wires 7 layers into unified dashboard.
 
 Provides:
 - EcosystemDashboardApp: Orchestrator that manages all 7 consciousness layers

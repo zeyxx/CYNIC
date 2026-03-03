@@ -1,5 +1,5 @@
 """
-Îº-NET Client â€” Somatic Nerve Receiver.
+Îº-NET Client â€" Somatic Nerve Receiver.
 Connects to the Îº-NET Server using IPv6 and WebSockets.
 Implements 'Suturing' logic (Fibonacci backoff) for maximum reliability.
 """

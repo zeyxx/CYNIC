@@ -1,13 +1,13 @@
 """
-CYNIC Agent Loop â€” LLM â’ tools â’ results â’ LLM (max F(7)=13 iterations).
+CYNIC Agent Loop â€" LLM â' tools â' results â' LLM (max F(7)=13 iterations).
 
 The agentic core that makes CYNIC Code work. Yields AgentEvents so both
 the CLI REPL and WebSocket UI can consume the same stream.
 
 Flow:
-  user_msg â’ LLM(messages+tools) â’
-    tool_calls? â’ judge each â’ execute â’ append results â’ LLM again
-    text only?  â’ yield final response â’ done
+  user_msg â' LLM(messages+tools) â'
+    tool_calls? â' judge each â' execute â' append results â' LLM again
+    text only?  â' yield final response â' done
     max 13 iterations (F(7))
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ from cynic.kernel.organism.brain.llm.adapter import LLMAdapter, LLMRequest
 
 logger = logging.getLogger("cynic.interfaces.chat.agent")
 
-_MAX_ITERATIONS = 13  # F(7) â€” phi-derived runaway prevention
+_MAX_ITERATIONS = 13  # F(7) â€" phi-derived runaway prevention
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -173,11 +173,11 @@ class AgentLoop:
                         content=result.to_message_content(),
                     )
 
-                # Continue loop â€” LLM needs to process tool results
+                # Continue loop â€" LLM needs to process tool results
                 continue
 
             else:
-                # No tool calls â€” this is the final response
+                # No tool calls â€" this is the final response
                 content = response.content or ""
                 self.session.add_assistant(content=content)
 
@@ -199,11 +199,11 @@ class AgentLoop:
                 )
                 return
 
-        # Hit max iterations â€” force stop
+        # Hit max iterations â€" force stop
         duration_ms = (time.time() - start) * 1000
         yield AgentEvent(
             type=AgentEventType.ERROR,
-            content=f"Max iterations ({self.max_iterations}) reached â€” stopping to prevent runaway loop",
+            content=f"Max iterations ({self.max_iterations}) reached â€" stopping to prevent runaway loop",
             metadata={"iterations": self.max_iterations},
         )
         yield AgentEvent(

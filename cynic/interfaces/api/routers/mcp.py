@@ -3,14 +3,14 @@ MCP Resources Router
 
 Exposes CYNIC's knowledge to Claude Code via MCP protocol.
 
-GET /mcp/resource â€” Fetch specific MCP resource by URI
-  - /mcp/judgments/similar â€” Find similar past judgments
-  - /mcp/judgments/{id}/reasoning â€” Get judgment reasoning + DAG
-  - /mcp/loops/status â€” Check if CYNIC is stuck
-  - /mcp/learning/patterns â€” What has CYNIC learned?
-  - /mcp/events/recent â€” Live event stream
+GET /mcp/resource â€" Fetch specific MCP resource by URI
+  - /mcp/judgments/similar â€" Find similar past judgments
+  - /mcp/judgments/{id}/reasoning â€" Get judgment reasoning + DAG
+  - /mcp/loops/status â€" Check if CYNIC is stuck
+  - /mcp/learning/patterns â€" What has CYNIC learned?
+  - /mcp/events/recent â€" Live event stream
 
-This bridges L2 feedback loop: Claude Code â” CYNIC observation
+This bridges L2 feedback loop: Claude Code â" CYNIC observation
 """
 from __future__ import annotations
 

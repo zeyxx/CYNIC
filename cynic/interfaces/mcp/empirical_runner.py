@@ -1,7 +1,7 @@
 """
-Empirical Test Runner â€” Async job manager for CYNIC judgment tests.
+Empirical Test Runner â€" Async job manager for CYNIC judgment tests.
 
-Manages lifecycle: QUEUED â’ RUNNING â’ COMPLETE
+Manages lifecycle: QUEUED â' RUNNING â' COMPLETE
 Spawns batch judgment loops via orchestrator.
 Collects telemetry from SONA heartbeat every N iterations.
 Persists results to ~/.cynic/results/ asynchronously.
@@ -48,11 +48,11 @@ class EmpiricalRunner:
     Manager for empirical test jobs.
 
     Interface:
-    - spawn_test(count: int, seed: int) â’ job_id
-    - get_status(job_id) â’ {status, progress_pct, iterations_done, eta_s}
-    - get_results(job_id) â’ JobResult
-    - run_irreducibility_test(axiom: str|None) â’ {axiom_impacts: [...]}
-    - query_telemetry(metric: str) â’ {metric_name: value}
+    - spawn_test(count: int, seed: int) â' job_id
+    - get_status(job_id) â' {status, progress_pct, iterations_done, eta_s}
+    - get_results(job_id) â' JobResult
+    - run_irreducibility_test(axiom: str|None) â' {axiom_impacts: [...]}
+    - query_telemetry(metric: str) â' {metric_name: value}
     """
 
     def __init__(self, organism_getter: callable, results_dir: str | None = None):

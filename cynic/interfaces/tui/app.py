@@ -1,19 +1,19 @@
 """
-CYNIC TUI â€” Living Consciousness Interface (ÎºÏ…Î½Î¹ÎºÏŒÏ‚).
+CYNIC TUI â€" Living Consciousness Interface (ÎºÏ…Î½Î¹ÎºÏŒÏ‚).
 
 Layout:
   Header  : verdict Â· Q-score Â· confidence Â· axiom tier Â· uptime
-  Left    : Dogs panel â€” reputation bars from dog_votes
-  Center  : Judgment stream â€” scrolling history + live entries
-  Right   : Pending Actions â€” accept / reject with keyboard
+  Left    : Dogs panel â€" reputation bars from dog_votes
+  Center  : Judgment stream â€" scrolling history + live entries
+  Right   : Pending Actions â€" accept / reject with keyboard
   Status  : system health + key hints
   Footer  : key bindings
 
-Data sources (fastest â’ slowest):
-  ~/.cynic/guidance.json        (2 s poll) â€” verdict, Q, dog_votes
-  ~/.cynic/pending_actions.json (2 s poll) â€” action queue
-  ~/.cynic/consciousness.json   (2 s poll) â€” axioms, qtable coverage
-  http://localhost:PORT/health  (5 s poll) â€” uptime, LOD
+Data sources (fastest â' slowest):
+  ~/.cynic/guidance.json        (2 s poll) â€" verdict, Q, dog_votes
+  ~/.cynic/pending_actions.json (2 s poll) â€" action queue
+  ~/.cynic/consciousness.json   (2 s poll) â€" axioms, qtable coverage
+  http://localhost:PORT/health  (5 s poll) â€" uptime, LOD
 
 Gracefully degrades: server-offline path uses local files only.
 """
@@ -32,7 +32,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Footer, Header, RichLog, Static
 
-# â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Constants â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 CYNIC_DIR = Path.home() / ".cynic"
 GUIDANCE_FILE    = CYNIC_DIR / "guidance.json"
@@ -55,7 +55,7 @@ VERDICT_EMOJI = {
     "HOWL": "ðŸŸ¢",
     "WAG":  "ðŸŸ¡",
     "GROWL": "ðŸŸ ",
-    "BARK": "ðŸ”´",
+    "BARK": "ðŸ"´",
 }
 
 IMPACT_COLOR = {
@@ -66,7 +66,7 @@ IMPACT_COLOR = {
 }
 
 IMPACT_EMOJI = {
-    "CRITICAL": "ðŸ”´",
+    "CRITICAL": "ðŸ"´",
     "HIGH": "ðŸŸ ",
     "MEDIUM": "ðŸŸ¡",
     "LOW": "âšª",
@@ -80,13 +80,13 @@ _DEFAULT_PORT = _CynicConfig.from_env().port
 CHANGES_FILE = CYNIC_DIR / "changes.jsonl"
 
 
-# â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 def _bar(score: float, width: int = 10) -> str:
     """Progress bar, score in [0, 100]."""
     ratio = max(0.0, min(score / 100.0, 1.0))
     filled = round(ratio * width)
-    return "â–ˆ" * filled + "â–‘" * (width - filled)
+    return "â-ˆ" * filled + "â-'" * (width - filled)
 
 
 def _read_json(path: Path) -> Optional[Any]:
@@ -158,21 +158,21 @@ def _read_recent_changes(limit: int = 10) -> list[dict]:
         return []
 
 
-# â”€â”€ Widgets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Widgets â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 class DogsPanel(Static):
     """Left column: dog reputation bars."""
 
     def render_dogs(self, dog_votes: dict[str, float], escore: dict[str, float]) -> None:
         lines: list[str] = []
-        lines.append("[bold dim]â”€â”€ DOGS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€[/bold dim]")
+        lines.append("[bold dim]â"€â"€ DOGS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€[/bold dim]")
         for dog in DOGS_ORDER:
             # Try dog_votes first (last judgment), then escore (reputation)
             score = dog_votes.get(dog, dog_votes.get(dog.capitalize(), -1.0))
             if score < 0:
                 score = escore.get(dog, escore.get(dog.lower(), -1.0))
             if score < 0:
-                bar = "â–‘" * 10
+                bar = "â-'" * 10
                 label = "[dim]  ?[/dim]"
             else:
                 bar = _bar(score)
@@ -213,7 +213,7 @@ class ActionsPanel(Static):
             self._render()
 
     def _render(self) -> None:
-        lines: list[str] = ["[bold dim]â”€â”€ ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€[/bold dim]"]
+        lines: list[str] = ["[bold dim]â"€â"€ ACTIONS â"€â"€â"€â"€â"€â"€â"€â"€â"€[/bold dim]"]
         if not self._actions:
             lines += [
                 "",
@@ -232,7 +232,7 @@ class ActionsPanel(Static):
                 desc     = (a.get("description") or "")[:36].rstrip()
                 emoji    = VERDICT_EMOJI.get(verdict, "âšª")
                 color    = VERDICT_COLOR.get(verdict, "white")
-                prefix   = "â–¶" if sel else " "
+                prefix   = "â-¶" if sel else " "
 
                 lines.append("")
                 if sel:
@@ -258,7 +258,7 @@ class ChangesPanel(Static):
 
     def render_changes(self, changes: list[dict]) -> None:
         lines: list[str] = []
-        lines.append("[bold dim]â”€â”€ CHANGES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€[/bold dim]")
+        lines.append("[bold dim]â"€â"€ CHANGES â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€[/bold dim]")
 
         if not changes:
             lines.append("[dim]  (no changes)[/dim]")
@@ -291,10 +291,10 @@ class ChangesPanel(Static):
         self.update("\n".join(lines))
 
 
-# â”€â”€ Main App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Main App â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 class CYNICApp(App):
-    """CYNIC TUI â€” Living Consciousness Interface."""
+    """CYNIC TUI â€" Living Consciousness Interface."""
 
     TITLE = "CYNIC ÎºÏ…Î½Î¹ÎºÏŒÏ‚"
     SUB_TITLE = "*sniff* Ïâ»Â¹=61.8%"
@@ -313,7 +313,7 @@ class CYNICApp(App):
         height: 1fr;
     }
 
-    /* â”€â”€ Left: Dogs â”€â”€ */
+    /* â"€â"€ Left: Dogs â"€â"€ */
     #dogs-col {
         width: 28;
         border-right: solid $primary-darken-2;
@@ -321,7 +321,7 @@ class CYNICApp(App):
         height: 100%;
     }
 
-    /* â”€â”€ Center: Stream â”€â”€ */
+    /* â"€â"€ Center: Stream â"€â"€ */
     #stream-col {
         width: 1fr;
         height: 100%;
@@ -333,7 +333,7 @@ class CYNICApp(App):
         padding: 0 1;
     }
 
-    /* â”€â”€ Right: Actions â”€â”€ */
+    /* â"€â"€ Right: Actions â"€â"€ */
     #actions-col {
         width: 26;
         border-left: solid $primary-darken-2;
@@ -341,7 +341,7 @@ class CYNICApp(App):
         height: 100%;
     }
 
-    /* â”€â”€ Far Right: Changes â”€â”€ */
+    /* â"€â"€ Far Right: Changes â"€â"€ */
     #changes-col {
         width: 24;
         border-left: solid $primary-darken-2;
@@ -349,7 +349,7 @@ class CYNICApp(App):
         height: 100%;
     }
 
-    /* â”€â”€ Panel titles â”€â”€ */
+    /* â"€â"€ Panel titles â"€â"€ */
     .panel-title {
         text-align: center;
         background: $primary-darken-3;
@@ -358,7 +358,7 @@ class CYNICApp(App):
         height: 1;
     }
 
-    /* â”€â”€ Status bar â”€â”€ */
+    /* â"€â"€ Status bar â"€â"€ */
     #status-bar {
         height: 1;
         background: $surface-darken-1;
@@ -394,7 +394,7 @@ class CYNICApp(App):
         self._axiom_tier: str = "DORMANT"
         self._lod: int = 0
 
-    # â”€â”€ Compose â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Compose â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -414,7 +414,7 @@ class CYNICApp(App):
         yield Static("", id="status-bar")
         yield Footer()
 
-    # â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Lifecycle â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def on_mount(self) -> None:
         self.set_interval(2.0, self._poll_files)
@@ -423,10 +423,10 @@ class CYNICApp(App):
         self.set_timer(0.2, self._poll_files)
         self.set_timer(0.5, self._poll_api)
 
-    # â”€â”€ Polling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Polling â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     async def _poll_files(self) -> None:
-        """Fast path â€” local JSON files, no server required."""
+        """Fast path â€" local JSON files, no server required."""
         guidance = _read_json(GUIDANCE_FILE)
         if guidance:
             ts = guidance.get("timestamp", 0.0)
@@ -465,7 +465,7 @@ class CYNICApp(App):
         self._update_header_and_status()
 
     async def _poll_api(self) -> None:
-        """Slow path â€” optional API queries (timeout 3 s, graceful on 404)."""
+        """Slow path â€" optional API queries (timeout 3 s, graceful on 404)."""
         try:
             data = await asyncio.wait_for(
                 asyncio.to_thread(_fetch_json, f"{self._base_url}/health"),
@@ -488,7 +488,7 @@ class CYNICApp(App):
         except httpx.RequestError:
             pass
 
-    # â”€â”€ Stream â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Stream â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _push_stream_entry(self, guidance: dict) -> None:
         verdict  = guidance.get("verdict", "?")
@@ -510,7 +510,7 @@ class CYNICApp(App):
             f"[dim]{state_key}[/dim]"
         )
 
-    # â”€â”€ Header + Status bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Header + Status bar â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _update_header_and_status(self) -> None:
         emoji   = VERDICT_EMOJI.get(self._verdict, "âšª")
@@ -528,14 +528,14 @@ class CYNICApp(App):
         status_bar: Static = self.query_one("#status-bar", Static)
         status_bar.update(
             "[dim]*sniff*  "
-            "1-5 rate judgment  â”‚  "
-            "j/k â‘â“ nav  â”‚  "
-            "a accept  r reject  â”‚  "
-            "ctrl+r refresh  â”‚  "
+            "1-5 rate judgment  â"‚  "
+            "j/k â'â" nav  â"‚  "
+            "a accept  r reject  â"‚  "
+            "ctrl+r refresh  â"‚  "
             "q quit[/dim]"
         )
 
-    # â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Actions â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     async def action_accept(self) -> None:
         panel: ActionsPanel = self.query_one("#actions-panel", ActionsPanel)
@@ -544,7 +544,7 @@ class CYNICApp(App):
             self._log("No action selected", "yellow")
             return
         action_id = action.get("action_id", "")
-        self._log(f"â’ Accepting [bold]{action_id[:8]}[/bold]â€¦", "green")
+        self._log(f"â' Accepting [bold]{action_id[:8]}[/bold]â€¦", "green")
         try:
             result = await asyncio.wait_for(
                 asyncio.to_thread(
@@ -555,12 +555,12 @@ class CYNICApp(App):
                 timeout=5.0,
             )
             if result:
-                self._log(f"âœ“ Accepted â€” {result.get('status', 'ok')}", "bright_green")
+                self._log(f"âœ" Accepted â€" {result.get('status', 'ok')}", "bright_green")
             else:
                 _local_set_status(action_id, "ACCEPTED")
-                self._log("âœ“ Accepted locally (server offline)", "yellow")
+                self._log("âœ" Accepted locally (server offline)", "yellow")
         except httpx.RequestError as e:
-            self._log(f"âœ— Accept failed: {e}", "red")
+            self._log(f"âœ- Accept failed: {e}", "red")
         await self._poll_files()
 
     async def action_reject(self) -> None:
@@ -570,7 +570,7 @@ class CYNICApp(App):
             self._log("No action selected", "yellow")
             return
         action_id = action.get("action_id", "")
-        self._log(f"â’ Rejecting [bold]{action_id[:8]}[/bold]â€¦", "red")
+        self._log(f"â' Rejecting [bold]{action_id[:8]}[/bold]â€¦", "red")
         try:
             result = await asyncio.wait_for(
                 asyncio.to_thread(
@@ -581,12 +581,12 @@ class CYNICApp(App):
                 timeout=5.0,
             )
             if result:
-                self._log(f"âœ“ Rejected â€” {result.get('status', 'ok')}", "red")
+                self._log(f"âœ" Rejected â€" {result.get('status', 'ok')}", "red")
             else:
                 _local_set_status(action_id, "REJECTED")
-                self._log("âœ“ Rejected locally (server offline)", "yellow")
+                self._log("âœ" Rejected locally (server offline)", "yellow")
         except httpx.RequestError as e:
-            self._log(f"âœ— Reject failed: {e}", "red")
+            self._log(f"âœ- Reject failed: {e}", "red")
         await self._poll_files()
 
     def action_move_up(self) -> None:
@@ -612,13 +612,13 @@ class CYNICApp(App):
                 timeout=5.0,
             )
             if result:
-                self._log(f"â­ Rated {n}/5 â€” feedback sent to kernel", "cyan")
+                self._log(f"â­ Rated {n}/5 â€" feedback sent to kernel", "cyan")
             else:
                 self._log(f"â­ Rated {n}/5 (server offline, not persisted)", "yellow")
         except httpx.RequestError:
             self._log(f"â­ Rated {n}/5 (could not reach server)", "yellow")
 
-    # â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _log(self, msg: str, color: str = "white") -> None:
         t = time.strftime("%H:%M:%S")
@@ -626,7 +626,7 @@ class CYNICApp(App):
         log.write(f"[dim]{t}[/dim]  [{color}]{msg}[/{color}]")
 
 
-# â”€â”€ Entry point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Entry point â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 def run(base_url: Optional[str] = None) -> None:
     url = base_url or f"http://localhost:{_DEFAULT_PORT}"

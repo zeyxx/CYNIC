@@ -1,13 +1,13 @@
 """
-EventMetricsCollector — Rolling-window metrics over the EventBus stream.
+EventMetricsCollector - Rolling-window metrics over the EventBus stream.
 
 Tracks per-event-type rates, latency histograms, and error rates
 within a φ-derived observation window (SIGNAL_TTL_SEC = 55 s).
 
 Anomaly types:
-  RATE_SPIKE   — recent rate > baseline × PHI (1.618)
-  ERROR_SPIKE  — error_rate > PHI_INV (0.618)
-  LATENCY_SPIKE — duration_ms > LOD_LEVEL3 (3000 ms)
+  RATE_SPIKE   - recent rate > baseline × PHI (1.618)
+  ERROR_SPIKE  - error_rate > PHI_INV (0.618)
+  LATENCY_SPIKE - duration_ms > LOD_LEVEL3 (3000 ms)
 
 Usage:
     collector = EventMetricsCollector()
@@ -85,7 +85,7 @@ class AnomalyRecord:
     event_type: str
     metric_value: float         # observed value that crossed the threshold
     threshold_value: float      # the PHI-derived threshold that was crossed
-    severity: float             # [0, 1] — capped at PHI_INV (0.618)
+    severity: float             # [0, 1] - capped at PHI_INV (0.618)
     message: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -109,11 +109,11 @@ class EventMetricsCollector:
     def __init__(self, window_s: float = SIGNAL_TTL_SEC) -> None:
         self._window_ms = window_s * 1000.0
         self._lock = asyncio.Lock()
-        # Per-type rolling samples — capped at LOG_TAIL_CAP (144) per type
+        # Per-type rolling samples - capped at LOG_TAIL_CAP (144) per type
         self._samples: dict[str, deque[_EventSample]] = defaultdict(
             lambda: deque(maxlen=LOG_TAIL_CAP)
         )
-        # Anomaly rolling buffer — capped at LOG_TAIL_CAP (144)
+        # Anomaly rolling buffer - capped at LOG_TAIL_CAP (144)
         self._anomalies: deque[AnomalyRecord] = deque(maxlen=LOG_TAIL_CAP)
         self._total_recorded = 0
 
@@ -244,7 +244,7 @@ class EventMetricsCollector:
                 "window_s": self._window_ms / 1000.0,
             }
 
-    # ── Private helpers ────────────────────────────────────────────────────────
+    # -- Private helpers --------------------------------------------------------
 
     def _in_window(self, samples: list[_EventSample]) -> list[_EventSample]:
         """Filter samples to those within the rolling window."""

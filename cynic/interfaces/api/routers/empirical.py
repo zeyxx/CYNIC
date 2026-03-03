@@ -1,13 +1,13 @@
 """
-Empirical Testing Router â€” HTTP endpoints for Claude Code access to autonomous testing.
+Empirical Testing Router â€" HTTP endpoints for Claude Code access to autonomous testing.
 
 Endpoints:
-  POST /empirical/test/start       â’ Spawn new empirical test job
-  GET  /empirical/test/{job_id}    â’ Get job status and progress
-  GET  /empirical/test/{job_id}/results â’ Get completed results
-  POST /empirical/axioms/test      â’ Test axiom irreducibility
-  GET  /empirical/telemetry        â’ Query SONA metrics
-  GET  /empirical/health           â’ Check runner status
+  POST /empirical/test/start       â' Spawn new empirical test job
+  GET  /empirical/test/{job_id}    â' Get job status and progress
+  GET  /empirical/test/{job_id}/results â' Get completed results
+  POST /empirical/axioms/test      â' Test axiom irreducibility
+  GET  /empirical/telemetry        â' Query SONA metrics
+  GET  /empirical/health           â' Check runner status
 
 Design:
   - Wraps EmpiricalRunner for job lifecycle
@@ -47,7 +47,7 @@ def get_runner() -> EmpiricalRunner:
     global _runner
     if _runner is None:
         if _organism_getter is None:
-            raise RuntimeError("Empirical runner not initialized â€” call init_empirical_router first")
+            raise RuntimeError("Empirical runner not initialized â€" call init_empirical_router first")
         _runner = EmpiricalRunner(_organism_getter)
         logger.info("Empirical runner lazy-initialized")
     return _runner

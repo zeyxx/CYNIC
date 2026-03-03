@@ -87,6 +87,12 @@ class JudgmentExecutorHandler(HandlerGroup):
 
             p = JudgmentRequestedPayload.model_validate(event.dict_payload or {})
 
+            # ANTI-RECURSION GUARD (Lentille : SRE)
+            # If the organism is recursively judging its own internal thoughts too deeply, stop.
+            if p.fractal_depth > 2:
+                logger.warning(f"JudgmentExecutor: RECURSION BLOCKED (depth={p.fractal_depth}) for cell {p.cell.get('cell_id') if isinstance(p.cell, dict) else 'unknown'}")
+                return
+
             # Extract judgment_id from payload (thread it through the pipeline to match PENDING entry)
             judgment_id = p.judgment_id or event.event_id  # fallback for safety
 

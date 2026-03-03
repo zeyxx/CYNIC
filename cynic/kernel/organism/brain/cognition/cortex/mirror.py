@@ -1,15 +1,15 @@
 """
-CYNIC KernelMirror â€” Ring 3 Self-Reflection Surface
+CYNIC KernelMirror â€" Ring 3 Self-Reflection Surface
 
 A unified snapshot of ALL kernel subsystems, enabling CYNIC to observe
 its own state in a single structured view. Designed to power:
 
-  1. /mirror API endpoint â€” full kernel introspection in one call
-  2. CONSCIOUSNESS signal source â€” high-quality self-model triggers A10
-  3. Temporal diff â€” detect what changed between two snapshots
+  1. /mirror API endpoint â€" full kernel introspection in one call
+  2. CONSCIOUSNESS signal source â€" high-quality self-model triggers A10
+  3. Temporal diff â€" detect what changed between two snapshots
 
 Subsystems aggregated:
-  - QTable: matrix coverage (7Ã—7Ã—7), learning stats, top states
+  - QTable: matrix coverage (7Ã-7Ã-7), learning stats, top states
   - AxiomMonitor: A6-A11 tier, maturity scores, activation counts
   - LODController: current LOD, health dimensions
   - AccountAgent: budget ledger, cost by reality/dog
@@ -19,8 +19,8 @@ Subsystems aggregated:
   - Dogs: judgment counts, hit rates, latency profiles
 
 Ï-integration:
-  - overall_health [0, 100] â€” geometric mean of subsystem health indicators
-  - If overall_health â‰¥ WAG_MIN (61.8) â’ signals A10 CONSCIOUSNESS
+  - overall_health [0, 100] â€" geometric mean of subsystem health indicators
+  - If overall_health â‰¥ WAG_MIN (61.8) â' signals A10 CONSCIOUSNESS
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ from cynic.kernel.core.phi import GROWL_MIN, MAX_Q_SCORE, WAG_MIN
 
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.mirror")
 
-# Rolling window for diff history (F(8)=21 snapshots) â€” imported from formulas.py
+# Rolling window for diff history (F(8)=21 snapshots) â€" imported from formulas.py
 _DIFF_WINDOW: int = AXIOM_MATURITY_WINDOW_SIZE  # 21
 
 
@@ -52,7 +52,7 @@ class KernelMirror:
     Usage:
         mirror = KernelMirror(state)
         snap = mirror.snapshot()
-        health = snap["overall_health"]   # [0, 100] â€” how well is CYNIC doing?
+        health = snap["overall_health"]   # [0, 100] â€" how well is CYNIC doing?
         tier = snap["tier"]               # DORMANT/STIRRING/ACTIVE/TRANSCENDENT
     """
 
@@ -78,7 +78,7 @@ class KernelMirror:
             "uptime_s": round(time.time() - self._created_at, 1),
         }
 
-        # QTable: 7Ã—7Ã—7 materialization coverage
+        # QTable: 7Ã-7Ã-7 materialization coverage
         if hasattr(state, "qtable") and state.qtable is not None:
             try:
                 snap["qtable"] = {
@@ -154,7 +154,7 @@ class KernelMirror:
         snap["overall_health"] = self._compute_health(snap)
         snap["tier"] = self._health_tier(snap["overall_health"])
 
-        # Keep penultimate for diff comparison (N-2 â’ allows diff after N snapshot)
+        # Keep penultimate for diff comparison (N-2 â' allows diff after N snapshot)
         self._penultimate_snapshot = self._prev_snapshot
         self._prev_snapshot = snap
         self._snapshot_count += 1
@@ -171,14 +171,14 @@ class KernelMirror:
             d = mirror.diff(snap2)   # shows what changed between snap1 and snap2
 
         Returns:
-            Dict of changed paths â’ {"old": ..., "new": ...}
+            Dict of changed paths â' {"old": ..., "new": ...}
             Empty dict if fewer than 2 snapshots have been taken.
         """
         if self._penultimate_snapshot is None:
             return {}
         return _deep_diff(self._penultimate_snapshot, current)
 
-    # â”€â”€ Subsystem extractors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Subsystem extractors â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     @staticmethod
     def _sage_stats(state: Any) -> dict[str, Any]:
@@ -226,7 +226,7 @@ class KernelMirror:
             }
         return result
 
-    # â”€â”€ Health scoring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Health scoring â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     @staticmethod
     def _compute_health(snap: dict[str, Any]) -> float:
@@ -240,7 +240,7 @@ class KernelMirror:
           3. LOD health: LOD_0=100, LOD_1=75, LOD_2=38, LOD_3=10
           4. SAGE LLM activation (0=heuristic-only, 100=always temporal)
 
-        Geometric mean keeps score honest â€” one bad indicator drags the whole.
+        Geometric mean keeps score honest â€" one bad indicator drags the whole.
         """
         scores: list[float] = []
 
@@ -271,11 +271,11 @@ class KernelMirror:
         sage = snap.get("sage", {})
         if isinstance(sage, dict) and sage.get("available"):
             llm_rate = sage.get("llm_activation_rate", 0.0)
-            # Map: 0â’25 (heuristic-only still useful), 1â’100 (full temporal)
+            # Map: 0â'25 (heuristic-only still useful), 1â'100 (full temporal)
             scores.append(25.0 + 75.0 * llm_rate)
 
         if not scores:
-            return 50.0  # Unknown â€” neutral
+            return 50.0  # Unknown â€" neutral
 
         # Geometric mean
         log_sum = sum(log(max(s, 0.1)) for s in scores)
@@ -290,8 +290,8 @@ class KernelMirror:
         if health >= WAG_MIN:
             return "WAG"  # Good health, some gaps
         if health >= GROWL_MIN:
-            return "GROWL"  # Degraded â€” attention needed
-        return "BARK"  # Critical â€” intervention required
+            return "GROWL"  # Degraded â€" attention needed
+        return "BARK"  # Critical â€" intervention required
 
 
 def _deep_diff(

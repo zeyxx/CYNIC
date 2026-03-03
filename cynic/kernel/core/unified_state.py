@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from cynic.kernel.core.phi import MAX_CONFIDENCE, fibonacci
 
 
-# â”€â”€ Base Model for Pydantic-based models with flexibility â”€â”€
+# â"€â"€ Base Model for Pydantic-based models with flexibility â"€â"€
 class UnifiedModel(BaseModel):
     model_config = ConfigDict(extra="allow", frozen=False)
 
@@ -210,7 +210,7 @@ class GovernanceVote:
         return dataclasses.replace(self, **kwargs)
 
 
-# â”€â”€ Buffers â”€â”€
+# â"€â"€ Buffers â"€â"€
 
 
 class JudgmentBuffer(BaseModel):

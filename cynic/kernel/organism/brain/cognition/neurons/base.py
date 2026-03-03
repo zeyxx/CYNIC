@@ -1,27 +1,27 @@
 """
-CYNIC AbstractDog â€” Base interface for all 11 Dogs (Sefirot)
+CYNIC AbstractDog â€" Base interface for all 11 Dogs (Sefirot)
 
 Every Dog MUST implement:
-  - analyze(cell) â’ DogJudgment
-  - get_capabilities() â’ DogCapabilities
-  - health_check() â’ HealthStatus
+  - analyze(cell) â' DogJudgment
+  - get_capabilities() â' DogCapabilities
+  - health_check() â' HealthStatus
 
 Dogs are categorized by consciousness level:
   L3 REFLEX (non-LLM):  CYNIC-PBFT, GUARDIAN, ANALYST, JANITOR
   L2/L1 (LLM-capable):  SAGE, SCHOLAR, ORACLE, ARCHITECT, DEPLOYER, SCOUT, CARTOGRAPHER
 
 E-Score weights and Dog priority:
-  CYNIC (Keter)      â€” ÏÂ³ priority (consensus coordinator)
-  SAGE (Chokmah)     â€” ÏÂ² priority (wisdom, knowledge graph)
-  ANALYST (Binah)    â€” ÏÂ² priority (formal verification)
-  GUARDIAN (Gevurah) â€” Ï priority (security, anomaly)
-  ORACLE (Tiferet)   â€” Ï priority (MCTS, Thompson)
-  ARCHITECT (Netzach)â€” 1.0 priority (code structure)
-  CARTOGRAPHER (Daat)â€” 1.0 priority (graph, topology)
-  SCHOLAR (Chesed)   â€” Ïâ»Â¹ priority (vector RAG)
-  DEPLOYER (Hod)     â€” Ïâ»Â¹ priority (execution)
-  SCOUT (Malkuth)    â€” Ïâ»Â² priority (web, discovery)
-  JANITOR (Yesod)    â€” Ïâ»Â² priority (cleanup, linting)
+  CYNIC (Keter)      â€" ÏÂ³ priority (consensus coordinator)
+  SAGE (Chokmah)     â€" ÏÂ² priority (wisdom, knowledge graph)
+  ANALYST (Binah)    â€" ÏÂ² priority (formal verification)
+  GUARDIAN (Gevurah) â€" Ï priority (security, anomaly)
+  ORACLE (Tiferet)   â€" Ï priority (MCTS, Thompson)
+  ARCHITECT (Netzach)â€" 1.0 priority (code structure)
+  CARTOGRAPHER (Daat)â€" 1.0 priority (graph, topology)
+  SCHOLAR (Chesed)   â€" Ïâ»Â¹ priority (vector RAG)
+  DEPLOYER (Hod)     â€" Ïâ»Â¹ priority (execution)
+  SCOUT (Malkuth)    â€" Ïâ»Â² priority (web, discovery)
+  JANITOR (Yesod)    â€" Ïâ»Â² priority (cleanup, linting)
 """
 
 from __future__ import annotations
@@ -63,24 +63,24 @@ logger = logging.getLogger("cynic.kernel.organism.brain.cognition.neurons.base")
 
 
 class DogId(StrEnum):
-    """The 11 Dogs â€” Sefirot of the Kabbalistic Tree of Life."""
+    """The 11 Dogs â€" Sefirot of the Kabbalistic Tree of Life."""
 
-    CYNIC = "CYNIC"  # Keter â€” Crown (PBFT coordinator)
-    SAGE = "SAGE"  # Chokmah â€” Wisdom (LLM + RDFLib)
-    ANALYST = "ANALYST"  # Binah â€” Understanding (Z3)
-    GUARDIAN = "GUARDIAN"  # Gevurah â€” Strength (IsolationForest)
-    ORACLE = "ORACLE"  # Tiferet â€” Beauty (MCTS + Thompson)
-    ARCHITECT = "ARCHITECT"  # Netzach â€” Victory (TreeSitter)
-    CARTOGRAPHER = "CARTOGRAPHER"  # Daat â€” Knowledge (NetworkX)
-    SCHOLAR = "SCHOLAR"  # Chesed â€” Kindness (Qdrant RAG)
-    DEPLOYER = "DEPLOYER"  # Hod â€” Splendor (Ansible/K8s)
-    SCOUT = "SCOUT"  # Malkuth â€” Kingdom (Scrapy)
-    JANITOR = "JANITOR"  # Yesod â€” Foundation (Ruff AST)
+    CYNIC = "CYNIC"  # Keter â€" Crown (PBFT coordinator)
+    SAGE = "SAGE"  # Chokmah â€" Wisdom (LLM + RDFLib)
+    ANALYST = "ANALYST"  # Binah â€" Understanding (Z3)
+    GUARDIAN = "GUARDIAN"  # Gevurah â€" Strength (IsolationForest)
+    ORACLE = "ORACLE"  # Tiferet â€" Beauty (MCTS + Thompson)
+    ARCHITECT = "ARCHITECT"  # Netzach â€" Victory (TreeSitter)
+    CARTOGRAPHER = "CARTOGRAPHER"  # Daat â€" Knowledge (NetworkX)
+    SCHOLAR = "SCHOLAR"  # Chesed â€" Kindness (Qdrant RAG)
+    DEPLOYER = "DEPLOYER"  # Hod â€" Splendor (Ansible/K8s)
+    SCOUT = "SCOUT"  # Malkuth â€" Kingdom (Scrapy)
+    JANITOR = "JANITOR"  # Yesod â€" Foundation (Ruff AST)
 
 
 # Ï-symmetric priority weights per Dog
 DOG_PRIORITY: dict[str, float] = {
-    DogId.CYNIC: PHI_3,  # ÏÂ³ = 4.236 â€” highest, consensus critical
+    DogId.CYNIC: PHI_3,  # ÏÂ³ = 4.236 â€" highest, consensus critical
     DogId.SAGE: PHI_2,  # ÏÂ² = 2.618
     DogId.ANALYST: PHI_2,  # ÏÂ² = 2.618
     DogId.GUARDIAN: PHI,  # Ï  = 1.618
@@ -161,7 +161,7 @@ class DogJudgment(BaseModel):
 @dataclass
 class DogCapabilities:
     """
-    What a Dog can do â€” used by MCTS to select Dog combinations.
+    What a Dog can do â€" used by MCTS to select Dog combinations.
 
     Capabilities determine which Cells a Dog can usefully analyze.
     MCTS Level 1 selects Dog subsets based on combined capability coverage.
@@ -219,9 +219,9 @@ class AbstractDog(ABC):
     Base class for all 11 CYNIC Dogs.
 
     Subclasses MUST implement:
-      - analyze(cell) â’ DogJudgment
-      - get_capabilities() â’ DogCapabilities
-      - health_check() â’ DogHealth
+      - analyze(cell) â' DogJudgment
+      - get_capabilities() â' DogCapabilities
+      - health_check() â' DogHealth
 
     The organism is the sum of all Dogs, coordinated by PBFT.
     """
@@ -324,9 +324,9 @@ class LLMDog(AbstractDog):
     Base class for the 7 LLM-capable Dogs.
 
     Provides:
-      - LLM routing via LLMRegistry (best model for this Dog Ã— task_type)
+      - LLM routing via LLMRegistry (best model for this Dog Ã- task_type)
       - Automatic benchmark recording after each judgment
-      - Graceful degradation: if LLM unavailable â’ GROWL verdict, low confidence
+      - Graceful degradation: if LLM unavailable â' GROWL verdict, low confidence
     """
 
     def __init__(
@@ -456,17 +456,17 @@ class LLMDog(AbstractDog):
         Feed judgment outcome back into LLMRegistry routing table.
 
         Converts DogJudgment into a BenchmarkResult and calls
-        registry.update_benchmark() â’ EMA update â’ better routing next time.
+        registry.update_benchmark() â' EMA update â' better routing next time.
 
-        Speed target: 3000ms (L1 MACRO budget â€” longer is penalized)
+        Speed target: 3000ms (L1 MACRO budget â€" longer is penalized)
         Cost budget:  $0.01 per judgment (Ollama = free = 1.0 score)
         """
         from cynic.kernel.organism.brain.llm.adapter import BenchmarkResult
 
-        # Normalize speed: 0ms â’ 1.0, 3000ms â’ 0.0, beyond â’ capped at 0
+        # Normalize speed: 0ms â' 1.0, 3000ms â' 0.0, beyond â' capped at 0
         speed_score = max(0.0, 1.0 - judgment.latency_ms / _SPEED_TARGET_MS)
 
-        # Normalize cost: free (Ollama) â’ 1.0, over budget â’ 0.0
+        # Normalize cost: free (Ollama) â' 1.0, over budget â' 0.0
         if judgment.cost_usd <= 0.0:
             cost_score = 1.0  # Local inference is free
         else:
@@ -476,7 +476,7 @@ class LLMDog(AbstractDog):
             llm_id=judgment.llm_id,
             dog_id=self.dog_id,
             task_type=self.task_type,
-            quality_score=judgment.q_score,  # [0, 61.8] â€” Ï-bounded
+            quality_score=judgment.q_score,  # [0, 61.8] â€" Ï-bounded
             speed_score=speed_score,  # [0, 1]
             cost_score=cost_score,  # [0, 1]
             error_rate=0.0,
@@ -489,6 +489,6 @@ class LLMDog(AbstractDog):
         )
 
 
-# â”€â”€ Benchmark normalisation constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-_SPEED_TARGET_MS: float = 3000.0  # L1 MACRO target â€” 3s budget per call
-_COST_BUDGET_USD: float = 0.01  # $0.01 per judgment â€” Ollama = 0 â’ 1.0
+# â"€â"€ Benchmark normalisation constants â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+_SPEED_TARGET_MS: float = 3000.0  # L1 MACRO target â€" 3s budget per call
+_COST_BUDGET_USD: float = 0.01  # $0.01 per judgment â€" Ollama = 0 â' 1.0

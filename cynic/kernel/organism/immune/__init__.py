@@ -1,4 +1,4 @@
-"""Immune System â€” Safety Gates
+"""Immune System â€" Safety Gates
 
 The immune system protects the organism.
 

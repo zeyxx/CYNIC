@@ -1,5 +1,5 @@
 """
-CYNIC introspection router â€” self-reflection & diagnostics: introspect Â· axioms Â· lod Â· mirror Â· registry
+CYNIC introspection router â€" self-reflection & diagnostics: introspect Â· axioms Â· lod Â· mirror Â· registry
 """
 from __future__ import annotations
 
@@ -25,13 +25,13 @@ router_introspection = APIRouter(tags=["introspection"])
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# GET /introspect  (MetaCognition â€” composant 9/9, self-model)
+# GET /introspect  (MetaCognition â€" composant 9/9, self-model)
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_introspection.get("/introspect")
 async def introspect(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
-    MetaCognition â€” CYNIC reads its own cognitive state.
+    MetaCognition â€" CYNIC reads its own cognitive state.
 
     Returns a deep self-model:
     - Learning maturity (Q-table fill, top states, best actions)
@@ -42,8 +42,8 @@ async def introspect(container: AppContainer = Depends(get_app_container)) -> di
     - Kernel integrity (9/9 components, their status)
     - Ï-bound assessment (is CYNIC within its own axioms?)
 
-    This is CYNIC judging itself â€” meta-cognitive self-assessment.
-    "Ï distrusts Ï" â€” the organism reflects on its own biases.
+    This is CYNIC judging itself â€" meta-cognitive self-assessment.
+    "Ï distrusts Ï" â€" the organism reflects on its own biases.
     """
     from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 
@@ -83,11 +83,11 @@ async def introspect(container: AppContainer = Depends(get_app_container)) -> di
 
     # 9-component kernel integrity check
     components = {
-        "1_AXIOMS":         {"status": "ACTIVE", "description": "5 axioms Ã— 7 facets scoring"},
+        "1_AXIOMS":         {"status": "ACTIVE", "description": "5 axioms Ã- 7 facets scoring"},
         "2_PHI_BOUND":      {"status": "ACTIVE", "description": "Ïâ»Â¹=61.8% max confidence enforced"},
         "3_MULTI_AGENT":    {"status": "ACTIVE", "description": f"{len(state.orchestrator.dogs)}/11 Dogs active"},
         "4_EVENT_DRIVEN":   {"status": "ACTIVE", "description": "Core bus wired, JUDGMENT_CREATED flowing"},
-        "5_JUDGMENT":       {"status": "ACTIVE", "description": "7-step PERCEIVEâ’EMERGE pipeline"},
+        "5_JUDGMENT":       {"status": "ACTIVE", "description": "7-step PERCEIVEâ'EMERGE pipeline"},
         "6_LEARNING":       {
             "status": "ACTIVE" if qtable_stats.get("total_updates", 0) > 0 else "WARM",
             "description": f"QTable: {qtable_stats.get('unique_states', 0)} states learned",
@@ -100,7 +100,7 @@ async def introspect(container: AppContainer = Depends(get_app_container)) -> di
             "status": "ACTIVE" if scholar_status.get("buffer_size", 0) > 0 else "COLD",
             "description": f"Scholar buffer: {scholar_status.get('buffer_size', 0)}/{scholar_status.get('buffer_max', 89)} cells",
         },
-        "9_META_COGNITION": {"status": "ACTIVE", "description": "This endpoint â€” /introspect live"},
+        "9_META_COGNITION": {"status": "ACTIVE", "description": "This endpoint â€" /introspect live"},
     }
 
     active_count = sum(1 for c in components.values() if c["status"] == "ACTIVE")
@@ -154,13 +154,13 @@ async def introspect(container: AppContainer = Depends(get_app_container)) -> di
 @router_introspection.get("/axioms")
 async def axioms(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
-    Emergent Axiom dashboard â€” A6-A9 activation status.
+    Emergent Axiom dashboard â€" A6-A9 activation status.
 
     Returns live maturity scores and tier for the 4 emergent axioms:
-      A6. AUTONOMY     â€” Dogs coordinate without human approval
-      A7. SYMBIOSIS    â€” HumanÃ—Machine mutual value creation
-      A8. EMERGENCE    â€” Patterns beyond core axioms
-      A9. ANTIFRAGILITY â€” System improves under chaos
+      A6. AUTONOMY     â€" Dogs coordinate without human approval
+      A7. SYMBIOSIS    â€" HumanÃ-Machine mutual value creation
+      A8. EMERGENCE    â€" Patterns beyond core axioms
+      A9. ANTIFRAGILITY â€" System improves under chaos
     """
     state = container.organism
     return state.axiom_monitor.dashboard()
@@ -173,7 +173,7 @@ async def axioms(container: AppContainer = Depends(get_app_container)) -> dict[s
 @router_introspection.get("/lod")
 async def lod(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
-    Survival LOD status â€” current graceful degradation level.
+    Survival LOD status â€" current graceful degradation level.
 
     LOD 0 FULL:      All Dogs + LLM + all consciousness levels
     LOD 1 REDUCED:   Skip slow Dogs, L2 MICRO max
@@ -191,10 +191,10 @@ async def lod(container: AppContainer = Depends(get_app_container)) -> dict[str,
 @router_introspection.get("/mirror")
 async def mirror(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
-    KernelMirror â€” Ring 3 unified self-reflection snapshot.
+    KernelMirror â€" Ring 3 unified self-reflection snapshot.
 
     Aggregates all subsystem stats into a single response:
-      - qtable: 7Ã—7Ã—7 matrix coverage + learning stats
+      - qtable: 7Ã-7Ã-7 matrix coverage + learning stats
       - axioms: A6-A11 tier + maturity scores
       - lod: current LOD + health dimensions
       - account: budget ledger + cost by reality/dog
@@ -214,7 +214,7 @@ async def mirror(container: AppContainer = Depends(get_app_container)) -> dict[s
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# GET /internal/registry â€” Tier 1 Nervous System: Service State Registry
+# GET /internal/registry â€" Tier 1 Nervous System: Service State Registry
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_introspection.get("/internal/registry")

@@ -1,4 +1,4 @@
-"""Regional Coordinator for LNSP â€” Multi-Instance Coordination
+"""Regional Coordinator for LNSP â€" Multi-Instance Coordination
 
 The Regional Coordinator enables LNSP to scale from single-machine to multi-instance
 deployment by:

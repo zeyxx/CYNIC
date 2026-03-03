@@ -40,10 +40,10 @@ class TimeoutConfig:
     adjust timeout policies without changing adapter code.
     """
 
-    # Tool name â’ TimeoutCategory
+    # Tool name â' TimeoutCategory
     TOOL_TIMEOUTS: dict[str, TimeoutCategory] = {
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        # FAST TOOLS (2s timeout) â€” Health checks, status, monitoring
+        # FAST TOOLS (2s timeout) â€" Health checks, status, monitoring
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         "cynic_health": TimeoutCategory.FAST,
         "cynic_status": TimeoutCategory.FAST,
@@ -52,7 +52,7 @@ class TimeoutConfig:
         "cynic_ping": TimeoutCategory.FAST,
 
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        # NORMAL TOOLS (30s timeout) â€” Standard cognitive operations
+        # NORMAL TOOLS (30s timeout) â€" Standard cognitive operations
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         "ask_cynic": TimeoutCategory.NORMAL,
         "observe_cynic": TimeoutCategory.NORMAL,
@@ -64,7 +64,7 @@ class TimeoutConfig:
         "cynic_get_q_table": TimeoutCategory.NORMAL,
 
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        # BATCH TOOLS (300s timeout) â€” Long-running empirical tests
+        # BATCH TOOLS (300s timeout) â€" Long-running empirical tests
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         "cynic_run_empirical_test": TimeoutCategory.BATCH,
         "cynic_test_axiom_irreducibility": TimeoutCategory.BATCH,
@@ -72,7 +72,7 @@ class TimeoutConfig:
         "cynic_run_load_test": TimeoutCategory.BATCH,
 
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        # STREAM TOOLS (âˆž timeout) â€” Indefinite observation
+        # STREAM TOOLS (âˆž timeout) â€" Indefinite observation
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         "cynic_watch_telemetry": TimeoutCategory.STREAM,
         "cynic_watch_source": TimeoutCategory.STREAM,

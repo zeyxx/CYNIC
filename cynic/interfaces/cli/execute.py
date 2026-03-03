@@ -1,5 +1,5 @@
 """
-CYNIC CLI â€” `execute` command (L1 closure: accept + fire action).
+CYNIC CLI â€" `execute` command (L1 closure: accept + fire action).
 """
 from __future__ import annotations
 
@@ -14,9 +14,9 @@ def cmd_execute() -> None:
     """
     Accept and immediately execute a pending action proposal (L1 closure).
 
-    Accept marks the action ACCEPTED and fires ACT_REQUESTED â’ the runner
+    Accept marks the action ACCEPTED and fires ACT_REQUESTED â' the runner
     executes it autonomously via Claude Code. This closes the full
-    Machineâ’Actions loop without a web UI.
+    Machineâ'Actions loop without a web UI.
 
     Usage: python -m cynic.interfaces.cli execute <action_id>
       action_id: 8-char hex prefix from `cynic.interfaces.cli review`

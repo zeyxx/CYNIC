@@ -1,21 +1,21 @@
 """
-CYNIC StorageGarbageCollector â€” Disk pressure response (BURN axiom)
+CYNIC StorageGarbageCollector â€" Disk pressure response (BURN axiom)
 
 Pure SQL. No abstractions. Triggered by DISK_PRESSURE event.
 Prunes low-value data first: BARK verdicts, oldest records, oversized buffers.
 
-Prune order (lowest Q-Score value first â€” BURN axiom):
-  1. judgments        â€” BARK verdicts older than 7 days  (batch=1000)
-  2. scholar_buffer   â€” keep F(11)=89 newest entries
-  3. residual_history â€” keep F(11)=89 newest entries
-  4. llm_benchmarks   â€” records older than 30 days
-  5. consciousness_snapshots â€” keep F(10)=55 newest
+Prune order (lowest Q-Score value first â€" BURN axiom):
+  1. judgments        â€" BARK verdicts older than 7 days  (batch=1000)
+  2. scholar_buffer   â€" keep F(11)=89 newest entries
+  3. residual_history â€" keep F(11)=89 newest entries
+  4. llm_benchmarks   â€" records older than 30 days
+  5. consciousness_snapshots â€" keep F(10)=55 newest
 
 Ï-derived constants:
   _KEEP_SCHOLAR   = F(11) = 89
   _KEEP_RESIDUAL  = F(11) = 89
   _KEEP_SNAPSHOTS = F(10) = 55
-  _PRUNE_BATCH    = 1000  (max rows per table per run â€” protect DB)
+  _PRUNE_BATCH    = 1000  (max rows per table per run â€" protect DB)
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ _KEEP_SNAPSHOTS = fibonacci(10)  # 55
 # Max rows deleted per table per GC run (prevents long-running transactions)
 _PRUNE_BATCH = 1_000
 
-# Time-based retention (days) â€” Ï-derived
+# Time-based retention (days) â€" Ï-derived
 # BARK: F(6)=8 days (old judgments with lowest Q-Scores pruned first)
 _BARK_RETENTION_DAYS = fibonacci(6)  # 8 days
 # BENCH: F(9)=34 days (LLM benchmark entries kept longer for trending)
@@ -69,7 +69,7 @@ class StorageGarbageCollector:
            "duration_ms": N}
         """
         if pool is None:
-            logger.debug("StorageGC: no DB pool â€” skipping")
+            logger.debug("StorageGC: no DB pool â€" skipping")
             return {"total": 0}
 
         t0 = time.perf_counter()
@@ -77,7 +77,7 @@ class StorageGarbageCollector:
         results: dict[str, int] = {}
 
         async with pool.acquire() as conn:
-            # â”€â”€ 1. judgments â€” BARK verdicts older than N days â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â"€â"€ 1. judgments â€" BARK verdicts older than N days â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
             # Lowest Q-Score first (burn the worst first)
             r = await conn.execute(f"""
                 DELETE FROM judgments
@@ -91,7 +91,7 @@ class StorageGarbageCollector:
             """)
             results["judgments"] = int(r.split()[-1])
 
-            # â”€â”€ 2. scholar_buffer â€” keep F(11)=89 newest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â"€â"€ 2. scholar_buffer â€" keep F(11)=89 newest â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
             r = await conn.execute(f"""
                 DELETE FROM scholar_buffer
                 WHERE id NOT IN (
@@ -107,7 +107,7 @@ class StorageGarbageCollector:
             """)
             results["scholar_buffer"] = int(r.split()[-1])
 
-            # â”€â”€ 3. residual_history â€” keep F(11)=89 newest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â"€â"€ 3. residual_history â€" keep F(11)=89 newest â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
             r = await conn.execute(f"""
                 DELETE FROM residual_history
                 WHERE id NOT IN (
@@ -123,7 +123,7 @@ class StorageGarbageCollector:
             """)
             results["residual_history"] = int(r.split()[-1])
 
-            # â”€â”€ 4. llm_benchmarks â€” older than 30 days â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â"€â"€ 4. llm_benchmarks â€" older than 30 days â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
             r = await conn.execute(f"""
                 DELETE FROM llm_benchmarks
                 WHERE benchmark_id IN (
@@ -135,7 +135,7 @@ class StorageGarbageCollector:
             """)
             results["llm_benchmarks"] = int(r.split()[-1])
 
-            # â”€â”€ 5. consciousness_snapshots â€” keep F(10)=55 newest â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â"€â"€ 5. consciousness_snapshots â€" keep F(10)=55 newest â"€â"€â"€â"€â"€â"€â"€â"€â"€
             r = await conn.execute(f"""
                 DELETE FROM consciousness_snapshots
                 WHERE snapshot_id NOT IN (
@@ -160,7 +160,7 @@ class StorageGarbageCollector:
         results["duration_ms"] = round(duration_ms, 1)
 
         logger.info(
-            "StorageGC run #%d: deleted %d rows total in %.1fms â€” %s",
+            "StorageGC run #%d: deleted %d rows total in %.1fms â€" %s",
             self._runs,
             total,
             duration_ms,

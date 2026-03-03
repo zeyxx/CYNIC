@@ -1,5 +1,5 @@
 """
-CYNIC HumanApprovalGate â€” Guardrail 4: Human-in-the-Loop
+CYNIC HumanApprovalGate â€" Guardrail 4: Human-in-the-Loop
 
 Routes high-impact decisions to human reviewers before execution.
 
@@ -125,7 +125,7 @@ class HumanApprovalGate:
 
     def start(self) -> None:
         """Start approval gate monitoring."""
-        logger.info(f"HumanApprovalGate started â€” requests saved to {self._storage_path}")
+        logger.info(f"HumanApprovalGate started â€" requests saved to {self._storage_path}")
 
     def requires_approval(
         self,
@@ -300,7 +300,7 @@ class HumanApprovalGate:
             request.status = ApprovalStatus.ESCALATED
             request.approval_notes = f"ESCALATED: {reason}"
             self._save_to_disk()
-            logger.error(f"Approval escalated: {request_id} â€” {reason}")
+            logger.error(f"Approval escalated: {request_id} â€" {reason}")
             return request
         return None
 
@@ -348,7 +348,7 @@ class HumanApprovalGate:
             "approval_rate": approved / (approved + rejected) if (approved + rejected) > 0 else 0.0,
         }
 
-    # â”€â”€ Private â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Private â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _find_request(self, request_id: str) -> ApprovalRequest | None:
         """Find request by ID."""

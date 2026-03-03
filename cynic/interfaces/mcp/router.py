@@ -1,4 +1,4 @@
-"""MCPRouter â€” JSON-RPC protocol translator for the MCP bridge.
+"""MCPRouter â€" JSON-RPC protocol translator for the MCP bridge.
 
 Translates MCP protocol messages into MCPBridge operations:
 - tools/list  -> returns registered tools (synchronous)
@@ -139,7 +139,7 @@ class MCPRouter:
             return _jsonrpc_error(
                 msg_id,
                 _INTERNAL_ERROR,
-                "tools/call requires async â€” use handle_message_async()",
+                "tools/call requires async â€" use handle_message_async()",
             )
 
         return _jsonrpc_error(
@@ -271,7 +271,7 @@ class MCPRouter:
         self, msg_id: Any, arguments: dict[str, Any]
     ) -> dict[str, Any]:
         """
-        Handle ask_cynic tool â€” wire to orchestrator for real judgment.
+        Handle ask_cynic tool â€" wire to orchestrator for real judgment.
 
         Builds a Cell from the prompt, calls orchestrator.run() with REFLEX level,
         and returns the Judgment result (verdict, q_score, confidence, judgment_id).
@@ -331,7 +331,7 @@ class MCPRouter:
         self, msg_id: Any, arguments: dict[str, Any]
     ) -> dict[str, Any]:
         """
-        Handle observe_cynic tool â€” return current organism state snapshot.
+        Handle observe_cynic tool â€" return current organism state snapshot.
 
         Returns consciousness state, Q-Table stats, and health metrics.
         Helps Claude Code understand CYNIC's current condition.

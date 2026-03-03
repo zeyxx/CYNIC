@@ -178,7 +178,8 @@
       "Bash(docker build:*)",
       "Bash(gh run:*)",
       "WebFetch(domain:www.trader-ralph.com)",
-      "Bash(/tmp/phase1_summary.md:*)"
+      "Bash(/tmp/phase1_summary.md:*)",
+      "Bash(do:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

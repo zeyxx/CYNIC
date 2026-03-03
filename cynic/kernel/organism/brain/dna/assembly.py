@@ -1,4 +1,4 @@
-"""CYNIC Assembly â€” Compose primitives into workflows."""
+"""CYNIC Assembly â€" Compose primitives into workflows."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from .primitives import (
 class Workflow:
     """
     Compose CYNIC primitives into a workflow.
-    Think of it as a pipeline: PERCEIVE â’ JUDGE â’ DECIDE â’ ACT â’ LEARN.
+    Think of it as a pipeline: PERCEIVE â' JUDGE â' DECIDE â' ACT â' LEARN.
     """
 
     name: str
@@ -181,7 +181,7 @@ async def AUDIT_REPO(
     Built-in workflow: AUDIT_REPO
     Analyze repository for health/quality/patterns.
 
-    Uses primitives: PERCEIVE(git) â’ JUDGE(MACRO) â’ DECIDE(CULTURE) â’ ACT(report)
+    Uses primitives: PERCEIVE(git) â' JUDGE(MACRO) â' DECIDE(CULTURE) â' ACT(report)
     """
     workflow = (
         Workflow("AUDIT_REPO")
@@ -203,7 +203,7 @@ async def ANALYZE_CODE_SECURITY(
     Built-in workflow: ANALYZE_CODE_SECURITY
     Analyze code for security vulnerabilities.
 
-    Uses primitives: PERCEIVE(code) â’ JUDGE(MACRO) â’ DECIDE(VERIFY) â’ ACT(alert)
+    Uses primitives: PERCEIVE(code) â' JUDGE(MACRO) â' DECIDE(VERIFY) â' ACT(alert)
     """
     workflow = (
         Workflow("ANALYZE_CODE_SECURITY")
@@ -225,7 +225,7 @@ async def FAST_QUALITY_CHECK(
     Built-in workflow: FAST_QUALITY_CHECK
     Quick code quality check (low latency).
 
-    Uses primitives: PERCEIVE(code) â’ JUDGE(REFLEX) â’ DECIDE(BURN) â’ ACT(report)
+    Uses primitives: PERCEIVE(code) â' JUDGE(REFLEX) â' DECIDE(BURN) â' ACT(report)
     """
     workflow = (
         Workflow("FAST_QUALITY_CHECK")
@@ -247,7 +247,7 @@ async def CONTINUOUS_LEARNING(
     Built-in workflow: CONTINUOUS_LEARNING
     Process human feedback and update learning.
 
-    Uses primitives: PERCEIVE(social) â’ JUDGE(MICRO) â’ DECIDE(FIDELITY) â’ ACT(learn)
+    Uses primitives: PERCEIVE(social) â' JUDGE(MICRO) â' DECIDE(FIDELITY) â' ACT(learn)
     """
     workflow = (
         Workflow("CONTINUOUS_LEARNING")

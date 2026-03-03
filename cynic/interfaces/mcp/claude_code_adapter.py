@@ -1,5 +1,5 @@
 """
-Claude Code Adapter â€” Specialized CYNIC interface optimized for Claude Code workflows.
+Claude Code Adapter â€" Specialized CYNIC interface optimized for Claude Code workflows.
 
 Provides:
 1. Simplified API (high-level operations, not raw HTTP calls)
@@ -67,7 +67,7 @@ class ClaudeCodeAdapter:
 
         # Caches
         self._state_cache: CynicState | None = None
-        self._judgment_cache: dict[str, Any] = {}  # judgment_id â’ result
+        self._judgment_cache: dict[str, Any] = {}  # judgment_id â' result
 
         # Progress callbacks
         self._progress_callbacks: list[Callable[[float, str], None]] = []
@@ -105,7 +105,7 @@ class ClaudeCodeAdapter:
         """
         timeout = TimeoutConfig.get_timeout(tool_name)
         category = TimeoutConfig.get_category(tool_name)
-        logger.debug(f"Tool '{tool_name}' â’ {category.name} ({timeout}s)")
+        logger.debug(f"Tool '{tool_name}' â' {category.name} ({timeout}s)")
         return timeout
 
     async def _call_with_timeout(

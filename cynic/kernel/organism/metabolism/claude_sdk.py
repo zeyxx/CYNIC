@@ -1,5 +1,5 @@
 """
-ClaudeCodeRunner â€” CYNIC spawns Claude Code autonomously.
+ClaudeCodeRunner â€" CYNIC spawns Claude Code autonomously.
 
 CYNIC is the BRAIN. Claude Code is the HANDS.
 CYNIC launches `claude --sdk-url ws://localhost:PORT/ws/sdk` as a subprocess,
@@ -8,7 +8,7 @@ SDK_RESULT_RECEIVED, and returns the result.
 
 No human needed. CYNIC does it entirely.
 
-This closes the PERCEIVE â’ JUDGE â’ DECIDE â’ ACT loop.
+This closes the PERCEIVE â' JUDGE â' DECIDE â' ACT loop.
 
 Security note: subprocess is launched with a hardcoded argument list (no shell=True,
 no string interpolation of untrusted input). This is equivalent to execFile, not exec.
@@ -32,7 +32,7 @@ CONNECT_TIMEOUT = 30.0  # wait for claude to call /ws/sdk
 DEFAULT_TASK_TIMEOUT = 300.0  # wait for result message
 SDK_PATH = "/ws/sdk"
 
-# Claude Code CLI command â€” hardcoded, no shell interpolation
+# Claude Code CLI command â€" hardcoded, no shell interpolation
 _CLAUDE_BIN = "claude"
 _CLAUDE_FLAGS = ["--print", "--output-format", "stream-json", "--input-format", "stream-json"]
 
@@ -45,8 +45,8 @@ MODEL_DEFAULT = MODEL_HAIKU
 
 def _build_claude_cmd(sdk_url: str, resume_session_id: str | None = None) -> list:
     """
-    Build the claude CLI command as a list (safe â€” no shell=True).
-    sdk_url is always 'ws://localhost:{port}/ws/sdk' â€” controlled by CYNIC, not user input.
+    Build the claude CLI command as a list (safe â€" no shell=True).
+    sdk_url is always 'ws://localhost:{port}/ws/sdk' â€" controlled by CYNIC, not user input.
     resume_session_id: Claude's internal session ID from a previous system/init message.
     """
     cmd = [_CLAUDE_BIN, "--sdk-url", sdk_url] + _CLAUDE_FLAGS
@@ -74,7 +74,7 @@ class ClaudeCodeRunner:
         self._bus = bus
         self._sessions = sessions_registry
         self._port = port
-        self._running: dict[str, Any] = {}  # exec_id â’ process handle
+        self._running: dict[str, Any] = {}  # exec_id â' process handle
 
     async def execute(
         self,
@@ -97,13 +97,13 @@ class ClaudeCodeRunner:
         exec_id = str(uuid.uuid4())[:8]
         sdk_url = f"ws://localhost:{self._port}{SDK_PATH}"
 
-        # â”€â”€ Shared state across inner handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ Shared state across inner handlers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         session_ready = asyncio.Event()
         loop = asyncio.get_running_loop()
         result_future: asyncio.Future = loop.create_future()
         target_session_id: str | None = None
 
-        # â”€â”€ Register listeners BEFORE spawning â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ Register listeners BEFORE spawning â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         async def _on_session_started(event) -> None:
             nonlocal target_session_id
             if not session_ready.is_set():
@@ -122,7 +122,7 @@ class ClaudeCodeRunner:
 
         proc = None
         try:
-            # â”€â”€ Launch Claude Code in headless SDK mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â"€â"€ Launch Claude Code in headless SDK mode â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
             # Safe: list form, no shell=True, url is always localhost:{port}
             cmd = _build_claude_cmd(sdk_url, resume_session_id=resume_session_id)
             proc = await asyncio.create_subprocess_exec(
@@ -138,7 +138,7 @@ class ClaudeCodeRunner:
                 exec_id,
             )
 
-            # â”€â”€ Wait for session to connect â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â"€â"€ Wait for session to connect â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
             await asyncio.wait_for(session_ready.wait(), timeout=CONNECT_TIMEOUT)
 
             session = self._sessions.get(target_session_id)
@@ -149,7 +149,7 @@ class ClaudeCodeRunner:
             if hasattr(session, "_task_prompt"):
                 session._task_prompt = prompt
 
-            # â”€â”€ Optional model routing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â"€â"€ Optional model routing â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
             if model and model != session.model:
                 set_model_msg = {
                     "type": "control_response",
@@ -160,9 +160,9 @@ class ClaudeCodeRunner:
                     },
                 }
                 await session.ws.send_text(json.dumps(set_model_msg) + "\n")
-                logger.debug("*sniff* Model routed â’ %s (exec=%s)", model, exec_id)
+                logger.debug("*sniff* Model routed â' %s (exec=%s)", model, exec_id)
 
-            # â”€â”€ Send the task â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â"€â"€ Send the task â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
             task_msg = {
                 "type": "user",
                 "message": {"role": "user", "content": prompt},
@@ -176,7 +176,7 @@ class ClaudeCodeRunner:
                 prompt[:80],
             )
 
-            # â”€â”€ Wait for result â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â"€â"€ Wait for result â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
             payload = await asyncio.wait_for(result_future, timeout=timeout)
             # cli_session_id from session registry (captured at system/init)
             completed_session = self._sessions.get(target_session_id)
@@ -191,7 +191,7 @@ class ClaudeCodeRunner:
             }
 
         except FileNotFoundError:
-            logger.warning("*head tilt* claude binary not found â€” install Claude Code CLI")
+            logger.warning("*head tilt* claude binary not found â€" install Claude Code CLI")
             return {
                 "success": False,
                 "error": "claude binary not found",

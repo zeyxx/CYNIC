@@ -1,17 +1,17 @@
 """
-SessionTelemetry â€” quantification of Claude Code sessions.
+SessionTelemetry â€" quantification of Claude Code sessions.
 
 Every Claude Code session produces a rich telemetry record:
 - Task type classification (7 categories from prompt keywords)
 - Complexity estimation (4 tiers from tool sequence length)
-- Multi-dimensional reward (success Ã— efficiency Ã— cost)
+- Multi-dimensional reward (success Ã- efficiency Ã- cost)
 - CYNIC quality judgment of the session output (q_score, verdict)
 - Full tool sequence with allow/deny rates
 
 This turns binary "success/error" into a 28-state Q-Table
-(7 task types Ã— 4 complexity tiers) enabling task-specific learning.
+(7 task types Ã- 4 complexity tiers) enabling task-specific learning.
 
-For research (H1-H5): export sessions as JSONL â’ benchmark dataset.
+For research (H1-H5): export sessions as JSONL â' benchmark dataset.
 """
 
 from __future__ import annotations
@@ -113,7 +113,7 @@ def classify_task(prompt: str) -> str:
 
     Returns one of: debug / refactor / test / review / write / explain / general
 
-    Scoring: count keyword matches per category â’ pick the winner.
+    Scoring: count keyword matches per category â' pick the winner.
     Ties broken by category order (debug > refactor > test > ...).
     """
     if not prompt:
@@ -174,12 +174,12 @@ def compute_reward(
     Efficiency:     Â0.00 to -0.15 (more tools = less efficient)
     Cost penalty:   0.00 to -0.10 (expensive sessions are less desirable)
 
-    Result range: [0.10, 0.75] â€” Ï-aligned, never hits 0 or 1.
+    Result range: [0.10, 0.75] â€" Ï-aligned, never hits 0 or 1.
 
     Examples:
-      Success, 1 tool,  $0.001 â’ 0.70 + 0.06 - 0.00 = 0.76 â’ capped 0.75
-      Success, 8 tools, $0.010 â’ 0.70 - 0.08 - 0.02 = 0.60
-      Error,   3 tools, $0.005 â’ 0.20 - 0.02 - 0.01 = 0.17
+      Success, 1 tool,  $0.001 â' 0.70 + 0.06 - 0.00 = 0.76 â' capped 0.75
+      Success, 8 tools, $0.010 â' 0.70 - 0.08 - 0.02 = 0.60
+      Error,   3 tools, $0.005 â' 0.20 - 0.02 - 0.01 = 0.17
     """
     base = 0.70 if not is_error else 0.20
 
@@ -234,7 +234,7 @@ class SessionTelemetry:
     state_key: str  # "SDK:{model}:{task_type}:{complexity}"
     reward: float  # compute_reward() result
 
-    # Resume identity â€” Claude Code's internal session ID (from system/init)
+    # Resume identity â€" Claude Code's internal session ID (from system/init)
     # Used with --resume flag to restart long-running sessions after crashes.
     cli_session_id: str = ""
 
@@ -251,10 +251,10 @@ class TelemetryStore:
     In-memory ring buffer for session telemetry.
 
     Holds up to maxlen records (oldest discarded). Supports:
-    - stats() â’ aggregate metrics (verdicts, task_types, error_rate, cost)
-    - recent(n) â’ last N records as dicts
-    - export() â’ all records as dicts (for benchmark analysis)
-    - save_jsonl(path) â’ persist to file (one record per line)
+    - stats() â' aggregate metrics (verdicts, task_types, error_rate, cost)
+    - recent(n) â' last N records as dicts
+    - export() â' all records as dicts (for benchmark analysis)
+    - save_jsonl(path) â' persist to file (one record per line)
     """
 
     def __init__(self, maxlen: int = 1000):

@@ -1,5 +1,5 @@
 """
-CYNIC SDK router â€” ws/sdk Â· sdk/sessions Â· sdk/routing Â· sdk/last-session Â· sdk/task
+CYNIC SDK router â€" ws/sdk Â· sdk/sessions Â· sdk/routing Â· sdk/last-session Â· sdk/task
 """
 from __future__ import annotations
 
@@ -73,17 +73,17 @@ class SDKSession:
     used to build a SessionTelemetry record when the result message arrives.
     """
     session_id: str
-    ws: Any                                  # WebSocket â€” typed as Any to avoid circular import issues
+    ws: Any                                  # WebSocket â€" typed as Any to avoid circular import issues
     cwd: str = ""
     tools: list[str] = field(default_factory=list)
     model: str = "unknown"
     claude_code_version: str = ""
-    cli_session_id: str = ""                 # Claude's internal session ID â€” used for --resume
+    cli_session_id: str = ""                 # Claude's internal session ID â€" used for --resume
     total_cost_usd: float = 0.0
     connected_at: float = field(default_factory=time.time)
     log: list[dict[str, Any]] = field(default_factory=list)
 
-    # â”€â”€ Telemetry (populated during session, consumed at result) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Telemetry (populated during session, consumed at result) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     _task_prompt: str = ""                           # last task sent to this session
     _tool_sequence: list[str] = field(default_factory=list)  # ordered tool names
     _result_text: str = ""                           # Claude's result description
@@ -113,7 +113,7 @@ _sdk_sessions: dict[str, SDKSession] = {}
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# WS /ws/sdk  (Claude Code --sdk-url server â€” CYNIC is the BRAIN)
+# WS /ws/sdk  (Claude Code --sdk-url server â€" CYNIC is the BRAIN)
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_sdk.websocket("/ws/sdk")
@@ -132,23 +132,23 @@ async def ws_sdk(
     CYNIC intercepts every tool use, judges it with GUARDIAN (REFLEX level),
     and learns from every result to build the Q-Table from real usage.
 
-    Message flow (NDJSON â€” each line is one JSON object):
+    Message flow (NDJSON â€" each line is one JSON object):
 
-      CLI â’ CYNIC: system/init        â’ record session metadata
-      CLI â’ CYNIC: can_use_tool       â’ CYNIC judges â’ control_response allow/deny
-      CLI â’ CYNIC: assistant          â’ record to session log
-      CLI â’ CYNIC: result             â’ record cost, emit SDK_RESULT_RECEIVED
-      CLI â’ CYNIC: keep_alive         â’ respond keep_alive
+      CLI â' CYNIC: system/init        â' record session metadata
+      CLI â' CYNIC: can_use_tool       â' CYNIC judges â' control_response allow/deny
+      CLI â' CYNIC: assistant          â' record to session log
+      CLI â' CYNIC: result             â' record cost, emit SDK_RESULT_RECEIVED
+      CLI â' CYNIC: keep_alive         â' respond keep_alive
 
-      CYNIC â’ CLI: keep_alive         â’ heartbeat
-      CYNIC â’ CLI: user               â’ send task (via POST /sdk/task)
-      CYNIC â’ CLI: control_response   â’ approve/deny/modify tool use
-      CYNIC â’ CLI: set_model          â’ switch Sonnet/Haiku mid-session
+      CYNIC â' CLI: keep_alive         â' heartbeat
+      CYNIC â' CLI: user               â' send task (via POST /sdk/task)
+      CYNIC â' CLI: control_response   â' approve/deny/modify tool use
+      CYNIC â' CLI: set_model          â' switch Sonnet/Haiku mid-session
 
     Bootstrap loop:
-      Phase 1: CYNIC intercepts all tool calls â’ builds Q-Table from real Claude sessions
-      Phase 2: Q-Table confidence rises â’ CYNIC routes simple tasks to Ollama
-      Phase 3: 80%+ tasks â’ Ollama ($0 cost). Claude only for novel tasks.
+      Phase 1: CYNIC intercepts all tool calls â' builds Q-Table from real Claude sessions
+      Phase 2: Q-Table confidence rises â' CYNIC routes simple tasks to Ollama
+      Phase 3: 80%+ tasks â' Ollama ($0 cost). Claude only for novel tasks.
     """
     await websocket.accept()
     state = container.organism
@@ -171,7 +171,7 @@ async def ws_sdk(
         """
         from cynic.kernel.core.judgment import Cell, infer_time_dim
         _tool_content = f"{tool_name}: {json.dumps(tool_input)[:400]}"
-        _tool_ctx = f"SDK tool use â€” session {session_id[:8]}"
+        _tool_ctx = f"SDK tool use â€" session {session_id[:8]}"
         cell = Cell(
             reality="CODE",
             analysis="JUDGE",
@@ -208,13 +208,13 @@ async def ws_sdk(
                 msg_type = msg.get("type", "")
                 msg_subtype = msg.get("subtype", "")
 
-                # â”€â”€ system/init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # â"€â"€ system/init â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
                 if msg_type == "system" and msg_subtype == "init":
                     session.cwd = msg.get("cwd", "")
                     session.tools = msg.get("tools", [])
                     session.model = msg.get("model", "unknown")
                     session.claude_code_version = msg.get("claude_code_version", "")
-                    # Claude's internal session ID â€” persisted for --resume on restart
+                    # Claude's internal session ID â€" persisted for --resume on restart
                     session.cli_session_id = msg.get("session_id", "")
                     session.record("init", {
                         "cwd": session.cwd,
@@ -239,10 +239,10 @@ async def ws_sdk(
                         source="ws_sdk",
                     ))
 
-                    # Respond with keep_alive â€” server is ready
+                    # Respond with keep_alive â€" server is ready
                     await _send({"type": "keep_alive"})
 
-                # â”€â”€ can_use_tool (tool permission request) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # â"€â"€ can_use_tool (tool permission request) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
                 elif msg_type == "control_request" and msg_subtype == "can_use_tool":
                     request_id = msg.get("request_id", str(uuid.uuid4()))
                     request = msg.get("request", {})
@@ -267,7 +267,7 @@ async def ws_sdk(
                         }
                         logger.warning("*GROWL* SDK BLOCKED: %s", tool_name)
                     else:
-                        # WAG / GROWL / HOWL â’ allow (GROWL logs warning)
+                        # WAG / GROWL / HOWL â' allow (GROWL logs warning)
                         if verdict == "GROWL":
                             logger.warning("*sniff* SDK WARNED: %s (Q low)", tool_name)
                         response = {
@@ -302,7 +302,7 @@ async def ws_sdk(
                         source="ws_sdk",
                     ))
 
-                # â”€â”€ assistant (Claude's response â€” streaming) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # â"€â"€ assistant (Claude's response â€" streaming) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
                 elif msg_type == "assistant":
                     message = msg.get("message", {})
                     usage = message.get("usage", {})
@@ -319,7 +319,7 @@ async def ws_sdk(
                         "output_tokens": usage.get("output_tokens", 0),
                     })
 
-                # â”€â”€ result (task complete) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # â"€â"€ result (task complete) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
                 elif msg_type == "result":
                     is_error = msg.get("is_error", False)
                     cost = float(msg.get("total_cost_usd") or 0.0)
@@ -341,7 +341,7 @@ async def ws_sdk(
                         "result_text": result_text[:200],
                     })
 
-                    # â”€â”€ Rich Q-Learning signal (28 states vs 1 before) â”€â”€â”€â”€â”€â”€â”€
+                    # â"€â"€ Rich Q-Learning signal (28 states vs 1 before) â"€â"€â"€â"€â"€â"€â"€
                     task_type = classify_task(session._task_prompt)
                     complexity = estimate_complexity(session._tool_sequence)
                     reward = compute_reward(is_error, len(session._tool_sequence), cost)
@@ -356,7 +356,7 @@ async def ws_sdk(
                         loop_name="SDK_RESULT",
                     ))
 
-                    # â”€â”€ Quality judgment of Claude's output (REFLEX) â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    # â"€â"€ Quality judgment of Claude's output (REFLEX) â"€â"€â"€â"€â"€â"€â"€â"€â"€
                     judgment_content = (
                         f"Task: {session._task_prompt[:200]}\n"
                         f"Result: {result_text[:300]}\n"
@@ -370,7 +370,7 @@ async def ws_sdk(
                             reality="CODE", analysis="JUDGE",
                             time_dim=_itd(judgment_content, "", "JUDGE"),
                             content=judgment_content,
-                            context=f"SDK quality â€” session {session_id[:8]}",
+                            context=f"SDK quality â€" session {session_id[:8]}",
                             lod=0, budget_usd=0.001,
                         )
                         qj = await state.orchestrator.run(
@@ -383,7 +383,7 @@ async def ws_sdk(
                         logger.debug("Quality judgment skipped: %s", _exc)
                         q_score, verdict, confidence = 30.0, "GROWL", 0.382
 
-                    # â”€â”€ Build and store SessionTelemetry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    # â"€â"€ Build and store SessionTelemetry â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
                     tool_judgments = [e for e in session.log if e["type"] == "tool_judged"]
                     allowed = sum(1 for e in tool_judgments if e["data"]["behavior"] == "allow")
                     denied = sum(1 for e in tool_judgments if e["data"]["behavior"] == "deny")
@@ -413,11 +413,11 @@ async def ws_sdk(
                     )
                     state.telemetry_store.add(telemetry_record)
 
-                    # â”€â”€ JSONL persistence (survives restarts) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    # â"€â"€ JSONL persistence (survives restarts) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
                     _append_sdk_session_jsonl(telemetry_record)
 
-                    # â”€â”€ L2â’L1 cross-feed: BARK/error â’ ActionProposer â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                    # Links L2 (SDK result) â’ L1 (action queue) automatically.
+                    # â"€â"€ L2â'L1 cross-feed: BARK/error â' ActionProposer â"€â"€â"€â"€â"€â"€â"€â"€â"€
+                    # Links L2 (SDK result) â' L1 (action queue) automatically.
                     if is_error or verdict == "BARK":
                         await bus.emit(Event.typed(
                             CoreEvent.DECISION_MADE,
@@ -467,7 +467,7 @@ async def ws_sdk(
                         source="ws_sdk",
                     ))
 
-                    # â”€â”€ Ring 4 LLM routing suggestion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    # â"€â"€ Ring 4 LLM routing suggestion â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
                     # After recording the result, ask the router whether the NEXT
                     # task of this type should use Haiku instead of Sonnet.
                     # route_to_local=True only once Q-Table is warm enough (PHI_INV
@@ -478,7 +478,7 @@ async def ws_sdk(
                         )
                         if routing.route_to_local:
                             logger.info(
-                                "LLM_ROUTER: %s â’ %s (%s)",
+                                "LLM_ROUTER: %s â' %s (%s)",
                                 rich_state_key, routing.recommended_model, routing.reason,
                             )
 
@@ -488,11 +488,11 @@ async def ws_sdk(
                         result_subtype, task_type, complexity, verdict, q_score, cost,
                     )
 
-                # â”€â”€ keep_alive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # â"€â"€ keep_alive â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
                 elif msg_type == "keep_alive":
                     await _send({"type": "keep_alive"})
 
-                # â”€â”€ everything else: log and ignore â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # â"€â"€ everything else: log and ignore â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
                 else:
                     logger.debug("SDK unhandled: type=%s subtype=%s", msg_type, msg_subtype)
 
@@ -503,7 +503,7 @@ async def ws_sdk(
     finally:
         _sdk_sessions.pop(session_id, None)
         logger.info(
-            "*yawn* SDK session ended: %s â€” %d events, cost=$%.4f",
+            "*yawn* SDK session ended: %s â€" %d events, cost=$%.4f",
             session_id, len(session.log), session.total_cost_usd,
         )
 
@@ -524,9 +524,9 @@ async def sdk_sessions() -> dict[str, Any]:
 @router_sdk.get("/sdk/routing")
 async def sdk_routing(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
     """
-    LLM routing stats â€” Ring 4 Q-Table driven model selection.
+    LLM routing stats â€" Ring 4 Q-Table driven model selection.
 
-    Shows how often CYNIC routes SDK tasks from Sonnet â’ Haiku based on
+    Shows how often CYNIC routes SDK tasks from Sonnet â' Haiku based on
     accumulated Q-Table confidence. local_rate rises as Q-Table warms up.
     """
     state = container.organism
@@ -542,9 +542,9 @@ async def sdk_last_session(cwd: str = "") -> dict[str, Any]:
 
     Lookup order:
       1. In-memory active sessions (current process)
-      2. JSONL file (~/.cynic/sdk_sessions.jsonl) â€” survives restarts
+      2. JSONL file (~/.cynic/sdk_sessions.jsonl) â€" survives restarts
 
-    Query param: cwd (optional) â€” filter by working directory.
+    Query param: cwd (optional) â€" filter by working directory.
     """
     # 1. In-memory active sessions
     candidates = list(_sdk_sessions.values())
@@ -623,7 +623,7 @@ async def sdk_task(body: dict[str, Any]) -> dict[str, Any]:
             },
         }) + "\n")
 
-    # Capture task prompt for telemetry (last task wins â€” typical single-task sessions)
+    # Capture task prompt for telemetry (last task wins â€" typical single-task sessions)
     session._task_prompt = prompt
 
     # Send user message

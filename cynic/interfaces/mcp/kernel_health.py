@@ -1,5 +1,5 @@
 """
-CYNIC Kernel Health Monitor â€” Background Health Tracking
+CYNIC Kernel Health Monitor â€" Background Health Tracking
 
 Monitors kernel health with:
 - Periodic health checks (configurable interval)

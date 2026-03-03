@@ -9,7 +9,7 @@ import os
 
 logger = logging.getLogger("cynic.interfaces.api.server")
 
-# Path for social signals â€” SocialWatcher reads; human interactions write.
+# Path for social signals â€" SocialWatcher reads; human interactions write.
 _SOCIAL_SIGNAL_PATH = os.path.join(os.path.expanduser("~"), ".cynic", "social.json")
 # Rolling cap: F(8)=21 signals max (prevent unbounded growth)
 _SOCIAL_SIGNAL_CAP = 21
@@ -25,11 +25,11 @@ def _append_social_signal(
     """
     Append one social signal to ~/.cynic/social.json (fire-and-forget).
 
-    SocialWatcher reads this file every 89s and submits SOCIALÃ—PERCEIVE
+    SocialWatcher reads this file every 89s and submits SOCIALÃ-PERCEIVE
     cells. The read=False flag ensures each signal is processed exactly once.
 
-    Closes the Social loop: human interactions â’ sentiment â’ SocialWatcher â’
-    MICRO judgment â’ QTable + SYMBIOSIS axiom signal.
+    Closes the Social loop: human interactions â' sentiment â' SocialWatcher â'
+    MICRO judgment â' QTable + SYMBIOSIS axiom signal.
     """
     try:
         import time as _t

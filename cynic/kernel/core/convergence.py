@@ -1,5 +1,5 @@
 """
-ConvergenceValidator â€” Observe announced vs actual behavior.
+ConvergenceValidator â€" Observe announced vs actual behavior.
 
 Phase 3: The primordial missing piece.
 
@@ -73,10 +73,10 @@ class Convergence:
         self.match = self.announcement.announced_verdict == self.outcome.actual_verdict
 
     def __repr__(self) -> str:
-        status = "âœ“ MATCH" if self.match else "âœ— DIVERGE"
+        status = "âœ" MATCH" if self.match else "âœ- DIVERGE"
         return (
             f"{status}: {self.announcement.announced_verdict} "
-            f"â’ {self.outcome.actual_verdict} ({self.latency_ms:.0f}ms)"
+            f"â' {self.outcome.actual_verdict} ({self.latency_ms:.0f}ms)"
         )
 
 
@@ -92,7 +92,7 @@ class ConvergenceValidator:
 
     def __init__(self, capacity: int = ACT_LOG_CAP):  # F(11) = 89 (imported from formulas.py)
         self.capacity = capacity
-        self._announcements: dict[str, Announcement] = {}  # id â’ announcement
+        self._announcements: dict[str, Announcement] = {}  # id â' announcement
         self._convergences: list[Convergence] = []  # rolling log
         self._total_announcements = 0
         self._total_matches = 0
@@ -189,9 +189,9 @@ class ConvergenceValidator:
 
         if convergence.match:
             self._total_matches += 1
-            logger.info(f"âœ“ Convergence MATCH: {convergence}")
+            logger.info(f"âœ" Convergence MATCH: {convergence}")
         else:
-            logger.warning(f"âœ— Convergence DIVERGE: {convergence}")
+            logger.warning(f"âœ- Convergence DIVERGE: {convergence}")
 
         return convergence
 

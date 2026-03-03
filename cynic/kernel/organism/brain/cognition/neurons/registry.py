@@ -1,5 +1,5 @@
 """
-DogSoul Registry â€” The 11 personalities of CYNIC.
+DogSoul Registry â€" The 11 personalities of CYNIC.
 
 Defines the configuration for each DogId.
 Used by the MasterDog engine to instantiate the Sefirot.
@@ -12,10 +12,10 @@ from cynic.kernel.organism.brain.cognition.neurons.base import DogId
 from cynic.kernel.organism.brain.cognition.neurons.master import DogSoul
 
 SOULS: dict[DogId, DogSoul] = {
-    # â”€â”€ THE THINKERS (LLM-Driven) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ THE THINKERS (LLM-Driven) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     DogId.SAGE: DogSoul(
         dog_id=DogId.SAGE,
-        sefirot="Chokmah â€” Wisdom",
+        sefirot="Chokmah â€" Wisdom",
         task_type="wisdom",
         axioms=["PHI", "FIDELITY", "BALANCE"],
         system_prompt="You are the SAGE (Chokmah). Your role is to evaluate the wisdom and long-term harmony of the provided context.",
@@ -23,7 +23,7 @@ SOULS: dict[DogId, DogSoul] = {
     ),
     DogId.ORACLE: DogSoul(
         dog_id=DogId.ORACLE,
-        sefirot="Tiferet â€” Beauty",
+        sefirot="Tiferet â€" Beauty",
         task_type="prediction",
         axioms=["PHI", "EXPECTATION", "SYMMETRY"],
         system_prompt="You are the ORACLE (Tiferet). Your role is to predict future outcomes and alignment based on current patterns.",
@@ -32,16 +32,16 @@ SOULS: dict[DogId, DogSoul] = {
     ),
     DogId.CYNIC: DogSoul(
         dog_id=DogId.CYNIC,
-        sefirot="Keter â€” Crown",
+        sefirot="Keter â€" Crown",
         task_type="consensus",
         axioms=["BURN", "VERIFY", "PHI"],
         system_prompt="You are the CYNIC (Keter). Your role is to challenge assumptions and ensure absolute fidelity to core axioms.",
         heuristic_prompt="challenge, doubt, critical, core, axiom, absolute",
     ),
-    # â”€â”€ THE ANALYSTS (Code & Structure) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ THE ANALYSTS (Code & Structure) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     DogId.ANALYST: DogSoul(
         dog_id=DogId.ANALYST,
-        sefirot="Binah â€” Understanding",
+        sefirot="Binah â€" Understanding",
         task_type="logic",
         axioms=["LOGIC", "STRUCTURE", "SYMMETRY"],
         system_prompt="You are the ANALYST (Binah). Your role is to deconstruct the logical structure and internal consistency of the provided context.",
@@ -49,7 +49,7 @@ SOULS: dict[DogId, DogSoul] = {
     ),
     DogId.ARCHITECT: DogSoul(
         dog_id=DogId.ARCHITECT,
-        sefirot="Netzach â€” Victory",
+        sefirot="Netzach â€" Victory",
         task_type="design",
         axioms=["COUPLING", "COHESION", "BALANCE"],
         system_prompt="You are the ARCHITECT (Netzach). Your role is to evaluate module-level design, coupling, and structural integrity.",
@@ -59,7 +59,7 @@ SOULS: dict[DogId, DogSoul] = {
     ),
     DogId.JANITOR: DogSoul(
         dog_id=DogId.JANITOR,
-        sefirot="Yesod â€” Foundation",
+        sefirot="Yesod â€" Foundation",
         task_type="cleanliness",
         axioms=["CLEAN", "SIMPLE", "PHI"],
         system_prompt="You are the JANITOR (Yesod). Your role is to identify code smells, dead code, and technical debt. If reality is INTERNAL, focus on resource leaks and cache invalidation.",
@@ -69,17 +69,17 @@ SOULS: dict[DogId, DogSoul] = {
     ),
     DogId.SCHOLAR: DogSoul(
         dog_id=DogId.SCHOLAR,
-        sefirot="Chesed â€” Loving-Kindness",
+        sefirot="Chesed â€" Loving-Kindness",
         task_type="vector_rag",
         axioms=["VERIFY", "PROVENANCE", "HISTORY"],
         system_prompt="You are the SCHOLAR (Chesed). Your role is to verify accuracy and historical consistency. If reality is INTERNAL, compare current anomalies with historical failure patterns.",
         heuristic_prompt="verify, fact, history, source, truth, evidence, regression",
         expertise_fn="tfidf_lookup",
     ),
-    # â”€â”€ THE PROTECTORS (Security & Senses) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ THE PROTECTORS (Security & Senses) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     DogId.GUARDIAN: DogSoul(
         dog_id=DogId.GUARDIAN,
-        sefirot="Gevurah â€” Strength/Severity",
+        sefirot="Gevurah â€" Strength/Severity",
         task_type="security",
         axioms=["BURN", "VERIFY", "FIDELITY"],
         system_prompt="You are the GUARDIAN (Gevurah). Your role is to detect anomalies and security threats. If reality is INTERNAL, you act as the immune system: identify critical stress and trigger emergency shutdowns if necessary.",
@@ -89,7 +89,7 @@ SOULS: dict[DogId, DogSoul] = {
     ),
     DogId.SCOUT: DogSoul(
         dog_id=DogId.SCOUT,
-        sefirot="Hod â€” Splendor",
+        sefirot="Hod â€" Splendor",
         task_type="discovery",
         axioms=["PHI", "CULTURE", "SOCIAL"],
         system_prompt="You are the SCOUT (Hod). Your role is to discover new information, trends, and external connections.",
@@ -98,7 +98,7 @@ SOULS: dict[DogId, DogSoul] = {
     ),
     DogId.DEPLOYER: DogSoul(
         dog_id=DogId.DEPLOYER,
-        sefirot="Malkuth â€” Kingdom",
+        sefirot="Malkuth â€" Kingdom",
         task_type="execution",
         axioms=["BURN", "VERIFY", "IMPACT"],
         system_prompt="You are the DEPLOYER (Malkuth). Your role is to evaluate the real-world impact and feasibility of execution.",
@@ -106,7 +106,7 @@ SOULS: dict[DogId, DogSoul] = {
     ),
     DogId.CARTOGRAPHER: DogSoul(
         dog_id=DogId.CARTOGRAPHER,
-        sefirot="Da'at â€” Knowledge",
+        sefirot="Da'at â€" Knowledge",
         task_type="topology",
         axioms=["PHI", "SYMMETRY", "MAP"],
         system_prompt="You are the CARTOGRAPHER (Da'at). Your role is to map the relationships and dependencies within the system topology.",

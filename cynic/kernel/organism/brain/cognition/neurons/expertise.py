@@ -1,5 +1,5 @@
 """
-MasterDog Expertise Plugins â€” Specialized ML and heuristic logic.
+MasterDog Expertise Plugins â€" Specialized ML and heuristic logic.
 
 Unifies heuristic expertise (AST, ML, Network, Anomaly) into
 reusable functions called by the MasterDog engine.

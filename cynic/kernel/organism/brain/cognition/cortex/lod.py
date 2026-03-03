@@ -1,14 +1,14 @@
 """
-CYNIC SurvivalLOD â€” Tiered Graceful Degradation (Î´2)
+CYNIC SurvivalLOD â€" Tiered Graceful Degradation (Î´2)
 
 Level of Detail (LOD) defines CYNIC's operating mode under resource constraints.
-When the system is healthy â’ full operation. Under stress â’ progressive degradation.
+When the system is healthy â' full operation. Under stress â' progressive degradation.
 
 4 LOD Levels (Ï-derived thresholds):
-    LOD 0 â€” FULL       Quality threshold â‰¥ WAG_MIN (61.8%)
-    LOD 1 â€” REDUCED    Quality threshold â‰¥ GROWL_MIN (38.2%)
-    LOD 2 â€” EMERGENCY  Quality threshold â‰¥ PHI_INV_3 (23.6%)
-    LOD 3 â€” MINIMAL    Quality below PHI_INV_3 â€” survival mode
+    LOD 0 â€" FULL       Quality threshold â‰¥ WAG_MIN (61.8%)
+    LOD 1 â€" REDUCED    Quality threshold â‰¥ GROWL_MIN (38.2%)
+    LOD 2 â€" EMERGENCY  Quality threshold â‰¥ PHI_INV_3 (23.6%)
+    LOD 3 â€" MINIMAL    Quality below PHI_INV_3 â€" survival mode
 
 What changes at each LOD:
     LOD 0 FULL:      All 11 Dogs, full LLM calls, all consciousness levels
@@ -17,10 +17,10 @@ What changes at each LOD:
     LOD 3 MINIMAL:   GUARDIAN only, heuristic scoring, health reports only
 
 Trigger metrics:
-    error_rate     â’ recent error rate (0.0-1.0)
-    latency_ms     â’ recent 95th-percentile response time (ms)
-    queue_depth    â’ current scheduler queue depth (cells waiting)
-    memory_pct     â’ heap memory usage (0.0-1.0)
+    error_rate     â' recent error rate (0.0-1.0)
+    latency_ms     â' recent 95th-percentile response time (ms)
+    queue_depth    â' current scheduler queue depth (cells waiting)
+    memory_pct     â' heap memory usage (0.0-1.0)
 
 Thresholds (Ï-symmetric):
     LOD 1: error_rate â‰¥ PHI_INV_2 (0.382) OR latency_ms â‰¥ 1000 OR queue_depth â‰¥ 34 OR disk_pct â‰¥ 0.618 OR memory_pct â‰¥ 0.618
@@ -30,7 +30,7 @@ Thresholds (Ï-symmetric):
 Usage:
     lod = LODController()
     level = lod.assess(error_rate=0.05, latency_ms=300, queue_depth=5)
-    # â’ SurvivalLOD.FULL
+    # â' SurvivalLOD.FULL
 
     lod.force(SurvivalLOD.EMERGENCY)  # Manual override
     lod.clear_force()                  # Remove override
@@ -76,7 +76,7 @@ _ERR_LOD2 = PHI_INV  # 0.618
 _ERR_LOD3 = 1.0  # Full failure
 
 
-# â”€â”€ SurvivalLOD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ SurvivalLOD â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 
 class SurvivalLOD(int, Enum):
@@ -93,10 +93,10 @@ class SurvivalLOD(int, Enum):
     @property
     def description(self) -> str:
         return {
-            SurvivalLOD.FULL: "LOD 0 â€” Full operation: all Dogs, LLM, all consciousness levels",
-            SurvivalLOD.REDUCED: "LOD 1 â€” Reduced: skip SAGE/CARTOGRAPHER, L2 MICRO max",
-            SurvivalLOD.EMERGENCY: "LOD 2 â€” Emergency: REFLEX only, no LLM",
-            SurvivalLOD.MINIMAL: "LOD 3 â€” Minimal: GUARDIAN only, survival mode",
+            SurvivalLOD.FULL: "LOD 0 â€" Full operation: all Dogs, LLM, all consciousness levels",
+            SurvivalLOD.REDUCED: "LOD 1 â€" Reduced: skip SAGE/CARTOGRAPHER, L2 MICRO max",
+            SurvivalLOD.EMERGENCY: "LOD 2 â€" Emergency: REFLEX only, no LLM",
+            SurvivalLOD.MINIMAL: "LOD 3 â€" Minimal: GUARDIAN only, survival mode",
         }[self]
 
     @property
@@ -118,17 +118,17 @@ class SurvivalLOD(int, Enum):
         }[self]
 
 
-# â”€â”€ HealthMetrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ HealthMetrics â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 # Disk usage thresholds (Ï-derived, fraction of disk used)
-_DISK_LOD1 = PHI_INV  # 0.618 â€” 61.8% full â’ REDUCED
-_DISK_LOD2 = 1 - PHI_INV_3  # 0.764 â€” 76.4% full â’ EMERGENCY
-_DISK_LOD3 = 0.90  # 90%   full â’ MINIMAL
+_DISK_LOD1 = PHI_INV  # 0.618 â€" 61.8% full â' REDUCED
+_DISK_LOD2 = 1 - PHI_INV_3  # 0.764 â€" 76.4% full â' EMERGENCY
+_DISK_LOD3 = 0.90  # 90%   full â' MINIMAL
 
-# Memory usage thresholds (same Ï-scale as disk â€” fraction of RAM used)
-_MEM_LOD1 = PHI_INV  # 0.618 â€” 61.8% used â’ REDUCED
-_MEM_LOD2 = 1 - PHI_INV_3  # 0.764 â€” 76.4% used â’ EMERGENCY
-_MEM_LOD3 = 0.90  # 90%   used â’ MINIMAL
+# Memory usage thresholds (same Ï-scale as disk â€" fraction of RAM used)
+_MEM_LOD1 = PHI_INV  # 0.618 â€" 61.8% used â' REDUCED
+_MEM_LOD2 = 1 - PHI_INV_3  # 0.764 â€" 76.4% used â' EMERGENCY
+_MEM_LOD3 = 0.90  # 90%   used â' MINIMAL
 
 
 @dataclass
@@ -175,7 +175,7 @@ class HealthMetrics:
         return SurvivalLOD.FULL
 
 
-# â”€â”€ LODController â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ LODController â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 
 class LODController:
@@ -198,7 +198,7 @@ class LODController:
         self._transitions: list[dict[str, Any]] = []
         self._started_at: float = time.time()
 
-    # â”€â”€ Assessment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Assessment â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def assess(
         self,
@@ -240,7 +240,7 @@ class LODController:
         target_lod = metrics.worst_lod()
 
         if target_lod > self._current:
-            # Degrade immediately â€” no hysteresis
+            # Degrade immediately â€" no hysteresis
             self._transition(target_lod, metrics)
             self._healthy_streak = 0
         elif target_lod < self._current:
@@ -268,7 +268,7 @@ class LODController:
             disk_pct=0.0,
         )
 
-    # â”€â”€ Control â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Control â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def force(self, lod: SurvivalLOD) -> None:
         """
@@ -279,10 +279,10 @@ class LODController:
         self._forced = lod
 
     def clear_force(self) -> None:
-        """Remove forced LOD â€” resume health-based assessment."""
+        """Remove forced LOD â€" resume health-based assessment."""
         self._forced = None
 
-    # â”€â”€ Query â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Query â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     @property
     def current(self) -> SurvivalLOD:
@@ -311,7 +311,7 @@ class LODController:
             "recent_transitions": self._transitions[-5:],
         }
 
-    # â”€â”€ Private â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Private â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _transition(self, new_lod: SurvivalLOD, metrics: HealthMetrics) -> None:
         if new_lod == self._current:
@@ -332,7 +332,7 @@ class LODController:
 
         if new_lod > old:
             logger.warning(
-                "LOD DEGRADATION: %s â’ %s (err=%.2f lat=%.0fms q=%d)",
+                "LOD DEGRADATION: %s â' %s (err=%.2f lat=%.0fms q=%d)",
                 old.name,
                 new_lod.name,
                 metrics.error_rate,
@@ -341,7 +341,7 @@ class LODController:
             )
         else:
             logger.info(
-                "LOD RECOVERY: %s â’ %s",
+                "LOD RECOVERY: %s â' %s",
                 old.name,
                 new_lod.name,
             )

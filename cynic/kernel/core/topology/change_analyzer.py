@@ -1,4 +1,4 @@
-"""ChangeAnalyzer â€” Semantic analysis of code changes.
+"""ChangeAnalyzer â€" Semantic analysis of code changes.
 
 Subscribes to SOURCE_CHANGED events and enriches them with impact analysis:
   - subsystem classification (kernel, api, cognition, senses, learning, tests)
@@ -39,7 +39,7 @@ class ChangeAnalyzer:
     Emits CHANGE_ANALYZED event.
     """
 
-    # File path prefix â’ (subsystem, impact_level, risk)
+    # File path prefix â' (subsystem, impact_level, risk)
     _CLASSIFICATION: dict[str, tuple[str, str, float]] = {
         "cynic/core/": ("kernel", "CRITICAL", 0.9),
         "cynic/cognition/cortex/": ("cognition", "HIGH", 0.7),
@@ -136,7 +136,7 @@ class ChangeAnalyzer:
         )
 
         logger.info(
-            "CHANGE ANALYZED: %s files â’ %s subsystem(s), impact=%s, risk=%.2f, action=%s",
+            "CHANGE ANALYZED: %s files â' %s subsystem(s), impact=%s, risk=%.2f, action=%s",
             len(payload.files),
             ", ".join(subsystems_list),
             impact_max,

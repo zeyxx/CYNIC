@@ -1,5 +1,5 @@
 """
-EntropyTracker â€” Measure Information Density of Judgments
+EntropyTracker â€" Measure Information Density of Judgments
 
 Principle: Every decision should reduce information entropy
   H(input)  = entropy of observations before judgment
@@ -22,11 +22,11 @@ Formula:
   H(output):
     - Binary: verdict or confidence level?
     - For judgment: H âˆ -confidence*logâ‚‚(confidence) - (1-confidence)*logâ‚‚(1-confidence)
-    - Low confidence â’ high entropy (uncertain)
-    - High confidence â’ low entropy (certain)
+    - Low confidence â' high entropy (uncertain)
+    - High confidence â' low entropy (certain)
 
   Efficiency = H(input) - H(output)
-    - >0: Good (compressed observation â’ certain decision)
+    - >0: Good (compressed observation â' certain decision)
     - â‰¤0: Bad (observations didn't guide decision)
 """
 
@@ -145,8 +145,8 @@ class EntropyCalculator:
 
         Where p = confidence in the verdict.
 
-        High confidence â’ low entropy (judgment is certain)
-        Low confidence â’ high entropy (judgment is uncertain)
+        High confidence â' low entropy (judgment is certain)
+        Low confidence â' high entropy (judgment is uncertain)
 
         **Args**:
           confidence: Certainty in judgment [0, 1]

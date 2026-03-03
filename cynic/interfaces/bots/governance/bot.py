@@ -276,7 +276,7 @@ async def cmd_proposals(
 
 
 # ============================================================================
-# VOTING COMMANDS (voting via buttons only â€” slash command /vote removed)
+# VOTING COMMANDS (voting via buttons only â€" slash command /vote removed)
 # ============================================================================
 
 @bot.tree.command(
@@ -499,7 +499,7 @@ async def cmd_governance_stats(interaction: discord.Interaction):
             rejected = len([p for p in proposals if p.approval_status == "REJECTED"])
 
             text = f"""
-ðŸ“Š **GOVERNANCE STATISTICS**
+ðŸ"Š **GOVERNANCE STATISTICS**
 
 **Proposals:**
 â€¢ Total: {total}
@@ -579,7 +579,7 @@ async def cmd_database_status(interaction: discord.Interaction):
         consistency = await verify_data_consistency()
 
         db_text = f"""
-ðŸ’¾ **DATABASE STATUS**
+ðŸ'¾ **DATABASE STATUS**
 
 **Health:** {db_health['status']}
 **Tables Found:** {db_health['tables_found']}

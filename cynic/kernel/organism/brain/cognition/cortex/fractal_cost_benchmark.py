@@ -5,13 +5,13 @@ Validates sub-linear cost scaling with dog count.
 
 Hypothesis: Cost âˆ log(N), not O(N)
   - 1 dog (baseline):  reference cost
-  - 5 dogs (moderate): cost â‰ˆ baseline Ã— logâ‚‚(5)   â‰ˆ 2.32Ã—
-  - 11 dogs (full):    cost â‰ˆ baseline Ã— logâ‚‚(11)  â‰ˆ 3.46Ã—
+  - 5 dogs (moderate): cost â‰ˆ baseline Ã- logâ‚‚(5)   â‰ˆ 2.32Ã-
+  - 11 dogs (full):    cost â‰ˆ baseline Ã- logâ‚‚(11)  â‰ˆ 3.46Ã-
 
-NOT 1 dog cost Ã— 5 or 1 dog cost Ã— 11 (linear growth)
+NOT 1 dog cost Ã- 5 or 1 dog cost Ã- 11 (linear growth)
 
 Key Mechanism:
-  - Dogs judge independently (PERCEIVE â’ JUDGE â’ DECIDE â’ ACT)
+  - Dogs judge independently (PERCEIVE â' JUDGE â' DECIDE â' ACT)
   - Dogs gossip compressed context (~200 bytes) instead of full state (~1000 bytes)
   - Orchestrator = consensus layer (geometric mean aggregation, NO re-judgment)
   - Cost scales with: gossip bandwidth, consensus computation, per-dog storage
@@ -79,7 +79,7 @@ class CostMetrics:
     avg_latency_per_judgment_ms: float  # Per-cell-per-dog latency
     peak_memory_mb: float  # Peak memory usage
     total_gossip_bytes: float  # Total bandwidth for gossip rounds
-    total_judgments: int  # N_dogs Ã— N_cells
+    total_judgments: int  # N_dogs Ã- N_cells
     total_entropy_efficiency: float  # Average efficiency across all judgments
 
     @property
@@ -140,7 +140,7 @@ class CostScalingResult:
                 "scaling_type": "LOGARITHMIC (O(log N))"
                 if self.is_logarithmic
                 else "LINEAR or worse (O(N))",
-                "verdict": "PASS âœ“" if self.is_logarithmic else "FAIL âœ—",
+                "verdict": "PASS âœ"" if self.is_logarithmic else "FAIL âœ-",
             },
         }
 
@@ -285,7 +285,7 @@ class FractalCostBenchmark:
 
     async def benchmark_scaling(self, n_cells: int = 50) -> CostScalingResult:
         """
-        Benchmark cost scaling: 1 dog â’ 5 dogs â’ 11 dogs.
+        Benchmark cost scaling: 1 dog â' 5 dogs â' 11 dogs.
 
         Validates: cost_11 / cost_1 â‰¤ logâ‚‚(11) â‰ˆ 3.46
         """

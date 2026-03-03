@@ -1,5 +1,5 @@
 """
-MicroCycleHandler â€” L2 MICRO consciousness cycle (voting dogs, no ACT).
+MicroCycleHandler â€" L2 MICRO consciousness cycle (voting dogs, no ACT).
 
 Extracted from JudgeOrchestrator._cycle_micro().
 

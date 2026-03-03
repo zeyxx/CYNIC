@@ -69,7 +69,7 @@ async def format_voting_status(proposal: Proposal, community: Community) -> str:
     minutes_remaining = int((time_remaining.total_seconds() % 3600) / 60)
 
     status = f"""
-ðŸ—³ï¸ **VOTING STATUS**
+ðŸ-³ï¸ **VOTING STATUS**
 
 **Proposal:** {proposal.title}
 **ID:** {proposal.proposal_id}
@@ -84,8 +84,8 @@ async def format_voting_status(proposal: Proposal, community: Community) -> str:
 
 **Approval Status:** {project.approval_status if proposal.approval_status != "PENDING" else "Vote in progress..."}
 
-ðŸ‘‰ /vote {proposal.proposal_id} YES to support
-ðŸ‘‰ /cynic-verdict {proposal.proposal_id} for CYNIC judgment
+ðŸ'‰ /vote {proposal.proposal_id} YES to support
+ðŸ'‰ /cynic-verdict {proposal.proposal_id} for CYNIC judgment
 """
     return status.strip()
 
@@ -99,11 +99,11 @@ def format_cynic_verdict(judgment_data: dict) -> str:
 
     # Verdict interpretation
     verdict_interpretations = {
-        "HOWL": "ðŸŽº **HOWL** â€” Highly Recommended",
-        "WAG": "ðŸ‘ **WAG** â€” Lean Toward Approval",
-        "GROWL": "âš ï¸ **GROWL** â€” Lean Toward Rejection",
-        "BARK": "ðŸš« **BARK** â€” Not Recommended",
-        "PENDING": "â³ **PENDING** â€” Judgment in progress"
+        "HOWL": "ðŸŽº **HOWL** â€" Highly Recommended",
+        "WAG": "ðŸ' **WAG** â€" Lean Toward Approval",
+        "GROWL": "âš ï¸ **GROWL** â€" Lean Toward Rejection",
+        "BARK": "ðŸš« **BARK** â€" Not Recommended",
+        "PENDING": "â³ **PENDING** â€" Judgment in progress"
     }
 
     text = f"""
@@ -125,10 +125,10 @@ def format_proposal_created(proposal_id: str, verdict: str, q_score: float) -> s
 
     emoji = {
         "HOWL": "ðŸŽº",
-        "WAG": "ðŸ‘",
+        "WAG": "ðŸ'",
         "GROWL": "âš ï¸",
         "BARK": "ðŸš«"
-    }.get(verdict, "â“")
+    }.get(verdict, "â"")
 
     text = f"""
 âœ… **PROPOSAL SUBMITTED**
@@ -143,9 +143,9 @@ Voting Period: 72 hours
 Approval Threshold: 50% + 1
 Quorum Required: 25%
 
-ðŸ‘‰ /vote {proposal_id} YES to support
-ðŸ‘‰ /proposal-details {proposal_id} for full details
-ðŸ‘‰ /cynic-verdict {proposal_id} for CYNIC reasoning
+ðŸ'‰ /vote {proposal_id} YES to support
+ðŸ'‰ /proposal-details {proposal_id} for full details
+ðŸ'‰ /cynic-verdict {proposal_id} for CYNIC reasoning
 """
     return text.strip()
 
@@ -154,16 +154,16 @@ def format_voting_started(proposal_id: str, title: str) -> str:
     """Format voting started announcement"""
 
     text = f"""
-ðŸ—³ï¸ **VOTING STARTED**
+ðŸ-³ï¸ **VOTING STARTED**
 
 **Proposal:** {title}
 **ID:** {proposal_id}
 
 Voting Period: 72 hours
 
-ðŸ‘‰ /vote {proposal_id} YES or NO
-ðŸ‘‰ /voting-status {proposal_id} to see current votes
-ðŸ‘‰ /cynic-verdict {proposal_id} for CYNIC guidance
+ðŸ'‰ /vote {proposal_id} YES or NO
+ðŸ'‰ /voting-status {proposal_id} to see current votes
+ðŸ'‰ /cynic-verdict {proposal_id} for CYNIC guidance
 """
     return text.strip()
 
@@ -171,7 +171,7 @@ Voting Period: 72 hours
 def format_vote_recorded(voter_id: str, proposal_id: str, vote: str) -> str:
     """Format vote recorded confirmation"""
 
-    emoji = {"YES": "âœ…", "NO": "âŒ", "ABSTAIN": "â­ï¸"}.get(vote, "â“")
+    emoji = {"YES": "âœ…", "NO": "âŒ", "ABSTAIN": "â­ï¸"}.get(vote, "â"")
 
     text = f"""
 {emoji} **VOTE RECORDED**
@@ -181,7 +181,7 @@ Proposal: {proposal_id}
 
 Your vote has been recorded. You can change it anytime before voting closes.
 
-ðŸ‘‰ /voting-status {proposal_id} to see current standings
+ðŸ'‰ /voting-status {proposal_id} to see current standings
 """
     return text.strip()
 
@@ -199,7 +199,7 @@ This proposal has been approved by the community!
 
 Execution scheduled for 24 hours from now.
 
-ðŸ‘‰ /proposal-details {proposal_id} for details
+ðŸ'‰ /proposal-details {proposal_id} for details
 """
     return text.strip()
 
@@ -219,7 +219,7 @@ Community feedback:
 - Consider addressing concerns raised during voting
 - Submit a revised proposal if you wish to try again
 
-ðŸ‘‰ /proposal-details {proposal_id} for details and feedback
+ðŸ'‰ /proposal-details {proposal_id} for details and feedback
 """
     return text.strip()
 
@@ -241,26 +241,26 @@ def format_help() -> str:
     """Format help message"""
 
     text = """
-ðŸ›ï¸ **CYNIC GOVERNANCE BOT â€” Help**
+ðŸ›ï¸ **CYNIC GOVERNANCE BOT â€" Help**
 
 **Proposal Commands:**
-â€¢ /propose <title> <description> â€” Submit a proposal
-â€¢ /proposal-details <id> â€” View full proposal details
-â€¢ /proposals [status] â€” List proposals
+â€¢ /propose <title> <description> â€" Submit a proposal
+â€¢ /proposal-details <id> â€" View full proposal details
+â€¢ /proposals [status] â€" List proposals
 
 **Voting Commands:**
-â€¢ /vote <proposal_id> <yes|no|abstain> â€” Cast your vote
-â€¢ /voting-status <proposal_id> â€” See voting progress
-â€¢ /my-votes â€” View your voting history
+â€¢ /vote <proposal_id> <yes|no|abstain> â€" Cast your vote
+â€¢ /voting-status <proposal_id> â€" See voting progress
+â€¢ /my-votes â€" View your voting history
 
 **CYNIC Judgment:**
-â€¢ /cynic-verdict <proposal_id> â€” Get CYNIC's detailed judgment
-â€¢ /cynic-status â€” Check CYNIC's health
+â€¢ /cynic-verdict <proposal_id> â€" Get CYNIC's detailed judgment
+â€¢ /cynic-status â€" Check CYNIC's health
 
 **Community:**
-â€¢ /community-info â€” Governance settings
-â€¢ /governance-stats â€” Community metrics
-â€¢ /leaderboard â€” Top proposers/voters
+â€¢ /community-info â€" Governance settings
+â€¢ /governance-stats â€" Community metrics
+â€¢ /leaderboard â€" Top proposers/voters
 
 For more help: /help <command>
 """
@@ -291,10 +291,10 @@ def build_proposal_embed(proposal) -> discord.Embed:
 
     if proposal.judgment_verdict:
         VERDICT_LABELS = {
-            "HOWL": "HOWL â€” Highly Recommended",
-            "WAG": "WAG â€” Lean Approve",
-            "GROWL": "GROWL â€” Lean Reject",
-            "BARK": "BARK â€” Not Recommended",
+            "HOWL": "HOWL â€" Highly Recommended",
+            "WAG": "WAG â€" Lean Approve",
+            "GROWL": "GROWL â€" Lean Reject",
+            "BARK": "BARK â€" Not Recommended",
         }
         q = proposal.judgment_q_score or 0.0
         embed.add_field(
@@ -351,7 +351,7 @@ def build_outcome_embed(proposal) -> discord.Embed:
     # Title
     title_prefix = "âœ… APPROVED" if is_approved else "âŒ REJECTED"
     embed = discord.Embed(
-        title=f"{title_prefix} â€” {proposal.title}",
+        title=f"{title_prefix} â€" {proposal.title}",
         color=color
     )
 

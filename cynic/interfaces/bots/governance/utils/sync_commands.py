@@ -42,21 +42,21 @@ async def sync_commands():
 
     @bot.event
     async def on_ready():
-        logger.info(f"âœ“ Bot logged in as {bot.user}")
-        logger.info(f"âœ“ Found {len(bot.tree._get_all_commands())} commands registered locally")
+        logger.info(f"âœ" Bot logged in as {bot.user}")
+        logger.info(f"âœ" Found {len(bot.tree._get_all_commands())} commands registered locally")
 
         try:
-            logger.info("â’ Synchronizing commands with Discord...")
+            logger.info("â' Synchronizing commands with Discord...")
             synced = await bot.tree.sync()
-            logger.info(f"âœ“ Successfully synced {len(synced)} commands to Discord:")
+            logger.info(f"âœ" Successfully synced {len(synced)} commands to Discord:")
             for cmd in synced:
                 logger.info(f"  â€¢ /{cmd.name}")
 
-            logger.info("\nâœ“ Discord command signature fix complete!")
+            logger.info("\nâœ" Discord command signature fix complete!")
             logger.info("  The bot will now recognize all commands correctly.")
 
         except Exception as e:
-            logger.error(f"âœ— Failed to sync commands: {e}", exc_info=True)
+            logger.error(f"âœ- Failed to sync commands: {e}", exc_info=True)
             return False
 
         await bot.close()
@@ -66,7 +66,7 @@ async def sync_commands():
         async with bot:
             await bot.start(DISCORD_TOKEN)
     except Exception as e:
-        logger.error(f"âœ— Bot startup failed: {e}", exc_info=True)
+        logger.error(f"âœ- Bot startup failed: {e}", exc_info=True)
         return False
 
 

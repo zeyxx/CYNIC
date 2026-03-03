@@ -1,5 +1,5 @@
 """
-DialogueAgent â€” Human-readable explanation of CYNIC's internal logic.
+DialogueAgent â€" Human-readable explanation of CYNIC's internal logic.
 
 Uses the ReasoningEngine to structure data and the Universal LLM Registry
 to generate the final explanation, prioritizing local hardware.

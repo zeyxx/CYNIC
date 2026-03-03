@@ -1,4 +1,4 @@
-"""CYNIC SocialWatcher â€” SOCIALÃ—PERCEIVE/MICRO every F(11)=89s."""
+"""CYNIC SocialWatcher â€" SOCIALÃ-PERCEIVE/MICRO every F(11)=89s."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ class SocialWatcher(PerceiveWorker):
     Monitors social signals from the ~/.cynic/social.json feed.
 
     JS hooks (observe.js) or external scripts write social signals here.
-    SocialWatcher reads them and submits SOCIALÃ—PERCEIVE at MICRO level.
+    SocialWatcher reads them and submits SOCIALÃ-PERCEIVE at MICRO level.
 
     signal.json schema:
       {"ts": 1234567890, "source": "twitter|discord|reddit", "sentiment": -1.0..1.0,
@@ -29,7 +29,7 @@ class SocialWatcher(PerceiveWorker):
 
     Only processes signals where read=false (marks them as read after submission).
 
-    interval: F(11)=89s â€” social signals are slow-moving.
+    interval: F(11)=89s â€" social signals are slow-moving.
     API-key-free: reads a local file written by any JS/Python hook.
     """
 
@@ -42,7 +42,7 @@ class SocialWatcher(PerceiveWorker):
         self._last_ts: float = 0.0
 
     def _read_signal(self) -> Optional[dict[str, Any]]:
-        """Blocking read â€” called via run_in_executor."""
+        """Blocking read â€" called via run_in_executor."""
         try:
             if not os.path.exists(self._path):
                 return None
@@ -87,7 +87,7 @@ class SocialWatcher(PerceiveWorker):
         volume = float(sig.get("volume", 0.0))
         source = sig.get("source", "unknown")
 
-        # Positive sentiment â’ low risk; negative â’ higher risk
+        # Positive sentiment â' low risk; negative â' higher risk
         risk = max(0.0, min(1.0, (0.5 - sentiment * 0.5)))
 
         return Cell(

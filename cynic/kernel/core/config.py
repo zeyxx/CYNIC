@@ -1,10 +1,10 @@
 """
-CYNIC Configuration — Single Source of Truth
+CYNIC Configuration - Single Source of Truth
 
 ALL environment variables read here. No os.getenv() anywhere else.
 Validation catches insecure defaults and missing backends.
 
-φ-Law: VERIFY — one truth, no scattered defaults.
+φ-Law: VERIFY - one truth, no scattered defaults.
 """
 
 from __future__ import annotations
@@ -34,34 +34,34 @@ class CynicConfig:
                 logger.warning(issue)
     """
 
-    # —— Storage: SurrealDB (primary) ──────────────────────────────────────────
+    # -- Storage: SurrealDB (primary) ------------------------------------------
     surreal_url: str | None = None
     surreal_user: str = "root"
-    surreal_pass: str = "local_dev_only"
+    surreal_pass: str = "cynic_phi_618"
     surreal_ns: str = "cynic"
     surreal_db: str = "cynic"
 
-    # —— Network: Redis (Nervous System backbone) ─────────────────────────────
+    # -- Network: Redis (Nervous System backbone) -----------------------------
     redis_url: str = "redis://localhost:6379/0"
 
-    # —— Storage: PostgreSQL (fallback) ────────────────────────────────────────
+    # -- Storage: PostgreSQL (fallback) ----------------------------------------
     database_url: str | None = None
 
-    # —— LLM: Multi-Model Symbiosis (Dynamic Routing) ──────────────────────────
+    # -- LLM: Multi-Model Symbiosis (Dynamic Routing) --------------------------
     # CYNIC discovers its capabilities purely from the environment.
     # No hardcoded names allowed.
     llm_primary_model: str | None = None
     llm_fast_model: str | None = None
     llm_local_model: str | None = None
     
-    # —— LLM: Operator Overrides ──────────────────────────────────────────────
+    # -- LLM: Operator Overrides ----------------------------------------------
     force_slow_mode: bool = False # If True, always use primary model regardless of cost/speed
     
-    # —— LLM: API Keys ────────────────────────────────────────────────────────
+    # -- LLM: API Keys --------------------------------------------------------
     anthropic_api_key: str | None = None
     google_api_key: str | None = None
 
-    # —— LLM: Local inference (llama.cpp / Ollama) ────────────────────────────
+    # -- LLM: Local inference (llama.cpp / Ollama) ----------------------------
     ollama_url: str = "http://localhost:11434"
     models_dir: str | None = None
     llama_gpu_layers: int = -1
@@ -69,45 +69,51 @@ class CynicConfig:
     ollama_num_parallel: int | None = None
     dialogue_llm_provider: str = "auto"
 
-    # —— Bots: Discord & Telegram ──────────────────────────────────────────────
+    # -- Bots: Discord & Telegram ----------------------------------------------
     discord_token: str | None = None
     discord_guild_id: str | None = None
     telegram_token: str | None = None
     telegram_chat_id: str | None = None
 
-    # —— Integrations: Web3 & Market Data ──────────────────────────────────────
+    # -- Integrations: Web3 & Market Data --------------------------------------
     helius_api_key: str | None = None
 
-    # —— GASdf: Governance (On-chain execution) ───────────────────────────────
+    # -- GASdf: Governance (On-chain execution) -------------------------------
     gasdf_url: str = "http://localhost:8766"
     gasdf_enabled: bool = False
 
-    # —— MCP Server Configuration ───────────────────────────────────────────────
+    # -- MCP Server Configuration -----------------------------------------------
     mcp_stdio_only: bool = True  # If True, only start stdio MCP (not HTTP)
 
-    # —— Judgment & Consensus ──────────────────────────────────────────────────
+    # -- Judgment & Consensus --------------------------------------------------
     num_dogs: int = 11
     max_judgments_batch: int = 10
     judgment_timeout_seconds: float = 30.0
 
-    # —— Learning & Q-Learning ─────────────────────────────────────────────────
+    # -- Learning & Q-Learning -------------------------------------------------
     learning_rate: float = 0.1
     discount_factor: float = 0.99
 
-    # —— Runtime ──────────────────────────────────────────────────────────────
+    # -- Runtime --------------------------------------------------------------
     port: int = 8765  # Main API port
     log_level: str = "INFO"
     knet_host: str = "::"
     knet_port: int = 0  # 0 = OS selects free port (Standard SRE)
     environment: str = "development"
 
-    # —— Thresholds (φ-derived, should rarely change) ─────────────────────────
+    # -- Thresholds (φ-derived, should rarely change) -------------------------
     max_confidence: float = 0.618
     residual_threshold: float = 0.382
 
     @classmethod
     def from_env(cls) -> CynicConfig:
         """Load from environment variables with type coercion."""
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+
         default_models_dir = os.path.join(os.path.expanduser("~"), ".cynic", "models")
         return cls(
             # Storage
@@ -213,7 +219,7 @@ class CynicConfig:
         has_any_llm = bool(self.anthropic_api_key or self.google_api_key or self.models_dir)
         if not has_any_llm:
             issues.append(
-                "INFO: No API keys or local models configured — "
+                "INFO: No API keys or local models configured - "
                 "Ollama-only mode (will use heuristic fallback if Ollama is down)"
             )
 

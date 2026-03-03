@@ -1,5 +1,5 @@
 """
-CYNIC Kernel Bootstrap â€” Unified Initialization
+CYNIC Kernel Bootstrap â€" Unified Initialization
 
 Handles coordinated kernel startup with:
 - Docker-first preference (if available)

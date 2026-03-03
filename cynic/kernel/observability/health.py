@@ -140,7 +140,7 @@ class HealthChecker:
 
         return status
 
-    # â”€â”€ Private helper methods â”€â”€
+    # â"€â"€ Private helper methods â"€â"€
 
     async def _check_database(self) -> bool:
         """Test database connectivity (SurrealDB or PostgreSQL)."""
@@ -164,7 +164,7 @@ class HealthChecker:
                 logger.warning("PostgreSQL health check failed: %s", e)
                 raise
 
-        # No database configured â€” assume ok
+        # No database configured â€" assume ok
         return True
 
     async def _check_llm(self) -> bool:

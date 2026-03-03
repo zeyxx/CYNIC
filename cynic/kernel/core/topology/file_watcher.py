@@ -1,4 +1,4 @@
-"""SourceWatcher â€” Real-time file system monitoring for topology changes."""
+"""SourceWatcher â€" Real-time file system monitoring for topology changes."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from cynic.kernel.core.topology.payloads import SourceChangedPayload
 logger = logging.getLogger("cynic.kernel.core.topology.file_watcher")
 
 # Compute package root from this file's location
-_CYNIC_ROOT = Path(__file__).resolve().parent.parent.parent  # â’ /app/cynic
+_CYNIC_ROOT = Path(__file__).resolve().parent.parent.parent  # â' /app/cynic
 
 
 class SourceWatcher:
@@ -26,15 +26,15 @@ class SourceWatcher:
     Emits: SOURCE_CHANGED events with file path + timestamp.
 
     Watched directories:
-      - cynic/api/handlers/ â’ category="handlers"
-      - cynic/dogs/ â’ category="dogs"
-      - cynic/judge/ â’ category="judge"
-      - cynic/cli/ â’ category="cli"
+      - cynic/api/handlers/ â' category="handlers"
+      - cynic/dogs/ â' category="dogs"
+      - cynic/judge/ â' category="judge"
+      - cynic/cli/ â' category="cli"
 
     Polling: Every F(7)=13 seconds (efficient, not continuous)
     """
 
-    # Directories to watch â’ category name (absolute paths from package root)
+    # Directories to watch â' category name (absolute paths from package root)
     _WATCHED_DIRS = {
         "handlers": _CYNIC_ROOT / "api" / "handlers",
         "dogs": _CYNIC_ROOT / "dogs",
@@ -126,7 +126,7 @@ class SourceWatcher:
                 # Emit critical alert if too many failures
                 if self._snapshot_failures[category] >= 3:
                     logger.critical(
-                        "CRITICAL: Snapshot %s failed %d times â€” topology may be stale!",
+                        "CRITICAL: Snapshot %s failed %d times â€" topology may be stale!",
                         category,
                         self._snapshot_failures[category],
                     )

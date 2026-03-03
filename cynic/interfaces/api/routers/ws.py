@@ -1,5 +1,5 @@
 """
-CYNIC ws router â€” ws/stream Â· ws/events
+CYNIC ws router â€" ws/stream Â· ws/events
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ async def ws_stream(
     container: AppContainer = Depends(get_app_container),
 ) -> None:
     """
-    WebSocket stream â€” bidirectional real-time kernel events.
+    WebSocket stream â€" bidirectional real-time kernel events.
     """
     await websocket.accept()
     bus = container.organism.bus
@@ -45,7 +45,7 @@ async def ws_stream(
                 "ts": time.time(),
             })
         except asyncio.QueueFull:
-            pass  # Drop silently â€” client is slow, kernel must not block
+            pass  # Drop silently â€" client is slow, kernel must not block
 
     stream_events = [
         CoreEvent.JUDGMENT_CREATED,
@@ -63,7 +63,7 @@ async def ws_stream(
                 msg = await asyncio.wait_for(queue.get(), timeout=30.0)
                 await websocket.send_json(msg)
             except TimeoutError:
-                # Keepalive ping â€” proves connection is alive
+                # Keepalive ping â€" proves connection is alive
                 try:
                     await websocket.send_json({"type": "ping", "ts": time.time()})
                 except EventBusError as exc:
@@ -186,7 +186,7 @@ async def ws_consciousness_ecosystem(websocket: WebSocket) -> None:
             "phi": PHI,
             "initial_snapshot": initial,
         })
-        # Run both loops â€” if either fails, the whole connection closes
+        # Run both loops â€" if either fails, the whole connection closes
         await asyncio.gather(_emit_loop(), _periodic_loop())
     except WebSocketDisconnect:
         pass
@@ -204,16 +204,16 @@ async def ws_events(
     container: AppContainer = Depends(get_app_container),
 ) -> None:
     """
-    Read-only WebSocket â€” streams ALL CoreEvents with client-side filtering.
+    Read-only WebSocket â€" streams ALL CoreEvents with client-side filtering.
     """
     await websocket.accept()
     bus = container.organism.bus
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
 
-    # All CoreEvent names â’ used for connected banner + subscribe validation
+    # All CoreEvent names â' used for connected banner + subscribe validation
     all_event_names: list = [e.name for e in CoreEvent]
 
-    # Active filter â€” None = all events pass; set = only matching names pass
+    # Active filter â€" None = all events pass; set = only matching names pass
     _active_filter: list = []  # mutable cell (empty = all events)
     _filter_lock = asyncio.Lock()
 
@@ -231,7 +231,7 @@ async def ws_events(
                 "ts":      time.time(),
             })
         except asyncio.QueueFull:
-            pass  # Drop silently â€” client is slow, kernel must not block
+            pass  # Drop silently â€" client is slow, kernel must not block
 
     # Subscribe to ALL CoreEvents
     for ev_type in CoreEvent:

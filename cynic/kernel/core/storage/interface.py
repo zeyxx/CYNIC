@@ -1,10 +1,10 @@
 """
-CYNIC Storage Interface â€” One ABC for all storage backends.
+CYNIC Storage Interface â€" One ABC for all storage backends.
 
 Both SurrealDB and PostgreSQL implement this interface.
 state.py references StorageInterface, never concrete classes.
 
-Ï-Law: BURN â€” one interface, not two parallel implementations.
+Ï-Law: BURN â€" one interface, not two parallel implementations.
 """
 
 from __future__ import annotations
@@ -140,7 +140,7 @@ class DogSoulRepoInterface(ABC):
 
 
 class SecurityEventRepoInterface(ABC):
-    """Repository for security events (SIEM Foundation — PHASE 2)."""
+    """Repository for security events (SIEM Foundation - PHASE 2)."""
 
     @abstractmethod
     async def save_event(self, event: dict[str, Any]) -> str:
@@ -188,7 +188,7 @@ class AxiomFacetRepoInterface(ABC):
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# STORAGE INTERFACE â€” the ONE abstraction
+# STORAGE INTERFACE â€" the ONE abstraction
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
@@ -200,7 +200,7 @@ class StorageInterface(ABC):
     state.py only references StorageInterface, never concrete classes.
     """
 
-    # â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Lifecycle â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     @abstractmethod
     async def connect(self) -> None: ...
@@ -211,7 +211,7 @@ class StorageInterface(ABC):
     @abstractmethod
     async def ping(self) -> bool: ...
 
-    # â”€â”€ Repository accessors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Repository accessors â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     @property
     @abstractmethod

@@ -1,5 +1,5 @@
 """
-MergeEngine â€” Weighted Q-Table Merging for Federation
+MergeEngine â€" Weighted Q-Table Merging for Federation
 
 This module implements the core federation algorithm: merging remote Q-Table
 snapshots into local tables with weighted averaging based on visit counts.

@@ -1,4 +1,4 @@
-"""Nervous System â€” Event Coordination
+"""Nervous System â€" Event Coordination
 
 The nervous system coordinates via events.
 

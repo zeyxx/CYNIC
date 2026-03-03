@@ -1,5 +1,5 @@
 """
-CYNIC Core â€” Foundational constants, axioms, judgment models, and infrastructure.
+CYNIC Core â€" Foundational constants, axioms, judgment models, and infrastructure.
 
 Core modules establish CYNIC's mathematical and architectural foundation:
 

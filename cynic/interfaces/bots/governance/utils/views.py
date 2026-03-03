@@ -181,7 +181,7 @@ class VotingView(discord.ui.View):
             async with session_context() as session:
                 # Check if voting is active
                 if not await is_voting_active(session, self.proposal_id):
-                    await interaction.response.send_message("ðŸ—³ï¸ Voting is closed.", ephemeral=True)
+                    await interaction.response.send_message("ðŸ-³ï¸ Voting is closed.", ephemeral=True)
                     return
 
                 voter_id = str(interaction.user.id)
@@ -198,7 +198,7 @@ class VotingView(discord.ui.View):
                 if existing:
                     view = ChangeVoteConfirmView(self.proposal_id, existing.vote, vote_choice)
                     await interaction.response.send_message(
-                        f"You voted **{existing.vote}** â€” change to **{vote_choice}**?",
+                        f"You voted **{existing.vote}** â€" change to **{vote_choice}**?",
                         view=view, ephemeral=True
                     )
                     return
@@ -377,7 +377,7 @@ class ProposalListView(discord.ui.View):
     def _build_list_embed(self) -> discord.Embed:
         """Build the proposal list embed for current page"""
         embed = discord.Embed(
-            title="ðŸ“‹ Governance Proposals",
+            title="ðŸ"‹ Governance Proposals",
             color=0x3498db
         )
 
@@ -481,7 +481,7 @@ class OutcomeRatingView(discord.ui.View):
 
                 # Respond with confirmation
                 await interaction.response.send_message(
-                    f"Rated {star_display} ({stars}/5) â€” {status_msg}",
+                    f"Rated {star_display} ({stars}/5) â€" {status_msg}",
                     ephemeral=True
                 )
 

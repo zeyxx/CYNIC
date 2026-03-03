@@ -1,11 +1,11 @@
 """
-CYNIC SessionCheckpointer â€” Cross-crash context persistence (Î³2)
+CYNIC SessionCheckpointer â€" Cross-crash context persistence (Î³2)
 
 Saves ContextCompressor state to ~/.cynic/session-latest.json so the session
 context survives process crashes and disk-pressure events.
 
 Strategy:
-  - Atomic write: JSON â’ .tmp file â’ os.replace() (crash-safe)
+  - Atomic write: JSON â' .tmp file â' os.replace() (crash-safe)
   - Checkpoint every CHECKPOINT_EVERY (F(8)=21) judgments
   - Skip restore if checkpoint is older than MAX_AGE_H hours (stale)
   - Skip save if disk is critically full (avoid making things worse)
@@ -59,7 +59,7 @@ def save(compressor: ContextCompressor) -> bool:
         disk_free_pct = usage.free / usage.total
         if disk_free_pct < 0.05:
             logger.warning(
-                "SessionCheckpoint: disk %.1f%% free â€” skipping save",
+                "SessionCheckpoint: disk %.1f%% free â€" skipping save",
                 disk_free_pct * 100,
             )
             return False

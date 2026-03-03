@@ -1,5 +1,5 @@
 """
-Sensor Interface â€” pluggable observ interface for Track C empirical testing.
+Sensor Interface â€" pluggable observ interface for Track C empirical testing.
 
 This interface lets Track C create:
   - EmpiricalSensor: Replays recorded observations
@@ -26,7 +26,7 @@ class Observation:
     sensor_id: str  # Unique sensor identifier (e.g., "disk", "solana", "mock_empirical")
     timestamp: float  # When observation was made
     data: dict[str, Any]  # Sensor-specific payload
-    quality: float = 1.0  # 0.0â€“1.0 confidence in observation (1.0 = certain)
+    quality: float = 1.0  # 0.0â€"1.0 confidence in observation (1.0 = certain)
 
     def is_synthetic(self) -> bool:
         """Returns True if this observation was synthesized (not from real sensor)."""
@@ -34,7 +34,7 @@ class Observation:
 
 
 class Sensor(ABC):
-    """Abstract sensor â€” interface for all perception sources."""
+    """Abstract sensor â€" interface for all perception sources."""
 
     @property
     @abstractmethod
@@ -44,7 +44,7 @@ class Sensor(ABC):
 
     @abstractmethod
     async def startup(self) -> None:
-        """Initialize sensor â€” called once at kernel startup.
+        """Initialize sensor â€" called once at kernel startup.
 
         May perform:
           - Connection setup (RPC, database)
@@ -66,7 +66,7 @@ class Sensor(ABC):
 
     @abstractmethod
     async def shutdown(self) -> None:
-        """Cleanup â€” called once at kernel shutdown.
+        """Cleanup â€" called once at kernel shutdown.
 
         May perform:
           - Connection cleanup
@@ -75,7 +75,7 @@ class Sensor(ABC):
         ...
 
     async def check_available(self) -> bool:
-        """Quick health check â€” is sensor reachable? (optional override)."""
+        """Quick health check â€" is sensor reachable? (optional override)."""
         try:
             # Try one perceive call with short timeout
             import asyncio

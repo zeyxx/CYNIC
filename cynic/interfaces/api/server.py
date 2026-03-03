@@ -1,5 +1,5 @@
 """
-CYNIC Kernel API â€” FastAPI Gateway.
+CYNIC Kernel API â€" FastAPI Gateway.
 
 Unified entry point for all CYNIC interactions. 
 No logic resides here; it only exposes the Organism via HTTP.
@@ -61,7 +61,7 @@ from cynic.interfaces.api.routers.ws import router_ws
 logger = logging.getLogger("cynic.interfaces.api.server")
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# LIFESPAN â€” The Organism's Biological Cycle
+# LIFESPAN â€" The Organism's Biological Cycle
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @asynccontextmanager
@@ -114,12 +114,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     # 4. SLEEP (Graceful shutdown)
-    logger.info("ðŸ’¤ CYNIC falling asleep...")
+    logger.info("ðŸ'¤ CYNIC falling asleep...")
     await organism.state.stop_processing()
     
     # Give event bus tasks a moment to clear their buffers
     await asyncio.sleep(0.5)
-    logger.info("ðŸ›‘ CYNIC is now dormant.")
+    logger.info("ðŸ›' CYNIC is now dormant.")
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -128,7 +128,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(
     title="CYNIC Kernel API",
-    description="Python kernel â€” Ï-bounded judgment + learning",
+    description="Python kernel â€" Ï-bounded judgment + learning",
     version="3.0.0",
     lifespan=lifespan,
     docs_url="/api/docs",

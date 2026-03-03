@@ -1,5 +1,5 @@
 """
-MCP Utilities â€” Logging and helpers.
+MCP Utilities â€" Logging and helpers.
 """
 from __future__ import annotations
 

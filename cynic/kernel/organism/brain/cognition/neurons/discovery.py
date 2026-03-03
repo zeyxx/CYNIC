@@ -1,10 +1,10 @@
 """
-CYNIC Dog Auto-Discovery â€” pkgutil-based registration.
+CYNIC Dog Auto-Discovery â€" pkgutil-based registration.
 
 Scans cynic.kernel.organism.brain.cognition.neurons for all AbstractDog subclasses with a DOG_ID class attribute.
-Replaces manual import lists â€” adding a new dog = add the file + DOG_ID.
+Replaces manual import lists â€" adding a new dog = add the file + DOG_ID.
 
-Ï-Law: BURN â€” discovery replaces boilerplate.
+Ï-Law: BURN â€" discovery replaces boilerplate.
 """
 
 from __future__ import annotations
@@ -20,21 +20,20 @@ from cynic.kernel.organism.brain.cognition.neurons.base import AbstractDog, DogI
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.neurons.discovery")
 
 
+import pathlib
+
 def discover_dog_classes() -> dict[str, type[AbstractDog]]:
     """
     Scan cynic.kernel.organism.brain.cognition.neurons for all concrete AbstractDog subclasses with DOG_ID.
-
-    Returns:
-        dict mapping DogId value â’ Dog class (NOT instances).
-
-    Raises:
-        ValueError: if a Dog class has a DOG_ID not in DogId enum,
-                    or if two classes share the same DOG_ID.
     """
     found: dict[str, type[AbstractDog]] = {}
     valid_ids = set(DogId)
-
-    for _, module_name, _ in pkgutil.iter_modules(dogs_pkg.__path__):
+    
+    # Noble Path Discovery (Robust on Windows/Linux)
+    pkg_dir = pathlib.Path(__file__).parent
+    
+    for py_file in pkg_dir.glob("*.py"):
+        module_name = py_file.stem
         if module_name.startswith("_") or module_name in ("base", "discovery"):
             continue
 
@@ -42,12 +41,8 @@ def discover_dog_classes() -> dict[str, type[AbstractDog]]:
             module = importlib.import_module(
                 f"cynic.kernel.organism.brain.cognition.neurons.{module_name}"
             )
-        except Exception:
-            logger.warning(
-                "Failed to import cynic.kernel.organism.brain.cognition.neurons.%s",
-                module_name,
-                exc_info=True,
-            )
+        except Exception as e:
+            logger.warning(f"Failed to import neuron {module_name}: {e}")
             continue
 
         for attr_name in dir(module):

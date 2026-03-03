@@ -22,7 +22,7 @@ class GuardrailsLayer(Static):
         table.add_column("Count", justify="right", style="green")
 
         table.add_row("Allow âœ…", str(self.allow_count))
-        table.add_row("Block ðŸ”´", str(self.block_count))
+        table.add_row("Block ðŸ"´", str(self.block_count))
         table.add_row("Approval â³", str(self.approval_count))
 
         return Panel(

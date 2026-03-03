@@ -1,5 +1,5 @@
 """
-Metabolism Immune System â€” Guardrails and Safety
+Metabolism Immune System â€" Guardrails and Safety
 
 Components:
 - alignment_checker.py: 5 axioms validation (Î³2 loop)

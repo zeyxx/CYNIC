@@ -1,5 +1,5 @@
 """
-CYNIC API Request/Response models â€” Pydantic v2
+CYNIC API Request/Response models â€" Pydantic v2
 
 All API models are separate from internal models.
 This lets the API contract evolve independently from the kernel.
@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class JudgeRequest(BaseModel):
-    """POST /judge â€” judge any content through the CYNIC pipeline."""
+    """POST /judge â€" judge any content through the CYNIC pipeline."""
     content: Any = Field(description="Content to judge (code, text, data...)")
     reality: str = Field(
         default="CODE",
@@ -77,12 +77,12 @@ class JudgeResponse(BaseModel):
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# PERCEIVE (JS hooks â’ Python kernel)
+# PERCEIVE (JS hooks â' Python kernel)
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class PerceiveRequest(BaseModel):
     """
-    POST /perceive â€” receive raw perception from JS hooks (or any source).
+    POST /perceive â€" receive raw perception from JS hooks (or any source).
 
     This is the bridge: JS thin hooks POST here instead of to JS daemon.
     Python kernel runs the full judgment cycle on the incoming perception.
@@ -92,7 +92,7 @@ class PerceiveRequest(BaseModel):
         default="CYNIC",
         description="Reality dimension of this perception",
     )
-    data: Any = Field(default=None, description="Raw perception data (legacy â€” now optional)")
+    data: Any = Field(default=None, description="Raw perception data (legacy â€" now optional)")
     content: Any = Field(default=None, description="Raw perception data (new: Track E clients send 'content')")
     context: str = Field(default="", description="Human-readable context")
     time_dim: str | None = Field(
@@ -123,7 +123,7 @@ class PerceiveResponse(BaseModel):
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class LearnRequest(BaseModel):
-    """POST /learn â€” inject a learning signal directly into the Q-Table."""
+    """POST /learn â€" inject a learning signal directly into the Q-Table."""
     state_key: str = Field(description="State key (e.g. 'CODE:JUDGE:PRESENT:1')")
     action: str = Field(description="Verdict action: BARK/GROWL/WAG/HOWL")
     reward: float = Field(ge=0.0, le=1.0, description="Normalized reward [0, 1]")
@@ -166,11 +166,11 @@ class PolicyResponse(BaseModel):
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# FEEDBACK (explicit user reward signal â’ Q-Table update)
+# FEEDBACK (explicit user reward signal â' Q-Table update)
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class FeedbackRequest(BaseModel):
-    """POST /feedback â€” user rates the last kernel judgment (1=bad, 5=good)."""
+    """POST /feedback â€" user rates the last kernel judgment (1=bad, 5=good)."""
     rating: int = Field(ge=1, le=5, description="1=very bad, 5=very good")
 
 
@@ -189,7 +189,7 @@ class FeedbackResponse(BaseModel):
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class AccountRequest(BaseModel):
-    """POST /account â€” execute ACCOUNT opcode (cost recording + EMERGE detection)."""
+    """POST /account â€" execute ACCOUNT opcode (cost recording + EMERGE detection)."""
     judgment_id: str = Field(default="", description="Optional: cost a specific judgment")
     trigger_emerge: bool = Field(default=True, description="Trigger EMERGE pattern detection")
 
@@ -231,7 +231,7 @@ class HealthResponse(BaseModel):
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class StatsResponse(BaseModel):
-    """Response from GET /stats â€” detailed kernel metrics."""
+    """Response from GET /stats â€" detailed kernel metrics."""
     judgments: dict[str, Any]
     learning: dict[str, Any]
     top_states: list[dict[str, Any]]

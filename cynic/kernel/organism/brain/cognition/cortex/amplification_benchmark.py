@@ -10,18 +10,18 @@ This is the core amplification hypothesis:
 
 Design:
   WarmStartLearner:
-    Phase 1 â€” accumulate W judgments on real probe data â’ snapshot Q-values
-    Phase 2 â€” fresh learner inherits those Q-values + visit counts (EWC uses them)
+    Phase 1 â€" accumulate W judgments on real probe data â' snapshot Q-values
+    Phase 2 â€" fresh learner inherits those Q-values + visit counts (EWC uses them)
               runs T test steps on same task
   ColdStartLearner:
-    Phase 1 â€” skip
-    Phase 2 â€” fresh learner starts at Q=0.5, runs same T test steps
+    Phase 1 â€" skip
+    Phase 2 â€" fresh learner starts at Q=0.5, runs same T test steps
 
 Amplification ratio at step T:
   ratio(T) = cold_error(T) / warm_error(T)
-  ratio > 1 â’ amplification confirmed (warm start is better)
-  ratio â‰ˆ 1 â’ no amplification
-  ratio < 1 â’ negative transfer (warm start hurts)
+  ratio > 1 â' amplification confirmed (warm start is better)
+  ratio â‰ˆ 1 â' no amplification
+  ratio < 1 â' negative transfer (warm start hurts)
 
 Grid:
   warm_levels: {0, 50, 100, 200, 500}  (session history depth)
@@ -31,7 +31,7 @@ Grid:
 Key phi advantage:
   phi + EWC = warm values are PROTECTED after consolidation.
   standard RL: warm values get overwritten as fast as cold values.
-  â’ phi amplification_ratio should be systematically higher than standard.
+  â' phi amplification_ratio should be systematically higher than standard.
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ from cynic.kernel.organism.brain.cognition.cortex.real_benchmark import (
 
 # Warm-up levels: number of prior session judgments
 _WARM_LEVELS: list[int] = [0, fibonacci(5), fibonacci(7), 200, 500]
-# = [0, 5, 13, 200, 500]  â€” Fibonacci-anchored levels + practical depths
+# = [0, 5, 13, 200, 500]  â€" Fibonacci-anchored levels + practical depths
 
 # Test budget per session (steps after warm-load)
 _TEST_BUDGET: int = 200
@@ -135,16 +135,16 @@ def _run_warm_cold(
     """
     t0 = time.perf_counter()
 
-    # â”€â”€ Phase 2 task (shared between warm and cold) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    # Same seed â’ same noisy reward sequence for fair comparison
+    # â"€â"€ Phase 2 task (shared between warm and cold) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    # Same seed â' same noisy reward sequence for fair comparison
     task_cold = RealKernelTask(rng=random.Random(seed + _SEED_OFFSET))
     task_warm = RealKernelTask(rng=random.Random(seed + _SEED_OFFSET))
 
-    # â”€â”€ Cold start â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Cold start â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     cold_learner = TD0Learner(task=task_cold, alpha=alpha, use_ewc=use_ewc)
     cold_learner.run(test_budget)
 
-    # â”€â”€ Warm start â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Warm start â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     warm_learner = TD0Learner(task=task_warm, alpha=alpha, use_ewc=use_ewc)
 
     if warm_steps > 0:
@@ -160,7 +160,7 @@ def _run_warm_cold(
 
     warm_learner.run(test_budget)
 
-    # â”€â”€ Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Metrics â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     cold_err = cold_learner.mean_error()
     warm_err = warm_learner.mean_error()
 
@@ -205,8 +205,8 @@ class AmplificationBenchmark:
     Key outputs:
       phi_amplification_curve:   [ratio at each warm_level] for phi config
       std_amplification_curve:   [ratio at each warm_level] for standard config
-      phi_beats_standard:        bool â€” phi amplifies more than standard overall
-      warm_advantage_grows:      bool â€” amplification increases with more warm steps
+      phi_beats_standard:        bool â€" phi amplifies more than standard overall
+      warm_advantage_grows:      bool â€" amplification increases with more warm steps
     """
 
     def run_level(
@@ -256,9 +256,9 @@ class AmplificationBenchmark:
         Returns:
           phi_curve:            list of mean_amplification_ratio per warm_level (phi)
           standard_curve:       list of mean_amplification_ratio per warm_level (standard)
-          phi_beats_standard:   bool â€” phi mean ratio > standard mean ratio
-          warm_advantage_grows: bool â€” ratio at warm=500 > ratio at warm=0 (for phi)
-          phi_amplification_at_500: float â€” ratio at highest warm level
+          phi_beats_standard:   bool â€" phi mean ratio > standard mean ratio
+          warm_advantage_grows: bool â€" ratio at warm=500 > ratio at warm=0 (for phi)
+          phi_amplification_at_500: float â€" ratio at highest warm level
         """
         if warm_levels is None:
             warm_levels = _WARM_LEVELS

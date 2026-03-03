@@ -41,6 +41,7 @@ class Organism:
     bridge: Any = None
     automation_bus: Any = None
     agent_bus: Any = None
+    task_registry: Any = None
     _pool: Any = None
     _start_time: float = 0.0 # Initialized in start() or factory
 
@@ -235,6 +236,10 @@ class Organism:
             await self.state.stop_processing()
         except Exception as e:
             logger.debug(f"Error stopping state: {e}")
+
+        # THE FINAL PURGE: Close all remaining tasks
+        if hasattr(self, "task_registry") and self.task_registry:
+            await self.task_registry.close(timeout=3.0)
 
         logger.info(f"Organism [{self.instance_id}]: Dormant. Shutdown complete.")
 

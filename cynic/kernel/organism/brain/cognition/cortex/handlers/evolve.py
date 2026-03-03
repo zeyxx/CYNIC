@@ -1,5 +1,5 @@
 """
-EvolveHandler â€” L4 META cycle (self-benchmark via probe cells).
+EvolveHandler â€" L4 META cycle (self-benchmark via probe cells).
 
 Extracted from JudgeOrchestrator.evolve().
 

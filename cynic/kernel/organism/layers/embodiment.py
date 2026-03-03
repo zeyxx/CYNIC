@@ -1,9 +1,9 @@
 """
-Embodiment Layer â€” The physical body of CYNIC.
+Embodiment Layer â€" The physical body of CYNIC.
 Anatomy: Peripheral Nervous System & Somatic Sensors.
 
 This layer connects the abstract organism to the hardware reality.
-Axiom Alignment: BURN â€” resources are finite and costly.
+Axiom Alignment: BURN â€" resources are finite and costly.
 """
 
 from __future__ import annotations

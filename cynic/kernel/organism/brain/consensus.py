@@ -1,11 +1,11 @@
 """
-L2 Consensus Voting Engine â€” Wire network consensus to judgment blocks.
+L2 Consensus Voting Engine â€" Wire network consensus to judgment blocks.
 
 Task 1.3: Add consensus voting mechanism to finalize judgments.
 
 PARADIGM:
-  CURRENT (BROKEN):  Judgment â’ PoJ Block â’ [SKIP VOTING] â’ Anchor (unverified)
-  FIXED:             Judgment â’ PoJ Block â’ Gossip â’ Consensus Vote â’ Finality â’ Anchor
+  CURRENT (BROKEN):  Judgment â' PoJ Block â' [SKIP VOTING] â' Anchor (unverified)
+  FIXED:             Judgment â' PoJ Block â' Gossip â' Consensus Vote â' Finality â' Anchor
 
 PHASE:
   Î²-phase: LOCAL consensus only (3/5 local Dogs vote)
@@ -187,7 +187,7 @@ class ConsensusEngine:
             return votes
 
         except TimeoutError:
-            # Network unavailable â€” return empty votes (graceful degradation)
+            # Network unavailable â€" return empty votes (graceful degradation)
             logger.warning("Consensus vote timeout")
             raise
 

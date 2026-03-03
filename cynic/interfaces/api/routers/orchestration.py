@@ -1,12 +1,12 @@
 """
 Orchestration API Routes
 
-POST /orchestration/build      â€” Build Docker image
-POST /orchestration/deploy     â€” Deploy services
-POST /orchestration/health     â€” Health check
-GET  /orchestration/status     â€” Status overview
-POST /orchestration/stop       â€” Stop services
-POST /orchestration/release    â€” Create release
+POST /orchestration/build      â€" Build Docker image
+POST /orchestration/deploy     â€" Deploy services
+POST /orchestration/health     â€" Health check
+GET  /orchestration/status     â€" Status overview
+POST /orchestration/stop       â€" Stop services
+POST /orchestration/release    â€" Create release
 """
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 """
-CYNIC Reality Schemas â€” Zero-Trust Data Contracts.
+CYNIC Reality Schemas â€" Zero-Trust Data Contracts.
 
 Defines the strict structure of data for each dimension of reality.
 This prevents 'Silent Debt' by ensuring hallucinations or malformed
@@ -12,7 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-# â”€â”€ 1. SOMATIC (Hardware & Metabolism) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ 1. SOMATIC (Hardware & Metabolism) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 
 class SomaticPayload(BaseModel):
@@ -24,7 +24,7 @@ class SomaticPayload(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-# â”€â”€ 2. CODE (Software Architecture) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ 2. CODE (Software Architecture) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 
 class CodePayload(BaseModel):
@@ -37,7 +37,7 @@ class CodePayload(BaseModel):
     diff: str | None = None
 
 
-# â”€â”€ 3. INTERNAL (Self-Observation) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ 3. INTERNAL (Self-Observation) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 
 class InternalPayload(BaseModel):
@@ -49,7 +49,7 @@ class InternalPayload(BaseModel):
     origin_component: str
 
 
-# â”€â”€ 4. MARKET & SOCIAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ 4. MARKET & SOCIAL â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 
 class MarketPayload(BaseModel):
@@ -69,7 +69,7 @@ class SolanaPayload(BaseModel):
     recent_prioritization_fee: float | None = None
     health: str = "ok" # status of the cluster
 
-# â”€â”€ DISPATCHER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ DISPATCHER â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 REALITY_SCHEMAS = {
     "SOMATIC": SomaticPayload,

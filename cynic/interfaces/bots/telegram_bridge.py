@@ -1,5 +1,5 @@
 """
-Telegram Bridge â€” The Organism's Outward Voice.
+Telegram Bridge â€" The Organism's Outward Voice.
 
 Simple async notifier to send system alerts and internal 'pain' signals
 to the human operator.

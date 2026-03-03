@@ -1,5 +1,5 @@
 """
-BaseHandler â€” Interface for all orchestrator handlers.
+BaseHandler â€" Interface for all orchestrator handlers.
 
 Defines the contract that all handlers must fulfill:
 - Async execution with result type
@@ -30,7 +30,7 @@ class HandlerResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self) -> str:
-        status = "âœ“" if self.success else "âœ—"
+        status = "âœ"" if self.success else "âœ-"
         return f"{status} {self.handler_id}: {self.output or self.error} ({self.duration_ms:.0f}ms)"
 
 
@@ -71,7 +71,7 @@ class BaseHandler(ABC):
         """Log handler execution for observability."""
         msg = f"[{self.handler_id}] {action}"
         if details:
-            msg += f" â€” {details}"
+            msg += f" â€" {details}"
         logger.info(msg)
 
     def _log_error(self, action: str, error: Exception) -> None:

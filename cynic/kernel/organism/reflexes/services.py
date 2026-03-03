@@ -1,12 +1,12 @@
 """
-Specialized service groups â€” domain-specific facades for handlers.
+Specialized service groups â€" domain-specific facades for handlers.
 
 Decomposes the organism into three functional areas:
 - CognitionServices (BRAIN: judgment, learning, axioms, LOD)
 - MetabolicServices (BODY: hardware, scheduler, sdk, actuators)
 - SensoryServices   (NERVES: perception, world model, topology, MCP)
 
-Ï-Law: VERIFY â€” explicit dependency injection via domain facades.
+Ï-Law: VERIFY â€" explicit dependency injection via domain facades.
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ class SensoryCoreServices:
 
     compressor: ContextCompressor
     service_registry: ServiceStateRegistry
-    world_model: Any  # WorldModelUpdater â€” avoid circular import
+    world_model: Any  # WorldModelUpdater â€" avoid circular import
 
     def compress_context(self, limit: int = 200) -> str:
         """Get compressed context within token budget."""

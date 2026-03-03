@@ -3,16 +3,16 @@ version: "3.9"
 services:
   # ── DATABASE: SurrealDB (Primary Reality) ─────────────────────────────
   surrealdb:
-    image: surrealdb/surrealdb:latest
+    image: surrealdb/surrealdb:v1.5.4
     container_name: cynic-surreal
-    command: start --user root --pass cynic_phi_618 --bind 0.0.0.0:8000
+    command: start --user root --pass cynic_phi_618 --bind 0.0.0.0:8000 file://cynic.db
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - surreal_data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "timeout", "1", "bash", "-c", "</dev/tcp/localhost/8000"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,7 +22,7 @@ services:
     image: redis:alpine
     container_name: cynic-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

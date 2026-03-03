@@ -1,5 +1,5 @@
 """
-CYNIC Organism Anatomy â€” Structural cores.
+CYNIC Organism Anatomy â€" Structural cores.
 
 Defines the 4 biological systems that compose the Organism.
 """
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class CognitionCore:
-    """BRAIN — Orchestration, consensus, learning, agents."""
+    """BRAIN - Orchestration, consensus, learning, agents."""
 
     orchestrator: JudgeOrchestrator
     qtable: QTable
@@ -61,7 +61,7 @@ class CognitionCore:
 
 @dataclass(frozen=True)
 class MetabolicCore:
-    """BODY — Execution, scheduling, routing, telemetry, physical hardware."""
+    """BODY - Execution, scheduling, routing, telemetry, physical hardware."""
 
     scheduler: ConsciousnessRhythm
     body: Optional[HardwareBody] = None
@@ -74,7 +74,7 @@ class MetabolicCore:
 
 @dataclass(frozen=True)
 class SensoryCore:
-    """NERVES — Perception, world model, topology, MCP."""
+    """NERVES - Perception, world model, topology, MCP."""
 
     context_compressor: ContextCompressor
     world_model: WorldModelUpdater
@@ -91,7 +91,7 @@ class SensoryCore:
 
 @dataclass(frozen=True)
 class ArchiveCore:
-    """MEMORY — Reflection, proposals, self-improvement, federation."""
+    """MEMORY - Reflection, proposals, self-improvement, federation."""
 
     state: OrganismState
     action_proposer: Optional[ActionProposer] = None

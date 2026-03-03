@@ -1,5 +1,5 @@
 """
-CYNIC Organism TUI â€” Real-Time Visual Cortex.
+CYNIC Organism TUI â€" Real-Time Visual Cortex.
 
 High-fidelity terminal interface using the unified OrganismState and EventJournal.
 """

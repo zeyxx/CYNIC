@@ -1,4 +1,4 @@
-"""Layer 1: Judgment Engine â€” Unified Will (Not Averaging)
+"""Layer 1: Judgment Engine â€" Unified Will (Not Averaging)
 
 The organism doesn't take votes from dogs and average them.
 The organism judges. Dogs provide INPUT. The engine DECIDES.
@@ -115,7 +115,7 @@ class JudgmentEngine:
             # Penalize if violated
             if violations:
                 logger.debug(
-                    "Dog %s violated axioms: %s. Penalizing confidence %.3f â’ %.3f",
+                    "Dog %s violated axioms: %s. Penalizing confidence %.3f â' %.3f",
                     dog_input.dog_id,
                     violations,
                     dog_input.confidence,
@@ -241,7 +241,7 @@ class JudgmentEngine:
             UnifiedJudgment (single, unified, Layer 0 validated)
         """
         if not dog_inputs:
-            # No dogs available â€” neutral judgment
+            # No dogs available â€" neutral judgment
             judgment = UnifiedJudgment(
                 q_score=50.0,
                 verdict="WAG",
@@ -292,7 +292,7 @@ class JudgmentEngine:
         if violations:
             logger.warning(
                 "Unified judgment violated axioms: %s. Q=%.1f, Conf=%.3f. "
-                "This should not happen â€” Layer 0 constraint bug.",
+                "This should not happen â€" Layer 0 constraint bug.",
                 violations,
                 judgment.q_score,
                 judgment.confidence,

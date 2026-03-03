@@ -1,5 +1,5 @@
 """
-CYNIC benchmarks router â€” performance monitoring: auto-benchmark Â· probe Â· drift
+CYNIC benchmarks router â€" performance monitoring: auto-benchmark Â· probe Â· drift
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ router_benchmarks = APIRouter(tags=["benchmarks"])
 
 @router_benchmarks.get("/auto-benchmark/stats")
 async def auto_benchmark_stats(container: AppContainer = Depends(get_app_container)) -> dict[str, Any]:
-    """AutoBenchmark probe stats â€” interval, runs, enabled flag (T09)."""
+    """AutoBenchmark probe stats â€" interval, runs, enabled flag (T09)."""
     state = container.organism
     if state.auto_benchmark is None:
         return {"enabled": False, "runs": 0, "interval_s": 0}

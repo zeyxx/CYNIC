@@ -1,5 +1,5 @@
 """
-P10 ProbesService — Business logic layer for probe management.
+P10 ProbesService - Business logic layer for probe management.
 
 Decouples API and CLI from SelfProber implementation.
 Handles status filtering, async operations, error handling.
@@ -19,11 +19,11 @@ class ProbesService:
     Business logic for SelfProber probe management.
 
     Provides interface:
-    - list_probes(status) — filter by status
-    - get_probe(probe_id) — single probe details
-    - apply_probe(probe_id) — async apply + execute if LOW_RISK
-    - dismiss_probe(probe_id) — mark dismissed
-    - get_stats() — aggregate counts
+    - list_probes(status) - filter by status
+    - get_probe(probe_id) - single probe details
+    - apply_probe(probe_id) - async apply + execute if LOW_RISK
+    - dismiss_probe(probe_id) - mark dismissed
+    - get_stats() - aggregate counts
     """
 
     def __init__(self, prober: SelfProber, bus: Optional[EventBus] = None):
@@ -37,7 +37,7 @@ class ProbesService:
         self._prober = prober
         self._bus = bus
 
-    # ─── Read Operations (Sync) ──────────────────────────────────────────
+    # --- Read Operations (Sync) ------------------------------------------
 
     def list_probes(self, status: str = "PENDING") -> list[dict[str, Any]]:
         """
@@ -86,7 +86,7 @@ class ProbesService:
         """
         return self._prober.stats()
 
-    # ─── Write Operations (Async) ────────────────────────────────────────
+    # --- Write Operations (Async) ----------------------------------------
 
     async def apply_probe(self, probe_id: str) -> dict[str, Any]:
         """

@@ -1,9 +1,9 @@
 """
-CYNIC Health Dashboard â€” TUI visualization of the living organism.
+CYNIC Health Dashboard â€" TUI visualization of the living organism.
 
 Displays:
 - 8 breathing checks (organism vitals)
-- 7Ã—7 consciousness matrix snapshot
+- 7Ã-7 consciousness matrix snapshot
 - Q-Table health (learning state)
 - Dog consensus (voting patterns)
 - Real-time kernel metrics
@@ -35,7 +35,7 @@ class BreathingCheck:
 
     def render(self) -> str:
         """Render as colored line."""
-        symbol = "âœ“" if self.status == "OK" else "âš " if self.status == "WARN" else "âœ—"
+        symbol = "âœ"" if self.status == "OK" else "âš " if self.status == "WARN" else "âœ-"
         color = "green" if self.status == "OK" else "yellow" if self.status == "WARN" else "red"
         return f"[{color}]{symbol}[/{color}] {self.name:<20} {self.value:>12} / {self.threshold}"
 
@@ -76,7 +76,7 @@ class BreathingPanel(Static):
 
 
 class MatrixPanel(Static):
-    """7Ã—7 consciousness matrix snapshot."""
+    """7Ã-7 consciousness matrix snapshot."""
 
     matrix_data: reactive[dict[str, Any] | None] = reactive(None)
 
@@ -88,16 +88,16 @@ class MatrixPanel(Static):
         realities = ["CODE", "SOLANA", "MARKET", "SOCIAL", "HUMAN", "CYNIC", "COSMOS"]
         analyses = ["PERCEIVE", "JUDGE", "DECIDE", "ACT", "LEARN", "ACCOUNT", "EMERGE"]
 
-        lines = ["[bold cyan]7Ã—7 Consciousness Matrix[/bold cyan]", ""]
+        lines = ["[bold cyan]7Ã-7 Consciousness Matrix[/bold cyan]", ""]
         lines.append("       " + "  ".join(f"{a:^6}" for a in analyses))
-        lines.append("     " + "â”€" * 55)
+        lines.append("     " + "â"€" * 55)
 
         for r_idx, reality in enumerate(realities):
-            row = f"{reality:>6}â”‚"
+            row = f"{reality:>6}â"‚"
             # For now, show dummy cells (in production: fetch actual cell status)
             for a_idx in range(7):
-                # Cell state: âœ“ (working), â—‹ (partial), âœ— (not started)
-                cell_char = "âœ“" if (r_idx + a_idx) % 3 != 0 else "â—‹" if (r_idx + a_idx) % 2 == 0 else "âœ—"
+                # Cell state: âœ" (working), â-‹ (partial), âœ- (not started)
+                cell_char = "âœ"" if (r_idx + a_idx) % 3 != 0 else "â-‹" if (r_idx + a_idx) % 2 == 0 else "âœ-"
                 row += f" {cell_char:^6}"
             lines.append(row)
 
@@ -199,7 +199,7 @@ class KernelMetrics(Static):
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class CYNICDashboard:
-    """TUI Health Dashboard â€” fetch and display CYNIC vitals."""
+    """TUI Health Dashboard â€" fetch and display CYNIC vitals."""
 
     def __init__(self, kernel_url: str = "http://localhost:8000"):
         self.kernel_url = kernel_url

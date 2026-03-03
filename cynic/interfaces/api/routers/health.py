@@ -1,5 +1,5 @@
 """
-CYNIC health router â€” core vitals: health Â· stats
+CYNIC health router â€" core vitals: health Â· stats
 """
 from __future__ import annotations
 
@@ -30,11 +30,11 @@ router_health = APIRouter(tags=["health"])
 _CONSCIOUSNESS_FILE = os.path.join(os.path.expanduser("~"), ".cynic", "consciousness.json")
 
 
-# â”€â”€ Root route: API alive status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Root route: API alive status â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 @router_health.get("/", include_in_schema=True)
 async def root(request: Request) -> dict:
     """
-    Root endpoint â€” CYNIC kernel is alive.
+    Root endpoint â€" CYNIC kernel is alive.
 
     Returns:
         - status: "alive" if all systems nominal
@@ -65,11 +65,11 @@ async def root(request: Request) -> dict:
 @router_health.get("/health", response_model=HealthResponse)
 async def health(container: AppContainer = Depends(get_app_container)) -> HealthResponse:
     """
-    Kernel health â€” the organism's vital signs.
+    Kernel health â€" the organism's vital signs.
 
-    status=alive    â’ all systems nominal
-    status=degraded â’ partial functionality (e.g. no DB, no LLM)
-    status=dead     â’ kernel not initialized (should never reach this route)
+    status=alive    â' all systems nominal
+    status=degraded â' partial functionality (e.g. no DB, no LLM)
+    status=dead     â' kernel not initialized (should never reach this route)
     """
     state = container.organism
     consciousness = get_consciousness()
@@ -83,7 +83,7 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
     if not state.cognition.learning_loop._active:
         status = "degraded"
 
-    # T02: check SurrealDB singleton status (no I/O â€” just checks if initialized)
+    # T02: check SurrealDB singleton status (no I/O â€" just checks if initialized)
     _storage_status: dict[str, Any] = {}
     try:
         from cynic.kernel.core.storage.surreal import get_storage as _get_storage  # noqa: deferred
@@ -120,7 +120,7 @@ async def health(container: AppContainer = Depends(get_app_container)) -> Health
 
 @router_health.get("/stats", response_model=StatsResponse)
 async def stats(container: AppContainer = Depends(get_app_container)) -> StatsResponse:
-    """Detailed kernel metrics â€” everything CYNIC knows about itself."""
+    """Detailed kernel metrics â€" everything CYNIC knows about itself."""
     state = container.organism
     consciousness = get_consciousness()
 

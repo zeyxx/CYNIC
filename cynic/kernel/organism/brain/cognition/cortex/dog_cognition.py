@@ -1,5 +1,5 @@
 """
-DogCognition â€” Mini-Orchestrator enabling autonomous dog judgment
+DogCognition â€" Mini-Orchestrator enabling autonomous dog judgment
 
 Each dog is a mini-CYNIC that can:
   1. PERCEIVE: Observe signals in its domain (no gossip needed yet)
@@ -11,7 +11,7 @@ Each dog is a mini-CYNIC that can:
   7. EVOLVE: Adjust strategy based on residuals
 
 This removes the orchestrator bottleneck:
-  - Old: Dog perceives â’ sends to Orchestrator â’ Orchestrator judges all dogs
+  - Old: Dog perceives â' sends to Orchestrator â' Orchestrator judges all dogs
   - New: Dog perceives, judges locally, gossips summary
 
 Result: Cost âˆ log(N) instead of N
@@ -38,7 +38,7 @@ logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.dog_cog
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# DOGCOGNITION â€” INDEPENDENT JUDGMENT ENGINE
+# DOGCOGNITION â€" INDEPENDENT JUDGMENT ENGINE
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
@@ -71,7 +71,7 @@ class DogCognition:
 
     async def judge_cell(self, cell: Cell, dog_state: DogState) -> DogJudgment:
         """
-        Independent judgment: Perceive â’ Judge â’ Decide â’ Act
+        Independent judgment: Perceive â' Judge â' Decide â' Act
 
         Dog analyzes cell in its domain WITHOUT orchestrator involvement.
         Returns judgment immediately, then learns from feedback asynchronously.
@@ -84,25 +84,25 @@ class DogCognition:
         start_ms = time.time() * 1000
 
         try:
-            # STEP 1: PERCEIVE â€” What signals are available?
+            # STEP 1: PERCEIVE â€" What signals are available?
             signals = self._perceive_domain(dog_state, cell)
 
-            # STEP 2: JUDGE â€” Analyze with local expertise
+            # STEP 2: JUDGE â€" Analyze with local expertise
             q_score, confidence, reasoning = await self._judge_domain(dog_state, cell, signals)
 
-            # STEP 3: DECIDE â€” Create verdict
+            # STEP 3: DECIDE â€" Create verdict
             verdict = self._decide_verdict(q_score)
 
-            # STEP 4: ACT â€” Execute domain-specific action (if needed)
+            # STEP 4: ACT â€" Execute domain-specific action (if needed)
             await self._act_domain(dog_state, cell, verdict)
 
-            # STEP 5: LEARN â€” Update local Q-table
+            # STEP 5: LEARN â€" Update local Q-table
             await self._learn_from_judgment(dog_state, cell, q_score)
 
-            # STEP 6: RESIDUAL â€” Detect anomalies
+            # STEP 6: RESIDUAL â€" Detect anomalies
             residual = self._detect_residual(dog_state, q_score, confidence)
 
-            # STEP 7: EVOLVE â€” Adjust strategy
+            # STEP 7: EVOLVE â€" Adjust strategy
             if residual:
                 await self._evolve_strategy(dog_state, residual)
 
@@ -172,7 +172,7 @@ class DogCognition:
         Confidence based on: how much we've seen similar patterns + signal diversity.
         NOT just "count of judgments".
         """
-        # PERCEIVE signals â€” count by type
+        # PERCEIVE signals â€" count by type
         signal_types: dict[str, int] = {}
         for sig in signals:
             sig_type = sig.get("type", "unknown")
@@ -191,26 +191,26 @@ class DogCognition:
             if signal_types.get("security_issue", 0) > 0:
                 # Critical findings boost concern
                 base_score -= min(signal_types["security_issue"] * 8, 25)
-                reasoning_points.append(f"security_issueÃ—{signal_types['security_issue']}")
+                reasoning_points.append(f"security_issueÃ-{signal_types['security_issue']}")
 
             if signal_types.get("performance_gap", 0) > 0:
                 base_score -= signal_types["performance_gap"] * 3
-                reasoning_points.append(f"perf_gapÃ—{signal_types['performance_gap']}")
+                reasoning_points.append(f"perf_gapÃ-{signal_types['performance_gap']}")
 
             if signal_types.get("style_violation", 0) > 0:
                 base_score -= signal_types["style_violation"] * 1
-                reasoning_points.append(f"styleÃ—{signal_types['style_violation']}")
+                reasoning_points.append(f"styleÃ-{signal_types['style_violation']}")
 
             if signal_types.get("documentation", 0) > 0:
                 base_score -= signal_types["documentation"] * 2
-                reasoning_points.append(f"docÃ—{signal_types['documentation']}")
+                reasoning_points.append(f"docÃ-{signal_types['documentation']}")
 
             # Signal diversity = confidence boost (more types = more evidence)
             signal_diversity = len(signal_types)
             if signal_diversity > 1:
                 # Multiple signal types = more trustworthy
                 base_score += min(signal_diversity * 2, 10)
-                reasoning_points.append(f"diverseÃ—{signal_diversity}")
+                reasoning_points.append(f"diverseÃ-{signal_diversity}")
 
         # Adjust based on local Q-table (REAL pattern matching, not averaging)
         if hasattr(cell, "id"):

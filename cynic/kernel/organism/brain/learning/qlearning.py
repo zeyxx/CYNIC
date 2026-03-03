@@ -1,12 +1,12 @@
 """
-CYNIC Q-Learning â€” TD(0) with Thompson Sampling Exploration
+CYNIC Q-Learning â€" TD(0) with Thompson Sampling Exploration
 
-State  = cell.state_key() â’ "CODE:JUDGE:PRESENT:1" (reality:analysis:time:lod)
-Action = verdict           â’ "BARK" | "GROWL" | "WAG" | "HOWL"
-Reward = q_score / 61.8   â’ [0, 1] (normalized Ï-bounded reward)
+State  = cell.state_key() â' "CODE:JUDGE:PRESENT:1" (reality:analysis:time:lod)
+Action = verdict           â' "BARK" | "GROWL" | "WAG" | "HOWL"
+Reward = q_score / 61.8   â' [0, 1] (normalized Ï-bounded reward)
 
-Algorithm: TD(0) â€” simplest correct Q-Learning variant.
-  Q(s,a) â Q(s,a) + Î Ã— (r âˆ’ Q(s,a))
+Algorithm: TD(0) â€" simplest correct Q-Learning variant.
+  Q(s,a) â Q(s,a) + Î Ã- (r âˆ' Q(s,a))
 
 Where:
   Î = LEARNING_RATE = Ïâ»Â² / 10 â‰ˆ 0.038 (conservative, avoids catastrophic forgetting)
@@ -15,11 +15,11 @@ Where:
 
 Exploration: Thompson Sampling via Beta distribution
   For each action: sample Beta(Î_wins + 1, Î_losses + 1)
-  Pick action with highest sample â’ natural Bayesian exploration
+  Pick action with highest sample â' natural Bayesian exploration
 
 Persistence:
   In-memory dict (fast) + async flush to PostgreSQL q_table (durable).
-  On startup: load q_table from DB â’ warm start.
+  On startup: load q_table from DB â' warm start.
 
 Ï-Integration:
   - Learning rate = Ïâ»Â² / 10 (conservative homeostasis)
@@ -27,10 +27,10 @@ Persistence:
   - Thompson Î/Î² = Fibonacci-seeded (F(5)=5 prior, balanced exploration)
 
 EWC (Elastic Weight Consolidation):
-  - Fisher weight = min(visits / F(8), 1.0) â€” visit count as importance proxy
-  - effective_Î = Î Ã— (1 - Î» Ã— fisher), Î» = EWC_PENALTY = Ïâ»Â¹ = 0.618
-  - Effect: New states learn at full Î; consolidated states (â‰¥21 visits) learn at 0.382Ã—Î
-  - Prevents catastrophic forgetting when task distribution shifts (CODEâ’MARKETâ’CODE)
+  - Fisher weight = min(visits / F(8), 1.0) â€" visit count as importance proxy
+  - effective_Î = Î Ã- (1 - Î» Ã- fisher), Î» = EWC_PENALTY = Ïâ»Â¹ = 0.618
+  - Effect: New states learn at full Î; consolidated states (â‰¥21 visits) learn at 0.382Ã-Î
+  - Prevents catastrophic forgetting when task distribution shifts (CODEâ'MARKETâ'CODE)
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ logger = logging.getLogger("cynic.kernel.organism.brain.learning.qlearning")
 VERDICTS: list[str] = ["BARK", "GROWL", "WAG", "HOWL"]
 
 # Thompson prior: Fibonacci(5) = 5 pseudo-observations per arm before real data
-THOMPSON_PRIOR: int = fibonacci(5)  # 5 â€” neutral prior, not zero
+THOMPSON_PRIOR: int = fibonacci(5)  # 5 â€" neutral prior, not zero
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -75,8 +75,8 @@ class QEntry:
 
     q_value: TD(0) estimate âˆˆ [0, 1]
     visits:  How many times this (s,a) was observed
-    wins:    Thompson Î â€” positive reward observations (reward > 0.5)
-    losses:  Thompson Î² â€” negative reward observations (reward â‰¤ 0.5)
+    wins:    Thompson Î â€" positive reward observations (reward > 0.5)
+    losses:  Thompson Î² â€" negative reward observations (reward â‰¤ 0.5)
     last_updated: Unix timestamp
     """
 
@@ -117,9 +117,9 @@ class LearningSignal:
     Matches the LEARNING_EVENT payload emitted by JudgeOrchestrator.
     """
 
-    state_key: str  # cell.state_key() â’ "CODE:JUDGE:PRESENT:1"
-    action: str  # verdict â’ "GROWL"
-    reward: float  # q_score / MAX_Q_SCORE â’ [0, 1]
+    state_key: str  # cell.state_key() â' "CODE:JUDGE:PRESENT:1"
+    action: str  # verdict â' "GROWL"
+    reward: float  # q_score / MAX_Q_SCORE â' [0, 1]
     judgment_id: str = ""
     loop_name: str = "JUDGE_ORCHESTRATOR"
     timestamp: float = field(default_factory=time.time)
@@ -165,7 +165,7 @@ class QTable:
         storage: Optional[Any] = None,
     ) -> None:
         self._alpha = learning_rate  # â‰ˆ 0.038
-        self._gamma = discount  # 0.382 â€” discount future rewards conservatively
+        self._gamma = discount  # 0.382 â€" discount future rewards conservatively
         self.storage = storage
         # Nested dict: {state_key: {action: QEntry}}
         self._table: dict[str, dict[str, QEntry]] = defaultdict(dict)
@@ -174,11 +174,11 @@ class QTable:
         self._pending_flush: list[QEntry] = []  # batch for async DB write
         self._created_at: float = time.time()
 
-    # â”€â”€ Core Update â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Core Update â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def update(self, signal: LearningSignal) -> QEntry:
         """
-        TD(0) update: Q(s,a) â Q(s,a) + Î Ã— (r âˆ’ Q(s,a))
+        TD(0) update: Q(s,a) â Q(s,a) + Î Ã- (r âˆ' Q(s,a))
 
         Also updates Thompson arms (wins/losses).
         Returns the updated QEntry.
@@ -187,9 +187,9 @@ class QTable:
 
         # TD(0) update with EWC (Elastic Weight Consolidation).
         # Fisher weight â‰ˆ visits / F(8): heavily-visited entries resist overwriting.
-        # effective_Î = Î Ã— (1 - Î» Ã— fisher)
-        # At visits=0:     effective_Î = Î         (full learning â€” unknown state)
-        # At visits=F(8):  effective_Î = Î Ã— 0.382 (consolidated â€” resist forgetting)
+        # effective_Î = Î Ã- (1 - Î» Ã- fisher)
+        # At visits=0:     effective_Î = Î         (full learning â€" unknown state)
+        # At visits=F(8):  effective_Î = Î Ã- 0.382 (consolidated â€" resist forgetting)
         old_q = entry.q_value
         fisher_weight = min(entry.visits / fibonacci(8), 1.0)
         effective_alpha = self._alpha * (1.0 - EWC_PENALTY * fisher_weight)
@@ -209,7 +209,7 @@ class QTable:
         self._pending_flush.append(entry)
 
         logger.debug(
-            "Q[%s][%s]: %.3f â’ %.3f (reward=%.3f, visits=%d)",
+            "Q[%s][%s]: %.3f â' %.3f (reward=%.3f, visits=%d)",
             signal.state_key,
             signal.action,
             old_q,
@@ -220,12 +220,12 @@ class QTable:
 
         return entry
 
-    # â”€â”€ Policy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Policy â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def exploit(self, state_key: str) -> str:
         """
         Greedy policy: return action with highest Q-value.
-        If unseen state â’ GROWL (cautious default, Ï-aligned).
+        If unseen state â' GROWL (cautious default, Ï-aligned).
         """
         actions = self._table.get(state_key, {})
         if not actions:
@@ -236,7 +236,7 @@ class QTable:
     def explore(self, state_key: str) -> str:
         """
         Thompson Sampling policy: sample Beta per action, pick max.
-        Natural exploration â€” no Îµ-greedy hacks needed.
+        Natural exploration â€" no Îµ-greedy hacks needed.
         """
         samples: dict[str, float] = {}
         for action in VERDICTS:
@@ -259,10 +259,10 @@ class QTable:
         Caps at Ïâ»Â¹ = 61.8% (LAW OF DOUBT).
         """
         total_visits = sum(e.visits for e in self._table.get(state_key, {}).values())
-        raw = total_visits / fibonacci(8)  # F(8) = 21 â€” "enough data" threshold
+        raw = total_visits / fibonacci(8)  # F(8) = 21 â€" "enough data" threshold
         return phi_bound(raw, 0.0, MAX_CONFIDENCE)
 
-    # â”€â”€ Batch Flush â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Batch Flush â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     async def flush_to_db(self) -> int:
         """
@@ -349,7 +349,7 @@ class QTable:
         logger.info("Loaded %d Q-entries from entries (warm start)", len(entries))
         return len(entries)
 
-    # â”€â”€ Introspection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Introspection â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def stats(self) -> dict[str, Any]:
         """Return learning system health metrics."""
@@ -444,15 +444,15 @@ class QTable:
 
     def matrix_stats(self) -> dict:
         """
-        7Ã—7Ã—7 Lazy Materialization coverage report.
+        7Ã-7Ã-7 Lazy Materialization coverage report.
 
         Shows which cells of the 343-cell matrix have been visited.
         State keys follow format: "REALITY:ANALYSIS:TIME_DIM:LOD"
 
         Returns dict with:
           total_cells: states seen (materialized)
-          matrix_343: max possible (7Ã—7Ã—7 = 343, ignoring LOD)
-          coverage_pct: % of 7Ã—7Ã—7 matrix materialized
+          matrix_343: max possible (7Ã-7Ã-7 = 343, ignoring LOD)
+          coverage_pct: % of 7Ã-7Ã-7 matrix materialized
           by_reality, by_analysis, by_time_dim: per-dimension counts
         """
         by_reality: dict = {}
@@ -468,7 +468,7 @@ class QTable:
                 by_time_dim[time_dim] = by_time_dim.get(time_dim, 0) + 1
 
         total = len(self._table)
-        coverage = round(total / 343 * 100, 1)  # 7Ã—7Ã—7 = 343
+        coverage = round(total / 343 * 100, 1)  # 7Ã-7Ã-7 = 343
 
         return {
             "total_cells": total,
@@ -486,7 +486,7 @@ class QTable:
         self._total_updates = 0
         self._created_at = time.time()
 
-    # â”€â”€ Internal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Internal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _get_or_create(self, state_key: str, action: str) -> QEntry:
         """Get or create QEntry for (state, action). Tracks new states."""
@@ -512,7 +512,7 @@ class LearningLoop:
     """
     Connects QTable to the CYNIC event bus.
 
-    Subscribes to LEARNING_EVENT â’ calls qtable.update().
+    Subscribes to LEARNING_EVENT â' calls qtable.update().
     Flushes to DB every F(8)=21 updates.
 
     Usage:
@@ -556,7 +556,7 @@ class LearningLoop:
         self._bus = target_bus  # Cache for use in _on_learning_event
         target_bus.on(CoreEvent.LEARNING_EVENT, self._on_learning_event)
         self._active = True
-        logger.info("LearningLoop started â€” listening for LEARNING_EVENT")
+        logger.info("LearningLoop started - listening for LEARNING_EVENT")
 
     def stop(self) -> None:
         self._active = False
@@ -586,14 +586,14 @@ class LearningLoop:
                 loop_name=payload.get("loop_name", "UNKNOWN"),
             )
         except (KeyError, ValueError) as e:
-            logger.warning("Invalid LEARNING_EVENT payload: %s â€” %s", payload, e)
+            logger.warning("Invalid LEARNING_EVENT payload: %s - %s", payload, e)
             return
 
         entry = self.qtable.update(signal)
         self._updates_since_flush += 1
 
         # Emit EWC_CHECKPOINT when entry first consolidates (visits == F(8) = 21).
-        # Only on the EXACT crossing â€” never re-emitted for the same entry.
+        # Only on the EXACT crossing â€" never re-emitted for the same entry.
         if entry.visits == fibonacci(8):
             from cynic.kernel.core.event_bus import CoreEvent, Event
             from cynic.kernel.core.events_schema import EwcCheckpointPayload

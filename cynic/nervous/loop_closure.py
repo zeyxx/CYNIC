@@ -1,9 +1,9 @@
 """
-CYNIC Tier 1 Nervous System â€” Loop Closure Validator
+CYNIC Tier 1 Nervous System â€" Loop Closure Validator
 
 Component 4 (Feedback Completeness): Detects incomplete cycles and stalled loops.
 
-The 7-step cycle MUST complete: PERCEIVE â’ JUDGE â’ DECIDE â’ ACT â’ LEARN â’ ACCOUNT â’ EMERGE
+The 7-step cycle MUST complete: PERCEIVE â' JUDGE â' DECIDE â' ACT â' LEARN â' ACCOUNT â' EMERGE
 
 If any step stalls (event doesn't propagate), CYNIC detects it and raises alert.
 If any step is missing (judgment made but never acted on), CYNIC detects orphan.
@@ -12,10 +12,10 @@ Pattern: State machine tracking phase transitions, detecting stalls & orphans.
 Rolling cap: F(9) = 34 closure events (oldest dropped when 35th arrives).
 
 Queryable via:
-  - get_open_cycles(max_age_ms) â€” cycles waiting to close
-  - get_stalled_phases(threshold_ms) â€” phases that stopped moving
-  - get_orphan_judgments() â€” judgments with no action proposed
-  - closure_stats() â€” health metrics
+  - get_open_cycles(max_age_ms) â€" cycles waiting to close
+  - get_stalled_phases(threshold_ms) â€" phases that stopped moving
+  - get_orphan_judgments() â€" judgments with no action proposed
+  - closure_stats() â€" health metrics
 
 Enables:
   - Component 5 (Meta-cognition): CYNIC proposes auto-fixes for broken loops
@@ -136,14 +136,14 @@ class LoopClosureValidator:
     """
     Detects incomplete/stalled feedback cycles.
 
-    Tracks 7-step cycle: PERCEIVE â’ JUDGE â’ DECIDE â’ ACT â’ LEARN â’ ACCOUNT â’ EMERGE.
+    Tracks 7-step cycle: PERCEIVE â' JUDGE â' DECIDE â' ACT â' LEARN â' ACCOUNT â' EMERGE.
     Detects stalls, orphans, and missing phases.
     Thread-safe (asyncio.Lock), rolling buffer with cap F(9)=34.
     """
 
     def __init__(self):
         self._closures: deque = deque(maxlen=CLOSURE_CAP)
-        self._open_cycles: dict[str, LoopClosureEvent] = {}  # judgment_id â’ event
+        self._open_cycles: dict[str, LoopClosureEvent] = {}  # judgment_id â' event
         self._lock = asyncio.Lock()
         self._stats = {
             "total_cycles": 0,
@@ -254,7 +254,7 @@ class LoopClosureValidator:
             closure.last_phase = phase
             closure.phase_count = len(closure.phases)
 
-            logger.debug(f"Phase recorded: {judgment_id} â’ {phase}")
+            logger.debug(f"Phase recorded: {judgment_id} â' {phase}")
 
             return True
 

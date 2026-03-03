@@ -1,10 +1,10 @@
 """
-CYNIC MasterDog â€” The Unified Sefirotic Intelligence.
+CYNIC MasterDog â€" The Unified Sefirotic Intelligence.
 
 A single class to rule all 11 Dogs.
 Reduces 5000+ LOC of duplication to one robust engine driven by a "DogSoul".
 
-Ï-Law: BURN â€” delete redundant code, keep the data essence.
+Ï-Law: BURN â€" delete redundant code, keep the data essence.
 """
 
 from __future__ import annotations

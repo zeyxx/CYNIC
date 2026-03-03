@@ -1,13 +1,13 @@
 """
-CYNIC Circuit Breaker â€” Cascade Failure Protection (topology M1)
+CYNIC Circuit Breaker â€" Cascade Failure Protection (topology M1)
 
 When the judgment pipeline fails repeatedly, the circuit opens to prevent
 resource exhaustion and cascade failures. Closes after a Ï-derived cooldown.
 
-States (3 â€” like the 3 non-HOWL verdict bands):
-  CLOSED    â’ Normal operation. Track consecutive failures.
-  OPEN      â’ Fast-fail. No new judgments until cooldown elapses.
-  HALF_OPEN â’ One probe allowed. Successâ’CLOSED, failureâ’OPEN.
+States (3 â€" like the 3 non-HOWL verdict bands):
+  CLOSED    â' Normal operation. Track consecutive failures.
+  OPEN      â' Fast-fail. No new judgments until cooldown elapses.
+  HALF_OPEN â' One probe allowed. Successâ'CLOSED, failureâ'OPEN.
 
 Ï-derived constants:
   _FAILURE_THRESHOLD = fibonacci(5) = 5  consecutive failures to open
@@ -40,7 +40,7 @@ from cynic.kernel.core.phi import PHI_INV_2, fibonacci
 logger = logging.getLogger("cynic.kernel.organism.brain.cognition.cortex.circuit_breaker")
 
 # Ï-derived thresholds
-_FAILURE_THRESHOLD: int = fibonacci(5)  # 5 consecutive failures â’ OPEN
+_FAILURE_THRESHOLD: int = fibonacci(5)  # 5 consecutive failures â' OPEN
 _COOLDOWN_S: float = PHI_INV_2 * 60  # 22.9s cooldown before HALF_OPEN
 
 
@@ -69,7 +69,7 @@ class CircuitBreaker:
         self._last_opened_at: float = 0.0  # Epoch when circuit was opened
         self._probe_allowed: bool = False  # One probe flag for HALF_OPEN
 
-    # â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Public API â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     @property
     def state(self) -> CircuitState:
@@ -83,9 +83,9 @@ class CircuitBreaker:
         """
         Return True if a new operation is permitted.
 
-        CLOSED    â’ always True.
-        OPEN      â’ False until cooldown elapses, then transition to HALF_OPEN.
-        HALF_OPEN â’ True for exactly one probe request.
+        CLOSED    â' always True.
+        OPEN      â' False until cooldown elapses, then transition to HALF_OPEN.
+        HALF_OPEN â' True for exactly one probe request.
         """
         if self._state == CircuitState.CLOSED:
             return True
@@ -96,7 +96,7 @@ class CircuitBreaker:
                 self._state = CircuitState.HALF_OPEN
                 self._probe_allowed = True
                 logger.info(
-                    "CircuitBreaker: OPEN â’ HALF_OPEN (elapsed=%.1fs >= cooldown=%.1fs)",
+                    "CircuitBreaker: OPEN â' HALF_OPEN (elapsed=%.1fs >= cooldown=%.1fs)",
                     elapsed,
                     self._cooldown_s,
                 )
@@ -114,11 +114,11 @@ class CircuitBreaker:
         """
         Record a successful operation.
 
-        HALF_OPEN â’ CLOSED (probe succeeded â€” service recovered).
-        Any state  â’ reset failure count.
+        HALF_OPEN â' CLOSED (probe succeeded â€" service recovered).
+        Any state  â' reset failure count.
         """
         if self._state == CircuitState.HALF_OPEN:
-            logger.info("CircuitBreaker: HALF_OPEN â’ CLOSED (probe succeeded)")
+            logger.info("CircuitBreaker: HALF_OPEN â' CLOSED (probe succeeded)")
         self._state = CircuitState.CLOSED
         self._failure_count = 0
 
@@ -126,9 +126,9 @@ class CircuitBreaker:
         """
         Record a failed operation.
 
-        HALF_OPEN â’ OPEN (probe failed â€” service still sick, restart cooldown).
-        CLOSED    â’ increment counter; open if threshold reached.
-        OPEN      â’ increment only (already open, cooldown not reset).
+        HALF_OPEN â' OPEN (probe failed â€" service still sick, restart cooldown).
+        CLOSED    â' increment counter; open if threshold reached.
+        OPEN      â' increment only (already open, cooldown not reset).
         """
         self._failure_count += 1
 
@@ -136,14 +136,14 @@ class CircuitBreaker:
             self._state = CircuitState.OPEN
             self._last_opened_at = time.time()
             logger.warning(
-                "CircuitBreaker: HALF_OPEN â’ OPEN (probe failed, total failures=%d)",
+                "CircuitBreaker: HALF_OPEN â' OPEN (probe failed, total failures=%d)",
                 self._failure_count,
             )
         elif self._state == CircuitState.CLOSED and self._failure_count >= self._failure_threshold:
             self._state = CircuitState.OPEN
             self._last_opened_at = time.time()
             logger.warning(
-                "CircuitBreaker: CLOSED â’ OPEN (threshold %d reached)",
+                "CircuitBreaker: CLOSED â' OPEN (threshold %d reached)",
                 self._failure_threshold,
             )
 

@@ -1,5 +1,5 @@
 """
-CYNIC Kernel â€” Core judgment engine, state management, and organism orchestration.
+CYNIC Kernel â€" Core judgment engine, state management, and organism orchestration.
 
 The kernel layer provides:
 - Unified state management (UnifiedJudgment, UnifiedConsciousState)

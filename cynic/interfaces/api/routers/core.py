@@ -1,5 +1,5 @@
 """
-CYNIC core router â€” judge Â· perceive Â· learn Â· feedback Â· policy
+CYNIC core router â€" judge Â· perceive Â· learn Â· feedback Â· policy
 """
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ router_core = APIRouter(tags=["core"])
 async def judge(req: JudgeRequest, container: AppContainer = Depends(get_app_container)) -> JudgeResponse:
     """
     Run the full CYNIC judgment pipeline on any content.
-    Event-first API â€” returns PENDING immediately.
+    Event-first API â€" returns PENDING immediately.
     """
     state = container.organism
 
@@ -143,7 +143,7 @@ async def perceive(req: PerceiveRequest, container: AppContainer = Depends(get_a
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# GET /judge/{id} â€” Polling
+# GET /judge/{id} â€" Polling
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_core.get("/judge/{judgment_id}")

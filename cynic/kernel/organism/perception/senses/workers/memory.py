@@ -1,4 +1,4 @@
-"""CYNIC MemoryWatcher â€” CYNICÃ—PERCEIVE/REFLEX every F(9)=34s."""
+"""CYNIC MemoryWatcher â€" CYNICÃ-PERCEIVE/REFLEX every F(9)=34s."""
 
 from __future__ import annotations
 
@@ -18,26 +18,26 @@ from cynic.kernel.organism.perception.senses.workers.base import PerceiveWorker
 logger = logging.getLogger("cynic.kernel.organism.perception.senses")
 
 # Ï-derived RAM usage thresholds (fraction of RAM used)
-_MEM_WARN = PHI_INV  # 0.618 â€” 61.8% used â’ LOD 1
-_MEM_CRITICAL = 1 - PHI_INV_3  # 0.764 â€” 76.4% used â’ LOD 2
-_MEM_EMERGENCY = 0.90  # 90%   used â’ LOD 3
+_MEM_WARN = PHI_INV  # 0.618 â€" 61.8% used â' LOD 1
+_MEM_CRITICAL = 1 - PHI_INV_3  # 0.764 â€" 76.4% used â' LOD 2
+_MEM_EMERGENCY = 0.90  # 90%   used â' LOD 3
 
 
 class MemoryWatcher(PerceiveWorker):
     """
-    Monitors RAM usage. No psutil needed â€” uses wmic on Windows, /proc/meminfo on Linux.
+    Monitors RAM usage. No psutil needed â€" uses wmic on Windows, /proc/meminfo on Linux.
 
-    Submits CYNICÃ—PERCEIVE at REFLEX when RAM exceeds Ï-thresholds.
-    Also emits MEMORY_PRESSURE on the core bus â’ LODController reacts.
+    Submits CYNICÃ-PERCEIVE at REFLEX when RAM exceeds Ï-thresholds.
+    Also emits MEMORY_PRESSURE on the core bus â' LODController reacts.
 
     Deduplicates: only emits when the pressure level CHANGES.
 
     Thresholds (Ï-derived, fraction of RAM used):
-      WARN      â‰¥ 0.618 (61.8%) â’ LOD 1
-      CRITICAL  â‰¥ 0.764 (76.4%) â’ LOD 2
-      EMERGENCY â‰¥ 0.90  (90%)   â’ LOD 3
+      WARN      â‰¥ 0.618 (61.8%) â' LOD 1
+      CRITICAL  â‰¥ 0.764 (76.4%) â' LOD 2
+      EMERGENCY â‰¥ 0.90  (90%)   â' LOD 3
 
-    interval: F(9)=34s â€” same cadence as DiskWatcher.
+    interval: F(9)=34s â€" same cadence as DiskWatcher.
     """
 
     level = ConsciousnessLevel.REFLEX
@@ -48,7 +48,7 @@ class MemoryWatcher(PerceiveWorker):
         self._last_level: Optional[str] = None
 
     def _check_memory(self) -> Optional[dict[str, Any]]:
-        """Blocking memory check â€” called via run_in_executor."""
+        """Blocking memory check â€" called via run_in_executor."""
         try:
             if sys.platform == "win32":
                 result = subprocess.run(
@@ -125,7 +125,7 @@ class MemoryWatcher(PerceiveWorker):
             self._last_level = None
             return None
 
-        # Deduplicate â€” only emit when level changes
+        # Deduplicate â€" only emit when level changes
         if pressure == self._last_level:
             return None
         self._last_level = pressure
@@ -156,7 +156,7 @@ class MemoryWatcher(PerceiveWorker):
             },
             context=(
                 f"Memory watcher: {used_pct * 100:.1f}% RAM used "
-                f"({free_gb:.1f} GB free) â€” {pressure}"
+                f"({free_gb:.1f} GB free) â€" {pressure}"
             ),
             risk=risk,
             complexity=0.2,

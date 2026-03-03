@@ -1,5 +1,5 @@
 """
-Îº-NET Handler â€” Bridges Organism Events to the Îº-NET Protocol.
+Îº-NET Handler â€" Bridges Organism Events to the Îº-NET Protocol.
 Listens to internal events and broadcasts them as Îº-PULSE messages.
 """
 

@@ -1,5 +1,5 @@
 """
-Typed event payload schemas â€” Pydantic v2.
+Typed event payload schemas â€" Pydantic v2.
 
 WHY:
   Event payloads are Dict[str, Any] everywhere. Typos silently become
@@ -22,7 +22,7 @@ PATTERN (copy this in new handlers):
             pass
 
 PHILOSOPHY:
-  Extra fields allowed (extra='allow') â€” emitters often include fields
+  Extra fields allowed (extra='allow') â€" emitters often include fields
   not consumed by all subscribers. We never reject unknown fields.
   Defaults match the handler's existing .get("key", default) values
   so migration is non-breaking: old handlers keep working, new ones
@@ -48,7 +48,7 @@ _BASE = ConfigDict(extra="allow", frozen=False)
 
 class JudgmentCreatedPayload(BaseModel):
     """
-    JUDGMENT_CREATED â€” emitted by orchestrator after dog consensus.
+    JUDGMENT_CREATED â€" emitted by orchestrator after dog consensus.
 
     Most-subscribed event in the system: ANTIFRAGILITY axiom, BURN EScore,
     guidance writer, residual detector, and 8+ other handlers react to this.
@@ -58,7 +58,7 @@ class JudgmentCreatedPayload(BaseModel):
 
     state_key: str = ""
     verdict: str = "WAG"  # BARK|GROWL|WAG|HOWL
-    q_score: float = 0.0  # [0, 100] â€” NOT Ï-bounded
+    q_score: float = 0.0  # [0, 100] â€" NOT Ï-bounded
     confidence: float = 0.0  # Ï-bounded â‰¤ 0.618
     reality: str = "CODE"  # CODE|CYNIC|SOLANA|HUMAN|MARKET|SOCIAL|COSMOS
     dog_votes: dict[str, float] = Field(default_factory=dict)
@@ -70,7 +70,7 @@ class JudgmentCreatedPayload(BaseModel):
 
 
 class JudgmentRequestedPayload(BaseModel):
-    """JUDGMENT_REQUESTED â€” orchestrator begins judgment pipeline for a cell."""
+    """JUDGMENT_REQUESTED â€" orchestrator begins judgment pipeline for a cell."""
 
     model_config = _BASE
 
@@ -86,7 +86,7 @@ class JudgmentRequestedPayload(BaseModel):
 
 
 class JudgmentFailedPayload(BaseModel):
-    """JUDGMENT_FAILED â€” judgment pipeline failed (circuit breaker or exception)."""
+    """JUDGMENT_FAILED â€" judgment pipeline failed (circuit breaker or exception)."""
 
     model_config = _BASE
 
@@ -98,7 +98,7 @@ class JudgmentFailedPayload(BaseModel):
 
 
 class ConsensusReachedPayload(BaseModel):
-    """CONSENSUS_REACHED â€” PBFT quorum met, judgment accepted."""
+    """CONSENSUS_REACHED â€" PBFT quorum met, judgment accepted."""
 
     model_config = _BASE
 
@@ -109,7 +109,7 @@ class ConsensusReachedPayload(BaseModel):
 
 
 class ConsensusFailedPayload(BaseModel):
-    """CONSENSUS_FAILED â€” PBFT quorum not met, judgment rejected."""
+    """CONSENSUS_FAILED â€" PBFT quorum not met, judgment rejected."""
 
     model_config = _BASE
 
@@ -124,7 +124,7 @@ class ConsensusFailedPayload(BaseModel):
 
 
 class LearningEventPayload(BaseModel):
-    """LEARNING_EVENT â€” TD(0) reward signal for Q-Table update."""
+    """LEARNING_EVENT â€" TD(0) reward signal for Q-Table update."""
 
     model_config = _BASE
 
@@ -137,7 +137,7 @@ class LearningEventPayload(BaseModel):
 
 
 class QTableUpdatedPayload(BaseModel):
-    """Q_TABLE_UPDATED â€” emitted after Q-Table flush to DB."""
+    """Q_TABLE_UPDATED â€" emitted after Q-Table flush to DB."""
 
     model_config = _BASE
 
@@ -145,7 +145,7 @@ class QTableUpdatedPayload(BaseModel):
 
 
 class EwcCheckpointPayload(BaseModel):
-    """EWC_CHECKPOINT â€” elastic weight consolidation snapshot taken."""
+    """EWC_CHECKPOINT â€" elastic weight consolidation snapshot taken."""
 
     model_config = _BASE
 
@@ -156,7 +156,7 @@ class EwcCheckpointPayload(BaseModel):
 
 class MetaCyclePayload(BaseModel):
     """
-    META_CYCLE â€” emitted by orchestrator.evolve() every ~4 hours.
+    META_CYCLE â€" emitted by orchestrator.evolve() every ~4 hours.
 
     The 'evolve' dict contains pass_rate and regression from
     the meta-evaluation sweep. Use the properties for convenience.
@@ -177,7 +177,7 @@ class MetaCyclePayload(BaseModel):
 
 class SonaTickPayload(BaseModel):
     """
-    SONA_TICK â€” emitted by sona_emitter every ~34 minutes (F(9) = 2040 seconds).
+    SONA_TICK â€" emitted by sona_emitter every ~34 minutes (F(9) = 2040 seconds).
 
     Organism self-assessment signal at META consciousness level.
     Reports current state of learning systems, uptime, and fitness metrics.
@@ -203,7 +203,7 @@ class SonaTickPayload(BaseModel):
 
 
 class PerceptionReceivedPayload(BaseModel):
-    """PERCEPTION_RECEIVED â€” raw perception input received from hook."""
+    """PERCEPTION_RECEIVED â€" raw perception input received from hook."""
 
     model_config = _BASE
 
@@ -217,7 +217,7 @@ class PerceptionReceivedPayload(BaseModel):
 
 
 class AnomalyDetectedPayload(BaseModel):
-    """ANOMALY_DETECTED â€” unusual signal detected in perception stream."""
+    """ANOMALY_DETECTED â€" unusual signal detected in perception stream."""
 
     model_config = _BASE
 
@@ -233,10 +233,10 @@ class AnomalyDetectedPayload(BaseModel):
 
 class DecisionMadePayload(BaseModel):
     """
-    DECISION_MADE â€” Decider selected an action from Q-Table/MCTS.
+    DECISION_MADE â€" Decider selected an action from Q-Table/MCTS.
 
     Used by ActionProposer (L1), AxiomMonitor (AUTONOMY signal),
-    and the feedback loop cross-feed (L2â’L1 when verdict==BARK).
+    and the feedback loop cross-feed (L2â'L1 when verdict==BARK).
     """
 
     model_config = _BASE
@@ -253,7 +253,7 @@ class DecisionMadePayload(BaseModel):
 
 
 class ActRequestedPayload(BaseModel):
-    """ACT_REQUESTED â€” execution requested for a proposed action."""
+    """ACT_REQUESTED â€" execution requested for a proposed action."""
 
     model_config = _BASE
 
@@ -264,7 +264,7 @@ class ActRequestedPayload(BaseModel):
 
 
 class ActCompletedPayload(BaseModel):
-    """ACT_COMPLETED â€” ClaudeCodeRunner execution finished."""
+    """ACT_COMPLETED â€" ClaudeCodeRunner execution finished."""
 
     model_config = _BASE
 
@@ -277,13 +277,13 @@ class ActCompletedPayload(BaseModel):
 
 class ActionProposedPayload(BaseModel):
     """
-    ACTION_PROPOSED â€” ActionProposer queued a new ProposedAction.
+    ACTION_PROPOSED â€" ActionProposer queued a new ProposedAction.
 
-    Priority mapping â’ EScore BUILD:
-      1 (critical) â’ MAX_Q_SCORE (100.0)
-      2 (high)     â’ HOWL_MIN    (82.0)
-      3 (normal)   â’ WAG_MIN     (68.2)
-      else         â’ GROWL_MIN   (38.2)
+    Priority mapping â' EScore BUILD:
+      1 (critical) â' MAX_Q_SCORE (100.0)
+      2 (high)     â' HOWL_MIN    (82.0)
+      3 (normal)   â' WAG_MIN     (68.2)
+      else         â' GROWL_MIN   (38.2)
     """
 
     model_config = _BASE
@@ -302,7 +302,7 @@ class ActionProposedPayload(BaseModel):
 
 
 class EmergenceDetectedPayload(BaseModel):
-    """EMERGENCE_DETECTED â€” ResidualDetector fired (anomaly pattern)."""
+    """EMERGENCE_DETECTED â€" ResidualDetector fired (anomaly pattern)."""
 
     model_config = _BASE
 
@@ -318,7 +318,7 @@ class EmergenceDetectedPayload(BaseModel):
 
 class ResidualHighPayload(BaseModel):
     """
-    RESIDUAL_HIGH â€” unnameable signal detected (Ï-level residual variance).
+    RESIDUAL_HIGH â€" unnameable signal detected (Ï-level residual variance).
 
     Emitted by orchestrator when judgment.unnameable_detected == True.
     Triggers SelfProber L4 analysis and EMERGENCE EScore update.
@@ -332,7 +332,7 @@ class ResidualHighPayload(BaseModel):
 
 
 class AxiomActivatedPayload(BaseModel):
-    """AXIOM_ACTIVATED â€” emergent axiom crossed WAG_MIN threshold."""
+    """AXIOM_ACTIVATED â€" emergent axiom crossed WAG_MIN threshold."""
 
     model_config = _BASE
 
@@ -343,7 +343,7 @@ class AxiomActivatedPayload(BaseModel):
 
 class TranscendencePayload(BaseModel):
     """
-    TRANSCENDENCE â€” all 4 emergent axioms simultaneously ACTIVE.
+    TRANSCENDENCE â€" all 4 emergent axioms simultaneously ACTIVE.
 
     Highest state in the system. Emitted by _on_axiom_activated when
     AUTONOMY + SYMBIOSIS + EMERGENCE + ANTIFRAGILITY all reach WAG_MIN.
@@ -356,7 +356,7 @@ class TranscendencePayload(BaseModel):
 
 
 class SelfImprovementProposedPayload(BaseModel):
-    """SELF_IMPROVEMENT_PROPOSED â€” SelfProber L4 analysis complete."""
+    """SELF_IMPROVEMENT_PROPOSED â€" SelfProber L4 analysis complete."""
 
     model_config = _BASE
 
@@ -373,7 +373,7 @@ class SelfImprovementProposedPayload(BaseModel):
 
 
 class ConsciousnessChangedPayload(BaseModel):
-    """CONSCIOUSNESS_CHANGED â€” LOD (Level of Detail) transitioned."""
+    """CONSCIOUSNESS_CHANGED â€" LOD (Level of Detail) transitioned."""
 
     model_config = _BASE
 
@@ -385,7 +385,7 @@ class ConsciousnessChangedPayload(BaseModel):
 
 
 class BudgetWarningPayload(BaseModel):
-    """BUDGET_WARNING â€” spend approaching session budget Ï-threshold."""
+    """BUDGET_WARNING â€" spend approaching session budget Ï-threshold."""
 
     model_config = _BASE
 
@@ -396,7 +396,7 @@ class BudgetWarningPayload(BaseModel):
 
 
 class BudgetExhaustedPayload(BaseModel):
-    """BUDGET_EXHAUSTED â€” session budget fully consumed."""
+    """BUDGET_EXHAUSTED â€" session budget fully consumed."""
 
     model_config = _BASE
 
@@ -411,7 +411,7 @@ class BudgetExhaustedPayload(BaseModel):
 
 
 class DiskPressurePayload(BaseModel):
-    """DISK_PRESSURE â€” DiskHealthMonitor reports disk > Ï threshold."""
+    """DISK_PRESSURE â€" DiskHealthMonitor reports disk > Ï threshold."""
 
     model_config = _BASE
 
@@ -421,7 +421,7 @@ class DiskPressurePayload(BaseModel):
 
 
 class MemoryPressurePayload(BaseModel):
-    """MEMORY_PRESSURE â€” MemoryWatcher reports RAM > Ï threshold."""
+    """MEMORY_PRESSURE â€" MemoryWatcher reports RAM > Ï threshold."""
 
     model_config = _BASE
 
@@ -431,7 +431,7 @@ class MemoryPressurePayload(BaseModel):
 
 
 class DiskClearedPayload(BaseModel):
-    """DISK_CLEARED â€” disk pressure resolved (back to OK)."""
+    """DISK_CLEARED â€" disk pressure resolved (back to OK)."""
 
     model_config = _BASE
 
@@ -440,7 +440,7 @@ class DiskClearedPayload(BaseModel):
 
 
 class MemoryClearedPayload(BaseModel):
-    """MEMORY_CLEARED â€” RAM pressure resolved (back to OK)."""
+    """MEMORY_CLEARED â€" RAM pressure resolved (back to OK)."""
 
     model_config = _BASE
 
@@ -454,7 +454,7 @@ class MemoryClearedPayload(BaseModel):
 
 
 class SdkSessionStartedPayload(BaseModel):
-    """SDK_SESSION_STARTED â€” new Claude Code SDK session opened."""
+    """SDK_SESSION_STARTED â€" new Claude Code SDK session opened."""
 
     model_config = _BASE
 
@@ -463,13 +463,13 @@ class SdkSessionStartedPayload(BaseModel):
 
 class SdkToolJudgedPayload(BaseModel):
     """
-    SDK_TOOL_JUDGED â€” GUARDIAN judged a Claude SDK tool invocation.
+    SDK_TOOL_JUDGED â€" GUARDIAN judged a Claude SDK tool invocation.
 
-    Verdict â’ GRAPH EScore:
-      HOWL  â’ HOWL_MIN (82.0) + SYMBIOSIS signal
-      WAG   â’ WAG_MIN  (61.8)
-      GROWL â’ GROWL_MIN (38.2)
-      BARK  â’ 0.0 (trust breakdown)
+    Verdict â' GRAPH EScore:
+      HOWL  â' HOWL_MIN (82.0) + SYMBIOSIS signal
+      WAG   â' WAG_MIN  (61.8)
+      GROWL â' GROWL_MIN (38.2)
+      BARK  â' 0.0 (trust breakdown)
     """
 
     model_config = _BASE
@@ -480,7 +480,7 @@ class SdkToolJudgedPayload(BaseModel):
 
 
 class SdkResultReceivedPayload(BaseModel):
-    """SDK_RESULT_RECEIVED â€” Claude Code SDK session completed."""
+    """SDK_RESULT_RECEIVED â€" Claude Code SDK session completed."""
 
     model_config = _BASE
 
@@ -497,7 +497,7 @@ class SdkResultReceivedPayload(BaseModel):
 
 
 class UserFeedbackPayload(BaseModel):
-    """USER_FEEDBACK â€” human rated a judgment (1â€“5 stars)."""
+    """USER_FEEDBACK â€" human rated a judgment (1â€"5 stars)."""
 
     model_config = _BASE
 
@@ -511,7 +511,7 @@ class UserFeedbackPayload(BaseModel):
 
 
 class UserCorrectionPayload(BaseModel):
-    """USER_CORRECTION â€” human explicitly corrected a decision."""
+    """USER_CORRECTION â€" human explicitly corrected a decision."""
 
     model_config = _BASE
 
@@ -526,7 +526,7 @@ class UserCorrectionPayload(BaseModel):
 
 
 class McpToolCalledPayload(BaseModel):
-    """MCP_TOOL_CALLED â€” MCPRouter received a tool call via WebSocket.
+    """MCP_TOOL_CALLED â€" MCPRouter received a tool call via WebSocket.
 
     Emitted when a tools/call JSON-RPC message arrives at the router,
     before the bridge dispatches the call. Provides full protocol context
@@ -548,7 +548,7 @@ class McpToolCalledPayload(BaseModel):
 
 class ChangeAnalyzedPayload(BaseModel):
     """
-    CHANGE_ANALYZED â€” ChangeAnalyzer semantic analysis of source changes.
+    CHANGE_ANALYZED â€" ChangeAnalyzer semantic analysis of source changes.
 
     Enriches raw SOURCE_CHANGED events with impact analysis:
     - subsystem classification (kernel, api, cognition, etc.)
@@ -569,7 +569,7 @@ class ChangeAnalyzedPayload(BaseModel):
 
 
 class ReputationSyncPayload(BaseModel):
-    """REPUTATION_SYNC — system-wide reputation metrics broadcast."""
+    """REPUTATION_SYNC - system-wide reputation metrics broadcast."""
 
     model_config = _BASE
 

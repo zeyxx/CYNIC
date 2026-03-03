@@ -1,4 +1,4 @@
-“””
+"""
 Governance Router -- Bridge between the Bot and the Organism Memory.
 
 REST API for governance proposals, voting, verdicts, and outcomes.
@@ -10,7 +10,7 @@ Security:
 - POST /proposals/{id}/outcome: Requires OPERATOR role on GOVERNANCE resource
 - POST /votes: Requires OPERATOR role on GOVERNANCE resource
 - All other endpoints: Read-only (public or minimal auth)
-“””
+"""
 from __future__ import annotations
 
 import time
@@ -29,7 +29,7 @@ from cynic.kernel.core.unified_state import (
 from cynic.kernel.security.rbac import Resource, Permission
 
 
-# â”€â”€ Request Models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Request Models â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 class ProposalRequest(BaseModel):
     """Request to submit a new governance proposal."""
     community_id: str
@@ -62,7 +62,7 @@ class OutcomeRequest(BaseModel):
     outcome: str
     executor_id: str = Field(default="", alias="executor")
 
-# â”€â”€ Response Models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Response Models â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 class RegisterCommunityRequest(BaseModel):
     """Request to register or update a governance community."""

@@ -2,7 +2,7 @@
 Pydantic response models for organism state API endpoints.
 
 These models are READ-ONLY (frozen=True) to prevent external mutations.
-CYNIC's state is observed via HTTP â€” no direct mutations allowed.
+CYNIC's state is observed via HTTP â€" no direct mutations allowed.
 
 Models:
 - StateSnapshotResponse: Full system snapshot (consciousness level, counts, etc.)
@@ -127,7 +127,7 @@ class DogsResponse(BaseModel):
     """
 
     dogs: dict[str, DogStatus] = Field(
-        description="Map of dog_id â’ DogStatus",
+        description="Map of dog_id â' DogStatus",
     )
     count: int = Field(
         ge=0,
@@ -325,7 +325,7 @@ class EScoreResponse(BaseModel):
 
 class PolicyAction(BaseModel):
     """
-    One learned policy action â€” best action for a state in the Q-table.
+    One learned policy action â€" best action for a state in the Q-table.
 
     Nested model used in PolicyActionsResponse.
     Frozen (immutable).
@@ -364,7 +364,7 @@ class PolicyActionsResponse(BaseModel):
     )
     actions: list[PolicyAction] = Field(
         default_factory=list,
-        description="List of learned policy actions (state â’ best action)",
+        description="List of learned policy actions (state â' best action)",
     )
     count: int = Field(
         ge=0,

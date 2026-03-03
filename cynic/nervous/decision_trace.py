@@ -1,5 +1,5 @@
 """
-CYNIC Tier 1 Nervous System â€” Decision Trace
+CYNIC Tier 1 Nervous System â€" Decision Trace
 
 Component 3 (Reasoning Path): Converts event sequences into executable DAGs.
 
@@ -13,11 +13,11 @@ Pattern: DAG structure (edges = causality), replayable, auditable.
 Rolling cap: F(10) = 55 traces (oldest dropped when 56th arrives).
 
 Queryable via:
-  - get_trace(judgment_id) â€” single trace
-  - recent_traces(limit=10) â€” N most recent
-  - traces_by_verdict(verdict) â€” filter by HOWL/WAG/GROWL/BARK
-  - trace_stats() â€” timing/depth/branching metrics
-  - replay(trace_id) â€” re-execute decision path
+  - get_trace(judgment_id) â€" single trace
+  - recent_traces(limit=10) â€" N most recent
+  - traces_by_verdict(verdict) â€" filter by HOWL/WAG/GROWL/BARK
+  - trace_stats() â€" timing/depth/branching metrics
+  - replay(trace_id) â€" re-execute decision path
 
 Enables:
   - Component 4 (LoopClosureValidator): Detects broken DAGs
@@ -151,15 +151,15 @@ class DecisionTracer:
     """
     Converts event sequences into executable DAGs.
 
-    Tracks reasoning path for each judgment: inputs â’ voting â’ decision â’ action.
+    Tracks reasoning path for each judgment: inputs â' voting â' decision â' action.
     Thread-safe (asyncio.Lock), rolling buffer with cap F(10)=55.
     """
 
     def __init__(self):
         self._traces: deque = deque(maxlen=TRACE_CAP)  # Auto-drops oldest
         self._lock = asyncio.Lock()
-        self._trace_map: dict[str, DecisionTrace] = {}  # trace_id â’ trace
-        self._judgment_to_trace: dict[str, str] = {}  # judgment_id â’ trace_id
+        self._trace_map: dict[str, DecisionTrace] = {}  # trace_id â' trace
+        self._judgment_to_trace: dict[str, str] = {}  # judgment_id â' trace_id
         self._stats = {
             "total_traced": 0,
             "by_verdict": {},
@@ -280,7 +280,7 @@ class DecisionTracer:
         Walk the stored DAG in topological order (Kahn's algorithm).
 
         Returns ordered list of {node_id, phase, component, verdict,
-        q_score, duration_ms, is_error} — one entry per node.
+        q_score, duration_ms, is_error} - one entry per node.
         """
         async with self._lock:
             trace = self._trace_map.get(trace_id)

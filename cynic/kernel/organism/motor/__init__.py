@@ -1,4 +1,4 @@
-"""Motor â€” Action Execution System
+"""Motor â€" Action Execution System
 
 The motor executes decisions.
 

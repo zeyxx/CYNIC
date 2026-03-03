@@ -157,7 +157,7 @@ class TestHealthChecker:
     async def test_health_overall_critical_on_consciousness_fail(self):
         """Overall should be critical if consciousness check fails."""
         mock_organism = MagicMock()
-        mock_organism.uptime_s = -999  # Invalid â€” will cause consciousness check to fail
+        mock_organism.uptime_s = -999  # Invalid â€" will cause consciousness check to fail
         mock_organism.kernel_mirror = MagicMock()
         mock_organism.kernel_mirror.snapshot = MagicMock(side_effect=Exception("Snapshot failed"))
 

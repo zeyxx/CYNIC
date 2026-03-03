@@ -1,5 +1,5 @@
 """
-CYNIC Market Sensor â€” Financial Reality Perception (Î³1).
+CYNIC Market Sensor â€" Financial Reality Perception (Î³1).
 
 Polls external market data (Solana, BTC, etc.) and injects it into
 the Organism's nervous system as a MARKET reality.

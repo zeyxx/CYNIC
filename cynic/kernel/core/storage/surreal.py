@@ -703,6 +703,7 @@ class SurrealStorage(StorageInterface):
         password: str,
         namespace: str,
         database: str,
+        task_registry: Any = None,
     ) -> None:
         from surrealdb import Surreal
 
@@ -711,6 +712,7 @@ class SurrealStorage(StorageInterface):
         self._password = password
         self._ns = namespace
         self._db_name = database
+        self._task_registry = task_registry
         self._db = Surreal(self._url)
         self._conn = self._db  # for backward compatibility
 
@@ -749,7 +751,7 @@ class SurrealStorage(StorageInterface):
 
     async def connect(self) -> None:
         await self._db.connect()
-        await self._db.signin({"username": self._user, "password": self._password})
+        await self._db.signin({"user": self._user, "pass": self._password})
         await self._db.use(self._ns, self._db_name)
         logger.info(
             "*sniff* SurrealDB connected: %s → %s.%s",
@@ -829,16 +831,16 @@ class SurrealStorage(StorageInterface):
     async def subscribe(self, table: str, callback: Any) -> str:
         """
         Subscribe to live updates on a table.
-        The callback should be an async function receiving (action, result).
-        Returns the query UUID for unsubscription.
         """
         logger.info(f"✨ SurrealDB: Subscribing to LIVE updates on table '{table}'")
-        query_id = await self._db.query(f"LIVE SELECT * FROM {table}")
         
-        # Note: In a real production system, we would manage these tasks 
-        # in a central registry. Here we start a dedicated listener.
-        asyncio.create_task(self._live_listener(table, callback))
-        return str(query_id)
+        task = asyncio.create_task(self._live_listener(table, callback))
+        
+        # Register for clean shutdown
+        if self._task_registry:
+            await self._task_registry.register(task)
+            
+        return table # Simple ID for now
 
     async def _live_listener(self, table: str, callback: Any):
         """Internal background task to process live query results with auto-recovery."""

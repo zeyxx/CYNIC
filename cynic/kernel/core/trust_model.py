@@ -1,11 +1,11 @@
 """
-TrustModel: Bidirectional confidence tracking for humanâ”CYNIC symbiosis.
+TrustModel: Bidirectional confidence tracking for humanâ"CYNIC symbiosis.
 
 CRITICAL: This is the foundation for all later phases.
 - Measures human trust in CYNIC (accept_rate - reject_rate)
 - Measures CYNIC utility (Q-Score, completion rate)
 - Enables SYMBIOSIS axiom activation (requires both â‰¥ Ïâ»Â² = 38.2%)
-- Enables co-decision blending (blended_conf = human_conf Ã— cynic_conf)
+- Enables co-decision blending (blended_conf = human_conf Ã- cynic_conf)
 
 Ï-bounded: All confidence values âˆˆ [0, MAX_CONFIDENCE=0.618]
 """
@@ -127,7 +127,7 @@ class TrustModel:
             successful / len(self.accept_history[-10:]) if self.accept_history else 0.5
         )
 
-        # Blended utility: average Q Ã— completion rate
+        # Blended utility: average Q Ã- completion rate
         self.metrics.machine_utility = phi_bound_score(
             (avg_q / 100.0) * completion_rate  # Normalize Q to [0, 1]
         )
@@ -146,11 +146,11 @@ class TrustModel:
         """
         Co-decision confidence: both must be confident.
 
-        Blended = human_conf Ã— cynic_conf
+        Blended = human_conf Ã- cynic_conf
         If either unsure, result is very unsure (conservative).
 
         NOTE: We DON'T clamp inputs, we clamp the product.
-        This preserves the uncertainty principle: if 0.8 Ã— 0.8 > MAX_CONFIDENCE,
+        This preserves the uncertainty principle: if 0.8 Ã- 0.8 > MAX_CONFIDENCE,
         the output is clamped, not the inputs.
         """
         # Both confidence values should be in [0, 1]

@@ -1,4 +1,4 @@
-"""Judge Communication Architecture for LNSP â€” Verdict Routing
+"""Judge Communication Architecture for LNSP â€" Verdict Routing
 
 The Judge Communication component enables the central Judge to:
 1. Receive de-duplicated/correlated Layer 2 state from Regional Coordinator

@@ -1,8 +1,8 @@
 """
-CYNIC Chat Session â€” Multi-turn conversation with persistence.
+CYNIC Chat Session â€" Multi-turn conversation with persistence.
 
 Sessions are stored as JSON in ~/.cynic/chats/{session_id}.json.
-Rolling cap: F(11)=89 messages â€” older messages compressed via ContextCompressor.
+Rolling cap: F(11)=89 messages â€" older messages compressed via ContextCompressor.
 """
 from __future__ import annotations
 
@@ -88,7 +88,7 @@ class ChatSession:
     """
     Multi-turn chat session with persistence.
 
-    Messages roll at F(11)=89 â€” oldest messages are dropped (future:
+    Messages roll at F(11)=89 â€" oldest messages are dropped (future:
     compressed via ContextCompressor before drop).
     """
 
@@ -150,7 +150,7 @@ class ChatSession:
                 return m.content
         return ""
 
-    # â”€â”€ Persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Persistence â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def save(self) -> str:
         """Save session to ~/.cynic/chats/{id}.json. Returns path."""

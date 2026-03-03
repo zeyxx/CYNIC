@@ -1,4 +1,4 @@
-"""EcosystemObserver â€” Read-only nervous system wrapper for ecosystem queries.
+"""EcosystemObserver â€" Read-only nervous system wrapper for ecosystem queries.
 
 This is the L1 gateway to the nervous system (Tier 1 components):
 - EventJournal: sequence of all events in order
@@ -6,7 +6,7 @@ This is the L1 gateway to the nervous system (Tier 1 components):
 - ServiceRegistry: component health snapshots
 
 EcosystemObserver aggregates queries across these 3 sources.
-No mutations, no state changes â€” purely observational.
+No mutations, no state changes â€" purely observational.
 """
 
 from __future__ import annotations
@@ -27,15 +27,15 @@ class EcosystemObserver:
     """Read-only observer of CYNIC nervous system (Tier 1).
 
     Wraps:
-    1. EventJournal â€” all events in sequence
-    2. DecisionTracer â€” judgment reasoning DAGs
-    3. ServiceStateRegistry â€” component health snapshots
+    1. EventJournal â€" all events in sequence
+    2. DecisionTracer â€" judgment reasoning DAGs
+    3. ServiceStateRegistry â€" component health snapshots
 
     Public methods:
-    - event_history(limit=10) â€” recent events
-    - perception_sources() â€” aggregate perception event counts by source
-    - handler_traces(judgment_id) â€” decision trace nodes for judgment
-    - ecosystem_snapshot() â€” full state aggregation
+    - event_history(limit=10) â€" recent events
+    - perception_sources() â€" aggregate perception event counts by source
+    - handler_traces(judgment_id) â€" decision trace nodes for judgment
+    - ecosystem_snapshot() â€" full state aggregation
     """
 
     def __init__(
@@ -66,7 +66,7 @@ class EcosystemObserver:
         Groups perception events by source and counts occurrences.
 
         Returns:
-            Dict mapping source name â’ count of perception events
+            Dict mapping source name â' count of perception events
         """
         perception_events = await self.journal.filter_by_category(EventCategory.PERCEPTION)
         sources: dict[str, int] = {}

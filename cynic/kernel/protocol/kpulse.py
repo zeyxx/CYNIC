@@ -1,5 +1,5 @@
 """
-Îº-PULSE â€” Unified Message Format for Îº-NET Protocol.
+Îº-PULSE â€" Unified Message Format for Îº-NET Protocol.
 Defines the structure of the data flowing through the organism's nerves.
 """
 

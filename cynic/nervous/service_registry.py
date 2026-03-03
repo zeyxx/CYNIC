@@ -1,13 +1,13 @@
 """
-CYNIC Tier 1 Nervous System â€” Real-Time Service State Registry
+CYNIC Tier 1 Nervous System â€" Real-Time Service State Registry
 
 Component 1 (Foundation): Tracks runtime health and state of all kernel components.
 
 Every Dog, Bus, Worker, and Storage system registers itself. The registry provides:
-  - snapshot() â€” current state of all components
-  - record_judgment(pipeline_id, judgment) â€” capture decision state
-  - get_component(name) â€” query single component
-  - changed_since(snapshot_t) â€” detect state changes
+  - snapshot() â€" current state of all components
+  - record_judgment(pipeline_id, judgment) â€" capture decision state
+  - get_component(name) â€" query single component
+  - changed_since(snapshot_t) â€" detect state changes
 
 Pattern: Non-blocking (async), Ï-bounded queries, rolled indices for efficiency.
 Queryable via: GET /internal/registry

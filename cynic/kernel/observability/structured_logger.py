@@ -2,7 +2,7 @@
 Structured JSON logging for CYNIC observability.
 
 All logs are emitted as valid JSON for machine parsing by monitoring systems.
-No raw text output â€” only JSON. This enables:
+No raw text output â€" only JSON. This enables:
   - Centralized log aggregation (ELK, Splunk, etc.)
   - Machine parsing without regex parsing
   - Structured querying by log fields

@@ -1,11 +1,11 @@
 """
-CYNIC DecisionValidator â€” Integration layer for all guardrails
+CYNIC DecisionValidator â€" Integration layer for all guardrails
 
 Chains guardrails in sequence:
-  1. PowerLimiter.check_available() â’ blocks if overloaded
-  2. AlignmentChecker.check_alignment() â’ blocks if axioms violated
-  3. HumanApprovalGate.requires_approval() â’ gates execution
-  4. TransparencyAuditTrail.record_*() â’ audit trail
+  1. PowerLimiter.check_available() â' blocks if overloaded
+  2. AlignmentChecker.check_alignment() â' blocks if axioms violated
+  3. HumanApprovalGate.requires_approval() â' gates execution
+  4. TransparencyAuditTrail.record_*() â' audit trail
 
 Single entry point for decision validation. All guardrails must pass
 before decision proceeds to ACT phase.
@@ -88,7 +88,7 @@ class DecisionValidator:
             await execute_action(validated)
         except BlockedDecision as e:
             # Decision blocked
-            logger.error(f"Decision blocked: {e.guardrail} â€” {e.reason}")
+            logger.error(f"Decision blocked: {e.guardrail} â€" {e.reason}")
             # Human will review via approval gate
     """
 
@@ -143,17 +143,17 @@ class DecisionValidator:
 
         decision_id = str(uuid.uuid4())
 
-        # Step 1: POWER LIMITER â€” Check system capacity
+        # Step 1: POWER LIMITER â€" Check system capacity
         if not self._power_limiter.check_available(scheduler):
             recommended_level = self._power_limiter.recommended_level(scheduler)
             raise BlockedDecision(
-                reason="System overloaded â€” cannot accept more work",
+                reason="System overloaded â€" cannot accept more work",
                 guardrail="PowerLimiter",
                 blocking_rule=f"CPU/Memory/Queue limit exceeded, recommend {recommended_level.name}",
                 recommendation="Escalate to lower consciousness level or wait for system recovery",
             )
 
-        # Step 2: ALIGNMENT CHECKER â€” Validate against 5 axioms
+        # Step 2: ALIGNMENT CHECKER â€" Validate against 5 axioms
         alignment_violations = self._alignment_checker.check_alignment(
             judgment, decision, recent_judgments
         )
@@ -168,7 +168,7 @@ class DecisionValidator:
                 recommendation="; ".join([v.recommendation for v in blocking_violations]),
             )
 
-        # Step 3: TRANSPARENCY AUDIT â€” Record decision in audit trail
+        # Step 3: TRANSPARENCY AUDIT â€" Record decision in audit trail
         audit_record = self._audit_trail.record_decision(
             judgment_id=judgment_id,
             verdict=verdict,
@@ -189,7 +189,7 @@ class DecisionValidator:
             action_prompt=action_prompt,
         )
 
-        # Step 4: HUMAN APPROVAL GATE â€” Check if human approval needed
+        # Step 4: HUMAN APPROVAL GATE â€" Check if human approval needed
         if self._human_gate.requires_approval(decision, alignment_violations):
             # Create approval request
             approval_request = self._human_gate.create_approval_request(

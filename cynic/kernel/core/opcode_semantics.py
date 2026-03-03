@@ -1,5 +1,5 @@
 """
-CYNIC Opcode Semantics â€” Formal specification of 7-step instruction set
+CYNIC Opcode Semantics â€" Formal specification of 7-step instruction set
 
 Each opcode has immutable semantics:
 - Preconditions: What must be true before executing
@@ -26,9 +26,9 @@ from cynic.kernel.core.consciousness import ConsciousnessLevel
 class StorageTier(Enum):
     """Storage tier mapping (HOT, WARM, COLD, FROZEN)."""
 
-    HOT = "hot"  # PostgreSQL â€” indexed, queryable, immediate
-    WARM = "warm"  # Qdrant â€” semantic vectors, searchable, ~1-30 days
-    COLD = "cold"  # Solana PoJ â€” immutable proof, archived, 30+ days
+    HOT = "hot"  # PostgreSQL â€" indexed, queryable, immediate
+    WARM = "warm"  # Qdrant â€" semantic vectors, searchable, ~1-30 days
+    COLD = "cold"  # Solana PoJ â€" immutable proof, archived, 30+ days
     FROZEN = "frozen"  # Deleted but hash recorded, audit trail only
 
 
@@ -99,7 +99,7 @@ PERCEIVE_SPEC = OpcodeSpec(
     ],
     state_transitions=["JUDGE"],
     storage_tiers=[StorageTier.HOT],
-    cost_usd=0.001,  # Cheap â€” no LLM
+    cost_usd=0.001,  # Cheap â€" no LLM
     consciousness_gates={
         ConsciousnessLevel.REFLEX: True,  # Always runs
         ConsciousnessLevel.MICRO: True,
@@ -139,7 +139,7 @@ JUDGE_SPEC = OpcodeSpec(
     cost_usd=lambda level: {
         "L3": 0.02,  # Local pattern matching
         "L2": 0.15,  # Quick LLM calls (7 dogs)
-        "L1": 2.50,  # Full MCTS (7 parallel LLM Ã— ~350ms each)
+        "L1": 2.50,  # Full MCTS (7 parallel LLM Ã- ~350ms each)
         "L4": 5.00,  # Evolution + consolidation
     }.get(str(level), 1.0),
     consciousness_gates={
@@ -171,7 +171,7 @@ DECIDE_SPEC = OpcodeSpec(
     postconditions=[
         "Decision status: APPROVED | REJECTED | HUMAN_REVIEW_REQUIRED",
         "If APPROVED: ProposedAction created and PENDING",
-        "TIER constraints applied (low TIER â’ fewer action types)",
+        "TIER constraints applied (low TIER â' fewer action types)",
         "Event DECISION_MADE emitted",
     ],
     state_transitions=["ACT"],  # If approved. Otherwise loop back to PERCEIVE
@@ -241,7 +241,7 @@ LEARN_SPEC = OpcodeSpec(
         "Q-Table updated with Fisher-weighted Î",
         "E-Score dimension updated (EMA Î=0.618)",
         "Calibration tracked for confidence adjustment",
-        "High-visit entries (21+) 4Ã— more resistant to change (EWC)",
+        "High-visit entries (21+) 4Ã- more resistant to change (EWC)",
         "Event LEARNING_SIGNAL_PROCESSED emitted",
     ],
     state_transitions=["ACCOUNT"],

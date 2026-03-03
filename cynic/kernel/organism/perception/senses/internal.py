@@ -24,6 +24,8 @@ class InternalSensor:
 
     def __init__(self, bus: EventBus):
         self._bus = bus
+        self._last_alert_time = 0.0
+        self._cooldown = 5.0 # 5 seconds minimum between internal perceptions
 
     def start(self, bus: Optional[EventBus] = None):
         """Subscribe to anomalies."""
@@ -41,6 +43,11 @@ class InternalSensor:
 
     async def _on_anomaly(self, event: Event) -> None:
         """Translate technical anomaly to conscious perception."""
+        now = time.time()
+        if now - self._last_alert_time < self._cooldown:
+            return # Ignore: sensory fatigue
+            
+        self._last_alert_time = now
         data = event.dict_payload
         anomaly_type = data.get("type", "UNKNOWN_ERROR")
         value = data.get("value", "N/A")

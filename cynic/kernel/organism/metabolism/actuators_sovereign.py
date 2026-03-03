@@ -1,5 +1,5 @@
 """
-CYNIC Motor System â€” Sovereign Actuators.
+CYNIC Motor System â€" Sovereign Actuators.
 
 Actuators that do not depend on external AI services, 
 ensuring the organism can maintain itself using local tools.

@@ -1,5 +1,5 @@
 """
-MacroCycleHandler â€” L1 MACRO consciousness cycle (full 7-step PERCEIVEâ’JUDGEâ’DECIDEâ’ACTâ’LEARNâ’ACCOUNTâ’EMERGE).
+MacroCycleHandler â€" L1 MACRO consciousness cycle (full 7-step PERCEIVEâ'JUDGEâ'DECIDEâ'ACTâ'LEARNâ'ACCOUNTâ'EMERGE).
 
 Extracted from JudgeOrchestrator._cycle_macro().
 

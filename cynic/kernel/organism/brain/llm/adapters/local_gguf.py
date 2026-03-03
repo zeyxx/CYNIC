@@ -1,5 +1,5 @@
 """
-CYNIC Local GGUF Adapter â€” Pure Hardware Inference.
+CYNIC Local GGUF Adapter â€" Pure Hardware Inference.
 
 Directly loads GGUF models on CPU/iGPU via llama-cpp-python.
 The most sovereign muscle: Zero network, Zero cost, 100% Private.

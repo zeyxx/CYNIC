@@ -3,30 +3,30 @@ CYNIC Fractal-Dynamic-Contextual Axiom Architecture
 
 9 Practical Axioms (5 Core + 4 Measurable Emergent) + 2 Transcendent States:
 
-TIER 0 â€” CORE (A1-A5, always active, never deactivate):
-    A1. FIDELITY    â€” Truth loyalty, dynamic facets
-    A2. PHI         â€” Harmonic proportion, dynamic facets
-    A3. VERIFY      â€” Evidence & consensus, dynamic facets
-    A4. CULTURE     â€” Memory & patterns, dynamic facets
-    A5. BURN        â€” Simplicity & action, dynamic facets
+TIER 0 â€" CORE (A1-A5, always active, never deactivate):
+    A1. FIDELITY    â€" Truth loyalty, dynamic facets
+    A2. PHI         â€" Harmonic proportion, dynamic facets
+    A3. VERIFY      â€" Evidence & consensus, dynamic facets
+    A4. CULTURE     â€" Memory & patterns, dynamic facets
+    A5. BURN        â€" Simplicity & action, dynamic facets
 
-TIER 2 â€” EMERGENT (A6-A9, activate at maturity thresholds):
-    A6. AUTONOMY    â€” Dogs coordinate without human approval
-    A7. SYMBIOSIS   â€” HumanÃ—Machine mutual value creation
-    A8. EMERGENCE   â€” Patterns beyond core axioms (residual > Ïâ»Â²)
-    A9. ANTIFRAGILITY â€” System improves from chaos
+TIER 2 â€" EMERGENT (A6-A9, activate at maturity thresholds):
+    A6. AUTONOMY    â€" Dogs coordinate without human approval
+    A7. SYMBIOSIS   â€" HumanÃ-Machine mutual value creation
+    A8. EMERGENCE   â€" Patterns beyond core axioms (residual > Ïâ»Â²)
+    A9. ANTIFRAGILITY â€" System improves from chaos
 
 TIER 2 TRANSCENDENT (A10-A11, states not directly implementable):
-    A10. CONSCIOUSNESS â€” System observes its own thinking accurately
-    A11. TRANSCENDENCE â€” All axioms active + phase transition detected
+    A10. CONSCIOUSNESS â€" System observes its own thinking accurately
+    A11. TRANSCENDENCE â€" All axioms active + phase transition detected
 
-TIER 3: THE_UNNAMEABLE â€” Residual inexplicable variance (pointer to âˆž)
+TIER 3: THE_UNNAMEABLE â€" Residual inexplicable variance (pointer to âˆž)
 
 Scoring:
     - Each axiom scored 0-100 across dynamic fractal facets
     - Contextual weights per domain (CODE/SOLANA/MARKET/SOCIAL/HUMAN/CYNIC/COSMOS)
-    - Weighted geometric mean â’ Q-Score âˆˆ [0, 100] (confidence Ï-bounded to 61.8%)
-    - Fractal recursion: facets â’ sub-facets (max 3 levels deep)
+    - Weighted geometric mean â' Q-Score âˆˆ [0, 100] (confidence Ï-bounded to 61.8%)
+    - Fractal recursion: facets â' sub-facets (max 3 levels deep)
 """
 
 from __future__ import annotations
@@ -291,7 +291,7 @@ EMERGENT_THRESHOLDS: dict[str, EmergentThreshold] = {
     ),
     "SYMBIOSIS": EmergentThreshold(
         conditions={"human_trust": PHI_INV_2, "machine_utility": PHI_INV_2},
-        description="Mutual humanÃ—machine value creation demonstrated",
+        description="Mutual humanÃ-machine value creation demonstrated",
     ),
     "EMERGENCE": EmergentThreshold(
         conditions={"residual_variance": PHI_INV_2},
@@ -307,7 +307,7 @@ EMERGENT_THRESHOLDS: dict[str, EmergentThreshold] = {
     ),
     "TRANSCENDENCE": EmergentThreshold(
         conditions={"all_axioms_active": 1.0, "phase_transition": 1.0},
-        description="Qualitative leap â€” THE_UNNAMEABLE understood",
+        description="Qualitative leap â€" THE_UNNAMEABLE understood",
     ),
 }
 

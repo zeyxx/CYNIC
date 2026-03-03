@@ -1,9 +1,9 @@
 """
-GossipProtocol â€” Efficient Inter-Dog Communication
+GossipProtocol â€" Efficient Inter-Dog Communication
 
 Instead of sending raw observations to orchestrator:
-  OLD: Dog â’ Orchestrator: full state (100+ fields)
-  NEW: Dog â’ Siblings: compressed summary (4 fields)
+  OLD: Dog â' Orchestrator: full state (100+ fields)
+  NEW: Dog â' Siblings: compressed summary (4 fields)
 
 **Gossip Message Format**:
   {
@@ -57,7 +57,7 @@ class GossipMessage:
       - confidence: Certainty about the verdict [0, Ïâ»Â¹]
       - timestamp: When was this message created
 
-    **Size**: ~200 bytes vs 1000+ bytes for full state â’ 4-5x compression
+    **Size**: ~200 bytes vs 1000+ bytes for full state â' 4-5x compression
     """
 
     dog_id: str
@@ -115,7 +115,7 @@ class GossipProtocol:
     ) -> None:  # F(11) = 89 (imported from formulas.py)
         self.max_message_history = max_message_history
         self._gossip_messages: dict[str, list[GossipMessage]] = {}
-        # peer_dog_id â’ list of recent GossipMessages
+        # peer_dog_id â' list of recent GossipMessages
 
         self._gossip_count = 0
         self._rejected_count = 0

@@ -1,5 +1,5 @@
 """
-Handler Group Introspection â€” Architectural self-awareness.
+Handler Group Introspection â€" Architectural self-awareness.
 
 Enables SelfProber and KernelMirror to:
 1. Query handler coupling topology
@@ -201,7 +201,7 @@ class HandlerArchitectureIntrospector:
         # Check existing handlers for coupling changes
         for handler_name, curr_analysis in curr_by_name.items():
             if handler_name not in prev_by_name:
-                # New handler â€” not a "growth" in existing handler
+                # New handler â€" not a "growth" in existing handler
                 continue
 
             prev_analysis = prev_by_name[handler_name]
@@ -241,7 +241,7 @@ class HandlerArchitectureIntrospector:
 
         Factors:
         - Average complexity (lower is better)
-        - Variance (lower is better â€” consistent complexity)
+        - Variance (lower is better â€" consistent complexity)
         - No outliers (max_complexity should be < 80)
 
         Formula:

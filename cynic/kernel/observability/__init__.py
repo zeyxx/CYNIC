@@ -1,5 +1,5 @@
 """
-CYNIC Observability â€” Self-awareness and health monitoring.
+CYNIC Observability â€" Self-awareness and health monitoring.
 """
 
 from cynic.kernel.observability.health import HealthChecker

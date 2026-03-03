@@ -24,12 +24,13 @@ logger = logging.getLogger("cynic.kernel.distributed")
 
 class RedisEventBridge:
     """
-    Bridges local events to Redis Pub/Sub.
+    Bridges local events to Redis Pub/Sub with robust management.
     """
 
-    def __init__(self, bus: EventBus, vascular: VascularSystem, channel_prefix: str = "cynic:events"):
+    def __init__(self, bus: EventBus, vascular: VascularSystem, task_registry: Any = None, channel_prefix: str = "cynic:events"):
         self.bus = bus
         self.vascular = vascular
+        self.task_registry = task_registry
         self.instance_id = bus.instance_id
         self.channel = f"{channel_prefix}:{self.instance_id}"
         
@@ -43,6 +44,11 @@ class RedisEventBridge:
         
         self._running = True
         self._listen_task = asyncio.create_task(self._listen_loop())
+        
+        # Register task for clean shutdown
+        if self.task_registry:
+            await self.task_registry.register(self._listen_task)
+            
         self.bus.set_bridge(self)
         logger.info(f"[{self.instance_id}] Redis Bridge active on channel: {self.channel}")
 
@@ -93,8 +99,14 @@ class RedisEventBridge:
                     retry_delay = 1.0
                     
                     while self._running:
-                        message = await pubsub.get_message(ignore_subscribe_metadata=True, timeout=1.0)
-                        if message is not None:
+                        # Compatibility fix: try common metadata ignoring params
+                        try:
+                            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                        except TypeError:
+                            # Fallback for older/different SDK versions
+                            message = await pubsub.get_message(timeout=1.0)
+                            
+                        if message is not None and message["type"] == "message":
                             await self._handle_remote_message(message["data"])
                         await asyncio.sleep(0.01) # Yield to event loop
                         

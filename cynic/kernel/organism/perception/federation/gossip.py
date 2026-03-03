@@ -1,5 +1,5 @@
 """
-GossipManager â€” P2P Gossip Protocol for CYNIC Federation
+GossipManager â€" P2P Gossip Protocol for CYNIC Federation
 
 This module implements the gossip protocol that orchestrates P2P knowledge sharing
 between CYNIC instances. Each instance maintains a list of peers and periodically

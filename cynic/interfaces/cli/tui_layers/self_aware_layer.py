@@ -21,9 +21,9 @@ class SelfAwareLayer(Static):
         table.add_column("Category", style="white")
         table.add_column("Count", justify="right", style="green")
 
-        table.add_row("Observations ðŸ‘€", str(self.observation_count))
-        table.add_row("Insights ðŸ’¡", str(self.insight_count))
-        table.add_row("Proposals ðŸ”§", str(self.proposal_count))
+        table.add_row("Observations ðŸ'€", str(self.observation_count))
+        table.add_row("Insights ðŸ'¡", str(self.insight_count))
+        table.add_row("Proposals ðŸ"§", str(self.proposal_count))
 
         return Panel(
             table,

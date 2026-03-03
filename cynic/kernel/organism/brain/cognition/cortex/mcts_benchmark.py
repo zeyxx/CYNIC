@@ -6,14 +6,14 @@ vs Standard MCTS (single perspective, uniform weight).
 
 Hypothesis: Temporal MCTS converges â‰ˆÏÂ² faster than Standard MCTS
   - Standard: needs ~800 iterations to find optimal (high-variance estimates)
-  - Temporal:  needs ~250 iterations (3.2Ã— faster due to Ï-weighted averaging)
+  - Temporal:  needs ~250 iterations (3.2Ã- faster due to Ï-weighted averaging)
 
 Key Mechanism:
-  Standard MCTS: each node visit = 1 noisy sample â’ high per-node variance
-  Temporal MCTS: each node visit = 7 Ï-weighted samples â’ lower variance,
-                 more signal per UCB update â’ exploits optimal faster
+  Standard MCTS: each node visit = 1 noisy sample â' high per-node variance
+  Temporal MCTS: each node visit = 7 Ï-weighted samples â' lower variance,
+                 more signal per UCB update â' exploits optimal faster
 
-Design (no LLM, no DB â€” pure in-memory simulation):
+Design (no LLM, no DB â€" pure in-memory simulation):
   SearchProblem: synthetic 1D landscape with known optimum + controlled noise
   MCTSNode: UCB1 selection, simulation, backpropagation
   Standard scoring: single uniform sample from true distribution
@@ -42,7 +42,7 @@ from cynic.kernel.core.phi import (
     phi_bound_score,
 )
 
-# â”€â”€ Temporal weights (same as temporal.py) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Temporal weights (same as temporal.py) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 _TEMPORAL_WEIGHTS: dict[str, float] = {
     "IDEAL": PHI_2,  # ÏÂ² = 2.618
@@ -57,7 +57,7 @@ _TOTAL_TEMPORAL_WEIGHT = sum(_TEMPORAL_WEIGHTS.values())  # â‰ˆ 8.854
 _PERSPECTIVES = list(_TEMPORAL_WEIGHTS.keys())
 
 
-# â”€â”€ SearchProblem â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ SearchProblem â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 
 @dataclass
@@ -90,17 +90,17 @@ class SearchProblem:
 
     def temporal_sample(self, action: int) -> float:
         """
-        7 Ï-weighted perspective samples â’ lower variance estimate.
+        7 Ï-weighted perspective samples â' lower variance estimate.
 
         Each perspective sees the same true value but with independent noise.
-        The NEVER perspective is inverted (higher true value â’ lower NEVER signal).
+        The NEVER perspective is inverted (higher true value â' lower NEVER signal).
         Ï-weighted geometric mean reduces variance vs single sample.
         """
         true_q = self.true_value(action)
         log_sum = 0.0
         for p, w in _TEMPORAL_WEIGHTS.items():
             if p == "NEVER":
-                # NEVER: inverted â€” constraint safety (high true_q = safe = high score)
+                # NEVER: inverted â€" constraint safety (high true_q = safe = high score)
                 s = max(0.1, true_q + self.rng.gauss(0, self.sigma * 0.5))
             else:
                 s = max(0.1, true_q + self.rng.gauss(0, self.sigma))
@@ -109,7 +109,7 @@ class SearchProblem:
         return phi_bound_score(geo_mean)
 
 
-# â”€â”€ MCTSNode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ MCTSNode â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 
 @dataclass
@@ -139,7 +139,7 @@ class MCTSNode:
         self.value_sum += reward
 
 
-# â”€â”€ MCTSVariant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ MCTSVariant â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 
 @dataclass
@@ -168,7 +168,7 @@ class MCTSVariant:
         return self.problem.sample(node.action)
 
     def step(self) -> None:
-        """One MCTS iteration: select â’ simulate â’ backprop."""
+        """One MCTS iteration: select â' simulate â' backprop."""
         node = self._select()
         reward = self._simulate(node)
         node.update(reward)
@@ -185,7 +185,7 @@ class MCTSVariant:
             self.convergence_iter = self.iteration
 
     def run(self, max_iterations: int) -> None:
-        """Run until max_iterations or convergence (whichever comes last â€” measure quality too)."""
+        """Run until max_iterations or convergence (whichever comes last â€" measure quality too)."""
         for _ in range(max_iterations):
             self.step()
 
@@ -204,7 +204,7 @@ class MCTSVariant:
         return opt_node.visits / total if total > 0 else 0.0
 
 
-# â”€â”€ BenchmarkResult â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ BenchmarkResult â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 
 @dataclass
@@ -255,7 +255,7 @@ class BenchmarkResult:
         }
 
 
-# â”€â”€ MCTSBenchmark â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ MCTSBenchmark â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 
 class MCTSBenchmark:

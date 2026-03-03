@@ -1,5 +1,5 @@
 """
-CYNIC Tier 1 Nervous System â€” Event Journal
+CYNIC Tier 1 Nervous System â€" Event Journal
 
 Component 2 (Sequencing): Records all events flowing through the system in order.
 
@@ -14,10 +14,10 @@ Pattern: Append-only rolling buffer, Ï-indexed by type, queryable by time range
 Rolling cap: F(11) = 89 events (oldest dropped when 90th arrives).
 
 Queryable via:
-  - recent(limit=10) â€” last N events
-  - filter_by_type(type_name) â€” all events of type X
-  - time_range(start_ms, end_ms) â€” events in window
-  - get_event(event_id) â€” single event lookup
+  - recent(limit=10) â€" last N events
+  - filter_by_type(type_name) â€" all events of type X
+  - time_range(start_ms, end_ms) â€" events in window
+  - get_event(event_id) â€" single event lookup
 
 This component enables:
   - Component 3 (DecisionTrace): Uses events to build execution DAG
@@ -91,7 +91,7 @@ class JournalEntry:
 
 class EventJournal:
     """
-    Append-only event journal â€” records all events in sequence.
+    Append-only event journal â€" records all events in sequence.
 
     Thread-safe (asyncio.Lock), rolling buffer with cap F(11)=89.
     Enables causality tracing (parent/child relationships).
@@ -100,9 +100,9 @@ class EventJournal:
     def __init__(self):
         self._entries: deque = deque(maxlen=JOURNAL_CAP)  # Auto-drops oldest
         self._lock = asyncio.Lock()
-        self._index_by_type: dict[str, list[str]] = {}  # type â’ [event_ids]
-        self._index_by_source: dict[str, list[str]] = {}  # source â’ [event_ids]
-        self._event_map: dict[str, JournalEntry] = {}  # event_id â’ entry
+        self._index_by_type: dict[str, list[str]] = {}  # type â' [event_ids]
+        self._index_by_source: dict[str, list[str]] = {}  # source â' [event_ids]
+        self._event_map: dict[str, JournalEntry] = {}  # event_id â' entry
         self._stats = {
             "total_recorded": 0,
             "by_category": {},

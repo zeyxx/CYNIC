@@ -1,151 +1,64 @@
 """
-CYNIC Task Registry â€” Track all background tasks for cleanup and monitoring.
+CYNIC Task Registry — Asynchronous Life-Cycle Guard.
 
-Prevents:
-- Resource leaks (forgotten asyncio.create_task calls)
-- Unobserved exceptions (tasks dying silently)
-- Rogue processes (autonomous tasks without supervision)
+Tracks every background task created by the organism to prevent 
+zombie processes and memory leaks.
 
-Pattern: Singleton registry that tracks all active tasks,
-allowing graceful shutdown and error tracking.
+Ï†-Law: FIDELITY — Ensure every process has a clear end.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
-from weakref import WeakSet
+from typing import Dict, Set
 
-logger = logging.getLogger("cynic.task_registry")
-
+logger = logging.getLogger("cynic.kernel.task_registry")
 
 class TaskRegistry:
     """
-    Singleton task registry for background task lifecycle management.
-
-    Usage:
-        # Register a task
-        task = asyncio.create_task(my_coroutine())
-        TaskRegistry.register(task, name="my_task")
-
-        # Cleanup all tasks
-        await TaskRegistry.cleanup_all()
+    Central registry for long-running asyncio tasks.
+    Allows graceful cancellation during shutdown.
     """
 
-    _instance: TaskRegistry | None = None
-    _tasks: WeakSet = WeakSet()  # Weak references (auto-cleanup when GC'd)
-    _task_info: dict[int, dict[str, Any]] = {}  # Metadata per task
+    def __init__(self, instance_id: str):
+        self.instance_id = instance_id
+        self._tasks: Set[asyncio.Task] = set()
+        self._lock = asyncio.Lock()
 
-    def __new__(cls) -> TaskRegistry:
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._tasks = WeakSet()
-            cls._instance._task_info = {}
-        return cls._instance
+    def register(self, task: asyncio.Task):
+        """Add a task to the registry immediately (Thread-Safe)."""
+        self._tasks.add(task)
+        task.add_done_callback(self._discard)
 
-    @classmethod
-    def register(cls, task: asyncio.Task, name: str = "unnamed") -> None:
-        """Register a task for tracking."""
-        instance = cls()
-        instance._tasks.add(task)
+    def _discard(self, task: asyncio.Task):
+        """Remove a completed task."""
+        self._tasks.discard(task)
 
-        # Store metadata
-        task_id = id(task)
-        instance._task_info[task_id] = {
-            "name": name,
-            "task": task,
-            "created": asyncio.get_event_loop().time(),
-        }
+    async def close(self, timeout: float = 5.0):
+        """Cancel all registered tasks and wait for them to finish."""
+        async with self._lock:
+            if not self._tasks:
+                return
+            
+            count = len(self._tasks)
+            logger.info(f"[{self.instance_id}] TaskRegistry: Closing {count} tasks...")
+            
+            for task in self._tasks:
+                task.cancel()
+            
+            # Wait for tasks to acknowledge cancellation
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*list(self._tasks), return_exceptions=True),
+                    timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"[{self.instance_id}] TaskRegistry: Some tasks did not stop in time.")
+            finally:
+                self._tasks.clear()
+                logger.info(f"[{self.instance_id}] TaskRegistry: All tasks purged.")
 
-        # Auto-cleanup metadata when task completes
-        def cleanup_metadata(t):
-            instance._task_info.pop(task_id, None)
-
-        task.add_done_callback(cleanup_metadata)
-        logger.debug(f"Registered task: {name} (id={task_id})")
-
-    @classmethod
-    def get_active_count(cls) -> int:
-        """Get count of active (non-completed) tasks."""
-        instance = cls()
-        return sum(1 for t in instance._tasks if not t.done())
-
-    @classmethod
-    def get_active_tasks(cls) -> list[asyncio.Task]:
-        """Get all active tasks."""
-        instance = cls()
-        return [t for t in instance._tasks if not t.done()]
-
-    @classmethod
-    def get_task_info(cls) -> dict[str, Any]:
-        """Get metadata about all registered tasks."""
-        instance = cls()
-        return {
-            "total_tracked": len(instance._task_info),
-            "active_count": cls.get_active_count(),
-            "tasks": [
-                {
-                    "name": info.get("name"),
-                    "id": task_id,
-                    "done": info["task"].done(),
-                }
-                for task_id, info in instance._task_info.items()
-            ],
-        }
-
-    @classmethod
-    async def cleanup_all(cls, timeout: float = 5.0) -> None:
-        """
-        Gracefully shutdown all registered tasks.
-
-        1. Cancel all pending tasks
-        2. Wait for cancellation with timeout
-        3. Log any tasks that didn't cleanup
-        """
-        cls()
-        active = cls.get_active_tasks()
-
-        if not active:
-            logger.info("No active tasks to cleanup")
-            return
-
-        logger.info(f"Cleaning up {len(active)} active tasks...")
-
-        # Cancel all
-        for task in active:
-            task.cancel()
-
-        # Wait for cancellation with timeout
-        try:
-            await asyncio.wait_for(asyncio.gather(*active, return_exceptions=True), timeout=timeout)
-            logger.info("All tasks cleaned up successfully")
-        except TimeoutError:
-            logger.warning(
-                f"Task cleanup timeout after {timeout}s. "
-                f"{len(cls.get_active_tasks())} tasks still running."
-            )
-
-    @classmethod
-    def reset(cls) -> None:
-        """Reset registry (for testing only)."""
-        instance = cls()
-        instance._tasks = WeakSet()
-        instance._task_info = {}
-        logger.debug("Task registry reset")
-
-
-# Global convenience functions
-def register_task(task: asyncio.Task, name: str = "unnamed") -> None:
-    """Register a task globally."""
-    TaskRegistry.register(task, name)
-
-
-def get_active_task_count() -> int:
-    """Get count of active tasks."""
-    return TaskRegistry.get_active_count()
-
-
-async def cleanup_all_tasks(timeout: float = 5.0) -> None:
-    """Cleanup all registered tasks."""
-    await TaskRegistry.cleanup_all(timeout=timeout)
+    @property
+    def active_count(self) -> int:
+        return len(self._tasks)

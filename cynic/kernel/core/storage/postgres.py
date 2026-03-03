@@ -1,12 +1,12 @@
 """
-CYNIC PostgreSQL Storage â€” asyncpg + Ï-bound DB constraints
+CYNIC PostgreSQL Storage â€" asyncpg + Ï-bound DB constraints
 
 LAW 5: Database constraints MIRROR Ï-bounds in Pydantic models.
   - q_score CHECK (q_score >= 0 AND q_score <= 100)
   - confidence CHECK (confidence >= 0 AND confidence <= 0.618)
   - verdict CHECK (verdict IN ('HOWL', 'WAG', 'GROWL', 'BARK'))
 
-Use asyncpg directly â€” NOT SQLAlchemy ORM. Direct SQL = transparency.
+Use asyncpg directly â€" NOT SQLAlchemy ORM. Direct SQL = transparency.
 
 Connection pool size: F(6)=8 min, F(8)=21 max (Fibonacci-aligned).
 """
@@ -75,7 +75,7 @@ async def get_pool(dsn: str | None = None) -> Pool:
         min_size=POOL_MIN,
         max_size=POOL_MAX,
         command_timeout=30.0,
-        max_inactive_connection_lifetime=300.0,  # F(7)Ã—60=780s Ã· 2.6 â‰ˆ 300s
+        max_inactive_connection_lifetime=300.0,  # F(7)Ã-60=780s Ã· 2.6 â‰ˆ 300s
     )
     return _pool
 
@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS e_scores (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- LLM Benchmark results (per Dog Ã— Task type Ã— LLM)
+-- LLM Benchmark results (per Dog Ã- Task type Ã- LLM)
 CREATE TABLE IF NOT EXISTS llm_benchmarks (
     benchmark_id    TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,
     dog_id          TEXT        NOT NULL,
@@ -402,7 +402,7 @@ class JudgmentRepository(JudgmentRepoInterface):
 
 
 class QTableRepository(QTableRepoInterface):
-    """Persistent Q-Table for Q-Learning (state_key Ã— action â’ q_value)."""
+    """Persistent Q-Table for Q-Learning (state_key Ã- action â' q_value)."""
 
     async def get(self, state_key: str, action: str) -> float:
         """Get Q-value, returns 0.0 if not found."""
@@ -446,7 +446,7 @@ class QTableRepository(QTableRepoInterface):
             return {r["action"]: float(r["q_value"]) for r in rows}
 
     async def get_all(self) -> list[dict[str, Any]]:
-        """Return all Q-entries â€” used for warm-start."""
+        """Return all Q-entries â€" used for warm-start."""
         async with acquire() as conn:
             rows = await conn.fetch("SELECT state_key, action, q_value, visit_count FROM q_table")
             return [dict(r) for r in rows]
@@ -556,7 +556,7 @@ class BenchmarkRepository(BenchmarkRepoInterface):
             return [dict(r) for r in rows]
 
     async def matrix(self) -> list[dict[str, Any]]:
-        """Full benchmark matrix (dog Ã— task Ã— llm â’ score)."""
+        """Full benchmark matrix (dog Ã- task Ã- llm â' score)."""
         async with acquire() as conn:
             rows = await conn.fetch("""
                 SELECT dog_id, task_type, llm_id,
@@ -669,7 +669,7 @@ class SDKSessionRepository(SDKSessionRepoInterface):
     async def save(self, telemetry: dict[str, Any]) -> None:
         """
         Persist one SessionTelemetry record (upsert by session_id).
-        Safe to call multiple times â€” ON CONFLICT updates the row.
+        Safe to call multiple times â€" ON CONFLICT updates the row.
         """
         import json as _json
 
@@ -725,7 +725,7 @@ class SDKSessionRepository(SDKSessionRepoInterface):
             return [dict(r) for r in rows]
 
     async def stats(self) -> dict[str, Any]:
-        """Aggregate statistics â€” for /act/telemetry enrichment."""
+        """Aggregate statistics â€" for /act/telemetry enrichment."""
         async with acquire() as conn:
             row = await conn.fetchrow("""
                 SELECT
@@ -765,7 +765,7 @@ class ScholarRepository(ScholarRepoInterface):
 
     Î²1 PGVector: append() now optionally stores embedding vector.
     search_similar_by_embedding() performs cosine similarity via Python
-    (no pgvector extension required â€” upgradeable to operator <=> later).
+    (no pgvector extension required â€" upgradeable to operator <=> later).
     """
 
     async def append(self, entry: dict[str, Any]) -> None:

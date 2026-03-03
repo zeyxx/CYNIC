@@ -1,5 +1,5 @@
 """
-CYNIC Formulas â€” The Metabolic Regulator.
+CYNIC Formulas â€" The Metabolic Regulator.
 
 Translates abstract PHI constants into operational system parameters.
 Banish 'Magic Numbers' by deriving all limits from PHI, Fibonacci, and Lucas.

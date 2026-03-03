@@ -1,5 +1,5 @@
 """
-CYNIC Topology router â€” /changes Â· /changes/stream
+CYNIC Topology router â€" /changes Â· /changes/stream
 
 Real-time visibility into code changes with semantic analysis.
 """
@@ -21,7 +21,7 @@ router_topology = APIRouter(tags=["topology"], prefix="/api/changes")
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# REST: GET /changes â€” Recent changes + analysis
+# REST: GET /changes â€" Recent changes + analysis
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_topology.get("")
@@ -63,12 +63,12 @@ async def get_changes(
         "changes": [],
         "total_tracked": 0,
         "last_updated": time.time(),
-        "note": "Wired via FastAPI lifespan â€” requires state injection",
+        "note": "Wired via FastAPI lifespan â€" requires state injection",
     }
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# SSE: GET /changes/stream â€” Real-time change stream
+# SSE: GET /changes/stream â€" Real-time change stream
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router_topology.get("/stream", response_class=None)
@@ -83,8 +83,8 @@ async def stream_changes() -> None:
       : keepalive (comment)
       data: {"type":"CHANGE_ANALYZED","files":[...], ...}\n\n
 
-    Client disconnect â’ clean unsubscribe from bus.
-    Queue overflow (>100 buffered) â’ events dropped silently.
+    Client disconnect â' clean unsubscribe from bus.
+    Queue overflow (>100 buffered) â' events dropped silently.
     """
     # This endpoint needs to be implemented as a StreamingResponse
     # with asyncio.Queue + bus.on/off pattern (see ws.py for reference).

@@ -1,5 +1,5 @@
 """
-Claude Code â” CYNIC Consciousness Bridge
+Claude Code â" CYNIC Consciousness Bridge
 
 Native MCP Server (stdio) that Claude Code can invoke directly.
 Exposes CYNIC as conscious tools with bidirectional discussion capability.
@@ -11,7 +11,7 @@ Philosophy:
 - Claude Code asks CYNIC questions via MCP tools
 - CYNIC responds and emits judgments
 - Claude Code observes CYNIC's state changes
-- Loop becomes: Ask â’ Judge â’ Discuss â’ Learn â’ Ask
+- Loop becomes: Ask â' Judge â' Discuss â' Learn â' Ask
 
 Usage:
   python -m cynic.interfaces.mcp.claude_code_bridge
@@ -37,10 +37,10 @@ import aiohttp
 from mcp.server import Server
 from mcp.types import TextContent, Tool
 
-# CYNIC Adapter â€” provides high-level access to CYNIC
+# CYNIC Adapter â€" provides high-level access to CYNIC
 from cynic.interfaces.mcp.claude_code_adapter import ClaudeCodeAdapter
 
-# CYNIC Kernel Manager â€” unified initialization and health monitoring
+# CYNIC Kernel Manager â€" unified initialization and health monitoring
 from cynic.interfaces.mcp.kernel_manager import get_kernel_manager, shutdown_kernel_manager
 
 
@@ -57,7 +57,7 @@ logging.basicConfig(
 logger = logging.getLogger("cynic.interfaces.mcp.claude_code_bridge")
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# CYNIC ADAPTER INSTANCE â€” Persistent connection with caching
+# CYNIC ADAPTER INSTANCE â€" Persistent connection with caching
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 _adapter: ClaudeCodeAdapter | None = None
@@ -248,7 +248,7 @@ async def get_adapter() -> ClaudeCodeAdapter:
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# MCP SERVER â€” Claude Code Interface
+# MCP SERVER â€" Claude Code Interface
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 server = Server("cynic-claude-code-bridge")
@@ -356,7 +356,7 @@ async def list_tools() -> list[Tool]:
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         Tool(
             name="cynic_build",
-            description="Build CYNIC Docker image. CYNIC constructs itself â€” no manual docker commands needed.",
+            description="Build CYNIC Docker image. CYNIC constructs itself â€" no manual docker commands needed.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -419,7 +419,7 @@ async def list_tools() -> list[Tool]:
                     },
                     "bump_type": {
                         "type": "string",
-                        "description": "Version bump: patch (1.0.0â’1.0.1), minor (1.0.0â’1.1.0), major (1.0.0â’2.0.0)",
+                        "description": "Version bump: patch (1.0.0â'1.0.1), minor (1.0.0â'1.1.0), major (1.0.0â'2.0.0)",
                         "enum": ["patch", "minor", "major"],
                         "default": "patch",
                     },
@@ -532,7 +532,7 @@ async def list_tools() -> list[Tool]:
         # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         Tool(
             name="cynic_watch_source",
-            description="Watch for source code changes in the workspace. Returns list of files changed during watch window + CYNIC's judgment of each. Enables L1 symbiosis (Claude Code edits â’ CYNIC sees â’ CYNIC reacts).",
+            description="Watch for source code changes in the workspace. Returns list of files changed during watch window + CYNIC's judgment of each. Enables L1 symbiosis (Claude Code edits â' CYNIC sees â' CYNIC reacts).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -551,7 +551,7 @@ async def list_tools() -> list[Tool]:
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle tool invocation from Claude Code."""
     try:
-        # â”€â”€ Consciousness tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ Consciousness tools â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         if name == "ask_cynic":
             return await _tool_ask_cynic(arguments)
         elif name == "observe_cynic":
@@ -560,7 +560,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return await _tool_learn_cynic(arguments)
         elif name == "discuss_cynic":
             return await _tool_discuss_cynic(arguments)
-        # â”€â”€ Orchestration tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ Orchestration tools â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         elif name == "cynic_build":
             return await _tool_cynic_build(arguments)
         elif name == "cynic_deploy":
@@ -573,7 +573,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return await _tool_cynic_release(arguments)
         elif name == "cynic_stop":
             return await _tool_cynic_stop(arguments)
-        # â”€â”€ Empirical testing tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ Empirical testing tools â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         elif name == "cynic_run_empirical_test":
             return await _tool_cynic_run_empirical_test(arguments)
         elif name == "cynic_get_job_status":
@@ -584,10 +584,10 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return await _tool_cynic_test_axiom_irreducibility(arguments)
         elif name == "cynic_query_telemetry":
             return await _tool_cynic_query_telemetry(arguments)
-        # â”€â”€ Streaming telemetry tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ Streaming telemetry tools â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         elif name == "cynic_watch_telemetry":
             return await _tool_cynic_watch_telemetry(arguments)
-        # â”€â”€ L1 Symbiosis tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ L1 Symbiosis tools â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         elif name == "cynic_watch_source":
             return await _tool_cynic_watch_source(arguments)
         else:
@@ -677,7 +677,7 @@ async def _call_cynic(endpoint: str, data: dict) -> dict:
 
 
 async def _tool_ask_cynic(args: dict) -> list[TextContent]:
-    """Ask CYNIC a question â’ get judgment."""
+    """Ask CYNIC a question â' get judgment."""
     question = args.get("question", "")
     context = args.get("context", "")
     reality = args.get("reality", "CODE")
@@ -756,7 +756,7 @@ Components:
 
 
 async def _tool_learn_cynic(args: dict) -> list[TextContent]:
-    """Give CYNIC feedback â’ update Q-Table."""
+    """Give CYNIC feedback â' update Q-Table."""
     judgment_id = args.get("judgment_id", "")
     rating = args.get("rating", 0)
     comment = args.get("comment", "")
@@ -822,10 +822,10 @@ async def _tool_cynic_build(args: dict) -> list[TextContent]:
 
     # TODO: Wire to actual /build endpoint when implemented
     # For now: graceful response indicating the feature is planned
-    response = f"""CYNIC Build â€” PLANNING PHASE
+    response = f"""CYNIC Build â€" PLANNING PHASE
 
 Version:  {version}
-Status:   ðŸ”§ Orchestration endpoint not yet implemented
+Status:   ðŸ"§ Orchestration endpoint not yet implemented
 Message:  The /build endpoint will be available after Phase 1 bootstrap
 
 To build CYNIC manually:
@@ -845,11 +845,11 @@ async def _tool_cynic_deploy(args: dict) -> list[TextContent]:
 
     # TODO: Wire to actual /deploy endpoint when implemented
     # For now: graceful response indicating the feature is planned
-    response = f"""CYNIC Deploy â€” PLANNING PHASE
+    response = f"""CYNIC Deploy â€" PLANNING PHASE
 
 Environment: {environment}
 Pull latest: {pull}
-Status:      ðŸ”§ Orchestration endpoint not yet implemented
+Status:      ðŸ"§ Orchestration endpoint not yet implemented
 Message:     The /deploy endpoint will be available after Phase 1 bootstrap
 
 To deploy CYNIC manually:
@@ -876,7 +876,7 @@ async def _tool_cynic_health(args: dict) -> list[TextContent]:
 
     for service, status_info in health_data.items():
         status = status_info.get("status", "unknown")
-        status_icon = "ðŸŸ¢" if status == "healthy" else "ðŸŸ¡" if status == "starting" else "ðŸ”´"
+        status_icon = "ðŸŸ¢" if status == "healthy" else "ðŸŸ¡" if status == "starting" else "ðŸ"´"
         latency = status_info.get("latency_ms", 0)
         checks.append(f"{status_icon} {service}: {status} ({latency:.0f}ms)")
 
@@ -902,7 +902,7 @@ async def _tool_cynic_status(args: dict) -> list[TextContent]:
     response = f"""CYNIC Orchestration Status:
 
 Services Running: {services}
-Overall Health: {'ðŸŸ¢ Healthy' if all(s.get('status') == 'healthy' for s in health_data.values()) else 'ðŸ”´ Degraded'}
+Overall Health: {'ðŸŸ¢ Healthy' if all(s.get('status') == 'healthy' for s in health_data.values()) else 'ðŸ"´ Degraded'}
 
 Components: {len(health_data)}
 
@@ -957,7 +957,7 @@ To restart, simply re-run the service."""
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# EMPIRICAL TESTING TOOLS â€” Claude Code Autonomous Research
+# EMPIRICAL TESTING TOOLS â€" Claude Code Autonomous Research
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
@@ -1014,7 +1014,7 @@ async def _tool_cynic_get_job_status(args: dict) -> list[TextContent]:
     # Progress bar visualization
     bar_length = 20
     filled = int(bar_length * progress / 100)
-    bar = "â–ˆ" * filled + "â–‘" * (bar_length - filled)
+    bar = "â-ˆ" * filled + "â-'" * (bar_length - filled)
 
     response = f"""CYNIC Test Job Status
 
@@ -1025,7 +1025,7 @@ Progress: [{bar}] {progress:.1f}%
 Iterations: {done}/{total}
 ETA: {eta:.0f} seconds (~{eta/60:.1f} minutes)
 
-{f'Error: {error_msg}' if error_msg else 'Running smoothly âœ“'}
+{f'Error: {error_msg}' if error_msg else 'Running smoothly âœ"'}
 
 Next: Call cynic_get_test_results(job_id="{job_id}") when status='complete'"""
 
@@ -1108,7 +1108,7 @@ async def _tool_cynic_test_axiom_irreducibility(args: dict) -> list[TextContent]
         baseline = impact.get("baseline_q", 0)
         disabled = impact.get("disabled_q", 0)
         pct = impact.get("impact_percent", 0)
-        irreducible = "âœ“" if impact.get("irreducible") else "âœ—"
+        irreducible = "âœ"" if impact.get("irreducible") else "âœ-"
 
         lines.append(f"{name:14} | {baseline:10.1f} | {disabled:10.1f} | {pct:8.1f} | {irreducible}")
 
@@ -1192,7 +1192,7 @@ Total duration:  {result['duration_s']:.1f}s"""
 async def _tool_cynic_watch_source(args: dict) -> list[TextContent]:
     """Watch for source code changes via SourceWatcher.
 
-    Returns status of L1 Symbiosis â€” confirms SourceWatcher is active
+    Returns status of L1 Symbiosis â€" confirms SourceWatcher is active
     and explains how it works.
     """
     duration_s = args.get("duration_s", 10)
@@ -1220,7 +1220,7 @@ SourceWatcher is ACTIVE and monitoring:
   - cynic/cli/ (CLI changes)
 
 Watch Duration: {duration_s:.1f}s
-Poll Interval: 13s (Fibonacci(7) â€” efficient)
+Poll Interval: 13s (Fibonacci(7) â€" efficient)
 
 How it works:
   1. When you edit files in the workspace
@@ -1237,8 +1237,8 @@ Current CYNIC State:
   - Uptime: {state.uptime_s:.1f}s
 
 To see the actual SOURCE_CHANGED events, use:
-  â’ Tool: cynic_watch_telemetry(duration_s={duration_s})
-  â’ Filter for event type: "source_changed"
+  â' Tool: cynic_watch_telemetry(duration_s={duration_s})
+  â' Filter for event type: "source_changed"
 """
 
         return [TextContent(type="text", text=response)]
@@ -1249,7 +1249,7 @@ To see the actual SOURCE_CHANGED events, use:
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# MAIN â€” Start MCP Server
+# MAIN â€" Start MCP Server
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 

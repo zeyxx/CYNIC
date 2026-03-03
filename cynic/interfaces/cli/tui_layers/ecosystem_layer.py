@@ -28,7 +28,7 @@ class EcosystemLayer(Static):
 
         return Panel(
             table,
-            title="ðŸ”— ECOSYSTEM TOPOLOGY",
+            title="ðŸ"- ECOSYSTEM TOPOLOGY",
             border_style="cyan",
             expand=False
         )

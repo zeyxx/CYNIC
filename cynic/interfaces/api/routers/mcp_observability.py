@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/mcp/bridge", tags=["mcp-observability"])
 async def mcp_bridge_health(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
-    """MCPBridge health â€” running status, tool count, error rate."""
+    """MCPBridge health â€" running status, tool count, error rate."""
     bridge = container.organism.senses.mcp_bridge
     return bridge.get_health()
 
@@ -29,7 +29,7 @@ async def mcp_bridge_health(
 async def mcp_bridge_metrics(
     container: AppContainer = Depends(get_app_container),
 ) -> dict[str, Any]:
-    """MCPBridge metrics â€” call counts, latency stats, uptime."""
+    """MCPBridge metrics â€" call counts, latency stats, uptime."""
     bridge = container.organism.senses.mcp_bridge
     return bridge.get_metrics()
 

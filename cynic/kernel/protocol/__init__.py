@@ -1,4 +1,4 @@
-"""CYNIC protocol layer â€” inter-agent communication."""
+"""CYNIC protocol layer â€" inter-agent communication."""
 
 from __future__ import annotations
 

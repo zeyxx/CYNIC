@@ -5,7 +5,7 @@ Provides rendering functions for displaying:
 - CYNIC view: Deep dive into CYNIC's observations, thinking, and planning
 - MACHINE view: Machine resource utilization and health
 
-Uses ASCII progress bars (â–ˆ for filled, â–‘ for empty) and emojis for clarity.
+Uses ASCII progress bars (â-ˆ for filled, â-' for empty) and emojis for clarity.
 """
 
 from __future__ import annotations
@@ -26,12 +26,12 @@ def _render_progress_bar(
         width: Width of the bar in characters.
 
     Returns:
-        str: ASCII progress bar like "â–ˆâ–ˆâ–ˆâ–ˆâ–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘"
+        str: ASCII progress bar like "â-ˆâ-ˆâ-ˆâ-ˆâ-'â-'â-'â-'â-'â-'â-'â-'â-'â-'â-'â-'â-'â-'â-'â-'"
     """
     normalized = min(max(value / max_value, 0.0), 1.0)
     filled = int(normalized * width)
     empty = width - filled
-    return "â–ˆ" * filled + "â–‘" * empty
+    return "â-ˆ" * filled + "â-'" * empty
 
 
 def _format_percentage(value: float, precision: int = 1) -> str:
@@ -66,7 +66,7 @@ def render_observe_view(state: SymbioticState) -> str:
 
     # Header
     lines.append("\n" + "=" * 70)
-    lines.append(" ðŸ‘ï¸  OBSERVE - Current State Snapshot")
+    lines.append(" ðŸ'ï¸  OBSERVE - Current State Snapshot")
     lines.append("=" * 70)
 
     # CYNIC section
@@ -125,7 +125,7 @@ def render_observe_view(state: SymbioticState) -> str:
     )
 
     # SYMBIOTIC ALIGNMENT section
-    lines.append("\nðŸ”— SYMBIOTIC ALIGNMENT")
+    lines.append("\nðŸ"- SYMBIOTIC ALIGNMENT")
     lines.append("-" * 70)
     lines.append(
         f"  Alignment:   {_render_progress_bar(state.alignment_score, 1.0, 15)} "
@@ -142,7 +142,7 @@ def render_observe_view(state: SymbioticState) -> str:
     if state.shared_objectives:
         lines.append("  Shared Objectives:")
         for obj in state.shared_objectives:
-            lines.append(f"    âœ“ {obj}")
+            lines.append(f"    âœ" {obj}")
 
     lines.append("\n" + "=" * 70)
 
@@ -165,11 +165,11 @@ def render_cynic_view(state: SymbioticState) -> str:
 
     # Header
     lines.append("\n" + "=" * 70)
-    lines.append(" ðŸ’­ CYNIC MIND - Deep Dive")
+    lines.append(" ðŸ'­ CYNIC MIND - Deep Dive")
     lines.append("=" * 70)
 
     # Observations
-    lines.append("\nðŸ“‹ OBSERVATIONS")
+    lines.append("\nðŸ"‹ OBSERVATIONS")
     lines.append("-" * 70)
     if state.cynic_observations:
         for key, value in state.cynic_observations.items():
@@ -178,7 +178,7 @@ def render_cynic_view(state: SymbioticState) -> str:
         lines.append("  (no observations)")
 
     # Current Thinking
-    lines.append("\nðŸ¤” CURRENT THINKING")
+    lines.append("\nðŸ¤" CURRENT THINKING")
     lines.append("-" * 70)
     lines.append(f"  {state.cynic_thinking}")
 
@@ -190,7 +190,7 @@ def render_cynic_view(state: SymbioticState) -> str:
     )
 
     # Planning
-    lines.append("\nðŸ“‹ PLANNING ITEMS")
+    lines.append("\nðŸ"‹ PLANNING ITEMS")
     lines.append("-" * 70)
     if state.cynic_planning:
         for idx, item in enumerate(state.cynic_planning, 1):
@@ -229,7 +229,7 @@ def render_machine_view(state: SymbioticState) -> str:
     lines.append("=" * 70)
 
     # Resource percentages section
-    lines.append("\nðŸ“Š RESOURCE UTILIZATION")
+    lines.append("\nðŸ"Š RESOURCE UTILIZATION")
     lines.append("-" * 70)
 
     cpu = state.machine_resources.get("cpu_percent", 0.0)
@@ -260,19 +260,19 @@ def render_machine_view(state: SymbioticState) -> str:
     lines.append("-" * 70)
 
     is_healthy = state.machine_health.get("is_healthy", False)
-    health_icon = "âœ“" if is_healthy else "âœ—"
+    health_icon = "âœ"" if is_healthy else "âœ-"
     lines.append(f"  Overall Health:    {health_icon}")
 
     cpu_ok = state.machine_health.get("cpu_ok", False)
-    cpu_icon = "âœ“" if cpu_ok else "âœ—"
+    cpu_icon = "âœ"" if cpu_ok else "âœ-"
     lines.append(f"  CPU OK:            {cpu_icon}")
 
     memory_ok = state.machine_health.get("memory_ok", False)
-    memory_icon = "âœ“" if memory_ok else "âœ—"
+    memory_icon = "âœ"" if memory_ok else "âœ-"
     lines.append(f"  Memory OK:         {memory_icon}")
 
     disk_ok = state.machine_health.get("disk_ok", False)
-    disk_icon = "âœ“" if disk_ok else "âœ—"
+    disk_icon = "âœ"" if disk_ok else "âœ-"
     lines.append(f"  Disk OK:           {disk_icon}")
 
     # Constraints and warnings
@@ -289,7 +289,7 @@ def render_machine_view(state: SymbioticState) -> str:
 
     # Capability delta
     if state.machine_capability_delta:
-        lines.append("\nðŸ”„ CAPABILITY CHANGES")
+        lines.append("\nðŸ"" CAPABILITY CHANGES")
         lines.append("-" * 70)
         for delta in state.machine_capability_delta:
             lines.append(f"  â€¢ {delta}")
