@@ -1,0 +1,13 @@
+{
+  "model_A": {
+    "BACKEND": {
+      "success_count": 5,
+      "failure_count": 5,
+      "total_latency_ms": 1000.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T04:48:58.288819"
+    }
+  },
+  "_meta_total_trials": 110
+}

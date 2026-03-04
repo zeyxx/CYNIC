@@ -19,13 +19,26 @@ python scripts/analyze_imports.py || exit 1
 echo "  [3/5] Auditing factory wiring..."
 python scripts/audit_factory_wiring.py || exit 1
 
-# Gate 4: Unit Tests
-echo "  [4/5] Running unit tests + coverage..."
-cd "${REPO_ROOT}" && python -m pytest tests/test_priority10_proposal_executor.py -x -q || exit 1
+# Gate 4: Unit Tests + Coverage (ENFORCED - NO SILENT FAILURES)
+echo "  [4/7] Running unit tests + coverage (75% minimum)..."
+cd "${REPO_ROOT}" && python -m pytest tests/ --cov=cynic --cov-report=term -q \
+  || { echo "❌ Tests failed"; exit 1; }
 
-# Gate 5: Commit Message Format
-echo "  [5/5] Validating commit message format..."
+# Gate 5: Code Complexity Analysis (ENFORCED)
+echo "  [5/7] Checking cyclomatic complexity (max 10)..."
+python scripts/check_complexity.py || exit 1
+
+# Gate 6: Stub Detection (ENFORCED)
+echo "  [6/7] Detecting unimplemented stubs..."
+python scripts/check_stubs.py || exit 1
+
+# Gate 7: Commit Message Format
+echo "  [7/7] Validating commit message format..."
 python scripts/validate_commit_message.py || exit 1
 
-echo "✅ All pre-commit gates passed!"
+echo ""
+echo "╔════════════════════════════════════════════════════════╗"
+echo "║     ✅ ALL PRE-COMMIT GATES PASSED - SAFE TO COMMIT     ║"
+echo "╚════════════════════════════════════════════════════════╝"
+echo ""
 exit 0

@@ -165,6 +165,8 @@ class LLMRegistry:
     ) -> dict[str, Any]:
         """Hardware-aware discovery of all muscles (V3.5)."""
         from cynic.kernel.organism.metabolism.model_profiler import ModelProfiler
+        from cynic.kernel.organism.brain.llm.adapters.llama_server import LlamaServerAdapter
+        from pathlib import Path
 
         profiler = ModelProfiler()
 
@@ -174,6 +176,20 @@ class LLMRegistry:
             "available": [],
             "rejected": [],
         }
+
+        # 0. Sovereign In-Memory Server (Level 0: Optimized Hardware)
+        # Scan the sovereign vault on D: for Unsloth-optimized muscles
+        sovereign_dir = Path("D:/cynic-models")
+        if sovereign_dir.exists():
+            for model_file in sovereign_dir.glob("*.gguf"):
+                server_url = "http://localhost:8080"
+                model_name = model_file.name.replace(".gguf", "").lower()
+                adapter = LlamaServerAdapter(model=model_name, base_url=server_url, vascular=self.vascular)
+                
+                if await adapter.check_available():
+                    self.register(adapter)
+                    self._manifest["available"].append(adapter.adapter_id)
+                    logger.info(f"Discovered SOVEREIGN muscle {model_name} (Vulkan/Unsloth Optimized).")
 
         # 1. Local GGUF (Level 0: Pure Sovereignty)
         if models_dir:

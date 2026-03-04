@@ -1,0 +1,8 @@
+[
+  {
+    "subject": "Vulkan",
+    "fact": "Vulkan is the primary acceleration API for AMD APUs.",
+    "criticality": 5,
+    "timestamp": "2026-03-04T04:53:35.905076"
+  }
+]

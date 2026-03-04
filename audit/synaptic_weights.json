@@ -1,0 +1,749 @@
+{
+  "expert_dog": {
+    "BACKEND": {
+      "success_count": 3,
+      "failure_count": 0,
+      "total_latency_ms": 500.0030994415283,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:07:54.084779"
+    }
+  },
+  "weak_dog": {
+    "BACKEND": {
+      "success_count": 0,
+      "failure_count": 2,
+      "total_latency_ms": 2000.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:07:54.084165"
+    }
+  },
+  "ollama:qwen3.5:9b": {
+    "BACKEND": {
+      "success_count": 0,
+      "failure_count": 5,
+      "total_latency_ms": 25000.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:14:26.799566"
+    },
+    "ARCHITECTURE": {
+      "success_count": 1,
+      "failure_count": 1,
+      "total_latency_ms": 120018.41998100281,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:22:28.636096"
+    },
+    "SECURITY": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120012.9656791687,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:24:30.669433"
+    },
+    "FIDELITY": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120009.5386505127,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:26:32.702778"
+    },
+    "BURN": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120015.31481742859,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:28:34.738574"
+    },
+    "PHI": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120016.3516998291,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:30:36.777081"
+    },
+    "VERIFY": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120006.56223297119,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:32:38.803946"
+    },
+    "CULTURE": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120005.8445930481,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:34:40.833381"
+    }
+  },
+  "ollama:qwen2.5:3b": {
+    "BACKEND": {
+      "success_count": 3,
+      "failure_count": 0,
+      "total_latency_ms": 53929.09097671509,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:53:31.986889"
+    },
+    "ARCHITECTURE": {
+      "success_count": 3,
+      "failure_count": 0,
+      "total_latency_ms": 122168.1101322174,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T04:01:13.365677"
+    },
+    "SECURITY": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 56730.80086708069,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:55:27.127269"
+    },
+    "FIDELITY": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 38745.04566192627,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:56:07.892981"
+    },
+    "BURN": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 49014.72496986389,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:56:58.935696"
+    },
+    "PHI": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 54771.416425704956,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:57:55.730732"
+    },
+    "VERIFY": {
+      "success_count": 2,
+      "failure_count": 0,
+      "total_latency_ms": 53985.496282577515,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:58:44.314453"
+    },
+    "CULTURE": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 46406.56781196594,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:59:32.736078"
+    }
+  },
+  "ollama:qwen3:8b": {
+    "BACKEND": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 67673.2451915741,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:35:50.529559"
+    },
+    "ARCHITECTURE": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 69991.69683456421,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:46:05.137794"
+    },
+    "SECURITY": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120010.92791557312,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:03:48.364211"
+    },
+    "FIDELITY": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120008.79383087158,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:05:50.403899"
+    },
+    "BURN": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120012.12334632874,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:07:52.441445"
+    },
+    "PHI": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120016.00813865662,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:09:54.481098"
+    },
+    "VERIFY": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120006.72173500061,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:11:56.513754"
+    },
+    "CULTURE": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120003.62968444824,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:13:58.540856"
+    }
+  },
+  "ollama:minimax-m2.5:cloud": {
+    "BACKEND": {
+      "success_count": 2,
+      "failure_count": 0,
+      "total_latency_ms": 48980.1971912384,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T04:00:11.073502"
+    },
+    "ARCHITECTURE": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 9911.264181137085,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T04:12:20.043061"
+    },
+    "SECURITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:11.431194"
+    },
+    "FIDELITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:13.446658"
+    },
+    "BURN": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:15.460846"
+    },
+    "PHI": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:17.474706"
+    },
+    "VERIFY": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 53590.633392333984,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:21:46.169804"
+    },
+    "CULTURE": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:21.511029"
+    }
+  },
+  "ollama:qwen2.5-coder:7b": {
+    "BACKEND": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 114251.4135837555,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T04:57:05.157442"
+    },
+    "ARCHITECTURE": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 19525.197744369507,
+      "prior_prob": 0.6355000000000001,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T04:30:30.179068"
+    },
+    "SECURITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:11.431201"
+    },
+    "FIDELITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:13.446660"
+    },
+    "BURN": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:15.460848"
+    },
+    "PHI": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:17.474709"
+    },
+    "VERIFY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:19.485786"
+    },
+    "CULTURE": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:21.511031"
+    }
+  },
+  "ollama:deepseek-r1:8b": {
+    "BACKEND": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120005.95808029175,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T04:59:43.742663"
+    },
+    "ARCHITECTURE": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 62955.583810806274,
+      "prior_prob": 0.6355000000000001,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T04:37:19.088655"
+    },
+    "SECURITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:11.431207"
+    },
+    "FIDELITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:13.446662"
+    },
+    "BURN": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:15.460854"
+    },
+    "PHI": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:17.474711"
+    },
+    "VERIFY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:19.485788"
+    },
+    "CULTURE": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:21.511033"
+    }
+  },
+  "ollama:gpt-oss:20b": {
+    "BACKEND": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120005.75494766235,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:16:00.573493"
+    },
+    "ARCHITECTURE": {
+      "success_count": 0,
+      "failure_count": 1,
+      "total_latency_ms": 120009.78326797485,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:01:45.787849"
+    },
+    "SECURITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:11.431211"
+    },
+    "FIDELITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:13.446664"
+    },
+    "BURN": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:15.460857"
+    },
+    "PHI": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:17.474714"
+    },
+    "VERIFY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:19.485790"
+    },
+    "CULTURE": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:21.511035"
+    }
+  },
+  "ollama:mistral:7b-instruct-q4_0": {
+    "BACKEND": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 45238.17992210388,
+      "prior_prob": 0.5077350269189626,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:22:36.437533"
+    },
+    "ARCHITECTURE": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 67023.34761619568,
+      "prior_prob": 0.5146965511460289,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:17:09.895027"
+    },
+    "SECURITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:11.431214"
+    },
+    "FIDELITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:13.446677"
+    },
+    "BURN": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:15.460859"
+    },
+    "PHI": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:17.474717"
+    },
+    "VERIFY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:19.485793"
+    },
+    "CULTURE": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:21.511038"
+    }
+  },
+  "ollama:gemma2:2b": {
+    "BACKEND": {
+      "success_count": 1,
+      "failure_count": 0,
+      "total_latency_ms": 47575.28829574585,
+      "prior_prob": 0.5077350269189626,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T05:23:29.044319"
+    },
+    "ARCHITECTURE": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:09.386023"
+    },
+    "SECURITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:11.431216"
+    },
+    "FIDELITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:13.446680"
+    },
+    "BURN": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:15.460861"
+    },
+    "PHI": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:17.474719"
+    },
+    "VERIFY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:19.485795"
+    },
+    "CULTURE": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:21.511040"
+    }
+  },
+  "ollama:nomic-embed-text:latest": {
+    "BACKEND": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:07.359818"
+    },
+    "ARCHITECTURE": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:09.386025"
+    },
+    "SECURITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:11.431219"
+    },
+    "FIDELITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:13.446683"
+    },
+    "BURN": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:15.460865"
+    },
+    "PHI": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:17.474722"
+    },
+    "VERIFY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:19.485798"
+    },
+    "CULTURE": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:21.511043"
+    }
+  },
+  "claude_cli:claude-cli": {
+    "BACKEND": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:07.359820"
+    },
+    "ARCHITECTURE": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:09.386027"
+    },
+    "SECURITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:11.431223"
+    },
+    "FIDELITY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:13.446686"
+    },
+    "BURN": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:15.460867"
+    },
+    "PHI": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:17.474724"
+    },
+    "VERIFY": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:19.485800"
+    },
+    "CULTURE": {
+      "success_count": 0,
+      "failure_count": 0,
+      "total_latency_ms": 0.0,
+      "prior_prob": 0.5,
+      "prior_weight": 2,
+      "last_seen": "2026-03-04T03:13:21.511046"
+    }
+  },
+  "_meta_total_trials": 14
+}
