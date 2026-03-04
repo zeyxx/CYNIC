@@ -704,6 +704,68 @@ class SecurityEventRepo(SecurityEventRepoInterface):
             "storage_table": "security_event",
         }
 
+    async def delete_events(
+        self, filters: dict[str, Any] | None = None, batch_size: int = 1000
+    ) -> int:
+        """Delete events matching filters (for retention enforcement). Returns count deleted."""
+        if filters is None:
+            filters = {}
+
+        # Build WHERE clause from filters
+        where_parts = []
+        params: dict[str, Any] = {}
+
+        if "timestamp_lte" in filters:
+            where_parts.append("timestamp <= $timestamp_lte")
+            params["timestamp_lte"] = filters["timestamp_lte"]
+        if "type" in filters:
+            where_parts.append("type = $type")
+            params["type"] = filters["type"]
+        if "actor_id" in filters:
+            where_parts.append("actor_id = $actor_id")
+            params["actor_id"] = filters["actor_id"]
+
+        # If no filters, don't delete everything
+        if not where_parts:
+            logger.warning("delete_events() called with no filters; aborting for safety")
+            return 0
+
+        # Batched deletion (SurrealDB can be slow with large deletes)
+        total_deleted = 0
+        max_retries = 3
+
+        for attempt in range(max_retries):
+            try:
+                where_clause = " AND ".join(where_parts)
+                params["batch_size"] = batch_size
+
+                delete_query = f"DELETE FROM security_event WHERE {where_clause} LIMIT $batch_size"
+                result = await self._db.query(delete_query, params)
+
+                # Count deleted from result
+                if result:
+                    first = result[0] if isinstance(result, list) else result
+                    if isinstance(first, dict):
+                        deleted = first.get("result", 0) or 0
+                    else:
+                        deleted = getattr(first, "result", 0) or 0
+                    total_deleted += deleted
+
+                    # Continue batching if we hit the batch limit
+                    if deleted < batch_size:
+                        break
+                else:
+                    break
+
+            except Exception as exc:
+                logger.error(f"Delete attempt {attempt + 1} failed: {exc}")
+                if attempt == max_retries - 1:
+                    raise
+                await asyncio.sleep(0.5 * (1.618 ** attempt))
+
+        logger.info(f"Deleted {total_deleted} security events (filters: {filters})")
+        return total_deleted
+
 
 #  STORAGE FACADE  one object, all repos
 

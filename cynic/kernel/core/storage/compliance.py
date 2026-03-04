@@ -10,15 +10,63 @@ Architecture:
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
 import time
 import json
+import os
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from cynic.kernel.core.storage.interface import StorageInterface
 
 logger = logging.getLogger("cynic.storage.compliance")
+
+
+class ReportSigner:
+    """Sign and verify compliance reports using HMAC-SHA256."""
+
+    def __init__(self, signing_key: str | None = None):
+        """Initialize with signing key from environment or parameter.
+
+        Args:
+            signing_key: Secret key for HMAC-SHA256. Defaults to CYNIC_REPORT_SIGNING_KEY env var.
+        """
+        self.signing_key = (
+            signing_key or os.environ.get("CYNIC_REPORT_SIGNING_KEY", "cynic-phi-618")
+        ).encode()
+
+    def sign_report(self, report_data: dict[str, Any]) -> str:
+        """Generate HMAC-SHA256 signature for report.
+
+        Args:
+            report_data: Report dict (will be JSON serialized)
+
+        Returns:
+            Hex-encoded HMAC-SHA256 signature
+        """
+        # Serialize report deterministically (sorted keys for consistency)
+        report_json = json.dumps(report_data, sort_keys=True, separators=(",", ":"))
+        signature = hmac.new(
+            self.signing_key,
+            report_json.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        return signature
+
+    def verify_signature(self, report_data: dict[str, Any], signature: str) -> bool:
+        """Verify HMAC-SHA256 signature for report.
+
+        Args:
+            report_data: Report dict
+            signature: Hex-encoded signature from sign_report()
+
+        Returns:
+            True if signature is valid, False otherwise
+        """
+        expected_signature = self.sign_report(report_data)
+        # Constant-time comparison to prevent timing attacks
+        return hmac.compare_digest(expected_signature, signature)
 
 
 class AuditEvent:
@@ -343,8 +391,16 @@ class RetentionPolicy:
         # Standard retention: 1 year
         cutoff = now - (self.retention_days * 24 * 3600)
 
-        # Get old events (would need storage implementation)
-        # For now, just return stats
+        # Delete old events using storage backend
+        try:
+            deleted = await storage.security_events.delete_events(
+                filters={"timestamp_lte": cutoff},
+                batch_size=1000,
+            )
+        except Exception as exc:
+            logger.error(f"Retention enforcement failed: {exc}")
+            errors = 1
+
         return {
             "deleted": deleted,
             "errors": errors,
@@ -364,9 +420,10 @@ class RetentionPolicy:
 class ComplianceReport:
     """Generate compliance reports (SOC2, GDPR, etc.)."""
 
-    def __init__(self, storage: StorageInterface | None = None):
+    def __init__(self, storage: StorageInterface | None = None, signing_key: str | None = None):
         self.storage = storage
         self.forensics = ForensicsQuery(storage)
+        self.signer = ReportSigner(signing_key)
 
     async def generate_soc2_report(self, days: int = 30) -> dict:
         """Generate SOC2 compliance report."""
@@ -397,7 +454,7 @@ class ComplianceReport:
             if event.get("severity") == "CRITICAL":
                 critical_events += 1
 
-        return {
+        report = {
             "report_type": "SOC2",
             "period_days": days,
             "total_events": len(events),
@@ -407,6 +464,11 @@ class ComplianceReport:
             "integrity_verified": True,
             "generated_timestamp": time.time(),
         }
+
+        # Sign the report for audit trail integrity
+        report["signature"] = self.signer.sign_report(report)
+
+        return report
 
     async def generate_gdpr_report(self, days: int = 30) -> dict:
         """Generate GDPR compliance report."""
@@ -430,7 +492,7 @@ class ComplianceReport:
             actors.add(actor)
             events_by_actor[actor] = events_by_actor.get(actor, 0) + 1
 
-        return {
+        report = {
             "report_type": "GDPR",
             "period_days": days,
             "total_events": len(events),
@@ -440,6 +502,11 @@ class ComplianceReport:
             "data_retention_policy": "active",
             "generated_timestamp": time.time(),
         }
+
+        # Sign the report for audit trail integrity
+        report["signature"] = self.signer.sign_report(report)
+
+        return report
 
     async def generate_incident_summary(self, incident_id: str) -> dict:
         """Generate summary of specific incident for investigation."""
@@ -451,7 +518,7 @@ class ComplianceReport:
 
         timeline = sorted(events, key=lambda e: e.get("timestamp", 0))
 
-        return {
+        report = {
             "incident_id": incident_id,
             "start_time": timeline[0].get("timestamp") if timeline else 0,
             "end_time": timeline[-1].get("timestamp") if timeline else 0,
@@ -461,6 +528,11 @@ class ComplianceReport:
                 set(e.get("actor") for e in events if e.get("actor"))
             ),
         }
+
+        # Sign the report for audit trail integrity
+        report["signature"] = self.signer.sign_report(report)
+
+        return report
 
 
 class AuditLoggingHandler:

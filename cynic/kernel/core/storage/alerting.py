@@ -10,7 +10,9 @@ Architecture:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
 import time
 from collections import defaultdict
 from enum import Enum
@@ -18,6 +20,11 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from cynic.kernel.core.storage.interface import StorageInterface
+
+try:
+    import httpx
+except ImportError:
+    httpx = None
 
 logger = logging.getLogger("cynic.storage.alerting")
 
@@ -282,23 +289,155 @@ class AlertRouter:
 
     async def _route_to_slack(self, alert: Alert) -> None:
         """Send to Slack webhook."""
-        # TODO: Implement Slack webhook
-        logger.debug(f"Would route to Slack: {alert.alert_id}")
+        if not httpx:
+            logger.warning("httpx not installed; skipping Slack webhook")
+            return
+
+        slack_webhook = os.environ.get("SLACK_WEBHOOK_URL")
+        if not slack_webhook:
+            logger.debug(f"No Slack webhook configured; skipping: {alert.alert_id}")
+            return
+
+        message = alert.to_slack_message()
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.post(slack_webhook, json=message)
+                if response.status_code != 200:
+                    logger.warning(
+                        f"Slack webhook returned {response.status_code}: {response.text}"
+                    )
+                else:
+                    logger.info(f"Routed alert {alert.alert_id} to Slack")
+        except Exception as exc:
+            logger.error(f"Failed to send Slack webhook: {exc}")
 
     async def _route_to_jira(self, alert: Alert) -> None:
         """Create Jira ticket."""
-        # TODO: Implement Jira API
-        logger.debug(f"Would create Jira ticket: {alert.alert_id}")
+        if not httpx:
+            logger.warning("httpx not installed; skipping Jira integration")
+            return
+
+        jira_url = os.environ.get("JIRA_URL")
+        jira_token = os.environ.get("JIRA_API_TOKEN")
+        if not jira_url or not jira_token:
+            logger.debug(f"No Jira credentials configured; skipping: {alert.alert_id}")
+            return
+
+        issue_data = alert.to_jira_issue()
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    f"{jira_url}/rest/api/3/issues",
+                    json=issue_data,
+                    auth=("", jira_token),  # Token auth: user is empty
+                )
+                if response.status_code not in [200, 201]:
+                    logger.warning(f"Jira API returned {response.status_code}: {response.text}")
+                else:
+                    logger.info(f"Created Jira ticket for alert {alert.alert_id}")
+        except Exception as exc:
+            logger.error(f"Failed to create Jira ticket: {exc}")
 
     async def _route_to_pagerduty(self, alert: Alert) -> None:
         """Trigger PagerDuty incident."""
-        # TODO: Implement PagerDuty API
-        logger.debug(f"Would trigger PagerDuty: {alert.alert_id}")
+        if not httpx:
+            logger.warning("httpx not installed; skipping PagerDuty integration")
+            return
+
+        pagerduty_token = os.environ.get("PAGERDUTY_API_TOKEN")
+        if not pagerduty_token:
+            logger.debug(f"No PagerDuty token configured; skipping: {alert.alert_id}")
+            return
+
+        event_data = {
+            "routing_key": pagerduty_token,
+            "event_action": "trigger",
+            "dedup_key": alert.alert_id,
+            "payload": {
+                "summary": f"CYNIC Alert: {alert.rule_id}",
+                "severity": alert.severity.value.lower(),
+                "source": "CYNIC Security",
+                "custom_details": {
+                    "actor_id": alert.event.get("actor_id"),
+                    "anomaly_score": alert.anomaly_scores.get("composite", 0),
+                    "related_events": len(alert.related_events),
+                },
+            },
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    "https://events.pagerduty.com/v2/enqueue",
+                    json=event_data,
+                )
+                if response.status_code != 202:
+                    logger.warning(
+                        f"PagerDuty API returned {response.status_code}: {response.text}"
+                    )
+                else:
+                    logger.info(f"Triggered PagerDuty incident for alert {alert.alert_id}")
+        except Exception as exc:
+            logger.error(f"Failed to trigger PagerDuty: {exc}")
 
     async def _route_to_team(self, alert: Alert, team: str) -> None:
-        """Notify team directly."""
-        # TODO: Implement team notification
-        logger.debug(f"Would notify {team}: {alert.alert_id}")
+        """Notify team directly (email or Teams webhook)."""
+        if not httpx:
+            logger.warning("httpx not installed; skipping team notification")
+            return
+
+        teams_webhook = os.environ.get("TEAMS_WEBHOOK_URL")
+        if not teams_webhook:
+            logger.debug(f"No Teams webhook configured; logging instead: {alert.alert_id}")
+            logger.warning(f"Team {team} should be notified of: {alert.alert_id}")
+            return
+
+        message = {
+            "type": "message",
+            "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "contentUrl": None,
+                    "content": {
+                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                        "type": "AdaptiveCard",
+                        "version": "1.4",
+                        "body": [
+                            {
+                                "type": "TextBlock",
+                                "text": f"🚨 CYNIC Security Alert for {team}",
+                                "weight": "bolder",
+                                "size": "large",
+                            },
+                            {
+                                "type": "FactSet",
+                                "facts": [
+                                    {"name": "Rule", "value": alert.rule_id},
+                                    {"name": "Severity", "value": alert.severity.value},
+                                    {"name": "Actor", "value": alert.event.get("actor_id", "unknown")},
+                                    {
+                                        "name": "Anomaly Score",
+                                        "value": f"{alert.anomaly_scores.get('composite', 0):.1%}",
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                }
+            ],
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.post(teams_webhook, json=message)
+                if response.status_code != 200:
+                    logger.warning(
+                        f"Teams webhook returned {response.status_code}: {response.text}"
+                    )
+                else:
+                    logger.info(f"Notified {team} of alert {alert.alert_id}")
+        except Exception as exc:
+            logger.error(f"Failed to notify {team}: {exc}")
 
 
 class AlertAuditLog:

@@ -178,6 +178,13 @@ class SecurityEventRepoInterface(ABC):
         """Get storage statistics (event count, disk usage, etc.)."""
         ...
 
+    @abstractmethod
+    async def delete_events(
+        self, filters: dict[str, Any] | None = None, batch_size: int = 1000
+    ) -> int:
+        """Delete events matching filters (for retention enforcement). Returns count deleted."""
+        ...
+
 
 class AxiomFacetRepoInterface(ABC):
     @abstractmethod
