@@ -1,0 +1,146 @@
+name: Integration Tests (Full Infrastructure)
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main, develop ]
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      surrealdb:
+        image: surrealdb/surrealdb:latest
+        ports:
+          - 8080:8080
+        options: >-
+          --health-cmd "curl -s http://localhost:8080/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      vault:
+        image: vault:latest
+        ports:
+          - 8200:8200
+        env:
+          VAULT_DEV_ROOT_TOKEN_ID: root
+        options: >-
+          --health-cmd "curl -s http://localhost:8200/v1/sys/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest pytest-asyncio pytest-cov httpx
+
+    - name: Wait for services
+      run: |
+        echo "🔄 Waiting for SurrealDB..."
+        for i in {1..30}; do
+          if curl -s http://localhost:8080/health > /dev/null; then
+            echo "✅ SurrealDB ready"
+            break
+          fi
+          echo "  Attempt $i/30..."
+          sleep 1
+        done
+
+        echo "🔄 Waiting for Vault..."
+        for i in {1..30}; do
+          if curl -s http://localhost:8200/v1/sys/health > /dev/null; then
+            echo "✅ Vault ready"
+            break
+          fi
+          echo "  Attempt $i/30..."
+          sleep 1
+        done
+
+    - name: Configure environment
+      run: |
+        export SURREAL_URL=ws://localhost:8080/rpc
+        export SURREAL_USER=root
+        export SURREAL_PASS=cynic_phi_618
+        export SURREAL_NS=cynic
+        export SURREAL_DB=cynic
+        export VAULT_ADDR=http://localhost:8200
+        export VAULT_TOKEN=root
+        export VAULT_SKIP_VERIFY=true
+
+        echo "SURREAL_URL=$SURREAL_URL" >> $GITHUB_ENV
+        echo "VAULT_ADDR=$VAULT_ADDR" >> $GITHUB_ENV
+        echo "VAULT_TOKEN=$VAULT_TOKEN" >> $GITHUB_ENV
+
+    - name: Run integration tests
+      run: |
+        echo "🚀 Starting integration tests with full infrastructure..."
+        pytest tests/integrations/ \
+          tests/test_integration_kernel_full_cycle.py \
+          tests/test_integration_real_surrealdb.py \
+          -v \
+          --tb=short \
+          --cov=cynic \
+          --cov-report=xml
+
+    - name: Check integration test results
+      if: always()
+      run: |
+        echo ""
+        echo "╔════════════════════════════════════════════════════════╗"
+        echo "║         INTEGRATION TEST RESULTS                       ║"
+        echo "╚════════════════════════════════════════════════════════╝"
+        echo ""
+
+        # Count test results
+        PASSED=$(grep -c "PASSED" test-output.log 2>/dev/null || echo "0")
+        FAILED=$(grep -c "FAILED" test-output.log 2>/dev/null || echo "0")
+
+        echo "✅ Passed: $PASSED"
+        echo "❌ Failed: $FAILED"
+        echo ""
+
+    - name: Upload integration report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: integration-test-report
+        path: coverage.xml
+
+  notification:
+    runs-on: ubuntu-latest
+    if: failure()
+    needs: [integration-tests]
+
+    steps:
+    - name: Notify failure (LOUD)
+      run: |
+        echo ""
+        echo "╔════════════════════════════════════════════════════════╗"
+        echo "║        ⚠️  INTEGRATION TESTS FAILED  ⚠️               ║"
+        echo "╠════════════════════════════════════════════════════════╣"
+        echo "║                                                        ║"
+        echo "║  Infrastructure services may be unavailable or tests   ║"
+        echo "║  require specific service configurations.              ║"
+        echo "║                                                        ║"
+        echo "║  See INFRASTRUCTURE_REQUIREMENTS.md for setup guide    ║"
+        echo "║                                                        ║"
+        echo "╚════════════════════════════════════════════════════════╝"
+        echo ""
+        exit 1

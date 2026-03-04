@@ -28,24 +28,27 @@ jobs:
         pip install -e .
         pip install pytest pytest-asyncio pytest-cov
 
-    - name: Lint with flake8
-      continue-on-error: true
+    - name: Lint with flake8 (HARD FAIL)
       run: |
         pip install flake8
-        # Stop the build if there are Python syntax errors or undefined names
+        echo "🔍 Checking for syntax errors..."
         flake8 cynic --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Exit-zero treats all errors as warnings
-        flake8 cynic --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        echo "✅ Syntax check passed"
+        echo ""
+        echo "⚠️ Style warnings (non-blocking):"
+        flake8 cynic --count --max-complexity=10 --max-line-length=127 --statistics || true
 
-    - name: Test with pytest
+    - name: Test with pytest (REALTIME VALIDATION)
       run: |
+        echo "🚀 Starting test suite..."
         pytest tests/ \
           --cov=cynic \
           --cov-report=xml \
           --cov-report=term-missing \
           -v \
           --tb=short \
-          -x
+          --strict-markers
+        echo "✅ All tests passed"
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -55,22 +58,25 @@ jobs:
         name: codecov-umbrella
         fail_ci_if_error: false
 
-    - name: Generate test report
+    - name: Generate test report (HTML)
       if: always()
       run: |
+        pip install pytest-html
         pytest tests/ \
           --cov=cynic \
           --cov-report=html \
           --html=report.html \
           --self-contained-html \
-          || true
+          --tb=short || true
+        echo "📊 Test report generated"
 
-    - name: Upload test report
+    - name: Upload test report artifact
       if: always()
       uses: actions/upload-artifact@v3
       with:
         name: test-report-${{ matrix.python-version }}
         path: report.html
+        if-no-files-found: warn
 
   coverage-gate:
     runs-on: ubuntu-latest
@@ -92,16 +98,17 @@ jobs:
         pip install -e .
         pip install pytest pytest-asyncio pytest-cov coverage
 
-    - name: Run tests with coverage
+    - name: Run tests with coverage (QUALITY GATE)
       run: |
+        echo "📈 Measuring test coverage..."
         pytest tests/ \
           --cov=cynic \
           --cov-report=xml \
           --cov-report=term \
           -v \
-          --tb=short || true
+          --tb=short
 
-    - name: Check coverage threshold (minimum 75%)
+    - name: Enforce coverage threshold (HARD MINIMUM 75%)
       run: |
         python << 'EOF'
         import xml.etree.ElementTree as ET
@@ -114,16 +121,21 @@ jobs:
             line_rate = float(root.get('line-rate', 0))
             coverage_pct = line_rate * 100
 
-            print(f"\nCode Coverage: {coverage_pct:.1f}%")
+            print(f"\n{'='*60}")
+            print(f"📊 Code Coverage: {coverage_pct:.1f}%")
+            print(f"{'='*60}")
 
             if coverage_pct >= MIN_COVERAGE:
-                print(f"PASS: Coverage meets minimum ({MIN_COVERAGE}%)")
+                print(f"✅ PASS: Coverage meets minimum ({MIN_COVERAGE}%)")
                 sys.exit(0)
             else:
-                print(f"FAIL: Coverage {coverage_pct:.1f}% < {MIN_COVERAGE}%")
+                print(f"❌ FAIL: Coverage {coverage_pct:.1f}% < {MIN_COVERAGE}% THRESHOLD")
+                print(f"\nAction required:")
+                print(f"  - Increase test coverage to >= {MIN_COVERAGE}%")
+                print(f"  - Current gap: {MIN_COVERAGE - coverage_pct:.1f}%")
                 sys.exit(1)
         except Exception as e:
-            print(f"ERROR: {e}")
+            print(f"❌ ERROR reading coverage: {e}")
             sys.exit(1)
         EOF
 
@@ -133,17 +145,55 @@ jobs:
     needs: [test, coverage-gate]
 
     steps:
-    - name: Check test results
+    - name: Report CI/CD Status (LOUD & CLEAR)
       env:
         TEST_RESULT: ${{ needs.test.result }}
         COVERAGE_RESULT: ${{ needs.coverage-gate.result }}
       run: |
-        if [ "$TEST_RESULT" == "failure" ]; then
-          echo "FAIL: Tests failed"
+        echo ""
+        echo "╔════════════════════════════════════════════════════════╗"
+        echo "║              CYNIC CI/CD RESULTS                       ║"
+        echo "╚════════════════════════════════════════════════════════╝"
+        echo ""
+
+        TEST_PASS="false"
+        COVERAGE_PASS="false"
+
+        if [ "$TEST_RESULT" == "success" ]; then
+          echo "✅ Tests: PASSED"
+          TEST_PASS="true"
+        else
+          echo "❌ Tests: FAILED (see logs above)"
+          TEST_PASS="false"
+        fi
+
+        if [ "$COVERAGE_RESULT" == "success" ]; then
+          echo "✅ Coverage: PASSED (>= 75%)"
+          COVERAGE_PASS="true"
+        else
+          echo "❌ Coverage: FAILED (< 75% threshold)"
+          COVERAGE_PASS="false"
+        fi
+
+        echo ""
+        echo "╔════════════════════════════════════════════════════════╗"
+
+        if [ "$TEST_PASS" == "true" ] && [ "$COVERAGE_PASS" == "true" ]; then
+          echo "║        🚀 BUILD PASSED - READY FOR MERGE 🚀           ║"
+          echo "╚════════════════════════════════════════════════════════╝"
+          echo ""
+          exit 0
+        else
+          echo "║        ❌ BUILD FAILED - FIX BEFORE MERGE ❌          ║"
+          echo "╚════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "Required Actions:"
+          if [ "$TEST_PASS" == "false" ]; then
+            echo "  1. Fix failing tests (see test logs)"
+          fi
+          if [ "$COVERAGE_PASS" == "false" ]; then
+            echo "  2. Increase test coverage to >= 75%"
+          fi
+          echo ""
           exit 1
         fi
-        if [ "$COVERAGE_RESULT" == "failure" ]; then
-          echo "FAIL: Coverage gate failed (< 75%)"
-          exit 1
-        fi
-        echo "PASS: All tests passed and coverage threshold met"
