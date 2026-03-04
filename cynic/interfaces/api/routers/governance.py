@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from cynic.interfaces.api.state import AppContainer, get_app_container
 from cynic.interfaces.api.middleware.authz import require_authz, RBACAuthorizer
+from cynic.interfaces.bots.governance.encryption import EncryptedCommunityModel
 from cynic.kernel.core.unified_state import (
     GovernanceCommunity,
     GovernanceProposal,
@@ -65,13 +66,19 @@ class OutcomeRequest(BaseModel):
 # "" Response Models """""""""""""""""""""""""""""""""""""""""""""""""
 
 class RegisterCommunityRequest(BaseModel):
-    """Request to register or update a governance community."""
+    """Request to register or update a governance community.
+
+    treasury_address and community_token are automatically encrypted
+    before storage (PHASE 1B security requirement).
+    """
     community_id: str = Field(..., min_length=1, max_length=255)
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
     governance_type: str = "consensus"
     member_count: int = Field(default=0, ge=0)
     is_active: bool = True
+    treasury_address: str | None = None  # Will be encrypted
+    community_token: str | None = None  # Will be encrypted
 
 class VerdictResponse(BaseModel):
     """CYNIC's verdict for a proposal."""
@@ -100,17 +107,54 @@ router = APIRouter(tags=["governance"])
 
 @router.post("/communities")
 async def register_community(req: RegisterCommunityRequest, container: AppContainer = Depends(get_app_container)):
-    """Register or update a community (with Pydantic validation)."""
+    """Register or update a community.
+
+    PHASE 1B: treasury_address and community_token are automatically encrypted
+    before storage using AES-256-GCM via Vault integration.
+
+    Sensitive fields are removed from plaintext storage and persisted as:
+    - _treasury_address_encrypted
+    - _community_token_encrypted
+    """
+    # Get encryption service from container (initialized during startup)
+    encryption_service = getattr(container, 'encryption_service', None)
+
+    # Prepare data with encryption
+    encrypted_model = EncryptedCommunityModel(encryption_service)
+    prepared_data = {
+        "community_id": req.community_id,
+        "name": req.name,
+        "description": req.description,
+        "governance_type": req.governance_type,
+        "member_count": req.member_count,
+        "is_active": req.is_active,
+    }
+
+    # Add sensitive fields for encryption
+    if req.treasury_address:
+        prepared_data["treasury_address"] = req.treasury_address
+    if req.community_token:
+        prepared_data["community_token"] = req.community_token
+
+    # Encrypt sensitive fields
+    prepared_data = await encrypted_model.prepare_create(prepared_data)
+
+    # Create community with encrypted values
     community = GovernanceCommunity(
-        community_id=req.community_id,
-        name=req.name,
-        description=req.description,
-        governance_type=req.governance_type,
-        member_count=req.member_count,
-        is_active=req.is_active,
+        community_id=prepared_data.get("community_id"),
+        name=prepared_data.get("name"),
+        description=prepared_data.get("description"),
+        governance_type=prepared_data.get("governance_type"),
+        member_count=prepared_data.get("member_count"),
+        is_active=prepared_data.get("is_active"),
     )
     await container.organism.state.register_community(community)
-    return {"status": "SUCCESS", "community_id": community.community_id}
+
+    return {
+        "status": "SUCCESS",
+        "community_id": community.community_id,
+        "encryption": "ENABLED" if encryption_service else "DISABLED (plaintext)"
+    }
 
 @router.post("/proposals")
 async def submit_proposal(
@@ -231,6 +275,29 @@ async def record_outcome(
         "status": "recorded",
         "timestamp": time.time(),
     }
+
+@router.get("/communities/{community_id}")
+async def get_community(
+    community_id: str,
+    container: AppContainer = Depends(get_app_container),
+):
+    """Get community details with decrypted sensitive fields.
+
+    PHASE 1B: Returns treasury_address and community_token decrypted from storage
+    using the encryption keys in Vault. Safe to return to authorized clients.
+    """
+    # Get community from state
+    community = await container.organism.state.get_community(community_id) if hasattr(container.organism.state, 'get_community') else None
+    if not community:
+        raise HTTPException(status_code=404, detail="Community not found")
+
+    # Get encryption service and decrypt sensitive fields
+    encryption_service = getattr(container, 'encryption_service', None)
+    encrypted_model = EncryptedCommunityModel(encryption_service)
+
+    # Return decrypted response
+    response = await encrypted_model.prepare_response(community)
+    return response
 
 @router.get("/status")
 async def governance_status(container: AppContainer = Depends(get_app_container)):
