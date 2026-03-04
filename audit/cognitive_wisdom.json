@@ -1,0 +1,39 @@
+{
+  "wisdom_nodes": [
+    {
+      "id": "unified_pipelines",
+      "source": "Chip Huyen",
+      "axiom": "FIDELITY",
+      "principle": "Unified Training-Serving Pipelines to prevent skew.",
+      "description": "Ensure the same data processing logic is used in both training and production environments."
+    },
+    {
+      "id": "data_drift_monitoring",
+      "source": "Chip Huyen",
+      "axiom": "VERIFY",
+      "principle": "Proactive Data Drift & Concept Drift Monitoring.",
+      "description": "Systems must signal performance pain before failure by monitoring distribution shifts."
+    },
+    {
+      "id": "standardized_transformer_triad",
+      "source": "Hugging Face",
+      "axiom": "PHI",
+      "principle": "Configuration-Model-Preprocessor Separation.",
+      "description": "Strict separation between model architecture, its configuration, and its input pre-processing."
+    },
+    {
+      "id": "peft_efficiency",
+      "source": "Hugging Face",
+      "axiom": "BURN",
+      "principle": "Parameter-Efficient Fine-Tuning (PEFT/LoRA).",
+      "description": "Modify minimal parameters for task adaptation to save metabolic energy (VRAM/Compute)."
+    },
+    {
+      "id": "rag_zero_trust",
+      "source": "Generative AI Guide",
+      "axiom": "CULTURE",
+      "principle": "Retrieval Augmented Generation (RAG) for Context.",
+      "description": "Use dynamic context retrieval to reduce hallucinations and ensure data sovereignty."
+    }
+  ]
+}
