@@ -179,6 +179,54 @@ class OrganismOrchestrator:
             "output": response_text
         }
 
+    async def ignite_emergence(self, mission_limit: int = 10) -> None:
+        """
+        Innate Emergence Cycle: Curiosity -> Discovery -> Action -> Learning.
+        The organism self-assigns tasks to improve its own codebase.
+        """
+        from cynic.kernel.organism.discovery import DiscoveryDaemon
+        from cynic.kernel.organism.metabolism.cockpit import NightCockpit
+        import asyncio
+
+        logger.info(f"Organism '{self.instance_id}': Initiating innate emergence cycle.")
+        discovery = DiscoveryDaemon()
+        cockpit = NightCockpit()
+        
+        missions_done = 0
+        
+        # 1. Discovery
+        missions = discovery.find_potential_missions()
+        active_missions = missions[:mission_limit]
+        
+        # 2. Action Loop
+        for i, mission in enumerate(active_missions):
+            target = mission['target']
+            axiom = mission['axiom']
+            
+            logger.info(f"Emergence: Processing Mission {i+1}/{len(active_missions)} -> {target}")
+            
+            try:
+                result = await self.process_task(
+                    f"Analyze and propose a fix for {target}. Context: {mission['description']}",
+                    axiom=axiom
+                )
+                
+                # Innate checkpointing
+                await self.vault.persist()
+                missions_done += 1
+                
+                # Cockpit update
+                cockpit.update_mission(target, axiom, "Analysis Complete", result['muscle'], True)
+                cockpit.update_summary(missions_done, missions_done) # learning_shifts = missions_done for now
+                
+            except Exception as e:
+                logger.error(f"Emergence Failure: {target} - {e}")
+                cockpit.update_mission(target, axiom, f"Error: {e}", "N/A", False)
+
+            await asyncio.sleep(5) # Metabolic rest
+
+        logger.info(f"Emergence Cycle Complete: {missions_done} improvements analyzed.")
+
     async def sleep(self) -> None:
         """Gracefully shutdown the organism and consolidate learning."""
         from cynic.kernel.organism.improvement import get_improvement_cortex
@@ -211,3 +259,22 @@ class DockerManager:
 class HealthMonitor:
     async def check(self) -> dict[str, str]:
         return {"status": "healthy"}
+
+
+if __name__ == "__main__":
+    import asyncio
+    import sys
+
+    async def main():
+        orch = OrganismOrchestrator(instance_id="cynic-sovereign")
+        try:
+            await orch.awake()
+            # If --night-cycle is passed, run emergence
+            if "--night-cycle" in sys.argv:
+                await orch.ignite_emergence(mission_limit=10)
+            else:
+                print("CYNIC Organism Active. Use --night-cycle for autonomous emergence.")
+        finally:
+            await orch.sleep()
+
+    asyncio.run(main())

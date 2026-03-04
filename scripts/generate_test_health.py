@@ -5,6 +5,11 @@ import subprocess
 import sys
 from datetime import datetime
 import re
+import os
+
+# Fix Windows encoding issues with Unicode characters
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8')
 
 print("\n" + "="*70)
 print("CYNIC LOCAL TEST HEALTH REPORT")
