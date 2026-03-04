@@ -50,9 +50,13 @@ async def get_adapter() -> ClaudeCodeAdapter:
 
 async def _ensure_kernel_running(timeout: float = 30.0, spawn_if_down: bool = False) -> bool:
     """Check kernel health; uses module-level aiohttp (patchable by tests)."""
+    def spawn_fn() -> None:
+        """Spawn kernel using module-level subprocess (sync wrapper)."""
+        do_spawn_kernel(subprocess_module=subprocess)
+
     return await ensure_kernel_running(
         aiohttp_module=aiohttp,
-        spawn_fn=lambda: _spawn_kernel(),
+        spawn_fn=spawn_fn,
         timeout=timeout,
         spawn_if_down=spawn_if_down,
     )
