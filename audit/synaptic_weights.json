@@ -296,7 +296,7 @@
       "success_count": 1,
       "failure_count": 0,
       "total_latency_ms": 19525.197744369507,
-      "prior_prob": 0.6355000000000001,
+      "prior_prob": 0.7608515499999999,
       "prior_weight": 2,
       "last_seen": "2026-03-04T04:30:30.179068"
     },
@@ -333,12 +333,12 @@
       "last_seen": "2026-03-04T03:13:17.474709"
     },
     "VERIFY": {
-      "success_count": 0,
+      "success_count": 1,
       "failure_count": 0,
-      "total_latency_ms": 0.0,
+      "total_latency_ms": 87135.35857200623,
       "prior_prob": 0.5,
       "prior_weight": 2,
-      "last_seen": "2026-03-04T03:13:19.485786"
+      "last_seen": "2026-03-04T05:32:56.658229"
     },
     "CULTURE": {
       "success_count": 0,
@@ -362,7 +362,7 @@
       "success_count": 1,
       "failure_count": 0,
       "total_latency_ms": 62955.583810806274,
-      "prior_prob": 0.6355000000000001,
+      "prior_prob": 0.7608515499999999,
       "prior_weight": 2,
       "last_seen": "2026-03-04T04:37:19.088655"
     },
@@ -486,7 +486,7 @@
       "success_count": 1,
       "failure_count": 0,
       "total_latency_ms": 45238.17992210388,
-      "prior_prob": 0.5077350269189626,
+      "prior_prob": 0.5316757087358436,
       "prior_weight": 2,
       "last_seen": "2026-03-04T05:22:36.437533"
     },
@@ -494,7 +494,7 @@
       "success_count": 1,
       "failure_count": 0,
       "total_latency_ms": 67023.34761619568,
-      "prior_prob": 0.5146965511460289,
+      "prior_prob": 0.5362431647812218,
       "prior_weight": 2,
       "last_seen": "2026-03-04T05:17:09.895027"
     },
@@ -552,7 +552,7 @@
       "success_count": 1,
       "failure_count": 0,
       "total_latency_ms": 47575.28829574585,
-      "prior_prob": 0.5077350269189626,
+      "prior_prob": 0.5316757087358436,
       "prior_weight": 2,
       "last_seen": "2026-03-04T05:23:29.044319"
     },
@@ -745,5 +745,5 @@
       "last_seen": "2026-03-04T03:13:21.511046"
     }
   },
-  "_meta_total_trials": 14
+  "_meta_total_trials": 15
 }

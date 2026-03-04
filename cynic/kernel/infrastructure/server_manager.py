@@ -17,15 +17,22 @@ logger = logging.getLogger("cynic.infrastructure.server_manager")
 class SovereignServerManager:
     """
     Orchestrates the lifecycle of llama-server processes.
-    Optimized for Vulkan on Ryzen APUs.
+    Includes a Circuit Breaker to prevent system-wide crashes.
     """
     def __init__(self, model_dir: str = "D:/cynic-models"):
         self.model_dir = Path(model_dir)
         self._processes: Dict[int, subprocess.Popen] = {}
+        self._quarantine: Dict[str, float] = {} # Model -> Timestamp of failure
         self.active_port: Optional[int] = None
 
     async def start_server(self, model_name: str, port: int = 8080) -> bool:
-        """Starts a llama-server with Vulkan acceleration."""
+        """Starts a llama-server with Vulkan acceleration and safety checks."""
+        import time
+        if model_name in self._quarantine:
+            if time.time() - self._quarantine[model_name] < 3600: # 1h quarantine
+                logger.warning(f"ServerManager: {model_name} is in quarantine due to recent hardware crash.")
+                return False
+
         model_path = self.model_dir / model_name
         if not model_path.exists():
             logger.error(f"ServerManager: Model not found at {model_path}")
@@ -43,7 +50,6 @@ class SovereignServerManager:
 
         try:
             logger.info(f"ServerManager: Launching {model_name} on port {port} (Vulkan)...")
-            # Using subprocess.Popen for long-running background process
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
@@ -51,17 +57,23 @@ class SovereignServerManager:
                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
             )
             
-            # Wait for server to warm up
-            await asyncio.sleep(5)
+            # Monitoring loop during warm-up
+            for i in range(6):
+                await asyncio.sleep(5)
+                retcode = process.poll()
+                if retcode is not None:
+                    if retcode == 3221225477: # Access Violation
+                        logger.critical(f"ServerManager: HARDWARE CRASH (Access Violation) detected for {model_name}. Quarantining.")
+                        self._quarantine[model_name] = time.time()
+                    else:
+                        logger.error(f"ServerManager: Process died with code {retcode}")
+                    return False
+                logger.info(f"ServerManager: Warming up... ({i+1}/6)")
             
-            if process.poll() is None:
-                self._processes[port] = process
-                self.active_port = port
-                logger.info(f"ServerManager: Server active (PID: {process.pid})")
-                return True
-            else:
-                logger.error("ServerManager: Process failed to start immediately.")
-                return False
+            self._processes[port] = process
+            self.active_port = port
+            logger.info(f"ServerManager: Server active (PID: {process.pid})")
+            return True
         except Exception as e:
             logger.error(f"ServerManager: Launch failed: {e}")
             return False

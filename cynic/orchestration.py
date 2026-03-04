@@ -51,22 +51,20 @@ class OrganismOrchestrator:
         )
 
     async def awake(self) -> None:
-        """Initialize all systems, discover muscles and manage servers."""
+        """Initialize all systems and discover muscles."""
         logger.info(f"Organism '{self.instance_id}' is awakening...")
         
-        # Automatic Hardware Activation (Vulkan)
-        # If no sovereign server is found, we try to start one with Qwen3.5 4B (Balanced)
+        # Discovery of already running services (Ollama, local servers)
         await self.registry.discover()
         
-        if not any("llama_cpp_server" in a.provider for a in self.registry.get_available()):
-            logger.warning("Organism: No sovereign server detected. Attempting to ignite APU...")
-            await self.server_manager.start_server("Qwen3.5-4B-Q4_K_M.gguf")
-            await self.registry.discover() # Rediscover after server start
+        # NOTE: Auto-ignition of llama-server disabled for Night One 
+        # to avoid Access Violation (0xC0000005) on Radeon Vega 8 drivers.
+        # Use existing Ollama models for stability.
 
         # Ensure memory is loaded
         self.vault.load()
         self.cognitive_graph.load()
-        logger.info("Organism: All systems online, memory loaded and hardware managed.")
+        logger.info("Organism: All systems online, memory loaded and hardware stable.")
 
     async def select_best_muscle(self, axiom: str, candidates: List[str]) -> str:
         """Selects the best muscle for a task based on past experience."""
@@ -120,21 +118,32 @@ class OrganismOrchestrator:
             
             logger.info(f"Organism: Firing synapse on {best_muscle}...")
             
-            # Real E2E with deep parameters and KV slotting
-            response = await adapter.complete_safe(
-                LLMRequest(
-                    prompt=full_prompt,
-                    system="You are CYNIC, an autonomous OS. Use your full cognitive depth.",
-                    max_tokens=params.max_tokens,
-                    temperature=params.temperature,
-                    metadata={
-                        "top_p": params.top_p, 
-                        "repeat_penalty": params.repeat_penalty,
-                        "slot_id": target_slot,
-                        "cache_prompt": True
-                    }
+            # Create a heartbeat task to show life during long inference
+            async def heartbeat():
+                while True:
+                    await asyncio.sleep(15)
+                    logger.info(f"Organism: Still thinking... (Axiom: {axiom}, Muscle: {best_muscle})")
+            
+            heartbeat_task = asyncio.create_task(heartbeat())
+
+            try:
+                # Real E2E with deep parameters and KV slotting
+                response = await adapter.complete_safe(
+                    LLMRequest(
+                        prompt=full_prompt,
+                        system="You are CYNIC, an autonomous OS. Use your full cognitive depth.",
+                        max_tokens=params.max_tokens,
+                        temperature=params.temperature,
+                        metadata={
+                            "top_p": params.top_p, 
+                            "repeat_penalty": params.repeat_penalty,
+                            "slot_id": target_slot,
+                            "cache_prompt": True
+                        }
+                    )
                 )
-            )
+            finally:
+                heartbeat_task.cancel()
             success = response.is_success
             latency_ms = response.latency_ms if response.latency_ms > 0 else (time.time() - start_time) * 1000
             response_text = response.content
@@ -181,51 +190,63 @@ class OrganismOrchestrator:
 
     async def ignite_emergence(self, mission_limit: int = 10) -> None:
         """
-        Innate Emergence Cycle: Curiosity -> Discovery -> Action -> Learning.
-        The organism self-assigns tasks to improve its own codebase.
+        Industrial Emergence Cycle: Non-blocking, event-driven, and resilient.
         """
         from cynic.kernel.organism.discovery import DiscoveryDaemon
         from cynic.kernel.organism.metabolism.cockpit import NightCockpit
+        from cynic.kernel.organism.metabolism.task_queue import TaskOrchestrator, EmergenceMission
         import asyncio
 
-        logger.info(f"Organism '{self.instance_id}': Initiating innate emergence cycle.")
+        logger.info(f"Organism '{self.instance_id}': Initiating industrial emergence.")
         discovery = DiscoveryDaemon()
         cockpit = NightCockpit()
         
-        missions_done = 0
+        # Initialize Non-blocking Orchestrator
+        task_orch = TaskOrchestrator(concurrency_limit=1)
         
-        # 1. Discovery
-        missions = discovery.find_potential_missions()
-        active_missions = missions[:mission_limit]
-        
-        # 2. Action Loop
-        for i, mission in enumerate(active_missions):
-            target = mission['target']
-            axiom = mission['axiom']
-            
-            logger.info(f"Emergence: Processing Mission {i+1}/{len(active_missions)} -> {target}")
-            
+        async def mission_processor(mission: EmergenceMission):
+            """The actual worker logic."""
             try:
+                # 1. Processing
                 result = await self.process_task(
-                    f"Analyze and propose a fix for {target}. Context: {mission['description']}",
-                    axiom=axiom
+                    f"Analyze and propose a fix for {mission.target}. Context: {mission.description}",
+                    axiom=mission.axiom
                 )
                 
-                # Innate checkpointing
+                # 2. Checkpointing
                 await self.vault.persist()
-                missions_done += 1
                 
-                # Cockpit update
-                cockpit.update_mission(target, axiom, "Analysis Complete", result['muscle'], True)
-                cockpit.update_summary(missions_done, missions_done) # learning_shifts = missions_done for now
+                # 3. Observability
+                cockpit.update_mission(mission.target, mission.axiom, "Analysis Complete", result['muscle'], True)
+                logger.info(f"Mission {mission.mission_id} completed successfully.")
                 
             except Exception as e:
-                logger.error(f"Emergence Failure: {target} - {e}")
-                cockpit.update_mission(target, axiom, f"Error: {e}", "N/A", False)
+                logger.error(f"Mission {mission.mission_id} failed: {e}")
+                cockpit.update_mission(mission.target, mission.axiom, f"Error: {e}", "N/A", False)
 
-            await asyncio.sleep(5) # Metabolic rest
+        # Start Workers
+        await task_orch.start(mission_processor)
 
-        logger.info(f"Emergence Cycle Complete: {missions_done} improvements analyzed.")
+        # 1. Discovery Phase
+        potential_missions = discovery.find_potential_missions()
+        for i, m in enumerate(potential_missions[:mission_limit]):
+            mission = EmergenceMission(
+                mission_id=f"M-{i+1}",
+                axiom=m['axiom'],
+                target=m['target'],
+                description=m['description']
+            )
+            await task_orch.add_mission(mission)
+
+        # 2. Wait for completion while keeping the Organism alive
+        while not task_orch.queue.empty() or any(not w.done() for w in task_orch._workers if hasattr(w, 'done')):
+            missions_left = task_orch.queue.qsize()
+            cockpit.update_summary(mission_limit - missions_left, mission_limit - missions_left)
+            await asyncio.sleep(10) # Heartbeat
+            if missions_left == 0: break
+
+        await task_orch.stop()
+        logger.info("Emergence Cycle Complete.")
 
     async def sleep(self) -> None:
         """Gracefully shutdown the organism and consolidate learning."""

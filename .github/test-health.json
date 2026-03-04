@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-03-04T05:29:15.990472",
+  "status": "unhealthy",
+  "tests": {
+    "total": 1386,
+    "passed": 1297,
+    "failed": 76,
+    "skipped": 13
+  },
+  "coverage": {
+    "percentage": 43,
+    "minimum": 75,
+    "status": "\u274c below minimum"
+  },
+  "quality_gates": {
+    "complexity_maximum": 10,
+    "maintainability_minimum": 70,
+    "coverage_minimum": 75
+  },
+  "validation": {
+    "local_precommit": "enforced",
+    "silent_failures": "eliminated",
+    "ai_amplification_guard": "active"
+  }
+}
