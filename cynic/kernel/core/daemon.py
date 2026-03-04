@@ -18,6 +18,7 @@ from cynic.config import CynicConfig
 from cynic.kernel.core.vascular import VascularSystem
 from cynic.kernel.core.event_bus import EventBus
 from cynic.kernel.core.supervisor import KernelSupervisor
+from cynic.kernel.infrastructure.orchestrator import InfrastructureOrchestrator
 from cynic.kernel.organism.metabolism.embodiment import UniversalHardwareBody
 from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
 
@@ -29,6 +30,7 @@ class CynicDaemon:
 
     def __init__(self, config: Optional[CynicConfig] = None):
         self.config = config or CynicConfig()
+        self.infra = InfrastructureOrchestrator()
         self.bus = EventBus(bus_id=self.config.instance_id)
         self.vascular = VascularSystem(
             instance_id=self.config.instance_id, redis_url=self.config.redis_url
@@ -73,8 +75,15 @@ class CynicDaemon:
             return
         self._running = True
 
-        print("--- 🌀 CYNIC DAEMON: AWAKENING ---")
+        print("--- CYNIC DAEMON: AWAKENING ---")
         logger.info(f"Starting CYNIC Daemon [{self.config.instance_id}]")
+
+        # 0. Boot Physical Infrastructure
+        infra_ready = await self.infra.provision_reality()
+        if not infra_ready:
+            logger.critical("Daemon boot halted: Infrastructure provision failed.")
+            self._running = False
+            return
 
         # 1. Start Vascular (Pooling) - usually synchronous or self-managing
 
@@ -97,7 +106,7 @@ class CynicDaemon:
         if not self._running:
             return
         self._running = False
-        print("\n--- 💤 CYNIC DAEMON: PUTTING TO SLEEP ---")
+        print("\n--- CYNIC DAEMON: PUTTING TO SLEEP ---")
         await self.supervisor.stop_all()
         await self.vascular.close()
         logger.info("Shutdown complete.")
@@ -106,10 +115,14 @@ class CynicDaemon:
 async def main():
     daemon = CynicDaemon()
 
-    # Handle OS signals
+    # Handle OS signals (gracefully handle Windows limitation)
     loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, lambda: asyncio.create_task(daemon.stop()))
+    try:
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(daemon.stop()))
+    except NotImplementedError:
+        # Windows does not support add_signal_handler
+        pass
 
     try:
         await daemon.start()

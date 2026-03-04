@@ -73,6 +73,9 @@ class CoreEvent(str, Enum):
     CONSENSUS_REACHED = "core.consensus_reached"
     CONSENSUS_FAILED = "core.consensus_failed"
     LEARNING_EVENT = "core.learning_event"
+    # -- Action Events --
+    ACTION_REQUESTED = "core.action_requested"
+    ACTION_COMPLETED = "core.action_completed"
     ANOMALY_DETECTED = "core.anomaly_detected"
     SONA_TICK = "core.sona_tick"
     LOD_CHANGED = "core.lod_changed"
