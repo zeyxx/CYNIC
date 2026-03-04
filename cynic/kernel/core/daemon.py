@@ -17,6 +17,7 @@ from typing import Optional, Any
 from cynic.config import CynicConfig
 from cynic.kernel.core.vascular import VascularSystem
 from cynic.kernel.core.event_bus import EventBus
+from cynic.kernel.core.supervisor import KernelSupervisor
 from cynic.kernel.organism.metabolism.embodiment import UniversalHardwareBody
 from cynic.kernel.organism.metabolism.scheduler import ConsciousnessRhythm
 
@@ -41,6 +42,7 @@ class CynicDaemon:
             bus=self.bus,
         )
 
+        self.supervisor = KernelSupervisor()
         self._running = False
 
     async def run(self, cell: Any, level: Any):
@@ -48,6 +50,22 @@ class CynicDaemon:
         # This will be replaced by the real Orchestrator later
         logger.debug(f"Daemon: Processing cell at level {level}")
         await asyncio.sleep(0.01)
+
+    async def _somatic_loop(self):
+        """Maintains the physical heartbeat."""
+        while self._running:
+            await self.body.pulse()
+            await asyncio.sleep(1.0)
+
+    async def _cognitive_loop(self):
+        """Maintains the thought rhythm."""
+        self.rhythm.start()
+        try:
+            # Wait forever until the supervisor cancels this task
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            await self.rhythm.stop()
+            raise
 
     async def start(self):
         """Unified boot sequence."""
@@ -58,18 +76,19 @@ class CynicDaemon:
         print("--- 🌀 CYNIC DAEMON: AWAKENING ---")
         logger.info(f"Starting CYNIC Daemon [{self.config.instance_id}]")
 
-        # 1. Start Vascular (Pooling)
-        # 2. Start Body (Senses)
-        # 3. Start Rhythm (Cognition)
-        self.rhythm.start()
+        # 1. Start Vascular (Pooling) - usually synchronous or self-managing
 
-        logger.info("Organism is fully awake and synchronized.")
+        # 2. Register organs with Supervisor
+        self.supervisor.register("somatic_pulse", self._somatic_loop)
+        self.supervisor.register("cognitive_rhythm", self._cognitive_loop)
+
+        logger.info("Organism is fully awake and supervised.")
 
         try:
+            # The supervisor will run indefinitely until stopped
+            await self.supervisor.start_all()
             while self._running:
-                # Standard pulse
-                await self.body.pulse()
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(0.1)
         except asyncio.CancelledError:
             await self.stop()
 
@@ -79,7 +98,7 @@ class CynicDaemon:
             return
         self._running = False
         print("\n--- 💤 CYNIC DAEMON: PUTTING TO SLEEP ---")
-        await self.rhythm.stop()
+        await self.supervisor.stop_all()
         await self.vascular.close()
         logger.info("Shutdown complete.")
 

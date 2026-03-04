@@ -10,6 +10,7 @@ NOTE: The bash tool intentionally uses create_subprocess_shell because
 it must support pipes, redirects, and other shell features. CYNIC's
 GuardianDog REFLEX judgment provides the safety layer (BARK ' blocked).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,8 +19,10 @@ import os
 import pathlib
 import re
 import time
-from typing import Any
+from typing import Any, Optional
+import httpx
 
+from cynic.kernel.core.exceptions import CynicError
 from cynic.interfaces.chat.tools import ToolCall, ToolResult
 from cynic.kernel.core.formulas import (
     BASH_OUTPUT_CAP,
@@ -86,7 +89,7 @@ class ToolExecutor:
                 output=output,
                 duration_ms=(time.time() - start) * 1000,
             )
-        except CynicError as exc:
+        except Exception as exc:
             return ToolResult(
                 call=call,
                 error=str(exc),
@@ -106,7 +109,9 @@ class ToolExecutor:
                 content=content,
                 context=f"CYNIC Code tool execution: {call.name}",
             )
-            judgment = await self.orchestrator.run(cell, level=ConsciousnessLevel.REFLEX)
+            judgment = await self.orchestrator.run(
+                cell, level=ConsciousnessLevel.REFLEX
+            )
 
             if judgment.verdict == "BARK":
                 return ToolResult(
@@ -128,17 +133,27 @@ class ToolExecutor:
         args = call.arguments
 
         if name == "bash":
-            return await self._exec_bash(args.get("command", ""), args.get("timeout", 120))
+            return await self._exec_bash(
+                args.get("command", ""), args.get("timeout", 120)
+            )
         if name == "read":
-            return await self._exec_read(args.get("path", ""), args.get("offset"), args.get("limit"))
+            return await self._exec_read(
+                args.get("path", ""), args.get("offset"), args.get("limit")
+            )
         if name == "write":
             return await self._exec_write(args.get("path", ""), args.get("content", ""))
         if name == "edit":
-            return await self._exec_edit(args.get("path", ""), args.get("old_string", ""), args.get("new_string", ""))
+            return await self._exec_edit(
+                args.get("path", ""),
+                args.get("old_string", ""),
+                args.get("new_string", ""),
+            )
         if name == "glob":
             return await self._exec_glob(args.get("pattern", ""), args.get("path"))
         if name == "grep":
-            return await self._exec_grep(args.get("pattern", ""), args.get("path"), args.get("glob"))
+            return await self._exec_grep(
+                args.get("pattern", ""), args.get("path"), args.get("glob")
+            )
 
         return f"Unknown tool: {name}"
 
@@ -174,18 +189,26 @@ class ToolExecutor:
             result += f"\n[exit code: {proc.returncode}]"
 
         if len(result) > _BASH_CAP:
-            result = result[:_BASH_CAP] + f"\n... (truncated, {len(result)} total chars)"
+            result = (
+                result[:_BASH_CAP] + f"\n... (truncated, {len(result)} total chars)"
+            )
         return result or "(no output)"
 
-    async def _exec_read(self, path: str, offset: Optional[int] = None, limit: Optional[int] = None) -> str:
+    async def _exec_read(
+        self, path: str, offset: Optional[int] = None, limit: Optional[int] = None
+    ) -> str:
         if not path:
             raise ValueError("Path required")
         resolved = self._resolve_path(path)
 
         loop = asyncio.get_running_loop()
-        content = await loop.run_in_executor(None, self._sync_read, resolved, offset, limit)
+        content = await loop.run_in_executor(
+            None, self._sync_read, resolved, offset, limit
+        )
         if len(content) > _READ_CAP:
-            content = content[:_READ_CAP] + f"\n... (truncated, {len(content)} total chars)"
+            content = (
+                content[:_READ_CAP] + f"\n... (truncated, {len(content)} total chars)"
+            )
         return content
 
     @staticmethod
@@ -215,6 +238,13 @@ class ToolExecutor:
 
     @staticmethod
     def _sync_write(path: str, content: str) -> None:
+        if path.endswith(".py"):
+            from cynic.kernel.security.heresy_filter import HeresyFilter
+
+            is_clean, error = HeresyFilter.is_clean(content)
+            if not is_clean:
+                raise ValueError(f"HeresyFilter blocked write:\n{error}")
+
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(content)
@@ -229,7 +259,9 @@ class ToolExecutor:
         resolved = self._resolve_path(path)
 
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self._sync_edit, resolved, old_string, new_string)
+        return await loop.run_in_executor(
+            None, self._sync_edit, resolved, old_string, new_string
+        )
 
     @staticmethod
     def _sync_edit(path: str, old_string: str, new_string: str) -> str:
@@ -240,9 +272,19 @@ class ToolExecutor:
         if count == 0:
             raise ValueError(f"old_string not found in {path}")
         if count > 1:
-            raise ValueError(f"old_string found {count} times in {path} - must be unique")
+            raise ValueError(
+                f"old_string found {count} times in {path} - must be unique"
+            )
 
         new_content = content.replace(old_string, new_string, 1)
+
+        if path.endswith(".py"):
+            from cynic.kernel.security.heresy_filter import HeresyFilter
+
+            is_clean, error = HeresyFilter.is_clean(new_content)
+            if not is_clean:
+                raise ValueError(f"HeresyFilter blocked edit:\n{error}")
+
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(new_content)
         return f"Edited {path} (1 replacement)"
@@ -264,7 +306,12 @@ class ToolExecutor:
             result = result[:_GLOB_CAP] + f"\n... ({len(matches)} total matches)"
         return result
 
-    async def _exec_grep(self, pattern: str, path: Optional[str] = None, glob_filter: Optional[str] = None) -> str:
+    async def _exec_grep(
+        self,
+        pattern: str,
+        path: Optional[str] = None,
+        glob_filter: Optional[str] = None,
+    ) -> str:
         if not pattern:
             raise ValueError("Pattern required")
         base = self._resolve_path(path) if path else self.cwd
@@ -275,7 +322,9 @@ class ToolExecutor:
         except FileNotFoundError:
             return await self._grep_python(pattern, base, glob_filter)
 
-    async def _grep_rg(self, pattern: str, path: str, glob_filter: Optional[str]) -> str:
+    async def _grep_rg(
+        self, pattern: str, path: str, glob_filter: Optional[str]
+    ) -> str:
         cmd = ["rg", "--no-heading", "-n", "--max-count", "50", pattern, path]
         if glob_filter:
             cmd.extend(["--glob", glob_filter])
@@ -291,7 +340,9 @@ class ToolExecutor:
             result = result[:_GREP_CAP] + "\n... (truncated)"
         return result
 
-    async def _grep_python(self, pattern: str, path: str, glob_filter: Optional[str]) -> str:
+    async def _grep_python(
+        self, pattern: str, path: str, glob_filter: Optional[str]
+    ) -> str:
         """Fallback grep using Python re module."""
         base = pathlib.Path(path)
         regex = re.compile(pattern)
