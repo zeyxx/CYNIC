@@ -70,12 +70,52 @@ class OrganismOrchestrator:
         logger.info(f"Organism: Appropriating resources for {best_muscle}")
         await self.governor.allocate(best_muscle)
 
-        # 3. Final Result Construction
+        # 3. Real E2E Execution
+        success = False
+        latency_ms = 0.0
+        response_text = ""
+        
+        # Find the actual adapter instance
+        adapter = next((a for a in adapters if a.llm_id == best_muscle), None)
+        
+        if adapter:
+            from cynic.kernel.organism.brain.llm.adapter import LLMRequest
+            import time
+            start_time = time.time()
+            
+            logger.info(f"Organism: Firing synapse on {best_muscle}...")
+            
+            # This is REAL inference. It will wait for the model to compute.
+            response = await adapter.complete_safe(
+                LLMRequest(
+                    prompt=f"Task: {task_description}\nProvide a concise 1-sentence analysis.",
+                    system="You are CYNIC, an autonomous OS. Be extremely brief.",
+                    max_tokens=50
+                )
+            )
+            success = response.is_success
+            latency_ms = response.latency_ms if response.latency_ms > 0 else (time.time() - start_time) * 1000
+            response_text = response.content
+            logger.info(f"Organism: Output received ({latency_ms:.0f}ms): {response_text.strip()}")
+            
+            # 4. Learning (Synaptic Update based on REAL results)
+            await self.vault.record_experience(
+                llm_id=best_muscle, 
+                axiom=axiom, 
+                success=success, 
+                latency_ms=latency_ms
+            )
+        else:
+            logger.error(f"Organism: Failed to ignite synapse for {best_muscle} (Adapter not found)")
+
+        # 5. Final Result Construction
         return {
             "instance_id": self.instance_id,
             "routing": decision,
             "muscle": best_muscle,
             "status": "PROCESSED",
+            "latency_ms": latency_ms,
+            "output": response_text
         }
 
     async def sleep(self) -> None:

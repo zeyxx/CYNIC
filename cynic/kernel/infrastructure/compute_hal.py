@@ -70,7 +70,20 @@ class ComputeHAL:
         except (RuntimeError, AssertionError) as e:
             logger.error(f"HAL: CUDA acceleration unavailable: {e}")
 
-        # 3. CPU AVX2 (Optimized Fallback)
+        # 3. Vulkan (AMD APUs / Radeon Vega)
+        try:
+            # Check if vulkan is supported by torch or accessible
+            if hasattr(torch, "is_vulkan_available") and torch.is_vulkan_available():
+                self.device_name = "vulkan"
+                self.backend = "vulkan"
+                self.is_accelerated = True
+                self.vram_limit_gb = round(total_ram * 0.5, 2) # APUs can safely use half RAM
+                logger.info(f"HAL: Vulkan APU Acceleration detected. Shared VRAM: {self.vram_limit_gb}GB")
+                return
+        except Exception as e:
+            logger.debug(f"HAL: Vulkan check failed: {e}")
+
+        # 4. CPU AVX2 (Optimized Fallback)
         self.device_name = "cpu"
         self.backend = "cpu-avx2"
         self.is_accelerated = False
