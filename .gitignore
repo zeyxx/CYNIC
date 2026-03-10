@@ -1,0 +1,10 @@
+target/
+*.exe
+*.dll
+*.pdb
+*.zip
+node_modules/
+.env
+*.local
+*.log
+hypercube_db/

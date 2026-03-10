@@ -1,0 +1,207 @@
+syntax = "proto3";
+
+package cynic.v2;
+
+// The universal protocol for CYNIC V2.
+// Mandate: Industrial scale (10k+ TPS) and Universal fractal portability.
+
+// ---------------------------------------------------------
+// 0. UNIFIED GOVERNANCE METADATA (The Law)
+// ---------------------------------------------------------
+
+message MessageMeta {
+    string trace_id = 1;           // Universal thread ID
+    string node_id = 2;            // Source node UUID
+    string timestamp = 3;          // ISO8601
+    bytes signature = 4;           // Proof of Sovereignty (Ring 1 signed)
+    float metabolic_debt = 5;      // Current RAM/CPU usage of source
+}
+
+// ---------------------------------------------------------
+// 1. FUNDAMENTAL SCORING TRINITY
+// ---------------------------------------------------------
+
+message QScore {
+    float total_score = 1;         // Clamped to max 0.618 (phi^-1)
+    float fidelity = 2;
+    float phi = 3;
+    float verify = 4;
+    float culture = 5;
+    float burn = 6;
+    float autonomy = 7;
+}
+
+message EScore {
+    float total_weight = 1;        
+    float build = 2;
+    float judge = 3;
+    float run = 4;
+    float social = 5;
+    float graph = 6;
+    float hold = 7;
+    float burn = 8;
+}
+
+message KScore {
+    float total_conviction = 1;
+    float accumulation_rate = 2;
+    float holding_duration_days = 3;
+    float diamond_hand_index = 4;
+}
+
+// ---------------------------------------------------------
+// 2. NETWORK CONTEXT & NODES
+// ---------------------------------------------------------
+
+message NodeIdentity {
+    string node_id = 1;
+    string human_operator = 2;
+    EScore authority = 3;
+    HardwareProfile hardware = 4;
+}
+
+message HardwareProfile {
+    enum DeviceClass {
+        UNKNOWN = 0;
+        EDGE_IOT = 1;
+        CPU_STANDARD = 2;
+        APU_HIGH_MEMORY = 3;
+        GPU_DEDICATED = 4;
+        DATACENTER_CLUSTER = 5;
+    }
+    DeviceClass class = 1;
+    float ram_gb = 2;
+    float vram_gb = 3;
+    float compute_flops = 4;
+    string os_family = 5;          // "Windows", "Linux", "Darwin"
+}
+
+// ---------------------------------------------------------
+// 3. VASCULAR SYSTEM (Event Bus)
+// ---------------------------------------------------------
+
+message Event {
+    MessageMeta meta = 1;
+    string topic = 2;
+    string payload_json = 3;
+    QScore quality = 4;            // Inline validation score
+}
+
+message PublishAck {
+    MessageMeta meta = 1;
+    bool success = 2;
+}
+
+message SubscriptionFilter {
+    MessageMeta meta = 1;
+    repeated string topics = 2;
+}
+
+// ---------------------------------------------------------
+// 4. COGNITIVE MEMORY (UAL - Universal Abstract Layer)
+// ---------------------------------------------------------
+
+message Fact {
+    MessageMeta meta = 1;
+    string key = 2;
+    string content = 3;            // Facts for the CRE
+    float confidence = 4;
+}
+
+message TrustEntry {
+    MessageMeta meta = 1;
+    string model_name = 2;
+    string sha256 = 3;
+}
+
+message TrustVerifyResponse {
+    MessageMeta meta = 1;
+    bool is_trusted = 2;
+}
+
+// ---------------------------------------------------------
+// 5. SOMATIC NERVOUS SYSTEM (k-Pulse)
+// ---------------------------------------------------------
+
+message SomaticPulse {
+    MessageMeta meta = 1;
+    float somatic_score = 2;       // D1-D9
+    float cognitive_score = 3;     // D10-D19
+    float logic_score = 4;         // D20-D27
+    float immune_score = 5;        // D28-D36
+    float universal_score = 6;     // D37-D43
+    
+    string active_backend = 7;
+    float tokens_per_sec = 8;
+    float metabolic_drift = 9;     // Deviation from budget (%)
+}
+
+message HeresyNotice {
+    MessageMeta meta = 1;
+    string heresy_type = 2;        // e.g. "MSVC_OOM", "DISK_FULL", "UNVERIFIED_MODEL"
+    string severity = 3;           // "ADVISORY", "WARNING", "CRITICAL"
+    string diagnosis = 4;
+}
+
+message SovereigntyAdvice {
+    MessageMeta meta = 1;
+    repeated string recommendations = 2;
+    string optimization_target = 3;
+}
+
+message PulseRequest {
+    MessageMeta meta = 1;
+}
+
+// ---------------------------------------------------------
+// 6. ACTION (Muscle HAL)
+// ---------------------------------------------------------
+
+message MCTSInferenceRequest {
+    MessageMeta meta = 1;
+    string system_prompt = 2;
+    string context = 3;
+    int32 num_branches = 4;
+    float temperature = 5;
+}
+
+message MCTSInferenceResponse {
+    MessageMeta meta = 1;
+    repeated string hypotheses = 2;
+    float latency_ms = 3;
+    string model_used = 4;
+}
+
+// ---------------------------------------------------------
+// 7. THE SERVICES
+// ---------------------------------------------------------
+
+service VascularSystem {
+    rpc PublishEvent (Event) returns (PublishAck);
+    rpc SubscribeEvents (SubscriptionFilter) returns (stream Event);
+}
+
+service KPulse {
+    rpc StreamPulse (PulseRequest) returns (stream SomaticPulse);
+    rpc ReportHeresy (HeresyNotice) returns (PublishAck);
+    rpc GetSovereignAdvice (PulseRequest) returns (SovereigntyAdvice);
+}
+
+service CognitiveMemory {
+    rpc StoreFact (Fact) returns (PublishAck);
+    rpc RegisterTrust (TrustEntry) returns (PublishAck);
+    rpc VerifyTrust (TrustEntry) returns (TrustVerifyResponse);
+}
+
+service MuscleHAL {
+    rpc RequestInference (MCTSInferenceRequest) returns (MCTSInferenceResponse);
+    rpc GetActiveHAL (PulseRequest) returns (HALProfile);
+}
+
+message HALProfile {
+    MessageMeta meta = 1;
+    string backend = 2;
+    string gpu_name = 3;
+    float vram_used_gb = 4;
+    float vram_total_gb = 5;
+}
