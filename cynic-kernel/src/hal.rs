@@ -1,7 +1,7 @@
 use crate::cynic_v2::muscle_hal_server::MuscleHal;
 use crate::cynic_v2::{
-    MCTSInferenceRequest, MCTSInferenceResponse, 
-    HALProfile, PulseRequest
+    MctsInferenceRequest, MctsInferenceResponse,
+    HalProfile, PulseRequest
 };
 use crate::storage::CynicStorage;
 use std::sync::Arc;
@@ -21,17 +21,17 @@ impl MuscleService {
 impl MuscleHal for MuscleService {
     async fn request_inference(
         &self,
-        request: Request<MCTSInferenceRequest>,
-    ) -> Result<Response<MCTSInferenceResponse>, Status> {
+        request: Request<MctsInferenceRequest>,
+    ) -> Result<Response<MctsInferenceResponse>, Status> {
         let req = request.into_inner();
         let meta = req.meta.clone();
 
-        println!("[MuscleHAL] Inference Request | Trace: {}", 
+        println!("[MuscleHAL] Inference Request | Trace: {}",
             meta.as_ref().map(|m| m.trace_id.as_str()).unwrap_or("none")
         );
 
         // Simulation for Phase 1
-        Ok(Response::new(MCTSInferenceResponse {
+        Ok(Response::new(MctsInferenceResponse {
             meta,
             hypotheses: vec!["Reflexive thought simulated.".to_string()],
             latency_ms: 42.0,
@@ -42,10 +42,10 @@ impl MuscleHal for MuscleService {
     async fn get_active_hal(
         &self,
         request: Request<PulseRequest>,
-    ) -> Result<Response<HALProfile>, Status> {
+    ) -> Result<Response<HalProfile>, Status> {
         let req = request.into_inner();
-        
-        Ok(Response::new(HALProfile {
+
+        Ok(Response::new(HalProfile {
             meta: req.meta,
             backend: "Vulkan".to_string(),
             gpu_name: "AMD Radeon".to_string(),

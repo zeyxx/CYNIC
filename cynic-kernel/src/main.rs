@@ -22,7 +22,7 @@ use cynic_v2::muscle_hal_server::{MuscleHal, MuscleHalServer};
 use cynic_v2::{
     Event, PublishAck, SubscriptionFilter, SomaticPulse, PulseRequest,
     HeresyNotice, SovereigntyAdvice, MessageMeta, Fact, TrustEntry, TrustVerifyResponse,
-    MCTSInferenceRequest, MCTSInferenceResponse, HALProfile
+    MctsInferenceRequest, MctsInferenceResponse, HalProfile
 };
 
 // ============================================================

@@ -12,9 +12,9 @@ pub struct CynicStorage {
 impl CynicStorage {
     pub async fn init() -> Result<Self, Box<dyn std::error::Error>> {
         let db_url = std::env::var("SURREALDB_URL").unwrap_or_else(|_| "http://localhost:8000".to_string());
-        
-        let db = Surreal::init();
-        db.connect::<Any>(&db_url).await?;
+
+        let db: Surreal<Any> = Surreal::init();
+        db.connect(&db_url).await?;
         db.use_ns("cynic").use_db("v2").await?;
 
         println!("[Ring 1 / UAL] Linked to Sidecar Memory at {}", db_url);
@@ -41,13 +41,15 @@ impl CognitiveMemory for CognitiveMemoryService {
     ) -> Result<Response<PublishAck>, Status> {
         let fact = request.into_inner();
         let meta = fact.meta.clone();
+        let node_id = meta.as_ref().map(|m| m.node_id.clone()).unwrap_or_default();
+        let trace_id = meta.as_ref().map(|m| m.trace_id.clone()).unwrap_or_default();
 
         let sql = "CREATE fact SET agent = $agent, content = $content, confidence = $conf, trace_id = $trace, timestamp = time::now()";
         self.storage.db.query(sql)
-            .bind(("agent", meta.as_ref().map(|m| m.node_id.as_str()).unwrap_or("unknown")))
+            .bind(("agent", node_id))
             .bind(("content", fact.content))
             .bind(("conf", fact.confidence))
-            .bind(("trace", meta.as_ref().map(|m| m.trace_id.as_str()).unwrap_or("none")))
+            .bind(("trace", trace_id))
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -63,12 +65,13 @@ impl CognitiveMemory for CognitiveMemoryService {
     ) -> Result<Response<PublishAck>, Status> {
         let entry = request.into_inner();
         let meta = entry.meta.clone();
+        let trace_id = meta.as_ref().map(|m| m.trace_id.clone()).unwrap_or_default();
 
         let sql = "UPSERT trusted_model:[$name] SET sha256 = $sha, last_verified = time::now(), trace_id = $trace";
         self.storage.db.query(sql)
             .bind(("name", entry.model_name))
             .bind(("sha", entry.sha256))
-            .bind(("trace", meta.as_ref().map(|m| m.trace_id.as_str()).unwrap_or("none")))
+            .bind(("trace", trace_id))
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
