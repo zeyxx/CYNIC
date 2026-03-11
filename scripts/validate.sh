@@ -12,4 +12,4 @@ SURREALDB_PASS=$(cat ~/.surreal-pass) \
 cargo test --workspace
 
 echo "[cynic] audit..."
-cargo audit --ignore RUSTSEC-2023-0071 || true
+cargo audit --ignore RUSTSEC-2023-0071 2>/dev/null || true
