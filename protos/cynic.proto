@@ -12,9 +12,11 @@ package cynic.v2;
 message MessageMeta {
     string trace_id = 1;           // Universal thread ID
     string node_id = 2;            // Source node UUID
-    string timestamp = 3;          // ISO8601
+    uint64 timestamp = 3;          // Unix nanoseconds (monotonic)
     bytes signature = 4;           // Proof of Sovereignty (Ring 1 signed)
     float metabolic_debt = 5;      // Current RAM/CPU usage of source
+    string span_id = 6;            // Current span (OpenTelemetry compatible)
+    string parent_span_id = 7;     // Parent span for distributed tracing
 }
 
 // ---------------------------------------------------------
