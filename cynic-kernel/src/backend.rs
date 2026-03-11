@@ -1,7 +1,7 @@
-/// P0 — InferencePort: the sovereign abstraction over all compute backends.
-///
-/// No backend (local GPU, remote MCP, mock) ever touches the domain directly.
-/// The domain speaks only to this trait. The substrate is irrelevant.
+//! P0 — InferencePort: the sovereign abstraction over all compute backends.
+//!
+//! No backend (local GPU, remote MCP, mock) ever touches the domain directly.
+//! The domain speaks only to this trait. The substrate is irrelevant.
 
 // ============================================================
 // DOMAIN TYPES (not proto-generated — owned by the domain)

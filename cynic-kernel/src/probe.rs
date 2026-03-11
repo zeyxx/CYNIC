@@ -1,7 +1,7 @@
-/// Ring 0 — CYNIC Onboarding Probe
-/// Runs once at first boot, writes ~/.cynic/node.toml
-/// Subsequent boots: instant load from cache.
-/// Daemons read config via gRPC NodeConfigService — never touch node.toml directly.
+//! Ring 0 — CYNIC Onboarding Probe
+//! Runs once at first boot, writes ~/.cynic/node.toml
+//! Subsequent boots: instant load from cache.
+//! Daemons read config via gRPC NodeConfigService — never touch node.toml directly.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -187,10 +187,10 @@ async fn probe_compute() -> ComputeInfo {
     //    This correctly identifies AMD Ryzen iGPU (Vega 8 = vendor 0x1002)
     if let Some(mut info) = detect_gpu_via_sysfs() {
         // If we found a generic GPU name but we are in WSL2, try to enrich it via host
-        if info.gpu_name.to_lowercase().contains("generic") || info.gpu_name.is_empty() {
-             if let Some(host_name) = probe_windows_gpu().await {
-                 info.gpu_name = host_name;
-             }
+        if (info.gpu_name.to_lowercase().contains("generic") || info.gpu_name.is_empty())
+            && let Some(host_name) = probe_windows_gpu().await
+        {
+            info.gpu_name = host_name;
         }
         println!("[Ring 0 / GPU] DRM: {} (is_igpu:{}) → {:?}",
             info.gpu_name, info.is_igpu, info.backend);
@@ -199,36 +199,36 @@ async fn probe_compute() -> ComputeInfo {
 
     // 4. /dev/dxg exists but sysfs found nothing → WSL2 with GPU passthrough
     //    Use the Vascular Bridge (PowerShell) to identify the real hardware
-    if Path::new("/dev/dxg").exists() {
-        if let Some(host_name) = probe_windows_gpu().await {
-             let mut info = detect_cpu_info();
-             info.gpu_name = host_name;
-             // Heuristic: if AMD/Radeon as found by user, use Vulkan
-             if info.gpu_name.to_lowercase().contains("amd") || info.gpu_name.to_lowercase().contains("radeon") {
-                 info.backend = ComputeBackend::Vulkan;
-             } else if info.gpu_name.to_lowercase().contains("nvidia") {
-                 info.backend = ComputeBackend::Cuda; // Force check CUDA again with right label
-             }
-             info.is_igpu = true;
-             println!("[Ring 0 / GPU] Bridge: {} → {:?}", info.gpu_name, info.backend);
-             return info;
+    if Path::new("/dev/dxg").exists()
+        && let Some(host_name) = probe_windows_gpu().await
+    {
+        let mut info = detect_cpu_info();
+        info.gpu_name = host_name;
+        // Heuristic: if AMD/Radeon as found by user, use Vulkan
+        if info.gpu_name.to_lowercase().contains("amd") || info.gpu_name.to_lowercase().contains("radeon") {
+            info.backend = ComputeBackend::Vulkan;
+        } else if info.gpu_name.to_lowercase().contains("nvidia") {
+            info.backend = ComputeBackend::Cuda; // Force check CUDA again with right label
         }
+        info.is_igpu = true;
+        println!("[Ring 0 / GPU] Bridge: {} → {:?}", info.gpu_name, info.backend);
+        return info;
     }
 
     // 5. Native Windows GPU (DirectX/WMI via PowerShell)
-    if cfg!(target_os = "windows") {
-        if let Some(host_name) = probe_windows_gpu().await {
-             let mut info = detect_cpu_info();
-             info.gpu_name = host_name;
-             info.backend = ComputeBackend::Vulkan; // Windows default for iGPU/dGPU
-             info.is_igpu = true; // Safe assumption for Ryzen G series or integrated
-             if info.gpu_name.to_lowercase().contains("nvidia") {
-                 info.backend = ComputeBackend::Cuda;
-                 info.is_igpu = false;
-             }
-             println!("[Ring 0 / GPU] Windows Native: {} → {:?}", info.gpu_name, info.backend);
-             return info;
+    if cfg!(target_os = "windows")
+        && let Some(host_name) = probe_windows_gpu().await
+    {
+        let mut info = detect_cpu_info();
+        info.gpu_name = host_name;
+        info.backend = ComputeBackend::Vulkan; // Windows default for iGPU/dGPU
+        info.is_igpu = true; // Safe assumption for Ryzen G series or integrated
+        if info.gpu_name.to_lowercase().contains("nvidia") {
+            info.backend = ComputeBackend::Cuda;
+            info.is_igpu = false;
         }
+        println!("[Ring 0 / GPU] Windows Native: {} → {:?}", info.gpu_name, info.backend);
+        return info;
     }
 
     // 6. macOS Metal
@@ -552,7 +552,7 @@ fn discover_all_models(models_dir: &Path, env: &EnvInfo) -> Vec<GgufModel> {
     // Tier 2: Universal Drive Scanner (Signature-based)
     // Works on Windows, Linux, and WSL2 by abstracting the root entry points
     let roots = if cfg!(target_os = "windows") {
-        vec!["C:\\", "D:\\", "E:\\", "F:\\"].iter().map(|&d| PathBuf::from(d)).collect()
+        ["C:\\", "D:\\", "E:\\", "F:\\"].iter().map(|&d| PathBuf::from(d)).collect()
     } else {
         let mut r = vec![PathBuf::from("/")];
         if let Ok(entries) = std::fs::read_dir("/mnt") {
@@ -617,37 +617,37 @@ fn discover_ollama_models(env: &EnvInfo) -> Vec<GgufModel> {
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
     {
-        if let Ok(manifest_str) = std::fs::read_to_string(entry.path()) {
-            if let Ok(manifest) = serde_json::from_str::<serde_json::Value>(&manifest_str) {
-                // Extract model name from path: .../library/<name>/<tag>
-                let model_name = entry.path().components()
-                    .rev().nth(1)  // parent dir = model name
-                    .and_then(|c| c.as_os_str().to_str())
-                    .unwrap_or("unknown")
-                    .to_string();
+        if let Ok(manifest_str) = std::fs::read_to_string(entry.path())
+            && let Ok(manifest) = serde_json::from_str::<serde_json::Value>(&manifest_str)
+        {
+            // Extract model name from path: .../library/<name>/<tag>
+            let model_name = entry.path().components()
+                .rev().nth(1)  // parent dir = model name
+                .and_then(|c| c.as_os_str().to_str())
+                .unwrap_or("unknown")
+                .to_string();
 
-                // Ollama stores GGUF as a layer with mediaType containing "model"
-                if let Some(layers) = manifest["layers"].as_array() {
-                    for layer in layers {
-                        let media_type = layer["mediaType"].as_str().unwrap_or("");
-                        if media_type.contains("model") {
-                            if let Some(digest) = layer["digest"].as_str() {
-                                // digest format: "sha256:abcdef..."
-                                let blob_name = digest.replace(':', "-");
-                                let blob_path = blobs_dir.join(&blob_name);
-                                if blob_path.exists() {
-                                    if let Ok(meta) = std::fs::metadata(&blob_path) {
-                                        let size_gb = meta.len() as f64 / 1024.0 / 1024.0 / 1024.0;
-                                        if size_gb > 0.1 {
-                                            models.push(GgufModel {
-                                                path: blob_path.display().to_string(),
-                                                size_gb,
-                                                name: model_name.clone(),
-                                                source: "ollama".into(),
-                                            });
-                                        }
-                                    }
-                                }
+            // Ollama stores GGUF as a layer with mediaType containing "model"
+            if let Some(layers) = manifest["layers"].as_array() {
+                for layer in layers {
+                    let media_type = layer["mediaType"].as_str().unwrap_or("");
+                    if media_type.contains("model")
+                        && let Some(digest) = layer["digest"].as_str()
+                    {
+                        // digest format: "sha256:abcdef..."
+                        let blob_name = digest.replace(':', "-");
+                        let blob_path = blobs_dir.join(&blob_name);
+                        if blob_path.exists()
+                            && let Ok(meta) = std::fs::metadata(&blob_path)
+                        {
+                            let size_gb = meta.len() as f64 / 1024.0 / 1024.0 / 1024.0;
+                            if size_gb > 0.1 {
+                                models.push(GgufModel {
+                                    path: blob_path.display().to_string(),
+                                    size_gb,
+                                    name: model_name.clone(),
+                                    source: "ollama".into(),
+                                });
                             }
                         }
                     }
@@ -671,17 +671,16 @@ fn find_ollama_models_dir(env: &EnvInfo) -> Option<PathBuf> {
     }
 
     // 2. From WSL2: try PowerShell to read Windows user env var (no wslvar needed)
-    if env.is_wsl2 {
-        if let Ok(out) = std::process::Command::new("powershell.exe")
+    if env.is_wsl2
+        && let Ok(out) = std::process::Command::new("powershell.exe")
             .args(["-NoProfile", "-Command",
                    "[Environment]::GetEnvironmentVariable('OLLAMA_MODELS','User')"])
             .output()
-        {
-            let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if !p.is_empty() && p != "null" {
-                let wsl = windows_to_wsl_path(&p);
-                if wsl.exists() { return Some(wsl); }
-            }
+    {
+        let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if !p.is_empty() && p != "null" {
+            let wsl = windows_to_wsl_path(&p);
+            if wsl.exists() { return Some(wsl); }
         }
     }
 
