@@ -22,7 +22,7 @@ impl CynicStorage {
         let pass = std::env::var("SURREALDB_PASS").unwrap_or_else(|_| "root".to_string());
         let db: Surreal<Any> = Surreal::init();
         db.connect(url).await?;
-        db.signin(Root { username: &user, password: &pass }).await?;
+        db.signin(Root { username: user, password: pass }).await?;
         db.use_ns(ns).use_db(db_name).await?;
         println!("[Ring 1 / UAL] Linked to Sidecar Memory at {}", url);
         Ok(Self { db })
