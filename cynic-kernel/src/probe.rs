@@ -551,17 +551,23 @@ fn discover_all_models(models_dir: &Path, env: &EnvInfo) -> Vec<GgufModel> {
 
     // Tier 2: Universal Drive Scanner (Signature-based)
     // Works on Windows, Linux, and WSL2 by abstracting the root entry points
-    let roots = if cfg!(target_os = "windows") {
+    let roots: Vec<PathBuf> = if cfg!(target_os = "windows") {
         ["C:\\", "D:\\", "E:\\", "F:\\"].iter().map(|&d| PathBuf::from(d)).collect()
     } else {
-        let mut r = vec![PathBuf::from("/")];
+        // On Linux: scan known user/data dirs only — never scan / directly
+        // (scanning / includes /proc /sys /dev which is infinite or harmful)
+        let mut r = vec![
+            std::env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from("/root")),
+            PathBuf::from("/home"),
+        ];
+        // WSL2: also scan mounted Windows drives
         if let Ok(entries) = std::fs::read_dir("/mnt") {
             for entry in entries.flatten() {
-                 let p = entry.path();
-                 let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                 if name.len() == 1 && name.chars().next().unwrap().is_ascii_alphabetic() {
-                     r.push(p);
-                 }
+                let p = entry.path();
+                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if name.len() == 1 && name.chars().next().unwrap().is_ascii_alphabetic() {
+                    r.push(p);
+                }
             }
         }
         r
@@ -570,8 +576,6 @@ fn discover_all_models(models_dir: &Path, env: &EnvInfo) -> Vec<GgufModel> {
     println!("[Ring 0 / LLM] Starting Universal Structural Scan (Signature: *.gguf)...");
     for root in roots {
         if root.exists() {
-            // Speed optimization: Scan Priority Dirs first, then shallow root
-            // This is "Industrial Heuristic": find known patterns fast, search others deep
             scan_dir(&root, 4, "filesystem", &mut all);
         }
     }
