@@ -11,14 +11,16 @@ pub struct CynicStorage {
 
 impl CynicStorage {
     pub async fn init() -> Result<Self, Box<dyn std::error::Error>> {
-        let db_url = std::env::var("SURREALDB_URL").unwrap_or_else(|_| "http://localhost:8000".to_string());
+        let url = std::env::var("SURREALDB_URL")
+            .unwrap_or_else(|_| "http://localhost:8000".to_string());
+        Self::init_with(&url, "cynic", "v2").await
+    }
 
+    pub async fn init_with(url: &str, ns: &str, db_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let db: Surreal<Any> = Surreal::init();
-        db.connect(&db_url).await?;
-        db.use_ns("cynic").use_db("v2").await?;
-
-        println!("[Ring 1 / UAL] Linked to Sidecar Memory at {}", db_url);
-
+        db.connect(url).await?;
+        db.use_ns(ns).use_db(db_name).await?;
+        println!("[Ring 1 / UAL] Linked to Sidecar Memory at {}", url);
         Ok(Self { db })
     }
 }
@@ -94,12 +96,50 @@ impl CognitiveMemory for CognitiveMemoryService {
             .bind(("sha", entry.sha256))
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
-        
+
         let results: Vec<serde_json::Value> = response.take(0).map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(TrustVerifyResponse {
             meta,
             is_trusted: !results.is_empty(),
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn store_and_retrieve_fact() {
+        let url = std::env::var("SURREALDB_URL")
+            .unwrap_or_else(|_| "http://localhost:8000".to_string());
+
+        let storage = CynicStorage::init_with(&url, "test_cynic", "ci").await
+            .expect("SurrealDB doit être accessible sur forge");
+
+        // Stocker un fait
+        let result = storage.db
+            .query("CREATE fact SET content = $content, confidence = $conf")
+            .bind(("content", "test fact from integration test"))
+            .bind(("conf", 0.9f64))
+            .await;
+        assert!(result.is_ok(), "store_fact doit réussir: {:?}", result.err());
+
+        // Relire
+        let mut resp = storage.db
+            .query("SELECT * FROM fact WHERE content = $c")
+            .bind(("c", "test fact from integration test"))
+            .await
+            .expect("SELECT doit réussir");
+        let rows: Vec<serde_json::Value> = resp.take(0).expect("take(0)");
+        assert!(!rows.is_empty(), "Le fait doit être retrouvé");
+
+        // Nettoyage
+        storage.db
+            .query("DELETE fact WHERE content = $c")
+            .bind(("c", "test fact from integration test"))
+            .await
+            .ok();
     }
 }
