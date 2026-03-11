@@ -14,7 +14,7 @@ sysinfo = "0.37"
 tokio = { version = "1.50.0", features = ["full"] }
 tokio-stream = "0.1.18"
 tonic = "0.12"
-surrealdb = { version = "2.1", features = ["protocol-http"] }
+surrealdb = { version = "2.1", features = ["protocol-http", "protocol-ws"] }
 toml = "0.8"
 walkdir = "2"
 

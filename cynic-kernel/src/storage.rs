@@ -13,7 +13,7 @@ pub struct CynicStorage {
 impl CynicStorage {
     pub async fn init() -> Result<Self, Box<dyn std::error::Error>> {
         let url = std::env::var("SURREALDB_URL")
-            .unwrap_or_else(|_| "http://localhost:8000".to_string());
+            .unwrap_or_else(|_| "ws://localhost:8000".to_string());
         Self::init_with(&url, "cynic", "v2").await
     }
 
@@ -117,7 +117,7 @@ mod tests {
     #[tokio::test]
     async fn store_and_retrieve_fact() {
         let url = std::env::var("SURREALDB_URL")
-            .unwrap_or_else(|_| "http://localhost:8000".to_string());
+            .unwrap_or_else(|_| "ws://localhost:8000".to_string());
 
         let storage = CynicStorage::init_with(&url, "test_cynic", "ci").await
             .expect("SurrealDB doit être accessible sur forge");

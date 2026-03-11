@@ -6,7 +6,7 @@ echo "[cynic] clippy..."
 cargo clippy --workspace -- -D warnings
 
 echo "[cynic] test..."
-SURREALDB_URL=http://localhost:8000 \
+SURREALDB_URL=ws://localhost:8000 \
 SURREALDB_USER=root \
 SURREALDB_PASS=$(cat ~/.surreal-pass) \
 cargo test --workspace
