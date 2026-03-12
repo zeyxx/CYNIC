@@ -1,11 +1,12 @@
 use crate::cynic_v2::k_pulse_server::KPulse;
 use crate::cynic_v2::{
-    SomaticPulse, PulseRequest, HeresyNotice, 
-    SovereigntyAdvice, PublishAck
+    SomaticPulse, PulseRequest, HeresyNotice,
+    SovereigntyAdvice, PublishAck, HealthReport, HealthState,
 };
 use tonic::{Request, Response, Status};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio::sync::mpsc;
+use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct PulseService {}
@@ -59,10 +60,10 @@ impl KPulse for PulseService {
         let heresy = request.into_inner();
         let meta = heresy.meta.clone();
 
-        println!("[Omniscience] ⚠️ HERESY DETECTED: [{}] {} | Severity: {}",
+        println!("[Omniscience] HERESY DETECTED: [{}] {} | Severity: {:?}",
             heresy.heresy_type,
             heresy.diagnosis,
-            heresy.severity
+            HealthState::try_from(heresy.severity).unwrap_or(HealthState::HealthUnknown)
         );
 
         Ok(Response::new(PublishAck {
@@ -76,7 +77,7 @@ impl KPulse for PulseService {
         request: Request<PulseRequest>,
     ) -> Result<Response<SovereigntyAdvice>, Status> {
         let req = request.into_inner();
-        
+
         Ok(Response::new(SovereigntyAdvice {
             meta: req.meta,
             recommendations: vec![
@@ -85,6 +86,28 @@ impl KPulse for PulseService {
                 "Stabilize gRPC trace-IDs across Ring 3.".to_string()
             ],
             optimization_target: "Metabolic Efficiency".to_string(),
+        }))
+    }
+
+    async fn get_health(
+        &self,
+        request: Request<PulseRequest>,
+    ) -> Result<Response<HealthReport>, Status> {
+        let req = request.into_inner();
+
+        // TODO: Wire to real backend health from router when PulseService holds Arc<BackendRouter>
+        let services: HashMap<String, i32> = HashMap::from([
+            ("vascular".to_string(), HealthState::HealthHealthy as i32),
+            ("pulse".to_string(), HealthState::HealthHealthy as i32),
+            ("cognitive".to_string(), HealthState::HealthHealthy as i32),
+            ("muscle".to_string(), HealthState::HealthUnknown as i32),
+        ]);
+
+        Ok(Response::new(HealthReport {
+            meta: req.meta,
+            overall: HealthState::HealthHealthy as i32,
+            services,
+            backends: HashMap::new(),
         }))
     }
 }
