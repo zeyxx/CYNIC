@@ -3,7 +3,7 @@ set -euo pipefail
 source "$HOME/.cargo/env"
 
 echo "[cynic] clippy..."
-cargo clippy --workspace -- -D warnings
+cargo clippy --all-targets --workspace -- -D warnings
 
 echo "[cynic] test..."
 SURREALDB_URL=ws://localhost:8000 \
