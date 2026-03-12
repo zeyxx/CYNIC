@@ -34,10 +34,10 @@ impl BackendRouter {
         // 1. Filter by model_hint if provided
         if let Some(ref hint) = req.model_hint {
             for b in backends.iter() {
-                if b.capability().loaded_models.iter().any(|m| m.contains(hint.as_str())) {
-                    if matches!(b.health().await, BackendStatus::Healthy | BackendStatus::Degraded { .. }) {
-                        return b.infer(req).await;
-                    }
+                if b.capability().loaded_models.iter().any(|m| m.contains(hint.as_str()))
+                    && matches!(b.health().await, BackendStatus::Healthy | BackendStatus::Degraded { .. })
+                {
+                    return b.infer(req).await;
                 }
             }
         }
