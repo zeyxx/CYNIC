@@ -8,8 +8,26 @@ UNIT_DIR="$HOME/.config/systemd/user"
 UNIT="$UNIT_DIR/cynic-kernel.service"
 ENV_FILE="$HOME/.config/cynic/env"
 
+# Skip deploy if no Rust files changed
+CHANGED_FILES=$(git diff --name-only HEAD~1 2>/dev/null || echo "unknown")
+RUST_CHANGED=$(echo "$CHANGED_FILES" | grep -E '\.(rs|toml)$' || true)
+
+if [ -z "$RUST_CHANGED" ] && [ "$CHANGED_FILES" != "unknown" ]; then
+    echo "[deploy] No .rs/.toml changes — skipping build+deploy"
+    exit 0
+fi
+
 echo "[deploy] Building release..."
 cargo build --release -p cynic-kernel
+
+# Skip redeploy if binary hasn't changed
+NEW_HASH=$(sha256sum target/release/cynic-kernel | cut -d' ' -f1)
+OLD_HASH=$(sha256sum "$BINARY" 2>/dev/null | cut -d' ' -f1 || echo "none")
+
+if [ "$NEW_HASH" = "$OLD_HASH" ]; then
+    echo "[deploy] Binary unchanged (sha256 match) — skipping restart"
+    exit 0
+fi
 
 echo "[deploy] Stopping service..."
 systemctl --user stop cynic-kernel 2>/dev/null || true
