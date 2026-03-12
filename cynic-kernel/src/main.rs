@@ -5,6 +5,7 @@ pub mod pulse;
 pub mod storage;
 pub mod backend;
 pub mod backend_llamacpp;
+pub mod router;
 
 use tonic::{transport::Server, Request, Response, Status};
 use tokio::sync::mpsc;
