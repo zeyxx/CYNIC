@@ -52,6 +52,7 @@ pub struct InferenceRequest {
     pub context: String,
     pub num_branches: u32,
     pub temperature: f32,
+    pub model_hint: Option<String>,
 }
 
 /// Domain response — decoupled from MCTSInferenceResponse proto.
@@ -90,18 +91,14 @@ impl std::fmt::Display for BackendError {
 
 /// Every compute backend implements this trait.
 /// Local GPU, remote MCP node, mock — all identical to the caller.
+#[async_trait]
 pub trait InferencePort: Send + Sync {
     fn capability(&self) -> &BackendCapability;
-
-    fn infer(
-        &self,
-        req: InferenceRequest,
-    ) -> impl Future<Output = Result<InferenceResponse, BackendError>> + Send;
-
-    fn health(&self) -> impl Future<Output = BackendStatus> + Send;
+    async fn infer(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError>;
+    async fn health(&self) -> BackendStatus;
 }
 
-use std::future::Future;
+use async_trait::async_trait;
 
 // ============================================================
 // MOCK BACKEND — P0 test implementation, no GPU required
@@ -140,6 +137,7 @@ impl MockBackend {
     }
 }
 
+#[async_trait]
 impl InferencePort for MockBackend {
     fn capability(&self) -> &BackendCapability {
         &self.capability
@@ -188,6 +186,7 @@ mod tests {
             context: "What is the price of SOL?".to_string(),
             num_branches: 2,
             temperature: 0.7,
+            model_hint: None,
         };
 
         let res = backend.infer(req).await.unwrap();
@@ -206,6 +205,7 @@ mod tests {
             context: "ping".to_string(),
             num_branches: 1,
             temperature: 0.0,
+            model_hint: None,
         };
 
         let err = backend.infer(req).await.unwrap_err();
