@@ -36,12 +36,35 @@ pub enum BackendKind {
     Mock,
 }
 
-/// Circuit breaker state for a backend.
+/// 5-state health lifecycle — φ-bounded: UNKNOWN until proven.
+///
+/// ```text
+/// UNKNOWN ──(probe ok)──▶ HEALTHY
+/// HEALTHY ──(N failures)──▶ DEGRADED
+/// DEGRADED ──(threshold)──▶ CRITICAL
+/// CRITICAL ──(cooldown)──▶ RECOVERING
+/// RECOVERING ──(probe ok)──▶ HEALTHY
+/// RECOVERING ──(probe fail)──▶ CRITICAL
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum BackendStatus {
+    /// Boot default. No probe has run yet. Epistemic honesty: don't claim healthy without evidence.
+    Unknown,
+    /// Probe succeeded. Operating normally.
     Healthy,
+    /// Partial failure or high latency. Still serving, reduced capacity.
     Degraded { latency_ms: f64 },
-    Unreachable,
+    /// Cannot serve requests. Circuit breaker open.
+    Critical,
+    /// Circuit breaker half-open. One probe request allowed.
+    Recovering,
+}
+
+impl BackendStatus {
+    /// Can this backend accept inference requests?
+    pub fn is_available(&self) -> bool {
+        matches!(self, Self::Healthy | Self::Degraded { .. })
+    }
 }
 
 /// Domain request — decoupled from MCTSInferenceRequest proto.
@@ -162,7 +185,7 @@ impl InferencePort for MockBackend {
 
     async fn health(&self) -> BackendStatus {
         if self.force_unreachable {
-            BackendStatus::Unreachable
+            BackendStatus::Critical
         } else {
             BackendStatus::Healthy
         }
@@ -219,9 +242,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn mock_unreachable_reports_unreachable() {
+    async fn mock_unreachable_reports_critical() {
         let backend = MockBackend::unreachable();
-        assert_eq!(backend.health().await, BackendStatus::Unreachable);
+        assert_eq!(backend.health().await, BackendStatus::Critical);
     }
 
     #[tokio::test]

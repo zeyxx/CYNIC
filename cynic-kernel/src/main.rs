@@ -115,6 +115,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         r
     };
 
+    // ─── Background: Periodic health probe (circuit breaker) ──────
+    {
+        let probe_router = Arc::clone(&router);
+        tokio::spawn(async move {
+            // Initial probe to transition backends from UNKNOWN → real state
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            loop {
+                probe_router.probe_all().await;
+                let statuses = probe_router.backend_statuses().await;
+                for (id, status) in &statuses {
+                    println!("[Health] {} → {:?}", id, status);
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+            }
+        });
+    }
+
     let pulse_service = pulse::PulseService::default();
     let muscle_service = hal::MuscleService::new(Arc::clone(&router));
     let cognitive_service = storage::CognitiveMemoryService::new(Arc::clone(&storage));

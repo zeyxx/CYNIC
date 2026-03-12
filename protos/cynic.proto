@@ -27,10 +27,22 @@ message QScore {
     float total_score = 1;         // Clamped to max 0.618 (phi^-1)
     float fidelity = 2;
     float phi = 3;
-    float verify = 4;
+    float verify_falsify = 4;      // Popper: evidence + falsification, not just verification
     float culture = 5;
     float burn = 6;
-    float autonomy = 7;
+    float sovereignty = 7;         // Was "autonomy" — aligned with axiom naming
+}
+
+// ---------------------------------------------------------
+// 1b. HEALTH STATE (φ-bounded: UNKNOWN until proven)
+// ---------------------------------------------------------
+
+enum HealthState {
+    HEALTH_UNKNOWN = 0;            // Boot default — not yet probed
+    HEALTH_HEALTHY = 1;            // Probe succeeded, operating normally
+    HEALTH_DEGRADED = 2;           // Partial failure, reduced capacity
+    HEALTH_CRITICAL = 3;           // Cannot serve requests
+    HEALTH_RECOVERING = 4;         // Circuit breaker half-open, probing recovery
 }
 
 message EScore {
@@ -141,7 +153,7 @@ message SomaticPulse {
 message HeresyNotice {
     MessageMeta meta = 1;
     string heresy_type = 2;        // e.g. "MSVC_OOM", "DISK_FULL", "UNVERIFIED_MODEL"
-    string severity = 3;           // "ADVISORY", "WARNING", "CRITICAL"
+    HealthState severity = 3;      // Enum, not string — type-safe severity
     string diagnosis = 4;
 }
 
@@ -183,10 +195,18 @@ service VascularSystem {
     rpc SubscribeEvents (SubscriptionFilter) returns (stream Event);
 }
 
+message HealthReport {
+    MessageMeta meta = 1;
+    HealthState overall = 2;
+    map<string, HealthState> services = 3;   // per-service health
+    map<string, HealthState> backends = 4;   // per-backend health
+}
+
 service KPulse {
     rpc StreamPulse (PulseRequest) returns (stream SomaticPulse);
     rpc ReportHeresy (HeresyNotice) returns (PublishAck);
     rpc GetSovereignAdvice (PulseRequest) returns (SovereigntyAdvice);
+    rpc GetHealth (PulseRequest) returns (HealthReport);
 }
 
 service CognitiveMemory {
@@ -195,8 +215,18 @@ service CognitiveMemory {
     rpc VerifyTrust (TrustEntry) returns (TrustVerifyResponse);
 }
 
+// Streaming token for server-sent inference
+message InferenceToken {
+    MessageMeta meta = 1;
+    string token = 2;              // Single token or chunk
+    bool is_final = 3;             // True on last token
+    float latency_ms = 4;          // Time-to-this-token from request start
+    string model_used = 5;
+}
+
 service MuscleHAL {
     rpc RequestInference (MCTSInferenceRequest) returns (MCTSInferenceResponse);
+    rpc StreamInference (MCTSInferenceRequest) returns (stream InferenceToken);
     rpc GetActiveHAL (PulseRequest) returns (HALProfile);
 }
 

@@ -176,14 +176,22 @@ impl InferencePort for LlamaCppBackend {
     }
 
     async fn health(&self) -> BackendStatus {
+        let start = Instant::now();
         match self.client
             .get(format!("{}/health", self.endpoint))
             .send()
             .await
         {
-            Ok(resp) if resp.status().is_success() => BackendStatus::Healthy,
-            Ok(_) => BackendStatus::Degraded { latency_ms: 0.0 },
-            Err(_) => BackendStatus::Unreachable,
+            Ok(resp) if resp.status().is_success() => {
+                let latency = start.elapsed().as_millis() as f64;
+                if latency > 1000.0 {
+                    BackendStatus::Degraded { latency_ms: latency }
+                } else {
+                    BackendStatus::Healthy
+                }
+            }
+            Ok(_) => BackendStatus::Degraded { latency_ms: start.elapsed().as_millis() as f64 },
+            Err(_) => BackendStatus::Critical,
         }
     }
 }
