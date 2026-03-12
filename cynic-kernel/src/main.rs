@@ -1,4 +1,5 @@
 use cynic_kernel::*;
+use cynic_kernel::backend::InferencePort;
 use cynic_kernel::cynic_v2::vascular_system_server::{VascularSystem, VascularSystemServer};
 use cynic_kernel::cynic_v2::k_pulse_server::KPulseServer;
 use cynic_kernel::cynic_v2::cognitive_memory_server::CognitiveMemoryServer;
