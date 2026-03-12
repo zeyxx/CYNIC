@@ -1,7 +1,7 @@
 # CYNIC Kernel — Crystallized Architecture Truths
 
 *Produced via Crystallize Truth framework. 3 layers applied. Conclusions stable.*
-*Last validated: 2026-03-12 — Forgejo pipeline active on forge:3000.*
+*Last validated: 2026-03-12 — Forgejo pipeline verified end-to-end.*
 
 ---
 
