@@ -148,10 +148,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         storage: Arc::clone(&storage),
     });
     let rest_app = rest::router(rest_state);
-    let rest_addr = "0.0.0.0:3000";
+    let rest_addr = std::env::var("CYNIC_REST_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0:3030".to_string());
     println!("[Ring 3] REST API on http://{}", rest_addr);
 
-    let rest_listener = tokio::net::TcpListener::bind(rest_addr).await?;
+    let rest_listener = tokio::net::TcpListener::bind(&rest_addr).await?;
     let rest_server = tokio::spawn(async move {
         axum::serve(rest_listener, rest_app).await.unwrap();
     });
@@ -163,8 +164,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("╔══════════════════════════════════════╗");
     println!("║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
-    println!("║   REST: http://{}          ║", rest_addr);
-    println!("║   gRPC: {}                ║", addr);
+    println!("║   REST: http://{}",  rest_addr);
+    println!("║   gRPC: {}",  addr);
     println!("║   Max confidence: phi^-1 = 0.618     ║");
     println!("╚══════════════════════════════════════╝");
 
