@@ -1,0 +1,26 @@
+# CYNIC backends — one InferenceDog per entry.
+# Copy to ~/.config/cynic/backends.toml (Linux) or %APPDATA%/cynic/backends.toml (Windows).
+# Each backend must expose an OpenAI-compatible /chat/completions endpoint.
+
+# ── Dog 1: Gemini 3 (hackathon sponsor) ──────────────────────
+[backend.gemini]
+base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
+api_key_env = "GEMINI_API_KEY"
+model = "gemini-2.5-flash"
+auth_style = "bearer"
+
+# ── Dog 2: HuggingFace Inference API (open-source, remote) ──
+# Free serverless inference on select models.
+# Get token: https://huggingface.co/settings/tokens
+[backend.huggingface]
+base_url = "https://router.huggingface.co/hf-inference/v1"
+api_key_env = "HF_TOKEN"
+model = "mistralai/Mistral-7B-Instruct-v0.3"
+auth_style = "bearer"
+
+# ── Dog 3: Local llama-server (sovereign, on-premise) ────────
+# Run: llama-server -m model.gguf --port 8080
+[backend.local]
+base_url = "http://localhost:8080/v1"
+model = "local"
+auth_style = "none"
