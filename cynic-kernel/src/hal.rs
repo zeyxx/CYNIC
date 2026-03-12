@@ -1,19 +1,33 @@
+//! MuscleHAL gRPC service — dispatches inference through BackendRouter.
+
 use crate::cynic_v2::muscle_hal_server::MuscleHal;
 use crate::cynic_v2::{
     MctsInferenceRequest, MctsInferenceResponse,
-    HalProfile, PulseRequest
+    HalProfile, PulseRequest,
 };
-use crate::storage::CynicStorage;
+use crate::backend::InferenceRequest;
+use crate::router::BackendRouter;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
 pub struct MuscleService {
-    pub storage: Arc<CynicStorage>,
+    router: Arc<BackendRouter>,
 }
 
 impl MuscleService {
-    pub fn new(storage: Arc<CynicStorage>) -> Self {
-        Self { storage }
+    pub fn new(router: Arc<BackendRouter>) -> Self {
+        Self { router }
+    }
+}
+
+fn to_domain(req: &MctsInferenceRequest) -> InferenceRequest {
+    InferenceRequest {
+        trace_id: req.meta.as_ref().map(|m| m.trace_id.clone()).unwrap_or_default(),
+        system_prompt: req.system_prompt.clone(),
+        context: req.context.clone(),
+        num_branches: req.num_branches.max(1) as u32,
+        temperature: req.temperature,
+        model_hint: None,
     }
 }
 
@@ -25,18 +39,34 @@ impl MuscleHal for MuscleService {
     ) -> Result<Response<MctsInferenceResponse>, Status> {
         let req = request.into_inner();
         let meta = req.meta.clone();
+        let domain_req = to_domain(&req);
+        let n = req.num_branches.max(1) as u32;
 
-        println!("[MuscleHAL] Inference Request | Trace: {}",
-            meta.as_ref().map(|m| m.trace_id.as_str()).unwrap_or("none")
-        );
+        let trace = meta.as_ref().map(|m| m.trace_id.as_str()).unwrap_or("none");
+        println!("[MuscleHAL] Inference | trace={} branches={}", trace, n);
 
-        // Simulation for Phase 1
-        Ok(Response::new(MctsInferenceResponse {
-            meta,
-            hypotheses: vec!["Reflexive thought simulated.".to_string()],
-            latency_ms: 42.0,
-            model_used: "phi-3-mini".to_string(),
-        }))
+        let result = if n > 1 {
+            self.router.fan_out(domain_req, n).await
+        } else {
+            self.router.route(domain_req).await
+        };
+
+        match result {
+            Ok(resp) => {
+                println!("[MuscleHAL] OK | model={} latency={}ms hypotheses={}",
+                    resp.model_used, resp.latency_ms, resp.hypotheses.len());
+                Ok(Response::new(MctsInferenceResponse {
+                    meta,
+                    hypotheses: resp.hypotheses,
+                    latency_ms: resp.latency_ms as f32,
+                    model_used: resp.model_used,
+                }))
+            }
+            Err(e) => {
+                println!("[MuscleHAL] ERROR | {}", e);
+                Err(Status::unavailable(e.to_string()))
+            }
+        }
     }
 
     async fn get_active_hal(
@@ -44,13 +74,12 @@ impl MuscleHal for MuscleService {
         request: Request<PulseRequest>,
     ) -> Result<Response<HalProfile>, Status> {
         let req = request.into_inner();
-
         Ok(Response::new(HalProfile {
             meta: req.meta,
-            backend: "Vulkan".to_string(),
-            gpu_name: "AMD Radeon".to_string(),
-            vram_used_gb: 1.2,
-            vram_total_gb: 8.0,
+            backend: "llama.cpp".to_string(),
+            gpu_name: "discovered-at-runtime".to_string(),
+            vram_used_gb: 0.0,
+            vram_total_gb: 0.0,
         }))
     }
 }

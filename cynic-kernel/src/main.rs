@@ -11,6 +11,7 @@ use tonic::{transport::Server, Request, Response, Status};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use std::sync::Arc;
+use backend::InferencePort;
 
 pub mod cynic_v2 {
     tonic::include_proto!("cynic.v2");
@@ -90,9 +91,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
     println!("[Ring 1] Vascular Law enforced on {}", addr);
 
-    // TODO: Initialize real Pulse and HAL services with the new message types
+    // ─── RING 1: Muscle HAL (Inference Router) ──────────────────
+    let llama_endpoint = std::env::var("CYNIC_LLAMA_ENDPOINT")
+        .unwrap_or_else(|_| "http://127.0.0.1:11435".to_string());
+
+    let router = {
+        let r = Arc::new(router::BackendRouter::new(vec![]));
+        let r_clone = Arc::clone(&r);
+        let endpoint = llama_endpoint.clone();
+        tokio::spawn(async move {
+            match backend_llamacpp::LlamaCppBackend::connect(&endpoint, "local-llama").await {
+                Ok(backend) => {
+                    println!("[Ring 1] LlamaCpp connected: {} | models: {:?}",
+                        endpoint, backend.capability().loaded_models);
+                    r_clone.register(Arc::new(backend)).await;
+                }
+                Err(e) => {
+                    println!("[Ring 1] WARNING: LlamaCpp unavailable: {}", e);
+                    println!("[Ring 1] Set CYNIC_LLAMA_ENDPOINT to connect.");
+                }
+            }
+        });
+        r
+    };
+
     let pulse_service = pulse::PulseService::default();
-    let muscle_service = hal::MuscleService::new(Arc::clone(&storage));
+    let muscle_service = hal::MuscleService::new(Arc::clone(&router));
     let cognitive_service = storage::CognitiveMemoryService::new(Arc::clone(&storage));
 
     Server::builder()
