@@ -84,16 +84,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // ─── RING 1: Native Storage Client (UAL) ──────────────────
-    let storage = match storage::CynicStorage::init().await {
-        Ok(s) => {
-            println!("[Ring 1] CognitiveMemory connected to SurrealDB");
-            Some(Arc::new(s))
-        }
-        Err(e) => {
-            println!("[Ring 1] WARNING: SurrealDB unavailable: {}. Kernel starts without memory.", e);
-            None
-        }
-    };
+    // The Kernel connects to Sidecar Organs (Docker/Process)
+    let storage = Arc::new(storage::CynicStorage::init().await?);
     
     // ─── RING 1: Vascular System (gRPC IPC) ──────────────────
     let addr = "[::1]:50051".parse()?;
@@ -125,19 +117,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pulse_service = pulse::PulseService::default();
     let muscle_service = hal::MuscleService::new(Arc::clone(&router));
-    let cognitive_service = storage.as_ref().map(|s| storage::CognitiveMemoryService::new(Arc::clone(s)));
+    let cognitive_service = storage::CognitiveMemoryService::new(Arc::clone(&storage));
 
-    let mut builder = Server::builder()
+    Server::builder()
         .add_service(VascularSystemServer::new(VascularService::default()))
         .add_service(KPulseServer::new(pulse_service))
-        .add_service(MuscleHalServer::new(muscle_service));
-
-    if let Some(cog) = cognitive_service {
-        builder = builder.add_service(CognitiveMemoryServer::new(cog));
-        println!("[Ring 1] CognitiveMemory service registered");
-    }
-
-    builder.serve(addr).await?;
+        .add_service(MuscleHalServer::new(muscle_service))
+        .add_service(CognitiveMemoryServer::new(cognitive_service))
+        .serve(addr)
+        .await?;
 
     Ok(())
 }
