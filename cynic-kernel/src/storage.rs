@@ -47,18 +47,18 @@ impl CynicStorage {
             created_at = $ts";
 
         self.db.query(sql)
-            .bind(("vid", &verdict.id))
+            .bind(("vid", verdict.id.clone()))
             .bind(("kind", format!("{:?}", verdict.kind)))
             .bind(("total", verdict.q_score.total))
             .bind(("fidelity", verdict.q_score.fidelity))
             .bind(("phi", verdict.q_score.phi))
             .bind(("verify", verdict.q_score.verify))
-            .bind(("rf", &verdict.reasoning.fidelity))
-            .bind(("rp", &verdict.reasoning.phi))
-            .bind(("rv", &verdict.reasoning.verify))
-            .bind(("did", &verdict.dog_id))
-            .bind(("stim", &verdict.stimulus_summary))
-            .bind(("ts", &verdict.timestamp))
+            .bind(("rf", verdict.reasoning.fidelity.clone()))
+            .bind(("rp", verdict.reasoning.phi.clone()))
+            .bind(("rv", verdict.reasoning.verify.clone()))
+            .bind(("did", verdict.dog_id.clone()))
+            .bind(("stim", verdict.stimulus_summary.clone()))
+            .bind(("ts", verdict.timestamp.clone()))
             .await?;
         Ok(())
     }
@@ -66,7 +66,7 @@ impl CynicStorage {
     pub async fn get_verdict(&self, verdict_id: &str) -> Result<Option<crate::dog::Verdict>, Box<dyn std::error::Error>> {
         let sql = "SELECT * FROM verdict WHERE verdict_id = $vid LIMIT 1";
         let mut resp = self.db.query(sql)
-            .bind(("vid", verdict_id))
+            .bind(("vid", verdict_id.to_string()))
             .await?;
 
         let rows: Vec<serde_json::Value> = resp.take(0)?;

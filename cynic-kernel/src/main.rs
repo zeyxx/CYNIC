@@ -1,32 +1,14 @@
-pub mod probe;
-pub mod supervisor;
-pub mod hal;
-pub mod pulse;
-pub mod storage;
-pub mod backend;
-pub mod backend_llamacpp;
-pub mod router;
-pub mod dog;
-pub mod gemini_dog;
-pub mod deterministic_dog;
-pub mod judge;
-pub mod rest;
+use cynic_kernel::*;
+use cynic_kernel::cynic_v2::vascular_system_server::{VascularSystem, VascularSystemServer};
+use cynic_kernel::cynic_v2::k_pulse_server::KPulseServer;
+use cynic_kernel::cynic_v2::cognitive_memory_server::CognitiveMemoryServer;
+use cynic_kernel::cynic_v2::muscle_hal_server::MuscleHalServer;
+use cynic_kernel::cynic_v2::{Event, PublishAck, SubscriptionFilter};
 
 use tonic::{transport::Server, Request, Response, Status};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use std::sync::Arc;
-use backend::InferencePort;
-
-pub mod cynic_v2 {
-    tonic::include_proto!("cynic.v2");
-}
-
-use cynic_v2::vascular_system_server::{VascularSystem, VascularSystemServer};
-use cynic_v2::k_pulse_server::KPulseServer;
-use cynic_v2::cognitive_memory_server::CognitiveMemoryServer;
-use cynic_v2::muscle_hal_server::MuscleHalServer;
-use cynic_v2::{Event, PublishAck, SubscriptionFilter};
 
 // ============================================================
 // VASCULAR SYSTEM — gRPC IPC Event Bus
