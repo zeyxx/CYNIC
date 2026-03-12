@@ -43,6 +43,15 @@ pub struct AxiomReasoning {
     pub verify: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DogScore {
+    pub dog_id: String,
+    pub fidelity: f64,
+    pub phi: f64,
+    pub verify: f64,
+    pub reasoning: AxiomReasoning,
+}
+
 // ── PHI-BOUNDED Q-SCORE ────────────────────────────────────
 /// The kernel's final score. Every value capped at phi^-1 (0.618).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,6 +80,14 @@ pub struct Verdict {
     pub dog_id: String,
     pub stimulus_summary: String,
     pub timestamp: String,
+    #[serde(default)]
+    pub dog_scores: Vec<DogScore>,
+    #[serde(default)]
+    pub anomaly_detected: bool,
+    #[serde(default)]
+    pub max_disagreement: f64,
+    #[serde(default)]
+    pub anomaly_axiom: Option<String>,
 }
 
 // ── PHI-BOUNDING ───────────────────────────────────────────
@@ -121,8 +138,10 @@ pub enum DogError {
     ApiError(String),
     /// Response couldn't be parsed into axiom scores
     ParseError(String),
-    /// Rate limited or timeout
+    /// Rate limited
     RateLimited(String),
+    /// Request timed out
+    Timeout,
 }
 
 impl std::fmt::Display for DogError {
@@ -131,6 +150,7 @@ impl std::fmt::Display for DogError {
             Self::ApiError(msg) => write!(f, "Dog API error: {}", msg),
             Self::ParseError(msg) => write!(f, "Dog parse error: {}", msg),
             Self::RateLimited(msg) => write!(f, "Dog rate limited: {}", msg),
+            Self::Timeout => write!(f, "Dog evaluation timed out"),
         }
     }
 }

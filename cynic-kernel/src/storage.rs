@@ -31,7 +31,7 @@ impl CynicStorage {
 
 // ── VERDICT STORAGE ────────────────────────────────────────
 impl CynicStorage {
-    pub async fn store_verdict(&self, verdict: &crate::dog::Verdict) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) async fn store_verdict_internal(&self, verdict: &crate::dog::Verdict) -> Result<(), Box<dyn std::error::Error>> {
         let sql = "CREATE verdict SET \
             verdict_id = $vid, \
             kind = $kind, \
@@ -63,7 +63,7 @@ impl CynicStorage {
         Ok(())
     }
 
-    pub async fn get_verdict(&self, verdict_id: &str) -> Result<Option<crate::dog::Verdict>, Box<dyn std::error::Error>> {
+    pub(crate) async fn get_verdict_internal(&self, verdict_id: &str) -> Result<Option<crate::dog::Verdict>, Box<dyn std::error::Error>> {
         let sql = "SELECT * FROM verdict WHERE verdict_id = $vid LIMIT 1";
         let mut resp = self.db.query(sql)
             .bind(("vid", verdict_id.to_string()))
@@ -98,12 +98,16 @@ impl CynicStorage {
                     dog_id: row["dog_id"].as_str().unwrap_or("").to_string(),
                     stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
                     timestamp: row["created_at"].as_str().unwrap_or("").to_string(),
+                    dog_scores: Vec::new(),
+                    anomaly_detected: false,
+                    max_disagreement: 0.0,
+                    anomaly_axiom: None,
                 }))
             }
         }
     }
 
-    pub async fn list_verdicts(&self, limit: u32) -> Result<Vec<crate::dog::Verdict>, Box<dyn std::error::Error>> {
+    pub(crate) async fn list_verdicts_internal(&self, limit: u32) -> Result<Vec<crate::dog::Verdict>, Box<dyn std::error::Error>> {
         let sql = "SELECT * FROM verdict ORDER BY created_at DESC LIMIT $lim";
         let mut resp = self.db.query(sql)
             .bind(("lim", limit))
@@ -138,6 +142,10 @@ impl CynicStorage {
                 dog_id: row["dog_id"].as_str().unwrap_or("").to_string(),
                 stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
                 timestamp: row["created_at"].as_str().unwrap_or("").to_string(),
+                dog_scores: Vec::new(),
+                anomaly_detected: false,
+                max_disagreement: 0.0,
+                anomaly_axiom: None,
             });
         }
 
@@ -223,6 +231,27 @@ impl CognitiveMemory for CognitiveMemoryService {
             meta,
             is_trusted: !results.is_empty(),
         }))
+    }
+}
+
+// ── STORAGE PORT IMPL ─────────────────────────────────────
+use crate::storage_port::{StoragePort, StorageError};
+
+#[async_trait::async_trait]
+impl StoragePort for CynicStorage {
+    async fn store_verdict(&self, verdict: &crate::dog::Verdict) -> Result<(), StorageError> {
+        self.store_verdict_internal(verdict).await
+            .map_err(|e| StorageError::QueryFailed(e.to_string()))
+    }
+
+    async fn get_verdict(&self, id: &str) -> Result<Option<crate::dog::Verdict>, StorageError> {
+        self.get_verdict_internal(id).await
+            .map_err(|e| StorageError::QueryFailed(e.to_string()))
+    }
+
+    async fn list_verdicts(&self, limit: u32) -> Result<Vec<crate::dog::Verdict>, StorageError> {
+        self.list_verdicts_internal(limit).await
+            .map_err(|e| StorageError::QueryFailed(e.to_string()))
     }
 }
 

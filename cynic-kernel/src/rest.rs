@@ -11,16 +11,17 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 
 use crate::dog::{Verdict, PHI_INV};
 use crate::judge::Judge;
-use crate::storage::CynicStorage;
+use crate::storage_port::StoragePort;
 
 // ── SHARED STATE ───────────────────────────────────────────
 
 pub struct AppState {
     pub judge: Judge,
-    pub storage: Arc<CynicStorage>,
+    pub storage: Arc<dyn StoragePort>,
 }
 
 // ── REQUEST / RESPONSE TYPES ───────────────────────────────
@@ -40,6 +41,19 @@ pub struct JudgeResponse {
     pub reasoning: ReasoningResponse,
     pub dogs_used: String,
     pub phi_max: f64,
+    pub dog_scores: Vec<DogScoreResponse>,
+    pub anomaly_detected: bool,
+    pub max_disagreement: f64,
+    pub anomaly_axiom: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct DogScoreResponse {
+    pub dog_id: String,
+    pub fidelity: f64,
+    pub phi: f64,
+    pub verify: f64,
+    pub reasoning: ReasoningResponse,
 }
 
 #[derive(Serialize)]
@@ -83,6 +97,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
         .route("/health", get(health_handler))
+        .nest_service("/", ServeDir::new("static"))
         .layer(cors)
         .with_state(state)
 }
@@ -174,5 +189,19 @@ fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         },
         dogs_used: v.dog_id.clone(),
         phi_max: PHI_INV,
+        dog_scores: v.dog_scores.iter().map(|ds| DogScoreResponse {
+            dog_id: ds.dog_id.clone(),
+            fidelity: ds.fidelity,
+            phi: ds.phi,
+            verify: ds.verify,
+            reasoning: ReasoningResponse {
+                fidelity: ds.reasoning.fidelity.clone(),
+                phi: ds.reasoning.phi.clone(),
+                verify: ds.reasoning.verify.clone(),
+            },
+        }).collect(),
+        anomaly_detected: v.anomaly_detected,
+        max_disagreement: v.max_disagreement,
+        anomaly_axiom: v.anomaly_axiom.clone(),
     }
 }

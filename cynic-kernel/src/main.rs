@@ -1,5 +1,5 @@
 use cynic_kernel::*;
-use cynic_kernel::backend::InferencePort;
+use cynic_kernel::chat_port::ChatPort;
 use cynic_kernel::cynic_v2::vascular_system_server::{VascularSystem, VascularSystemServer};
 use cynic_kernel::cynic_v2::k_pulse_server::KPulseServer;
 use cynic_kernel::cynic_v2::cognitive_memory_server::CognitiveMemoryServer;
@@ -79,46 +79,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
     println!("[Ring 1] Vascular Law enforced on {}", addr);
 
-    // ─── RING 1: Muscle HAL (Inference Router) ──────────────────
-    let llama_endpoint = std::env::var("CYNIC_LLAMA_ENDPOINT")
-        .unwrap_or_else(|_| "http://127.0.0.1:11435".to_string());
+    // ─── RING 1: Muscle HAL (BackendRouter for gRPC) ──────────
+    let router = Arc::new(router::BackendRouter::new(vec![]));
 
-    let router = {
-        let r = Arc::new(router::BackendRouter::new(vec![]));
-        let r_clone = Arc::clone(&r);
-        let endpoint = llama_endpoint.clone();
-        tokio::spawn(async move {
-            match backend_llamacpp::LlamaCppBackend::connect(&endpoint, "local-llama").await {
-                Ok(backend) => {
-                    println!("[Ring 1] LlamaCpp connected: {} | models: {:?}",
-                        endpoint, backend.capability().loaded_models);
-                    r_clone.register(Arc::new(backend)).await;
-                }
-                Err(e) => {
-                    println!("[Ring 1] WARNING: LlamaCpp unavailable: {}", e);
-                    println!("[Ring 1] Set CYNIC_LLAMA_ENDPOINT to connect.");
-                }
-            }
-        });
-        r
+    // ─── RING 2: Load Backend Configs ──────────────────────────
+    let backends_path = dirs::config_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("cynic")
+        .join("backends.toml");
+
+    let backend_configs = if backends_path.exists() {
+        println!("[Ring 2] Loading backends from {}", backends_path.display());
+        config::load_backends(&backends_path)
+    } else {
+        println!("[Ring 2] No backends.toml found, using env var fallback");
+        config::load_backends_from_env()
     };
-
-    // ─── Background: Periodic health probe (circuit breaker) ──────
-    {
-        let probe_router = Arc::clone(&router);
-        tokio::spawn(async move {
-            // Initial probe to transition backends from UNKNOWN → real state
-            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-            loop {
-                probe_router.probe_all().await;
-                let statuses = probe_router.backend_statuses().await;
-                for (id, status) in &statuses {
-                    println!("[Health] {} → {:?}", id, status);
-                }
-                tokio::time::sleep(std::time::Duration::from_secs(15)).await;
-            }
-        });
-    }
 
     // ─── RING 2: Build Dogs (model-agnostic evaluators) ───────
     let mut dogs: Vec<Box<dyn dog::Dog>> = Vec::new();
@@ -127,14 +103,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dogs.push(Box::new(deterministic_dog::DeterministicDog));
     println!("[Ring 2] DeterministicDog loaded");
 
-    // Add GeminiDog if API key is available
-    if let Ok(api_key) = std::env::var("GEMINI_API_KEY") {
-        let model = std::env::var("GEMINI_MODEL")
-            .unwrap_or_else(|_| "gemini-2.5-flash".to_string());
-        println!("[Ring 2] GeminiDog loaded (model: {})", model);
-        dogs.push(Box::new(gemini_dog::GeminiDog::with_model(api_key, model)));
-    } else {
-        println!("[Ring 2] GEMINI_API_KEY not set — running deterministic-only mode");
+    // Create InferenceDog per configured backend
+    for cfg in backend_configs {
+        let backend = Arc::new(backend_openai::OpenAiCompatBackend::new(cfg.clone()));
+        let health = ChatPort::health(backend.as_ref()).await;
+        match health {
+            backend::BackendStatus::Healthy | backend::BackendStatus::Degraded { .. } => {
+                println!("[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?})", cfg.name, cfg.model, health);
+                dogs.push(Box::new(inference_dog::InferenceDog::new(backend, cfg.name.clone())));
+            }
+            _ => {
+                println!("[Ring 2] WARNING: Backend '{}' unreachable, skipping", cfg.name);
+            }
+        }
     }
 
     println!("[Ring 2] {} Dog(s) active", dogs.len());
@@ -145,7 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── RING 3: REST API (for React/external clients) ────────
     let rest_state = Arc::new(rest::AppState {
         judge,
-        storage: Arc::clone(&storage),
+        storage: Arc::clone(&storage) as Arc<dyn storage_port::StoragePort>,
     });
     let rest_app = rest::router(rest_state);
     let rest_addr = std::env::var("CYNIC_REST_ADDR")

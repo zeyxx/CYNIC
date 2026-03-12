@@ -8,7 +8,7 @@ CYNIC is an **epistemic immune system** — independent AI validators reaching c
 - **Sovereignty:** Not captured by any single vendor, model, or data source. Score 0 → system rejects.
 - **Triple agnosticism:** Hardware-agnostic (probe detects). Model-agnostic (open-source default). Domain-agnostic (axioms are universal).
 - **Hexagonal purity:** Domain core imports nothing external. Adapters implement port traits. `main.rs` is the only composition root.
-- **3-state health:** HEALTHY / DEGRADED / CRITICAL. Never boolean. Circuit breaker per backend.
+- **5-state health:** UNKNOWN → HEALTHY → DEGRADED → CRITICAL → RECOVERING. Never boolean. Circuit breaker per backend. UNKNOWN at boot (epistemic honesty). RECOVERING = half-open probe.
 
 ## Development Principles
 
