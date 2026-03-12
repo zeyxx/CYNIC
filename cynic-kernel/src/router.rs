@@ -100,6 +100,12 @@ impl BackendRouter {
                         tracked.consecutive_failures = 0;
                         tracked.last_probe = Instant::now();
                     }
+                    BackendStatus::Critical => {
+                        // Backend explicitly reports Critical — honor immediately
+                        tracked.status = BackendStatus::Critical;
+                        tracked.consecutive_failures = FAILURE_THRESHOLD;
+                        tracked.last_probe = Instant::now();
+                    }
                     _ => tracked.record_failure(),
                 }
             }
