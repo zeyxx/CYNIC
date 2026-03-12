@@ -29,6 +29,122 @@ impl CynicStorage {
     }
 }
 
+// ── VERDICT STORAGE ────────────────────────────────────────
+impl CynicStorage {
+    pub async fn store_verdict(&self, verdict: &crate::dog::Verdict) -> Result<(), Box<dyn std::error::Error>> {
+        let sql = "CREATE verdict SET \
+            verdict_id = $vid, \
+            kind = $kind, \
+            total = $total, \
+            fidelity = $fidelity, \
+            phi = $phi, \
+            verify = $verify, \
+            reasoning_fidelity = $rf, \
+            reasoning_phi = $rp, \
+            reasoning_verify = $rv, \
+            dog_id = $did, \
+            stimulus = $stim, \
+            created_at = $ts";
+
+        self.db.query(sql)
+            .bind(("vid", &verdict.id))
+            .bind(("kind", format!("{:?}", verdict.kind)))
+            .bind(("total", verdict.q_score.total))
+            .bind(("fidelity", verdict.q_score.fidelity))
+            .bind(("phi", verdict.q_score.phi))
+            .bind(("verify", verdict.q_score.verify))
+            .bind(("rf", &verdict.reasoning.fidelity))
+            .bind(("rp", &verdict.reasoning.phi))
+            .bind(("rv", &verdict.reasoning.verify))
+            .bind(("did", &verdict.dog_id))
+            .bind(("stim", &verdict.stimulus_summary))
+            .bind(("ts", &verdict.timestamp))
+            .await?;
+        Ok(())
+    }
+
+    pub async fn get_verdict(&self, verdict_id: &str) -> Result<Option<crate::dog::Verdict>, Box<dyn std::error::Error>> {
+        let sql = "SELECT * FROM verdict WHERE verdict_id = $vid LIMIT 1";
+        let mut resp = self.db.query(sql)
+            .bind(("vid", verdict_id))
+            .await?;
+
+        let rows: Vec<serde_json::Value> = resp.take(0)?;
+        match rows.into_iter().next() {
+            None => Ok(None),
+            Some(row) => {
+                let kind_str = row["kind"].as_str().unwrap_or("Bark");
+                let kind = match kind_str {
+                    "Howl" => crate::dog::VerdictKind::Howl,
+                    "Wag" => crate::dog::VerdictKind::Wag,
+                    "Growl" => crate::dog::VerdictKind::Growl,
+                    _ => crate::dog::VerdictKind::Bark,
+                };
+
+                Ok(Some(crate::dog::Verdict {
+                    id: row["verdict_id"].as_str().unwrap_or("").to_string(),
+                    kind,
+                    q_score: crate::dog::QScore {
+                        total: row["total"].as_f64().unwrap_or(0.0),
+                        fidelity: row["fidelity"].as_f64().unwrap_or(0.0),
+                        phi: row["phi"].as_f64().unwrap_or(0.0),
+                        verify: row["verify"].as_f64().unwrap_or(0.0),
+                    },
+                    reasoning: crate::dog::AxiomReasoning {
+                        fidelity: row["reasoning_fidelity"].as_str().unwrap_or("").to_string(),
+                        phi: row["reasoning_phi"].as_str().unwrap_or("").to_string(),
+                        verify: row["reasoning_verify"].as_str().unwrap_or("").to_string(),
+                    },
+                    dog_id: row["dog_id"].as_str().unwrap_or("").to_string(),
+                    stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
+                    timestamp: row["created_at"].as_str().unwrap_or("").to_string(),
+                }))
+            }
+        }
+    }
+
+    pub async fn list_verdicts(&self, limit: u32) -> Result<Vec<crate::dog::Verdict>, Box<dyn std::error::Error>> {
+        let sql = "SELECT * FROM verdict ORDER BY created_at DESC LIMIT $lim";
+        let mut resp = self.db.query(sql)
+            .bind(("lim", limit))
+            .await?;
+
+        let rows: Vec<serde_json::Value> = resp.take(0)?;
+        let mut verdicts = Vec::new();
+
+        for row in rows {
+            let kind_str = row["kind"].as_str().unwrap_or("Bark");
+            let kind = match kind_str {
+                "Howl" => crate::dog::VerdictKind::Howl,
+                "Wag" => crate::dog::VerdictKind::Wag,
+                "Growl" => crate::dog::VerdictKind::Growl,
+                _ => crate::dog::VerdictKind::Bark,
+            };
+
+            verdicts.push(crate::dog::Verdict {
+                id: row["verdict_id"].as_str().unwrap_or("").to_string(),
+                kind,
+                q_score: crate::dog::QScore {
+                    total: row["total"].as_f64().unwrap_or(0.0),
+                    fidelity: row["fidelity"].as_f64().unwrap_or(0.0),
+                    phi: row["phi"].as_f64().unwrap_or(0.0),
+                    verify: row["verify"].as_f64().unwrap_or(0.0),
+                },
+                reasoning: crate::dog::AxiomReasoning {
+                    fidelity: row["reasoning_fidelity"].as_str().unwrap_or("").to_string(),
+                    phi: row["reasoning_phi"].as_str().unwrap_or("").to_string(),
+                    verify: row["reasoning_verify"].as_str().unwrap_or("").to_string(),
+                },
+                dog_id: row["dog_id"].as_str().unwrap_or("").to_string(),
+                stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
+                timestamp: row["created_at"].as_str().unwrap_or("").to_string(),
+            });
+        }
+
+        Ok(verdicts)
+    }
+}
+
 pub struct CognitiveMemoryService {
     storage: Arc<CynicStorage>,
 }

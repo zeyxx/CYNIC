@@ -6,6 +6,11 @@ pub mod storage;
 pub mod backend;
 pub mod backend_llamacpp;
 pub mod router;
+pub mod dog;
+pub mod gemini_dog;
+pub mod deterministic_dog;
+pub mod judge;
+pub mod rest;
 
 use tonic::{transport::Server, Request, Response, Status};
 use tokio::sync::mpsc;
@@ -132,17 +137,70 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
+    // ─── RING 2: Build Dogs (model-agnostic evaluators) ───────
+    let mut dogs: Vec<Box<dyn dog::Dog>> = Vec::new();
+
+    // Always add the deterministic Dog (free, fast)
+    dogs.push(Box::new(deterministic_dog::DeterministicDog));
+    println!("[Ring 2] DeterministicDog loaded");
+
+    // Add GeminiDog if API key is available
+    if let Ok(api_key) = std::env::var("GEMINI_API_KEY") {
+        let model = std::env::var("GEMINI_MODEL")
+            .unwrap_or_else(|_| "gemini-2.5-flash".to_string());
+        println!("[Ring 2] GeminiDog loaded (model: {})", model);
+        dogs.push(Box::new(gemini_dog::GeminiDog::with_model(api_key, model)));
+    } else {
+        println!("[Ring 2] GEMINI_API_KEY not set — running deterministic-only mode");
+    }
+
+    println!("[Ring 2] {} Dog(s) active", dogs.len());
+
+    // ─── RING 2: Build Judge ──────────────────────────────────
+    let judge = judge::Judge::new(dogs);
+
+    // ─── RING 3: REST API (for React/external clients) ────────
+    let rest_state = Arc::new(rest::AppState {
+        judge,
+        storage: Arc::clone(&storage),
+    });
+    let rest_app = rest::router(rest_state);
+    let rest_addr = "0.0.0.0:3000";
+    println!("[Ring 3] REST API on http://{}", rest_addr);
+
+    let rest_listener = tokio::net::TcpListener::bind(rest_addr).await?;
+    let rest_server = tokio::spawn(async move {
+        axum::serve(rest_listener, rest_app).await.unwrap();
+    });
+
+    // ─── gRPC services ────────────────────────────────────────
     let pulse_service = pulse::PulseService::default();
     let muscle_service = hal::MuscleService::new(Arc::clone(&router));
     let cognitive_service = storage::CognitiveMemoryService::new(Arc::clone(&storage));
 
-    Server::builder()
+    println!("╔══════════════════════════════════════╗");
+    println!("║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
+    println!("║   REST: http://{}          ║", rest_addr);
+    println!("║   gRPC: {}                ║", addr);
+    println!("║   Max confidence: phi^-1 = 0.618     ║");
+    println!("╚══════════════════════════════════════╝");
+
+    let grpc_server = Server::builder()
         .add_service(VascularSystemServer::new(VascularService::default()))
         .add_service(KPulseServer::new(pulse_service))
         .add_service(MuscleHalServer::new(muscle_service))
         .add_service(CognitiveMemoryServer::new(cognitive_service))
-        .serve(addr)
-        .await?;
+        .serve(addr);
+
+    // Run both servers concurrently
+    tokio::select! {
+        _ = rest_server => eprintln!("[FATAL] REST server stopped"),
+        r = grpc_server => {
+            if let Err(e) = r {
+                eprintln!("[FATAL] gRPC server error: {}", e);
+            }
+        }
+    }
 
     Ok(())
 }

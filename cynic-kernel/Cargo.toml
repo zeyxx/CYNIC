@@ -18,6 +18,9 @@ surrealdb = { version = "3.0.3", features = ["protocol-http", "protocol-ws"] }
 toml = "0.8"
 walkdir = "2"
 async-trait = "0.1"
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
+uuid = { version = "1", features = ["v4"] }
 
 [build-dependencies]
 tonic-build = "0.12"
