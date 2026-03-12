@@ -24,12 +24,9 @@ CYNIC is an **epistemic immune system** — independent AI validators reaching c
 | Skill | When |
 |-------|------|
 | `cynic-kernel` | Building/modifying any CYNIC component |
-| `cynic-workflow` | Git, deploy, CI/CD, agent access rules |
-| `cynic-learn` | Session start (retrieve), on correction (capture) |
-| `cynic-empirical` | Before adopting technology or entering unfamiliar domain |
 | `cynic-judge` | Evaluating code, decisions, or content (φ-bounded scoring) |
-| `cynic-wisdom` | Philosophical grounding for technical decisions |
 | `cynic-burn` | Simplification — orphans, hotspots, dead code |
+| `cynic-wisdom` | Philosophical grounding for technical decisions |
 | `ai-infrastructure` | LLM serving, inference pipelines, distributed inference |
 | `crystallize-truth` | Complex decisions where assumptions might be hidden |
 | `engineering-stack-design` | Architecture decisions, system design patterns |
