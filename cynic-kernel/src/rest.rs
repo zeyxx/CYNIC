@@ -106,7 +106,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
         .route("/health", get(health_handler))
-        .nest_service("/", ServeDir::new("static"))
+        .fallback_service(ServeDir::new("static"))
         .layer(cors)
         .with_state(state)
 }

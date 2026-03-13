@@ -4,6 +4,7 @@ use cynic_kernel::cynic_v2::vascular_system_server::{VascularSystem, VascularSys
 use cynic_kernel::cynic_v2::k_pulse_server::KPulseServer;
 use cynic_kernel::cynic_v2::cognitive_memory_server::CognitiveMemoryServer;
 use cynic_kernel::cynic_v2::muscle_hal_server::MuscleHalServer;
+use cynic_kernel::storage_http;
 use cynic_kernel::cynic_v2::{Event, PublishAck, SubscriptionFilter};
 
 use tonic::{transport::Server, Request, Response, Status};
@@ -72,8 +73,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // ─── RING 1: Native Storage Client (UAL) ──────────────────
-    // The Kernel connects to Sidecar Organs (Docker/Process)
-    let storage = Arc::new(storage::CynicStorage::init().await?);
+    // HTTP adapter to SurrealDB 3.x — graceful degradation if unavailable.
+    let storage: Option<Arc<storage_http::SurrealHttpStorage>> = match storage_http::SurrealHttpStorage::init().await {
+        Ok(s) => {
+            println!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
+            Some(Arc::new(s))
+        }
+        Err(e) => {
+            eprintln!("[Ring 1] Storage: DEGRADED — {} (verdicts will not persist)", e);
+            None
+        }
+    };
     
     // ─── RING 1: Vascular System (gRPC IPC) ──────────────────
     let addr = "[::1]:50051".parse()?;
@@ -124,9 +134,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let judge = judge::Judge::new(dogs);
 
     // ─── RING 3: REST API (for React/external clients) ────────
+    let storage_port: Arc<dyn storage_port::StoragePort> = match &storage {
+        Some(s) => Arc::clone(s) as Arc<dyn storage_port::StoragePort>,
+        None => Arc::new(storage_port::NullStorage),
+    };
     let rest_state = Arc::new(rest::AppState {
         judge,
-        storage: Arc::clone(&storage) as Arc<dyn storage_port::StoragePort>,
+        storage: storage_port,
     });
     let rest_app = rest::router(rest_state);
     let rest_addr = std::env::var("CYNIC_REST_ADDR")
@@ -141,7 +155,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── gRPC services ────────────────────────────────────────
     let pulse_service = pulse::PulseService::default();
     let muscle_service = hal::MuscleService::new(Arc::clone(&router));
-    let cognitive_service = storage::CognitiveMemoryService::new(Arc::clone(&storage));
+    let cognitive_service = storage_http::CognitiveMemoryService::new(storage);
 
     println!("╔══════════════════════════════════════╗");
     println!("║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");

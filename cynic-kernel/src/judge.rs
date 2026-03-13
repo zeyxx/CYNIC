@@ -51,7 +51,10 @@ impl Judge {
                         reasoning: scores.reasoning,
                     });
                 }
-                Err(e) => errors.push(format!("{}: {}", id, e)),
+                Err(e) => {
+                    eprintln!("[Judge] Dog '{}' failed: {}", id, e);
+                    errors.push(format!("{}: {}", id, e));
+                }
             }
         }
 

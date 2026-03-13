@@ -30,3 +30,20 @@ pub trait StoragePort: Send + Sync {
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError>;
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError>;
 }
+
+/// No-op storage for graceful degradation when DB is unavailable.
+/// Verdicts pass through but are not persisted.
+pub struct NullStorage;
+
+#[async_trait]
+impl StoragePort for NullStorage {
+    async fn store_verdict(&self, _verdict: &Verdict) -> Result<(), StorageError> {
+        Ok(()) // Silently drop — REST already logs the warning
+    }
+    async fn get_verdict(&self, _id: &str) -> Result<Option<Verdict>, StorageError> {
+        Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
+    }
+    async fn list_verdicts(&self, _limit: u32) -> Result<Vec<Verdict>, StorageError> {
+        Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
+    }
+}

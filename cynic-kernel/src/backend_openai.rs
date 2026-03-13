@@ -25,6 +25,8 @@ struct ChatCompletionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    max_completion_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     n: Option<u32>,
 }
 
@@ -107,7 +109,8 @@ impl OpenAiCompatBackend {
             model: self.config.model.clone(),
             messages,
             temperature,
-            max_tokens,
+            max_tokens: None,
+            max_completion_tokens: max_tokens,
             n,
         };
 
@@ -148,7 +151,7 @@ impl ChatPort for OpenAiCompatBackend {
         }
         messages.push(Message { role: "user".to_string(), content: user.to_string() });
 
-        let resp = self.post_chat(messages, Some(0.3), Some(500), None).await?;
+        let resp = self.post_chat(messages, Some(0.3), Some(4096), None).await?;
 
         resp.choices.into_iter().next()
             .map(|c| c.message.content)
