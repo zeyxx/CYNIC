@@ -45,6 +45,9 @@ impl Judge {
                         fidelity: scores.fidelity,
                         phi: scores.phi,
                         verify: scores.verify,
+                        culture: scores.culture,
+                        burn: scores.burn,
+                        sovereignty: scores.sovereignty,
                         reasoning: scores.reasoning,
                     });
                 }
@@ -63,12 +66,15 @@ impl Judge {
         let avg_fidelity = dog_scores.iter().map(|s| s.fidelity).sum::<f64>() / n;
         let avg_phi = dog_scores.iter().map(|s| s.phi).sum::<f64>() / n;
         let avg_verify = dog_scores.iter().map(|s| s.verify).sum::<f64>() / n;
+        let avg_culture = dog_scores.iter().map(|s| s.culture).sum::<f64>() / n;
+        let avg_burn = dog_scores.iter().map(|s| s.burn).sum::<f64>() / n;
+        let avg_sovereignty = dog_scores.iter().map(|s| s.sovereignty).sum::<f64>() / n;
 
         // Use median Dog's reasoning (deterministic under parallel execution)
         let mut sorted_by_q: Vec<&DogScore> = dog_scores.iter().collect();
         sorted_by_q.sort_by(|a, b| {
-            let qa = compute_qscore(&AxiomScores { fidelity: a.fidelity, phi: a.phi, verify: a.verify, reasoning: AxiomReasoning::default() }).total;
-            let qb = compute_qscore(&AxiomScores { fidelity: b.fidelity, phi: b.phi, verify: b.verify, reasoning: AxiomReasoning::default() }).total;
+            let qa = compute_qscore(&AxiomScores { fidelity: a.fidelity, phi: a.phi, verify: a.verify, culture: a.culture, burn: a.burn, sovereignty: a.sovereignty, reasoning: AxiomReasoning::default() }).total;
+            let qb = compute_qscore(&AxiomScores { fidelity: b.fidelity, phi: b.phi, verify: b.verify, culture: b.culture, burn: b.burn, sovereignty: b.sovereignty, reasoning: AxiomReasoning::default() }).total;
             qa.partial_cmp(&qb).unwrap_or(std::cmp::Ordering::Equal)
         });
         let median_reasoning = sorted_by_q.get(sorted_by_q.len() / 2)
@@ -79,6 +85,9 @@ impl Judge {
             fidelity: avg_fidelity,
             phi: avg_phi,
             verify: avg_verify,
+            culture: avg_culture,
+            burn: avg_burn,
+            sovereignty: avg_sovereignty,
             reasoning: median_reasoning,
         };
 
@@ -92,6 +101,7 @@ impl Judge {
                 .map(|s| {
                     let dog_raw = AxiomScores {
                         fidelity: s.fidelity, phi: s.phi, verify: s.verify,
+                        culture: s.culture, burn: s.burn, sovereignty: s.sovereignty,
                         reasoning: AxiomReasoning::default(),
                     };
                     let dog_q = compute_qscore(&dog_raw).total;
@@ -105,12 +115,15 @@ impl Judge {
 
         // Find which axiom has the largest inter-Dog spread (for anomaly_axiom)
         let anomaly_axiom = if anomaly_detected && dog_scores.len() > 1 {
-            let axioms = ["fidelity", "phi", "verify"];
+            let axioms = ["fidelity", "phi", "verify", "culture", "burn", "sovereignty"];
             let spreads: Vec<(f64, &str)> = axioms.iter().map(|&name| {
                 let values: Vec<f64> = dog_scores.iter().map(|s| match name {
                     "fidelity" => s.fidelity,
                     "phi" => s.phi,
                     "verify" => s.verify,
+                    "culture" => s.culture,
+                    "burn" => s.burn,
+                    "sovereignty" => s.sovereignty,
                     _ => 0.0,
                 }).collect();
                 let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
@@ -199,6 +212,7 @@ mod tests {
                 name: "test".into(),
                 scores: AxiomScores {
                     fidelity: 0.5, phi: 0.5, verify: 0.5,
+                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
                     reasoning: AxiomReasoning::default(),
                 },
             }),
@@ -219,6 +233,7 @@ mod tests {
                 name: "high".into(),
                 scores: AxiomScores {
                     fidelity: 0.8, phi: 0.8, verify: 0.8,
+                    culture: 0.8, burn: 0.8, sovereignty: 0.8,
                     reasoning: AxiomReasoning::default(),
                 },
             }),
@@ -226,6 +241,7 @@ mod tests {
                 name: "low".into(),
                 scores: AxiomScores {
                     fidelity: 0.2, phi: 0.2, verify: 0.2,
+                    culture: 0.2, burn: 0.2, sovereignty: 0.2,
                     reasoning: AxiomReasoning::default(),
                 },
             }),
@@ -247,6 +263,7 @@ mod tests {
                 name: "survivor".into(),
                 scores: AxiomScores {
                     fidelity: 0.5, phi: 0.5, verify: 0.5,
+                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
                     reasoning: AxiomReasoning::default(),
                 },
             }),
@@ -277,6 +294,7 @@ mod tests {
                 name: "optimist".into(),
                 scores: AxiomScores {
                     fidelity: 0.9, phi: 0.9, verify: 0.9,
+                    culture: 0.9, burn: 0.9, sovereignty: 0.9,
                     reasoning: AxiomReasoning::default(),
                 },
             }),
@@ -284,6 +302,7 @@ mod tests {
                 name: "pessimist".into(),
                 scores: AxiomScores {
                     fidelity: 0.1, phi: 0.1, verify: 0.1,
+                    culture: 0.1, burn: 0.1, sovereignty: 0.1,
                     reasoning: AxiomReasoning::default(),
                 },
             }),
@@ -303,6 +322,7 @@ mod tests {
                 name: "a".into(),
                 scores: AxiomScores {
                     fidelity: 0.5, phi: 0.5, verify: 0.5,
+                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
                     reasoning: AxiomReasoning::default(),
                 },
             }),
@@ -310,6 +330,7 @@ mod tests {
                 name: "b".into(),
                 scores: AxiomScores {
                     fidelity: 0.52, phi: 0.48, verify: 0.51,
+                    culture: 0.49, burn: 0.51, sovereignty: 0.50,
                     reasoning: AxiomReasoning::default(),
                 },
             }),

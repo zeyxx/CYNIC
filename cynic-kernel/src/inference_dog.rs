@@ -29,15 +29,18 @@ impl InferenceDog {
 STIMULUS: {content}
 CONTEXT: {context_block}
 
-Score each axiom from 0.0 to 1.0 with honest uncertainty.
+Score each axiom from 0.0 to 1.0 with honest uncertainty. Do NOT inflate scores.
 
 AXIOMS:
 1. FIDELITY — Is this faithful to truth/reality? Does it reflect what IS, not what we wish?
 2. PHI — Is this structurally harmonious? Well-proportioned? Elegant or clumsy?
 3. VERIFY — Is this verifiable or falsifiable? Can we test it? What evidence supports/refutes it?
+4. CULTURE — Does this honor existing patterns, conventions, and continuity?
+5. BURN — Is this minimal and efficient? Could excess be destroyed without loss?
+6. SOVEREIGNTY — Does this preserve individual agency and freedom of choice?
 
 Respond ONLY with this exact JSON (no markdown, no explanation):
-{{"fidelity": 0.XX, "phi": 0.XX, "verify": 0.XX, "fidelity_reason": "...", "phi_reason": "...", "verify_reason": "..."}}"#,
+{{"fidelity": 0.XX, "phi": 0.XX, "verify": 0.XX, "culture": 0.XX, "burn": 0.XX, "sovereignty": 0.XX, "fidelity_reason": "...", "phi_reason": "...", "verify_reason": "...", "culture_reason": "...", "burn_reason": "...", "sovereignty_reason": "..."}}"#,
             content = stimulus.content,
         )
     }
@@ -49,11 +52,23 @@ struct AxiomResponse {
     phi: f64,
     verify: f64,
     #[serde(default)]
+    culture: f64,
+    #[serde(default)]
+    burn: f64,
+    #[serde(default)]
+    sovereignty: f64,
+    #[serde(default)]
     fidelity_reason: String,
     #[serde(default)]
     phi_reason: String,
     #[serde(default)]
     verify_reason: String,
+    #[serde(default)]
+    culture_reason: String,
+    #[serde(default)]
+    burn_reason: String,
+    #[serde(default)]
+    sovereignty_reason: String,
 }
 
 #[async_trait]
@@ -83,10 +98,16 @@ impl Dog for InferenceDog {
             fidelity: parsed.fidelity,
             phi: parsed.phi,
             verify: parsed.verify,
+            culture: parsed.culture,
+            burn: parsed.burn,
+            sovereignty: parsed.sovereignty,
             reasoning: AxiomReasoning {
                 fidelity: parsed.fidelity_reason,
                 phi: parsed.phi_reason,
                 verify: parsed.verify_reason,
+                culture: parsed.culture_reason,
+                burn: parsed.burn_reason,
+                sovereignty: parsed.sovereignty_reason,
             },
         })
     }
@@ -154,7 +175,7 @@ mod tests {
     async fn mock_chat_produces_valid_scores() {
         let mock = Arc::new(MockChatBackend::new(
             "test-mock",
-            r#"{"fidelity": 0.6, "phi": 0.5, "verify": 0.4, "fidelity_reason": "good", "phi_reason": "ok", "verify_reason": "decent"}"#,
+            r#"{"fidelity": 0.6, "phi": 0.5, "verify": 0.4, "culture": 0.45, "burn": 0.5, "sovereignty": 0.55, "fidelity_reason": "good", "phi_reason": "ok", "verify_reason": "decent", "culture_reason": "respects patterns", "burn_reason": "efficient", "sovereignty_reason": "preserves agency"}"#,
         ));
 
         let dog = InferenceDog::new(mock, "test-dog".into());

@@ -26,12 +26,18 @@ pub struct Stimulus {
 /// Raw scores from a Dog. NOT phi-bounded — the kernel does that.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AxiomScores {
-    /// Truth loyalty: is this faithful to reality?
+    /// Truth loyalty: is this faithful to reality? (kenosis)
     pub fidelity: f64,
-    /// Structural harmony: is this well-proportioned?
+    /// Structural harmony: is this well-proportioned? (golden ratio)
     pub phi: f64,
-    /// Evidence + falsifiability: is this verifiable/falsifiable?
+    /// Evidence + falsifiability: is this verifiable/falsifiable? (Popper)
     pub verify: f64,
+    /// Continuity + patterns: does this honor existing lineage?
+    pub culture: f64,
+    /// Simplicity + action: is this minimal and efficient? (destroy excess)
+    pub burn: f64,
+    /// Individual agency: does this preserve sovereignty? (the soul of CYNIC)
+    pub sovereignty: f64,
     /// Optional reasoning per axiom
     pub reasoning: AxiomReasoning,
 }
@@ -41,6 +47,9 @@ pub struct AxiomReasoning {
     pub fidelity: String,
     pub phi: String,
     pub verify: String,
+    pub culture: String,
+    pub burn: String,
+    pub sovereignty: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -49,6 +58,9 @@ pub struct DogScore {
     pub fidelity: f64,
     pub phi: f64,
     pub verify: f64,
+    pub culture: f64,
+    pub burn: f64,
+    pub sovereignty: f64,
     pub reasoning: AxiomReasoning,
 }
 
@@ -60,6 +72,9 @@ pub struct QScore {
     pub fidelity: f64,
     pub phi: f64,
     pub verify: f64,
+    pub culture: f64,
+    pub burn: f64,
+    pub sovereignty: f64,
 }
 
 // ── VERDICT ────────────────────────────────────────────────
@@ -97,17 +112,21 @@ pub fn phi_bound(raw: f64) -> f64 {
 }
 
 /// Compute phi-bounded Q-Score from raw axiom scores.
-/// Uses geometric mean — one weak axiom drags everything down.
+/// Uses geometric mean of 6 axioms — one weak axiom drags everything down.
+/// Q = ⁶√(F × Φ × V × C × B × S), then phi-bounded.
 pub fn compute_qscore(raw: &AxiomScores) -> QScore {
     let f = phi_bound(raw.fidelity);
     let p = phi_bound(raw.phi);
     let v = phi_bound(raw.verify);
+    let c = phi_bound(raw.culture);
+    let b = phi_bound(raw.burn);
+    let s = phi_bound(raw.sovereignty);
 
-    // Geometric mean of 3 axioms, then phi-bound the result
-    let geo = (f * p * v).powf(1.0 / 3.0);
+    // Geometric mean of 6 axioms, then phi-bound the result
+    let geo = (f * p * v * c * b * s).powf(1.0 / 6.0);
     let total = phi_bound(geo);
 
-    QScore { total, fidelity: f, phi: p, verify: v }
+    QScore { total, fidelity: f, phi: p, verify: v, culture: c, burn: b, sovereignty: s }
 }
 
 /// Determine verdict from Q-Score total
@@ -179,33 +198,35 @@ mod tests {
     #[test]
     fn qscore_geometric_mean_correct() {
         let raw = AxiomScores {
-            fidelity: 0.6,
-            phi: 0.5,
-            verify: 0.4,
+            fidelity: 0.6, phi: 0.5, verify: 0.4,
+            culture: 0.5, burn: 0.5, sovereignty: 0.6,
             reasoning: AxiomReasoning::default(),
         };
         let q = compute_qscore(&raw);
         // All values should be <= PHI_INV
         assert!(q.total <= PHI_INV + 1e-10);
         assert!(q.fidelity <= PHI_INV + 1e-10);
-        // Geometric mean of (0.6, 0.5, 0.4) ≈ 0.4932
-        assert!((q.total - (0.6_f64 * 0.5 * 0.4).powf(1.0/3.0)).abs() < 0.01);
+        // Geometric mean of 6 axioms
+        let expected = (0.6_f64 * 0.5 * 0.4 * 0.5 * 0.5 * 0.6).powf(1.0/6.0);
+        assert!((q.total - expected).abs() < 0.01);
     }
 
     #[test]
     fn one_weak_axiom_drags_score_down() {
         let strong = AxiomScores {
             fidelity: 0.6, phi: 0.6, verify: 0.6,
+            culture: 0.6, burn: 0.6, sovereignty: 0.6,
             reasoning: AxiomReasoning::default(),
         };
         let weak = AxiomScores {
-            fidelity: 0.6, phi: 0.6, verify: 0.1,
+            fidelity: 0.6, phi: 0.6, verify: 0.6,
+            culture: 0.6, burn: 0.6, sovereignty: 0.1,
             reasoning: AxiomReasoning::default(),
         };
         let q_strong = compute_qscore(&strong);
         let q_weak = compute_qscore(&weak);
         // One weak axiom must significantly reduce total
-        assert!(q_weak.total < q_strong.total * 0.7);
+        assert!(q_weak.total < q_strong.total * 0.8);
     }
 
     #[test]

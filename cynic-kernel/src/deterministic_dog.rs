@@ -52,16 +52,57 @@ impl Dog for DeterministicDog {
             0.35
         };
 
+        // CULTURE: does it honor existing patterns and continuity?
+        let culture = if content.contains("tradition") || content.contains("convention")
+            || content.contains("standard") || content.contains("established")
+        {
+            0.5 // References existing patterns
+        } else if content.contains("revolutionary") || content.contains("disrupt") {
+            0.25 // Breaks with continuity (not inherently bad, but low culture score)
+        } else {
+            0.4
+        };
+
+        // BURN: is this minimal and efficient? Destroy excess.
+        let burn = if len < 50 && content.contains('.') {
+            0.55 // Concise and complete
+        } else if len > 300 {
+            0.2 // Verbose — excess to burn
+        } else if len > 100 {
+            0.35
+        } else {
+            0.45
+        };
+
+        // SOVEREIGNTY: does this preserve individual agency?
+        let sovereignty = if content.contains("must") || content.contains("mandatory")
+            || content.contains("forced") || content.contains("required to")
+        {
+            0.2 // Coercive language — low sovereignty
+        } else if content.contains("choose") || content.contains("option")
+            || content.contains("alternative") || content.contains("freedom")
+        {
+            0.55 // Preserves agency
+        } else {
+            0.4
+        };
+
         Ok(AxiomScores {
             fidelity,
             phi,
             verify,
+            culture,
+            burn,
+            sovereignty,
             reasoning: AxiomReasoning {
                 fidelity: format!("Heuristic: len={}, absolutes={}",
                     len, content.contains("always") || content.contains("never")),
                 phi: format!("Heuristic: len={}, structured={}", len, content.contains('.')),
                 verify: format!("Heuristic: evidence_words={}",
                     content.contains("because") || content.contains("evidence")),
+                culture: format!("Heuristic: tradition_refs={}", content.contains("standard") || content.contains("convention")),
+                burn: format!("Heuristic: len={}, concise={}", len, len < 50),
+                sovereignty: format!("Heuristic: coercive={}", content.contains("must") || content.contains("forced")),
             },
         })
     }

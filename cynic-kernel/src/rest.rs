@@ -53,6 +53,9 @@ pub struct DogScoreResponse {
     pub fidelity: f64,
     pub phi: f64,
     pub verify: f64,
+    pub culture: f64,
+    pub burn: f64,
+    pub sovereignty: f64,
     pub reasoning: ReasoningResponse,
 }
 
@@ -62,6 +65,9 @@ pub struct QScoreResponse {
     pub fidelity: f64,
     pub phi: f64,
     pub verify: f64,
+    pub culture: f64,
+    pub burn: f64,
+    pub sovereignty: f64,
 }
 
 #[derive(Serialize)]
@@ -69,6 +75,9 @@ pub struct ReasoningResponse {
     pub fidelity: String,
     pub phi: String,
     pub verify: String,
+    pub culture: String,
+    pub burn: String,
+    pub sovereignty: String,
 }
 
 #[derive(Serialize)]
@@ -166,6 +175,9 @@ async fn health_handler() -> Json<HealthResponse> {
             "FIDELITY".into(),
             "PHI".into(),
             "VERIFY/FALSIFY".into(),
+            "CULTURE".into(),
+            "BURN".into(),
+            "SOVEREIGNTY".into(),
         ],
     })
 }
@@ -181,11 +193,17 @@ fn verdict_to_response(v: &Verdict) -> JudgeResponse {
             fidelity: v.q_score.fidelity,
             phi: v.q_score.phi,
             verify: v.q_score.verify,
+            culture: v.q_score.culture,
+            burn: v.q_score.burn,
+            sovereignty: v.q_score.sovereignty,
         },
         reasoning: ReasoningResponse {
             fidelity: v.reasoning.fidelity.clone(),
             phi: v.reasoning.phi.clone(),
             verify: v.reasoning.verify.clone(),
+            culture: v.reasoning.culture.clone(),
+            burn: v.reasoning.burn.clone(),
+            sovereignty: v.reasoning.sovereignty.clone(),
         },
         dogs_used: v.dog_id.clone(),
         phi_max: PHI_INV,
@@ -194,10 +212,16 @@ fn verdict_to_response(v: &Verdict) -> JudgeResponse {
             fidelity: ds.fidelity,
             phi: ds.phi,
             verify: ds.verify,
+            culture: ds.culture,
+            burn: ds.burn,
+            sovereignty: ds.sovereignty,
             reasoning: ReasoningResponse {
                 fidelity: ds.reasoning.fidelity.clone(),
                 phi: ds.reasoning.phi.clone(),
                 verify: ds.reasoning.verify.clone(),
+                culture: ds.reasoning.culture.clone(),
+                burn: ds.reasoning.burn.clone(),
+                sovereignty: ds.reasoning.sovereignty.clone(),
             },
         }).collect(),
         anomaly_detected: v.anomaly_detected,

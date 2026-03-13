@@ -22,7 +22,7 @@ impl CynicStorage {
         let pass = std::env::var("SURREALDB_PASS").expect("SURREALDB_PASS must be set — no default credentials");
         let db: Surreal<Any> = Surreal::init();
         db.connect(url).await?;
-        db.signin(Root { username: user, password: pass }).await?;
+        db.signin(Root { username: &user, password: &pass }).await?;
         db.use_ns(ns).use_db(db_name).await?;
         println!("[Ring 1 / UAL] Linked to Sidecar Memory at {}", url);
         Ok(Self { db })
@@ -39,9 +39,15 @@ impl CynicStorage {
             fidelity = $fidelity, \
             phi = $phi, \
             verify = $verify, \
+            culture = $culture, \
+            burn = $burn, \
+            sovereignty = $sovereignty, \
             reasoning_fidelity = $rf, \
             reasoning_phi = $rp, \
             reasoning_verify = $rv, \
+            reasoning_culture = $rc, \
+            reasoning_burn = $rb, \
+            reasoning_sovereignty = $rs, \
             dog_id = $did, \
             stimulus = $stim, \
             created_at = $ts";
@@ -53,9 +59,15 @@ impl CynicStorage {
             .bind(("fidelity", verdict.q_score.fidelity))
             .bind(("phi", verdict.q_score.phi))
             .bind(("verify", verdict.q_score.verify))
+            .bind(("culture", verdict.q_score.culture))
+            .bind(("burn", verdict.q_score.burn))
+            .bind(("sovereignty", verdict.q_score.sovereignty))
             .bind(("rf", verdict.reasoning.fidelity.clone()))
             .bind(("rp", verdict.reasoning.phi.clone()))
             .bind(("rv", verdict.reasoning.verify.clone()))
+            .bind(("rc", verdict.reasoning.culture.clone()))
+            .bind(("rb", verdict.reasoning.burn.clone()))
+            .bind(("rs", verdict.reasoning.sovereignty.clone()))
             .bind(("did", verdict.dog_id.clone()))
             .bind(("stim", verdict.stimulus_summary.clone()))
             .bind(("ts", verdict.timestamp.clone()))
@@ -89,11 +101,17 @@ impl CynicStorage {
                         fidelity: row["fidelity"].as_f64().unwrap_or(0.0),
                         phi: row["phi"].as_f64().unwrap_or(0.0),
                         verify: row["verify"].as_f64().unwrap_or(0.0),
+                        culture: row["culture"].as_f64().unwrap_or(0.0),
+                        burn: row["burn"].as_f64().unwrap_or(0.0),
+                        sovereignty: row["sovereignty"].as_f64().unwrap_or(0.0),
                     },
                     reasoning: crate::dog::AxiomReasoning {
                         fidelity: row["reasoning_fidelity"].as_str().unwrap_or("").to_string(),
                         phi: row["reasoning_phi"].as_str().unwrap_or("").to_string(),
                         verify: row["reasoning_verify"].as_str().unwrap_or("").to_string(),
+                        culture: row["reasoning_culture"].as_str().unwrap_or("").to_string(),
+                        burn: row["reasoning_burn"].as_str().unwrap_or("").to_string(),
+                        sovereignty: row["reasoning_sovereignty"].as_str().unwrap_or("").to_string(),
                     },
                     dog_id: row["dog_id"].as_str().unwrap_or("").to_string(),
                     stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
@@ -133,11 +151,17 @@ impl CynicStorage {
                     fidelity: row["fidelity"].as_f64().unwrap_or(0.0),
                     phi: row["phi"].as_f64().unwrap_or(0.0),
                     verify: row["verify"].as_f64().unwrap_or(0.0),
+                    culture: row["culture"].as_f64().unwrap_or(0.0),
+                    burn: row["burn"].as_f64().unwrap_or(0.0),
+                    sovereignty: row["sovereignty"].as_f64().unwrap_or(0.0),
                 },
                 reasoning: crate::dog::AxiomReasoning {
                     fidelity: row["reasoning_fidelity"].as_str().unwrap_or("").to_string(),
                     phi: row["reasoning_phi"].as_str().unwrap_or("").to_string(),
                     verify: row["reasoning_verify"].as_str().unwrap_or("").to_string(),
+                    culture: row["reasoning_culture"].as_str().unwrap_or("").to_string(),
+                    burn: row["reasoning_burn"].as_str().unwrap_or("").to_string(),
+                    sovereignty: row["reasoning_sovereignty"].as_str().unwrap_or("").to_string(),
                 },
                 dog_id: row["dog_id"].as_str().unwrap_or("").to_string(),
                 stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
@@ -260,6 +284,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[ignore] // Requires running SurrealDB instance
     async fn store_and_retrieve_fact() {
         let url = std::env::var("SURREALDB_URL")
             .unwrap_or_else(|_| "ws://localhost:8000".to_string());
