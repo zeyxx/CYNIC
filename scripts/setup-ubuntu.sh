@@ -109,28 +109,27 @@ cat > "$CYNIC_DIR/.mcp.json" <<MCPEOF
 }
 MCPEOF
 
-# ── Skills (copy from repo .agents if present, else standalone) ──
-SKILLS_SRC="$HOME/.agents/skills"
-mkdir -p "$SKILLS_SRC"
+# ── Skills (from private repo) ──
+SKILLS_DIR="$HOME/dev/cynic-skills"
+if [ ! -d "$SKILLS_DIR" ]; then
+    git clone https://github.com/zeyxx/cynic-skills.git "$SKILLS_DIR" 2>/dev/null || {
+        echo ">>> MANUAL: gh auth login first, then re-run this script"
+        echo "    (cynic-skills is a private repo)"
+    }
+fi
 
-# Copy skills that are in the repo
-for skill_dir in "$CYNIC_DIR"/.claude/skills/*/; do
-    if [ -d "$skill_dir" ]; then
+# Symlink each skill into Claude Code
+if [ -d "$SKILLS_DIR" ]; then
+    for skill_dir in "$SKILLS_DIR"/*/; do
         skill_name=$(basename "$skill_dir")
-        cp -r "$skill_dir" "$CLAUDE_DIR/skills/$skill_name"
-        echo "  Skill copied: $skill_name"
-    fi
-done
-
-# Symlink cynic custom skills from .agents
-for skill in cynic-burn cynic-judge cynic-wisdom crystallize-truth engineering-stack-design; do
-    src="$SKILLS_SRC/$skill"
-    dest="$CLAUDE_DIR/skills/$skill"
-    if [ -d "$src" ] && [ ! -e "$dest" ]; then
-        ln -s "$src" "$dest"
-        echo "  Skill linked: $skill"
-    fi
-done
+        [ "$skill_name" = "README.md" ] && continue
+        dest="$CLAUDE_DIR/skills/$skill_name"
+        if [ ! -e "$dest" ]; then
+            ln -s "$skill_dir" "$dest"
+            echo "  Skill linked: $skill_name"
+        fi
+    done
+fi
 
 # ── Claude Code plugins (install via CLI) ──
 echo ""
