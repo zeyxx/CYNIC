@@ -1,8 +1,21 @@
 # CYNIC backends — one InferenceDog per entry.
 # Copy to ~/.config/cynic/backends.toml (Linux) or %APPDATA%/cynic/backends.toml (Windows).
 # Each backend must expose an OpenAI-compatible /chat/completions endpoint.
+#
+# SOVEREIGNTY PRINCIPLE: Mix model families for true independence.
+# If all Dogs use the same model family, they share the same biases.
+# Minimum diversity: 2 different model families (e.g. Gemini + Mistral).
+# Ideal: 3+ families including at least one local/sovereign model.
+#
+# RECOMMENDED MODELS FOR SOVEREIGNTY (March 2026):
+#   - Qwen 3.5 (7B/14B)   — Alibaba, strong multilingual, Apache 2.0
+#   - Phi-4-mini (3.8B)    — Microsoft, excellent reasoning/size ratio
+#   - Gemma 3 (9B/27B)     — Google, strong general purpose
+#   - Mistral 7B Instruct  — Mistral AI, fast, multilingual
+#   - Llama 3.3 (8B/70B)   — Meta, strong general purpose
+#   - DeepSeek-R1 (7B)     — DeepSeek, reasoning specialist
 
-# ── Dog 1: Gemini 3 (hackathon sponsor) ──────────────────────
+# ── Dog 1: Gemini (hackathon sponsor) ────────────────────────
 [backend.gemini]
 base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
 api_key_env = "GEMINI_API_KEY"
@@ -20,7 +33,34 @@ auth_style = "bearer"
 
 # ── Dog 3: Local llama-server (sovereign, on-premise) ────────
 # Run: llama-server -m model.gguf --port 8080
+# Your data never leaves your machine. Full sovereignty.
 [backend.local]
 base_url = "http://localhost:8080/v1"
 model = "local"
 auth_style = "none"
+
+# ── Dog 4: Ollama (sovereign, easy setup) ────────────────────
+# Install: curl -fsSL https://ollama.com/install.sh | sh
+# Run: ollama serve  (default port 11434)
+# Pull: ollama pull qwen3.5:7b
+# Ollama exposes OpenAI-compatible API natively.
+#[backend.ollama]
+#base_url = "http://localhost:11434/v1"
+#model = "qwen3.5:7b"
+#auth_style = "none"
+
+# ── Dog 5: vLLM (sovereign, GPU-optimized) ───────────────────
+# Run: vllm serve microsoft/phi-4-mini --port 8000
+# Best throughput for GPU inference. OpenAI-compatible by default.
+#[backend.vllm]
+#base_url = "http://localhost:8000/v1"
+#model = "microsoft/phi-4-mini"
+#auth_style = "none"
+
+# ── Dog 6: Remote node via Tailscale (distributed sovereign) ─
+# Another machine on your Tailscale network running llama-server.
+# Still sovereign: your network, your models, your data.
+#[backend.remote-gpu]
+#base_url = "http://100.x.y.z:8080/v1"
+#model = "remote"
+#auth_style = "none"
