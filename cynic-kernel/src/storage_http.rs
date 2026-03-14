@@ -9,6 +9,7 @@
 use reqwest::Client;
 use serde::Deserialize;
 use crate::dog::{Verdict, VerdictKind, QScore, AxiomReasoning};
+use crate::ccm::{Crystal, CrystalState};
 use crate::storage_port::{StoragePort, StorageError};
 
 /// HTTP-based SurrealDB client. No surrealdb crate needed.
@@ -220,6 +221,30 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
     }
 }
 
+fn row_to_crystal(row: &serde_json::Value) -> Crystal {
+    let state_str = row["state"].as_str().unwrap_or("forming");
+    let state = match state_str {
+        "crystallized" => CrystalState::Crystallized,
+        "canonical" => CrystalState::Canonical,
+        "decaying" => CrystalState::Decaying,
+        "dissolved" => CrystalState::Dissolved,
+        _ => CrystalState::Forming,
+    };
+    // SurrealDB record IDs look like "crystal:abc123" — strip the table prefix
+    let raw_id = row["id"].as_str().unwrap_or("");
+    let id = raw_id.strip_prefix("crystal:").unwrap_or(raw_id).to_string();
+    Crystal {
+        id,
+        content: row["content"].as_str().unwrap_or("").to_string(),
+        domain: row["domain"].as_str().unwrap_or("").to_string(),
+        confidence: row["confidence"].as_f64().unwrap_or(0.0),
+        observations: row["observations"].as_u64().unwrap_or(0) as u32,
+        state,
+        created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+        updated_at: row["updated_at"].as_str().unwrap_or("").to_string(),
+    }
+}
+
 // ── STORAGE PORT IMPLEMENTATION ──────────────────────────────
 
 #[async_trait::async_trait]
@@ -241,6 +266,38 @@ impl StoragePort for SurrealHttpStorage {
         let sql = format!("SELECT * FROM verdict ORDER BY created_at DESC LIMIT {}", limit);
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_verdict).collect())
+    }
+
+    async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError> {
+        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+        let state_str = match crystal.state {
+            CrystalState::Forming => "forming",
+            CrystalState::Crystallized => "crystallized",
+            CrystalState::Canonical => "canonical",
+            CrystalState::Decaying => "decaying",
+            CrystalState::Dissolved => "dissolved",
+        };
+        let sql = format!(
+            "UPSERT crystal:{} SET content = '{}', domain = '{}', confidence = {}, observations = {}, state = '{}', created_at = '{}', updated_at = '{}'",
+            escape(&crystal.id), escape(&crystal.content), escape(&crystal.domain),
+            crystal.confidence, crystal.observations, state_str,
+            escape(&crystal.created_at), escape(&crystal.updated_at)
+        );
+        self.query_one(&sql).await?;
+        Ok(())
+    }
+
+    async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError> {
+        let escaped = id.replace('\'', "\\'");
+        let sql = format!("SELECT * FROM crystal:{}", escaped);
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.first().map(row_to_crystal))
+    }
+
+    async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError> {
+        let sql = format!("SELECT * FROM crystal ORDER BY observations DESC LIMIT {}", limit);
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.iter().map(row_to_crystal).collect())
     }
 }
 

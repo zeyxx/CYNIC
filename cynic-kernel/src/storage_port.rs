@@ -6,6 +6,7 @@
 
 use async_trait::async_trait;
 use crate::dog::Verdict;
+use crate::ccm::Crystal;
 
 #[derive(Debug)]
 pub enum StorageError {
@@ -29,6 +30,9 @@ pub trait StoragePort: Send + Sync {
     async fn store_verdict(&self, verdict: &Verdict) -> Result<(), StorageError>;
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError>;
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError>;
+    async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError>;
+    async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError>;
+    async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError>;
 }
 
 /// No-op storage for graceful degradation when DB is unavailable.
@@ -38,12 +42,21 @@ pub struct NullStorage;
 #[async_trait]
 impl StoragePort for NullStorage {
     async fn store_verdict(&self, _verdict: &Verdict) -> Result<(), StorageError> {
-        Ok(()) // Silently drop — REST already logs the warning
+        Ok(())
     }
     async fn get_verdict(&self, _id: &str) -> Result<Option<Verdict>, StorageError> {
         Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
     }
     async fn list_verdicts(&self, _limit: u32) -> Result<Vec<Verdict>, StorageError> {
         Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
+    }
+    async fn store_crystal(&self, _crystal: &Crystal) -> Result<(), StorageError> {
+        Ok(())
+    }
+    async fn get_crystal(&self, _id: &str) -> Result<Option<Crystal>, StorageError> {
+        Ok(None)
+    }
+    async fn list_crystals(&self, _limit: u32) -> Result<Vec<Crystal>, StorageError> {
+        Ok(vec![])
     }
 }

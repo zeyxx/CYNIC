@@ -12,10 +12,12 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
+use chrono;
 
 use crate::dog::{Verdict, PHI_INV};
 use crate::judge::Judge;
 use crate::storage_port::StoragePort;
+use crate::ccm;
 
 // ── SHARED STATE ───────────────────────────────────────────
 
@@ -113,6 +115,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/judge", post(judge_handler))
         .route("/dogs", get(dogs_handler))
+        .route("/crystals", get(crystals_handler))
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
         .route("/health", get(health_handler))
@@ -144,6 +147,25 @@ async fn judge_handler(
         eprintln!("[REST] Warning: failed to store verdict: {}", e);
     }
 
+    // CCM: observe crystal (best effort — learning loop)
+    {
+        let crystal_id = format!("{:x}", md5_hash(&verdict.stimulus_summary));
+        let domain = stimulus.domain.unwrap_or_else(|| "general".to_string());
+        let now = chrono::Utc::now().to_rfc3339();
+        let existing = state.storage.get_crystal(&crystal_id).await.ok().flatten();
+        let crystal = match existing {
+            Some(c) => ccm::update_crystal(&c, verdict.q_score.total, &now),
+            None => ccm::new_crystal(crystal_id, verdict.stimulus_summary.clone(), domain, verdict.q_score.total, &now),
+        };
+        if let Err(e) = state.storage.store_crystal(&crystal).await {
+            eprintln!("[REST] Warning: failed to store crystal: {}", e);
+        } else {
+            eprintln!("[CCM] Crystal '{}' → {:?} (obs: {}, conf: {:.3})",
+                crystal.content.chars().take(40).collect::<String>(),
+                crystal.state, crystal.observations, crystal.confidence);
+        }
+    }
+
     Ok(Json(verdict_to_response(&verdict)))
 }
 
@@ -173,6 +195,29 @@ async fn list_verdicts_handler(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse { error: e.to_string() }),
         )),
+    }
+}
+
+async fn crystals_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
+    match state.storage.list_crystals(20).await {
+        Ok(crystals) => {
+            let items: Vec<serde_json::Value> = crystals.iter().map(|c| {
+                serde_json::json!({
+                    "id": c.id,
+                    "content": c.content,
+                    "domain": c.domain,
+                    "confidence": c.confidence,
+                    "observations": c.observations,
+                    "state": format!("{:?}", c.state),
+                    "created_at": c.created_at,
+                    "updated_at": c.updated_at,
+                })
+            }).collect();
+            Ok(Json(items))
+        }
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() }))),
     }
 }
 
@@ -220,6 +265,16 @@ async fn health_handler(
 }
 
 // ── HELPERS ────────────────────────────────────────────────
+
+/// Simple hash for crystal IDs. Not cryptographic — just deterministic content addressing.
+fn md5_hash(input: &str) -> u64 {
+    let mut h: u64 = 0xcbf29ce484222325; // FNV-1a offset basis
+    for byte in input.bytes() {
+        h ^= byte as u64;
+        h = h.wrapping_mul(0x100000001b3); // FNV-1a prime
+    }
+    h
+}
 
 fn verdict_to_response(v: &Verdict) -> JudgeResponse {
     JudgeResponse {
