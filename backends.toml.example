@@ -57,7 +57,16 @@ auth_style = "none"
 #model = "microsoft/phi-4-mini"
 #auth_style = "none"
 
-# ── Dog 6: Remote node via Tailscale (distributed sovereign) ─
+# ── Dog 6: Sovereign Ubuntu (CPU inference via Tailscale) ──────
+# Ryzen 7 5700G, Gemma 3 4B Q4_K_M, CPU-only, 53 t/s prompt / 23 t/s gen.
+# Different model family from sovereign (Qwen) = multi-family diversity.
+[backend.sovereign-ubuntu]
+base_url = "http://<TAILSCALE_UBUNTU>:8080/v1"
+api_key_env = "SOVEREIGN_API_KEY"
+model = "sovereign-ubuntu"
+auth_style = "bearer"
+
+# ── Dog 7: Remote node via Tailscale (distributed sovereign) ─
 # Another machine on your Tailscale network running llama-server.
 # Still sovereign: your network, your models, your data.
 #[backend.remote-gpu]

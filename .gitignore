@@ -1,11 +1,31 @@
-.worktrees/
+# Build artifacts
 target/
 *.exe
 *.dll
 *.pdb
 *.zip
+
+# Dependencies
 node_modules/
+
+# Environment / secrets
 .env
 *.local
+
+# Logs
 *.log
+
+# Database
 hypercube_db/
+
+# Dev tooling (Claude Code, Playwright, worktrees)
+.claude/
+.playwright-mcp/
+.worktrees/
+
+# Session artifacts (AI-generated scratch files at root only)
+/state*.md
+/*-state*.md
+/message.txt
+/*.png
+/algomancer-learning.md
