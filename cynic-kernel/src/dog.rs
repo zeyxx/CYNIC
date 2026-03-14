@@ -56,6 +56,8 @@ pub struct AxiomReasoning {
 pub struct DogScore {
     pub dog_id: String,
     pub latency_ms: u64,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
     pub fidelity: f64,
     pub phi: f64,
     pub verify: f64,

@@ -55,6 +55,8 @@ pub struct JudgeResponse {
 pub struct DogScoreResponse {
     pub dog_id: String,
     pub latency_ms: u64,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
     pub fidelity: f64,
     pub phi: f64,
     pub verify: f64,
@@ -303,6 +305,8 @@ fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         dog_scores: v.dog_scores.iter().map(|ds| DogScoreResponse {
             dog_id: ds.dog_id.clone(),
             latency_ms: ds.latency_ms,
+            prompt_tokens: ds.prompt_tokens,
+            completion_tokens: ds.completion_tokens,
             fidelity: ds.fidelity,
             phi: ds.phi,
             verify: ds.verify,

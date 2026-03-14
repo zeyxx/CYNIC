@@ -64,6 +64,8 @@ impl Judge {
                     dog_scores.push(DogScore {
                         dog_id: id,
                         latency_ms: elapsed_ms,
+                        prompt_tokens: 0,
+                        completion_tokens: 0,
                         fidelity: scores.fidelity,
                         phi: scores.phi,
                         verify: scores.verify,
