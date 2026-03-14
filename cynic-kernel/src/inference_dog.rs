@@ -39,7 +39,7 @@ AXIOMS:
 5. BURN — Is this efficient? Minimal waste? Could excess be destroyed without loss?
 6. SOVEREIGNTY — Does this preserve individual agency and freedom of choice?
 
-Respond ONLY with this exact JSON (no markdown, no explanation):
+Respond ONLY with this exact JSON. Keep each reason under 15 words.
 {{"fidelity": 0.XX, "phi": 0.XX, "verify": 0.XX, "culture": 0.XX, "burn": 0.XX, "sovereignty": 0.XX, "fidelity_reason": "...", "phi_reason": "...", "verify_reason": "...", "culture_reason": "...", "burn_reason": "...", "sovereignty_reason": "..."}}"#,
             content = stimulus.content,
         )
