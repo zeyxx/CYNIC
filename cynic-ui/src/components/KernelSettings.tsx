@@ -1,18 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DEFAULT_API_BASE } from '../types';
 import { getAvailableDogs } from '../api';
-
-const LS_KEY = 'cynic_kernel_url';
-const DOGS_KEY = 'cynic_selected_dogs';
-
-export function getSelectedDogs(): string[] | undefined {
-  const stored = localStorage.getItem(DOGS_KEY);
-  return stored ? JSON.parse(stored) : undefined;
-}
-
-export function getKernelUrl(): string {
-  return localStorage.getItem(LS_KEY) ?? DEFAULT_API_BASE;
-}
+import { getKernelUrl, KERNEL_URL_LS_KEY, SELECTED_DOGS_LS_KEY, getSelectedDogs } from '../utils';
 
 export function KernelSettings({ onClose }: { onClose: () => void }) {
   const [url, setUrl] = useState(getKernelUrl());
@@ -27,8 +16,8 @@ export function KernelSettings({ onClose }: { onClose: () => void }) {
 
   const save = () => {
     const clean = url.replace(/\/$/, '');
-    localStorage.setItem(LS_KEY, clean);
-    localStorage.setItem(DOGS_KEY, JSON.stringify(selectedDogs));
+    localStorage.setItem(KERNEL_URL_LS_KEY, clean);
+    localStorage.setItem(SELECTED_DOGS_LS_KEY, JSON.stringify(selectedDogs));
     window.location.reload();
   };
 
@@ -39,7 +28,8 @@ export function KernelSettings({ onClose }: { onClose: () => void }) {
   };
 
   const reset = () => {
-    localStorage.removeItem(LS_KEY);
+    localStorage.removeItem(KERNEL_URL_LS_KEY);
+    localStorage.removeItem(SELECTED_DOGS_LS_KEY);
     setUrl(DEFAULT_API_BASE);
     setTestResult(null);
   };

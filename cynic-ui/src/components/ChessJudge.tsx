@@ -5,7 +5,7 @@ import type { Square } from 'chess.js';
 import { judge } from '../api';
 import type { Verdict } from '../types';
 import { VerdictDisplay } from './VerdictDisplay';
-import { getSelectedDogs } from './KernelSettings';
+import { getSelectedDogs } from '../utils';
 
 // ─── Constants ────────────────────────────────────────────────
 const LIGHT = '#b0bec5';

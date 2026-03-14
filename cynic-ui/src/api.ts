@@ -1,10 +1,9 @@
-import { DEFAULT_API_BASE } from './types';
 import type { HealthResponse, JudgeRequest, Verdict, Crystal } from './types';
 
-const LS_KEY = 'cynic_kernel_url';
+import { getKernelUrl } from './utils';
 
 function base(): string {
-  return (localStorage.getItem(LS_KEY) ?? DEFAULT_API_BASE).replace(/\/$/, '');
+  return getKernelUrl().replace(/\/$/, '');
 }
 
 export async function checkHealth(): Promise<HealthResponse> {
