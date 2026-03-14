@@ -93,6 +93,13 @@ pub struct HealthResponse {
     pub version: String,
     pub phi_max: f64,
     pub axioms: Vec<String>,
+    pub dogs: Vec<DogHealthResponse>,
+}
+
+#[derive(Serialize)]
+pub struct DogHealthResponse {
+    pub id: String,
+    pub kind: String,
 }
 
 // ── ROUTER ─────────────────────────────────────────────────
@@ -175,9 +182,29 @@ async fn dogs_handler(
     Json(state.judge.dog_ids())
 }
 
-async fn health_handler() -> Json<HealthResponse> {
+async fn health_handler(
+    State(state): State<Arc<AppState>>,
+) -> Json<HealthResponse> {
+    let dog_ids = state.judge.dog_ids();
+    let dogs: Vec<DogHealthResponse> = dog_ids.into_iter().map(|id| {
+        let kind = if id == "deterministic-dog" {
+            "heuristic"
+        } else {
+            "inference"
+        }.to_string();
+        DogHealthResponse { id, kind }
+    }).collect();
+
+    let status = if dogs.is_empty() {
+        "critical"
+    } else if dogs.len() == 1 {
+        "degraded"
+    } else {
+        "sovereign"
+    }.to_string();
+
     Json(HealthResponse {
-        status: "sovereign".to_string(),
+        status,
         version: env!("CARGO_PKG_VERSION").to_string(),
         phi_max: PHI_INV,
         axioms: vec![
@@ -188,6 +215,7 @@ async fn health_handler() -> Json<HealthResponse> {
             "BURN".into(),
             "SOVEREIGNTY".into(),
         ],
+        dogs,
     })
 }
 
