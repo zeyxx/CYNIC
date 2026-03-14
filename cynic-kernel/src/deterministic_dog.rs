@@ -109,6 +109,8 @@ impl Dog for DeterministicDog {
             culture,
             burn,
             sovereignty,
+            prompt_tokens: 0,
+            completion_tokens: 0,
             reasoning: AxiomReasoning {
                 fidelity: if has_absolutes { "Absolute claims detected — low trust.".into() }
                     else if has_hedging && has_evidence { "Hedged language with evidence — high trust.".into() }

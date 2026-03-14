@@ -148,7 +148,7 @@ mod tests {
         let scores = AxiomScores {
             fidelity: value, phi: value, verify: value,
             culture: value, burn: value, sovereignty: value,
-            reasoning: AxiomReasoning::default(),
+            reasoning: AxiomReasoning::default(), ..Default::default()
         };
         let q = compute_qscore(&scores);
         TemporalScore { perspective, axiom_scores: scores, q_total: q.total }

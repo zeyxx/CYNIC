@@ -3,7 +3,7 @@
 //! One type, N instances (Gemini, HuggingFace, llama.cpp, vLLM, SGLang).
 
 use crate::backend::*;
-use crate::chat_port::{ChatPort, ChatError};
+use crate::chat_port::{ChatPort, ChatError, ChatResponse};
 use crate::config::{BackendConfig, AuthStyle};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -41,11 +41,21 @@ struct ChatCompletionResponse {
     choices: Vec<Choice>,
     #[serde(default)]
     model: String,
+    #[serde(default)]
+    usage: Option<Usage>,
 }
 
 #[derive(Deserialize)]
 struct Choice {
     message: Message,
+}
+
+#[derive(Deserialize)]
+struct Usage {
+    #[serde(default)]
+    prompt_tokens: u32,
+    #[serde(default)]
+    completion_tokens: u32,
 }
 
 impl OpenAiCompatBackend {
@@ -144,7 +154,7 @@ impl OpenAiCompatBackend {
 
 #[async_trait]
 impl ChatPort for OpenAiCompatBackend {
-    async fn chat(&self, system: &str, user: &str) -> Result<String, ChatError> {
+    async fn chat(&self, system: &str, user: &str) -> Result<ChatResponse, ChatError> {
         let mut messages = Vec::new();
         if !system.is_empty() {
             messages.push(Message { role: "system".to_string(), content: system.to_string() });
@@ -153,9 +163,15 @@ impl ChatPort for OpenAiCompatBackend {
 
         let resp = self.post_chat(messages, Some(0.3), Some(4096), None).await?;
 
-        resp.choices.into_iter().next()
+        let (prompt_tokens, completion_tokens) = resp.usage
+            .map(|u| (u.prompt_tokens, u.completion_tokens))
+            .unwrap_or((0, 0));
+
+        let text = resp.choices.into_iter().next()
             .map(|c| c.message.content)
-            .ok_or_else(|| ChatError::Protocol(format!("{}: empty response", self.config.name)))
+            .ok_or_else(|| ChatError::Protocol(format!("{}: empty response", self.config.name)))?;
+
+        Ok(ChatResponse { text, prompt_tokens, completion_tokens })
     }
 
     async fn health(&self) -> BackendStatus {

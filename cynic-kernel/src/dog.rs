@@ -24,7 +24,7 @@ pub struct Stimulus {
 
 // ── AXIOM SCORES ───────────────────────────────────────────
 /// Raw scores from a Dog. NOT phi-bounded — the kernel does that.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AxiomScores {
     /// Truth loyalty: is this faithful to reality? (kenosis)
     pub fidelity: f64,
@@ -40,6 +40,11 @@ pub struct AxiomScores {
     pub sovereignty: f64,
     /// Optional reasoning per axiom
     pub reasoning: AxiomReasoning,
+    /// Token usage from inference (0 for deterministic/local)
+    #[serde(default)]
+    pub prompt_tokens: u32,
+    #[serde(default)]
+    pub completion_tokens: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -203,13 +208,11 @@ mod tests {
         let raw = AxiomScores {
             fidelity: 0.6, phi: 0.5, verify: 0.4,
             culture: 0.5, burn: 0.5, sovereignty: 0.6,
-            reasoning: AxiomReasoning::default(),
+            reasoning: AxiomReasoning::default(), ..Default::default()
         };
         let q = compute_qscore(&raw);
-        // All values should be <= PHI_INV
         assert!(q.total <= PHI_INV + 1e-10);
         assert!(q.fidelity <= PHI_INV + 1e-10);
-        // Geometric mean of 6 axioms
         let expected = (0.6_f64 * 0.5 * 0.4 * 0.5 * 0.5 * 0.6).powf(1.0/6.0);
         assert!((q.total - expected).abs() < 0.01);
     }
@@ -219,12 +222,12 @@ mod tests {
         let strong = AxiomScores {
             fidelity: 0.6, phi: 0.6, verify: 0.6,
             culture: 0.6, burn: 0.6, sovereignty: 0.6,
-            reasoning: AxiomReasoning::default(),
+            reasoning: AxiomReasoning::default(), ..Default::default()
         };
         let weak = AxiomScores {
             fidelity: 0.6, phi: 0.6, verify: 0.6,
             culture: 0.6, burn: 0.6, sovereignty: 0.1,
-            reasoning: AxiomReasoning::default(),
+            reasoning: AxiomReasoning::default(), ..Default::default()
         };
         let q_strong = compute_qscore(&strong);
         let q_weak = compute_qscore(&weak);

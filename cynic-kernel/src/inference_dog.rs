@@ -81,19 +81,22 @@ impl Dog for InferenceDog {
         let system = Self::build_system_prompt();
         let user = Self::build_user_prompt(stimulus);
 
-        let text = self.chat.chat(system, &user).await
+        let chat_resp = self.chat.chat(system, &user).await
             .map_err(|e| match e {
                 crate::chat_port::ChatError::RateLimited(m) => DogError::RateLimited(m),
                 crate::chat_port::ChatError::Timeout { .. } => DogError::Timeout,
                 other => DogError::ApiError(other.to_string()),
             })?;
+        let text = &chat_resp.text;
+        let prompt_tokens = chat_resp.prompt_tokens;
+        let completion_tokens = chat_resp.completion_tokens;
 
-        let json_str = extract_json(&text)
+        let json_str = extract_json(text)
             .ok_or_else(|| DogError::ParseError(format!("No JSON found in: {}", text)))?;
 
         // Try strict parse first. Fall back to lenient extraction for small models
         // that produce duplicate keys (e.g. Gemma writes "verify": 0.7 AND "verify": "text").
-        let scores = match serde_json::from_str::<AxiomResponse>(json_str) {
+        let mut scores = match serde_json::from_str::<AxiomResponse>(json_str) {
             Ok(parsed) => AxiomScores {
                 fidelity: parsed.fidelity,
                 phi: parsed.phi,
@@ -109,9 +112,13 @@ impl Dog for InferenceDog {
                     burn: parsed.burn_reason,
                     sovereignty: parsed.sovereignty_reason,
                 },
+                prompt_tokens: 0,
+                completion_tokens: 0,
             },
             Err(_) => extract_scores_lenient(json_str)?,
         };
+        scores.prompt_tokens = prompt_tokens;
+        scores.completion_tokens = completion_tokens;
 
         Ok(scores)
     }
@@ -181,6 +188,8 @@ fn extract_scores_lenient(json_str: &str) -> Result<AxiomScores, DogError> {
             burn: get_r("burn_reason"),
             sovereignty: get_r("sovereignty_reason"),
         },
+        prompt_tokens: 0,
+        completion_tokens: 0,
     })
 }
 

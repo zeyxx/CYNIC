@@ -64,8 +64,8 @@ impl Judge {
                     dog_scores.push(DogScore {
                         dog_id: id,
                         latency_ms: elapsed_ms,
-                        prompt_tokens: 0,
-                        completion_tokens: 0,
+                        prompt_tokens: scores.prompt_tokens,
+                        completion_tokens: scores.completion_tokens,
                         fidelity: scores.fidelity,
                         phi: scores.phi,
                         verify: scores.verify,
@@ -100,8 +100,8 @@ impl Judge {
         // Use median Dog's reasoning (deterministic under parallel execution)
         let mut sorted_by_q: Vec<&DogScore> = dog_scores.iter().collect();
         sorted_by_q.sort_by(|a, b| {
-            let qa = compute_qscore(&AxiomScores { fidelity: a.fidelity, phi: a.phi, verify: a.verify, culture: a.culture, burn: a.burn, sovereignty: a.sovereignty, reasoning: AxiomReasoning::default() }).total;
-            let qb = compute_qscore(&AxiomScores { fidelity: b.fidelity, phi: b.phi, verify: b.verify, culture: b.culture, burn: b.burn, sovereignty: b.sovereignty, reasoning: AxiomReasoning::default() }).total;
+            let qa = compute_qscore(&AxiomScores { fidelity: a.fidelity, phi: a.phi, verify: a.verify, culture: a.culture, burn: a.burn, sovereignty: a.sovereignty, reasoning: AxiomReasoning::default(), ..Default::default() }).total;
+            let qb = compute_qscore(&AxiomScores { fidelity: b.fidelity, phi: b.phi, verify: b.verify, culture: b.culture, burn: b.burn, sovereignty: b.sovereignty, reasoning: AxiomReasoning::default(), ..Default::default() }).total;
             qa.partial_cmp(&qb).unwrap_or(std::cmp::Ordering::Equal)
         });
         let median_reasoning = sorted_by_q.get(sorted_by_q.len() / 2)
@@ -116,6 +116,7 @@ impl Judge {
             burn: avg_burn,
             sovereignty: avg_sovereignty,
             reasoning: median_reasoning,
+            ..Default::default()
         };
 
         let q_score = compute_qscore(&aggregated);
@@ -231,6 +232,7 @@ mod tests {
                     fidelity: 0.5, phi: 0.5, verify: 0.5,
                     culture: 0.5, burn: 0.5, sovereignty: 0.5,
                     reasoning: AxiomReasoning::default(),
+                    ..Default::default()
                 },
             }),
         ]);
@@ -252,6 +254,7 @@ mod tests {
                     fidelity: 0.8, phi: 0.8, verify: 0.8,
                     culture: 0.8, burn: 0.8, sovereignty: 0.8,
                     reasoning: AxiomReasoning::default(),
+                    ..Default::default()
                 },
             }),
             Box::new(FixedDog {
@@ -260,6 +263,7 @@ mod tests {
                     fidelity: 0.2, phi: 0.2, verify: 0.2,
                     culture: 0.2, burn: 0.2, sovereignty: 0.2,
                     reasoning: AxiomReasoning::default(),
+                    ..Default::default()
                 },
             }),
         ]);
@@ -282,6 +286,7 @@ mod tests {
                     fidelity: 0.5, phi: 0.5, verify: 0.5,
                     culture: 0.5, burn: 0.5, sovereignty: 0.5,
                     reasoning: AxiomReasoning::default(),
+                    ..Default::default()
                 },
             }),
         ]);
@@ -313,6 +318,7 @@ mod tests {
                     fidelity: 0.9, phi: 0.9, verify: 0.9,
                     culture: 0.9, burn: 0.9, sovereignty: 0.9,
                     reasoning: AxiomReasoning::default(),
+                    ..Default::default()
                 },
             }),
             Box::new(FixedDog {
@@ -321,6 +327,7 @@ mod tests {
                     fidelity: 0.1, phi: 0.1, verify: 0.1,
                     culture: 0.1, burn: 0.1, sovereignty: 0.1,
                     reasoning: AxiomReasoning::default(),
+                    ..Default::default()
                 },
             }),
         ]);
@@ -341,6 +348,7 @@ mod tests {
                     fidelity: 0.5, phi: 0.5, verify: 0.5,
                     culture: 0.5, burn: 0.5, sovereignty: 0.5,
                     reasoning: AxiomReasoning::default(),
+                    ..Default::default()
                 },
             }),
             Box::new(FixedDog {
@@ -349,6 +357,7 @@ mod tests {
                     fidelity: 0.52, phi: 0.48, verify: 0.51,
                     culture: 0.49, burn: 0.51, sovereignty: 0.50,
                     reasoning: AxiomReasoning::default(),
+                    ..Default::default()
                 },
             }),
         ]);
