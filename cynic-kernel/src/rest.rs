@@ -18,12 +18,15 @@ use crate::dog::{Verdict, PHI_INV};
 use crate::judge::Judge;
 use crate::storage_port::StoragePort;
 use crate::ccm;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 // ── SHARED STATE ───────────────────────────────────────────
 
 pub struct AppState {
     pub judge: Judge,
     pub storage: Arc<dyn StoragePort>,
+    pub usage: Mutex<HashMap<String, (u64, u64)>>, // dog_id → (total_prompt, total_completion)
 }
 
 // ── REQUEST / RESPONSE TYPES ───────────────────────────────
@@ -121,6 +124,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/judge", post(judge_handler))
         .route("/dogs", get(dogs_handler))
         .route("/crystals", get(crystals_handler))
+        .route("/usage", get(usage_handler))
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
         .route("/health", get(health_handler))
@@ -150,6 +154,16 @@ async fn judge_handler(
     // Store verdict (best effort — don't fail the request if storage is down)
     if let Err(e) = state.storage.store_verdict(&verdict).await {
         eprintln!("[REST] Warning: failed to store verdict: {}", e);
+    }
+
+    // Track token usage per Dog
+    {
+        let mut usage = state.usage.lock().unwrap();
+        for ds in &verdict.dog_scores {
+            let entry = usage.entry(ds.dog_id.clone()).or_insert((0, 0));
+            entry.0 += ds.prompt_tokens as u64;
+            entry.1 += ds.completion_tokens as u64;
+        }
     }
 
     // CCM: observe crystal (best effort — learning loop)
@@ -224,6 +238,30 @@ async fn crystals_handler(
         }
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() }))),
     }
+}
+
+async fn usage_handler(
+    State(state): State<Arc<AppState>>,
+) -> Json<serde_json::Value> {
+    let usage = state.usage.lock().unwrap();
+    let mut total_prompt: u64 = 0;
+    let mut total_completion: u64 = 0;
+    let dogs: Vec<serde_json::Value> = usage.iter().map(|(id, (p, c))| {
+        total_prompt += p;
+        total_completion += c;
+        serde_json::json!({
+            "dog_id": id,
+            "prompt_tokens": p,
+            "completion_tokens": c,
+            "total_tokens": p + c,
+        })
+    }).collect();
+    Json(serde_json::json!({
+        "total_prompt_tokens": total_prompt,
+        "total_completion_tokens": total_completion,
+        "total_tokens": total_prompt + total_completion,
+        "per_dog": dogs,
+    }))
 }
 
 async fn dogs_handler(
