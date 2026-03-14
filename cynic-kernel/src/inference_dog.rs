@@ -29,7 +29,7 @@ impl InferenceDog {
 STIMULUS: {content}
 CONTEXT: {context_block}
 
-Evaluate THE SUBJECT MATTER described (not the description). Think step by step about each axiom, then score from 0.0 to 1.0 with honest uncertainty.
+Evaluate THE SUBJECT MATTER described (not the description). Score each axiom from 0.0 to 1.0 with honest uncertainty.
 
 AXIOMS:
 1. FIDELITY — Is this faithful to truth? Does it reflect sound principles in its domain?
@@ -38,8 +38,6 @@ AXIOMS:
 4. CULTURE — Does this honor existing traditions, conventions, and established patterns?
 5. BURN — Is this efficient? Minimal waste? Could excess be destroyed without loss?
 6. SOVEREIGNTY — Does this preserve individual agency and freedom of choice?
-
-First reason about each axiom, then provide scores.
 
 Respond ONLY with this exact JSON (no markdown, no explanation):
 {{"fidelity": 0.XX, "phi": 0.XX, "verify": 0.XX, "culture": 0.XX, "burn": 0.XX, "sovereignty": 0.XX, "fidelity_reason": "...", "phi_reason": "...", "verify_reason": "...", "culture_reason": "...", "burn_reason": "...", "sovereignty_reason": "..."}}"#,
@@ -93,26 +91,97 @@ impl Dog for InferenceDog {
         let json_str = extract_json(&text)
             .ok_or_else(|| DogError::ParseError(format!("No JSON found in: {}", text)))?;
 
-        let parsed: AxiomResponse = serde_json::from_str(json_str)
-            .map_err(|e| DogError::ParseError(format!("JSON parse failed: {} in: {}", e, json_str)))?;
-
-        Ok(AxiomScores {
-            fidelity: parsed.fidelity,
-            phi: parsed.phi,
-            verify: parsed.verify,
-            culture: parsed.culture,
-            burn: parsed.burn,
-            sovereignty: parsed.sovereignty,
-            reasoning: AxiomReasoning {
-                fidelity: parsed.fidelity_reason,
-                phi: parsed.phi_reason,
-                verify: parsed.verify_reason,
-                culture: parsed.culture_reason,
-                burn: parsed.burn_reason,
-                sovereignty: parsed.sovereignty_reason,
+        // Try strict parse first. Fall back to lenient extraction for small models
+        // that produce duplicate keys (e.g. Gemma writes "verify": 0.7 AND "verify": "text").
+        let scores = match serde_json::from_str::<AxiomResponse>(json_str) {
+            Ok(parsed) => AxiomScores {
+                fidelity: parsed.fidelity,
+                phi: parsed.phi,
+                verify: parsed.verify,
+                culture: parsed.culture,
+                burn: parsed.burn,
+                sovereignty: parsed.sovereignty,
+                reasoning: AxiomReasoning {
+                    fidelity: parsed.fidelity_reason,
+                    phi: parsed.phi_reason,
+                    verify: parsed.verify_reason,
+                    culture: parsed.culture_reason,
+                    burn: parsed.burn_reason,
+                    sovereignty: parsed.sovereignty_reason,
+                },
             },
-        })
+            Err(_) => extract_scores_lenient(json_str)?,
+        };
+
+        Ok(scores)
     }
+}
+
+/// Lenient score extraction for small models that produce duplicate JSON keys.
+/// Uses serde_json::Value (which keeps last duplicate) then scans raw text for first numeric per key.
+fn extract_scores_lenient(json_str: &str) -> Result<AxiomScores, DogError> {
+    // serde_json::Value accepts duplicate keys (keeps last value).
+    // For scores we want the FIRST numeric value, so we scan the raw text.
+    let axiom_names = ["fidelity", "phi", "verify", "culture", "burn", "sovereignty"];
+    let mut scores = std::collections::HashMap::new();
+    let mut reasons = std::collections::HashMap::new();
+
+    for name in &axiom_names {
+        // Find first occurrence of "name": <number>
+        let score_pattern = format!("\"{}\"", name);
+        if let Some(pos) = json_str.find(&score_pattern) {
+            let after_key = &json_str[pos + score_pattern.len()..];
+            // Skip whitespace and colon
+            let after_colon = after_key.trim_start().strip_prefix(':').unwrap_or(after_key).trim_start();
+            // Try to parse a number
+            let num_end = after_colon.find(|c: char| !c.is_ascii_digit() && c != '.').unwrap_or(after_colon.len());
+            if let Ok(v) = after_colon[..num_end].parse::<f64>() {
+                scores.insert(*name, v);
+            }
+        }
+
+        // Find first occurrence of "name_reason": "text"
+        let reason_key = format!("\"{}_reason\"", name);
+        if let Some(pos) = json_str.find(&reason_key) {
+            let after_key = &json_str[pos + reason_key.len()..];
+            let after_colon = after_key.trim_start().strip_prefix(':').unwrap_or(after_key).trim_start();
+            if let Some(inner) = after_colon.strip_prefix('"') {
+                // Find closing quote (handle escaped quotes minimally)
+                let mut end = 0;
+                let mut escaped = false;
+                for (i, c) in inner.char_indices() {
+                    if escaped { escaped = false; continue; }
+                    if c == '\\' { escaped = true; continue; }
+                    if c == '"' { end = i; break; }
+                }
+                reasons.insert(*name, inner[..end].to_string());
+            }
+        }
+    }
+
+    if scores.is_empty() {
+        return Err(DogError::ParseError("No numeric scores found in lenient parse".into()));
+    }
+
+    let get = |k: &str| *scores.get(k).unwrap_or(&0.0);
+    let get_r = |k: &str| reasons.get(k).cloned().unwrap_or_default();
+
+    Ok(AxiomScores {
+        fidelity: get("fidelity"),
+        phi: get("phi"),
+        verify: get("verify"),
+        culture: get("culture"),
+        burn: get("burn"),
+        sovereignty: get("sovereignty"),
+        reasoning: AxiomReasoning {
+            fidelity: get_r("fidelity_reason"),
+            phi: get_r("phi_reason"),
+            verify: get_r("verify_reason"),
+            culture: get_r("culture_reason"),
+            burn: get_r("burn_reason"),
+            sovereignty: get_r("sovereignty_reason"),
+        },
+    })
 }
 
 /// Extract JSON object from text that might contain markdown fences or extra text.

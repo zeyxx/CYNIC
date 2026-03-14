@@ -52,7 +52,7 @@ impl OpenAiCompatBackend {
     /// Create a new backend from config. Does NOT health-check — call health() after.
     pub fn new(config: BackendConfig) -> Self {
         let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(120))
+            .timeout(std::time::Duration::from_secs(30))
             .build()
             .expect("Failed to build HTTP client");
 
