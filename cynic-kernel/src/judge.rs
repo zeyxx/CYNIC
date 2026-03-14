@@ -39,13 +39,15 @@ impl Judge {
             return Err(JudgeError::NoDogs);
         }
 
-        // Parallel evaluation — all selected Dogs run concurrently
+        // Parallel evaluation — all selected Dogs run concurrently, timed
         let futures: Vec<_> = active_dogs.iter()
             .map(|dog| {
                 let id = dog.id().to_string();
                 async move {
+                    let start = std::time::Instant::now();
                     let result = dog.evaluate(stimulus).await;
-                    (id, result)
+                    let elapsed_ms = start.elapsed().as_millis() as u64;
+                    (id, result, elapsed_ms)
                 }
             })
             .collect();
@@ -55,11 +57,13 @@ impl Judge {
         let mut dog_scores: Vec<DogScore> = Vec::new();
         let mut errors: Vec<String> = Vec::new();
 
-        for (id, result) in results {
+        for (id, result, elapsed_ms) in results {
             match result {
                 Ok(scores) => {
+                    eprintln!("[Judge] Dog '{}' responded in {}ms", id, elapsed_ms);
                     dog_scores.push(DogScore {
                         dog_id: id,
+                        latency_ms: elapsed_ms,
                         fidelity: scores.fidelity,
                         phi: scores.phi,
                         verify: scores.verify,
@@ -70,7 +74,7 @@ impl Judge {
                     });
                 }
                 Err(e) => {
-                    eprintln!("[Judge] Dog '{}' failed: {}", id, e);
+                    eprintln!("[Judge] Dog '{}' failed after {}ms: {}", id, elapsed_ms, e);
                     errors.push(format!("{}: {}", id, e));
                 }
             }

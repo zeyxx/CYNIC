@@ -54,6 +54,7 @@ pub struct JudgeResponse {
 #[derive(Serialize)]
 pub struct DogScoreResponse {
     pub dog_id: String,
+    pub latency_ms: u64,
     pub fidelity: f64,
     pub phi: f64,
     pub verify: f64,
@@ -301,6 +302,7 @@ fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         phi_max: PHI_INV,
         dog_scores: v.dog_scores.iter().map(|ds| DogScoreResponse {
             dog_id: ds.dog_id.clone(),
+            latency_ms: ds.latency_ms,
             fidelity: ds.fidelity,
             phi: ds.phi,
             verify: ds.verify,

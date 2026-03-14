@@ -55,6 +55,7 @@ pub struct AxiomReasoning {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DogScore {
     pub dog_id: String,
+    pub latency_ms: u64,
     pub fidelity: f64,
     pub phi: f64,
     pub verify: f64,
