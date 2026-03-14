@@ -52,6 +52,22 @@ pub struct JudgeResponse {
     pub anomaly_detected: bool,
     pub max_disagreement: f64,
     pub anomaly_axiom: Option<String>,
+    pub temporal: Option<TemporalResponse>,
+}
+
+#[derive(Serialize)]
+pub struct TemporalResponse {
+    pub temporal_total: f64,
+    pub outlier_perspective: Option<String>,
+    pub max_divergence: f64,
+    pub perspectives: Vec<TemporalPerspectiveScore>,
+}
+
+#[derive(Serialize)]
+pub struct TemporalPerspectiveScore {
+    pub perspective: String,
+    pub q_total: f64,
+    pub dog_id: String,
 }
 
 #[derive(Serialize)]
@@ -125,6 +141,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/dogs", get(dogs_handler))
         .route("/crystals", get(crystals_handler))
         .route("/usage", get(usage_handler))
+        .route("/temporal", get(temporal_handler))
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
         .route("/health", get(health_handler))
@@ -238,6 +255,24 @@ async fn crystals_handler(
         }
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() }))),
     }
+}
+
+async fn temporal_handler() -> Json<serde_json::Value> {
+    use crate::temporal::TemporalPerspective;
+    let perspectives: Vec<serde_json::Value> = TemporalPerspective::ALL.iter().map(|p| {
+        serde_json::json!({
+            "perspective": p.label(),
+            "description": p.description(),
+        })
+    }).collect();
+    Json(serde_json::json!({
+        "count": 7,
+        "perspectives": perspectives,
+        "aggregation": "geometric_mean",
+        "outlier_threshold": "phi^-2 (0.382)",
+        "exploration_constant": "phi (1.618)",
+        "status": "pure_logic_ready — awaiting multi-perspective Dog evaluation integration"
+    }))
 }
 
 async fn usage_handler(
@@ -365,5 +400,63 @@ fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         anomaly_detected: v.anomaly_detected,
         max_disagreement: v.max_disagreement,
         anomaly_axiom: v.anomaly_axiom.clone(),
+        temporal: compute_temporal_from_dogs(&v.dog_scores),
     }
+}
+
+/// Map Dog evaluations onto temporal perspectives and aggregate.
+/// Each Dog represents a different "temporal lens" on the stimulus.
+fn compute_temporal_from_dogs(dog_scores: &[crate::dog::DogScore]) -> Option<TemporalResponse> {
+    use crate::temporal::{TemporalPerspective, TemporalScore, aggregate_temporal};
+    use crate::dog::compute_qscore;
+
+    if dog_scores.len() < 2 {
+        return None; // Need multiple perspectives
+    }
+
+    // Map Dogs to temporal perspectives based on their nature
+    let perspective_map: Vec<(TemporalPerspective, &str)> = vec![
+        (TemporalPerspective::Present, "deterministic-dog"),    // Instant heuristic = present state
+        (TemporalPerspective::Transcendence, "gemini"),         // Largest model = deepest insight
+        (TemporalPerspective::Past, "huggingface"),             // Trained on historical data
+        (TemporalPerspective::Emergence, "gemma-sovereign"),    // Local sovereign = novel perspective
+    ];
+
+    let temporal_scores: Vec<TemporalScore> = dog_scores.iter().filter_map(|ds| {
+        let perspective = perspective_map.iter()
+            .find(|(_, dog_id)| *dog_id == ds.dog_id)
+            .map(|(p, _)| *p)?;
+
+        let axiom_scores = crate::dog::AxiomScores {
+            fidelity: ds.fidelity, phi: ds.phi, verify: ds.verify,
+            culture: ds.culture, burn: ds.burn, sovereignty: ds.sovereignty,
+            reasoning: crate::dog::AxiomReasoning::default(),
+            ..Default::default()
+        };
+        let q = compute_qscore(&axiom_scores);
+        Some(TemporalScore { perspective, axiom_scores, q_total: q.total })
+    }).collect();
+
+    if temporal_scores.is_empty() {
+        return None;
+    }
+
+    let tv = aggregate_temporal(&temporal_scores);
+
+    Some(TemporalResponse {
+        temporal_total: tv.temporal_total,
+        outlier_perspective: tv.outlier_perspective.map(|p| p.label().to_string()),
+        max_divergence: tv.max_divergence,
+        perspectives: temporal_scores.iter().map(|ts| {
+            let dog_id = perspective_map.iter()
+                .find(|(p, _)| *p == ts.perspective)
+                .map(|(_, id)| id.to_string())
+                .unwrap_or_default();
+            TemporalPerspectiveScore {
+                perspective: ts.perspective.label().to_string(),
+                q_total: ts.q_total,
+                dog_id,
+            }
+        }).collect(),
+    })
 }
