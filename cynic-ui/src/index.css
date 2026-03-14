@@ -1,0 +1,32 @@
+:root {
+  --gold: #FFD700;
+  --gold-dim: rgba(255, 215, 0, 0.15);
+  --gold-border: rgba(255, 215, 0, 0.25);
+  --bg: #080808;
+  --surface: #111111;
+  --card: #161616;
+  --border: #222222;
+  --text: #c8c8c8;
+  --text-muted: #666666;
+  --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { margin: 0; background: var(--bg); }
+
+#root {
+  width: 100%;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+button { cursor: pointer; font-family: var(--mono); }
+input, textarea { font-family: var(--mono); }

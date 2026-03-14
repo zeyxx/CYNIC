@@ -1,0 +1,469 @@
+/* ─── Layout ─────────────────────────────────────────────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  background: var(--bg);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  gap: 0;
+}
+
+.left-panel {
+  padding: 28px 24px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.right-panel {
+  padding: 28px 24px;
+  overflow-y: auto;
+}
+
+/* ─── Logo ───────────────────────────────────────────────── */
+.logo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.logo-glyph {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--gold);
+}
+
+.logo-name {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+}
+
+.logo-tagline {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+/* ─── Tabs ───────────────────────────────────────────────── */
+.tab-nav {
+  display: flex;
+  gap: 4px;
+  background: var(--card);
+  padding: 3px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.tab-btn {
+  padding: 5px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.tab-btn:hover {
+  color: var(--text);
+}
+
+.tab-btn.active {
+  background: var(--gold-dim);
+  color: var(--gold);
+  border: 1px solid var(--gold-border);
+}
+
+/* ─── Chess Tab ──────────────────────────────────────────── */
+.chess-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chess-board-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.chess-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.last-move {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.info-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  min-width: 80px;
+}
+
+.info-value {
+  font-size: 15px;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+}
+
+.chess-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.fen-display {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fen-text {
+  font-size: 10px;
+  color: var(--text-muted);
+  word-break: break-all;
+  line-height: 1.5;
+  background: var(--card);
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.reset-btn {
+  align-self: flex-start;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.reset-btn:hover {
+  border-color: var(--gold-border);
+  color: var(--gold);
+}
+
+/* ─── Text Tab ───────────────────────────────────────────── */
+.text-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.required { color: var(--gold); }
+.optional { color: var(--text-muted); font-size: 10px; margin-left: 4px; }
+
+.field-textarea,
+.field-input {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  resize: none;
+}
+
+.field-textarea:focus,
+.field-input:focus {
+  border-color: var(--gold-border);
+}
+
+.field-textarea::placeholder,
+.field-input::placeholder {
+  color: var(--text-muted);
+}
+
+.judge-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  background: var(--gold-dim);
+  color: var(--gold);
+  border: 1px solid var(--gold-border);
+  border-radius: 4px;
+  transition: all 0.15s;
+  align-self: flex-start;
+}
+
+.judge-btn:hover:not(:disabled) {
+  background: rgba(255, 215, 0, 0.18);
+  border-color: rgba(255, 215, 0, 0.5);
+}
+
+.judge-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+kbd {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.error-msg {
+  font-size: 12px;
+  color: #f44336;
+  padding: 8px 10px;
+  background: rgba(244, 67, 54, 0.08);
+  border: 1px solid rgba(244, 67, 54, 0.25);
+  border-radius: 4px;
+}
+
+/* ─── Verdict Panel ──────────────────────────────────────── */
+.verdict-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.verdict-empty,
+.verdict-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.7;
+}
+
+.empty-icon {
+  font-size: 48px;
+  color: var(--gold-border);
+  line-height: 1;
+}
+
+.phi-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.loading-ring {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* verdict badge */
+.verdict-badge {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 6px 18px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  animation: fadeIn 0.3s ease;
+}
+
+/* Q-Score block */
+.qscore-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qscore-value {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.qscore-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.phi-cap {
+  opacity: 0.6;
+}
+
+.qscore-bar {
+  position: relative;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: visible;
+}
+
+.qscore-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.qscore-bar-phi {
+  position: absolute;
+  right: 0;
+  top: -3px;
+  width: 1px;
+  height: 9px;
+  background: rgba(255, 215, 0, 0.4);
+}
+
+/* Radar block */
+.radar-block {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+/* Axioms block */
+.axioms-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.axiom-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.axiom-header {
+  display: grid;
+  grid-template-columns: 18px 80px 52px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.axiom-icon {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.axiom-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.axiom-score {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.axiom-bar {
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.axiom-bar-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.4s ease;
+}
+
+.axiom-reasoning {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding-left: 26px;
+}
+
+/* Anomaly */
+.anomaly-banner {
+  padding: 10px 14px;
+  background: rgba(255, 152, 0, 0.08);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  border-radius: 4px;
+  font-size: 12px;
+  color: #FF9800;
+}
+
+.anomaly-banner span {
+  color: var(--text-muted);
+}
+
+/* Footer */
+.verdict-footer {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.dogs-used {
+  color: var(--text);
+}
