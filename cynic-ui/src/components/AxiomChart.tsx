@@ -40,7 +40,7 @@ export function AxiomChart({ qScore }: Props) {
           />
           <Tooltip
             contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 6 }}
-            formatter={(v: number) => [v.toFixed(3), 'Score']}
+            formatter={(v: any) => [Number(v).toFixed(3), 'Score']}
           />
         </RadarChart>
       </ResponsiveContainer>

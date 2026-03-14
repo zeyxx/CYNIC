@@ -125,31 +125,33 @@ export function ChessJudge({ onVerdict }: Props) {
 
   // ─── react-chessboard callbacks ──────────────────────────────
   // Drag-and-drop: primary interaction mechanism
-  const onPieceDrop = useCallback((from: string, to: string): boolean => {
+  const onPieceDrop = useCallback(({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }): boolean => {
     setSelectedSquare(null);
-    return tryMove(from as Square, to as Square);
+    if (!targetSquare) return false;
+    return tryMove(sourceSquare as Square, targetSquare as Square);
   }, [tryMove]);
 
   // Click-to-move: secondary mechanism (click piece → click destination)
-  const onSquareClick = useCallback((square: Square) => {
+  const onSquareClick = useCallback(({ square }: { square: string }) => {
     if (status.over) return;
     const g = gameRef.current;
+    const sq = square as Square;
 
-    if (selectedSquare && selectedSquare !== square) {
+    if (selectedSquare && selectedSquare !== sq) {
       // Attempt to move selected → clicked
-      const moved = tryMove(selectedSquare, square);
+      const moved = tryMove(selectedSquare, sq);
       if (!moved) {
         // Not a valid destination — try selecting new piece
-        const piece = g.get(square);
-        setSelectedSquare(piece && piece.color === g.turn() ? square : null);
+        const piece = g.get(sq);
+        setSelectedSquare(piece && piece.color === g.turn() ? sq : null);
       }
       return;
     }
 
     // Select or deselect
-    const piece = g.get(square);
+    const piece = g.get(sq);
     setSelectedSquare(
-      piece && piece.color === g.turn() && square !== selectedSquare ? square : null
+      piece && piece.color === g.turn() && sq !== selectedSquare ? sq : null
     );
   }, [selectedSquare, status.over, tryMove]);
 
@@ -244,16 +246,17 @@ export function ChessJudge({ onVerdict }: Props) {
         {/* Board */}
         <div style={{ position: 'relative', width: 440, userSelect: 'none' }}>
           <Chessboard
-            id="cynic-board"
-            position={fen}
-            onPieceDrop={onPieceDrop}
-            onSquareClick={onSquareClick}
-            boardWidth={440}
-            boardOrientation={orientation}
-            customSquareStyles={customSquareStyles}
-            customDarkSquareStyle={{ backgroundColor: DARK }}
-            customLightSquareStyle={{ backgroundColor: LIGHT }}
-            arePiecesDraggable={!status.over}
+            options={{
+              position: fen,
+              onPieceDrop: onPieceDrop,
+              onSquareClick: onSquareClick,
+              boardOrientation: orientation,
+              squareStyles: customSquareStyles,
+              darkSquareStyle: { backgroundColor: DARK },
+              lightSquareStyle: { backgroundColor: LIGHT },
+              allowDragging: !status.over,
+              animationDurationInMs: 200
+            }}
           />
 
           {/* Promotion dialog */}
