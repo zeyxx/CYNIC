@@ -18,8 +18,9 @@ node_modules/
 # Database
 hypercube_db/
 
-# Dev tooling (Claude Code, Playwright, worktrees)
-.claude/
+# Dev tooling (secrets + local state only)
+.claude/settings.local.json
+.claude/memory/
 .playwright-mcp/
 .worktrees/
 
