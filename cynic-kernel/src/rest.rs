@@ -105,6 +105,8 @@ pub struct HealthResponse {
 pub struct DogHealthResponse {
     pub id: String,
     pub kind: String,
+    pub circuit: String,
+    pub failures: u32,
 }
 
 // ── ROUTER ─────────────────────────────────────────────────
@@ -233,14 +235,14 @@ async fn dogs_handler(
 async fn health_handler(
     State(state): State<Arc<AppState>>,
 ) -> Json<HealthResponse> {
-    let dog_ids = state.judge.dog_ids();
-    let dogs: Vec<DogHealthResponse> = dog_ids.into_iter().map(|id| {
+    let dog_health = state.judge.dog_health();
+    let dogs: Vec<DogHealthResponse> = dog_health.into_iter().map(|(id, circuit, failures)| {
         let kind = if id == "deterministic-dog" {
             "heuristic"
         } else {
             "inference"
         }.to_string();
-        DogHealthResponse { id, kind }
+        DogHealthResponse { id, kind, circuit, failures }
     }).collect();
 
     let status = if dogs.is_empty() {

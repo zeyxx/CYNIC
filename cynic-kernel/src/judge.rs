@@ -3,21 +3,33 @@
 //! Residual detection: disagreement > φ⁻² = ANOMALY.
 
 use crate::dog::*;
+use crate::circuit_breaker::CircuitBreaker;
 use chrono::Utc;
 use uuid::Uuid;
 
 pub struct Judge {
     dogs: Vec<Box<dyn Dog>>,
+    breakers: Vec<CircuitBreaker>,
 }
 
 impl Judge {
     pub fn new(dogs: Vec<Box<dyn Dog>>) -> Self {
-        Self { dogs }
+        let breakers = dogs.iter()
+            .map(|d| CircuitBreaker::new(d.id().to_string()))
+            .collect();
+        Self { dogs, breakers }
     }
 
     /// Return list of available Dog IDs.
     pub fn dog_ids(&self) -> Vec<String> {
         self.dogs.iter().map(|d| d.id().to_string()).collect()
+    }
+
+    /// Return circuit breaker state per Dog for health reporting.
+    pub fn dog_health(&self) -> Vec<(String, String, u32)> {
+        self.dogs.iter().zip(self.breakers.iter())
+            .map(|(d, cb)| (d.id().to_string(), cb.state(), cb.consecutive_failures()))
+            .collect()
     }
 
     /// Evaluate a stimulus through Dogs in parallel, aggregate, produce Verdict.
@@ -39,9 +51,18 @@ impl Judge {
             return Err(JudgeError::NoDogs);
         }
 
-        // Parallel evaluation — all selected Dogs run concurrently, timed
-        let futures: Vec<_> = active_dogs.iter()
-            .map(|dog| {
+        // Find breaker indices for active dogs
+        let dog_breaker_pairs: Vec<_> = active_dogs.iter()
+            .filter_map(|dog| {
+                let idx = self.dogs.iter().position(|d| d.id() == dog.id())?;
+                Some((*dog, &self.breakers[idx]))
+            })
+            .collect();
+
+        // Parallel evaluation — skip Dogs with open circuit breakers
+        let futures: Vec<_> = dog_breaker_pairs.iter()
+            .filter(|(_, cb)| cb.should_allow())
+            .map(|(dog, _)| {
                 let id = dog.id().to_string();
                 async move {
                     let start = std::time::Instant::now();
@@ -58,8 +79,13 @@ impl Judge {
         let mut errors: Vec<String> = Vec::new();
 
         for (id, result, elapsed_ms) in results {
+            // Find the circuit breaker for this dog
+            let cb = self.dogs.iter().position(|d| d.id() == id)
+                .map(|idx| &self.breakers[idx]);
+
             match result {
                 Ok(scores) => {
+                    if let Some(cb) = cb { cb.record_success(); }
                     eprintln!("[Judge] Dog '{}' responded in {}ms", id, elapsed_ms);
                     dog_scores.push(DogScore {
                         dog_id: id,
@@ -76,6 +102,7 @@ impl Judge {
                     });
                 }
                 Err(e) => {
+                    if let Some(cb) = cb { cb.record_failure(); }
                     eprintln!("[Judge] Dog '{}' failed after {}ms: {}", id, elapsed_ms, e);
                     errors.push(format!("{}: {}", id, e));
                 }

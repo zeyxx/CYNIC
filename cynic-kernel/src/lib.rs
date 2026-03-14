@@ -17,6 +17,7 @@ pub mod chat_port;
 pub mod config;
 pub mod ccm;
 pub mod temporal;
+pub mod circuit_breaker;
 
 pub mod cynic_v2 {
     tonic::include_proto!("cynic.v2");
