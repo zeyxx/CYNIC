@@ -110,18 +110,30 @@ impl Dog for DeterministicDog {
             burn,
             sovereignty,
             reasoning: AxiomReasoning {
-                fidelity: format!("Structural: words={}, absolutes={}, hedging={}, evidence={}, specifics={}",
-                    word_count, has_absolutes, has_hedging, has_evidence, has_numbers || has_algebraic),
-                phi: format!("Structural: sentences={}, unique_ratio={:.2}, notation={}, len={}",
-                    sentence_count, unique_ratio, has_notation || has_algebraic, len),
-                verify: format!("Structural: evidence={}, numbers={}, algebraic={}, falsifiable={}",
-                    has_evidence, has_numbers, has_algebraic, !has_absolutes || has_evidence),
-                culture: format!("Structural: tradition_refs={}, disruption={}, notation={}",
-                    has_tradition, has_disruption, has_algebraic),
-                burn: format!("Structural: len={}, density={:.2}, unique_ratio={:.2}",
-                    len, info_density, unique_ratio),
-                sovereignty: format!("Structural: coercive={}, agency={}",
-                    has_coercion, has_agency),
+                fidelity: if has_absolutes { "Absolute claims detected — low trust.".into() }
+                    else if has_hedging && has_evidence { "Hedged language with evidence — high trust.".into() }
+                    else if has_hedging { "Hedged language shows epistemic humility.".into() }
+                    else if has_evidence { "Evidence references strengthen credibility.".into() }
+                    else { format!("Neutral tone, {} words analyzed.", word_count) },
+                phi: if sentence_count >= 2 && unique_ratio > 0.7 { "Well-structured with rich vocabulary.".into() }
+                    else if has_algebraic { "Formal notation detected — precise structure.".into() }
+                    else if len < 20 { "Too brief for meaningful structural analysis.".into() }
+                    else { format!("Moderate structure, {:.0}% vocabulary diversity.", unique_ratio * 100.0) },
+                verify: if has_algebraic { "Algebraic notation — independently verifiable.".into() }
+                    else if has_evidence { "References evidence — falsifiable claims.".into() }
+                    else if has_absolutes { "Absolute claims without evidence — hard to verify.".into() }
+                    else { "No strong evidence signals detected.".into() },
+                culture: if has_tradition { "References established traditions and patterns.".into() }
+                    else if has_disruption { "Disruptive framing — challenges conventions.".into() }
+                    else if has_algebraic { "Uses domain-standard notation.".into() }
+                    else { "No strong cultural signals detected.".into() },
+                burn: if len < 80 && info_density > 0.3 { "Concise and information-dense.".into() }
+                    else if len > 300 { "Verbose — potential excess to eliminate.".into() }
+                    else if unique_ratio < 0.4 { "Repetitive language — wasteful.".into() }
+                    else { format!("Moderate efficiency, {} characters.", len) },
+                sovereignty: if has_coercion { "Coercive language detected — limits agency.".into() }
+                    else if has_agency { "Preserves choice and alternative options.".into() }
+                    else { "Neutral — no strong agency signals.".into() },
             },
         })
     }
