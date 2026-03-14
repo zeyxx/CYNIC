@@ -31,6 +31,8 @@ pub struct JudgeRequest {
     pub content: String,
     pub context: Option<String>,
     pub domain: Option<String>,
+    /// Optional: evaluate with only these Dogs (by ID). If omitted, all Dogs are used.
+    pub dogs: Option<Vec<String>>,
 }
 
 #[derive(Serialize)]
@@ -103,6 +105,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 
     Router::new()
         .route("/judge", post(judge_handler))
+        .route("/dogs", get(dogs_handler))
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
         .route("/health", get(health_handler))
@@ -123,7 +126,7 @@ async fn judge_handler(
         domain: req.domain,
     };
 
-    let verdict = state.judge.evaluate(&stimulus).await
+    let verdict = state.judge.evaluate(&stimulus, req.dogs.as_deref()).await
         .map_err(|e| (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse { error: e.to_string() }),
@@ -164,6 +167,12 @@ async fn list_verdicts_handler(
             Json(ErrorResponse { error: e.to_string() }),
         )),
     }
+}
+
+async fn dogs_handler(
+    State(state): State<Arc<AppState>>,
+) -> Json<Vec<String>> {
+    Json(state.judge.dog_ids())
 }
 
 async fn health_handler() -> Json<HealthResponse> {

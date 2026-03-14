@@ -15,7 +15,7 @@ async fn deterministic_dog_produces_valid_verdict() {
         domain: Some("general".into()),
     };
 
-    let verdict = judge.evaluate(&stimulus).await.unwrap();
+    let verdict = judge.evaluate(&stimulus, None).await.unwrap();
 
     // Q-Score must be phi-bounded
     assert!(verdict.q_score.total <= PHI_INV + 1e-10);
@@ -50,8 +50,8 @@ async fn absolute_claim_scores_lower() {
         context: None, domain: None,
     };
 
-    let v_humble = judge.evaluate(&humble).await.unwrap();
-    let v_absolute = judge.evaluate(&absolute).await.unwrap();
+    let v_humble = judge.evaluate(&humble, None).await.unwrap();
+    let v_absolute = judge.evaluate(&absolute, None).await.unwrap();
 
     assert!(v_humble.q_score.total > v_absolute.q_score.total,
         "Humble ({:.3}) should score higher than absolute ({:.3})",

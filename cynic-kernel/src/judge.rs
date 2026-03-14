@@ -15,14 +15,32 @@ impl Judge {
         Self { dogs }
     }
 
-    /// Evaluate a stimulus through all Dogs in parallel, aggregate, produce Verdict.
-    pub async fn evaluate(&self, stimulus: &Stimulus) -> Result<Verdict, JudgeError> {
+    /// Return list of available Dog IDs.
+    pub fn dog_ids(&self) -> Vec<String> {
+        self.dogs.iter().map(|d| d.id().to_string()).collect()
+    }
+
+    /// Evaluate a stimulus through Dogs in parallel, aggregate, produce Verdict.
+    /// If `filter` is provided, only use Dogs whose IDs match.
+    pub async fn evaluate(&self, stimulus: &Stimulus, filter: Option<&[String]>) -> Result<Verdict, JudgeError> {
         if self.dogs.is_empty() {
             return Err(JudgeError::NoDogs);
         }
 
-        // Parallel evaluation — all Dogs run concurrently
-        let futures: Vec<_> = self.dogs.iter()
+        // Filter Dogs if requested
+        let active_dogs: Vec<_> = match filter {
+            Some(ids) => self.dogs.iter()
+                .filter(|d| ids.iter().any(|id| id == d.id()))
+                .collect(),
+            None => self.dogs.iter().collect(),
+        };
+
+        if active_dogs.is_empty() {
+            return Err(JudgeError::NoDogs);
+        }
+
+        // Parallel evaluation — all selected Dogs run concurrently
+        let futures: Vec<_> = active_dogs.iter()
             .map(|dog| {
                 let id = dog.id().to_string();
                 async move {
@@ -221,7 +239,7 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus()).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
         assert!(verdict.q_score.total <= PHI_INV + 1e-10);
         assert!(verdict.q_score.total > 0.0);
         assert_eq!(verdict.dog_id, "test");
@@ -250,7 +268,7 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus()).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
         assert!(verdict.dog_id.contains("high"));
         assert!(verdict.dog_id.contains("low"));
         assert!(verdict.q_score.total > 0.3);
@@ -272,21 +290,21 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus()).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
         assert_eq!(verdict.dog_id, "survivor");
     }
 
     #[tokio::test]
     async fn all_dogs_fail_returns_error() {
         let judge = Judge::new(vec![Box::new(FailDog)]);
-        let result = judge.evaluate(&test_stimulus()).await;
+        let result = judge.evaluate(&test_stimulus(), None).await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn no_dogs_returns_error() {
         let judge = Judge::new(vec![]);
-        let result = judge.evaluate(&test_stimulus()).await;
+        let result = judge.evaluate(&test_stimulus(), None).await;
         assert!(result.is_err());
     }
 
@@ -311,7 +329,7 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus()).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
         assert!(verdict.anomaly_detected, "Dogs disagreeing 0.9 vs 0.1 should trigger anomaly");
         assert!(verdict.max_disagreement > PHI_INV2);
         assert_eq!(verdict.dog_scores.len(), 2);
@@ -339,7 +357,7 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus()).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
         assert!(!verdict.anomaly_detected, "Similar scores should not trigger anomaly");
         assert!(verdict.anomaly_axiom.is_none());
     }
