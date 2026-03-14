@@ -119,29 +119,11 @@ impl Judge {
         let q_score = compute_qscore(&aggregated);
         let kind = verdict_kind(q_score.total);
 
-        // Residual detection: compare per-Dog Q-Scores in verdict space
-        let consensus_q = q_score.total;
-        let max_disagreement = if dog_scores.len() > 1 {
-            dog_scores.iter()
-                .map(|s| {
-                    let dog_raw = AxiomScores {
-                        fidelity: s.fidelity, phi: s.phi, verify: s.verify,
-                        culture: s.culture, burn: s.burn, sovereignty: s.sovereignty,
-                        reasoning: AxiomReasoning::default(),
-                    };
-                    let dog_q = compute_qscore(&dog_raw).total;
-                    (dog_q - consensus_q).abs()
-                })
-                .fold(0.0_f64, f64::max)
-        } else {
-            0.0
-        };
-        let anomaly_detected = max_disagreement > PHI_INV2;
-
-        // Find which axiom has the largest inter-Dog spread (for anomaly_axiom)
-        let anomaly_axiom = if anomaly_detected && dog_scores.len() > 1 {
-            let axioms = ["fidelity", "phi", "verify", "culture", "burn", "sovereignty"];
-            let spreads: Vec<(f64, &str)> = axioms.iter().map(|&name| {
+        // Residual detection: find max per-axiom spread across Dogs
+        // This catches cases where Dogs agree on Q-Score total but disagree on individual axioms
+        let axiom_names = ["fidelity", "phi", "verify", "culture", "burn", "sovereignty"];
+        let (max_disagreement, anomaly_axiom) = if dog_scores.len() > 1 {
+            let spreads: Vec<(f64, &str)> = axiom_names.iter().map(|&name| {
                 let values: Vec<f64> = dog_scores.iter().map(|s| match name {
                     "fidelity" => s.fidelity,
                     "phi" => s.phi,
@@ -155,11 +137,19 @@ impl Judge {
                 let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
                 (max - min, name)
             }).collect();
-            spreads.into_iter().max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
-                .map(|(_, name)| name.to_string())
+            let (max_spread, max_axiom) = spreads.iter()
+                .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
+                .map(|(s, n)| (*s, *n))
+                .unwrap_or((0.0, ""));
+            if max_spread > PHI_INV2 {
+                (max_spread, Some(max_axiom.to_string()))
+            } else {
+                (max_spread, None)
+            }
         } else {
-            None
+            (0.0, None)
         };
+        let anomaly_detected = anomaly_axiom.is_some();
 
         let dog_ids: Vec<&str> = dog_scores.iter().map(|s| s.dog_id.as_str()).collect();
 
