@@ -140,6 +140,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/judge", post(judge_handler))
         .route("/dogs", get(dogs_handler))
         .route("/crystals", get(crystals_handler))
+        .route("/crystal/{id}", get(crystal_handler))
         .route("/usage", get(usage_handler))
         .route("/temporal", get(temporal_handler))
         .route("/verdict/{id}", get(get_verdict_handler))
@@ -253,6 +254,26 @@ async fn crystals_handler(
             }).collect();
             Ok(Json(items))
         }
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() }))),
+    }
+}
+
+async fn crystal_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    match state.storage.get_crystal(&id).await {
+        Ok(Some(c)) => Ok(Json(serde_json::json!({
+            "id": c.id,
+            "content": c.content,
+            "domain": c.domain,
+            "confidence": c.confidence,
+            "observations": c.observations,
+            "state": format!("{:?}", c.state),
+            "created_at": c.created_at,
+            "updated_at": c.updated_at,
+        }))),
+        Ok(None) => Err((StatusCode::NOT_FOUND, Json(ErrorResponse { error: format!("Crystal {} not found", id) }))),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() }))),
     }
 }
