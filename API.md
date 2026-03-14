@@ -70,28 +70,28 @@ Submit content for epistemic evaluation. Returns a phi-bounded verdict from mult
 | context | string | no | Additional context for the evaluators |
 | domain | string | no | Domain hint (e.g. "science", "chess", "politics") |
 
-**Response (200):**
+**Response (200) — Example: good chess opening (Sicilian Defense):**
 
 ```json
 {
-  "verdict_id": "90fa5ed3-a92f-472c-96ae-6ca08f347346",
+  "verdict_id": "ed0470f7-7e5a-41ac-b391-bda13e80266f",
   "verdict": "Howl",
   "q_score": {
-    "total": 0.6119,
+    "total": 0.507,
     "fidelity": 0.618,
-    "phi": 0.600,
+    "phi": 0.400,
     "verify": 0.618,
     "culture": 0.618,
     "burn": 0.618,
-    "sovereignty": 0.600
+    "sovereignty": 0.618
   },
   "reasoning": {
-    "fidelity": "Grounded in historical observation and political theory",
-    "phi": "Concise paradoxical structure — balanced tension",
-    "verify": "Can be debated and tested against political outcomes",
-    "culture": "Widely recognized quote with deep cultural resonance",
-    "burn": "Maximally efficient expression of a complex idea",
-    "sovereignty": "Defends democratic agency while acknowledging imperfection"
+    "fidelity": "The strategy is faithful to chess truth by immediately fighting for the center and creating dynamic, imbalanced positions.",
+    "phi": "The move 1...c5 deliberately introduces asymmetry and imbalance, setting the stage for dynamic equilibrium rather than classical harmony.",
+    "verify": "The Sicilian Defense has withstood centuries of scrutiny; no refutation exists, making it tactically robust.",
+    "culture": "A foundational opening, deeply ingrained in chess history. Honored by generations of grandmasters and world champions.",
+    "burn": "While 1...c5 does not develop a piece, it is highly efficient in its strategic purpose: challenging White's central control.",
+    "sovereignty": "Leads to incredibly complex and varied positions, offering both players a vast array of strategic and tactical choices."
   },
   "dogs_used": "deterministic-dog+gemini",
   "phi_max": 0.618033988749895,
@@ -99,42 +99,71 @@ Submit content for epistemic evaluation. Returns a phi-bounded verdict from mult
     {
       "dog_id": "deterministic-dog",
       "fidelity": 0.35,
-      "phi": 0.40,
+      "phi": 0.50,
       "verify": 0.35,
       "culture": 0.40,
-      "burn": 0.45,
+      "burn": 0.35,
       "sovereignty": 0.40,
       "reasoning": {
-        "fidelity": "Heuristic: len=72, absolutes=false",
-        "phi": "Heuristic: len=72, structured=true",
+        "fidelity": "Heuristic: len=131, absolutes=false",
+        "phi": "Heuristic: len=131, structured=true",
         "verify": "Heuristic: evidence_words=false",
         "culture": "Heuristic: tradition_refs=false",
-        "burn": "Heuristic: len=72, concise=true",
+        "burn": "Heuristic: len=131, concise=false",
         "sovereignty": "Heuristic: coercive=false"
       }
     },
     {
       "dog_id": "gemini",
-      "fidelity": 0.90,
-      "phi": 0.80,
-      "verify": 0.90,
-      "culture": 0.95,
-      "burn": 0.92,
-      "sovereignty": 0.80,
+      "fidelity": 0.75,
+      "phi": 0.40,
+      "verify": 0.85,
+      "culture": 0.90,
+      "burn": 0.70,
+      "sovereignty": 0.75,
       "reasoning": {
-        "fidelity": "Grounded in historical observation and political theory",
-        "phi": "Concise paradoxical structure — balanced tension",
-        "verify": "Can be debated and tested against political outcomes",
-        "culture": "Widely recognized quote with deep cultural resonance",
-        "burn": "Maximally efficient expression of a complex idea",
-        "sovereignty": "Defends democratic agency while acknowledging imperfection"
+        "fidelity": "The strategy is faithful to chess truth by immediately fighting for the center...",
+        "phi": "The move 1...c5 deliberately introduces asymmetry and imbalance...",
+        "verify": "The Sicilian Defense has withstood centuries of scrutiny; no refutation exists...",
+        "culture": "A foundational opening, deeply ingrained in chess history...",
+        "burn": "While 1...c5 does not develop a piece, it is highly efficient...",
+        "sovereignty": "Leads to incredibly complex and varied positions..."
       }
     }
   ],
   "anomaly_detected": false,
-  "max_disagreement": 0.2217,
+  "max_disagreement": 0.25,
   "anomaly_axiom": null
 }
+```
+
+**Response — Example: terrible chess opening (Fool's Mate):**
+
+```json
+{
+  "verdict": "Bark",
+  "q_score": {
+    "total": 0.0,
+    "fidelity": 0.0,
+    "phi": 0.0,
+    "verify": 0.0,
+    "culture": 0.0,
+    "burn": 0.0,
+    "sovereignty": 0.0
+  },
+  "reasoning": {
+    "fidelity": "A complete betrayal of chess truth. Actively undermines king safety, neglects central control.",
+    "phi": "No structural harmony whatsoever. Two pawn moves create gaping holes in the king's defense.",
+    "verify": "Immediately and definitively refuted by checkmate on move 2.",
+    "culture": "The antithesis of chess tradition. Universally recognized as the worst possible opening.",
+    "burn": "Maximally inefficient. Two moves wasted to achieve nothing, walking into checkmate.",
+    "sovereignty": "Completely obliterates the player's agency — terminates the game before any meaningful decisions."
+  },
+  "dogs_used": "deterministic-dog+gemini"
+}
+```
+
+**Key insight:** CYNIC judges the **substance** (the chess strategy), not the **form** (the text description). A well-written description of a terrible move still gets a Bark. Scores vary dramatically based on the quality of the subject matter.
 ```
 
 | Field | Type | Description |

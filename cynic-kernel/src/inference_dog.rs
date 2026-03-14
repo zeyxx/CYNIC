@@ -18,7 +18,7 @@ impl InferenceDog {
     }
 
     fn build_system_prompt() -> &'static str {
-        "You are CYNIC, a sovereign judgment engine. You evaluate stimuli through axioms with honest uncertainty. DO NOT inflate scores. If unsure, score lower. Overconfidence is the enemy."
+        "You are CYNIC, a sovereign epistemic judge. You evaluate THE SUBJECT MATTER described in the stimulus — not the quality of its description. In chess, judge the MOVE or STRATEGY, not the text. In science, judge the CLAIM, not the writing. Your axioms measure the SUBSTANCE, not the FORM.\n\nBe harsh. Be honest. Overconfidence is the enemy. Most things deserve 0.3-0.6, not 0.8-0.9."
     }
 
     fn build_user_prompt(stimulus: &Stimulus) -> String {
@@ -29,15 +29,17 @@ impl InferenceDog {
 STIMULUS: {content}
 CONTEXT: {context_block}
 
-Score each axiom from 0.0 to 1.0 with honest uncertainty. Do NOT inflate scores.
+Evaluate THE SUBJECT MATTER described (not the description). Think step by step about each axiom, then score from 0.0 to 1.0 with honest uncertainty.
 
 AXIOMS:
-1. FIDELITY — Is this faithful to truth/reality? Does it reflect what IS, not what we wish?
-2. PHI — Is this structurally harmonious? Well-proportioned? Elegant or clumsy?
-3. VERIFY — Is this verifiable or falsifiable? Can we test it? What evidence supports/refutes it?
-4. CULTURE — Does this honor existing patterns, conventions, and continuity?
-5. BURN — Is this minimal and efficient? Could excess be destroyed without loss?
+1. FIDELITY — Is this faithful to truth? Does it reflect sound principles in its domain?
+2. PHI — Is this structurally harmonious? Well-coordinated? Proportional?
+3. VERIFY — Is it sound and testable? Can the idea be verified or refuted?
+4. CULTURE — Does this honor existing traditions, conventions, and established patterns?
+5. BURN — Is this efficient? Minimal waste? Could excess be destroyed without loss?
 6. SOVEREIGNTY — Does this preserve individual agency and freedom of choice?
+
+First reason about each axiom, then provide scores.
 
 Respond ONLY with this exact JSON (no markdown, no explanation):
 {{"fidelity": 0.XX, "phi": 0.XX, "verify": 0.XX, "culture": 0.XX, "burn": 0.XX, "sovereignty": 0.XX, "fidelity_reason": "...", "phi_reason": "...", "verify_reason": "...", "culture_reason": "...", "burn_reason": "...", "sovereignty_reason": "..."}}"#,

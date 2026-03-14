@@ -240,11 +240,17 @@ const VERDICT_COLORS: Record<VerdictKind, string> = {
 };
 
 const VERDICT_THRESHOLDS = {
-  Howl:  0.5207,  // 82% of phi
-  Wag:   0.382,   // phi^-2
-  Growl: 0.236,   // phi^-3
-  Bark:  0,       // below all thresholds
+  Howl:  0.5207,  // 82% of phi — exceptional (good chess opening)
+  Wag:   0.382,   // phi^-2 — passes
+  Growl: 0.236,   // phi^-3 — questionable (Scholar's Mate trap)
+  Bark:  0,       // below all thresholds (Fool's Mate)
 };
+
+// REAL SCORE RANGES (tested March 14, 2026):
+// Sicilian Defense (great opening):  fidelity=0.75, phi=0.40, verify=0.85 → Howl
+// Scholar's Mate (beginner trap):    fidelity=0.20, phi=0.20, verify=0.10 → Growl
+// Fool's Mate (worst possible):      fidelity=0.00, phi=0.00, verify=0.00 → Bark
+// Scores VARY DRAMATICALLY — don't assume everything is 0.618!
 ```
 
 ### The 6 Axioms
@@ -261,6 +267,8 @@ const VERDICT_THRESHOLDS = {
 ### Critical Constant
 
 `phi_max = 0.618033988749895` — **no score can ever exceed this.** This is the golden ratio inverse, a structural epistemic limit. It is not a bug.
+
+**Important:** CYNIC judges the **substance** (the chess strategy), not the **form** (the text). A well-written description of a terrible move still gets a Bark. Expect scores from 0.0 to 0.618 — they vary dramatically.
 
 ### Dogs (Independent Validators)
 
