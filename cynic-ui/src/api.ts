@@ -1,5 +1,5 @@
 import { DEFAULT_API_BASE } from './types';
-import type { HealthResponse, JudgeRequest, Verdict } from './types';
+import type { HealthResponse, JudgeRequest, Verdict, Crystal } from './types';
 
 const LS_KEY = 'cynic_kernel_url';
 
@@ -35,5 +35,17 @@ export async function getVerdicts(): Promise<Verdict[]> {
 export async function getVerdict(id: string): Promise<Verdict> {
   const res = await fetch(`${base()}/verdict/${id}`);
   if (!res.ok) throw new Error('Failed to fetch verdict');
+  return res.json();
+}
+
+export async function getAvailableDogs(): Promise<string[]> {
+  const res = await fetch(`${base()}/dogs`);
+  if (!res.ok) throw new Error('Failed to fetch dogs');
+  return res.json();
+}
+
+export async function getCrystals(): Promise<Crystal[]> {
+  const res = await fetch(`${base()}/crystals`);
+  if (!res.ok) throw new Error('Failed to fetch crystals');
   return res.json();
 }

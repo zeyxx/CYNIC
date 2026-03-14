@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import { DEFAULT_API_BASE } from '../types';
+import { getAvailableDogs } from '../api';
 
 const LS_KEY = 'cynic_kernel_url';
+const DOGS_KEY = 'cynic_selected_dogs';
+
+export function getSelectedDogs(): string[] | undefined {
+  const stored = localStorage.getItem(DOGS_KEY);
+  return stored ? JSON.parse(stored) : undefined;
+}
 
 export function getKernelUrl(): string {
   return localStorage.getItem(LS_KEY) ?? DEFAULT_API_BASE;
@@ -11,11 +18,24 @@ export function KernelSettings({ onClose }: { onClose: () => void }) {
   const [url, setUrl] = useState(getKernelUrl());
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [availableDogs, setAvailableDogs] = useState<string[]>([]);
+  const [selectedDogs, setSelectedDogs] = useState<string[]>(getSelectedDogs() ?? []);
+
+  useEffect(() => {
+    getAvailableDogs().then(setAvailableDogs).catch(console.error);
+  }, []);
 
   const save = () => {
     const clean = url.replace(/\/$/, '');
     localStorage.setItem(LS_KEY, clean);
+    localStorage.setItem(DOGS_KEY, JSON.stringify(selectedDogs));
     window.location.reload();
+  };
+
+  const toggleDog = (id: string) => {
+    setSelectedDogs(prev => 
+      prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]
+    );
   };
 
   const reset = () => {
@@ -76,6 +96,35 @@ export function KernelSettings({ onClose }: { onClose: () => void }) {
         />
         <div style={{ fontSize: 11, color: '#444', marginTop: 6 }}>
           Cloudflare tunnel, Tailscale IP, ou localhost:3030 si le kernel tourne localement.
+        </div>
+
+        <div style={{ marginTop: 24 }}>
+          <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 12 }}>
+            Active Dogs (Consensus Group)
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {availableDogs.length === 0 && <div style={{ fontSize: 11, color: '#444' }}>Loading dogs...</div>}
+            {availableDogs.map(id => (
+              <label key={id} style={{ 
+                display: 'flex', alignItems: 'center', gap: 10, 
+                padding: '10px', background: '#0a0a0a', border: '1px solid #222', 
+                borderRadius: 8, cursor: 'pointer', fontSize: 13 
+              }}>
+                <input 
+                  type="checkbox" 
+                  checked={selectedDogs.length === 0 || selectedDogs.includes(id)} 
+                  onChange={() => toggleDog(id)}
+                  style={{ accentColor: '#C9A84C' }}
+                />
+                <span style={{ color: (selectedDogs.length === 0 || selectedDogs.includes(id)) ? '#e0e0e0' : '#444' }}>
+                  {id}
+                </span>
+              </label>
+            ))}
+          </div>
+          <div style={{ fontSize: 11, color: '#444', marginTop: 8 }}>
+            If none selected, all dogs will be used by default.
+          </div>
         </div>
 
         {testResult && (

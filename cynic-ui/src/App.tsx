@@ -3,9 +3,10 @@ import { ChessJudge } from './components/ChessJudge';
 import { VerdictHistory } from './components/VerdictHistory';
 import { HealthIndicator } from './components/HealthIndicator';
 import { KernelSettings } from './components/KernelSettings';
+import { LearnedPatterns } from './components/LearnedPatterns';
 import './App.css';
 
-type Tab = 'chess' | 'history';
+type Tab = 'chess' | 'history' | 'patterns';
 
 function App() {
   const [tab, setTab] = useState<Tab>('chess');
@@ -34,7 +35,7 @@ function App() {
         </div>
 
         <div style={{ display: 'flex', gap: 4 }}>
-          {(['chess', 'history'] as Tab[]).map((t) => (
+          {(['chess', 'history', 'patterns'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -104,6 +105,19 @@ function App() {
               </p>
             </div>
             <VerdictHistory />
+          </div>
+        )}
+        {tab === 'patterns' && (
+          <div>
+            <div style={{ marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 15, color: '#C9A84C', fontFamily: 'monospace', letterSpacing: 2 }}>
+                🧠 COGNITIVE CRYSTALLIZATION
+              </h2>
+              <p style={{ color: '#444', fontSize: 12, margin: '5px 0 0' }}>
+                Knowledge patterns forming crystallized truth through multi-agent consensus.
+              </p>
+            </div>
+            <LearnedPatterns />
           </div>
         )}
       </main>

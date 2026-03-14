@@ -5,6 +5,7 @@ import type { Square } from 'chess.js';
 import { judge } from '../api';
 import type { Verdict } from '../types';
 import { VerdictDisplay } from './VerdictDisplay';
+import { getSelectedDogs } from './KernelSettings';
 
 // ─── Constants ────────────────────────────────────────────────
 const LIGHT = '#b0bec5';
@@ -97,7 +98,8 @@ export function ChessJudge({ onVerdict }: Props) {
     const content  = `Chess move ${moveNum}: ${move.san}. Game: ${history.join(' ')}. FEN: ${newFen}`;
 
     setLoading(true);
-    judge({ content, domain: 'chess', context: `Move ${moveNum}: ${move.san}` })
+    const dogs = getSelectedDogs();
+    judge({ content, domain: 'chess', context: `Move ${moveNum}: ${move.san}`, dogs })
       .then(r => { setVerdict(r); onVerdict?.(r); })
       .catch(e => setError(e instanceof Error ? e.message : 'API unreachable'))
       .finally(() => setLoading(false));

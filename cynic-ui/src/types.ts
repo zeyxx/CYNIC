@@ -2,6 +2,7 @@ export interface JudgeRequest {
   content: string;
   context?: string;
   domain?: string;
+  dogs?: string[];
 }
 
 export interface QScore {
@@ -25,6 +26,7 @@ export interface Reasoning {
 
 export interface DogScore {
   dog_id: string;
+  latency_ms: number;
   fidelity: number;
   phi: number;
   verify: number;
@@ -54,6 +56,18 @@ export interface HealthResponse {
   version: string;
   phi_max: number;
   axioms: string[];
+  dogs: { id: string; kind: string }[];
+}
+
+export interface Crystal {
+  id: string;
+  content: string;
+  domain: string;
+  confidence: number;
+  observations: number;
+  state: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export const VERDICT_COLORS: Record<VerdictKind, string> = {

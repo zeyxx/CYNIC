@@ -91,8 +91,13 @@ export function VerdictDisplay({ verdict }: Props) {
                 border: '1px solid #222',
                 borderRadius: 8,
               }}>
-                <div style={{ fontSize: 12, color: '#888', marginBottom: 8, fontWeight: 600 }}>
-                  🐕 {dog.dog_id}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>
+                    🐕 {dog.dog_id}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#555', fontFamily: 'monospace' }}>
+                    ⚡ {dog.latency_ms}ms
+                  </div>
                 </div>
                 {axioms.map((key) => (
                   <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#aaa', marginBottom: 2 }}>
