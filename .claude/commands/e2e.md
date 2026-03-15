@@ -1,13 +1,15 @@
 Run an end-to-end test against the running CYNIC kernel.
 
 Steps:
-1. Check kernel is running: `curl -s http://localhost:3030/health`
-2. If not running, tell user to run `/run` first
-3. Submit a test evaluation:
+1. `source ~/.cynic-env 2>/dev/null`
+2. Check kernel is running: `curl -s http://${CYNIC_REST_ADDR}/health`
+3. If not running, tell user to run `/run` first
+4. Submit a test judgment:
 ```
-curl -s -X POST http://localhost:3030/evaluate \
+curl -s -X POST http://${CYNIC_REST_ADDR}/judge \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${CYNIC_API_KEY}" \
   -d '{"content": "e4 e5 Nf3 Nc6 Bb5 — the Ruy Lopez opening", "context": "Classical chess opening theory", "domain": "chess"}'
 ```
-4. Parse the verdict: show Q-score, verdict kind (HOWL/WAG/GROWL/BARK), per-axiom scores, anomaly status
-5. If argument provided, use it as the content instead of the default chess example
+5. Parse the verdict: show Q-score, verdict kind (HOWL/WAG/GROWL/BARK), per-axiom scores, dogs used
+6. If argument provided, use it as the content instead of the default chess example

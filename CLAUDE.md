@@ -105,32 +105,63 @@ Real chess scores: Sicilian Defense → Howl. Scholar's Mate → Growl. Fool's M
 5. **Port contracts first.** New dependency → trait → adapter → test.
 6. **Bounded everything.** Channels, retries, confidence. Unbounded = debt.
 
-## Skills (MUST invoke before acting)
+## Tool Ecosystem (MUST use — manual is the fallback, not the default)
 
-| Skill | When |
-|-------|------|
-| `cynic-kernel` | Building/modifying any CYNIC component |
-| `cynic-judge` | Evaluating code, decisions, or content |
-| `cynic-burn` | Simplification — orphans, hotspots, dead code |
-| `cynic-wisdom` | Philosophical grounding for decisions |
-| `ai-infrastructure` | LLM serving, inference pipelines |
-| `crystallize-truth` | Complex decisions, hidden assumptions |
-| `frontend-dev` | Building/modifying cynic-ui |
-| `deploy` | After ANY code change to cynic-kernel/ |
-| `test-chess` | Verify chess scoring works end-to-end |
-| `status` | Check kernel, DB, backends, network |
-| `context7` | Fetch up-to-date docs for any library |
+### When to invoke what
 
-## Slash Commands
+| Trigger | Tool/Skill | Type |
+|---------|-----------|------|
+| **Any code change** | `/build` | Slash command |
+| **Deploy to production** | `/deploy` | Slash command (includes DB backup) |
+| **Start kernel** | `/run` | Slash command (systemd) |
+| **Check system state** | `/status` | Slash command |
+| **End-to-end test** | `/e2e` | Slash command |
+| **Verify chess scoring** | `/test-chess` | Slash command |
+| **Building/modifying CYNIC** | `cynic-kernel` | Skill (architecture ref) |
+| **Evaluate quality of anything** | `cynic-judge` | Skill (43-dim scoring) |
+| **Simplify/reduce code** | `cynic-burn` | Skill |
+| **Philosophical grounding** | `cynic-wisdom` | Skill (19 traditions) |
+| **Complex decisions** | `crystallize-truth` | Skill |
+| **LLM/ML infrastructure** | `ai-infrastructure` | Skill |
+| **System design from scratch** | `engineering-stack-design` | Skill |
+| **Frontend work** | `frontend-dev` | Skill |
+| **Library docs lookup** | `context7` MCP | Plugin (resolve-library-id → query-docs) |
+| **Judge content via API** | `cynic_judge` MCP | CYNIC MCP tool |
+| **Run inference** | `cynic_infer` MCP | CYNIC MCP tool |
+| **Read verdicts/crystals** | `cynic_verdicts` / `cynic_crystals` MCP | CYNIC MCP tool |
+| **Audit trail** | `cynic_audit_query` MCP | CYNIC MCP tool |
+| **Tailscale discovery** | `ts_discover` / `ts_status` MCP | Tailscale MCP |
+| **Remote execution** | `ts_exec` MCP | Tailscale MCP |
+| **Remote logs** | `ts_logs` MCP | Tailscale MCP |
+| **Before claiming "done"** | `verification-before-completion` | Superpowers plugin |
+| **Before creative work** | `brainstorming` | Superpowers plugin |
+| **Debugging** | `systematic-debugging` | Superpowers plugin |
+| **After major feature** | `code-review` | Superpowers plugin |
+| **Commit + push** | `commit` / `commit-push-pr` | Commit commands plugin |
+
+### Slash Commands
 
 | Command | What |
 |---|---|
-| `/build` | Build + test + clippy |
-| `/deploy` | Build + deploy binary + restart kernel + verify |
-| `/run` | Start kernel |
-| `/e2e` | End-to-end test |
+| `/build` | Build + test + clippy (--release) |
+| `/deploy` | Build + test + backup DB + deploy binary + restart kernel + verify |
+| `/run` | Start kernel via systemd |
+| `/e2e` | End-to-end test against running kernel |
 | `/test-chess` | 3 chess positions → verify scoring |
-| `/status` | Full system status |
+| `/status` | Full system status (kernel + DB + llama + Tailscale + backups + git) |
+
+### MCP Tools
+
+| Server | Tools | Purpose |
+|--------|-------|---------|
+| **cynic** | health, judge, infer, verdicts, crystals, audit_query | CYNIC kernel interaction |
+| **tailscale** | status, health, discover, exec, logs, service, poll | Fleet management |
+| **context7** | resolve-library-id, query-docs | Up-to-date library documentation |
+| **playwright** | navigate, screenshot, snapshot, click, fill, evaluate | Browser automation |
+
+### Environment
+
+All skills use `${CYNIC_REST_ADDR}` and `${CYNIC_API_KEY}` from `~/.cynic-env`. Never hardcode IPs.
 
 ## Canonical References
 
@@ -138,4 +169,4 @@ Real chess scores: Sicilian Defense → Howl. Scholar's Mate → Growl. Fool's M
 - **Infrastructure truths:** `docs/CYNIC-ARCHITECTURE-TRUTHS.md`
 - **API contract:** `API.md`
 - **Frontend guide:** `FRONTEND.md`
-- **Build:** `cargo build -p cynic-kernel --release` / `cargo test -p cynic-kernel` / `cargo clippy --workspace -- -D warnings`
+- **Build:** `cargo build -p cynic-kernel --release` / `cargo test -p cynic-kernel --release` / `cargo clippy -p cynic-kernel --release -- -D warnings`
