@@ -104,6 +104,7 @@ Real chess scores: Sicilian Defense → Howl. Scholar's Mate → Growl. Fool's M
 4. **Domain purity.** Zero `#[cfg]` in domain code.
 5. **Port contracts first.** New dependency → trait → adapter → test.
 6. **Bounded everything.** Channels, retries, confidence. Unbounded = debt.
+7. **Zero hardcoded paths.** Use `$(git rev-parse --show-toplevel)` for project root, `${CYNIC_REST_ADDR}` from `~/.cynic-env` for kernel address. Tool-specific vars (`$CLAUDE_PROJECT_DIR`, etc.) only as optimization with git fallback. Never absolute paths in skills, hooks, or configs.
 
 ## Tool Ecosystem (MUST use — manual is the fallback, not the default)
 
