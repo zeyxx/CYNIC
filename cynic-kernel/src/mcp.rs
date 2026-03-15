@@ -342,10 +342,10 @@ impl CynicMcp {
         let mut conditions = Vec::new();
 
         if let Some(tool) = &p.tool {
-            conditions.push(format!("tool = '{}'", tool.replace('\'', "")));
+            conditions.push(format!("tool = '{}'", tool.replace('\\', "\\\\").replace('\'', "\\'")));
         }
         if let Some(agent) = &p.agent_id {
-            conditions.push(format!("agent_id = '{}'", agent.replace('\'', "")));
+            conditions.push(format!("agent_id = '{}'", agent.replace('\\', "\\\\").replace('\'', "\\'")));
         }
 
         let where_clause = if conditions.is_empty() {
@@ -368,7 +368,7 @@ impl CynicMcp {
         let resp = client.post(format!("{}/sql", surreal_url))
             .header("Accept", "application/json")
             .header("surreal-ns", "cynic")
-            .header("surreal-db", "cynic")
+            .header("surreal-db", "v2")
             .basic_auth("root", Some(&surreal_pass))
             .body(query)
             .timeout(std::time::Duration::from_secs(5))
@@ -398,8 +398,8 @@ impl CynicMcp {
 
         let query = format!(
             "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = {};",
-            tool_name.replace('\'', ""),
-            agent_id.replace('\'', ""),
+            tool_name.replace('\\', "\\\\").replace('\'', "\\'"),
+            agent_id.replace('\\', "\\\\").replace('\'', "\\'"),
             details,
         );
 
@@ -407,7 +407,7 @@ impl CynicMcp {
         let _ = client.post(format!("{}/sql", surreal_url))
             .header("Accept", "application/json")
             .header("surreal-ns", "cynic")
-            .header("surreal-db", "cynic")
+            .header("surreal-db", "v2")
             .basic_auth("root", Some(&surreal_pass))
             .body(query)
             .timeout(std::time::Duration::from_secs(2))

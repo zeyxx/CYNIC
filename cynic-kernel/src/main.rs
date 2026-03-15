@@ -54,17 +54,6 @@ impl VascularSystem for VascularService {
 // ============================================================
 // BOOT SEQUENCE
 // ============================================================
-/// Log macro that routes to stderr in MCP mode (stdout is reserved for JSON-RPC).
-macro_rules! log {
-    ($mcp:expr, $($arg:tt)*) => {
-        if $mcp {
-            eprintln!($($arg)*);
-        } else {
-            println!($($arg)*);
-        }
-    };
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse flags early — MCP mode needs stderr-only logging from the start.
@@ -76,13 +65,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cynic_kernel::MCP_MODE.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
-    log!(mcp_mode, "╔══════════════════════════════════════╗");
-    log!(mcp_mode, "║       CYNIC OS V2 — SOVEREIGN BOOT    ║");
-    log!(mcp_mode, "╚══════════════════════════════════════╝");
+    klog!("╔══════════════════════════════════════╗");
+    klog!("║       CYNIC OS V2 — SOVEREIGN BOOT    ║");
+    klog!("╚══════════════════════════════════════╝");
     let node_config = probe::run(force_reprobe).await;
 
-    log!(mcp_mode, "[Ring 0] Omniscience Active. Reality Mapped.");
-    log!(mcp_mode, "[Ring 0] Host: {} | Compute: {:?} | VRAM: {}GB",
+    klog!("[Ring 0] Omniscience Active. Reality Mapped.");
+    klog!("[Ring 0] Host: {} | Compute: {:?} | VRAM: {}GB",
         std::env::consts::OS,
         node_config.compute.backend,
         node_config.compute.vram_gb
@@ -92,7 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // HTTP adapter to SurrealDB 3.x — graceful degradation if unavailable.
     let storage_port: Arc<dyn storage_port::StoragePort> = match storage_http::SurrealHttpStorage::init().await {
         Ok(s) => {
-            log!(mcp_mode, "[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
+            klog!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
             Arc::new(s)
         }
         Err(e) => {
@@ -103,7 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // ─── RING 1: Vascular System (gRPC IPC) ──────────────────
     let addr = "[::1]:50051".parse()?;
-    log!(mcp_mode, "[Ring 1] Vascular Law enforced on {}", addr);
+    klog!("[Ring 1] Vascular Law enforced on {}", addr);
 
     // ─── RING 1: Muscle HAL (BackendRouter for gRPC) ──────────
     let router = Arc::new(router::BackendRouter::new(vec![]));
@@ -115,10 +104,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .join("backends.toml");
 
     let backend_configs = if backends_path.exists() {
-        log!(mcp_mode, "[Ring 2] Loading backends from {}", backends_path.display());
+        klog!("[Ring 2] Loading backends from {}", backends_path.display());
         config::load_backends(&backends_path)
     } else {
-        log!(mcp_mode, "[Ring 2] No backends.toml found, using env var fallback");
+        klog!("[Ring 2] No backends.toml found, using env var fallback");
         config::load_backends_from_env()
     };
 
@@ -127,7 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Always add the deterministic Dog (free, fast)
     dogs.push(Box::new(deterministic_dog::DeterministicDog));
-    log!(mcp_mode, "[Ring 2] DeterministicDog loaded");
+    klog!("[Ring 2] DeterministicDog loaded");
 
     // Create InferenceDog per configured backend
     for cfg in backend_configs {
@@ -135,16 +124,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let health = ChatPort::health(backend.as_ref()).await;
         match health {
             backend::BackendStatus::Healthy | backend::BackendStatus::Degraded { .. } => {
-                log!(mcp_mode, "[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?})", cfg.name, cfg.model, health);
+                klog!("[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?})", cfg.name, cfg.model, health);
                 dogs.push(Box::new(inference_dog::InferenceDog::new(backend, cfg.name.clone())));
             }
             _ => {
-                log!(mcp_mode, "[Ring 2] WARNING: Backend '{}' unreachable, skipping", cfg.name);
+                klog!("[Ring 2] WARNING: Backend '{}' unreachable, skipping", cfg.name);
             }
         }
     }
 
-    log!(mcp_mode, "[Ring 2] {} Dog(s) active", dogs.len());
+    klog!("[Ring 2] {} Dog(s) active", dogs.len());
 
     // ─── RING 2: Build Judge ──────────────────────────────────
     let judge = judge::Judge::new(dogs);
@@ -177,7 +166,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let rest_addr = std::env::var("CYNIC_REST_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:3030".to_string());
-    log!(mcp_mode, "[Ring 3] REST API on http://{}", rest_addr);
+    klog!("[Ring 3] REST API on http://{}", rest_addr);
 
     let rest_listener = tokio::net::TcpListener::bind(&rest_addr).await?;
     let rest_server = tokio::spawn(async move {
@@ -187,12 +176,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── gRPC services ────────────────────────────────────────
     let pulse_service = pulse::PulseService::default();
     let muscle_service = hal::MuscleService::new(Arc::clone(&router));
-    log!(mcp_mode, "╔══════════════════════════════════════╗");
-    log!(mcp_mode, "║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
-    log!(mcp_mode, "║   REST: http://{}",  rest_addr);
-    log!(mcp_mode, "║   gRPC: {}",  addr);
-    log!(mcp_mode, "║   Max confidence: phi^-1 = 0.618     ║");
-    log!(mcp_mode, "╚══════════════════════════════════════╝");
+    klog!("╔══════════════════════════════════════╗");
+    klog!("║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
+    klog!("║   REST: http://{}",  rest_addr);
+    klog!("║   gRPC: {}",  addr);
+    klog!("║   Max confidence: phi^-1 = 0.618     ║");
+    klog!("╚══════════════════════════════════════╝");
 
     let grpc_server = Server::builder()
         .add_service(VascularSystemServer::new(VascularService::default()))

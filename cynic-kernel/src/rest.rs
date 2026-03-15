@@ -2,7 +2,7 @@
 //! Runs alongside gRPC on a separate port.
 
 use axum::{
-    extract::{Path, State},
+    extract::{DefaultBodyLimit, Path, State},
     http::StatusCode,
     response::Json,
     routing::{get, post},
@@ -207,6 +207,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/verdicts", get(list_verdicts_handler))
         .route("/health", get(health_handler))
         .fallback_service(ServeDir::new("static"))
+        .layer(DefaultBodyLimit::max(64 * 1024)) // 64 KB — no multi-MB payloads
         .layer(cors)
         .with_state(state)
 }
