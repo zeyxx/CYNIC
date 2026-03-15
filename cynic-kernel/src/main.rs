@@ -149,9 +149,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rest_state = Arc::new(rest::AppState {
         judge: Arc::clone(&judge),
         storage: Arc::clone(&storage_port),
+        raw_db: raw_db.clone(),
         usage: Arc::clone(&usage_tracker),
         api_key,
-        rate_limiter: rest::RateLimiter::new(30), // 30 requests/minute
+        rate_limiter: rest::RateLimiter::new(30),   // 30 requests/minute global
+        judge_limiter: rest::RateLimiter::new(10),   // 10 /judge per minute (inference costs money)
     });
     let rest_app = rest::router(rest_state);
 

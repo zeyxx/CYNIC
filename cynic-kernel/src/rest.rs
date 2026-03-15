@@ -18,6 +18,7 @@ use chrono;
 use crate::dog::{Verdict, PHI_INV};
 use crate::judge::Judge;
 use crate::storage_port::StoragePort;
+use crate::storage_http::SurrealHttpStorage;
 use crate::ccm;
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -27,9 +28,11 @@ use std::sync::Mutex;
 pub struct AppState {
     pub judge: Arc<Judge>,
     pub storage: Arc<dyn StoragePort>,
+    pub raw_db: Option<Arc<SurrealHttpStorage>>,
     pub usage: Arc<Mutex<DogUsageTracker>>,
     pub api_key: Option<String>,
     pub rate_limiter: RateLimiter,
+    pub judge_limiter: RateLimiter,
 }
 
 /// Tracks token consumption and request counts per Dog since boot.
@@ -248,6 +251,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/temporal", get(temporal_handler))
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
+        .layer(middleware::from_fn_with_state(state.clone(), audit_middleware))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware))
         .fallback_service(ServeDir::new("static"))
@@ -290,18 +294,61 @@ async fn auth_middleware(
 }
 
 /// Rate limiter — rejects excess requests with 429. /health exempt.
+/// /judge has a stricter limit (costs inference tokens).
 async fn rate_limit_middleware(
     State(state): State<Arc<AppState>>,
     request: Request,
     next: Next,
 ) -> Response {
-    if request.uri().path() != "/health" && !state.rate_limiter.check() {
+    let path = request.uri().path().to_string();
+    if path == "/health" {
+        return next.run(request).await;
+    }
+    // /judge has its own stricter rate limit
+    if path == "/judge" && !state.judge_limiter.check() {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(ErrorResponse { error: "Judge rate limit exceeded (inference is expensive)".into() }),
+        ).into_response();
+    }
+    if !state.rate_limiter.check() {
         return (
             StatusCode::TOO_MANY_REQUESTS,
             Json(ErrorResponse { error: "Rate limit exceeded".into() }),
         ).into_response();
     }
     next.run(request).await
+}
+
+/// Audit log — logs every request (except /health) to SurrealDB. Best-effort, non-blocking.
+async fn audit_middleware(
+    State(state): State<Arc<AppState>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let path = request.uri().path().to_string();
+    if path == "/health" {
+        return next.run(request).await;
+    }
+
+    let method = request.method().to_string();
+    let start = std::time::Instant::now();
+    let response = next.run(request).await;
+    let elapsed_ms = start.elapsed().as_millis() as u64;
+    let status = response.status().as_u16();
+
+    // Best-effort async audit — don't block the response
+    if let Some(db) = &state.raw_db {
+        let db = Arc::clone(db);
+        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+        let sql = format!(
+            "CREATE rest_audit SET ts = time::now(), method = '{}', path = '{}', status = {}, latency_ms = {};",
+            escape(&method), escape(&path), status, elapsed_ms,
+        );
+        tokio::spawn(async move { let _ = db.query_one(&sql).await; });
+    }
+
+    response
 }
 
 // ── HANDLERS ───────────────────────────────────────────────
@@ -481,49 +528,60 @@ async fn dogs_handler(
 
 async fn health_handler(
     State(state): State<Arc<AppState>>,
-) -> Json<HealthResponse> {
+    request: Request,
+) -> Json<serde_json::Value> {
+    // Check if caller has valid auth — return full details only if authenticated
+    let authenticated = match &state.api_key {
+        Some(key) => request.headers()
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .is_some_and(|t| t == key.as_str()),
+        None => true, // No auth configured → everyone gets full details
+    };
+
     let dog_health = state.judge.dog_health();
-    let dogs: Vec<DogHealthResponse> = dog_health.into_iter().map(|(id, circuit, failures)| {
-        let kind = if id == "deterministic-dog" {
-            "heuristic"
-        } else {
-            "inference"
-        }.to_string();
-        DogHealthResponse { id, kind, circuit, failures }
-    }).collect();
+    let dog_count = dog_health.len();
 
     let storage_ok = state.storage.ping().await.is_ok();
-    let storage = if storage_ok { "connected" } else { "down" }.to_string();
 
-    let status = if dogs.is_empty() || !storage_ok {
+    let status = if dog_count == 0 || !storage_ok {
         "critical"
-    } else if dogs.len() == 1 {
+    } else if dog_count == 1 {
         "degraded"
     } else {
         "sovereign"
-    }.to_string();
+    };
+
+    // Public: minimal info only (no recon value)
+    if !authenticated {
+        return Json(serde_json::json!({
+            "status": status,
+            "version": env!("CARGO_PKG_VERSION"),
+            "phi_max": PHI_INV,
+        }));
+    }
+
+    // Authenticated: full details
+    let dogs: Vec<DogHealthResponse> = dog_health.into_iter().map(|(id, circuit, failures)| {
+        let kind = if id == "deterministic-dog" { "heuristic" } else { "inference" }.to_string();
+        DogHealthResponse { id, kind, circuit, failures }
+    }).collect();
 
     let usage = state.usage.lock().unwrap();
 
-    Json(HealthResponse {
-        status,
-        version: env!("CARGO_PKG_VERSION").to_string(),
-        phi_max: PHI_INV,
-        axioms: vec![
-            "FIDELITY".into(),
-            "PHI".into(),
-            "VERIFY/FALSIFY".into(),
-            "CULTURE".into(),
-            "BURN".into(),
-            "SOVEREIGNTY".into(),
-        ],
-        dogs,
-        storage,
-        total_requests: usage.total_requests,
-        total_tokens: usage.total_tokens(),
-        estimated_cost_usd: usage.estimated_cost_usd(),
-        uptime_seconds: usage.uptime_seconds(),
-    })
+    Json(serde_json::json!({
+        "status": status,
+        "version": env!("CARGO_PKG_VERSION"),
+        "phi_max": PHI_INV,
+        "axioms": ["FIDELITY", "PHI", "VERIFY/FALSIFY", "CULTURE", "BURN", "SOVEREIGNTY"],
+        "dogs": dogs,
+        "storage": if storage_ok { "connected" } else { "down" },
+        "total_requests": usage.total_requests,
+        "total_tokens": usage.total_tokens(),
+        "estimated_cost_usd": usage.estimated_cost_usd(),
+        "uptime_seconds": usage.uptime_seconds(),
+    }))
 }
 
 // ── HELPERS ────────────────────────────────────────────────
