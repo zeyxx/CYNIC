@@ -4,7 +4,7 @@
 
 use crate::backend::*;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::sync::RwLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -47,12 +47,7 @@ impl TrackedBackend {
     }
 }
 
-/// After this many consecutive failures, backend goes CRITICAL.
-const FAILURE_THRESHOLD: u32 = 3;
-/// Cooldown before probing a CRITICAL backend.
-const COOLDOWN: Duration = Duration::from_secs(15);
-/// How often to re-probe HEALTHY backends.
-const PROBE_INTERVAL: Duration = Duration::from_secs(30);
+use crate::circuit_breaker::{FAILURE_THRESHOLD, COOLDOWN, PROBE_INTERVAL};
 
 pub struct BackendRouter {
     backends: RwLock<Vec<TrackedBackend>>,

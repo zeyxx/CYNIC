@@ -24,6 +24,7 @@ use serde::Deserialize;
 use crate::dog::{Stimulus, PHI_INV};
 use crate::judge::Judge;
 use crate::storage_port::StoragePort;
+use crate::storage_http::SurrealHttpStorage;
 use crate::rest::DogUsageTracker;
 
 // ── MCP Tool Parameters ─────────────────────────────────────
@@ -77,6 +78,7 @@ pub struct AuditQueryParams {
 pub struct CynicMcp {
     judge: Arc<Judge>,
     storage: Arc<dyn StoragePort>,
+    raw_db: Option<Arc<SurrealHttpStorage>>,
     usage: Arc<std::sync::Mutex<DogUsageTracker>>,
     tool_router: ToolRouter<Self>,
 }
@@ -86,11 +88,13 @@ impl CynicMcp {
     pub fn new(
         judge: Arc<Judge>,
         storage: Arc<dyn StoragePort>,
+        raw_db: Option<Arc<SurrealHttpStorage>>,
         usage: Arc<std::sync::Mutex<DogUsageTracker>>,
     ) -> Self {
         Self {
             judge,
             storage,
+            raw_db,
             usage,
             tool_router: Self::tool_router(),
         }
@@ -359,31 +363,18 @@ impl CynicMcp {
             where_clause, limit
         );
 
-        let surreal_url = std::env::var("SURREALDB_URL")
-            .unwrap_or_else(|_| "http://localhost:8000".to_string());
-        let surreal_pass = std::env::var("SURREALDB_PASS")
-            .unwrap_or_else(|_| "root".to_string());
+        let Some(db) = &self.raw_db else {
+            return Ok(CallToolResult::success(vec![
+                Content::text("Audit unavailable (storage in DEGRADED mode)")
+            ]));
+        };
 
-        let client = reqwest::Client::new();
-        let resp = client.post(format!("{}/sql", surreal_url))
-            .header("Accept", "application/json")
-            .header("surreal-ns", "cynic")
-            .header("surreal-db", "v2")
-            .basic_auth("root", Some(&surreal_pass))
-            .body(query)
-            .timeout(std::time::Duration::from_secs(5))
-            .send().await;
-
-        match resp {
-            Ok(r) => {
-                let data: serde_json::Value = r.json().await.unwrap_or_default();
-                let results = &data[0]["result"];
-                Ok(CallToolResult::success(vec![
-                    Content::text(serde_json::to_string_pretty(results).unwrap_or_else(|_| "[]".into()))
-                ]))
-            }
+        match db.query_one(&query).await {
+            Ok(results) => Ok(CallToolResult::success(vec![
+                Content::text(serde_json::to_string_pretty(&results).unwrap_or_else(|_| "[]".into()))
+            ])),
             Err(e) => Ok(CallToolResult::success(vec![
-                Content::text(format!("Audit unavailable (SurrealDB may be down): {}", e))
+                Content::text(format!("Audit query failed: {}", e))
             ])),
         }
     }
@@ -391,27 +382,15 @@ impl CynicMcp {
     // ── Audit helper (best-effort, non-blocking) ─────────────
 
     async fn audit(&self, tool_name: &str, agent_id: &str, details: &serde_json::Value) {
-        let surreal_url = std::env::var("SURREALDB_URL")
-            .unwrap_or_else(|_| "http://localhost:8000".to_string());
-        let surreal_pass = std::env::var("SURREALDB_PASS")
-            .unwrap_or_else(|_| "root".to_string());
+        let Some(db) = &self.raw_db else { return };
 
+        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
         let query = format!(
             "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = {};",
-            tool_name.replace('\\', "\\\\").replace('\'', "\\'"),
-            agent_id.replace('\\', "\\\\").replace('\'', "\\'"),
-            details,
+            escape(tool_name), escape(agent_id), details,
         );
 
-        let client = reqwest::Client::new();
-        let _ = client.post(format!("{}/sql", surreal_url))
-            .header("Accept", "application/json")
-            .header("surreal-ns", "cynic")
-            .header("surreal-db", "v2")
-            .basic_auth("root", Some(&surreal_pass))
-            .body(query)
-            .timeout(std::time::Duration::from_secs(2))
-            .send().await;
+        let _ = db.query_one(&query).await;
     }
 }
 

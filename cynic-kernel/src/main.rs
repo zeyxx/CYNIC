@@ -79,15 +79,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 1: Native Storage Client (UAL) ──────────────────
     // HTTP adapter to SurrealDB 3.x — graceful degradation if unavailable.
-    let storage_port: Arc<dyn storage_port::StoragePort> = match storage_http::SurrealHttpStorage::init().await {
+    let raw_db: Option<Arc<storage_http::SurrealHttpStorage>> = match storage_http::SurrealHttpStorage::init().await {
         Ok(s) => {
             klog!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
-            Arc::new(s)
+            Some(Arc::new(s))
         }
         Err(e) => {
             eprintln!("[Ring 1] Storage: DEGRADED — {} (verdicts will not persist)", e);
-            Arc::new(storage_port::NullStorage)
+            None
         }
+    };
+    let storage_port: Arc<dyn storage_port::StoragePort> = match &raw_db {
+        Some(s) => Arc::clone(s) as Arc<dyn storage_port::StoragePort>,
+        None => Arc::new(storage_port::NullStorage),
     };
     
     // ─── RING 1: Vascular System (gRPC IPC) ──────────────────
@@ -155,6 +159,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mcp_server = mcp::CynicMcp::new(
             Arc::clone(&judge),
             Arc::clone(&storage_port),
+            raw_db.clone(),
             Arc::clone(&usage_tracker),
         );
         let transport = rmcp::transport::io::stdio();
