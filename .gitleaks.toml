@@ -1,0 +1,62 @@
+# CYNIC — gitleaks configuration
+# Extends the 160+ default rules with CYNIC-specific patterns.
+# Runs as pre-commit hook: gitleaks git --pre-commit --staged --redact
+
+[extend]
+useDefault = true
+
+# ── CYNIC-specific rules ──────────────────────────────────────
+
+[[rules]]
+id = "tailscale-ip"
+description = "Tailscale IP address leaked"
+regex = '''100\.\d{1,3}\.\d{1,3}\.\d{1,3}'''
+keywords = ["100."]
+
+[[rules]]
+id = "real-hostname-titouan"
+description = "Real hostname leaked (T.)"
+regex = '''(?i)titouan[a-z0-9_-]*'''
+keywords = ["titouan"]
+[rules.allowlist]
+paths = [
+    '''CLAUDE\.md''',
+    '''AGENTS\.md''',
+    '''GEMINI\.md''',
+    '''FRONTEND\.md''',
+    '''\.claude/''',
+]
+
+[[rules]]
+id = "real-hostname-stanislaz"
+description = "Real hostname leaked (S.)"
+regex = '''(?i)(stanislaz|stanislav)[a-z0-9_-]*'''
+keywords = ["stanislaz", "stanislav"]
+[rules.allowlist]
+paths = [
+    '''CLAUDE\.md''',
+    '''AGENTS\.md''',
+    '''GEMINI\.md''',
+    '''FRONTEND\.md''',
+    '''\.claude/''',
+]
+
+[[rules]]
+id = "surreal-default-creds"
+description = "SurrealDB default credentials in code"
+regex = '''--pass\s+root|SURREALDB_PASS\s*=\s*root'''
+keywords = ["--pass", "SURREALDB_PASS"]
+[rules.allowlist]
+paths = [
+    '''target/''',
+]
+
+# ── Global Allowlist ──────────────────────────────────────────
+
+[allowlist]
+paths = [
+    '''\.gitleaks\.toml''',
+    '''\.git/''',
+    '''target/''',
+    '''\.playwright-mcp/''',
+]
