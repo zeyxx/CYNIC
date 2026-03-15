@@ -439,8 +439,9 @@ fn compute_temporal_from_dogs(dog_scores: &[crate::dog::DogScore]) -> Option<Tem
     let perspective_map: Vec<(TemporalPerspective, &str)> = vec![
         (TemporalPerspective::Present, "deterministic-dog"),    // Instant heuristic = present state
         (TemporalPerspective::Transcendence, "gemini"),         // Largest model = deepest insight
-        (TemporalPerspective::Past, "huggingface"),             // Trained on historical data
+        (TemporalPerspective::Past, "huggingface"),             // Meta/Llama = historical training data
         (TemporalPerspective::Emergence, "gemma-sovereign"),    // Local sovereign = novel perspective
+        (TemporalPerspective::Cycle, "qwen"),                   // Alibaba/Qwen = cyclical patterns
     ];
 
     let temporal_scores: Vec<TemporalScore> = dog_scores.iter().filter_map(|ds| {
