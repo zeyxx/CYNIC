@@ -155,8 +155,16 @@ pub trait Dog: Send + Sync {
     /// Unique identifier for this Dog
     fn id(&self) -> &str;
 
+    /// Max context tokens this Dog supports. 0 = unlimited.
+    fn max_context(&self) -> u32 { 0 }
+
     /// Evaluate a stimulus, return raw axiom scores (NOT phi-bounded)
     async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError>;
+}
+
+/// Estimate token count from text. Heuristic: ~4 chars per token for English.
+pub fn estimate_tokens(text: &str) -> u32 {
+    (text.len() as f64 / 4.0).ceil() as u32
 }
 
 #[derive(Debug)]

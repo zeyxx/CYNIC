@@ -11,6 +11,8 @@ pub struct BackendConfig {
     pub api_key: Option<String>,
     pub model: String,
     pub auth_style: AuthStyle,
+    /// Max context tokens this backend supports. 0 = unknown/unlimited.
+    pub context_size: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -31,6 +33,7 @@ struct BackendEntry {
     api_key_env: Option<String>,
     model: String,
     auth_style: Option<String>,
+    context_size: Option<u32>,
 }
 
 /// Load backend configs from TOML file. Resolves api_key_env to actual env var values.
@@ -91,6 +94,7 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 api_key,
                 model: entry.model,
                 auth_style,
+                context_size: entry.context_size.unwrap_or(0),
             })
         })
         .collect()
@@ -109,6 +113,7 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             api_key: Some(api_key),
             model,
             auth_style: AuthStyle::Bearer,
+            context_size: 1_000_000,
         });
     }
 

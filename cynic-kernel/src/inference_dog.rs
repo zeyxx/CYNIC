@@ -10,11 +10,12 @@ use std::sync::Arc;
 pub struct InferenceDog {
     chat: Arc<dyn ChatPort>,
     dog_name: String,
+    context_size: u32,
 }
 
 impl InferenceDog {
-    pub fn new(chat: Arc<dyn ChatPort>, name: String) -> Self {
-        Self { chat, dog_name: name }
+    pub fn new(chat: Arc<dyn ChatPort>, name: String, context_size: u32) -> Self {
+        Self { chat, dog_name: name, context_size }
     }
 
     fn build_system_prompt() -> &'static str {
@@ -75,6 +76,10 @@ struct AxiomResponse {
 impl Dog for InferenceDog {
     fn id(&self) -> &str {
         &self.dog_name
+    }
+
+    fn max_context(&self) -> u32 {
+        self.context_size
     }
 
     async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError> {
@@ -258,7 +263,7 @@ mod tests {
             r#"{"fidelity": 0.6, "phi": 0.5, "verify": 0.4, "culture": 0.45, "burn": 0.5, "sovereignty": 0.55, "fidelity_reason": "good", "phi_reason": "ok", "verify_reason": "decent", "culture_reason": "respects patterns", "burn_reason": "efficient", "sovereignty_reason": "preserves agency"}"#,
         ));
 
-        let dog = InferenceDog::new(mock, "test-dog".into());
+        let dog = InferenceDog::new(mock, "test-dog".into(), 4096);
         let stimulus = Stimulus {
             content: "The sky is blue.".into(),
             context: None,

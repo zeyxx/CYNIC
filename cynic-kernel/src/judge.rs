@@ -2,7 +2,7 @@
 //! Parallel evaluation via futures::future::join_all.
 //! Residual detection: disagreement > φ⁻² = ANOMALY.
 
-use crate::dog::*;
+use crate::dog::{*, estimate_tokens};
 use crate::circuit_breaker::CircuitBreaker;
 use chrono::Utc;
 use uuid::Uuid;
@@ -50,6 +50,31 @@ impl Judge {
         if active_dogs.is_empty() {
             return Err(JudgeError::NoDogs);
         }
+
+        // Context routing: estimate tokens and filter Dogs that can't handle the stimulus
+        let estimated = estimate_tokens(&stimulus.content)
+            + stimulus.context.as_deref().map(estimate_tokens).unwrap_or(0)
+            + 400; // fixed overhead (system prompt + axiom template)
+
+        let context_filtered: Vec<_> = active_dogs.iter()
+            .filter(|d| {
+                let max = d.max_context();
+                if max > 0 && estimated > max {
+                    eprintln!("[Judge] Dog '{}' skipped: context {} > max {}", d.id(), estimated, max);
+                    false
+                } else {
+                    true
+                }
+            })
+            .copied()
+            .collect();
+
+        let active_dogs = if context_filtered.is_empty() {
+            eprintln!("[Judge] WARNING: No Dog has enough context (need {}). Using all Dogs anyway.", estimated);
+            active_dogs // fallback: try anyway rather than fail
+        } else {
+            context_filtered
+        };
 
         // Find breaker indices for active dogs
         let dog_breaker_pairs: Vec<_> = active_dogs.iter()
@@ -392,5 +417,190 @@ mod tests {
         let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
         assert!(!verdict.anomaly_detected, "Similar scores should not trigger anomaly");
         assert!(verdict.anomaly_axiom.is_none());
+    }
+
+    #[tokio::test]
+    async fn filter_selects_specific_dogs() {
+        let judge = Judge::new(vec![
+            Box::new(FixedDog {
+                name: "alpha".into(),
+                scores: AxiomScores {
+                    fidelity: 0.9, phi: 0.9, verify: 0.9,
+                    culture: 0.9, burn: 0.9, sovereignty: 0.9,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+            Box::new(FixedDog {
+                name: "beta".into(),
+                scores: AxiomScores {
+                    fidelity: 0.1, phi: 0.1, verify: 0.1,
+                    culture: 0.1, burn: 0.1, sovereignty: 0.1,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+        ]);
+
+        let filter = vec!["alpha".to_string()];
+        let verdict = judge.evaluate(&test_stimulus(), Some(&filter)).await.unwrap();
+        assert_eq!(verdict.dog_id, "alpha");
+        assert_eq!(verdict.dog_scores.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn filter_with_unknown_id_returns_error() {
+        let judge = Judge::new(vec![
+            Box::new(FixedDog {
+                name: "alpha".into(),
+                scores: AxiomScores::default(),
+            }),
+        ]);
+
+        let filter = vec!["nonexistent".to_string()];
+        let result = judge.evaluate(&test_stimulus(), Some(&filter)).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn stimulus_summary_truncated_at_100_chars() {
+        let judge = Judge::new(vec![
+            Box::new(FixedDog {
+                name: "t".into(),
+                scores: AxiomScores {
+                    fidelity: 0.5, phi: 0.5, verify: 0.5,
+                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+        ]);
+
+        let long_stimulus = Stimulus {
+            content: "a".repeat(200),
+            context: None,
+            domain: None,
+        };
+        let verdict = judge.evaluate(&long_stimulus, None).await.unwrap();
+        assert_eq!(verdict.stimulus_summary.len(), 100);
+    }
+
+    #[tokio::test]
+    async fn circuit_breaker_skips_open_dog() {
+        let judge = Judge::new(vec![
+            Box::new(FailDog),
+            Box::new(FixedDog {
+                name: "healthy".into(),
+                scores: AxiomScores {
+                    fidelity: 0.5, phi: 0.5, verify: 0.5,
+                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+        ]);
+
+        // Trip the circuit breaker on FailDog: 3 failures → Open
+        for _ in 0..3 {
+            let _ = judge.evaluate(&test_stimulus(), None).await;
+        }
+
+        // Now FailDog's circuit should be open — only healthy responds
+        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        assert_eq!(verdict.dog_id, "healthy", "Open circuit should skip FailDog");
+        assert_eq!(verdict.dog_scores.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn median_reasoning_with_three_dogs() {
+        let judge = Judge::new(vec![
+            Box::new(FixedDog {
+                name: "low".into(),
+                scores: AxiomScores {
+                    fidelity: 0.2, phi: 0.2, verify: 0.2,
+                    culture: 0.2, burn: 0.2, sovereignty: 0.2,
+                    reasoning: AxiomReasoning {
+                        fidelity: "low reasoning".into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            }),
+            Box::new(FixedDog {
+                name: "mid".into(),
+                scores: AxiomScores {
+                    fidelity: 0.5, phi: 0.5, verify: 0.5,
+                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
+                    reasoning: AxiomReasoning {
+                        fidelity: "mid reasoning".into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            }),
+            Box::new(FixedDog {
+                name: "high".into(),
+                scores: AxiomScores {
+                    fidelity: 0.8, phi: 0.8, verify: 0.8,
+                    culture: 0.8, burn: 0.8, sovereignty: 0.8,
+                    reasoning: AxiomReasoning {
+                        fidelity: "high reasoning".into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            }),
+        ]);
+
+        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        // Median of 3 sorted by Q → picks index 1 (mid)
+        assert_eq!(verdict.reasoning.fidelity, "mid reasoning");
+    }
+
+    #[tokio::test]
+    async fn dog_health_reports_all_dogs() {
+        let judge = Judge::new(vec![
+            Box::new(FixedDog { name: "a".into(), scores: AxiomScores::default() }),
+            Box::new(FixedDog { name: "b".into(), scores: AxiomScores::default() }),
+        ]);
+
+        let health = judge.dog_health();
+        assert_eq!(health.len(), 2);
+        assert_eq!(health[0].0, "a");
+        assert_eq!(health[0].1, "closed"); // circuit starts closed
+        assert_eq!(health[0].2, 0); // zero failures
+    }
+
+    #[tokio::test]
+    async fn dog_ids_returns_all_names() {
+        let judge = Judge::new(vec![
+            Box::new(FixedDog { name: "x".into(), scores: AxiomScores::default() }),
+            Box::new(FixedDog { name: "y".into(), scores: AxiomScores::default() }),
+        ]);
+        let ids = judge.dog_ids();
+        assert_eq!(ids, vec!["x", "y"]);
+    }
+
+    #[tokio::test]
+    async fn verdict_has_valid_uuid_and_timestamp() {
+        let judge = Judge::new(vec![
+            Box::new(FixedDog {
+                name: "t".into(),
+                scores: AxiomScores {
+                    fidelity: 0.5, phi: 0.5, verify: 0.5,
+                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+        ]);
+
+        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        // UUID v4 format: 8-4-4-4-12
+        assert_eq!(verdict.id.len(), 36);
+        assert_eq!(verdict.id.chars().filter(|c| *c == '-').count(), 4);
+        // RFC3339 timestamp
+        assert!(verdict.timestamp.contains('T'));
+        assert!(verdict.timestamp.ends_with("+00:00") || verdict.timestamp.ends_with('Z'));
     }
 }

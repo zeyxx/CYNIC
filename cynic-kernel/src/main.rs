@@ -129,7 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match health {
             backend::BackendStatus::Healthy | backend::BackendStatus::Degraded { .. } => {
                 klog!("[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?})", cfg.name, cfg.model, health);
-                dogs.push(Box::new(inference_dog::InferenceDog::new(backend, cfg.name.clone())));
+                dogs.push(Box::new(inference_dog::InferenceDog::new(backend, cfg.name.clone(), cfg.context_size)));
             }
             _ => {
                 klog!("[Ring 2] WARNING: Backend '{}' unreachable, skipping", cfg.name);
