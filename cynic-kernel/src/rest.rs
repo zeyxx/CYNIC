@@ -26,7 +26,63 @@ use std::sync::Mutex;
 pub struct AppState {
     pub judge: Judge,
     pub storage: Arc<dyn StoragePort>,
-    pub usage: Mutex<HashMap<String, (u64, u64)>>, // dog_id → (total_prompt, total_completion)
+    pub usage: Mutex<DogUsageTracker>,
+}
+
+/// Tracks token consumption and request counts per Dog since boot.
+pub struct DogUsageTracker {
+    pub dogs: HashMap<String, DogUsage>,
+    pub boot_time: chrono::DateTime<chrono::Utc>,
+    pub total_requests: u64,
+}
+
+#[derive(Default, Clone)]
+pub struct DogUsage {
+    pub prompt_tokens: u64,
+    pub completion_tokens: u64,
+    pub requests: u64,
+    pub failures: u64,
+    pub total_latency_ms: u64,
+}
+
+impl Default for DogUsageTracker {
+    fn default() -> Self { Self::new() }
+}
+
+impl DogUsageTracker {
+    pub fn new() -> Self {
+        Self {
+            dogs: HashMap::new(),
+            boot_time: chrono::Utc::now(),
+            total_requests: 0,
+        }
+    }
+
+    pub fn record(&mut self, dog_id: &str, prompt: u32, completion: u32, latency_ms: u64) {
+        let entry = self.dogs.entry(dog_id.to_string()).or_default();
+        entry.prompt_tokens += prompt as u64;
+        entry.completion_tokens += completion as u64;
+        entry.requests += 1;
+        entry.total_latency_ms += latency_ms;
+    }
+
+    pub fn record_failure(&mut self, dog_id: &str) {
+        let entry = self.dogs.entry(dog_id.to_string()).or_default();
+        entry.failures += 1;
+    }
+
+    pub fn total_tokens(&self) -> u64 {
+        self.dogs.values().map(|d| d.prompt_tokens + d.completion_tokens).sum()
+    }
+
+    /// Estimated cost in USD (rough average: $0.15/1M tokens)
+    pub fn estimated_cost_usd(&self) -> f64 {
+        self.total_tokens() as f64 * 0.15 / 1_000_000.0
+    }
+
+    pub fn uptime_seconds(&self) -> i64 {
+        (chrono::Utc::now() - self.boot_time).num_seconds()
+    }
 }
 
 // ── REQUEST / RESPONSE TYPES ───────────────────────────────
@@ -118,6 +174,10 @@ pub struct HealthResponse {
     pub phi_max: f64,
     pub axioms: Vec<String>,
     pub dogs: Vec<DogHealthResponse>,
+    pub total_requests: u64,
+    pub total_tokens: u64,
+    pub estimated_cost_usd: f64,
+    pub uptime_seconds: i64,
 }
 
 #[derive(Serialize)]
@@ -177,10 +237,9 @@ async fn judge_handler(
     // Track token usage per Dog
     {
         let mut usage = state.usage.lock().unwrap();
+        usage.total_requests += 1;
         for ds in &verdict.dog_scores {
-            let entry = usage.entry(ds.dog_id.clone()).or_insert((0, 0));
-            entry.0 += ds.prompt_tokens as u64;
-            entry.1 += ds.completion_tokens as u64;
+            usage.record(&ds.dog_id, ds.prompt_tokens, ds.completion_tokens, ds.latency_ms);
         }
     }
 
@@ -300,22 +359,23 @@ async fn usage_handler(
     State(state): State<Arc<AppState>>,
 ) -> Json<serde_json::Value> {
     let usage = state.usage.lock().unwrap();
-    let mut total_prompt: u64 = 0;
-    let mut total_completion: u64 = 0;
-    let dogs: Vec<serde_json::Value> = usage.iter().map(|(id, (p, c))| {
-        total_prompt += p;
-        total_completion += c;
+    let dogs: Vec<serde_json::Value> = usage.dogs.iter().map(|(id, d)| {
+        let avg_latency = if d.requests > 0 { d.total_latency_ms / d.requests } else { 0 };
         serde_json::json!({
             "dog_id": id,
-            "prompt_tokens": p,
-            "completion_tokens": c,
-            "total_tokens": p + c,
+            "prompt_tokens": d.prompt_tokens,
+            "completion_tokens": d.completion_tokens,
+            "total_tokens": d.prompt_tokens + d.completion_tokens,
+            "requests": d.requests,
+            "failures": d.failures,
+            "avg_latency_ms": avg_latency,
         })
     }).collect();
     Json(serde_json::json!({
-        "total_prompt_tokens": total_prompt,
-        "total_completion_tokens": total_completion,
-        "total_tokens": total_prompt + total_completion,
+        "total_tokens": usage.total_tokens(),
+        "total_requests": usage.total_requests,
+        "estimated_cost_usd": usage.estimated_cost_usd(),
+        "uptime_seconds": usage.uptime_seconds(),
         "per_dog": dogs,
     }))
 }
@@ -347,6 +407,8 @@ async fn health_handler(
         "sovereign"
     }.to_string();
 
+    let usage = state.usage.lock().unwrap();
+
     Json(HealthResponse {
         status,
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -360,6 +422,10 @@ async fn health_handler(
             "SOVEREIGNTY".into(),
         ],
         dogs,
+        total_requests: usage.total_requests,
+        total_tokens: usage.total_tokens(),
+        estimated_cost_usd: usage.estimated_cost_usd(),
+        uptime_seconds: usage.uptime_seconds(),
     })
 }
 

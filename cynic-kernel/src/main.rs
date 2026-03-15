@@ -141,7 +141,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rest_state = Arc::new(rest::AppState {
         judge,
         storage: storage_port,
-        usage: std::sync::Mutex::new(std::collections::HashMap::new()),
+        usage: std::sync::Mutex::new(rest::DogUsageTracker::new()),
     });
     let rest_app = rest::router(rest_state);
     let rest_addr = std::env::var("CYNIC_REST_ADDR")
