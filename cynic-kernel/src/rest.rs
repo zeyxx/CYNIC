@@ -24,7 +24,7 @@ use std::sync::Mutex;
 // ── SHARED STATE ───────────────────────────────────────────
 
 pub struct AppState {
-    pub judge: Judge,
+    pub judge: Arc<Judge>,
     pub storage: Arc<dyn StoragePort>,
     pub usage: Mutex<DogUsageTracker>,
 }

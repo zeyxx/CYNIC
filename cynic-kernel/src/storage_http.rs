@@ -85,7 +85,7 @@ impl SurrealHttpStorage {
         storage.query("RETURN true").await
             .map_err(|e| StorageError::ConnectionFailed(format!("SurrealDB unreachable at {}: {}", url, e)))?;
 
-        println!("[Ring 1 / UAL] Linked to SurrealDB (HTTP) at {}", url);
+        klog!("[Ring 1 / UAL] Linked to SurrealDB (HTTP) at {}", url);
         Ok(storage)
     }
 

@@ -92,14 +92,14 @@ pub async fn run(force_reprobe: bool) -> NodeConfig {
     if config_path.exists() && !force_reprobe {
         match load_config(&config_path) {
             Ok(cfg) => {
-                println!("[Ring 0] ✅ Node config loaded from cache: {}", config_path.display());
+                klog!("[Ring 0] ✅ Node config loaded from cache: {}", config_path.display());
                 return cfg;
             }
             Err(e) => println!("[Ring 0] ANOMALY: Config corrupt ({}). Re-probing...", e),
         }
     }
 
-    println!("[Ring 0] First boot — comprehensive probe running...");
+    klog!("[Ring 0] First boot — comprehensive probe running...");
 
     // All probes run in parallel
     let (hw, env, compute) = tokio::join!(
@@ -124,11 +124,11 @@ pub async fn run(force_reprobe: bool) -> NodeConfig {
     config.suggestions = SovereigntyAdvisor::analyze(&config);
 
     if !config.suggestions.is_empty() {
-        println!("\n╔══════════════════════════════════════╗");
-        println!("║       SOVEREIGNTY SUGGESTIONS        ║");
-        println!("╚══════════════════════════════════════╝");
+        klog!("\n╔══════════════════════════════════════╗");
+        klog!("║       SOVEREIGNTY SUGGESTIONS        ║");
+        klog!("╚══════════════════════════════════════╝");
         for s in &config.suggestions {
-            println!(" > {}", s);
+            klog!(" > {}", s);
         }
     }
 
@@ -156,7 +156,7 @@ async fn probe_hardware() -> HardwareInfo {
         cpu_cores: sys.cpus().len(),
         cpu_model: cpu_model.clone(),
     };
-    println!("[Ring 0 / HW]  CPU: {} ({} cores) | RAM: {:.1} GB",
+    klog!("[Ring 0 / HW]  CPU: {} ({} cores) | RAM: {:.1} GB",
         hw.cpu_model, hw.cpu_cores, hw.total_ram_gb);
     hw
 }
@@ -172,14 +172,14 @@ async fn probe_compute() -> ComputeInfo {
 
     // 1. NVIDIA via nvidia-smi
     if let Some(info) = detect_nvidia() {
-        println!("[Ring 0 / GPU] NVIDIA: {} ({:.1} GB VRAM) → cuda", info.gpu_name, info.vram_gb);
+        klog!("[Ring 0 / GPU] NVIDIA: {} ({:.1} GB VRAM) → cuda", info.gpu_name, info.vram_gb);
         return info;
     }
 
     // 2. AMD ROCm via /dev/kfd
     if Path::new("/dev/kfd").exists() {
         let info = detect_amd_via_sysfs(false);
-        println!("[Ring 0 / GPU] AMD ROCm (/dev/kfd): {} → rocm", info.gpu_name);
+        klog!("[Ring 0 / GPU] AMD ROCm (/dev/kfd): {} → rocm", info.gpu_name);
         return ComputeInfo { backend: ComputeBackend::ROCm, ..info };
     }
 
@@ -192,7 +192,7 @@ async fn probe_compute() -> ComputeInfo {
         {
             info.gpu_name = host_name;
         }
-        println!("[Ring 0 / GPU] DRM: {} (is_igpu:{}) → {:?}",
+        klog!("[Ring 0 / GPU] DRM: {} (is_igpu:{}) → {:?}",
             info.gpu_name, info.is_igpu, info.backend);
         return info;
     }
@@ -211,7 +211,7 @@ async fn probe_compute() -> ComputeInfo {
             info.backend = ComputeBackend::Cuda; // Force check CUDA again with right label
         }
         info.is_igpu = true;
-        println!("[Ring 0 / GPU] Bridge: {} → {:?}", info.gpu_name, info.backend);
+        klog!("[Ring 0 / GPU] Bridge: {} → {:?}", info.gpu_name, info.backend);
         return info;
     }
 
@@ -227,13 +227,13 @@ async fn probe_compute() -> ComputeInfo {
             info.backend = ComputeBackend::Cuda;
             info.is_igpu = false;
         }
-        println!("[Ring 0 / GPU] Windows Native: {} → {:?}", info.gpu_name, info.backend);
+        klog!("[Ring 0 / GPU] Windows Native: {} → {:?}", info.gpu_name, info.backend);
         return info;
     }
 
     // 6. macOS Metal
     if cfg!(target_os = "macos") {
-        println!("[Ring 0 / GPU] macOS Metal → metal");
+        klog!("[Ring 0 / GPU] macOS Metal → metal");
         return ComputeInfo {
             backend: ComputeBackend::Metal,
             gpu_name: "Apple Silicon GPU".into(),
@@ -245,7 +245,7 @@ async fn probe_compute() -> ComputeInfo {
 
     // 7. CPU fallback
     let cpu = detect_cpu_info();
-    println!("[Ring 0 / GPU] No GPU → cpu (AVX2:{})", cpu.avx2);
+    klog!("[Ring 0 / GPU] No GPU → cpu (AVX2:{})", cpu.avx2);
     cpu
 }
 
@@ -384,7 +384,7 @@ async fn probe_environment() -> EnvInfo {
                 .map(|s| s.to_string()))
     } else { None };
 
-    println!("[Ring 0 / Env] OS: {} | WSL2: {} | Docker: {} | LXC: {} | WinHost: {:?}",
+    klog!("[Ring 0 / Env] OS: {} | WSL2: {} | Docker: {} | LXC: {} | WinHost: {:?}",
         os, is_wsl2, is_docker, is_proxmox_lxc, wsl2_windows_host);
 
     let models_dir = ensure_models_dir();
@@ -418,7 +418,7 @@ async fn benchmark_io(path: &Path) -> f64 {
     let _ = std::fs::remove_file(&test_file);
 
     let mbps = 100.0 / duration;
-    println!("[Ring 0 / Env] IO Benchmark: {:.1} MB/s on {}", mbps, path.display());
+    klog!("[Ring 0 / Env] IO Benchmark: {:.1} MB/s on {}", mbps, path.display());
     mbps
 }
 
@@ -524,7 +524,7 @@ async fn probe_llm_resources(env: &EnvInfo, compute: &ComputeInfo) -> LlmConfig 
     let active_model = gguf_models.first().map(|m| m.name.clone());
     let llama_server_flags = compute_optimal_flags(compute, &gguf_models);
 
-    println!("[Ring 0 / LLM] Models: {} | Server: {} | Backend: {:?} | Active: {:?}",
+    klog!("[Ring 0 / LLM] Models: {} | Server: {} | Backend: {:?} | Active: {:?}",
         gguf_models.len(),
         running_server_url.as_deref().unwrap_or("none"),
         compute.backend,
@@ -573,7 +573,7 @@ fn discover_all_models(models_dir: &Path, env: &EnvInfo) -> Vec<GgufModel> {
         r
     };
 
-    println!("[Ring 0 / LLM] Starting Universal Structural Scan (Signature: *.gguf)...");
+    klog!("[Ring 0 / LLM] Starting Universal Structural Scan (Signature: *.gguf)...");
     for root in roots {
         if root.exists() {
             scan_dir(&root, 4, "filesystem", &mut all);
@@ -582,7 +582,7 @@ fn discover_all_models(models_dir: &Path, env: &EnvInfo) -> Vec<GgufModel> {
 
     // Tier 3: Ollama models (always checked — fast if not installed)
     let ollama_models = discover_ollama_models(env);
-    println!("[Ring 0 / LLM] Ollama models found: {}", ollama_models.len());
+    klog!("[Ring 0 / LLM] Ollama models found: {}", ollama_models.len());
     all.extend(ollama_models);
 
     // Tier 4: Common Linux data paths
@@ -603,10 +603,10 @@ fn discover_all_models(models_dir: &Path, env: &EnvInfo) -> Vec<GgufModel> {
 fn discover_ollama_models(env: &EnvInfo) -> Vec<GgufModel> {
     let ollama_dir = find_ollama_models_dir(env);
     let Some(dir) = ollama_dir else {
-        println!("[Ring 0 / LLM] Ollama: not found (no $OLLAMA_MODELS, no default paths)");
+        klog!("[Ring 0 / LLM] Ollama: not found (no $OLLAMA_MODELS, no default paths)");
         return vec![];
     };
-    println!("[Ring 0 / LLM] Ollama models dir: {}", dir.display());
+    klog!("[Ring 0 / LLM] Ollama models dir: {}", dir.display());
 
     let manifests_dir = dir.join("manifests");
     if !manifests_dir.exists() { return vec![]; }
@@ -725,7 +725,7 @@ fn find_ollama_models_dir(env: &EnvInfo) -> Option<PathBuf> {
             let p = entry.path();
             // Marker: <dir>/manifests/registry.ollama.ai/ exists
             if p.join("manifests").join("registry.ollama.ai").exists() {
-                println!("[Ring 0 / LLM] Ollama models dir found by structure scan: {}", p.display());
+                klog!("[Ring 0 / LLM] Ollama models dir found by structure scan: {}", p.display());
                 return Some(p.to_path_buf());
             }
         }
@@ -766,7 +766,7 @@ fn ensure_models_dir() -> PathBuf {
              ===============================\n\
              Note: Redirection active via $CYNIC_MODELS_DIR\n"
         ).ok();
-        println!("[Ring 0 / LLM] Created models directory: {}", dir.display());
+        klog!("[Ring 0 / LLM] Created models directory: {}", dir.display());
     }
     dir
 }
@@ -834,7 +834,7 @@ async fn probe_running_servers(env: &EnvInfo) -> Option<String> {
         } else { false };
 
         if ok || ok2 {
-            println!("[Ring 0 / LLM] Running inference server found: {}", url);
+            klog!("[Ring 0 / LLM] Running inference server found: {}", url);
             return Some(url.clone());
         }
     }
