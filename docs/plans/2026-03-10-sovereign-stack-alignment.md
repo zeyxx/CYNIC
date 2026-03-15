@@ -229,13 +229,13 @@ git push forge main
 
 - [ ] Créer le fichier de credentials
 ```bash
-ssh forge "echo '***REMOVED***' > ~/.surreal-pass && chmod 600 ~/.surreal-pass"
+ssh forge "echo '<REDACTED>' > ~/.surreal-pass && chmod 600 ~/.surreal-pass"
 ```
 
 - [ ] Vérifier la connexion SurrealDB actuelle
 ```bash
 ssh forge "surreal sql --conn http://localhost:8000 \
-  --user root --pass ***REMOVED*** \
+  --user root --pass <REDACTED> \
   --ns test --db test \
   'SELECT * FROM test LIMIT 1' 2>&1"
 # Attendu : pas d'erreur de protocole

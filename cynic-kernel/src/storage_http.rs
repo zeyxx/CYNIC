@@ -165,10 +165,39 @@ impl SurrealHttpStorage {
     }
 }
 
+// ── INPUT VALIDATION ──────────────────────────────────────────
+
+/// Validate IDs: alphanumeric, hyphens, underscores only. Max 128 chars.
+fn sanitize_id(id: &str) -> Result<&str, StorageError> {
+    if id.is_empty() || id.len() > 128 {
+        return Err(StorageError::QueryFailed("ID must be 1-128 characters".into()));
+    }
+    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        return Err(StorageError::QueryFailed("ID contains invalid characters".into()));
+    }
+    Ok(id)
+}
+
+/// Escape string for SurrealQL string literals.
+/// Handles: backslashes, single quotes, null bytes, newlines, carriage returns, tabs.
+fn escape_surreal(s: &str) -> String {
+    s.replace('\\', "\\\\")
+     .replace('\'', "\\'")
+     .replace('\0', "")
+     .replace('\n', "\\n")
+     .replace('\r', "\\r")
+     .replace('\t', "\\t")
+}
+
+/// Clamp query limit to prevent resource exhaustion.
+fn safe_limit(limit: u32) -> u32 {
+    limit.min(100)
+}
+
 // ── VERDICT SERIALIZATION ────────────────────────────────────
 
 fn verdict_to_sql(v: &Verdict) -> String {
-    let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+    let escape = |s: &str| escape_surreal(s);
 
     format!(
         "CREATE verdict SET \
@@ -284,20 +313,20 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError> {
-        let escaped_id = id.replace('\'', "\\'");
-        let sql = format!("SELECT * FROM verdict WHERE verdict_id = '{}' LIMIT 1", escaped_id);
+        let id = sanitize_id(id)?;
+        let sql = format!("SELECT * FROM verdict WHERE verdict_id = '{}' LIMIT 1", id);
         let rows = self.query_one(&sql).await?;
         Ok(rows.first().map(row_to_verdict))
     }
 
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError> {
-        let sql = format!("SELECT * FROM verdict ORDER BY created_at DESC LIMIT {}", limit);
+        let sql = format!("SELECT * FROM verdict ORDER BY created_at DESC LIMIT {}", safe_limit(limit));
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_verdict).collect())
     }
 
     async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError> {
-        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+        let escape = |s: &str| escape_surreal(s);
         let state_str = match crystal.state {
             CrystalState::Forming => "forming",
             CrystalState::Crystallized => "crystallized",
@@ -316,14 +345,14 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError> {
-        let escaped = id.replace('\'', "\\'");
-        let sql = format!("SELECT * FROM crystal:{}", escaped);
+        let id = sanitize_id(id)?;
+        let sql = format!("SELECT * FROM crystal:{}", id);
         let rows = self.query_one(&sql).await?;
         Ok(rows.first().map(row_to_crystal))
     }
 
     async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError> {
-        let sql = format!("SELECT * FROM crystal ORDER BY observations DESC LIMIT {}", limit);
+        let sql = format!("SELECT * FROM crystal ORDER BY observations DESC LIMIT {}", safe_limit(limit));
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_crystal).collect())
     }
@@ -406,6 +435,50 @@ mod tests {
         v.stimulus_summary = "it's a \"test\"".into();
         let sql = verdict_to_sql(&v);
         assert!(sql.contains("it\\'s a "));
+    }
+
+    #[test]
+    fn sanitize_id_rejects_injection() {
+        // SQL injection attempt
+        assert!(sanitize_id("'; DROP TABLE verdict; --").is_err());
+        // Null bytes
+        assert!(sanitize_id("abc\0def").is_err());
+        // Backticks
+        assert!(sanitize_id("abc`def").is_err());
+        // Semicolons
+        assert!(sanitize_id("abc;def").is_err());
+        // Spaces
+        assert!(sanitize_id("abc def").is_err());
+        // Empty
+        assert!(sanitize_id("").is_err());
+        // Too long (129 chars)
+        assert!(sanitize_id(&"a".repeat(129)).is_err());
+    }
+
+    #[test]
+    fn sanitize_id_accepts_valid() {
+        assert!(sanitize_id("abc-123_def").is_ok());
+        assert!(sanitize_id("verdict-001").is_ok());
+        assert!(sanitize_id("a1b2c3d4e5f6").is_ok());
+        assert!(sanitize_id(&"a".repeat(128)).is_ok());
+    }
+
+    #[test]
+    fn escape_surreal_handles_special_chars() {
+        assert_eq!(escape_surreal("it's"), "it\\'s");
+        assert_eq!(escape_surreal("a\\b"), "a\\\\b");
+        assert_eq!(escape_surreal("a\0b"), "ab"); // null stripped
+        assert_eq!(escape_surreal("a\nb"), "a\\nb");
+        assert_eq!(escape_surreal("a\rb"), "a\\rb");
+        assert_eq!(escape_surreal("a\tb"), "a\\tb");
+    }
+
+    #[test]
+    fn safe_limit_clamps() {
+        assert_eq!(safe_limit(20), 20);
+        assert_eq!(safe_limit(100), 100);
+        assert_eq!(safe_limit(101), 100);
+        assert_eq!(safe_limit(u32::MAX), 100);
     }
 
     #[tokio::test]

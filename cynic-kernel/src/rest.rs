@@ -2,9 +2,10 @@
 //! Runs alongside gRPC on a separate port.
 
 use axum::{
-    extract::{DefaultBodyLimit, Path, State},
+    extract::{DefaultBodyLimit, Path, Request, State},
     http::StatusCode,
-    response::Json,
+    middleware::{self, Next},
+    response::{Json, IntoResponse, Response},
     routing::{get, post},
     Router,
 };
@@ -27,6 +28,8 @@ pub struct AppState {
     pub judge: Arc<Judge>,
     pub storage: Arc<dyn StoragePort>,
     pub usage: Arc<Mutex<DogUsageTracker>>,
+    pub api_key: Option<String>,
+    pub rate_limiter: RateLimiter,
 }
 
 /// Tracks token consumption and request counts per Dog since boot.
@@ -82,6 +85,38 @@ impl DogUsageTracker {
 
     pub fn uptime_seconds(&self) -> i64 {
         (chrono::Utc::now() - self.boot_time).num_seconds()
+    }
+}
+
+// ── RATE LIMITER ──────────────────────────────────────────────
+
+/// Simple fixed-window rate limiter. Resets counter every 60 seconds.
+pub struct RateLimiter {
+    state: Mutex<(u64, std::time::Instant)>,
+    max_per_minute: u64,
+}
+
+impl RateLimiter {
+    pub fn new(max_per_minute: u64) -> Self {
+        Self {
+            state: Mutex::new((0, std::time::Instant::now())),
+            max_per_minute,
+        }
+    }
+
+    /// Returns true if request is allowed, false if rate limited.
+    pub fn check(&self) -> bool {
+        let mut state = self.state.lock().unwrap();
+        let now = std::time::Instant::now();
+        if now.duration_since(state.1).as_secs() >= 60 {
+            *state = (1, now);
+            true
+        } else if state.0 < self.max_per_minute {
+            state.0 += 1;
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -196,7 +231,14 @@ pub fn router(state: Arc<AppState>) -> Router {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    if state.api_key.is_some() {
+        eprintln!("[Ring 3 / REST] Bearer auth ENABLED");
+    } else {
+        eprintln!("[Ring 3 / REST] WARNING: No CYNIC_API_KEY set — API is OPEN");
+    }
+
     Router::new()
+        .route("/health", get(health_handler))
         .route("/judge", post(judge_handler))
         .route("/dogs", get(dogs_handler))
         .route("/crystals", get(crystals_handler))
@@ -205,11 +247,60 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/temporal", get(temporal_handler))
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
-        .route("/health", get(health_handler))
+        .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+        .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware))
         .fallback_service(ServeDir::new("static"))
         .layer(DefaultBodyLimit::max(64 * 1024)) // 64 KB — no multi-MB payloads
         .layer(cors)
         .with_state(state)
+}
+
+// ── MIDDLEWARE ─────────────────────────────────────────────
+
+/// Bearer token authentication. Skipped for /health. Skipped if no CYNIC_API_KEY.
+async fn auth_middleware(
+    State(state): State<Arc<AppState>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    // /health is public — no auth required
+    if request.uri().path() == "/health" {
+        return next.run(request).await;
+    }
+
+    if let Some(ref key) = state.api_key {
+        let token = request.headers()
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .map(|s| s.to_string());
+
+        match token {
+            Some(t) if t == *key => {},
+            _ => {
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(ErrorResponse { error: "Invalid or missing Bearer token".into() }),
+                ).into_response();
+            }
+        }
+    }
+    next.run(request).await
+}
+
+/// Rate limiter — rejects excess requests with 429. /health exempt.
+async fn rate_limit_middleware(
+    State(state): State<Arc<AppState>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if request.uri().path() != "/health" && !state.rate_limiter.check() {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(ErrorResponse { error: "Rate limit exceeded".into() }),
+        ).into_response();
+    }
+    next.run(request).await
 }
 
 // ── HANDLERS ───────────────────────────────────────────────
@@ -663,6 +754,15 @@ mod tests {
         let t = temporal.unwrap();
         assert!(t.temporal_total > 0.0);
         assert!(t.temporal_total <= PHI_INV + 1e-10);
+    }
+
+    #[test]
+    fn rate_limiter_allows_within_limit() {
+        let limiter = RateLimiter::new(3);
+        assert!(limiter.check());
+        assert!(limiter.check());
+        assert!(limiter.check());
+        assert!(!limiter.check()); // 4th request rejected
     }
 
     #[test]

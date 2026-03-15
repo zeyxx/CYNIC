@@ -145,10 +145,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── RING 3: REST API (for React/external clients) ────────
     let judge = Arc::new(judge);
     let usage_tracker = Arc::new(std::sync::Mutex::new(rest::DogUsageTracker::new()));
+    let api_key = std::env::var("CYNIC_API_KEY").ok();
     let rest_state = Arc::new(rest::AppState {
         judge: Arc::clone(&judge),
         storage: Arc::clone(&storage_port),
         usage: Arc::clone(&usage_tracker),
+        api_key,
+        rate_limiter: rest::RateLimiter::new(30), // 30 requests/minute
     });
     let rest_app = rest::router(rest_state);
 
