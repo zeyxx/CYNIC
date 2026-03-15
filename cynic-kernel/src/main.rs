@@ -175,7 +175,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let rest_listener = tokio::net::TcpListener::bind(&rest_addr).await?;
     let rest_server = tokio::spawn(async move {
-        axum::serve(rest_listener, rest_app).await.unwrap();
+        if let Err(e) = axum::serve(rest_listener, rest_app).await {
+            eprintln!("[FATAL] REST server error: {}", e);
+        }
     });
 
     // ─── gRPC services ────────────────────────────────────────

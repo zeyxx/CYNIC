@@ -385,9 +385,10 @@ impl CynicMcp {
         let Some(db) = &self.raw_db else { return };
 
         let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+        let safe_details = escape(&details.to_string());
         let query = format!(
-            "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = {};",
-            escape(tool_name), escape(agent_id), details,
+            "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = '{}';",
+            escape(tool_name), escape(agent_id), safe_details,
         );
 
         let _ = db.query_one(&query).await;

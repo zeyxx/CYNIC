@@ -38,7 +38,13 @@ impl DaemonSupervisor {
             match child {
                 Ok(mut process) => {
                     // Wait for the process to exit
-                    let status = process.wait().await.unwrap();
+                    let status = match process.wait().await {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("[Supervisor] Daemon '{}' wait() failed: {}", self.name, e);
+                            continue;
+                        }
+                    };
 
                     println!("[Supervisor] Daemon '{}' exited with status: {}", self.name, status);
 
