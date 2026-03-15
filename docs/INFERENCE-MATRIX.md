@@ -42,6 +42,44 @@
 
 **TODO: Test full offload on S..**
 
+## Model Landscape — March 15, 2026 (researched, not estimated)
+
+### Winners by Category
+
+| Category | Winner | Params | Q4 GB | Key Benchmark | Fits Ubuntu? | Fits S.? |
+|---|---|---|---|---|---|---|
+| **Polyvalent** | Qwen3.5-9B | 9.7B | 5.3 | MMLU-Pro 82.5, GPQA-D 81.7 | YES | YES |
+| **Coding** | Qwen2.5-Coder-14B | 14.8B | 8.5 | HumanEval 88.4, FIM support | TIGHT | YES |
+| **Reasoning** | DeepSeek-R1-Distill-Qwen-14B | 14.8B | 9.1 | AIME 69.7, MATH-500 93.9 | TIGHT | YES |
+| **Judgment (CYNIC)** | Qwen3.5-9B (thinking) | 9.7B | 5.3 | GPQA-D 81.7 + CoT | YES | YES |
+| **Multilingual (FR)** | Mistral Small 3.2 24B | 24B | 14.3 | Native French, 128K ctx | CPU only | NO |
+| **Speed/Quality** | Gemma 3 4B | 3.9B | 2.4 | HumanEval 85.4 | YES (15.7 t/s) | YES (~80 t/s) |
+| **Tiny Reasoning** | Phi-4-mini-reasoning | 3.8B | 2.5 | AIME 57.5, MATH-500 94.6 | YES | YES |
+| **Draft (speculative)** | Qwen3.5-0.8B | 0.8B | 0.6 | N/A | YES | YES |
+
+### Key Findings
+- **Qwen3.5-9B is the undisputed champion sub-10B** — beats GPT-OSS-120B (13x larger) on GPQA
+- **MoE models broken on CPU** — confirmed, ~7 t/s instead of 45 t/s. GPU-only, and none fit 16 GB VRAM
+- **Llama 4 is dead for consumer** — all MoE, minimum 55 GB. Use Llama 3.1/3.3 via API
+- **Thinking models >> specialized judges** — research shows CoT models outperform purpose-built judge models
+- **DeepSeek-R1-Distill-14B** is the best reasoning model that fits 16 GB
+- **Phi-4-mini-reasoning** (3.8B) scores AIME 57.5 — remarkable for its size, adds Microsoft family
+
+### Models to Download (priority order)
+
+| # | Model | Q4 GB | Deploy | Role | Family |
+|---|---|---|---|---|---|
+| 1 | **Qwen3.5-9B** | 5.3 | S. GPU + Ubuntu CPU | Primary judge, polyvalent | Alibaba |
+| 2 | **Gemma 3 4B** (already have) | 2.4 | Ubuntu Vulkan | Fast judge, diversity | Google |
+| 3 | **DeepSeek-R1-Distill-Qwen-14B** | 9.1 | S. GPU (swap) | Deep reasoning | DeepSeek |
+| 4 | **Qwen2.5-Coder-14B** | 8.5 | S. GPU (swap) | Coding specialist + FIM | Alibaba |
+| 5 | **Phi-4-mini-reasoning** | 2.5 | Ubuntu Vulkan | Math/reasoning, MS diversity | Microsoft |
+| 6 | **Qwen3.5-0.8B** | 0.6 | Both | Speculative decoding draft | Alibaba |
+| 7 | **Mistral Small 3.2 24B** | 14.3 | Ubuntu CPU (when needed) | French specialist | Mistral |
+
+### Sovereignty Coverage (5+ families)
+Alibaba (Qwen) + Google (Gemma/Gemini) + DeepSeek + Microsoft (Phi) + Meta (Llama via HF) + Mistral + Heuristic
+
 ## Model Candidates (Q4_K_M, sorted by objective)
 
 ### For CYNIC Dogs (judgment, 6 axioms, short context)
