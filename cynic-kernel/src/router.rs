@@ -299,4 +299,66 @@ mod tests {
         router.probe_all().await;
         assert_eq!(router.backend_statuses().await[0].1, BackendStatus::Healthy);
     }
+
+    #[tokio::test]
+    async fn record_result_failure_degrades_backend() {
+        let mock = Arc::new(MockBackend::healthy()) as Arc<dyn InferencePort>;
+        let router = BackendRouter::new(vec![mock]);
+        router.probe_all().await;
+        assert_eq!(router.backend_statuses().await[0].1, BackendStatus::Healthy);
+
+        // One failure → Degraded
+        router.record_result("mock", false).await;
+        assert!(matches!(router.backend_statuses().await[0].1, BackendStatus::Degraded { .. }));
+
+        // Threshold failures → Critical
+        for _ in 0..FAILURE_THRESHOLD {
+            router.record_result("mock", false).await;
+        }
+        assert_eq!(router.backend_statuses().await[0].1, BackendStatus::Critical);
+    }
+
+    #[tokio::test]
+    async fn record_result_success_recovers() {
+        let mock = Arc::new(MockBackend::healthy()) as Arc<dyn InferencePort>;
+        let router = BackendRouter::new(vec![mock]);
+        router.probe_all().await;
+        router.record_result("mock", false).await;
+        assert!(matches!(router.backend_statuses().await[0].1, BackendStatus::Degraded { .. }));
+
+        router.record_result("mock", true).await;
+        assert_eq!(router.backend_statuses().await[0].1, BackendStatus::Healthy);
+    }
+
+    #[tokio::test]
+    async fn round_robin_rotates_across_backends() {
+        let a = Arc::new(MockBackend::healthy()) as Arc<dyn InferencePort>;
+        let b = Arc::new(MockBackend::healthy()) as Arc<dyn InferencePort>;
+        let router = BackendRouter::new(vec![a, b]);
+        router.probe_all().await;
+
+        // Both healthy — round robin should hit both
+        let r1 = router.route(req("rr1")).await.unwrap();
+        let r2 = router.route(req("rr2")).await.unwrap();
+        // Both are "mock" (same MockBackend type), but the round_robin counter advances
+        assert_eq!(r1.backend_id, "mock");
+        assert_eq!(r2.backend_id, "mock");
+        // Verify the counter moved
+        let counter = router.round_robin.load(Ordering::Relaxed);
+        assert_eq!(counter, 2);
+    }
+
+    #[tokio::test]
+    async fn backend_statuses_reports_all() {
+        let a = Arc::new(MockBackend::healthy()) as Arc<dyn InferencePort>;
+        let b = Arc::new(MockBackend::unreachable()) as Arc<dyn InferencePort>;
+        let router = BackendRouter::new(vec![a, b]);
+        router.probe_all().await;
+
+        let statuses = router.backend_statuses().await;
+        assert_eq!(statuses.len(), 2);
+        // One healthy, one critical
+        assert!(statuses.iter().any(|(_, s)| *s == BackendStatus::Healthy));
+        assert!(statuses.iter().any(|(_, s)| *s == BackendStatus::Critical));
+    }
 }

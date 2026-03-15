@@ -253,6 +253,7 @@ mod tests {
             api_key: Some("sk-123".into()),
             model: "gpt-4".into(),
             auth_style: AuthStyle::Bearer,
+            context_size: 0,
         });
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions");
     }
@@ -265,6 +266,7 @@ mod tests {
             api_key: Some("key123".into()),
             model: "gemini".into(),
             auth_style: AuthStyle::QueryParam("key".into()),
+            context_size: 0,
         });
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions?key=key123");
     }
@@ -277,6 +279,7 @@ mod tests {
             api_key: None,
             model: "phi-3".into(),
             auth_style: AuthStyle::None,
+            context_size: 0,
         });
         assert_eq!(backend.build_url("/chat/completions"), "http://localhost:8080/v1/chat/completions");
     }
@@ -289,6 +292,7 @@ mod tests {
             api_key: None,
             model: "m".into(),
             auth_style: AuthStyle::None,
+            context_size: 0,
         });
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions");
     }

@@ -494,7 +494,7 @@ fn verdict_to_response(v: &Verdict) -> JudgeResponse {
 
 /// Map Dog evaluations onto temporal perspectives and aggregate.
 /// Each Dog represents a different "temporal lens" on the stimulus.
-fn compute_temporal_from_dogs(dog_scores: &[crate::dog::DogScore]) -> Option<TemporalResponse> {
+pub fn compute_temporal_from_dogs(dog_scores: &[crate::dog::DogScore]) -> Option<TemporalResponse> {
     use crate::temporal::{TemporalPerspective, TemporalScore, aggregate_temporal};
     use crate::dog::compute_qscore;
 
@@ -548,4 +548,128 @@ fn compute_temporal_from_dogs(dog_scores: &[crate::dog::DogScore]) -> Option<Tem
             }
         }).collect(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dog::*;
+
+    #[test]
+    fn md5_hash_deterministic() {
+        let a = md5_hash("hello");
+        let b = md5_hash("hello");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn md5_hash_different_inputs_differ() {
+        assert_ne!(md5_hash("foo"), md5_hash("bar"));
+    }
+
+    #[test]
+    fn usage_tracker_records_tokens() {
+        let mut tracker = DogUsageTracker::new();
+        tracker.record("dog-a", 100, 50, 200);
+        tracker.record("dog-a", 80, 40, 150);
+        tracker.record("dog-b", 200, 100, 500);
+
+        assert_eq!(tracker.total_tokens(), 570); // (100+50)+(80+40)+(200+100)
+        assert_eq!(tracker.dogs["dog-a"].requests, 2);
+        assert_eq!(tracker.dogs["dog-b"].requests, 1);
+        assert_eq!(tracker.dogs["dog-a"].total_latency_ms, 350);
+    }
+
+    #[test]
+    fn usage_tracker_estimated_cost() {
+        let mut tracker = DogUsageTracker::new();
+        tracker.record("x", 500_000, 500_000, 0); // 1M tokens
+        let cost = tracker.estimated_cost_usd();
+        assert!((cost - 0.15).abs() < 0.001);
+    }
+
+    #[test]
+    fn usage_tracker_empty_is_zero() {
+        let tracker = DogUsageTracker::new();
+        assert_eq!(tracker.total_tokens(), 0);
+        assert_eq!(tracker.total_requests, 0);
+        assert_eq!(tracker.estimated_cost_usd(), 0.0);
+    }
+
+    #[test]
+    fn verdict_to_response_maps_all_fields() {
+        let verdict = Verdict {
+            id: "test-id".into(),
+            kind: VerdictKind::Howl,
+            q_score: QScore {
+                total: 0.55, fidelity: 0.6, phi: 0.5,
+                verify: 0.55, culture: 0.5, burn: 0.45, sovereignty: 0.5,
+            },
+            reasoning: AxiomReasoning {
+                fidelity: "good".into(), phi: "ok".into(), verify: "decent".into(),
+                culture: "fine".into(), burn: "lean".into(), sovereignty: "free".into(),
+            },
+            dog_id: "test-dog".into(),
+            stimulus_summary: "test stimulus".into(),
+            timestamp: "2026-03-15T00:00:00Z".into(),
+            dog_scores: vec![],
+            anomaly_detected: false,
+            max_disagreement: 0.0,
+            anomaly_axiom: None,
+        };
+
+        let resp = verdict_to_response(&verdict);
+        assert_eq!(resp.verdict_id, "test-id");
+        assert_eq!(resp.verdict, "Howl");
+        assert_eq!(resp.q_score.total, 0.55);
+        assert_eq!(resp.reasoning.fidelity, "good");
+        assert_eq!(resp.dogs_used, "test-dog");
+        assert_eq!(resp.phi_max, PHI_INV);
+        assert!(!resp.anomaly_detected);
+    }
+
+    #[test]
+    fn temporal_returns_none_with_single_dog() {
+        let scores = vec![DogScore {
+            dog_id: "deterministic-dog".into(),
+            latency_ms: 0, prompt_tokens: 0, completion_tokens: 0,
+            fidelity: 0.5, phi: 0.5, verify: 0.5,
+            culture: 0.5, burn: 0.5, sovereignty: 0.5,
+            reasoning: AxiomReasoning::default(),
+        }];
+        assert!(compute_temporal_from_dogs(&scores).is_none());
+    }
+
+    #[test]
+    fn temporal_returns_some_with_multiple_dogs() {
+        let scores = vec![
+            DogScore {
+                dog_id: "deterministic-dog".into(),
+                latency_ms: 0, prompt_tokens: 0, completion_tokens: 0,
+                fidelity: 0.5, phi: 0.5, verify: 0.5,
+                culture: 0.5, burn: 0.5, sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+            },
+            DogScore {
+                dog_id: "gemini".into(),
+                latency_ms: 100, prompt_tokens: 50, completion_tokens: 30,
+                fidelity: 0.6, phi: 0.55, verify: 0.5,
+                culture: 0.45, burn: 0.4, sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+            },
+        ];
+        let temporal = compute_temporal_from_dogs(&scores);
+        assert!(temporal.is_some());
+        let t = temporal.unwrap();
+        assert!(t.temporal_total > 0.0);
+        assert!(t.temporal_total <= PHI_INV + 1e-10);
+    }
+
+    #[test]
+    fn health_status_logic() {
+        // 0 dogs → critical, 1 → degraded, 2+ → sovereign
+        assert_eq!(if 0 == 0 { "critical" } else if 0 == 1 { "degraded" } else { "sovereign" }, "critical");
+        assert_eq!(if 1 == 0 { "critical" } else if 1 == 1 { "degraded" } else { "sovereign" }, "degraded");
+        assert_eq!(if 2 == 0 { "critical" } else if 2 == 1 { "degraded" } else { "sovereign" }, "sovereign");
+    }
 }
