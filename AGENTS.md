@@ -38,15 +38,18 @@ Code change → npm run dev (local preview) → git commit + push → Replit aut
 ## Infrastructure
 
 The CYNIC kernel runs on T.'s Ubuntu machine and is the SINGLE SOURCE OF TRUTH for inference.
-- Tailscale: http://<TAILSCALE_UBUNTU>:3030 (direct, requires Tailscale)
-- Public tunnel: https://associations-mailed-treasury-component.trycloudflare.com (Cloudflare, no auth needed)
+- API: `http://<TAILSCALE_UBUNTU>:3030` (Tailscale only, Bearer auth required)
+- No public tunnel. No Cloudflare. No ngrok. Ever.
 
 Frontend (cynic-ui) connects to the kernel API. It NEVER does inference directly.
 
-## Hackathon Timeline
+## Security Rules (both agents)
 
-- 12h-16h: Code (backend chess logic + frontend UI)
-- 16h-16h30: Integration test, fix bugs
-- 16h30-17h: Record 1-min demo video, submit
-- 17h: Submission deadline
-- 17h15: Judging (3 min pitch + Q&A)
+**This repo is PUBLIC.** Every commit is visible to the world.
+
+1. **Never commit secrets.** API keys, tokens, passwords, real IPs, real names → env files only.
+2. **Use placeholders** for infrastructure: `<TAILSCALE_UBUNTU>`, `<TAILSCALE_STANISLAZ>`, etc.
+3. **Use initials** for people: `T.`, `S.` — never full names.
+4. **Verify before pushing:** `git diff --staged | grep -iE "api.key|token|password|AIza|hf_|100\.(74|75|119)"` must return empty.
+5. **Never open a public tunnel** (Cloudflare, ngrok) without auth on the API.
+6. **All API calls require Bearer auth** — `Authorization: Bearer $CYNIC_API_KEY`.

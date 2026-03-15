@@ -2,13 +2,33 @@
 
 CYNIC is an **epistemic immune system** — independent AI validators reaching consensus under mathematical doubt.
 
-## Hackathon Context (2026-03-14)
+## Security (INVIOLABLE — this repo is PUBLIC)
 
-**Event:** Gemini 3 Paris Hackathon. Submission 17h. Demo = 3 min live + 1 min video.
-**Scoring:** Live Demo 45%, Creativity 35%, Impact 20%.
-**Rule:** Must use Gemini 3. Show ONLY work done today. Repo must be public.
-**Demo domain:** Chess — each move judged through 6 philosophical axioms.
-**Roles:** T. = backend (cynic-kernel/). S. = frontend (cynic-ui/).
+### Never commit
+- **Real IPs** — use `<TAILSCALE_UBUNTU>`, `<TAILSCALE_FORGE>`, etc.
+- **API keys, tokens, passwords** — they live in `~/.config/cynic/env` (never tracked)
+- **Real names** — use initials (`T.`, `S.`) or roles (`backend-dev`, `frontend-dev`)
+- **Machine hostnames** that reveal identity
+- **Email addresses** other than `@users.noreply.github.com`
+
+### Before every commit
+Verify no secrets are staged: `git diff --staged | grep -iE "api.key|token|password|secret|AIza|hf_|100\.(74|75|119|65|105)\."` — must return empty.
+
+### Infrastructure references
+All IPs and hostnames in docs/code use placeholders. Real values are in env files only.
+```
+<TAILSCALE_UBUNTU>     → backend machine
+<TAILSCALE_STANISLAZ>  → frontend machine
+<TAILSCALE_FORGE>      → CI/build server
+```
+
+### Auth
+- REST API requires `Authorization: Bearer $CYNIC_API_KEY` on all endpoints except `/health`
+- llama-server requires `--api-key` (read from `~/.config/cynic/llama-api-key`)
+- SSH is key-only (password auth disabled), Tailscale interface only
+
+### Roles
+T. = backend (cynic-kernel/). S. = frontend (cynic-ui/).
 
 ## Ownership Zones (CRITICAL)
 
@@ -29,12 +49,18 @@ Root docs        → Frozen during hackathon (API.md, FRONTEND.md, CLAUDE.md)
 
 ## API Essentials
 
+All endpoints except `/health` require `Authorization: Bearer $CYNIC_API_KEY`.
+
 ```
-GET  /health                → {"status":"sovereign","phi_max":0.618,...}
-POST /judge                 → Submit content for evaluation
-GET  /verdicts              → List recent verdicts
-GET  /verdict/{id}          → Get specific verdict
+GET  /health                → public, no auth
+POST /judge                 → Bearer required
+GET  /verdicts              → Bearer required
+GET  /verdict/{id}          → Bearer required
+GET  /crystals              → Bearer required
+GET  /usage                 → Bearer required
 ```
+Rate limit: 30 requests/minute. `/health` exempt.
+
 Full contract: `API.md`. Frontend guide: `FRONTEND.md`.
 
 ## Axioms (inviolable)

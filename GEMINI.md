@@ -63,6 +63,15 @@ cargo test -p cynic-kernel
 cargo clippy --workspace -- -D warnings
 ```
 
+## Security Rules (INVIOLABLE — repo is PUBLIC)
+
+1. **Never commit real IPs, tokens, passwords, API keys, or names** — use placeholders and env vars
+2. **Use `<TAILSCALE_UBUNTU>`, `<TAILSCALE_STANISLAZ>`** for infrastructure references
+3. **Use `T.`, `S.`** for people — never full names
+4. **Before every commit:** `git diff --staged | grep -iE "api.key|token|password|AIza|hf_|100\.(74|75|119)"` must return empty
+5. **All API calls require** `Authorization: Bearer $CYNIC_API_KEY` (except `/health`)
+6. **No public tunnels** (Cloudflare, ngrok) without explicit approval
+
 ## Anti-Heresy Rules
 
 1. **Never hardcode machine IPs or specs** — use dynamic discovery
