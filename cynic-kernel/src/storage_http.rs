@@ -306,6 +306,11 @@ fn row_to_crystal(row: &serde_json::Value) -> Crystal {
 
 #[async_trait::async_trait]
 impl StoragePort for SurrealHttpStorage {
+    async fn ping(&self) -> Result<(), StorageError> {
+        self.query("INFO FOR DB;").await?;
+        Ok(())
+    }
+
     async fn store_verdict(&self, verdict: &Verdict) -> Result<(), StorageError> {
         let sql = verdict_to_sql(verdict);
         self.query_one(&sql).await?;

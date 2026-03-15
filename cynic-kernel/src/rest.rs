@@ -209,6 +209,7 @@ pub struct HealthResponse {
     pub phi_max: f64,
     pub axioms: Vec<String>,
     pub dogs: Vec<DogHealthResponse>,
+    pub storage: String,
     pub total_requests: u64,
     pub total_tokens: u64,
     pub estimated_cost_usd: f64,
@@ -491,7 +492,10 @@ async fn health_handler(
         DogHealthResponse { id, kind, circuit, failures }
     }).collect();
 
-    let status = if dogs.is_empty() {
+    let storage_ok = state.storage.ping().await.is_ok();
+    let storage = if storage_ok { "connected" } else { "down" }.to_string();
+
+    let status = if dogs.is_empty() || !storage_ok {
         "critical"
     } else if dogs.len() == 1 {
         "degraded"
@@ -514,6 +518,7 @@ async fn health_handler(
             "SOVEREIGNTY".into(),
         ],
         dogs,
+        storage,
         total_requests: usage.total_requests,
         total_tokens: usage.total_tokens(),
         estimated_cost_usd: usage.estimated_cost_usd(),

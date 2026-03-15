@@ -27,6 +27,8 @@ impl std::fmt::Display for StorageError {
 
 #[async_trait]
 pub trait StoragePort: Send + Sync {
+    /// Fast connectivity check — used by /health to verify DB is reachable.
+    async fn ping(&self) -> Result<(), StorageError>;
     async fn store_verdict(&self, verdict: &Verdict) -> Result<(), StorageError>;
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError>;
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError>;
@@ -41,6 +43,9 @@ pub struct NullStorage;
 
 #[async_trait]
 impl StoragePort for NullStorage {
+    async fn ping(&self) -> Result<(), StorageError> {
+        Ok(()) // NullStorage is always "healthy" — it just doesn't persist
+    }
     async fn store_verdict(&self, _verdict: &Verdict) -> Result<(), StorageError> {
         Ok(())
     }
