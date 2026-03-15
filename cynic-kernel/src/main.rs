@@ -2,7 +2,6 @@ use cynic_kernel::*;
 use cynic_kernel::chat_port::ChatPort;
 use cynic_kernel::cynic_v2::vascular_system_server::{VascularSystem, VascularSystemServer};
 use cynic_kernel::cynic_v2::k_pulse_server::KPulseServer;
-use cynic_kernel::cynic_v2::cognitive_memory_server::CognitiveMemoryServer;
 use cynic_kernel::cynic_v2::muscle_hal_server::MuscleHalServer;
 use cynic_kernel::storage_http;
 use cynic_kernel::cynic_v2::{Event, PublishAck, SubscriptionFilter};
@@ -91,14 +90,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 1: Native Storage Client (UAL) ──────────────────
     // HTTP adapter to SurrealDB 3.x — graceful degradation if unavailable.
-    let storage: Option<Arc<storage_http::SurrealHttpStorage>> = match storage_http::SurrealHttpStorage::init().await {
+    let storage_port: Arc<dyn storage_port::StoragePort> = match storage_http::SurrealHttpStorage::init().await {
         Ok(s) => {
             log!(mcp_mode, "[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
-            Some(Arc::new(s))
+            Arc::new(s)
         }
         Err(e) => {
             eprintln!("[Ring 1] Storage: DEGRADED — {} (verdicts will not persist)", e);
-            None
+            Arc::new(storage_port::NullStorage)
         }
     };
     
@@ -151,16 +150,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let judge = judge::Judge::new(dogs);
 
     // ─── RING 3: REST API (for React/external clients) ────────
-    let storage_port: Arc<dyn storage_port::StoragePort> = match &storage {
-        Some(s) => Arc::clone(s) as Arc<dyn storage_port::StoragePort>,
-        None => Arc::new(storage_port::NullStorage),
-    };
     let judge = Arc::new(judge);
     let usage_tracker = Arc::new(std::sync::Mutex::new(rest::DogUsageTracker::new()));
     let rest_state = Arc::new(rest::AppState {
         judge: Arc::clone(&judge),
         storage: Arc::clone(&storage_port),
-        usage: std::sync::Mutex::new(rest::DogUsageTracker::new()),
+        usage: Arc::clone(&usage_tracker),
     });
     let rest_app = rest::router(rest_state);
 
@@ -192,8 +187,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── gRPC services ────────────────────────────────────────
     let pulse_service = pulse::PulseService::default();
     let muscle_service = hal::MuscleService::new(Arc::clone(&router));
-    let cognitive_service = storage_http::CognitiveMemoryService::new(storage);
-
     log!(mcp_mode, "╔══════════════════════════════════════╗");
     log!(mcp_mode, "║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
     log!(mcp_mode, "║   REST: http://{}",  rest_addr);
@@ -205,7 +198,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_service(VascularSystemServer::new(VascularService::default()))
         .add_service(KPulseServer::new(pulse_service))
         .add_service(MuscleHalServer::new(muscle_service))
-        .add_service(CognitiveMemoryServer::new(cognitive_service))
         .serve(addr);
 
     // Run both servers concurrently

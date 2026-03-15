@@ -26,7 +26,7 @@ use std::sync::Mutex;
 pub struct AppState {
     pub judge: Arc<Judge>,
     pub storage: Arc<dyn StoragePort>,
-    pub usage: Mutex<DogUsageTracker>,
+    pub usage: Arc<Mutex<DogUsageTracker>>,
 }
 
 /// Tracks token consumption and request counts per Dog since boot.

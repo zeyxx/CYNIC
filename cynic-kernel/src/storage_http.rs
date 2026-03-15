@@ -85,6 +85,34 @@ impl SurrealHttpStorage {
         storage.query("RETURN true").await
             .map_err(|e| StorageError::ConnectionFailed(format!("SurrealDB unreachable at {}: {}", url, e)))?;
 
+        // Bootstrap schema + indexes (idempotent — IF NOT EXISTS)
+        let schema_sql = "\
+            DEFINE FIELD IF NOT EXISTS verdict_id ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS kind ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS total ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS fidelity ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS phi ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS verify ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS culture ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS burn ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS sovereignty ON verdict TYPE float;\
+            DEFINE FIELD IF NOT EXISTS dog_id ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS stimulus ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS created_at ON verdict TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS content ON crystal TYPE string;\
+            DEFINE FIELD IF NOT EXISTS domain ON crystal TYPE string;\
+            DEFINE FIELD IF NOT EXISTS confidence ON crystal TYPE float;\
+            DEFINE FIELD IF NOT EXISTS observations ON crystal TYPE int;\
+            DEFINE FIELD IF NOT EXISTS state ON crystal TYPE string;\
+            DEFINE INDEX IF NOT EXISTS verdict_id_idx ON verdict FIELDS verdict_id UNIQUE;\
+            DEFINE INDEX IF NOT EXISTS verdict_created_idx ON verdict FIELDS created_at;\
+            DEFINE INDEX IF NOT EXISTS crystal_obs_idx ON crystal FIELDS observations;\
+            DEFINE INDEX IF NOT EXISTS crystal_domain_idx ON crystal FIELDS domain;\
+        ";
+        if let Err(e) = storage.query(schema_sql).await {
+            eprintln!("[Ring 1 / UAL] WARNING: Schema bootstrap failed (non-fatal): {}", e);
+        }
+
         klog!("[Ring 1 / UAL] Linked to SurrealDB (HTTP) at {}", url);
         Ok(storage)
     }
@@ -298,106 +326,6 @@ impl StoragePort for SurrealHttpStorage {
         let sql = format!("SELECT * FROM crystal ORDER BY observations DESC LIMIT {}", limit);
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_crystal).collect())
-    }
-}
-
-// ── COGNITIVE MEMORY (gRPC service) via HTTP ─────────────────
-
-use std::sync::Arc;
-use tonic::{Request, Response, Status};
-use crate::cynic_v2::cognitive_memory_server::CognitiveMemory;
-use crate::cynic_v2::{Fact, PublishAck, TrustEntry, TrustVerifyResponse};
-
-pub struct CognitiveMemoryService {
-    storage: Option<Arc<SurrealHttpStorage>>,
-}
-
-impl CognitiveMemoryService {
-    pub fn new(storage: Option<Arc<SurrealHttpStorage>>) -> Self {
-        Self { storage }
-    }
-
-    #[allow(clippy::result_large_err)]
-    fn require_storage(&self) -> Result<&Arc<SurrealHttpStorage>, Status> {
-        self.storage.as_ref().ok_or_else(|| Status::unavailable("Storage unavailable (DEGRADED mode)"))
-    }
-}
-
-#[tonic::async_trait]
-impl CognitiveMemory for CognitiveMemoryService {
-    async fn store_fact(
-        &self,
-        request: Request<Fact>,
-    ) -> Result<Response<PublishAck>, Status> {
-        let storage = self.require_storage()?;
-        let fact = request.into_inner();
-        let meta = fact.meta.clone();
-        let node_id = meta.as_ref().map(|m| m.node_id.clone()).unwrap_or_default();
-        let trace_id = meta.as_ref().map(|m| m.trace_id.clone()).unwrap_or_default();
-
-        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
-        let sql = format!(
-            "CREATE fact SET agent = '{}', content = '{}', confidence = {}, trace_id = '{}', timestamp = time::now()",
-            escape(&node_id), escape(&fact.content), fact.confidence, escape(&trace_id)
-        );
-
-        storage.query_one(&sql).await
-            .map_err(|e| Status::internal(e.to_string()))?;
-
-        Ok(Response::new(PublishAck {
-            meta,
-            success: true,
-        }))
-    }
-
-    async fn register_trust(
-        &self,
-        request: Request<TrustEntry>,
-    ) -> Result<Response<PublishAck>, Status> {
-        let storage = self.require_storage()?;
-        let entry = request.into_inner();
-        let meta = entry.meta.clone();
-        let trace_id = meta.as_ref().map(|m| m.trace_id.clone()).unwrap_or_default();
-
-        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
-        let sql = format!(
-            "UPSERT trusted_model:['{name}'] SET sha256 = '{sha}', last_verified = time::now(), trace_id = '{trace}'",
-            name = escape(&entry.model_name),
-            sha = escape(&entry.sha256),
-            trace = escape(&trace_id)
-        );
-
-        storage.query_one(&sql).await
-            .map_err(|e| Status::internal(e.to_string()))?;
-
-        Ok(Response::new(PublishAck {
-            meta,
-            success: true,
-        }))
-    }
-
-    async fn verify_trust(
-        &self,
-        request: Request<TrustEntry>,
-    ) -> Result<Response<TrustVerifyResponse>, Status> {
-        let storage = self.require_storage()?;
-        let entry = request.into_inner();
-        let meta = entry.meta.clone();
-
-        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
-        let sql = format!(
-            "SELECT * FROM trusted_model WHERE id = trusted_model:['{name}'] AND sha256 = '{sha}'",
-            name = escape(&entry.model_name),
-            sha = escape(&entry.sha256)
-        );
-
-        let results = storage.query_one(&sql).await
-            .map_err(|e| Status::internal(e.to_string()))?;
-
-        Ok(Response::new(TrustVerifyResponse {
-            meta,
-            is_trusted: !results.is_empty(),
-        }))
     }
 }
 
