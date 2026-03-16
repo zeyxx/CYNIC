@@ -102,3 +102,35 @@ backup:
 		--username root --password root \
 		~/.surrealdb/backups/cynic_v2_$$(date +%Y%m%d_%H%M%S).surql
 	@echo "✓ Backup saved"
+
+# ── Scope Management ─────────────────────────────────────────
+.PHONY: scope
+scope:  ## make scope SLUG=rest-audit — create isolated worktree for an ILC
+	@if [ -z "$(SLUG)" ]; then echo "ERROR: provide SLUG=<name> (e.g. make scope SLUG=rest-audit)" >&2; exit 1; fi
+	@BRANCH="session/$$(id -un)/$(SLUG)"; \
+	WORKTREE="$(PROJECT_DIR)/../cynic-$(SLUG)"; \
+	git worktree add -b "$$BRANCH" "$$WORKTREE"; \
+	echo ""; \
+	echo "✓ Worktree: $$WORKTREE"; \
+	echo "✓ Branch:   $$BRANCH"; \
+	echo ""; \
+	echo "Next steps:"; \
+	echo "  1. cynic_coord_register(agent_id, intent)"; \
+	echo "  2. cynic_coord_claim(agent_id, <target-file>)"; \
+	echo "  3. cd $$WORKTREE && work"; \
+	echo "  4. make check && cynic_coord_release(agent_id, <target-file>)"; \
+	echo "  5. make done SLUG=$(SLUG) when finished"
+
+.PHONY: done
+done:  ## make done SLUG=rest-audit — remove worktree and branch
+	@if [ -z "$(SLUG)" ]; then echo "ERROR: provide SLUG=<name>" >&2; exit 1; fi
+	@BRANCH="session/$$(id -un)/$(SLUG)"; \
+	WORKTREE="$(PROJECT_DIR)/../cynic-$(SLUG)"; \
+	git worktree remove "$$WORKTREE" 2>/dev/null && echo "✓ Worktree removed" || echo "Note: worktree not found (may already be removed)"; \
+	git branch -d "$$BRANCH" 2>/dev/null && echo "✓ Branch $$BRANCH deleted" || echo "Note: delete branch manually if merge is pending"; \
+	echo "✓ Scope $(SLUG) released"
+
+.PHONY: agents
+agents:  ## Show active agents and work claims (requires kernel running)
+	@$(source_env)
+	@curl -sf -H "Authorization: Bearer $${CYNIC_API_KEY}" "http://$${CYNIC_REST_ADDR}/agents" | python3 -m json.tool 2>/dev/null || echo "ERROR: kernel not responding at $${CYNIC_REST_ADDR}"
