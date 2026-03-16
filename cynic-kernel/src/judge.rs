@@ -138,8 +138,13 @@ impl Judge {
                         reasoning: scores.reasoning,
                     });
                 }
-                Err(e) => {
-                    if let Some(cb) = cb { cb.record_failure(); }
+                Err(ref e) => {
+                    // Only infrastructure failures (ApiError) trip the circuit breaker.
+                    // ParseError/RateLimited/Timeout = backend responded, not down.
+                    if let Some(cb) = cb {
+                        if matches!(e, DogError::ApiError(_)) { cb.record_failure(); }
+                        else { cb.record_success(); } // non-infra error = backend is alive
+                    }
                     eprintln!("[Judge] Dog '{}' failed after {}ms: {}", id, elapsed_ms, e);
                     errors.push(format!("{}: {}", id, e));
                 }
