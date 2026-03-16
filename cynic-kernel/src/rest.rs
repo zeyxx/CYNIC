@@ -15,10 +15,10 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 use chrono;
 
+use crate::coord_port::CoordPort;
 use crate::dog::{Verdict, PHI_INV};
 use crate::judge::Judge;
 use crate::storage_port::StoragePort;
-use crate::storage_http::SurrealHttpStorage;
 use crate::ccm;
 use crate::usage::DogUsageTracker;
 use std::sync::Mutex;
@@ -28,7 +28,7 @@ use std::sync::Mutex;
 pub struct AppState {
     pub judge: Arc<Judge>,
     pub storage: Arc<dyn StoragePort>,
-    pub raw_db: Option<Arc<SurrealHttpStorage>>,
+    pub coord: Arc<dyn CoordPort>,
     pub usage: Arc<Mutex<DogUsageTracker>>,
     pub api_key: Option<String>,
     pub rate_limiter: RateLimiter,
@@ -282,15 +282,17 @@ async fn audit_middleware(
     let status = response.status().as_u16();
 
     // Best-effort async audit — don't block the response
-    if let Some(db) = &state.raw_db {
-        let db = Arc::clone(db);
-        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
-        let sql = format!(
-            "CREATE rest_audit SET ts = time::now(), method = '{}', path = '{}', status = {}, latency_ms = {};\
-             DELETE rest_audit WHERE id NOT IN (SELECT VALUE id FROM rest_audit ORDER BY ts DESC LIMIT 10000);",
-            escape(&method), escape(&path), status, elapsed_ms,
-        );
-        tokio::spawn(async move { let _ = db.query(&sql).await; });
+    {
+        let coord = Arc::clone(&state.coord);
+        let details = serde_json::json!({
+            "method": method,
+            "path": path,
+            "status": status,
+            "latency_ms": elapsed_ms,
+        });
+        tokio::spawn(async move {
+            let _ = coord.store_audit("rest_request", "rest", &details).await;
+        });
     }
 
     response
@@ -527,27 +529,15 @@ async fn health_handler(
 async fn agents_handler(
     State(state): State<Arc<AppState>>,
 ) -> Json<serde_json::Value> {
-    let Some(db) = &state.raw_db else {
-        return Json(serde_json::json!({"error": "storage unavailable"}));
-    };
-
-    // Expire stale sessions
-    let _ = db.query_one(
-        "UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;"
-    ).await;
-    let _ = db.query_one(
-        "UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);"
-    ).await;
-
-    let sessions = db.query_one("SELECT * FROM agent_session WHERE active = true;").await.unwrap_or_default();
-    let claims = db.query_one("SELECT * FROM work_claim WHERE active = true;").await.unwrap_or_default();
-
-    Json(serde_json::json!({
-        "active_agents": sessions.len(),
-        "active_claims": claims.len(),
-        "agents": sessions,
-        "claims": claims,
-    }))
+    match state.coord.who(None).await {
+        Ok(snapshot) => Json(serde_json::json!({
+            "active_agents": snapshot.agents.len(),
+            "active_claims": snapshot.claims.len(),
+            "agents": snapshot.agents,
+            "claims": snapshot.claims,
+        })),
+        Err(e) => Json(serde_json::json!({"error": format!("Coordination unavailable: {}", e)})),
+    }
 }
 
 // ── HELPERS ────────────────────────────────────────────────

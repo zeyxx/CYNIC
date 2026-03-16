@@ -21,10 +21,10 @@ use rmcp::{
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+use crate::coord_port::{CoordPort, ClaimResult};
 use crate::dog::{Stimulus, PHI_INV};
 use crate::judge::Judge;
 use crate::storage_port::StoragePort;
-use crate::storage_http::SurrealHttpStorage;
 use crate::usage::DogUsageTracker;
 use crate::ccm;
 
@@ -115,7 +115,7 @@ pub struct WhoParams {
 pub struct CynicMcp {
     judge: Arc<Judge>,
     storage: Arc<dyn StoragePort>,
-    raw_db: Option<Arc<SurrealHttpStorage>>,
+    coord: Arc<dyn CoordPort>,
     usage: Arc<std::sync::Mutex<DogUsageTracker>>,
     tool_router: ToolRouter<Self>,
 }
@@ -125,13 +125,13 @@ impl CynicMcp {
     pub fn new(
         judge: Arc<Judge>,
         storage: Arc<dyn StoragePort>,
-        raw_db: Option<Arc<SurrealHttpStorage>>,
+        coord: Arc<dyn CoordPort>,
         usage: Arc<std::sync::Mutex<DogUsageTracker>>,
     ) -> Self {
         Self {
             judge,
             storage,
-            raw_db,
+            coord,
             usage,
             tool_router: Self::tool_router(),
         }
@@ -392,33 +392,8 @@ impl CynicMcp {
     ) -> Result<CallToolResult, McpError> {
         let p = params.0;
         let limit = p.limit.unwrap_or(20).min(100);
-        let mut conditions = Vec::new();
 
-        if let Some(tool) = &p.tool {
-            conditions.push(format!("tool = '{}'", tool.replace('\\', "\\\\").replace('\'', "\\'")));
-        }
-        if let Some(agent) = &p.agent_id {
-            conditions.push(format!("agent_id = '{}'", agent.replace('\\', "\\\\").replace('\'', "\\'")));
-        }
-
-        let where_clause = if conditions.is_empty() {
-            String::new()
-        } else {
-            format!(" WHERE {}", conditions.join(" AND "))
-        };
-
-        let query = format!(
-            "SELECT * FROM mcp_audit{} ORDER BY ts DESC LIMIT {};",
-            where_clause, limit
-        );
-
-        let Some(db) = &self.raw_db else {
-            return Ok(CallToolResult::success(vec![
-                Content::text("Audit unavailable (storage in DEGRADED mode)")
-            ]));
-        };
-
-        match db.query_one(&query).await {
+        match self.coord.query_audit(p.tool.as_deref(), p.agent_id.as_deref(), limit).await {
             Ok(results) => Ok(CallToolResult::success(vec![
                 Content::text(serde_json::to_string_pretty(&results).unwrap_or_else(|_| "[]".into()))
             ])),
@@ -439,31 +414,9 @@ impl CynicMcp {
         params: Parameters<RegisterParams>,
     ) -> Result<CallToolResult, McpError> {
         let p = params.0;
-        let Some(db) = &self.raw_db else {
-            return Ok(CallToolResult::success(vec![
-                Content::text("Coordination unavailable (storage DEGRADED)")
-            ]));
-        };
-
-        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
-        // Record IDs in SurrealDB backtick syntax reject hyphens — sanitize to underscores.
-        // String values (agent_id field) preserve the original for display/lookup.
-        let sanitize_id = |s: &str| s.chars().map(|c: char| if c.is_alphanumeric() || c == '_' { c } else { '_' }).collect::<String>();
         let agent_type = p.agent_type.unwrap_or_else(|| "unknown".into());
-        let sql = format!(
-            "UPSERT agent_session:`{id_key}` SET \
-                agent_id = '{id_val}', \
-                agent_type = '{agent_type}', \
-                intent = '{intent}', \
-                registered_at = time::now(), \
-                last_seen = time::now(), \
-                active = true;",
-            id_key = sanitize_id(&p.agent_id),
-            id_val = escape(&p.agent_id),
-            agent_type = escape(&agent_type),
-            intent = escape(&p.intent),
-        );
-        db.query_one(&sql).await
+
+        self.coord.register_agent(&p.agent_id, &agent_type, &p.intent).await
             .map_err(|e| McpError::internal_error(format!("Register failed: {}", e), None))?;
 
         self.audit("cynic_coord_register", &p.agent_id, &serde_json::json!({
@@ -484,66 +437,29 @@ impl CynicMcp {
         params: Parameters<ClaimParams>,
     ) -> Result<CallToolResult, McpError> {
         let p = params.0;
-        let Some(db) = &self.raw_db else {
-            return Ok(CallToolResult::success(vec![
-                Content::text("Coordination unavailable (storage DEGRADED)")
-            ]));
-        };
-
-        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
-        let sanitize_id = |s: &str| s.chars().map(|c: char| if c.is_alphanumeric() || c == '_' { c } else { '_' }).collect::<String>();
         let claim_type = p.claim_type.unwrap_or_else(|| "file".into());
 
-        // Check for existing active claims on this target by OTHER agents
-        let check_sql = format!(
-            "SELECT * FROM work_claim WHERE target = '{}' AND agent_id != '{}' AND active = true;",
-            escape(&p.target), escape(&p.agent_id)
-        );
-        let conflicts = db.query_one(&check_sql).await
-            .map_err(|e| McpError::internal_error(format!("Claim check failed: {}", e), None))?;
-
-        if !conflicts.is_empty() {
-            let conflict_info: Vec<String> = conflicts.iter().map(|c| {
-                format!("{} (since {})",
-                    c["agent_id"].as_str().unwrap_or("?"),
-                    c["claimed_at"].as_str().unwrap_or("?"))
-            }).collect();
-            return Ok(CallToolResult::success(vec![
-                Content::text(format!("CONFLICT: '{}' already claimed by: {}. Coordinate before proceeding.",
-                    p.target, conflict_info.join(", ")))
-            ]));
+        match self.coord.claim(&p.agent_id, &p.target, &claim_type).await
+            .map_err(|e| McpError::internal_error(format!("Claim failed: {}", e), None))?
+        {
+            ClaimResult::Conflict(infos) => {
+                let conflict_info: Vec<String> = infos.iter().map(|c| {
+                    format!("{} (since {})", c.agent_id, c.claimed_at)
+                }).collect();
+                Ok(CallToolResult::success(vec![
+                    Content::text(format!("CONFLICT: '{}' already claimed by: {}. Coordinate before proceeding.",
+                        p.target, conflict_info.join(", ")))
+                ]))
+            }
+            ClaimResult::Claimed => {
+                self.audit("cynic_coord_claim", &p.agent_id, &serde_json::json!({
+                    "target": p.target, "claim_type": claim_type,
+                })).await;
+                Ok(CallToolResult::success(vec![
+                    Content::text(format!("Claimed '{}' ({}) for agent '{}'.", p.target, claim_type, p.agent_id))
+                ]))
+            }
         }
-
-        // Create or update the claim
-        let claim_id = format!("{}_{}", p.agent_id, p.target.replace(['/', '.'], "_"));
-        let sql = format!(
-            "UPSERT work_claim:`{claim_id_key}` SET \
-                agent_id = '{agent_id}', \
-                target = '{target}', \
-                claim_type = '{claim_type}', \
-                claimed_at = time::now(), \
-                active = true;",
-            claim_id_key = sanitize_id(&claim_id),
-            agent_id = escape(&p.agent_id),
-            target = escape(&p.target),
-            claim_type = escape(&claim_type),
-        );
-        db.query_one(&sql).await
-            .map_err(|e| McpError::internal_error(format!("Claim failed: {}", e), None))?;
-
-        // Refresh heartbeat
-        let _ = db.query_one(&format!(
-            "UPDATE agent_session:`{}` SET last_seen = time::now();",
-            sanitize_id(&p.agent_id)
-        )).await;
-
-        self.audit("cynic_coord_claim", &p.agent_id, &serde_json::json!({
-            "target": p.target, "claim_type": claim_type,
-        })).await;
-
-        Ok(CallToolResult::success(vec![
-            Content::text(format!("Claimed '{}' ({}) for agent '{}'.", p.target, claim_type, p.agent_id))
-        ]))
     }
 
     #[tool(
@@ -555,38 +471,9 @@ impl CynicMcp {
         params: Parameters<ReleaseParams>,
     ) -> Result<CallToolResult, McpError> {
         let p = params.0;
-        let Some(db) = &self.raw_db else {
-            return Ok(CallToolResult::success(vec![
-                Content::text("Coordination unavailable (storage DEGRADED)")
-            ]));
-        };
 
-        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
-        let sanitize_id = |s: &str| s.chars().map(|c: char| if c.is_alphanumeric() || c == '_' { c } else { '_' }).collect::<String>();
-
-        let (sql, desc) = match &p.target {
-            Some(target) => (
-                format!("UPDATE work_claim SET active = false WHERE agent_id = '{}' AND target = '{}' AND active = true;",
-                    escape(&p.agent_id), escape(target)),
-                format!("Released '{}' for agent '{}'.", target, p.agent_id),
-            ),
-            None => (
-                format!("UPDATE work_claim SET active = false WHERE agent_id = '{}' AND active = true;",
-                    escape(&p.agent_id)),
-                format!("Released ALL claims for agent '{}'.", p.agent_id),
-            ),
-        };
-
-        db.query_one(&sql).await
+        let desc = self.coord.release(&p.agent_id, p.target.as_deref()).await
             .map_err(|e| McpError::internal_error(format!("Release failed: {}", e), None))?;
-
-        // Mark session inactive if releasing all
-        if p.target.is_none() {
-            let _ = db.query_one(&format!(
-                "UPDATE agent_session:`{}` SET active = false, last_seen = time::now();",
-                sanitize_id(&p.agent_id)
-            )).await;
-        }
 
         self.audit("cynic_coord_release", &p.agent_id, &serde_json::json!({
             "target": p.target,
@@ -604,43 +491,15 @@ impl CynicMcp {
         params: Parameters<WhoParams>,
     ) -> Result<CallToolResult, McpError> {
         let p = params.0;
-        let Some(db) = &self.raw_db else {
-            return Ok(CallToolResult::success(vec![
-                Content::text("Coordination unavailable (storage DEGRADED)")
-            ]));
-        };
 
-        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
-
-        // Expire stale sessions (>5 min since last_seen)
-        let _ = db.query_one(
-            "UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;"
-        ).await;
-        // Expire claims from inactive agents
-        // `SELECT VALUE` returns scalar array — required for IN comparisons in SurrealDB.
-        let _ = db.query_one(
-            "UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);"
-        ).await;
-
-        // Query active sessions
-        let session_sql = match &p.agent_id {
-            Some(id) => format!("SELECT * FROM agent_session WHERE agent_id = '{}';", escape(id)),
-            None => "SELECT * FROM agent_session WHERE active = true;".to_string(),
-        };
-        let sessions = db.query_one(&session_sql).await.unwrap_or_default();
-
-        // Query active claims
-        let claims_sql = match &p.agent_id {
-            Some(id) => format!("SELECT * FROM work_claim WHERE agent_id = '{}' AND active = true;", escape(id)),
-            None => "SELECT * FROM work_claim WHERE active = true;".to_string(),
-        };
-        let claims = db.query_one(&claims_sql).await.unwrap_or_default();
+        let snapshot = self.coord.who(p.agent_id.as_deref()).await
+            .map_err(|e| McpError::internal_error(format!("Who failed: {}", e), None))?;
 
         let response = serde_json::json!({
-            "active_agents": sessions.len(),
-            "active_claims": claims.len(),
-            "agents": sessions,
-            "claims": claims,
+            "active_agents": snapshot.agents.len(),
+            "active_claims": snapshot.claims.len(),
+            "agents": snapshot.agents,
+            "claims": snapshot.claims,
         });
 
         Ok(CallToolResult::success(vec![
@@ -651,17 +510,7 @@ impl CynicMcp {
     // ── Audit helper (best-effort, non-blocking) ─────────────
 
     async fn audit(&self, tool_name: &str, agent_id: &str, details: &serde_json::Value) {
-        let Some(db) = &self.raw_db else { return };
-
-        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
-        let safe_details = escape(&details.to_string());
-        let query = format!(
-            "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = '{}';\
-             DELETE mcp_audit WHERE id NOT IN (SELECT VALUE id FROM mcp_audit ORDER BY ts DESC LIMIT 10000);",
-            escape(tool_name), escape(agent_id), safe_details,
-        );
-
-        let _ = db.query(&query).await;
+        let _ = self.coord.store_audit(tool_name, agent_id, details).await;
     }
 }
 

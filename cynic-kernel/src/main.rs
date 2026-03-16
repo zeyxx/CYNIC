@@ -93,6 +93,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(s) => Arc::clone(s) as Arc<dyn storage_port::StoragePort>,
         None => Arc::new(storage_port::NullStorage),
     };
+    let coord: Arc<dyn coord_port::CoordPort> = match &raw_db {
+        Some(s) => Arc::clone(s) as Arc<dyn coord_port::CoordPort>,
+        None => Arc::new(coord_port::NullCoord),
+    };
     
     // ─── RING 1: Vascular System (gRPC IPC) ──────────────────
     let addr = "[::1]:50051".parse()?;
@@ -149,7 +153,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rest_state = Arc::new(rest::AppState {
         judge: Arc::clone(&judge),
         storage: Arc::clone(&storage_port),
-        raw_db: raw_db.clone(),
+        coord: Arc::clone(&coord),
         usage: Arc::clone(&usage_tracker),
         api_key,
         rate_limiter: rest::RateLimiter::new(30),   // 30 requests/minute global
@@ -164,7 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mcp_server = mcp::CynicMcp::new(
             Arc::clone(&judge),
             Arc::clone(&storage_port),
-            raw_db.clone(),
+            Arc::clone(&coord),
             Arc::clone(&usage_tracker),
         );
         let transport = rmcp::transport::io::stdio();
