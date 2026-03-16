@@ -32,12 +32,16 @@ GIT_DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | wc -l)
 
 # ── Generate agent ID for this session ──
 AGENT_ID="claude-$(date +%s)"
+# Note: AGENT_ID changes on session resume/compaction (OQ4). coord claims
+# from a previous ID expire via 5-min TTL. See docs for OQ4 resolution.
+# Mask real IP — session context must never contain real IPs
+[ -n "${CYNIC_REST_ADDR:-}" ] && ADDR_STATUS="SET" || ADDR_STATUS="NOT SET"
 
 # ── Output context (injected into conversation) ──
 cat <<EOF
 CYNIC SESSION — Pipeline initialized.
 Kernel: ${KERNEL_STATUS} | DB: ${SURREAL_STATUS} | Git: ${GIT_BRANCH} (${GIT_DIRTY} dirty files)
-Env: CYNIC_REST_ADDR=${CYNIC_REST_ADDR:-NOT SET}
+Env: CYNIC_REST_ADDR=${ADDR_STATUS}
 Agent: ${AGENT_ID}
 
 WORKFLOW: Use /build after edits, /deploy for production, /status for full dashboard.

@@ -133,4 +133,4 @@ done:  ## make done SLUG=rest-audit — remove worktree and branch
 .PHONY: agents
 agents:  ## Show active agents and work claims (requires kernel running)
 	@$(source_env)
-	@curl -sf -H "Authorization: Bearer $${CYNIC_API_KEY}" "http://$${CYNIC_REST_ADDR}/agents" | python3 -m json.tool 2>/dev/null || echo "ERROR: kernel not responding at $${CYNIC_REST_ADDR}"
+	@curl -sf -H "Authorization: Bearer $${CYNIC_API_KEY}" "http://$${CYNIC_REST_ADDR}/agents" | python3 -m json.tool 2>/dev/null || { [ -n "$${CYNIC_REST_ADDR:-}" ] && echo "ERROR: kernel not responding at $${CYNIC_REST_ADDR}" || echo "ERROR: CYNIC_REST_ADDR not set — source ~/.cynic-env first"; }
