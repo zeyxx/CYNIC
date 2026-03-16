@@ -150,9 +150,24 @@ impl CynicMcp {
         let p = params.0;
         let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
 
+        // CCM feedback: enrich context with crystallized wisdom
+        let domain_hint = p.domain.as_deref().unwrap_or("general");
+        let enriched_context = match self.storage.list_crystals(50).await {
+            Ok(crystals) => {
+                let crystal_ctx = crate::domain::ccm::format_crystal_context(&crystals, domain_hint, 800);
+                match (p.context, crystal_ctx) {
+                    (Some(ctx), Some(cc)) => Some(format!("{}\n\n{}", ctx, cc)),
+                    (Some(ctx), None) => Some(ctx),
+                    (None, Some(cc)) => Some(cc),
+                    (None, None) => None,
+                }
+            }
+            Err(_) => p.context,
+        };
+
         let stimulus = Stimulus {
             content: p.content,
-            context: p.context,
+            context: enriched_context,
             domain: p.domain,
         };
 

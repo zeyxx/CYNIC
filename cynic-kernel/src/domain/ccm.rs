@@ -122,6 +122,48 @@ fn running_mean(current_mean: f64, count: u32, new_value: f64) -> f64 {
     (current_mean * n + new_value) / (n + 1.0)
 }
 
+// ── CCM FEEDBACK — inject crystallized wisdom into stimulus context ──
+
+/// Format mature crystals as context for Dog prompts.
+/// Only includes Crystallized and Canonical crystals from the same domain.
+/// Token-budget-aware: caps at max_chars to avoid overflowing small models.
+pub fn format_crystal_context(crystals: &[Crystal], domain: &str, max_chars: usize) -> Option<String> {
+    let mature: Vec<&Crystal> = crystals.iter()
+        .filter(|c| c.domain == domain || domain == "general")
+        .filter(|c| matches!(c.state, CrystalState::Crystallized | CrystalState::Canonical))
+        .collect();
+
+    if mature.is_empty() {
+        return None;
+    }
+
+    // Sort by confidence descending — highest-value crystals first (agentkeeper pattern)
+    let mut sorted = mature;
+    sorted.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+
+    let mut lines = Vec::new();
+    let mut total_chars = 0;
+    let header = format!("[CYNIC Memory — {} crystallized patterns for domain '{}']", sorted.len(), domain);
+    total_chars += header.len();
+    lines.push(header);
+
+    for c in sorted {
+        let state_label = if c.state == CrystalState::Canonical { "CANONICAL" } else { "CRYSTALLIZED" };
+        let line = format!("- [{}] (confidence: {:.2}, {} observations): {}", state_label, c.confidence, c.observations, c.content);
+        if total_chars + line.len() > max_chars {
+            break; // Token budget exhausted
+        }
+        total_chars += line.len();
+        lines.push(line);
+    }
+
+    if lines.len() <= 1 {
+        return None; // Only header, no crystals fit
+    }
+
+    Some(lines.join("\n"))
+}
+
 // ── CONTENT HASHING ─────────────────────────────────────────
 /// Deterministic content hash for crystal IDs. FNV-1a — not cryptographic,
 /// just stable content addressing. Used by both REST and MCP paths.
@@ -242,6 +284,38 @@ mod tests {
         // Mean of alternating 0.9/0.2 ≈ 0.55, below PHI_INV
         assert!(c.confidence < PHI_INV);
         assert_ne!(c.state, CrystalState::Crystallized);
+    }
+
+    #[test]
+    fn crystal_context_includes_mature_only() {
+        let crystals = vec![
+            make_crystal(PHI_INV, 25, CrystalState::Crystallized),
+            make_crystal(0.3, 5, CrystalState::Forming),
+            make_crystal(PHI_INV, 250, CrystalState::Canonical),
+        ];
+        let ctx = format_crystal_context(&crystals, "test", 2000).unwrap();
+        assert!(ctx.contains("CRYSTALLIZED"));
+        assert!(ctx.contains("CANONICAL"));
+        assert!(!ctx.contains("Forming")); // Forming excluded
+    }
+
+    #[test]
+    fn crystal_context_respects_budget() {
+        let crystals: Vec<Crystal> = (0..100).map(|i| {
+            let mut c = make_crystal(PHI_INV, 25, CrystalState::Crystallized);
+            c.content = format!("pattern number {} with some extra text to fill space", i);
+            c
+        }).collect();
+        let ctx = format_crystal_context(&crystals, "test", 200).unwrap();
+        assert!(ctx.len() <= 300); // Some slack for header
+    }
+
+    #[test]
+    fn crystal_context_empty_when_no_mature() {
+        let crystals = vec![
+            make_crystal(0.3, 5, CrystalState::Forming),
+        ];
+        assert!(format_crystal_context(&crystals, "test", 2000).is_none());
     }
 
     #[test]

@@ -37,9 +37,24 @@ pub async fn judge_handler(
         })));
     }
 
+    // CCM feedback: enrich context with crystallized wisdom from this domain
+    let domain_hint = req.domain.as_deref().unwrap_or("general");
+    let enriched_context = match state.storage.list_crystals(50).await {
+        Ok(crystals) => {
+            let crystal_ctx = ccm::format_crystal_context(&crystals, domain_hint, 800);
+            match (req.context, crystal_ctx) {
+                (Some(ctx), Some(cc)) => Some(format!("{}\n\n{}", ctx, cc)),
+                (Some(ctx), None) => Some(ctx),
+                (None, Some(cc)) => Some(cc),
+                (None, None) => None,
+            }
+        }
+        Err(_) => req.context, // Storage down — proceed without crystals
+    };
+
     let stimulus = crate::domain::dog::Stimulus {
         content,
-        context: req.context,
+        context: enriched_context,
         domain: req.domain,
     };
 
