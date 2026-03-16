@@ -102,5 +102,4 @@ export const AXIOM_ICONS: Record<string, string> = {
   sovereignty: '👑',
 };
 
-export const DEFAULT_API_BASE = 'https://associations-mailed-treasury-component.trycloudflare.com';
-export const API_BASE = DEFAULT_API_BASE;
+export const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3030';

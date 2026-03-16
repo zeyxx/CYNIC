@@ -5,6 +5,7 @@ import { getKernelUrl, KERNEL_URL_LS_KEY, SELECTED_DOGS_LS_KEY, getSelectedDogs 
 
 export function KernelSettings({ onClose }: { onClose: () => void }) {
   const [url, setUrl] = useState(getKernelUrl());
+  const [apiKey, setApiKey] = useState(localStorage.getItem('cynic_api_key') ?? '');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [availableDogs, setAvailableDogs] = useState<string[]>([]);
@@ -18,6 +19,8 @@ export function KernelSettings({ onClose }: { onClose: () => void }) {
     const clean = url.replace(/\/$/, '');
     localStorage.setItem(KERNEL_URL_LS_KEY, clean);
     localStorage.setItem(SELECTED_DOGS_LS_KEY, JSON.stringify(selectedDogs));
+    if (apiKey) localStorage.setItem('cynic_api_key', apiKey);
+    else localStorage.removeItem('cynic_api_key');
     window.location.reload();
   };
 
@@ -30,7 +33,9 @@ export function KernelSettings({ onClose }: { onClose: () => void }) {
   const reset = () => {
     localStorage.removeItem(KERNEL_URL_LS_KEY);
     localStorage.removeItem(SELECTED_DOGS_LS_KEY);
+    localStorage.removeItem('cynic_api_key');
     setUrl(DEFAULT_API_BASE);
+    setApiKey('');
     setTestResult(null);
   };
 
@@ -86,6 +91,26 @@ export function KernelSettings({ onClose }: { onClose: () => void }) {
         />
         <div style={{ fontSize: 11, color: '#444', marginTop: 6 }}>
           Cloudflare tunnel, Tailscale IP, ou localhost:3030 si le kernel tourne localement.
+        </div>
+
+        <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 8, marginTop: 20 }}>
+          API Key (Bearer token)
+        </label>
+        <input
+          value={apiKey}
+          onChange={e => setApiKey(e.target.value)}
+          type="password"
+          style={{
+            width: '100%', padding: '10px 12px',
+            background: '#0a0a0a', border: '1px solid #333',
+            borderRadius: 8, color: '#e0e0e0',
+            fontFamily: 'monospace', fontSize: 13,
+            outline: 'none', boxSizing: 'border-box',
+          }}
+          placeholder="Required for /judge, /verdicts, /crystals"
+        />
+        <div style={{ fontSize: 11, color: '#444', marginTop: 6 }}>
+          /health is public. All other endpoints require authentication.
         </div>
 
         <div style={{ marginTop: 24 }}>
