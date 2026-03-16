@@ -11,21 +11,43 @@ use super::types::*;
 use super::response::verdict_to_response;
 use crate::domain::ccm;
 
+/// Max content length in chars — caps token consumption per request.
+const MAX_CONTENT_LEN: usize = 4_000;
+const MAX_CONTEXT_LEN: usize = 2_000;
+
 pub async fn judge_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<JudgeRequest>,
 ) -> Result<Json<JudgeResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Input validation — prevent token drain attacks
+    let content = req.content.trim().to_string();
+    if content.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse { error: "content must not be empty".into() })));
+    }
+    if content.len() > MAX_CONTENT_LEN {
+        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
+            error: format!("content exceeds {} chars (got {})", MAX_CONTENT_LEN, content.len()),
+        })));
+    }
+    if let Some(ref ctx) = req.context
+        && ctx.len() > MAX_CONTEXT_LEN
+    {
+        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
+            error: format!("context exceeds {} chars (got {})", MAX_CONTEXT_LEN, ctx.len()),
+        })));
+    }
+
     let stimulus = crate::domain::dog::Stimulus {
-        content: req.content,
+        content,
         context: req.context,
         domain: req.domain,
     };
 
     let verdict = state.judge.evaluate(&stimulus, req.dogs.as_deref()).await
-        .map_err(|e| (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: e.to_string() }),
-        ))?;
+        .map_err(|e| {
+            eprintln!("[REST] Judge error: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "evaluation failed".into() }))
+        })?;
 
     // Store verdict (best effort — don't fail the request if storage is down)
     if let Err(e) = state.storage.store_verdict(&verdict).await {

@@ -18,7 +18,7 @@ use axum::{
     Router,
 };
 use std::sync::Arc;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
 use self::data::{crystals_handler, crystal_handler, usage_handler};
@@ -29,10 +29,24 @@ use self::middleware::{auth_middleware, rate_limit_middleware, audit_middleware}
 // ── ROUTER ─────────────────────────────────────────────────
 
 pub fn router(state: Arc<AppState>) -> Router {
+    // CORS: restrict to known origins. CYNIC_CORS_ORIGINS env var for additional.
+    // Default: localhost dev servers only.
+    let mut origins: Vec<axum::http::HeaderValue> = vec![
+        "http://localhost:5173".parse().unwrap(),
+        "http://localhost:5000".parse().unwrap(),
+        "http://localhost:3000".parse().unwrap(),
+    ];
+    if let Ok(extra) = std::env::var("CYNIC_CORS_ORIGINS") {
+        for o in extra.split(',') {
+            if let Ok(v) = o.trim().parse() {
+                origins.push(v);
+            }
+        }
+    }
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(origins)
+        .allow_methods(tower_http::cors::Any)
+        .allow_headers(tower_http::cors::Any);
 
     if state.api_key.is_some() {
         eprintln!("[Ring 3 / REST] Bearer auth ENABLED");

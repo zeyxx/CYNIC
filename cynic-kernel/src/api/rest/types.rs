@@ -1,6 +1,8 @@
 //! REST API type definitions — request/response structs and shared state.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
 use crate::domain::coord::CoordPort;
@@ -16,42 +18,50 @@ pub struct AppState {
     pub coord: Arc<dyn CoordPort>,
     pub usage: Arc<Mutex<DogUsageTracker>>,
     pub api_key: Option<String>,
-    pub rate_limiter: RateLimiter,
-    pub judge_limiter: RateLimiter,
+    pub rate_limiter: PerIpRateLimiter,
+    pub judge_limiter: PerIpRateLimiter,
 }
 
-// ── RATE LIMITER (Token Bucket) ───────────────────────────────
+// ── PER-IP RATE LIMITER ──────────────────────────────────────
 
-/// Token bucket rate limiter. Tokens regenerate continuously — no burst edge case.
-/// Each check() consumes 1 token. Tokens refill at max_per_minute/60 per second.
-pub struct RateLimiter {
-    state: Mutex<TokenBucket>,
+/// Per-IP token bucket rate limiter. Each IP gets its own bucket.
+/// Stale entries are evicted after 2 minutes of inactivity.
+pub struct PerIpRateLimiter {
+    buckets: Mutex<HashMap<IpAddr, TokenBucket>>,
+    max_per_minute: u64,
 }
 
 struct TokenBucket {
     tokens: f64,
     max_tokens: f64,
-    refill_rate: f64, // tokens per second
+    refill_rate: f64,
     last_refill: std::time::Instant,
 }
 
-impl RateLimiter {
+impl PerIpRateLimiter {
     pub fn new(max_per_minute: u64) -> Self {
-        let max = max_per_minute as f64;
         Self {
-            state: Mutex::new(TokenBucket {
-                tokens: max,
-                max_tokens: max,
-                refill_rate: max / 60.0,
-                last_refill: std::time::Instant::now(),
-            }),
+            buckets: Mutex::new(HashMap::new()),
+            max_per_minute,
         }
     }
 
-    /// Returns true if request is allowed (consumes 1 token), false if rate limited.
-    pub fn check(&self) -> bool {
-        let mut bucket = self.state.lock().unwrap();
+    /// Returns true if request from this IP is allowed.
+    pub fn check(&self, ip: IpAddr) -> bool {
+        let mut buckets = self.buckets.lock().unwrap();
         let now = std::time::Instant::now();
+
+        // Evict stale entries (>2min inactive) to prevent memory leak
+        buckets.retain(|_, b| now.duration_since(b.last_refill).as_secs() < 120);
+
+        let max = self.max_per_minute as f64;
+        let bucket = buckets.entry(ip).or_insert_with(|| TokenBucket {
+            tokens: max,
+            max_tokens: max,
+            refill_rate: max / 60.0,
+            last_refill: now,
+        });
+
         let elapsed = now.duration_since(bucket.last_refill).as_secs_f64();
         bucket.tokens = (bucket.tokens + elapsed * bucket.refill_rate).min(bucket.max_tokens);
         bucket.last_refill = now;
@@ -162,11 +172,16 @@ mod tests {
 
     #[test]
     fn rate_limiter_allows_within_limit() {
-        let limiter = RateLimiter::new(3);
-        assert!(limiter.check());
-        assert!(limiter.check());
-        assert!(limiter.check());
-        assert!(!limiter.check()); // 4th request rejected
+        let limiter = PerIpRateLimiter::new(3);
+        let ip: std::net::IpAddr = "127.0.0.1".parse().unwrap();
+        assert!(limiter.check(ip));
+        assert!(limiter.check(ip));
+        assert!(limiter.check(ip));
+        assert!(!limiter.check(ip)); // 4th request rejected
+        // Different IP gets its own bucket
+        let ip2: std::net::IpAddr = "10.0.0.1".parse().unwrap();
+        assert!(ip2 != ip);
+        assert!(limiter.check(ip2)); // separate bucket, allowed
     }
 
     #[test]

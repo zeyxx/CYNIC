@@ -10,6 +10,12 @@ use std::sync::Arc;
 
 use super::types::{AppState, ErrorResponse};
 
+/// Constant-time comparison to prevent timing attacks on API key.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() { return false; }
+    a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
+
 /// Bearer token authentication. Skipped for /health. Skipped if no CYNIC_API_KEY.
 pub async fn auth_middleware(
     State(state): State<Arc<AppState>>,
@@ -29,7 +35,7 @@ pub async fn auth_middleware(
             .map(|s| s.to_string());
 
         match token {
-            Some(t) if t == *key => {},
+            Some(t) if constant_time_eq(t.as_bytes(), key.as_bytes()) => {},
             _ => {
                 return (
                     StatusCode::UNAUTHORIZED,
@@ -41,8 +47,7 @@ pub async fn auth_middleware(
     next.run(request).await
 }
 
-/// Rate limiter — rejects excess requests with 429. /health exempt.
-/// /judge has a stricter limit (costs inference tokens).
+/// Rate limiter — per-IP token bucket. /health exempt. /judge has stricter limit.
 pub async fn rate_limit_middleware(
     State(state): State<Arc<AppState>>,
     request: Request,
@@ -52,14 +57,27 @@ pub async fn rate_limit_middleware(
     if path == "/health" {
         return next.run(request).await;
     }
-    // /judge has its own stricter rate limit
-    if path == "/judge" && !state.judge_limiter.check() {
-        return (
-            StatusCode::TOO_MANY_REQUESTS,
-            Json(ErrorResponse { error: "Judge rate limit exceeded (inference is expensive)".into() }),
-        ).into_response();
+
+    // Extract client IP from X-Forwarded-For or peer address
+    let ip = request.headers()
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.split(',').next())
+        .and_then(|s| s.trim().parse::<std::net::IpAddr>().ok())
+        .unwrap_or(std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
+
+    // /judge has its own stricter per-IP rate limit
+    if path == "/judge" {
+        if !state.judge_limiter.check(ip) {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(ErrorResponse { error: "Judge rate limit exceeded (inference is expensive)".into() }),
+            ).into_response();
+        }
+        // /judge only checks judge_limiter, not global — no double counting
+        return next.run(request).await;
     }
-    if !state.rate_limiter.check() {
+    if !state.rate_limiter.check(ip) {
         return (
             StatusCode::TOO_MANY_REQUESTS,
             Json(ErrorResponse { error: "Rate limit exceeded".into() }),

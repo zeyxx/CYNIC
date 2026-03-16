@@ -87,6 +87,10 @@ impl Judge {
             })
             .collect();
 
+        // Per-Dog timeout: each Dog gets 15s max. Slow Dogs time out individually
+        // without blocking fast Dogs. Partial results are collected.
+        const PER_DOG_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+
         // Parallel evaluation — skip Dogs with open circuit breakers
         let futures: Vec<_> = dog_breaker_pairs.iter()
             .filter(|(_, cb)| cb.should_allow())
@@ -94,22 +98,23 @@ impl Judge {
                 let id = dog.id().to_string();
                 async move {
                     let start = std::time::Instant::now();
-                    let result = dog.evaluate(stimulus).await;
+                    let result = tokio::time::timeout(PER_DOG_TIMEOUT, dog.evaluate(stimulus)).await;
                     let elapsed_ms = start.elapsed().as_millis() as u64;
-                    (id, result, elapsed_ms)
+                    match result {
+                        Ok(inner) => (id, inner, elapsed_ms),
+                        Err(_) => (id, Err(DogError::ApiError(format!("timeout after {}s", PER_DOG_TIMEOUT.as_secs()))), elapsed_ms),
+                    }
                 }
             })
             .collect();
 
-        // Wall-clock timeout: 60s max for all Dogs combined.
-        // If timeout fires, we get NO partial results (join_all is all-or-nothing).
-        // So we use select! with individual per-Dog timeouts instead.
+        // Wall-clock timeout: 20s max. With per-dog 15s, this is a safety net.
         let results = tokio::time::timeout(
-            std::time::Duration::from_secs(60),
+            std::time::Duration::from_secs(20),
             futures::future::join_all(futures),
         ).await.map_err(|_| {
-            eprintln!("[Judge] TIMEOUT: Dog evaluation exceeded 60s wall-clock limit");
-            JudgeError::AllDogsFailed(vec!["Evaluation timeout (60s)".into()])
+            eprintln!("[Judge] TIMEOUT: Dog evaluation exceeded 20s wall-clock limit");
+            JudgeError::AllDogsFailed(vec!["Evaluation timeout (20s)".into()])
         })?;
 
         let mut dog_scores: Vec<DogScore> = Vec::new();

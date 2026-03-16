@@ -112,8 +112,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         coord: Arc::clone(&coord),
         usage: Arc::clone(&usage_tracker),
         api_key,
-        rate_limiter: api::rest::RateLimiter::new(30),   // 30 requests/minute global
-        judge_limiter: api::rest::RateLimiter::new(10),   // 10 /judge per minute (inference costs money)
+        rate_limiter: api::rest::PerIpRateLimiter::new(30),   // 30 requests/minute global
+        judge_limiter: api::rest::PerIpRateLimiter::new(10),   // 10 /judge per minute (inference costs money)
     });
     let rest_app = api::rest::router(rest_state);
 
@@ -135,7 +135,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let rest_addr = std::env::var("CYNIC_REST_ADDR")
-        .unwrap_or_else(|_| "0.0.0.0:3030".to_string());
+        .unwrap_or_else(|_| "127.0.0.1:3030".to_string());
     klog!("[Ring 3] REST API on http://{}", rest_addr);
 
     let rest_listener = tokio::net::TcpListener::bind(&rest_addr).await?;
