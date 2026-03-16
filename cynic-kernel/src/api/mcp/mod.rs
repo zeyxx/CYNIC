@@ -21,12 +21,12 @@ use rmcp::{
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::coord_port::{CoordPort, ClaimResult};
-use crate::dog::{Stimulus, PHI_INV};
+use crate::domain::coord::{CoordPort, ClaimResult};
+use crate::domain::dog::{Stimulus, PHI_INV};
 use crate::judge::Judge;
-use crate::storage_port::StoragePort;
-use crate::usage::DogUsageTracker;
-use crate::ccm;
+use crate::domain::storage::StoragePort;
+use crate::domain::usage::DogUsageTracker;
+use crate::domain::ccm;
 
 // ── MCP Tool Parameters ─────────────────────────────────────
 

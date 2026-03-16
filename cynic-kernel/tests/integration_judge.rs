@@ -1,8 +1,8 @@
 //! Integration test: Stimulus → Judge → Verdict → Storage round-trip
 //! Uses DeterministicDog only (no API key needed for CI).
 
-use cynic_kernel::dog::*;
-use cynic_kernel::deterministic_dog::DeterministicDog;
+use cynic_kernel::domain::dog::*;
+use cynic_kernel::dogs::deterministic::DeterministicDog;
 use cynic_kernel::judge::Judge;
 
 #[tokio::test]

@@ -15,12 +15,12 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 use chrono;
 
-use crate::coord_port::CoordPort;
-use crate::dog::{Verdict, PHI_INV};
+use crate::domain::coord::CoordPort;
+use crate::domain::dog::{Verdict, PHI_INV};
 use crate::judge::Judge;
-use crate::storage_port::StoragePort;
-use crate::ccm;
-use crate::usage::DogUsageTracker;
+use crate::domain::storage::StoragePort;
+use crate::domain::ccm;
+use crate::domain::usage::DogUsageTracker;
 use std::sync::Mutex;
 
 // ── SHARED STATE ───────────────────────────────────────────
@@ -304,7 +304,7 @@ async fn judge_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<JudgeRequest>,
 ) -> Result<Json<JudgeResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let stimulus = crate::dog::Stimulus {
+    let stimulus = crate::domain::dog::Stimulus {
         content: req.content,
         context: req.context,
         domain: req.domain,
@@ -419,7 +419,7 @@ async fn crystal_handler(
 }
 
 async fn temporal_handler() -> Json<serde_json::Value> {
-    use crate::temporal::TemporalPerspective;
+    use crate::domain::temporal::TemporalPerspective;
     let perspectives: Vec<serde_json::Value> = TemporalPerspective::ALL.iter().map(|p| {
         serde_json::json!({
             "perspective": p.label(),
@@ -599,9 +599,9 @@ fn verdict_to_response(v: &Verdict) -> JudgeResponse {
 
 /// Map Dog evaluations onto temporal perspectives and aggregate.
 /// Each Dog represents a different "temporal lens" on the stimulus.
-pub fn compute_temporal_from_dogs(dog_scores: &[crate::dog::DogScore]) -> Option<TemporalResponse> {
-    use crate::temporal::{TemporalPerspective, TemporalScore, aggregate_temporal};
-    use crate::dog::compute_qscore;
+pub fn compute_temporal_from_dogs(dog_scores: &[crate::domain::dog::DogScore]) -> Option<TemporalResponse> {
+    use crate::domain::temporal::{TemporalPerspective, TemporalScore, aggregate_temporal};
+    use crate::domain::dog::compute_qscore;
 
     if dog_scores.len() < 2 {
         return None; // Need multiple perspectives
@@ -614,10 +614,10 @@ pub fn compute_temporal_from_dogs(dog_scores: &[crate::dog::DogScore]) -> Option
     let temporal_scores: Vec<(TemporalScore, String)> = dog_scores.iter().enumerate().filter_map(|(i, ds)| {
         let perspective = perspectives.get(i % perspectives.len())?;
 
-        let axiom_scores = crate::dog::AxiomScores {
+        let axiom_scores = crate::domain::dog::AxiomScores {
             fidelity: ds.fidelity, phi: ds.phi, verify: ds.verify,
             culture: ds.culture, burn: ds.burn, sovereignty: ds.sovereignty,
-            reasoning: crate::dog::AxiomReasoning::default(),
+            reasoning: crate::domain::dog::AxiomReasoning::default(),
             ..Default::default()
         };
         let q = compute_qscore(&axiom_scores);
@@ -648,7 +648,7 @@ pub fn compute_temporal_from_dogs(dog_scores: &[crate::dog::DogScore]) -> Option
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dog::*;
+    use crate::domain::dog::*;
 
     #[test]
     fn md5_hash_deterministic() {

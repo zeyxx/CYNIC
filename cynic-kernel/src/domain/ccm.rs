@@ -6,7 +6,7 @@
 //! This is how CYNIC learns without training — through phi-bounded consensus.
 
 use serde::{Deserialize, Serialize};
-use crate::dog::{PHI_INV, PHI_INV2};
+use crate::domain::dog::{PHI_INV, PHI_INV2};
 
 /// Fibonacci F(8) = 21 — minimum observations before crystallization.
 pub const MIN_CRYSTALLIZATION_CYCLES: u32 = 21;

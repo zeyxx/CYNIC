@@ -6,7 +6,7 @@
 //! with phi-bounded confidence and geometric mean aggregation.
 
 use serde::{Deserialize, Serialize};
-use crate::dog::{PHI, AxiomScores, phi_bound};
+use crate::domain::dog::{PHI, AxiomScores, phi_bound};
 
 /// The 7 temporal perspectives — irreducible set.
 /// Each sees the stimulus through a different time lens.
@@ -133,7 +133,7 @@ pub fn aggregate_temporal(scores: &[TemporalScore]) -> TemporalVerdict {
     TemporalVerdict {
         perspectives: scores.to_vec(),
         temporal_total,
-        outlier_perspective: if max_div > crate::dog::PHI_INV2 { Some(outlier) } else { None },
+        outlier_perspective: if max_div > crate::domain::dog::PHI_INV2 { Some(outlier) } else { None },
         max_divergence: max_div,
     }
 }
@@ -142,7 +142,7 @@ pub fn aggregate_temporal(scores: &[TemporalScore]) -> TemporalVerdict {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dog::{AxiomReasoning, compute_qscore, PHI_INV};
+    use crate::domain::dog::{AxiomReasoning, compute_qscore, PHI_INV};
 
     fn make_temporal_score(perspective: TemporalPerspective, value: f64) -> TemporalScore {
         let scores = AxiomScores {

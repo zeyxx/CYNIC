@@ -2,7 +2,7 @@
 //!
 //! Circuit breaker per backend. Health probed periodically, NOT per request.
 
-use crate::backend::*;
+use crate::domain::inference::*;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
@@ -47,7 +47,7 @@ impl TrackedBackend {
     }
 }
 
-use crate::circuit_breaker::{FAILURE_THRESHOLD, COOLDOWN, PROBE_INTERVAL};
+use crate::infra::circuit_breaker::{FAILURE_THRESHOLD, COOLDOWN, PROBE_INTERVAL};
 
 pub struct BackendRouter {
     backends: RwLock<Vec<TrackedBackend>>,
@@ -221,7 +221,7 @@ impl BackendRouter {
 }
 
 #[async_trait::async_trait]
-impl crate::backend::InferenceRouter for BackendRouter {
+impl crate::domain::inference::InferenceRouter for BackendRouter {
     async fn route(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError> {
         BackendRouter::route(self, req).await
     }
@@ -233,7 +233,7 @@ impl crate::backend::InferenceRouter for BackendRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::MockBackend;
+    use crate::domain::inference::MockBackend;
 
     fn req(id: &str) -> InferenceRequest {
         InferenceRequest {

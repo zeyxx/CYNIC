@@ -2,9 +2,9 @@
 //! Implements ChatPort (for Dogs) and InferencePort (for MCTS).
 //! One type, N instances (Gemini, HuggingFace, llama.cpp, vLLM, SGLang).
 
-use crate::backend::*;
-use crate::chat_port::{ChatPort, ChatError, ChatResponse};
-use crate::config::{BackendConfig, AuthStyle};
+use crate::domain::inference::*;
+use crate::domain::chat::{ChatPort, ChatError, ChatResponse};
+use crate::infra::config::{BackendConfig, AuthStyle};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};

@@ -5,8 +5,8 @@
 //! The full fact/trust API will extend this trait post-hackathon.
 
 use async_trait::async_trait;
-use crate::dog::Verdict;
-use crate::ccm::Crystal;
+use crate::domain::dog::Verdict;
+use crate::domain::ccm::Crystal;
 
 #[derive(Debug)]
 pub enum StorageError {

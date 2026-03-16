@@ -1,9 +1,9 @@
 //! Dog trait contract tests — any Dog implementation must pass these.
 
-use cynic_kernel::dog::*;
-use cynic_kernel::deterministic_dog::DeterministicDog;
-use cynic_kernel::inference_dog::InferenceDog;
-use cynic_kernel::chat_port::MockChatBackend;
+use cynic_kernel::domain::dog::*;
+use cynic_kernel::dogs::deterministic::DeterministicDog;
+use cynic_kernel::dogs::inference::InferenceDog;
+use cynic_kernel::domain::chat::MockChatBackend;
 use std::sync::Arc;
 
 async fn dog_contract(dog: &dyn Dog) {

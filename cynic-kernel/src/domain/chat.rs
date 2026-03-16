@@ -2,7 +2,7 @@
 //! Dogs use this. MCTS uses InferencePort. Same backend, two interfaces (ISP).
 
 use async_trait::async_trait;
-use crate::backend::BackendStatus;
+use crate::domain::inference::BackendStatus;
 
 /// Response from a chat completion — text + token usage.
 #[derive(Debug, Clone)]

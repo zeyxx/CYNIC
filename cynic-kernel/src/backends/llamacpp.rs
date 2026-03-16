@@ -1,6 +1,6 @@
 //! LlamaCppBackend — InferencePort implementation for llama.cpp's OpenAI-compatible HTTP API.
 
-use crate::backend::*;
+use crate::domain::inference::*;
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};

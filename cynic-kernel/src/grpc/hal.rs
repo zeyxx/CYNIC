@@ -5,7 +5,7 @@ use crate::cynic_v2::{
     MctsInferenceRequest, MctsInferenceResponse,
     InferenceToken, HalProfile, PulseRequest,
 };
-use crate::backend::{InferenceRequest, InferenceRouter};
+use crate::domain::inference::{InferenceRequest, InferenceRouter};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tokio_stream::wrappers::ReceiverStream;

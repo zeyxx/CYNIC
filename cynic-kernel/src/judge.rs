@@ -2,8 +2,8 @@
 //! Parallel evaluation via futures::future::join_all.
 //! Residual detection: disagreement > φ⁻² = ANOMALY.
 
-use crate::dog::{*, estimate_tokens};
-use crate::circuit_breaker::CircuitBreaker;
+use crate::domain::dog::{*, estimate_tokens};
+use crate::infra::circuit_breaker::CircuitBreaker;
 use chrono::Utc;
 use uuid::Uuid;
 

@@ -9,7 +9,7 @@
 //!
 //! Design principle: better to abstain than to guess.
 
-use crate::dog::*;
+use crate::domain::dog::*;
 use async_trait::async_trait;
 
 /// Neutral score — center of [0, φ⁻¹]. Neither boosts nor drags LLM consensus.

@@ -1,7 +1,7 @@
 //! ChatPort trait contract tests — any ChatPort implementation must pass these.
 
-use cynic_kernel::chat_port::*;
-use cynic_kernel::backend::BackendStatus;
+use cynic_kernel::domain::chat::*;
+use cynic_kernel::domain::inference::BackendStatus;
 
 async fn chat_port_contract(port: &dyn ChatPort) {
     // 1. Name must be non-empty

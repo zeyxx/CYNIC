@@ -1,8 +1,8 @@
 //! InferenceDog — model-agnostic Dog that uses any ChatPort for axiom evaluation.
 //! ONE prompt template, N backends. The Dog never knows which model it's talking to.
 
-use crate::dog::*;
-use crate::chat_port::ChatPort;
+use crate::domain::dog::*;
+use crate::domain::chat::ChatPort;
 use async_trait::async_trait;
 use serde::Deserialize;
 use std::sync::Arc;
@@ -88,8 +88,8 @@ impl Dog for InferenceDog {
 
         let chat_resp = self.chat.chat(system, &user).await
             .map_err(|e| match e {
-                crate::chat_port::ChatError::RateLimited(m) => DogError::RateLimited(m),
-                crate::chat_port::ChatError::Timeout { .. } => DogError::Timeout,
+                crate::domain::chat::ChatError::RateLimited(m) => DogError::RateLimited(m),
+                crate::domain::chat::ChatError::Timeout { .. } => DogError::Timeout,
                 other => DogError::ApiError(other.to_string()),
             })?;
         let text = &chat_resp.text;
@@ -226,7 +226,7 @@ fn extract_json(text: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chat_port::MockChatBackend;
+    use crate::domain::chat::MockChatBackend;
 
     #[test]
     fn extract_json_from_clean() {
