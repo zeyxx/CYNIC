@@ -25,7 +25,7 @@ use crate::dog::{Stimulus, PHI_INV};
 use crate::judge::Judge;
 use crate::storage_port::StoragePort;
 use crate::storage_http::SurrealHttpStorage;
-use crate::rest::DogUsageTracker;
+use crate::usage::DogUsageTracker;
 use crate::ccm;
 
 // ── MCP Tool Parameters ─────────────────────────────────────

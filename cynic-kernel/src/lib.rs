@@ -37,6 +37,7 @@ pub mod ccm;
 pub mod temporal;
 pub mod circuit_breaker;
 pub mod mcp;
+pub mod usage;
 
 pub mod cynic_v2 {
     tonic::include_proto!("cynic.v2");
