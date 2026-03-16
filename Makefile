@@ -66,10 +66,11 @@ deploy: ship
 	@echo "▶ Deploying kernel..."
 	systemctl --user stop cynic-kernel
 	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
+	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-mcp
 	systemctl --user start cynic-kernel
 	@sleep 4
 	@echo "▶ Verifying..."
-	@curl -s "http://$${CYNIC_REST_ADDR}/health" | python3 -c "import json,sys; h=json.load(sys.stdin); print(f'Kernel: {h[\"status\"]} | Storage: {h[\"storage\"]} | Dogs: {len(h[\"dogs\"])}')"
+	@curl -s "http://$${CYNIC_REST_ADDR}/health" | python3 -c "import json,sys; h=json.load(sys.stdin); print(f'Kernel: {h[\"status\"]}')"
 	@echo "✓ Deployed and verified"
 
 # ── Standalone: End-to-end test ──────────────────────────────
@@ -89,7 +90,7 @@ status:
 	@$(source_env)
 	@echo "CYNIC System Status"
 	@echo "═══════════════════"
-	@printf "Kernel:  "; curl -sf "http://$${CYNIC_REST_ADDR}/health" | python3 -c "import json,sys; h=json.load(sys.stdin); print(f'{h[\"status\"]} | storage: {h[\"storage\"]} | {len(h[\"dogs\"])} dogs')" 2>/dev/null || echo "DOWN"
+	@printf "Kernel:  "; curl -sf "http://$${CYNIC_REST_ADDR}/health" | python3 -c "import json,sys; h=json.load(sys.stdin); print(h['status'])" 2>/dev/null || echo "DOWN"
 	@printf "SurrealDB: "; surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"
 	@printf "Services: "; systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""
 	@printf "Git: "; git -C $(PROJECT_DIR) rev-parse --abbrev-ref HEAD; git -C $(PROJECT_DIR) log --oneline -1
