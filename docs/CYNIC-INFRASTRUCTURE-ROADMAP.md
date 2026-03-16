@@ -31,9 +31,10 @@ Agent C (OpenCode)─────┘      │       Judge (consensus quality gat
 
 ### S. Windows Desktop (GPU Worker)
 - **Hardware:** i5-14400F 10C/16T, RTX 4060 Ti 16 GB VRAM, 16 GB RAM
-- **Inference:** NOTHING RUNNING — Docker llama-server was the old setup, no native build
-- **CUDA:** Driver 581.15 (CUDA 13.0 capable), no toolkit installed
-- **Next step:** Ollama install → Qwen 3.5 9B Q8_0 → full GPU offload
+- **Inference:** Ollama 0.17.7, Gemma 3 12B Q4_K_M (8.1 GB), full GPU offload, 43 t/s gen
+- **Models available:** gemma3:12b-it-q4_K_M (active), qwen3.5:9b (thinking issue), qwen3-coder:30b, gpt-oss:20b
+- **Access:** `tailscale serve --tcp 11434 tcp://localhost:11434` (Tailscale-only, no firewall needed)
+- **Known issue:** Qwen 3.5 thinking mode — Ollama OpenAI API puts all output in `reasoning`, `content` empty
 - **Tailscale:** `<TAILSCALE_S>`
 
 ### Forge (Backup — No Inference)
@@ -50,7 +51,7 @@ Agent C (OpenCode)─────┘      │       Judge (consensus quality gat
 | **MCP (stdio)** | Agent → kernel tools | ✅ Production | **KEEP** — zero attack surface, shared state via SurrealDB |
 | **MCP (Streamable HTTP)** | Remote multi-agent | ❌ Not implemented | **WAIT** — 30 CVEs/60 days, spec unstable, June 2026 fix. REST API covers this |
 | **REST (Axum)** | External clients, frontend | ✅ Production | **KEEP** — secured today (auth, per-IP rate limit, input validation) |
-| **gRPC (tonic)** | Dog-to-dog, node-to-node streaming | ⚠️ Proto exists, pulse hardcoded | **NEXT** — when multi-node inference needs streaming |
+| **gRPC (tonic)** | Dog-to-dog, node-to-node streaming, A2A transport | ⚠️ Proto + services exist (MuscleHAL, KPulse, Vascular) — awaiting real backend wiring | **NEXT** — needed for streaming inference, real-time push notifications, inter-node communication |
 | **A2A** | Agent-to-agent standard | ❌ Not implemented | **STRATEGIC** — implement when routing intelligence is ready |
 
 ### Why NOT Streamable HTTP (2026-03-16)
@@ -165,18 +166,28 @@ N agents = N stdio processes, all sharing the same DB. This works.
 
 ## Feature Compound Map
 
-### Phase 1 — Sovereign Foundation (NOW)
+### Phase 1 — Sovereign Foundation (DONE 2026-03-16)
 ```
-□ Install Ollama on S. via Tailscale MCP
-□ Fix gemma-sovereign auth in backends.toml (or set SOVEREIGN_API_KEY)
-□ Uncomment sovereign in backends.toml
-□ Verify: 5 Dogs active (deterministic + gemini + huggingface + qwen-hf + sovereign)
-□ Benchmark: /test-chess with all 5 Dogs
+✅ Install Ollama on S. via Tailscale MCP — Gemma 3 12B Q4_K_M, 43 t/s, 6.1s latency
+✅ Fix gemma-sovereign auth — SOVEREIGN_API_KEY set in ~/.cynic-env
+✅ Sovereign in backends.toml — Ollama on S. via tailscale serve :11434
+✅ 6 Dogs active (deterministic + gemini + huggingface + qwen-hf + sovereign + gemma-sovereign)
+✅ Benchmark: Sicilian=HOWL Q=0.589, 6/6 Dogs healthy
+⚠️ Qwen 3.5 9B thinking mode breaks Ollama OpenAI API (content empty, all in reasoning)
+   → Switched to Gemma 3 12B. Qwen 3.5 needs Ollama native API adapter or per-request thinking control.
 ```
 
 ### Phase 2 — Intelligence Loops
 ```
-□ CCM feedback loop — inject mature crystals into Dog prompts (~50 LOC)
+✅ CCM feedback loop — crystals injected into Dog prompts (format_crystal_context, 800 char budget)
+□ Thinking mode control — per-REQUEST (not per-backend) enable/disable:
+    - BackendConfig: api_style (openai/ollama/vllm), thinking (always/never/auto), max_thinking_tokens
+    - Stimulus.complexity hint (Simple/Deep/Auto) → routing decides think on/off
+    - Simple tasks (chess judgment, classification) → think:false, fast
+    - Deep tasks (architecture analysis, debugging) → think:true, more tokens
+    - Requires OllamaBackend adapter (native /api/chat, not OpenAI compat) for think param
+    - Qwen 3.5 thinking buggy on llama.cpp (#20182, #20196) — Ollama native works
+    - JSON structured output + thinking are fundamentally in tension (grammar suppresses <think> token)
 □ Temporal integration — call aggregate_temporal in Judge, expose in verdict
 □ cynic_infer routing — replace pass-through with BackendRouter dispatch
 □ Auto-e2e post-deploy — chain /e2e after /deploy in Makefile
