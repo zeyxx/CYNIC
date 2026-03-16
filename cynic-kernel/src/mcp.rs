@@ -181,7 +181,7 @@ impl CynicMcp {
 
         // CCM: observe crystal atomically (no read-modify-write race)
         {
-            let crystal_id = format!("{:x}", ccm::content_hash(&verdict.stimulus_summary));
+            let crystal_id = format!("{:x}", ccm::content_hash(&format!("{}:{}", stimulus.domain.as_deref().unwrap_or("general"), stimulus.content)));
             let domain = stimulus.domain.clone().unwrap_or_else(|| "general".to_string());
             let now = chrono::Utc::now().to_rfc3339();
             if let Err(e) = self.storage.observe_crystal(
@@ -649,11 +649,12 @@ impl CynicMcp {
         let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
         let safe_details = escape(&details.to_string());
         let query = format!(
-            "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = '{}';",
+            "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = '{}';\
+             DELETE mcp_audit WHERE id NOT IN (SELECT VALUE id FROM mcp_audit ORDER BY ts DESC LIMIT 10000);",
             escape(tool_name), escape(agent_id), safe_details,
         );
 
-        let _ = db.query_one(&query).await;
+        let _ = db.query(&query).await;
     }
 }
 

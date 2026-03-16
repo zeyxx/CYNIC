@@ -356,10 +356,11 @@ async fn audit_middleware(
         let db = Arc::clone(db);
         let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
         let sql = format!(
-            "CREATE rest_audit SET ts = time::now(), method = '{}', path = '{}', status = {}, latency_ms = {};",
+            "CREATE rest_audit SET ts = time::now(), method = '{}', path = '{}', status = {}, latency_ms = {};\
+             DELETE rest_audit WHERE id NOT IN (SELECT VALUE id FROM rest_audit ORDER BY ts DESC LIMIT 10000);",
             escape(&method), escape(&path), status, elapsed_ms,
         );
-        tokio::spawn(async move { let _ = db.query_one(&sql).await; });
+        tokio::spawn(async move { let _ = db.query(&sql).await; });
     }
 
     response
@@ -398,8 +399,9 @@ async fn judge_handler(
     }
 
     // CCM: observe crystal atomically (no read-modify-write race)
+    // Hash full content + domain (not truncated summary) to avoid collisions
     {
-        let crystal_id = format!("{:x}", md5_hash(&verdict.stimulus_summary));
+        let crystal_id = format!("{:x}", md5_hash(&format!("{}:{}", stimulus.domain.as_deref().unwrap_or("general"), stimulus.content)));
         let domain = stimulus.domain.unwrap_or_else(|| "general".to_string());
         let now = chrono::Utc::now().to_rfc3339();
         if let Err(e) = state.storage.observe_crystal(
@@ -685,19 +687,12 @@ pub fn compute_temporal_from_dogs(dog_scores: &[crate::dog::DogScore]) -> Option
         return None; // Need multiple perspectives
     }
 
-    // Map Dogs to temporal perspectives based on their nature
-    let perspective_map: Vec<(TemporalPerspective, &str)> = vec![
-        (TemporalPerspective::Present, "deterministic-dog"),    // Instant heuristic = present state
-        (TemporalPerspective::Transcendence, "gemini"),         // Largest model = deepest insight
-        (TemporalPerspective::Past, "huggingface"),             // Meta/Llama = historical training data
-        (TemporalPerspective::Emergence, "gemma-sovereign"),    // Local sovereign = novel perspective
-        (TemporalPerspective::Cycle, "qwen"),                   // Alibaba/Qwen = cyclical patterns
-    ];
+    // Map Dogs to temporal perspectives dynamically by index.
+    // No hardcoded Dog IDs — works with any number/name of Dogs.
+    let perspectives = TemporalPerspective::ALL;
 
-    let temporal_scores: Vec<TemporalScore> = dog_scores.iter().filter_map(|ds| {
-        let perspective = perspective_map.iter()
-            .find(|(_, dog_id)| *dog_id == ds.dog_id)
-            .map(|(p, _)| *p)?;
+    let temporal_scores: Vec<(TemporalScore, String)> = dog_scores.iter().enumerate().filter_map(|(i, ds)| {
+        let perspective = perspectives.get(i % perspectives.len())?;
 
         let axiom_scores = crate::dog::AxiomScores {
             fidelity: ds.fidelity, phi: ds.phi, verify: ds.verify,
@@ -706,28 +701,25 @@ pub fn compute_temporal_from_dogs(dog_scores: &[crate::dog::DogScore]) -> Option
             ..Default::default()
         };
         let q = compute_qscore(&axiom_scores);
-        Some(TemporalScore { perspective, axiom_scores, q_total: q.total })
+        Some((TemporalScore { perspective: *perspective, axiom_scores, q_total: q.total }, ds.dog_id.clone()))
     }).collect();
 
     if temporal_scores.is_empty() {
         return None;
     }
 
-    let tv = aggregate_temporal(&temporal_scores);
+    let scores_only: Vec<TemporalScore> = temporal_scores.iter().map(|(s, _)| s.clone()).collect();
+    let tv = aggregate_temporal(&scores_only);
 
     Some(TemporalResponse {
         temporal_total: tv.temporal_total,
         outlier_perspective: tv.outlier_perspective.map(|p| p.label().to_string()),
         max_divergence: tv.max_divergence,
-        perspectives: temporal_scores.iter().map(|ts| {
-            let dog_id = perspective_map.iter()
-                .find(|(p, _)| *p == ts.perspective)
-                .map(|(_, id)| id.to_string())
-                .unwrap_or_default();
+        perspectives: temporal_scores.iter().map(|(ts, dog_id)| {
             TemporalPerspectiveScore {
                 perspective: ts.perspective.label().to_string(),
                 q_total: ts.q_total,
-                dog_id,
+                dog_id: dog_id.clone(),
             }
         }).collect(),
     })
