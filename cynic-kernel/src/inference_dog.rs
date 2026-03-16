@@ -33,7 +33,7 @@ CONTEXT: {context_block}
 Evaluate THE SUBJECT MATTER described (not the description). Score each axiom from 0.0 to 1.0 with honest uncertainty.
 
 AXIOMS:
-1. FIDELITY — Is this faithful to truth? Does it reflect sound principles in its domain?
+1. FIDELITY — Is the SUBJECT MATTER itself sound? In chess: is this move/strategy actually good? A terrible move accurately described is FIDELITY=LOW. Judge the THING, not the accuracy of its description.
 2. PHI — Is this structurally harmonious? Well-coordinated? Proportional?
 3. VERIFY — Does this SURVIVE scrutiny? When tested against the strongest counterarguments, does it hold?
 4. CULTURE — Does this honor existing traditions, conventions, and established patterns?
