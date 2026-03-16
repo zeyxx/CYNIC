@@ -36,6 +36,7 @@ pub mod config;
 pub mod ccm;
 pub mod temporal;
 pub mod circuit_breaker;
+pub mod coord_port;
 pub mod mcp;
 pub mod usage;
 

@@ -8,6 +8,7 @@
 
 use reqwest::Client;
 use serde::Deserialize;
+use crate::coord_port::{CoordPort, CoordError, ClaimResult, ConflictInfo, CoordSnapshot};
 use crate::dog::{Verdict, VerdictKind, QScore, AxiomReasoning};
 use crate::ccm::{Crystal, CrystalState};
 use crate::storage_port::{StoragePort, StorageError};
@@ -388,6 +389,123 @@ impl StoragePort for SurrealHttpStorage {
             ts = escape(timestamp),
         );
         self.query_one(&sql).await?;
+        Ok(())
+    }
+}
+
+// ── COORD PORT IMPLEMENTATION ────────────────────────────────
+
+fn sanitize_record_id(s: &str) -> String {
+    s.chars().map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' }).collect()
+}
+
+#[async_trait::async_trait]
+impl CoordPort for SurrealHttpStorage {
+    async fn register_agent(&self, agent_id: &str, agent_type: &str, intent: &str) -> Result<(), CoordError> {
+        let sql = format!(
+            "UPSERT agent_session:`{id_key}` SET \
+                agent_id = '{id_val}', agent_type = '{agent_type}', intent = '{intent}', \
+                registered_at = time::now(), last_seen = time::now(), active = true;",
+            id_key = sanitize_record_id(agent_id),
+            id_val = escape_surreal(agent_id),
+            agent_type = escape_surreal(agent_type),
+            intent = escape_surreal(intent),
+        );
+        self.query_one(&sql).await.map_err(|e| CoordError::StorageFailed(format!("Register: {}", e)))?;
+        Ok(())
+    }
+
+    async fn claim(&self, agent_id: &str, target: &str, claim_type: &str) -> Result<ClaimResult, CoordError> {
+        let check_sql = format!(
+            "SELECT * FROM work_claim WHERE target = '{}' AND agent_id != '{}' AND active = true;",
+            escape_surreal(target), escape_surreal(agent_id)
+        );
+        let conflicts = self.query_one(&check_sql).await
+            .map_err(|e| CoordError::StorageFailed(format!("Claim check: {}", e)))?;
+        if !conflicts.is_empty() {
+            let infos = conflicts.iter().map(|c| ConflictInfo {
+                agent_id: c["agent_id"].as_str().unwrap_or("?").to_string(),
+                claimed_at: c["claimed_at"].as_str().unwrap_or("?").to_string(),
+            }).collect();
+            return Ok(ClaimResult::Conflict(infos));
+        }
+        let claim_id = format!("{}_{}", agent_id, target.replace(['/', '.'], "_"));
+        let sql = format!(
+            "UPSERT work_claim:`{claim_id_key}` SET \
+                agent_id = '{agent_id}', target = '{target}', claim_type = '{claim_type}', \
+                claimed_at = time::now(), active = true;",
+            claim_id_key = sanitize_record_id(&claim_id),
+            agent_id = escape_surreal(agent_id),
+            target = escape_surreal(target),
+            claim_type = escape_surreal(claim_type),
+        );
+        self.query_one(&sql).await.map_err(|e| CoordError::StorageFailed(format!("Claim: {}", e)))?;
+        let _ = self.heartbeat(agent_id).await;
+        Ok(ClaimResult::Claimed)
+    }
+
+    async fn release(&self, agent_id: &str, target: Option<&str>) -> Result<String, CoordError> {
+        let (sql, desc) = match target {
+            Some(t) => (
+                format!("UPDATE work_claim SET active = false WHERE agent_id = '{}' AND target = '{}' AND active = true;",
+                    escape_surreal(agent_id), escape_surreal(t)),
+                format!("Released '{}' for agent '{}'.", t, agent_id),
+            ),
+            None => (
+                format!("UPDATE work_claim SET active = false WHERE agent_id = '{}' AND active = true;",
+                    escape_surreal(agent_id)),
+                format!("Released ALL claims for agent '{}'.", agent_id),
+            ),
+        };
+        self.query_one(&sql).await.map_err(|e| CoordError::StorageFailed(format!("Release: {}", e)))?;
+        if target.is_none() { let _ = self.deactivate_agent(agent_id).await; }
+        Ok(desc)
+    }
+
+    async fn who(&self, agent_id_filter: Option<&str>) -> Result<CoordSnapshot, CoordError> {
+        let _ = self.query_one("UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;").await;
+        let _ = self.query_one("UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await;
+        let session_sql = match agent_id_filter {
+            Some(id) => format!("SELECT * FROM agent_session WHERE agent_id = '{}';", escape_surreal(id)),
+            None => "SELECT * FROM agent_session WHERE active = true;".to_string(),
+        };
+        let agents = self.query_one(&session_sql).await.unwrap_or_default();
+        let claims_sql = match agent_id_filter {
+            Some(id) => format!("SELECT * FROM work_claim WHERE agent_id = '{}' AND active = true;", escape_surreal(id)),
+            None => "SELECT * FROM work_claim WHERE active = true;".to_string(),
+        };
+        let claims = self.query_one(&claims_sql).await.unwrap_or_default();
+        Ok(CoordSnapshot { agents, claims })
+    }
+
+    async fn store_audit(&self, tool: &str, agent_id: &str, details: &serde_json::Value) -> Result<(), CoordError> {
+        let safe_details = escape_surreal(&details.to_string());
+        let query = format!(
+            "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = '{}';\
+             DELETE mcp_audit WHERE id NOT IN (SELECT VALUE id FROM mcp_audit ORDER BY ts DESC LIMIT 10000);",
+            escape_surreal(tool), escape_surreal(agent_id), safe_details,
+        );
+        let _ = self.query(&query).await;
+        Ok(())
+    }
+
+    async fn query_audit(&self, tool_filter: Option<&str>, agent_filter: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, CoordError> {
+        let limit = limit.min(100);
+        let mut conditions = Vec::new();
+        if let Some(tool) = tool_filter { conditions.push(format!("tool = '{}'", escape_surreal(tool))); }
+        if let Some(agent) = agent_filter { conditions.push(format!("agent_id = '{}'", escape_surreal(agent))); }
+        let where_clause = if conditions.is_empty() { String::new() } else { format!(" WHERE {}", conditions.join(" AND ")) };
+        let query = format!("SELECT * FROM mcp_audit{} ORDER BY ts DESC LIMIT {};", where_clause, limit);
+        self.query_one(&query).await.map_err(|e| CoordError::StorageFailed(format!("Audit query: {}", e)))
+    }
+
+    async fn heartbeat(&self, agent_id: &str) -> Result<(), CoordError> {
+        let _ = self.query_one(&format!("UPDATE agent_session:`{}` SET last_seen = time::now();", sanitize_record_id(agent_id))).await;
+        Ok(())
+    }
+
+    async fn deactivate_agent(&self, agent_id: &str) -> Result<(), CoordError> {
+        let _ = self.query_one(&format!("UPDATE agent_session:`{}` SET active = false, last_seen = time::now();", sanitize_record_id(agent_id))).await;
         Ok(())
     }
 }
