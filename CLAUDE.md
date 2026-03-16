@@ -112,33 +112,18 @@ Real chess scores: Sicilian Defense → Howl. Scholar's Mate → Growl. Fool's M
 
 | Trigger | Tool/Skill | Type |
 |---------|-----------|------|
-| **Any code change** | `/build` | Slash command |
-| **Deploy to production** | `/deploy` | Slash command (includes DB backup) |
-| **Start kernel** | `/run` | Slash command (systemd) |
-| **Check system state** | `/status` | Slash command |
-| **End-to-end test** | `/e2e` | Slash command |
-| **Verify chess scoring** | `/test-chess` | Slash command |
-| **Building/modifying CYNIC** | `cynic-kernel` | Skill (architecture ref) |
-| **Evaluate quality of anything** | `cynic-judge` | Skill (43-dim scoring) |
+| **Any code change** | `make check` / `/build` | Makefile / Slash command |
+| **Session start** | `cynic_coord_register` | CYNIC MCP |
+| **Before file edit** | `cynic_coord_who` + `cynic_coord_claim` | CYNIC MCP |
+| **After ILC done** | `cynic_coord_release` | CYNIC MCP |
+| **See active agents** | `make agents` / `GET /agents` | Makefile / REST |
+| **Deploy to production** | `make deploy` / `/deploy` | Makefile / Slash command |
+| **Evaluate quality** | `cynic-judge` | Skill |
 | **Simplify/reduce code** | `cynic-burn` | Skill |
-| **Philosophical grounding** | `cynic-wisdom` | Skill (19 traditions) |
 | **Complex decisions** | `crystallize-truth` | Skill |
-| **LLM/ML infrastructure** | `ai-infrastructure` | Skill |
-| **System design from scratch** | `engineering-stack-design` | Skill |
-| **Frontend work** | `frontend-dev` | Skill |
-| **Library docs lookup** | `context7` MCP | Plugin (resolve-library-id → query-docs) |
-| **Judge content via API** | `cynic_judge` MCP | CYNIC MCP tool |
-| **Run inference** | `cynic_infer` MCP | CYNIC MCP tool |
-| **Read verdicts/crystals** | `cynic_verdicts` / `cynic_crystals` MCP | CYNIC MCP tool |
-| **Audit trail** | `cynic_audit_query` MCP | CYNIC MCP tool |
-| **Tailscale discovery** | `ts_discover` / `ts_status` MCP | Tailscale MCP |
-| **Remote execution** | `ts_exec` MCP | Tailscale MCP |
-| **Remote logs** | `ts_logs` MCP | Tailscale MCP |
-| **Before claiming "done"** | `verification-before-completion` | Superpowers plugin |
-| **Before creative work** | `brainstorming` | Superpowers plugin |
-| **Debugging** | `systematic-debugging` | Superpowers plugin |
-| **After major feature** | `code-review` | Superpowers plugin |
-| **Commit + push** | `commit` / `commit-push-pr` | Commit commands plugin |
+| **Building/modifying CYNIC** | `cynic-kernel` | Skill |
+| **Research / investigate** | `cynic-empirical` | Skill |
+| **Workflow reference** | `cynic-workflow` | Skill |
 
 ### Slash Commands
 
