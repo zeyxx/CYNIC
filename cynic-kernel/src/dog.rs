@@ -114,9 +114,13 @@ pub struct Verdict {
 }
 
 // ── PHI-BOUNDING ───────────────────────────────────────────
-/// Clamp a raw score to [0.0, phi^-1]. This is non-negotiable.
+/// Clamp a raw score to [FLOOR, phi^-1]. Floor at 0.05 because a true zero
+/// is always a parsing failure, never a real epistemic judgment. A zero in the
+/// arithmetic mean drags consensus unfairly; 0.05 preserves the "near-zero = terrible"
+/// signal without mathematical pathology.
+const SCORE_FLOOR: f64 = 0.05;
 pub fn phi_bound(raw: f64) -> f64 {
-    raw.clamp(0.0, PHI_INV)
+    raw.clamp(SCORE_FLOOR, PHI_INV)
 }
 
 /// Compute phi-bounded Q-Score from raw axiom scores.
@@ -203,12 +207,14 @@ mod tests {
     #[test]
     fn phi_bound_preserves_low_values() {
         assert!((phi_bound(0.3) - 0.3).abs() < 1e-10);
-        assert!((phi_bound(0.0) - 0.0).abs() < 1e-10);
+        // 0.0 is floored to SCORE_FLOOR (0.05) — a true zero is always a parsing failure
+        assert!((phi_bound(0.0) - SCORE_FLOOR).abs() < 1e-10);
     }
 
     #[test]
     fn phi_bound_clamps_negative() {
-        assert!((phi_bound(-0.5) - 0.0).abs() < 1e-10);
+        // Negative values are floored to SCORE_FLOOR
+        assert!((phi_bound(-0.5) - SCORE_FLOOR).abs() < 1e-10);
     }
 
     #[test]

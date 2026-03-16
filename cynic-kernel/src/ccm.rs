@@ -122,6 +122,18 @@ fn running_mean(current_mean: f64, count: u32, new_value: f64) -> f64 {
     (current_mean * n + new_value) / (n + 1.0)
 }
 
+// ── CONTENT HASHING ─────────────────────────────────────────
+/// Deterministic content hash for crystal IDs. FNV-1a — not cryptographic,
+/// just stable content addressing. Used by both REST and MCP paths.
+pub fn content_hash(input: &str) -> u64 {
+    let mut h: u64 = 0xcbf29ce484222325; // FNV-1a offset basis
+    for byte in input.bytes() {
+        h ^= byte as u64;
+        h = h.wrapping_mul(0x100000001b3); // FNV-1a prime
+    }
+    h
+}
+
 // ── CRYSTALLIZATION PORT ────────────────────────────────────
 /// Domain contract for crystal persistence. Adapter implements this.
 #[async_trait::async_trait]
