@@ -179,28 +179,15 @@ impl CynicMcp {
         // Store verdict (best effort)
         let _ = self.storage.store_verdict(&verdict).await;
 
-        // CCM: observe crystal (learning loop — same logic as REST path)
+        // CCM: observe crystal atomically (no read-modify-write race)
         {
             let crystal_id = format!("{:x}", ccm::content_hash(&verdict.stimulus_summary));
             let domain = stimulus.domain.clone().unwrap_or_else(|| "general".to_string());
             let now = chrono::Utc::now().to_rfc3339();
-            let existing = self.storage.get_crystal(&crystal_id).await.ok().flatten();
-            let crystal = match existing {
-                Some(c) => ccm::update_crystal(&c, verdict.q_score.total, &now),
-                None => ccm::new_crystal(
-                    crystal_id,
-                    verdict.stimulus_summary.clone(),
-                    domain,
-                    verdict.q_score.total,
-                    &now,
-                ),
-            };
-            if let Err(e) = self.storage.store_crystal(&crystal).await {
-                eprintln!("[MCP/CCM] Warning: failed to store crystal: {}", e);
-            } else {
-                eprintln!("[MCP/CCM] Crystal '{}' → {:?} (obs: {}, conf: {:.3})",
-                    crystal.content.chars().take(40).collect::<String>(),
-                    crystal.state, crystal.observations, crystal.confidence);
+            if let Err(e) = self.storage.observe_crystal(
+                &crystal_id, &verdict.stimulus_summary, &domain, verdict.q_score.total, &now
+            ).await {
+                eprintln!("[MCP/CCM] Warning: failed to observe crystal: {}", e);
             }
         }
 

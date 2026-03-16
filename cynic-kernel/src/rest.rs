@@ -91,31 +91,44 @@ impl DogUsageTracker {
     }
 }
 
-// ── RATE LIMITER ──────────────────────────────────────────────
+// ── RATE LIMITER (Token Bucket) ───────────────────────────────
 
-/// Simple fixed-window rate limiter. Resets counter every 60 seconds.
+/// Token bucket rate limiter. Tokens regenerate continuously — no burst edge case.
+/// Each check() consumes 1 token. Tokens refill at max_per_minute/60 per second.
 pub struct RateLimiter {
-    state: Mutex<(u64, std::time::Instant)>,
-    max_per_minute: u64,
+    state: Mutex<TokenBucket>,
+}
+
+struct TokenBucket {
+    tokens: f64,
+    max_tokens: f64,
+    refill_rate: f64, // tokens per second
+    last_refill: std::time::Instant,
 }
 
 impl RateLimiter {
     pub fn new(max_per_minute: u64) -> Self {
+        let max = max_per_minute as f64;
         Self {
-            state: Mutex::new((0, std::time::Instant::now())),
-            max_per_minute,
+            state: Mutex::new(TokenBucket {
+                tokens: max,
+                max_tokens: max,
+                refill_rate: max / 60.0,
+                last_refill: std::time::Instant::now(),
+            }),
         }
     }
 
-    /// Returns true if request is allowed, false if rate limited.
+    /// Returns true if request is allowed (consumes 1 token), false if rate limited.
     pub fn check(&self) -> bool {
-        let mut state = self.state.lock().unwrap();
+        let mut bucket = self.state.lock().unwrap();
         let now = std::time::Instant::now();
-        if now.duration_since(state.1).as_secs() >= 60 {
-            *state = (1, now);
-            true
-        } else if state.0 < self.max_per_minute {
-            state.0 += 1;
+        let elapsed = now.duration_since(bucket.last_refill).as_secs_f64();
+        bucket.tokens = (bucket.tokens + elapsed * bucket.refill_rate).min(bucket.max_tokens);
+        bucket.last_refill = now;
+
+        if bucket.tokens >= 1.0 {
+            bucket.tokens -= 1.0;
             true
         } else {
             false
@@ -384,22 +397,15 @@ async fn judge_handler(
         }
     }
 
-    // CCM: observe crystal (best effort — learning loop)
+    // CCM: observe crystal atomically (no read-modify-write race)
     {
         let crystal_id = format!("{:x}", md5_hash(&verdict.stimulus_summary));
         let domain = stimulus.domain.unwrap_or_else(|| "general".to_string());
         let now = chrono::Utc::now().to_rfc3339();
-        let existing = state.storage.get_crystal(&crystal_id).await.ok().flatten();
-        let crystal = match existing {
-            Some(c) => ccm::update_crystal(&c, verdict.q_score.total, &now),
-            None => ccm::new_crystal(crystal_id, verdict.stimulus_summary.clone(), domain, verdict.q_score.total, &now),
-        };
-        if let Err(e) = state.storage.store_crystal(&crystal).await {
-            eprintln!("[REST] Warning: failed to store crystal: {}", e);
-        } else {
-            eprintln!("[CCM] Crystal '{}' → {:?} (obs: {}, conf: {:.3})",
-                crystal.content.chars().take(40).collect::<String>(),
-                crystal.state, crystal.observations, crystal.confidence);
+        if let Err(e) = state.storage.observe_crystal(
+            &crystal_id, &verdict.stimulus_summary, &domain, verdict.q_score.total, &now
+        ).await {
+            eprintln!("[REST] Warning: failed to observe crystal: {}", e);
         }
     }
 

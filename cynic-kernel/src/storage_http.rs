@@ -361,6 +361,35 @@ impl StoragePort for SurrealHttpStorage {
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_crystal).collect())
     }
+
+    async fn observe_crystal(&self, id: &str, content: &str, domain: &str, score: f64, timestamp: &str) -> Result<(), StorageError> {
+        let escape = |s: &str| escape_surreal(s);
+        // Atomic UPSERT: if crystal exists, update running mean + increment obs.
+        // If not, create with initial values. All in one SurrealQL statement.
+        // Running mean: new_conf = (old_conf * old_obs + score) / (old_obs + 1)
+        // State classification thresholds: PHI_INV=0.618, PHI_INV2=0.382, MIN_CYCLES=21, CANONICAL=233
+        let sql = format!(
+            "UPSERT crystal:{id} SET \
+                content = '{content}', \
+                domain = '{domain}', \
+                observations = IF observations THEN observations + 1 ELSE 1 END, \
+                confidence = IF confidence THEN (confidence * observations + {score}) / (observations + 1) ELSE {score} END, \
+                state = IF (IF confidence THEN (confidence * observations + {score}) / (observations + 1) ELSE {score} END) < 0.381966 THEN \
+                    IF (IF observations THEN observations + 1 ELSE 1 END) > 21 THEN 'decaying' ELSE 'dissolved' END \
+                ELSE IF (IF observations THEN observations + 1 ELSE 1 END) >= 233 AND (IF confidence THEN (confidence * observations + {score}) / (observations + 1) ELSE {score} END) >= 0.618034 THEN 'canonical' \
+                ELSE IF (IF observations THEN observations + 1 ELSE 1 END) >= 21 AND (IF confidence THEN (confidence * observations + {score}) / (observations + 1) ELSE {score} END) >= 0.618034 THEN 'crystallized' \
+                ELSE 'forming' END END END, \
+                created_at = IF created_at THEN created_at ELSE '{ts}' END, \
+                updated_at = '{ts}';",
+            id = escape(id),
+            content = escape(content),
+            domain = escape(domain),
+            score = score,
+            ts = escape(timestamp),
+        );
+        self.query_one(&sql).await?;
+        Ok(())
+    }
 }
 
 // ── TESTS ────────────────────────────────────────────────────

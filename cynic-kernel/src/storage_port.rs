@@ -35,6 +35,10 @@ pub trait StoragePort: Send + Sync {
     async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError>;
     async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError>;
     async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError>;
+    /// Atomically observe a new score for a crystal. Creates if not exists,
+    /// updates running mean + observations + state in a single write.
+    /// Eliminates the get→compute→store race condition.
+    async fn observe_crystal(&self, id: &str, content: &str, domain: &str, score: f64, timestamp: &str) -> Result<(), StorageError>;
 }
 
 /// No-op storage for graceful degradation when DB is unavailable.
@@ -63,5 +67,8 @@ impl StoragePort for NullStorage {
     }
     async fn list_crystals(&self, _limit: u32) -> Result<Vec<Crystal>, StorageError> {
         Ok(vec![])
+    }
+    async fn observe_crystal(&self, _id: &str, _content: &str, _domain: &str, _score: f64, _timestamp: &str) -> Result<(), StorageError> {
+        Ok(())
     }
 }
