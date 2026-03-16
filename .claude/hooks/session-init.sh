@@ -30,12 +30,17 @@ fi
 GIT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | wc -l)
 
+# ── Generate agent ID for this session ──
+AGENT_ID="claude-$(date +%s)"
+
 # ── Output context (injected into conversation) ──
 cat <<EOF
 CYNIC SESSION — Pipeline initialized.
 Kernel: ${KERNEL_STATUS} | DB: ${SURREAL_STATUS} | Git: ${GIT_BRANCH} (${GIT_DIRTY} dirty files)
 Env: CYNIC_REST_ADDR=${CYNIC_REST_ADDR:-NOT SET}
+Agent: ${AGENT_ID}
 
 WORKFLOW: Use /build after edits, /deploy for production, /status for full dashboard.
+COORD: Register → cynic_coord_register("${AGENT_ID}", intent) | Claim → cynic_coord_who + cynic_coord_claim | Release → cynic_coord_release
 RULES: Public repo — no secrets, no real IPs, no names. Use skills before acting.
 EOF
