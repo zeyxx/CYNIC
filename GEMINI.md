@@ -58,10 +58,36 @@ Never modify files outside your assigned zone.
 ## Build Commands
 
 ```bash
-cargo build -p cynic-kernel --release
-cargo test -p cynic-kernel
-cargo clippy --workspace -- -D warnings
+make check   # build + test + clippy (--release) — use this, not raw cargo
 ```
+
+For individual stages when debugging:
+```bash
+cargo build -p cynic-kernel --release
+cargo test -p cynic-kernel --release
+cargo clippy -p cynic-kernel --release -- -D warnings
+```
+
+## Session Protocol
+
+Every session follows this lifecycle:
+
+| Stage | Action | Tool |
+|-------|--------|------|
+| Start | Register intent | `cynic_coord_register(agent_id="gemini-<timestamp>", intent="<what>")` |
+| Before edit | Check + claim | `cynic_coord_who()` → `cynic_coord_claim(agent_id, target-file)` |
+| After ILC | Validate + release | `make check` → `cynic_coord_release(agent_id, target-file)` |
+| End | Release session | `cynic_coord_release(agent_id)` |
+
+**ILC (Independent Logical Component):** Unit of work. One branch per ILC:
+`session/gemini/<slug>` (e.g., `session/gemini/ccm-decay-threshold`)
+
+Git rejects duplicate branch names — hard enforcement against parallel work collision.
+`cynic_coord_claim` adds soft visibility before work starts.
+
+**Gemini MCP config:** cynic_coord_* tools must be in your MCP configuration.
+Verify: `cynic_coord_who()` returns valid JSON (not "tool not found").
+If missing: add the CYNIC MCP server to your ~/.gemini/ config.
 
 ## Security Rules (INVIOLABLE — repo is PUBLIC)
 
