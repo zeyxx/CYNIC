@@ -461,7 +461,7 @@ impl CynicMcp {
         let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
         let agent_type = p.agent_type.unwrap_or_else(|| "unknown".into());
         let sql = format!(
-            "UPSERT agent_session:{id} SET \
+            "UPSERT agent_session:`{id}` SET \
                 agent_id = '{id}', \
                 agent_type = '{agent_type}', \
                 intent = '{intent}', \
@@ -525,7 +525,7 @@ impl CynicMcp {
         // Create or update the claim
         let claim_id = format!("{}_{}", p.agent_id, p.target.replace(['/', '.'], "_"));
         let sql = format!(
-            "UPSERT work_claim:{claim_id} SET \
+            "UPSERT work_claim:`{claim_id}` SET \
                 agent_id = '{agent_id}', \
                 target = '{target}', \
                 claim_type = '{claim_type}', \
@@ -541,7 +541,7 @@ impl CynicMcp {
 
         // Refresh heartbeat
         let _ = db.query_one(&format!(
-            "UPDATE agent_session:{} SET last_seen = time::now();",
+            "UPDATE agent_session:`{}` SET last_seen = time::now();",
             escape(&p.agent_id)
         )).await;
 
@@ -590,7 +590,7 @@ impl CynicMcp {
         // Mark session inactive if releasing all
         if p.target.is_none() {
             let _ = db.query_one(&format!(
-                "UPDATE agent_session:{} SET active = false, last_seen = time::now();",
+                "UPDATE agent_session:`{}` SET active = false, last_seen = time::now();",
                 escape(&p.agent_id)
             )).await;
         }

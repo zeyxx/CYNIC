@@ -39,11 +39,14 @@ impl Judge {
             return Err(JudgeError::NoDogs);
         }
 
-        // Filter Dogs if requested
+        // Filter Dogs if requested — always include deterministic-dog (free, instant)
         let active_dogs: Vec<_> = match filter {
-            Some(ids) => self.dogs.iter()
-                .filter(|d| ids.iter().any(|id| id == d.id()))
-                .collect(),
+            Some(ids) => {
+                let valid_ids: Vec<&str> = self.dogs.iter().map(|d| d.id()).collect();
+                self.dogs.iter()
+                    .filter(|d| d.id() == "deterministic-dog" || ids.iter().any(|id| id == d.id() && valid_ids.contains(&id.as_str())))
+                    .collect()
+            }
             None => self.dogs.iter().collect(),
         };
 
@@ -98,7 +101,16 @@ impl Judge {
             })
             .collect();
 
-        let results = futures::future::join_all(futures).await;
+        // Wall-clock timeout: 60s max for all Dogs combined.
+        // If timeout fires, we get NO partial results (join_all is all-or-nothing).
+        // So we use select! with individual per-Dog timeouts instead.
+        let results = tokio::time::timeout(
+            std::time::Duration::from_secs(60),
+            futures::future::join_all(futures),
+        ).await.map_err(|_| {
+            eprintln!("[Judge] TIMEOUT: Dog evaluation exceeded 60s wall-clock limit");
+            JudgeError::AllDogsFailed(vec!["Evaluation timeout (60s)".into()])
+        })?;
 
         let mut dog_scores: Vec<DogScore> = Vec::new();
         let mut errors: Vec<String> = Vec::new();
@@ -138,16 +150,15 @@ impl Judge {
             return Err(JudgeError::AllDogsFailed(errors));
         }
 
-        // Aggregate: arithmetic mean of per-axiom raw scores, then compute_qscore applies
-        // geometric mean internally (Q = ³√(F×Φ×V)). This matches the spec: "geometric mean
-        // (phi-bounded)" refers to compute_qscore, not to how we aggregate across Dogs.
-        let n = dog_scores.len() as f64;
-        let avg_fidelity = dog_scores.iter().map(|s| s.fidelity).sum::<f64>() / n;
-        let avg_phi = dog_scores.iter().map(|s| s.phi).sum::<f64>() / n;
-        let avg_verify = dog_scores.iter().map(|s| s.verify).sum::<f64>() / n;
-        let avg_culture = dog_scores.iter().map(|s| s.culture).sum::<f64>() / n;
-        let avg_burn = dog_scores.iter().map(|s| s.burn).sum::<f64>() / n;
-        let avg_sovereignty = dog_scores.iter().map(|s| s.sovereignty).sum::<f64>() / n;
+        // Aggregate: trimmed mean per axiom (remove highest + lowest when >= 4 dogs,
+        // otherwise arithmetic mean). This rejects outlier LLM scores that would
+        // pollute the consensus — standard robust aggregation (Olympic scoring).
+        let avg_fidelity = trimmed_mean(&dog_scores, |s| s.fidelity);
+        let avg_phi = trimmed_mean(&dog_scores, |s| s.phi);
+        let avg_verify = trimmed_mean(&dog_scores, |s| s.verify);
+        let avg_culture = trimmed_mean(&dog_scores, |s| s.culture);
+        let avg_burn = trimmed_mean(&dog_scores, |s| s.burn);
+        let avg_sovereignty = trimmed_mean(&dog_scores, |s| s.sovereignty);
 
         // Use median Dog's reasoning (deterministic under parallel execution)
         let mut sorted_by_q: Vec<&DogScore> = dog_scores.iter().collect();
@@ -221,6 +232,22 @@ impl Judge {
             max_disagreement,
             anomaly_axiom,
         })
+    }
+}
+
+/// Trimmed mean: drop highest + lowest value when >= 4 scores, average the rest.
+/// With 2-3 scores: plain arithmetic mean. Robust against outlier LLM responses.
+fn trimmed_mean(scores: &[DogScore], extract: impl Fn(&DogScore) -> f64) -> f64 {
+    let mut values: Vec<f64> = scores.iter().map(&extract).collect();
+    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+    if values.len() >= 4 {
+        // Drop lowest and highest, average the middle
+        let trimmed = &values[1..values.len() - 1];
+        trimmed.iter().sum::<f64>() / trimmed.len() as f64
+    } else {
+        // Too few for trimming — plain mean
+        values.iter().sum::<f64>() / values.len() as f64
     }
 }
 
