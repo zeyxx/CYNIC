@@ -1,0 +1,111 @@
+//! REST API handlers for judgment — /judge, /verdict/{id}, /verdicts.
+
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::Json,
+};
+use std::sync::Arc;
+
+use super::types::*;
+use super::response::verdict_to_response;
+use crate::domain::ccm;
+
+pub async fn judge_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<JudgeRequest>,
+) -> Result<Json<JudgeResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let stimulus = crate::domain::dog::Stimulus {
+        content: req.content,
+        context: req.context,
+        domain: req.domain,
+    };
+
+    let verdict = state.judge.evaluate(&stimulus, req.dogs.as_deref()).await
+        .map_err(|e| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse { error: e.to_string() }),
+        ))?;
+
+    // Store verdict (best effort — don't fail the request if storage is down)
+    if let Err(e) = state.storage.store_verdict(&verdict).await {
+        eprintln!("[REST] Warning: failed to store verdict: {}", e);
+    }
+
+    // Track token usage per Dog
+    {
+        let mut usage = state.usage.lock().unwrap();
+        usage.total_requests += 1;
+        for ds in &verdict.dog_scores {
+            usage.record(&ds.dog_id, ds.prompt_tokens, ds.completion_tokens, ds.latency_ms);
+        }
+    }
+
+    // CCM: observe crystal atomically (no read-modify-write race)
+    // Hash full content + domain (not truncated summary) to avoid collisions
+    {
+        let crystal_id = format!("{:x}", md5_hash(&format!("{}:{}", stimulus.domain.as_deref().unwrap_or("general"), stimulus.content)));
+        let domain = stimulus.domain.unwrap_or_else(|| "general".to_string());
+        let now = chrono::Utc::now().to_rfc3339();
+        if let Err(e) = state.storage.observe_crystal(
+            &crystal_id, &verdict.stimulus_summary, &domain, verdict.q_score.total, &now
+        ).await {
+            eprintln!("[REST] Warning: failed to observe crystal: {}", e);
+        }
+    }
+
+    Ok(Json(verdict_to_response(&verdict)))
+}
+
+pub async fn get_verdict_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<JudgeResponse>, (StatusCode, Json<ErrorResponse>)> {
+    match state.storage.get_verdict(&id).await {
+        Ok(Some(v)) => Ok(Json(verdict_to_response(&v))),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse { error: format!("Verdict {} not found", id) }),
+        )),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse { error: e.to_string() }),
+        )),
+    }
+}
+
+pub async fn list_verdicts_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<JudgeResponse>>, (StatusCode, Json<ErrorResponse>)> {
+    match state.storage.list_verdicts(20).await {
+        Ok(verdicts) => Ok(Json(verdicts.iter().map(verdict_to_response).collect())),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse { error: e.to_string() }),
+        )),
+    }
+}
+
+// ── HELPERS ────────────────────────────────────────────────
+
+/// Delegates to ccm::content_hash — single source of truth for crystal IDs.
+fn md5_hash(input: &str) -> u64 {
+    ccm::content_hash(input)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn md5_hash_deterministic() {
+        let a = md5_hash("hello");
+        let b = md5_hash("hello");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn md5_hash_different_inputs_differ() {
+        assert_ne!(md5_hash("foo"), md5_hash("bar"));
+    }
+}
