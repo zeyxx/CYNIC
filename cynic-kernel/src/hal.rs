@@ -5,19 +5,18 @@ use crate::cynic_v2::{
     MctsInferenceRequest, MctsInferenceResponse,
     InferenceToken, HalProfile, PulseRequest,
 };
-use crate::backend::InferenceRequest;
-use crate::router::BackendRouter;
+use crate::backend::{InferenceRequest, InferenceRouter};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio::sync::mpsc;
 
 pub struct MuscleService {
-    router: Arc<BackendRouter>,
+    router: Arc<dyn InferenceRouter>,
 }
 
 impl MuscleService {
-    pub fn new(router: Arc<BackendRouter>) -> Self {
+    pub fn new(router: Arc<dyn InferenceRouter>) -> Self {
         Self { router }
     }
 }

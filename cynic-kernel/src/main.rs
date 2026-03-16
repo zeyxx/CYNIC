@@ -187,7 +187,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── gRPC services ────────────────────────────────────────
     let pulse_service = pulse::PulseService::default();
-    let muscle_service = hal::MuscleService::new(Arc::clone(&router));
+    let muscle_service = hal::MuscleService::new(Arc::clone(&router) as Arc<dyn backend::InferenceRouter>);
     klog!("╔══════════════════════════════════════╗");
     klog!("║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
     klog!("║   REST: http://{}",  rest_addr);

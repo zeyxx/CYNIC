@@ -123,6 +123,14 @@ pub trait InferencePort: Send + Sync {
 
 use async_trait::async_trait;
 
+/// Router contract — selects and dispatches to registered InferencePort backends.
+/// Domain-level trait: the gRPC layer sees this, not the concrete BackendRouter.
+#[async_trait]
+pub trait InferenceRouter: Send + Sync {
+    async fn route(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError>;
+    async fn fan_out(&self, req: InferenceRequest, n: u32) -> Result<InferenceResponse, BackendError>;
+}
+
 // ============================================================
 // MOCK BACKEND — P0 test implementation, no GPU required
 // ============================================================

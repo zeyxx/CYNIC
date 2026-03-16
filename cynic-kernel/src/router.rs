@@ -220,6 +220,16 @@ impl BackendRouter {
     }
 }
 
+#[async_trait::async_trait]
+impl crate::backend::InferenceRouter for BackendRouter {
+    async fn route(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError> {
+        BackendRouter::route(self, req).await
+    }
+    async fn fan_out(&self, req: InferenceRequest, n: u32) -> Result<InferenceResponse, BackendError> {
+        BackendRouter::fan_out(self, req, n).await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
