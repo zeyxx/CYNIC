@@ -251,6 +251,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/temporal", get(temporal_handler))
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
+        .route("/agents", get(agents_handler))
         .layer(middleware::from_fn_with_state(state.clone(), audit_middleware))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware))
@@ -584,16 +585,38 @@ async fn health_handler(
     }))
 }
 
+/// GET /agents — show active agent sessions and their claims (requires auth)
+async fn agents_handler(
+    State(state): State<Arc<AppState>>,
+) -> Json<serde_json::Value> {
+    let Some(db) = &state.raw_db else {
+        return Json(serde_json::json!({"error": "storage unavailable"}));
+    };
+
+    // Expire stale sessions
+    let _ = db.query_one(
+        "UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;"
+    ).await;
+    let _ = db.query_one(
+        "UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT agent_id FROM agent_session WHERE active = true);"
+    ).await;
+
+    let sessions = db.query_one("SELECT * FROM agent_session WHERE active = true;").await.unwrap_or_default();
+    let claims = db.query_one("SELECT * FROM work_claim WHERE active = true;").await.unwrap_or_default();
+
+    Json(serde_json::json!({
+        "active_agents": sessions.len(),
+        "active_claims": claims.len(),
+        "agents": sessions,
+        "claims": claims,
+    }))
+}
+
 // ── HELPERS ────────────────────────────────────────────────
 
-/// Simple hash for crystal IDs. Not cryptographic — just deterministic content addressing.
+/// Delegates to ccm::content_hash — single source of truth for crystal IDs.
 fn md5_hash(input: &str) -> u64 {
-    let mut h: u64 = 0xcbf29ce484222325; // FNV-1a offset basis
-    for byte in input.bytes() {
-        h ^= byte as u64;
-        h = h.wrapping_mul(0x100000001b3); // FNV-1a prime
-    }
-    h
+    ccm::content_hash(input)
 }
 
 fn verdict_to_response(v: &Verdict) -> JudgeResponse {

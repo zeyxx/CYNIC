@@ -26,6 +26,7 @@ use crate::judge::Judge;
 use crate::storage_port::StoragePort;
 use crate::storage_http::SurrealHttpStorage;
 use crate::rest::DogUsageTracker;
+use crate::ccm;
 
 // ── MCP Tool Parameters ─────────────────────────────────────
 
@@ -69,6 +70,42 @@ pub struct AuditQueryParams {
     pub agent_id: Option<String>,
     /// Maximum results (default 20)
     pub limit: Option<u32>,
+}
+
+// ── Coordination Tool Parameters ─────────────────────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RegisterParams {
+    /// Unique agent identifier (e.g. "claude-session-abc", "gemini-1")
+    pub agent_id: String,
+    /// What this agent intends to do (human-readable)
+    pub intent: String,
+    /// Agent type: "claude", "gemini", "hermes", "human"
+    pub agent_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ClaimParams {
+    /// Agent identifier (must match a registered session)
+    pub agent_id: String,
+    /// What to claim: file path, feature name, or zone (e.g. "rest.rs", "auth-system", "kernel/")
+    pub target: String,
+    /// Claim type: "file", "feature", "zone"
+    pub claim_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ReleaseParams {
+    /// Agent identifier
+    pub agent_id: String,
+    /// Target to release (if omitted, releases ALL claims for this agent)
+    pub target: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct WhoParams {
+    /// Filter by agent_id (optional — show only this agent's state)
+    pub agent_id: Option<String>,
 }
 
 // ── MCP Server ───────────────────────────────────────────────
@@ -141,6 +178,31 @@ impl CynicMcp {
 
         // Store verdict (best effort)
         let _ = self.storage.store_verdict(&verdict).await;
+
+        // CCM: observe crystal (learning loop — same logic as REST path)
+        {
+            let crystal_id = format!("{:x}", ccm::content_hash(&verdict.stimulus_summary));
+            let domain = stimulus.domain.clone().unwrap_or_else(|| "general".to_string());
+            let now = chrono::Utc::now().to_rfc3339();
+            let existing = self.storage.get_crystal(&crystal_id).await.ok().flatten();
+            let crystal = match existing {
+                Some(c) => ccm::update_crystal(&c, verdict.q_score.total, &now),
+                None => ccm::new_crystal(
+                    crystal_id,
+                    verdict.stimulus_summary.clone(),
+                    domain,
+                    verdict.q_score.total,
+                    &now,
+                ),
+            };
+            if let Err(e) = self.storage.store_crystal(&crystal).await {
+                eprintln!("[MCP/CCM] Warning: failed to store crystal: {}", e);
+            } else {
+                eprintln!("[MCP/CCM] Crystal '{}' → {:?} (obs: {}, conf: {:.3})",
+                    crystal.content.chars().take(40).collect::<String>(),
+                    crystal.state, crystal.observations, crystal.confidence);
+            }
+        }
 
         // Format response
         let response = serde_json::json!({
@@ -377,6 +439,219 @@ impl CynicMcp {
                 Content::text(format!("Audit query failed: {}", e))
             ])),
         }
+    }
+
+    // ── COORDINATION TOOLS ──────────────────────────────────────
+
+    #[tool(
+        name = "cynic_coord_register",
+        description = "Register an agent session with CYNIC. Call at session start. Every subsequent MCP call refreshes the heartbeat. Sessions expire after 5 minutes of inactivity."
+    )]
+    async fn cynic_coord_register(
+        &self,
+        params: Parameters<RegisterParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+        let Some(db) = &self.raw_db else {
+            return Ok(CallToolResult::success(vec![
+                Content::text("Coordination unavailable (storage DEGRADED)")
+            ]));
+        };
+
+        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+        let agent_type = p.agent_type.unwrap_or_else(|| "unknown".into());
+        let sql = format!(
+            "UPSERT agent_session:{id} SET \
+                agent_id = '{id}', \
+                agent_type = '{agent_type}', \
+                intent = '{intent}', \
+                registered_at = time::now(), \
+                last_seen = time::now(), \
+                active = true;",
+            id = escape(&p.agent_id),
+            agent_type = escape(&agent_type),
+            intent = escape(&p.intent),
+        );
+        db.query_one(&sql).await
+            .map_err(|e| McpError::internal_error(format!("Register failed: {}", e), None))?;
+
+        self.audit("cynic_coord_register", &p.agent_id, &serde_json::json!({
+            "intent": p.intent, "agent_type": agent_type,
+        })).await;
+
+        Ok(CallToolResult::success(vec![
+            Content::text(format!("Agent '{}' registered. Intent: {}. Heartbeat refreshed on every MCP call.", p.agent_id, p.intent))
+        ]))
+    }
+
+    #[tool(
+        name = "cynic_coord_claim",
+        description = "Claim a file, feature, or zone before working on it. Prevents other agents from conflicting. Returns existing claims if conflict detected."
+    )]
+    async fn cynic_coord_claim(
+        &self,
+        params: Parameters<ClaimParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+        let Some(db) = &self.raw_db else {
+            return Ok(CallToolResult::success(vec![
+                Content::text("Coordination unavailable (storage DEGRADED)")
+            ]));
+        };
+
+        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+        let claim_type = p.claim_type.unwrap_or_else(|| "file".into());
+
+        // Check for existing active claims on this target by OTHER agents
+        let check_sql = format!(
+            "SELECT * FROM work_claim WHERE target = '{}' AND agent_id != '{}' AND active = true;",
+            escape(&p.target), escape(&p.agent_id)
+        );
+        let conflicts = db.query_one(&check_sql).await
+            .map_err(|e| McpError::internal_error(format!("Claim check failed: {}", e), None))?;
+
+        if !conflicts.is_empty() {
+            let conflict_info: Vec<String> = conflicts.iter().map(|c| {
+                format!("{} (since {})",
+                    c["agent_id"].as_str().unwrap_or("?"),
+                    c["claimed_at"].as_str().unwrap_or("?"))
+            }).collect();
+            return Ok(CallToolResult::success(vec![
+                Content::text(format!("CONFLICT: '{}' already claimed by: {}. Coordinate before proceeding.",
+                    p.target, conflict_info.join(", ")))
+            ]));
+        }
+
+        // Create or update the claim
+        let claim_id = format!("{}_{}", p.agent_id, p.target.replace(['/', '.'], "_"));
+        let sql = format!(
+            "UPSERT work_claim:{claim_id} SET \
+                agent_id = '{agent_id}', \
+                target = '{target}', \
+                claim_type = '{claim_type}', \
+                claimed_at = time::now(), \
+                active = true;",
+            claim_id = escape(&claim_id),
+            agent_id = escape(&p.agent_id),
+            target = escape(&p.target),
+            claim_type = escape(&claim_type),
+        );
+        db.query_one(&sql).await
+            .map_err(|e| McpError::internal_error(format!("Claim failed: {}", e), None))?;
+
+        // Refresh heartbeat
+        let _ = db.query_one(&format!(
+            "UPDATE agent_session:{} SET last_seen = time::now();",
+            escape(&p.agent_id)
+        )).await;
+
+        self.audit("cynic_coord_claim", &p.agent_id, &serde_json::json!({
+            "target": p.target, "claim_type": claim_type,
+        })).await;
+
+        Ok(CallToolResult::success(vec![
+            Content::text(format!("Claimed '{}' ({}) for agent '{}'.", p.target, claim_type, p.agent_id))
+        ]))
+    }
+
+    #[tool(
+        name = "cynic_coord_release",
+        description = "Release claims on files/features. If no target specified, releases ALL claims for this agent. Call at session end or when done with a file."
+    )]
+    async fn cynic_coord_release(
+        &self,
+        params: Parameters<ReleaseParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+        let Some(db) = &self.raw_db else {
+            return Ok(CallToolResult::success(vec![
+                Content::text("Coordination unavailable (storage DEGRADED)")
+            ]));
+        };
+
+        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+
+        let (sql, desc) = match &p.target {
+            Some(target) => (
+                format!("UPDATE work_claim SET active = false WHERE agent_id = '{}' AND target = '{}' AND active = true;",
+                    escape(&p.agent_id), escape(target)),
+                format!("Released '{}' for agent '{}'.", target, p.agent_id),
+            ),
+            None => (
+                format!("UPDATE work_claim SET active = false WHERE agent_id = '{}' AND active = true;",
+                    escape(&p.agent_id)),
+                format!("Released ALL claims for agent '{}'.", p.agent_id),
+            ),
+        };
+
+        db.query_one(&sql).await
+            .map_err(|e| McpError::internal_error(format!("Release failed: {}", e), None))?;
+
+        // Mark session inactive if releasing all
+        if p.target.is_none() {
+            let _ = db.query_one(&format!(
+                "UPDATE agent_session:{} SET active = false, last_seen = time::now();",
+                escape(&p.agent_id)
+            )).await;
+        }
+
+        self.audit("cynic_coord_release", &p.agent_id, &serde_json::json!({
+            "target": p.target,
+        })).await;
+
+        Ok(CallToolResult::success(vec![Content::text(desc)]))
+    }
+
+    #[tool(
+        name = "cynic_coord_who",
+        description = "Show active agents, their intents, and current file/feature claims. Use before starting work to avoid conflicts. Also expires stale sessions (>5 min no heartbeat)."
+    )]
+    async fn cynic_coord_who(
+        &self,
+        params: Parameters<WhoParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+        let Some(db) = &self.raw_db else {
+            return Ok(CallToolResult::success(vec![
+                Content::text("Coordination unavailable (storage DEGRADED)")
+            ]));
+        };
+
+        let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+
+        // Expire stale sessions (>5 min since last_seen)
+        let _ = db.query_one(
+            "UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;"
+        ).await;
+        // Expire claims from inactive agents
+        let _ = db.query_one(
+            "UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT agent_id FROM agent_session WHERE active = true);"
+        ).await;
+
+        // Query active sessions
+        let session_sql = match &p.agent_id {
+            Some(id) => format!("SELECT * FROM agent_session WHERE agent_id = '{}';", escape(id)),
+            None => "SELECT * FROM agent_session WHERE active = true;".to_string(),
+        };
+        let sessions = db.query_one(&session_sql).await.unwrap_or_default();
+
+        // Query active claims
+        let claims_sql = match &p.agent_id {
+            Some(id) => format!("SELECT * FROM work_claim WHERE agent_id = '{}' AND active = true;", escape(id)),
+            None => "SELECT * FROM work_claim WHERE active = true;".to_string(),
+        };
+        let claims = db.query_one(&claims_sql).await.unwrap_or_default();
+
+        let response = serde_json::json!({
+            "active_agents": sessions.len(),
+            "active_claims": claims.len(),
+            "agents": sessions,
+            "claims": claims,
+        });
+
+        Ok(CallToolResult::success(vec![
+            Content::text(serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".into()))
+        ]))
     }
 
     // ── Audit helper (best-effort, non-blocking) ─────────────
