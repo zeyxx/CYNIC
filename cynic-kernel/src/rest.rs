@@ -219,20 +219,6 @@ pub struct ErrorResponse {
 }
 
 #[derive(Serialize)]
-pub struct HealthResponse {
-    pub status: String,
-    pub version: String,
-    pub phi_max: f64,
-    pub axioms: Vec<String>,
-    pub dogs: Vec<DogHealthResponse>,
-    pub storage: String,
-    pub total_requests: u64,
-    pub total_tokens: u64,
-    pub estimated_cost_usd: f64,
-    pub uptime_seconds: i64,
-}
-
-#[derive(Serialize)]
 pub struct DogHealthResponse {
     pub id: String,
     pub kind: String,
@@ -606,7 +592,7 @@ async fn agents_handler(
         "UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;"
     ).await;
     let _ = db.query_one(
-        "UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT agent_id FROM agent_session WHERE active = true);"
+        "UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);"
     ).await;
 
     let sessions = db.query_one("SELECT * FROM agent_session WHERE active = true;").await.unwrap_or_default();
