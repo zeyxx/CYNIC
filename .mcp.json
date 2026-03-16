@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "cynic": {
+      "command": "cynic-mcp",
+      "args": ["--mcp"]
+    },
+    "tailscale": {
+      "command": "tailscale-mcp",
+      "args": []
+    }
+  }
+}

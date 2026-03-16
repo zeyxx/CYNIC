@@ -149,6 +149,24 @@ Real chess scores: Sicilian Defense → Howl. Scholar's Mate → Growl. Fool's M
 
 All skills use `${CYNIC_REST_ADDR}` and `${CYNIC_API_KEY}` from `~/.cynic-env`. Never hardcode IPs.
 
+## Session Lifecycle
+
+Every session follows this 7-step protocol. No exceptions.
+
+1. **SessionStart** — `cynic_coord_register(agent_id, intent)` (auto via hook — verify in output)
+2. **Before file edit** — `cynic_coord_who()` + `cynic_coord_claim(agent_id, target-file)`
+3. **Work** — git worktree for isolation (`make scope SLUG=<name>`)
+4. **Validate** — `make check` (build + test + clippy)
+5. **Ship** — `git commit` + `git push` (L0 gates enforce quality)
+6. **Release** — `cynic_coord_release(agent_id, target-file)`
+7. **SessionEnd** — `cynic_coord_release(agent_id)` (all claims)
+
+**ILC branch naming** (git = hard enforcement):
+```
+session/<agent>/<slug>    e.g. session/claude/rest-audit
+```
+Git rejects duplicate branch names — physical prevention of parallel work on identical scope.
+
 ## Canonical References
 
 - **Cognitive architecture:** `docs/CYNIC-CRYSTALLIZED-TRUTH.md`

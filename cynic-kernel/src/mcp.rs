@@ -446,16 +446,20 @@ impl CynicMcp {
         };
 
         let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+        // Record IDs in SurrealDB backtick syntax reject hyphens — sanitize to underscores.
+        // String values (agent_id field) preserve the original for display/lookup.
+        let sanitize_id = |s: &str| s.chars().map(|c: char| if c.is_alphanumeric() || c == '_' { c } else { '_' }).collect::<String>();
         let agent_type = p.agent_type.unwrap_or_else(|| "unknown".into());
         let sql = format!(
-            "UPSERT agent_session:`{id}` SET \
-                agent_id = '{id}', \
+            "UPSERT agent_session:`{id_key}` SET \
+                agent_id = '{id_val}', \
                 agent_type = '{agent_type}', \
                 intent = '{intent}', \
                 registered_at = time::now(), \
                 last_seen = time::now(), \
                 active = true;",
-            id = escape(&p.agent_id),
+            id_key = sanitize_id(&p.agent_id),
+            id_val = escape(&p.agent_id),
             agent_type = escape(&agent_type),
             intent = escape(&p.intent),
         );
@@ -487,6 +491,7 @@ impl CynicMcp {
         };
 
         let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+        let sanitize_id = |s: &str| s.chars().map(|c: char| if c.is_alphanumeric() || c == '_' { c } else { '_' }).collect::<String>();
         let claim_type = p.claim_type.unwrap_or_else(|| "file".into());
 
         // Check for existing active claims on this target by OTHER agents
@@ -512,13 +517,13 @@ impl CynicMcp {
         // Create or update the claim
         let claim_id = format!("{}_{}", p.agent_id, p.target.replace(['/', '.'], "_"));
         let sql = format!(
-            "UPSERT work_claim:`{claim_id}` SET \
+            "UPSERT work_claim:`{claim_id_key}` SET \
                 agent_id = '{agent_id}', \
                 target = '{target}', \
                 claim_type = '{claim_type}', \
                 claimed_at = time::now(), \
                 active = true;",
-            claim_id = escape(&claim_id),
+            claim_id_key = sanitize_id(&claim_id),
             agent_id = escape(&p.agent_id),
             target = escape(&p.target),
             claim_type = escape(&claim_type),
@@ -529,7 +534,7 @@ impl CynicMcp {
         // Refresh heartbeat
         let _ = db.query_one(&format!(
             "UPDATE agent_session:`{}` SET last_seen = time::now();",
-            escape(&p.agent_id)
+            sanitize_id(&p.agent_id)
         )).await;
 
         self.audit("cynic_coord_claim", &p.agent_id, &serde_json::json!({
@@ -557,6 +562,7 @@ impl CynicMcp {
         };
 
         let escape = |s: &str| s.replace('\\', "\\\\").replace('\'', "\\'");
+        let sanitize_id = |s: &str| s.chars().map(|c: char| if c.is_alphanumeric() || c == '_' { c } else { '_' }).collect::<String>();
 
         let (sql, desc) = match &p.target {
             Some(target) => (
@@ -578,7 +584,7 @@ impl CynicMcp {
         if p.target.is_none() {
             let _ = db.query_one(&format!(
                 "UPDATE agent_session:`{}` SET active = false, last_seen = time::now();",
-                escape(&p.agent_id)
+                sanitize_id(&p.agent_id)
             )).await;
         }
 
@@ -611,8 +617,9 @@ impl CynicMcp {
             "UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;"
         ).await;
         // Expire claims from inactive agents
+        // `SELECT VALUE` returns scalar array — required for IN comparisons in SurrealDB.
         let _ = db.query_one(
-            "UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT agent_id FROM agent_session WHERE active = true);"
+            "UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);"
         ).await;
 
         // Query active sessions
