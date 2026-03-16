@@ -113,7 +113,7 @@ Edit `CLAUDE.md`. Replace the entire "When to invoke what" table (from the `| Tr
 
 Count only within the trigger table (scoped between its heading and the next heading):
 ```bash
-awk '/### When to invoke what/{found=1; next} found && /^(##|###)/{exit} found && /^\| [^-]/{count++} END{print count}' CLAUDE.md
+awk '/### When to invoke what/{found=1; next} found && /^(##|###)/{exit} found && /^\| \*\*/{count++} END{print count}' CLAUDE.md
 ```
 Expected: `12` (counts only non-separator data rows within the trigger table section).
 
