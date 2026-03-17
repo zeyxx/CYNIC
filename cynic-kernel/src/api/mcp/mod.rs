@@ -196,7 +196,7 @@ impl CynicMcp {
 
         // CCM: observe crystal atomically (no read-modify-write race)
         {
-            let crystal_id = format!("{:x}", ccm::content_hash(&format!("{}:{}", stimulus.domain.as_deref().unwrap_or("general"), stimulus.content)));
+            let crystal_id = format!("{:x}", ccm::content_hash(&format!("{}:{}", stimulus.domain.as_deref().unwrap_or("general"), verdict.stimulus_summary)));
             let domain = stimulus.domain.clone().unwrap_or_else(|| "general".to_string());
             let now = chrono::Utc::now().to_rfc3339();
             if let Err(e) = self.storage.observe_crystal(

@@ -78,10 +78,9 @@ pub async fn judge_handler(
         }
     }
 
-    // CCM: observe crystal atomically (no read-modify-write race)
-    // Hash full content + domain (not truncated summary) to avoid collisions
+    // CCM: observe crystal — hash the summary (not full content) to deduplicate
     {
-        let crystal_id = format!("{:x}", md5_hash(&format!("{}:{}", stimulus.domain.as_deref().unwrap_or("general"), stimulus.content)));
+        let crystal_id = format!("{:x}", crate::domain::ccm::content_hash(&format!("{}:{}", stimulus.domain.as_deref().unwrap_or("general"), verdict.stimulus_summary)));
         let domain = stimulus.domain.unwrap_or_else(|| "general".to_string());
         let now = chrono::Utc::now().to_rfc3339();
         if let Err(e) = state.storage.observe_crystal(
@@ -123,26 +122,21 @@ pub async fn list_verdicts_handler(
     }
 }
 
-// ── HELPERS ────────────────────────────────────────────────
-
-/// Delegates to ccm::content_hash — single source of truth for crystal IDs.
-fn md5_hash(input: &str) -> u64 {
-    ccm::content_hash(input)
-}
+// ── TESTS ─────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::domain::ccm;
 
     #[test]
-    fn md5_hash_deterministic() {
-        let a = md5_hash("hello");
-        let b = md5_hash("hello");
+    fn content_hash_deterministic() {
+        let a = ccm::content_hash("hello");
+        let b = ccm::content_hash("hello");
         assert_eq!(a, b);
     }
 
     #[test]
-    fn md5_hash_different_inputs_differ() {
-        assert_ne!(md5_hash("foo"), md5_hash("bar"));
+    fn content_hash_different_inputs_differ() {
+        assert_ne!(ccm::content_hash("foo"), ccm::content_hash("bar"));
     }
 }
