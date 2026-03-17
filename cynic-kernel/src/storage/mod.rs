@@ -24,7 +24,6 @@ pub struct SurrealHttpStorage {
 #[derive(Deserialize, Debug)]
 pub(crate) struct SurrealResponse {
     pub(crate) result: Option<serde_json::Value>,
-    #[allow(dead_code)]
     pub(crate) status: Option<String>,
 }
 

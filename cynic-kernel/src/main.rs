@@ -208,11 +208,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     );
                     let _ = flush_db.query_one(&sql).await;
                 }
-                // Clear session counters after flush (they're now in DB)
+                // Transfer flushed session data into historical totals
                 if !snapshot.is_empty() {
                     let mut usage = flush_usage.lock().unwrap_or_else(|e| e.into_inner());
-                    usage.dogs.clear();
-                    usage.total_requests = 0;
+                    usage.absorb_flush();
                 }
             }
         });

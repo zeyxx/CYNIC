@@ -118,4 +118,19 @@ impl DogUsageTracker {
     pub fn snapshot(&self) -> Vec<(String, DogUsage)> {
         self.dogs.iter().map(|(id, u)| (id.clone(), u.clone())).collect()
     }
+
+    /// After a successful flush to DB, transfer session counters into historical
+    /// and reset session. Without this, total_tokens() under-reports after flush.
+    pub fn absorb_flush(&mut self) {
+        for (id, session) in self.dogs.drain() {
+            let entry = self.historical.entry(id).or_default();
+            entry.prompt_tokens += session.prompt_tokens;
+            entry.completion_tokens += session.completion_tokens;
+            entry.requests += session.requests;
+            entry.failures += session.failures;
+            entry.total_latency_ms += session.total_latency_ms;
+        }
+        self.historical_requests += self.total_requests;
+        self.total_requests = 0;
+    }
 }
