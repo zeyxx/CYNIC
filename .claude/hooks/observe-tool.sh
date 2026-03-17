@@ -11,6 +11,9 @@ KERNEL_ADDR="${CYNIC_REST_ADDR:-localhost:3030}"
 API_KEY="${CYNIC_API_KEY:-}"
 
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+AGENT_ID="claude-${SESSION_ID:0:12}"
+[[ "$SESSION_ID" == "" ]] && AGENT_ID="unknown"
 
 # Skip noisy/meta tools — only observe substantive actions
 case "$TOOL_NAME" in
@@ -49,8 +52,8 @@ PAYLOAD=$(jq -n \
     --arg target "$TARGET" \
     --arg status "$STATUS" \
     --arg context "${TOOL_OUTPUT:0:200}" \
-    --arg agent_id "$(cat /tmp/cynic-agent-id 2>/dev/null || echo unknown)" \
-    --arg session_id "${CYNIC_SESSION_ID:-}" \
+    --arg agent_id "$AGENT_ID" \
+    --arg session_id "$SESSION_ID" \
     '{tool: $tool, target: $target, status: $status, context: $context, agent_id: $agent_id, session_id: $session_id}')
 
 # Fire-and-forget — POST in background, ignore result
