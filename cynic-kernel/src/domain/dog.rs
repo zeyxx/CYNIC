@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 pub const PHI: f64 = 1.618_033_988_749_895;
 pub const PHI_INV: f64 = 0.618_033_988_749_895; // max confidence
 pub const PHI_INV2: f64 = 0.381_966_011_250_105; // anomaly threshold
+pub const PHI_INV3: f64 = 0.236_067_977_499_790; // GROWL threshold
+pub const PHI_INV4: f64 = 0.145_898_033_750_315; // convergence increment
 
 // ── STIMULUS ───────────────────────────────────────────────
 /// What the organism perceives. Domain-agnostic.
@@ -88,10 +90,10 @@ pub struct QScore {
 // ── VERDICT ────────────────────────────────────────────────
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum VerdictKind {
-    Howl,   // >= 0.82 raw (phi-bounded: high conviction)
-    Wag,    // >= 0.618 raw (positive)
-    Growl,  // >= 0.382 raw (cautious)
-    Bark,   // < 0.382 (rejection / insufficient confidence)
+    Howl,   // > φ⁻² + φ⁻⁴ = 0.528 (golden subdivision of WAG→MAX)
+    Wag,    // > φ⁻²       = 0.382
+    Growl,  // > φ⁻³       = 0.236
+    Bark,   // ≤ φ⁻³
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,13 +149,16 @@ pub fn compute_qscore(raw: &AxiomScores) -> QScore {
     QScore { total, fidelity: f, phi: p, verify: v, culture: c, burn: b, sovereignty: s }
 }
 
-/// Determine verdict from Q-Score total
+/// Determine verdict from Q-Score total (phi-bounded scale: 0..φ⁻¹)
+///
+/// Thresholds are golden subdivisions:
+///   GROWL: φ⁻³ (golden cut of [0, φ⁻²])
+///   WAG:   φ⁻² (golden cut of [0, φ⁻¹])
+///   HOWL:  φ⁻² + φ⁻⁴ (golden cut of [φ⁻², φ⁻¹])
 pub fn verdict_kind(total: f64) -> VerdictKind {
-    // These thresholds are on the phi-bounded scale (0..0.618)
-    // Map: HOWL > 0.507 (82% of 0.618), WAG > 0.382, GROWL > 0.236, BARK below
-    if total > PHI_INV * 0.82 { VerdictKind::Howl }
+    if total > PHI_INV2 + PHI_INV4 { VerdictKind::Howl }
     else if total > PHI_INV2 { VerdictKind::Wag }
-    else if total > PHI_INV2 * PHI_INV { VerdictKind::Growl }
+    else if total > PHI_INV3 { VerdictKind::Growl }
     else { VerdictKind::Bark }
 }
 
