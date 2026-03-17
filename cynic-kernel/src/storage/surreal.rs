@@ -176,23 +176,57 @@ impl StoragePort for SurrealHttpStorage {
 
     async fn observe_crystal(&self, id: &str, content: &str, domain: &str, score: f64, timestamp: &str) -> Result<(), StorageError> {
         let escape = |s: &str| escape_surreal(s);
+        let safe_id = escape(id);
+
+        // Read-then-write: SurrealDB 3.x chokes on nested IF...END in UPSERT SET.
+        // Compute state in Rust (where the CCM logic already lives) instead.
+        let existing = self.query_one(&format!("SELECT * FROM crystal:{};", safe_id)).await?;
+
+        let (observations, confidence, state_str, created_at) = if let Some(row) = existing.first() {
+            let prev_obs = row["observations"].as_u64().unwrap_or(0) as u32;
+            let prev_conf = row["confidence"].as_f64().unwrap_or(0.0);
+            let created = row["created_at"].as_str().unwrap_or(timestamp).to_string();
+            let crystal = crate::domain::ccm::Crystal {
+                id: id.to_string(),
+                content: content.to_string(),
+                domain: domain.to_string(),
+                confidence: prev_conf,
+                observations: prev_obs,
+                state: crate::domain::ccm::CrystalState::Forming, // classify will recompute
+                created_at: created.clone(),
+                updated_at: timestamp.to_string(),
+            };
+            let updated = crate::domain::ccm::update_crystal(&crystal, score, timestamp);
+            let state_str = match updated.state {
+                crate::domain::ccm::CrystalState::Forming => "forming",
+                crate::domain::ccm::CrystalState::Crystallized => "crystallized",
+                crate::domain::ccm::CrystalState::Canonical => "canonical",
+                crate::domain::ccm::CrystalState::Decaying => "decaying",
+                crate::domain::ccm::CrystalState::Dissolved => "dissolved",
+            };
+            (updated.observations, updated.confidence, state_str, created)
+        } else {
+            // New crystal
+            let state_str = if score < 0.381966 { "dissolved" } else { "forming" };
+            (1u32, score, state_str, timestamp.to_string())
+        };
+
         let sql = format!(
             "UPSERT crystal:{id} SET \
                 content = '{content}', \
                 domain = '{domain}', \
-                observations = IF observations THEN observations + 1 ELSE 1 END, \
-                confidence = IF confidence THEN (confidence * observations + {score}) / (observations + 1) ELSE {score} END, \
-                state = IF (IF confidence THEN (confidence * observations + {score}) / (observations + 1) ELSE {score} END) < 0.381966 THEN \
-                    IF (IF observations THEN observations + 1 ELSE 1 END) > 21 THEN 'decaying' ELSE 'dissolved' END \
-                ELSE IF (IF observations THEN observations + 1 ELSE 1 END) >= 233 AND (IF confidence THEN (confidence * observations + {score}) / (observations + 1) ELSE {score} END) >= 0.618034 THEN 'canonical' \
-                ELSE IF (IF observations THEN observations + 1 ELSE 1 END) >= 21 AND (IF confidence THEN (confidence * observations + {score}) / (observations + 1) ELSE {score} END) >= 0.618034 THEN 'crystallized' \
-                ELSE 'forming' END END END, \
-                created_at = IF created_at THEN created_at ELSE '{ts}' END, \
+                observations = {observations}, \
+                confidence = {confidence}, \
+                state = '{state}', \
+                created_at = '{created_at}', \
                 updated_at = '{ts}';",
-            id = escape(id),
+            id = safe_id,
             content = escape(content),
             domain = escape(domain),
-            score = score,
+            observations = observations,
+            confidence = confidence,
+            state = state_str,
+            created_at = escape(&created_at),
             ts = escape(timestamp),
         );
         self.query_one(&sql).await?;
