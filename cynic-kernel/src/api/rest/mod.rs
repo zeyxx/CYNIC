@@ -7,6 +7,7 @@ pub mod judge;
 pub mod response;
 pub mod data;
 pub mod health;
+pub mod observe;
 
 pub use types::*;
 pub use response::compute_temporal_from_dogs;
@@ -25,6 +26,7 @@ use self::data::{crystals_handler, crystal_handler, usage_handler};
 use self::health::{health_handler, dogs_handler, temporal_handler, agents_handler};
 use self::judge::{judge_handler, get_verdict_handler, list_verdicts_handler};
 use self::middleware::{auth_middleware, rate_limit_middleware, audit_middleware};
+use self::observe::observe_handler;
 
 // ── ROUTER ─────────────────────────────────────────────────
 
@@ -65,6 +67,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
         .route("/agents", get(agents_handler))
+        .route("/observe", post(observe_handler))
         .layer(axum_mw::from_fn_with_state(state.clone(), audit_middleware))
         .layer(axum_mw::from_fn_with_state(state.clone(), auth_middleware))
         .layer(axum_mw::from_fn_with_state(state.clone(), rate_limit_middleware))

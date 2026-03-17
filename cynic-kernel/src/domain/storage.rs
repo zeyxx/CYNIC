@@ -5,8 +5,24 @@
 //! The full fact/trust API will extend this trait post-hackathon.
 
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use crate::domain::dog::Verdict;
 use crate::domain::ccm::Crystal;
+
+/// A development workflow observation — tool usage, file edits, errors.
+/// Captured automatically by hooks, stored with TTL, feeds CCM.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Observation {
+    pub project: String,
+    pub agent_id: String,
+    pub tool: String,
+    pub target: String,
+    pub domain: String,
+    pub status: String,
+    pub context: String,
+    pub session_id: String,
+    pub timestamp: String,
+}
 
 #[derive(Debug)]
 pub enum StorageError {
@@ -39,6 +55,14 @@ pub trait StoragePort: Send + Sync {
     /// updates running mean + observations + state in a single write.
     /// Eliminates the get→compute→store race condition.
     async fn observe_crystal(&self, id: &str, content: &str, domain: &str, score: f64, timestamp: &str) -> Result<(), StorageError>;
+
+    /// Store a development workflow observation (tool usage, file edit, error).
+    /// Fire-and-forget — callers should not block on this.
+    async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError>;
+
+    /// Query observations by project, with optional domain filter.
+    /// Returns top observations ordered by frequency (co-occurrence patterns).
+    async fn query_observations(&self, project: &str, domain: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, StorageError>;
 }
 
 /// No-op storage for graceful degradation when DB is unavailable.
@@ -70,5 +94,11 @@ impl StoragePort for NullStorage {
     }
     async fn observe_crystal(&self, _id: &str, _content: &str, _domain: &str, _score: f64, _timestamp: &str) -> Result<(), StorageError> {
         Ok(())
+    }
+    async fn store_observation(&self, _obs: &Observation) -> Result<(), StorageError> {
+        Ok(())
+    }
+    async fn query_observations(&self, _project: &str, _domain: Option<&str>, _limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
+        Ok(vec![])
     }
 }

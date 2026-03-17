@@ -176,6 +176,84 @@ pub fn content_hash(input: &str) -> u64 {
     h
 }
 
+// ── WORKFLOW AGGREGATOR ────────────────────────────────────
+/// Aggregate raw observations into CCM crystals. Runs periodically.
+/// Extracts frequency patterns and co-occurrences from the observation table,
+/// then feeds them into observe_crystal as workflow domain crystals.
+///
+/// Pure logic: takes query results, returns (id, content, domain, score) tuples.
+/// Caller is responsible for DB queries and observe_crystal calls.
+pub fn extract_patterns(rows: &[serde_json::Value], total_observations: u64) -> Vec<(String, String, f64)> {
+    if total_observations == 0 {
+        return Vec::new();
+    }
+
+    let mut patterns: Vec<(String, String, f64)> = Vec::new();
+
+    for row in rows {
+        let target = row["target"].as_str().unwrap_or("").to_string();
+        let tool = row["tool"].as_str().unwrap_or("").to_string();
+        let freq = row["freq"].as_u64().unwrap_or(0);
+
+        if target.is_empty() || freq < 3 {
+            continue; // Skip noise — at least 3 occurrences to matter
+        }
+
+        let score = freq as f64 / total_observations as f64;
+        // Crystal ID: deterministic hash of the pattern
+        let id = format!("wf_{:x}", content_hash(&format!("{}:{}", tool, target)));
+        // Human-readable content for injection into prompts
+        let content = format!("{} {} — {}x observed", tool, target, freq);
+
+        patterns.push((id, content, score));
+    }
+
+    patterns
+}
+
+/// Run a full aggregation cycle against storage.
+/// Returns the number of patterns fed into CCM.
+pub async fn aggregate_observations(
+    storage: &dyn crate::domain::storage::StoragePort,
+    project: &str,
+) -> u32 {
+    // Get total observation count for score normalization
+    let total = match storage.query_observations(project, None, 1).await {
+        Ok(rows) => {
+            // The query returns grouped rows — sum their frequencies for total
+            rows.iter()
+                .filter_map(|r| r["freq"].as_u64())
+                .sum::<u64>()
+                .max(1) // Avoid division by zero
+        }
+        Err(_) => return 0,
+    };
+
+    // Get top patterns (target+tool frequency)
+    let rows = match storage.query_observations(project, None, 50).await {
+        Ok(r) => r,
+        Err(_) => return 0,
+    };
+
+    let patterns = extract_patterns(&rows, total);
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut count = 0u32;
+
+    for (id, content, score) in &patterns {
+        if let Err(e) = storage.observe_crystal(id, content, "workflow", *score, &now).await {
+            eprintln!("[CCM/aggregate] Warning: failed to observe crystal {}: {}", id, e);
+        } else {
+            count += 1;
+        }
+    }
+
+    if count > 0 {
+        klog!("[CCM/aggregate] {} workflow patterns crystallized from {} total observations", count, total);
+    }
+
+    count
+}
+
 // ── CRYSTALLIZATION PORT ────────────────────────────────────
 /// Domain contract for crystal persistence. Adapter implements this.
 #[async_trait::async_trait]
@@ -316,6 +394,35 @@ mod tests {
             make_crystal(0.3, 5, CrystalState::Forming),
         ];
         assert!(format_crystal_context(&crystals, "test", 2000).is_none());
+    }
+
+    #[test]
+    fn extract_patterns_basic() {
+        let rows = vec![
+            serde_json::json!({"target": "storage.rs", "tool": "Edit", "freq": 10}),
+            serde_json::json!({"target": "judge.rs", "tool": "Edit", "freq": 5}),
+            serde_json::json!({"target": "ls", "tool": "Bash", "freq": 2}), // below threshold
+        ];
+        let patterns = extract_patterns(&rows, 20);
+        assert_eq!(patterns.len(), 2); // "ls" filtered out (freq < 3)
+        assert!((patterns[0].2 - 0.5).abs() < 1e-10); // 10/20
+        assert!((patterns[1].2 - 0.25).abs() < 1e-10); // 5/20
+        assert!(patterns[0].1.contains("storage.rs"));
+    }
+
+    #[test]
+    fn extract_patterns_empty() {
+        let patterns = extract_patterns(&[], 0);
+        assert!(patterns.is_empty());
+    }
+
+    #[test]
+    fn extract_patterns_skips_empty_targets() {
+        let rows = vec![
+            serde_json::json!({"target": "", "tool": "Bash", "freq": 10}),
+        ];
+        let patterns = extract_patterns(&rows, 10);
+        assert!(patterns.is_empty());
     }
 
     #[test]

@@ -138,6 +138,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|_| "127.0.0.1:3030".to_string());
     klog!("[Ring 3] REST API on http://{}", rest_addr);
 
+    // ─── CCM Workflow Aggregator (periodic, every 5 min) ──────
+    {
+        let agg_storage = Arc::clone(&storage_port);
+        let interval_secs: u64 = std::env::var("CYNIC_AGGREGATE_INTERVAL")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(300); // 5 minutes default
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_secs));
+            interval.tick().await; // Skip first immediate tick
+            loop {
+                interval.tick().await;
+                domain::ccm::aggregate_observations(agg_storage.as_ref(), "CYNIC").await;
+            }
+        });
+        klog!("[Ring 2] CCM workflow aggregator started (every {}s)", interval_secs);
+    }
+
     let rest_listener = tokio::net::TcpListener::bind(&rest_addr).await?;
     let rest_server = tokio::spawn(async move {
         if let Err(e) = axum::serve(rest_listener, rest_app).await {

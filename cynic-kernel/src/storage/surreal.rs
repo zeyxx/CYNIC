@@ -4,7 +4,7 @@ use super::{SurrealHttpStorage, sanitize_id, escape_surreal, safe_limit};
 use crate::domain::coord::{CoordPort, CoordError, ClaimResult, ConflictInfo, CoordSnapshot};
 use crate::domain::dog::{Verdict, VerdictKind, QScore, AxiomReasoning};
 use crate::domain::ccm::{Crystal, CrystalState};
-use crate::domain::storage::{StoragePort, StorageError};
+use crate::domain::storage::{StoragePort, StorageError, Observation};
 
 // ── VERDICT SERIALIZATION ────────────────────────────────────
 
@@ -197,6 +197,48 @@ impl StoragePort for SurrealHttpStorage {
         );
         self.query_one(&sql).await?;
         Ok(())
+    }
+
+    async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
+        let sql = format!(
+            "CREATE observation SET \
+                project = '{project}', \
+                agent_id = '{agent_id}', \
+                tool = '{tool}', \
+                target = '{target}', \
+                domain = '{domain}', \
+                status = '{status}', \
+                context = '{context}', \
+                session_id = '{session_id}', \
+                created_at = time::now();\
+             DELETE observation WHERE created_at < time::now() - 30d;",
+            project = escape_surreal(&obs.project),
+            agent_id = escape_surreal(&obs.agent_id),
+            tool = escape_surreal(&obs.tool),
+            target = escape_surreal(&obs.target),
+            domain = escape_surreal(&obs.domain),
+            status = escape_surreal(&obs.status),
+            context = escape_surreal(&obs.context),
+            session_id = escape_surreal(&obs.session_id),
+        );
+        let _ = self.query(&sql).await;
+        Ok(())
+    }
+
+    async fn query_observations(&self, project: &str, domain: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
+        let limit = safe_limit(limit);
+        let domain_clause = match domain {
+            Some(d) => format!(" AND domain = '{}'", escape_surreal(d)),
+            None => String::new(),
+        };
+        // Return target frequency + co-occurrence data
+        let sql = format!(
+            "SELECT target, tool, count() AS freq FROM observation \
+             WHERE project = '{}'{} \
+             GROUP BY target, tool ORDER BY freq DESC LIMIT {};",
+            escape_surreal(project), domain_clause, limit,
+        );
+        self.query_one(&sql).await
     }
 }
 

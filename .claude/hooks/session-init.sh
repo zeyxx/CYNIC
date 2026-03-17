@@ -34,6 +34,10 @@ GIT_DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | wc -l)
 AGENT_ID="claude-$(date +%s)"
 # Note: AGENT_ID changes on session resume/compaction (OQ4). coord claims
 # from a previous ID expire via 5-min TTL. See docs for OQ4 resolution.
+
+# Persist agent ID so observe-tool.sh (PostToolUse) can tag observations
+echo "$AGENT_ID" > /tmp/cynic-agent-id
+
 # Mask real IP — session context must never contain real IPs
 [ -n "${CYNIC_REST_ADDR:-}" ] && ADDR_STATUS="SET" || ADDR_STATUS="NOT SET"
 

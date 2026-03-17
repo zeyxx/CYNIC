@@ -108,6 +108,19 @@ impl SurrealHttpStorage {
             DEFINE INDEX IF NOT EXISTS verdict_created_idx ON verdict FIELDS created_at;\
             DEFINE INDEX IF NOT EXISTS crystal_obs_idx ON crystal FIELDS observations;\
             DEFINE INDEX IF NOT EXISTS crystal_domain_idx ON crystal FIELDS domain;\
+            DEFINE FIELD IF NOT EXISTS project ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS tool ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS target ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS domain ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS status ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS context ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS session_id ON observation TYPE string;\
+            DEFINE FIELD IF NOT EXISTS created_at ON observation TYPE datetime;\
+            DEFINE INDEX IF NOT EXISTS obs_project_idx ON observation FIELDS project;\
+            DEFINE INDEX IF NOT EXISTS obs_domain_idx ON observation FIELDS domain;\
+            DEFINE INDEX IF NOT EXISTS obs_target_idx ON observation FIELDS target;\
+            DEFINE INDEX IF NOT EXISTS obs_created_idx ON observation FIELDS created_at;\
         ";
         if let Err(e) = storage.query(schema_sql).await {
             eprintln!("[Ring 1 / UAL] WARNING: Schema bootstrap failed (non-fatal): {}", e);

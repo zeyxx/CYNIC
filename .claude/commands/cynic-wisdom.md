@@ -1,6 +1,6 @@
 ---
 name: cynic-wisdom
-description: "Philosophical grounding for technical decisions across 19 traditions. Cross-domain synthesis mapped to 5 axioms (FIDELITY/PHI/VERIFY/CULTURE/BURN). φ-bounded at 61.8%. Use when facing dilemmas, questioning assumptions, or seeking wisdom."
+description: "Philosophical grounding for technical decisions across 19 traditions. Cross-domain synthesis mapped to 6 axioms (FIDELITY/PHI/VERIFY/CULTURE/BURN/SOVEREIGNTY). φ-bounded at 61.8%. Use when facing dilemmas, questioning assumptions, or seeking wisdom."
 ---
 
 # CYNIC Wisdom — The Dog in the Marketplace
