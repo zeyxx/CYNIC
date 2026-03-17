@@ -10,7 +10,7 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
 # ── Protect sensitive files from Edit/Write ──
-if [[ "$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Write" ]]; then
+if [[ "$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Write" || "$TOOL_NAME" == "MultiEdit" ]]; then
     case "$FILE_PATH" in
         */.ssh/*)
             echo "BLOCKED: cannot edit SSH keys ($FILE_PATH)" >&2; exit 2 ;;
@@ -18,8 +18,10 @@ if [[ "$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Write" ]]; then
             echo "BLOCKED: cannot edit secret config ($FILE_PATH)" >&2; exit 2 ;;
         */.env|*/.env.*)
             echo "BLOCKED: cannot edit env files ($FILE_PATH)" >&2; exit 2 ;;
-        */.git/hooks/pre-commit|*/.git/hooks/pre-push)
+        */.git/hooks/*)
             echo "BLOCKED: cannot modify git hooks — edit manually ($FILE_PATH)" >&2; exit 2 ;;
+        */.claude/settings.local.json)
+            echo "BLOCKED: cannot self-modify settings — edit manually ($FILE_PATH)" >&2; exit 2 ;;
     esac
 fi
 
