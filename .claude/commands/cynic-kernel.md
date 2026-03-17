@@ -20,9 +20,8 @@ CYNIC is an **epistemic immune system** — independent AI validators reaching c
 
 | Node | Role | Hardware | OS |
 |---|---|---|---|
-| **forge** (kairos) | Kernel, orchestration, gRPC server | i5-6500T, 11GB RAM | Linux |
-| **Desktop** (Windows) | llama-server, GPU worker | Ryzen 7 5700G APU, 32GB RAM | Windows |
-| **Laptop** | Lighter models | Ryzen 7 5700U, 16GB RAM | Windows |
+| **`<TAILSCALE_UBUNTU>`** | Kernel, REST API, MCP server | Ryzen 7 5700U, 16GB RAM | Linux |
+| **`<TAILSCALE_FORGE>`** | GPU inference worker (sovereign dog) | i5-14400F, 16GB RAM, RTX 4060 Ti | Windows |
 
 **Network:** Tailscale VPN between nodes — but NOT the only topology. Localhost is equally valid. A machine capable of its own inference does NOT proxy to another.
 
@@ -33,97 +32,135 @@ CYNIC is an **epistemic immune system** — independent AI validators reaching c
 ```
         DRIVING ADAPTERS (in)               DOMAIN CORE                DRIVEN ADAPTERS (out)
         ====================               ============               ====================
-        gRPC MuscleHAL ──────┐  (feature-gated, off by default)
-        gRPC KPulse ─────────┤         InferenceRequest/Response     OpenAiCompatBackend ── HTTP ── llama-server
-        gRPC Vascular ───────┼────────▶ BackendCapability             SurrealDbAdapter ── WS ── SurrealDB
-        gRPC CogMemory ──────┤         BackendStatus (3-state)       SysfsDetector ── /sys ── Linux kernel
-        CLI (future) ────────┘         NodeConfig (value object)     WmiDetector ── PowerShell ── Windows WMI
-                                       HealthState enum              NvidiaSmiDetector ── subprocess ── nvidia-smi
-                                       SovereigntyAdvice (pure fn)   TokioProcessAdapter ── tokio ── OS process
-                                                                     VascularAdapter ── mpsc ── event bus
+        REST (axum) ─────────┐                                        OpenAiCompatBackend ── HTTP ── llama-server
+        MCP (rmcp/stdio) ────┼────────▶ InferenceRequest/Response     SurrealHttpStorage ── HTTP ── SurrealDB
+                              │         BackendCapability              probe ── /sys ── Linux kernel
+                              │         BackendStatus (5-state)
+                              │         QScore, Verdict, Dog (trait)
+                              │         NodeConfig (value object)
+                              │
+        [gRPC: feature-gated, NOT live — --features grpc to enable]
 ```
 
 **Dependency Rule:** Adapters depend on Ports (traits) which live in Domain Core. Domain Core depends on NOTHING external. `main.rs` (composition root) wires adapters to ports. `main.rs` is THE ONLY FILE with concrete types.
 
 ---
 
-## 5 PORT CONTRACTS
+## PORT CONTRACTS (actual — verified against source)
 
-### Port 1: InferencePort (EXISTS — backend.rs)
+### BackendPort (base trait — `domain/inference.rs`)
 ```rust
 #[async_trait]
-pub trait InferencePort: Send + Sync {
-    fn capability(&self) -> &BackendCapability;
-    async fn infer(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError>;
+pub trait BackendPort: Send + Sync {
+    fn name(&self) -> &str;
     async fn health(&self) -> BackendStatus;
 }
 ```
-**Adapters:** OpenAiCompatBackend (exists, primary), MockBackend (exists), future: OllamaBackend, VllmBackend, RemoteBackend
+`ChatPort` and `InferencePort` both extend this — `health()` and `name()` defined once.
 
-### Port 2: StoragePort (NEW)
+### InferencePort (`domain/inference.rs`)
+```rust
+#[async_trait]
+pub trait InferencePort: BackendPort {
+    fn capability(&self) -> &BackendCapability;
+    async fn infer(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError>;
+}
+```
+**Adapters:** `OpenAiCompatBackend` (primary), `MockBackend` (tests)
+
+### ChatPort (`domain/chat.rs`)
+```rust
+#[async_trait]
+pub trait ChatPort: BackendPort {
+    async fn chat(&self, system: &str, user: &str) -> Result<ChatResponse, ChatError>;
+}
+```
+Dogs use this for axiom evaluation. `ChatResponse` carries `text`, `prompt_tokens`, `completion_tokens`.
+
+### StoragePort (`domain/storage.rs`)
 ```rust
 #[async_trait]
 pub trait StoragePort: Send + Sync {
-    async fn store_fact(&self, fact: Fact) -> Result<(), StorageError>;
-    async fn query_facts(&self, key: &str) -> Result<Vec<Fact>, StorageError>;
-    async fn register_trust(&self, entry: TrustEntry) -> Result<(), StorageError>;
-    async fn verify_trust(&self, entry: &TrustEntry) -> Result<bool, StorageError>;
+    async fn ping(&self) -> Result<(), StorageError>;
+    async fn store_verdict(&self, verdict: &Verdict) -> Result<(), StorageError>;
+    async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError>;
+    async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError>;
+    async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError>;
+    async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError>;
+    async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError>;
+    async fn observe_crystal(&self, id: &str, content: &str, domain: &str, score: f64, timestamp: &str) -> Result<(), StorageError>;
+    async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError>;
+    async fn query_observations(&self, project: &str, domain: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, StorageError>;
+    async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<serde_json::Value>, StorageError>;
 }
 ```
+**Adapters:** `SurrealHttpStorage` (HTTP to SurrealDB 3.x), `NullStorage` (graceful degradation — always Ok, never persists).
 
-### Port 3: GpuDetector (NEW)
-```rust
-pub trait GpuDetector: Send + Sync {
-    fn detect(&self) -> Option<ComputeInfo>;
-    fn name(&self) -> &str;
-}
-```
-**Selection:** `cfg!(target_os)` in composition root. Domain has ZERO `#[cfg]` gates.
-
-### Port 4: ProcessSpawner (NEW)
-```rust
-#[async_trait]
-pub trait ProcessSpawner: Send + Sync {
-    async fn spawn(&self, cmd: &str, args: &[&str]) -> Result<ProcessHandle, SpawnError>;
-    async fn kill(&self, handle: &ProcessHandle) -> Result<(), SpawnError>;
-    async fn wait(&self, handle: &ProcessHandle) -> Result<ExitStatus, SpawnError>;
-}
-```
-
-### Port 5: EventBus (NEW)
+### CoordPort (`domain/coord.rs`)
 ```rust
 #[async_trait]
-pub trait EventBus: Send + Sync {
-    async fn publish(&self, topic: &str, payload: &str) -> Result<(), BusError>;
-    async fn subscribe(&self, topics: &[&str]) -> Result<EventReceiver, BusError>;
+pub trait CoordPort: Send + Sync {
+    async fn register_agent(&self, agent_id: &str, agent_type: &str, intent: &str) -> Result<(), CoordError>;
+    async fn claim(&self, agent_id: &str, target: &str, claim_type: &str) -> Result<ClaimResult, CoordError>;
+    async fn release(&self, agent_id: &str, target: Option<&str>) -> Result<String, CoordError>;
+    async fn who(&self, agent_id_filter: Option<&str>) -> Result<CoordSnapshot, CoordError>;
+    async fn store_audit(&self, tool: &str, agent_id: &str, details: &serde_json::Value) -> Result<(), CoordError>;
+    async fn query_audit(&self, tool_filter: Option<&str>, agent_filter: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, CoordError>;
+    async fn heartbeat(&self, agent_id: &str) -> Result<(), CoordError>;
+    async fn deactivate_agent(&self, agent_id: &str) -> Result<(), CoordError>;
+    async fn expire_stale(&self) -> Result<(), CoordError>;
 }
 ```
+**Adapters:** `SurrealHttpStorage` (same struct implements both StoragePort and CoordPort), `NullCoord`.
 
-### NOT ports (cold paths — good functions):
-- Config persistence (dirs::home_dir() + toml)
-- IO benchmark (pure function)
-- Sovereignty advisor (pure function)
-- Model scanner (walkdir — cross-platform)
-- Server scanner (reqwest — cross-platform)
+### Dog trait (`domain/dog.rs`)
+```rust
+#[async_trait]
+pub trait Dog: Send + Sync {
+    fn id(&self) -> &str;
+    fn max_context(&self) -> u32 { 0 }   // 0 = unlimited
+    async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError>;
+}
+```
+Dogs return **raw** `AxiomScores` (not phi-bounded). The kernel phi-bounds and aggregates. Each Dog wraps any LLM (open-source, API, deterministic code).
+
+### NOT ports (do not exist — never add them):
+- `GpuDetector` trait — probe.rs handles detection directly
+- `ProcessSpawner` trait — not implemented
+- `EventBus` trait — not implemented
 
 ---
 
-## BOOT SEQUENCE (composition root)
+## BOOT SEQUENCE (actual — `main.rs`)
 
 ```
-main.rs:
-1. Parse config from env vars
-2. Select platform adapters (cfg!(target_os) for GPU detectors)
-3. Run probe (injected GpuDetectors) → NodeConfig
-4. Connect storage (circuit breaker) → Box<dyn StoragePort>
-5. Create inference pipeline → BackendRouter with discovered backends
-6. Create event bus → Box<dyn EventBus>
-7. Wire gRPC services (only with --features grpc, off by default)
-8. Start gRPC server (only with --features grpc)
-9. Report boot health: HEALTHY / DEGRADED / CRITICAL
+Ring 0 — Probe
+  probe::run(force_reprobe) → NodeConfig
+  Reports: Host OS, compute backend, VRAM
+
+Ring 1 — Storage
+  SurrealHttpStorage::init() → Option<Arc<SurrealHttpStorage>>
+  If unavailable → NullStorage + NullCoord (graceful degradation)
+  Both StoragePort AND CoordPort come from same SurrealHttpStorage instance
+
+Ring 2 — Judge + Coord + Usage
+  Load backends.toml (or env var fallback)
+  Health-check each configured backend; skip unreachable ones
+  Build DeterministicDog (always) + one InferenceDog per reachable backend
+  Judge::new(dogs) — seed integrity hash chain from last stored verdict
+  DogUsageTracker — load historical usage from DB (survives restarts)
+  Background tasks spawned:
+    - coord expiry (every 60s) — expire stale sessions + orphaned claims
+    - usage flush (every 60s) — batch UPSERT to dog_usage table
+    - CCM aggregator (every 5min, configurable via CYNIC_AGGREGATE_INTERVAL)
+
+Ring 3 — REST + MCP
+  If --mcp flag: serve MCP over stdio (JSON-RPC 2.0), exit after
+  Otherwise: bind REST on CYNIC_REST_ADDR (default 127.0.0.1:3030)
+  gRPC (feature-gated, --features grpc): tonic server on [::1]:50051
 ```
 
-**3-State Health:** HEALTHY, DEGRADED, CRITICAL — not boolean. Boot with whatever is available. Report degradation via HeresyNotice. Refuse inference only at CRITICAL.
+**5-State Health for backends:** UNKNOWN → HEALTHY → DEGRADED → CRITICAL → RECOVERING. Boot with whatever is available. Backends that fail health check at startup are skipped (not fatal).
 
 ---
 
@@ -151,17 +188,10 @@ Replaces per-request health checks (O(N*M)) with periodic probes (O(N)).
 | BURN | Simplicity + action — destroy excess |
 | SOVEREIGNTY | Individual agency — the soul of CYNIC |
 
-**Geometric mean** enforces tension: one weak axiom drags everything down. Q = 100 × ⁶√(F × Φ × V × C × B × S / 100⁶)
+**Geometric mean** enforces tension: one weak axiom drags everything down. Q = ⁶√(F × Φ × V × C × B × S), then phi-bounded.
 
 ### Dog Trait (model-agnostic evaluator)
-```rust
-#[async_trait]
-pub trait Dog: Send + Sync {
-    fn name(&self) -> &str;
-    async fn evaluate(&self, stimulus: Stimulus) -> AxiomScores;
-}
-```
-Each Dog wraps any LLM (open-source, API, deterministic code). The trait IS the contract.
+See PORT CONTRACTS above for the actual signature. The trait IS the contract.
 
 ### 7-Step Cycle
 ```
@@ -194,35 +224,9 @@ Loop closes when EMERGE feeds back to PERCEIVE. Each step = Rust trait.
 
 ---
 
-## PROBE REFACTOR (probe.rs 897 LOC → 10 modules)
+## PROBE (probe.rs)
 
-| Module | Responsibility | Platform-specific? |
-|---|---|---|
-| `probe/mod.rs` | Orchestration | No |
-| `probe/gpu.rs` | GPU detection via trait | Via trait |
-| `probe/gpu_linux.rs` | SysfsDetector | Linux only |
-| `probe/gpu_windows.rs` | WmiDetector | Windows only |
-| `probe/gpu_nvidia.rs` | NvidiaSmiDetector | Cross-platform |
-| `probe/models.rs` | GGUF + Ollama discovery | No (walkdir) |
-| `probe/servers.rs` | Running server discovery | No (reqwest) |
-| `probe/system.rs` | Hardware info | No (sysinfo) |
-| `probe/advisor.rs` | SovereigntyAdvisor | No |
-| `probe/persistence.rs` | Config load/save | No (dirs + toml) |
-
-**Key:** `probe/mod.rs::run()` takes `Vec<Box<dyn GpuDetector>>`. Composition root provides platform detectors. Probe has ZERO `#[cfg]` gates.
-
----
-
-## WINDOWS FIXES
-
-| Problem | Fix |
-|---|---|
-| `$HOME` fallback to `/tmp` | `dirs::home_dir()` |
-| Drive scan C-F only | `sysinfo::Disks::new_with_refreshed_list()` |
-| AVX2 hardcoded true | `std::arch::is_x86_feature_detected!("avx2")` |
-| `[::1]:50051` fails without IPv6 (only with --features grpc) | Try IPv6, fallback to `127.0.0.1:50051` |
-| GPU detection | WmiDetector behind GpuDetector trait |
-| `/proc/cpuinfo` | `#[cfg(target_os = "linux")]` gate |
+`probe::run(force_reprobe)` — detects hardware capabilities at boot. Returns `NodeConfig` with compute backend and VRAM info. Implements graceful degradation: unknown hardware = safe defaults.
 
 ---
 
@@ -263,10 +267,17 @@ Do NOT rely on a static list here. The architecture above is the target; the cod
 phi    = 1.618034  — golden ratio
 phi^-1 = 0.618034  — crystallization threshold, max confidence
 phi^-2 = 0.382     — decay threshold, anomaly trigger
-HOWL   ≥ 82.0      — exceptional
-WAG    ≥ 61.8      — passes
-GROWL  ≥ 38.2      — needs work
-BARK   < 38.2      — reject
+
+Verdict thresholds (phi-bounded 0–1 scale):
+  HOWL  > 0.5068  (= phi^-1 × 0.82)   — exceptional conviction
+  WAG   > 0.382   (= phi^-2)           — positive, passes
+  GROWL > 0.236   (= phi^-2 × phi^-1) — cautious, needs work
+  BARK  ≤ 0.236                        — reject / insufficient confidence
+
+As percentage of max-confidence (÷ 0.618):
+  HOWL  > 82%   WAG  > 61.8%   GROWL > 38.2%   BARK ≤ 38.2%
+
+Score floor: 0.05 (true zero = parsing failure, never real epistemic judgment)
 ```
 
 ---
@@ -277,13 +288,13 @@ BARK   < 38.2      — reject
 Before coding:
 □ Does this touch domain core? If yes, zero external dependencies.
 □ Does this need a port trait? If it talks to external systems, yes.
-□ Will this work on Windows AND Linux without #[cfg] in domain code?
+□ Will this work on Linux without #[cfg] in domain code?
 □ Does this close a loop? Open loops are V1's failure mode.
 
 During coding:
 □ Composition root (main.rs) is the ONLY file with concrete types
 □ Every driven dependency goes through a port trait
-□ Health is 3-state (HEALTHY/DEGRADED/CRITICAL), never boolean
+□ Health is 5-state (UNKNOWN/HEALTHY/DEGRADED/CRITICAL/RECOVERING), never boolean
 □ Every backend has a circuit breaker
 □ Structured logging on every state change
 
