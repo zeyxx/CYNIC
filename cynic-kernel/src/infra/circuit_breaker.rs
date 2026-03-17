@@ -49,7 +49,7 @@ impl CircuitBreaker {
 
     /// Should we allow a request through?
     pub fn should_allow(&self) -> bool {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         match inner.state {
             CircuitState::Closed => true,
             CircuitState::Open { since } => {
@@ -67,7 +67,7 @@ impl CircuitBreaker {
 
     /// Report a successful call
     pub fn record_success(&self) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.consecutive_failures = 0;
         if inner.state != CircuitState::Closed {
             eprintln!("[CircuitBreaker] Dog '{}': {:?} → Closed (recovered)", self.dog_id, inner.state);
@@ -77,7 +77,7 @@ impl CircuitBreaker {
 
     /// Report a failed call
     pub fn record_failure(&self) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.consecutive_failures += 1;
         if inner.consecutive_failures >= FAILURE_THRESHOLD && inner.state == CircuitState::Closed {
             inner.state = CircuitState::Open { since: Instant::now() };
@@ -90,7 +90,7 @@ impl CircuitBreaker {
 
     /// Current state for health reporting
     pub fn state(&self) -> String {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         match inner.state {
             CircuitState::Closed => "closed".to_string(),
             CircuitState::Open { .. } => "open".to_string(),
@@ -99,7 +99,7 @@ impl CircuitBreaker {
     }
 
     pub fn consecutive_failures(&self) -> u32 {
-        self.inner.lock().unwrap().consecutive_failures
+        self.inner.lock().unwrap_or_else(|e| e.into_inner()).consecutive_failures
     }
 }
 

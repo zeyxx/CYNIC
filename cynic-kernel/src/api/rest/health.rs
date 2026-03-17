@@ -76,7 +76,7 @@ pub async fn health_handler(
         DogHealthResponse { id, kind, circuit, failures }
     }).collect();
 
-    let usage = state.usage.lock().unwrap();
+    let usage = state.usage.lock().unwrap_or_else(|e| e.into_inner());
 
     Json(serde_json::json!({
         "status": status,

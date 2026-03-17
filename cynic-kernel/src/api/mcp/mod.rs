@@ -177,7 +177,7 @@ impl CynicMcp {
 
         // Track usage
         {
-            let mut usage = self.usage.lock().unwrap();
+            let mut usage = self.usage.lock().unwrap_or_else(|e| e.into_inner());
             for ds in &verdict.dog_scores {
                 usage.record(&ds.dog_id, ds.prompt_tokens, ds.completion_tokens, ds.latency_ms);
             }

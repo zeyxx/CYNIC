@@ -48,7 +48,7 @@ impl PerIpRateLimiter {
 
     /// Returns true if request from this IP is allowed.
     pub fn check(&self, ip: IpAddr) -> bool {
-        let mut buckets = self.buckets.lock().unwrap();
+        let mut buckets = self.buckets.lock().unwrap_or_else(|e| e.into_inner());
         let now = std::time::Instant::now();
 
         // Evict stale entries (>2min inactive) to prevent memory leak

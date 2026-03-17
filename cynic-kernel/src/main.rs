@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(db) = &raw_db {
         match db.query_one("SELECT * FROM dog_usage;").await {
             Ok(rows) => {
-                let mut usage = usage_tracker.lock().unwrap();
+                let mut usage = usage_tracker.lock().unwrap_or_else(|e| e.into_inner());
                 usage.load_historical(&rows);
                 klog!("[Ring 2] Usage: loaded {} Dog histories ({} all-time requests)",
                     rows.len(), usage.all_time_requests());
@@ -190,7 +190,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             loop {
                 interval.tick().await;
                 let snapshot = {
-                    let usage = flush_usage.lock().unwrap();
+                    let usage = flush_usage.lock().unwrap_or_else(|e| e.into_inner());
                     usage.snapshot()
                 };
                 for (dog_id, u) in &snapshot {
@@ -210,7 +210,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 // Clear session counters after flush (they're now in DB)
                 if !snapshot.is_empty() {
-                    let mut usage = flush_usage.lock().unwrap();
+                    let mut usage = flush_usage.lock().unwrap_or_else(|e| e.into_inner());
                     usage.dogs.clear();
                     usage.total_requests = 0;
                 }
