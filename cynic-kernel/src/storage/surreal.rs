@@ -243,12 +243,14 @@ impl StoragePort for SurrealHttpStorage {
 
     async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
         let limit = safe_limit(limit);
-        // Get distinct targets per session — only sessions with non-empty session_id
-        // and Edit/Write tools (file-level co-occurrences are the useful signal)
+        // Group by agent_id (= session identity in Claude Code).
+        // session_id field is unreliable (often empty). agent_id is always set
+        // by the PostToolUse hook via /tmp/cynic-agent-id.
         let sql = format!(
-            "SELECT session_id, target FROM observation \
-             WHERE project = '{}' AND session_id != '' AND tool IN ['Edit', 'Write', 'Read'] \
-             ORDER BY session_id, target LIMIT {};",
+            "SELECT agent_id AS session_id, target FROM observation \
+             WHERE project = '{}' AND agent_id != '' AND agent_id != 'unknown' \
+             AND tool IN ['Edit', 'Write', 'Read'] \
+             ORDER BY agent_id, target LIMIT {};",
             escape_surreal(project), limit,
         );
         self.query_one(&sql).await
