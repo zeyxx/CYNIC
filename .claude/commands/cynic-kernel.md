@@ -169,13 +169,13 @@ phi^-1 = 0.618034  — crystallization threshold, max confidence
 phi^-2 = 0.382     — decay threshold, anomaly trigger
 
 Verdict thresholds (phi-bounded 0–1 scale):
-  HOWL  > 0.5068  (= phi^-1 × 0.82)   — exceptional conviction
+  HOWL  > 0.528   (= phi^-2 + phi^-4)  — golden subdivision of WAG→MAX
   WAG   > 0.382   (= phi^-2)           — positive, passes
-  GROWL > 0.236   (= phi^-2 × phi^-1) — cautious, needs work
+  GROWL > 0.236   (= phi^-3)           — cautious, needs work
   BARK  ≤ 0.236                        — reject / insufficient confidence
 
 As percentage of max-confidence (÷ 0.618):
-  HOWL  > 82%   WAG  > 61.8%   GROWL > 38.2%   BARK ≤ 38.2%
+  HOWL  > 85.4%   WAG  > 61.8%   GROWL > 38.2%   BARK ≤ 38.2%
 
 Score floor: 0.05 (true zero = parsing failure, never real epistemic judgment)
 ```

@@ -52,10 +52,10 @@ cynic-ui/        → React + TypeScript + Vite frontend
 ## Verdict Thresholds
 
 ```
-HOWL ≥ 0.5207    (exceptional — great chess opening)
-WAG  ≥ 0.382     (good)
-GROWL ≥ 0.236    (questionable)
-BARK < 0.236     (rejected)
+HOWL > 0.528     (exceptional — φ⁻²+φ⁻⁴ golden subdivision)
+WAG  > 0.382     (good — φ⁻²)
+GROWL > 0.236    (questionable — φ⁻³)
+BARK ≤ 0.236     (rejected)
 ```
 
 ## Workflow

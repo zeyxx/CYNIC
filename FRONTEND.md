@@ -195,7 +195,7 @@ npm run dev
    - Optional fields: context, domain
    - "Judge" button → `POST /judge`
    - Verdict display with color coding:
-     - **HOWL** (q_score.total >= 0.5207): gold/green — highest quality
+     - **HOWL** (q_score.total > 0.528): gold/green — highest quality
      - **WAG** (>= 0.382): blue/teal — good
      - **GROWL** (>= 0.236): orange — questionable
      - **BARK** (< 0.236): red — rejected
@@ -240,7 +240,7 @@ const VERDICT_COLORS: Record<VerdictKind, string> = {
 };
 
 const VERDICT_THRESHOLDS = {
-  Howl:  0.5207,  // 82% of phi — exceptional (good chess opening)
+  Howl:  0.528,   // φ⁻²+φ⁻⁴ golden subdivision — exceptional
   Wag:   0.382,   // phi^-2 — passes
   Growl: 0.236,   // phi^-3 — questionable (Scholar's Mate trap)
   Bark:  0,       // below all thresholds (Fool's Mate)

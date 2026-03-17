@@ -87,13 +87,12 @@ Every axiom's 7 dimensions follow this φ-derived weight pattern:
 
 *"Not captured by any single source"*
 
-**Hard-block rule:** Any dimension scoring 0 collapses the entire axiom score to 0 via min().
-A SOVEREIGNTY of 0 collapses Q-Score to 0 regardless of other axioms.
+**Natural hard-block:** A SOVEREIGNTY near 0 collapses Q-Score toward 0 via geometric mean — same mechanism as all axioms.
 
 | # | Dimension | Weight | Description |
 |---|-----------|--------|-------------|
 | 36 | SOURCE_INDEPENDENCE | φ | Decision survives loss of any single data source |
-| 37 | ANTI_MANIPULATION | φ⁻¹ | Oracle/price divergence within safe bounds — hard block if violated |
+| 37 | ANTI_MANIPULATION | φ⁻¹ | Oracle/price divergence within safe bounds |
 | 38 | EXECUTION_CONTROL | 1.0 | Agent can halt or veto without external call |
 | 39 | FALLBACK_INTEGRITY | φ | Degraded mode still produces a valid, safe verdict |
 | 40 | STRATEGY_SOVEREIGNTY | φ⁻² | Signal derived from own data+learning, not blind external copy |
@@ -101,8 +100,8 @@ A SOVEREIGNTY of 0 collapses Q-Score to 0 regardless of other axioms.
 | 42 | ANTI_CAPTURE | φ⁻¹ | No single API, protocol, or actor forced this decision |
 
 **Scoring notes:**
-- ANTI_MANIPULATION = 0 when oracle divergence > 20% → hard block
-- EXECUTION_CONTROL = 0 when circuit breaker is active → hard block
+- ANTI_MANIPULATION = low when oracle divergence is high (geometric mean drags Q-Score down)
+- EXECUTION_CONTROL = low when agent cannot halt autonomously
 - SOURCE_INDEPENDENCE ≤ 38.2 when source_count ≤ 1 (forced single source)
 - STRATEGY_SOVEREIGNTY = 100 when signal is generated internally (default for KAIROS)
 - CAPITAL_CONTROL = 100 when risk module controls sizing without delegation
@@ -126,8 +125,7 @@ Each dimension: 0 (terrible) to 100 (excellent).
 
 **Q-Score Formula:**
 ```
-axiom_score = weighted_avg(7 dimension scores)
-  except SOVEREIGNTY = min(7 dimension scores)  ← hard-block semantics
+axiom_score = weighted_avg(7 dimension scores)  ← all axioms, including SOVEREIGNTY
 
 Q = 100 × ⁶√(F × Φ × V × C × B × S / 100⁶)
 ```
@@ -137,9 +135,9 @@ Geometric mean: one weak axiom drags Q down. SOVEREIGNTY at 0 → Q = 0.
 **Verdicts:**
 | Q | Verdict |
 |---|---------|
-| ≥82 | HOWL |
-| ≥61.8 | WAG |
-| ≥38.2 | GROWL |
-| <38.2 | BARK |
+| >85.4 | HOWL |
+| >61.8 | WAG |
+| >38.2 | GROWL |
+| ≤38.2 | BARK |
 
 **Confidence:** Always ≤ 61.8% (φ⁻¹). Combines Shannon entropy, Bayesian inference, and calibration.

@@ -87,7 +87,7 @@ Full contract: `API.md`. Frontend guide: `FRONTEND.md`.
 φ    = 1.618034   Golden ratio
 φ⁻¹  = 0.618034   Max confidence / crystallization threshold
 φ⁻²  = 0.382      Decay threshold / anomaly trigger
-HOWL ≥ 0.5207     WAG ≥ 0.382     GROWL ≥ 0.236     BARK < 0.236
+HOWL > 0.528 (φ⁻²+φ⁻⁴)     WAG > 0.382 (φ⁻²)     GROWL > 0.236 (φ⁻³)     BARK ≤ 0.236
 ```
 Real chess scores: Sicilian Defense → Howl. Scholar's Mate → Growl. Fool's Mate → Bark.
 

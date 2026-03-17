@@ -77,7 +77,7 @@ Submit content for epistemic evaluation. Returns a phi-bounded verdict from mult
   "verdict_id": "ed0470f7-7e5a-41ac-b391-bda13e80266f",
   "verdict": "Howl",
   "q_score": {
-    "total": 0.507,
+    "total": 0.577,
     "fidelity": 0.618,
     "phi": 0.400,
     "verify": 0.618,
@@ -184,10 +184,10 @@ Submit content for epistemic evaluation. Returns a phi-bounded verdict from mult
 
 | Verdict | Threshold | Meaning |
 |---------|-----------|---------|
-| Howl | >= 0.5207 (phi * 0.82) | Highest epistemic quality |
-| Wag | >= 0.382 (phi^-2) | Good quality |
-| Growl | >= 0.236 (phi^-3) | Questionable |
-| Bark | < 0.236 | Rejected |
+| Howl | > 0.528 (φ⁻²+φ⁻⁴, golden subdivision) | Highest epistemic quality |
+| Wag | > 0.382 (φ⁻²) | Good quality |
+| Growl | > 0.236 (φ⁻³) | Questionable |
+| Bark | ≤ 0.236 | Rejected |
 
 ---
 

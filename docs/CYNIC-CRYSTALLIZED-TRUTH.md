@@ -293,13 +293,13 @@ phi^2     = 2.6180339887...     High contextual weight
 phi^3     = 4.2360679774...     Maximum contextual weight
 
 Verdicts (raw scores before phi-bounding):
-  HOWL_MIN  = 82.0              Highest conviction
+  HOWL_MIN  = 85.4              Highest conviction (phi^-2 + phi^-4, golden subdivision)
   WAG_MIN   = 61.8              Positive (phi^-1 * 100)
   GROWL_MIN = 38.2              Cautious (phi^-2 * 100)
-  BARK      = < 38.2            Rejection / insufficient confidence
+  BARK      = <= 38.2           Rejection / insufficient confidence
 
-System counts (Fibonacci/Lucas sequences):
-  5 core axioms (F(5))
+System counts:
+  6 core axioms (hexagonal — most stable polygon)
   7 facets per axiom (L(4))
   11 Dogs (L(5)) — number under review
   21 cycles minimum for crystallization (F(8))

@@ -189,7 +189,7 @@ Dog disagreement > φ⁻² (38.2%) on any axiom = anomaly signal. This threshold
 - **Score floor**: 0.05. Unchanged.
 - **Individual Dog scores**: each Dog returns raw scores, kernel phi-bounds them. Unchanged.
 - **6 Axioms**: FIDELITY, PHI, VERIFY, CULTURE, BURN, SOVEREIGNTY. Unchanged.
-- **SOVEREIGNTY hard-block**: min() semantics. Unchanged.
+- **SOVEREIGNTY**: geometric mean like all axioms. No special min() semantics.
 
 ---
 
@@ -203,7 +203,7 @@ When implementation happens, these locations all need alignment:
 - `cynic-kernel/src/domain/ccm.rs` — Crystal struct + classify()
 
 ### Docs (in this repo)
-- `docs/CYNIC-CRYSTALLIZED-TRUTH.md:296-299` — "HOWL_MIN = 82.0", "5 core axioms"
+- `docs/CYNIC-CRYSTALLIZED-TRUTH.md:296-302` — ✅ DONE: HOWL_MIN updated to 85.4, axiom count to 6
 - `CLAUDE.md:90` — HOWL threshold
 - `README.md:53` — HOWL threshold
 - `FRONTEND.md:198` — HOWL threshold

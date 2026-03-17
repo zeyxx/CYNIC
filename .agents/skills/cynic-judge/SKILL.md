@@ -24,7 +24,7 @@ Every evaluation scores across **6 axioms**, each with **7 dimensions** = 42 nam
 
 Numbers derive from φ: 6 = hexagon (most stable), 7 = L(4) Lucas dimensions per axiom, 43 = 6×7+1.
 
-**SOVEREIGNTY note:** Always scored mechanically — never overridable by subjective assessment. A single SOVEREIGNTY facet at 0 collapses Q-Score to 0 (hard block). This mirrors KAIROS axioms where oracle manipulation = BARK regardless of other scores.
+**SOVEREIGNTY note:** Scored like all axioms via weighted average + geometric mean. A near-zero SOVEREIGNTY drags Q-Score toward zero — same natural hard-block as any axiom. No special min() override.
 
 See [dimensions reference](references/dimensions.md) for all 43 dimensions with weights and descriptions.
 
@@ -50,12 +50,12 @@ Q = 100 × ⁶√(F × Φ × V × C × B × S / 100⁶)
 
 | Q-Score | Verdict | Meaning |
 |---------|---------|---------|
-| ≥ 82 | **HOWL** | Exceptional |
-| ≥ 61.8 (φ⁻¹ × 100) | **WAG** | Passes, room to grow |
-| ≥ 38.2 (φ⁻² × 100) | **GROWL** | Needs work |
-| < 38.2 | **BARK** | Critical — reject or rework |
+| > 85.4 | **HOWL** | Exceptional — golden subdivision of WAG→MAX |
+| > 61.8 | **WAG** | Passes, room to grow (φ⁻¹ × 100) |
+| > 38.2 | **GROWL** | Needs work (φ⁻² × 100) |
+| ≤ 38.2 | **BARK** | Critical — reject or rework |
 
-Both HOWL (82) and WAG (61.8) thresholds are φ-derived. Not arbitrary.
+All thresholds are φ-derived: GROWL = φ⁻², WAG = φ⁻¹, HOWL = (φ⁻² + φ⁻⁴)/φ⁻¹.
 
 ## Scoring Method
 

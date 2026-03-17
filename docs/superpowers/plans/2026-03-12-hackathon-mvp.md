@@ -143,8 +143,8 @@ pub fn compute_qscore(raw: &AxiomScores) -> QScore {
 /// Determine verdict from Q-Score total
 pub fn verdict_kind(total: f64) -> VerdictKind {
     // These thresholds are on the phi-bounded scale (0..0.618)
-    // Map: HOWL > 0.507 (82% of 0.618), WAG > 0.382, GROWL > 0.236, BARK below
-    if total > PHI_INV * 0.82 { VerdictKind::Howl }
+    // Map: HOWL > 0.528 (φ⁻²+φ⁻⁴ golden subdivision), WAG > 0.382, GROWL > 0.236, BARK below
+    if total > PHI_INV2 + PHI_INV4 { VerdictKind::Howl }
     else if total > PHI_INV2 { VerdictKind::Wag }
     else if total > PHI_INV2 * PHI_INV { VerdictKind::Growl }
     else { VerdictKind::Bark }

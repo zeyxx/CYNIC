@@ -14,7 +14,7 @@ Context:
 Key data structures:
 - Verdict: { verdict_id, verdict (Howl/Wag/Growl/Bark), q_score: {total, fidelity, phi, verify, culture, burn, sovereignty}, reasoning: {per-axiom text}, dog_scores[], anomaly_detected, anomaly_axiom }
 - All scores are 0.0-0.618 (phi-bounded). This is structural, NOT a bug.
-- Verdict thresholds on q_score.total: HOWL >= 0.5207, WAG >= 0.382, GROWL >= 0.236, BARK < 0.236
+- Verdict thresholds on q_score.total: HOWL > 0.528 (φ⁻²+φ⁻⁴), WAG > 0.382 (φ⁻²), GROWL > 0.236 (φ⁻³), BARK ≤ 0.236
 
 CYNIC judges SUBSTANCE not FORM — in chess, it judges the strategy quality, not the text.
 Real scores: Sicilian Defense → Howl (high scores), Fool's Mate → Bark (all zeros).

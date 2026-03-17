@@ -28,7 +28,7 @@ curl -X POST http://localhost:3030/judge \
 ```json
 {
   "verdict": "Howl",
-  "q_score": { "total": 0.507, "fidelity": 0.618, "phi": 0.400, "verify": 0.618, "culture": 0.618, "burn": 0.618, "sovereignty": 0.618 },
+  "q_score": { "total": 0.577, "fidelity": 0.618, "phi": 0.450, "verify": 0.618, "culture": 0.618, "burn": 0.618, "sovereignty": 0.618 },
   "dogs_used": "deterministic-dog+gemini",
   "anomaly_detected": false
 }
@@ -50,7 +50,7 @@ Verdicts map to φ-derived thresholds:
 
 | Verdict | Threshold | Meaning |
 |---------|-----------|---------|
-| **Howl** | ≥ 0.521 | Exceptional quality |
+| **Howl** | > 0.528 (φ⁻²+φ⁻⁴) | Exceptional quality |
 | **Wag** | ≥ 0.382 (φ⁻²) | Good |
 | **Growl** | ≥ 0.236 (φ⁻³) | Questionable |
 | **Bark** | < 0.236 | Rejected |

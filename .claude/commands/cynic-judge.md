@@ -29,7 +29,7 @@ Every axiom uses the same universal φ weight template across its 7 positions:
 |----------|-----|-----|-----|-----|-----|-----|-----|
 | Weight | φ (1.618) | φ⁻¹ (0.618) | 1.0 | φ (1.618) | φ⁻² (0.382) | φ⁻¹ (0.618) | φ⁻¹ (0.618) |
 
-Within each axiom, the weighted average of its 7 dimensions produces the axiom score — except SOVEREIGNTY, which uses min() (hard-block semantics).
+Within each axiom, the weighted average of its 7 dimensions produces the axiom score. All axioms use weighted average — no special min() semantics. The geometric mean already provides natural hard-block: a near-zero axiom collapses Q-Score toward zero.
 
 ---
 
@@ -109,13 +109,12 @@ Within each axiom, the weighted average of its 7 dimensions produces the axiom s
 
 *"Not captured by any single source"*
 
-**Hard-block rule:** Any dimension scoring 0 collapses the entire axiom score to 0 via min().
-A SOVEREIGNTY of 0 collapses Q-Score to 0 regardless of other axioms.
+**Natural hard-block:** A SOVEREIGNTY near 0 collapses Q-Score toward 0 via geometric mean — same mechanism as all axioms. No special min() override needed.
 
 | # | Dimension | Weight | Description |
 |---|-----------|--------|-------------|
 | 36 | SOURCE_INDEPENDENCE | φ | Decision survives loss of any single data source |
-| 37 | ANTI_MANIPULATION | φ⁻¹ | Oracle/price divergence within safe bounds — hard block if violated |
+| 37 | ANTI_MANIPULATION | φ⁻¹ | Oracle/price divergence within safe bounds |
 | 38 | EXECUTION_CONTROL | 1.0 | Agent can halt or veto without external call |
 | 39 | FALLBACK_INTEGRITY | φ | Degraded mode still produces a valid, safe verdict |
 | 40 | STRATEGY_SOVEREIGNTY | φ⁻² | Signal derived from own data+learning, not blind external copy |
@@ -123,10 +122,10 @@ A SOVEREIGNTY of 0 collapses Q-Score to 0 regardless of other axioms.
 | 42 | ANTI_CAPTURE | φ⁻¹ | No single API, protocol, or actor forced this decision |
 
 **Scoring notes:**
-- ANTI_MANIPULATION = 0 when oracle divergence > 20% → hard block
-- EXECUTION_CONTROL = 0 when circuit breaker is active → hard block
+- ANTI_MANIPULATION = low when oracle divergence is high (geometric mean drags Q-Score down)
+- EXECUTION_CONTROL = low when agent cannot halt autonomously
 - SOURCE_INDEPENDENCE ≤ 38.2 when source_count ≤ 1 (forced single source)
-- STRATEGY_SOVEREIGNTY = 100 when signal is generated internally (default for KAIROS)
+- STRATEGY_SOVEREIGNTY = 100 when signal is generated internally
 - CAPITAL_CONTROL = 100 when risk module controls sizing without delegation
 
 ### META — The 43rd Dimension
@@ -143,8 +142,7 @@ Threshold: 38.2 (φ⁻² × 100) — below this, the residual is anomalous.
 ## Q-Score Formula
 
 ```
-axiom_score = weighted_avg(7 dimension scores)
-  except SOVEREIGNTY = min(7 dimension scores)  ← hard-block semantics
+axiom_score = weighted_avg(7 dimension scores)  ← all axioms, including SOVEREIGNTY
 
 Q = 100 × ⁶√(F × Φ × V × C × B × S / 100⁶)
 ```
@@ -155,17 +153,17 @@ Q = 100 × ⁶√(F × Φ × V × C × B × S / 100⁶)
 
 | Q-Score | Verdict | Meaning |
 |---------|---------|---------|
-| ≥ 82 | **HOWL** | Exceptional |
-| ≥ 61.8 | **WAG** | Passes, room to grow |
-| ≥ 38.2 (φ⁻² × 100) | **GROWL** | Needs work |
-| < 38.2 | **BARK** | Critical — reject or rework |
+| > 85.4 | **HOWL** | Exceptional — golden subdivision of WAG→MAX |
+| > 61.8 | **WAG** | Passes, room to grow (φ⁻¹ × 100) |
+| > 38.2 | **GROWL** | Needs work (φ⁻² × 100) |
+| ≤ 38.2 | **BARK** | Critical — reject or rework |
 
-The GROWL threshold is φ-derived: 38.2% = φ⁻². Not arbitrary.
+All thresholds are φ-derived: GROWL = φ⁻², WAG = φ⁻¹, HOWL = (φ⁻² + φ⁻⁴)/φ⁻¹.
 
 ## Scoring Method
 
 1. Score each of the 42 named dimensions: **0** (terrible) to **100** (excellent)
-2. Weighted average within each axiom → 6 axiom scores (min() for SOVEREIGNTY)
+2. Weighted average within each axiom → 6 axiom scores
 3. Geometric mean of axiom scores → Q-Score
 4. **Cap your confidence at 61.8%** — never claim certainty
 
