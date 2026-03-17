@@ -18,7 +18,7 @@ pub async fn temporal_handler() -> Json<serde_json::Value> {
         })
     }).collect();
     Json(serde_json::json!({
-        "count": 7,
+        "count": perspectives.len(),
         "perspectives": perspectives,
         "aggregation": "geometric_mean",
         "outlier_threshold": "phi^-2 (0.382)",

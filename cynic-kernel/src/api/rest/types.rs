@@ -174,7 +174,6 @@ pub struct DogHealthResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::usage::DogUsageTracker;
 
     #[test]
     fn rate_limiter_allows_within_limit() {
@@ -188,34 +187,5 @@ mod tests {
         let ip2: std::net::IpAddr = "10.0.0.1".parse().unwrap();
         assert!(ip2 != ip);
         assert!(limiter.check(ip2)); // separate bucket, allowed
-    }
-
-    #[test]
-    fn usage_tracker_records_tokens() {
-        let mut tracker = DogUsageTracker::new();
-        tracker.record("dog-a", 100, 50, 200);
-        tracker.record("dog-a", 80, 40, 150);
-        tracker.record("dog-b", 200, 100, 500);
-
-        assert_eq!(tracker.total_tokens(), 570); // (100+50)+(80+40)+(200+100)
-        assert_eq!(tracker.dogs["dog-a"].requests, 2);
-        assert_eq!(tracker.dogs["dog-b"].requests, 1);
-        assert_eq!(tracker.dogs["dog-a"].total_latency_ms, 350);
-    }
-
-    #[test]
-    fn usage_tracker_estimated_cost() {
-        let mut tracker = DogUsageTracker::new();
-        tracker.record("x", 500_000, 500_000, 0); // 1M tokens
-        let cost = tracker.estimated_cost_usd();
-        assert!((cost - 0.15).abs() < 0.001);
-    }
-
-    #[test]
-    fn usage_tracker_empty_is_zero() {
-        let tracker = DogUsageTracker::new();
-        assert_eq!(tracker.total_tokens(), 0);
-        assert_eq!(tracker.total_requests, 0);
-        assert_eq!(tracker.estimated_cost_usd(), 0.0);
     }
 }

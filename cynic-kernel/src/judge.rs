@@ -674,4 +674,125 @@ mod tests {
         assert!(verdict.timestamp.contains('T'));
         assert!(verdict.timestamp.ends_with("+00:00") || verdict.timestamp.ends_with('Z'));
     }
+
+    // ── trimmed_mean (private fn, direct unit tests) ─────
+
+    fn make_dog_score(id: &str, val: f64) -> DogScore {
+        DogScore {
+            dog_id: id.into(),
+            latency_ms: 0,
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            fidelity: val, phi: val, verify: val,
+            culture: val, burn: val, sovereignty: val,
+            reasoning: AxiomReasoning::default(),
+        }
+    }
+
+    #[test]
+    fn trimmed_mean_two_values_averages() {
+        let scores = vec![make_dog_score("a", 0.2), make_dog_score("b", 0.8)];
+        let result = trimmed_mean(&scores, |s| s.fidelity);
+        assert!((result - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn trimmed_mean_three_values_averages() {
+        let scores = vec![
+            make_dog_score("a", 0.1),
+            make_dog_score("b", 0.5),
+            make_dog_score("c", 0.9),
+        ];
+        let result = trimmed_mean(&scores, |s| s.fidelity);
+        assert!((result - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn trimmed_mean_four_values_trims_outliers() {
+        // With 4+ scores, drop min and max, average the rest
+        let scores = vec![
+            make_dog_score("outlier_low", 0.0),
+            make_dog_score("mid_a", 0.5),
+            make_dog_score("mid_b", 0.6),
+            make_dog_score("outlier_high", 1.0),
+        ];
+        let result = trimmed_mean(&scores, |s| s.fidelity);
+        // Should be mean of [0.5, 0.6] = 0.55
+        assert!((result - 0.55).abs() < 1e-10);
+    }
+
+    #[test]
+    fn trimmed_mean_five_values_trims_extremes() {
+        let scores = vec![
+            make_dog_score("a", 0.1),
+            make_dog_score("b", 0.4),
+            make_dog_score("c", 0.5),
+            make_dog_score("d", 0.6),
+            make_dog_score("e", 0.9),
+        ];
+        let result = trimmed_mean(&scores, |s| s.fidelity);
+        // Trimmed: [0.4, 0.5, 0.6] → mean = 0.5
+        assert!((result - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn trimmed_mean_single_value() {
+        let scores = vec![make_dog_score("a", 0.7)];
+        let result = trimmed_mean(&scores, |s| s.fidelity);
+        assert!((result - 0.7).abs() < 1e-10);
+    }
+
+    #[test]
+    fn trimmed_mean_per_axiom_extraction() {
+        let scores = vec![
+            DogScore {
+                dog_id: "x".into(), latency_ms: 0, prompt_tokens: 0, completion_tokens: 0,
+                fidelity: 0.9, phi: 0.1, verify: 0.5,
+                culture: 0.3, burn: 0.7, sovereignty: 0.4,
+                reasoning: AxiomReasoning::default(),
+            },
+        ];
+        assert!((trimmed_mean(&scores, |s| s.fidelity) - 0.9).abs() < 1e-10);
+        assert!((trimmed_mean(&scores, |s| s.phi) - 0.1).abs() < 1e-10);
+        assert!((trimmed_mean(&scores, |s| s.burn) - 0.7).abs() < 1e-10);
+    }
+
+    // ── hash chain integrity ─────────────────────────────
+
+    #[tokio::test]
+    async fn verdict_chain_links_hashes() {
+        let judge = Judge::new(vec![
+            Box::new(FixedDog {
+                name: "chain".into(),
+                scores: AxiomScores {
+                    fidelity: 0.5, phi: 0.5, verify: 0.5,
+                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+        ]);
+
+        let v1 = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        let v2 = judge.evaluate(&test_stimulus(), None).await.unwrap();
+
+        // v1 has no prev (first in chain)
+        assert!(v1.prev_hash.is_none());
+        assert!(v1.integrity_hash.is_some());
+
+        // v2's prev_hash == v1's integrity_hash
+        assert_eq!(v2.prev_hash, v1.integrity_hash);
+        assert!(v2.integrity_hash.is_some());
+        assert_ne!(v1.integrity_hash, v2.integrity_hash);
+    }
+
+    #[test]
+    fn seed_chain_sets_initial_hash() {
+        let judge = Judge::new(vec![
+            Box::new(FixedDog { name: "s".into(), scores: AxiomScores::default() }),
+        ]);
+        judge.seed_chain(Some("abc123".into()));
+        let lock = judge.last_hash.lock().unwrap();
+        assert_eq!(*lock, Some("abc123".into()));
+    }
 }

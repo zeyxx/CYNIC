@@ -119,3 +119,43 @@ pub async fn audit_middleware(
 
     response
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── constant_time_eq ─────────────────────────────────
+
+    #[test]
+    fn constant_time_eq_identical() {
+        assert!(constant_time_eq(b"secret-key-123", b"secret-key-123"));
+    }
+
+    #[test]
+    fn constant_time_eq_different_same_len() {
+        assert!(!constant_time_eq(b"secret-key-123", b"secret-key-124"));
+    }
+
+    #[test]
+    fn constant_time_eq_different_len() {
+        assert!(!constant_time_eq(b"short", b"longer-string"));
+    }
+
+    #[test]
+    fn constant_time_eq_empty() {
+        assert!(constant_time_eq(b"", b""));
+    }
+
+    #[test]
+    fn constant_time_eq_one_empty() {
+        assert!(!constant_time_eq(b"", b"x"));
+        assert!(!constant_time_eq(b"x", b""));
+    }
+
+    #[test]
+    fn constant_time_eq_single_bit_diff() {
+        // Differ by exactly 1 bit — must still reject
+        assert!(!constant_time_eq(b"\x00", b"\x01"));
+        assert!(!constant_time_eq(b"A", b"a")); // 0x41 vs 0x61
+    }
+}
