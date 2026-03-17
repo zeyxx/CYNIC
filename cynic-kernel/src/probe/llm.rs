@@ -11,11 +11,14 @@ use super::environment::{ensure_models_dir, windows_to_wsl_path};
 pub(super) async fn probe_llm_resources(env: &EnvInfo, compute: &ComputeInfo) -> LlmConfig {
     let models_dir = ensure_models_dir();
 
-    // All discovery runs in parallel
-    let (mut gguf_models, running_server_url) = tokio::join!(
-        async { discover_all_models(&models_dir, env) },
+    // Model discovery (heavy FS scan) in spawn_blocking, server probe async — concurrent.
+    let env_clone = env.clone();
+    let models_dir_clone = models_dir.clone();
+    let (gguf_result, running_server_url) = tokio::join!(
+        tokio::task::spawn_blocking(move || discover_all_models(&models_dir_clone, &env_clone)),
         probe_running_servers(env),
     );
+    let mut gguf_models = gguf_result.expect("discover_all_models spawn_blocking panicked");
 
     // Deduplicate by path
     gguf_models.dedup_by(|a, b| a.path == b.path);

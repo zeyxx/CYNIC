@@ -116,7 +116,7 @@ pub struct CynicMcp {
     judge: Arc<Judge>,
     storage: Arc<dyn StoragePort>,
     coord: Arc<dyn CoordPort>,
-    usage: Arc<std::sync::Mutex<DogUsageTracker>>,
+    usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -126,7 +126,7 @@ impl CynicMcp {
         judge: Arc<Judge>,
         storage: Arc<dyn StoragePort>,
         coord: Arc<dyn CoordPort>,
-        usage: Arc<std::sync::Mutex<DogUsageTracker>>,
+        usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
     ) -> Self {
         Self {
             judge,
@@ -177,7 +177,7 @@ impl CynicMcp {
 
         // Track usage
         {
-            let mut usage = self.usage.lock().unwrap_or_else(|e| e.into_inner());
+            let mut usage = self.usage.lock().await;
             for ds in &verdict.dog_scores {
                 usage.record(&ds.dog_id, ds.prompt_tokens, ds.completion_tokens, ds.latency_ms);
             }
@@ -549,5 +549,161 @@ impl ServerHandler for CynicMcp {
         )
         .with_server_info(Implementation::new("cynic-kernel", env!("CARGO_PKG_VERSION")))
         .with_instructions("CYNIC epistemic immune system — independent AI validators reaching consensus under mathematical doubt. φ-bounded at 61.8%.")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::storage::NullStorage;
+    use crate::domain::coord::NullCoord;
+    use crate::domain::usage::DogUsageTracker;
+    use crate::dogs::deterministic::DeterministicDog;
+    use crate::judge::Judge;
+
+    /// Build a CynicMcp with real DeterministicDog + null storage/coord.
+    fn test_mcp() -> CynicMcp {
+        let judge = Arc::new(Judge::new(vec![Box::new(DeterministicDog)]));
+        let storage = Arc::new(NullStorage) as Arc<dyn StoragePort>;
+        let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
+        let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
+        CynicMcp::new(judge, storage, coord, usage)
+    }
+
+    /// Extract text from the first Content element in a CallToolResult.
+    fn text_of(result: &CallToolResult) -> &str {
+        &result.content[0].as_text().expect("Expected text content").text
+    }
+
+    #[tokio::test]
+    async fn health_returns_degraded_with_one_dog() {
+        let mcp = test_mcp();
+        let result = mcp.cynic_health().await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
+        // 1 dog = degraded (not sovereign, not critical)
+        assert_eq!(v["status"], "degraded");
+        assert_eq!(v["dog_count"], 1);
+        assert_eq!(v["dogs"][0]["id"], "deterministic-dog");
+        // φ constant present
+        assert!((v["phi_max"].as_f64().unwrap() - PHI_INV).abs() < 0.001);
+    }
+
+    #[tokio::test]
+    async fn judge_with_deterministic_dog_returns_verdict() {
+        let mcp = test_mcp();
+        let params = Parameters(JudgeParams {
+            content: "The Sicilian Defense is a strong opening.".into(),
+            context: Some("Chess opening theory".into()),
+            domain: Some("chess".into()),
+            dogs: None,
+            agent_id: Some("test-agent".into()),
+        });
+        let result = mcp.cynic_judge(params).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
+        // Must have a verdict and q_score
+        assert!(v["verdict_id"].is_string());
+        assert!(v["q_score"]["total"].as_f64().unwrap() > 0.0);
+        assert!(v["q_score"]["total"].as_f64().unwrap() <= PHI_INV);
+        assert_eq!(v["dog_count"], 1);
+        // Verdict must be a known kind
+        let verdict_str = v["verdict"].as_str().unwrap();
+        assert!(["Howl", "Wag", "Growl", "Bark"].iter().any(|k| verdict_str == *k),
+            "unexpected verdict: {}", verdict_str);
+    }
+
+    #[tokio::test]
+    async fn verdicts_returns_error_with_null_storage() {
+        let mcp = test_mcp();
+        let params = Parameters(ListParams { limit: Some(5), agent_id: None });
+        // NullStorage returns ConnectionFailed for list_verdicts
+        let result = mcp.cynic_verdicts(params).await;
+        assert!(result.is_err(), "NullStorage should propagate error for list_verdicts");
+    }
+
+    #[tokio::test]
+    async fn crystals_returns_empty_with_null_storage() {
+        let mcp = test_mcp();
+        let params = Parameters(ListParams { limit: Some(5), agent_id: None });
+        // NullStorage returns Ok(vec![]) for list_crystals
+        let result = mcp.cynic_crystals(params).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
+        assert_eq!(v.as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn coord_register_claim_release_cycle() {
+        let mcp = test_mcp();
+
+        // Register
+        let reg = mcp.cynic_coord_register(Parameters(RegisterParams {
+            agent_id: "test-1".into(),
+            intent: "testing".into(),
+            agent_type: Some("test".into()),
+        })).await.unwrap();
+        assert!(text_of(&reg).contains("test-1"));
+
+        // Claim
+        let claim = mcp.cynic_coord_claim(Parameters(ClaimParams {
+            agent_id: "test-1".into(),
+            target: "mod.rs".into(),
+            claim_type: Some("file".into()),
+        })).await.unwrap();
+        assert!(text_of(&claim).contains("Claimed"));
+
+        // Release
+        let rel = mcp.cynic_coord_release(Parameters(ReleaseParams {
+            agent_id: "test-1".into(),
+            target: None,
+        })).await.unwrap();
+        assert!(!text_of(&rel).is_empty());
+    }
+
+    #[tokio::test]
+    async fn who_returns_empty_snapshot() {
+        let mcp = test_mcp();
+        let result = mcp.cynic_coord_who(Parameters(WhoParams { agent_id: None })).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
+        assert_eq!(v["active_agents"], 0);
+        assert_eq!(v["active_claims"], 0);
+    }
+
+    #[tokio::test]
+    async fn audit_query_returns_empty() {
+        let mcp = test_mcp();
+        let result = mcp.cynic_audit_query(Parameters(AuditQueryParams {
+            tool: None,
+            agent_id: None,
+            limit: Some(10),
+        })).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
+        assert!(v.as_array().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn judge_tracks_usage() {
+        let mcp = test_mcp();
+        let params = Parameters(JudgeParams {
+            content: "Test stimulus".into(),
+            context: None,
+            domain: None,
+            dogs: None,
+            agent_id: Some("usage-test".into()),
+        });
+        let _ = mcp.cynic_judge(params).await.unwrap();
+
+        // Verify usage was recorded
+        let usage = mcp.usage.lock().await;
+        let dogs = usage.merged_dogs();
+        assert!(dogs.contains_key("deterministic-dog"),
+            "Usage should be tracked for deterministic-dog");
+        assert!(dogs["deterministic-dog"].requests >= 1);
+    }
+
+    #[tokio::test]
+    async fn server_info_is_correct() {
+        let mcp = test_mcp();
+        let info = mcp.get_info();
+        assert_eq!(info.server_info.name, "cynic-kernel");
+        assert!(info.instructions.is_some());
     }
 }

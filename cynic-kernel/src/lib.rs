@@ -5,15 +5,23 @@ pub static MCP_MODE: AtomicBool = AtomicBool::new(false);
 
 /// Log macro that routes to stderr in MCP mode, stdout otherwise.
 /// In MCP mode, stdout is reserved for JSON-RPC 2.0 protocol — any non-JSON corrupts it.
+///
+/// Uses locked handles + BufWriter to batch syscalls — one write(2) per log line
+/// instead of fragmenting across format arguments.
 #[macro_export]
 macro_rules! klog {
-    ($($arg:tt)*) => {
+    ($($arg:tt)*) => {{
+        use std::io::Write;
         if $crate::MCP_MODE.load(std::sync::atomic::Ordering::Relaxed) {
-            eprintln!($($arg)*);
+            let stderr = std::io::stderr();
+            let mut buf = std::io::BufWriter::new(stderr.lock());
+            let _ = writeln!(buf, $($arg)*);
         } else {
-            println!($($arg)*);
+            let stdout = std::io::stdout();
+            let mut buf = std::io::BufWriter::new(stdout.lock());
+            let _ = writeln!(buf, $($arg)*);
         }
-    };
+    }};
 }
 
 pub mod domain;

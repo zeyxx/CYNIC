@@ -1,5 +1,5 @@
 use cynic_kernel::*;
-use cynic_kernel::domain::chat::ChatPort;
+use cynic_kernel::domain::inference::BackendPort;
 #[cfg(feature = "grpc")]
 use cynic_kernel::cynic_v2::vascular_system_server::VascularSystemServer;
 #[cfg(feature = "grpc")]
@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create InferenceDog per configured backend
     for cfg in backend_configs {
         let backend = Arc::new(backends::openai::OpenAiCompatBackend::new(cfg.clone()));
-        let health = ChatPort::health(backend.as_ref()).await;
+        let health = BackendPort::health(backend.as_ref()).await;
         match health {
             domain::inference::BackendStatus::Healthy | domain::inference::BackendStatus::Degraded { .. } => {
                 klog!("[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?})", cfg.name, cfg.model, health);
@@ -120,12 +120,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 3: REST API (for React/external clients) ────────
     let judge = Arc::new(judge);
-    let usage_tracker = Arc::new(std::sync::Mutex::new(domain::usage::DogUsageTracker::new()));
+    let usage_tracker = Arc::new(tokio::sync::Mutex::new(domain::usage::DogUsageTracker::new()));
     // Load historical usage from DB (survives restarts)
     if let Some(db) = &raw_db {
         match db.query_one("SELECT * FROM dog_usage;").await {
             Ok(rows) => {
-                let mut usage = usage_tracker.lock().unwrap_or_else(|e| e.into_inner());
+                let mut usage = usage_tracker.lock().await;
                 usage.load_historical(&rows);
                 klog!("[Ring 2] Usage: loaded {} Dog histories ({} all-time requests)",
                     rows.len(), usage.all_time_requests());
@@ -187,35 +187,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
             interval.tick().await; // Skip first immediate tick
+            let mut tick_count: u64 = 0;
             loop {
                 interval.tick().await;
+                tick_count += 1;
                 let snapshot = {
-                    let usage = flush_usage.lock().unwrap_or_else(|e| e.into_inner());
+                    let usage = flush_usage.lock().await;
                     usage.snapshot()
                 };
-                for (dog_id, u) in &snapshot {
-                    let sql = format!(
-                        "UPSERT dog_usage:`{id}` SET \
-                            dog_id = '{id}', \
-                            prompt_tokens = IF prompt_tokens THEN prompt_tokens + {pt} ELSE {pt} END, \
-                            completion_tokens = IF completion_tokens THEN completion_tokens + {ct} ELSE {ct} END, \
-                            requests = IF requests THEN requests + {req} ELSE {req} END, \
-                            failures = IF failures THEN failures + {fail} ELSE {fail} END, \
-                            total_latency_ms = IF total_latency_ms THEN total_latency_ms + {lat} ELSE {lat} END, \
-                            updated_at = time::now();",
-                        id = dog_id, pt = u.prompt_tokens, ct = u.completion_tokens,
-                        req = u.requests, fail = u.failures, lat = u.total_latency_ms,
-                    );
-                    let _ = flush_db.query_one(&sql).await;
-                }
-                // Transfer flushed session data into historical totals
                 if !snapshot.is_empty() {
-                    let mut usage = flush_usage.lock().unwrap_or_else(|e| e.into_inner());
+                    // Batch all Dog UPSERTs into a single SQL string → 1 HTTP POST
+                    let mut batch_sql = String::new();
+                    for (dog_id, u) in &snapshot {
+                        use std::fmt::Write;
+                        let _ = write!(batch_sql,
+                            "UPSERT dog_usage:`{id}` SET \
+                                dog_id = '{id}', \
+                                prompt_tokens = IF prompt_tokens THEN prompt_tokens + {pt} ELSE {pt} END, \
+                                completion_tokens = IF completion_tokens THEN completion_tokens + {ct} ELSE {ct} END, \
+                                requests = IF requests THEN requests + {req} ELSE {req} END, \
+                                failures = IF failures THEN failures + {fail} ELSE {fail} END, \
+                                total_latency_ms = IF total_latency_ms THEN total_latency_ms + {lat} ELSE {lat} END, \
+                                updated_at = time::now(); ",
+                            id = dog_id, pt = u.prompt_tokens, ct = u.completion_tokens,
+                            req = u.requests, fail = u.failures, lat = u.total_latency_ms,
+                        );
+                    }
+                    let _ = flush_db.query(&batch_sql).await;
+                    // Transfer flushed session data into historical totals
+                    let mut usage = flush_usage.lock().await;
                     usage.absorb_flush();
+                }
+                // Prune stale observations every hour (60 ticks × 60s)
+                if tick_count.is_multiple_of(60) {
+                    let _ = flush_db.query_one(
+                        "DELETE observation WHERE created_at < time::now() - 30d;"
+                    ).await;
                 }
             }
         });
-        klog!("[Ring 2] Usage flush task started (every 60s)");
+        klog!("[Ring 2] Usage flush task started (every 60s, obs cleanup every 1h)");
     }
 
     // ─── CCM Workflow Aggregator (periodic, every 5 min) ──────

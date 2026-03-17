@@ -7,31 +7,37 @@ use super::types::*;
 // ============================================================
 
 pub(super) async fn probe_environment() -> EnvInfo {
-    let os = if cfg!(target_os = "linux") { "linux" }
-              else if cfg!(target_os = "windows") { "windows" }
-              else { "macos" }.to_string();
+    // All filesystem probes run in spawn_blocking — never stall the tokio runtime.
+    let (os, is_wsl2, is_docker, is_proxmox_lxc, wsl2_windows_host, models_dir) =
+        tokio::task::spawn_blocking(|| {
+            let os = if cfg!(target_os = "linux") { "linux" }
+                      else if cfg!(target_os = "windows") { "windows" }
+                      else { "macos" }.to_string();
 
-    let is_wsl2 = std::fs::read_to_string("/proc/version")
-        .map(|v| v.to_lowercase().contains("microsoft"))
-        .unwrap_or(false);
+            let is_wsl2 = std::fs::read_to_string("/proc/version")
+                .map(|v| v.to_lowercase().contains("microsoft"))
+                .unwrap_or(false);
 
-    let is_docker = Path::new("/.dockerenv").exists();
-    let is_proxmox_lxc = std::fs::read_to_string("/proc/1/environ")
-        .map(|v| v.contains("container=lxc"))
-        .unwrap_or(false);
+            let is_docker = Path::new("/.dockerenv").exists();
+            let is_proxmox_lxc = std::fs::read_to_string("/proc/1/environ")
+                .map(|v| v.contains("container=lxc"))
+                .unwrap_or(false);
 
-    let wsl2_windows_host = if is_wsl2 {
-        std::fs::read_to_string("/etc/resolv.conf").ok()
-            .and_then(|c| c.lines()
-                .find(|l| l.starts_with("nameserver"))
-                .and_then(|l| l.split_whitespace().nth(1))
-                .map(|s| s.to_string()))
-    } else { None };
+            let wsl2_windows_host = if is_wsl2 {
+                std::fs::read_to_string("/etc/resolv.conf").ok()
+                    .and_then(|c| c.lines()
+                        .find(|l| l.starts_with("nameserver"))
+                        .and_then(|l| l.split_whitespace().nth(1))
+                        .map(|s| s.to_string()))
+            } else { None };
+
+            let models_dir = ensure_models_dir();
+            (os, is_wsl2, is_docker, is_proxmox_lxc, wsl2_windows_host, models_dir)
+        }).await.expect("probe_environment spawn_blocking panicked");
 
     klog!("[Ring 0 / Env] OS: {} | WSL2: {} | Docker: {} | LXC: {} | WinHost: {:?}",
         os, is_wsl2, is_docker, is_proxmox_lxc, wsl2_windows_host);
 
-    let models_dir = ensure_models_dir();
     let io_benchmark_mbps = benchmark_io(&models_dir).await;
 
     EnvInfo {
@@ -45,24 +51,28 @@ pub(super) async fn probe_environment() -> EnvInfo {
 }
 
 pub(super) async fn benchmark_io(path: &Path) -> f64 {
-    use std::io::Write;
-    let test_file = path.join(".cynic_io_test");
-    let data = vec![0u8; 100 * 1024 * 1024]; // 100MB test
-    let start = std::time::Instant::now();
+    let path_display = path.display().to_string();
+    let path = path.to_path_buf();
+    let mbps = tokio::task::spawn_blocking(move || {
+        use std::io::Write;
+        let test_file = path.join(".cynic_io_test");
+        let data = vec![0u8; 100 * 1024 * 1024]; // 100MB test
+        let start = std::time::Instant::now();
 
-    let mut f = match std::fs::File::create(&test_file) {
-        Ok(f) => f,
-        Err(_) => return 0.0,
-    };
+        let mut f = match std::fs::File::create(&test_file) {
+            Ok(f) => f,
+            Err(_) => return 0.0,
+        };
 
-    if f.write_all(&data).is_err() { return 0.0; }
-    if f.sync_all().is_err() { return 0.0; }
+        if f.write_all(&data).is_err() { return 0.0; }
+        if f.sync_all().is_err() { return 0.0; }
 
-    let duration = start.elapsed().as_secs_f64();
-    let _ = std::fs::remove_file(&test_file);
+        let duration = start.elapsed().as_secs_f64();
+        let _ = std::fs::remove_file(&test_file);
 
-    let mbps = 100.0 / duration;
-    klog!("[Ring 0 / Env] IO Benchmark: {:.1} MB/s on {}", mbps, path.display());
+        100.0 / duration
+    }).await.unwrap_or(0.0);
+    klog!("[Ring 0 / Env] IO Benchmark: {:.1} MB/s on {}", mbps, path_display);
     mbps
 }
 

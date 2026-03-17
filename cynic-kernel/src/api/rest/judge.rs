@@ -71,7 +71,7 @@ pub async fn judge_handler(
 
     // Track token usage per Dog
     {
-        let mut usage = state.usage.lock().unwrap_or_else(|e| e.into_inner());
+        let mut usage = state.usage.lock().await;
         usage.total_requests += 1;
         for ds in &verdict.dog_scores {
             usage.record(&ds.dog_id, ds.prompt_tokens, ds.completion_tokens, ds.latency_ms);

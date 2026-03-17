@@ -68,7 +68,7 @@ pub async fn rate_limit_middleware(
 
     // /judge has its own stricter per-IP rate limit
     if path == "/judge" {
-        if !state.judge_limiter.check(ip) {
+        if !state.judge_limiter.check(ip).await {
             return (
                 StatusCode::TOO_MANY_REQUESTS,
                 Json(ErrorResponse { error: "Judge rate limit exceeded (inference is expensive)".into() }),
@@ -77,7 +77,7 @@ pub async fn rate_limit_middleware(
         // /judge only checks judge_limiter, not global — no double counting
         return next.run(request).await;
     }
-    if !state.rate_limiter.check(ip) {
+    if !state.rate_limiter.check(ip).await {
         return (
             StatusCode::TOO_MANY_REQUESTS,
             Json(ErrorResponse { error: "Rate limit exceeded".into() }),

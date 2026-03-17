@@ -188,25 +188,24 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn observe_crystal(&self, id: &str, content: &str, domain: &str, score: f64, timestamp: &str) -> Result<(), StorageError> {
+        use crate::storage::CrystalCacheEntry;
         let escape = |s: &str| escape_surreal(s);
         let safe_id = escape(id);
 
-        // Read-then-write: SurrealDB 3.x chokes on nested IF...END in UPSERT SET.
-        // Compute state in Rust (where the CCM logic already lives) instead.
-        let existing = self.query_one(&format!("SELECT * FROM crystal:{};", safe_id)).await?;
+        // Try cache first — avoids a SELECT roundtrip on the hot path.
+        // Falls back to DB on cache miss, then populates cache.
+        let cached = self.crystal_cache.read().await.get(id).cloned();
 
-        let (observations, confidence, state_str, created_at) = if let Some(row) = existing.first() {
-            let prev_obs = row["observations"].as_u64().unwrap_or(0) as u32;
-            let prev_conf = row["confidence"].as_f64().unwrap_or(0.0);
-            let created = row["created_at"].as_str().unwrap_or(timestamp).to_string();
+        let (observations, confidence, state_str, created_at) = if let Some(entry) = cached {
+            // Cache hit — compute new state from cached values
             let crystal = crate::domain::ccm::Crystal {
                 id: id.to_string(),
                 content: content.to_string(),
                 domain: domain.to_string(),
-                confidence: prev_conf,
-                observations: prev_obs,
-                state: crate::domain::ccm::CrystalState::Forming, // classify will recompute
-                created_at: created.clone(),
+                confidence: entry.confidence,
+                observations: entry.observations,
+                state: crate::domain::ccm::CrystalState::Forming,
+                created_at: entry.created_at.clone(),
                 updated_at: timestamp.to_string(),
             };
             let updated = crate::domain::ccm::update_crystal(&crystal, score, timestamp);
@@ -217,12 +216,45 @@ impl StoragePort for SurrealHttpStorage {
                 crate::domain::ccm::CrystalState::Decaying => "decaying",
                 crate::domain::ccm::CrystalState::Dissolved => "dissolved",
             };
-            (updated.observations, updated.confidence, state_str, created)
+            (updated.observations, updated.confidence, state_str, entry.created_at)
         } else {
-            // New crystal
-            let state_str = if score < 0.381966 { "dissolved" } else { "forming" };
-            (1u32, score, state_str, timestamp.to_string())
+            // Cache miss — fall back to DB (cold start or first observation)
+            let existing = self.query_one(&format!("SELECT * FROM crystal:{};", safe_id)).await?;
+            if let Some(row) = existing.first() {
+                let prev_obs = row["observations"].as_u64().unwrap_or(0) as u32;
+                let prev_conf = row["confidence"].as_f64().unwrap_or(0.0);
+                let created = row["created_at"].as_str().unwrap_or(timestamp).to_string();
+                let crystal = crate::domain::ccm::Crystal {
+                    id: id.to_string(),
+                    content: content.to_string(),
+                    domain: domain.to_string(),
+                    confidence: prev_conf,
+                    observations: prev_obs,
+                    state: crate::domain::ccm::CrystalState::Forming,
+                    created_at: created.clone(),
+                    updated_at: timestamp.to_string(),
+                };
+                let updated = crate::domain::ccm::update_crystal(&crystal, score, timestamp);
+                let state_str = match updated.state {
+                    crate::domain::ccm::CrystalState::Forming => "forming",
+                    crate::domain::ccm::CrystalState::Crystallized => "crystallized",
+                    crate::domain::ccm::CrystalState::Canonical => "canonical",
+                    crate::domain::ccm::CrystalState::Decaying => "decaying",
+                    crate::domain::ccm::CrystalState::Dissolved => "dissolved",
+                };
+                (updated.observations, updated.confidence, state_str, created)
+            } else {
+                let state_str = if score < 0.381966 { "dissolved" } else { "forming" };
+                (1u32, score, state_str, timestamp.to_string())
+            }
         };
+
+        // Write-through: update cache + DB in parallel-safe order
+        self.crystal_cache.write().await.insert(id.to_string(), CrystalCacheEntry {
+            observations,
+            confidence,
+            created_at: created_at.clone(),
+        });
 
         let sql = format!(
             "UPSERT crystal:{id} SET \
@@ -257,8 +289,7 @@ impl StoragePort for SurrealHttpStorage {
                 status = '{status}', \
                 context = '{context}', \
                 session_id = '{session_id}', \
-                created_at = time::now();\
-             DELETE observation WHERE created_at < time::now() - 30d;",
+                created_at = time::now();",
             project = escape_surreal(&obs.project),
             agent_id = escape_surreal(&obs.agent_id),
             tool = escape_surreal(&obs.tool),

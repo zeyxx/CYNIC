@@ -108,20 +108,29 @@ impl std::fmt::Display for BackendError {
     }
 }
 
+use async_trait::async_trait;
+
 // ============================================================
 // THE PORT — the only way CYNIC talks to compute
 // ============================================================
 
-/// Every compute backend implements this trait.
-/// Local GPU, remote MCP node, mock — all identical to the caller.
+/// Base identity + health contract shared by all backend abstractions.
+/// ChatPort and InferencePort both extend this — `health()` and `name()` are defined once.
 #[async_trait]
-pub trait InferencePort: Send + Sync {
-    fn capability(&self) -> &BackendCapability;
-    async fn infer(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError>;
+pub trait BackendPort: Send + Sync {
+    /// Human-readable name for this backend (e.g. "gemini", "hf-mistral", "sovereign-ubuntu").
+    fn name(&self) -> &str;
+    /// Health check this backend.
     async fn health(&self) -> BackendStatus;
 }
 
-use async_trait::async_trait;
+/// Every compute backend implements this trait.
+/// Local GPU, remote MCP node, mock — all identical to the caller.
+#[async_trait]
+pub trait InferencePort: BackendPort {
+    fn capability(&self) -> &BackendCapability;
+    async fn infer(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError>;
+}
 
 /// Router contract — selects and dispatches to registered InferencePort backends.
 /// Domain-level trait: the gRPC layer sees this, not the concrete BackendRouter.
@@ -169,6 +178,21 @@ impl MockBackend {
 }
 
 #[async_trait]
+impl BackendPort for MockBackend {
+    fn name(&self) -> &str {
+        &self.capability.id
+    }
+
+    async fn health(&self) -> BackendStatus {
+        if self.force_unreachable {
+            BackendStatus::Critical
+        } else {
+            BackendStatus::Healthy
+        }
+    }
+}
+
+#[async_trait]
 impl InferencePort for MockBackend {
     fn capability(&self) -> &BackendCapability {
         &self.capability
@@ -189,14 +213,6 @@ impl InferencePort for MockBackend {
             model_used: "phi-3-mini".to_string(),
             backend_id: "mock".to_string(),
         })
-    }
-
-    async fn health(&self) -> BackendStatus {
-        if self.force_unreachable {
-            BackendStatus::Critical
-        } else {
-            BackendStatus::Healthy
-        }
     }
 }
 

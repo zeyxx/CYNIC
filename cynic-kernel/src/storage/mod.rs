@@ -10,7 +10,17 @@ pub mod surreal;
 
 use reqwest::Client;
 use serde::Deserialize;
+use std::collections::HashMap;
+use tokio::sync::RwLock;
 use crate::domain::storage::StorageError;
+
+/// Cached crystal state — avoids a SELECT roundtrip on every observe_crystal call.
+#[derive(Clone)]
+pub(crate) struct CrystalCacheEntry {
+    pub observations: u32,
+    pub confidence: f64,
+    pub created_at: String,
+}
 
 /// HTTP-based SurrealDB client. No surrealdb crate needed.
 pub struct SurrealHttpStorage {
@@ -19,6 +29,8 @@ pub struct SurrealHttpStorage {
     pub(crate) ns: String,
     pub(crate) db: String,
     pub(crate) auth: String, // "Basic base64(user:pass)"
+    /// In-memory crystal cache — write-through to DB, eliminates SELECT roundtrip.
+    pub(crate) crystal_cache: RwLock<HashMap<String, CrystalCacheEntry>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -51,6 +63,7 @@ impl SurrealHttpStorage {
             ns: ns.to_string(),
             db: db.to_string(),
             auth,
+            crystal_cache: RwLock::new(HashMap::new()),
         };
 
         // Bootstrap namespace and database (SurrealDB 3.x doesn't auto-create)
@@ -60,6 +73,7 @@ impl SurrealHttpStorage {
             ns: String::new(),
             db: String::new(),
             auth: storage.auth.clone(),
+            crystal_cache: RwLock::new(HashMap::new()),
         };
         // Use root-level query to define ns/db
         let bootstrap_sql = format!(

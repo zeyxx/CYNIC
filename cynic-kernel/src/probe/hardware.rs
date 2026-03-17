@@ -8,18 +8,20 @@ use super::types::*;
 // ============================================================
 
 pub(super) async fn probe_hardware() -> HardwareInfo {
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    let hw = tokio::task::spawn_blocking(|| {
+        let mut sys = System::new_all();
+        sys.refresh_all();
 
-    let cpu_model = sys.cpus().first()
-        .map(|c| c.brand().to_string())
-        .unwrap_or_else(|| "Unknown".into());
+        let cpu_model = sys.cpus().first()
+            .map(|c| c.brand().to_string())
+            .unwrap_or_else(|| "Unknown".into());
 
-    let hw = HardwareInfo {
-        total_ram_gb: sys.total_memory() as f64 / 1024.0 / 1024.0 / 1024.0,
-        cpu_cores: sys.cpus().len(),
-        cpu_model: cpu_model.clone(),
-    };
+        HardwareInfo {
+            total_ram_gb: sys.total_memory() as f64 / 1024.0 / 1024.0 / 1024.0,
+            cpu_cores: sys.cpus().len(),
+            cpu_model,
+        }
+    }).await.expect("probe_hardware spawn_blocking panicked");
     klog!("[Ring 0 / HW]  CPU: {} ({} cores) | RAM: {:.1} GB",
         hw.cpu_model, hw.cpu_cores, hw.total_ram_gb);
     hw
@@ -29,88 +31,117 @@ pub(super) async fn probe_hardware() -> HardwareInfo {
 // COMPUTE DETECTION — reads sysfs, no external tools required
 // ============================================================
 
+/// Sync detection result — resolved in spawn_blocking, then enriched async.
+enum SyncDetection {
+    /// Fully resolved — no async enrichment needed.
+    Complete(ComputeInfo, &'static str),
+    /// Needs async enrichment via PowerShell bridge (WSL2/Windows).
+    NeedsEnrich(ComputeInfo, &'static str),
+    /// /dev/dxg exists but sysfs found nothing — need PowerShell bridge.
+    NeedsBridge,
+    /// Windows native — need PowerShell detection.
+    NeedsWindows,
+    /// CPU fallback.
+    CpuFallback(ComputeInfo),
+}
+
 pub(super) async fn probe_compute() -> ComputeInfo {
-    // Priority: CUDA > ROCm > Vulkan (AMD/Intel via sysfs) > Metal > CPU
-    // Always read /sys/class/drm/ FIRST — most accurate, no external tools.
-    // /dev/dxg only tells us "some GPU exists in WSL2", not the vendor.
-
-    // 1. NVIDIA via nvidia-smi
-    if let Some(info) = detect_nvidia() {
-        klog!("[Ring 0 / GPU] NVIDIA: {} ({:.1} GB VRAM) → cuda", info.gpu_name, info.vram_gb);
-        return info;
-    }
-
-    // 2. AMD ROCm via /dev/kfd
-    if Path::new("/dev/kfd").exists() {
-        let info = detect_amd_via_sysfs(false);
-        klog!("[Ring 0 / GPU] AMD ROCm (/dev/kfd): {} → rocm", info.gpu_name);
-        return ComputeInfo { backend: ComputeBackend::ROCm, ..info };
-    }
-
-    // 3. Read /sys/class/drm/ vendor — works on bare Linux, WSL2, Docker
-    //    This correctly identifies AMD Ryzen iGPU (Vega 8 = vendor 0x1002)
-    if let Some(mut info) = detect_gpu_via_sysfs() {
-        // If we found a generic GPU name but we are in WSL2, try to enrich it via host
-        if (info.gpu_name.to_lowercase().contains("generic") || info.gpu_name.is_empty())
-            && let Some(host_name) = probe_windows_gpu().await
-        {
-            info.gpu_name = host_name;
+    // Phase 1: Sync detection (sysfs, nvidia-smi) — runs in spawn_blocking.
+    let detection = tokio::task::spawn_blocking(|| {
+        // 1. NVIDIA via nvidia-smi
+        if let Some(info) = detect_nvidia() {
+            return SyncDetection::Complete(info, "NVIDIA");
         }
-        klog!("[Ring 0 / GPU] DRM: {} (is_igpu:{}) → {:?}",
-            info.gpu_name, info.is_igpu, info.backend);
-        return info;
-    }
-
-    // 4. /dev/dxg exists but sysfs found nothing → WSL2 with GPU passthrough
-    //    Use the Vascular Bridge (PowerShell) to identify the real hardware
-    if Path::new("/dev/dxg").exists()
-        && let Some(host_name) = probe_windows_gpu().await
-    {
-        let mut info = detect_cpu_info();
-        info.gpu_name = host_name;
-        // Heuristic: if AMD/Radeon as found by user, use Vulkan
-        if info.gpu_name.to_lowercase().contains("amd") || info.gpu_name.to_lowercase().contains("radeon") {
-            info.backend = ComputeBackend::Vulkan;
-        } else if info.gpu_name.to_lowercase().contains("nvidia") {
-            info.backend = ComputeBackend::Cuda; // Force check CUDA again with right label
+        // 2. AMD ROCm via /dev/kfd
+        if Path::new("/dev/kfd").exists() {
+            let info = detect_amd_via_sysfs(false);
+            return SyncDetection::Complete(
+                ComputeInfo { backend: ComputeBackend::ROCm, ..info }, "ROCm");
         }
-        info.is_igpu = true;
-        klog!("[Ring 0 / GPU] Bridge: {} → {:?}", info.gpu_name, info.backend);
-        return info;
-    }
-
-    // 5. Native Windows GPU (DirectX/WMI via PowerShell)
-    if cfg!(target_os = "windows")
-        && let Some(host_name) = probe_windows_gpu().await
-    {
-        let mut info = detect_cpu_info();
-        info.gpu_name = host_name;
-        info.backend = ComputeBackend::Vulkan; // Windows default for iGPU/dGPU
-        info.is_igpu = true; // Safe assumption for Ryzen G series or integrated
-        if info.gpu_name.to_lowercase().contains("nvidia") {
-            info.backend = ComputeBackend::Cuda;
-            info.is_igpu = false;
+        // 3. /sys/class/drm/ vendor
+        if let Some(info) = detect_gpu_via_sysfs() {
+            if info.gpu_name.to_lowercase().contains("generic") || info.gpu_name.is_empty() {
+                return SyncDetection::NeedsEnrich(info, "DRM");
+            }
+            return SyncDetection::Complete(info, "DRM");
         }
-        klog!("[Ring 0 / GPU] Windows Native: {} → {:?}", info.gpu_name, info.backend);
-        return info;
-    }
+        // 4. /dev/dxg exists but sysfs found nothing → WSL2
+        if Path::new("/dev/dxg").exists() {
+            return SyncDetection::NeedsBridge;
+        }
+        // 5. Windows native
+        if cfg!(target_os = "windows") {
+            return SyncDetection::NeedsWindows;
+        }
+        // 6. macOS Metal
+        if cfg!(target_os = "macos") {
+            return SyncDetection::Complete(ComputeInfo {
+                backend: ComputeBackend::Metal,
+                gpu_name: "Apple Silicon GPU".into(),
+                vram_gb: 0.0,
+                is_igpu: true,
+                ..detect_cpu_info()
+            }, "Metal");
+        }
+        // 7. CPU fallback
+        SyncDetection::CpuFallback(detect_cpu_info())
+    }).await.expect("probe_compute spawn_blocking panicked");
 
-    // 6. macOS Metal
-    if cfg!(target_os = "macos") {
-        klog!("[Ring 0 / GPU] macOS Metal → metal");
-        return ComputeInfo {
-            backend: ComputeBackend::Metal,
-            gpu_name: "Apple Silicon GPU".into(),
-            vram_gb: 0.0,
-            is_igpu: true,
-            ..detect_cpu_info()
-        };
+    // Phase 2: Async enrichment (PowerShell bridge) — only when needed.
+    match detection {
+        SyncDetection::Complete(info, source) => {
+            klog!("[Ring 0 / GPU] {}: {} → {:?}", source, info.gpu_name, info.backend);
+            info
+        }
+        SyncDetection::NeedsEnrich(mut info, source) => {
+            if let Some(host_name) = probe_windows_gpu().await {
+                info.gpu_name = host_name;
+            }
+            klog!("[Ring 0 / GPU] {}: {} (is_igpu:{}) → {:?}",
+                source, info.gpu_name, info.is_igpu, info.backend);
+            info
+        }
+        SyncDetection::NeedsBridge => {
+            if let Some(host_name) = probe_windows_gpu().await {
+                let mut info = detect_cpu_info();
+                info.gpu_name = host_name;
+                if info.gpu_name.to_lowercase().contains("amd") || info.gpu_name.to_lowercase().contains("radeon") {
+                    info.backend = ComputeBackend::Vulkan;
+                } else if info.gpu_name.to_lowercase().contains("nvidia") {
+                    info.backend = ComputeBackend::Cuda;
+                }
+                info.is_igpu = true;
+                klog!("[Ring 0 / GPU] Bridge: {} → {:?}", info.gpu_name, info.backend);
+                info
+            } else {
+                let cpu = detect_cpu_info();
+                klog!("[Ring 0 / GPU] No GPU → cpu (AVX2:{})", cpu.avx2);
+                cpu
+            }
+        }
+        SyncDetection::NeedsWindows => {
+            if let Some(host_name) = probe_windows_gpu().await {
+                let mut info = detect_cpu_info();
+                info.gpu_name = host_name;
+                info.backend = ComputeBackend::Vulkan;
+                info.is_igpu = true;
+                if info.gpu_name.to_lowercase().contains("nvidia") {
+                    info.backend = ComputeBackend::Cuda;
+                    info.is_igpu = false;
+                }
+                klog!("[Ring 0 / GPU] Windows Native: {} → {:?}", info.gpu_name, info.backend);
+                info
+            } else {
+                let cpu = detect_cpu_info();
+                klog!("[Ring 0 / GPU] No GPU → cpu (AVX2:{})", cpu.avx2);
+                cpu
+            }
+        }
+        SyncDetection::CpuFallback(cpu) => {
+            klog!("[Ring 0 / GPU] No GPU → cpu (AVX2:{})", cpu.avx2);
+            cpu
+        }
     }
-
-    // 7. CPU fallback
-    let cpu = detect_cpu_info();
-    klog!("[Ring 0 / GPU] No GPU → cpu (AVX2:{})", cpu.avx2);
-    cpu
 }
 
 fn detect_nvidia() -> Option<ComputeInfo> {
@@ -223,28 +254,29 @@ pub(super) fn detect_cpu_info() -> ComputeInfo {
 }
 
 async fn probe_windows_gpu() -> Option<String> {
-    let out = std::process::Command::new("powershell.exe")
-        .args(["-NoProfile", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"])
-        .output()
-        .ok()?;
+    tokio::task::spawn_blocking(|| {
+        let out = std::process::Command::new("powershell.exe")
+            .args(["-NoProfile", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"])
+            .output()
+            .ok()?;
 
-    if !out.status.success() { return None; }
-    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if text.is_empty() { return None; }
+        if !out.status.success() { return None; }
+        let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if text.is_empty() { return None; }
 
-    // Filter out virtual adapters
-    let lines: Vec<String> = text.lines()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty() && !s.to_lowercase().contains("virtual")
-                    && !s.to_lowercase().contains("parsec")
-                    && !s.to_lowercase().contains("citrix")
-                    && !s.to_lowercase().contains("microsoft remote"))
-        .collect();
+        // Filter out virtual adapters
+        let lines: Vec<String> = text.lines()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty() && !s.to_lowercase().contains("virtual")
+                        && !s.to_lowercase().contains("parsec")
+                        && !s.to_lowercase().contains("citrix")
+                        && !s.to_lowercase().contains("microsoft remote"))
+            .collect();
 
-    if lines.is_empty() {
-        // Fallback to first one if all are virtual
-        return text.lines().next().map(|s| s.trim().to_string());
-    }
+        if lines.is_empty() {
+            return text.lines().next().map(|s| s.trim().to_string());
+        }
 
-    Some(lines[0].clone())
+        Some(lines[0].clone())
+    }).await.ok()?
 }

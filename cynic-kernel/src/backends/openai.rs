@@ -1,9 +1,10 @@
 //! OpenAiCompatBackend — universal adapter for any OpenAI-compatible inference server.
-//! Implements ChatPort (for Dogs) and InferencePort (for MCTS).
+//! Implements BackendPort (shared health+name), ChatPort (for Dogs), InferencePort (for MCTS).
 //! One type, N instances (Gemini, HuggingFace, llama.cpp, vLLM, SGLang).
 
 use crate::domain::inference::*;
 use crate::domain::chat::{ChatPort, ChatError, ChatResponse};
+
 use crate::infra::config::{BackendConfig, AuthStyle};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -150,6 +151,35 @@ impl OpenAiCompatBackend {
     }
 }
 
+// ── BackendPort implementation (shared health + name) ───────
+
+#[async_trait]
+impl BackendPort for OpenAiCompatBackend {
+    fn name(&self) -> &str {
+        &self.config.name
+    }
+
+    async fn health(&self) -> BackendStatus {
+        let start = Instant::now();
+        let url = self.build_url("/models");
+        let req = self.client.get(&url);
+        let req = self.apply_auth(req);
+
+        match req.send().await {
+            Ok(resp) if resp.status().is_success() => {
+                let latency = start.elapsed().as_millis() as f64;
+                if latency > 2000.0 {
+                    BackendStatus::Degraded { latency_ms: latency }
+                } else {
+                    BackendStatus::Healthy
+                }
+            }
+            Ok(_) => BackendStatus::Degraded { latency_ms: start.elapsed().as_millis() as f64 },
+            Err(_) => BackendStatus::Critical,
+        }
+    }
+}
+
 // ── ChatPort implementation (for Dogs) ──────────────────────
 
 #[async_trait]
@@ -172,30 +202,6 @@ impl ChatPort for OpenAiCompatBackend {
             .ok_or_else(|| ChatError::Protocol(format!("{}: empty response", self.config.name)))?;
 
         Ok(ChatResponse { text, prompt_tokens, completion_tokens })
-    }
-
-    async fn health(&self) -> BackendStatus {
-        let start = Instant::now();
-        let url = self.build_url("/models");
-        let req = self.client.get(&url);
-        let req = self.apply_auth(req);
-
-        match req.send().await {
-            Ok(resp) if resp.status().is_success() => {
-                let latency = start.elapsed().as_millis() as f64;
-                if latency > 2000.0 {
-                    BackendStatus::Degraded { latency_ms: latency }
-                } else {
-                    BackendStatus::Healthy
-                }
-            }
-            Ok(_) => BackendStatus::Degraded { latency_ms: start.elapsed().as_millis() as f64 },
-            Err(_) => BackendStatus::Critical,
-        }
-    }
-
-    fn name(&self) -> &str {
-        &self.config.name
     }
 }
 
@@ -234,10 +240,6 @@ impl InferencePort for OpenAiCompatBackend {
             model_used,
             backend_id: self.config.name.clone(),
         })
-    }
-
-    async fn health(&self) -> BackendStatus {
-        ChatPort::health(self).await
     }
 }
 

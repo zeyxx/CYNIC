@@ -55,7 +55,7 @@ pub async fn crystal_handler(
 pub async fn usage_handler(
     State(state): State<Arc<AppState>>,
 ) -> Json<serde_json::Value> {
-    let usage = state.usage.lock().unwrap_or_else(|e| e.into_inner());
+    let usage = state.usage.lock().await;
     let merged = usage.merged_dogs();
     let mut dogs: Vec<serde_json::Value> = merged.iter().map(|(id, d)| {
         let avg_latency = d.total_latency_ms.checked_div(d.requests).unwrap_or(0);

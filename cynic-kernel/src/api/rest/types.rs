@@ -3,7 +3,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::domain::coord::CoordPort;
 use crate::domain::storage::StoragePort;
@@ -25,6 +26,7 @@ pub struct AppState {
 // ── PER-IP RATE LIMITER ──────────────────────────────────────
 
 /// Per-IP token bucket rate limiter. Each IP gets its own bucket.
+/// Uses tokio::sync::Mutex — never blocks a tokio worker thread.
 /// Stale entries are evicted after 2 minutes of inactivity.
 pub struct PerIpRateLimiter {
     buckets: Mutex<HashMap<IpAddr, TokenBucket>>,
@@ -47,8 +49,8 @@ impl PerIpRateLimiter {
     }
 
     /// Returns true if request from this IP is allowed.
-    pub fn check(&self, ip: IpAddr) -> bool {
-        let mut buckets = self.buckets.lock().unwrap_or_else(|e| e.into_inner());
+    pub async fn check(&self, ip: IpAddr) -> bool {
+        let mut buckets = self.buckets.lock().await;
         let now = std::time::Instant::now();
 
         // Evict stale entries (>2min inactive) to prevent memory leak
@@ -175,17 +177,17 @@ pub struct DogHealthResponse {
 mod tests {
     use super::*;
 
-    #[test]
-    fn rate_limiter_allows_within_limit() {
+    #[tokio::test]
+    async fn rate_limiter_allows_within_limit() {
         let limiter = PerIpRateLimiter::new(3);
         let ip: std::net::IpAddr = "127.0.0.1".parse().unwrap();
-        assert!(limiter.check(ip));
-        assert!(limiter.check(ip));
-        assert!(limiter.check(ip));
-        assert!(!limiter.check(ip)); // 4th request rejected
+        assert!(limiter.check(ip).await);
+        assert!(limiter.check(ip).await);
+        assert!(limiter.check(ip).await);
+        assert!(!limiter.check(ip).await); // 4th request rejected
         // Different IP gets its own bucket
         let ip2: std::net::IpAddr = "10.0.0.1".parse().unwrap();
         assert!(ip2 != ip);
-        assert!(limiter.check(ip2)); // separate bucket, allowed
+        assert!(limiter.check(ip2).await); // separate bucket, allowed
     }
 }
