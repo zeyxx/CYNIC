@@ -140,6 +140,14 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS agent_id ON mcp_audit TYPE string;\
             DEFINE FIELD IF NOT EXISTS details ON mcp_audit TYPE string;\
             DEFINE INDEX IF NOT EXISTS mcp_audit_ts_idx ON mcp_audit FIELDS ts;\
+            DEFINE FIELD IF NOT EXISTS dog_id ON dog_usage TYPE string;\
+            DEFINE FIELD IF NOT EXISTS prompt_tokens ON dog_usage TYPE int;\
+            DEFINE FIELD IF NOT EXISTS completion_tokens ON dog_usage TYPE int;\
+            DEFINE FIELD IF NOT EXISTS requests ON dog_usage TYPE int;\
+            DEFINE FIELD IF NOT EXISTS failures ON dog_usage TYPE int;\
+            DEFINE FIELD IF NOT EXISTS total_latency_ms ON dog_usage TYPE int;\
+            DEFINE FIELD IF NOT EXISTS updated_at ON dog_usage TYPE datetime;\
+            DEFINE INDEX IF NOT EXISTS dog_usage_id_idx ON dog_usage FIELDS dog_id UNIQUE;\
         ";
         if let Err(e) = storage.query(schema_sql).await {
             eprintln!("[Ring 1 / UAL] WARNING: Schema bootstrap failed (non-fatal): {}", e);

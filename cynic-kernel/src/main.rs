@@ -105,6 +105,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── RING 3: REST API (for React/external clients) ────────
     let judge = Arc::new(judge);
     let usage_tracker = Arc::new(std::sync::Mutex::new(domain::usage::DogUsageTracker::new()));
+    // Load historical usage from DB (survives restarts)
+    if let Some(db) = &raw_db {
+        match db.query_one("SELECT * FROM dog_usage;").await {
+            Ok(rows) => {
+                let mut usage = usage_tracker.lock().unwrap();
+                usage.load_historical(&rows);
+                klog!("[Ring 2] Usage: loaded {} Dog histories ({} all-time requests)",
+                    rows.len(), usage.all_time_requests());
+            }
+            Err(e) => klog!("[Ring 2] Usage: failed to load history (non-fatal): {}", e),
+        }
+    }
     let api_key = std::env::var("CYNIC_API_KEY").ok();
     let rest_state = Arc::new(api::rest::AppState {
         judge: Arc::clone(&judge),
@@ -150,6 +162,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
         klog!("[Ring 2] Coordination expiry task started (every 60s)");
+    }
+
+    // ─── Usage flush (background, every 60s) ──────────────────
+    if let Some(db) = &raw_db {
+        let flush_db = Arc::clone(db) as Arc<storage::SurrealHttpStorage>;
+        let flush_usage = Arc::clone(&usage_tracker);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+            interval.tick().await; // Skip first immediate tick
+            loop {
+                interval.tick().await;
+                let snapshot = {
+                    let usage = flush_usage.lock().unwrap();
+                    usage.snapshot()
+                };
+                for (dog_id, u) in &snapshot {
+                    let sql = format!(
+                        "UPSERT dog_usage:`{id}` SET \
+                            dog_id = '{id}', \
+                            prompt_tokens = IF prompt_tokens THEN prompt_tokens + {pt} ELSE {pt} END, \
+                            completion_tokens = IF completion_tokens THEN completion_tokens + {ct} ELSE {ct} END, \
+                            requests = IF requests THEN requests + {req} ELSE {req} END, \
+                            failures = IF failures THEN failures + {fail} ELSE {fail} END, \
+                            total_latency_ms = IF total_latency_ms THEN total_latency_ms + {lat} ELSE {lat} END, \
+                            updated_at = time::now();",
+                        id = dog_id, pt = u.prompt_tokens, ct = u.completion_tokens,
+                        req = u.requests, fail = u.failures, lat = u.total_latency_ms,
+                    );
+                    let _ = flush_db.query_one(&sql).await;
+                }
+                // Clear session counters after flush (they're now in DB)
+                if !snapshot.is_empty() {
+                    let mut usage = flush_usage.lock().unwrap();
+                    usage.dogs.clear();
+                    usage.total_requests = 0;
+                }
+            }
+        });
+        klog!("[Ring 2] Usage flush task started (every 60s)");
     }
 
     // ─── CCM Workflow Aggregator (periodic, every 5 min) ──────

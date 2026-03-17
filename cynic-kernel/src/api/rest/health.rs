@@ -85,7 +85,7 @@ pub async fn health_handler(
         "axioms": ["FIDELITY", "PHI", "VERIFY/FALSIFY", "CULTURE", "BURN", "SOVEREIGNTY"],
         "dogs": dogs,
         "storage": if storage_ok { "connected" } else { "down" },
-        "total_requests": usage.total_requests,
+        "total_requests": usage.all_time_requests(),
         "total_tokens": usage.total_tokens(),
         "estimated_cost_usd": usage.estimated_cost_usd(),
         "uptime_seconds": usage.uptime_seconds(),
