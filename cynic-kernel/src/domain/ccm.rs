@@ -211,6 +211,70 @@ pub fn extract_patterns(rows: &[serde_json::Value], total_observations: u64) -> 
     patterns
 }
 
+/// Extract co-occurrence patterns from session-grouped observations.
+/// Input: rows of {session_id, target} sorted by session_id.
+/// Output: (crystal_id, content, score) for pairs that co-occur in 2+ sessions.
+///
+/// Pure function — all co-occurrence computation happens in Rust, not SQL.
+pub fn extract_cooccurrences(rows: &[serde_json::Value]) -> Vec<(String, String, f64)> {
+    use std::collections::{HashMap, HashSet};
+
+    // Group targets by session
+    let mut sessions: HashMap<String, HashSet<String>> = HashMap::new();
+    for row in rows {
+        let session = row["session_id"].as_str().unwrap_or("").to_string();
+        let target = row["target"].as_str().unwrap_or("").to_string();
+        if session.is_empty() || target.is_empty() {
+            continue;
+        }
+        sessions.entry(session).or_default().insert(target);
+    }
+
+    // Only sessions with 2+ distinct targets can produce co-occurrences
+    let multi_target_sessions: Vec<&HashSet<String>> = sessions.values()
+        .filter(|targets| targets.len() >= 2)
+        .collect();
+
+    if multi_target_sessions.is_empty() {
+        return Vec::new();
+    }
+
+    let total_sessions = multi_target_sessions.len() as f64;
+
+    // Count pair co-occurrences
+    let mut pair_counts: HashMap<(String, String), u32> = HashMap::new();
+    for targets in &multi_target_sessions {
+        let mut sorted: Vec<&String> = targets.iter().collect();
+        sorted.sort();
+        // Generate pairs (ordered to avoid duplicates)
+        for i in 0..sorted.len() {
+            for j in (i + 1)..sorted.len() {
+                let key = (sorted[i].clone(), sorted[j].clone());
+                *pair_counts.entry(key).or_insert(0) += 1;
+            }
+        }
+    }
+
+    // Filter: at least 2 co-occurrences to matter
+    let mut patterns: Vec<(String, String, f64)> = pair_counts.into_iter()
+        .filter(|(_, count)| *count >= 2)
+        .map(|((a, b), count)| {
+            let score = count as f64 / total_sessions;
+            // Shorten paths for readability — use filename only
+            let short_a = a.rsplit('/').next().unwrap_or(&a);
+            let short_b = b.rsplit('/').next().unwrap_or(&b);
+            let id = format!("co_{:x}", content_hash(&format!("{}:{}", a, b)));
+            let content = format!("{} + {} — co-edited in {}% of sessions", short_a, short_b, (score * 100.0) as u32);
+            (id, content, score)
+        })
+        .collect();
+
+    // Sort by score descending — strongest co-occurrences first
+    patterns.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+    patterns.truncate(20); // Cap at 20 co-occurrence patterns
+    patterns
+}
+
 /// Run a full aggregation cycle against storage.
 /// Returns the number of patterns fed into CCM.
 pub async fn aggregate_observations(
@@ -247,8 +311,21 @@ pub async fn aggregate_observations(
         }
     }
 
+    // Phase 2: Co-occurrence patterns (targets edited together in the same session)
+    let session_rows = storage.query_session_targets(project, 500).await
+        .unwrap_or_default();
+    let cooccurrences = extract_cooccurrences(&session_rows);
+    for (id, content, score) in &cooccurrences {
+        if let Err(e) = storage.observe_crystal(id, content, "workflow", *score, &now).await {
+            eprintln!("[CCM/aggregate] Warning: failed to observe co-occurrence crystal {}: {}", id, e);
+        } else {
+            count += 1;
+        }
+    }
+
     if count > 0 {
-        klog!("[CCM/aggregate] {} workflow patterns crystallized from {} total observations", count, total);
+        klog!("[CCM/aggregate] {} patterns crystallized ({} freq + {} co-occur) from {} observations",
+            count, count - cooccurrences.len() as u32, cooccurrences.len(), total);
     }
 
     count
@@ -413,6 +490,52 @@ mod tests {
     #[test]
     fn extract_patterns_empty() {
         let patterns = extract_patterns(&[], 0);
+        assert!(patterns.is_empty());
+    }
+
+    #[test]
+    fn cooccurrence_basic() {
+        let rows = vec![
+            // Session 1: edited A and B
+            serde_json::json!({"session_id": "s1", "target": "/src/a.rs"}),
+            serde_json::json!({"session_id": "s1", "target": "/src/b.rs"}),
+            // Session 2: edited A and B again
+            serde_json::json!({"session_id": "s2", "target": "/src/a.rs"}),
+            serde_json::json!({"session_id": "s2", "target": "/src/b.rs"}),
+            // Session 3: edited A only (no pair)
+            serde_json::json!({"session_id": "s3", "target": "/src/a.rs"}),
+        ];
+        let patterns = extract_cooccurrences(&rows);
+        assert_eq!(patterns.len(), 1);
+        assert!(patterns[0].1.contains("a.rs"));
+        assert!(patterns[0].1.contains("b.rs"));
+        assert!((patterns[0].2 - 1.0).abs() < 1e-10); // 2 co-occur / 2 multi-target sessions
+    }
+
+    #[test]
+    fn cooccurrence_filters_single_occurrence() {
+        let rows = vec![
+            // Only 1 session with both files — below threshold of 2
+            serde_json::json!({"session_id": "s1", "target": "/src/x.rs"}),
+            serde_json::json!({"session_id": "s1", "target": "/src/y.rs"}),
+        ];
+        let patterns = extract_cooccurrences(&rows);
+        assert!(patterns.is_empty()); // Need 2+ co-occurrences
+    }
+
+    #[test]
+    fn cooccurrence_empty_sessions() {
+        let patterns = extract_cooccurrences(&[]);
+        assert!(patterns.is_empty());
+    }
+
+    #[test]
+    fn cooccurrence_skips_empty_session_id() {
+        let rows = vec![
+            serde_json::json!({"session_id": "", "target": "/src/a.rs"}),
+            serde_json::json!({"session_id": "", "target": "/src/b.rs"}),
+        ];
+        let patterns = extract_cooccurrences(&rows);
         assert!(patterns.is_empty());
     }
 

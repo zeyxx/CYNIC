@@ -63,6 +63,10 @@ pub trait StoragePort: Send + Sync {
     /// Query observations by project, with optional domain filter.
     /// Returns top observations ordered by frequency (co-occurrence patterns).
     async fn query_observations(&self, project: &str, domain: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, StorageError>;
+
+    /// Query distinct targets per session — used for co-occurrence extraction.
+    /// Returns rows of {session_id, target} for sessions with 2+ distinct targets.
+    async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<serde_json::Value>, StorageError>;
 }
 
 /// No-op storage for graceful degradation when DB is unavailable.
@@ -99,6 +103,9 @@ impl StoragePort for NullStorage {
         Ok(())
     }
     async fn query_observations(&self, _project: &str, _domain: Option<&str>, _limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
+        Ok(vec![])
+    }
+    async fn query_session_targets(&self, _project: &str, _limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
         Ok(vec![])
     }
 }

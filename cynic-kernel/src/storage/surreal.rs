@@ -240,6 +240,19 @@ impl StoragePort for SurrealHttpStorage {
         );
         self.query_one(&sql).await
     }
+
+    async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
+        let limit = safe_limit(limit);
+        // Get distinct targets per session — only sessions with non-empty session_id
+        // and Edit/Write tools (file-level co-occurrences are the useful signal)
+        let sql = format!(
+            "SELECT session_id, target FROM observation \
+             WHERE project = '{}' AND session_id != '' AND tool IN ['Edit', 'Write', 'Read'] \
+             ORDER BY session_id, target LIMIT {};",
+            escape_surreal(project), limit,
+        );
+        self.query_one(&sql).await
+    }
 }
 
 // ── COORD PORT IMPLEMENTATION ────────────────────────────────
