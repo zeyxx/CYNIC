@@ -8,17 +8,23 @@ Use when things go wrong, when coordinating with other agents, or when you need 
 
 ## Session Lifecycle (detail)
 
+Agent ID is in the session banner: `Agent: claude-XXXXXXXXXX`
+
 ```
 1. SessionStart    → hook auto-registers (verify in output: "Agent: claude-XXXX")
-2. Coord claim     → cynic_coord_who() + cynic_coord_claim(agent_id, file)
-3. Work            → git worktree for isolation: make scope SLUG=<name>
-4. Validate        → make check (build + test + clippy --release)
-5. Ship            → git commit + git push (L0 gates: gitleaks, build, test)
-6. Release         → cynic_coord_release(agent_id, file) per file
-7. SessionEnd      → cynic_coord_release(agent_id) — releases all claims
+2. Coord claim     → cynic_coord_who() + cynic_coord_claim(agent_id="claude-XXX", target="file.rs")
+3. Worktree        → make scope SLUG=<name> → creates ../cynic-<slug>/ + branch session/<user>/<slug>
+4. Work            → cd ../cynic-<slug>/ — main checkout stays clean
+5. Validate        → make check (build + test + clippy --release)
+6. Ship            → git commit + git push (L0 gates: gitleaks, build, test)
+7. Release         → cynic_coord_release(agent_id, target="file.rs") — one file at a time as work completes
+8. Clean up        → make done SLUG=<name> — removes worktree + branch
+9. SessionEnd      → cynic_coord_release(agent_id) — no target = releases ALL claims
 ```
 
-**ILC branch naming:** `session/<agent>/<slug>` — git rejects duplicates (hard enforcement).
+**Two enforcement layers:**
+- **Git branch uniqueness** = hard enforcement. Duplicate branch names are physically rejected.
+- **Coord claims** = soft enforcement (visibility). Prevents wasted work, not merge conflicts.
 
 ---
 
