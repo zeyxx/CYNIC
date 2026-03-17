@@ -1,4 +1,7 @@
-<!-- Auto-invocation via ~/.claude/commands/cynic-skills/engineering-stack-design/ — no frontmatter here to avoid duplication -->
+---
+name: engineering-stack-design
+description: Use when starting implementation of a complex system — before writing code, before choosing architecture, before defining principles. Use when the question is "how do we build this?" and the answer isn't obvious. Triggers on: "what architecture?", "what principles?", "how do we structure this?", "engineering foundations", "where do we start?".
+---
 
 # Engineering Stack Design
 

@@ -101,7 +101,7 @@ When a question or decision arrives:
 | **VERIFY** | Epistemology (justified true belief), falsification (Popper), pragmatic truth (Peirce) |
 | **CULTURE** | Ubuntu philosophy, phenomenology (Husserl), hermeneutics (Gadamer), memetics |
 | **BURN** | Environmental ethics (Jonas), economics of sacrifice (Bataille), thermodynamics |
-| **SOVEREIGNTY** | Autonomy of the will (Kant), anarchist self-governance (Kropotkin), cryptographic self-custody, anti-capture (Ostrom). A single SOVEREIGNTY facet at 0 collapses Q-Score to 0 — non-negotiable. |
+| **SOVEREIGNTY** | Autonomy of the will (Kant), anarchist self-governance (Kropotkin), autarkeia (Cynics), anti-capture (Ostrom). Geometric mean ensures one weak axiom drags the whole Q-Score down. |
 
 ## Examples
 

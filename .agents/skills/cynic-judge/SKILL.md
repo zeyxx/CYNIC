@@ -22,9 +22,7 @@ Every evaluation scores across **6 axioms**, each with **7 dimensions** = 42 nam
 | **BURN** | 🔥 | Don't extract, burn | Fire |
 | **SOVEREIGNTY** | 🛡 | Not captured by any single source | Spirit |
 
-Numbers derive from φ: 6 = hexagon (most stable), 7 = L(4) Lucas dimensions per axiom, 43 = 6×7+1.
-
-**SOVEREIGNTY note:** Scored like all axioms via weighted average + geometric mean. A near-zero SOVEREIGNTY drags Q-Score toward zero — same natural hard-block as any axiom. No special min() override.
+Numbers derive from φ: 6 = hexagon (most stable), 7 = L(4) Lucas, 43 = 6×7+1.
 
 See [dimensions reference](references/dimensions.md) for all 43 dimensions with weights and descriptions.
 
@@ -36,15 +34,17 @@ Every axiom uses the same universal φ weight template across its 7 positions:
 |----------|-----|-----|-----|-----|-----|-----|-----|
 | Weight | φ (1.618) | φ⁻¹ (0.618) | 1.0 | φ (1.618) | φ⁻² (0.382) | φ⁻¹ (0.618) | φ⁻¹ (0.618) |
 
-Within each axiom, the weighted average of its 7 dimensions produces the axiom score.
+Within each axiom, the weighted average of its 7 dimensions produces the axiom score. All axioms use weighted average — no special min() semantics. The geometric mean already provides natural hard-block: a near-zero axiom collapses Q-Score toward zero.
 
 ## Q-Score Formula
 
 ```
+axiom_score = weighted_avg(7 dimension scores)  ← all axioms, including SOVEREIGNTY
+
 Q = 100 × ⁶√(F × Φ × V × C × B × S / 100⁶)
 ```
 
-**Geometric mean** of 6 axiom scores. This is critical: one weak axiom drags everything down. SOVEREIGNTY at 0 → Q = 0.
+**Geometric mean** of 6 axiom scores. One weak axiom drags everything down. You cannot compensate a bad FIDELITY with a great PHI.
 
 ## Verdicts
 
@@ -71,7 +71,7 @@ Not a simple cap. When explaining confidence, acknowledge it combines:
 - **Bayesian priors**: Past judgments of this item type inform current beliefs.
 - **Self-doubt**: "φ distrusts φ" — even high-confidence judgments carry 38.2% doubt.
 
-Final confidence is always ≤ 61.8% (φ⁻¹).
+Final confidence is always ≤ 61.8% (φ⁻¹). Combines Shannon entropy, Bayesian inference, and calibration.
 
 ## Output Format
 
@@ -89,7 +89,7 @@ Present results like this:
 │ VERIFY:      [████████░░] XX%  [brief note]         │
 │ CULTURE:     [███████░░░] XX%  [brief note]         │
 │ BURN:        [█████░░░░░] XX%  [brief note]         │
-│ SOVEREIGNTY: [██████░░░░] XX%  [brief note]         │
+│ SOVEREIGNTY: [████████░░] XX%  [brief note]         │
 ├─────────────────────────────────────────────────────┤
 │ THE_UNNAMEABLE: XX% (explained variance)            │
 └─────────────────────────────────────────────────────┘
@@ -115,7 +115,7 @@ Progress bars: 10 chars. █ = filled, ░ = empty.
 - VERIFY → Tests, types, error handling, edge cases
 - CULTURE → Conventions, idiomatic patterns, ecosystem fit
 - BURN → No dead code, no over-engineering, efficiency
-- SOVEREIGNTY → No single external dependency controls behavior; failure modes self-contained
+- SOVEREIGNTY → No vendor lock-in, swappable dependencies, self-contained
 
 **Decisions:**
 - FIDELITY → Does this align with stated commitments?
@@ -123,7 +123,7 @@ Progress bars: 10 chars. █ = filled, ░ = empty.
 - VERIFY → Evidence-based, data-driven, reversible
 - CULTURE → Team alignment, stakeholder buy-in
 - BURN → Minimal viable approach, action bias
-- SOVEREIGNTY → Decision not captured by one vendor/person/source
+- SOVEREIGNTY → Decision not dictated by external pressure, maintains agency
 
 **Tokens/Projects:**
 - FIDELITY → Team delivers on promises? Transparent?
@@ -131,7 +131,7 @@ Progress bars: 10 chars. █ = filled, ░ = empty.
 - VERIFY → Audit status, on-chain data, credible team
 - CULTURE → Community strength, narrative resonance
 - BURN → Utility focus, no extractive mechanics
-- SOVEREIGNTY → No whale/dev captures protocol; multi-source price feeds; self-custody possible
+- SOVEREIGNTY → Not captured by single exchange, protocol, or actor
 
 ## THE_UNNAMEABLE (43rd Dimension)
 

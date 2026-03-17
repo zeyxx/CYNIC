@@ -111,66 +111,41 @@ Real chess scores: Sicilian Defense → Howl. Scholar's Mate → Growl. Fool's M
 6. **Bounded everything.** Channels, retries, confidence. Unbounded = debt.
 7. **Zero hardcoded paths.** Use `$(git rev-parse --show-toplevel)` for project root, `${CYNIC_REST_ADDR}` from `~/.cynic-env` for kernel address. Tool-specific vars (`$CLAUDE_PROJECT_DIR`, etc.) only as optimization with git fallback. Never absolute paths in skills, hooks, or configs.
 
-## Tool Ecosystem (MUST use — manual is the fallback, not the default)
+## Mandatory Tool Use (NON-OPTIONAL)
 
-### When to invoke what
+These are not suggestions. Skipping any of these is a workflow violation.
 
-| Trigger | Tool/Skill | Type |
-|---------|-----------|------|
-| **Any code change** | `make check` / `/build` | Makefile / Slash command |
-| **Session start** | `cynic_coord_register` | CYNIC MCP |
-| **Before file edit** | `cynic_coord_who` + `cynic_coord_claim` | CYNIC MCP |
-| **After ILC done** | `cynic_coord_release` | CYNIC MCP |
-| **See active agents** | `make agents` / `GET /agents` | Makefile / REST |
-| **Deploy to production** | `make deploy` / `/deploy` | Makefile / Slash command |
-| **Evaluate quality** | `cynic-judge` | Skill |
-| **Simplify/reduce code** | `cynic-burn` | Skill |
-| **Complex decisions** | `crystallize-truth` | Skill |
-| **Building/modifying CYNIC** | `cynic-kernel` | Skill |
-| **Research / investigate** | `cynic-empirical` | Skill |
-| **Workflow reference** | `cynic-workflow` | Skill |
+### BEFORE triggers
+- **Before editing a file:** `cynic_coord_who()` then `cynic_coord_claim(agent_id, target)` — coordination is not optional
+- **Before building something new:** `/cynic-skills:cynic-empirical` — look outside before inventing
+- **Before a decision under uncertainty:** `/cynic-skills:crystallize-truth` — analyze before committing
+- **Before architecting a system:** `/cynic-skills:engineering-stack-design` — inventory before priority
 
-### Slash Commands
+### AFTER triggers
+- **After ANY code change:** `/build` (= `make check` = build + test + clippy --release)
+- **After ILC complete:** `cynic_coord_release(agent_id, target)` per file, then `cynic_coord_release(agent_id)` for session
+- **After scoring changes:** `/test-chess` — benchmark before and after
 
-| Command | What |
-|---|---|
-| `/build` | Build + test + clippy (--release) |
-| `/deploy` | Build + test + backup DB + deploy binary + restart kernel + verify |
-| `/run` | Start kernel via systemd |
-| `/e2e` | End-to-end test against running kernel |
-| `/test-chess` | 3 chess positions → verify scoring |
-| `/status` | Full system status (kernel + DB + llama + Tailscale + backups + git) |
-
-### MCP Tools
-
-| Server | Tools | Purpose |
-|--------|-------|---------|
-| **cynic** | health, judge, infer, verdicts, crystals, audit_query | CYNIC kernel interaction |
-| **tailscale** | status, health, discover, exec, logs, service, poll | Fleet management |
-| **context7** | resolve-library-id, query-docs | Up-to-date library documentation |
-| **playwright** | navigate, screenshot, snapshot, click, fill, evaluate | Browser automation |
+### ON triggers
+- **Evaluate quality:** `/cynic-skills:cynic-judge` — 43-dimension φ-bounded scoring
+- **Simplify or reduce code:** `/cynic-skills:cynic-burn` — don't extract, burn
+- **Dilemma or philosophical tension:** `/cynic-skills:cynic-wisdom` — 19 traditions
+- **Building/modifying CYNIC kernel:** `/cynic-kernel` — architecture reference (read before touching)
+- **Infrastructure or AI pipeline work:** `/cynic-skills:ai-infrastructure`
+- **Deploy to production:** `/deploy` (= build + test + backup DB + deploy binary + restart + verify)
+- **System status:** `/status` — full dashboard (kernel + DB + backends + git)
 
 ### Environment
+All tools use `${CYNIC_REST_ADDR}` and `${CYNIC_API_KEY}` from `~/.cynic-env`. Never hardcode IPs.
 
-All skills use `${CYNIC_REST_ADDR}` and `${CYNIC_API_KEY}` from `~/.cynic-env`. Never hardcode IPs.
+### MCP servers available
+- **cynic** — kernel interaction (health, judge, infer, verdicts, crystals, coord_*)
+- **tailscale** — fleet management (status, exec, logs, discover)
+- **context7** — up-to-date library documentation
+- **playwright** — browser automation
 
-## Session Lifecycle
-
-Every session follows this 7-step protocol. No exceptions.
-
-1. **SessionStart** — `cynic_coord_register(agent_id, intent)` (auto via hook — verify in output)
-2. **Before file edit** — `cynic_coord_who()` + `cynic_coord_claim(agent_id, target-file)`
-3. **Work** — git worktree for isolation (`make scope SLUG=<name>`)
-4. **Validate** — `make check` (build + test + clippy)
-5. **Ship** — `git commit` + `git push` (L0 gates enforce quality)
-6. **Release** — `cynic_coord_release(agent_id, target-file)`
-7. **SessionEnd** — `cynic_coord_release(agent_id)` (all claims)
-
-**ILC branch naming** (git = hard enforcement):
-```
-session/<agent>/<slug>    e.g. session/claude/rest-audit
-```
-Git rejects duplicate branch names — physical prevention of parallel work on identical scope.
+### When things go wrong
+Escalation, troubleshooting, session lifecycle detail, conflict resolution: `/cynic-workflow`
 
 ## Canonical References
 

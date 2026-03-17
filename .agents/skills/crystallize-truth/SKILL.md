@@ -1,4 +1,7 @@
-<!-- Auto-invocation via ~/.claude/commands/cynic-skills/crystallize-truth/ — no frontmatter here to avoid duplication -->
+---
+name: crystallize-truth
+description: Use when analyzing complex problems before design decisions, architectural choices, or documentation — especially when assumptions might be hidden, when intuition might be wrong, or when the stakes of getting it wrong are high.
+---
 
 # Crystallize Truth — Structured Analysis Under Doubt
 

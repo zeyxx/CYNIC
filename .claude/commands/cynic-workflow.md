@@ -1,63 +1,95 @@
-# CYNIC Workflow — Development Process Reference
+# CYNIC Workflow — Troubleshooting & Process Detail
 
-Use when in doubt about git steps, deploy process, multi-agent coordination, or workflow sequencing.
+Use when things go wrong, when coordinating with other agents, or when you need the full session lifecycle detail.
 
-**Announce at start:** "I'm using cynic-workflow to verify the correct process."
+**The routing (BEFORE/AFTER/ON triggers) lives in CLAUDE.md. This skill covers the HOW and the WHAT-IF.**
 
-## The Pipeline (always this order)
+---
+
+## Session Lifecycle (detail)
 
 ```
-Edit code → make check → git commit → git push → make deploy → make e2e
+1. SessionStart    → hook auto-registers (verify in output: "Agent: claude-XXXX")
+2. Coord claim     → cynic_coord_who() + cynic_coord_claim(agent_id, file)
+3. Work            → git worktree for isolation: make scope SLUG=<name>
+4. Validate        → make check (build + test + clippy --release)
+5. Ship            → git commit + git push (L0 gates: gitleaks, build, test)
+6. Release         → cynic_coord_release(agent_id, file) per file
+7. SessionEnd      → cynic_coord_release(agent_id) — releases all claims
 ```
 
-Never skip a stage. Never deploy without a passing `make check`.
+**ILC branch naming:** `session/<agent>/<slug>` — git rejects duplicates (hard enforcement).
 
-## Key Commands
+---
 
-| What | Command |
-|------|---------|
-| Build + test + lint | `make check` |
-| Validated commit | `make commit m="type(scope): description"` |
-| Commit + push | `make ship m="..."` |
-| Full deploy | `make deploy m="..."` (builds, ships, deploys binary, verifies) |
-| System status | `make status` |
-| End-to-end test | `make e2e` |
-| DB backup | `make backup` |
-| Start ILC | `make scope SLUG=<name>` |
-| End ILC | `make done SLUG=<name>` |
-| Active agents | `make agents` |
+## Coordination Conflicts
 
-## Session Lifecycle
+If `cynic_coord_claim` returns `CONFLICT`:
+1. `cynic_coord_who()` — identify the holder
+2. Check TTL — claims auto-expire after 5 minutes of inactivity
+3. If expired → retry claim (auto-succeeds)
+4. If active → coordinate: split scope, serialize work, or handoff
+5. Never override silently
 
-1. START: `cynic_coord_register(agent_id, intent)`
-2. BEFORE EDIT: `cynic_coord_who()` → `cynic_coord_claim(agent_id, target-file)`
-3. WORK: in worktree (`make scope SLUG=<name>`)
-4. VALIDATE: `make check`
-5. SHIP: `make commit m="..." + make ship`
-6. RELEASE: `cynic_coord_release(agent_id, target-file)`
-7. END: `cynic_coord_release(agent_id)`
+If two agents edit the same file without coordination:
+→ Merge conflict at push time. The coordination layer prevents this BEFORE writing.
 
-## ILC (Independent Logical Component)
+---
 
-Unit of work. One branch per ILC: `session/<agent>/<slug>`.
-Git rejects duplicate branch names — hard enforcement against collision.
-Use `make scope` to create. Use `make done` to clean up.
+## Escalation Protocol
+
+**2 fix attempts max. Then escalate.**
+
+| Attempt | Action |
+|---------|--------|
+| 1st | Obvious fix based on error message |
+| 2nd | Alternative approach (different strategy, not retry) |
+| 3rd | **STOP.** Ask the human. Explain what you tried and why it failed. |
+
+### Escalation triggers (stop and ask immediately)
+- Same error after 2 different fix attempts
+- Change affects 3+ unrelated files
+- Pre-commit hook fails for unclear reasons
+- Fix in file A breaks tests in file B
+- Tempted to use `--force` anything
+- Unsure if a change is safe to deploy
+
+---
+
+## Troubleshooting
+
+| Symptom | Check | Fix |
+|---------|-------|-----|
+| Kernel down | `/status` or `systemctl --user status cynic-kernel` | `/run` to restart |
+| Dogs missing | Check session-init output (`Dogs: X/Y`) | Check backend health, restart llama-server |
+| DB unreachable | `surreal is-ready --endpoint http://localhost:8000` | `systemctl --user restart surrealdb` |
+| Build LLVM crash | SIGSEGV during compilation | `rustup toolchain uninstall <ver> && rustup toolchain install <ver>` |
+| Tests fail after change | `cargo test -p cynic-kernel --release 2>&1` | Read the error. Diagnose before fixing. |
+| Push rejected | L0 gates (gitleaks, build) | Fix the issue. Never `--no-verify`. |
+| Stale coordination claims | `cynic_coord_who()` shows old agents | Claims auto-expire (5min TTL). Wait or investigate. |
+
+---
 
 ## Commit Format
 
 ```
 type(scope): description
 
-Examples:
-feat(kernel): add circuit breaker to inference pipeline
-fix(ccm): correct decay threshold calculation
-docs(workflow): update session protocol
+Types: feat, fix, docs, refactor, test, chore, perf
+One logical change per commit. Message explains WHY, not WHAT.
 ```
 
-## If Something Is Broken
+---
 
-1. `make status` — full system dashboard
-2. `systemctl --user status cynic-kernel surrealdb` — service state
-3. Check logs: `ts_logs` MCP tool
-4. Do NOT force-push. Do NOT skip hooks. Do NOT brute-force.
-5. Max 2 fix attempts, then escalate.
+## Commands Quick Reference
+
+| Command | What |
+|---------|------|
+| `make check` | Build + test + clippy (--release) |
+| `make deploy` | Build + ship + deploy binary + restart + verify |
+| `make scope SLUG=<name>` | Create ILC worktree + branch |
+| `make done SLUG=<name>` | Clean up worktree + branch |
+| `make agents` | Show active coordinated agents |
+| `make backup` | Backup SurrealDB |
+| `make status` | Full system dashboard |
+| `make e2e` | End-to-end test against running kernel |

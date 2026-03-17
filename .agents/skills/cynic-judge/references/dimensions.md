@@ -103,7 +103,7 @@ Every axiom's 7 dimensions follow this φ-derived weight pattern:
 - ANTI_MANIPULATION = low when oracle divergence is high (geometric mean drags Q-Score down)
 - EXECUTION_CONTROL = low when agent cannot halt autonomously
 - SOURCE_INDEPENDENCE ≤ 38.2 when source_count ≤ 1 (forced single source)
-- STRATEGY_SOVEREIGNTY = 100 when signal is generated internally (default for KAIROS)
+- STRATEGY_SOVEREIGNTY = 100 when signal is generated internally
 - CAPITAL_CONTROL = 100 when risk module controls sizing without delegation
 
 ---
@@ -130,7 +130,7 @@ axiom_score = weighted_avg(7 dimension scores)  ← all axioms, including SOVERE
 Q = 100 × ⁶√(F × Φ × V × C × B × S / 100⁶)
 ```
 
-Geometric mean: one weak axiom drags Q down. SOVEREIGNTY at 0 → Q = 0.
+Geometric mean: one weak axiom drags Q down. Any axiom near 0 → Q near 0.
 
 **Verdicts:**
 | Q | Verdict |

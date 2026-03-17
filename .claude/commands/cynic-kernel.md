@@ -1,7 +1,7 @@
 
 # CYNIC Kernel — Canonical Architecture Reference
 
-*Stable truths and relationships — not copied signatures. For exact APIs, read the source files pointed to below. A broken pointer is a loud signal; a stale signature is a silent lie.*
+*Stable truths and relationships — not copied signatures. For exact APIs, read the source files pointed to in the SOURCE MAP below. A broken pointer is a loud signal; a stale signature is a silent lie.*
 
 ---
 
