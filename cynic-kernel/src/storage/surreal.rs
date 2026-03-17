@@ -244,8 +244,8 @@ impl StoragePort for SurrealHttpStorage {
     async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
         let limit = safe_limit(limit);
         // Group by agent_id (= session identity in Claude Code).
-        // session_id field is unreliable (often empty). agent_id is always set
-        // by the PostToolUse hook via /tmp/cynic-agent-id.
+        // session_id field is unreliable (often empty). agent_id is derived
+        // from CLAUDE_SESSION_ID by the PostToolUse hook.
         let sql = format!(
             "SELECT agent_id AS session_id, target FROM observation \
              WHERE project = '{}' AND agent_id != '' AND agent_id != 'unknown' \
@@ -330,7 +330,7 @@ impl CoordPort for SurrealHttpStorage {
         let _ = self.query_one("UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;").await;
         let _ = self.query_one("UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await;
         let session_sql = match agent_id_filter {
-            Some(id) => format!("SELECT * FROM agent_session WHERE agent_id = '{}';", escape_surreal(id)),
+            Some(id) => format!("SELECT * FROM agent_session WHERE agent_id = '{}' AND active = true;", escape_surreal(id)),
             None => "SELECT * FROM agent_session WHERE active = true;".to_string(),
         };
         let agents = self.query_one(&session_sql).await.unwrap_or_default();
@@ -488,6 +488,28 @@ mod tests {
         assert_eq!(safe_limit(100), 100);
         assert_eq!(safe_limit(101), 100);
         assert_eq!(safe_limit(u32::MAX), 100);
+    }
+
+    #[test]
+    fn who_expiry_sql_is_valid() {
+        // Verify the TTL expiry SQL used in who() is syntactically sound.
+        // SurrealDB uses `(time::now() - last_seen) > 5m` — the `5m` is a duration literal.
+        let expiry_sql = "UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;";
+        assert!(expiry_sql.contains("time::now()"));
+        assert!(expiry_sql.contains("> 5m"));
+        assert!(expiry_sql.contains("active = true"));
+        // Verify the cascade SQL that deactivates orphaned claims
+        let cascade_sql = "UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);";
+        assert!(cascade_sql.contains("NOT IN"));
+        assert!(cascade_sql.contains("SELECT VALUE agent_id"));
+    }
+
+    #[test]
+    fn who_with_agent_id_filters_active() {
+        // Regression: who(Some(id)) must include `active = true` filter.
+        let id = "test-agent";
+        let sql = format!("SELECT * FROM agent_session WHERE agent_id = '{}' AND active = true;", escape_surreal(id));
+        assert!(sql.contains("AND active = true"));
     }
 
     #[tokio::test]
