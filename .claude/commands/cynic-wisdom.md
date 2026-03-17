@@ -1,7 +1,4 @@
----
-name: cynic-wisdom
-description: "Philosophical grounding for technical decisions across 19 traditions. Cross-domain synthesis mapped to 6 axioms (FIDELITY/PHI/VERIFY/CULTURE/BURN/SOVEREIGNTY). φ-bounded at 61.8%. Use when facing dilemmas, questioning assumptions, or seeking wisdom."
----
+<!-- Auto-invocation via ~/.claude/commands/cynic-skills/cynic-wisdom/ — no frontmatter here to avoid duplication -->
 
 # CYNIC Wisdom — The Dog in the Marketplace
 

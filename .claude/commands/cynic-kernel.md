@@ -1,7 +1,4 @@
----
-name: cynic-kernel
-description: Canonical CYNIC kernel architecture reference. Use when building, modifying, or debugging any CYNIC component — ensures every session knows the full architecture without re-reading docs. Triggers on: "cynic", "kernel", "kNet", "inference pipeline", "BackendRouter", "InferencePort", "probe", "MuscleHAL", "VascularSystem", "hexagonal", "Dogs", "axioms", "CCM".
----
+<!-- Auto-invocation via ~/.claude/commands/cynic-skills/cynic-kernel/ — no frontmatter here to avoid duplication -->
 
 # CYNIC Kernel — Canonical Architecture Reference
 

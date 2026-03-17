@@ -1,7 +1,4 @@
----
-name: cynic-judge
-description: "Evaluate code, decisions, or content with 43-dimension φ-bounded scoring. 6 axioms (including SOVEREIGNTY), geometric mean Q-Score, max 61.8% confidence. Verdicts: HOWL/WAG/GROWL/BARK. Use when asked to judge, assess, rate, score, or evaluate quality."
----
+<!-- Auto-invocation via ~/.claude/commands/cynic-skills/cynic-judge/ — no frontmatter here to avoid duplication -->
 
 # CYNIC Judge — The Dog That Scores Everything
 

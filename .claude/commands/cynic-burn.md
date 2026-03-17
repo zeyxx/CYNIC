@@ -1,7 +1,4 @@
----
-name: cynic-burn
-description: "Analyze code for simplification: orphans, hotspots, giants, duplicates. 'Don't extract, burn' — three similar lines beat a premature abstraction. Use when asked to simplify, reduce complexity, or clean up code."
----
+<!-- Auto-invocation via ~/.claude/commands/cynic-skills/cynic-burn/ — no frontmatter here to avoid duplication -->
 
 # CYNIC Burn — Vision → Compréhension → Burn
 

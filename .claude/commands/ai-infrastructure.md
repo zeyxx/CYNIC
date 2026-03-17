@@ -1,7 +1,4 @@
----
-name: ai-infrastructure
-description: Use when building LLM pipelines, inference servers, model serving, training systems, vector databases, agent architectures, or ML monitoring. Triggers on: "inference", "LLM serving", "model deployment", "training pipeline", "vector DB", "embeddings", "RAG", "agent architecture", "ML monitoring", "model optimization".
----
+<!-- Auto-invocation via ~/.claude/commands/cynic-skills/ai-infrastructure/ — no frontmatter here to avoid duplication -->
 
 # AI Infrastructure Engineering
 
