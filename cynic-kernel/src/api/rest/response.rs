@@ -50,6 +50,8 @@ pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         max_disagreement: v.max_disagreement,
         anomaly_axiom: v.anomaly_axiom.clone(),
         temporal: compute_temporal_from_dogs(&v.dog_scores),
+        integrity_hash: v.integrity_hash.clone(),
+        prev_hash: v.prev_hash.clone(),
     }
 }
 
@@ -124,6 +126,8 @@ mod tests {
             anomaly_detected: false,
             max_disagreement: 0.0,
             anomaly_axiom: None,
+            integrity_hash: Some("abc123".into()),
+            prev_hash: None,
         };
 
         let resp = verdict_to_response(&verdict);

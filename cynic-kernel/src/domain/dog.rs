@@ -111,6 +111,12 @@ pub struct Verdict {
     pub max_disagreement: f64,
     #[serde(default)]
     pub anomaly_axiom: Option<String>,
+    /// BLAKE3 hash of this verdict's content (L1 integrity)
+    #[serde(default)]
+    pub integrity_hash: Option<String>,
+    /// BLAKE3 hash of the previous verdict (hash chain)
+    #[serde(default)]
+    pub prev_hash: Option<String>,
 }
 
 // ── PHI-BOUNDING ───────────────────────────────────────────

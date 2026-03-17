@@ -99,6 +99,12 @@ pub struct JudgeResponse {
     pub max_disagreement: f64,
     pub anomaly_axiom: Option<String>,
     pub temporal: Option<TemporalResponse>,
+    /// BLAKE3 integrity hash of this verdict
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub integrity_hash: Option<String>,
+    /// BLAKE3 hash of the previous verdict (chain link)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prev_hash: Option<String>,
 }
 
 #[derive(Serialize)]

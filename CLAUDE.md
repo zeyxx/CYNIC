@@ -173,4 +173,13 @@ Git rejects duplicate branch names — physical prevention of parallel work on i
 - **Infrastructure truths:** `docs/CYNIC-ARCHITECTURE-TRUTHS.md`
 - **API contract:** `API.md`
 - **Frontend guide:** `FRONTEND.md`
-- **Build:** `cargo build -p cynic-kernel --release` / `cargo test -p cynic-kernel --release` / `cargo clippy -p cynic-kernel --release -- -D warnings`
+- **Build:** `make check` (or `cargo build/test/clippy -p cynic-kernel --release`)
+
+## Build Notes
+
+- **Toolchain:** stable 1.94+, edition 2024 (stable since Rust 1.85)
+- **Known rustc bug:** LLVM stack overflow on deep monomorphization (serde+rmcp = 47% of IR). See rust-lang/rust #103767, #122357, #138561.
+- **Workaround committed in `.cargo/config.toml`:** `jobs = 1` + `RUST_MIN_STACK = 16MB`. Do not change without testing clean release builds.
+- **gRPC:** feature-gated (`--features grpc`), off by default. No client exists yet.
+- **Do NOT change `tokio = "full"`** — targeted features alter the monomorphization graph and trigger the LLVM crash.
+- **If builds crash after toolchain update:** `rustup toolchain uninstall <ver> && rustup toolchain install <ver>` — SIGSEGV can corrupt toolchain metadata.

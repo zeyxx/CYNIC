@@ -21,11 +21,13 @@ pub mod dogs;
 pub mod backends;
 pub mod storage;
 pub mod api;
+#[cfg(feature = "grpc")]
 pub mod grpc;
 pub mod infra;
 pub mod probe;
 pub mod judge;
 
+#[cfg(feature = "grpc")]
 pub mod cynic_v2 {
     tonic::include_proto!("cynic.v2");
 }

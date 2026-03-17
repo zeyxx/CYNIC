@@ -58,7 +58,7 @@ pub async fn usage_handler(
     let usage = state.usage.lock().unwrap();
     let merged = usage.merged_dogs();
     let mut dogs: Vec<serde_json::Value> = merged.iter().map(|(id, d)| {
-        let avg_latency = if d.requests > 0 { d.total_latency_ms / d.requests } else { 0 };
+        let avg_latency = d.total_latency_ms.checked_div(d.requests).unwrap_or(0);
         serde_json::json!({
             "dog_id": id,
             "prompt_tokens": d.prompt_tokens,

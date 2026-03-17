@@ -1,9 +1,13 @@
 use cynic_kernel::*;
 use cynic_kernel::domain::chat::ChatPort;
+#[cfg(feature = "grpc")]
 use cynic_kernel::cynic_v2::vascular_system_server::VascularSystemServer;
+#[cfg(feature = "grpc")]
 use cynic_kernel::cynic_v2::k_pulse_server::KPulseServer;
+#[cfg(feature = "grpc")]
 use cynic_kernel::cynic_v2::muscle_hal_server::MuscleHalServer;
 
+#[cfg(feature = "grpc")]
 use tonic::transport::Server;
 use std::sync::Arc;
 
@@ -54,11 +58,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => Arc::new(domain::coord::NullCoord),
     };
 
-    // ─── RING 1: Vascular System (gRPC IPC) ──────────────────
-    let addr = "[::1]:50051".parse()?;
+    // ─── RING 1: gRPC IPC (dormant — no client yet) ──────────
+    #[cfg(feature = "grpc")]
+    let addr: std::net::SocketAddr = "[::1]:50051".parse()?;
+    #[cfg(feature = "grpc")]
     klog!("[Ring 1] Vascular Law enforced on {}", addr);
-
-    // ─── RING 1: Muscle HAL (BackendRouter for gRPC) ──────────
+    #[cfg(feature = "grpc")]
     let router = Arc::new(backends::router::BackendRouter::new(vec![]));
 
     // ─── RING 2: Load Backend Configs ──────────────────────────
@@ -101,6 +106,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 2: Build Judge ──────────────────────────────────
     let judge = judge::Judge::new(dogs);
+
+    // Seed integrity hash chain from last stored verdict
+    if let Some(db) = &raw_db {
+        let chain_hash = db.query_one("SELECT integrity_hash FROM verdict ORDER BY created_at DESC LIMIT 1;").await
+            .ok()
+            .and_then(|rows| rows.first().and_then(|r| r["integrity_hash"].as_str().filter(|s| !s.is_empty()).map(|s| s.to_string())).clone());
+        if let Some(ref hash) = chain_hash {
+            judge.seed_chain(chain_hash.clone());
+            klog!("[Ring 2] Integrity chain seeded: {}…", &hash[..16.min(hash.len())]);
+        }
+    }
 
     // ─── RING 3: REST API (for React/external clients) ────────
     let judge = Arc::new(judge);
@@ -228,30 +244,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // ─── gRPC services ────────────────────────────────────────
-    let pulse_service = grpc::pulse::PulseService::default();
-    let muscle_service = grpc::hal::MuscleService::new(Arc::clone(&router) as Arc<dyn domain::inference::InferenceRouter>);
     klog!("╔══════════════════════════════════════╗");
     klog!("║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
     klog!("║   REST: http://{}",  rest_addr);
-    klog!("║   gRPC: {}",  addr);
     klog!("║   Max confidence: phi^-1 = 0.618     ║");
     klog!("╚══════════════════════════════════════╝");
 
-    let grpc_server = Server::builder()
-        .add_service(VascularSystemServer::new(grpc::vascular::VascularService::default()))
-        .add_service(KPulseServer::new(pulse_service))
-        .add_service(MuscleHalServer::new(muscle_service))
-        .serve(addr);
+    #[cfg(feature = "grpc")]
+    {
+        let pulse_service = grpc::pulse::PulseService::default();
+        let muscle_service = grpc::hal::MuscleService::new(Arc::clone(&router) as Arc<dyn domain::inference::InferenceRouter>);
+        klog!("║   gRPC: {}",  addr);
 
-    // Run both servers concurrently
-    tokio::select! {
-        _ = rest_server => eprintln!("[FATAL] REST server stopped"),
-        r = grpc_server => {
-            if let Err(e) = r {
-                eprintln!("[FATAL] gRPC server error: {}", e);
+        let grpc_server = Server::builder()
+            .add_service(VascularSystemServer::new(grpc::vascular::VascularService::default()))
+            .add_service(KPulseServer::new(pulse_service))
+            .add_service(MuscleHalServer::new(muscle_service))
+            .serve(addr);
+
+        tokio::select! {
+            _ = rest_server => eprintln!("[FATAL] REST server stopped"),
+            r = grpc_server => {
+                if let Err(e) = r {
+                    eprintln!("[FATAL] gRPC server error: {}", e);
+                }
             }
         }
+    }
+
+    #[cfg(not(feature = "grpc"))]
+    {
+        rest_server.await?;
     }
 
     Ok(())

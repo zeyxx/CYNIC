@@ -1,0 +1,8 @@
+[build]
+# rustc 1.94 LLVM stack overflow on deep monomorphization (serde+rmcp = 47% of IR).
+# rust-lang/rust #103767, #122357, #138561.
+# -j 1 is the only reliable setting; -j 2 is flaky under memory pressure.
+jobs = 1
+
+[env]
+RUST_MIN_STACK = "16777216"

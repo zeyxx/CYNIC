@@ -166,7 +166,8 @@ pub fn format_crystal_context(crystals: &[Crystal], domain: &str, max_chars: usi
 
 // ── CONTENT HASHING ─────────────────────────────────────────
 /// Deterministic content hash for crystal IDs. FNV-1a — not cryptographic,
-/// just stable content addressing. Used by both REST and MCP paths.
+/// just stable content addressing for deduplication. Changing this algo
+/// would orphan all existing crystals in the DB.
 pub fn content_hash(input: &str) -> u64 {
     let mut h: u64 = 0xcbf29ce484222325; // FNV-1a offset basis
     for byte in input.bytes() {
@@ -174,6 +175,31 @@ pub fn content_hash(input: &str) -> u64 {
         h = h.wrapping_mul(0x100000001b3); // FNV-1a prime
     }
     h
+}
+
+/// Full BLAKE3 hash of a verdict's content — for integrity chain.
+/// Hashes: id + q_score.total + all 6 axiom scores + stimulus + timestamp + prev_hash.
+/// Returns hex-encoded 256-bit hash.
+pub fn verdict_hash(
+    id: &str,
+    q_total: f64,
+    scores: [f64; 6],
+    stimulus: &str,
+    timestamp: &str,
+    prev_hash: Option<&str>,
+) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(id.as_bytes());
+    hasher.update(&q_total.to_le_bytes());
+    for s in &scores {
+        hasher.update(&s.to_le_bytes());
+    }
+    hasher.update(stimulus.as_bytes());
+    hasher.update(timestamp.as_bytes());
+    if let Some(ph) = prev_hash {
+        hasher.update(ph.as_bytes());
+    }
+    hasher.finalize().to_hex().to_string()
 }
 
 // ── WORKFLOW AGGREGATOR ────────────────────────────────────
@@ -331,30 +357,6 @@ pub async fn aggregate_observations(
     count
 }
 
-// ── CRYSTALLIZATION PORT ────────────────────────────────────
-/// Domain contract for crystal persistence. Adapter implements this.
-#[async_trait::async_trait]
-pub trait CrystallizationPort: Send + Sync {
-    async fn store_crystal(&self, crystal: &Crystal) -> Result<(), CrystalError>;
-    async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, CrystalError>;
-    async fn find_by_content(&self, content: &str, domain: &str) -> Result<Option<Crystal>, CrystalError>;
-    async fn list_crystallized(&self, limit: u32) -> Result<Vec<Crystal>, CrystalError>;
-}
-
-#[derive(Debug)]
-pub enum CrystalError {
-    StorageFailed(String),
-    NotFound(String),
-}
-
-impl std::fmt::Display for CrystalError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::StorageFailed(m) => write!(f, "Crystal storage failed: {}", m),
-            Self::NotFound(m) => write!(f, "Crystal not found: {}", m),
-        }
-    }
-}
 
 // ── TESTS ───────────────────────────────────────────────────
 #[cfg(test)]

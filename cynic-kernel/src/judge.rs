@@ -1,15 +1,19 @@
 //! Judge — orchestrates Dogs, computes consensus, emits Verdicts.
-//! Parallel evaluation via futures::future::join_all.
+//! Parallel evaluation via futures_util::future::join_all.
 //! Residual detection: disagreement > φ⁻² = ANOMALY.
 
 use crate::domain::dog::{*, estimate_tokens};
+use crate::domain::ccm::verdict_hash;
 use crate::infra::circuit_breaker::CircuitBreaker;
 use chrono::Utc;
 use uuid::Uuid;
+use std::sync::Mutex;
 
 pub struct Judge {
     dogs: Vec<Box<dyn Dog>>,
     breakers: Vec<CircuitBreaker>,
+    /// Hash of the last verdict — forms the chain. Protected by Mutex for concurrent access.
+    last_hash: Mutex<Option<String>>,
 }
 
 impl Judge {
@@ -17,7 +21,14 @@ impl Judge {
         let breakers = dogs.iter()
             .map(|d| CircuitBreaker::new(d.id().to_string()))
             .collect();
-        Self { dogs, breakers }
+        Self { dogs, breakers, last_hash: Mutex::new(None) }
+    }
+
+    /// Seed the hash chain from the last stored verdict (call at boot).
+    pub fn seed_chain(&self, prev_hash: Option<String>) {
+        if let Ok(mut lock) = self.last_hash.lock() {
+            *lock = prev_hash;
+        }
     }
 
     /// Return list of available Dog IDs.
@@ -111,7 +122,7 @@ impl Judge {
         // Wall-clock timeout: 20s max. With per-dog 15s, this is a safety net.
         let results = tokio::time::timeout(
             std::time::Duration::from_secs(20),
-            futures::future::join_all(futures),
+            futures_util::future::join_all(futures),
         ).await.map_err(|_| {
             eprintln!("[Judge] TIMEOUT: Dog evaluation exceeded 20s wall-clock limit");
             JudgeError::AllDogsFailed(vec!["Evaluation timeout (20s)".into()])
@@ -229,18 +240,41 @@ impl Judge {
 
         let dog_ids: Vec<&str> = dog_scores.iter().map(|s| s.dog_id.as_str()).collect();
 
+        let id = Uuid::new_v4().to_string();
+        let timestamp = Utc::now().to_rfc3339();
+        let stimulus_summary: String = stimulus.content.chars().take(100).collect();
+
+        // L1 integrity: compute BLAKE3 hash chained to previous verdict
+        let prev_hash = self.last_hash.lock().ok().and_then(|g| g.clone());
+        let hash = verdict_hash(
+            &id,
+            q_score.total,
+            [q_score.fidelity, q_score.phi, q_score.verify,
+             q_score.culture, q_score.burn, q_score.sovereignty],
+            &stimulus_summary,
+            &timestamp,
+            prev_hash.as_deref(),
+        );
+
+        // Advance the chain
+        if let Ok(mut lock) = self.last_hash.lock() {
+            *lock = Some(hash.clone());
+        }
+
         Ok(Verdict {
-            id: Uuid::new_v4().to_string(),
+            id,
             kind,
             q_score,
             reasoning: aggregated.reasoning,
             dog_id: dog_ids.join("+"),
-            stimulus_summary: stimulus.content.chars().take(100).collect(),
-            timestamp: Utc::now().to_rfc3339(),
+            stimulus_summary,
+            timestamp,
             dog_scores,
             anomaly_detected,
             max_disagreement,
             anomaly_axiom,
+            integrity_hash: Some(hash),
+            prev_hash,
         })
     }
 }

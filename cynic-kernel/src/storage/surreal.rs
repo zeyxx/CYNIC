@@ -11,6 +11,9 @@ use crate::domain::storage::{StoragePort, StorageError, Observation};
 fn verdict_to_sql(v: &Verdict) -> String {
     let escape = |s: &str| escape_surreal(s);
 
+    let integrity = v.integrity_hash.as_deref().unwrap_or("");
+    let prev = v.prev_hash.as_deref().unwrap_or("");
+
     format!(
         "CREATE verdict SET \
             verdict_id = '{}', \
@@ -30,6 +33,8 @@ fn verdict_to_sql(v: &Verdict) -> String {
             reasoning_sovereignty = '{}', \
             dog_id = '{}', \
             stimulus = '{}', \
+            integrity_hash = '{}', \
+            prev_hash = '{}', \
             created_at = time::now()",
         escape(&v.id),
         v.kind,
@@ -48,6 +53,8 @@ fn verdict_to_sql(v: &Verdict) -> String {
         escape(&v.reasoning.sovereignty),
         escape(&v.dog_id),
         escape(&v.stimulus_summary),
+        escape(integrity),
+        escape(prev),
     )
 }
 
@@ -87,6 +94,12 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
         anomaly_detected: false,
         max_disagreement: 0.0,
         anomaly_axiom: None,
+        integrity_hash: row["integrity_hash"].as_str()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()),
+        prev_hash: row["prev_hash"].as_str()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()),
     }
 }
 
@@ -440,6 +453,8 @@ mod tests {
             anomaly_detected: false,
             max_disagreement: 0.0,
             anomaly_axiom: None,
+            integrity_hash: Some("deadbeef".into()),
+            prev_hash: None,
         }
     }
 
@@ -452,6 +467,8 @@ mod tests {
         assert!(sql.contains("kind = 'Wag'"));
         assert!(sql.contains("fidelity = 0.5"));
         assert!(sql.contains("time::now()"));
+        assert!(sql.contains("integrity_hash = 'deadbeef'"));
+        assert!(sql.contains("prev_hash = ''"));
     }
 
     #[test]
