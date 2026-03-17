@@ -63,6 +63,9 @@ GET  /dogs                  → Bearer required
 GET  /temporal              → Bearer required
 GET  /agents                → Bearer required
 POST /observe               → Bearer required
+POST /coord/register        → Bearer required (hooks + agents)
+POST /coord/claim           → Bearer required (hooks + agents)
+POST /coord/release         → Bearer required (hooks + agents)
 ```
 Rate limit: 30 requests/minute. `/health` exempt.
 

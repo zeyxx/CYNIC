@@ -8,6 +8,7 @@ pub mod response;
 pub mod data;
 pub mod health;
 pub mod observe;
+pub mod coord;
 
 pub use types::*;
 pub use response::compute_temporal_from_dogs;
@@ -22,6 +23,7 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
+use self::coord::{coord_register_handler, coord_claim_handler, coord_release_handler};
 use self::data::{crystals_handler, crystal_handler, usage_handler};
 use self::health::{health_handler, dogs_handler, temporal_handler, agents_handler};
 use self::judge::{judge_handler, get_verdict_handler, list_verdicts_handler};
@@ -68,6 +70,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/verdicts", get(list_verdicts_handler))
         .route("/agents", get(agents_handler))
         .route("/observe", post(observe_handler))
+        .route("/coord/register", post(coord_register_handler))
+        .route("/coord/claim", post(coord_claim_handler))
+        .route("/coord/release", post(coord_release_handler))
         .layer(axum_mw::from_fn_with_state(state.clone(), audit_middleware))
         .layer(axum_mw::from_fn_with_state(state.clone(), auth_middleware))
         .layer(axum_mw::from_fn_with_state(state.clone(), rate_limit_middleware))

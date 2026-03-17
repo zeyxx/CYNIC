@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # CYNIC — SessionStart hook
-# Verifies environment and injects critical context at session start and after compaction.
+# Verifies environment, auto-registers agent, injects critical context.
 # This is the pipeline entry point — every session starts clean.
 set -euo pipefail
 
@@ -16,13 +16,18 @@ if [[ -n "$CWD" && "$CWD" != "$PROJECT_DIR" ]]; then
     echo "WARNING: CWD is $CWD — expected $PROJECT_DIR" >&2
 fi
 
+KERNEL_ADDR="${CYNIC_REST_ADDR:-localhost:3030}"
+API_KEY="${CYNIC_API_KEY:-}"
+
+AUTH_HEADER=""
+[ -n "$API_KEY" ] && AUTH_HEADER="Authorization: Bearer $API_KEY"
+
 # ── Quick health probe ──
-HEALTH_JSON=$(curl -s --max-time 2 "http://${CYNIC_REST_ADDR:-localhost:3030}/health" 2>/dev/null || echo '{}')
+HEALTH_JSON=$(curl -s --max-time 2 "http://${KERNEL_ADDR}/health" 2>/dev/null || echo '{}')
 KERNEL_STATUS=$(echo "$HEALTH_JSON" | jq -r '.status // empty' 2>/dev/null)
 [[ -z "$KERNEL_STATUS" ]] && KERNEL_STATUS="down"
 
 # ── Dog drift detection ──
-# Count configured backends + deterministic-dog
 EXPECTED_DOGS=0
 BACKENDS_FILE="${HOME}/.config/cynic/backends.toml"
 if [[ -f "$BACKENDS_FILE" ]]; then
@@ -43,13 +48,26 @@ GIT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || ec
 GIT_DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | wc -l)
 
 # ── Agent ID from Claude session_id (stable across compactions) ──
-# session_id is provided in hook stdin JSON — no temp files needed.
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
 if [[ -n "$SESSION_ID" ]]; then
     AGENT_ID="claude-${SESSION_ID:0:12}"
 else
-    # Fallback: timestamp-based (should not happen in practice)
     AGENT_ID="claude-$(date +%s)"
+fi
+
+# ── Auto-register agent via REST (hard enforcement, not hope) ──
+REGISTER_STATUS="skipped"
+if [[ "$KERNEL_STATUS" != "down" ]]; then
+    REGISTER_RESPONSE=$(curl -s --max-time 3 -X POST "http://${KERNEL_ADDR}/coord/register" \
+        -H "Content-Type: application/json" \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"intent\":\"claude-code session\",\"agent_type\":\"claude\"}" \
+        2>/dev/null || echo '{}')
+    if echo "$REGISTER_RESPONSE" | jq -e '.status == "registered"' > /dev/null 2>&1; then
+        REGISTER_STATUS="registered"
+    else
+        REGISTER_STATUS="failed"
+    fi
 fi
 
 # Mask real IP — session context must never contain real IPs
@@ -61,9 +79,9 @@ CYNIC SESSION — Pipeline initialized.
 Kernel: ${KERNEL_STATUS} | DB: ${SURREAL_STATUS} | Git: ${GIT_BRANCH} (${GIT_DIRTY} dirty files)
 Dogs: ${ACTIVE_DOGS}/${EXPECTED_DOGS}${DOG_DRIFT:+ — $DOG_DRIFT}
 Env: CYNIC_REST_ADDR=${ADDR_STATUS}
-Agent: ${AGENT_ID}
+Agent: ${AGENT_ID} (${REGISTER_STATUS})
 
 WORKFLOW: Use /build after edits, /deploy for production, /status for full dashboard.
-COORD: Register → cynic_coord_register("${AGENT_ID}", intent) | Claim → cynic_coord_who + cynic_coord_claim | Release → cynic_coord_release
+COORD: Agent auto-registered. Claim → cynic_coord_who + cynic_coord_claim | Release → cynic_coord_release
 RULES: Public repo — no secrets, no real IPs, no names. Use skills before acting.
 EOF
