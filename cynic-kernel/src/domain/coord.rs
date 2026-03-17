@@ -44,6 +44,9 @@ pub trait CoordPort: Send + Sync {
     async fn query_audit(&self, tool_filter: Option<&str>, agent_filter: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, CoordError>;
     async fn heartbeat(&self, agent_id: &str) -> Result<(), CoordError>;
     async fn deactivate_agent(&self, agent_id: &str) -> Result<(), CoordError>;
+    /// Expire stale sessions (>5 min no heartbeat) and their orphaned claims.
+    /// Lighter than who() — no SELECT, just the two UPDATEs.
+    async fn expire_stale(&self) -> Result<(), CoordError>;
 }
 
 pub struct NullCoord;
@@ -58,4 +61,5 @@ impl CoordPort for NullCoord {
     async fn query_audit(&self, _: Option<&str>, _: Option<&str>, _: u32) -> Result<Vec<serde_json::Value>, CoordError> { Ok(vec![]) }
     async fn heartbeat(&self, _: &str) -> Result<(), CoordError> { Ok(()) }
     async fn deactivate_agent(&self, _: &str) -> Result<(), CoordError> { Ok(()) }
+    async fn expire_stale(&self) -> Result<(), CoordError> { Ok(()) }
 }

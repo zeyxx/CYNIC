@@ -138,6 +138,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|_| "127.0.0.1:3030".to_string());
     klog!("[Ring 3] REST API on http://{}", rest_addr);
 
+    // ─── Coordination expiry (background, every 60s) ──────────
+    {
+        let expiry_coord = Arc::clone(&coord);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+            interval.tick().await; // Skip first immediate tick
+            loop {
+                interval.tick().await;
+                let _ = expiry_coord.expire_stale().await;
+            }
+        });
+        klog!("[Ring 2] Coordination expiry task started (every 60s)");
+    }
+
     // ─── CCM Workflow Aggregator (periodic, every 5 min) ──────
     {
         let agg_storage = Arc::clone(&storage_port);

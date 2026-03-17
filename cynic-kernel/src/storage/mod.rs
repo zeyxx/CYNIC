@@ -121,6 +121,25 @@ impl SurrealHttpStorage {
             DEFINE INDEX IF NOT EXISTS obs_domain_idx ON observation FIELDS domain;\
             DEFINE INDEX IF NOT EXISTS obs_target_idx ON observation FIELDS target;\
             DEFINE INDEX IF NOT EXISTS obs_created_idx ON observation FIELDS created_at;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON agent_session TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_type ON agent_session TYPE string;\
+            DEFINE FIELD IF NOT EXISTS intent ON agent_session TYPE string;\
+            DEFINE FIELD IF NOT EXISTS registered_at ON agent_session TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS last_seen ON agent_session TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS active ON agent_session TYPE bool;\
+            DEFINE INDEX IF NOT EXISTS agent_session_active_idx ON agent_session FIELDS active;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON work_claim TYPE string;\
+            DEFINE FIELD IF NOT EXISTS target ON work_claim TYPE string;\
+            DEFINE FIELD IF NOT EXISTS claim_type ON work_claim TYPE string;\
+            DEFINE FIELD IF NOT EXISTS claimed_at ON work_claim TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS active ON work_claim TYPE bool;\
+            DEFINE INDEX IF NOT EXISTS work_claim_active_idx ON work_claim FIELDS active;\
+            DEFINE INDEX IF NOT EXISTS work_claim_target_idx ON work_claim FIELDS target;\
+            DEFINE FIELD IF NOT EXISTS ts ON mcp_audit TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS tool ON mcp_audit TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON mcp_audit TYPE string;\
+            DEFINE FIELD IF NOT EXISTS details ON mcp_audit TYPE string;\
+            DEFINE INDEX IF NOT EXISTS mcp_audit_ts_idx ON mcp_audit FIELDS ts;\
         ";
         if let Err(e) = storage.query(schema_sql).await {
             eprintln!("[Ring 1 / UAL] WARNING: Schema bootstrap failed (non-fatal): {}", e);

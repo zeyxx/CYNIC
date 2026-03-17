@@ -372,6 +372,12 @@ impl CoordPort for SurrealHttpStorage {
         let _ = self.query_one(&format!("UPDATE agent_session:`{}` SET active = false, last_seen = time::now();", sanitize_record_id(agent_id))).await;
         Ok(())
     }
+
+    async fn expire_stale(&self) -> Result<(), CoordError> {
+        let _ = self.query("UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;\
+                            UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await;
+        Ok(())
+    }
 }
 
 // ── TESTS ────────────────────────────────────────────────────

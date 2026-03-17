@@ -522,10 +522,20 @@ impl CynicMcp {
         ]))
     }
 
-    // ── Audit helper (best-effort, non-blocking) ─────────────
+    // ── Helpers ────────────────────────────────────────────────
 
+    /// Refresh heartbeat for any agent that identifies itself.
+    /// Called by every tool via audit() — fixes stale-session problem.
+    async fn touch(&self, agent_id: &str) {
+        if !agent_id.is_empty() && agent_id != "unknown" {
+            let _ = self.coord.heartbeat(agent_id).await;
+        }
+    }
+
+    /// Audit + heartbeat in one shot (best-effort, non-blocking).
     async fn audit(&self, tool_name: &str, agent_id: &str, details: &serde_json::Value) {
         let _ = self.coord.store_audit(tool_name, agent_id, details).await;
+        self.touch(agent_id).await;
     }
 }
 
