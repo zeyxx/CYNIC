@@ -180,9 +180,9 @@ Adding a new Dog = implement `Dog` trait + register in `main.rs`. Adding a new L
 git clone https://github.com/zeyxx/CYNIC.git
 cd CYNIC
 
-# Configure
-cp ~/.config/cynic/env.example ~/.config/cynic/env
-# Edit env: set CYNIC_API_KEY, SURREALDB_URL, backend API keys
+# Configure — create ~/.cynic-env with your secrets
+# Required vars: CYNIC_API_KEY, CYNIC_REST_ADDR, SURREALDB_PASS
+# See scripts/setup-ubuntu.sh (lines 149-161) for the full template
 
 # Build
 cargo build -p cynic-kernel --release

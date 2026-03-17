@@ -17,9 +17,10 @@ if [ "$SKIP_RUST" = false ]; then
     cargo clippy -p cynic-kernel --release -- -D warnings
 
     echo "[cynic] test..."
+    source "$HOME/.cynic-env" 2>/dev/null || true
     SURREALDB_URL=ws://localhost:8000 \
     SURREALDB_USER=root \
-    SURREALDB_PASS=$(cat ~/.surreal-pass) \
+    SURREALDB_PASS="${SURREALDB_PASS:?Set SURREALDB_PASS in ~/.cynic-env}" \
     cargo test -p cynic-kernel --release
 
     echo "[cynic] audit..."

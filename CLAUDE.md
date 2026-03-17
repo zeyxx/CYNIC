@@ -6,7 +6,7 @@ CYNIC is an **epistemic immune system** — independent AI validators reaching c
 
 ### Never commit
 - **Real IPs** — use `<TAILSCALE_UBUNTU>`, `<TAILSCALE_FORGE>`, etc.
-- **API keys, tokens, passwords** — they live in `~/.config/cynic/env` (never tracked)
+- **API keys, tokens, passwords** — they live in `~/.cynic-env` (never tracked). Systemd uses `~/.config/cynic/env` (generated from `~/.cynic-env` by deploy scripts).
 - **Real names** — use initials (`T.`, `S.`) or roles (`backend-dev`, `frontend-dev`)
 - **Machine hostnames** that reveal identity
 - **Email addresses** other than `@users.noreply.github.com`
@@ -57,7 +57,12 @@ POST /judge                 → Bearer required
 GET  /verdicts              → Bearer required
 GET  /verdict/{id}          → Bearer required
 GET  /crystals              → Bearer required
+GET  /crystal/{id}          → Bearer required
 GET  /usage                 → Bearer required
+GET  /dogs                  → Bearer required
+GET  /temporal              → Bearer required
+GET  /agents                → Bearer required
+POST /observe               → Bearer required
 ```
 Rate limit: 30 requests/minute. `/health` exempt.
 

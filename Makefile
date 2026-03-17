@@ -42,7 +42,7 @@ commit: check
 	@if [ -z "$(m)" ]; then echo "ERROR: provide message with m=\"...\"" >&2; exit 1; fi
 	@echo ""
 	@echo "▶ Staging and committing..."
-	git add -A
+	git add -u
 	git commit -m "$(m)"
 	@echo "✓ Committed (gitleaks pre-commit validated)"
 
@@ -61,7 +61,7 @@ deploy: ship
 	@echo ""
 	@echo "▶ Backing up DB before deploy..."
 	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
-		--username root --password root \
+		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS in ~/.cynic-env}" \
 		~/.surrealdb/backups/cynic_v2_pre_deploy_$$(date +%Y%m%d_%H%M%S).surql
 	@echo "▶ Deploying kernel..."
 	systemctl --user stop cynic-kernel
@@ -100,7 +100,7 @@ status:
 .PHONY: backup
 backup:
 	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
-		--username root --password root \
+		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS in ~/.cynic-env}" \
 		~/.surrealdb/backups/cynic_v2_$$(date +%Y%m%d_%H%M%S).surql
 	@echo "✓ Backup saved"
 

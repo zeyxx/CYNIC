@@ -40,11 +40,14 @@ chmod +x "$BINARY.new"
 mv -f "$BINARY.new" "$BINARY"
 
 echo "[deploy] Installing environment..."
+source "$HOME/.cynic-env" 2>/dev/null || { echo "[deploy] ERROR: ~/.cynic-env not found — create it with SURREALDB_PASS, CYNIC_API_KEY, CYNIC_REST_ADDR"; exit 1; }
 mkdir -p "$(dirname "$ENV_FILE")"
 cat > "$ENV_FILE" <<EOF
 SURREALDB_URL=ws://localhost:8000
 SURREALDB_USER=root
-SURREALDB_PASS=$(cat ~/.surreal-pass)
+SURREALDB_PASS=${SURREALDB_PASS:?Set SURREALDB_PASS in ~/.cynic-env}
+CYNIC_API_KEY=${CYNIC_API_KEY:-}
+CYNIC_REST_ADDR=${CYNIC_REST_ADDR:-127.0.0.1:3030}
 EOF
 chmod 600 "$ENV_FILE"
 
