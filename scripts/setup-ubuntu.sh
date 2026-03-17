@@ -13,7 +13,7 @@ echo "[1/10] System packages..."
 sudo apt update && sudo apt install -y \
     build-essential pkg-config libssl-dev \
     git gh curl wget jq unzip \
-    protobuf-compiler
+    protobuf-compiler  # only needed for --features grpc
 
 # ── 2. Node.js (for Claude Code) ────────
 echo "[2/10] Node.js..."
@@ -179,7 +179,7 @@ echo "  3. Install plugins (commands above)"
 echo "  4. Edit ~/.cynic-env (API keys)"
 echo "  5. source ~/.cynic-env"
 echo "  6. Start SurrealDB: surreal start --user root --pass <pass> file:cynic.db &"
-echo "  7. cd $CYNIC_DIR && cargo build -p cynic-kernel"
+echo "  7. cd $CYNIC_DIR && cargo build -p cynic-kernel --release"
 echo "  8. cargo run -p cynic-kernel"
 echo ""
 echo "  CYNIC dir: $CYNIC_DIR"

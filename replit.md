@@ -9,15 +9,15 @@ Built for the Gemini 3 Paris Hackathon (2026-03-14). Demo domain: Chess — each
 ## Architecture
 
 ```
-cynic-kernel/    → Rust backend (Axum REST + gRPC)
+cynic-kernel/    → Rust backend (Axum REST + MCP)
 cynic-ui/        → React + TypeScript + Vite frontend
 ```
 
 ### Backend (cynic-kernel)
 - **Language:** Rust (edition 2024)
-- **Framework:** Axum (REST) + Tonic (gRPC)
+- **Framework:** Axum (REST) + rmcp (MCP). Tonic gRPC is feature-gated off.
 - **REST Port:** 3030 (or $CYNIC_REST_ADDR env var)
-- **gRPC Port:** [::1]:50051
+- **gRPC Port:** [::1]:50051 (feature-gated, off by default)
 - **Storage:** SurrealDB via HTTP adapter (graceful degradation if unavailable)
 - **Build:** `cargo build -p cynic-kernel --release`
 
@@ -80,7 +80,7 @@ BARK < 0.236     (rejected)
 ```
 cynic-kernel/          Rust backend source
   src/
-    main.rs            Boot sequence, gRPC server, REST server
+    main.rs            Boot sequence, REST server (gRPC feature-gated)
     rest.rs            Axum REST routes (/health, /judge, /verdicts, /verdict/:id)
     judge.rs           Multi-dog consensus engine
     dog.rs             Dog trait (independent validator)

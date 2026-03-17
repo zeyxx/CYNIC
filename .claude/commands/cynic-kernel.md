@@ -1,4 +1,3 @@
-<!-- Auto-invocation via ~/.claude/commands/cynic-skills/cynic-kernel/ — no frontmatter here to avoid duplication -->
 
 # CYNIC Kernel — Canonical Architecture Reference
 
@@ -34,8 +33,8 @@ CYNIC is an **epistemic immune system** — independent AI validators reaching c
 ```
         DRIVING ADAPTERS (in)               DOMAIN CORE                DRIVEN ADAPTERS (out)
         ====================               ============               ====================
-        gRPC MuscleHAL ──────┐
-        gRPC KPulse ─────────┤         InferenceRequest/Response     LlamaCppBackend ── HTTP ── llama-server
+        gRPC MuscleHAL ──────┐  (feature-gated, off by default)
+        gRPC KPulse ─────────┤         InferenceRequest/Response     OpenAiCompatBackend ── HTTP ── llama-server
         gRPC Vascular ───────┼────────▶ BackendCapability             SurrealDbAdapter ── WS ── SurrealDB
         gRPC CogMemory ──────┤         BackendStatus (3-state)       SysfsDetector ── /sys ── Linux kernel
         CLI (future) ────────┘         NodeConfig (value object)     WmiDetector ── PowerShell ── Windows WMI
@@ -59,7 +58,7 @@ pub trait InferencePort: Send + Sync {
     async fn health(&self) -> BackendStatus;
 }
 ```
-**Adapters:** LlamaCppBackend (exists), MockBackend (exists), future: OllamaBackend, VllmBackend, RemoteBackend
+**Adapters:** OpenAiCompatBackend (exists, primary), MockBackend (exists), future: OllamaBackend, VllmBackend, RemoteBackend
 
 ### Port 2: StoragePort (NEW)
 ```rust
@@ -119,8 +118,8 @@ main.rs:
 4. Connect storage (circuit breaker) → Box<dyn StoragePort>
 5. Create inference pipeline → BackendRouter with discovered backends
 6. Create event bus → Box<dyn EventBus>
-7. Wire gRPC services (driving adapters)
-8. Start gRPC server
+7. Wire gRPC services (only with --features grpc, off by default)
+8. Start gRPC server (only with --features grpc)
 9. Report boot health: HEALTHY / DEGRADED / CRITICAL
 ```
 
@@ -221,7 +220,7 @@ Loop closes when EMERGE feeds back to PERCEIVE. Each step = Rust trait.
 | `$HOME` fallback to `/tmp` | `dirs::home_dir()` |
 | Drive scan C-F only | `sysinfo::Disks::new_with_refreshed_list()` |
 | AVX2 hardcoded true | `std::arch::is_x86_feature_detected!("avx2")` |
-| `[::1]:50051` fails without IPv6 | Try IPv6, fallback to `127.0.0.1:50051` |
+| `[::1]:50051` fails without IPv6 (only with --features grpc) | Try IPv6, fallback to `127.0.0.1:50051` |
 | GPU detection | WmiDetector behind GpuDetector trait |
 | `/proc/cpuinfo` | `#[cfg(target_os = "linux")]` gate |
 
@@ -230,13 +229,13 @@ Loop closes when EMERGE feeds back to PERCEIVE. Each step = Rust trait.
 ## TESTING PYRAMID
 
 ```
-E2E (grpcurl → kernel → llama-server) ............. 1-2 tests
+E2E (curl → REST /judge → Dogs → backends) ........ 1-2 tests
 Integration (real adapter + real system) ........... per adapter
 Port Contract (trait test suite) ................... per port
 Unit (pure domain logic) .......................... per domain fn
 ```
 
-**Critical pattern:** Port contract tests. ANY implementation of a port must pass the SAME test suite. MockBackend AND LlamaCppBackend both pass `inference_port_contract()`.
+**Critical pattern:** Port contract tests. ANY implementation of a port must pass the SAME test suite. MockBackend AND OpenAiCompatBackend both pass `inference_port_contract()`.
 
 ---
 
@@ -244,13 +243,14 @@ Unit (pure domain logic) .......................... per domain fn
 
 Implementation status is volatile — check `git log` and source code for ground truth.
 Do NOT rely on a static list here. The architecture above is the target; the code is the reality.
+**gRPC stack (tonic/prost) is feature-gated behind `--features grpc`. Default build is REST + MCP only.**
 
 ## DISTRIBUTED INFERENCE OPTIONS
 
 | Approach | When to use | Tradeoff |
 |----------|------------|----------|
 | **llama.cpp RPC** | Offload model layers across nodes (tensor parallelism) | Built-in, zero custom code. Requires llama.cpp on all nodes. |
-| **OpenAI-compatible HTTP** | Route requests to heterogeneous backends (llama.cpp, Ollama, vLLM) | Our BackendRouter + circuit breaker. Backends are independent processes. |
+| **OpenAI-compatible HTTP** | Route requests to heterogeneous backends (llama.cpp, Ollama, vLLM) | InferenceDog + ChatPort + circuit breaker. Backends are independent processes. |
 | **llama.cpp router mode** | Multi-model on single node (`--model-dir`) | Simple, but single-node only. |
 
 **CYNIC uses OpenAI-compatible HTTP** as the primary interface (InferencePort trait) because it supports heterogeneous backends. llama.cpp RPC is an option for single-model tensor parallelism across nodes.

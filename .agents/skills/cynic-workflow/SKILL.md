@@ -51,7 +51,7 @@ fix(router): circuit breaker cooldown timer reset
 docs(spec): tailscale-mcp design document
 refactor(hal): extract inference pipeline from MuscleHAL
 test(backend): port contract tests for InferencePort
-chore(deps): bump tonic to 0.12.3
+chore(deps): bump rmcp to latest for MCP stability
 ```
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`
@@ -81,7 +81,7 @@ Triggered by push to main via Forgejo post-receive hook:
    └── systemctl --user start cynic-kernel
 
 4. HEALTH CHECK
-   └── grpcurl -plaintext [::1]:50051 list (with retries)
+   └── curl -s http://localhost:3030/health (with retries)
 
 5. MIRROR
    └── git push github main (read-only mirror)
@@ -129,7 +129,7 @@ Stop and ask the human when:
 ```
 Forge (kairos):
   - Forgejo: http://forge:3000
-  - cynic-kernel: [::1]:50051 (gRPC)
+  - cynic-kernel: http://localhost:3030 (REST) — gRPC on [::1]:50051 feature-gated, off by default
   - SurrealDB: ws://localhost:8000
   - Deploy: ~/.config/systemd/user/cynic-kernel.service
   - Logs: journalctl --user -u cynic-kernel
@@ -151,7 +151,7 @@ git push -u forgejo feature/my-change
 journalctl --user -u cynic-validate-* --since "5 min ago"
 
 # Check kernel health
-grpcurl -plaintext [::1]:50051 list
+curl -s http://localhost:3030/health
 
 # View deploy logs
 journalctl --user -u cynic-kernel -f
