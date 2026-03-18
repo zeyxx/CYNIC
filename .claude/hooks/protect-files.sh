@@ -64,7 +64,10 @@ if [[ ("$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Write") && "$FILE_PATH" == *cy
         exit 0  # No session → allow (graceful degradation)
     fi
     AGENT_ID="claude-${SESSION_ID:0:12}"
-    TARGET_FILE=$(basename "$FILE_PATH")
+
+    # Use path relative to cynic-kernel/src/ — not basename.
+    # "api/rest/judge.rs" and "judge.rs" are different files, different claims.
+    TARGET_FILE="${FILE_PATH#*cynic-kernel/src/}"
 
     # Auto-claim: POST /coord/claim — transparent to the LLM
     # Returns 200 {"status":"claimed"} or 409 {"error":"CONFLICT: ..."}
