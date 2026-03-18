@@ -614,7 +614,7 @@ impl ServerHandler for CynicMcp {
                 .enable_tools()
                 .build(),
         )
-        .with_server_info(Implementation::new("cynic-kernel", env!("CARGO_PKG_VERSION")))
+        .with_server_info(Implementation::new("cynic-kernel", env!("CYNIC_VERSION")))
         .with_instructions("CYNIC epistemic immune system — independent AI validators reaching consensus under mathematical doubt. φ-bounded at 61.8%.")
     }
 }

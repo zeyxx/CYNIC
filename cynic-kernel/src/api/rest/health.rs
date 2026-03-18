@@ -65,7 +65,7 @@ pub async fn health_handler(
     if !authenticated {
         return Json(serde_json::json!({
             "status": status,
-            "version": env!("CARGO_PKG_VERSION"),
+            "version": env!("CYNIC_VERSION"),
             "phi_max": PHI_INV,
             "dog_count": dog_count,
         }));
@@ -81,7 +81,7 @@ pub async fn health_handler(
 
     Json(serde_json::json!({
         "status": status,
-        "version": env!("CARGO_PKG_VERSION"),
+        "version": env!("CYNIC_VERSION"),
         "phi_max": PHI_INV,
         "axioms": ["FIDELITY", "PHI", "VERIFY/FALSIFY", "CULTURE", "BURN", "SOVEREIGNTY"],
         "dogs": dogs,
