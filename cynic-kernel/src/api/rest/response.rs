@@ -52,7 +52,15 @@ pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         temporal: compute_temporal_from_dogs(&v.dog_scores),
         integrity_hash: v.integrity_hash.clone(),
         prev_hash: v.prev_hash.clone(),
+        cache_hit: None,
     }
+}
+
+/// Wrap a verdict response with cache hit metadata.
+pub fn verdict_response_cached(v: &Verdict, similarity: f64) -> JudgeResponse {
+    let mut resp = verdict_to_response(v);
+    resp.cache_hit = Some(similarity);
+    resp
 }
 
 /// Map Dog evaluations onto temporal perspectives and aggregate.

@@ -8,8 +8,9 @@ use axum::{
 use std::sync::Arc;
 
 use super::types::*;
-use super::response::verdict_to_response;
+use super::response::{verdict_to_response, verdict_response_cached};
 use crate::domain::ccm;
+use crate::domain::verdict_cache::CacheLookup;
 
 /// Max content length in chars — caps token consumption per request.
 const MAX_CONTENT_LEN: usize = 4_000;
@@ -36,6 +37,19 @@ pub async fn judge_handler(
             error: format!("context exceeds {} chars (got {})", MAX_CONTEXT_LEN, ctx.len()),
         })));
     }
+
+    // ── SEMANTIC CACHE: embed stimulus, check for similar cached verdict ──
+    // If the embedding server is available and a near-identical stimulus was
+    // already judged, return the cached verdict (0 API calls, 0 tokens).
+    let stimulus_embedding = state.embedding.embed(&content).await.ok();
+    if let Some(ref emb) = stimulus_embedding
+        && let CacheLookup::Hit { verdict, similarity } = state.verdict_cache.lookup(emb)
+    {
+        eprintln!("[REST] Verdict cache HIT (similarity: {:.4}, cache size: {})", similarity, state.verdict_cache.len());
+        return Ok(Json(verdict_response_cached(&verdict, similarity)));
+    }
+
+    // ── CACHE MISS: full evaluation pipeline ──
 
     // CCM feedback: enrich context with crystallized wisdom from this domain
     let domain_hint = req.domain.as_deref().unwrap_or("general");
@@ -67,6 +81,11 @@ pub async fn judge_handler(
     // Store verdict (best effort — don't fail the request if storage is down)
     if let Err(e) = state.storage.store_verdict(&verdict).await {
         eprintln!("[REST] Warning: failed to store verdict: {}", e);
+    }
+
+    // Cache the verdict embedding for future lookups
+    if let Some(emb) = stimulus_embedding {
+        state.verdict_cache.store(emb, verdict.clone());
     }
 
     // Track token usage per Dog (successes + failures)

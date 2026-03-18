@@ -10,7 +10,9 @@ use crate::domain::coord::CoordPort;
 use crate::domain::embedding::EmbeddingPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
+use crate::domain::verdict_cache::VerdictCache;
 use crate::judge::Judge;
+use crate::storage::{SurrealHttpStorage, StorageMetricsSnapshot};
 
 // ── SHARED STATE ───────────────────────────────────────────
 
@@ -20,9 +22,18 @@ pub struct AppState {
     pub coord: Arc<dyn CoordPort>,
     pub embedding: Arc<dyn EmbeddingPort>,
     pub usage: Arc<Mutex<DogUsageTracker>>,
+    pub verdict_cache: VerdictCache,
+    /// Raw DB reference for metrics — None when degraded to NullStorage.
+    pub raw_db: Option<Arc<SurrealHttpStorage>>,
     pub api_key: Option<String>,
     pub rate_limiter: PerIpRateLimiter,
     pub judge_limiter: PerIpRateLimiter,
+}
+
+impl AppState {
+    pub fn storage_metrics(&self) -> Option<StorageMetricsSnapshot> {
+        self.raw_db.as_ref().map(|db| db.metrics.snapshot())
+    }
 }
 
 // ── PER-IP RATE LIMITER ──────────────────────────────────────
@@ -109,6 +120,9 @@ pub struct JudgeResponse {
     /// BLAKE3 hash of the previous verdict (chain link)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_hash: Option<String>,
+    /// True if this verdict came from semantic cache (0 API calls consumed)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_hit: Option<f64>,
 }
 
 #[derive(Serialize)]

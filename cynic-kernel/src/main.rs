@@ -150,6 +150,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         coord: Arc::clone(&coord),
         embedding: Arc::clone(&embedding),
         usage: Arc::clone(&usage_tracker),
+        verdict_cache: domain::verdict_cache::VerdictCache::new(),
+        raw_db: raw_db.clone(),
         api_key,
         rate_limiter: api::rest::PerIpRateLimiter::new(30),   // 30 requests/minute global
         judge_limiter: api::rest::PerIpRateLimiter::new(10),   // 10 /judge per minute (inference costs money)
@@ -229,10 +231,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut usage = flush_usage.lock().await;
                     usage.absorb_flush();
                 }
-                // Prune stale observations every hour (60 ticks × 60s)
+                // Periodic cleanup every hour (60 ticks × 60s)
                 if tick_count.is_multiple_of(60) {
                     let _ = flush_db.query_one(
                         "DELETE observation WHERE created_at < time::now() - 30d;"
+                    ).await;
+                    // Audit log: keep last 10K entries, prune the rest
+                    let _ = flush_db.query_one(
+                        "DELETE mcp_audit WHERE ts < (SELECT VALUE ts FROM mcp_audit ORDER BY ts DESC LIMIT 1 START 10000);"
                     ).await;
                 }
             }

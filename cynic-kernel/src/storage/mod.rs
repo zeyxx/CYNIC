@@ -11,8 +11,12 @@ pub mod surreal;
 use reqwest::Client;
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::RwLock;
 use crate::domain::storage::StorageError;
+
+/// Slow query threshold — anything above this logs a warning.
+const SLOW_QUERY_MS: u64 = 100;
 
 /// Cached crystal state — avoids a SELECT roundtrip on every observe_crystal call.
 #[derive(Clone)]
@@ -31,6 +35,51 @@ pub struct SurrealHttpStorage {
     pub(crate) auth: String, // "Basic base64(user:pass)"
     /// In-memory crystal cache — write-through to DB, eliminates SELECT roundtrip.
     pub(crate) crystal_cache: RwLock<HashMap<String, CrystalCacheEntry>>,
+    // ── Storage observability (T1/T4 from crystallization) ──
+    pub(crate) metrics: StorageMetrics,
+}
+
+/// Atomic counters for storage observability. Zero-cost when not read.
+pub struct StorageMetrics {
+    pub queries: AtomicU64,
+    pub errors: AtomicU64,
+    pub total_latency_us: AtomicU64,
+    pub slow_queries: AtomicU64,
+    pub started_at: std::time::Instant,
+}
+
+impl StorageMetrics {
+    fn new() -> Self {
+        Self {
+            queries: AtomicU64::new(0),
+            errors: AtomicU64::new(0),
+            total_latency_us: AtomicU64::new(0),
+            slow_queries: AtomicU64::new(0),
+            started_at: std::time::Instant::now(),
+        }
+    }
+
+    /// Snapshot for /health — lock-free read.
+    pub fn snapshot(&self) -> StorageMetricsSnapshot {
+        let queries = self.queries.load(Ordering::Relaxed);
+        let total_us = self.total_latency_us.load(Ordering::Relaxed);
+        StorageMetricsSnapshot {
+            queries,
+            errors: self.errors.load(Ordering::Relaxed),
+            slow_queries: self.slow_queries.load(Ordering::Relaxed),
+            avg_latency_ms: if queries > 0 { (total_us / queries) as f64 / 1000.0 } else { 0.0 },
+            uptime_secs: self.started_at.elapsed().as_secs(),
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct StorageMetricsSnapshot {
+    pub queries: u64,
+    pub errors: u64,
+    pub slow_queries: u64,
+    pub avg_latency_ms: f64,
+    pub uptime_secs: u64,
 }
 
 #[derive(Deserialize, Debug)]
@@ -67,6 +116,7 @@ impl SurrealHttpStorage {
             db: db.to_string(),
             auth,
             crystal_cache: RwLock::new(HashMap::new()),
+            metrics: StorageMetrics::new(),
         };
 
         // Bootstrap namespace and database (SurrealDB 3.x doesn't auto-create)
@@ -77,6 +127,7 @@ impl SurrealHttpStorage {
             db: String::new(),
             auth: storage.auth.clone(),
             crystal_cache: RwLock::new(HashMap::new()),
+            metrics: StorageMetrics::new(),
         };
         // Use root-level query to define ns/db
         let bootstrap_sql = format!(
@@ -175,6 +226,30 @@ impl SurrealHttpStorage {
 
     /// Execute raw SurrealQL and return results.
     pub async fn query(&self, sql: &str) -> Result<Vec<Vec<serde_json::Value>>, StorageError> {
+        let start = std::time::Instant::now();
+        self.metrics.queries.fetch_add(1, Ordering::Relaxed);
+
+        let result = self.query_inner(sql).await;
+
+        let elapsed_us = start.elapsed().as_micros() as u64;
+        self.metrics.total_latency_us.fetch_add(elapsed_us, Ordering::Relaxed);
+
+        let elapsed_ms = elapsed_us / 1000;
+        if elapsed_ms > SLOW_QUERY_MS {
+            self.metrics.slow_queries.fetch_add(1, Ordering::Relaxed);
+            let preview: String = sql.chars().take(80).collect();
+            eprintln!("[storage] SLOW QUERY ({}ms): {}…", elapsed_ms, preview);
+        }
+
+        if result.is_err() {
+            self.metrics.errors.fetch_add(1, Ordering::Relaxed);
+        }
+
+        result
+    }
+
+    /// Inner query — no metrics, used by `query()`.
+    async fn query_inner(&self, sql: &str) -> Result<Vec<Vec<serde_json::Value>>, StorageError> {
         let resp = self.client
             .post(format!("{}/sql", self.url))
             .header("Accept", "application/json")

@@ -5,5 +5,6 @@ pub mod coord;
 pub mod inference;
 pub mod chat;
 pub mod embedding;
+pub mod verdict_cache;
 pub mod usage;
 pub mod temporal;

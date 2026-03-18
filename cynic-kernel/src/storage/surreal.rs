@@ -432,9 +432,11 @@ impl CoordPort for SurrealHttpStorage {
 
     async fn store_audit(&self, tool: &str, agent_id: &str, details: &serde_json::Value) -> Result<(), CoordError> {
         let safe_details = escape_surreal(&details.to_string());
+        // Only CREATE — the expensive DELETE is done periodically by the usage flush task.
+        // Previous version ran DELETE ... NOT IN (SELECT ... LIMIT 10000) on EVERY call,
+        // causing full table scans and transaction drops under load.
         let query = format!(
-            "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = '{}';\
-             DELETE mcp_audit WHERE id NOT IN (SELECT VALUE id FROM (SELECT id, ts FROM mcp_audit ORDER BY ts DESC LIMIT 10000));",
+            "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = '{}';",
             escape_surreal(tool), escape_surreal(agent_id), safe_details,
         );
         if let Err(e) = self.query(&query).await {
