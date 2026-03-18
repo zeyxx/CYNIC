@@ -28,7 +28,10 @@ pub async fn crystals_handler(
             }).collect();
             Ok(Json(items))
         }
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() }))),
+        Err(e) => {
+            eprintln!("[REST] crystals error: {}", e);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
+        }
     }
 }
 
@@ -48,7 +51,10 @@ pub async fn crystal_handler(
             "updated_at": c.updated_at,
         }))),
         Ok(None) => Err((StatusCode::NOT_FOUND, Json(ErrorResponse { error: format!("Crystal {} not found", id) }))),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() }))),
+        Err(e) => {
+            eprintln!("[REST] crystal/{} error: {}", id, e);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
+        }
     }
 }
 

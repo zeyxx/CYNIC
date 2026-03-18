@@ -150,6 +150,19 @@ impl CynicMcp {
         let p = params.0;
         let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
 
+        // Input validation — same limits as REST to prevent token drain
+        if p.content.trim().is_empty() {
+            return Err(McpError::invalid_params("content must not be empty", None));
+        }
+        if p.content.len() > 4_000 {
+            return Err(McpError::invalid_params("content exceeds 4000 chars", None));
+        }
+        if let Some(ref ctx) = p.context
+            && ctx.len() > 2_000
+        {
+            return Err(McpError::invalid_params("context exceeds 2000 chars", None));
+        }
+
         // CCM feedback: enrich context with crystallized wisdom
         let domain_hint = p.domain.as_deref().unwrap_or("general");
         let enriched_context = match self.storage.list_crystals(50).await {

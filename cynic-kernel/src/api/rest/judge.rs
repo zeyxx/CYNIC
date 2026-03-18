@@ -102,10 +102,10 @@ pub async fn get_verdict_handler(
             StatusCode::NOT_FOUND,
             Json(ErrorResponse { error: format!("Verdict {} not found", id) }),
         )),
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: e.to_string() }),
-        )),
+        Err(e) => {
+            eprintln!("[REST] verdict/{} error: {}", id, e);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
+        }
     }
 }
 
@@ -114,10 +114,10 @@ pub async fn list_verdicts_handler(
 ) -> Result<Json<Vec<JudgeResponse>>, (StatusCode, Json<ErrorResponse>)> {
     match state.storage.list_verdicts(20).await {
         Ok(verdicts) => Ok(Json(verdicts.iter().map(verdict_to_response).collect())),
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse { error: e.to_string() }),
-        )),
+        Err(e) => {
+            eprintln!("[REST] verdicts error: {}", e);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
+        }
     }
 }
 

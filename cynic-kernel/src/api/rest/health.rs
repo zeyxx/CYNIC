@@ -37,13 +37,14 @@ pub async fn health_handler(
     State(state): State<Arc<AppState>>,
     request: Request,
 ) -> Json<serde_json::Value> {
-    // Check if caller has valid auth — return full details only if authenticated
+    // Check if caller has valid auth — return full details only if authenticated.
+    // Uses constant_time_eq to prevent timing oracle (same as auth_middleware).
     let authenticated = match &state.api_key {
         Some(key) => request.headers()
             .get("authorization")
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.strip_prefix("Bearer "))
-            .is_some_and(|t| t == key.as_str()),
+            .is_some_and(|t| super::middleware::constant_time_eq(t.as_bytes(), key.as_bytes())),
         None => true, // No auth configured → everyone gets full details
     };
 
@@ -104,7 +105,10 @@ pub async fn agents_handler(
             "agents": snapshot.agents,
             "claims": snapshot.claims,
         })),
-        Err(e) => Json(serde_json::json!({"error": format!("Coordination unavailable: {}", e)})),
+        Err(e) => {
+            eprintln!("[REST] agents error: {}", e);
+            Json(serde_json::json!({"error": "coordination unavailable"}))
+        }
     }
 }
 

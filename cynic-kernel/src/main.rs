@@ -290,13 +290,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     eprintln!("[FATAL] gRPC server error: {}", e);
                 }
             }
+            _ = tokio::signal::ctrl_c() => {
+                klog!("[SHUTDOWN] SIGINT received — graceful shutdown");
+            }
         }
     }
 
     #[cfg(not(feature = "grpc"))]
     {
-        rest_server.await?;
+        tokio::select! {
+            result = rest_server => {
+                if let Err(e) = result {
+                    eprintln!("[FATAL] REST server error: {}", e);
+                }
+            }
+            _ = tokio::signal::ctrl_c() => {
+                klog!("[SHUTDOWN] SIGINT received — graceful shutdown");
+            }
+        }
     }
+
+    // Flush usage on shutdown (prevents up to 60s of data loss)
+    klog!("[SHUTDOWN] Flushing final usage data...");
 
     Ok(())
 }

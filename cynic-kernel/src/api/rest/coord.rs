@@ -50,9 +50,12 @@ pub async fn coord_register_handler(
     let agent_type = req.agent_type.unwrap_or_else(|| "unknown".into());
 
     state.coord.register_agent(&req.agent_id, &agent_type, &req.intent).await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
-            error: format!("Register failed: {}", e),
-        })))?;
+        .map_err(|e| {
+            eprintln!("[REST] coord/register error: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
+                error: "coordination unavailable".into(),
+            }))
+        })?;
 
     // Heartbeat: keep session alive (REST has no implicit heartbeat like MCP)
     let _ = state.coord.heartbeat(&req.agent_id).await;
@@ -103,9 +106,12 @@ pub async fn coord_claim_handler(
                     conflicts.iter().map(|c| c.agent_id.as_str()).collect::<Vec<_>>().join(", ")),
             })))
         }
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
-            error: format!("Claim failed: {}", e),
-        }))),
+        Err(e) => {
+            eprintln!("[REST] coord/claim error: {}", e);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
+                error: "coordination unavailable".into(),
+            })))
+        }
     }
 }
 
@@ -120,9 +126,12 @@ pub async fn coord_release_handler(
     }
 
     let desc = state.coord.release(&req.agent_id, req.target.as_deref()).await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
-            error: format!("Release failed: {}", e),
-        })))?;
+        .map_err(|e| {
+            eprintln!("[REST] coord/release error: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
+                error: "coordination unavailable".into(),
+            }))
+        })?;
 
     let _ = state.coord.store_audit("cynic_coord_release", &req.agent_id, &serde_json::json!({
         "target": req.target, "source": "rest",
