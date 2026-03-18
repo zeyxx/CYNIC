@@ -244,18 +244,12 @@ impl StoragePort for SurrealHttpStorage {
                 };
                 (updated.observations, updated.confidence, state_str, created)
             } else {
-                let state_str = if score < 0.381966 { "dissolved" } else { "forming" };
-                (1u32, score, state_str, timestamp.to_string())
+                // New crystal — always Forming until enough observations to judge
+                (1u32, score, "forming", timestamp.to_string())
             }
         };
 
-        // Write-through: update cache + DB in parallel-safe order
-        self.crystal_cache.write().await.insert(id.to_string(), CrystalCacheEntry {
-            observations,
-            confidence,
-            created_at: created_at.clone(),
-        });
-
+        // Write-through: DB first, cache second — prevents divergence on DB failure
         let sql = format!(
             "UPSERT crystal:{id} SET \
                 content = '{content}', \
@@ -275,6 +269,13 @@ impl StoragePort for SurrealHttpStorage {
             ts = escape(timestamp),
         );
         self.query_one(&sql).await?;
+
+        // DB write succeeded — now update cache
+        self.crystal_cache.write().await.insert(id.to_string(), CrystalCacheEntry {
+            observations,
+            confidence,
+            created_at: created_at.clone(),
+        });
         Ok(())
     }
 

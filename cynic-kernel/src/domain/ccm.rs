@@ -69,7 +69,8 @@ fn classify(confidence: f64, observations: u32) -> CrystalState {
         if observations > MIN_CRYSTALLIZATION_CYCLES {
             CrystalState::Decaying
         } else {
-            CrystalState::Dissolved
+            // Not enough data to dissolve — keep forming until MIN_CRYSTALLIZATION_CYCLES
+            CrystalState::Forming
         }
     } else if observations >= CANONICAL_CYCLES && confidence >= PHI_INV - EPSILON {
         CrystalState::Canonical
@@ -129,7 +130,7 @@ fn running_mean(current_mean: f64, count: u32, new_value: f64) -> f64 {
 /// Token-budget-aware: caps at max_chars to avoid overflowing small models.
 pub fn format_crystal_context(crystals: &[Crystal], domain: &str, max_chars: usize) -> Option<String> {
     let mature: Vec<&Crystal> = crystals.iter()
-        .filter(|c| c.domain == domain || domain == "general")
+        .filter(|c| c.domain == domain || c.domain == "general")
         .filter(|c| matches!(c.state, CrystalState::Crystallized | CrystalState::Canonical))
         .collect();
 
@@ -307,23 +308,17 @@ pub async fn aggregate_observations(
     storage: &dyn crate::domain::storage::StoragePort,
     project: &str,
 ) -> u32 {
-    // Get total observation count for score normalization
-    let total = match storage.query_observations(project, None, 1).await {
-        Ok(rows) => {
-            // The query returns grouped rows — sum their frequencies for total
-            rows.iter()
-                .filter_map(|r| r["freq"].as_u64())
-                .sum::<u64>()
-                .max(1) // Avoid division by zero
-        }
-        Err(_) => return 0,
-    };
-
-    // Get top patterns (target+tool frequency)
+    // Get top patterns (target+tool frequency) — single query, derive total from results
     let rows = match storage.query_observations(project, None, 50).await {
         Ok(r) => r,
         Err(_) => return 0,
     };
+
+    // Derive total from the same result set — atomic, no race between two queries
+    let total = rows.iter()
+        .filter_map(|r| r["freq"].as_u64())
+        .sum::<u64>()
+        .max(1); // Avoid division by zero
 
     let patterns = extract_patterns(&rows, total);
     let now = chrono::Utc::now().to_rfc3339();
@@ -350,8 +345,10 @@ pub async fn aggregate_observations(
     }
 
     if count > 0 {
+        let cooccur_count = cooccurrences.len() as u32;
+        let freq_count = count.saturating_sub(cooccur_count);
         klog!("[CCM/aggregate] {} patterns crystallized ({} freq + {} co-occur) from {} observations",
-            count, count - cooccurrences.len() as u32, cooccurrences.len(), total);
+            count, freq_count, cooccur_count, total);
     }
 
     count

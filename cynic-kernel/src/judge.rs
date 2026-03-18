@@ -113,7 +113,7 @@ impl Judge {
                     let elapsed_ms = start.elapsed().as_millis() as u64;
                     match result {
                         Ok(inner) => (id, inner, elapsed_ms),
-                        Err(_) => (id, Err(DogError::ApiError(format!("timeout after {}s", PER_DOG_TIMEOUT.as_secs()))), elapsed_ms),
+                        Err(_) => (id, Err(DogError::Timeout), elapsed_ms),
                     }
                 }
             })
@@ -145,12 +145,12 @@ impl Judge {
                         latency_ms: elapsed_ms,
                         prompt_tokens: scores.prompt_tokens,
                         completion_tokens: scores.completion_tokens,
-                        fidelity: scores.fidelity,
-                        phi: scores.phi,
-                        verify: scores.verify,
-                        culture: scores.culture,
-                        burn: scores.burn,
-                        sovereignty: scores.sovereignty,
+                        fidelity: phi_bound(scores.fidelity),
+                        phi: phi_bound(scores.phi),
+                        verify: phi_bound(scores.verify),
+                        culture: phi_bound(scores.culture),
+                        burn: phi_bound(scores.burn),
+                        sovereignty: phi_bound(scores.sovereignty),
                         reasoning: scores.reasoning,
                     });
                 }
@@ -244,22 +244,23 @@ impl Judge {
         let timestamp = Utc::now().to_rfc3339();
         let stimulus_summary: String = stimulus.content.chars().take(100).collect();
 
-        // L1 integrity: compute BLAKE3 hash chained to previous verdict
-        let prev_hash = self.last_hash.lock().ok().and_then(|g| g.clone());
-        let hash = verdict_hash(
-            &id,
-            q_score.total,
-            [q_score.fidelity, q_score.phi, q_score.verify,
-             q_score.culture, q_score.burn, q_score.sovereignty],
-            &stimulus_summary,
-            &timestamp,
-            prev_hash.as_deref(),
-        );
-
-        // Advance the chain
-        if let Ok(mut lock) = self.last_hash.lock() {
-            *lock = Some(hash.clone());
-        }
+        // L1 integrity: compute BLAKE3 hash chained to previous verdict.
+        // Single lock acquisition prevents TOCTOU race under concurrent /judge requests.
+        let (hash, prev_hash) = {
+            let mut lock = self.last_hash.lock().unwrap_or_else(|e| e.into_inner());
+            let prev = lock.clone();
+            let h = verdict_hash(
+                &id,
+                q_score.total,
+                [q_score.fidelity, q_score.phi, q_score.verify,
+                 q_score.culture, q_score.burn, q_score.sovereignty],
+                &stimulus_summary,
+                &timestamp,
+                prev.as_deref(),
+            );
+            *lock = Some(h.clone());
+            (h, prev)
+        };
 
         Ok(Verdict {
             id,

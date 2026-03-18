@@ -5,4 +5,4 @@
 jobs = 1
 
 [env]
-RUST_MIN_STACK = "16777216"
+RUST_MIN_STACK = "67108864"

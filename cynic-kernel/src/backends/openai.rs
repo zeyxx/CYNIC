@@ -120,8 +120,8 @@ impl OpenAiCompatBackend {
             model: self.config.model.clone(),
             messages,
             temperature,
-            max_tokens: None,
-            max_completion_tokens: max_tokens,
+            max_tokens,
+            max_completion_tokens: None,
             n,
         };
 
@@ -130,7 +130,7 @@ impl OpenAiCompatBackend {
 
         let resp = req.send().await.map_err(|e| {
             if e.is_timeout() {
-                ChatError::Timeout { ms: 120_000 }
+                ChatError::Timeout { ms: 30_000 }
             } else {
                 ChatError::Unreachable(format!("{}: {}", self.config.name, e))
             }

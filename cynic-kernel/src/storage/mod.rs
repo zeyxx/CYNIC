@@ -58,7 +58,10 @@ impl SurrealHttpStorage {
         let auth = format!("Basic {}", base64::engine::general_purpose::STANDARD.encode(&credentials));
 
         let storage = Self {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(10))
+                .build()
+                .expect("Failed to build HTTP client for SurrealDB"),
             url: url.trim_end_matches('/').to_string(),
             ns: ns.to_string(),
             db: db.to_string(),
