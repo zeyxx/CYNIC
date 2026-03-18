@@ -130,6 +130,7 @@ impl Judge {
 
         let mut dog_scores: Vec<DogScore> = Vec::new();
         let mut errors: Vec<String> = Vec::new();
+        let mut failed_dogs: Vec<String> = Vec::new();
 
         for (id, result, elapsed_ms) in results {
             // Find the circuit breaker for this dog
@@ -162,6 +163,7 @@ impl Judge {
                         else { cb.record_success(); } // non-infra error = backend is alive
                     }
                     eprintln!("[Judge] Dog '{}' failed after {}ms: {}", id, elapsed_ms, e);
+                    failed_dogs.push(id.clone());
                     errors.push(format!("{}: {}", id, e));
                 }
             }
@@ -274,6 +276,7 @@ impl Judge {
             anomaly_detected,
             max_disagreement,
             anomaly_axiom,
+            failed_dogs,
             integrity_hash: Some(hash),
             prev_hash,
         })

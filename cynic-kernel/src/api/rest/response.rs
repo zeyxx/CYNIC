@@ -126,6 +126,7 @@ mod tests {
             anomaly_detected: false,
             max_disagreement: 0.0,
             anomaly_axiom: None,
+            failed_dogs: Vec::new(),
             integrity_hash: Some("abc123".into()),
             prev_hash: None,
         };

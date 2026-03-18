@@ -69,11 +69,14 @@ pub async fn judge_handler(
         eprintln!("[REST] Warning: failed to store verdict: {}", e);
     }
 
-    // Track token usage per Dog
+    // Track token usage per Dog (successes + failures)
     {
         let mut usage = state.usage.lock().await;
         for ds in &verdict.dog_scores {
             usage.record(&ds.dog_id, ds.prompt_tokens, ds.completion_tokens, ds.latency_ms);
+        }
+        for dog_id in &verdict.failed_dogs {
+            usage.record_failure(dog_id);
         }
     }
 

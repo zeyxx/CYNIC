@@ -102,6 +102,7 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
         anomaly_axiom: row["anomaly_axiom"].as_str()
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string()),
+        failed_dogs: Vec::new(),
         integrity_hash: row["integrity_hash"].as_str()
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string()),
@@ -567,6 +568,7 @@ mod tests {
             anomaly_detected: false,
             max_disagreement: 0.0,
             anomaly_axiom: None,
+            failed_dogs: Vec::new(),
             integrity_hash: Some("deadbeef".into()),
             prev_hash: None,
         }

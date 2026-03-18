@@ -2,11 +2,12 @@
 
 use axum::{
     extract::{Request, State},
+    http::StatusCode,
     response::Json,
 };
 use std::sync::Arc;
 
-use super::types::{AppState, DogHealthResponse};
+use super::types::{AppState, DogHealthResponse, ErrorResponse};
 use crate::domain::dog::PHI_INV;
 
 pub async fn temporal_handler() -> Json<serde_json::Value> {
@@ -97,17 +98,17 @@ pub async fn health_handler(
 /// GET /agents — show active agent sessions and their claims (requires auth)
 pub async fn agents_handler(
     State(state): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     match state.coord.who(None).await {
-        Ok(snapshot) => Json(serde_json::json!({
+        Ok(snapshot) => Ok(Json(serde_json::json!({
             "active_agents": snapshot.agents.len(),
             "active_claims": snapshot.claims.len(),
             "agents": snapshot.agents,
             "claims": snapshot.claims,
-        })),
+        }))),
         Err(e) => {
             eprintln!("[REST] agents error: {}", e);
-            Json(serde_json::json!({"error": "coordination unavailable"}))
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "coordination unavailable".into() })))
         }
     }
 }

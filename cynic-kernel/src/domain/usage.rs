@@ -56,6 +56,8 @@ impl DogUsageTracker {
     pub fn record_failure(&mut self, dog_id: &str) {
         let entry = self.dogs.entry(dog_id.to_string()).or_default();
         entry.failures += 1;
+        entry.requests += 1;
+        self.total_requests += 1;
     }
 
     /// Total tokens this session only.
@@ -157,15 +159,15 @@ mod tests {
     }
 
     #[test]
-    fn record_failure_increments_only_failures() {
+    fn record_failure_increments_failures_and_requests() {
         let mut t = DogUsageTracker::new();
         t.record("a", 10, 5, 100);
         t.record_failure("a");
         t.record_failure("a");
 
         assert_eq!(t.dogs["a"].failures, 2);
-        assert_eq!(t.dogs["a"].requests, 1); // failures don't count as requests
-        assert_eq!(t.total_requests, 1);
+        assert_eq!(t.dogs["a"].requests, 3); // 1 success + 2 failures = 3 invocations
+        assert_eq!(t.total_requests, 3);
     }
 
     #[test]
@@ -173,7 +175,7 @@ mod tests {
         let mut t = DogUsageTracker::new();
         t.record_failure("new-dog");
         assert_eq!(t.dogs["new-dog"].failures, 1);
-        assert_eq!(t.dogs["new-dog"].requests, 0);
+        assert_eq!(t.dogs["new-dog"].requests, 1); // a failed invocation is still a request
     }
 
     // ── session_tokens / total_tokens ────────────────────

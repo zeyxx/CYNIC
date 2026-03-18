@@ -204,11 +204,14 @@ impl CynicMcp {
             eprintln!("[MCP] Warning: failed to store verdict: {}", e);
         }
 
-        // Track usage
+        // Track usage (successes + failures)
         {
             let mut usage = self.usage.lock().await;
             for ds in &verdict.dog_scores {
                 usage.record(&ds.dog_id, ds.prompt_tokens, ds.completion_tokens, ds.latency_ms);
+            }
+            for dog_id in &verdict.failed_dogs {
+                usage.record_failure(dog_id);
             }
         }
 
@@ -268,7 +271,7 @@ impl CynicMcp {
 
     #[tool(
         name = "cynic_health",
-        description = "Get CYNIC kernel health: active Dogs, circuit breaker states, axioms, φ constants. Use this to verify the kernel is operational before submitting judgments."
+        description = "Get CYNIC kernel health: active Dogs, circuit breaker states, storage status, axioms, φ constants. Use this to verify the kernel is operational before submitting judgments."
     )]
     async fn cynic_health(&self) -> Result<CallToolResult, McpError> {
         let dog_health = self.judge.dog_health();
@@ -277,7 +280,9 @@ impl CynicMcp {
         }).collect();
 
         let dog_count = dogs.len();
-        let status = if dog_count == 0 { "critical" }
+        let storage_ok = self.storage.ping().await.is_ok();
+
+        let status = if dog_count == 0 || !storage_ok { "critical" }
             else if dog_count == 1 { "degraded" }
             else { "sovereign" };
 
@@ -285,6 +290,7 @@ impl CynicMcp {
             "status": status,
             "dogs": dogs,
             "dog_count": dog_count,
+            "storage": if storage_ok { "connected" } else { "down" },
             "axioms": ["FIDELITY", "PHI", "VERIFY/FALSIFY", "CULTURE", "BURN", "SOVEREIGNTY"],
             "phi_max": PHI_INV,
         });
@@ -625,11 +631,31 @@ impl ServerHandler for CynicMcp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::storage::NullStorage;
+    use crate::domain::storage::{NullStorage, StorageError};
     use crate::domain::coord::NullCoord;
     use crate::domain::usage::DogUsageTracker;
     use crate::dogs::deterministic::DeterministicDog;
     use crate::judge::Judge;
+
+    /// Storage that fails on ping() — simulates SurrealDB being down.
+    struct DownStorage;
+
+    #[async_trait::async_trait]
+    impl StoragePort for DownStorage {
+        async fn ping(&self) -> Result<(), StorageError> {
+            Err(StorageError::ConnectionFailed("test: storage down".into()))
+        }
+        async fn store_verdict(&self, _: &crate::domain::dog::Verdict) -> Result<(), StorageError> { Ok(()) }
+        async fn get_verdict(&self, _: &str) -> Result<Option<crate::domain::dog::Verdict>, StorageError> { Ok(None) }
+        async fn list_verdicts(&self, _: u32) -> Result<Vec<crate::domain::dog::Verdict>, StorageError> { Err(StorageError::ConnectionFailed("down".into())) }
+        async fn store_crystal(&self, _: &crate::domain::ccm::Crystal) -> Result<(), StorageError> { Ok(()) }
+        async fn get_crystal(&self, _: &str) -> Result<Option<crate::domain::ccm::Crystal>, StorageError> { Ok(None) }
+        async fn list_crystals(&self, _: u32) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> { Ok(vec![]) }
+        async fn observe_crystal(&self, _: &str, _: &str, _: &str, _: f64, _: &str) -> Result<(), StorageError> { Ok(()) }
+        async fn store_observation(&self, _: &crate::domain::storage::Observation) -> Result<(), StorageError> { Ok(()) }
+        async fn query_observations(&self, _: &str, _: Option<&str>, _: u32) -> Result<Vec<serde_json::Value>, StorageError> { Ok(vec![]) }
+        async fn query_session_targets(&self, _: &str, _: u32) -> Result<Vec<serde_json::Value>, StorageError> { Ok(vec![]) }
+    }
 
     /// Build a CynicMcp with real DeterministicDog + null storage/coord.
     fn test_mcp() -> CynicMcp {
@@ -767,6 +793,21 @@ mod tests {
         assert!(dogs.contains_key("deterministic-dog"),
             "Usage should be tracked for deterministic-dog");
         assert!(dogs["deterministic-dog"].requests >= 1);
+    }
+
+    #[tokio::test]
+    async fn health_returns_critical_when_storage_down() {
+        let judge = Arc::new(Judge::new(vec![Box::new(DeterministicDog)]));
+        let storage = Arc::new(DownStorage) as Arc<dyn StoragePort>;
+        let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
+        let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
+        let mcp = CynicMcp::new(judge, storage, coord, usage);
+
+        let result = mcp.cynic_health().await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
+        assert_eq!(v["status"], "critical", "Storage down should force critical status");
+        assert_eq!(v["storage"], "down");
+        assert_eq!(v["dog_count"], 1); // dog is healthy, but storage pulls status to critical
     }
 
     #[tokio::test]

@@ -113,6 +113,10 @@ pub struct Verdict {
     pub max_disagreement: f64,
     #[serde(default)]
     pub anomaly_axiom: Option<String>,
+    /// Dog IDs that failed during evaluation — ephemeral, not persisted to DB.
+    /// Consumed by handlers immediately after evaluation to call usage.record_failure().
+    #[serde(default)]
+    pub failed_dogs: Vec<String>,
     /// BLAKE3 hash of this verdict's content (L1 integrity)
     #[serde(default)]
     pub integrity_hash: Option<String>,
