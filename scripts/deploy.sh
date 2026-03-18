@@ -33,11 +33,13 @@ echo "[deploy] Stopping service..."
 systemctl --user stop cynic-kernel 2>/dev/null || true
 sleep 1
 
-echo "[deploy] Installing binary (atomic)..."
+echo "[deploy] Installing binaries (atomic)..."
 mkdir -p "$BINARY_DIR"
 cp target/release/cynic-kernel "$BINARY.new"
 chmod +x "$BINARY.new"
 mv -f "$BINARY.new" "$BINARY"
+# MCP server is the same binary — keep in sync
+cp "$BINARY" "$BINARY_DIR/cynic-mcp"
 
 echo "[deploy] Installing environment..."
 source "$HOME/.cynic-env" 2>/dev/null || { echo "[deploy] ERROR: ~/.cynic-env not found — create it with SURREALDB_PASS, CYNIC_API_KEY, CYNIC_REST_ADDR"; exit 1; }

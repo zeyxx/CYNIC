@@ -71,7 +71,9 @@ if [[ ("$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Write") && "$FILE_PATH" == *cy
 
     # Auto-claim: POST /coord/claim — transparent to the LLM
     # Returns 200 {"status":"claimed"} or 409 {"error":"CONFLICT: ..."}
-    HTTP_CODE=$(curl -s -o /tmp/cynic-claim-resp -w '%{http_code}' \
+    CLAIM_TMP=$(mktemp /tmp/cynic-claim-XXXXXX)
+    trap "rm -f '$CLAIM_TMP'" EXIT
+    HTTP_CODE=$(curl -s -o "$CLAIM_TMP" -w '%{http_code}' \
         --connect-timeout 2 --max-time 3 \
         -X POST "http://${KERNEL_ADDR}/coord/claim" \
         -H "Content-Type: application/json" \
@@ -85,7 +87,7 @@ if [[ ("$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Write") && "$FILE_PATH" == *cy
 
     if [[ "$HTTP_CODE" == "409" ]]; then
         # Real conflict — another agent holds this file
-        CONFLICT_MSG=$(jq -r '.error // "conflict"' /tmp/cynic-claim-resp 2>/dev/null || echo "conflict")
+        CONFLICT_MSG=$(jq -r '.error // "conflict"' "$CLAIM_TMP" 2>/dev/null || echo "conflict")
         echo "BLOCKED: ${CONFLICT_MSG}" >&2
         exit 2
     fi

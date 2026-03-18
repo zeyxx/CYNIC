@@ -35,6 +35,9 @@ fn verdict_to_sql(v: &Verdict) -> String {
             stimulus = '{}', \
             integrity_hash = '{}', \
             prev_hash = '{}', \
+            anomaly_detected = {}, \
+            max_disagreement = {}, \
+            anomaly_axiom = '{}', \
             created_at = time::now()",
         escape(&v.id),
         v.kind,
@@ -55,6 +58,9 @@ fn verdict_to_sql(v: &Verdict) -> String {
         escape(&v.stimulus_summary),
         escape(integrity),
         escape(prev),
+        v.anomaly_detected,
+        v.max_disagreement,
+        escape(v.anomaly_axiom.as_deref().unwrap_or("")),
     )
 }
 
@@ -91,9 +97,11 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
         stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
         timestamp: row["created_at"].as_str().unwrap_or("").to_string(),
         dog_scores: Vec::new(),
-        anomaly_detected: false,
-        max_disagreement: 0.0,
-        anomaly_axiom: None,
+        anomaly_detected: row["anomaly_detected"].as_bool().unwrap_or(false),
+        max_disagreement: row["max_disagreement"].as_f64().unwrap_or(0.0),
+        anomaly_axiom: row["anomaly_axiom"].as_str()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()),
         integrity_hash: row["integrity_hash"].as_str()
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string()),

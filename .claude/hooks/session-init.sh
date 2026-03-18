@@ -31,7 +31,7 @@ KERNEL_STATUS=$(echo "$HEALTH_JSON" | jq -r '.status // empty' 2>/dev/null)
 EXPECTED_DOGS=0
 BACKENDS_FILE="${HOME}/.config/cynic/backends.toml"
 if [[ -f "$BACKENDS_FILE" ]]; then
-    EXPECTED_DOGS=$(( $(grep -c '^\[backend\.' "$BACKENDS_FILE") + 1 ))  # +1 for deterministic-dog
+    EXPECTED_DOGS=$(( $(grep -c '^\[backend\.' "$BACKENDS_FILE" || echo 0) + 1 ))  # +1 for deterministic-dog
 fi
 ACTIVE_DOGS=$(echo "$HEALTH_JSON" | jq '.dog_count // 0' 2>/dev/null)
 DOG_DRIFT=""

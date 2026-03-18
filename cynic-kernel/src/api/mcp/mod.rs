@@ -198,6 +198,12 @@ impl CynicMcp {
         let verdict = self.judge.evaluate(&stimulus, dogs_filter).await
             .map_err(|e| McpError::internal_error(format!("Judge error: {}", e), None))?;
 
+        // Side-effect order matches REST: store → usage → audit
+        // Store verdict first (best effort — don't fail the response)
+        if let Err(e) = self.storage.store_verdict(&verdict).await {
+            eprintln!("[MCP] Warning: failed to store verdict: {}", e);
+        }
+
         // Track usage
         {
             let mut usage = self.usage.lock().await;
@@ -213,9 +219,6 @@ impl CynicMcp {
             "verdict": format!("{:?}", verdict.kind),
             "q_score": verdict.q_score.total,
         })).await;
-
-        // Store verdict (best effort)
-        let _ = self.storage.store_verdict(&verdict).await;
 
         // CCM: observe crystal atomically (no read-modify-write race)
         {
