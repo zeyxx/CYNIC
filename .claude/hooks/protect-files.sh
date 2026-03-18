@@ -2,7 +2,7 @@
 # CYNIC — PreToolUse hook
 # 1. Blocks edits to sensitive files
 # 2. Detects secret patterns in commands
-# 3. Verifies coord claims before Edit/Write on kernel code
+# 3. Auto-claims kernel files on Edit/Write — blocks only on real CONFLICT
 set -euo pipefail
 
 INPUT=$(cat)
@@ -49,54 +49,46 @@ if [[ "$TOOL_NAME" == "Bash" && -n "$COMMAND" ]]; then
     fi
 fi
 
-# ── Coord claim verification for kernel code edits ──
-# Only check for Edit/Write on cynic-kernel/ source files
+# ── Auto-claim for kernel code edits ──
+# On Edit/Write to cynic-kernel/src/*, auto-claim the file transparently.
+# Only BLOCK on real CONFLICT (another agent holds the file).
+# Kernel down → allow (graceful degradation).
 if [[ ("$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Write") && "$FILE_PATH" == *cynic-kernel/src/* ]]; then
     source ~/.cynic-env 2>/dev/null || true
     KERNEL_ADDR="${CYNIC_REST_ADDR:-localhost:3030}"
     API_KEY="${CYNIC_API_KEY:-}"
 
-    # Derive agent_id from session_id (same as session-init.sh)
+    # Derive agent_id from session_id
     SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
-    if [[ -n "$SESSION_ID" ]]; then
-        AGENT_ID="claude-${SESSION_ID:0:12}"
-    else
-        # Can't verify without agent_id — allow (graceful degradation)
-        exit 0
+    if [[ -z "$SESSION_ID" ]]; then
+        exit 0  # No session → allow (graceful degradation)
     fi
-
-    # Heartbeat: keep session alive (prevent expire_stale from killing us)
-    curl -s --connect-timeout 1 --max-time 1 -X POST "http://${KERNEL_ADDR}/coord/register" \
-        -H "Content-Type: application/json" \
-        ${API_KEY:+-H "Authorization: Bearer $API_KEY"} \
-        -d "{\"agent_id\":\"${AGENT_ID}\",\"intent\":\"active session\",\"agent_type\":\"claude\"}" \
-        > /dev/null 2>&1 || true
-
-    # Check current claims via GET /agents
-    AGENTS_JSON=$(curl -s --connect-timeout 1 --max-time 2 "http://${KERNEL_ADDR}/agents" \
-        ${API_KEY:+-H "Authorization: Bearer $API_KEY"} 2>/dev/null || echo '{}')
-
-    # Extract the filename from the path (last component)
+    AGENT_ID="claude-${SESSION_ID:0:12}"
     TARGET_FILE=$(basename "$FILE_PATH")
 
-    # Check if this agent has a claim on this specific file (or kernel/ zone)
-    HAS_CLAIM=$(echo "$AGENTS_JSON" | jq -r \
-        --arg agent "$AGENT_ID" \
-        --arg target "$TARGET_FILE" \
-        '.claims // [] | map(select(
-            .agent_id == $agent and .active == true and
-            (.target == $target or .target == "kernel/" or .target == "cynic-kernel/")
-        )) | length' \
-        2>/dev/null || echo "0")
+    # Auto-claim: POST /coord/claim — transparent to the LLM
+    # Returns 200 {"status":"claimed"} or 409 {"error":"CONFLICT: ..."}
+    HTTP_CODE=$(curl -s -o /tmp/cynic-claim-resp -w '%{http_code}' \
+        --connect-timeout 2 --max-time 3 \
+        -X POST "http://${KERNEL_ADDR}/coord/claim" \
+        -H "Content-Type: application/json" \
+        ${API_KEY:+-H "Authorization: Bearer $API_KEY"} \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"target\":\"${TARGET_FILE}\",\"claim_type\":\"file\"}" \
+        2>/dev/null || echo "000")
 
-    if [[ "$HAS_CLAIM" == "0" ]]; then
-        # Graceful degradation: if kernel is down or response malformed, allow
-        if ! echo "$AGENTS_JSON" | jq -e '.claims' > /dev/null 2>&1; then
-            exit 0
-        fi
-        echo "BLOCKED: No coord claim on '${TARGET_FILE}' for agent ${AGENT_ID}. Run cynic_coord_claim(agent_id=\"${AGENT_ID}\", target=\"${TARGET_FILE}\") first." >&2
+    if [[ "$HTTP_CODE" == "000" ]]; then
+        exit 0  # Kernel unreachable → allow (graceful degradation)
+    fi
+
+    if [[ "$HTTP_CODE" == "409" ]]; then
+        # Real conflict — another agent holds this file
+        CONFLICT_MSG=$(jq -r '.error // "conflict"' /tmp/cynic-claim-resp 2>/dev/null || echo "conflict")
+        echo "BLOCKED: ${CONFLICT_MSG}" >&2
         exit 2
     fi
+
+    # 200 (claimed), 401 (auth issue), 500 (DB down) — all allow through
+    # The point is: only a 409 CONFLICT blocks. Everything else degrades gracefully.
 fi
 
 # All clear
