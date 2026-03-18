@@ -71,9 +71,14 @@ pub async fn coord_claim_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ClaimRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    if req.agent_id.is_empty() || req.target.is_empty() {
+    if req.agent_id.is_empty() || req.agent_id.len() > 64 {
         return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
-            error: "agent_id and target are required".into(),
+            error: "agent_id must be 1-64 characters".into(),
+        })));
+    }
+    if req.target.is_empty() || req.target.len() > 256 {
+        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
+            error: "target must be 1-256 characters".into(),
         })));
     }
 
@@ -108,9 +113,9 @@ pub async fn coord_release_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ReleaseRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    if req.agent_id.is_empty() {
+    if req.agent_id.is_empty() || req.agent_id.len() > 64 {
         return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
-            error: "agent_id is required".into(),
+            error: "agent_id must be 1-64 characters".into(),
         })));
     }
 

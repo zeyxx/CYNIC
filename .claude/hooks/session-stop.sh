@@ -11,10 +11,12 @@ INPUT=$(cat)
 source ~/.cynic-env 2>/dev/null || true
 
 # Agent ID from Claude session_id (same derivation as session-init.sh)
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 if [[ -n "$SESSION_ID" ]]; then
     AGENT_ID="claude-${SESSION_ID:0:12}"
 else
+    # Fallback: try timestamp-based ID (mirrors session-init.sh fallback)
+    # Without a stable ID we can't release — but expire_stale will clean up in 5min
     exit 0
 fi
 
@@ -25,7 +27,7 @@ AUTH_HEADER=""
 [ -n "$API_KEY" ] && AUTH_HEADER="Authorization: Bearer $API_KEY"
 
 # Release ALL claims for this agent (no target = release all)
-curl -s --max-time 5 -X POST "http://${KERNEL_ADDR}/coord/release" \
+curl -s --connect-timeout 2 --max-time 5 -X POST "http://${KERNEL_ADDR}/coord/release" \
     -H "Content-Type: application/json" \
     ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
     -d "{\"agent_id\":\"${AGENT_ID}\"}" \

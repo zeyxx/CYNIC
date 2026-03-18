@@ -427,7 +427,9 @@ impl CoordPort for SurrealHttpStorage {
              DELETE mcp_audit WHERE id NOT IN (SELECT VALUE id FROM (SELECT id, ts FROM mcp_audit ORDER BY ts DESC LIMIT 10000));",
             escape_surreal(tool), escape_surreal(agent_id), safe_details,
         );
-        let _ = self.query(&query).await;
+        if let Err(e) = self.query(&query).await {
+            eprintln!("[store_audit] ERROR (tool={}, agent={}): {}", tool, agent_id, e);
+        }
         Ok(())
     }
 
