@@ -95,11 +95,28 @@ export function ChessJudge({ onVerdict }: Props) {
     // Async judge call — does NOT block move execution
     const history  = g.history();
     const moveNum  = Math.ceil(history.length / 2);
-    const content  = `Chess move ${moveNum}: ${move.san}. Game: ${history.join(' ')}. FEN: ${newFen}`;
+    const side     = move.color === 'w' ? 'White' : 'Black';
+
+    // content = what the LLM judges (clean, human-readable)
+    // context = reference data (full game, FEN, side to move)
+    const numberedMoves: string[] = [];
+    for (let i = 0; i < history.length; i += 2) {
+      const num = Math.floor(i / 2) + 1;
+      numberedMoves.push(`${num}. ${history[i]}${history[i + 1] ? ' ' + history[i + 1] : ''}`);
+    }
+    const content = `${side} plays ${move.san} (move ${moveNum}). Game so far: ${numberedMoves.join(' ')}`;
+    const context = [
+      `Move ${moveNum}: ${move.san} by ${side}`,
+      `Full notation: ${numberedMoves.join(' ')}`,
+      `Position (FEN): ${newFen}`,
+      `${g.turn() === 'w' ? 'White' : 'Black'} to move next`,
+      g.isCheck() ? 'Opponent is in CHECK' : '',
+      g.isCheckmate() ? 'CHECKMATE' : '',
+    ].filter(Boolean).join('. ');
 
     setLoading(true);
     const dogs = getSelectedDogs();
-    judge({ content, domain: 'chess', context: `Move ${moveNum}: ${move.san}`, dogs })
+    judge({ content, domain: 'chess', context, dogs })
       .then(r => { setVerdict(r); onVerdict?.(r); })
       .catch(e => setError(e instanceof Error ? e.message : 'API unreachable'))
       .finally(() => setLoading(false));
