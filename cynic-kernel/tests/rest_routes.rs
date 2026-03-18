@@ -11,6 +11,7 @@ use tower::ServiceExt;
 use cynic_kernel::api::rest::{self, AppState, PerIpRateLimiter};
 use cynic_kernel::dogs::deterministic::DeterministicDog;
 use cynic_kernel::domain::coord::NullCoord;
+use cynic_kernel::domain::embedding::NullEmbedding;
 use cynic_kernel::domain::storage::NullStorage;
 use cynic_kernel::domain::usage::DogUsageTracker;
 use cynic_kernel::judge::Judge;
@@ -21,6 +22,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         judge,
         storage: Arc::new(NullStorage),
         coord: Arc::new(NullCoord),
+        embedding: Arc::new(NullEmbedding),
         usage: Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new())),
         api_key: api_key.map(|s| s.to_string()),
         rate_limiter: PerIpRateLimiter::new(100),

@@ -104,6 +104,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     klog!("[Ring 2] {} Dog(s) active", dogs.len());
 
+    // ─── RING 2: Embedding backend (sovereign, graceful degrade) ─
+    let embed_backend = backends::embedding::EmbeddingBackend::from_env();
+    let embedding: Arc<dyn domain::embedding::EmbeddingPort> = if embed_backend.health().await {
+        klog!("[Ring 2] Embedding: HEALTHY (sovereign)");
+        Arc::new(embed_backend)
+    } else {
+        klog!("[Ring 2] Embedding: UNAVAILABLE — degrading to NullEmbedding");
+        Arc::new(domain::embedding::NullEmbedding)
+    };
+
     // ─── RING 2: Build Judge ──────────────────────────────────
     let judge = judge::Judge::new(dogs);
 
@@ -138,6 +148,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         judge: Arc::clone(&judge),
         storage: Arc::clone(&storage_port),
         coord: Arc::clone(&coord),
+        embedding: Arc::clone(&embedding),
         usage: Arc::clone(&usage_tracker),
         api_key,
         rate_limiter: api::rest::PerIpRateLimiter::new(30),   // 30 requests/minute global

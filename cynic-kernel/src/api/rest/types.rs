@@ -7,6 +7,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::domain::coord::CoordPort;
+use crate::domain::embedding::EmbeddingPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::judge::Judge;
@@ -17,6 +18,7 @@ pub struct AppState {
     pub judge: Arc<Judge>,
     pub storage: Arc<dyn StoragePort>,
     pub coord: Arc<dyn CoordPort>,
+    pub embedding: Arc<dyn EmbeddingPort>,
     pub usage: Arc<Mutex<DogUsageTracker>>,
     pub api_key: Option<String>,
     pub rate_limiter: PerIpRateLimiter,

@@ -4,5 +4,6 @@ pub mod storage;
 pub mod coord;
 pub mod inference;
 pub mod chat;
+pub mod embedding;
 pub mod usage;
 pub mod temporal;
