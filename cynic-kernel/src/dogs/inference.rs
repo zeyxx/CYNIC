@@ -3,6 +3,7 @@
 
 use crate::domain::dog::*;
 use crate::domain::chat::ChatPort;
+use crate::domain::inference::{BackendPort, BackendStatus};
 use async_trait::async_trait;
 use serde::Deserialize;
 use std::sync::Arc;
@@ -80,6 +81,10 @@ impl Dog for InferenceDog {
 
     fn max_context(&self) -> u32 {
         self.context_size
+    }
+
+    async fn health(&self) -> BackendStatus {
+        BackendPort::health(self.chat.as_ref()).await
     }
 
     async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError> {

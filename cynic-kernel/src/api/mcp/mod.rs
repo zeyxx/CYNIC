@@ -274,7 +274,7 @@ impl CynicMcp {
         description = "Get CYNIC kernel health: active Dogs, circuit breaker states, storage status, axioms, φ constants. Use this to verify the kernel is operational before submitting judgments."
     )]
     async fn cynic_health(&self) -> Result<CallToolResult, McpError> {
-        let dog_health = self.judge.dog_health();
+        let dog_health = self.judge.dog_health().await;
         let dogs: Vec<serde_json::Value> = dog_health.into_iter().map(|(id, circuit, failures)| {
             serde_json::json!({ "id": id, "circuit": circuit, "failures": failures })
         }).collect();

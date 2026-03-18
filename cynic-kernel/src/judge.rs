@@ -36,11 +36,21 @@ impl Judge {
         self.dogs.iter().map(|d| d.id().to_string()).collect()
     }
 
-    /// Return circuit breaker state per Dog for health reporting.
-    pub fn dog_health(&self) -> Vec<(String, String, u32)> {
-        self.dogs.iter().zip(self.breakers.iter())
-            .map(|(d, cb)| (d.id().to_string(), cb.state(), cb.consecutive_failures()))
-            .collect()
+    /// Return health per Dog: circuit breaker state + backend status.
+    /// Combines CB (execution protection) with Dog::health() (backend observation).
+    pub async fn dog_health(&self) -> Vec<(String, String, u32)> {
+        let mut results = Vec::with_capacity(self.dogs.len());
+        for (dog, cb) in self.dogs.iter().zip(self.breakers.iter()) {
+            let backend_status = dog.health().await;
+            // Report the worse of CB state or backend health
+            let effective_state = if !backend_status.is_available() {
+                "critical".to_string()
+            } else {
+                cb.state()
+            };
+            results.push((dog.id().to_string(), effective_state, cb.consecutive_failures()));
+        }
+        results
     }
 
     /// Evaluate a stimulus through Dogs in parallel, aggregate, produce Verdict.
@@ -639,7 +649,7 @@ mod tests {
             Box::new(FixedDog { name: "b".into(), scores: AxiomScores::default() }),
         ]);
 
-        let health = judge.dog_health();
+        let health = judge.dog_health().await;
         assert_eq!(health.len(), 2);
         assert_eq!(health[0].0, "a");
         assert_eq!(health[0].1, "closed"); // circuit starts closed
