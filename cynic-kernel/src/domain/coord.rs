@@ -24,6 +24,12 @@ pub enum ClaimResult {
     Conflict(Vec<ConflictInfo>),
 }
 
+/// Result of a batch claim — per-target outcome.
+pub struct BatchClaimResult {
+    pub claimed: Vec<String>,
+    pub conflicts: Vec<(String, Vec<ConflictInfo>)>,
+}
+
 pub struct ConflictInfo {
     pub agent_id: String,
     pub claimed_at: String,
@@ -47,6 +53,19 @@ pub trait CoordPort: Send + Sync {
     /// Expire stale sessions (>5 min no heartbeat) and their orphaned claims.
     /// Lighter than who() — no SELECT, just the two UPDATEs.
     async fn expire_stale(&self) -> Result<(), CoordError>;
+
+    /// Claim multiple targets at once. Default impl calls claim() in a loop.
+    /// SurrealHttpStorage overrides with a single SQL transaction.
+    async fn claim_batch(&self, agent_id: &str, targets: &[String], claim_type: &str) -> Result<BatchClaimResult, CoordError> {
+        let mut result = BatchClaimResult { claimed: Vec::new(), conflicts: Vec::new() };
+        for target in targets {
+            match self.claim(agent_id, target, claim_type).await? {
+                ClaimResult::Claimed => result.claimed.push(target.clone()),
+                ClaimResult::Conflict(infos) => result.conflicts.push((target.clone(), infos)),
+            }
+        }
+        Ok(result)
+    }
 }
 
 pub struct NullCoord;

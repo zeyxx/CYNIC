@@ -30,6 +30,13 @@ pub struct ClaimRequest {
 }
 
 #[derive(Deserialize)]
+pub struct BatchClaimRequest {
+    pub agent_id: String,
+    pub targets: Vec<String>,
+    pub claim_type: Option<String>,
+}
+
+#[derive(Deserialize)]
 pub struct ReleaseRequest {
     pub agent_id: String,
     pub target: Option<String>,
@@ -113,6 +120,56 @@ pub async fn coord_claim_handler(
             })))
         }
     }
+}
+
+pub async fn coord_claim_batch_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<BatchClaimRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    if req.agent_id.is_empty() || req.agent_id.len() > 64 {
+        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
+            error: "agent_id must be 1-64 characters".into(),
+        })));
+    }
+    if req.targets.is_empty() || req.targets.len() > 20 {
+        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
+            error: "targets must be 1-20 items".into(),
+        })));
+    }
+    for t in &req.targets {
+        if t.is_empty() || t.len() > 256 {
+            return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
+                error: format!("target '{}' must be 1-256 characters", t.chars().take(32).collect::<String>()),
+            })));
+        }
+    }
+
+    let claim_type = req.claim_type.unwrap_or_else(|| "file".into());
+
+    let result = state.coord.claim_batch(&req.agent_id, &req.targets, &claim_type).await
+        .map_err(|e| {
+            eprintln!("[REST] coord/claim-batch error: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
+                error: "coordination unavailable".into(),
+            }))
+        })?;
+
+    let _ = state.coord.store_audit("cynic_coord_claim_batch", &req.agent_id, &serde_json::json!({
+        "targets": req.targets, "claimed": result.claimed.len(), "conflicts": result.conflicts.len(), "source": "rest",
+    })).await;
+
+    let conflicts: Vec<serde_json::Value> = result.conflicts.iter().map(|(target, infos)| {
+        serde_json::json!({
+            "target": target,
+            "held_by": infos.iter().map(|c| &c.agent_id).collect::<Vec<_>>(),
+        })
+    }).collect();
+
+    Ok(Json(serde_json::json!({
+        "agent_id": req.agent_id,
+        "claimed": result.claimed,
+        "conflicts": conflicts,
+    })))
 }
 
 pub async fn coord_release_handler(

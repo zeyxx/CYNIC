@@ -95,6 +95,16 @@ pub struct ClaimParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct BatchClaimParams {
+    /// Agent identifier (must match a registered session)
+    pub agent_id: String,
+    /// List of targets to claim (max 20)
+    pub targets: Vec<String>,
+    /// Claim type: "file", "feature", "zone" (applied to all targets)
+    pub claim_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct ReleaseParams {
     /// Agent identifier
     pub agent_id: String,
@@ -488,6 +498,50 @@ impl CynicMcp {
                 ]))
             }
         }
+    }
+
+    #[tool(
+        name = "cynic_coord_claim_batch",
+        description = "Claim multiple files/features/zones in one call. More efficient than calling cynic_coord_claim repeatedly. Returns per-target results (claimed vs conflict)."
+    )]
+    async fn cynic_coord_claim_batch(
+        &self,
+        params: Parameters<BatchClaimParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+        let claim_type = p.claim_type.unwrap_or_else(|| "file".into());
+
+        if p.targets.is_empty() {
+            return Err(McpError::invalid_params("targets must not be empty", None));
+        }
+        if p.targets.len() > 20 {
+            return Err(McpError::invalid_params("batch claim limited to 20 targets", None));
+        }
+
+        let result = self.coord.claim_batch(&p.agent_id, &p.targets, &claim_type).await
+            .map_err(|e| McpError::internal_error(format!("Batch claim failed: {}", e), None))?;
+
+        let mut lines = Vec::new();
+
+        for target in &result.claimed {
+            lines.push(format!("CLAIMED: '{}' ({}) for agent '{}'.", target, claim_type, p.agent_id));
+        }
+        for (target, infos) in &result.conflicts {
+            let conflict_info: Vec<String> = infos.iter().map(|c| {
+                format!("{} (since {})", c.agent_id, c.claimed_at)
+            }).collect();
+            lines.push(format!("CONFLICT: '{}' already claimed by: {}.", target, conflict_info.join(", ")));
+        }
+
+        self.audit("cynic_coord_claim_batch", &p.agent_id, &serde_json::json!({
+            "targets": p.targets,
+            "claimed": result.claimed.len(),
+            "conflicts": result.conflicts.len(),
+        })).await;
+
+        Ok(CallToolResult::success(vec![
+            Content::text(lines.join("\n"))
+        ]))
     }
 
     #[tool(

@@ -1,7 +1,7 @@
 //! StoragePort + CoordPort implementations for SurrealHttpStorage.
 
 use super::{SurrealHttpStorage, sanitize_id, escape_surreal, safe_limit};
-use crate::domain::coord::{CoordPort, CoordError, ClaimResult, ConflictInfo, CoordSnapshot};
+use crate::domain::coord::{CoordPort, CoordError, ClaimResult, ConflictInfo, CoordSnapshot, BatchClaimResult};
 use crate::domain::dog::{Verdict, VerdictKind, QScore, AxiomReasoning};
 use crate::domain::ccm::{Crystal, CrystalState};
 use crate::domain::storage::{StoragePort, StorageError, Observation};
@@ -452,6 +452,78 @@ impl CoordPort for SurrealHttpStorage {
     async fn deactivate_agent(&self, agent_id: &str) -> Result<(), CoordError> {
         let _ = self.query_one(&format!("UPDATE agent_session:`{}` SET active = false, last_seen = time::now();", sanitize_record_id(agent_id))).await;
         Ok(())
+    }
+
+    async fn claim_batch(&self, agent_id: &str, targets: &[String], claim_type: &str) -> Result<BatchClaimResult, CoordError> {
+        use crate::domain::coord::BatchClaimResult;
+
+        if targets.is_empty() {
+            return Ok(BatchClaimResult { claimed: Vec::new(), conflicts: Vec::new() });
+        }
+        if targets.len() > 20 {
+            return Err(CoordError::InvalidInput("batch claim limited to 20 targets".into()));
+        }
+
+        // Single query: check all conflicts at once
+        let target_list: Vec<String> = targets.iter()
+            .map(|t| format!("'{}'", escape_surreal(t)))
+            .collect();
+        let check_sql = format!(
+            "SELECT * FROM work_claim WHERE target IN [{}] AND agent_id != '{}' AND active = true;",
+            target_list.join(", "), escape_surreal(agent_id)
+        );
+        let conflict_rows = self.query_one(&check_sql).await
+            .map_err(|e| CoordError::StorageFailed(format!("Batch claim check: {}", e)))?;
+
+        // Index conflicts by target
+        let mut conflict_map: std::collections::HashMap<String, Vec<ConflictInfo>> = std::collections::HashMap::new();
+        for row in &conflict_rows {
+            let target = row["target"].as_str().unwrap_or("").to_string();
+            let info = ConflictInfo {
+                agent_id: row["agent_id"].as_str().unwrap_or("?").to_string(),
+                claimed_at: row["claimed_at"].as_str().unwrap_or("?").to_string(),
+            };
+            conflict_map.entry(target).or_default().push(info);
+        }
+
+        let mut result = BatchClaimResult { claimed: Vec::new(), conflicts: Vec::new() };
+
+        // Separate claimed vs conflicted
+        let claimable: Vec<&String> = targets.iter()
+            .filter(|t| !conflict_map.contains_key(t.as_str()))
+            .collect();
+
+        for target in targets {
+            if let Some(infos) = conflict_map.remove(target.as_str()) {
+                result.conflicts.push((target.clone(), infos));
+            }
+        }
+
+        // Batch UPSERT all claimable targets in one SQL
+        if !claimable.is_empty() {
+            let mut batch_sql = String::new();
+            for target in &claimable {
+                let claim_id = format!("{}_{}", agent_id, target.replace(['/', '.'], "_"));
+                use std::fmt::Write;
+                let _ = write!(batch_sql,
+                    "UPSERT work_claim:`{claim_id_key}` SET \
+                        agent_id = '{agent_id}', target = '{target}', claim_type = '{claim_type}', \
+                        claimed_at = time::now(), active = true; ",
+                    claim_id_key = sanitize_record_id(&claim_id),
+                    agent_id = escape_surreal(agent_id),
+                    target = escape_surreal(target),
+                    claim_type = escape_surreal(claim_type),
+                );
+                result.claimed.push((*target).clone());
+            }
+            self.query(&batch_sql).await
+                .map_err(|e| CoordError::StorageFailed(format!("Batch claim: {}", e)))?;
+        }
+
+        // Single heartbeat for the batch
+        let _ = self.heartbeat(agent_id).await;
+
+        Ok(result)
     }
 
     async fn expire_stale(&self) -> Result<(), CoordError> {
