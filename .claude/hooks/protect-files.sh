@@ -59,6 +59,13 @@ if [[ ("$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Write") && "$FILE_PATH" == *cy
         exit 0
     fi
 
+    # Heartbeat: keep session alive (prevent expire_stale from killing us)
+    curl -s --max-time 1 -X POST "http://${KERNEL_ADDR}/coord/register" \
+        -H "Content-Type: application/json" \
+        ${API_KEY:+-H "Authorization: Bearer $API_KEY"} \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"intent\":\"active session\",\"agent_type\":\"claude\"}" \
+        > /dev/null 2>&1 || true
+
     # Check current claims via GET /agents
     AGENTS_JSON=$(curl -s --max-time 2 "http://${KERNEL_ADDR}/agents" \
         ${API_KEY:+-H "Authorization: Bearer $API_KEY"} 2>/dev/null || echo '{}')
@@ -66,24 +73,23 @@ if [[ ("$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Write") && "$FILE_PATH" == *cy
     # Extract the filename from the path (last component)
     TARGET_FILE=$(basename "$FILE_PATH")
 
-    # Check if this agent has ANY active claim (lightweight check)
+    # Check if this agent has a claim on this specific file (or kernel/ zone)
     HAS_CLAIM=$(echo "$AGENTS_JSON" | jq -r \
         --arg agent "$AGENT_ID" \
-        '.claims // [] | map(select(.agent_id == $agent and .active == true)) | length' \
+        --arg target "$TARGET_FILE" \
+        '.claims // [] | map(select(
+            .agent_id == $agent and .active == true and
+            (.target == $target or .target == "kernel/" or .target == "cynic-kernel/")
+        )) | length' \
         2>/dev/null || echo "0")
 
     if [[ "$HAS_CLAIM" == "0" ]]; then
-        # Output JSON to deny with reason — Claude sees this as feedback
-        cat <<DENY_JSON
-{
-    "hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "permissionDecision": "allow",
-        "additionalContext": "WARNING: No coord claim found for agent ${AGENT_ID}. You should call cynic_coord_claim(agent_id=\"${AGENT_ID}\", target=\"${TARGET_FILE}\") before editing kernel code. Coordination prevents multi-agent conflicts."
-    }
-}
-DENY_JSON
-        exit 0
+        # Graceful degradation: if kernel is down, allow with warning
+        if ! echo "$AGENTS_JSON" | jq -e '.agents' > /dev/null 2>&1; then
+            exit 0
+        fi
+        echo "BLOCKED: No coord claim on '${TARGET_FILE}' for agent ${AGENT_ID}. Run cynic_coord_claim(agent_id=\"${AGENT_ID}\", target=\"${TARGET_FILE}\") first." >&2
+        exit 2
     fi
 fi
 

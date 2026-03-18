@@ -54,7 +54,10 @@ pub async fn coord_register_handler(
             error: format!("Register failed: {}", e),
         })))?;
 
-    let _ = state.coord.store_audit("coord_register", &req.agent_id, &serde_json::json!({
+    // Heartbeat: keep session alive (REST has no implicit heartbeat like MCP)
+    let _ = state.coord.heartbeat(&req.agent_id).await;
+
+    let _ = state.coord.store_audit("cynic_coord_register", &req.agent_id, &serde_json::json!({
         "intent": req.intent, "agent_type": agent_type, "source": "rest",
     })).await;
 
@@ -78,7 +81,8 @@ pub async fn coord_claim_handler(
 
     match state.coord.claim(&req.agent_id, &req.target, &claim_type).await {
         Ok(ClaimResult::Claimed) => {
-            let _ = state.coord.store_audit("coord_claim", &req.agent_id, &serde_json::json!({
+            let _ = state.coord.heartbeat(&req.agent_id).await;
+            let _ = state.coord.store_audit("cynic_coord_claim", &req.agent_id, &serde_json::json!({
                 "target": req.target, "claim_type": claim_type, "source": "rest",
             })).await;
             Ok(Json(serde_json::json!({
@@ -115,7 +119,7 @@ pub async fn coord_release_handler(
             error: format!("Release failed: {}", e),
         })))?;
 
-    let _ = state.coord.store_audit("coord_release", &req.agent_id, &serde_json::json!({
+    let _ = state.coord.store_audit("cynic_coord_release", &req.agent_id, &serde_json::json!({
         "target": req.target, "source": "rest",
     })).await;
 
