@@ -1,9 +1,8 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Inject git describe into the binary — traceable builds without manual versioning.
     // Fallback to Cargo.toml version if git is unavailable (container builds).
-    println!("cargo:rerun-if-changed=../.git/HEAD");
-    println!("cargo:rerun-if-changed=../.git/refs/heads");
-    println!("cargo:rerun-if-changed=../.git/refs/tags");
+    // NOT watching .git/ — version updates at deploy time (cargo build --release),
+    // not at every commit. 43s rebuilds during dev for a version string is waste.
     let git_version = std::process::Command::new("git")
         .args(["describe", "--tags", "--always", "--dirty"])
         .output()
