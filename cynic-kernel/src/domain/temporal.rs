@@ -6,7 +6,7 @@
 //! with phi-bounded confidence and geometric mean aggregation.
 
 use serde::{Deserialize, Serialize};
-use crate::domain::dog::{PHI, AxiomScores, phi_bound};
+use crate::domain::dog::{AxiomScores, phi_bound};
 
 /// The 7 temporal perspectives — irreducible set.
 /// Each sees the stimulus through a different time lens.
@@ -90,19 +90,6 @@ pub struct TemporalVerdict {
     pub max_divergence: f64,
 }
 
-// ── UCB1 WITH PHI ───────────────────────────────────────────
-/// Upper Confidence Bound with PHI as exploration constant.
-/// Used to select which temporal perspective to explore next
-/// when not evaluating all 7 (resource-constrained mode).
-pub fn ucb1_phi(mean_reward: f64, total_visits: u32, node_visits: u32) -> f64 {
-    if node_visits == 0 {
-        return f64::INFINITY; // Unexplored — always select
-    }
-    let exploitation = mean_reward;
-    let exploration = PHI * ((total_visits as f64).ln() / node_visits as f64).sqrt();
-    exploitation + exploration
-}
-
 // ── TEMPORAL AGGREGATION (pure domain logic) ─────────────────
 
 /// Aggregate temporal perspective scores into a TemporalVerdict.
@@ -144,6 +131,8 @@ mod tests {
     use super::*;
     use crate::domain::dog::{AxiomReasoning, compute_qscore, PHI_INV};
 
+    // ucb1_phi removed — MCTS exploration is not wired, will be rebuilt for real temporal eval
+
     fn make_temporal_score(perspective: TemporalPerspective, value: f64) -> TemporalScore {
         let scores = AxiomScores {
             fidelity: value, phi: value, verify: value,
@@ -165,20 +154,6 @@ mod tests {
             assert!(!p.description().is_empty());
             assert!(!p.label().is_empty());
         }
-    }
-
-    #[test]
-    fn ucb1_unexplored_returns_infinity() {
-        let ucb = ucb1_phi(0.5, 10, 0);
-        assert!(ucb.is_infinite());
-    }
-
-    #[test]
-    fn ucb1_exploration_uses_phi() {
-        let ucb = ucb1_phi(0.5, 100, 10);
-        // Exploitation = 0.5, exploration = PHI * sqrt(ln(100)/10)
-        let expected_exploration = PHI * (100_f64.ln() / 10.0).sqrt();
-        assert!((ucb - (0.5 + expected_exploration)).abs() < 1e-10);
     }
 
     #[test]

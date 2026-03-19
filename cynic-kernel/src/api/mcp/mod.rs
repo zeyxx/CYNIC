@@ -127,6 +127,8 @@ pub struct CynicMcp {
     storage: Arc<dyn StoragePort>,
     coord: Arc<dyn CoordPort>,
     usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
+    /// Shared HTTP client for sovereign inference (connection pooling).
+    http: reqwest::Client,
     tool_router: ToolRouter<Self>,
 }
 
@@ -142,6 +144,10 @@ impl CynicMcp {
             judge,
             storage,
             coord,
+            http: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(120))
+                .build()
+                .expect("Failed to build MCP HTTP client"),
             usage,
             tool_router: Self::tool_router(),
         }
@@ -391,10 +397,8 @@ impl CynicMcp {
             "max_tokens": 2048,
         });
 
-        let client = reqwest::Client::new();
-        let mut req = client.post(format!("{}/v1/chat/completions", sovereign_url))
-            .json(&request)
-            .timeout(std::time::Duration::from_secs(120));
+        let mut req = self.http.post(format!("{}/v1/chat/completions", sovereign_url))
+            .json(&request);
 
         if !api_key.is_empty() {
             req = req.header("Authorization", format!("Bearer {}", api_key));

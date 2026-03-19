@@ -2,7 +2,7 @@
 //! Implements BackendPort (shared health+name), ChatPort (for Dogs), InferencePort (for MCTS).
 //! One type, N instances (Gemini, HuggingFace, llama.cpp, vLLM, SGLang).
 
-use crate::domain::inference::*;
+use crate::domain::inference::{BackendPort, BackendStatus};
 use crate::domain::chat::{ChatPort, ChatError, ChatResponse};
 
 use crate::infra::config::{BackendConfig, AuthStyle};
@@ -14,7 +14,6 @@ use std::time::Instant;
 pub struct OpenAiCompatBackend {
     client: Client,
     config: BackendConfig,
-    capability: BackendCapability,
 }
 
 #[derive(Serialize)]
@@ -41,6 +40,7 @@ struct Message {
 struct ChatCompletionResponse {
     choices: Vec<Choice>,
     #[serde(default)]
+    #[allow(dead_code)] // deserialized from API, may be used for routing/logging
     model: String,
     #[serde(default)]
     usage: Option<Usage>,
@@ -67,21 +67,7 @@ impl OpenAiCompatBackend {
             .build()
             .expect("Failed to build HTTP client");
 
-        let capability = BackendCapability {
-            id: config.name.clone(),
-            kind: if config.base_url.contains("localhost") || config.base_url.contains("127.0.0.1") {
-                BackendKind::Local
-            } else {
-                BackendKind::Remote { url: config.base_url.clone() }
-            },
-            device_name: format!("openai-compat:{}", config.name),
-            vram_total_gb: 0.0,
-            vram_available_gb: 0.0,
-            latency_ms: 0.0,
-            loaded_models: vec![config.model.clone()],
-        };
-
-        Self { client, config, capability }
+        Self { client, config }
     }
 
     fn build_url(&self, path: &str) -> String {
@@ -202,44 +188,6 @@ impl ChatPort for OpenAiCompatBackend {
             .ok_or_else(|| ChatError::Protocol(format!("{}: empty response", self.config.name)))?;
 
         Ok(ChatResponse { text, prompt_tokens, completion_tokens })
-    }
-}
-
-// ── InferencePort implementation (for MCTS) ─────────────────
-
-#[async_trait]
-impl InferencePort for OpenAiCompatBackend {
-    fn capability(&self) -> &BackendCapability {
-        &self.capability
-    }
-
-    async fn infer(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError> {
-        let start = Instant::now();
-
-        let mut messages = Vec::new();
-        if !req.system_prompt.is_empty() {
-            messages.push(Message { role: "system".to_string(), content: req.system_prompt });
-        }
-        messages.push(Message { role: "user".to_string(), content: req.context });
-
-        let resp = self.post_chat(messages, Some(req.temperature), None, Some(req.num_branches.max(1)))
-            .await
-            .map_err(|e| match e {
-                ChatError::Unreachable(m) => BackendError::Unreachable(m),
-                ChatError::Timeout { ms } => BackendError::Timeout { backend_id: self.config.name.clone(), ms },
-                ChatError::RateLimited(m) | ChatError::Protocol(m) => BackendError::Protocol(m),
-            })?;
-
-        let model_used = resp.model;
-        let hypotheses: Vec<String> = resp.choices.into_iter().map(|c| c.message.content).collect();
-
-        Ok(InferenceResponse {
-            trace_id: req.trace_id,
-            hypotheses,
-            latency_ms: start.elapsed().as_millis() as f64,
-            model_used,
-            backend_id: self.config.name.clone(),
-        })
     }
 }
 
