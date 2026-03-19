@@ -111,9 +111,9 @@ impl Judge {
             })
             .collect();
 
-        // Per-Dog timeout: each Dog gets 15s max. Slow Dogs time out individually
-        // without blocking fast Dogs. Partial results are collected.
-        const PER_DOG_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+        // Per-Dog timeout: each Dog gets 30s max. Sovereign models with thinking
+        // mode need more time. Aligned with HTTP client timeout in openai.rs.
+        const PER_DOG_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
         // Parallel evaluation — skip Dogs with open circuit breakers
         let futures: Vec<_> = dog_breaker_pairs.iter()
@@ -132,13 +132,13 @@ impl Judge {
             })
             .collect();
 
-        // Wall-clock timeout: 20s max. With per-dog 15s, this is a safety net.
+        // Wall-clock timeout: 35s max. With per-dog 30s, this is a safety net.
         let results = tokio::time::timeout(
-            std::time::Duration::from_secs(20),
+            std::time::Duration::from_secs(35),
             futures_util::future::join_all(futures),
         ).await.map_err(|_| {
-            eprintln!("[Judge] TIMEOUT: Dog evaluation exceeded 20s wall-clock limit");
-            JudgeError::AllDogsFailed(vec!["Evaluation timeout (20s)".into()])
+            eprintln!("[Judge] TIMEOUT: Dog evaluation exceeded 35s wall-clock limit");
+            JudgeError::AllDogsFailed(vec!["Evaluation timeout (35s)".into()])
         })?;
 
         let mut dog_scores: Vec<DogScore> = Vec::new();
@@ -350,6 +350,8 @@ impl std::fmt::Display for JudgeError {
         }
     }
 }
+
+impl std::error::Error for JudgeError {}
 
 #[cfg(test)]
 mod tests {

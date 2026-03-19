@@ -1,5 +1,5 @@
 //! OpenAiCompatBackend — universal adapter for any OpenAI-compatible inference server.
-//! Implements BackendPort (shared health+name), ChatPort (for Dogs), InferencePort (for MCTS).
+//! Implements BackendPort (shared health+name) and ChatPort (for Dogs).
 //! One type, N instances (Gemini, HuggingFace, llama.cpp, vLLM, SGLang).
 
 use crate::domain::inference::{BackendPort, BackendStatus};
@@ -47,8 +47,19 @@ struct ChatCompletionResponse {
 }
 
 #[derive(Deserialize)]
+struct ChoiceMessage {
+    #[serde(default)]
+    content: String,
+    /// Thinking/reasoning content from models like Qwen3.5 with thinking mode.
+    /// When reasoning_format != "none", the model puts thinking here and the
+    /// actual response in `content`. If content is empty, we extract JSON from this.
+    #[serde(default)]
+    reasoning_content: Option<String>,
+}
+
+#[derive(Deserialize)]
 struct Choice {
-    message: Message,
+    message: ChoiceMessage,
 }
 
 #[derive(Deserialize)]
@@ -184,7 +195,27 @@ impl ChatPort for OpenAiCompatBackend {
             .unwrap_or((0, 0));
 
         let text = resp.choices.into_iter().next()
-            .map(|c| c.message.content)
+            .map(|c| {
+                let content = c.message.content;
+                // If content is empty but reasoning_content has JSON (thinking models like Qwen3.5),
+                // extract the JSON object from reasoning_content as fallback.
+                if content.trim().is_empty()
+                    && let Some((start, end)) = c.message.reasoning_content
+                        .as_deref()
+                        .and_then(|r| Some((r.find('{')?, r.rfind('}')?)))
+                {
+                    let r = c.message.reasoning_content.as_deref().unwrap();
+                    return r[start..=end].to_string();
+                }
+                // If content has a </think> preamble (reasoning-format=none), strip it.
+                if let Some(pos) = content.find("</think>") {
+                    let after = content[pos + 8..].trim_start();
+                    if !after.is_empty() {
+                        return after.to_string();
+                    }
+                }
+                content
+            })
             .ok_or_else(|| ChatError::Protocol(format!("{}: empty response", self.config.name)))?;
 
         Ok(ChatResponse { text, prompt_tokens, completion_tokens })
@@ -204,6 +235,8 @@ mod tests {
             model: "gpt-4".into(),
             auth_style: AuthStyle::Bearer,
             context_size: 0,
+            cost_input_per_mtok: 0.0,
+            cost_output_per_mtok: 0.0,
         });
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions");
     }
@@ -217,6 +250,8 @@ mod tests {
             model: "gemini".into(),
             auth_style: AuthStyle::QueryParam("key".into()),
             context_size: 0,
+            cost_input_per_mtok: 0.0,
+            cost_output_per_mtok: 0.0,
         });
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions?key=key123");
     }
@@ -230,6 +265,8 @@ mod tests {
             model: "phi-3".into(),
             auth_style: AuthStyle::None,
             context_size: 0,
+            cost_input_per_mtok: 0.0,
+            cost_output_per_mtok: 0.0,
         });
         assert_eq!(backend.build_url("/chat/completions"), "http://localhost:8080/v1/chat/completions");
     }
@@ -243,6 +280,8 @@ mod tests {
             model: "m".into(),
             auth_style: AuthStyle::None,
             context_size: 0,
+            cost_input_per_mtok: 0.0,
+            cost_output_per_mtok: 0.0,
         });
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions");
     }
