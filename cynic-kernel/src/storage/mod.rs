@@ -248,45 +248,56 @@ impl SurrealHttpStorage {
         result
     }
 
-    /// Inner query — no metrics, used by `query()`.
+    /// Inner query with retry on transient 401 (SurrealDB 3.x bug under rapid sequential writes).
     async fn query_inner(&self, sql: &str) -> Result<Vec<Vec<serde_json::Value>>, StorageError> {
-        let resp = self.client
-            .post(format!("{}/sql", self.url))
-            .header("Accept", "application/json")
-            .header("surreal-ns", &self.ns)
-            .header("surreal-db", &self.db)
-            .header("Authorization", &self.auth)
-            .body(sql.to_string())
-            .send()
-            .await
-            .map_err(|e| StorageError::ConnectionFailed(e.to_string()))?;
+        let mut last_err = String::new();
+        for attempt in 0..3u64 {
+            let resp = self.client
+                .post(format!("{}/sql", self.url))
+                .header("Accept", "application/json")
+                .header("surreal-ns", &self.ns)
+                .header("surreal-db", &self.db)
+                .header("Authorization", &self.auth)
+                .body(sql.to_string())
+                .send()
+                .await
+                .map_err(|e| StorageError::ConnectionFailed(e.to_string()))?;
 
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            return Err(StorageError::QueryFailed(format!("HTTP {}: {}", status, body)));
-        }
-
-        let results: Vec<SurrealResponse> = resp.json().await
-            .map_err(|e| StorageError::QueryFailed(format!("JSON parse error: {}", e)))?;
-
-        // Check for SurrealDB-level errors (status: "ERR")
-        for r in &results {
-            if r.status.as_deref() == Some("ERR") {
-                let msg = r.result.as_ref()
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown SurrealDB error");
-                return Err(StorageError::QueryFailed(msg.to_string()));
+            if resp.status().as_u16() == 401 && attempt < 2 {
+                // SurrealDB 3.x intermittent 401 under rapid writes — retry with backoff
+                last_err = resp.text().await.unwrap_or_default();
+                tokio::time::sleep(std::time::Duration::from_millis(50 * (attempt + 1))).await;
+                continue;
             }
-        }
 
-        Ok(results.into_iter().map(|r| {
-            match r.result {
-                Some(serde_json::Value::Array(arr)) => arr,
-                Some(val) => vec![val],
-                None => Vec::new(),
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let body = resp.text().await.unwrap_or_default();
+                return Err(StorageError::QueryFailed(format!("HTTP {}: {}", status, body)));
             }
-        }).collect())
+
+            let results: Vec<SurrealResponse> = resp.json().await
+                .map_err(|e| StorageError::QueryFailed(format!("JSON parse error: {}", e)))?;
+
+            for r in &results {
+                if r.status.as_deref() == Some("ERR") {
+                    let msg = r.result.as_ref()
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown SurrealDB error");
+                    return Err(StorageError::QueryFailed(msg.to_string()));
+                }
+            }
+
+            return Ok(results.into_iter().map(|r| {
+                match r.result {
+                    Some(serde_json::Value::Array(arr)) => arr,
+                    Some(val) => vec![val],
+                    None => Vec::new(),
+                }
+            }).collect());
+        }
+        // All retries exhausted
+        Err(StorageError::QueryFailed(format!("401 after 3 retries: {}", last_err)))
     }
 
     /// Execute a single-statement query and return first result set.
