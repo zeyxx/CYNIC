@@ -19,6 +19,8 @@ impl std::fmt::Display for CoordError {
     }
 }
 
+impl std::error::Error for CoordError {}
+
 pub enum ClaimResult {
     Claimed,
     Conflict(Vec<ConflictInfo>),

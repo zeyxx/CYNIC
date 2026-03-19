@@ -41,6 +41,8 @@ impl std::fmt::Display for StorageError {
     }
 }
 
+impl std::error::Error for StorageError {}
+
 /// Storage metrics snapshot — exposed via /health for observability.
 /// Domain type — no dependency on specific DB adapter.
 #[derive(Debug, Clone, serde::Serialize)]
