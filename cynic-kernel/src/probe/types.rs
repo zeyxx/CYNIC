@@ -112,7 +112,7 @@ impl SovereigntyAdvisor {
         }
 
         // 5. Disk Metabolic Check (Site Reliability Lens)
-        let home = std::env::var("HOME").unwrap_or_else(|_| "C:".to_string());
+        let home = dirs::home_dir().map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|| "C:".to_string());
         if (home.starts_with("C:") || home.starts_with("/"))
             && cfg.env.os == "windows"
             && cfg.llm.models_dir.starts_with("C:")

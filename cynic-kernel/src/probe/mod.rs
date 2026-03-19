@@ -74,7 +74,7 @@ pub async fn run(force_reprobe: bool) -> NodeConfig {
 // ============================================================
 
 fn config_file_path() -> PathBuf {
-    let home = std::env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from("/tmp"));
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
     let dir = home.join(".cynic");
     std::fs::create_dir_all(&dir).ok();
     dir.join("node.toml")

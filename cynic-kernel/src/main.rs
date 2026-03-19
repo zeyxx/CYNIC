@@ -89,11 +89,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 2: Embedding backend (sovereign, graceful degrade) ─
     let embed_backend = backends::embedding::EmbeddingBackend::from_env();
-    let embedding: Arc<dyn domain::embedding::EmbeddingPort> = if embed_backend.health().await {
-        klog!("[Ring 2] Embedding: HEALTHY (sovereign)");
+    let embed_health = embed_backend.health().await;
+    let embedding: Arc<dyn domain::embedding::EmbeddingPort> = if embed_health.is_available() {
+        klog!("[Ring 2] Embedding: {:?} (sovereign)", embed_health);
         Arc::new(embed_backend)
     } else {
-        klog!("[Ring 2] Embedding: UNAVAILABLE — degrading to NullEmbedding");
+        klog!("[Ring 2] Embedding: {:?} — degrading to NullEmbedding", embed_health);
         Arc::new(domain::embedding::NullEmbedding)
     };
 

@@ -97,7 +97,7 @@ pub(super) fn ensure_models_dir() -> PathBuf {
     let dir = if let Ok(env_path) = std::env::var("CYNIC_MODELS_DIR") {
         PathBuf::from(env_path)
     } else {
-        let home = std::env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from("/tmp"));
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
         home.join(".cynic").join("models")
     };
 

@@ -60,7 +60,7 @@ fn discover_all_models(models_dir: &Path, env: &EnvInfo) -> Vec<GgufModel> {
         // On Linux: scan known user/data dirs only — never scan / directly
         // (scanning / includes /proc /sys /dev which is infinite or harmful)
         let mut r = vec![
-            std::env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from("/root")),
+            dirs::home_dir().unwrap_or_else(|| PathBuf::from("/root")),
             PathBuf::from("/home"),
         ];
         // WSL2: also scan mounted Windows drives
@@ -192,8 +192,8 @@ fn find_ollama_models_dir(env: &EnvInfo) -> Option<PathBuf> {
     }
 
     // 3. Linux/macOS default
-    if let Ok(home) = std::env::var("HOME") {
-        let default = PathBuf::from(home).join(".ollama").join("models");
+    if let Some(home) = dirs::home_dir() {
+        let default = home.join(".ollama").join("models");
         if default.exists() { return Some(default); }
     }
 
