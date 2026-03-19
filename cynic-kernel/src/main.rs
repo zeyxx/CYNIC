@@ -216,13 +216,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     usage.absorb_flush();
                 }
                 // Periodic cleanup every hour (60 ticks × 60s)
+                // Simple date-based DELETEs — no subqueries, no transaction timeouts.
+                // Previous subquery (SELECT ... LIMIT 1 START 10000) caused 10s timeouts
+                // and transaction drops in SurrealDB, which cascaded into 401 errors.
                 if tick_count.is_multiple_of(60) {
                     let _ = flush_db.query_one(
                         "DELETE observation WHERE created_at < time::now() - 30d;"
                     ).await;
-                    // Audit log: keep last 10K entries, prune the rest
                     let _ = flush_db.query_one(
-                        "DELETE mcp_audit WHERE ts < (SELECT VALUE ts FROM mcp_audit ORDER BY ts DESC LIMIT 1 START 10000);"
+                        "DELETE mcp_audit WHERE ts < time::now() - 7d;"
                     ).await;
                 }
             }
