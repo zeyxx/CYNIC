@@ -25,6 +25,14 @@ hypercube_db/
 .playwright-mcp/
 .worktrees/
 
+# Experimental scripts (contain hardcoded IPs — sanitize before committing)
+scripts/exp-*.py
+scripts/exp-*.sh
+scripts/*.patch
+scripts/ollama-bench.py
+scripts/sovereign-bench.sh
+benchmarks/
+
 # Session artifacts (AI-generated scratch files at root only)
 /state*.md
 /*-state*.md
