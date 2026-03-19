@@ -12,7 +12,6 @@ use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
 use crate::judge::Judge;
-use crate::storage::{SurrealHttpStorage, StorageMetricsSnapshot};
 
 // ── SHARED STATE ───────────────────────────────────────────
 
@@ -23,16 +22,14 @@ pub struct AppState {
     pub embedding: Arc<dyn EmbeddingPort>,
     pub usage: Arc<Mutex<DogUsageTracker>>,
     pub verdict_cache: VerdictCache,
-    /// Raw DB reference for metrics — None when degraded to NullStorage.
-    pub raw_db: Option<Arc<SurrealHttpStorage>>,
     pub api_key: Option<String>,
     pub rate_limiter: PerIpRateLimiter,
     pub judge_limiter: PerIpRateLimiter,
 }
 
 impl AppState {
-    pub fn storage_metrics(&self) -> Option<StorageMetricsSnapshot> {
-        self.raw_db.as_ref().map(|db| db.metrics.snapshot())
+    pub fn storage_metrics(&self) -> Option<crate::domain::storage::StorageMetrics> {
+        self.storage.metrics()
     }
 }
 

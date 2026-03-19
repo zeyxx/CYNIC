@@ -7,7 +7,7 @@ use std::collections::HashMap;
 /// Cumulative totals survive restarts via load_from_storage / flush_to_storage.
 pub struct DogUsageTracker {
     pub dogs: HashMap<String, DogUsage>,
-    pub boot_time: chrono::DateTime<chrono::Utc>,
+    pub boot_time: std::time::Instant,
     pub total_requests: u64,
     /// Accumulated totals loaded from DB at boot (pre-boot history).
     historical: HashMap<String, DogUsage>,
@@ -37,7 +37,7 @@ impl DogUsageTracker {
     pub fn new() -> Self {
         Self {
             dogs: HashMap::new(),
-            boot_time: chrono::Utc::now(),
+            boot_time: std::time::Instant::now(),
             total_requests: 0,
             historical: HashMap::new(),
             historical_requests: 0,
@@ -81,8 +81,8 @@ impl DogUsageTracker {
         self.total_tokens() as f64 * 0.15 / 1_000_000.0
     }
 
-    pub fn uptime_seconds(&self) -> i64 {
-        (chrono::Utc::now() - self.boot_time).num_seconds()
+    pub fn uptime_seconds(&self) -> u64 {
+        self.boot_time.elapsed().as_secs()
     }
 
     /// Merge per-Dog totals (historical + session) for display.

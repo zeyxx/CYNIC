@@ -135,7 +135,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         embedding: Arc::clone(&embedding),
         usage: Arc::clone(&usage_tracker),
         verdict_cache: domain::verdict_cache::VerdictCache::new(),
-        raw_db: raw_db.clone(),
         api_key,
         rate_limiter: api::rest::PerIpRateLimiter::new(30),   // 30 requests/minute global
         judge_limiter: api::rest::PerIpRateLimiter::new(10),   // 10 /judge per minute (inference costs money)

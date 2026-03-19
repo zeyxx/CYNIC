@@ -145,6 +145,17 @@ impl StoragePort for SurrealHttpStorage {
         Ok(())
     }
 
+    fn metrics(&self) -> Option<crate::domain::storage::StorageMetrics> {
+        let snap = self.metrics.snapshot();
+        Some(crate::domain::storage::StorageMetrics {
+            queries: snap.queries,
+            errors: snap.errors,
+            slow_queries: snap.slow_queries,
+            avg_latency_ms: snap.avg_latency_ms,
+            uptime_secs: snap.uptime_secs,
+        })
+    }
+
     async fn store_verdict(&self, verdict: &Verdict) -> Result<(), StorageError> {
         let sql = verdict_to_sql(verdict);
         self.query_one(&sql).await?;

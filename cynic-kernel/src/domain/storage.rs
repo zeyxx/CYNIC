@@ -41,10 +41,24 @@ impl std::fmt::Display for StorageError {
     }
 }
 
+/// Storage metrics snapshot — exposed via /health for observability.
+/// Domain type — no dependency on specific DB adapter.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct StorageMetrics {
+    pub queries: u64,
+    pub errors: u64,
+    pub slow_queries: u64,
+    pub avg_latency_ms: f64,
+    pub uptime_secs: u64,
+}
+
 #[async_trait]
 pub trait StoragePort: Send + Sync {
     /// Fast connectivity check — used by /health to verify DB is reachable.
     async fn ping(&self) -> Result<(), StorageError>;
+
+    /// Storage observability — returns None if metrics not available (e.g. NullStorage).
+    fn metrics(&self) -> Option<StorageMetrics> { None }
     async fn store_verdict(&self, verdict: &Verdict) -> Result<(), StorageError>;
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError>;
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError>;

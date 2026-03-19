@@ -178,31 +178,6 @@ pub fn content_hash(input: &str) -> u64 {
     h
 }
 
-/// Full BLAKE3 hash of a verdict's content — for integrity chain.
-/// Hashes: id + q_score.total + all 6 axiom scores + stimulus + timestamp + prev_hash.
-/// Returns hex-encoded 256-bit hash.
-pub fn verdict_hash(
-    id: &str,
-    q_total: f64,
-    scores: [f64; 6],
-    stimulus: &str,
-    timestamp: &str,
-    prev_hash: Option<&str>,
-) -> String {
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(id.as_bytes());
-    hasher.update(&q_total.to_le_bytes());
-    for s in &scores {
-        hasher.update(&s.to_le_bytes());
-    }
-    hasher.update(stimulus.as_bytes());
-    hasher.update(timestamp.as_bytes());
-    if let Some(ph) = prev_hash {
-        hasher.update(ph.as_bytes());
-    }
-    hasher.finalize().to_hex().to_string()
-}
-
 // ── WORKFLOW AGGREGATOR ────────────────────────────────────
 /// Aggregate raw observations into CCM crystals. Runs periodically.
 /// Extracts frequency patterns and co-occurrences from the observation table,

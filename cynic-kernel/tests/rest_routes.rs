@@ -26,7 +26,6 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         embedding: Arc::new(NullEmbedding),
         usage: Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new())),
         verdict_cache: VerdictCache::new(),
-        raw_db: None,
         api_key: api_key.map(|s| s.to_string()),
         rate_limiter: PerIpRateLimiter::new(100),
         judge_limiter: PerIpRateLimiter::new(100),

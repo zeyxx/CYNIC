@@ -3,7 +3,6 @@
 //! Residual detection: disagreement > φ⁻² = ANOMALY.
 
 use crate::domain::dog::{*, estimate_tokens};
-use crate::domain::ccm::verdict_hash;
 use crate::infra::circuit_breaker::CircuitBreaker;
 use chrono::Utc;
 use uuid::Uuid;
@@ -307,6 +306,30 @@ fn trimmed_mean(scores: &[DogScore], extract: impl Fn(&DogScore) -> f64) -> f64 
         // Too few for trimming — plain mean
         values.iter().sum::<f64>() / values.len() as f64
     }
+}
+
+/// BLAKE3 integrity hash of a verdict — forms a hash chain linking verdicts.
+/// Lives here (not in domain/) because blake3 is an external crate.
+fn verdict_hash(
+    id: &str,
+    q_total: f64,
+    scores: [f64; 6],
+    stimulus: &str,
+    timestamp: &str,
+    prev_hash: Option<&str>,
+) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(id.as_bytes());
+    hasher.update(&q_total.to_le_bytes());
+    for s in &scores {
+        hasher.update(&s.to_le_bytes());
+    }
+    hasher.update(stimulus.as_bytes());
+    hasher.update(timestamp.as_bytes());
+    if let Some(ph) = prev_hash {
+        hasher.update(ph.as_bytes());
+    }
+    hasher.finalize().to_hex().to_string()
 }
 
 #[derive(Debug)]
