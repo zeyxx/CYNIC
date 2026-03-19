@@ -187,30 +187,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             loop {
                 interval.tick().await;
                 tick_count += 1;
-                let snapshot = {
+                let batch_sql = {
                     let usage = flush_usage.lock().await;
-                    usage.snapshot()
+                    usage.build_flush_sql()
                 };
-                if !snapshot.is_empty() {
-                    // Batch all Dog UPSERTs into a single SQL string → 1 HTTP POST
-                    let mut batch_sql = String::new();
-                    for (dog_id, u) in &snapshot {
-                        use std::fmt::Write;
-                        let _ = write!(batch_sql,
-                            "UPSERT dog_usage:`{id}` SET \
-                                dog_id = '{id}', \
-                                prompt_tokens = IF prompt_tokens THEN prompt_tokens + {pt} ELSE {pt} END, \
-                                completion_tokens = IF completion_tokens THEN completion_tokens + {ct} ELSE {ct} END, \
-                                requests = IF requests THEN requests + {req} ELSE {req} END, \
-                                failures = IF failures THEN failures + {fail} ELSE {fail} END, \
-                                total_latency_ms = IF total_latency_ms THEN total_latency_ms + {lat} ELSE {lat} END, \
-                                updated_at = time::now(); ",
-                            id = dog_id, pt = u.prompt_tokens, ct = u.completion_tokens,
-                            req = u.requests, fail = u.failures, lat = u.total_latency_ms,
-                        );
-                    }
+                if !batch_sql.is_empty() {
                     let _ = flush_db.query(&batch_sql).await;
-                    // Transfer flushed session data into historical totals
                     let mut usage = flush_usage.lock().await;
                     usage.absorb_flush();
                 }
@@ -275,29 +257,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Flush usage on shutdown — prevents up to 60s of data loss
     if let Some(db) = &raw_db {
-        let snapshot = {
+        let (batch_sql, dog_count) = {
             let usage = usage_tracker.lock().await;
-            usage.snapshot()
+            (usage.build_flush_sql(), usage.dogs.len())
         };
-        if !snapshot.is_empty() {
-            let mut batch_sql = String::new();
-            for (dog_id, u) in &snapshot {
-                use std::fmt::Write;
-                let _ = write!(batch_sql,
-                    "UPSERT dog_usage:`{id}` SET \
-                        dog_id = '{id}', \
-                        prompt_tokens = IF prompt_tokens THEN prompt_tokens + {pt} ELSE {pt} END, \
-                        completion_tokens = IF completion_tokens THEN completion_tokens + {ct} ELSE {ct} END, \
-                        requests = IF requests THEN requests + {req} ELSE {req} END, \
-                        failures = IF failures THEN failures + {fail} ELSE {fail} END, \
-                        total_latency_ms = IF total_latency_ms THEN total_latency_ms + {lat} ELSE {lat} END, \
-                        updated_at = time::now(); ",
-                    id = dog_id, pt = u.prompt_tokens, ct = u.completion_tokens,
-                    req = u.requests, fail = u.failures, lat = u.total_latency_ms,
-                );
-            }
+        if !batch_sql.is_empty() {
             match db.query(&batch_sql).await {
-                Ok(_) => klog!("[SHUTDOWN] Usage flushed ({} dogs)", snapshot.len()),
+                Ok(_) => klog!("[SHUTDOWN] Usage flushed ({} dogs)", dog_count),
                 Err(e) => eprintln!("[SHUTDOWN] Usage flush failed: {}", e),
             }
         } else {

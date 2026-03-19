@@ -37,19 +37,23 @@ impl Judge {
 
     /// Return health per Dog: circuit breaker state + backend status.
     /// Combines CB (execution protection) with Dog::health() (backend observation).
+    /// Parallel — all health checks run concurrently (prevents 5×2s = 10s sequential).
     pub async fn dog_health(&self) -> Vec<(String, String, u32)> {
-        let mut results = Vec::with_capacity(self.dogs.len());
-        for (dog, cb) in self.dogs.iter().zip(self.breakers.iter()) {
-            let backend_status = dog.health().await;
-            // Report the worse of CB state or backend health
-            let effective_state = if !backend_status.is_available() {
-                "critical".to_string()
-            } else {
-                cb.state()
-            };
-            results.push((dog.id().to_string(), effective_state, cb.consecutive_failures()));
-        }
-        results
+        let health_futures: Vec<_> = self.dogs.iter()
+            .map(|dog| async move { (dog.id(), dog.health().await) })
+            .collect();
+        let health_results = futures_util::future::join_all(health_futures).await;
+
+        health_results.iter().zip(self.breakers.iter())
+            .map(|((id, backend_status), cb)| {
+                let effective_state = if !backend_status.is_available() {
+                    "critical".to_string()
+                } else {
+                    cb.state()
+                };
+                (id.to_string(), effective_state, cb.consecutive_failures())
+            })
+            .collect()
     }
 
     /// Evaluate a stimulus through Dogs in parallel, aggregate, produce Verdict.
