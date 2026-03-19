@@ -66,21 +66,18 @@ pub async fn rate_limit_middleware(
         .and_then(|s| s.trim().parse::<std::net::IpAddr>().ok())
         .unwrap_or(std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
 
-    // /judge has its own stricter per-IP rate limit
-    if path == "/judge" {
-        if !state.judge_limiter.check(ip).await {
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                Json(ErrorResponse { error: "Judge rate limit exceeded (inference is expensive)".into() }),
-            ).into_response();
-        }
-        // /judge only checks judge_limiter, not global — no double counting
-        return next.run(request).await;
-    }
+    // Global rate limit applies to ALL endpoints (including /judge)
     if !state.rate_limiter.check(ip).await {
         return (
             StatusCode::TOO_MANY_REQUESTS,
             Json(ErrorResponse { error: "Rate limit exceeded".into() }),
+        ).into_response();
+    }
+    // /judge has an additional stricter per-IP limit (inference costs money)
+    if path == "/judge" && !state.judge_limiter.check(ip).await {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(ErrorResponse { error: "Judge rate limit exceeded (inference is expensive)".into() }),
         ).into_response();
     }
     next.run(request).await
