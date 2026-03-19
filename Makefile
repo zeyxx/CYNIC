@@ -63,8 +63,9 @@ deploy: ship
 	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
 		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS in ~/.cynic-env}" \
 		~/.surrealdb/backups/cynic_v2_pre_deploy_$$(date +%Y%m%d_%H%M%S).surql
-	@echo "▶ Deploying kernel..."
+	@echo "▶ Deploying kernel (saving previous for rollback)..."
 	systemctl --user stop cynic-kernel
+	@[ -f ~/bin/cynic-kernel ] && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev || true
 	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
 	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-mcp
 	systemctl --user start cynic-kernel
@@ -72,6 +73,19 @@ deploy: ship
 	@echo "▶ Verifying..."
 	@curl -s "http://$${CYNIC_REST_ADDR}/health" | python3 -c "import json,sys; h=json.load(sys.stdin); print(f'Kernel: {h[\"status\"]}')"
 	@echo "✓ Deployed and verified"
+
+# ── Emergency: Rollback to previous binary ─────────────────
+.PHONY: rollback
+rollback:
+	@$(source_env)
+	@[ -f ~/bin/cynic-kernel.prev ] || { echo "✗ No previous binary to rollback to"; exit 1; }
+	@echo "▶ Rolling back to previous kernel binary..."
+	systemctl --user stop cynic-kernel
+	cp ~/bin/cynic-kernel.prev ~/bin/cynic-kernel
+	systemctl --user start cynic-kernel
+	@sleep 4
+	@echo "▶ Verifying rollback..."
+	@curl -s "http://$${CYNIC_REST_ADDR}/health" | python3 -c "import json,sys; h=json.load(sys.stdin); print(f'Kernel: {h[\"status\"]} (rolled back)')"
 
 # ── Standalone: End-to-end test ──────────────────────────────
 .PHONY: e2e
