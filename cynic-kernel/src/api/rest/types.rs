@@ -58,13 +58,18 @@ impl PerIpRateLimiter {
         }
     }
 
+    /// Evict stale entries — called by background timer, NOT on the hot path.
+    /// Previous design ran retain() on every request = O(N) under DDoS.
+    pub async fn evict_stale(&self) {
+        let mut buckets = self.buckets.lock().await;
+        let now = std::time::Instant::now();
+        buckets.retain(|_, b| now.duration_since(b.last_refill).as_secs() < 120);
+    }
+
     /// Returns true if request from this IP is allowed.
     pub async fn check(&self, ip: IpAddr) -> bool {
         let mut buckets = self.buckets.lock().await;
         let now = std::time::Instant::now();
-
-        // Evict stale entries (>2min inactive) to prevent memory leak
-        buckets.retain(|_, b| now.duration_since(b.last_refill).as_secs() < 120);
 
         let max = self.max_per_minute as f64;
         let bucket = buckets.entry(ip).or_insert_with(|| TokenBucket {

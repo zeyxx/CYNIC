@@ -139,7 +139,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         rate_limiter: api::rest::PerIpRateLimiter::new(30),   // 30 requests/minute global
         judge_limiter: api::rest::PerIpRateLimiter::new(10),   // 10 /judge per minute (inference costs money)
     });
-    let rest_app = api::rest::router(rest_state);
+    let rest_app = api::rest::router(Arc::clone(&rest_state));
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
@@ -162,15 +162,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|_| "127.0.0.1:3030".to_string());
     klog!("[Ring 3] REST API on http://{}", rest_addr);
 
-    // ─── Coordination expiry (background, every 60s) ──────────
+    // ─── Coordination expiry + rate limiter eviction (background, every 60s) ──
     {
         let expiry_coord = Arc::clone(&coord);
+        let evict_state = Arc::clone(&rest_state);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
             interval.tick().await; // Skip first immediate tick
             loop {
                 interval.tick().await;
                 let _ = expiry_coord.expire_stale().await;
+                evict_state.rate_limiter.evict_stale().await;
+                evict_state.judge_limiter.evict_stale().await;
             }
         });
         klog!("[Ring 2] Coordination expiry task started (every 60s)");
