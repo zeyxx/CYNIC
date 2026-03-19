@@ -7,9 +7,13 @@
 #   make commit   — check + gitleaks + commit (validated commit)
 #   make ship     — commit + push (pre-push re-validates)
 #   make deploy   — ship + backup DB + restart kernel + verify
+#   make hotfix   — deploy WITHOUT push (emergency only — skips ship)
+#   make rollback — restore previous binary
+#   make restore  — restore DB from backup file (F=path)
 #   make e2e      — end-to-end test against running kernel
 #   make status   — full system dashboard
 #   make backup   — manual DB backup
+#   make clean    — cargo clean (fix SIGSEGV/LLVM crashes)
 
 SHELL := /bin/bash
 .ONESHELL:
@@ -69,9 +73,13 @@ deploy: ship
 	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
 	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-mcp
 	systemctl --user start cynic-kernel
-	@sleep 4
-	@echo "▶ Verifying..."
-	@curl -s "http://$${CYNIC_REST_ADDR}/health" | python3 -c "import json,sys; h=json.load(sys.stdin); print(f'Kernel: {h[\"status\"]}')"
+	@echo "▶ Verifying (retry loop)..."
+	@for i in $$(seq 1 15); do \
+		sleep 3; \
+		STATUS=$$(curl -sf "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin).get('status','?'))" 2>/dev/null) && \
+		[ -n "$$STATUS" ] && echo "Kernel: $$STATUS" && break || \
+		printf "."; \
+	done
 	@echo "✓ Deployed and verified"
 
 # ── Emergency: Rollback to previous binary ─────────────────
@@ -86,6 +94,49 @@ rollback:
 	@sleep 4
 	@echo "▶ Verifying rollback..."
 	@curl -s "http://$${CYNIC_REST_ADDR}/health" | python3 -c "import json,sys; h=json.load(sys.stdin); print(f'Kernel: {h[\"status\"]} (rolled back)')"
+
+# ── Emergency: Hotfix deploy (skip push — for incidents) ──────
+.PHONY: hotfix
+hotfix: check
+	@$(source_env)
+	@echo ""
+	@echo "⚠ HOTFIX DEPLOY — skipping push (commit locally, push later)"
+	@echo "▶ Backing up DB..."
+	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
+		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS}" \
+		~/.surrealdb/backups/cynic_v2_hotfix_$$(date +%Y%m%d_%H%M%S).surql
+	@echo "▶ Deploying kernel..."
+	systemctl --user stop cynic-kernel
+	@[ -f ~/bin/cynic-kernel ] && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev || true
+	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
+	systemctl --user start cynic-kernel
+	@echo "▶ Verifying (retry loop)..."
+	@for i in $$(seq 1 15); do \
+		sleep 3; \
+		STATUS=$$(curl -sf "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin).get('status','?'))" 2>/dev/null) && \
+		[ -n "$$STATUS" ] && echo "Kernel: $$STATUS (hotfix)" && break || \
+		printf "."; \
+	done
+
+# ── Restore DB from backup ────────────────────────────────────
+.PHONY: restore
+restore:
+	@$(source_env)
+	@if [ -z "$(F)" ]; then echo "ERROR: provide backup file with F=path"; echo "Available:"; ls -lhrt ~/.surrealdb/backups/ | tail -5; exit 1; fi
+	@[ -f "$(F)" ] || { echo "ERROR: file $(F) not found"; exit 1; }
+	@echo "⚠ RESTORING DB from $(F) — this will OVERWRITE current data"
+	@read -p "Are you sure? (yes/no) " CONFIRM; [ "$$CONFIRM" = "yes" ] || { echo "Aborted"; exit 1; }
+	systemctl --user stop cynic-kernel
+	surreal import --endpoint http://localhost:8000 --namespace cynic --database v2 \
+		--username root --password "$${SURREALDB_PASS}" "$(F)"
+	systemctl --user start cynic-kernel
+	@echo "✓ DB restored from $(F)"
+
+# ── Clean (fix SIGSEGV/LLVM crashes) ──────────────────────────
+.PHONY: clean
+clean:
+	cargo clean -p cynic-kernel
+	@echo "✓ Cleaned cynic-kernel build artifacts"
 
 # ── Standalone: End-to-end test ──────────────────────────────
 .PHONY: e2e
