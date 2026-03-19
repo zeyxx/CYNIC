@@ -13,6 +13,10 @@ pub struct BackendConfig {
     pub auth_style: AuthStyle,
     /// Max context tokens this backend supports. 0 = unknown/unlimited.
     pub context_size: u32,
+    /// Cost per 1M input tokens in USD. 0.0 = free (sovereign, free tier).
+    pub cost_input_per_mtok: f64,
+    /// Cost per 1M output tokens in USD. 0.0 = free.
+    pub cost_output_per_mtok: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -34,6 +38,8 @@ struct BackendEntry {
     model: String,
     auth_style: Option<String>,
     context_size: Option<u32>,
+    cost_input_per_mtok: Option<f64>,
+    cost_output_per_mtok: Option<f64>,
 }
 
 /// Load backend configs from TOML file. Resolves api_key_env to actual env var values.
@@ -95,6 +101,8 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 model: entry.model,
                 auth_style,
                 context_size: entry.context_size.unwrap_or(0),
+                cost_input_per_mtok: entry.cost_input_per_mtok.unwrap_or(0.0),
+                cost_output_per_mtok: entry.cost_output_per_mtok.unwrap_or(0.0),
             })
         })
         .collect()
@@ -114,6 +122,8 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             model,
             auth_style: AuthStyle::Bearer,
             context_size: 1_000_000,
+            cost_input_per_mtok: 0.0, // Free tier by default
+            cost_output_per_mtok: 0.0,
         });
     }
 

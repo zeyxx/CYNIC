@@ -9,6 +9,8 @@ pub struct DogUsageTracker {
     pub dogs: HashMap<String, DogUsage>,
     pub boot_time: std::time::Instant,
     pub total_requests: u64,
+    /// Per-Dog cost rates (USD per 1M tokens). 0.0 = free.
+    cost_rates: HashMap<String, (f64, f64)>, // (input_per_mtok, output_per_mtok)
     /// Accumulated totals loaded from DB at boot (pre-boot history).
     historical: HashMap<String, DogUsage>,
     historical_requests: u64,
@@ -39,9 +41,15 @@ impl DogUsageTracker {
             dogs: HashMap::new(),
             boot_time: std::time::Instant::now(),
             total_requests: 0,
+            cost_rates: HashMap::new(),
             historical: HashMap::new(),
             historical_requests: 0,
         }
+    }
+
+    /// Register cost rates for a Dog. Called at boot from backends.toml config.
+    pub fn set_cost_rate(&mut self, dog_id: &str, input_per_mtok: f64, output_per_mtok: f64) {
+        self.cost_rates.insert(dog_id.to_string(), (input_per_mtok, output_per_mtok));
     }
 
     pub fn record(&mut self, dog_id: &str, prompt: u32, completion: u32, latency_ms: u64) {
@@ -76,9 +84,15 @@ impl DogUsageTracker {
         self.historical_requests + self.total_requests
     }
 
-    /// Estimated cost in USD (rough average: $0.15/1M tokens)
+    /// Estimated cost in USD — per-Dog rates from backends.toml. $0 for sovereign/free-tier.
     pub fn estimated_cost_usd(&self) -> f64 {
-        self.total_tokens() as f64 * 0.15 / 1_000_000.0
+        let mut cost = 0.0;
+        for (id, usage) in self.merged_dogs().iter() {
+            let (input_rate, output_rate) = self.cost_rates.get(id).copied().unwrap_or((0.0, 0.0));
+            cost += usage.prompt_tokens as f64 * input_rate / 1_000_000.0;
+            cost += usage.completion_tokens as f64 * output_rate / 1_000_000.0;
+        }
+        cost
     }
 
     pub fn uptime_seconds(&self) -> u64 {
@@ -379,11 +393,21 @@ mod tests {
     #[test]
     fn estimated_cost_includes_historical() {
         let mut t = DogUsageTracker::new();
+        // Gemini-like pricing: $0.50/1M input, $3.00/1M output
+        t.set_cost_rate("a", 0.50, 3.00);
         t.load_historical(&[serde_json::json!({
             "dog_id": "a", "prompt_tokens": 500000, "completion_tokens": 500000,
             "requests": 1, "failures": 0, "total_latency_ms": 0
         })]);
-        // 1M tokens × $0.15/1M = $0.15
-        assert!((t.estimated_cost_usd() - 0.15).abs() < 0.001);
+        // 500K input × $0.50/1M + 500K output × $3.00/1M = $0.25 + $1.50 = $1.75
+        assert!((t.estimated_cost_usd() - 1.75).abs() < 0.001);
+    }
+
+    #[test]
+    fn zero_cost_for_sovereign_dogs() {
+        let mut t = DogUsageTracker::new();
+        // Sovereign/free-tier dogs: no cost rates set (default 0.0)
+        t.record("sovereign-ubuntu", 100000, 50000, 500);
+        assert!((t.estimated_cost_usd()).abs() < 0.0001);
     }
 }

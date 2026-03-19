@@ -1,4 +1,4 @@
-//! P0 — InferencePort: the sovereign abstraction over all compute backends.
+//! Inference domain types — backend capabilities, requests, responses, errors.
 //!
 //! No backend (local GPU, remote MCP, mock) ever touches the domain directly.
 //! The domain speaks only to this trait. The substrate is irrelevant.
@@ -108,6 +108,8 @@ impl std::fmt::Display for BackendError {
     }
 }
 
+impl std::error::Error for BackendError {}
+
 use async_trait::async_trait;
 
 // ============================================================
@@ -115,7 +117,7 @@ use async_trait::async_trait;
 // ============================================================
 
 /// Base identity + health contract shared by all backend abstractions.
-/// ChatPort and InferencePort both extend this — `health()` and `name()` are defined once.
+/// ChatPort extends this — `health()` and `name()` are defined once.
 #[async_trait]
 pub trait BackendPort: Send + Sync {
     /// Human-readable name for this backend (e.g. "gemini", "hf-mistral", "sovereign-ubuntu").
@@ -124,21 +126,8 @@ pub trait BackendPort: Send + Sync {
     async fn health(&self) -> BackendStatus;
 }
 
-/// Every compute backend implements this trait.
-/// Local GPU, remote MCP node, mock — all identical to the caller.
-#[async_trait]
-pub trait InferencePort: BackendPort {
-    fn capability(&self) -> &BackendCapability;
-    async fn infer(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError>;
-}
-
-/// Router contract — selects and dispatches to registered InferencePort backends.
-/// Domain-level trait: the gRPC layer sees this, not the concrete BackendRouter.
-#[async_trait]
-pub trait InferenceRouter: Send + Sync {
-    async fn route(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError>;
-    async fn fan_out(&self, req: InferenceRequest, n: u32) -> Result<InferenceResponse, BackendError>;
-}
+// InferencePort and InferenceRouter were removed — gRPC/MCTS burned in v0.6.0.
+// If inference routing is re-added, define traits here.
 
 // ============================================================
 // MOCK BACKEND — P0 test implementation, no GPU required
@@ -192,13 +181,12 @@ impl BackendPort for MockBackend {
     }
 }
 
-#[async_trait]
-impl InferencePort for MockBackend {
-    fn capability(&self) -> &BackendCapability {
+impl MockBackend {
+    pub fn capability(&self) -> &BackendCapability {
         &self.capability
     }
 
-    async fn infer(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError> {
+    pub async fn infer(&self, req: InferenceRequest) -> Result<InferenceResponse, BackendError> {
         if self.force_unreachable {
             return Err(BackendError::Unreachable("mock".to_string()));
         }

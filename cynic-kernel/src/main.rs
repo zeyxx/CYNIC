@@ -71,12 +71,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     klog!("[Ring 2] DeterministicDog loaded");
 
     // Create InferenceDog per configured backend
+    let mut cost_rates: Vec<(String, f64, f64)> = Vec::new();
     for cfg in backend_configs {
         let backend = Arc::new(backends::openai::OpenAiCompatBackend::new(cfg.clone()));
         let health = BackendPort::health(backend.as_ref()).await;
         match health {
             domain::inference::BackendStatus::Healthy | domain::inference::BackendStatus::Degraded { .. } => {
                 klog!("[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?})", cfg.name, cfg.model, health);
+                cost_rates.push((cfg.name.clone(), cfg.cost_input_per_mtok, cfg.cost_output_per_mtok));
                 dogs.push(Box::new(dogs::inference::InferenceDog::new(backend, cfg.name.clone(), cfg.context_size)));
             }
             _ => {
@@ -115,6 +117,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── RING 3: REST API (for React/external clients) ────────
     let judge = Arc::new(judge);
     let usage_tracker = Arc::new(tokio::sync::Mutex::new(domain::usage::DogUsageTracker::new()));
+    // Wire per-Dog cost rates from backends.toml
+    {
+        let mut usage = usage_tracker.lock().await;
+        for (name, input_rate, output_rate) in &cost_rates {
+            usage.set_cost_rate(name, *input_rate, *output_rate);
+        }
+        if !cost_rates.is_empty() {
+            klog!("[Ring 2] Cost rates: {} Dogs configured", cost_rates.len());
+        }
+    }
     // Load historical usage from DB (survives restarts)
     if let Some(db) = &raw_db {
         match db.query_one("SELECT * FROM dog_usage;").await {
@@ -168,10 +180,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let evict_state = Arc::clone(&rest_state);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             interval.tick().await; // Skip first immediate tick
             loop {
                 interval.tick().await;
-                let _ = expiry_coord.expire_stale().await;
+                match tokio::time::timeout(
+                    std::time::Duration::from_secs(10),
+                    expiry_coord.expire_stale(),
+                ).await {
+                    Ok(Err(e)) => eprintln!("[coord] expire_stale failed: {}", e),
+                    Err(_) => eprintln!("[coord] expire_stale timed out (10s)"),
+                    _ => {}
+                }
                 evict_state.rate_limiter.evict_stale().await;
                 evict_state.judge_limiter.evict_stale().await;
             }
@@ -185,19 +205,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let flush_usage = Arc::clone(&usage_tracker);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             interval.tick().await; // Skip first immediate tick
             let mut tick_count: u64 = 0;
             loop {
                 interval.tick().await;
                 tick_count += 1;
+                // Single lock: build SQL + absorb atomically to prevent TOCTOU
                 let batch_sql = {
                     let usage = flush_usage.lock().await;
                     usage.build_flush_sql()
                 };
                 if !batch_sql.is_empty() {
-                    let _ = flush_db.query(&batch_sql).await;
-                    let mut usage = flush_usage.lock().await;
-                    usage.absorb_flush();
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(10),
+                        flush_db.query(&batch_sql),
+                    ).await {
+                        Ok(Ok(_)) => {
+                            let mut usage = flush_usage.lock().await;
+                            usage.absorb_flush();
+                        }
+                        Ok(Err(e)) => eprintln!("[flush] DB write failed, will retry next tick: {}", e),
+                        Err(_) => eprintln!("[flush] DB write timed out (10s), will retry next tick"),
+                    }
                 }
                 // Periodic cleanup every hour (60 ticks × 60s)
                 // Simple date-based DELETEs — no subqueries, no transaction timeouts.
@@ -225,10 +255,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or(300); // 5 minutes default
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_secs));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             interval.tick().await; // Skip first immediate tick
             loop {
                 interval.tick().await;
-                domain::ccm::aggregate_observations(agg_storage.as_ref(), "CYNIC").await;
+                match tokio::time::timeout(
+                    std::time::Duration::from_secs(30),
+                    domain::ccm::aggregate_observations(agg_storage.as_ref(), "CYNIC"),
+                ).await {
+                    Ok(_) => {}
+                    Err(_) => eprintln!("[CCM] aggregate_observations timed out (30s)"),
+                }
             }
         });
         klog!("[Ring 2] CCM workflow aggregator started (every {}s)", interval_secs);

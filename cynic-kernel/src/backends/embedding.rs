@@ -2,7 +2,7 @@
 //! Default target: local llama-server on :8081 with Qwen3-Embedding.
 
 use crate::domain::embedding::{Embedding, EmbeddingError, EmbeddingPort};
-use crate::domain::inference::BackendStatus;
+use crate::domain::inference::{BackendPort, BackendStatus};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -42,8 +42,15 @@ impl EmbeddingBackend {
         Self::new(&base_url, api_key, &model)
     }
 
-    /// Health check — 5-state, consistent with BackendStatus used everywhere else.
-    pub async fn health(&self) -> BackendStatus {
+}
+
+#[async_trait]
+impl BackendPort for EmbeddingBackend {
+    fn name(&self) -> &str {
+        &self.model
+    }
+
+    async fn health(&self) -> BackendStatus {
         let start = Instant::now();
         let url = self.base_url.replace("/v1", "/health");
         match self.client.get(&url).send().await {

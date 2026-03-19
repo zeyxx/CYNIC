@@ -121,7 +121,10 @@ impl SurrealHttpStorage {
 
         // Bootstrap namespace and database (SurrealDB 3.x doesn't auto-create)
         let bootstrap = Self {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(5))
+                .build()
+                .expect("Failed to build bootstrap HTTP client"),
             url: storage.url.clone(),
             ns: String::new(),
             db: String::new(),

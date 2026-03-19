@@ -320,7 +320,7 @@ impl StoragePort for SurrealHttpStorage {
             context = escape_surreal(&obs.context),
             session_id = escape_surreal(&obs.session_id),
         );
-        let _ = self.query(&sql).await;
+        self.query(&sql).await?;
         Ok(())
     }
 
@@ -379,21 +379,10 @@ impl CoordPort for SurrealHttpStorage {
     }
 
     async fn claim(&self, agent_id: &str, target: &str, claim_type: &str) -> Result<ClaimResult, CoordError> {
-        let check_sql = format!(
-            "SELECT * FROM work_claim WHERE target = '{}' AND agent_id != '{}' AND active = true;",
-            escape_surreal(target), escape_surreal(agent_id)
-        );
-        let conflicts = self.query_one(&check_sql).await
-            .map_err(|e| CoordError::StorageFailed(format!("Claim check: {}", e)))?;
-        if !conflicts.is_empty() {
-            let infos = conflicts.iter().map(|c| ConflictInfo {
-                agent_id: c["agent_id"].as_str().unwrap_or("?").to_string(),
-                claimed_at: c["claimed_at"].as_str().unwrap_or("?").to_string(),
-            }).collect();
-            return Ok(ClaimResult::Conflict(infos));
-        }
+        // Optimistic locking: UPSERT first, then check for conflicts.
+        // Narrows the race window vs check-then-insert (two HTTP round-trips).
         let claim_id = format!("{}_{}", agent_id, target.replace(['/', '.'], "_"));
-        let sql = format!(
+        let upsert_sql = format!(
             "UPSERT work_claim:`{claim_id_key}` SET \
                 agent_id = '{agent_id}', target = '{target}', claim_type = '{claim_type}', \
                 claimed_at = time::now(), active = true;",
@@ -402,7 +391,29 @@ impl CoordPort for SurrealHttpStorage {
             target = escape_surreal(target),
             claim_type = escape_surreal(claim_type),
         );
-        self.query_one(&sql).await.map_err(|e| CoordError::StorageFailed(format!("Claim: {}", e)))?;
+        self.query_one(&upsert_sql).await
+            .map_err(|e| CoordError::StorageFailed(format!("Claim upsert: {}", e)))?;
+
+        // Post-check: did another agent also claim this target?
+        let check_sql = format!(
+            "SELECT * FROM work_claim WHERE target = '{}' AND agent_id != '{}' AND active = true;",
+            escape_surreal(target), escape_surreal(agent_id)
+        );
+        let conflicts = self.query_one(&check_sql).await
+            .map_err(|e| CoordError::StorageFailed(format!("Claim check: {}", e)))?;
+        if !conflicts.is_empty() {
+            // Rollback our claim — the other agent got there first
+            let rollback = format!(
+                "UPDATE work_claim:`{}` SET active = false;",
+                sanitize_record_id(&claim_id)
+            );
+            let _ = self.query_one(&rollback).await;
+            let infos = conflicts.iter().map(|c| ConflictInfo {
+                agent_id: c["agent_id"].as_str().unwrap_or("?").to_string(),
+                claimed_at: c["claimed_at"].as_str().unwrap_or("?").to_string(),
+            }).collect();
+            return Ok(ClaimResult::Conflict(infos));
+        }
         let _ = self.heartbeat(agent_id).await;
         Ok(ClaimResult::Claimed)
     }
@@ -426,8 +437,12 @@ impl CoordPort for SurrealHttpStorage {
     }
 
     async fn who(&self, agent_id_filter: Option<&str>) -> Result<CoordSnapshot, CoordError> {
-        let _ = self.query_one("UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;").await;
-        let _ = self.query_one("UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await;
+        if let Err(e) = self.query_one("UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;").await {
+            eprintln!("[coord] TTL expiry (sessions) failed: {}", e);
+        }
+        if let Err(e) = self.query_one("UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await {
+            eprintln!("[coord] TTL expiry (claims) failed: {}", e);
+        }
         let session_sql = match agent_id_filter {
             Some(id) => format!("SELECT * FROM agent_session WHERE agent_id = '{}' AND active = true;", escape_surreal(id)),
             None => "SELECT * FROM agent_session WHERE active = true;".to_string(),
@@ -549,8 +564,11 @@ impl CoordPort for SurrealHttpStorage {
     }
 
     async fn expire_stale(&self) -> Result<(), CoordError> {
-        let _ = self.query("UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;\
-                            UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await;
+        // Two separate queries to avoid ordering dependency within a single batch
+        self.query_one("UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;").await
+            .map_err(|e| CoordError::StorageFailed(format!("expire sessions: {}", e)))?;
+        self.query_one("UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await
+            .map_err(|e| CoordError::StorageFailed(format!("expire claims: {}", e)))?;
         Ok(())
     }
 }

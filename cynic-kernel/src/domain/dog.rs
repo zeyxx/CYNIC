@@ -216,6 +216,8 @@ impl std::fmt::Display for DogError {
     }
 }
 
+impl std::error::Error for DogError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

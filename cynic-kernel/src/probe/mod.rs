@@ -25,7 +25,7 @@ pub async fn run(force_reprobe: bool) -> NodeConfig {
                 klog!("[Ring 0] ✅ Node config loaded from cache: {}", config_path.display());
                 return cfg;
             }
-            Err(e) => println!("[Ring 0] ANOMALY: Config corrupt ({}). Re-probing...", e),
+            Err(e) => klog!("[Ring 0] ANOMALY: Config corrupt ({}). Re-probing...", e),
         }
     }
 
@@ -63,8 +63,8 @@ pub async fn run(force_reprobe: bool) -> NodeConfig {
     }
 
     match save_config(&config, &config_path) {
-        Err(e) => println!("[Ring 0] ANOMALY: Could not save config: {}", e),
-        Ok(_)  => println!("[Ring 0] ✅ Node config saved: {}", config_path.display()),
+        Err(e) => klog!("[Ring 0] ANOMALY: Could not save config: {}", e),
+        Ok(_)  => klog!("[Ring 0] ✅ Node config saved: {}", config_path.display()),
     }
     config
 }

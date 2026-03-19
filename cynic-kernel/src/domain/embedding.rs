@@ -47,6 +47,8 @@ impl std::fmt::Display for EmbeddingError {
     }
 }
 
+impl std::error::Error for EmbeddingError {}
+
 /// Port for generating embeddings. Adapter implementations call external servers.
 #[async_trait]
 pub trait EmbeddingPort: Send + Sync {

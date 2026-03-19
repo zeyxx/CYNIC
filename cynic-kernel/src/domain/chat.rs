@@ -1,5 +1,5 @@
 //! ChatPort — minimal text-in/text-out contract for LLM inference.
-//! Dogs use this. MCTS uses InferencePort. Both extend BackendPort (shared health + name).
+//! Dogs use this via BackendPort (shared health + name).
 
 use async_trait::async_trait;
 use crate::domain::inference::{BackendPort, BackendStatus};
@@ -30,6 +30,8 @@ impl std::fmt::Display for ChatError {
         }
     }
 }
+
+impl std::error::Error for ChatError {}
 
 /// Chat-specific extension of BackendPort. Dogs use this for axiom evaluation.
 /// `name()` and `health()` come from BackendPort — no duplication.
