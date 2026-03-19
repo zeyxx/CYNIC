@@ -113,6 +113,11 @@ Real chess scores: Sicilian Defense → Howl. Scholar's Mate → Growl. Fool's M
 5. **Port contracts first.** New dependency → trait → adapter → test.
 6. **Bounded everything.** Channels, retries, confidence. Unbounded = debt.
 7. **Zero hardcoded paths.** Use `$(git rev-parse --show-toplevel)` for project root, `${CYNIC_REST_ADDR}` from `~/.cynic-env` for kernel address. Tool-specific vars (`$CLAUDE_PROJECT_DIR`, etc.) only as optimization with git fallback. Never absolute paths in skills, hooks, or configs.
+8. **Never discard fallible I/O.** `let _ =` on DB writes, HTTP calls, or file ops is forbidden. Handle the error (log + retry/skip) or propagate with `?`. Silent data loss is the worst bug.
+9. **Wire or delete.** Every new config field, trait, or public method MUST have at least one caller AND one test. Dead code that "might be useful later" is debt, not investment. `grep` for zero-caller symbols before merging.
+10. **Timeout every background `.await`.** Any `.await` inside a `tokio::spawn` must be wrapped in `tokio::time::timeout()`. Bare awaits in background tasks can stall indefinitely without any signal.
+11. **`Display` implies `Error`.** Every type that implements `std::fmt::Display` for error reporting MUST also implement `std::error::Error`. No exceptions — it's two lines.
+12. **Fix the class, not the instance.** When fixing a bug, `grep` the entire codebase for the same pattern. If `let _ =` was wrong in one flush path, check ALL flush paths. A fix that doesn't sweep its class is half a fix.
 
 ## Mandatory Tool Use (NON-OPTIONAL)
 
