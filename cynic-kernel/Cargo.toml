@@ -5,7 +5,6 @@ edition = "2024"
 
 [features]
 default = []
-grpc = ["dep:tonic", "dep:prost", "dep:async-stream", "dep:tokio-stream", "dep:tonic-build", "dep:protoc-bin-vendored"]
 
 [dependencies]
 chrono = "0.4"
@@ -20,7 +19,7 @@ toml = "0.8"
 walkdir = "2"
 async-trait = "0.1"
 axum = "0.8"
-tower-http = { version = "0.6", features = ["cors", "fs"] }
+tower-http = { version = "0.6", features = ["cors", "fs", "timeout"] }
 uuid = { version = "1", features = ["v4"] }
 futures-util = "0.3"
 dirs = "6"
@@ -28,16 +27,6 @@ rmcp = { version = "1.2", features = ["server", "transport-io", "macros"] }
 schemars = "1"
 blake3 = "1"
 
-# gRPC stack — dormant until a client exists
-async-stream = { version = "0.3.6", optional = true }
-prost = { version = "0.13", optional = true }
-tokio-stream = { version = "0.1.18", optional = true }
-tonic = { version = "0.12", optional = true }
-
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
-
-[build-dependencies]
-tonic-build = { version = "0.12", optional = true }
-protoc-bin-vendored = { version = "3", optional = true }

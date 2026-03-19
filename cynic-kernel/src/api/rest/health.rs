@@ -88,7 +88,7 @@ pub async fn health_handler(
         "dogs": dogs,
         "storage": if storage_ok { "connected" } else { "down" },
         "storage_metrics": state.storage_metrics(),
-        "embedding": if state.embedding.embed("health").await.is_ok() { "sovereign" } else { "unavailable" },
+        "embedding": if tokio::time::timeout(std::time::Duration::from_secs(2), state.embedding.embed("h")).await.map(|r| r.is_ok()).unwrap_or(false) { "sovereign" } else { "unavailable" },
         "verdict_cache_size": state.verdict_cache.len(),
         "total_requests": usage.all_time_requests(),
         "total_tokens": usage.total_tokens(),

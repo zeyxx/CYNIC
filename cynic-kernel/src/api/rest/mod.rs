@@ -80,5 +80,6 @@ pub fn router(state: Arc<AppState>) -> Router {
         .fallback_service(ServeDir::new("static"))
         .layer(DefaultBodyLimit::max(64 * 1024)) // 64 KB — no multi-MB payloads
         .layer(cors)
+        .layer(tower_http::timeout::TimeoutLayer::with_status_code(axum::http::StatusCode::GATEWAY_TIMEOUT, std::time::Duration::from_secs(45)))
         .with_state(state)
 }

@@ -76,7 +76,7 @@ pub struct NullStorage;
 #[async_trait]
 impl StoragePort for NullStorage {
     async fn ping(&self) -> Result<(), StorageError> {
-        Ok(()) // NullStorage is always "healthy" — it just doesn't persist
+        Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
     }
     async fn store_verdict(&self, _verdict: &Verdict) -> Result<(), StorageError> {
         Ok(())

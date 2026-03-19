@@ -672,15 +672,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn health_returns_degraded_with_one_dog() {
+    async fn health_returns_critical_with_null_storage() {
         let mcp = test_mcp();
         let result = mcp.cynic_health().await.unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
-        // 1 dog = degraded (not sovereign, not critical)
-        assert_eq!(v["status"], "degraded");
+        // NullStorage.ping() returns Err → storage_ok = false → critical
+        // (honest: NullStorage IS degraded mode — it should not claim "connected")
+        assert_eq!(v["status"], "critical");
+        assert_eq!(v["storage"], "down");
         assert_eq!(v["dog_count"], 1);
         assert_eq!(v["dogs"][0]["id"], "deterministic-dog");
-        // φ constant present
         assert!((v["phi_max"].as_f64().unwrap() - PHI_INV).abs() < 0.001);
     }
 

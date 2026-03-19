@@ -1,14 +1,5 @@
 use cynic_kernel::*;
 use cynic_kernel::domain::inference::BackendPort;
-#[cfg(feature = "grpc")]
-use cynic_kernel::cynic_v2::vascular_system_server::VascularSystemServer;
-#[cfg(feature = "grpc")]
-use cynic_kernel::cynic_v2::k_pulse_server::KPulseServer;
-#[cfg(feature = "grpc")]
-use cynic_kernel::cynic_v2::muscle_hal_server::MuscleHalServer;
-
-#[cfg(feature = "grpc")]
-use tonic::transport::Server;
 use std::sync::Arc;
 
 // ============================================================
@@ -57,14 +48,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(s) => Arc::clone(s) as Arc<dyn domain::coord::CoordPort>,
         None => Arc::new(domain::coord::NullCoord),
     };
-
-    // ─── RING 1: gRPC IPC (dormant — no client yet) ──────────
-    #[cfg(feature = "grpc")]
-    let addr: std::net::SocketAddr = "[::1]:50051".parse()?;
-    #[cfg(feature = "grpc")]
-    klog!("[Ring 1] Vascular Law enforced on {}", addr);
-    #[cfg(feature = "grpc")]
-    let router = Arc::new(backends::router::BackendRouter::new(vec![]));
 
     // ─── RING 2: Load Backend Configs ──────────────────────────
     let backends_path = dirs::config_dir()
@@ -277,42 +260,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     klog!("║   Max confidence: phi^-1 = 0.618     ║");
     klog!("╚══════════════════════════════════════╝");
 
-    #[cfg(feature = "grpc")]
-    {
-        let pulse_service = grpc::pulse::PulseService::default();
-        let muscle_service = grpc::hal::MuscleService::new(Arc::clone(&router) as Arc<dyn domain::inference::InferenceRouter>);
-        klog!("║   gRPC: {}",  addr);
-
-        let grpc_server = Server::builder()
-            .add_service(VascularSystemServer::new(grpc::vascular::VascularService::default()))
-            .add_service(KPulseServer::new(pulse_service))
-            .add_service(MuscleHalServer::new(muscle_service))
-            .serve(addr);
-
-        tokio::select! {
-            _ = rest_server => eprintln!("[FATAL] REST server stopped"),
-            r = grpc_server => {
-                if let Err(e) = r {
-                    eprintln!("[FATAL] gRPC server error: {}", e);
-                }
-            }
-            _ = tokio::signal::ctrl_c() => {
-                klog!("[SHUTDOWN] SIGINT received — graceful shutdown");
+    tokio::select! {
+        result = rest_server => {
+            if let Err(e) = result {
+                eprintln!("[FATAL] REST server error: {}", e);
             }
         }
-    }
-
-    #[cfg(not(feature = "grpc"))]
-    {
-        tokio::select! {
-            result = rest_server => {
-                if let Err(e) = result {
-                    eprintln!("[FATAL] REST server error: {}", e);
-                }
-            }
-            _ = tokio::signal::ctrl_c() => {
-                klog!("[SHUTDOWN] SIGINT received — graceful shutdown");
-            }
+        _ = tokio::signal::ctrl_c() => {
+            klog!("[SHUTDOWN] SIGINT received — graceful shutdown");
         }
     }
 
