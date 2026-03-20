@@ -135,28 +135,6 @@ impl DogUsageTracker {
         self.dogs.iter().map(|(id, u)| (id.clone(), u.clone())).collect()
     }
 
-    /// Build the SurrealQL batch UPSERT for flushing usage to DB.
-    /// Single source of truth — used by both periodic flush and shutdown flush.
-    pub fn build_flush_sql(&self) -> String {
-        let mut sql = String::new();
-        for (dog_id, u) in &self.dogs {
-            use std::fmt::Write;
-            let _ = write!(sql,
-                "UPSERT dog_usage:`{id}` SET \
-                    dog_id = '{id}', \
-                    prompt_tokens = IF prompt_tokens THEN prompt_tokens + {pt} ELSE {pt} END, \
-                    completion_tokens = IF completion_tokens THEN completion_tokens + {ct} ELSE {ct} END, \
-                    requests = IF requests THEN requests + {req} ELSE {req} END, \
-                    failures = IF failures THEN failures + {fail} ELSE {fail} END, \
-                    total_latency_ms = IF total_latency_ms THEN total_latency_ms + {lat} ELSE {lat} END, \
-                    updated_at = time::now(); ",
-                id = dog_id, pt = u.prompt_tokens, ct = u.completion_tokens,
-                req = u.requests, fail = u.failures, lat = u.total_latency_ms,
-            );
-        }
-        sql
-    }
-
     /// After a successful flush to DB, transfer session counters into historical
     /// and reset session. Without this, total_tokens() under-reports after flush.
     pub fn absorb_flush(&mut self) {

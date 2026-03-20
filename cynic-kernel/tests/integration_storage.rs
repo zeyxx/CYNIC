@@ -297,24 +297,36 @@ async fn audit_store_and_query() {
 
 #[tokio::test]
 #[ignore]
-async fn flush_usage_upserts_correctly() {
-    let db = common::setup_test_db("flush").await;
+async fn flush_usage_via_storage_port() {
+    let db = common::setup_test_db("flush_port").await;
     let mut tracker = DogUsageTracker::new();
 
     tracker.record("test-dog", 1000, 500, 200);
     tracker.record("test-dog", 500, 250, 100);
 
-    let sql = tracker.build_flush_sql();
-    assert!(!sql.is_empty(), "flush SQL should not be empty");
-    db.query(&sql).await.expect("flush SQL failed");
+    // Use StoragePort::flush_usage with snapshot data (no SQL in domain)
+    let snapshot = tracker.snapshot();
+    db.flush_usage(&snapshot).await.expect("flush_usage failed");
 
     let rows = db.query_one("SELECT * FROM dog_usage;").await.expect("select failed");
     assert!(!rows.is_empty(), "dog_usage should have data after flush");
 
-    // Second flush — accumulation (idempotent UPSERT)
+    // Verify actual values
+    let row = &rows[0];
+    let pt = row["prompt_tokens"].as_u64().unwrap_or(0);
+    let ct = row["completion_tokens"].as_u64().unwrap_or(0);
+    assert_eq!(pt, 1500, "prompt_tokens should accumulate: 1000+500");
+    assert_eq!(ct, 750, "completion_tokens should accumulate: 500+250");
+
+    // Second flush — accumulation via UPSERT
     tracker.record("test-dog", 100, 50, 50);
-    let sql2 = tracker.build_flush_sql();
-    db.query(&sql2).await.expect("second flush failed");
+    let snapshot2 = tracker.snapshot();
+    db.flush_usage(&snapshot2).await.expect("second flush failed");
+
+    let rows2 = db.query_one("SELECT * FROM dog_usage;").await.expect("select2 failed");
+    let pt2 = rows2[0]["prompt_tokens"].as_u64().unwrap_or(0);
+    // Should be 1500 + 1600 = 3100 (accumulative UPSERT adds to existing)
+    assert!(pt2 > 1500, "prompt_tokens should grow with second flush, got {}", pt2);
 
     common::teardown_test_db(&db).await;
 }

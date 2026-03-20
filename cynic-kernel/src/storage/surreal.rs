@@ -354,6 +354,30 @@ impl StoragePort for SurrealHttpStorage {
         );
         self.query_one(&sql).await
     }
+
+    async fn flush_usage(&self, snapshot: &[(String, crate::domain::usage::DogUsage)]) -> Result<(), StorageError> {
+        if snapshot.is_empty() {
+            return Ok(());
+        }
+        let mut sql = String::new();
+        for (dog_id, u) in snapshot {
+            use std::fmt::Write;
+            let _ = write!(sql, // ok: fmt::Write on String is infallible
+                "UPSERT dog_usage:`{id}` SET \
+                    dog_id = '{id}', \
+                    prompt_tokens = IF prompt_tokens THEN prompt_tokens + {pt} ELSE {pt} END, \
+                    completion_tokens = IF completion_tokens THEN completion_tokens + {ct} ELSE {ct} END, \
+                    requests = IF requests THEN requests + {req} ELSE {req} END, \
+                    failures = IF failures THEN failures + {fail} ELSE {fail} END, \
+                    total_latency_ms = IF total_latency_ms THEN total_latency_ms + {lat} ELSE {lat} END, \
+                    updated_at = time::now(); ",
+                id = dog_id, pt = u.prompt_tokens, ct = u.completion_tokens,
+                req = u.requests, fail = u.failures, lat = u.total_latency_ms,
+            );
+        }
+        self.query(&sql).await?;
+        Ok(())
+    }
 }
 
 // ── COORD PORT IMPLEMENTATION ────────────────────────────────
@@ -407,14 +431,14 @@ impl CoordPort for SurrealHttpStorage {
                 "UPDATE work_claim:`{}` SET active = false;",
                 sanitize_record_id(&claim_id)
             );
-            let _ = self.query_one(&rollback).await;
+            let _ = self.query_one(&rollback).await; // ok: best-effort rollback
             let infos = conflicts.iter().map(|c| ConflictInfo {
                 agent_id: c["agent_id"].as_str().unwrap_or("?").to_string(),
                 claimed_at: c["claimed_at"].as_str().unwrap_or("?").to_string(),
             }).collect();
             return Ok(ClaimResult::Conflict(infos));
         }
-        let _ = self.heartbeat(agent_id).await;
+        let _ = self.heartbeat(agent_id).await; // ok: fire-and-forget
         Ok(ClaimResult::Claimed)
     }
 
@@ -432,7 +456,7 @@ impl CoordPort for SurrealHttpStorage {
             ),
         };
         self.query_one(&sql).await.map_err(|e| CoordError::StorageFailed(format!("Release: {}", e)))?;
-        if target.is_none() { let _ = self.deactivate_agent(agent_id).await; }
+        if target.is_none() { let _ = self.deactivate_agent(agent_id).await; } // ok: fire-and-forget
         Ok(desc)
     }
 
@@ -482,12 +506,12 @@ impl CoordPort for SurrealHttpStorage {
     }
 
     async fn heartbeat(&self, agent_id: &str) -> Result<(), CoordError> {
-        let _ = self.query_one(&format!("UPDATE agent_session:`{}` SET last_seen = time::now();", sanitize_record_id(agent_id))).await;
+        let _ = self.query_one(&format!("UPDATE agent_session:`{}` SET last_seen = time::now();", sanitize_record_id(agent_id))).await; // ok: fire-and-forget
         Ok(())
     }
 
     async fn deactivate_agent(&self, agent_id: &str) -> Result<(), CoordError> {
-        let _ = self.query_one(&format!("UPDATE agent_session:`{}` SET active = false, last_seen = time::now();", sanitize_record_id(agent_id))).await;
+        let _ = self.query_one(&format!("UPDATE agent_session:`{}` SET active = false, last_seen = time::now();", sanitize_record_id(agent_id))).await; // ok: fire-and-forget
         Ok(())
     }
 
@@ -542,7 +566,7 @@ impl CoordPort for SurrealHttpStorage {
             for target in &claimable {
                 let claim_id = format!("{}_{}", agent_id, target.replace(['/', '.'], "_"));
                 use std::fmt::Write;
-                let _ = write!(batch_sql,
+                let _ = write!(batch_sql, // ok: fmt::Write on String
                     "UPSERT work_claim:`{claim_id_key}` SET \
                         agent_id = '{agent_id}', target = '{target}', claim_type = '{claim_type}', \
                         claimed_at = time::now(), active = true; ",
@@ -558,7 +582,7 @@ impl CoordPort for SurrealHttpStorage {
         }
 
         // Single heartbeat for the batch
-        let _ = self.heartbeat(agent_id).await;
+        let _ = self.heartbeat(agent_id).await; // ok: fire-and-forget
 
         Ok(result)
     }

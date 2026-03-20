@@ -83,6 +83,10 @@ pub trait StoragePort: Send + Sync {
     /// Query distinct targets per session — used for co-occurrence extraction.
     /// Returns rows of {session_id, target} for sessions with 2+ distinct targets.
     async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<serde_json::Value>, StorageError>;
+
+    /// Flush usage snapshot to persistent storage. The storage adapter generates
+    /// the SQL/query — domain provides data only via snapshot(), no SQL in domain.
+    async fn flush_usage(&self, snapshot: &[(String, crate::domain::usage::DogUsage)]) -> Result<(), StorageError>;
 }
 
 /// No-op storage for graceful degradation when DB is unavailable.
@@ -123,5 +127,8 @@ impl StoragePort for NullStorage {
     }
     async fn query_session_targets(&self, _project: &str, _limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
         Ok(vec![])
+    }
+    async fn flush_usage(&self, _snapshot: &[(String, crate::domain::usage::DogUsage)]) -> Result<(), StorageError> {
+        Ok(())
     }
 }

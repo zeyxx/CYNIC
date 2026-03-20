@@ -166,7 +166,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let transport = rmcp::transport::io::stdio();
         let server = mcp_server.serve(transport).await
             .map_err(|e| format!("MCP server error: {}", e))?;
-        let _ = server.waiting().await;
+        let _ = server.waiting().await; // ok: MCP server lifecycle
         return Ok(());
     }
 
@@ -201,7 +201,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── Usage flush (background, every 60s) ──────────────────
     if let Some(db) = &raw_db {
-        let flush_db = Arc::clone(db) as Arc<storage::SurrealHttpStorage>;
+        let flush_storage = Arc::clone(&storage_port);
+        let flush_raw = Arc::clone(db); // raw access for TTL cleanup (infrastructure, not domain)
         let flush_usage = Arc::clone(&usage_tracker);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
@@ -211,15 +212,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             loop {
                 interval.tick().await;
                 tick_count += 1;
-                // Single lock: build SQL + absorb atomically to prevent TOCTOU
-                let batch_sql = {
+                // Snapshot + flush via StoragePort (no SQL in domain)
+                let snapshot = {
                     let usage = flush_usage.lock().await;
-                    usage.build_flush_sql()
+                    usage.snapshot()
                 };
-                if !batch_sql.is_empty() {
+                if !snapshot.is_empty() {
                     match tokio::time::timeout(
                         std::time::Duration::from_secs(10),
-                        flush_db.query(&batch_sql),
+                        flush_storage.flush_usage(&snapshot),
                     ).await {
                         Ok(Ok(_)) => {
                             let mut usage = flush_usage.lock().await;
@@ -233,11 +234,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Simple date-based DELETEs — no subqueries, no transaction timeouts.
                 // Previous subquery (SELECT ... LIMIT 1 START 10000) caused 10s timeouts
                 // and transaction drops in SurrealDB, which cascaded into 401 errors.
+                // Periodic TTL cleanup every hour — infrastructure concern, uses raw DB
                 if tick_count.is_multiple_of(60) {
-                    let _ = flush_db.query_one(
+                    let _ = flush_raw.query_one( // ok: TTL cleanup, best-effort
                         "DELETE observation WHERE created_at < time::now() - 30d;"
                     ).await;
-                    let _ = flush_db.query_one(
+                    let _ = flush_raw.query_one( // ok: TTL cleanup, best-effort
                         "DELETE mcp_audit WHERE ts < time::now() - 7d;"
                     ).await;
                 }
@@ -296,13 +298,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Flush usage on shutdown — prevents up to 60s of data loss
-    if let Some(db) = &raw_db {
-        let (batch_sql, dog_count) = {
+    if raw_db.is_some() {
+        let (snapshot, dog_count) = {
             let usage = usage_tracker.lock().await;
-            (usage.build_flush_sql(), usage.dogs.len())
+            (usage.snapshot(), usage.dogs.len())
         };
-        if !batch_sql.is_empty() {
-            match db.query(&batch_sql).await {
+        if !snapshot.is_empty() {
+            match storage_port.flush_usage(&snapshot).await {
                 Ok(_) => klog!("[SHUTDOWN] Usage flushed ({} dogs)", dog_count),
                 Err(e) => eprintln!("[SHUTDOWN] Usage flush failed: {}", e),
             }

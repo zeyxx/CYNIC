@@ -222,7 +222,7 @@ impl CynicMcp {
         }
 
         // Audit (best effort)
-        let _ = self.audit("cynic_judge", &agent_id, &serde_json::json!({
+        let _ = self.audit("cynic_judge", &agent_id, &serde_json::json!({ // ok: fire-and-forget
             "stimulus": stimulus.content.chars().take(200).collect::<String>(),
             "dogs_used": verdict.dog_id,
             "verdict": format!("{:?}", verdict.kind),
@@ -412,7 +412,7 @@ impl CynicMcp {
         let text = data["choices"][0]["message"]["content"].as_str().unwrap_or("(no response)");
         let usage = &data["usage"];
 
-        let _ = self.audit("cynic_infer", &agent_id, &serde_json::json!({
+        let _ = self.audit("cynic_infer", &agent_id, &serde_json::json!({ // ok: fire-and-forget
             "prompt_len": p.prompt.len(),
             "prompt_tokens": usage["prompt_tokens"],
             "completion_tokens": usage["completion_tokens"],
@@ -608,13 +608,13 @@ impl CynicMcp {
     /// Called by every tool via audit() — fixes stale-session problem.
     async fn touch(&self, agent_id: &str) {
         if !agent_id.is_empty() && agent_id != "unknown" {
-            let _ = self.coord.heartbeat(agent_id).await;
+            let _ = self.coord.heartbeat(agent_id).await; // ok: fire-and-forget
         }
     }
 
     /// Audit + heartbeat in one shot (best-effort, non-blocking).
     async fn audit(&self, tool_name: &str, agent_id: &str, details: &serde_json::Value) {
-        let _ = self.coord.store_audit(tool_name, agent_id, details).await;
+        let _ = self.coord.store_audit(tool_name, agent_id, details).await; // ok: fire-and-forget
         self.touch(agent_id).await;
     }
 }
@@ -659,6 +659,7 @@ mod tests {
         async fn store_observation(&self, _: &crate::domain::storage::Observation) -> Result<(), StorageError> { Ok(()) }
         async fn query_observations(&self, _: &str, _: Option<&str>, _: u32) -> Result<Vec<serde_json::Value>, StorageError> { Ok(vec![]) }
         async fn query_session_targets(&self, _: &str, _: u32) -> Result<Vec<serde_json::Value>, StorageError> { Ok(vec![]) }
+        async fn flush_usage(&self, _: &[(String, crate::domain::usage::DogUsage)]) -> Result<(), StorageError> { Ok(()) }
     }
 
     /// Build a CynicMcp with real DeterministicDog + null storage/coord.
