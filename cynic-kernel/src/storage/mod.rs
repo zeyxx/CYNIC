@@ -89,6 +89,11 @@ pub(crate) struct SurrealResponse {
 }
 
 impl SurrealHttpStorage {
+    /// Expose database name for test teardown.
+    pub fn db_name(&self) -> &str {
+        &self.db
+    }
+
     pub async fn init() -> Result<Self, StorageError> {
         let url = std::env::var("SURREALDB_URL")
             .unwrap_or_else(|_| "http://localhost:8000".to_string());

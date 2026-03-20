@@ -37,6 +37,14 @@ check:
 	cargo build -p cynic-kernel --release
 	cargo test -p cynic-kernel --release
 	cargo clippy -p cynic-kernel --release -- -D warnings
+
+.PHONY: check-storage
+check-storage: ## Integration tests against real SurrealDB (requires :8000)
+	@$(source_env)
+	@echo "══════════════════════════════════════════"
+	@echo "  CYNIC check-storage — integration tests"
+	@echo "══════════════════════════════════════════"
+	cargo test -p cynic-kernel --release -- --ignored
 	@echo "✓ All checks passed"
 
 # ── Stage 2: Validated Commit ────────────────────────────────

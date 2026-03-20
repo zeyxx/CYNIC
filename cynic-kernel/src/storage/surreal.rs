@@ -185,7 +185,7 @@ impl StoragePort for SurrealHttpStorage {
             CrystalState::Dissolved => "dissolved",
         };
         let sql = format!(
-            "UPSERT crystal:{} SET content = '{}', domain = '{}', confidence = {}, observations = {}, state = '{}', created_at = '{}', updated_at = '{}'",
+            "UPSERT crystal:`{}` SET content = '{}', domain = '{}', confidence = {}, observations = {}, state = '{}', created_at = '{}', updated_at = '{}'",
             escape(&crystal.id), escape(&crystal.content), escape(&crystal.domain),
             crystal.confidence, crystal.observations, state_str,
             escape(&crystal.created_at), escape(&crystal.updated_at)
@@ -196,7 +196,7 @@ impl StoragePort for SurrealHttpStorage {
 
     async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError> {
         let id = sanitize_id(id)?;
-        let sql = format!("SELECT * FROM crystal:{}", id);
+        let sql = format!("SELECT * FROM crystal:`{}`", id);
         let rows = self.query_one(&sql).await?;
         Ok(rows.first().map(row_to_crystal))
     }
@@ -239,7 +239,7 @@ impl StoragePort for SurrealHttpStorage {
             (updated.observations, updated.confidence, state_str, entry.created_at)
         } else {
             // Cache miss — fall back to DB (cold start or first observation)
-            let existing = self.query_one(&format!("SELECT * FROM crystal:{};", safe_id)).await?;
+            let existing = self.query_one(&format!("SELECT * FROM crystal:`{}`;", safe_id)).await?;
             if let Some(row) = existing.first() {
                 let prev_obs = row["observations"].as_u64().unwrap_or(0) as u32;
                 let prev_conf = row["confidence"].as_f64().unwrap_or(0.0);
@@ -271,7 +271,7 @@ impl StoragePort for SurrealHttpStorage {
 
         // Write-through: DB first, cache second — prevents divergence on DB failure
         let sql = format!(
-            "UPSERT crystal:{id} SET \
+            "UPSERT crystal:`{id}` SET \
                 content = '{content}', \
                 domain = '{domain}', \
                 observations = {observations}, \
