@@ -69,7 +69,28 @@ if [[ ("$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Write") && "$FILE_PATH" == *cy
     # "api/rest/judge.rs" and "judge.rs" are different files, different claims.
     TARGET_FILE="${FILE_PATH#*cynic-kernel/src/}"
 
-    # Auto-claim: POST /coord/claim — transparent to the LLM
+    # Step 1: PRE-CHECK — does another agent already hold this file?
+    # Short 1s timeout — fail-open if coord unreachable or slow.
+    WHO_TMP=$(mktemp /tmp/cynic-who-XXXXXX)
+    WHO_CODE=$(curl -s -o "$WHO_TMP" -w '%{http_code}' \
+        --connect-timeout 1 --max-time 1 \
+        "http://${KERNEL_ADDR}/agents" \
+        ${API_KEY:+-H "Authorization: Bearer $API_KEY"} \
+        2>/dev/null || echo "000")
+
+    if [[ "$WHO_CODE" == "200" ]]; then
+        HOLDER=$(jq -r --arg target "$TARGET_FILE" --arg self "$AGENT_ID" \
+            '.claims[]? | select(.target == $target and .active == true and .agent_id != $self) | .agent_id' \
+            "$WHO_TMP" 2>/dev/null | head -1)
+        if [[ -n "$HOLDER" ]]; then
+            rm -f "$WHO_TMP"
+            echo "BLOCKED: CONFLICT: '${TARGET_FILE}' already claimed by ${HOLDER}" >&2
+            exit 2
+        fi
+    fi
+    rm -f "$WHO_TMP"
+
+    # Step 2: CLAIM — POST /coord/claim (authoritative gate)
     # Returns 200 {"status":"claimed"} or 409 {"error":"CONFLICT: ..."}
     CLAIM_TMP=$(mktemp /tmp/cynic-claim-XXXXXX)
     trap "rm -f '$CLAIM_TMP'" EXIT
@@ -86,14 +107,13 @@ if [[ ("$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "Write") && "$FILE_PATH" == *cy
     fi
 
     if [[ "$HTTP_CODE" == "409" ]]; then
-        # Real conflict — another agent holds this file
         CONFLICT_MSG=$(jq -r '.error // "conflict"' "$CLAIM_TMP" 2>/dev/null || echo "conflict")
         echo "BLOCKED: ${CONFLICT_MSG}" >&2
         exit 2
     fi
 
     # 200 (claimed), 401 (auth issue), 500 (DB down) — all allow through
-    # The point is: only a 409 CONFLICT blocks. Everything else degrades gracefully.
+    # Only a real CONFLICT blocks. Everything else degrades gracefully.
 fi
 
 # All clear
