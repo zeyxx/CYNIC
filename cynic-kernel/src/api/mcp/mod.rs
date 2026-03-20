@@ -317,6 +317,10 @@ impl CynicMcp {
         params: Parameters<ListParams>,
     ) -> Result<CallToolResult, McpError> {
         let limit = params.0.limit.unwrap_or(20).min(100);
+        // Refresh heartbeat if agent_id provided (keeps session alive on read-only calls)
+        if let Some(ref agent_id) = params.0.agent_id {
+            self.touch(agent_id).await;
+        }
         let verdicts = self.storage.list_verdicts(limit).await
             .map_err(|e| McpError::internal_error(format!("Storage error: {}", e), None))?;
 
@@ -347,6 +351,9 @@ impl CynicMcp {
         params: Parameters<ListParams>,
     ) -> Result<CallToolResult, McpError> {
         let limit = params.0.limit.unwrap_or(20).min(100);
+        if let Some(ref agent_id) = params.0.agent_id {
+            self.touch(agent_id).await;
+        }
         let crystals = self.storage.list_crystals(limit).await
             .map_err(|e| McpError::internal_error(format!("Storage error: {}", e), None))?;
 
@@ -448,9 +455,7 @@ impl CynicMcp {
             Ok(results) => Ok(CallToolResult::success(vec![
                 Content::text(serde_json::to_string_pretty(&results).unwrap_or_else(|_| "[]".into()))
             ])),
-            Err(e) => Ok(CallToolResult::success(vec![
-                Content::text(format!("Audit query failed: {}", e))
-            ])),
+            Err(e) => Err(McpError::internal_error(format!("Audit query failed: {}", e), None)),
         }
     }
 
@@ -497,6 +502,10 @@ impl CynicMcp {
                 let conflict_info: Vec<String> = infos.iter().map(|c| {
                     format!("{} (since {})", c.agent_id, c.claimed_at)
                 }).collect();
+                self.audit("cynic_coord_claim", &p.agent_id, &serde_json::json!({
+                    "target": p.target, "claim_type": claim_type,
+                    "result": "conflict", "held_by": conflict_info,
+                })).await;
                 Ok(CallToolResult::success(vec![
                     Content::text(format!("CONFLICT: '{}' already claimed by: {}. Coordinate before proceeding.",
                         p.target, conflict_info.join(", ")))
