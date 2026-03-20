@@ -51,14 +51,14 @@ struct RemediationFile {
 
 /// Load remediation config from a TOML file.
 ///
-/// Returns an empty map (with an `eprintln!` warning) if the file is missing
+/// Returns an empty map (with a `klog!` warning) if the file is missing
 /// or cannot be parsed — callers should treat the empty map as "no remediation
 /// configured" rather than a fatal error.
 pub fn load_remediation(path: &Path) -> HashMap<String, DogRemediation> {
     let raw = match std::fs::read_to_string(path) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!(
+            klog!(
                 "[Remediation] Config not found or unreadable at {}: {e}",
                 path.display()
             );
@@ -69,7 +69,7 @@ pub fn load_remediation(path: &Path) -> HashMap<String, DogRemediation> {
     match toml::from_str::<RemediationFile>(&raw) {
         Ok(f) => f.dog,
         Err(e) => {
-            eprintln!(
+            klog!(
                 "[Remediation] Failed to parse config at {}: {e}",
                 path.display()
             );
@@ -146,7 +146,7 @@ impl RecoveryTracker {
         state.last_attempt = Some(Instant::now());
         if state.attempts >= max_retries {
             state.exhausted = true;
-            eprintln!(
+            klog!(
                 "[Remediation] Dog '{}': max retries ({}) reached — giving up",
                 dog_id, max_retries
             );
@@ -178,8 +178,10 @@ pub fn ssh_restart(node: &str, command: &str) -> Result<String, String> {
     let output = Command::new("ssh")
         .args([
             "-o", "ConnectTimeout=5",
+            "-o", "ServerAliveInterval=5",
+            "-o", "ServerAliveCountMax=2",
             "-o", "BatchMode=yes",
-            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "StrictHostKeyChecking=accept-new", // Acceptable in Tailscale mesh (nodes auth'd by WireGuard)
             node,
             command,
         ])

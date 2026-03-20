@@ -22,7 +22,7 @@ pub struct DogProbeConfig {
 
 /// GET the health URL, returning true if the response is a 2xx status.
 /// Times out after 5 seconds.
-pub async fn probe_dog(client: &Client, config: &DogProbeConfig) -> bool {
+pub(crate) async fn probe_dog(client: &Client, config: &DogProbeConfig) -> bool {
     let timeout = Duration::from_secs(5);
     match tokio::time::timeout(timeout, client.get(&config.health_url).send()).await {
         Ok(Ok(resp)) => resp.status().is_success(),
@@ -42,7 +42,7 @@ pub fn spawn_health_loop(
         let client = Client::builder()
             .timeout(Duration::from_secs(5))
             .build()
-            .unwrap_or_default();
+            .expect("Failed to build health probe HTTP client");
 
         let mut ticker = interval(PROBE_INTERVAL);
         ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -63,7 +63,7 @@ pub fn spawn_health_loop(
                 } else {
                     cb.record_failure();
                     failure_count += 1;
-                    eprintln!(
+                    klog!(
                         "[health_loop] Dog '{}' probe failed ({})",
                         cb.dog_id(),
                         configs[i].health_url
@@ -72,7 +72,7 @@ pub fn spawn_health_loop(
             }
 
             if failure_count > 0 {
-                eprintln!(
+                klog!(
                     "[health_loop] probe tick: {}/{} dogs healthy",
                     results.len() - failure_count,
                     results.len()

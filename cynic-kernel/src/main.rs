@@ -181,12 +181,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for cb in &rem_breakers {
                     let dog_id = cb.dog_id();
                     if let Some(open_duration) = cb.opened_since() {
-                        // Only remediate after 90s of being open
-                        if open_duration > std::time::Duration::from_secs(90)
+                        // Remediation threshold: wait before attempting restart
+                        const REMEDIATION_THRESHOLD: std::time::Duration = std::time::Duration::from_secs(90);
+                        if open_duration > REMEDIATION_THRESHOLD
                             && let Some(config) = rem_configs.get(dog_id)
                             && tracker.should_restart(dog_id, config)
                         {
-                            eprintln!(
+                            klog!(
                                 "[Remediation] Dog '{}' open for {:.0}s, attempting restart on {}",
                                 dog_id, open_duration.as_secs_f64(), config.node
                             );
@@ -199,13 +200,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }),
                             ).await {
                                 Ok(Ok(Ok(output))) => {
-                                    eprintln!("[Remediation] Dog '{}' restart initiated: {}", dog_id, output.trim());
+                                    klog!("[Remediation] Dog '{}' restart initiated: {}", dog_id, output.trim());
                                 }
                                 Ok(Ok(Err(e))) => {
-                                    eprintln!("[Remediation] Dog '{}' restart failed: {}", dog_id, e);
+                                    klog!("[Remediation] Dog '{}' restart failed: {}", dog_id, e);
                                 }
                                 _ => {
-                                    eprintln!("[Remediation] Dog '{}' restart timed out or panicked", dog_id);
+                                    klog!("[Remediation] Dog '{}' restart timed out or panicked", dog_id);
                                 }
                             }
                             tracker.record_attempt(dog_id, config.max_retries);
