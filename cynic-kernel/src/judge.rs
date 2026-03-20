@@ -42,10 +42,21 @@ impl Judge {
 
     /// Return health per Dog: circuit breaker state + backend status.
     /// Combines CB (execution protection) with Dog::health() (backend observation).
-    /// Parallel — all health checks run concurrently (prevents 5×2s = 10s sequential).
+    /// Parallel — all health checks run concurrently with 3s timeout per probe.
+    /// The /health endpoint must respond fast — unreachable backends should not block it.
     pub async fn dog_health(&self) -> Vec<(String, String, u32)> {
         let health_futures: Vec<_> = self.dogs.iter()
-            .map(|dog| async move { (dog.id(), dog.health().await) })
+            .map(|dog| async move {
+                let result = tokio::time::timeout(
+                    std::time::Duration::from_secs(3),
+                    dog.health(),
+                ).await;
+                let status = match result {
+                    Ok(s) => s,
+                    Err(_) => crate::domain::inference::BackendStatus::Critical,
+                };
+                (dog.id(), status)
+            })
             .collect();
         let health_results = futures_util::future::join_all(health_futures).await;
 
