@@ -101,6 +101,26 @@ impl CircuitBreaker {
     pub fn consecutive_failures(&self) -> u32 {
         self.inner.lock().unwrap_or_else(|e| e.into_inner()).consecutive_failures
     }
+
+    /// Is the circuit currently open (blocking requests)?
+    pub fn is_open(&self) -> bool {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        matches!(inner.state, CircuitState::Open { .. })
+    }
+
+    /// How long has the circuit been open? None if closed or half-open.
+    pub fn opened_since(&self) -> Option<Duration> {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        match inner.state {
+            CircuitState::Open { since } => Some(since.elapsed()),
+            _ => None,
+        }
+    }
+
+    /// Dog ID for logging/matching
+    pub fn dog_id(&self) -> &str {
+        &self.dog_id
+    }
 }
 
 #[cfg(test)]
@@ -152,5 +172,37 @@ mod tests {
         cb.inner.lock().unwrap().state = CircuitState::HalfOpen;
         cb.record_failure();
         assert_eq!(cb.state(), "open");
+    }
+
+    #[test]
+    fn is_open_returns_true_when_open() {
+        let cb = CircuitBreaker::new("test".into());
+        for _ in 0..FAILURE_THRESHOLD {
+            cb.record_failure();
+        }
+        assert!(cb.is_open());
+    }
+
+    #[test]
+    fn is_open_returns_false_when_closed() {
+        let cb = CircuitBreaker::new("test".into());
+        assert!(!cb.is_open());
+    }
+
+    #[test]
+    fn opened_since_returns_duration_when_open() {
+        let cb = CircuitBreaker::new("test".into());
+        for _ in 0..FAILURE_THRESHOLD {
+            cb.record_failure();
+        }
+        let d = cb.opened_since();
+        assert!(d.is_some());
+        assert!(d.unwrap() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn opened_since_returns_none_when_closed() {
+        let cb = CircuitBreaker::new("test".into());
+        assert!(cb.opened_since().is_none());
     }
 }
