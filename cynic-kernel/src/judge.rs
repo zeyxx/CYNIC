@@ -6,11 +6,11 @@ use crate::domain::dog::{*, estimate_tokens};
 use crate::infra::circuit_breaker::CircuitBreaker;
 use chrono::Utc;
 use uuid::Uuid;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 pub struct Judge {
     dogs: Vec<Box<dyn Dog>>,
-    breakers: Vec<CircuitBreaker>,
+    breakers: Vec<Arc<CircuitBreaker>>,
     /// Hash of the last verdict — forms the chain. Protected by Mutex for concurrent access.
     last_hash: Mutex<Option<String>>,
 }
@@ -18,7 +18,7 @@ pub struct Judge {
 impl Judge {
     pub fn new(dogs: Vec<Box<dyn Dog>>) -> Self {
         let breakers = dogs.iter()
-            .map(|d| CircuitBreaker::new(d.id().to_string()))
+            .map(|d| Arc::new(CircuitBreaker::new(d.id().to_string())))
             .collect();
         Self { dogs, breakers, last_hash: Mutex::new(None) }
     }
@@ -33,6 +33,11 @@ impl Judge {
     /// Return list of available Dog IDs.
     pub fn dog_ids(&self) -> Vec<String> {
         self.dogs.iter().map(|d| d.id().to_string()).collect()
+    }
+
+    /// Shared references to circuit breakers (for health loop + remediation).
+    pub fn breakers(&self) -> &[Arc<CircuitBreaker>] {
+        &self.breakers
     }
 
     /// Return health per Dog: circuit breaker state + backend status.

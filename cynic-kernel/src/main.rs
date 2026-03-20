@@ -89,6 +89,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     klog!("[Ring 2] {} Dog(s) active", dogs.len());
 
+    // ─── RING 2: Health Loop + Remediation ──────────────────────
+    let remediation_path = dirs::config_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("cynic")
+        .join("remediation.toml");
+    let remediation_configs = infra::remediation::load_remediation(&remediation_path);
+    if !remediation_configs.is_empty() {
+        klog!("[Ring 2] Remediation: {} Dogs configured for auto-restart", remediation_configs.len());
+    }
+
     // ─── RING 2: Embedding backend (sovereign, graceful degrade) ─
     let embed_backend = backends::embedding::EmbeddingBackend::from_env();
     let embed_health = embed_backend.health().await;
@@ -112,6 +122,100 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             judge.seed_chain(chain_hash.clone());
             klog!("[Ring 2] Integrity chain seeded: {}…", &hash[..16.min(hash.len())]);
         }
+    }
+
+    // ─── RING 2: Spawn health loop ────────────────────────────
+    {
+        let probe_configs: Vec<infra::health_loop::DogProbeConfig> = judge
+            .dog_ids()
+            .iter()
+            .filter(|id| *id != "deterministic-dog") // in-process, always healthy
+            .filter_map(|id| {
+                // Use remediation.toml health_url if available; no URL = no probe
+                let health_url = remediation_configs
+                    .get(id.as_str())
+                    .map(|r| r.health_url.clone());
+                health_url.map(|url| infra::health_loop::DogProbeConfig {
+                    dog_id: id.clone(),
+                    health_url: url,
+                })
+            })
+            .collect();
+
+        if !probe_configs.is_empty() {
+            let breaker_map: std::collections::HashMap<String, Arc<infra::circuit_breaker::CircuitBreaker>> = judge
+                .breakers()
+                .iter()
+                .map(|cb| (cb.dog_id().to_string(), Arc::clone(cb)))
+                .collect();
+
+            let probe_breakers: Vec<Arc<infra::circuit_breaker::CircuitBreaker>> = probe_configs
+                .iter()
+                .filter_map(|pc| breaker_map.get(&pc.dog_id).cloned())
+                .collect();
+
+            infra::health_loop::spawn_health_loop(probe_configs, probe_breakers);
+            klog!("[Ring 2] Health loop started (every {}s)", infra::circuit_breaker::PROBE_INTERVAL.as_secs());
+        }
+    }
+
+    // ─── RING 2: Spawn remediation watcher ───────────────────
+    if !remediation_configs.is_empty() {
+        let rem_configs = remediation_configs.clone();
+        let rem_breakers: Vec<Arc<infra::circuit_breaker::CircuitBreaker>> = judge
+            .breakers()
+            .iter()
+            .map(Arc::clone)
+            .collect();
+
+        tokio::spawn(async move {
+            let tracker = infra::remediation::RecoveryTracker::new();
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            interval.tick().await; // skip first tick
+
+            loop {
+                interval.tick().await;
+                for cb in &rem_breakers {
+                    let dog_id = cb.dog_id();
+                    if let Some(open_duration) = cb.opened_since() {
+                        // Only remediate after 90s of being open
+                        if open_duration > std::time::Duration::from_secs(90)
+                            && let Some(config) = rem_configs.get(dog_id)
+                            && tracker.should_restart(dog_id, config)
+                        {
+                            eprintln!(
+                                "[Remediation] Dog '{}' open for {:.0}s, attempting restart on {}",
+                                dog_id, open_duration.as_secs_f64(), config.node
+                            );
+                            let node = config.node.clone();
+                            let cmd = config.restart_command.clone();
+                            match tokio::time::timeout(
+                                std::time::Duration::from_secs(15),
+                                tokio::task::spawn_blocking(move || {
+                                    infra::remediation::ssh_restart(&node, &cmd)
+                                }),
+                            ).await {
+                                Ok(Ok(Ok(output))) => {
+                                    eprintln!("[Remediation] Dog '{}' restart initiated: {}", dog_id, output.trim());
+                                }
+                                Ok(Ok(Err(e))) => {
+                                    eprintln!("[Remediation] Dog '{}' restart failed: {}", dog_id, e);
+                                }
+                                _ => {
+                                    eprintln!("[Remediation] Dog '{}' restart timed out or panicked", dog_id);
+                                }
+                            }
+                            tracker.record_attempt(dog_id, config.max_retries);
+                        }
+                    } else {
+                        // Dog is healthy — reset recovery tracker
+                        tracker.reset(dog_id);
+                    }
+                }
+            }
+        });
+        klog!("[Ring 2] Remediation watcher started (90s threshold, {} Dogs)", remediation_configs.len());
     }
 
     // ─── RING 3: REST API (for React/external clients) ────────
@@ -153,35 +257,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
-    // ─── RING 3: MCP Server (for AI agents via stdio) ────────
-    if mcp_mode {
-        use rmcp::ServiceExt;
-        eprintln!("[Ring 3] MCP mode — serving over stdio");
-        let mcp_server = api::mcp::CynicMcp::new(
-            Arc::clone(&judge),
-            Arc::clone(&storage_port),
-            Arc::clone(&coord),
-            Arc::clone(&usage_tracker),
-        );
-        let transport = rmcp::transport::io::stdio();
-        let server = mcp_server.serve(transport).await
-            .map_err(|e| format!("MCP server error: {}", e))?;
-        let _ = server.waiting().await; // ok: MCP server lifecycle
-        return Ok(());
-    }
+    // ─── Background tasks (universal — run in BOTH MCP and REST modes) ──
+    // These MUST be spawned before the MCP/REST branch.
 
-    let rest_addr = std::env::var("CYNIC_REST_ADDR")
-        .unwrap_or_else(|_| "127.0.0.1:3030".to_string());
-    klog!("[Ring 3] REST API on http://{}", rest_addr);
-
-    // ─── Coordination expiry + rate limiter eviction (background, every 60s) ──
+    // Coordination expiry (every 60s)
     {
         let expiry_coord = Arc::clone(&coord);
-        let evict_state = Arc::clone(&rest_state);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            interval.tick().await; // Skip first immediate tick
+            interval.tick().await;
             loop {
                 interval.tick().await;
                 match tokio::time::timeout(
@@ -192,27 +277,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Err(_) => eprintln!("[coord] expire_stale timed out (10s)"),
                     _ => {}
                 }
-                evict_state.rate_limiter.evict_stale().await;
-                evict_state.judge_limiter.evict_stale().await;
             }
         });
         klog!("[Ring 2] Coordination expiry task started (every 60s)");
     }
 
-    // ─── Usage flush (background, every 60s) ──────────────────
+    // Usage flush (every 60s)
     if let Some(db) = &raw_db {
         let flush_storage = Arc::clone(&storage_port);
-        let flush_raw = Arc::clone(db); // raw access for TTL cleanup (infrastructure, not domain)
+        let flush_raw = Arc::clone(db);
         let flush_usage = Arc::clone(&usage_tracker);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            interval.tick().await; // Skip first immediate tick
+            interval.tick().await;
             let mut tick_count: u64 = 0;
             loop {
                 interval.tick().await;
                 tick_count += 1;
-                // Snapshot + flush via StoragePort (no SQL in domain)
                 let snapshot = {
                     let usage = flush_usage.lock().await;
                     usage.snapshot()
@@ -230,11 +312,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Err(_) => eprintln!("[flush] DB write timed out (10s), will retry next tick"),
                     }
                 }
-                // Periodic cleanup every hour (60 ticks × 60s)
-                // Simple date-based DELETEs — no subqueries, no transaction timeouts.
-                // Previous subquery (SELECT ... LIMIT 1 START 10000) caused 10s timeouts
-                // and transaction drops in SurrealDB, which cascaded into 401 errors.
-                // Periodic TTL cleanup every hour — infrastructure concern, uses raw DB
                 if tick_count.is_multiple_of(60) {
                     let _ = flush_raw.query_one( // ok: TTL cleanup, best-effort
                         "DELETE observation WHERE created_at < time::now() - 30d;"
@@ -248,17 +325,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] Usage flush task started (every 60s, obs cleanup every 1h)");
     }
 
-    // ─── CCM Workflow Aggregator (periodic, every 5 min) ──────
+    // CCM Workflow Aggregator (every 5 min)
     {
         let agg_storage = Arc::clone(&storage_port);
         let interval_secs: u64 = std::env::var("CYNIC_AGGREGATE_INTERVAL")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(300); // 5 minutes default
+            .unwrap_or(300);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_secs));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            interval.tick().await; // Skip first immediate tick
+            interval.tick().await;
             loop {
                 interval.tick().await;
                 match tokio::time::timeout(
@@ -271,6 +348,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
         klog!("[Ring 2] CCM workflow aggregator started (every {}s)", interval_secs);
+    }
+
+    // ─── RING 3: MCP Server (for AI agents via stdio) ────────
+    if mcp_mode {
+        use rmcp::ServiceExt;
+        eprintln!("[Ring 3] MCP mode — serving over stdio (background tasks active)");
+        let mcp_server = api::mcp::CynicMcp::new(
+            Arc::clone(&judge),
+            Arc::clone(&storage_port),
+            Arc::clone(&coord),
+            Arc::clone(&usage_tracker),
+        );
+        let transport = rmcp::transport::io::stdio();
+        let server = mcp_server.serve(transport).await
+            .map_err(|e| format!("MCP server error: {}", e))?;
+        let _ = server.waiting().await; // ok: MCP server lifecycle
+
+        // Flush usage on MCP shutdown
+        if raw_db.is_some() {
+            let snapshot = {
+                let usage = usage_tracker.lock().await;
+                usage.snapshot()
+            };
+            if !snapshot.is_empty() {
+                match storage_port.flush_usage(&snapshot).await {
+                    Ok(_) => eprintln!("[SHUTDOWN] MCP usage flushed"),
+                    Err(e) => eprintln!("[SHUTDOWN] MCP usage flush failed: {}", e),
+                }
+            }
+        }
+        return Ok(());
+    }
+
+    // ─── RING 3: REST Server ─────────────────────────────────
+    let rest_addr = std::env::var("CYNIC_REST_ADDR")
+        .unwrap_or_else(|_| "127.0.0.1:3030".to_string());
+    klog!("[Ring 3] REST API on http://{}", rest_addr);
+
+    // Rate limiter eviction (REST-only, every 60s)
+    {
+        let evict_state = Arc::clone(&rest_state);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            interval.tick().await;
+            loop {
+                interval.tick().await;
+                evict_state.rate_limiter.evict_stale().await;
+                evict_state.judge_limiter.evict_stale().await;
+            }
+        });
     }
 
     let rest_listener = tokio::net::TcpListener::bind(&rest_addr).await?;
