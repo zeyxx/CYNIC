@@ -140,6 +140,35 @@ restore:
 	systemctl --user start cynic-kernel
 	@echo "✓ DB restored from $(F)"
 
+.PHONY: test-restore
+test-restore: ## Verify backup restore works against a test DB (non-destructive)
+	@$(source_env)
+	@echo "══════════════════════════════════════════"
+	@echo "  CYNIC test-restore — backup verification"
+	@echo "══════════════════════════════════════════"
+	@LATEST=$$(ls -t ~/.surrealdb/backups/*.surql.gz ~/.surrealdb/backups/*.surql 2>/dev/null | head -1); \
+	if [ -z "$$LATEST" ]; then echo "✗ No backup files found"; exit 1; fi; \
+	echo "▸ Testing restore of: $$LATEST"; \
+	IMPORT_FILE="$$LATEST"; \
+	if echo "$$LATEST" | grep -q '\.gz$$'; then \
+		IMPORT_FILE=$$(mktemp /tmp/cynic-restore-test-XXXXXX.surql); \
+		gunzip -c "$$LATEST" > "$$IMPORT_FILE"; \
+	fi; \
+	surreal import --endpoint http://localhost:8000 \
+		--namespace cynic_test --database restore_test \
+		--username root --password "$${SURREALDB_PASS}" \
+		"$$IMPORT_FILE" 2>&1 | tail -3; \
+	VCOUNT=$$(echo "USE NS cynic_test; USE DB restore_test; SELECT count() FROM verdict GROUP ALL;" | \
+		surreal sql --endpoint http://localhost:8000 --username root --password "$${SURREALDB_PASS}" --hide-welcome 2>/dev/null | grep -oP '\d+' | head -1); \
+	CCOUNT=$$(echo "USE NS cynic_test; USE DB restore_test; SELECT count() FROM crystal GROUP ALL;" | \
+		surreal sql --endpoint http://localhost:8000 --username root --password "$${SURREALDB_PASS}" --hide-welcome 2>/dev/null | grep -oP '\d+' | head -1); \
+	echo "▸ Verdicts: $${VCOUNT:-0}  Crystals: $${CCOUNT:-0}"; \
+	echo "USE NS cynic_test; REMOVE DATABASE restore_test;" | \
+		surreal sql --endpoint http://localhost:8000 --username root --password "$${SURREALDB_PASS}" --hide-welcome 2>/dev/null; \
+	if echo "$$LATEST" | grep -q '\.gz$$'; then rm -f "$$IMPORT_FILE"; fi; \
+	if [ "$${VCOUNT:-0}" -gt 0 ]; then echo "✓ Restore verified ($$VCOUNT verdicts, $${CCOUNT:-0} crystals)"; \
+	else echo "⚠ Restore completed but 0 verdicts found — check backup contents"; fi
+
 # ── Clean (fix SIGSEGV/LLVM crashes) ──────────────────────────
 .PHONY: clean
 clean:

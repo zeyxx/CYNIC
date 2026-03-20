@@ -37,6 +37,13 @@ pub async fn judge_handler(
             error: format!("context exceeds {} chars (got {})", MAX_CONTEXT_LEN, ctx.len()),
         })));
     }
+    if let Some(ref domain) = req.domain
+        && domain.len() > 64
+    {
+        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
+            error: "domain exceeds 64 chars".into(),
+        })));
+    }
 
     // ── SEMANTIC CACHE: embed stimulus, check for similar cached verdict ──
     // If the embedding server is available and a near-identical stimulus was

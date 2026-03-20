@@ -187,6 +187,11 @@ impl CynicMcp {
         {
             return Err(McpError::invalid_params("context exceeds 2000 chars", None));
         }
+        if let Some(ref domain) = p.domain
+            && domain.len() > 64
+        {
+            return Err(McpError::invalid_params("domain exceeds 64 chars", None));
+        }
 
         // CCM feedback: enrich context with crystallized wisdom
         let domain_hint = p.domain.as_deref().unwrap_or("general");

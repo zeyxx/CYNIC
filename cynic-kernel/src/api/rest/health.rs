@@ -62,13 +62,12 @@ pub async fn health_handler(
         "sovereign"
     };
 
-    // Public: minimal info + dog_count (not a secret, needed for drift detection)
+    // Public: minimal info only — dog_count withheld to prevent attack surface mapping
     if !authenticated {
         return Json(serde_json::json!({
             "status": status,
             "version": env!("CYNIC_VERSION"),
             "phi_max": PHI_INV,
-            "dog_count": dog_count,
         }));
     }
 

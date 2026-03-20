@@ -56,11 +56,11 @@ async fn health_no_auth_returns_public_info() {
 
     assert_eq!(resp.status(), 200);
     let v = body_json(resp.into_body()).await;
-    // Public: has status, version, phi_max, dog_count — but NOT dogs array
+    // Public: has status, version, phi_max — but NOT dog_count or dogs array (attack surface)
     assert!(v["status"].is_string());
     assert!(v["version"].is_string());
     assert!(v["phi_max"].is_number());
-    assert!(v["dog_count"].is_number());
+    assert!(v.get("dog_count").is_none(), "Public health should not expose dog_count");
     assert!(v.get("dogs").is_none(), "Public health should not expose dog details");
 }
 
