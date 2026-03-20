@@ -60,6 +60,10 @@ pub struct InferParams {
     pub prompt: String,
     /// Agent identity for audit trail
     pub agent_id: Option<String>,
+    /// Temperature (0.0-1.0, default 0.7)
+    pub temperature: Option<f64>,
+    /// Max tokens (default 2048, max 8192)
+    pub max_tokens: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -127,6 +131,8 @@ pub struct CynicMcp {
     storage: Arc<dyn StoragePort>,
     coord: Arc<dyn CoordPort>,
     usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
+    embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
+    verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
     /// Shared HTTP client for sovereign inference (connection pooling).
     http: reqwest::Client,
     tool_router: ToolRouter<Self>,
@@ -139,11 +145,14 @@ impl CynicMcp {
         storage: Arc<dyn StoragePort>,
         coord: Arc<dyn CoordPort>,
         usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
+        embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
     ) -> Self {
         Self {
             judge,
             storage,
             coord,
+            embedding,
+            verdict_cache: Arc::new(crate::domain::verdict_cache::VerdictCache::new()),
             http: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(30))
                 .build()
@@ -194,6 +203,26 @@ impl CynicMcp {
             Err(_) => p.context,
         };
 
+        // Semantic verdict cache — skip full inference on near-identical stimuli
+        let stimulus_embedding = self.embedding.embed(&p.content).await.ok();
+        if let Some(ref emb) = stimulus_embedding
+            && let crate::domain::verdict_cache::CacheLookup::Hit { verdict: cached, similarity } = self.verdict_cache.lookup(emb)
+        {
+                self.touch(&agent_id).await;
+                let response = serde_json::json!({
+                    "verdict": format!("{:?}", cached.kind),
+                    "q_score": cached.q_score,
+                    "reasoning": cached.reasoning,
+                    "dogs_used": cached.dog_id,
+                    "stimulus_summary": cached.stimulus_summary,
+                    "cache_hit": similarity,
+                    "source": "verdict_cache",
+                });
+                return Ok(CallToolResult::success(vec![
+                    Content::text(serde_json::to_string_pretty(&response).unwrap_or_default())
+                ]));
+        }
+
         let stimulus = Stimulus {
             content: p.content,
             context: enriched_context,
@@ -239,6 +268,11 @@ impl CynicMcp {
             ).await {
                 eprintln!("[MCP/CCM] Warning: failed to observe crystal: {}", e);
             }
+        }
+
+        // Store in verdict cache for future near-identical stimuli
+        if let Some(emb) = stimulus_embedding {
+            self.verdict_cache.store(emb, verdict.clone());
         }
 
         // Format response
@@ -386,9 +420,22 @@ impl CynicMcp {
         let p = params.0;
         let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
 
+        // Input validation
+        if p.prompt.len() > 8_000 {
+            return Err(McpError::invalid_params("prompt exceeds 8000 chars", None));
+        }
+        if let Some(ref sys) = p.system
+            && sys.len() > 4_000
+        {
+            return Err(McpError::invalid_params("system prompt exceeds 4000 chars", None));
+        }
+
         let sovereign_url = std::env::var("CYNIC_SOVEREIGN_URL")
             .unwrap_or_else(|_| "http://localhost:8080".to_string());
         let api_key = std::env::var("CYNIC_SOVEREIGN_KEY").unwrap_or_default();
+
+        let temperature = p.temperature.unwrap_or(0.7).clamp(0.0, 2.0);
+        let max_tokens = p.max_tokens.unwrap_or(2048).min(8192);
 
         let mut messages = vec![
             serde_json::json!({"role": "user", "content": p.prompt}),
@@ -400,8 +447,8 @@ impl CynicMcp {
         let request = serde_json::json!({
             "model": "local",
             "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 2048,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
         });
 
         let mut req = self.http.post(format!("{}/v1/chat/completions", sovereign_url))
@@ -677,7 +724,8 @@ mod tests {
         let storage = Arc::new(NullStorage) as Arc<dyn StoragePort>;
         let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
         let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
-        CynicMcp::new(judge, storage, coord, usage)
+        let embedding = Arc::new(crate::domain::embedding::NullEmbedding) as Arc<dyn crate::domain::embedding::EmbeddingPort>;
+        CynicMcp::new(judge, storage, coord, usage, embedding)
     }
 
     /// Extract text from the first Content element in a CallToolResult.
@@ -816,7 +864,8 @@ mod tests {
         let storage = Arc::new(DownStorage) as Arc<dyn StoragePort>;
         let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
         let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
-        let mcp = CynicMcp::new(judge, storage, coord, usage);
+        let embedding = Arc::new(crate::domain::embedding::NullEmbedding) as Arc<dyn crate::domain::embedding::EmbeddingPort>;
+        let mcp = CynicMcp::new(judge, storage, coord, usage, embedding);
 
         let result = mcp.cynic_health().await.unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();

@@ -75,16 +75,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for cfg in backend_configs {
         let backend = Arc::new(backends::openai::OpenAiCompatBackend::new(cfg.clone()));
         let health = BackendPort::health(backend.as_ref()).await;
+        // Always load the Dog — health loop will recover it if unreachable.
+        // Skipping at boot prevents the health loop from ever probing it.
         match health {
             domain::inference::BackendStatus::Healthy | domain::inference::BackendStatus::Degraded { .. } => {
                 klog!("[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?})", cfg.name, cfg.model, health);
-                cost_rates.push((cfg.name.clone(), cfg.cost_input_per_mtok, cfg.cost_output_per_mtok));
-                dogs.push(Box::new(dogs::inference::InferenceDog::new(backend, cfg.name.clone(), cfg.context_size)));
             }
             _ => {
-                klog!("[Ring 2] WARNING: Backend '{}' unreachable, skipping", cfg.name);
+                klog!("[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?}) — health loop will recover", cfg.name, cfg.model, health);
             }
         }
+        cost_rates.push((cfg.name.clone(), cfg.cost_input_per_mtok, cfg.cost_output_per_mtok));
+        dogs.push(Box::new(dogs::inference::InferenceDog::new(backend, cfg.name.clone(), cfg.context_size)));
     }
 
     klog!("[Ring 2] {} Dog(s) active", dogs.len());
@@ -359,6 +361,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&storage_port),
             Arc::clone(&coord),
             Arc::clone(&usage_tracker),
+            Arc::clone(&embedding),
         );
         let transport = rmcp::transport::io::stdio();
         let server = mcp_server.serve(transport).await
