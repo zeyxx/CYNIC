@@ -37,7 +37,7 @@ pub async fn dogs_handler(
 pub async fn health_handler(
     State(state): State<Arc<AppState>>,
     request: Request,
-) -> Json<serde_json::Value> {
+) -> (StatusCode, Json<serde_json::Value>) {
     // Check if caller has valid auth — return full details only if authenticated.
     // Uses constant_time_eq to prevent timing oracle (same as auth_middleware).
     let authenticated = match &state.api_key {
@@ -54,21 +54,23 @@ pub async fn health_handler(
 
     let storage_ok = state.storage.ping().await.is_ok();
 
-    let status = if dog_count == 0 || !storage_ok {
-        "critical"
+    let (status, http_code) = if dog_count == 0 || !storage_ok {
+        ("critical", StatusCode::SERVICE_UNAVAILABLE) // 503
     } else if dog_count == 1 {
-        "degraded"
+        ("degraded", StatusCode::SERVICE_UNAVAILABLE) // 503
     } else {
-        "sovereign"
+        ("sovereign", StatusCode::OK) // 200
     };
 
     // Public: minimal info only — dog_count withheld to prevent attack surface mapping
+    // HTTP status code tells the story: 200 = healthy, 503 = degraded/critical.
+    // Any monitoring tool can check without parsing JSON: curl -sf URL || alert
     if !authenticated {
-        return Json(serde_json::json!({
+        return (http_code, Json(serde_json::json!({
             "status": status,
             "version": env!("CYNIC_VERSION"),
             "phi_max": PHI_INV,
-        }));
+        })));
     }
 
     // Authenticated: full details
@@ -79,7 +81,7 @@ pub async fn health_handler(
 
     let usage = state.usage.lock().await;
 
-    Json(serde_json::json!({
+    (http_code, Json(serde_json::json!({
         "status": status,
         "version": env!("CYNIC_VERSION"),
         "phi_max": PHI_INV,
@@ -93,7 +95,7 @@ pub async fn health_handler(
         "total_tokens": usage.total_tokens(),
         "estimated_cost_usd": usage.estimated_cost_usd(),
         "uptime_seconds": usage.uptime_seconds(),
-    }))
+    })))
 }
 
 /// GET /agents — show active agent sessions and their claims (requires auth)
