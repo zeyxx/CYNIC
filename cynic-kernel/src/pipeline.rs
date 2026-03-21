@@ -5,7 +5,7 @@
 //! Handlers call this, then format the response for their transport.
 
 use crate::domain::ccm;
-use crate::domain::dog::{Stimulus, Verdict};
+use crate::domain::dog::{Stimulus, Verdict, PHI_INV};
 use crate::domain::embedding::{Embedding, EmbeddingPort};
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
@@ -131,8 +131,14 @@ async fn side_effects(
         let domain = stimulus.domain.as_deref().unwrap_or("general");
         let crystal_id = format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)));
         let now = chrono::Utc::now().to_rfc3339();
+        // Normalize Q-Score to [0, 1] range for crystal confidence.
+        // Q-Scores are φ-bounded (max ≈ 0.618), so raw scores can never
+        // reach the crystallization threshold (0.618). Dividing by φ⁻¹
+        // maps the score range correctly: a consistently good judgment
+        // (Q ≈ 0.57) becomes confidence ≈ 0.92, enabling crystallization.
+        let crystal_confidence = (verdict.q_score.total / PHI_INV).min(1.0);
         if let Err(e) = storage.observe_crystal(
-            &crystal_id, &verdict.stimulus_summary, domain, verdict.q_score.total, &now
+            &crystal_id, &verdict.stimulus_summary, domain, crystal_confidence, &now
         ).await {
             eprintln!("[pipeline] Warning: failed to observe crystal: {}", e);
         }
