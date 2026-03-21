@@ -6,11 +6,16 @@
 //! This is how CYNIC learns without training — through phi-bounded consensus.
 
 use serde::{Deserialize, Serialize};
+
+#[cfg(test)]
 use crate::domain::dog::{PHI_INV, PHI_INV2};
 
 /// Fibonacci F(8) = 21 — minimum observations before crystallization.
+/// Production thresholds are in atomic SQL (storage/surreal.rs::observe_crystal).
+#[cfg(test)]
 pub const MIN_CRYSTALLIZATION_CYCLES: u32 = 21;
 /// Fibonacci F(13) = 233 — canonical status (deeply crystallized).
+#[cfg(test)]
 pub const CANONICAL_CYCLES: u32 = 233;
 
 // ── CRYSTAL ─────────────────────────────────────────────────
@@ -52,7 +57,8 @@ pub enum CrystalState {
 // ── CRYSTALLIZATION ENGINE (pure domain logic) ──────────────
 
 /// Observe a new Q-Score for a pattern. Returns the updated crystal state.
-/// This is the core CCM algorithm — stateless, pure function.
+/// Pure domain logic — used in tests. Production uses atomic SQL.
+#[cfg(test)]
 pub fn observe(crystal: &Crystal, new_score: f64) -> CrystalState {
     let next_obs = crystal.observations + 1;
     let next_confidence = running_mean(crystal.confidence, crystal.observations, new_score);
@@ -61,9 +67,12 @@ pub fn observe(crystal: &Crystal, new_score: f64) -> CrystalState {
 }
 
 /// Floating-point tolerance for phi-threshold comparisons.
+#[cfg(test)]
 const EPSILON: f64 = 1e-10;
 
 /// Classify a crystal based on its confidence and observation count.
+/// Test-only — production state classification is in atomic SQL (observe_crystal).
+#[cfg(test)]
 fn classify(confidence: f64, observations: u32) -> CrystalState {
     if confidence < PHI_INV2 - EPSILON {
         if observations > MIN_CRYSTALLIZATION_CYCLES {
@@ -82,7 +91,9 @@ fn classify(confidence: f64, observations: u32) -> CrystalState {
 }
 
 /// Update a crystal with a new observation. Returns the new crystal.
-/// Pure function — caller is responsible for persistence.
+/// Pure function — used in tests to verify crystallization logic.
+/// Production path uses atomic SQL UPDATE (no Rust-side state computation).
+#[cfg(test)]
 pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Crystal {
     let observations = crystal.observations + 1;
     let confidence = running_mean(crystal.confidence, crystal.observations, new_score);
@@ -101,6 +112,8 @@ pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Cry
 }
 
 /// Create a new crystal from a first observation.
+/// Test helper — production path creates crystals via atomic SQL UPSERT.
+#[cfg(test)]
 pub fn new_crystal(id: String, content: String, domain: String, initial_score: f64, timestamp: &str) -> Crystal {
     Crystal {
         id,
@@ -115,12 +128,31 @@ pub fn new_crystal(id: String, content: String, domain: String, initial_score: f
 }
 
 /// Incremental running mean: avoids storing all historical values.
+#[cfg(test)]
 fn running_mean(current_mean: f64, count: u32, new_value: f64) -> f64 {
     if count == 0 {
         return new_value;
     }
     let n = count as f64;
     (current_mean * n + new_value) / (n + 1.0)
+}
+
+// ── TEMPORAL DECAY ─────────────────────────────────────────
+/// Decay constant: 90 days. At 90 days, factor = e⁻¹ ≈ 0.368.
+const DECAY_DAYS: f64 = 90.0;
+
+/// Compute temporal relevance: `confidence × e^(-age_days / DECAY_DAYS)`.
+/// Pure function — caller provides `now` for testability.
+/// Returns 0.0 on unparseable timestamps (defensive, not silent).
+pub fn temporal_relevance(confidence: f64, updated_at: &str, now: &str) -> f64 {
+    let Ok(updated) = chrono::DateTime::parse_from_rfc3339(updated_at) else {
+        return 0.0;
+    };
+    let Ok(now_dt) = chrono::DateTime::parse_from_rfc3339(now) else {
+        return 0.0;
+    };
+    let age_days = (now_dt - updated).num_seconds().max(0) as f64 / 86400.0;
+    confidence * (-age_days / DECAY_DAYS).exp()
 }
 
 // ── CCM FEEDBACK — inject crystallized wisdom into stimulus context ──
@@ -138,9 +170,14 @@ pub fn format_crystal_context(crystals: &[Crystal], domain: &str, max_chars: usi
         return None;
     }
 
-    // Sort by confidence descending — highest-value crystals first (agentkeeper pattern)
+    // Sort by temporal relevance descending — recent high-confidence crystals first
+    let now = chrono::Utc::now().to_rfc3339();
     let mut sorted = mature;
-    sorted.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+    sorted.sort_by(|a, b| {
+        let ra = temporal_relevance(a.confidence, &a.updated_at, &now);
+        let rb = temporal_relevance(b.confidence, &b.updated_at, &now);
+        rb.partial_cmp(&ra).unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let mut lines = Vec::new();
     let mut total_chars = 0;
@@ -163,6 +200,64 @@ pub fn format_crystal_context(crystals: &[Crystal], domain: &str, max_chars: usi
     }
 
     Some(lines.join("\n"))
+}
+
+// ── SESSION SUMMARIES ──────────────────────────────────────
+/// A compressed narrative of what happened in a development session.
+/// Created by sovereign inference at session end (coord_release) or
+/// by the background summarization task.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionSummary {
+    pub session_id: String,
+    pub agent_id: String,
+    pub summary: String,
+    pub observations_count: u32,
+    pub created_at: String,
+}
+
+/// Format recent session summaries as context for Dog prompts.
+/// Separate from crystal context — own token budget.
+pub fn format_session_context(summaries: &[SessionSummary], max_chars: usize) -> Option<String> {
+    if summaries.is_empty() {
+        return None;
+    }
+
+    let mut lines = Vec::new();
+    let header = format!("[CYNIC Session Memory — {} recent sessions]", summaries.len());
+    let mut total_chars = header.len();
+    lines.push(header);
+
+    for s in summaries {
+        let line = format!("- [{}] ({}obs): {}", s.session_id.chars().take(12).collect::<String>(), s.observations_count, s.summary);
+        if total_chars + line.len() > max_chars {
+            break;
+        }
+        total_chars += line.len();
+        lines.push(line);
+    }
+
+    if lines.len() <= 1 {
+        return None; // Only header, no summaries fit
+    }
+
+    Some(lines.join("\n"))
+}
+
+/// Format raw observations into a summarization prompt for the sovereign LLM.
+/// Pure function — no I/O.
+pub fn format_summarization_prompt(observations: &[serde_json::Value]) -> String {
+    let mut items: Vec<String> = Vec::new();
+    for obs in observations.iter().take(30) {
+        let tool = obs["tool"].as_str().unwrap_or("?");
+        let target = obs["target"].as_str().unwrap_or("?");
+        let domain = obs["domain"].as_str().unwrap_or("?");
+        let status = obs["status"].as_str().unwrap_or("?");
+        items.push(format!("- {} {} (domain: {}, status: {})", tool, target, domain, status));
+    }
+    format!(
+        "Summarize this development session in 2-3 sentences. Focus on WHAT was done and WHY. Be specific about files and outcomes.\n\nObservations:\n{}",
+        items.join("\n")
+    )
 }
 
 // ── CONTENT HASHING ─────────────────────────────────────────
@@ -296,37 +391,28 @@ pub async fn aggregate_observations(
         .max(1); // Avoid division by zero
 
     let patterns = extract_patterns(&rows, total);
-    let now = chrono::Utc::now().to_rfc3339();
-    let mut count = 0u32;
-
-    for (id, content, score) in &patterns {
-        if let Err(e) = storage.observe_crystal(id, content, "workflow", *score, &now).await {
-            eprintln!("[CCM/aggregate] Warning: failed to observe crystal {}: {}", id, e);
-        } else {
-            count += 1;
-        }
-    }
 
     // Phase 2: Co-occurrence patterns (targets edited together in the same session)
     let session_rows = storage.query_session_targets(project, 500).await
         .unwrap_or_default();
     let cooccurrences = extract_cooccurrences(&session_rows);
-    for (id, content, score) in &cooccurrences {
-        if let Err(e) = storage.observe_crystal(id, content, "workflow", *score, &now).await {
-            eprintln!("[CCM/aggregate] Warning: failed to observe co-occurrence crystal {}: {}", id, e);
-        } else {
-            count += 1;
-        }
-    }
 
-    if count > 0 {
-        let cooccur_count = cooccurrences.len() as u32;
-        let freq_count = count.saturating_sub(cooccur_count);
-        klog!("[CCM/aggregate] {} patterns crystallized ({} freq + {} co-occur) from {} observations",
-            count, freq_count, cooccur_count, total);
-    }
+    // Workflow patterns are ANALYTICS, not epistemic memory.
+    // They are NOT fed into the crystal system because:
+    // 1. Frequency ratios (freq/total ≈ 0.01–0.30) can NEVER reach crystallization threshold (0.618)
+    // 2. Content is tool usage logs ("Read main.rs — 152x"), not knowledge
+    // 3. Mixing operational telemetry with judgment crystals degrades prompt injection quality
+    //    (confirmed by RAG contamination research — PoisonedRAG, USENIX Security 2025)
+    //
+    // Only the judge pipeline (pipeline.rs::side_effects) creates epistemic crystals,
+    // using phi-bounded Q-Scores from consensus evaluation.
+    let freq_count = patterns.len() as u32;
+    let cooccur_count = cooccurrences.len() as u32;
 
-    count
+    klog!("[CCM/aggregate] {} freq + {} co-occur patterns from {} observations (analytics only)",
+        freq_count, cooccur_count, total);
+
+    freq_count + cooccur_count
 }
 
 
@@ -520,6 +606,116 @@ mod tests {
         ];
         let patterns = extract_patterns(&rows, 10);
         assert!(patterns.is_empty());
+    }
+
+    #[test]
+    fn temporal_relevance_no_decay_for_today() {
+        let now = "2026-03-21T12:00:00Z";
+        let updated = "2026-03-21T12:00:00Z";
+        let rel = temporal_relevance(0.7, updated, now);
+        assert!((rel - 0.7).abs() < 0.01, "same-day crystal should have ~no decay, got {}", rel);
+    }
+
+    #[test]
+    fn temporal_relevance_decays_old_crystals() {
+        let now = "2026-03-21T12:00:00Z";
+        let updated_90d_ago = "2025-12-21T12:00:00Z"; // ~90 days ago
+        let rel = temporal_relevance(0.7, updated_90d_ago, now);
+        // At 90 days: factor = e^(-1) ≈ 0.368, so relevance ≈ 0.7 * 0.368 ≈ 0.258
+        assert!(rel < 0.3, "90-day-old crystal should decay significantly, got {}", rel);
+        assert!(rel > 0.2, "decay shouldn't be too extreme at 90 days, got {}", rel);
+    }
+
+    #[test]
+    fn temporal_relevance_recent_beats_old_high_confidence() {
+        let now = "2026-03-21T12:00:00Z";
+        let recent = temporal_relevance(0.65, "2026-03-20T12:00:00Z", now); // yesterday, conf 0.65
+        let old = temporal_relevance(0.70, "2025-09-21T12:00:00Z", now);    // 6 months ago, conf 0.70
+        assert!(recent > old, "recent crystal ({}) should outrank old one ({})", recent, old);
+    }
+
+    #[test]
+    fn temporal_relevance_bad_timestamp_returns_zero() {
+        let rel = temporal_relevance(0.7, "not-a-date", "2026-03-21T12:00:00Z");
+        assert!((rel - 0.0).abs() < 1e-10, "bad timestamp should return 0, got {}", rel);
+    }
+
+    #[test]
+    fn crystal_context_prefers_recent_over_old() {
+        // Two crystallized crystals: one recent (lower confidence), one old (higher confidence)
+        let mut recent = make_crystal(0.65, 25, CrystalState::Crystallized);
+        recent.updated_at = "2026-03-20T12:00:00Z".into();
+        recent.content = "RECENT_PATTERN".into();
+
+        let mut old = make_crystal(0.70, 30, CrystalState::Crystallized);
+        old.updated_at = "2025-06-01T00:00:00Z".into();
+        old.content = "OLD_PATTERN".into();
+        old.id = "test-2".into();
+
+        let crystals = vec![old, recent]; // old first in input
+        let ctx = format_crystal_context(&crystals, "test", 2000).unwrap();
+        // Recent should appear before old after decay-weighted sorting
+        let recent_pos = ctx.find("RECENT_PATTERN").expect("recent should be in output");
+        let old_pos = ctx.find("OLD_PATTERN").expect("old should be in output");
+        assert!(recent_pos < old_pos, "recent crystal should rank before old crystal");
+    }
+
+    fn make_session_summary(session_id: &str, obs_count: u32, summary: &str) -> SessionSummary {
+        SessionSummary {
+            session_id: session_id.into(),
+            agent_id: "test-agent".into(),
+            summary: summary.into(),
+            observations_count: obs_count,
+            created_at: "2026-03-21T12:00:00Z".into(),
+        }
+    }
+
+    #[test]
+    fn session_context_formats_summaries() {
+        let summaries = vec![
+            make_session_summary("sess-abc123", 15, "Fixed temporal decay in CCM crystals"),
+            make_session_summary("sess-def456", 8, "Added vector search to SurrealDB"),
+        ];
+        let ctx = format_session_context(&summaries, 2000).unwrap();
+        assert!(ctx.contains("Session Memory"));
+        assert!(ctx.contains("Fixed temporal decay"));
+        assert!(ctx.contains("vector search"));
+    }
+
+    #[test]
+    fn session_context_empty_when_no_summaries() {
+        assert!(format_session_context(&[], 2000).is_none());
+    }
+
+    #[test]
+    fn session_context_respects_budget() {
+        let summaries: Vec<SessionSummary> = (0..50).map(|i| {
+            make_session_summary(&format!("sess-{:03}", i), 10, &format!("Did something important in session number {}", i))
+        }).collect();
+        let ctx = format_session_context(&summaries, 200).unwrap();
+        assert!(ctx.len() <= 300); // Slack for header
+    }
+
+    #[test]
+    fn summarization_prompt_formats_observations() {
+        let obs = vec![
+            serde_json::json!({"tool": "Edit", "target": "ccm.rs", "domain": "code", "status": "ok"}),
+            serde_json::json!({"tool": "Bash", "target": "cargo test", "domain": "workflow", "status": "ok"}),
+        ];
+        let prompt = format_summarization_prompt(&obs);
+        assert!(prompt.contains("Summarize this development session"));
+        assert!(prompt.contains("Edit ccm.rs"));
+        assert!(prompt.contains("Bash cargo test"));
+    }
+
+    #[test]
+    fn summarization_prompt_caps_at_30_observations() {
+        let obs: Vec<serde_json::Value> = (0..50).map(|i| {
+            serde_json::json!({"tool": "Edit", "target": format!("file{}.rs", i), "domain": "code", "status": "ok"})
+        }).collect();
+        let prompt = format_summarization_prompt(&obs);
+        assert!(prompt.contains("file29.rs")); // 30th (index 29) should be included
+        assert!(!prompt.contains("file30.rs")); // 31st should be excluded
     }
 
     #[test]

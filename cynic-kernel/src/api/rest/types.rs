@@ -11,6 +11,7 @@ use crate::domain::embedding::EmbeddingPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
+use crate::infra::task_health::TaskHealth;
 use crate::judge::Judge;
 
 // ── SHARED STATE ───────────────────────────────────────────
@@ -21,7 +22,8 @@ pub struct AppState {
     pub coord: Arc<dyn CoordPort>,
     pub embedding: Arc<dyn EmbeddingPort>,
     pub usage: Arc<Mutex<DogUsageTracker>>,
-    pub verdict_cache: VerdictCache,
+    pub verdict_cache: Arc<VerdictCache>,
+    pub task_health: Arc<TaskHealth>,
     pub api_key: Option<String>,
     pub rate_limiter: PerIpRateLimiter,
     pub judge_limiter: PerIpRateLimiter,

@@ -22,11 +22,11 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use crate::domain::coord::{CoordPort, ClaimResult};
-use crate::domain::dog::{Stimulus, PHI_INV};
+use crate::domain::dog::PHI_INV;
+use crate::domain::inference::InferPort;
 use crate::judge::Judge;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
-use crate::domain::ccm;
 
 // ── MCP Tool Parameters ─────────────────────────────────────
 
@@ -133,8 +133,8 @@ pub struct CynicMcp {
     usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
     embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
     verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
-    /// Shared HTTP client for sovereign inference (connection pooling).
-    http: reqwest::Client,
+    /// Sovereign inference — routed through InferPort, not raw HTTP (Rule #17).
+    infer: Arc<dyn InferPort>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -146,17 +146,16 @@ impl CynicMcp {
         coord: Arc<dyn CoordPort>,
         usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
         embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
+        verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
+        infer: Arc<dyn InferPort>,
     ) -> Self {
         Self {
             judge,
             storage,
             coord,
             embedding,
-            verdict_cache: Arc::new(crate::domain::verdict_cache::VerdictCache::new()),
-            http: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(30))
-                .build()
-                .expect("Failed to build MCP HTTP client"),
+            verdict_cache,
+            infer,
             usage,
             tool_router: Self::tool_router(),
         }
@@ -193,26 +192,20 @@ impl CynicMcp {
             return Err(McpError::invalid_params("domain exceeds 64 chars", None));
         }
 
-        // CCM feedback: enrich context with crystallized wisdom
-        let domain_hint = p.domain.as_deref().unwrap_or("general");
-        let enriched_context = match self.storage.list_crystals(50).await {
-            Ok(crystals) => {
-                let crystal_ctx = crate::domain::ccm::format_crystal_context(&crystals, domain_hint, 800);
-                match (p.context, crystal_ctx) {
-                    (Some(ctx), Some(cc)) => Some(format!("{}\n\n{}", ctx, cc)),
-                    (Some(ctx), None) => Some(ctx),
-                    (None, Some(cc)) => Some(cc),
-                    (None, None) => None,
-                }
-            }
-            Err(_) => p.context,
+        // Shared pipeline: embed → cache → crystals → sessions → evaluate → store → CCM
+        let deps = crate::pipeline::PipelineDeps {
+            judge: &self.judge,
+            storage: self.storage.as_ref(),
+            embedding: self.embedding.as_ref(),
+            usage: &self.usage,
+            verdict_cache: &self.verdict_cache,
         };
+        let result = crate::pipeline::run(
+            p.content.clone(), p.context, p.domain.clone(), p.dogs.as_deref(), &deps,
+        ).await.map_err(|e| McpError::internal_error(format!("Judge error: {}", e), None))?;
 
-        // Semantic verdict cache — skip full inference on near-identical stimuli
-        let stimulus_embedding = self.embedding.embed(&p.content).await.ok();
-        if let Some(ref emb) = stimulus_embedding
-            && let crate::domain::verdict_cache::CacheLookup::Hit { verdict: cached, similarity } = self.verdict_cache.lookup(emb)
-        {
+        let verdict = match result {
+            crate::pipeline::PipelineResult::CacheHit { verdict: cached, similarity } => {
                 self.touch(&agent_id).await;
                 let response = serde_json::json!({
                     "verdict": format!("{:?}", cached.kind),
@@ -226,59 +219,17 @@ impl CynicMcp {
                 return Ok(CallToolResult::success(vec![
                     Content::text(serde_json::to_string_pretty(&response).unwrap_or_default())
                 ]));
-        }
-
-        let stimulus = Stimulus {
-            content: p.content,
-            context: enriched_context,
-            domain: p.domain,
+            }
+            crate::pipeline::PipelineResult::Evaluated { verdict } => verdict,
         };
 
-        let dogs_filter = p.dogs.as_deref();
-        let verdict = self.judge.evaluate(&stimulus, dogs_filter).await
-            .map_err(|e| McpError::internal_error(format!("Judge error: {}", e), None))?;
-
-        // Side-effect order matches REST: store → usage → audit
-        // Store verdict first (best effort — don't fail the response)
-        if let Err(e) = self.storage.store_verdict(&verdict).await {
-            eprintln!("[MCP] Warning: failed to store verdict: {}", e);
-        }
-
-        // Track usage (successes + failures)
-        {
-            let mut usage = self.usage.lock().await;
-            for ds in &verdict.dog_scores {
-                usage.record(&ds.dog_id, ds.prompt_tokens, ds.completion_tokens, ds.latency_ms);
-            }
-            for dog_id in &verdict.failed_dogs {
-                usage.record_failure(dog_id);
-            }
-        }
-
-        // Audit (best effort)
-        let _ = self.audit("cynic_judge", &agent_id, &serde_json::json!({ // ok: fire-and-forget
-            "stimulus": stimulus.content.chars().take(200).collect::<String>(),
+        // Audit (best effort — MCP-specific, not in shared pipeline)
+        let _ = self.audit("cynic_judge", &agent_id, &serde_json::json!({
+            "stimulus": p.content.chars().take(200).collect::<String>(),
             "dogs_used": verdict.dog_id,
             "verdict": format!("{:?}", verdict.kind),
             "q_score": verdict.q_score.total,
         })).await;
-
-        // CCM: observe crystal atomically (no read-modify-write race)
-        {
-            let crystal_id = format!("{:x}", ccm::content_hash(&format!("{}:{}", stimulus.domain.as_deref().unwrap_or("general"), verdict.stimulus_summary)));
-            let domain = stimulus.domain.clone().unwrap_or_else(|| "general".to_string());
-            let now = chrono::Utc::now().to_rfc3339();
-            if let Err(e) = self.storage.observe_crystal(
-                &crystal_id, &verdict.stimulus_summary, &domain, verdict.q_score.total, &now
-            ).await {
-                eprintln!("[MCP/CCM] Warning: failed to observe crystal: {}", e);
-            }
-        }
-
-        // Store in verdict cache for future near-identical stimuli
-        if let Some(emb) = stimulus_embedding {
-            self.verdict_cache.store(emb, verdict.clone());
-        }
 
         // Format response
         let response = serde_json::json!({
@@ -435,53 +386,30 @@ impl CynicMcp {
             return Err(McpError::invalid_params("system prompt exceeds 4000 chars", None));
         }
 
-        let sovereign_url = std::env::var("CYNIC_SOVEREIGN_URL")
-            .unwrap_or_else(|_| "http://localhost:8080".to_string());
-        let api_key = std::env::var("CYNIC_SOVEREIGN_KEY").unwrap_or_default();
-
         let temperature = p.temperature.unwrap_or(0.7).clamp(0.0, 2.0);
         let max_tokens = p.max_tokens.unwrap_or(2048).min(8192);
 
-        let mut messages = vec![
-            serde_json::json!({"role": "user", "content": p.prompt}),
-        ];
-        if let Some(sys) = &p.system {
-            messages.insert(0, serde_json::json!({"role": "system", "content": sys}));
-        }
-
-        let request = serde_json::json!({
-            "model": "local",
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        });
-
-        let mut req = self.http.post(format!("{}/v1/chat/completions", sovereign_url))
-            .json(&request);
-
-        if !api_key.is_empty() {
-            req = req.header("Authorization", format!("Bearer {}", api_key));
-        }
-
-        let resp = req.send().await
+        // Route through InferPort — single adapter for all sovereign LLM calls (Rule #17)
+        let request = crate::domain::inference::InferRequest {
+            system: p.system,
+            prompt: p.prompt.clone(),
+            temperature,
+            max_tokens,
+        };
+        let infer_resp = self.infer.infer(&request).await
             .map_err(|e| McpError::internal_error(format!("Inference error: {}", e), None))?;
-        let data: serde_json::Value = resp.json().await
-            .map_err(|e| McpError::internal_error(format!("Parse error: {}", e), None))?;
-
-        let text = data["choices"][0]["message"]["content"].as_str().unwrap_or("(no response)");
-        let usage = &data["usage"];
 
         let _ = self.audit("cynic_infer", &agent_id, &serde_json::json!({ // ok: fire-and-forget
             "prompt_len": p.prompt.len(),
-            "prompt_tokens": usage["prompt_tokens"],
-            "completion_tokens": usage["completion_tokens"],
+            "prompt_tokens": infer_resp.prompt_tokens,
+            "completion_tokens": infer_resp.completion_tokens,
         })).await;
 
         let response = serde_json::json!({
-            "text": text,
-            "model": data["model"].as_str().unwrap_or("local"),
-            "prompt_tokens": usage["prompt_tokens"],
-            "completion_tokens": usage["completion_tokens"],
+            "text": infer_resp.text,
+            "model": infer_resp.model,
+            "prompt_tokens": infer_resp.prompt_tokens,
+            "completion_tokens": infer_resp.completion_tokens,
             "sovereign": true,
         });
 
@@ -730,7 +658,9 @@ mod tests {
         let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
         let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
         let embedding = Arc::new(crate::domain::embedding::NullEmbedding) as Arc<dyn crate::domain::embedding::EmbeddingPort>;
-        CynicMcp::new(judge, storage, coord, usage, embedding)
+        let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
+        let infer = Arc::new(crate::domain::inference::NullInfer) as Arc<dyn InferPort>;
+        CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer)
     }
 
     /// Extract text from the first Content element in a CallToolResult.
@@ -870,7 +800,9 @@ mod tests {
         let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
         let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
         let embedding = Arc::new(crate::domain::embedding::NullEmbedding) as Arc<dyn crate::domain::embedding::EmbeddingPort>;
-        let mcp = CynicMcp::new(judge, storage, coord, usage, embedding);
+        let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
+        let infer = Arc::new(crate::domain::inference::NullInfer) as Arc<dyn InferPort>;
+        let mcp = CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer);
 
         let result = mcp.cynic_health().await.unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();

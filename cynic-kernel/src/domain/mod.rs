@@ -8,3 +8,4 @@ pub mod embedding;
 pub mod verdict_cache;
 pub mod usage;
 pub mod temporal;
+pub mod summarization;

@@ -30,24 +30,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 1: Native Storage Client (UAL) ──────────────────
     // HTTP adapter to SurrealDB 3.x — graceful degradation if unavailable.
-    let raw_db: Option<Arc<storage::SurrealHttpStorage>> = match storage::SurrealHttpStorage::init().await {
-        Ok(s) => {
-            klog!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
-            Some(Arc::new(s))
-        }
-        Err(e) => {
-            eprintln!("[Ring 1] Storage: DEGRADED — {} (verdicts will not persist)", e);
-            None
-        }
-    };
-    let storage_port: Arc<dyn domain::storage::StoragePort> = match &raw_db {
-        Some(s) => Arc::clone(s) as Arc<dyn domain::storage::StoragePort>,
-        None => Arc::new(domain::storage::NullStorage),
-    };
-    let coord: Arc<dyn domain::coord::CoordPort> = match &raw_db {
-        Some(s) => Arc::clone(s) as Arc<dyn domain::coord::CoordPort>,
-        None => Arc::new(domain::coord::NullCoord),
-    };
+    let (storage_port, coord, has_db): (Arc<dyn domain::storage::StoragePort>, Arc<dyn domain::coord::CoordPort>, bool) =
+        match storage::SurrealHttpStorage::init().await {
+            Ok(s) => {
+                klog!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
+                let db = Arc::new(s);
+                (Arc::clone(&db) as _, Arc::clone(&db) as _, true)
+            }
+            Err(e) => {
+                eprintln!("[Ring 1] Storage: DEGRADED — {} (verdicts will not persist)", e);
+                (Arc::new(domain::storage::NullStorage), Arc::new(domain::coord::NullCoord), false)
+            }
+        };
 
     // ─── RING 2: Load Backend Configs ──────────────────────────
     let backends_path = dirs::config_dir()
@@ -77,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Also collect health URLs and remediation configs from the SoT (backends.toml)
     let mut cost_rates: Vec<(String, f64, f64)> = Vec::new();
     let mut remediation_configs: std::collections::HashMap<String, infra::config::BackendRemediation> = std::collections::HashMap::new();
-    let mut health_urls: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut health_urls: std::collections::HashMap<String, Option<String>> = std::collections::HashMap::new();
     for cfg in backend_configs {
         let backend = Arc::new(backends::openai::OpenAiCompatBackend::new(cfg.clone()));
         let health = BackendPort::health(backend.as_ref()).await;
@@ -120,16 +114,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 2: Build Judge ──────────────────────────────────
     let judge = judge::Judge::new(dogs);
+    // Background task health tracker — updated by each spawned task, exposed in /health
+    let task_health = Arc::new(infra::task_health::TaskHealth::new());
 
     // Seed integrity hash chain from last stored verdict
-    if let Some(db) = &raw_db {
-        let chain_hash = db.query_one("SELECT integrity_hash FROM verdict ORDER BY created_at DESC LIMIT 1;").await
-            .ok()
-            .and_then(|rows| rows.first().and_then(|r| r["integrity_hash"].as_str().filter(|s| !s.is_empty()).map(|s| s.to_string())).clone());
-        if let Some(ref hash) = chain_hash {
-            judge.seed_chain(chain_hash.clone());
-            klog!("[Ring 2] Integrity chain seeded: {}…", &hash[..16.min(hash.len())]);
-        }
+    if let Ok(Some(hash)) = storage_port.last_integrity_hash().await {
+        judge.seed_chain(Some(hash.clone()));
+        klog!("[Ring 2] Integrity chain seeded: {}…", &hash[..16.min(hash.len())]);
     }
 
     // ─── RING 2: Spawn health loop ────────────────────────────
@@ -139,11 +130,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .iter()
             .filter(|id| *id != "deterministic-dog") // in-process, always healthy
             .filter_map(|id| {
-                // Health URL from backends.toml SoT — derived from base_url if not explicit
-                health_urls.get(id.as_str()).map(|url| infra::health_loop::DogProbeConfig {
-                    dog_id: id.clone(),
-                    health_url: url.clone(),
-                })
+                // Health URL from backends.toml SoT — None for cloud APIs (no health endpoint)
+                health_urls.get(id.as_str())
+                    .and_then(|opt| opt.as_ref())
+                    .map(|url| infra::health_loop::DogProbeConfig {
+                        dog_id: id.clone(),
+                        health_url: url.clone(),
+                    })
             })
             .collect();
 
@@ -159,7 +152,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .filter_map(|pc| breaker_map.get(&pc.dog_id).cloned())
                 .collect();
 
-            infra::health_loop::spawn_health_loop(probe_configs, probe_breakers);
+            infra::health_loop::spawn_health_loop(probe_configs, probe_breakers, Arc::clone(&task_health));
             klog!("[Ring 2] Health loop started (every {}s)", infra::circuit_breaker::PROBE_INTERVAL.as_secs());
         }
     }
@@ -238,25 +231,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     // Load historical usage from DB (survives restarts)
-    if let Some(db) = &raw_db {
-        match db.query_one("SELECT * FROM dog_usage;").await {
-            Ok(rows) => {
-                let mut usage = usage_tracker.lock().await;
-                usage.load_historical(&rows);
-                klog!("[Ring 2] Usage: loaded {} Dog histories ({} all-time requests)",
-                    rows.len(), usage.all_time_requests());
-            }
-            Err(e) => klog!("[Ring 2] Usage: failed to load history (non-fatal): {}", e),
+    match storage_port.load_usage_history().await {
+        Ok(rows) if !rows.is_empty() => {
+            let mut usage = usage_tracker.lock().await;
+            usage.load_historical(&rows);
+            klog!("[Ring 2] Usage: loaded {} Dog histories ({} all-time requests)",
+                rows.len(), usage.all_time_requests());
         }
+        Err(e) => klog!("[Ring 2] Usage: failed to load history (non-fatal): {}", e),
+        _ => {}
     }
     let api_key = std::env::var("CYNIC_API_KEY").ok();
+    // Single VerdictCache shared by REST and MCP — avoids duplicate caches (T4 fix)
+    let verdict_cache = Arc::new(domain::verdict_cache::VerdictCache::new());
     let rest_state = Arc::new(api::rest::AppState {
         judge: Arc::clone(&judge),
         storage: Arc::clone(&storage_port),
         coord: Arc::clone(&coord),
         embedding: Arc::clone(&embedding),
         usage: Arc::clone(&usage_tracker),
-        verdict_cache: domain::verdict_cache::VerdictCache::new(),
+        verdict_cache: Arc::clone(&verdict_cache),
+        task_health: Arc::clone(&task_health),
         api_key,
         rate_limiter: api::rest::PerIpRateLimiter::new(30),   // 30 requests/minute global
         judge_limiter: api::rest::PerIpRateLimiter::new(10),   // 10 /judge per minute (inference costs money)
@@ -269,6 +264,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Coordination expiry (every 60s)
     {
         let expiry_coord = Arc::clone(&coord);
+        let th = Arc::clone(&task_health);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -283,16 +279,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Err(_) => eprintln!("[coord] expire_stale timed out (10s)"),
                     _ => {}
                 }
+                th.touch_coord_expiry();
             }
         });
         klog!("[Ring 2] Coordination expiry task started (every 60s)");
     }
 
     // Usage flush (every 60s)
-    if let Some(db) = &raw_db {
+    if has_db {
         let flush_storage = Arc::clone(&storage_port);
-        let flush_raw = Arc::clone(db);
         let flush_usage = Arc::clone(&usage_tracker);
+        let th = Arc::clone(&task_health);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -318,22 +315,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Err(_) => eprintln!("[flush] DB write timed out (10s), will retry next tick"),
                     }
                 }
-                if tick_count.is_multiple_of(60) {
-                    let _ = flush_raw.query_one( // ok: TTL cleanup, best-effort
-                        "DELETE observation WHERE created_at < time::now() - 30d;"
-                    ).await;
-                    let _ = flush_raw.query_one( // ok: TTL cleanup, best-effort
-                        "DELETE mcp_audit WHERE ts < time::now() - 7d;"
-                    ).await;
+                if tick_count.is_multiple_of(60)
+                    && let Err(e) = flush_storage.cleanup_ttl().await
+                {
+                    eprintln!("[flush] TTL cleanup failed (non-fatal): {}", e);
                 }
+                th.touch_usage_flush();
             }
         });
-        klog!("[Ring 2] Usage flush task started (every 60s, obs cleanup every 1h)");
+        klog!("[Ring 2] Usage flush task started (every 60s, TTL cleanup every 1h)");
     }
 
     // CCM Workflow Aggregator (every 5 min)
     {
         let agg_storage = Arc::clone(&storage_port);
+        let th = Arc::clone(&task_health);
         let interval_secs: u64 = std::env::var("CYNIC_AGGREGATE_INTERVAL")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -348,7 +344,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     std::time::Duration::from_secs(30),
                     domain::ccm::aggregate_observations(agg_storage.as_ref(), "CYNIC"),
                 ).await {
-                    Ok(_) => {}
+                    Ok(_) => { th.touch_ccm_aggregate(); }
                     Err(_) => eprintln!("[CCM] aggregate_observations timed out (30s)"),
                 }
             }
@@ -356,16 +352,55 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] CCM workflow aggregator started (every {}s)", interval_secs);
     }
 
+    // ─── RING 2: Session summarizer (sovereign inference, background) ──
+    // Self-recovering: checks availability each cycle, not just at boot (T6a fix)
+    {
+        let sum_storage = Arc::clone(&storage_port);
+        let summarizer = backends::summarizer::SovereignSummarizer::from_env();
+        let th = Arc::clone(&task_health);
+        klog!("[Ring 2] Session summarizer task started (checks LLM availability each cycle)");
+        tokio::spawn(async move {
+            // Wait for first CCM cycle to populate observations
+            tokio::time::sleep(std::time::Duration::from_secs(600)).await;
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(600));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                interval.tick().await;
+                if !summarizer.is_available().await {
+                    th.touch_summarizer(); // Task alive, LLM just unavailable
+                    continue;
+                }
+                match tokio::time::timeout(
+                    std::time::Duration::from_secs(120),
+                    pipeline::summarize_pending_sessions(sum_storage.as_ref(), &summarizer),
+                ).await {
+                    Ok(count) => {
+                        if count > 0 {
+                            klog!("[CCM/summarizer] {} sessions summarized", count);
+                        }
+                        th.touch_summarizer();
+                    }
+                    Err(_) => eprintln!("[CCM/summarizer] timed out (120s)"),
+                }
+            }
+        });
+    }
+
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
         use rmcp::ServiceExt;
         eprintln!("[Ring 3] MCP mode — serving over stdio (background tasks active)");
+        let mcp_infer: Arc<dyn domain::inference::InferPort> = Arc::new(
+            backends::summarizer::SovereignSummarizer::from_env(),
+        );
         let mcp_server = api::mcp::CynicMcp::new(
             Arc::clone(&judge),
             Arc::clone(&storage_port),
             Arc::clone(&coord),
             Arc::clone(&usage_tracker),
             Arc::clone(&embedding),
+            Arc::clone(&verdict_cache),
+            mcp_infer,
         );
         let transport = rmcp::transport::io::stdio();
         let server = mcp_server.serve(transport).await
@@ -373,7 +408,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let _ = server.waiting().await; // ok: MCP server lifecycle
 
         // Flush usage on MCP shutdown
-        if raw_db.is_some() {
+        if has_db {
             let snapshot = {
                 let usage = usage_tracker.lock().await;
                 usage.snapshot()
@@ -396,6 +431,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Rate limiter eviction (REST-only, every 60s)
     {
         let evict_state = Arc::clone(&rest_state);
+        let th = Arc::clone(&task_health);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -404,6 +440,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 interval.tick().await;
                 evict_state.rate_limiter.evict_stale().await;
                 evict_state.judge_limiter.evict_stale().await;
+                th.touch_rate_eviction();
             }
         });
     }
@@ -433,7 +470,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Flush usage on shutdown — prevents up to 60s of data loss
-    if raw_db.is_some() {
+    if has_db {
         let (snapshot, dog_count) = {
             let usage = usage_tracker.lock().await;
             (usage.snapshot(), usage.dogs.len())
@@ -450,3 +487,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+

@@ -126,8 +126,37 @@ pub trait BackendPort: Send + Sync {
     async fn health(&self) -> BackendStatus;
 }
 
-// InferencePort and InferenceRouter were removed — gRPC/MCTS burned in v0.6.0.
-// If inference routing is re-added, define traits here.
+/// Sovereign inference port — direct LLM access for cynic_infer MCP tool.
+/// Distinct from domain::chat::ChatPort (Dog evaluation, requires BackendPort supertrait).
+/// Named "Infer" to avoid collision with the Dog-facing ChatPort.
+pub struct InferRequest {
+    pub system: Option<String>,
+    pub prompt: String,
+    pub temperature: f64,
+    pub max_tokens: u32,
+}
+
+pub struct InferResponse {
+    pub text: String,
+    pub model: String,
+    pub prompt_tokens: u64,
+    pub completion_tokens: u64,
+}
+
+#[async_trait]
+pub trait InferPort: Send + Sync {
+    async fn infer(&self, request: &InferRequest) -> Result<InferResponse, BackendError>;
+}
+
+/// Null implementation for graceful degradation when no sovereign LLM available.
+pub struct NullInfer;
+
+#[async_trait]
+impl InferPort for NullInfer {
+    async fn infer(&self, _request: &InferRequest) -> Result<InferResponse, BackendError> {
+        Err(BackendError::Unreachable("No sovereign LLM available".into()))
+    }
+}
 
 // ============================================================
 // MOCK BACKEND — P0 test implementation, no GPU required

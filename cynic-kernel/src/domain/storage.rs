@@ -84,9 +84,59 @@ pub trait StoragePort: Send + Sync {
     /// Returns rows of {session_id, target} for sessions with 2+ distinct targets.
     async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<serde_json::Value>, StorageError>;
 
+    /// Store a pre-computed embedding vector for a crystal.
+    /// Enables semantic retrieval via search_crystals_semantic.
+    async fn store_crystal_embedding(&self, _id: &str, _embedding: &[f32]) -> Result<(), StorageError> {
+        Ok(()) // Default no-op — adapters without vector support silently skip
+    }
+
+    /// Retrieve crystals by semantic similarity to a query embedding.
+    /// Returns up to `limit` crystals ordered by cosine similarity descending.
+    /// Implementations should only return Crystallized/Canonical crystals.
+    async fn search_crystals_semantic(&self, _query_embedding: &[f32], _limit: u32) -> Result<Vec<Crystal>, StorageError> {
+        Ok(vec![]) // Default empty — callers fall back to list_crystals
+    }
+
+    /// Store a session summary (compressed narrative of a development session).
+    async fn store_session_summary(&self, _summary: &crate::domain::ccm::SessionSummary) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    /// List recent session summaries, ordered by created_at descending.
+    async fn list_session_summaries(&self, _limit: u32) -> Result<Vec<crate::domain::ccm::SessionSummary>, StorageError> {
+        Ok(vec![])
+    }
+
+    /// Get session IDs with observations but no summary yet.
+    /// Returns (session_id, agent_id, observation_count) tuples.
+    async fn get_unsummarized_sessions(&self, _min_observations: u32, _limit: u32) -> Result<Vec<(String, String, u32)>, StorageError> {
+        Ok(vec![])
+    }
+
+    /// Get raw observations for a specific session (for summarization).
+    async fn get_session_observations(&self, _session_id: &str) -> Result<Vec<serde_json::Value>, StorageError> {
+        Ok(vec![])
+    }
+
     /// Flush usage snapshot to persistent storage. The storage adapter generates
     /// the SQL/query — domain provides data only via snapshot(), no SQL in domain.
     async fn flush_usage(&self, snapshot: &[(String, crate::domain::usage::DogUsage)]) -> Result<(), StorageError>;
+
+    /// TTL cleanup — remove stale observations and audit entries.
+    /// Called periodically by background tasks. Best-effort.
+    async fn cleanup_ttl(&self) -> Result<(), StorageError> {
+        Ok(()) // Default no-op for NullStorage
+    }
+
+    /// Get the most recent verdict's integrity hash — used to seed the hash chain at boot.
+    async fn last_integrity_hash(&self) -> Result<Option<String>, StorageError> {
+        Ok(None) // Default: no chain to seed
+    }
+
+    /// Load historical usage data — used to restore DogUsageTracker at boot.
+    async fn load_usage_history(&self) -> Result<Vec<serde_json::Value>, StorageError> {
+        Ok(vec![]) // Default: no history
+    }
 }
 
 /// No-op storage for graceful degradation when DB is unavailable.

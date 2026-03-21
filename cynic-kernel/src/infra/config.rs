@@ -17,9 +17,9 @@ pub struct BackendConfig {
     pub cost_input_per_mtok: f64,
     /// Cost per 1M output tokens in USD. 0.0 = free.
     pub cost_output_per_mtok: f64,
-    /// Health URL — derived from base_url if not explicitly set.
-    /// Convention: base_url "/v1" suffix → "/health". Otherwise base_url + "/health".
-    pub health_url: String,
+    /// Health URL — derived from base_url for backends with remediation or explicit health_url.
+    /// None for cloud APIs (no health endpoint) — health loop skips them.
+    pub health_url: Option<String>,
     /// Remediation config — optional. Only for backends that can be restarted.
     pub remediation: Option<BackendRemediation>,
 }
@@ -134,15 +134,16 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 }
             };
 
-            let health_url = entry.health_url
-                .unwrap_or_else(|| derive_health_url(&entry.base_url));
-
             let remediation = entry.remediation.map(|r| BackendRemediation {
                 node: r.node,
                 restart_command: r.restart_command,
                 max_retries: r.max_retries.unwrap_or(3),
                 cooldown_secs: r.cooldown_secs.unwrap_or(60),
             });
+
+            // health_url: explicit if provided, derived if remediation exists, None for cloud APIs
+            let health_url = entry.health_url
+                .or_else(|| remediation.as_ref().map(|_| derive_health_url(&entry.base_url)));
 
             Some(BackendConfig {
                 name,
@@ -168,7 +169,6 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
         let model = std::env::var("GEMINI_MODEL")
             .unwrap_or_else(|_| "gemini-2.5-flash".to_string());
         let base_url = "https://generativelanguage.googleapis.com/v1beta/openai".to_string();
-        let health_url = derive_health_url(&base_url);
         configs.push(BackendConfig {
             name: "gemini".to_string(),
             base_url,
@@ -178,7 +178,7 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             context_size: 1_000_000,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
-            health_url,
+            health_url: None, // Cloud API — no health endpoint
             remediation: None,
         });
     }
@@ -195,16 +195,20 @@ pub async fn validate_config(configs: &[BackendConfig]) {
         .unwrap_or_default();
 
     for cfg in configs {
-        match client.get(&cfg.health_url).send().await {
+        let Some(ref health_url) = cfg.health_url else {
+            klog!("[config] — {} no health probe (cloud API, error-driven circuit breaker)", cfg.name);
+            continue;
+        };
+        match client.get(health_url).send().await {
             Ok(resp) if resp.status().is_success() => {
-                klog!("[config] ✓ {} health OK ({})", cfg.name, cfg.health_url);
+                klog!("[config] ✓ {} health OK ({})", cfg.name, health_url);
             }
             Ok(resp) => {
-                klog!("[config] ⚠ {} health returned {} ({})", cfg.name, resp.status(), cfg.health_url);
+                klog!("[config] ⚠ {} health returned {} ({})", cfg.name, resp.status(), health_url);
             }
             Err(_) => {
                 klog!("[config] ✗ {} UNREACHABLE at {} — will load anyway, health loop will recover",
-                    cfg.name, cfg.health_url);
+                    cfg.name, health_url);
             }
         }
     }
@@ -277,7 +281,7 @@ cooldown_secs = 30
 
         let configs = load_backends(&path);
         assert_eq!(configs.len(), 1);
-        assert_eq!(configs[0].health_url, "http://10.0.0.1:8080/health");
+        assert_eq!(configs[0].health_url.as_deref(), Some("http://10.0.0.1:8080/health"));
         let rem = configs[0].remediation.as_ref().expect("remediation should be present");
         assert_eq!(rem.node, "user@10.0.0.1");
         assert_eq!(rem.max_retries, 5);
@@ -287,7 +291,7 @@ cooldown_secs = 30
     }
 
     #[test]
-    fn parse_toml_without_remediation() {
+    fn cloud_backend_without_remediation_gets_no_health_url() {
         let toml_content = r#"
 [backend.gemini]
 base_url = "https://api.google.com/v1"
@@ -301,7 +305,55 @@ model = "gemini-flash"
         let configs = load_backends(&path);
         assert_eq!(configs.len(), 1);
         assert!(configs[0].remediation.is_none());
-        assert_eq!(configs[0].health_url, "https://api.google.com/health");
+        // Cloud APIs without remediation or explicit health_url get None
+        assert!(configs[0].health_url.is_none(),
+            "cloud backend should have no health_url, got {:?}", configs[0].health_url);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn sovereign_backend_with_remediation_gets_derived_health_url() {
+        let toml_content = r#"
+[backend.sovereign]
+base_url = "http://10.0.0.1:8080/v1"
+model = "qwen3"
+
+[backend.sovereign.remediation]
+node = "user@10.0.0.1"
+restart_command = "systemctl restart llama-server"
+"#;
+        let dir = std::env::temp_dir().join("cynic_config_sov_health_test");
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("backends.toml");
+        std::fs::write(&path, toml_content).unwrap();
+
+        let configs = load_backends(&path);
+        assert_eq!(configs.len(), 1);
+        assert!(configs[0].remediation.is_some());
+        assert_eq!(configs[0].health_url.as_deref(), Some("http://10.0.0.1:8080/health"),
+            "sovereign with remediation should get derived health_url");
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn explicit_health_url_overrides_derivation() {
+        let toml_content = r#"
+[backend.custom]
+base_url = "http://10.0.0.1:8080/v1"
+model = "custom-model"
+health_url = "http://custom-health:9090/ready"
+"#;
+        let dir = std::env::temp_dir().join("cynic_config_explicit_health_test");
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("backends.toml");
+        std::fs::write(&path, toml_content).unwrap();
+
+        let configs = load_backends(&path);
+        assert_eq!(configs.len(), 1);
+        assert_eq!(configs[0].health_url.as_deref(), Some("http://custom-health:9090/ready"),
+            "explicit health_url should be used even without remediation");
 
         std::fs::remove_file(&path).ok();
     }

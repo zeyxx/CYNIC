@@ -37,6 +37,29 @@ check:
 	cargo build -p cynic-kernel --release
 	cargo test -p cynic-kernel --release
 	cargo clippy -p cynic-kernel --release -- -D warnings
+	@$(MAKE) --no-print-directory lint-rules
+	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
+		echo ""; echo "▶ Integration tests (SurrealDB available)..."; \
+		cargo test -p cynic-kernel --release -- --ignored; \
+	else \
+		echo ""; echo "⚠ SurrealDB not running — skipping integration tests"; \
+	fi
+
+.PHONY: lint-rules
+lint-rules: ## Grep-enforceable CLAUDE.md rules — mechanical checks the compiler can't do
+# Exemptions: probe/ (boot-time hardware discovery), infra/ (health loop, config validation)
+# These modules DO raw HTTP but are not backend adapters — they serve infrastructure purposes.
+	@echo ""
+	@echo "▶ Checking grep-enforceable rules..."
+	@FAIL=0; \
+	R17=$$(rg 'reqwest' cynic-kernel/src/domain/ cynic-kernel/src/api/ cynic-kernel/src/main.rs 2>/dev/null | grep -v '//'); \
+	if [ -n "$$R17" ]; then echo "FAIL Rule #17: reqwest outside backends/storage:"; echo "$$R17"; FAIL=1; fi; \
+	R19=$$(rg 'format_crystal_context' cynic-kernel/src/api/ 2>/dev/null | grep -v '//'); \
+	if [ -n "$$R19" ]; then echo "FAIL Rule #19: format_crystal_context in handler (should be in pipeline):"; echo "$$R19"; FAIL=1; fi; \
+	SECRETS=$$(git diff --staged 2>/dev/null | grep -iE 'api.key|token|password|secret|AIza|hf_' | grep -v '#' | grep -v '//'); \
+	if [ -n "$$SECRETS" ]; then echo "FAIL Security: possible secrets in staged changes:"; echo "$$SECRETS"; FAIL=1; fi; \
+	if [ $$FAIL -eq 0 ]; then echo "✓ All grep-enforceable rules pass"; fi; \
+	exit $$FAIL
 
 .PHONY: check-storage
 check-storage: ## Integration tests against real SurrealDB (requires :8000)

@@ -9,8 +9,6 @@ use std::sync::Arc;
 
 use super::types::*;
 use super::response::{verdict_to_response, verdict_response_cached};
-use crate::domain::ccm;
-use crate::domain::verdict_cache::CacheLookup;
 
 /// Max content length in chars — caps token consumption per request.
 const MAX_CONTENT_LEN: usize = 4_000;
@@ -45,80 +43,30 @@ pub async fn judge_handler(
         })));
     }
 
-    // ── SEMANTIC CACHE: embed stimulus, check for similar cached verdict ──
-    // If the embedding server is available and a near-identical stimulus was
-    // already judged, return the cached verdict (0 API calls, 0 tokens).
-    let stimulus_embedding = state.embedding.embed(&content).await.ok();
-    if let Some(ref emb) = stimulus_embedding
-        && let CacheLookup::Hit { verdict, similarity } = state.verdict_cache.lookup(emb)
-    {
-        eprintln!("[REST] Verdict cache HIT (similarity: {:.4}, cache size: {})", similarity, state.verdict_cache.len());
-        return Ok(Json(verdict_response_cached(&verdict, similarity)));
-    }
-
-    // ── CACHE MISS: full evaluation pipeline ──
-
-    // CCM feedback: enrich context with crystallized wisdom from this domain
-    let domain_hint = req.domain.as_deref().unwrap_or("general");
-    let enriched_context = match state.storage.list_crystals(50).await {
-        Ok(crystals) => {
-            let crystal_ctx = ccm::format_crystal_context(&crystals, domain_hint, 800);
-            match (req.context, crystal_ctx) {
-                (Some(ctx), Some(cc)) => Some(format!("{}\n\n{}", ctx, cc)),
-                (Some(ctx), None) => Some(ctx),
-                (None, Some(cc)) => Some(cc),
-                (None, None) => None,
-            }
-        }
-        Err(_) => req.context, // Storage down — proceed without crystals
+    // Shared pipeline: embed → cache → crystals → sessions → evaluate → store → CCM
+    let deps = crate::pipeline::PipelineDeps {
+        judge: &state.judge,
+        storage: state.storage.as_ref(),
+        embedding: state.embedding.as_ref(),
+        usage: &state.usage,
+        verdict_cache: &state.verdict_cache,
     };
+    let result = crate::pipeline::run(
+        content, req.context, req.domain, req.dogs.as_deref(), &deps,
+    ).await.map_err(|e| {
+        eprintln!("[REST] Judge error: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "evaluation failed".into() }))
+    })?;
 
-    let stimulus = crate::domain::dog::Stimulus {
-        content,
-        context: enriched_context,
-        domain: req.domain,
-    };
-
-    let verdict = state.judge.evaluate(&stimulus, req.dogs.as_deref()).await
-        .map_err(|e| {
-            eprintln!("[REST] Judge error: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "evaluation failed".into() }))
-        })?;
-
-    // Store verdict (best effort — don't fail the request if storage is down)
-    if let Err(e) = state.storage.store_verdict(&verdict).await {
-        eprintln!("[REST] Warning: failed to store verdict: {}", e);
-    }
-
-    // Cache the verdict embedding for future lookups
-    if let Some(emb) = stimulus_embedding {
-        state.verdict_cache.store(emb, verdict.clone());
-    }
-
-    // Track token usage per Dog (successes + failures)
-    {
-        let mut usage = state.usage.lock().await;
-        for ds in &verdict.dog_scores {
-            usage.record(&ds.dog_id, ds.prompt_tokens, ds.completion_tokens, ds.latency_ms);
+    match result {
+        crate::pipeline::PipelineResult::CacheHit { verdict, similarity } => {
+            eprintln!("[REST] Verdict cache HIT (similarity: {:.4})", similarity);
+            Ok(Json(verdict_response_cached(&verdict, similarity)))
         }
-        for dog_id in &verdict.failed_dogs {
-            usage.record_failure(dog_id);
+        crate::pipeline::PipelineResult::Evaluated { verdict } => {
+            Ok(Json(verdict_to_response(verdict.as_ref())))
         }
     }
-
-    // CCM: observe crystal — hash the summary (not full content) to deduplicate
-    {
-        let crystal_id = format!("{:x}", crate::domain::ccm::content_hash(&format!("{}:{}", stimulus.domain.as_deref().unwrap_or("general"), verdict.stimulus_summary)));
-        let domain = stimulus.domain.unwrap_or_else(|| "general".to_string());
-        let now = chrono::Utc::now().to_rfc3339();
-        if let Err(e) = state.storage.observe_crystal(
-            &crystal_id, &verdict.stimulus_summary, &domain, verdict.q_score.total, &now
-        ).await {
-            eprintln!("[REST] Warning: failed to observe crystal: {}", e);
-        }
-    }
-
-    Ok(Json(verdict_to_response(&verdict)))
 }
 
 pub async fn get_verdict_handler(

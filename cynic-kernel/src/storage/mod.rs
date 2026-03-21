@@ -10,21 +10,11 @@ pub mod surreal;
 
 use reqwest::Client;
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use tokio::sync::RwLock;
 use crate::domain::storage::StorageError;
 
 /// Slow query threshold — anything above this logs a warning.
 const SLOW_QUERY_MS: u64 = 100;
-
-/// Cached crystal state — avoids a SELECT roundtrip on every observe_crystal call.
-#[derive(Clone)]
-pub(crate) struct CrystalCacheEntry {
-    pub observations: u32,
-    pub confidence: f64,
-    pub created_at: String,
-}
 
 /// HTTP-based SurrealDB client. No surrealdb crate needed.
 pub struct SurrealHttpStorage {
@@ -33,8 +23,6 @@ pub struct SurrealHttpStorage {
     pub(crate) ns: String,
     pub(crate) db: String,
     pub(crate) auth: String, // "Basic base64(user:pass)"
-    /// In-memory crystal cache — write-through to DB, eliminates SELECT roundtrip.
-    pub(crate) crystal_cache: RwLock<HashMap<String, CrystalCacheEntry>>,
     // ── Storage observability (T1/T4 from crystallization) ──
     pub(crate) metrics: StorageMetrics,
 }
@@ -120,7 +108,7 @@ impl SurrealHttpStorage {
             ns: ns.to_string(),
             db: db.to_string(),
             auth,
-            crystal_cache: RwLock::new(HashMap::new()),
+
             metrics: StorageMetrics::new(),
         };
 
@@ -134,7 +122,7 @@ impl SurrealHttpStorage {
             ns: String::new(),
             db: String::new(),
             auth: storage.auth.clone(),
-            crystal_cache: RwLock::new(HashMap::new()),
+
             metrics: StorageMetrics::new(),
         };
         // Use root-level query to define ns/db
@@ -183,6 +171,7 @@ impl SurrealHttpStorage {
             DEFINE INDEX IF NOT EXISTS verdict_created_idx ON verdict FIELDS created_at;\
             DEFINE INDEX IF NOT EXISTS crystal_obs_idx ON crystal FIELDS observations;\
             DEFINE INDEX IF NOT EXISTS crystal_domain_idx ON crystal FIELDS domain;\
+            DEFINE INDEX IF NOT EXISTS crystal_vec_idx ON crystal FIELDS embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32;\
             DEFINE FIELD IF NOT EXISTS project ON observation TYPE string;\
             DEFINE FIELD IF NOT EXISTS agent_id ON observation TYPE string;\
             DEFINE FIELD IF NOT EXISTS tool ON observation TYPE string;\
@@ -196,6 +185,7 @@ impl SurrealHttpStorage {
             DEFINE INDEX IF NOT EXISTS obs_domain_idx ON observation FIELDS domain;\
             DEFINE INDEX IF NOT EXISTS obs_target_idx ON observation FIELDS target;\
             DEFINE INDEX IF NOT EXISTS obs_created_idx ON observation FIELDS created_at;\
+            DEFINE INDEX IF NOT EXISTS obs_agent_idx ON observation FIELDS agent_id;\
             DEFINE FIELD IF NOT EXISTS agent_id ON agent_session TYPE string;\
             DEFINE FIELD IF NOT EXISTS agent_type ON agent_session TYPE string;\
             DEFINE FIELD IF NOT EXISTS intent ON agent_session TYPE string;\
@@ -223,6 +213,13 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS total_latency_ms ON dog_usage TYPE int;\
             DEFINE FIELD IF NOT EXISTS updated_at ON dog_usage TYPE datetime;\
             DEFINE INDEX IF NOT EXISTS dog_usage_id_idx ON dog_usage FIELDS dog_id UNIQUE;\
+            DEFINE FIELD IF NOT EXISTS session_id ON session_summary TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON session_summary TYPE string;\
+            DEFINE FIELD IF NOT EXISTS summary ON session_summary TYPE string;\
+            DEFINE FIELD IF NOT EXISTS observations_count ON session_summary TYPE int;\
+            DEFINE FIELD IF NOT EXISTS created_at ON session_summary TYPE datetime;\
+            DEFINE INDEX IF NOT EXISTS session_summary_session_idx ON session_summary FIELDS session_id UNIQUE;\
+            DEFINE INDEX IF NOT EXISTS session_summary_created_idx ON session_summary FIELDS created_at;\
         ";
         if let Err(e) = storage.query(schema_sql).await {
             eprintln!("[Ring 1 / UAL] WARNING: Schema bootstrap failed (non-fatal): {}", e);

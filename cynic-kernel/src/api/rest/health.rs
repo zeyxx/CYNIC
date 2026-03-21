@@ -91,6 +91,7 @@ pub async fn health_handler(
         "storage_metrics": state.storage_metrics(),
         "embedding": if tokio::time::timeout(std::time::Duration::from_secs(2), state.embedding.embed("h")).await.map(|r| r.is_ok()).unwrap_or(false) { "sovereign" } else { "unavailable" },
         "verdict_cache_size": state.verdict_cache.len(),
+        "background_tasks": state.task_health.snapshot(),
         "total_requests": usage.all_time_requests(),
         "total_tokens": usage.total_tokens(),
         "estimated_cost_usd": usage.estimated_cost_usd(),

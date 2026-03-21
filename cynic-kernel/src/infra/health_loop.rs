@@ -13,6 +13,7 @@ use tokio::task::JoinHandle;
 use tokio::time::{MissedTickBehavior, interval};
 
 use crate::infra::circuit_breaker::{CircuitBreaker, PROBE_INTERVAL};
+use crate::infra::task_health::TaskHealth;
 
 /// Configuration for probing a single Dog backend.
 pub struct DogProbeConfig {
@@ -37,6 +38,7 @@ pub(crate) async fn probe_dog(client: &Client, config: &DogProbeConfig) -> bool 
 pub fn spawn_health_loop(
     configs: Vec<DogProbeConfig>,
     breakers: Vec<Arc<CircuitBreaker>>,
+    task_health: Arc<TaskHealth>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let client = Client::builder()
@@ -78,6 +80,7 @@ pub fn spawn_health_loop(
                     results.len()
                 );
             }
+            task_health.touch_health_loop();
         }
     })
 }

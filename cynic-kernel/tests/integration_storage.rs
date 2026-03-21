@@ -185,10 +185,14 @@ async fn observation_query_session_targets() {
     db.store_observation(&test_obs("session-B", "Edit", "file3.rs")).await.unwrap();
 
     let rows = db.query_session_targets("CYNIC", 500).await.expect("query_session_targets failed");
-    // query_session_targets returns session-grouped data for CCM co-occurrence analysis.
-    // The exact structure depends on the SurrealQL query — we verify it doesn't error
-    // and returns valid JSON (the aggregation may filter single-target sessions).
-    // This test primarily validates the query EXECUTES without SurrealDB syntax errors.
+    // Verify the query returns valid JSON with expected structure.
+    // Session-A has 2 distinct targets — should appear in co-occurrence results.
+    // Session-B has 1 target — may be filtered by the query's HAVING clause.
+    assert!(!rows.is_empty(), "session-A with 2 targets should produce co-occurrence data");
+    for row in &rows {
+        // Each row must be a valid JSON object (not null/empty)
+        assert!(row.is_object(), "each row should be a JSON object, got: {}", row);
+    }
 
     common::teardown_test_db(&db).await;
 }
@@ -327,6 +331,175 @@ async fn flush_usage_via_storage_port() {
     let pt2 = rows2[0]["prompt_tokens"].as_u64().unwrap_or(0);
     // Should be 1500 + 1600 = 3100 (accumulative UPSERT adds to existing)
     assert!(pt2 > 1500, "prompt_tokens should grow with second flush, got {}", pt2);
+
+    common::teardown_test_db(&db).await;
+}
+
+// ── G1: Crystal embedding + HNSW vector search ──────────
+
+#[tokio::test]
+#[ignore]
+async fn store_and_search_crystal_embedding() {
+    let db = common::setup_test_db("embed_rt").await;
+
+    // Store a crystal first
+    db.observe_crystal("chess-sicilian", "The Sicilian Defense", "chess", 0.7, "2026-03-21T12:00:00Z").await
+        .expect("observe_crystal failed");
+
+    // Store a 1024-dim embedding (synthetic)
+    let mut embedding = vec![0.0f32; 1024];
+    embedding[0] = 0.9;
+    embedding[1] = 0.1;
+    embedding[2] = 0.3;
+    db.store_crystal_embedding("chess-sicilian", &embedding).await
+        .expect("store_crystal_embedding failed");
+
+    // Verify the embedding was stored
+    let rows = db.query_one("SELECT id, array::len(embedding) AS dims FROM crystal WHERE embedding != NONE;").await
+        .expect("query failed");
+    assert!(!rows.is_empty(), "crystal should have an embedding");
+    assert_eq!(rows[0]["dims"].as_u64().unwrap_or(0), 1024, "embedding should be 1024-dim");
+
+    common::teardown_test_db(&db).await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn semantic_search_returns_empty_when_no_embeddings() {
+    let db = common::setup_test_db("knn_empty").await;
+
+    let query = vec![0.1f32; 1024];
+    let results = db.search_crystals_semantic(&query, 5).await
+        .expect("semantic search should not error on empty table");
+    assert!(results.is_empty(), "should return empty when no crystals have embeddings");
+
+    common::teardown_test_db(&db).await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn semantic_search_round_trip() {
+    let db = common::setup_test_db("knn_rt").await;
+
+    // Create 2 crystals and observe enough to reach Crystallized (26 obs, conf 0.7 > φ⁻¹)
+    for (id, content) in [("chess-open", "Opening theory"), ("code-rust", "Rust patterns")] {
+        for i in 0..26 {
+            let ts = format!("2026-03-21T12:{:02}:00Z", i);
+            db.observe_crystal(id, content, "chess", 0.7, &ts).await.unwrap();
+        }
+    }
+
+    // Store distinct embeddings
+    let mut emb_chess = vec![0.0f32; 1024];
+    emb_chess[0] = 0.9; emb_chess[1] = 0.8;
+    db.store_crystal_embedding("chess-open", &emb_chess).await.unwrap();
+
+    let mut emb_rust = vec![0.0f32; 1024];
+    emb_rust[500] = 0.9; emb_rust[501] = 0.8;
+    db.store_crystal_embedding("code-rust", &emb_rust).await.unwrap();
+
+    // Search with vector similar to chess
+    let mut query = vec![0.0f32; 1024];
+    query[0] = 0.85; query[1] = 0.75;
+    let results = db.search_crystals_semantic(&query, 5).await
+        .expect("semantic search failed");
+
+    // The SQL + HNSW must execute without error.
+    // If crystals are Crystallized AND have embeddings, we should get results.
+    // This is the key test: does the HNSW KNN query actually work in SurrealDB 3.0.3?
+    eprintln!("KNN results: {} crystals returned", results.len());
+    for c in &results {
+        eprintln!("  {} (state={:?}, conf={:.3})", c.id, c.state, c.confidence);
+    }
+
+    common::teardown_test_db(&db).await;
+}
+
+// ── G3: Session summaries ───────────────────────────────
+
+#[tokio::test]
+#[ignore]
+async fn store_and_list_session_summaries() {
+    use cynic_kernel::domain::ccm::SessionSummary;
+
+    let db = common::setup_test_db("session_rt").await;
+
+    let s1 = SessionSummary {
+        session_id: "sess-abc".into(),
+        agent_id: "claude-123".into(),
+        summary: "Fixed temporal decay in crystals.".into(),
+        observations_count: 15,
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    let s2 = SessionSummary {
+        session_id: "sess-def".into(),
+        agent_id: "claude-456".into(),
+        summary: "Extracted judge pipeline.".into(),
+        observations_count: 22,
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+
+    db.store_session_summary(&s1).await.expect("store s1 failed");
+    db.store_session_summary(&s2).await.expect("store s2 failed");
+
+    let summaries = db.list_session_summaries(10).await.expect("list failed");
+    assert_eq!(summaries.len(), 2, "should have 2 summaries, got {}", summaries.len());
+    assert!(summaries.iter().any(|s| s.session_id == "sess-abc"));
+    assert!(summaries.iter().any(|s| s.session_id == "sess-def"));
+
+    common::teardown_test_db(&db).await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn get_unsummarized_sessions() {
+    let db = common::setup_test_db("unsum_rt").await;
+
+    // Create observations for 2 agents
+    for i in 0..5 {
+        db.store_observation(&test_obs("agent-A", "Edit", &format!("file{}.rs", i))).await.unwrap();
+    }
+    for i in 0..3 {
+        db.store_observation(&test_obs("agent-B", "Read", &format!("doc{}.md", i))).await.unwrap();
+    }
+    db.store_observation(&test_obs("agent-C", "Bash", "ls")).await.unwrap();
+
+    let pending = db.get_unsummarized_sessions(3, 10).await
+        .expect("get_unsummarized_sessions failed");
+    let ids: Vec<&str> = pending.iter().map(|(id, _, _)| id.as_str()).collect();
+    assert!(ids.contains(&"agent-A"), "agent-A (5 obs) should be pending");
+    assert!(ids.contains(&"agent-B"), "agent-B (3 obs) should be pending");
+    assert!(!ids.contains(&"agent-C"), "agent-C (1 obs) below threshold");
+
+    // Summarize agent-A — should disappear from pending
+    use cynic_kernel::domain::ccm::SessionSummary;
+    db.store_session_summary(&SessionSummary {
+        session_id: "agent-A".into(), agent_id: "agent-A".into(),
+        summary: "Edited 5 files".into(), observations_count: 5,
+        created_at: chrono::Utc::now().to_rfc3339(),
+    }).await.unwrap();
+
+    let pending2 = db.get_unsummarized_sessions(3, 10).await.unwrap();
+    let ids2: Vec<&str> = pending2.iter().map(|(id, _, _)| id.as_str()).collect();
+    assert!(!ids2.contains(&"agent-A"), "agent-A excluded after summarization");
+    assert!(ids2.contains(&"agent-B"), "agent-B still pending");
+
+    common::teardown_test_db(&db).await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn get_session_observations_returns_filtered() {
+    let db = common::setup_test_db("sessobs_rt").await;
+
+    db.store_observation(&test_obs("sess-X", "Edit", "a.rs")).await.unwrap();
+    db.store_observation(&test_obs("sess-X", "Bash", "cargo test")).await.unwrap();
+    db.store_observation(&test_obs("sess-X", "Read", "b.rs")).await.unwrap();
+    db.store_observation(&test_obs("sess-Y", "Edit", "other.rs")).await.unwrap();
+
+    let obs = db.get_session_observations("sess-X").await
+        .expect("get_session_observations failed");
+    assert_eq!(obs.len(), 3, "should have 3 observations for sess-X, got {}", obs.len());
 
     common::teardown_test_db(&db).await;
 }

@@ -208,95 +208,79 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn observe_crystal(&self, id: &str, content: &str, domain: &str, score: f64, timestamp: &str) -> Result<(), StorageError> {
-        use crate::storage::CrystalCacheEntry;
-        let escape = |s: &str| escape_surreal(s);
-        let safe_id = escape(id);
+        let safe_id = sanitize_id(id)?;
 
-        // Try cache first — avoids a SELECT roundtrip on the hot path.
-        // Falls back to DB on cache miss, then populates cache.
-        let cached = self.crystal_cache.read().await.get(id).cloned();
-
-        let (observations, confidence, state_str, created_at) = if let Some(entry) = cached {
-            // Cache hit — compute new state from cached values
-            let crystal = crate::domain::ccm::Crystal {
-                id: id.to_string(),
-                content: content.to_string(),
-                domain: domain.to_string(),
-                confidence: entry.confidence,
-                observations: entry.observations,
-                state: crate::domain::ccm::CrystalState::Forming,
-                created_at: entry.created_at.clone(),
-                updated_at: timestamp.to_string(),
-            };
-            let updated = crate::domain::ccm::update_crystal(&crystal, score, timestamp);
-            let state_str = match updated.state {
-                crate::domain::ccm::CrystalState::Forming => "forming",
-                crate::domain::ccm::CrystalState::Crystallized => "crystallized",
-                crate::domain::ccm::CrystalState::Canonical => "canonical",
-                crate::domain::ccm::CrystalState::Decaying => "decaying",
-                crate::domain::ccm::CrystalState::Dissolved => "dissolved",
-            };
-            (updated.observations, updated.confidence, state_str, entry.created_at)
-        } else {
-            // Cache miss — fall back to DB (cold start or first observation)
-            let existing = self.query_one(&format!("SELECT * FROM crystal:`{}`;", safe_id)).await?;
-            if let Some(row) = existing.first() {
-                let prev_obs = row["observations"].as_u64().unwrap_or(0) as u32;
-                let prev_conf = row["confidence"].as_f64().unwrap_or(0.0);
-                let created = row["created_at"].as_str().unwrap_or(timestamp).to_string();
-                let crystal = crate::domain::ccm::Crystal {
-                    id: id.to_string(),
-                    content: content.to_string(),
-                    domain: domain.to_string(),
-                    confidence: prev_conf,
-                    observations: prev_obs,
-                    state: crate::domain::ccm::CrystalState::Forming,
-                    created_at: created.clone(),
-                    updated_at: timestamp.to_string(),
-                };
-                let updated = crate::domain::ccm::update_crystal(&crystal, score, timestamp);
-                let state_str = match updated.state {
-                    crate::domain::ccm::CrystalState::Forming => "forming",
-                    crate::domain::ccm::CrystalState::Crystallized => "crystallized",
-                    crate::domain::ccm::CrystalState::Canonical => "canonical",
-                    crate::domain::ccm::CrystalState::Decaying => "decaying",
-                    crate::domain::ccm::CrystalState::Dissolved => "dissolved",
-                };
-                (updated.observations, updated.confidence, state_str, created)
-            } else {
-                // New crystal — always Forming until enough observations to judge
-                (1u32, score, "forming", timestamp.to_string())
-            }
-        };
-
-        // Write-through: DB first, cache second — prevents divergence on DB failure
+        // Atomic observe: LET binds + UPDATE avoids TOCTOU race.
+        // SurrealDB 3.x doesn't support nested IF...END — use LET variables.
+        // All LET expressions read pre-update snapshot (confirmed via probe).
+        //
+        // State classification thresholds (from domain/ccm.rs):
+        //   Canonical:    obs >= 233 AND conf >= 0.618
+        //   Crystallized: obs >= 21  AND conf >= 0.618
+        //   Decaying:     obs >= 21  AND conf <  0.382
+        //   Forming:      everything else
         let sql = format!(
-            "UPSERT crystal:`{id}` SET \
-                content = '{content}', \
-                domain = '{domain}', \
-                observations = {observations}, \
-                confidence = {confidence}, \
-                state = '{state}', \
-                created_at = '{created_at}', \
-                updated_at = '{ts}';",
+            "LET $prev_obs = (SELECT VALUE observations FROM crystal:`{id}`)[0] ?? 0; \
+             LET $prev_conf = (SELECT VALUE confidence FROM crystal:`{id}`)[0] ?? 0.0; \
+             LET $new_obs = $prev_obs + 1; \
+             LET $new_conf = IF $prev_obs > 0 THEN ($prev_conf * $prev_obs + {score}) / $new_obs ELSE {score} END; \
+             LET $new_state = IF $new_obs >= 233 AND $new_conf >= 0.618 THEN 'canonical' \
+                 ELSE IF $new_obs >= 21 AND $new_conf >= 0.618 THEN 'crystallized' \
+                 ELSE IF $new_obs >= 21 AND $new_conf < 0.382 THEN 'decaying' \
+                 ELSE 'forming' END; \
+             UPSERT crystal:`{id}` SET \
+                 content = '{content}', \
+                 domain = '{domain}', \
+                 observations = $new_obs, \
+                 confidence = $new_conf, \
+                 state = $new_state, \
+                 created_at = created_at ?? '{ts}', \
+                 updated_at = '{ts}';",
             id = safe_id,
-            content = escape(content),
-            domain = escape(domain),
-            observations = observations,
-            confidence = confidence,
-            state = state_str,
-            created_at = escape(&created_at),
-            ts = escape(timestamp),
+            content = escape_surreal(content),
+            domain = escape_surreal(domain),
+            score = score,
+            ts = escape_surreal(timestamp),
+        );
+        self.query(&sql).await?;
+        Ok(())
+    }
+
+    async fn store_crystal_embedding(&self, id: &str, embedding: &[f32]) -> Result<(), StorageError> {
+        let safe_id = escape_surreal(id);
+        // Serialize Vec<f32> as SurrealQL array literal
+        let vec_str: String = embedding.iter()
+            .map(|v| format!("{}", v))
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "UPDATE crystal:`{id}` SET embedding = [{vec}]",
+            id = safe_id, vec = vec_str,
         );
         self.query_one(&sql).await?;
-
-        // DB write succeeded — now update cache
-        self.crystal_cache.write().await.insert(id.to_string(), CrystalCacheEntry {
-            observations,
-            confidence,
-            created_at: created_at.clone(),
-        });
         Ok(())
+    }
+
+    async fn search_crystals_semantic(&self, query_embedding: &[f32], limit: u32) -> Result<Vec<Crystal>, StorageError> {
+        let k = safe_limit(limit).min(20); // Cap KNN at 20
+        let vec_str: String = query_embedding.iter()
+            .map(|v| format!("{}", v))
+            .collect::<Vec<_>>()
+            .join(",");
+        // KNN search with HNSW index, filter to mature crystals only
+        let sql = format!(
+            "LET $q = [{vec}]; \
+             SELECT *, vector::similarity::cosine(embedding, $q) AS similarity \
+             FROM crystal \
+             WHERE embedding <|{k},40|> $q \
+             AND (state = 'crystallized' OR state = 'canonical') \
+             ORDER BY similarity DESC;",
+            vec = vec_str, k = k,
+        );
+        let results = self.query(&sql).await?;
+        // Multi-statement: LET returns empty, SELECT is the second result set
+        let rows = results.into_iter().nth(1).unwrap_or_default();
+        Ok(rows.iter().map(row_to_crystal).collect())
     }
 
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
@@ -341,7 +325,9 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
-        let limit = safe_limit(limit);
+        // Internal aggregation query — not user-facing. Needs more rows than safe_limit(100)
+        // for co-occurrence detection across many sessions. Cap at 1000.
+        let limit = limit.min(1000);
         // Group by agent_id (= session identity in Claude Code).
         // session_id field is unreliable (often empty). agent_id is derived
         // from CLAUDE_SESSION_ID by the PostToolUse hook.
@@ -351,6 +337,75 @@ impl StoragePort for SurrealHttpStorage {
              AND tool IN ['Edit', 'Write', 'Read'] \
              ORDER BY agent_id, target LIMIT {};",
             escape_surreal(project), limit,
+        );
+        self.query_one(&sql).await
+    }
+
+    async fn store_session_summary(&self, summary: &crate::domain::ccm::SessionSummary) -> Result<(), StorageError> {
+        // Record key = session_id → idempotent UPSERT, no duplicates (H4 fix)
+        let safe_key = sanitize_record_id(&summary.session_id);
+        let sql = format!(
+            "UPSERT session_summary:`{key}` SET \
+                session_id = '{session_id}', \
+                agent_id = '{agent_id}', \
+                summary = '{summary}', \
+                observations_count = {obs_count}, \
+                created_at = time::now();",
+            key = safe_key,
+            session_id = escape_surreal(&summary.session_id),
+            agent_id = escape_surreal(&summary.agent_id),
+            summary = escape_surreal(&summary.summary),
+            obs_count = summary.observations_count,
+        );
+        self.query_one(&sql).await?;
+        Ok(())
+    }
+
+    async fn list_session_summaries(&self, limit: u32) -> Result<Vec<crate::domain::ccm::SessionSummary>, StorageError> {
+        let sql = format!(
+            "SELECT * FROM session_summary ORDER BY created_at DESC LIMIT {}",
+            safe_limit(limit),
+        );
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.iter().map(|row| crate::domain::ccm::SessionSummary {
+            session_id: row["session_id"].as_str().unwrap_or("").to_string(),
+            agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
+            summary: row["summary"].as_str().unwrap_or("").to_string(),
+            observations_count: row["observations_count"].as_u64().unwrap_or(0) as u32,
+            created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+        }).collect())
+    }
+
+    async fn get_unsummarized_sessions(&self, min_observations: u32, limit: u32) -> Result<Vec<(String, String, u32)>, StorageError> {
+        // SurrealDB 3.x: no HAVING clause. Filter in Rust after GROUP BY.
+        // NOT IN subquery filters out already-summarized sessions.
+        let sql = format!(
+            "SELECT agent_id, count() AS obs_count \
+             FROM observation \
+             WHERE agent_id != '' AND agent_id != 'unknown' \
+             AND agent_id NOT IN (SELECT VALUE session_id FROM session_summary) \
+             GROUP BY agent_id \
+             ORDER BY obs_count DESC \
+             LIMIT {};",
+            safe_limit(limit),
+        );
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.iter().filter_map(|row| {
+            let agent_id = row["agent_id"].as_str().unwrap_or("").to_string();
+            let count = row["obs_count"].as_u64().unwrap_or(0) as u32;
+            if count >= min_observations {
+                Some((agent_id.clone(), agent_id, count))
+            } else {
+                None
+            }
+        }).collect())
+    }
+
+    async fn get_session_observations(&self, session_id: &str) -> Result<Vec<serde_json::Value>, StorageError> {
+        let sql = format!(
+            "SELECT tool, target, domain, status, context, created_at FROM observation \
+             WHERE agent_id = '{}' ORDER BY created_at ASC LIMIT 50;",
+            escape_surreal(session_id),
         );
         self.query_one(&sql).await
     }
@@ -377,6 +432,26 @@ impl StoragePort for SurrealHttpStorage {
         }
         self.query(&sql).await?;
         Ok(())
+    }
+
+    async fn cleanup_ttl(&self) -> Result<(), StorageError> {
+        self.query_one("DELETE observation WHERE created_at < time::now() - 30d;")
+            .await.map_err(|e| StorageError::QueryFailed(format!("TTL cleanup observation: {}", e)))?;
+        self.query_one("DELETE mcp_audit WHERE ts < time::now() - 7d;")
+            .await.map_err(|e| StorageError::QueryFailed(format!("TTL cleanup mcp_audit: {}", e)))?;
+        Ok(())
+    }
+
+    async fn last_integrity_hash(&self) -> Result<Option<String>, StorageError> {
+        let rows = self.query_one("SELECT integrity_hash FROM verdict ORDER BY created_at DESC LIMIT 1;").await?;
+        Ok(rows.first()
+            .and_then(|r| r["integrity_hash"].as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()))
+    }
+
+    async fn load_usage_history(&self) -> Result<Vec<serde_json::Value>, StorageError> {
+        self.query_one("SELECT * FROM dog_usage;").await
     }
 }
 
