@@ -1,0 +1,22 @@
+[Unit]
+Description=SurrealDB daily backup — CYNIC data
+After=surrealdb.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/cynic/env
+ExecStart=/bin/bash -c '\
+  FILE="%h/.surrealdb/backups/cynic_v2_$$(date +%%Y%%m%%d_%%H%%M%%S).surql"; \
+  /usr/local/bin/surreal export \
+    --endpoint http://localhost:8000 \
+    --namespace cynic --database v2 \
+    --username $${SURREALDB_USER:-root} \
+    --password $${SURREALDB_PASS} \
+    "$$FILE" && \
+  gzip "$$FILE" && \
+  gzip -t "$${FILE}.gz" && \
+  SIZE=$$(du -h "$${FILE}.gz" | cut -f1) && \
+  [ "$$(stat -c%%s "$${FILE}.gz")" -gt 100 ] && \
+  echo "[backup] OK: $${FILE}.gz ($$SIZE, verified)" || \
+  { echo "[backup] FAIL: $${FILE}.gz is corrupt or empty"; exit 1; }'
+ExecStartPost=/bin/bash -c 'find %h/.surrealdb/backups -name "*.surql.gz" -mtime +7 -delete; find %h/.surrealdb/backups -name "*.surql" -mtime +14 -delete'

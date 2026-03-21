@@ -1,0 +1,6 @@
+[Unit]
+Description=CYNIC Health Check
+
+[Service]
+Type=oneshot
+ExecStart=%h/bin/cynic-healthcheck.sh

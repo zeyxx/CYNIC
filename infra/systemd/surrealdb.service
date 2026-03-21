@@ -1,0 +1,20 @@
+[Unit]
+Description=SurrealDB — CYNIC storage
+After=network.target
+
+[Service]
+Type=simple
+# Separate env file — no SURREAL_USER/SURREAL_PASS (causes "root user not created" warning).
+# Only surrealkv tuning vars.
+EnvironmentFile=%h/.config/cynic/surrealdb.env
+ExecStart=/usr/local/bin/surreal start --bind 127.0.0.1:8000 --transaction-timeout 10s --query-timeout 30s surrealkv:///home/user/.surrealdb/data
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=10
+LimitNOFILE=65535
+MemoryMax=4G
+
+[Install]
+WantedBy=default.target

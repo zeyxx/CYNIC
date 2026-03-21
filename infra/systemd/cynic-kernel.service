@@ -1,0 +1,21 @@
+[Unit]
+Description=CYNIC OS V2 — Sovereign Kernel
+After=network.target surrealdb.service
+Wants=surrealdb.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/user/Bureau/CYNIC
+ExecStartPre=/bin/sleep 3
+ExecStart=/home/user/bin/cynic-kernel
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/home/user/.config/cynic/env
+LimitNOFILE=65535
+MemoryMax=2G
+
+[Install]
+WantedBy=default.target
