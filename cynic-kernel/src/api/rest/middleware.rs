@@ -110,7 +110,7 @@ pub async fn audit_middleware(
             "latency_ms": elapsed_ms,
         });
         tokio::spawn(async move {
-            let _ = coord.store_audit("rest_request", "rest", &details).await;
+            let _ = coord.store_audit("rest_request", "rest", &details).await; // ok: fire-and-forget
         });
     }
 
