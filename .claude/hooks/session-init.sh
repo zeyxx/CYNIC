@@ -22,18 +22,33 @@ API_KEY="${CYNIC_API_KEY:-}"
 AUTH_HEADER=""
 [ -n "$API_KEY" ] && AUTH_HEADER="Authorization: Bearer $API_KEY"
 
-# ── Quick health probe ──
-HEALTH_JSON=$(curl -s --max-time 2 "http://${KERNEL_ADDR}/health" 2>/dev/null || echo '{}')
-KERNEL_STATUS=$(echo "$HEALTH_JSON" | jq -r '.status // empty' 2>/dev/null)
-[[ -z "$KERNEL_STATUS" ]] && KERNEL_STATUS="down"
+# ── Quick health probe (authenticated — HTTP 200=sovereign, 503=degraded) ──
+HEALTH_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+    ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+    "http://${KERNEL_ADDR}/health" 2>/dev/null || echo "000")
 
-# ── Dog drift detection ──
+if [[ "$HEALTH_CODE" == "200" ]]; then
+    KERNEL_STATUS="sovereign"
+elif [[ "$HEALTH_CODE" == "503" ]]; then
+    KERNEL_STATUS="degraded"
+else
+    KERNEL_STATUS="down"
+fi
+
+# ── Dog count from authenticated response ──
 EXPECTED_DOGS=0
 BACKENDS_FILE="${HOME}/.config/cynic/backends.toml"
 if [[ -f "$BACKENDS_FILE" ]]; then
-    EXPECTED_DOGS=$(( $(grep -c '^\[backend\.' "$BACKENDS_FILE" || echo 0) + 1 ))  # +1 for deterministic-dog
+    EXPECTED_DOGS=$(( $(grep -c '^\[backend\.' "$BACKENDS_FILE" || echo 0) + 1 ))
 fi
-ACTIVE_DOGS=$(echo "$HEALTH_JSON" | jq '.dog_count // 0' 2>/dev/null)
+# Count dogs from authenticated /health (dogs array length)
+ACTIVE_DOGS=0
+if [[ "$KERNEL_STATUS" != "down" ]]; then
+    ACTIVE_DOGS=$(curl -s --max-time 5 \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        "http://${KERNEL_ADDR}/health" 2>/dev/null \
+        | jq '.dogs | length' 2>/dev/null || echo 0)
+fi
 DOG_DRIFT=""
 if [[ "$EXPECTED_DOGS" -gt 0 && "$ACTIVE_DOGS" -lt "$EXPECTED_DOGS" ]]; then
     DOG_DRIFT="WARNING: ${ACTIVE_DOGS}/${EXPECTED_DOGS} Dogs active — check backend health"
@@ -85,3 +100,15 @@ WORKFLOW: Use /build after edits, /deploy for production, /status for full dashb
 COORD: Agent auto-registered. Claim → cynic_coord_who + cynic_coord_claim | Release → cynic_coord_release
 RULES: Public repo — no secrets, no real IPs, no names. Use skills before acting.
 EOF
+
+# ── Inject top CCM crystals as learnings (CYNIC remembers) ──
+if [[ "$KERNEL_STATUS" != "down" ]]; then
+    CRYSTALS=$(curl -s --max-time 3 \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        "http://${KERNEL_ADDR}/crystals?limit=5" 2>/dev/null)
+    if [[ -n "$CRYSTALS" && "$CRYSTALS" != "[]" ]]; then
+        echo ""
+        echo "CYNIC MEMORY (top crystallized patterns):"
+        echo "$CRYSTALS" | jq -r '.[] | select(.state == "crystallized" or .state == "canonical") | "  [\(.state)] \(.content) (confidence: \(.confidence | tostring | .[0:4]), \(.observations) obs)"' 2>/dev/null | head -5
+    fi
+fi
