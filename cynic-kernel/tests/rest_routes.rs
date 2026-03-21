@@ -208,10 +208,38 @@ async fn judge_produces_verdict() {
 
     assert_eq!(resp.status(), 200);
     let v = body_json(resp.into_body()).await;
-    assert!(v["verdict_id"].is_string());
-    assert!(v["q_score"]["total"].as_f64().unwrap() > 0.0);
-    let verdict = v["verdict"].as_str().unwrap();
-    assert!(["Howl", "Wag", "Growl", "Bark"].contains(&verdict));
+
+    // ── API CONTRACT: /judge response ──
+    // Consumer map:
+    //   verdict_id     → frontend (link to detail), MCP cynic_judge
+    //   verdict        → frontend badge, MCP, CCM crystal domain
+    //   q_score.total  → frontend score display, MCP, CCM crystal confidence
+    //   q_score.{axiom} → frontend radar chart, MCP per-axiom breakdown
+    //   reasoning.{axiom} → frontend reasoning display, MCP
+    //   dogs_used      → frontend dog list, /status skill
+    //   stimulus_summary → CCM crystal content, verdict history
+    assert!(v["verdict_id"].is_string(), "CONTRACT: verdict_id must be string");
+    let verdict = v["verdict"].as_str().expect("CONTRACT: verdict must be string");
+    assert!(["Howl", "Wag", "Growl", "Bark"].contains(&verdict), "CONTRACT: verdict must be Howl/Wag/Growl/Bark");
+
+    // Q-Score structure
+    let q = &v["q_score"];
+    assert!(q["total"].is_number(), "CONTRACT: q_score.total must be number");
+    assert!(q["fidelity"].is_number(), "CONTRACT: q_score.fidelity must be number");
+    assert!(q["phi"].is_number(), "CONTRACT: q_score.phi must be number");
+    assert!(q["verify"].is_number(), "CONTRACT: q_score.verify must be number");
+    assert!(q["culture"].is_number(), "CONTRACT: q_score.culture must be number");
+    assert!(q["burn"].is_number(), "CONTRACT: q_score.burn must be number");
+    assert!(q["sovereignty"].is_number(), "CONTRACT: q_score.sovereignty must be number");
+
+    // Reasoning structure
+    let r = &v["reasoning"];
+    assert!(r["fidelity"].is_string(), "CONTRACT: reasoning.fidelity must be string");
+
+    // Dogs
+    assert!(v["dogs_used"].is_string(), "CONTRACT: dogs_used must be string");
+    // Note: stimulus_summary is NOT in JudgeResponse (internal to Verdict, not exposed via REST)
+    // If a consumer needs it, add it to JudgeResponse explicitly — don't assume.
 }
 
 // ── /health without auth config (open API) ──────────────────
