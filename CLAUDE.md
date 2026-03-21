@@ -118,6 +118,10 @@ Real chess scores: Sicilian Defense → Howl. Scholar's Mate → Growl. Fool's M
 10. **Timeout every background `.await`.** Any `.await` inside a `tokio::spawn` must be wrapped in `tokio::time::timeout()`. Bare awaits in background tasks can stall indefinitely without any signal.
 11. **`Display` implies `Error`.** Every type that implements `std::fmt::Display` for error reporting MUST also implement `std::error::Error`. No exceptions — it's two lines.
 12. **Fix the class, not the instance.** When fixing a bug, `grep` the entire codebase for the same pattern. If `let _ =` was wrong in one flush path, check ALL flush paths. A fix that doesn't sweep its class is half a fix.
+13. **The compiler is the enforcement layer.** `#![deny(dead_code, unused_imports)]` is in lib.rs. If a rule can be enforced by the Rust compiler or clippy, it MUST be — not by bash scripts, not by text in CLAUDE.md. Scripts are debt. Compiler lints are permanent.
+14. **One value, one source.** Every config value (URL, secret, port) has exactly ONE source of truth. All other consumers derive from it, never copy. `backends.toml` = Dogs. `~/.cynic-env` = secrets. If you must edit 2 files to add a backend, the architecture is wrong.
+15. **HTTP status codes are the contract.** `/health` returns 200 (sovereign) or 503 (degraded/critical). Monitoring scripts check the status code, never parse JSON. Any tool that parses API responses to make decisions is doing the server's job — move the logic to the server.
+16. **Scripts are thin. Logic lives in the kernel.** Bash hooks and monitoring scripts are `curl + status code check`. Zero parsing, zero decision logic, zero Python. If a script has an `if` that depends on API response content, that `if` belongs in the kernel.
 
 ## Mandatory Tool Use (NON-OPTIONAL)
 
