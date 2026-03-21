@@ -116,7 +116,7 @@ impl RecoveryTracker {
     /// Returns `true` when:
     ///   1. Retries are not exhausted for this dog, AND
     ///   2. Either no previous attempt has been made OR the cooldown has elapsed.
-    pub fn should_restart(&self, dog_id: &str, config: &DogRemediation) -> bool {
+    pub fn should_restart(&self, dog_id: &str, config: &super::config::BackendRemediation) -> bool {
         let map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let state = match map.get(dog_id) {
             Some(s) => s,
@@ -203,10 +203,9 @@ mod tests {
     use std::io::Write as IoWrite;
     use tempfile::NamedTempFile;
 
-    fn make_config(max_retries: u32, cooldown_secs: u64) -> DogRemediation {
-        DogRemediation {
+    fn make_config(max_retries: u32, cooldown_secs: u64) -> super::super::config::BackendRemediation {
+        super::super::config::BackendRemediation {
             node: "user@test-node".to_string(),
-            health_url: "http://test-node:8080/health".to_string(),
             restart_command: "systemctl restart foo".to_string(),
             max_retries,
             cooldown_secs,

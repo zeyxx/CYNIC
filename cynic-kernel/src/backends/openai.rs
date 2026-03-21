@@ -237,6 +237,8 @@ mod tests {
             context_size: 0,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
+            health_url: String::new(),
+            remediation: None,
         });
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions");
     }
@@ -252,6 +254,8 @@ mod tests {
             context_size: 0,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
+            health_url: String::new(),
+            remediation: None,
         });
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions?key=key123");
     }
@@ -267,6 +271,8 @@ mod tests {
             context_size: 0,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
+            health_url: String::new(),
+            remediation: None,
         });
         assert_eq!(backend.build_url("/chat/completions"), "http://localhost:8080/v1/chat/completions");
     }
@@ -282,6 +288,8 @@ mod tests {
             context_size: 0,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
+            health_url: String::new(),
+            remediation: None,
         });
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions");
     }

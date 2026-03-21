@@ -63,6 +63,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         infra::config::load_backends_from_env()
     };
 
+    // Validate config — probe health URLs, log warnings (non-blocking)
+    infra::config::validate_config(&backend_configs).await;
+
     // ─── RING 2: Build Dogs (model-agnostic evaluators) ───────
     let mut dogs: Vec<Box<dyn domain::dog::Dog>> = Vec::new();
 
@@ -71,7 +74,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     klog!("[Ring 2] DeterministicDog loaded");
 
     // Create InferenceDog per configured backend
+    // Also collect health URLs and remediation configs from the SoT (backends.toml)
     let mut cost_rates: Vec<(String, f64, f64)> = Vec::new();
+    let mut remediation_configs: std::collections::HashMap<String, infra::config::BackendRemediation> = std::collections::HashMap::new();
+    let mut health_urls: std::collections::HashMap<String, String> = std::collections::HashMap::new();
     for cfg in backend_configs {
         let backend = Arc::new(backends::openai::OpenAiCompatBackend::new(cfg.clone()));
         let health = BackendPort::health(backend.as_ref()).await;
@@ -86,17 +92,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         cost_rates.push((cfg.name.clone(), cfg.cost_input_per_mtok, cfg.cost_output_per_mtok));
+        health_urls.insert(cfg.name.clone(), cfg.health_url.clone());
+        if let Some(rem) = cfg.remediation.clone() {
+            remediation_configs.insert(cfg.name.clone(), rem);
+        }
         dogs.push(Box::new(dogs::inference::InferenceDog::new(backend, cfg.name.clone(), cfg.context_size)));
     }
 
     klog!("[Ring 2] {} Dog(s) active", dogs.len());
 
     // ─── RING 2: Health Loop + Remediation ──────────────────────
-    let remediation_path = dirs::config_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("cynic")
-        .join("remediation.toml");
-    let remediation_configs = infra::remediation::load_remediation(&remediation_path);
+    // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
     if !remediation_configs.is_empty() {
         klog!("[Ring 2] Remediation: {} Dogs configured for auto-restart", remediation_configs.len());
     }
@@ -133,13 +139,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .iter()
             .filter(|id| *id != "deterministic-dog") // in-process, always healthy
             .filter_map(|id| {
-                // Use remediation.toml health_url if available; no URL = no probe
-                let health_url = remediation_configs
-                    .get(id.as_str())
-                    .map(|r| r.health_url.clone());
-                health_url.map(|url| infra::health_loop::DogProbeConfig {
+                // Health URL from backends.toml SoT — derived from base_url if not explicit
+                health_urls.get(id.as_str()).map(|url| infra::health_loop::DogProbeConfig {
                     dog_id: id.clone(),
-                    health_url: url,
+                    health_url: url.clone(),
                 })
             })
             .collect();

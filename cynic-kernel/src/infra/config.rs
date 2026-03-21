@@ -17,6 +17,24 @@ pub struct BackendConfig {
     pub cost_input_per_mtok: f64,
     /// Cost per 1M output tokens in USD. 0.0 = free.
     pub cost_output_per_mtok: f64,
+    /// Health URL — derived from base_url if not explicitly set.
+    /// Convention: base_url "/v1" suffix → "/health". Otherwise base_url + "/health".
+    pub health_url: String,
+    /// Remediation config — optional. Only for backends that can be restarted.
+    pub remediation: Option<BackendRemediation>,
+}
+
+/// Remediation config for a backend — how to restart it when the circuit breaker opens.
+#[derive(Debug, Clone)]
+pub struct BackendRemediation {
+    /// SSH target, e.g. `"user@<TAILSCALE_NODE>"` or `"localhost"`
+    pub node: String,
+    /// Command to execute on the node to restart the service
+    pub restart_command: String,
+    /// Maximum recovery attempts before giving up (default: 3)
+    pub max_retries: u32,
+    /// Minimum seconds between restart attempts (default: 60)
+    pub cooldown_secs: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -40,6 +58,28 @@ struct BackendEntry {
     context_size: Option<u32>,
     cost_input_per_mtok: Option<f64>,
     cost_output_per_mtok: Option<f64>,
+    /// Explicit health URL — if omitted, derived from base_url.
+    health_url: Option<String>,
+    /// Inline remediation config.
+    remediation: Option<RemediationEntry>,
+}
+
+#[derive(Deserialize)]
+struct RemediationEntry {
+    node: String,
+    restart_command: String,
+    max_retries: Option<u32>,
+    cooldown_secs: Option<u64>,
+}
+
+/// Derive health URL from base_url: strip "/v1" suffix, append "/health".
+fn derive_health_url(base_url: &str) -> String {
+    let base = if let Some(stripped) = base_url.strip_suffix("/v1") {
+        stripped
+    } else {
+        base_url.trim_end_matches('/')
+    };
+    format!("{}/health", base)
 }
 
 /// Load backend configs from TOML file. Resolves api_key_env to actual env var values.
@@ -94,6 +134,16 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 }
             };
 
+            let health_url = entry.health_url
+                .unwrap_or_else(|| derive_health_url(&entry.base_url));
+
+            let remediation = entry.remediation.map(|r| BackendRemediation {
+                node: r.node,
+                restart_command: r.restart_command,
+                max_retries: r.max_retries.unwrap_or(3),
+                cooldown_secs: r.cooldown_secs.unwrap_or(60),
+            });
+
             Some(BackendConfig {
                 name,
                 base_url: entry.base_url,
@@ -103,6 +153,8 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 context_size: entry.context_size.unwrap_or(0),
                 cost_input_per_mtok: entry.cost_input_per_mtok.unwrap_or(0.0),
                 cost_output_per_mtok: entry.cost_output_per_mtok.unwrap_or(0.0),
+                health_url,
+                remediation,
             })
         })
         .collect()
@@ -115,19 +167,47 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
     if let Ok(api_key) = std::env::var("GEMINI_API_KEY") {
         let model = std::env::var("GEMINI_MODEL")
             .unwrap_or_else(|_| "gemini-2.5-flash".to_string());
+        let base_url = "https://generativelanguage.googleapis.com/v1beta/openai".to_string();
+        let health_url = derive_health_url(&base_url);
         configs.push(BackendConfig {
             name: "gemini".to_string(),
-            base_url: "https://generativelanguage.googleapis.com/v1beta/openai".to_string(),
+            base_url,
             api_key: Some(api_key),
             model,
             auth_style: AuthStyle::Bearer,
             context_size: 1_000_000,
-            cost_input_per_mtok: 0.0, // Free tier by default
+            cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
+            health_url,
+            remediation: None,
         });
     }
 
     configs
+}
+
+/// Validate config at boot — probe health URLs, log warnings for unreachable backends.
+/// Does NOT block boot — sovereign degradation is preferred over refusing to start.
+pub async fn validate_config(configs: &[BackendConfig]) {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(2))
+        .build()
+        .unwrap_or_default();
+
+    for cfg in configs {
+        match client.get(&cfg.health_url).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                klog!("[config] ✓ {} health OK ({})", cfg.name, cfg.health_url);
+            }
+            Ok(resp) => {
+                klog!("[config] ⚠ {} health returned {} ({})", cfg.name, resp.status(), cfg.health_url);
+            }
+            Err(_) => {
+                klog!("[config] ✗ {} UNREACHABLE at {} — will load anyway, health loop will recover",
+                    cfg.name, cfg.health_url);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -162,5 +242,67 @@ auth_style = "none"
     fn missing_file_returns_empty() {
         let configs = load_backends(Path::new("/nonexistent/backends.toml"));
         assert!(configs.is_empty());
+    }
+
+    #[test]
+    fn derive_health_url_strips_v1() {
+        assert_eq!(derive_health_url("http://10.0.0.1:8080/v1"), "http://10.0.0.1:8080/health");
+        assert_eq!(derive_health_url("https://api.example.com/v1"), "https://api.example.com/health");
+    }
+
+    #[test]
+    fn derive_health_url_no_v1() {
+        assert_eq!(derive_health_url("http://10.0.0.1:8080"), "http://10.0.0.1:8080/health");
+        assert_eq!(derive_health_url("http://10.0.0.1:8080/"), "http://10.0.0.1:8080/health");
+    }
+
+    #[test]
+    fn parse_toml_with_remediation() {
+        let toml_content = r#"
+[backend.sovereign]
+base_url = "http://10.0.0.1:8080/v1"
+model = "qwen3"
+auth_style = "bearer"
+
+[backend.sovereign.remediation]
+node = "user@10.0.0.1"
+restart_command = "systemctl --user restart llama-server"
+max_retries = 5
+cooldown_secs = 30
+"#;
+        let dir = std::env::temp_dir().join("cynic_config_remediation_test");
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("backends.toml");
+        std::fs::write(&path, toml_content).unwrap();
+
+        let configs = load_backends(&path);
+        assert_eq!(configs.len(), 1);
+        assert_eq!(configs[0].health_url, "http://10.0.0.1:8080/health");
+        let rem = configs[0].remediation.as_ref().expect("remediation should be present");
+        assert_eq!(rem.node, "user@10.0.0.1");
+        assert_eq!(rem.max_retries, 5);
+        assert_eq!(rem.cooldown_secs, 30);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn parse_toml_without_remediation() {
+        let toml_content = r#"
+[backend.gemini]
+base_url = "https://api.google.com/v1"
+model = "gemini-flash"
+"#;
+        let dir = std::env::temp_dir().join("cynic_config_no_rem_test");
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("backends.toml");
+        std::fs::write(&path, toml_content).unwrap();
+
+        let configs = load_backends(&path);
+        assert_eq!(configs.len(), 1);
+        assert!(configs[0].remediation.is_none());
+        assert_eq!(configs[0].health_url, "https://api.google.com/health");
+
+        std::fs::remove_file(&path).ok();
     }
 }
