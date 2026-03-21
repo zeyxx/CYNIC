@@ -49,6 +49,7 @@ check-storage: ## Integration tests against real SurrealDB (requires :8000)
 
 # ── Stage 2: Validated Commit ────────────────────────────────
 # Usage: make commit m="type(scope): description"
+# Impact checking is done by the compiler (#![deny(dead_code)]) — not bash scripts.
 .PHONY: commit
 commit: check
 	@if [ -z "$(m)" ]; then echo "ERROR: provide message with m=\"...\"" >&2; exit 1; fi
@@ -56,7 +57,7 @@ commit: check
 	@echo "▶ Staging and committing..."
 	git add -u
 	git commit -m "$(m)"
-	@echo "✓ Committed (gitleaks pre-commit validated)"
+	@echo "✓ Committed (compiler + clippy + gitleaks validated)"
 
 # ── Stage 3: Ship (commit + push) ───────────────────────────
 .PHONY: ship

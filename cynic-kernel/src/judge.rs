@@ -42,32 +42,18 @@ impl Judge {
 
     /// Return health per Dog: circuit breaker state + backend status.
     /// Combines CB (execution protection) with Dog::health() (backend observation).
-    /// Parallel — all health checks run concurrently with 3s timeout per probe.
-    /// The /health endpoint must respond fast — unreachable backends should not block it.
-    pub async fn dog_health(&self) -> Vec<(String, String, u32)> {
-        let health_futures: Vec<_> = self.dogs.iter()
-            .map(|dog| async move {
-                let result = tokio::time::timeout(
-                    std::time::Duration::from_secs(3),
-                    dog.health(),
-                ).await;
-                let status = match result {
-                    Ok(s) => s,
-                    Err(_) => crate::domain::inference::BackendStatus::Critical,
-                };
-                (dog.id(), status)
-            })
-            .collect();
-        let health_results = futures_util::future::join_all(health_futures).await;
-
-        health_results.iter().zip(self.breakers.iter())
-            .map(|((id, backend_status), cb)| {
-                let effective_state = if !backend_status.is_available() {
+    /// Read cached circuit breaker state — O(1), no network calls.
+    /// The health loop updates breakers every 30s via probes.
+    /// This just reads the current state from memory.
+    pub fn dog_health(&self) -> Vec<(String, String, u32)> {
+        self.dogs.iter().zip(self.breakers.iter())
+            .map(|(dog, cb)| {
+                let state = if cb.is_open() {
                     "critical".to_string()
                 } else {
                     cb.state()
                 };
-                (id.to_string(), effective_state, cb.consecutive_failures())
+                (dog.id().to_string(), state, cb.consecutive_failures())
             })
             .collect()
     }
@@ -694,7 +680,7 @@ mod tests {
             Box::new(FixedDog { name: "b".into(), scores: AxiomScores::default() }),
         ]);
 
-        let health = judge.dog_health().await;
+        let health = judge.dog_health();
         assert_eq!(health.len(), 2);
         assert_eq!(health[0].0, "a");
         assert_eq!(health[0].1, "closed"); // circuit starts closed

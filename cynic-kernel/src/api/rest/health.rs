@@ -49,7 +49,7 @@ pub async fn health_handler(
         None => true, // No auth configured → everyone gets full details
     };
 
-    let dog_health = state.judge.dog_health().await;
+    let dog_health = state.judge.dog_health();
     let dog_count = dog_health.len();
 
     let storage_ok = state.storage.ping().await.is_ok();

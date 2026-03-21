@@ -82,10 +82,45 @@ async fn health_with_auth_returns_full_details() {
 
     assert_eq!(resp.status(), 200);
     let v = body_json(resp.into_body()).await;
-    // Authenticated: has dogs array, storage status, usage
-    assert!(v["dogs"].is_array());
-    assert!(v["storage"].is_string());
-    assert!(v["total_requests"].is_number());
+
+    // ── API CONTRACT: authenticated /health response ──
+    // Every field listed here is consumed by at least one external system.
+    // Removing any field without updating this test = compile-time catch.
+    // Consumer map:
+    //   dogs[]           → healthcheck.sh (dog count), /status skill, frontend
+    //   dogs[].circuit   → healthcheck.sh (healthy count), remediation watcher
+    //   dogs[].failures  → /status skill, frontend dashboard
+    //   status           → healthcheck.sh, frontend, load balancer
+    //   storage          → healthcheck.sh, /status skill
+    //   version          → /status skill, deploy verification
+    //   total_requests   → /status skill, cost tracking
+    //   total_tokens     → cost tracking, /usage
+    //   estimated_cost_usd → /status skill, cost dashboard
+    //   uptime_seconds   → /status skill
+    //   embedding        → /status skill
+    //   storage_metrics  → /status skill (queries, errors, latency)
+
+    // Core fields (MUST exist)
+    assert!(v["status"].is_string(), "CONTRACT: status must be string");
+    assert!(v["version"].is_string(), "CONTRACT: version must be string");
+    assert!(v["dogs"].is_array(), "CONTRACT: dogs must be array");
+    assert!(v["storage"].is_string(), "CONTRACT: storage must be string");
+    assert!(v["total_requests"].is_number(), "CONTRACT: total_requests must be number");
+    assert!(v["total_tokens"].is_number(), "CONTRACT: total_tokens must be number");
+    assert!(v["estimated_cost_usd"].is_number(), "CONTRACT: estimated_cost_usd must be number");
+    assert!(v["uptime_seconds"].is_number(), "CONTRACT: uptime_seconds must be number");
+
+    // Dog structure (MUST have these fields per dog)
+    let dogs = v["dogs"].as_array().unwrap();
+    assert!(!dogs.is_empty(), "CONTRACT: at least 1 dog");
+    let dog = &dogs[0];
+    assert!(dog["id"].is_string(), "CONTRACT: dog.id must be string");
+    assert!(dog["circuit"].is_string(), "CONTRACT: dog.circuit must be string");
+    assert!(dog["failures"].is_number(), "CONTRACT: dog.failures must be number");
+    assert!(dog["kind"].is_string(), "CONTRACT: dog.kind must be string");
+
+    // Fields that MUST NOT be in public but MUST be in authenticated
+    assert!(v.get("storage_metrics").is_some(), "CONTRACT: storage_metrics must exist in auth response");
 }
 
 // ── /dogs ───────────────────────────────────────────────────
