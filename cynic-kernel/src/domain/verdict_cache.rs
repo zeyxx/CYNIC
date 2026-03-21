@@ -7,6 +7,7 @@
 
 use crate::domain::dog::Verdict;
 use crate::domain::embedding::Embedding;
+use std::collections::VecDeque;
 use std::sync::RwLock;
 
 /// φ⁻² + φ⁻⁴ = 0.528 as cache hit threshold would be too loose.
@@ -22,7 +23,7 @@ struct CacheEntry {
 }
 
 pub struct VerdictCache {
-    entries: RwLock<Vec<CacheEntry>>,
+    entries: RwLock<VecDeque<CacheEntry>>,
     threshold: f64,
 }
 
@@ -41,7 +42,7 @@ impl Default for VerdictCache {
 impl VerdictCache {
     pub fn new() -> Self {
         Self {
-            entries: RwLock::new(Vec::new()),
+            entries: RwLock::new(VecDeque::new()),
             threshold: CACHE_HIT_THRESHOLD,
         }
     }
@@ -78,10 +79,10 @@ impl VerdictCache {
         let mut entries = self.entries.write().unwrap_or_else(|e| e.into_inner());
 
         if entries.len() >= MAX_ENTRIES {
-            entries.remove(0); // FIFO: drop oldest
+            entries.pop_front(); // O(1) FIFO eviction
         }
 
-        entries.push(CacheEntry { embedding, verdict });
+        entries.push_back(CacheEntry { embedding, verdict });
     }
 
     /// Number of cached entries.

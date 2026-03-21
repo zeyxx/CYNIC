@@ -403,14 +403,34 @@ impl CoordPort for SurrealHttpStorage {
     }
 
     async fn claim(&self, agent_id: &str, target: &str, claim_type: &str) -> Result<ClaimResult, CoordError> {
-        // Optimistic locking: UPSERT first, then check for conflicts.
-        // Narrows the race window vs check-then-insert (two HTTP round-trips).
-        let claim_id = format!("{}_{}", agent_id, target.replace(['/', '.'], "_"));
+        // Single-row-per-target: UPSERT uses `target` as the record key (not agent_id+target).
+        // This ensures two agents racing on the same target write to the SAME row.
+        // The last writer wins the UPSERT; the post-check reads back to see who owns it.
+        // This eliminates the mutual-rollback liveness deadlock of the old per-agent key scheme.
+        let target_key = sanitize_record_id(target);
+
+        // First check: is this target already actively claimed by someone else?
+        let check_sql = format!(
+            "SELECT * FROM work_claim:`{key}` WHERE agent_id != '{agent_id}' AND active = true;",
+            key = target_key,
+            agent_id = escape_surreal(agent_id),
+        );
+        let existing = self.query_one(&check_sql).await
+            .map_err(|e| CoordError::StorageFailed(format!("Claim check: {}", e)))?;
+        if !existing.is_empty() {
+            let infos = existing.iter().map(|c| ConflictInfo {
+                agent_id: c["agent_id"].as_str().unwrap_or("?").to_string(),
+                claimed_at: c["claimed_at"].as_str().unwrap_or("?").to_string(),
+            }).collect();
+            return Ok(ClaimResult::Conflict(infos));
+        }
+
+        // Claim: UPSERT the single row for this target
         let upsert_sql = format!(
-            "UPSERT work_claim:`{claim_id_key}` SET \
+            "UPSERT work_claim:`{key}` SET \
                 agent_id = '{agent_id}', target = '{target}', claim_type = '{claim_type}', \
                 claimed_at = time::now(), active = true;",
-            claim_id_key = sanitize_record_id(&claim_id),
+            key = target_key,
             agent_id = escape_surreal(agent_id),
             target = escape_surreal(target),
             claim_type = escape_surreal(claim_type),
@@ -418,26 +438,6 @@ impl CoordPort for SurrealHttpStorage {
         self.query_one(&upsert_sql).await
             .map_err(|e| CoordError::StorageFailed(format!("Claim upsert: {}", e)))?;
 
-        // Post-check: did another agent also claim this target?
-        let check_sql = format!(
-            "SELECT * FROM work_claim WHERE target = '{}' AND agent_id != '{}' AND active = true;",
-            escape_surreal(target), escape_surreal(agent_id)
-        );
-        let conflicts = self.query_one(&check_sql).await
-            .map_err(|e| CoordError::StorageFailed(format!("Claim check: {}", e)))?;
-        if !conflicts.is_empty() {
-            // Rollback our claim — the other agent got there first
-            let rollback = format!(
-                "UPDATE work_claim:`{}` SET active = false;",
-                sanitize_record_id(&claim_id)
-            );
-            let _ = self.query_one(&rollback).await; // ok: best-effort rollback
-            let infos = conflicts.iter().map(|c| ConflictInfo {
-                agent_id: c["agent_id"].as_str().unwrap_or("?").to_string(),
-                claimed_at: c["claimed_at"].as_str().unwrap_or("?").to_string(),
-            }).collect();
-            return Ok(ClaimResult::Conflict(infos));
-        }
         let _ = self.heartbeat(agent_id).await; // ok: fire-and-forget
         Ok(ClaimResult::Claimed)
     }
@@ -564,13 +564,12 @@ impl CoordPort for SurrealHttpStorage {
         if !claimable.is_empty() {
             let mut batch_sql = String::new();
             for target in &claimable {
-                let claim_id = format!("{}_{}", agent_id, target.replace(['/', '.'], "_"));
                 use std::fmt::Write;
                 let _ = write!(batch_sql, // ok: fmt::Write on String
-                    "UPSERT work_claim:`{claim_id_key}` SET \
+                    "UPSERT work_claim:`{target_key}` SET \
                         agent_id = '{agent_id}', target = '{target}', claim_type = '{claim_type}', \
                         claimed_at = time::now(), active = true; ",
-                    claim_id_key = sanitize_record_id(&claim_id),
+                    target_key = sanitize_record_id(target),
                     agent_id = escape_surreal(agent_id),
                     target = escape_surreal(target),
                     claim_type = escape_surreal(claim_type),
