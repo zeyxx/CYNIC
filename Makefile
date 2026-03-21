@@ -68,8 +68,9 @@ ship: commit
 	@echo "✓ Shipped (pre-push validated build+test+clippy)"
 
 # ── Stage 4: Deploy ─────────────────────────────────────────
+# Integration tests run BEFORE deploy — if storage queries are broken, don't deploy.
 .PHONY: deploy
-deploy: ship
+deploy: ship check-storage
 	@$(source_env)
 	@echo ""
 	@echo "▶ Backing up DB before deploy..."
@@ -82,13 +83,18 @@ deploy: ship
 	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
 	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-mcp
 	systemctl --user start cynic-kernel
-	@echo "▶ Verifying (retry loop)..."
+	@echo "▶ Verifying (HTTP status code — no JSON parsing)..."
 	@for i in $$(seq 1 15); do \
 		sleep 3; \
-		STATUS=$$(curl -sf "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin).get('status','?'))" 2>/dev/null) && \
-		[ -n "$$STATUS" ] && echo "Kernel: $$STATUS" && break || \
+		HTTP=$$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+			$${CYNIC_API_KEY:+-H "Authorization: Bearer $${CYNIC_API_KEY}"} \
+			"http://$${CYNIC_REST_ADDR}/health" 2>/dev/null) && \
+		[ "$$HTTP" = "200" ] && echo "  Kernel: sovereign (HTTP 200)" && break || \
+		[ "$$HTTP" = "503" ] && echo "  Kernel: degraded (HTTP 503) — check Dogs" && break || \
 		printf "."; \
 	done
+	@echo "▶ Healthcheck self-test..."
+	@bash ~/bin/cynic-healthcheck.sh && echo "  Healthcheck: PASS" || echo "  ⚠ Healthcheck: FAIL — review ~/bin/cynic-healthcheck.sh"
 	@echo "✓ Deployed and verified"
 
 # ── Emergency: Rollback to previous binary ─────────────────
