@@ -297,6 +297,43 @@ impl StoragePort for SurrealHttpStorage {
         Ok(rows.iter().map(row_to_crystal).collect())
     }
 
+    async fn find_similar_crystal(&self, embedding: &[f32], domain: &str, threshold: f64) -> Result<Option<(String, f64)>, StorageError> {
+        let safe_domain = escape_surreal(domain);
+        let vec_str: String = embedding.iter()
+            .map(|v| if v.is_finite() { *v } else { 0.0f32 })
+            .map(|v| format!("{}", v))
+            .collect::<Vec<_>>()
+            .join(",");
+        // KNN search across ALL crystal states (including Forming) within domain.
+        // Used for merging: "1. e4 c5" and "1. e4 c5 — Sicilian Defense" should
+        // accumulate observations on the same crystal, not fragment into separate ones.
+        let sql = format!(
+            "LET $q = [{vec}]; \
+             SELECT meta::id(id) AS crystal_id, vector::similarity::cosine(embedding, $q) AS similarity \
+             FROM crystal \
+             WHERE embedding <|5,40|> $q \
+             AND domain = '{domain}' \
+             ORDER BY similarity DESC \
+             LIMIT 1;",
+            vec = vec_str, domain = safe_domain,
+        );
+        let results = self.query(&sql).await?;
+        let rows = results.into_iter().nth(1).unwrap_or_default();
+        if let Some(row) = rows.first() {
+            let sim = row.get("similarity").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            if sim >= threshold {
+                let id = row.get("crystal_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                if !id.is_empty() {
+                    return Ok(Some((id, sim)));
+                }
+            }
+        }
+        Ok(None)
+    }
+
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
         let sql = format!(
             "CREATE observation SET \

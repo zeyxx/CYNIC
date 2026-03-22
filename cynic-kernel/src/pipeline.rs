@@ -128,10 +128,27 @@ async fn side_effects(
         }
     }
 
-    // CCM: observe crystal + embed
+    // CCM: observe crystal + embed — with semantic merging
     {
         let domain = stimulus.domain.as_deref().unwrap_or("general");
-        let crystal_id = format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)));
+
+        // Semantic merge: if a similar crystal already exists in this domain,
+        // accumulate observations on it instead of creating a new one.
+        // Without this, "1. e4 c5" and "1. e4 c5 — Sicilian Defense" produce
+        // separate crystals that never reach the 21-observation maturation threshold.
+        // Threshold 0.85 = strong similarity (same concept, different phrasing).
+        let crystal_id = if let Some(emb) = stimulus_embedding {
+            match storage.find_similar_crystal(&emb.vector, domain, 0.85).await {
+                Ok(Some((existing_id, sim))) => {
+                    eprintln!("[pipeline] Crystal merge: reusing '{}' (similarity {:.3})", existing_id, sim);
+                    existing_id
+                }
+                _ => format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary))),
+            }
+        } else {
+            format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
+        };
+
         let now = chrono::Utc::now().to_rfc3339();
         // Normalize Q-Score to [0, 1] range for crystal confidence.
         // Q-Scores are φ-bounded (max ≈ 0.618), so raw scores can never
@@ -144,7 +161,7 @@ async fn side_effects(
         ).await {
             eprintln!("[pipeline] Warning: failed to observe crystal: {}", e);
         }
-        if let Some(emb) = &stimulus_embedding
+        if let Some(emb) = stimulus_embedding
             && let Err(e) = storage.store_crystal_embedding(&crystal_id, &emb.vector).await
         {
             eprintln!("[pipeline] Warning: failed to store crystal embedding: {}", e);
