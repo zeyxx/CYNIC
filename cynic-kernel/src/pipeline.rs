@@ -49,7 +49,13 @@ pub async fn run(
 ) -> Result<PipelineResult, JudgeError> {
     let PipelineDeps { judge, storage, embedding, usage, verdict_cache } = *deps;
     // ── EMBED: stimulus embedding — used for cache AND semantic crystal retrieval ──
-    let stimulus_embedding = embedding.embed(&content).await.ok();
+    let stimulus_embedding = match embedding.embed(&content).await {
+        Ok(emb) => Some(emb),
+        Err(e) => {
+            eprintln!("[pipeline] Embedding failed (crystal merge + cache disabled): {}", e);
+            None
+        }
+    };
 
     // ── CACHE CHECK: skip full evaluation if near-identical stimulus exists ──
     if let Some(emb) = &stimulus_embedding
@@ -143,9 +149,17 @@ async fn side_effects(
                     eprintln!("[pipeline] Crystal merge: reusing '{}' (similarity {:.3})", existing_id, sim);
                     existing_id
                 }
-                _ => format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary))),
+                Ok(None) => {
+                    eprintln!("[pipeline] Crystal fallback: no similar crystal (sim < 0.85), creating new FNV hash");
+                    format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
+                }
+                Err(e) => {
+                    eprintln!("[pipeline] Crystal fallback: similarity search failed ({}), using FNV hash", e);
+                    format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
+                }
             }
         } else {
+            eprintln!("[pipeline] Crystal fallback: no embedding available, using FNV hash");
             format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
         };
 
