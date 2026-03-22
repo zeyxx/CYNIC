@@ -1,10 +1,12 @@
 //! Background task spawns — extracted from main.rs for composition root clarity.
 //!
 //! Each function takes its dependencies as parameters and spawns a tokio task.
+//! Returns `JoinHandle<()>` — caller can collect into a `JoinSet` for structured concurrency.
 //! All tasks respect the CancellationToken for graceful shutdown.
 //! All `.await` inside spawns are wrapped in `tokio::time::timeout()` (Rule #10).
 
 use std::sync::Arc;
+use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::domain::coord::CoordPort;
@@ -55,7 +57,7 @@ pub fn spawn_coord_expiry(
     coord: Arc<dyn CoordPort>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
-) {
+) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -79,7 +81,7 @@ pub fn spawn_coord_expiry(
                 }
             }
         }
-    });
+    })
 }
 
 // ── Usage flush (every 60s, TTL cleanup every 1h) ────────────
@@ -89,7 +91,7 @@ pub fn spawn_usage_flush(
     usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
-) {
+) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -134,7 +136,7 @@ pub fn spawn_usage_flush(
                 }
             }
         }
-    });
+    })
 }
 
 // ── CCM Workflow Aggregator (configurable interval) ──────────
@@ -143,13 +145,13 @@ pub fn spawn_ccm_aggregator(
     storage: Arc<dyn StoragePort>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
-) {
+) -> JoinHandle<()> {
     let interval_secs: u64 = std::env::var("CYNIC_AGGREGATE_INTERVAL")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(300);
 
-    tokio::spawn(async move {
+    let handle = tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_secs));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         interval.tick().await;
@@ -178,6 +180,7 @@ pub fn spawn_ccm_aggregator(
         }
     });
     klog!("[Ring 2] CCM workflow aggregator started (every {}s)", interval_secs);
+    handle
 }
 
 // ── Session summarizer (sovereign inference, background) ─────
@@ -187,7 +190,7 @@ pub fn spawn_session_summarizer(
     summarizer: crate::backends::summarizer::SovereignSummarizer,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
-) {
+) -> JoinHandle<()> {
     klog!("[Ring 2] Session summarizer task started (checks LLM availability each cycle)");
     tokio::spawn(async move {
         // Wait for first CCM cycle — but break early on shutdown
@@ -229,7 +232,7 @@ pub fn spawn_session_summarizer(
                 }
             }
         }
-    });
+    })
 }
 
 // ── Crystal embedding backfill (one-shot) ────────────────────
@@ -241,8 +244,8 @@ pub fn spawn_backfill(
     task_health: Arc<TaskHealth>,
     event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     shutdown: CancellationToken,
-) {
-    tokio::spawn(async move {
+) -> JoinHandle<()> {
+    let handle = tokio::spawn(async move {
         // Delay 10s — let embedding server warm up, but respect shutdown
         tokio::select! {
             _ = shutdown.cancelled() => return,
@@ -268,6 +271,7 @@ pub fn spawn_backfill(
         }
     });
     klog!("[Ring 2] Crystal embedding backfill task scheduled");
+    handle
 }
 
 // ── Introspection loop (MAPE-K Analyze, every 5 min) ────────
@@ -279,8 +283,8 @@ pub fn spawn_introspection(
     event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
-) {
-    tokio::spawn(async move {
+) -> JoinHandle<()> {
+    let handle = tokio::spawn(async move {
         // Wait 60s for system to stabilize before first introspection
         tokio::select! {
             _ = shutdown.cancelled() => return,
@@ -319,11 +323,12 @@ pub fn spawn_introspection(
         }
     });
     klog!("[Ring 2] Introspection loop started (every 5min, 60s warmup)");
+    handle
 }
 
 // ── Signal handler (SIGINT + SIGTERM → cancel shutdown token) ─
 
-pub fn spawn_signal_handler(shutdown: CancellationToken) {
+pub fn spawn_signal_handler(shutdown: CancellationToken) -> JoinHandle<()> {
     tokio::spawn(async move {
         match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
             Ok(mut sigterm) => {
@@ -343,7 +348,7 @@ pub fn spawn_signal_handler(shutdown: CancellationToken) {
             }
         }
         shutdown.cancel();
-    });
+    })
 }
 
 // ── Remediation watcher (every 30s check) ────────────────────
@@ -353,9 +358,9 @@ pub fn spawn_remediation_watcher(
     breakers: Vec<Arc<CircuitBreaker>>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
-) {
+) -> JoinHandle<()> {
     let dog_count = configs.len();
-    tokio::spawn(async move {
+    let handle = tokio::spawn(async move {
         let tracker = crate::infra::remediation::RecoveryTracker::new();
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -410,6 +415,7 @@ pub fn spawn_remediation_watcher(
         }
     });
     klog!("[Ring 2] Remediation watcher started (90s threshold, {} Dogs)", dog_count);
+    handle
 }
 
 // ── Rate limiter eviction (REST-only, every 60s) ─────────────
@@ -418,7 +424,7 @@ pub fn spawn_rate_eviction(
     rest_state: Arc<crate::api::rest::AppState>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
-) {
+) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -436,5 +442,5 @@ pub fn spawn_rate_eviction(
                 }
             }
         }
-    });
+    })
 }
