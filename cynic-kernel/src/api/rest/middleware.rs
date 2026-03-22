@@ -22,8 +22,9 @@ pub async fn auth_middleware(
     request: Request,
     next: Next,
 ) -> Response {
-    // /health is public — no auth required
-    if request.uri().path() == "/health" {
+    // /health and /metrics are public — no auth required
+    let path = request.uri().path();
+    if path == "/health" || path == "/metrics" {
         return next.run(request).await;
     }
 
@@ -54,7 +55,7 @@ pub async fn rate_limit_middleware(
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health" {
+    if path == "/health" || path == "/metrics" {
         return next.run(request).await;
     }
 
@@ -90,7 +91,7 @@ pub async fn audit_middleware(
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health" {
+    if path == "/health" || path == "/metrics" {
         return next.run(request).await;
     }
 
@@ -117,8 +118,8 @@ pub async fn audit_middleware(
                     std::time::Duration::from_secs(5),
                     coord.store_audit("rest_request", "rest", &details),
                 ).await {
-                    Ok(Err(e)) => eprintln!("[audit] store_audit failed: {}", e),
-                    Err(_) => eprintln!("[audit] store_audit timed out (5s)"),
+                    Ok(Err(e)) => tracing::warn!(error = %e, "audit store failed"),
+                    Err(_) => tracing::warn!("audit store timed out (5s)"),
                     _ => {}
                 }
             });

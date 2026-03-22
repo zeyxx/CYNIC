@@ -10,6 +10,7 @@ use crate::domain::embedding::{Embedding, EmbeddingPort};
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::{CacheLookup, VerdictCache};
+use crate::infra::metrics::Metrics;
 use crate::judge::{Judge, JudgeError};
 use tokio::sync::Mutex;
 
@@ -33,6 +34,7 @@ pub struct PipelineDeps<'a> {
     pub embedding: &'a dyn EmbeddingPort,
     pub usage: &'a Mutex<DogUsageTracker>,
     pub verdict_cache: &'a VerdictCache,
+    pub metrics: &'a Metrics,
 }
 
 /// Run the full judge pipeline: embed → cache → crystals → sessions → evaluate → store → CCM.
@@ -47,17 +49,27 @@ pub async fn run(
     dogs_filter: Option<&[String]>,
     deps: &PipelineDeps<'_>,
 ) -> Result<PipelineResult, JudgeError> {
-    let PipelineDeps { judge, storage, embedding, usage, verdict_cache } = *deps;
+    let PipelineDeps { judge, storage, embedding, usage, verdict_cache, metrics } = *deps;
+    let domain_hint = domain.as_deref().unwrap_or("general");
+    let pipeline_span = tracing::info_span!("judge_pipeline",
+        domain = %domain_hint,
+        content_len = content.len(),
+    );
+    let _pipeline_guard = pipeline_span.enter();
+
     // ── EMBED: stimulus embedding — used for cache AND semantic crystal retrieval ──
     let stimulus_embedding = match embedding.embed(&content).await {
-        Ok(emb) => Some(emb),
+        Ok(emb) => {
+            metrics.inc_embed_ok();
+            tracing::info!(phase = "embed", dimensions = emb.dimensions, "embedding ok");
+            Some(emb)
+        }
         Err(e) => {
-            eprintln!("[pipeline] Embedding failed (crystal merge + cache disabled): {}", e);
+            metrics.inc_embed_fail();
+            tracing::warn!(phase = "embed", error = %e, "embedding failed — cache + crystal merge disabled");
             None
         }
     };
-
-    let domain_hint = domain.as_deref().unwrap_or("general");
 
     // ── CACHE CHECK: skip full Dog evaluation if near-identical stimulus exists ──
     // CRITICAL: cache hits still feed the crystal loop. Without this, repeated
@@ -66,11 +78,17 @@ pub async fn run(
     if let Some(emb) = &stimulus_embedding
         && let CacheLookup::Hit { verdict, similarity } = verdict_cache.lookup(emb)
     {
+        metrics.inc_cache_hit();
+        tracing::info!(phase = "cache", result = "hit", similarity = %format!("{:.4}", similarity),
+            verdict_id = %verdict.id, q_score = %format!("{:.3}", verdict.q_score.total));
         observe_crystal_for_verdict(
-            &verdict, &stimulus_embedding, domain_hint, storage,
+            &verdict, &stimulus_embedding, domain_hint, storage, metrics,
         ).await;
         return Ok(PipelineResult::CacheHit { verdict, similarity });
     }
+    metrics.inc_cache_miss();
+    tracing::info!(phase = "cache", result = "miss");
+
     let crystals = if let Some(ref emb) = stimulus_embedding {
         storage.search_crystals_semantic(&emb.vector, 10).await.unwrap_or_default()
     } else {
@@ -83,6 +101,7 @@ pub async fn run(
     } else {
         crystals
     };
+    tracing::info!(phase = "crystals", count = crystals.len(), "crystal retrieval complete");
 
     // ── SESSION SUMMARIES: separate token budget from crystals ──
     let session_ctx = storage.list_session_summaries(5).await
@@ -105,10 +124,22 @@ pub async fn run(
         context: enriched_context,
         domain,
     };
-    let verdict = judge.evaluate(&stimulus, dogs_filter).await?;
+    tracing::info!(phase = "evaluate", "dispatching to Dogs");
+    let verdict = judge.evaluate(&stimulus, dogs_filter, metrics).await?;
+    metrics.inc_verdict();
+    tracing::info!(
+        phase = "verdict",
+        verdict_id = %verdict.id,
+        q_score = %format!("{:.3}", verdict.q_score.total),
+        kind = ?verdict.kind,
+        dogs_used = %verdict.dog_id,
+        failed_dogs = ?verdict.failed_dogs,
+        anomaly = verdict.anomaly_detected,
+        "verdict issued"
+    );
 
     // ── SIDE EFFECTS (all best-effort) ──
-    side_effects(&stimulus, &verdict, &stimulus_embedding, storage, usage, verdict_cache).await;
+    side_effects(&stimulus, &verdict, &stimulus_embedding, storage, usage, verdict_cache, metrics).await;
 
     Ok(PipelineResult::Evaluated { verdict: Box::new(verdict) })
 }
@@ -122,10 +153,11 @@ async fn side_effects(
     storage: &dyn StoragePort,
     usage: &Mutex<DogUsageTracker>,
     verdict_cache: &VerdictCache,
+    metrics: &Metrics,
 ) {
     // Store verdict
     if let Err(e) = storage.store_verdict(verdict).await {
-        eprintln!("[pipeline] Warning: failed to store verdict: {}", e);
+        tracing::warn!(phase = "side_effects", error = %e, "failed to store verdict");
     }
 
     // Track usage
@@ -141,7 +173,7 @@ async fn side_effects(
 
     // CCM: observe crystal + embed
     let domain = stimulus.domain.as_deref().unwrap_or("general");
-    observe_crystal_for_verdict(verdict, stimulus_embedding, domain, storage).await;
+    observe_crystal_for_verdict(verdict, stimulus_embedding, domain, storage, metrics).await;
 
     // Cache verdict embedding (clone verdict since cache takes ownership of embedding)
     if let Some(emb) = &stimulus_embedding {
@@ -168,25 +200,26 @@ async fn observe_crystal_for_verdict(
     stimulus_embedding: &Option<Embedding>,
     domain: &str,
     storage: &dyn StoragePort,
+    metrics: &Metrics,
 ) {
     // Semantic merge: find existing crystal or create new via FNV hash
     let crystal_id = if let Some(emb) = stimulus_embedding {
-        match storage.find_similar_crystal(&emb.vector, domain, 0.85).await {
+        match storage.find_similar_crystal(&emb.vector, domain, 0.75).await {
             Ok(Some((existing_id, sim))) => {
-                eprintln!("[pipeline] Crystal merge: reusing '{}' (similarity {:.3})", existing_id, sim);
+                tracing::info!(phase = "crystal_merge", crystal_id = %existing_id, similarity = %format!("{:.3}", sim), "reusing existing crystal");
                 existing_id
             }
             Ok(None) => {
-                eprintln!("[pipeline] Crystal fallback: no similar crystal (sim < 0.85), creating new FNV hash");
+                tracing::info!(phase = "crystal_merge", "no similar crystal (sim < 0.85), creating new");
                 format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
             }
             Err(e) => {
-                eprintln!("[pipeline] Crystal fallback: similarity search failed ({}), using FNV hash", e);
+                tracing::warn!(phase = "crystal_merge", error = %e, "similarity search failed, using FNV hash");
                 format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
             }
         }
     } else {
-        eprintln!("[pipeline] Crystal fallback: no embedding available, using FNV hash");
+        tracing::info!(phase = "crystal_merge", "no embedding available, using FNV hash");
         format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
     };
 
@@ -197,12 +230,14 @@ async fn observe_crystal_for_verdict(
     if let Err(e) = storage.observe_crystal(
         &crystal_id, &verdict.stimulus_summary, domain, crystal_confidence, &now,
     ).await {
-        eprintln!("[pipeline] Warning: failed to observe crystal: {}", e);
+        tracing::warn!(phase = "crystal_observe", crystal_id = %crystal_id, error = %e, "failed to observe crystal");
+    } else {
+        metrics.inc_crystal_obs();
     }
     if let Some(emb) = stimulus_embedding
         && let Err(e) = storage.store_crystal_embedding(&crystal_id, &emb.vector).await
     {
-        eprintln!("[pipeline] Warning: failed to store crystal embedding: {}", e);
+        tracing::warn!(phase = "crystal_embed", crystal_id = %crystal_id, error = %e, "failed to store crystal embedding");
     }
 }
 
@@ -218,7 +253,7 @@ pub async fn summarize_pending_sessions(
     let pending = match storage.get_unsummarized_sessions(3, 5).await {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("[pipeline/summarizer] Failed to query unsummarized sessions: {}", e);
+            tracing::warn!(error = %e, "failed to query unsummarized sessions");
             return 0;
         }
     };
@@ -232,7 +267,7 @@ pub async fn summarize_pending_sessions(
         let observations = match storage.get_session_observations(session_id).await {
             Ok(obs) => obs,
             Err(e) => {
-                eprintln!("[pipeline/summarizer] Failed to get observations for {}: {}", session_id, e);
+                tracing::warn!(session_id = %session_id, error = %e, "failed to get session observations");
                 continue;
             }
         };
@@ -244,7 +279,7 @@ pub async fn summarize_pending_sessions(
         let summary_text = match summarizer.summarize(&prompt).await {
             Ok(text) => text,
             Err(e) => {
-                eprintln!("[pipeline/summarizer] Failed to summarize session {}: {}", session_id, e);
+                tracing::warn!(session_id = %session_id, error = %e, "session summarization failed");
                 continue;
             }
         };
@@ -257,7 +292,7 @@ pub async fn summarize_pending_sessions(
             created_at: chrono::Utc::now().to_rfc3339(),
         };
         if let Err(e) = storage.store_session_summary(&summary).await {
-            eprintln!("[pipeline/summarizer] Failed to store summary for {}: {}", session_id, e);
+            tracing::warn!(session_id = %session_id, error = %e, "failed to store session summary");
         } else {
             count += 1;
         }
@@ -284,10 +319,11 @@ mod tests {
         let embedding = NullEmbedding;
         let usage = Mutex::new(DogUsageTracker::new());
         let verdict_cache = VerdictCache::new();
+        let metrics = Metrics::new();
 
         let deps = PipelineDeps {
             judge: &judge, storage: &storage, embedding: &embedding,
-            usage: &usage, verdict_cache: &verdict_cache,
+            usage: &usage, verdict_cache: &verdict_cache, metrics: &metrics,
         };
         let result = run(
             "1. e4 c5 — The Sicilian Defense".into(),
@@ -302,6 +338,10 @@ mod tests {
             Ok(PipelineResult::CacheHit { .. }) => panic!("expected evaluation, got cache hit"),
             Err(e) => panic!("pipeline failed: {}", e),
         }
+        // Metrics should reflect the pipeline run
+        assert_eq!(metrics.verdicts_total.load(std::sync::atomic::Ordering::Relaxed), 1);
+        assert_eq!(metrics.embedding_failures_total.load(std::sync::atomic::Ordering::Relaxed), 1); // NullEmbedding fails
+        assert_eq!(metrics.cache_misses_total.load(std::sync::atomic::Ordering::Relaxed), 1);
     }
 
     #[tokio::test]
@@ -314,10 +354,11 @@ mod tests {
         let embedding = NullEmbedding;
         let usage = Mutex::new(DogUsageTracker::new());
         let verdict_cache = VerdictCache::new();
+        let metrics = Metrics::new();
 
         let deps = PipelineDeps {
             judge: &judge, storage: &storage, embedding: &embedding,
-            usage: &usage, verdict_cache: &verdict_cache,
+            usage: &usage, verdict_cache: &verdict_cache, metrics: &metrics,
         };
         let _ = run("test content".into(), None, None, None, &deps).await;
 

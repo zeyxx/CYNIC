@@ -4,6 +4,7 @@
 
 use crate::domain::dog::{*, estimate_tokens};
 use crate::infra::circuit_breaker::CircuitBreaker;
+use crate::infra::metrics::Metrics;
 use chrono::Utc;
 use uuid::Uuid;
 use std::sync::{Arc, Mutex};
@@ -60,7 +61,7 @@ impl Judge {
 
     /// Evaluate a stimulus through Dogs in parallel, aggregate, produce Verdict.
     /// If `filter` is provided, only use Dogs whose IDs match.
-    pub async fn evaluate(&self, stimulus: &Stimulus, filter: Option<&[String]>) -> Result<Verdict, JudgeError> {
+    pub async fn evaluate(&self, stimulus: &Stimulus, filter: Option<&[String]>, metrics: &Metrics) -> Result<Verdict, JudgeError> {
         if self.dogs.is_empty() {
             return Err(JudgeError::NoDogs);
         }
@@ -89,7 +90,7 @@ impl Judge {
             .filter(|d| {
                 let max = d.max_context();
                 if max > 0 && estimated > max {
-                    eprintln!("[Judge] Dog '{}' skipped: context {} > max {}", d.id(), estimated, max);
+                    tracing::info!(dog_id = %d.id(), estimated_tokens = estimated, max_context = max, "Dog skipped — context too large");
                     false
                 } else {
                     true
@@ -99,7 +100,7 @@ impl Judge {
             .collect();
 
         let active_dogs = if context_filtered.is_empty() {
-            eprintln!("[Judge] WARNING: No Dog has enough context (need {}). Using all Dogs anyway.", estimated);
+            tracing::warn!(estimated_tokens = estimated, "no Dog has enough context — using all Dogs anyway");
             active_dogs // fallback: try anyway rather than fail
         } else {
             context_filtered
@@ -145,7 +146,7 @@ impl Judge {
             wall_clock,
             futures_util::future::join_all(futures),
         ).await.map_err(|_| {
-            eprintln!("[Judge] TIMEOUT: Dog evaluation exceeded {}s wall-clock limit", max_dog_timeout + 5);
+            tracing::error!(wall_clock_secs = max_dog_timeout + 5, "Dog evaluation wall-clock TIMEOUT");
             JudgeError::AllDogsFailed(vec![format!("Evaluation timeout ({}s)", max_dog_timeout + 5)])
         })?;
 
@@ -161,7 +162,12 @@ impl Judge {
             match result {
                 Ok(scores) => {
                     if let Some(cb) = cb { cb.record_success(); }
-                    eprintln!("[Judge] Dog '{}' responded in {}ms", id, elapsed_ms);
+                    metrics.inc_dog_eval();
+                    tracing::info!(
+                        phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
+                        q = %format!("{:.3}", compute_qscore(&scores).total),
+                        "Dog responded"
+                    );
                     dog_scores.push(DogScore {
                         dog_id: id,
                         latency_ms: elapsed_ms,
@@ -177,13 +183,28 @@ impl Judge {
                     });
                 }
                 Err(ref e) => {
-                    // Only infrastructure failures (ApiError) trip the circuit breaker.
-                    // ParseError/RateLimited/Timeout = backend responded, not down.
+                    // ApiError = backend unreachable/protocol error. Trips CB.
+                    // ParseError = backend returned garbage (e.g., HTML, malformed JSON).
+                    //   Repeated parse errors (3+) trip CB — stops wasting time/money.
+                    // RateLimited/Timeout = backend is alive, just congested. Does NOT trip CB.
                     if let Some(cb) = cb {
-                        if matches!(e, DogError::ApiError(_)) { cb.record_failure(); }
-                        else { cb.record_success(); } // non-infra error = backend is alive
+                        match e {
+                            DogError::ApiError(_) | DogError::ParseError(_) => cb.record_failure(),
+                            _ => cb.record_success(),
+                        }
                     }
-                    eprintln!("[Judge] Dog '{}' failed after {}ms: {}", id, elapsed_ms, e);
+                    metrics.inc_dog_failure();
+                    tracing::warn!(
+                        phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
+                        error_type = %match e {
+                            DogError::ApiError(_) => "api_error",
+                            DogError::ParseError(_) => "parse_error",
+                            DogError::RateLimited(_) => "rate_limited",
+                            DogError::Timeout => "timeout",
+                        },
+                        error = %e,
+                        "Dog failed"
+                    );
                     failed_dogs.push(id.clone());
                     errors.push(format!("{}: {}", id, e));
                 }
@@ -389,6 +410,10 @@ mod tests {
         }
     }
 
+    fn test_metrics() -> Metrics {
+        Metrics::new()
+    }
+
     fn test_stimulus() -> Stimulus {
         Stimulus {
             content: "e4 e5 Nf3".into(),
@@ -411,7 +436,7 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
         assert!(verdict.q_score.total <= PHI_INV + 1e-10);
         assert!(verdict.q_score.total > 0.0);
         assert_eq!(verdict.dog_id, "test");
@@ -442,7 +467,7 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
         assert!(verdict.dog_id.contains("high"));
         assert!(verdict.dog_id.contains("low"));
         assert!(verdict.q_score.total > 0.3);
@@ -465,21 +490,21 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
         assert_eq!(verdict.dog_id, "survivor");
     }
 
     #[tokio::test]
     async fn all_dogs_fail_returns_error() {
         let judge = Judge::new(vec![Box::new(FailDog)]);
-        let result = judge.evaluate(&test_stimulus(), None).await;
+        let result = judge.evaluate(&test_stimulus(), None, &test_metrics()).await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn no_dogs_returns_error() {
         let judge = Judge::new(vec![]);
-        let result = judge.evaluate(&test_stimulus(), None).await;
+        let result = judge.evaluate(&test_stimulus(), None, &test_metrics()).await;
         assert!(result.is_err());
     }
 
@@ -506,7 +531,7 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
         assert!(verdict.anomaly_detected, "Dogs disagreeing 0.9 vs 0.1 should trigger anomaly");
         assert!(verdict.max_disagreement > PHI_INV2);
         assert_eq!(verdict.dog_scores.len(), 2);
@@ -536,7 +561,7 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
         assert!(!verdict.anomaly_detected, "Similar scores should not trigger anomaly");
         assert!(verdict.anomaly_axiom.is_none());
     }
@@ -565,7 +590,7 @@ mod tests {
         ]);
 
         let filter = vec!["alpha".to_string()];
-        let verdict = judge.evaluate(&test_stimulus(), Some(&filter)).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), Some(&filter), &test_metrics()).await.unwrap();
         assert_eq!(verdict.dog_id, "alpha");
         assert_eq!(verdict.dog_scores.len(), 1);
     }
@@ -580,7 +605,7 @@ mod tests {
         ]);
 
         let filter = vec!["nonexistent".to_string()];
-        let result = judge.evaluate(&test_stimulus(), Some(&filter)).await;
+        let result = judge.evaluate(&test_stimulus(), Some(&filter), &test_metrics()).await;
         assert!(result.is_err());
     }
 
@@ -603,7 +628,7 @@ mod tests {
             context: None,
             domain: None,
         };
-        let verdict = judge.evaluate(&long_stimulus, None).await.unwrap();
+        let verdict = judge.evaluate(&long_stimulus, None, &test_metrics()).await.unwrap();
         assert_eq!(verdict.stimulus_summary.len(), 100);
     }
 
@@ -624,11 +649,11 @@ mod tests {
 
         // Trip the circuit breaker on FailDog: 3 failures → Open
         for _ in 0..3 {
-            let _ = judge.evaluate(&test_stimulus(), None).await;
+            let _ = judge.evaluate(&test_stimulus(), None, &test_metrics()).await;
         }
 
         // Now FailDog's circuit should be open — only healthy responds
-        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
         assert_eq!(verdict.dog_id, "healthy", "Open circuit should skip FailDog");
         assert_eq!(verdict.dog_scores.len(), 1);
     }
@@ -674,7 +699,7 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
         // Median of 3 sorted by Q → picks index 1 (mid)
         assert_eq!(verdict.reasoning.fidelity, "mid reasoning");
     }
@@ -717,7 +742,7 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
         // UUID v4 format: 8-4-4-4-12
         assert_eq!(verdict.id.len(), 36);
         assert_eq!(verdict.id.chars().filter(|c| *c == '-').count(), 4);
@@ -824,8 +849,8 @@ mod tests {
             }),
         ]);
 
-        let v1 = judge.evaluate(&test_stimulus(), None).await.unwrap();
-        let v2 = judge.evaluate(&test_stimulus(), None).await.unwrap();
+        let v1 = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
+        let v2 = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
 
         // v1 has no prev (first in chain)
         assert!(v1.prev_hash.is_none());

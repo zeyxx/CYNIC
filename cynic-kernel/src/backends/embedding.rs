@@ -63,11 +63,11 @@ impl BackendPort for EmbeddingBackend {
                 }
             }
             Ok(resp) => {
-                eprintln!("[health] embedding returned HTTP {} — degraded", resp.status());
+                tracing::warn!(status = %resp.status(), "embedding backend degraded");
                 BackendStatus::Degraded { latency_ms: start.elapsed().as_millis() as f64 }
             }
             Err(e) => {
-                eprintln!("[health] embedding unreachable: {} — critical", e);
+                tracing::error!(error = %e, "embedding backend unreachable — critical");
                 BackendStatus::Critical
             }
         }

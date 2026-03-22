@@ -172,11 +172,11 @@ impl BackendPort for OpenAiCompatBackend {
                 }
             }
             Ok(resp) => {
-                eprintln!("[health] {} returned HTTP {} — degraded", self.config.name, resp.status());
+                tracing::warn!(backend = %self.config.name, status = %resp.status(), "backend degraded");
                 BackendStatus::Degraded { latency_ms: start.elapsed().as_millis() as f64 }
             }
             Err(e) => {
-                eprintln!("[health] {} unreachable: {} — critical", self.config.name, e);
+                tracing::error!(backend = %self.config.name, error = %e, "backend unreachable — critical");
                 BackendStatus::Critical
             }
         }

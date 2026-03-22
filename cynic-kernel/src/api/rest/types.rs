@@ -11,6 +11,7 @@ use crate::domain::embedding::EmbeddingPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
+use crate::infra::metrics::Metrics;
 use crate::infra::task_health::TaskHealth;
 use crate::judge::Judge;
 
@@ -24,6 +25,7 @@ pub struct AppState {
     pub usage: Arc<Mutex<DogUsageTracker>>,
     pub verdict_cache: Arc<VerdictCache>,
     pub task_health: Arc<TaskHealth>,
+    pub metrics: Arc<Metrics>,
     pub api_key: Option<String>,
     pub storage_info: StorageInfo,
     pub rate_limiter: PerIpRateLimiter,

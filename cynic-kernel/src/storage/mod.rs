@@ -227,7 +227,7 @@ impl SurrealHttpStorage {
             // Without it, search_crystals_semantic fails silently and the crystal feedback
             // loop falls back to list_crystals_for_domain (wrong crystals, no semantic match).
             // We continue because the DB may have a prior schema — but this MUST be investigated.
-            eprintln!("[Ring 1 / UAL] CRITICAL: Schema bootstrap failed: {} — vector search may not work", e);
+            tracing::error!(error = %e, "schema bootstrap failed — vector search may not work");
         }
 
         klog!("[Ring 1 / UAL] Linked to SurrealDB (HTTP) at {}", url);
@@ -248,7 +248,7 @@ impl SurrealHttpStorage {
         if elapsed_ms > SLOW_QUERY_MS {
             self.metrics.slow_queries.fetch_add(1, Ordering::Relaxed);
             let preview: String = sql.chars().take(80).collect();
-            eprintln!("[storage] SLOW QUERY ({}ms): {}…", elapsed_ms, preview);
+            tracing::warn!(latency_ms = elapsed_ms, query = %preview, "slow query");
         }
 
         if result.is_err() {

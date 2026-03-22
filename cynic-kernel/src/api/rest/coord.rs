@@ -58,7 +58,7 @@ pub async fn coord_register_handler(
 
     state.coord.register_agent(&req.agent_id, &agent_type, &req.intent).await
         .map_err(|e| {
-            eprintln!("[REST] coord/register error: {}", e);
+            tracing::warn!(error = %e, "coord register failed");
             (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
                 error: "coordination unavailable".into(),
             }))
@@ -116,7 +116,7 @@ pub async fn coord_claim_handler(
             })))
         }
         Err(e) => {
-            eprintln!("[REST] coord/claim error: {}", e);
+            tracing::warn!(error = %e, "coord claim failed");
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
                 error: "coordination unavailable".into(),
             })))
@@ -150,7 +150,7 @@ pub async fn coord_claim_batch_handler(
 
     let result = state.coord.claim_batch(&req.agent_id, &req.targets, &claim_type).await
         .map_err(|e| {
-            eprintln!("[REST] coord/claim-batch error: {}", e);
+            tracing::warn!(error = %e, "coord claim-batch failed");
             (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
                 error: "coordination unavailable".into(),
             }))
@@ -187,7 +187,7 @@ pub async fn coord_release_handler(
 
     let desc = state.coord.release(&req.agent_id, req.target.as_deref()).await
         .map_err(|e| {
-            eprintln!("[REST] coord/release error: {}", e);
+            tracing::warn!(error = %e, "coord release failed");
             (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
                 error: "coordination unavailable".into(),
             }))

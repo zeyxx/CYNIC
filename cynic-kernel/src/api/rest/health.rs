@@ -113,10 +113,45 @@ pub async fn agents_handler(
             "claims": snapshot.claims,
         }))),
         Err(e) => {
-            eprintln!("[REST] agents error: {}", e);
+            tracing::warn!(error = %e, "agents query failed");
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "coordination unavailable".into() })))
         }
     }
+}
+
+/// GET /metrics — Prometheus text exposition format.
+/// Public endpoint (no auth) — metrics are operational data, not secrets.
+pub async fn metrics_handler(
+    State(state): State<Arc<AppState>>,
+) -> (StatusCode, [(axum::http::header::HeaderName, &'static str); 1], String) {
+    let mut out = state.metrics.render_prometheus();
+
+    // Verdict cache size (gauge)
+    {
+        use std::fmt::Write;
+        let _ = writeln!(out, "# HELP cynic_verdict_cache_size Current verdict cache entries");
+        let _ = writeln!(out, "# TYPE cynic_verdict_cache_size gauge");
+        let _ = writeln!(out, "cynic_verdict_cache_size {}", state.verdict_cache.len());
+    }
+
+    // Per-dog metrics from usage tracker
+    {
+        let usage = state.usage.lock().await;
+        let merged = usage.merged_dogs();
+        let mut dog_data: Vec<(String, u64, u64, u64, u64)> = merged.into_iter()
+            .map(|(id, u)| (id, u.requests, u.failures, u.total_latency_ms, u.total_tokens()))
+            .collect();
+        dog_data.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let circuit_states = state.judge.dog_health();
+        crate::infra::metrics::append_dog_metrics(&mut out, &dog_data, &circuit_states);
+    }
+
+    (
+        StatusCode::OK,
+        [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
+        out,
+    )
 }
 
 #[cfg(test)]

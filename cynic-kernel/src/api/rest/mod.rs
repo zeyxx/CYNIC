@@ -25,7 +25,7 @@ use tower_http::services::ServeDir;
 
 use self::coord::{coord_register_handler, coord_claim_handler, coord_claim_batch_handler, coord_release_handler};
 use self::data::{crystals_handler, crystal_handler, usage_handler, create_crystal_handler, delete_crystal_handler, observe_crystal_handler};
-use self::health::{health_handler, dogs_handler, temporal_handler, agents_handler};
+use self::health::{health_handler, dogs_handler, temporal_handler, agents_handler, metrics_handler};
 use self::judge::{judge_handler, get_verdict_handler, list_verdicts_handler};
 use self::middleware::{auth_middleware, rate_limit_middleware, audit_middleware};
 use self::observe::observe_handler;
@@ -54,13 +54,14 @@ pub fn router(state: Arc<AppState>) -> Router {
         .allow_headers(tower_http::cors::Any);
 
     if state.api_key.is_some() {
-        eprintln!("[Ring 3 / REST] Bearer auth ENABLED");
+        tracing::info!("REST Bearer auth ENABLED");
     } else {
-        eprintln!("[Ring 3 / REST] WARNING: No CYNIC_API_KEY set — API is OPEN");
+        tracing::warn!("No CYNIC_API_KEY set — REST API is OPEN");
     }
 
     Router::new()
         .route("/health", get(health_handler))
+        .route("/metrics", get(metrics_handler))
         .route("/judge", post(judge_handler))
         .route("/dogs", get(dogs_handler))
         .route("/crystals", get(crystals_handler))

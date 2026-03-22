@@ -15,6 +15,7 @@ use cynic_kernel::domain::embedding::NullEmbedding;
 use cynic_kernel::domain::storage::NullStorage;
 use cynic_kernel::domain::usage::DogUsageTracker;
 use cynic_kernel::domain::verdict_cache::VerdictCache;
+use cynic_kernel::infra::metrics::Metrics;
 use cynic_kernel::infra::task_health::TaskHealth;
 use cynic_kernel::judge::Judge;
 
@@ -28,6 +29,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         usage: Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new())),
         verdict_cache: Arc::new(VerdictCache::new()),
         task_health: Arc::new(TaskHealth::new()),
+        metrics: Arc::new(Metrics::new()),
         api_key: api_key.map(|s| s.to_string()),
         storage_info: StorageInfo { namespace: "test".into(), database: "test".into() },
         rate_limiter: PerIpRateLimiter::new(100),

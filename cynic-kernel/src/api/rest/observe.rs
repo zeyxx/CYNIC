@@ -80,14 +80,14 @@ pub async fn observe_handler(
                     std::time::Duration::from_secs(5),
                     storage.store_observation(&obs_clone),
                 ).await {
-                    Ok(Err(e)) => eprintln!("[REST/observe] Warning: store_observation failed: {}", e),
-                    Err(_) => eprintln!("[REST/observe] Warning: store_observation timed out (5s)"),
+                    Ok(Err(e)) => tracing::warn!(error = %e, "store_observation failed"),
+                    Err(_) => tracing::warn!("store_observation timed out (5s)"),
                     _ => {}
                 }
             });
         }
         Err(_) => {
-            eprintln!("[REST/observe] Warning: background task limit reached, observation dropped");
+            tracing::warn!("background task limit reached, observation dropped");
         }
     }
 

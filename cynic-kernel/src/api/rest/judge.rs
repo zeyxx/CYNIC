@@ -50,17 +50,18 @@ pub async fn judge_handler(
         embedding: state.embedding.as_ref(),
         usage: &state.usage,
         verdict_cache: &state.verdict_cache,
+        metrics: &state.metrics,
     };
     let result = crate::pipeline::run(
         content, req.context, req.domain, req.dogs.as_deref(), &deps,
     ).await.map_err(|e| {
-        eprintln!("[REST] Judge error: {}", e);
+        tracing::error!(error = %e, "judge pipeline failed");
         (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "evaluation failed".into() }))
     })?;
 
     match result {
         crate::pipeline::PipelineResult::CacheHit { verdict, similarity } => {
-            eprintln!("[REST] Verdict cache HIT (similarity: {:.4})", similarity);
+            tracing::info!(similarity = %format!("{:.4}", similarity), "verdict cache HIT");
             Ok(Json(verdict_response_cached(&verdict, similarity)))
         }
         crate::pipeline::PipelineResult::Evaluated { verdict } => {
@@ -80,7 +81,7 @@ pub async fn get_verdict_handler(
             Json(ErrorResponse { error: format!("Verdict {} not found", id) }),
         )),
         Err(e) => {
-            eprintln!("[REST] verdict/{} error: {}", id, e);
+            tracing::warn!(verdict_id = %id, error = %e, "verdict get failed");
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
         }
     }
@@ -92,7 +93,7 @@ pub async fn list_verdicts_handler(
     match state.storage.list_verdicts(20).await {
         Ok(verdicts) => Ok(Json(verdicts.iter().map(verdict_to_response).collect())),
         Err(e) => {
-            eprintln!("[REST] verdicts error: {}", e);
+            tracing::warn!(error = %e, "verdicts list failed");
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
         }
     }

@@ -1,6 +1,5 @@
 //! Storage integration tests — run against a real SurrealDB instance.
-//! Activated by: SURREALDB_PASS=... cargo test -p cynic-kernel --release -- --ignored
-//! Or: make check-storage
+//! Tests skip gracefully if SurrealDB is unavailable on localhost:8000.
 
 mod common;
 
@@ -61,9 +60,8 @@ fn test_obs(agent: &str, tool: &str, target: &str) -> Observation {
 // ── Task 2: Ping ──────────────────────────────────────────
 
 #[tokio::test]
-#[ignore]
 async fn ping_succeeds_on_healthy_db() {
-    let db = common::setup_test_db("ping").await;
+    let Some(db) = common::setup_test_db("ping").await else { return; };
     let result = db.ping().await;
     assert!(result.is_ok(), "ping failed: {:?}", result.err());
     common::teardown_test_db(&db).await;
@@ -72,9 +70,8 @@ async fn ping_succeeds_on_healthy_db() {
 // ── Task 3: Verdict round-trip ────────────────────────────
 
 #[tokio::test]
-#[ignore]
 async fn verdict_store_and_retrieve() {
-    let db = common::setup_test_db("verdict_rt").await;
+    let Some(db) = common::setup_test_db("verdict_rt").await else { return; };
     let v = test_verdict("v-001");
     db.store_verdict(&v).await.expect("store_verdict failed");
 
@@ -91,9 +88,8 @@ async fn verdict_store_and_retrieve() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn verdict_list_respects_limit() {
-    let db = common::setup_test_db("verdict_list").await;
+    let Some(db) = common::setup_test_db("verdict_list").await else { return; };
     for i in 0..5 {
         let v = test_verdict(&format!("v-{:03}", i));
         db.store_verdict(&v).await.unwrap();
@@ -111,9 +107,8 @@ async fn verdict_list_respects_limit() {
 // ── Task 4: Crystal ───────────────────────────────────────
 
 #[tokio::test]
-#[ignore]
 async fn crystal_observe_creates_and_updates() {
-    let db = common::setup_test_db("crystal_obs").await;
+    let Some(db) = common::setup_test_db("crystal_obs").await else { return; };
     let ts = chrono::Utc::now().to_rfc3339();
 
     db.observe_crystal("test-crystal", "Test content", "test", 0.7, &ts)
@@ -136,19 +131,23 @@ async fn crystal_observe_creates_and_updates() {
 }
 
 #[tokio::test]
-#[ignore]
-async fn crystal_list_sorted_by_observations() {
-    let db = common::setup_test_db("crystal_list").await;
+async fn crystal_list_sorted_by_maturity_then_confidence() {
+    let Some(db) = common::setup_test_db("crystal_list").await else { return; };
     let ts = chrono::Utc::now().to_rfc3339();
 
+    // c-many: 5 obs, confidence ~0.6 (forming, not enough obs for crystallized)
     for _ in 0..5 {
         db.observe_crystal("c-many", "Many obs", "test", 0.6, &ts).await.unwrap();
     }
+    // c-few: 1 obs, confidence 0.9 (forming, but higher confidence)
     db.observe_crystal("c-few", "Few obs", "test", 0.9, &ts).await.unwrap();
 
     let list = db.list_crystals(10).await.expect("list_crystals failed");
     assert!(list.len() >= 2);
-    assert!(list[0].observations >= list[1].observations, "should be sorted by observations desc");
+    // Both are "forming" (< 21 obs), so sorted by confidence DESC within same state
+    assert!(list[0].confidence >= list[1].confidence,
+        "within same state, should be sorted by confidence desc: {} >= {}",
+        list[0].confidence, list[1].confidence);
 
     common::teardown_test_db(&db).await;
 }
@@ -156,9 +155,8 @@ async fn crystal_list_sorted_by_observations() {
 // ── Task 5: Observations ─────────────────────────────────
 
 #[tokio::test]
-#[ignore]
 async fn observation_store_and_query() {
-    let db = common::setup_test_db("obs_rt").await;
+    let Some(db) = common::setup_test_db("obs_rt").await else { return; };
 
     db.store_observation(&test_obs("agent-1", "Edit", "main.rs")).await.expect("store failed");
     db.store_observation(&test_obs("agent-1", "Edit", "main.rs")).await.expect("store2 failed");
@@ -174,9 +172,8 @@ async fn observation_store_and_query() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn observation_query_session_targets() {
-    let db = common::setup_test_db("obs_sess").await;
+    let Some(db) = common::setup_test_db("obs_sess").await else { return; };
 
     // Two targets in same session
     db.store_observation(&test_obs("session-A", "Edit", "file1.rs")).await.unwrap();
@@ -200,9 +197,8 @@ async fn observation_query_session_targets() {
 // ── Task 6: Coord lifecycle ──────────────────────────────
 
 #[tokio::test]
-#[ignore]
 async fn coord_full_lifecycle() {
-    let db = common::setup_test_db("coord_life").await;
+    let Some(db) = common::setup_test_db("coord_life").await else { return; };
 
     db.register_agent("test-agent", "claude", "testing").await
         .expect("register failed");
@@ -224,9 +220,8 @@ async fn coord_full_lifecycle() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn coord_claim_conflict_detection() {
-    let db = common::setup_test_db("coord_conflict").await;
+    let Some(db) = common::setup_test_db("coord_conflict").await else { return; };
 
     db.register_agent("agent-A", "claude", "working").await.unwrap();
     db.register_agent("agent-B", "gemini", "working").await.unwrap();
@@ -245,9 +240,8 @@ async fn coord_claim_conflict_detection() {
 // ── Task 7: Batch + Expire ───────────────────────────────
 
 #[tokio::test]
-#[ignore]
 async fn coord_claim_batch() {
-    let db = common::setup_test_db("coord_batch").await;
+    let Some(db) = common::setup_test_db("coord_batch").await else { return; };
     db.register_agent("batch-agent", "claude", "batch test").await.unwrap();
 
     let targets = vec!["file1.rs".to_string(), "file2.rs".to_string(), "file3.rs".to_string()];
@@ -261,9 +255,8 @@ async fn coord_claim_batch() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn coord_expire_stale_does_not_break() {
-    let db = common::setup_test_db("coord_expiry").await;
+    let Some(db) = common::setup_test_db("coord_expiry").await else { return; };
     db.register_agent("stale-agent", "test", "will expire").await.unwrap();
     db.claim("stale-agent", "old-file.rs", "file").await.unwrap();
 
@@ -279,9 +272,8 @@ async fn coord_expire_stale_does_not_break() {
 // ── Task 8: Audit trail ──────────────────────────────────
 
 #[tokio::test]
-#[ignore]
 async fn audit_store_and_query() {
-    let db = common::setup_test_db("audit_rt").await;
+    let Some(db) = common::setup_test_db("audit_rt").await else { return; };
 
     let details = serde_json::json!({"action": "test", "target": "file.rs"});
     db.store_audit("cynic_judge", "test-agent", &details).await
@@ -300,9 +292,8 @@ async fn audit_store_and_query() {
 // ── Task 9: Flush usage ──────────────────────────────────
 
 #[tokio::test]
-#[ignore]
 async fn flush_usage_via_storage_port() {
-    let db = common::setup_test_db("flush_port").await;
+    let Some(db) = common::setup_test_db("flush_port").await else { return; };
     let mut tracker = DogUsageTracker::new();
 
     tracker.record("test-dog", 1000, 500, 200);
@@ -338,9 +329,8 @@ async fn flush_usage_via_storage_port() {
 // ── G1: Crystal embedding + HNSW vector search ──────────
 
 #[tokio::test]
-#[ignore]
 async fn store_and_search_crystal_embedding() {
-    let db = common::setup_test_db("embed_rt").await;
+    let Some(db) = common::setup_test_db("embed_rt").await else { return; };
 
     // Store a crystal first
     db.observe_crystal("chess-sicilian", "The Sicilian Defense", "chess", 0.7, "2026-03-21T12:00:00Z").await
@@ -364,9 +354,8 @@ async fn store_and_search_crystal_embedding() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn semantic_search_returns_empty_when_no_embeddings() {
-    let db = common::setup_test_db("knn_empty").await;
+    let Some(db) = common::setup_test_db("knn_empty").await else { return; };
 
     let query = vec![0.1f32; 1024];
     let results = db.search_crystals_semantic(&query, 5).await
@@ -377,9 +366,8 @@ async fn semantic_search_returns_empty_when_no_embeddings() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn semantic_search_round_trip() {
-    let db = common::setup_test_db("knn_rt").await;
+    let Some(db) = common::setup_test_db("knn_rt").await else { return; };
 
     // Create 2 crystals and observe enough to reach Crystallized (26 obs, conf 0.7 > φ⁻¹)
     for (id, content) in [("chess-open", "Opening theory"), ("code-rust", "Rust patterns")] {
@@ -418,11 +406,10 @@ async fn semantic_search_round_trip() {
 // ── G3: Session summaries ───────────────────────────────
 
 #[tokio::test]
-#[ignore]
 async fn store_and_list_session_summaries() {
     use cynic_kernel::domain::ccm::SessionSummary;
 
-    let db = common::setup_test_db("session_rt").await;
+    let Some(db) = common::setup_test_db("session_rt").await else { return; };
 
     let s1 = SessionSummary {
         session_id: "sess-abc".into(),
@@ -451,9 +438,8 @@ async fn store_and_list_session_summaries() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn get_unsummarized_sessions() {
-    let db = common::setup_test_db("unsum_rt").await;
+    let Some(db) = common::setup_test_db("unsum_rt").await else { return; };
 
     // Create observations for 2 agents
     for i in 0..5 {
@@ -488,9 +474,8 @@ async fn get_unsummarized_sessions() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn get_session_observations_returns_filtered() {
-    let db = common::setup_test_db("sessobs_rt").await;
+    let Some(db) = common::setup_test_db("sessobs_rt").await else { return; };
 
     db.store_observation(&test_obs("sess-X", "Edit", "a.rs")).await.unwrap();
     db.store_observation(&test_obs("sess-X", "Bash", "cargo test")).await.unwrap();

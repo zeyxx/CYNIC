@@ -67,6 +67,12 @@ pub trait StoragePort: Send + Sync {
     async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError>;
     async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError>;
     async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError>;
+    /// List crystals with optional domain and state filters.
+    /// Sorted by maturity (canonical > crystallized > forming) then confidence DESC.
+    async fn list_crystals_filtered(&self, limit: u32, _domain: Option<&str>, _state: Option<&str>) -> Result<Vec<Crystal>, StorageError> {
+        // Default: fall back to list_crystals
+        self.list_crystals(limit).await
+    }
     /// Delete a crystal by ID. Idempotent — no error if not found.
     async fn delete_crystal(&self, id: &str) -> Result<(), StorageError>;
     /// List mature crystals for a specific domain (including "general" cross-domain).

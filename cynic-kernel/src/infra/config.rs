@@ -131,7 +131,7 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("[config] Cannot read {}: {}", path.display(), e);
+            tracing::warn!(path = %path.display(), error = %e, "cannot read config file");
             return Vec::new();
         }
     };
@@ -139,7 +139,7 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
     let file: BackendsFile = match toml::from_str(&content) {
         Ok(f) => f,
         Err(e) => {
-            eprintln!("[config] Invalid TOML in {}: {}", path.display(), e);
+            tracing::warn!(path = %path.display(), error = %e, "invalid TOML in config");
             return Vec::new();
         }
     };
@@ -151,11 +151,11 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 match std::env::var(env_name) {
                     Ok(val) if !val.is_empty() => Some(val),
                     Ok(_) => {
-                        eprintln!("[config] {} env var is empty, skipping backend '{}'", env_name, name);
+                        tracing::warn!(env = %env_name, backend = %name, "env var empty, skipping backend");
                         None
                     }
                     Err(_) => {
-                        eprintln!("[config] {} not set, skipping backend '{}'", env_name, name);
+                        tracing::warn!(env = %env_name, backend = %name, "env var not set, skipping backend");
                         None
                     }
                 }
@@ -173,7 +173,7 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                     AuthStyle::QueryParam(other.trim_start_matches("query:").to_string())
                 }
                 Some(other) => {
-                    eprintln!("[config] Unknown auth_style '{}' for backend '{}', defaulting to bearer", other, name);
+                    tracing::warn!(auth_style = %other, backend = %name, "unknown auth_style, defaulting to bearer");
                     AuthStyle::Bearer
                 }
             };

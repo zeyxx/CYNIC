@@ -55,7 +55,7 @@ impl CircuitBreaker {
             CircuitState::Open { since } => {
                 if since.elapsed() >= COOLDOWN {
                     inner.state = CircuitState::HalfOpen;
-                    eprintln!("[CircuitBreaker] Dog '{}': Open → HalfOpen (probing)", self.dog_id);
+                    tracing::info!(dog_id = %self.dog_id, transition = "Open → HalfOpen", "circuit breaker probing");
                     true // allow one probe
                 } else {
                     false // still cooling down
@@ -70,7 +70,7 @@ impl CircuitBreaker {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.consecutive_failures = 0;
         if inner.state != CircuitState::Closed {
-            eprintln!("[CircuitBreaker] Dog '{}': {:?} → Closed (recovered)", self.dog_id, inner.state);
+            tracing::info!(dog_id = %self.dog_id, from = ?inner.state, "circuit breaker recovered → Closed");
             inner.state = CircuitState::Closed;
         }
     }
@@ -81,10 +81,10 @@ impl CircuitBreaker {
         inner.consecutive_failures += 1;
         if inner.consecutive_failures >= FAILURE_THRESHOLD && inner.state == CircuitState::Closed {
             inner.state = CircuitState::Open { since: Instant::now() };
-            eprintln!("[CircuitBreaker] Dog '{}': Closed → Open after {} failures", self.dog_id, inner.consecutive_failures);
+            tracing::warn!(dog_id = %self.dog_id, failures = inner.consecutive_failures, "circuit breaker OPENED");
         } else if matches!(inner.state, CircuitState::HalfOpen) {
             inner.state = CircuitState::Open { since: Instant::now() };
-            eprintln!("[CircuitBreaker] Dog '{}': HalfOpen → Open (probe failed)", self.dog_id);
+            tracing::warn!(dog_id = %self.dog_id, "circuit breaker probe failed → Open");
         }
     }
 

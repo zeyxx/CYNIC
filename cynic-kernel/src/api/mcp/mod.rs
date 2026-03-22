@@ -135,11 +135,13 @@ pub struct CynicMcp {
     verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
     /// Sovereign inference — routed through InferPort, not raw HTTP (Rule #17).
     infer: Arc<dyn InferPort>,
+    metrics: Arc<crate::infra::metrics::Metrics>,
     tool_router: ToolRouter<Self>,
 }
 
 #[tool_router]
 impl CynicMcp {
+    #[allow(clippy::too_many_arguments)] // Constructor — 8 deps is the real count, a builder adds zero clarity
     pub fn new(
         judge: Arc<Judge>,
         storage: Arc<dyn StoragePort>,
@@ -148,6 +150,7 @@ impl CynicMcp {
         embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
         verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
         infer: Arc<dyn InferPort>,
+        metrics: Arc<crate::infra::metrics::Metrics>,
     ) -> Self {
         Self {
             judge,
@@ -156,6 +159,7 @@ impl CynicMcp {
             embedding,
             verdict_cache,
             infer,
+            metrics,
             usage,
             tool_router: Self::tool_router(),
         }
@@ -199,6 +203,7 @@ impl CynicMcp {
             embedding: self.embedding.as_ref(),
             usage: &self.usage,
             verdict_cache: &self.verdict_cache,
+            metrics: &self.metrics,
         };
         let result = crate::pipeline::run(
             p.content.clone(), p.context, p.domain.clone(), p.dogs.as_deref(), &deps,
@@ -661,7 +666,8 @@ mod tests {
         let embedding = Arc::new(crate::domain::embedding::NullEmbedding) as Arc<dyn crate::domain::embedding::EmbeddingPort>;
         let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
         let infer = Arc::new(crate::domain::inference::NullInfer) as Arc<dyn InferPort>;
-        CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer)
+        let metrics = Arc::new(crate::infra::metrics::Metrics::new());
+        CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer, metrics)
     }
 
     /// Extract text from the first Content element in a CallToolResult.
@@ -803,7 +809,8 @@ mod tests {
         let embedding = Arc::new(crate::domain::embedding::NullEmbedding) as Arc<dyn crate::domain::embedding::EmbeddingPort>;
         let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
         let infer = Arc::new(crate::domain::inference::NullInfer) as Arc<dyn InferPort>;
-        let mcp = CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer);
+        let metrics = Arc::new(crate::infra::metrics::Metrics::new());
+        let mcp = CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer, metrics);
 
         let result = mcp.cynic_health().await.unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();

@@ -69,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 (Arc::clone(&db) as _, Arc::clone(&db) as _, true)
             }
             Err(e) => {
-                eprintln!("[Ring 1] Storage: DEGRADED — {} (verdicts will not persist)", e);
+                tracing::warn!(error = %e, "storage DEGRADED — verdicts will not persist");
                 (Arc::new(domain::storage::NullStorage), Arc::new(domain::coord::NullCoord), false)
             }
         };
@@ -283,6 +283,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let api_key = std::env::var("CYNIC_API_KEY").ok();
     // Single VerdictCache shared by REST and MCP — avoids duplicate caches (T4 fix)
     let verdict_cache = Arc::new(domain::verdict_cache::VerdictCache::new());
+    // Pipeline metrics — shared by REST and MCP, exposed via /metrics
+    let metrics = Arc::new(infra::metrics::Metrics::new());
     let rest_state = Arc::new(api::rest::AppState {
         judge: Arc::clone(&judge),
         storage: Arc::clone(&storage_port),
@@ -291,6 +293,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         usage: Arc::clone(&usage_tracker),
         verdict_cache: Arc::clone(&verdict_cache),
         task_health: Arc::clone(&task_health),
+        metrics: Arc::clone(&metrics),
         api_key,
         storage_info: api::rest::StorageInfo {
             namespace: storage_config.namespace.clone(),
@@ -326,8 +329,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             std::time::Duration::from_secs(10),
                             expiry_coord.expire_stale(),
                         ).await {
-                            Ok(Err(e)) => eprintln!("[coord] expire_stale failed: {}", e),
-                            Err(_) => eprintln!("[coord] expire_stale timed out (10s)"),
+                            Ok(Err(e)) => tracing::warn!(error = %e, "coord expire_stale failed"),
+                            Err(_) => tracing::warn!("coord expire_stale timed out (10s)"),
                             _ => {}
                         }
                         th.touch_coord_expiry();
@@ -370,8 +373,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     let mut usage = flush_usage.lock().await;
                                     usage.absorb_flush();
                                 }
-                                Ok(Err(e)) => eprintln!("[flush] DB write failed, will retry next tick: {}", e),
-                                Err(_) => eprintln!("[flush] DB write timed out (10s), will retry next tick"),
+                                Ok(Err(e)) => tracing::warn!(error = %e, "usage flush DB write failed, will retry"),
+                                Err(_) => tracing::warn!("usage flush DB write timed out (10s), will retry"),
                             }
                         }
                         if tick_count.is_multiple_of(60) {
@@ -379,8 +382,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 std::time::Duration::from_secs(30),
                                 flush_storage.cleanup_ttl(),
                             ).await {
-                                Ok(Err(e)) => eprintln!("[flush] TTL cleanup failed (non-fatal): {}", e),
-                                Err(_) => eprintln!("[flush] TTL cleanup timed out (30s)"),
+                                Ok(Err(e)) => tracing::warn!(error = %e, "TTL cleanup failed (non-fatal)"),
+                                Err(_) => tracing::warn!("TTL cleanup timed out (30s)"),
                                 _ => {}
                             }
                         }
@@ -422,7 +425,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     klog!("[CCM] aggregated {} patterns", count);
                                 }
                             }
-                            Err(_) => eprintln!("[CCM] aggregate_observations timed out (30s)"),
+                            Err(_) => tracing::warn!("CCM aggregate_observations timed out (30s)"),
                         }
                     }
                 }
@@ -473,7 +476,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                                 th.touch_summarizer();
                             }
-                            Err(_) => eprintln!("[CCM/summarizer] timed out (120s)"),
+                            Err(_) => tracing::warn!("session summarizer timed out (120s)"),
                         }
                     }
                 }
@@ -484,7 +487,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
         use rmcp::ServiceExt;
-        eprintln!("[Ring 3] MCP mode — serving over stdio (background tasks active)");
+        tracing::info!("MCP mode — serving over stdio (background tasks active)");
         let mcp_infer: Arc<dyn domain::inference::InferPort> = Arc::new(
             backends::summarizer::SovereignSummarizer::from_env(),
         );
@@ -496,6 +499,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&embedding),
             Arc::clone(&verdict_cache),
             mcp_infer,
+            Arc::clone(&metrics),
         );
 
         // MCP signal handler — cancel background tasks on SIGTERM/SIGINT
@@ -505,8 +509,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
                     .expect("failed to install SIGTERM handler");
                 tokio::select! {
-                    _ = tokio::signal::ctrl_c() => eprintln!("[SHUTDOWN] SIGINT received"),
-                    _ = sigterm.recv() => eprintln!("[SHUTDOWN] SIGTERM received"),
+                    _ = tokio::signal::ctrl_c() => tracing::info!("SIGINT received"),
+                    _ = sigterm.recv() => tracing::info!("SIGTERM received"),
                 }
                 mcp_shutdown.cancel();
             });
@@ -520,7 +524,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::select! {
             _ = server.waiting() => {} // ok: MCP client disconnected
             _ = shutdown.clone().cancelled_owned() => {
-                eprintln!("[SHUTDOWN] MCP shutting down");
+                tracing::info!("MCP shutting down");
             }
         }
 
@@ -592,7 +596,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_graceful_shutdown(shutdown.clone().cancelled_owned())
         .await
     {
-        eprintln!("[FATAL] REST server error: {}", e);
+        tracing::error!(error = %e, "REST server fatal error");
     }
 
     klog!("[SHUTDOWN] REST server drained — flushing state");
@@ -605,7 +609,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         rest_state.bg_tasks.wait(),
     ).await {
         Ok(()) => klog!("[SHUTDOWN] Background tasks drained ({} completed)", 0),
-        Err(_) => eprintln!("[SHUTDOWN] Background tasks did not drain within 5s"),
+        Err(_) => tracing::warn!("background tasks did not drain within 5s"),
     }
 
     Ok(())
@@ -639,8 +643,8 @@ async fn flush_usage_on_shutdown(
             u.absorb_flush();
             klog!("[SHUTDOWN] Usage flushed ({} dogs)", dog_count);
         }
-        Ok(Err(e)) => eprintln!("[SHUTDOWN] Usage flush failed: {}", e),
-        Err(_) => eprintln!("[SHUTDOWN] Usage flush timed out (10s)"),
+        Ok(Err(e)) => tracing::warn!(error = %e, "shutdown usage flush failed"),
+        Err(_) => tracing::warn!("shutdown usage flush timed out (10s)"),
     }
 }
 

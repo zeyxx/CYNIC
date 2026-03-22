@@ -1,7 +1,7 @@
 //! REST API handlers for data access — /crystals, /crystal/{id}, /usage, crystal CRUD.
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
 };
@@ -13,10 +13,23 @@ use crate::domain::ccm;
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::PHI_INV;
 
+#[derive(Deserialize, Default)]
+pub struct CrystalsQuery {
+    /// Max results (default 50, max 200)
+    pub limit: Option<u32>,
+    /// Filter by domain (e.g., "chess", "trading")
+    pub domain: Option<String>,
+    /// Filter by state (e.g., "crystallized", "canonical", "forming")
+    pub state: Option<String>,
+}
+
 pub async fn crystals_handler(
     State(state): State<Arc<AppState>>,
+    Query(q): Query<CrystalsQuery>,
 ) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
-    match state.storage.list_crystals(20).await {
+    let limit = q.limit.unwrap_or(50).min(200);
+    // If domain+state filter provided, use domain-specific query; otherwise list all
+    match state.storage.list_crystals_filtered(limit, q.domain.as_deref(), q.state.as_deref()).await {
         Ok(crystals) => {
             let items: Vec<serde_json::Value> = crystals.iter().map(|c| {
                 serde_json::json!({
@@ -33,7 +46,7 @@ pub async fn crystals_handler(
             Ok(Json(items))
         }
         Err(e) => {
-            eprintln!("[REST] crystals error: {}", e);
+            tracing::warn!(error = %e, "crystals list failed");
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
         }
     }
@@ -56,7 +69,7 @@ pub async fn crystal_handler(
         }))),
         Ok(None) => Err((StatusCode::NOT_FOUND, Json(ErrorResponse { error: format!("Crystal {} not found", id) }))),
         Err(e) => {
-            eprintln!("[REST] crystal/{} error: {}", id, e);
+            tracing::warn!(crystal_id = %id, error = %e, "crystal get failed");
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
         }
     }
@@ -123,7 +136,7 @@ pub async fn create_crystal_handler(
         updated_at: now,
     };
     if let Err(e) = state.storage.store_crystal(&crystal).await {
-        eprintln!("[REST] create crystal error: {}", e);
+        tracing::warn!(error = %e, "create crystal failed");
         return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
             error: "storage unavailable".into(),
         })));
@@ -141,7 +154,7 @@ pub async fn delete_crystal_handler(
     Path(id): Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorResponse>)> {
     if let Err(e) = state.storage.delete_crystal(&id).await {
-        eprintln!("[REST] delete crystal/{} error: {}", id, e);
+        tracing::warn!(crystal_id = %id, error = %e, "delete crystal failed");
         return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
             error: "storage unavailable".into(),
         })));
@@ -169,7 +182,7 @@ pub async fn observe_crystal_handler(
     let now = chrono::Utc::now().to_rfc3339();
 
     if let Err(e) = state.storage.observe_crystal(&id, &req.content, &domain, confidence, &now).await {
-        eprintln!("[REST] observe crystal/{} error: {}", id, e);
+        tracing::warn!(crystal_id = %id, error = %e, "observe crystal failed");
         return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
             error: "storage unavailable".into(),
         })));

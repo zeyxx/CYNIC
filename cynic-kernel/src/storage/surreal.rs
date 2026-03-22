@@ -203,7 +203,34 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError> {
-        let sql = format!("SELECT * FROM crystal ORDER BY observations DESC LIMIT {}", safe_limit(limit));
+        // Sort by state ASC (alphabetical: canonical < crystallized < decaying < dissolved < forming)
+        // then confidence DESC. Shows mature crystals first, noise last.
+        // Previous sort (observations DESC) surfaced workflow noise, hiding 29 mature crystals.
+        let sql = format!(
+            "SELECT * FROM crystal ORDER BY state ASC, confidence DESC LIMIT {}",
+            safe_limit(limit),
+        );
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.iter().map(row_to_crystal).collect())
+    }
+
+    async fn list_crystals_filtered(&self, limit: u32, domain: Option<&str>, state: Option<&str>) -> Result<Vec<Crystal>, StorageError> {
+        let mut conditions = Vec::new();
+        if let Some(d) = domain {
+            conditions.push(format!("domain = '{}'", escape_surreal(d)));
+        }
+        if let Some(s) = state {
+            conditions.push(format!("state = '{}'", escape_surreal(s)));
+        }
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+        let sql = format!(
+            "SELECT * FROM crystal {} ORDER BY state ASC, confidence DESC LIMIT {}",
+            where_clause, safe_limit(limit),
+        );
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_crystal).collect())
     }
@@ -628,10 +655,10 @@ impl CoordPort for SurrealHttpStorage {
 
     async fn who(&self, agent_id_filter: Option<&str>) -> Result<CoordSnapshot, CoordError> {
         if let Err(e) = self.query_one("UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;").await {
-            eprintln!("[coord] TTL expiry (sessions) failed: {}", e);
+            tracing::warn!(error = %e, "coord TTL expiry (sessions) failed");
         }
         if let Err(e) = self.query_one("UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await {
-            eprintln!("[coord] TTL expiry (claims) failed: {}", e);
+            tracing::warn!(error = %e, "coord TTL expiry (claims) failed");
         }
         let session_sql = match agent_id_filter {
             Some(id) => format!("SELECT * FROM agent_session WHERE agent_id = '{}' AND active = true;", escape_surreal(id)),
@@ -640,7 +667,7 @@ impl CoordPort for SurrealHttpStorage {
         let agents = match self.query_one(&session_sql).await {
             Ok(a) => a,
             Err(e) => {
-                eprintln!("[coord] who() agents query failed (returning empty): {}", e);
+                tracing::warn!(error = %e, "coord who() agents query failed");
                 Vec::new()
             }
         };
@@ -651,7 +678,7 @@ impl CoordPort for SurrealHttpStorage {
         let claims = match self.query_one(&claims_sql).await {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("[coord] who() claims query failed (returning empty): {}", e);
+                tracing::warn!(error = %e, "coord who() claims query failed");
                 Vec::new()
             }
         };
@@ -668,7 +695,7 @@ impl CoordPort for SurrealHttpStorage {
             escape_surreal(tool), escape_surreal(agent_id), safe_details,
         );
         if let Err(e) = self.query(&query).await {
-            eprintln!("[store_audit] ERROR (tool={}, agent={}): {}", tool, agent_id, e);
+            tracing::warn!(tool = %tool, agent_id = %agent_id, error = %e, "store_audit failed");
         }
         Ok(())
     }
@@ -765,7 +792,7 @@ impl CoordPort for SurrealHttpStorage {
             let owned = match self.query_one(&verify_sql).await {
                 Ok(rows) => rows,
                 Err(e) => {
-                    eprintln!("[coord/claim_batch] post-check failed ({}), treating as conflicts", e);
+                    tracing::warn!(error = %e, "coord claim_batch post-check failed, treating as conflicts");
                     Vec::new()
                 }
             };
@@ -947,11 +974,16 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // Requires running SurrealDB instance
     async fn store_and_retrieve_verdict() {
-        let storage = SurrealHttpStorage::init_with(
+        let storage = match SurrealHttpStorage::init_with(
             "http://localhost:8000", "test_cynic", "ci"
-        ).await.expect("SurrealDB must be reachable");
+        ).await {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[SKIP] SurrealDB unavailable (localhost:8000): {} — skipping test", e);
+                return;
+            }
+        };
 
         let v = test_verdict();
         storage.store_verdict(&v).await.expect("store must succeed");
