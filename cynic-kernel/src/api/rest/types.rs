@@ -16,6 +16,22 @@ use crate::infra::task_health::TaskHealth;
 use crate::introspection::Alert;
 use crate::judge::Judge;
 
+// ── KERNEL EVENT BUS ──────────────────────────────────────
+
+/// Events emitted by the kernel — consumed by SSE, future WebSocket, and dashboards.
+/// Clone-cheap: all payloads are small strings/numbers.
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(tag = "type")]
+pub enum KernelEvent {
+    VerdictIssued { verdict_id: String, domain: String, verdict: String, q_score: f64 },
+    CrystalObserved { crystal_id: String, domain: String, observations: u32, confidence: f64 },
+    CrystalPromoted { crystal_id: String, old_state: String, new_state: String },
+    DogFailed { dog_id: String, error: String },
+    SessionRegistered { agent_id: String },
+    BackfillComplete { count: u32 },
+    Anomaly { kind: String, message: String, severity: String },
+}
+
 // ── SHARED STATE ───────────────────────────────────────────
 
 pub struct AppState {
@@ -40,6 +56,10 @@ pub struct AppState {
     /// Latest introspection alerts (updated every 5min by background task).
     /// Empty = healthy system. RwLock: read-heavy (every /health), write every 5min.
     pub introspection_alerts: std::sync::RwLock<Vec<Alert>>,
+    /// Kernel event bus — broadcast to all SSE/WebSocket subscribers.
+    /// Capacity 256: events are small, subscribers should keep up.
+    /// Lagging subscribers get BroadcastStreamRecvError::Lagged → skip.
+    pub event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.

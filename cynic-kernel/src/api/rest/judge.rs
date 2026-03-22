@@ -51,6 +51,7 @@ pub async fn judge_handler(
         usage: &state.usage,
         verdict_cache: &state.verdict_cache,
         metrics: &state.metrics,
+        event_tx: Some(&state.event_tx),
     };
     let result = crate::pipeline::run(
         content, req.context, req.domain, req.dogs.as_deref(), &deps,

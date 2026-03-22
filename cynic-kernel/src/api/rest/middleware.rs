@@ -24,7 +24,7 @@ pub async fn auth_middleware(
 ) -> Response {
     // /health and /metrics are public — no auth required
     let path = request.uri().path();
-    if path == "/health" || path == "/metrics" {
+    if path == "/health" || path == "/metrics" || path == "/events" {
         return next.run(request).await;
     }
 
@@ -55,7 +55,7 @@ pub async fn rate_limit_middleware(
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health" || path == "/metrics" {
+    if path == "/health" || path == "/metrics" || path == "/events" {
         return next.run(request).await;
     }
 
@@ -91,7 +91,7 @@ pub async fn audit_middleware(
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health" || path == "/metrics" {
+    if path == "/health" || path == "/metrics" || path == "/events" {
         return next.run(request).await;
     }
 

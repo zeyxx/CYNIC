@@ -10,6 +10,7 @@ use crate::domain::embedding::{Embedding, EmbeddingPort};
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::{CacheLookup, VerdictCache};
+use crate::api::rest::KernelEvent;
 use crate::infra::metrics::Metrics;
 use crate::judge::{Judge, JudgeError};
 use tokio::sync::Mutex;
@@ -35,6 +36,9 @@ pub struct PipelineDeps<'a> {
     pub usage: &'a Mutex<DogUsageTracker>,
     pub verdict_cache: &'a VerdictCache,
     pub metrics: &'a Metrics,
+    /// Optional: emit events to SSE/WebSocket subscribers.
+    /// None in tests and MCP (no broadcast channel available).
+    pub event_tx: Option<&'a tokio::sync::broadcast::Sender<KernelEvent>>,
 }
 
 /// Run the full judge pipeline: embed → cache → crystals → sessions → evaluate → store → CCM.
@@ -49,7 +53,7 @@ pub async fn run(
     dogs_filter: Option<&[String]>,
     deps: &PipelineDeps<'_>,
 ) -> Result<PipelineResult, JudgeError> {
-    let PipelineDeps { judge, storage, embedding, usage, verdict_cache, metrics } = *deps;
+    let PipelineDeps { judge, storage, embedding, usage, verdict_cache, metrics, event_tx } = *deps;
     let domain_hint = domain.as_deref().unwrap_or("general");
     let pipeline_span = tracing::info_span!("judge_pipeline",
         domain = %domain_hint,
@@ -137,6 +141,27 @@ pub async fn run(
         anomaly = verdict.anomaly_detected,
         "verdict issued"
     );
+
+    // ── EMIT EVENT (best-effort — no subscribers = no-op) ──
+    if let Some(tx) = event_tx {
+        let receivers = tx.receiver_count();
+        match tx.send(KernelEvent::VerdictIssued {
+            verdict_id: verdict.id.clone(),
+            domain: stimulus.domain.as_deref().unwrap_or("general").to_string(),
+            verdict: format!("{:?}", verdict.kind),
+            q_score: verdict.q_score.total,
+        }) {
+            Ok(n) => tracing::info!(phase = "event_bus", receivers = n, "verdict event sent"),
+            Err(_) => tracing::debug!(phase = "event_bus", receivers = receivers, "no SSE subscribers"),
+        }
+        // Emit Dog failures as separate events
+        for dog_id in &verdict.failed_dogs {
+            let _ = tx.send(KernelEvent::DogFailed {
+                dog_id: dog_id.clone(),
+                error: "evaluation_failed".into(),
+            });
+        }
+    }
 
     // ── SIDE EFFECTS (all best-effort) ──
     side_effects(&stimulus, &verdict, &stimulus_embedding, storage, usage, verdict_cache, metrics).await;
@@ -372,6 +397,7 @@ mod tests {
         let deps = PipelineDeps {
             judge: &judge, storage: &storage, embedding: &embedding,
             usage: &usage, verdict_cache: &verdict_cache, metrics: &metrics,
+            event_tx: None,
         };
         let result = run(
             "1. e4 c5 — The Sicilian Defense".into(),
@@ -407,6 +433,7 @@ mod tests {
         let deps = PipelineDeps {
             judge: &judge, storage: &storage, embedding: &embedding,
             usage: &usage, verdict_cache: &verdict_cache, metrics: &metrics,
+            event_tx: None,
         };
         let _ = run("test content".into(), None, None, None, &deps).await;
 

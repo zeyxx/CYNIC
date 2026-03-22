@@ -9,6 +9,7 @@ pub mod data;
 pub mod health;
 pub mod observe;
 pub mod coord;
+pub mod events;
 
 pub use types::*;
 pub use response::compute_temporal_from_dogs;
@@ -62,6 +63,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(health_handler))
         .route("/metrics", get(metrics_handler))
+        .route("/events", get(events::events_handler))
         .route("/judge", post(judge_handler))
         .route("/dogs", get(dogs_handler))
         .route("/crystals", get(crystals_handler))

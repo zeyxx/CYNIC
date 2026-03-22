@@ -37,6 +37,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         bg_semaphore: std::sync::Arc::new(tokio::sync::Semaphore::new(64)),
         bg_tasks: tokio_util::task::TaskTracker::new(),
         introspection_alerts: std::sync::RwLock::new(Vec::new()),
+        event_tx: tokio::sync::broadcast::channel(16).0,
     })
 }
 

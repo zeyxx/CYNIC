@@ -297,6 +297,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             klog!("[Ring 2] Metrics: hydrated crystal_observations_total = {}", co_count);
         }
     }
+    // Event bus — broadcast channel for SSE/WebSocket subscribers.
+    // Capacity 256: events are small JSON, subscribers should keep up.
+    let (event_tx, _) = tokio::sync::broadcast::channel::<api::rest::KernelEvent>(256);
     let rest_state = Arc::new(api::rest::AppState {
         judge: Arc::clone(&judge),
         storage: Arc::clone(&storage_port),
@@ -316,6 +319,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         bg_semaphore: Arc::new(tokio::sync::Semaphore::new(64)), // bound fire-and-forget spawns
         bg_tasks: tokio_util::task::TaskTracker::new(), // track for drain at shutdown
         introspection_alerts: std::sync::RwLock::new(Vec::new()),
+        event_tx: event_tx.clone(),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 

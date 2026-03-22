@@ -204,6 +204,7 @@ impl CynicMcp {
             usage: &self.usage,
             verdict_cache: &self.verdict_cache,
             metrics: &self.metrics,
+            event_tx: None, // MCP has no broadcast channel — events go through REST SSE
         };
         let result = crate::pipeline::run(
             p.content.clone(), p.context, p.domain.clone(), p.dogs.as_deref(), &deps,
