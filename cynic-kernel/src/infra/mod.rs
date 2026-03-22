@@ -4,3 +4,4 @@ pub mod health_loop;
 pub mod metrics;
 pub mod remediation;
 pub mod task_health;
+pub mod tasks;

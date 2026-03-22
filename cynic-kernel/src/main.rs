@@ -167,106 +167,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] Integrity chain seeded: {}…", &hash[..16.min(hash.len())]);
     }
 
-    // ─── RING 2: Spawn health loop ────────────────────────────
+    // ─── RING 2: Spawn health loop + remediation watcher ──────
+    let all_breakers: Vec<Arc<infra::circuit_breaker::CircuitBreaker>> = judge
+        .breakers().iter().map(Arc::clone).collect();
     {
         let probe_configs: Vec<infra::health_loop::DogProbeConfig> = judge
-            .dog_ids()
-            .iter()
-            .filter(|id| *id != "deterministic-dog") // in-process, always healthy
+            .dog_ids().iter()
+            .filter(|id| *id != "deterministic-dog")
             .filter_map(|id| {
-                // Health URL from backends.toml SoT — None for cloud APIs (no health endpoint)
-                health_urls.get(id.as_str())
-                    .and_then(|opt| opt.as_ref())
-                    .map(|url| infra::health_loop::DogProbeConfig {
-                        dog_id: id.clone(),
-                        health_url: url.clone(),
-                    })
+                health_urls.get(id.as_str()).and_then(|opt| opt.as_ref())
+                    .map(|url| infra::health_loop::DogProbeConfig { dog_id: id.clone(), health_url: url.clone() })
             })
             .collect();
-
         if !probe_configs.is_empty() {
-            let breaker_map: std::collections::HashMap<String, Arc<infra::circuit_breaker::CircuitBreaker>> = judge
-                .breakers()
-                .iter()
-                .map(|cb| (cb.dog_id().to_string(), Arc::clone(cb)))
+            let probe_breakers: Vec<_> = probe_configs.iter()
+                .filter_map(|pc| all_breakers.iter().find(|cb| cb.dog_id() == pc.dog_id).cloned())
                 .collect();
-
-            let probe_breakers: Vec<Arc<infra::circuit_breaker::CircuitBreaker>> = probe_configs
-                .iter()
-                .filter_map(|pc| breaker_map.get(&pc.dog_id).cloned())
-                .collect();
-
             infra::health_loop::spawn_health_loop(probe_configs, probe_breakers, Arc::clone(&task_health), shutdown.clone());
             klog!("[Ring 2] Health loop started (every {}s)", infra::circuit_breaker::PROBE_INTERVAL.as_secs());
         }
     }
-
-    // ─── RING 2: Spawn remediation watcher ───────────────────
     if !remediation_configs.is_empty() {
-        let rem_configs = remediation_configs.clone();
-        let rem_breakers: Vec<Arc<infra::circuit_breaker::CircuitBreaker>> = judge
-            .breakers()
-            .iter()
-            .map(Arc::clone)
-            .collect();
-
-        let rem_shutdown = shutdown.clone();
-        let rem_th = Arc::clone(&task_health);
-        tokio::spawn(async move {
-            let tracker = infra::remediation::RecoveryTracker::new();
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            interval.tick().await; // skip first tick
-
-            loop {
-                tokio::select! {
-                    _ = rem_shutdown.cancelled() => {
-                        klog!("[SHUTDOWN] Remediation watcher stopped");
-                        break;
-                    }
-                    _ = interval.tick() => {
-                        for cb in &rem_breakers {
-                            let dog_id = cb.dog_id();
-                            if let Some(open_duration) = cb.opened_since() {
-                                const REMEDIATION_THRESHOLD: std::time::Duration = std::time::Duration::from_secs(90);
-                                if open_duration > REMEDIATION_THRESHOLD
-                                    && let Some(config) = rem_configs.get(dog_id)
-                                    && tracker.should_restart(dog_id, config)
-                                {
-                                    klog!(
-                                        "[Remediation] Dog '{}' open for {:.0}s, attempting restart on {}",
-                                        dog_id, open_duration.as_secs_f64(), config.node
-                                    );
-                                    let node = config.node.clone();
-                                    let cmd = config.restart_command.clone();
-                                    match tokio::time::timeout(
-                                        std::time::Duration::from_secs(15),
-                                        tokio::task::spawn_blocking(move || {
-                                            infra::remediation::ssh_restart(&node, &cmd)
-                                        }),
-                                    ).await {
-                                        Ok(Ok(Ok(output))) => {
-                                            klog!("[Remediation] Dog '{}' restart initiated: {}", dog_id, output.trim());
-                                        }
-                                        Ok(Ok(Err(e))) => {
-                                            klog!("[Remediation] Dog '{}' restart failed: {}", dog_id, e);
-                                        }
-                                        _ => {
-                                            klog!("[Remediation] Dog '{}' restart timed out or panicked", dog_id);
-                                        }
-                                    }
-                                    tracker.record_attempt(dog_id, config.max_retries);
-                                }
-                            } else {
-                                tracker.reset(dog_id);
-                            }
-                        }
-                        rem_th.touch_remediation();
-                    }
-                }
-            }
-        });
-        klog!("[Ring 2] Remediation watcher started (90s threshold, {} Dogs)", remediation_configs.len());
+        infra::tasks::spawn_remediation_watcher(
+            remediation_configs.clone(), all_breakers,
+            Arc::clone(&task_health), shutdown.clone(),
+        );
     }
 
     // ─── RING 3: REST API (for React/external clients) ────────
@@ -340,267 +265,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // These MUST be spawned before the MCP/REST branch.
 
     // Coordination expiry (every 60s)
-    {
-        let expiry_coord = Arc::clone(&coord);
-        let th = Arc::clone(&task_health);
-        let token = shutdown.clone();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            interval.tick().await;
-            loop {
-                tokio::select! {
-                    _ = token.cancelled() => {
-                        klog!("[SHUTDOWN] Coord expiry stopped");
-                        break;
-                    }
-                    _ = interval.tick() => {
-                        match tokio::time::timeout(
-                            std::time::Duration::from_secs(10),
-                            expiry_coord.expire_stale(),
-                        ).await {
-                            Ok(Err(e)) => tracing::warn!(error = %e, "coord expire_stale failed"),
-                            Err(_) => tracing::warn!("coord expire_stale timed out (10s)"),
-                            _ => {}
-                        }
-                        th.touch_coord_expiry();
-                    }
-                }
-            }
-        });
-        klog!("[Ring 2] Coordination expiry task started (every 60s)");
-    }
+    infra::tasks::spawn_coord_expiry(Arc::clone(&coord), Arc::clone(&task_health), shutdown.clone());
+    klog!("[Ring 2] Coordination expiry task started (every 60s)");
 
     // Usage flush (every 60s)
     if has_db {
-        let flush_storage = Arc::clone(&storage_port);
-        let flush_usage = Arc::clone(&usage_tracker);
-        let th = Arc::clone(&task_health);
-        let token = shutdown.clone();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            interval.tick().await;
-            let mut tick_count: u64 = 0;
-            loop {
-                tokio::select! {
-                    _ = token.cancelled() => {
-                        klog!("[SHUTDOWN] Usage flush stopped");
-                        break;
-                    }
-                    _ = interval.tick() => {
-                        tick_count += 1;
-                        let snapshot = {
-                            let usage = flush_usage.lock().await;
-                            usage.flush_snapshot()
-                        };
-                        if !snapshot.is_empty() {
-                            match tokio::time::timeout(
-                                std::time::Duration::from_secs(10),
-                                flush_storage.flush_usage(&snapshot),
-                            ).await {
-                                Ok(Ok(_)) => {
-                                    let mut usage = flush_usage.lock().await;
-                                    usage.absorb_flush();
-                                }
-                                Ok(Err(e)) => tracing::warn!(error = %e, "usage flush DB write failed, will retry"),
-                                Err(_) => tracing::warn!("usage flush DB write timed out (10s), will retry"),
-                            }
-                        }
-                        if tick_count.is_multiple_of(60) {
-                            match tokio::time::timeout(
-                                std::time::Duration::from_secs(30),
-                                flush_storage.cleanup_ttl(),
-                            ).await {
-                                Ok(Err(e)) => tracing::warn!(error = %e, "TTL cleanup failed (non-fatal)"),
-                                Err(_) => tracing::warn!("TTL cleanup timed out (30s)"),
-                                _ => {}
-                            }
-                        }
-                        th.touch_usage_flush();
-                    }
-                }
-            }
-        });
+        infra::tasks::spawn_usage_flush(
+            Arc::clone(&storage_port), Arc::clone(&usage_tracker),
+            Arc::clone(&task_health), shutdown.clone(),
+        );
         klog!("[Ring 2] Usage flush task started (every 60s, TTL cleanup every 1h)");
     }
 
     // CCM Workflow Aggregator (every 5 min)
-    {
-        let agg_storage = Arc::clone(&storage_port);
-        let th = Arc::clone(&task_health);
-        let token = shutdown.clone();
-        let interval_secs: u64 = std::env::var("CYNIC_AGGREGATE_INTERVAL")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(300);
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_secs));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            interval.tick().await;
-            loop {
-                tokio::select! {
-                    _ = token.cancelled() => {
-                        klog!("[SHUTDOWN] CCM aggregator stopped");
-                        break;
-                    }
-                    _ = interval.tick() => {
-                        match tokio::time::timeout(
-                            std::time::Duration::from_secs(30),
-                            domain::ccm::aggregate_observations(agg_storage.as_ref(), "CYNIC"),
-                        ).await {
-                            Ok(count) => {
-                                let detail = if count > 0 { "active" } else { "idle:0" };
-                                th.touch_ccm_aggregate(detail);
-                                if count > 0 {
-                                    klog!("[CCM] aggregated {} patterns", count);
-                                }
-                            }
-                            Err(_) => tracing::warn!("CCM aggregate_observations timed out (30s)"),
-                        }
-                    }
-                }
-            }
-        });
-        klog!("[Ring 2] CCM workflow aggregator started (every {}s)", interval_secs);
-    }
+    infra::tasks::spawn_ccm_aggregator(
+        Arc::clone(&storage_port), Arc::clone(&task_health), shutdown.clone(),
+    );
 
     // ─── RING 2: Session summarizer (sovereign inference, background) ──
-    // Self-recovering: checks availability each cycle, not just at boot (T6a fix)
     if let Ok(summarizer) = backends::summarizer::SovereignSummarizer::from_env() {
-        let sum_storage = Arc::clone(&storage_port);
-        let th = Arc::clone(&task_health);
-        let token = shutdown.clone();
-        klog!("[Ring 2] Session summarizer task started (checks LLM availability each cycle)");
-        tokio::spawn(async move {
-            // Wait for first CCM cycle — but break early on shutdown
-            tokio::select! {
-                _ = token.cancelled() => return,
-                _ = tokio::time::sleep(std::time::Duration::from_secs(600)) => {}
-            }
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(600));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            loop {
-                tokio::select! {
-                    _ = token.cancelled() => {
-                        klog!("[SHUTDOWN] Session summarizer stopped");
-                        break;
-                    }
-                    _ = interval.tick() => {
-                        // Timeout on health check — prevents 60s stall on unresponsive LLM
-                        let available = tokio::time::timeout(
-                            std::time::Duration::from_secs(5),
-                            summarizer.is_available(),
-                        ).await.unwrap_or(false);
-                        if !available {
-                            th.touch_summarizer("llm_unavailable");
-                            continue;
-                        }
-                        match tokio::time::timeout(
-                            std::time::Duration::from_secs(120),
-                            pipeline::summarize_pending_sessions(sum_storage.as_ref(), &summarizer),
-                        ).await {
-                            Ok(count) => {
-                                let detail = if count > 0 { "producing" } else { "idle:0_pending" };
-                                if count > 0 {
-                                    klog!("[CCM/summarizer] {} sessions summarized", count);
-                                }
-                                th.touch_summarizer(detail);
-                            }
-                            Err(_) => tracing::warn!("session summarizer timed out (120s)"),
-                        }
-                    }
-                }
-            }
-        });
+        infra::tasks::spawn_session_summarizer(
+            Arc::clone(&storage_port), summarizer,
+            Arc::clone(&task_health), shutdown.clone(),
+        );
     } else {
         klog!("[Ring 2] Session summarizer DISABLED — HTTP client init failed");
     }
 
     // ─── One-shot: backfill crystal embeddings (orphan defragmentation) ──
     if has_db {
-        let bf_storage = Arc::clone(&storage_port);
-        let bf_embedding = Arc::clone(&embedding);
-        let bf_metrics = Arc::clone(&metrics);
-        let bf_th = Arc::clone(&task_health);
-        let bf_event_tx = event_tx.clone();
-        let bf_token = shutdown.clone();
-        tokio::spawn(async move {
-            // Delay 10s — let embedding server warm up, but respect shutdown
-            tokio::select! {
-                _ = bf_token.cancelled() => return,
-                _ = tokio::time::sleep(std::time::Duration::from_secs(10)) => {}
-            }
-            bf_th.touch_backfill("running");
-            match tokio::time::timeout(
-                std::time::Duration::from_secs(300),
-                pipeline::backfill_crystal_embeddings(bf_storage.as_ref(), bf_embedding.as_ref(), &bf_metrics),
-            ).await {
-                Ok(count) => {
-                    let detail = if count > 0 { "done" } else { "clean:0_orphans" };
-                    bf_th.touch_backfill(detail);
-                    if count > 0 {
-                        klog!("[Ring 2] Backfill: embedded {} orphan crystals", count);
-                        let _ = bf_event_tx.send(domain::events::KernelEvent::BackfillComplete { count });
-                    }
-                }
-                Err(_) => {
-                    bf_th.touch_backfill("timeout");
-                    tracing::warn!("crystal backfill timed out (300s)");
-                }
-            }
-        });
-        klog!("[Ring 2] Crystal embedding backfill task scheduled");
+        infra::tasks::spawn_backfill(
+            Arc::clone(&storage_port), Arc::clone(&embedding), Arc::clone(&metrics),
+            Arc::clone(&task_health), event_tx.clone(), shutdown.clone(),
+        );
     }
 
     // ─── Introspection loop (MAPE-K Analyze, every 5 min) ──
-    {
-        let intro_storage = Arc::clone(&storage_port);
-        let intro_metrics = Arc::clone(&metrics);
-        let intro_state = Arc::clone(&rest_state);
-        let intro_event_tx = event_tx.clone();
-        let th = Arc::clone(&task_health);
-        let token = shutdown.clone();
-        tokio::spawn(async move {
-            // Wait 60s for system to stabilize before first introspection
-            tokio::select! {
-                _ = token.cancelled() => return,
-                _ = tokio::time::sleep(std::time::Duration::from_secs(60)) => {}
-            }
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            loop {
-                tokio::select! {
-                    _ = token.cancelled() => {
-                        klog!("[SHUTDOWN] Introspection loop stopped");
-                        break;
-                    }
-                    _ = interval.tick() => {
-                        match tokio::time::timeout(
-                            std::time::Duration::from_secs(30),
-                            introspection::analyze(intro_storage.as_ref(), &intro_metrics),
-                        ).await {
-                            Ok(alerts) => {
-                                for alert in &alerts {
-                                    let _ = intro_event_tx.send(domain::events::KernelEvent::Anomaly {
-                                        kind: alert.kind.to_string(),
-                                        message: alert.message.clone(),
-                                        severity: alert.severity.to_string(),
-                                    }); // ok: no subscribers = silent
-                                }
-                                if let Ok(mut stored) = intro_state.introspection_alerts.write() {
-                                    *stored = alerts;
-                                }
-                                th.touch_introspection();
-                            }
-                            Err(_) => tracing::warn!("introspection analyze timed out (30s)"),
-                        }
-                    }
-                }
-            }
-        });
-        klog!("[Ring 2] Introspection loop started (every 5min, 60s warmup)");
-    }
+    infra::tasks::spawn_introspection(
+        Arc::clone(&storage_port), Arc::clone(&metrics), Arc::clone(&rest_state),
+        event_tx.clone(), Arc::clone(&task_health), shutdown.clone(),
+    );
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
@@ -626,25 +330,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         // MCP signal handler — cancel background tasks on SIGTERM/SIGINT
-        {
-            let mcp_shutdown = shutdown.clone();
-            tokio::spawn(async move {
-                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-                    Ok(mut sigterm) => {
-                        tokio::select! {
-                            _ = tokio::signal::ctrl_c() => tracing::info!("SIGINT received"),
-                            _ = sigterm.recv() => tracing::info!("SIGTERM received"),
-                        }
-                    }
-                    Err(e) => {
-                        tracing::warn!(error = %e, "SIGTERM handler unavailable — waiting for SIGINT only");
-                        let _ = tokio::signal::ctrl_c().await;
-                        tracing::info!("SIGINT received");
-                    }
-                }
-                mcp_shutdown.cancel();
-            });
-        }
+        infra::tasks::spawn_signal_handler(shutdown.clone());
 
         let transport = rmcp::transport::io::stdio();
         let server = mcp_server.serve(transport).await
@@ -660,7 +346,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Cancel background tasks and flush
         shutdown.cancel();
-        flush_usage_on_shutdown(&storage_port, &usage_tracker, has_db).await;
+        infra::tasks::flush_usage_on_shutdown(&storage_port, &usage_tracker, has_db).await;
         return Ok(());
     }
 
@@ -670,56 +356,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     klog!("[Ring 3] REST API on http://{}", rest_addr);
 
     // Rate limiter eviction (REST-only, every 60s)
-    {
-        let evict_state = Arc::clone(&rest_state);
-        let th = Arc::clone(&task_health);
-        let token = shutdown.clone();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            interval.tick().await;
-            loop {
-                tokio::select! {
-                    _ = token.cancelled() => {
-                        klog!("[SHUTDOWN] Rate limiter eviction stopped");
-                        break;
-                    }
-                    _ = interval.tick() => {
-                        evict_state.rate_limiter.evict_stale().await;
-                        evict_state.judge_limiter.evict_stale().await;
-                        th.touch_rate_eviction();
-                    }
-                }
-            }
-        });
-    }
+    infra::tasks::spawn_rate_eviction(Arc::clone(&rest_state), Arc::clone(&task_health), shutdown.clone());
 
     let rest_listener = tokio::net::TcpListener::bind(&rest_addr).await?;
 
     // Signal handler — fires the shutdown token
-    {
-        let signal_shutdown = shutdown.clone();
-        tokio::spawn(async move {
-            match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-                Ok(mut sigterm) => {
-                    tokio::select! {
-                        _ = tokio::signal::ctrl_c() => {
-                            klog!("[SHUTDOWN] SIGINT received — draining in-flight requests");
-                        }
-                        _ = sigterm.recv() => {
-                            klog!("[SHUTDOWN] SIGTERM received — draining in-flight requests");
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "SIGTERM handler unavailable — waiting for SIGINT only");
-                    let _ = tokio::signal::ctrl_c().await;
-                    klog!("[SHUTDOWN] SIGINT received — draining in-flight requests");
-                }
-            }
-            signal_shutdown.cancel();
-        });
-    }
+    infra::tasks::spawn_signal_handler(shutdown.clone());
 
     klog!("╔══════════════════════════════════════╗");
     klog!("║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
@@ -737,7 +379,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     klog!("[SHUTDOWN] REST server drained — flushing state");
-    flush_usage_on_shutdown(&storage_port, &usage_tracker, has_db).await;
+    infra::tasks::flush_usage_on_shutdown(&storage_port, &usage_tracker, has_db).await;
 
     // Drain fire-and-forget background tasks (observations, audits)
     rest_state.bg_tasks.close();
@@ -752,36 +394,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Shared shutdown flush — used by both REST and MCP exit paths.
-async fn flush_usage_on_shutdown(
-    storage: &Arc<dyn domain::storage::StoragePort>,
-    usage: &Arc<tokio::sync::Mutex<domain::usage::DogUsageTracker>>,
-    has_db: bool,
-) {
-    if !has_db {
-        klog!("[SHUTDOWN] No DB — skipping flush");
-        return;
-    }
-    let (snapshot, dog_count) = {
-        let u = usage.lock().await;
-        (u.flush_snapshot(), u.dogs.len())
-    };
-    if snapshot.is_empty() {
-        klog!("[SHUTDOWN] No pending usage to flush");
-        return;
-    }
-    match tokio::time::timeout(
-        std::time::Duration::from_secs(10),
-        storage.flush_usage(&snapshot),
-    ).await {
-        Ok(Ok(_)) => {
-            // Absorb into historical — maintains invariant even if caller is not terminal.
-            let mut u = usage.lock().await;
-            u.absorb_flush();
-            klog!("[SHUTDOWN] Usage flushed ({} dogs)", dog_count);
-        }
-        Ok(Err(e)) => tracing::warn!(error = %e, "shutdown usage flush failed"),
-        Err(_) => tracing::warn!("shutdown usage flush timed out (10s)"),
-    }
-}
+
 
