@@ -177,6 +177,9 @@ pub trait Dog: Send + Sync {
     /// Max context tokens this Dog supports. 0 = unlimited.
     fn max_context(&self) -> u32 { 0 }
 
+    /// Max evaluation timeout in seconds. Default: 30. Sovereign CPU models override to 60+.
+    fn timeout_secs(&self) -> u64 { 30 }
+
     /// Backend health — cascades from the underlying inference provider.
     /// Default: Healthy (correct for DeterministicDog and any in-process evaluator).
     /// InferenceDog delegates to its ChatPort's BackendPort::health().

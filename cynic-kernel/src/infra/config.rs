@@ -13,6 +13,15 @@ pub struct BackendConfig {
     pub auth_style: AuthStyle,
     /// Max context tokens this backend supports. 0 = unknown/unlimited.
     pub context_size: u32,
+    /// HTTP + evaluation timeout in seconds. Default: 30. Sovereign CPU models need 60+.
+    pub timeout_secs: u64,
+    /// Max completion tokens per request. Default: 4096.
+    pub max_tokens: u32,
+    /// Sampling temperature. Default: 0.3.
+    pub temperature: f32,
+    /// Prepend /no_think to user prompts (disables thinking mode in Qwen3 family).
+    /// Default: false. Set true for sovereign backends running thinking-capable models.
+    pub disable_thinking: bool,
     /// Cost per 1M input tokens in USD. 0.0 = free (sovereign, free tier).
     pub cost_input_per_mtok: f64,
     /// Cost per 1M output tokens in USD. 0.0 = free.
@@ -56,6 +65,10 @@ struct BackendEntry {
     model: String,
     auth_style: Option<String>,
     context_size: Option<u32>,
+    timeout_secs: Option<u64>,
+    max_tokens: Option<u32>,
+    temperature: Option<f32>,
+    disable_thinking: Option<bool>,
     cost_input_per_mtok: Option<f64>,
     cost_output_per_mtok: Option<f64>,
     /// Explicit health URL — if omitted, derived from base_url.
@@ -152,6 +165,10 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 model: entry.model,
                 auth_style,
                 context_size: entry.context_size.unwrap_or(0),
+                timeout_secs: entry.timeout_secs.unwrap_or(30),
+                max_tokens: entry.max_tokens.unwrap_or(4096),
+                temperature: entry.temperature.unwrap_or(0.3),
+                disable_thinking: entry.disable_thinking.unwrap_or(false),
                 cost_input_per_mtok: entry.cost_input_per_mtok.unwrap_or(0.0),
                 cost_output_per_mtok: entry.cost_output_per_mtok.unwrap_or(0.0),
                 health_url,
@@ -176,6 +193,10 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             model,
             auth_style: AuthStyle::Bearer,
             context_size: 1_000_000,
+            timeout_secs: 30,
+            max_tokens: 4096,
+            temperature: 0.3,
+            disable_thinking: false,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: None, // Cloud API — no health endpoint
@@ -354,6 +375,55 @@ health_url = "http://custom-health:9090/ready"
         assert_eq!(configs.len(), 1);
         assert_eq!(configs[0].health_url.as_deref(), Some("http://custom-health:9090/ready"),
             "explicit health_url should be used even without remediation");
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn parse_toml_with_inference_params() {
+        let toml_content = r#"
+[backend.sovereign]
+base_url = "http://10.0.0.1:8080/v1"
+model = "qwen3-4b"
+auth_style = "none"
+timeout_secs = 90
+max_tokens = 2048
+temperature = 0.2
+disable_thinking = true
+"#;
+        let dir = std::env::temp_dir().join("cynic_config_inference_params_test");
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("backends.toml");
+        std::fs::write(&path, toml_content).unwrap();
+
+        let configs = load_backends(&path);
+        assert_eq!(configs.len(), 1);
+        assert_eq!(configs[0].timeout_secs, 90);
+        assert_eq!(configs[0].max_tokens, 2048);
+        assert!((configs[0].temperature - 0.2).abs() < 0.01);
+        assert!(configs[0].disable_thinking);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn inference_params_default_when_absent() {
+        let toml_content = r#"
+[backend.cloud]
+base_url = "https://api.example.com/v1"
+model = "gpt-4"
+"#;
+        let dir = std::env::temp_dir().join("cynic_config_inference_defaults_test");
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("backends.toml");
+        std::fs::write(&path, toml_content).unwrap();
+
+        let configs = load_backends(&path);
+        assert_eq!(configs.len(), 1);
+        assert_eq!(configs[0].timeout_secs, 30);
+        assert_eq!(configs[0].max_tokens, 4096);
+        assert!((configs[0].temperature - 0.3).abs() < 0.01);
+        assert!(!configs[0].disable_thinking);
 
         std::fs::remove_file(&path).ok();
     }

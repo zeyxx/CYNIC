@@ -74,7 +74,7 @@ impl OpenAiCompatBackend {
     /// Create a new backend from config. Does NOT health-check — call health() after.
     pub fn new(config: BackendConfig) -> Self {
         let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(config.timeout_secs))
             .build()
             .expect("Failed to build HTTP client");
 
@@ -127,7 +127,7 @@ impl OpenAiCompatBackend {
 
         let resp = req.send().await.map_err(|e| {
             if e.is_timeout() {
-                ChatError::Timeout { ms: 30_000 }
+                ChatError::Timeout { ms: self.config.timeout_secs * 1000 }
             } else {
                 ChatError::Unreachable(format!("{}: {}", self.config.name, e))
             }
@@ -186,9 +186,16 @@ impl ChatPort for OpenAiCompatBackend {
         if !system.is_empty() {
             messages.push(Message { role: "system".to_string(), content: system.to_string() });
         }
-        messages.push(Message { role: "user".to_string(), content: user.to_string() });
+        // Prepend /no_think for Qwen3 family to disable thinking mode (reduces latency + token waste).
+        // Harmless for non-Qwen models — they treat it as prompt text.
+        let user_content = if self.config.disable_thinking {
+            format!("/no_think\n{}", user)
+        } else {
+            user.to_string()
+        };
+        messages.push(Message { role: "user".to_string(), content: user_content });
 
-        let resp = self.post_chat(messages, Some(0.3), Some(4096), None).await?;
+        let resp = self.post_chat(messages, Some(self.config.temperature), Some(self.config.max_tokens), None).await?;
 
         let (prompt_tokens, completion_tokens) = resp.usage
             .map(|u| (u.prompt_tokens, u.completion_tokens))
@@ -235,6 +242,10 @@ mod tests {
             model: "gpt-4".into(),
             auth_style: AuthStyle::Bearer,
             context_size: 0,
+            timeout_secs: 30,
+            max_tokens: 4096,
+            temperature: 0.3,
+            disable_thinking: false,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: None,
@@ -252,6 +263,10 @@ mod tests {
             model: "gemini".into(),
             auth_style: AuthStyle::QueryParam("key".into()),
             context_size: 0,
+            timeout_secs: 30,
+            max_tokens: 4096,
+            temperature: 0.3,
+            disable_thinking: false,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: None,
@@ -269,6 +284,10 @@ mod tests {
             model: "phi-3".into(),
             auth_style: AuthStyle::None,
             context_size: 0,
+            timeout_secs: 30,
+            max_tokens: 4096,
+            temperature: 0.3,
+            disable_thinking: false,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: None,
@@ -286,6 +305,10 @@ mod tests {
             model: "m".into(),
             auth_style: AuthStyle::None,
             context_size: 0,
+            timeout_secs: 30,
+            max_tokens: 4096,
+            temperature: 0.3,
+            disable_thinking: false,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: None,

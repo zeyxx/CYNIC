@@ -12,11 +12,12 @@ pub struct InferenceDog {
     chat: Arc<dyn ChatPort>,
     dog_name: String,
     context_size: u32,
+    timeout: u64,
 }
 
 impl InferenceDog {
-    pub fn new(chat: Arc<dyn ChatPort>, name: String, context_size: u32) -> Self {
-        Self { chat, dog_name: name, context_size }
+    pub fn new(chat: Arc<dyn ChatPort>, name: String, context_size: u32, timeout_secs: u64) -> Self {
+        Self { chat, dog_name: name, context_size, timeout: timeout_secs }
     }
 
     fn build_system_prompt() -> &'static str {
@@ -81,6 +82,10 @@ impl Dog for InferenceDog {
 
     fn max_context(&self) -> u32 {
         self.context_size
+    }
+
+    fn timeout_secs(&self) -> u64 {
+        self.timeout
     }
 
     async fn health(&self) -> BackendStatus {
@@ -268,7 +273,7 @@ mod tests {
             r#"{"fidelity": 0.6, "phi": 0.5, "verify": 0.4, "culture": 0.45, "burn": 0.5, "sovereignty": 0.55, "fidelity_reason": "good", "phi_reason": "ok", "verify_reason": "decent", "culture_reason": "respects patterns", "burn_reason": "efficient", "sovereignty_reason": "preserves agency"}"#,
         ));
 
-        let dog = InferenceDog::new(mock, "test-dog".into(), 4096);
+        let dog = InferenceDog::new(mock, "test-dog".into(), 4096, 30);
         let stimulus = Stimulus {
             content: "The sky is blue.".into(),
             context: None,

@@ -80,6 +80,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .fallback_service(ServeDir::new("static"))
         .layer(DefaultBodyLimit::max(64 * 1024)) // 64 KB — no multi-MB payloads
         .layer(cors)
-        .layer(tower_http::timeout::TimeoutLayer::with_status_code(axum::http::StatusCode::GATEWAY_TIMEOUT, std::time::Duration::from_secs(45)))
+        // Request timeout: outer safety net. Must exceed Judge wall-clock (max_dog_timeout + 5s).
+        // Sovereign CPU Dogs can take 90s. Wall-clock = 95s. This is 120s for margin.
+        // The Judge's own per-dog + wall-clock timeouts are the real enforcement.
+        .layer(tower_http::timeout::TimeoutLayer::with_status_code(axum::http::StatusCode::GATEWAY_TIMEOUT, std::time::Duration::from_secs(120)))
         .with_state(state)
 }

@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(rem) = cfg.remediation.clone() {
             remediation_configs.insert(cfg.name.clone(), rem);
         }
-        dogs.push(Box::new(dogs::inference::InferenceDog::new(backend, cfg.name.clone(), cfg.context_size)));
+        dogs.push(Box::new(dogs::inference::InferenceDog::new(backend, cfg.name.clone(), cfg.context_size, cfg.timeout_secs)));
     }
 
     klog!("[Ring 2] {} Dog(s) active", dogs.len());
@@ -101,16 +101,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] Remediation: {} Dogs configured for auto-restart", remediation_configs.len());
     }
 
-    // ─── RING 2: Embedding backend (sovereign, graceful degrade) ─
+    // ─── RING 2: Embedding backend (sovereign, auto-recovery) ────
+    // Always wire the real backend — if down at boot, embed() returns Err (same as NullEmbedding).
+    // When the server comes back, calls start succeeding automatically. No manual recovery needed.
     let embed_backend = backends::embedding::EmbeddingBackend::from_env();
     let embed_health = embed_backend.health().await;
-    let embedding: Arc<dyn domain::embedding::EmbeddingPort> = if embed_health.is_available() {
+    if embed_health.is_available() {
         klog!("[Ring 2] Embedding: {:?} (sovereign)", embed_health);
-        Arc::new(embed_backend)
     } else {
-        klog!("[Ring 2] Embedding: {:?} — degrading to NullEmbedding", embed_health);
-        Arc::new(domain::embedding::NullEmbedding)
-    };
+        klog!("[Ring 2] Embedding: {:?} — will auto-recover when server is available", embed_health);
+    }
+    let embedding: Arc<dyn domain::embedding::EmbeddingPort> = Arc::new(embed_backend);
 
     // ─── RING 2: Build Judge ──────────────────────────────────
     let judge = judge::Judge::new(dogs);

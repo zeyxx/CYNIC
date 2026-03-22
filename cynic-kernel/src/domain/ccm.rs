@@ -725,4 +725,45 @@ mod tests {
         assert!((PHI_INV - 0.618).abs() < 0.001);
         assert!((PHI_INV2 - 0.382).abs() < 0.001);
     }
+
+    #[test]
+    fn normalized_qscore_enables_crystallization() {
+        // Simulates the pipeline normalization: Q-Score / PHI_INV → confidence.
+        // Without normalization, realistic Q-Scores (~0.55) never reach 0.618.
+        // With normalization, they map to ~0.89 and crystallize correctly.
+        let typical_qscore = 0.55; // realistic Sicilian Defense Q-Score
+        let normalized = (typical_qscore / PHI_INV).min(1.0);
+
+        // Build crystal with 20 observations of normalized score, then observe 21st
+        let c = make_crystal(normalized, MIN_CRYSTALLIZATION_CYCLES - 1, CrystalState::Forming);
+        let state = observe(&c, normalized);
+        assert_eq!(state, CrystalState::Crystallized,
+            "Normalized Q-Score {:.3} (raw {:.3}) should crystallize after 21 cycles",
+            normalized, typical_qscore);
+    }
+
+    #[test]
+    fn normalized_bad_qscore_does_not_crystallize() {
+        // Fool's Mate Q-Score ~0.08 → normalized ~0.13 → never crystallizes.
+        let bad_qscore = 0.08;
+        let normalized = (bad_qscore / PHI_INV).min(1.0);
+
+        let c = make_crystal(normalized, MIN_CRYSTALLIZATION_CYCLES - 1, CrystalState::Forming);
+        let state = observe(&c, normalized);
+        assert_ne!(state, CrystalState::Crystallized,
+            "Normalized bad Q-Score {:.3} (raw {:.3}) must NOT crystallize",
+            normalized, bad_qscore);
+    }
+
+    #[test]
+    fn raw_qscore_cannot_crystallize() {
+        // Proves the bug: raw Q-Scores can never reach crystallization threshold.
+        let good_qscore = 0.57; // best chess score observed
+
+        let c = make_crystal(good_qscore, MIN_CRYSTALLIZATION_CYCLES - 1, CrystalState::Forming);
+        let state = observe(&c, good_qscore);
+        assert_ne!(state, CrystalState::Crystallized,
+            "Raw Q-Score {:.3} must NOT crystallize (proves the bug existed)",
+            good_qscore);
+    }
 }

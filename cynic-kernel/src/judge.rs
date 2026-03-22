@@ -113,18 +113,18 @@ impl Judge {
             })
             .collect();
 
-        // Per-Dog timeout: each Dog gets 30s max. Sovereign models with thinking
-        // mode need more time. Aligned with HTTP client timeout in openai.rs.
-        const PER_DOG_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+        // Per-Dog timeout: from config. Sovereign CPU models need 60s+, cloud APIs use 30s.
+        // Aligned with HTTP client timeout in openai.rs (both read BackendConfig.timeout_secs).
 
         // Parallel evaluation — skip Dogs with open circuit breakers
         let futures: Vec<_> = dog_breaker_pairs.iter()
             .filter(|(_, cb)| cb.should_allow())
             .map(|(dog, _)| {
                 let id = dog.id().to_string();
+                let dog_timeout = std::time::Duration::from_secs(dog.timeout_secs());
                 async move {
                     let start = std::time::Instant::now();
-                    let result = tokio::time::timeout(PER_DOG_TIMEOUT, dog.evaluate(stimulus)).await;
+                    let result = tokio::time::timeout(dog_timeout, dog.evaluate(stimulus)).await;
                     let elapsed_ms = start.elapsed().as_millis() as u64;
                     match result {
                         Ok(inner) => (id, inner, elapsed_ms),
@@ -134,13 +134,19 @@ impl Judge {
             })
             .collect();
 
-        // Wall-clock timeout: 35s max. With per-dog 30s, this is a safety net.
+        // Wall-clock timeout: max Dog timeout + 5s safety margin.
+        let max_dog_timeout = dog_breaker_pairs.iter()
+            .filter(|(_, cb)| cb.should_allow())
+            .map(|(dog, _)| dog.timeout_secs())
+            .max()
+            .unwrap_or(30);
+        let wall_clock = std::time::Duration::from_secs(max_dog_timeout + 5);
         let results = tokio::time::timeout(
-            std::time::Duration::from_secs(35),
+            wall_clock,
             futures_util::future::join_all(futures),
         ).await.map_err(|_| {
-            eprintln!("[Judge] TIMEOUT: Dog evaluation exceeded 35s wall-clock limit");
-            JudgeError::AllDogsFailed(vec!["Evaluation timeout (35s)".into()])
+            eprintln!("[Judge] TIMEOUT: Dog evaluation exceeded {}s wall-clock limit", max_dog_timeout + 5);
+            JudgeError::AllDogsFailed(vec![format!("Evaluation timeout ({}s)", max_dog_timeout + 5)])
         })?;
 
         let mut dog_scores: Vec<DogScore> = Vec::new();
