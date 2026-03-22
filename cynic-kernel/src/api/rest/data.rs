@@ -177,6 +177,11 @@ pub async fn observe_crystal_handler(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     let domain = req.domain.unwrap_or_else(|| "general".into());
     let score = req.score.unwrap_or(0.5);
+    if !score.is_finite() || !(0.0..=1.0).contains(&score) {
+        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
+            error: "score must be a finite number in [0.0, 1.0]".into(),
+        })));
+    }
     // Normalize score to confidence range (same as pipeline)
     let confidence = (score / PHI_INV).min(1.0);
     let now = chrono::Utc::now().to_rfc3339();
@@ -204,7 +209,7 @@ pub async fn observations_handler(
     State(state): State<Arc<AppState>>,
     Query(q): Query<ObservationsQuery>,
 ) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
-    let limit = q.limit.unwrap_or(100).min(500);
+    let limit = q.limit.unwrap_or(100).min(100); // safe_limit caps at 100 in storage
     match state.storage.list_observations_raw(q.domain.as_deref(), q.agent_id.as_deref(), limit).await {
         Ok(rows) => Ok(Json(rows)),
         Err(e) => {
@@ -214,10 +219,15 @@ pub async fn observations_handler(
     }
 }
 
+#[derive(Deserialize, Default)]
+pub struct SessionsQuery {
+    pub limit: Option<u32>,
+}
+
 /// GET /sessions — session summaries (previously invisible).
 pub async fn sessions_handler(
     State(state): State<Arc<AppState>>,
-    Query(q): Query<CrystalsQuery>,
+    Query(q): Query<SessionsQuery>,
 ) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
     let limit = q.limit.unwrap_or(50).min(200);
     match state.storage.list_session_summaries(limit).await {

@@ -509,9 +509,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let bf_embedding = Arc::clone(&embedding);
         let bf_metrics = Arc::clone(&metrics);
         let bf_th = Arc::clone(&task_health);
+        let bf_event_tx = event_tx.clone();
+        let bf_token = shutdown.clone();
         tokio::spawn(async move {
-            // Delay 10s — let embedding server warm up
-            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            // Delay 10s — let embedding server warm up, but respect shutdown
+            tokio::select! {
+                _ = bf_token.cancelled() => return,
+                _ = tokio::time::sleep(std::time::Duration::from_secs(10)) => {}
+            }
             bf_th.touch_backfill("running");
             match tokio::time::timeout(
                 std::time::Duration::from_secs(300),
@@ -522,6 +527,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     bf_th.touch_backfill(detail);
                     if count > 0 {
                         klog!("[Ring 2] Backfill: embedded {} orphan crystals", count);
+                        let _ = bf_event_tx.send(api::rest::KernelEvent::BackfillComplete { count });
                     }
                 }
                 Err(_) => {
@@ -538,6 +544,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let intro_storage = Arc::clone(&storage_port);
         let intro_metrics = Arc::clone(&metrics);
         let intro_state = Arc::clone(&rest_state);
+        let intro_event_tx = event_tx.clone();
         let th = Arc::clone(&task_health);
         let token = shutdown.clone();
         tokio::spawn(async move {
@@ -560,6 +567,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             introspection::analyze(intro_storage.as_ref(), &intro_metrics),
                         ).await {
                             Ok(alerts) => {
+                                for alert in &alerts {
+                                    let _ = intro_event_tx.send(api::rest::KernelEvent::Anomaly {
+                                        kind: alert.kind.to_string(),
+                                        message: alert.message.clone(),
+                                        severity: alert.severity.to_string(),
+                                    }); // ok: no subscribers = silent
+                                }
                                 if let Ok(mut stored) = intro_state.introspection_alerts.write() {
                                     *stored = alerts;
                                 }

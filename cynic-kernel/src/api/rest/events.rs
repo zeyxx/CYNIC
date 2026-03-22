@@ -51,7 +51,6 @@ fn event_type_name(event: &KernelEvent) -> &'static str {
     match event {
         KernelEvent::VerdictIssued { .. } => "verdict",
         KernelEvent::CrystalObserved { .. } => "crystal",
-        KernelEvent::CrystalPromoted { .. } => "crystal_promoted",
         KernelEvent::DogFailed { .. } => "dog_failed",
         KernelEvent::SessionRegistered { .. } => "session",
         KernelEvent::BackfillComplete { .. } => "backfill",

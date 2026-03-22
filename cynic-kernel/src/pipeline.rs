@@ -86,7 +86,7 @@ pub async fn run(
         tracing::info!(phase = "cache", result = "hit", similarity = %format!("{:.4}", similarity),
             verdict_id = %verdict.id, q_score = %format!("{:.3}", verdict.q_score.total));
         observe_crystal_for_verdict(
-            &verdict, &stimulus_embedding, domain_hint, storage, metrics,
+            &verdict, &stimulus_embedding, domain_hint, storage, metrics, event_tx,
         ).await;
         return Ok(PipelineResult::CacheHit { verdict, similarity });
     }
@@ -156,21 +156,24 @@ pub async fn run(
         }
         // Emit Dog failures as separate events
         for dog_id in &verdict.failed_dogs {
-            let _ = tx.send(KernelEvent::DogFailed {
+            if tx.send(KernelEvent::DogFailed {
                 dog_id: dog_id.clone(),
                 error: "evaluation_failed".into(),
-            });
+            }).is_err() {
+                tracing::debug!(phase = "event_bus", dog_id = %dog_id, "no SSE subscribers for DogFailed");
+            }
         }
     }
 
     // ── SIDE EFFECTS (all best-effort) ──
-    side_effects(&stimulus, &verdict, &stimulus_embedding, storage, usage, verdict_cache, metrics).await;
+    side_effects(&stimulus, &verdict, &stimulus_embedding, storage, usage, verdict_cache, metrics, event_tx).await;
 
     Ok(PipelineResult::Evaluated { verdict: Box::new(verdict) })
 }
 
 /// Best-effort side effects after evaluation.
 /// Never fails — all errors are logged and swallowed.
+#[allow(clippy::too_many_arguments)]
 async fn side_effects(
     stimulus: &Stimulus,
     verdict: &Verdict,
@@ -179,6 +182,7 @@ async fn side_effects(
     usage: &Mutex<DogUsageTracker>,
     verdict_cache: &VerdictCache,
     metrics: &Metrics,
+    event_tx: Option<&tokio::sync::broadcast::Sender<KernelEvent>>,
 ) {
     // Store verdict
     if let Err(e) = storage.store_verdict(verdict).await {
@@ -198,7 +202,7 @@ async fn side_effects(
 
     // CCM: observe crystal + embed
     let domain = stimulus.domain.as_deref().unwrap_or("general");
-    observe_crystal_for_verdict(verdict, stimulus_embedding, domain, storage, metrics).await;
+    observe_crystal_for_verdict(verdict, stimulus_embedding, domain, storage, metrics, event_tx).await;
 
     // Cache verdict embedding (clone verdict since cache takes ownership of embedding)
     if let Some(emb) = &stimulus_embedding {
@@ -218,14 +222,16 @@ async fn side_effects(
 /// repeated stimuli (which are the MOST common in real usage) never accumulate
 /// crystal observations → crystals never mature → never inject → no compound.
 ///
-/// Uses semantic merge (cosine ≥ 0.85) to accumulate on existing crystals
+/// Uses semantic merge (cosine ≥ 0.75) to accumulate on existing crystals
 /// instead of creating fragmented duplicates.
+#[allow(clippy::too_many_arguments)]
 async fn observe_crystal_for_verdict(
     verdict: &Verdict,
     stimulus_embedding: &Option<Embedding>,
     domain: &str,
     storage: &dyn StoragePort,
     metrics: &Metrics,
+    event_tx: Option<&tokio::sync::broadcast::Sender<KernelEvent>>,
 ) {
     // Semantic merge: find existing crystal or create new via FNV hash
     let crystal_id = if let Some(emb) = stimulus_embedding {
@@ -235,7 +241,7 @@ async fn observe_crystal_for_verdict(
                 existing_id
             }
             Ok(None) => {
-                tracing::info!(phase = "crystal_merge", "no similar crystal (sim < 0.85), creating new");
+                tracing::info!(phase = "crystal_merge", "no similar crystal (sim < 0.75), creating new");
                 format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
             }
             Err(e) => {
@@ -258,6 +264,12 @@ async fn observe_crystal_for_verdict(
         tracing::warn!(phase = "crystal_observe", crystal_id = %crystal_id, error = %e, "failed to observe crystal");
     } else {
         metrics.inc_crystal_obs();
+        if let Some(tx) = event_tx {
+            let _ = tx.send(KernelEvent::CrystalObserved {
+                crystal_id: crystal_id.clone(),
+                domain: domain.to_string(),
+            }); // ok: no subscribers = silent no-op (receiver_count=0 returns Err)
+        }
     }
     if let Some(emb) = stimulus_embedding
         && let Err(e) = storage.store_crystal_embedding(&crystal_id, &emb.vector).await
