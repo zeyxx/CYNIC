@@ -433,7 +433,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             domain::ccm::aggregate_observations(agg_storage.as_ref(), "CYNIC"),
                         ).await {
                             Ok(count) => {
-                                th.touch_ccm_aggregate();
+                                let detail = if count > 0 { "active" } else { "idle:0" };
+                                th.touch_ccm_aggregate(detail);
                                 if count > 0 {
                                     klog!("[CCM] aggregated {} patterns", count);
                                 }
@@ -476,7 +477,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             summarizer.is_available(),
                         ).await.unwrap_or(false);
                         if !available {
-                            th.touch_summarizer(); // Task alive, LLM just unavailable
+                            th.touch_summarizer("llm_unavailable");
                             continue;
                         }
                         match tokio::time::timeout(
@@ -484,10 +485,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             pipeline::summarize_pending_sessions(sum_storage.as_ref(), &summarizer),
                         ).await {
                             Ok(count) => {
+                                let detail = if count > 0 { "producing" } else { "idle:0_pending" };
                                 if count > 0 {
                                     klog!("[CCM/summarizer] {} sessions summarized", count);
                                 }
-                                th.touch_summarizer();
+                                th.touch_summarizer(detail);
                             }
                             Err(_) => tracing::warn!("session summarizer timed out (120s)"),
                         }
@@ -502,19 +504,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let bf_storage = Arc::clone(&storage_port);
         let bf_embedding = Arc::clone(&embedding);
         let bf_metrics = Arc::clone(&metrics);
+        let bf_th = Arc::clone(&task_health);
         tokio::spawn(async move {
             // Delay 10s — let embedding server warm up
             tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            bf_th.touch_backfill("running");
             match tokio::time::timeout(
                 std::time::Duration::from_secs(300),
                 pipeline::backfill_crystal_embeddings(bf_storage.as_ref(), bf_embedding.as_ref(), &bf_metrics),
             ).await {
                 Ok(count) => {
+                    let detail = if count > 0 { "done" } else { "clean:0_orphans" };
+                    bf_th.touch_backfill(detail);
                     if count > 0 {
                         klog!("[Ring 2] Backfill: embedded {} orphan crystals", count);
                     }
                 }
-                Err(_) => tracing::warn!("crystal backfill timed out (300s)"),
+                Err(_) => {
+                    bf_th.touch_backfill("timeout");
+                    tracing::warn!("crystal backfill timed out (300s)");
+                }
             }
         });
         klog!("[Ring 2] Crystal embedding backfill task scheduled");
