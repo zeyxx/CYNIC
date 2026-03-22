@@ -106,6 +106,15 @@ pub trait StoragePort: Send + Sync {
         Ok(vec![]) // Default empty — callers fall back to list_crystals
     }
 
+    /// Find the most similar crystal to the given embedding within a domain.
+    /// Searches ALL states (including Forming) — used for crystal merging during
+    /// observation, not retrieval. Prevents fragmentation: "1. e4 c5" and
+    /// "1. e4 c5 — Sicilian Defense" should accumulate on the same crystal.
+    /// Returns (crystal_id, similarity) if a match above threshold is found.
+    async fn find_similar_crystal(&self, _embedding: &[f32], _domain: &str, _threshold: f64) -> Result<Option<(String, f64)>, StorageError> {
+        Ok(None) // Default: no similar crystal found — falls back to FNV hash
+    }
+
     /// Store a session summary (compressed narrative of a development session).
     async fn store_session_summary(&self, _summary: &crate::domain::ccm::SessionSummary) -> Result<(), StorageError> {
         Ok(())
