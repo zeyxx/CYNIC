@@ -77,17 +77,18 @@ pub(crate) struct SurrealResponse {
 }
 
 impl SurrealHttpStorage {
-    /// Expose database name for test teardown.
+    /// Expose database name for test teardown and /health introspection.
     pub fn db_name(&self) -> &str {
         &self.db
     }
 
-    pub async fn init() -> Result<Self, StorageError> {
-        let url = std::env::var("SURREALDB_URL")
-            .unwrap_or_else(|_| "http://localhost:8000".to_string());
-        let ns = "cynic";
-        let db = "v2";
-        Self::init_with(&url, ns, db).await
+    /// Expose namespace for /health introspection.
+    pub fn ns_name(&self) -> &str {
+        &self.ns
+    }
+
+    pub async fn init(config: &crate::infra::config::StorageConfig) -> Result<Self, StorageError> {
+        Self::init_with(&config.url, &config.namespace, &config.database).await
     }
 
     pub async fn init_with(url: &str, ns: &str, db: &str) -> Result<Self, StorageError> {

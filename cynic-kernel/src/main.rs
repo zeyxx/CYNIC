@@ -28,10 +28,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         node_config.compute.vram_gb
     );
 
+    // ─── RING 1: Load config (single source of truth) ─────────
+    let backends_path = dirs::config_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("cynic")
+        .join("backends.toml");
+    let storage_config = infra::config::load_storage_config(&backends_path);
+    klog!("[Ring 1] Config: {}", backends_path.display());
+    klog!("[Ring 1] Storage: url={} ns={} db={}", storage_config.url, storage_config.namespace, storage_config.database);
+
     // ─── RING 1: Native Storage Client (UAL) ──────────────────
     // HTTP adapter to SurrealDB 3.x — graceful degradation if unavailable.
     let (storage_port, coord, has_db): (Arc<dyn domain::storage::StoragePort>, Arc<dyn domain::coord::CoordPort>, bool) =
-        match storage::SurrealHttpStorage::init().await {
+        match storage::SurrealHttpStorage::init(&storage_config).await {
             Ok(s) => {
                 klog!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
                 let db = Arc::new(s);
@@ -44,10 +53,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
     // ─── RING 2: Load Backend Configs ──────────────────────────
-    let backends_path = dirs::config_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("cynic")
-        .join("backends.toml");
 
     let backend_configs = if backends_path.exists() {
         klog!("[Ring 2] Loading backends from {}", backends_path.display());
@@ -254,6 +259,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         verdict_cache: Arc::clone(&verdict_cache),
         task_health: Arc::clone(&task_health),
         api_key,
+        storage_info: api::rest::StorageInfo {
+            namespace: storage_config.namespace.clone(),
+            database: storage_config.database.clone(),
+        },
         rate_limiter: api::rest::PerIpRateLimiter::new(30),   // 30 requests/minute global
         judge_limiter: api::rest::PerIpRateLimiter::new(10),   // 10 /judge per minute (inference costs money)
     });

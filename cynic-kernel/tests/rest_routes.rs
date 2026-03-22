@@ -8,7 +8,7 @@ use axum::body::Body;
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 
-use cynic_kernel::api::rest::{self, AppState, PerIpRateLimiter};
+use cynic_kernel::api::rest::{self, AppState, PerIpRateLimiter, StorageInfo};
 use cynic_kernel::dogs::deterministic::DeterministicDog;
 use cynic_kernel::domain::coord::NullCoord;
 use cynic_kernel::domain::embedding::NullEmbedding;
@@ -29,6 +29,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         verdict_cache: Arc::new(VerdictCache::new()),
         task_health: Arc::new(TaskHealth::new()),
         api_key: api_key.map(|s| s.to_string()),
+        storage_info: StorageInfo { namespace: "test".into(), database: "test".into() },
         rate_limiter: PerIpRateLimiter::new(100),
         judge_limiter: PerIpRateLimiter::new(100),
     })

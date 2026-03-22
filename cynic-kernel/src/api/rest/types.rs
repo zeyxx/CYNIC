@@ -25,8 +25,16 @@ pub struct AppState {
     pub verdict_cache: Arc<VerdictCache>,
     pub task_health: Arc<TaskHealth>,
     pub api_key: Option<String>,
+    pub storage_info: StorageInfo,
     pub rate_limiter: PerIpRateLimiter,
     pub judge_limiter: PerIpRateLimiter,
+}
+
+/// Storage topology — exposed on authenticated /health for discoverability.
+#[derive(Clone)]
+pub struct StorageInfo {
+    pub namespace: String,
+    pub database: String,
 }
 
 impl AppState {

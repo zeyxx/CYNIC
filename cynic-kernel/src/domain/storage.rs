@@ -67,6 +67,13 @@ pub trait StoragePort: Send + Sync {
     async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError>;
     async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError>;
     async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError>;
+    /// List mature crystals for a specific domain (including "general" cross-domain).
+    /// Only returns Crystallized/Canonical state. Ordered by confidence DESC.
+    /// This is the correct query for pipeline crystal injection — domain-scoped, not global top-N.
+    async fn list_crystals_for_domain(&self, _domain: &str, limit: u32) -> Result<Vec<Crystal>, StorageError> {
+        // Default: fall back to list_crystals (backward compat for NullStorage and tests)
+        self.list_crystals(limit).await
+    }
     /// Atomically observe a new score for a crystal. Creates if not exists,
     /// updates running mean + observations + state in a single write.
     /// Eliminates the get→compute→store race condition.

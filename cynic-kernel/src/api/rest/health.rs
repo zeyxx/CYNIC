@@ -88,6 +88,8 @@ pub async fn health_handler(
         "axioms": ["FIDELITY", "PHI", "VERIFY/FALSIFY", "CULTURE", "BURN", "SOVEREIGNTY"],
         "dogs": dogs,
         "storage": if storage_ok { "connected" } else { "down" },
+        "storage_namespace": state.storage_info.namespace,
+        "storage_database": state.storage_info.database,
         "storage_metrics": state.storage_metrics(),
         "embedding": if tokio::time::timeout(std::time::Duration::from_secs(2), state.embedding.embed("h")).await.map(|r| r.is_ok()).unwrap_or(false) { "sovereign" } else { "unavailable" },
         "verdict_cache_size": state.verdict_cache.len(),

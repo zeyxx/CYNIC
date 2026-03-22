@@ -1,8 +1,31 @@
-//! Backend configuration — loaded from backends.toml or env vars.
+//! Backend + storage configuration — loaded from backends.toml or env vars.
 //! Lives in infrastructure layer. NEVER imported by domain core.
 
 use serde::Deserialize;
 use std::path::Path;
+
+// ── STORAGE CONFIG ────────────────────────────────────────
+
+/// SurrealDB connection config. Read from [storage] in backends.toml,
+/// with env var fallbacks for URL and credentials.
+#[derive(Debug, Clone)]
+pub struct StorageConfig {
+    pub url: String,
+    pub namespace: String,
+    pub database: String,
+}
+
+impl Default for StorageConfig {
+    fn default() -> Self {
+        Self {
+            url: "http://localhost:8000".to_string(),
+            namespace: "cynic".to_string(),
+            database: "main".to_string(),
+        }
+    }
+}
+
+// ── BACKEND CONFIG ────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct BackendConfig {
@@ -56,6 +79,14 @@ pub enum AuthStyle {
 #[derive(Deserialize)]
 struct BackendsFile {
     backend: std::collections::HashMap<String, BackendEntry>,
+    storage: Option<StorageEntry>,
+}
+
+#[derive(Deserialize)]
+struct StorageEntry {
+    url: Option<String>,
+    namespace: Option<String>,
+    database: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -176,6 +207,31 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
             })
         })
         .collect()
+}
+
+/// Load storage config from [storage] section in backends.toml.
+/// Falls back to env vars, then defaults.
+/// Priority: TOML > env var > default.
+pub fn load_storage_config(path: &Path) -> StorageConfig {
+    let defaults = StorageConfig::default();
+
+    let from_toml = std::fs::read_to_string(path).ok()
+        .and_then(|content| toml::from_str::<BackendsFile>(&content).ok())
+        .and_then(|f| f.storage);
+
+    let url = from_toml.as_ref().and_then(|s| s.url.clone())
+        .or_else(|| std::env::var("SURREALDB_URL").ok())
+        .unwrap_or(defaults.url);
+
+    let namespace = from_toml.as_ref().and_then(|s| s.namespace.clone())
+        .or_else(|| std::env::var("SURREALDB_NS").ok())
+        .unwrap_or(defaults.namespace);
+
+    let database = from_toml.as_ref().and_then(|s| s.database.clone())
+        .or_else(|| std::env::var("SURREALDB_DB").ok())
+        .unwrap_or(defaults.database);
+
+    StorageConfig { url, namespace, database }
 }
 
 /// Fallback: build configs from legacy env vars (backward compat).

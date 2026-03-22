@@ -58,7 +58,7 @@ pub async fn run(
         return Ok(PipelineResult::CacheHit { verdict, similarity });
     }
 
-    // ── CRYSTAL RETRIEVAL: semantic search + fallback to domain list ──
+    // ── CRYSTAL RETRIEVAL: semantic search + domain-scoped fallback ──
     let domain_hint = domain.as_deref().unwrap_or("general");
     let crystals = if let Some(ref emb) = stimulus_embedding {
         storage.search_crystals_semantic(&emb.vector, 10).await.unwrap_or_default()
@@ -66,7 +66,9 @@ pub async fn run(
         Vec::new()
     };
     let crystals = if crystals.is_empty() {
-        storage.list_crystals(50).await.unwrap_or_default()
+        // Domain-scoped: only mature crystals matching this domain (or "general").
+        // Ordered by confidence DESC — the most reliable crystals first.
+        storage.list_crystals_for_domain(domain_hint, 10).await.unwrap_or_default()
     } else {
         crystals
     };

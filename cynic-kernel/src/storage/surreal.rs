@@ -207,6 +207,20 @@ impl StoragePort for SurrealHttpStorage {
         Ok(rows.iter().map(row_to_crystal).collect())
     }
 
+    async fn list_crystals_for_domain(&self, domain: &str, limit: u32) -> Result<Vec<Crystal>, StorageError> {
+        let safe_domain = escape_surreal(domain);
+        let sql = format!(
+            "SELECT * FROM crystal \
+             WHERE (domain = '{domain}' OR domain = 'general') \
+             AND (state = 'crystallized' OR state = 'canonical') \
+             ORDER BY confidence DESC \
+             LIMIT {limit}",
+            domain = safe_domain, limit = safe_limit(limit),
+        );
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.iter().map(row_to_crystal).collect())
+    }
+
     async fn observe_crystal(&self, id: &str, content: &str, domain: &str, score: f64, timestamp: &str) -> Result<(), StorageError> {
         let safe_id = sanitize_id(id)?;
 
