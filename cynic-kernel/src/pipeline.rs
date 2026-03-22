@@ -53,7 +53,7 @@ pub async fn run(
     dogs_filter: Option<&[String]>,
     deps: &PipelineDeps<'_>,
 ) -> Result<PipelineResult, JudgeError> {
-    let PipelineDeps { judge, storage, embedding, usage, verdict_cache, metrics, event_tx } = *deps;
+    let PipelineDeps { judge, storage, embedding, verdict_cache, metrics, event_tx, .. } = *deps;
     let domain_hint = domain.as_deref().unwrap_or("general");
     let pipeline_span = tracing::info_span!("judge_pipeline",
         domain = %domain_hint,
@@ -86,7 +86,7 @@ pub async fn run(
         tracing::info!(phase = "cache", result = "hit", similarity = %format!("{:.4}", similarity),
             verdict_id = %verdict.id, q_score = %format!("{:.3}", verdict.q_score.total));
         observe_crystal_for_verdict(
-            &verdict, &stimulus_embedding, domain_hint, storage, metrics, event_tx,
+            &verdict, &stimulus_embedding, domain_hint, deps,
         ).await;
         return Ok(PipelineResult::CacheHit { verdict, similarity });
     }
@@ -166,32 +166,27 @@ pub async fn run(
     }
 
     // ── SIDE EFFECTS (all best-effort) ──
-    side_effects(&stimulus, &verdict, &stimulus_embedding, storage, usage, verdict_cache, metrics, event_tx).await;
+    side_effects(&stimulus, &verdict, &stimulus_embedding, deps).await;
 
     Ok(PipelineResult::Evaluated { verdict: Box::new(verdict) })
 }
 
 /// Best-effort side effects after evaluation.
 /// Never fails — all errors are logged and swallowed.
-#[allow(clippy::too_many_arguments)]
 async fn side_effects(
     stimulus: &Stimulus,
     verdict: &Verdict,
     stimulus_embedding: &Option<Embedding>,
-    storage: &dyn StoragePort,
-    usage: &Mutex<DogUsageTracker>,
-    verdict_cache: &VerdictCache,
-    metrics: &Metrics,
-    event_tx: Option<&tokio::sync::broadcast::Sender<KernelEvent>>,
+    deps: &PipelineDeps<'_>,
 ) {
     // Store verdict
-    if let Err(e) = storage.store_verdict(verdict).await {
+    if let Err(e) = deps.storage.store_verdict(verdict).await {
         tracing::warn!(phase = "side_effects", error = %e, "failed to store verdict");
     }
 
     // Track usage
     {
-        let mut u = usage.lock().await;
+        let mut u = deps.usage.lock().await;
         for ds in &verdict.dog_scores {
             u.record(&ds.dog_id, ds.prompt_tokens, ds.completion_tokens, ds.latency_ms);
         }
@@ -202,7 +197,7 @@ async fn side_effects(
 
     // CCM: observe crystal + embed
     let domain = stimulus.domain.as_deref().unwrap_or("general");
-    observe_crystal_for_verdict(verdict, stimulus_embedding, domain, storage, metrics, event_tx).await;
+    observe_crystal_for_verdict(verdict, stimulus_embedding, domain, deps).await;
 
     // Cache verdict embedding (clone verdict since cache takes ownership of embedding)
     if let Some(emb) = &stimulus_embedding {
@@ -212,7 +207,7 @@ async fn side_effects(
             dimensions: emb.dimensions,
             prompt_tokens: emb.prompt_tokens,
         };
-        verdict_cache.store(cache_emb, verdict.clone());
+        deps.verdict_cache.store(cache_emb, verdict.clone());
     }
 }
 
@@ -224,18 +219,15 @@ async fn side_effects(
 ///
 /// Uses semantic merge (cosine ≥ 0.75) to accumulate on existing crystals
 /// instead of creating fragmented duplicates.
-#[allow(clippy::too_many_arguments)]
 async fn observe_crystal_for_verdict(
     verdict: &Verdict,
     stimulus_embedding: &Option<Embedding>,
     domain: &str,
-    storage: &dyn StoragePort,
-    metrics: &Metrics,
-    event_tx: Option<&tokio::sync::broadcast::Sender<KernelEvent>>,
+    deps: &PipelineDeps<'_>,
 ) {
     // Semantic merge: find existing crystal or create new via FNV hash
     let crystal_id = if let Some(emb) = stimulus_embedding {
-        match storage.find_similar_crystal(&emb.vector, domain, 0.75).await {
+        match deps.storage.find_similar_crystal(&emb.vector, domain, 0.75).await {
             Ok(Some((existing_id, sim))) => {
                 tracing::info!(phase = "crystal_merge", crystal_id = %existing_id, similarity = %format!("{:.3}", sim), "reusing existing crystal");
                 existing_id
@@ -258,13 +250,13 @@ async fn observe_crystal_for_verdict(
     // Normalize Q-Score: raw scores are φ-bounded (max ≈ 0.618).
     // Without normalization, no crystal can ever reach the 0.618 crystallization threshold.
     let crystal_confidence = (verdict.q_score.total / PHI_INV).min(1.0);
-    if let Err(e) = storage.observe_crystal(
+    if let Err(e) = deps.storage.observe_crystal(
         &crystal_id, &verdict.stimulus_summary, domain, crystal_confidence, &now,
     ).await {
         tracing::warn!(phase = "crystal_observe", crystal_id = %crystal_id, error = %e, "failed to observe crystal");
     } else {
-        metrics.inc_crystal_obs();
-        if let Some(tx) = event_tx {
+        deps.metrics.inc_crystal_obs();
+        if let Some(tx) = deps.event_tx {
             let _ = tx.send(KernelEvent::CrystalObserved {
                 crystal_id: crystal_id.clone(),
                 domain: domain.to_string(),
@@ -272,7 +264,7 @@ async fn observe_crystal_for_verdict(
         }
     }
     if let Some(emb) = stimulus_embedding
-        && let Err(e) = storage.store_crystal_embedding(&crystal_id, &emb.vector).await
+        && let Err(e) = deps.storage.store_crystal_embedding(&crystal_id, &emb.vector).await
     {
         tracing::warn!(phase = "crystal_embed", crystal_id = %crystal_id, error = %e, "failed to store crystal embedding");
     }
