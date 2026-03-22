@@ -223,7 +223,11 @@ impl SurrealHttpStorage {
             DEFINE INDEX IF NOT EXISTS session_summary_created_idx ON session_summary FIELDS created_at;\
         ";
         if let Err(e) = storage.query(schema_sql).await {
-            eprintln!("[Ring 1 / UAL] WARNING: Schema bootstrap failed (non-fatal): {}", e);
+            // CRITICAL, not WARNING: HNSW vector index (crystal_vec_idx) is in this batch.
+            // Without it, search_crystals_semantic fails silently and the crystal feedback
+            // loop falls back to list_crystals_for_domain (wrong crystals, no semantic match).
+            // We continue because the DB may have a prior schema — but this MUST be investigated.
+            eprintln!("[Ring 1 / UAL] CRITICAL: Schema bootstrap failed: {} — vector search may not work", e);
         }
 
         klog!("[Ring 1 / UAL] Linked to SurrealDB (HTTP) at {}", url);

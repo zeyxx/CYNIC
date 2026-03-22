@@ -32,6 +32,8 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         storage_info: StorageInfo { namespace: "test".into(), database: "test".into() },
         rate_limiter: PerIpRateLimiter::new(100),
         judge_limiter: PerIpRateLimiter::new(100),
+        bg_semaphore: std::sync::Arc::new(tokio::sync::Semaphore::new(64)),
+        bg_tasks: tokio_util::task::TaskTracker::new(),
     })
 }
 
@@ -291,4 +293,62 @@ async fn verdicts_with_null_storage_returns_500() {
 
     // NullStorage errors on list_verdicts — handler should return 500
     assert_eq!(resp.status(), 500);
+}
+
+// ── Crystal CRUD ────────────────────────────────────────────
+
+#[tokio::test]
+async fn create_crystal_requires_auth() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app.oneshot(axum::http::Request::builder().method("POST").uri("/crystal").header("Content-Type", "application/json").body(Body::from(r#"{"content":"test insight","domain":"chess"}"#)).unwrap()).await.unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn create_crystal_returns_201() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app.oneshot(axum::http::Request::builder().method("POST").uri("/crystal").header("Content-Type", "application/json").header("Authorization", "Bearer key").body(Body::from(r#"{"content":"The Sicilian Defense is strong","domain":"chess"}"#)).unwrap()).await.unwrap();
+    assert_eq!(resp.status(), 201, "CONTRACT: POST /crystal must return 201 Created");
+    let v = body_json(resp.into_body()).await;
+    assert!(v["id"].is_string(), "CONTRACT: response must include crystal id");
+    assert_eq!(v["domain"].as_str(), Some("chess"));
+    assert_eq!(v["state"].as_str(), Some("Forming"));
+}
+
+#[tokio::test]
+async fn create_crystal_rejects_empty_content() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app.oneshot(axum::http::Request::builder().method("POST").uri("/crystal").header("Content-Type", "application/json").header("Authorization", "Bearer key").body(Body::from(r#"{"content":"","domain":"chess"}"#)).unwrap()).await.unwrap();
+    assert_eq!(resp.status(), 400, "CONTRACT: empty content must be rejected");
+}
+
+#[tokio::test]
+async fn delete_crystal_returns_204() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app.oneshot(axum::http::Request::builder().method("DELETE").uri("/crystal/test-id").header("Authorization", "Bearer key").body(Body::empty()).unwrap()).await.unwrap();
+    assert_eq!(resp.status(), 204, "CONTRACT: DELETE /crystal/{{id}} must return 204");
+}
+
+#[tokio::test]
+async fn observe_crystal_returns_200() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app.oneshot(axum::http::Request::builder().method("POST").uri("/crystal/test-id/observe").header("Content-Type", "application/json").header("Authorization", "Bearer key").body(Body::from(r#"{"content":"test","domain":"chess","score":0.85}"#)).unwrap()).await.unwrap();
+    assert_eq!(resp.status(), 200, "CONTRACT: POST /crystal/{{id}}/observe must return 200");
+    let v = body_json(resp.into_body()).await;
+    assert_eq!(v["status"].as_str(), Some("observed"));
+}
+
+#[tokio::test]
+async fn list_crystals_with_domain_filter() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app.oneshot(axum::http::Request::builder().uri("/crystals?domain=chess&state=crystallized").header("Authorization", "Bearer key").body(Body::empty()).unwrap()).await.unwrap();
+    assert_eq!(resp.status(), 200);
+    let v = body_json(resp.into_body()).await;
+    assert!(v.is_array(), "CONTRACT: /crystals must return array");
 }

@@ -644,6 +644,7 @@ mod tests {
         async fn store_crystal(&self, _: &crate::domain::ccm::Crystal) -> Result<(), StorageError> { Ok(()) }
         async fn get_crystal(&self, _: &str) -> Result<Option<crate::domain::ccm::Crystal>, StorageError> { Ok(None) }
         async fn list_crystals(&self, _: u32) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> { Ok(vec![]) }
+        async fn delete_crystal(&self, _: &str) -> Result<(), StorageError> { Ok(()) }
         async fn observe_crystal(&self, _: &str, _: &str, _: &str, _: f64, _: &str) -> Result<(), StorageError> { Ok(()) }
         async fn store_observation(&self, _: &crate::domain::storage::Observation) -> Result<(), StorageError> { Ok(()) }
         async fn query_observations(&self, _: &str, _: Option<&str>, _: u32) -> Result<Vec<serde_json::Value>, StorageError> { Ok(vec![]) }

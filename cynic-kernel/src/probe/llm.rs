@@ -68,7 +68,7 @@ fn discover_all_models(models_dir: &Path, env: &EnvInfo) -> Vec<GgufModel> {
             for entry in entries.flatten() {
                 let p = entry.path();
                 let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if name.len() == 1 && name.chars().next().unwrap().is_ascii_alphabetic() {
+                if name.len() == 1 && name.as_bytes().first().is_some_and(|b| b.is_ascii_alphabetic()) {
                     r.push(p);
                 }
             }

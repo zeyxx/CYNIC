@@ -1,9 +1,10 @@
 // Compiler-enforced code hygiene — the compiler IS the impact checker.
 // dead_code: every public symbol must have a caller (Rule #9)
 // unused_imports: no stale imports accumulate
-#![deny(dead_code, unused_imports)]
-// Allow dead_code in test modules (test helpers, fixtures)
-#![cfg_attr(test, allow(dead_code))]
+// clippy::unwrap_used: no .unwrap() in production code (Rule #25 gate)
+#![deny(dead_code, unused_imports, clippy::unwrap_used)]
+// Allow dead_code and unwrap in test modules (test helpers, fixtures)
+#![cfg_attr(test, allow(dead_code, clippy::unwrap_used))]
 
 use std::sync::atomic::AtomicBool;
 

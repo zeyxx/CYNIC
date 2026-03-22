@@ -100,18 +100,30 @@ pub async fn audit_middleware(
     let elapsed_ms = start.elapsed().as_millis() as u64;
     let status = response.status().as_u16();
 
-    // Best-effort async audit — don't block the response
+    // Best-effort async audit — bounded (Semaphore) + tracked (TaskTracker) + timed out (5s)
     {
-        let coord = Arc::clone(&state.coord);
-        let details = serde_json::json!({
-            "method": method,
-            "path": path,
-            "status": status,
-            "latency_ms": elapsed_ms,
-        });
-        tokio::spawn(async move {
-            let _ = coord.store_audit("rest_request", "rest", &details).await; // ok: fire-and-forget
-        });
+        let semaphore = Arc::clone(&state.bg_semaphore);
+        if let Ok(permit) = semaphore.try_acquire_owned() {
+            let coord = Arc::clone(&state.coord);
+            let details = serde_json::json!({
+                "method": method,
+                "path": path,
+                "status": status,
+                "latency_ms": elapsed_ms,
+            });
+            state.bg_tasks.spawn(async move {
+                let _permit = permit; // held until task completes
+                match tokio::time::timeout(
+                    std::time::Duration::from_secs(5),
+                    coord.store_audit("rest_request", "rest", &details),
+                ).await {
+                    Ok(Err(e)) => eprintln!("[audit] store_audit failed: {}", e),
+                    Err(_) => eprintln!("[audit] store_audit timed out (5s)"),
+                    _ => {}
+                }
+            });
+        }
+        // If semaphore full: silently drop audit (non-critical, prevents task accumulation)
     }
 
     response

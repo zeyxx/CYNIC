@@ -184,9 +184,10 @@ impl StoragePort for SurrealHttpStorage {
             CrystalState::Decaying => "decaying",
             CrystalState::Dissolved => "dissolved",
         };
+        let safe_id = sanitize_id(&crystal.id)?;
         let sql = format!(
             "UPSERT crystal:`{}` SET content = '{}', domain = '{}', confidence = {}, observations = {}, state = '{}', created_at = '{}', updated_at = '{}'",
-            escape(&crystal.id), escape(&crystal.content), escape(&crystal.domain),
+            safe_id, escape(&crystal.content), escape(&crystal.domain),
             crystal.confidence, crystal.observations, state_str,
             escape(&crystal.created_at), escape(&crystal.updated_at)
         );
@@ -205,6 +206,13 @@ impl StoragePort for SurrealHttpStorage {
         let sql = format!("SELECT * FROM crystal ORDER BY observations DESC LIMIT {}", safe_limit(limit));
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_crystal).collect())
+    }
+
+    async fn delete_crystal(&self, id: &str) -> Result<(), StorageError> {
+        let safe_id = sanitize_id(id)?;
+        let sql = format!("DELETE crystal:`{}`", safe_id);
+        self.query_one(&sql).await?;
+        Ok(())
     }
 
     async fn list_crystals_for_domain(&self, domain: &str, limit: u32) -> Result<Vec<Crystal>, StorageError> {
@@ -233,8 +241,15 @@ impl StoragePort for SurrealHttpStorage {
         //   Crystallized: obs >= 21  AND conf >= 0.618
         //   Decaying:     obs >= 21  AND conf <  0.382
         //   Forming:      everything else
+        // Guard: NaN/Inf would produce invalid SurrealQL and corrupt the running mean.
+        let score = if score.is_finite() { score } else { 0.0 };
+        // Transaction: atomicity for the read-compute-write cycle.
+        // Without this, two concurrent observe_crystal calls for the same crystal
+        // can both LET-read the old count, both compute new_obs = old+1, and one
+        // increment is lost. SurrealDB serializes conflicting transactions.
         let sql = format!(
-            "LET $prev_obs = (SELECT VALUE observations FROM crystal:`{id}`)[0] ?? 0; \
+            "BEGIN TRANSACTION; \
+             LET $prev_obs = (SELECT VALUE observations FROM crystal:`{id}`)[0] ?? 0; \
              LET $prev_conf = (SELECT VALUE confidence FROM crystal:`{id}`)[0] ?? 0.0; \
              LET $new_obs = $prev_obs + 1; \
              LET $new_conf = IF $prev_obs > 0 THEN ($prev_conf * $prev_obs + {score}) / $new_obs ELSE {score} END; \
@@ -249,7 +264,8 @@ impl StoragePort for SurrealHttpStorage {
                  confidence = $new_conf, \
                  state = $new_state, \
                  created_at = created_at ?? '{ts}', \
-                 updated_at = '{ts}';",
+                 updated_at = '{ts}'; \
+             COMMIT TRANSACTION;",
             id = safe_id,
             content = escape_surreal(content),
             domain = escape_surreal(domain),
@@ -261,9 +277,10 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn store_crystal_embedding(&self, id: &str, embedding: &[f32]) -> Result<(), StorageError> {
-        let safe_id = escape_surreal(id);
-        // Serialize Vec<f32> as SurrealQL array literal
+        let safe_id = sanitize_id(id)?;
+        // Serialize Vec<f32> as SurrealQL array literal (NaN/Inf → 0.0)
         let vec_str: String = embedding.iter()
+            .map(|v| if v.is_finite() { *v } else { 0.0f32 })
             .map(|v| format!("{}", v))
             .collect::<Vec<_>>()
             .join(",");
@@ -278,6 +295,7 @@ impl StoragePort for SurrealHttpStorage {
     async fn search_crystals_semantic(&self, query_embedding: &[f32], limit: u32) -> Result<Vec<Crystal>, StorageError> {
         let k = safe_limit(limit).min(20); // Cap KNN at 20
         let vec_str: String = query_embedding.iter()
+            .map(|v| if v.is_finite() { *v } else { 0.0f32 })
             .map(|v| format!("{}", v))
             .collect::<Vec<_>>()
             .join(",");
@@ -428,17 +446,20 @@ impl StoragePort for SurrealHttpStorage {
         if snapshot.is_empty() {
             return Ok(());
         }
+        // Idempotent: SET absolute totals, not += deltas.
+        // Callers pass flush_snapshot() (historical + session merged).
+        // On partial failure + retry, the same absolute values are re-written — no double-count.
         let mut sql = String::new();
         for (dog_id, u) in snapshot {
             use std::fmt::Write;
             let _ = write!(sql, // ok: fmt::Write on String is infallible
                 "UPSERT dog_usage:`{id}` SET \
                     dog_id = '{id}', \
-                    prompt_tokens = IF prompt_tokens THEN prompt_tokens + {pt} ELSE {pt} END, \
-                    completion_tokens = IF completion_tokens THEN completion_tokens + {ct} ELSE {ct} END, \
-                    requests = IF requests THEN requests + {req} ELSE {req} END, \
-                    failures = IF failures THEN failures + {fail} ELSE {fail} END, \
-                    total_latency_ms = IF total_latency_ms THEN total_latency_ms + {lat} ELSE {lat} END, \
+                    prompt_tokens = {pt}, \
+                    completion_tokens = {ct}, \
+                    requests = {req}, \
+                    failures = {fail}, \
+                    total_latency_ms = {lat}, \
                     updated_at = time::now(); ",
                 id = dog_id, pt = u.prompt_tokens, ct = u.completion_tokens,
                 req = u.requests, fail = u.failures, lat = u.total_latency_ms,
@@ -527,6 +548,25 @@ impl CoordPort for SurrealHttpStorage {
         self.query_one(&upsert_sql).await
             .map_err(|e| CoordError::StorageFailed(format!("Claim upsert: {}", e)))?;
 
+        // Post-check: read back to verify we own it (another agent may have raced us)
+        let verify_sql = format!(
+            "SELECT agent_id FROM work_claim:`{key}` WHERE active = true;",
+            key = target_key,
+        );
+        let owner = self.query_one(&verify_sql).await.unwrap_or_default();
+        let we_own = owner.first()
+            .and_then(|r| r["agent_id"].as_str())
+            .is_some_and(|id| id == agent_id);
+        if !we_own {
+            return Ok(ClaimResult::Conflict(vec![ConflictInfo {
+                agent_id: owner.first()
+                    .and_then(|r| r["agent_id"].as_str())
+                    .unwrap_or("unknown (race)")
+                    .to_string(),
+                claimed_at: "just now".into(),
+            }]));
+        }
+
         let _ = self.heartbeat(agent_id).await; // ok: fire-and-forget
         Ok(ClaimResult::Claimed)
     }
@@ -560,12 +600,24 @@ impl CoordPort for SurrealHttpStorage {
             Some(id) => format!("SELECT * FROM agent_session WHERE agent_id = '{}' AND active = true;", escape_surreal(id)),
             None => "SELECT * FROM agent_session WHERE active = true;".to_string(),
         };
-        let agents = self.query_one(&session_sql).await.unwrap_or_default();
+        let agents = match self.query_one(&session_sql).await {
+            Ok(a) => a,
+            Err(e) => {
+                eprintln!("[coord] who() agents query failed (returning empty): {}", e);
+                Vec::new()
+            }
+        };
         let claims_sql = match agent_id_filter {
             Some(id) => format!("SELECT * FROM work_claim WHERE agent_id = '{}' AND active = true;", escape_surreal(id)),
             None => "SELECT * FROM work_claim WHERE active = true;".to_string(),
         };
-        let claims = self.query_one(&claims_sql).await.unwrap_or_default();
+        let claims = match self.query_one(&claims_sql).await {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("[coord] who() claims query failed (returning empty): {}", e);
+                Vec::new()
+            }
+        };
         Ok(CoordSnapshot { agents, claims })
     }
 
@@ -663,10 +715,39 @@ impl CoordPort for SurrealHttpStorage {
                     target = escape_surreal(target),
                     claim_type = escape_surreal(claim_type),
                 );
-                result.claimed.push((*target).clone());
             }
             self.query(&batch_sql).await
                 .map_err(|e| CoordError::StorageFailed(format!("Batch claim: {}", e)))?;
+
+            // Post-check: read back to see who actually owns each target.
+            // Between our check and UPSERT, another agent may have won the race.
+            let verify_list: Vec<String> = claimable.iter()
+                .map(|t| format!("work_claim:`{}`", sanitize_record_id(t)))
+                .collect();
+            let verify_sql = format!("SELECT agent_id, target FROM {};", verify_list.join(", "));
+            let owned = match self.query_one(&verify_sql).await {
+                Ok(rows) => rows,
+                Err(e) => {
+                    eprintln!("[coord/claim_batch] post-check failed ({}), treating as conflicts", e);
+                    Vec::new()
+                }
+            };
+            let owned_set: std::collections::HashSet<String> = owned.iter()
+                .filter(|r| r["agent_id"].as_str() == Some(agent_id))
+                .filter_map(|r| r["target"].as_str().map(String::from))
+                .collect();
+
+            for target in &claimable {
+                if owned_set.contains(target.as_str()) {
+                    result.claimed.push((*target).clone());
+                } else {
+                    // Another agent won the race — report as conflict
+                    result.conflicts.push(((*target).clone(), vec![ConflictInfo {
+                        agent_id: "unknown (race)".into(),
+                        claimed_at: "just now".into(),
+                    }]));
+                }
+            }
         }
 
         // Single heartbeat for the batch

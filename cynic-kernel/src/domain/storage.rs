@@ -67,6 +67,8 @@ pub trait StoragePort: Send + Sync {
     async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError>;
     async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError>;
     async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError>;
+    /// Delete a crystal by ID. Idempotent — no error if not found.
+    async fn delete_crystal(&self, id: &str) -> Result<(), StorageError>;
     /// List mature crystals for a specific domain (including "general" cross-domain).
     /// Only returns Crystallized/Canonical state. Ordered by confidence DESC.
     /// This is the correct query for pipeline crystal injection — domain-scoped, not global top-N.
@@ -172,6 +174,9 @@ impl StoragePort for NullStorage {
     }
     async fn list_crystals(&self, _limit: u32) -> Result<Vec<Crystal>, StorageError> {
         Ok(vec![])
+    }
+    async fn delete_crystal(&self, _id: &str) -> Result<(), StorageError> {
+        Ok(())
     }
     async fn observe_crystal(&self, _id: &str, _content: &str, _domain: &str, _score: f64, _timestamp: &str) -> Result<(), StorageError> {
         Ok(())

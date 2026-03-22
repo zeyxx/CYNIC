@@ -85,7 +85,7 @@ pub(super) fn windows_to_wsl_path(win_path: &str) -> PathBuf {
     }
     // D:/Models → /mnt/d/Models
     if normalized.len() >= 2 && normalized.chars().nth(1) == Some(':') {
-        let drive = normalized.chars().next().unwrap().to_lowercase().to_string();
+        let drive = (normalized.as_bytes()[0].to_ascii_lowercase() as char).to_string();
         let rest = &normalized[2..]; // strip "D:"
         return PathBuf::from(format!("/mnt/{}{}", drive, rest));
     }

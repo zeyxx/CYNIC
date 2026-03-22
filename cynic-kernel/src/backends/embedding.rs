@@ -62,8 +62,14 @@ impl BackendPort for EmbeddingBackend {
                     BackendStatus::Healthy
                 }
             }
-            Ok(_) => BackendStatus::Degraded { latency_ms: start.elapsed().as_millis() as f64 },
-            Err(_) => BackendStatus::Critical,
+            Ok(resp) => {
+                eprintln!("[health] embedding returned HTTP {} — degraded", resp.status());
+                BackendStatus::Degraded { latency_ms: start.elapsed().as_millis() as f64 }
+            }
+            Err(e) => {
+                eprintln!("[health] embedding unreachable: {} — critical", e);
+                BackendStatus::Critical
+            }
         }
     }
 }

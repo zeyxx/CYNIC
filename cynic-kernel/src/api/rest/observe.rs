@@ -68,14 +68,28 @@ pub async fn observe_handler(
         timestamp: chrono::Utc::now().to_rfc3339(),
     };
 
-    // Fire-and-forget — don't block the response on DB write
-    let storage = Arc::clone(&state.storage);
-    let obs_clone = obs.clone();
-    tokio::spawn(async move {
-        if let Err(e) = storage.store_observation(&obs_clone).await {
-            eprintln!("[REST/observe] Warning: failed to store observation: {}", e);
+    // Fire-and-forget — bounded (Semaphore) + tracked (TaskTracker) + timed out (5s)
+    let semaphore = Arc::clone(&state.bg_semaphore);
+    match semaphore.try_acquire_owned() {
+        Ok(permit) => {
+            let storage = Arc::clone(&state.storage);
+            let obs_clone = obs.clone();
+            state.bg_tasks.spawn(async move {
+                let _permit = permit; // held until task completes
+                match tokio::time::timeout(
+                    std::time::Duration::from_secs(5),
+                    storage.store_observation(&obs_clone),
+                ).await {
+                    Ok(Err(e)) => eprintln!("[REST/observe] Warning: store_observation failed: {}", e),
+                    Err(_) => eprintln!("[REST/observe] Warning: store_observation timed out (5s)"),
+                    _ => {}
+                }
+            });
         }
-    });
+        Err(_) => {
+            eprintln!("[REST/observe] Warning: background task limit reached, observation dropped");
+        }
+    }
 
     Ok(Json(serde_json::json!({ "status": "observed" })))
 }

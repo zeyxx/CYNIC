@@ -15,6 +15,7 @@ pub struct TaskHealth {
     summarizer: AtomicU64,
     rate_eviction: AtomicU64,
     health_loop: AtomicU64,
+    remediation: AtomicU64,
 }
 
 impl TaskHealth {
@@ -26,6 +27,7 @@ impl TaskHealth {
             summarizer: AtomicU64::new(0),
             rate_eviction: AtomicU64::new(0),
             health_loop: AtomicU64::new(0),
+            remediation: AtomicU64::new(0),
         }
     }
 
@@ -39,6 +41,7 @@ impl TaskHealth {
     pub fn touch_summarizer(&self)    { self.summarizer.store(Self::now_secs(), Ordering::Relaxed); }
     pub fn touch_rate_eviction(&self) { self.rate_eviction.store(Self::now_secs(), Ordering::Relaxed); }
     pub fn touch_health_loop(&self)  { self.health_loop.store(Self::now_secs(), Ordering::Relaxed); }
+    pub fn touch_remediation(&self)  { self.remediation.store(Self::now_secs(), Ordering::Relaxed); }
 
     /// Snapshot of all task health — for /health endpoint.
     /// Returns (task_name, last_success_secs_ago, status) tuples.
@@ -51,6 +54,7 @@ impl TaskHealth {
             TaskSnapshot::new("summarizer", self.summarizer.load(Ordering::Relaxed), now, 1200),
             TaskSnapshot::new("rate_eviction", self.rate_eviction.load(Ordering::Relaxed), now, 120),
             TaskSnapshot::new("health_loop", self.health_loop.load(Ordering::Relaxed), now, 60),
+            TaskSnapshot::new("remediation", self.remediation.load(Ordering::Relaxed), now, 60),
         ]
     }
 }

@@ -24,7 +24,7 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
 use self::coord::{coord_register_handler, coord_claim_handler, coord_claim_batch_handler, coord_release_handler};
-use self::data::{crystals_handler, crystal_handler, usage_handler};
+use self::data::{crystals_handler, crystal_handler, usage_handler, create_crystal_handler, delete_crystal_handler, observe_crystal_handler};
 use self::health::{health_handler, dogs_handler, temporal_handler, agents_handler};
 use self::judge::{judge_handler, get_verdict_handler, list_verdicts_handler};
 use self::middleware::{auth_middleware, rate_limit_middleware, audit_middleware};
@@ -36,9 +36,10 @@ pub fn router(state: Arc<AppState>) -> Router {
     // CORS: restrict to known origins. CYNIC_CORS_ORIGINS env var for additional.
     // Default: localhost dev servers only.
     let mut origins: Vec<axum::http::HeaderValue> = vec![
-        "http://localhost:5173".parse().unwrap(),
-        "http://localhost:5000".parse().unwrap(),
-        "http://localhost:3000".parse().unwrap(),
+        // Safe: these are compile-time constant strings — parse cannot fail.
+        "http://localhost:5173".parse().expect("const CORS origin"),
+        "http://localhost:5000".parse().expect("const CORS origin"),
+        "http://localhost:3000".parse().expect("const CORS origin"),
     ];
     if let Ok(extra) = std::env::var("CYNIC_CORS_ORIGINS") {
         for o in extra.split(',') {
@@ -63,7 +64,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/judge", post(judge_handler))
         .route("/dogs", get(dogs_handler))
         .route("/crystals", get(crystals_handler))
-        .route("/crystal/{id}", get(crystal_handler))
+        .route("/crystal", post(create_crystal_handler))
+        .route("/crystal/{id}", get(crystal_handler).delete(delete_crystal_handler))
+        .route("/crystal/{id}/observe", post(observe_crystal_handler))
         .route("/usage", get(usage_handler))
         .route("/temporal", get(temporal_handler))
         .route("/verdict/{id}", get(get_verdict_handler))

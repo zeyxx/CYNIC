@@ -1,6 +1,8 @@
 use cynic_kernel::*;
 use cynic_kernel::domain::inference::BackendPort;
 use std::sync::Arc;
+use tokio_util::sync::CancellationToken;
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 // ============================================================
 // BOOT SEQUENCE
@@ -16,6 +18,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cynic_kernel::MCP_MODE.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
+    // ─── Structured logging (tracing) ────────────────────────
+    // RUST_LOG controls filtering. Default: info for cynic, warn for deps.
+    // MCP mode: write to stderr (stdout reserved for JSON-RPC).
+    // REST mode: write to stdout with JSON format for production.
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("cynic_kernel=info,warn"));
+
+    if mcp_mode {
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(fmt::layer().json().with_writer(std::io::stderr))
+            .init();
+    } else {
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(fmt::layer().json())
+            .init();
+    }
+
+    tracing::info!("CYNIC V2 — SOVEREIGN BOOT");
     klog!("╔══════════════════════════════════════╗");
     klog!("║       CYNIC OS V2 — SOVEREIGN BOOT    ║");
     klog!("╚══════════════════════════════════════╝");
@@ -122,6 +144,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let judge = judge::Judge::new(dogs);
     // Background task health tracker — updated by each spawned task, exposed in /health
     let task_health = Arc::new(infra::task_health::TaskHealth::new());
+    // Lifecycle orchestration — all background tasks select! on this token.
+    // Signal handler cancels it → tasks break at safe boundaries → drain → flush → exit.
+    let shutdown = CancellationToken::new();
 
     // Seed integrity hash chain from last stored verdict
     if let Ok(Some(hash)) = storage_port.last_integrity_hash().await {
@@ -158,7 +183,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .filter_map(|pc| breaker_map.get(&pc.dog_id).cloned())
                 .collect();
 
-            infra::health_loop::spawn_health_loop(probe_configs, probe_breakers, Arc::clone(&task_health));
+            infra::health_loop::spawn_health_loop(probe_configs, probe_breakers, Arc::clone(&task_health), shutdown.clone());
             klog!("[Ring 2] Health loop started (every {}s)", infra::circuit_breaker::PROBE_INTERVAL.as_secs());
         }
     }
@@ -172,6 +197,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(Arc::clone)
             .collect();
 
+        let rem_shutdown = shutdown.clone();
+        let rem_th = Arc::clone(&task_health);
         tokio::spawn(async move {
             let tracker = infra::remediation::RecoveryTracker::new();
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
@@ -179,43 +206,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             interval.tick().await; // skip first tick
 
             loop {
-                interval.tick().await;
-                for cb in &rem_breakers {
-                    let dog_id = cb.dog_id();
-                    if let Some(open_duration) = cb.opened_since() {
-                        // Remediation threshold: wait before attempting restart
-                        const REMEDIATION_THRESHOLD: std::time::Duration = std::time::Duration::from_secs(90);
-                        if open_duration > REMEDIATION_THRESHOLD
-                            && let Some(config) = rem_configs.get(dog_id)
-                            && tracker.should_restart(dog_id, config)
-                        {
-                            klog!(
-                                "[Remediation] Dog '{}' open for {:.0}s, attempting restart on {}",
-                                dog_id, open_duration.as_secs_f64(), config.node
-                            );
-                            let node = config.node.clone();
-                            let cmd = config.restart_command.clone();
-                            match tokio::time::timeout(
-                                std::time::Duration::from_secs(15),
-                                tokio::task::spawn_blocking(move || {
-                                    infra::remediation::ssh_restart(&node, &cmd)
-                                }),
-                            ).await {
-                                Ok(Ok(Ok(output))) => {
-                                    klog!("[Remediation] Dog '{}' restart initiated: {}", dog_id, output.trim());
+                tokio::select! {
+                    _ = rem_shutdown.cancelled() => {
+                        klog!("[SHUTDOWN] Remediation watcher stopped");
+                        break;
+                    }
+                    _ = interval.tick() => {
+                        for cb in &rem_breakers {
+                            let dog_id = cb.dog_id();
+                            if let Some(open_duration) = cb.opened_since() {
+                                const REMEDIATION_THRESHOLD: std::time::Duration = std::time::Duration::from_secs(90);
+                                if open_duration > REMEDIATION_THRESHOLD
+                                    && let Some(config) = rem_configs.get(dog_id)
+                                    && tracker.should_restart(dog_id, config)
+                                {
+                                    klog!(
+                                        "[Remediation] Dog '{}' open for {:.0}s, attempting restart on {}",
+                                        dog_id, open_duration.as_secs_f64(), config.node
+                                    );
+                                    let node = config.node.clone();
+                                    let cmd = config.restart_command.clone();
+                                    match tokio::time::timeout(
+                                        std::time::Duration::from_secs(15),
+                                        tokio::task::spawn_blocking(move || {
+                                            infra::remediation::ssh_restart(&node, &cmd)
+                                        }),
+                                    ).await {
+                                        Ok(Ok(Ok(output))) => {
+                                            klog!("[Remediation] Dog '{}' restart initiated: {}", dog_id, output.trim());
+                                        }
+                                        Ok(Ok(Err(e))) => {
+                                            klog!("[Remediation] Dog '{}' restart failed: {}", dog_id, e);
+                                        }
+                                        _ => {
+                                            klog!("[Remediation] Dog '{}' restart timed out or panicked", dog_id);
+                                        }
+                                    }
+                                    tracker.record_attempt(dog_id, config.max_retries);
                                 }
-                                Ok(Ok(Err(e))) => {
-                                    klog!("[Remediation] Dog '{}' restart failed: {}", dog_id, e);
-                                }
-                                _ => {
-                                    klog!("[Remediation] Dog '{}' restart timed out or panicked", dog_id);
-                                }
+                            } else {
+                                tracker.reset(dog_id);
                             }
-                            tracker.record_attempt(dog_id, config.max_retries);
                         }
-                    } else {
-                        // Dog is healthy — reset recovery tracker
-                        tracker.reset(dog_id);
+                        rem_th.touch_remediation();
                     }
                 }
             }
@@ -265,6 +298,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         rate_limiter: api::rest::PerIpRateLimiter::new(30),   // 30 requests/minute global
         judge_limiter: api::rest::PerIpRateLimiter::new(10),   // 10 /judge per minute (inference costs money)
+        bg_semaphore: Arc::new(tokio::sync::Semaphore::new(64)), // bound fire-and-forget spawns
+        bg_tasks: tokio_util::task::TaskTracker::new(), // track for drain at shutdown
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
@@ -275,21 +310,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let expiry_coord = Arc::clone(&coord);
         let th = Arc::clone(&task_health);
+        let token = shutdown.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             interval.tick().await;
             loop {
-                interval.tick().await;
-                match tokio::time::timeout(
-                    std::time::Duration::from_secs(10),
-                    expiry_coord.expire_stale(),
-                ).await {
-                    Ok(Err(e)) => eprintln!("[coord] expire_stale failed: {}", e),
-                    Err(_) => eprintln!("[coord] expire_stale timed out (10s)"),
-                    _ => {}
+                tokio::select! {
+                    _ = token.cancelled() => {
+                        klog!("[SHUTDOWN] Coord expiry stopped");
+                        break;
+                    }
+                    _ = interval.tick() => {
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(10),
+                            expiry_coord.expire_stale(),
+                        ).await {
+                            Ok(Err(e)) => eprintln!("[coord] expire_stale failed: {}", e),
+                            Err(_) => eprintln!("[coord] expire_stale timed out (10s)"),
+                            _ => {}
+                        }
+                        th.touch_coord_expiry();
+                    }
                 }
-                th.touch_coord_expiry();
             }
         });
         klog!("[Ring 2] Coordination expiry task started (every 60s)");
@@ -300,37 +343,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let flush_storage = Arc::clone(&storage_port);
         let flush_usage = Arc::clone(&usage_tracker);
         let th = Arc::clone(&task_health);
+        let token = shutdown.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             interval.tick().await;
             let mut tick_count: u64 = 0;
             loop {
-                interval.tick().await;
-                tick_count += 1;
-                let snapshot = {
-                    let usage = flush_usage.lock().await;
-                    usage.snapshot()
-                };
-                if !snapshot.is_empty() {
-                    match tokio::time::timeout(
-                        std::time::Duration::from_secs(10),
-                        flush_storage.flush_usage(&snapshot),
-                    ).await {
-                        Ok(Ok(_)) => {
-                            let mut usage = flush_usage.lock().await;
-                            usage.absorb_flush();
+                tokio::select! {
+                    _ = token.cancelled() => {
+                        klog!("[SHUTDOWN] Usage flush stopped");
+                        break;
+                    }
+                    _ = interval.tick() => {
+                        tick_count += 1;
+                        let snapshot = {
+                            let usage = flush_usage.lock().await;
+                            usage.flush_snapshot()
+                        };
+                        if !snapshot.is_empty() {
+                            match tokio::time::timeout(
+                                std::time::Duration::from_secs(10),
+                                flush_storage.flush_usage(&snapshot),
+                            ).await {
+                                Ok(Ok(_)) => {
+                                    let mut usage = flush_usage.lock().await;
+                                    usage.absorb_flush();
+                                }
+                                Ok(Err(e)) => eprintln!("[flush] DB write failed, will retry next tick: {}", e),
+                                Err(_) => eprintln!("[flush] DB write timed out (10s), will retry next tick"),
+                            }
                         }
-                        Ok(Err(e)) => eprintln!("[flush] DB write failed, will retry next tick: {}", e),
-                        Err(_) => eprintln!("[flush] DB write timed out (10s), will retry next tick"),
+                        if tick_count.is_multiple_of(60) {
+                            match tokio::time::timeout(
+                                std::time::Duration::from_secs(30),
+                                flush_storage.cleanup_ttl(),
+                            ).await {
+                                Ok(Err(e)) => eprintln!("[flush] TTL cleanup failed (non-fatal): {}", e),
+                                Err(_) => eprintln!("[flush] TTL cleanup timed out (30s)"),
+                                _ => {}
+                            }
+                        }
+                        th.touch_usage_flush();
                     }
                 }
-                if tick_count.is_multiple_of(60)
-                    && let Err(e) = flush_storage.cleanup_ttl().await
-                {
-                    eprintln!("[flush] TTL cleanup failed (non-fatal): {}", e);
-                }
-                th.touch_usage_flush();
             }
         });
         klog!("[Ring 2] Usage flush task started (every 60s, TTL cleanup every 1h)");
@@ -340,6 +396,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let agg_storage = Arc::clone(&storage_port);
         let th = Arc::clone(&task_health);
+        let token = shutdown.clone();
         let interval_secs: u64 = std::env::var("CYNIC_AGGREGATE_INTERVAL")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -349,13 +406,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             interval.tick().await;
             loop {
-                interval.tick().await;
-                match tokio::time::timeout(
-                    std::time::Duration::from_secs(30),
-                    domain::ccm::aggregate_observations(agg_storage.as_ref(), "CYNIC"),
-                ).await {
-                    Ok(_) => { th.touch_ccm_aggregate(); }
-                    Err(_) => eprintln!("[CCM] aggregate_observations timed out (30s)"),
+                tokio::select! {
+                    _ = token.cancelled() => {
+                        klog!("[SHUTDOWN] CCM aggregator stopped");
+                        break;
+                    }
+                    _ = interval.tick() => {
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(30),
+                            domain::ccm::aggregate_observations(agg_storage.as_ref(), "CYNIC"),
+                        ).await {
+                            Ok(count) => {
+                                th.touch_ccm_aggregate();
+                                if count > 0 {
+                                    klog!("[CCM] aggregated {} patterns", count);
+                                }
+                            }
+                            Err(_) => eprintln!("[CCM] aggregate_observations timed out (30s)"),
+                        }
+                    }
                 }
             }
         });
@@ -368,29 +437,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let sum_storage = Arc::clone(&storage_port);
         let summarizer = backends::summarizer::SovereignSummarizer::from_env();
         let th = Arc::clone(&task_health);
+        let token = shutdown.clone();
         klog!("[Ring 2] Session summarizer task started (checks LLM availability each cycle)");
         tokio::spawn(async move {
-            // Wait for first CCM cycle to populate observations
-            tokio::time::sleep(std::time::Duration::from_secs(600)).await;
+            // Wait for first CCM cycle — but break early on shutdown
+            tokio::select! {
+                _ = token.cancelled() => return,
+                _ = tokio::time::sleep(std::time::Duration::from_secs(600)) => {}
+            }
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(600));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
-                interval.tick().await;
-                if !summarizer.is_available().await {
-                    th.touch_summarizer(); // Task alive, LLM just unavailable
-                    continue;
-                }
-                match tokio::time::timeout(
-                    std::time::Duration::from_secs(120),
-                    pipeline::summarize_pending_sessions(sum_storage.as_ref(), &summarizer),
-                ).await {
-                    Ok(count) => {
-                        if count > 0 {
-                            klog!("[CCM/summarizer] {} sessions summarized", count);
-                        }
-                        th.touch_summarizer();
+                tokio::select! {
+                    _ = token.cancelled() => {
+                        klog!("[SHUTDOWN] Session summarizer stopped");
+                        break;
                     }
-                    Err(_) => eprintln!("[CCM/summarizer] timed out (120s)"),
+                    _ = interval.tick() => {
+                        // Timeout on health check — prevents 60s stall on unresponsive LLM
+                        let available = tokio::time::timeout(
+                            std::time::Duration::from_secs(5),
+                            summarizer.is_available(),
+                        ).await.unwrap_or(false);
+                        if !available {
+                            th.touch_summarizer(); // Task alive, LLM just unavailable
+                            continue;
+                        }
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(120),
+                            pipeline::summarize_pending_sessions(sum_storage.as_ref(), &summarizer),
+                        ).await {
+                            Ok(count) => {
+                                if count > 0 {
+                                    klog!("[CCM/summarizer] {} sessions summarized", count);
+                                }
+                                th.touch_summarizer();
+                            }
+                            Err(_) => eprintln!("[CCM/summarizer] timed out (120s)"),
+                        }
+                    }
                 }
             }
         });
@@ -412,24 +497,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&verdict_cache),
             mcp_infer,
         );
+
+        // MCP signal handler — cancel background tasks on SIGTERM/SIGINT
+        {
+            let mcp_shutdown = shutdown.clone();
+            tokio::spawn(async move {
+                let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                    .expect("failed to install SIGTERM handler");
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => eprintln!("[SHUTDOWN] SIGINT received"),
+                    _ = sigterm.recv() => eprintln!("[SHUTDOWN] SIGTERM received"),
+                }
+                mcp_shutdown.cancel();
+            });
+        }
+
         let transport = rmcp::transport::io::stdio();
         let server = mcp_server.serve(transport).await
             .map_err(|e| format!("MCP server error: {}", e))?;
-        let _ = server.waiting().await; // ok: MCP server lifecycle
 
-        // Flush usage on MCP shutdown
-        if has_db {
-            let snapshot = {
-                let usage = usage_tracker.lock().await;
-                usage.snapshot()
-            };
-            if !snapshot.is_empty() {
-                match storage_port.flush_usage(&snapshot).await {
-                    Ok(_) => eprintln!("[SHUTDOWN] MCP usage flushed"),
-                    Err(e) => eprintln!("[SHUTDOWN] MCP usage flush failed: {}", e),
-                }
+        // Wait for MCP disconnect or shutdown signal
+        tokio::select! {
+            _ = server.waiting() => {} // ok: MCP client disconnected
+            _ = shutdown.clone().cancelled_owned() => {
+                eprintln!("[SHUTDOWN] MCP shutting down");
             }
         }
+
+        // Cancel background tasks and flush
+        shutdown.cancel();
+        flush_usage_on_shutdown(&storage_port, &usage_tracker, has_db).await;
         return Ok(());
     }
 
@@ -442,25 +539,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let evict_state = Arc::clone(&rest_state);
         let th = Arc::clone(&task_health);
+        let token = shutdown.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             interval.tick().await;
             loop {
-                interval.tick().await;
-                evict_state.rate_limiter.evict_stale().await;
-                evict_state.judge_limiter.evict_stale().await;
-                th.touch_rate_eviction();
+                tokio::select! {
+                    _ = token.cancelled() => {
+                        klog!("[SHUTDOWN] Rate limiter eviction stopped");
+                        break;
+                    }
+                    _ = interval.tick() => {
+                        evict_state.rate_limiter.evict_stale().await;
+                        evict_state.judge_limiter.evict_stale().await;
+                        th.touch_rate_eviction();
+                    }
+                }
             }
         });
     }
 
     let rest_listener = tokio::net::TcpListener::bind(&rest_addr).await?;
-    let rest_server = tokio::spawn(async move {
-        if let Err(e) = axum::serve(rest_listener, rest_app).await {
-            eprintln!("[FATAL] REST server error: {}", e);
-        }
-    });
+
+    // Signal handler — fires the shutdown token
+    {
+        let signal_shutdown = shutdown.clone();
+        tokio::spawn(async move {
+            let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("failed to install SIGTERM handler");
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {
+                    klog!("[SHUTDOWN] SIGINT received — draining in-flight requests");
+                }
+                _ = sigterm.recv() => {
+                    klog!("[SHUTDOWN] SIGTERM received — draining in-flight requests");
+                }
+            }
+            signal_shutdown.cancel();
+        });
+    }
 
     klog!("╔══════════════════════════════════════╗");
     klog!("║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
@@ -468,33 +586,61 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     klog!("║   Max confidence: phi^-1 = 0.618     ║");
     klog!("╚══════════════════════════════════════╝");
 
-    tokio::select! {
-        result = rest_server => {
-            if let Err(e) = result {
-                eprintln!("[FATAL] REST server error: {}", e);
-            }
-        }
-        _ = tokio::signal::ctrl_c() => {
-            klog!("[SHUTDOWN] SIGINT received — graceful shutdown");
-        }
+    // axum with graceful shutdown — stops accepting connections on token cancel,
+    // drains in-flight requests (bounded by tower TimeoutLayer at 120s)
+    if let Err(e) = axum::serve(rest_listener, rest_app)
+        .with_graceful_shutdown(shutdown.clone().cancelled_owned())
+        .await
+    {
+        eprintln!("[FATAL] REST server error: {}", e);
     }
 
-    // Flush usage on shutdown — prevents up to 60s of data loss
-    if has_db {
-        let (snapshot, dog_count) = {
-            let usage = usage_tracker.lock().await;
-            (usage.snapshot(), usage.dogs.len())
-        };
-        if !snapshot.is_empty() {
-            match storage_port.flush_usage(&snapshot).await {
-                Ok(_) => klog!("[SHUTDOWN] Usage flushed ({} dogs)", dog_count),
-                Err(e) => eprintln!("[SHUTDOWN] Usage flush failed: {}", e),
-            }
-        } else {
-            klog!("[SHUTDOWN] No pending usage to flush");
-        }
+    klog!("[SHUTDOWN] REST server drained — flushing state");
+    flush_usage_on_shutdown(&storage_port, &usage_tracker, has_db).await;
+
+    // Drain fire-and-forget background tasks (observations, audits)
+    rest_state.bg_tasks.close();
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        rest_state.bg_tasks.wait(),
+    ).await {
+        Ok(()) => klog!("[SHUTDOWN] Background tasks drained ({} completed)", 0),
+        Err(_) => eprintln!("[SHUTDOWN] Background tasks did not drain within 5s"),
     }
 
     Ok(())
+}
+
+/// Shared shutdown flush — used by both REST and MCP exit paths.
+async fn flush_usage_on_shutdown(
+    storage: &Arc<dyn domain::storage::StoragePort>,
+    usage: &Arc<tokio::sync::Mutex<domain::usage::DogUsageTracker>>,
+    has_db: bool,
+) {
+    if !has_db {
+        klog!("[SHUTDOWN] No DB — skipping flush");
+        return;
+    }
+    let (snapshot, dog_count) = {
+        let u = usage.lock().await;
+        (u.flush_snapshot(), u.dogs.len())
+    };
+    if snapshot.is_empty() {
+        klog!("[SHUTDOWN] No pending usage to flush");
+        return;
+    }
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        storage.flush_usage(&snapshot),
+    ).await {
+        Ok(Ok(_)) => {
+            // Absorb into historical — maintains invariant even if caller is not terminal.
+            let mut u = usage.lock().await;
+            u.absorb_flush();
+            klog!("[SHUTDOWN] Usage flushed ({} dogs)", dog_count);
+        }
+        Ok(Err(e)) => eprintln!("[SHUTDOWN] Usage flush failed: {}", e),
+        Err(_) => eprintln!("[SHUTDOWN] Usage flush timed out (10s)"),
+    }
 }
 

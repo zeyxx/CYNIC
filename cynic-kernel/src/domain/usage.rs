@@ -135,6 +135,13 @@ impl DogUsageTracker {
         self.dogs.iter().map(|(id, u)| (id.clone(), u.clone())).collect()
     }
 
+    /// Absolute snapshot for idempotent flush — merges historical + session.
+    /// The returned values are the TOTAL per Dog (not deltas).
+    /// flush_usage uses SET (not +=) with these, so partial retry is safe.
+    pub fn flush_snapshot(&self) -> Vec<(String, DogUsage)> {
+        self.merged_dogs().into_iter().collect()
+    }
+
     /// After a successful flush to DB, transfer session counters into historical
     /// and reset session. Without this, total_tokens() under-reports after flush.
     pub fn absorb_flush(&mut self) {
@@ -364,6 +371,42 @@ mod tests {
 
         let snap = t.snapshot();
         assert!(snap.is_empty());
+    }
+
+    // ── flush_snapshot (idempotent) ──────────────────────
+
+    #[test]
+    fn flush_snapshot_returns_absolute_totals() {
+        let mut t = DogUsageTracker::new();
+        t.load_historical(&[serde_json::json!({
+            "dog_id": "a", "prompt_tokens": 1000, "completion_tokens": 500,
+            "requests": 10, "failures": 0, "total_latency_ms": 5000
+        })]);
+        t.record("a", 100, 50, 200);
+        t.record("b", 200, 100, 500);
+
+        let snap: std::collections::HashMap<String, DogUsage> =
+            t.flush_snapshot().into_iter().collect();
+        // "a" = historical (1000+500) + session (100+50)
+        assert_eq!(snap["a"].prompt_tokens, 1100);
+        assert_eq!(snap["a"].completion_tokens, 550);
+        // "b" = session only (no history)
+        assert_eq!(snap["b"].prompt_tokens, 200);
+    }
+
+    #[test]
+    fn flush_snapshot_is_idempotent_on_retry() {
+        let mut t = DogUsageTracker::new();
+        t.record("a", 100, 50, 200);
+
+        let snap1 = t.flush_snapshot();
+        // Simulate failed flush: don't call absorb_flush()
+        let snap2 = t.flush_snapshot();
+
+        // Same absolute values — SET is idempotent, no double-counting
+        let s1: std::collections::HashMap<String, DogUsage> = snap1.into_iter().collect();
+        let s2: std::collections::HashMap<String, DogUsage> = snap2.into_iter().collect();
+        assert_eq!(s1["a"].prompt_tokens, s2["a"].prompt_tokens);
     }
 
     // ── estimated_cost_usd ───────────────────────────────

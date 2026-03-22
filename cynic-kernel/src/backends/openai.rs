@@ -171,8 +171,14 @@ impl BackendPort for OpenAiCompatBackend {
                     BackendStatus::Healthy
                 }
             }
-            Ok(_) => BackendStatus::Degraded { latency_ms: start.elapsed().as_millis() as f64 },
-            Err(_) => BackendStatus::Critical,
+            Ok(resp) => {
+                eprintln!("[health] {} returned HTTP {} — degraded", self.config.name, resp.status());
+                BackendStatus::Degraded { latency_ms: start.elapsed().as_millis() as f64 }
+            }
+            Err(e) => {
+                eprintln!("[health] {} unreachable: {} — critical", self.config.name, e);
+                BackendStatus::Critical
+            }
         }
     }
 }
@@ -210,8 +216,8 @@ impl ChatPort for OpenAiCompatBackend {
                     && let Some((start, end)) = c.message.reasoning_content
                         .as_deref()
                         .and_then(|r| Some((r.find('{')?, r.rfind('}')?)))
+                    && let Some(r) = c.message.reasoning_content.as_deref()
                 {
-                    let r = c.message.reasoning_content.as_deref().unwrap();
                     return r[start..=end].to_string();
                 }
                 // If content has a </think> preamble (reasoning-format=none), strip it.

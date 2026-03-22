@@ -28,6 +28,12 @@ pub struct AppState {
     pub storage_info: StorageInfo,
     pub rate_limiter: PerIpRateLimiter,
     pub judge_limiter: PerIpRateLimiter,
+    /// Bounds fire-and-forget background spawns (observe, audit).
+    /// Prevents unbounded task accumulation under DB degradation.
+    pub bg_semaphore: Arc<tokio::sync::Semaphore>,
+    /// Tracks fire-and-forget spawns for drain at shutdown.
+    /// Semaphore bounds concurrency; TaskTracker enables wait-for-completion.
+    pub bg_tasks: tokio_util::task::TaskTracker,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
