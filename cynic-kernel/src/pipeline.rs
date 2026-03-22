@@ -57,15 +57,20 @@ pub async fn run(
         }
     };
 
-    // ── CACHE CHECK: skip full evaluation if near-identical stimulus exists ──
+    let domain_hint = domain.as_deref().unwrap_or("general");
+
+    // ── CACHE CHECK: skip full Dog evaluation if near-identical stimulus exists ──
+    // CRITICAL: cache hits still feed the crystal loop. Without this, repeated
+    // stimuli (68% of chess, 100% of trading in tests) never accumulate crystal
+    // observations → crystals never reach 21 obs → never inject → no compound.
     if let Some(emb) = &stimulus_embedding
         && let CacheLookup::Hit { verdict, similarity } = verdict_cache.lookup(emb)
     {
+        observe_crystal_for_verdict(
+            &verdict, &stimulus_embedding, domain_hint, storage,
+        ).await;
         return Ok(PipelineResult::CacheHit { verdict, similarity });
     }
-
-    // ── CRYSTAL RETRIEVAL: semantic search + domain-scoped fallback ──
-    let domain_hint = domain.as_deref().unwrap_or("general");
     let crystals = if let Some(ref emb) = stimulus_embedding {
         storage.search_crystals_semantic(&emb.vector, 10).await.unwrap_or_default()
     } else {
@@ -134,53 +139,9 @@ async fn side_effects(
         }
     }
 
-    // CCM: observe crystal + embed — with semantic merging
-    {
-        let domain = stimulus.domain.as_deref().unwrap_or("general");
-
-        // Semantic merge: if a similar crystal already exists in this domain,
-        // accumulate observations on it instead of creating a new one.
-        // Without this, "1. e4 c5" and "1. e4 c5 — Sicilian Defense" produce
-        // separate crystals that never reach the 21-observation maturation threshold.
-        // Threshold 0.85 = strong similarity (same concept, different phrasing).
-        let crystal_id = if let Some(emb) = stimulus_embedding {
-            match storage.find_similar_crystal(&emb.vector, domain, 0.85).await {
-                Ok(Some((existing_id, sim))) => {
-                    eprintln!("[pipeline] Crystal merge: reusing '{}' (similarity {:.3})", existing_id, sim);
-                    existing_id
-                }
-                Ok(None) => {
-                    eprintln!("[pipeline] Crystal fallback: no similar crystal (sim < 0.85), creating new FNV hash");
-                    format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
-                }
-                Err(e) => {
-                    eprintln!("[pipeline] Crystal fallback: similarity search failed ({}), using FNV hash", e);
-                    format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
-                }
-            }
-        } else {
-            eprintln!("[pipeline] Crystal fallback: no embedding available, using FNV hash");
-            format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
-        };
-
-        let now = chrono::Utc::now().to_rfc3339();
-        // Normalize Q-Score to [0, 1] range for crystal confidence.
-        // Q-Scores are φ-bounded (max ≈ 0.618), so raw scores can never
-        // reach the crystallization threshold (0.618). Dividing by φ⁻¹
-        // maps the score range correctly: a consistently good judgment
-        // (Q ≈ 0.57) becomes confidence ≈ 0.92, enabling crystallization.
-        let crystal_confidence = (verdict.q_score.total / PHI_INV).min(1.0);
-        if let Err(e) = storage.observe_crystal(
-            &crystal_id, &verdict.stimulus_summary, domain, crystal_confidence, &now
-        ).await {
-            eprintln!("[pipeline] Warning: failed to observe crystal: {}", e);
-        }
-        if let Some(emb) = stimulus_embedding
-            && let Err(e) = storage.store_crystal_embedding(&crystal_id, &emb.vector).await
-        {
-            eprintln!("[pipeline] Warning: failed to store crystal embedding: {}", e);
-        }
-    }
+    // CCM: observe crystal + embed
+    let domain = stimulus.domain.as_deref().unwrap_or("general");
+    observe_crystal_for_verdict(verdict, stimulus_embedding, domain, storage).await;
 
     // Cache verdict embedding (clone verdict since cache takes ownership of embedding)
     if let Some(emb) = &stimulus_embedding {
@@ -191,6 +152,57 @@ async fn side_effects(
             prompt_tokens: emb.prompt_tokens,
         };
         verdict_cache.store(cache_emb, verdict.clone());
+    }
+}
+
+/// Observe a crystal from a verdict — the critical link in the compound loop.
+///
+/// Called on BOTH cache hits and full evaluations. Without this on cache hits,
+/// repeated stimuli (which are the MOST common in real usage) never accumulate
+/// crystal observations → crystals never mature → never inject → no compound.
+///
+/// Uses semantic merge (cosine ≥ 0.85) to accumulate on existing crystals
+/// instead of creating fragmented duplicates.
+async fn observe_crystal_for_verdict(
+    verdict: &Verdict,
+    stimulus_embedding: &Option<Embedding>,
+    domain: &str,
+    storage: &dyn StoragePort,
+) {
+    // Semantic merge: find existing crystal or create new via FNV hash
+    let crystal_id = if let Some(emb) = stimulus_embedding {
+        match storage.find_similar_crystal(&emb.vector, domain, 0.85).await {
+            Ok(Some((existing_id, sim))) => {
+                eprintln!("[pipeline] Crystal merge: reusing '{}' (similarity {:.3})", existing_id, sim);
+                existing_id
+            }
+            Ok(None) => {
+                eprintln!("[pipeline] Crystal fallback: no similar crystal (sim < 0.85), creating new FNV hash");
+                format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
+            }
+            Err(e) => {
+                eprintln!("[pipeline] Crystal fallback: similarity search failed ({}), using FNV hash", e);
+                format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
+            }
+        }
+    } else {
+        eprintln!("[pipeline] Crystal fallback: no embedding available, using FNV hash");
+        format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
+    };
+
+    let now = chrono::Utc::now().to_rfc3339();
+    // Normalize Q-Score: raw scores are φ-bounded (max ≈ 0.618).
+    // Without normalization, no crystal can ever reach the 0.618 crystallization threshold.
+    let crystal_confidence = (verdict.q_score.total / PHI_INV).min(1.0);
+    if let Err(e) = storage.observe_crystal(
+        &crystal_id, &verdict.stimulus_summary, domain, crystal_confidence, &now,
+    ).await {
+        eprintln!("[pipeline] Warning: failed to observe crystal: {}", e);
+    }
+    if let Some(emb) = stimulus_embedding
+        && let Err(e) = storage.store_crystal_embedding(&crystal_id, &emb.vector).await
+    {
+        eprintln!("[pipeline] Warning: failed to store crystal embedding: {}", e);
     }
 }
 
