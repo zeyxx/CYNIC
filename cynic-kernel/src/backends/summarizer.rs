@@ -29,7 +29,7 @@ struct CompletionResult {
 impl SovereignSummarizer {
     /// Construct from env vars. Uses the sovereign LLM endpoint.
     /// Config sources: CYNIC_SUMMARIZER_URL > derived from CYNIC_REST_ADDR host + :8080.
-    pub fn from_env() -> Self {
+    pub fn from_env() -> Result<Self, reqwest::Error> {
         let host = std::env::var("CYNIC_REST_ADDR")
             .unwrap_or_else(|_| "localhost:3030".into())
             .split(':').next().unwrap_or("localhost").to_string();
@@ -46,15 +46,14 @@ impl SovereignSummarizer {
         let model = std::env::var("CYNIC_SUMMARIZER_MODEL")
             .unwrap_or_else(|_| "local".into());
 
-        Self {
+        Ok(Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(60))
-                .build()
-                .expect("Failed to build summarizer HTTP client"),
+                .build()?,
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key,
             model,
-        }
+        })
     }
 
     /// Health check — can the LLM be reached?

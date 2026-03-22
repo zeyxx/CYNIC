@@ -7,7 +7,7 @@ use super::types::*;
 // HARDWARE PROBE
 // ============================================================
 
-pub(super) async fn probe_hardware() -> HardwareInfo {
+pub(super) async fn probe_hardware() -> Result<HardwareInfo, tokio::task::JoinError> {
     let hw = tokio::task::spawn_blocking(|| {
         let mut sys = System::new_all();
         sys.refresh_all();
@@ -21,10 +21,10 @@ pub(super) async fn probe_hardware() -> HardwareInfo {
             cpu_cores: sys.cpus().len(),
             cpu_model,
         }
-    }).await.expect("probe_hardware spawn_blocking panicked");
+    }).await?;
     klog!("[Ring 0 / HW]  CPU: {} ({} cores) | RAM: {:.1} GB",
         hw.cpu_model, hw.cpu_cores, hw.total_ram_gb);
-    hw
+    Ok(hw)
 }
 
 // ============================================================
@@ -45,7 +45,7 @@ enum SyncDetection {
     CpuFallback(ComputeInfo),
 }
 
-pub(super) async fn probe_compute() -> ComputeInfo {
+pub(super) async fn probe_compute() -> Result<ComputeInfo, tokio::task::JoinError> {
     // Phase 1: Sync detection (sysfs, nvidia-smi) — runs in spawn_blocking.
     let detection = tokio::task::spawn_blocking(|| {
         // 1. NVIDIA via nvidia-smi
@@ -85,10 +85,10 @@ pub(super) async fn probe_compute() -> ComputeInfo {
         }
         // 7. CPU fallback
         SyncDetection::CpuFallback(detect_cpu_info())
-    }).await.expect("probe_compute spawn_blocking panicked");
+    }).await?;
 
     // Phase 2: Async enrichment (PowerShell bridge) — only when needed.
-    match detection {
+    let info = match detection {
         SyncDetection::Complete(info, source) => {
             klog!("[Ring 0 / GPU] {}: {} → {:?}", source, info.gpu_name, info.backend);
             info
@@ -141,7 +141,8 @@ pub(super) async fn probe_compute() -> ComputeInfo {
             klog!("[Ring 0 / GPU] No GPU → cpu (AVX2:{})", cpu.avx2);
             cpu
         }
-    }
+    };
+    Ok(info)
 }
 
 fn detect_nvidia() -> Option<ComputeInfo> {

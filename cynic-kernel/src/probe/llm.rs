@@ -18,7 +18,13 @@ pub(super) async fn probe_llm_resources(env: &EnvInfo, compute: &ComputeInfo) ->
         tokio::task::spawn_blocking(move || discover_all_models(&models_dir_clone, &env_clone)),
         probe_running_servers(env),
     );
-    let mut gguf_models = gguf_result.expect("discover_all_models spawn_blocking panicked");
+    let mut gguf_models = match gguf_result {
+        Ok(models) => models,
+        Err(e) => {
+            klog!("[Ring 0 / LLM] ANOMALY: model discovery panicked: {}", e);
+            Vec::new()
+        }
+    };
 
     // Deduplicate by path
     gguf_models.dedup_by(|a, b| a.path == b.path);

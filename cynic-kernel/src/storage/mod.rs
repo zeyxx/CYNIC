@@ -104,7 +104,7 @@ impl SurrealHttpStorage {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
-                .expect("Failed to build HTTP client for SurrealDB"),
+                .map_err(|e| StorageError::ConnectionFailed(format!("HTTP client: {}", e)))?,
             url: url.trim_end_matches('/').to_string(),
             ns: ns.to_string(),
             db: db.to_string(),
@@ -118,7 +118,7 @@ impl SurrealHttpStorage {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(5))
                 .build()
-                .expect("Failed to build bootstrap HTTP client"),
+                .map_err(|e| StorageError::ConnectionFailed(format!("HTTP client: {}", e)))?,
             url: storage.url.clone(),
             ns: String::new(),
             db: String::new(),

@@ -6,7 +6,7 @@ use super::types::*;
 // ENVIRONMENT PROBE
 // ============================================================
 
-pub(super) async fn probe_environment() -> EnvInfo {
+pub(super) async fn probe_environment() -> Result<EnvInfo, tokio::task::JoinError> {
     // All filesystem probes run in spawn_blocking — never stall the tokio runtime.
     let (os, is_wsl2, is_docker, is_proxmox_lxc, wsl2_windows_host, models_dir) =
         tokio::task::spawn_blocking(|| {
@@ -33,21 +33,21 @@ pub(super) async fn probe_environment() -> EnvInfo {
 
             let models_dir = ensure_models_dir();
             (os, is_wsl2, is_docker, is_proxmox_lxc, wsl2_windows_host, models_dir)
-        }).await.expect("probe_environment spawn_blocking panicked");
+        }).await?;
 
     klog!("[Ring 0 / Env] OS: {} | WSL2: {} | Docker: {} | LXC: {} | WinHost: {:?}",
         os, is_wsl2, is_docker, is_proxmox_lxc, wsl2_windows_host);
 
     let io_benchmark_mbps = benchmark_io(&models_dir).await;
 
-    EnvInfo {
+    Ok(EnvInfo {
         os,
         is_wsl2,
         is_docker,
         is_proxmox_lxc,
         wsl2_windows_host,
         io_benchmark_mbps,
-    }
+    })
 }
 
 pub(super) async fn benchmark_io(path: &Path) -> f64 {

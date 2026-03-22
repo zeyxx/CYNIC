@@ -2,9 +2,9 @@
 // dead_code: every public symbol must have a caller (Rule #9)
 // unused_imports: no stale imports accumulate
 // clippy::unwrap_used: no .unwrap() in production code (Rule #25 gate)
-#![deny(dead_code, unused_imports, clippy::unwrap_used)]
-// Allow dead_code and unwrap in test modules (test helpers, fixtures)
-#![cfg_attr(test, allow(dead_code, clippy::unwrap_used))]
+#![deny(dead_code, unused_imports, clippy::unwrap_used, clippy::expect_used)]
+// Allow dead_code, unwrap, and expect in test modules (test helpers, fixtures)
+#![cfg_attr(test, allow(dead_code, clippy::unwrap_used, clippy::expect_used))]
 
 use std::sync::atomic::AtomicBool;
 

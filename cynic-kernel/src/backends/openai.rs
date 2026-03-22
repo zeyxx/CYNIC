@@ -72,13 +72,12 @@ struct Usage {
 
 impl OpenAiCompatBackend {
     /// Create a new backend from config. Does NOT health-check — call health() after.
-    pub fn new(config: BackendConfig) -> Self {
+    pub fn new(config: BackendConfig) -> Result<Self, reqwest::Error> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(config.timeout_secs))
-            .build()
-            .expect("Failed to build HTTP client");
+            .build()?;
 
-        Self { client, config }
+        Ok(Self { client, config })
     }
 
     fn build_url(&self, path: &str) -> String {
@@ -256,7 +255,7 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
-        });
+        }).unwrap();
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions");
     }
 
@@ -277,7 +276,7 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
-        });
+        }).unwrap();
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions?key=key123");
     }
 
@@ -298,7 +297,7 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
-        });
+        }).unwrap();
         assert_eq!(backend.build_url("/chat/completions"), "http://localhost:8080/v1/chat/completions");
     }
 
@@ -319,7 +318,7 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
-        });
+        }).unwrap();
         assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions");
     }
 }

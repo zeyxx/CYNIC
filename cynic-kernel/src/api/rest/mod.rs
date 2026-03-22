@@ -37,10 +37,9 @@ pub fn router(state: Arc<AppState>) -> Router {
     // CORS: restrict to known origins. CYNIC_CORS_ORIGINS env var for additional.
     // Default: localhost dev servers only.
     let mut origins: Vec<axum::http::HeaderValue> = vec![
-        // Safe: these are compile-time constant strings — parse cannot fail.
-        "http://localhost:5173".parse().expect("const CORS origin"),
-        "http://localhost:5000".parse().expect("const CORS origin"),
-        "http://localhost:3000".parse().expect("const CORS origin"),
+        axum::http::HeaderValue::from_static("http://localhost:5173"),
+        axum::http::HeaderValue::from_static("http://localhost:5000"),
+        axum::http::HeaderValue::from_static("http://localhost:3000"),
     ];
     if let Ok(extra) = std::env::var("CYNIC_CORS_ORIGINS") {
         for o in extra.split(',') {

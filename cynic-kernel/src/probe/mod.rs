@@ -16,14 +16,14 @@ use std::path::{Path, PathBuf};
 // PROBE ENTRY POINT
 // ============================================================
 
-pub async fn run(force_reprobe: bool) -> NodeConfig {
+pub async fn run(force_reprobe: bool) -> Result<NodeConfig, Box<dyn std::error::Error>> {
     let config_path = config_file_path();
 
     if config_path.exists() && !force_reprobe {
         match load_config(&config_path) {
             Ok(cfg) => {
                 klog!("[Ring 0] ✅ Node config loaded from cache: {}", config_path.display());
-                return cfg;
+                return Ok(cfg);
             }
             Err(e) => klog!("[Ring 0] ANOMALY: Config corrupt ({}). Re-probing...", e),
         }
@@ -32,11 +32,14 @@ pub async fn run(force_reprobe: bool) -> NodeConfig {
     klog!("[Ring 0] First boot — comprehensive probe running...");
 
     // All probes run in parallel
-    let (hw, env, compute) = tokio::join!(
+    let (hw_result, env_result, compute_result) = tokio::join!(
         hardware::probe_hardware(),
         environment::probe_environment(),
         hardware::probe_compute(),
     );
+    let hw = hw_result?;
+    let env = env_result?;
+    let compute = compute_result?;
 
     // LLM probe uses env + compute results
     let llm = llm::probe_llm_resources(&env, &compute).await;
@@ -66,7 +69,7 @@ pub async fn run(force_reprobe: bool) -> NodeConfig {
         Err(e) => klog!("[Ring 0] ANOMALY: Could not save config: {}", e),
         Ok(_)  => klog!("[Ring 0] ✅ Node config saved: {}", config_path.display()),
     }
-    config
+    Ok(config)
 }
 
 // ============================================================

@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     klog!("╔══════════════════════════════════════╗");
     klog!("║       CYNIC OS V2 — SOVEREIGN BOOT    ║");
     klog!("╚══════════════════════════════════════╝");
-    let node_config = probe::run(force_reprobe).await;
+    let node_config = probe::run(force_reprobe).await?;
 
     klog!("[Ring 0] Omniscience Active. Reality Mapped.");
     klog!("[Ring 0] Host: {} | Compute: {:?} | VRAM: {}GB",
@@ -100,7 +100,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut remediation_configs: std::collections::HashMap<String, infra::config::BackendRemediation> = std::collections::HashMap::new();
     let mut health_urls: std::collections::HashMap<String, Option<String>> = std::collections::HashMap::new();
     for cfg in backend_configs {
-        let backend = Arc::new(backends::openai::OpenAiCompatBackend::new(cfg.clone()));
+        let backend = match backends::openai::OpenAiCompatBackend::new(cfg.clone()) {
+            Ok(b) => Arc::new(b),
+            Err(e) => {
+                klog!("[Ring 2] InferenceDog '{}' SKIPPED — HTTP client init failed: {}", cfg.name, e);
+                continue;
+            }
+        };
         let health = BackendPort::health(backend.as_ref()).await;
         // Always load the Dog — health loop will recover it if unreachable.
         // Skipping at boot prevents the health loop from ever probing it.
@@ -131,14 +137,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── RING 2: Embedding backend (sovereign, auto-recovery) ────
     // Always wire the real backend — if down at boot, embed() returns Err (same as NullEmbedding).
     // When the server comes back, calls start succeeding automatically. No manual recovery needed.
-    let embed_backend = backends::embedding::EmbeddingBackend::from_env();
-    let embed_health = embed_backend.health().await;
-    if embed_health.is_available() {
-        klog!("[Ring 2] Embedding: {:?} (sovereign)", embed_health);
-    } else {
-        klog!("[Ring 2] Embedding: {:?} — will auto-recover when server is available", embed_health);
-    }
-    let embedding: Arc<dyn domain::embedding::EmbeddingPort> = Arc::new(embed_backend);
+    let embedding: Arc<dyn domain::embedding::EmbeddingPort> = match backends::embedding::EmbeddingBackend::from_env() {
+        Ok(embed_backend) => {
+            let embed_health = embed_backend.health().await;
+            if embed_health.is_available() {
+                klog!("[Ring 2] Embedding: {:?} (sovereign)", embed_health);
+            } else {
+                klog!("[Ring 2] Embedding: {:?} — will auto-recover when server is available", embed_health);
+            }
+            Arc::new(embed_backend)
+        }
+        Err(e) => {
+            klog!("[Ring 2] Embedding: HTTP client init failed ({}) — using NullEmbedding", e);
+            Arc::new(domain::embedding::NullEmbedding)
+        }
+    };
 
     // ─── RING 2: Build Judge ──────────────────────────────────
     let judge = judge::Judge::new(dogs);
@@ -454,9 +467,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 2: Session summarizer (sovereign inference, background) ──
     // Self-recovering: checks availability each cycle, not just at boot (T6a fix)
-    {
+    if let Ok(summarizer) = backends::summarizer::SovereignSummarizer::from_env() {
         let sum_storage = Arc::clone(&storage_port);
-        let summarizer = backends::summarizer::SovereignSummarizer::from_env();
         let th = Arc::clone(&task_health);
         let token = shutdown.clone();
         klog!("[Ring 2] Session summarizer task started (checks LLM availability each cycle)");
@@ -501,6 +513,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         });
+    } else {
+        klog!("[Ring 2] Session summarizer DISABLED — HTTP client init failed");
     }
 
     // ─── One-shot: backfill crystal embeddings (orphan defragmentation) ──
@@ -592,9 +606,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if mcp_mode {
         use rmcp::ServiceExt;
         tracing::info!("MCP mode — serving over stdio (background tasks active)");
-        let mcp_infer: Arc<dyn domain::inference::InferPort> = Arc::new(
-            backends::summarizer::SovereignSummarizer::from_env(),
-        );
+        let mcp_infer: Arc<dyn domain::inference::InferPort> = match backends::summarizer::SovereignSummarizer::from_env() {
+            Ok(s) => Arc::new(s),
+            Err(e) => {
+                tracing::warn!(error = %e, "MCP inference unavailable — HTTP client init failed");
+                Arc::new(domain::inference::NullInfer)
+            }
+        };
         let mcp_server = api::mcp::CynicMcp::new(
             Arc::clone(&judge),
             Arc::clone(&storage_port),
@@ -611,11 +629,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         {
             let mcp_shutdown = shutdown.clone();
             tokio::spawn(async move {
-                let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                    .expect("failed to install SIGTERM handler");
-                tokio::select! {
-                    _ = tokio::signal::ctrl_c() => tracing::info!("SIGINT received"),
-                    _ = sigterm.recv() => tracing::info!("SIGTERM received"),
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                    Ok(mut sigterm) => {
+                        tokio::select! {
+                            _ = tokio::signal::ctrl_c() => tracing::info!("SIGINT received"),
+                            _ = sigterm.recv() => tracing::info!("SIGTERM received"),
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "SIGTERM handler unavailable — waiting for SIGINT only");
+                        let _ = tokio::signal::ctrl_c().await;
+                        tracing::info!("SIGINT received");
+                    }
                 }
                 mcp_shutdown.cancel();
             });
@@ -675,14 +700,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let signal_shutdown = shutdown.clone();
         tokio::spawn(async move {
-            let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                .expect("failed to install SIGTERM handler");
-            tokio::select! {
-                _ = tokio::signal::ctrl_c() => {
-                    klog!("[SHUTDOWN] SIGINT received — draining in-flight requests");
+            match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                Ok(mut sigterm) => {
+                    tokio::select! {
+                        _ = tokio::signal::ctrl_c() => {
+                            klog!("[SHUTDOWN] SIGINT received — draining in-flight requests");
+                        }
+                        _ = sigterm.recv() => {
+                            klog!("[SHUTDOWN] SIGTERM received — draining in-flight requests");
+                        }
+                    }
                 }
-                _ = sigterm.recv() => {
-                    klog!("[SHUTDOWN] SIGTERM received — draining in-flight requests");
+                Err(e) => {
+                    tracing::warn!(error = %e, "SIGTERM handler unavailable — waiting for SIGINT only");
+                    let _ = tokio::signal::ctrl_c().await;
+                    klog!("[SHUTDOWN] SIGINT received — draining in-flight requests");
                 }
             }
             signal_shutdown.cancel();

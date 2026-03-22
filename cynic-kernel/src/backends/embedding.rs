@@ -16,21 +16,20 @@ pub struct EmbeddingBackend {
 }
 
 impl EmbeddingBackend {
-    pub fn new(base_url: &str, api_key: Option<String>, model: &str) -> Self {
-        Self {
+    pub fn new(base_url: &str, api_key: Option<String>, model: &str) -> Result<Self, reqwest::Error> {
+        Ok(Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(30))
-                .build()
-                .expect("Failed to build HTTP client"),
+                .build()?,
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key,
             model: model.to_string(),
-        }
+        })
     }
 
     /// Build from environment variables.
     /// CYNIC_EMBED_URL overrides, else derives from CYNIC_REST_ADDR host + port 8081.
-    pub fn from_env() -> Self {
+    pub fn from_env() -> Result<Self, reqwest::Error> {
         let base_url = std::env::var("CYNIC_EMBED_URL")
             .unwrap_or_else(|_| {
                 let rest = std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".into());
@@ -152,7 +151,7 @@ mod tests {
 
     #[test]
     fn from_env_defaults() {
-        let backend = EmbeddingBackend::from_env();
+        let backend = EmbeddingBackend::from_env().unwrap();
         assert!(backend.base_url.contains("8081"));
         assert_eq!(backend.model, "qwen3-embed");
     }
