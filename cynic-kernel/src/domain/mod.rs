@@ -2,6 +2,7 @@ pub mod dog;
 pub mod ccm;
 pub mod storage;
 pub mod coord;
+pub mod events;
 pub mod inference;
 pub mod chat;
 pub mod embedding;

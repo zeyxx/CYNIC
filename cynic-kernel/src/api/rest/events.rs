@@ -13,7 +13,8 @@ use futures_util::stream::Stream;
 use std::convert::Infallible;
 use std::sync::Arc;
 
-use super::types::{AppState, KernelEvent};
+use super::types::AppState;
+use crate::domain::events::KernelEvent;
 
 /// GET /events — SSE stream of kernel events.
 /// Public endpoint (no auth) — events are operational data.

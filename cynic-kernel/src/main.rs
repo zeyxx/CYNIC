@@ -299,7 +299,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
-    let (event_tx, _) = tokio::sync::broadcast::channel::<api::rest::KernelEvent>(256);
+    let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
     let rest_state = Arc::new(api::rest::AppState {
         judge: Arc::clone(&judge),
         storage: Arc::clone(&storage_port),
@@ -527,7 +527,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     bf_th.touch_backfill(detail);
                     if count > 0 {
                         klog!("[Ring 2] Backfill: embedded {} orphan crystals", count);
-                        let _ = bf_event_tx.send(api::rest::KernelEvent::BackfillComplete { count });
+                        let _ = bf_event_tx.send(domain::events::KernelEvent::BackfillComplete { count });
                     }
                 }
                 Err(_) => {
@@ -568,7 +568,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         ).await {
                             Ok(alerts) => {
                                 for alert in &alerts {
-                                    let _ = intro_event_tx.send(api::rest::KernelEvent::Anomaly {
+                                    let _ = intro_event_tx.send(domain::events::KernelEvent::Anomaly {
                                         kind: alert.kind.to_string(),
                                         message: alert.message.clone(),
                                         severity: alert.severity.to_string(),
@@ -604,6 +604,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&verdict_cache),
             mcp_infer,
             Arc::clone(&metrics),
+            Some(event_tx.clone()),
         );
 
         // MCP signal handler — cancel background tasks on SIGTERM/SIGINT

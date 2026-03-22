@@ -8,6 +8,7 @@ use tokio::sync::Mutex;
 
 use crate::domain::coord::CoordPort;
 use crate::domain::embedding::EmbeddingPort;
+use crate::domain::events::KernelEvent;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
@@ -15,21 +16,6 @@ use crate::infra::metrics::Metrics;
 use crate::infra::task_health::TaskHealth;
 use crate::introspection::Alert;
 use crate::judge::Judge;
-
-// ── KERNEL EVENT BUS ──────────────────────────────────────
-
-/// Events emitted by the kernel — consumed by SSE, future WebSocket, and dashboards.
-/// Clone-cheap: all payloads are small strings/numbers.
-#[derive(Clone, Debug, serde::Serialize)]
-#[serde(tag = "type")]
-pub enum KernelEvent {
-    VerdictIssued { verdict_id: String, domain: String, verdict: String, q_score: f64 },
-    CrystalObserved { crystal_id: String, domain: String },
-    DogFailed { dog_id: String, error: String },
-    SessionRegistered { agent_id: String },
-    BackfillComplete { count: u32 },
-    Anomaly { kind: String, message: String, severity: String },
-}
 
 // ── SHARED STATE ───────────────────────────────────────────
 

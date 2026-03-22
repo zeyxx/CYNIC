@@ -10,7 +10,7 @@ use crate::domain::embedding::{Embedding, EmbeddingPort};
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::{CacheLookup, VerdictCache};
-use crate::api::rest::KernelEvent;
+use crate::domain::events::KernelEvent;
 use crate::infra::metrics::Metrics;
 use crate::judge::{Judge, JudgeError};
 use tokio::sync::Mutex;

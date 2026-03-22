@@ -72,7 +72,7 @@ pub async fn coord_register_handler(
         "intent": req.intent, "agent_type": agent_type, "source": "rest",
     })).await;
 
-    let _ = state.event_tx.send(super::types::KernelEvent::SessionRegistered {
+    let _ = state.event_tx.send(crate::domain::events::KernelEvent::SessionRegistered {
         agent_id: req.agent_id.clone(),
     }); // ok: no subscribers = silent
 

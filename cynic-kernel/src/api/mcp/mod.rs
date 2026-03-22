@@ -23,6 +23,7 @@ use serde::Deserialize;
 
 use crate::domain::coord::{CoordPort, ClaimResult};
 use crate::domain::dog::PHI_INV;
+use crate::domain::events::KernelEvent;
 use crate::domain::inference::InferPort;
 use crate::judge::Judge;
 use crate::domain::storage::StoragePort;
@@ -136,12 +137,14 @@ pub struct CynicMcp {
     /// Sovereign inference — routed through InferPort, not raw HTTP (Rule #17).
     infer: Arc<dyn InferPort>,
     metrics: Arc<crate::infra::metrics::Metrics>,
+    /// Kernel event bus — shared with REST SSE. None only in tests.
+    event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     tool_router: ToolRouter<Self>,
 }
 
 #[tool_router]
 impl CynicMcp {
-    #[allow(clippy::too_many_arguments)] // Constructor — 8 deps is the real count, a builder adds zero clarity
+    #[allow(clippy::too_many_arguments)] // Constructor — 9 deps is the real count, a builder adds zero clarity
     pub fn new(
         judge: Arc<Judge>,
         storage: Arc<dyn StoragePort>,
@@ -151,6 +154,7 @@ impl CynicMcp {
         verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
         infer: Arc<dyn InferPort>,
         metrics: Arc<crate::infra::metrics::Metrics>,
+        event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     ) -> Self {
         Self {
             judge,
@@ -161,6 +165,7 @@ impl CynicMcp {
             infer,
             metrics,
             usage,
+            event_tx,
             tool_router: Self::tool_router(),
         }
     }
@@ -204,7 +209,7 @@ impl CynicMcp {
             usage: &self.usage,
             verdict_cache: &self.verdict_cache,
             metrics: &self.metrics,
-            event_tx: None, // MCP has no broadcast channel — events go through REST SSE
+            event_tx: self.event_tx.as_ref(),
         };
         let result = crate::pipeline::run(
             p.content.clone(), p.context, p.domain.clone(), p.dogs.as_deref(), &deps,
@@ -465,6 +470,10 @@ impl CynicMcp {
             "intent": p.intent, "agent_type": agent_type,
         })).await;
 
+        if let Some(ref tx) = self.event_tx {
+            let _ = tx.send(KernelEvent::SessionRegistered { agent_id: p.agent_id.clone() });
+        }
+
         Ok(CallToolResult::success(vec![
             Content::text(format!("Agent '{}' registered. Intent: {}. Heartbeat refreshed on every MCP call.", p.agent_id, p.intent))
         ]))
@@ -668,7 +677,7 @@ mod tests {
         let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
         let infer = Arc::new(crate::domain::inference::NullInfer) as Arc<dyn InferPort>;
         let metrics = Arc::new(crate::infra::metrics::Metrics::new());
-        CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer, metrics)
+        CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer, metrics, None)
     }
 
     /// Extract text from the first Content element in a CallToolResult.
@@ -811,7 +820,7 @@ mod tests {
         let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
         let infer = Arc::new(crate::domain::inference::NullInfer) as Arc<dyn InferPort>;
         let metrics = Arc::new(crate::infra::metrics::Metrics::new());
-        let mcp = CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer, metrics);
+        let mcp = CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer, metrics, None);
 
         let result = mcp.cynic_health().await.unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
