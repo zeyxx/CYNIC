@@ -241,6 +241,54 @@ async fn observe_crystal_for_verdict(
     }
 }
 
+// ── CRYSTAL EMBEDDING BACKFILL ────────────────────────────
+
+/// Backfill embeddings for crystals that were created without one.
+/// Crystals without embeddings are permanently invisible to KNN search,
+/// meaning they can never be merged or retrieved semantically — orphans forever.
+/// Returns the number of crystals successfully embedded.
+pub async fn backfill_crystal_embeddings(
+    storage: &dyn StoragePort,
+    embedding: &dyn EmbeddingPort,
+    metrics: &Metrics,
+) -> u32 {
+    let orphans = match storage.list_crystals_missing_embedding(200).await {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!(error = %e, "backfill: failed to query crystals missing embedding");
+            return 0;
+        }
+    };
+    if orphans.is_empty() {
+        tracing::info!(phase = "backfill", "no crystals missing embeddings");
+        return 0;
+    }
+    tracing::info!(phase = "backfill", count = orphans.len(), "found crystals missing embeddings");
+
+    let mut success = 0u32;
+    let mut failed = 0u32;
+    for crystal in &orphans {
+        match embedding.embed(&crystal.content).await {
+            Ok(emb) => {
+                if let Err(e) = storage.store_crystal_embedding(&crystal.id, &emb.vector).await {
+                    tracing::warn!(phase = "backfill", crystal_id = %crystal.id, error = %e, "failed to store embedding");
+                    failed += 1;
+                } else {
+                    metrics.inc_embed_ok();
+                    success += 1;
+                }
+            }
+            Err(e) => {
+                tracing::warn!(phase = "backfill", crystal_id = %crystal.id, error = %e, "embedding failed");
+                metrics.inc_embed_fail();
+                failed += 1;
+            }
+        }
+    }
+    tracing::info!(phase = "backfill", success = success, failed = failed, "backfill complete");
+    success
+}
+
 // ── SESSION SUMMARIZATION PIPELINE ──────────────────────
 
 /// Summarize sessions that have observations but no summary yet.

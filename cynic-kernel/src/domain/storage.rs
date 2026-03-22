@@ -99,6 +99,27 @@ pub trait StoragePort: Send + Sync {
     /// Returns rows of {session_id, target} for sessions with 2+ distinct targets.
     async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<serde_json::Value>, StorageError>;
 
+    /// List crystals that have no embedding vector stored.
+    /// Used by the backfill task to retroactively embed orphan crystals.
+    async fn list_crystals_missing_embedding(&self, _limit: u32) -> Result<Vec<Crystal>, StorageError> {
+        Ok(vec![])
+    }
+
+    /// Count total verdicts — used to hydrate metrics on boot.
+    async fn count_verdicts(&self) -> Result<u64, StorageError> {
+        Ok(0)
+    }
+
+    /// Count total crystal observations — used to hydrate metrics on boot.
+    async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
+        Ok(0)
+    }
+
+    /// List raw observations with optional filters — used by /observations endpoint.
+    async fn list_observations_raw(&self, _domain: Option<&str>, _agent_id: Option<&str>, _limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
+        Ok(vec![])
+    }
+
     /// Store a pre-computed embedding vector for a crystal.
     /// Enables semantic retrieval via search_crystals_semantic.
     async fn store_crystal_embedding(&self, _id: &str, _embedding: &[f32]) -> Result<(), StorageError> {

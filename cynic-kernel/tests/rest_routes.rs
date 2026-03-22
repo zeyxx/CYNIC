@@ -36,6 +36,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         judge_limiter: PerIpRateLimiter::new(100),
         bg_semaphore: std::sync::Arc::new(tokio::sync::Semaphore::new(64)),
         bg_tasks: tokio_util::task::TaskTracker::new(),
+        introspection_alerts: std::sync::RwLock::new(Vec::new()),
     })
 }
 

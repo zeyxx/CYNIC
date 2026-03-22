@@ -13,6 +13,7 @@ use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
 use crate::infra::metrics::Metrics;
 use crate::infra::task_health::TaskHealth;
+use crate::introspection::Alert;
 use crate::judge::Judge;
 
 // ── SHARED STATE ───────────────────────────────────────────
@@ -36,6 +37,9 @@ pub struct AppState {
     /// Tracks fire-and-forget spawns for drain at shutdown.
     /// Semaphore bounds concurrency; TaskTracker enables wait-for-completion.
     pub bg_tasks: tokio_util::task::TaskTracker,
+    /// Latest introspection alerts (updated every 5min by background task).
+    /// Empty = healthy system. RwLock: read-heavy (every /health), write every 5min.
+    pub introspection_alerts: std::sync::RwLock<Vec<Alert>>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.

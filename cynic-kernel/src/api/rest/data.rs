@@ -189,3 +189,75 @@ pub async fn observe_crystal_handler(
     }
     Ok(Json(serde_json::json!({ "status": "observed" })))
 }
+
+// ── Dark table endpoints ─────────────────────────────────────
+
+#[derive(Deserialize, Default)]
+pub struct ObservationsQuery {
+    pub limit: Option<u32>,
+    pub domain: Option<String>,
+    pub agent_id: Option<String>,
+}
+
+/// GET /observations — raw workflow observations (10K+ rows, previously invisible).
+pub async fn observations_handler(
+    State(state): State<Arc<AppState>>,
+    Query(q): Query<ObservationsQuery>,
+) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
+    let limit = q.limit.unwrap_or(100).min(500);
+    match state.storage.list_observations_raw(q.domain.as_deref(), q.agent_id.as_deref(), limit).await {
+        Ok(rows) => Ok(Json(rows)),
+        Err(e) => {
+            tracing::warn!(error = %e, "observations list failed");
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
+        }
+    }
+}
+
+/// GET /sessions — session summaries (previously invisible).
+pub async fn sessions_handler(
+    State(state): State<Arc<AppState>>,
+    Query(q): Query<CrystalsQuery>,
+) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
+    let limit = q.limit.unwrap_or(50).min(200);
+    match state.storage.list_session_summaries(limit).await {
+        Ok(summaries) => {
+            let items: Vec<serde_json::Value> = summaries.iter().map(|s| {
+                serde_json::json!({
+                    "session_id": s.session_id,
+                    "agent_id": s.agent_id,
+                    "summary": s.summary,
+                    "observations_count": s.observations_count,
+                    "created_at": s.created_at,
+                })
+            }).collect();
+            Ok(Json(items))
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "sessions list failed");
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
+        }
+    }
+}
+
+#[derive(Deserialize, Default)]
+pub struct AuditQuery {
+    pub limit: Option<u32>,
+    pub tool: Option<String>,
+    pub agent_id: Option<String>,
+}
+
+/// GET /audit — MCP audit trail (previously MCP-only, 11K+ rows).
+pub async fn audit_handler(
+    State(state): State<Arc<AppState>>,
+    Query(q): Query<AuditQuery>,
+) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
+    let limit = q.limit.unwrap_or(50).min(100);
+    match state.coord.query_audit(q.tool.as_deref(), q.agent_id.as_deref(), limit).await {
+        Ok(rows) => Ok(Json(rows)),
+        Err(e) => {
+            tracing::warn!(error = %e, "audit query failed");
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "coordination unavailable".into() })))
+        }
+    }
+}

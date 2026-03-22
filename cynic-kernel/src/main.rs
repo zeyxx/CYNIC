@@ -285,6 +285,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let verdict_cache = Arc::new(domain::verdict_cache::VerdictCache::new());
     // Pipeline metrics — shared by REST and MCP, exposed via /metrics
     let metrics = Arc::new(infra::metrics::Metrics::new());
+
+    // Hydrate metrics from DB so counters survive reboots
+    if has_db {
+        if let Ok(v_count) = storage_port.count_verdicts().await {
+            metrics.verdicts_total.store(v_count, std::sync::atomic::Ordering::Relaxed);
+            klog!("[Ring 2] Metrics: hydrated verdicts_total = {}", v_count);
+        }
+        if let Ok(co_count) = storage_port.count_crystal_observations().await {
+            metrics.crystal_observations_total.store(co_count, std::sync::atomic::Ordering::Relaxed);
+            klog!("[Ring 2] Metrics: hydrated crystal_observations_total = {}", co_count);
+        }
+    }
     let rest_state = Arc::new(api::rest::AppState {
         judge: Arc::clone(&judge),
         storage: Arc::clone(&storage_port),
@@ -303,6 +315,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         judge_limiter: api::rest::PerIpRateLimiter::new(10),   // 10 /judge per minute (inference costs money)
         bg_semaphore: Arc::new(tokio::sync::Semaphore::new(64)), // bound fire-and-forget spawns
         bg_tasks: tokio_util::task::TaskTracker::new(), // track for drain at shutdown
+        introspection_alerts: std::sync::RwLock::new(Vec::new()),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
@@ -482,6 +495,70 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         });
+    }
+
+    // ─── One-shot: backfill crystal embeddings (orphan defragmentation) ──
+    if has_db {
+        let bf_storage = Arc::clone(&storage_port);
+        let bf_embedding = Arc::clone(&embedding);
+        let bf_metrics = Arc::clone(&metrics);
+        tokio::spawn(async move {
+            // Delay 10s — let embedding server warm up
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(300),
+                pipeline::backfill_crystal_embeddings(bf_storage.as_ref(), bf_embedding.as_ref(), &bf_metrics),
+            ).await {
+                Ok(count) => {
+                    if count > 0 {
+                        klog!("[Ring 2] Backfill: embedded {} orphan crystals", count);
+                    }
+                }
+                Err(_) => tracing::warn!("crystal backfill timed out (300s)"),
+            }
+        });
+        klog!("[Ring 2] Crystal embedding backfill task scheduled");
+    }
+
+    // ─── Introspection loop (MAPE-K Analyze, every 5 min) ──
+    {
+        let intro_storage = Arc::clone(&storage_port);
+        let intro_metrics = Arc::clone(&metrics);
+        let intro_state = Arc::clone(&rest_state);
+        let th = Arc::clone(&task_health);
+        let token = shutdown.clone();
+        tokio::spawn(async move {
+            // Wait 60s for system to stabilize before first introspection
+            tokio::select! {
+                _ = token.cancelled() => return,
+                _ = tokio::time::sleep(std::time::Duration::from_secs(60)) => {}
+            }
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                tokio::select! {
+                    _ = token.cancelled() => {
+                        klog!("[SHUTDOWN] Introspection loop stopped");
+                        break;
+                    }
+                    _ = interval.tick() => {
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(30),
+                            introspection::analyze(intro_storage.as_ref(), &intro_metrics),
+                        ).await {
+                            Ok(alerts) => {
+                                if let Ok(mut stored) = intro_state.introspection_alerts.write() {
+                                    *stored = alerts;
+                                }
+                                th.touch_introspection();
+                            }
+                            Err(_) => tracing::warn!("introspection analyze timed out (30s)"),
+                        }
+                    }
+                }
+            }
+        });
+        klog!("[Ring 2] Introspection loop started (every 5min, 60s warmup)");
     }
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────

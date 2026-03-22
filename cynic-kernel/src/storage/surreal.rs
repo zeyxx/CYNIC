@@ -552,6 +552,46 @@ impl StoragePort for SurrealHttpStorage {
     async fn load_usage_history(&self) -> Result<Vec<serde_json::Value>, StorageError> {
         self.query_one("SELECT * FROM dog_usage;").await
     }
+
+    async fn list_crystals_missing_embedding(&self, limit: u32) -> Result<Vec<Crystal>, StorageError> {
+        // Internal migration query — not user-facing. Cap at 500, not safe_limit(100).
+        let sql = format!(
+            "SELECT * FROM crystal WHERE embedding IS NONE OR embedding = [] LIMIT {}",
+            limit.min(500),
+        );
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.iter().map(row_to_crystal).collect())
+    }
+
+    async fn count_verdicts(&self) -> Result<u64, StorageError> {
+        let rows = self.query_one("SELECT count() AS total FROM verdict GROUP ALL;").await?;
+        Ok(rows.first().and_then(|r| r["total"].as_u64()).unwrap_or(0))
+    }
+
+    async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
+        let rows = self.query_one("SELECT math::sum(observations) AS total FROM crystal GROUP ALL;").await?;
+        Ok(rows.first().and_then(|r| r["total"].as_u64()).unwrap_or(0))
+    }
+
+    async fn list_observations_raw(&self, domain: Option<&str>, agent_id: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
+        let mut conditions = Vec::new();
+        if let Some(d) = domain {
+            conditions.push(format!("domain = '{}'", escape_surreal(d)));
+        }
+        if let Some(a) = agent_id {
+            conditions.push(format!("agent_id = '{}'", escape_surreal(a)));
+        }
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+        let sql = format!(
+            "SELECT * FROM observation {} ORDER BY created_at DESC LIMIT {}",
+            where_clause, safe_limit(limit),
+        );
+        self.query_one(&sql).await
+    }
 }
 
 // ── COORD PORT IMPLEMENTATION ────────────────────────────────

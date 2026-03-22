@@ -24,7 +24,7 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
 use self::coord::{coord_register_handler, coord_claim_handler, coord_claim_batch_handler, coord_release_handler};
-use self::data::{crystals_handler, crystal_handler, usage_handler, create_crystal_handler, delete_crystal_handler, observe_crystal_handler};
+use self::data::{crystals_handler, crystal_handler, usage_handler, create_crystal_handler, delete_crystal_handler, observe_crystal_handler, observations_handler, sessions_handler, audit_handler};
 use self::health::{health_handler, dogs_handler, temporal_handler, agents_handler, metrics_handler};
 use self::judge::{judge_handler, get_verdict_handler, list_verdicts_handler};
 use self::middleware::{auth_middleware, rate_limit_middleware, audit_middleware};
@@ -73,6 +73,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
         .route("/agents", get(agents_handler))
+        .route("/observations", get(observations_handler))
+        .route("/sessions", get(sessions_handler))
+        .route("/audit", get(audit_handler))
         .route("/observe", post(observe_handler))
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))

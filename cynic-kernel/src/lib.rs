@@ -41,3 +41,4 @@ pub mod infra;
 pub mod probe;
 pub mod judge;
 pub mod pipeline;
+pub mod introspection;

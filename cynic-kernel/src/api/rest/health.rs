@@ -98,6 +98,7 @@ pub async fn health_handler(
         "total_tokens": usage.total_tokens(),
         "estimated_cost_usd": usage.estimated_cost_usd(),
         "uptime_seconds": usage.uptime_seconds(),
+        "alerts": state.introspection_alerts.read().map(|a| a.clone()).unwrap_or_default(),
     })))
 }
 
