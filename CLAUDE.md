@@ -130,6 +130,7 @@ Real chess scores: Sicilian Defense → Howl. Scholar's Mate → Growl. Fool's M
 22. **No trait name collisions across domain modules.** Each trait name (`ChatPort`, `StoragePort`, `InferPort`) must be unique across the entire `domain/` directory. Two traits with the same name and different signatures create confusion for both humans and AI agents. Falsifiable: `grep 'trait FooPort' domain/**/*.rs` must return exactly one match per name.
 23. **Validate the feedback loop.** Crystal injection changes Dog prompts — this is the core value proposition. Any change to `format_crystal_context`, `observe_crystal`, or `search_crystals_semantic` must be benchmarked with `/test-chess` before AND after. The crystal loop has no external validation signal; the benchmark IS the signal.
 24. **Name things for what they ARE, not what you wish they were.** `Ring 0/1/2/3` is a boot sequence, not an OS ring. `Temporal perspectives` are dog index labels, not temporal analysis. Code names must match code behavior. Aspiration belongs in roadmap docs, not in variable names or module comments.
+25. **Fix → Test → Gate → Verify.** Every fix includes: (a) the code fix, (b) a test that fails if the fix is reverted, (c) a mechanical gate — compiler lint, hook grep, or runtime check — that prevents the **class** of bug, (d) verification that the gate catches a simulated violation. A fix without a gate is temporary. Enforcement must be mechanical, never dependent on LLM compliance. Falsifiable: every PR should name which gate prevents recurrence.
 
 ## Mandatory Tool Use (NON-OPTIONAL)
 
@@ -145,6 +146,7 @@ These are not suggestions. Skipping any of these is a workflow violation.
 - **After ANY code change:** `/build` (= `make check` = build + test + clippy --release)
 - **After ILC complete:** `cynic_coord_release(agent_id, target)` per file, then `cynic_coord_release(agent_id)` for session
 - **After scoring changes:** `/test-chess` — benchmark before and after
+- **After significant session work:** `/cynic-skills:distill` — harvest learnings, promote rules, curate CLAUDE.md. See `docs/CCM-COMPOUND-PROTOCOL.md`
 
 ### ON triggers
 - **Evaluate quality:** `/cynic-skills:cynic-judge` — 43-dimension φ-bounded scoring
