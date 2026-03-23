@@ -12,26 +12,17 @@ pub struct ChatResponse {
     pub completion_tokens: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum ChatError {
+    #[error("Chat unreachable: {0}")]
     Unreachable(String),
+    #[error("Chat timed out after {ms}ms")]
     Timeout { ms: u64 },
+    #[error("Chat rate limited: {0}")]
     RateLimited(String),
+    #[error("Chat protocol error: {0}")]
     Protocol(String),
 }
-
-impl std::fmt::Display for ChatError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Unreachable(msg) => write!(f, "Chat unreachable: {}", msg),
-            Self::Timeout { ms } => write!(f, "Chat timed out after {}ms", ms),
-            Self::RateLimited(msg) => write!(f, "Chat rate limited: {}", msg),
-            Self::Protocol(msg) => write!(f, "Chat protocol error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for ChatError {}
 
 /// Chat-specific extension of BackendPort. Dogs use this for axiom evaluation.
 /// `name()` and `health()` come from BackendPort — no duplication.

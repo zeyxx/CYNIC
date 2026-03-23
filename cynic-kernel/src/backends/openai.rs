@@ -72,10 +72,11 @@ struct Usage {
 
 impl OpenAiCompatBackend {
     /// Create a new backend from config. Does NOT health-check — call health() after.
-    pub fn new(config: BackendConfig) -> Result<Self, reqwest::Error> {
+    pub fn new(config: BackendConfig) -> Result<Self, crate::domain::inference::BackendInitError> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(config.timeout_secs))
-            .build()?;
+            .build()
+            .map_err(crate::domain::inference::BackendInitError::from_http)?;
 
         Ok(Self { client, config })
     }

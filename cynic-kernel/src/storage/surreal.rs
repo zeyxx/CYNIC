@@ -1,10 +1,10 @@
 //! StoragePort + CoordPort implementations for SurrealHttpStorage.
 
 use super::{SurrealHttpStorage, sanitize_id, escape_surreal, safe_limit};
-use crate::domain::coord::{CoordPort, CoordError, ClaimResult, ConflictInfo, CoordSnapshot, BatchClaimResult};
+use crate::domain::coord::{CoordPort, CoordError, ClaimResult, ConflictInfo, CoordSnapshot, BatchClaimResult, AgentInfo, ClaimEntry, AuditEntry};
 use crate::domain::dog::{Verdict, VerdictKind, QScore, AxiomReasoning};
 use crate::domain::ccm::{Crystal, CrystalState};
-use crate::domain::storage::{StoragePort, StorageError, Observation};
+use crate::domain::storage::{StoragePort, StorageError, Observation, ObservationFrequency, SessionTarget, RawObservation, UsageRow};
 
 // ── VERDICT SERIALIZATION ────────────────────────────────────
 
@@ -133,6 +133,21 @@ fn row_to_crystal(row: &serde_json::Value) -> Crystal {
         state,
         created_at: row["created_at"].as_str().unwrap_or("").to_string(),
         updated_at: row["updated_at"].as_str().unwrap_or("").to_string(),
+    }
+}
+
+fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
+    RawObservation {
+        id: row["id"].as_str().unwrap_or("").to_string(),
+        tool: row["tool"].as_str().unwrap_or("").to_string(),
+        target: row["target"].as_str().unwrap_or("").to_string(),
+        domain: row["domain"].as_str().unwrap_or("").to_string(),
+        status: row["status"].as_str().unwrap_or("").to_string(),
+        context: row["context"].as_str().unwrap_or("").to_string(),
+        created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+        project: row["project"].as_str().unwrap_or("").to_string(),
+        agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
+        session_id: row["session_id"].as_str().unwrap_or("").to_string(),
     }
 }
 
@@ -404,29 +419,28 @@ impl StoragePort for SurrealHttpStorage {
         Ok(())
     }
 
-    async fn query_observations(&self, project: &str, domain: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
+    async fn query_observations(&self, project: &str, domain: Option<&str>, limit: u32) -> Result<Vec<ObservationFrequency>, StorageError> {
         let limit = safe_limit(limit);
         let domain_clause = match domain {
             Some(d) => format!(" AND domain = '{}'", escape_surreal(d)),
             None => String::new(),
         };
-        // Return target frequency + co-occurrence data
         let sql = format!(
             "SELECT target, tool, count() AS freq FROM observation \
              WHERE project = '{}'{} \
              GROUP BY target, tool ORDER BY freq DESC LIMIT {};",
             escape_surreal(project), domain_clause, limit,
         );
-        self.query_one(&sql).await
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.iter().map(|r| ObservationFrequency {
+            target: r["target"].as_str().unwrap_or("").to_string(),
+            tool: r["tool"].as_str().unwrap_or("").to_string(),
+            freq: r["freq"].as_u64().unwrap_or(0),
+        }).collect())
     }
 
-    async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
-        // Internal aggregation query — not user-facing. Needs more rows than safe_limit(100)
-        // for co-occurrence detection across many sessions. Cap at 1000.
+    async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<SessionTarget>, StorageError> {
         let limit = limit.min(1000);
-        // Group by agent_id (= session identity in Claude Code).
-        // session_id field is unreliable (often empty). agent_id is derived
-        // from CLAUDE_SESSION_ID by the PostToolUse hook.
         let sql = format!(
             "SELECT agent_id AS session_id, target FROM observation \
              WHERE project = '{}' AND agent_id != '' AND agent_id != 'unknown' \
@@ -434,7 +448,11 @@ impl StoragePort for SurrealHttpStorage {
              ORDER BY agent_id, target LIMIT {};",
             escape_surreal(project), limit,
         );
-        self.query_one(&sql).await
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.iter().map(|r| SessionTarget {
+            session_id: r["session_id"].as_str().unwrap_or("").to_string(),
+            target: r["target"].as_str().unwrap_or("").to_string(),
+        }).collect())
     }
 
     async fn store_session_summary(&self, summary: &crate::domain::ccm::SessionSummary) -> Result<(), StorageError> {
@@ -497,13 +515,14 @@ impl StoragePort for SurrealHttpStorage {
         }).collect())
     }
 
-    async fn get_session_observations(&self, session_id: &str) -> Result<Vec<serde_json::Value>, StorageError> {
+    async fn get_session_observations(&self, session_id: &str) -> Result<Vec<RawObservation>, StorageError> {
         let sql = format!(
             "SELECT tool, target, domain, status, context, created_at FROM observation \
              WHERE agent_id = '{}' ORDER BY created_at ASC LIMIT 50;",
             escape_surreal(session_id),
         );
-        self.query_one(&sql).await
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.iter().map(row_to_raw_observation).collect())
     }
 
     async fn flush_usage(&self, snapshot: &[(String, crate::domain::usage::DogUsage)]) -> Result<(), StorageError> {
@@ -549,8 +568,16 @@ impl StoragePort for SurrealHttpStorage {
             .map(|s| s.to_string()))
     }
 
-    async fn load_usage_history(&self) -> Result<Vec<serde_json::Value>, StorageError> {
-        self.query_one("SELECT * FROM dog_usage;").await
+    async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
+        let rows = self.query_one("SELECT * FROM dog_usage;").await?;
+        Ok(rows.iter().map(|r| UsageRow {
+            dog_id: r["dog_id"].as_str().unwrap_or("").to_string(),
+            prompt_tokens: r["prompt_tokens"].as_u64().unwrap_or(0),
+            completion_tokens: r["completion_tokens"].as_u64().unwrap_or(0),
+            requests: r["requests"].as_u64().unwrap_or(0),
+            failures: r["failures"].as_u64().unwrap_or(0),
+            total_latency_ms: r["total_latency_ms"].as_u64().unwrap_or(0),
+        }).collect())
     }
 
     async fn list_crystals_missing_embedding(&self, limit: u32) -> Result<Vec<Crystal>, StorageError> {
@@ -573,7 +600,7 @@ impl StoragePort for SurrealHttpStorage {
         Ok(rows.first().and_then(|r| r["total"].as_u64()).unwrap_or(0))
     }
 
-    async fn list_observations_raw(&self, domain: Option<&str>, agent_id: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
+    async fn list_observations_raw(&self, domain: Option<&str>, agent_id: Option<&str>, limit: u32) -> Result<Vec<RawObservation>, StorageError> {
         let mut conditions = Vec::new();
         if let Some(d) = domain {
             conditions.push(format!("domain = '{}'", escape_surreal(d)));
@@ -590,7 +617,8 @@ impl StoragePort for SurrealHttpStorage {
             "SELECT * FROM observation {} ORDER BY created_at DESC LIMIT {}",
             where_clause, safe_limit(limit),
         );
-        self.query_one(&sql).await
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.iter().map(row_to_raw_observation).collect())
     }
 }
 
@@ -704,32 +732,46 @@ impl CoordPort for SurrealHttpStorage {
             Some(id) => format!("SELECT * FROM agent_session WHERE agent_id = '{}' AND active = true;", escape_surreal(id)),
             None => "SELECT * FROM agent_session WHERE active = true;".to_string(),
         };
-        let agents = match self.query_one(&session_sql).await {
+        let agent_rows = match self.query_one(&session_sql).await {
             Ok(a) => a,
             Err(e) => {
                 tracing::warn!(error = %e, "coord who() agents query failed");
                 Vec::new()
             }
         };
+        let agents: Vec<AgentInfo> = agent_rows.iter().map(|r| AgentInfo {
+            agent_id: r["agent_id"].as_str().unwrap_or("").to_string(),
+            agent_type: r["agent_type"].as_str().unwrap_or("").to_string(),
+            intent: r["intent"].as_str().unwrap_or("").to_string(),
+            active: r["active"].as_bool().unwrap_or(false),
+            registered_at: r["registered_at"].as_str().unwrap_or("").to_string(),
+            last_seen: r["last_seen"].as_str().unwrap_or("").to_string(),
+            id: r["id"].as_str().unwrap_or("").to_string(),
+        }).collect();
         let claims_sql = match agent_id_filter {
             Some(id) => format!("SELECT * FROM work_claim WHERE agent_id = '{}' AND active = true;", escape_surreal(id)),
             None => "SELECT * FROM work_claim WHERE active = true;".to_string(),
         };
-        let claims = match self.query_one(&claims_sql).await {
+        let claim_rows = match self.query_one(&claims_sql).await {
             Ok(c) => c,
             Err(e) => {
                 tracing::warn!(error = %e, "coord who() claims query failed");
                 Vec::new()
             }
         };
+        let claims: Vec<ClaimEntry> = claim_rows.iter().map(|r| ClaimEntry {
+            agent_id: r["agent_id"].as_str().unwrap_or("").to_string(),
+            target: r["target"].as_str().unwrap_or("").to_string(),
+            claim_type: r["claim_type"].as_str().unwrap_or("").to_string(),
+            active: r["active"].as_bool().unwrap_or(false),
+            claimed_at: r["claimed_at"].as_str().unwrap_or("").to_string(),
+            id: r["id"].as_str().unwrap_or("").to_string(),
+        }).collect();
         Ok(CoordSnapshot { agents, claims })
     }
 
-    async fn store_audit(&self, tool: &str, agent_id: &str, details: &serde_json::Value) -> Result<(), CoordError> {
-        let safe_details = escape_surreal(&details.to_string());
-        // Only CREATE — the expensive DELETE is done periodically by the usage flush task.
-        // Previous version ran DELETE ... NOT IN (SELECT ... LIMIT 10000) on EVERY call,
-        // causing full table scans and transaction drops under load.
+    async fn store_audit(&self, tool: &str, agent_id: &str, details: &str) -> Result<(), CoordError> {
+        let safe_details = escape_surreal(details);
         let query = format!(
             "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = '{}';",
             escape_surreal(tool), escape_surreal(agent_id), safe_details,
@@ -740,14 +782,21 @@ impl CoordPort for SurrealHttpStorage {
         Ok(())
     }
 
-    async fn query_audit(&self, tool_filter: Option<&str>, agent_filter: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, CoordError> {
+    async fn query_audit(&self, tool_filter: Option<&str>, agent_filter: Option<&str>, limit: u32) -> Result<Vec<AuditEntry>, CoordError> {
         let limit = limit.min(100);
         let mut conditions = Vec::new();
         if let Some(tool) = tool_filter { conditions.push(format!("tool = '{}'", escape_surreal(tool))); }
         if let Some(agent) = agent_filter { conditions.push(format!("agent_id = '{}'", escape_surreal(agent))); }
         let where_clause = if conditions.is_empty() { String::new() } else { format!(" WHERE {}", conditions.join(" AND ")) };
         let query = format!("SELECT * FROM mcp_audit{} ORDER BY ts DESC LIMIT {};", where_clause, limit);
-        self.query_one(&query).await.map_err(|e| CoordError::StorageFailed(format!("Audit query: {}", e)))
+        let rows = self.query_one(&query).await.map_err(|e| CoordError::StorageFailed(format!("Audit query: {}", e)))?;
+        Ok(rows.iter().map(|r| AuditEntry {
+            ts: r["ts"].as_str().unwrap_or("").to_string(),
+            tool: r["tool"].as_str().unwrap_or("").to_string(),
+            agent_id: r["agent_id"].as_str().unwrap_or("").to_string(),
+            details: r["details"].as_str().unwrap_or("").to_string(),
+            id: r["id"].as_str().unwrap_or("").to_string(),
+        }).collect())
     }
 
     async fn heartbeat(&self, agent_id: &str) -> Result<(), CoordError> {

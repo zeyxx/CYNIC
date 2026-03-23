@@ -166,7 +166,7 @@ async fn observation_store_and_query() {
     assert!(!rows.is_empty(), "should have observations");
     // Verify row structure has target and tool fields
     let first = &rows[0];
-    assert!(first.get("target").is_some(), "rows should have 'target' field");
+    assert!(!first.target.is_empty(), "rows should have a non-empty 'target' field");
 
     common::teardown_test_db(&db).await;
 }
@@ -187,8 +187,8 @@ async fn observation_query_session_targets() {
     // Session-B has 1 target — may be filtered by the query's HAVING clause.
     assert!(!rows.is_empty(), "session-A with 2 targets should produce co-occurrence data");
     for row in &rows {
-        // Each row must be a valid JSON object (not null/empty)
-        assert!(row.is_object(), "each row should be a JSON object, got: {}", row);
+        assert!(!row.session_id.is_empty() || !row.target.is_empty(),
+            "each row should have session_id or target, got: {:?}", row);
     }
 
     common::teardown_test_db(&db).await;
@@ -275,7 +275,7 @@ async fn coord_expire_stale_does_not_break() {
 async fn audit_store_and_query() {
     let Some(db) = common::setup_test_db("audit_rt").await else { return; };
 
-    let details = serde_json::json!({"action": "test", "target": "file.rs"});
+    let details = serde_json::json!({"action": "test", "target": "file.rs"}).to_string();
     db.store_audit("cynic_judge", "test-agent", &details).await
         .expect("store_audit failed");
     db.store_audit("cynic_infer", "test-agent", &details).await.unwrap();

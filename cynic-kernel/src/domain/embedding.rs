@@ -30,24 +30,15 @@ impl Embedding {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum EmbeddingError {
+    #[error("Embedding unreachable: {0}")]
     Unreachable(String),
+    #[error("Embedding timed out after {ms}ms")]
     Timeout { ms: u64 },
+    #[error("Embedding protocol error: {0}")]
     Protocol(String),
 }
-
-impl std::fmt::Display for EmbeddingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Unreachable(msg) => write!(f, "Embedding unreachable: {}", msg),
-            Self::Timeout { ms } => write!(f, "Embedding timed out after {}ms", ms),
-            Self::Protocol(msg) => write!(f, "Embedding protocol error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for EmbeddingError {}
 
 /// Port for generating embeddings. Adapter implementations call external servers.
 #[async_trait]

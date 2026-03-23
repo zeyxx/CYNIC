@@ -16,11 +16,12 @@ pub struct EmbeddingBackend {
 }
 
 impl EmbeddingBackend {
-    pub fn new(base_url: &str, api_key: Option<String>, model: &str) -> Result<Self, reqwest::Error> {
+    pub fn new(base_url: &str, api_key: Option<String>, model: &str) -> Result<Self, crate::domain::inference::BackendInitError> {
         Ok(Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(30))
-                .build()?,
+                .build()
+                .map_err(crate::domain::inference::BackendInitError::from_http)?,
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key,
             model: model.to_string(),
@@ -29,7 +30,7 @@ impl EmbeddingBackend {
 
     /// Build from environment variables.
     /// CYNIC_EMBED_URL overrides, else derives from CYNIC_REST_ADDR host + port 8081.
-    pub fn from_env() -> Result<Self, reqwest::Error> {
+    pub fn from_env() -> Result<Self, crate::domain::inference::BackendInitError> {
         let base_url = std::env::var("CYNIC_EMBED_URL")
             .unwrap_or_else(|_| {
                 let rest = std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".into());

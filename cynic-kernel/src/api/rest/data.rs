@@ -208,7 +208,7 @@ pub struct ObservationsQuery {
 pub async fn observations_handler(
     State(state): State<Arc<AppState>>,
     Query(q): Query<ObservationsQuery>,
-) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<Json<Vec<crate::domain::storage::RawObservation>>, (StatusCode, Json<ErrorResponse>)> {
     let limit = q.limit.unwrap_or(100).min(100); // safe_limit caps at 100 in storage
     match state.storage.list_observations_raw(q.domain.as_deref(), q.agent_id.as_deref(), limit).await {
         Ok(rows) => Ok(Json(rows)),
@@ -261,7 +261,7 @@ pub struct AuditQuery {
 pub async fn audit_handler(
     State(state): State<Arc<AppState>>,
     Query(q): Query<AuditQuery>,
-) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<Json<Vec<crate::domain::coord::AuditEntry>>, (StatusCode, Json<ErrorResponse>)> {
     let limit = q.limit.unwrap_or(50).min(100);
     match state.coord.query_audit(q.tool.as_deref(), q.agent_id.as_deref(), limit).await {
         Ok(rows) => Ok(Json(rows)),

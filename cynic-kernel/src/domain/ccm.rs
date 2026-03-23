@@ -245,14 +245,10 @@ pub fn format_session_context(summaries: &[SessionSummary], max_chars: usize) ->
 
 /// Format raw observations into a summarization prompt for the sovereign LLM.
 /// Pure function — no I/O.
-pub fn format_summarization_prompt(observations: &[serde_json::Value]) -> String {
+pub fn format_summarization_prompt(observations: &[crate::domain::storage::RawObservation]) -> String {
     let mut items: Vec<String> = Vec::new();
     for obs in observations.iter().take(30) {
-        let tool = obs["tool"].as_str().unwrap_or("?");
-        let target = obs["target"].as_str().unwrap_or("?");
-        let domain = obs["domain"].as_str().unwrap_or("?");
-        let status = obs["status"].as_str().unwrap_or("?");
-        items.push(format!("- {} {} (domain: {}, status: {})", tool, target, domain, status));
+        items.push(format!("- {} {} (domain: {}, status: {})", obs.tool, obs.target, obs.domain, obs.status));
     }
     format!(
         "Summarize this development session in 2-3 sentences. Focus on WHAT was done and WHY. Be specific about files and outcomes.\n\nObservations:\n{}",
@@ -280,7 +276,7 @@ pub fn content_hash(input: &str) -> u64 {
 ///
 /// Pure logic: takes query results, returns (id, content, domain, score) tuples.
 /// Caller is responsible for DB queries and observe_crystal calls.
-pub fn extract_patterns(rows: &[serde_json::Value], total_observations: u64) -> Vec<(String, String, f64)> {
+pub fn extract_patterns(rows: &[crate::domain::storage::ObservationFrequency], total_observations: u64) -> Vec<(String, String, f64)> {
     if total_observations == 0 {
         return Vec::new();
     }
@@ -288,19 +284,15 @@ pub fn extract_patterns(rows: &[serde_json::Value], total_observations: u64) -> 
     let mut patterns: Vec<(String, String, f64)> = Vec::new();
 
     for row in rows {
-        let target = row["target"].as_str().unwrap_or("").to_string();
-        let tool = row["tool"].as_str().unwrap_or("").to_string();
-        let freq = row["freq"].as_u64().unwrap_or(0);
-
-        if target.is_empty() || freq < 3 {
+        if row.target.is_empty() || row.freq < 3 {
             continue; // Skip noise — at least 3 occurrences to matter
         }
 
-        let score = freq as f64 / total_observations as f64;
+        let score = row.freq as f64 / total_observations as f64;
         // Crystal ID: deterministic hash of the pattern
-        let id = format!("wf_{:x}", content_hash(&format!("{}:{}", tool, target)));
+        let id = format!("wf_{:x}", content_hash(&format!("{}:{}", row.tool, row.target)));
         // Human-readable content for injection into prompts
-        let content = format!("{} {} — {}x observed", tool, target, freq);
+        let content = format!("{} {} — {}x observed", row.tool, row.target, row.freq);
 
         patterns.push((id, content, score));
     }
@@ -313,18 +305,16 @@ pub fn extract_patterns(rows: &[serde_json::Value], total_observations: u64) -> 
 /// Output: (crystal_id, content, score) for pairs that co-occur in 2+ sessions.
 ///
 /// Pure function — all co-occurrence computation happens in Rust, not SQL.
-pub fn extract_cooccurrences(rows: &[serde_json::Value]) -> Vec<(String, String, f64)> {
+pub fn extract_cooccurrences(rows: &[crate::domain::storage::SessionTarget]) -> Vec<(String, String, f64)> {
     use std::collections::{HashMap, HashSet};
 
     // Group targets by session
     let mut sessions: HashMap<String, HashSet<String>> = HashMap::new();
     for row in rows {
-        let session = row["session_id"].as_str().unwrap_or("").to_string();
-        let target = row["target"].as_str().unwrap_or("").to_string();
-        if session.is_empty() || target.is_empty() {
+        if row.session_id.is_empty() || row.target.is_empty() {
             continue;
         }
-        sessions.entry(session).or_default().insert(target);
+        sessions.entry(row.session_id.clone()).or_default().insert(row.target.clone());
     }
 
     // Only sessions with 2+ distinct targets can produce co-occurrences
@@ -386,7 +376,7 @@ pub async fn aggregate_observations(
 
     // Derive total from the same result set — atomic, no race between two queries
     let total = rows.iter()
-        .filter_map(|r| r["freq"].as_u64())
+        .map(|r| r.freq)
         .sum::<u64>()
         .max(1); // Avoid division by zero
 
@@ -535,10 +525,11 @@ mod tests {
 
     #[test]
     fn extract_patterns_basic() {
+        use crate::domain::storage::ObservationFrequency;
         let rows = vec![
-            serde_json::json!({"target": "storage.rs", "tool": "Edit", "freq": 10}),
-            serde_json::json!({"target": "judge.rs", "tool": "Edit", "freq": 5}),
-            serde_json::json!({"target": "ls", "tool": "Bash", "freq": 2}), // below threshold
+            ObservationFrequency { target: "storage.rs".into(), tool: "Edit".into(), freq: 10 },
+            ObservationFrequency { target: "judge.rs".into(), tool: "Edit".into(), freq: 5 },
+            ObservationFrequency { target: "ls".into(), tool: "Bash".into(), freq: 2 }, // below threshold
         ];
         let patterns = extract_patterns(&rows, 20);
         assert_eq!(patterns.len(), 2); // "ls" filtered out (freq < 3)
@@ -555,15 +546,13 @@ mod tests {
 
     #[test]
     fn cooccurrence_basic() {
+        use crate::domain::storage::SessionTarget;
         let rows = vec![
-            // Session 1: edited A and B
-            serde_json::json!({"session_id": "s1", "target": "/src/a.rs"}),
-            serde_json::json!({"session_id": "s1", "target": "/src/b.rs"}),
-            // Session 2: edited A and B again
-            serde_json::json!({"session_id": "s2", "target": "/src/a.rs"}),
-            serde_json::json!({"session_id": "s2", "target": "/src/b.rs"}),
-            // Session 3: edited A only (no pair)
-            serde_json::json!({"session_id": "s3", "target": "/src/a.rs"}),
+            SessionTarget { session_id: "s1".into(), target: "/src/a.rs".into() },
+            SessionTarget { session_id: "s1".into(), target: "/src/b.rs".into() },
+            SessionTarget { session_id: "s2".into(), target: "/src/a.rs".into() },
+            SessionTarget { session_id: "s2".into(), target: "/src/b.rs".into() },
+            SessionTarget { session_id: "s3".into(), target: "/src/a.rs".into() },
         ];
         let patterns = extract_cooccurrences(&rows);
         assert_eq!(patterns.len(), 1);
@@ -574,10 +563,10 @@ mod tests {
 
     #[test]
     fn cooccurrence_filters_single_occurrence() {
+        use crate::domain::storage::SessionTarget;
         let rows = vec![
-            // Only 1 session with both files — below threshold of 2
-            serde_json::json!({"session_id": "s1", "target": "/src/x.rs"}),
-            serde_json::json!({"session_id": "s1", "target": "/src/y.rs"}),
+            SessionTarget { session_id: "s1".into(), target: "/src/x.rs".into() },
+            SessionTarget { session_id: "s1".into(), target: "/src/y.rs".into() },
         ];
         let patterns = extract_cooccurrences(&rows);
         assert!(patterns.is_empty()); // Need 2+ co-occurrences
@@ -591,9 +580,10 @@ mod tests {
 
     #[test]
     fn cooccurrence_skips_empty_session_id() {
+        use crate::domain::storage::SessionTarget;
         let rows = vec![
-            serde_json::json!({"session_id": "", "target": "/src/a.rs"}),
-            serde_json::json!({"session_id": "", "target": "/src/b.rs"}),
+            SessionTarget { session_id: "".into(), target: "/src/a.rs".into() },
+            SessionTarget { session_id: "".into(), target: "/src/b.rs".into() },
         ];
         let patterns = extract_cooccurrences(&rows);
         assert!(patterns.is_empty());
@@ -601,8 +591,9 @@ mod tests {
 
     #[test]
     fn extract_patterns_skips_empty_targets() {
+        use crate::domain::storage::ObservationFrequency;
         let rows = vec![
-            serde_json::json!({"target": "", "tool": "Bash", "freq": 10}),
+            ObservationFrequency { target: "".into(), tool: "Bash".into(), freq: 10 },
         ];
         let patterns = extract_patterns(&rows, 10);
         assert!(patterns.is_empty());
@@ -698,9 +689,10 @@ mod tests {
 
     #[test]
     fn summarization_prompt_formats_observations() {
+        use crate::domain::storage::RawObservation;
         let obs = vec![
-            serde_json::json!({"tool": "Edit", "target": "ccm.rs", "domain": "code", "status": "ok"}),
-            serde_json::json!({"tool": "Bash", "target": "cargo test", "domain": "workflow", "status": "ok"}),
+            RawObservation { id: String::new(), tool: "Edit".into(), target: "ccm.rs".into(), domain: "code".into(), status: "ok".into(), context: String::new(), created_at: String::new(), project: String::new(), agent_id: String::new(), session_id: String::new() },
+            RawObservation { id: String::new(), tool: "Bash".into(), target: "cargo test".into(), domain: "workflow".into(), status: "ok".into(), context: String::new(), created_at: String::new(), project: String::new(), agent_id: String::new(), session_id: String::new() },
         ];
         let prompt = format_summarization_prompt(&obs);
         assert!(prompt.contains("Summarize this development session"));
@@ -710,8 +702,9 @@ mod tests {
 
     #[test]
     fn summarization_prompt_caps_at_30_observations() {
-        let obs: Vec<serde_json::Value> = (0..50).map(|i| {
-            serde_json::json!({"tool": "Edit", "target": format!("file{}.rs", i), "domain": "code", "status": "ok"})
+        use crate::domain::storage::RawObservation;
+        let obs: Vec<RawObservation> = (0..50).map(|i| {
+            RawObservation { id: String::new(), tool: "Edit".into(), target: format!("file{}.rs", i), domain: "code".into(), status: "ok".into(), context: String::new(), created_at: String::new(), project: String::new(), agent_id: String::new(), session_id: String::new() }
         }).collect();
         let prompt = format_summarization_prompt(&obs);
         assert!(prompt.contains("file29.rs")); // 30th (index 29) should be included

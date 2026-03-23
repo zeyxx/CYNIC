@@ -111,7 +111,7 @@ pub async fn audit_middleware(
                 "path": path,
                 "status": status,
                 "latency_ms": elapsed_ms,
-            });
+            }).to_string();
             state.bg_tasks.spawn(async move {
                 let _permit = permit; // held until task completes
                 match tokio::time::timeout(

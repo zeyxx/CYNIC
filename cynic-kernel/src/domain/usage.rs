@@ -114,19 +114,18 @@ impl DogUsageTracker {
     }
 
     /// Load historical totals from DB rows. Called once at boot.
-    pub fn load_historical(&mut self, rows: &[serde_json::Value]) {
+    pub fn load_historical(&mut self, rows: &[crate::domain::storage::UsageRow]) {
         for row in rows {
-            let dog_id = row["dog_id"].as_str().unwrap_or("").to_string();
-            if dog_id.is_empty() { continue; }
+            if row.dog_id.is_empty() { continue; }
             let usage = DogUsage {
-                prompt_tokens: row["prompt_tokens"].as_u64().unwrap_or(0),
-                completion_tokens: row["completion_tokens"].as_u64().unwrap_or(0),
-                requests: row["requests"].as_u64().unwrap_or(0),
-                failures: row["failures"].as_u64().unwrap_or(0),
-                total_latency_ms: row["total_latency_ms"].as_u64().unwrap_or(0),
+                prompt_tokens: row.prompt_tokens,
+                completion_tokens: row.completion_tokens,
+                requests: row.requests,
+                failures: row.failures,
+                total_latency_ms: row.total_latency_ms,
             };
             self.historical_requests += usage.requests;
-            self.historical.insert(dog_id, usage);
+            self.historical.insert(row.dog_id.clone(), usage);
         }
     }
 
@@ -161,6 +160,11 @@ impl DogUsageTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::storage::UsageRow;
+
+    fn usage_row(dog_id: &str, pt: u64, ct: u64, req: u64, fail: u64, lat: u64) -> UsageRow {
+        UsageRow { dog_id: dog_id.into(), prompt_tokens: pt, completion_tokens: ct, requests: req, failures: fail, total_latency_ms: lat }
+    }
 
     // ── record / record_failure ──────────────────────────
 
@@ -204,12 +208,7 @@ mod tests {
     #[test]
     fn session_tokens_counts_session_only() {
         let mut t = DogUsageTracker::new();
-        // Load historical
-        t.load_historical(&[serde_json::json!({
-            "dog_id": "a", "prompt_tokens": 1000, "completion_tokens": 500,
-            "requests": 10, "failures": 0, "total_latency_ms": 5000
-        })]);
-        // Record session
+        t.load_historical(&[usage_row("a", 1000, 500, 10, 0, 5000)]);
         t.record("a", 100, 50, 200);
 
         assert_eq!(t.session_tokens(), 150); // only session
@@ -221,10 +220,7 @@ mod tests {
     #[test]
     fn all_time_requests_combines_historical_and_session() {
         let mut t = DogUsageTracker::new();
-        t.load_historical(&[serde_json::json!({
-            "dog_id": "a", "prompt_tokens": 0, "completion_tokens": 0,
-            "requests": 42, "failures": 0, "total_latency_ms": 0
-        })]);
+        t.load_historical(&[usage_row("a", 0, 0, 42, 0, 0)]);
         t.record("a", 10, 5, 100);
         t.record("b", 10, 5, 100);
 
@@ -234,17 +230,11 @@ mod tests {
     // ── load_historical ──────────────────────────────────
 
     #[test]
-    fn load_historical_from_json_rows() {
+    fn load_historical_from_typed_rows() {
         let mut t = DogUsageTracker::new();
         let rows = vec![
-            serde_json::json!({
-                "dog_id": "gemini", "prompt_tokens": 5000, "completion_tokens": 2000,
-                "requests": 50, "failures": 3, "total_latency_ms": 25000
-            }),
-            serde_json::json!({
-                "dog_id": "sovereign", "prompt_tokens": 3000, "completion_tokens": 1000,
-                "requests": 30, "failures": 1, "total_latency_ms": 15000
-            }),
+            usage_row("gemini", 5000, 2000, 50, 3, 25000),
+            usage_row("sovereign", 3000, 1000, 30, 1, 15000),
         ];
         t.load_historical(&rows);
 
@@ -256,21 +246,15 @@ mod tests {
     #[test]
     fn load_historical_skips_empty_dog_id() {
         let mut t = DogUsageTracker::new();
-        t.load_historical(&[serde_json::json!({
-            "dog_id": "", "prompt_tokens": 999, "completion_tokens": 0,
-            "requests": 1, "failures": 0, "total_latency_ms": 0
-        })]);
+        t.load_historical(&[usage_row("", 999, 0, 1, 0, 0)]);
         assert_eq!(t.total_tokens(), 0);
         assert_eq!(t.all_time_requests(), 0);
     }
 
     #[test]
-    fn load_historical_handles_missing_fields() {
+    fn load_historical_handles_zero_fields() {
         let mut t = DogUsageTracker::new();
-        t.load_historical(&[serde_json::json!({
-            "dog_id": "partial"
-            // all other fields missing → default to 0
-        })]);
+        t.load_historical(&[usage_row("partial", 0, 0, 0, 0, 0)]);
         assert_eq!(t.total_tokens(), 0);
         assert!(t.all_time_requests() == 0);
     }
@@ -299,12 +283,7 @@ mod tests {
     #[test]
     fn absorb_flush_accumulates_into_existing_historical() {
         let mut t = DogUsageTracker::new();
-        // Boot with historical data
-        t.load_historical(&[serde_json::json!({
-            "dog_id": "a", "prompt_tokens": 1000, "completion_tokens": 500,
-            "requests": 10, "failures": 0, "total_latency_ms": 5000
-        })]);
-        // Session activity
+        t.load_historical(&[usage_row("a", 1000, 500, 10, 0, 5000)]);
         t.record("a", 100, 50, 200);
 
         t.absorb_flush();
@@ -333,10 +312,7 @@ mod tests {
     #[test]
     fn merged_dogs_combines_historical_and_session() {
         let mut t = DogUsageTracker::new();
-        t.load_historical(&[serde_json::json!({
-            "dog_id": "a", "prompt_tokens": 1000, "completion_tokens": 500,
-            "requests": 10, "failures": 1, "total_latency_ms": 5000
-        })]);
+        t.load_historical(&[usage_row("a", 1000, 500, 10, 1, 5000)]);
         t.record("a", 100, 50, 200);
         t.record("b", 200, 100, 500); // new dog, no history
 
@@ -378,10 +354,7 @@ mod tests {
     #[test]
     fn flush_snapshot_returns_absolute_totals() {
         let mut t = DogUsageTracker::new();
-        t.load_historical(&[serde_json::json!({
-            "dog_id": "a", "prompt_tokens": 1000, "completion_tokens": 500,
-            "requests": 10, "failures": 0, "total_latency_ms": 5000
-        })]);
+        t.load_historical(&[usage_row("a", 1000, 500, 10, 0, 5000)]);
         t.record("a", 100, 50, 200);
         t.record("b", 200, 100, 500);
 
@@ -416,10 +389,7 @@ mod tests {
         let mut t = DogUsageTracker::new();
         // Gemini-like pricing: $0.50/1M input, $3.00/1M output
         t.set_cost_rate("a", 0.50, 3.00);
-        t.load_historical(&[serde_json::json!({
-            "dog_id": "a", "prompt_tokens": 500000, "completion_tokens": 500000,
-            "requests": 1, "failures": 0, "total_latency_ms": 0
-        })]);
+        t.load_historical(&[usage_row("a", 500000, 500000, 1, 0, 0)]);
         // 500K input × $0.50/1M + 500K output × $3.00/1M = $0.25 + $1.50 = $1.75
         assert!((t.estimated_cost_usd() - 1.75).abs() < 0.001);
     }

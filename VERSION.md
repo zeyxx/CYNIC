@@ -72,7 +72,7 @@ confiance mathématiquement bornée + apprentissage par cristallisation + infér
 
 ---
 
-## v0.7 — "Le Socle Architectural"
+## v0.7 — "Le Socle Architectural" -- COMPLETE (2026-03-22)
 
 **Thème :** Nettoyer et connecter l'architecture pour que les organes communiquent.
 Pas de nouvelles features — fixer le squelette pour que les muscles puissent se greffer.
@@ -80,6 +80,8 @@ Pas de nouvelles features — fixer le squelette pour que les muscles puissent s
 Les violations architecturales (DIP, ISP, SRP) CAUSENT les problèmes d'organes :
 `KernelEvent` dans REST → MCP aveugle → Bus mort → Provenance impossible.
 Fixer l'architecture débloque tout en cascade.
+
+**Status:** All 5 gates verified. 242 tests, 0 clippy warnings. `make check` green.
 
 ### Gate 1 : KernelEvent dans domain/ — 0 dépendance ascendante dans pipeline
 

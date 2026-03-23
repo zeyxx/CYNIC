@@ -196,30 +196,17 @@ pub fn estimate_tokens(text: &str) -> u32 {
     (text.len() as f64 / 4.0).ceil() as u32
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum DogError {
-    /// Model API returned an error
+    #[error("Dog API error: {0}")]
     ApiError(String),
-    /// Response couldn't be parsed into axiom scores
+    #[error("Dog parse error: {0}")]
     ParseError(String),
-    /// Rate limited
+    #[error("Dog rate limited: {0}")]
     RateLimited(String),
-    /// Request timed out
+    #[error("Dog evaluation timed out")]
     Timeout,
 }
-
-impl std::fmt::Display for DogError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ApiError(msg) => write!(f, "Dog API error: {}", msg),
-            Self::ParseError(msg) => write!(f, "Dog parse error: {}", msg),
-            Self::RateLimited(msg) => write!(f, "Dog rate limited: {}", msg),
-            Self::Timeout => write!(f, "Dog evaluation timed out"),
-        }
-    }
-}
-
-impl std::error::Error for DogError {}
 
 #[cfg(test)]
 mod tests {

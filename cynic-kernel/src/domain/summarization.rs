@@ -3,24 +3,15 @@
 
 use async_trait::async_trait;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum SummarizationError {
+    #[error("Summarization unreachable: {0}")]
     Unreachable(String),
+    #[error("Summarization timed out")]
     Timeout,
+    #[error("Summarization protocol error: {0}")]
     Protocol(String),
 }
-
-impl std::fmt::Display for SummarizationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Unreachable(msg) => write!(f, "Summarization unreachable: {}", msg),
-            Self::Timeout => write!(f, "Summarization timed out"),
-            Self::Protocol(msg) => write!(f, "Summarization protocol error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for SummarizationError {}
 
 #[async_trait]
 pub trait SummarizationPort: Send + Sync {

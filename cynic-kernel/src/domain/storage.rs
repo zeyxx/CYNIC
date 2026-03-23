@@ -24,24 +24,70 @@ pub struct Observation {
     pub timestamp: String,
 }
 
-#[derive(Debug)]
+// ── TYPED QUERY RESULTS (Gate 3: zero serde_json::Value in domain/) ──
+
+/// Aggregated observation frequency — result of GROUP BY target, tool.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ObservationFrequency {
+    pub target: String,
+    pub tool: String,
+    pub freq: u64,
+}
+
+/// Session × target pair for co-occurrence extraction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionTarget {
+    pub session_id: String,
+    pub target: String,
+}
+
+/// Raw observation row — used by list_observations_raw and get_session_observations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RawObservation {
+    /// SurrealDB record ID (e.g. "observation:abc123") — preserved for API compat.
+    #[serde(default)]
+    pub id: String,
+    pub tool: String,
+    pub target: String,
+    pub domain: String,
+    pub status: String,
+    #[serde(default)]
+    pub context: String,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub project: String,
+    #[serde(default)]
+    pub agent_id: String,
+    #[serde(default)]
+    pub session_id: String,
+}
+
+/// Historical usage row loaded at boot.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageRow {
+    pub dog_id: String,
+    #[serde(default)]
+    pub prompt_tokens: u64,
+    #[serde(default)]
+    pub completion_tokens: u64,
+    #[serde(default)]
+    pub requests: u64,
+    #[serde(default)]
+    pub failures: u64,
+    #[serde(default)]
+    pub total_latency_ms: u64,
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum StorageError {
+    #[error("Storage connection failed: {0}")]
     ConnectionFailed(String),
+    #[error("Storage query failed: {0}")]
     QueryFailed(String),
+    #[error("Not found: {0}")]
     NotFound(String),
 }
-
-impl std::fmt::Display for StorageError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ConnectionFailed(m) => write!(f, "Storage connection failed: {}", m),
-            Self::QueryFailed(m) => write!(f, "Storage query failed: {}", m),
-            Self::NotFound(m) => write!(f, "Not found: {}", m),
-        }
-    }
-}
-
-impl std::error::Error for StorageError {}
 
 /// Storage metrics snapshot — exposed via /health for observability.
 /// Domain type — no dependency on specific DB adapter.
@@ -93,11 +139,10 @@ pub trait StoragePort: Send + Sync {
 
     /// Query observations by project, with optional domain filter.
     /// Returns top observations ordered by frequency (co-occurrence patterns).
-    async fn query_observations(&self, project: &str, domain: Option<&str>, limit: u32) -> Result<Vec<serde_json::Value>, StorageError>;
+    async fn query_observations(&self, project: &str, domain: Option<&str>, limit: u32) -> Result<Vec<ObservationFrequency>, StorageError>;
 
     /// Query distinct targets per session — used for co-occurrence extraction.
-    /// Returns rows of {session_id, target} for sessions with 2+ distinct targets.
-    async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<serde_json::Value>, StorageError>;
+    async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<SessionTarget>, StorageError>;
 
     /// List crystals that have no embedding vector stored.
     /// Used by the backfill task to retroactively embed orphan crystals.
@@ -116,7 +161,7 @@ pub trait StoragePort: Send + Sync {
     }
 
     /// List raw observations with optional filters — used by /observations endpoint.
-    async fn list_observations_raw(&self, _domain: Option<&str>, _agent_id: Option<&str>, _limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
+    async fn list_observations_raw(&self, _domain: Option<&str>, _agent_id: Option<&str>, _limit: u32) -> Result<Vec<RawObservation>, StorageError> {
         Ok(vec![])
     }
 
@@ -159,7 +204,7 @@ pub trait StoragePort: Send + Sync {
     }
 
     /// Get raw observations for a specific session (for summarization).
-    async fn get_session_observations(&self, _session_id: &str) -> Result<Vec<serde_json::Value>, StorageError> {
+    async fn get_session_observations(&self, _session_id: &str) -> Result<Vec<RawObservation>, StorageError> {
         Ok(vec![])
     }
 
@@ -179,7 +224,7 @@ pub trait StoragePort: Send + Sync {
     }
 
     /// Load historical usage data — used to restore DogUsageTracker at boot.
-    async fn load_usage_history(&self) -> Result<Vec<serde_json::Value>, StorageError> {
+    async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
         Ok(vec![]) // Default: no history
     }
 }
@@ -220,10 +265,10 @@ impl StoragePort for NullStorage {
     async fn store_observation(&self, _obs: &Observation) -> Result<(), StorageError> {
         Ok(())
     }
-    async fn query_observations(&self, _project: &str, _domain: Option<&str>, _limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
+    async fn query_observations(&self, _project: &str, _domain: Option<&str>, _limit: u32) -> Result<Vec<ObservationFrequency>, StorageError> {
         Ok(vec![])
     }
-    async fn query_session_targets(&self, _project: &str, _limit: u32) -> Result<Vec<serde_json::Value>, StorageError> {
+    async fn query_session_targets(&self, _project: &str, _limit: u32) -> Result<Vec<SessionTarget>, StorageError> {
         Ok(vec![])
     }
     async fn flush_usage(&self, _snapshot: &[(String, crate::domain::usage::DogUsage)]) -> Result<(), StorageError> {

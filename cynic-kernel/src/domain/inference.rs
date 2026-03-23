@@ -89,26 +89,29 @@ pub struct InferenceResponse {
     pub backend_id: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum BackendError {
+    #[error("Backend unreachable: {0}")]
     Unreachable(String),
+    #[error("Model not loaded: {0}")]
     ModelNotLoaded(String),
+    #[error("Backend {backend_id} timed out after {ms}ms")]
     Timeout { backend_id: String, ms: u64 },
+    #[error("Protocol error: {0}")]
     Protocol(String),
 }
 
-impl std::fmt::Display for BackendError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Unreachable(id)       => write!(f, "Backend unreachable: {}", id),
-            Self::ModelNotLoaded(m)     => write!(f, "Model not loaded: {}", m),
-            Self::Timeout { backend_id, ms } => write!(f, "Backend {} timed out after {}ms", backend_id, ms),
-            Self::Protocol(msg)         => write!(f, "Protocol error: {}", msg),
-        }
+/// Error during backend construction (HTTP client init).
+/// Isolates reqwest::Error from leaking into the domain.
+#[derive(Debug, thiserror::Error)]
+#[error("Backend initialization failed: {0}")]
+pub struct BackendInitError(String);
+
+impl BackendInitError {
+    pub fn from_http(e: impl std::fmt::Display) -> Self {
+        Self(e.to_string())
     }
 }
-
-impl std::error::Error for BackendError {}
 
 use async_trait::async_trait;
 

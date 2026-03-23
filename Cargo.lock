@@ -231,6 +231,7 @@ dependencies = [
  "serde_json",
  "sysinfo",
  "tempfile",
+ "thiserror",
  "tokio",
  "tokio-util",
  "toml",

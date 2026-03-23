@@ -356,3 +356,84 @@ async fn list_crystals_with_domain_filter() {
     let v = body_json(resp.into_body()).await;
     assert!(v.is_array(), "CONTRACT: /crystals must return array");
 }
+
+// ── Gate 3 serialization contracts ─────────────────────────
+// These tests verify that domain structs serialize to the expected JSON shape.
+// They exist because Gate 3 replaced Vec<serde_json::Value> with typed structs.
+// A field rename or removal here would be a breaking API change.
+
+#[test]
+fn raw_observation_json_shape() {
+    use cynic_kernel::domain::storage::RawObservation;
+    let obs = RawObservation {
+        id: "observation:abc123".into(),
+        tool: "Edit".into(), target: "main.rs".into(), domain: "code".into(),
+        status: "success".into(), context: "test".into(),
+        created_at: "2026-03-23T00:00:00Z".into(),
+        project: "CYNIC".into(), agent_id: "agent-1".into(), session_id: "sess-1".into(),
+    };
+    let v: serde_json::Value = serde_json::to_value(&obs).unwrap();
+    // CONTRACT: these fields must exist with these exact names
+    for field in ["id", "tool", "target", "domain", "status", "context",
+                  "created_at", "project", "agent_id", "session_id"] {
+        assert!(v.get(field).is_some(), "CONTRACT: RawObservation must have '{}' field", field);
+    }
+}
+
+#[test]
+fn audit_entry_json_shape() {
+    use cynic_kernel::domain::coord::AuditEntry;
+    let entry = AuditEntry {
+        id: "mcp_audit:xyz".into(), ts: "2026-03-23T00:00:00Z".into(),
+        tool: "cynic_judge".into(), agent_id: "agent-1".into(),
+        details: r#"{"action":"test"}"#.into(),
+    };
+    let v: serde_json::Value = serde_json::to_value(&entry).unwrap();
+    for field in ["id", "ts", "tool", "agent_id", "details"] {
+        assert!(v.get(field).is_some(), "CONTRACT: AuditEntry must have '{}' field", field);
+    }
+}
+
+#[test]
+fn agent_info_json_shape() {
+    use cynic_kernel::domain::coord::AgentInfo;
+    let info = AgentInfo {
+        id: "agent_session:abc".into(), agent_id: "claude-123".into(),
+        agent_type: "claude".into(), intent: "testing".into(),
+        active: true, registered_at: "2026-03-23T00:00:00Z".into(),
+        last_seen: "2026-03-23T00:00:00Z".into(),
+    };
+    let v: serde_json::Value = serde_json::to_value(&info).unwrap();
+    for field in ["id", "agent_id", "agent_type", "intent", "active",
+                  "registered_at", "last_seen"] {
+        assert!(v.get(field).is_some(), "CONTRACT: AgentInfo must have '{}' field", field);
+    }
+}
+
+#[test]
+fn claim_entry_json_shape() {
+    use cynic_kernel::domain::coord::ClaimEntry;
+    let claim = ClaimEntry {
+        id: "work_claim:abc".into(), agent_id: "claude-123".into(),
+        target: "main.rs".into(), claim_type: "file".into(),
+        active: true, claimed_at: "2026-03-23T00:00:00Z".into(),
+    };
+    let v: serde_json::Value = serde_json::to_value(&claim).unwrap();
+    for field in ["id", "agent_id", "target", "claim_type", "active", "claimed_at"] {
+        assert!(v.get(field).is_some(), "CONTRACT: ClaimEntry must have '{}' field", field);
+    }
+}
+
+#[test]
+fn usage_row_json_shape() {
+    use cynic_kernel::domain::storage::UsageRow;
+    let row = UsageRow {
+        dog_id: "gemini".into(), prompt_tokens: 1000, completion_tokens: 500,
+        requests: 10, failures: 1, total_latency_ms: 5000,
+    };
+    let v: serde_json::Value = serde_json::to_value(&row).unwrap();
+    for field in ["dog_id", "prompt_tokens", "completion_tokens",
+                  "requests", "failures", "total_latency_ms"] {
+        assert!(v.get(field).is_some(), "CONTRACT: UsageRow must have '{}' field", field);
+    }
+}

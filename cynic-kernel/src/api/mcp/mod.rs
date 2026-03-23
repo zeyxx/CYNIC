@@ -618,7 +618,7 @@ impl CynicMcp {
 
     /// Audit + heartbeat in one shot (best-effort, non-blocking).
     async fn audit(&self, tool_name: &str, agent_id: &str, details: &serde_json::Value) {
-        let _ = self.coord.store_audit(tool_name, agent_id, details).await; // ok: fire-and-forget
+        let _ = self.coord.store_audit(tool_name, agent_id, &details.to_string()).await; // ok: fire-and-forget
         self.touch(agent_id).await;
     }
 }
@@ -662,8 +662,8 @@ mod tests {
         async fn delete_crystal(&self, _: &str) -> Result<(), StorageError> { Ok(()) }
         async fn observe_crystal(&self, _: &str, _: &str, _: &str, _: f64, _: &str) -> Result<(), StorageError> { Ok(()) }
         async fn store_observation(&self, _: &crate::domain::storage::Observation) -> Result<(), StorageError> { Ok(()) }
-        async fn query_observations(&self, _: &str, _: Option<&str>, _: u32) -> Result<Vec<serde_json::Value>, StorageError> { Ok(vec![]) }
-        async fn query_session_targets(&self, _: &str, _: u32) -> Result<Vec<serde_json::Value>, StorageError> { Ok(vec![]) }
+        async fn query_observations(&self, _: &str, _: Option<&str>, _: u32) -> Result<Vec<crate::domain::storage::ObservationFrequency>, StorageError> { Ok(vec![]) }
+        async fn query_session_targets(&self, _: &str, _: u32) -> Result<Vec<crate::domain::storage::SessionTarget>, StorageError> { Ok(vec![]) }
         async fn flush_usage(&self, _: &[(String, crate::domain::usage::DogUsage)]) -> Result<(), StorageError> { Ok(()) }
     }
 
