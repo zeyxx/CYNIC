@@ -298,6 +298,68 @@ pub async fn validate_config(configs: &[BackendConfig]) {
     }
 }
 
+// ── DOMAIN PROMPTS ───────────────────────────────────────────
+
+/// Load domain-specific axiom evaluation prompts from `domains/*.md`.
+/// Returns a map of domain name → axiom prompt text.
+/// The markdown heading (first `# ...` line) and any content before the first
+/// `## FIDELITY` section is used as a preamble. Each `## AXIOM` section
+/// provides domain-specific evaluation criteria for that axiom.
+///
+/// If the directory doesn't exist or is empty, returns an empty map (graceful degradation).
+pub fn load_domain_prompts(project_root: &Path) -> std::collections::HashMap<String, String> {
+    let domains_dir = project_root.join("domains");
+    let mut prompts = std::collections::HashMap::new();
+
+    let entries = match std::fs::read_dir(&domains_dir) {
+        Ok(e) => e,
+        Err(_) => {
+            klog!("[config] No domains/ directory — using generic prompts for all domains");
+            return prompts;
+        }
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("md") {
+            continue;
+        }
+        let domain = path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_string();
+        if domain.is_empty() { continue; }
+
+        match std::fs::read_to_string(&path) {
+            Ok(content) => {
+                // Strip the first heading line (# Domain Name — ...)
+                let prompt: String = content.lines()
+                    .skip_while(|l| l.trim().is_empty())
+                    .skip(if content.trim_start().starts_with('#') { 1 } else { 0 })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    .trim()
+                    .to_string();
+                if !prompt.is_empty() {
+                    klog!("[config] Domain prompt loaded: '{}' ({} chars)", domain, prompt.len());
+                    prompts.insert(domain, prompt);
+                }
+            }
+            Err(e) => {
+                tracing::warn!(path = %path.display(), error = %e, "failed to read domain prompt file");
+            }
+        }
+    }
+
+    if prompts.is_empty() {
+        klog!("[config] No domain prompts found — using generic prompts");
+    } else {
+        klog!("[config] {} domain prompt(s) loaded", prompts.len());
+    }
+
+    prompts
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

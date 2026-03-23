@@ -13,20 +13,42 @@ pub struct InferenceDog {
     dog_name: String,
     context_size: u32,
     timeout: u64,
+    domain_prompts: Arc<std::collections::HashMap<String, String>>,
 }
 
 impl InferenceDog {
-    pub fn new(chat: Arc<dyn ChatPort>, name: String, context_size: u32, timeout_secs: u64) -> Self {
-        Self { chat, dog_name: name, context_size, timeout: timeout_secs }
+    pub fn new(
+        chat: Arc<dyn ChatPort>, name: String, context_size: u32, timeout_secs: u64,
+    ) -> Self {
+        Self { chat, dog_name: name, context_size, timeout: timeout_secs,
+               domain_prompts: Arc::new(std::collections::HashMap::new()) }
+    }
+
+    pub fn with_domain_prompts(mut self, prompts: Arc<std::collections::HashMap<String, String>>) -> Self {
+        self.domain_prompts = prompts;
+        self
     }
 
     fn build_system_prompt() -> &'static str {
         "You are CYNIC, a sovereign epistemic judge. You evaluate THE SUBJECT MATTER described in the stimulus — not the quality of its description. In chess, judge the MOVE or STRATEGY, not the text. In science, judge the CLAIM, not the writing. Your axioms measure the SUBSTANCE, not the FORM.\n\nVERIFY means 'does this SURVIVE testing?' — not 'can you test it?' A strategy easily refuted by analysis scores LOW on VERIFY. A claim disproven by evidence scores LOW on VERIFY.\n\nBe harsh. Be honest. Overconfidence is the enemy. Most things deserve 0.3-0.6, not 0.8-0.9."
     }
 
-    fn build_user_prompt(stimulus: &Stimulus) -> String {
+    fn build_user_prompt(stimulus: &Stimulus, domain_prompts: &std::collections::HashMap<String, String>) -> String {
         let context_block = stimulus.context.as_deref().unwrap_or("(no additional context)");
         let domain = stimulus.domain.as_deref().unwrap_or("general");
+
+        // Domain-specific axiom evaluation criteria (from domains/*.md)
+        let axioms_section = if let Some(domain_prompt) = domain_prompts.get(domain) {
+            format!("DOMAIN-SPECIFIC EVALUATION CRITERIA:\n{domain_prompt}")
+        } else {
+            "AXIOMS:\n\
+             1. FIDELITY — Is the SUBJECT MATTER itself sound? Judge the THING, not the accuracy of its description.\n\
+             2. PHI — Is this structurally harmonious? Well-coordinated? Proportional?\n\
+             3. VERIFY — Does this SURVIVE scrutiny? When tested against the strongest counterarguments, does it hold?\n\
+             4. CULTURE — Does this honor existing traditions, conventions, and established patterns?\n\
+             5. BURN — Is this efficient? Minimal waste? Could excess be destroyed without loss?\n\
+             6. SOVEREIGNTY — Does this preserve individual agency and freedom of choice?".to_string()
+        };
 
         format!(r#"DOMAIN: {domain}
 STIMULUS: {content}
@@ -34,13 +56,7 @@ CONTEXT: {context_block}
 
 Evaluate THE SUBJECT MATTER described (not the description). Score each axiom from 0.0 to 1.0 with honest uncertainty.
 
-AXIOMS:
-1. FIDELITY — Is the SUBJECT MATTER itself sound? In chess: is this move/strategy actually good? A terrible move accurately described is FIDELITY=LOW. Judge the THING, not the accuracy of its description.
-2. PHI — Is this structurally harmonious? Well-coordinated? Proportional?
-3. VERIFY — Does this SURVIVE scrutiny? When tested against the strongest counterarguments, does it hold?
-4. CULTURE — Does this honor existing traditions, conventions, and established patterns?
-5. BURN — Is this efficient? Minimal waste? Could excess be destroyed without loss?
-6. SOVEREIGNTY — Does this preserve individual agency and freedom of choice?
+{axioms_section}
 
 Respond ONLY with this exact JSON. Keep each reason under 15 words.
 {{"fidelity": 0.XX, "phi": 0.XX, "verify": 0.XX, "culture": 0.XX, "burn": 0.XX, "sovereignty": 0.XX, "fidelity_reason": "...", "phi_reason": "...", "verify_reason": "...", "culture_reason": "...", "burn_reason": "...", "sovereignty_reason": "..."}}"#,
@@ -94,7 +110,7 @@ impl Dog for InferenceDog {
 
     async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError> {
         let system = Self::build_system_prompt();
-        let user = Self::build_user_prompt(stimulus);
+        let user = Self::build_user_prompt(stimulus, &self.domain_prompts);
 
         let chat_resp = self.chat.chat(system, &user).await
             .map_err(|e| match e {
@@ -260,7 +276,8 @@ mod tests {
             context: Some("Chess opening".into()),
             domain: Some("chess".into()),
         };
-        let prompt = InferenceDog::build_user_prompt(&stimulus);
+        let empty = std::collections::HashMap::new();
+        let prompt = InferenceDog::build_user_prompt(&stimulus, &empty);
         assert!(prompt.contains("e4 e5 Nf3"));
         assert!(prompt.contains("chess"));
         assert!(prompt.contains("FIDELITY"));

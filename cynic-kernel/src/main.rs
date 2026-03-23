@@ -87,6 +87,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Validate config — probe health URLs, log warnings (non-blocking)
     infra::config::validate_config(&backend_configs).await;
 
+    // ─── RING 1: Load domain prompts (chess.md, trading.md, etc.) ──
+    let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let domain_prompts = Arc::new(infra::config::load_domain_prompts(project_root));
+
     // ─── RING 2: Build Dogs (model-agnostic evaluators) ───────
     let mut dogs: Vec<Box<dyn domain::dog::Dog>> = Vec::new();
 
@@ -123,7 +127,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(rem) = cfg.remediation.clone() {
             remediation_configs.insert(cfg.name.clone(), rem);
         }
-        dogs.push(Box::new(dogs::inference::InferenceDog::new(backend, cfg.name.clone(), cfg.context_size, cfg.timeout_secs)));
+        dogs.push(Box::new(
+            dogs::inference::InferenceDog::new(backend, cfg.name.clone(), cfg.context_size, cfg.timeout_secs)
+                .with_domain_prompts(Arc::clone(&domain_prompts))
+        ));
     }
 
     klog!("[Ring 2] {} Dog(s) active", dogs.len());

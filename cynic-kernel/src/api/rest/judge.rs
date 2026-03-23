@@ -54,7 +54,7 @@ pub async fn judge_handler(
         event_tx: Some(&state.event_tx),
     };
     let result = crate::pipeline::run(
-        content, req.context, req.domain, req.dogs.as_deref(), &deps,
+        content, req.context, req.domain, req.dogs.as_deref(), req.crystals, &deps,
     ).await.map_err(|e| {
         tracing::error!(error = %e, "judge pipeline failed");
         (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "evaluation failed".into() }))

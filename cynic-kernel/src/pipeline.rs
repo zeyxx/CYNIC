@@ -51,6 +51,7 @@ pub async fn run(
     context: Option<String>,
     domain: Option<String>,
     dogs_filter: Option<&[String]>,
+    inject_crystals: bool,
     deps: &PipelineDeps<'_>,
 ) -> Result<PipelineResult, JudgeError> {
     let PipelineDeps { judge, storage, embedding, verdict_cache, metrics, event_tx, .. } = *deps;
@@ -79,7 +80,9 @@ pub async fn run(
     // CRITICAL: cache hits still feed the crystal loop. Without this, repeated
     // stimuli (68% of chess, 100% of trading in tests) never accumulate crystal
     // observations → crystals never reach 21 obs → never inject → no compound.
-    if let Some(emb) = &stimulus_embedding
+    // Skip cache in A/B mode (crystals=false) — must re-evaluate to measure crystal delta.
+    if inject_crystals
+        && let Some(emb) = &stimulus_embedding
         && let CacheLookup::Hit { verdict, similarity } = verdict_cache.lookup(emb)
     {
         metrics.inc_cache_hit();
@@ -93,19 +96,24 @@ pub async fn run(
     metrics.inc_cache_miss();
     tracing::info!(phase = "cache", result = "miss");
 
-    let crystals = if let Some(ref emb) = stimulus_embedding {
-        storage.search_crystals_semantic(&emb.vector, 10).await
-            .inspect_err(|e| tracing::warn!(error = %e, "semantic crystal search failed — fallback to domain list"))
-            .unwrap_or_default()
+    let crystals = if inject_crystals {
+        let found = if let Some(ref emb) = stimulus_embedding {
+            storage.search_crystals_semantic(&emb.vector, 10).await
+                .inspect_err(|e| tracing::warn!(error = %e, "semantic crystal search failed — fallback to domain list"))
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        if found.is_empty() {
+            storage.list_crystals_for_domain(domain_hint, 10).await
+                .inspect_err(|e| tracing::warn!(error = %e, "domain crystal list failed — pipeline continues without crystals"))
+                .unwrap_or_default()
+        } else {
+            found
+        }
     } else {
+        tracing::info!(phase = "crystals", "crystal injection disabled (A/B mode)");
         Vec::new()
-    };
-    let crystals = if crystals.is_empty() {
-        storage.list_crystals_for_domain(domain_hint, 10).await
-            .inspect_err(|e| tracing::warn!(error = %e, "domain crystal list failed — pipeline continues without crystals"))
-            .unwrap_or_default()
-    } else {
-        crystals
     };
     tracing::info!(phase = "crystals", count = crystals.len(), "crystal retrieval complete");
 
@@ -416,7 +424,7 @@ mod tests {
         };
         let result = run(
             "1. e4 c5 — The Sicilian Defense".into(),
-            None, Some("chess".into()), None, &deps,
+            None, Some("chess".into()), None, true, &deps,
         ).await;
 
         match result {
@@ -450,7 +458,7 @@ mod tests {
             usage: &usage, verdict_cache: &verdict_cache, metrics: &metrics,
             event_tx: None,
         };
-        let _ = run("test content".into(), None, None, None, &deps).await;
+        let _ = run("test content".into(), None, None, None, true, &deps).await;
 
         let u = usage.lock().await;
         assert!(!u.snapshot().is_empty(), "usage should have at least one Dog entry");

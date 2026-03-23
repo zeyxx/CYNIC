@@ -43,6 +43,8 @@ pub struct JudgeParams {
     pub dogs: Option<Vec<String>>,
     /// Agent identity for audit trail (default: "unknown")
     pub agent_id: Option<String>,
+    /// Disable crystal injection for A/B testing (default: true)
+    pub crystals: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -212,7 +214,8 @@ impl CynicMcp {
             event_tx: self.event_tx.as_ref(),
         };
         let result = crate::pipeline::run(
-            p.content.clone(), p.context, p.domain.clone(), p.dogs.as_deref(), &deps,
+            p.content.clone(), p.context, p.domain.clone(), p.dogs.as_deref(),
+            p.crystals.unwrap_or(true), &deps,
         ).await.map_err(|e| McpError::internal_error(format!("Judge error: {}", e), None))?;
 
         let verdict = match result {
@@ -712,6 +715,7 @@ mod tests {
             domain: Some("chess".into()),
             dogs: None,
             agent_id: Some("test-agent".into()),
+            crystals: None,
         });
         let result = mcp.cynic_judge(params).await.unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
@@ -803,6 +807,7 @@ mod tests {
             domain: None,
             dogs: None,
             agent_id: Some("usage-test".into()),
+            crystals: None,
         });
         let _ = mcp.cynic_judge(params).await.unwrap();
 

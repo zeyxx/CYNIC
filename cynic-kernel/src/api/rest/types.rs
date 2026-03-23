@@ -128,7 +128,12 @@ pub struct JudgeRequest {
     pub domain: Option<String>,
     /// Optional: evaluate with only these Dogs (by ID). If omitted, all Dogs are used.
     pub dogs: Option<Vec<String>>,
+    /// Optional: disable crystal injection for A/B testing. Default: true.
+    #[serde(default = "default_true")]
+    pub crystals: bool,
 }
+
+fn default_true() -> bool { true }
 
 #[derive(Serialize)]
 pub struct JudgeResponse {
