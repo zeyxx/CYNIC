@@ -56,6 +56,8 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — mechanical checks the compil
 	if [ -n "$$R17" ]; then echo "FAIL Rule #17: reqwest outside backends/storage:"; echo "$$R17"; FAIL=1; fi; \
 	R19=$$(rg 'format_crystal_context' cynic-kernel/src/api/ 2>/dev/null | grep -v '//'); \
 	if [ -n "$$R19" ]; then echo "FAIL Rule #19: format_crystal_context in handler (should be in pipeline):"; echo "$$R19"; FAIL=1; fi; \
+	R32=$$(rg 'serde_json::Value' cynic-kernel/src/domain/ 2>/dev/null | grep -v '//' | grep -v '#\[cfg(test)\]'); \
+	if [ -n "$$R32" ]; then echo "FAIL Rule #32: serde_json::Value in domain/:"; echo "$$R32"; FAIL=1; fi; \
 	SECRETS=$$(git diff --staged 2>/dev/null | grep -iE 'api.key|token|password|secret|AIza|hf_' | grep -v '#' | grep -v '//'); \
 	if [ -n "$$SECRETS" ]; then echo "FAIL Security: possible secrets in staged changes:"; echo "$$SECRETS"; FAIL=1; fi; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ All grep-enforceable rules pass"; fi; \
@@ -210,11 +212,31 @@ clean:
 e2e:
 	@$(source_env)
 	@echo "▶ E2E: Sicilian Defense..."
-	@curl -s -X POST "http://$${CYNIC_REST_ADDR}/judge" \
-		-H "Content-Type: application/json" \
-		-H "Authorization: Bearer $${CYNIC_API_KEY}" \
-		-d '{"content":"1. e4 c5 — The Sicilian Defense.","context":"Most popular response to 1.e4","domain":"chess"}' \
-		| python3 -c "import json,sys; v=json.load(sys.stdin); print(f'{v[\"verdict\"]} (Q={v[\"q_score\"][\"total\"]:.3f}) — {v[\"dogs_used\"]}')"
+	@ADDR="http://$${CYNIC_REST_ADDR}"; AUTH="Authorization: Bearer $${CYNIC_API_KEY}"; FAIL=0; \
+	echo ""; \
+	printf "  1/6 Health........... "; \
+	HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "$$ADDR/health"); \
+	[ "$$HTTP" = "200" ] && echo "PASS ($$HTTP)" || { echo "FAIL ($$HTTP)"; FAIL=$$((FAIL+1)); }; \
+	printf "  2/6 Judge+dog_scores. "; \
+	V=$$(curl -s -X POST "$$ADDR/judge" -H "Content-Type: application/json" -H "$$AUTH" \
+		-d '{"content":"1. e4 c5 — The Sicilian Defense.","context":"Most popular response to 1.e4","domain":"chess"}'); \
+	DOGS=$$(echo "$$V" | python3 -c "import json,sys; v=json.load(sys.stdin); print(len(v.get('dog_scores',[])))" 2>/dev/null); \
+	VERDICT=$$(echo "$$V" | python3 -c "import json,sys; print(json.load(sys.stdin)['verdict'])" 2>/dev/null); \
+	[ "$${DOGS:-0}" -gt 0 ] && echo "PASS $$VERDICT dogs=$$DOGS" || { echo "FAIL (dog_scores empty)"; FAIL=$$((FAIL+1)); }; \
+	printf "  3/6 Verdict DB RT.... "; \
+	DB_DOGS=$$(curl -s -H "$$AUTH" "$$ADDR/verdicts?limit=1" | python3 -c "import json,sys; v=json.load(sys.stdin); print(len(v[0].get('dog_scores',[])) if v else 0)" 2>/dev/null); \
+	[ "$${DB_DOGS:-0}" -gt 0 ] && echo "PASS ($$DB_DOGS dogs from DB)" || { echo "FAIL"; FAIL=$$((FAIL+1)); }; \
+	printf "  4/6 Observations..... "; \
+	OBS=$$(curl -s -H "$$AUTH" "$$ADDR/observations?limit=1" | python3 -c "import json,sys; o=json.load(sys.stdin); print(len(o[0].keys()) if o else 0)" 2>/dev/null); \
+	[ "$${OBS:-0}" -ge 10 ] && echo "PASS ($$OBS fields)" || { echo "FAIL ($$OBS fields)"; FAIL=$$((FAIL+1)); }; \
+	printf "  5/6 Audit............ "; \
+	AUD=$$(curl -s -H "$$AUTH" "$$ADDR/audit?limit=1" | python3 -c "import json,sys; a=json.load(sys.stdin); print(len(a[0].keys()) if a else 0)" 2>/dev/null); \
+	[ "$${AUD:-0}" -ge 5 ] && echo "PASS ($$AUD fields)" || { echo "FAIL ($$AUD fields)"; FAIL=$$((FAIL+1)); }; \
+	printf "  6/6 Crystals......... "; \
+	CRY=$$(curl -s -H "$$AUTH" "$$ADDR/crystals?limit=1" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null); \
+	[ "$${CRY:-0}" -gt 0 ] && echo "PASS" || { echo "FAIL"; FAIL=$$((FAIL+1)); }; \
+	echo ""; \
+	[ $$FAIL -eq 0 ] && echo "✓ All 6 E2E checks passed" || { echo "✗ $$FAIL E2E check(s) FAILED"; exit 1; }
 
 # ── Standalone: System status ────────────────────────────────
 .PHONY: status
