@@ -385,8 +385,16 @@ pub async fn summarize_pending_sessions(
 mod tests {
     use super::*;
     use crate::domain::dog::*;
+    use crate::domain::health_gate::HealthGate;
     use crate::domain::embedding::NullEmbedding;
     use crate::domain::storage::NullStorage;
+
+    fn test_judge(dogs: Vec<Box<dyn Dog>>) -> Judge {
+        let breakers: Vec<std::sync::Arc<dyn HealthGate>> = dogs.iter()
+            .map(|d| std::sync::Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as std::sync::Arc<dyn HealthGate>)
+            .collect();
+        Judge::new(dogs, breakers)
+    }
 
     #[tokio::test]
     async fn pipeline_runs_with_null_storage_and_null_embedding() {
@@ -394,7 +402,7 @@ mod tests {
         let dogs: Vec<Box<dyn Dog>> = vec![
             Box::new(crate::dogs::deterministic::DeterministicDog),
         ];
-        let judge = Judge::new(dogs);
+        let judge = test_judge(dogs);
         let storage = NullStorage;
         let embedding = NullEmbedding;
         let usage = Mutex::new(DogUsageTracker::new());
@@ -430,7 +438,7 @@ mod tests {
         let dogs: Vec<Box<dyn Dog>> = vec![
             Box::new(crate::dogs::deterministic::DeterministicDog),
         ];
-        let judge = Judge::new(dogs);
+        let judge = test_judge(dogs);
         let storage = NullStorage;
         let embedding = NullEmbedding;
         let usage = Mutex::new(DogUsageTracker::new());

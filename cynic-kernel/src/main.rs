@@ -154,7 +154,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // ─── RING 2: Build Judge ──────────────────────────────────
-    let judge = judge::Judge::new(dogs);
+    let breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = dogs.iter()
+        .map(|d| Arc::new(infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn domain::health_gate::HealthGate>)
+        .collect();
+    let judge = judge::Judge::new(dogs, breakers);
     // Background task health tracker — updated by each spawned task, exposed in /health
     let task_health = Arc::new(infra::task_health::TaskHealth::new());
     // Lifecycle orchestration — all background tasks select! on this token.
@@ -356,8 +359,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|_| "127.0.0.1:3030".to_string());
     klog!("[Ring 3] REST API on http://{}", rest_addr);
 
-    // Rate limiter eviction (REST-only, every 60s)
-    infra::tasks::spawn_rate_eviction(Arc::clone(&rest_state), Arc::clone(&task_health), shutdown.clone());
+    // Rate limiter eviction (REST delivery concern — lives here, not in infra/tasks.rs)
+    {
+        let rs = Arc::clone(&rest_state);
+        let th = Arc::clone(&task_health);
+        let sd = shutdown.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            interval.tick().await;
+            loop {
+                tokio::select! {
+                    _ = sd.cancelled() => {
+                        klog!("[SHUTDOWN] Rate limiter eviction stopped");
+                        break;
+                    }
+                    _ = interval.tick() => {
+                        match tokio::time::timeout(std::time::Duration::from_secs(5), rs.rate_limiter.evict_stale()).await {
+                            Ok(()) => {}
+                            Err(_) => tracing::warn!("rate_limiter evict_stale timed out (5s)"),
+                        }
+                        match tokio::time::timeout(std::time::Duration::from_secs(5), rs.judge_limiter.evict_stale()).await {
+                            Ok(()) => {}
+                            Err(_) => tracing::warn!("judge_limiter evict_stale timed out (5s)"),
+                        }
+                        th.touch_rate_eviction();
+                    }
+                }
+            }
+        });
+    }
 
     let rest_listener = tokio::net::TcpListener::bind(&rest_addr).await?;
 

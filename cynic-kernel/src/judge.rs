@@ -17,10 +17,8 @@ pub struct Judge {
 }
 
 impl Judge {
-    pub fn new(dogs: Vec<Box<dyn Dog>>) -> Self {
-        let breakers: Vec<Arc<dyn HealthGate>> = dogs.iter()
-            .map(|d| Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn HealthGate>)
-            .collect();
+    pub fn new(dogs: Vec<Box<dyn Dog>>, breakers: Vec<Arc<dyn HealthGate>>) -> Self {
+        assert_eq!(dogs.len(), breakers.len(), "dogs and breakers must be 1:1");
         Self { dogs, breakers, last_hash: Mutex::new(None) }
     }
 
@@ -410,6 +408,14 @@ mod tests {
         }
     }
 
+    /// Convenience: build Judge with auto-created CircuitBreaker per Dog (test-only).
+    fn test_judge(dogs: Vec<Box<dyn Dog>>) -> Judge {
+        let breakers: Vec<Arc<dyn HealthGate>> = dogs.iter()
+            .map(|d| Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn HealthGate>)
+            .collect();
+        Judge::new(dogs, breakers)
+    }
+
     fn test_metrics() -> Metrics {
         Metrics::new()
     }
@@ -424,7 +430,7 @@ mod tests {
 
     #[tokio::test]
     async fn single_dog_produces_verdict() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog {
                 name: "test".into(),
                 scores: AxiomScores {
@@ -446,7 +452,7 @@ mod tests {
 
     #[tokio::test]
     async fn multiple_dogs_averaged() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog {
                 name: "high".into(),
                 scores: AxiomScores {
@@ -477,7 +483,7 @@ mod tests {
 
     #[tokio::test]
     async fn surviving_dog_still_produces_verdict() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FailDog),
             Box::new(FixedDog {
                 name: "survivor".into(),
@@ -496,21 +502,21 @@ mod tests {
 
     #[tokio::test]
     async fn all_dogs_fail_returns_error() {
-        let judge = Judge::new(vec![Box::new(FailDog)]);
+        let judge = test_judge(vec![Box::new(FailDog)]);
         let result = judge.evaluate(&test_stimulus(), None, &test_metrics()).await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn no_dogs_returns_error() {
-        let judge = Judge::new(vec![]);
+        let judge = test_judge(vec![]);
         let result = judge.evaluate(&test_stimulus(), None, &test_metrics()).await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn residual_detection_flags_high_disagreement() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog {
                 name: "optimist".into(),
                 scores: AxiomScores {
@@ -540,7 +546,7 @@ mod tests {
 
     #[tokio::test]
     async fn no_anomaly_when_dogs_agree() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog {
                 name: "a".into(),
                 scores: AxiomScores {
@@ -568,7 +574,7 @@ mod tests {
 
     #[tokio::test]
     async fn filter_selects_specific_dogs() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog {
                 name: "alpha".into(),
                 scores: AxiomScores {
@@ -597,7 +603,7 @@ mod tests {
 
     #[tokio::test]
     async fn filter_with_unknown_id_returns_error() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog {
                 name: "alpha".into(),
                 scores: AxiomScores::default(),
@@ -611,7 +617,7 @@ mod tests {
 
     #[tokio::test]
     async fn stimulus_summary_truncated_at_100_chars() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog {
                 name: "t".into(),
                 scores: AxiomScores {
@@ -634,7 +640,7 @@ mod tests {
 
     #[tokio::test]
     async fn circuit_breaker_skips_open_dog() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FailDog),
             Box::new(FixedDog {
                 name: "healthy".into(),
@@ -660,7 +666,7 @@ mod tests {
 
     #[tokio::test]
     async fn median_reasoning_with_three_dogs() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog {
                 name: "low".into(),
                 scores: AxiomScores {
@@ -706,7 +712,7 @@ mod tests {
 
     #[tokio::test]
     async fn dog_health_reports_all_dogs() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog { name: "a".into(), scores: AxiomScores::default() }),
             Box::new(FixedDog { name: "b".into(), scores: AxiomScores::default() }),
         ]);
@@ -720,7 +726,7 @@ mod tests {
 
     #[tokio::test]
     async fn dog_ids_returns_all_names() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog { name: "x".into(), scores: AxiomScores::default() }),
             Box::new(FixedDog { name: "y".into(), scores: AxiomScores::default() }),
         ]);
@@ -730,7 +736,7 @@ mod tests {
 
     #[tokio::test]
     async fn verdict_has_valid_uuid_and_timestamp() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog {
                 name: "t".into(),
                 scores: AxiomScores {
@@ -837,7 +843,7 @@ mod tests {
 
     #[tokio::test]
     async fn verdict_chain_links_hashes() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog {
                 name: "chain".into(),
                 scores: AxiomScores {
@@ -864,7 +870,7 @@ mod tests {
 
     #[test]
     fn seed_chain_sets_initial_hash() {
-        let judge = Judge::new(vec![
+        let judge = test_judge(vec![
             Box::new(FixedDog { name: "s".into(), scores: AxiomScores::default() }),
         ]);
         judge.seed_chain(Some("abc123".into()));

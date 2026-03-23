@@ -426,43 +426,4 @@ pub fn spawn_remediation_watcher(
     handle
 }
 
-// ── Rate limiter eviction (REST-only, every 60s) ─────────────
-// Spawned inline in main.rs — REST delivery concern, not infra.
-// The rate limiters live in api::rest::AppState and stay there.
-
-pub fn spawn_rate_eviction(
-    rest_state: Arc<crate::api::rest::AppState>,
-    task_health: Arc<TaskHealth>,
-    shutdown: CancellationToken,
-) -> JoinHandle<()> {
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        interval.tick().await;
-        loop {
-            tokio::select! {
-                _ = shutdown.cancelled() => {
-                    klog!("[SHUTDOWN] Rate limiter eviction stopped");
-                    break;
-                }
-                _ = interval.tick() => {
-                    match tokio::time::timeout(
-                        std::time::Duration::from_secs(5),
-                        rest_state.rate_limiter.evict_stale(),
-                    ).await {
-                        Ok(()) => {}
-                        Err(_) => tracing::warn!("rate_limiter evict_stale timed out (5s)"),
-                    }
-                    match tokio::time::timeout(
-                        std::time::Duration::from_secs(5),
-                        rest_state.judge_limiter.evict_stale(),
-                    ).await {
-                        Ok(()) => {}
-                        Err(_) => tracing::warn!("judge_limiter evict_stale timed out (5s)"),
-                    }
-                    task_health.touch_rate_eviction();
-                }
-            }
-        }
-    })
-}
+// Rate limiter eviction moved to main.rs — REST delivery concern, not infra.

@@ -669,7 +669,11 @@ mod tests {
 
     /// Build a CynicMcp with real DeterministicDog + null storage/coord.
     fn test_mcp() -> CynicMcp {
-        let judge = Arc::new(Judge::new(vec![Box::new(DeterministicDog)]));
+        let dogs: Vec<Box<dyn crate::domain::dog::Dog>> = vec![Box::new(DeterministicDog)];
+        let breakers: Vec<Arc<dyn crate::domain::health_gate::HealthGate>> = dogs.iter()
+            .map(|d| Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn crate::domain::health_gate::HealthGate>)
+            .collect();
+        let judge = Arc::new(Judge::new(dogs, breakers));
         let storage = Arc::new(NullStorage) as Arc<dyn StoragePort>;
         let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
         let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
@@ -812,7 +816,11 @@ mod tests {
 
     #[tokio::test]
     async fn health_returns_critical_when_storage_down() {
-        let judge = Arc::new(Judge::new(vec![Box::new(DeterministicDog)]));
+        let dogs: Vec<Box<dyn crate::domain::dog::Dog>> = vec![Box::new(DeterministicDog)];
+        let breakers: Vec<Arc<dyn crate::domain::health_gate::HealthGate>> = dogs.iter()
+            .map(|d| Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn crate::domain::health_gate::HealthGate>)
+            .collect();
+        let judge = Arc::new(Judge::new(dogs, breakers));
         let storage = Arc::new(DownStorage) as Arc<dyn StoragePort>;
         let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
         let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));

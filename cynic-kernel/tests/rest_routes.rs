@@ -20,7 +20,11 @@ use cynic_kernel::infra::task_health::TaskHealth;
 use cynic_kernel::judge::Judge;
 
 fn test_state(api_key: Option<&str>) -> Arc<AppState> {
-    let judge = Arc::new(Judge::new(vec![Box::new(DeterministicDog)]));
+    let dogs: Vec<Box<dyn cynic_kernel::domain::dog::Dog>> = vec![Box::new(DeterministicDog)];
+    let breakers: Vec<Arc<dyn cynic_kernel::domain::health_gate::HealthGate>> = dogs.iter()
+        .map(|d| Arc::new(cynic_kernel::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn cynic_kernel::domain::health_gate::HealthGate>)
+        .collect();
+    let judge = Arc::new(Judge::new(dogs, breakers));
     Arc::new(AppState {
         judge,
         storage: Arc::new(NullStorage),

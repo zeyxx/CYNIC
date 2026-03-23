@@ -1,14 +1,24 @@
 //! Integration test: Stimulus → Judge → Verdict → Storage round-trip
 //! Uses DeterministicDog only (no API key needed for CI).
 
+use std::sync::Arc;
 use cynic_kernel::domain::dog::*;
+use cynic_kernel::domain::health_gate::HealthGate;
 use cynic_kernel::dogs::deterministic::DeterministicDog;
 use cynic_kernel::domain::metrics::Metrics;
+use cynic_kernel::infra::circuit_breaker::CircuitBreaker;
 use cynic_kernel::judge::Judge;
+
+fn test_judge(dogs: Vec<Box<dyn Dog>>) -> Judge {
+    let breakers: Vec<Arc<dyn HealthGate>> = dogs.iter()
+        .map(|d| Arc::new(CircuitBreaker::new(d.id().to_string())) as Arc<dyn HealthGate>)
+        .collect();
+    Judge::new(dogs, breakers)
+}
 
 #[tokio::test]
 async fn deterministic_dog_produces_valid_verdict() {
-    let judge = Judge::new(vec![Box::new(DeterministicDog)]);
+    let judge = test_judge(vec![Box::new(DeterministicDog)]);
 
     let stimulus = Stimulus {
         content: "According to the data, this approach probably works because of evidence from X".into(),
@@ -40,7 +50,7 @@ async fn deterministic_dog_produces_valid_verdict() {
 
 #[tokio::test]
 async fn absolute_claim_scores_lower() {
-    let judge = Judge::new(vec![Box::new(DeterministicDog)]);
+    let judge = test_judge(vec![Box::new(DeterministicDog)]);
 
     let humble = Stimulus {
         content: "This probably works in most cases according to the data".into(),
