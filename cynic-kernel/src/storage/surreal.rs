@@ -100,7 +100,9 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
         timestamp: row["created_at"].as_str().unwrap_or("").to_string(),
         dog_scores: row["dog_scores_json"].as_str()
             .filter(|s| !s.is_empty())
-            .and_then(|s| serde_json::from_str(s).ok())
+            .and_then(|s| serde_json::from_str(s)
+                .map_err(|e| { tracing::warn!(error = %e, "dog_scores_json parse failed — row corrupt?"); e })
+                .ok())
             .unwrap_or_default(),
         anomaly_detected: row["anomaly_detected"].as_bool().unwrap_or(false),
         max_disagreement: row["max_disagreement"].as_f64().unwrap_or(0.0),
