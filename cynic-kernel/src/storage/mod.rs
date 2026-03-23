@@ -162,6 +162,7 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS sovereignty ON verdict TYPE float;\
             DEFINE FIELD IF NOT EXISTS dog_id ON verdict TYPE string;\
             DEFINE FIELD IF NOT EXISTS stimulus ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS dog_scores_json ON verdict TYPE string;\
             DEFINE FIELD IF NOT EXISTS created_at ON verdict TYPE datetime;\
             DEFINE FIELD IF NOT EXISTS content ON crystal TYPE string;\
             DEFINE FIELD IF NOT EXISTS domain ON crystal TYPE string;\

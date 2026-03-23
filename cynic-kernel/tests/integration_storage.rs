@@ -81,8 +81,15 @@ async fn verdict_store_and_retrieve() {
     assert_eq!(got.id, "v-001");
     assert_eq!(got.kind, VerdictKind::Howl);
     assert!((got.q_score.total - 0.55).abs() < 0.001);
-    // dog_scores are not round-tripped from DB (stored but not deserialized on read)
-    // This is by design — they're verbose and not needed for verdict display
+
+    // dog_scores round-trip (v0.7.1 — previously Vec::new())
+    assert_eq!(got.dog_scores.len(), 1, "dog_scores should persist and round-trip");
+    let ds = &got.dog_scores[0];
+    assert_eq!(ds.dog_id, "test-dog");
+    assert_eq!(ds.latency_ms, 100);
+    assert_eq!(ds.prompt_tokens, 50);
+    assert!((ds.fidelity - 0.6).abs() < 0.001);
+    assert!((ds.sovereignty - 0.6).abs() < 0.001);
 
     common::teardown_test_db(&db).await;
 }

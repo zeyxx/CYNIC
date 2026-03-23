@@ -38,6 +38,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
             anomaly_detected = {}, \
             max_disagreement = {}, \
             anomaly_axiom = '{}', \
+            dog_scores_json = '{}', \
             created_at = time::now()",
         escape(&v.id),
         v.kind,
@@ -61,6 +62,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
         v.anomaly_detected,
         v.max_disagreement,
         escape(v.anomaly_axiom.as_deref().unwrap_or("")),
+        escape(&serde_json::to_string(&v.dog_scores).unwrap_or_else(|_| "[]".to_string())),
     )
 }
 
@@ -96,7 +98,10 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
         dog_id: row["dog_id"].as_str().unwrap_or("").to_string(),
         stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
         timestamp: row["created_at"].as_str().unwrap_or("").to_string(),
-        dog_scores: Vec::new(),
+        dog_scores: row["dog_scores_json"].as_str()
+            .filter(|s| !s.is_empty())
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or_default(),
         anomaly_detected: row["anomaly_detected"].as_bool().unwrap_or(false),
         max_disagreement: row["max_disagreement"].as_f64().unwrap_or(0.0),
         anomaly_axiom: row["anomaly_axiom"].as_str()

@@ -250,8 +250,14 @@ async fn judge_produces_verdict() {
 
     // Dogs
     assert!(v["dogs_used"].is_string(), "CONTRACT: dogs_used must be string");
-    // Note: stimulus_summary is NOT in JudgeResponse (internal to Verdict, not exposed via REST)
-    // If a consumer needs it, add it to JudgeResponse explicitly — don't assume.
+    // dog_scores — per-Dog breakdown (v0.7.1: persisted to DB, round-trips correctly)
+    assert!(v["dog_scores"].is_array(), "CONTRACT: dog_scores must be array");
+    let scores = v["dog_scores"].as_array().unwrap();
+    assert!(!scores.is_empty(), "CONTRACT: dog_scores must have at least 1 entry (deterministic-dog)");
+    let ds = &scores[0];
+    assert!(ds["dog_id"].is_string(), "CONTRACT: dog_scores[].dog_id must be string");
+    assert!(ds["fidelity"].is_number(), "CONTRACT: dog_scores[].fidelity must be number");
+    assert!(ds["sovereignty"].is_number(), "CONTRACT: dog_scores[].sovereignty must be number");
 }
 
 // ── /health without auth config (open API) ──────────────────
