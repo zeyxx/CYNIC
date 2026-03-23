@@ -168,7 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ─── RING 2: Spawn health loop + remediation watcher ──────
-    let all_breakers: Vec<Arc<infra::circuit_breaker::CircuitBreaker>> = judge
+    let all_breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = judge
         .breakers().iter().map(Arc::clone).collect();
     {
         let probe_configs: Vec<infra::health_loop::DogProbeConfig> = judge
@@ -256,7 +256,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         judge_limiter: api::rest::PerIpRateLimiter::new(10),   // 10 /judge per minute (inference costs money)
         bg_semaphore: Arc::new(tokio::sync::Semaphore::new(64)), // bound fire-and-forget spawns
         bg_tasks: tokio_util::task::TaskTracker::new(), // track for drain at shutdown
-        introspection_alerts: std::sync::RwLock::new(Vec::new()),
+        introspection_alerts: Arc::new(std::sync::RwLock::new(Vec::new())),
         event_tx: event_tx.clone(),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
@@ -302,7 +302,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── Introspection loop (MAPE-K Analyze, every 5 min) ──
     infra::tasks::spawn_introspection(
-        Arc::clone(&storage_port), Arc::clone(&metrics), Arc::clone(&rest_state),
+        Arc::clone(&storage_port), Arc::clone(&metrics),
+        Arc::clone(&rest_state.introspection_alerts),
         event_tx.clone(), Arc::clone(&task_health), shutdown.clone(),
     );
 

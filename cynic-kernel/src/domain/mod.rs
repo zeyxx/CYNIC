@@ -11,3 +11,4 @@ pub mod usage;
 pub mod temporal;
 pub mod summarization;
 pub mod metrics;
+pub mod health_gate;

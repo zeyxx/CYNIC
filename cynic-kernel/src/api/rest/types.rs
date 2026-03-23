@@ -40,7 +40,7 @@ pub struct AppState {
     pub bg_tasks: tokio_util::task::TaskTracker,
     /// Latest introspection alerts (updated every 5min by background task).
     /// Empty = healthy system. RwLock: read-heavy (every /health), write every 5min.
-    pub introspection_alerts: std::sync::RwLock<Vec<Alert>>,
+    pub introspection_alerts: Arc<std::sync::RwLock<Vec<Alert>>>,
     /// Kernel event bus — broadcast to all SSE/WebSocket subscribers.
     /// Capacity 256: events are small, subscribers should keep up.
     /// Lagging subscribers get BroadcastStreamRecvError::Lagged → skip.

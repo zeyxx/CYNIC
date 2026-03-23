@@ -123,6 +123,17 @@ impl CircuitBreaker {
     }
 }
 
+impl crate::domain::health_gate::HealthGate for CircuitBreaker {
+    fn should_allow(&self) -> bool { self.should_allow() }
+    fn record_success(&self) { self.record_success() }
+    fn record_failure(&self) { self.record_failure() }
+    fn is_open(&self) -> bool { self.is_open() }
+    fn state(&self) -> String { self.state() }
+    fn consecutive_failures(&self) -> u32 { self.consecutive_failures() }
+    fn dog_id(&self) -> &str { self.dog_id() }
+    fn opened_since(&self) -> Option<Duration> { self.opened_since() }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

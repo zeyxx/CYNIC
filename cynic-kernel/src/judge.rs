@@ -3,7 +3,7 @@
 //! Residual detection: disagreement > φ⁻² = ANOMALY.
 
 use crate::domain::dog::{*, estimate_tokens};
-use crate::infra::circuit_breaker::CircuitBreaker;
+use crate::domain::health_gate::HealthGate;
 use crate::domain::metrics::Metrics;
 use chrono::Utc;
 use uuid::Uuid;
@@ -11,15 +11,15 @@ use std::sync::{Arc, Mutex};
 
 pub struct Judge {
     dogs: Vec<Box<dyn Dog>>,
-    breakers: Vec<Arc<CircuitBreaker>>,
+    breakers: Vec<Arc<dyn HealthGate>>,
     /// Hash of the last verdict — forms the chain. Protected by Mutex for concurrent access.
     last_hash: Mutex<Option<String>>,
 }
 
 impl Judge {
     pub fn new(dogs: Vec<Box<dyn Dog>>) -> Self {
-        let breakers = dogs.iter()
-            .map(|d| Arc::new(CircuitBreaker::new(d.id().to_string())))
+        let breakers: Vec<Arc<dyn HealthGate>> = dogs.iter()
+            .map(|d| Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn HealthGate>)
             .collect();
         Self { dogs, breakers, last_hash: Mutex::new(None) }
     }
@@ -37,7 +37,7 @@ impl Judge {
     }
 
     /// Shared references to circuit breakers (for health loop + remediation).
-    pub fn breakers(&self) -> &[Arc<CircuitBreaker>] {
+    pub fn breakers(&self) -> &[Arc<dyn HealthGate>] {
         &self.breakers
     }
 

@@ -13,7 +13,7 @@ use crate::domain::coord::CoordPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
-use crate::infra::circuit_breaker::CircuitBreaker;
+use crate::domain::health_gate::HealthGate;
 use crate::infra::config::BackendRemediation;
 use crate::domain::metrics::Metrics;
 use crate::infra::task_health::TaskHealth;
@@ -105,9 +105,12 @@ pub fn spawn_usage_flush(
                 }
                 _ = interval.tick() => {
                     tick_count += 1;
-                    let snapshot = {
-                        let u = usage.lock().await;
-                        u.flush_snapshot()
+                    let snapshot = match tokio::time::timeout(
+                        std::time::Duration::from_secs(5),
+                        usage.lock(),
+                    ).await {
+                        Ok(u) => u.flush_snapshot(),
+                        Err(_) => { tracing::warn!("usage lock timed out (5s) for snapshot"); continue; }
                     };
                     if !snapshot.is_empty() {
                         match tokio::time::timeout(
@@ -115,8 +118,13 @@ pub fn spawn_usage_flush(
                             storage.flush_usage(&snapshot),
                         ).await {
                             Ok(Ok(_)) => {
-                                let mut u = usage.lock().await;
-                                u.absorb_flush();
+                                match tokio::time::timeout(
+                                    std::time::Duration::from_secs(5),
+                                    usage.lock(),
+                                ).await {
+                                    Ok(mut u) => u.absorb_flush(),
+                                    Err(_) => tracing::warn!("usage lock timed out (5s) for absorb_flush"),
+                                }
                             }
                             Ok(Err(e)) => tracing::warn!(error = %e, "usage flush DB write failed, will retry"),
                             Err(_) => tracing::warn!("usage flush DB write timed out (10s), will retry"),
@@ -279,7 +287,7 @@ pub fn spawn_backfill(
 pub fn spawn_introspection(
     storage: Arc<dyn StoragePort>,
     metrics: Arc<Metrics>,
-    rest_state: Arc<crate::api::rest::AppState>,
+    introspection_alerts: Arc<std::sync::RwLock<Vec<crate::introspection::Alert>>>,
     event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
@@ -311,7 +319,7 @@ pub fn spawn_introspection(
                                     severity: alert.severity.to_string(),
                                 });
                             }
-                            if let Ok(mut stored) = rest_state.introspection_alerts.write() {
+                            if let Ok(mut stored) = introspection_alerts.write() {
                                 *stored = alerts;
                             }
                             task_health.touch_introspection();
@@ -355,7 +363,7 @@ pub fn spawn_signal_handler(shutdown: CancellationToken) -> JoinHandle<()> {
 
 pub fn spawn_remediation_watcher(
     configs: std::collections::HashMap<String, BackendRemediation>,
-    breakers: Vec<Arc<CircuitBreaker>>,
+    breakers: Vec<Arc<dyn HealthGate>>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
@@ -419,6 +427,8 @@ pub fn spawn_remediation_watcher(
 }
 
 // ── Rate limiter eviction (REST-only, every 60s) ─────────────
+// Spawned inline in main.rs — REST delivery concern, not infra.
+// The rate limiters live in api::rest::AppState and stay there.
 
 pub fn spawn_rate_eviction(
     rest_state: Arc<crate::api::rest::AppState>,
@@ -436,8 +446,20 @@ pub fn spawn_rate_eviction(
                     break;
                 }
                 _ = interval.tick() => {
-                    rest_state.rate_limiter.evict_stale().await;
-                    rest_state.judge_limiter.evict_stale().await;
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(5),
+                        rest_state.rate_limiter.evict_stale(),
+                    ).await {
+                        Ok(()) => {}
+                        Err(_) => tracing::warn!("rate_limiter evict_stale timed out (5s)"),
+                    }
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(5),
+                        rest_state.judge_limiter.evict_stale(),
+                    ).await {
+                        Ok(()) => {}
+                        Err(_) => tracing::warn!("judge_limiter evict_stale timed out (5s)"),
+                    }
                     task_health.touch_rate_eviction();
                 }
             }
