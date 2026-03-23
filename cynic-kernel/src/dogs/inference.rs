@@ -270,7 +270,7 @@ mod tests {
     }
 
     #[test]
-    fn prompt_contains_stimulus() {
+    fn prompt_contains_stimulus_with_generic_fallback() {
         let stimulus = Stimulus {
             content: "e4 e5 Nf3".into(),
             context: Some("Chess opening".into()),
@@ -281,6 +281,23 @@ mod tests {
         assert!(prompt.contains("e4 e5 Nf3"));
         assert!(prompt.contains("chess"));
         assert!(prompt.contains("FIDELITY"));
+        // Generic fallback — no domain-specific criteria
+        assert!(prompt.contains("AXIOMS:"), "should use generic axioms when no domain prompt");
+    }
+
+    #[test]
+    fn prompt_uses_domain_specific_criteria() {
+        let stimulus = Stimulus {
+            content: "e4 c5 Sicilian".into(),
+            context: None,
+            domain: Some("chess".into()),
+        };
+        let mut prompts = std::collections::HashMap::new();
+        prompts.insert("chess".to_string(), "## FIDELITY\nIs this faithful to sound chess principles?".to_string());
+        let prompt = InferenceDog::build_user_prompt(&stimulus, &prompts);
+        assert!(prompt.contains("DOMAIN-SPECIFIC EVALUATION CRITERIA:"), "should use domain prompt");
+        assert!(prompt.contains("faithful to sound chess principles"));
+        assert!(!prompt.contains("AXIOMS:"), "should NOT have generic axioms when domain prompt exists");
     }
 
     #[tokio::test]
