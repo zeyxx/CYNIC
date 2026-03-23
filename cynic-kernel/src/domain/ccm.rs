@@ -384,6 +384,7 @@ pub async fn aggregate_observations(
 
     // Phase 2: Co-occurrence patterns (targets edited together in the same session)
     let session_rows = storage.query_session_targets(project, 500).await
+        .inspect_err(|e| klog!("[CCM/aggregate] session_targets query failed: {}", e))
         .unwrap_or_default();
     let cooccurrences = extract_cooccurrences(&session_rows);
 

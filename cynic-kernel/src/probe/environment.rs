@@ -102,13 +102,16 @@ pub(super) fn ensure_models_dir() -> PathBuf {
     };
 
     if !dir.exists() {
-        std::fs::create_dir_all(&dir).ok();
-        std::fs::write(dir.join("README.txt"),
-            "CYNIC Industrial Model Directory\n\
-             ===============================\n\
-             Note: Redirection active via $CYNIC_MODELS_DIR\n"
-        ).ok();
-        klog!("[Ring 0 / LLM] Created models directory: {}", dir.display());
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            tracing::warn!(error = %e, path = %dir.display(), "failed to create models directory");
+        } else {
+            let _ = std::fs::write(dir.join("README.txt"),
+                "CYNIC Industrial Model Directory\n\
+                 ===============================\n\
+                 Note: Redirection active via $CYNIC_MODELS_DIR\n"
+            ); // ok: README is non-critical after dir creation succeeded
+            klog!("[Ring 0 / LLM] Created models directory: {}", dir.display());
+        }
     }
     dir
 }

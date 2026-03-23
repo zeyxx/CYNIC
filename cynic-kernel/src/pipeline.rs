@@ -94,14 +94,16 @@ pub async fn run(
     tracing::info!(phase = "cache", result = "miss");
 
     let crystals = if let Some(ref emb) = stimulus_embedding {
-        storage.search_crystals_semantic(&emb.vector, 10).await.unwrap_or_default()
+        storage.search_crystals_semantic(&emb.vector, 10).await
+            .inspect_err(|e| tracing::warn!(error = %e, "semantic crystal search failed — fallback to domain list"))
+            .unwrap_or_default()
     } else {
         Vec::new()
     };
     let crystals = if crystals.is_empty() {
-        // Domain-scoped: only mature crystals matching this domain (or "general").
-        // Ordered by confidence DESC — the most reliable crystals first.
-        storage.list_crystals_for_domain(domain_hint, 10).await.unwrap_or_default()
+        storage.list_crystals_for_domain(domain_hint, 10).await
+            .inspect_err(|e| tracing::warn!(error = %e, "domain crystal list failed — pipeline continues without crystals"))
+            .unwrap_or_default()
     } else {
         crystals
     };
@@ -109,6 +111,7 @@ pub async fn run(
 
     // ── SESSION SUMMARIES: separate token budget from crystals ──
     let session_ctx = storage.list_session_summaries(5).await
+        .inspect_err(|e| tracing::warn!(error = %e, "session summaries failed — pipeline continues without session context"))
         .ok()
         .and_then(|s| ccm::format_session_context(&s, 400));
 

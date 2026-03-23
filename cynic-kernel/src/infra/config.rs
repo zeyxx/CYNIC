@@ -216,7 +216,9 @@ pub fn load_storage_config(path: &Path) -> StorageConfig {
     let defaults = StorageConfig::default();
 
     let from_toml = std::fs::read_to_string(path).ok()
-        .and_then(|content| toml::from_str::<BackendsFile>(&content).ok())
+        .and_then(|content| toml::from_str::<BackendsFile>(&content)
+            .inspect_err(|e| tracing::warn!(path = %path.display(), error = %e, "backends.toml parse failed — falling back to env vars"))
+            .ok())
         .and_then(|f| f.storage);
 
     let url = from_toml.as_ref().and_then(|s| s.url.clone())
@@ -266,10 +268,15 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
 /// Validate config at boot — probe health URLs, log warnings for unreachable backends.
 /// Does NOT block boot — sovereign degradation is preferred over refusing to start.
 pub async fn validate_config(configs: &[BackendConfig]) {
-    let client = reqwest::Client::builder()
+    let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(2))
-        .build()
-        .unwrap_or_default();
+        .build() {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!(error = %e, "HTTP client build failed (TLS?) — skipping health validation");
+            return;
+        }
+    };
 
     for cfg in configs {
         let Some(ref health_url) = cfg.health_url else {

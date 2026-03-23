@@ -234,8 +234,8 @@ impl CynicMcp {
             crate::pipeline::PipelineResult::Evaluated { verdict } => verdict,
         };
 
-        // Audit (best effort — MCP-specific, not in shared pipeline)
-        let _ = self.audit("cynic_judge", &agent_id, &serde_json::json!({
+        let _ = self.audit( // ok: fire-and-forget (audit is best-effort, verdict already committed)
+            "cynic_judge", &agent_id, &serde_json::json!({
             "stimulus": p.content.chars().take(200).collect::<String>(),
             "dogs_used": verdict.dog_id,
             "verdict": format!("{:?}", verdict.kind),

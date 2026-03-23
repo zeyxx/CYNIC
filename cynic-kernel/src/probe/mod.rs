@@ -79,7 +79,9 @@ pub async fn run(force_reprobe: bool) -> Result<NodeConfig, Box<dyn std::error::
 fn config_file_path() -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
     let dir = home.join(".cynic");
-    std::fs::create_dir_all(&dir).ok();
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        tracing::warn!(error = %e, path = %dir.display(), "failed to create .cynic config dir");
+    }
     dir.join("node.toml")
 }
 
