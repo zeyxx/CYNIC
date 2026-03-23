@@ -15,7 +15,7 @@ use cynic_kernel::domain::embedding::NullEmbedding;
 use cynic_kernel::domain::storage::NullStorage;
 use cynic_kernel::domain::usage::DogUsageTracker;
 use cynic_kernel::domain::verdict_cache::VerdictCache;
-use cynic_kernel::infra::metrics::Metrics;
+use cynic_kernel::domain::metrics::Metrics;
 use cynic_kernel::infra::task_health::TaskHealth;
 use cynic_kernel::judge::Judge;
 

@@ -12,7 +12,7 @@ use crate::domain::events::KernelEvent;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
-use crate::infra::metrics::Metrics;
+use crate::domain::metrics::Metrics;
 use crate::infra::task_health::TaskHealth;
 use crate::introspection::Alert;
 use crate::judge::Judge;

@@ -4,7 +4,7 @@
 
 use crate::domain::dog::{*, estimate_tokens};
 use crate::infra::circuit_breaker::CircuitBreaker;
-use crate::infra::metrics::Metrics;
+use crate::domain::metrics::Metrics;
 use chrono::Utc;
 use uuid::Uuid;
 use std::sync::{Arc, Mutex};

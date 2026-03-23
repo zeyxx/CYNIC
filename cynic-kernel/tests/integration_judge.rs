@@ -3,7 +3,7 @@
 
 use cynic_kernel::domain::dog::*;
 use cynic_kernel::dogs::deterministic::DeterministicDog;
-use cynic_kernel::infra::metrics::Metrics;
+use cynic_kernel::domain::metrics::Metrics;
 use cynic_kernel::judge::Judge;
 
 #[tokio::test]

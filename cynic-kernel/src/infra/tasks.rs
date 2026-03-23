@@ -15,7 +15,7 @@ use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::infra::circuit_breaker::CircuitBreaker;
 use crate::infra::config::BackendRemediation;
-use crate::infra::metrics::Metrics;
+use crate::domain::metrics::Metrics;
 use crate::infra::task_health::TaskHealth;
 
 // ── Shutdown flush — used by both REST and MCP exit paths ────

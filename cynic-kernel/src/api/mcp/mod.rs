@@ -136,7 +136,7 @@ pub struct CynicMcp {
     verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
     /// Sovereign inference — routed through InferPort, not raw HTTP (Rule #17).
     infer: Arc<dyn InferPort>,
-    metrics: Arc<crate::infra::metrics::Metrics>,
+    metrics: Arc<crate::domain::metrics::Metrics>,
     /// Kernel event bus — shared with REST SSE. None only in tests.
     event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     tool_router: ToolRouter<Self>,
@@ -153,7 +153,7 @@ impl CynicMcp {
         embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
         verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
         infer: Arc<dyn InferPort>,
-        metrics: Arc<crate::infra::metrics::Metrics>,
+        metrics: Arc<crate::domain::metrics::Metrics>,
         event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     ) -> Self {
         Self {
@@ -676,7 +676,7 @@ mod tests {
         let embedding = Arc::new(crate::domain::embedding::NullEmbedding) as Arc<dyn crate::domain::embedding::EmbeddingPort>;
         let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
         let infer = Arc::new(crate::domain::inference::NullInfer) as Arc<dyn InferPort>;
-        let metrics = Arc::new(crate::infra::metrics::Metrics::new());
+        let metrics = Arc::new(crate::domain::metrics::Metrics::new());
         CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer, metrics, None)
     }
 
@@ -819,7 +819,7 @@ mod tests {
         let embedding = Arc::new(crate::domain::embedding::NullEmbedding) as Arc<dyn crate::domain::embedding::EmbeddingPort>;
         let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
         let infer = Arc::new(crate::domain::inference::NullInfer) as Arc<dyn InferPort>;
-        let metrics = Arc::new(crate::infra::metrics::Metrics::new());
+        let metrics = Arc::new(crate::domain::metrics::Metrics::new());
         let mcp = CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer, metrics, None);
 
         let result = mcp.cynic_health().await.unwrap();

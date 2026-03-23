@@ -145,7 +145,7 @@ pub async fn metrics_handler(
         dog_data.sort_by(|a, b| a.0.cmp(&b.0));
 
         let circuit_states = state.judge.dog_health();
-        crate::infra::metrics::append_dog_metrics(&mut out, &dog_data, &circuit_states);
+        crate::domain::metrics::append_dog_metrics(&mut out, &dog_data, &circuit_states);
     }
 
     (

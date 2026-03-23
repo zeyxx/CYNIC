@@ -8,7 +8,7 @@
 //! to prevent self-referential noise in the KNN index.
 
 use crate::domain::storage::StoragePort;
-use crate::infra::metrics::Metrics;
+use crate::domain::metrics::Metrics;
 use std::sync::atomic::Ordering;
 
 /// Anomaly thresholds — conservative defaults.

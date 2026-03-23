@@ -11,7 +11,7 @@ use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::{CacheLookup, VerdictCache};
 use crate::domain::events::KernelEvent;
-use crate::infra::metrics::Metrics;
+use crate::domain::metrics::Metrics;
 use crate::judge::{Judge, JudgeError};
 use tokio::sync::Mutex;
 

@@ -222,7 +222,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Single VerdictCache shared by REST and MCP — avoids duplicate caches (T4 fix)
     let verdict_cache = Arc::new(domain::verdict_cache::VerdictCache::new());
     // Pipeline metrics — shared by REST and MCP, exposed via /metrics
-    let metrics = Arc::new(infra::metrics::Metrics::new());
+    let metrics = Arc::new(domain::metrics::Metrics::new());
 
     // Hydrate metrics from DB so counters survive reboots
     if has_db {
