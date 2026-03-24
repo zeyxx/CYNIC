@@ -47,6 +47,9 @@ pub struct AxiomScores {
     pub prompt_tokens: u32,
     #[serde(default)]
     pub completion_tokens: u32,
+    /// Axioms where this Dog abstained (returned NEUTRAL, not active evaluation).
+    #[serde(default)]
+    pub abstentions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -72,6 +75,10 @@ pub struct DogScore {
     pub burn: f64,
     pub sovereignty: f64,
     pub reasoning: AxiomReasoning,
+    /// Axioms where this Dog abstained (returned NEUTRAL, not an active evaluation).
+    /// Excluded from disagreement calculation — abstention ≠ disagreement.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub abstentions: Vec<String>,
 }
 
 // ── PHI-BOUNDED Q-SCORE ────────────────────────────────────

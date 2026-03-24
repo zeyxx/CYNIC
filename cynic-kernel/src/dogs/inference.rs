@@ -145,6 +145,7 @@ impl Dog for InferenceDog {
                 },
                 prompt_tokens: 0,
                 completion_tokens: 0,
+                abstentions: vec![],
             },
             Err(_) => extract_scores_lenient(json_str)?,
         };
@@ -221,6 +222,7 @@ fn extract_scores_lenient(json_str: &str) -> Result<AxiomScores, DogError> {
         },
         prompt_tokens: 0,
         completion_tokens: 0,
+        abstentions: vec![],
     })
 }
 

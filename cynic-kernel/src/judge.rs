@@ -177,6 +177,7 @@ impl Judge {
                         culture: phi_bound(scores.culture),
                         burn: phi_bound(scores.burn),
                         sovereignty: phi_bound(scores.sovereignty),
+                        abstentions: scores.abstentions,
                         reasoning: scores.reasoning,
                     });
                 }
@@ -253,15 +254,21 @@ impl Judge {
         let axiom_names = ["fidelity", "phi", "verify", "culture", "burn", "sovereignty"];
         let (max_disagreement, anomaly_axiom) = if dog_scores.len() > 1 {
             let spreads: Vec<(f64, &str)> = axiom_names.iter().map(|&name| {
-                let values: Vec<f64> = dog_scores.iter().map(|s| match name {
-                    "fidelity" => s.fidelity,
-                    "phi" => s.phi,
-                    "verify" => s.verify,
-                    "culture" => s.culture,
-                    "burn" => s.burn,
-                    "sovereignty" => s.sovereignty,
-                    _ => 0.0,
-                }).collect();
+                // Exclude Dogs that abstained on this axiom — abstention ≠ disagreement.
+                let values: Vec<f64> = dog_scores.iter()
+                    .filter(|s| !s.abstentions.iter().any(|a| a == name))
+                    .map(|s| match name {
+                        "fidelity" => s.fidelity,
+                        "phi" => s.phi,
+                        "verify" => s.verify,
+                        "culture" => s.culture,
+                        "burn" => s.burn,
+                        "sovereignty" => s.sovereignty,
+                        _ => 0.0,
+                    }).collect();
+                if values.len() < 2 {
+                    return (0.0, name); // Can't compute spread with < 2 active scores
+                }
                 let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
                 let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
                 (max - min, name)
@@ -768,6 +775,7 @@ mod tests {
             fidelity: val, phi: val, verify: val,
             culture: val, burn: val, sovereignty: val,
             reasoning: AxiomReasoning::default(),
+            abstentions: vec![],
         }
     }
 
@@ -832,6 +840,7 @@ mod tests {
                 fidelity: 0.9, phi: 0.1, verify: 0.5,
                 culture: 0.3, burn: 0.7, sovereignty: 0.4,
                 reasoning: AxiomReasoning::default(),
+                abstentions: vec![],
             },
         ];
         assert!((trimmed_mean(&scores, |s| s.fidelity) - 0.9).abs() < 1e-10);

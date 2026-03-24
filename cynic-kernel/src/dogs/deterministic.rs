@@ -165,6 +165,13 @@ impl Dog for DeterministicDog {
             "Neutral — no strong agency signals.".into()
         };
 
+        // Track which axioms this Dog abstained on (returned NEUTRAL).
+        // Abstention ≠ disagreement — excluded from spread calculation in judge.rs.
+        let mut abstentions = Vec::new();
+        if (fidelity - NEUTRAL).abs() < 0.001 { abstentions.push("fidelity".into()); }
+        if (verify - NEUTRAL).abs() < 0.001 { abstentions.push("verify".into()); }
+        if (culture - NEUTRAL).abs() < 0.001 { abstentions.push("culture".into()); }
+
         Ok(AxiomScores {
             fidelity,
             phi,
@@ -182,6 +189,7 @@ impl Dog for DeterministicDog {
                 burn: burn_reason,
                 sovereignty: sovereignty_reason,
             },
+            abstentions,
         })
     }
 }

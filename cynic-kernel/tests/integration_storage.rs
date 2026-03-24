@@ -32,6 +32,7 @@ fn test_verdict(id: &str) -> Verdict {
             fidelity: 0.6, phi: 0.5, verify: 0.5,
             culture: 0.6, burn: 0.5, sovereignty: 0.6,
             reasoning: AxiomReasoning::default(),
+            abstentions: vec![],
         }],
         timestamp: chrono::Utc::now().to_rfc3339(),
         anomaly_detected: false,
