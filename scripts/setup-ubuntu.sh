@@ -154,7 +154,7 @@ export GEMINI_API_KEY=""       # Google AI Studio key
 export HF_TOKEN=""             # HuggingFace token
 export SURREALDB_PASS=""       # SurrealDB password
 export SURREALDB_URL="ws://localhost:8000"
-export CYNIC_REST_ADDR="0.0.0.0:3030"
+export CYNIC_REST_ADDR="127.0.0.1:3030"
 ENVEOF
     echo ">>> Edit $ENV_FILE with your API keys"
     echo ">>> Then add to .bashrc: source $ENV_FILE"

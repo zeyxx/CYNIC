@@ -133,7 +133,8 @@ rollback:
 	systemctl --user start cynic-kernel
 	@sleep 4
 	@echo "▶ Verifying rollback..."
-	@curl -s "http://$${CYNIC_REST_ADDR}/health" | python3 -c "import json,sys; h=json.load(sys.stdin); print(f'Kernel: {h[\"status\"]} (rolled back)')"
+	@HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "http://$${CYNIC_REST_ADDR}/health"); \
+	[ "$$HTTP" = "200" ] && echo "Kernel: healthy (rolled back)" || echo "Kernel: DEGRADED (HTTP $$HTTP, rolled back)"
 
 # ── Emergency: Hotfix deploy (skip push — for incidents) ──────
 .PHONY: hotfix
@@ -153,8 +154,8 @@ hotfix: check
 	@echo "▶ Verifying (retry loop)..."
 	@for i in $$(seq 1 15); do \
 		sleep 3; \
-		STATUS=$$(curl -sf "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin).get('status','?'))" 2>/dev/null) && \
-		[ -n "$$STATUS" ] && echo "Kernel: $$STATUS (hotfix)" && break || \
+		HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null) && \
+		[ "$$HTTP" = "200" ] && echo "Kernel: healthy (hotfix, HTTP $$HTTP)" && break || \
 		printf "."; \
 	done
 
@@ -244,7 +245,7 @@ status:
 	@$(source_env)
 	@echo "CYNIC System Status"
 	@echo "═══════════════════"
-	@printf "Kernel:  "; curl -sf "http://$${CYNIC_REST_ADDR}/health" | python3 -c "import json,sys; h=json.load(sys.stdin); print(h['status'])" 2>/dev/null || echo "DOWN"
+	@printf "Kernel:  "; HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null); [ "$$HTTP" = "200" ] && echo "healthy ($$HTTP)" || echo "DEGRADED (HTTP $${HTTP:-000})"
 	@printf "SurrealDB: "; surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"
 	@printf "Services: "; systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""
 	@printf "Git: "; git -C $(PROJECT_DIR) rev-parse --abbrev-ref HEAD; git -C $(PROJECT_DIR) log --oneline -1
