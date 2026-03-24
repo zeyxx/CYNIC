@@ -5,7 +5,7 @@
 //! Handlers call this, then format the response for their transport.
 
 use crate::domain::ccm;
-use crate::domain::dog::{Stimulus, Verdict, PHI_INV};
+use crate::domain::dog::{Stimulus, Verdict, PHI_INV, PHI_INV2, PHI_INV3};
 use crate::domain::embedding::{Embedding, EmbeddingPort};
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
@@ -229,6 +229,23 @@ async fn side_effects(
     }
 }
 
+/// Compute epistemic injection weight from Dog disagreement level.
+///
+/// Returns `(tag, weight)` where tag is "agreed"/"disputed"/"contested"
+/// and weight is in [0.0, 1.0]. Pure function — no side effects.
+fn epistemic_gate(max_disagreement: f64) -> (&'static str, f64) {
+    if max_disagreement < PHI_INV3 {
+        ("agreed", 1.0)
+    } else if max_disagreement < PHI_INV2 {
+        // Linear decay from 1.0 (at φ⁻³) to 0.0 (at φ⁻²)
+        let range = PHI_INV2 - PHI_INV3;
+        let position = max_disagreement - PHI_INV3;
+        ("disputed", (1.0 - position / range).max(0.0))
+    } else {
+        ("contested", 0.0)
+    }
+}
+
 /// Observe a crystal from a verdict — the critical link in the compound loop.
 ///
 /// Called on BOTH cache hits and full evaluations. Without this on cache hits,
@@ -237,12 +254,44 @@ async fn side_effects(
 ///
 /// Uses semantic merge (cosine ≥ 0.75) to accumulate on existing crystals
 /// instead of creating fragmented duplicates.
+///
+/// **Epistemic soft gate** (2026-03-24): verdicts with high Dog disagreement
+/// are weighted down to prevent crystal poisoning. Three tiers:
+///
+///   - Agreed   (disagree < φ⁻³): full weight (1.0)
+///   - Disputed (φ⁻³ ≤ disagree < φ⁻²): linear decay 1.0→0.0
+///   - Contested (disagree ≥ φ⁻²): quarantined — zero crystal update
+///
+/// Research: noisy-label learning (Northcutt JAIR 2022),
+/// recommender feedback bias (FAccT 2024), QBC active learning.
 async fn observe_crystal_for_verdict(
     verdict: &Verdict,
     stimulus_embedding: &Option<Embedding>,
     domain: &str,
     deps: &PipelineDeps<'_>,
 ) {
+    // ── Epistemic soft gate: weight crystal observation by Dog agreement ──
+    let (epistemic_tag, injection_weight) = epistemic_gate(verdict.max_disagreement);
+
+    if injection_weight <= 0.0 {
+        tracing::info!(
+            phase = "crystal_gate",
+            tag = epistemic_tag,
+            disagreement = %format!("{:.3}", verdict.max_disagreement),
+            "contested verdict — crystal observation quarantined"
+        );
+        return;
+    }
+
+    if injection_weight < 1.0 {
+        tracing::info!(
+            phase = "crystal_gate",
+            tag = epistemic_tag,
+            weight = %format!("{:.3}", injection_weight),
+            disagreement = %format!("{:.3}", verdict.max_disagreement),
+            "disputed verdict — crystal observation weight reduced"
+        );
+    }
     // Semantic merge: find existing crystal or create new via FNV hash
     let crystal_id = if let Some(emb) = stimulus_embedding {
         match deps.storage.find_similar_crystal(&emb.vector, domain, 0.75).await {
@@ -267,7 +316,8 @@ async fn observe_crystal_for_verdict(
     let now = chrono::Utc::now().to_rfc3339();
     // Normalize Q-Score: raw scores are φ-bounded (max ≈ 0.618).
     // Without normalization, no crystal can ever reach the 0.618 crystallization threshold.
-    let crystal_confidence = (verdict.q_score.total / PHI_INV).min(1.0);
+    // Apply epistemic weight: disputed verdicts contribute less to crystal confidence.
+    let crystal_confidence = ((verdict.q_score.total / PHI_INV) * injection_weight).min(1.0);
     if let Err(e) = deps.storage.observe_crystal(
         &crystal_id, &verdict.stimulus_summary, domain, crystal_confidence, &now,
     ).await {
@@ -477,5 +527,58 @@ mod tests {
         // NullStorage returns empty vec for get_unsummarized_sessions → 0 sessions to process
         let count = summarize_pending_sessions(&NullStorage, &NullSummarizer).await;
         assert_eq!(count, 0, "NullStorage has no pending sessions");
+    }
+
+    // ── Epistemic gate tests ──────────────────────────────────
+
+    #[test]
+    fn epistemic_gate_agreed_for_low_disagreement() {
+        let (tag, weight) = epistemic_gate(0.1);
+        assert_eq!(tag, "agreed");
+        assert!((weight - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn epistemic_gate_agreed_at_zero() {
+        let (tag, weight) = epistemic_gate(0.0);
+        assert_eq!(tag, "agreed");
+        assert!((weight - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn epistemic_gate_disputed_mid_range() {
+        // Midpoint between φ⁻³ (0.236) and φ⁻² (0.382)
+        let mid = (PHI_INV3 + PHI_INV2) / 2.0;
+        let (tag, weight) = epistemic_gate(mid);
+        assert_eq!(tag, "disputed");
+        assert!((weight - 0.5).abs() < 0.01, "midpoint should be ~0.5, got {}", weight);
+    }
+
+    #[test]
+    fn epistemic_gate_disputed_near_agreed_boundary() {
+        let (tag, weight) = epistemic_gate(PHI_INV3 + 0.001);
+        assert_eq!(tag, "disputed");
+        assert!(weight > 0.9, "near agreed boundary should be ~1.0, got {}", weight);
+    }
+
+    #[test]
+    fn epistemic_gate_disputed_near_contested_boundary() {
+        let (tag, weight) = epistemic_gate(PHI_INV2 - 0.001);
+        assert_eq!(tag, "disputed");
+        assert!(weight < 0.01, "near contested boundary should be ~0.0, got {}", weight);
+    }
+
+    #[test]
+    fn epistemic_gate_contested_at_threshold() {
+        let (tag, weight) = epistemic_gate(PHI_INV2);
+        assert_eq!(tag, "contested");
+        assert!((weight - 0.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn epistemic_gate_contested_above_threshold() {
+        let (tag, weight) = epistemic_gate(0.55);
+        assert_eq!(tag, "contested");
+        assert!((weight - 0.0).abs() < 1e-10);
     }
 }
