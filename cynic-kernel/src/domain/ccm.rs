@@ -137,14 +137,14 @@ fn running_mean(current_mean: f64, count: u32, new_value: f64) -> f64 {
     (current_mean * n + new_value) / (n + 1.0)
 }
 
-// ── TEMPORAL DECAY ─────────────────────────────────────────
+// ── DECAY RELEVANCE ───────────────────────────────────────
 /// Decay constant: 90 days. At 90 days, factor = e⁻¹ ≈ 0.368.
 const DECAY_DAYS: f64 = 90.0;
 
-/// Compute temporal relevance: `confidence × e^(-age_days / DECAY_DAYS)`.
+/// Compute decay relevance: `confidence × e^(-age_days / DECAY_DAYS)`.
 /// Pure function — caller provides `now` for testability.
 /// Returns 0.0 on unparseable timestamps (defensive, not silent).
-pub fn temporal_relevance(confidence: f64, updated_at: &str, now: &str) -> f64 {
+pub fn decay_relevance(confidence: f64, updated_at: &str, now: &str) -> f64 {
     let Ok(updated) = chrono::DateTime::parse_from_rfc3339(updated_at) else {
         return 0.0;
     };
@@ -174,8 +174,8 @@ pub fn format_crystal_context(crystals: &[Crystal], domain: &str, max_chars: usi
     let now = chrono::Utc::now().to_rfc3339();
     let mut sorted = mature;
     sorted.sort_by(|a, b| {
-        let ra = temporal_relevance(a.confidence, &a.updated_at, &now);
-        let rb = temporal_relevance(b.confidence, &b.updated_at, &now);
+        let ra = decay_relevance(a.confidence, &a.updated_at, &now);
+        let rb = decay_relevance(b.confidence, &b.updated_at, &now);
         rb.partial_cmp(&ra).unwrap_or(std::cmp::Ordering::Equal)
     });
 
@@ -601,34 +601,34 @@ mod tests {
     }
 
     #[test]
-    fn temporal_relevance_no_decay_for_today() {
+    fn decay_relevance_no_decay_for_today() {
         let now = "2026-03-21T12:00:00Z";
         let updated = "2026-03-21T12:00:00Z";
-        let rel = temporal_relevance(0.7, updated, now);
+        let rel = decay_relevance(0.7, updated, now);
         assert!((rel - 0.7).abs() < 0.01, "same-day crystal should have ~no decay, got {}", rel);
     }
 
     #[test]
-    fn temporal_relevance_decays_old_crystals() {
+    fn decay_relevance_decays_old_crystals() {
         let now = "2026-03-21T12:00:00Z";
         let updated_90d_ago = "2025-12-21T12:00:00Z"; // ~90 days ago
-        let rel = temporal_relevance(0.7, updated_90d_ago, now);
+        let rel = decay_relevance(0.7, updated_90d_ago, now);
         // At 90 days: factor = e^(-1) ≈ 0.368, so relevance ≈ 0.7 * 0.368 ≈ 0.258
         assert!(rel < 0.3, "90-day-old crystal should decay significantly, got {}", rel);
         assert!(rel > 0.2, "decay shouldn't be too extreme at 90 days, got {}", rel);
     }
 
     #[test]
-    fn temporal_relevance_recent_beats_old_high_confidence() {
+    fn decay_relevance_recent_beats_old_high_confidence() {
         let now = "2026-03-21T12:00:00Z";
-        let recent = temporal_relevance(0.65, "2026-03-20T12:00:00Z", now); // yesterday, conf 0.65
-        let old = temporal_relevance(0.70, "2025-09-21T12:00:00Z", now);    // 6 months ago, conf 0.70
+        let recent = decay_relevance(0.65, "2026-03-20T12:00:00Z", now); // yesterday, conf 0.65
+        let old = decay_relevance(0.70, "2025-09-21T12:00:00Z", now);    // 6 months ago, conf 0.70
         assert!(recent > old, "recent crystal ({}) should outrank old one ({})", recent, old);
     }
 
     #[test]
-    fn temporal_relevance_bad_timestamp_returns_zero() {
-        let rel = temporal_relevance(0.7, "not-a-date", "2026-03-21T12:00:00Z");
+    fn decay_relevance_bad_timestamp_returns_zero() {
+        let rel = decay_relevance(0.7, "not-a-date", "2026-03-21T12:00:00Z");
         assert!((rel - 0.0).abs() < 1e-10, "bad timestamp should return 0, got {}", rel);
     }
 

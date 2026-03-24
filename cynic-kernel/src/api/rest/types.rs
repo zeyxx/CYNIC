@@ -147,7 +147,6 @@ pub struct JudgeResponse {
     pub anomaly_detected: bool,
     pub max_disagreement: f64,
     pub anomaly_axiom: Option<String>,
-    pub temporal: Option<TemporalResponse>,
     /// BLAKE3 integrity hash of this verdict
     #[serde(skip_serializing_if = "Option::is_none")]
     pub integrity_hash: Option<String>,
@@ -157,21 +156,6 @@ pub struct JudgeResponse {
     /// True if this verdict came from semantic cache (0 API calls consumed)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_hit: Option<f64>,
-}
-
-#[derive(Serialize)]
-pub struct TemporalResponse {
-    pub temporal_total: f64,
-    pub outlier_perspective: Option<String>,
-    pub max_divergence: f64,
-    pub perspectives: Vec<TemporalPerspectiveScore>,
-}
-
-#[derive(Serialize)]
-pub struct TemporalPerspectiveScore {
-    pub perspective: String,
-    pub q_total: f64,
-    pub dog_id: String,
 }
 
 #[derive(Serialize)]

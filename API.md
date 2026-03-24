@@ -92,7 +92,6 @@ Submit content for epistemic evaluation by independent AI validators (Dogs).
 | `anomaly_detected` | bool | True when Dogs significantly disagree |
 | `max_disagreement` | number | Largest score gap between Dogs on any axiom |
 | `anomaly_axiom` | string \| null | Axiom with largest disagreement |
-| `temporal` | object \| null | Temporal perspective breakdown (null if < 2 Dogs) |
 | `integrity_hash` | string | BLAKE3 hash of this verdict (omitted if unavailable) |
 | `prev_hash` | string | Hash chain to previous verdict (omitted if first) |
 | `cache_hit` | number | Cosine similarity score (only present on cache hits) |
@@ -288,10 +287,6 @@ Release claims. If `target` omitted, releases all claims for the agent.
 
 Returns `string[]` — list of active Dog IDs (e.g. `["deterministic-dog", "gemini-flash", "sovereign-gpu", "llama-8b-hf", "qwen3-4b-ubuntu"]`).
 
-### GET /temporal
-
-Temporal perspective metadata. Returns perspective definitions, aggregation method, and status.
-
 ### GET /agents
 
 Active agent sessions and claims. Returns `{ active_agents, active_claims, agents: [...], claims: [...] }`.
@@ -400,7 +395,6 @@ interface Verdict {
   anomaly_detected: boolean;
   max_disagreement: number;
   anomaly_axiom: string | null;
-  temporal?: { temporal_total: number; outlier_perspective?: string; max_divergence: number; perspectives: { perspective: string; q_total: number; dog_id: string }[] };
   integrity_hash?: string;
   prev_hash?: string;
   cache_hit?: number;

@@ -1,4 +1,4 @@
-//! REST API response mapping — verdict-to-JSON and temporal aggregation.
+//! REST API response mapping — verdict-to-JSON.
 
 use super::types::*;
 use crate::domain::dog::{Verdict, PHI_INV};
@@ -49,7 +49,6 @@ pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         anomaly_detected: v.anomaly_detected,
         max_disagreement: v.max_disagreement,
         anomaly_axiom: v.anomaly_axiom.clone(),
-        temporal: compute_temporal_from_dogs(&v.dog_scores),
         integrity_hash: v.integrity_hash.clone(),
         prev_hash: v.prev_hash.clone(),
         cache_hit: None,
@@ -61,52 +60,6 @@ pub fn verdict_response_cached(v: &Verdict, similarity: f64) -> JudgeResponse {
     let mut resp = verdict_to_response(v);
     resp.cache_hit = Some(similarity);
     resp
-}
-
-/// Map Dog evaluations onto temporal perspectives and aggregate.
-/// Each Dog represents a different "temporal lens" on the stimulus.
-pub fn compute_temporal_from_dogs(dog_scores: &[crate::domain::dog::DogScore]) -> Option<TemporalResponse> {
-    use crate::domain::temporal::{TemporalPerspective, TemporalScore, aggregate_temporal};
-    use crate::domain::dog::compute_qscore;
-
-    if dog_scores.len() < 2 {
-        return None; // Need multiple perspectives
-    }
-
-    let perspectives = TemporalPerspective::ALL;
-
-    let temporal_scores: Vec<(TemporalScore, String)> = dog_scores.iter().enumerate().filter_map(|(i, ds)| {
-        let perspective = perspectives.get(i % perspectives.len())?;
-
-        let axiom_scores = crate::domain::dog::AxiomScores {
-            fidelity: ds.fidelity, phi: ds.phi, verify: ds.verify,
-            culture: ds.culture, burn: ds.burn, sovereignty: ds.sovereignty,
-            reasoning: crate::domain::dog::AxiomReasoning::default(),
-            ..Default::default()
-        };
-        let q = compute_qscore(&axiom_scores);
-        Some((TemporalScore { perspective: *perspective, axiom_scores, q_total: q.total }, ds.dog_id.clone()))
-    }).collect();
-
-    if temporal_scores.is_empty() {
-        return None;
-    }
-
-    let scores_only: Vec<TemporalScore> = temporal_scores.iter().map(|(s, _)| s.clone()).collect();
-    let tv = aggregate_temporal(&scores_only);
-
-    Some(TemporalResponse {
-        temporal_total: tv.temporal_total,
-        outlier_perspective: tv.outlier_perspective.map(|p| p.label().to_string()),
-        max_divergence: tv.max_divergence,
-        perspectives: temporal_scores.iter().map(|(ts, dog_id)| {
-            TemporalPerspectiveScore {
-                perspective: ts.perspective.label().to_string(),
-                q_total: ts.q_total,
-                dog_id: dog_id.clone(),
-            }
-        }).collect(),
-    })
 }
 
 #[cfg(test)]
@@ -147,42 +100,5 @@ mod tests {
         assert_eq!(resp.dogs_used, "test-dog");
         assert_eq!(resp.phi_max, PHI_INV);
         assert!(!resp.anomaly_detected);
-    }
-
-    #[test]
-    fn temporal_returns_none_with_single_dog() {
-        let scores = vec![DogScore {
-            dog_id: "deterministic-dog".into(),
-            latency_ms: 0, prompt_tokens: 0, completion_tokens: 0,
-            fidelity: 0.5, phi: 0.5, verify: 0.5,
-            culture: 0.5, burn: 0.5, sovereignty: 0.5,
-            reasoning: AxiomReasoning::default(),
-        }];
-        assert!(compute_temporal_from_dogs(&scores).is_none());
-    }
-
-    #[test]
-    fn temporal_returns_some_with_multiple_dogs() {
-        let scores = vec![
-            DogScore {
-                dog_id: "deterministic-dog".into(),
-                latency_ms: 0, prompt_tokens: 0, completion_tokens: 0,
-                fidelity: 0.5, phi: 0.5, verify: 0.5,
-                culture: 0.5, burn: 0.5, sovereignty: 0.5,
-                reasoning: AxiomReasoning::default(),
-            },
-            DogScore {
-                dog_id: "gemini".into(),
-                latency_ms: 100, prompt_tokens: 50, completion_tokens: 30,
-                fidelity: 0.6, phi: 0.55, verify: 0.5,
-                culture: 0.45, burn: 0.4, sovereignty: 0.5,
-                reasoning: AxiomReasoning::default(),
-            },
-        ];
-        let temporal = compute_temporal_from_dogs(&scores);
-        assert!(temporal.is_some());
-        let t = temporal.unwrap();
-        assert!(t.temporal_total > 0.0);
-        assert!(t.temporal_total <= PHI_INV + 1e-10);
     }
 }

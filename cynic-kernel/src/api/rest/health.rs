@@ -1,4 +1,4 @@
-//! REST API handlers for health and introspection — /health, /dogs, /temporal, /agents.
+//! REST API handlers for health and introspection — /health, /dogs, /agents.
 
 use axum::{
     extract::{Request, State},
@@ -9,24 +9,6 @@ use std::sync::Arc;
 
 use super::types::{AppState, DogHealthResponse, ErrorResponse};
 use crate::domain::dog::PHI_INV;
-
-pub async fn temporal_handler() -> Json<serde_json::Value> {
-    use crate::domain::temporal::TemporalPerspective;
-    let perspectives: Vec<serde_json::Value> = TemporalPerspective::ALL.iter().map(|p| {
-        serde_json::json!({
-            "perspective": p.label(),
-            "description": p.description(),
-        })
-    }).collect();
-    Json(serde_json::json!({
-        "count": perspectives.len(),
-        "perspectives": perspectives,
-        "aggregation": "geometric_mean",
-        "outlier_threshold": "phi^-2 (0.382)",
-        "exploration_constant": "phi (1.618)",
-        "status": "pure_logic_ready — awaiting multi-perspective Dog evaluation integration"
-    }))
-}
 
 pub async fn dogs_handler(
     State(state): State<Arc<AppState>>,

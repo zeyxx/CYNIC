@@ -1,5 +1,4 @@
 //! REST API — JSON interface for external clients (React, curl, etc.)
-//! Runs alongside gRPC on a separate port.
 
 pub mod types;
 pub mod middleware;
@@ -12,7 +11,6 @@ pub mod coord;
 pub mod events;
 
 pub use types::*;
-pub use response::compute_temporal_from_dogs;
 
 use axum::{
     extract::DefaultBodyLimit,
@@ -26,7 +24,7 @@ use tower_http::services::ServeDir;
 
 use self::coord::{coord_register_handler, coord_claim_handler, coord_claim_batch_handler, coord_release_handler};
 use self::data::{crystals_handler, crystal_handler, usage_handler, create_crystal_handler, delete_crystal_handler, observe_crystal_handler, observations_handler, sessions_handler, audit_handler};
-use self::health::{health_handler, dogs_handler, temporal_handler, agents_handler, metrics_handler};
+use self::health::{health_handler, dogs_handler, agents_handler, metrics_handler};
 use self::judge::{judge_handler, get_verdict_handler, list_verdicts_handler};
 use self::middleware::{auth_middleware, rate_limit_middleware, audit_middleware};
 use self::observe::observe_handler;
@@ -70,7 +68,6 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/crystal/{id}", get(crystal_handler).delete(delete_crystal_handler))
         .route("/crystal/{id}/observe", post(observe_crystal_handler))
         .route("/usage", get(usage_handler))
-        .route("/temporal", get(temporal_handler))
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))
         .route("/agents", get(agents_handler))
