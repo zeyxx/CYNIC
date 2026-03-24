@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use super::types::{AppState, DogHealthResponse, ErrorResponse};
 use crate::domain::dog::PHI_INV;
+use crate::domain::health_gate::system_health_status;
 
 pub async fn dogs_handler(
     State(state): State<Arc<AppState>>,
@@ -32,17 +33,13 @@ pub async fn health_handler(
     };
 
     let dog_health = state.judge.dog_health();
-    let dog_count = dog_health.len();
+    let healthy_dogs = dog_health.iter().filter(|(_, circuit, _)| circuit == "closed").count();
+    let total_dogs = dog_health.len();
 
     let storage_ok = state.storage.ping().await.is_ok();
 
-    let (status, http_code) = if dog_count == 0 || !storage_ok {
-        ("critical", StatusCode::SERVICE_UNAVAILABLE) // 503
-    } else if dog_count == 1 {
-        ("degraded", StatusCode::SERVICE_UNAVAILABLE) // 503
-    } else {
-        ("sovereign", StatusCode::OK) // 200
-    };
+    let (status, is_healthy) = system_health_status(healthy_dogs, total_dogs, storage_ok);
+    let http_code = if is_healthy { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
 
     // Public: minimal info only — dog_count withheld to prevent attack surface mapping
     // HTTP status code tells the story: 200 = healthy, 503 = degraded/critical.
@@ -137,13 +134,5 @@ pub async fn metrics_handler(
     )
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn health_status_logic() {
-        // 0 dogs → critical, 1 → degraded, 2+ → sovereign
-        assert_eq!(if 0 == 0 { "critical" } else if 0 == 1 { "degraded" } else { "sovereign" }, "critical");
-        assert_eq!(if 1 == 0 { "critical" } else if 1 == 1 { "degraded" } else { "sovereign" }, "degraded");
-        assert_eq!(if 2 == 0 { "critical" } else if 2 == 1 { "degraded" } else { "sovereign" }, "sovereign");
-    }
-}
+// Logic tests live in domain::health_gate::tests — single source of truth.
+// This handler only maps (status, is_healthy) → HTTP status code.

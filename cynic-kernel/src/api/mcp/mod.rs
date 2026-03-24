@@ -23,6 +23,7 @@ use serde::Deserialize;
 
 use crate::domain::coord::{CoordPort, ClaimResult};
 use crate::domain::dog::PHI_INV;
+use crate::domain::health_gate::system_health_status;
 use crate::domain::events::KernelEvent;
 use crate::domain::inference::InferPort;
 use crate::judge::Judge;
@@ -285,21 +286,21 @@ impl CynicMcp {
     )]
     async fn cynic_health(&self) -> Result<CallToolResult, McpError> {
         let dog_health = self.judge.dog_health();
+        let healthy_dogs = dog_health.iter().filter(|(_, circuit, _)| circuit == "closed").count();
+        let total_dogs = dog_health.len();
         let dogs: Vec<serde_json::Value> = dog_health.into_iter().map(|(id, circuit, failures)| {
             serde_json::json!({ "id": id, "circuit": circuit, "failures": failures })
         }).collect();
 
-        let dog_count = dogs.len();
         let storage_ok = self.storage.ping().await.is_ok();
 
-        let status = if dog_count == 0 || !storage_ok { "critical" }
-            else if dog_count == 1 { "degraded" }
-            else { "sovereign" };
+        let (status, _is_healthy) = system_health_status(healthy_dogs, total_dogs, storage_ok);
 
         let response = serde_json::json!({
             "status": status,
             "dogs": dogs,
-            "dog_count": dog_count,
+            "dog_count": total_dogs,
+            "healthy_dogs": healthy_dogs,
             "storage": if storage_ok { "connected" } else { "down" },
             "axioms": ["FIDELITY", "PHI", "VERIFY/FALSIFY", "CULTURE", "BURN", "SOVEREIGNTY"],
             "phi_max": PHI_INV,
