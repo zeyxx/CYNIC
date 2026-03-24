@@ -1,8 +1,13 @@
 # CYNIC — Crystallized Truth
 
+> **HISTORICAL DOCUMENT** — Written 2026-03-11 as design intent for V2. Many features described here
+> were never implemented (Q-Learning, Thompson Sampling, EWC, SONA, consciousness levels, gRPC).
+> The document self-contradicts: features are listed as both "verified innovations" and "zero code" in
+> different sections. For current reality, see `docs/SESSION-NEXT-CYNIC-REALITY.md` (2026-03-24 audit).
+
 **Date:** 2026-03-11 (v3 — crystallized through dialogue)
 **Method:** Crystallize Truth (3-Layer Cognitive Ralph Loop) + iterative user dialogue
-**Status:** Living foundation — canonical reference for V2. Open questions marked. All claims hypothetical until built and falsified.
+**Status:** Historical design intent — NOT a description of current code. See warning above.
 **Epistemic stance:** Maximum confidence = phi^-1 = 61.8%. "I'm not the truth" applies to this document too.
 
 ---

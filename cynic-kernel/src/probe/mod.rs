@@ -1,7 +1,6 @@
-//! Ring 0 — CYNIC Onboarding Probe
+//! CYNIC Onboarding Probe
 //! Runs once at first boot, writes ~/.cynic/node.toml
 //! Subsequent boots: instant load from cache.
-//! Daemons read config via gRPC NodeConfigService — never touch node.toml directly.
 
 pub mod types;
 pub mod hardware;

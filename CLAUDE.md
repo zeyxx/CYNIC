@@ -60,7 +60,6 @@ GET  /crystals              → Bearer required
 GET  /crystal/{id}          → Bearer required
 GET  /usage                 → Bearer required
 GET  /dogs                  → Bearer required
-GET  /temporal              → Bearer required
 GET  /agents                → Bearer required
 POST /observe               → Bearer required
 POST /coord/register        → Bearer required (hooks + agents)
@@ -126,10 +125,10 @@ Real chess scores: Sicilian Defense → Howl. Scholar's Mate → Growl. Fool's M
 18. **Every SQL query has an integration test.** `tests/integration_storage.rs` with `#[ignore]`. SurrealDB syntax varies between versions — the compiler can't check SQL. Round-trip: INSERT + SELECT + assert on shape.
 19. **No logic duplication across API surfaces.** The judge pipeline lives in `pipeline.rs`. REST and MCP call it and format the response. If `format_crystal_context` appears in more than one handler file, the architecture is wrong.
 20. **Research testing patterns, not just syntax.** Before adding a module, `cynic-empirical` must cover: how do Rust projects TEST this pattern? (Surreal Mem engine, `tower::oneshot`, `start_paused` for background tasks). Knowing how to build ≠ knowing how to prove.
-21. **No dead architecture.** Every wired subsystem must DO what it CLAIMS. If temporal perspectives are "7 lenses evaluating a stimulus" but the code is `dog_scores[i % 7]`, that's dead architecture — either wire real temporal evaluation or burn the code. Falsifiable: every public feature described in API docs must have a code path that implements the described behavior, not a relabeling.
+21. **No dead architecture.** Every wired subsystem must DO what it CLAIMS. Temporal perspectives were burned (2026-03-24) because the code was `dog_scores[i % 7]` relabeling, not real temporal evaluation. Falsifiable: every public feature described in API docs must have a code path that implements the described behavior, not a relabeling.
 22. **No trait name collisions across domain modules.** Each trait name (`ChatPort`, `StoragePort`, `InferPort`) must be unique across the entire `domain/` directory. Two traits with the same name and different signatures create confusion for both humans and AI agents. Falsifiable: `grep 'trait FooPort' domain/**/*.rs` must return exactly one match per name.
 23. **Validate the feedback loop.** Crystal injection changes Dog prompts — this is the core value proposition. Any change to `format_crystal_context`, `observe_crystal`, or `search_crystals_semantic` must be benchmarked with `/test-chess` before AND after. The crystal loop has no external validation signal; the benchmark IS the signal.
-24. **Name things for what they ARE, not what you wish they were.** `Ring 0/1/2/3` is a boot sequence, not an OS ring. `Temporal perspectives` are dog index labels, not temporal analysis. Code names must match code behavior. Aspiration belongs in roadmap docs, not in variable names or module comments.
+24. **Name things for what they ARE, not what you wish they were.** Probe module renamed from "Ring 0" (2026-03-24) — it's a boot probe, not an OS ring. Code names must match code behavior. Aspiration belongs in roadmap docs, not in variable names or module comments.
 25. **Fix → Test → Gate → Verify.** Every fix includes: (a) the code fix, (b) a test that fails if the fix is reverted, (c) a mechanical gate — compiler lint, hook grep, or runtime check — that prevents the **class** of bug, (d) verification that the gate catches a simulated violation. A fix without a gate is temporary. Enforcement must be mechanical, never dependent on LLM compliance. Falsifiable: every PR should name which gate prevents recurrence.
 26. **Strong foundation > no foundation > weak foundation.** Before building ON a subsystem, prove it works end-to-end with real data. A subsystem that passes unit tests but has zero production callers, or claims to compound but has zero mature outputs, is a weak foundation — it creates false confidence and wastes compound time building on sand. Measured: 15-20h lost on the crystal loop, 14/14 adapter tests with zero callers. Falsifiable: every feature that other code depends on must have an E2E demonstration with real inputs.
 27. **Compound organically, not linearly.** Before prioritizing work, map what each task ENABLES downstream. A task that feeds 5 subsystems simultaneously compounds more than 5 isolated fixes. Find the seed — the one action whose output flows through the most connections. If a task has zero outgoing connections to other tasks, it's polish, not compound. Falsifiable: every session's primary task should name which other subsystems it feeds.
@@ -189,6 +188,6 @@ Escalation, troubleshooting, session lifecycle detail, conflict resolution: `/cy
 - **Toolchain:** stable 1.94+, edition 2024 (stable since Rust 1.85)
 - **Known rustc bug:** LLVM stack overflow on deep monomorphization (serde+rmcp = 47% of IR). See rust-lang/rust #103767, #122357, #138561.
 - **Workaround committed in `.cargo/config.toml`:** `jobs = 1` + `RUST_MIN_STACK = 16MB`. Do not change without testing clean release builds.
-- **gRPC:** feature-gated (`--features grpc`), off by default. No client exists yet.
+- **gRPC:** removed. Proto file (`protos/cynic.proto`) was orphaned — no codegen, no tonic/prost deps, no feature gate. Burned 2026-03-24.
 - **Do NOT change `tokio = "full"`** — targeted features alter the monomorphization graph and trigger the LLVM crash.
 - **If builds crash after toolchain update:** `rustup toolchain uninstall <ver> && rustup toolchain install <ver>` — SIGSEGV can corrupt toolchain metadata.
