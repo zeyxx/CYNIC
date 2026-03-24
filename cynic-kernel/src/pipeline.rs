@@ -125,7 +125,14 @@ pub async fn run(
 
     // ── CONTEXT ENRICHMENT: merge user context + crystals + sessions ──
     let enriched_context = {
-        let crystal_ctx = ccm::format_crystal_context(&crystals, domain_hint, 800);
+        // Crystal budget derived from ML theory:
+        // - Golden ratio weighting (arXiv 2502.18049): supplementary:primary = φ⁻²
+        // - "Lost in the middle" attention research: first 20% of context = high attention
+        // - Few-shot ICL research: 3-5 examples optimal
+        // All three converge at ~domain_prompt_length × φ⁻² ≈ 1089 for chess (2850 chars).
+        // Hardcoded for now; will scale dynamically with domain prompt length.
+        const CRYSTAL_BUDGET_CHARS: usize = 1100;
+        let crystal_ctx = ccm::format_crystal_context(&crystals, domain_hint, CRYSTAL_BUDGET_CHARS);
         let parts: Vec<String> = [context, crystal_ctx, session_ctx]
             .into_iter()
             .flatten()
