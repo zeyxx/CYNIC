@@ -290,9 +290,15 @@ async fn probe_running_servers(env: &EnvInfo) -> Option<String> {
         candidates.push(format!("http://{}:11435", host));
     }
 
-    let client = reqwest::Client::builder()
+    let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(1))
-        .build().unwrap_or_default();
+        .build() {
+        Ok(c) => c,
+        Err(e) => {
+            klog!("[Ring 0 / LLM] HTTP client build failed (TLS?): {} — using defaults", e);
+            reqwest::Client::default()
+        }
+    };
 
     for url in &candidates {
         let ok = client.get(format!("{}/api/version", url))

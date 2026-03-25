@@ -320,15 +320,12 @@ async fn create_crystal_requires_auth() {
 }
 
 #[tokio::test]
-async fn create_crystal_returns_201() {
+async fn create_crystal_returns_500_with_null_storage() {
+    // RC5: NullStorage now returns Err — honest about unavailability
     let state = test_state(Some("key"));
     let app = rest::router(state);
     let resp = app.oneshot(axum::http::Request::builder().method("POST").uri("/crystal").header("Content-Type", "application/json").header("Authorization", "Bearer key").body(Body::from(r#"{"content":"The Sicilian Defense is strong","domain":"chess"}"#)).unwrap()).await.unwrap();
-    assert_eq!(resp.status(), 201, "CONTRACT: POST /crystal must return 201 Created");
-    let v = body_json(resp.into_body()).await;
-    assert!(v["id"].is_string(), "CONTRACT: response must include crystal id");
-    assert_eq!(v["domain"].as_str(), Some("chess"));
-    assert_eq!(v["state"].as_str(), Some("Forming"));
+    assert_eq!(resp.status(), 500, "NullStorage: POST /crystal must return 500 (storage unavailable)");
 }
 
 #[tokio::test]
@@ -340,31 +337,30 @@ async fn create_crystal_rejects_empty_content() {
 }
 
 #[tokio::test]
-async fn delete_crystal_returns_204() {
+async fn delete_crystal_returns_500_with_null_storage() {
+    // RC5: NullStorage now returns Err — honest about unavailability
     let state = test_state(Some("key"));
     let app = rest::router(state);
     let resp = app.oneshot(axum::http::Request::builder().method("DELETE").uri("/crystal/test-id").header("Authorization", "Bearer key").body(Body::empty()).unwrap()).await.unwrap();
-    assert_eq!(resp.status(), 204, "CONTRACT: DELETE /crystal/{{id}} must return 204");
+    assert_eq!(resp.status(), 500, "NullStorage: DELETE /crystal must return 500");
 }
 
 #[tokio::test]
-async fn observe_crystal_returns_200() {
+async fn observe_crystal_returns_500_with_null_storage() {
+    // RC5: NullStorage now returns Err — honest about unavailability
     let state = test_state(Some("key"));
     let app = rest::router(state);
     let resp = app.oneshot(axum::http::Request::builder().method("POST").uri("/crystal/test-id/observe").header("Content-Type", "application/json").header("Authorization", "Bearer key").body(Body::from(r#"{"content":"test","domain":"chess","score":0.85}"#)).unwrap()).await.unwrap();
-    assert_eq!(resp.status(), 200, "CONTRACT: POST /crystal/{{id}}/observe must return 200");
-    let v = body_json(resp.into_body()).await;
-    assert_eq!(v["status"].as_str(), Some("observed"));
+    assert_eq!(resp.status(), 500, "NullStorage: POST /crystal observe must return 500");
 }
 
 #[tokio::test]
-async fn list_crystals_with_domain_filter() {
+async fn list_crystals_returns_500_with_null_storage() {
+    // RC5: NullStorage now returns Err — honest about unavailability
     let state = test_state(Some("key"));
     let app = rest::router(state);
     let resp = app.oneshot(axum::http::Request::builder().uri("/crystals?domain=chess&state=crystallized").header("Authorization", "Bearer key").body(Body::empty()).unwrap()).await.unwrap();
-    assert_eq!(resp.status(), 200);
-    let v = body_json(resp.into_body()).await;
-    assert!(v.is_array(), "CONTRACT: /crystals must return array");
+    assert_eq!(resp.status(), 500, "NullStorage: GET /crystals must return 500");
 }
 
 // ── Gate 3 serialization contracts ─────────────────────────

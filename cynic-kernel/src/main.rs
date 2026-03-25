@@ -52,7 +52,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 1: Load config (single source of truth) ─────────
     let backends_path = dirs::config_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .unwrap_or_else(|| {
+            klog!("[Ring 1] dirs::config_dir() unavailable — falling back to current directory");
+            std::path::PathBuf::from(".")
+        })
         .join("cynic")
         .join("backends.toml");
     let storage_config = infra::config::load_storage_config(&backends_path);
@@ -88,8 +91,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     infra::config::validate_config(&backend_configs).await;
 
     // ─── RING 1: Load domain prompts (chess.md, trading.md, etc.) ──
-    let project_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let domain_prompts = Arc::new(infra::config::load_domain_prompts(project_root));
+    // RC3: use runtime path discovery, not compile-time CARGO_MANIFEST_DIR
+    let project_root = std::env::var("CYNIC_PROJECT_ROOT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            // Try git discovery, fall back to binary's parent dir
+            std::process::Command::new("git")
+                .args(["rev-parse", "--show-toplevel"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| std::path::PathBuf::from(s.trim()))
+                .unwrap_or_else(|| {
+                    let fallback = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+                    klog!("[Ring 1] No CYNIC_PROJECT_ROOT and git not available — using cwd: {}", fallback.display());
+                    fallback
+                })
+        });
+    let domain_prompts = Arc::new(infra::config::load_domain_prompts(&project_root));
 
     // ─── RING 2: Build Dogs (model-agnostic evaluators) ───────
     let mut dogs: Vec<Box<dyn domain::dog::Dog>> = Vec::new();
@@ -172,9 +191,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shutdown = CancellationToken::new();
 
     // Seed integrity hash chain from last stored verdict
-    if let Ok(Some(hash)) = storage_port.last_integrity_hash().await {
-        judge.seed_chain(Some(hash.clone()));
-        klog!("[Ring 2] Integrity chain seeded: {}…", &hash[..16.min(hash.len())]);
+    match storage_port.last_integrity_hash().await {
+        Ok(Some(hash)) => {
+            judge.seed_chain(Some(hash.clone()));
+            klog!("[Ring 2] Integrity chain seeded: {}…", &hash[..16.min(hash.len())]);
+        }
+        Ok(None) => klog!("[Ring 2] Integrity chain: no previous hash (first boot or empty DB)"),
+        Err(e) => klog!("[Ring 2] Integrity chain: failed to load (non-fatal): {}", e),
     }
 
     // ─── RING 2: Spawn health loop + remediation watcher ──────
@@ -236,13 +259,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Hydrate metrics from DB so counters survive reboots
     if has_db {
-        if let Ok(v_count) = storage_port.count_verdicts().await {
-            metrics.verdicts_total.store(v_count, std::sync::atomic::Ordering::Relaxed);
-            klog!("[Ring 2] Metrics: hydrated verdicts_total = {}", v_count);
+        match storage_port.count_verdicts().await {
+            Ok(v_count) => {
+                metrics.verdicts_total.store(v_count, std::sync::atomic::Ordering::Relaxed);
+                klog!("[Ring 2] Metrics: hydrated verdicts_total = {}", v_count);
+            }
+            Err(e) => klog!("[Ring 2] Metrics: failed to hydrate verdicts_total (counters start at 0): {}", e),
         }
-        if let Ok(co_count) = storage_port.count_crystal_observations().await {
-            metrics.crystal_observations_total.store(co_count, std::sync::atomic::Ordering::Relaxed);
-            klog!("[Ring 2] Metrics: hydrated crystal_observations_total = {}", co_count);
+        match storage_port.count_crystal_observations().await {
+            Ok(co_count) => {
+                metrics.crystal_observations_total.store(co_count, std::sync::atomic::Ordering::Relaxed);
+                klog!("[Ring 2] Metrics: hydrated crystal_observations_total = {}", co_count);
+            }
+            Err(e) => klog!("[Ring 2] Metrics: failed to hydrate crystal_observations (counters start at 0): {}", e),
         }
     }
     // Event bus — broadcast channel for SSE/WebSocket subscribers.

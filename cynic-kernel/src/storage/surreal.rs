@@ -692,7 +692,11 @@ impl CoordPort for SurrealHttpStorage {
             "SELECT agent_id FROM work_claim:`{key}` WHERE active = true;",
             key = target_key,
         );
-        let owner = self.query_one(&verify_sql).await.unwrap_or_default();
+        let owner = self.query_one(&verify_sql).await
+            .map_err(|e| {
+                tracing::warn!(error = %e, target = %target, "claim verification query failed");
+                CoordError::StorageFailed(format!("Claim verify: {}", e))
+            })?;
         let we_own = owner.first()
             .and_then(|r| r["agent_id"].as_str())
             .is_some_and(|id| id == agent_id);
@@ -700,13 +704,15 @@ impl CoordPort for SurrealHttpStorage {
             return Ok(ClaimResult::Conflict(vec![ConflictInfo {
                 agent_id: owner.first()
                     .and_then(|r| r["agent_id"].as_str())
-                    .unwrap_or("unknown (race)")
+                    .unwrap_or("unknown")
                     .to_string(),
                 claimed_at: "just now".into(),
             }]));
         }
 
-        let _ = self.heartbeat(agent_id).await; // ok: fire-and-forget
+        if let Err(e) = self.heartbeat(agent_id).await {
+            tracing::warn!(error = %e, agent_id, "heartbeat after claim failed");
+        }
         Ok(ClaimResult::Claimed)
     }
 
@@ -724,7 +730,9 @@ impl CoordPort for SurrealHttpStorage {
             ),
         };
         self.query_one(&sql).await.map_err(|e| CoordError::StorageFailed(format!("Release: {}", e)))?;
-        if target.is_none() { let _ = self.deactivate_agent(agent_id).await; } // ok: fire-and-forget
+        if target.is_none() && self.deactivate_agent(agent_id).await.is_err() {
+            // Already logged inside deactivate_agent
+        }
         Ok(desc)
     }
 
@@ -807,12 +815,20 @@ impl CoordPort for SurrealHttpStorage {
     }
 
     async fn heartbeat(&self, agent_id: &str) -> Result<(), CoordError> {
-        let _ = self.query_one(&format!("UPDATE agent_session:`{}` SET last_seen = time::now();", sanitize_record_id(agent_id))).await; // ok: fire-and-forget
+        self.query_one(&format!("UPDATE agent_session:`{}` SET last_seen = time::now();", sanitize_record_id(agent_id))).await
+            .map_err(|e| {
+                tracing::warn!(error = %e, agent_id, "heartbeat query failed");
+                CoordError::StorageFailed(format!("Heartbeat: {}", e))
+            })?;
         Ok(())
     }
 
     async fn deactivate_agent(&self, agent_id: &str) -> Result<(), CoordError> {
-        let _ = self.query_one(&format!("UPDATE agent_session:`{}` SET active = false, last_seen = time::now();", sanitize_record_id(agent_id))).await; // ok: fire-and-forget
+        self.query_one(&format!("UPDATE agent_session:`{}` SET active = false, last_seen = time::now();", sanitize_record_id(agent_id))).await
+            .map_err(|e| {
+                tracing::warn!(error = %e, agent_id, "deactivate_agent query failed");
+                CoordError::StorageFailed(format!("Deactivate: {}", e))
+            })?;
         Ok(())
     }
 
@@ -911,7 +927,9 @@ impl CoordPort for SurrealHttpStorage {
         }
 
         // Single heartbeat for the batch
-        let _ = self.heartbeat(agent_id).await; // ok: fire-and-forget
+        if let Err(e) = self.heartbeat(agent_id).await {
+            tracing::warn!(error = %e, agent_id, "heartbeat after batch claim failed");
+        }
 
         Ok(result)
     }

@@ -741,13 +741,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn crystals_returns_empty_with_null_storage() {
+    async fn crystals_returns_error_with_null_storage() {
         let mcp = test_mcp();
         let params = Parameters(ListParams { limit: Some(5), agent_id: None });
-        // NullStorage returns Ok(vec![]) for list_crystals
-        let result = mcp.cynic_crystals(params).await.unwrap();
-        let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
-        assert_eq!(v.as_array().unwrap().len(), 0);
+        // NullStorage returns Err (RC5 fix: no silent Ok(()) on unavailable storage)
+        let result = mcp.cynic_crystals(params).await;
+        assert!(result.is_err(), "NullStorage should propagate error for list_crystals");
     }
 
     #[tokio::test]

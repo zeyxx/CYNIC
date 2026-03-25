@@ -239,7 +239,7 @@ impl StoragePort for NullStorage {
         Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
     }
     async fn store_verdict(&self, _verdict: &Verdict) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed("NullStorage: verdict not persisted (DEGRADED mode)".into()))
     }
     async fn get_verdict(&self, _id: &str) -> Result<Option<Verdict>, StorageError> {
         Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
@@ -248,30 +248,30 @@ impl StoragePort for NullStorage {
         Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
     }
     async fn store_crystal(&self, _crystal: &Crystal) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed("NullStorage: crystal not persisted (DEGRADED mode)".into()))
     }
     async fn get_crystal(&self, _id: &str) -> Result<Option<Crystal>, StorageError> {
-        Ok(None)
+        Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
     }
     async fn list_crystals(&self, _limit: u32) -> Result<Vec<Crystal>, StorageError> {
-        Ok(vec![])
+        Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
     }
     async fn delete_crystal(&self, _id: &str) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed("NullStorage: cannot delete (DEGRADED mode)".into()))
     }
     async fn observe_crystal(&self, _id: &str, _content: &str, _domain: &str, _score: f64, _timestamp: &str) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed("NullStorage: observation not persisted (DEGRADED mode)".into()))
     }
     async fn store_observation(&self, _obs: &Observation) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed("NullStorage: observation not persisted (DEGRADED mode)".into()))
     }
     async fn query_observations(&self, _project: &str, _domain: Option<&str>, _limit: u32) -> Result<Vec<ObservationFrequency>, StorageError> {
-        Ok(vec![])
+        Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
     }
     async fn query_session_targets(&self, _project: &str, _limit: u32) -> Result<Vec<SessionTarget>, StorageError> {
-        Ok(vec![])
+        Err(StorageError::ConnectionFailed("Storage unavailable (DEGRADED mode)".into()))
     }
     async fn flush_usage(&self, _snapshot: &[(String, crate::domain::usage::DogUsage)]) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed("NullStorage: usage not flushed (DEGRADED mode)".into()))
     }
 }

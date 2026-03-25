@@ -30,9 +30,16 @@ pub async fn events_handler(
             match rx.recv().await {
                 Ok(kernel_event) => {
                     let event_type = event_type_name(&kernel_event);
-                    let json = serde_json::to_string(&kernel_event).unwrap_or_default();
-                    let sse_event = Event::default().event(event_type).data(json);
-                    return Some((Ok(sse_event), rx));
+                    match serde_json::to_string(&kernel_event) {
+                        Ok(json) => {
+                            let sse_event = Event::default().event(event_type).data(json);
+                            return Some((Ok(sse_event), rx));
+                        }
+                        Err(e) => {
+                            tracing::warn!(event_type, error = %e, "SSE event serialization failed — skipping");
+                            continue;
+                        }
+                    }
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                     tracing::debug!(skipped = n, "SSE client lagged — skipping events");

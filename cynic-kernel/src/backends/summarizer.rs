@@ -37,11 +37,17 @@ impl SovereignSummarizer {
             .unwrap_or_else(|_| format!("http://{}:8080/v1", host));
         let api_key = std::env::var("SOVEREIGN_API_KEY").ok()
             .or_else(|| {
-                std::fs::read_to_string(
-                    dirs::config_dir()
-                        .unwrap_or_default()
-                        .join("cynic/llama-api-key")
-                ).ok().map(|s| s.trim().to_string())
+                let path = dirs::config_dir()
+                    .unwrap_or_default()
+                    .join("cynic/llama-api-key");
+                match std::fs::read_to_string(&path) {
+                    Ok(s) => Some(s.trim().to_string()),
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+                    Err(e) => {
+                        tracing::warn!(path = %path.display(), error = %e, "llama API key file unreadable (permissions?)");
+                        None
+                    }
+                }
             });
         let model = std::env::var("CYNIC_SUMMARIZER_MODEL")
             .unwrap_or_else(|_| "local".into());

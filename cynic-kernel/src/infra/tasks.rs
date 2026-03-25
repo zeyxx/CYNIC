@@ -319,8 +319,9 @@ pub fn spawn_introspection(
                                     severity: alert.severity.to_string(),
                                 });
                             }
-                            if let Ok(mut stored) = introspection_alerts.write() {
-                                *stored = alerts;
+                            match introspection_alerts.write() {
+                                Ok(mut stored) => *stored = alerts,
+                                Err(e) => tracing::warn!(error = %e, "introspection_alerts RwLock poisoned — alerts not updated"),
                             }
                             task_health.touch_introspection();
                         }

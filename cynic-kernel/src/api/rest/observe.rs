@@ -88,6 +88,9 @@ pub async fn observe_handler(
         }
         Err(_) => {
             tracing::warn!("background task limit reached, observation dropped");
+            return Err((StatusCode::SERVICE_UNAVAILABLE, Json(ErrorResponse {
+                error: "observation dropped: background task limit reached".into(),
+            })));
         }
     }
 
