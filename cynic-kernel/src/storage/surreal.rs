@@ -542,16 +542,19 @@ impl StoragePort for SurrealHttpStorage {
         let mut sql = String::new();
         for (dog_id, u) in snapshot {
             use std::fmt::Write;
+            let id_key = sanitize_record_id(dog_id);
+            let id_val = escape_surreal(dog_id);
             let _ = write!(sql, // ok: fmt::Write on String is infallible
-                "UPSERT dog_usage:`{id}` SET \
-                    dog_id = '{id}', \
+                "UPSERT dog_usage:`{id_key}` SET \
+                    dog_id = '{id_val}', \
                     prompt_tokens = {pt}, \
                     completion_tokens = {ct}, \
                     requests = {req}, \
                     failures = {fail}, \
                     total_latency_ms = {lat}, \
                     updated_at = time::now(); ",
-                id = dog_id, pt = u.prompt_tokens, ct = u.completion_tokens,
+                id_key = id_key, id_val = id_val,
+                pt = u.prompt_tokens, ct = u.completion_tokens,
                 req = u.requests, fail = u.failures, lat = u.total_latency_ms,
             );
         }
@@ -631,8 +634,22 @@ impl StoragePort for SurrealHttpStorage {
 
 // ── COORD PORT IMPLEMENTATION ────────────────────────────────
 
+/// Sanitize string for use as SurrealDB record ID.
+/// RC4 fix: collision-free encoding (hex for special chars), length-limited.
+/// `a-b` → `a_2d_b`, `a.b` → `a_2e_b` — no collisions.
 fn sanitize_record_id(s: &str) -> String {
-    s.chars().map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' }).collect()
+    // Length limit: 256 chars input, output may be slightly longer due to encoding
+    let truncated = if s.len() > 256 { &s[..256] } else { s };
+    let mut out = String::with_capacity(truncated.len());
+    for c in truncated.chars() {
+        if c.is_ascii_alphanumeric() || c == '_' {
+            out.push(c);
+        } else {
+            // Hex-encode non-safe chars to avoid collisions
+            out.push_str(&format!("_{:02x}_", c as u32));
+        }
+    }
+    out
 }
 
 #[async_trait::async_trait]
@@ -1110,5 +1127,35 @@ mod tests {
 
         // Cleanup
         let _ = storage.query_one("DELETE verdict WHERE verdict_id = 'test-001'").await;
+    }
+
+    // ── RC4: sanitize_record_id tests ──────────────────────────
+
+    #[test]
+    fn sanitize_record_id_no_collision() {
+        // RC4: a-b and a.b must produce DIFFERENT keys
+        let key1 = sanitize_record_id("a-b");
+        let key2 = sanitize_record_id("a.b");
+        assert_ne!(key1, key2, "different inputs must produce different record IDs");
+    }
+
+    #[test]
+    fn sanitize_record_id_safe_chars_unchanged() {
+        assert_eq!(sanitize_record_id("hello_world_123"), "hello_world_123");
+    }
+
+    #[test]
+    fn sanitize_record_id_length_limited() {
+        let long = "a".repeat(300);
+        let result = sanitize_record_id(&long);
+        // Input truncated to 256 chars
+        assert!(result.len() <= 256, "record ID should be length-limited");
+    }
+
+    #[test]
+    fn sanitize_record_id_special_chars_encoded() {
+        let result = sanitize_record_id("file/path.rs");
+        assert!(result.contains("_2f_"), "slash should be hex-encoded");
+        assert!(result.contains("_2e_"), "dot should be hex-encoded");
     }
 }

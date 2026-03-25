@@ -343,10 +343,11 @@ pub(crate) fn sanitize_id(id: &str) -> Result<&str, StorageError> {
 }
 
 /// Escape string for SurrealQL string literals.
-/// Handles: backslashes, single quotes, null bytes, newlines, carriage returns, tabs.
+/// Handles: backslashes, single quotes, backticks, null bytes, newlines, carriage returns, tabs.
 pub(crate) fn escape_surreal(s: &str) -> String {
     s.replace('\\', "\\\\")
      .replace('\'', "\\'")
+     .replace('`', "\\`")
      .replace('\0', "")
      .replace('\n', "\\n")
      .replace('\r', "\\r")
@@ -356,4 +357,46 @@ pub(crate) fn escape_surreal(s: &str) -> String {
 /// Clamp query limit to prevent resource exhaustion.
 pub(crate) fn safe_limit(limit: u32) -> u32 {
     limit.min(100)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn escape_surreal_handles_backticks() {
+        // RC4: backtick escaping was missing
+        assert_eq!(escape_surreal("hello`world"), "hello\\`world");
+    }
+
+    #[test]
+    fn escape_surreal_handles_quotes_and_backslashes() {
+        assert_eq!(escape_surreal("it's a \\test"), "it\\'s a \\\\test");
+    }
+
+    #[test]
+    fn escape_surreal_handles_null_bytes() {
+        assert_eq!(escape_surreal("a\0b"), "ab");
+    }
+
+    #[test]
+    fn sanitize_id_rejects_empty() {
+        assert!(sanitize_id("").is_err());
+    }
+
+    #[test]
+    fn sanitize_id_rejects_long() {
+        let long = "a".repeat(129);
+        assert!(sanitize_id(&long).is_err());
+    }
+
+    #[test]
+    fn sanitize_id_allows_valid() {
+        assert!(sanitize_id("my-dog_123").is_ok());
+    }
+
+    #[test]
+    fn sanitize_id_rejects_special_chars() {
+        assert!(sanitize_id("dog'; DROP TABLE--").is_err());
+    }
 }
