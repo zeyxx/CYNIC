@@ -635,18 +635,26 @@ impl StoragePort for SurrealHttpStorage {
 // ── COORD PORT IMPLEMENTATION ────────────────────────────────
 
 /// Sanitize string for use as SurrealDB record ID.
-/// RC4 fix: collision-free encoding (hex for special chars), length-limited.
-/// `a-b` → `a_2d_b`, `a.b` → `a_2e_b` — no collisions.
+/// Uses percent-encoding: unsafe chars → `%XX`, `%` itself → `%25`.
+/// Collision-free: injective mapping (different inputs → different outputs).
+/// Length-limited to 256 chars (char-aware, no UTF-8 boundary panic).
 fn sanitize_record_id(s: &str) -> String {
-    // Length limit: 256 chars input, output may be slightly longer due to encoding
-    let truncated = if s.len() > 256 { &s[..256] } else { s };
-    let mut out = String::with_capacity(truncated.len());
-    for c in truncated.chars() {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars().take(256) {
         if c.is_ascii_alphanumeric() || c == '_' {
             out.push(c);
+        } else if c == '%' {
+            // Encode % itself to prevent collision with encoded sequences
+            out.push_str("%25");
+        } else if c.is_ascii() {
+            // ASCII non-safe: percent-encode
+            out.push_str(&format!("%{:02x}", c as u8));
         } else {
-            // Hex-encode non-safe chars to avoid collisions
-            out.push_str(&format!("_{:02x}_", c as u32));
+            // Non-ASCII: encode each UTF-8 byte
+            let mut buf = [0u8; 4];
+            for b in c.encode_utf8(&mut buf).bytes() {
+                out.push_str(&format!("%{:02x}", b));
+            }
         }
     }
     out
@@ -1140,6 +1148,14 @@ mod tests {
     }
 
     #[test]
+    fn sanitize_record_id_no_collision_with_encoding_literal() {
+        // Adversarial: literal "%2d" in input vs encoded "-" both must differ
+        let key_literal = sanitize_record_id("a%2db");   // % → %25, then literal 2db
+        let key_encoded = sanitize_record_id("a-b");     // - → %2d
+        assert_ne!(key_literal, key_encoded, "literal %2d must not collide with encoded dash");
+    }
+
+    #[test]
     fn sanitize_record_id_safe_chars_unchanged() {
         assert_eq!(sanitize_record_id("hello_world_123"), "hello_world_123");
     }
@@ -1148,14 +1164,22 @@ mod tests {
     fn sanitize_record_id_length_limited() {
         let long = "a".repeat(300);
         let result = sanitize_record_id(&long);
-        // Input truncated to 256 chars
-        assert!(result.len() <= 256, "record ID should be length-limited");
+        // Input truncated to 256 chars (all ASCII, so output = 256)
+        assert_eq!(result.len(), 256, "output should be truncated at 256 chars");
+    }
+
+    #[test]
+    fn sanitize_record_id_utf8_no_panic() {
+        // Adversarial: multi-byte UTF-8 chars near the 256 boundary must not panic
+        let s = "é".repeat(200); // 200 chars × 2 bytes = 400 bytes
+        let result = sanitize_record_id(&s); // takes 200 chars (< 256), encodes each
+        assert!(!result.is_empty());
     }
 
     #[test]
     fn sanitize_record_id_special_chars_encoded() {
         let result = sanitize_record_id("file/path.rs");
-        assert!(result.contains("_2f_"), "slash should be hex-encoded");
-        assert!(result.contains("_2e_"), "dot should be hex-encoded");
+        assert!(result.contains("%2f"), "slash should be percent-encoded");
+        assert!(result.contains("%2e"), "dot should be percent-encoded");
     }
 }

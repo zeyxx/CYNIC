@@ -85,10 +85,11 @@ impl McpRateLimit {
 
 // ── Input Validation Helpers ──────────────────────────────────
 
-/// RC1: Validate agent_id — must be 1-128 chars, no control characters.
+/// RC1: Validate agent_id — must be 1-128 chars (not bytes), no control characters.
 fn validate_agent_id(agent_id: &Option<String>) -> Result<(), McpError> {
     if let Some(id) = agent_id {
-        if id.is_empty() || id.len() > 128 {
+        let char_count = id.chars().count();
+        if char_count == 0 || char_count > 128 {
             return Err(McpError::invalid_params("agent_id must be 1-128 characters", None));
         }
         if id.chars().any(|c| c.is_control()) {
@@ -513,7 +514,7 @@ impl CynicMcp {
 
         let response = serde_json::json!({
             "text": infer_resp.text,
-            "model": infer_resp.model,
+            // RC1: model name omitted — leaks backend identity (exact GGUF, quantization)
             "prompt_tokens": infer_resp.prompt_tokens,
             "completion_tokens": infer_resp.completion_tokens,
             "sovereign": true,
