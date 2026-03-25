@@ -22,9 +22,9 @@ pub async fn auth_middleware(
     request: Request,
     next: Next,
 ) -> Response {
-    // /health and /metrics are public — no auth required
+    // /health, /live, /ready, /metrics, /events are public — no auth required
     let path = request.uri().path();
-    if path == "/health" || path == "/metrics" || path == "/events" {
+    if path == "/health" || path == "/live" || path == "/ready" || path == "/metrics" || path == "/events" {
         return next.run(request).await;
     }
 
@@ -48,14 +48,14 @@ pub async fn auth_middleware(
     next.run(request).await
 }
 
-/// Rate limiter — per-IP token bucket. /health exempt. /judge has stricter limit.
+/// Rate limiter — per-IP token bucket. /health, /live, /ready exempt. /judge has stricter limit.
 pub async fn rate_limit_middleware(
     State(state): State<Arc<AppState>>,
     request: Request,
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health" || path == "/metrics" || path == "/events" {
+    if path == "/health" || path == "/live" || path == "/ready" || path == "/metrics" || path == "/events" {
         return next.run(request).await;
     }
 
@@ -84,14 +84,14 @@ pub async fn rate_limit_middleware(
     next.run(request).await
 }
 
-/// Audit log — logs every request (except /health) to SurrealDB. Best-effort, non-blocking.
+/// Audit log — logs every request (except probes) to SurrealDB. Best-effort, non-blocking.
 pub async fn audit_middleware(
     State(state): State<Arc<AppState>>,
     request: Request,
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health" || path == "/metrics" || path == "/events" {
+    if path == "/health" || path == "/live" || path == "/ready" || path == "/metrics" || path == "/events" {
         return next.run(request).await;
     }
 
