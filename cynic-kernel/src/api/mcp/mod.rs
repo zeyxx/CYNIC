@@ -9,6 +9,7 @@
 //! Inspiration credit: NousResearch/hermes-agent (tool architecture patterns).
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use rmcp::{
     ErrorData as McpError,
@@ -29,6 +30,78 @@ use crate::domain::inference::InferPort;
 use crate::judge::Judge;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
+
+// ── MCP Rate Limiter ──────────────────────────────────────────
+// RC1 fix: MCP had zero rate limiting. Same limits as REST.
+// Simple sliding window — resets every 60s. Single-client (stdio).
+
+struct McpRateLimit {
+    judge_calls: AtomicU64,
+    other_calls: AtomicU64,
+    window_start: std::sync::Mutex<std::time::Instant>,
+}
+
+impl McpRateLimit {
+    fn new() -> Self {
+        Self {
+            judge_calls: AtomicU64::new(0),
+            other_calls: AtomicU64::new(0),
+            window_start: std::sync::Mutex::new(std::time::Instant::now()),
+        }
+    }
+
+    /// Check + increment. Returns Err if limit exceeded.
+    fn check_judge(&self) -> Result<(), McpError> {
+        self.maybe_reset();
+        let count = self.judge_calls.fetch_add(1, Ordering::Relaxed);
+        if count >= 10 {
+            self.judge_calls.fetch_sub(1, Ordering::Relaxed);
+            Err(McpError::new(rmcp::model::ErrorCode(-32000), "Rate limit: max 10 judge/infer calls per minute", None))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn check_other(&self) -> Result<(), McpError> {
+        self.maybe_reset();
+        let count = self.other_calls.fetch_add(1, Ordering::Relaxed);
+        if count >= 30 {
+            self.other_calls.fetch_sub(1, Ordering::Relaxed);
+            Err(McpError::new(rmcp::model::ErrorCode(-32000), "Rate limit: max 30 calls per minute", None))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn maybe_reset(&self) {
+        if let Ok(mut start) = self.window_start.lock()
+            && start.elapsed() > std::time::Duration::from_secs(60) {
+            self.judge_calls.store(0, Ordering::Relaxed);
+            self.other_calls.store(0, Ordering::Relaxed);
+            *start = std::time::Instant::now();
+        }
+    }
+}
+
+// ── Input Validation Helpers ──────────────────────────────────
+
+/// RC1: Validate agent_id — must be 1-128 chars, no control characters.
+fn validate_agent_id(agent_id: &Option<String>) -> Result<(), McpError> {
+    if let Some(id) = agent_id {
+        if id.is_empty() || id.len() > 128 {
+            return Err(McpError::invalid_params("agent_id must be 1-128 characters", None));
+        }
+        if id.chars().any(|c| c.is_control()) {
+            return Err(McpError::invalid_params("agent_id contains invalid characters", None));
+        }
+    }
+    Ok(())
+}
+
+/// RC1: Sanitize error messages — no internal URLs, model names, or stack traces.
+fn sanitize_error(category: &str) -> McpError {
+    McpError::internal_error(format!("{} unavailable — check /health", category), None)
+}
 
 // ── MCP Tool Parameters ─────────────────────────────────────
 
@@ -142,6 +215,8 @@ pub struct CynicMcp {
     metrics: Arc<crate::domain::metrics::Metrics>,
     /// Kernel event bus — shared with REST SSE. None only in tests.
     event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+    /// RC1: Rate limiter — shared across all tool calls.
+    rate_limit: Arc<McpRateLimit>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -169,6 +244,7 @@ impl CynicMcp {
             metrics,
             usage,
             event_tx,
+            rate_limit: Arc::new(McpRateLimit::new()),
             tool_router: Self::tool_router(),
         }
     }
@@ -183,7 +259,9 @@ impl CynicMcp {
         &self,
         params: Parameters<JudgeParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_judge()?;
         let p = params.0;
+        validate_agent_id(&p.agent_id)?;
         let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
 
         // Input validation — same limits as REST to prevent token drain
@@ -217,7 +295,10 @@ impl CynicMcp {
         let result = crate::pipeline::run(
             p.content.clone(), p.context, p.domain.clone(), p.dogs.as_deref(),
             p.crystals.unwrap_or(true), &deps,
-        ).await.map_err(|e| McpError::internal_error(format!("Judge error: {}", e), None))?;
+        ).await.map_err(|e| {
+            tracing::warn!(error = %e, "MCP judge pipeline failed");
+            sanitize_error("Judge")
+        })?;
 
         let verdict = match result {
             crate::pipeline::PipelineResult::CacheHit { verdict: cached, similarity } => {
@@ -285,6 +366,7 @@ impl CynicMcp {
         description = "Get CYNIC kernel health: active Dogs, circuit breaker states, storage status, axioms, φ constants. Use this to verify the kernel is operational before submitting judgments."
     )]
     async fn cynic_health(&self) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
         let dog_health = self.judge.dog_health();
         let healthy_dogs = dog_health.iter().filter(|(_, circuit, _)| circuit == "closed").count();
         let total_dogs = dog_health.len();
@@ -321,13 +403,15 @@ impl CynicMcp {
         &self,
         params: Parameters<ListParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        validate_agent_id(&params.0.agent_id)?;
         let limit = params.0.limit.unwrap_or(20).min(100);
         // Refresh heartbeat if agent_id provided (keeps session alive on read-only calls)
         if let Some(ref agent_id) = params.0.agent_id {
             self.touch(agent_id).await;
         }
         let verdicts = self.storage.list_verdicts(limit).await
-            .map_err(|e| McpError::internal_error(format!("Storage error: {}", e), None))?;
+            .map_err(|e| { tracing::warn!(error = %e, "MCP storage query failed"); sanitize_error("Storage") })?;
 
         let items: Vec<serde_json::Value> = verdicts.iter().map(|v| {
             serde_json::json!({
@@ -355,12 +439,14 @@ impl CynicMcp {
         &self,
         params: Parameters<ListParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        validate_agent_id(&params.0.agent_id)?;
         let limit = params.0.limit.unwrap_or(20).min(100);
         if let Some(ref agent_id) = params.0.agent_id {
             self.touch(agent_id).await;
         }
         let crystals = self.storage.list_crystals(limit).await
-            .map_err(|e| McpError::internal_error(format!("Storage error: {}", e), None))?;
+            .map_err(|e| { tracing::warn!(error = %e, "MCP storage query failed"); sanitize_error("Storage") })?;
 
         let items: Vec<serde_json::Value> = crystals.iter().map(|c| {
             serde_json::json!({
@@ -388,7 +474,9 @@ impl CynicMcp {
         &self,
         params: Parameters<InferParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_judge()?; // Same limit as judge — both use LLM resources
         let p = params.0;
+        validate_agent_id(&p.agent_id)?;
         let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
 
         // Input validation
@@ -412,7 +500,10 @@ impl CynicMcp {
             max_tokens,
         };
         let infer_resp = self.infer.infer(&request).await
-            .map_err(|e| McpError::internal_error(format!("Inference error: {}", e), None))?;
+            .map_err(|e| {
+                tracing::warn!(error = %e, "MCP infer failed");
+                sanitize_error("Inference")
+            })?;
 
         let _ = self.audit("cynic_infer", &agent_id, &serde_json::json!({ // ok: fire-and-forget
             "prompt_len": p.prompt.len(),
@@ -443,6 +534,7 @@ impl CynicMcp {
         &self,
         params: Parameters<AuditQueryParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
         let p = params.0;
         let limit = p.limit.unwrap_or(20).min(100);
 
@@ -450,7 +542,7 @@ impl CynicMcp {
             Ok(results) => Ok(CallToolResult::success(vec![
                 Content::text(serde_json::to_string_pretty(&results).unwrap_or_else(|_| "[]".into()))
             ])),
-            Err(e) => Err(McpError::internal_error(format!("Audit query failed: {}", e), None)),
+            Err(e) => { tracing::warn!(error = %e, "MCP audit query failed"); Err(sanitize_error("Audit")) }
         }
     }
 
@@ -464,11 +556,16 @@ impl CynicMcp {
         &self,
         params: Parameters<RegisterParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
         let p = params.0;
+        validate_agent_id(&Some(p.agent_id.clone()))?;
+        if p.intent.len() > 500 {
+            return Err(McpError::invalid_params("intent must be under 500 chars", None));
+        }
         let agent_type = p.agent_type.unwrap_or_else(|| "unknown".into());
 
         self.coord.register_agent(&p.agent_id, &agent_type, &p.intent).await
-            .map_err(|e| McpError::internal_error(format!("Register failed: {}", e), None))?;
+            .map_err(|e| { tracing::warn!(error = %e, "MCP register failed"); sanitize_error("Coordination") })?;
 
         self.audit("cynic_coord_register", &p.agent_id, &serde_json::json!({
             "intent": p.intent, "agent_type": agent_type,
@@ -491,11 +588,16 @@ impl CynicMcp {
         &self,
         params: Parameters<ClaimParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
         let p = params.0;
+        validate_agent_id(&Some(p.agent_id.clone()))?;
+        if p.target.len() > 256 {
+            return Err(McpError::invalid_params("target must be under 256 chars", None));
+        }
         let claim_type = p.claim_type.unwrap_or_else(|| "file".into());
 
         match self.coord.claim(&p.agent_id, &p.target, &claim_type).await
-            .map_err(|e| McpError::internal_error(format!("Claim failed: {}", e), None))?
+            .map_err(|e| { tracing::warn!(error = %e, "MCP claim failed"); sanitize_error("Coordination") })?
         {
             ClaimResult::Conflict(infos) => {
                 let conflict_info: Vec<String> = infos.iter().map(|c| {
@@ -529,7 +631,9 @@ impl CynicMcp {
         &self,
         params: Parameters<BatchClaimParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
         let p = params.0;
+        validate_agent_id(&Some(p.agent_id.clone()))?;
         let claim_type = p.claim_type.unwrap_or_else(|| "file".into());
 
         if p.targets.is_empty() {
@@ -540,7 +644,7 @@ impl CynicMcp {
         }
 
         let result = self.coord.claim_batch(&p.agent_id, &p.targets, &claim_type).await
-            .map_err(|e| McpError::internal_error(format!("Batch claim failed: {}", e), None))?;
+            .map_err(|e| { tracing::warn!(error = %e, "MCP batch claim failed"); sanitize_error("Coordination") })?;
 
         let mut lines = Vec::new();
 
@@ -573,10 +677,12 @@ impl CynicMcp {
         &self,
         params: Parameters<ReleaseParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
         let p = params.0;
+        validate_agent_id(&Some(p.agent_id.clone()))?;
 
         let desc = self.coord.release(&p.agent_id, p.target.as_deref()).await
-            .map_err(|e| McpError::internal_error(format!("Release failed: {}", e), None))?;
+            .map_err(|e| { tracing::warn!(error = %e, "MCP release failed"); sanitize_error("Coordination") })?;
 
         self.audit("cynic_coord_release", &p.agent_id, &serde_json::json!({
             "target": p.target,
@@ -593,10 +699,11 @@ impl CynicMcp {
         &self,
         params: Parameters<WhoParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
         let p = params.0;
 
         let snapshot = self.coord.who(p.agent_id.as_deref()).await
-            .map_err(|e| McpError::internal_error(format!("Who failed: {}", e), None))?;
+            .map_err(|e| { tracing::warn!(error = %e, "MCP who query failed"); sanitize_error("Coordination") })?;
 
         let response = serde_json::json!({
             "active_agents": snapshot.agents.len(),
@@ -615,14 +722,18 @@ impl CynicMcp {
     /// Refresh heartbeat for any agent that identifies itself.
     /// Called by every tool via audit() — fixes stale-session problem.
     async fn touch(&self, agent_id: &str) {
-        if !agent_id.is_empty() && agent_id != "unknown" {
-            let _ = self.coord.heartbeat(agent_id).await; // ok: fire-and-forget
+        if !agent_id.is_empty()
+            && agent_id != "unknown"
+            && self.coord.heartbeat(agent_id).await.is_err() {
+            // Already logged inside heartbeat impl
         }
     }
 
     /// Audit + heartbeat in one shot (best-effort, non-blocking).
     async fn audit(&self, tool_name: &str, agent_id: &str, details: &serde_json::Value) {
-        let _ = self.coord.store_audit(tool_name, agent_id, &details.to_string()).await; // ok: fire-and-forget
+        if let Err(e) = self.coord.store_audit(tool_name, agent_id, &details.to_string()).await {
+            tracing::debug!(error = %e, tool_name, "MCP audit store failed (non-fatal)");
+        }
         self.touch(agent_id).await;
     }
 }
