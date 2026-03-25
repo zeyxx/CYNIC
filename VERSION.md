@@ -207,16 +207,16 @@ et système nerveux. Le socle v0.7 le rend possible, v0.8 le prouve.
 2. **Machine-vérifiable.** Chaque gate a une commande bash. Si tu ne peux pas scripter, c'est pas un gate.
 3. **Les principes restent dans CLAUDE.md.** Ici c'est quantitatif uniquement.
 4. **≤ 5 gates par version.** Plus = split.
-5. **Les KPIs viennent de `docs/CRYSTAL-LOOP-KPIS.md`.** Ce document les wire aux versions.
+5. **Les KPIs viennent de `docs/design/CRYSTAL-LOOP-KPIS.md`.** Ce document les wire aux versions.
 6. **Organique mais orienté.** Chaque session devrait pouvoir répondre : "quel gate v0.7 j'avance ?"
 
 ---
 
 ## Références
 
-- KPIs cristallisés : `docs/CRYSTAL-LOOP-KPIS.md`
-- Architecture : `docs/CYNIC-ARCHITECTURE-TRUTHS.md`
-- Convergence φ : `docs/CYNIC-PHI-CONVERGENCE.md`
-- Roadmap infra : `docs/CYNIC-INFRASTRUCTURE-ROADMAP.md`
+- KPIs cristallisés : `docs/design/CRYSTAL-LOOP-KPIS.md`
+- Architecture : `docs/architecture/CYNIC-ARCHITECTURE-TRUTHS.md`
+- Convergence φ : `docs/architecture/CYNIC-PHI-CONVERGENCE.md`
+- Roadmap infra : `docs/design/CYNIC-INFRASTRUCTURE-ROADMAP.md`
 - Analyse novelty : mémoire `research_novelty_analysis.md`
 - Constitution : `CLAUDE.md`
