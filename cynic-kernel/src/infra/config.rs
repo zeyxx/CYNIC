@@ -269,7 +269,7 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
 /// Does NOT block boot — sovereign degradation is preferred over refusing to start.
 pub async fn validate_config(configs: &[BackendConfig]) {
     let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(2))
+        .timeout(std::time::Duration::from_secs(5))
         .build() {
         Ok(c) => c,
         Err(e) => {
@@ -286,6 +286,8 @@ pub async fn validate_config(configs: &[BackendConfig]) {
         match client.get(health_url).send().await {
             Ok(resp) if resp.status().is_success() => {
                 klog!("[config] ✓ {} health OK ({})", cfg.name, health_url);
+                // RC3: Verify configured model is actually loaded (sovereign backends only)
+                verify_model_loaded(&client, cfg).await;
             }
             Ok(resp) => {
                 klog!("[config] ⚠ {} health returned {} ({})", cfg.name, resp.status(), health_url);
@@ -295,6 +297,37 @@ pub async fn validate_config(configs: &[BackendConfig]) {
                     cfg.name, health_url);
             }
         }
+    }
+}
+
+/// RC3 gate: verify the configured model name is actually loaded on the backend.
+/// Checks /v1/models (OpenAI-compatible) for backends with health URLs.
+/// Non-fatal: logs warning if model is missing or endpoint unavailable.
+async fn verify_model_loaded(client: &reqwest::Client, cfg: &BackendConfig) {
+    let models_url = format!("{}/models", cfg.base_url.trim_end_matches('/'));
+    let resp = match client.get(&models_url).send().await {
+        Ok(r) => r,
+        Err(_) => return, // Already logged as unreachable in health check
+    };
+    if !resp.status().is_success() {
+        return; // /v1/models not supported — skip silently
+    }
+    let body = match resp.text().await {
+        Ok(b) => b,
+        Err(_) => return,
+    };
+    // Check if the configured model name appears in the response.
+    // OpenAI-compatible: {"data": [{"id": "model-name", ...}]}
+    // llama-server: {"data": [{"id": "model-name"}]} or flat list
+    if body.contains(&cfg.model) {
+        klog!("[config] ✓ {} model '{}' verified loaded", cfg.name, cfg.model);
+    } else {
+        klog!("[config] ⚠ {} model '{}' NOT FOUND in /models response — config drift?", cfg.name, cfg.model);
+        tracing::warn!(
+            backend = %cfg.name,
+            configured_model = %cfg.model,
+            "Model not found in backend /models — config may not match running server"
+        );
     }
 }
 
