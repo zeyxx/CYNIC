@@ -10,12 +10,12 @@ case "$MSG" in
     Revert\ \"*) exit 0 ;;
 esac
 
-PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|release)(\([a-z0-9._-]+\))?(!)?: .{1,100}'
+PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|release|harden|burn|rules)(\([a-z0-9._-]+\))?(!)?: .{1,100}'
 
 if ! echo "$MSG" | grep -qE "$PATTERN"; then
     echo "ERROR: Commit message does not follow Conventional Commits."
     echo "Expected: type(scope): description"
-    echo "Types: feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|release"
+    echo "Types: feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|release|harden|burn|rules"
     echo ""
     echo "Got: $MSG"
     exit 1

@@ -1,0 +1,15 @@
+# cargo-release config — workspace root
+# Usage: cargo release patch --execute  (or minor/major)
+# Dry run (default): cargo release patch
+
+allow-branch = ["main"]
+sign-commit = false
+sign-tag = false
+push = true
+publish = false
+pre-release-commit-message = "release(v{{version}}): {{crate_name}}"
+tag-message = "v{{version}}"
+tag-prefix = "v"
+tag-name = "{{prefix}}{{version}}"
+
+pre-release-hook = ["git", "cliff", "--tag", "v{{version}}", "--output", "CHANGELOG.md"]

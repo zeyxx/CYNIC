@@ -226,6 +226,22 @@ test-restore: ## Verify backup restore works against a test DB (non-destructive)
 	if [ "$${VCOUNT:-0}" -gt 0 ]; then echo "✓ Restore verified ($$VCOUNT verdicts, $${CCOUNT:-0} crystals)"; \
 	else echo "⚠ Restore completed but 0 verdicts found — check backup contents"; fi
 
+# ── Stage 5: Release (tag + changelog) ─────────────────────────
+# Usage: make release v=patch  (or minor/major)
+# Dry run: make release-dry v=patch
+.PHONY: release
+release: check
+	@if [ -z "$(v)" ]; then echo "ERROR: provide version bump with v=patch|minor|major" >&2; exit 1; fi
+	@echo ""
+	@echo "▶ Releasing ($(v) bump)..."
+	cargo release $(v) --execute --no-confirm
+	@echo "✓ Released — changelog updated, tagged, pushed"
+
+.PHONY: release-dry
+release-dry:
+	@if [ -z "$(v)" ]; then echo "ERROR: provide version bump with v=patch|minor|major" >&2; exit 1; fi
+	cargo release $(v)
+
 # ── Git hooks (Layer 2 enforcement) ──────────────────────────
 .PHONY: install-hooks
 install-hooks:
