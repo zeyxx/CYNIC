@@ -56,7 +56,10 @@ pub async fn run(
 ) -> Result<PipelineResult, JudgeError> {
     let PipelineDeps { judge, storage, embedding, verdict_cache, metrics, event_tx, .. } = *deps;
     let domain_hint = domain.as_deref().unwrap_or("general");
+    // RC7: unique request_id for cross-subsystem correlation
+    let request_id = uuid::Uuid::new_v4().to_string();
     let pipeline_span = tracing::info_span!("judge_pipeline",
+        request_id = %request_id,
         domain = %domain_hint,
         content_len = content.len(),
     );
