@@ -4,7 +4,7 @@ use axum::{
     extract::{Request, State},
     http::StatusCode,
     middleware::Next,
-    response::{Json, IntoResponse, Response},
+    response::{IntoResponse, Json, Response},
 };
 use std::sync::Arc;
 
@@ -12,8 +12,13 @@ use super::types::{AppState, ErrorResponse};
 
 /// Constant-time comparison to prevent timing attacks on API key.
 pub(crate) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() { return false; }
-    a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter()
+        .zip(b.iter())
+        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+        == 0
 }
 
 /// Bearer token authentication. Skipped for /health. Skipped if no CYNIC_API_KEY.
@@ -24,24 +29,33 @@ pub async fn auth_middleware(
 ) -> Response {
     // /health, /live, /ready, /metrics, /events are public — no auth required
     let path = request.uri().path();
-    if path == "/health" || path == "/live" || path == "/ready" || path == "/metrics" || path == "/events" {
+    if path == "/health"
+        || path == "/live"
+        || path == "/ready"
+        || path == "/metrics"
+        || path == "/events"
+    {
         return next.run(request).await;
     }
 
     if let Some(ref key) = state.api_key {
-        let token = request.headers()
+        let token = request
+            .headers()
             .get("authorization")
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.strip_prefix("Bearer "))
             .map(|s| s.to_string());
 
         match token {
-            Some(t) if constant_time_eq(t.as_bytes(), key.as_bytes()) => {},
+            Some(t) if constant_time_eq(t.as_bytes(), key.as_bytes()) => {}
             _ => {
                 return (
                     StatusCode::UNAUTHORIZED,
-                    Json(ErrorResponse { error: "Invalid or missing Bearer token".into() }),
-                ).into_response();
+                    Json(ErrorResponse {
+                        error: "Invalid or missing Bearer token".into(),
+                    }),
+                )
+                    .into_response();
             }
         }
     }
@@ -55,12 +69,18 @@ pub async fn rate_limit_middleware(
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health" || path == "/live" || path == "/ready" || path == "/metrics" || path == "/events" {
+    if path == "/health"
+        || path == "/live"
+        || path == "/ready"
+        || path == "/metrics"
+        || path == "/events"
+    {
         return next.run(request).await;
     }
 
     // Extract client IP from X-Forwarded-For or peer address
-    let ip = request.headers()
+    let ip = request
+        .headers()
         .get("x-forwarded-for")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.split(',').next())
@@ -71,15 +91,21 @@ pub async fn rate_limit_middleware(
     if !state.rate_limiter.check(ip).await {
         return (
             StatusCode::TOO_MANY_REQUESTS,
-            Json(ErrorResponse { error: "Rate limit exceeded".into() }),
-        ).into_response();
+            Json(ErrorResponse {
+                error: "Rate limit exceeded".into(),
+            }),
+        )
+            .into_response();
     }
     // /judge has an additional stricter per-IP limit (inference costs money)
     if path == "/judge" && !state.judge_limiter.check(ip).await {
         return (
             StatusCode::TOO_MANY_REQUESTS,
-            Json(ErrorResponse { error: "Judge rate limit exceeded (inference is expensive)".into() }),
-        ).into_response();
+            Json(ErrorResponse {
+                error: "Judge rate limit exceeded (inference is expensive)".into(),
+            }),
+        )
+            .into_response();
     }
     next.run(request).await
 }
@@ -91,7 +117,12 @@ pub async fn audit_middleware(
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health" || path == "/live" || path == "/ready" || path == "/metrics" || path == "/events" {
+    if path == "/health"
+        || path == "/live"
+        || path == "/ready"
+        || path == "/metrics"
+        || path == "/events"
+    {
         return next.run(request).await;
     }
 
@@ -111,13 +142,16 @@ pub async fn audit_middleware(
                 "path": path,
                 "status": status,
                 "latency_ms": elapsed_ms,
-            }).to_string();
+            })
+            .to_string();
             state.bg_tasks.spawn(async move {
                 let _permit = permit; // held until task completes
                 match tokio::time::timeout(
                     std::time::Duration::from_secs(5),
                     coord.store_audit("rest_request", "rest", &details),
-                ).await {
+                )
+                .await
+                {
                     Ok(Err(e)) => tracing::warn!(error = %e, "audit store failed"),
                     Err(_) => tracing::warn!("audit store timed out (5s)"),
                     _ => {}

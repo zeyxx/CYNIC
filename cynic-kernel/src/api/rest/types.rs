@@ -9,10 +9,10 @@ use tokio::sync::Mutex;
 use crate::domain::coord::CoordPort;
 use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
+use crate::domain::metrics::Metrics;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
-use crate::domain::metrics::Metrics;
 use crate::infra::task_health::TaskHealth;
 use crate::introspection::Alert;
 use crate::judge::Judge;
@@ -48,10 +48,19 @@ pub struct AppState {
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct StorageInfo {
     pub namespace: String,
     pub database: String,
+}
+
+impl std::fmt::Debug for AppState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AppState")
+            .field("storage_info", &self.storage_info)
+            .field("api_key", &self.api_key.as_ref().map(|_| "***"))
+            .finish_non_exhaustive()
+    }
 }
 
 impl AppState {
@@ -68,6 +77,14 @@ impl AppState {
 pub struct PerIpRateLimiter {
     buckets: Mutex<HashMap<IpAddr, TokenBucket>>,
     max_per_minute: u64,
+}
+
+impl std::fmt::Debug for PerIpRateLimiter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PerIpRateLimiter")
+            .field("max_per_minute", &self.max_per_minute)
+            .finish_non_exhaustive()
+    }
 }
 
 struct TokenBucket {
@@ -121,7 +138,7 @@ impl PerIpRateLimiter {
 
 // ── REQUEST / RESPONSE TYPES ───────────────────────────────
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct JudgeRequest {
     pub content: String,
     pub context: Option<String>,
@@ -133,9 +150,11 @@ pub struct JudgeRequest {
     pub crystals: bool,
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct JudgeResponse {
     pub verdict_id: String,
     pub verdict: String,
@@ -158,7 +177,7 @@ pub struct JudgeResponse {
     pub cache_hit: Option<f64>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct DogScoreResponse {
     pub dog_id: String,
     pub latency_ms: u64,
@@ -173,7 +192,7 @@ pub struct DogScoreResponse {
     pub reasoning: ReasoningResponse,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct QScoreResponse {
     pub total: f64,
     pub fidelity: f64,
@@ -184,7 +203,7 @@ pub struct QScoreResponse {
     pub sovereignty: f64,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct ReasoningResponse {
     pub fidelity: String,
     pub phi: String,
@@ -194,12 +213,12 @@ pub struct ReasoningResponse {
     pub sovereignty: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct ErrorResponse {
     pub error: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct DogHealthResponse {
     pub id: String,
     pub kind: String,

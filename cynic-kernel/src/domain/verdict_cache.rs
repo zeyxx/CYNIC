@@ -27,16 +27,28 @@ pub struct VerdictCache {
     threshold: f64,
 }
 
+impl std::fmt::Debug for VerdictCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VerdictCache").finish_non_exhaustive()
+    }
+}
+
 /// Result of a cache lookup.
+#[derive(Debug)]
 pub enum CacheLookup {
     /// Found a similar verdict — return it directly.
-    Hit { verdict: Box<Verdict>, similarity: f64 },
+    Hit {
+        verdict: Box<Verdict>,
+        similarity: f64,
+    },
     /// No match above threshold.
     Miss,
 }
 
 impl Default for VerdictCache {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl VerdictCache {
@@ -63,7 +75,9 @@ impl VerdictCache {
             }
         }
 
-        if best_sim >= self.threshold && let Some(idx) = best_idx {
+        if best_sim >= self.threshold
+            && let Some(idx) = best_idx
+        {
             return CacheLookup::Hit {
                 verdict: Box::new(entries[idx].verdict.clone()),
                 similarity: best_sim,
@@ -103,14 +117,26 @@ mod tests {
 
     fn make_embedding(vals: Vec<f32>) -> Embedding {
         let dims = vals.len();
-        Embedding { vector: vals, dimensions: dims, prompt_tokens: 0 }
+        Embedding {
+            vector: vals,
+            dimensions: dims,
+            prompt_tokens: 0,
+        }
     }
 
     fn make_verdict(id: &str) -> Verdict {
         Verdict {
             id: id.to_string(),
             kind: VerdictKind::Wag,
-            q_score: QScore { total: 0.5, fidelity: 0.5, phi: 0.5, verify: 0.5, culture: 0.5, burn: 0.5, sovereignty: 0.5 },
+            q_score: QScore {
+                total: 0.5,
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+            },
             reasoning: AxiomReasoning::default(),
             dog_id: "test".to_string(),
             stimulus_summary: "test".to_string(),
@@ -136,11 +162,14 @@ mod tests {
     fn hit_on_identical_embedding() {
         let cache = VerdictCache::new();
         let emb = make_embedding(vec![1.0, 0.0, 0.0]);
-        cache.store(emb.clone(), make_verdict("v1"));
+        cache.store(emb, make_verdict("v1"));
 
         let query = make_embedding(vec![1.0, 0.0, 0.0]);
         match cache.lookup(&query) {
-            CacheLookup::Hit { ref verdict, similarity } => {
+            CacheLookup::Hit {
+                ref verdict,
+                similarity,
+            } => {
                 assert_eq!(verdict.id, "v1");
                 assert!((similarity - 1.0).abs() < 1e-6);
             }
@@ -166,7 +195,10 @@ mod tests {
         let query = make_embedding(vec![1.0, 0.05, 0.0]);
         match cache.lookup(&query) {
             CacheLookup::Hit { similarity, .. } => {
-                assert!(similarity > 0.95, "Expected high similarity, got {}", similarity);
+                assert!(
+                    similarity > 0.95,
+                    "Expected high similarity, got {similarity}"
+                );
             }
             CacheLookup::Miss => panic!("Expected hit on near-identical embedding"),
         }
@@ -179,7 +211,7 @@ mod tests {
         for i in 0..1001 {
             let mut v = vec![0.0_f32; 3];
             v[i % 3] = 1.0;
-            cache.store(make_embedding(v), make_verdict(&format!("v{}", i)));
+            cache.store(make_embedding(v), make_verdict(&format!("v{i}")));
         }
         assert_eq!(cache.len(), MAX_ENTRIES);
     }

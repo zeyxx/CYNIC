@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Route-level integration tests — exercise the Axum router with mock dependencies.
 //! Tests middleware (auth, rate limiting), handler wiring, and response formatting.
 //! No running server needed — uses tower::ServiceExt::oneshot.
@@ -12,17 +13,22 @@ use cynic_kernel::api::rest::{self, AppState, PerIpRateLimiter, StorageInfo};
 use cynic_kernel::dogs::deterministic::DeterministicDog;
 use cynic_kernel::domain::coord::NullCoord;
 use cynic_kernel::domain::embedding::NullEmbedding;
+use cynic_kernel::domain::metrics::Metrics;
 use cynic_kernel::domain::storage::NullStorage;
 use cynic_kernel::domain::usage::DogUsageTracker;
 use cynic_kernel::domain::verdict_cache::VerdictCache;
-use cynic_kernel::domain::metrics::Metrics;
 use cynic_kernel::infra::task_health::TaskHealth;
 use cynic_kernel::judge::Judge;
 
 fn test_state(api_key: Option<&str>) -> Arc<AppState> {
     let dogs: Vec<Box<dyn cynic_kernel::domain::dog::Dog>> = vec![Box::new(DeterministicDog)];
-    let breakers: Vec<Arc<dyn cynic_kernel::domain::health_gate::HealthGate>> = dogs.iter()
-        .map(|d| Arc::new(cynic_kernel::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn cynic_kernel::domain::health_gate::HealthGate>)
+    let breakers: Vec<Arc<dyn cynic_kernel::domain::health_gate::HealthGate>> = dogs
+        .iter()
+        .map(|d| {
+            Arc::new(cynic_kernel::infra::circuit_breaker::CircuitBreaker::new(
+                d.id().to_string(),
+            )) as Arc<dyn cynic_kernel::domain::health_gate::HealthGate>
+        })
         .collect();
     let judge = Arc::new(Judge::new(dogs, breakers));
     Arc::new(AppState {
@@ -35,7 +41,10 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         task_health: Arc::new(TaskHealth::new()),
         metrics: Arc::new(Metrics::new()),
         api_key: api_key.map(|s| s.to_string()),
-        storage_info: StorageInfo { namespace: "test".into(), database: "test".into() },
+        storage_info: StorageInfo {
+            namespace: "test".into(),
+            database: "test".into(),
+        },
         rate_limiter: PerIpRateLimiter::new(100),
         judge_limiter: PerIpRateLimiter::new(100),
         bg_semaphore: std::sync::Arc::new(tokio::sync::Semaphore::new(64)),
@@ -69,14 +78,24 @@ async fn health_no_auth_returns_public_info() {
 
     // 503 expected: test state has 1 Dog + NullStorage (ping fails → critical)
     // Industry standard: 503 = degraded/critical, 200 = sovereign
-    assert!(resp.status() == 200 || resp.status() == 503, "CONTRACT: health must return 200 or 503, got {}", resp.status());
+    assert!(
+        resp.status() == 200 || resp.status() == 503,
+        "CONTRACT: health must return 200 or 503, got {}",
+        resp.status()
+    );
     let v = body_json(resp.into_body()).await;
     // Public: has status, version, phi_max — but NOT dog_count or dogs array (attack surface)
     assert!(v["status"].is_string());
     assert!(v["version"].is_string());
     assert!(v["phi_max"].is_number());
-    assert!(v.get("dog_count").is_none(), "Public health should not expose dog_count");
-    assert!(v.get("dogs").is_none(), "Public health should not expose dog details");
+    assert!(
+        v.get("dog_count").is_none(),
+        "Public health should not expose dog_count"
+    );
+    assert!(
+        v.get("dogs").is_none(),
+        "Public health should not expose dog details"
+    );
 }
 
 #[tokio::test]
@@ -96,7 +115,10 @@ async fn health_with_auth_returns_full_details() {
         .unwrap();
 
     // 503 expected in test: 1 Dog + NullStorage → critical
-    assert!(resp.status() == 200 || resp.status() == 503, "CONTRACT: health must return 200 or 503");
+    assert!(
+        resp.status() == 200 || resp.status() == 503,
+        "CONTRACT: health must return 200 or 503"
+    );
     let v = body_json(resp.into_body()).await;
 
     // ── API CONTRACT: authenticated /health response ──
@@ -121,22 +143,43 @@ async fn health_with_auth_returns_full_details() {
     assert!(v["version"].is_string(), "CONTRACT: version must be string");
     assert!(v["dogs"].is_array(), "CONTRACT: dogs must be array");
     assert!(v["storage"].is_string(), "CONTRACT: storage must be string");
-    assert!(v["total_requests"].is_number(), "CONTRACT: total_requests must be number");
-    assert!(v["total_tokens"].is_number(), "CONTRACT: total_tokens must be number");
-    assert!(v["estimated_cost_usd"].is_number(), "CONTRACT: estimated_cost_usd must be number");
-    assert!(v["uptime_seconds"].is_number(), "CONTRACT: uptime_seconds must be number");
+    assert!(
+        v["total_requests"].is_number(),
+        "CONTRACT: total_requests must be number"
+    );
+    assert!(
+        v["total_tokens"].is_number(),
+        "CONTRACT: total_tokens must be number"
+    );
+    assert!(
+        v["estimated_cost_usd"].is_number(),
+        "CONTRACT: estimated_cost_usd must be number"
+    );
+    assert!(
+        v["uptime_seconds"].is_number(),
+        "CONTRACT: uptime_seconds must be number"
+    );
 
     // Dog structure (MUST have these fields per dog)
     let dogs = v["dogs"].as_array().unwrap();
     assert!(!dogs.is_empty(), "CONTRACT: at least 1 dog");
     let dog = &dogs[0];
     assert!(dog["id"].is_string(), "CONTRACT: dog.id must be string");
-    assert!(dog["circuit"].is_string(), "CONTRACT: dog.circuit must be string");
-    assert!(dog["failures"].is_number(), "CONTRACT: dog.failures must be number");
+    assert!(
+        dog["circuit"].is_string(),
+        "CONTRACT: dog.circuit must be string"
+    );
+    assert!(
+        dog["failures"].is_number(),
+        "CONTRACT: dog.failures must be number"
+    );
     assert!(dog["kind"].is_string(), "CONTRACT: dog.kind must be string");
 
     // Fields that MUST NOT be in public but MUST be in authenticated
-    assert!(v.get("storage_metrics").is_some(), "CONTRACT: storage_metrics must exist in auth response");
+    assert!(
+        v.get("storage_metrics").is_some(),
+        "CONTRACT: storage_metrics must exist in auth response"
+    );
 }
 
 // ── /dogs ───────────────────────────────────────────────────
@@ -216,7 +259,9 @@ async fn judge_produces_verdict() {
                 .uri("/judge")
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer key")
-                .body(Body::from(r#"{"content":"The Sicilian Defense is strong","domain":"chess"}"#))
+                .body(Body::from(
+                    r#"{"content":"The Sicilian Defense is strong","domain":"chess"}"#,
+                ))
                 .unwrap(),
         )
         .await
@@ -234,34 +279,81 @@ async fn judge_produces_verdict() {
     //   reasoning.{axiom} → frontend reasoning display, MCP
     //   dogs_used      → frontend dog list, /status skill
     //   stimulus_summary → CCM crystal content, verdict history
-    assert!(v["verdict_id"].is_string(), "CONTRACT: verdict_id must be string");
-    let verdict = v["verdict"].as_str().expect("CONTRACT: verdict must be string");
-    assert!(["Howl", "Wag", "Growl", "Bark"].contains(&verdict), "CONTRACT: verdict must be Howl/Wag/Growl/Bark");
+    assert!(
+        v["verdict_id"].is_string(),
+        "CONTRACT: verdict_id must be string"
+    );
+    let verdict = v["verdict"]
+        .as_str()
+        .expect("CONTRACT: verdict must be string");
+    assert!(
+        ["Howl", "Wag", "Growl", "Bark"].contains(&verdict),
+        "CONTRACT: verdict must be Howl/Wag/Growl/Bark"
+    );
 
     // Q-Score structure
     let q = &v["q_score"];
-    assert!(q["total"].is_number(), "CONTRACT: q_score.total must be number");
-    assert!(q["fidelity"].is_number(), "CONTRACT: q_score.fidelity must be number");
+    assert!(
+        q["total"].is_number(),
+        "CONTRACT: q_score.total must be number"
+    );
+    assert!(
+        q["fidelity"].is_number(),
+        "CONTRACT: q_score.fidelity must be number"
+    );
     assert!(q["phi"].is_number(), "CONTRACT: q_score.phi must be number");
-    assert!(q["verify"].is_number(), "CONTRACT: q_score.verify must be number");
-    assert!(q["culture"].is_number(), "CONTRACT: q_score.culture must be number");
-    assert!(q["burn"].is_number(), "CONTRACT: q_score.burn must be number");
-    assert!(q["sovereignty"].is_number(), "CONTRACT: q_score.sovereignty must be number");
+    assert!(
+        q["verify"].is_number(),
+        "CONTRACT: q_score.verify must be number"
+    );
+    assert!(
+        q["culture"].is_number(),
+        "CONTRACT: q_score.culture must be number"
+    );
+    assert!(
+        q["burn"].is_number(),
+        "CONTRACT: q_score.burn must be number"
+    );
+    assert!(
+        q["sovereignty"].is_number(),
+        "CONTRACT: q_score.sovereignty must be number"
+    );
 
     // Reasoning structure
     let r = &v["reasoning"];
-    assert!(r["fidelity"].is_string(), "CONTRACT: reasoning.fidelity must be string");
+    assert!(
+        r["fidelity"].is_string(),
+        "CONTRACT: reasoning.fidelity must be string"
+    );
 
     // Dogs
-    assert!(v["dogs_used"].is_string(), "CONTRACT: dogs_used must be string");
+    assert!(
+        v["dogs_used"].is_string(),
+        "CONTRACT: dogs_used must be string"
+    );
     // dog_scores — per-Dog breakdown (v0.7.1: persisted to DB, round-trips correctly)
-    assert!(v["dog_scores"].is_array(), "CONTRACT: dog_scores must be array");
+    assert!(
+        v["dog_scores"].is_array(),
+        "CONTRACT: dog_scores must be array"
+    );
     let scores = v["dog_scores"].as_array().unwrap();
-    assert!(!scores.is_empty(), "CONTRACT: dog_scores must have at least 1 entry (deterministic-dog)");
+    assert!(
+        !scores.is_empty(),
+        "CONTRACT: dog_scores must have at least 1 entry (deterministic-dog)"
+    );
     let ds = &scores[0];
-    assert!(ds["dog_id"].is_string(), "CONTRACT: dog_scores[].dog_id must be string");
-    assert!(ds["fidelity"].is_number(), "CONTRACT: dog_scores[].fidelity must be number");
-    assert!(ds["sovereignty"].is_number(), "CONTRACT: dog_scores[].sovereignty must be number");
+    assert!(
+        ds["dog_id"].is_string(),
+        "CONTRACT: dog_scores[].dog_id must be string"
+    );
+    assert!(
+        ds["fidelity"].is_number(),
+        "CONTRACT: dog_scores[].fidelity must be number"
+    );
+    assert!(
+        ds["sovereignty"].is_number(),
+        "CONTRACT: dog_scores[].sovereignty must be number"
+    );
 }
 
 // ── /health without auth config (open API) ──────────────────
@@ -281,7 +373,10 @@ async fn open_api_health_returns_full_details() {
         .await
         .unwrap();
 
-    assert!(resp.status() == 200 || resp.status() == 503, "CONTRACT: health must return 200 or 503");
+    assert!(
+        resp.status() == 200 || resp.status() == 503,
+        "CONTRACT: health must return 200 or 503"
+    );
     let v = body_json(resp.into_body()).await;
     // Open API: everyone gets full details
     assert!(v["dogs"].is_array());
@@ -315,7 +410,17 @@ async fn verdicts_with_null_storage_returns_500() {
 async fn create_crystal_requires_auth() {
     let state = test_state(Some("key"));
     let app = rest::router(state);
-    let resp = app.oneshot(axum::http::Request::builder().method("POST").uri("/crystal").header("Content-Type", "application/json").body(Body::from(r#"{"content":"test insight","domain":"chess"}"#)).unwrap()).await.unwrap();
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/crystal")
+                .header("Content-Type", "application/json")
+                .body(Body::from(r#"{"content":"test insight","domain":"chess"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(resp.status(), 401);
 }
 
@@ -324,16 +429,48 @@ async fn create_crystal_returns_500_with_null_storage() {
     // RC5: NullStorage now returns Err — honest about unavailability
     let state = test_state(Some("key"));
     let app = rest::router(state);
-    let resp = app.oneshot(axum::http::Request::builder().method("POST").uri("/crystal").header("Content-Type", "application/json").header("Authorization", "Bearer key").body(Body::from(r#"{"content":"The Sicilian Defense is strong","domain":"chess"}"#)).unwrap()).await.unwrap();
-    assert_eq!(resp.status(), 500, "NullStorage: POST /crystal must return 500 (storage unavailable)");
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/crystal")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer key")
+                .body(Body::from(
+                    r#"{"content":"The Sicilian Defense is strong","domain":"chess"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        500,
+        "NullStorage: POST /crystal must return 500 (storage unavailable)"
+    );
 }
 
 #[tokio::test]
 async fn create_crystal_rejects_empty_content() {
     let state = test_state(Some("key"));
     let app = rest::router(state);
-    let resp = app.oneshot(axum::http::Request::builder().method("POST").uri("/crystal").header("Content-Type", "application/json").header("Authorization", "Bearer key").body(Body::from(r#"{"content":"","domain":"chess"}"#)).unwrap()).await.unwrap();
-    assert_eq!(resp.status(), 400, "CONTRACT: empty content must be rejected");
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/crystal")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer key")
+                .body(Body::from(r#"{"content":"","domain":"chess"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        400,
+        "CONTRACT: empty content must be rejected"
+    );
 }
 
 #[tokio::test]
@@ -341,8 +478,22 @@ async fn delete_crystal_returns_500_with_null_storage() {
     // RC5: NullStorage now returns Err — honest about unavailability
     let state = test_state(Some("key"));
     let app = rest::router(state);
-    let resp = app.oneshot(axum::http::Request::builder().method("DELETE").uri("/crystal/test-id").header("Authorization", "Bearer key").body(Body::empty()).unwrap()).await.unwrap();
-    assert_eq!(resp.status(), 500, "NullStorage: DELETE /crystal must return 500");
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("DELETE")
+                .uri("/crystal/test-id")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        500,
+        "NullStorage: DELETE /crystal must return 500"
+    );
 }
 
 #[tokio::test]
@@ -350,8 +501,25 @@ async fn observe_crystal_returns_500_with_null_storage() {
     // RC5: NullStorage now returns Err — honest about unavailability
     let state = test_state(Some("key"));
     let app = rest::router(state);
-    let resp = app.oneshot(axum::http::Request::builder().method("POST").uri("/crystal/test-id/observe").header("Content-Type", "application/json").header("Authorization", "Bearer key").body(Body::from(r#"{"content":"test","domain":"chess","score":0.85}"#)).unwrap()).await.unwrap();
-    assert_eq!(resp.status(), 500, "NullStorage: POST /crystal observe must return 500");
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/crystal/test-id/observe")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer key")
+                .body(Body::from(
+                    r#"{"content":"test","domain":"chess","score":0.85}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        500,
+        "NullStorage: POST /crystal observe must return 500"
+    );
 }
 
 #[tokio::test]
@@ -359,8 +527,21 @@ async fn list_crystals_returns_500_with_null_storage() {
     // RC5: NullStorage now returns Err — honest about unavailability
     let state = test_state(Some("key"));
     let app = rest::router(state);
-    let resp = app.oneshot(axum::http::Request::builder().uri("/crystals?domain=chess&state=crystallized").header("Authorization", "Bearer key").body(Body::empty()).unwrap()).await.unwrap();
-    assert_eq!(resp.status(), 500, "NullStorage: GET /crystals must return 500");
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/crystals?domain=chess&state=crystallized")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        500,
+        "NullStorage: GET /crystals must return 500"
+    );
 }
 
 // ── Gate 3 serialization contracts ─────────────────────────
@@ -373,16 +554,34 @@ fn raw_observation_json_shape() {
     use cynic_kernel::domain::storage::RawObservation;
     let obs = RawObservation {
         id: "observation:abc123".into(),
-        tool: "Edit".into(), target: "main.rs".into(), domain: "code".into(),
-        status: "success".into(), context: "test".into(),
+        tool: "Edit".into(),
+        target: "main.rs".into(),
+        domain: "code".into(),
+        status: "success".into(),
+        context: "test".into(),
         created_at: "2026-03-23T00:00:00Z".into(),
-        project: "CYNIC".into(), agent_id: "agent-1".into(), session_id: "sess-1".into(),
+        project: "CYNIC".into(),
+        agent_id: "agent-1".into(),
+        session_id: "sess-1".into(),
     };
     let v: serde_json::Value = serde_json::to_value(&obs).unwrap();
     // CONTRACT: these fields must exist with these exact names
-    for field in ["id", "tool", "target", "domain", "status", "context",
-                  "created_at", "project", "agent_id", "session_id"] {
-        assert!(v.get(field).is_some(), "CONTRACT: RawObservation must have '{}' field", field);
+    for field in [
+        "id",
+        "tool",
+        "target",
+        "domain",
+        "status",
+        "context",
+        "created_at",
+        "project",
+        "agent_id",
+        "session_id",
+    ] {
+        assert!(
+            v.get(field).is_some(),
+            "CONTRACT: RawObservation must have '{field}' field"
+        );
     }
 }
 
@@ -390,13 +589,18 @@ fn raw_observation_json_shape() {
 fn audit_entry_json_shape() {
     use cynic_kernel::domain::coord::AuditEntry;
     let entry = AuditEntry {
-        id: "mcp_audit:xyz".into(), ts: "2026-03-23T00:00:00Z".into(),
-        tool: "cynic_judge".into(), agent_id: "agent-1".into(),
+        id: "mcp_audit:xyz".into(),
+        ts: "2026-03-23T00:00:00Z".into(),
+        tool: "cynic_judge".into(),
+        agent_id: "agent-1".into(),
         details: r#"{"action":"test"}"#.into(),
     };
     let v: serde_json::Value = serde_json::to_value(&entry).unwrap();
     for field in ["id", "ts", "tool", "agent_id", "details"] {
-        assert!(v.get(field).is_some(), "CONTRACT: AuditEntry must have '{}' field", field);
+        assert!(
+            v.get(field).is_some(),
+            "CONTRACT: AuditEntry must have '{field}' field"
+        );
     }
 }
 
@@ -404,15 +608,28 @@ fn audit_entry_json_shape() {
 fn agent_info_json_shape() {
     use cynic_kernel::domain::coord::AgentInfo;
     let info = AgentInfo {
-        id: "agent_session:abc".into(), agent_id: "claude-123".into(),
-        agent_type: "claude".into(), intent: "testing".into(),
-        active: true, registered_at: "2026-03-23T00:00:00Z".into(),
+        id: "agent_session:abc".into(),
+        agent_id: "claude-123".into(),
+        agent_type: "claude".into(),
+        intent: "testing".into(),
+        active: true,
+        registered_at: "2026-03-23T00:00:00Z".into(),
         last_seen: "2026-03-23T00:00:00Z".into(),
     };
     let v: serde_json::Value = serde_json::to_value(&info).unwrap();
-    for field in ["id", "agent_id", "agent_type", "intent", "active",
-                  "registered_at", "last_seen"] {
-        assert!(v.get(field).is_some(), "CONTRACT: AgentInfo must have '{}' field", field);
+    for field in [
+        "id",
+        "agent_id",
+        "agent_type",
+        "intent",
+        "active",
+        "registered_at",
+        "last_seen",
+    ] {
+        assert!(
+            v.get(field).is_some(),
+            "CONTRACT: AgentInfo must have '{field}' field"
+        );
     }
 }
 
@@ -420,13 +637,26 @@ fn agent_info_json_shape() {
 fn claim_entry_json_shape() {
     use cynic_kernel::domain::coord::ClaimEntry;
     let claim = ClaimEntry {
-        id: "work_claim:abc".into(), agent_id: "claude-123".into(),
-        target: "main.rs".into(), claim_type: "file".into(),
-        active: true, claimed_at: "2026-03-23T00:00:00Z".into(),
+        id: "work_claim:abc".into(),
+        agent_id: "claude-123".into(),
+        target: "main.rs".into(),
+        claim_type: "file".into(),
+        active: true,
+        claimed_at: "2026-03-23T00:00:00Z".into(),
     };
     let v: serde_json::Value = serde_json::to_value(&claim).unwrap();
-    for field in ["id", "agent_id", "target", "claim_type", "active", "claimed_at"] {
-        assert!(v.get(field).is_some(), "CONTRACT: ClaimEntry must have '{}' field", field);
+    for field in [
+        "id",
+        "agent_id",
+        "target",
+        "claim_type",
+        "active",
+        "claimed_at",
+    ] {
+        assert!(
+            v.get(field).is_some(),
+            "CONTRACT: ClaimEntry must have '{field}' field"
+        );
     }
 }
 
@@ -434,12 +664,25 @@ fn claim_entry_json_shape() {
 fn usage_row_json_shape() {
     use cynic_kernel::domain::storage::UsageRow;
     let row = UsageRow {
-        dog_id: "gemini".into(), prompt_tokens: 1000, completion_tokens: 500,
-        requests: 10, failures: 1, total_latency_ms: 5000,
+        dog_id: "gemini".into(),
+        prompt_tokens: 1000,
+        completion_tokens: 500,
+        requests: 10,
+        failures: 1,
+        total_latency_ms: 5000,
     };
     let v: serde_json::Value = serde_json::to_value(&row).unwrap();
-    for field in ["dog_id", "prompt_tokens", "completion_tokens",
-                  "requests", "failures", "total_latency_ms"] {
-        assert!(v.get(field).is_some(), "CONTRACT: UsageRow must have '{}' field", field);
+    for field in [
+        "dog_id",
+        "prompt_tokens",
+        "completion_tokens",
+        "requests",
+        "failures",
+        "total_latency_ms",
+    ] {
+        assert!(
+            v.get(field).is_some(),
+            "CONTRACT: UsageRow must have '{field}' field"
+        );
     }
 }

@@ -11,11 +11,11 @@ use tokio_util::sync::CancellationToken;
 
 use crate::domain::coord::CoordPort;
 use crate::domain::events::KernelEvent;
+use crate::domain::health_gate::HealthGate;
+use crate::domain::metrics::Metrics;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
-use crate::domain::health_gate::HealthGate;
 use crate::infra::config::BackendRemediation;
-use crate::domain::metrics::Metrics;
 use crate::infra::task_health::TaskHealth;
 
 // ── Shutdown flush — used by both REST and MCP exit paths ────
@@ -40,7 +40,9 @@ pub async fn flush_usage_on_shutdown(
     match tokio::time::timeout(
         std::time::Duration::from_secs(10),
         storage.flush_usage(&snapshot),
-    ).await {
+    )
+    .await
+    {
         Ok(Ok(_)) => {
             let mut u = usage.lock().await;
             u.absorb_flush();
@@ -187,7 +189,10 @@ pub fn spawn_ccm_aggregator(
             }
         }
     });
-    klog!("[Ring 2] CCM workflow aggregator started (every {}s)", interval_secs);
+    klog!(
+        "[Ring 2] CCM workflow aggregator started (every {}s)",
+        interval_secs
+    );
     handle
 }
 
@@ -262,8 +267,14 @@ pub fn spawn_backfill(
         task_health.touch_backfill("running");
         match tokio::time::timeout(
             std::time::Duration::from_secs(300),
-            crate::pipeline::backfill_crystal_embeddings(storage.as_ref(), embedding.as_ref(), &metrics),
-        ).await {
+            crate::pipeline::backfill_crystal_embeddings(
+                storage.as_ref(),
+                embedding.as_ref(),
+                &metrics,
+            ),
+        )
+        .await
+        {
             Ok(count) => {
                 let detail = if count > 0 { "done" } else { "clean:0_orphans" };
                 task_health.touch_backfill(detail);
@@ -423,7 +434,10 @@ pub fn spawn_remediation_watcher(
             }
         }
     });
-    klog!("[Ring 2] Remediation watcher started (90s threshold, {} Dogs)", dog_count);
+    klog!(
+        "[Ring 2] Remediation watcher started (90s threshold, {} Dogs)",
+        dog_count
+    );
     handle
 }
 

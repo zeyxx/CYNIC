@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use super::types::*;
 use super::environment::{ensure_models_dir, windows_to_wsl_path};
+use super::types::*;
 
 // ============================================================
 // LLM RESOURCE PROBE (Exhaustive — all tiers always run)
@@ -28,12 +28,17 @@ pub(super) async fn probe_llm_resources(env: &EnvInfo, compute: &ComputeInfo) ->
 
     // Deduplicate by path
     gguf_models.dedup_by(|a, b| a.path == b.path);
-    gguf_models.sort_by(|a, b| b.size_gb.partial_cmp(&a.size_gb).unwrap_or(std::cmp::Ordering::Equal));
+    gguf_models.sort_by(|a, b| {
+        b.size_gb
+            .partial_cmp(&a.size_gb)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let active_model = gguf_models.first().map(|m| m.name.clone());
     let llama_server_flags = compute_optimal_flags(compute, &gguf_models);
 
-    klog!("[Ring 0 / LLM] Models: {} | Server: {} | Backend: {:?} | Active: {:?}",
+    klog!(
+        "[Ring 0 / LLM] Models: {} | Server: {} | Backend: {:?} | Active: {:?}",
         gguf_models.len(),
         running_server_url.as_deref().unwrap_or("none"),
         compute.backend,
@@ -61,7 +66,10 @@ fn discover_all_models(models_dir: &Path, env: &EnvInfo) -> Vec<GgufModel> {
     // Tier 2: Universal Drive Scanner (Signature-based)
     // Works on Windows, Linux, and WSL2 by abstracting the root entry points
     let roots: Vec<PathBuf> = if cfg!(target_os = "windows") {
-        ["C:\\", "D:\\", "E:\\", "F:\\"].iter().map(|&d| PathBuf::from(d)).collect()
+        ["C:\\", "D:\\", "E:\\", "F:\\"]
+            .iter()
+            .map(|&d| PathBuf::from(d))
+            .collect()
     } else {
         // On Linux: scan known user/data dirs only — never scan / directly
         // (scanning / includes /proc /sys /dev which is infinite or harmful)
@@ -74,7 +82,12 @@ fn discover_all_models(models_dir: &Path, env: &EnvInfo) -> Vec<GgufModel> {
             for entry in entries.flatten() {
                 let p = entry.path();
                 let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if name.len() == 1 && name.as_bytes().first().is_some_and(|b| b.is_ascii_alphabetic()) {
+                if name.len() == 1
+                    && name
+                        .as_bytes()
+                        .first()
+                        .is_some_and(|b| b.is_ascii_alphabetic())
+                {
                     r.push(p);
                 }
             }
@@ -91,7 +104,10 @@ fn discover_all_models(models_dir: &Path, env: &EnvInfo) -> Vec<GgufModel> {
 
     // Tier 3: Ollama models (always checked — fast if not installed)
     let ollama_models = discover_ollama_models(env);
-    klog!("[Ring 0 / LLM] Ollama models found: {}", ollama_models.len());
+    klog!(
+        "[Ring 0 / LLM] Ollama models found: {}",
+        ollama_models.len()
+    );
     all.extend(ollama_models);
 
     // Tier 4: Common Linux data paths
@@ -118,7 +134,9 @@ fn discover_ollama_models(env: &EnvInfo) -> Vec<GgufModel> {
     klog!("[Ring 0 / LLM] Ollama models dir: {}", dir.display());
 
     let manifests_dir = dir.join("manifests");
-    if !manifests_dir.exists() { return vec![]; }
+    if !manifests_dir.exists() {
+        return vec![];
+    }
 
     let blobs_dir = dir.join("blobs");
     let mut models = Vec::new();
@@ -134,8 +152,11 @@ fn discover_ollama_models(env: &EnvInfo) -> Vec<GgufModel> {
             && let Ok(manifest) = serde_json::from_str::<serde_json::Value>(&manifest_str)
         {
             // Extract model name from path: .../library/<name>/<tag>
-            let model_name = entry.path().components()
-                .rev().nth(1)  // parent dir = model name
+            let model_name = entry
+                .path()
+                .components()
+                .rev()
+                .nth(1) // parent dir = model name
                 .and_then(|c| c.as_os_str().to_str())
                 .unwrap_or("unknown")
                 .to_string();
@@ -177,30 +198,41 @@ fn find_ollama_models_dir(env: &EnvInfo) -> Option<PathBuf> {
     // 1. $OLLAMA_MODELS env var if set in current environment (Linux native case)
     if let Ok(p) = std::env::var("OLLAMA_MODELS") {
         let path = PathBuf::from(&p);
-        if path.exists() { return Some(path); }
+        if path.exists() {
+            return Some(path);
+        }
         // If it looks like a Windows path, convert it
         let wsl = windows_to_wsl_path(&p);
-        if wsl.exists() { return Some(wsl); }
+        if wsl.exists() {
+            return Some(wsl);
+        }
     }
 
     // 2. From WSL2: try PowerShell to read Windows user env var (no wslvar needed)
     if env.is_wsl2
         && let Ok(out) = std::process::Command::new("powershell.exe")
-            .args(["-NoProfile", "-Command",
-                   "[Environment]::GetEnvironmentVariable('OLLAMA_MODELS','User')"])
+            .args([
+                "-NoProfile",
+                "-Command",
+                "[Environment]::GetEnvironmentVariable('OLLAMA_MODELS','User')",
+            ])
             .output()
     {
         let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
         if !p.is_empty() && p != "null" {
             let wsl = windows_to_wsl_path(&p);
-            if wsl.exists() { return Some(wsl); }
+            if wsl.exists() {
+                return Some(wsl);
+            }
         }
     }
 
     // 3. Linux/macOS default
     if let Some(home) = dirs::home_dir() {
         let default = home.join(".ollama").join("models");
-        if default.exists() { return Some(default); }
+        if default.exists() {
+            return Some(default);
+        }
     }
 
     // 4. Universal structural scan — look for Ollama's signature directory
@@ -212,7 +244,13 @@ fn find_ollama_models_dir(env: &EnvInfo) -> Option<PathBuf> {
         if let Ok(entries) = std::fs::read_dir("/mnt") {
             for e in entries.flatten() {
                 let name = e.file_name().to_string_lossy().to_string();
-                if name.len() == 1 && name.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) {
+                if name.len() == 1
+                    && name
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_alphabetic())
+                        .unwrap_or(false)
+                {
                     roots.push(e.path());
                 }
             }
@@ -234,7 +272,10 @@ fn find_ollama_models_dir(env: &EnvInfo) -> Option<PathBuf> {
             let p = entry.path();
             // Marker: <dir>/manifests/registry.ollama.ai/ exists
             if p.join("manifests").join("registry.ollama.ai").exists() {
-                klog!("[Ring 0 / LLM] Ollama models dir found by structure scan: {}", p.display());
+                klog!(
+                    "[Ring 0 / LLM] Ollama models dir found by structure scan: {}",
+                    p.display()
+                );
                 return Some(p.to_path_buf());
             }
         }
@@ -250,17 +291,33 @@ fn scan_dir(root: &Path, max_depth: usize, source: &str, found: &mut Vec<GgufMod
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
-            !matches!(name.as_ref(),
-                ".git" | "node_modules" | "target" | "proc" | "sys" | "dev" |
-                "Windows" | "wsl" | "wslg" | "cynic-build" |
-                "AppData" | "Temp" | "$Recycle.Bin" | "ProgramData" | "System32"
+            !matches!(
+                name.as_ref(),
+                ".git"
+                    | "node_modules"
+                    | "target"
+                    | "proc"
+                    | "sys"
+                    | "dev"
+                    | "Windows"
+                    | "wsl"
+                    | "wslg"
+                    | "cynic-build"
+                    | "AppData"
+                    | "Temp"
+                    | "$Recycle.Bin"
+                    | "ProgramData"
+                    | "System32"
             )
         })
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension()
-            .and_then(|s| s.to_str())
-            .map(|s| s.eq_ignore_ascii_case("gguf"))
-            .unwrap_or(false))
+        .filter(|e| {
+            e.path()
+                .extension()
+                .and_then(|s| s.to_str())
+                .map(|s| s.eq_ignore_ascii_case("gguf"))
+                .unwrap_or(false)
+        })
     {
         if let Ok(meta) = entry.metadata() {
             let size_bytes = meta.len();
@@ -269,7 +326,11 @@ fn scan_dir(root: &Path, max_depth: usize, source: &str, found: &mut Vec<GgufMod
                 found.push(GgufModel {
                     path: path.display().to_string(),
                     size_gb: size_bytes as f64 / 1024.0 / 1024.0 / 1024.0,
-                    name: path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string(),
+                    name: path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("unknown")
+                        .to_string(),
                     source: source.to_string(),
                 });
             }
@@ -286,30 +347,42 @@ async fn probe_running_servers(env: &EnvInfo) -> Option<String> {
         "http://host.docker.internal:11434".to_string(),
     ];
     if let Some(host) = &env.wsl2_windows_host {
-        candidates.push(format!("http://{}:11434", host)); // Ollama on Windows host
-        candidates.push(format!("http://{}:11435", host));
+        candidates.push(format!("http://{host}:11434")); // Ollama on Windows host
+        candidates.push(format!("http://{host}:11435"));
     }
 
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(1))
-        .build() {
+        .build()
+    {
         Ok(c) => c,
         Err(e) => {
-            klog!("[Ring 0 / LLM] HTTP client build failed (TLS?): {} — using defaults", e);
+            klog!(
+                "[Ring 0 / LLM] HTTP client build failed (TLS?): {} — using defaults",
+                e
+            );
             reqwest::Client::default()
         }
     };
 
     for url in &candidates {
-        let ok = client.get(format!("{}/api/version", url))
-            .send().await.map(|r| r.status().is_success())
+        let ok = client
+            .get(format!("{url}/api/version"))
+            .send()
+            .await
+            .map(|r| r.status().is_success())
             .unwrap_or(false);
         // Also check OpenAI-compatible health
         let ok2 = if !ok {
-            client.get(format!("{}/health", url))
-                .send().await.map(|r| r.status().is_success())
+            client
+                .get(format!("{url}/health"))
+                .send()
+                .await
+                .map(|r| r.status().is_success())
                 .unwrap_or(false)
-        } else { false };
+        } else {
+            false
+        };
 
         if ok || ok2 {
             klog!("[Ring 0 / LLM] Running inference server found: {}", url);
@@ -326,29 +399,37 @@ fn compute_optimal_flags(compute: &ComputeInfo, models: &[GgufModel]) -> String 
     match &compute.backend {
         ComputeBackend::Cuda => {
             // Offload all layers to VRAM
-            format!("--gpu-layers 999 --threads {}", threads)
+            format!("--gpu-layers 999 --threads {threads}")
         }
         ComputeBackend::ROCm => {
-            format!("--gpu-layers 999 --threads {}", threads)
+            format!("--gpu-layers 999 --threads {threads}")
         }
         ComputeBackend::Vulkan => {
             if compute.is_igpu {
                 // iGPU: offload as many layers as the shared VRAM allows
                 // Rough estimate: 1 layer ≈ 30MB for 7B model
                 let model_gb = models.first().map(|m| m.size_gb).unwrap_or(4.0);
-                let vram = if compute.vram_gb > 0.0 { compute.vram_gb } else { 1.5 };
+                let vram = if compute.vram_gb > 0.0 {
+                    compute.vram_gb
+                } else {
+                    1.5
+                };
                 let gpu_layers = ((vram / model_gb) * 32.0).min(32.0) as usize;
-                format!("--gpu-layers {} --vulkan --threads {}", gpu_layers, threads)
+                format!("--gpu-layers {gpu_layers} --vulkan --threads {threads}")
             } else {
-                format!("--gpu-layers 999 --vulkan --threads {}", threads)
+                format!("--gpu-layers 999 --vulkan --threads {threads}")
             }
         }
         ComputeBackend::Metal => {
-            format!("--gpu-layers 1 --threads {}",threads) // Metal uses -ngl 1 as indicator
+            format!("--gpu-layers 1 --threads {threads}") // Metal uses -ngl 1 as indicator
         }
         ComputeBackend::Cpu => {
-            let avx = if compute.avx2 { " --cpu-features avx2" } else { "" };
-            format!("--gpu-layers 0 --threads {}{}", threads, avx)
+            let avx = if compute.avx2 {
+                " --cpu-features avx2"
+            } else {
+                ""
+            };
+            format!("--gpu-layers 0 --threads {threads}{avx}")
         }
     }
 }

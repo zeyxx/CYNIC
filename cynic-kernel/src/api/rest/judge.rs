@@ -7,8 +7,8 @@ use axum::{
 };
 use std::sync::Arc;
 
+use super::response::{verdict_response_cached, verdict_to_response};
 use super::types::*;
-use super::response::{verdict_to_response, verdict_response_cached};
 
 /// Max content length in chars — caps token consumption per request.
 const MAX_CONTENT_LEN: usize = 4_000;
@@ -21,26 +21,48 @@ pub async fn judge_handler(
     // Input validation — prevent token drain attacks
     let content = req.content.trim().to_string();
     if content.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse { error: "content must not be empty".into() })));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "content must not be empty".into(),
+            }),
+        ));
     }
     if content.len() > MAX_CONTENT_LEN {
-        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
-            error: format!("content exceeds {} chars (got {})", MAX_CONTENT_LEN, content.len()),
-        })));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: format!(
+                    "content exceeds {} chars (got {})",
+                    MAX_CONTENT_LEN,
+                    content.len()
+                ),
+            }),
+        ));
     }
     if let Some(ref ctx) = req.context
         && ctx.len() > MAX_CONTEXT_LEN
     {
-        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
-            error: format!("context exceeds {} chars (got {})", MAX_CONTEXT_LEN, ctx.len()),
-        })));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: format!(
+                    "context exceeds {} chars (got {})",
+                    MAX_CONTEXT_LEN,
+                    ctx.len()
+                ),
+            }),
+        ));
     }
     if let Some(ref domain) = req.domain
         && domain.len() > 64
     {
-        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
-            error: "domain exceeds 64 chars".into(),
-        })));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "domain exceeds 64 chars".into(),
+            }),
+        ));
     }
 
     // Shared pipeline: embed → cache → crystals → sessions → evaluate → store → CCM
@@ -54,14 +76,29 @@ pub async fn judge_handler(
         event_tx: Some(&state.event_tx),
     };
     let result = crate::pipeline::run(
-        content, req.context, req.domain, req.dogs.as_deref(), req.crystals, &deps,
-    ).await.map_err(|e| {
+        content,
+        req.context,
+        req.domain,
+        req.dogs.as_deref(),
+        req.crystals,
+        &deps,
+    )
+    .await
+    .map_err(|e| {
         tracing::error!(error = %e, "judge pipeline failed");
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "evaluation failed".into() }))
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "evaluation failed".into(),
+            }),
+        )
     })?;
 
     match result {
-        crate::pipeline::PipelineResult::CacheHit { verdict, similarity } => {
+        crate::pipeline::PipelineResult::CacheHit {
+            verdict,
+            similarity,
+        } => {
             tracing::info!(similarity = %format!("{:.4}", similarity), "verdict cache HIT");
             Ok(Json(verdict_response_cached(&verdict, similarity)))
         }
@@ -79,11 +116,18 @@ pub async fn get_verdict_handler(
         Ok(Some(v)) => Ok(Json(verdict_to_response(&v))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: format!("Verdict {} not found", id) }),
+            Json(ErrorResponse {
+                error: format!("Verdict {id} not found"),
+            }),
         )),
         Err(e) => {
             tracing::warn!(verdict_id = %id, error = %e, "verdict get failed");
-            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "storage unavailable".into(),
+                }),
+            ))
         }
     }
 }
@@ -95,7 +139,12 @@ pub async fn list_verdicts_handler(
         Ok(verdicts) => Ok(Json(verdicts.iter().map(verdict_to_response).collect())),
         Err(e) => {
             tracing::warn!(error = %e, "verdicts list failed");
-            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "storage unavailable".into() })))
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "storage unavailable".into(),
+                }),
+            ))
         }
     }
 }

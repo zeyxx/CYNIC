@@ -18,11 +18,24 @@ impl Embedding {
         if self.vector.len() != other.vector.len() {
             return 0.0;
         }
-        let dot: f64 = self.vector.iter().zip(&other.vector)
+        let dot: f64 = self
+            .vector
+            .iter()
+            .zip(&other.vector)
             .map(|(a, b)| *a as f64 * *b as f64)
             .sum();
-        let norm_a: f64 = self.vector.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
-        let norm_b: f64 = other.vector.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
+        let norm_a: f64 = self
+            .vector
+            .iter()
+            .map(|x| (*x as f64).powi(2))
+            .sum::<f64>()
+            .sqrt();
+        let norm_b: f64 = other
+            .vector
+            .iter()
+            .map(|x| (*x as f64).powi(2))
+            .sum::<f64>()
+            .sqrt();
         if norm_a == 0.0 || norm_b == 0.0 {
             return 0.0;
         }
@@ -57,12 +70,15 @@ pub trait EmbeddingPort: Send + Sync {
 }
 
 /// Null implementation — graceful degradation when no embedding server is available.
+#[derive(Debug)]
 pub struct NullEmbedding;
 
 #[async_trait]
 impl EmbeddingPort for NullEmbedding {
     async fn embed(&self, _text: &str) -> Result<Embedding, EmbeddingError> {
-        Err(EmbeddingError::Unreachable("no embedding server configured".into()))
+        Err(EmbeddingError::Unreachable(
+            "no embedding server configured".into(),
+        ))
     }
 }
 
@@ -72,42 +88,85 @@ mod tests {
 
     #[test]
     fn cosine_identical_vectors() {
-        let a = Embedding { vector: vec![1.0, 0.0, 0.0], dimensions: 3, prompt_tokens: 0 };
-        let b = Embedding { vector: vec![1.0, 0.0, 0.0], dimensions: 3, prompt_tokens: 0 };
+        let a = Embedding {
+            vector: vec![1.0, 0.0, 0.0],
+            dimensions: 3,
+            prompt_tokens: 0,
+        };
+        let b = Embedding {
+            vector: vec![1.0, 0.0, 0.0],
+            dimensions: 3,
+            prompt_tokens: 0,
+        };
         assert!((a.cosine_similarity(&b) - 1.0).abs() < 1e-6);
     }
 
     #[test]
     fn cosine_orthogonal_vectors() {
-        let a = Embedding { vector: vec![1.0, 0.0], dimensions: 2, prompt_tokens: 0 };
-        let b = Embedding { vector: vec![0.0, 1.0], dimensions: 2, prompt_tokens: 0 };
+        let a = Embedding {
+            vector: vec![1.0, 0.0],
+            dimensions: 2,
+            prompt_tokens: 0,
+        };
+        let b = Embedding {
+            vector: vec![0.0, 1.0],
+            dimensions: 2,
+            prompt_tokens: 0,
+        };
         assert!(a.cosine_similarity(&b).abs() < 1e-6);
     }
 
     #[test]
     fn cosine_opposite_vectors() {
-        let a = Embedding { vector: vec![1.0, 0.0], dimensions: 2, prompt_tokens: 0 };
-        let b = Embedding { vector: vec![-1.0, 0.0], dimensions: 2, prompt_tokens: 0 };
+        let a = Embedding {
+            vector: vec![1.0, 0.0],
+            dimensions: 2,
+            prompt_tokens: 0,
+        };
+        let b = Embedding {
+            vector: vec![-1.0, 0.0],
+            dimensions: 2,
+            prompt_tokens: 0,
+        };
         assert!((a.cosine_similarity(&b) + 1.0).abs() < 1e-6);
     }
 
     #[test]
     fn cosine_different_lengths_returns_zero() {
-        let a = Embedding { vector: vec![1.0, 0.0], dimensions: 2, prompt_tokens: 0 };
-        let b = Embedding { vector: vec![1.0, 0.0, 0.0], dimensions: 3, prompt_tokens: 0 };
+        let a = Embedding {
+            vector: vec![1.0, 0.0],
+            dimensions: 2,
+            prompt_tokens: 0,
+        };
+        let b = Embedding {
+            vector: vec![1.0, 0.0, 0.0],
+            dimensions: 3,
+            prompt_tokens: 0,
+        };
         assert_eq!(a.cosine_similarity(&b), 0.0);
     }
 
     #[test]
     fn cosine_zero_vector_returns_zero() {
-        let a = Embedding { vector: vec![0.0, 0.0], dimensions: 2, prompt_tokens: 0 };
-        let b = Embedding { vector: vec![1.0, 0.0], dimensions: 2, prompt_tokens: 0 };
+        let a = Embedding {
+            vector: vec![0.0, 0.0],
+            dimensions: 2,
+            prompt_tokens: 0,
+        };
+        let b = Embedding {
+            vector: vec![1.0, 0.0],
+            dimensions: 2,
+            prompt_tokens: 0,
+        };
         assert_eq!(a.cosine_similarity(&b), 0.0);
     }
 
     #[test]
     fn null_embedding_returns_error() {
-        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         rt.block_on(async {
             let null = NullEmbedding;
             assert!(null.embed("test").await.is_err());

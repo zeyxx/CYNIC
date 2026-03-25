@@ -18,6 +18,7 @@ use crate::infra::circuit_breaker::PROBE_INTERVAL;
 use crate::infra::task_health::TaskHealth;
 
 /// Configuration for probing a single Dog backend.
+#[derive(Debug)]
 pub struct DogProbeConfig {
     pub dog_id: String,
     pub health_url: String,
@@ -30,15 +31,29 @@ pub(crate) async fn probe_dog(client: &Client, config: &DogProbeConfig) -> bool 
     match tokio::time::timeout(timeout, client.get(&config.health_url).send()).await {
         Ok(Ok(resp)) if resp.status().is_success() => true,
         Ok(Ok(resp)) => {
-            klog!("[health_loop] Dog '{}' returned HTTP {} ({})", config.dog_id, resp.status(), config.health_url);
+            klog!(
+                "[health_loop] Dog '{}' returned HTTP {} ({})",
+                config.dog_id,
+                resp.status(),
+                config.health_url
+            );
             false
         }
         Ok(Err(e)) => {
-            klog!("[health_loop] Dog '{}' unreachable: {} ({})", config.dog_id, e, config.health_url);
+            klog!(
+                "[health_loop] Dog '{}' unreachable: {} ({})",
+                config.dog_id,
+                e,
+                config.health_url
+            );
             false
         }
         Err(_) => {
-            klog!("[health_loop] Dog '{}' probe timed out (5s) ({})", config.dog_id, config.health_url);
+            klog!(
+                "[health_loop] Dog '{}' probe timed out (5s) ({})",
+                config.dog_id,
+                config.health_url
+            );
             false
         }
     }
@@ -55,13 +70,13 @@ pub fn spawn_health_loop(
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        let client = match Client::builder()
-            .timeout(Duration::from_secs(5))
-            .build()
-        {
+        let client = match Client::builder().timeout(Duration::from_secs(5)).build() {
             Ok(c) => c,
             Err(e) => {
-                klog!("[health_loop] FATAL: failed to build HTTP client: {} — loop will not run", e);
+                klog!(
+                    "[health_loop] FATAL: failed to build HTTP client: {} — loop will not run",
+                    e
+                );
                 return;
             }
         };

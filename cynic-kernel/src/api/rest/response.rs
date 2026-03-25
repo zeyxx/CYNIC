@@ -1,7 +1,7 @@
 //! REST API response mapping — verdict-to-JSON.
 
 use super::types::*;
-use crate::domain::dog::{Verdict, PHI_INV};
+use crate::domain::dog::{PHI_INV, Verdict};
 
 pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
     JudgeResponse {
@@ -26,26 +26,30 @@ pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         },
         dogs_used: v.dog_id.clone(),
         phi_max: PHI_INV,
-        dog_scores: v.dog_scores.iter().map(|ds| DogScoreResponse {
-            dog_id: ds.dog_id.clone(),
-            latency_ms: ds.latency_ms,
-            prompt_tokens: ds.prompt_tokens,
-            completion_tokens: ds.completion_tokens,
-            fidelity: ds.fidelity,
-            phi: ds.phi,
-            verify: ds.verify,
-            culture: ds.culture,
-            burn: ds.burn,
-            sovereignty: ds.sovereignty,
-            reasoning: ReasoningResponse {
-                fidelity: ds.reasoning.fidelity.clone(),
-                phi: ds.reasoning.phi.clone(),
-                verify: ds.reasoning.verify.clone(),
-                culture: ds.reasoning.culture.clone(),
-                burn: ds.reasoning.burn.clone(),
-                sovereignty: ds.reasoning.sovereignty.clone(),
-            },
-        }).collect(),
+        dog_scores: v
+            .dog_scores
+            .iter()
+            .map(|ds| DogScoreResponse {
+                dog_id: ds.dog_id.clone(),
+                latency_ms: ds.latency_ms,
+                prompt_tokens: ds.prompt_tokens,
+                completion_tokens: ds.completion_tokens,
+                fidelity: ds.fidelity,
+                phi: ds.phi,
+                verify: ds.verify,
+                culture: ds.culture,
+                burn: ds.burn,
+                sovereignty: ds.sovereignty,
+                reasoning: ReasoningResponse {
+                    fidelity: ds.reasoning.fidelity.clone(),
+                    phi: ds.reasoning.phi.clone(),
+                    verify: ds.reasoning.verify.clone(),
+                    culture: ds.reasoning.culture.clone(),
+                    burn: ds.reasoning.burn.clone(),
+                    sovereignty: ds.reasoning.sovereignty.clone(),
+                },
+            })
+            .collect(),
         anomaly_detected: v.anomaly_detected,
         max_disagreement: v.max_disagreement,
         anomaly_axiom: v.anomaly_axiom.clone(),
@@ -73,12 +77,21 @@ mod tests {
             id: "test-id".into(),
             kind: VerdictKind::Howl,
             q_score: QScore {
-                total: 0.55, fidelity: 0.6, phi: 0.5,
-                verify: 0.55, culture: 0.5, burn: 0.45, sovereignty: 0.5,
+                total: 0.55,
+                fidelity: 0.6,
+                phi: 0.5,
+                verify: 0.55,
+                culture: 0.5,
+                burn: 0.45,
+                sovereignty: 0.5,
             },
             reasoning: AxiomReasoning {
-                fidelity: "good".into(), phi: "ok".into(), verify: "decent".into(),
-                culture: "fine".into(), burn: "lean".into(), sovereignty: "free".into(),
+                fidelity: "good".into(),
+                phi: "ok".into(),
+                verify: "decent".into(),
+                culture: "fine".into(),
+                burn: "lean".into(),
+                sovereignty: "free".into(),
             },
             dog_id: "test-dog".into(),
             stimulus_summary: "test stimulus".into(),

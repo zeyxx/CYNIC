@@ -24,22 +24,22 @@ pub struct HardwareInfo {
 /// Universal compute backend — determined by Ring 0 from hardware reality
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub enum ComputeBackend {
-    Cuda,       // NVIDIA GPU — highest throughput
-    ROCm,       // AMD dGPU via ROCm (/dev/kfd)
-    Vulkan,     // AMD/Intel iGPU or dGPU via Vulkan — universal fallback for GPU
-    Metal,      // Apple Silicon — always available on macOS
+    Cuda,   // NVIDIA GPU — highest throughput
+    ROCm,   // AMD dGPU via ROCm (/dev/kfd)
+    Vulkan, // AMD/Intel iGPU or dGPU via Vulkan — universal fallback for GPU
+    Metal,  // Apple Silicon — always available on macOS
     #[default]
-    Cpu,        // Fallback — always works, AVX2 accelerated if available
+    Cpu, // Fallback — always works, AVX2 accelerated if available
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ComputeInfo {
     pub backend: ComputeBackend,
     pub gpu_name: String,
-    pub vram_gb: f64,          // dedicated VRAM (or shared RAM for iGPU)
+    pub vram_gb: f64, // dedicated VRAM (or shared RAM for iGPU)
     pub cpu_threads: usize,
     pub avx2: bool,
-    pub is_igpu: bool,         // true = shares system RAM
+    pub is_igpu: bool, // true = shares system RAM
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -78,6 +78,7 @@ pub struct EnvInfo {
 // SOVEREIGNTY ADVISOR
 // ============================================================
 
+#[derive(Debug)]
 pub struct SovereigntyAdvisor;
 
 impl SovereigntyAdvisor {
@@ -102,7 +103,9 @@ impl SovereigntyAdvisor {
         }
 
         // 3. Virtualization Friction
-        if cfg.compute.gpu_name.to_lowercase().contains("parsec") || cfg.compute.gpu_name.to_lowercase().contains("virtual") {
+        if cfg.compute.gpu_name.to_lowercase().contains("parsec")
+            || cfg.compute.gpu_name.to_lowercase().contains("virtual")
+        {
             suggestions.push("VIRTUAL DISPLAY DETECTED: CYNIC utilise un adaptateur virtuel. Forcez l'usage du GPU physique (Radeon/NVIDIA) pour l'inférence.".to_string());
         }
 
@@ -112,7 +115,9 @@ impl SovereigntyAdvisor {
         }
 
         // 5. Disk Metabolic Check (Site Reliability Lens)
-        let home = dirs::home_dir().map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|| "C:".to_string());
+        let home = dirs::home_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "C:".to_string());
         if (home.starts_with("C:") || home.starts_with("/"))
             && cfg.env.os == "windows"
             && cfg.llm.models_dir.starts_with("C:")

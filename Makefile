@@ -4,7 +4,7 @@
 #
 # Usage:
 #   make check    — build + test + clippy (validate before commit)
-#   make commit   — check + gitleaks + commit (validated commit)
+#   make commit   — check + commit (validated commit)
 #   make ship     — commit + push (pre-push re-validates)
 #   make deploy   — ship + backup DB + restart kernel + verify
 #   make hotfix   — deploy WITHOUT push (emergency only — skips ship)
@@ -17,6 +17,8 @@
 
 SHELL := /bin/bash
 .ONESHELL:
+.SHELLFLAGS := -eu -o pipefail -c
+MAKEFLAGS += --warn-undefined-variables
 
 # ── Environment ──────────────────────────────────────────────
 PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -34,16 +36,15 @@ check:
 	@echo "══════════════════════════════════════════"
 	@echo "  CYNIC check — build + test + clippy"
 	@echo "══════════════════════════════════════════"
-	cargo build -p cynic-kernel --release
-	cargo test -p cynic-kernel --release
-	cargo clippy -p cynic-kernel --release -- -D warnings
-	@$(MAKE) --no-print-directory lint-rules
-	@if command -v cargo-audit >/dev/null 2>&1; then \
-		echo ""; echo "▶ Security audit (cargo audit)..."; \
-		cargo audit --deny warnings 2>&1 || echo "⚠ cargo audit found advisories — review above"; \
-	else \
-		echo ""; echo "⚠ cargo-audit not installed — run: cargo install cargo-audit"; \
+	@if [ ! -x .git/hooks/pre-commit ]; then \
+		echo "⚠ Git hooks not installed — run: make install-hooks"; \
 	fi
+	cargo fmt --all -- --check
+	cargo clippy --workspace --release -- -D warnings
+	cargo test --workspace --release
+	@$(MAKE) --no-print-directory lint-rules
+	@echo ""; echo "▶ Security audit (cargo audit)..."
+	cargo audit --deny warnings
 	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
 		echo ""; echo "▶ Integration tests (SurrealDB available)..."; \
 		cargo test -p cynic-kernel --release -- --ignored; \
@@ -52,17 +53,34 @@ check:
 	fi
 
 .PHONY: lint-rules
-lint-rules: ## Grep-enforceable CLAUDE.md rules — mechanical checks the compiler can't do
+lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, which is unavailable in Make subshells)
 # Exemptions: probe/ (boot-time hardware discovery), infra/ (health loop, config validation)
 # These modules DO raw HTTP but are not backend adapters — they serve infrastructure purposes.
+# Requires .ONESHELL for set +e scope to work across the whole recipe.
 	@echo ""
 	@echo "▶ Checking grep-enforceable rules..."
-	@FAIL=0; \
-	R17=$$(rg 'reqwest' cynic-kernel/src/domain/ cynic-kernel/src/api/ cynic-kernel/src/main.rs 2>/dev/null | grep -v '//'); \
+	@set +e; FAIL=0; \
+	R4=$$(grep -rn '#\[cfg(' cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]' | grep -v '#\[cfg_attr(test'); \
+	if [ -n "$$R4" ]; then echo "FAIL Rule #4: #[cfg] in domain/ (domain purity):"; echo "$$R4"; FAIL=1; fi; \
+	R7=$$(grep -rn '/home/\|/Users/' cynic-kernel/src/ scripts/ .claude/hooks/ --include='*.rs' --include='*.sh' --include='*.toml' | grep -v '//' | grep -v 'target/'); \
+	if [ -n "$$R7" ]; then echo "FAIL Rule #7: hardcoded absolute paths:"; echo "$$R7"; FAIL=1; fi; \
+	R8=$$(grep -n '\.ok()' cynic-kernel/src/pipeline.rs cynic-kernel/src/judge.rs cynic-kernel/src/infra/tasks.rs 2>/dev/null | grep -v '//' | grep -v 'parse()\.ok()' | grep -v 'env::var.*\.ok()' | grep -v 'inspect_err'); \
+	if [ -n "$$R8" ]; then \
+		while IFS= read -r okline; do \
+			FILE=$$(echo "$$okline" | cut -d: -f1); LINENUM=$$(echo "$$okline" | cut -d: -f2); \
+			NEARBY=$$(sed -n "$$((LINENUM>3?LINENUM-3:1)),$${LINENUM}p" "$$FILE" 2>/dev/null || true); \
+			if ! echo "$$NEARBY" | grep -q 'inspect_err\|tracing::\|eprintln!\|warn!\|env::var'; then \
+				echo "FAIL Rule #8: .ok() without adjacent logging: $$okline"; FAIL=1; \
+			fi; \
+		done <<< "$$R8"; \
+	fi; \
+	R17=$$(grep -rn 'reqwest' cynic-kernel/src/domain/ cynic-kernel/src/api/ cynic-kernel/src/main.rs --include='*.rs' | grep -v '//'); \
 	if [ -n "$$R17" ]; then echo "FAIL Rule #17: reqwest outside backends/storage:"; echo "$$R17"; FAIL=1; fi; \
-	R19=$$(rg 'format_crystal_context' cynic-kernel/src/api/ 2>/dev/null | grep -v '//'); \
+	R19=$$(grep -rn 'format_crystal_context' cynic-kernel/src/api/ --include='*.rs' | grep -v '//'); \
 	if [ -n "$$R19" ]; then echo "FAIL Rule #19: format_crystal_context in handler (should be in pipeline):"; echo "$$R19"; FAIL=1; fi; \
-	R32=$$(rg 'serde_json::Value' cynic-kernel/src/domain/ 2>/dev/null | grep -v '//' | grep -v '#\[cfg(test)\]'); \
+	R22=$$(grep -rn 'trait \w*Port' cynic-kernel/src/domain/ --include='*.rs' | sed 's/.*trait //' | sed 's/<.*//' | sed 's/ .*//' | sort | uniq -d); \
+	if [ -n "$$R22" ]; then echo "FAIL Rule #22: duplicate trait names in domain/:"; echo "$$R22"; FAIL=1; fi; \
+	R32=$$(grep -rn 'serde_json::Value' cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]'); \
 	if [ -n "$$R32" ]; then echo "FAIL Rule #32: serde_json::Value in domain/:"; echo "$$R32"; FAIL=1; fi; \
 	SECRETS=$$(git diff --staged 2>/dev/null | grep -iE 'api.key|token|password|secret|AIza|hf_' | grep -v '#' | grep -v '//'); \
 	if [ -n "$$SECRETS" ]; then echo "FAIL Security: possible secrets in staged changes:"; echo "$$SECRETS"; FAIL=1; fi; \
@@ -75,12 +93,12 @@ check-storage: ## Integration tests against real SurrealDB (requires :8000)
 	@echo "══════════════════════════════════════════"
 	@echo "  CYNIC check-storage — integration tests"
 	@echo "══════════════════════════════════════════"
-	cargo test -p cynic-kernel --release -- --ignored
+	cargo test --workspace --release -- --ignored
 	@echo "✓ All checks passed"
 
 # ── Stage 2: Validated Commit ────────────────────────────────
 # Usage: make commit m="type(scope): description"
-# Impact checking is done by the compiler (#![deny(dead_code)]) — not bash scripts.
+# Impact checking is done by [workspace.lints] in Cargo.toml — not bash scripts.
 .PHONY: commit
 commit: check
 	@if [ -z "$(m)" ]; then echo "ERROR: provide message with m=\"...\"" >&2; exit 1; fi
@@ -88,7 +106,7 @@ commit: check
 	@echo "▶ Staging and committing..."
 	git add -u
 	git commit -m "$(m)"
-	@echo "✓ Committed (compiler + clippy + gitleaks validated)"
+	@echo "✓ Committed (workspace lints + clippy + audit validated)"
 
 # ── Stage 3: Ship (commit + push) ───────────────────────────
 .PHONY: ship
@@ -172,7 +190,7 @@ restore:
 	@if [ -z "$(F)" ]; then echo "ERROR: provide backup file with F=path"; echo "Available:"; ls -lhrt ~/.surrealdb/backups/ | tail -5; exit 1; fi
 	@[ -f "$(F)" ] || { echo "ERROR: file $(F) not found"; exit 1; }
 	@echo "⚠ RESTORING DB from $(F) — this will OVERWRITE current data"
-	@read -p "Are you sure? (yes/no) " CONFIRM; [ "$$CONFIRM" = "yes" ] || { echo "Aborted"; exit 1; }
+	@read -p "Are you sure? (yes/no) " CONFIRM || true; [ "$$CONFIRM" = "yes" ] || { echo "Aborted"; exit 1; }
 	systemctl --user stop cynic-kernel
 	surreal import --endpoint http://localhost:8000 --namespace cynic --database v2 \
 		--username root --password "$${SURREALDB_PASS}" "$(F)"
@@ -207,6 +225,11 @@ test-restore: ## Verify backup restore works against a test DB (non-destructive)
 	if echo "$$LATEST" | grep -q '\.gz$$'; then rm -f "$$IMPORT_FILE"; fi; \
 	if [ "$${VCOUNT:-0}" -gt 0 ]; then echo "✓ Restore verified ($$VCOUNT verdicts, $${CCOUNT:-0} crystals)"; \
 	else echo "⚠ Restore completed but 0 verdicts found — check backup contents"; fi
+
+# ── Git hooks (Layer 2 enforcement) ──────────────────────────
+.PHONY: install-hooks
+install-hooks:
+	@bash $(PROJECT_DIR)/scripts/install-hooks.sh
 
 # ── Clean (fix SIGSEGV/LLVM crashes) ──────────────────────────
 .PHONY: clean

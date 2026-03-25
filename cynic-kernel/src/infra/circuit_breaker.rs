@@ -26,11 +26,13 @@ pub enum CircuitState {
 }
 
 /// Internal state behind a single Mutex — no race between fields.
+#[derive(Debug)]
 struct Inner {
     state: CircuitState,
     consecutive_failures: u32,
 }
 
+#[derive(Debug)]
 pub struct CircuitBreaker {
     inner: Mutex<Inner>,
     dog_id: String,
@@ -80,10 +82,14 @@ impl CircuitBreaker {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.consecutive_failures += 1;
         if inner.consecutive_failures >= FAILURE_THRESHOLD && inner.state == CircuitState::Closed {
-            inner.state = CircuitState::Open { since: Instant::now() };
+            inner.state = CircuitState::Open {
+                since: Instant::now(),
+            };
             tracing::warn!(dog_id = %self.dog_id, failures = inner.consecutive_failures, "circuit breaker OPENED");
         } else if matches!(inner.state, CircuitState::HalfOpen) {
-            inner.state = CircuitState::Open { since: Instant::now() };
+            inner.state = CircuitState::Open {
+                since: Instant::now(),
+            };
             tracing::warn!(dog_id = %self.dog_id, "circuit breaker probe failed → Open");
         }
     }
@@ -99,7 +105,10 @@ impl CircuitBreaker {
     }
 
     pub fn consecutive_failures(&self) -> u32 {
-        self.inner.lock().unwrap_or_else(|e| e.into_inner()).consecutive_failures
+        self.inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .consecutive_failures
     }
 
     /// Is the circuit currently open (blocking requests)?
@@ -124,14 +133,30 @@ impl CircuitBreaker {
 }
 
 impl crate::domain::health_gate::HealthGate for CircuitBreaker {
-    fn should_allow(&self) -> bool { self.should_allow() }
-    fn record_success(&self) { self.record_success() }
-    fn record_failure(&self) { self.record_failure() }
-    fn is_open(&self) -> bool { self.is_open() }
-    fn state(&self) -> String { self.state() }
-    fn consecutive_failures(&self) -> u32 { self.consecutive_failures() }
-    fn dog_id(&self) -> &str { self.dog_id() }
-    fn opened_since(&self) -> Option<Duration> { self.opened_since() }
+    fn should_allow(&self) -> bool {
+        self.should_allow()
+    }
+    fn record_success(&self) {
+        self.record_success()
+    }
+    fn record_failure(&self) {
+        self.record_failure()
+    }
+    fn is_open(&self) -> bool {
+        self.is_open()
+    }
+    fn state(&self) -> String {
+        self.state()
+    }
+    fn consecutive_failures(&self) -> u32 {
+        self.consecutive_failures()
+    }
+    fn dog_id(&self) -> &str {
+        self.dog_id()
+    }
+    fn opened_since(&self) -> Option<Duration> {
+        self.opened_since()
+    }
 }
 
 #[cfg(test)]

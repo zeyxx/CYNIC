@@ -11,6 +11,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
-    println!("cargo:rustc-env=CYNIC_VERSION={}", git_version);
+    println!("cargo:rustc-env=CYNIC_VERSION={git_version}");
     Ok(())
 }

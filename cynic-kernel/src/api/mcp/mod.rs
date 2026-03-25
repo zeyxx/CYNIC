@@ -12,24 +12,20 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use rmcp::{
-    ErrorData as McpError,
-    ServerHandler,
-    model::*,
-    tool, tool_router, tool_handler,
-    handler::server::tool::ToolRouter,
-    handler::server::wrapper::Parameters,
+    ErrorData as McpError, ServerHandler, handler::server::tool::ToolRouter,
+    handler::server::wrapper::Parameters, model::*, tool, tool_handler, tool_router,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::domain::coord::{CoordPort, ClaimResult};
+use crate::domain::coord::{ClaimResult, CoordPort};
 use crate::domain::dog::PHI_INV;
-use crate::domain::health_gate::system_health_status;
 use crate::domain::events::KernelEvent;
+use crate::domain::health_gate::system_health_status;
 use crate::domain::inference::InferPort;
-use crate::judge::Judge;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
+use crate::judge::Judge;
 
 // ── MCP Rate Limiter ──────────────────────────────────────────
 // RC1 fix: MCP had zero rate limiting. Same limits as REST.
@@ -56,7 +52,11 @@ impl McpRateLimit {
         let count = self.judge_calls.fetch_add(1, Ordering::Relaxed);
         if count >= 10 {
             self.judge_calls.fetch_sub(1, Ordering::Relaxed);
-            Err(McpError::new(rmcp::model::ErrorCode(-32000), "Rate limit: max 10 judge/infer calls per minute", None))
+            Err(McpError::new(
+                rmcp::model::ErrorCode(-32000),
+                "Rate limit: max 10 judge/infer calls per minute",
+                None,
+            ))
         } else {
             Ok(())
         }
@@ -67,7 +67,11 @@ impl McpRateLimit {
         let count = self.other_calls.fetch_add(1, Ordering::Relaxed);
         if count >= 30 {
             self.other_calls.fetch_sub(1, Ordering::Relaxed);
-            Err(McpError::new(rmcp::model::ErrorCode(-32000), "Rate limit: max 30 calls per minute", None))
+            Err(McpError::new(
+                rmcp::model::ErrorCode(-32000),
+                "Rate limit: max 30 calls per minute",
+                None,
+            ))
         } else {
             Ok(())
         }
@@ -75,7 +79,8 @@ impl McpRateLimit {
 
     fn maybe_reset(&self) {
         if let Ok(mut start) = self.window_start.lock()
-            && start.elapsed() > std::time::Duration::from_secs(60) {
+            && start.elapsed() > std::time::Duration::from_secs(60)
+        {
             self.judge_calls.store(0, Ordering::Relaxed);
             self.other_calls.store(0, Ordering::Relaxed);
             *start = std::time::Instant::now();
@@ -90,10 +95,16 @@ fn validate_agent_id(agent_id: &Option<String>) -> Result<(), McpError> {
     if let Some(id) = agent_id {
         let char_count = id.chars().count();
         if char_count == 0 || char_count > 128 {
-            return Err(McpError::invalid_params("agent_id must be 1-128 characters", None));
+            return Err(McpError::invalid_params(
+                "agent_id must be 1-128 characters",
+                None,
+            ));
         }
         if id.chars().any(|c| c.is_control()) {
-            return Err(McpError::invalid_params("agent_id contains invalid characters", None));
+            return Err(McpError::invalid_params(
+                "agent_id contains invalid characters",
+                None,
+            ));
         }
     }
     Ok(())
@@ -101,7 +112,7 @@ fn validate_agent_id(agent_id: &Option<String>) -> Result<(), McpError> {
 
 /// RC1: Sanitize error messages — no internal URLs, model names, or stack traces.
 fn sanitize_error(category: &str) -> McpError {
-    McpError::internal_error(format!("{} unavailable — check /health", category), None)
+    McpError::internal_error(format!("{category} unavailable — check /health"), None)
 }
 
 // ── MCP Tool Parameters ─────────────────────────────────────
@@ -221,6 +232,12 @@ pub struct CynicMcp {
     tool_router: ToolRouter<Self>,
 }
 
+impl std::fmt::Debug for CynicMcp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CynicMcp").finish_non_exhaustive()
+    }
+}
+
 #[tool_router]
 impl CynicMcp {
     #[allow(clippy::too_many_arguments)] // Constructor — 9 deps is the real count, a builder adds zero clarity
@@ -294,15 +311,24 @@ impl CynicMcp {
             event_tx: self.event_tx.as_ref(),
         };
         let result = crate::pipeline::run(
-            p.content.clone(), p.context, p.domain.clone(), p.dogs.as_deref(),
-            p.crystals.unwrap_or(true), &deps,
-        ).await.map_err(|e| {
+            p.content.clone(),
+            p.context,
+            p.domain.clone(),
+            p.dogs.as_deref(),
+            p.crystals.unwrap_or(true),
+            &deps,
+        )
+        .await
+        .map_err(|e| {
             tracing::warn!(error = %e, "MCP judge pipeline failed");
             sanitize_error("Judge")
         })?;
 
         let verdict = match result {
-            crate::pipeline::PipelineResult::CacheHit { verdict: cached, similarity } => {
+            crate::pipeline::PipelineResult::CacheHit {
+                verdict: cached,
+                similarity,
+            } => {
                 self.touch(&agent_id).await;
                 let response = serde_json::json!({
                     "verdict": format!("{:?}", cached.kind),
@@ -313,20 +339,26 @@ impl CynicMcp {
                     "cache_hit": similarity,
                     "source": "verdict_cache",
                 });
-                return Ok(CallToolResult::success(vec![
-                    Content::text(serde_json::to_string_pretty(&response).unwrap_or_default())
-                ]));
+                return Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&response).unwrap_or_default(),
+                )]));
             }
             crate::pipeline::PipelineResult::Evaluated { verdict } => verdict,
         };
 
-        let _ = self.audit( // ok: fire-and-forget (audit is best-effort, verdict already committed)
-            "cynic_judge", &agent_id, &serde_json::json!({
-            "stimulus": p.content.chars().take(200).collect::<String>(),
-            "dogs_used": verdict.dog_id,
-            "verdict": format!("{:?}", verdict.kind),
-            "q_score": verdict.q_score.total,
-        })).await;
+        let _ = self
+            .audit(
+                // ok: fire-and-forget (audit is best-effort, verdict already committed)
+                "cynic_judge",
+                &agent_id,
+                &serde_json::json!({
+                    "stimulus": p.content.chars().take(200).collect::<String>(),
+                    "dogs_used": verdict.dog_id,
+                    "verdict": format!("{:?}", verdict.kind),
+                    "q_score": verdict.q_score.total,
+                }),
+            )
+            .await;
 
         // Format response
         let response = serde_json::json!({
@@ -355,9 +387,9 @@ impl CynicMcp {
             "phi_max": PHI_INV,
         });
 
-        Ok(CallToolResult::success(vec![
-            Content::text(serde_json::to_string_pretty(&response).unwrap_or_default())
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&response).unwrap_or_default(),
+        )]))
     }
 
     // ── cynic_health ─────────────────────────────────────────
@@ -369,7 +401,10 @@ impl CynicMcp {
     async fn cynic_health(&self) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
         let dog_health = self.judge.dog_health();
-        let healthy_dogs = dog_health.iter().filter(|(_, circuit, _)| circuit == "closed").count();
+        let healthy_dogs = dog_health
+            .iter()
+            .filter(|(_, circuit, _)| circuit == "closed")
+            .count();
         let total_dogs = dog_health.len();
         let dogs: Vec<serde_json::Value> = dog_health.into_iter().map(|(id, circuit, failures)| {
             serde_json::json!({ "id": id, "circuit": circuit, "failures": failures })
@@ -389,9 +424,9 @@ impl CynicMcp {
             "phi_max": PHI_INV,
         });
 
-        Ok(CallToolResult::success(vec![
-            Content::text(serde_json::to_string_pretty(&response).unwrap_or_default())
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&response).unwrap_or_default(),
+        )]))
     }
 
     // ── cynic_verdicts ───────────────────────────────────────
@@ -411,23 +446,28 @@ impl CynicMcp {
         if let Some(ref agent_id) = params.0.agent_id {
             self.touch(agent_id).await;
         }
-        let verdicts = self.storage.list_verdicts(limit).await
-            .map_err(|e| { tracing::warn!(error = %e, "MCP storage query failed"); sanitize_error("Storage") })?;
+        let verdicts = self.storage.list_verdicts(limit).await.map_err(|e| {
+            tracing::warn!(error = %e, "MCP storage query failed");
+            sanitize_error("Storage")
+        })?;
 
-        let items: Vec<serde_json::Value> = verdicts.iter().map(|v| {
-            serde_json::json!({
-                "id": v.id,
-                "verdict": format!("{:?}", v.kind),
-                "q_score": v.q_score.total,
-                "stimulus": v.stimulus_summary.chars().take(100).collect::<String>(),
-                "dogs_used": v.dog_id,
-                "anomaly": v.anomaly_detected,
+        let items: Vec<serde_json::Value> = verdicts
+            .iter()
+            .map(|v| {
+                serde_json::json!({
+                    "id": v.id,
+                    "verdict": format!("{:?}", v.kind),
+                    "q_score": v.q_score.total,
+                    "stimulus": v.stimulus_summary.chars().take(100).collect::<String>(),
+                    "dogs_used": v.dog_id,
+                    "anomaly": v.anomaly_detected,
+                })
             })
-        }).collect();
+            .collect();
 
-        Ok(CallToolResult::success(vec![
-            Content::text(serde_json::to_string_pretty(&items).unwrap_or_default())
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&items).unwrap_or_default(),
+        )]))
     }
 
     // ── cynic_crystals ───────────────────────────────────────
@@ -446,23 +486,28 @@ impl CynicMcp {
         if let Some(ref agent_id) = params.0.agent_id {
             self.touch(agent_id).await;
         }
-        let crystals = self.storage.list_crystals(limit).await
-            .map_err(|e| { tracing::warn!(error = %e, "MCP storage query failed"); sanitize_error("Storage") })?;
+        let crystals = self.storage.list_crystals(limit).await.map_err(|e| {
+            tracing::warn!(error = %e, "MCP storage query failed");
+            sanitize_error("Storage")
+        })?;
 
-        let items: Vec<serde_json::Value> = crystals.iter().map(|c| {
-            serde_json::json!({
-                "id": c.id,
-                "content": c.content,
-                "domain": c.domain,
-                "confidence": c.confidence,
-                "observations": c.observations,
-                "state": format!("{:?}", c.state),
+        let items: Vec<serde_json::Value> = crystals
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "id": c.id,
+                    "content": c.content,
+                    "domain": c.domain,
+                    "confidence": c.confidence,
+                    "observations": c.observations,
+                    "state": format!("{:?}", c.state),
+                })
             })
-        }).collect();
+            .collect();
 
-        Ok(CallToolResult::success(vec![
-            Content::text(serde_json::to_string_pretty(&items).unwrap_or_default())
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&items).unwrap_or_default(),
+        )]))
     }
 
     // ── cynic_infer ──────────────────────────────────────────
@@ -487,7 +532,10 @@ impl CynicMcp {
         if let Some(ref sys) = p.system
             && sys.len() > 4_000
         {
-            return Err(McpError::invalid_params("system prompt exceeds 4000 chars", None));
+            return Err(McpError::invalid_params(
+                "system prompt exceeds 4000 chars",
+                None,
+            ));
         }
 
         let temperature = p.temperature.unwrap_or(0.7).clamp(0.0, 2.0);
@@ -500,17 +548,22 @@ impl CynicMcp {
             temperature,
             max_tokens,
         };
-        let infer_resp = self.infer.infer(&request).await
-            .map_err(|e| {
-                tracing::warn!(error = %e, "MCP infer failed");
-                sanitize_error("Inference")
-            })?;
+        let infer_resp = self.infer.infer(&request).await.map_err(|e| {
+            tracing::warn!(error = %e, "MCP infer failed");
+            sanitize_error("Inference")
+        })?;
 
-        let _ = self.audit("cynic_infer", &agent_id, &serde_json::json!({ // ok: fire-and-forget
-            "prompt_len": p.prompt.len(),
-            "prompt_tokens": infer_resp.prompt_tokens,
-            "completion_tokens": infer_resp.completion_tokens,
-        })).await;
+        let _ = self
+            .audit(
+                "cynic_infer",
+                &agent_id,
+                &serde_json::json!({ // ok: fire-and-forget
+                    "prompt_len": p.prompt.len(),
+                    "prompt_tokens": infer_resp.prompt_tokens,
+                    "completion_tokens": infer_resp.completion_tokens,
+                }),
+            )
+            .await;
 
         let response = serde_json::json!({
             "text": infer_resp.text,
@@ -520,9 +573,9 @@ impl CynicMcp {
             "sovereign": true,
         });
 
-        Ok(CallToolResult::success(vec![
-            Content::text(serde_json::to_string_pretty(&response).unwrap_or_default())
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&response).unwrap_or_default(),
+        )]))
     }
 
     // ── cynic_audit_query ────────────────────────────────────
@@ -539,11 +592,18 @@ impl CynicMcp {
         let p = params.0;
         let limit = p.limit.unwrap_or(20).min(100);
 
-        match self.coord.query_audit(p.tool.as_deref(), p.agent_id.as_deref(), limit).await {
-            Ok(results) => Ok(CallToolResult::success(vec![
-                Content::text(serde_json::to_string_pretty(&results).unwrap_or_else(|_| "[]".into()))
-            ])),
-            Err(e) => { tracing::warn!(error = %e, "MCP audit query failed"); Err(sanitize_error("Audit")) }
+        match self
+            .coord
+            .query_audit(p.tool.as_deref(), p.agent_id.as_deref(), limit)
+            .await
+        {
+            Ok(results) => Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&results).unwrap_or_else(|_| "[]".into()),
+            )])),
+            Err(e) => {
+                tracing::warn!(error = %e, "MCP audit query failed");
+                Err(sanitize_error("Audit"))
+            }
         }
     }
 
@@ -561,24 +621,40 @@ impl CynicMcp {
         let p = params.0;
         validate_agent_id(&Some(p.agent_id.clone()))?;
         if p.intent.len() > 500 {
-            return Err(McpError::invalid_params("intent must be under 500 chars", None));
+            return Err(McpError::invalid_params(
+                "intent must be under 500 chars",
+                None,
+            ));
         }
         let agent_type = p.agent_type.unwrap_or_else(|| "unknown".into());
 
-        self.coord.register_agent(&p.agent_id, &agent_type, &p.intent).await
-            .map_err(|e| { tracing::warn!(error = %e, "MCP register failed"); sanitize_error("Coordination") })?;
+        self.coord
+            .register_agent(&p.agent_id, &agent_type, &p.intent)
+            .await
+            .map_err(|e| {
+                tracing::warn!(error = %e, "MCP register failed");
+                sanitize_error("Coordination")
+            })?;
 
-        self.audit("cynic_coord_register", &p.agent_id, &serde_json::json!({
-            "intent": p.intent, "agent_type": agent_type,
-        })).await;
+        self.audit(
+            "cynic_coord_register",
+            &p.agent_id,
+            &serde_json::json!({
+                "intent": p.intent, "agent_type": agent_type,
+            }),
+        )
+        .await;
 
         if let Some(ref tx) = self.event_tx {
-            let _ = tx.send(KernelEvent::SessionRegistered { agent_id: p.agent_id.clone() });
+            let _ = tx.send(KernelEvent::SessionRegistered {
+                agent_id: p.agent_id.clone(),
+            });
         }
 
-        Ok(CallToolResult::success(vec![
-            Content::text(format!("Agent '{}' registered. Intent: {}. Heartbeat refreshed on every MCP call.", p.agent_id, p.intent))
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(format!(
+            "Agent '{}' registered. Intent: {}. Heartbeat refreshed on every MCP call.",
+            p.agent_id, p.intent
+        ))]))
     }
 
     #[tool(
@@ -593,33 +669,54 @@ impl CynicMcp {
         let p = params.0;
         validate_agent_id(&Some(p.agent_id.clone()))?;
         if p.target.len() > 256 {
-            return Err(McpError::invalid_params("target must be under 256 chars", None));
+            return Err(McpError::invalid_params(
+                "target must be under 256 chars",
+                None,
+            ));
         }
         let claim_type = p.claim_type.unwrap_or_else(|| "file".into());
 
-        match self.coord.claim(&p.agent_id, &p.target, &claim_type).await
-            .map_err(|e| { tracing::warn!(error = %e, "MCP claim failed"); sanitize_error("Coordination") })?
-        {
+        match self
+            .coord
+            .claim(&p.agent_id, &p.target, &claim_type)
+            .await
+            .map_err(|e| {
+                tracing::warn!(error = %e, "MCP claim failed");
+                sanitize_error("Coordination")
+            })? {
             ClaimResult::Conflict(infos) => {
-                let conflict_info: Vec<String> = infos.iter().map(|c| {
-                    format!("{} (since {})", c.agent_id, c.claimed_at)
-                }).collect();
-                self.audit("cynic_coord_claim", &p.agent_id, &serde_json::json!({
-                    "target": p.target, "claim_type": claim_type,
-                    "result": "conflict", "held_by": conflict_info,
-                })).await;
-                Ok(CallToolResult::success(vec![
-                    Content::text(format!("CONFLICT: '{}' already claimed by: {}. Coordinate before proceeding.",
-                        p.target, conflict_info.join(", ")))
-                ]))
+                let conflict_info: Vec<String> = infos
+                    .iter()
+                    .map(|c| format!("{} (since {})", c.agent_id, c.claimed_at))
+                    .collect();
+                self.audit(
+                    "cynic_coord_claim",
+                    &p.agent_id,
+                    &serde_json::json!({
+                        "target": p.target, "claim_type": claim_type,
+                        "result": "conflict", "held_by": conflict_info,
+                    }),
+                )
+                .await;
+                Ok(CallToolResult::success(vec![Content::text(format!(
+                    "CONFLICT: '{}' already claimed by: {}. Coordinate before proceeding.",
+                    p.target,
+                    conflict_info.join(", ")
+                ))]))
             }
             ClaimResult::Claimed => {
-                self.audit("cynic_coord_claim", &p.agent_id, &serde_json::json!({
-                    "target": p.target, "claim_type": claim_type,
-                })).await;
-                Ok(CallToolResult::success(vec![
-                    Content::text(format!("Claimed '{}' ({}) for agent '{}'.", p.target, claim_type, p.agent_id))
-                ]))
+                self.audit(
+                    "cynic_coord_claim",
+                    &p.agent_id,
+                    &serde_json::json!({
+                        "target": p.target, "claim_type": claim_type,
+                    }),
+                )
+                .await;
+                Ok(CallToolResult::success(vec![Content::text(format!(
+                    "Claimed '{}' ({}) for agent '{}'.",
+                    p.target, claim_type, p.agent_id
+                ))]))
             }
         }
     }
@@ -641,33 +738,55 @@ impl CynicMcp {
             return Err(McpError::invalid_params("targets must not be empty", None));
         }
         if p.targets.len() > 20 {
-            return Err(McpError::invalid_params("batch claim limited to 20 targets", None));
+            return Err(McpError::invalid_params(
+                "batch claim limited to 20 targets",
+                None,
+            ));
         }
 
-        let result = self.coord.claim_batch(&p.agent_id, &p.targets, &claim_type).await
-            .map_err(|e| { tracing::warn!(error = %e, "MCP batch claim failed"); sanitize_error("Coordination") })?;
+        let result = self
+            .coord
+            .claim_batch(&p.agent_id, &p.targets, &claim_type)
+            .await
+            .map_err(|e| {
+                tracing::warn!(error = %e, "MCP batch claim failed");
+                sanitize_error("Coordination")
+            })?;
 
         let mut lines = Vec::new();
 
         for target in &result.claimed {
-            lines.push(format!("CLAIMED: '{}' ({}) for agent '{}'.", target, claim_type, p.agent_id));
+            lines.push(format!(
+                "CLAIMED: '{}' ({}) for agent '{}'.",
+                target, claim_type, p.agent_id
+            ));
         }
         for (target, infos) in &result.conflicts {
-            let conflict_info: Vec<String> = infos.iter().map(|c| {
-                format!("{} (since {})", c.agent_id, c.claimed_at)
-            }).collect();
-            lines.push(format!("CONFLICT: '{}' already claimed by: {}.", target, conflict_info.join(", ")));
+            let conflict_info: Vec<String> = infos
+                .iter()
+                .map(|c| format!("{} (since {})", c.agent_id, c.claimed_at))
+                .collect();
+            lines.push(format!(
+                "CONFLICT: '{}' already claimed by: {}.",
+                target,
+                conflict_info.join(", ")
+            ));
         }
 
-        self.audit("cynic_coord_claim_batch", &p.agent_id, &serde_json::json!({
-            "targets": p.targets,
-            "claimed": result.claimed.len(),
-            "conflicts": result.conflicts.len(),
-        })).await;
+        self.audit(
+            "cynic_coord_claim_batch",
+            &p.agent_id,
+            &serde_json::json!({
+                "targets": p.targets,
+                "claimed": result.claimed.len(),
+                "conflicts": result.conflicts.len(),
+            }),
+        )
+        .await;
 
-        Ok(CallToolResult::success(vec![
-            Content::text(lines.join("\n"))
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(
+            lines.join("\n"),
+        )]))
     }
 
     #[tool(
@@ -682,12 +801,23 @@ impl CynicMcp {
         let p = params.0;
         validate_agent_id(&Some(p.agent_id.clone()))?;
 
-        let desc = self.coord.release(&p.agent_id, p.target.as_deref()).await
-            .map_err(|e| { tracing::warn!(error = %e, "MCP release failed"); sanitize_error("Coordination") })?;
+        let desc = self
+            .coord
+            .release(&p.agent_id, p.target.as_deref())
+            .await
+            .map_err(|e| {
+                tracing::warn!(error = %e, "MCP release failed");
+                sanitize_error("Coordination")
+            })?;
 
-        self.audit("cynic_coord_release", &p.agent_id, &serde_json::json!({
-            "target": p.target,
-        })).await;
+        self.audit(
+            "cynic_coord_release",
+            &p.agent_id,
+            &serde_json::json!({
+                "target": p.target,
+            }),
+        )
+        .await;
 
         Ok(CallToolResult::success(vec![Content::text(desc)]))
     }
@@ -703,8 +833,10 @@ impl CynicMcp {
         self.rate_limit.check_other()?;
         let p = params.0;
 
-        let snapshot = self.coord.who(p.agent_id.as_deref()).await
-            .map_err(|e| { tracing::warn!(error = %e, "MCP who query failed"); sanitize_error("Coordination") })?;
+        let snapshot = self.coord.who(p.agent_id.as_deref()).await.map_err(|e| {
+            tracing::warn!(error = %e, "MCP who query failed");
+            sanitize_error("Coordination")
+        })?;
 
         let response = serde_json::json!({
             "active_agents": snapshot.agents.len(),
@@ -713,9 +845,9 @@ impl CynicMcp {
             "claims": snapshot.claims,
         });
 
-        Ok(CallToolResult::success(vec![
-            Content::text(serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".into()))
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".into()),
+        )]))
     }
 
     // ── Helpers ────────────────────────────────────────────────
@@ -725,14 +857,19 @@ impl CynicMcp {
     async fn touch(&self, agent_id: &str) {
         if !agent_id.is_empty()
             && agent_id != "unknown"
-            && self.coord.heartbeat(agent_id).await.is_err() {
+            && self.coord.heartbeat(agent_id).await.is_err()
+        {
             // Already logged inside heartbeat impl
         }
     }
 
     /// Audit + heartbeat in one shot (best-effort, non-blocking).
     async fn audit(&self, tool_name: &str, agent_id: &str, details: &serde_json::Value) {
-        if let Err(e) = self.coord.store_audit(tool_name, agent_id, &details.to_string()).await {
+        if let Err(e) = self
+            .coord
+            .store_audit(tool_name, agent_id, &details.to_string())
+            .await
+        {
             tracing::debug!(error = %e, tool_name, "MCP audit store failed (non-fatal)");
         }
         self.touch(agent_id).await;
@@ -755,10 +892,10 @@ impl ServerHandler for CynicMcp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::storage::{NullStorage, StorageError};
-    use crate::domain::coord::NullCoord;
-    use crate::domain::usage::DogUsageTracker;
     use crate::dogs::deterministic::DeterministicDog;
+    use crate::domain::coord::NullCoord;
+    use crate::domain::storage::{NullStorage, StorageError};
+    use crate::domain::usage::DogUsageTracker;
     use crate::judge::Judge;
 
     /// Storage that fails on ping() — simulates SurrealDB being down.
@@ -769,40 +906,117 @@ mod tests {
         async fn ping(&self) -> Result<(), StorageError> {
             Err(StorageError::ConnectionFailed("test: storage down".into()))
         }
-        async fn store_verdict(&self, _: &crate::domain::dog::Verdict) -> Result<(), StorageError> { Ok(()) }
-        async fn get_verdict(&self, _: &str) -> Result<Option<crate::domain::dog::Verdict>, StorageError> { Ok(None) }
-        async fn list_verdicts(&self, _: u32) -> Result<Vec<crate::domain::dog::Verdict>, StorageError> { Err(StorageError::ConnectionFailed("down".into())) }
-        async fn store_crystal(&self, _: &crate::domain::ccm::Crystal) -> Result<(), StorageError> { Ok(()) }
-        async fn get_crystal(&self, _: &str) -> Result<Option<crate::domain::ccm::Crystal>, StorageError> { Ok(None) }
-        async fn list_crystals(&self, _: u32) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> { Ok(vec![]) }
-        async fn delete_crystal(&self, _: &str) -> Result<(), StorageError> { Ok(()) }
-        async fn observe_crystal(&self, _: &str, _: &str, _: &str, _: f64, _: &str) -> Result<(), StorageError> { Ok(()) }
-        async fn store_observation(&self, _: &crate::domain::storage::Observation) -> Result<(), StorageError> { Ok(()) }
-        async fn query_observations(&self, _: &str, _: Option<&str>, _: u32) -> Result<Vec<crate::domain::storage::ObservationFrequency>, StorageError> { Ok(vec![]) }
-        async fn query_session_targets(&self, _: &str, _: u32) -> Result<Vec<crate::domain::storage::SessionTarget>, StorageError> { Ok(vec![]) }
-        async fn flush_usage(&self, _: &[(String, crate::domain::usage::DogUsage)]) -> Result<(), StorageError> { Ok(()) }
+        async fn store_verdict(&self, _: &crate::domain::dog::Verdict) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn get_verdict(
+            &self,
+            _: &str,
+        ) -> Result<Option<crate::domain::dog::Verdict>, StorageError> {
+            Ok(None)
+        }
+        async fn list_verdicts(
+            &self,
+            _: u32,
+        ) -> Result<Vec<crate::domain::dog::Verdict>, StorageError> {
+            Err(StorageError::ConnectionFailed("down".into()))
+        }
+        async fn store_crystal(&self, _: &crate::domain::ccm::Crystal) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn get_crystal(
+            &self,
+            _: &str,
+        ) -> Result<Option<crate::domain::ccm::Crystal>, StorageError> {
+            Ok(None)
+        }
+        async fn list_crystals(
+            &self,
+            _: u32,
+        ) -> Result<Vec<crate::domain::ccm::Crystal>, StorageError> {
+            Ok(vec![])
+        }
+        async fn delete_crystal(&self, _: &str) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn observe_crystal(
+            &self,
+            _: &str,
+            _: &str,
+            _: &str,
+            _: f64,
+            _: &str,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn store_observation(
+            &self,
+            _: &crate::domain::storage::Observation,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn query_observations(
+            &self,
+            _: &str,
+            _: Option<&str>,
+            _: u32,
+        ) -> Result<Vec<crate::domain::storage::ObservationFrequency>, StorageError> {
+            Ok(vec![])
+        }
+        async fn query_session_targets(
+            &self,
+            _: &str,
+            _: u32,
+        ) -> Result<Vec<crate::domain::storage::SessionTarget>, StorageError> {
+            Ok(vec![])
+        }
+        async fn flush_usage(
+            &self,
+            _: &[(String, crate::domain::usage::DogUsage)],
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
     }
 
     /// Build a CynicMcp with real DeterministicDog + null storage/coord.
     fn test_mcp() -> CynicMcp {
         let dogs: Vec<Box<dyn crate::domain::dog::Dog>> = vec![Box::new(DeterministicDog)];
-        let breakers: Vec<Arc<dyn crate::domain::health_gate::HealthGate>> = dogs.iter()
-            .map(|d| Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn crate::domain::health_gate::HealthGate>)
+        let breakers: Vec<Arc<dyn crate::domain::health_gate::HealthGate>> = dogs
+            .iter()
+            .map(|d| {
+                Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(
+                    d.id().to_string(),
+                )) as Arc<dyn crate::domain::health_gate::HealthGate>
+            })
             .collect();
         let judge = Arc::new(Judge::new(dogs, breakers));
         let storage = Arc::new(NullStorage) as Arc<dyn StoragePort>;
         let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
         let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
-        let embedding = Arc::new(crate::domain::embedding::NullEmbedding) as Arc<dyn crate::domain::embedding::EmbeddingPort>;
+        let embedding = Arc::new(crate::domain::embedding::NullEmbedding)
+            as Arc<dyn crate::domain::embedding::EmbeddingPort>;
         let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
         let infer = Arc::new(crate::domain::inference::NullInfer) as Arc<dyn InferPort>;
         let metrics = Arc::new(crate::domain::metrics::Metrics::new());
-        CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer, metrics, None)
+        CynicMcp::new(
+            judge,
+            storage,
+            coord,
+            usage,
+            embedding,
+            verdict_cache,
+            infer,
+            metrics,
+            None,
+        )
     }
 
     /// Extract text from the first Content element in a CallToolResult.
     fn text_of(result: &CallToolResult) -> &str {
-        &result.content[0].as_text().expect("Expected text content").text
+        &result.content[0]
+            .as_text()
+            .expect("Expected text content")
+            .text
     }
 
     #[tokio::test]
@@ -839,26 +1053,40 @@ mod tests {
         assert_eq!(v["dog_count"], 1);
         // Verdict must be a known kind
         let verdict_str = v["verdict"].as_str().unwrap();
-        assert!(["Howl", "Wag", "Growl", "Bark"].iter().any(|k| verdict_str == *k),
-            "unexpected verdict: {}", verdict_str);
+        assert!(
+            ["Howl", "Wag", "Growl", "Bark"].contains(&verdict_str),
+            "unexpected verdict: {verdict_str}"
+        );
     }
 
     #[tokio::test]
     async fn verdicts_returns_error_with_null_storage() {
         let mcp = test_mcp();
-        let params = Parameters(ListParams { limit: Some(5), agent_id: None });
+        let params = Parameters(ListParams {
+            limit: Some(5),
+            agent_id: None,
+        });
         // NullStorage returns ConnectionFailed for list_verdicts
         let result = mcp.cynic_verdicts(params).await;
-        assert!(result.is_err(), "NullStorage should propagate error for list_verdicts");
+        assert!(
+            result.is_err(),
+            "NullStorage should propagate error for list_verdicts"
+        );
     }
 
     #[tokio::test]
     async fn crystals_returns_error_with_null_storage() {
         let mcp = test_mcp();
-        let params = Parameters(ListParams { limit: Some(5), agent_id: None });
+        let params = Parameters(ListParams {
+            limit: Some(5),
+            agent_id: None,
+        });
         // NullStorage returns Err (RC5 fix: no silent Ok(()) on unavailable storage)
         let result = mcp.cynic_crystals(params).await;
-        assert!(result.is_err(), "NullStorage should propagate error for list_crystals");
+        assert!(
+            result.is_err(),
+            "NullStorage should propagate error for list_crystals"
+        );
     }
 
     #[tokio::test]
@@ -866,33 +1094,45 @@ mod tests {
         let mcp = test_mcp();
 
         // Register
-        let reg = mcp.cynic_coord_register(Parameters(RegisterParams {
-            agent_id: "test-1".into(),
-            intent: "testing".into(),
-            agent_type: Some("test".into()),
-        })).await.unwrap();
+        let reg = mcp
+            .cynic_coord_register(Parameters(RegisterParams {
+                agent_id: "test-1".into(),
+                intent: "testing".into(),
+                agent_type: Some("test".into()),
+            }))
+            .await
+            .unwrap();
         assert!(text_of(&reg).contains("test-1"));
 
         // Claim
-        let claim = mcp.cynic_coord_claim(Parameters(ClaimParams {
-            agent_id: "test-1".into(),
-            target: "mod.rs".into(),
-            claim_type: Some("file".into()),
-        })).await.unwrap();
+        let claim = mcp
+            .cynic_coord_claim(Parameters(ClaimParams {
+                agent_id: "test-1".into(),
+                target: "mod.rs".into(),
+                claim_type: Some("file".into()),
+            }))
+            .await
+            .unwrap();
         assert!(text_of(&claim).contains("Claimed"));
 
         // Release
-        let rel = mcp.cynic_coord_release(Parameters(ReleaseParams {
-            agent_id: "test-1".into(),
-            target: None,
-        })).await.unwrap();
+        let rel = mcp
+            .cynic_coord_release(Parameters(ReleaseParams {
+                agent_id: "test-1".into(),
+                target: None,
+            }))
+            .await
+            .unwrap();
         assert!(!text_of(&rel).is_empty());
     }
 
     #[tokio::test]
     async fn who_returns_empty_snapshot() {
         let mcp = test_mcp();
-        let result = mcp.cynic_coord_who(Parameters(WhoParams { agent_id: None })).await.unwrap();
+        let result = mcp
+            .cynic_coord_who(Parameters(WhoParams { agent_id: None }))
+            .await
+            .unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
         assert_eq!(v["active_agents"], 0);
         assert_eq!(v["active_claims"], 0);
@@ -901,11 +1141,14 @@ mod tests {
     #[tokio::test]
     async fn audit_query_returns_empty() {
         let mcp = test_mcp();
-        let result = mcp.cynic_audit_query(Parameters(AuditQueryParams {
-            tool: None,
-            agent_id: None,
-            limit: Some(10),
-        })).await.unwrap();
+        let result = mcp
+            .cynic_audit_query(Parameters(AuditQueryParams {
+                tool: None,
+                agent_id: None,
+                limit: Some(10),
+            }))
+            .await
+            .unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
         assert!(v.as_array().unwrap().is_empty());
     }
@@ -926,30 +1169,51 @@ mod tests {
         // Verify usage was recorded
         let usage = mcp.usage.lock().await;
         let dogs = usage.merged_dogs();
-        assert!(dogs.contains_key("deterministic-dog"),
-            "Usage should be tracked for deterministic-dog");
+        assert!(
+            dogs.contains_key("deterministic-dog"),
+            "Usage should be tracked for deterministic-dog"
+        );
         assert!(dogs["deterministic-dog"].requests >= 1);
     }
 
     #[tokio::test]
     async fn health_returns_critical_when_storage_down() {
         let dogs: Vec<Box<dyn crate::domain::dog::Dog>> = vec![Box::new(DeterministicDog)];
-        let breakers: Vec<Arc<dyn crate::domain::health_gate::HealthGate>> = dogs.iter()
-            .map(|d| Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn crate::domain::health_gate::HealthGate>)
+        let breakers: Vec<Arc<dyn crate::domain::health_gate::HealthGate>> = dogs
+            .iter()
+            .map(|d| {
+                Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(
+                    d.id().to_string(),
+                )) as Arc<dyn crate::domain::health_gate::HealthGate>
+            })
             .collect();
         let judge = Arc::new(Judge::new(dogs, breakers));
         let storage = Arc::new(DownStorage) as Arc<dyn StoragePort>;
         let coord = Arc::new(NullCoord) as Arc<dyn CoordPort>;
         let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
-        let embedding = Arc::new(crate::domain::embedding::NullEmbedding) as Arc<dyn crate::domain::embedding::EmbeddingPort>;
+        let embedding = Arc::new(crate::domain::embedding::NullEmbedding)
+            as Arc<dyn crate::domain::embedding::EmbeddingPort>;
         let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
         let infer = Arc::new(crate::domain::inference::NullInfer) as Arc<dyn InferPort>;
         let metrics = Arc::new(crate::domain::metrics::Metrics::new());
-        let mcp = CynicMcp::new(judge, storage, coord, usage, embedding, verdict_cache, infer, metrics, None);
+        let mcp = CynicMcp::new(
+            judge,
+            storage,
+            coord,
+            usage,
+            embedding,
+            verdict_cache,
+            infer,
+            metrics,
+            None,
+        );
 
         let result = mcp.cynic_health().await.unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
-        assert_eq!(v["status"], "critical", "Storage down should force critical status");
+        assert_eq!(
+            v["status"], "critical",
+            "Storage down should force critical status"
+        );
         assert_eq!(v["storage"], "down");
         assert_eq!(v["dog_count"], 1); // dog is healthy, but storage pulls status to critical
     }

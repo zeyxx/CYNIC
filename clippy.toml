@@ -1,0 +1,10 @@
+# CYNIC — Clippy configuration (Layer 0 enforcement)
+# Complements [workspace.lints] in Cargo.toml
+
+# Defaults are 25/100 — these are intentionally stricter
+cognitive-complexity-threshold = 20
+too-many-lines-threshold = 80
+
+disallowed-methods = [
+    { path = "std::process::exit", reason = "use proper shutdown via CancellationToken, not process::exit" },
+]

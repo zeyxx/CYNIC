@@ -32,3 +32,11 @@ curl -s --connect-timeout 2 --max-time 5 -X POST "http://${KERNEL_ADDR}/coord/re
     ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
     -d "{\"agent_id\":\"${AGENT_ID}\"}" \
     > /dev/null 2>&1 || true
+
+# ── Rule #30: warn about uncommitted changes (staged + unstaged + untracked) ──
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+DIRTY=$(git -C "$PROJECT_DIR" status --short 2>/dev/null | grep -v '^??' | head -5 || true)
+if [[ -n "$DIRTY" ]]; then
+    echo "WARNING: Uncommitted changes (Rule #30):"
+    echo "$DIRTY"
+fi

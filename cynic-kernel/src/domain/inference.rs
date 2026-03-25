@@ -81,6 +81,7 @@ pub trait BackendPort: Send + Sync {
 /// Sovereign inference port — direct LLM access for cynic_infer MCP tool.
 /// Distinct from domain::chat::ChatPort (Dog evaluation, requires BackendPort supertrait).
 /// Named "Infer" to avoid collision with the Dog-facing ChatPort.
+#[derive(Debug)]
 pub struct InferRequest {
     pub system: Option<String>,
     pub prompt: String,
@@ -88,6 +89,7 @@ pub struct InferRequest {
     pub max_tokens: u32,
 }
 
+#[derive(Debug)]
 pub struct InferResponse {
     pub text: String,
     pub model: String,
@@ -101,11 +103,14 @@ pub trait InferPort: Send + Sync {
 }
 
 /// Null implementation for graceful degradation when no sovereign LLM available.
+#[derive(Debug)]
 pub struct NullInfer;
 
 #[async_trait]
 impl InferPort for NullInfer {
     async fn infer(&self, _request: &InferRequest) -> Result<InferResponse, BackendError> {
-        Err(BackendError::Unreachable("No sovereign LLM available".into()))
+        Err(BackendError::Unreachable(
+            "No sovereign LLM available".into(),
+        ))
     }
 }

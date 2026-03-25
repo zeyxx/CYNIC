@@ -123,7 +123,7 @@ fn derive_health_url(base_url: &str) -> String {
     } else {
         base_url.trim_end_matches('/')
     };
-    format!("{}/health", base)
+    format!("{base}/health")
 }
 
 /// Load backend configs from TOML file. Resolves api_key_env to actual env var values.
@@ -221,19 +221,29 @@ pub fn load_storage_config(path: &Path) -> StorageConfig {
             .ok())
         .and_then(|f| f.storage);
 
-    let url = from_toml.as_ref().and_then(|s| s.url.clone())
+    let url = from_toml
+        .as_ref()
+        .and_then(|s| s.url.clone())
         .or_else(|| std::env::var("SURREALDB_URL").ok())
         .unwrap_or(defaults.url);
 
-    let namespace = from_toml.as_ref().and_then(|s| s.namespace.clone())
+    let namespace = from_toml
+        .as_ref()
+        .and_then(|s| s.namespace.clone())
         .or_else(|| std::env::var("SURREALDB_NS").ok())
         .unwrap_or(defaults.namespace);
 
-    let database = from_toml.as_ref().and_then(|s| s.database.clone())
+    let database = from_toml
+        .as_ref()
+        .and_then(|s| s.database.clone())
         .or_else(|| std::env::var("SURREALDB_DB").ok())
         .unwrap_or(defaults.database);
 
-    StorageConfig { url, namespace, database }
+    StorageConfig {
+        url,
+        namespace,
+        database,
+    }
 }
 
 /// Fallback: build configs from legacy env vars (backward compat).
@@ -241,8 +251,8 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
     let mut configs = Vec::new();
 
     if let Ok(api_key) = std::env::var("GEMINI_API_KEY") {
-        let model = std::env::var("GEMINI_MODEL")
-            .unwrap_or_else(|_| "gemini-2.5-flash".to_string());
+        let model =
+            std::env::var("GEMINI_MODEL").unwrap_or_else(|_| "gemini-2.5-flash".to_string());
         let base_url = "https://generativelanguage.googleapis.com/v1beta/openai".to_string();
         configs.push(BackendConfig {
             name: "gemini".to_string(),
@@ -270,7 +280,8 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
 pub async fn validate_config(configs: &[BackendConfig]) {
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
-        .build() {
+        .build()
+    {
         Ok(c) => c,
         Err(e) => {
             tracing::warn!(error = %e, "HTTP client build failed (TLS?) — skipping health validation");
@@ -280,7 +291,10 @@ pub async fn validate_config(configs: &[BackendConfig]) {
 
     for cfg in configs {
         let Some(ref health_url) = cfg.health_url else {
-            klog!("[config] — {} no health probe (cloud API, error-driven circuit breaker)", cfg.name);
+            klog!(
+                "[config] — {} no health probe (cloud API, error-driven circuit breaker)",
+                cfg.name
+            );
             continue;
         };
         match client.get(health_url).send().await {
@@ -290,11 +304,19 @@ pub async fn validate_config(configs: &[BackendConfig]) {
                 verify_model_loaded(&client, cfg).await;
             }
             Ok(resp) => {
-                klog!("[config] ⚠ {} health returned {} ({})", cfg.name, resp.status(), health_url);
+                klog!(
+                    "[config] ⚠ {} health returned {} ({})",
+                    cfg.name,
+                    resp.status(),
+                    health_url
+                );
             }
             Err(_) => {
-                klog!("[config] ✗ {} UNREACHABLE at {} — will load anyway, health loop will recover",
-                    cfg.name, health_url);
+                klog!(
+                    "[config] ✗ {} UNREACHABLE at {} — will load anyway, health loop will recover",
+                    cfg.name,
+                    health_url
+                );
             }
         }
     }
@@ -305,24 +327,30 @@ pub async fn validate_config(configs: &[BackendConfig]) {
 /// Non-fatal: logs warning if model is missing or endpoint unavailable.
 async fn verify_model_loaded(client: &reqwest::Client, cfg: &BackendConfig) {
     let models_url = format!("{}/models", cfg.base_url.trim_end_matches('/'));
-    let resp = match client.get(&models_url).send().await {
-        Ok(r) => r,
-        Err(_) => return, // Already logged as unreachable in health check
+    let Ok(resp) = client.get(&models_url).send().await else {
+        return; // Already logged as unreachable in health check
     };
     if !resp.status().is_success() {
         return; // /v1/models not supported — skip silently
     }
-    let body = match resp.text().await {
-        Ok(b) => b,
-        Err(_) => return,
+    let Ok(body) = resp.text().await else {
+        return;
     };
     // Check if the configured model name appears in the response.
     // OpenAI-compatible: {"data": [{"id": "model-name", ...}]}
     // llama-server: {"data": [{"id": "model-name"}]} or flat list
     if body.contains(&cfg.model) {
-        klog!("[config] ✓ {} model '{}' verified loaded", cfg.name, cfg.model);
+        klog!(
+            "[config] ✓ {} model '{}' verified loaded",
+            cfg.name,
+            cfg.model
+        );
     } else {
-        klog!("[config] ⚠ {} model '{}' NOT FOUND in /models response — config drift?", cfg.name, cfg.model);
+        klog!(
+            "[config] ⚠ {} model '{}' NOT FOUND in /models response — config drift?",
+            cfg.name,
+            cfg.model
+        );
         tracing::warn!(
             backend = %cfg.name,
             configured_model = %cfg.model,
@@ -344,12 +372,9 @@ pub fn load_domain_prompts(project_root: &Path) -> std::collections::HashMap<Str
     let domains_dir = project_root.join("domains");
     let mut prompts = std::collections::HashMap::new();
 
-    let entries = match std::fs::read_dir(&domains_dir) {
-        Ok(e) => e,
-        Err(_) => {
-            klog!("[config] No domains/ directory — using generic prompts for all domains");
-            return prompts;
-        }
+    let Ok(entries) = std::fs::read_dir(&domains_dir) else {
+        klog!("[config] No domains/ directory — using generic prompts for all domains");
+        return prompts;
     };
 
     for entry in entries.flatten() {
@@ -357,24 +382,36 @@ pub fn load_domain_prompts(project_root: &Path) -> std::collections::HashMap<Str
         if path.extension().and_then(|e| e.to_str()) != Some("md") {
             continue;
         }
-        let domain = path.file_stem()
+        let domain = path
+            .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_string();
-        if domain.is_empty() { continue; }
+        if domain.is_empty() {
+            continue;
+        }
 
         match std::fs::read_to_string(&path) {
             Ok(content) => {
                 // Strip the first heading line (# Domain Name — ...)
-                let prompt: String = content.lines()
+                let prompt: String = content
+                    .lines()
                     .skip_while(|l| l.trim().is_empty())
-                    .skip(if content.trim_start().starts_with('#') { 1 } else { 0 })
+                    .skip(if content.trim_start().starts_with('#') {
+                        1
+                    } else {
+                        0
+                    })
                     .collect::<Vec<_>>()
                     .join("\n")
                     .trim()
                     .to_string();
                 if !prompt.is_empty() {
-                    klog!("[config] Domain prompt loaded: '{}' ({} chars)", domain, prompt.len());
+                    klog!(
+                        "[config] Domain prompt loaded: '{}' ({} chars)",
+                        domain,
+                        prompt.len()
+                    );
                     prompts.insert(domain, prompt);
                 }
             }
@@ -429,14 +466,26 @@ auth_style = "none"
 
     #[test]
     fn derive_health_url_strips_v1() {
-        assert_eq!(derive_health_url("http://10.0.0.1:8080/v1"), "http://10.0.0.1:8080/health");
-        assert_eq!(derive_health_url("https://api.example.com/v1"), "https://api.example.com/health");
+        assert_eq!(
+            derive_health_url("http://10.0.0.1:8080/v1"),
+            "http://10.0.0.1:8080/health"
+        );
+        assert_eq!(
+            derive_health_url("https://api.example.com/v1"),
+            "https://api.example.com/health"
+        );
     }
 
     #[test]
     fn derive_health_url_no_v1() {
-        assert_eq!(derive_health_url("http://10.0.0.1:8080"), "http://10.0.0.1:8080/health");
-        assert_eq!(derive_health_url("http://10.0.0.1:8080/"), "http://10.0.0.1:8080/health");
+        assert_eq!(
+            derive_health_url("http://10.0.0.1:8080"),
+            "http://10.0.0.1:8080/health"
+        );
+        assert_eq!(
+            derive_health_url("http://10.0.0.1:8080/"),
+            "http://10.0.0.1:8080/health"
+        );
     }
 
     #[test]
@@ -460,8 +509,14 @@ cooldown_secs = 30
 
         let configs = load_backends(&path);
         assert_eq!(configs.len(), 1);
-        assert_eq!(configs[0].health_url.as_deref(), Some("http://10.0.0.1:8080/health"));
-        let rem = configs[0].remediation.as_ref().expect("remediation should be present");
+        assert_eq!(
+            configs[0].health_url.as_deref(),
+            Some("http://10.0.0.1:8080/health")
+        );
+        let rem = configs[0]
+            .remediation
+            .as_ref()
+            .expect("remediation should be present");
         assert_eq!(rem.node, "user@10.0.0.1");
         assert_eq!(rem.max_retries, 5);
         assert_eq!(rem.cooldown_secs, 30);
@@ -485,8 +540,11 @@ model = "gemini-flash"
         assert_eq!(configs.len(), 1);
         assert!(configs[0].remediation.is_none());
         // Cloud APIs without remediation or explicit health_url get None
-        assert!(configs[0].health_url.is_none(),
-            "cloud backend should have no health_url, got {:?}", configs[0].health_url);
+        assert!(
+            configs[0].health_url.is_none(),
+            "cloud backend should have no health_url, got {:?}",
+            configs[0].health_url
+        );
 
         std::fs::remove_file(&path).ok();
     }
@@ -510,8 +568,11 @@ restart_command = "systemctl restart llama-server"
         let configs = load_backends(&path);
         assert_eq!(configs.len(), 1);
         assert!(configs[0].remediation.is_some());
-        assert_eq!(configs[0].health_url.as_deref(), Some("http://10.0.0.1:8080/health"),
-            "sovereign with remediation should get derived health_url");
+        assert_eq!(
+            configs[0].health_url.as_deref(),
+            Some("http://10.0.0.1:8080/health"),
+            "sovereign with remediation should get derived health_url"
+        );
 
         std::fs::remove_file(&path).ok();
     }
@@ -531,8 +592,11 @@ health_url = "http://custom-health:9090/ready"
 
         let configs = load_backends(&path);
         assert_eq!(configs.len(), 1);
-        assert_eq!(configs[0].health_url.as_deref(), Some("http://custom-health:9090/ready"),
-            "explicit health_url should be used even without remediation");
+        assert_eq!(
+            configs[0].health_url.as_deref(),
+            Some("http://custom-health:9090/ready"),
+            "explicit health_url should be used even without remediation"
+        );
 
         std::fs::remove_file(&path).ok();
     }

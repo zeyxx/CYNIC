@@ -8,15 +8,16 @@
 
 pub mod surreal;
 
+use crate::domain::storage::StorageError;
 use reqwest::Client;
 use serde::Deserialize;
 use std::sync::atomic::{AtomicU64, Ordering};
-use crate::domain::storage::StorageError;
 
 /// Slow query threshold — anything above this logs a warning.
 const SLOW_QUERY_MS: u64 = 100;
 
 /// HTTP-based SurrealDB client. No surrealdb crate needed.
+#[derive(Debug)]
 pub struct SurrealHttpStorage {
     pub(crate) client: Client,
     pub(crate) url: String,
@@ -28,6 +29,7 @@ pub struct SurrealHttpStorage {
 }
 
 /// Atomic counters for storage observability. Zero-cost when not read.
+#[derive(Debug)]
 pub struct StorageMetrics {
     pub queries: AtomicU64,
     pub errors: AtomicU64,
@@ -55,13 +57,17 @@ impl StorageMetrics {
             queries,
             errors: self.errors.load(Ordering::Relaxed),
             slow_queries: self.slow_queries.load(Ordering::Relaxed),
-            avg_latency_ms: if queries > 0 { (total_us / queries) as f64 / 1000.0 } else { 0.0 },
+            avg_latency_ms: if queries > 0 {
+                (total_us / queries) as f64 / 1000.0
+            } else {
+                0.0
+            },
             uptime_secs: self.started_at.elapsed().as_secs(),
         }
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(Debug, serde::Serialize)]
 pub struct StorageMetricsSnapshot {
     pub queries: u64,
     pub errors: u64,
@@ -93,18 +99,22 @@ impl SurrealHttpStorage {
 
     pub async fn init_with(url: &str, ns: &str, db: &str) -> Result<Self, StorageError> {
         let user = std::env::var("SURREALDB_USER").unwrap_or_else(|_| "root".to_string());
-        let pass = std::env::var("SURREALDB_PASS")
-            .map_err(|_| StorageError::ConnectionFailed("SURREALDB_PASS must be set".into()))?;
+        let pass = std::env::var("SURREALDB_PASS").map_err(|e| {
+            StorageError::ConnectionFailed(format!("SURREALDB_PASS must be set: {e}"))
+        })?;
 
         use base64::Engine;
-        let credentials = format!("{}:{}", user, pass);
-        let auth = format!("Basic {}", base64::engine::general_purpose::STANDARD.encode(&credentials));
+        let credentials = format!("{user}:{pass}");
+        let auth = format!(
+            "Basic {}",
+            base64::engine::general_purpose::STANDARD.encode(&credentials)
+        );
 
         let storage = Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
-                .map_err(|e| StorageError::ConnectionFailed(format!("HTTP client: {}", e)))?,
+                .map_err(|e| StorageError::ConnectionFailed(format!("HTTP client: {e}")))?,
             url: url.trim_end_matches('/').to_string(),
             ns: ns.to_string(),
             db: db.to_string(),
@@ -118,7 +128,7 @@ impl SurrealHttpStorage {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(5))
                 .build()
-                .map_err(|e| StorageError::ConnectionFailed(format!("HTTP client: {}", e)))?,
+                .map_err(|e| StorageError::ConnectionFailed(format!("HTTP client: {e}")))?,
             url: storage.url.clone(),
             ns: String::new(),
             db: String::new(),
@@ -128,26 +138,31 @@ impl SurrealHttpStorage {
         };
         // Use root-level query to define ns/db
         let bootstrap_sql = format!(
-            "DEFINE NAMESPACE IF NOT EXISTS `{ns}`; USE NS `{ns}`; DEFINE DATABASE IF NOT EXISTS `{db}`;",
-            ns = ns, db = db
+            "DEFINE NAMESPACE IF NOT EXISTS `{ns}`; USE NS `{ns}`; DEFINE DATABASE IF NOT EXISTS `{db}`;"
         );
-        let resp = bootstrap.client
+        let resp = bootstrap
+            .client
             .post(format!("{}/sql", bootstrap.url))
             .header("Accept", "application/json")
             .header("Authorization", &bootstrap.auth)
             .body(bootstrap_sql)
             .send()
             .await
-            .map_err(|e| StorageError::ConnectionFailed(format!("SurrealDB unreachable at {}: {}", url, e)))?;
+            .map_err(|e| {
+                StorageError::ConnectionFailed(format!("SurrealDB unreachable at {url}: {e}"))
+            })?;
 
         if !resp.status().is_success() {
             let body = resp.text().await.unwrap_or_default();
-            return Err(StorageError::ConnectionFailed(format!("Bootstrap failed: {}", body)));
+            return Err(StorageError::ConnectionFailed(format!(
+                "Bootstrap failed: {body}"
+            )));
         }
 
         // Health check on the actual ns/db
-        storage.query("RETURN true").await
-            .map_err(|e| StorageError::ConnectionFailed(format!("SurrealDB unreachable at {}: {}", url, e)))?;
+        storage.query("RETURN true").await.map_err(|e| {
+            StorageError::ConnectionFailed(format!("SurrealDB unreachable at {url}: {e}"))
+        })?;
 
         // Bootstrap schema + indexes (idempotent — IF NOT EXISTS)
         let schema_sql = "\
@@ -254,7 +269,9 @@ impl SurrealHttpStorage {
         let result = self.query_inner(sql).await;
 
         let elapsed_us = start.elapsed().as_micros() as u64;
-        self.metrics.total_latency_us.fetch_add(elapsed_us, Ordering::Relaxed);
+        self.metrics
+            .total_latency_us
+            .fetch_add(elapsed_us, Ordering::Relaxed);
 
         let elapsed_ms = elapsed_us / 1000;
         if elapsed_ms > SLOW_QUERY_MS {
@@ -274,7 +291,8 @@ impl SurrealHttpStorage {
     async fn query_inner(&self, sql: &str) -> Result<Vec<Vec<serde_json::Value>>, StorageError> {
         let mut last_err = String::new();
         for attempt in 0..3u64 {
-            let resp = self.client
+            let resp = self
+                .client
                 .post(format!("{}/sql", self.url))
                 .header("Accept", "application/json")
                 .header("surreal-ns", &self.ns)
@@ -295,31 +313,38 @@ impl SurrealHttpStorage {
             if !resp.status().is_success() {
                 let status = resp.status();
                 let body = resp.text().await.unwrap_or_default();
-                return Err(StorageError::QueryFailed(format!("HTTP {}: {}", status, body)));
+                return Err(StorageError::QueryFailed(format!("HTTP {status}: {body}")));
             }
 
-            let results: Vec<SurrealResponse> = resp.json().await
-                .map_err(|e| StorageError::QueryFailed(format!("JSON parse error: {}", e)))?;
+            let results: Vec<SurrealResponse> = resp
+                .json()
+                .await
+                .map_err(|e| StorageError::QueryFailed(format!("JSON parse error: {e}")))?;
 
             for r in &results {
                 if r.status.as_deref() == Some("ERR") {
-                    let msg = r.result.as_ref()
+                    let msg = r
+                        .result
+                        .as_ref()
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown SurrealDB error");
                     return Err(StorageError::QueryFailed(msg.to_string()));
                 }
             }
 
-            return Ok(results.into_iter().map(|r| {
-                match r.result {
+            return Ok(results
+                .into_iter()
+                .map(|r| match r.result {
                     Some(serde_json::Value::Array(arr)) => arr,
                     Some(val) => vec![val],
                     None => Vec::new(),
-                }
-            }).collect());
+                })
+                .collect());
         }
         // All retries exhausted
-        Err(StorageError::QueryFailed(format!("401 after 3 retries: {}", last_err)))
+        Err(StorageError::QueryFailed(format!(
+            "401 after 3 retries: {last_err}"
+        )))
     }
 
     /// Execute a single-statement query and return first result set.
@@ -334,10 +359,17 @@ impl SurrealHttpStorage {
 /// Validate IDs: alphanumeric, hyphens, underscores only. Max 128 chars.
 pub(crate) fn sanitize_id(id: &str) -> Result<&str, StorageError> {
     if id.is_empty() || id.len() > 128 {
-        return Err(StorageError::QueryFailed("ID must be 1-128 characters".into()));
+        return Err(StorageError::QueryFailed(
+            "ID must be 1-128 characters".into(),
+        ));
     }
-    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
-        return Err(StorageError::QueryFailed("ID contains invalid characters".into()));
+    if !id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(StorageError::QueryFailed(
+            "ID contains invalid characters".into(),
+        ));
     }
     Ok(id)
 }
@@ -346,12 +378,12 @@ pub(crate) fn sanitize_id(id: &str) -> Result<&str, StorageError> {
 /// Handles: backslashes, single quotes, backticks, null bytes, newlines, carriage returns, tabs.
 pub(crate) fn escape_surreal(s: &str) -> String {
     s.replace('\\', "\\\\")
-     .replace('\'', "\\'")
-     .replace('`', "\\`")
-     .replace('\0', "")
-     .replace('\n', "\\n")
-     .replace('\r', "\\r")
-     .replace('\t', "\\t")
+        .replace('\'', "\\'")
+        .replace('`', "\\`")
+        .replace('\0', "")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
 }
 
 /// Clamp query limit to prevent resource exhaustion.

@@ -2,12 +2,12 @@
 //! Parallel evaluation via futures_util::future::join_all.
 //! Residual detection: disagreement > φ⁻² = ANOMALY.
 
-use crate::domain::dog::{*, estimate_tokens};
+use crate::domain::dog::{estimate_tokens, *};
 use crate::domain::health_gate::HealthGate;
 use crate::domain::metrics::Metrics;
 use chrono::Utc;
-use uuid::Uuid;
 use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 
 pub struct Judge {
     dogs: Vec<Box<dyn Dog>>,
@@ -16,10 +16,20 @@ pub struct Judge {
     last_hash: Mutex<Option<String>>,
 }
 
+impl std::fmt::Debug for Judge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Judge").finish_non_exhaustive()
+    }
+}
+
 impl Judge {
     pub fn new(dogs: Vec<Box<dyn Dog>>, breakers: Vec<Arc<dyn HealthGate>>) -> Self {
         assert_eq!(dogs.len(), breakers.len(), "dogs and breakers must be 1:1");
-        Self { dogs, breakers, last_hash: Mutex::new(None) }
+        Self {
+            dogs,
+            breakers,
+            last_hash: Mutex::new(None),
+        }
     }
 
     /// Seed the hash chain from the last stored verdict (call at boot).
@@ -45,7 +55,9 @@ impl Judge {
     /// The health loop updates breakers every 30s via probes.
     /// This just reads the current state from memory.
     pub fn dog_health(&self) -> Vec<(String, String, u32)> {
-        self.dogs.iter().zip(self.breakers.iter())
+        self.dogs
+            .iter()
+            .zip(self.breakers.iter())
             .map(|(dog, cb)| {
                 let state = if cb.is_open() {
                     "critical".to_string()
@@ -59,7 +71,12 @@ impl Judge {
 
     /// Evaluate a stimulus through Dogs in parallel, aggregate, produce Verdict.
     /// If `filter` is provided, only use Dogs whose IDs match.
-    pub async fn evaluate(&self, stimulus: &Stimulus, filter: Option<&[String]>, metrics: &Metrics) -> Result<Verdict, JudgeError> {
+    pub async fn evaluate(
+        &self,
+        stimulus: &Stimulus,
+        filter: Option<&[String]>,
+        metrics: &Metrics,
+    ) -> Result<Verdict, JudgeError> {
         if self.dogs.is_empty() {
             return Err(JudgeError::NoDogs);
         }
@@ -68,8 +85,14 @@ impl Judge {
         let active_dogs: Vec<_> = match filter {
             Some(ids) => {
                 let valid_ids: Vec<&str> = self.dogs.iter().map(|d| d.id()).collect();
-                self.dogs.iter()
-                    .filter(|d| d.id() == "deterministic-dog" || ids.iter().any(|id| id == d.id() && valid_ids.contains(&id.as_str())))
+                self.dogs
+                    .iter()
+                    .filter(|d| {
+                        d.id() == "deterministic-dog"
+                            || ids
+                                .iter()
+                                .any(|id| id == d.id() && valid_ids.contains(&id.as_str()))
+                    })
                     .collect()
             }
             None => self.dogs.iter().collect(),
@@ -81,7 +104,11 @@ impl Judge {
 
         // Context routing: estimate tokens and filter Dogs that can't handle the stimulus
         let estimated = estimate_tokens(&stimulus.content)
-            + stimulus.context.as_deref().map(estimate_tokens).unwrap_or(0)
+            + stimulus
+                .context
+                .as_deref()
+                .map(estimate_tokens)
+                .unwrap_or(0)
             + 400; // fixed overhead (system prompt + axiom template)
 
         let context_filtered: Vec<_> = active_dogs.iter()
@@ -98,14 +125,18 @@ impl Judge {
             .collect();
 
         let active_dogs = if context_filtered.is_empty() {
-            tracing::warn!(estimated_tokens = estimated, "no Dog has enough context — using all Dogs anyway");
+            tracing::warn!(
+                estimated_tokens = estimated,
+                "no Dog has enough context — using all Dogs anyway"
+            );
             active_dogs // fallback: try anyway rather than fail
         } else {
             context_filtered
         };
 
         // Find breaker indices for active dogs
-        let dog_breaker_pairs: Vec<_> = active_dogs.iter()
+        let dog_breaker_pairs: Vec<_> = active_dogs
+            .iter()
             .filter_map(|dog| {
                 let idx = self.dogs.iter().position(|d| d.id() == dog.id())?;
                 Some((*dog, &self.breakers[idx]))
@@ -116,7 +147,8 @@ impl Judge {
         // Aligned with HTTP client timeout in openai.rs (both read BackendConfig.timeout_secs).
 
         // Parallel evaluation — skip Dogs with open circuit breakers
-        let futures: Vec<_> = dog_breaker_pairs.iter()
+        let futures: Vec<_> = dog_breaker_pairs
+            .iter()
             .filter(|(_, cb)| cb.should_allow())
             .map(|(dog, _)| {
                 let id = dog.id().to_string();
@@ -134,7 +166,8 @@ impl Judge {
             .collect();
 
         // Wall-clock timeout: max Dog timeout + 5s safety margin.
-        let max_dog_timeout = dog_breaker_pairs.iter()
+        let max_dog_timeout = dog_breaker_pairs
+            .iter()
             .filter(|(_, cb)| cb.should_allow())
             .map(|(dog, _)| dog.timeout_secs())
             .max()
@@ -143,9 +176,9 @@ impl Judge {
         let results = tokio::time::timeout(
             wall_clock,
             futures_util::future::join_all(futures),
-        ).await.map_err(|_| {
-            tracing::error!(wall_clock_secs = max_dog_timeout + 5, "Dog evaluation wall-clock TIMEOUT");
-            JudgeError::AllDogsFailed(vec![format!("Evaluation timeout ({}s)", max_dog_timeout + 5)])
+        ).await.map_err(|elapsed| {
+            tracing::error!(wall_clock_secs = max_dog_timeout + 5, %elapsed, "Dog evaluation wall-clock TIMEOUT");
+            JudgeError::AllDogsFailed(vec![format!("Evaluation timeout ({elapsed})")])
         })?;
 
         let mut dog_scores: Vec<DogScore> = Vec::new();
@@ -154,12 +187,17 @@ impl Judge {
 
         for (id, result, elapsed_ms) in results {
             // Find the circuit breaker for this dog
-            let cb = self.dogs.iter().position(|d| d.id() == id)
+            let cb = self
+                .dogs
+                .iter()
+                .position(|d| d.id() == id)
                 .map(|idx| &self.breakers[idx]);
 
             match result {
                 Ok(scores) => {
-                    if let Some(cb) = cb { cb.record_success(); }
+                    if let Some(cb) = cb {
+                        cb.record_success();
+                    }
                     metrics.inc_dog_eval();
                     tracing::info!(
                         phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
@@ -205,7 +243,7 @@ impl Judge {
                         "Dog failed"
                     );
                     failed_dogs.push(id.clone());
-                    errors.push(format!("{}: {}", id, e));
+                    errors.push(format!("{id}: {e}"));
                 }
             }
         }
@@ -227,11 +265,32 @@ impl Judge {
         // Use median Dog's reasoning (deterministic under parallel execution)
         let mut sorted_by_q: Vec<&DogScore> = dog_scores.iter().collect();
         sorted_by_q.sort_by(|a, b| {
-            let qa = compute_qscore(&AxiomScores { fidelity: a.fidelity, phi: a.phi, verify: a.verify, culture: a.culture, burn: a.burn, sovereignty: a.sovereignty, reasoning: AxiomReasoning::default(), ..Default::default() }).total;
-            let qb = compute_qscore(&AxiomScores { fidelity: b.fidelity, phi: b.phi, verify: b.verify, culture: b.culture, burn: b.burn, sovereignty: b.sovereignty, reasoning: AxiomReasoning::default(), ..Default::default() }).total;
+            let qa = compute_qscore(&AxiomScores {
+                fidelity: a.fidelity,
+                phi: a.phi,
+                verify: a.verify,
+                culture: a.culture,
+                burn: a.burn,
+                sovereignty: a.sovereignty,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            })
+            .total;
+            let qb = compute_qscore(&AxiomScores {
+                fidelity: b.fidelity,
+                phi: b.phi,
+                verify: b.verify,
+                culture: b.culture,
+                burn: b.burn,
+                sovereignty: b.sovereignty,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            })
+            .total;
             qa.partial_cmp(&qb).unwrap_or(std::cmp::Ordering::Equal)
         });
-        let median_reasoning = sorted_by_q.get(sorted_by_q.len() / 2)
+        let median_reasoning = sorted_by_q
+            .get(sorted_by_q.len() / 2)
             .map(|s| s.reasoning.clone())
             .unwrap_or_default();
 
@@ -251,29 +310,42 @@ impl Judge {
 
         // Residual detection: find max per-axiom spread across Dogs
         // This catches cases where Dogs agree on Q-Score total but disagree on individual axioms
-        let axiom_names = ["fidelity", "phi", "verify", "culture", "burn", "sovereignty"];
+        let axiom_names = [
+            "fidelity",
+            "phi",
+            "verify",
+            "culture",
+            "burn",
+            "sovereignty",
+        ];
         let (max_disagreement, anomaly_axiom) = if dog_scores.len() > 1 {
-            let spreads: Vec<(f64, &str)> = axiom_names.iter().map(|&name| {
-                // Exclude Dogs that abstained on this axiom — abstention ≠ disagreement.
-                let values: Vec<f64> = dog_scores.iter()
-                    .filter(|s| !s.abstentions.iter().any(|a| a == name))
-                    .map(|s| match name {
-                        "fidelity" => s.fidelity,
-                        "phi" => s.phi,
-                        "verify" => s.verify,
-                        "culture" => s.culture,
-                        "burn" => s.burn,
-                        "sovereignty" => s.sovereignty,
-                        _ => 0.0,
-                    }).collect();
-                if values.len() < 2 {
-                    return (0.0, name); // Can't compute spread with < 2 active scores
-                }
-                let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-                let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
-                (max - min, name)
-            }).collect();
-            let (max_spread, max_axiom) = spreads.iter()
+            let spreads: Vec<(f64, &str)> = axiom_names
+                .iter()
+                .map(|&name| {
+                    // Exclude Dogs that abstained on this axiom — abstention ≠ disagreement.
+                    let values: Vec<f64> = dog_scores
+                        .iter()
+                        .filter(|s| !s.abstentions.iter().any(|a| a == name))
+                        .map(|s| match name {
+                            "fidelity" => s.fidelity,
+                            "phi" => s.phi,
+                            "verify" => s.verify,
+                            "culture" => s.culture,
+                            "burn" => s.burn,
+                            "sovereignty" => s.sovereignty,
+                            _ => 0.0,
+                        })
+                        .collect();
+                    if values.len() < 2 {
+                        return (0.0, name); // Can't compute spread with < 2 active scores
+                    }
+                    let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                    let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
+                    (max - min, name)
+                })
+                .collect();
+            let (max_spread, max_axiom) = spreads
+                .iter()
                 .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(s, n)| (*s, *n))
                 .unwrap_or((0.0, ""));
@@ -301,8 +373,14 @@ impl Judge {
             let h = verdict_hash(
                 &id,
                 q_score.total,
-                [q_score.fidelity, q_score.phi, q_score.verify,
-                 q_score.culture, q_score.burn, q_score.sovereignty],
+                [
+                    q_score.fidelity,
+                    q_score.phi,
+                    q_score.verify,
+                    q_score.culture,
+                    q_score.burn,
+                    q_score.sovereignty,
+                ],
                 &stimulus_summary,
                 &timestamp,
                 prev.as_deref(),
@@ -399,7 +477,9 @@ mod tests {
 
     #[async_trait::async_trait]
     impl Dog for FixedDog {
-        fn id(&self) -> &str { &self.name }
+        fn id(&self) -> &str {
+            &self.name
+        }
         async fn evaluate(&self, _: &Stimulus) -> Result<AxiomScores, DogError> {
             Ok(self.scores.clone())
         }
@@ -409,7 +489,9 @@ mod tests {
 
     #[async_trait::async_trait]
     impl Dog for FailDog {
-        fn id(&self) -> &str { "fail-dog" }
+        fn id(&self) -> &str {
+            "fail-dog"
+        }
         async fn evaluate(&self, _: &Stimulus) -> Result<AxiomScores, DogError> {
             Err(DogError::ApiError("test failure".into()))
         }
@@ -417,8 +499,13 @@ mod tests {
 
     /// Convenience: build Judge with auto-created CircuitBreaker per Dog (test-only).
     fn test_judge(dogs: Vec<Box<dyn Dog>>) -> Judge {
-        let breakers: Vec<Arc<dyn HealthGate>> = dogs.iter()
-            .map(|d| Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn HealthGate>)
+        let breakers: Vec<Arc<dyn HealthGate>> = dogs
+            .iter()
+            .map(|d| {
+                Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(
+                    d.id().to_string(),
+                )) as Arc<dyn HealthGate>
+            })
             .collect();
         Judge::new(dogs, breakers)
     }
@@ -437,19 +524,24 @@ mod tests {
 
     #[tokio::test]
     async fn single_dog_produces_verdict() {
-        let judge = test_judge(vec![
-            Box::new(FixedDog {
-                name: "test".into(),
-                scores: AxiomScores {
-                    fidelity: 0.5, phi: 0.5, verify: 0.5,
-                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
-                    reasoning: AxiomReasoning::default(),
-                    ..Default::default()
-                },
-            }),
-        ]);
+        let judge = test_judge(vec![Box::new(FixedDog {
+            name: "test".into(),
+            scores: AxiomScores {
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        })]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
         assert!(verdict.q_score.total <= PHI_INV + 1e-10);
         assert!(verdict.q_score.total > 0.0);
         assert_eq!(verdict.dog_id, "test");
@@ -463,8 +555,12 @@ mod tests {
             Box::new(FixedDog {
                 name: "high".into(),
                 scores: AxiomScores {
-                    fidelity: 0.8, phi: 0.8, verify: 0.8,
-                    culture: 0.8, burn: 0.8, sovereignty: 0.8,
+                    fidelity: 0.8,
+                    phi: 0.8,
+                    verify: 0.8,
+                    culture: 0.8,
+                    burn: 0.8,
+                    sovereignty: 0.8,
                     reasoning: AxiomReasoning::default(),
                     ..Default::default()
                 },
@@ -472,15 +568,22 @@ mod tests {
             Box::new(FixedDog {
                 name: "low".into(),
                 scores: AxiomScores {
-                    fidelity: 0.2, phi: 0.2, verify: 0.2,
-                    culture: 0.2, burn: 0.2, sovereignty: 0.2,
+                    fidelity: 0.2,
+                    phi: 0.2,
+                    verify: 0.2,
+                    culture: 0.2,
+                    burn: 0.2,
+                    sovereignty: 0.2,
                     reasoning: AxiomReasoning::default(),
                     ..Default::default()
                 },
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
         assert!(verdict.dog_id.contains("high"));
         assert!(verdict.dog_id.contains("low"));
         assert!(verdict.q_score.total > 0.3);
@@ -495,29 +598,40 @@ mod tests {
             Box::new(FixedDog {
                 name: "survivor".into(),
                 scores: AxiomScores {
-                    fidelity: 0.5, phi: 0.5, verify: 0.5,
-                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
+                    fidelity: 0.5,
+                    phi: 0.5,
+                    verify: 0.5,
+                    culture: 0.5,
+                    burn: 0.5,
+                    sovereignty: 0.5,
                     reasoning: AxiomReasoning::default(),
                     ..Default::default()
                 },
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
         assert_eq!(verdict.dog_id, "survivor");
     }
 
     #[tokio::test]
     async fn all_dogs_fail_returns_error() {
         let judge = test_judge(vec![Box::new(FailDog)]);
-        let result = judge.evaluate(&test_stimulus(), None, &test_metrics()).await;
+        let result = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn no_dogs_returns_error() {
         let judge = test_judge(vec![]);
-        let result = judge.evaluate(&test_stimulus(), None, &test_metrics()).await;
+        let result = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await;
         assert!(result.is_err());
     }
 
@@ -527,8 +641,12 @@ mod tests {
             Box::new(FixedDog {
                 name: "optimist".into(),
                 scores: AxiomScores {
-                    fidelity: 0.9, phi: 0.9, verify: 0.9,
-                    culture: 0.9, burn: 0.9, sovereignty: 0.9,
+                    fidelity: 0.9,
+                    phi: 0.9,
+                    verify: 0.9,
+                    culture: 0.9,
+                    burn: 0.9,
+                    sovereignty: 0.9,
                     reasoning: AxiomReasoning::default(),
                     ..Default::default()
                 },
@@ -536,16 +654,26 @@ mod tests {
             Box::new(FixedDog {
                 name: "pessimist".into(),
                 scores: AxiomScores {
-                    fidelity: 0.1, phi: 0.1, verify: 0.1,
-                    culture: 0.1, burn: 0.1, sovereignty: 0.1,
+                    fidelity: 0.1,
+                    phi: 0.1,
+                    verify: 0.1,
+                    culture: 0.1,
+                    burn: 0.1,
+                    sovereignty: 0.1,
                     reasoning: AxiomReasoning::default(),
                     ..Default::default()
                 },
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
-        assert!(verdict.anomaly_detected, "Dogs disagreeing 0.9 vs 0.1 should trigger anomaly");
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
+        assert!(
+            verdict.anomaly_detected,
+            "Dogs disagreeing 0.9 vs 0.1 should trigger anomaly"
+        );
         assert!(verdict.max_disagreement > PHI_INV2);
         assert_eq!(verdict.dog_scores.len(), 2);
         assert!(verdict.anomaly_axiom.is_some());
@@ -557,8 +685,12 @@ mod tests {
             Box::new(FixedDog {
                 name: "a".into(),
                 scores: AxiomScores {
-                    fidelity: 0.5, phi: 0.5, verify: 0.5,
-                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
+                    fidelity: 0.5,
+                    phi: 0.5,
+                    verify: 0.5,
+                    culture: 0.5,
+                    burn: 0.5,
+                    sovereignty: 0.5,
                     reasoning: AxiomReasoning::default(),
                     ..Default::default()
                 },
@@ -566,16 +698,26 @@ mod tests {
             Box::new(FixedDog {
                 name: "b".into(),
                 scores: AxiomScores {
-                    fidelity: 0.52, phi: 0.48, verify: 0.51,
-                    culture: 0.49, burn: 0.51, sovereignty: 0.50,
+                    fidelity: 0.52,
+                    phi: 0.48,
+                    verify: 0.51,
+                    culture: 0.49,
+                    burn: 0.51,
+                    sovereignty: 0.50,
                     reasoning: AxiomReasoning::default(),
                     ..Default::default()
                 },
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
-        assert!(!verdict.anomaly_detected, "Similar scores should not trigger anomaly");
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
+        assert!(
+            !verdict.anomaly_detected,
+            "Similar scores should not trigger anomaly"
+        );
         assert!(verdict.anomaly_axiom.is_none());
     }
 
@@ -585,8 +727,12 @@ mod tests {
             Box::new(FixedDog {
                 name: "alpha".into(),
                 scores: AxiomScores {
-                    fidelity: 0.9, phi: 0.9, verify: 0.9,
-                    culture: 0.9, burn: 0.9, sovereignty: 0.9,
+                    fidelity: 0.9,
+                    phi: 0.9,
+                    verify: 0.9,
+                    culture: 0.9,
+                    burn: 0.9,
+                    sovereignty: 0.9,
                     reasoning: AxiomReasoning::default(),
                     ..Default::default()
                 },
@@ -594,8 +740,12 @@ mod tests {
             Box::new(FixedDog {
                 name: "beta".into(),
                 scores: AxiomScores {
-                    fidelity: 0.1, phi: 0.1, verify: 0.1,
-                    culture: 0.1, burn: 0.1, sovereignty: 0.1,
+                    fidelity: 0.1,
+                    phi: 0.1,
+                    verify: 0.1,
+                    culture: 0.1,
+                    burn: 0.1,
+                    sovereignty: 0.1,
                     reasoning: AxiomReasoning::default(),
                     ..Default::default()
                 },
@@ -603,45 +753,53 @@ mod tests {
         ]);
 
         let filter = vec!["alpha".to_string()];
-        let verdict = judge.evaluate(&test_stimulus(), Some(&filter), &test_metrics()).await.unwrap();
+        let verdict = judge
+            .evaluate(&test_stimulus(), Some(&filter), &test_metrics())
+            .await
+            .unwrap();
         assert_eq!(verdict.dog_id, "alpha");
         assert_eq!(verdict.dog_scores.len(), 1);
     }
 
     #[tokio::test]
     async fn filter_with_unknown_id_returns_error() {
-        let judge = test_judge(vec![
-            Box::new(FixedDog {
-                name: "alpha".into(),
-                scores: AxiomScores::default(),
-            }),
-        ]);
+        let judge = test_judge(vec![Box::new(FixedDog {
+            name: "alpha".into(),
+            scores: AxiomScores::default(),
+        })]);
 
         let filter = vec!["nonexistent".to_string()];
-        let result = judge.evaluate(&test_stimulus(), Some(&filter), &test_metrics()).await;
+        let result = judge
+            .evaluate(&test_stimulus(), Some(&filter), &test_metrics())
+            .await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn stimulus_summary_truncated_at_100_chars() {
-        let judge = test_judge(vec![
-            Box::new(FixedDog {
-                name: "t".into(),
-                scores: AxiomScores {
-                    fidelity: 0.5, phi: 0.5, verify: 0.5,
-                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
-                    reasoning: AxiomReasoning::default(),
-                    ..Default::default()
-                },
-            }),
-        ]);
+        let judge = test_judge(vec![Box::new(FixedDog {
+            name: "t".into(),
+            scores: AxiomScores {
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        })]);
 
         let long_stimulus = Stimulus {
             content: "a".repeat(200),
             context: None,
             domain: None,
         };
-        let verdict = judge.evaluate(&long_stimulus, None, &test_metrics()).await.unwrap();
+        let verdict = judge
+            .evaluate(&long_stimulus, None, &test_metrics())
+            .await
+            .unwrap();
         assert_eq!(verdict.stimulus_summary.len(), 100);
     }
 
@@ -652,8 +810,12 @@ mod tests {
             Box::new(FixedDog {
                 name: "healthy".into(),
                 scores: AxiomScores {
-                    fidelity: 0.5, phi: 0.5, verify: 0.5,
-                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
+                    fidelity: 0.5,
+                    phi: 0.5,
+                    verify: 0.5,
+                    culture: 0.5,
+                    burn: 0.5,
+                    sovereignty: 0.5,
                     reasoning: AxiomReasoning::default(),
                     ..Default::default()
                 },
@@ -662,12 +824,20 @@ mod tests {
 
         // Trip the circuit breaker on FailDog: 3 failures → Open
         for _ in 0..3 {
-            let _ = judge.evaluate(&test_stimulus(), None, &test_metrics()).await;
+            let _ = judge
+                .evaluate(&test_stimulus(), None, &test_metrics())
+                .await;
         }
 
         // Now FailDog's circuit should be open — only healthy responds
-        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
-        assert_eq!(verdict.dog_id, "healthy", "Open circuit should skip FailDog");
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
+        assert_eq!(
+            verdict.dog_id, "healthy",
+            "Open circuit should skip FailDog"
+        );
         assert_eq!(verdict.dog_scores.len(), 1);
     }
 
@@ -677,8 +847,12 @@ mod tests {
             Box::new(FixedDog {
                 name: "low".into(),
                 scores: AxiomScores {
-                    fidelity: 0.2, phi: 0.2, verify: 0.2,
-                    culture: 0.2, burn: 0.2, sovereignty: 0.2,
+                    fidelity: 0.2,
+                    phi: 0.2,
+                    verify: 0.2,
+                    culture: 0.2,
+                    burn: 0.2,
+                    sovereignty: 0.2,
                     reasoning: AxiomReasoning {
                         fidelity: "low reasoning".into(),
                         ..Default::default()
@@ -689,8 +863,12 @@ mod tests {
             Box::new(FixedDog {
                 name: "mid".into(),
                 scores: AxiomScores {
-                    fidelity: 0.5, phi: 0.5, verify: 0.5,
-                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
+                    fidelity: 0.5,
+                    phi: 0.5,
+                    verify: 0.5,
+                    culture: 0.5,
+                    burn: 0.5,
+                    sovereignty: 0.5,
                     reasoning: AxiomReasoning {
                         fidelity: "mid reasoning".into(),
                         ..Default::default()
@@ -701,8 +879,12 @@ mod tests {
             Box::new(FixedDog {
                 name: "high".into(),
                 scores: AxiomScores {
-                    fidelity: 0.8, phi: 0.8, verify: 0.8,
-                    culture: 0.8, burn: 0.8, sovereignty: 0.8,
+                    fidelity: 0.8,
+                    phi: 0.8,
+                    verify: 0.8,
+                    culture: 0.8,
+                    burn: 0.8,
+                    sovereignty: 0.8,
                     reasoning: AxiomReasoning {
                         fidelity: "high reasoning".into(),
                         ..Default::default()
@@ -712,7 +894,10 @@ mod tests {
             }),
         ]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
         // Median of 3 sorted by Q → picks index 1 (mid)
         assert_eq!(verdict.reasoning.fidelity, "mid reasoning");
     }
@@ -720,8 +905,14 @@ mod tests {
     #[tokio::test]
     async fn dog_health_reports_all_dogs() {
         let judge = test_judge(vec![
-            Box::new(FixedDog { name: "a".into(), scores: AxiomScores::default() }),
-            Box::new(FixedDog { name: "b".into(), scores: AxiomScores::default() }),
+            Box::new(FixedDog {
+                name: "a".into(),
+                scores: AxiomScores::default(),
+            }),
+            Box::new(FixedDog {
+                name: "b".into(),
+                scores: AxiomScores::default(),
+            }),
         ]);
 
         let health = judge.dog_health();
@@ -734,8 +925,14 @@ mod tests {
     #[tokio::test]
     async fn dog_ids_returns_all_names() {
         let judge = test_judge(vec![
-            Box::new(FixedDog { name: "x".into(), scores: AxiomScores::default() }),
-            Box::new(FixedDog { name: "y".into(), scores: AxiomScores::default() }),
+            Box::new(FixedDog {
+                name: "x".into(),
+                scores: AxiomScores::default(),
+            }),
+            Box::new(FixedDog {
+                name: "y".into(),
+                scores: AxiomScores::default(),
+            }),
         ]);
         let ids = judge.dog_ids();
         assert_eq!(ids, vec!["x", "y"]);
@@ -743,19 +940,24 @@ mod tests {
 
     #[tokio::test]
     async fn verdict_has_valid_uuid_and_timestamp() {
-        let judge = test_judge(vec![
-            Box::new(FixedDog {
-                name: "t".into(),
-                scores: AxiomScores {
-                    fidelity: 0.5, phi: 0.5, verify: 0.5,
-                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
-                    reasoning: AxiomReasoning::default(),
-                    ..Default::default()
-                },
-            }),
-        ]);
+        let judge = test_judge(vec![Box::new(FixedDog {
+            name: "t".into(),
+            scores: AxiomScores {
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        })]);
 
-        let verdict = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
         // UUID v4 format: 8-4-4-4-12
         assert_eq!(verdict.id.len(), 36);
         assert_eq!(verdict.id.chars().filter(|c| *c == '-').count(), 4);
@@ -772,8 +974,12 @@ mod tests {
             latency_ms: 0,
             prompt_tokens: 0,
             completion_tokens: 0,
-            fidelity: val, phi: val, verify: val,
-            culture: val, burn: val, sovereignty: val,
+            fidelity: val,
+            phi: val,
+            verify: val,
+            culture: val,
+            burn: val,
+            sovereignty: val,
             reasoning: AxiomReasoning::default(),
             abstentions: vec![],
         }
@@ -834,15 +1040,20 @@ mod tests {
 
     #[test]
     fn trimmed_mean_per_axiom_extraction() {
-        let scores = vec![
-            DogScore {
-                dog_id: "x".into(), latency_ms: 0, prompt_tokens: 0, completion_tokens: 0,
-                fidelity: 0.9, phi: 0.1, verify: 0.5,
-                culture: 0.3, burn: 0.7, sovereignty: 0.4,
-                reasoning: AxiomReasoning::default(),
-                abstentions: vec![],
-            },
-        ];
+        let scores = vec![DogScore {
+            dog_id: "x".into(),
+            latency_ms: 0,
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            fidelity: 0.9,
+            phi: 0.1,
+            verify: 0.5,
+            culture: 0.3,
+            burn: 0.7,
+            sovereignty: 0.4,
+            reasoning: AxiomReasoning::default(),
+            abstentions: vec![],
+        }];
         assert!((trimmed_mean(&scores, |s| s.fidelity) - 0.9).abs() < 1e-10);
         assert!((trimmed_mean(&scores, |s| s.phi) - 0.1).abs() < 1e-10);
         assert!((trimmed_mean(&scores, |s| s.burn) - 0.7).abs() < 1e-10);
@@ -852,20 +1063,28 @@ mod tests {
 
     #[tokio::test]
     async fn verdict_chain_links_hashes() {
-        let judge = test_judge(vec![
-            Box::new(FixedDog {
-                name: "chain".into(),
-                scores: AxiomScores {
-                    fidelity: 0.5, phi: 0.5, verify: 0.5,
-                    culture: 0.5, burn: 0.5, sovereignty: 0.5,
-                    reasoning: AxiomReasoning::default(),
-                    ..Default::default()
-                },
-            }),
-        ]);
+        let judge = test_judge(vec![Box::new(FixedDog {
+            name: "chain".into(),
+            scores: AxiomScores {
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        })]);
 
-        let v1 = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
-        let v2 = judge.evaluate(&test_stimulus(), None, &test_metrics()).await.unwrap();
+        let v1 = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
+        let v2 = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
 
         // v1 has no prev (first in chain)
         assert!(v1.prev_hash.is_none());
@@ -879,9 +1098,10 @@ mod tests {
 
     #[test]
     fn seed_chain_sets_initial_hash() {
-        let judge = test_judge(vec![
-            Box::new(FixedDog { name: "s".into(), scores: AxiomScores::default() }),
-        ]);
+        let judge = test_judge(vec![Box::new(FixedDog {
+            name: "s".into(),
+            scores: AxiomScores::default(),
+        })]);
         judge.seed_chain(Some("abc123".into()));
         let lock = judge.last_hash.lock().unwrap();
         assert_eq!(*lock, Some("abc123".into()));

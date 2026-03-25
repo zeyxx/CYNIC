@@ -5,6 +5,7 @@ use std::fmt::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Global pipeline metrics. Thread-safe via atomics.
+#[derive(Debug)]
 pub struct Metrics {
     pub verdicts_total: AtomicU64,
     pub cache_hits_total: AtomicU64,
@@ -17,7 +18,9 @@ pub struct Metrics {
 }
 
 impl Default for Metrics {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Metrics {
@@ -34,34 +37,102 @@ impl Metrics {
         }
     }
 
-    pub fn inc_verdict(&self) { self.verdicts_total.fetch_add(1, Ordering::Relaxed); }
-    pub fn inc_cache_hit(&self) { self.cache_hits_total.fetch_add(1, Ordering::Relaxed); }
-    pub fn inc_cache_miss(&self) { self.cache_misses_total.fetch_add(1, Ordering::Relaxed); }
-    pub fn inc_dog_eval(&self) { self.dog_evaluations_total.fetch_add(1, Ordering::Relaxed); }
-    pub fn inc_dog_failure(&self) { self.dog_failures_total.fetch_add(1, Ordering::Relaxed); }
-    pub fn inc_crystal_obs(&self) { self.crystal_observations_total.fetch_add(1, Ordering::Relaxed); }
-    pub fn inc_embed_ok(&self) { self.embedding_successes_total.fetch_add(1, Ordering::Relaxed); }
-    pub fn inc_embed_fail(&self) { self.embedding_failures_total.fetch_add(1, Ordering::Relaxed); }
+    pub fn inc_verdict(&self) {
+        self.verdicts_total.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_cache_hit(&self) {
+        self.cache_hits_total.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_cache_miss(&self) {
+        self.cache_misses_total.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_dog_eval(&self) {
+        self.dog_evaluations_total.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_dog_failure(&self) {
+        self.dog_failures_total.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_crystal_obs(&self) {
+        self.crystal_observations_total
+            .fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_embed_ok(&self) {
+        self.embedding_successes_total
+            .fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_embed_fail(&self) {
+        self.embedding_failures_total
+            .fetch_add(1, Ordering::Relaxed);
+    }
 
     /// Render Prometheus text exposition format (global counters only).
     /// Per-dog and gauge metrics are appended by the /metrics handler.
     pub fn render_prometheus(&self) -> String {
         let mut out = String::with_capacity(2048);
-        prom_counter(&mut out, "cynic_verdicts_total", "Total verdicts issued", self.verdicts_total.load(Ordering::Relaxed));
-        prom_counter(&mut out, "cynic_cache_hits_total", "Verdict cache hits", self.cache_hits_total.load(Ordering::Relaxed));
-        prom_counter(&mut out, "cynic_cache_misses_total", "Verdict cache misses", self.cache_misses_total.load(Ordering::Relaxed));
-        prom_counter(&mut out, "cynic_dog_evaluations_total", "Total Dog evaluations completed", self.dog_evaluations_total.load(Ordering::Relaxed));
-        prom_counter(&mut out, "cynic_dog_failures_total", "Total Dog evaluation failures", self.dog_failures_total.load(Ordering::Relaxed));
-        prom_counter(&mut out, "cynic_crystal_observations_total", "Crystal observations recorded", self.crystal_observations_total.load(Ordering::Relaxed));
-        prom_counter(&mut out, "cynic_embedding_successes_total", "Successful embedding calls", self.embedding_successes_total.load(Ordering::Relaxed));
-        prom_counter(&mut out, "cynic_embedding_failures_total", "Failed embedding calls", self.embedding_failures_total.load(Ordering::Relaxed));
+        prom_counter(
+            &mut out,
+            "cynic_verdicts_total",
+            "Total verdicts issued",
+            self.verdicts_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_cache_hits_total",
+            "Verdict cache hits",
+            self.cache_hits_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_cache_misses_total",
+            "Verdict cache misses",
+            self.cache_misses_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_dog_evaluations_total",
+            "Total Dog evaluations completed",
+            self.dog_evaluations_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_dog_failures_total",
+            "Total Dog evaluation failures",
+            self.dog_failures_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_crystal_observations_total",
+            "Crystal observations recorded",
+            self.crystal_observations_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_embedding_successes_total",
+            "Successful embedding calls",
+            self.embedding_successes_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_embedding_failures_total",
+            "Failed embedding calls",
+            self.embedding_failures_total.load(Ordering::Relaxed),
+        );
 
         // Derived: cache hit rate
         let hits = self.cache_hits_total.load(Ordering::Relaxed);
         let misses = self.cache_misses_total.load(Ordering::Relaxed);
         let total = hits + misses;
-        let rate = if total > 0 { hits as f64 / total as f64 } else { 0.0 };
-        prom_gauge(&mut out, "cynic_cache_hit_ratio", "Verdict cache hit ratio (hits / total)", rate);
+        let rate = if total > 0 {
+            hits as f64 / total as f64
+        } else {
+            0.0
+        };
+        prom_gauge(
+            &mut out,
+            "cynic_cache_hit_ratio",
+            "Verdict cache hit ratio (hits / total)",
+            rate,
+        );
 
         out
     }
@@ -87,15 +158,25 @@ pub fn append_dog_metrics(
     circuit_states: &[(String, String, u32)], // (id, state, consecutive_failures)
 ) {
     // Per-dog latency (average ms)
-    let _ = writeln!(out, "# HELP cynic_dog_latency_ms Average Dog evaluation latency in milliseconds");
+    let _ = writeln!(
+        out,
+        "# HELP cynic_dog_latency_ms Average Dog evaluation latency in milliseconds"
+    );
     let _ = writeln!(out, "# TYPE cynic_dog_latency_ms gauge");
     for (id, requests, _, latency_ms, _) in dogs {
-        let avg = if *requests > 0 { *latency_ms as f64 / *requests as f64 } else { 0.0 };
+        let avg = if *requests > 0 {
+            *latency_ms as f64 / *requests as f64
+        } else {
+            0.0
+        };
         let _ = writeln!(out, "cynic_dog_latency_ms{{dog=\"{id}\"}} {avg:.1}");
     }
 
     // Per-dog request count
-    let _ = writeln!(out, "# HELP cynic_dog_requests_total Total requests per Dog");
+    let _ = writeln!(
+        out,
+        "# HELP cynic_dog_requests_total Total requests per Dog"
+    );
     let _ = writeln!(out, "# TYPE cynic_dog_requests_total counter");
     for (id, requests, _, _, _) in dogs {
         let _ = writeln!(out, "cynic_dog_requests_total{{dog=\"{id}\"}} {requests}");
@@ -109,14 +190,20 @@ pub fn append_dog_metrics(
     }
 
     // Per-dog token consumption
-    let _ = writeln!(out, "# HELP cynic_dog_tokens_total Total tokens consumed per Dog");
+    let _ = writeln!(
+        out,
+        "# HELP cynic_dog_tokens_total Total tokens consumed per Dog"
+    );
     let _ = writeln!(out, "# TYPE cynic_dog_tokens_total counter");
     for (id, _, _, _, tokens) in dogs {
         let _ = writeln!(out, "cynic_dog_tokens_total{{dog=\"{id}\"}} {tokens}");
     }
 
     // Circuit breaker state: 0=closed, 1=open, 2=half-open
-    let _ = writeln!(out, "# HELP cynic_dog_circuit_breaker Circuit breaker state (0=closed, 1=open, 2=half-open)");
+    let _ = writeln!(
+        out,
+        "# HELP cynic_dog_circuit_breaker Circuit breaker state (0=closed, 1=open, 2=half-open)"
+    );
     let _ = writeln!(out, "# TYPE cynic_dog_circuit_breaker gauge");
     for (id, state, _) in circuit_states {
         let val = match state.as_str() {

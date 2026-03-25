@@ -35,7 +35,7 @@ fi
 # ── Protect sensitive files from Read ──
 if [[ "$TOOL_NAME" == "Read" ]]; then
     case "$FILE_PATH" in
-        */.config/cynic/env|*/.config/cynic/llama-api-key)
+        */.cynic-env|*/.config/cynic/env|*/.config/cynic/llama-api-key)
             echo "BLOCKED: cannot read secret config ($FILE_PATH)" >&2; exit 2 ;;
         */.ssh/id_*|*/.ssh/known_hosts)
             echo "BLOCKED: cannot read SSH keys ($FILE_PATH)" >&2; exit 2 ;;

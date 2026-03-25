@@ -1,8 +1,8 @@
 //! ChatPort — minimal text-in/text-out contract for LLM inference.
 //! Dogs use this via BackendPort (shared health + name).
 
-use async_trait::async_trait;
 use crate::domain::inference::{BackendPort, BackendStatus};
+use async_trait::async_trait;
 
 /// Response from a chat completion — text + token usage.
 #[derive(Debug, Clone)]
@@ -33,6 +33,7 @@ pub trait ChatPort: BackendPort {
 }
 
 /// Mock implementation for tests.
+#[derive(Debug)]
 pub struct MockChatBackend {
     pub response: String,
     pub name: String,

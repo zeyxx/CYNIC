@@ -3,3 +3,42 @@ members = [
     "cynic-kernel",
 ]
 resolver = "2"
+
+# ── Industrial lint configuration (Axum/Embark Studios baseline) ──
+# Compiler lints = Layer 0 enforcement. 100% reliable, 0 context cost.
+# See docs/superpowers/specs/2026-03-25-workflow-enforcement-design.md
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+dead_code = "warn"
+unused_imports = "warn"
+unreachable_pub = "warn"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+# Groups — priority -1/-2 so individual lints (priority 0) can override
+correctness = { level = "deny", priority = -1 }
+perf = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -2 }
+style = { level = "warn", priority = -3 }
+# AI-specific (patterns LLMs frequently produce)
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+todo = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+map_err_ignore = "warn"
+fallible_impl_from = "warn"
+mem_forget = "warn"
+rc_mutex = "warn"
+disallowed_methods = "deny"
+# Industrial quality (cherry-picked from Axum + Embark Studios)
+enum_glob_use = "warn"
+implicit_clone = "warn"
+inefficient_to_string = "warn"
+manual_let_else = "warn"
+needless_pass_by_value = "warn"
+redundant_clone = "warn"
+uninlined_format_args = "warn"
+unused_self = "warn"

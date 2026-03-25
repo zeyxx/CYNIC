@@ -20,12 +20,15 @@ pub trait SummarizationPort: Send + Sync {
 }
 
 /// Null implementation for graceful degradation and testing.
+#[derive(Debug)]
 pub struct NullSummarizer;
 
 #[async_trait]
 impl SummarizationPort for NullSummarizer {
     async fn summarize(&self, _prompt: &str) -> Result<String, SummarizationError> {
-        Err(SummarizationError::Unreachable("NullSummarizer — no LLM available".into()))
+        Err(SummarizationError::Unreachable(
+            "NullSummarizer — no LLM available".into(),
+        ))
     }
 }
 

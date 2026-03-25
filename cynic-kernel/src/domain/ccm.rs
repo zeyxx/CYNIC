@@ -114,7 +114,13 @@ pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Cry
 /// Create a new crystal from a first observation.
 /// Test helper — production path creates crystals via atomic SQL UPSERT.
 #[cfg(test)]
-pub fn new_crystal(id: String, content: String, domain: String, initial_score: f64, timestamp: &str) -> Crystal {
+pub fn new_crystal(
+    id: String,
+    content: String,
+    domain: String,
+    initial_score: f64,
+    timestamp: &str,
+) -> Crystal {
     Crystal {
         id,
         content,
@@ -160,10 +166,20 @@ pub fn decay_relevance(confidence: f64, updated_at: &str, now: &str) -> f64 {
 /// Format mature crystals as context for Dog prompts.
 /// Only includes Crystallized and Canonical crystals from the same domain.
 /// Token-budget-aware: caps at max_chars to avoid overflowing small models.
-pub fn format_crystal_context(crystals: &[Crystal], domain: &str, max_chars: usize) -> Option<String> {
-    let mature: Vec<&Crystal> = crystals.iter()
+pub fn format_crystal_context(
+    crystals: &[Crystal],
+    domain: &str,
+    max_chars: usize,
+) -> Option<String> {
+    let mature: Vec<&Crystal> = crystals
+        .iter()
         .filter(|c| c.domain == domain || c.domain == "general")
-        .filter(|c| matches!(c.state, CrystalState::Crystallized | CrystalState::Canonical))
+        .filter(|c| {
+            matches!(
+                c.state,
+                CrystalState::Crystallized | CrystalState::Canonical
+            )
+        })
         .collect();
 
     if mature.is_empty() {
@@ -181,13 +197,24 @@ pub fn format_crystal_context(crystals: &[Crystal], domain: &str, max_chars: usi
 
     let mut lines = Vec::new();
     let mut total_chars = 0;
-    let header = format!("[CYNIC Memory — {} crystallized patterns for domain '{}']", sorted.len(), domain);
+    let header = format!(
+        "[CYNIC Memory — {} crystallized patterns for domain '{}']",
+        sorted.len(),
+        domain
+    );
     total_chars += header.len();
     lines.push(header);
 
     for c in sorted {
-        let state_label = if c.state == CrystalState::Canonical { "CANONICAL" } else { "CRYSTALLIZED" };
-        let line = format!("- [{}] (confidence: {:.2}, {} observations): {}", state_label, c.confidence, c.observations, c.content);
+        let state_label = if c.state == CrystalState::Canonical {
+            "CANONICAL"
+        } else {
+            "CRYSTALLIZED"
+        };
+        let line = format!(
+            "- [{}] (confidence: {:.2}, {} observations): {}",
+            state_label, c.confidence, c.observations, c.content
+        );
         if total_chars + line.len() > max_chars {
             break; // Token budget exhausted
         }
@@ -223,12 +250,20 @@ pub fn format_session_context(summaries: &[SessionSummary], max_chars: usize) ->
     }
 
     let mut lines = Vec::new();
-    let header = format!("[CYNIC Session Memory — {} recent sessions]", summaries.len());
+    let header = format!(
+        "[CYNIC Session Memory — {} recent sessions]",
+        summaries.len()
+    );
     let mut total_chars = header.len();
     lines.push(header);
 
     for s in summaries {
-        let line = format!("- [{}] ({}obs): {}", s.session_id.chars().take(12).collect::<String>(), s.observations_count, s.summary);
+        let line = format!(
+            "- [{}] ({}obs): {}",
+            s.session_id.chars().take(12).collect::<String>(),
+            s.observations_count,
+            s.summary
+        );
         if total_chars + line.len() > max_chars {
             break;
         }
@@ -245,10 +280,15 @@ pub fn format_session_context(summaries: &[SessionSummary], max_chars: usize) ->
 
 /// Format raw observations into a summarization prompt for the sovereign LLM.
 /// Pure function — no I/O.
-pub fn format_summarization_prompt(observations: &[crate::domain::storage::RawObservation]) -> String {
+pub fn format_summarization_prompt(
+    observations: &[crate::domain::storage::RawObservation],
+) -> String {
     let mut items: Vec<String> = Vec::new();
     for obs in observations.iter().take(30) {
-        items.push(format!("- {} {} (domain: {}, status: {})", obs.tool, obs.target, obs.domain, obs.status));
+        items.push(format!(
+            "- {} {} (domain: {}, status: {})",
+            obs.tool, obs.target, obs.domain, obs.status
+        ));
     }
     format!(
         "Summarize this development session in 2-3 sentences. Focus on WHAT was done and WHY. Be specific about files and outcomes.\n\nObservations:\n{}",
@@ -276,7 +316,10 @@ pub fn content_hash(input: &str) -> u64 {
 ///
 /// Pure logic: takes query results, returns (id, content, domain, score) tuples.
 /// Caller is responsible for DB queries and observe_crystal calls.
-pub fn extract_patterns(rows: &[crate::domain::storage::ObservationFrequency], total_observations: u64) -> Vec<(String, String, f64)> {
+pub fn extract_patterns(
+    rows: &[crate::domain::storage::ObservationFrequency],
+    total_observations: u64,
+) -> Vec<(String, String, f64)> {
     if total_observations == 0 {
         return Vec::new();
     }
@@ -290,7 +333,10 @@ pub fn extract_patterns(rows: &[crate::domain::storage::ObservationFrequency], t
 
         let score = row.freq as f64 / total_observations as f64;
         // Crystal ID: deterministic hash of the pattern
-        let id = format!("wf_{:x}", content_hash(&format!("{}:{}", row.tool, row.target)));
+        let id = format!(
+            "wf_{:x}",
+            content_hash(&format!("{}:{}", row.tool, row.target))
+        );
         // Human-readable content for injection into prompts
         let content = format!("{} {} — {}x observed", row.tool, row.target, row.freq);
 
@@ -305,7 +351,9 @@ pub fn extract_patterns(rows: &[crate::domain::storage::ObservationFrequency], t
 /// Output: (crystal_id, content, score) for pairs that co-occur in 2+ sessions.
 ///
 /// Pure function — all co-occurrence computation happens in Rust, not SQL.
-pub fn extract_cooccurrences(rows: &[crate::domain::storage::SessionTarget]) -> Vec<(String, String, f64)> {
+pub fn extract_cooccurrences(
+    rows: &[crate::domain::storage::SessionTarget],
+) -> Vec<(String, String, f64)> {
     use std::collections::{HashMap, HashSet};
 
     // Group targets by session
@@ -314,11 +362,15 @@ pub fn extract_cooccurrences(rows: &[crate::domain::storage::SessionTarget]) -> 
         if row.session_id.is_empty() || row.target.is_empty() {
             continue;
         }
-        sessions.entry(row.session_id.clone()).or_default().insert(row.target.clone());
+        sessions
+            .entry(row.session_id.clone())
+            .or_default()
+            .insert(row.target.clone());
     }
 
     // Only sessions with 2+ distinct targets can produce co-occurrences
-    let multi_target_sessions: Vec<&HashSet<String>> = sessions.values()
+    let multi_target_sessions: Vec<&HashSet<String>> = sessions
+        .values()
         .filter(|targets| targets.len() >= 2)
         .collect();
 
@@ -343,15 +395,21 @@ pub fn extract_cooccurrences(rows: &[crate::domain::storage::SessionTarget]) -> 
     }
 
     // Filter: at least 2 co-occurrences to matter
-    let mut patterns: Vec<(String, String, f64)> = pair_counts.into_iter()
+    let mut patterns: Vec<(String, String, f64)> = pair_counts
+        .into_iter()
         .filter(|(_, count)| *count >= 2)
         .map(|((a, b), count)| {
             let score = count as f64 / total_sessions;
             // Shorten paths for readability — use filename only
             let short_a = a.rsplit('/').next().unwrap_or(&a);
             let short_b = b.rsplit('/').next().unwrap_or(&b);
-            let id = format!("co_{:x}", content_hash(&format!("{}:{}", a, b)));
-            let content = format!("{} + {} — co-edited in {}% of sessions", short_a, short_b, (score * 100.0) as u32);
+            let id = format!("co_{:x}", content_hash(&format!("{a}:{b}")));
+            let content = format!(
+                "{} + {} — co-edited in {}% of sessions",
+                short_a,
+                short_b,
+                (score * 100.0) as u32
+            );
             (id, content, score)
         })
         .collect();
@@ -369,21 +427,19 @@ pub async fn aggregate_observations(
     project: &str,
 ) -> u32 {
     // Get top patterns (target+tool frequency) — single query, derive total from results
-    let rows = match storage.query_observations(project, None, 50).await {
-        Ok(r) => r,
-        Err(_) => return 0,
+    let Ok(rows) = storage.query_observations(project, None, 50).await else {
+        return 0;
     };
 
     // Derive total from the same result set — atomic, no race between two queries
-    let total = rows.iter()
-        .map(|r| r.freq)
-        .sum::<u64>()
-        .max(1); // Avoid division by zero
+    let total = rows.iter().map(|r| r.freq).sum::<u64>().max(1); // Avoid division by zero
 
     let patterns = extract_patterns(&rows, total);
 
     // Phase 2: Co-occurrence patterns (targets edited together in the same session)
-    let session_rows = storage.query_session_targets(project, 500).await
+    let session_rows = storage
+        .query_session_targets(project, 500)
+        .await
         .inspect_err(|e| klog!("[CCM/aggregate] session_targets query failed: {}", e))
         .unwrap_or_default();
     let cooccurrences = extract_cooccurrences(&session_rows);
@@ -400,12 +456,15 @@ pub async fn aggregate_observations(
     let freq_count = patterns.len() as u32;
     let cooccur_count = cooccurrences.len() as u32;
 
-    klog!("[CCM/aggregate] {} freq + {} co-occur patterns from {} observations (analytics only)",
-        freq_count, cooccur_count, total);
+    klog!(
+        "[CCM/aggregate] {} freq + {} co-occur patterns from {} observations (analytics only)",
+        freq_count,
+        cooccur_count,
+        total
+    );
 
     freq_count + cooccur_count
 }
-
 
 // ── TESTS ───────────────────────────────────────────────────
 #[cfg(test)]
@@ -434,7 +493,11 @@ mod tests {
 
     #[test]
     fn crystallizes_after_21_cycles_above_phi() {
-        let c = make_crystal(PHI_INV, MIN_CRYSTALLIZATION_CYCLES - 1, CrystalState::Forming);
+        let c = make_crystal(
+            PHI_INV,
+            MIN_CRYSTALLIZATION_CYCLES - 1,
+            CrystalState::Forming,
+        );
         let state = observe(&c, PHI_INV);
         assert_eq!(state, CrystalState::Crystallized);
     }
@@ -482,7 +545,13 @@ mod tests {
     #[test]
     fn geometric_mean_drag_prevents_false_crystallization() {
         // A pattern that oscillates between high and low should NOT crystallize
-        let mut c = new_crystal("osc".into(), "oscillating".into(), "test".into(), 0.9, "now");
+        let mut c = new_crystal(
+            "osc".into(),
+            "oscillating".into(),
+            "test".into(),
+            0.9,
+            "now",
+        );
         for i in 0..30 {
             let score = if i % 2 == 0 { 0.9 } else { 0.2 };
             c = update_crystal(&c, score, "now");
@@ -507,20 +576,20 @@ mod tests {
 
     #[test]
     fn crystal_context_respects_budget() {
-        let crystals: Vec<Crystal> = (0..100).map(|i| {
-            let mut c = make_crystal(PHI_INV, 25, CrystalState::Crystallized);
-            c.content = format!("pattern number {} with some extra text to fill space", i);
-            c
-        }).collect();
+        let crystals: Vec<Crystal> = (0..100)
+            .map(|i| {
+                let mut c = make_crystal(PHI_INV, 25, CrystalState::Crystallized);
+                c.content = format!("pattern number {i} with some extra text to fill space");
+                c
+            })
+            .collect();
         let ctx = format_crystal_context(&crystals, "test", 200).unwrap();
         assert!(ctx.len() <= 300); // Some slack for header
     }
 
     #[test]
     fn crystal_context_empty_when_no_mature() {
-        let crystals = vec![
-            make_crystal(0.3, 5, CrystalState::Forming),
-        ];
+        let crystals = vec![make_crystal(0.3, 5, CrystalState::Forming)];
         assert!(format_crystal_context(&crystals, "test", 2000).is_none());
     }
 
@@ -528,9 +597,21 @@ mod tests {
     fn extract_patterns_basic() {
         use crate::domain::storage::ObservationFrequency;
         let rows = vec![
-            ObservationFrequency { target: "storage.rs".into(), tool: "Edit".into(), freq: 10 },
-            ObservationFrequency { target: "judge.rs".into(), tool: "Edit".into(), freq: 5 },
-            ObservationFrequency { target: "ls".into(), tool: "Bash".into(), freq: 2 }, // below threshold
+            ObservationFrequency {
+                target: "storage.rs".into(),
+                tool: "Edit".into(),
+                freq: 10,
+            },
+            ObservationFrequency {
+                target: "judge.rs".into(),
+                tool: "Edit".into(),
+                freq: 5,
+            },
+            ObservationFrequency {
+                target: "ls".into(),
+                tool: "Bash".into(),
+                freq: 2,
+            }, // below threshold
         ];
         let patterns = extract_patterns(&rows, 20);
         assert_eq!(patterns.len(), 2); // "ls" filtered out (freq < 3)
@@ -549,11 +630,26 @@ mod tests {
     fn cooccurrence_basic() {
         use crate::domain::storage::SessionTarget;
         let rows = vec![
-            SessionTarget { session_id: "s1".into(), target: "/src/a.rs".into() },
-            SessionTarget { session_id: "s1".into(), target: "/src/b.rs".into() },
-            SessionTarget { session_id: "s2".into(), target: "/src/a.rs".into() },
-            SessionTarget { session_id: "s2".into(), target: "/src/b.rs".into() },
-            SessionTarget { session_id: "s3".into(), target: "/src/a.rs".into() },
+            SessionTarget {
+                session_id: "s1".into(),
+                target: "/src/a.rs".into(),
+            },
+            SessionTarget {
+                session_id: "s1".into(),
+                target: "/src/b.rs".into(),
+            },
+            SessionTarget {
+                session_id: "s2".into(),
+                target: "/src/a.rs".into(),
+            },
+            SessionTarget {
+                session_id: "s2".into(),
+                target: "/src/b.rs".into(),
+            },
+            SessionTarget {
+                session_id: "s3".into(),
+                target: "/src/a.rs".into(),
+            },
         ];
         let patterns = extract_cooccurrences(&rows);
         assert_eq!(patterns.len(), 1);
@@ -566,8 +662,14 @@ mod tests {
     fn cooccurrence_filters_single_occurrence() {
         use crate::domain::storage::SessionTarget;
         let rows = vec![
-            SessionTarget { session_id: "s1".into(), target: "/src/x.rs".into() },
-            SessionTarget { session_id: "s1".into(), target: "/src/y.rs".into() },
+            SessionTarget {
+                session_id: "s1".into(),
+                target: "/src/x.rs".into(),
+            },
+            SessionTarget {
+                session_id: "s1".into(),
+                target: "/src/y.rs".into(),
+            },
         ];
         let patterns = extract_cooccurrences(&rows);
         assert!(patterns.is_empty()); // Need 2+ co-occurrences
@@ -583,8 +685,14 @@ mod tests {
     fn cooccurrence_skips_empty_session_id() {
         use crate::domain::storage::SessionTarget;
         let rows = vec![
-            SessionTarget { session_id: "".into(), target: "/src/a.rs".into() },
-            SessionTarget { session_id: "".into(), target: "/src/b.rs".into() },
+            SessionTarget {
+                session_id: "".into(),
+                target: "/src/a.rs".into(),
+            },
+            SessionTarget {
+                session_id: "".into(),
+                target: "/src/b.rs".into(),
+            },
         ];
         let patterns = extract_cooccurrences(&rows);
         assert!(patterns.is_empty());
@@ -593,9 +701,11 @@ mod tests {
     #[test]
     fn extract_patterns_skips_empty_targets() {
         use crate::domain::storage::ObservationFrequency;
-        let rows = vec![
-            ObservationFrequency { target: "".into(), tool: "Bash".into(), freq: 10 },
-        ];
+        let rows = vec![ObservationFrequency {
+            target: "".into(),
+            tool: "Bash".into(),
+            freq: 10,
+        }];
         let patterns = extract_patterns(&rows, 10);
         assert!(patterns.is_empty());
     }
@@ -605,7 +715,10 @@ mod tests {
         let now = "2026-03-21T12:00:00Z";
         let updated = "2026-03-21T12:00:00Z";
         let rel = decay_relevance(0.7, updated, now);
-        assert!((rel - 0.7).abs() < 0.01, "same-day crystal should have ~no decay, got {}", rel);
+        assert!(
+            (rel - 0.7).abs() < 0.01,
+            "same-day crystal should have ~no decay, got {rel}"
+        );
     }
 
     #[test]
@@ -614,22 +727,34 @@ mod tests {
         let updated_90d_ago = "2025-12-21T12:00:00Z"; // ~90 days ago
         let rel = decay_relevance(0.7, updated_90d_ago, now);
         // At 90 days: factor = e^(-1) ≈ 0.368, so relevance ≈ 0.7 * 0.368 ≈ 0.258
-        assert!(rel < 0.3, "90-day-old crystal should decay significantly, got {}", rel);
-        assert!(rel > 0.2, "decay shouldn't be too extreme at 90 days, got {}", rel);
+        assert!(
+            rel < 0.3,
+            "90-day-old crystal should decay significantly, got {rel}"
+        );
+        assert!(
+            rel > 0.2,
+            "decay shouldn't be too extreme at 90 days, got {rel}"
+        );
     }
 
     #[test]
     fn decay_relevance_recent_beats_old_high_confidence() {
         let now = "2026-03-21T12:00:00Z";
         let recent = decay_relevance(0.65, "2026-03-20T12:00:00Z", now); // yesterday, conf 0.65
-        let old = decay_relevance(0.70, "2025-09-21T12:00:00Z", now);    // 6 months ago, conf 0.70
-        assert!(recent > old, "recent crystal ({}) should outrank old one ({})", recent, old);
+        let old = decay_relevance(0.70, "2025-09-21T12:00:00Z", now); // 6 months ago, conf 0.70
+        assert!(
+            recent > old,
+            "recent crystal ({recent}) should outrank old one ({old})"
+        );
     }
 
     #[test]
     fn decay_relevance_bad_timestamp_returns_zero() {
         let rel = decay_relevance(0.7, "not-a-date", "2026-03-21T12:00:00Z");
-        assert!((rel - 0.0).abs() < 1e-10, "bad timestamp should return 0, got {}", rel);
+        assert!(
+            (rel - 0.0).abs() < 1e-10,
+            "bad timestamp should return 0, got {rel}"
+        );
     }
 
     #[test]
@@ -647,9 +772,14 @@ mod tests {
         let crystals = vec![old, recent]; // old first in input
         let ctx = format_crystal_context(&crystals, "test", 2000).unwrap();
         // Recent should appear before old after decay-weighted sorting
-        let recent_pos = ctx.find("RECENT_PATTERN").expect("recent should be in output");
+        let recent_pos = ctx
+            .find("RECENT_PATTERN")
+            .expect("recent should be in output");
         let old_pos = ctx.find("OLD_PATTERN").expect("old should be in output");
-        assert!(recent_pos < old_pos, "recent crystal should rank before old crystal");
+        assert!(
+            recent_pos < old_pos,
+            "recent crystal should rank before old crystal"
+        );
     }
 
     fn make_session_summary(session_id: &str, obs_count: u32, summary: &str) -> SessionSummary {
@@ -681,9 +811,15 @@ mod tests {
 
     #[test]
     fn session_context_respects_budget() {
-        let summaries: Vec<SessionSummary> = (0..50).map(|i| {
-            make_session_summary(&format!("sess-{:03}", i), 10, &format!("Did something important in session number {}", i))
-        }).collect();
+        let summaries: Vec<SessionSummary> = (0..50)
+            .map(|i| {
+                make_session_summary(
+                    &format!("sess-{i:03}"),
+                    10,
+                    &format!("Did something important in session number {i}"),
+                )
+            })
+            .collect();
         let ctx = format_session_context(&summaries, 200).unwrap();
         assert!(ctx.len() <= 300); // Slack for header
     }
@@ -692,8 +828,30 @@ mod tests {
     fn summarization_prompt_formats_observations() {
         use crate::domain::storage::RawObservation;
         let obs = vec![
-            RawObservation { id: String::new(), tool: "Edit".into(), target: "ccm.rs".into(), domain: "code".into(), status: "ok".into(), context: String::new(), created_at: String::new(), project: String::new(), agent_id: String::new(), session_id: String::new() },
-            RawObservation { id: String::new(), tool: "Bash".into(), target: "cargo test".into(), domain: "workflow".into(), status: "ok".into(), context: String::new(), created_at: String::new(), project: String::new(), agent_id: String::new(), session_id: String::new() },
+            RawObservation {
+                id: String::new(),
+                tool: "Edit".into(),
+                target: "ccm.rs".into(),
+                domain: "code".into(),
+                status: "ok".into(),
+                context: String::new(),
+                created_at: String::new(),
+                project: String::new(),
+                agent_id: String::new(),
+                session_id: String::new(),
+            },
+            RawObservation {
+                id: String::new(),
+                tool: "Bash".into(),
+                target: "cargo test".into(),
+                domain: "workflow".into(),
+                status: "ok".into(),
+                context: String::new(),
+                created_at: String::new(),
+                project: String::new(),
+                agent_id: String::new(),
+                session_id: String::new(),
+            },
         ];
         let prompt = format_summarization_prompt(&obs);
         assert!(prompt.contains("Summarize this development session"));
@@ -704,9 +862,20 @@ mod tests {
     #[test]
     fn summarization_prompt_caps_at_30_observations() {
         use crate::domain::storage::RawObservation;
-        let obs: Vec<RawObservation> = (0..50).map(|i| {
-            RawObservation { id: String::new(), tool: "Edit".into(), target: format!("file{}.rs", i), domain: "code".into(), status: "ok".into(), context: String::new(), created_at: String::new(), project: String::new(), agent_id: String::new(), session_id: String::new() }
-        }).collect();
+        let obs: Vec<RawObservation> = (0..50)
+            .map(|i| RawObservation {
+                id: String::new(),
+                tool: "Edit".into(),
+                target: format!("file{i}.rs"),
+                domain: "code".into(),
+                status: "ok".into(),
+                context: String::new(),
+                created_at: String::new(),
+                project: String::new(),
+                agent_id: String::new(),
+                session_id: String::new(),
+            })
+            .collect();
         let prompt = format_summarization_prompt(&obs);
         assert!(prompt.contains("file29.rs")); // 30th (index 29) should be included
         assert!(!prompt.contains("file30.rs")); // 31st should be excluded
@@ -714,10 +883,21 @@ mod tests {
 
     #[test]
     fn phi_bounds_are_consistent() {
-        // Verify our thresholds match the phi constants
-        assert!(PHI_INV > PHI_INV2);
-        assert!((PHI_INV - 0.618).abs() < 0.001);
-        assert!((PHI_INV2 - 0.382).abs() < 0.001);
+        // Verify our thresholds match the phi constants (runtime check via let binding)
+        let phi_inv = PHI_INV;
+        let phi_inv2 = PHI_INV2;
+        assert!(
+            (phi_inv - 0.618).abs() < 0.001,
+            "PHI_INV should be ~0.618, got {phi_inv}"
+        );
+        assert!(
+            (phi_inv2 - 0.382).abs() < 0.001,
+            "PHI_INV2 should be ~0.382, got {phi_inv2}"
+        );
+        assert!(
+            phi_inv > phi_inv2,
+            "PHI_INV ({phi_inv}) must be > PHI_INV2 ({phi_inv2})"
+        );
     }
 
     #[test]
@@ -729,11 +909,17 @@ mod tests {
         let normalized = (typical_qscore / PHI_INV).min(1.0);
 
         // Build crystal with 20 observations of normalized score, then observe 21st
-        let c = make_crystal(normalized, MIN_CRYSTALLIZATION_CYCLES - 1, CrystalState::Forming);
+        let c = make_crystal(
+            normalized,
+            MIN_CRYSTALLIZATION_CYCLES - 1,
+            CrystalState::Forming,
+        );
         let state = observe(&c, normalized);
-        assert_eq!(state, CrystalState::Crystallized,
-            "Normalized Q-Score {:.3} (raw {:.3}) should crystallize after 21 cycles",
-            normalized, typical_qscore);
+        assert_eq!(
+            state,
+            CrystalState::Crystallized,
+            "Normalized Q-Score {normalized:.3} (raw {typical_qscore:.3}) should crystallize after 21 cycles"
+        );
     }
 
     #[test]
@@ -742,11 +928,17 @@ mod tests {
         let bad_qscore = 0.08;
         let normalized = (bad_qscore / PHI_INV).min(1.0);
 
-        let c = make_crystal(normalized, MIN_CRYSTALLIZATION_CYCLES - 1, CrystalState::Forming);
+        let c = make_crystal(
+            normalized,
+            MIN_CRYSTALLIZATION_CYCLES - 1,
+            CrystalState::Forming,
+        );
         let state = observe(&c, normalized);
-        assert_ne!(state, CrystalState::Crystallized,
-            "Normalized bad Q-Score {:.3} (raw {:.3}) must NOT crystallize",
-            normalized, bad_qscore);
+        assert_ne!(
+            state,
+            CrystalState::Crystallized,
+            "Normalized bad Q-Score {normalized:.3} (raw {bad_qscore:.3}) must NOT crystallize"
+        );
     }
 
     #[test]
@@ -754,10 +946,16 @@ mod tests {
         // Proves the bug: raw Q-Scores can never reach crystallization threshold.
         let good_qscore = 0.57; // best chess score observed
 
-        let c = make_crystal(good_qscore, MIN_CRYSTALLIZATION_CYCLES - 1, CrystalState::Forming);
+        let c = make_crystal(
+            good_qscore,
+            MIN_CRYSTALLIZATION_CYCLES - 1,
+            CrystalState::Forming,
+        );
         let state = observe(&c, good_qscore);
-        assert_ne!(state, CrystalState::Crystallized,
-            "Raw Q-Score {:.3} must NOT crystallize (proves the bug existed)",
-            good_qscore);
+        assert_ne!(
+            state,
+            CrystalState::Crystallized,
+            "Raw Q-Score {good_qscore:.3} must NOT crystallize (proves the bug existed)"
+        );
     }
 }

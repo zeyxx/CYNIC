@@ -1,5 +1,5 @@
-use cynic_kernel::*;
 use cynic_kernel::domain::inference::BackendPort;
+use cynic_kernel::*;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
@@ -44,7 +44,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let node_config = probe::run(force_reprobe).await?;
 
     klog!("[Ring 0] Omniscience Active. Reality Mapped.");
-    klog!("[Ring 0] Host: {} | Compute: {:?} | VRAM: {}GB",
+    klog!(
+        "[Ring 0] Host: {} | Compute: {:?} | VRAM: {}GB",
         std::env::consts::OS,
         node_config.compute.backend,
         node_config.compute.vram_gb
@@ -60,22 +61,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .join("backends.toml");
     let storage_config = infra::config::load_storage_config(&backends_path);
     klog!("[Ring 1] Config: {}", backends_path.display());
-    klog!("[Ring 1] Storage: url={} ns={} db={}", storage_config.url, storage_config.namespace, storage_config.database);
+    klog!(
+        "[Ring 1] Storage: url={} ns={} db={}",
+        storage_config.url,
+        storage_config.namespace,
+        storage_config.database
+    );
 
     // ─── RING 1: Native Storage Client (UAL) ──────────────────
     // HTTP adapter to SurrealDB 3.x — graceful degradation if unavailable.
-    let (storage_port, coord, has_db): (Arc<dyn domain::storage::StoragePort>, Arc<dyn domain::coord::CoordPort>, bool) =
-        match storage::SurrealHttpStorage::init(&storage_config).await {
-            Ok(s) => {
-                klog!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
-                let db = Arc::new(s);
-                (Arc::clone(&db) as _, Arc::clone(&db) as _, true)
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, "storage DEGRADED — verdicts will not persist");
-                (Arc::new(domain::storage::NullStorage), Arc::new(domain::coord::NullCoord), false)
-            }
-        };
+    let (storage_port, coord, has_db): (
+        Arc<dyn domain::storage::StoragePort>,
+        Arc<dyn domain::coord::CoordPort>,
+        bool,
+    ) = match storage::SurrealHttpStorage::init(&storage_config).await {
+        Ok(s) => {
+            klog!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
+            let db = Arc::new(s);
+            (Arc::clone(&db) as _, Arc::clone(&db) as _, true)
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "storage DEGRADED — verdicts will not persist");
+            (
+                Arc::new(domain::storage::NullStorage),
+                Arc::new(domain::coord::NullCoord),
+                false,
+            )
+        }
+    };
 
     // ─── RING 2: Load Backend Configs ──────────────────────────
 
@@ -103,8 +116,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .and_then(|o| String::from_utf8(o.stdout).ok())
                 .map(|s| std::path::PathBuf::from(s.trim()))
                 .unwrap_or_else(|| {
-                    let fallback = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-                    klog!("[Ring 1] No CYNIC_PROJECT_ROOT and git not available — using cwd: {}", fallback.display());
+                    let fallback =
+                        std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+                    klog!(
+                        "[Ring 1] No CYNIC_PROJECT_ROOT and git not available — using cwd: {}",
+                        fallback.display()
+                    );
                     fallback
                 })
         });
@@ -120,13 +137,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create InferenceDog per configured backend
     // Also collect health URLs and remediation configs from the SoT (backends.toml)
     let mut cost_rates: Vec<(String, f64, f64)> = Vec::new();
-    let mut remediation_configs: std::collections::HashMap<String, infra::config::BackendRemediation> = std::collections::HashMap::new();
-    let mut health_urls: std::collections::HashMap<String, Option<String>> = std::collections::HashMap::new();
+    let mut remediation_configs: std::collections::HashMap<
+        String,
+        infra::config::BackendRemediation,
+    > = std::collections::HashMap::new();
+    let mut health_urls: std::collections::HashMap<String, Option<String>> =
+        std::collections::HashMap::new();
     for cfg in backend_configs {
         let backend = match backends::openai::OpenAiCompatBackend::new(cfg.clone()) {
             Ok(b) => Arc::new(b),
             Err(e) => {
-                klog!("[Ring 2] InferenceDog '{}' SKIPPED — HTTP client init failed: {}", cfg.name, e);
+                klog!(
+                    "[Ring 2] InferenceDog '{}' SKIPPED — HTTP client init failed: {}",
+                    cfg.name,
+                    e
+                );
                 continue;
             }
         };
@@ -134,21 +159,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Always load the Dog — health loop will recover it if unreachable.
         // Skipping at boot prevents the health loop from ever probing it.
         match health {
-            domain::inference::BackendStatus::Healthy | domain::inference::BackendStatus::Degraded { .. } => {
-                klog!("[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?})", cfg.name, cfg.model, health);
+            domain::inference::BackendStatus::Healthy
+            | domain::inference::BackendStatus::Degraded { .. } => {
+                klog!(
+                    "[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?})",
+                    cfg.name,
+                    cfg.model,
+                    health
+                );
             }
             _ => {
-                klog!("[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?}) — health loop will recover", cfg.name, cfg.model, health);
+                klog!(
+                    "[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?}) — health loop will recover",
+                    cfg.name,
+                    cfg.model,
+                    health
+                );
             }
         }
-        cost_rates.push((cfg.name.clone(), cfg.cost_input_per_mtok, cfg.cost_output_per_mtok));
+        cost_rates.push((
+            cfg.name.clone(),
+            cfg.cost_input_per_mtok,
+            cfg.cost_output_per_mtok,
+        ));
         health_urls.insert(cfg.name.clone(), cfg.health_url.clone());
         if let Some(rem) = cfg.remediation.clone() {
             remediation_configs.insert(cfg.name.clone(), rem);
         }
         dogs.push(Box::new(
-            dogs::inference::InferenceDog::new(backend, cfg.name.clone(), cfg.context_size, cfg.timeout_secs)
-                .with_domain_prompts(Arc::clone(&domain_prompts))
+            dogs::inference::InferenceDog::new(
+                backend,
+                cfg.name.clone(),
+                cfg.context_size,
+                cfg.timeout_secs,
+            )
+            .with_domain_prompts(Arc::clone(&domain_prompts)),
         ));
     }
 
@@ -157,31 +202,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── RING 2: Health Loop + Remediation ──────────────────────
     // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
     if !remediation_configs.is_empty() {
-        klog!("[Ring 2] Remediation: {} Dogs configured for auto-restart", remediation_configs.len());
+        klog!(
+            "[Ring 2] Remediation: {} Dogs configured for auto-restart",
+            remediation_configs.len()
+        );
     }
 
     // ─── RING 2: Embedding backend (sovereign, auto-recovery) ────
     // Always wire the real backend — if down at boot, embed() returns Err (same as NullEmbedding).
     // When the server comes back, calls start succeeding automatically. No manual recovery needed.
-    let embedding: Arc<dyn domain::embedding::EmbeddingPort> = match backends::embedding::EmbeddingBackend::from_env() {
-        Ok(embed_backend) => {
-            let embed_health = embed_backend.health().await;
-            if embed_health.is_available() {
-                klog!("[Ring 2] Embedding: {:?} (sovereign)", embed_health);
-            } else {
-                klog!("[Ring 2] Embedding: {:?} — will auto-recover when server is available", embed_health);
+    let embedding: Arc<dyn domain::embedding::EmbeddingPort> =
+        match backends::embedding::EmbeddingBackend::from_env() {
+            Ok(embed_backend) => {
+                let embed_health = embed_backend.health().await;
+                if embed_health.is_available() {
+                    klog!("[Ring 2] Embedding: {:?} (sovereign)", embed_health);
+                } else {
+                    klog!(
+                        "[Ring 2] Embedding: {:?} — will auto-recover when server is available",
+                        embed_health
+                    );
+                }
+                Arc::new(embed_backend)
             }
-            Arc::new(embed_backend)
-        }
-        Err(e) => {
-            klog!("[Ring 2] Embedding: HTTP client init failed ({}) — using NullEmbedding", e);
-            Arc::new(domain::embedding::NullEmbedding)
-        }
-    };
+            Err(e) => {
+                klog!(
+                    "[Ring 2] Embedding: HTTP client init failed ({}) — using NullEmbedding",
+                    e
+                );
+                Arc::new(domain::embedding::NullEmbedding)
+            }
+        };
 
     // ─── RING 2: Build Judge ──────────────────────────────────
-    let breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = dogs.iter()
-        .map(|d| Arc::new(infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as Arc<dyn domain::health_gate::HealthGate>)
+    let breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = dogs
+        .iter()
+        .map(|d| {
+            Arc::new(infra::circuit_breaker::CircuitBreaker::new(
+                d.id().to_string(),
+            )) as Arc<dyn domain::health_gate::HealthGate>
+        })
         .collect();
     let judge = judge::Judge::new(dogs, breakers);
     // Background task health tracker — updated by each spawned task, exposed in /health
@@ -194,42 +254,72 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match storage_port.last_integrity_hash().await {
         Ok(Some(hash)) => {
             judge.seed_chain(Some(hash.clone()));
-            klog!("[Ring 2] Integrity chain seeded: {}…", &hash[..16.min(hash.len())]);
+            klog!(
+                "[Ring 2] Integrity chain seeded: {}…",
+                &hash[..16.min(hash.len())]
+            );
         }
         Ok(None) => klog!("[Ring 2] Integrity chain: no previous hash (first boot or empty DB)"),
-        Err(e) => klog!("[Ring 2] Integrity chain: failed to load (non-fatal): {}", e),
+        Err(e) => klog!(
+            "[Ring 2] Integrity chain: failed to load (non-fatal): {}",
+            e
+        ),
     }
 
     // ─── RING 2: Spawn health loop + remediation watcher ──────
-    let all_breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = judge
-        .breakers().iter().map(Arc::clone).collect();
+    let all_breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> =
+        judge.breakers().iter().map(Arc::clone).collect();
     {
         let probe_configs: Vec<infra::health_loop::DogProbeConfig> = judge
-            .dog_ids().iter()
+            .dog_ids()
+            .iter()
             .filter(|id| *id != "deterministic-dog")
             .filter_map(|id| {
-                health_urls.get(id.as_str()).and_then(|opt| opt.as_ref())
-                    .map(|url| infra::health_loop::DogProbeConfig { dog_id: id.clone(), health_url: url.clone() })
+                health_urls
+                    .get(id.as_str())
+                    .and_then(|opt| opt.as_ref())
+                    .map(|url| infra::health_loop::DogProbeConfig {
+                        dog_id: id.clone(),
+                        health_url: url.clone(),
+                    })
             })
             .collect();
         if !probe_configs.is_empty() {
-            let probe_breakers: Vec<_> = probe_configs.iter()
-                .filter_map(|pc| all_breakers.iter().find(|cb| cb.dog_id() == pc.dog_id).cloned())
+            let probe_breakers: Vec<_> = probe_configs
+                .iter()
+                .filter_map(|pc| {
+                    all_breakers
+                        .iter()
+                        .find(|cb| cb.dog_id() == pc.dog_id)
+                        .cloned()
+                })
                 .collect();
-            infra::health_loop::spawn_health_loop(probe_configs, probe_breakers, Arc::clone(&task_health), shutdown.clone());
-            klog!("[Ring 2] Health loop started (every {}s)", infra::circuit_breaker::PROBE_INTERVAL.as_secs());
+            infra::health_loop::spawn_health_loop(
+                probe_configs,
+                probe_breakers,
+                Arc::clone(&task_health),
+                shutdown.clone(),
+            );
+            klog!(
+                "[Ring 2] Health loop started (every {}s)",
+                infra::circuit_breaker::PROBE_INTERVAL.as_secs()
+            );
         }
     }
     if !remediation_configs.is_empty() {
         infra::tasks::spawn_remediation_watcher(
-            remediation_configs.clone(), all_breakers,
-            Arc::clone(&task_health), shutdown.clone(),
+            remediation_configs.clone(),
+            all_breakers,
+            Arc::clone(&task_health),
+            shutdown.clone(),
         );
     }
 
     // ─── RING 3: REST API (for React/external clients) ────────
     let judge = Arc::new(judge);
-    let usage_tracker = Arc::new(tokio::sync::Mutex::new(domain::usage::DogUsageTracker::new()));
+    let usage_tracker = Arc::new(tokio::sync::Mutex::new(
+        domain::usage::DogUsageTracker::new(),
+    ));
     // Wire per-Dog cost rates from backends.toml
     {
         let mut usage = usage_tracker.lock().await;
@@ -245,8 +335,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(rows) if !rows.is_empty() => {
             let mut usage = usage_tracker.lock().await;
             usage.load_historical(&rows);
-            klog!("[Ring 2] Usage: loaded {} Dog histories ({} all-time requests)",
-                rows.len(), usage.all_time_requests());
+            klog!(
+                "[Ring 2] Usage: loaded {} Dog histories ({} all-time requests)",
+                rows.len(),
+                usage.all_time_requests()
+            );
         }
         Err(e) => klog!("[Ring 2] Usage: failed to load history (non-fatal): {}", e),
         _ => {}
@@ -261,17 +354,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if has_db {
         match storage_port.count_verdicts().await {
             Ok(v_count) => {
-                metrics.verdicts_total.store(v_count, std::sync::atomic::Ordering::Relaxed);
+                metrics
+                    .verdicts_total
+                    .store(v_count, std::sync::atomic::Ordering::Relaxed);
                 klog!("[Ring 2] Metrics: hydrated verdicts_total = {}", v_count);
             }
-            Err(e) => klog!("[Ring 2] Metrics: failed to hydrate verdicts_total (counters start at 0): {}", e),
+            Err(e) => klog!(
+                "[Ring 2] Metrics: failed to hydrate verdicts_total (counters start at 0): {}",
+                e
+            ),
         }
         match storage_port.count_crystal_observations().await {
             Ok(co_count) => {
-                metrics.crystal_observations_total.store(co_count, std::sync::atomic::Ordering::Relaxed);
-                klog!("[Ring 2] Metrics: hydrated crystal_observations_total = {}", co_count);
+                metrics
+                    .crystal_observations_total
+                    .store(co_count, std::sync::atomic::Ordering::Relaxed);
+                klog!(
+                    "[Ring 2] Metrics: hydrated crystal_observations_total = {}",
+                    co_count
+                );
             }
-            Err(e) => klog!("[Ring 2] Metrics: failed to hydrate crystal_observations (counters start at 0): {}", e),
+            Err(e) => klog!(
+                "[Ring 2] Metrics: failed to hydrate crystal_observations (counters start at 0): {}",
+                e
+            ),
         }
     }
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
@@ -291,10 +397,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             namespace: storage_config.namespace.clone(),
             database: storage_config.database.clone(),
         },
-        rate_limiter: api::rest::PerIpRateLimiter::new(30),   // 30 requests/minute global
-        judge_limiter: api::rest::PerIpRateLimiter::new(10),   // 10 /judge per minute (inference costs money)
+        rate_limiter: api::rest::PerIpRateLimiter::new(30), // 30 requests/minute global
+        judge_limiter: api::rest::PerIpRateLimiter::new(10), // 10 /judge per minute (inference costs money)
         bg_semaphore: Arc::new(tokio::sync::Semaphore::new(64)), // bound fire-and-forget spawns
-        bg_tasks: tokio_util::task::TaskTracker::new(), // track for drain at shutdown
+        bg_tasks: tokio_util::task::TaskTracker::new(),      // track for drain at shutdown
         introspection_alerts: Arc::new(std::sync::RwLock::new(Vec::new())),
         event_tx: event_tx.clone(),
     });
@@ -304,28 +410,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // These MUST be spawned before the MCP/REST branch.
 
     // Coordination expiry (every 60s)
-    infra::tasks::spawn_coord_expiry(Arc::clone(&coord), Arc::clone(&task_health), shutdown.clone());
+    infra::tasks::spawn_coord_expiry(
+        Arc::clone(&coord),
+        Arc::clone(&task_health),
+        shutdown.clone(),
+    );
     klog!("[Ring 2] Coordination expiry task started (every 60s)");
 
     // Usage flush (every 60s)
     if has_db {
         infra::tasks::spawn_usage_flush(
-            Arc::clone(&storage_port), Arc::clone(&usage_tracker),
-            Arc::clone(&task_health), shutdown.clone(),
+            Arc::clone(&storage_port),
+            Arc::clone(&usage_tracker),
+            Arc::clone(&task_health),
+            shutdown.clone(),
         );
         klog!("[Ring 2] Usage flush task started (every 60s, TTL cleanup every 1h)");
     }
 
     // CCM Workflow Aggregator (every 5 min)
     infra::tasks::spawn_ccm_aggregator(
-        Arc::clone(&storage_port), Arc::clone(&task_health), shutdown.clone(),
+        Arc::clone(&storage_port),
+        Arc::clone(&task_health),
+        shutdown.clone(),
     );
 
     // ─── RING 2: Session summarizer (sovereign inference, background) ──
     if let Ok(summarizer) = backends::summarizer::SovereignSummarizer::from_env() {
         infra::tasks::spawn_session_summarizer(
-            Arc::clone(&storage_port), summarizer,
-            Arc::clone(&task_health), shutdown.clone(),
+            Arc::clone(&storage_port),
+            summarizer,
+            Arc::clone(&task_health),
+            shutdown.clone(),
         );
     } else {
         klog!("[Ring 2] Session summarizer DISABLED — HTTP client init failed");
@@ -334,29 +450,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── One-shot: backfill crystal embeddings (orphan defragmentation) ──
     if has_db {
         infra::tasks::spawn_backfill(
-            Arc::clone(&storage_port), Arc::clone(&embedding), Arc::clone(&metrics),
-            Arc::clone(&task_health), event_tx.clone(), shutdown.clone(),
+            Arc::clone(&storage_port),
+            Arc::clone(&embedding),
+            Arc::clone(&metrics),
+            Arc::clone(&task_health),
+            event_tx.clone(),
+            shutdown.clone(),
         );
     }
 
     // ─── Introspection loop (MAPE-K Analyze, every 5 min) ──
     infra::tasks::spawn_introspection(
-        Arc::clone(&storage_port), Arc::clone(&metrics),
+        Arc::clone(&storage_port),
+        Arc::clone(&metrics),
         Arc::clone(&rest_state.introspection_alerts),
-        event_tx.clone(), Arc::clone(&task_health), shutdown.clone(),
+        event_tx.clone(),
+        Arc::clone(&task_health),
+        shutdown.clone(),
     );
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
         use rmcp::ServiceExt;
         tracing::info!("MCP mode — serving over stdio (background tasks active)");
-        let mcp_infer: Arc<dyn domain::inference::InferPort> = match backends::summarizer::SovereignSummarizer::from_env() {
-            Ok(s) => Arc::new(s),
-            Err(e) => {
-                tracing::warn!(error = %e, "MCP inference unavailable — HTTP client init failed");
-                Arc::new(domain::inference::NullInfer)
-            }
-        };
+        let mcp_infer: Arc<dyn domain::inference::InferPort> =
+            match backends::summarizer::SovereignSummarizer::from_env() {
+                Ok(s) => Arc::new(s),
+                Err(e) => {
+                    tracing::warn!(error = %e, "MCP inference unavailable — HTTP client init failed");
+                    Arc::new(domain::inference::NullInfer)
+                }
+            };
         let mcp_server = api::mcp::CynicMcp::new(
             Arc::clone(&judge),
             Arc::clone(&storage_port),
@@ -373,8 +497,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         infra::tasks::spawn_signal_handler(shutdown.clone());
 
         let transport = rmcp::transport::io::stdio();
-        let server = mcp_server.serve(transport).await
-            .map_err(|e| format!("MCP server error: {}", e))?;
+        let server = mcp_server
+            .serve(transport)
+            .await
+            .map_err(|e| format!("MCP server error: {e}"))?;
 
         // Wait for MCP disconnect or shutdown signal
         tokio::select! {
@@ -391,8 +517,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ─── RING 3: REST Server ─────────────────────────────────
-    let rest_addr = std::env::var("CYNIC_REST_ADDR")
-        .unwrap_or_else(|_| "127.0.0.1:3030".to_string());
+    let rest_addr =
+        std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".to_string());
     klog!("[Ring 3] REST API on http://{}", rest_addr);
 
     // Rate limiter eviction (REST delivery concern — lives here, not in infra/tasks.rs)
@@ -433,7 +559,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     klog!("╔══════════════════════════════════════╗");
     klog!("║   CYNIC SOVEREIGN — ALL SYSTEMS GO   ║");
-    klog!("║   REST: http://{}",  rest_addr);
+    klog!("║   REST: http://{}", rest_addr);
     klog!("║   Max confidence: phi^-1 = 0.618     ║");
     klog!("╚══════════════════════════════════════╝");
 
@@ -454,13 +580,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match tokio::time::timeout(
         std::time::Duration::from_secs(5),
         rest_state.bg_tasks.wait(),
-    ).await {
+    )
+    .await
+    {
         Ok(()) => klog!("[SHUTDOWN] Background tasks drained ({} completed)", 0),
         Err(_) => tracing::warn!("background tasks did not drain within 5s"),
     }
 
     Ok(())
 }
-
-
-

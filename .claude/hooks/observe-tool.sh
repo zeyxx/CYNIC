@@ -41,7 +41,7 @@ esac
 
 # Determine status from tool output (heuristic: check if error/blocked)
 STATUS="success"
-TOOL_OUTPUT=$(echo "$INPUT" | jq -r '.tool_output // empty' | head -c 200)
+TOOL_OUTPUT=$(echo "$INPUT" | jq -r '.tool_output // empty' 2>/dev/null | head -c 200 || true)
 if echo "$TOOL_OUTPUT" | grep -qiE '(error|BLOCKED|failed|SIGSEGV|panic)'; then
     STATUS="error"
 fi

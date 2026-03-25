@@ -1,2 +1,2 @@
-pub mod inference;
 pub mod deterministic;
+pub mod inference;

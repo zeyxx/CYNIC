@@ -1,10 +1,16 @@
 //! StoragePort + CoordPort implementations for SurrealHttpStorage.
 
-use super::{SurrealHttpStorage, sanitize_id, escape_surreal, safe_limit};
-use crate::domain::coord::{CoordPort, CoordError, ClaimResult, ConflictInfo, CoordSnapshot, BatchClaimResult, AgentInfo, ClaimEntry, AuditEntry};
-use crate::domain::dog::{Verdict, VerdictKind, QScore, AxiomReasoning};
+use super::{SurrealHttpStorage, escape_surreal, safe_limit, sanitize_id};
 use crate::domain::ccm::{Crystal, CrystalState};
-use crate::domain::storage::{StoragePort, StorageError, Observation, ObservationFrequency, SessionTarget, RawObservation, UsageRow};
+use crate::domain::coord::{
+    AgentInfo, AuditEntry, BatchClaimResult, ClaimEntry, ClaimResult, ConflictInfo, CoordError,
+    CoordPort, CoordSnapshot,
+};
+use crate::domain::dog::{AxiomReasoning, QScore, Verdict, VerdictKind};
+use crate::domain::storage::{
+    Observation, ObservationFrequency, RawObservation, SessionTarget, StorageError, StoragePort,
+    UsageRow,
+};
 
 // ── VERDICT SERIALIZATION ────────────────────────────────────
 
@@ -93,27 +99,39 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
             verify: row["reasoning_verify"].as_str().unwrap_or("").to_string(),
             culture: row["reasoning_culture"].as_str().unwrap_or("").to_string(),
             burn: row["reasoning_burn"].as_str().unwrap_or("").to_string(),
-            sovereignty: row["reasoning_sovereignty"].as_str().unwrap_or("").to_string(),
+            sovereignty: row["reasoning_sovereignty"]
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
         },
         dog_id: row["dog_id"].as_str().unwrap_or("").to_string(),
         stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
         timestamp: row["created_at"].as_str().unwrap_or("").to_string(),
-        dog_scores: row["dog_scores_json"].as_str()
+        dog_scores: row["dog_scores_json"]
+            .as_str()
             .filter(|s| !s.is_empty())
-            .and_then(|s| serde_json::from_str(s)
-                .map_err(|e| { tracing::warn!(error = %e, "dog_scores_json parse failed — row corrupt?"); e })
-                .ok())
+            .and_then(|s| {
+                serde_json::from_str(s)
+                    .map_err(|e| {
+                        tracing::warn!(error = %e, "dog_scores_json parse failed — row corrupt?");
+                        e
+                    })
+                    .ok()
+            })
             .unwrap_or_default(),
         anomaly_detected: row["anomaly_detected"].as_bool().unwrap_or(false),
         max_disagreement: row["max_disagreement"].as_f64().unwrap_or(0.0),
-        anomaly_axiom: row["anomaly_axiom"].as_str()
+        anomaly_axiom: row["anomaly_axiom"]
+            .as_str()
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string()),
         failed_dogs: Vec::new(),
-        integrity_hash: row["integrity_hash"].as_str()
+        integrity_hash: row["integrity_hash"]
+            .as_str()
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string()),
-        prev_hash: row["prev_hash"].as_str()
+        prev_hash: row["prev_hash"]
+            .as_str()
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string()),
     }
@@ -130,7 +148,10 @@ fn row_to_crystal(row: &serde_json::Value) -> Crystal {
     };
     // SurrealDB record IDs look like "crystal:abc123" — strip the table prefix
     let raw_id = row["id"].as_str().unwrap_or("");
-    let id = raw_id.strip_prefix("crystal:").unwrap_or(raw_id).to_string();
+    let id = raw_id
+        .strip_prefix("crystal:")
+        .unwrap_or(raw_id)
+        .to_string();
     Crystal {
         id,
         content: row["content"].as_str().unwrap_or("").to_string(),
@@ -186,13 +207,16 @@ impl StoragePort for SurrealHttpStorage {
 
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError> {
         let id = sanitize_id(id)?;
-        let sql = format!("SELECT * FROM verdict WHERE verdict_id = '{}' LIMIT 1", id);
+        let sql = format!("SELECT * FROM verdict WHERE verdict_id = '{id}' LIMIT 1");
         let rows = self.query_one(&sql).await?;
         Ok(rows.first().map(row_to_verdict))
     }
 
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError> {
-        let sql = format!("SELECT * FROM verdict ORDER BY created_at DESC LIMIT {}", safe_limit(limit));
+        let sql = format!(
+            "SELECT * FROM verdict ORDER BY created_at DESC LIMIT {}",
+            safe_limit(limit)
+        );
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_verdict).collect())
     }
@@ -209,9 +233,14 @@ impl StoragePort for SurrealHttpStorage {
         let safe_id = sanitize_id(&crystal.id)?;
         let sql = format!(
             "UPSERT crystal:`{}` SET content = '{}', domain = '{}', confidence = {}, observations = {}, state = '{}', created_at = '{}', updated_at = '{}'",
-            safe_id, escape(&crystal.content), escape(&crystal.domain),
-            crystal.confidence, crystal.observations, state_str,
-            escape(&crystal.created_at), escape(&crystal.updated_at)
+            safe_id,
+            escape(&crystal.content),
+            escape(&crystal.domain),
+            crystal.confidence,
+            crystal.observations,
+            state_str,
+            escape(&crystal.created_at),
+            escape(&crystal.updated_at)
         );
         self.query_one(&sql).await?;
         Ok(())
@@ -219,7 +248,7 @@ impl StoragePort for SurrealHttpStorage {
 
     async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError> {
         let id = sanitize_id(id)?;
-        let sql = format!("SELECT * FROM crystal:`{}`", id);
+        let sql = format!("SELECT * FROM crystal:`{id}`");
         let rows = self.query_one(&sql).await?;
         Ok(rows.first().map(row_to_crystal))
     }
@@ -236,7 +265,12 @@ impl StoragePort for SurrealHttpStorage {
         Ok(rows.iter().map(row_to_crystal).collect())
     }
 
-    async fn list_crystals_filtered(&self, limit: u32, domain: Option<&str>, state: Option<&str>) -> Result<Vec<Crystal>, StorageError> {
+    async fn list_crystals_filtered(
+        &self,
+        limit: u32,
+        domain: Option<&str>,
+        state: Option<&str>,
+    ) -> Result<Vec<Crystal>, StorageError> {
         let mut conditions = Vec::new();
         if let Some(d) = domain {
             conditions.push(format!("domain = '{}'", escape_surreal(d)));
@@ -251,7 +285,8 @@ impl StoragePort for SurrealHttpStorage {
         };
         let sql = format!(
             "SELECT * FROM crystal {} ORDER BY state ASC, confidence DESC LIMIT {}",
-            where_clause, safe_limit(limit),
+            where_clause,
+            safe_limit(limit),
         );
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_crystal).collect())
@@ -259,12 +294,16 @@ impl StoragePort for SurrealHttpStorage {
 
     async fn delete_crystal(&self, id: &str) -> Result<(), StorageError> {
         let safe_id = sanitize_id(id)?;
-        let sql = format!("DELETE crystal:`{}`", safe_id);
+        let sql = format!("DELETE crystal:`{safe_id}`");
         self.query_one(&sql).await?;
         Ok(())
     }
 
-    async fn list_crystals_for_domain(&self, domain: &str, limit: u32) -> Result<Vec<Crystal>, StorageError> {
+    async fn list_crystals_for_domain(
+        &self,
+        domain: &str,
+        limit: u32,
+    ) -> Result<Vec<Crystal>, StorageError> {
         let safe_domain = escape_surreal(domain);
         let sql = format!(
             "SELECT * FROM crystal \
@@ -272,13 +311,21 @@ impl StoragePort for SurrealHttpStorage {
              AND (state = 'crystallized' OR state = 'canonical') \
              ORDER BY confidence DESC \
              LIMIT {limit}",
-            domain = safe_domain, limit = safe_limit(limit),
+            domain = safe_domain,
+            limit = safe_limit(limit),
         );
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_crystal).collect())
     }
 
-    async fn observe_crystal(&self, id: &str, content: &str, domain: &str, score: f64, timestamp: &str) -> Result<(), StorageError> {
+    async fn observe_crystal(
+        &self,
+        id: &str,
+        content: &str,
+        domain: &str,
+        score: f64,
+        timestamp: &str,
+    ) -> Result<(), StorageError> {
         let safe_id = sanitize_id(id)?;
 
         // Atomic observe: LET binds + UPDATE avoids TOCTOU race.
@@ -325,38 +372,44 @@ impl StoragePort for SurrealHttpStorage {
         Ok(())
     }
 
-    async fn store_crystal_embedding(&self, id: &str, embedding: &[f32]) -> Result<(), StorageError> {
+    async fn store_crystal_embedding(
+        &self,
+        id: &str,
+        embedding: &[f32],
+    ) -> Result<(), StorageError> {
         let safe_id = sanitize_id(id)?;
         // Serialize Vec<f32> as SurrealQL array literal (NaN/Inf → 0.0)
-        let vec_str: String = embedding.iter()
+        let vec_str: String = embedding
+            .iter()
             .map(|v| if v.is_finite() { *v } else { 0.0f32 })
-            .map(|v| format!("{}", v))
+            .map(|v| format!("{v}"))
             .collect::<Vec<_>>()
             .join(",");
-        let sql = format!(
-            "UPDATE crystal:`{id}` SET embedding = [{vec}]",
-            id = safe_id, vec = vec_str,
-        );
+        let sql = format!("UPDATE crystal:`{safe_id}` SET embedding = [{vec_str}]",);
         self.query_one(&sql).await?;
         Ok(())
     }
 
-    async fn search_crystals_semantic(&self, query_embedding: &[f32], limit: u32) -> Result<Vec<Crystal>, StorageError> {
+    async fn search_crystals_semantic(
+        &self,
+        query_embedding: &[f32],
+        limit: u32,
+    ) -> Result<Vec<Crystal>, StorageError> {
         let k = safe_limit(limit).min(20); // Cap KNN at 20
-        let vec_str: String = query_embedding.iter()
+        let vec_str: String = query_embedding
+            .iter()
             .map(|v| if v.is_finite() { *v } else { 0.0f32 })
-            .map(|v| format!("{}", v))
+            .map(|v| format!("{v}"))
             .collect::<Vec<_>>()
             .join(",");
         // KNN search with HNSW index, filter to mature crystals only
         let sql = format!(
-            "LET $q = [{vec}]; \
+            "LET $q = [{vec_str}]; \
              SELECT *, vector::similarity::cosine(embedding, $q) AS similarity \
              FROM crystal \
              WHERE embedding <|{k},40|> $q \
              AND (state = 'crystallized' OR state = 'canonical') \
              ORDER BY similarity DESC;",
-            vec = vec_str, k = k,
         );
         let results = self.query(&sql).await?;
         // Multi-statement: LET returns empty, SELECT is the second result set
@@ -364,32 +417,41 @@ impl StoragePort for SurrealHttpStorage {
         Ok(rows.iter().map(row_to_crystal).collect())
     }
 
-    async fn find_similar_crystal(&self, embedding: &[f32], domain: &str, threshold: f64) -> Result<Option<(String, f64)>, StorageError> {
+    async fn find_similar_crystal(
+        &self,
+        embedding: &[f32],
+        domain: &str,
+        threshold: f64,
+    ) -> Result<Option<(String, f64)>, StorageError> {
         let safe_domain = escape_surreal(domain);
-        let vec_str: String = embedding.iter()
+        let vec_str: String = embedding
+            .iter()
             .map(|v| if v.is_finite() { *v } else { 0.0f32 })
-            .map(|v| format!("{}", v))
+            .map(|v| format!("{v}"))
             .collect::<Vec<_>>()
             .join(",");
         // KNN search across ALL crystal states (including Forming) within domain.
         // Used for merging: "1. e4 c5" and "1. e4 c5 — Sicilian Defense" should
         // accumulate observations on the same crystal, not fragment into separate ones.
         let sql = format!(
-            "LET $q = [{vec}]; \
+            "LET $q = [{vec_str}]; \
              SELECT meta::id(id) AS crystal_id, vector::similarity::cosine(embedding, $q) AS similarity \
              FROM crystal \
              WHERE embedding <|5,40|> $q \
-             AND domain = '{domain}' \
+             AND domain = '{safe_domain}' \
              ORDER BY similarity DESC \
              LIMIT 1;",
-            vec = vec_str, domain = safe_domain,
         );
         let results = self.query(&sql).await?;
         let rows = results.into_iter().nth(1).unwrap_or_default();
         if let Some(row) = rows.first() {
-            let sim = row.get("similarity").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let sim = row
+                .get("similarity")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
             if sim >= threshold {
-                let id = row.get("crystal_id")
+                let id = row
+                    .get("crystal_id")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
@@ -426,7 +488,12 @@ impl StoragePort for SurrealHttpStorage {
         Ok(())
     }
 
-    async fn query_observations(&self, project: &str, domain: Option<&str>, limit: u32) -> Result<Vec<ObservationFrequency>, StorageError> {
+    async fn query_observations(
+        &self,
+        project: &str,
+        domain: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<ObservationFrequency>, StorageError> {
         let limit = safe_limit(limit);
         let domain_clause = match domain {
             Some(d) => format!(" AND domain = '{}'", escape_surreal(d)),
@@ -436,33 +503,49 @@ impl StoragePort for SurrealHttpStorage {
             "SELECT target, tool, count() AS freq FROM observation \
              WHERE project = '{}'{} \
              GROUP BY target, tool ORDER BY freq DESC LIMIT {};",
-            escape_surreal(project), domain_clause, limit,
+            escape_surreal(project),
+            domain_clause,
+            limit,
         );
         let rows = self.query_one(&sql).await?;
-        Ok(rows.iter().map(|r| ObservationFrequency {
-            target: r["target"].as_str().unwrap_or("").to_string(),
-            tool: r["tool"].as_str().unwrap_or("").to_string(),
-            freq: r["freq"].as_u64().unwrap_or(0),
-        }).collect())
+        Ok(rows
+            .iter()
+            .map(|r| ObservationFrequency {
+                target: r["target"].as_str().unwrap_or("").to_string(),
+                tool: r["tool"].as_str().unwrap_or("").to_string(),
+                freq: r["freq"].as_u64().unwrap_or(0),
+            })
+            .collect())
     }
 
-    async fn query_session_targets(&self, project: &str, limit: u32) -> Result<Vec<SessionTarget>, StorageError> {
+    async fn query_session_targets(
+        &self,
+        project: &str,
+        limit: u32,
+    ) -> Result<Vec<SessionTarget>, StorageError> {
         let limit = limit.min(1000);
         let sql = format!(
             "SELECT agent_id AS session_id, target FROM observation \
              WHERE project = '{}' AND agent_id != '' AND agent_id != 'unknown' \
              AND tool IN ['Edit', 'Write', 'Read'] \
              ORDER BY agent_id, target LIMIT {};",
-            escape_surreal(project), limit,
+            escape_surreal(project),
+            limit,
         );
         let rows = self.query_one(&sql).await?;
-        Ok(rows.iter().map(|r| SessionTarget {
-            session_id: r["session_id"].as_str().unwrap_or("").to_string(),
-            target: r["target"].as_str().unwrap_or("").to_string(),
-        }).collect())
+        Ok(rows
+            .iter()
+            .map(|r| SessionTarget {
+                session_id: r["session_id"].as_str().unwrap_or("").to_string(),
+                target: r["target"].as_str().unwrap_or("").to_string(),
+            })
+            .collect())
     }
 
-    async fn store_session_summary(&self, summary: &crate::domain::ccm::SessionSummary) -> Result<(), StorageError> {
+    async fn store_session_summary(
+        &self,
+        summary: &crate::domain::ccm::SessionSummary,
+    ) -> Result<(), StorageError> {
         // Record key = session_id → idempotent UPSERT, no duplicates (H4 fix)
         let safe_key = sanitize_record_id(&summary.session_id);
         let sql = format!(
@@ -482,22 +565,32 @@ impl StoragePort for SurrealHttpStorage {
         Ok(())
     }
 
-    async fn list_session_summaries(&self, limit: u32) -> Result<Vec<crate::domain::ccm::SessionSummary>, StorageError> {
+    async fn list_session_summaries(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::ccm::SessionSummary>, StorageError> {
         let sql = format!(
             "SELECT * FROM session_summary ORDER BY created_at DESC LIMIT {}",
             safe_limit(limit),
         );
         let rows = self.query_one(&sql).await?;
-        Ok(rows.iter().map(|row| crate::domain::ccm::SessionSummary {
-            session_id: row["session_id"].as_str().unwrap_or("").to_string(),
-            agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
-            summary: row["summary"].as_str().unwrap_or("").to_string(),
-            observations_count: row["observations_count"].as_u64().unwrap_or(0) as u32,
-            created_at: row["created_at"].as_str().unwrap_or("").to_string(),
-        }).collect())
+        Ok(rows
+            .iter()
+            .map(|row| crate::domain::ccm::SessionSummary {
+                session_id: row["session_id"].as_str().unwrap_or("").to_string(),
+                agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
+                summary: row["summary"].as_str().unwrap_or("").to_string(),
+                observations_count: row["observations_count"].as_u64().unwrap_or(0) as u32,
+                created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+            })
+            .collect())
     }
 
-    async fn get_unsummarized_sessions(&self, min_observations: u32, limit: u32) -> Result<Vec<(String, String, u32)>, StorageError> {
+    async fn get_unsummarized_sessions(
+        &self,
+        min_observations: u32,
+        limit: u32,
+    ) -> Result<Vec<(String, String, u32)>, StorageError> {
         // SurrealDB 3.x: no HAVING clause. Filter in Rust after GROUP BY.
         // NOT IN subquery filters out already-summarized sessions.
         let sql = format!(
@@ -511,18 +604,24 @@ impl StoragePort for SurrealHttpStorage {
             safe_limit(limit),
         );
         let rows = self.query_one(&sql).await?;
-        Ok(rows.iter().filter_map(|row| {
-            let agent_id = row["agent_id"].as_str().unwrap_or("").to_string();
-            let count = row["obs_count"].as_u64().unwrap_or(0) as u32;
-            if count >= min_observations {
-                Some((agent_id.clone(), agent_id, count))
-            } else {
-                None
-            }
-        }).collect())
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                let agent_id = row["agent_id"].as_str().unwrap_or("").to_string();
+                let count = row["obs_count"].as_u64().unwrap_or(0) as u32;
+                if count >= min_observations {
+                    Some((agent_id.clone(), agent_id, count))
+                } else {
+                    None
+                }
+            })
+            .collect())
     }
 
-    async fn get_session_observations(&self, session_id: &str) -> Result<Vec<RawObservation>, StorageError> {
+    async fn get_session_observations(
+        &self,
+        session_id: &str,
+    ) -> Result<Vec<RawObservation>, StorageError> {
         let sql = format!(
             "SELECT tool, target, domain, status, context, created_at FROM observation \
              WHERE agent_id = '{}' ORDER BY created_at ASC LIMIT 50;",
@@ -532,7 +631,10 @@ impl StoragePort for SurrealHttpStorage {
         Ok(rows.iter().map(row_to_raw_observation).collect())
     }
 
-    async fn flush_usage(&self, snapshot: &[(String, crate::domain::usage::DogUsage)]) -> Result<(), StorageError> {
+    async fn flush_usage(
+        &self,
+        snapshot: &[(String, crate::domain::usage::DogUsage)],
+    ) -> Result<(), StorageError> {
         if snapshot.is_empty() {
             return Ok(());
         }
@@ -544,7 +646,8 @@ impl StoragePort for SurrealHttpStorage {
             use std::fmt::Write;
             let id_key = sanitize_record_id(dog_id);
             let id_val = escape_surreal(dog_id);
-            let _ = write!(sql, // ok: fmt::Write on String is infallible
+            let _ = write!(
+                sql, // ok: fmt::Write on String is infallible
                 "UPSERT dog_usage:`{id_key}` SET \
                     dog_id = '{id_val}', \
                     prompt_tokens = {pt}, \
@@ -553,9 +656,13 @@ impl StoragePort for SurrealHttpStorage {
                     failures = {fail}, \
                     total_latency_ms = {lat}, \
                     updated_at = time::now(); ",
-                id_key = id_key, id_val = id_val,
-                pt = u.prompt_tokens, ct = u.completion_tokens,
-                req = u.requests, fail = u.failures, lat = u.total_latency_ms,
+                id_key = id_key,
+                id_val = id_val,
+                pt = u.prompt_tokens,
+                ct = u.completion_tokens,
+                req = u.requests,
+                fail = u.failures,
+                lat = u.total_latency_ms,
             );
         }
         self.query(&sql).await?;
@@ -564,15 +671,20 @@ impl StoragePort for SurrealHttpStorage {
 
     async fn cleanup_ttl(&self) -> Result<(), StorageError> {
         self.query_one("DELETE observation WHERE created_at < time::now() - 30d;")
-            .await.map_err(|e| StorageError::QueryFailed(format!("TTL cleanup observation: {}", e)))?;
+            .await
+            .map_err(|e| StorageError::QueryFailed(format!("TTL cleanup observation: {e}")))?;
         self.query_one("DELETE mcp_audit WHERE ts < time::now() - 7d;")
-            .await.map_err(|e| StorageError::QueryFailed(format!("TTL cleanup mcp_audit: {}", e)))?;
+            .await
+            .map_err(|e| StorageError::QueryFailed(format!("TTL cleanup mcp_audit: {e}")))?;
         Ok(())
     }
 
     async fn last_integrity_hash(&self) -> Result<Option<String>, StorageError> {
-        let rows = self.query_one("SELECT integrity_hash FROM verdict ORDER BY created_at DESC LIMIT 1;").await?;
-        Ok(rows.first()
+        let rows = self
+            .query_one("SELECT integrity_hash FROM verdict ORDER BY created_at DESC LIMIT 1;")
+            .await?;
+        Ok(rows
+            .first()
             .and_then(|r| r["integrity_hash"].as_str())
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string()))
@@ -580,17 +692,23 @@ impl StoragePort for SurrealHttpStorage {
 
     async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
         let rows = self.query_one("SELECT * FROM dog_usage;").await?;
-        Ok(rows.iter().map(|r| UsageRow {
-            dog_id: r["dog_id"].as_str().unwrap_or("").to_string(),
-            prompt_tokens: r["prompt_tokens"].as_u64().unwrap_or(0),
-            completion_tokens: r["completion_tokens"].as_u64().unwrap_or(0),
-            requests: r["requests"].as_u64().unwrap_or(0),
-            failures: r["failures"].as_u64().unwrap_or(0),
-            total_latency_ms: r["total_latency_ms"].as_u64().unwrap_or(0),
-        }).collect())
+        Ok(rows
+            .iter()
+            .map(|r| UsageRow {
+                dog_id: r["dog_id"].as_str().unwrap_or("").to_string(),
+                prompt_tokens: r["prompt_tokens"].as_u64().unwrap_or(0),
+                completion_tokens: r["completion_tokens"].as_u64().unwrap_or(0),
+                requests: r["requests"].as_u64().unwrap_or(0),
+                failures: r["failures"].as_u64().unwrap_or(0),
+                total_latency_ms: r["total_latency_ms"].as_u64().unwrap_or(0),
+            })
+            .collect())
     }
 
-    async fn list_crystals_missing_embedding(&self, limit: u32) -> Result<Vec<Crystal>, StorageError> {
+    async fn list_crystals_missing_embedding(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<Crystal>, StorageError> {
         // Internal migration query — not user-facing. Cap at 500, not safe_limit(100).
         let sql = format!(
             "SELECT * FROM crystal WHERE embedding IS NONE OR embedding = [] LIMIT {}",
@@ -601,16 +719,25 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn count_verdicts(&self) -> Result<u64, StorageError> {
-        let rows = self.query_one("SELECT count() AS total FROM verdict GROUP ALL;").await?;
+        let rows = self
+            .query_one("SELECT count() AS total FROM verdict GROUP ALL;")
+            .await?;
         Ok(rows.first().and_then(|r| r["total"].as_u64()).unwrap_or(0))
     }
 
     async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
-        let rows = self.query_one("SELECT math::sum(observations) AS total FROM crystal GROUP ALL;").await?;
+        let rows = self
+            .query_one("SELECT math::sum(observations) AS total FROM crystal GROUP ALL;")
+            .await?;
         Ok(rows.first().and_then(|r| r["total"].as_u64()).unwrap_or(0))
     }
 
-    async fn list_observations_raw(&self, domain: Option<&str>, agent_id: Option<&str>, limit: u32) -> Result<Vec<RawObservation>, StorageError> {
+    async fn list_observations_raw(
+        &self,
+        domain: Option<&str>,
+        agent_id: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError> {
         let mut conditions = Vec::new();
         if let Some(d) = domain {
             conditions.push(format!("domain = '{}'", escape_surreal(d)));
@@ -625,7 +752,8 @@ impl StoragePort for SurrealHttpStorage {
         };
         let sql = format!(
             "SELECT * FROM observation {} ORDER BY created_at DESC LIMIT {}",
-            where_clause, safe_limit(limit),
+            where_clause,
+            safe_limit(limit),
         );
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_raw_observation).collect())
@@ -653,7 +781,7 @@ fn sanitize_record_id(s: &str) -> String {
             // Non-ASCII: encode each UTF-8 byte
             let mut buf = [0u8; 4];
             for b in c.encode_utf8(&mut buf).bytes() {
-                out.push_str(&format!("%{:02x}", b));
+                out.push_str(&format!("%{b:02x}"));
             }
         }
     }
@@ -662,7 +790,12 @@ fn sanitize_record_id(s: &str) -> String {
 
 #[async_trait::async_trait]
 impl CoordPort for SurrealHttpStorage {
-    async fn register_agent(&self, agent_id: &str, agent_type: &str, intent: &str) -> Result<(), CoordError> {
+    async fn register_agent(
+        &self,
+        agent_id: &str,
+        agent_type: &str,
+        intent: &str,
+    ) -> Result<(), CoordError> {
         let sql = format!(
             "UPSERT agent_session:`{id_key}` SET \
                 agent_id = '{id_val}', agent_type = '{agent_type}', intent = '{intent}', \
@@ -672,11 +805,18 @@ impl CoordPort for SurrealHttpStorage {
             agent_type = escape_surreal(agent_type),
             intent = escape_surreal(intent),
         );
-        self.query_one(&sql).await.map_err(|e| CoordError::StorageFailed(format!("Register: {}", e)))?;
+        self.query_one(&sql)
+            .await
+            .map_err(|e| CoordError::StorageFailed(format!("Register: {e}")))?;
         Ok(())
     }
 
-    async fn claim(&self, agent_id: &str, target: &str, claim_type: &str) -> Result<ClaimResult, CoordError> {
+    async fn claim(
+        &self,
+        agent_id: &str,
+        target: &str,
+        claim_type: &str,
+    ) -> Result<ClaimResult, CoordError> {
         // Single-row-per-target: UPSERT uses `target` as the record key (not agent_id+target).
         // This ensures two agents racing on the same target write to the SAME row.
         // The last writer wins the UPSERT; the post-check reads back to see who owns it.
@@ -689,13 +829,18 @@ impl CoordPort for SurrealHttpStorage {
             key = target_key,
             agent_id = escape_surreal(agent_id),
         );
-        let existing = self.query_one(&check_sql).await
-            .map_err(|e| CoordError::StorageFailed(format!("Claim check: {}", e)))?;
+        let existing = self
+            .query_one(&check_sql)
+            .await
+            .map_err(|e| CoordError::StorageFailed(format!("Claim check: {e}")))?;
         if !existing.is_empty() {
-            let infos = existing.iter().map(|c| ConflictInfo {
-                agent_id: c["agent_id"].as_str().unwrap_or("?").to_string(),
-                claimed_at: c["claimed_at"].as_str().unwrap_or("?").to_string(),
-            }).collect();
+            let infos = existing
+                .iter()
+                .map(|c| ConflictInfo {
+                    agent_id: c["agent_id"].as_str().unwrap_or("?").to_string(),
+                    claimed_at: c["claimed_at"].as_str().unwrap_or("?").to_string(),
+                })
+                .collect();
             return Ok(ClaimResult::Conflict(infos));
         }
 
@@ -709,25 +854,25 @@ impl CoordPort for SurrealHttpStorage {
             target = escape_surreal(target),
             claim_type = escape_surreal(claim_type),
         );
-        self.query_one(&upsert_sql).await
-            .map_err(|e| CoordError::StorageFailed(format!("Claim upsert: {}", e)))?;
+        self.query_one(&upsert_sql)
+            .await
+            .map_err(|e| CoordError::StorageFailed(format!("Claim upsert: {e}")))?;
 
         // Post-check: read back to verify we own it (another agent may have raced us)
-        let verify_sql = format!(
-            "SELECT agent_id FROM work_claim:`{key}` WHERE active = true;",
-            key = target_key,
-        );
-        let owner = self.query_one(&verify_sql).await
-            .map_err(|e| {
-                tracing::warn!(error = %e, target = %target, "claim verification query failed");
-                CoordError::StorageFailed(format!("Claim verify: {}", e))
-            })?;
-        let we_own = owner.first()
+        let verify_sql =
+            format!("SELECT agent_id FROM work_claim:`{target_key}` WHERE active = true;",);
+        let owner = self.query_one(&verify_sql).await.map_err(|e| {
+            tracing::warn!(error = %e, target = %target, "claim verification query failed");
+            CoordError::StorageFailed(format!("Claim verify: {e}"))
+        })?;
+        let we_own = owner
+            .first()
             .and_then(|r| r["agent_id"].as_str())
             .is_some_and(|id| id == agent_id);
         if !we_own {
             return Ok(ClaimResult::Conflict(vec![ConflictInfo {
-                agent_id: owner.first()
+                agent_id: owner
+                    .first()
                     .and_then(|r| r["agent_id"].as_str())
                     .unwrap_or("unknown")
                     .to_string(),
@@ -744,17 +889,24 @@ impl CoordPort for SurrealHttpStorage {
     async fn release(&self, agent_id: &str, target: Option<&str>) -> Result<String, CoordError> {
         let (sql, desc) = match target {
             Some(t) => (
-                format!("UPDATE work_claim SET active = false WHERE agent_id = '{}' AND target = '{}' AND active = true;",
-                    escape_surreal(agent_id), escape_surreal(t)),
-                format!("Released '{}' for agent '{}'.", t, agent_id),
+                format!(
+                    "UPDATE work_claim SET active = false WHERE agent_id = '{}' AND target = '{}' AND active = true;",
+                    escape_surreal(agent_id),
+                    escape_surreal(t)
+                ),
+                format!("Released '{t}' for agent '{agent_id}'."),
             ),
             None => (
-                format!("UPDATE work_claim SET active = false WHERE agent_id = '{}' AND active = true;",
-                    escape_surreal(agent_id)),
-                format!("Released ALL claims for agent '{}'.", agent_id),
+                format!(
+                    "UPDATE work_claim SET active = false WHERE agent_id = '{}' AND active = true;",
+                    escape_surreal(agent_id)
+                ),
+                format!("Released ALL claims for agent '{agent_id}'."),
             ),
         };
-        self.query_one(&sql).await.map_err(|e| CoordError::StorageFailed(format!("Release: {}", e)))?;
+        self.query_one(&sql)
+            .await
+            .map_err(|e| CoordError::StorageFailed(format!("Release: {e}")))?;
         if target.is_none() && self.deactivate_agent(agent_id).await.is_err() {
             // Already logged inside deactivate_agent
         }
@@ -769,7 +921,10 @@ impl CoordPort for SurrealHttpStorage {
             tracing::warn!(error = %e, "coord TTL expiry (claims) failed");
         }
         let session_sql = match agent_id_filter {
-            Some(id) => format!("SELECT * FROM agent_session WHERE agent_id = '{}' AND active = true;", escape_surreal(id)),
+            Some(id) => format!(
+                "SELECT * FROM agent_session WHERE agent_id = '{}' AND active = true;",
+                escape_surreal(id)
+            ),
             None => "SELECT * FROM agent_session WHERE active = true;".to_string(),
         };
         let agent_rows = match self.query_one(&session_sql).await {
@@ -779,17 +934,23 @@ impl CoordPort for SurrealHttpStorage {
                 Vec::new()
             }
         };
-        let agents: Vec<AgentInfo> = agent_rows.iter().map(|r| AgentInfo {
-            agent_id: r["agent_id"].as_str().unwrap_or("").to_string(),
-            agent_type: r["agent_type"].as_str().unwrap_or("").to_string(),
-            intent: r["intent"].as_str().unwrap_or("").to_string(),
-            active: r["active"].as_bool().unwrap_or(false),
-            registered_at: r["registered_at"].as_str().unwrap_or("").to_string(),
-            last_seen: r["last_seen"].as_str().unwrap_or("").to_string(),
-            id: r["id"].as_str().unwrap_or("").to_string(),
-        }).collect();
+        let agents: Vec<AgentInfo> = agent_rows
+            .iter()
+            .map(|r| AgentInfo {
+                agent_id: r["agent_id"].as_str().unwrap_or("").to_string(),
+                agent_type: r["agent_type"].as_str().unwrap_or("").to_string(),
+                intent: r["intent"].as_str().unwrap_or("").to_string(),
+                active: r["active"].as_bool().unwrap_or(false),
+                registered_at: r["registered_at"].as_str().unwrap_or("").to_string(),
+                last_seen: r["last_seen"].as_str().unwrap_or("").to_string(),
+                id: r["id"].as_str().unwrap_or("").to_string(),
+            })
+            .collect();
         let claims_sql = match agent_id_filter {
-            Some(id) => format!("SELECT * FROM work_claim WHERE agent_id = '{}' AND active = true;", escape_surreal(id)),
+            Some(id) => format!(
+                "SELECT * FROM work_claim WHERE agent_id = '{}' AND active = true;",
+                escape_surreal(id)
+            ),
             None => "SELECT * FROM work_claim WHERE active = true;".to_string(),
         };
         let claim_rows = match self.query_one(&claims_sql).await {
@@ -799,22 +960,32 @@ impl CoordPort for SurrealHttpStorage {
                 Vec::new()
             }
         };
-        let claims: Vec<ClaimEntry> = claim_rows.iter().map(|r| ClaimEntry {
-            agent_id: r["agent_id"].as_str().unwrap_or("").to_string(),
-            target: r["target"].as_str().unwrap_or("").to_string(),
-            claim_type: r["claim_type"].as_str().unwrap_or("").to_string(),
-            active: r["active"].as_bool().unwrap_or(false),
-            claimed_at: r["claimed_at"].as_str().unwrap_or("").to_string(),
-            id: r["id"].as_str().unwrap_or("").to_string(),
-        }).collect();
+        let claims: Vec<ClaimEntry> = claim_rows
+            .iter()
+            .map(|r| ClaimEntry {
+                agent_id: r["agent_id"].as_str().unwrap_or("").to_string(),
+                target: r["target"].as_str().unwrap_or("").to_string(),
+                claim_type: r["claim_type"].as_str().unwrap_or("").to_string(),
+                active: r["active"].as_bool().unwrap_or(false),
+                claimed_at: r["claimed_at"].as_str().unwrap_or("").to_string(),
+                id: r["id"].as_str().unwrap_or("").to_string(),
+            })
+            .collect();
         Ok(CoordSnapshot { agents, claims })
     }
 
-    async fn store_audit(&self, tool: &str, agent_id: &str, details: &str) -> Result<(), CoordError> {
+    async fn store_audit(
+        &self,
+        tool: &str,
+        agent_id: &str,
+        details: &str,
+    ) -> Result<(), CoordError> {
         let safe_details = escape_surreal(details);
         let query = format!(
             "CREATE mcp_audit SET ts = time::now(), tool = '{}', agent_id = '{}', details = '{}';",
-            escape_surreal(tool), escape_surreal(agent_id), safe_details,
+            escape_surreal(tool),
+            escape_surreal(agent_id),
+            safe_details,
         );
         if let Err(e) = self.query(&query).await {
             tracing::warn!(tool = %tool, agent_id = %agent_id, error = %e, "store_audit failed");
@@ -822,64 +993,107 @@ impl CoordPort for SurrealHttpStorage {
         Ok(())
     }
 
-    async fn query_audit(&self, tool_filter: Option<&str>, agent_filter: Option<&str>, limit: u32) -> Result<Vec<AuditEntry>, CoordError> {
+    async fn query_audit(
+        &self,
+        tool_filter: Option<&str>,
+        agent_filter: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<AuditEntry>, CoordError> {
         let limit = limit.min(100);
         let mut conditions = Vec::new();
-        if let Some(tool) = tool_filter { conditions.push(format!("tool = '{}'", escape_surreal(tool))); }
-        if let Some(agent) = agent_filter { conditions.push(format!("agent_id = '{}'", escape_surreal(agent))); }
-        let where_clause = if conditions.is_empty() { String::new() } else { format!(" WHERE {}", conditions.join(" AND ")) };
-        let query = format!("SELECT * FROM mcp_audit{} ORDER BY ts DESC LIMIT {};", where_clause, limit);
-        let rows = self.query_one(&query).await.map_err(|e| CoordError::StorageFailed(format!("Audit query: {}", e)))?;
-        Ok(rows.iter().map(|r| AuditEntry {
-            ts: r["ts"].as_str().unwrap_or("").to_string(),
-            tool: r["tool"].as_str().unwrap_or("").to_string(),
-            agent_id: r["agent_id"].as_str().unwrap_or("").to_string(),
-            details: r["details"].as_str().unwrap_or("").to_string(),
-            id: r["id"].as_str().unwrap_or("").to_string(),
-        }).collect())
+        if let Some(tool) = tool_filter {
+            conditions.push(format!("tool = '{}'", escape_surreal(tool)));
+        }
+        if let Some(agent) = agent_filter {
+            conditions.push(format!("agent_id = '{}'", escape_surreal(agent)));
+        }
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", conditions.join(" AND "))
+        };
+        let query =
+            format!("SELECT * FROM mcp_audit{where_clause} ORDER BY ts DESC LIMIT {limit};");
+        let rows = self
+            .query_one(&query)
+            .await
+            .map_err(|e| CoordError::StorageFailed(format!("Audit query: {e}")))?;
+        Ok(rows
+            .iter()
+            .map(|r| AuditEntry {
+                ts: r["ts"].as_str().unwrap_or("").to_string(),
+                tool: r["tool"].as_str().unwrap_or("").to_string(),
+                agent_id: r["agent_id"].as_str().unwrap_or("").to_string(),
+                details: r["details"].as_str().unwrap_or("").to_string(),
+                id: r["id"].as_str().unwrap_or("").to_string(),
+            })
+            .collect())
     }
 
     async fn heartbeat(&self, agent_id: &str) -> Result<(), CoordError> {
-        self.query_one(&format!("UPDATE agent_session:`{}` SET last_seen = time::now();", sanitize_record_id(agent_id))).await
-            .map_err(|e| {
-                tracing::warn!(error = %e, agent_id, "heartbeat query failed");
-                CoordError::StorageFailed(format!("Heartbeat: {}", e))
-            })?;
+        self.query_one(&format!(
+            "UPDATE agent_session:`{}` SET last_seen = time::now();",
+            sanitize_record_id(agent_id)
+        ))
+        .await
+        .map_err(|e| {
+            tracing::warn!(error = %e, agent_id, "heartbeat query failed");
+            CoordError::StorageFailed(format!("Heartbeat: {e}"))
+        })?;
         Ok(())
     }
 
     async fn deactivate_agent(&self, agent_id: &str) -> Result<(), CoordError> {
-        self.query_one(&format!("UPDATE agent_session:`{}` SET active = false, last_seen = time::now();", sanitize_record_id(agent_id))).await
-            .map_err(|e| {
-                tracing::warn!(error = %e, agent_id, "deactivate_agent query failed");
-                CoordError::StorageFailed(format!("Deactivate: {}", e))
-            })?;
+        self.query_one(&format!(
+            "UPDATE agent_session:`{}` SET active = false, last_seen = time::now();",
+            sanitize_record_id(agent_id)
+        ))
+        .await
+        .map_err(|e| {
+            tracing::warn!(error = %e, agent_id, "deactivate_agent query failed");
+            CoordError::StorageFailed(format!("Deactivate: {e}"))
+        })?;
         Ok(())
     }
 
-    async fn claim_batch(&self, agent_id: &str, targets: &[String], claim_type: &str) -> Result<BatchClaimResult, CoordError> {
+    async fn claim_batch(
+        &self,
+        agent_id: &str,
+        targets: &[String],
+        claim_type: &str,
+    ) -> Result<BatchClaimResult, CoordError> {
         use crate::domain::coord::BatchClaimResult;
 
         if targets.is_empty() {
-            return Ok(BatchClaimResult { claimed: Vec::new(), conflicts: Vec::new() });
+            return Ok(BatchClaimResult {
+                claimed: Vec::new(),
+                conflicts: Vec::new(),
+            });
         }
         if targets.len() > 20 {
-            return Err(CoordError::InvalidInput("batch claim limited to 20 targets".into()));
+            return Err(CoordError::InvalidInput(
+                "batch claim limited to 20 targets".into(),
+            ));
         }
 
         // Single query: check all conflicts at once
-        let target_list: Vec<String> = targets.iter()
+        let target_list: Vec<String> = targets
+            .iter()
             .map(|t| format!("'{}'", escape_surreal(t)))
             .collect();
         let check_sql = format!(
             "SELECT * FROM work_claim WHERE target IN [{}] AND agent_id != '{}' AND active = true;",
-            target_list.join(", "), escape_surreal(agent_id)
+            target_list.join(", "),
+            escape_surreal(agent_id)
         );
-        let conflict_rows = self.query_one(&check_sql).await
-            .map_err(|e| CoordError::StorageFailed(format!("Batch claim check: {}", e)))?;
+        let conflict_rows = self
+            .query_one(&check_sql)
+            .await
+            .map_err(|e| CoordError::StorageFailed(format!("Batch claim check: {e}")))?;
 
         // Index conflicts by target
-        let mut conflict_map: std::collections::HashMap<String, Vec<ConflictInfo>> = std::collections::HashMap::new();
+        let mut conflict_map: std::collections::HashMap<String, Vec<ConflictInfo>> =
+            std::collections::HashMap::new();
         for row in &conflict_rows {
             let target = row["target"].as_str().unwrap_or("").to_string();
             let info = ConflictInfo {
@@ -889,10 +1103,14 @@ impl CoordPort for SurrealHttpStorage {
             conflict_map.entry(target).or_default().push(info);
         }
 
-        let mut result = BatchClaimResult { claimed: Vec::new(), conflicts: Vec::new() };
+        let mut result = BatchClaimResult {
+            claimed: Vec::new(),
+            conflicts: Vec::new(),
+        };
 
         // Separate claimed vs conflicted
-        let claimable: Vec<&String> = targets.iter()
+        let claimable: Vec<&String> = targets
+            .iter()
             .filter(|t| !conflict_map.contains_key(t.as_str()))
             .collect();
 
@@ -907,7 +1125,8 @@ impl CoordPort for SurrealHttpStorage {
             let mut batch_sql = String::new();
             for target in &claimable {
                 use std::fmt::Write;
-                let _ = write!(batch_sql, // ok: fmt::Write on String
+                let _ = write!(
+                    batch_sql, // ok: fmt::Write on String
                     "UPSERT work_claim:`{target_key}` SET \
                         agent_id = '{agent_id}', target = '{target}', claim_type = '{claim_type}', \
                         claimed_at = time::now(), active = true; ",
@@ -917,12 +1136,14 @@ impl CoordPort for SurrealHttpStorage {
                     claim_type = escape_surreal(claim_type),
                 );
             }
-            self.query(&batch_sql).await
-                .map_err(|e| CoordError::StorageFailed(format!("Batch claim: {}", e)))?;
+            self.query(&batch_sql)
+                .await
+                .map_err(|e| CoordError::StorageFailed(format!("Batch claim: {e}")))?;
 
             // Post-check: read back to see who actually owns each target.
             // Between our check and UPSERT, another agent may have won the race.
-            let verify_list: Vec<String> = claimable.iter()
+            let verify_list: Vec<String> = claimable
+                .iter()
                 .map(|t| format!("work_claim:`{}`", sanitize_record_id(t)))
                 .collect();
             let verify_sql = format!("SELECT agent_id, target FROM {};", verify_list.join(", "));
@@ -933,7 +1154,8 @@ impl CoordPort for SurrealHttpStorage {
                     Vec::new()
                 }
             };
-            let owned_set: std::collections::HashSet<String> = owned.iter()
+            let owned_set: std::collections::HashSet<String> = owned
+                .iter()
                 .filter(|r| r["agent_id"].as_str() == Some(agent_id))
                 .filter_map(|r| r["target"].as_str().map(String::from))
                 .collect();
@@ -943,10 +1165,13 @@ impl CoordPort for SurrealHttpStorage {
                     result.claimed.push((*target).clone());
                 } else {
                     // Another agent won the race — report as conflict
-                    result.conflicts.push(((*target).clone(), vec![ConflictInfo {
-                        agent_id: "unknown (race)".into(),
-                        claimed_at: "just now".into(),
-                    }]));
+                    result.conflicts.push((
+                        (*target).clone(),
+                        vec![ConflictInfo {
+                            agent_id: "unknown (race)".into(),
+                            claimed_at: "just now".into(),
+                        }],
+                    ));
                 }
             }
         }
@@ -962,9 +1187,9 @@ impl CoordPort for SurrealHttpStorage {
     async fn expire_stale(&self) -> Result<(), CoordError> {
         // Two separate queries to avoid ordering dependency within a single batch
         self.query_one("UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;").await
-            .map_err(|e| CoordError::StorageFailed(format!("expire sessions: {}", e)))?;
+            .map_err(|e| CoordError::StorageFailed(format!("expire sessions: {e}")))?;
         self.query_one("UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await
-            .map_err(|e| CoordError::StorageFailed(format!("expire claims: {}", e)))?;
+            .map_err(|e| CoordError::StorageFailed(format!("expire claims: {e}")))?;
         Ok(())
     }
 }
@@ -972,21 +1197,31 @@ impl CoordPort for SurrealHttpStorage {
 // ── TESTS ────────────────────────────────────────────────────
 
 #[cfg(test)]
+#[allow(clippy::print_stderr)]
 mod tests {
     use super::*;
-    use crate::domain::dog::{AxiomReasoning, VerdictKind, QScore};
+    use crate::domain::dog::{AxiomReasoning, QScore, VerdictKind};
 
     fn test_verdict() -> Verdict {
         Verdict {
             id: "test-001".into(),
             kind: VerdictKind::Wag,
             q_score: QScore {
-                total: 0.5, fidelity: 0.5, phi: 0.5,
-                verify: 0.5, culture: 0.5, burn: 0.5, sovereignty: 0.5,
+                total: 0.5,
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
             },
             reasoning: AxiomReasoning {
-                fidelity: "solid".into(), phi: "humble".into(), verify: "checked".into(),
-                culture: "neutral".into(), burn: "concise".into(), sovereignty: "independent".into(),
+                fidelity: "solid".into(),
+                phi: "humble".into(),
+                verify: "checked".into(),
+                culture: "neutral".into(),
+                burn: "concise".into(),
+                sovereignty: "independent".into(),
             },
             dog_id: "deterministic".into(),
             stimulus_summary: "test stimulus".into(),
@@ -1108,18 +1343,25 @@ mod tests {
     fn who_with_agent_id_filters_active() {
         // Regression: who(Some(id)) must include `active = true` filter.
         let id = "test-agent";
-        let sql = format!("SELECT * FROM agent_session WHERE agent_id = '{}' AND active = true;", escape_surreal(id));
+        let sql = format!(
+            "SELECT * FROM agent_session WHERE agent_id = '{}' AND active = true;",
+            escape_surreal(id)
+        );
         assert!(sql.contains("AND active = true"));
     }
 
     #[tokio::test]
     async fn store_and_retrieve_verdict() {
         let storage = match SurrealHttpStorage::init_with(
-            "http://localhost:8000", "test_cynic", "ci"
-        ).await {
+            "http://localhost:8000",
+            "test_cynic",
+            "ci",
+        )
+        .await
+        {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("[SKIP] SurrealDB unavailable (localhost:8000): {} — skipping test", e);
+                eprintln!("[SKIP] SurrealDB unavailable (localhost:8000): {e} — skipping test");
                 return;
             }
         };
@@ -1127,14 +1369,19 @@ mod tests {
         let v = test_verdict();
         storage.store_verdict(&v).await.expect("store must succeed");
 
-        let retrieved = storage.get_verdict("test-001").await.expect("get must succeed");
+        let retrieved = storage
+            .get_verdict("test-001")
+            .await
+            .expect("get must succeed");
         assert!(retrieved.is_some());
         let r = retrieved.unwrap();
         assert_eq!(r.id, "test-001");
         assert_eq!(r.kind, VerdictKind::Wag);
 
         // Cleanup
-        let _ = storage.query_one("DELETE verdict WHERE verdict_id = 'test-001'").await;
+        let _ = storage
+            .query_one("DELETE verdict WHERE verdict_id = 'test-001'")
+            .await;
     }
 
     // ── RC4: sanitize_record_id tests ──────────────────────────
@@ -1144,15 +1391,21 @@ mod tests {
         // RC4: a-b and a.b must produce DIFFERENT keys
         let key1 = sanitize_record_id("a-b");
         let key2 = sanitize_record_id("a.b");
-        assert_ne!(key1, key2, "different inputs must produce different record IDs");
+        assert_ne!(
+            key1, key2,
+            "different inputs must produce different record IDs"
+        );
     }
 
     #[test]
     fn sanitize_record_id_no_collision_with_encoding_literal() {
         // Adversarial: literal "%2d" in input vs encoded "-" both must differ
-        let key_literal = sanitize_record_id("a%2db");   // % → %25, then literal 2db
-        let key_encoded = sanitize_record_id("a-b");     // - → %2d
-        assert_ne!(key_literal, key_encoded, "literal %2d must not collide with encoded dash");
+        let key_literal = sanitize_record_id("a%2db"); // % → %25, then literal 2db
+        let key_encoded = sanitize_record_id("a-b"); // - → %2d
+        assert_ne!(
+            key_literal, key_encoded,
+            "literal %2d must not collide with encoded dash"
+        );
     }
 
     #[test]

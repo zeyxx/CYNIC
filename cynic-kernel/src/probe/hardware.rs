@@ -12,7 +12,9 @@ pub(super) async fn probe_hardware() -> Result<HardwareInfo, tokio::task::JoinEr
         let mut sys = System::new_all();
         sys.refresh_all();
 
-        let cpu_model = sys.cpus().first()
+        let cpu_model = sys
+            .cpus()
+            .first()
             .map(|c| c.brand().to_string())
             .unwrap_or_else(|| "Unknown".into());
 
@@ -21,9 +23,14 @@ pub(super) async fn probe_hardware() -> Result<HardwareInfo, tokio::task::JoinEr
             cpu_cores: sys.cpus().len(),
             cpu_model,
         }
-    }).await?;
-    klog!("[Ring 0 / HW]  CPU: {} ({} cores) | RAM: {:.1} GB",
-        hw.cpu_model, hw.cpu_cores, hw.total_ram_gb);
+    })
+    .await?;
+    klog!(
+        "[Ring 0 / HW]  CPU: {} ({} cores) | RAM: {:.1} GB",
+        hw.cpu_model,
+        hw.cpu_cores,
+        hw.total_ram_gb
+    );
     Ok(hw)
 }
 
@@ -56,7 +63,12 @@ pub(super) async fn probe_compute() -> Result<ComputeInfo, tokio::task::JoinErro
         if Path::new("/dev/kfd").exists() {
             let info = detect_amd_via_sysfs(false);
             return SyncDetection::Complete(
-                ComputeInfo { backend: ComputeBackend::ROCm, ..info }, "ROCm");
+                ComputeInfo {
+                    backend: ComputeBackend::ROCm,
+                    ..info
+                },
+                "ROCm",
+            );
         }
         // 3. /sys/class/drm/ vendor
         if let Some(info) = detect_gpu_via_sysfs() {
@@ -75,43 +87,63 @@ pub(super) async fn probe_compute() -> Result<ComputeInfo, tokio::task::JoinErro
         }
         // 6. macOS Metal
         if cfg!(target_os = "macos") {
-            return SyncDetection::Complete(ComputeInfo {
-                backend: ComputeBackend::Metal,
-                gpu_name: "Apple Silicon GPU".into(),
-                vram_gb: 0.0,
-                is_igpu: true,
-                ..detect_cpu_info()
-            }, "Metal");
+            return SyncDetection::Complete(
+                ComputeInfo {
+                    backend: ComputeBackend::Metal,
+                    gpu_name: "Apple Silicon GPU".into(),
+                    vram_gb: 0.0,
+                    is_igpu: true,
+                    ..detect_cpu_info()
+                },
+                "Metal",
+            );
         }
         // 7. CPU fallback
         SyncDetection::CpuFallback(detect_cpu_info())
-    }).await?;
+    })
+    .await?;
 
     // Phase 2: Async enrichment (PowerShell bridge) — only when needed.
     let info = match detection {
         SyncDetection::Complete(info, source) => {
-            klog!("[Ring 0 / GPU] {}: {} → {:?}", source, info.gpu_name, info.backend);
+            klog!(
+                "[Ring 0 / GPU] {}: {} → {:?}",
+                source,
+                info.gpu_name,
+                info.backend
+            );
             info
         }
         SyncDetection::NeedsEnrich(mut info, source) => {
             if let Some(host_name) = probe_windows_gpu().await {
                 info.gpu_name = host_name;
             }
-            klog!("[Ring 0 / GPU] {}: {} (is_igpu:{}) → {:?}",
-                source, info.gpu_name, info.is_igpu, info.backend);
+            klog!(
+                "[Ring 0 / GPU] {}: {} (is_igpu:{}) → {:?}",
+                source,
+                info.gpu_name,
+                info.is_igpu,
+                info.backend
+            );
             info
         }
         SyncDetection::NeedsBridge => {
             if let Some(host_name) = probe_windows_gpu().await {
                 let mut info = detect_cpu_info();
                 info.gpu_name = host_name;
-                if info.gpu_name.to_lowercase().contains("amd") || info.gpu_name.to_lowercase().contains("radeon") {
+                if info.gpu_name.to_lowercase().contains("amd")
+                    || info.gpu_name.to_lowercase().contains("radeon")
+                {
                     info.backend = ComputeBackend::Vulkan;
                 } else if info.gpu_name.to_lowercase().contains("nvidia") {
                     info.backend = ComputeBackend::Cuda;
                 }
                 info.is_igpu = true;
-                klog!("[Ring 0 / GPU] Bridge: {} → {:?}", info.gpu_name, info.backend);
+                klog!(
+                    "[Ring 0 / GPU] Bridge: {} → {:?}",
+                    info.gpu_name,
+                    info.backend
+                );
                 info
             } else {
                 let cpu = detect_cpu_info();
@@ -129,7 +161,11 @@ pub(super) async fn probe_compute() -> Result<ComputeInfo, tokio::task::JoinErro
                     info.backend = ComputeBackend::Cuda;
                     info.is_igpu = false;
                 }
-                klog!("[Ring 0 / GPU] Windows Native: {} → {:?}", info.gpu_name, info.backend);
+                klog!(
+                    "[Ring 0 / GPU] Windows Native: {} → {:?}",
+                    info.gpu_name,
+                    info.backend
+                );
                 info
             } else {
                 let cpu = detect_cpu_info();
@@ -147,11 +183,16 @@ pub(super) async fn probe_compute() -> Result<ComputeInfo, tokio::task::JoinErro
 
 fn detect_nvidia() -> Option<ComputeInfo> {
     let out = std::process::Command::new("nvidia-smi")
-        .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
+        .args([
+            "--query-gpu=name,memory.total",
+            "--format=csv,noheader,nounits",
+        ])
         .output()
         .ok()?;
 
-    if !out.status.success() { return None; }
+    if !out.status.success() {
+        return None;
+    }
     let text = String::from_utf8_lossy(&out.stdout);
     let line = text.trim().lines().next()?;
     let parts: Vec<&str> = line.splitn(2, ',').collect();
@@ -170,24 +211,33 @@ fn detect_nvidia() -> Option<ComputeInfo> {
 /// Read /sys/class/drm/card*/device/vendor to identify GPU vendor
 fn detect_gpu_via_sysfs() -> Option<ComputeInfo> {
     let drm = Path::new("/sys/class/drm");
-    if !drm.exists() { return None; }
+    if !drm.exists() {
+        return None;
+    }
 
     for entry in std::fs::read_dir(drm).ok()?.flatten() {
         let card = entry.path();
         let name = card.file_name().and_then(|n| n.to_str()).unwrap_or("");
         // Only top-level card entries (card0, card1...)
-        if !name.starts_with("card") || name.contains('-') { continue; }
+        if !name.starts_with("card") || name.contains('-') {
+            continue;
+        }
 
         let vendor_path = card.join("device/vendor");
         let vendor = std::fs::read_to_string(&vendor_path).ok()?;
         let vendor = vendor.trim();
 
         match vendor {
-            "0x1002" => { // AMD
+            "0x1002" => {
+                // AMD
                 let info = detect_amd_via_sysfs(true);
-                return Some(ComputeInfo { backend: ComputeBackend::Vulkan, ..info });
+                return Some(ComputeInfo {
+                    backend: ComputeBackend::Vulkan,
+                    ..info
+                });
             }
-            "0x8086" => { // Intel
+            "0x8086" => {
+                // Intel
                 return Some(ComputeInfo {
                     backend: ComputeBackend::Vulkan,
                     gpu_name: read_sysfs_string(card.join("device/product_name"))
@@ -207,12 +257,16 @@ fn detect_amd_via_sysfs(is_igpu: bool) -> ComputeInfo {
     // Try to read GPU name from drm device
     let gpu_name = std::fs::read_dir("/sys/class/drm")
         .ok()
-        .and_then(|mut d| d.find_map(|e| {
-            let e = e.ok()?;
-            let name = e.file_name().to_string_lossy().to_string();
-            if !name.starts_with("card") || name.contains('-') { return None; }
-            read_sysfs_string(e.path().join("device/product_name"))
-        }))
+        .and_then(|mut d| {
+            d.find_map(|e| {
+                let e = e.ok()?;
+                let name = e.file_name().to_string_lossy().to_string();
+                if !name.starts_with("card") || name.contains('-') {
+                    return None;
+                }
+                read_sysfs_string(e.path().join("device/product_name"))
+            })
+        })
         .unwrap_or_else(|| "AMD GPU".into());
 
     ComputeInfo {
@@ -225,12 +279,15 @@ fn detect_amd_via_sysfs(is_igpu: bool) -> ComputeInfo {
 }
 
 fn read_sysfs_string(path: PathBuf) -> Option<String> {
-    std::fs::read_to_string(path).ok().map(|s| s.trim().to_string())
+    std::fs::read_to_string(path)
+        .ok()
+        .map(|s| s.trim().to_string())
 }
 
 pub(super) fn detect_cpu_info() -> ComputeInfo {
     let threads = std::thread::available_parallelism()
-        .map(|n| n.get()).unwrap_or(4);
+        .map(|n| n.get())
+        .unwrap_or(4);
 
     let avx2 = if cfg!(target_os = "linux") {
         std::fs::read_to_string("/proc/cpuinfo")
@@ -257,21 +314,33 @@ pub(super) fn detect_cpu_info() -> ComputeInfo {
 async fn probe_windows_gpu() -> Option<String> {
     tokio::task::spawn_blocking(|| {
         let out = std::process::Command::new("powershell.exe")
-            .args(["-NoProfile", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"])
+            .args([
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name",
+            ])
             .output()
             .ok()?;
 
-        if !out.status.success() { return None; }
+        if !out.status.success() {
+            return None;
+        }
         let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        if text.is_empty() { return None; }
+        if text.is_empty() {
+            return None;
+        }
 
         // Filter out virtual adapters
-        let lines: Vec<String> = text.lines()
+        let lines: Vec<String> = text
+            .lines()
             .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty() && !s.to_lowercase().contains("virtual")
-                        && !s.to_lowercase().contains("parsec")
-                        && !s.to_lowercase().contains("citrix")
-                        && !s.to_lowercase().contains("microsoft remote"))
+            .filter(|s| {
+                !s.is_empty()
+                    && !s.to_lowercase().contains("virtual")
+                    && !s.to_lowercase().contains("parsec")
+                    && !s.to_lowercase().contains("citrix")
+                    && !s.to_lowercase().contains("microsoft remote")
+            })
             .collect();
 
         if lines.is_empty() {
@@ -279,5 +348,7 @@ async fn probe_windows_gpu() -> Option<String> {
         }
 
         Some(lines[0].clone())
-    }).await.ok()?
+    })
+    .await
+    .ok()?
 }

@@ -11,9 +11,7 @@ use super::types::{AppState, DogHealthResponse, ErrorResponse};
 use crate::domain::dog::PHI_INV;
 use crate::domain::health_gate::system_health_status;
 
-pub async fn dogs_handler(
-    State(state): State<Arc<AppState>>,
-) -> Json<Vec<String>> {
+pub async fn dogs_handler(State(state): State<Arc<AppState>>) -> Json<Vec<String>> {
     Json(state.judge.dog_ids())
 }
 
@@ -25,15 +23,20 @@ pub async fn liveness_handler() -> StatusCode {
 
 /// GET /ready — Readiness probe. Returns 200 if the kernel can serve requests.
 /// Checks storage + dog health via system_health_status.
-pub async fn readiness_handler(
-    State(state): State<Arc<AppState>>,
-) -> StatusCode {
+pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode {
     let dog_health = state.judge.dog_health();
-    let healthy_dogs = dog_health.iter().filter(|(_, circuit, _)| circuit == "closed").count();
+    let healthy_dogs = dog_health
+        .iter()
+        .filter(|(_, circuit, _)| circuit == "closed")
+        .count();
     let total_dogs = dog_health.len();
     let storage_ok = state.storage.ping().await.is_ok();
     let (_, is_healthy) = system_health_status(healthy_dogs, total_dogs, storage_ok);
-    if is_healthy { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE }
+    if is_healthy {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    }
 }
 
 pub async fn health_handler(
@@ -43,7 +46,8 @@ pub async fn health_handler(
     // Check if caller has valid auth — return full details only if authenticated.
     // Uses constant_time_eq to prevent timing oracle (same as auth_middleware).
     let authenticated = match &state.api_key {
-        Some(key) => request.headers()
+        Some(key) => request
+            .headers()
             .get("authorization")
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.strip_prefix("Bearer "))
@@ -52,57 +56,83 @@ pub async fn health_handler(
     };
 
     let dog_health = state.judge.dog_health();
-    let healthy_dogs = dog_health.iter().filter(|(_, circuit, _)| circuit == "closed").count();
+    let healthy_dogs = dog_health
+        .iter()
+        .filter(|(_, circuit, _)| circuit == "closed")
+        .count();
     let total_dogs = dog_health.len();
 
     let storage_ok = state.storage.ping().await.is_ok();
 
     let (status, is_healthy) = system_health_status(healthy_dogs, total_dogs, storage_ok);
-    let http_code = if is_healthy { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
+    let http_code = if is_healthy {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
 
     // Public: minimal info only — dog_count withheld to prevent attack surface mapping
     // HTTP status code tells the story: 200 = healthy, 503 = degraded/critical.
     // Any monitoring tool can check without parsing JSON: curl -sf URL || alert
     if !authenticated {
-        return (http_code, Json(serde_json::json!({
-            "status": status,
-            "version": env!("CYNIC_VERSION"),
-            "phi_max": PHI_INV,
-        })));
+        return (
+            http_code,
+            Json(serde_json::json!({
+                "status": status,
+                "version": env!("CYNIC_VERSION"),
+                "phi_max": PHI_INV,
+            })),
+        );
     }
 
     // Authenticated: full details
-    let dogs: Vec<DogHealthResponse> = dog_health.into_iter().map(|(id, circuit, failures)| {
-        let kind = if id == "deterministic-dog" { "heuristic" } else { "inference" }.to_string();
-        DogHealthResponse { id, kind, circuit, failures }
-    }).collect();
+    let dogs: Vec<DogHealthResponse> = dog_health
+        .into_iter()
+        .map(|(id, circuit, failures)| {
+            let kind = if id == "deterministic-dog" {
+                "heuristic"
+            } else {
+                "inference"
+            }
+            .to_string();
+            DogHealthResponse {
+                id,
+                kind,
+                circuit,
+                failures,
+            }
+        })
+        .collect();
 
     let usage = state.usage.lock().await;
 
-    (http_code, Json(serde_json::json!({
-        "status": status,
-        "version": env!("CYNIC_VERSION"),
-        "phi_max": PHI_INV,
-        "axioms": ["FIDELITY", "PHI", "VERIFY/FALSIFY", "CULTURE", "BURN", "SOVEREIGNTY"],
-        "dogs": dogs,
-        "storage": if storage_ok { "connected" } else { "down" },
-        "storage_namespace": state.storage_info.namespace,
-        "storage_database": state.storage_info.database,
-        "storage_metrics": state.storage_metrics(),
-        "embedding": if tokio::time::timeout(std::time::Duration::from_secs(2), state.embedding.embed("h")).await.map(|r| r.is_ok()).unwrap_or(false) { "sovereign" } else { "unavailable" },
-        "verdict_cache_size": state.verdict_cache.len(),
-        "background_tasks": state.task_health.snapshot(),
-        "total_requests": usage.all_time_requests(),
-        "total_tokens": usage.total_tokens(),
-        "estimated_cost_usd": usage.estimated_cost_usd(),
-        "uptime_seconds": usage.uptime_seconds(),
-        "alerts": state.introspection_alerts.read()
-            .map(|a| a.clone())
-            .unwrap_or_else(|e| {
-                tracing::warn!(error = %e, "introspection_alerts RwLock poisoned");
-                Vec::new()
-            }),
-    })))
+    (
+        http_code,
+        Json(serde_json::json!({
+            "status": status,
+            "version": env!("CYNIC_VERSION"),
+            "phi_max": PHI_INV,
+            "axioms": ["FIDELITY", "PHI", "VERIFY/FALSIFY", "CULTURE", "BURN", "SOVEREIGNTY"],
+            "dogs": dogs,
+            "storage": if storage_ok { "connected" } else { "down" },
+            "storage_namespace": state.storage_info.namespace,
+            "storage_database": state.storage_info.database,
+            "storage_metrics": state.storage_metrics(),
+            "embedding": if tokio::time::timeout(std::time::Duration::from_secs(2), state.embedding.embed("h")).await.map(|r| r.is_ok()).unwrap_or(false) { "sovereign" } else { "unavailable" },
+            "verdict_cache_size": state.verdict_cache.len(),
+            "background_tasks": state.task_health.snapshot(),
+            "total_requests": usage.all_time_requests(),
+            "total_tokens": usage.total_tokens(),
+            "estimated_cost_usd": usage.estimated_cost_usd(),
+            "uptime_seconds": usage.uptime_seconds(),
+            "alerts": state.introspection_alerts.read()
+                .map(|a| a.clone())
+                .unwrap_or_else(|e| {
+                    tracing::warn!(error = %e, "introspection_alerts RwLock poisoned");
+                    Vec::new()
+                }),
+        })),
+    )
 }
 
 /// GET /agents — show active agent sessions and their claims (requires auth)
@@ -118,7 +148,12 @@ pub async fn agents_handler(
         }))),
         Err(e) => {
             tracing::warn!(error = %e, "agents query failed");
-            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "coordination unavailable".into() })))
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "coordination unavailable".into(),
+                }),
+            ))
         }
     }
 }
@@ -127,23 +162,43 @@ pub async fn agents_handler(
 /// Public endpoint (no auth) — metrics are operational data, not secrets.
 pub async fn metrics_handler(
     State(state): State<Arc<AppState>>,
-) -> (StatusCode, [(axum::http::header::HeaderName, &'static str); 1], String) {
+) -> (
+    StatusCode,
+    [(axum::http::header::HeaderName, &'static str); 1],
+    String,
+) {
     let mut out = state.metrics.render_prometheus();
 
     // Verdict cache size (gauge)
     {
         use std::fmt::Write;
-        let _ = writeln!(out, "# HELP cynic_verdict_cache_size Current verdict cache entries");
+        let _ = writeln!(
+            out,
+            "# HELP cynic_verdict_cache_size Current verdict cache entries"
+        );
         let _ = writeln!(out, "# TYPE cynic_verdict_cache_size gauge");
-        let _ = writeln!(out, "cynic_verdict_cache_size {}", state.verdict_cache.len());
+        let _ = writeln!(
+            out,
+            "cynic_verdict_cache_size {}",
+            state.verdict_cache.len()
+        );
     }
 
     // Per-dog metrics from usage tracker
     {
         let usage = state.usage.lock().await;
         let merged = usage.merged_dogs();
-        let mut dog_data: Vec<(String, u64, u64, u64, u64)> = merged.into_iter()
-            .map(|(id, u)| (id, u.requests, u.failures, u.total_latency_ms, u.total_tokens()))
+        let mut dog_data: Vec<(String, u64, u64, u64, u64)> = merged
+            .into_iter()
+            .map(|(id, u)| {
+                (
+                    id,
+                    u.requests,
+                    u.failures,
+                    u.total_latency_ms,
+                    u.total_tokens(),
+                )
+            })
             .collect();
         dog_data.sort_by(|a, b| a.0.cmp(&b.0));
 
@@ -153,7 +208,10 @@ pub async fn metrics_handler(
 
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; version=0.0.4; charset=utf-8",
+        )],
         out,
     )
 }

@@ -7,8 +7,8 @@
 //! Anti-contamination: skips store_crystal_embedding for internal observations
 //! to prevent self-referential noise in the KNN index.
 
-use crate::domain::storage::StoragePort;
 use crate::domain::metrics::Metrics;
+use crate::domain::storage::StoragePort;
 use std::sync::atomic::Ordering;
 
 /// Anomaly thresholds — conservative defaults.
@@ -25,10 +25,7 @@ pub struct Alert {
 
 /// Run one introspection tick. Returns alerts (empty = healthy).
 /// Pure function on metrics snapshot — no side effects except crystal observation.
-pub async fn analyze(
-    storage: &dyn StoragePort,
-    metrics: &Metrics,
-) -> Vec<Alert> {
+pub async fn analyze(storage: &dyn StoragePort, metrics: &Metrics) -> Vec<Alert> {
     let mut alerts = Vec::new();
 
     // ── Dog failure rate ──
@@ -39,7 +36,12 @@ pub async fn analyze(
         if rate > FAILURE_RATE_THRESHOLD {
             alerts.push(Alert {
                 kind: "dog_failure_rate",
-                message: format!("Dog failure rate {:.1}% ({}/{} evals)", rate * 100.0, dog_fails, dog_evals),
+                message: format!(
+                    "Dog failure rate {:.1}% ({}/{} evals)",
+                    rate * 100.0,
+                    dog_fails,
+                    dog_evals
+                ),
                 severity: if rate > 0.50 { "critical" } else { "warning" },
             });
         }
@@ -54,7 +56,12 @@ pub async fn analyze(
         if rate > EMBED_FAILURE_THRESHOLD {
             alerts.push(Alert {
                 kind: "embedding_failure_rate",
-                message: format!("Embedding failure rate {:.1}% ({}/{} calls)", rate * 100.0, embed_fail, embed_total),
+                message: format!(
+                    "Embedding failure rate {:.1}% ({}/{} calls)",
+                    rate * 100.0,
+                    embed_fail,
+                    embed_total
+                ),
                 severity: "warning",
             });
         }
@@ -69,7 +76,9 @@ pub async fn analyze(
     } else if verdicts == 0 && cache_total > 5 {
         alerts.push(Alert {
             kind: "zero_verdicts",
-            message: format!("0 verdicts despite {} cache lookups — pipeline may be broken", cache_total),
+            message: format!(
+                "0 verdicts despite {cache_total} cache lookups — pipeline may be broken"
+            ),
             severity: "critical",
         });
     }
@@ -86,16 +95,23 @@ pub async fn analyze(
     // Emit anomalies as cynic-internal crystal observations (anti-contamination: no embedding)
     if !alerts.is_empty() {
         let now = chrono::Utc::now().to_rfc3339();
-        let content = alerts.iter()
+        let content = alerts
+            .iter()
             .map(|a| format!("[{}] {}", a.severity, a.message))
             .collect::<Vec<_>>()
             .join("; ");
         let id = format!("introspect-{}", &now[..16]); // one per 5-min window
         // Best-effort — don't fail the tick on storage error
-        if let Err(e) = storage.observe_crystal(&id, &content, "cynic-internal", 0.3, &now).await {
+        if let Err(e) = storage
+            .observe_crystal(&id, &content, "cynic-internal", 0.3, &now)
+            .await
+        {
             tracing::warn!(error = %e, "introspection: failed to observe anomaly crystal");
         }
-        tracing::warn!(alert_count = alerts.len(), "introspection: anomalies detected");
+        tracing::warn!(
+            alert_count = alerts.len(),
+            "introspection: anomalies detected"
+        );
     }
 
     alerts
@@ -122,8 +138,12 @@ mod tests {
     #[tokio::test]
     async fn high_failure_rate_triggers_alert() {
         let metrics = Metrics::new();
-        for _ in 0..20 { metrics.inc_dog_eval(); }
-        for _ in 0..10 { metrics.inc_dog_failure(); }
+        for _ in 0..20 {
+            metrics.inc_dog_eval();
+        }
+        for _ in 0..10 {
+            metrics.inc_dog_failure();
+        }
         let alerts = analyze(&NullStorage, &metrics).await;
         assert!(alerts.iter().any(|a| a.kind == "dog_failure_rate"));
     }

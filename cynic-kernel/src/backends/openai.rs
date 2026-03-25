@@ -2,15 +2,16 @@
 //! Implements BackendPort (shared health+name) and ChatPort (for Dogs).
 //! One type, N instances (Gemini, HuggingFace, llama.cpp, vLLM, SGLang).
 
+use crate::domain::chat::{ChatError, ChatPort, ChatResponse};
 use crate::domain::inference::{BackendPort, BackendStatus};
-use crate::domain::chat::{ChatPort, ChatError, ChatResponse};
 
-use crate::infra::config::{BackendConfig, AuthStyle};
+use crate::infra::config::{AuthStyle, BackendConfig};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
+#[derive(Debug)]
 pub struct OpenAiCompatBackend {
     client: Client,
     config: BackendConfig,
@@ -83,12 +84,12 @@ impl OpenAiCompatBackend {
 
     fn build_url(&self, path: &str) -> String {
         let base = self.config.base_url.trim_end_matches('/');
-        let url = format!("{}{}", base, path);
+        let url = format!("{base}{path}");
 
         match &self.config.auth_style {
             AuthStyle::QueryParam(param) => {
                 if let Some(ref key) = self.config.api_key {
-                    format!("{}?{}={}", url, param, key)
+                    format!("{url}?{param}={key}")
                 } else {
                     url
                 }
@@ -101,7 +102,7 @@ impl OpenAiCompatBackend {
         match &self.config.auth_style {
             AuthStyle::Bearer => {
                 if let Some(ref key) = self.config.api_key {
-                    req.header("Authorization", format!("Bearer {}", key))
+                    req.header("Authorization", format!("Bearer {key}"))
                 } else {
                     req
                 }
@@ -111,7 +112,13 @@ impl OpenAiCompatBackend {
         }
     }
 
-    async fn post_chat(&self, messages: Vec<Message>, temperature: Option<f32>, max_tokens: Option<u32>, n: Option<u32>) -> Result<ChatCompletionResponse, ChatError> {
+    async fn post_chat(
+        &self,
+        messages: Vec<Message>,
+        temperature: Option<f32>,
+        max_tokens: Option<u32>,
+        n: Option<u32>,
+    ) -> Result<ChatCompletionResponse, ChatError> {
         let url = self.build_url("/chat/completions");
         let body = ChatCompletionRequest {
             model: self.config.model.clone(),
@@ -127,23 +134,32 @@ impl OpenAiCompatBackend {
 
         let resp = req.send().await.map_err(|e| {
             if e.is_timeout() {
-                ChatError::Timeout { ms: self.config.timeout_secs * 1000 }
+                ChatError::Timeout {
+                    ms: self.config.timeout_secs * 1000,
+                }
             } else {
                 ChatError::Unreachable(format!("{}: {}", self.config.name, e))
             }
         })?;
 
         if resp.status().as_u16() == 429 {
-            return Err(ChatError::RateLimited(format!("{}: rate limited", self.config.name)));
+            return Err(ChatError::RateLimited(format!(
+                "{}: rate limited",
+                self.config.name
+            )));
         }
 
         if !resp.status().is_success() {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
-            return Err(ChatError::Protocol(format!("{} HTTP {}: {}", self.config.name, status, text)));
+            return Err(ChatError::Protocol(format!(
+                "{} HTTP {}: {}",
+                self.config.name, status, text
+            )));
         }
 
-        resp.json().await
+        resp.json()
+            .await
             .map_err(|e| ChatError::Protocol(format!("{}: parse error: {}", self.config.name, e)))
     }
 }
@@ -166,14 +182,18 @@ impl BackendPort for OpenAiCompatBackend {
             Ok(resp) if resp.status().is_success() => {
                 let latency = start.elapsed().as_millis() as f64;
                 if latency > 2000.0 {
-                    BackendStatus::Degraded { latency_ms: latency }
+                    BackendStatus::Degraded {
+                        latency_ms: latency,
+                    }
                 } else {
                     BackendStatus::Healthy
                 }
             }
             Ok(resp) => {
                 tracing::warn!(backend = %self.config.name, status = %resp.status(), "backend degraded");
-                BackendStatus::Degraded { latency_ms: start.elapsed().as_millis() as f64 }
+                BackendStatus::Degraded {
+                    latency_ms: start.elapsed().as_millis() as f64,
+                }
             }
             Err(e) => {
                 tracing::error!(backend = %self.config.name, error = %e, "backend unreachable — critical");
@@ -190,30 +210,49 @@ impl ChatPort for OpenAiCompatBackend {
     async fn chat(&self, system: &str, user: &str) -> Result<ChatResponse, ChatError> {
         let mut messages = Vec::new();
         if !system.is_empty() {
-            messages.push(Message { role: "system".to_string(), content: system.to_string() });
+            messages.push(Message {
+                role: "system".to_string(),
+                content: system.to_string(),
+            });
         }
         // Prepend /no_think for Qwen3 family to disable thinking mode (reduces latency + token waste).
         // Harmless for non-Qwen models — they treat it as prompt text.
         let user_content = if self.config.disable_thinking {
-            format!("/no_think\n{}", user)
+            format!("/no_think\n{user}")
         } else {
             user.to_string()
         };
-        messages.push(Message { role: "user".to_string(), content: user_content });
+        messages.push(Message {
+            role: "user".to_string(),
+            content: user_content,
+        });
 
-        let resp = self.post_chat(messages, Some(self.config.temperature), Some(self.config.max_tokens), None).await?;
+        let resp = self
+            .post_chat(
+                messages,
+                Some(self.config.temperature),
+                Some(self.config.max_tokens),
+                None,
+            )
+            .await?;
 
-        let (prompt_tokens, completion_tokens) = resp.usage
+        let (prompt_tokens, completion_tokens) = resp
+            .usage
             .map(|u| (u.prompt_tokens, u.completion_tokens))
             .unwrap_or((0, 0));
 
-        let text = resp.choices.into_iter().next()
+        let text = resp
+            .choices
+            .into_iter()
+            .next()
             .map(|c| {
                 let content = c.message.content;
                 // If content is empty but reasoning_content has JSON (thinking models like Qwen3.5),
                 // extract the JSON object from reasoning_content as fallback.
                 if content.trim().is_empty()
-                    && let Some((start, end)) = c.message.reasoning_content
+                    && let Some((start, end)) = c
+                        .message
+                        .reasoning_content
                         .as_deref()
                         .and_then(|r| Some((r.find('{')?, r.rfind('}')?)))
                     && let Some(r) = c.message.reasoning_content.as_deref()
@@ -231,7 +270,11 @@ impl ChatPort for OpenAiCompatBackend {
             })
             .ok_or_else(|| ChatError::Protocol(format!("{}: empty response", self.config.name)))?;
 
-        Ok(ChatResponse { text, prompt_tokens, completion_tokens })
+        Ok(ChatResponse {
+            text,
+            prompt_tokens,
+            completion_tokens,
+        })
     }
 }
 
@@ -256,8 +299,12 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
-        }).unwrap();
-        assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions");
+        })
+        .unwrap();
+        assert_eq!(
+            backend.build_url("/chat/completions"),
+            "https://api.example.com/v1/chat/completions"
+        );
     }
 
     #[test]
@@ -277,8 +324,12 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
-        }).unwrap();
-        assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions?key=key123");
+        })
+        .unwrap();
+        assert_eq!(
+            backend.build_url("/chat/completions"),
+            "https://api.example.com/v1/chat/completions?key=key123"
+        );
     }
 
     #[test]
@@ -298,8 +349,12 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
-        }).unwrap();
-        assert_eq!(backend.build_url("/chat/completions"), "http://localhost:8080/v1/chat/completions");
+        })
+        .unwrap();
+        assert_eq!(
+            backend.build_url("/chat/completions"),
+            "http://localhost:8080/v1/chat/completions"
+        );
     }
 
     #[test]
@@ -319,7 +374,11 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
-        }).unwrap();
-        assert_eq!(backend.build_url("/chat/completions"), "https://api.example.com/v1/chat/completions");
+        })
+        .unwrap();
+        assert_eq!(
+            backend.build_url("/chat/completions"),
+            "https://api.example.com/v1/chat/completions"
+        );
     }
 }

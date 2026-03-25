@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 /// Tracks token consumption and request counts per Dog.
 /// Cumulative totals survive restarts via load_from_storage / flush_to_storage.
+#[derive(Debug)]
 pub struct DogUsageTracker {
     pub dogs: HashMap<String, DogUsage>,
     pub boot_time: std::time::Instant,
@@ -16,7 +17,7 @@ pub struct DogUsageTracker {
     historical_requests: u64,
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct DogUsage {
     pub prompt_tokens: u64,
     pub completion_tokens: u64,
@@ -32,7 +33,9 @@ impl DogUsage {
 }
 
 impl Default for DogUsageTracker {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DogUsageTracker {
@@ -49,7 +52,8 @@ impl DogUsageTracker {
 
     /// Register cost rates for a Dog. Called at boot from backends.toml config.
     pub fn set_cost_rate(&mut self, dog_id: &str, input_per_mtok: f64, output_per_mtok: f64) {
-        self.cost_rates.insert(dog_id.to_string(), (input_per_mtok, output_per_mtok));
+        self.cost_rates
+            .insert(dog_id.to_string(), (input_per_mtok, output_per_mtok));
     }
 
     pub fn record(&mut self, dog_id: &str, prompt: u32, completion: u32, latency_ms: u64) {
@@ -116,7 +120,9 @@ impl DogUsageTracker {
     /// Load historical totals from DB rows. Called once at boot.
     pub fn load_historical(&mut self, rows: &[crate::domain::storage::UsageRow]) {
         for row in rows {
-            if row.dog_id.is_empty() { continue; }
+            if row.dog_id.is_empty() {
+                continue;
+            }
             let usage = DogUsage {
                 prompt_tokens: row.prompt_tokens,
                 completion_tokens: row.completion_tokens,
@@ -131,7 +137,10 @@ impl DogUsageTracker {
 
     /// Snapshot current session data as rows for persistence.
     pub fn snapshot(&self) -> Vec<(String, DogUsage)> {
-        self.dogs.iter().map(|(id, u)| (id.clone(), u.clone())).collect()
+        self.dogs
+            .iter()
+            .map(|(id, u)| (id.clone(), u.clone()))
+            .collect()
     }
 
     /// Absolute snapshot for idempotent flush — merges historical + session.
@@ -163,7 +172,14 @@ mod tests {
     use crate::domain::storage::UsageRow;
 
     fn usage_row(dog_id: &str, pt: u64, ct: u64, req: u64, fail: u64, lat: u64) -> UsageRow {
-        UsageRow { dog_id: dog_id.into(), prompt_tokens: pt, completion_tokens: ct, requests: req, failures: fail, total_latency_ms: lat }
+        UsageRow {
+            dog_id: dog_id.into(),
+            prompt_tokens: pt,
+            completion_tokens: ct,
+            requests: req,
+            failures: fail,
+            total_latency_ms: lat,
+        }
     }
 
     // ── record / record_failure ──────────────────────────
@@ -212,7 +228,7 @@ mod tests {
         t.record("a", 100, 50, 200);
 
         assert_eq!(t.session_tokens(), 150); // only session
-        assert_eq!(t.total_tokens(), 1650);  // historical + session
+        assert_eq!(t.total_tokens(), 1650); // historical + session
     }
 
     // ── all_time_requests ────────────────────────────────

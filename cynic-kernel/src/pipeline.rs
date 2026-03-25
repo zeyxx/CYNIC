@@ -5,17 +5,18 @@
 //! Handlers call this, then format the response for their transport.
 
 use crate::domain::ccm;
-use crate::domain::dog::{Stimulus, Verdict, PHI_INV, PHI_INV2, PHI_INV3};
+use crate::domain::dog::{PHI_INV, PHI_INV2, PHI_INV3, Stimulus, Verdict};
 use crate::domain::embedding::{Embedding, EmbeddingPort};
+use crate::domain::events::KernelEvent;
+use crate::domain::metrics::Metrics;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::{CacheLookup, VerdictCache};
-use crate::domain::events::KernelEvent;
-use crate::domain::metrics::Metrics;
 use crate::judge::{Judge, JudgeError};
 use tokio::sync::Mutex;
 
 /// Result of the judge pipeline — everything a handler needs to build its response.
+#[derive(Debug)]
 pub enum PipelineResult {
     /// Cache hit — near-identical stimulus already judged.
     CacheHit {
@@ -23,9 +24,7 @@ pub enum PipelineResult {
         similarity: f64,
     },
     /// Full evaluation — fresh verdict.
-    Evaluated {
-        verdict: Box<Verdict>,
-    },
+    Evaluated { verdict: Box<Verdict> },
 }
 
 /// Dependencies for the judge pipeline — avoids 9-argument function.
@@ -41,6 +40,12 @@ pub struct PipelineDeps<'a> {
     pub event_tx: Option<&'a tokio::sync::broadcast::Sender<KernelEvent>>,
 }
 
+impl std::fmt::Debug for PipelineDeps<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PipelineDeps").finish_non_exhaustive()
+    }
+}
+
 /// Run the full judge pipeline: embed → cache → crystals → sessions → evaluate → store → CCM.
 ///
 /// Both REST and MCP handlers call this. Each formats the response for its transport.
@@ -54,7 +59,15 @@ pub async fn run(
     inject_crystals: bool,
     deps: &PipelineDeps<'_>,
 ) -> Result<PipelineResult, JudgeError> {
-    let PipelineDeps { judge, storage, embedding, verdict_cache, metrics, event_tx, .. } = *deps;
+    let PipelineDeps {
+        judge,
+        storage,
+        embedding,
+        verdict_cache,
+        metrics,
+        event_tx,
+        ..
+    } = *deps;
     let domain_hint = domain.as_deref().unwrap_or("general");
     // RC7: unique request_id for cross-subsystem correlation
     let request_id = uuid::Uuid::new_v4().to_string();
@@ -86,15 +99,19 @@ pub async fn run(
     // Skip cache in A/B mode (crystals=false) — must re-evaluate to measure crystal delta.
     if inject_crystals
         && let Some(emb) = &stimulus_embedding
-        && let CacheLookup::Hit { verdict, similarity } = verdict_cache.lookup(emb)
+        && let CacheLookup::Hit {
+            verdict,
+            similarity,
+        } = verdict_cache.lookup(emb)
     {
         metrics.inc_cache_hit();
         tracing::info!(phase = "cache", result = "hit", similarity = %format!("{:.4}", similarity),
             verdict_id = %verdict.id, q_score = %format!("{:.3}", verdict.q_score.total));
-        observe_crystal_for_verdict(
-            &verdict, &stimulus_embedding, domain_hint, deps,
-        ).await;
-        return Ok(PipelineResult::CacheHit { verdict, similarity });
+        observe_crystal_for_verdict(&verdict, &stimulus_embedding, domain_hint, deps).await;
+        return Ok(PipelineResult::CacheHit {
+            verdict,
+            similarity,
+        });
     }
     metrics.inc_cache_miss();
     tracing::info!(phase = "cache", result = "miss");
@@ -118,7 +135,11 @@ pub async fn run(
         tracing::info!(phase = "crystals", "crystal injection disabled (A/B mode)");
         Vec::new()
     };
-    tracing::info!(phase = "crystals", count = crystals.len(), "crystal retrieval complete");
+    tracing::info!(
+        phase = "crystals",
+        count = crystals.len(),
+        "crystal retrieval complete"
+    );
 
     // ── SESSION SUMMARIES: separate token budget from crystals ──
     let session_ctx = storage.list_session_summaries(5).await
@@ -140,7 +161,11 @@ pub async fn run(
             .into_iter()
             .flatten()
             .collect();
-        if parts.is_empty() { None } else { Some(parts.join("\n\n")) }
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join("\n\n"))
+        }
     };
 
     // ── EVALUATE: fan out to Dogs ──
@@ -173,14 +198,21 @@ pub async fn run(
             q_score: verdict.q_score.total,
         }) {
             Ok(n) => tracing::info!(phase = "event_bus", receivers = n, "verdict event sent"),
-            Err(_) => tracing::debug!(phase = "event_bus", receivers = receivers, "no SSE subscribers"),
+            Err(_) => tracing::debug!(
+                phase = "event_bus",
+                receivers = receivers,
+                "no SSE subscribers"
+            ),
         }
         // Emit Dog failures as separate events
         for dog_id in &verdict.failed_dogs {
-            if tx.send(KernelEvent::DogFailed {
-                dog_id: dog_id.clone(),
-                error: "evaluation_failed".into(),
-            }).is_err() {
+            if tx
+                .send(KernelEvent::DogFailed {
+                    dog_id: dog_id.clone(),
+                    error: "evaluation_failed".into(),
+                })
+                .is_err()
+            {
                 tracing::debug!(phase = "event_bus", dog_id = %dog_id, "no SSE subscribers for DogFailed");
             }
         }
@@ -189,7 +221,9 @@ pub async fn run(
     // ── SIDE EFFECTS (all best-effort) ──
     side_effects(&stimulus, &verdict, &stimulus_embedding, deps).await;
 
-    Ok(PipelineResult::Evaluated { verdict: Box::new(verdict) })
+    Ok(PipelineResult::Evaluated {
+        verdict: Box::new(verdict),
+    })
 }
 
 /// Best-effort side effects after evaluation.
@@ -209,7 +243,12 @@ async fn side_effects(
     {
         let mut u = deps.usage.lock().await;
         for ds in &verdict.dog_scores {
-            u.record(&ds.dog_id, ds.prompt_tokens, ds.completion_tokens, ds.latency_ms);
+            u.record(
+                &ds.dog_id,
+                ds.prompt_tokens,
+                ds.completion_tokens,
+                ds.latency_ms,
+            );
         }
         for dog_id in &verdict.failed_dogs {
             u.record_failure(dog_id);
@@ -297,23 +336,42 @@ async fn observe_crystal_for_verdict(
     }
     // Semantic merge: find existing crystal or create new via FNV hash
     let crystal_id = if let Some(emb) = stimulus_embedding {
-        match deps.storage.find_similar_crystal(&emb.vector, domain, 0.75).await {
+        match deps
+            .storage
+            .find_similar_crystal(&emb.vector, domain, 0.75)
+            .await
+        {
             Ok(Some((existing_id, sim))) => {
                 tracing::info!(phase = "crystal_merge", crystal_id = %existing_id, similarity = %format!("{:.3}", sim), "reusing existing crystal");
                 existing_id
             }
             Ok(None) => {
-                tracing::info!(phase = "crystal_merge", "no similar crystal (sim < 0.75), creating new");
-                format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
+                tracing::info!(
+                    phase = "crystal_merge",
+                    "no similar crystal (sim < 0.75), creating new"
+                );
+                format!(
+                    "{:x}",
+                    ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary))
+                )
             }
             Err(e) => {
                 tracing::warn!(phase = "crystal_merge", error = %e, "similarity search failed, using FNV hash");
-                format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
+                format!(
+                    "{:x}",
+                    ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary))
+                )
             }
         }
     } else {
-        tracing::info!(phase = "crystal_merge", "no embedding available, using FNV hash");
-        format!("{:x}", ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary)))
+        tracing::info!(
+            phase = "crystal_merge",
+            "no embedding available, using FNV hash"
+        );
+        format!(
+            "{:x}",
+            ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary))
+        )
     };
 
     let now = chrono::Utc::now().to_rfc3339();
@@ -321,9 +379,17 @@ async fn observe_crystal_for_verdict(
     // Without normalization, no crystal can ever reach the 0.618 crystallization threshold.
     // Apply epistemic weight: disputed verdicts contribute less to crystal confidence.
     let crystal_confidence = ((verdict.q_score.total / PHI_INV) * injection_weight).min(1.0);
-    if let Err(e) = deps.storage.observe_crystal(
-        &crystal_id, &verdict.stimulus_summary, domain, crystal_confidence, &now,
-    ).await {
+    if let Err(e) = deps
+        .storage
+        .observe_crystal(
+            &crystal_id,
+            &verdict.stimulus_summary,
+            domain,
+            crystal_confidence,
+            &now,
+        )
+        .await
+    {
         tracing::warn!(phase = "crystal_observe", crystal_id = %crystal_id, error = %e, "failed to observe crystal");
     } else {
         deps.metrics.inc_crystal_obs();
@@ -335,7 +401,10 @@ async fn observe_crystal_for_verdict(
         }
     }
     if let Some(emb) = stimulus_embedding
-        && let Err(e) = deps.storage.store_crystal_embedding(&crystal_id, &emb.vector).await
+        && let Err(e) = deps
+            .storage
+            .store_crystal_embedding(&crystal_id, &emb.vector)
+            .await
     {
         tracing::warn!(phase = "crystal_embed", crystal_id = %crystal_id, error = %e, "failed to store crystal embedding");
     }
@@ -363,14 +432,21 @@ pub async fn backfill_crystal_embeddings(
         tracing::info!(phase = "backfill", "no crystals missing embeddings");
         return 0;
     }
-    tracing::info!(phase = "backfill", count = orphans.len(), "found crystals missing embeddings");
+    tracing::info!(
+        phase = "backfill",
+        count = orphans.len(),
+        "found crystals missing embeddings"
+    );
 
     let mut success = 0u32;
     let mut failed = 0u32;
     for crystal in &orphans {
         match embedding.embed(&crystal.content).await {
             Ok(emb) => {
-                if let Err(e) = storage.store_crystal_embedding(&crystal.id, &emb.vector).await {
+                if let Err(e) = storage
+                    .store_crystal_embedding(&crystal.id, &emb.vector)
+                    .await
+                {
                     tracing::warn!(phase = "backfill", crystal_id = %crystal.id, error = %e, "failed to store embedding");
                     failed += 1;
                 } else {
@@ -385,7 +461,12 @@ pub async fn backfill_crystal_embeddings(
             }
         }
     }
-    tracing::info!(phase = "backfill", success = success, failed = failed, "backfill complete");
+    tracing::info!(
+        phase = "backfill",
+        success = success,
+        failed = failed,
+        "backfill complete"
+    );
     success
 }
 
@@ -453,13 +534,18 @@ pub async fn summarize_pending_sessions(
 mod tests {
     use super::*;
     use crate::domain::dog::*;
-    use crate::domain::health_gate::HealthGate;
     use crate::domain::embedding::NullEmbedding;
+    use crate::domain::health_gate::HealthGate;
     use crate::domain::storage::NullStorage;
 
     fn test_judge(dogs: Vec<Box<dyn Dog>>) -> Judge {
-        let breakers: Vec<std::sync::Arc<dyn HealthGate>> = dogs.iter()
-            .map(|d| std::sync::Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(d.id().to_string())) as std::sync::Arc<dyn HealthGate>)
+        let breakers: Vec<std::sync::Arc<dyn HealthGate>> = dogs
+            .iter()
+            .map(|d| {
+                std::sync::Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(
+                    d.id().to_string(),
+                )) as std::sync::Arc<dyn HealthGate>
+            })
             .collect();
         Judge::new(dogs, breakers)
     }
@@ -467,9 +553,7 @@ mod tests {
     #[tokio::test]
     async fn pipeline_runs_with_null_storage_and_null_embedding() {
         // Minimal smoke test: pipeline completes with NullStorage + NullEmbedding
-        let dogs: Vec<Box<dyn Dog>> = vec![
-            Box::new(crate::dogs::deterministic::DeterministicDog),
-        ];
+        let dogs: Vec<Box<dyn Dog>> = vec![Box::new(crate::dogs::deterministic::DeterministicDog)];
         let judge = test_judge(dogs);
         let storage = NullStorage;
         let embedding = NullEmbedding;
@@ -478,14 +562,23 @@ mod tests {
         let metrics = Metrics::new();
 
         let deps = PipelineDeps {
-            judge: &judge, storage: &storage, embedding: &embedding,
-            usage: &usage, verdict_cache: &verdict_cache, metrics: &metrics,
+            judge: &judge,
+            storage: &storage,
+            embedding: &embedding,
+            usage: &usage,
+            verdict_cache: &verdict_cache,
+            metrics: &metrics,
             event_tx: None,
         };
         let result = run(
             "1. e4 c5 — The Sicilian Defense".into(),
-            None, Some("chess".into()), None, true, &deps,
-        ).await;
+            None,
+            Some("chess".into()),
+            None,
+            true,
+            &deps,
+        )
+        .await;
 
         match result {
             Ok(PipelineResult::Evaluated { verdict }) => {
@@ -493,19 +586,32 @@ mod tests {
                 assert!(!verdict.dog_scores.is_empty(), "should have dog scores");
             }
             Ok(PipelineResult::CacheHit { .. }) => panic!("expected evaluation, got cache hit"),
-            Err(e) => panic!("pipeline failed: {}", e),
+            Err(e) => panic!("pipeline failed: {e}"),
         }
         // Metrics should reflect the pipeline run
-        assert_eq!(metrics.verdicts_total.load(std::sync::atomic::Ordering::Relaxed), 1);
-        assert_eq!(metrics.embedding_failures_total.load(std::sync::atomic::Ordering::Relaxed), 1); // NullEmbedding fails
-        assert_eq!(metrics.cache_misses_total.load(std::sync::atomic::Ordering::Relaxed), 1);
+        assert_eq!(
+            metrics
+                .verdicts_total
+                .load(std::sync::atomic::Ordering::Relaxed),
+            1
+        );
+        assert_eq!(
+            metrics
+                .embedding_failures_total
+                .load(std::sync::atomic::Ordering::Relaxed),
+            1
+        ); // NullEmbedding fails
+        assert_eq!(
+            metrics
+                .cache_misses_total
+                .load(std::sync::atomic::Ordering::Relaxed),
+            1
+        );
     }
 
     #[tokio::test]
     async fn pipeline_tracks_usage() {
-        let dogs: Vec<Box<dyn Dog>> = vec![
-            Box::new(crate::dogs::deterministic::DeterministicDog),
-        ];
+        let dogs: Vec<Box<dyn Dog>> = vec![Box::new(crate::dogs::deterministic::DeterministicDog)];
         let judge = test_judge(dogs);
         let storage = NullStorage;
         let embedding = NullEmbedding;
@@ -514,14 +620,21 @@ mod tests {
         let metrics = Metrics::new();
 
         let deps = PipelineDeps {
-            judge: &judge, storage: &storage, embedding: &embedding,
-            usage: &usage, verdict_cache: &verdict_cache, metrics: &metrics,
+            judge: &judge,
+            storage: &storage,
+            embedding: &embedding,
+            usage: &usage,
+            verdict_cache: &verdict_cache,
+            metrics: &metrics,
             event_tx: None,
         };
         let _ = run("test content".into(), None, None, None, true, &deps).await;
 
         let u = usage.lock().await;
-        assert!(!u.snapshot().is_empty(), "usage should have at least one Dog entry");
+        assert!(
+            !u.snapshot().is_empty(),
+            "usage should have at least one Dog entry"
+        );
     }
 
     #[tokio::test]
@@ -554,21 +667,30 @@ mod tests {
         let mid = (PHI_INV3 + PHI_INV2) / 2.0;
         let (tag, weight) = epistemic_gate(mid);
         assert_eq!(tag, "disputed");
-        assert!((weight - 0.5).abs() < 0.01, "midpoint should be ~0.5, got {}", weight);
+        assert!(
+            (weight - 0.5).abs() < 0.01,
+            "midpoint should be ~0.5, got {weight}"
+        );
     }
 
     #[test]
     fn epistemic_gate_disputed_near_agreed_boundary() {
         let (tag, weight) = epistemic_gate(PHI_INV3 + 0.001);
         assert_eq!(tag, "disputed");
-        assert!(weight > 0.9, "near agreed boundary should be ~1.0, got {}", weight);
+        assert!(
+            weight > 0.9,
+            "near agreed boundary should be ~1.0, got {weight}"
+        );
     }
 
     #[test]
     fn epistemic_gate_disputed_near_contested_boundary() {
         let (tag, weight) = epistemic_gate(PHI_INV2 - 0.001);
         assert_eq!(tag, "disputed");
-        assert!(weight < 0.01, "near contested boundary should be ~0.0, got {}", weight);
+        assert!(
+            weight < 0.01,
+            "near contested boundary should be ~0.0, got {weight}"
+        );
     }
 
     #[test]

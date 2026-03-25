@@ -2,10 +2,10 @@
 //! Runs once at first boot, writes ~/.cynic/node.toml
 //! Subsequent boots: instant load from cache.
 
-pub mod types;
-pub mod hardware;
 pub mod environment;
+pub mod hardware;
 pub mod llm;
+pub mod types;
 
 pub use types::*;
 
@@ -21,7 +21,10 @@ pub async fn run(force_reprobe: bool) -> Result<NodeConfig, Box<dyn std::error::
     if config_path.exists() && !force_reprobe {
         match load_config(&config_path) {
             Ok(cfg) => {
-                klog!("[Ring 0] ✅ Node config loaded from cache: {}", config_path.display());
+                klog!(
+                    "[Ring 0] ✅ Node config loaded from cache: {}",
+                    config_path.display()
+                );
                 return Ok(cfg);
             }
             Err(e) => klog!("[Ring 0] ANOMALY: Config corrupt ({}). Re-probing...", e),
@@ -66,7 +69,7 @@ pub async fn run(force_reprobe: bool) -> Result<NodeConfig, Box<dyn std::error::
 
     match save_config(&config, &config_path) {
         Err(e) => klog!("[Ring 0] ANOMALY: Could not save config: {}", e),
-        Ok(_)  => klog!("[Ring 0] ✅ Node config saved: {}", config_path.display()),
+        Ok(_) => klog!("[Ring 0] ✅ Node config saved: {}", config_path.display()),
     }
     Ok(config)
 }

@@ -1,8 +1,8 @@
 //! InferenceDog — model-agnostic Dog that uses any ChatPort for axiom evaluation.
 //! ONE prompt template, N backends. The Dog never knows which model it's talking to.
 
-use crate::domain::dog::*;
 use crate::domain::chat::ChatPort;
+use crate::domain::dog::*;
 use crate::domain::inference::{BackendPort, BackendStatus};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -16,15 +16,32 @@ pub struct InferenceDog {
     domain_prompts: Arc<std::collections::HashMap<String, String>>,
 }
 
+impl std::fmt::Debug for InferenceDog {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InferenceDog").finish_non_exhaustive()
+    }
+}
+
 impl InferenceDog {
     pub fn new(
-        chat: Arc<dyn ChatPort>, name: String, context_size: u32, timeout_secs: u64,
+        chat: Arc<dyn ChatPort>,
+        name: String,
+        context_size: u32,
+        timeout_secs: u64,
     ) -> Self {
-        Self { chat, dog_name: name, context_size, timeout: timeout_secs,
-               domain_prompts: Arc::new(std::collections::HashMap::new()) }
+        Self {
+            chat,
+            dog_name: name,
+            context_size,
+            timeout: timeout_secs,
+            domain_prompts: Arc::new(std::collections::HashMap::new()),
+        }
     }
 
-    pub fn with_domain_prompts(mut self, prompts: Arc<std::collections::HashMap<String, String>>) -> Self {
+    pub fn with_domain_prompts(
+        mut self,
+        prompts: Arc<std::collections::HashMap<String, String>>,
+    ) -> Self {
         self.domain_prompts = prompts;
         self
     }
@@ -33,8 +50,14 @@ impl InferenceDog {
         "You are CYNIC, a sovereign epistemic judge. You evaluate THE SUBJECT MATTER described in the stimulus — not the quality of its description. In chess, judge the MOVE or STRATEGY, not the text. In science, judge the CLAIM, not the writing. Your axioms measure the SUBSTANCE, not the FORM.\n\nVERIFY means 'does this SURVIVE testing?' — not 'can you test it?' A strategy easily refuted by analysis scores LOW on VERIFY. A claim disproven by evidence scores LOW on VERIFY.\n\nBe harsh. Be honest. Overconfidence is the enemy. Most things deserve 0.3-0.6, not 0.8-0.9."
     }
 
-    fn build_user_prompt(stimulus: &Stimulus, domain_prompts: &std::collections::HashMap<String, String>) -> String {
-        let context_block = stimulus.context.as_deref().unwrap_or("(no additional context)");
+    fn build_user_prompt(
+        stimulus: &Stimulus,
+        domain_prompts: &std::collections::HashMap<String, String>,
+    ) -> String {
+        let context_block = stimulus
+            .context
+            .as_deref()
+            .unwrap_or("(no additional context)");
         let domain = stimulus.domain.as_deref().unwrap_or("general");
 
         // Domain-specific axiom evaluation criteria (from domains/*.md)
@@ -50,7 +73,8 @@ impl InferenceDog {
              6. SOVEREIGNTY — Does this preserve individual agency and freedom of choice?".to_string()
         };
 
-        format!(r#"DOMAIN: {domain}
+        format!(
+            r#"DOMAIN: {domain}
 STIMULUS: {content}
 CONTEXT: {context_block}
 
@@ -112,18 +136,17 @@ impl Dog for InferenceDog {
         let system = Self::build_system_prompt();
         let user = Self::build_user_prompt(stimulus, &self.domain_prompts);
 
-        let chat_resp = self.chat.chat(system, &user).await
-            .map_err(|e| match e {
-                crate::domain::chat::ChatError::RateLimited(m) => DogError::RateLimited(m),
-                crate::domain::chat::ChatError::Timeout { .. } => DogError::Timeout,
-                other => DogError::ApiError(other.to_string()),
-            })?;
+        let chat_resp = self.chat.chat(system, &user).await.map_err(|e| match e {
+            crate::domain::chat::ChatError::RateLimited(m) => DogError::RateLimited(m),
+            crate::domain::chat::ChatError::Timeout { .. } => DogError::Timeout,
+            other => DogError::ApiError(other.to_string()),
+        })?;
         let text = &chat_resp.text;
         let prompt_tokens = chat_resp.prompt_tokens;
         let completion_tokens = chat_resp.completion_tokens;
 
         let json_str = extract_json(text)
-            .ok_or_else(|| DogError::ParseError(format!("No JSON found in: {}", text)))?;
+            .ok_or_else(|| DogError::ParseError(format!("No JSON found in: {text}")))?;
 
         // Try strict parse first. Fall back to lenient extraction for small models
         // that produce duplicate keys (e.g. Gemma writes "verify": 0.7 AND "verify": "text").
@@ -161,37 +184,63 @@ impl Dog for InferenceDog {
 fn extract_scores_lenient(json_str: &str) -> Result<AxiomScores, DogError> {
     // serde_json::Value accepts duplicate keys (keeps last value).
     // For scores we want the FIRST numeric value, so we scan the raw text.
-    let axiom_names = ["fidelity", "phi", "verify", "culture", "burn", "sovereignty"];
+    let axiom_names = [
+        "fidelity",
+        "phi",
+        "verify",
+        "culture",
+        "burn",
+        "sovereignty",
+    ];
     let mut scores = std::collections::HashMap::new();
     let mut reasons = std::collections::HashMap::new();
 
     for name in &axiom_names {
         // Find first occurrence of "name": <number>
-        let score_pattern = format!("\"{}\"", name);
+        let score_pattern = format!("\"{name}\"");
         if let Some(pos) = json_str.find(&score_pattern) {
             let after_key = &json_str[pos + score_pattern.len()..];
             // Skip whitespace and colon
-            let after_colon = after_key.trim_start().strip_prefix(':').unwrap_or(after_key).trim_start();
+            let after_colon = after_key
+                .trim_start()
+                .strip_prefix(':')
+                .unwrap_or(after_key)
+                .trim_start();
             // Try to parse a number
-            let num_end = after_colon.find(|c: char| !c.is_ascii_digit() && c != '.').unwrap_or(after_colon.len());
+            let num_end = after_colon
+                .find(|c: char| !c.is_ascii_digit() && c != '.')
+                .unwrap_or(after_colon.len());
             if let Ok(v) = after_colon[..num_end].parse::<f64>() {
                 scores.insert(*name, v);
             }
         }
 
         // Find first occurrence of "name_reason": "text"
-        let reason_key = format!("\"{}_reason\"", name);
+        let reason_key = format!("\"{name}_reason\"");
         if let Some(pos) = json_str.find(&reason_key) {
             let after_key = &json_str[pos + reason_key.len()..];
-            let after_colon = after_key.trim_start().strip_prefix(':').unwrap_or(after_key).trim_start();
+            let after_colon = after_key
+                .trim_start()
+                .strip_prefix(':')
+                .unwrap_or(after_key)
+                .trim_start();
             if let Some(inner) = after_colon.strip_prefix('"') {
                 // Find closing quote (handle escaped quotes minimally)
                 let mut end = 0;
                 let mut escaped = false;
                 for (i, c) in inner.char_indices() {
-                    if escaped { escaped = false; continue; }
-                    if c == '\\' { escaped = true; continue; }
-                    if c == '"' { end = i; break; }
+                    if escaped {
+                        escaped = false;
+                        continue;
+                    }
+                    if c == '\\' {
+                        escaped = true;
+                        continue;
+                    }
+                    if c == '"' {
+                        end = i;
+                        break;
+                    }
                 }
                 reasons.insert(*name, inner[..end].to_string());
             }
@@ -199,7 +248,9 @@ fn extract_scores_lenient(json_str: &str) -> Result<AxiomScores, DogError> {
     }
 
     if scores.is_empty() {
-        return Err(DogError::ParseError("No numeric scores found in lenient parse".into()));
+        return Err(DogError::ParseError(
+            "No numeric scores found in lenient parse".into(),
+        ));
     }
 
     let get = |k: &str| *scores.get(k).unwrap_or(&0.0);
@@ -284,7 +335,10 @@ mod tests {
         assert!(prompt.contains("chess"));
         assert!(prompt.contains("FIDELITY"));
         // Generic fallback — no domain-specific criteria
-        assert!(prompt.contains("AXIOMS:"), "should use generic axioms when no domain prompt");
+        assert!(
+            prompt.contains("AXIOMS:"),
+            "should use generic axioms when no domain prompt"
+        );
     }
 
     #[test]
@@ -295,11 +349,20 @@ mod tests {
             domain: Some("chess".into()),
         };
         let mut prompts = std::collections::HashMap::new();
-        prompts.insert("chess".to_string(), "## FIDELITY\nIs this faithful to sound chess principles?".to_string());
+        prompts.insert(
+            "chess".to_string(),
+            "## FIDELITY\nIs this faithful to sound chess principles?".to_string(),
+        );
         let prompt = InferenceDog::build_user_prompt(&stimulus, &prompts);
-        assert!(prompt.contains("DOMAIN-SPECIFIC EVALUATION CRITERIA:"), "should use domain prompt");
+        assert!(
+            prompt.contains("DOMAIN-SPECIFIC EVALUATION CRITERIA:"),
+            "should use domain prompt"
+        );
         assert!(prompt.contains("faithful to sound chess principles"));
-        assert!(!prompt.contains("AXIOMS:"), "should NOT have generic axioms when domain prompt exists");
+        assert!(
+            !prompt.contains("AXIOMS:"),
+            "should NOT have generic axioms when domain prompt exists"
+        );
     }
 
     #[tokio::test]

@@ -97,10 +97,10 @@ pub struct QScore {
 // ── VERDICT ────────────────────────────────────────────────
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum VerdictKind {
-    Howl,   // > φ⁻² + φ⁻⁴ = 0.528 (golden subdivision of WAG→MAX)
-    Wag,    // > φ⁻²       = 0.382
-    Growl,  // > φ⁻³       = 0.236
-    Bark,   // ≤ φ⁻³
+    Howl,  // > φ⁻² + φ⁻⁴ = 0.528 (golden subdivision of WAG→MAX)
+    Wag,   // > φ⁻²       = 0.382
+    Growl, // > φ⁻³       = 0.236
+    Bark,  // ≤ φ⁻³
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,7 +157,15 @@ pub fn compute_qscore(raw: &AxiomScores) -> QScore {
     let geo = (f * p * v * c * b * s).powf(1.0 / 6.0);
     let total = phi_bound(geo);
 
-    QScore { total, fidelity: f, phi: p, verify: v, culture: c, burn: b, sovereignty: s }
+    QScore {
+        total,
+        fidelity: f,
+        phi: p,
+        verify: v,
+        culture: c,
+        burn: b,
+        sovereignty: s,
+    }
 }
 
 /// Determine verdict from Q-Score total (phi-bounded scale: 0..φ⁻¹)
@@ -167,10 +175,15 @@ pub fn compute_qscore(raw: &AxiomScores) -> QScore {
 ///   WAG:   φ⁻² (golden cut of [0, φ⁻¹])
 ///   HOWL:  φ⁻² + φ⁻⁴ (golden cut of [φ⁻², φ⁻¹])
 pub fn verdict_kind(total: f64) -> VerdictKind {
-    if total > PHI_INV2 + PHI_INV4 { VerdictKind::Howl }
-    else if total > PHI_INV2 { VerdictKind::Wag }
-    else if total > PHI_INV3 { VerdictKind::Growl }
-    else { VerdictKind::Bark }
+    if total > PHI_INV2 + PHI_INV4 {
+        VerdictKind::Howl
+    } else if total > PHI_INV2 {
+        VerdictKind::Wag
+    } else if total > PHI_INV3 {
+        VerdictKind::Growl
+    } else {
+        VerdictKind::Bark
+    }
 }
 
 // ── DOG TRAIT ──────────────────────────────────────────────
@@ -182,10 +195,14 @@ pub trait Dog: Send + Sync {
     fn id(&self) -> &str;
 
     /// Max context tokens this Dog supports. 0 = unlimited.
-    fn max_context(&self) -> u32 { 0 }
+    fn max_context(&self) -> u32 {
+        0
+    }
 
     /// Max evaluation timeout in seconds. Default: 30. Sovereign CPU models override to 60+.
-    fn timeout_secs(&self) -> u64 { 30 }
+    fn timeout_secs(&self) -> u64 {
+        30
+    }
 
     /// Backend health — cascades from the underlying inference provider.
     /// Default: Healthy (correct for DeterministicDog and any in-process evaluator).
@@ -241,28 +258,43 @@ mod tests {
     #[test]
     fn qscore_geometric_mean_correct() {
         let raw = AxiomScores {
-            fidelity: 0.6, phi: 0.5, verify: 0.4,
-            culture: 0.5, burn: 0.5, sovereignty: 0.6,
-            reasoning: AxiomReasoning::default(), ..Default::default()
+            fidelity: 0.6,
+            phi: 0.5,
+            verify: 0.4,
+            culture: 0.5,
+            burn: 0.5,
+            sovereignty: 0.6,
+            reasoning: AxiomReasoning::default(),
+            ..Default::default()
         };
         let q = compute_qscore(&raw);
         assert!(q.total <= PHI_INV + 1e-10);
         assert!(q.fidelity <= PHI_INV + 1e-10);
-        let expected = (0.6_f64 * 0.5 * 0.4 * 0.5 * 0.5 * 0.6).powf(1.0/6.0);
+        let expected = (0.6_f64 * 0.5 * 0.4 * 0.5 * 0.5 * 0.6).powf(1.0 / 6.0);
         assert!((q.total - expected).abs() < 0.01);
     }
 
     #[test]
     fn one_weak_axiom_drags_score_down() {
         let strong = AxiomScores {
-            fidelity: 0.6, phi: 0.6, verify: 0.6,
-            culture: 0.6, burn: 0.6, sovereignty: 0.6,
-            reasoning: AxiomReasoning::default(), ..Default::default()
+            fidelity: 0.6,
+            phi: 0.6,
+            verify: 0.6,
+            culture: 0.6,
+            burn: 0.6,
+            sovereignty: 0.6,
+            reasoning: AxiomReasoning::default(),
+            ..Default::default()
         };
         let weak = AxiomScores {
-            fidelity: 0.6, phi: 0.6, verify: 0.6,
-            culture: 0.6, burn: 0.6, sovereignty: 0.1,
-            reasoning: AxiomReasoning::default(), ..Default::default()
+            fidelity: 0.6,
+            phi: 0.6,
+            verify: 0.6,
+            culture: 0.6,
+            burn: 0.6,
+            sovereignty: 0.1,
+            reasoning: AxiomReasoning::default(),
+            ..Default::default()
         };
         let q_strong = compute_qscore(&strong);
         let q_weak = compute_qscore(&weak);

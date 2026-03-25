@@ -8,6 +8,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
+#[derive(Debug)]
 pub struct EmbeddingBackend {
     client: Client,
     base_url: String,
@@ -16,7 +17,11 @@ pub struct EmbeddingBackend {
 }
 
 impl EmbeddingBackend {
-    pub fn new(base_url: &str, api_key: Option<String>, model: &str) -> Result<Self, crate::domain::inference::BackendInitError> {
+    pub fn new(
+        base_url: &str,
+        api_key: Option<String>,
+        model: &str,
+    ) -> Result<Self, crate::domain::inference::BackendInitError> {
         Ok(Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(30))
@@ -31,17 +36,15 @@ impl EmbeddingBackend {
     /// Build from environment variables.
     /// CYNIC_EMBED_URL overrides, else derives from CYNIC_REST_ADDR host + port 8081.
     pub fn from_env() -> Result<Self, crate::domain::inference::BackendInitError> {
-        let base_url = std::env::var("CYNIC_EMBED_URL")
-            .unwrap_or_else(|_| {
-                let rest = std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".into());
-                let host = rest.split(':').next().unwrap_or("127.0.0.1");
-                format!("http://{}:8081/v1", host)
-            });
+        let base_url = std::env::var("CYNIC_EMBED_URL").unwrap_or_else(|_| {
+            let rest = std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".into());
+            let host = rest.split(':').next().unwrap_or("127.0.0.1");
+            format!("http://{host}:8081/v1")
+        });
         let api_key = std::env::var("SOVEREIGN_API_KEY").ok();
         let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());
         Self::new(&base_url, api_key, &model)
     }
-
 }
 
 #[async_trait]
@@ -57,14 +60,18 @@ impl BackendPort for EmbeddingBackend {
             Ok(resp) if resp.status().is_success() => {
                 let latency = start.elapsed().as_millis() as f64;
                 if latency > 2000.0 {
-                    BackendStatus::Degraded { latency_ms: latency }
+                    BackendStatus::Degraded {
+                        latency_ms: latency,
+                    }
                 } else {
                     BackendStatus::Healthy
                 }
             }
             Ok(resp) => {
                 tracing::warn!(status = %resp.status(), "embedding backend degraded");
-                BackendStatus::Degraded { latency_ms: start.elapsed().as_millis() as f64 }
+                BackendStatus::Degraded {
+                    latency_ms: start.elapsed().as_millis() as f64,
+                }
             }
             Err(e) => {
                 tracing::error!(error = %e, "embedding backend unreachable — critical");
@@ -108,16 +115,17 @@ impl EmbeddingPort for EmbeddingBackend {
             model: self.model.clone(),
         };
 
-        let mut req = self.client.post(&url)
-            .json(&req_body);
+        let mut req = self.client.post(&url).json(&req_body);
 
         if let Some(ref key) = self.api_key {
-            req = req.header("Authorization", format!("Bearer {}", key));
+            req = req.header("Authorization", format!("Bearer {key}"));
         }
 
         let resp = req.send().await.map_err(|e| {
             if e.is_timeout() {
-                EmbeddingError::Timeout { ms: start.elapsed().as_millis() as u64 }
+                EmbeddingError::Timeout {
+                    ms: start.elapsed().as_millis() as u64,
+                }
             } else {
                 EmbeddingError::Unreachable(e.to_string())
             }
@@ -126,13 +134,18 @@ impl EmbeddingPort for EmbeddingBackend {
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            return Err(EmbeddingError::Protocol(format!("HTTP {}: {}", status, body)));
+            return Err(EmbeddingError::Protocol(format!("HTTP {status}: {body}")));
         }
 
-        let parsed: EmbeddingResponse = resp.json().await
-            .map_err(|e| EmbeddingError::Protocol(format!("JSON parse error: {}", e)))?;
+        let parsed: EmbeddingResponse = resp
+            .json()
+            .await
+            .map_err(|e| EmbeddingError::Protocol(format!("JSON parse error: {e}")))?;
 
-        let data = parsed.data.into_iter().next()
+        let data = parsed
+            .data
+            .into_iter()
+            .next()
             .ok_or_else(|| EmbeddingError::Protocol("empty response".into()))?;
 
         let dimensions = data.embedding.len();

@@ -1,9 +1,9 @@
 //! Dog trait contract tests — any Dog implementation must pass these.
 
-use cynic_kernel::domain::dog::*;
 use cynic_kernel::dogs::deterministic::DeterministicDog;
 use cynic_kernel::dogs::inference::InferenceDog;
 use cynic_kernel::domain::chat::MockChatBackend;
+use cynic_kernel::domain::dog::*;
 use std::sync::Arc;
 
 async fn dog_contract(dog: &dyn Dog) {
@@ -21,17 +21,26 @@ async fn dog_contract(dog: &dyn Dog) {
     match result {
         Ok(scores) => {
             // Scores must be in [0.0, 1.0]
-            assert!(scores.fidelity >= 0.0 && scores.fidelity <= 1.0,
-                "fidelity {} out of range", scores.fidelity);
-            assert!(scores.phi >= 0.0 && scores.phi <= 1.0,
-                "phi {} out of range", scores.phi);
-            assert!(scores.verify >= 0.0 && scores.verify <= 1.0,
-                "verify {} out of range", scores.verify);
+            assert!(
+                scores.fidelity >= 0.0 && scores.fidelity <= 1.0,
+                "fidelity {} out of range",
+                scores.fidelity
+            );
+            assert!(
+                scores.phi >= 0.0 && scores.phi <= 1.0,
+                "phi {} out of range",
+                scores.phi
+            );
+            assert!(
+                scores.verify >= 0.0 && scores.verify <= 1.0,
+                "verify {} out of range",
+                scores.verify
+            );
         }
-        Err(DogError::ApiError(_)) => {} // acceptable
-        Err(DogError::ParseError(_)) => {} // acceptable
+        Err(DogError::ApiError(_)) => {}    // acceptable
+        Err(DogError::ParseError(_)) => {}  // acceptable
         Err(DogError::RateLimited(_)) => {} // acceptable
-        Err(DogError::Timeout) => {} // acceptable
+        Err(DogError::Timeout) => {}        // acceptable
     }
 }
 

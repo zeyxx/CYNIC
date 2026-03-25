@@ -8,10 +8,29 @@
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(tag = "type")]
 pub enum KernelEvent {
-    VerdictIssued { verdict_id: String, domain: String, verdict: String, q_score: f64 },
-    CrystalObserved { crystal_id: String, domain: String },
-    DogFailed { dog_id: String, error: String },
-    SessionRegistered { agent_id: String },
-    BackfillComplete { count: u32 },
-    Anomaly { kind: String, message: String, severity: String },
+    VerdictIssued {
+        verdict_id: String,
+        domain: String,
+        verdict: String,
+        q_score: f64,
+    },
+    CrystalObserved {
+        crystal_id: String,
+        domain: String,
+    },
+    DogFailed {
+        dog_id: String,
+        error: String,
+    },
+    SessionRegistered {
+        agent_id: String,
+    },
+    BackfillComplete {
+        count: u32,
+    },
+    Anomaly {
+        kind: String,
+        message: String,
+        severity: String,
+    },
 }

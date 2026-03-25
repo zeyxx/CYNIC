@@ -2,18 +2,14 @@
 //! Fire-and-forget: hooks POST here after each tool use.
 //! Observations feed CCM crystallization over time.
 
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::Json,
-};
+use axum::{extract::State, http::StatusCode, response::Json};
 use serde::Deserialize;
 use std::sync::Arc;
 
 use super::types::{AppState, ErrorResponse};
 use crate::domain::storage::Observation;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ObserveRequest {
     pub tool: String,
     pub target: Option<String>,
@@ -48,13 +44,18 @@ pub async fn observe_handler(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     // Validate required field
     if req.tool.is_empty() || req.tool.len() > 64 {
-        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse {
-            error: "tool must be 1-64 characters".into(),
-        })));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "tool must be 1-64 characters".into(),
+            }),
+        ));
     }
 
     // Infer domain from target file extension if not provided
-    let domain = req.domain.unwrap_or_else(|| infer_domain(req.target.as_deref()));
+    let domain = req
+        .domain
+        .unwrap_or_else(|| infer_domain(req.target.as_deref()));
 
     let obs = Observation {
         project: req.project.unwrap_or_else(|| "CYNIC".into()),
@@ -63,7 +64,10 @@ pub async fn observe_handler(
         target: req.target.unwrap_or_default(),
         domain,
         status: req.status.unwrap_or_else(|| "success".into()),
-        context: req.context.map(|c| c.chars().take(200).collect()).unwrap_or_default(),
+        context: req
+            .context
+            .map(|c| c.chars().take(200).collect())
+            .unwrap_or_default(),
         session_id: req.session_id.unwrap_or_default(),
         timestamp: chrono::Utc::now().to_rfc3339(),
     };
@@ -73,13 +77,15 @@ pub async fn observe_handler(
     match semaphore.try_acquire_owned() {
         Ok(permit) => {
             let storage = Arc::clone(&state.storage);
-            let obs_clone = obs.clone();
+            let obs_clone = obs;
             state.bg_tasks.spawn(async move {
                 let _permit = permit; // held until task completes
                 match tokio::time::timeout(
                     std::time::Duration::from_secs(5),
                     storage.store_observation(&obs_clone),
-                ).await {
+                )
+                .await
+                {
                     Ok(Err(e)) => tracing::warn!(error = %e, "store_observation failed"),
                     Err(_) => tracing::warn!("store_observation timed out (5s)"),
                     _ => {}
@@ -88,9 +94,12 @@ pub async fn observe_handler(
         }
         Err(_) => {
             tracing::warn!("background task limit reached, observation dropped");
-            return Err((StatusCode::SERVICE_UNAVAILABLE, Json(ErrorResponse {
-                error: "observation dropped: background task limit reached".into(),
-            })));
+            return Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: "observation dropped: background task limit reached".into(),
+                }),
+            ));
         }
     }
 

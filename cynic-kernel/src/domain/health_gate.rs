@@ -42,7 +42,11 @@ pub trait HealthGate: Send + Sync {
 /// - critical (503): zero healthy dogs OR storage down
 /// - degraded (503): only 1 healthy dog OR majority of dogs down
 /// - sovereign (200): majority healthy + storage up
-pub fn system_health_status(healthy_dogs: usize, total_dogs: usize, storage_ok: bool) -> (&'static str, bool) {
+pub fn system_health_status(
+    healthy_dogs: usize,
+    total_dogs: usize,
+    storage_ok: bool,
+) -> (&'static str, bool) {
     if healthy_dogs == 0 || !storage_ok {
         ("critical", false)
     } else if healthy_dogs == 1 || (total_dogs > 0 && healthy_dogs * 2 < total_dogs) {

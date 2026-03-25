@@ -102,6 +102,7 @@ impl DogState {
 ///
 /// Uses `std::sync::Mutex` (not tokio) because `ssh_restart` is called from
 /// `spawn_blocking` — sync context.
+#[derive(Debug)]
 pub struct RecoveryTracker {
     inner: Mutex<HashMap<String, DogState>>,
 }
@@ -118,9 +119,8 @@ impl RecoveryTracker {
     ///   2. Either no previous attempt has been made OR the cooldown has elapsed.
     pub fn should_restart(&self, dog_id: &str, config: &super::config::BackendRemediation) -> bool {
         let map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        let state = match map.get(dog_id) {
-            Some(s) => s,
-            None => return true, // never attempted — allow
+        let Some(state) = map.get(dog_id) else {
+            return true; // never attempted — allow
         };
 
         if state.exhausted {
@@ -141,14 +141,17 @@ impl RecoveryTracker {
     /// Record a restart attempt. Marks exhausted when `attempts >= max_retries`.
     pub fn record_attempt(&self, dog_id: &str, max_retries: u32) {
         let mut map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        let state = map.entry(dog_id.to_string()).or_insert_with(DogState::fresh);
+        let state = map
+            .entry(dog_id.to_string())
+            .or_insert_with(DogState::fresh);
         state.attempts += 1;
         state.last_attempt = Some(Instant::now());
         if state.attempts >= max_retries {
             state.exhausted = true;
             klog!(
                 "[Remediation] Dog '{}': max retries ({}) reached — giving up",
-                dog_id, max_retries
+                dog_id,
+                max_retries
             );
         }
     }
@@ -177,11 +180,16 @@ impl Default for RecoveryTracker {
 pub fn ssh_restart(node: &str, command: &str) -> Result<String, String> {
     let output = Command::new("ssh")
         .args([
-            "-o", "ConnectTimeout=5",
-            "-o", "ServerAliveInterval=5",
-            "-o", "ServerAliveCountMax=2",
-            "-o", "BatchMode=yes",
-            "-o", "StrictHostKeyChecking=accept-new", // Acceptable in Tailscale mesh (nodes auth'd by WireGuard)
+            "-o",
+            "ConnectTimeout=5",
+            "-o",
+            "ServerAliveInterval=5",
+            "-o",
+            "ServerAliveCountMax=2",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "StrictHostKeyChecking=accept-new", // Acceptable in Tailscale mesh (nodes auth'd by WireGuard)
             node,
             command,
         ])
@@ -203,7 +211,10 @@ mod tests {
     use std::io::Write as IoWrite;
     use tempfile::NamedTempFile;
 
-    fn make_config(max_retries: u32, cooldown_secs: u64) -> super::super::config::BackendRemediation {
+    fn make_config(
+        max_retries: u32,
+        cooldown_secs: u64,
+    ) -> super::super::config::BackendRemediation {
         super::super::config::BackendRemediation {
             node: "user@test-node".to_string(),
             restart_command: "systemctl restart foo".to_string(),
@@ -237,19 +248,25 @@ cooldown_secs = 120
         let map = load_remediation(f.path());
         assert_eq!(map.len(), 2);
 
-        let stanislaz = map.get("sovereign-stanislaz").expect("missing sovereign-stanislaz");
+        let stanislaz = map
+            .get("sovereign-stanislaz")
+            .expect("missing sovereign-stanislaz");
         assert_eq!(stanislaz.node, "user@192.0.2.1");
         assert_eq!(stanislaz.max_retries, 3, "should use default");
         assert_eq!(stanislaz.cooldown_secs, 60, "should use default");
 
-        let ubuntu = map.get("sovereign-ubuntu").expect("missing sovereign-ubuntu");
+        let ubuntu = map
+            .get("sovereign-ubuntu")
+            .expect("missing sovereign-ubuntu");
         assert_eq!(ubuntu.max_retries, 5);
         assert_eq!(ubuntu.cooldown_secs, 120);
     }
 
     #[test]
     fn load_missing_file_returns_empty() {
-        let map = load_remediation(Path::new("/tmp/this-file-does-not-exist-cynic-remediation.toml"));
+        let map = load_remediation(Path::new(
+            "/tmp/this-file-does-not-exist-cynic-remediation.toml",
+        ));
         assert!(map.is_empty());
     }
 
