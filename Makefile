@@ -38,6 +38,12 @@ check:
 	cargo test -p cynic-kernel --release
 	cargo clippy -p cynic-kernel --release -- -D warnings
 	@$(MAKE) --no-print-directory lint-rules
+	@if command -v cargo-audit >/dev/null 2>&1; then \
+		echo ""; echo "▶ Security audit (cargo audit)..."; \
+		cargo audit --deny warnings 2>&1 || echo "⚠ cargo audit found advisories — review above"; \
+	else \
+		echo ""; echo "⚠ cargo-audit not installed — run: cargo install cargo-audit"; \
+	fi
 	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
 		echo ""; echo "▶ Integration tests (SurrealDB available)..."; \
 		cargo test -p cynic-kernel --release -- --ignored; \

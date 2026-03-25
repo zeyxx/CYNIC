@@ -24,7 +24,7 @@ use tower_http::services::ServeDir;
 
 use self::coord::{coord_register_handler, coord_claim_handler, coord_claim_batch_handler, coord_release_handler};
 use self::data::{crystals_handler, crystal_handler, usage_handler, create_crystal_handler, delete_crystal_handler, observe_crystal_handler, observations_handler, sessions_handler, audit_handler};
-use self::health::{health_handler, dogs_handler, agents_handler, metrics_handler};
+use self::health::{health_handler, liveness_handler, readiness_handler, dogs_handler, agents_handler, metrics_handler};
 use self::judge::{judge_handler, get_verdict_handler, list_verdicts_handler};
 use self::middleware::{auth_middleware, rate_limit_middleware, audit_middleware};
 use self::observe::observe_handler;
@@ -48,8 +48,17 @@ pub fn router(state: Arc<AppState>) -> Router {
     }
     let cors = CorsLayer::new()
         .allow_origin(origins)
-        .allow_methods(tower_http::cors::Any)
-        .allow_headers(tower_http::cors::Any);
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::DELETE,
+            axum::http::Method::OPTIONS,
+        ])
+        .allow_headers([
+            axum::http::header::AUTHORIZATION,
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::ACCEPT,
+        ]);
 
     if state.api_key.is_some() {
         tracing::info!("REST Bearer auth ENABLED");
@@ -59,6 +68,8 @@ pub fn router(state: Arc<AppState>) -> Router {
 
     Router::new()
         .route("/health", get(health_handler))
+        .route("/live", get(liveness_handler))
+        .route("/ready", get(readiness_handler))
         .route("/metrics", get(metrics_handler))
         .route("/events", get(events::events_handler))
         .route("/judge", post(judge_handler))
