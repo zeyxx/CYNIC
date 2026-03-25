@@ -1,6 +1,9 @@
 [Unit]
-Description=CYNIC Health Check
+Description=CYNIC Readiness Check
+After=cynic-kernel.service
 
 [Service]
 Type=oneshot
-ExecStart=%h/bin/cynic-healthcheck.sh
+EnvironmentFile=%h/.config/cynic/env
+# Rule #15: check HTTP status code, don't parse JSON. /ready returns 200 or 503.
+ExecStart=/usr/bin/curl -sf --max-time 10 http://${CYNIC_REST_ADDR}/ready

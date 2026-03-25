@@ -17,6 +17,25 @@ pub async fn dogs_handler(
     Json(state.judge.dog_ids())
 }
 
+/// GET /live — Liveness probe. Returns 200 if the process is running.
+/// No dependencies checked — this is "is the kernel alive?" for systemd/k8s.
+pub async fn liveness_handler() -> StatusCode {
+    StatusCode::OK
+}
+
+/// GET /ready — Readiness probe. Returns 200 if the kernel can serve requests.
+/// Checks storage + dog health via system_health_status.
+pub async fn readiness_handler(
+    State(state): State<Arc<AppState>>,
+) -> StatusCode {
+    let dog_health = state.judge.dog_health();
+    let healthy_dogs = dog_health.iter().filter(|(_, circuit, _)| circuit == "closed").count();
+    let total_dogs = dog_health.len();
+    let storage_ok = state.storage.ping().await.is_ok();
+    let (_, is_healthy) = system_health_status(healthy_dogs, total_dogs, storage_ok);
+    if is_healthy { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE }
+}
+
 pub async fn health_handler(
     State(state): State<Arc<AppState>>,
     request: Request,
@@ -77,7 +96,12 @@ pub async fn health_handler(
         "total_tokens": usage.total_tokens(),
         "estimated_cost_usd": usage.estimated_cost_usd(),
         "uptime_seconds": usage.uptime_seconds(),
-        "alerts": state.introspection_alerts.read().map(|a| a.clone()).unwrap_or_default(),
+        "alerts": state.introspection_alerts.read()
+            .map(|a| a.clone())
+            .unwrap_or_else(|e| {
+                tracing::warn!(error = %e, "introspection_alerts RwLock poisoned");
+                Vec::new()
+            }),
     })))
 }
 
