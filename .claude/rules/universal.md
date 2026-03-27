@@ -27,3 +27,4 @@ globs: ["**"]
 30. **Commit before completing.** `git status --short` at session end must show 0 modified files.
 31. **Measure before AND after.** Every "improved X" claim needs before/after numbers.
 33. **Every producer needs a consumer.** `store_*` without a read path = invisible waste.
+34. **Falsify before adopting.** Architectural decisions require: hypothesis, falsification test, evidence from production systems. No structural choice without attempting to disprove it.
