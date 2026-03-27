@@ -6,6 +6,7 @@
 //!   POST /sql  — raw SurrealQL, headers: surreal-ns, surreal-db, Authorization: Basic
 //!   Response: JSON array of statement results
 
+pub mod memory;
 pub mod surreal;
 
 use crate::domain::storage::StorageError;
