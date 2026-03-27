@@ -78,13 +78,13 @@ pub async fn rate_limit_middleware(
         return next.run(request).await;
     }
 
-    // Extract client IP from X-Forwarded-For or peer address
+    // F2: Use real peer address, not spoofable X-Forwarded-For.
+    // CYNIC runs on Tailscale (no reverse proxy) — X-Forwarded-For is untrusted.
+    // axum::serve injects ConnectInfo<SocketAddr> automatically.
     let ip = request
-        .headers()
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.split(',').next())
-        .and_then(|s| s.trim().parse::<std::net::IpAddr>().ok())
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|ci| ci.0.ip())
         .unwrap_or(std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
 
     // Global rate limit applies to ALL endpoints (including /judge)

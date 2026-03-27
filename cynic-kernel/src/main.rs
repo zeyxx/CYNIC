@@ -399,8 +399,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         rate_limiter: api::rest::PerIpRateLimiter::new(30), // 30 requests/minute global
         judge_limiter: api::rest::PerIpRateLimiter::new(10), // 10 /judge per minute (inference costs money)
+        ready_cache: api::rest::ReadyCache::new(),
         bg_semaphore: Arc::new(tokio::sync::Semaphore::new(64)), // bound fire-and-forget spawns
-        bg_tasks: tokio_util::task::TaskTracker::new(),      // track for drain at shutdown
+        bg_tasks: tokio_util::task::TaskTracker::new(),          // track for drain at shutdown
+        sse_semaphore: Arc::new(tokio::sync::Semaphore::new(32)), // F23: bound SSE connections
         introspection_alerts: Arc::new(std::sync::RwLock::new(Vec::new())),
         event_tx: event_tx.clone(),
     });
@@ -565,9 +567,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // axum with graceful shutdown — stops accepting connections on token cancel,
     // drains in-flight requests (bounded by tower TimeoutLayer at 120s)
-    if let Err(e) = axum::serve(rest_listener, rest_app)
-        .with_graceful_shutdown(shutdown.clone().cancelled_owned())
-        .await
+    // F2: into_make_service_with_connect_info injects ConnectInfo<SocketAddr>
+    // into every request's extensions — rate limiter reads real peer addr, not X-Forwarded-For.
+    if let Err(e) = axum::serve(
+        rest_listener,
+        rest_app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown.clone().cancelled_owned())
+    .await
     {
         tracing::error!(error = %e, "REST server fatal error");
     }

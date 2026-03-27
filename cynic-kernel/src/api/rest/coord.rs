@@ -9,6 +9,26 @@ use std::sync::Arc;
 use super::types::{AppState, ErrorResponse};
 use crate::domain::coord::ClaimResult;
 
+fn validate_agent_id(id: &str) -> Result<(), (StatusCode, Json<ErrorResponse>)> {
+    if id.is_empty() || id.len() > 64 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "agent_id must be 1-64 characters".into(),
+            }),
+        ));
+    }
+    if id.chars().any(|c| c.is_control()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "agent_id contains invalid characters".into(),
+            }),
+        ));
+    }
+    Ok(())
+}
+
 // ── Request types ─────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -44,16 +64,24 @@ pub async fn coord_register_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    if req.agent_id.is_empty() || req.agent_id.len() > 64 {
+    validate_agent_id(&req.agent_id)?;
+    if req.intent.is_empty() || req.intent.chars().count() > 500 {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                error: "agent_id must be 1-64 characters".into(),
+                error: "intent must be 1-500 characters".into(),
             }),
         ));
     }
-
     let agent_type = req.agent_type.unwrap_or_else(|| "unknown".into());
+    if agent_type.len() > 64 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "agent_type must be under 64 characters".into(),
+            }),
+        ));
+    }
 
     state
         .coord
@@ -99,14 +127,7 @@ pub async fn coord_claim_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ClaimRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    if req.agent_id.is_empty() || req.agent_id.len() > 64 {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "agent_id must be 1-64 characters".into(),
-            }),
-        ));
-    }
+    validate_agent_id(&req.agent_id)?;
     if req.target.is_empty() || req.target.len() > 256 {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -115,8 +136,15 @@ pub async fn coord_claim_handler(
             }),
         ));
     }
-
     let claim_type = req.claim_type.unwrap_or_else(|| "file".into());
+    if claim_type.len() > 64 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "claim_type must be under 64 characters".into(),
+            }),
+        ));
+    }
 
     match state
         .coord
@@ -165,14 +193,7 @@ pub async fn coord_claim_batch_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<BatchClaimRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    if req.agent_id.is_empty() || req.agent_id.len() > 64 {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "agent_id must be 1-64 characters".into(),
-            }),
-        ));
-    }
+    validate_agent_id(&req.agent_id)?;
     if req.targets.is_empty() || req.targets.len() > 20 {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -196,6 +217,14 @@ pub async fn coord_claim_batch_handler(
     }
 
     let claim_type = req.claim_type.unwrap_or_else(|| "file".into());
+    if claim_type.len() > 64 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "claim_type must be under 64 characters".into(),
+            }),
+        ));
+    }
 
     let result = state
         .coord
@@ -238,11 +267,14 @@ pub async fn coord_release_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ReleaseRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    if req.agent_id.is_empty() || req.agent_id.len() > 64 {
+    validate_agent_id(&req.agent_id)?;
+    if let Some(ref t) = req.target
+        && (t.is_empty() || t.len() > 256)
+    {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                error: "agent_id must be 1-64 characters".into(),
+                error: "target must be 1-256 characters".into(),
             }),
         ));
     }

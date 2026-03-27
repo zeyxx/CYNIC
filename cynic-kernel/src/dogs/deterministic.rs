@@ -28,7 +28,7 @@ impl Dog for DeterministicDog {
         let content = &stimulus.content;
         let context = stimulus.context.as_deref().unwrap_or("");
         let all_text = format!("{content} {context}");
-        let len = content.len();
+        let len = content.chars().count();
         let words: Vec<&str> = all_text.split_whitespace().collect();
         let word_count = words.len();
 

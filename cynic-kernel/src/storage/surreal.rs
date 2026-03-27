@@ -699,7 +699,9 @@ impl StoragePort for SurrealHttpStorage {
 
     async fn last_integrity_hash(&self) -> Result<Option<String>, StorageError> {
         let rows = self
-            .query_one("SELECT integrity_hash FROM verdict ORDER BY created_at DESC LIMIT 1;")
+            .query_one(
+                "SELECT integrity_hash, created_at FROM verdict ORDER BY created_at DESC LIMIT 1;",
+            )
             .await?;
         Ok(rows
             .first()

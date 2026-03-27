@@ -28,28 +28,24 @@ pub async fn judge_handler(
             }),
         ));
     }
-    if content.len() > MAX_CONTENT_LEN {
+    let content_chars = content.chars().count();
+    if content_chars > MAX_CONTENT_LEN {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                error: format!(
-                    "content exceeds {} chars (got {})",
-                    MAX_CONTENT_LEN,
-                    content.len()
-                ),
+                error: format!("content exceeds {MAX_CONTENT_LEN} chars (got {content_chars})"),
             }),
         ));
     }
     if let Some(ref ctx) = req.context
-        && ctx.len() > MAX_CONTEXT_LEN
+        && ctx.chars().count() > MAX_CONTEXT_LEN
     {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
                 error: format!(
-                    "context exceeds {} chars (got {})",
-                    MAX_CONTEXT_LEN,
-                    ctx.len()
+                    "context exceeds {MAX_CONTEXT_LEN} chars (got {})",
+                    ctx.chars().count()
                 ),
             }),
         ));

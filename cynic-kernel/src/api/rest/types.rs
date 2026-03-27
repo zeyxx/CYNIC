@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tokio::sync::Mutex;
 
 use crate::domain::coord::CoordPort;
@@ -32,6 +33,9 @@ pub struct AppState {
     pub storage_info: StorageInfo,
     pub rate_limiter: PerIpRateLimiter,
     pub judge_limiter: PerIpRateLimiter,
+    /// F22: Cached /ready result — avoids DB ping on every probe call.
+    /// Updated by readiness_handler when stale (>30s).
+    pub ready_cache: ReadyCache,
     /// Bounds fire-and-forget background spawns (observe, audit).
     /// Prevents unbounded task accumulation under DB degradation.
     pub bg_semaphore: Arc<tokio::sync::Semaphore>,
@@ -41,6 +45,9 @@ pub struct AppState {
     /// Latest introspection alerts (updated every 5min by background task).
     /// Empty = healthy system. RwLock: read-heavy (every /health), write every 5min.
     pub introspection_alerts: Arc<std::sync::RwLock<Vec<Alert>>>,
+    /// F23: Bounds concurrent SSE connections to prevent FD exhaustion.
+    /// 32 connections is generous for operational monitoring.
+    pub sse_semaphore: Arc<tokio::sync::Semaphore>,
     /// Kernel event bus — broadcast to all SSE/WebSocket subscribers.
     /// Capacity 256: events are small, subscribers should keep up.
     /// Lagging subscribers get BroadcastStreamRecvError::Lagged → skip.
@@ -52,6 +59,60 @@ pub struct AppState {
 pub struct StorageInfo {
     pub namespace: String,
     pub database: String,
+}
+
+/// F22: Cached DB readiness — avoids storage.ping() on every /ready call.
+/// 30s TTL. Under load, /ready called every 5-10s by probes.
+pub struct ReadyCache {
+    ok: AtomicBool,
+    checked_at: AtomicU64,
+}
+
+impl Default for ReadyCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ReadyCache {
+    const TTL_SECS: u64 = 30;
+
+    pub fn new() -> Self {
+        Self {
+            ok: AtomicBool::new(false),
+            checked_at: AtomicU64::new(0),
+        }
+    }
+
+    fn now_secs() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    }
+
+    /// Returns cached value if fresh, None if stale.
+    pub fn get(&self) -> Option<bool> {
+        let age = Self::now_secs().saturating_sub(self.checked_at.load(Ordering::Acquire));
+        if age <= Self::TTL_SECS {
+            Some(self.ok.load(Ordering::Acquire))
+        } else {
+            None
+        }
+    }
+
+    pub fn set(&self, ok: bool) {
+        self.ok.store(ok, Ordering::Release);
+        self.checked_at.store(Self::now_secs(), Ordering::Release);
+    }
+}
+
+impl std::fmt::Debug for ReadyCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ReadyCache")
+            .field("ok", &self.ok.load(Ordering::Relaxed))
+            .finish_non_exhaustive()
+    }
 }
 
 impl std::fmt::Debug for AppState {

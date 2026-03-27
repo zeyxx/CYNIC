@@ -22,7 +22,8 @@ pub async fn liveness_handler() -> StatusCode {
 }
 
 /// GET /ready — Readiness probe. Returns 200 if the kernel can serve requests.
-/// Checks storage + dog health via system_health_status.
+/// F22: Caches DB ping result (30s TTL) to avoid hammering storage on every probe.
+/// Dog health is O(1) (reads circuit breaker state) — no caching needed.
 pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode {
     let dog_health = state.judge.dog_health();
     let healthy_dogs = dog_health
@@ -30,7 +31,14 @@ pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode
         .filter(|(_, circuit, _)| circuit == "closed")
         .count();
     let total_dogs = dog_health.len();
-    let storage_ok = state.storage.ping().await.is_ok();
+    let storage_ok = match state.ready_cache.get() {
+        Some(cached) => cached,
+        None => {
+            let ok = state.storage.ping().await.is_ok();
+            state.ready_cache.set(ok);
+            ok
+        }
+    };
     let (_, is_healthy) = system_health_status(healthy_dogs, total_dogs, storage_ok);
     if is_healthy {
         StatusCode::OK

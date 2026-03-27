@@ -94,9 +94,9 @@ impl McpRateLimit {
 fn validate_agent_id(agent_id: &Option<String>) -> Result<(), McpError> {
     if let Some(id) = agent_id {
         let char_count = id.chars().count();
-        if char_count == 0 || char_count > 128 {
+        if char_count == 0 || char_count > 64 {
             return Err(McpError::invalid_params(
-                "agent_id must be 1-128 characters",
+                "agent_id must be 1-64 characters",
                 None,
             ));
         }
@@ -286,11 +286,11 @@ impl CynicMcp {
         if p.content.trim().is_empty() {
             return Err(McpError::invalid_params("content must not be empty", None));
         }
-        if p.content.len() > 4_000 {
+        if p.content.chars().count() > 4_000 {
             return Err(McpError::invalid_params("content exceeds 4000 chars", None));
         }
         if let Some(ref ctx) = p.context
-            && ctx.len() > 2_000
+            && ctx.chars().count() > 2_000
         {
             return Err(McpError::invalid_params("context exceeds 2000 chars", None));
         }
@@ -526,11 +526,11 @@ impl CynicMcp {
         let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
 
         // Input validation
-        if p.prompt.len() > 8_000 {
+        if p.prompt.chars().count() > 8_000 {
             return Err(McpError::invalid_params("prompt exceeds 8000 chars", None));
         }
         if let Some(ref sys) = p.system
-            && sys.len() > 4_000
+            && sys.chars().count() > 4_000
         {
             return Err(McpError::invalid_params(
                 "system prompt exceeds 4000 chars",
@@ -620,13 +620,19 @@ impl CynicMcp {
         self.rate_limit.check_other()?;
         let p = params.0;
         validate_agent_id(&Some(p.agent_id.clone()))?;
-        if p.intent.len() > 500 {
+        if p.intent.is_empty() || p.intent.chars().count() > 500 {
             return Err(McpError::invalid_params(
-                "intent must be under 500 chars",
+                "intent must be 1-500 characters",
                 None,
             ));
         }
         let agent_type = p.agent_type.unwrap_or_else(|| "unknown".into());
+        if agent_type.len() > 64 {
+            return Err(McpError::invalid_params(
+                "agent_type must be under 64 chars",
+                None,
+            ));
+        }
 
         self.coord
             .register_agent(&p.agent_id, &agent_type, &p.intent)
@@ -668,13 +674,19 @@ impl CynicMcp {
         self.rate_limit.check_other()?;
         let p = params.0;
         validate_agent_id(&Some(p.agent_id.clone()))?;
-        if p.target.len() > 256 {
+        if p.target.is_empty() || p.target.len() > 256 {
             return Err(McpError::invalid_params(
-                "target must be under 256 chars",
+                "target must be 1-256 characters",
                 None,
             ));
         }
         let claim_type = p.claim_type.unwrap_or_else(|| "file".into());
+        if claim_type.len() > 64 {
+            return Err(McpError::invalid_params(
+                "claim_type must be under 64 chars",
+                None,
+            ));
+        }
 
         match self
             .coord
@@ -733,6 +745,12 @@ impl CynicMcp {
         let p = params.0;
         validate_agent_id(&Some(p.agent_id.clone()))?;
         let claim_type = p.claim_type.unwrap_or_else(|| "file".into());
+        if claim_type.len() > 64 {
+            return Err(McpError::invalid_params(
+                "claim_type must be under 64 chars",
+                None,
+            ));
+        }
 
         if p.targets.is_empty() {
             return Err(McpError::invalid_params("targets must not be empty", None));
@@ -800,6 +818,14 @@ impl CynicMcp {
         self.rate_limit.check_other()?;
         let p = params.0;
         validate_agent_id(&Some(p.agent_id.clone()))?;
+        if let Some(ref t) = p.target
+            && (t.is_empty() || t.len() > 256)
+        {
+            return Err(McpError::invalid_params(
+                "target must be 1-256 characters",
+                None,
+            ));
+        }
 
         let desc = self
             .coord

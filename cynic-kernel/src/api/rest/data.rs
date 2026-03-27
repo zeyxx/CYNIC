@@ -139,7 +139,7 @@ pub async fn create_crystal_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateCrystalRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorResponse>)> {
-    if req.content.trim().is_empty() || req.content.len() > 2000 {
+    if req.content.trim().is_empty() || req.content.chars().count() > 2000 {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {

@@ -241,7 +241,7 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS failures ON dog_usage TYPE int;\
             DEFINE FIELD IF NOT EXISTS total_latency_ms ON dog_usage TYPE int;\
             DEFINE FIELD IF NOT EXISTS updated_at ON dog_usage TYPE datetime;\
-            DEFINE INDEX IF NOT EXISTS dog_usage_id_idx ON dog_usage FIELDS dog_id UNIQUE;\
+            REMOVE INDEX IF EXISTS dog_usage_id_idx ON TABLE dog_usage;\
             DEFINE FIELD IF NOT EXISTS session_id ON session_summary TYPE string;\
             DEFINE FIELD IF NOT EXISTS agent_id ON session_summary TYPE string;\
             DEFINE FIELD IF NOT EXISTS summary ON session_summary TYPE string;\

@@ -3,10 +3,13 @@
 *Updated 2026-03-27. Honest inventory — no overclaims.*
 
 **Sources:** Industrial Audit (67 findings, 2026-03-24) + Stress Test (23 findings, 2026-03-25)
-**Total: 90 findings. 35 fixed. 9 partial. 46 open.**
+**Total: 90 findings. 41 fixed. 9 partial. 40 open.**
 
 **v0.8 Wave 0+1 (2026-03-27):** Crystal lifecycle integrity + consensus enforcement.
 Defends the crystal feedback loop (permanent damage path). Does NOT fix direct stimulus injection (fundamental LLM limitation, mitigated by multi-Dog consensus — arxiv 2504.18333).
+
+**v0.8 Wave 2 (2026-03-27):** Live bug fixes + straightforward findings.
+2 live production bugs (usage flush, integrity chain SQL). 6 findings (F2, F13, F22, F23, RC1-6 + 2 unlisted DB bugs). Tests: +6 regression (F13 CJK, F22 ReadyCache, F23 SSE limit, RC1-6 x2, coord control chars).
 
 ---
 
@@ -22,10 +25,10 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 
 | # | Source | Finding | Status |
 |---|---|---|---|
-| F2 | Stress | X-Forwarded-For spoofing bypasses rate limiter | OPEN |
+| F2 | Stress | X-Forwarded-For spoofing bypasses rate limiter | **FIXED** — v0.8w2: ConnectInfo peer addr, X-Forwarded-For removed. Verified: 30 requests then 429 despite spoofed headers. |
 | F14 | Stress | Prompt injection scored Wag by LLM Dogs | OPEN — **reclassified: fundamental LLM limitation (OWASP LLM01:2025). Mitigated by multi-Dog consensus + epistemic gate + φ-bounding. Crystal-mediated amplification defended by T7+T8. Structural isolation (ChatPort multi-turn) planned v0.9 (StruQ USENIX Sec'25).** |
 | F16 | Stress | Crystal observe overwrites content | **FIXED** — v0.8: SQL `content = content ?? '{content}'` (set-once, event sourcing pattern). Content preserved from first observation. |
-| F23 | Stress | /events unauthenticated, no connection limit, FD exhaustion | OPEN |
+| F23 | Stress | /events unauthenticated, no connection limit, FD exhaustion | **FIXED** — v0.8w2: sse_semaphore(32) limits concurrent SSE connections. 503 when full. Permit held via stream lifetime. Still unauthenticated (operational data). |
 | RC1-2 | Audit | MCP no rate limiting | **FIXED** — McpRateLimit 10/min judge, 30/min other |
 | RC1-3 | Audit | cynic_infer MCP-only, unprotected | PARTIAL — rate-limited, no auth |
 | RC2-1 | Audit | Health counts all Dogs, not healthy ones | **FIXED** — system_health_status() |
@@ -48,7 +51,7 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 | F9 | Stress | Fake algebraic notation (f64, Rc4 match chess regex) | OPEN |
 | F10 | Stress | "100%" undetected as absolute claim | OPEN |
 | F11 | Stress | Context inflates unique_ratio | OPEN |
-| F13 | Stress | CJK byte/char mismatch in validation | OPEN |
+| F13 | Stress | CJK byte/char mismatch in validation | **FIXED** — v0.8w2: .chars().count() in all free-text validation (REST+MCP content, context, prompt, intent). Regression test: 1000 CJK chars (3000 bytes) accepted. |
 | F17 | Stress | VerdictCache key: no domain, no dogs filter | OPEN — v0.8 Wave 3 (CacheKey newtype) |
 | F19 | Stress | Dogs filter ignored on cache hits | OPEN — v0.8 Wave 3 (CacheKey newtype) |
 | RC1-4 | Audit | Error messages leak internal state | **FIXED** — sanitize_error() |
@@ -88,8 +91,8 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 | F12 | Stress | DeterministicDog fully predictable | Accepted — by design |
 | F18 | Stress | Direct-API crystals lack embeddings | OPEN (reduced risk — can't crystallize via REST, backfill job exists) |
 | F21 | Stress | Dogs filter works (no cache hit) | PASS (not a bug) |
-| F22 | Stress | /ready pings DB every call | OPEN |
-| RC1-6 | Audit | Event injection via register | OPEN |
+| F22 | Stress | /ready pings DB every call | **FIXED** — v0.8w2: ReadyCache (AtomicBool+AtomicU64, 30s TTL). First /ready call pings, subsequent use cache. |
+| RC1-6 | Audit | Event injection via register | **FIXED** — v0.8w2: intent 1-500 chars, agent_type/claim_type ≤64, target ≤256 on all coord endpoints. Storage layer already uses escape_surreal(). |
 | RC3-4 | Audit | dirs::config_dir() silent fallback | PARTIAL — logged |
 | RC4-4 | Audit | escape_surreal no backtick escape | **FIXED** |
 | RC5-10 | Audit | llama API key permission silent | **FIXED** |
@@ -120,10 +123,19 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 - **Quorum gate** (T8) — pipeline + StoragePort reject observations with voter_count < 2
 - **REST observe blocked** — POST /crystal/{id}/observe returns 422 (quorum required)
 
+### Live Bug Fixes + Straightforward Findings (Wave 2)
+- **Usage flush** — REMOVE INDEX dog_usage_id_idx (redundant UNIQUE constraint broke UPSERT)
+- **Integrity chain** — SELECT must include ORDER BY field (SurrealDB 2.x requirement)
+- **F2** — ConnectInfo peer addr replaces X-Forwarded-For (Tailscale = no proxy)
+- **F13** — .chars().count() in all 10 free-text validation points (REST+MCP+DeterministicDog)
+- **F22** — ReadyCache (AtomicBool, 30s TTL) avoids DB ping on every /ready probe
+- **F23** — sse_semaphore(32) limits concurrent SSE connections, 503 when full
+- **RC1-6** — Input validation on all coord endpoint fields (intent, agent_type, claim_type, target)
+
 ### What v0.8 Does NOT Fix (honest)
 - **F14 (direct stimulus injection)** — fundamental LLM limitation. Multi-Dog consensus is the defense. Structural isolation (ChatPort multi-turn) is v0.9.
 - **F17/F19 (cache cross-domain)** — CacheKey newtype planned, not yet implemented.
-- **F2, F13, F22, F23, F6** — straightforward fixes, not yet implemented.
+- **F6** — gemma parse failure (needs Dog prompt research).
 - **DeterministicDog (F9/F10/F11)** — needs research on false positive patterns.
 - **Observability (RC7)** — needs request_id propagation design.
 - **Infrastructure (RC2/RC6)** — systemd/ops work.
@@ -133,16 +145,12 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 ### Next — Cache Isolation
 1. **F17+F19** CacheKey newtype with domain + dogs_hash
 
-### Then — Straightforward Fixes
-2. **F2** X-Forwarded-For → ConnectInfo
-3. **F13** content.chars().count()
-4. **F22** /ready caching
-5. **F23** /events connection limit
-6. **F6** gemma parse failure
+### Then
+2. **F6** gemma parse failure (Dog prompt research)
 
 ### Research Required
-7. **F9/F10/F11** DeterministicDog heuristics
-8. **RC7** Observability propagation
+3. **F9/F10/F11** DeterministicDog heuristics
+4. **RC7** Observability propagation
 
 ### v0.9 Architectural
-9. **F14** ChatPort multi-turn for structural stimulus isolation (StruQ USENIX Sec'25)
+5. **F14** ChatPort multi-turn for structural stimulus isolation (StruQ USENIX Sec'25)

@@ -47,8 +47,10 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         },
         rate_limiter: PerIpRateLimiter::new(100),
         judge_limiter: PerIpRateLimiter::new(100),
+        ready_cache: cynic_kernel::api::rest::ReadyCache::new(),
         bg_semaphore: std::sync::Arc::new(tokio::sync::Semaphore::new(64)),
         bg_tasks: tokio_util::task::TaskTracker::new(),
+        sse_semaphore: std::sync::Arc::new(tokio::sync::Semaphore::new(32)),
         introspection_alerts: std::sync::Arc::new(std::sync::RwLock::new(Vec::new())),
         event_tx: tokio::sync::broadcast::channel(16).0,
     })
@@ -686,4 +688,204 @@ fn usage_row_json_shape() {
             "CONTRACT: UsageRow must have '{field}' field"
         );
     }
+}
+
+// ── F13 regression: CJK byte/char mismatch ────────────────────────
+
+#[tokio::test]
+async fn judge_cjk_content_counts_chars_not_bytes() {
+    // 1000 CJK chars = 3000 bytes. Must be accepted (limit is 4000 chars).
+    // Before fix: .len() saw 3000 bytes, worked but would reject at ~1333 CJK chars.
+    let cjk_content: String = std::iter::repeat('漢').take(1000).collect();
+    assert_eq!(
+        cjk_content.len(),
+        3000,
+        "precondition: 3 bytes per CJK char"
+    );
+    assert_eq!(
+        cjk_content.chars().count(),
+        1000,
+        "precondition: 1000 chars"
+    );
+
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+
+    let body = serde_json::json!({"content": cjk_content, "domain": "test"});
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/judge")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer key")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        resp.status(),
+        200,
+        "F13: CJK content within char limit must be accepted (was rejected by byte count)"
+    );
+}
+
+// ── F22 regression: /ready caches DB ping ────────────────────────
+
+#[tokio::test]
+async fn ready_cache_returns_cached_value_within_ttl() {
+    use cynic_kernel::api::rest::ReadyCache;
+
+    let cache = ReadyCache::new();
+    // First call: stale (checked_at=0)
+    assert!(cache.get().is_none(), "precondition: new cache is stale");
+    // Set to ok
+    cache.set(true);
+    assert_eq!(
+        cache.get(),
+        Some(true),
+        "F22: cache returns true within TTL"
+    );
+    // Set to not-ok
+    cache.set(false);
+    assert_eq!(cache.get(), Some(false), "F22: cache reflects latest set()");
+}
+
+// ── RC1-6 regression: coord input validation ─────────────────────
+
+#[tokio::test]
+async fn coord_register_rejects_oversized_intent() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+
+    let long_intent: String = std::iter::repeat('x').take(501).collect();
+    let body = serde_json::json!({"agent_id": "test", "intent": long_intent});
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/coord/register")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer key")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        resp.status(),
+        400,
+        "RC1-6: oversized intent must be rejected"
+    );
+}
+
+#[tokio::test]
+async fn coord_register_accepts_valid_intent() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+
+    let body = serde_json::json!({"agent_id": "test-agent", "intent": "implementing feature X"});
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/coord/register")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer key")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // NullCoord returns Ok(()) for register — should succeed
+    assert_eq!(resp.status(), 200, "RC1-6: valid intent must be accepted");
+}
+
+// ── F23 regression: SSE connection limit ─────────────────────────
+
+#[tokio::test]
+async fn events_rejects_when_sse_semaphore_exhausted() {
+    // Build state with 0 SSE permits — simulates all 32 slots taken.
+    let dogs: Vec<Box<dyn cynic_kernel::domain::dog::Dog>> = vec![Box::new(DeterministicDog)];
+    let breakers: Vec<Arc<dyn cynic_kernel::domain::health_gate::HealthGate>> = dogs
+        .iter()
+        .map(|d| {
+            Arc::new(cynic_kernel::infra::circuit_breaker::CircuitBreaker::new(
+                d.id().to_string(),
+            )) as Arc<dyn cynic_kernel::domain::health_gate::HealthGate>
+        })
+        .collect();
+    let judge = Arc::new(cynic_kernel::judge::Judge::new(dogs, breakers));
+    let state = Arc::new(AppState {
+        judge,
+        storage: Arc::new(NullStorage),
+        coord: Arc::new(NullCoord),
+        embedding: Arc::new(NullEmbedding),
+        usage: Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new())),
+        verdict_cache: Arc::new(VerdictCache::new()),
+        task_health: Arc::new(TaskHealth::new()),
+        metrics: Arc::new(Metrics::new()),
+        api_key: None,
+        storage_info: StorageInfo {
+            namespace: "test".into(),
+            database: "test".into(),
+        },
+        rate_limiter: PerIpRateLimiter::new(100),
+        judge_limiter: PerIpRateLimiter::new(100),
+        ready_cache: cynic_kernel::api::rest::ReadyCache::new(),
+        bg_semaphore: std::sync::Arc::new(tokio::sync::Semaphore::new(64)),
+        bg_tasks: tokio_util::task::TaskTracker::new(),
+        sse_semaphore: std::sync::Arc::new(tokio::sync::Semaphore::new(0)), // F23: zero permits
+        introspection_alerts: std::sync::Arc::new(std::sync::RwLock::new(Vec::new())),
+        event_tx: tokio::sync::broadcast::channel(16).0,
+    });
+    let app = rest::router(state);
+
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/events")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        resp.status(),
+        503,
+        "F23: /events must return 503 when SSE connection limit reached"
+    );
+}
+
+// ── I2 regression: control chars in agent_id ─────────────────────
+
+#[tokio::test]
+async fn coord_register_rejects_control_chars_in_agent_id() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+
+    let body = serde_json::json!({"agent_id": "test\x00admin", "intent": "probe"});
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/coord/register")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer key")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        resp.status(),
+        400,
+        "I2: control characters in agent_id must be rejected"
+    );
 }
