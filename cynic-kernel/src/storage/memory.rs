@@ -11,7 +11,7 @@
 
 use async_trait::async_trait;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 
 use crate::domain::ccm::{
     CANONICAL_CYCLES, Crystal, CrystalState, MIN_CRYSTALLIZATION_CYCLES, SessionSummary,
@@ -24,8 +24,9 @@ use crate::domain::storage::{
 };
 use crate::domain::usage::DogUsage;
 
-/// In-memory storage for deterministic testing. Thread-safe via Mutex.
-#[derive(Debug, Default)]
+/// In-memory storage for deterministic testing. Thread-safe via tokio::sync::Mutex.
+/// Uses tokio Mutex (not std) to prevent latent .await-while-locked traps.
+#[derive(Debug)]
 pub struct InMemoryStorage {
     state: Mutex<State>,
 }
@@ -39,11 +40,17 @@ struct State {
     usage: HashMap<String, UsageRow>,
 }
 
-impl InMemoryStorage {
-    pub fn new() -> Self {
+impl Default for InMemoryStorage {
+    fn default() -> Self {
         Self {
             state: Mutex::new(State::default()),
         }
+    }
+}
+
+impl InMemoryStorage {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
@@ -80,54 +87,36 @@ impl StoragePort for InMemoryStorage {
     }
 
     async fn store_verdict(&self, verdict: &Verdict) -> Result<(), StorageError> {
-        let mut s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let mut s = self.state.lock().await;
         s.verdicts.push(verdict.clone());
         Ok(())
     }
 
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         Ok(s.verdicts.iter().find(|v| v.id == id).cloned())
     }
 
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         let mut v: Vec<_> = s.verdicts.iter().rev().cloned().collect();
         v.truncate(limit as usize);
         Ok(v)
     }
 
     async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError> {
-        let mut s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let mut s = self.state.lock().await;
         s.crystals.insert(crystal.id.clone(), crystal.clone());
         Ok(())
     }
 
     async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         Ok(s.crystals.get(id).cloned())
     }
 
     async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         let mut v: Vec<_> = s.crystals.values().cloned().collect();
         v.sort_by(|a, b| {
             state_rank(&a.state).cmp(&state_rank(&b.state)).then(
@@ -146,10 +135,7 @@ impl StoragePort for InMemoryStorage {
         domain: Option<&str>,
         state: Option<&str>,
     ) -> Result<Vec<Crystal>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         let mut v: Vec<_> = s
             .crystals
             .values()
@@ -180,10 +166,7 @@ impl StoragePort for InMemoryStorage {
     }
 
     async fn delete_crystal(&self, id: &str) -> Result<(), StorageError> {
-        let mut s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let mut s = self.state.lock().await;
         s.crystals.remove(id);
         Ok(())
     }
@@ -193,10 +176,7 @@ impl StoragePort for InMemoryStorage {
         domain: &str,
         limit: u32,
     ) -> Result<Vec<Crystal>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         let mut v: Vec<_> = s
             .crystals
             .values()
@@ -233,10 +213,7 @@ impl StoragePort for InMemoryStorage {
 
         let sanitized = sanitize_crystal_content(content);
 
-        let mut s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let mut s = self.state.lock().await;
 
         let crystal = s.crystals.entry(id.to_string()).or_insert_with(|| Crystal {
             id: id.to_string(),
@@ -265,10 +242,7 @@ impl StoragePort for InMemoryStorage {
     }
 
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
-        let mut s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let mut s = self.state.lock().await;
         let obs_id = format!("observation:{}", s.observations.len());
         s.observations.push(RawObservation {
             id: obs_id,
@@ -291,10 +265,7 @@ impl StoragePort for InMemoryStorage {
         domain: Option<&str>,
         limit: u32,
     ) -> Result<Vec<ObservationFrequency>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         let mut freq: HashMap<(String, String), u64> = HashMap::new();
         for obs in &s.observations {
             if obs.project == project && domain.is_none_or(|d| obs.domain == d) {
@@ -321,10 +292,7 @@ impl StoragePort for InMemoryStorage {
         project: &str,
         limit: u32,
     ) -> Result<Vec<SessionTarget>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         let mut seen = std::collections::HashSet::new();
         let mut result = Vec::new();
         for obs in &s.observations {
@@ -348,10 +316,7 @@ impl StoragePort for InMemoryStorage {
         agent_id: Option<&str>,
         limit: u32,
     ) -> Result<Vec<RawObservation>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         let v: Vec<_> = s
             .observations
             .iter()
@@ -365,10 +330,7 @@ impl StoragePort for InMemoryStorage {
     }
 
     async fn store_session_summary(&self, summary: &SessionSummary) -> Result<(), StorageError> {
-        let mut s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let mut s = self.state.lock().await;
         s.summaries.push(summary.clone());
         Ok(())
     }
@@ -377,10 +339,7 @@ impl StoragePort for InMemoryStorage {
         &self,
         limit: u32,
     ) -> Result<Vec<SessionSummary>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         let mut v = s.summaries.clone();
         v.reverse();
         v.truncate(limit as usize);
@@ -392,10 +351,7 @@ impl StoragePort for InMemoryStorage {
         min_observations: u32,
         limit: u32,
     ) -> Result<Vec<(String, String, u32)>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         let summarized: std::collections::HashSet<_> =
             s.summaries.iter().map(|ss| ss.session_id.clone()).collect();
         let mut counts: HashMap<String, (String, u32)> = HashMap::new();
@@ -419,10 +375,7 @@ impl StoragePort for InMemoryStorage {
         &self,
         session_id: &str,
     ) -> Result<Vec<RawObservation>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         Ok(s.observations
             .iter()
             .filter(|o| o.session_id == session_id)
@@ -431,10 +384,7 @@ impl StoragePort for InMemoryStorage {
     }
 
     async fn flush_usage(&self, snapshot: &[(String, DogUsage)]) -> Result<(), StorageError> {
-        let mut s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let mut s = self.state.lock().await;
         for (dog_id, usage) in snapshot {
             let entry = s.usage.entry(dog_id.clone()).or_insert_with(|| UsageRow {
                 dog_id: dog_id.clone(),
@@ -454,26 +404,17 @@ impl StoragePort for InMemoryStorage {
     }
 
     async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         Ok(s.usage.values().cloned().collect())
     }
 
     async fn count_verdicts(&self) -> Result<u64, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         Ok(s.verdicts.len() as u64)
     }
 
     async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
-        let s = self
-            .state
-            .lock()
-            .map_err(|e| StorageError::QueryFailed(format!("lock poisoned: {e}")))?;
+        let s = self.state.lock().await;
         Ok(s.crystals.values().map(|c| u64::from(c.observations)).sum())
     }
 }
