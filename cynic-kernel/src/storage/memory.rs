@@ -13,20 +13,16 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use crate::domain::ccm::{Crystal, CrystalState, SessionSummary};
-use crate::domain::dog::{MIN_QUORUM, Verdict};
+use crate::domain::ccm::{
+    CANONICAL_CYCLES, Crystal, CrystalState, MIN_CRYSTALLIZATION_CYCLES, SessionSummary,
+};
+use crate::domain::dog::{MIN_QUORUM, PHI_INV, PHI_INV2, Verdict};
 use crate::domain::sanitize::sanitize_crystal_content;
 use crate::domain::storage::{
     Observation, ObservationFrequency, RawObservation, SessionTarget, StorageError, StoragePort,
     UsageRow,
 };
 use crate::domain::usage::DogUsage;
-
-// ── Thresholds (must match surreal.rs SQL) ──────────────────
-const CRYSTALLIZATION_OBS: u32 = 21;
-const CANONICAL_OBS: u32 = 233;
-const CRYSTALLIZATION_CONFIDENCE: f64 = 0.618;
-const DECAY_CONFIDENCE: f64 = 0.382;
 
 /// In-memory storage for deterministic testing. Thread-safe via Mutex.
 #[derive(Debug, Default)]
@@ -51,13 +47,14 @@ impl InMemoryStorage {
     }
 }
 
-/// Compute crystal state from observations + confidence (mirrors surreal.rs SQL).
+/// Compute crystal state from observations + confidence.
+/// Uses domain constants — same source of truth as surreal.rs SQL.
 fn compute_state(observations: u32, confidence: f64) -> CrystalState {
-    if observations >= CANONICAL_OBS && confidence >= CRYSTALLIZATION_CONFIDENCE {
+    if observations >= CANONICAL_CYCLES && confidence >= PHI_INV {
         CrystalState::Canonical
-    } else if observations >= CRYSTALLIZATION_OBS && confidence >= CRYSTALLIZATION_CONFIDENCE {
+    } else if observations >= MIN_CRYSTALLIZATION_CYCLES && confidence >= PHI_INV {
         CrystalState::Crystallized
-    } else if observations >= CRYSTALLIZATION_OBS && confidence < DECAY_CONFIDENCE {
+    } else if observations >= MIN_CRYSTALLIZATION_CYCLES && confidence < PHI_INV2 {
         CrystalState::Decaying
     } else {
         CrystalState::Forming

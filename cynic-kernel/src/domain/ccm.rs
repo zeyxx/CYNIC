@@ -11,11 +11,9 @@ use serde::{Deserialize, Serialize};
 use crate::domain::dog::{PHI_INV, PHI_INV2};
 
 /// Fibonacci F(8) = 21 — minimum observations before crystallization.
-/// Production thresholds are in atomic SQL (storage/surreal.rs::observe_crystal).
-#[cfg(test)]
+/// Single source of truth — used by both SurrealDB SQL and InMemory adapter.
 pub const MIN_CRYSTALLIZATION_CYCLES: u32 = 21;
 /// Fibonacci F(13) = 233 — canonical status (deeply crystallized).
-#[cfg(test)]
 pub const CANONICAL_CYCLES: u32 = 233;
 
 // ── CRYSTAL ─────────────────────────────────────────────────

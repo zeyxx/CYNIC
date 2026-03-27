@@ -1,12 +1,12 @@
 //! StoragePort + CoordPort implementations for SurrealHttpStorage.
 
 use super::{SurrealHttpStorage, escape_surreal, safe_limit, sanitize_id};
-use crate::domain::ccm::{Crystal, CrystalState};
+use crate::domain::ccm::{CANONICAL_CYCLES, Crystal, CrystalState, MIN_CRYSTALLIZATION_CYCLES};
 use crate::domain::coord::{
     AgentInfo, AuditEntry, BatchClaimResult, ClaimEntry, ClaimResult, ConflictInfo, CoordError,
     CoordPort, CoordSnapshot,
 };
-use crate::domain::dog::{AxiomReasoning, QScore, Verdict, VerdictKind};
+use crate::domain::dog::{AxiomReasoning, PHI_INV, PHI_INV2, QScore, Verdict, VerdictKind};
 use crate::domain::storage::{
     Observation, ObservationFrequency, RawObservation, SessionTarget, StorageError, StoragePort,
     UsageRow,
@@ -351,11 +351,15 @@ impl StoragePort for SurrealHttpStorage {
         // SurrealDB 3.x doesn't support nested IF...END — use LET variables.
         // All LET expressions read pre-update snapshot (confirmed via probe).
         //
-        // State classification thresholds (from domain/ccm.rs):
-        //   Canonical:    obs >= 233 AND conf >= 0.618
-        //   Crystallized: obs >= 21  AND conf >= 0.618
-        //   Decaying:     obs >= 21  AND conf <  0.382
+        // State classification thresholds (from domain constants):
+        //   Canonical:    obs >= CANONICAL_CYCLES AND conf >= PHI_INV
+        //   Crystallized: obs >= MIN_CRYSTALLIZATION_CYCLES AND conf >= PHI_INV
+        //   Decaying:     obs >= MIN_CRYSTALLIZATION_CYCLES AND conf < PHI_INV2
         //   Forming:      everything else
+        let t_canon = CANONICAL_CYCLES;
+        let t_cryst = MIN_CRYSTALLIZATION_CYCLES;
+        let c_high = PHI_INV;
+        let c_low = PHI_INV2;
         // Guard: NaN/Inf would produce invalid SurrealQL and corrupt the running mean.
         let score = if score.is_finite() { score } else { 0.0 };
         // Transaction: atomicity for the read-compute-write cycle.
@@ -368,9 +372,9 @@ impl StoragePort for SurrealHttpStorage {
              LET $prev_conf = (SELECT VALUE confidence FROM crystal:`{id}`)[0] ?? 0.0; \
              LET $new_obs = $prev_obs + 1; \
              LET $new_conf = IF $prev_obs > 0 THEN ($prev_conf * $prev_obs + {score}) / $new_obs ELSE {score} END; \
-             LET $new_state = IF $new_obs >= 233 AND $new_conf >= 0.618 THEN 'canonical' \
-                 ELSE IF $new_obs >= 21 AND $new_conf >= 0.618 THEN 'crystallized' \
-                 ELSE IF $new_obs >= 21 AND $new_conf < 0.382 THEN 'decaying' \
+             LET $new_state = IF $new_obs >= {t_canon} AND $new_conf >= {c_high} THEN 'canonical' \
+                 ELSE IF $new_obs >= {t_cryst} AND $new_conf >= {c_high} THEN 'crystallized' \
+                 ELSE IF $new_obs >= {t_cryst} AND $new_conf < {c_low} THEN 'decaying' \
                  ELSE 'forming' END; \
              UPSERT crystal:`{id}` SET \
                  content = content ?? '{content}', \
