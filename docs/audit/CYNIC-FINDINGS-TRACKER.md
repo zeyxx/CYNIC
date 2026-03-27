@@ -3,7 +3,7 @@
 *Updated 2026-03-27. Honest inventory — no overclaims.*
 
 **Sources:** Industrial Audit (67 findings, 2026-03-24) + Stress Test (23 findings, 2026-03-25)
-**Total: 90 findings. 41 fixed. 9 partial. 40 open.**
+**Total: 90 findings. 43 fixed. 9 partial. 38 open.**
 
 **v0.8 Wave 0+1 (2026-03-27):** Crystal lifecycle integrity + consensus enforcement.
 Defends the crystal feedback loop (permanent damage path). Does NOT fix direct stimulus injection (fundamental LLM limitation, mitigated by multi-Dog consensus — arxiv 2504.18333).
@@ -52,8 +52,8 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 | F10 | Stress | "100%" undetected as absolute claim | OPEN |
 | F11 | Stress | Context inflates unique_ratio | OPEN |
 | F13 | Stress | CJK byte/char mismatch in validation | **FIXED** — v0.8w2: .chars().count() in all free-text validation (REST+MCP content, context, prompt, intent). Regression test: 1000 CJK chars (3000 bytes) accepted. |
-| F17 | Stress | VerdictCache key: no domain, no dogs filter | OPEN — v0.8 Wave 3 (CacheKey newtype) |
-| F19 | Stress | Dogs filter ignored on cache hits | OPEN — v0.8 Wave 3 (CacheKey newtype) |
+| F17 | Stress | VerdictCache key: no domain, no dogs filter | **FIXED** — v0.8w0: CacheContext newtype (domain + dogs_hash). Lookup skips mismatched entries. 3 contract tests. |
+| F19 | Stress | Dogs filter ignored on cache hits | **FIXED** — v0.8w0: CacheContext.dogs_hash from Judge::available_dogs_hash(filter). Different Dog config = cache miss. |
 | RC1-4 | Audit | Error messages leak internal state | **FIXED** — sanitize_error() |
 | RC1-5 | Audit | Agent impersonation (no length check) | **FIXED** — validate_agent_id() |
 | RC2-3 | Audit | No startup probe (sleep 3) | OPEN — systemd |
@@ -134,7 +134,7 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 
 ### What v0.8 Does NOT Fix (honest)
 - **F14 (direct stimulus injection)** — fundamental LLM limitation. Multi-Dog consensus is the defense. Structural isolation (ChatPort multi-turn) is v0.9.
-- **F17/F19 (cache cross-domain)** — CacheKey newtype planned, not yet implemented.
+- **F17/F19 (cache cross-domain)** — **Already fixed** in v0.8w0 (CacheContext). Tracker was stale.
 - **F6** — gemma parse failure (needs Dog prompt research).
 - **DeterministicDog (F9/F10/F11)** — needs research on false positive patterns.
 - **Observability (RC7)** — needs request_id propagation design.
@@ -142,11 +142,8 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 
 ## Compound Priority (remaining)
 
-### Next — Cache Isolation
-1. **F17+F19** CacheKey newtype with domain + dogs_hash
-
-### Then
-2. **F6** gemma parse failure (Dog prompt research)
+### Next
+1. **F6** gemma parse failure (Dog prompt research)
 
 ### Research Required
 3. **F9/F10/F11** DeterministicDog heuristics

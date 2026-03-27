@@ -149,11 +149,12 @@ fn row_to_crystal(row: &serde_json::Value) -> Crystal {
         "dissolved" => CrystalState::Dissolved,
         _ => CrystalState::Forming,
     };
-    // SurrealDB record IDs look like "crystal:abc123" — strip the table prefix
+    // SurrealDB record IDs: "crystal:abc123" or "crystal:`hyphen-id`" — strip table prefix + backticks
     let raw_id = row["id"].as_str().unwrap_or("");
     let id = raw_id
         .strip_prefix("crystal:")
         .unwrap_or(raw_id)
+        .trim_matches('`')
         .to_string();
     Crystal {
         id,
