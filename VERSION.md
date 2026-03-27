@@ -1,13 +1,21 @@
+<!-- lifecycle: living -->
 # CYNIC — Cahier des Charges par Version
 
-*Créé 2026-03-22. Document vivant. Chaque gate est falsifiable.*
+*Créé 2026-03-22. Révisé 2026-03-27 (metathinking + SRE + AI infra reviews). Document vivant.*
 
 Ce document définit ce qui doit être **vrai** pour qu'une version soit déclarée.
 Il ne prescrit pas de tâches — le chemin est organique, la destination est mesurable.
+Les gates émergent aussi du travail — ce document évolue.
 
-**Règle : ≤ 5 gates par version. Si tu en as besoin de plus, split la version.**
+**Règle : ≤ 3 gates par version. Si tu en as besoin de plus, split la version.**
 
----
+## North Star
+
+CYNIC est un **organisme**, pas une application. Chaque version est un organisme complet
+à son échelle — self-similarité fractale du nœud unique à la fédération.
+Les organes sont interconnectés : la boucle crystal nourrit les Dog prompts, les events
+connectent les organes, les observations deviennent connaissance, la connaissance aiguise
+le jugement. Aucun organe n'est une île.
 
 ## Positionnement
 
@@ -31,173 +39,96 @@ atteignant un consensus sous doute mathématique.
 | DeepEval | ~14k | Quality gate CI/CD | Outil dev, single judge, pas de consensus |
 | LiteLLM | ~40k | Routage multi-provider | Plomberie infra, aucun jugement épistémique |
 | OpenAI Evals | ~18k | Évaluation modèle | Benchmark offline, pas de runtime |
-| Guardrails AI | ~7k | Validation output | Règles déterministes, pas de consensus |
-| Prometheus-eval | ~1k | Rubrics LLM-as-judge | Single modèle, pas de confidence bornée |
-| RouteLLM (LMSYS) | ~5k | Routage quality-aware | Coût/qualité, pas épistémique. Mort 2024. |
 
 **Créneau vide :** aucun système en production ne combine consensus multi-modèle +
 confiance mathématiquement bornée + apprentissage par cristallisation + inférence souveraine.
 
 ---
 
-## v0.6 — État actuel (snapshot, pas spécifié rétroactivement)
+## v0.6 — COMPLETE (snapshot)
 
-**Ce qui marche :**
-- 242 tests, 0 `#[ignore]`, 0 clippy warnings
-- 5 Dogs configurés (deterministic, gemini, huggingface, sovereign, sovereign-ubuntu)
-- 3-5 Dogs healthy selon disponibilité réseau/GPU
-- Crystal loop techniquement validé (Δ = +0.02-0.04 sur /test-chess)
-- Event Bus + SSE déployés (6 types d'événements)
-- REST API avec auth Bearer, rate limiting 30/min, input validation
-- MCP server avec 10 tools, tous fonctionnels (aucun stub)
-- Architecture hexagonale : 43 fichiers, 9 modules, 0 `#[cfg]` en domain
-- SurrealDB pour persistence (verdicts, crystals, observations, sessions)
-- Liskov Substitution parfait (NullStorage/NullCoord/NullEmbedding câblés partout)
-- Graceful degradation (DB down → NullStorage, Dog fail → circuit breaker, embed fail → skip)
-- Timeouts sur chaque background `.await` (Rule #10 mécanique)
+242 tests. 5 Dogs. Crystal loop validé (Δ=+0.02-0.04 chess). SSE event bus.
+Architecture hexagonale. SurrealDB. Graceful degradation.
 
-**Ce qui ne marche pas (diagnostiqué par audit architecture + organes) :**
-- **`KernelEvent` défini dans `api::rest/`** — dépendance ascendante qui BLOQUE le MCP
-  d'émettre des events (`event_tx: None` hardcodé). L'Event Bus est aveugle aux sessions MCP.
-- **`serde_json::Value` dans 5 signatures de `StoragePort`** — le port domain est couplé
-  à serde_json. Les observations n'ont pas de structs typées → impossible de les enrichir.
-- **`Judge` possède `CircuitBreaker` (type infra)** — violation DIP, pas de trait en domain.
-- **`main.rs` = 754 lignes, 10 `tokio::spawn` inline** — composition root saturée.
-- **4x `expect()` dans 4 constructeurs** — même classe de bug, non catchée par clippy.
-- **Observations = squelettes** (tool + file + status, pas d'intention/outcome).
-- **Event Bus sans consommateur interne** — broadcast → SSE uniquement, aucun organe ne réagit.
-- **Crystal provenance invisible** — verdict ne dit pas quels crystals ont été injectés.
-- **Sens (observations) et mémoire (crystals) totalement séparés** — question ouverte
-  nécessitant recherche industrielle (contamination RAG vs signal épistémique).
+## v0.7 — "Le Socle Architectural" — COMPLETE (2026-03-22)
+
+5 gates vérifiés. KernelEvent en domain. MCP émet des events. StoragePort typé.
+0 expect() en production. main.rs < 400 lignes. 242 tests, 0 clippy warnings.
 
 ---
 
-## v0.7 — "Le Socle Architectural" -- COMPLETE (2026-03-22)
+## v0.8 — "Fondation Prouvée" — IN PROGRESS
 
-**Thème :** Nettoyer et connecter l'architecture pour que les organes communiquent.
-Pas de nouvelles features — fixer le squelette pour que les muscles puissent se greffer.
+**Thème :** La fondation est mécaniquement vérifiée. Sécurité assurée. StoragePort
+prouvé agnostique. Workflow aligné. Les organes ont des contrats testés.
 
-Les violations architecturales (DIP, ISP, SRP) CAUSENT les problèmes d'organes :
-`KernelEvent` dans REST → MCP aveugle → Bus mort → Provenance impossible.
-Fixer l'architecture débloque tout en cascade.
+**Réalité actuelle (2026-03-27) :** 299 tests. 43/90 findings fixed. 30 méthodes StoragePort,
+1 seul adapter (SurrealDB). Cargo.toml = 0.7.3, tags = v0.7.3, travail labellé v0.8.
 
-**Status:** All 5 gates verified. 242 tests, 0 clippy warnings. `make check` green.
+| Gate | Vérification | État |
+|------|-------------|------|
+| G1: Security closure | 0 CRIT open. Tous HIGH soit FIXED soit accepted-by-design (rationale dans tracker). | En cours. RC1-1 (MCP zero auth) → décider. |
+| G2: StoragePort agnostic | InMemory adapter passe les mêmes contract tests que SurrealDB. ≥12 `fn contract_`. | Pas commencé (8 contract tests, InMemory n'existe pas). |
+| G3: Workflow alignment | Cargo.toml = git tag = VERSION.md. State dumps supprimés. Doc lifecycle tags. | Partiel. |
 
-### Gate 1 : KernelEvent dans domain/ — 0 dépendance ascendante dans pipeline
+### Contraintes (issues connues à résoudre dans ce gate)
 
-Le seed le plus compound. `KernelEvent` appartient au domain (c'est un événement métier),
-pas au transport REST. Tant qu'il est dans `api::rest/`, le MCP ne peut pas émettre d'events.
-
-```bash
-# Vérification :
-grep 'use crate::api::rest' cynic-kernel/src/pipeline.rs  # 0 résultats
-grep 'KernelEvent' cynic-kernel/src/domain/                # ≥ 1 résultat
-```
-
-**Débloque :** Gate 2 (MCP events), Gate 3 (provenance), futur Bus interne (v0.8).
-
-### Gate 2 : MCP émet des events — 0 event_tx: None
-
-Une fois KernelEvent en domain/, le MCP peut recevoir le broadcast sender.
-Tout appel `cynic_judge` via MCP doit émettre `VerdictIssued` sur le bus.
-
-```bash
-# Vérification :
-grep 'event_tx: None' cynic-kernel/src/api/mcp/  # 0 résultats
-# + test fonctionnel : appel MCP judge → event visible sur /events SSE
-```
-
-**Débloque :** Observabilité multi-transport, sessions MCP visibles, monitoring unifié.
-
-### Gate 3 : StoragePort sans serde_json — types domain pour observations
-
-Remplacer les 5 `serde_json::Value` dans `StoragePort` par des structs typées en domain/.
-Les observations deviennent des objets domain enrichissables (intent, outcome, skill).
-
-```bash
-# Vérification :
-grep 'serde_json::Value' cynic-kernel/src/domain/storage.rs  # 0 résultats
-grep 'serde_json::Value' cynic-kernel/src/domain/            # 0 résultats
-```
-
-**Débloque :** Observations riches (v0.8), crystal provenance typée, session summaries structurées.
-
-### Gate 4 : 0 expect() en production — deny(clippy::expect_used)
-
-4 constructeurs paniquent si `reqwest::Client::builder().build()` échoue (TLS init,
-seccomp sandbox). Même classe de bug dans 4 fichiers. Le gate mécanique : le compilateur
-rejette tout `expect()` en code non-test.
-
-```bash
-# Vérification :
-grep 'deny(clippy::expect_used)' cynic-kernel/src/lib.rs     # 1 résultat
-grep '\.expect(' cynic-kernel/src/**/*.rs | grep -v '#\[cfg(test)\]' | grep -v 'tests/'  # 0
-```
-
-**Débloque :** Production safety mécanique (Rule #25), confiance en déploiement.
-
-### Gate 5 : main.rs < 400 lignes — spawns extraits en modules
-
-Chaque `tokio::spawn` avec business logic déplacé dans son module :
-`spawn_remediation_watcher()`, `spawn_usage_flush()`, `spawn_ccm_aggregator()`, etc.
-main.rs devient un pur fichier de câblage.
-
-```bash
-# Vérification :
-wc -l < cynic-kernel/src/main.rs  # < 400
-```
-
-**Débloque :** Ajout de consumers Event Bus (v0.8), composition root lisible, onboarding.
-
-### Graphe de dépendance
-
-```
-Gate 1 (KernelEvent → domain/) ───── LE SEED
-     │
-Gate 2 (MCP events) ──── nécessite Gate 1
-     │                           Gate 4 (expect → Result) ─── indépendant
-Gate 3 (StoragePort typé) ────── indépendant
-     │                           Gate 5 (main.rs extract) ── indépendant
-     ▼
-v0.8 — Les organes communiquent, observations riches, crystal Δ mesurable
-```
-
-**Compound logic :** Gate 1 est le seed — elle débloque Gate 2 qui débloque la visibilité
-multi-transport. Gates 3, 4, 5 sont parallélisables. TOUTES débloquent des features v0.8.
-
-**Invariant :** `make check` passe avec ≥ 242 tests et 0 warnings à chaque gate.
+- **RC1-1** : accepter par design (stdio = trust process) ou implémenter auth. Ne pas laisser PARTIAL.
+- **InMemory adapter** : NullStorage est un stub, pas un adapter. InMemory doit passer tous les contract tests.
+- **Contract tests ≥ 12** : Actuellement 8. Folded dans G2.
+- **Doc SoC** : 4 catégories (LIVING/ARCHITECTURE/HISTORICAL/DRAFT). Rules 37-41 dans `.claude/rules/docs.md`.
+- **State dumps** : Supprimer quick-state.md, state-check.md, state-v3.md, state-v3b.md, v4-state.md.
+- **Backup/restore** : Round-trip SurrealDB → vérifier données. Non testé.
 
 ---
 
-## v0.8 — "L'Organisme Circule" (sketch)
+## v0.9 — "L'Organisme Apprend" — NOT STARTED
 
-**Thème :** Les organes communiquent — information riche qui circule entre sens, mémoire,
-et système nerveux. Le socle v0.7 le rend possible, v0.8 le prouve.
+**Thème :** La boucle crystal devient multi-domaine. La connaissance entre dans le système.
+Le moat compound. Les organes commencent à se connecter via l'event bus.
 
-| Gate | Vérifie | Débloqué par v0.7 |
-|------|---------|-------------------|
-| Observations riches (intent + outcome + skill) | ≥ 70% des obs ont `intent` non-vide | Gate 3 (types domain) |
-| Crystal A/B Δ ≥ +0.02 | /test-chess with vs without crystals | Gate 2 (MCP events) + Gate 3 |
-| Event Bus a ≥ 1 consumer interne | Background task qui réagit aux events | Gate 1 + Gate 5 |
-| MCP tools retournent du contexte enrichi | cynic_health inclut events + crystal stats | Gate 2 (MCP events) |
-| Session continuité | Session start affiche résumé session précédente | Gate 3 (types domain) |
+| Gate | Vérification | Séquence |
+|------|-------------|----------|
+| G1: φ-convergence | Score ≠ Confidence séparés. HOWL = 0.528. Thresholds φ-dérivés. Benchmark before/after. | **Premier** (change la sémantique) |
+| G2: KAIROS domain | Crystal Δ > +0.02 trading. n≥100 stimuli. Oracle = P&L réalisé. | **Deuxième** (mesuré sur nouvelle sémantique) |
+| G3: cynic_learn | MCP tool live. Quarantine state. Dog eval obligatoire. Rate limit/agent. | **Dernier** (gated sur RC1 full closure) |
 
-**KPI source :** CRYSTAL-LOOP-KPIS.md §KPI 2, §KPI 3.
-**Question ouverte :** Pont observations → crystals (E1). Recherche industrielle requise.
+### Contraintes
+
+- **φ-convergence = migration complète** : QScore, CrystalState SQL, pipeline, REST schema (breaking), frontend.
+- **Crystal Δ rigoureux** : n≥100, paired design, oracle externe.
+- **cynic_learn poisoning** : quarantine (source=agent, confidence=0.01), Dog eval avant crystallisation.
+- **Crystal decay** : TTL + contradiction-driven. Sans ça, crystals stale nuisent.
+- **Event bus consumers** : (1) CCM sur VerdictIssued, (2) health sur DogFailed.
+- **Observability** : /metrics (crystal transitions, Dog latency, cache hit rates).
 
 ---
 
-## v1.0 — "Souverain et Utile" (horizon)
+## v1.0 — "Souverain et Ouvert" — NOT STARTED
 
-**Thème :** CYNIC est indépendamment utile — quelqu'un peut le déployer et en tirer de la valeur.
+**Thème :** Quelqu'un d'autre peut déployer CYNIC et en tirer de la valeur.
 
 | Gate | Vérification |
 |------|-------------|
-| Crystal Δ > 0.05 sur ≥ 3 domaines | Chess, code review, + 1 domaine externe |
-| Sovereign ≥ 50% des évaluations | Logs : plus de la moitié des Dog calls sont locaux |
-| API stable 30 jours | Aucun breaking change pendant 30 jours consécutifs |
-| Docs complètes | README + API.md + AGENTS.md couvrent toutes les features déployées |
-| Utilisateur externe | ≥ 1 personne non-auteur fait tourner une instance CYNIC |
+| G1: Dogs as Data | DOG.toml manifest. Ajout Dog sans recompile. Quorum dynamique. Config swap atomique. |
+| G2: API stable + observable | /metrics live. 0 breaking change 30j. Feature freeze explicite. |
+| G3: Contributor-ready | QUICKSTART.md. UI connectée (S.). API.md complète. Outsider déploie. |
+
+### Contraintes
+
+- **Hot-reload** : nouvelle config au PROCHAIN cycle de jugement, jamais mid-inflight.
+- **Observabilité avant stabilité** : /metrics doit exister avant le clock 30j.
+- **Fédération-ready** : hexagonal strict vérifié par lint-rules. Peut être déjà green.
+
+---
+
+## Post-v1 (Horizon — émergera du travail)
+
+- Boot integrity + crash recovery (verify_integrity, dirty flag, mode dégradé)
+- Federation (CRDT crystals, GossipProtocol)
+- Embed agent (code quality overnight)
+- Inference metabolism natif (remplace rtk)
+- Memory bootstrap (80+ fichiers → Forming crystals)
 
 ---
 
@@ -205,18 +136,16 @@ et système nerveux. Le socle v0.7 le rend possible, v0.8 le prouve.
 
 1. **Gates, pas tasks.** Ce document dit quand on est arrivé, pas comment y aller.
 2. **Machine-vérifiable.** Chaque gate a une commande bash. Si tu ne peux pas scripter, c'est pas un gate.
-3. **Les principes restent dans CLAUDE.md.** Ici c'est quantitatif uniquement.
-4. **≤ 5 gates par version.** Plus = split.
-5. **Les KPIs viennent de `docs/design/CRYSTAL-LOOP-KPIS.md`.** Ce document les wire aux versions.
-6. **Organique mais orienté.** Chaque session devrait pouvoir répondre : "quel gate v0.7 j'avance ?"
+3. **≤ 3 gates par version.** Plus = split.
+4. **Organique.** Les gates émergent du travail. Ce document évolue.
+5. **Fractal.** Chaque organe fonctionne à son échelle actuelle ET prépare l'échelle suivante.
 
 ---
 
 ## Références
 
-- KPIs cristallisés : `docs/design/CRYSTAL-LOOP-KPIS.md`
-- Architecture : `docs/architecture/CYNIC-ARCHITECTURE-TRUTHS.md`
+- Spec complète : `docs/superpowers/specs/2026-03-27-roadmap-v1-design.md`
+- Architecture : `docs/architecture/CYNIC-ARCHITECTURAL-TRUTHS-V08.md`
 - Convergence φ : `docs/architecture/CYNIC-PHI-CONVERGENCE.md`
-- Roadmap infra : `docs/design/CYNIC-INFRASTRUCTURE-ROADMAP.md`
-- Analyse novelty : mémoire `research_novelty_analysis.md`
-- Constitution : `CLAUDE.md`
+- Findings tracker : `docs/audit/CYNIC-FINDINGS-TRACKER.md`
+- KPIs : `docs/design/CRYSTAL-LOOP-KPIS.md`
