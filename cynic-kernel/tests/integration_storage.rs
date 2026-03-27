@@ -45,6 +45,7 @@ fn test_verdict(id: &str) -> Verdict {
         anomaly_detected: false,
         max_disagreement: 0.0,
         anomaly_axiom: None,
+        voter_count: 1,
         failed_dogs: vec![],
         integrity_hash: Some("test-hash".to_string()),
         prev_hash: None,
@@ -138,7 +139,7 @@ async fn crystal_observe_creates_and_updates() {
     };
     let ts = chrono::Utc::now().to_rfc3339();
 
-    db.observe_crystal("test-crystal", "Test content", "test", 0.7, &ts)
+    db.observe_crystal("test-crystal", "Test content", "test", 0.7, &ts, 3)
         .await
         .expect("observe_crystal failed");
 
@@ -151,7 +152,7 @@ async fn crystal_observe_creates_and_updates() {
     assert_eq!(c.observations, 1);
     assert_eq!(c.content, "Test content");
 
-    db.observe_crystal("test-crystal", "Test content", "test", 0.8, &ts)
+    db.observe_crystal("test-crystal", "Test content", "test", 0.8, &ts, 3)
         .await
         .expect("second observe failed");
     let c2 = db
@@ -168,6 +169,117 @@ async fn crystal_observe_creates_and_updates() {
     common::teardown_test_db(&db).await;
 }
 
+// ── CONTRACT TESTS: v0.8 boundary enforcement verification ───
+
+#[tokio::test]
+async fn contract_observe_crystal_rejects_below_quorum() {
+    // T8: StoragePort MUST reject observe_crystal when voter_count < MIN_QUORUM.
+    // This is the mechanical proof that the quorum gate works at the adapter level.
+    // If this test passes for SurrealDB, any future adapter must also pass it.
+    let Some(db) = common::setup_test_db("contract_quorum").await else {
+        return;
+    };
+    let ts = chrono::Utc::now().to_rfc3339();
+
+    // voter_count=1 < MIN_QUORUM(2) → must be rejected
+    let result = db
+        .observe_crystal("quorum-test", "content", "test", 0.7, &ts, 1)
+        .await;
+    assert!(
+        result.is_err(),
+        "observe_crystal must reject voter_count=1 (below quorum)"
+    );
+
+    // voter_count=0 → must be rejected (REST handler path)
+    let result = db
+        .observe_crystal("quorum-test", "content", "test", 0.7, &ts, 0)
+        .await;
+    assert!(result.is_err(), "observe_crystal must reject voter_count=0");
+
+    // voter_count=2 → must succeed (meets quorum)
+    let result = db
+        .observe_crystal("quorum-test", "content", "test", 0.7, &ts, 2)
+        .await;
+    assert!(
+        result.is_ok(),
+        "observe_crystal must accept voter_count=2 (meets quorum)"
+    );
+
+    // Verify crystal was created
+    let c = db.get_crystal("quorum-test").await.expect("get_crystal");
+    assert!(
+        c.is_some(),
+        "crystal should exist after quorum-passing observe"
+    );
+
+    common::teardown_test_db(&db).await;
+}
+
+#[tokio::test]
+async fn contract_observe_crystal_content_set_once() {
+    // F16: Crystal content must be set on first observation and preserved afterward.
+    // The SQL uses `content = content ?? '{content}'` — set-once pattern.
+    // This prevents observation #2 from overwriting observation #1's content.
+    let Some(db) = common::setup_test_db("contract_setonce").await else {
+        return;
+    };
+    let ts = chrono::Utc::now().to_rfc3339();
+
+    // First observation: sets content to "Original content"
+    db.observe_crystal("setonce-test", "Original content", "test", 0.7, &ts, 3)
+        .await
+        .expect("first observe failed");
+
+    let c1 = db.get_crystal("setonce-test").await.unwrap().unwrap();
+    assert_eq!(c1.content, "Original content");
+    assert_eq!(c1.observations, 1);
+
+    // Second observation: attempts to set content to "Overwritten content"
+    db.observe_crystal("setonce-test", "Overwritten content", "test", 0.8, &ts, 3)
+        .await
+        .expect("second observe failed");
+
+    let c2 = db.get_crystal("setonce-test").await.unwrap().unwrap();
+    assert_eq!(
+        c2.content, "Original content",
+        "F16 contract: content must NOT be overwritten by subsequent observations"
+    );
+    assert_eq!(c2.observations, 2, "observations count should increase");
+    assert!(c2.confidence > c1.confidence, "confidence should update");
+
+    common::teardown_test_db(&db).await;
+}
+
+#[tokio::test]
+async fn contract_verdict_voter_count_roundtrip() {
+    // T9: voter_count stored in verdict must survive DB round-trip.
+    // If this field silently defaults to 0 after deserialization,
+    // the quorum gate in observe_crystal_for_verdict would malfunction.
+    let Some(db) = common::setup_test_db("contract_voter").await else {
+        return;
+    };
+
+    let mut v = test_verdict("voter-roundtrip");
+    v.voter_count = 4;
+    v.dog_id = "det+gemini+sovereign+huggingface".to_string();
+
+    db.store_verdict(&v).await.expect("store_verdict failed");
+
+    let retrieved = db
+        .get_verdict("voter-roundtrip")
+        .await
+        .expect("get_verdict");
+    assert!(retrieved.is_some(), "verdict should be retrievable");
+    let retrieved = retrieved.unwrap();
+    assert_eq!(
+        retrieved.voter_count, 4,
+        "T9 contract: voter_count must survive DB round-trip (got {})",
+        retrieved.voter_count
+    );
+
+    common::teardown_test_db(&db).await;
+}
+
 #[tokio::test]
 async fn crystal_list_sorted_by_maturity_then_confidence() {
     let Some(db) = common::setup_test_db("crystal_list").await else {
@@ -177,12 +289,12 @@ async fn crystal_list_sorted_by_maturity_then_confidence() {
 
     // c-many: 5 obs, confidence ~0.6 (forming, not enough obs for crystallized)
     for _ in 0..5 {
-        db.observe_crystal("c-many", "Many obs", "test", 0.6, &ts)
+        db.observe_crystal("c-many", "Many obs", "test", 0.6, &ts, 3)
             .await
             .unwrap();
     }
     // c-few: 1 obs, confidence 0.9 (forming, but higher confidence)
-    db.observe_crystal("c-few", "Few obs", "test", 0.9, &ts)
+    db.observe_crystal("c-few", "Few obs", "test", 0.9, &ts, 3)
         .await
         .unwrap();
 
@@ -483,6 +595,7 @@ async fn store_and_search_crystal_embedding() {
         "chess",
         0.7,
         "2026-03-21T12:00:00Z",
+        3,
     )
     .await
     .expect("observe_crystal failed");
@@ -543,7 +656,7 @@ async fn semantic_search_round_trip() {
     ] {
         for i in 0..26 {
             let ts = format!("2026-03-21T12:{i:02}:00Z");
-            db.observe_crystal(id, content, "chess", 0.7, &ts)
+            db.observe_crystal(id, content, "chess", 0.7, &ts, 3)
                 .await
                 .unwrap();
         }

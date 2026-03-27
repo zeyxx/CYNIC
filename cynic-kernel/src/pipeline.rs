@@ -11,7 +11,7 @@ use crate::domain::events::KernelEvent;
 use crate::domain::metrics::Metrics;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
-use crate::domain::verdict_cache::{CacheLookup, VerdictCache};
+use crate::domain::verdict_cache::{CacheContext, CacheLookup, VerdictCache};
 use crate::judge::{Judge, JudgeError};
 use tokio::sync::Mutex;
 
@@ -97,12 +97,15 @@ pub async fn run(
     // stimuli (68% of chess, 100% of trading in tests) never accumulate crystal
     // observations → crystals never reach 21 obs → never inject → no compound.
     // Skip cache in A/B mode (crystals=false) — must re-evaluate to measure crystal delta.
+    // T6: CacheContext ensures domain + Dog config match. A cached chess verdict won't serve
+    // a code query. A verdict from 5 Dogs won't serve when only 2 are available.
+    let cache_ctx = CacheContext::new(domain_hint, judge.available_dogs_hash(dogs_filter));
     if inject_crystals
         && let Some(emb) = &stimulus_embedding
         && let CacheLookup::Hit {
             verdict,
             similarity,
-        } = verdict_cache.lookup(emb)
+        } = verdict_cache.lookup(emb, &cache_ctx)
     {
         metrics.inc_cache_hit();
         tracing::info!(phase = "cache", result = "hit", similarity = %format!("{:.4}", similarity),
@@ -135,10 +138,12 @@ pub async fn run(
         tracing::info!(phase = "crystals", "crystal injection disabled (A/B mode)");
         Vec::new()
     };
+    // T4: filter to MatureCrystal newtype — only Crystallized|Canonical pass
+    let mature_crystals = ccm::filter_mature(crystals);
     tracing::info!(
         phase = "crystals",
-        count = crystals.len(),
-        "crystal retrieval complete"
+        total = mature_crystals.len(),
+        "mature crystals for injection"
     );
 
     // ── SESSION SUMMARIES: separate token budget from crystals ──
@@ -156,7 +161,8 @@ pub async fn run(
         // All three converge at ~domain_prompt_length × φ⁻² ≈ 1089 for chess (2850 chars).
         // Hardcoded for now; will scale dynamically with domain prompt length.
         const CRYSTAL_BUDGET_CHARS: usize = 1100;
-        let crystal_ctx = ccm::format_crystal_context(&crystals, domain_hint, CRYSTAL_BUDGET_CHARS);
+        let crystal_ctx =
+            ccm::format_crystal_context(&mature_crystals, domain_hint, CRYSTAL_BUDGET_CHARS);
         let parts: Vec<String> = [context, crystal_ctx, session_ctx]
             .into_iter()
             .flatten()
@@ -260,14 +266,31 @@ async fn side_effects(
     observe_crystal_for_verdict(verdict, stimulus_embedding, domain, deps).await;
 
     // Cache verdict embedding (clone verdict since cache takes ownership of embedding)
+    // T6: store with CacheContext from actual verdict (domain + Dogs that contributed)
     if let Some(emb) = &stimulus_embedding {
-        // Clone the embedding for the cache — the original is borrowed
         let cache_emb = Embedding {
             vector: emb.vector.clone(),
             dimensions: emb.dimensions,
             prompt_tokens: emb.prompt_tokens,
         };
-        deps.verdict_cache.store(cache_emb, verdict.clone());
+        // Use verdict.dog_id hash (actual Dogs) for the stored context.
+        // At lookup time, Judge::available_dogs_hash() produces the same hash
+        // when the same Dogs are available + CB allows them.
+        let dog_id_hash = {
+            let mut h: u64 = 0xcbf29ce484222325;
+            // Sort dog_id segments for deterministic hash (same as Judge::available_dogs_hash)
+            let mut ids: Vec<&str> = verdict.dog_id.split('+').collect();
+            ids.sort_unstable();
+            let joined = ids.join("+");
+            for byte in joined.bytes() {
+                h ^= byte as u64;
+                h = h.wrapping_mul(0x100000001b3);
+            }
+            h
+        };
+        let store_ctx = CacheContext::new(domain, dog_id_hash);
+        deps.verdict_cache
+            .store(cache_emb, verdict.clone(), store_ctx);
     }
 }
 
@@ -312,6 +335,18 @@ async fn observe_crystal_for_verdict(
     domain: &str,
     deps: &PipelineDeps<'_>,
 ) {
+    // ── T8+T9: Quorum gate — single-Dog verdicts must NOT crystallize ──
+    // Verdict is still SERVED (availability), but only consensus crystallizes (integrity).
+    if verdict.voter_count < crate::domain::dog::MIN_QUORUM {
+        tracing::info!(
+            phase = "crystal_gate",
+            voter_count = verdict.voter_count,
+            min_quorum = crate::domain::dog::MIN_QUORUM,
+            "quorum not met — crystal observation skipped (verdict still served)"
+        );
+        return;
+    }
+
     // ── Epistemic soft gate: weight crystal observation by Dog agreement ──
     let (epistemic_tag, injection_weight) = epistemic_gate(verdict.max_disagreement);
 
@@ -387,6 +422,7 @@ async fn observe_crystal_for_verdict(
             domain,
             crystal_confidence,
             &now,
+            verdict.voter_count,
         )
         .await
     {

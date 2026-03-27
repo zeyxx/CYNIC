@@ -189,6 +189,7 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS anomaly_detected ON verdict TYPE bool;\
             DEFINE FIELD IF NOT EXISTS max_disagreement ON verdict TYPE float;\
             DEFINE FIELD IF NOT EXISTS anomaly_axiom ON verdict TYPE string;\
+            DEFINE FIELD IF NOT EXISTS voter_count ON verdict TYPE int;\
             DEFINE FIELD IF NOT EXISTS created_at ON verdict TYPE datetime;\
             DEFINE FIELD IF NOT EXISTS content ON crystal TYPE string;\
             DEFINE FIELD IF NOT EXISTS domain ON crystal TYPE string;\

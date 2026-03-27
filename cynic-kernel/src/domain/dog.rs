@@ -12,6 +12,12 @@ pub const PHI_INV2: f64 = 0.381_966_011_250_105; // anomaly threshold
 pub const PHI_INV3: f64 = 0.236_067_977_499_790; // GROWL threshold
 pub const PHI_INV4: f64 = 0.145_898_033_750_315; // convergence increment
 
+/// Minimum Dogs required for a verdict to accumulate crystal observations (T8).
+/// Single-Dog verdicts are served for availability but MUST NOT crystallize.
+/// Value 2 = deterministic-dog + at least 1 LLM Dog. Falsified: no crystal
+/// starvation at this threshold (H6 — crystal state doesn't decay without obs).
+pub const MIN_QUORUM: usize = 2;
+
 // ── STIMULUS ───────────────────────────────────────────────
 /// What the organism perceives. Domain-agnostic.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,6 +126,12 @@ pub struct Verdict {
     pub max_disagreement: f64,
     #[serde(default)]
     pub anomaly_axiom: Option<String>,
+    /// Number of Dogs that contributed scores to this verdict.
+    /// Explicit field — not derived from dog_scores.len() — because dog_scores
+    /// may be empty after DB deserialization (corrupt JSON blob).
+    /// Used by quorum gate (T8): only verdicts with voter_count >= min_quorum crystallize.
+    #[serde(default)]
+    pub voter_count: usize,
     /// Dog IDs that failed during evaluation — ephemeral, not persisted to DB.
     /// Consumed by handlers immediately after evaluation to call usage.record_failure().
     #[serde(default)]

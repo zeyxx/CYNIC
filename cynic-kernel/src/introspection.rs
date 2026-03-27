@@ -103,7 +103,10 @@ pub async fn analyze(storage: &dyn StoragePort, metrics: &Metrics) -> Vec<Alert>
         let id = format!("introspect-{}", &now[..16]); // one per 5-min window
         // Best-effort — don't fail the tick on storage error
         if let Err(e) = storage
-            .observe_crystal(&id, &content, "cynic-internal", 0.3, &now)
+            // T8: voter_count=0 — introspection anomalies don't have Dog consensus.
+            // This will be rejected by the quorum gate. Introspection crystals
+            // need a separate path if we want to persist them without Dog evaluation.
+            .observe_crystal(&id, &content, "cynic-internal", 0.3, &now, 0)
             .await
         {
             tracing::warn!(error = %e, "introspection: failed to observe anomaly crystal");

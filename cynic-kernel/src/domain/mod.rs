@@ -14,4 +14,5 @@ pub mod verdict_cache;
 // pub mod temporal;
 pub mod health_gate;
 pub mod metrics;
+pub mod sanitize;
 pub mod summarization;

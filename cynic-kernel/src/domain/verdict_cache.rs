@@ -17,9 +17,29 @@ const CACHE_HIT_THRESHOLD: f64 = 0.95;
 /// Max cached entries before FIFO eviction.
 const MAX_ENTRIES: usize = 1000;
 
+/// T6: Cache context — domain + Dogs configuration hash.
+/// A cache hit requires BOTH cosine similarity ≥ threshold AND matching CacheContext.
+/// This prevents cross-domain contamination (F17) and stale Dog config hits (F19).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CacheContext {
+    domain: String,
+    dogs_hash: u64,
+}
+
+impl CacheContext {
+    /// Create from domain hint and Dogs hash (from Judge::available_dogs_hash).
+    pub fn new(domain: &str, dogs_hash: u64) -> Self {
+        Self {
+            domain: domain.to_string(),
+            dogs_hash,
+        }
+    }
+}
+
 struct CacheEntry {
     embedding: Embedding,
     verdict: Verdict,
+    context: CacheContext,
 }
 
 pub struct VerdictCache {
@@ -60,14 +80,19 @@ impl VerdictCache {
     }
 
     /// Search for a cached verdict similar to the given embedding.
-    /// Returns the best match above threshold, or Miss.
-    pub fn lookup(&self, query: &Embedding) -> CacheLookup {
+    /// T6: Only matches entries with the SAME CacheContext (domain + dogs_hash).
+    /// This prevents cross-domain hits (F17) and stale Dog config hits (F19).
+    pub fn lookup(&self, query: &Embedding, ctx: &CacheContext) -> CacheLookup {
         let entries = self.entries.read().unwrap_or_else(|e| e.into_inner());
 
         let mut best_sim = 0.0_f64;
         let mut best_idx = None;
 
         for (i, entry) in entries.iter().enumerate() {
+            // T6: skip entries with different domain or Dog configuration
+            if entry.context != *ctx {
+                continue;
+            }
             let sim = query.cosine_similarity(&entry.embedding);
             if sim > best_sim {
                 best_sim = sim;
@@ -87,16 +112,21 @@ impl VerdictCache {
         CacheLookup::Miss
     }
 
-    /// Store a verdict with its embedding for future lookups.
+    /// Store a verdict with its embedding and context for future lookups.
+    /// T6: CacheContext ensures the verdict is only returned for matching domain + Dog config.
     /// FIFO eviction when at capacity.
-    pub fn store(&self, embedding: Embedding, verdict: Verdict) {
+    pub fn store(&self, embedding: Embedding, verdict: Verdict, ctx: CacheContext) {
         let mut entries = self.entries.write().unwrap_or_else(|e| e.into_inner());
 
         if entries.len() >= MAX_ENTRIES {
             entries.pop_front(); // O(1) FIFO eviction
         }
 
-        entries.push_back(CacheEntry { embedding, verdict });
+        entries.push_back(CacheEntry {
+            embedding,
+            verdict,
+            context: ctx,
+        });
     }
 
     /// Number of cached entries.
@@ -124,6 +154,14 @@ mod tests {
         }
     }
 
+    fn test_ctx() -> CacheContext {
+        CacheContext::new("test", 12345)
+    }
+
+    fn other_ctx() -> CacheContext {
+        CacheContext::new("other-domain", 99999)
+    }
+
     fn make_verdict(id: &str) -> Verdict {
         Verdict {
             id: id.to_string(),
@@ -145,6 +183,7 @@ mod tests {
             anomaly_detected: false,
             max_disagreement: 0.0,
             anomaly_axiom: None,
+            voter_count: 0,
             failed_dogs: vec![],
             integrity_hash: None,
             prev_hash: None,
@@ -155,17 +194,20 @@ mod tests {
     fn miss_on_empty_cache() {
         let cache = VerdictCache::new();
         let query = make_embedding(vec![1.0, 0.0, 0.0]);
-        assert!(matches!(cache.lookup(&query), CacheLookup::Miss));
+        assert!(matches!(
+            cache.lookup(&query, &test_ctx()),
+            CacheLookup::Miss
+        ));
     }
 
     #[test]
     fn hit_on_identical_embedding() {
         let cache = VerdictCache::new();
         let emb = make_embedding(vec![1.0, 0.0, 0.0]);
-        cache.store(emb, make_verdict("v1"));
+        cache.store(emb, make_verdict("v1"), test_ctx());
 
         let query = make_embedding(vec![1.0, 0.0, 0.0]);
-        match cache.lookup(&query) {
+        match cache.lookup(&query, &test_ctx()) {
             CacheLookup::Hit {
                 ref verdict,
                 similarity,
@@ -180,20 +222,30 @@ mod tests {
     #[test]
     fn miss_on_orthogonal_embedding() {
         let cache = VerdictCache::new();
-        cache.store(make_embedding(vec![1.0, 0.0, 0.0]), make_verdict("v1"));
+        cache.store(
+            make_embedding(vec![1.0, 0.0, 0.0]),
+            make_verdict("v1"),
+            test_ctx(),
+        );
 
         let query = make_embedding(vec![0.0, 1.0, 0.0]);
-        assert!(matches!(cache.lookup(&query), CacheLookup::Miss));
+        assert!(matches!(
+            cache.lookup(&query, &test_ctx()),
+            CacheLookup::Miss
+        ));
     }
 
     #[test]
     fn hit_on_near_identical() {
         let cache = VerdictCache::new();
-        cache.store(make_embedding(vec![1.0, 0.0, 0.0]), make_verdict("v1"));
+        cache.store(
+            make_embedding(vec![1.0, 0.0, 0.0]),
+            make_verdict("v1"),
+            test_ctx(),
+        );
 
-        // Very slight variation — cosine should be > 0.95
         let query = make_embedding(vec![1.0, 0.05, 0.0]);
-        match cache.lookup(&query) {
+        match cache.lookup(&query, &test_ctx()) {
             CacheLookup::Hit { similarity, .. } => {
                 assert!(
                     similarity > 0.95,
@@ -207,11 +259,15 @@ mod tests {
     #[test]
     fn fifo_eviction() {
         let cache = VerdictCache::new();
-        // Fill beyond capacity
+        let ctx = test_ctx();
         for i in 0..1001 {
             let mut v = vec![0.0_f32; 3];
             v[i % 3] = 1.0;
-            cache.store(make_embedding(v), make_verdict(&format!("v{i}")));
+            cache.store(
+                make_embedding(v),
+                make_verdict(&format!("v{i}")),
+                ctx.clone(),
+            );
         }
         assert_eq!(cache.len(), MAX_ENTRIES);
     }
@@ -219,15 +275,80 @@ mod tests {
     #[test]
     fn best_match_wins() {
         let cache = VerdictCache::new();
-        cache.store(make_embedding(vec![1.0, 0.0, 0.0]), make_verdict("exact"));
-        cache.store(make_embedding(vec![0.9, 0.1, 0.0]), make_verdict("close"));
+        let ctx = test_ctx();
+        cache.store(
+            make_embedding(vec![1.0, 0.0, 0.0]),
+            make_verdict("exact"),
+            ctx.clone(),
+        );
+        cache.store(
+            make_embedding(vec![0.9, 0.1, 0.0]),
+            make_verdict("close"),
+            ctx.clone(),
+        );
 
         let query = make_embedding(vec![1.0, 0.0, 0.0]);
-        match cache.lookup(&query) {
+        match cache.lookup(&query, &ctx) {
             CacheLookup::Hit { verdict, .. } => {
                 assert_eq!(verdict.id, "exact");
             }
             CacheLookup::Miss => panic!("Expected hit"),
+        }
+    }
+
+    // ── T6 CONTRACT TESTS ────────────────────────────────
+
+    #[test]
+    fn miss_on_different_domain() {
+        // F17: a verdict cached for "chess" must NOT serve a "code" query
+        let cache = VerdictCache::new();
+        cache.store(
+            make_embedding(vec![1.0, 0.0, 0.0]),
+            make_verdict("chess-v"),
+            test_ctx(), // domain="test"
+        );
+
+        let query = make_embedding(vec![1.0, 0.0, 0.0]); // identical embedding
+        assert!(
+            matches!(cache.lookup(&query, &other_ctx()), CacheLookup::Miss),
+            "F17: cross-domain cache hit must not happen"
+        );
+    }
+
+    #[test]
+    fn miss_on_different_dogs_hash() {
+        // F19: a verdict from 5 Dogs must NOT serve when only 2 are available
+        let cache = VerdictCache::new();
+        let ctx_5dogs = CacheContext::new("chess", 55555);
+        cache.store(
+            make_embedding(vec![1.0, 0.0, 0.0]),
+            make_verdict("5dog-v"),
+            ctx_5dogs,
+        );
+
+        let ctx_2dogs = CacheContext::new("chess", 22222); // different dogs_hash
+        let query = make_embedding(vec![1.0, 0.0, 0.0]);
+        assert!(
+            matches!(cache.lookup(&query, &ctx_2dogs), CacheLookup::Miss),
+            "F19: cache hit with different Dog config must not happen"
+        );
+    }
+
+    #[test]
+    fn hit_on_same_context() {
+        // Same embedding + same context → cache hit
+        let cache = VerdictCache::new();
+        let ctx = CacheContext::new("chess", 55555);
+        cache.store(
+            make_embedding(vec![1.0, 0.0, 0.0]),
+            make_verdict("match"),
+            ctx.clone(),
+        );
+
+        let query = make_embedding(vec![1.0, 0.0, 0.0]);
+        match cache.lookup(&query, &ctx) {
+            CacheLookup::Hit { verdict, .. } => assert_eq!(verdict.id, "match"),
+            CacheLookup::Miss => panic!("Expected hit with same context"),
         }
     }
 }

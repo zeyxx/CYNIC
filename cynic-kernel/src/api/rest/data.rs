@@ -208,6 +208,12 @@ pub struct ObserveCrystalRequest {
 }
 
 /// POST /crystal/{id}/observe — observe a score for an existing crystal.
+///
+/// T8: This endpoint passes voter_count=0 because no Dogs are involved in a direct
+/// REST observation. The StoragePort adapter enforces MIN_QUORUM and will reject it.
+/// Crystal observations should flow through the judge pipeline, not direct API calls.
+/// This endpoint remains for backward compatibility but is effectively read-only for
+/// crystal state — it cannot cause crystallization.
 pub async fn observe_crystal_handler(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -227,16 +233,21 @@ pub async fn observe_crystal_handler(
     let confidence = (score / PHI_INV).min(1.0);
     let now = chrono::Utc::now().to_rfc3339();
 
+    // T8: voter_count=0 — no Dogs involved in direct REST observation.
+    // StoragePort will reject with quorum error. This is intentional.
     if let Err(e) = state
         .storage
-        .observe_crystal(&id, &req.content, &domain, confidence, &now)
+        .observe_crystal(&id, &req.content, &domain, confidence, &now, 0)
         .await
     {
-        tracing::warn!(crystal_id = %id, error = %e, "observe crystal failed");
+        tracing::warn!(crystal_id = %id, error = %e, "observe crystal rejected");
         return Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::UNPROCESSABLE_ENTITY,
             Json(ErrorResponse {
-                error: "storage unavailable".into(),
+                error: format!(
+                    "crystal observation requires quorum (min {} Dogs)",
+                    crate::domain::dog::MIN_QUORUM
+                ),
             }),
         ));
     }

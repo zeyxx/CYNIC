@@ -44,6 +44,40 @@ impl Judge {
         self.dogs.iter().map(|d| d.id().to_string()).collect()
     }
 
+    /// Hash of Dogs that would participate in evaluation (filter + CB check).
+    /// Used by VerdictCache to invalidate entries when Dog configuration changes.
+    /// FNV-1a hash of sorted Dog IDs that pass filter + circuit breaker.
+    pub fn available_dogs_hash(&self, filter: Option<&[String]>) -> u64 {
+        let mut ids: Vec<&str> = match filter {
+            Some(f) => self
+                .dogs
+                .iter()
+                .zip(self.breakers.iter())
+                .filter(|(d, cb)| {
+                    cb.should_allow()
+                        && (d.id() == "deterministic-dog" || f.iter().any(|id| id == d.id()))
+                })
+                .map(|(d, _)| d.id())
+                .collect(),
+            None => self
+                .dogs
+                .iter()
+                .zip(self.breakers.iter())
+                .filter(|(_, cb)| cb.should_allow())
+                .map(|(d, _)| d.id())
+                .collect(),
+        };
+        ids.sort_unstable();
+        let joined = ids.join("+");
+        // FNV-1a (same as ccm::content_hash)
+        let mut h: u64 = 0xcbf29ce484222325;
+        for byte in joined.bytes() {
+            h ^= byte as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+        h
+    }
+
     /// Shared references to circuit breakers (for health loop + remediation).
     pub fn breakers(&self) -> &[Arc<dyn HealthGate>] {
         &self.breakers
@@ -389,6 +423,7 @@ impl Judge {
             (h, prev)
         };
 
+        let voter_count = dog_scores.len();
         Ok(Verdict {
             id,
             kind,
@@ -397,6 +432,7 @@ impl Judge {
             dog_id: dog_ids.join("+"),
             stimulus_summary,
             timestamp,
+            voter_count,
             dog_scores,
             anomaly_detected,
             max_disagreement,

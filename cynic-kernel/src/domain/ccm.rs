@@ -54,6 +54,91 @@ pub enum CrystalState {
     Dissolved,
 }
 
+// ── MATURE CRYSTAL NEWTYPE (T4) ─────────────────────────────
+/// A crystal that has reached Crystallized or Canonical state.
+/// Private inner field — can only be constructed via `TryFrom<Crystal>`,
+/// which validates the state at compile-time boundary. This prevents
+/// Forming/Decaying/Dissolved crystals from reaching Dog prompts.
+#[derive(Debug, Clone)]
+pub struct MatureCrystal {
+    inner: Crystal,
+}
+
+/// Error when attempting to create a MatureCrystal from a non-mature Crystal.
+#[derive(Debug)]
+pub struct NotMatureError {
+    pub id: String,
+    pub state: CrystalState,
+}
+
+impl std::fmt::Display for NotMatureError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "crystal '{}' is {:?}, not mature", self.id, self.state)
+    }
+}
+
+impl std::error::Error for NotMatureError {}
+
+impl TryFrom<Crystal> for MatureCrystal {
+    type Error = NotMatureError;
+
+    fn try_from(crystal: Crystal) -> Result<Self, Self::Error> {
+        match crystal.state {
+            CrystalState::Crystallized | CrystalState::Canonical => {
+                Ok(MatureCrystal { inner: crystal })
+            }
+            _ => Err(NotMatureError {
+                id: crystal.id.clone(),
+                state: crystal.state,
+            }),
+        }
+    }
+}
+
+impl MatureCrystal {
+    /// Access the underlying Crystal (read-only).
+    pub fn crystal(&self) -> &Crystal {
+        &self.inner
+    }
+
+    pub fn id(&self) -> &str {
+        &self.inner.id
+    }
+
+    pub fn content(&self) -> &str {
+        &self.inner.content
+    }
+
+    pub fn domain(&self) -> &str {
+        &self.inner.domain
+    }
+
+    pub fn confidence(&self) -> f64 {
+        self.inner.confidence
+    }
+
+    pub fn observations(&self) -> u32 {
+        self.inner.observations
+    }
+
+    pub fn state(&self) -> &CrystalState {
+        &self.inner.state
+    }
+
+    pub fn updated_at(&self) -> &str {
+        &self.inner.updated_at
+    }
+}
+
+/// Filter a list of Crystals into only mature ones.
+/// Convenience function — equivalent to try_from + filter_map.
+pub fn filter_mature(crystals: Vec<Crystal>) -> Vec<MatureCrystal> {
+    crystals
+        .into_iter()
+        .filter_map(|c| MatureCrystal::try_from(c).ok())
+        .collect()
+}
+
 // ── CRYSTALLIZATION ENGINE (pure domain logic) ──────────────
 
 /// Observe a new Q-Score for a pattern. Returns the updated crystal state.
@@ -164,34 +249,30 @@ pub fn decay_relevance(confidence: f64, updated_at: &str, now: &str) -> f64 {
 // ── CCM FEEDBACK — inject crystallized wisdom into stimulus context ──
 
 /// Format mature crystals as context for Dog prompts.
-/// Only includes Crystallized and Canonical crystals from the same domain.
+/// Accepts `&[MatureCrystal]` — type system guarantees only Crystallized/Canonical.
+/// Filters by domain (including "general" cross-domain).
 /// Token-budget-aware: caps at max_chars to avoid overflowing small models.
+/// Content wrapped in delimiters (T7 defense-in-depth).
 pub fn format_crystal_context(
-    crystals: &[Crystal],
+    crystals: &[MatureCrystal],
     domain: &str,
     max_chars: usize,
 ) -> Option<String> {
-    let mature: Vec<&Crystal> = crystals
+    let domain_filtered: Vec<&MatureCrystal> = crystals
         .iter()
-        .filter(|c| c.domain == domain || c.domain == "general")
-        .filter(|c| {
-            matches!(
-                c.state,
-                CrystalState::Crystallized | CrystalState::Canonical
-            )
-        })
+        .filter(|c| c.domain() == domain || c.domain() == "general")
         .collect();
 
-    if mature.is_empty() {
+    if domain_filtered.is_empty() {
         return None;
     }
 
     // Sort by temporal relevance descending — recent high-confidence crystals first
     let now = chrono::Utc::now().to_rfc3339();
-    let mut sorted = mature;
+    let mut sorted = domain_filtered;
     sorted.sort_by(|a, b| {
-        let ra = decay_relevance(a.confidence, &a.updated_at, &now);
-        let rb = decay_relevance(b.confidence, &b.updated_at, &now);
+        let ra = decay_relevance(a.confidence(), a.updated_at(), &now);
+        let rb = decay_relevance(b.confidence(), b.updated_at(), &now);
         rb.partial_cmp(&ra).unwrap_or(std::cmp::Ordering::Equal)
     });
 
@@ -206,14 +287,19 @@ pub fn format_crystal_context(
     lines.push(header);
 
     for c in sorted {
-        let state_label = if c.state == CrystalState::Canonical {
+        let state_label = if *c.state() == CrystalState::Canonical {
             "CANONICAL"
         } else {
             "CRYSTALLIZED"
         };
+        // T7 defense-in-depth: wrap content in delimiters
+        let delimited = crate::domain::sanitize::delimit_crystal_content(c.content());
         let line = format!(
             "- [{}] (confidence: {:.2}, {} observations): {}",
-            state_label, c.confidence, c.observations, c.content
+            state_label,
+            c.confidence(),
+            c.observations(),
+            delimited
         );
         if total_chars + line.len() > max_chars {
             break; // Token budget exhausted
@@ -568,10 +654,12 @@ mod tests {
             make_crystal(0.3, 5, CrystalState::Forming),
             make_crystal(PHI_INV, 250, CrystalState::Canonical),
         ];
-        let ctx = format_crystal_context(&crystals, "test", 2000).unwrap();
+        // T4: filter_mature drops Forming, format_crystal_context gets only mature
+        let mature = filter_mature(crystals);
+        assert_eq!(mature.len(), 2); // Forming filtered out by type system
+        let ctx = format_crystal_context(&mature, "test", 2000).unwrap();
         assert!(ctx.contains("CRYSTALLIZED"));
         assert!(ctx.contains("CANONICAL"));
-        assert!(!ctx.contains("Forming")); // Forming excluded
     }
 
     #[test]
@@ -583,14 +671,41 @@ mod tests {
                 c
             })
             .collect();
-        let ctx = format_crystal_context(&crystals, "test", 200).unwrap();
-        assert!(ctx.len() <= 300); // Some slack for header
+        let mature = filter_mature(crystals);
+        let ctx = format_crystal_context(&mature, "test", 200).unwrap();
+        assert!(ctx.len() <= 500); // Slack for header + delimiters
     }
 
     #[test]
     fn crystal_context_empty_when_no_mature() {
         let crystals = vec![make_crystal(0.3, 5, CrystalState::Forming)];
-        assert!(format_crystal_context(&crystals, "test", 2000).is_none());
+        let mature = filter_mature(crystals);
+        assert!(mature.is_empty()); // T4: Forming rejected by type system
+        assert!(format_crystal_context(&mature, "test", 2000).is_none());
+    }
+
+    #[test]
+    fn mature_crystal_rejects_forming() {
+        let forming = make_crystal(0.5, 5, CrystalState::Forming);
+        assert!(MatureCrystal::try_from(forming).is_err());
+    }
+
+    #[test]
+    fn mature_crystal_accepts_crystallized() {
+        let crystallized = make_crystal(PHI_INV, 25, CrystalState::Crystallized);
+        assert!(MatureCrystal::try_from(crystallized).is_ok());
+    }
+
+    #[test]
+    fn mature_crystal_accepts_canonical() {
+        let canonical = make_crystal(PHI_INV, 250, CrystalState::Canonical);
+        assert!(MatureCrystal::try_from(canonical).is_ok());
+    }
+
+    #[test]
+    fn mature_crystal_rejects_decaying() {
+        let decaying = make_crystal(0.2, 30, CrystalState::Decaying);
+        assert!(MatureCrystal::try_from(decaying).is_err());
     }
 
     #[test]
@@ -769,8 +884,8 @@ mod tests {
         old.content = "OLD_PATTERN".into();
         old.id = "test-2".into();
 
-        let crystals = vec![old, recent]; // old first in input
-        let ctx = format_crystal_context(&crystals, "test", 2000).unwrap();
+        let mature = filter_mature(vec![old, recent]); // old first in input
+        let ctx = format_crystal_context(&mature, "test", 2000).unwrap();
         // Recent should appear before old after decay-weighted sorting
         let recent_pos = ctx
             .find("RECENT_PATTERN")

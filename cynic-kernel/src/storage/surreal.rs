@@ -44,6 +44,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
             anomaly_detected = {}, \
             max_disagreement = {}, \
             anomaly_axiom = '{}', \
+            voter_count = {}, \
             dog_scores_json = '{}', \
             created_at = time::now()",
         escape(&v.id),
@@ -68,6 +69,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
         v.anomaly_detected,
         v.max_disagreement,
         escape(v.anomaly_axiom.as_deref().unwrap_or("")),
+        v.voter_count,
         escape(&serde_json::to_string(&v.dog_scores).unwrap_or_else(|_| "[]".to_string())),
     )
 }
@@ -125,6 +127,7 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
             .as_str()
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string()),
+        voter_count: row["voter_count"].as_u64().unwrap_or(0) as usize,
         failed_dogs: Vec::new(),
         integrity_hash: row["integrity_hash"]
             .as_str()
@@ -325,8 +328,23 @@ impl StoragePort for SurrealHttpStorage {
         domain: &str,
         score: f64,
         timestamp: &str,
+        voter_count: usize,
     ) -> Result<(), StorageError> {
+        // T5+T8: quorum enforcement — reject observations from single-Dog or no-Dog sources.
+        // This gate covers ALL callers (pipeline + REST + introspection).
+        if voter_count < crate::domain::dog::MIN_QUORUM {
+            return Err(StorageError::QueryFailed(format!(
+                "quorum not met: voter_count={voter_count}, min={}",
+                crate::domain::dog::MIN_QUORUM
+            )));
+        }
+
         let safe_id = sanitize_id(id)?;
+
+        // T7: sanitize content BEFORE storage — prevents prompt injection via crystal content.
+        // This is the PRIMARY defense. format_crystal_context delimiters are defense-in-depth.
+        // Covers ALL callers: pipeline (observe_crystal_for_verdict) AND REST (observe_crystal_handler).
+        let sanitized_content = crate::domain::sanitize::sanitize_crystal_content(content);
 
         // Atomic observe: LET binds + UPDATE avoids TOCTOU race.
         // SurrealDB 3.x doesn't support nested IF...END — use LET variables.
@@ -354,8 +372,8 @@ impl StoragePort for SurrealHttpStorage {
                  ELSE IF $new_obs >= 21 AND $new_conf < 0.382 THEN 'decaying' \
                  ELSE 'forming' END; \
              UPSERT crystal:`{id}` SET \
-                 content = '{content}', \
-                 domain = '{domain}', \
+                 content = content ?? '{content}', \
+                 domain = domain ?? '{domain}', \
                  observations = $new_obs, \
                  confidence = $new_conf, \
                  state = $new_state, \
@@ -363,7 +381,7 @@ impl StoragePort for SurrealHttpStorage {
                  updated_at = '{ts}'; \
              COMMIT TRANSACTION;",
             id = safe_id,
-            content = escape_surreal(content),
+            content = escape_surreal(&sanitized_content),
             domain = escape_surreal(domain),
             score = score,
             ts = escape_surreal(timestamp),
@@ -1230,6 +1248,7 @@ mod tests {
             anomaly_detected: false,
             max_disagreement: 0.0,
             anomaly_axiom: None,
+            voter_count: 0,
             failed_dogs: Vec::new(),
             integrity_hash: Some("deadbeef".into()),
             prev_hash: None,
@@ -1247,6 +1266,8 @@ mod tests {
         assert!(sql.contains("time::now()"));
         assert!(sql.contains("integrity_hash = 'deadbeef'"));
         assert!(sql.contains("prev_hash = ''"));
+        // S4: voter_count must be in generated SQL
+        assert!(sql.contains("voter_count = 0"));
     }
 
     #[test]
@@ -1278,6 +1299,28 @@ mod tests {
         assert_eq!(v.q_score.total, 0.82);
         assert_eq!(v.q_score.sovereignty, 0.70);
         assert_eq!(v.reasoning.burn, "concise");
+        // I1: voter_count defaults to 0 when absent from DB row
+        assert_eq!(v.voter_count, 0);
+    }
+
+    #[test]
+    fn row_to_verdict_reads_voter_count() {
+        let row = serde_json::json!({
+            "verdict_id": "v-456",
+            "kind": "Wag",
+            "total": 0.5,
+            "fidelity": 0.5, "phi": 0.5, "verify": 0.5,
+            "culture": 0.5, "burn": 0.5, "sovereignty": 0.5,
+            "reasoning_fidelity": "", "reasoning_phi": "", "reasoning_verify": "",
+            "reasoning_culture": "", "reasoning_burn": "", "reasoning_sovereignty": "",
+            "dog_id": "det+gemini+sovereign",
+            "stimulus": "test",
+            "voter_count": 3,
+            "created_at": "2026-03-27T00:00:00Z"
+        });
+
+        let v = row_to_verdict(&row);
+        assert_eq!(v.voter_count, 3, "voter_count must round-trip through DB");
     }
 
     #[test]

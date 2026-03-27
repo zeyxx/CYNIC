@@ -163,6 +163,9 @@ pub struct JudgeResponse {
     pub dogs_used: String,
     pub phi_max: f64,
     pub dog_scores: Vec<DogScoreResponse>,
+    /// Number of Dogs that contributed to this verdict (T9: transparency).
+    /// Consumers can distinguish single-Dog from consensus.
+    pub voter_count: usize,
     pub anomaly_detected: bool,
     pub max_disagreement: f64,
     pub anomaly_axiom: Option<String>,

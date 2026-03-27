@@ -142,6 +142,10 @@ pub trait StoragePort: Send + Sync {
     /// Atomically observe a new score for a crystal. Creates if not exists,
     /// updates running mean + observations + state in a single write.
     /// Eliminates the get→compute→store race condition.
+    ///
+    /// T5+T8: `voter_count` is the number of Dogs that contributed to this observation.
+    /// Adapter MUST reject if `voter_count < MIN_QUORUM` — this prevents single-Dog
+    /// verdicts and direct REST callers from crystallizing content.
     async fn observe_crystal(
         &self,
         id: &str,
@@ -149,6 +153,7 @@ pub trait StoragePort: Send + Sync {
         domain: &str,
         score: f64,
         timestamp: &str,
+        voter_count: usize,
     ) -> Result<(), StorageError>;
 
     /// Store a development workflow observation (tool usage, file edit, error).
@@ -347,6 +352,7 @@ impl StoragePort for NullStorage {
         _domain: &str,
         _score: f64,
         _timestamp: &str,
+        _voter_count: usize,
     ) -> Result<(), StorageError> {
         Err(StorageError::ConnectionFailed(
             "NullStorage: observation not persisted (DEGRADED mode)".into(),

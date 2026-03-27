@@ -497,8 +497,9 @@ async fn delete_crystal_returns_500_with_null_storage() {
 }
 
 #[tokio::test]
-async fn observe_crystal_returns_500_with_null_storage() {
-    // RC5: NullStorage now returns Err — honest about unavailability
+async fn observe_crystal_returns_422_quorum_required() {
+    // T8: Direct REST crystal observation passes voter_count=0 → quorum gate rejects.
+    // The error comes from the quorum check, not from NullStorage.
     let state = test_state(Some("key"));
     let app = rest::router(state);
     let resp = app
@@ -517,8 +518,8 @@ async fn observe_crystal_returns_500_with_null_storage() {
         .unwrap();
     assert_eq!(
         resp.status(),
-        500,
-        "NullStorage: POST /crystal observe must return 500"
+        422,
+        "POST /crystal observe must return 422 (quorum required)"
     );
 }
 

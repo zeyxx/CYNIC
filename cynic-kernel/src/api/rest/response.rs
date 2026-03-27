@@ -50,6 +50,7 @@ pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
                 },
             })
             .collect(),
+        voter_count: v.voter_count,
         anomaly_detected: v.anomaly_detected,
         max_disagreement: v.max_disagreement,
         anomaly_axiom: v.anomaly_axiom.clone(),
@@ -100,6 +101,7 @@ mod tests {
             anomaly_detected: false,
             max_disagreement: 0.0,
             anomaly_axiom: None,
+            voter_count: 0,
             failed_dogs: Vec::new(),
             integrity_hash: Some("abc123".into()),
             prev_hash: None,

@@ -28,3 +28,5 @@ globs: ["**"]
 31. **Measure before AND after.** Every "improved X" claim needs before/after numbers.
 33. **Every producer needs a consumer.** `store_*` without a read path = invisible waste.
 34. **Falsify before adopting.** Architectural decisions require: hypothesis, falsification test, evidence from production systems. No structural choice without attempting to disprove it.
+35. **Gate at the lowest common caller.** Security gates and sanitization live at the function ALL paths call, not at one convenient caller. If 3 paths reach `observe_crystal`, the gate is in `observe_crystal`, not in the pipeline.
+36. **Bugs before abstractions.** A data-corrupting SQL bug outranks a compile-time newtype. Fix what breaks data first, then add what prevents future misuse. Contract tests before trait splits.
