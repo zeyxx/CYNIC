@@ -32,6 +32,11 @@ impl Dog for DeterministicDog {
         let words: Vec<&str> = all_text.split_whitespace().collect();
         let word_count = words.len();
 
+        // F11 fix: unique_ratio from content-only words, not content+context.
+        // Context vocabulary inflates PHI/BURN scores — content is what we judge.
+        let content_words: Vec<&str> = content.split_whitespace().collect();
+        let content_word_count = content_words.len();
+
         // ── Signal detection ────────────────────────────────────
         // Strip punctuation so "obey." matches "obey", "required," matches "required"
         let lower_words: Vec<String> = words
@@ -42,21 +47,28 @@ impl Dog for DeterministicDog {
             })
             .collect();
 
+        // F10 fix: match percentage patterns (e.g. "100%") on raw words BEFORE
+        // trim_matches strips the %. lower_words has already lost the '%'.
+        let pct_absolutes = words
+            .iter()
+            .filter(|w| {
+                let w = w.to_lowercase();
+                w.ends_with('%')
+                    && w.trim_end_matches('%')
+                        .parse::<f64>()
+                        .is_ok_and(|n| n >= 100.0 || n <= 0.0)
+            })
+            .count();
         let absolutes_count = lower_words
             .iter()
             .filter(|w| {
                 matches!(
                     w.as_str(),
-                    "always"
-                        | "never"
-                        | "impossible"
-                        | "guaranteed"
-                        | "100%"
-                        | "certainly"
-                        | "undeniable"
+                    "always" | "never" | "impossible" | "guaranteed" | "certainly" | "undeniable"
                 )
             })
-            .count();
+            .count()
+            + pct_absolutes;
         let hedging_count = lower_words
             .iter()
             .filter(|w| {
@@ -105,25 +117,41 @@ impl Dog for DeterministicDog {
             || content.contains("->")
             || content.contains("=>")
             || content.chars().any(|c| "♔♕♖♗♘♙♚♛♜♝♞♟".contains(c));
-        let algebraic_count = words
-            .iter()
-            .filter(|w| {
-                let w = w.trim_matches(|c: char| !c.is_alphanumeric());
-                w.len() >= 2
-                    && w.len() <= 6
-                    && w.chars()
-                        .next()
-                        .is_some_and(|c| "abcdefghKQRBNO".contains(c))
-                    && w.chars().any(|c| c.is_ascii_digit())
-            })
-            .count();
+        // F9 fix: algebraic notation detection only when domain="chess".
+        // Without domain guard, Rust identifiers (f64, u8, Rc4) trigger false VERIFY boost.
+        let is_chess = stimulus
+            .domain
+            .as_deref()
+            .is_some_and(|d| d.eq_ignore_ascii_case("chess"));
+        let algebraic_count = if is_chess {
+            words
+                .iter()
+                .filter(|w| {
+                    let w = w.trim_matches(|c: char| !c.is_alphanumeric());
+                    w.len() >= 2
+                        && w.len() <= 6
+                        && w.chars()
+                            .next()
+                            .is_some_and(|c| "abcdefghKQRBNO".contains(c))
+                        && w.chars().any(|c| c.is_ascii_digit())
+                })
+                .count()
+        } else {
+            0
+        };
 
         let unique_ratio = {
-            let mut unique = lower_words;
-            unique.sort();
-            unique.dedup();
-            if word_count > 0 {
-                unique.len() as f64 / word_count as f64
+            let mut content_lower: Vec<String> = content_words
+                .iter()
+                .map(|w| {
+                    w.trim_matches(|c: char| !c.is_alphanumeric())
+                        .to_lowercase()
+                })
+                .collect();
+            content_lower.sort();
+            content_lower.dedup();
+            if content_word_count > 0 {
+                content_lower.len() as f64 / content_word_count as f64
             } else {
                 0.0
             }
