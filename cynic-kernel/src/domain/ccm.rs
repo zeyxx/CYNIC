@@ -52,6 +52,32 @@ pub enum CrystalState {
     Dissolved,
 }
 
+impl std::fmt::Display for CrystalState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Forming => write!(f, "forming"),
+            Self::Crystallized => write!(f, "crystallized"),
+            Self::Canonical => write!(f, "canonical"),
+            Self::Decaying => write!(f, "decaying"),
+            Self::Dissolved => write!(f, "dissolved"),
+        }
+    }
+}
+
+impl std::str::FromStr for CrystalState {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "forming" => Ok(Self::Forming),
+            "crystallized" => Ok(Self::Crystallized),
+            "canonical" => Ok(Self::Canonical),
+            "decaying" => Ok(Self::Decaying),
+            "dissolved" => Ok(Self::Dissolved),
+            other => Err(format!("unknown crystal state: {other}")),
+        }
+    }
+}
+
 // ── MATURE CRYSTAL NEWTYPE (T4) ─────────────────────────────
 /// A crystal that has reached Crystallized or Canonical state.
 /// Private inner field — can only be constructed via `TryFrom<Crystal>`,

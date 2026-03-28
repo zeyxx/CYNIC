@@ -116,17 +116,7 @@ impl StoragePort for InMemoryStorage {
     }
 
     async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError> {
-        let s = self.state.lock().await;
-        let mut v: Vec<_> = s.crystals.values().cloned().collect();
-        v.sort_by(|a, b| {
-            state_rank(&a.state).cmp(&state_rank(&b.state)).then(
-                b.confidence
-                    .partial_cmp(&a.confidence)
-                    .unwrap_or(std::cmp::Ordering::Equal),
-            )
-        });
-        v.truncate(limit as usize);
-        Ok(v)
+        self.list_crystals_filtered(limit, None, None).await
     }
 
     async fn list_crystals_filtered(
@@ -140,18 +130,7 @@ impl StoragePort for InMemoryStorage {
             .crystals
             .values()
             .filter(|c| domain.is_none_or(|d| c.domain == d))
-            .filter(|c| {
-                state.is_none_or(|st| {
-                    let state_str = match c.state {
-                        CrystalState::Forming => "forming",
-                        CrystalState::Crystallized => "crystallized",
-                        CrystalState::Canonical => "canonical",
-                        CrystalState::Decaying => "decaying",
-                        CrystalState::Dissolved => "dissolved",
-                    };
-                    state_str == st
-                })
-            })
+            .filter(|c| state.is_none_or(|st| c.state.to_string() == st))
             .cloned()
             .collect();
         v.sort_by(|a, b| {

@@ -141,14 +141,11 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
 }
 
 fn row_to_crystal(row: &serde_json::Value) -> Crystal {
-    let state_str = row["state"].as_str().unwrap_or("forming");
-    let state = match state_str {
-        "crystallized" => CrystalState::Crystallized,
-        "canonical" => CrystalState::Canonical,
-        "decaying" => CrystalState::Decaying,
-        "dissolved" => CrystalState::Dissolved,
-        _ => CrystalState::Forming,
-    };
+    let state: CrystalState = row["state"]
+        .as_str()
+        .unwrap_or("forming")
+        .parse()
+        .unwrap_or(CrystalState::Forming);
     // SurrealDB record IDs: "crystal:abc123" or "crystal:`hyphen-id`" — strip table prefix + backticks
     let raw_id = row["id"].as_str().unwrap_or("");
     let id = raw_id
@@ -227,13 +224,6 @@ impl StoragePort for SurrealHttpStorage {
 
     async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError> {
         let escape = |s: &str| escape_surreal(s);
-        let state_str = match crystal.state {
-            CrystalState::Forming => "forming",
-            CrystalState::Crystallized => "crystallized",
-            CrystalState::Canonical => "canonical",
-            CrystalState::Decaying => "decaying",
-            CrystalState::Dissolved => "dissolved",
-        };
         let safe_id = sanitize_id(&crystal.id)?;
         let sql = format!(
             "UPSERT crystal:`{}` SET content = '{}', domain = '{}', confidence = {}, observations = {}, state = '{}', created_at = '{}', updated_at = '{}'",
@@ -242,7 +232,7 @@ impl StoragePort for SurrealHttpStorage {
             escape(&crystal.domain),
             crystal.confidence,
             crystal.observations,
-            state_str,
+            crystal.state,
             escape(&crystal.created_at),
             escape(&crystal.updated_at)
         );
