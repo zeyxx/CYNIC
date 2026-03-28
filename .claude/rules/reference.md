@@ -33,7 +33,7 @@ HOWL > 0.528 (φ⁻²+φ⁻⁴) | WAG > 0.382 | GROWL > 0.236 | BARK ≤ 0.236
 
 ## Infrastructure
 
-Source of truth: `~/.config/cynic/fleet.toml` → `scripts/fleet-gen.py`
+Source of truth: `~/.config/cynic/fleet.toml`
 
 | Service | Location | What |
 |---|---|---|
