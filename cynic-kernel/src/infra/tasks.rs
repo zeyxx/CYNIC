@@ -441,4 +441,62 @@ pub fn spawn_remediation_watcher(
     handle
 }
 
+// ── Event bus consumer (internal reactions) ──────────────────
+
+pub fn spawn_event_consumer(
+    event_tx: &tokio::sync::broadcast::Sender<KernelEvent>,
+    metrics: Arc<Metrics>,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    let mut rx = event_tx.subscribe();
+    let handle = tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Event consumer stopped");
+                    break;
+                }
+                event = rx.recv() => {
+                    match event {
+                        Ok(KernelEvent::DogFailed { ref dog_id, ref error }) => {
+                            tracing::warn!(dog = %dog_id, error = %error, "Dog failure (event bus)");
+                            metrics.inc_dog_failure();
+                        }
+                        Ok(KernelEvent::Anomaly { ref kind, ref message, ref severity }) => {
+                            tracing::warn!(
+                                kind = %kind, severity = %severity,
+                                "Anomaly detected: {message}"
+                            );
+                        }
+                        Ok(KernelEvent::VerdictIssued { ref verdict_id, ref domain, ref verdict, q_score }) => {
+                            tracing::debug!(
+                                id = %verdict_id, domain = %domain,
+                                verdict = %verdict, q_score = %q_score,
+                                "Verdict issued (event bus)"
+                            );
+                        }
+                        Ok(KernelEvent::CrystalObserved { ref crystal_id, ref domain }) => {
+                            tracing::debug!(
+                                id = %crystal_id, domain = %domain,
+                                "Crystal observed (event bus)"
+                            );
+                        }
+                        Ok(_) => {} // SessionRegistered, BackfillComplete — logged at emission
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                            tracing::warn!(skipped = n, "Event consumer lagged — dropped {n} events");
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                            break;
+                        }
+                    }
+                    task_health.touch_event_consumer();
+                }
+            }
+        }
+    });
+    klog!("[Ring 2] Event consumer started (DogFailed → warn+metric, Anomaly → warn)");
+    handle
+}
+
 // Rate limiter eviction moved to main.rs — REST delivery concern, not infra.

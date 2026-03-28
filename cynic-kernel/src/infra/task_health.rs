@@ -22,6 +22,7 @@ pub struct TaskHealth {
     remediation: AtomicU64,
     introspection: AtomicU64,
     backfill: AtomicU64,
+    event_consumer: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     ccm_aggregate_detail: RwLock<&'static str>,
@@ -46,6 +47,7 @@ impl TaskHealth {
             remediation: AtomicU64::new(0),
             introspection: AtomicU64::new(0),
             backfill: AtomicU64::new(0),
+            event_consumer: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             ccm_aggregate_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
@@ -77,6 +79,10 @@ impl TaskHealth {
     }
     pub fn touch_introspection(&self) {
         self.introspection
+            .store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_event_consumer(&self) {
+        self.event_consumer
             .store(Self::now_secs(), Ordering::Relaxed);
     }
 
@@ -182,6 +188,13 @@ impl TaskHealth {
                 now,
                 600,
                 Some(bf_detail),
+            ),
+            TaskSnapshot::new(
+                "event_consumer",
+                self.event_consumer.load(Ordering::Relaxed),
+                now,
+                300,
+                None,
             ),
         ]
     }

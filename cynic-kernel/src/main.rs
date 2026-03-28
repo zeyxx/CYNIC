@@ -470,6 +470,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&task_health),
         shutdown.clone(),
     );
+    infra::tasks::spawn_event_consumer(
+        &event_tx,
+        Arc::clone(&metrics),
+        Arc::clone(&task_health),
+        shutdown.clone(),
+    );
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
