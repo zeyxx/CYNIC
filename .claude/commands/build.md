@@ -1,8 +1,9 @@
 Build, test, and lint the CYNIC kernel in one shot. Run this after any code change.
 
-Steps:
-1. `source ~/.cargo/env 2>/dev/null; cargo build -p cynic-kernel --release 2>&1 | tail -5`
-2. If build succeeds: `cargo test -p cynic-kernel --release 2>&1 | grep -E "^test |^test result"`
-3. If tests pass: `cargo clippy -p cynic-kernel --release -- -D warnings 2>&1 | tail -5`
-4. Report: BUILD ok/fail, TESTS pass/fail (count), CLIPPY clean/warnings
-5. IMPORTANT: Always use `--release` flag. `.cargo/config.toml` sets `jobs=1` + `RUST_MIN_STACK=16MB` to avoid LLVM stack overflow (serde+rmcp monomorphization). Do not override these settings.
+Run `make check` from the project root. This is the single entry point — never run cargo build/test/clippy manually.
+
+`make check` runs: fmt → clippy → test → lint-rules → lint-drift → cargo audit → integration tests (if SurrealDB available).
+
+Report the exit code and any FAIL lines from the output. If it passes, report test count from the output.
+
+If `make check` fails with SIGSEGV, run `make clean` then retry.
