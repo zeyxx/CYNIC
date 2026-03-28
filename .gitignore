@@ -40,3 +40,4 @@ benchmarks/
 /*.png
 /algomancer-learning.md
 /history.txt
+.claude/agent-memory/
