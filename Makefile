@@ -112,16 +112,25 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	fi; \
 	DORMANT=$$(grep -nE '^\s*//\s*pub mod' $(PROJECT_DIR)/cynic-kernel/src/domain/mod.rs | grep -v 'DORMANT:'); \
 	if [ -n "$$DORMANT" ]; then echo "FAIL Drift: commented module without DORMANT tag:"; echo "$$DORMANT"; FAIL=1; fi; \
-	CLAUDE_SKILLS=$$(sed -n '/Skill Routing/,/^##/p' $(PROJECT_DIR)/CLAUDE.md | grep -oP '(?<=`/)[a-z][-a-z0-9]*(?=`)' | sort -u); \
-	for SKILL in $$CLAUDE_SKILLS; do \
-		if [ ! -f "$(PROJECT_DIR)/.claude/commands/$${SKILL}.md" ]; then \
-			echo "FAIL Drift: skill '/$${SKILL}' in CLAUDE.md routing table but no .claude/commands/$${SKILL}.md"; FAIL=1; \
+	WORKFLOW_SKILLS=$$(sed -n '/^## Workflow Triggers/,/^## /p' $(PROJECT_DIR)/.claude/rules/workflow.md | grep -oP '(?<=`/)[a-z][-a-z0-9:]*(?=`)' | sort -u); \
+	for SKILL in $$WORKFLOW_SKILLS; do \
+		FOUND=0; \
+		if echo "$$SKILL" | grep -q ':'; then \
+			NS=$$(echo "$$SKILL" | cut -d: -f1); NAME=$$(echo "$$SKILL" | cut -d: -f2); \
+			[ -d "$${HOME}/.claude/commands/$${NS}/$${NAME}" ] && FOUND=1; \
+			[ -f "$${HOME}/.claude/commands/$${NS}/$${NAME}.md" ] && FOUND=1; \
+		else \
+			[ -f "$(PROJECT_DIR)/.claude/commands/$${SKILL}.md" ] && FOUND=1; \
+		fi; \
+		if [ $$FOUND -eq 0 ]; then \
+			echo "FAIL Drift: skill '/$${SKILL}' in workflow.md but not found on disk"; FAIL=1; \
 		fi; \
 	done; \
 	for HOOK in $(PROJECT_DIR)/.claude/hooks/*.sh; do \
 		HOOK_BASE=$$(basename "$$HOOK"); \
-		if ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.claude/settings.local.json 2>/dev/null; then \
-			echo "WARN Drift: hook '$$HOOK_BASE' on disk but not wired in settings.local.json"; FAIL=1; \
+		if ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.claude/settings.json 2>/dev/null && \
+		   ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.claude/settings.local.json 2>/dev/null; then \
+			echo "WARN Drift: hook '$$HOOK_BASE' on disk but not wired in settings.json or settings.local.json"; FAIL=1; \
 		fi; \
 	done; \
 	STORES=$$(grep -oP 'async fn \Kstore_\w+' $(PROJECT_DIR)/cynic-kernel/src/domain/storage.rs | sort -u); \
