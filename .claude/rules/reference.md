@@ -26,10 +26,10 @@ HOWL > 0.528 (φ⁻²+φ⁻⁴) | WAG > 0.382 | GROWL > 0.236 | BARK ≤ 0.236
 | Dog | Model | Where |
 |---|---|---|
 | deterministic-dog | Heuristics | In-kernel |
-| gemini | Gemini 3 Flash | Google API |
-| huggingface | Mistral 7B | HF Inference |
-| sovereign | Qwen 3.5 9B | S. RTX 4060 Ti |
-| sovereign-ubuntu | Gemma 3 4B | Ubuntu CPU |
+| gemini-flash | Gemini 2.5 Flash | Google API |
+| qwen-7b-hf | Qwen 2.5 7B | HF Inference |
+| gemma-12b-stanislaz | Gemma 3 12B Q4 | S. RTX 4060 Ti |
+| gemma-4b-ubuntu | Gemma 3 4B Q4 | Ubuntu CPU |
 
 ## Infrastructure
 

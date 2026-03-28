@@ -43,6 +43,7 @@ check:
 	cargo clippy --workspace --release -- -D warnings
 	cargo test --workspace --release
 	@$(MAKE) --no-print-directory lint-rules
+	@$(MAKE) --no-print-directory lint-drift
 	@echo ""; echo "▶ Security audit (cargo audit)..."
 	cargo audit --deny warnings
 	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
@@ -85,6 +86,54 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 	SECRETS=$$(git diff --staged 2>/dev/null | grep -iE 'api.key|token|password|secret|AIza|hf_' | grep -v '#' | grep -v '//'); \
 	if [ -n "$$SECRETS" ]; then echo "FAIL Security: possible secrets in staged changes:"; echo "$$SECRETS"; FAIL=1; fi; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ All grep-enforceable rules pass"; fi; \
+	exit $$FAIL
+
+.PHONY: lint-drift
+lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules, phantom skills, unwired hooks
+	@echo ""
+	@echo "▶ Checking for drift..."
+	@set +e; FAIL=0; \
+	BACKENDS="$${HOME}/.config/cynic/backends.toml"; \
+	if [ -f "$$BACKENDS" ]; then \
+		while IFS= read -r line; do \
+			NAME=$$(echo "$$line" | grep -oP '(?<=\[backend\.)[^]]+' | sed 's/\.remediation//'); \
+			[ -z "$$NAME" ] && continue; \
+			MODEL=$$(sed -n "/\[backend\.$${NAME}\]/,/^\[/p" "$$BACKENDS" | grep '^model' | head -1 | sed 's/.*= *"//;s/".*//'); \
+			[ -z "$$MODEL" ] && continue; \
+			PREFIX=$$(echo "$$NAME" | sed 's/[-_].*//' | tr '[:upper:]' '[:lower:]'); \
+			MODEL_LOWER=$$(echo "$$MODEL" | tr '[:upper:]' '[:lower:]'); \
+			if ! echo "$$MODEL_LOWER" | grep -q "$$PREFIX"; then \
+				echo "WARN Drift: Dog '$$NAME' → model '$$MODEL' (name prefix '$$PREFIX' not in model)"; \
+				FAIL=1; \
+			fi; \
+		done < <(grep '^\[backend\.' "$$BACKENDS" | grep -v '\.remediation\]'); \
+	else \
+		echo "SKIP: backends.toml not found at $$BACKENDS"; \
+	fi; \
+	DORMANT=$$(grep -nE '^\s*//\s*pub mod' $(PROJECT_DIR)/cynic-kernel/src/domain/mod.rs | grep -v 'DORMANT:'); \
+	if [ -n "$$DORMANT" ]; then echo "FAIL Drift: commented module without DORMANT tag:"; echo "$$DORMANT"; FAIL=1; fi; \
+	CLAUDE_SKILLS=$$(sed -n '/Skill Routing/,/^##/p' $(PROJECT_DIR)/CLAUDE.md | grep -oP '(?<=`/)[a-z][-a-z0-9]*(?=`)' | sort -u); \
+	for SKILL in $$CLAUDE_SKILLS; do \
+		if [ ! -f "$(PROJECT_DIR)/.claude/commands/$${SKILL}.md" ]; then \
+			echo "FAIL Drift: skill '/$${SKILL}' in CLAUDE.md routing table but no .claude/commands/$${SKILL}.md"; FAIL=1; \
+		fi; \
+	done; \
+	for HOOK in $(PROJECT_DIR)/.claude/hooks/*.sh; do \
+		HOOK_BASE=$$(basename "$$HOOK"); \
+		if ! grep -q "$$HOOK_BASE" $(PROJECT_DIR)/.claude/settings.local.json 2>/dev/null; then \
+			echo "WARN Drift: hook '$$HOOK_BASE' on disk but not wired in settings.local.json"; FAIL=1; \
+		fi; \
+	done; \
+	STORES=$$(grep -oP 'async fn \Kstore_\w+' $(PROJECT_DIR)/cynic-kernel/src/domain/storage.rs | sort -u); \
+	for STORE in $$STORES; do \
+		ENTITY=$$(echo "$$STORE" | sed 's/^store_//'); \
+		STEM=$$(echo "$$ENTITY" | sed 's/y$$//' | sed 's/ing$$//'); \
+		CORE=$$(echo "$$ENTITY" | sed 's/^.*_//'); \
+		if ! grep -qE "async fn (list_|get_|load_|query_|count_|search_|find_)\w*($$STEM|$$CORE)" $(PROJECT_DIR)/cynic-kernel/src/domain/storage.rs; then \
+			echo "FAIL Rule 33: '$$STORE' has no read path (searched '$$STEM' or '$$CORE')"; FAIL=1; \
+		fi; \
+	done; \
+	if [ $$FAIL -eq 0 ]; then echo "✓ No drift detected"; fi; \
 	exit $$FAIL
 
 .PHONY: check-storage
