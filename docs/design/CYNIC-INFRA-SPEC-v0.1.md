@@ -167,5 +167,47 @@ A sovereign distributed inference system where:
 
 ---
 
-*v0.1 — 2026-03-28 — 8/16 gaps covered, 8 pending research*
-*Next: implement v0.1 (gobreaker + go-scp), research G9 (security model)*
+## 9. Platform Matrix (constraint C1: anything-agnostic)
+
+| Capability | Linux (systemd) | Windows | macOS | RPi (ARM) | Android |
+|-----------|-----------------|---------|-------|-----------|---------|
+| Inference (llama-server) | native | native (CUDA/CPU) | native (Metal) | native (CPU) | termux? |
+| Process lifecycle | systemd | **Windows service** | launchd | systemd | foreground svc |
+| File transfer | SFTP + SCP | SCP (SFTP broken) | SFTP + SCP | SFTP + SCP | ? |
+| Network join | Tailscale | Tailscale | Tailscale | Tailscale | Tailscale |
+| Agent binary | Go amd64 | Go amd64 | Go arm64/amd64 | **Go arm64** | **Go arm64** |
+
+**Key insight:** The only pattern that solves process lifecycle across ALL platforms is **cynic-agent** — a Go binary that registers itself as the platform-native daemon (systemd/Windows svc/launchd). The MCP orchestrator should NOT manage process lifecycle remotely. The local agent does it.
+
+## 10. Corrected Implementation Sequence
+
+| Phase | What | Prerequisite | Blocks |
+|-------|------|-------------|--------|
+| **S1** | Coord cross-session (claims in SurrealDB) | Nothing | Parallel sessions |
+| **S2** | Proprioception (G17) — kernel probes own body | Nothing | Self-healing |
+| **S3** | cynic-agent spec — platform-agnostic lifecycle | Research G9 (security) | Everything below |
+| **S4** | cynic-agent MVP — Linux + Windows | S3 | Inference stack on all platforms |
+| **S5** | MCP CYNIC write path (G4) | Nothing | Agent autonomy |
+| **S6** | Network abstraction (G18-G19) | Nothing | Multi-network |
+| **S7** | Contribution model (G5, G9) | S4 + S6 | Friends onboard |
+| **Debian** | When convenient | Nothing | Nothing — nice to have |
+
+Critical path: S1 → S3 → S4 → S7
+
+Parallel: S2, S5, S6 (independent, any order)
+
+## 11. Research Debt (updated)
+
+| Topic | Question | Blocks |
+|-------|----------|--------|
+| Go Windows service | golang.org/x/sys/windows/svc — production-ready? | S4 |
+| Android inference | Can llama.cpp run in Termux? Performance? | S4 (mobile) |
+| Contributor security | Capability-based isolation? Sandbox? | S7 |
+| gRPC kernel inventory | What proto services exist? What's wired? | S9 |
+| Cross-session coord | SurrealDB vs Redis vs file-based for claims? | S1 |
+| Agent auto-update | Mechanism for pushing new agent binaries? | S4+ |
+
+---
+
+*v0.1.1 — 2026-03-28 — 19 gaps, platform matrix added, roadmap corrected*
+*Critical insight: cynic-agent is the platform-agnostic lifecycle manager, not remote SSH*
