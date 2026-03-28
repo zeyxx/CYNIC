@@ -105,6 +105,9 @@ A sovereign distributed inference system where:
 | G14 | **Backup/recovery** | Single point of failure: cynic-core + SurrealDB | HIGH — data loss risk |
 | G15 | **Edge inference** | Tiny model on phone/RPi as a Dog? | LOW — vision, not blocking |
 | G16 | **Cost metering** | Track GPU-hours per contributor for fairness | LOW — blocks at scale only |
+| G17 | **Infrastructure proprioception** | CYNIC doesn't monitor its own body — CPU, RAM, disk, services, network paths, SPOFs. The immune system has no nervous system. | **CRITICAL** — prerequisite for all self-healing |
+| G18 | **Tailscale sovereignty violation** | Coordination plane is third-party. Account lock = fleet dead. No LAN fallback configured. | **HIGH** — violates axiom SOVEREIGNTY |
+| G19 | **Single path = silent SPOF** | SSH only path to nodes. Tailscale only network. No redundancy detected or reported. | **HIGH** — discovered by incident, not by design |
 
 ## 6. Architecture Target (sketch)
 
