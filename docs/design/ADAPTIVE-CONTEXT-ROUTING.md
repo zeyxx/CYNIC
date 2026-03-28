@@ -21,7 +21,7 @@ The kernel sends the same prompt to ALL Dogs regardless of their context capacit
 ```toml
 # backends.toml
 [backend.gemma-sovereign]
-base_url = "http://<TAILSCALE_UBUNTU>:8080/v1"
+base_url = "http://<TAILSCALE_CORE>:8080/v1"
 model = "gemma-sovereign"
 context_size = 4096    # NEW FIELD
 

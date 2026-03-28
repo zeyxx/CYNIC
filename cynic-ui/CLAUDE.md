@@ -20,7 +20,7 @@ A chess page where:
 
 ## API
 
-**Base URL (Tailscale):** `http://<TAILSCALE_UBUNTU>:3030`
+**Base URL (Tailscale):** `http://<TAILSCALE_CORE>:3030`
 **Base URL (Public tunnel):** `https://associations-mailed-treasury-component.trycloudflare.com`
 
 Use the public tunnel URL for Replit. Use Tailscale URL for local dev.

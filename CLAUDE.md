@@ -4,7 +4,7 @@ Independent AI validators reaching consensus under mathematical doubt. φ-bounde
 
 ## Security (INVIOLABLE — public repo)
 
-Use placeholders for IPs: `<TAILSCALE_UBUNTU>`, `<TAILSCALE_STANISLAZ>`, `<TAILSCALE_FORGE>`.
+Use placeholders for IPs: `<TAILSCALE_CORE>`, `<TAILSCALE_GPU>`, `<TAILSCALE_KAIROS>`.
 Never commit: real IPs, API keys/tokens/passwords, real names (use T./S.), machine hostnames, emails.
 Secrets live in `~/.cynic-env` only. Systemd uses `~/.config/cynic/env`.
 Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`.

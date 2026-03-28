@@ -3,7 +3,7 @@ role: api-reference
 audience: frontend developers, agents, AI coding assistants
 purpose: complete REST API contract for the CYNIC kernel
 source_of_truth: cynic-kernel/src/api/rest/
-base_url: http://<TAILSCALE_UBUNTU>:3030
+base_url: http://<TAILSCALE_CORE>:3030
 cors: localhost:5173, localhost:5000, localhost:3000 (override with CYNIC_CORS_ORIGINS env)
 transport: HTTP/JSON
 auth: Bearer token on all endpoints except /health, /metrics, /events
@@ -15,7 +15,7 @@ rate_limit: 30 req/min global, 10 req/min on /judge. /health exempt.
 ## Base URL
 
 ```
-http://<TAILSCALE_UBUNTU>:3030   # Tailscale (production)
+http://<TAILSCALE_CORE>:3030   # Tailscale (production)
 http://localhost:3030             # local development
 ```
 

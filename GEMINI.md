@@ -92,7 +92,7 @@ If missing: add the CYNIC MCP server to your ~/.gemini/ config.
 ## Security Rules (INVIOLABLE — repo is PUBLIC)
 
 1. **Never commit real IPs, tokens, passwords, API keys, or names** — use placeholders and env vars
-2. **Use `<TAILSCALE_UBUNTU>`, `<TAILSCALE_STANISLAZ>`** for infrastructure references
+2. **Use `<TAILSCALE_CORE>`, `<TAILSCALE_GPU>`** for infrastructure references
 3. **Use `T.`, `S.`** for people — never full names
 4. **Before every commit:** `git diff --staged | grep -iE "api.key|token|password|AIza|hf_|100\.(74|75|119)"` must return empty
 5. **All API calls require** `Authorization: Bearer $CYNIC_API_KEY` (except `/health`)

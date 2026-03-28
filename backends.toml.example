@@ -61,7 +61,7 @@ auth_style = "none"
 # Ryzen 7 5700G, Gemma 3 4B Q4_K_M, CPU-only, 53 t/s prompt / 23 t/s gen.
 # Different model family from sovereign (Qwen) = multi-family diversity.
 [backend.sovereign-ubuntu]
-base_url = "http://<TAILSCALE_UBUNTU>:8080/v1"
+base_url = "http://<TAILSCALE_CORE>:8080/v1"
 api_key_env = "SOVEREIGN_API_KEY"
 model = "sovereign-ubuntu"
 auth_style = "bearer"

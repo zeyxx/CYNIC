@@ -46,7 +46,7 @@ kind = "heuristic"
 [dog.f7a8b9]
 display_name = "Sovereign Ubuntu (Gemma 3 4B)"
 kind = "inference"
-base_url = "http://<TAILSCALE_UBUNTU>:8080/v1"
+base_url = "http://<TAILSCALE_CORE>:8080/v1"
 api_key_env = "CYNIC_SOVEREIGN_KEY"
 model = "gemma-3-4b"
 auth_style = "bearer"
@@ -158,7 +158,7 @@ For documentation and example configs (non-executable):
 
 | Placeholder | Machine | Role |
 |-------------|---------|------|
-| `<TAILSCALE_UBUNTU>` | T.'s Ubuntu server | Backend (kernel, DB, sovereign LLM) |
+| `<TAILSCALE_CORE>` | T.'s Ubuntu server | Backend (kernel, DB, sovereign LLM) |
 | `<TAILSCALE_GPU>` | S.'s Windows/GPU machine | Frontend + GPU inference |
 | `<TAILSCALE_FORGE>` | CI/build server | Builds (currently offline) |
 

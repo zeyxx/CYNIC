@@ -4,8 +4,8 @@ audience: S. + his AI coding assistant (Claude Code / Gemini CLI)
 purpose: everything needed to set up, build, and ship the CYNIC frontend during hackathon
 priority: read this FIRST, then API.md for endpoint details, then HACKATHON-RULES.md for constraints
 cross-refs: [API.md, HACKATHON-RULES.md, CLAUDE.md]
-machine: desktop-mc9ffvt (Windows, Tailscale IP <TAILSCALE_STANISLAZ>)
-backend: http://<TAILSCALE_UBUNTU>:3030 (T.'s Ubuntu machine via Tailscale)
+machine: desktop-mc9ffvt (Windows, Tailscale IP <TAILSCALE_GPU>)
+backend: http://<TAILSCALE_CORE>:3030 (T.'s Ubuntu machine via Tailscale)
 -->
 
 # Frontend Developer Guide — S.
@@ -68,12 +68,12 @@ Tailscale must be connected. Verify:
 tailscale status
 ```
 
-Expected: you see `ubuntu` at `<TAILSCALE_UBUNTU>` in the list.
+Expected: you see `ubuntu` at `<TAILSCALE_CORE>` in the list.
 
 ### Step 4 — Test Backend
 
 ```powershell
-curl.exe http://<TAILSCALE_UBUNTU>:3030/health
+curl.exe http://<TAILSCALE_CORE>:3030/health
 ```
 
 Expected response:
@@ -106,7 +106,7 @@ npm run dev
            ▼
 ┌─────────────────────────────────┐
 │  CYNIC Kernel (Rust/Axum)       │  ← T. maintains this
-│  Runs on: <TAILSCALE_UBUNTU>:3030    │
+│  Runs on: <TAILSCALE_CORE>:3030    │
 │  Connected via: Tailscale       │
 └─────────────────────────────────┘
 ```
@@ -115,7 +115,7 @@ npm run dev
 
 ## API Summary
 
-**Base URL:** `http://<TAILSCALE_UBUNTU>:3030`
+**Base URL:** `http://<TAILSCALE_CORE>:3030`
 **Full reference:** see `API.md` in repo root
 
 | Method | Endpoint | Purpose |

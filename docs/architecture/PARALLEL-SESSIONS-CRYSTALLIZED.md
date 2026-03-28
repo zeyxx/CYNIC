@@ -99,7 +99,7 @@ for an OS-for-agents. SSE remains as a lightweight fallback for monitoring scrip
 **Current state:**
 - Tailscale assigns IPv6 ULA (`fd7a:115c:a1e0::`) to all nodes
 - IPv6 ping Ubuntu↔S. machine: 2.8ms (same as IPv4 via WireGuard)
-- CYNIC kernel binds IPv4 only (`<TAILSCALE_UBUNTU>:3030`)
+- CYNIC kernel binds IPv4 only (`<TAILSCALE_CORE>:3030`)
 - Ollama on S. machine binds IPv4 only (`0.0.0.0:11434`)
 
 **Why IPv6 matters for CYNIC's future:**
@@ -114,7 +114,7 @@ for an OS-for-agents. SSE remains as a lightweight fallback for monitoring scrip
 - All the value comes when CYNIC scales to N nodes
 
 ### Action plan
-1. When adding WebSocket, bind kernel on `[::]:3030` (dual-stack) instead of `<TAILSCALE_UBUNTU>:3030`
+1. When adding WebSocket, bind kernel on `[::]:3030` (dual-stack) instead of `<TAILSCALE_CORE>:3030`
 2. Configure Ollama on S. machine: `OLLAMA_HOST=[::]:11434` (via Tailscale SSH, T. manages infra)
 3. Update `backends.toml` to prefer IPv6 addresses when available
 4. Design node discovery for multi-node mesh using IPv6 ULA prefix

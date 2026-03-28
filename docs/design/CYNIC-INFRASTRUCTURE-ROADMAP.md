@@ -27,7 +27,7 @@ Agent C (OpenCode)─────┘      │       Judge (consensus quality gat
 - **Hardware:** Ryzen 7 5700G 8C/16T, 27 GB RAM, Vega 8 iGPU
 - **Inference:** llama.cpp Vulkan build, Gemma 3 4B Q4_K_M, 26 GPU layers, 23 t/s gen
 - **Services:** cynic-kernel + SurrealDB + llama-server (systemd)
-- **Tailscale:** `<TAILSCALE_UBUNTU>`
+- **Tailscale:** `<TAILSCALE_CORE>`
 
 ### S. Windows Desktop (GPU Worker)
 - **Hardware:** i5-14400F 10C/16T, RTX 4060 Ti 16 GB VRAM, 16 GB RAM
