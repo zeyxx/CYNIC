@@ -13,6 +13,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let force_reprobe = std::env::args().any(|a| a == "--reset");
     let mcp_mode = std::env::args().any(|a| a == "--mcp");
 
+    if std::env::args().any(|a| a == "--version") {
+        #[allow(clippy::print_stdout)]
+        {
+            println!("cynic-kernel {}", env!("CARGO_PKG_VERSION"));
+        }
+        return Ok(());
+    }
+
     // Set global MCP flag BEFORE any module has a chance to println! to stdout.
     if mcp_mode {
         cynic_kernel::MCP_MODE.store(true, std::sync::atomic::Ordering::Relaxed);
