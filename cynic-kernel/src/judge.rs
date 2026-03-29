@@ -474,6 +474,8 @@ fn trimmed_mean(scores: &[DogScore], axiom_name: &str, extract: impl Fn(&DogScor
 
 /// BLAKE3 integrity hash of a verdict — forms a hash chain linking verdicts.
 /// Lives here (not in domain/) because blake3 is an external crate.
+/// Timestamp is canonicalized to `Z` suffix before hashing — SurrealDB normalizes
+/// `+00:00` → `Z` on round-trip, so the hash must be format-independent.
 fn verdict_hash(
     id: &str,
     q_total: f64,
@@ -489,7 +491,10 @@ fn verdict_hash(
         hasher.update(&s.to_le_bytes());
     }
     hasher.update(stimulus.as_bytes());
-    hasher.update(timestamp.as_bytes());
+    // Canonicalize: Rust to_rfc3339() emits "+00:00", SurrealDB returns "Z".
+    // Both are semantically identical but byte-different → hash mismatch.
+    let canonical_ts = timestamp.replace("+00:00", "Z");
+    hasher.update(canonical_ts.as_bytes());
     if let Some(ph) = prev_hash {
         hasher.update(ph.as_bytes());
     }
