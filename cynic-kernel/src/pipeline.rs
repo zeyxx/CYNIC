@@ -434,6 +434,16 @@ async fn observe_crystal_for_verdict(
     {
         tracing::warn!(phase = "crystal_observe", crystal_id = %crystal_id, error = %e, "failed to observe crystal");
     } else {
+        tracing::info!(
+            organ = "crystal",
+            action = "observed",
+            crystal_id = %crystal_id,
+            domain = %domain,
+            confidence = %format!("{:.3}", crystal_confidence),
+            voters = verdict.voter_count,
+            epistemic = %epistemic_tag,
+            "crystal observation recorded"
+        );
         deps.metrics.inc_crystal_obs();
         if let Some(tx) = deps.event_tx {
             let _ = tx.send(KernelEvent::CrystalObserved {

@@ -176,16 +176,23 @@ pub fn spawn_ccm_aggregator(
                     break;
                 }
                 _ = interval.tick() => {
+                    let start = std::time::Instant::now();
                     match tokio::time::timeout(
                         std::time::Duration::from_secs(30),
                         crate::domain::ccm::aggregate_observations(storage.as_ref(), "CYNIC"),
                     ).await {
                         Ok(count) => {
                             let detail = if count > 0 { "active" } else { "idle:0" };
+                            let elapsed = start.elapsed().as_millis() as u64;
+                            tracing::info!(
+                                organ = "ccm_aggregator",
+                                patterns = count,
+                                duration_ms = elapsed,
+                                result = detail,
+                                "aggregator cycle: {} patterns computed in {}ms (analytics only — no consumer)",
+                                count, elapsed
+                            );
                             task_health.touch_ccm_aggregate(detail);
-                            if count > 0 {
-                                klog!("[CCM] aggregated {} patterns", count);
-                            }
                         }
                         Err(_) => tracing::warn!("CCM aggregate_observations timed out (30s)"),
                     }
@@ -230,18 +237,24 @@ pub fn spawn_session_summarizer(
                         summarizer.is_available(),
                     ).await.unwrap_or(false);
                     if !available {
+                        tracing::info!(organ = "summarizer", result = "llm_unavailable", "summarizer cycle: LLM not reachable — skipping");
                         task_health.touch_summarizer("llm_unavailable");
                         continue;
                     }
+                    let start = std::time::Instant::now();
                     match tokio::time::timeout(
                         std::time::Duration::from_secs(120),
                         crate::pipeline::summarize_pending_sessions(storage.as_ref(), &summarizer),
                     ).await {
                         Ok(count) => {
                             let detail = if count > 0 { "producing" } else { "idle:0_pending" };
-                            if count > 0 {
-                                klog!("[CCM/summarizer] {} sessions summarized", count);
-                            }
+                            tracing::info!(
+                                organ = "summarizer",
+                                result = detail,
+                                sessions_summarized = count,
+                                duration_ms = start.elapsed().as_millis() as u64,
+                                "summarizer cycle complete"
+                            );
                             task_health.touch_summarizer(detail);
                         }
                         Err(_) => tracing::warn!("session summarizer timed out (120s)"),
@@ -342,6 +355,15 @@ pub fn spawn_introspection(
                         ),
                     ).await {
                         Ok(alerts) => {
+                            let alert_count = alerts.len();
+                            let critical = alerts.iter().filter(|a| a.severity == "critical").count();
+                            tracing::info!(
+                                organ = "introspection",
+                                alerts = alert_count,
+                                critical = critical,
+                                "introspection cycle: {} alerts ({} critical)",
+                                alert_count, critical
+                            );
                             for alert in &alerts {
                                 let _ = event_tx.send(KernelEvent::Anomaly {
                                     kind: alert.kind.to_string(),
