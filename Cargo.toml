@@ -6,12 +6,12 @@ resolver = "2"
 
 # ── Industrial lint configuration (Axum/Embark Studios baseline) ──
 # Compiler lints = Layer 0 enforcement. 100% reliable, 0 context cost.
-# See docs/superpowers/specs/2026-03-25-workflow-enforcement-design.md
+# See .claude/rules/universal.md, .claude/rules/kernel.md
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
-dead_code = "warn"
-unused_imports = "warn"
+dead_code = "deny"
+unused_imports = "deny"
 unreachable_pub = "warn"
 missing_debug_implementations = "warn"
 
