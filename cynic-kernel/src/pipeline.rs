@@ -598,6 +598,21 @@ mod tests {
     use crate::domain::health_gate::HealthGate;
     use crate::domain::storage::NullStorage;
 
+    struct FixedDog {
+        name: String,
+        scores: AxiomScores,
+    }
+
+    #[async_trait::async_trait]
+    impl Dog for FixedDog {
+        fn id(&self) -> &str {
+            &self.name
+        }
+        async fn evaluate(&self, _: &Stimulus) -> Result<AxiomScores, DogError> {
+            Ok(self.scores.clone())
+        }
+    }
+
     fn test_judge(dogs: Vec<Box<dyn Dog>>) -> Judge {
         let breakers: Vec<std::sync::Arc<dyn HealthGate>> = dogs
             .iter()
@@ -819,5 +834,154 @@ mod tests {
         let weight = 1.0;
         let conf = ((total / PHI_INV) * weight).min(1.0);
         assert!(conf <= 1.0, "crystal_confidence must be ≤ 1.0, got {conf}");
+    }
+
+    // ── Happy-path pipeline with FixedEmbedding ─────────────
+
+    #[tokio::test]
+    async fn pipeline_with_embedding_populates_cache_and_hits() {
+        use crate::domain::embedding::FixedEmbedding;
+        use crate::storage::memory::InMemoryStorage;
+
+        let dogs: Vec<Box<dyn Dog>> = vec![Box::new(crate::dogs::deterministic::DeterministicDog)];
+        let judge = test_judge(dogs);
+        let storage = InMemoryStorage::new();
+        // 4-dim unit vector — all stimuli get the same embedding
+        let embedding = FixedEmbedding::new(vec![0.5, 0.5, 0.5, 0.5]);
+        let usage = Mutex::new(DogUsageTracker::new());
+        let verdict_cache = VerdictCache::new();
+        let metrics = Metrics::new();
+
+        let deps = PipelineDeps {
+            judge: &judge,
+            storage: &storage,
+            embedding: &embedding,
+            usage: &usage,
+            verdict_cache: &verdict_cache,
+            metrics: &metrics,
+            event_tx: None,
+            request_id: None,
+        };
+
+        // First call: should evaluate (cache miss) and embed successfully
+        let r1 = run(
+            "1. e4 e5 — King's Pawn".into(),
+            None,
+            Some("chess".into()),
+            None,
+            true,
+            &deps,
+        )
+        .await
+        .unwrap();
+        assert!(matches!(r1, PipelineResult::Evaluated { .. }));
+        assert_eq!(
+            metrics
+                .embedding_successes_total
+                .load(std::sync::atomic::Ordering::Relaxed),
+            1,
+            "embedding should succeed with FixedEmbedding"
+        );
+        assert_eq!(
+            metrics
+                .embedding_failures_total
+                .load(std::sync::atomic::Ordering::Relaxed),
+            0,
+            "no embedding failures expected"
+        );
+
+        // Second call with same content: should hit cache
+        let r2 = run(
+            "1. e4 e5 — King's Pawn".into(),
+            None,
+            Some("chess".into()),
+            None,
+            true,
+            &deps,
+        )
+        .await
+        .unwrap();
+        assert!(
+            matches!(r2, PipelineResult::CacheHit { similarity, .. } if similarity > 0.99),
+            "identical embedding should produce cache hit"
+        );
+        assert_eq!(
+            metrics
+                .cache_hits_total
+                .load(std::sync::atomic::Ordering::Relaxed),
+            1,
+            "should have exactly one cache hit"
+        );
+    }
+
+    #[tokio::test]
+    async fn pipeline_with_embedding_creates_crystal_with_provenance() {
+        use crate::domain::embedding::FixedEmbedding;
+        use crate::storage::memory::InMemoryStorage;
+
+        // Need 2 Dogs for quorum (MIN_QUORUM = 2)
+        let dogs: Vec<Box<dyn Dog>> = vec![
+            Box::new(crate::dogs::deterministic::DeterministicDog),
+            Box::new(FixedDog {
+                name: "quorum-helper".into(),
+                scores: AxiomScores {
+                    fidelity: 0.5,
+                    phi: 0.5,
+                    verify: 0.5,
+                    culture: 0.5,
+                    burn: 0.5,
+                    sovereignty: 0.5,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+        ];
+        let judge = test_judge(dogs);
+        let storage = InMemoryStorage::new();
+        let embedding = FixedEmbedding::new(vec![0.5, 0.5, 0.5, 0.5]);
+        let usage = Mutex::new(DogUsageTracker::new());
+        let verdict_cache = VerdictCache::new();
+        let metrics = Metrics::new();
+
+        let deps = PipelineDeps {
+            judge: &judge,
+            storage: &storage,
+            embedding: &embedding,
+            usage: &usage,
+            verdict_cache: &verdict_cache,
+            metrics: &metrics,
+            event_tx: None,
+            request_id: None,
+        };
+
+        let result = run(
+            "1. e4 c5 — Sicilian Defense".into(),
+            None,
+            Some("chess".into()),
+            None,
+            true,
+            &deps,
+        )
+        .await
+        .unwrap();
+
+        // Extract verdict ID for provenance check
+        let verdict_id = match &result {
+            PipelineResult::Evaluated { verdict } => verdict.id.clone(),
+            PipelineResult::CacheHit { verdict, .. } => verdict.id.clone(),
+        };
+
+        // Crystal should have been created with the verdict's provenance
+        let crystals = storage.list_crystals(100).await.unwrap();
+        assert!(
+            !crystals.is_empty(),
+            "pipeline should create at least one crystal"
+        );
+        let crystal = &crystals[0];
+        assert!(
+            crystal.contributing_verdicts.contains(&verdict_id),
+            "crystal should reference the source verdict (provenance)"
+        );
+        assert_eq!(crystal.observations, 1);
     }
 }
