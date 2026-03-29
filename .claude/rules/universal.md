@@ -17,7 +17,7 @@ globs: ["**"]
 
 ## Design Principles (judgment guidance — no mechanical gate)
 
-6. **Diagnose before fixing.** Read errors, trace data, one hypothesis, test minimally. 2 fix attempts max — obvious → alternative → escalate. Never brute-force.
+6. **Diagnose before fixing.** Read errors, trace data, one hypothesis, test minimally. 2 fix attempts max — obvious → alternative → escalate. Never brute-force. Memory about runtime state is stale by default — probe live (`curl`, DB query) before acting on memory claims about what's running.
 7. **Measure before AND after.** Every "improved X" claim needs before/after numbers. Part of the Scientific Protocol (workflow.md).
 8. **Port contracts first.** New dependency → trait → adapter → test.
 9. **Bounded everything.** Channels, retries, confidence. Unbounded = debt.
