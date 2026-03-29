@@ -33,10 +33,29 @@ curl -s --connect-timeout 2 --max-time 5 -X POST "http://${KERNEL_ADDR}/coord/re
     -d "{\"agent_id\":\"${AGENT_ID}\"}" \
     > /dev/null 2>&1 || true
 
-# ── Rule #30: warn about uncommitted changes (staged + unstaged + untracked) ──
+# ── Session compliance score (Phase 2: process loop) ──
+# Non-blocking: if kernel is down, skip gracefully.
+COMPLIANCE=$(curl -s --connect-timeout 2 --max-time 5 \
+    ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+    "http://${KERNEL_ADDR}/session/${AGENT_ID}/compliance" 2>/dev/null || echo "")
+if [[ -n "$COMPLIANCE" ]] && echo "$COMPLIANCE" | jq -e '.score' > /dev/null 2>&1; then
+    SCORE=$(echo "$COMPLIANCE" | jq -r '.score' 2>/dev/null)
+    WARNINGS=$(echo "$COMPLIANCE" | jq -r '.warnings[]' 2>/dev/null || true)
+    RBE=$(echo "$COMPLIANCE" | jq -r '.read_before_edit' 2>/dev/null)
+    FM=$(echo "$COMPLIANCE" | jq -r '.files_modified' 2>/dev/null)
+    echo ""
+    printf "Session compliance: %.3f/0.618  (read-before-edit: %.0f%%, files: %s)\n" "$SCORE" "$(echo "$RBE * 100" | bc -l 2>/dev/null || echo 0)" "$FM"
+    if [[ -n "$WARNINGS" ]]; then
+        while IFS= read -r W; do
+            echo "  ⚠ $W"
+        done <<< "$WARNINGS"
+    fi
+fi
+
+# ── Rule 4: warn about uncommitted changes (staged + unstaged + untracked) ──
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 DIRTY=$(git -C "$PROJECT_DIR" status --short 2>/dev/null | grep -v '^??' | head -5 || true)
 if [[ -n "$DIRTY" ]]; then
-    echo "WARNING: Uncommitted changes (Rule #30):"
+    echo "WARNING: Uncommitted changes (Rule 4):"
     echo "$DIRTY"
 fi

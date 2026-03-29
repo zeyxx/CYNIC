@@ -644,6 +644,96 @@ impl StoragePort for SurrealHttpStorage {
         Ok(rows.iter().map(row_to_raw_observation).collect())
     }
 
+    async fn store_session_compliance(
+        &self,
+        c: &crate::domain::compliance::SessionCompliance,
+    ) -> Result<(), StorageError> {
+        let safe_key = sanitize_record_id(&c.agent_id);
+        let warnings_json = serde_json::to_string(&c.warnings).unwrap_or_else(|_| "[]".into());
+        let sql = format!(
+            "UPSERT session_compliance:`{key}` SET \
+                session_id = '{session_id}', \
+                agent_id = '{agent_id}', \
+                score = {score}, \
+                warnings = {warnings}, \
+                read_before_edit = {rbe}, \
+                bash_retry_violations = {brv}, \
+                files_modified = {fm}, \
+                created_at = time::now();",
+            key = safe_key,
+            session_id = escape_surreal(&c.session_id),
+            agent_id = escape_surreal(&c.agent_id),
+            score = c.score,
+            warnings = warnings_json,
+            rbe = c.read_before_edit,
+            brv = c.bash_retry_violations,
+            fm = c.files_modified,
+        );
+        self.query_one(&sql).await?;
+        Ok(())
+    }
+
+    async fn get_session_compliance(
+        &self,
+        agent_id: &str,
+    ) -> Result<Option<crate::domain::compliance::SessionCompliance>, StorageError> {
+        let safe_key = sanitize_record_id(agent_id);
+        let sql = format!("SELECT * FROM session_compliance:`{safe_key}`;");
+        let rows = self.query_one(&sql).await?;
+        if rows.is_empty() {
+            return Ok(None);
+        }
+        let row = &rows[0];
+        Ok(Some(crate::domain::compliance::SessionCompliance {
+            session_id: row["session_id"].as_str().unwrap_or("").to_string(),
+            agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
+            score: row["score"].as_f64().unwrap_or(0.0),
+            warnings: row["warnings"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            read_before_edit: row["read_before_edit"].as_f64().unwrap_or(0.0),
+            bash_retry_violations: row["bash_retry_violations"].as_u64().unwrap_or(0) as u32,
+            files_modified: row["files_modified"].as_u64().unwrap_or(0) as u32,
+            created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+        }))
+    }
+
+    async fn list_session_compliance(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::compliance::SessionCompliance>, StorageError> {
+        let sql = format!(
+            "SELECT * FROM session_compliance ORDER BY created_at DESC LIMIT {};",
+            safe_limit(limit),
+        );
+        let rows = self.query_one(&sql).await?;
+        Ok(rows
+            .iter()
+            .map(|row| crate::domain::compliance::SessionCompliance {
+                session_id: row["session_id"].as_str().unwrap_or("").to_string(),
+                agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
+                score: row["score"].as_f64().unwrap_or(0.0),
+                warnings: row["warnings"]
+                    .as_array()
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|v| v.as_str().map(String::from))
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                read_before_edit: row["read_before_edit"].as_f64().unwrap_or(0.0),
+                bash_retry_violations: row["bash_retry_violations"].as_u64().unwrap_or(0) as u32,
+                files_modified: row["files_modified"].as_u64().unwrap_or(0) as u32,
+                created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+            })
+            .collect())
+    }
+
     async fn flush_usage(
         &self,
         snapshot: &[(String, crate::domain::usage::DogUsage)],

@@ -274,6 +274,30 @@ pub trait StoragePort: Send + Sync {
         Ok(vec![])
     }
 
+    /// Store a session compliance report.
+    async fn store_session_compliance(
+        &self,
+        _compliance: &crate::domain::compliance::SessionCompliance,
+    ) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    /// Get the most recent compliance report for an agent/session.
+    async fn get_session_compliance(
+        &self,
+        _agent_id: &str,
+    ) -> Result<Option<crate::domain::compliance::SessionCompliance>, StorageError> {
+        Ok(None)
+    }
+
+    /// List recent compliance reports, ordered by created_at descending.
+    async fn list_session_compliance(
+        &self,
+        _limit: u32,
+    ) -> Result<Vec<crate::domain::compliance::SessionCompliance>, StorageError> {
+        Ok(vec![])
+    }
+
     /// Flush usage snapshot to persistent storage. The storage adapter generates
     /// the SQL/query — domain provides data only via snapshot(), no SQL in domain.
     async fn flush_usage(

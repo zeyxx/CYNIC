@@ -11,6 +11,7 @@ use std::sync::Arc;
 use super::types::{AppState, ErrorResponse};
 use crate::domain::ccm;
 use crate::domain::ccm::Crystal;
+use crate::domain::compliance;
 use crate::domain::dog::PHI_INV;
 
 #[derive(Debug, Deserialize, Default)]
@@ -331,6 +332,63 @@ pub struct AuditQuery {
     pub limit: Option<u32>,
     pub tool: Option<String>,
     pub agent_id: Option<String>,
+}
+
+/// GET /session/{agent_id}/compliance — Score a session's workflow compliance.
+/// Queries observations for the agent, runs deterministic heuristics, stores + returns result.
+pub async fn compliance_handler(
+    State(state): State<Arc<AppState>>,
+    Path(agent_id): Path<String>,
+) -> Result<Json<compliance::SessionCompliance>, (StatusCode, Json<ErrorResponse>)> {
+    // 1. Get raw observations for this agent/session
+    let observations = state
+        .storage
+        .list_observations_raw(None, Some(&agent_id), 500)
+        .await
+        .map_err(|e| {
+            tracing::warn!(error = %e, agent_id = %agent_id, "compliance: observation query failed");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "storage unavailable".into(),
+                }),
+            )
+        })?;
+
+    // 2. Score (pure function — no I/O)
+    let result = compliance::score_session(&agent_id, &agent_id, &observations);
+
+    // 3. Store (best-effort — don't fail the request if store fails)
+    if let Err(e) = state.storage.store_session_compliance(&result).await {
+        tracing::warn!(error = %e, "compliance: failed to persist score");
+    }
+
+    Ok(Json(result))
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ComplianceTrendQuery {
+    pub limit: Option<u32>,
+}
+
+/// GET /compliance — List recent compliance scores (trend tracking).
+pub async fn compliance_trend_handler(
+    State(state): State<Arc<AppState>>,
+    Query(q): Query<ComplianceTrendQuery>,
+) -> Result<Json<Vec<compliance::SessionCompliance>>, (StatusCode, Json<ErrorResponse>)> {
+    let limit = q.limit.unwrap_or(20).min(100);
+    match state.storage.list_session_compliance(limit).await {
+        Ok(reports) => Ok(Json(reports)),
+        Err(e) => {
+            tracing::warn!(error = %e, "compliance trend query failed");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "storage unavailable".into(),
+                }),
+            ))
+        }
+    }
 }
 
 /// GET /audit — MCP audit trail (previously MCP-only, 11K+ rows).

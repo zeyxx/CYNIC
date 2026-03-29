@@ -26,9 +26,9 @@ use self::coord::{
     coord_claim_batch_handler, coord_claim_handler, coord_register_handler, coord_release_handler,
 };
 use self::data::{
-    audit_handler, create_crystal_handler, crystal_handler, crystals_handler,
-    delete_crystal_handler, observations_handler, observe_crystal_handler, sessions_handler,
-    usage_handler,
+    audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
+    crystal_handler, crystals_handler, delete_crystal_handler, observations_handler,
+    observe_crystal_handler, sessions_handler, usage_handler,
 };
 use self::health::{
     agents_handler, dogs_handler, health_handler, liveness_handler, metrics_handler,
@@ -96,6 +96,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/agents", get(agents_handler))
         .route("/observations", get(observations_handler))
         .route("/sessions", get(sessions_handler))
+        .route("/session/{agent_id}/compliance", get(compliance_handler))
+        .route("/compliance", get(compliance_trend_handler))
         .route("/audit", get(audit_handler))
         .route("/observe", post(observe_handler))
         .route("/coord/register", post(coord_register_handler))

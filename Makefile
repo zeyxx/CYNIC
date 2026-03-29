@@ -100,9 +100,9 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			[ -z "$$NAME" ] && continue; \
 			MODEL=$$(sed -n "/\[backend\.$${NAME}\]/,/^\[/p" "$$BACKENDS" | grep '^model' | head -1 | sed 's/.*= *"//;s/".*//'); \
 			[ -z "$$MODEL" ] && continue; \
-			PREFIX=$$(echo "$$NAME" | sed 's/[-_].*//' | tr '[:upper:]' '[:lower:]'); \
-			MODEL_LOWER=$$(echo "$$MODEL" | tr '[:upper:]' '[:lower:]'); \
-			if ! echo "$$MODEL_LOWER" | grep -q "$$PREFIX"; then \
+			PREFIX=$$(echo "$$NAME" | sed 's/[-_].*//' | tr -d '.' | tr '[:upper:]' '[:lower:]'); \
+			MODEL_NODOTS=$$(echo "$$MODEL" | tr -d '.' | tr '[:upper:]' '[:lower:]'); \
+			if ! echo "$$MODEL_NODOTS" | grep -q "$$PREFIX"; then \
 				echo "WARN Drift: Dog '$$NAME' → model '$$MODEL' (name prefix '$$PREFIX' not in model)"; \
 				FAIL=1; \
 			fi; \
