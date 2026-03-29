@@ -576,6 +576,48 @@ pub async fn aggregate_observations(
     freq_count + cooccur_count
 }
 
+// ── DOMAIN INFERENCE ────────────────────────────────────────
+/// Infer domain from file extension or target pattern.
+/// Moved from api/rest/observe.rs — this is domain logic (K5 compliance).
+pub fn infer_domain(target: Option<&str>, tool: Option<&str>) -> String {
+    // Tool-based inference (highest priority)
+    if let Some(t) = tool
+        && t == "self-probe"
+    {
+        return "infra".to_string();
+    }
+
+    let target = match target {
+        Some(t) if !t.is_empty() => t,
+        _ => return "general".to_string(),
+    };
+
+    // Infra target patterns
+    if target.starts_with("cynic-")
+        || target.contains("llama-server")
+        || target.contains("surrealdb")
+    {
+        return "infra".to_string();
+    }
+
+    // Extension-based inference
+    target
+        .rsplit('.')
+        .next()
+        .map(|ext| match ext {
+            "rs" => "rust",
+            "ts" | "tsx" => "typescript",
+            "js" | "jsx" => "javascript",
+            "py" => "python",
+            "md" => "docs",
+            "toml" | "json" | "yaml" | "yml" => "config",
+            "service" | "timer" => "infra",
+            _ => "general",
+        })
+        .unwrap_or("general")
+        .to_string()
+}
+
 // ── TESTS ───────────────────────────────────────────────────
 #[cfg(test)]
 mod tests {
@@ -1096,5 +1138,67 @@ mod tests {
             CrystalState::Crystallized,
             "Raw Q-Score {good_qscore:.3} must NOT crystallize (proves the bug existed)"
         );
+    }
+
+    // ── infer_domain (moved from api/rest/observe.rs) ──
+
+    #[test]
+    fn infer_domain_rust() {
+        assert_eq!(infer_domain(Some("src/judge.rs"), None), "rust");
+    }
+
+    #[test]
+    fn infer_domain_typescript() {
+        assert_eq!(infer_domain(Some("App.tsx"), None), "typescript");
+        assert_eq!(infer_domain(Some("utils.ts"), None), "typescript");
+    }
+
+    #[test]
+    fn infer_domain_javascript() {
+        assert_eq!(infer_domain(Some("index.js"), None), "javascript");
+    }
+
+    #[test]
+    fn infer_domain_python() {
+        assert_eq!(infer_domain(Some("train.py"), None), "python");
+    }
+
+    #[test]
+    fn infer_domain_config() {
+        assert_eq!(infer_domain(Some("Cargo.toml"), None), "config");
+        assert_eq!(infer_domain(Some("package.json"), None), "config");
+        assert_eq!(infer_domain(Some("config.yaml"), None), "config");
+    }
+
+    #[test]
+    fn infer_domain_docs() {
+        assert_eq!(infer_domain(Some("README.md"), None), "docs");
+    }
+
+    #[test]
+    fn infer_domain_general_fallback() {
+        assert_eq!(infer_domain(Some("binary.wasm"), None), "general");
+        assert_eq!(infer_domain(None, None), "general");
+        assert_eq!(infer_domain(Some("Makefile"), None), "general");
+    }
+
+    #[test]
+    fn infer_domain_infra_service() {
+        assert_eq!(infer_domain(Some("cynic-kernel.service"), None), "infra");
+        assert_eq!(infer_domain(Some("backup.timer"), None), "infra");
+    }
+
+    #[test]
+    fn infer_domain_infra_targets() {
+        assert_eq!(infer_domain(Some("cynic-core"), None), "infra");
+        assert_eq!(infer_domain(Some("cynic-gpu"), None), "infra");
+        assert_eq!(infer_domain(Some("llama-server"), None), "infra");
+        assert_eq!(infer_domain(Some("surrealdb"), None), "infra");
+    }
+
+    #[test]
+    fn infer_domain_self_probe_tool() {
+        assert_eq!(infer_domain(Some("localhost"), Some("self-probe")), "infra");
+        assert_eq!(infer_domain(None, Some("self-probe")), "infra");
     }
 }

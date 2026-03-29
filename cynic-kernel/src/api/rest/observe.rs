@@ -7,6 +7,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use super::types::{AppState, ErrorResponse};
+use crate::domain::ccm::infer_domain;
 use crate::domain::storage::Observation;
 
 #[derive(Debug, Deserialize)]
@@ -19,23 +20,6 @@ pub struct ObserveRequest {
     pub project: Option<String>,
     pub agent_id: Option<String>,
     pub session_id: Option<String>,
-}
-
-/// Infer domain from file extension. Returns "general" if no match.
-fn infer_domain(target: Option<&str>) -> String {
-    target
-        .and_then(|t| t.rsplit('.').next())
-        .map(|ext| match ext {
-            "rs" => "rust",
-            "ts" | "tsx" => "typescript",
-            "js" | "jsx" => "javascript",
-            "py" => "python",
-            "md" => "docs",
-            "toml" | "json" | "yaml" | "yml" => "config",
-            _ => "general",
-        })
-        .unwrap_or("general")
-        .to_string()
 }
 
 pub async fn observe_handler(
@@ -55,7 +39,7 @@ pub async fn observe_handler(
     // Infer domain from target file extension if not provided
     let domain = req
         .domain
-        .unwrap_or_else(|| infer_domain(req.target.as_deref()));
+        .unwrap_or_else(|| infer_domain(req.target.as_deref(), Some(&req.tool)));
 
     let obs = Observation {
         project: req.project.unwrap_or_else(|| "CYNIC".into()),
@@ -109,58 +93,6 @@ pub async fn observe_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // ── infer_domain ─────────────────────────────────────
-
-    #[test]
-    fn infer_rust() {
-        assert_eq!(infer_domain(Some("src/judge.rs")), "rust");
-    }
-
-    #[test]
-    fn infer_typescript() {
-        assert_eq!(infer_domain(Some("App.tsx")), "typescript");
-        assert_eq!(infer_domain(Some("utils.ts")), "typescript");
-    }
-
-    #[test]
-    fn infer_javascript() {
-        assert_eq!(infer_domain(Some("index.js")), "javascript");
-        assert_eq!(infer_domain(Some("Component.jsx")), "javascript");
-    }
-
-    #[test]
-    fn infer_python() {
-        assert_eq!(infer_domain(Some("train.py")), "python");
-    }
-
-    #[test]
-    fn infer_config_formats() {
-        assert_eq!(infer_domain(Some("Cargo.toml")), "config");
-        assert_eq!(infer_domain(Some("package.json")), "config");
-        assert_eq!(infer_domain(Some("config.yaml")), "config");
-        assert_eq!(infer_domain(Some("ci.yml")), "config");
-    }
-
-    #[test]
-    fn infer_docs() {
-        assert_eq!(infer_domain(Some("README.md")), "docs");
-    }
-
-    #[test]
-    fn infer_unknown_extension() {
-        assert_eq!(infer_domain(Some("binary.wasm")), "general");
-    }
-
-    #[test]
-    fn infer_no_target() {
-        assert_eq!(infer_domain(None), "general");
-    }
-
-    #[test]
-    fn infer_no_extension() {
-        assert_eq!(infer_domain(Some("Makefile")), "general");
-    }
 
     // ── ObserveRequest validation ────────────────────────
 
