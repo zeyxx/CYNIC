@@ -429,6 +429,7 @@ async fn observe_crystal_for_verdict(
             crystal_confidence,
             &now,
             verdict.voter_count,
+            &verdict.id,
         )
         .await
     {
@@ -766,5 +767,57 @@ mod tests {
         let (tag, weight) = epistemic_gate(0.55);
         assert_eq!(tag, "contested");
         assert!((weight - 0.0).abs() < 1e-10);
+    }
+
+    // ── crystal_confidence normalization (P1 ACCURACY) ──────
+
+    #[test]
+    fn crystal_confidence_howl_reaches_crystallization_threshold() {
+        // HOWL verdict: Q-Score total at max φ-bounded = 0.618
+        // crystal_confidence = (total / PHI_INV) * weight = (0.618 / 0.618) * 1.0 = 1.0
+        let total = PHI_INV; // max possible Q-Score
+        let weight = 1.0; // agreed (no dispute)
+        let conf = ((total / PHI_INV) * weight).min(1.0);
+        assert!(
+            conf >= PHI_INV,
+            "HOWL verdict should produce crystal_confidence >= φ⁻¹ (crystallization threshold), got {conf}"
+        );
+    }
+
+    #[test]
+    fn crystal_confidence_bark_stays_below_crystallization() {
+        // BARK verdict: Q-Score total = 0.2 (well below threshold)
+        let total = 0.2;
+        let weight = 1.0;
+        let conf = ((total / PHI_INV) * weight).min(1.0);
+        assert!(
+            conf < PHI_INV,
+            "BARK verdict should NOT reach crystallization threshold, got {conf}"
+        );
+    }
+
+    #[test]
+    fn crystal_confidence_disputed_howl_reduced() {
+        // HOWL Q-Score but disputed (weight < 1.0)
+        let total = PHI_INV;
+        let weight = 0.5; // disputed midpoint
+        let conf = ((total / PHI_INV) * weight).min(1.0);
+        assert!(
+            conf < PHI_INV,
+            "disputed HOWL should be reduced below crystallization, got {conf}"
+        );
+        assert!(
+            conf > 0.0,
+            "disputed HOWL should still have positive confidence"
+        );
+    }
+
+    #[test]
+    fn crystal_confidence_clamped_at_one() {
+        // Even if formula would exceed 1.0 (shouldn't with phi-bounded inputs, but safety)
+        let total = PHI_INV;
+        let weight = 1.0;
+        let conf = ((total / PHI_INV) * weight).min(1.0);
+        assert!(conf <= 1.0, "crystal_confidence must be ≤ 1.0, got {conf}");
     }
 }

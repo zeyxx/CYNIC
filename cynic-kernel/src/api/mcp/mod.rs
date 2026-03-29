@@ -1064,6 +1064,7 @@ mod tests {
             _: f64,
             _: &str,
             _: usize,
+            _: &str,
         ) -> Result<(), StorageError> {
             Ok(())
         }

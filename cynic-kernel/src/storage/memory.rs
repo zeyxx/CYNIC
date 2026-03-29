@@ -182,6 +182,7 @@ impl StoragePort for InMemoryStorage {
         score: f64,
         timestamp: &str,
         voter_count: usize,
+        verdict_id: &str,
     ) -> Result<(), StorageError> {
         // T5+T8: Quorum gate — reject single-Dog observations
         if voter_count < MIN_QUORUM {
@@ -203,6 +204,7 @@ impl StoragePort for InMemoryStorage {
             state: CrystalState::Forming,
             created_at: timestamp.to_string(),
             updated_at: timestamp.to_string(),
+            contributing_verdicts: vec![],
         });
 
         // Content set-once: first observation's content wins (F16 fix)
@@ -216,6 +218,15 @@ impl StoragePort for InMemoryStorage {
 
         // State transition (mirrors surreal.rs SQL thresholds)
         crystal.state = compute_state(crystal.observations, crystal.confidence);
+
+        // Provenance: track which verdicts contributed to this crystal
+        if !verdict_id.is_empty()
+            && !crystal
+                .contributing_verdicts
+                .contains(&verdict_id.to_string())
+        {
+            crystal.contributing_verdicts.push(verdict_id.to_string());
+        }
 
         Ok(())
     }

@@ -36,6 +36,10 @@ pub struct Crystal {
     pub created_at: String,
     /// Timestamp of last update
     pub updated_at: String,
+    /// Verdict IDs that contributed observations to this crystal (provenance trail).
+    /// Enables auditing: "why did this crystal crystallize?" → trace back to verdicts.
+    #[serde(default)]
+    pub contributing_verdicts: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -217,6 +221,7 @@ pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Cry
         state,
         created_at: crystal.created_at.clone(),
         updated_at: timestamp.to_string(),
+        contributing_verdicts: crystal.contributing_verdicts.clone(),
     }
 }
 
@@ -239,6 +244,7 @@ pub fn new_crystal(
         state: CrystalState::Forming,
         created_at: timestamp.to_string(),
         updated_at: timestamp.to_string(),
+        contributing_verdicts: vec![],
     }
 }
 
@@ -633,6 +639,7 @@ mod tests {
             state,
             created_at: "2026-03-13T00:00:00Z".into(),
             updated_at: "2026-03-13T00:00:00Z".into(),
+            contributing_verdicts: vec![],
         }
     }
 

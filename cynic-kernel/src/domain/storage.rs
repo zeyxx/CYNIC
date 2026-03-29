@@ -146,6 +146,9 @@ pub trait StoragePort: Send + Sync {
     /// T5+T8: `voter_count` is the number of Dogs that contributed to this observation.
     /// Adapter MUST reject if `voter_count < MIN_QUORUM` — this prevents single-Dog
     /// verdicts and direct REST callers from crystallizing content.
+    ///
+    /// `verdict_id` links this observation to its source verdict (provenance trail).
+    #[allow(clippy::too_many_arguments)]
     async fn observe_crystal(
         &self,
         id: &str,
@@ -154,6 +157,7 @@ pub trait StoragePort: Send + Sync {
         score: f64,
         timestamp: &str,
         voter_count: usize,
+        verdict_id: &str,
     ) -> Result<(), StorageError>;
 
     /// Store a development workflow observation (tool usage, file edit, error).
@@ -369,6 +373,7 @@ impl StoragePort for NullStorage {
         _score: f64,
         _timestamp: &str,
         _voter_count: usize,
+        _verdict_id: &str,
     ) -> Result<(), StorageError> {
         Err(StorageError::ConnectionFailed(
             "NullStorage: observation not persisted (DEGRADED mode)".into(),

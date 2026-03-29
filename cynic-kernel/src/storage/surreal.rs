@@ -156,6 +156,14 @@ fn row_to_crystal(row: &serde_json::Value) -> Crystal {
         .unwrap_or(raw_id)
         .trim_matches('`')
         .to_string();
+    let contributing_verdicts = row["contributing_verdicts"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
     Crystal {
         id,
         content: row["content"].as_str().unwrap_or("").to_string(),
@@ -165,6 +173,7 @@ fn row_to_crystal(row: &serde_json::Value) -> Crystal {
         state,
         created_at: row["created_at"].as_str().unwrap_or("").to_string(),
         updated_at: row["updated_at"].as_str().unwrap_or("").to_string(),
+        contributing_verdicts,
     }
 }
 
@@ -323,6 +332,7 @@ impl StoragePort for SurrealHttpStorage {
         score: f64,
         timestamp: &str,
         voter_count: usize,
+        verdict_id: &str,
     ) -> Result<(), StorageError> {
         // T5+T8: quorum enforcement — reject observations from single-Dog or no-Dog sources.
         // This gate covers ALL callers (pipeline + REST + introspection).
@@ -375,12 +385,14 @@ impl StoragePort for SurrealHttpStorage {
                  observations = $new_obs, \
                  confidence = $new_conf, \
                  state = $new_state, \
+                 contributing_verdicts = array::union(contributing_verdicts ?? [], ['{vid}']), \
                  created_at = created_at ?? '{ts}', \
                  updated_at = '{ts}'; \
              COMMIT TRANSACTION;",
             id = safe_id,
             content = escape_surreal(&sanitized_content),
             domain = escape_surreal(domain),
+            vid = escape_surreal(verdict_id),
             score = score,
             ts = escape_surreal(timestamp),
         );

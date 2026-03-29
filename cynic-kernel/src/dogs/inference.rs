@@ -385,4 +385,74 @@ mod tests {
         assert!((scores.verify - 0.4).abs() < 0.01);
         assert_eq!(scores.reasoning.fidelity, "good");
     }
+
+    // ── extract_scores_lenient (P1 VERIFIABILITY) ───────────
+
+    #[test]
+    fn lenient_parse_valid_json() {
+        let input = r#"{"fidelity": 0.7, "phi": 0.6, "verify": 0.5, "culture": 0.4, "burn": 0.8, "sovereignty": 0.3}"#;
+        let scores = extract_scores_lenient(input).unwrap();
+        assert!((scores.fidelity - 0.7).abs() < 0.01);
+        assert!((scores.phi - 0.6).abs() < 0.01);
+        assert!((scores.sovereignty - 0.3).abs() < 0.01);
+    }
+
+    #[test]
+    fn lenient_parse_duplicate_keys_takes_first() {
+        // Small models sometimes emit duplicate keys — lenient parser takes FIRST occurrence
+        let input = r#"{"fidelity": 0.8, "phi": 0.5, "verify": 0.4, "culture": 0.3, "burn": 0.6, "sovereignty": 0.7, "fidelity": 0.1}"#;
+        let scores = extract_scores_lenient(input).unwrap();
+        assert!(
+            (scores.fidelity - 0.8).abs() < 0.01,
+            "should take first fidelity (0.8), got {}",
+            scores.fidelity
+        );
+    }
+
+    #[test]
+    fn lenient_parse_with_reasons() {
+        let input = r#"{"fidelity": 0.6, "fidelity_reason": "accurate claim", "phi": 0.5, "verify": 0.4, "culture": 0.3, "burn": 0.7, "sovereignty": 0.5}"#;
+        let scores = extract_scores_lenient(input).unwrap();
+        assert_eq!(scores.reasoning.fidelity, "accurate claim");
+    }
+
+    #[test]
+    fn lenient_parse_no_scores_returns_error() {
+        let input = r#"{"message": "I cannot evaluate this"}"#;
+        let result = extract_scores_lenient(input);
+        assert!(result.is_err(), "should fail when no axiom scores found");
+    }
+
+    #[test]
+    fn lenient_parse_partial_scores_defaults_missing() {
+        // Only some axioms present — missing ones default to 0.0
+        let input = r#"{"fidelity": 0.7, "burn": 0.5}"#;
+        let scores = extract_scores_lenient(input).unwrap();
+        assert!((scores.fidelity - 0.7).abs() < 0.01);
+        assert!((scores.burn - 0.5).abs() < 0.01);
+        assert!((scores.phi - 0.0).abs() < 0.01, "missing phi should be 0.0");
+        assert!(
+            (scores.verify - 0.0).abs() < 0.01,
+            "missing verify should be 0.0"
+        );
+    }
+
+    #[test]
+    fn lenient_parse_non_numeric_value_skipped() {
+        // Model returns string instead of number for a score
+        let input = r#"{"fidelity": "high", "phi": 0.5, "verify": 0.4, "culture": 0.3, "burn": 0.6, "sovereignty": 0.7}"#;
+        let scores = extract_scores_lenient(input).unwrap();
+        assert!(
+            (scores.fidelity - 0.0).abs() < 0.01,
+            "non-numeric fidelity should default to 0.0"
+        );
+        assert!((scores.phi - 0.5).abs() < 0.01, "numeric phi should parse");
+    }
+
+    #[test]
+    fn lenient_parse_reason_with_escaped_quotes() {
+        let input = r#"{"fidelity": 0.5, "fidelity_reason": "it's a \"strong\" claim", "phi": 0.4, "verify": 0.3, "culture": 0.2, "burn": 0.6, "sovereignty": 0.5}"#;
+        let scores = extract_scores_lenient(input).unwrap();
+        assert_eq!(scores.reasoning.fidelity, r#"it's a \"strong\" claim"#);
+    }
 }

@@ -103,6 +103,7 @@ async fn contract_observe_crystal_rejects_below_quorum(db: &dyn StoragePort) {
             0.5,
             "2026-01-01T00:00:00Z",
             1,
+            "test-verdict",
         )
         .await;
     assert!(
@@ -120,6 +121,7 @@ async fn contract_observe_crystal_content_set_once(db: &dyn StoragePort) {
         0.5,
         "2026-01-01T00:00:00Z",
         2,
+        "v1",
     )
     .await
     .expect("first observe");
@@ -130,6 +132,7 @@ async fn contract_observe_crystal_content_set_once(db: &dyn StoragePort) {
         0.6,
         "2026-01-01T00:01:00Z",
         2,
+        "v2",
     )
     .await
     .expect("second observe");
@@ -165,6 +168,7 @@ async fn contract_crystal_forming_to_crystallized(db: &dyn StoragePort) {
             0.65,
             &format!("2026-01-01T00:{i:02}:00Z"),
             2,
+            &format!("v-{i}"),
         )
         .await
         .expect("observe");
@@ -193,6 +197,7 @@ async fn contract_crystal_high_obs_low_confidence_decays(db: &dyn StoragePort) {
             0.2,
             &format!("2026-01-01T00:{i:02}:00Z"),
             2,
+            &format!("v-{i}"),
         )
         .await
         .expect("observe");
@@ -219,6 +224,7 @@ async fn contract_crystal_stays_forming_below_threshold(db: &dyn StoragePort) {
             0.65,
             &format!("2026-01-01T00:{i:02}:00Z"),
             2,
+            &format!("v-{i}"),
         )
         .await
         .expect("observe");
@@ -241,6 +247,7 @@ async fn contract_list_crystals_for_domain_excludes_forming(db: &dyn StoragePort
         0.6,
         "2026-01-01T00:00:00Z",
         2,
+        "test-verdict",
     )
     .await
     .expect("observe");
@@ -253,6 +260,7 @@ async fn contract_list_crystals_for_domain_excludes_forming(db: &dyn StoragePort
             0.65,
             &format!("2026-01-01T00:{i:02}:00Z"),
             2,
+            &format!("v-{i}"),
         )
         .await
         .expect("observe");
@@ -275,6 +283,7 @@ async fn contract_observe_crystal_sanitizes_directives(db: &dyn StoragePort) {
         0.5,
         "2026-01-01T00:00:00Z",
         2,
+        "test-verdict",
     )
     .await
     .expect("observe");
@@ -308,6 +317,7 @@ async fn contract_crystal_delete_is_idempotent(db: &dyn StoragePort) {
         0.5,
         "2026-01-01T00:00:00Z",
         2,
+        "test-verdict",
     )
     .await
     .expect("observe");
@@ -368,6 +378,7 @@ async fn contract_crystal_canonical_at_233_obs(db: &dyn StoragePort) {
             0.65,
             &format!("2026-01-{:02}T{:02}:00:00Z", (i / 24) + 1, i % 24),
             2,
+            &format!("v-{i}"),
         )
         .await
         .expect("observe");

@@ -178,6 +178,7 @@ pub async fn create_crystal_handler(
         state: ccm::CrystalState::Forming,
         created_at: now.clone(),
         updated_at: now,
+        contributing_verdicts: vec![],
     };
     if let Err(e) = state.storage.store_crystal(&crystal).await {
         tracing::warn!(error = %e, "create crystal failed");

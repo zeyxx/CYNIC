@@ -486,6 +486,31 @@ fn verdict_hash(
     hasher.finalize().to_hex().to_string()
 }
 
+/// Verify the BLAKE3 integrity hash of a verdict.
+/// Re-derives the hash from verdict fields and compares against the stored hash.
+/// Returns `false` if the hash is missing (pre-chain verdict) or mismatches (tampered).
+pub fn verify_verdict_integrity(verdict: &Verdict) -> bool {
+    let Some(ref stored_hash) = verdict.integrity_hash else {
+        return false;
+    };
+    let recomputed = verdict_hash(
+        &verdict.id,
+        verdict.q_score.total,
+        [
+            verdict.q_score.fidelity,
+            verdict.q_score.phi,
+            verdict.q_score.verify,
+            verdict.q_score.culture,
+            verdict.q_score.burn,
+            verdict.q_score.sovereignty,
+        ],
+        &verdict.stimulus_summary,
+        &verdict.timestamp,
+        verdict.prev_hash.as_deref(),
+    );
+    stored_hash == &recomputed
+}
+
 #[derive(Debug)]
 pub enum JudgeError {
     NoDogs,
@@ -1143,5 +1168,154 @@ mod tests {
         judge.seed_chain(Some("abc123".into()));
         let lock = judge.last_hash.lock().unwrap();
         assert_eq!(*lock, Some("abc123".into()));
+    }
+
+    // ── verdict integrity verification ──────────────────────
+
+    #[tokio::test]
+    async fn verify_integrity_passes_for_valid_verdict() {
+        let judge = test_judge(vec![Box::new(FixedDog {
+            name: "v".into(),
+            scores: AxiomScores {
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        })]);
+
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
+        assert!(
+            verify_verdict_integrity(&verdict),
+            "freshly created verdict must pass integrity check"
+        );
+    }
+
+    #[tokio::test]
+    async fn verify_integrity_fails_on_tampered_score() {
+        let judge = test_judge(vec![Box::new(FixedDog {
+            name: "v".into(),
+            scores: AxiomScores {
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        })]);
+
+        let mut verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
+        // Tamper: modify a score after hash was computed
+        verdict.q_score.fidelity = 0.999;
+        assert!(
+            !verify_verdict_integrity(&verdict),
+            "tampered score must fail integrity check"
+        );
+    }
+
+    #[tokio::test]
+    async fn verify_integrity_fails_on_tampered_summary() {
+        let judge = test_judge(vec![Box::new(FixedDog {
+            name: "v".into(),
+            scores: AxiomScores {
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        })]);
+
+        let mut verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
+        verdict.stimulus_summary = "TAMPERED".into();
+        assert!(
+            !verify_verdict_integrity(&verdict),
+            "tampered stimulus must fail integrity check"
+        );
+    }
+
+    #[test]
+    fn verify_integrity_fails_when_hash_missing() {
+        let verdict = Verdict {
+            id: "test".into(),
+            domain: "test".into(),
+            kind: VerdictKind::Wag,
+            q_score: QScore {
+                total: 0.5,
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+            },
+            reasoning: AxiomReasoning::default(),
+            dog_id: "test".into(),
+            stimulus_summary: "test".into(),
+            timestamp: "2026-01-01T00:00:00Z".into(),
+            dog_scores: vec![],
+            anomaly_detected: false,
+            max_disagreement: 0.0,
+            anomaly_axiom: None,
+            voter_count: 1,
+            failed_dogs: vec![],
+            integrity_hash: None, // no hash
+            prev_hash: None,
+        };
+        assert!(
+            !verify_verdict_integrity(&verdict),
+            "verdict without hash must fail verification"
+        );
+    }
+
+    #[tokio::test]
+    async fn verify_integrity_across_chain() {
+        let judge = test_judge(vec![Box::new(FixedDog {
+            name: "chain".into(),
+            scores: AxiomScores {
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        })]);
+
+        let v1 = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
+        let v2 = judge
+            .evaluate(&test_stimulus(), None, &test_metrics())
+            .await
+            .unwrap();
+
+        // Both verdicts in chain verify independently
+        assert!(verify_verdict_integrity(&v1));
+        assert!(verify_verdict_integrity(&v2));
+        // Chain linkage holds
+        assert_eq!(v2.prev_hash, v1.integrity_hash);
     }
 }
