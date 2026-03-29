@@ -14,3 +14,4 @@ pub mod health_gate;
 pub mod metrics;
 pub mod sanitize;
 pub mod summarization;
+pub mod system_metrics;
