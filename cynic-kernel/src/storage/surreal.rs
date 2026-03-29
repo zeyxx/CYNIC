@@ -6,7 +6,9 @@ use crate::domain::coord::{
     AgentInfo, AuditEntry, BatchClaimResult, ClaimEntry, ClaimResult, ConflictInfo, CoordError,
     CoordPort, CoordSnapshot,
 };
-use crate::domain::dog::{AxiomReasoning, PHI_INV, PHI_INV2, QScore, Verdict, VerdictKind};
+use crate::domain::dog::{
+    AxiomReasoning, DogScore, PHI_INV, PHI_INV2, QScore, Verdict, VerdictKind,
+};
 use crate::domain::storage::{
     Observation, ObservationFrequency, RawObservation, SessionTarget, StorageError, StoragePort,
     UsageRow,
@@ -112,18 +114,35 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
         dog_id: row["dog_id"].as_str().unwrap_or("").to_string(),
         stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
         timestamp: row["created_at"].as_str().unwrap_or("").to_string(),
-        dog_scores: row["dog_scores_json"]
-            .as_str()
-            .filter(|s| !s.is_empty())
-            .and_then(|s| {
-                serde_json::from_str(s)
-                    .map_err(|e| {
-                        tracing::warn!(error = %e, "dog_scores_json parse failed — row corrupt?");
-                        e
-                    })
-                    .ok()
-            })
-            .unwrap_or_default(),
+        dog_scores: {
+            let verdict_id_for_log = row["verdict_id"].as_str().unwrap_or("?");
+            let voter_count_for_log = row["voter_count"].as_u64().unwrap_or(0);
+            let scores: Vec<DogScore> = row["dog_scores_json"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .and_then(|s| {
+                    serde_json::from_str(s)
+                        .map_err(|e| {
+                            tracing::error!(
+                                verdict_id = %verdict_id_for_log,
+                                error = %e,
+                                "dog_scores_json parse failed — verdict provenance corrupted"
+                            );
+                            e
+                        })
+                        .ok()
+                })
+                .unwrap_or_default();
+            // Detect inconsistency: voter_count says N dogs contributed but scores are empty
+            if scores.is_empty() && voter_count_for_log > 0 {
+                tracing::warn!(
+                    verdict_id = %verdict_id_for_log,
+                    voter_count = voter_count_for_log,
+                    "dog_scores empty but voter_count > 0 — per-dog provenance lost"
+                );
+            }
+            scores
+        },
         anomaly_detected: row["anomaly_detected"].as_bool().unwrap_or(false),
         max_disagreement: row["max_disagreement"].as_f64().unwrap_or(0.0),
         anomaly_axiom: row["anomaly_axiom"]

@@ -530,8 +530,12 @@ pub fn extract_cooccurrences(
         })
         .collect();
 
-    // Sort by score descending — strongest co-occurrences first
-    patterns.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+    // Sort by score descending, then by id for deterministic tie-breaking
+    patterns.sort_by(|a, b| {
+        b.2.partial_cmp(&a.2)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.0.cmp(&b.0))
+    });
     patterns.truncate(20); // Cap at 20 co-occurrence patterns
     patterns
 }
