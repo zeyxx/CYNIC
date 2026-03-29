@@ -44,6 +44,7 @@ check:
 	cargo test --workspace --release
 	@$(MAKE) --no-print-directory lint-rules
 	@$(MAKE) --no-print-directory lint-drift
+	@$(MAKE) --no-print-directory lint-security
 	@echo ""; echo "▶ Security audit (cargo audit)..."
 	cargo audit --deny warnings
 	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
@@ -144,6 +145,19 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	done; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ No drift detected"; fi; \
 	exit $$FAIL
+
+.PHONY: lint-security
+lint-security: ## G1 gate: 0 OPEN findings in CRITICAL or HIGH sections of findings tracker
+	@echo ""
+	@echo "▶ Checking security findings (G1 gate)..."
+	@TRACKER="$(PROJECT_DIR)/docs/audit/CYNIC-FINDINGS-TRACKER.md"; \
+	if [ ! -f "$$TRACKER" ]; then echo "SKIP: findings tracker not found"; exit 0; fi; \
+	OPEN=$$(awk '/^## CRITICAL/{s=1} /^## HIGH/{s=1} /^## MEDIUM/{s=0} s && /^\|/ && !/^\| #/ && !/^\|---/ && / OPEN/' "$$TRACKER"); \
+	if [ -n "$$OPEN" ]; then \
+		echo "FAIL G1: CRIT/HIGH findings still OPEN:"; echo "$$OPEN"; exit 1; \
+	else \
+		echo "✓ G1: 0 OPEN findings in CRITICAL/HIGH"; \
+	fi
 
 .PHONY: check-storage
 check-storage: ## Integration tests against real SurrealDB (requires :8000)
