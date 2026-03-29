@@ -1201,4 +1201,30 @@ mod tests {
         assert_eq!(infer_domain(Some("localhost"), Some("self-probe")), "infra");
         assert_eq!(infer_domain(None, Some("self-probe")), "infra");
     }
+
+    // ── CrystalState Display/FromStr contract (regression: session-init.sh jq) ──
+
+    #[test]
+    fn crystal_state_display_is_lowercase() {
+        assert_eq!(CrystalState::Forming.to_string(), "forming");
+        assert_eq!(CrystalState::Crystallized.to_string(), "crystallized");
+        assert_eq!(CrystalState::Canonical.to_string(), "canonical");
+        assert_eq!(CrystalState::Decaying.to_string(), "decaying");
+        assert_eq!(CrystalState::Dissolved.to_string(), "dissolved");
+    }
+
+    #[test]
+    fn crystal_state_round_trip() {
+        for state in [
+            CrystalState::Forming,
+            CrystalState::Crystallized,
+            CrystalState::Canonical,
+            CrystalState::Decaying,
+            CrystalState::Dissolved,
+        ] {
+            let s = state.to_string();
+            let parsed: CrystalState = s.parse().unwrap();
+            assert_eq!(parsed, state);
+        }
+    }
 }

@@ -520,7 +520,7 @@ impl CynicMcp {
                     "domain": c.domain,
                     "confidence": c.confidence,
                     "observations": c.observations,
-                    "state": format!("{:?}", c.state),
+                    "state": c.state.to_string(),
                 })
             })
             .collect();
