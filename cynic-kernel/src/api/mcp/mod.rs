@@ -211,6 +211,26 @@ pub struct WhoParams {
     pub agent_id: Option<String>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ObserveParams {
+    /// Tool or action name (1-64 chars)
+    pub tool: String,
+    /// Target file, resource, or entity
+    pub target: Option<String>,
+    /// Domain classification (auto-inferred from target if omitted)
+    pub domain: Option<String>,
+    /// Status: ok, warning, error
+    pub status: Option<String>,
+    /// Additional context (max 200 chars, truncated if longer)
+    pub context: Option<String>,
+    /// Project identifier
+    pub project: Option<String>,
+    /// Agent identifier for session tracking
+    pub agent_id: Option<String>,
+    /// Session identifier for CCM aggregation
+    pub session_id: Option<String>,
+}
+
 // ── MCP Server ───────────────────────────────────────────────
 
 /// CYNIC MCP Server — exposes kernel capabilities to AI agents.
@@ -876,6 +896,75 @@ impl CynicMcp {
         )]))
     }
 
+    // ── cynic_observe ────────────────────────────────────────
+
+    #[tool(
+        name = "cynic_observe",
+        description = "Record a development workflow observation (tool use, file edit, command). Used by Claude Code hooks and agents to feed CYNIC's CCM crystal learning pipeline. Fire-and-forget: returns immediately, stores asynchronously."
+    )]
+    async fn cynic_observe(
+        &self,
+        params: Parameters<ObserveParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        let params = params.0;
+
+        if params.tool.is_empty() || params.tool.len() > 64 {
+            return Err(McpError::new(
+                rmcp::model::ErrorCode::INVALID_PARAMS,
+                "tool must be 1-64 characters",
+                None,
+            ));
+        }
+
+        let domain = params.domain.unwrap_or_else(|| {
+            crate::domain::ccm::infer_domain(params.target.as_deref(), Some(&params.tool))
+        });
+
+        let agent_id = params.agent_id.clone().unwrap_or_else(|| "unknown".into());
+        let tool_name = params.tool.clone();
+
+        let obs = crate::domain::storage::Observation {
+            project: params.project.unwrap_or_else(|| "CYNIC".into()),
+            agent_id: agent_id.clone(),
+            tool: params.tool,
+            target: params.target.unwrap_or_default(),
+            domain,
+            status: params.status.unwrap_or_else(|| "success".into()),
+            context: params
+                .context
+                .map(|c| c.chars().take(200).collect())
+                .unwrap_or_default(),
+            session_id: params.session_id.unwrap_or_default(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        };
+
+        let storage = Arc::clone(&self.storage);
+        tokio::spawn(async move {
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                storage.store_observation(&obs),
+            )
+            .await
+            {
+                Ok(Err(e)) => tracing::warn!(error = %e, "cynic_observe: store failed"),
+                Err(_) => tracing::warn!("cynic_observe: store timed out (5s)"),
+                _ => {}
+            }
+        });
+
+        self.audit(
+            "cynic_observe",
+            &agent_id,
+            &serde_json::json!({ "tool": tool_name }),
+        )
+        .await;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            r#"{"status":"observed"}"#,
+        )]))
+    }
+
     // ── Helpers ────────────────────────────────────────────────
 
     /// Refresh heartbeat for any agent that identifies itself.
@@ -1251,5 +1340,22 @@ mod tests {
         let info = mcp.get_info();
         assert_eq!(info.server_info.name, "cynic-kernel");
         assert!(info.instructions.is_some());
+    }
+
+    #[test]
+    fn observe_params_deserialize_minimal() {
+        let json = r#"{"tool":"Read"}"#;
+        let params: ObserveParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.tool, "Read");
+        assert!(params.target.is_none());
+        assert!(params.agent_id.is_none());
+    }
+
+    #[test]
+    fn observe_params_deserialize_full() {
+        let json = r#"{"tool":"Edit","target":"src/main.rs","domain":"rust","agent_id":"claude-123","session_id":"s1"}"#;
+        let params: ObserveParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.tool, "Edit");
+        assert_eq!(params.agent_id.as_deref(), Some("claude-123"));
     }
 }
