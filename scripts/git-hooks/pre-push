@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# CYNIC pre-push — sovereign CI gate
+# No cloud CI, no GitHub Actions, no external dependency.
+# The machine that pushes is the machine that verifies.
+# Universal: protects against all agents (Claude, Gemini, human).
+#
+# Runs the FULL make check pipeline:
+#   fmt → clippy → test → lint-rules → lint-drift → lint-security → audit
+# If any gate fails, push is blocked. No exceptions.
+set -euo pipefail
+
+source ~/.cargo/env 2>/dev/null || true
+export RUST_MIN_STACK=${RUST_MIN_STACK:-67108864}
+
+PROJECT_DIR="$(git rev-parse --show-toplevel)"
+
+echo "══════════════════════════════════════════"
+echo "  CYNIC pre-push — sovereign CI gate"
+echo "══════════════════════════════════════════"
+echo ""
+
+# Run the full pipeline — same as make check
+cd "$PROJECT_DIR"
+make check
+
+echo ""
+echo "══════════════════════════════════════════"
+echo "  ✓ All gates passed — push allowed"
+echo "══════════════════════════════════════════"

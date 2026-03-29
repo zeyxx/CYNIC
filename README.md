@@ -2,9 +2,11 @@
 
 # CYNIC
 
-**Epistemic consensus engine — independent AI validators reaching agreement under mathematical doubt**
+**Epistemic immune system — independent AI validators reaching consensus under mathematical doubt**
 
 `Rust` `Axum` `Tokio` `SurrealDB` `React` `TypeScript`
+
+v0.7.4 · 255 tests · 15K LOC · 5 Dogs · φ-bounded
 
 [Philosophy](#philosophy) · [How It Works](#how-it-works) · [Architecture](#architecture) · [Run It](#quickstart) · [API](#api)
 
@@ -14,7 +16,9 @@
 
 ## What CYNIC Does
 
-CYNIC takes any content — a chess move, a political claim, a code review — and runs it through **multiple independent AI validators** ("Dogs") that score it across 6 philosophical axioms. Their scores are merged via trimmed-mean consensus, and **no score can exceed 61.8%** (the golden ratio inverse, φ⁻¹).
+CYNIC takes any content — a chess move, a trading signal, a code review — and runs it through **multiple independent AI validators** ("Dogs") that score it across 6 philosophical axioms. Their scores are merged via trimmed-mean consensus, and **no score can exceed 61.8%** (the golden ratio inverse, φ⁻¹).
+
+Patterns that survive repeated evaluation **crystallize** into persistent knowledge that improves future judgments. Measured improvement: Δ=+0.02-0.04 on chess domain.
 
 Disagreement between validators is surfaced as a **discovery signal**, not hidden.
 
@@ -29,12 +33,12 @@ curl -X POST http://localhost:3030/judge \
 {
   "verdict": "Howl",
   "q_score": { "total": 0.577, "fidelity": 0.618, "phi": 0.450, "verify": 0.618, "culture": 0.618, "burn": 0.618, "sovereignty": 0.618 },
-  "dogs_used": "deterministic-dog+gemini",
+  "dogs_used": "deterministic-dog+qwen35-9b-gpu+qwen-7b-hf+gemma-4b-ubuntu",
+  "voter_count": 4,
+  "domain": "chess",
   "anomaly_detected": false
 }
 ```
-
-A Sicilian Defense gets a **Howl** (highest verdict). A Fool's Mate gets a **Bark** (rejected). CYNIC judges the strategy, not the description.
 
 ---
 
@@ -44,7 +48,7 @@ A Sicilian Defense gets a **Howl** (highest verdict). A Fool's Mate gets a **Bar
 φ distrusts φ — no claim deserves absolute confidence
 ```
 
-Every score is structurally capped at **φ⁻¹ = 0.618033...**  — the golden ratio inverse. This isn't a bug. It encodes the principle that certainty is always partial.
+Every score is structurally capped at **φ⁻¹ = 0.618033...** — the golden ratio inverse. This isn't a bug. It encodes the principle that certainty is always partial.
 
 Verdicts map to φ-derived thresholds:
 
@@ -78,12 +82,13 @@ The final Q-Score is the **geometric mean** of all axiom scores, phi-bounded. Ge
 
 Dogs evaluate content in parallel, independently, with no knowledge of each other's scores:
 
-| Dog | Type | How |
-|-----|------|-----|
-| **deterministic-dog** | Heuristic | Rule-based form analysis (<1ms). Abstains on substance (returns NEUTRAL) |
-| **gemini** | LLM | Gemini Flash via OpenAI-compatible API |
-| **sovereign** | LLM | Local Qwen 3.5 9B via llama.cpp (GPU) |
-| **sovereign-ubuntu** | LLM | Local Gemma 3 4B via llama.cpp (CPU) |
+| Dog | Type | Where | Latency |
+|-----|------|-------|---------|
+| **deterministic-dog** | Heuristic | In-kernel | <1ms |
+| **qwen35-9b-gpu** | LLM | Local GPU (RTX 4060 Ti) | ~4s |
+| **qwen-7b-hf** | LLM | HF Inference API | ~1.5s |
+| **gemma-4b-ubuntu** | LLM | Local CPU | ~36s |
+| **gemini-flash** | LLM | Google API | ~0.7s |
 
 When Dogs disagree beyond φ⁻² (0.382) on any axiom, CYNIC flags it as an **anomaly** — a signal that the content is epistemically interesting.
 
@@ -95,19 +100,26 @@ When Dogs disagree beyond φ⁻² (0.382) on any axiom, CYNIC flags it as an **a
 3. Trimmed-mean aggregation (drops highest + lowest when ≥4 Dogs)
 4. Per-axiom anomaly detection via φ² residual check
 5. Geometric mean → phi-bound → verdict classification
+6. Quorum gate: single-Dog verdicts don't crystallize (min 2)
 ```
 
-### Cognitive Crystallization (CCM)
+### Crystal Loop (Compound Learning)
 
 Patterns that survive repeated evaluation crystallize into persistent knowledge:
 
 ```
-≥ 21 observations + confidence ≥ φ⁻¹  →  CRYSTALLIZED
-≥ 233 observations                     →  CANONICAL
-confidence drops below φ⁻²            →  DECAYING → DISSOLVED
+Stimulus → Dogs evaluate → Verdict → Crystal observation
+                                          ↓
+                            ≥ 21 obs + conf ≥ φ⁻¹ → CRYSTALLIZED
+                            ≥ 233 obs              → CANONICAL
+                            conf drops below φ⁻²   → DECAYING → DISSOLVED
+                                          ↓
+                            Injected into future Dog prompts
+                                          ↓
+                            Better judgments → more crystals → compound
 ```
 
-Thresholds are Fibonacci numbers. Crystals are content-addressed (FNV-1a hash).
+Thresholds are Fibonacci numbers. Crystals are content-addressed (FNV-1a hash). Semantic merge via KNN (HNSW index) prevents duplicates. Epistemic soft gate quarantines contested judgments.
 
 ---
 
@@ -116,33 +128,38 @@ Thresholds are Fibonacci numbers. Crystals are content-addressed (FNV-1a hash).
 Hexagonal architecture — domain logic has zero dependencies on frameworks, databases, or HTTP.
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    REST API (Axum)                   │
-│              POST /judge  GET /verdicts              │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│   ┌─────────┐    ┌──────────┐    ┌──────────────┐  │
-│   │  Judge   │───▶│   Dogs   │───▶│   Backends   │  │
-│   │consensus │    │evaluate  │    │ OpenAI-compat│  │
-│   └────┬─────┘    └──────────┘    └──────────────┘  │
-│        │                                            │
-│   ┌────▼─────┐    ┌──────────┐    ┌──────────────┐  │
-│   │ Verdict  │    │   CCM    │    │Circuit Breaker│  │
-│   │ QScore   │    │crystals  │    │  per-Dog     │  │
-│   └──────────┘    └──────────┘    └──────────────┘  │
-│                                                     │
-│          DOMAIN (pure Rust, no #[cfg], no IO)       │
-├─────────────────────────────────────────────────────┤
-│   Storage (SurrealDB)  │  MCP Server  │  Probe     │
-│        INFRASTRUCTURE                               │
-└─────────────────────────────────────────────────────┘
+cynic-kernel/src/
+├── domain/           Pure business logic — zero IO, zero frameworks
+│   ├── dog.rs        Dog trait, AxiomScores, QScore, phi-bounding
+│   ├── ccm.rs        Crystal lifecycle, context formatting, aggregation
+│   ├── storage.rs    StoragePort trait (30 methods)
+│   ├── sanitize.rs   Content + observation target sanitization (CH2 defense)
+│   ├── compliance.rs Session compliance scoring
+│   └── ...           13 more domain modules (events, metrics, usage, etc.)
+├── dogs/
+│   ├── deterministic.rs  Heuristic form evaluator (PHI, BURN, SOVEREIGNTY)
+│   └── inference.rs      LLM-backed Dog (any OpenAI-compatible backend)
+├── backends/         Driven port adapters (HTTP to LLM endpoints)
+├── storage/          SurrealDB HTTP + InMemory adapters
+├── api/
+│   ├── rest/         Axum REST — 26 routes, auth, rate limiting
+│   └── mcp/          MCP server — 11 tools for AI agent integration
+├── infra/            Background tasks, circuit breakers, config
+├── probe/            Boot-time hardware + LLM discovery
+├── pipeline.rs       THE shared evaluation path (REST + MCP both call this)
+├── judge.rs          Consensus orchestration, BLAKE3 integrity chain
+└── main.rs           Composition root
 ```
 
-### Key Abstractions
-
-Any LLM backend becomes a Dog through one trait:
+### Key Port Traits
 
 ```rust
+#[async_trait]
+pub trait Dog: Send + Sync {
+    fn id(&self) -> &str;
+    async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError>;
+}
+
 #[async_trait]
 pub trait ChatPort: Send + Sync {
     async fn chat(&self, system: &str, user: &str) -> Result<ChatResponse, ChatError>;
@@ -151,18 +168,7 @@ pub trait ChatPort: Send + Sync {
 }
 ```
 
-Validators implement a single method:
-
-```rust
-#[async_trait]
-pub trait Dog: Send + Sync {
-    fn id(&self) -> &str;
-    fn max_context(&self) -> u32 { 0 }
-    async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError>;
-}
-```
-
-Adding a new Dog = implement `Dog` trait + register in `main.rs`. Adding a new LLM backend = implement `ChatPort`.
+Adding a new Dog = implement `Dog` trait. Adding a new LLM backend = implement `ChatPort`. 7 port traits total.
 
 ---
 
@@ -170,123 +176,105 @@ Adding a new Dog = implement `Dog` trait + register in `main.rs`. Adding a new L
 
 ### Requirements
 
-- Rust 1.75+
-- SurrealDB 3.x (optional — kernel runs without it, verdicts won't persist)
-- At least one LLM backend (Gemini API key, or local llama.cpp)
+- Rust 1.94+ (stable, edition 2024)
+- SurrealDB 3.x (optional — kernel runs without it)
+- At least one LLM backend (local llama-server, Gemini API, or HF Inference)
 
-### Build & Run
+### Setup
 
 ```bash
 git clone https://github.com/zeyxx/CYNIC.git
 cd CYNIC
 
-# Configure — create ~/.cynic-env with your secrets
-# Required vars: CYNIC_API_KEY, CYNIC_REST_ADDR, SURREALDB_PASS
-# See scripts/setup-ubuntu.sh (lines 149-161) for the full template
+# Create env file with your secrets
+cat > ~/.cynic-env << 'EOF'
+export CYNIC_API_KEY="your-api-key-here"
+export CYNIC_REST_ADDR="127.0.0.1:3030"
+export SURREALDB_PASS="your-db-password"
+EOF
 
-# Build
-cargo build -p cynic-kernel --release
+# Configure Dogs in ~/.config/cynic/backends.toml
+# See backends.toml.example for template
 
-# Test (80+ tests)
-cargo test -p cynic-kernel --release
+# Build + test + lint (the full gate)
+make check
 
 # Run
+source ~/.cynic-env
 cargo run -p cynic-kernel --release
-# → Listening on 0.0.0.0:3030
 ```
 
 ### Verify
 
 ```bash
-# Health check (no auth required)
+# Health (no auth)
 curl http://localhost:3030/health
 
-# Submit a judgment (auth required)
-curl -X POST http://localhost:3030/judge \
+# Judge (auth required)
+source ~/.cynic-env
+curl -X POST "http://${CYNIC_REST_ADDR}/judge" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $CYNIC_API_KEY" \
-  -d '{"content": "1. e4 e5 2. Qh5 Nc6 3. Bc4 Nf6 4. Qxf7# — Scholars Mate", "domain": "chess"}'
+  -H "Authorization: Bearer ${CYNIC_API_KEY}" \
+  -d '{"content": "1. e4 c5 — Sicilian Defense", "domain": "chess"}'
 ```
 
 ---
 
 ## API
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/health` | GET | No | System status, version, axiom list |
-| `/judge` | POST | Bearer | Submit content for epistemic evaluation |
-| `/verdicts` | GET | Bearer | List recent verdicts |
-| `/verdict/{id}` | GET | Bearer | Get specific verdict by UUID |
-| `/crystals` | GET | Bearer | List crystallized patterns |
-| `/usage` | GET | Bearer | Token consumption per Dog |
+All endpoints except `/health` require `Authorization: Bearer $CYNIC_API_KEY`.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | System status, Dogs, alerts, background tasks |
+| `/live` | GET | Liveness probe |
+| `/ready` | GET | Readiness probe (storage check) |
+| `/judge` | POST | Submit content for epistemic evaluation |
+| `/verdicts` | GET | List recent verdicts |
+| `/verdict/{id}` | GET | Get specific verdict |
+| `/crystals` | GET | List crystallized patterns |
+| `/crystal/{id}` | GET | Get specific crystal |
+| `/observe` | POST | Record workflow observation |
+| `/usage` | GET | Token consumption per Dog |
+| `/dogs` | GET | List active Dog IDs |
+| `/agents` | GET | List registered agent sessions |
+| `/events` | GET | SSE event stream |
+| `/coord/*` | POST | Multi-agent coordination (register, claim, release) |
 
 Rate limit: 30 req/min global, 10 req/min on `/judge`.
 
-Full API reference with TypeScript interfaces: [`API.md`](API.md)
+Full contract with TypeScript interfaces: [`API.md`](API.md)
 
 ---
 
-## Project Structure
+## Development
 
-```
-cynic-kernel/src/
-├── domain/          # Pure business logic — zero IO, zero frameworks
-│   ├── dog.rs       # Dog trait, AxiomScores, QScore, phi-bounding
-│   ├── ccm.rs       # Cognitive Crystallization Mechanism
-│   ├── chat.rs      # ChatPort trait (LLM abstraction)
-│   ├── coord.rs     # Multi-agent coordination port
-│   └── temporal.rs  # Temporal perspectives, UCB1 exploration
-├── dogs/            # Validator implementations
-│   ├── deterministic.rs  # Heuristic form evaluator
-│   └── inference.rs      # LLM-backed Dog (any ChatPort backend)
-├── backends/        # LLM backend adapters
-│   ├── openai.rs    # OpenAI-compatible (Gemini, HF, vLLM, SGLang)
-│   ├── llamacpp.rs  # llama.cpp with cold-start polling
-│   └── router.rs    # Backend registration + health probing
-├── api/
-│   ├── rest/        # Axum REST handlers
-│   └── mcp/         # MCP server (rmcp) for AI agent integration
-├── infra/           # Circuit breaker, config, rate limiting
-├── storage/         # SurrealDB HTTP adapter
-├── judge.rs         # Consensus orchestration
-└── main.rs          # Wiring
+```bash
+# Full validation (sovereign CI — also runs as pre-push hook)
+make check
+
+# Individual targets
+make lint-rules      # K1-K5, R1-R2 grep-enforceable rules
+make lint-drift      # Config/code/docs drift detection
+make lint-security   # 0 OPEN CRIT/HIGH in findings tracker
 ```
 
----
-
-## Numbers
-
-```
-~5000 LOC Rust  ·  80+ tests  ·  134 commits  ·  7 days
-6 axioms  ·  4 Dogs  ·  circuit breakers  ·  CCM crystallization
-REST + MCP  ·  multi-model inference  ·  hexagonal architecture
-```
+Rules: `.claude/rules/` (universal.md, kernel.md, workflow.md, reference.md)
 
 ---
 
 ## Status
 
-CYNIC is a working prototype (v0.1.0). The core judgment pipeline — Dogs, consensus, phi-bounding, CCM, REST API — works end-to-end.
+v0.7.4 — working kernel in production. v0.8 (Fondation Prouvée) in progress.
 
-**Working:** Multi-validator consensus, phi-bounded scoring, deterministic + LLM Dogs, circuit breakers, REST API with auth + rate limiting, SurrealDB persistence, CCM crystallization, React chess dashboard.
+**Working:** Multi-validator consensus, φ-bounded scoring, 5 Dogs (1 heuristic + 4 LLM), circuit breakers, crystal compound loop (Δ=+0.02-0.04 chess), REST API (26 routes) + MCP server (11 tools), multi-agent coordination, SurrealDB persistence with KNN crystal search, session compliance scoring, MAPE-K introspection, React chess dashboard.
 
-**In progress:** MCP server handlers, backend router fan-out, temporal integration, learning feedback loops.
-
----
-
-## Frontend
-
-Interactive chess judgment dashboard — React + TypeScript + Recharts.
-
-See [`cynic-ui/`](cynic-ui/) for the frontend. Evaluates chess positions in real-time against the kernel.
+**v0.8 gates:** Security closure, StoragePort agnosticism (InMemory contract tests), workflow alignment.
 
 ---
 
 <div align="center">
 
 *"The dog who speaks truth, loyal to verification, not comfort"*
-
-© 2026 — All rights reserved. Source available for review purposes.
 
 </div>
