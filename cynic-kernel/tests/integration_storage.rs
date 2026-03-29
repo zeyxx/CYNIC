@@ -14,6 +14,7 @@ use cynic_kernel::domain::usage::DogUsageTracker;
 fn test_verdict(id: &str) -> Verdict {
     Verdict {
         id: id.to_string(),
+        domain: "test".to_string(),
         kind: VerdictKind::Howl,
         stimulus_summary: "Test stimulus".to_string(),
         dog_id: "test-dog".to_string(),

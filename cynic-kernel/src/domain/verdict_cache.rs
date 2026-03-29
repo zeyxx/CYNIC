@@ -165,6 +165,7 @@ mod tests {
     fn make_verdict(id: &str) -> Verdict {
         Verdict {
             id: id.to_string(),
+            domain: "test".to_string(),
             kind: VerdictKind::Wag,
             q_score: QScore {
                 total: 0.5,

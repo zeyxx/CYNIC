@@ -23,6 +23,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
     format!(
         "CREATE verdict SET \
             verdict_id = '{}', \
+            domain = '{}', \
             kind = '{:?}', \
             total = {}, \
             fidelity = {}, \
@@ -48,6 +49,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
             dog_scores_json = '{}', \
             created_at = time::now()",
         escape(&v.id),
+        escape(&v.domain),
         v.kind,
         v.q_score.total,
         v.q_score.fidelity,
@@ -85,6 +87,7 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
 
     Verdict {
         id: row["verdict_id"].as_str().unwrap_or("").to_string(),
+        domain: row["domain"].as_str().unwrap_or("general").to_string(),
         kind,
         q_score: QScore {
             total: row["total"].as_f64().unwrap_or(0.0),
@@ -1310,6 +1313,7 @@ mod tests {
     fn test_verdict() -> Verdict {
         Verdict {
             id: "test-001".into(),
+            domain: "test".into(),
             kind: VerdictKind::Wag,
             q_score: QScore {
                 total: 0.5,

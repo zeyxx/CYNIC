@@ -218,6 +218,7 @@ fn default_true() -> bool {
 #[derive(Debug, Serialize)]
 pub struct JudgeResponse {
     pub verdict_id: String,
+    pub domain: String,
     pub verdict: String,
     pub q_score: QScoreResponse,
     pub reasoning: ReasoningResponse,

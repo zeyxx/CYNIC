@@ -112,6 +112,7 @@ pub enum VerdictKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Verdict {
     pub id: String,
+    pub domain: String,
     pub kind: VerdictKind,
     pub q_score: QScore,
     pub reasoning: AxiomReasoning,

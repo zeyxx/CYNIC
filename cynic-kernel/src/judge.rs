@@ -424,8 +424,10 @@ impl Judge {
         };
 
         let voter_count = dog_scores.len();
+        let domain = stimulus.domain.as_deref().unwrap_or("general").to_string();
         Ok(Verdict {
             id,
+            domain,
             kind,
             q_score,
             reasoning: aggregated.reasoning,

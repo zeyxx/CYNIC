@@ -6,6 +6,7 @@ use crate::domain::dog::{PHI_INV, Verdict};
 pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
     JudgeResponse {
         verdict_id: v.id.clone(),
+        domain: v.domain.clone(),
         verdict: format!("{:?}", v.kind),
         q_score: QScoreResponse {
             total: v.q_score.total,
@@ -76,6 +77,7 @@ mod tests {
     fn verdict_to_response_maps_all_fields() {
         let verdict = Verdict {
             id: "test-id".into(),
+            domain: "chess".into(),
             kind: VerdictKind::Howl,
             q_score: QScore {
                 total: 0.55,
