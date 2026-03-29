@@ -18,7 +18,7 @@ globs: ["**"]
 ## Design Principles (judgment guidance — no mechanical gate)
 
 6. **Diagnose before fixing.** Read errors, trace data, one hypothesis, test minimally. 2 fix attempts max — obvious → alternative → escalate. Never brute-force.
-7. **Measure before AND after.** Every "improved X" claim needs before/after numbers.
+7. **Measure before AND after.** Every "improved X" claim needs before/after numbers. Part of the Scientific Protocol (workflow.md).
 8. **Port contracts first.** New dependency → trait → adapter → test.
 9. **Bounded everything.** Channels, retries, confidence. Unbounded = debt.
 10. **Wire or delete.** Every public symbol must have a caller AND a test. Zero-caller = delete.
@@ -26,7 +26,7 @@ globs: ["**"]
 12. **One value, one source.** `backends.toml` = Dogs. `~/.cynic-env` = secrets. Never duplicate config.
 13. **Name things for what they ARE.** Code names match code behavior, not aspirations.
 14. **Strong > no > weak foundation.** Prove E2E with real data before building on a subsystem.
-15. **Falsify before adopting.** Architectural decisions require: hypothesis, falsification test, evidence from production systems.
+15. **Falsify before adopting.** Architectural decisions require: hypothesis, falsification test, evidence from production systems. Apply the Scientific Protocol (workflow.md) — state what would make you reject the approach before starting.
 16. **Gate at the lowest common caller.** Security gates live at the function ALL paths call, not at one convenient caller.
 17. **Bugs before abstractions.** Data-corrupting SQL bug outranks a compile-time newtype. Fix what breaks data first.
 18. **Deploy from main only.** Feature branches never touch production binaries.
