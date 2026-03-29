@@ -1,8 +1,9 @@
+<!-- lifecycle: historical -->
 # CYNIC Deep Audit — Crystallized Truths
 
 *2026-03-26. Consolidation of: Industrial Audit (67 findings), Stress Test (23 findings), Chain Analysis (5 chains), Emergent Patterns (6 patterns), 3 Deep Root Causes.*
 
-**This document supersedes fragmented findings across multiple session docs.**
+**HISTORICAL** — Root cause analysis and attack chains from 2026-03-25/26. Finding statuses are frozen at time of writing (30 fixed, 51 open). For current status, see `CYNIC-FINDINGS-TRACKER.md` (single source of truth).
 
 ---
 

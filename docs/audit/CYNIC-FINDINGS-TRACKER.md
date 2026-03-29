@@ -41,6 +41,7 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 | RC7-2 | Audit | Multi-hop correlation impossible | OPEN — request_id not in PipelineDeps |
 | RC8-1 | Audit | Real Tailscale IPs in tracked repo | **FIXED** |
 | RC8-5 | Audit | CORS allow_methods(Any) too broad | **FIXED** — explicit methods |
+| CH2 | Chain | Observation → session summary → prompt injection via unsanitized obs.target in summarizer prompt | OPEN — tool allowlist, target length limit, LLM output sanitization missing. Existing gates: context 200-char cap, session summary 400-char budget. See deep audit Chain 2. |
 
 ## MEDIUM (22 open, 12 fixed)
 

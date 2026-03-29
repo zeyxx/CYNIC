@@ -62,8 +62,9 @@ Architecture hexagonale. SurrealDB. Graceful degradation.
 **Thème :** La fondation est mécaniquement vérifiée. Sécurité assurée. StoragePort
 prouvé agnostique. Workflow aligné. Les organes ont des contrats testés.
 
-**Réalité actuelle (2026-03-27) :** 299 tests. 43/90 findings fixed. 30 méthodes StoragePort,
-1 seul adapter (SurrealDB). Cargo.toml = 0.7.3, tags = v0.7.3, travail labellé v0.8.
+**Réalité actuelle (2026-03-29) :** 309 tests. 43/90 findings fixed. 30 méthodes StoragePort,
+1 seul adapter (SurrealDB). Cargo.toml = 0.7.4, tags = v0.7.4, travail labellé v0.8.
+`make lint-security` gate: F14 + RC7-2 + CH2 OPEN. `make lint-rules` + `lint-drift` green.
 
 | Gate | Vérification | État |
 |------|-------------|------|
