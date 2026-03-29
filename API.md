@@ -44,7 +44,7 @@ System health. **HTTP 200 = sovereign, HTTP 503 = degraded/critical.** Monitorin
 
 **With valid Bearer token (extended):**
 
-Additional fields: `axioms`, `dogs` (array of `{id, kind, circuit, failures}`), `storage`, `storage_namespace`, `storage_database`, `storage_metrics`, `embedding`, `verdict_cache_size`, `background_tasks`, `total_requests`, `total_tokens`, `estimated_cost_usd`, `uptime_seconds`, `alerts`.
+Additional fields: `axioms`, `dogs` (array of `{id, kind, circuit, failures}`), `storage`, `storage_namespace`, `storage_database`, `storage_metrics`, `embedding`, `crystals` (object: `{total, forming, crystallized, canonical, decaying, loop_active}`), `verdict_cache_size`, `background_tasks`, `total_requests`, `total_tokens`, `estimated_cost_usd`, `uptime_seconds`, `alerts`.
 
 | Status | Condition | HTTP |
 |--------|-----------|------|

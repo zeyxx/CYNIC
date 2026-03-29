@@ -114,6 +114,38 @@ pub async fn health_handler(
 
     let usage = state.usage.lock().await;
 
+    // Proprioception: crystal state summary (best-effort, non-blocking)
+    let crystal_summary = match tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        state.storage.list_crystals(200),
+    )
+    .await
+    {
+        Ok(Ok(crystals)) => {
+            use crate::domain::ccm::CrystalState;
+            let (mut forming, mut crystallized, mut canonical, mut decaying) =
+                (0u32, 0u32, 0u32, 0u32);
+            for c in &crystals {
+                match c.state {
+                    CrystalState::Forming => forming += 1,
+                    CrystalState::Crystallized => crystallized += 1,
+                    CrystalState::Canonical => canonical += 1,
+                    CrystalState::Decaying => decaying += 1,
+                    CrystalState::Dissolved => {}
+                }
+            }
+            serde_json::json!({
+                "total": crystals.len(),
+                "forming": forming,
+                "crystallized": crystallized,
+                "canonical": canonical,
+                "decaying": decaying,
+                "loop_active": crystallized + canonical > 0,
+            })
+        }
+        _ => serde_json::json!({ "error": "unavailable" }),
+    };
+
     (
         http_code,
         Json(serde_json::json!({
@@ -127,6 +159,7 @@ pub async fn health_handler(
             "storage_database": state.storage_info.database,
             "storage_metrics": state.storage_metrics(),
             "embedding": if tokio::time::timeout(std::time::Duration::from_secs(2), state.embedding.embed("h")).await.map(|r| r.is_ok()).unwrap_or(false) { "sovereign" } else { "unavailable" },
+            "crystals": crystal_summary,
             "verdict_cache_size": state.verdict_cache.len(),
             "background_tasks": state.task_health.snapshot(),
             "total_requests": usage.all_time_requests(),
