@@ -51,6 +51,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     klog!("╚══════════════════════════════════════╝");
     let node_config = probe::run(force_reprobe).await?;
 
+    let system_metrics: Arc<dyn cynic_kernel::domain::system_metrics::SystemMetricsPort> =
+        Arc::new(cynic_kernel::infra::system_metrics::SysinfoMetrics::new());
+
     klog!("[Ring 0] Omniscience Active. Reality Mapped.");
     klog!(
         "[Ring 0] Host: {} | Compute: {:?} | VRAM: {}GB",
@@ -473,6 +476,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     infra::tasks::spawn_introspection(
         Arc::clone(&storage_port),
         Arc::clone(&metrics),
+        Arc::clone(&system_metrics),
+        Arc::clone(&judge),
+        Arc::clone(&embedding),
+        Arc::clone(&usage_tracker),
+        Arc::clone(&verdict_cache),
         Arc::clone(&rest_state.introspection_alerts),
         event_tx.clone(),
         Arc::clone(&task_health),

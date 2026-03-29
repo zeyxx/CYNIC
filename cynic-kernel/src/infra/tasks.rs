@@ -10,13 +10,17 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::domain::coord::CoordPort;
+use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::health_gate::HealthGate;
 use crate::domain::metrics::Metrics;
 use crate::domain::storage::StoragePort;
+use crate::domain::system_metrics::SystemMetricsPort;
 use crate::domain::usage::DogUsageTracker;
+use crate::domain::verdict_cache::VerdictCache;
 use crate::infra::config::BackendRemediation;
 use crate::infra::task_health::TaskHealth;
+use crate::judge::Judge;
 
 // ── Shutdown flush — used by both REST and MCP exit paths ────
 
@@ -295,9 +299,15 @@ pub fn spawn_backfill(
 
 // ── Introspection loop (MAPE-K Analyze, every 5 min) ────────
 
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_introspection(
     storage: Arc<dyn StoragePort>,
     metrics: Arc<Metrics>,
+    system_metrics: Arc<dyn SystemMetricsPort>,
+    judge: Arc<Judge>,
+    embedding: Arc<dyn EmbeddingPort>,
+    usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
+    verdict_cache: Arc<VerdictCache>,
     introspection_alerts: Arc<std::sync::RwLock<Vec<crate::introspection::Alert>>>,
     event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     task_health: Arc<TaskHealth>,
@@ -319,8 +329,17 @@ pub fn spawn_introspection(
                 }
                 _ = interval.tick() => {
                     match tokio::time::timeout(
-                        std::time::Duration::from_secs(30),
-                        crate::introspection::analyze(storage.as_ref(), &metrics),
+                        std::time::Duration::from_secs(180),
+                        crate::introspection::analyze(
+                            storage.as_ref(),
+                            &metrics,
+                            system_metrics.as_ref(),
+                            &judge,
+                            embedding.as_ref(),
+                            &usage,
+                            &verdict_cache,
+                            Some(&event_tx),
+                        ),
                     ).await {
                         Ok(alerts) => {
                             for alert in &alerts {
@@ -336,7 +355,7 @@ pub fn spawn_introspection(
                             }
                             task_health.touch_introspection();
                         }
-                        Err(_) => tracing::warn!("introspection analyze timed out (30s)"),
+                        Err(_) => tracing::warn!("introspection analyze timed out (180s)"),
                     }
                 }
             }
