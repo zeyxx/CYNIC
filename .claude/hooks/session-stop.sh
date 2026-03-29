@@ -44,7 +44,9 @@ if [[ -n "$COMPLIANCE" ]] && echo "$COMPLIANCE" | jq -e '.score' > /dev/null 2>&
     RBE=$(echo "$COMPLIANCE" | jq -r '.read_before_edit' 2>/dev/null)
     FM=$(echo "$COMPLIANCE" | jq -r '.files_modified' 2>/dev/null)
     echo ""
-    printf "Session compliance: %.3f/0.618  (read-before-edit: %.0f%%, files: %s)\n" "$SCORE" "$(echo "$RBE * 100" | bc -l 2>/dev/null || echo 0)" "$FM"
+    # Force C locale for printf — French locale uses commas for decimals
+    RBE_PCT=$(LC_ALL=C awk "BEGIN {printf \"%.0f\", $RBE * 100}" 2>/dev/null || echo "?")
+    LC_ALL=C printf "Session compliance: %.3f/0.618  (read-before-edit: %s%%, files: %s)\n" "$SCORE" "$RBE_PCT" "$FM"
     if [[ -n "$WARNINGS" ]]; then
         while IFS= read -r W; do
             echo "  ⚠ $W"
