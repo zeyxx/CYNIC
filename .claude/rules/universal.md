@@ -33,3 +33,4 @@ globs: ["**"]
 19. **Scripts are thin.** Bash = `curl + status code`. Logic lives in the kernel.
 20. **Every feature must DO what it CLAIMS.** No relabeling — if it says "enforced," there must be a gate.
 21. **Verify gates catch violations.** Every new gate (lint target, hook, check) must be tested against a known violation before trusting. A gate that has never failed is not a gate. — `make lint-rules`, `make lint-security`
+22. **USE before architecture.** Trust comes from measured results on real data, not from infrastructure. Test on a second domain before adding plumbing. 20 days of infra without a user experiment = yak shaving.
