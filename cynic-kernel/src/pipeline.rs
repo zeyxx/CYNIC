@@ -436,13 +436,20 @@ async fn observe_crystal_for_verdict(
             }); // ok: no subscribers = silent no-op (receiver_count=0 returns Err)
         }
     }
-    if let Some(emb) = stimulus_embedding
-        && let Err(e) = deps
-            .storage
-            .store_crystal_embedding(&crystal_id, &emb.vector)
-            .await
-    {
-        tracing::warn!(phase = "crystal_embed", crystal_id = %crystal_id, error = %e, "failed to store crystal embedding");
+    // Anti-contamination: cynic-internal crystals are excluded from KNN index
+    // to prevent self-referential noise. Crystal persists (state machine works)
+    // but is invisible to semantic search. See introspection.rs module doc.
+    if domain != "cynic-internal" {
+        if let Some(emb) = stimulus_embedding
+            && let Err(e) = deps
+                .storage
+                .store_crystal_embedding(&crystal_id, &emb.vector)
+                .await
+        {
+            tracing::warn!(phase = "crystal_embed", crystal_id = %crystal_id, error = %e, "failed to store crystal embedding");
+        }
+    } else {
+        tracing::info!(phase = "crystal_embed", crystal_id = %crystal_id, "cynic-internal domain — KNN embedding skipped (anti-contamination)");
     }
 }
 
