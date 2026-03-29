@@ -30,6 +30,8 @@ Three tiers protect this codebase — each rule declares which tier enforces it:
 ## References
 
 - **Rules:** `.claude/rules/universal.md` (20 rules), `kernel.md` (10 rules), `workflow.md` (triggers), `reference.md` (data)
-- **Architecture:** `docs/architecture/CYNIC-CRYSTALLIZED-TRUTH.md`, `docs/architecture/CYNIC-ARCHITECTURE-TRUTHS.md`
-- **API contract:** `API.md` | **Frontend:** `FRONTEND.md`
+- **Identity:** `docs/identity/` (epistemology, φ-convergence, sovereignty — pérenne)
+- **Reference:** `docs/reference/` (V08 truths, CCM protocol, infra spec — must match code)
+- **Audit:** `docs/audit/CYNIC-FINDINGS-TRACKER.md` (SoT for security debt)
+- **API contract:** `API.md`
 - **Env:** `${CYNIC_REST_ADDR}`, `${CYNIC_API_KEY}` from `~/.cynic-env`. Never hardcode.
