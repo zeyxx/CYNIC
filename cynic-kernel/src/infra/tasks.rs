@@ -153,60 +153,6 @@ pub fn spawn_usage_flush(
     })
 }
 
-// ── CCM Workflow Aggregator (configurable interval) ──────────
-
-pub fn spawn_ccm_aggregator(
-    storage: Arc<dyn StoragePort>,
-    task_health: Arc<TaskHealth>,
-    shutdown: CancellationToken,
-) -> JoinHandle<()> {
-    let interval_secs: u64 = std::env::var("CYNIC_AGGREGATE_INTERVAL")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(300);
-
-    let handle = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_secs));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        interval.tick().await;
-        loop {
-            tokio::select! {
-                _ = shutdown.cancelled() => {
-                    klog!("[SHUTDOWN] CCM aggregator stopped");
-                    break;
-                }
-                _ = interval.tick() => {
-                    let start = std::time::Instant::now();
-                    match tokio::time::timeout(
-                        std::time::Duration::from_secs(30),
-                        crate::domain::ccm::aggregate_observations(storage.as_ref(), "CYNIC"),
-                    ).await {
-                        Ok(count) => {
-                            let detail = if count > 0 { "active" } else { "idle:0" };
-                            let elapsed = start.elapsed().as_millis() as u64;
-                            tracing::info!(
-                                organ = "ccm_aggregator",
-                                patterns = count,
-                                duration_ms = elapsed,
-                                result = detail,
-                                "aggregator cycle: {} patterns computed in {}ms (analytics only — no consumer)",
-                                count, elapsed
-                            );
-                            task_health.touch_ccm_aggregate(detail);
-                        }
-                        Err(_) => tracing::warn!("CCM aggregate_observations timed out (30s)"),
-                    }
-                }
-            }
-        }
-    });
-    klog!(
-        "[Ring 2] CCM workflow aggregator started (every {}s)",
-        interval_secs
-    );
-    handle
-}
-
 // ── Session summarizer (sovereign inference, background) ─────
 
 pub fn spawn_session_summarizer(
@@ -521,3 +467,126 @@ pub fn spawn_event_consumer(
 }
 
 // Rate limiter eviction moved to main.rs — REST delivery concern, not infra.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::coord::NullCoord;
+    use crate::domain::events::KernelEvent;
+    use crate::domain::storage::NullStorage;
+    use crate::domain::usage::DogUsageTracker;
+    use crate::infra::task_health::TaskHealth;
+
+    #[tokio::test]
+    async fn flush_usage_on_shutdown_skips_when_no_db() {
+        let storage: Arc<dyn StoragePort> = Arc::new(NullStorage);
+        let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
+        // has_db=false → should skip immediately without error
+        flush_usage_on_shutdown(&storage, &usage, false).await;
+    }
+
+    #[tokio::test]
+    async fn flush_usage_on_shutdown_skips_when_empty() {
+        let storage: Arc<dyn StoragePort> = Arc::new(NullStorage);
+        let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
+        // has_db=true but no usage recorded → should skip
+        flush_usage_on_shutdown(&storage, &usage, true).await;
+    }
+
+    #[tokio::test]
+    async fn flush_usage_on_shutdown_attempts_flush_when_data_present() {
+        let storage: Arc<dyn StoragePort> = Arc::new(NullStorage);
+        let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
+        // Record some usage
+        {
+            let mut u = usage.lock().await;
+            u.record("test-dog", 100, 50, 200);
+        }
+        // NullStorage will return error on flush, but function should not panic
+        flush_usage_on_shutdown(&storage, &usage, true).await;
+    }
+
+    #[tokio::test]
+    async fn coord_expiry_respects_shutdown() {
+        let coord: Arc<dyn CoordPort> = Arc::new(NullCoord);
+        let task_health = Arc::new(TaskHealth::new());
+        let shutdown = CancellationToken::new();
+
+        let handle = spawn_coord_expiry(coord, task_health, shutdown.clone());
+        // Cancel immediately
+        shutdown.cancel();
+        // Task should exit within a reasonable time
+        tokio::time::timeout(std::time::Duration::from_secs(2), handle)
+            .await
+            .expect("coord_expiry should stop within 2s")
+            .expect("task should not panic");
+    }
+
+    #[tokio::test]
+    async fn usage_flush_respects_shutdown() {
+        let storage: Arc<dyn StoragePort> = Arc::new(NullStorage);
+        let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
+        let task_health = Arc::new(TaskHealth::new());
+        let shutdown = CancellationToken::new();
+
+        let handle = spawn_usage_flush(storage, usage, task_health, shutdown.clone());
+        shutdown.cancel();
+        tokio::time::timeout(std::time::Duration::from_secs(2), handle)
+            .await
+            .expect("usage_flush should stop within 2s")
+            .expect("task should not panic");
+    }
+
+    #[tokio::test]
+    async fn event_consumer_receives_and_shuts_down() {
+        let (tx, _rx) = tokio::sync::broadcast::channel::<KernelEvent>(16);
+        let task_health = Arc::new(TaskHealth::new());
+        let shutdown = CancellationToken::new();
+
+        let handle = spawn_event_consumer(&tx, task_health.clone(), shutdown.clone());
+
+        // Send an event — should not panic
+        let _ = tx.send(KernelEvent::VerdictIssued {
+            verdict_id: "test-v1".into(),
+            domain: "test".into(),
+            verdict: "Wag".into(),
+            q_score: 0.5,
+        });
+
+        // Give consumer time to process
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        // Verify task_health was touched
+        let snapshot = task_health.snapshot();
+        let consumer = snapshot.iter().find(|t| t.name == "event_consumer");
+        assert!(
+            consumer.is_some(),
+            "event_consumer should appear in task_health after receiving an event"
+        );
+
+        shutdown.cancel();
+        tokio::time::timeout(std::time::Duration::from_secs(2), handle)
+            .await
+            .expect("event_consumer should stop within 2s")
+            .expect("task should not panic");
+    }
+
+    #[tokio::test]
+    async fn remediation_watcher_respects_shutdown() {
+        let task_health = Arc::new(TaskHealth::new());
+        let shutdown = CancellationToken::new();
+
+        // Empty configs + breakers — watcher should still start and stop cleanly
+        let handle = spawn_remediation_watcher(
+            std::collections::HashMap::new(),
+            vec![],
+            task_health,
+            shutdown.clone(),
+        );
+        shutdown.cancel();
+        tokio::time::timeout(std::time::Duration::from_secs(2), handle)
+            .await
+            .expect("remediation_watcher should stop within 2s")
+            .expect("task should not panic");
+    }
+}

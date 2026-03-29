@@ -15,7 +15,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub struct TaskHealth {
     coord_expiry: AtomicU64,
     usage_flush: AtomicU64,
-    ccm_aggregate: AtomicU64,
     summarizer: AtomicU64,
     rate_eviction: AtomicU64,
     health_loop: AtomicU64,
@@ -25,7 +24,6 @@ pub struct TaskHealth {
     event_consumer: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
-    ccm_aggregate_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
 }
 
@@ -40,7 +38,6 @@ impl TaskHealth {
         Self {
             coord_expiry: AtomicU64::new(0),
             usage_flush: AtomicU64::new(0),
-            ccm_aggregate: AtomicU64::new(0),
             summarizer: AtomicU64::new(0),
             rate_eviction: AtomicU64::new(0),
             health_loop: AtomicU64::new(0),
@@ -49,7 +46,6 @@ impl TaskHealth {
             backfill: AtomicU64::new(0),
             event_consumer: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
-            ccm_aggregate_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
     }
@@ -94,15 +90,6 @@ impl TaskHealth {
         }
     }
 
-    /// CCM aggregate: HONEST touch with detail.
-    pub fn touch_ccm_aggregate(&self, detail: &'static str) {
-        self.ccm_aggregate
-            .store(Self::now_secs(), Ordering::Relaxed);
-        if let Ok(mut d) = self.ccm_aggregate_detail.write() {
-            *d = detail;
-        }
-    }
-
     /// Backfill: track the one-shot task.
     pub fn touch_backfill(&self, detail: &'static str) {
         self.backfill.store(Self::now_secs(), Ordering::Relaxed);
@@ -116,11 +103,6 @@ impl TaskHealth {
         let now = Self::now_secs();
         let sum_detail = self
             .summarizer_detail
-            .read()
-            .map(|d| *d)
-            .unwrap_or("unknown");
-        let ccm_detail = self
-            .ccm_aggregate_detail
             .read()
             .map(|d| *d)
             .unwrap_or("unknown");
@@ -139,13 +121,6 @@ impl TaskHealth {
                 now,
                 120,
                 None,
-            ),
-            TaskSnapshot::new(
-                "ccm_aggregate",
-                self.ccm_aggregate.load(Ordering::Relaxed),
-                now,
-                600,
-                Some(ccm_detail),
             ),
             TaskSnapshot::new(
                 "summarizer",
@@ -269,18 +244,6 @@ mod tests {
             .expect("summarizer");
         assert_eq!(sum.status, "ok"); // task is alive
         assert_eq!(sum.detail, Some("llm_unavailable")); // but honest about what happened
-    }
-
-    #[test]
-    fn ccm_aggregate_detail_tracks_idle() {
-        let th = TaskHealth::new();
-        th.touch_ccm_aggregate("idle:0");
-        let snap = th.snapshot();
-        let ccm = snap
-            .iter()
-            .find(|s| s.name == "ccm_aggregate")
-            .expect("ccm");
-        assert_eq!(ccm.detail, Some("idle:0"));
     }
 
     #[test]
