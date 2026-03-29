@@ -6,7 +6,7 @@ source_of_truth: cynic-kernel/src/api/rest/
 base_url: http://<TAILSCALE_CORE>:3030
 cors: localhost:5173, localhost:5000, localhost:3000 (override with CYNIC_CORS_ORIGINS env)
 transport: HTTP/JSON
-auth: Bearer token on all endpoints except /health, /metrics, /events
+auth: Bearer token on all endpoints except /health, /live, /ready, /metrics, /events
 rate_limit: 30 req/min global, 10 req/min on /judge. /health exempt.
 -->
 
@@ -21,7 +21,7 @@ http://localhost:3030             # local development
 
 ## Authentication
 
-All endpoints except `/health`, `/metrics`, and `/events` require:
+All endpoints except `/health`, `/live`, `/ready`, `/metrics`, and `/events` require:
 ```
 Authorization: Bearer $CYNIC_API_KEY
 ```
@@ -52,13 +52,21 @@ Additional fields: `axioms`, `dogs` (array of `{id, kind, circuit, failures}`), 
 | `degraded` | 1 Dog healthy | 503 |
 | `critical` | 0 Dogs healthy | 503 |
 
+### GET /live
+
+Kubernetes/systemd liveness probe. Returns bare **200 OK** (no JSON body). No auth.
+
+### GET /ready
+
+Readiness probe. Returns **200 OK** if kernel can serve (≥1 healthy Dog + storage reachable), **503** otherwise. No JSON body. Caches DB ping for 30s to avoid hammering storage. No auth.
+
 ### GET /metrics
 
 Prometheus-format metrics. No auth.
 
 ### GET /events
 
-SSE event stream. No auth. Events: `verdict`, `crystal`, `dog_failed`, `session`, `backfill`, `anomaly`. Keepalive every 15s.
+SSE event stream. No auth. Events: `verdict`, `crystal`, `dog_failed`, `session`, `backfill`, `anomaly`. Keepalive every 15s. Limited to 32 concurrent connections — returns **503** (plain text) when full.
 
 ---
 
@@ -83,12 +91,14 @@ Submit content for epistemic evaluation by independent AI validators (Dogs).
 | Field | Type | Description |
 |-------|------|-------------|
 | `verdict_id` | string (UUID) | Unique evaluation ID |
+| `domain` | string | Evaluation domain (`"chess"`, `"trading"`, `"general"`, etc.) |
 | `verdict` | `"Howl"` \| `"Wag"` \| `"Growl"` \| `"Bark"` | Overall verdict |
 | `q_score` | QScore | Per-axiom scores + geometric mean total |
 | `reasoning` | Reasoning | Per-axiom explanations |
 | `dogs_used` | string | Contributing validators (`+`-separated) |
 | `phi_max` | number | 0.618033988749895 |
 | `dog_scores` | DogScore[] | Per-validator breakdown |
+| `voter_count` | number | Number of Dogs that contributed (distinguishes single-Dog from consensus) |
 | `anomaly_detected` | bool | True when Dogs significantly disagree |
 | `max_disagreement` | number | Largest score gap between Dogs on any axiom |
 | `anomaly_axiom` | string \| null | Axiom with largest disagreement |
@@ -113,7 +123,7 @@ Submit content for epistemic evaluation by independent AI validators (Dogs).
 
 ### GET /verdicts
 
-List recent verdicts. Query param: `limit` (default 20, max 100). Returns array of verdict objects.
+List recent verdicts. Returns the 20 most recent verdict objects (limit hardcoded).
 
 ### GET /verdict/{id}
 
@@ -168,6 +178,7 @@ Observe a score for an existing crystal (or create via UPSERT).
 | `score` | number (0.0–1.0) | no | Default 0.5. Normalized by φ⁻¹ before storage |
 
 **Response (200):** `{ "status": "observed" }`
+**Response (422):** Quorum check failed (invalid score/content).
 
 ### DELETE /crystal/{id}
 
@@ -217,7 +228,12 @@ Token consumption and cost tracking.
   "per_dog": [
     { "dog_id": "gemini-flash", "prompt_tokens": 5000, "completion_tokens": 2000,
       "total_tokens": 7000, "requests": 30, "failures": 1, "avg_latency_ms": 2100 }
-  ]
+  ],
+  "retired": {
+    "count": 2,
+    "total_tokens": 1234,
+    "total_requests": 56
+  }
 }
 ```
 
@@ -281,11 +297,36 @@ Release claims. If `target` omitted, releases all claims for the agent.
 
 ---
 
+## Compliance
+
+### GET /session/{agent_id}/compliance
+
+Workflow compliance score for a specific agent session. Analyzes tool-use observations to detect rule violations (e.g., Edit without prior Read, bash retry loops).
+
+**Response (200):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `session_id` | string | Session identifier |
+| `agent_id` | string | Agent identifier |
+| `score` | number | Composite score 0.0–0.618 (φ-bounded) |
+| `warnings` | string[] | Human-readable rule violation descriptions |
+| `read_before_edit` | number | Ratio of Edits preceded by a Read of the same file |
+| `bash_retry_violations` | number | Count of consecutive similar Bash failures (>2 = Rule 6 violation) |
+| `files_modified` | number | Count of unique files modified (Edit/Write) |
+| `created_at` | string | RFC3339 timestamp |
+
+### GET /compliance
+
+Compliance trend across recent sessions. Query param: `limit` (default 20, max 100). Returns array of `SessionCompliance` objects.
+
+---
+
 ## System Info
 
 ### GET /dogs
 
-Returns `string[]` — list of active Dog IDs (e.g. `["deterministic-dog", "gemini-flash", "sovereign-gpu", "llama-8b-hf", "qwen3-4b-ubuntu"]`).
+Returns `string[]` — list of active Dog IDs (e.g. `["deterministic-dog", "gemini-flash", "qwen-7b-hf", "qwen35-9b-gpu", "gemma-4b-ubuntu"]`).
 
 ### GET /agents
 
@@ -312,9 +353,9 @@ Active agent sessions and claims. Returns `{ active_agents, active_claims, agent
 |--------|------|-------|
 | `deterministic-dog` | Heuristic (instant) | In-kernel |
 | `gemini-flash` | Gemini 2.5 Flash | Google API |
-| `llama-8b-hf` | Mistral 7B | HuggingFace Inference |
-| `sovereign-gpu` | Gemma 3 12B | Sovereign GPU node (RTX 4060 Ti) |
-| `qwen3-4b-ubuntu` | Qwen 3.5 4B | Ubuntu CPU |
+| `qwen-7b-hf` | Qwen 2.5 7B | HuggingFace Inference |
+| `qwen35-9b-gpu` | Qwen 3.5 9B Q4 | Sovereign GPU (RTX 4060 Ti, 55 tok/s) |
+| `gemma-4b-ubuntu` | Gemma 3 4B Q4 | Ubuntu CPU (13 tok/s) |
 
 ### Phi-Bounding
 
@@ -332,6 +373,7 @@ All errors return: `{ "error": "description" }`
 | 401 | Missing or invalid Bearer token |
 | 404 | Resource not found |
 | 409 | Conflict (coord claim) |
+| 422 | Unprocessable entity (crystal observe quorum failure) |
 | 429 | Rate limit exceeded |
 | 500 | Internal error (storage unavailable, etc.) |
 | 503 | Degraded/critical health |
@@ -386,18 +428,31 @@ type VerdictKind = 'Howl' | 'Wag' | 'Growl' | 'Bark';
 
 interface Verdict {
   verdict_id: string;
+  domain: string;
   verdict: VerdictKind;
   q_score: QScore;
   reasoning: Reasoning;
   dogs_used: string;
   phi_max: number;
   dog_scores: DogScore[];
+  voter_count: number;
   anomaly_detected: boolean;
   max_disagreement: number;
   anomaly_axiom: string | null;
   integrity_hash?: string;
   prev_hash?: string;
   cache_hit?: number;
+}
+
+interface SessionCompliance {
+  session_id: string;
+  agent_id: string;
+  score: number;
+  warnings: string[];
+  read_before_edit: number;
+  bash_retry_violations: number;
+  files_modified: number;
+  created_at: string;
 }
 
 interface HealthResponse {

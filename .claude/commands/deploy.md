@@ -6,8 +6,11 @@ Steps:
 3. `cargo test -p cynic-kernel --release`
 4. `cargo clippy -p cynic-kernel --release -- -D warnings`
 5. Backup DB before deploy: `surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 --username root --password "${SURREALDB_PASS}" ~/.surrealdb/backups/cynic_v2_pre_deploy_$(date +%Y%m%d_%H%M%S).surql`
-6. `systemctl --user stop cynic-kernel && cp target/release/cynic-kernel ~/bin/cynic-kernel && systemctl --user start cynic-kernel`
-7. Wait 4 seconds, then verify: `curl -s http://${CYNIC_REST_ADDR}/health | python3 -m json.tool`
-8. Show how many Dogs are active and storage status from the health response
+6. `systemctl --user stop cynic-kernel && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev 2>/dev/null; cp target/release/cynic-kernel ~/bin/cynic-kernel && systemctl --user start cynic-kernel`
+7. Verify health (K9: status codes are the contract):
+   - Retry up to 15 times (3s apart): `curl -sf -o /dev/null http://${CYNIC_REST_ADDR}/ready`
+   - If `/ready` returns 200 within retries, deploy succeeded
+   - If all retries fail (non-200), rollback: `cp ~/bin/cynic-kernel.prev ~/bin/cynic-kernel && systemctl --user restart cynic-kernel`
+8. Show Dog count: `curl -s -H "Authorization: Bearer ${CYNIC_API_KEY}" http://${CYNIC_REST_ADDR}/dogs | jq length`
 
 If any step fails, stop and diagnose. Do NOT skip tests or clippy.

@@ -143,6 +143,12 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			echo "FAIL Rule 33: '$$STORE' has no read path (searched '$$STEM' or '$$CORE')"; FAIL=1; \
 		fi; \
 	done; \
+	ROUTES=$$(grep -oP '\.route\("\K[^"]+' $(PROJECT_DIR)/cynic-kernel/src/api/rest/mod.rs); \
+	for ROUTE in $$ROUTES; do \
+		if ! grep -qF "$$ROUTE" $(PROJECT_DIR)/API.md 2>/dev/null; then \
+			echo "FAIL Drift: route '$$ROUTE' registered in code but missing from API.md"; FAIL=1; \
+		fi; \
+	done; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ No drift detected"; fi; \
 	exit $$FAIL
 

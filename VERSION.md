@@ -145,8 +145,7 @@ Le moat compound. Les organes commencent à se connecter via l'event bus.
 
 ## Références
 
-- Spec complète : `docs/superpowers/specs/2026-03-27-roadmap-v1-design.md`
-- Architecture : `docs/architecture/CYNIC-ARCHITECTURAL-TRUTHS-V08.md`
-- Convergence φ : `docs/architecture/CYNIC-PHI-CONVERGENCE.md`
+- Architecture : `docs/reference/CYNIC-ARCHITECTURAL-TRUTHS-V08.md`
+- Convergence φ : `docs/identity/CYNIC-PHI-CONVERGENCE.md`
 - Findings tracker : `docs/audit/CYNIC-FINDINGS-TRACKER.md`
-- KPIs : `docs/design/CRYSTAL-LOOP-KPIS.md`
+- KPIs : `docs/reference/CRYSTAL-LOOP-KPIS.md`
