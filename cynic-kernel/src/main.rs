@@ -261,21 +261,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Signal handler cancels it → tasks break at safe boundaries → drain → flush → exit.
     let shutdown = CancellationToken::new();
 
-    // Seed integrity hash chain from last stored verdict
-    match storage_port.last_integrity_hash().await {
-        Ok(Some(hash)) => {
-            judge.seed_chain(Some(hash.clone()));
-            klog!(
-                "[Ring 2] Integrity chain seeded: {}…",
-                &hash[..16.min(hash.len())]
-            );
+    // Seed integrity hash chain from last stored verdict + verify integrity
+    let chain_verified = match storage_port.list_verdicts(1).await {
+        Ok(verdicts) if !verdicts.is_empty() => {
+            let last = &verdicts[0];
+            let verified = judge::verify_verdict_integrity(last);
+            if let Some(ref hash) = last.integrity_hash {
+                judge.seed_chain(Some(hash.clone()));
+                if verified {
+                    klog!(
+                        "[Ring 2] Integrity chain seeded + VERIFIED: {}…",
+                        &hash[..16.min(hash.len())]
+                    );
+                    true
+                } else {
+                    tracing::error!(
+                        verdict_id = %last.id,
+                        hash = %hash,
+                        "INTEGRITY VIOLATION: last verdict hash does not match — chain may be corrupted"
+                    );
+                    klog!(
+                        "[Ring 2] ⚠ INTEGRITY VIOLATION on verdict {} — chain seeded but UNVERIFIED",
+                        &last.id[..8.min(last.id.len())]
+                    );
+                    false
+                }
+            } else {
+                klog!("[Ring 2] Integrity chain: last verdict has no hash (pre-chain era)");
+                true // pre-chain verdicts are not a violation
+            }
         }
-        Ok(None) => klog!("[Ring 2] Integrity chain: no previous hash (first boot or empty DB)"),
-        Err(e) => klog!(
-            "[Ring 2] Integrity chain: failed to load (non-fatal): {}",
-            e
-        ),
-    }
+        Ok(_) => {
+            klog!("[Ring 2] Integrity chain: no previous verdicts (first boot or empty DB)");
+            true // empty DB is not a violation
+        }
+        Err(e) => {
+            klog!(
+                "[Ring 2] Integrity chain: failed to load (non-fatal): {}",
+                e
+            );
+            true // DB unreachable at boot = degraded, not integrity violation
+        }
+    };
 
     // ─── RING 2: Spawn health loop + remediation watcher ──────
     let all_breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> =
@@ -416,6 +443,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sse_semaphore: Arc::new(tokio::sync::Semaphore::new(32)), // F23: bound SSE connections
         introspection_alerts: Arc::new(std::sync::RwLock::new(Vec::new())),
         event_tx: event_tx.clone(),
+        chain_verified: std::sync::atomic::AtomicBool::new(chain_verified),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
@@ -440,14 +468,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Usage flush task started (every 60s, TTL cleanup every 1h)");
     }
-
-    // DORMANT: CCM Workflow Aggregator — computes patterns but has no consumer (Rule 3).
-    // Reactivate when Phase 2 connects aggregated patterns to crystal pipeline.
-    // infra::tasks::spawn_ccm_aggregator(
-    //     Arc::clone(&storage_port),
-    //     Arc::clone(&task_health),
-    //     shutdown.clone(),
-    // );
 
     // ─── RING 2: Session summarizer (sovereign inference, background) ──
     if let Ok(summarizer) = backends::summarizer::SovereignSummarizer::from_env() {

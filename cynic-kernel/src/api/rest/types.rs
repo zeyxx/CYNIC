@@ -52,6 +52,9 @@ pub struct AppState {
     /// Capacity 256: events are small, subscribers should keep up.
     /// Lagging subscribers get BroadcastStreamRecvError::Lagged → skip.
     pub event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
+    /// Boot-time integrity verification: did the last stored verdict's BLAKE3 hash match?
+    /// Set once at boot, exposed in /health for proprioception.
+    pub chain_verified: AtomicBool,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
