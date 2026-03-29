@@ -70,6 +70,7 @@ pub async fn judge_handler(
         verdict_cache: &state.verdict_cache,
         metrics: &state.metrics,
         event_tx: Some(&state.event_tx),
+        request_id: Some(uuid::Uuid::new_v4().to_string()),
     };
     let result = crate::pipeline::run(
         content,

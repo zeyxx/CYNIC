@@ -62,28 +62,28 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 	@echo ""
 	@echo "▶ Checking grep-enforceable rules..."
 	@set +e; FAIL=0; \
-	R4=$$(grep -rn '#\[cfg(' cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]' | grep -v '#\[cfg_attr(test'); \
-	if [ -n "$$R4" ]; then echo "FAIL Rule #4: #[cfg] in domain/ (domain purity):"; echo "$$R4"; FAIL=1; fi; \
-	R7=$$(grep -rn '/home/\|/Users/' cynic-kernel/src/ scripts/ .claude/hooks/ --include='*.rs' --include='*.sh' --include='*.toml' | grep -v '//' | grep -v 'target/'); \
-	if [ -n "$$R7" ]; then echo "FAIL Rule #7: hardcoded absolute paths:"; echo "$$R7"; FAIL=1; fi; \
-	R8=$$(grep -n '\.ok()' cynic-kernel/src/pipeline.rs cynic-kernel/src/judge.rs cynic-kernel/src/infra/tasks.rs 2>/dev/null | grep -v '//' | grep -v 'parse()\.ok()' | grep -v 'env::var.*\.ok()' | grep -v 'inspect_err'); \
-	if [ -n "$$R8" ]; then \
+	K1=$$(grep -rn '#\[cfg(' cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]' | grep -v '#\[cfg_attr(test'); \
+	if [ -n "$$K1" ]; then echo "FAIL K1: #[cfg] in domain/ (domain purity):"; echo "$$K1"; FAIL=1; fi; \
+	R1=$$(grep -rn '/home/\|/Users/' cynic-kernel/src/ scripts/ .claude/hooks/ --include='*.rs' --include='*.sh' --include='*.toml' | grep -v '//' | grep -v 'target/'); \
+	if [ -n "$$R1" ]; then echo "FAIL R1: hardcoded absolute paths:"; echo "$$R1"; FAIL=1; fi; \
+	R2=$$(grep -n '\.ok()' cynic-kernel/src/pipeline.rs cynic-kernel/src/judge.rs cynic-kernel/src/infra/tasks.rs 2>/dev/null | grep -v '//' | grep -v 'parse()\.ok()' | grep -v 'env::var.*\.ok()' | grep -v 'inspect_err'); \
+	if [ -n "$$R2" ]; then \
 		while IFS= read -r okline; do \
 			FILE=$$(echo "$$okline" | cut -d: -f1); LINENUM=$$(echo "$$okline" | cut -d: -f2); \
 			NEARBY=$$(sed -n "$$((LINENUM>3?LINENUM-3:1)),$${LINENUM}p" "$$FILE" 2>/dev/null || true); \
 			if ! echo "$$NEARBY" | grep -q 'inspect_err\|tracing::\|eprintln!\|warn!\|env::var'; then \
-				echo "FAIL Rule #8: .ok() without adjacent logging: $$okline"; FAIL=1; \
+				echo "FAIL R2: .ok() without adjacent logging: $$okline"; FAIL=1; \
 			fi; \
-		done <<< "$$R8"; \
+		done <<< "$$R2"; \
 	fi; \
-	R17=$$(grep -rn 'reqwest' cynic-kernel/src/domain/ cynic-kernel/src/api/ cynic-kernel/src/main.rs --include='*.rs' | grep -v '//'); \
-	if [ -n "$$R17" ]; then echo "FAIL Rule #17: reqwest outside backends/storage:"; echo "$$R17"; FAIL=1; fi; \
-	R19=$$(grep -rn 'format_crystal_context' cynic-kernel/src/api/ --include='*.rs' | grep -v '//'); \
-	if [ -n "$$R19" ]; then echo "FAIL Rule #19: format_crystal_context in handler (should be in pipeline):"; echo "$$R19"; FAIL=1; fi; \
-	R22=$$(grep -rn 'trait \w*Port' cynic-kernel/src/domain/ --include='*.rs' | sed 's/.*trait //' | sed 's/<.*//' | sed 's/ .*//' | sort | uniq -d); \
-	if [ -n "$$R22" ]; then echo "FAIL Rule #22: duplicate trait names in domain/:"; echo "$$R22"; FAIL=1; fi; \
-	R32=$$(grep -rn 'serde_json::Value' cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]'); \
-	if [ -n "$$R32" ]; then echo "FAIL Rule #32: serde_json::Value in domain/:"; echo "$$R32"; FAIL=1; fi; \
+	K2=$$(grep -rn 'reqwest' cynic-kernel/src/domain/ cynic-kernel/src/api/ cynic-kernel/src/main.rs --include='*.rs' | grep -v '//'); \
+	if [ -n "$$K2" ]; then echo "FAIL K2: reqwest outside backends/storage:"; echo "$$K2"; FAIL=1; fi; \
+	K3=$$(grep -rn 'format_crystal_context' cynic-kernel/src/api/ --include='*.rs' | grep -v '//'); \
+	if [ -n "$$K3" ]; then echo "FAIL K3: format_crystal_context in handler (should be in pipeline):"; echo "$$K3"; FAIL=1; fi; \
+	K4=$$(grep -rn 'trait \w*Port' cynic-kernel/src/domain/ --include='*.rs' | sed 's/.*trait //' | sed 's/<.*//' | sed 's/ .*//' | sort | uniq -d); \
+	if [ -n "$$K4" ]; then echo "FAIL K4: duplicate trait names in domain/:"; echo "$$K4"; FAIL=1; fi; \
+	K5=$$(grep -rn 'serde_json::Value' cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]'); \
+	if [ -n "$$K5" ]; then echo "FAIL K5: serde_json::Value in domain/:"; echo "$$K5"; FAIL=1; fi; \
 	SECRETS=$$(git diff --staged 2>/dev/null | grep -iE 'api.key|token|password|secret|AIza|hf_' | grep -v '#' | grep -v '//'); \
 	if [ -n "$$SECRETS" ]; then echo "FAIL Security: possible secrets in staged changes:"; echo "$$SECRETS"; FAIL=1; fi; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ All grep-enforceable rules pass"; fi; \

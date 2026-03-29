@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use super::types::{AppState, ErrorResponse};
 use crate::domain::ccm::infer_domain;
+use crate::domain::sanitize::sanitize_observation_target;
 use crate::domain::storage::Observation;
 
 #[derive(Debug, Deserialize)]
@@ -45,7 +46,7 @@ pub async fn observe_handler(
         project: req.project.unwrap_or_else(|| "CYNIC".into()),
         agent_id: req.agent_id.unwrap_or_else(|| "unknown".into()),
         tool: req.tool,
-        target: req.target.unwrap_or_default(),
+        target: sanitize_observation_target(&req.target.unwrap_or_default()),
         domain,
         status: req.status.unwrap_or_else(|| "success".into()),
         context: req

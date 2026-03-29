@@ -224,6 +224,7 @@ pub async fn analyze(
             verdict_cache,
             metrics,
             event_tx,
+            request_id: None,
         };
 
         let dogs: Vec<String> = vec!["deterministic-dog".into(), "gemini-flash".into()];

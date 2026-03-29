@@ -30,7 +30,7 @@ source ~/.cynic-env 2>/dev/null || true
 
 SURREAL_URL="${SURREALDB_URL:-http://localhost:8000}"
 SURREAL_NS="${SURREALDB_NS:-cynic}"
-SURREAL_DB="${SURREALDB_DB:-cynic}"
+SURREAL_DB="${SURREALDB_DB:-v2}"
 SURREAL_USER="${SURREALDB_USER:-root}"
 SURREAL_PASS="${SURREALDB_PASS:?SURREALDB_PASS must be set}"
 

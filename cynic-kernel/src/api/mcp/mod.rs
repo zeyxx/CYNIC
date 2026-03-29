@@ -329,6 +329,7 @@ impl CynicMcp {
             verdict_cache: &self.verdict_cache,
             metrics: &self.metrics,
             event_tx: self.event_tx.as_ref(),
+            request_id: Some(uuid::Uuid::new_v4().to_string()),
         };
         let result = crate::pipeline::run(
             p.content.clone(),

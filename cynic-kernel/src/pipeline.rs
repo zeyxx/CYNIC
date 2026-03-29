@@ -38,6 +38,9 @@ pub struct PipelineDeps<'a> {
     /// Optional: emit events to SSE/WebSocket subscribers.
     /// None in tests and MCP (no broadcast channel available).
     pub event_tx: Option<&'a tokio::sync::broadcast::Sender<KernelEvent>>,
+    /// RC7-2: caller-supplied request_id for cross-subsystem correlation.
+    /// If None, pipeline generates one. Propagated to tracing spans + verdict storage.
+    pub request_id: Option<String>,
 }
 
 impl std::fmt::Debug for PipelineDeps<'_> {
@@ -69,8 +72,11 @@ pub async fn run(
         ..
     } = *deps;
     let domain_hint = domain.as_deref().unwrap_or("general");
-    // RC7: unique request_id for cross-subsystem correlation
-    let request_id = uuid::Uuid::new_v4().to_string();
+    // RC7-2: use caller-supplied request_id or generate one
+    let request_id = deps
+        .request_id
+        .clone()
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let pipeline_span = tracing::info_span!("judge_pipeline",
         request_id = %request_id,
         domain = %domain_hint,
@@ -612,6 +618,7 @@ mod tests {
             verdict_cache: &verdict_cache,
             metrics: &metrics,
             event_tx: None,
+            request_id: None,
         };
         let result = run(
             "1. e4 c5 — The Sicilian Defense".into(),
@@ -670,6 +677,7 @@ mod tests {
             verdict_cache: &verdict_cache,
             metrics: &metrics,
             event_tx: None,
+            request_id: None,
         };
         let _ = run("test content".into(), None, None, None, true, &deps).await;
 
