@@ -676,36 +676,6 @@ impl StoragePort for SurrealHttpStorage {
         Ok(())
     }
 
-    async fn get_session_compliance(
-        &self,
-        agent_id: &str,
-    ) -> Result<Option<crate::domain::compliance::SessionCompliance>, StorageError> {
-        let safe_key = sanitize_record_id(agent_id);
-        let sql = format!("SELECT * FROM session_compliance:`{safe_key}`;");
-        let rows = self.query_one(&sql).await?;
-        if rows.is_empty() {
-            return Ok(None);
-        }
-        let row = &rows[0];
-        Ok(Some(crate::domain::compliance::SessionCompliance {
-            session_id: row["session_id"].as_str().unwrap_or("").to_string(),
-            agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
-            score: row["score"].as_f64().unwrap_or(0.0),
-            warnings: row["warnings"]
-                .as_array()
-                .map(|a| {
-                    a.iter()
-                        .filter_map(|v| v.as_str().map(String::from))
-                        .collect()
-                })
-                .unwrap_or_default(),
-            read_before_edit: row["read_before_edit"].as_f64().unwrap_or(0.0),
-            bash_retry_violations: row["bash_retry_violations"].as_u64().unwrap_or(0) as u32,
-            files_modified: row["files_modified"].as_u64().unwrap_or(0) as u32,
-            created_at: row["created_at"].as_str().unwrap_or("").to_string(),
-        }))
-    }
-
     async fn list_session_compliance(
         &self,
         limit: u32,

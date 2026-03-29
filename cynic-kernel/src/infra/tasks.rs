@@ -486,7 +486,6 @@ pub fn spawn_remediation_watcher(
 
 pub fn spawn_event_consumer(
     event_tx: &tokio::sync::broadcast::Sender<KernelEvent>,
-    metrics: Arc<Metrics>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
@@ -500,30 +499,11 @@ pub fn spawn_event_consumer(
                 }
                 event = rx.recv() => {
                     match event {
-                        Ok(KernelEvent::DogFailed { ref dog_id, ref error }) => {
-                            tracing::warn!(dog = %dog_id, error = %error, "Dog failure (event bus)");
-                            metrics.inc_dog_failure();
+                        Ok(_) => {
+                            // Events are logged at emission (pipeline.rs, coord.rs).
+                            // Metrics are counted at origin (judge.rs, introspection.rs).
+                            // This consumer exists for: lag detection + task health liveness.
                         }
-                        Ok(KernelEvent::Anomaly { ref kind, ref message, ref severity }) => {
-                            tracing::warn!(
-                                kind = %kind, severity = %severity,
-                                "Anomaly detected: {message}"
-                            );
-                        }
-                        Ok(KernelEvent::VerdictIssued { ref verdict_id, ref domain, ref verdict, q_score }) => {
-                            tracing::debug!(
-                                id = %verdict_id, domain = %domain,
-                                verdict = %verdict, q_score = %q_score,
-                                "Verdict issued (event bus)"
-                            );
-                        }
-                        Ok(KernelEvent::CrystalObserved { ref crystal_id, ref domain }) => {
-                            tracing::debug!(
-                                id = %crystal_id, domain = %domain,
-                                "Crystal observed (event bus)"
-                            );
-                        }
-                        Ok(_) => {} // SessionRegistered, BackfillComplete — logged at emission
                         Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                             tracing::warn!(skipped = n, "Event consumer lagged — dropped {n} events");
                         }
@@ -536,7 +516,7 @@ pub fn spawn_event_consumer(
             }
         }
     });
-    klog!("[Ring 2] Event consumer started (DogFailed → warn+metric, Anomaly → warn)");
+    klog!("[Ring 2] Event consumer started (lag detection + liveness)");
     handle
 }
 

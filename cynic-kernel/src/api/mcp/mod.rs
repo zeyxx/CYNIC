@@ -23,6 +23,7 @@ use crate::domain::dog::PHI_INV;
 use crate::domain::events::KernelEvent;
 use crate::domain::health_gate::system_health_status;
 use crate::domain::inference::InferPort;
+use crate::domain::sanitize::sanitize_observation_target;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::judge::Judge;
@@ -929,7 +930,7 @@ impl CynicMcp {
             project: params.project.unwrap_or_else(|| "CYNIC".into()),
             agent_id: agent_id.clone(),
             tool: params.tool,
-            target: params.target.unwrap_or_default(),
+            target: sanitize_observation_target(&params.target.unwrap_or_default()),
             domain,
             status: params.status.unwrap_or_else(|| "success".into()),
             context: params

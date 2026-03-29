@@ -1,9 +1,9 @@
 # CYNIC Findings Tracker — v0.8.0-dev
 
-*Updated 2026-03-27. Honest inventory — no overclaims.*
+*Updated 2026-03-29. Honest inventory — no overclaims.*
 
 **Sources:** Industrial Audit (67 findings, 2026-03-24) + Stress Test (23 findings, 2026-03-25)
-**Total: 90 findings. 43 fixed. 9 partial. 38 open.**
+**Total: 90 findings. 43 fixed. 9 partial/accepted. 38 open.**
 
 **v0.8 Wave 0+1 (2026-03-27):** Crystal lifecycle integrity + consensus enforcement.
 Defends the crystal feedback loop (permanent damage path). Does NOT fix direct stimulus injection (fundamental LLM limitation, mitigated by multi-Dog consensus — arxiv 2504.18333).

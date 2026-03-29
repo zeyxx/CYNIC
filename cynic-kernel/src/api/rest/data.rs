@@ -12,7 +12,6 @@ use super::types::{AppState, ErrorResponse};
 use crate::domain::ccm;
 use crate::domain::ccm::Crystal;
 use crate::domain::compliance;
-use crate::domain::dog::PHI_INV;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct CrystalsQuery {
@@ -214,60 +213,6 @@ pub async fn delete_crystal_handler(
         ));
     }
     Ok(StatusCode::NO_CONTENT)
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ObserveCrystalRequest {
-    pub content: String,
-    pub domain: Option<String>,
-    pub score: Option<f64>,
-}
-
-/// POST /crystal/{id}/observe — observe a score for an existing crystal.
-///
-/// T8: This endpoint passes voter_count=0 because no Dogs are involved in a direct
-/// REST observation. The StoragePort adapter enforces MIN_QUORUM and will reject it.
-/// Crystal observations should flow through the judge pipeline, not direct API calls.
-/// This endpoint remains for backward compatibility but is effectively read-only for
-/// crystal state — it cannot cause crystallization.
-pub async fn observe_crystal_handler(
-    State(state): State<Arc<AppState>>,
-    Path(id): Path<String>,
-    Json(req): Json<ObserveCrystalRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let domain = req.domain.unwrap_or_else(|| "general".into());
-    let score = req.score.unwrap_or(0.5);
-    if !score.is_finite() || !(0.0..=1.0).contains(&score) {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "score must be a finite number in [0.0, 1.0]".into(),
-            }),
-        ));
-    }
-    // Normalize score to confidence range (same as pipeline)
-    let confidence = (score / PHI_INV).min(1.0);
-    let now = chrono::Utc::now().to_rfc3339();
-
-    // T8: voter_count=0 — no Dogs involved in direct REST observation.
-    // StoragePort will reject with quorum error. This is intentional.
-    if let Err(e) = state
-        .storage
-        .observe_crystal(&id, &req.content, &domain, confidence, &now, 0)
-        .await
-    {
-        tracing::warn!(crystal_id = %id, error = %e, "observe crystal rejected");
-        return Err((
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(ErrorResponse {
-                error: format!(
-                    "crystal observation requires quorum (min {} Dogs)",
-                    crate::domain::dog::MIN_QUORUM
-                ),
-            }),
-        ));
-    }
-    Ok(Json(serde_json::json!({ "status": "observed" })))
 }
 
 // ── Dark table endpoints ─────────────────────────────────────

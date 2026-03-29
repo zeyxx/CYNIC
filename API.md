@@ -167,19 +167,6 @@ Create a new crystal (starts at Forming, confidence 0.0).
 
 **Response (201):** `{ "id": "...", "domain": "...", "state": "Forming" }`
 
-### POST /crystal/{id}/observe
-
-Observe a score for an existing crystal (or create via UPSERT).
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `content` | string | yes | Crystal content |
-| `domain` | string | no | Default `"general"` |
-| `score` | number (0.0–1.0) | no | Default 0.5. Normalized by φ⁻¹ before storage |
-
-**Response (200):** `{ "status": "observed" }`
-**Response (422):** Quorum check failed (invalid score/content).
-
 ### DELETE /crystal/{id}
 
 Delete crystal. Idempotent. **Response (204):** No content.

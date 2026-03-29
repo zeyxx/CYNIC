@@ -282,14 +282,6 @@ pub trait StoragePort: Send + Sync {
         Ok(())
     }
 
-    /// Get the most recent compliance report for an agent/session.
-    async fn get_session_compliance(
-        &self,
-        _agent_id: &str,
-    ) -> Result<Option<crate::domain::compliance::SessionCompliance>, StorageError> {
-        Ok(None)
-    }
-
     /// List recent compliance reports, ordered by created_at descending.
     async fn list_session_compliance(
         &self,

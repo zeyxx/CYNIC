@@ -499,9 +499,9 @@ async fn delete_crystal_returns_500_with_null_storage() {
 }
 
 #[tokio::test]
-async fn observe_crystal_returns_422_quorum_required() {
-    // T8: Direct REST crystal observation passes voter_count=0 → quorum gate rejects.
-    // The error comes from the quorum check, not from NullStorage.
+async fn observe_crystal_endpoint_removed() {
+    // Endpoint removed: crystal observations flow through the judge pipeline only.
+    // Direct REST observation always failed (voter_count=0 → quorum rejection).
     let state = test_state(Some("key"));
     let app = rest::router(state);
     let resp = app
@@ -520,8 +520,8 @@ async fn observe_crystal_returns_422_quorum_required() {
         .unwrap();
     assert_eq!(
         resp.status(),
-        422,
-        "POST /crystal observe must return 422 (quorum required)"
+        405,
+        "POST /crystal/id/observe should be gone (method not allowed)"
     );
 }
 

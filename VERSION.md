@@ -62,24 +62,28 @@ Architecture hexagonale. SurrealDB. Graceful degradation.
 **Thème :** La fondation est mécaniquement vérifiée. Sécurité assurée. StoragePort
 prouvé agnostique. Workflow aligné. Les organes ont des contrats testés.
 
-**Réalité actuelle (2026-03-29) :** 309 tests. 43/90 findings fixed. 30 méthodes StoragePort,
-1 seul adapter (SurrealDB). Cargo.toml = 0.7.4, tags = v0.7.4, travail labellé v0.8.
-`make lint-security` gate: F14 + RC7-2 + CH2 OPEN. `make lint-rules` + `lint-drift` green.
+**Réalité actuelle (2026-03-29) :** 338 tests (255 unit + 57 contract + 26 integration). 43/90 findings fixed.
+28 méthodes StoragePort (was 30 — dead path removed). InMemory adapter passes all 13 contract tests.
+Cargo.toml = 0.7.5, tag = v0.7.5 (faa3a13). `make check` green (build + test + clippy + 3 lint gates + audit).
+BURN cleanup: CCM aggregator disabled (Rule 3), event consumer stripped (double-counting), dead endpoint removed.
 
 | Gate | Vérification | État |
 |------|-------------|------|
-| G1: Security closure | 0 CRIT open. Tous HIGH soit FIXED soit accepted-by-design (rationale dans tracker). | En cours. RC1-1 (MCP zero auth) → décider. |
-| G2: StoragePort agnostic | InMemory adapter passe les mêmes contract tests que SurrealDB. ≥12 `fn contract_`. | Pas commencé (8 contract tests, InMemory n'existe pas). |
-| G3: Workflow alignment | Cargo.toml = git tag = VERSION.md. State dumps supprimés. Doc lifecycle tags. | Partiel. |
+| G1: Security closure | 0 CRIT open. Tous HIGH soit FIXED soit accepted-by-design (rationale dans tracker). | **GREEN.** lint-security passes. RC1-1 = PARTIAL (rate limit, stdio trust by MCP spec). F14 = ACCEPTED (fundamental LLM limitation). |
+| G2: StoragePort agnostic | InMemory adapter passe les mêmes contract tests que SurrealDB. ≥12 `fn contract_`. | **GREEN.** 13 contract tests, parameterized via macros. InMemory + SurrealDB pass identically. |
+| G3: Workflow alignment | Cargo.toml = git tag = VERSION.md. State dumps supprimés. Doc lifecycle tags. | **GREEN.** v0.7.5 everywhere. Scientific Protocol in workflow.md. API.md lint-gated. |
 
-### Contraintes (issues connues à résoudre dans ce gate)
+### Contraintes résolues
 
-- **RC1-1** : accepter par design (stdio = trust process) ou implémenter auth. Ne pas laisser PARTIAL.
-- **InMemory adapter** : NullStorage est un stub, pas un adapter. InMemory doit passer tous les contract tests.
-- **Contract tests ≥ 12** : Actuellement 8. Folded dans G2.
-- **Doc SoC** : 4 catégories (LIVING/ARCHITECTURE/HISTORICAL/DRAFT). Rules 37-41 dans `.claude/rules/docs.md`.
-- **State dumps** : Supprimer quick-state.md, state-check.md, state-v3.md, state-v3b.md, v4-state.md.
-- **Backup/restore** : Round-trip SurrealDB → vérifier données. Non testé.
+- **RC1-1** : accepted by MCP spec design (stdio = process-level trust). Rate limited at 10/min judge, 30/min other.
+- **InMemory adapter** : Full implementation, passes 13 contract tests identically to SurrealDB.
+- **Contract tests** : 13 (target was 12). Parameterized `contract_*` macro.
+- **State dumps** : Purged (session 2026-03-29-organic).
+
+### Contraintes restantes
+
+- **Doc SoC** : lifecycle tags not mechanically enforced yet.
+- **Backup/restore** : Round-trip SurrealDB → non testé.
 
 ---
 
@@ -100,7 +104,7 @@ Le moat compound. Les organes commencent à se connecter via l'event bus.
 - **Crystal Δ rigoureux** : n≥100, paired design, oracle externe.
 - **cynic_learn poisoning** : quarantine (source=agent, confidence=0.01), Dog eval avant crystallisation.
 - **Crystal decay** : TTL + contradiction-driven. Sans ça, crystals stale nuisent.
-- **Event bus consumers** : (1) CCM sur VerdictIssued, (2) health sur DogFailed.
+- **Event bus consumers** : SSE streams to dashboard. Internal consumer is liveness-only. CCM aggregator deferred (Phase 2 — connect observations to crystal pipeline).
 - **Observability** : /metrics (crystal transitions, Dog latency, cache hit rates).
 
 ---

@@ -28,7 +28,7 @@ use self::coord::{
 use self::data::{
     audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
     crystal_handler, crystals_handler, delete_crystal_handler, observations_handler,
-    observe_crystal_handler, sessions_handler, usage_handler,
+    sessions_handler, usage_handler,
 };
 use self::health::{
     agents_handler, dogs_handler, health_handler, liveness_handler, metrics_handler,
@@ -89,7 +89,6 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/crystal/{id}",
             get(crystal_handler).delete(delete_crystal_handler),
         )
-        .route("/crystal/{id}/observe", post(observe_crystal_handler))
         .route("/usage", get(usage_handler))
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))

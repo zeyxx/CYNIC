@@ -441,12 +441,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] Usage flush task started (every 60s, TTL cleanup every 1h)");
     }
 
-    // CCM Workflow Aggregator (every 5 min)
-    infra::tasks::spawn_ccm_aggregator(
-        Arc::clone(&storage_port),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
+    // DORMANT: CCM Workflow Aggregator — computes patterns but has no consumer (Rule 3).
+    // Reactivate when Phase 2 connects aggregated patterns to crystal pipeline.
+    // infra::tasks::spawn_ccm_aggregator(
+    //     Arc::clone(&storage_port),
+    //     Arc::clone(&task_health),
+    //     shutdown.clone(),
+    // );
 
     // ─── RING 2: Session summarizer (sovereign inference, background) ──
     if let Ok(summarizer) = backends::summarizer::SovereignSummarizer::from_env() {
@@ -486,12 +487,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&task_health),
         shutdown.clone(),
     );
-    infra::tasks::spawn_event_consumer(
-        &event_tx,
-        Arc::clone(&metrics),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
+    infra::tasks::spawn_event_consumer(&event_tx, Arc::clone(&task_health), shutdown.clone());
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
