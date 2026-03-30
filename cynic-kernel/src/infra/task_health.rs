@@ -22,6 +22,7 @@ pub struct TaskHealth {
     introspection: AtomicU64,
     backfill: AtomicU64,
     event_consumer: AtomicU64,
+    probe_scheduler: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -45,6 +46,7 @@ impl TaskHealth {
             introspection: AtomicU64::new(0),
             backfill: AtomicU64::new(0),
             event_consumer: AtomicU64::new(0),
+            probe_scheduler: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -79,6 +81,10 @@ impl TaskHealth {
     }
     pub fn touch_event_consumer(&self) {
         self.event_consumer
+            .store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_probe_scheduler(&self) {
+        self.probe_scheduler
             .store(Self::now_secs(), Ordering::Relaxed);
     }
 
@@ -171,6 +177,13 @@ impl TaskHealth {
                 300,
                 None,
             ),
+            TaskSnapshot::new(
+                "probe_scheduler",
+                self.probe_scheduler.load(Ordering::Relaxed),
+                now,
+                20,
+                None,
+            ),
         ]
     }
 }
@@ -258,5 +271,19 @@ mod tests {
             .expect("backfill");
         assert_eq!(bf.status, "ok");
         assert_eq!(bf.detail, Some("done:87"));
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn probe_scheduler_visible_in_snapshot() {
+        let th = TaskHealth::new();
+        assert!(th.snapshot().iter().any(|s| s.name == "probe_scheduler"));
+        th.touch_probe_scheduler();
+        let snap = th.snapshot();
+        let ps = snap
+            .iter()
+            .find(|s| s.name == "probe_scheduler")
+            .expect("probe_scheduler");
+        assert_eq!(ps.status, "ok");
     }
 }
