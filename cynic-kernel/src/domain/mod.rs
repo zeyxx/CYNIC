@@ -12,6 +12,7 @@ pub mod verdict_cache;
 // pub mod temporal; // DORMANT: math sound but wiring was fake (dog_scores[i%7] relabeling). Burned 2026-03-24. Reactivate with real per-perspective Dog prompting.
 pub mod health_gate;
 pub mod metrics;
+pub mod probe;
 pub mod sanitize;
 pub mod summarization;
 pub mod system_metrics;
