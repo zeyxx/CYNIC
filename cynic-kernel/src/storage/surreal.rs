@@ -868,6 +868,76 @@ impl StoragePort for SurrealHttpStorage {
         let rows = self.query_one(&sql).await?;
         Ok(rows.iter().map(row_to_raw_observation).collect())
     }
+
+    async fn store_infra_snapshot(
+        &self,
+        snap: &crate::domain::probe::EnvironmentSnapshot,
+    ) -> Result<(), StorageError> {
+        let probes_json = serde_json::to_string(&snap.probes)
+            .map_err(|e| StorageError::QueryFailed(format!("serialize probes: {e}")))?;
+        let overall = format!("{:?}", snap.overall);
+        let sql = format!(
+            "INSERT INTO infra_snapshot {{ ts: time::now(), overall: '{}', probes: {} }}",
+            escape_surreal(&overall),
+            probes_json,
+        );
+        self.query(&sql).await?;
+        Ok(())
+    }
+
+    async fn list_infra_snapshots(
+        &self,
+        hours: u32,
+    ) -> Result<Vec<crate::domain::probe::EnvironmentSnapshot>, StorageError> {
+        let sql = format!(
+            "SELECT * FROM infra_snapshot WHERE ts > time::now() - {hours}h ORDER BY ts DESC LIMIT 100",
+        );
+        let rows = self.query_one(&sql).await?;
+        Ok(rows
+            .iter()
+            .map(|row| {
+                let timestamp = row["ts"].as_str().unwrap_or("").to_string();
+                let overall_str = row["overall"].as_str().unwrap_or("Unavailable");
+                let overall = match overall_str {
+                    "Ok" => crate::domain::probe::ProbeStatus::Ok,
+                    "Degraded" => crate::domain::probe::ProbeStatus::Degraded,
+                    "Denied" => crate::domain::probe::ProbeStatus::Denied,
+                    _ => crate::domain::probe::ProbeStatus::Unavailable,
+                };
+                let probes: Vec<crate::domain::probe::ProbeResult> = row["probes"]
+                    .as_array()
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| {
+                                serde_json::from_value(v.clone())
+                                    .map_err(|e| {
+                                        tracing::warn!(
+                                            error = %e,
+                                            "infra_snapshot probe deserialization failed"
+                                        );
+                                        e
+                                    })
+                                    .ok()
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                crate::domain::probe::EnvironmentSnapshot {
+                    timestamp,
+                    probes,
+                    overall,
+                }
+            })
+            .collect())
+    }
+
+    async fn cleanup_infra_snapshots(&self, older_than_days: u32) -> Result<u64, StorageError> {
+        let sql = format!(
+            "DELETE FROM infra_snapshot WHERE ts < time::now() - {older_than_days}d RETURN BEFORE",
+        );
+        let rows = self.query_one(&sql).await?;
+        Ok(rows.len() as u64)
+    }
 }
 
 // ── COORD PORT IMPLEMENTATION ────────────────────────────────
