@@ -316,6 +316,26 @@ pub trait StoragePort: Send + Sync {
     async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
         Ok(vec![]) // Default: no history
     }
+
+    // ── Infrastructure snapshots (probe system) ──────────────
+
+    async fn store_infra_snapshot(
+        &self,
+        _snap: &crate::domain::probe::EnvironmentSnapshot,
+    ) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    async fn list_infra_snapshots(
+        &self,
+        _hours: u32,
+    ) -> Result<Vec<crate::domain::probe::EnvironmentSnapshot>, StorageError> {
+        Ok(vec![])
+    }
+
+    async fn cleanup_infra_snapshots(&self, _older_than_days: u32) -> Result<u64, StorageError> {
+        Ok(0)
+    }
 }
 
 /// No-op storage for graceful degradation when DB is unavailable.
