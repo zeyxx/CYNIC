@@ -1,0 +1,40 @@
+# CYNIC Fleet Topology — copy to ~/.config/cynic/fleet.toml and fill in values.
+# Source of truth for machine topology. Never commit real IPs.
+#
+# This file is READ by humans and scripts, not (yet) by the kernel.
+# Structure mirrors the actual fleet — one [node.X] per machine.
+
+[node.cynic-core]
+role = "kernel"               # kernel + DB + CPU inference + embedding
+tailscale_ip = "<TAILSCALE_CORE>"
+os = "linux"
+services = ["cynic-kernel:3030", "surrealdb:8000", "llama-server:8080", "llama-embed:8081"]
+hardware = "Ryzen 7 5700G, 32GB, Vega 8 (skip)"
+
+[node.cynic-gpu]
+role = "inference"            # GPU inference only
+tailscale_ip = "<TAILSCALE_GPU>"
+os = "windows"
+services = ["llama-server:8080"]
+hardware = "RTX 4060 Ti 16GB, 55 tok/s"
+
+# Offline nodes — uncomment when brought back online.
+# [node.kairos]
+# role = "research"
+# tailscale_ip = "<TAILSCALE_KAIROS>"
+# os = "linux"
+# services = []
+# hardware = "project-kairos"
+
+# ── Port Map ───────────────────────────────────────────────────
+# 3030  cynic-kernel REST API (Tailscale only)
+# 8000  SurrealDB (localhost only — never exposed)
+# 8080  llama-server inference (Tailscale only)
+# 8081  llama-embed embedding (Tailscale only)
+
+# ── Dependencies (restart order) ──────────────────────────────
+# 1. surrealdb        → systemctl --user restart surrealdb
+# 2. cynic-kernel     → systemctl --user restart cynic-kernel
+# 3. llama-server     → systemctl --user restart llama-server
+# 4. llama-embed      → systemctl --user restart llama-embed
+# Wait 5s between restarts. Verify with `make status`.

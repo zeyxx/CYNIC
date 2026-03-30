@@ -6,14 +6,15 @@ Wants=surrealdb.service
 [Service]
 Type=simple
 WorkingDirectory=/home/user/Bureau/CYNIC
-ExecStartPre=/bin/sleep 3
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do curl -sf http://localhost:8000/health >/dev/null 2>&1 && exit 0; sleep 1; done; echo "SurrealDB not ready after 30s" >&2; exit 1'
 ExecStart=/home/user/bin/cynic-kernel
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30
 Restart=on-failure
 RestartSec=5
-EnvironmentFile=/home/user/.config/cynic/env
+# Single source of truth — systemd strips `export` prefix automatically (Rule 12).
+EnvironmentFile=%h/.cynic-env
 LimitNOFILE=65535
 MemoryMax=2G
 

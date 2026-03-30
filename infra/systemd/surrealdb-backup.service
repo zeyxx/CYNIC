@@ -4,7 +4,8 @@ After=surrealdb.service
 
 [Service]
 Type=oneshot
-EnvironmentFile=%h/.config/cynic/env
+# Single source of truth — systemd strips `export` prefix automatically (Rule 12).
+EnvironmentFile=%h/.cynic-env
 ExecStart=/bin/bash -c '\
   FILE="%h/.surrealdb/backups/cynic_v2_$$(date +%%Y%%m%%d_%%H%%M%%S).surql"; \
   /usr/local/bin/surreal export \
