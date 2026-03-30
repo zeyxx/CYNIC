@@ -55,6 +55,9 @@ pub struct AppState {
     /// Boot-time integrity verification: did the last stored verdict's BLAKE3 hash match?
     /// Set once at boot, exposed in /health for proprioception.
     pub chain_verified: AtomicBool,
+    /// Latest proprioceptive snapshot — updated by probe scheduler (Ring 2).
+    /// None until first probe cycle completes. Auth-gated in /health.
+    pub environment: Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.

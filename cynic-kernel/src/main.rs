@@ -418,6 +418,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ),
         }
     }
+    // ── Probe system (proprioception) ──
+    let environment: Arc<std::sync::RwLock<Option<domain::probe::EnvironmentSnapshot>>> =
+        Arc::new(std::sync::RwLock::new(None));
+    let backup_dir = dirs::home_dir()
+        .unwrap_or_default()
+        .join(".surrealdb")
+        .join("backups");
+    let probes: Vec<Arc<dyn domain::probe::Probe>> = vec![
+        Arc::new(infra::probes::ResourceProbe),
+        Arc::new(infra::probes::BackupProbe::new(backup_dir)),
+    ];
+
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
@@ -444,6 +456,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         introspection_alerts: Arc::new(std::sync::RwLock::new(Vec::new())),
         event_tx: event_tx.clone(),
         chain_verified: std::sync::atomic::AtomicBool::new(chain_verified),
+        environment: Arc::clone(&environment),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
@@ -508,6 +521,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         shutdown.clone(),
     );
     infra::tasks::spawn_event_consumer(&event_tx, Arc::clone(&task_health), shutdown.clone());
+
+    infra::tasks::spawn_probe_scheduler(
+        probes,
+        Arc::clone(&storage_port),
+        Arc::clone(&environment),
+        Arc::clone(&task_health),
+        shutdown.clone(),
+    );
+    klog!("[Ring 2] Probe scheduler started (resource: 5min, backup: 1h)");
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {

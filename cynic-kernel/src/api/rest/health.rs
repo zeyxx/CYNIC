@@ -160,6 +160,7 @@ pub async fn health_handler(
             "storage_metrics": state.storage_metrics(),
             "embedding": if tokio::time::timeout(std::time::Duration::from_secs(2), state.embedding.embed("h")).await.map(|r| r.is_ok()).unwrap_or(false) { "sovereign" } else { "unavailable" },
             "crystals": crystal_summary,
+            "environment": state.environment.read().ok().and_then(|e| e.clone()),
             "chain_verified": state.chain_verified.load(std::sync::atomic::Ordering::Relaxed),
             "verdict_cache_size": state.verdict_cache.len(),
             "background_tasks": state.task_health.snapshot(),
