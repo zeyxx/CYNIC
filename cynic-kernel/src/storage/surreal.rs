@@ -49,7 +49,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
             anomaly_axiom = '{}', \
             voter_count = {}, \
             dog_scores_json = '{}', \
-            created_at = time::now()",
+            created_at = d'{}'",
         escape(&v.id),
         escape(&v.domain),
         v.kind,
@@ -75,6 +75,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
         escape(v.anomaly_axiom.as_deref().unwrap_or("")),
         v.voter_count,
         escape(&serde_json::to_string(&v.dog_scores).unwrap_or_else(|_| "[]".to_string())),
+        escape(&v.timestamp),
     )
 }
 
@@ -1355,7 +1356,7 @@ mod tests {
         assert!(sql.contains("verdict_id = 'test-001'"));
         assert!(sql.contains("kind = 'Wag'"));
         assert!(sql.contains("fidelity = 0.5"));
-        assert!(sql.contains("time::now()"));
+        assert!(sql.contains("created_at = d'2026-03-13T12:00:00Z'"));
         assert!(sql.contains("integrity_hash = 'deadbeef'"));
         assert!(sql.contains("prev_hash = ''"));
         // S4: voter_count must be in generated SQL
