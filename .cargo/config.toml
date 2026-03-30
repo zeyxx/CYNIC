@@ -5,4 +5,5 @@
 jobs = 1
 
 [env]
-RUST_MIN_STACK = "268435456"
+# Increased from 256MB to 512MB — probe system monomorphization pushes past 256MB threshold.
+RUST_MIN_STACK = "536870912"

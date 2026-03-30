@@ -468,6 +468,76 @@ pub fn spawn_event_consumer(
 
 // Rate limiter eviction moved to main.rs — REST delivery concern, not infra.
 
+// ── Probe scheduler (every 10s, 7-day TTL cleanup) ───────────
+
+pub fn spawn_probe_scheduler(
+    probes: Vec<Arc<dyn crate::domain::probe::Probe>>,
+    storage: Arc<dyn StoragePort>,
+    environment: Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    use crate::infra::probes::ProbeScheduler;
+
+    let mut scheduler = ProbeScheduler::new(probes);
+
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.tick().await; // skip first tick (consistent with all other tasks)
+
+        let mut tick_count: u64 = 0;
+
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Probe scheduler stopped");
+                    break;
+                }
+                _ = interval.tick() => {
+                    // K6: per-probe timeouts inside scheduler.tick() satisfy K6.
+                    // No outer timeout needed — each probe's .await is bounded.
+                    if let Some(snapshot) = scheduler.tick().await {
+                        // Update in-memory state for /health
+                        if let Ok(mut env) = environment.write() {
+                            *env = Some(snapshot.clone());
+                        }
+
+                        // Persist to DB (best-effort, like verdict storage)
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(5),
+                            storage.store_infra_snapshot(&snapshot),
+                        ).await {
+                            Ok(Ok(())) => {}
+                            Ok(Err(e)) => tracing::warn!("probe snapshot storage failed: {e}"),
+                            Err(_) => tracing::warn!("probe snapshot storage timed out"),
+                        }
+
+                        task_health.touch_probe_scheduler();
+                    }
+
+                    tick_count += 1;
+
+                    // TTL cleanup every 100 ticks (~17 min)
+                    if tick_count.is_multiple_of(100) {
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(10),
+                            storage.cleanup_infra_snapshots(7),
+                        ).await {
+                            Ok(Ok(n)) if n > 0 => {
+                                tracing::info!(deleted = n, "infra_snapshot TTL cleanup");
+                            }
+                            Ok(Err(e)) => tracing::warn!("infra_snapshot cleanup failed: {e}"),
+                            Err(_) => tracing::warn!("infra_snapshot cleanup timed out"),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -587,6 +657,24 @@ mod tests {
         tokio::time::timeout(std::time::Duration::from_secs(2), handle)
             .await
             .expect("remediation_watcher should stop within 2s")
+            .expect("task should not panic");
+    }
+
+    #[tokio::test]
+    async fn probe_scheduler_respects_shutdown() {
+        let probes: Vec<Arc<dyn crate::domain::probe::Probe>> =
+            vec![Arc::new(crate::domain::probe::NullProbe)];
+        let storage: Arc<dyn StoragePort> = Arc::new(NullStorage);
+        let environment = Arc::new(std::sync::RwLock::new(None));
+        let task_health = Arc::new(TaskHealth::new());
+        let shutdown = CancellationToken::new();
+
+        let handle =
+            spawn_probe_scheduler(probes, storage, environment, task_health, shutdown.clone());
+        shutdown.cancel();
+        tokio::time::timeout(std::time::Duration::from_secs(2), handle)
+            .await
+            .expect("probe_scheduler should stop within 2s")
             .expect("task should not panic");
     }
 }
