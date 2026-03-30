@@ -1130,3 +1130,81 @@ async fn get_session_observations_returns_filtered() {
 
     common::teardown_test_db(&db).await;
 }
+
+// ── Task 11: InfraSnapshot round-trip ───────────────────
+
+#[tokio::test]
+async fn infra_snapshot_roundtrip() {
+    use cynic_kernel::domain::probe::{
+        BackupDetails, EnvironmentSnapshot, ProbeDetails, ProbeResult, ProbeStatus, ResourceDetails,
+    };
+
+    let Some(db) = common::setup_test_db("infra_snap").await else {
+        return;
+    };
+
+    let snap = EnvironmentSnapshot {
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        overall: ProbeStatus::Ok,
+        probes: vec![
+            ProbeResult {
+                name: "test-resource".into(),
+                status: ProbeStatus::Ok,
+                details: ProbeDetails::Resource(ResourceDetails {
+                    cpu_usage_percent: Some(42.0),
+                    memory_used_gb: Some(8.0),
+                    memory_total_gb: Some(16.0),
+                    disk_available_gb: Some(100.0),
+                    disk_total_gb: Some(500.0),
+                    load_average_1m: Some(1.5),
+                    uptime_seconds: Some(86400),
+                }),
+                duration_ms: 200,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+            },
+            ProbeResult {
+                name: "test-backup".into(),
+                status: ProbeStatus::Degraded,
+                details: ProbeDetails::Backup(BackupDetails {
+                    last_backup_age_hours: None,
+                    last_backup_size_mb: None,
+                    backup_count: Some(0),
+                    backup_dir: "/tmp/test-backups".into(),
+                }),
+                duration_ms: 1,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+            },
+        ],
+    };
+
+    // 1. Store
+    db.store_infra_snapshot(&snap)
+        .await
+        .expect("store_infra_snapshot should succeed");
+
+    // 2. List — must have at least 1 result
+    let results = db
+        .list_infra_snapshots(1)
+        .await
+        .expect("list_infra_snapshots should succeed");
+    assert!(!results.is_empty(), "should have at least 1 snapshot");
+    let latest = &results[0];
+    assert_eq!(latest.overall, ProbeStatus::Ok);
+    assert_eq!(latest.probes.len(), 2, "both probes should round-trip");
+
+    // 3. Cleanup with 0-day retention (deletes everything)
+    let deleted = db
+        .cleanup_infra_snapshots(0)
+        .await
+        .expect("cleanup_infra_snapshots should succeed");
+    assert!(deleted >= 1, "should have deleted at least 1 snapshot");
+
+    // 4. List again — must be empty
+    let after = db
+        .list_infra_snapshots(1)
+        .await
+        .expect("list after cleanup should succeed");
+    assert!(after.is_empty(), "should be empty after cleanup");
+
+    common::teardown_test_db(&db).await;
+}
