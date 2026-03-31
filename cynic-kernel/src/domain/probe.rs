@@ -185,6 +185,19 @@ impl EnvironmentSnapshot {
         }
         worst
     }
+
+    /// Check if probes are degraded from a shared RwLock.
+    /// Returns true (degraded) on poison, missing snapshot, or non-Ok overall.
+    /// K14: poison/missing = assume degraded, never optimistic.
+    pub fn is_degraded(env: &std::sync::RwLock<Option<EnvironmentSnapshot>>) -> bool {
+        match env.read() {
+            Ok(guard) => guard
+                .as_ref()
+                .map(|s| s.overall != ProbeStatus::Ok)
+                .unwrap_or(true), // no snapshot yet = degraded
+            Err(_) => true, // poison = degraded
+        }
+    }
 }
 
 // ─── Error ───────────────────────────────────────────────────────────────────

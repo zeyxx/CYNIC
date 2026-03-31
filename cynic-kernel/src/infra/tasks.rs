@@ -510,7 +510,8 @@ pub fn spawn_probe_scheduler(
                             *env = Some(snapshot.clone());
                         }
 
-                        // Persist to DB (best-effort, like verdict storage)
+                        // Persist to DB for trend detection (Rule 3: consumer = future linear regression on disk/memory).
+                        // list_infra_snapshots() exists in StoragePort but has no caller yet — tracked as B-item.
                         match tokio::time::timeout(
                             std::time::Duration::from_secs(5),
                             storage.store_infra_snapshot(&snapshot),

@@ -21,6 +21,15 @@ K8. **Every SQL query has an integration test.** Round-trip: INSERT + SELECT + a
 K9. **HTTP status codes are the contract.** Monitoring checks status codes, never parses JSON.
 K10. **Agents use the platform.** Agents delegate persistence/judgment/learning to the kernel. No agent-owned DBs.
 
+### LLM Development Principles
+
+The codebase is the prompt. Every pattern in code will be replicated by future LLM sessions. Bad patterns spread exponentially — each copy reinforces the signal.
+
+K11. **Extract at 2, not 3.** LLMs replicate patterns before humans notice duplication. Extract into a function/method at the 2nd occurrence, not the 3rd. — `make lint-rules` (known patterns)
+K12. **`#[allow]` is an instruction.** Every lint suppression tells the next LLM "do this." Require adjacent `// WHY:` comment explaining the suppression. Suppress without justification = amplified debt.
+K13. **Shared logic across API surfaces = one function.** REST and MCP must call the same computation (extends K3). If a health check, status computation, or data extraction appears in both → extract to domain or shared module. Never duplicate across api/rest/ and api/mcp/.
+K14. **Poison/missing = assume degraded.** When reading shared state (`RwLock`, `Option`), the fallback on error must be the SAFE default (degraded/unavailable), never the OPTIMISTIC default (ok/sovereign). `unwrap_or(true)` for degradation checks, never `unwrap_or(false)`.
+
 ## Build
 
 - `make check` = build + test + clippy + lint-rules + lint-drift + audit (mandatory after every change)

@@ -442,15 +442,8 @@ impl CynicMcp {
 
         let storage_ok = self.storage.ping().await.is_ok();
 
-        let probes_degraded = self
-            .environment
-            .read()
-            .ok()
-            .and_then(|e| {
-                e.as_ref()
-                    .map(|s| s.overall != crate::domain::probe::ProbeStatus::Ok)
-            })
-            .unwrap_or(true); // poison or missing = assume degraded
+        let probes_degraded =
+            crate::domain::probe::EnvironmentSnapshot::is_degraded(&self.environment);
         let tasks_stale = self.task_health.has_stale();
         let (status, _is_healthy) = system_health_status(
             healthy_dogs,
