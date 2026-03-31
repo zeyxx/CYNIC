@@ -1,0 +1,12 @@
+[Unit]
+Description=CYNIC Ouroboros Nightly Loop
+After=network.target cynic-kernel.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/make -C %h/Bureau/CYNIC ouroboros
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ouroboros
+Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="CYNIC_REST_ADDR=127.0.0.1:3030"

@@ -33,6 +33,9 @@ scripts/ollama-bench.py
 scripts/sovereign-bench.sh
 benchmarks/
 
+# Hermes agent state (contains .env + local DB)
+.hermes_ouroboros/
+
 # Session artifacts (AI-generated scratch files at root only)
 /state*.md
 /*-state*.md
