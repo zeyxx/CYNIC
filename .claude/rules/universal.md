@@ -23,7 +23,7 @@ globs: ["**"]
 9. **Bounded everything.** Channels, retries, confidence. Unbounded = debt.
 10. **Wire or delete.** Every public symbol must have a caller AND a test. Zero-caller = delete.
 11. **Fix the class, not the instance.** `grep` the entire codebase for the same pattern before closing a fix.
-12. **One value, one source.** `backends.toml` = Dogs. `~/.cynic-env` = secrets. Never duplicate config.
+12. **One value, one source.** `backends.toml` = Dogs. `~/.cynic-env` = secrets. Never duplicate config. Applies to sensing too: if two systems measure the same signal, delete one — dual sensing diverges silently.
 13. **Name things for what they ARE.** Code names match code behavior, not aspirations.
 14. **Strong > no > weak foundation.** Prove E2E with real data before building on a subsystem.
 15. **Falsify before adopting.** Architectural decisions require: hypothesis, falsification test, evidence from production systems. Apply the Scientific Protocol (workflow.md) — state what would make you reject the approach before starting.
