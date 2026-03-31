@@ -2,6 +2,23 @@
 
 All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.6] — 2026-03-31
+
+### Added
+
+- **probe:** honest /health — FleetProbe, ResourceProbe accuracy (disk/CPU), ProcessProbe, PressureProbe, NetworkProbe
+- **domain:** LLM development principles K11-K14 (extract-at-2, #[allow] = instruction, shared logic, poison = degraded)
+- **domain:** extract `is_degraded()` from EnvironmentSnapshot (K13)
+
+### Removed
+
+- **domain:** kill SysinfoMetrics — replaced by typed probe system
+
+### Changed
+
+- **probe:** resource interval 300s → 30s
+- **infra:** revert systemd env to generated file
+
 ## [0.7.5] — 2026-03-29
 
 ### Fixed

@@ -12,4 +12,4 @@ tag-message = "v{{version}}"
 tag-prefix = "v"
 tag-name = "{{prefix}}{{version}}"
 
-pre-release-hook = ["git", "cliff", "--tag", "v{{version}}", "--output", "../CHANGELOG.md"]
+pre-release-hook = ["git", "cliff", "--tag", "v{{version}}", "--output", "CHANGELOG.md"]

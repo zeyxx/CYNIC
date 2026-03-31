@@ -14,7 +14,7 @@ Two developers, two Claude Code instances, one repo, one branch.
 Separate directories = zero merge conflicts. This ONLY works if:
 1. **Never touch files outside your zone.** Backend agent never edits cynic-ui/. Frontend agent never edits cynic-kernel/.
 2. **`git pull --rebase` before every push.** Always.
-3. **Root files are frozen:** CLAUDE.md, API.md, FRONTEND.md, AGENTS.md, HACKATHON-RULES.md — do not modify during hackathon.
+3. **Root files are frozen:** CLAUDE.md, API.md, AGENTS.md — do not modify during hackathon.
 
 ## Communication Protocol
 

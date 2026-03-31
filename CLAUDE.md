@@ -7,7 +7,7 @@ Independent AI validators reaching consensus under mathematical doubt. φ-bounde
 Use placeholders for IPs: `<TAILSCALE_CORE>`, `<TAILSCALE_GPU>`, `<TAILSCALE_KAIROS>`.
 Never commit: real IPs, API keys/tokens/passwords, real names (use T./S.), machine hostnames, emails.
 Secrets live in `~/.cynic-env` only. Systemd uses `~/.config/cynic/env`.
-Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`.
+Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`, `/live`, `/ready`, `/metrics`, `/events`.
 
 ## Ownership Zones
 
@@ -29,7 +29,7 @@ Three tiers protect this codebase — each rule declares which tier enforces it:
 
 ## References
 
-- **Rules:** `.claude/rules/universal.md` (20 rules), `kernel.md` (10 rules), `workflow.md` (triggers), `reference.md` (data)
+- **Rules:** `.claude/rules/universal.md` (22 rules), `kernel.md` (14 rules), `workflow.md` (triggers), `reference.md` (data)
 - **Identity:** `docs/identity/` (epistemology, φ-convergence, sovereignty — pérenne)
 - **Reference:** `docs/reference/` (V08 truths, CCM protocol, infra spec — must match code)
 - **Audit:** `docs/audit/CYNIC-FINDINGS-TRACKER.md` (SoT for security debt)

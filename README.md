@@ -6,7 +6,7 @@
 
 `Rust` `Axum` `Tokio` `SurrealDB` `React` `TypeScript`
 
-v0.7.4 · 255 tests · 15K LOC · 5 Dogs · φ-bounded
+v0.7.6 · 399 tests · 21K LOC · 5 Dogs · φ-bounded
 
 [Philosophy](#philosophy) · [How It Works](#how-it-works) · [Architecture](#architecture) · [Run It](#quickstart) · [API](#api)
 
@@ -55,9 +55,9 @@ Verdicts map to φ-derived thresholds:
 | Verdict | Threshold | Meaning |
 |---------|-----------|---------|
 | **Howl** | > 0.528 (φ⁻²+φ⁻⁴) | Exceptional quality |
-| **Wag** | ≥ 0.382 (φ⁻²) | Good |
-| **Growl** | ≥ 0.236 (φ⁻³) | Questionable |
-| **Bark** | < 0.236 | Rejected |
+| **Wag** | > 0.382 (φ⁻²) | Good |
+| **Growl** | > 0.236 (φ⁻³) | Questionable |
+| **Bark** | ≤ 0.236 | Rejected |
 
 ---
 
@@ -95,7 +95,7 @@ When Dogs disagree beyond φ⁻² (0.382) on any axiom, CYNIC flags it as an **a
 ### Consensus
 
 ```
-1. All Dogs evaluate in parallel (60s wall-clock timeout)
+1. All Dogs evaluate in parallel (dynamic wall-clock: slowest Dog timeout + 5s)
 2. Circuit breaker skips Dogs with 3+ consecutive failures
 3. Trimmed-mean aggregation (drops highest + lowest when ≥4 Dogs)
 4. Per-axiom anomaly detection via φ² residual check
@@ -132,18 +132,18 @@ cynic-kernel/src/
 ├── domain/           Pure business logic — zero IO, zero frameworks
 │   ├── dog.rs        Dog trait, AxiomScores, QScore, phi-bounding
 │   ├── ccm.rs        Crystal lifecycle, context formatting, aggregation
-│   ├── storage.rs    StoragePort trait (30 methods)
+│   ├── storage.rs    StoragePort trait (34 methods)
 │   ├── sanitize.rs   Content + observation target sanitization (CH2 defense)
 │   ├── compliance.rs Session compliance scoring
-│   └── ...           13 more domain modules (events, metrics, usage, etc.)
+│   └── ...           10 more domain modules (events, metrics, usage, etc.)
 ├── dogs/
 │   ├── deterministic.rs  Heuristic form evaluator (PHI, BURN, SOVEREIGNTY)
 │   └── inference.rs      LLM-backed Dog (any OpenAI-compatible backend)
 ├── backends/         Driven port adapters (HTTP to LLM endpoints)
 ├── storage/          SurrealDB HTTP + InMemory adapters
 ├── api/
-│   ├── rest/         Axum REST — 26 routes, auth, rate limiting
-│   └── mcp/          MCP server — 11 tools for AI agent integration
+│   ├── rest/         Axum REST — 24 routes, auth, rate limiting
+│   └── mcp/          MCP server — 12 tools for AI agent integration
 ├── infra/            Background tasks, circuit breakers, config
 ├── probe/            Boot-time hardware + LLM discovery
 ├── pipeline.rs       THE shared evaluation path (REST + MCP both call this)
@@ -168,7 +168,7 @@ pub trait ChatPort: Send + Sync {
 }
 ```
 
-Adding a new Dog = implement `Dog` trait. Adding a new LLM backend = implement `ChatPort`. 7 port traits total.
+Adding a new Dog = implement `Dog` trait. Adding a new LLM backend = implement `ChatPort`. 10 port traits total.
 
 ---
 
@@ -222,7 +222,7 @@ curl -X POST "http://${CYNIC_REST_ADDR}/judge" \
 
 ## API
 
-All endpoints except `/health` require `Authorization: Bearer $CYNIC_API_KEY`.
+All endpoints except `/health`, `/live`, `/ready`, `/metrics`, `/events` require `Authorization: Bearer $CYNIC_API_KEY`.
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -265,9 +265,9 @@ Rules: `.claude/rules/` (universal.md, kernel.md, workflow.md, reference.md)
 
 ## Status
 
-v0.7.4 — working kernel in production. v0.8 (Fondation Prouvée) in progress.
+v0.7.6 — working kernel in production. v0.8 (Fondation Prouvée) in progress.
 
-**Working:** Multi-validator consensus, φ-bounded scoring, 5 Dogs (1 heuristic + 4 LLM), circuit breakers, crystal compound loop (Δ=+0.02-0.04 chess), REST API (26 routes) + MCP server (11 tools), multi-agent coordination, SurrealDB persistence with KNN crystal search, session compliance scoring, MAPE-K introspection, React chess dashboard.
+**Working:** Multi-validator consensus, φ-bounded scoring, 5 Dogs (1 heuristic + 4 LLM), circuit breakers, crystal compound loop (Δ=+0.02-0.04 chess), REST API (24 routes) + MCP server (12 tools), multi-agent coordination, SurrealDB persistence with KNN crystal search, session compliance scoring, MAPE-K introspection, proprioceptive probe system (6 probes), React chess dashboard.
 
 **v0.8 gates:** Security closure, StoragePort agnosticism (InMemory contract tests), workflow alignment.
 

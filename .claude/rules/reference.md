@@ -43,12 +43,15 @@ Source of truth: `~/.config/cynic/fleet.toml`
 
 ## API Endpoints
 
-All require `Bearer $CYNIC_API_KEY` except `/health`.
+All require `Bearer $CYNIC_API_KEY` except `/health`, `/live`, `/ready`, `/metrics`, `/events`.
 Rate limit: 30/min. Full contract: `API.md`.
 
 ```
-GET  /health, /verdicts, /verdict/{id}, /crystals, /crystal/{id}
+GET  /health, /live, /ready, /metrics, /events
+GET  /verdicts, /verdict/{id}, /crystals, /crystal/{id}
 GET  /usage, /dogs, /agents
-POST /judge, /observe
-POST /coord/register, /coord/claim, /coord/release
+GET  /observations, /sessions, /session/{agent_id}/compliance, /compliance, /audit
+POST /judge, /observe, /crystal
+DELETE /crystal/{id}
+POST /coord/register, /coord/claim, /coord/claim-batch, /coord/release
 ```
