@@ -1,7 +1,13 @@
 pub mod backup;
+pub mod network;
+pub mod pressure;
+pub mod process;
 pub mod resource;
 
 pub use backup::BackupProbe;
+pub use network::NetworkProbe;
+pub use pressure::PressureProbe;
+pub use process::ProcessProbe;
 pub use resource::ResourceProbe;
 
 use std::sync::Arc;

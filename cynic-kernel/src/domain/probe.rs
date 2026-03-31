@@ -83,6 +83,34 @@ pub struct OsCapDetails {
     pub fd_used: Option<u64>,
 }
 
+/// Self-monitoring: the kernel's own process metrics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessDetails {
+    /// Resident set size in megabytes (VmRSS).
+    pub memory_rss_mb: Option<f64>,
+    /// Number of open file descriptors.
+    pub fd_count: Option<u64>,
+    /// File descriptor limit (RLIMIT_NOFILE soft).
+    pub fd_limit: Option<u64>,
+    /// Number of threads.
+    pub thread_count: Option<u64>,
+    /// Cumulative user-mode CPU seconds (utime from /proc/self/stat).
+    pub cpu_user_seconds: Option<f64>,
+    /// Cumulative system-mode CPU seconds (stime from /proc/self/stat).
+    pub cpu_system_seconds: Option<f64>,
+}
+
+/// Linux Pressure Stall Information (PSI) from /proc/pressure/*.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PressureDetails {
+    pub cpu_some_avg10: Option<f64>,
+    pub cpu_some_avg60: Option<f64>,
+    pub memory_some_avg10: Option<f64>,
+    pub memory_full_avg10: Option<f64>,
+    pub io_some_avg10: Option<f64>,
+    pub io_full_avg10: Option<f64>,
+}
+
 // ─── Typed Details ────────────────────────────────────────────────────────────
 
 /// Typed payload carried by a `ProbeResult`.
@@ -95,6 +123,8 @@ pub enum ProbeDetails {
     DogHealth(DogHealthDetails),
     Network(NetworkDetails),
     OsCapability(OsCapDetails),
+    Process(ProcessDetails),
+    Pressure(PressureDetails),
     /// NullProbe and test doubles only. Real probes must use a typed variant.
     Empty,
 }

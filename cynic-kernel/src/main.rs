@@ -426,8 +426,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .join(".surrealdb")
         .join("backups");
     let probes: Vec<Arc<dyn domain::probe::Probe>> = vec![
-        Arc::new(infra::probes::ResourceProbe),
+        Arc::new(infra::probes::ResourceProbe::default()),
         Arc::new(infra::probes::BackupProbe::new(backup_dir)),
+        Arc::new(infra::probes::ProcessProbe),
+        Arc::new(infra::probes::PressureProbe),
+        Arc::new(infra::probes::NetworkProbe),
     ];
 
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
@@ -529,7 +532,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&task_health),
         shutdown.clone(),
     );
-    klog!("[Ring 2] Probe scheduler started (resource: 30s, backup: 1h)");
+    klog!("[Ring 2] Probe scheduler started (resource+process+pressure+network: 30s, backup: 1h)");
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
