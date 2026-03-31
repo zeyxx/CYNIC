@@ -529,7 +529,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&task_health),
         shutdown.clone(),
     );
-    klog!("[Ring 2] Probe scheduler started (resource: 5min, backup: 1h)");
+    klog!("[Ring 2] Probe scheduler started (resource: 30s, backup: 1h)");
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {

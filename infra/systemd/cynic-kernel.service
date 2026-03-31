@@ -13,8 +13,9 @@ KillSignal=SIGTERM
 TimeoutStopSec=30
 Restart=on-failure
 RestartSec=5
-# Single source of truth — systemd strips `export` prefix automatically (Rule 12).
-EnvironmentFile=%h/.cynic-env
+# Generated from ~/.cynic-env: sed 's/^export //' ~/.cynic-env > ~/.config/cynic/env
+# systemd does NOT support `export` prefix — Rule 12 maintained via generation.
+EnvironmentFile=%h/.config/cynic/env
 LimitNOFILE=65535
 MemoryMax=2G
 

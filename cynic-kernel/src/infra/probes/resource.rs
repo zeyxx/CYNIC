@@ -19,7 +19,7 @@ impl crate::domain::probe::Probe for ResourceProbe {
     }
 
     fn interval(&self) -> Duration {
-        Duration::from_secs(300)
+        Duration::from_secs(30)
     }
 
     async fn sense(&self) -> Result<ProbeResult, ProbeError> {
