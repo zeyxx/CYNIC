@@ -42,3 +42,9 @@ needless_pass_by_value = "warn"
 redundant_clone = "warn"
 uninlined_format_args = "warn"
 unused_self = "warn"
+
+# ── Release profile ──
+# opt-level=2 instead of 3: rustc 1.94 LLVM SIGSEGV on deep serde+rmcp monomorphization
+# at opt-level=3 (IPSCCP pass crash). See rust-lang/rust #103767, #122357, #138561.
+[profile.release]
+opt-level = 2
