@@ -15,4 +15,3 @@ pub mod metrics;
 pub mod probe;
 pub mod sanitize;
 pub mod summarization;
-pub mod system_metrics;

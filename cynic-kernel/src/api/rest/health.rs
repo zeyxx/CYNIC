@@ -39,7 +39,23 @@ pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode
             ok
         }
     };
-    let (_, is_healthy) = system_health_status(healthy_dogs, total_dogs, storage_ok);
+    let probes_degraded = state
+        .environment
+        .read()
+        .ok()
+        .and_then(|e| {
+            e.as_ref()
+                .map(|s| s.overall != crate::domain::probe::ProbeStatus::Ok)
+        })
+        .unwrap_or(true); // poison or missing = assume degraded
+    let tasks_stale = state.task_health.has_stale();
+    let (_, is_healthy) = system_health_status(
+        healthy_dogs,
+        total_dogs,
+        storage_ok,
+        probes_degraded,
+        tasks_stale,
+    );
     if is_healthy {
         StatusCode::OK
     } else {
@@ -72,7 +88,23 @@ pub async fn health_handler(
 
     let storage_ok = state.storage.ping().await.is_ok();
 
-    let (status, is_healthy) = system_health_status(healthy_dogs, total_dogs, storage_ok);
+    let probes_degraded = state
+        .environment
+        .read()
+        .ok()
+        .and_then(|e| {
+            e.as_ref()
+                .map(|s| s.overall != crate::domain::probe::ProbeStatus::Ok)
+        })
+        .unwrap_or(true); // poison or missing = assume degraded
+    let tasks_stale = state.task_health.has_stale();
+    let (status, is_healthy) = system_health_status(
+        healthy_dogs,
+        total_dogs,
+        storage_ok,
+        probes_degraded,
+        tasks_stale,
+    );
     let http_code = if is_healthy {
         StatusCode::OK
     } else {

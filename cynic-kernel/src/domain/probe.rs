@@ -111,6 +111,12 @@ pub struct PressureDetails {
     pub io_full_avg10: Option<f64>,
 }
 
+/// Fleet health: per-Dog backend reachability.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FleetDetails {
+    pub dogs: Vec<DogHealthDetails>,
+}
+
 // ─── Typed Details ────────────────────────────────────────────────────────────
 
 /// Typed payload carried by a `ProbeResult`.
@@ -125,6 +131,7 @@ pub enum ProbeDetails {
     OsCapability(OsCapDetails),
     Process(ProcessDetails),
     Pressure(PressureDetails),
+    Fleet(FleetDetails),
     /// NullProbe and test doubles only. Real probes must use a typed variant.
     Empty,
 }

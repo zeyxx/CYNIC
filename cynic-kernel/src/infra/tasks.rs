@@ -14,8 +14,8 @@ use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::health_gate::HealthGate;
 use crate::domain::metrics::Metrics;
+use crate::domain::probe::EnvironmentSnapshot;
 use crate::domain::storage::StoragePort;
-use crate::domain::system_metrics::SystemMetricsPort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
 use crate::infra::config::BackendRemediation;
@@ -262,7 +262,7 @@ pub fn spawn_backfill(
 pub fn spawn_introspection(
     storage: Arc<dyn StoragePort>,
     metrics: Arc<Metrics>,
-    system_metrics: Arc<dyn SystemMetricsPort>,
+    environment: Arc<std::sync::RwLock<Option<EnvironmentSnapshot>>>,
     judge: Arc<Judge>,
     embedding: Arc<dyn EmbeddingPort>,
     usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
@@ -287,12 +287,19 @@ pub fn spawn_introspection(
                     break;
                 }
                 _ = interval.tick() => {
+                    let env_snap = match environment.read() {
+                        Ok(guard) => guard.clone(),
+                        Err(e) => {
+                            tracing::warn!(error = %e, "environment RwLock poisoned — skipping resource checks");
+                            None
+                        }
+                    };
                     match tokio::time::timeout(
                         std::time::Duration::from_secs(180),
                         crate::introspection::analyze(
                             storage.as_ref(),
                             &metrics,
-                            system_metrics.as_ref(),
+                            &env_snap,
                             &judge,
                             embedding.as_ref(),
                             &usage,

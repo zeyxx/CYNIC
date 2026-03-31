@@ -246,6 +246,10 @@ pub struct CynicMcp {
     /// Sovereign inference — routed through InferPort, not raw HTTP (Rule #17).
     infer: Arc<dyn InferPort>,
     metrics: Arc<crate::domain::metrics::Metrics>,
+    /// Probe environment snapshot — shared with REST for honest status.
+    environment: Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
+    /// Background task health — shared with REST for honest status.
+    task_health: Arc<crate::infra::task_health::TaskHealth>,
     /// Kernel event bus — shared with REST SSE. None only in tests.
     event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     /// RC1: Rate limiter — shared across all tool calls.
@@ -271,6 +275,8 @@ impl CynicMcp {
         verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
         infer: Arc<dyn InferPort>,
         metrics: Arc<crate::domain::metrics::Metrics>,
+        environment: Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
+        task_health: Arc<crate::infra::task_health::TaskHealth>,
         event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     ) -> Self {
         Self {
@@ -281,6 +287,8 @@ impl CynicMcp {
             verdict_cache,
             infer,
             metrics,
+            environment,
+            task_health,
             usage,
             event_tx,
             rate_limit: Arc::new(McpRateLimit::new()),
@@ -434,7 +442,23 @@ impl CynicMcp {
 
         let storage_ok = self.storage.ping().await.is_ok();
 
-        let (status, _is_healthy) = system_health_status(healthy_dogs, total_dogs, storage_ok);
+        let probes_degraded = self
+            .environment
+            .read()
+            .ok()
+            .and_then(|e| {
+                e.as_ref()
+                    .map(|s| s.overall != crate::domain::probe::ProbeStatus::Ok)
+            })
+            .unwrap_or(true); // poison or missing = assume degraded
+        let tasks_stale = self.task_health.has_stale();
+        let (status, _is_healthy) = system_health_status(
+            healthy_dogs,
+            total_dogs,
+            storage_ok,
+            probes_degraded,
+            tasks_stale,
+        );
 
         let response = serde_json::json!({
             "status": status,
@@ -1126,6 +1150,8 @@ mod tests {
             verdict_cache,
             infer,
             metrics,
+            Arc::new(std::sync::RwLock::new(None)),
+            Arc::new(crate::infra::task_health::TaskHealth::new()),
             None,
         )
     }
@@ -1324,6 +1350,8 @@ mod tests {
             verdict_cache,
             infer,
             metrics,
+            Arc::new(std::sync::RwLock::new(None)),
+            Arc::new(crate::infra::task_health::TaskHealth::new()),
             None,
         );
 

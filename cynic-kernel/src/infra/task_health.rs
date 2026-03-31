@@ -104,6 +104,12 @@ impl TaskHealth {
         }
     }
 
+    /// Returns true if any critical task is stale (last success > 2× interval).
+    /// Used by system_health_status to degrade from "sovereign".
+    pub fn has_stale(&self) -> bool {
+        self.snapshot().iter().any(|t| t.status == "stale")
+    }
+
     /// Snapshot of all task health — for /health endpoint.
     pub fn snapshot(&self) -> Vec<TaskSnapshot> {
         let now = Self::now_secs();

@@ -36,20 +36,26 @@ pub trait HealthGate: Send + Sync {
     fn opened_since(&self) -> Option<Duration>;
 }
 
-/// Determine system health status from healthy/total dog counts and storage state.
+/// Determine system health status from Dogs, storage, probes, and background tasks.
 ///
 /// Gate: counts only circuit=closed dogs, not total registered dogs.
 /// - critical (503): zero healthy dogs OR storage down
-/// - degraded (503): only 1 healthy dog OR majority of dogs down
-/// - sovereign (200): majority healthy + storage up
+/// - degraded (503): only 1 healthy dog OR majority down OR probes degraded OR tasks stale
+/// - sovereign (200): majority healthy + storage up + probes ok + no critical tasks
 pub fn system_health_status(
     healthy_dogs: usize,
     total_dogs: usize,
     storage_ok: bool,
+    probes_degraded: bool,
+    tasks_stale: bool,
 ) -> (&'static str, bool) {
     if healthy_dogs == 0 || !storage_ok {
         ("critical", false)
-    } else if healthy_dogs == 1 || (total_dogs > 0 && healthy_dogs * 2 < total_dogs) {
+    } else if healthy_dogs == 1
+        || (total_dogs > 0 && healthy_dogs * 2 < total_dogs)
+        || probes_degraded
+        || tasks_stale
+    {
         ("degraded", false)
     } else {
         ("sovereign", true)
@@ -62,37 +68,73 @@ mod tests {
 
     #[test]
     fn health_zero_dogs_is_critical() {
-        assert_eq!(system_health_status(0, 0, true), ("critical", false));
+        assert_eq!(
+            system_health_status(0, 0, true, false, false),
+            ("critical", false)
+        );
     }
 
     #[test]
     fn health_storage_down_is_critical() {
-        assert_eq!(system_health_status(5, 5, false), ("critical", false));
+        assert_eq!(
+            system_health_status(5, 5, false, false, false),
+            ("critical", false)
+        );
     }
 
     #[test]
     fn health_one_healthy_dog_is_degraded() {
-        assert_eq!(system_health_status(1, 5, true), ("degraded", false));
+        assert_eq!(
+            system_health_status(1, 5, true, false, false),
+            ("degraded", false)
+        );
     }
 
     #[test]
     fn health_5_dogs_3_critical_is_degraded() {
-        // THE audit scenario: 5 dogs, 3 circuits tripped → only 2 healthy
-        assert_eq!(system_health_status(2, 5, true), ("degraded", false));
+        assert_eq!(
+            system_health_status(2, 5, true, false, false),
+            ("degraded", false)
+        );
     }
 
     #[test]
     fn health_5_dogs_1_critical_is_sovereign() {
-        assert_eq!(system_health_status(4, 5, true), ("sovereign", true));
+        assert_eq!(
+            system_health_status(4, 5, true, false, false),
+            ("sovereign", true)
+        );
     }
 
     #[test]
     fn health_all_healthy_is_sovereign() {
-        assert_eq!(system_health_status(5, 5, true), ("sovereign", true));
+        assert_eq!(
+            system_health_status(5, 5, true, false, false),
+            ("sovereign", true)
+        );
     }
 
     #[test]
     fn health_2_of_2_is_sovereign() {
-        assert_eq!(system_health_status(2, 2, true), ("sovereign", true));
+        assert_eq!(
+            system_health_status(2, 2, true, false, false),
+            ("sovereign", true)
+        );
+    }
+
+    #[test]
+    fn health_probes_degraded_is_degraded() {
+        assert_eq!(
+            system_health_status(5, 5, true, true, false),
+            ("degraded", false)
+        );
+    }
+
+    #[test]
+    fn health_tasks_stale_is_degraded() {
+        assert_eq!(
+            system_health_status(5, 5, true, false, true),
+            ("degraded", false)
+        );
     }
 }

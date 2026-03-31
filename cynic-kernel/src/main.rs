@@ -51,9 +51,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     klog!("╚══════════════════════════════════════╝");
     let node_config = probe::run(force_reprobe).await?;
 
-    let system_metrics: Arc<dyn cynic_kernel::domain::system_metrics::SystemMetricsPort> =
-        Arc::new(cynic_kernel::infra::system_metrics::SysinfoMetrics::new());
-
     klog!("[Ring 0] Omniscience Active. Reality Mapped.");
     klog!(
         "[Ring 0] Host: {} | Compute: {:?} | VRAM: {}GB",
@@ -425,12 +422,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_default()
         .join(".surrealdb")
         .join("backups");
+    // Build fleet probe targets from Dog health_urls (backends.toml SoT)
+    let fleet_targets: Vec<infra::probes::FleetTarget> = health_urls
+        .iter()
+        .filter_map(|(name, url)| {
+            url.as_ref().map(|u| infra::probes::FleetTarget {
+                dog_name: name.clone(),
+                health_url: u.clone(),
+            })
+        })
+        .collect();
     let probes: Vec<Arc<dyn domain::probe::Probe>> = vec![
         Arc::new(infra::probes::ResourceProbe::default()),
         Arc::new(infra::probes::BackupProbe::new(backup_dir)),
         Arc::new(infra::probes::ProcessProbe),
         Arc::new(infra::probes::PressureProbe),
         Arc::new(infra::probes::NetworkProbe),
+        Arc::new(infra::probes::FleetProbe::new(fleet_targets)),
     ];
 
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
@@ -513,7 +521,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     infra::tasks::spawn_introspection(
         Arc::clone(&storage_port),
         Arc::clone(&metrics),
-        Arc::clone(&system_metrics),
+        Arc::clone(&environment),
         Arc::clone(&judge),
         Arc::clone(&embedding),
         Arc::clone(&usage_tracker),
@@ -532,7 +540,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&task_health),
         shutdown.clone(),
     );
-    klog!("[Ring 2] Probe scheduler started (resource+process+pressure+network: 30s, backup: 1h)");
+    klog!(
+        "[Ring 2] Probe scheduler started (resource+process+pressure+network+fleet: 30s, backup: 1h)"
+    );
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
@@ -555,6 +565,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&verdict_cache),
             mcp_infer,
             Arc::clone(&metrics),
+            Arc::clone(&environment),
+            Arc::clone(&task_health),
             Some(event_tx.clone()),
         );
 

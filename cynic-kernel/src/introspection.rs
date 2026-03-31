@@ -10,8 +10,8 @@
 use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::metrics::Metrics;
-use crate::domain::storage::{Observation, StoragePort};
-use crate::domain::system_metrics::SystemMetricsPort;
+use crate::domain::probe::{EnvironmentSnapshot, ProbeDetails, ResourceDetails};
+use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
 use crate::judge::Judge;
@@ -36,7 +36,7 @@ pub struct Alert {
 pub async fn analyze(
     storage: &dyn StoragePort,
     metrics: &Metrics,
-    system_metrics: &dyn SystemMetricsPort,
+    environment: &Option<EnvironmentSnapshot>,
     judge: &Judge,
     embedding: &dyn EmbeddingPort,
     usage: &Mutex<DogUsageTracker>,
@@ -109,95 +109,14 @@ pub async fn analyze(
         });
     }
 
-    // ── System metrics ──
-    match system_metrics.snapshot().await {
-        Ok(snap) => {
-            // Store raw snapshot as observation (analytics)
-            let obs = Observation {
-                project: "CYNIC".into(),
-                agent_id: "kernel".into(),
-                tool: "self-probe".into(),
-                target: "localhost".into(),
-                domain: "infra".into(),
-                status: "ok".into(),
-                context: snap.to_compact(),
-                session_id: String::new(),
-                timestamp: chrono::Utc::now().to_rfc3339(),
-            };
-            // Best-effort store
-            if let Err(e) = storage.store_observation(&obs).await {
-                tracing::warn!(error = %e, "introspection: failed to store self-probe observation");
-            }
-
-            // Memory pressure
-            if snap.memory_total_gb > 0.0 {
-                let ratio = snap.memory_used_gb / snap.memory_total_gb;
-                if ratio > 0.95 {
-                    alerts.push(Alert {
-                        kind: "memory_pressure",
-                        message: format!(
-                            "Memory critical: {:.1}% used ({:.1}/{:.1} GB)",
-                            ratio * 100.0,
-                            snap.memory_used_gb,
-                            snap.memory_total_gb
-                        ),
-                        severity: "critical",
-                    });
-                } else if ratio > 0.90 {
-                    alerts.push(Alert {
-                        kind: "memory_pressure",
-                        message: format!(
-                            "Memory high: {:.1}% used ({:.1}/{:.1} GB)",
-                            ratio * 100.0,
-                            snap.memory_used_gb,
-                            snap.memory_total_gb
-                        ),
-                        severity: "warning",
-                    });
-                }
-            }
-
-            // CPU sustained (skip if 0.0 — first tick after boot)
-            if snap.cpu_usage_percent > 80.0 {
-                alerts.push(Alert {
-                    kind: "cpu_sustained",
-                    message: format!("CPU high: {:.1}%", snap.cpu_usage_percent),
-                    severity: "warning",
-                });
-            }
-
-            // Disk low
-            if snap.disk_total_gb > 0.0 {
-                let avail_ratio = snap.disk_available_gb / snap.disk_total_gb;
-                if avail_ratio < 0.05 {
-                    alerts.push(Alert {
-                        kind: "disk_low",
-                        message: format!(
-                            "Disk critical: {:.1}% available ({:.0}/{:.0} GB)",
-                            avail_ratio * 100.0,
-                            snap.disk_available_gb,
-                            snap.disk_total_gb
-                        ),
-                        severity: "critical",
-                    });
-                } else if avail_ratio < 0.10 {
-                    alerts.push(Alert {
-                        kind: "disk_low",
-                        message: format!(
-                            "Disk low: {:.1}% available ({:.0}/{:.0} GB)",
-                            avail_ratio * 100.0,
-                            snap.disk_available_gb,
-                            snap.disk_total_gb
-                        ),
-                        severity: "warning",
-                    });
-                }
-            }
+    // ── Resource metrics (from probe system EnvironmentSnapshot) ──
+    if let Some(snap) = environment {
+        let resource = extract_resource(snap);
+        if let Some(r) = &resource {
+            check_resource_thresholds(r, &mut alerts);
         }
-        Err(e) => {
-            // Graceful degradation — system metrics unavailable (e.g., NullSystemMetrics in tests)
-            tracing::debug!(error = %e, "introspection: system metrics unavailable — skipping");
-        }
+    } else {
+        tracing::debug!("introspection: no EnvironmentSnapshot yet — skipping resource checks");
     }
 
     if !alerts.is_empty() {
@@ -250,12 +169,93 @@ pub async fn analyze(
     alerts
 }
 
+/// Extract ResourceDetails from an EnvironmentSnapshot's probes.
+fn extract_resource(snap: &EnvironmentSnapshot) -> Option<ResourceDetails> {
+    snap.probes.iter().find_map(|p| match &p.details {
+        ProbeDetails::Resource(r) => Some(r.clone()),
+        _ => None,
+    })
+}
+
+/// Check resource thresholds and push alerts.
+fn check_resource_thresholds(r: &ResourceDetails, alerts: &mut Vec<Alert>) {
+    // Memory pressure
+    if let (Some(used), Some(total)) = (r.memory_used_gb, r.memory_total_gb)
+        && total > 0.0
+    {
+        let ratio = used / total;
+        if ratio > 0.95 {
+            alerts.push(Alert {
+                kind: "memory_pressure",
+                message: format!(
+                    "Memory critical: {:.1}% used ({:.1}/{:.1} GB)",
+                    ratio * 100.0,
+                    used,
+                    total
+                ),
+                severity: "critical",
+            });
+        } else if ratio > 0.90 {
+            alerts.push(Alert {
+                kind: "memory_pressure",
+                message: format!(
+                    "Memory high: {:.1}% used ({:.1}/{:.1} GB)",
+                    ratio * 100.0,
+                    used,
+                    total
+                ),
+                severity: "warning",
+            });
+        }
+    }
+
+    // CPU sustained (skip None — first tick or non-Linux)
+    if let Some(cpu) = r.cpu_usage_percent
+        && cpu > 80.0
+    {
+        alerts.push(Alert {
+            kind: "cpu_sustained",
+            message: format!("CPU high: {cpu:.1}%"),
+            severity: "warning",
+        });
+    }
+
+    // Disk low
+    if let (Some(avail), Some(total)) = (r.disk_available_gb, r.disk_total_gb)
+        && total > 0.0
+    {
+        let avail_ratio = avail / total;
+        if avail_ratio < 0.05 {
+            alerts.push(Alert {
+                kind: "disk_low",
+                message: format!(
+                    "Disk critical: {:.1}% available ({:.0}/{:.0} GB)",
+                    avail_ratio * 100.0,
+                    avail,
+                    total
+                ),
+                severity: "critical",
+            });
+        } else if avail_ratio < 0.10 {
+            alerts.push(Alert {
+                kind: "disk_low",
+                message: format!(
+                    "Disk low: {:.1}% available ({:.0}/{:.0} GB)",
+                    avail_ratio * 100.0,
+                    avail,
+                    total
+                ),
+                severity: "warning",
+            });
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::domain::embedding::NullEmbedding;
     use crate::domain::storage::NullStorage;
-    use crate::domain::system_metrics::NullSystemMetrics;
     use crate::domain::verdict_cache::VerdictCache;
     use crate::judge::Judge;
 
@@ -279,7 +279,7 @@ mod tests {
         let alerts = analyze(
             &NullStorage,
             &metrics,
-            &NullSystemMetrics,
+            &None,
             &judge,
             &embedding,
             &usage,
@@ -307,7 +307,7 @@ mod tests {
         let alerts = analyze(
             &NullStorage,
             &metrics,
-            &NullSystemMetrics,
+            &None,
             &judge,
             &embedding,
             &usage,

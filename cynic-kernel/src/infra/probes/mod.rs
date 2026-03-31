@@ -1,10 +1,12 @@
 pub mod backup;
+pub mod fleet;
 pub mod network;
 pub mod pressure;
 pub mod process;
 pub mod resource;
 
 pub use backup::BackupProbe;
+pub use fleet::{FleetProbe, FleetTarget};
 pub use network::NetworkProbe;
 pub use pressure::PressureProbe;
 pub use process::ProcessProbe;
