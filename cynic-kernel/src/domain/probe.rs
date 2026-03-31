@@ -47,6 +47,10 @@ pub struct DogHealthDetails {
     pub dog_name: String,
     pub reachable: bool,
     pub latency_ms: Option<u64>,
+    /// Actual context tokens supported by the running model (if available).
+    pub actual_n_ctx: Option<u32>,
+    /// Expected context tokens from configuration.
+    pub expected_n_ctx: Option<u32>,
 }
 
 /// A single network interface observed on a host.
@@ -57,30 +61,10 @@ pub struct NetInterfaceInfo {
     pub ips: Vec<String>,
 }
 
-/// A single Tailscale / mesh peer.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PeerInfo {
-    pub name: String,
-    pub address: String,
-    pub reachable: bool,
-    pub latency_ms: Option<u64>,
-}
-
-/// Network interfaces and peers observed on a host.
+/// Network interfaces observed on a host.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkDetails {
     pub interfaces: Vec<NetInterfaceInfo>,
-    pub peers: Vec<PeerInfo>,
-}
-
-/// OS-level capability envelope (container limits, fd usage).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OsCapDetails {
-    pub container: Option<String>,
-    pub memory_limit_gb: Option<f64>,
-    pub cpu_quota: Option<f64>,
-    pub fd_limit: Option<u64>,
-    pub fd_used: Option<u64>,
 }
 
 /// Self-monitoring: the kernel's own process metrics.
@@ -126,9 +110,7 @@ pub struct FleetDetails {
 pub enum ProbeDetails {
     Resource(ResourceDetails),
     Backup(BackupDetails),
-    DogHealth(DogHealthDetails),
     Network(NetworkDetails),
-    OsCapability(OsCapDetails),
     Process(ProcessDetails),
     Pressure(PressureDetails),
     Fleet(FleetDetails),

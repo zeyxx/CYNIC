@@ -151,6 +151,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     > = std::collections::HashMap::new();
     let mut health_urls: std::collections::HashMap<String, Option<String>> =
         std::collections::HashMap::new();
+    // Fleet probe needs base_url (for /props) and context_size (for drift detection)
+    let mut fleet_meta: std::collections::HashMap<String, (String, u32)> =
+        std::collections::HashMap::new();
     for cfg in backend_configs {
         let backend = match backends::openai::OpenAiCompatBackend::new(cfg.clone()) {
             Ok(b) => Arc::new(b),
@@ -191,6 +194,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             cfg.cost_output_per_mtok,
         ));
         health_urls.insert(cfg.name.clone(), cfg.health_url.clone());
+        fleet_meta.insert(cfg.name.clone(), (cfg.base_url.clone(), cfg.context_size));
         if let Some(rem) = cfg.remediation.clone() {
             remediation_configs.insert(cfg.name.clone(), rem);
         }
@@ -423,12 +427,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .join(".surrealdb")
         .join("backups");
     // Build fleet probe targets from Dog health_urls (backends.toml SoT)
+    // Wire props_url + expected_n_ctx for context drift detection (D1)
     let fleet_targets: Vec<infra::probes::FleetTarget> = health_urls
         .iter()
         .filter_map(|(name, url)| {
-            url.as_ref().map(|u| infra::probes::FleetTarget {
-                dog_name: name.clone(),
-                health_url: u.clone(),
+            url.as_ref().map(|u| {
+                let (base_url, ctx_size) =
+                    fleet_meta.get(name.as_str()).cloned().unwrap_or_default();
+                // Derive /props URL from base_url (strip /v1 suffix)
+                let props_url = if !base_url.is_empty() {
+                    Some(
+                        base_url
+                            .trim_end_matches('/')
+                            .trim_end_matches("/v1")
+                            .to_string()
+                            + "/props",
+                    )
+                } else {
+                    None
+                };
+                infra::probes::FleetTarget {
+                    dog_name: name.clone(),
+                    health_url: u.clone(),
+                    props_url,
+                    expected_n_ctx: ctx_size,
+                }
             })
         })
         .collect();

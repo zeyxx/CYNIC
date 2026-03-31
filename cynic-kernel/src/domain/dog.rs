@@ -145,6 +145,54 @@ pub struct Verdict {
     pub prev_hash: Option<String>,
 }
 
+// ── SCORE VALIDATION (pre-phi_bound) ─────────────────────
+/// Minimum variance threshold for score validation.
+/// Below this, scores are considered degenerate (model collapsed to uniform output).
+/// Value: 10⁻⁴ — extremely conservative, catches only pathological cases.
+const MIN_SCORE_VARIANCE: f64 = 0.0001;
+
+/// Maximum number of raw 0.0 scores before declaring a zero flood.
+/// 4 out of 6 axioms at exactly 0.0 = the model failed to score, not a real judgment.
+const MAX_ZERO_SCORES: usize = 3;
+
+/// Validate raw axiom scores BEFORE phi_bound. Catches pathological LLM outputs
+/// that would otherwise be silently masked by phi_bound (0.0 → 0.05).
+///
+/// Conservative thresholds — only rejects clearly degenerate outputs:
+/// - Zero flood: ≥4 axioms at exactly 0.0
+/// - Degenerate variance: all scores within ε (model collapsed)
+///
+/// Returns `Ok(())` for usable scores, even imperfect ones.
+pub fn validate_scores(scores: &AxiomScores) -> Result<(), DogError> {
+    let raw = [
+        scores.fidelity,
+        scores.phi,
+        scores.verify,
+        scores.culture,
+        scores.burn,
+        scores.sovereignty,
+    ];
+
+    // Zero flood: too many axioms at exactly 0.0 = parse/generation failure
+    let zero_count = raw.iter().filter(|&&v| v == 0.0).count();
+    if zero_count > MAX_ZERO_SCORES {
+        return Err(DogError::ParseError(format!(
+            "zero flood: {zero_count}/6 axioms at 0.0"
+        )));
+    }
+
+    // Degenerate variance: all scores nearly identical = model collapsed
+    let mean = raw.iter().sum::<f64>() / 6.0;
+    let variance = raw.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / 6.0;
+    if variance < MIN_SCORE_VARIANCE {
+        return Err(DogError::ParseError(format!(
+            "degenerate scores: variance {variance:.6} < {MIN_SCORE_VARIANCE} (all ~{mean:.3})"
+        )));
+    }
+
+    Ok(())
+}
+
 // ── PHI-BOUNDING ───────────────────────────────────────────
 /// Clamp a raw score to [FLOOR, phi^-1]. Floor at 0.05 because a true zero
 /// is always a parsing failure, never a real epistemic judgment. A zero in the
@@ -321,5 +369,78 @@ mod tests {
         assert_eq!(verdict_kind(0.45), VerdictKind::Wag);
         assert_eq!(verdict_kind(0.25), VerdictKind::Growl);
         assert_eq!(verdict_kind(0.1), VerdictKind::Bark);
+    }
+
+    // ── validate_scores tests ────────────────────────────────
+
+    fn scores_with(f: f64, p: f64, v: f64, c: f64, b: f64, s: f64) -> AxiomScores {
+        AxiomScores {
+            fidelity: f,
+            phi: p,
+            verify: v,
+            culture: c,
+            burn: b,
+            sovereignty: s,
+            reasoning: AxiomReasoning::default(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn validate_normal_scores_pass() {
+        let s = scores_with(0.5, 0.4, 0.3, 0.45, 0.6, 0.35);
+        assert!(validate_scores(&s).is_ok());
+    }
+
+    #[test]
+    fn validate_low_but_varied_scores_pass() {
+        // Low scores are fine as long as they're not all zero
+        let s = scores_with(0.1, 0.05, 0.15, 0.2, 0.08, 0.12);
+        assert!(validate_scores(&s).is_ok());
+    }
+
+    #[test]
+    fn validate_zero_flood_rejected() {
+        // 4 out of 6 at 0.0 — model failed to score
+        let s = scores_with(0.0, 0.0, 0.0, 0.0, 0.5, 0.3);
+        let err = validate_scores(&s).unwrap_err();
+        assert!(err.to_string().contains("zero flood"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_three_zeros_pass() {
+        // 3 zeros is at the threshold — still accepted (conservative)
+        let s = scores_with(0.0, 0.0, 0.0, 0.5, 0.4, 0.3);
+        assert!(validate_scores(&s).is_ok());
+    }
+
+    #[test]
+    fn validate_all_zero_rejected() {
+        let s = scores_with(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let err = validate_scores(&s).unwrap_err();
+        assert!(err.to_string().contains("zero flood"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_degenerate_all_same_rejected() {
+        // Model collapsed — all scores identical
+        let s = scores_with(0.5, 0.5, 0.5, 0.5, 0.5, 0.5);
+        let err = validate_scores(&s).unwrap_err();
+        assert!(err.to_string().contains("degenerate"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_nearly_same_but_varied_enough_pass() {
+        // Close but not identical — should pass
+        let s = scores_with(0.50, 0.49, 0.51, 0.50, 0.48, 0.52);
+        assert!(validate_scores(&s).is_ok());
+    }
+
+    #[test]
+    fn validate_mistral_pattern_rejected() {
+        // Real Mistral failure: 4 zeros + sovereignty inverted
+        let s = scores_with(0.0, 0.0, 0.0, 0.0, 0.5, 1.0);
+        let err = validate_scores(&s).unwrap_err();
+        assert!(err.to_string().contains("zero flood"), "got: {err}");
     }
 }

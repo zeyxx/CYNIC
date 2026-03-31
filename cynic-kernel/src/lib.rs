@@ -1,5 +1,5 @@
 // Lints enforced via [workspace.lints] in root Cargo.toml (Layer 0 enforcement).
-// See docs/superpowers/specs/2026-03-25-workflow-enforcement-design.md
+// Lints: workspace-level deny(dead_code, unused_imports, clippy::unwrap_used, clippy::expect_used)
 // Test exemptions: allow unwrap/expect/dead_code in test modules.
 #![cfg_attr(test, allow(dead_code, clippy::unwrap_used, clippy::expect_used))]
 

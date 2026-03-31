@@ -121,7 +121,6 @@ impl crate::domain::probe::Probe for NetworkProbe {
                 status: ProbeStatus::Unavailable,
                 details: ProbeDetails::Network(NetworkDetails {
                     interfaces: Vec::new(),
-                    peers: Vec::new(),
                 }),
                 duration_ms,
                 timestamp,
@@ -168,10 +167,7 @@ impl crate::domain::probe::Probe for NetworkProbe {
         Ok(ProbeResult {
             name: "network".to_string(),
             status,
-            details: ProbeDetails::Network(NetworkDetails {
-                interfaces,
-                peers: Vec::new(),
-            }),
+            details: ProbeDetails::Network(NetworkDetails { interfaces }),
             duration_ms,
             timestamp,
         })

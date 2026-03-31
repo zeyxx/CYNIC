@@ -175,6 +175,9 @@ impl Dog for InferenceDog {
         scores.prompt_tokens = prompt_tokens;
         scores.completion_tokens = completion_tokens;
 
+        // Validate BEFORE phi_bound — catch pathological outputs that phi_bound would mask
+        crate::domain::dog::validate_scores(&scores)?;
+
         Ok(scores)
     }
 }
