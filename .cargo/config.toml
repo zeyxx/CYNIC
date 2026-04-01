@@ -5,6 +5,7 @@
 jobs = 1
 
 [env]
-# Increased to 1GB — tower-http 0.6.8 debug build monomorphization pushes past 512MB.
-# rustc recommends RUST_MIN_STACK=1073741824 on SIGSEGV from deep codegen stack exhaustion.
-RUST_MIN_STACK = "1073741824"
+# Increased to 2GB — tracing-subscriber 0.3.23 release build monomorphization pushes past 1GB.
+# rustc recommends RUST_MIN_STACK=2147483648 on SIGSEGV from deep codegen stack exhaustion.
+# rust-lang/rust #103767, #122357, #138561.
+RUST_MIN_STACK = "2147483648"

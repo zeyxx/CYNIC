@@ -5,6 +5,8 @@
 use crate::domain::dog::{estimate_tokens, *};
 use crate::domain::health_gate::HealthGate;
 use crate::domain::metrics::Metrics;
+use crate::organ::health::ScoreFailureKind;
+use crate::organ::{BackendHandle, InferenceOrgan, ScoreOutcome};
 use chrono::Utc;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
@@ -12,6 +14,8 @@ use uuid::Uuid;
 pub struct Judge {
     dogs: Vec<Box<dyn Dog>>,
     breakers: Vec<Arc<dyn HealthGate>>,
+    /// Organ handles — one per dog (same index). None for dogs without organ tracking.
+    organ_handles: Vec<Option<BackendHandle>>,
     /// Hash of the last verdict — forms the chain. Protected by Mutex for concurrent access.
     last_hash: Mutex<Option<String>>,
 }
@@ -25,11 +29,25 @@ impl std::fmt::Debug for Judge {
 impl Judge {
     pub fn new(dogs: Vec<Box<dyn Dog>>, breakers: Vec<Arc<dyn HealthGate>>) -> Self {
         assert_eq!(dogs.len(), breakers.len(), "dogs and breakers must be 1:1");
+        let n = dogs.len();
         Self {
             dogs,
             breakers,
+            organ_handles: vec![None; n],
             last_hash: Mutex::new(None),
         }
+    }
+
+    /// Attach organ backend handles (one per dog, same index). Call after `new()`.
+    /// Handles that are `None` are skipped — dogs without organ tracking still work.
+    pub fn with_organ_handles(mut self, handles: Vec<Option<BackendHandle>>) -> Self {
+        assert_eq!(
+            handles.len(),
+            self.dogs.len(),
+            "organ_handles must be 1:1 with dogs"
+        );
+        self.organ_handles = handles;
+        self
     }
 
     /// Seed the hash chain from the last stored verdict (call at boot).
@@ -220,12 +238,10 @@ impl Judge {
         let mut failed_dogs: Vec<String> = Vec::new();
 
         for (id, result, elapsed_ms) in results {
-            // Find the circuit breaker for this dog
-            let cb = self
-                .dogs
-                .iter()
-                .position(|d| d.id() == id)
-                .map(|idx| &self.breakers[idx]);
+            // Find the circuit breaker and organ handle for this dog (by index).
+            let dog_idx = self.dogs.iter().position(|d| d.id() == id);
+            let cb = dog_idx.map(|idx| &self.breakers[idx]);
+            let organ_handle = dog_idx.and_then(|idx| self.organ_handles[idx].as_ref());
 
             // Count ALL attempts (success + failure) so failure rate = fails / evals ≤ 1.0
             metrics.inc_dog_eval();
@@ -233,6 +249,9 @@ impl Judge {
                 Ok(scores) => {
                     if let Some(cb) = cb {
                         cb.record_success();
+                    }
+                    if let Some(h) = organ_handle {
+                        InferenceOrgan::update_stats_entry(h, ScoreOutcome::Success);
                     }
                     tracing::info!(
                         phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
@@ -276,6 +295,23 @@ impl Judge {
                             DogError::ApiError(_) | DogError::ParseError(_) => cb.record_failure(),
                             _ => cb.record_success(),
                         }
+                    }
+                    // Organ: classify failure kind for health tracking.
+                    if let Some(h) = organ_handle {
+                        let outcome = match e {
+                            DogError::ParseError(msg) if msg.contains("zero flood") => {
+                                ScoreOutcome::Failure(ScoreFailureKind::ZeroFlood)
+                            }
+                            DogError::ParseError(msg) if msg.contains("degenerate scores") => {
+                                ScoreOutcome::Failure(ScoreFailureKind::Collapse)
+                            }
+                            DogError::ParseError(_) => {
+                                ScoreOutcome::Failure(ScoreFailureKind::ParseError)
+                            }
+                            DogError::Timeout => ScoreOutcome::Failure(ScoreFailureKind::Timeout),
+                            _ => ScoreOutcome::Failure(ScoreFailureKind::ParseError),
+                        };
+                        InferenceOrgan::update_stats_entry(h, outcome);
                     }
                     metrics.inc_dog_failure();
                     tracing::warn!(
