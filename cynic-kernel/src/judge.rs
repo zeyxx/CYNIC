@@ -236,6 +236,12 @@ impl Judge {
                     tracing::info!(
                         phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
                         q = %format!("{:.3}", compute_qscore(&scores).total),
+                        raw_fidelity = %format!("{:.3}", scores.fidelity),
+                        raw_phi = %format!("{:.3}", scores.phi),
+                        raw_verify = %format!("{:.3}", scores.verify),
+                        raw_culture = %format!("{:.3}", scores.culture),
+                        raw_burn = %format!("{:.3}", scores.burn),
+                        raw_sovereignty = %format!("{:.3}", scores.sovereignty),
                         "Dog responded"
                     );
                     dog_scores.push(DogScore {
@@ -249,6 +255,12 @@ impl Judge {
                         culture: phi_bound(scores.culture),
                         burn: phi_bound(scores.burn),
                         sovereignty: phi_bound(scores.sovereignty),
+                        raw_fidelity: scores.fidelity,
+                        raw_phi: scores.phi,
+                        raw_verify: scores.verify,
+                        raw_culture: scores.culture,
+                        raw_burn: scores.burn,
+                        raw_sovereignty: scores.sovereignty,
                         abstentions: scores.abstentions,
                         reasoning: scores.reasoning,
                     });
@@ -1049,17 +1061,19 @@ mod tests {
     fn make_dog_score(id: &str, val: f64) -> DogScore {
         DogScore {
             dog_id: id.into(),
-            latency_ms: 0,
-            prompt_tokens: 0,
-            completion_tokens: 0,
             fidelity: val,
             phi: val,
             verify: val,
             culture: val,
             burn: val,
             sovereignty: val,
-            reasoning: AxiomReasoning::default(),
-            abstentions: vec![],
+            raw_fidelity: val,
+            raw_phi: val,
+            raw_verify: val,
+            raw_culture: val,
+            raw_burn: val,
+            raw_sovereignty: val,
+            ..Default::default()
         }
     }
 
@@ -1120,17 +1134,19 @@ mod tests {
     fn trimmed_mean_per_axiom_extraction() {
         let scores = vec![DogScore {
             dog_id: "x".into(),
-            latency_ms: 0,
-            prompt_tokens: 0,
-            completion_tokens: 0,
             fidelity: 0.9,
             phi: 0.1,
             verify: 0.5,
             culture: 0.3,
             burn: 0.7,
             sovereignty: 0.4,
-            reasoning: AxiomReasoning::default(),
-            abstentions: vec![],
+            raw_fidelity: 0.9,
+            raw_phi: 0.1,
+            raw_verify: 0.5,
+            raw_culture: 0.3,
+            raw_burn: 0.7,
+            raw_sovereignty: 0.4,
+            ..Default::default()
         }];
         assert!((trimmed_mean(&scores, "fidelity", |s| s.fidelity) - 0.9).abs() < 1e-10);
         assert!((trimmed_mean(&scores, "phi", |s| s.phi) - 0.1).abs() < 1e-10);
