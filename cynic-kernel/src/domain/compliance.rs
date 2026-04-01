@@ -7,7 +7,7 @@
 //! - Bash retry penalty: proxy for "2 fix attempts max" (Rule 6)
 //! - Modification scope: tracks file count for /distill threshold awareness
 
-use crate::domain::dog::PHI_INV;
+use crate::domain::dog::{PHI, PHI_INV};
 use crate::domain::storage::RawObservation;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -88,10 +88,8 @@ pub fn score_session(
     };
     let scope_score = if files_modified <= 5 { 1.0 } else { 0.7 };
 
-    let phi = 1.618_034;
-    let phi_inv = 0.618_034;
-    let weighted_sum = read_before_edit * phi + bash_score * 1.0 + scope_score * phi_inv;
-    let weight_total = phi + 1.0 + phi_inv;
+    let weighted_sum = read_before_edit * PHI + bash_score * 1.0 + scope_score * PHI_INV;
+    let weight_total = PHI + 1.0 + PHI_INV;
     let raw_score = weighted_sum / weight_total;
 
     // Cap at φ⁻¹ (max confidence = 0.618)

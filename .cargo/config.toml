@@ -5,5 +5,6 @@
 jobs = 1
 
 [env]
-# Increased from 256MB to 512MB — probe system monomorphization pushes past 256MB threshold.
-RUST_MIN_STACK = "536870912"
+# Increased to 1GB — tower-http 0.6.8 debug build monomorphization pushes past 512MB.
+# rustc recommends RUST_MIN_STACK=1073741824 on SIGSEGV from deep codegen stack exhaustion.
+RUST_MIN_STACK = "1073741824"

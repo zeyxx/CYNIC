@@ -1,9 +1,5 @@
-// organ/ — InferenceOrgan: routes inference requests to Dogs, tracks health,
-// exposes metrics, and enforces capacity/circuit-breaker policies.
-// Phase 1 placeholder — types and logic added in subsequent tasks.
+// organ/ — InferenceOrgan: owns backend registry, health, and routing.
+// Currently: registry types only (Node, Backend, Cluster, capabilities).
+// Phase 1 implementation pending — see docs/superpowers/plans/.
 
-pub mod health;
-pub mod metrics;
 pub mod registry;
-pub mod router;
-pub mod transport;

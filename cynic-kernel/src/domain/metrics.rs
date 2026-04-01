@@ -90,7 +90,7 @@ impl Metrics {
         prom_counter(
             &mut out,
             "cynic_dog_evaluations_total",
-            "Total Dog evaluations completed",
+            "Total Dog evaluation attempts (success + failure)",
             self.dog_evaluations_total.load(Ordering::Relaxed),
         );
         prom_counter(
