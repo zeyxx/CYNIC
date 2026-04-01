@@ -1,22 +1,17 @@
 //! MAPE-K Analyze loop — self-observation for ANOMALIES ONLY.
 //!
-//! Ticks every 5 minutes. Observes internal metrics and emits crystals
-//! to domain="cynic-internal" when thresholds are violated.
-//! Healthy system = zero observations = silent pipeline.
+//! Ticks every 5 minutes. Observes internal metrics and returns alerts
+//! when thresholds are violated. Healthy system = zero alerts = silent.
 //!
-//! Anti-contamination: skips store_crystal_embedding for internal observations
-//! to prevent self-referential noise in the KNN index.
+//! IMPORTANT: introspection MUST NOT call pipeline::run(). Feeding health
+//! alerts through the judge creates a self-amplifying feedback loop:
+//! alert → judge → LLM Dogs fail on non-domain text → inc_dog_failure
+//! → higher failure rate → more alerts → more judge calls → ...
 
-use crate::domain::embedding::EmbeddingPort;
-use crate::domain::events::KernelEvent;
 use crate::domain::metrics::Metrics;
 use crate::domain::probe::{EnvironmentSnapshot, ProbeDetails, ResourceDetails};
 use crate::domain::storage::StoragePort;
-use crate::domain::usage::DogUsageTracker;
-use crate::domain::verdict_cache::VerdictCache;
-use crate::judge::Judge;
 use std::sync::atomic::Ordering;
-use tokio::sync::Mutex;
 
 /// Anomaly thresholds — conservative defaults.
 const FAILURE_RATE_THRESHOLD: f64 = 0.20; // > 20% failure rate
@@ -31,24 +26,17 @@ pub struct Alert {
 }
 
 /// Run one introspection tick. Returns alerts (empty = healthy).
-/// Receives individual dependencies (not PipelineDeps — borrows can't cross tokio::spawn).
-#[allow(clippy::too_many_arguments)]
-// WHY: analyze() is the single MAPE-K analysis entry point — each argument is an independent
-// kernel dependency that cannot be merged without coupling unrelated subsystems. A builder or
-// context struct would just rename the problem without reducing actual coupling.
+/// Alerts are logged here and returned to caller. NO pipeline::run calls.
 pub async fn analyze(
     storage: &dyn StoragePort,
     metrics: &Metrics,
     environment: &Option<EnvironmentSnapshot>,
-    judge: &Judge,
-    embedding: &dyn EmbeddingPort,
-    usage: &Mutex<DogUsageTracker>,
-    verdict_cache: &VerdictCache,
-    event_tx: Option<&tokio::sync::broadcast::Sender<KernelEvent>>,
 ) -> Vec<Alert> {
     let mut alerts = Vec::new();
 
     // ── Dog failure rate ──
+    // dog_evaluations_total = ALL attempts (success + failure).
+    // dog_failures_total ⊂ dog_evaluations_total → rate ≤ 1.0 always.
     let dog_evals = metrics.dog_evaluations_total.load(Ordering::Relaxed);
     let dog_fails = metrics.dog_failures_total.load(Ordering::Relaxed);
     if dog_evals > 10 {
@@ -123,50 +111,20 @@ pub async fn analyze(
     }
 
     if !alerts.is_empty() {
-        tracing::warn!(
-            alert_count = alerts.len(),
-            "introspection: anomalies detected"
-        );
-
-        // Consolidate all alerts into ONE pipeline::run call (storm mitigation)
-        let content: String = alerts
+        let summary: String = alerts
             .iter()
             .map(|a| format!("[{}] {}", a.severity, a.message))
             .collect::<Vec<_>>()
             .join("; ");
-        // Bound to 2000 chars
-        let content: String = content.chars().take(2000).collect();
-
-        // Construct PipelineDeps from borrowed references
-        let deps = crate::pipeline::PipelineDeps {
-            judge,
-            storage,
-            embedding,
-            usage,
-            verdict_cache,
-            metrics,
-            event_tx,
-            request_id: None,
-        };
-
-        let dogs: Vec<String> = vec!["deterministic-dog".into(), "gemini-flash".into()];
-        match crate::pipeline::run(
-            content,
-            None,
-            Some("cynic-internal".to_string()),
-            Some(dogs.as_slice()),
-            false,
-            &deps,
-        )
-        .await
-        {
-            Ok(_result) => {
-                tracing::info!("introspection: anomaly submitted to pipeline for crystallization");
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, "introspection: pipeline::run failed for anomaly");
-            }
-        }
+        tracing::warn!(
+            alert_count = alerts.len(),
+            summary = %summary,
+            "introspection: anomalies detected"
+        );
+        // Alerts are returned to caller (spawn_introspection in tasks.rs).
+        // They are NOT fed through pipeline::run — that creates a self-amplifying
+        // feedback loop where health alerts become stimuli, LLM Dogs fail on them,
+        // failure rate increases, generating more alerts. See commit message.
     }
 
     alerts
@@ -257,15 +215,7 @@ fn check_resource_thresholds(r: &ResourceDetails, alerts: &mut Vec<Alert>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::embedding::NullEmbedding;
     use crate::domain::storage::NullStorage;
-    use crate::domain::verdict_cache::VerdictCache;
-    use crate::judge::Judge;
-
-    fn make_test_judge() -> Judge {
-        // Zero Dogs — evaluate returns empty, voter_count=0
-        Judge::new(vec![], vec![])
-    }
 
     #[tokio::test]
     async fn healthy_system_produces_no_alerts() {
@@ -275,21 +225,7 @@ mod tests {
         metrics.inc_dog_eval();
         metrics.inc_dog_eval();
         metrics.inc_embed_ok();
-        let judge = make_test_judge();
-        let embedding = NullEmbedding;
-        let usage = Mutex::new(crate::domain::usage::DogUsageTracker::new());
-        let verdict_cache = VerdictCache::new();
-        let alerts = analyze(
-            &NullStorage,
-            &metrics,
-            &None,
-            &judge,
-            &embedding,
-            &usage,
-            &verdict_cache,
-            None,
-        )
-        .await;
+        let alerts = analyze(&NullStorage, &metrics, &None).await;
         // NullStorage ping fails → storage_down alert, but no other anomalies
         assert!(alerts.iter().all(|a| a.kind == "storage_down"));
     }
@@ -297,27 +233,68 @@ mod tests {
     #[tokio::test]
     async fn high_failure_rate_triggers_alert() {
         let metrics = Metrics::new();
+        // 20 total attempts, 10 failures → 50% failure rate
         for _ in 0..20 {
             metrics.inc_dog_eval();
         }
         for _ in 0..10 {
             metrics.inc_dog_failure();
         }
-        let judge = make_test_judge();
-        let embedding = NullEmbedding;
-        let usage = Mutex::new(crate::domain::usage::DogUsageTracker::new());
-        let verdict_cache = VerdictCache::new();
-        let alerts = analyze(
-            &NullStorage,
-            &metrics,
-            &None,
-            &judge,
-            &embedding,
-            &usage,
-            &verdict_cache,
-            None,
-        )
-        .await;
+        let alerts = analyze(&NullStorage, &metrics, &None).await;
         assert!(alerts.iter().any(|a| a.kind == "dog_failure_rate"));
+    }
+
+    #[tokio::test]
+    async fn no_pipeline_run_in_introspection() {
+        // This test exists to document and enforce: introspection MUST NOT
+        // call pipeline::run(). The function signature proves it — analyze()
+        // has no access to Judge, EmbeddingPort, DogUsageTracker, or VerdictCache.
+        // If someone re-adds pipeline::run, they'd need to change the signature,
+        // which would break this test and all callers.
+        let metrics = Metrics::new();
+        for _ in 0..20 {
+            metrics.inc_dog_eval();
+        }
+        for _ in 0..15 {
+            metrics.inc_dog_failure();
+        }
+        // Even with 75% failure rate, analyze() just returns alerts — no side effects
+        let alerts = analyze(&NullStorage, &metrics, &None).await;
+        assert!(alerts.iter().any(|a| a.kind == "dog_failure_rate"));
+        // If pipeline::run were called, it would need a Judge (which we don't have).
+        // The fact this compiles and runs proves no pipeline call happens.
+    }
+
+    #[tokio::test]
+    async fn failure_rate_never_exceeds_100_percent() {
+        // Regression: previously dog_evaluations_total counted only successes,
+        // so rate = failures/successes could exceed 1.0 when failures > successes.
+        // Now dog_evaluations_total counts ALL attempts → rate ≤ 1.0 always.
+        let metrics = Metrics::new();
+        // Simulate: 15 attempts total, 12 of which failed
+        for _ in 0..15 {
+            metrics.inc_dog_eval(); // all attempts
+        }
+        for _ in 0..12 {
+            metrics.inc_dog_failure(); // just the failures
+        }
+        let alerts = analyze(&NullStorage, &metrics, &None).await;
+        let dog_alert = alerts.iter().find(|a| a.kind == "dog_failure_rate");
+        assert!(dog_alert.is_some(), "should trigger failure rate alert");
+        // Parse the rate from the message: "Dog failure rate 80.0% (12/15 evals)"
+        let msg = &dog_alert.unwrap().message;
+        let rate_str = msg
+            .split('%')
+            .next()
+            .unwrap()
+            .split_whitespace()
+            .last()
+            .unwrap();
+        let rate: f64 = rate_str.parse().unwrap();
+        assert!(
+            rate <= 100.0,
+            "failure rate must never exceed 100%, got {rate}%"
+        );
+        assert!((rate - 80.0).abs() < 0.1, "expected 80%, got {rate}%");
     }
 }

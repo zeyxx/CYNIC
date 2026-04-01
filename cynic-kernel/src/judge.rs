@@ -227,12 +227,13 @@ impl Judge {
                 .position(|d| d.id() == id)
                 .map(|idx| &self.breakers[idx]);
 
+            // Count ALL attempts (success + failure) so failure rate = fails / evals ≤ 1.0
+            metrics.inc_dog_eval();
             match result {
                 Ok(scores) => {
                     if let Some(cb) = cb {
                         cb.record_success();
                     }
-                    metrics.inc_dog_eval();
                     tracing::info!(
                         phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
                         q = %format!("{:.3}", compute_qscore(&scores).total),
