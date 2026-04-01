@@ -150,7 +150,6 @@ mod tests {
         assert!(full10.is_none());
     }
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn pressure_probe_returns_result() {
         let probe = PressureProbe;

@@ -33,6 +33,8 @@ K14. **Poison/missing = assume degraded.** When reading shared state (`RwLock`, 
 ## Build
 
 - `make check` = build + test + clippy + lint-rules + lint-drift + audit (mandatory after every change)
-- `#![deny(dead_code, unused_imports, clippy::unwrap_used, clippy::expect_used)]` in lib.rs
+- `make test-gates` = R21 gate falsification (inject violation → verify gate catches → restore)
+- `#![deny(dead_code, unused_imports, clippy::unwrap_used, clippy::expect_used)]` via workspace lints
+- `#![cfg_attr(test, allow(dead_code, clippy::unwrap_used, clippy::expect_used))]` in `lib.rs` — test code is exempt. Do NOT add per-function `#[allow(clippy::expect_used)]` in `#[cfg(test)]` modules; the crate-level exemption already covers them.
 - Workspace lints in root Cargo.toml (Axum/Embark baseline)
 - Integration tests: `tests/integration_storage.rs` with `#[ignore]`

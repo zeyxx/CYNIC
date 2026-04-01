@@ -203,7 +203,6 @@ mod tests {
     use super::*;
     use crate::domain::probe::{Probe, ProbeDetails};
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn backup_probe_missing_dir_returns_unavailable() {
         let probe = BackupProbe::new(PathBuf::from("/tmp/nonexistent-cynic-test-99999"));
@@ -211,7 +210,6 @@ mod tests {
         assert_eq!(result.status, ProbeStatus::Unavailable);
     }
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn backup_probe_empty_dir_returns_degraded() {
         let tmp = std::env::temp_dir().join("cynic-backup-probe-empty-test");
@@ -228,7 +226,6 @@ mod tests {
         assert_eq!(result.status, ProbeStatus::Degraded);
     }
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn backup_probe_with_file_returns_ok() {
         let tmp = std::env::temp_dir().join("cynic-backup-probe-file-test");

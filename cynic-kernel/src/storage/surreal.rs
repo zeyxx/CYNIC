@@ -1378,6 +1378,8 @@ impl CoordPort for SurrealHttpStorage {
 // ── TESTS ────────────────────────────────────────────────────
 
 #[cfg(test)]
+// WHY: Integration tests use eprintln! for SurrealDB connection diagnostics during
+// local development — these are never reached in production code paths.
 #[allow(clippy::print_stderr)]
 mod tests {
     use super::*;
