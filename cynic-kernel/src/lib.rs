@@ -36,6 +36,7 @@ pub mod domain;
 pub mod infra;
 pub mod introspection;
 pub mod judge;
+pub mod organ;
 pub mod pipeline;
 pub mod probe;
 pub mod storage;

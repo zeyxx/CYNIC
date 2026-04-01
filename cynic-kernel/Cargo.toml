@@ -28,6 +28,7 @@ dirs = "6"
 rmcp = { version = "1.2", features = ["server", "transport-io", "macros"] }
 schemars = "1"
 blake3 = "1"
+bitflags = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 thiserror = "2.0.18"
