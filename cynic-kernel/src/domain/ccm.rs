@@ -628,6 +628,42 @@ pub fn infer_domain(target: Option<&str>, tool: Option<&str>) -> String {
         .to_string()
 }
 
+// ── OBSERVATION BUILDER ─────────────────────────────────────
+/// Build an `Observation` from raw API parameters.
+///
+/// Single source of truth for the REST and MCP observe surfaces (K3/K13).
+/// Both `POST /observe` and `cynic_observe` call this — zero duplication.
+#[allow(clippy::too_many_arguments)]
+// WHY: K13 — single shared function for REST+MCP observe surfaces. All 8 fields
+// map directly to Observation struct fields; grouping into a sub-struct would
+// add indirection without reducing complexity.
+pub fn build_observation(
+    tool: String,
+    target: Option<String>,
+    domain: Option<String>,
+    status: Option<String>,
+    context: Option<String>,
+    project: Option<String>,
+    agent_id: Option<String>,
+    session_id: Option<String>,
+) -> crate::domain::storage::Observation {
+    let resolved_domain = domain.unwrap_or_else(|| infer_domain(target.as_deref(), Some(&tool)));
+
+    crate::domain::storage::Observation {
+        project: project.unwrap_or_else(|| "CYNIC".into()),
+        agent_id: agent_id.unwrap_or_else(|| "unknown".into()),
+        tool,
+        target: crate::domain::sanitize::sanitize_observation_target(&target.unwrap_or_default()),
+        domain: resolved_domain,
+        status: status.unwrap_or_else(|| "success".into()),
+        context: context
+            .map(|c| c.chars().take(200).collect())
+            .unwrap_or_default(),
+        session_id: session_id.unwrap_or_default(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+    }
+}
+
 // ── TESTS ───────────────────────────────────────────────────
 #[cfg(test)]
 mod tests {

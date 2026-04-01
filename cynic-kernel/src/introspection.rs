@@ -33,6 +33,9 @@ pub struct Alert {
 /// Run one introspection tick. Returns alerts (empty = healthy).
 /// Receives individual dependencies (not PipelineDeps — borrows can't cross tokio::spawn).
 #[allow(clippy::too_many_arguments)]
+// WHY: analyze() is the single MAPE-K analysis entry point — each argument is an independent
+// kernel dependency that cannot be merged without coupling unrelated subsystems. A builder or
+// context struct would just rename the problem without reducing actual coupling.
 pub async fn analyze(
     storage: &dyn StoragePort,
     metrics: &Metrics,

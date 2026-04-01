@@ -259,6 +259,10 @@ pub fn spawn_backfill(
 // ── Introspection loop (MAPE-K Analyze, every 5 min) ────────
 
 #[allow(clippy::too_many_arguments)]
+// WHY: spawn_introspection threads through all kernel Arc dependencies so the background
+// introspection task has access to storage, metrics, judge, embedding, usage, verdict_cache,
+// alerts, and the event channel. Each is a distinct subsystem — collapsing them into a struct
+// would create a god-object coupling every subsystem to the introspection task scheduler.
 pub fn spawn_introspection(
     storage: Arc<dyn StoragePort>,
     metrics: Arc<Metrics>,

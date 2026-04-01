@@ -1,8 +1,64 @@
 //! ChatPort — minimal text-in/text-out contract for LLM inference.
 //! Dogs use this via BackendPort (shared health + name).
+//!
+//! InferenceProfile lets the kernel declare INTENT per call — the same backend
+//! serves scoring (fast, no thinking) and agent work (full reasoning, big context).
 
 use crate::domain::inference::{BackendPort, BackendStatus};
 use async_trait::async_trait;
+
+// ── Inference Profiles ───────────────────────────────────────
+
+/// The kernel knows what kind of work it's doing. Profiles tune inference
+/// parameters per call without duplicating backend config.
+///
+/// Hardware is fixed (288 GB/s on RTX 4060 Ti). The only software lever
+/// that matters is how many tokens we ask the model to generate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InferenceProfile {
+    /// Dog axiom scoring: fast, no thinking, short structured JSON output.
+    Scoring,
+    /// Hermes agent / deep analysis: full reasoning, large context window.
+    Agent,
+    /// Text summarization: moderate output, no thinking overhead.
+    Summary,
+    /// Free-form inference (/infer MCP tool): full reasoning capacity.
+    Infer,
+}
+
+impl InferenceProfile {
+    /// Max completion tokens for this profile.
+    /// Scoring uses 1024 (not 512) because cloud API tokenizers (Gemini) have
+    /// different token counts than llama.cpp — 512 truncated Gemini's JSON response.
+    pub fn max_tokens(&self) -> u32 {
+        match self {
+            Self::Scoring => 1024,
+            Self::Agent => 8192,
+            Self::Summary => 1024,
+            Self::Infer => 4096,
+        }
+    }
+
+    /// Whether to suppress thinking mode (prepend /no_think for Qwen3 family).
+    /// Scoring and summary don't need chain-of-thought — save the tokens.
+    pub fn disable_thinking(&self) -> bool {
+        match self {
+            Self::Scoring | Self::Summary => true,
+            Self::Agent | Self::Infer => false,
+        }
+    }
+
+    /// Temperature override. None = use backend default.
+    pub fn temperature(&self) -> Option<f32> {
+        match self {
+            Self::Scoring => Some(0.3),
+            Self::Summary => Some(0.2),
+            Self::Agent | Self::Infer => None,
+        }
+    }
+}
+
+// ── ChatPort ─────────────────────────────────────────────────
 
 /// Response from a chat completion — text + token usage.
 #[derive(Debug, Clone)]
@@ -28,8 +84,14 @@ pub enum ChatError {
 /// `name()` and `health()` come from BackendPort — no duplication.
 #[async_trait]
 pub trait ChatPort: BackendPort {
-    /// Send a system+user prompt, get back the assistant's response with token usage.
-    async fn chat(&self, system: &str, user: &str) -> Result<ChatResponse, ChatError>;
+    /// Send a system+user prompt with an inference profile that tunes
+    /// max_tokens, thinking, and temperature per use-case.
+    async fn chat(
+        &self,
+        system: &str,
+        user: &str,
+        profile: InferenceProfile,
+    ) -> Result<ChatResponse, ChatError>;
 }
 
 /// Mock implementation for tests.
@@ -67,7 +129,12 @@ impl BackendPort for MockChatBackend {
 
 #[async_trait]
 impl ChatPort for MockChatBackend {
-    async fn chat(&self, _system: &str, _user: &str) -> Result<ChatResponse, ChatError> {
+    async fn chat(
+        &self,
+        _system: &str,
+        _user: &str,
+        _profile: InferenceProfile,
+    ) -> Result<ChatResponse, ChatError> {
         if let Some(ref err) = self.force_error {
             return Err(err.clone());
         }

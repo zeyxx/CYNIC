@@ -15,6 +15,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if std::env::args().any(|a| a == "--version") {
         #[allow(clippy::print_stdout)]
+        // WHY: This is the --version flag output path. Printing the version string to stdout is
+        // the correct and expected behaviour here; the MCP_MODE guard (which bans stdout to avoid
+        // corrupting the JSON-RPC stream) has not yet been set when this branch executes.
         {
             println!("cynic-kernel {}", env!("CARGO_PKG_VERSION"));
         }
