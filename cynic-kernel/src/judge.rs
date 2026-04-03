@@ -198,10 +198,22 @@ impl Judge {
         // Per-Dog timeout: from config. Sovereign CPU models need 60s+, cloud APIs use 30s.
         // Aligned with HTTP client timeout in openai.rs (both read BackendConfig.timeout_secs).
 
-        // Parallel evaluation — skip Dogs with open circuit breakers
+        // Parallel evaluation — skip Dogs with open circuit breakers or degraded organ quality
         let futures: Vec<_> = dog_breaker_pairs
             .iter()
-            .filter(|(_, cb)| cb.should_allow())
+            .filter(|(dog, cb)| {
+                if !cb.should_allow() {
+                    return false;
+                }
+                let dog_idx = self.dogs.iter().position(|d| d.id() == dog.id());
+                if let Some(handle) = dog_idx.and_then(|idx| self.organ_handles[idx].as_ref())
+                    && handle.is_quality_degraded()
+                {
+                    tracing::warn!(dog_id = %dog.id(), "Dog skipped — organ quality degraded");
+                    return false;
+                }
+                true
+            })
             .map(|(dog, _)| {
                 let id = dog.id().to_string();
                 let dog_timeout = std::time::Duration::from_secs(dog.timeout_secs());
@@ -220,7 +232,18 @@ impl Judge {
         // Wall-clock timeout: max Dog timeout + 5s safety margin.
         let max_dog_timeout = dog_breaker_pairs
             .iter()
-            .filter(|(_, cb)| cb.should_allow())
+            .filter(|(dog, cb)| {
+                if !cb.should_allow() {
+                    return false;
+                }
+                let dog_idx = self.dogs.iter().position(|d| d.id() == dog.id());
+                if let Some(handle) = dog_idx.and_then(|idx| self.organ_handles[idx].as_ref())
+                    && handle.is_quality_degraded()
+                {
+                    return false;
+                }
+                true
+            })
             .map(|(dog, _)| dog.timeout_secs())
             .max()
             .unwrap_or(30);
@@ -1417,5 +1440,59 @@ mod tests {
         assert!(verify_verdict_integrity(&v2));
         // Chain linkage holds
         assert_eq!(v2.prev_hash, v1.integrity_hash);
+    }
+
+    #[tokio::test]
+    async fn quality_degraded_dog_is_skipped() {
+        let good_dog = FixedDog {
+            name: "good".into(),
+            scores: AxiomScores {
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        };
+        let bad_dog = FixedDog {
+            name: "bad".into(),
+            scores: AxiomScores {
+                fidelity: 0.1,
+                phi: 0.1,
+                verify: 0.1,
+                culture: 0.1,
+                burn: 0.1,
+                sovereignty: 0.1,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        };
+
+        let mut organ = crate::organ::InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(crate::organ::registry::Backend {
+            id: crate::organ::registry::BackendId("bad".into()),
+            declared: crate::organ::registry::DeclaredCapabilities::default(),
+            measured: crate::organ::registry::MeasuredCapabilities::default(),
+            health: crate::organ::registry::BackendHealth::Degraded {
+                reason: "test quality gate".into(),
+                since: std::time::Instant::now(),
+            },
+        });
+
+        let judge = test_judge(vec![Box::new(good_dog), Box::new(bad_dog)])
+            .with_organ_handles(vec![None, Some(handle)]);
+
+        let metrics = Arc::new(test_metrics());
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &metrics)
+            .await
+            .unwrap();
+
+        // bad dog is quality-degraded → should be skipped, only good dog scored
+        assert_eq!(verdict.dog_scores.len(), 1);
+        assert_eq!(verdict.dog_scores[0].dog_id, "good");
     }
 }

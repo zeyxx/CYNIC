@@ -28,6 +28,20 @@ struct BackendEntry {
 #[derive(Debug, Clone)]
 pub struct BackendHandle(Arc<Mutex<BackendEntry>>);
 
+impl BackendHandle {
+    /// Returns true if this backend's quality gate has tripped.
+    /// Acquires Mutex briefly, reads health, releases. No async, no hold across .await.
+    /// K14: Mutex poison = assume degraded (safe default).
+    pub fn is_quality_degraded(&self) -> bool {
+        self.0.lock().ok().is_none_or(|guard| {
+            matches!(
+                guard.backend.health,
+                BackendHealth::Degraded { .. } | BackendHealth::Dead { .. }
+            )
+        })
+    }
+}
+
 /// InferenceOrgan — owns the registry of Dog backends and tracks their health.
 ///
 /// # Thread safety
@@ -168,6 +182,30 @@ mod tests {
             .unwrap();
         assert_eq!(stats.total_calls, 3);
         assert!((stats.json_valid_rate() - 2.0 / 3.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn healthy_backend_is_not_quality_degraded() {
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("dog-a"));
+        assert!(!handle.is_quality_degraded());
+    }
+
+    #[test]
+    fn degraded_backend_is_quality_degraded() {
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("dog-a"));
+        // Trip the gate: 6 failures out of 10 (>50%)
+        for _ in 0..4 {
+            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success);
+        }
+        for _ in 0..6 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Failure(ScoreFailureKind::ParseError),
+            );
+        }
+        assert!(handle.is_quality_degraded());
     }
 
     #[test]
