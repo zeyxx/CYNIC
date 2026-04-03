@@ -5,7 +5,7 @@
 use crate::domain::dog::{estimate_tokens, *};
 use crate::domain::health_gate::HealthGate;
 use crate::domain::metrics::Metrics;
-use crate::organ::health::ScoreFailureKind;
+use crate::organ::health::{DogStats, ScoreFailureKind};
 use crate::organ::{BackendHandle, InferenceOrgan, ScoreOutcome};
 use chrono::Utc;
 use std::sync::{Arc, Mutex};
@@ -117,6 +117,20 @@ impl Judge {
                     cb.state()
                 };
                 (dog.id().to_string(), state, cb.consecutive_failures())
+            })
+            .collect()
+    }
+
+    /// Snapshot of organ quality data for each Dog with an organ handle.
+    /// Reads BackendHandle locks briefly — no async, no hold across .await.
+    pub fn dog_quality_snapshot(&self) -> Vec<(String, DogStats)> {
+        self.dogs
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, dog)| {
+                let handle = self.organ_handles[idx].as_ref()?;
+                let stats = handle.stats_snapshot()?;
+                Some((dog.id().to_string(), stats))
             })
             .collect()
     }

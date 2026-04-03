@@ -40,6 +40,11 @@ impl BackendHandle {
             )
         })
     }
+
+    /// Snapshot DogStats from this handle. Returns None if Mutex is poisoned.
+    pub fn stats_snapshot(&self) -> Option<DogStats> {
+        self.0.lock().ok().map(|guard| guard.stats.clone())
+    }
 }
 
 /// InferenceOrgan — owns the registry of Dog backends and tracks their health.
@@ -79,13 +84,6 @@ impl InferenceOrgan {
     /// Number of registered backends.
     pub fn backend_count(&self) -> usize {
         self.entries.len()
-    }
-
-    /// Current stats snapshot for a backend. Returns None if backend not registered.
-    pub fn stats_snapshot(&self, id: &BackendId) -> Option<DogStats> {
-        self.entries
-            .get(id)
-            .and_then(|h| h.0.lock().ok().map(|guard| guard.stats.clone()))
     }
 
     /// Update stats for a backend after a Dog evaluation.
@@ -169,10 +167,8 @@ mod tests {
     #[test]
     fn stats_start_pessimistic() {
         let mut organ = InferenceOrgan::boot_empty();
-        organ.register_backend(make_backend("dog-a"));
-        let stats = organ
-            .stats_snapshot(&BackendId("dog-a".to_string()))
-            .unwrap();
+        let handle = organ.register_backend(make_backend("dog-a"));
+        let stats = handle.stats_snapshot().unwrap();
         assert_eq!(stats.json_valid_rate(), 0.0); // K14
         assert_eq!(stats.total_calls, 0);
     }
@@ -187,9 +183,7 @@ mod tests {
             &handle,
             ScoreOutcome::Failure(ScoreFailureKind::ZeroFlood),
         );
-        let stats = organ
-            .stats_snapshot(&BackendId("dog-a".to_string()))
-            .unwrap();
+        let stats = handle.stats_snapshot().unwrap();
         assert_eq!(stats.total_calls, 3);
         assert!((stats.json_valid_rate() - 2.0 / 3.0).abs() < 1e-10);
     }

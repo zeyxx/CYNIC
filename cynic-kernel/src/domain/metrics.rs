@@ -216,6 +216,85 @@ pub fn append_dog_metrics(
     }
 }
 
+/// Append organ quality metrics from DogStats snapshots.
+pub fn append_organ_metrics(
+    out: &mut String,
+    snapshots: &[(String, crate::organ::health::DogStats)],
+) {
+    use std::fmt::Write;
+
+    // JSON valid rate per Dog (gauge)
+    let _ = writeln!(
+        out,
+        "# HELP cynic_dog_json_valid_rate Fraction of valid JSON responses per Dog"
+    );
+    let _ = writeln!(out, "# TYPE cynic_dog_json_valid_rate gauge");
+    for (id, stats) in snapshots {
+        let _ = writeln!(
+            out,
+            "cynic_dog_json_valid_rate{{dog=\"{id}\"}} {:.6}",
+            stats.json_valid_rate()
+        );
+    }
+
+    // Capability limit rate per Dog (gauge)
+    let _ = writeln!(
+        out,
+        "# HELP cynic_dog_capability_limit_rate Fraction of capability-limit failures per Dog"
+    );
+    let _ = writeln!(out, "# TYPE cynic_dog_capability_limit_rate gauge");
+    for (id, stats) in snapshots {
+        let _ = writeln!(
+            out,
+            "cynic_dog_capability_limit_rate{{dog=\"{id}\"}} {:.6}",
+            stats.capability_limit_rate()
+        );
+    }
+
+    // Total calls per Dog (counter)
+    let _ = writeln!(
+        out,
+        "# HELP cynic_dog_organ_total Total organ-tracked evaluations per Dog"
+    );
+    let _ = writeln!(out, "# TYPE cynic_dog_organ_total counter");
+    for (id, stats) in snapshots {
+        let _ = writeln!(
+            out,
+            "cynic_dog_organ_total{{dog=\"{id}\"}} {}",
+            stats.total_calls
+        );
+    }
+
+    // Quality failures by mode (counter)
+    let _ = writeln!(
+        out,
+        "# HELP cynic_dog_quality_failures Dog quality failures by failure mode"
+    );
+    let _ = writeln!(out, "# TYPE cynic_dog_quality_failures counter");
+    for (id, stats) in snapshots {
+        let _ = writeln!(
+            out,
+            "cynic_dog_quality_failures{{dog=\"{id}\",mode=\"zero_flood\"}} {}",
+            stats.zero_flood_count
+        );
+        let _ = writeln!(
+            out,
+            "cynic_dog_quality_failures{{dog=\"{id}\",mode=\"collapse\"}} {}",
+            stats.collapse_count
+        );
+        let _ = writeln!(
+            out,
+            "cynic_dog_quality_failures{{dog=\"{id}\",mode=\"parse_error\"}} {}",
+            stats.parse_error_count
+        );
+        let _ = writeln!(
+            out,
+            "cynic_dog_quality_failures{{dog=\"{id}\",mode=\"timeout\"}} {}",
+            stats.timeout_count
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,5 +352,17 @@ mod tests {
         append_dog_metrics(&mut out, &dogs, &circuits);
         assert!(out.contains("cynic_dog_latency_ms{dog=\"gemini\"} 500.0"));
         assert!(out.contains("cynic_dog_circuit_breaker{dog=\"sovereign\"} 1"));
+    }
+
+    #[test]
+    fn organ_metrics_renders_correctly() {
+        let stats = crate::organ::health::DogStats::new();
+        let snapshots = vec![("test-dog".to_string(), stats)];
+        let mut out = String::new();
+        append_organ_metrics(&mut out, &snapshots);
+        assert!(out.contains("cynic_dog_json_valid_rate{dog=\"test-dog\"}"));
+        assert!(out.contains("cynic_dog_capability_limit_rate{dog=\"test-dog\"}"));
+        assert!(out.contains("cynic_dog_organ_total{dog=\"test-dog\"}"));
+        assert!(out.contains("cynic_dog_quality_failures{dog=\"test-dog\",mode=\"zero_flood\"}"));
     }
 }
