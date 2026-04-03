@@ -39,12 +39,12 @@ System health. **HTTP 200 = sovereign, HTTP 503 = degraded/critical.** Monitorin
 **Without auth (public):**
 
 ```json
-{ "status": "sovereign", "version": "v0.7.2", "phi_max": 0.618033988749895 }
+{ "status": "sovereign", "version": "v0.7.6", "phi_max": 0.618033988749895 }
 ```
 
 **With valid Bearer token (extended):**
 
-Additional fields: `axioms`, `dogs` (array of `{id, kind, circuit, failures}`), `storage`, `storage_namespace`, `storage_database`, `storage_metrics`, `embedding`, `crystals` (object: `{total, forming, crystallized, canonical, decaying, loop_active}`), `verdict_cache_size`, `background_tasks`, `total_requests`, `total_tokens`, `estimated_cost_usd`, `uptime_seconds`, `alerts`.
+Additional fields: `axioms`, `dogs` (array of `{id, kind, circuit, failures}`), `storage`, `storage_namespace`, `storage_database`, `storage_metrics`, `embedding`, `crystals` (object: `{total, forming, crystallized, canonical, decaying, loop_active}`), `verdict_cache_size`, `background_tasks`, `total_requests`, `total_tokens`, `estimated_cost_usd`, `uptime_seconds`, `alerts`, `chain_verified`, `environment`.
 
 | Status | Condition | HTTP |
 |--------|-----------|------|
@@ -450,12 +450,19 @@ interface HealthResponse {
   axioms?: string[];
   dogs?: { id: string; kind: string; circuit: string; failures: number }[];
   storage?: string;
+  storage_namespace?: string;
+  storage_database?: string;
+  storage_metrics?: { verdicts: number; crystals: number; observations: number };
   embedding?: string;
+  crystals?: { total: number; forming: number; crystallized: number; canonical: number; decaying: number; loop_active: boolean };
   verdict_cache_size?: number;
+  background_tasks?: Record<string, { status: string; last_seen?: string }>;
   total_requests?: number;
   total_tokens?: number;
   estimated_cost_usd?: number;
   uptime_seconds?: number;
+  chain_verified?: boolean;
+  environment?: Record<string, unknown>;
   alerts?: { level: string; message: string; timestamp: string }[];
 }
 

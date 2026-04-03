@@ -260,6 +260,13 @@ pub struct DogScoreResponse {
     pub culture: f64,
     pub burn: f64,
     pub sovereignty: f64,
+    /// Raw scores before phi_bound — what the model actually produced.
+    pub raw_fidelity: f64,
+    pub raw_phi: f64,
+    pub raw_verify: f64,
+    pub raw_culture: f64,
+    pub raw_burn: f64,
+    pub raw_sovereignty: f64,
     pub reasoning: ReasoningResponse,
 }
 

@@ -7,9 +7,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use super::types::{AppState, ErrorResponse};
-use crate::domain::ccm::infer_domain;
-use crate::domain::sanitize::sanitize_observation_target;
-use crate::domain::storage::Observation;
+use crate::domain::ccm::build_observation;
 
 #[derive(Debug, Deserialize)]
 pub struct ObserveRequest {
@@ -37,25 +35,16 @@ pub async fn observe_handler(
         ));
     }
 
-    // Infer domain from target file extension if not provided
-    let domain = req
-        .domain
-        .unwrap_or_else(|| infer_domain(req.target.as_deref(), Some(&req.tool)));
-
-    let obs = Observation {
-        project: req.project.unwrap_or_else(|| "CYNIC".into()),
-        agent_id: req.agent_id.unwrap_or_else(|| "unknown".into()),
-        tool: req.tool,
-        target: sanitize_observation_target(&req.target.unwrap_or_default()),
-        domain,
-        status: req.status.unwrap_or_else(|| "success".into()),
-        context: req
-            .context
-            .map(|c| c.chars().take(200).collect())
-            .unwrap_or_default(),
-        session_id: req.session_id.unwrap_or_default(),
-        timestamp: chrono::Utc::now().to_rfc3339(),
-    };
+    let obs = build_observation(
+        req.tool,
+        req.target,
+        req.domain,
+        req.status,
+        req.context,
+        req.project,
+        req.agent_id,
+        req.session_id,
+    );
 
     // Fire-and-forget — bounded (Semaphore) + tracked (TaskTracker) + timed out (5s)
     let semaphore = Arc::clone(&state.bg_semaphore);

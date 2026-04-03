@@ -1,7 +1,7 @@
 //! InferenceDog — model-agnostic Dog that uses any ChatPort for axiom evaluation.
 //! ONE prompt template, N backends. The Dog never knows which model it's talking to.
 
-use crate::domain::chat::ChatPort;
+use crate::domain::chat::{ChatPort, InferenceProfile};
 use crate::domain::dog::*;
 use crate::domain::inference::{BackendPort, BackendStatus};
 use async_trait::async_trait;
@@ -136,11 +136,15 @@ impl Dog for InferenceDog {
         let system = Self::build_system_prompt();
         let user = Self::build_user_prompt(stimulus, &self.domain_prompts);
 
-        let chat_resp = self.chat.chat(system, &user).await.map_err(|e| match e {
-            crate::domain::chat::ChatError::RateLimited(m) => DogError::RateLimited(m),
-            crate::domain::chat::ChatError::Timeout { .. } => DogError::Timeout,
-            other => DogError::ApiError(other.to_string()),
-        })?;
+        let chat_resp = self
+            .chat
+            .chat(system, &user, InferenceProfile::Scoring)
+            .await
+            .map_err(|e| match e {
+                crate::domain::chat::ChatError::RateLimited(m) => DogError::RateLimited(m),
+                crate::domain::chat::ChatError::Timeout { .. } => DogError::Timeout,
+                other => DogError::ApiError(other.to_string()),
+            })?;
         let text = &chat_resp.text;
         let prompt_tokens = chat_resp.prompt_tokens;
         let completion_tokens = chat_resp.completion_tokens;

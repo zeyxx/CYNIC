@@ -280,7 +280,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::expect_used)]
     fn probe_scheduler_visible_in_snapshot() {
         let th = TaskHealth::new();
         assert!(th.snapshot().iter().any(|s| s.name == "probe_scheduler"));

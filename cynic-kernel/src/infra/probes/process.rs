@@ -128,7 +128,6 @@ impl crate::domain::probe::Probe for ProcessProbe {
 mod tests {
     use super::*;
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn process_probe_returns_result() {
         let probe = ProcessProbe;
@@ -149,7 +148,6 @@ mod tests {
         }
     }
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn process_probe_cpu_times_positive() {
         if !std::path::Path::new("/proc/self/stat").exists() {

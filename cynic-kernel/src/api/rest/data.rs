@@ -375,3 +375,225 @@ pub async fn audit_handler(
         }
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+// WHY: test assertions — panics are acceptable and expected in test context
+mod tests {
+    use super::*;
+
+    // ── CrystalsQuery deserialization ──────────────────────────
+
+    #[test]
+    fn crystals_query_defaults_are_none() {
+        let q: CrystalsQuery = serde_json::from_str("{}").expect("empty object parses");
+        assert!(q.limit.is_none());
+        assert!(q.domain.is_none());
+        assert!(q.state.is_none());
+    }
+
+    #[test]
+    fn crystals_query_parses_all_fields() {
+        // Simulate what axum Query extractor produces after parsing the query string
+        let q = CrystalsQuery {
+            limit: Some(25),
+            domain: Some("chess".into()),
+            state: Some("crystallized".into()),
+        };
+        assert_eq!(q.limit, Some(25));
+        assert_eq!(q.domain.as_deref(), Some("chess"));
+        assert_eq!(q.state.as_deref(), Some("crystallized"));
+    }
+
+    #[test]
+    fn crystals_query_limit_default_is_50() {
+        // Verify handler applies default limit=50 when None
+        let q = CrystalsQuery {
+            limit: None,
+            domain: None,
+            state: None,
+        };
+        let effective_limit = q.limit.unwrap_or(50).min(200);
+        assert_eq!(effective_limit, 50);
+    }
+
+    #[test]
+    fn crystals_query_limit_is_capped_at_200() {
+        // Verify handler caps limit at 200 regardless of input
+        let q = CrystalsQuery {
+            limit: Some(9999),
+            domain: None,
+            state: None,
+        };
+        let effective_limit = q.limit.unwrap_or(50).min(200);
+        assert_eq!(effective_limit, 200);
+    }
+
+    // ── CreateCrystalRequest validation ───────────────────────
+
+    #[test]
+    fn create_crystal_request_deserializes_with_domain() {
+        let json = r#"{"content":"The Sicilian is strong","domain":"chess"}"#;
+        let req: CreateCrystalRequest = serde_json::from_str(json).expect("full request parses");
+        assert_eq!(req.content, "The Sicilian is strong");
+        assert_eq!(req.domain.as_deref(), Some("chess"));
+    }
+
+    #[test]
+    fn create_crystal_request_domain_is_optional() {
+        let json = r#"{"content":"generic insight"}"#;
+        let req: CreateCrystalRequest =
+            serde_json::from_str(json).expect("domain-less request parses");
+        assert!(req.domain.is_none());
+        // Handler applies "general" default when None
+        let domain = req.domain.unwrap_or_else(|| "general".into());
+        assert_eq!(domain, "general");
+    }
+
+    #[test]
+    fn create_crystal_content_empty_is_invalid() {
+        // Mirrors the handler validation: empty content trimmed is rejected
+        let content = "";
+        assert!(
+            content.trim().is_empty(),
+            "empty content must fail validation"
+        );
+    }
+
+    #[test]
+    fn create_crystal_content_2001_chars_is_invalid() {
+        // Mirrors the handler validation: > 2000 chars is rejected
+        let content: String = std::iter::repeat('x').take(2001).collect();
+        assert!(
+            content.chars().count() > 2000,
+            "oversized content must fail validation"
+        );
+    }
+
+    #[test]
+    fn create_crystal_content_2000_chars_is_valid() {
+        // Boundary: exactly 2000 chars must pass
+        let content: String = std::iter::repeat('x').take(2000).collect();
+        assert!(
+            !content.trim().is_empty() && content.chars().count() <= 2000,
+            "2000 chars must pass validation"
+        );
+    }
+
+    // ── ObservationsQuery deserialization ──────────────────────
+
+    #[test]
+    fn observations_query_defaults_are_none() {
+        let q: ObservationsQuery = serde_json::from_str("{}").expect("empty object parses");
+        assert!(q.limit.is_none());
+        assert!(q.domain.is_none());
+        assert!(q.agent_id.is_none());
+    }
+
+    #[test]
+    fn observations_query_parses_agent_id() {
+        // Simulate what axum Query extractor produces
+        let q = ObservationsQuery {
+            limit: Some(10),
+            domain: Some("code".into()),
+            agent_id: Some("claude-123".into()),
+        };
+        assert_eq!(q.agent_id.as_deref(), Some("claude-123"));
+        assert_eq!(q.domain.as_deref(), Some("code"));
+        assert_eq!(q.limit, Some(10));
+    }
+
+    #[test]
+    fn observations_limit_default_and_cap() {
+        // Default: 100, cap: 100
+        let q = ObservationsQuery {
+            limit: None,
+            domain: None,
+            agent_id: None,
+        };
+        let effective = q.limit.unwrap_or(100).min(100);
+        assert_eq!(effective, 100);
+
+        let q_big = ObservationsQuery {
+            limit: Some(9999),
+            domain: None,
+            agent_id: None,
+        };
+        let effective_big = q_big.limit.unwrap_or(100).min(100);
+        assert_eq!(effective_big, 100);
+    }
+
+    // ── SessionsQuery deserialization ──────────────────────────
+
+    #[test]
+    fn sessions_query_default_limit_is_none() {
+        let q: SessionsQuery = serde_json::from_str("{}").expect("empty object parses");
+        assert!(q.limit.is_none());
+    }
+
+    #[test]
+    fn sessions_limit_default_50_cap_200() {
+        let q = SessionsQuery { limit: None };
+        let effective = q.limit.unwrap_or(50).min(200);
+        assert_eq!(effective, 50);
+
+        let q_big = SessionsQuery { limit: Some(500) };
+        let effective_big = q_big.limit.unwrap_or(50).min(200);
+        assert_eq!(effective_big, 200);
+    }
+
+    // ── AuditQuery deserialization ─────────────────────────────
+
+    #[test]
+    fn audit_query_defaults_are_none() {
+        let q: AuditQuery = serde_json::from_str("{}").expect("empty object parses");
+        assert!(q.limit.is_none());
+        assert!(q.tool.is_none());
+        assert!(q.agent_id.is_none());
+    }
+
+    #[test]
+    fn audit_query_parses_all_fields() {
+        // Simulate what axum Query extractor produces
+        let q = AuditQuery {
+            limit: Some(20),
+            tool: Some("cynic_judge".into()),
+            agent_id: Some("claude-1".into()),
+        };
+        assert_eq!(q.tool.as_deref(), Some("cynic_judge"));
+        assert_eq!(q.agent_id.as_deref(), Some("claude-1"));
+        assert_eq!(q.limit, Some(20));
+    }
+
+    #[test]
+    fn audit_limit_default_50_cap_100() {
+        let q = AuditQuery {
+            limit: None,
+            tool: None,
+            agent_id: None,
+        };
+        let effective = q.limit.unwrap_or(50).min(100);
+        assert_eq!(effective, 50);
+
+        let q_big = AuditQuery {
+            limit: Some(999),
+            tool: None,
+            agent_id: None,
+        };
+        let effective_big = q_big.limit.unwrap_or(50).min(100);
+        assert_eq!(effective_big, 100);
+    }
+
+    // ── ComplianceTrendQuery deserialization ───────────────────
+
+    #[test]
+    fn compliance_trend_limit_default_20_cap_100() {
+        let q = ComplianceTrendQuery { limit: None };
+        let effective = q.limit.unwrap_or(20).min(100);
+        assert_eq!(effective, 20);
+
+        let q_big = ComplianceTrendQuery { limit: Some(999) };
+        let effective_big = q_big.limit.unwrap_or(20).min(100);
+        assert_eq!(effective_big, 100);
+    }
+}

@@ -149,6 +149,10 @@ pub trait StoragePort: Send + Sync {
     ///
     /// `verdict_id` links this observation to its source verdict (provenance trail).
     #[allow(clippy::too_many_arguments)]
+    // WHY: observe_crystal carries 7 primitive/scalar arguments that form the crystal's
+    // immutable identity (id, content, domain, score, timestamp, voter_count, verdict_id).
+    // These are all required by the storage contract and cannot be merged — a struct would
+    // just move the burden to the caller side while adding a layer with no domain meaning.
     async fn observe_crystal(
         &self,
         id: &str,

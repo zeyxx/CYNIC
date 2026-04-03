@@ -45,6 +45,10 @@ pub struct BackendConfig {
     /// Prepend /no_think to user prompts (disables thinking mode in Qwen3 family).
     /// Default: false. Set true for sovereign backends running thinking-capable models.
     pub disable_thinking: bool,
+    /// Send `response_format: {"type": "json_object"}` to force valid JSON output.
+    /// Default: false. Set true for llama-server backends where JSON reliability matters.
+    /// Not all backends support this (cloud APIs may use different mechanisms).
+    pub json_mode: bool,
     /// Cost per 1M input tokens in USD. 0.0 = free (sovereign, free tier).
     pub cost_input_per_mtok: f64,
     /// Cost per 1M output tokens in USD. 0.0 = free.
@@ -100,6 +104,7 @@ struct BackendEntry {
     max_tokens: Option<u32>,
     temperature: Option<f32>,
     disable_thinking: Option<bool>,
+    json_mode: Option<bool>,
     cost_input_per_mtok: Option<f64>,
     cost_output_per_mtok: Option<f64>,
     /// Explicit health URL — if omitted, derived from base_url.
@@ -200,6 +205,7 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 max_tokens: entry.max_tokens.unwrap_or(4096),
                 temperature: entry.temperature.unwrap_or(0.3),
                 disable_thinking: entry.disable_thinking.unwrap_or(false),
+                json_mode: entry.json_mode.unwrap_or(false),
                 cost_input_per_mtok: entry.cost_input_per_mtok.unwrap_or(0.0),
                 cost_output_per_mtok: entry.cost_output_per_mtok.unwrap_or(0.0),
                 health_url,
@@ -265,6 +271,7 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             max_tokens: 4096,
             temperature: 0.3,
             disable_thinking: false,
+            json_mode: false,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: None, // Cloud API — no health endpoint

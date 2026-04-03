@@ -201,7 +201,6 @@ mod tests {
         }
     }
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn network_probe_returns_result() {
         let probe = NetworkProbe;

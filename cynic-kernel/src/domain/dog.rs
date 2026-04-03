@@ -74,12 +74,26 @@ pub struct DogScore {
     pub latency_ms: u64,
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
+    /// Phi-bounded axiom scores (clamped to [0.05, φ⁻¹]). Used for consensus.
     pub fidelity: f64,
     pub phi: f64,
     pub verify: f64,
     pub culture: f64,
     pub burn: f64,
     pub sovereignty: f64,
+    /// Raw axiom scores BEFORE phi_bound. For diagnostics — what the model actually produced.
+    #[serde(default)]
+    pub raw_fidelity: f64,
+    #[serde(default)]
+    pub raw_phi: f64,
+    #[serde(default)]
+    pub raw_verify: f64,
+    #[serde(default)]
+    pub raw_culture: f64,
+    #[serde(default)]
+    pub raw_burn: f64,
+    #[serde(default)]
+    pub raw_sovereignty: f64,
     pub reasoning: AxiomReasoning,
     /// Axioms where this Dog abstained (returned NEUTRAL, not an active evaluation).
     /// Excluded from disagreement calculation — abstention ≠ disagreement.

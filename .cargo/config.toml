@@ -5,5 +5,7 @@
 jobs = 1
 
 [env]
-# Increased from 256MB to 512MB — probe system monomorphization pushes past 256MB threshold.
-RUST_MIN_STACK = "536870912"
+# Increased to 2GB — tracing-subscriber 0.3.23 release build monomorphization pushes past 1GB.
+# rustc recommends RUST_MIN_STACK=2147483648 on SIGSEGV from deep codegen stack exhaustion.
+# rust-lang/rust #103767, #122357, #138561.
+RUST_MIN_STACK = "2147483648"

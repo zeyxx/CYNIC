@@ -158,7 +158,6 @@ impl crate::domain::probe::Probe for ResourceProbe {
 mod tests {
     use super::*;
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn resource_probe_returns_ok() {
         let probe = ResourceProbe::default();
@@ -173,7 +172,6 @@ mod tests {
         }
     }
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn resource_probe_cpu_none_on_first_tick() {
         let probe = ResourceProbe::default();
@@ -187,7 +185,6 @@ mod tests {
         }
     }
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn resource_probe_cpu_delta_requires_elapsed_time() {
         let probe = ResourceProbe::default();
@@ -209,7 +206,6 @@ mod tests {
         }
     }
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn resource_probe_disk_is_root_only() {
         let probe = ResourceProbe::default();
