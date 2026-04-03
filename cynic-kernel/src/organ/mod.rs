@@ -118,6 +118,16 @@ impl InferenceOrgan {
                 }
             }
         }
+        // Recovery: if gate is no longer tripped and backend was degraded, promote to Healthy
+        if !guard.gate.is_tripped()
+            && matches!(guard.backend.health, BackendHealth::Degraded { .. })
+        {
+            tracing::info!(
+                backend = %guard.backend.id.0,
+                "organ: quality recovered — promoting to Healthy"
+            );
+            guard.backend.health = BackendHealth::Healthy;
+        }
     }
 }
 
@@ -206,6 +216,27 @@ mod tests {
             );
         }
         assert!(handle.is_quality_degraded());
+    }
+
+    #[test]
+    fn recovery_promotes_degraded_to_healthy() {
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("dog-a"));
+        // Trip the gate: fill window with failures
+        for _ in 0..10 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Failure(ScoreFailureKind::ParseError),
+            );
+        }
+        assert!(handle.is_quality_degraded());
+
+        // Recover: 10 successes evict all failures from window
+        for _ in 0..10 {
+            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success);
+        }
+        // Gate is no longer tripped → should recover to Healthy
+        assert!(!handle.is_quality_degraded());
     }
 
     #[test]
