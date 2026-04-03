@@ -43,6 +43,8 @@ pub struct DogStats {
     pub timeout_count: u64,
     /// Timestamp of last successful score (K14: None = never succeeded).
     pub last_success: Option<Instant>,
+    /// Cumulative latency of successful calls (ms). Used to compute mean.
+    pub total_latency_ms: u64,
 }
 
 impl DogStats {
@@ -55,6 +57,7 @@ impl DogStats {
             parse_error_count: 0,
             timeout_count: 0,
             last_success: None,
+            total_latency_ms: 0,
         }
     }
 
@@ -62,6 +65,20 @@ impl DogStats {
         self.total_calls += 1;
         self.success_count += 1;
         self.last_success = Some(Instant::now());
+    }
+
+    pub fn record_success_with_latency(&mut self, elapsed_ms: u64) {
+        self.record_success();
+        self.total_latency_ms += elapsed_ms;
+    }
+
+    /// Mean latency of successful calls in milliseconds.
+    /// Returns 0.0 when no successful calls recorded.
+    pub fn mean_latency_ms(&self) -> f64 {
+        if self.success_count == 0 {
+            return 0.0;
+        }
+        self.total_latency_ms as f64 / self.success_count as f64
     }
 
     pub fn record_failure(&mut self, kind: ScoreFailureKind) {
@@ -224,6 +241,16 @@ mod tests {
         assert!(s.last_success.is_none()); // K14: never succeeded
         s.record_success();
         assert!(s.last_success.is_some());
+    }
+
+    #[test]
+    fn dog_stats_tracks_mean_latency() {
+        let mut s = DogStats::new();
+        assert_eq!(s.mean_latency_ms(), 0.0);
+        s.record_success_with_latency(100);
+        s.record_success_with_latency(200);
+        s.record_success_with_latency(300);
+        assert!((s.mean_latency_ms() - 200.0).abs() < 1e-10);
     }
 
     #[test]

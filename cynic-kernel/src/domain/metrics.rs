@@ -157,21 +157,6 @@ pub fn append_dog_metrics(
     dogs: &[(String, u64, u64, u64, u64)], // (id, requests, failures, total_latency_ms, total_tokens)
     circuit_states: &[(String, String, u32)], // (id, state, consecutive_failures)
 ) {
-    // Per-dog latency (average ms)
-    let _ = writeln!(
-        out,
-        "# HELP cynic_dog_latency_ms Average Dog evaluation latency in milliseconds"
-    );
-    let _ = writeln!(out, "# TYPE cynic_dog_latency_ms gauge");
-    for (id, requests, _, latency_ms, _) in dogs {
-        let avg = if *requests > 0 {
-            *latency_ms as f64 / *requests as f64
-        } else {
-            0.0
-        };
-        let _ = writeln!(out, "cynic_dog_latency_ms{{dog=\"{id}\"}} {avg:.1}");
-    }
-
     // Per-dog request count
     let _ = writeln!(
         out,
@@ -293,6 +278,20 @@ pub fn append_organ_metrics(
             stats.timeout_count
         );
     }
+
+    // Mean latency per Dog (gauge)
+    let _ = writeln!(
+        out,
+        "# HELP cynic_dog_mean_latency_ms Mean successful evaluation latency in milliseconds"
+    );
+    let _ = writeln!(out, "# TYPE cynic_dog_mean_latency_ms gauge");
+    for (id, stats) in snapshots {
+        let _ = writeln!(
+            out,
+            "cynic_dog_mean_latency_ms{{dog=\"{id}\"}} {:.1}",
+            stats.mean_latency_ms()
+        );
+    }
 }
 
 #[cfg(test)]
@@ -350,7 +349,7 @@ mod tests {
             ("sovereign".to_string(), "open".to_string(), 3u32),
         ];
         append_dog_metrics(&mut out, &dogs, &circuits);
-        assert!(out.contains("cynic_dog_latency_ms{dog=\"gemini\"} 500.0"));
+        assert!(out.contains("cynic_dog_requests_total{dog=\"gemini\"} 10"));
         assert!(out.contains("cynic_dog_circuit_breaker{dog=\"sovereign\"} 1"));
     }
 
@@ -364,5 +363,6 @@ mod tests {
         assert!(out.contains("cynic_dog_capability_limit_rate{dog=\"test-dog\"}"));
         assert!(out.contains("cynic_dog_organ_total{dog=\"test-dog\"}"));
         assert!(out.contains("cynic_dog_quality_failures{dog=\"test-dog\",mode=\"zero_flood\"}"));
+        assert!(out.contains("cynic_dog_mean_latency_ms{dog=\"test-dog\"}"));
     }
 }

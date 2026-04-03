@@ -288,7 +288,7 @@ impl Judge {
                         cb.record_success();
                     }
                     if let Some(h) = organ_handle {
-                        InferenceOrgan::update_stats_entry(h, ScoreOutcome::Success);
+                        InferenceOrgan::update_stats_entry(h, ScoreOutcome::Success { elapsed_ms });
                     }
                     tracing::info!(
                         phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,

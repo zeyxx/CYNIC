@@ -93,8 +93,8 @@ impl InferenceOrgan {
             return;
         };
         match kind {
-            ScoreOutcome::Success => {
-                guard.stats.record_success();
+            ScoreOutcome::Success { elapsed_ms } => {
+                guard.stats.record_success_with_latency(elapsed_ms);
                 guard.gate.record_success();
                 let rate = guard.stats.json_valid_rate();
                 guard.backend.measured.json_valid_rate = rate;
@@ -132,7 +132,7 @@ impl InferenceOrgan {
 /// Outcome of a single Dog evaluation, used to update organ health tracking.
 #[derive(Debug, Clone, Copy)]
 pub enum ScoreOutcome {
-    Success,
+    Success { elapsed_ms: u64 },
     Failure(ScoreFailureKind),
 }
 
@@ -177,8 +177,8 @@ mod tests {
     fn update_success_increments_rate() {
         let mut organ = InferenceOrgan::boot_empty();
         let handle = organ.register_backend(make_backend("dog-a"));
-        InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success);
-        InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success);
+        InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+        InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
         InferenceOrgan::update_stats_entry(
             &handle,
             ScoreOutcome::Failure(ScoreFailureKind::ZeroFlood),
@@ -201,7 +201,7 @@ mod tests {
         let handle = organ.register_backend(make_backend("dog-a"));
         // Trip the gate: 6 failures out of 10 (>50%)
         for _ in 0..4 {
-            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success);
+            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
         }
         for _ in 0..6 {
             InferenceOrgan::update_stats_entry(
@@ -227,7 +227,7 @@ mod tests {
 
         // Recover: 10 successes evict all failures from window
         for _ in 0..10 {
-            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success);
+            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
         }
         // Gate is no longer tripped → should recover to Healthy
         assert!(!handle.is_quality_degraded());
@@ -239,7 +239,7 @@ mod tests {
         let handle = organ.register_backend(make_backend("dog-a"));
         // 5 successes + 6 failures → gate trips at 6/11 > 50%
         for _ in 0..5 {
-            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success);
+            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
         }
         for _ in 0..6 {
             InferenceOrgan::update_stats_entry(
