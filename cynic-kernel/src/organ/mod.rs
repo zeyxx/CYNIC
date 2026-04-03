@@ -8,10 +8,9 @@
 
 pub mod health;
 pub mod registry;
-pub mod router;
 
 use crate::organ::health::{DogStats, ParseFailureGate, ScoreFailureKind};
-use crate::organ::registry::{Backend, BackendHealth, BackendId, MeasuredCapabilities};
+use crate::organ::registry::{Backend, BackendHealth, BackendId};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -68,11 +67,6 @@ impl InferenceOrgan {
         self.entries.len()
     }
 
-    /// Iterate over backend ids.
-    pub fn backend_ids(&self) -> impl Iterator<Item = &BackendId> {
-        self.entries.keys()
-    }
-
     /// Current stats snapshot for a backend. Returns None if backend not registered.
     pub fn stats_snapshot(&self, id: &BackendId) -> Option<DogStats> {
         self.entries
@@ -92,7 +86,6 @@ impl InferenceOrgan {
                 guard.gate.record_success();
                 let rate = guard.stats.json_valid_rate();
                 guard.backend.measured.json_valid_rate = rate;
-                guard.backend.measured.scoring_in_range_rate = rate;
             }
             ScoreOutcome::Failure(failure_kind) => {
                 guard.stats.record_failure(failure_kind);
@@ -108,35 +101,9 @@ impl InferenceOrgan {
                         since: Instant::now(),
                     };
                     guard.backend.measured.json_valid_rate = rate;
-                    guard.backend.measured.scoring_in_range_rate = rate;
                 }
             }
         }
-    }
-
-    /// Aggregate json_valid_rate across all registered backends (simple average).
-    pub fn overall_valid_rate(&self) -> f64 {
-        if self.entries.is_empty() {
-            return 0.0;
-        }
-        let sum: f64 = self
-            .entries
-            .values()
-            .filter_map(|h| h.0.lock().ok().map(|g| g.stats.json_valid_rate()))
-            .sum();
-        sum / self.entries.len() as f64
-    }
-
-    /// Snapshot of MeasuredCapabilities for Prometheus/API exposure.
-    pub fn measured_snapshot(&self) -> Vec<(BackendId, MeasuredCapabilities)> {
-        self.entries
-            .iter()
-            .filter_map(|(id, h)| {
-                h.0.lock()
-                    .ok()
-                    .map(|g| (id.clone(), g.backend.measured.clone()))
-            })
-            .collect()
     }
 }
 
@@ -150,19 +117,14 @@ pub enum ScoreOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::organ::registry::{BackendHealth, DeclaredCapabilities, NodeId};
+    use crate::organ::registry::{BackendHealth, DeclaredCapabilities, MeasuredCapabilities};
 
     fn make_backend(id: &str) -> Backend {
         Backend {
             id: BackendId(id.to_string()),
-            node_id: NodeId("test-node".to_string()),
-            endpoint: "http://localhost:8080/v1".to_string(),
-            model: "test-model".to_string(),
             declared: DeclaredCapabilities::default(),
             measured: MeasuredCapabilities::default(),
             health: BackendHealth::Healthy,
-            timeout_secs: 30,
-            remediation: None,
         }
     }
 
@@ -227,17 +189,5 @@ mod tests {
             matches!(guard.backend.health, BackendHealth::Degraded { .. }),
             "backend should be degraded after gate trips"
         );
-    }
-
-    #[test]
-    fn overall_valid_rate_averages_backends() {
-        let mut organ = InferenceOrgan::boot_empty();
-        let h1 = organ.register_backend(make_backend("dog-a"));
-        let h2 = organ.register_backend(make_backend("dog-b"));
-        InferenceOrgan::update_stats_entry(&h1, ScoreOutcome::Success);
-        InferenceOrgan::update_stats_entry(&h2, ScoreOutcome::Failure(ScoreFailureKind::Timeout));
-        // dog-a: 1.0, dog-b: 0.0 → average 0.5
-        let rate = organ.overall_valid_rate();
-        assert!((rate - 0.5).abs() < 1e-10);
     }
 }

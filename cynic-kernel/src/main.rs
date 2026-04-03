@@ -217,9 +217,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Register backend in organ — maps BackendConfig → organ registry entry
         let organ_backend = organ::registry::Backend {
             id: organ::registry::BackendId(cfg.name.clone()),
-            node_id: organ::registry::NodeId("local".to_string()),
-            endpoint: cfg.base_url.clone(),
-            model: cfg.model.clone(),
             declared: organ::registry::DeclaredCapabilities {
                 json: cfg.json_mode,
                 thinking: !cfg.disable_thinking,
@@ -228,16 +225,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
             measured: organ::registry::MeasuredCapabilities::default(),
             health: organ::registry::BackendHealth::Healthy,
-            timeout_secs: cfg.timeout_secs,
-            remediation: cfg
-                .remediation
-                .as_ref()
-                .map(|r| organ::registry::RemediationConfig {
-                    node: r.node.clone(),
-                    restart_command: r.restart_command.clone(),
-                    max_retries: r.max_retries,
-                    cooldown_secs: r.cooldown_secs,
-                }),
         };
         let handle = organ.register_backend(organ_backend);
         organ_handles.push(Some(handle));

@@ -9,6 +9,7 @@
 //
 // K14: unknown rates default to 0.0 (pessimistic), unknown latency to u32::MAX.
 
+use std::collections::VecDeque;
 use std::time::Instant;
 
 /// Failure type classification — different causes, different remediation.
@@ -81,11 +82,6 @@ impl DogStats {
         self.success_count as f64 / self.total_calls as f64
     }
 
-    /// Alias for json_valid_rate — same metric, more descriptive name for capability context.
-    pub fn scoring_in_range_rate(&self) -> f64 {
-        self.json_valid_rate()
-    }
-
     /// Fraction of calls that are capability-limit failures (zero flood + collapse).
     /// High value → model can't discriminate on this content type. Not fixable with config.
     pub fn capability_limit_rate(&self) -> f64 {
@@ -115,14 +111,14 @@ impl Default for DogStats {
 #[derive(Debug, Clone)]
 pub struct ParseFailureGate {
     /// Ring buffer of recent outcomes: true = success, false = failure.
-    window: Vec<bool>,
+    window: VecDeque<bool>,
     capacity: usize,
 }
 
 impl ParseFailureGate {
     pub fn new() -> Self {
         Self {
-            window: Vec::new(),
+            window: VecDeque::new(),
             capacity: 10,
         }
     }
@@ -137,9 +133,9 @@ impl ParseFailureGate {
 
     fn push(&mut self, ok: bool) {
         if self.window.len() >= self.capacity {
-            self.window.remove(0);
+            self.window.pop_front();
         }
-        self.window.push(ok);
+        self.window.push_back(ok);
     }
 
     /// Gate is tripped when >50% of the last N calls failed (min 5 samples required).
