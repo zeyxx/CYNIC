@@ -8,6 +8,7 @@
 
 pub mod health;
 pub mod registry;
+pub mod router;
 
 use crate::organ::health::{DogStats, ParseFailureGate, ScoreFailureKind};
 use crate::organ::registry::{Backend, BackendHealth, BackendId, MeasuredCapabilities};
