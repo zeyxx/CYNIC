@@ -5,6 +5,8 @@
 use crate::domain::dog::{estimate_tokens, *};
 use crate::domain::health_gate::HealthGate;
 use crate::domain::metrics::Metrics;
+use crate::organ::health::{DogStats, ScoreFailureKind};
+use crate::organ::{BackendHandle, InferenceOrgan, ScoreOutcome};
 use chrono::Utc;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
@@ -12,6 +14,8 @@ use uuid::Uuid;
 pub struct Judge {
     dogs: Vec<Box<dyn Dog>>,
     breakers: Vec<Arc<dyn HealthGate>>,
+    /// Organ handles — one per dog (same index). None for dogs without organ tracking.
+    organ_handles: Vec<Option<BackendHandle>>,
     /// Hash of the last verdict — forms the chain. Protected by Mutex for concurrent access.
     last_hash: Mutex<Option<String>>,
 }
@@ -25,11 +29,25 @@ impl std::fmt::Debug for Judge {
 impl Judge {
     pub fn new(dogs: Vec<Box<dyn Dog>>, breakers: Vec<Arc<dyn HealthGate>>) -> Self {
         assert_eq!(dogs.len(), breakers.len(), "dogs and breakers must be 1:1");
+        let n = dogs.len();
         Self {
             dogs,
             breakers,
+            organ_handles: vec![None; n],
             last_hash: Mutex::new(None),
         }
+    }
+
+    /// Attach organ backend handles (one per dog, same index). Call after `new()`.
+    /// Handles that are `None` are skipped — dogs without organ tracking still work.
+    pub fn with_organ_handles(mut self, handles: Vec<Option<BackendHandle>>) -> Self {
+        assert_eq!(
+            handles.len(),
+            self.dogs.len(),
+            "organ_handles must be 1:1 with dogs"
+        );
+        self.organ_handles = handles;
+        self
     }
 
     /// Seed the hash chain from the last stored verdict (call at boot).
@@ -99,6 +117,20 @@ impl Judge {
                     cb.state()
                 };
                 (dog.id().to_string(), state, cb.consecutive_failures())
+            })
+            .collect()
+    }
+
+    /// Snapshot of organ quality data for each Dog with an organ handle.
+    /// Reads BackendHandle locks briefly — no async, no hold across .await.
+    pub fn dog_quality_snapshot(&self) -> Vec<(String, DogStats)> {
+        self.dogs
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, dog)| {
+                let handle = self.organ_handles[idx].as_ref()?;
+                let stats = handle.stats_snapshot()?;
+                Some((dog.id().to_string(), stats))
             })
             .collect()
     }
@@ -180,10 +212,22 @@ impl Judge {
         // Per-Dog timeout: from config. Sovereign CPU models need 60s+, cloud APIs use 30s.
         // Aligned with HTTP client timeout in openai.rs (both read BackendConfig.timeout_secs).
 
-        // Parallel evaluation — skip Dogs with open circuit breakers
+        // Parallel evaluation — skip Dogs with open circuit breakers or degraded organ quality
         let futures: Vec<_> = dog_breaker_pairs
             .iter()
-            .filter(|(_, cb)| cb.should_allow())
+            .filter(|(dog, cb)| {
+                if !cb.should_allow() {
+                    return false;
+                }
+                let dog_idx = self.dogs.iter().position(|d| d.id() == dog.id());
+                if let Some(handle) = dog_idx.and_then(|idx| self.organ_handles[idx].as_ref())
+                    && handle.is_quality_degraded()
+                {
+                    tracing::warn!(dog_id = %dog.id(), "Dog skipped — organ quality degraded");
+                    return false;
+                }
+                true
+            })
             .map(|(dog, _)| {
                 let id = dog.id().to_string();
                 let dog_timeout = std::time::Duration::from_secs(dog.timeout_secs());
@@ -202,7 +246,18 @@ impl Judge {
         // Wall-clock timeout: max Dog timeout + 5s safety margin.
         let max_dog_timeout = dog_breaker_pairs
             .iter()
-            .filter(|(_, cb)| cb.should_allow())
+            .filter(|(dog, cb)| {
+                if !cb.should_allow() {
+                    return false;
+                }
+                let dog_idx = self.dogs.iter().position(|d| d.id() == dog.id());
+                if let Some(handle) = dog_idx.and_then(|idx| self.organ_handles[idx].as_ref())
+                    && handle.is_quality_degraded()
+                {
+                    return false;
+                }
+                true
+            })
             .map(|(dog, _)| dog.timeout_secs())
             .max()
             .unwrap_or(30);
@@ -220,22 +275,30 @@ impl Judge {
         let mut failed_dogs: Vec<String> = Vec::new();
 
         for (id, result, elapsed_ms) in results {
-            // Find the circuit breaker for this dog
-            let cb = self
-                .dogs
-                .iter()
-                .position(|d| d.id() == id)
-                .map(|idx| &self.breakers[idx]);
+            // Find the circuit breaker and organ handle for this dog (by index).
+            let dog_idx = self.dogs.iter().position(|d| d.id() == id);
+            let cb = dog_idx.map(|idx| &self.breakers[idx]);
+            let organ_handle = dog_idx.and_then(|idx| self.organ_handles[idx].as_ref());
 
+            // Count ALL attempts (success + failure) so failure rate = fails / evals ≤ 1.0
+            metrics.inc_dog_eval();
             match result {
                 Ok(scores) => {
                     if let Some(cb) = cb {
                         cb.record_success();
                     }
-                    metrics.inc_dog_eval();
+                    if let Some(h) = organ_handle {
+                        InferenceOrgan::update_stats_entry(h, ScoreOutcome::Success { elapsed_ms });
+                    }
                     tracing::info!(
                         phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
                         q = %format!("{:.3}", compute_qscore(&scores).total),
+                        raw_fidelity = %format!("{:.3}", scores.fidelity),
+                        raw_phi = %format!("{:.3}", scores.phi),
+                        raw_verify = %format!("{:.3}", scores.verify),
+                        raw_culture = %format!("{:.3}", scores.culture),
+                        raw_burn = %format!("{:.3}", scores.burn),
+                        raw_sovereignty = %format!("{:.3}", scores.sovereignty),
                         "Dog responded"
                     );
                     dog_scores.push(DogScore {
@@ -249,6 +312,12 @@ impl Judge {
                         culture: phi_bound(scores.culture),
                         burn: phi_bound(scores.burn),
                         sovereignty: phi_bound(scores.sovereignty),
+                        raw_fidelity: scores.fidelity,
+                        raw_phi: scores.phi,
+                        raw_verify: scores.verify,
+                        raw_culture: scores.culture,
+                        raw_burn: scores.burn,
+                        raw_sovereignty: scores.sovereignty,
                         abstentions: scores.abstentions,
                         reasoning: scores.reasoning,
                     });
@@ -263,6 +332,23 @@ impl Judge {
                             DogError::ApiError(_) | DogError::ParseError(_) => cb.record_failure(),
                             _ => cb.record_success(),
                         }
+                    }
+                    // Organ: classify failure kind for health tracking.
+                    if let Some(h) = organ_handle {
+                        let outcome = match e {
+                            DogError::ParseError(msg) if msg.contains("zero flood") => {
+                                ScoreOutcome::Failure(ScoreFailureKind::ZeroFlood)
+                            }
+                            DogError::ParseError(msg) if msg.contains("degenerate scores") => {
+                                ScoreOutcome::Failure(ScoreFailureKind::Collapse)
+                            }
+                            DogError::ParseError(_) => {
+                                ScoreOutcome::Failure(ScoreFailureKind::ParseError)
+                            }
+                            DogError::Timeout => ScoreOutcome::Failure(ScoreFailureKind::Timeout),
+                            _ => ScoreOutcome::Failure(ScoreFailureKind::ParseError),
+                        };
+                        InferenceOrgan::update_stats_entry(h, outcome);
                     }
                     metrics.inc_dog_failure();
                     tracing::warn!(
@@ -1049,17 +1135,19 @@ mod tests {
     fn make_dog_score(id: &str, val: f64) -> DogScore {
         DogScore {
             dog_id: id.into(),
-            latency_ms: 0,
-            prompt_tokens: 0,
-            completion_tokens: 0,
             fidelity: val,
             phi: val,
             verify: val,
             culture: val,
             burn: val,
             sovereignty: val,
-            reasoning: AxiomReasoning::default(),
-            abstentions: vec![],
+            raw_fidelity: val,
+            raw_phi: val,
+            raw_verify: val,
+            raw_culture: val,
+            raw_burn: val,
+            raw_sovereignty: val,
+            ..Default::default()
         }
     }
 
@@ -1120,17 +1208,19 @@ mod tests {
     fn trimmed_mean_per_axiom_extraction() {
         let scores = vec![DogScore {
             dog_id: "x".into(),
-            latency_ms: 0,
-            prompt_tokens: 0,
-            completion_tokens: 0,
             fidelity: 0.9,
             phi: 0.1,
             verify: 0.5,
             culture: 0.3,
             burn: 0.7,
             sovereignty: 0.4,
-            reasoning: AxiomReasoning::default(),
-            abstentions: vec![],
+            raw_fidelity: 0.9,
+            raw_phi: 0.1,
+            raw_verify: 0.5,
+            raw_culture: 0.3,
+            raw_burn: 0.7,
+            raw_sovereignty: 0.4,
+            ..Default::default()
         }];
         assert!((trimmed_mean(&scores, "fidelity", |s| s.fidelity) - 0.9).abs() < 1e-10);
         assert!((trimmed_mean(&scores, "phi", |s| s.phi) - 0.1).abs() < 1e-10);
@@ -1364,5 +1454,59 @@ mod tests {
         assert!(verify_verdict_integrity(&v2));
         // Chain linkage holds
         assert_eq!(v2.prev_hash, v1.integrity_hash);
+    }
+
+    #[tokio::test]
+    async fn quality_degraded_dog_is_skipped() {
+        let good_dog = FixedDog {
+            name: "good".into(),
+            scores: AxiomScores {
+                fidelity: 0.5,
+                phi: 0.5,
+                verify: 0.5,
+                culture: 0.5,
+                burn: 0.5,
+                sovereignty: 0.5,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        };
+        let bad_dog = FixedDog {
+            name: "bad".into(),
+            scores: AxiomScores {
+                fidelity: 0.1,
+                phi: 0.1,
+                verify: 0.1,
+                culture: 0.1,
+                burn: 0.1,
+                sovereignty: 0.1,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        };
+
+        let mut organ = crate::organ::InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(crate::organ::registry::Backend {
+            id: crate::organ::registry::BackendId("bad".into()),
+            declared: crate::organ::registry::DeclaredCapabilities::default(),
+            measured: crate::organ::registry::MeasuredCapabilities::default(),
+            health: crate::organ::registry::BackendHealth::Degraded {
+                reason: "test quality gate".into(),
+                since: std::time::Instant::now(),
+            },
+        });
+
+        let judge = test_judge(vec![Box::new(good_dog), Box::new(bad_dog)])
+            .with_organ_handles(vec![None, Some(handle)]);
+
+        let metrics = Arc::new(test_metrics());
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &metrics)
+            .await
+            .unwrap();
+
+        // bad dog is quality-degraded → should be skipped, only good dog scored
+        assert_eq!(verdict.dog_scores.len(), 1);
+        assert_eq!(verdict.dog_scores[0].dog_id, "good");
     }
 }

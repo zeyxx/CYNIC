@@ -167,7 +167,6 @@ impl crate::domain::probe::Probe for FleetProbe {
 mod tests {
     use super::*;
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn fleet_probe_no_targets_returns_ok() {
         let probe = FleetProbe::new(vec![]);
@@ -175,7 +174,6 @@ mod tests {
         assert_eq!(result.status, ProbeStatus::Ok);
     }
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn fleet_probe_unreachable_target() {
         let probe = FleetProbe::new(vec![FleetTarget {
@@ -198,7 +196,6 @@ mod tests {
 
     /// Spins up a minimal Axum server that simulates a llama-server with
     /// context drift: /health → 200, /props → n_ctx=2048 (less than expected 8192).
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn fleet_probe_detects_context_drift() {
         use axum::{Json, Router, routing::get};
@@ -255,7 +252,6 @@ mod tests {
     }
 
     /// When expected_n_ctx is 0 (unconfigured), both fields should be None.
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn fleet_probe_no_expected_ctx_yields_none() {
         let probe = FleetProbe::new(vec![FleetTarget {

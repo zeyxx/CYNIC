@@ -17,8 +17,10 @@ async fn chat_port_contract(port: &dyn ChatPort) {
         | BackendStatus::Recovering => {} // all valid
     }
 
-    // 3. Chat must return Ok or a well-formed error
-    let result = port.chat("You are a test.", "Say hello.").await;
+    // 3. Chat must return Ok or a well-formed error (Scoring profile = most constrained)
+    let result = port
+        .chat("You are a test.", "Say hello.", InferenceProfile::Scoring)
+        .await;
     match result {
         Ok(resp) => assert!(
             !resp.text.is_empty(),

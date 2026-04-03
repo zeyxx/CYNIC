@@ -15,6 +15,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if std::env::args().any(|a| a == "--version") {
         #[allow(clippy::print_stdout)]
+        // WHY: This is the --version flag output path. Printing the version string to stdout is
+        // the correct and expected behaviour here; the MCP_MODE guard (which bans stdout to avoid
+        // corrupting the JSON-RPC stream) has not yet been set when this branch executes.
         {
             println!("cynic-kernel {}", env!("CARGO_PKG_VERSION"));
         }
@@ -137,9 +140,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 2: Build Dogs (model-agnostic evaluators) ───────
     let mut dogs: Vec<Box<dyn domain::dog::Dog>> = Vec::new();
+    let mut organ_handles: Vec<Option<organ::BackendHandle>> = Vec::new();
+    let mut organ = organ::InferenceOrgan::boot_empty();
 
     // Always add the deterministic Dog (free, fast)
     dogs.push(Box::new(dogs::deterministic::DeterministicDog));
+    organ_handles.push(None); // deterministic dog has no backend to track
     klog!("[Ring 2] DeterministicDog loaded");
 
     // Create InferenceDog per configured backend
@@ -207,9 +213,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .with_domain_prompts(Arc::clone(&domain_prompts)),
         ));
+
+        // Register backend in organ — maps BackendConfig → organ registry entry
+        let organ_backend = organ::registry::Backend {
+            id: organ::registry::BackendId(cfg.name.clone()),
+            declared: organ::registry::DeclaredCapabilities {
+                json: cfg.json_mode,
+                thinking: !cfg.disable_thinking,
+                scoring: true,
+                ..Default::default()
+            },
+            measured: organ::registry::MeasuredCapabilities::default(),
+            health: organ::registry::BackendHealth::Healthy,
+        };
+        let handle = organ.register_backend(organ_backend);
+        organ_handles.push(Some(handle));
     }
 
-    klog!("[Ring 2] {} Dog(s) active", dogs.len());
+    klog!(
+        "[Ring 2] {} Dog(s) active, InferenceOrgan: {} backend(s) registered",
+        dogs.len(),
+        organ.backend_count()
+    );
 
     // ─── RING 2: Health Loop + Remediation ──────────────────────
     // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
@@ -255,7 +280,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )) as Arc<dyn domain::health_gate::HealthGate>
         })
         .collect();
-    let judge = judge::Judge::new(dogs, breakers);
+    let judge = judge::Judge::new(dogs, breakers).with_organ_handles(organ_handles);
     // Background task health tracker — updated by each spawned task, exposed in /health
     let task_health = Arc::new(infra::task_health::TaskHealth::new());
     // Lifecycle orchestration — all background tasks select! on this token.
@@ -545,10 +570,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&storage_port),
         Arc::clone(&metrics),
         Arc::clone(&environment),
-        Arc::clone(&judge),
-        Arc::clone(&embedding),
-        Arc::clone(&usage_tracker),
-        Arc::clone(&verdict_cache),
         Arc::clone(&rest_state.introspection_alerts),
         event_tx.clone(),
         Arc::clone(&task_health),

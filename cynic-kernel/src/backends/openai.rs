@@ -2,7 +2,7 @@
 //! Implements BackendPort (shared health+name) and ChatPort (for Dogs).
 //! One type, N instances (Gemini, HuggingFace, llama.cpp, vLLM, SGLang).
 
-use crate::domain::chat::{ChatError, ChatPort, ChatResponse};
+use crate::domain::chat::{ChatError, ChatPort, ChatResponse, InferenceProfile};
 use crate::domain::inference::{BackendPort, BackendStatus};
 
 use crate::infra::config::{AuthStyle, BackendConfig};
@@ -29,6 +29,27 @@ struct ChatCompletionRequest {
     max_completion_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     n: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    response_format: Option<ResponseFormat>,
+    /// llama-server: pass enable_thinking to the chat template.
+    /// `{"enable_thinking": false}` disables Qwen3/3.5 thinking mode at the template level.
+    /// Silently ignored by non-llama backends (Gemini, HuggingFace).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    chat_template_kwargs: Option<ChatTemplateKwargs>,
+}
+
+/// OpenAI-compatible response_format field.
+/// `{"type": "json_object"}` forces the model to output valid JSON.
+#[derive(Serialize)]
+struct ResponseFormat {
+    #[serde(rename = "type")]
+    format_type: String,
+}
+
+/// llama-server chat template kwargs — controls thinking mode for Qwen3 family.
+#[derive(Serialize)]
+struct ChatTemplateKwargs {
+    enable_thinking: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -41,7 +62,11 @@ struct Message {
 struct ChatCompletionResponse {
     choices: Vec<Choice>,
     #[serde(default)]
-    #[allow(dead_code)] // deserialized from API, may be used for routing/logging
+    #[allow(dead_code)]
+    // WHY: `model` is deserialized from the OpenAI API response (serde contract) but not yet
+    // consumed by callers. Removing the field would silently break deserialization if the
+    // struct is ever used where the JSON includes it with strict mode; keeping it documents
+    // intent and enables future routing/logging without a breaking change.
     model: String,
     #[serde(default)]
     usage: Option<Usage>,
@@ -118,8 +143,25 @@ impl OpenAiCompatBackend {
         temperature: Option<f32>,
         max_tokens: Option<u32>,
         n: Option<u32>,
+        disable_thinking: bool,
     ) -> Result<ChatCompletionResponse, ChatError> {
         let url = self.build_url("/chat/completions");
+        let response_format = if self.config.json_mode {
+            Some(ResponseFormat {
+                format_type: "json_object".to_string(),
+            })
+        } else {
+            None
+        };
+        // For thinking-capable models (Qwen3/3.5), disable thinking at the template level.
+        // This is a llama-server feature — silently ignored by cloud APIs.
+        let chat_template_kwargs = if disable_thinking {
+            Some(ChatTemplateKwargs {
+                enable_thinking: false,
+            })
+        } else {
+            None
+        };
         let body = ChatCompletionRequest {
             model: self.config.model.clone(),
             messages,
@@ -127,6 +169,8 @@ impl OpenAiCompatBackend {
             max_tokens,
             max_completion_tokens: None,
             n,
+            response_format,
+            chat_template_kwargs,
         };
 
         let req = self.client.post(&url).json(&body);
@@ -207,7 +251,12 @@ impl BackendPort for OpenAiCompatBackend {
 
 #[async_trait]
 impl ChatPort for OpenAiCompatBackend {
-    async fn chat(&self, system: &str, user: &str) -> Result<ChatResponse, ChatError> {
+    async fn chat(
+        &self,
+        system: &str,
+        user: &str,
+        profile: InferenceProfile,
+    ) -> Result<ChatResponse, ChatError> {
         let mut messages = Vec::new();
         if !system.is_empty() {
             messages.push(Message {
@@ -215,24 +264,29 @@ impl ChatPort for OpenAiCompatBackend {
                 content: system.to_string(),
             });
         }
-        // Prepend /no_think for Qwen3 family to disable thinking mode (reduces latency + token waste).
-        // Harmless for non-Qwen models — they treat it as prompt text.
-        let user_content = if self.config.disable_thinking {
-            format!("/no_think\n{user}")
-        } else {
-            user.to_string()
-        };
         messages.push(Message {
             role: "user".to_string(),
-            content: user_content,
+            content: user.to_string(),
         });
+
+        // Profile OR backend config can disable thinking.
+        // Sent as chat_template_kwargs.enable_thinking to llama-server (template-level control).
+        // Only for local backends (health_url.is_some()) — cloud APIs reject unknown fields.
+        let is_local_backend = self.config.health_url.is_some();
+        let should_disable_thinking =
+            is_local_backend && (profile.disable_thinking() || self.config.disable_thinking);
+
+        // Profile overrides backend defaults for max_tokens and temperature.
+        let temperature = profile.temperature().unwrap_or(self.config.temperature);
+        let max_tokens = profile.max_tokens();
 
         let resp = self
             .post_chat(
                 messages,
-                Some(self.config.temperature),
-                Some(self.config.max_tokens),
+                Some(temperature),
+                Some(max_tokens),
                 None,
+                should_disable_thinking,
             )
             .await?;
 
@@ -295,6 +349,7 @@ mod tests {
             max_tokens: 4096,
             temperature: 0.3,
             disable_thinking: false,
+            json_mode: false,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: None,
@@ -320,6 +375,7 @@ mod tests {
             max_tokens: 4096,
             temperature: 0.3,
             disable_thinking: false,
+            json_mode: false,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: None,
@@ -345,6 +401,7 @@ mod tests {
             max_tokens: 4096,
             temperature: 0.3,
             disable_thinking: false,
+            json_mode: false,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: None,
@@ -370,6 +427,7 @@ mod tests {
             max_tokens: 4096,
             temperature: 0.3,
             disable_thinking: false,
+            json_mode: false,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: None,

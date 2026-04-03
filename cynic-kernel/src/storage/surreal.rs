@@ -144,7 +144,8 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
             }
             scores
         },
-        anomaly_detected: row["anomaly_detected"].as_bool().unwrap_or(false),
+        // K14: missing/poison = assume degraded (anomaly present, not absent)
+        anomaly_detected: row["anomaly_detected"].as_bool().unwrap_or(true),
         max_disagreement: row["max_disagreement"].as_f64().unwrap_or(0.0),
         anomaly_axiom: row["anomaly_axiom"]
             .as_str()
@@ -1377,6 +1378,8 @@ impl CoordPort for SurrealHttpStorage {
 // ── TESTS ────────────────────────────────────────────────────
 
 #[cfg(test)]
+// WHY: Integration tests use eprintln! for SurrealDB connection diagnostics during
+// local development — these are never reached in production code paths.
 #[allow(clippy::print_stderr)]
 mod tests {
     use super::*;

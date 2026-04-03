@@ -18,12 +18,12 @@ use rmcp::{
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+use crate::domain::ccm::build_observation;
 use crate::domain::coord::{ClaimResult, CoordPort};
 use crate::domain::dog::PHI_INV;
 use crate::domain::events::KernelEvent;
 use crate::domain::health_gate::system_health_status;
 use crate::domain::inference::InferPort;
-use crate::domain::sanitize::sanitize_observation_target;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::judge::Judge;
@@ -265,7 +265,11 @@ impl std::fmt::Debug for CynicMcp {
 
 #[tool_router]
 impl CynicMcp {
-    #[allow(clippy::too_many_arguments)] // Constructor — 9 deps is the real count, a builder adds zero clarity
+    #[allow(clippy::too_many_arguments)]
+    // WHY: Constructor receives 9 kernel dependencies (judge, storage, coord, usage, embedding,
+    // verdict_cache, infer, metrics, environment) — each is a distinct port required at the MCP
+    // surface. A builder pattern would only rename the argument list; it does not reduce coupling
+    // or improve readability for a constructor that is called in exactly one place (main.rs).
     pub fn new(
         judge: Arc<Judge>,
         storage: Arc<dyn StoragePort>,
@@ -936,27 +940,19 @@ impl CynicMcp {
             ));
         }
 
-        let domain = params.domain.unwrap_or_else(|| {
-            crate::domain::ccm::infer_domain(params.target.as_deref(), Some(&params.tool))
-        });
-
-        let agent_id = params.agent_id.clone().unwrap_or_else(|| "unknown".into());
         let tool_name = params.tool.clone();
+        let agent_id = params.agent_id.clone().unwrap_or_else(|| "unknown".into());
 
-        let obs = crate::domain::storage::Observation {
-            project: params.project.unwrap_or_else(|| "CYNIC".into()),
-            agent_id: agent_id.clone(),
-            tool: params.tool,
-            target: sanitize_observation_target(&params.target.unwrap_or_default()),
-            domain,
-            status: params.status.unwrap_or_else(|| "success".into()),
-            context: params
-                .context
-                .map(|c| c.chars().take(200).collect())
-                .unwrap_or_default(),
-            session_id: params.session_id.unwrap_or_default(),
-            timestamp: chrono::Utc::now().to_rfc3339(),
-        };
+        let obs = build_observation(
+            params.tool,
+            params.target,
+            params.domain,
+            params.status,
+            params.context,
+            params.project,
+            params.agent_id,
+            params.session_id,
+        );
 
         let storage = Arc::clone(&self.storage);
         tokio::spawn(async move {

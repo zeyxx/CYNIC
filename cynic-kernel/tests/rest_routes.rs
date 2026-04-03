@@ -893,3 +893,429 @@ async fn coord_register_rejects_control_chars_in_agent_id() {
         "I2: control characters in agent_id must be rejected"
     );
 }
+
+// ── /crystal/{id} ────────────────────────────────────────────
+
+#[tokio::test]
+async fn get_crystal_returns_500_with_null_storage() {
+    // NullStorage.get_crystal() returns Err → handler maps to 500
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/crystal/abc123")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        500,
+        "NullStorage: GET /crystal/{{id}} must return 500 (storage unavailable)"
+    );
+}
+
+#[tokio::test]
+async fn get_crystal_requires_auth() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/crystal/abc123")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+// ── /usage ───────────────────────────────────────────────────
+
+#[tokio::test]
+async fn usage_requires_auth() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/usage")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn usage_returns_200_with_expected_shape() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/usage")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200, "GET /usage must return 200");
+    let v = body_json(resp.into_body()).await;
+    // CONTRACT: these fields must exist — consumers: /status skill, cost tracking
+    assert!(
+        v["total_tokens"].is_number(),
+        "CONTRACT: usage.total_tokens must be number"
+    );
+    assert!(
+        v["total_requests"].is_number(),
+        "CONTRACT: usage.total_requests must be number"
+    );
+    assert!(
+        v["estimated_cost_usd"].is_number(),
+        "CONTRACT: usage.estimated_cost_usd must be number"
+    );
+    assert!(
+        v["uptime_seconds"].is_number(),
+        "CONTRACT: usage.uptime_seconds must be number"
+    );
+    assert!(
+        v["per_dog"].is_array(),
+        "CONTRACT: usage.per_dog must be array"
+    );
+    assert!(
+        v["retired"].is_object(),
+        "CONTRACT: usage.retired must be object"
+    );
+    assert!(
+        v["retired"]["count"].is_number(),
+        "CONTRACT: usage.retired.count must be number"
+    );
+}
+
+// ── /observations ────────────────────────────────────────────
+
+#[tokio::test]
+async fn observations_requires_auth() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/observations")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn observations_returns_empty_array_with_null_storage() {
+    // NullStorage.list_observations_raw() returns Ok(vec![]) — 200 empty array
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/observations")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200, "GET /observations must return 200");
+    let v = body_json(resp.into_body()).await;
+    assert!(
+        v.as_array().is_some(),
+        "CONTRACT: /observations must return an array"
+    );
+    assert_eq!(
+        v.as_array().unwrap().len(),
+        0,
+        "NullStorage: /observations must return empty array"
+    );
+}
+
+#[tokio::test]
+async fn observations_accepts_domain_filter() {
+    // Verify query params don't cause a 400/500 — handler parses them without error
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/observations?domain=chess&limit=10")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        200,
+        "GET /observations?domain=chess&limit=10 must parse and return 200"
+    );
+}
+
+// ── /sessions ────────────────────────────────────────────────
+
+#[tokio::test]
+async fn sessions_requires_auth() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/sessions")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn sessions_returns_empty_array_with_null_storage() {
+    // NullStorage.list_session_summaries() returns Ok(vec![]) — 200 empty array
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/sessions")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200, "GET /sessions must return 200");
+    let v = body_json(resp.into_body()).await;
+    assert!(
+        v.as_array().is_some(),
+        "CONTRACT: /sessions must return an array"
+    );
+}
+
+// ── /session/{agent_id}/compliance ───────────────────────────
+
+#[tokio::test]
+async fn compliance_requires_auth() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/session/claude-123/compliance")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn compliance_returns_score_with_null_storage() {
+    // NullStorage.list_observations_raw() returns Ok(vec![]) →
+    // score_session(empty) returns max score (φ⁻¹) → 200 with SessionCompliance
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/session/claude-123/compliance")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        200,
+        "GET /session/{{agent_id}}/compliance must return 200"
+    );
+    let v = body_json(resp.into_body()).await;
+    // CONTRACT: SessionCompliance fields — consumed by session-stop.sh and /status
+    assert!(
+        v["session_id"].is_string(),
+        "CONTRACT: compliance.session_id must be string"
+    );
+    assert!(
+        v["agent_id"].is_string(),
+        "CONTRACT: compliance.agent_id must be string"
+    );
+    assert!(
+        v["score"].is_number(),
+        "CONTRACT: compliance.score must be number"
+    );
+    assert!(
+        v["warnings"].is_array(),
+        "CONTRACT: compliance.warnings must be array"
+    );
+    assert!(
+        v["read_before_edit"].is_number(),
+        "CONTRACT: compliance.read_before_edit must be number"
+    );
+    assert!(
+        v["bash_retry_violations"].is_number(),
+        "CONTRACT: compliance.bash_retry_violations must be number"
+    );
+    assert!(
+        v["files_modified"].is_number(),
+        "CONTRACT: compliance.files_modified must be number"
+    );
+    // Empty observations → max score (φ⁻¹ ≈ 0.618), no warnings
+    assert_eq!(v["agent_id"], "claude-123");
+    assert!(v["score"].as_f64().unwrap() > 0.0);
+    assert_eq!(v["warnings"].as_array().unwrap().len(), 0);
+}
+
+// ── /compliance ──────────────────────────────────────────────
+
+#[tokio::test]
+async fn compliance_trend_requires_auth() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/compliance")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn compliance_trend_returns_empty_array_with_null_storage() {
+    // NullStorage.list_session_compliance() returns Ok(vec![]) — 200 empty array
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/compliance")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200, "GET /compliance must return 200");
+    let v = body_json(resp.into_body()).await;
+    assert!(
+        v.as_array().is_some(),
+        "CONTRACT: /compliance must return an array"
+    );
+}
+
+// ── /audit ───────────────────────────────────────────────────
+
+#[tokio::test]
+async fn audit_requires_auth() {
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/audit")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn audit_returns_empty_array_with_null_coord() {
+    // NullCoord.query_audit() returns Ok(vec![]) — 200 empty array
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/audit")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200, "GET /audit must return 200");
+    let v = body_json(resp.into_body()).await;
+    assert!(
+        v.as_array().is_some(),
+        "CONTRACT: /audit must return an array"
+    );
+}
+
+#[tokio::test]
+async fn audit_accepts_filter_params() {
+    // Verify query params (tool, agent_id, limit) don't break routing or parsing
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/audit?tool=cynic_judge&agent_id=claude-1&limit=5")
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        200,
+        "GET /audit with filter params must return 200"
+    );
+}
+
+// ── create_crystal: content too long → 400 ───────────────────
+
+#[tokio::test]
+async fn create_crystal_rejects_oversized_content() {
+    // Content > 2000 chars must return 400 before hitting storage
+    let state = test_state(Some("key"));
+    let app = rest::router(state);
+    let long_content: String = std::iter::repeat('x').take(2001).collect();
+    let body = serde_json::json!({"content": long_content, "domain": "chess"});
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/crystal")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer key")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        400,
+        "CONTRACT: content > 2000 chars must return 400"
+    );
+    let v = body_json(resp.into_body()).await;
+    assert!(
+        v["error"].as_str().unwrap().contains("2000"),
+        "Error message must mention the 2000 char limit"
+    );
+}

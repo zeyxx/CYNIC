@@ -130,6 +130,20 @@ pub async fn health_handler(
         })
         .collect();
 
+    let organ_quality: Vec<serde_json::Value> = state
+        .judge
+        .dog_quality_snapshot()
+        .into_iter()
+        .map(|(id, stats)| {
+            serde_json::json!({
+                "dog": id,
+                "json_valid_rate": stats.json_valid_rate(),
+                "capability_limit_rate": stats.capability_limit_rate(),
+                "total_calls": stats.total_calls,
+            })
+        })
+        .collect();
+
     let usage = state.usage.lock().await;
 
     // Proprioception: crystal state summary (best-effort, non-blocking)
@@ -178,6 +192,7 @@ pub async fn health_handler(
             "storage_metrics": state.storage_metrics(),
             "embedding": if tokio::time::timeout(std::time::Duration::from_secs(2), state.embedding.embed("h")).await.map(|r| r.is_ok()).unwrap_or(false) { "sovereign" } else { "unavailable" },
             "crystals": crystal_summary,
+            "organ_quality": organ_quality,
             "environment": state.environment.read().ok().and_then(|e| e.clone()),
             "chain_verified": state.chain_verified.load(std::sync::atomic::Ordering::Relaxed),
             "verdict_cache_size": state.verdict_cache.len(),
@@ -265,6 +280,12 @@ pub async fn metrics_handler(
 
         let circuit_states = state.judge.dog_health();
         crate::domain::metrics::append_dog_metrics(&mut out, &dog_data, &circuit_states);
+    }
+
+    // Organ quality metrics
+    {
+        let snapshots = state.judge.dog_quality_snapshot();
+        crate::domain::metrics::append_organ_metrics(&mut out, &snapshots);
     }
 
     (

@@ -36,6 +36,10 @@ benchmarks/
 # Hermes agent state (contains .env + local DB)
 .hermes_ouroboros/
 
+# Platform configs
+.replit
+.mcp.json
+
 # Session artifacts (AI-generated scratch files at root only)
 /state*.md
 /*-state*.md

@@ -10,17 +10,14 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::domain::coord::CoordPort;
-use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::health_gate::HealthGate;
 use crate::domain::metrics::Metrics;
 use crate::domain::probe::EnvironmentSnapshot;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
-use crate::domain::verdict_cache::VerdictCache;
 use crate::infra::config::BackendRemediation;
 use crate::infra::task_health::TaskHealth;
-use crate::judge::Judge;
 
 // ── Shutdown flush — used by both REST and MCP exit paths ────
 
@@ -259,14 +256,14 @@ pub fn spawn_backfill(
 // ── Introspection loop (MAPE-K Analyze, every 5 min) ────────
 
 #[allow(clippy::too_many_arguments)]
+// WHY: spawn_introspection threads through all kernel Arc dependencies so the background
+// introspection task has access to storage, metrics, judge, embedding, usage, verdict_cache,
+// alerts, and the event channel. Each is a distinct subsystem — collapsing them into a struct
+// would create a god-object coupling every subsystem to the introspection task scheduler.
 pub fn spawn_introspection(
     storage: Arc<dyn StoragePort>,
     metrics: Arc<Metrics>,
     environment: Arc<std::sync::RwLock<Option<EnvironmentSnapshot>>>,
-    judge: Arc<Judge>,
-    embedding: Arc<dyn EmbeddingPort>,
-    usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
-    verdict_cache: Arc<VerdictCache>,
     introspection_alerts: Arc<std::sync::RwLock<Vec<crate::introspection::Alert>>>,
     event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     task_health: Arc<TaskHealth>,
@@ -300,11 +297,6 @@ pub fn spawn_introspection(
                             storage.as_ref(),
                             &metrics,
                             &env_snap,
-                            &judge,
-                            embedding.as_ref(),
-                            &usage,
-                            &verdict_cache,
-                            Some(&event_tx),
                         ),
                     ).await {
                         Ok(alerts) => {

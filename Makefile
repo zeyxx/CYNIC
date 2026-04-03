@@ -13,6 +13,7 @@
 #   make e2e      — end-to-end test against running kernel
 #   make status   — full system dashboard
 #   make backup   — manual DB backup
+#   make test-gates — R21: verify lint gates catch known violations
 #   make clean    — cargo clean (fix SIGSEGV/LLVM crashes)
 
 SHELL := /bin/bash
@@ -163,6 +164,85 @@ lint-security: ## G1 gate: 0 OPEN findings in CRITICAL or HIGH sections of findi
 		echo "FAIL G1: CRIT/HIGH findings still OPEN:"; echo "$$OPEN"; exit 1; \
 	else \
 		echo "✓ G1: 0 OPEN findings in CRITICAL/HIGH"; \
+	fi
+
+.PHONY: test-gates
+test-gates: ## R21: Verify lint gates catch known violations (inject → check → restore)
+	@echo ""
+	@echo "══════════════════════════════════════════"
+	@echo "  R21: Gate falsification tests"
+	@echo "══════════════════════════════════════════"
+	@set +e; PASS=0; FAIL=0; \
+	\
+	echo ""; echo "── lint-rules ──"; \
+	\
+	echo "[K1] Injecting #[cfg(feature)] in domain/..."; \
+	TARGET="$(PROJECT_DIR)/cynic-kernel/src/domain/mod.rs"; \
+	cp "$$TARGET" "$$TARGET.gate-bak"; \
+	echo '#[cfg(feature = "gate_test_k1")] mod _phantom;' >> "$$TARGET"; \
+	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
+		echo "  ✗ K1 gate MISSED #[cfg] in domain/ — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ K1 gate caught #[cfg] in domain/"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$TARGET.gate-bak" "$$TARGET"; \
+	\
+	echo "[K2] Injecting reqwest in domain/..."; \
+	cp "$$TARGET" "$$TARGET.gate-bak"; \
+	echo 'use reqwest;' >> "$$TARGET"; \
+	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
+		echo "  ✗ K2 gate MISSED reqwest in domain/ — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ K2 gate caught reqwest in domain/"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$TARGET.gate-bak" "$$TARGET"; \
+	\
+	echo "[K5] Injecting serde_json::Value in domain/..."; \
+	cp "$$TARGET" "$$TARGET.gate-bak"; \
+	echo 'fn _k5_test() -> serde_json::Value { todo!() }' >> "$$TARGET"; \
+	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
+		echo "  ✗ K5 gate MISSED serde_json::Value in domain/ — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ K5 gate caught serde_json::Value in domain/"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$TARGET.gate-bak" "$$TARGET"; \
+	\
+	echo ""; echo "── lint-drift ──"; \
+	\
+	echo "[Dormant] Injecting commented module without DORMANT tag..."; \
+	cp "$$TARGET" "$$TARGET.gate-bak"; \
+	echo '// pub mod _gate_test_phantom;' >> "$$TARGET"; \
+	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
+		echo "  ✗ Dormant gate MISSED commented module — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ Dormant gate caught commented module without DORMANT:"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$TARGET.gate-bak" "$$TARGET"; \
+	\
+	echo ""; echo "── lint-security ──"; \
+	\
+	echo "[G1] Injecting OPEN CRITICAL finding..."; \
+	TRACKER="$(PROJECT_DIR)/docs/audit/CYNIC-FINDINGS-TRACKER.md"; \
+	if [ -f "$$TRACKER" ]; then \
+		cp "$$TRACKER" "$$TRACKER.gate-bak"; \
+		awk '/^## CRITICAL/{print; getline; print; getline; print; print "| GATE-TEST | Inject | Gate falsification test | OPEN |"; next} {print}' \
+			"$$TRACKER.gate-bak" > "$$TRACKER"; \
+		if $(MAKE) --no-print-directory lint-security >/dev/null 2>&1; then \
+			echo "  ✗ G1 gate MISSED OPEN CRITICAL — BROKEN"; FAIL=$$((FAIL+1)); \
+		else \
+			echo "  ✓ G1 gate caught OPEN CRITICAL finding"; PASS=$$((PASS+1)); \
+		fi; \
+		mv "$$TRACKER.gate-bak" "$$TRACKER"; \
+	else \
+		echo "  SKIP: findings tracker not found"; \
+	fi; \
+	\
+	echo ""; \
+	TOTAL=$$((PASS+FAIL)); \
+	if [ $$FAIL -eq 0 ]; then \
+		echo "✓ R21: $$PASS/$$TOTAL gates falsified successfully"; \
+	else \
+		echo "✗ R21: $$FAIL/$$TOTAL gates FAILED falsification"; exit 1; \
 	fi
 
 .PHONY: check-storage

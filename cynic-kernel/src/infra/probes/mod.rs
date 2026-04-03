@@ -183,7 +183,6 @@ mod tests {
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn scheduler_fires_due_probes() {
         // interval=0 means the probe is always due.
@@ -206,7 +205,6 @@ mod tests {
         assert!(snap.is_none());
     }
 
-    #[allow(clippy::expect_used)]
     #[tokio::test]
     async fn scheduler_handles_probe_error() {
         let faulty = TestProbe {

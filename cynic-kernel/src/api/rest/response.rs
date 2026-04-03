@@ -41,6 +41,12 @@ pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
                 culture: ds.culture,
                 burn: ds.burn,
                 sovereignty: ds.sovereignty,
+                raw_fidelity: ds.raw_fidelity,
+                raw_phi: ds.raw_phi,
+                raw_verify: ds.raw_verify,
+                raw_culture: ds.raw_culture,
+                raw_burn: ds.raw_burn,
+                raw_sovereignty: ds.raw_sovereignty,
                 reasoning: ReasoningResponse {
                     fidelity: ds.reasoning.fidelity.clone(),
                     phi: ds.reasoning.phi.clone(),
