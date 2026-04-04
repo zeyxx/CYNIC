@@ -300,16 +300,23 @@ let coercion_count = lower_words.iter()
 
 let coercion_density = coercion_count as f64 / word_count.max(1) as f64;
 
+/// Agency density threshold — symmetric with coercion.
+const AGENCY_DENSITY_THRESHOLD: f64 = 0.03;
+
+let coercion_density = coercion_count as f64 / word_count.max(1) as f64;
+let agency_density = agency_count as f64 / word_count.max(1) as f64;
+
 let mut sovereignty = SOVEREIGNTY_BASE;
+
+// Both directions use the same density-based excess formula.
+// Symmetric: same structure, same scaling, same threshold logic.
 if coercion_density > COERCION_DENSITY_THRESHOLD {
-    // Penalty proportional to EXCESS over threshold, not ratio.
-    // At threshold → penalty = 0 (no cliff). At 2× threshold → penalty = ADJUST_MEDIUM.
-    // Capped at 3× excess to prevent runaway on very short texts.
     let excess = (coercion_density - COERCION_DENSITY_THRESHOLD) / COERCION_DENSITY_THRESHOLD;
     sovereignty -= ADJUST_MEDIUM * excess.min(3.0);
 }
-if agency_count > 0 {
-    sovereignty += ADJUST_SMALL * (agency_count as f64).min(3.0);
+if agency_density > AGENCY_DENSITY_THRESHOLD {
+    let excess = (agency_density - AGENCY_DENSITY_THRESHOLD) / AGENCY_DENSITY_THRESHOLD;
+    sovereignty += ADJUST_SMALL * excess.min(3.0);
 }
 ```
 
@@ -319,6 +326,10 @@ POS tagger, word-level disambiguation has ~30% false positive rate on epistemic 
 Density-based detection is domain-agnostic: a single "must" in a long text → noise.
 Concentrated "must obey required mandatory" → real coercion pattern. No domain-specific
 heuristics needed.
+
+**Symmetric design:** Both coercion and agency use the same density+excess formula.
+This prevents asymmetric bias where long texts get free agency boosts while coercion
+scales down with length. Same structure, same threshold logic, both directions.
 
 **Reference:** RFC 2119 (Bradner, 1997) for uppercase keyword exclusion.
 Kratzer (1977, 1981) for deontic/epistemic modality theory.
