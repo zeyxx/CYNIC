@@ -10,8 +10,8 @@ The DeterministicDog is CYNIC's always-on FORM judge — pure, deterministic, ze
 It evaluates structural quality (PHI), efficiency (BURN), and coercion (SOVEREIGNTY),
 abstaining on substance axioms (FIDELITY, VERIFY, CULTURE) with NEUTRAL scores.
 
-An audit found 6 bugs + 3 adjacent bugs (Pocks). This spec fixes all 9 without
-adding features or changing the Dog's role.
+An audit found 6 bugs + 2 adjacent bugs (Pocks) + 1 architectural vulnerability.
+This spec fixes 8 bugs and documents the vulnerability for future CCM work.
 
 **Sequencing:** Fix 7 must be applied before or together with Fix 5
 (`formal_notation_count` replaces `algebraic_count`).
@@ -480,42 +480,62 @@ Stale cached verdicts (with biased scores) would be served until FIFO eviction.
 each similar stimulus. This amplifies the bias: one biased verdict × N cache hits
 = N biased observations on the same crystal. Restart hides this but doesn't fix it.
 
-**Code fix — scoring version gate (Fix 9):**
-
-The root cause is that `CacheContext` gates on Dog configuration (`dogs_hash`)
-but not on Dog implementation. When scoring logic changes, the cache serves
-non-equivalent verdicts. This violates R20 (feature must DO what it CLAIMS).
-
-```rust
-// domain/verdict_cache.rs
-/// Bump when any Dog's scoring logic changes in a way that produces different
-/// scores for the same stimulus. Forces automatic cache miss on stale entries.
-pub const SCORING_VERSION: u64 = 2; // 1→2: DeterministicDog fixes (context, density, SBD)
-
-pub struct CacheContext {
-    domain: String,
-    dogs_hash: u64,
-    scoring_version: u64, // NEW — gates on implementation, not just configuration
-}
-
-impl CacheContext {
-    pub fn new(domain: &str, dogs_hash: u64) -> Self {
-        Self {
-            domain: domain.to_string(),
-            dogs_hash,
-            scoring_version: SCORING_VERSION,
-        }
-    }
-}
-```
-
-No changes needed at call sites — `CacheContext::new()` auto-includes the version.
-The `PartialEq` derive on `CacheContext` naturally gates on all three fields.
-Old cached entries have `scoring_version: 1`, new lookups use `2` → automatic miss.
+**~~Fix 9 (scoring_version) — REMOVED.~~** The VerdictCache is in-memory only,
+cleared on every restart. Deploy = restart = empty cache. A scoring_version field
+gates on a case that cannot occur in practice. Removed to avoid false confidence
+in a mechanism that solves nothing.
 
 **Residual crystal observations:** Biased observations already written to DB persist.
-These are diluted over time by post-fix observations (CCM convergence). No purge
-needed — the bias was ~50% diluted by LLM Dog and only affected 3/6 axioms.
+Post-fix observations will dilute them. No purge needed — the bias was ~50% diluted
+by LLM Dog and only affected 3/6 axioms.
+
+## Architectural Vulnerability: Cache→CCM Feedback Loop
+
+**This section documents a systemic vulnerability discovered during spec review.
+It is NOT fixed by this spec — it requires CCM-level design work.**
+
+The DeterministicDog bug exposed a general pattern: any scoring bug (or Dog death)
+can propagate permanently into the crystal pool via the cache→observer path.
+
+**The mutation chain:**
+```
+Dog bug/death
+  → biased/ghost verdict in consensus
+    → stored in VerdictCache
+      → cache hit × N → observe_crystal_for_verdict × N (amplification)
+        → biased observations persist in DB
+          → crystal forms from biased data
+            → crystal injected as context → InferenceDog influenced
+              → new verdict biased by crystal → new observation
+                → reinforces same crystal (positive feedback loop)
+```
+
+**Circuit breaker lag window:** `available_dogs_hash` only changes when a Dog's
+circuit breaker trips (3 failures × 30s = up to 90s). During this window, the cache
+serves ghost verdicts from dead Dogs and observes them into the CCM.
+
+**Existing defenses and their gaps:**
+
+| Defense | Catches this? | Why not |
+|---|---|---|
+| `dogs_hash` in CacheContext | After CB trip | 90s lag window |
+| Epistemic gate (disagreement weight) | No | Dogs agree on biased scores |
+| MIN_QUORUM (T8) | No | 2 biased Dogs still meet quorum |
+| Crystal decay lifecycle | Eventually | Too slow, not targeted |
+| A/B mode (`inject_crystals=false`) | Manual only | Not automatic |
+
+**The missing defense:** No mechanism detects that crystals themselves are a source
+of bias. The system cannot distinguish "this stimulus is genuinely low quality"
+from "the crystal context is poisoning the evaluation."
+
+**Future work (NOT in scope for this spec):**
+1. **Proactive cache health gate:** Before `observe_crystal_for_verdict` on a cache
+   hit, verify that the verdict's Dog composition matches the CURRENT available Dogs
+   (not just the hash at store time). Reject ghost verdicts.
+2. **Crystal re-evaluation:** After a scoring fix, re-evaluate stimuli from the most
+   influential crystals with the corrected Dogs. Active healing, not passive hope.
+3. **Feedback loop detector:** Periodically evaluate a holdout set WITH and WITHOUT
+   crystal injection. Significant divergence = crystal pool may be poisoned.
 
 ## Non-Goals
 
