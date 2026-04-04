@@ -475,11 +475,25 @@ No crystal purge, reset, or retroactive correction required.
 is unchanged post-fix — the cache cannot distinguish pre-fix from post-fix verdicts.
 Stale cached verdicts (with biased scores) would be served until FIFO eviction.
 
-**Mitigation:** The cache is in-memory (`VecDeque`, no persistence). A kernel
-restart clears it completely. **Deploying this fix requires a kernel restart**
-(standard for any code change via `make deploy`). No code change needed — the
-deploy process already handles this. Document in deploy checklist: "DeterministicDog
-fix — restart clears VerdictCache, no manual intervention."
+**Amplification vector:** Cache hits feed `observe_crystal_for_verdict()`
+(pipeline.rs:119) — the same biased verdict is observed N times into the CCM for
+each similar stimulus. This amplifies the bias: one biased verdict × N cache hits
+= N biased observations on the same crystal. A kernel restart stops future
+amplification but does NOT erase the observations already written to DB.
+
+**Why this is self-healing despite amplification:**
+- Post-fix verdicts are unbiased and will accumulate on the same crystals
+- The amplified biased observations all came from the same verdict (identical
+  scores) — they don't INCREASE the bias magnitude, they increase its weight
+  in the observation pool
+- As new unbiased observations arrive, the weight of the biased cluster dilutes
+- Crystal state transitions require ongoing observation quality, not just count
+- The initial bias was already ~50% diluted (LLM Dog unbiased) and only affected
+  3/6 axioms (DeterministicDog abstains on FIDELITY, VERIFY, CULTURE)
+
+**Deploy requirement:** Kernel restart (standard via `make deploy`). This clears
+the in-memory VerdictCache, stopping amplification immediately. No DB migration
+or crystal purge needed — CCM convergence handles the rest.
 
 ## Non-Goals
 
