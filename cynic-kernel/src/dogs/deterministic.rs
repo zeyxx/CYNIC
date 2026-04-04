@@ -700,6 +700,68 @@ mod tests {
         assert_eq!(count_sentences("The value is 3.14. The other is 2.718."), 2);
     }
 
+    // ── Constants coverage ──────────────────────────────
+
+    #[tokio::test]
+    async fn base_scores_match_constants() {
+        let dog = DeterministicDog;
+        // Minimal neutral stimulus: no signals, no coercion, no agency, no notation.
+        // Scores should be near their base constants.
+        let stimulus = Stimulus {
+            content: "A simple neutral statement about the world.".into(),
+            context: None,
+            domain: None,
+        };
+        let scores = dog.evaluate(&stimulus).await.unwrap();
+        // PHI starts at PHI_BASE, small adjustments possible
+        assert!(
+            (scores.phi - PHI_BASE).abs() < ADJUST_LARGE,
+            "phi should be near PHI_BASE ({PHI_BASE}), got {}",
+            scores.phi
+        );
+        // BURN starts at BURN_BASE
+        assert!(
+            (scores.burn - BURN_BASE).abs() < ADJUST_LARGE,
+            "burn should be near BURN_BASE ({BURN_BASE}), got {}",
+            scores.burn
+        );
+        // SOVEREIGNTY starts at SOVEREIGNTY_BASE (no coercion, no agency)
+        assert!(
+            (scores.sovereignty - SOVEREIGNTY_BASE).abs() < 0.001,
+            "sovereignty should be exactly SOVEREIGNTY_BASE ({SOVEREIGNTY_BASE}) with no signals, got {}",
+            scores.sovereignty
+        );
+    }
+
+    // ── Notation detection unit tests ─────────────────
+
+    #[test]
+    fn detect_algebraic_chess_moves() {
+        let words = vec!["e4", "e5", "Nf3", "Nc6", "Bb5", "a6"];
+        assert_eq!(detect_algebraic_notation(&words), 6);
+    }
+
+    #[test]
+    fn detect_algebraic_rejects_non_chess() {
+        // Rust types and short words that look like moves but aren't
+        let words = vec!["f64", "u8", "Rc4", "the", "is", "a"];
+        // f64: starts with 'f', has digit → matches (false positive at word level,
+        // but domain guard in detect_formal_notation prevents this for non-chess)
+        // u8: starts with 'u', not in "abcdefghKQRBNO" → no match
+        // Rc4: starts with 'R' which IS in the set, has digit → matches
+        let count = detect_algebraic_notation(&words);
+        // f64 matches (f + 6 + 4), Rc4 matches (R + 4). Others don't.
+        assert_eq!(
+            count, 2,
+            "f64 and Rc4 match the pattern — domain guard is the real filter"
+        );
+    }
+
+    #[test]
+    fn detect_algebraic_empty() {
+        assert_eq!(detect_algebraic_notation(&[]), 0);
+    }
+
     #[tokio::test]
     async fn hedging_does_not_inflate_burn() {
         let dog = DeterministicDog;
