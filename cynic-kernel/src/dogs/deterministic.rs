@@ -298,9 +298,11 @@ impl Dog for DeterministicDog {
             }
         };
 
-        // Proportional signal density (count-based, not boolean)
-        let signal_density = if word_count > 0 {
-            (absolutes_count + hedging_count + formal_notation_count) as f64 / word_count as f64
+        // Assertion density: absolute claims + formal notation = assertive content.
+        // Hedging excluded — epistemic caution is neutral for efficiency, not signal.
+        // Ref: Hyland (1998), hedges outnumber boosters 3:1 in academic prose.
+        let assertion_density = if word_count > 0 {
+            (absolutes_count + formal_notation_count) as f64 / word_count as f64
         } else {
             0.0
         };
@@ -373,9 +375,9 @@ impl Dog for DeterministicDog {
         // ── BURN: FORM judge — efficiency, density, conciseness ─
         let mut burn: f64 = BURN_BASE;
         // Information density (proportional, not boolean)
-        if signal_density > 0.15 {
+        if assertion_density > 0.15 {
             burn += ADJUST_MEDIUM;
-        } else if signal_density > 0.05 {
+        } else if assertion_density > 0.05 {
             burn += ADJUST_SMALL;
         }
         // Conciseness (under 150 chars + at least one sentence = efficient)
@@ -398,7 +400,7 @@ impl Dog for DeterministicDog {
             burn += ADJUST_SMALL;
         }
         let burn = burn.clamp(ADJUST_SMALL, PHI_INV);
-        let burn_reason = if len < 100 && signal_density > 0.10 {
+        let burn_reason = if len < 100 && assertion_density > 0.10 {
             "Concise and information-dense.".into()
         } else if len > 300 {
             format!("Verbose ({len} chars) — potential excess.")
@@ -409,9 +411,9 @@ impl Dog for DeterministicDog {
             )
         } else {
             format!(
-                "Moderate efficiency: {} chars, {:.1}% signal density.",
+                "Moderate efficiency: {} chars, {:.1}% assertion density.",
                 len,
-                signal_density * 100.0
+                assertion_density * 100.0
             )
         };
 
@@ -675,6 +677,32 @@ mod tests {
     #[test]
     fn sbd_decimal_numbers() {
         assert_eq!(count_sentences("The value is 3.14. The other is 2.718."), 2);
+    }
+
+    #[tokio::test]
+    async fn hedging_does_not_inflate_burn() {
+        let dog = DeterministicDog;
+        let hedged = Stimulus {
+            content:
+                "This probably likely perhaps approximately tends to suggest something might work."
+                    .into(),
+            context: None,
+            domain: None,
+        };
+        let neutral = Stimulus {
+            content: "This thing does something that works in a normal way overall.".into(),
+            context: None,
+            domain: None,
+        };
+        let scores_hedged = dog.evaluate(&hedged).await.unwrap();
+        let scores_neutral = dog.evaluate(&neutral).await.unwrap();
+
+        assert!(
+            scores_hedged.burn <= scores_neutral.burn + ADJUST_SMALL,
+            "hedging should not inflate burn: hedged={}, neutral={}",
+            scores_hedged.burn,
+            scores_neutral.burn
+        );
     }
 
     #[tokio::test]
