@@ -86,6 +86,8 @@ struct ChoiceMessage {
 #[derive(Deserialize)]
 struct Choice {
     message: ChoiceMessage,
+    #[serde(default)]
+    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -247,6 +249,31 @@ impl BackendPort for OpenAiCompatBackend {
     }
 }
 
+// ── Inference parameter resolution (pure, testable) ─────────
+
+/// Backend config controls thinking. Profile has no opinion — thinking requirements
+/// are model-specific (R14: Qwen3.5 needs thinking for scoring).
+/// Only for local backends — cloud APIs reject unknown fields.
+fn should_disable(is_local: bool, config_disable: bool) -> bool {
+    is_local && config_disable
+}
+
+/// When thinking is active, the model spends ~2000-6000 tokens on chain-of-thought
+/// before writing the JSON response (~300 tokens). Profile's max_tokens (1024 for
+/// Scoring) is too small — thinking overflows it. Use the backend's configured
+/// max_tokens as ceiling when thinking is active.
+fn effective_max_tokens(
+    should_disable_thinking: bool,
+    config_max_tokens: u32,
+    profile: InferenceProfile,
+) -> u32 {
+    if !should_disable_thinking && config_max_tokens > profile.max_tokens() {
+        config_max_tokens
+    } else {
+        profile.max_tokens()
+    }
+}
+
 // ── ChatPort implementation (for Dogs) ──────────────────────
 
 #[async_trait]
@@ -269,16 +296,12 @@ impl ChatPort for OpenAiCompatBackend {
             content: user.to_string(),
         });
 
-        // Profile OR backend config can disable thinking.
-        // Sent as chat_template_kwargs.enable_thinking to llama-server (template-level control).
-        // Only for local backends (health_url.is_some()) — cloud APIs reject unknown fields.
         let is_local_backend = self.config.health_url.is_some();
         let should_disable_thinking =
-            is_local_backend && (profile.disable_thinking() || self.config.disable_thinking);
-
-        // Profile overrides backend defaults for max_tokens and temperature.
+            should_disable(is_local_backend, self.config.disable_thinking);
         let temperature = profile.temperature().unwrap_or(self.config.temperature);
-        let max_tokens = profile.max_tokens();
+        let max_tokens =
+            effective_max_tokens(should_disable_thinking, self.config.max_tokens, profile);
 
         let resp = self
             .post_chat(
@@ -300,6 +323,33 @@ impl ChatPort for OpenAiCompatBackend {
             .into_iter()
             .next()
             .map(|c| {
+                let thinking_chars = c
+                    .message
+                    .reasoning_content
+                    .as_deref()
+                    .map_or(0, |r| r.len());
+                let content_chars = c.message.content.len();
+                let truncated = c.finish_reason.as_deref() == Some("length");
+
+                if thinking_chars > 0 || truncated {
+                    tracing::info!(
+                        backend = %self.config.name,
+                        thinking_chars,
+                        content_chars,
+                        completion_tokens,
+                        truncated,
+                        "token budget split"
+                    );
+                }
+                if truncated && content_chars == 0 {
+                    tracing::warn!(
+                        backend = %self.config.name,
+                        thinking_chars,
+                        max_tokens,
+                        "thinking overflow — content empty, increase max_tokens"
+                    );
+                }
+
                 let content = c.message.content;
                 // If content is empty but reasoning_content has JSON (thinking models like Qwen3.5),
                 // extract the JSON object from reasoning_content as fallback.
@@ -437,6 +487,63 @@ mod tests {
         assert_eq!(
             backend.build_url("/chat/completions"),
             "https://api.example.com/v1/chat/completions"
+        );
+    }
+
+    // ── should_disable tests ────────────────────────────────
+
+    #[test]
+    fn thinking_disabled_when_config_says_so() {
+        assert!(should_disable(true, true));
+    }
+
+    #[test]
+    fn thinking_not_disabled_for_cloud_backend() {
+        // Cloud backends never send chat_template_kwargs
+        assert!(!should_disable(false, true));
+    }
+
+    #[test]
+    fn thinking_active_when_config_says_so() {
+        // Qwen 3.5: config says thinking required (R14)
+        assert!(!should_disable(true, false));
+    }
+
+    // ── effective_max_tokens tests ──────────��───────────────
+
+    #[test]
+    fn thinking_active_uses_config_max_tokens() {
+        // Qwen 3.5 with thinking ON: config says 4096, profile says 1024
+        assert_eq!(
+            effective_max_tokens(false, 4096, InferenceProfile::Scoring),
+            4096
+        );
+    }
+
+    #[test]
+    fn thinking_disabled_uses_profile_max_tokens() {
+        // Thinking OFF: profile controls the budget
+        assert_eq!(
+            effective_max_tokens(true, 4096, InferenceProfile::Scoring),
+            1024
+        );
+    }
+
+    #[test]
+    fn thinking_active_but_config_smaller_uses_profile() {
+        // Config max_tokens < profile max_tokens: profile wins
+        assert_eq!(
+            effective_max_tokens(false, 512, InferenceProfile::Scoring),
+            1024
+        );
+    }
+
+    #[test]
+    fn agent_profile_unaffected_by_thinking() {
+        // Agent already has 8192 — config 4096 is smaller, profile wins
+        assert_eq!(
+            effective_max_tokens(false, 4096, InferenceProfile::Agent),
+            8192
         );
     }
 }
