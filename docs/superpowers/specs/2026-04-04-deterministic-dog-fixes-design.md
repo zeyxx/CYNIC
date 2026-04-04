@@ -470,6 +470,17 @@ words inflating PHI/BURN/SOVEREIGNTY). This bias propagated into crystal observa
 
 No crystal purge, reset, or retroactive correction required.
 
+**VerdictCache stale entries:** The in-memory VerdictCache keys on `CacheContext`
+(domain + `dogs_hash`). Since the DeterministicDog ID doesn't change, `dogs_hash`
+is unchanged post-fix — the cache cannot distinguish pre-fix from post-fix verdicts.
+Stale cached verdicts (with biased scores) would be served until FIFO eviction.
+
+**Mitigation:** The cache is in-memory (`VecDeque`, no persistence). A kernel
+restart clears it completely. **Deploying this fix requires a kernel restart**
+(standard for any code change via `make deploy`). No code change needed — the
+deploy process already handles this. Document in deploy checklist: "DeterministicDog
+fix — restart clears VerdictCache, no manual intervention."
+
 ## Non-Goals
 
 - No new axiom scoring logic
