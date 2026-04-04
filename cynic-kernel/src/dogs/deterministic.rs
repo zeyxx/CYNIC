@@ -62,10 +62,8 @@ const SENTENCE_MAX_FOR_CONCISE: usize = 5;
 
 /// Coercion density threshold — below this, isolated occurrences are noise.
 /// ~1 coercive term per 33 words.
-#[allow(dead_code)] // WHY: Used in Fix 6, applied in later task.
 const COERCION_DENSITY_THRESHOLD: f64 = 0.03;
 /// Agency density threshold — symmetric with coercion.
-#[allow(dead_code)] // WHY: Used in Fix 6, applied in later task.
 const AGENCY_DENSITY_THRESHOLD: f64 = 0.03;
 
 /// FIDELITY red-flag score when many absolutes detected.
@@ -244,31 +242,6 @@ impl Dog for DeterministicDog {
                 )
             })
             .count();
-        let coercion_count = lower_words
-            .iter()
-            .filter(|w| {
-                matches!(
-                    w.as_str(),
-                    "must" | "mandatory" | "forced" | "required" | "compulsory" | "obey"
-                )
-            })
-            .count();
-        let agency_count = lower_words
-            .iter()
-            .filter(|w| {
-                matches!(
-                    w.as_str(),
-                    "choose"
-                        | "option"
-                        | "alternative"
-                        | "freedom"
-                        | "decide"
-                        | "prefer"
-                        | "consider"
-                )
-            })
-            .count();
-
         let sentence_count = count_sentences(content);
         let has_numbers = content.chars().any(|c| c.is_ascii_digit());
         let has_notation = content.contains("...")
@@ -417,21 +390,68 @@ impl Dog for DeterministicDog {
         };
 
         // ── SOVEREIGNTY: FORM judge — coercion vs agency ───────
+        // RFC 2119 uppercase keywords (MUST, SHALL, REQUIRED) are normative,
+        // not coercive — exclude from count. Ref: Bradner (1997), RFC 2119.
+        let coercion_count = lower_words
+            .iter()
+            .zip(words.iter())
+            .filter(|(lower, original)| {
+                let is_coercive = matches!(
+                    lower.as_str(),
+                    "must" | "mandatory" | "forced" | "required" | "compulsory" | "obey"
+                );
+                // Exclude RFC 2119 uppercase: MUST, SHALL, REQUIRED
+                let is_rfc_keyword = original
+                    .chars()
+                    .all(|c| c.is_uppercase() || !c.is_alphabetic());
+                is_coercive && !is_rfc_keyword
+            })
+            .count();
+        let agency_count = lower_words
+            .iter()
+            .filter(|w| {
+                matches!(
+                    w.as_str(),
+                    "choose"
+                        | "option"
+                        | "alternative"
+                        | "freedom"
+                        | "decide"
+                        | "prefer"
+                        | "consider"
+                )
+            })
+            .count();
+
+        // Symmetric density-based scoring. Both directions use the same formula.
+        // Ref: Kratzer (1977, 1981) — deontic disambiguation needs POS tagger.
+        // Density avoids false positives on isolated technical "must".
+        let coercion_density = coercion_count as f64 / word_count.max(1) as f64;
+        let agency_density = agency_count as f64 / word_count.max(1) as f64;
+
         let mut sovereignty: f64 = SOVEREIGNTY_BASE;
-        // Proportional coercion penalty (not just boolean)
-        if coercion_count > 0 {
-            sovereignty -= ADJUST_MEDIUM * (coercion_count as f64).min(3.0);
+        if coercion_density > COERCION_DENSITY_THRESHOLD {
+            let excess =
+                (coercion_density - COERCION_DENSITY_THRESHOLD) / COERCION_DENSITY_THRESHOLD;
+            sovereignty -= ADJUST_MEDIUM * excess.min(3.0);
         }
-        if agency_count > 0 {
-            sovereignty += ADJUST_SMALL * (agency_count as f64).min(3.0);
+        if agency_density > AGENCY_DENSITY_THRESHOLD {
+            let excess = (agency_density - AGENCY_DENSITY_THRESHOLD) / AGENCY_DENSITY_THRESHOLD;
+            sovereignty += ADJUST_SMALL * excess.min(3.0);
         }
         let sovereignty = sovereignty.clamp(ADJUST_SMALL, PHI_INV);
-        let sovereignty_reason = if coercion_count > 0 {
-            format!("{coercion_count} coercive term(s) detected — limits agency.")
-        } else if agency_count > 0 {
-            format!("{agency_count} agency signal(s) — preserves choice.")
+        let sovereignty_reason = if coercion_density > COERCION_DENSITY_THRESHOLD {
+            format!(
+                "{coercion_count} coercive term(s), density {:.1}% — limits agency.",
+                coercion_density * 100.0
+            )
+        } else if agency_density > AGENCY_DENSITY_THRESHOLD {
+            format!(
+                "{agency_count} agency signal(s), density {:.1}% — preserves choice.",
+                agency_density * 100.0
+            )
         } else {
-            "Neutral — no strong agency signals.".into()
+            "Neutral — no concentrated coercion or agency signals.".into()
         };
 
         // Track which axioms this Dog abstained on (declared at scoring time, not by value).
@@ -725,6 +745,38 @@ mod tests {
             scores.burn < 0.25,
             "verbose repetitive text should score low on burn, got {}",
             scores.burn
+        );
+    }
+
+    #[tokio::test]
+    async fn rfc_keywords_not_coercive() {
+        let dog = DeterministicDog;
+        let stimulus = Stimulus {
+            content: "Implementations MUST support this format. Clients MUST send valid headers. Servers MUST respond.".into(),
+            context: None,
+            domain: None,
+        };
+        let scores = dog.evaluate(&stimulus).await.unwrap();
+        assert!(
+            scores.sovereignty >= SOVEREIGNTY_BASE - ADJUST_SMALL,
+            "RFC MUST keywords should not heavily penalize sovereignty, got {}",
+            scores.sovereignty
+        );
+    }
+
+    #[tokio::test]
+    async fn low_coercion_density_minimal_penalty() {
+        let dog = DeterministicDog;
+        let stimulus = Stimulus {
+            content: "The client must handle errors gracefully. The server processes requests and returns appropriate status codes for each endpoint in the system.".into(),
+            context: None,
+            domain: None,
+        };
+        let scores = dog.evaluate(&stimulus).await.unwrap();
+        assert!(
+            scores.sovereignty > 0.25,
+            "single 'must' in long text should not severely penalize, got {}",
+            scores.sovereignty
         );
     }
 
