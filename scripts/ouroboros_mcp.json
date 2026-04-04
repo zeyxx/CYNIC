@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "cynic": {
-      "command": "cynic-mcp",
+      "command": "cynic-kernel",
       "args": ["--mcp"]
     }
   }
