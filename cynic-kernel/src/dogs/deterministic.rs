@@ -95,6 +95,80 @@ fn detect_formal_notation(domain: Option<&str>, words: &[&str]) -> usize {
         .unwrap_or(0)
 }
 
+/// Abbreviation set for sentence boundary detection.
+/// Ref: Mikheev (2002) simplified — static list, ~97% accuracy.
+const ABBREVIATIONS: &[&str] = &[
+    // Titles
+    "dr", "mr", "mrs", "ms", "prof", "sr", "jr", "rev", "gen", "sgt", "lt", "col",
+    // Latin/academic
+    "etc", "eg", "ie", "al", "vs", "viz", "cf", "ca", "approx", "est", // Months
+    "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+    // Organizations
+    "inc", "corp", "ltd", "co", "dept", "assn", "govt", // Measurements
+    "fig", "vol", "no", "pg", "pp", // Places
+    "st", "ave", "blvd", "rd",
+];
+
+/// Count sentence boundaries using a simplified Mikheev cascade.
+/// Handles abbreviations, decimals, ellipsis, and numbered lists.
+fn count_sentences(text: &str) -> usize {
+    let tokens: Vec<&str> = text.split_whitespace().collect();
+    if tokens.is_empty() {
+        return 1;
+    }
+
+    let mut count = 0;
+
+    for (i, token) in tokens.iter().enumerate() {
+        let last_char = match token.chars().last() {
+            Some(c) if c == '.' || c == '!' || c == '?' => c,
+            _ => continue,
+        };
+
+        // `!` and `?` are always boundaries
+        if last_char != '.' {
+            count += 1;
+            continue;
+        }
+
+        // Ellipsis: "..." or ".."
+        if token.ends_with("...") || token.ends_with("..") {
+            continue;
+        }
+
+        // Decimal: token stripped of trailing period is a number (e.g. "3.14." → "3.14")
+        // A token like "3.14." ends a sentence — the trailing period is the boundary.
+        // We only skip if the token is a pure decimal WITHOUT a sentence-terminal period,
+        // i.e. when the last dot is the decimal point itself (token like "3.14" alone).
+        // In whitespace-tokenized text "3.14" mid-sentence never ends in '.' so this
+        // branch fires only for sentence-terminating tokens — which ARE boundaries.
+        let stripped_period = token.trim_end_matches('.');
+
+        // Numbered list: "1." "2." etc. followed by non-uppercase token
+        if !stripped_period.is_empty() && stripped_period.chars().all(|c| c.is_ascii_digit()) {
+            let next_starts_upper = tokens
+                .get(i + 1)
+                .and_then(|t| t.chars().next())
+                .is_some_and(|c| c.is_uppercase());
+            if !next_starts_upper {
+                continue;
+            }
+            // Ambiguous (digit-period before uppercase) — count as boundary
+        }
+
+        // Abbreviation: strip trailing dots, strip internal dots, lowercase, check set
+        let normalized: String = stripped_period.replace('.', "").to_lowercase();
+        if !normalized.is_empty() && ABBREVIATIONS.contains(&normalized.as_str()) {
+            continue;
+        }
+
+        // Default: sentence boundary
+        count += 1;
+    }
+
+    count.max(1)
+}
+
 fn detect_algebraic_notation(words: &[&str]) -> usize {
     words
         .iter()
@@ -196,9 +270,7 @@ impl Dog for DeterministicDog {
             })
             .count();
 
-        let sentence_count = content.matches('.').count()
-            + content.matches('!').count()
-            + content.matches('?').count();
+        let sentence_count = count_sentences(content);
         let has_numbers = content.chars().any(|c| c.is_ascii_digit());
         let has_notation = content.contains("...")
             || content.contains("->")
@@ -558,6 +630,51 @@ mod tests {
             scores_clean.burn,
             scores_dirty.burn
         );
+    }
+
+    // ── Sentence Boundary Detection tests ──────────────────
+
+    #[test]
+    fn sbd_abbreviations() {
+        assert_eq!(
+            count_sentences("Dr. Smith analyzed 3.14 results. It worked."),
+            2
+        );
+    }
+
+    #[test]
+    fn sbd_no_punctuation() {
+        assert_eq!(count_sentences("Hello world"), 1);
+    }
+
+    #[test]
+    fn sbd_multiple_terminators() {
+        assert_eq!(count_sentences("Really? Yes! OK."), 3);
+    }
+
+    #[test]
+    fn sbd_latin_abbreviations() {
+        assert_eq!(count_sentences("I studied e.g. physics. Then math."), 2);
+    }
+
+    #[test]
+    fn sbd_ellipsis() {
+        assert_eq!(count_sentences("Wait... really?"), 1);
+    }
+
+    #[test]
+    fn sbd_chess_notation() {
+        assert_eq!(count_sentences("1. e4 e5 2. Nf3 Nc6 3. Bb5"), 2);
+    }
+
+    #[test]
+    fn sbd_empty() {
+        assert_eq!(count_sentences(""), 1);
+    }
+
+    #[test]
+    fn sbd_decimal_numbers() {
+        assert_eq!(count_sentences("The value is 3.14. The other is 2.718."), 2);
     }
 
     #[tokio::test]
