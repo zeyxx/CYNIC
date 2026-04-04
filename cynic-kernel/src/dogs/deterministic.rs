@@ -15,6 +15,64 @@ use async_trait::async_trait;
 /// Neutral score — center of [0, φ⁻¹]. Neither boosts nor drags LLM consensus.
 const NEUTRAL: f64 = PHI_INV / 2.0; // ≈ 0.309
 
+// ── Scoring constants (empirically calibrated) ──────────────
+// These values produce scores in [0.05, φ⁻¹] that distribute verdicts
+// across the BARK→HOWL range for typical text. No linguistic theory
+// justifies specific values — engineering choices validated by tests.
+
+/// PHI base score — center of scoring range.
+const PHI_BASE: f64 = 0.30;
+/// BURN base score — slightly above center (benefit of the doubt on efficiency).
+const BURN_BASE: f64 = 0.35;
+/// SOVEREIGNTY base score — default assumes moderate agency.
+const SOVEREIGNTY_BASE: f64 = 0.40;
+
+/// Small signal adjustment (single structural indicator).
+const ADJUST_SMALL: f64 = 0.05;
+/// Medium signal adjustment (strong structural indicator).
+const ADJUST_MEDIUM: f64 = 0.10;
+/// Large penalty (severe structural deficiency).
+const ADJUST_LARGE: f64 = 0.15;
+/// Vocabulary diversity proportion scaling.
+const DIVERSITY_SCALE: f64 = 0.20;
+
+/// Golden zone for text length (chars).
+const LEN_GOLDEN_MIN: usize = 50;
+const LEN_GOLDEN_MAX: usize = 300;
+/// Verbose threshold (chars).
+const LEN_VERBOSE: usize = 500;
+/// Minimal threshold — too short to judge structure (chars).
+const LEN_MINIMAL: usize = 15;
+/// Concise threshold for BURN bonus (chars).
+const LEN_CONCISE: usize = 150;
+
+/// Vocabulary diversity threshold — below this = repetitive.
+const DIVERSITY_LOW: f64 = 0.4;
+/// Vocabulary diversity midpoint.
+const DIVERSITY_MID: f64 = 0.5;
+
+/// Minimum sentence count for structure bonus.
+const SENTENCE_MIN_FOR_STRUCTURE: usize = 2;
+/// Minimum word count for structure bonus.
+const WORD_MIN_FOR_STRUCTURE: usize = 10;
+/// Minimum word count for concise-structure bonus.
+const WORD_MIN_FOR_CONCISE: usize = 5;
+/// Maximum sentence count for concise-structure bonus.
+const SENTENCE_MAX_FOR_CONCISE: usize = 5;
+
+/// Coercion density threshold — below this, isolated occurrences are noise.
+/// ~1 coercive term per 33 words.
+#[allow(dead_code)] // WHY: Used in Fix 6, applied in later task.
+const COERCION_DENSITY_THRESHOLD: f64 = 0.03;
+/// Agency density threshold — symmetric with coercion.
+#[allow(dead_code)] // WHY: Used in Fix 6, applied in later task.
+const AGENCY_DENSITY_THRESHOLD: f64 = 0.03;
+
+/// FIDELITY red-flag score when many absolutes detected.
+/// Distinct from DIVERSITY_SCALE (same value, different meaning).
+#[allow(dead_code)] // WHY: Used in Fix 2, applied in later task.
+const FIDELITY_RED_FLAG: f64 = 0.20;
+
 #[derive(Debug)]
 pub struct DeterministicDog;
 
@@ -178,29 +236,31 @@ impl Dog for DeterministicDog {
         };
 
         // ── PHI: FORM judge — structure, proportion, harmony ────
-        let mut phi: f64 = 0.30;
+        let mut phi: f64 = PHI_BASE;
         // Sentence structure
-        if sentence_count >= 2 && word_count > 10 {
-            phi += 0.10;
+        if sentence_count >= SENTENCE_MIN_FOR_STRUCTURE && word_count > WORD_MIN_FOR_STRUCTURE {
+            phi += ADJUST_MEDIUM;
         }
-        if (1..=5).contains(&sentence_count) && word_count > 5 {
-            phi += 0.05;
+        if (1..=SENTENCE_MAX_FOR_CONCISE).contains(&sentence_count)
+            && word_count > WORD_MIN_FOR_CONCISE
+        {
+            phi += ADJUST_SMALL;
         }
         // Vocabulary richness (gradient, not threshold)
-        phi += (unique_ratio - 0.5) * 0.20; // [-0.10, +0.10] range
+        phi += (unique_ratio - DIVERSITY_MID) * DIVERSITY_SCALE; // [-0.10, +0.10] range
         // Length proportion (golden zone: 50-300 chars)
-        if (50..=300).contains(&len) {
-            phi += 0.05;
-        } else if len > 500 {
-            phi -= 0.10;
-        } else if len < 15 {
-            phi -= 0.15;
+        if (LEN_GOLDEN_MIN..=LEN_GOLDEN_MAX).contains(&len) {
+            phi += ADJUST_SMALL;
+        } else if len > LEN_VERBOSE {
+            phi -= ADJUST_MEDIUM;
+        } else if len < LEN_MINIMAL {
+            phi -= ADJUST_LARGE;
         }
         // Formal notation = precise structure
         if has_notation || algebraic_count > 0 {
-            phi += 0.05;
+            phi += ADJUST_SMALL;
         }
-        let phi = phi.clamp(0.05, PHI_INV);
+        let phi = phi.clamp(ADJUST_SMALL, PHI_INV);
         let phi_reason = format!(
             "Structure: {} sentences, {:.0}% vocab diversity, {} chars.",
             sentence_count,
@@ -226,33 +286,33 @@ impl Dog for DeterministicDog {
         let culture_reason = "Abstaining — cultural assessment requires domain knowledge.".into();
 
         // ── BURN: FORM judge — efficiency, density, conciseness ─
-        let mut burn: f64 = 0.35;
+        let mut burn: f64 = BURN_BASE;
         // Information density (proportional, not boolean)
         if signal_density > 0.15 {
-            burn += 0.10;
+            burn += ADJUST_MEDIUM;
         } else if signal_density > 0.05 {
-            burn += 0.05;
+            burn += ADJUST_SMALL;
         }
         // Conciseness (under 150 chars + at least one sentence = efficient)
-        if len < 150 && sentence_count >= 1 {
-            burn += 0.10;
-        } else if len > 300 {
-            burn -= 0.10;
+        if len < LEN_CONCISE && sentence_count >= 1 {
+            burn += ADJUST_MEDIUM;
+        } else if len > LEN_GOLDEN_MAX {
+            burn -= ADJUST_MEDIUM;
         }
-        if len > 500 {
-            burn -= 0.05;
+        if len > LEN_VERBOSE {
+            burn -= ADJUST_SMALL;
         } // additional penalty
         // Repetition penalty (gradient)
-        if unique_ratio < 0.4 {
-            burn -= 0.15;
-        } else if unique_ratio < 0.5 {
-            burn -= 0.05;
+        if unique_ratio < DIVERSITY_LOW {
+            burn -= ADJUST_LARGE;
+        } else if unique_ratio < DIVERSITY_MID {
+            burn -= ADJUST_SMALL;
         }
         // Numbers/algebraic = information-dense
         if has_numbers && algebraic_count > 0 {
-            burn += 0.05;
+            burn += ADJUST_SMALL;
         }
-        let burn = burn.clamp(0.05, PHI_INV);
+        let burn = burn.clamp(ADJUST_SMALL, PHI_INV);
         let burn_reason = if len < 100 && signal_density > 0.10 {
             "Concise and information-dense.".into()
         } else if len > 300 {
@@ -271,15 +331,15 @@ impl Dog for DeterministicDog {
         };
 
         // ── SOVEREIGNTY: FORM judge — coercion vs agency ───────
-        let mut sovereignty: f64 = 0.40;
+        let mut sovereignty: f64 = SOVEREIGNTY_BASE;
         // Proportional coercion penalty (not just boolean)
         if coercion_count > 0 {
-            sovereignty -= 0.10 * (coercion_count as f64).min(3.0);
+            sovereignty -= ADJUST_MEDIUM * (coercion_count as f64).min(3.0);
         }
         if agency_count > 0 {
-            sovereignty += 0.05 * (agency_count as f64).min(3.0);
+            sovereignty += ADJUST_SMALL * (agency_count as f64).min(3.0);
         }
-        let sovereignty = sovereignty.clamp(0.05, PHI_INV);
+        let sovereignty = sovereignty.clamp(ADJUST_SMALL, PHI_INV);
         let sovereignty_reason = if coercion_count > 0 {
             format!("{coercion_count} coercive term(s) detected — limits agency.")
         } else if agency_count > 0 {
