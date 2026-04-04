@@ -118,16 +118,11 @@ impl Dog for DeterministicDog {
 
     async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError> {
         let content = &stimulus.content;
-        let context = stimulus.context.as_deref().unwrap_or("");
-        let all_text = format!("{content} {context}");
+        // Context intentionally unused — DeterministicDog judges FORM of content only.
+        // LLM Dogs use context for SUBSTANCE evaluation. See Fix 1 / F11.
         let len = content.chars().count();
-        let words: Vec<&str> = all_text.split_whitespace().collect();
+        let words: Vec<&str> = content.split_whitespace().collect();
         let word_count = words.len();
-
-        // F11 fix: unique_ratio from content-only words, not content+context.
-        // Context vocabulary inflates PHI/BURN scores — content is what we judge.
-        let content_words: Vec<&str> = content.split_whitespace().collect();
-        let content_word_count = content_words.len();
 
         // ── Signal detection ────────────────────────────────────
         // Strip punctuation so "obey." matches "obey", "required," matches "required"
@@ -215,7 +210,7 @@ impl Dog for DeterministicDog {
         let formal_notation_count = detect_formal_notation(stimulus.domain.as_deref(), &words);
 
         let unique_ratio = {
-            let mut content_lower: Vec<String> = content_words
+            let mut content_lower: Vec<String> = words
                 .iter()
                 .map(|w| {
                     w.trim_matches(|c: char| !c.is_alphanumeric())
@@ -224,8 +219,8 @@ impl Dog for DeterministicDog {
                 .collect();
             content_lower.sort();
             content_lower.dedup();
-            if content_word_count > 0 {
-                content_lower.len() as f64 / content_word_count as f64
+            if word_count > 0 {
+                content_lower.len() as f64 / word_count as f64
             } else {
                 0.0
             }
@@ -521,6 +516,47 @@ mod tests {
             (scores.verify - NEUTRAL).abs() < 0.01,
             "non-chess domain should not detect algebraic notation, verify={}",
             scores.verify
+        );
+    }
+
+    #[tokio::test]
+    async fn context_does_not_contaminate_scores() {
+        let dog = DeterministicDog;
+        let content = "The Sicilian Defense is a strong opening for black.";
+
+        let without_context = Stimulus {
+            content: content.into(),
+            context: None,
+            domain: Some("chess".into()),
+        };
+        let with_adversarial_context = Stimulus {
+            content: content.into(),
+            context: Some(
+                "must always never guaranteed obey mandatory forced required compulsory".into(),
+            ),
+            domain: Some("chess".into()),
+        };
+
+        let scores_clean = dog.evaluate(&without_context).await.unwrap();
+        let scores_dirty = dog.evaluate(&with_adversarial_context).await.unwrap();
+
+        assert!(
+            (scores_clean.sovereignty - scores_dirty.sovereignty).abs() < 0.001,
+            "context must not affect sovereignty: clean={}, dirty={}",
+            scores_clean.sovereignty,
+            scores_dirty.sovereignty
+        );
+        assert!(
+            (scores_clean.phi - scores_dirty.phi).abs() < 0.001,
+            "context must not affect phi: clean={}, dirty={}",
+            scores_clean.phi,
+            scores_dirty.phi
+        );
+        assert!(
+            (scores_clean.burn - scores_dirty.burn).abs() < 0.001,
+            "context must not affect burn: clean={}, dirty={}",
+            scores_clean.burn,
+            scores_dirty.burn
         );
     }
 
