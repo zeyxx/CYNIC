@@ -76,6 +76,40 @@ const FIDELITY_RED_FLAG: f64 = 0.20;
 #[derive(Debug)]
 pub struct DeterministicDog;
 
+// ── Formal notation detection (extensible registry) ────────
+/// Domain-specific formal notation detector.
+/// Returns count of recognized formal tokens in the word list.
+type NotationDetector = fn(words: &[&str]) -> usize;
+
+/// Registry of formal notation patterns by domain.
+/// New domain = add one entry + one detection function. No scoring logic changes.
+/// Spotted by Pocks: "counts one domain, crashes on two."
+static FORMAL_NOTATIONS: &[(&str, NotationDetector)] = &[("chess", detect_algebraic_notation)];
+
+fn detect_formal_notation(domain: Option<&str>, words: &[&str]) -> usize {
+    let domain = domain.unwrap_or("");
+    FORMAL_NOTATIONS
+        .iter()
+        .find(|(d, _)| d.eq_ignore_ascii_case(domain))
+        .map(|(_, detect)| detect(words))
+        .unwrap_or(0)
+}
+
+fn detect_algebraic_notation(words: &[&str]) -> usize {
+    words
+        .iter()
+        .filter(|w| {
+            let w = w.trim_matches(|c: char| !c.is_alphanumeric());
+            w.len() >= 2
+                && w.len() <= 6
+                && w.chars()
+                    .next()
+                    .is_some_and(|c| "abcdefghKQRBNO".contains(c))
+                && w.chars().any(|c| c.is_ascii_digit())
+        })
+        .count()
+}
+
 #[async_trait]
 impl Dog for DeterministicDog {
     fn id(&self) -> &str {
@@ -175,28 +209,10 @@ impl Dog for DeterministicDog {
             || content.contains("->")
             || content.contains("=>")
             || content.chars().any(|c| "♔♕♖♗♘♙♚♛♜♝♞♟".contains(c));
-        // F9 fix: algebraic notation detection only when domain="chess".
+        // F9 fix: algebraic notation detection only for registered domains.
         // Without domain guard, Rust identifiers (f64, u8, Rc4) trigger false VERIFY boost.
-        let is_chess = stimulus
-            .domain
-            .as_deref()
-            .is_some_and(|d| d.eq_ignore_ascii_case("chess"));
-        let algebraic_count = if is_chess {
-            words
-                .iter()
-                .filter(|w| {
-                    let w = w.trim_matches(|c: char| !c.is_alphanumeric());
-                    w.len() >= 2
-                        && w.len() <= 6
-                        && w.chars()
-                            .next()
-                            .is_some_and(|c| "abcdefghKQRBNO".contains(c))
-                        && w.chars().any(|c| c.is_ascii_digit())
-                })
-                .count()
-        } else {
-            0
-        };
+        // Extensible via FORMAL_NOTATIONS registry — new domain = one entry + one fn.
+        let formal_notation_count = detect_formal_notation(stimulus.domain.as_deref(), &words);
 
         let unique_ratio = {
             let mut content_lower: Vec<String> = content_words
@@ -217,7 +233,7 @@ impl Dog for DeterministicDog {
 
         // Proportional signal density (count-based, not boolean)
         let signal_density = if word_count > 0 {
-            (absolutes_count + hedging_count + algebraic_count) as f64 / word_count as f64
+            (absolutes_count + hedging_count + formal_notation_count) as f64 / word_count as f64
         } else {
             0.0
         };
@@ -257,7 +273,7 @@ impl Dog for DeterministicDog {
             phi -= ADJUST_LARGE;
         }
         // Formal notation = precise structure
-        if has_notation || algebraic_count > 0 {
+        if has_notation || formal_notation_count > 0 {
             phi += ADJUST_SMALL;
         }
         let phi = phi.clamp(ADJUST_SMALL, PHI_INV);
@@ -270,13 +286,15 @@ impl Dog for DeterministicDog {
 
         // ── VERIFY: NEUTRAL — requires domain knowledge ────────
         // Only boost if algebraic notation (objectively verifiable on a board).
-        let verify = if algebraic_count >= 2 {
+        let verify = if formal_notation_count >= 2 {
             (NEUTRAL + 0.10).min(PHI_INV)
         } else {
             NEUTRAL
         };
-        let verify_reason = if algebraic_count >= 2 {
-            format!("Found {algebraic_count} algebraic notation tokens — verifiable on board.")
+        let verify_reason = if formal_notation_count >= 2 {
+            format!(
+                "Found {formal_notation_count} algebraic notation tokens — verifiable on board."
+            )
         } else {
             "Abstaining — verification requires domain knowledge.".into()
         };
@@ -309,7 +327,7 @@ impl Dog for DeterministicDog {
             burn -= ADJUST_SMALL;
         }
         // Numbers/algebraic = information-dense
-        if has_numbers && algebraic_count > 0 {
+        if has_numbers && formal_notation_count > 0 {
             burn += ADJUST_SMALL;
         }
         let burn = burn.clamp(ADJUST_SMALL, PHI_INV);
@@ -486,6 +504,22 @@ mod tests {
         assert!(
             scores.verify > NEUTRAL,
             "algebraic notation should boost verify, got {}",
+            scores.verify
+        );
+    }
+
+    #[tokio::test]
+    async fn formal_notation_unknown_domain_returns_zero() {
+        let dog = DeterministicDog;
+        let stimulus = Stimulus {
+            content: "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6".into(),
+            context: None,
+            domain: Some("trading".into()),
+        };
+        let scores = dog.evaluate(&stimulus).await.unwrap();
+        assert!(
+            (scores.verify - NEUTRAL).abs() < 0.01,
+            "non-chess domain should not detect algebraic notation, verify={}",
             scores.verify
         );
     }
