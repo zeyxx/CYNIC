@@ -454,6 +454,22 @@ Each fix has specific regression tests listed above. Additionally:
 4. **Property:** DeterministicDog never returns `Err` — it always produces scores.
    This is unchanged (no new failure modes introduced).
 
+## Known Limitation: Crystal History Taint
+
+Fix 1 (context contamination) is forward-looking. Existing crystals were formed
+with verdicts whose consensus included biased DeterministicDog scores (context
+words inflating PHI/BURN/SOVEREIGNTY). This bias propagated into crystal observations.
+
+**Why no manual intervention is needed:**
+- Bias was diluted ~50% in consensus (2-Dog mean, LLM Dog unbiased)
+- DeterministicDog abstained on 3/6 axioms — only PHI, BURN, SOVEREIGNTY affected
+- CCM accumulates observations continuously — new unbiased post-fix observations
+  will dilute old biased ones through natural φ-convergence
+- Crystal state transitions (Forming→Crystallized→Canonical) depend on observation
+  count and quality, not individual verdict scores — the threshold effect absorbs noise
+
+No crystal purge, reset, or retroactive correction required.
+
 ## Non-Goals
 
 - No new axiom scoring logic
