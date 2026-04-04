@@ -312,6 +312,7 @@ rollback:
 	@echo "▶ Rolling back to previous kernel binary..."
 	systemctl --user stop cynic-kernel
 	cp ~/bin/cynic-kernel.prev ~/bin/cynic-kernel
+	ln -sf ~/bin/cynic-kernel ~/bin/cynic-mcp
 	systemctl --user start cynic-kernel
 	@sleep 4
 	@echo "▶ Verifying rollback..."
