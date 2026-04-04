@@ -288,7 +288,7 @@ deploy: ship check-storage
 	systemctl --user stop cynic-kernel
 	@[ -f ~/bin/cynic-kernel ] && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev || true
 	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
-	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-mcp
+	ln -sf ~/bin/cynic-kernel ~/bin/cynic-mcp
 	systemctl --user start cynic-kernel
 	@echo "▶ Verifying (HTTP status code — no JSON parsing)..."
 	@for i in $$(seq 1 15); do \
@@ -332,6 +332,7 @@ hotfix: check
 	systemctl --user stop cynic-kernel
 	@[ -f ~/bin/cynic-kernel ] && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev || true
 	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
+	ln -sf ~/bin/cynic-kernel ~/bin/cynic-mcp
 	systemctl --user start cynic-kernel
 	@echo "▶ Verifying (retry loop)..."
 	@for i in $$(seq 1 15); do \
