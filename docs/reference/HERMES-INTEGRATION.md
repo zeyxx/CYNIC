@@ -10,16 +10,17 @@ CYNIC expose nativement ses capacités (Jugement, Inférence, Coordination, CCM)
 
 ## 1. Pré-requis
 
-Assurez-vous que l'exécutable `cynic-mcp` est compilé et accessible dans votre `PATH` (généralement `~/bin`).
+Assurez-vous que `cynic-kernel` est compilé et accessible dans votre `PATH` (généralement `~/bin`).
 
 ```bash
 # Depuis la racine du projet CYNIC
 make check
-cp target/release/cynic-kernel ~/bin/cynic-mcp
+cp target/release/cynic-kernel ~/bin/cynic-kernel
 ```
 
 > [!NOTE]
-> La commande `make deploy` place automatiquement `cynic-mcp` dans `~/bin/`.
+> `make deploy` place automatiquement `cynic-kernel` dans `~/bin/`.
+> Le même binaire sert en REST (sans flag) et en MCP (avec `--mcp`).
 
 ## 2. Configuration MCP
 
@@ -29,7 +30,7 @@ CYNIC dispose déjà d'un fichier `.mcp.json` à la racine du projet. Ce fichier
 {
   "mcpServers": {
     "cynic": {
-      "command": "cynic-mcp",
+      "command": "cynic-kernel",
       "args": ["--mcp"]
     }
   }
