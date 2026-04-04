@@ -282,7 +282,7 @@ usage and concentrated coercive pattern.
 
 ```rust
 /// Coercion density threshold — below this, isolated occurrences are noise.
-const COERCION_DENSITY_THRESHOLD: f64 = 0.06; // ~1 coercive term per 17 words
+const COERCION_DENSITY_THRESHOLD: f64 = 0.03; // ~1 coercive term per 33 words
 
 // RFC 2119 uppercase keywords are normative, not coercive — exclude them.
 // Ref: Bradner (1997), RFC 2119. MUST/SHALL/REQUIRED in caps = formal specification.
@@ -302,8 +302,11 @@ let coercion_density = coercion_count as f64 / word_count.max(1) as f64;
 
 let mut sovereignty = SOVEREIGNTY_BASE;
 if coercion_density > COERCION_DENSITY_THRESHOLD {
-    // Proportional penalty, capped at 3x threshold
-    sovereignty -= ADJUST_MEDIUM * (coercion_density / COERCION_DENSITY_THRESHOLD).min(3.0);
+    // Penalty proportional to EXCESS over threshold, not ratio.
+    // At threshold → penalty = 0 (no cliff). At 2× threshold → penalty = ADJUST_MEDIUM.
+    // Capped at 3× excess to prevent runaway on very short texts.
+    let excess = (coercion_density - COERCION_DENSITY_THRESHOLD) / COERCION_DENSITY_THRESHOLD;
+    sovereignty -= ADJUST_MEDIUM * excess.min(3.0);
 }
 if agency_count > 0 {
     sovereignty += ADJUST_SMALL * (agency_count as f64).min(3.0);
@@ -327,7 +330,9 @@ Kratzer (1977, 1981) for deontic/epistemic modality theory.
   RFC keyword excluded → no SOVEREIGNTY penalty
 - `"The client must handle errors gracefully. The server processes requests
   and returns appropriate status codes for each endpoint."` →
-  coercion density 1/18 ≈ 0.056 < threshold 0.06 → no penalty
+  coercion density 1/18 ≈ 0.056, excess = (0.056-0.03)/0.03 ≈ 0.87,
+  penalty = 0.10 × 0.87 = 0.087 → moderate penalty (sovereignty ≈ 0.31),
+  not severe — proportional to how far above threshold, no cliff
 
 ---
 
