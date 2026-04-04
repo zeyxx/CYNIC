@@ -16,7 +16,7 @@ use async_trait::async_trait;
 /// that matters is how many tokens we ask the model to generate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InferenceProfile {
-    /// Dog axiom scoring: fast, no thinking, short structured JSON output.
+    /// Dog axiom scoring: structured JSON output. Thinking controlled by backend config.
     Scoring,
     /// Hermes agent / deep analysis: full reasoning, large context window.
     Agent,
@@ -36,15 +36,6 @@ impl InferenceProfile {
             Self::Agent => 8192,
             Self::Summary => 1024,
             Self::Infer => 4096,
-        }
-    }
-
-    /// Whether to suppress thinking mode (prepend /no_think for Qwen3 family).
-    /// Scoring and summary don't need chain-of-thought — save the tokens.
-    pub fn disable_thinking(&self) -> bool {
-        match self {
-            Self::Scoring | Self::Summary => true,
-            Self::Agent | Self::Infer => false,
         }
     }
 
