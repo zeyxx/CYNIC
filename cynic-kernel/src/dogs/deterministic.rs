@@ -70,7 +70,6 @@ const AGENCY_DENSITY_THRESHOLD: f64 = 0.03;
 
 /// FIDELITY red-flag score when many absolutes detected.
 /// Distinct from DIVERSITY_SCALE (same value, different meaning).
-#[allow(dead_code)] // WHY: Used in Fix 2, applied in later task.
 const FIDELITY_RED_FLAG: f64 = 0.20;
 
 #[derive(Debug)]
@@ -309,12 +308,12 @@ impl Dog for DeterministicDog {
 
         // ── FIDELITY: NEUTRAL — requires semantic understanding ─
         // Only flag extreme red flags (many absolutes), otherwise abstain.
-        let fidelity = if absolutes_count >= 3 && hedging_count == 0 {
-            0.20 // strong red flag even without semantics
+        let (fidelity, fidelity_abstained) = if absolutes_count >= 3 && hedging_count == 0 {
+            (FIDELITY_RED_FLAG, false)
         } else {
-            NEUTRAL
+            (NEUTRAL, true)
         };
-        let fidelity_reason = if absolutes_count >= 3 && hedging_count == 0 {
+        let fidelity_reason = if !fidelity_abstained {
             format!("Red flag: {absolutes_count} absolute claims, no hedging.")
         } else {
             "Abstaining — fidelity requires semantic understanding.".into()
@@ -355,22 +354,22 @@ impl Dog for DeterministicDog {
 
         // ── VERIFY: NEUTRAL — requires domain knowledge ────────
         // Only boost if algebraic notation (objectively verifiable on a board).
-        let verify = if formal_notation_count >= 2 {
-            (NEUTRAL + 0.10).min(PHI_INV)
+        let (verify, verify_abstained) = if formal_notation_count >= 2 {
+            ((NEUTRAL + ADJUST_MEDIUM).min(PHI_INV), false)
         } else {
-            NEUTRAL
+            (NEUTRAL, true)
         };
-        let verify_reason = if formal_notation_count >= 2 {
-            format!(
-                "Found {formal_notation_count} algebraic notation tokens — verifiable on board."
-            )
+        let verify_reason = if !verify_abstained {
+            format!("Found {formal_notation_count} formal notation tokens — verifiable.")
         } else {
             "Abstaining — verification requires domain knowledge.".into()
         };
 
         // ── CULTURE: NEUTRAL — requires domain knowledge ───────
         let culture = NEUTRAL;
-        let culture_reason = "Abstaining — cultural assessment requires domain knowledge.".into();
+        let culture_abstained = true;
+        let culture_reason: String =
+            "Abstaining — cultural assessment requires domain knowledge.".into();
 
         // ── BURN: FORM judge — efficiency, density, conciseness ─
         let mut burn: f64 = BURN_BASE;
@@ -435,16 +434,18 @@ impl Dog for DeterministicDog {
             "Neutral — no strong agency signals.".into()
         };
 
-        // Track which axioms this Dog abstained on (returned NEUTRAL).
+        // Track which axioms this Dog abstained on (declared at scoring time, not by value).
         // Abstention ≠ disagreement — excluded from spread calculation in judge.rs.
+        // Fix 2: use boolean flags so PHI/BURN/SOVEREIGNTY never false-abstain even if
+        // their computed value happens to land near NEUTRAL.
         let mut abstentions = Vec::new();
-        if (fidelity - NEUTRAL).abs() < 0.001 {
+        if fidelity_abstained {
             abstentions.push("fidelity".into());
         }
-        if (verify - NEUTRAL).abs() < 0.001 {
+        if verify_abstained {
             abstentions.push("verify".into());
         }
-        if (culture - NEUTRAL).abs() < 0.001 {
+        if culture_abstained {
             abstentions.push("culture".into());
         }
 
@@ -724,6 +725,30 @@ mod tests {
             scores.burn < 0.25,
             "verbose repetitive text should score low on burn, got {}",
             scores.burn
+        );
+    }
+
+    #[tokio::test]
+    async fn phi_near_neutral_is_not_abstention() {
+        let dog = DeterministicDog;
+        let stimulus = Stimulus {
+            content: "a b c d e f g h".into(),
+            context: None,
+            domain: None,
+        };
+        let scores = dog.evaluate(&stimulus).await.unwrap();
+        // PHI is a real judgment (not abstained), even if value near NEUTRAL
+        assert!(
+            !scores.abstentions.contains(&"phi".to_string()),
+            "PHI should never be in abstentions — DeterministicDog always judges PHI. \
+             phi={}, abstentions={:?}",
+            scores.phi,
+            scores.abstentions
+        );
+        // CULTURE should always be abstained
+        assert!(
+            scores.abstentions.contains(&"culture".to_string()),
+            "culture should always be abstained"
         );
     }
 }
