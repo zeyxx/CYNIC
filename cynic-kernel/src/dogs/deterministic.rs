@@ -865,4 +865,102 @@ mod tests {
             "culture should always be abstained"
         );
     }
+
+    // ── Wrong-path / boundary tests ───────────────────
+
+    #[tokio::test]
+    async fn empty_content_produces_valid_scores() {
+        let dog = DeterministicDog;
+        let stimulus = Stimulus {
+            content: "".into(),
+            context: Some("lots of must obey mandatory context".into()),
+            domain: None,
+        };
+        let scores = dog.evaluate(&stimulus).await.unwrap();
+        // Empty content: sovereignty must be at base (no words to scan)
+        assert!(
+            (scores.sovereignty - SOVEREIGNTY_BASE).abs() < 0.001,
+            "empty content should produce base sovereignty, got {}",
+            scores.sovereignty
+        );
+        // PHI should be heavily penalized (< 15 chars)
+        assert!(
+            scores.phi < PHI_BASE,
+            "empty content should penalize phi, got {}",
+            scores.phi
+        );
+    }
+
+    #[tokio::test]
+    async fn fidelity_abstention_boundary() {
+        let dog = DeterministicDog;
+        // 2 absolutes + no hedging = still abstains (threshold is 3)
+        let two_abs = Stimulus {
+            content: "This is always guaranteed to work somehow.".into(),
+            context: None,
+            domain: None,
+        };
+        let scores_two = dog.evaluate(&two_abs).await.unwrap();
+        assert!(
+            scores_two.abstentions.contains(&"fidelity".to_string()),
+            "2 absolutes should still abstain on fidelity"
+        );
+
+        // 3 absolutes + no hedging = active judgment (red flag)
+        let three_abs = Stimulus {
+            content: "This always works and is never wrong, certainly guaranteed.".into(),
+            context: None,
+            domain: None,
+        };
+        let scores_three = dog.evaluate(&three_abs).await.unwrap();
+        assert!(
+            !scores_three.abstentions.contains(&"fidelity".to_string()),
+            "3+ absolutes should trigger active fidelity judgment"
+        );
+        assert!(
+            scores_three.fidelity < NEUTRAL,
+            "3+ absolutes should flag fidelity below NEUTRAL, got {}",
+            scores_three.fidelity
+        );
+    }
+
+    #[tokio::test]
+    async fn coercion_at_exact_threshold_no_penalty() {
+        let dog = DeterministicDog;
+        // 1 coercive word in 33 words = density 0.0303 ≈ threshold (0.03)
+        // Excess ≈ 0.01 → penalty ≈ 0.001 → negligible
+        let stimulus = Stimulus {
+            content: "The system must handle this case where the input data \
+                      is processed through multiple stages of validation and \
+                      transformation before reaching the final output stage \
+                      of the pipeline in production."
+                .into(),
+            context: None,
+            domain: None,
+        };
+        let scores = dog.evaluate(&stimulus).await.unwrap();
+        assert!(
+            scores.sovereignty > SOVEREIGNTY_BASE - ADJUST_SMALL,
+            "at-threshold coercion should barely penalize, got {}",
+            scores.sovereignty
+        );
+    }
+
+    #[test]
+    fn detect_formal_notation_case_insensitive() {
+        let words = vec!["e4", "Nf3"];
+        assert_eq!(detect_formal_notation(Some("CHESS"), &words), 2);
+        assert_eq!(detect_formal_notation(Some("Chess"), &words), 2);
+        assert_eq!(detect_formal_notation(Some("chess"), &words), 2);
+        assert_eq!(detect_formal_notation(None, &words), 0);
+    }
+
+    #[test]
+    fn sbd_mixed_terminators_with_abbreviation() {
+        // Mix of !, ?, and . with an abbreviation in the middle
+        assert_eq!(
+            count_sentences("Dr. Smith asked: why? Because it works! Then he left."),
+            3
+        );
+    }
 }
