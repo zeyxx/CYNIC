@@ -10,7 +10,7 @@ The DeterministicDog is CYNIC's always-on FORM judge — pure, deterministic, ze
 It evaluates structural quality (PHI), efficiency (BURN), and coercion (SOVEREIGNTY),
 abstaining on substance axioms (FIDELITY, VERIFY, CULTURE) with NEUTRAL scores.
 
-An audit found 6 bugs + 2 adjacent bugs (Pocks). This spec fixes all 8 without
+An audit found 6 bugs + 3 adjacent bugs (Pocks). This spec fixes all 9 without
 adding features or changing the Dog's role.
 
 **Sequencing:** Fix 7 must be applied before or together with Fix 5
@@ -478,22 +478,44 @@ Stale cached verdicts (with biased scores) would be served until FIFO eviction.
 **Amplification vector:** Cache hits feed `observe_crystal_for_verdict()`
 (pipeline.rs:119) — the same biased verdict is observed N times into the CCM for
 each similar stimulus. This amplifies the bias: one biased verdict × N cache hits
-= N biased observations on the same crystal. A kernel restart stops future
-amplification but does NOT erase the observations already written to DB.
+= N biased observations on the same crystal. Restart hides this but doesn't fix it.
 
-**Why this is self-healing despite amplification:**
-- Post-fix verdicts are unbiased and will accumulate on the same crystals
-- The amplified biased observations all came from the same verdict (identical
-  scores) — they don't INCREASE the bias magnitude, they increase its weight
-  in the observation pool
-- As new unbiased observations arrive, the weight of the biased cluster dilutes
-- Crystal state transitions require ongoing observation quality, not just count
-- The initial bias was already ~50% diluted (LLM Dog unbiased) and only affected
-  3/6 axioms (DeterministicDog abstains on FIDELITY, VERIFY, CULTURE)
+**Code fix — scoring version gate (Fix 9):**
 
-**Deploy requirement:** Kernel restart (standard via `make deploy`). This clears
-the in-memory VerdictCache, stopping amplification immediately. No DB migration
-or crystal purge needed — CCM convergence handles the rest.
+The root cause is that `CacheContext` gates on Dog configuration (`dogs_hash`)
+but not on Dog implementation. When scoring logic changes, the cache serves
+non-equivalent verdicts. This violates R20 (feature must DO what it CLAIMS).
+
+```rust
+// domain/verdict_cache.rs
+/// Bump when any Dog's scoring logic changes in a way that produces different
+/// scores for the same stimulus. Forces automatic cache miss on stale entries.
+pub const SCORING_VERSION: u64 = 2; // 1→2: DeterministicDog fixes (context, density, SBD)
+
+pub struct CacheContext {
+    domain: String,
+    dogs_hash: u64,
+    scoring_version: u64, // NEW — gates on implementation, not just configuration
+}
+
+impl CacheContext {
+    pub fn new(domain: &str, dogs_hash: u64) -> Self {
+        Self {
+            domain: domain.to_string(),
+            dogs_hash,
+            scoring_version: SCORING_VERSION,
+        }
+    }
+}
+```
+
+No changes needed at call sites — `CacheContext::new()` auto-includes the version.
+The `PartialEq` derive on `CacheContext` naturally gates on all three fields.
+Old cached entries have `scoring_version: 1`, new lookups use `2` → automatic miss.
+
+**Residual crystal observations:** Biased observations already written to DB persist.
+These are diluted over time by post-fix observations (CCM convergence). No purge
+needed — the bias was ~50% diluted by LLM Dog and only affected 3/6 axioms.
 
 ## Non-Goals
 
