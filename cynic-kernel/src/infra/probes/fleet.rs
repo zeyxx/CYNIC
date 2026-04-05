@@ -24,6 +24,8 @@ pub struct FleetTarget {
     pub expected_n_ctx: u32,
     /// Expected model name from backends.toml. Used for identity verification.
     pub expected_model: String,
+    /// API key for authenticated endpoints (/props, /v1/models on some backends).
+    pub api_key: Option<String>,
 }
 
 /// Probe that HTTP GETs the health endpoint of each configured Dog backend.
@@ -80,17 +82,28 @@ impl crate::domain::probe::Probe for FleetProbe {
                 let models_url = t.models_url.clone();
                 let expected_n_ctx = t.expected_n_ctx;
                 let expected_model = t.expected_model.clone();
+                let api_key = t.api_key.clone();
                 async move {
                     let probe_start = Instant::now();
+
+                    // Helper: build a GET request, adding auth header if api_key is set.
+                    let auth_get = |url: &str| -> reqwest::RequestBuilder {
+                        let req = client.get(url);
+                        match &api_key {
+                            Some(key) => req.bearer_auth(key),
+                            None => req,
+                        }
+                    };
+
                     // Check HTTP status code, not just connection success.
-                    let reachable = match client.get(&url).send().await {
+                    let reachable = match auth_get(&url).send().await {
                         Ok(resp) => resp.status().is_success(),
                         Err(_) => false,
                     };
 
                     let mut actual_n_ctx = None;
                     if let Some(ref p_url) = props_url
-                        && let Ok(resp) = client.get(p_url).send().await
+                        && let Ok(resp) = auth_get(p_url).send().await
                         && let Ok(json) = resp.json::<serde_json::Value>().await
                     {
                         actual_n_ctx = json
@@ -105,7 +118,7 @@ impl crate::domain::probe::Probe for FleetProbe {
                     let mut model_mismatch = false;
                     if reachable
                         && let Some(ref m_url) = models_url
-                        && let Ok(resp) = client.get(m_url).send().await
+                        && let Ok(resp) = auth_get(m_url).send().await
                         && let Ok(json) = resp.json::<serde_json::Value>().await
                     {
                         // OpenAI-compatible /v1/models returns {"data": [{"id": "model-name"}]}
@@ -239,6 +252,7 @@ mod tests {
             models_url: None,
             expected_n_ctx: 0,
             expected_model: String::new(),
+            api_key: None,
         }]);
         let result = probe.sense().await.expect("should not error");
         assert_eq!(result.status, ProbeStatus::Unavailable);
@@ -285,6 +299,7 @@ mod tests {
             models_url: None,
             expected_n_ctx: 8192,
             expected_model: String::new(),
+            api_key: None,
         }]);
 
         let result = probe.sense().await.expect("should not error");
@@ -321,6 +336,7 @@ mod tests {
             models_url: None,
             expected_n_ctx: 0,
             expected_model: String::new(),
+            api_key: None,
         }]);
         let result = probe.sense().await.expect("should not error");
         match result.details {
@@ -364,6 +380,7 @@ mod tests {
             models_url: Some(format!("{base}/v1/models")),
             expected_n_ctx: 0,
             expected_model: "Mistral-7B-v0.3".into(), // different from what's loaded
+            api_key: None,
         }]);
 
         let result = probe.sense().await.expect("should not error");
@@ -413,6 +430,7 @@ mod tests {
             models_url: Some(format!("{base}/v1/models")),
             expected_n_ctx: 0,
             expected_model: "Qwen2.5-7B".into(), // substring of what's loaded
+            api_key: None,
         }]);
 
         let result = probe.sense().await.expect("should not error");
