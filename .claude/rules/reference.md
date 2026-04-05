@@ -28,8 +28,8 @@ HOWL > 0.528 (φ⁻²+φ⁻⁴) | WAG > 0.382 | GROWL > 0.236 | BARK ≤ 0.236
 | deterministic-dog | Heuristics | In-kernel |
 | qwen-7b-hf | Qwen 2.5 7B | HF Inference |
 | qwen35-9b-gpu | Qwen 3.5 9B Q4 | cynic-gpu (RTX 4060 Ti, 55 tok/s) |
-| mistral-7b-gpu | Mistral 7B v0.3 Q4 | cynic-gpu (RTX 4060 Ti) |
-| mistral-7b-core | Mistral 7B v0.3 Q4 | cynic-core (CPU) |
+| gemma-4-e4b-gpu | Gemma 4 E4B Q4 | cynic-gpu (RTX 4060 Ti) |
+| gemma-4b-core | Gemma 3 4B Q4 | cynic-core (CPU) |
 
 ## Infrastructure
 
