@@ -9,8 +9,8 @@
 //
 // K14: unknown rates default to 0.0 (pessimistic), unknown latency to u32::MAX.
 
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::time::Instant;
 
 /// Failure type classification — different causes, different remediation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,7 +29,8 @@ pub enum ScoreFailureKind {
 
 /// Per-Dog rolling counters. Updated after each Dog evaluation.
 /// Does NOT lock — caller (Judge) holds the Arc<Mutex<DogStats>>.
-#[derive(Debug, Clone)]
+/// Serializable for persistence across restarts (B5 fix — organ amnesia).
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DogStats {
     /// Total calls attempted (success + all failure kinds).
     pub total_calls: u64,
@@ -45,8 +46,10 @@ pub struct DogStats {
     pub timeout_count: u64,
     /// API/infrastructure failures (backend unreachable, HTTP errors).
     pub api_error_count: u64,
-    /// Timestamp of last successful score (K14: None = never succeeded).
-    pub last_success: Option<Instant>,
+    /// RFC3339 timestamp of last successful score (K14: None = never succeeded).
+    /// Was `Option<Instant>` — non-serializable by design. Changed to String for persistence.
+    #[serde(default)]
+    pub last_success: Option<String>,
     /// Cumulative latency of successful calls (ms). Used to compute mean.
     pub total_latency_ms: u64,
 }
@@ -69,7 +72,7 @@ impl DogStats {
     pub fn record_success(&mut self) {
         self.total_calls += 1;
         self.success_count += 1;
-        self.last_success = Some(Instant::now());
+        self.last_success = Some(chrono::Utc::now().to_rfc3339());
     }
 
     pub fn record_success_with_latency(&mut self, elapsed_ms: u64) {

@@ -95,6 +95,17 @@ pub fn spawn_usage_flush(
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
+    spawn_usage_flush_with_organ(storage, usage, task_health, shutdown, None)
+}
+
+/// Usage flush with optional organ stats persistence (B5 amnesia fix).
+pub fn spawn_usage_flush_with_organ(
+    storage: Arc<dyn StoragePort>,
+    usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+    organ: Option<Arc<crate::organ::InferenceOrgan>>,
+) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -131,6 +142,20 @@ pub fn spawn_usage_flush(
                             }
                             Ok(Err(e)) => tracing::warn!(error = %e, "usage flush DB write failed, will retry"),
                             Err(_) => tracing::warn!("usage flush DB write timed out (10s), will retry"),
+                        }
+                    }
+                    // B5: flush DogStats to DB (organ quality persistence)
+                    if let Some(ref org) = organ {
+                        let stats = org.snapshot_stats();
+                        if !stats.is_empty() {
+                            match tokio::time::timeout(
+                                std::time::Duration::from_secs(10),
+                                storage.flush_dog_stats(&stats),
+                            ).await {
+                                Ok(Err(e)) => tracing::warn!(error = %e, "dog_stats flush failed (non-fatal)"),
+                                Err(_) => tracing::warn!("dog_stats flush timed out (10s)"),
+                                _ => {}
+                            }
                         }
                     }
                     if tick_count.is_multiple_of(60) {

@@ -244,6 +244,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         organ.backend_count()
     );
 
+    // Load persisted DogStats from DB — restores quality knowledge across restarts (B5 amnesia fix)
+    match storage_port.load_dog_stats().await {
+        Ok(loaded) if !loaded.is_empty() => {
+            organ.restore_stats(&loaded);
+            klog!(
+                "[Ring 2] Organ: restored {} Dog quality histories",
+                loaded.len()
+            );
+        }
+        Err(e) => klog!(
+            "[Ring 2] Organ: failed to load Dog stats (non-fatal): {}",
+            e
+        ),
+        _ => {}
+    }
+    let organ = std::sync::Arc::new(organ);
+
     // ─── RING 2: Health Loop + Remediation ──────────────────────
     // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
     if !remediation_configs.is_empty() {
@@ -545,15 +562,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     klog!("[Ring 2] Coordination expiry task started (every 60s)");
 
-    // Usage flush (every 60s)
+    // Usage + organ stats flush (every 60s)
     if has_db {
-        infra::tasks::spawn_usage_flush(
+        infra::tasks::spawn_usage_flush_with_organ(
             Arc::clone(&storage_port),
             Arc::clone(&usage_tracker),
             Arc::clone(&task_health),
             shutdown.clone(),
+            Some(Arc::clone(&organ)),
         );
-        klog!("[Ring 2] Usage flush task started (every 60s, TTL cleanup every 1h)");
+        klog!("[Ring 2] Usage + organ stats flush task started (every 60s, TTL cleanup every 1h)");
     }
 
     // ─── RING 2: Session summarizer (sovereign inference, background) ──

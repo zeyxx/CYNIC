@@ -321,6 +321,23 @@ pub trait StoragePort: Send + Sync {
         Ok(vec![]) // Default: no history
     }
 
+    // ── Organ stats persistence (B5 — amnesia fix) ──────────
+
+    /// Flush DogStats to persistent storage. One row per Dog.
+    async fn flush_dog_stats(
+        &self,
+        _stats: &[(String, crate::organ::health::DogStats)],
+    ) -> Result<(), StorageError> {
+        Ok(()) // Default no-op for NullStorage
+    }
+
+    /// Load persisted DogStats at boot — restores quality knowledge across restarts.
+    async fn load_dog_stats(
+        &self,
+    ) -> Result<Vec<(String, crate::organ::health::DogStats)>, StorageError> {
+        Ok(vec![]) // Default: no history (K14: starts pessimistic)
+    }
+
     // ── Infrastructure snapshots (probe system) ──────────────
 
     async fn store_infra_snapshot(
