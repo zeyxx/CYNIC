@@ -817,6 +817,86 @@ impl StoragePort for SurrealHttpStorage {
             .collect())
     }
 
+    async fn flush_dog_stats(
+        &self,
+        stats: &[(String, crate::organ::health::DogStats)],
+    ) -> Result<(), StorageError> {
+        if stats.is_empty() {
+            return Ok(());
+        }
+        // Idempotent: SET absolute totals (same pattern as flush_usage).
+        let mut sql = String::new();
+        for (dog_id, s) in stats {
+            use std::fmt::Write;
+            let id_key = sanitize_record_id(dog_id);
+            let id_val = escape_surreal(dog_id);
+            let last_success_sql = match &s.last_success {
+                Some(ts) => format!("'{}'", escape_surreal(ts)),
+                None => "NONE".to_string(),
+            };
+            let _ = write!(
+                sql,
+                "UPSERT dog_stats:`{id_key}` SET \
+                    dog_id = '{id_val}', \
+                    total_calls = {tc}, \
+                    success_count = {sc}, \
+                    zero_flood_count = {zf}, \
+                    collapse_count = {cc}, \
+                    parse_error_count = {pe}, \
+                    timeout_count = {to}, \
+                    api_error_count = {ae}, \
+                    last_success = {ls}, \
+                    total_latency_ms = {lat}, \
+                    updated_at = time::now(); ",
+                id_key = id_key,
+                id_val = id_val,
+                tc = s.total_calls,
+                sc = s.success_count,
+                zf = s.zero_flood_count,
+                cc = s.collapse_count,
+                pe = s.parse_error_count,
+                to = s.timeout_count,
+                ae = s.api_error_count,
+                ls = last_success_sql,
+                lat = s.total_latency_ms,
+            );
+        }
+        self.query(&sql).await?;
+        Ok(())
+    }
+
+    async fn load_dog_stats(
+        &self,
+    ) -> Result<Vec<(String, crate::organ::health::DogStats)>, StorageError> {
+        let rows = self.query_one("SELECT * FROM dog_stats;").await?;
+        Ok(rows
+            .iter()
+            .filter_map(|r| {
+                let dog_id = r["dog_id"].as_str()?.to_string();
+                if dog_id.is_empty() {
+                    return None;
+                }
+                Some((
+                    dog_id,
+                    crate::organ::health::DogStats {
+                        total_calls: r["total_calls"].as_u64().unwrap_or(0),
+                        success_count: r["success_count"].as_u64().unwrap_or(0),
+                        zero_flood_count: r["zero_flood_count"].as_u64().unwrap_or(0),
+                        collapse_count: r["collapse_count"].as_u64().unwrap_or(0),
+                        parse_error_count: r["parse_error_count"].as_u64().unwrap_or(0),
+                        timeout_count: r["timeout_count"].as_u64().unwrap_or(0),
+                        api_error_count: r["api_error_count"].as_u64().unwrap_or(0),
+                        last_success: r["last_success"]
+                            .as_str()
+                            .filter(|s| !s.is_empty())
+                            .map(|s| s.to_string()),
+                        total_latency_ms: r["total_latency_ms"].as_u64().unwrap_or(0),
+                    },
+                ))
+            })
+            .collect())
+    }
+
     async fn list_crystals_missing_embedding(
         &self,
         limit: u32,

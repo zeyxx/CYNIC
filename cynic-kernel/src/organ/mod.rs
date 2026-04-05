@@ -133,6 +133,50 @@ impl InferenceOrgan {
             guard.backend.health = BackendHealth::Healthy;
         }
     }
+
+    /// Snapshot all DogStats for persistence. Returns (dog_id, stats) pairs.
+    pub fn snapshot_stats(&self) -> Vec<(String, DogStats)> {
+        self.entries
+            .iter()
+            .filter_map(|(id, handle)| {
+                let guard = handle.0.lock().ok()?;
+                Some((id.0.clone(), guard.stats.clone()))
+            })
+            .collect()
+    }
+
+    /// Restore persisted DogStats at boot. Merges into existing entries by dog_id.
+    /// Dogs not found in loaded data keep their K14-pessimistic defaults.
+    pub fn restore_stats(&self, loaded: &[(String, DogStats)]) {
+        for (dog_id, stats) in loaded {
+            let key = BackendId(dog_id.clone());
+            if let Some(handle) = self.entries.get(&key)
+                && let Ok(mut guard) = handle.0.lock()
+            {
+                guard.stats = stats.clone();
+                // Re-evaluate gate from loaded stats: replay success/failure counts
+                // into ParseFailureGate. This is approximate (we don't have the exact
+                // sequence), but it prevents a Dog with 90% failure rate from starting
+                // clean after restart.
+                let total = stats.total_calls.min(10) as usize; // cap at gate window size
+                let failures =
+                    (stats.total_calls.saturating_sub(stats.success_count)).min(10) as usize;
+                let successes = total.saturating_sub(failures);
+                for _ in 0..successes {
+                    guard.gate.record_success();
+                }
+                for _ in 0..failures {
+                    guard.gate.record_failure();
+                }
+                tracing::info!(
+                    backend = %dog_id,
+                    total_calls = stats.total_calls,
+                    json_valid_rate = format!("{:.1}%", stats.json_valid_rate() * 100.0),
+                    "organ: restored persisted DogStats"
+                );
+            }
+        }
+    }
 }
 
 /// Outcome of a single Dog evaluation, used to update organ health tracking.
