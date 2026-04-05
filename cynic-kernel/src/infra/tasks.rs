@@ -224,6 +224,30 @@ pub fn spawn_backfill(
             _ = shutdown.cancelled() => return,
             _ = tokio::time::sleep(std::time::Duration::from_secs(10)) => {}
         }
+        // ── Crystal consolidation: merge duplicate crystals before backfill ──
+        // Runs once per boot. Finds crystals with identical (domain, content)
+        // and merges observation counts + confidence into the survivor.
+        // Must run BEFORE backfill so orphan embeddings are computed on merged crystals.
+        task_health.touch_backfill("consolidating");
+        match tokio::time::timeout(
+            std::time::Duration::from_secs(60),
+            storage.consolidate_duplicate_crystals(),
+        )
+        .await
+        {
+            Ok(Ok(removed)) => {
+                if removed > 0 {
+                    klog!("[Ring 2] Crystal consolidation: merged {removed} duplicate crystals");
+                }
+            }
+            Ok(Err(e)) => {
+                tracing::warn!(error = %e, "crystal consolidation failed (non-fatal)");
+            }
+            Err(_) => {
+                tracing::warn!("crystal consolidation timed out (60s)");
+            }
+        }
+
         task_health.touch_backfill("running");
         match tokio::time::timeout(
             std::time::Duration::from_secs(300),

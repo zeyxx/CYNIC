@@ -72,6 +72,18 @@ pub async fn run(
         ..
     } = *deps;
     let domain_hint = domain.as_deref().unwrap_or("general");
+
+    // ── Domain gate: reject cynic-internal at pipeline entry ──
+    // Self-diagnostic content (Dog failure rates, CPU alerts) must not consume
+    // Dog tokens or enter the epistemic pipeline. Block before embedding/cache/eval.
+    // See introspection.rs module doc: alerts must not feed back into judgment.
+    if domain_hint == "cynic-internal" {
+        return Err(JudgeError::InvalidInput(
+            "cynic-internal domain is reserved for kernel self-observation and cannot be judged"
+                .into(),
+        ));
+    }
+
     // RC7-2: use caller-supplied request_id or generate one
     let request_id = deps
         .request_id
@@ -393,14 +405,20 @@ async fn observe_crystal_for_verdict(
                 );
                 format!(
                     "{:x}",
-                    ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary))
+                    ccm::content_hash(&ccm::normalize_for_hash(&format!(
+                        "{}:{}",
+                        domain, verdict.stimulus_summary
+                    )))
                 )
             }
             Err(e) => {
                 tracing::warn!(phase = "crystal_merge", error = %e, "similarity search failed, using FNV hash");
                 format!(
                     "{:x}",
-                    ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary))
+                    ccm::content_hash(&ccm::normalize_for_hash(&format!(
+                        "{}:{}",
+                        domain, verdict.stimulus_summary
+                    )))
                 )
             }
         }
@@ -411,7 +429,10 @@ async fn observe_crystal_for_verdict(
         );
         format!(
             "{:x}",
-            ccm::content_hash(&format!("{}:{}", domain, verdict.stimulus_summary))
+            ccm::content_hash(&ccm::normalize_for_hash(&format!(
+                "{}:{}",
+                domain, verdict.stimulus_summary
+            )))
         )
     };
 
@@ -453,20 +474,14 @@ async fn observe_crystal_for_verdict(
             }); // ok: no subscribers = silent no-op (receiver_count=0 returns Err)
         }
     }
-    // Anti-contamination: cynic-internal crystals are excluded from KNN index
-    // to prevent self-referential noise. Crystal persists (state machine works)
-    // but is invisible to semantic search. See introspection.rs module doc.
-    if domain != "cynic-internal" {
-        if let Some(emb) = stimulus_embedding
-            && let Err(e) = deps
-                .storage
-                .store_crystal_embedding(&crystal_id, &emb.vector)
-                .await
-        {
-            tracing::warn!(phase = "crystal_embed", crystal_id = %crystal_id, error = %e, "failed to store crystal embedding");
-        }
-    } else {
-        tracing::info!(phase = "crystal_embed", crystal_id = %crystal_id, "cynic-internal domain — KNN embedding skipped (anti-contamination)");
+    // Store embedding for KNN merge — domain gate above already blocked cynic-internal.
+    if let Some(emb) = stimulus_embedding
+        && let Err(e) = deps
+            .storage
+            .store_crystal_embedding(&crystal_id, &emb.vector)
+            .await
+    {
+        tracing::warn!(phase = "crystal_embed", crystal_id = %crystal_id, error = %e, "failed to store crystal embedding");
     }
 }
 

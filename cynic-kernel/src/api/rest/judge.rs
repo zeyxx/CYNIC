@@ -82,11 +82,17 @@ pub async fn judge_handler(
     )
     .await
     .map_err(|e| {
-        tracing::error!(error = %e, "judge pipeline failed");
+        let status = match &e {
+            crate::judge::JudgeError::InvalidInput(_) => StatusCode::BAD_REQUEST,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+        if status == StatusCode::INTERNAL_SERVER_ERROR {
+            tracing::error!(error = %e, "judge pipeline failed");
+        }
         (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            status,
             Json(ErrorResponse {
-                error: "evaluation failed".into(),
+                error: e.to_string(),
             }),
         )
     })?;

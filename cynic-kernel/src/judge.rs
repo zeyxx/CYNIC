@@ -616,6 +616,7 @@ pub fn verify_verdict_integrity(verdict: &Verdict) -> bool {
 pub enum JudgeError {
     NoDogs,
     AllDogsFailed(Vec<String>),
+    InvalidInput(String),
 }
 
 impl std::fmt::Display for JudgeError {
@@ -623,6 +624,7 @@ impl std::fmt::Display for JudgeError {
         match self {
             Self::NoDogs => write!(f, "No Dogs configured"),
             Self::AllDogsFailed(errs) => write!(f, "All Dogs failed: {}", errs.join("; ")),
+            Self::InvalidInput(reason) => write!(f, "Invalid input: {reason}"),
         }
     }
 }
