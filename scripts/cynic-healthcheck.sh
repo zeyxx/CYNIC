@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # cynic-healthcheck.sh — Health check with Telegram alerting.
 # The kernel returns HTTP 200 (healthy) or 503 (degraded/critical).
-# Alerts on STATE CHANGE only — not every 5 min for a known condition.
-# State file tracks last known status. Telegram fires on transition.
-# Append-only log records every check (immutable facts, not cache).
+# Two detection modes:
+#   EDGE — alert on state transition (PASS→DEGRADED, DEGRADED→PASS)
+#   LEVEL — reminder every REMINDER_INTERVAL while non-PASS persists
+# State file: "STATUS LAST_ALERT_EPOCH". Not a cache — the live check
+# is authoritative. The file only tracks when we last notified.
+# Append-only log records every check (immutable facts).
 set -euo pipefail
 
 source "${HOME}/.cynic-env" 2>/dev/null || { logger -t cynic-healthcheck -p user.err "FATAL: cannot source ~/.cynic-env"; exit 1; }
@@ -11,8 +14,11 @@ source "${HOME}/.cynic-env" 2>/dev/null || { logger -t cynic-healthcheck -p user
 ADDR="${CYNIC_REST_ADDR:-127.0.0.1:3030}"
 STATE_DIR="${HOME}/.local/share/cynic"
 LOG="${STATE_DIR}/healthcheck.log"
-LAST_STATE="${STATE_DIR}/healthcheck.last"
+STATE_FILE="${STATE_DIR}/healthcheck.last"
+REMINDER_SECS=3600  # 1 hour
 mkdir -p "$STATE_DIR"
+
+now_epoch() { date +%s; }
 
 telegram() {
     curl -s -X POST \
@@ -25,10 +31,18 @@ telegram() {
 
 record() {
     local status="$1" msg="$2"
-    local ts
+    local ts now prev prev_epoch
     ts=$(date -Iseconds)
-    local prev
-    prev=$(cat "$LAST_STATE" 2>/dev/null || echo "UNKNOWN")
+    now=$(now_epoch)
+
+    # Read previous state
+    if [ -f "$STATE_FILE" ]; then
+        prev=$(awk '{print $1}' "$STATE_FILE")
+        prev_epoch=$(awk '{print $2}' "$STATE_FILE")
+    else
+        prev="UNKNOWN"
+        prev_epoch=0
+    fi
 
     # Append-only log (every check, always)
     echo "${ts} ${status} ${msg}" >> "$LOG"
@@ -40,17 +54,25 @@ record() {
         logger -t cynic-healthcheck -p user.err "$msg"
     fi
 
-    # Telegram on state CHANGE only
+    # EDGE: state changed → alert
     if [ "$status" != "$prev" ]; then
         if [ "$status" = "PASS" ]; then
             telegram "🟢 CYNIC RECOVERED — ${msg}"
         else
             telegram "🔴 CYNIC ${msg} (was: ${prev})"
         fi
-    fi
+        echo "$status $now" > "$STATE_FILE"
 
-    # Update state
-    echo "$status" > "$LAST_STATE"
+    # LEVEL: same non-PASS state, reminder interval elapsed → remind
+    elif [ "$status" != "PASS" ] && [ $(( now - prev_epoch )) -ge $REMINDER_SECS ]; then
+        local hours=$(( (now - prev_epoch) / 3600 ))
+        telegram "⚠️ CYNIC still ${status} (${hours}h) — ${msg}"
+        echo "$status $now" > "$STATE_FILE"
+
+    # Same state, within reminder window → log only, no alert
+    else
+        echo "$status $prev_epoch" > "$STATE_FILE"
+    fi
 }
 
 # Authenticated health check — returns full details + correct HTTP status
