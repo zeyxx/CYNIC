@@ -1055,15 +1055,20 @@ impl StoragePort for SurrealHttpStorage {
             );
             self.query_one(&update_sql).await?;
 
-            // Delete duplicates (all except survivor).
-            for dup_id in &id_strs {
-                if *dup_id != survivor_id.as_str() {
-                    let safe_dup = sanitize_id(dup_id)?;
-                    let del_sql = format!("DELETE crystal:`{safe_dup}`");
-                    self.query_one(&del_sql).await?;
-                    removed += 1;
-                }
-            }
+            // Delete duplicates via SQL — avoids cross-query ID format mismatch.
+            // SurrealDB compares meta::id(id) consistently within a single query.
+            let safe_domain =
+                escape_surreal(group.get("domain").and_then(|v| v.as_str()).unwrap_or(""));
+            let safe_content =
+                escape_surreal(group.get("content").and_then(|v| v.as_str()).unwrap_or(""));
+            let del_sql = format!(
+                "DELETE FROM crystal WHERE domain = '{safe_domain}' \
+                 AND content = '{safe_content}' \
+                 AND meta::id(id) != '{safe_survivor}' \
+                 RETURN BEFORE"
+            );
+            let deleted = self.query_one(&del_sql).await?;
+            removed += deleted.len() as u64;
             tracing::info!(
                 survivor = %safe_survivor,
                 merged_obs = total_obs,
