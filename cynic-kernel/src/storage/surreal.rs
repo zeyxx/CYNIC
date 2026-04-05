@@ -939,6 +939,138 @@ impl StoragePort for SurrealHttpStorage {
         let rows = self.query_one(&sql).await?;
         Ok(rows.len() as u64)
     }
+
+    async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
+        // Phase 1: find groups of crystals with identical (domain, content) and count > 1.
+        let groups_sql = "SELECT domain, content, \
+                          array::group(meta::id(id)) AS ids, \
+                          count() AS cnt \
+                          FROM crystal \
+                          GROUP BY domain, content \
+                          HAVING cnt > 1";
+        let groups = self.query_one(groups_sql).await?;
+
+        let mut removed: u64 = 0;
+        for group in &groups {
+            let Some(ids) = group.get("ids").and_then(|v| v.as_array()) else {
+                continue;
+            };
+            if ids.len() < 2 {
+                continue;
+            }
+            // Pick survivor: the crystal with the most observations.
+            // Read all crystals in the group to find it.
+            let id_strs: Vec<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
+            if id_strs.is_empty() {
+                continue;
+            }
+            let id_list: String = id_strs
+                .iter()
+                .map(|id| format!("crystal:`{id}`"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let detail_sql = format!(
+                "SELECT meta::id(id) AS cid, observations, confidence, \
+                 contributing_verdicts, created_at \
+                 FROM [{id_list}] ORDER BY observations DESC"
+            );
+            let details = self.query_one(&detail_sql).await?;
+            if details.len() < 2 {
+                continue;
+            }
+            // Survivor = first (most observations). Merge the rest into it.
+            let survivor_id = match details[0].get("cid").and_then(|v| v.as_str()) {
+                Some(id) => id.to_string(),
+                None => continue,
+            };
+            let mut total_obs: u64 = 0;
+            let mut weighted_conf: f64 = 0.0;
+            let mut all_verdicts: Vec<String> = Vec::new();
+            let mut earliest_created = String::new();
+
+            for d in &details {
+                let obs = d.get("observations").and_then(|v| v.as_u64()).unwrap_or(0);
+                let conf = d.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                total_obs += obs;
+                weighted_conf += conf * obs as f64;
+                if let Some(arr) = d.get("contributing_verdicts").and_then(|v| v.as_array()) {
+                    for v in arr {
+                        if let Some(s) = v.as_str() {
+                            all_verdicts.push(s.to_string());
+                        }
+                    }
+                }
+                if let Some(ca) = d.get("created_at").and_then(|v| v.as_str())
+                    && (earliest_created.is_empty() || ca < earliest_created.as_str())
+                {
+                    earliest_created = ca.to_string();
+                }
+            }
+            let merged_conf = if total_obs > 0 {
+                weighted_conf / total_obs as f64
+            } else {
+                0.0
+            };
+            // Reclassify state based on merged totals.
+            let t_canon = crate::domain::ccm::CANONICAL_CYCLES as u64;
+            let t_cryst = crate::domain::ccm::MIN_CRYSTALLIZATION_CYCLES as u64;
+            let c_high = crate::domain::dog::PHI_INV;
+            let c_low = crate::domain::dog::PHI_INV2;
+            let new_state = if total_obs >= t_canon && merged_conf >= c_high {
+                "canonical"
+            } else if total_obs >= t_cryst && merged_conf >= c_high {
+                "crystallized"
+            } else if total_obs >= t_cryst && merged_conf < c_low {
+                "decaying"
+            } else {
+                "forming"
+            };
+            // Deduplicate verdict IDs.
+            all_verdicts.sort();
+            all_verdicts.dedup();
+            let verdicts_arr: String = all_verdicts
+                .iter()
+                .map(|v| format!("'{}'", escape_surreal(v)))
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            let now = chrono::Utc::now().to_rfc3339();
+            let safe_survivor = sanitize_id(&survivor_id)?;
+            let safe_created = escape_surreal(&earliest_created);
+            let safe_now = escape_surreal(&now);
+
+            // Update survivor with merged totals.
+            let update_sql = format!(
+                "UPDATE crystal:`{safe_survivor}` SET \
+                 observations = {total_obs}, \
+                 confidence = {merged_conf}, \
+                 state = '{new_state}', \
+                 contributing_verdicts = [{verdicts_arr}], \
+                 created_at = '{safe_created}', \
+                 updated_at = '{safe_now}'"
+            );
+            self.query_one(&update_sql).await?;
+
+            // Delete duplicates (all except survivor).
+            for dup_id in &id_strs {
+                if *dup_id != survivor_id.as_str() {
+                    let safe_dup = sanitize_id(dup_id)?;
+                    let del_sql = format!("DELETE crystal:`{safe_dup}`");
+                    self.query_one(&del_sql).await?;
+                    removed += 1;
+                }
+            }
+            tracing::info!(
+                survivor = %safe_survivor,
+                merged_obs = total_obs,
+                merged_conf = %format!("{merged_conf:.3}"),
+                state = new_state,
+                duplicates_removed = id_strs.len() - 1,
+                "crystal consolidation: merged duplicates"
+            );
+        }
+        Ok(removed)
+    }
 }
 
 // ── COORD PORT IMPLEMENTATION ────────────────────────────────

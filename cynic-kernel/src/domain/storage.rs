@@ -340,6 +340,14 @@ pub trait StoragePort: Send + Sync {
     async fn cleanup_infra_snapshots(&self, _older_than_days: u32) -> Result<u64, StorageError> {
         Ok(0)
     }
+
+    /// Consolidate duplicate crystals — find crystals with identical (domain, content),
+    /// merge observation counts and confidence into the survivor (most observations),
+    /// delete duplicates. Returns number of duplicates removed.
+    /// One-shot cleanup to fix historical fragmentation from FNV hash collisions.
+    async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
+        Ok(0) // Default no-op for NullStorage/MemoryStorage
+    }
 }
 
 /// No-op storage for graceful degradation when DB is unavailable.

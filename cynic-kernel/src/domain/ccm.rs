@@ -425,6 +425,18 @@ pub fn content_hash(input: &str) -> u64 {
     h
 }
 
+/// Normalize content before FNV hashing to reduce fragmentation.
+/// Lowercase + collapse whitespace + trim. Two stimuli that differ only
+/// in casing or spacing will hash to the same crystal ID.
+/// Used as fallback when embedding-based KNN merge is unavailable.
+pub fn normalize_for_hash(input: &str) -> String {
+    input
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 // ── WORKFLOW AGGREGATOR ────────────────────────────────────
 /// Aggregate raw observations into CCM crystals. Runs periodically.
 /// Extracts frequency patterns and co-occurrences from the observation table,
@@ -1273,5 +1285,33 @@ mod tests {
             let parsed: CrystalState = s.parse().unwrap();
             assert_eq!(parsed, state);
         }
+    }
+
+    // ── normalize_for_hash ──────────────────────────────────
+
+    #[test]
+    fn normalize_collapses_whitespace_and_lowercases() {
+        assert_eq!(
+            normalize_for_hash("  Chess:  1. E4  c5  "),
+            "chess: 1. e4 c5"
+        );
+    }
+
+    #[test]
+    fn normalize_identical_content_hashes_same() {
+        let a = content_hash(&normalize_for_hash("chess:1. e4 c5 — The Sicilian Defense"));
+        let b = content_hash(&normalize_for_hash(
+            "chess:1. e4 c5 —  The  Sicilian  Defense",
+        ));
+        let c = content_hash(&normalize_for_hash("Chess:1. E4 C5 — The Sicilian Defense"));
+        assert_eq!(a, b);
+        assert_eq!(a, c);
+    }
+
+    #[test]
+    fn normalize_different_content_hashes_differ() {
+        let a = content_hash(&normalize_for_hash("chess:1. e4 c5"));
+        let b = content_hash(&normalize_for_hash("chess:1. d4 d5"));
+        assert_ne!(a, b);
     }
 }
