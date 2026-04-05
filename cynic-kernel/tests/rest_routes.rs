@@ -21,7 +21,7 @@ use cynic_kernel::infra::task_health::TaskHealth;
 use cynic_kernel::judge::Judge;
 
 fn test_state(api_key: Option<&str>) -> Arc<AppState> {
-    let dogs: Vec<Box<dyn cynic_kernel::domain::dog::Dog>> = vec![Box::new(DeterministicDog)];
+    let dogs: Vec<Arc<dyn cynic_kernel::domain::dog::Dog>> = vec![Arc::new(DeterministicDog)];
     let breakers: Vec<Arc<dyn cynic_kernel::domain::health_gate::HealthGate>> = dogs
         .iter()
         .map(|d| {
@@ -31,8 +31,9 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         })
         .collect();
     let judge = Arc::new(Judge::new(dogs, breakers));
+    let judge_swap = arc_swap::ArcSwap::from(judge);
     Arc::new(AppState {
-        judge,
+        judge: judge_swap,
         storage: Arc::new(NullStorage),
         coord: Arc::new(NullCoord),
         embedding: Arc::new(NullEmbedding),
@@ -812,7 +813,7 @@ async fn coord_register_accepts_valid_intent() {
 #[tokio::test]
 async fn events_rejects_when_sse_semaphore_exhausted() {
     // Build state with 0 SSE permits — simulates all 32 slots taken.
-    let dogs: Vec<Box<dyn cynic_kernel::domain::dog::Dog>> = vec![Box::new(DeterministicDog)];
+    let dogs: Vec<Arc<dyn cynic_kernel::domain::dog::Dog>> = vec![Arc::new(DeterministicDog)];
     let breakers: Vec<Arc<dyn cynic_kernel::domain::health_gate::HealthGate>> = dogs
         .iter()
         .map(|d| {
@@ -822,8 +823,9 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         })
         .collect();
     let judge = Arc::new(cynic_kernel::judge::Judge::new(dogs, breakers));
+    let judge_swap = arc_swap::ArcSwap::from(judge);
     let state = Arc::new(AppState {
-        judge,
+        judge: judge_swap,
         storage: Arc::new(NullStorage),
         coord: Arc::new(NullCoord),
         embedding: Arc::new(NullEmbedding),

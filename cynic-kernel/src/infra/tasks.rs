@@ -522,6 +522,7 @@ pub fn spawn_probe_scheduler(
     probes: Vec<Arc<dyn crate::domain::probe::Probe>>,
     storage: Arc<dyn StoragePort>,
     environment: Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
+    organ: Arc<crate::organ::InferenceOrgan>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
@@ -560,6 +561,26 @@ pub fn spawn_probe_scheduler(
                             Ok(Ok(())) => {}
                             Ok(Err(e)) => tracing::warn!("probe snapshot storage failed: {e}"),
                             Err(_) => tracing::warn!("probe snapshot storage timed out"),
+                        }
+
+                        // Fleet probe → organ: degrade backends with model mismatch,
+                        // promote backends where mismatch is resolved + gate clear.
+                        for probe in &snapshot.probes {
+                            if let crate::domain::probe::ProbeDetails::Fleet(ref fleet) = probe.details {
+                                for dog in &fleet.dogs {
+                                    if dog.model_mismatch {
+                                        organ.degrade_backend(
+                                            &dog.dog_name,
+                                            format!(
+                                                "model mismatch: expected {:?}, actual {:?}",
+                                                dog.expected_model, dog.actual_model
+                                            ),
+                                        );
+                                    } else {
+                                        organ.promote_if_gate_clear(&dog.dog_name);
+                                    }
+                                }
+                            }
                         }
 
                         task_health.touch_probe_scheduler();
@@ -718,8 +739,15 @@ mod tests {
         let task_health = Arc::new(TaskHealth::new());
         let shutdown = CancellationToken::new();
 
-        let handle =
-            spawn_probe_scheduler(probes, storage, environment, task_health, shutdown.clone());
+        let organ = Arc::new(crate::organ::InferenceOrgan::boot_empty());
+        let handle = spawn_probe_scheduler(
+            probes,
+            storage,
+            environment,
+            organ,
+            task_health,
+            shutdown.clone(),
+        );
         shutdown.cancel();
         tokio::time::timeout(std::time::Duration::from_secs(2), handle)
             .await

@@ -7,6 +7,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tokio::sync::Mutex;
 
+use arc_swap::ArcSwap;
+
 use crate::domain::coord::CoordPort;
 use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
@@ -21,7 +23,7 @@ use crate::judge::Judge;
 // ── SHARED STATE ───────────────────────────────────────────
 
 pub struct AppState {
-    pub judge: Arc<Judge>,
+    pub judge: ArcSwap<Judge>,
     pub storage: Arc<dyn StoragePort>,
     pub coord: Arc<dyn CoordPort>,
     pub embedding: Arc<dyn EmbeddingPort>,
@@ -204,6 +206,39 @@ impl PerIpRateLimiter {
 }
 
 // ── REQUEST / RESPONSE TYPES ───────────────────────────────
+
+/// POST /dogs/register — register a new Dog at runtime.
+#[derive(Debug, Deserialize)]
+pub struct RegisterDogRequest {
+    /// Unique Dog ID (must not collide with existing).
+    pub name: String,
+    /// OpenAI-compatible base URL (e.g. "http://host:8080/v1").
+    pub base_url: String,
+    /// Model name for prompt routing.
+    pub model: String,
+    /// Optional API key for authenticated backends.
+    pub api_key: Option<String>,
+    /// Max context tokens (0 = unknown/unlimited). Default: 4096.
+    #[serde(default = "default_context_size")]
+    pub context_size: u32,
+    /// Timeout in seconds. Default: 60.
+    #[serde(default = "default_timeout")]
+    pub timeout_secs: u64,
+}
+
+fn default_context_size() -> u32 {
+    4096
+}
+fn default_timeout() -> u64 {
+    60
+}
+
+#[derive(Debug, Serialize)]
+pub struct RegisterDogResponse {
+    pub dog_id: String,
+    pub calibration: String,
+    pub roster_size: usize,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct JudgeRequest {

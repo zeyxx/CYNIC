@@ -139,12 +139,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let domain_prompts = Arc::new(infra::config::load_domain_prompts(&project_root));
 
     // ─── RING 2: Build Dogs (model-agnostic evaluators) ───────
-    let mut dogs: Vec<Box<dyn domain::dog::Dog>> = Vec::new();
+    let mut dogs: Vec<Arc<dyn domain::dog::Dog>> = Vec::new();
     let mut organ_handles: Vec<Option<organ::BackendHandle>> = Vec::new();
     let mut organ = organ::InferenceOrgan::boot_empty();
 
     // Always add the deterministic Dog (free, fast)
-    dogs.push(Box::new(dogs::deterministic::DeterministicDog));
+    dogs.push(Arc::new(dogs::deterministic::DeterministicDog));
     organ_handles.push(None); // deterministic dog has no backend to track
     klog!("[Ring 2] DeterministicDog loaded");
 
@@ -212,7 +212,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(rem) = cfg.remediation.clone() {
             remediation_configs.insert(cfg.name.clone(), rem);
         }
-        dogs.push(Box::new(
+        dogs.push(Arc::new(
             dogs::inference::InferenceDog::new(
                 backend,
                 cfg.name.clone(),
@@ -406,6 +406,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 3: REST API (for React/external clients) ────────
     let judge = Arc::new(judge);
+    let judge_swap = arc_swap::ArcSwap::from(Arc::clone(&judge));
     let usage_tracker = Arc::new(tokio::sync::Mutex::new(
         domain::usage::DogUsageTracker::new(),
     ));
@@ -525,7 +526,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
     let rest_state = Arc::new(api::rest::AppState {
-        judge: Arc::clone(&judge),
+        judge: judge_swap,
         storage: Arc::clone(&storage_port),
         coord: Arc::clone(&coord),
         embedding: Arc::clone(&embedding),
@@ -614,6 +615,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         probes,
         Arc::clone(&storage_port),
         Arc::clone(&environment),
+        Arc::clone(&organ),
         Arc::clone(&task_health),
         shutdown.clone(),
     );

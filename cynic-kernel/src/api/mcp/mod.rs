@@ -237,7 +237,7 @@ pub struct ObserveParams {
 /// CYNIC MCP Server — exposes kernel capabilities to AI agents.
 #[derive(Clone)]
 pub struct CynicMcp {
-    judge: Arc<Judge>,
+    judge: Arc<arc_swap::ArcSwap<Judge>>,
     storage: Arc<dyn StoragePort>,
     coord: Arc<dyn CoordPort>,
     usage: Arc<tokio::sync::Mutex<DogUsageTracker>>,
@@ -286,7 +286,7 @@ impl CynicMcp {
         event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     ) -> Self {
         Self {
-            judge,
+            judge: Arc::new(arc_swap::ArcSwap::from(judge)),
             storage,
             coord,
             embedding,
@@ -337,8 +337,9 @@ impl CynicMcp {
         }
 
         // Shared pipeline: embed → cache → crystals → sessions → evaluate → store → CCM
+        let judge = self.judge.load_full();
         let deps = crate::pipeline::PipelineDeps {
-            judge: &self.judge,
+            judge: &judge,
             storage: self.storage.as_ref(),
             embedding: self.embedding.as_ref(),
             usage: &self.usage,
@@ -437,7 +438,7 @@ impl CynicMcp {
     )]
     async fn cynic_health(&self) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
-        let dog_health = self.judge.dog_health();
+        let dog_health = self.judge.load_full().dog_health();
         let healthy_dogs = dog_health
             .iter()
             .filter(|(_, circuit, _)| circuit == "closed")
@@ -1124,7 +1125,7 @@ mod tests {
 
     /// Build a CynicMcp with real DeterministicDog + null storage/coord.
     fn test_mcp() -> CynicMcp {
-        let dogs: Vec<Box<dyn crate::domain::dog::Dog>> = vec![Box::new(DeterministicDog)];
+        let dogs: Vec<Arc<dyn crate::domain::dog::Dog>> = vec![Arc::new(DeterministicDog)];
         let breakers: Vec<Arc<dyn crate::domain::health_gate::HealthGate>> = dogs
             .iter()
             .map(|d| {
@@ -1324,7 +1325,7 @@ mod tests {
 
     #[tokio::test]
     async fn health_returns_critical_when_storage_down() {
-        let dogs: Vec<Box<dyn crate::domain::dog::Dog>> = vec![Box::new(DeterministicDog)];
+        let dogs: Vec<Arc<dyn crate::domain::dog::Dog>> = vec![Arc::new(DeterministicDog)];
         let breakers: Vec<Arc<dyn crate::domain::health_gate::HealthGate>> = dogs
             .iter()
             .map(|d| {

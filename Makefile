@@ -50,7 +50,7 @@ check:
 	cargo audit --deny warnings
 	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
 		echo ""; echo "▶ Integration tests (SurrealDB available)..."; \
-		cargo test -p cynic-kernel --release -- --ignored; \
+		cargo test -p cynic-kernel --release --test integration_storage --test storage_contract; \
 	else \
 		echo ""; echo "⚠ SurrealDB not running — skipping integration tests"; \
 	fi
@@ -84,10 +84,10 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 	fi; \
 	K2=$$(grep -rn 'reqwest' cynic-kernel/src/domain/ cynic-kernel/src/api/ cynic-kernel/src/main.rs --include='*.rs' | grep -v '//'); \
 	if [ -n "$$K2" ]; then echo "FAIL K2: reqwest outside backends/storage:"; echo "$$K2"; FAIL=1; fi; \
-	PIPELINE_FNS="format_crystal_context build_judgment_prompt compute_consensus"; \
+	PIPELINE_FNS="format_crystal_context compute_qscore trimmed_mean"; \
 	for FN in $$PIPELINE_FNS; do \
-		HITS=$$(grep -rn "$$FN" cynic-kernel/src/api/ --include='*.rs' | grep -v '//' | grep -v 'use '); \
-		if [ -n "$$HITS" ]; then echo "FAIL K3/K11: pipeline function '$$FN' duplicated in api/:"; echo "$$HITS"; FAIL=1; fi; \
+		HITS=$$(grep -rn "fn $$FN" cynic-kernel/src/api/ --include='*.rs' | grep -v '//'); \
+		if [ -n "$$HITS" ]; then echo "FAIL K3/K11: pipeline function '$$FN' reimplemented in api/:"; echo "$$HITS"; FAIL=1; fi; \
 	done; \
 	K4=$$(grep -rn 'trait \w*Port' cynic-kernel/src/domain/ --include='*.rs' | sed 's/.*trait //' | sed 's/<.*//' | sed 's/ .*//' | sort | uniq -d); \
 	if [ -n "$$K4" ]; then echo "FAIL K4: duplicate trait names in domain/:"; echo "$$K4"; FAIL=1; fi; \
@@ -333,7 +333,7 @@ check-storage: ## Integration tests against real SurrealDB (requires :8000)
 	@echo "══════════════════════════════════════════"
 	@echo "  CYNIC check-storage — integration tests"
 	@echo "══════════════════════════════════════════"
-	cargo test --workspace --release -- --ignored
+	cargo test -p cynic-kernel --release --test integration_storage --test storage_contract
 	@echo "✓ All checks passed"
 
 # ── Stage 2: Validated Commit ────────────────────────────────

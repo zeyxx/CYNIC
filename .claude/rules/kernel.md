@@ -9,7 +9,7 @@ globs: ["cynic-kernel/**"]
 
 K1. **Domain purity.** Zero `#[cfg]` in domain code (except `#[cfg(test)]`). — `make lint-rules`
 K2. **Every adapter through a port trait.** No raw `reqwest::Client` outside `backends/` and `storage/`. — `make lint-rules`
-K3. **No logic duplication across API surfaces.** Pipeline lives in `pipeline.rs`. REST and MCP call it. — `make lint-rules` (protected function list: `format_crystal_context`, `build_judgment_prompt`, `compute_consensus`)
+K3. **No logic duplication across API surfaces.** Pipeline lives in `pipeline.rs`. REST and MCP call it. — `make lint-rules` (protected function list: `format_crystal_context`, `compute_qscore`, `trimmed_mean`)
 K4. **No trait name collisions.** Each port trait name unique across `domain/`. — `make lint-rules`
 K5. **No cross-layer type leakage.** App services never import from `api/`. Domain never exposes infra types. — `make lint-rules` (checks `serde_json::Value`, `reqwest::`, `surrealdb::`, `axum::` in domain/)
 

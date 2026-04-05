@@ -145,6 +145,48 @@ impl InferenceOrgan {
             .collect()
     }
 
+    /// Degrade a backend due to external signal (e.g., FleetProbe model mismatch).
+    /// Idempotent — no-op if already Degraded or Dead, or if dog_id not found.
+    /// K14: unknown = degraded (safe default).
+    pub fn degrade_backend(&self, dog_id: &str, reason: String) {
+        let key = BackendId(dog_id.to_string());
+        if let Some(handle) = self.entries.get(&key)
+            && let Ok(mut guard) = handle.0.lock()
+            && !matches!(
+                guard.backend.health,
+                BackendHealth::Degraded { .. } | BackendHealth::Dead { .. }
+            )
+        {
+            tracing::warn!(
+                backend = %dog_id,
+                reason = %reason,
+                "organ: degrading backend — fleet probe signal"
+            );
+            guard.backend.health = BackendHealth::Degraded {
+                reason,
+                since: Instant::now(),
+            };
+        }
+    }
+
+    /// Promote a Degraded backend to Healthy if the ParseFailureGate is also clear.
+    /// Called when the external signal (e.g., model mismatch) is resolved.
+    /// No-op if: not found, not Degraded, or gate still tripped.
+    pub fn promote_if_gate_clear(&self, dog_id: &str) {
+        let key = BackendId(dog_id.to_string());
+        if let Some(handle) = self.entries.get(&key)
+            && let Ok(mut guard) = handle.0.lock()
+            && matches!(guard.backend.health, BackendHealth::Degraded { .. })
+            && !guard.gate.is_tripped()
+        {
+            tracing::info!(
+                backend = %dog_id,
+                "organ: fleet signal clear + gate clear — promoting to Healthy"
+            );
+            guard.backend.health = BackendHealth::Healthy;
+        }
+    }
+
     /// Restore persisted DogStats at boot. Merges into existing entries by dog_id.
     /// Dogs not found in loaded data keep their K14-pessimistic defaults.
     pub fn restore_stats(&self, loaded: &[(String, DogStats)]) {
