@@ -941,14 +941,18 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
-        // Phase 1: find groups of crystals with identical (domain, content) and count > 1.
+        // Phase 1: find groups of crystals with identical (domain, content).
+        // SurrealDB has no HAVING — filter duplicates (cnt > 1) in Rust.
         let groups_sql = "SELECT domain, content, \
                           array::group(meta::id(id)) AS ids, \
                           count() AS cnt \
                           FROM crystal \
-                          GROUP BY domain, content \
-                          HAVING cnt > 1";
-        let groups = self.query_one(groups_sql).await?;
+                          GROUP BY domain, content";
+        let all_groups = self.query_one(groups_sql).await?;
+        let groups: Vec<&serde_json::Value> = all_groups
+            .iter()
+            .filter(|g| g.get("cnt").and_then(|v| v.as_u64()).unwrap_or(0) > 1)
+            .collect();
 
         let mut removed: u64 = 0;
         for group in &groups {
