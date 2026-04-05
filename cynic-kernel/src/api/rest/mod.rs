@@ -32,7 +32,7 @@ use self::data::{
 };
 use self::health::{
     agents_handler, dogs_handler, health_handler, liveness_handler, metrics_handler,
-    readiness_handler,
+    readiness_handler, register_dog_handler,
 };
 use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
@@ -83,6 +83,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/events", get(events::events_handler))
         .route("/judge", post(judge_handler))
         .route("/dogs", get(dogs_handler))
+        .route("/dogs/register", post(register_dog_handler))
         .route("/crystals", get(crystals_handler))
         .route("/crystal", post(create_crystal_handler))
         .route(

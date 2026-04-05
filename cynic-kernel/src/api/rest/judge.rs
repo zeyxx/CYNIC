@@ -62,8 +62,9 @@ pub async fn judge_handler(
     }
 
     // Shared pipeline: embed → cache → crystals → sessions → evaluate → store → CCM
+    let judge = state.judge.load_full();
     let deps = crate::pipeline::PipelineDeps {
-        judge: &state.judge,
+        judge: &judge,
         storage: state.storage.as_ref(),
         embedding: state.embedding.as_ref(),
         usage: &state.usage,

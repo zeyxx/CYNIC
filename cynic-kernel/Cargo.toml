@@ -32,6 +32,7 @@ bitflags = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 thiserror = "2.0.18"
+arc-swap = "1"
 
 [lints]
 workspace = true

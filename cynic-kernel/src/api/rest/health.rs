@@ -12,7 +12,7 @@ use crate::domain::dog::PHI_INV;
 use crate::domain::health_gate::system_health_status;
 
 pub async fn dogs_handler(State(state): State<Arc<AppState>>) -> Json<Vec<String>> {
-    Json(state.judge.dog_ids())
+    Json(state.judge.load_full().dog_ids())
 }
 
 /// GET /live — Liveness probe. Returns 200 if the process is running.
@@ -25,7 +25,7 @@ pub async fn liveness_handler() -> StatusCode {
 /// F22: Caches DB ping result (30s TTL) to avoid hammering storage on every probe.
 /// Dog health is O(1) (reads circuit breaker state) — no caching needed.
 pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode {
-    let dog_health = state.judge.dog_health();
+    let dog_health = state.judge.load_full().dog_health();
     let healthy_dogs = dog_health
         .iter()
         .filter(|(_, circuit, _)| circuit == "closed")
@@ -72,7 +72,8 @@ pub async fn health_handler(
         None => true, // No auth configured → everyone gets full details
     };
 
-    let dog_health = state.judge.dog_health();
+    let judge = state.judge.load_full();
+    let dog_health = judge.dog_health();
     let healthy_dogs = dog_health
         .iter()
         .filter(|(_, circuit, _)| circuit == "closed")
@@ -130,8 +131,7 @@ pub async fn health_handler(
         })
         .collect();
 
-    let organ_quality: Vec<serde_json::Value> = state
-        .judge
+    let organ_quality: Vec<serde_json::Value> = judge
         .dog_quality_snapshot()
         .into_iter()
         .map(|(id, stats)| {
@@ -278,13 +278,15 @@ pub async fn metrics_handler(
             .collect();
         dog_data.sort_by(|a, b| a.0.cmp(&b.0));
 
-        let circuit_states = state.judge.dog_health();
+        let judge = state.judge.load_full();
+        let circuit_states = judge.dog_health();
         crate::domain::metrics::append_dog_metrics(&mut out, &dog_data, &circuit_states);
     }
 
     // Organ quality metrics
     {
-        let snapshots = state.judge.dog_quality_snapshot();
+        let judge = state.judge.load_full();
+        let snapshots = judge.dog_quality_snapshot();
         crate::domain::metrics::append_organ_metrics(&mut out, &snapshots);
     }
 
@@ -300,3 +302,136 @@ pub async fn metrics_handler(
 
 // Logic tests live in domain::health_gate::tests — single source of truth.
 // This handler only maps (status, is_healthy) → HTTP status code.
+
+/// POST /dogs/register — register a new Dog at runtime via calibration challenge.
+/// Auth-gated. Builds a new Judge with the additional Dog, validates it can score,
+/// then atomically swaps the roster via ArcSwap.
+pub async fn register_dog_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<super::types::RegisterDogRequest>,
+) -> Result<Json<super::types::RegisterDogResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let name = req.name.trim().to_string();
+    if name.is_empty() || name.len() > 64 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "name must be 1-64 characters".into(),
+            }),
+        ));
+    }
+
+    let current = state.judge.load_full();
+    if current.dog_ids().iter().any(|id| id == &name) {
+        return Err((
+            StatusCode::CONFLICT,
+            Json(ErrorResponse {
+                error: format!("Dog '{name}' already exists in roster"),
+            }),
+        ));
+    }
+
+    let cfg = crate::infra::config::BackendConfig {
+        name: name.clone(),
+        base_url: req.base_url,
+        model: req.model,
+        api_key: req.api_key,
+        context_size: req.context_size,
+        timeout_secs: req.timeout_secs,
+        auth_style: crate::infra::config::AuthStyle::Bearer,
+        max_tokens: 4096,
+        temperature: 0.3,
+        disable_thinking: false,
+        json_mode: false,
+        cost_input_per_mtok: 0.0,
+        cost_output_per_mtok: 0.0,
+        health_url: None,
+        remediation: None,
+    };
+
+    let backend = match crate::backends::openai::OpenAiCompatBackend::new(cfg.clone()) {
+        Ok(b) => Arc::new(b),
+        Err(e) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: format!("backend init failed: {e}"),
+                }),
+            ));
+        }
+    };
+
+    let new_dog: Arc<dyn crate::domain::dog::Dog> =
+        Arc::new(crate::dogs::inference::InferenceDog::new(
+            backend,
+            name.clone(),
+            cfg.context_size,
+            cfg.timeout_secs,
+        ));
+
+    // Calibration challenge: evaluate a known stimulus, validate_scores() must pass
+    let calibration_stimulus = crate::domain::dog::Stimulus {
+        content: "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 — Ruy Lopez opening in chess.".into(),
+        context: None,
+        domain: Some("chess".into()),
+    };
+
+    let scores = tokio::time::timeout(
+        std::time::Duration::from_secs(cfg.timeout_secs + 5),
+        new_dog.evaluate(&calibration_stimulus),
+    )
+    .await
+    .map_err(|_elapsed| {
+        (
+            StatusCode::GATEWAY_TIMEOUT,
+            Json(ErrorResponse {
+                error: format!("calibration timed out ({}s)", cfg.timeout_secs + 5),
+            }),
+        )
+    })?
+    .map_err(|e| {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(ErrorResponse {
+                error: format!("calibration failed: {e}"),
+            }),
+        )
+    })?;
+
+    crate::domain::dog::validate_scores(&scores).map_err(|e| {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(ErrorResponse {
+                error: format!("calibration rejected: {e}"),
+            }),
+        )
+    })?;
+
+    // Build new Judge: clone existing Arcs (refcount++) + add new Dog
+    let mut dogs: Vec<Arc<dyn crate::domain::dog::Dog>> =
+        current.dogs().iter().map(Arc::clone).collect();
+    let mut breakers: Vec<Arc<dyn crate::domain::health_gate::HealthGate>> =
+        current.breakers().iter().map(Arc::clone).collect();
+    let mut handles: Vec<Option<crate::organ::BackendHandle>> = current.organ_handles().to_vec();
+
+    let new_breaker = Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(
+        name.clone(),
+    )) as Arc<dyn crate::domain::health_gate::HealthGate>;
+
+    dogs.push(new_dog);
+    breakers.push(new_breaker);
+    handles.push(None);
+
+    let new_judge = crate::judge::Judge::new(dogs, breakers).with_organ_handles(handles);
+    let chain_hash = current.last_hash_snapshot();
+    new_judge.seed_chain(chain_hash);
+
+    let roster_size = new_judge.dog_ids().len();
+    state.judge.store(Arc::new(new_judge));
+
+    tracing::info!(dog_id = %name, roster_size, "Dog registered via /dogs/register");
+    Ok(Json(super::types::RegisterDogResponse {
+        dog_id: name,
+        calibration: "passed".into(),
+        roster_size,
+    }))
+}

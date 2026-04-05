@@ -10,7 +10,7 @@ use cynic_kernel::infra::circuit_breaker::CircuitBreaker;
 use cynic_kernel::judge::Judge;
 use std::sync::Arc;
 
-fn test_judge(dogs: Vec<Box<dyn Dog>>) -> Judge {
+fn test_judge(dogs: Vec<Arc<dyn Dog>>) -> Judge {
     let breakers: Vec<Arc<dyn HealthGate>> = dogs
         .iter()
         .map(|d| Arc::new(CircuitBreaker::new(d.id().to_string())) as Arc<dyn HealthGate>)
@@ -20,7 +20,7 @@ fn test_judge(dogs: Vec<Box<dyn Dog>>) -> Judge {
 
 #[tokio::test]
 async fn deterministic_dog_produces_valid_verdict() {
-    let judge = test_judge(vec![Box::new(DeterministicDog)]);
+    let judge = test_judge(vec![Arc::new(DeterministicDog)]);
 
     let stimulus = Stimulus {
         content: "According to the data, this approach probably works because of evidence from X"
@@ -64,7 +64,7 @@ async fn deterministic_dog_produces_valid_verdict() {
 
 #[tokio::test]
 async fn absolute_claim_scores_lower() {
-    let judge = test_judge(vec![Box::new(DeterministicDog)]);
+    let judge = test_judge(vec![Arc::new(DeterministicDog)]);
 
     let humble = Stimulus {
         content: "This probably works in most cases according to the data".into(),

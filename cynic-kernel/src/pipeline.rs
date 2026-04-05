@@ -617,6 +617,7 @@ mod tests {
     use crate::domain::embedding::NullEmbedding;
     use crate::domain::health_gate::HealthGate;
     use crate::domain::storage::NullStorage;
+    use std::sync::Arc;
 
     struct FixedDog {
         name: String,
@@ -633,7 +634,7 @@ mod tests {
         }
     }
 
-    fn test_judge(dogs: Vec<Box<dyn Dog>>) -> Judge {
+    fn test_judge(dogs: Vec<Arc<dyn Dog>>) -> Judge {
         let breakers: Vec<std::sync::Arc<dyn HealthGate>> = dogs
             .iter()
             .map(|d| {
@@ -648,7 +649,7 @@ mod tests {
     #[tokio::test]
     async fn pipeline_runs_with_null_storage_and_null_embedding() {
         // Minimal smoke test: pipeline completes with NullStorage + NullEmbedding
-        let dogs: Vec<Box<dyn Dog>> = vec![Box::new(crate::dogs::deterministic::DeterministicDog)];
+        let dogs: Vec<Arc<dyn Dog>> = vec![Arc::new(crate::dogs::deterministic::DeterministicDog)];
         let judge = test_judge(dogs);
         let storage = NullStorage;
         let embedding = NullEmbedding;
@@ -707,7 +708,7 @@ mod tests {
 
     #[tokio::test]
     async fn pipeline_tracks_usage() {
-        let dogs: Vec<Box<dyn Dog>> = vec![Box::new(crate::dogs::deterministic::DeterministicDog)];
+        let dogs: Vec<Arc<dyn Dog>> = vec![Arc::new(crate::dogs::deterministic::DeterministicDog)];
         let judge = test_judge(dogs);
         let storage = NullStorage;
         let embedding = NullEmbedding;
@@ -863,7 +864,7 @@ mod tests {
         use crate::domain::embedding::FixedEmbedding;
         use crate::storage::memory::InMemoryStorage;
 
-        let dogs: Vec<Box<dyn Dog>> = vec![Box::new(crate::dogs::deterministic::DeterministicDog)];
+        let dogs: Vec<Arc<dyn Dog>> = vec![Arc::new(crate::dogs::deterministic::DeterministicDog)];
         let judge = test_judge(dogs);
         let storage = InMemoryStorage::new();
         // 4-dim unit vector — all stimuli get the same embedding
@@ -940,9 +941,9 @@ mod tests {
         use crate::storage::memory::InMemoryStorage;
 
         // Need 2 Dogs for quorum (MIN_QUORUM = 2)
-        let dogs: Vec<Box<dyn Dog>> = vec![
-            Box::new(crate::dogs::deterministic::DeterministicDog),
-            Box::new(FixedDog {
+        let dogs: Vec<Arc<dyn Dog>> = vec![
+            Arc::new(crate::dogs::deterministic::DeterministicDog),
+            Arc::new(FixedDog {
                 name: "quorum-helper".into(),
                 scores: AxiomScores {
                     fidelity: 0.5,

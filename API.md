@@ -315,6 +315,28 @@ Compliance trend across recent sessions. Query param: `limit` (default 20, max 1
 
 Returns `string[]` — list of active Dog IDs (e.g. `["deterministic-dog", "gemini-flash", "qwen-7b-hf", "qwen35-9b-gpu", "gemma-4b-ubuntu"]`).
 
+### POST /dogs/register
+
+Register a new Dog at runtime via calibration challenge. Auth-gated.
+
+**Request body:**
+```json
+{
+  "name": "my-new-dog",
+  "base_url": "http://host:8080/v1",
+  "model": "my-model",
+  "api_key": "optional-key",
+  "context_size": 4096,
+  "timeout_secs": 60
+}
+```
+
+**Calibration:** The new Dog must evaluate a known stimulus and pass `validate_scores()` (no zero floods, no degenerate variance).
+
+**Response:** `{ "dog_id": "my-new-dog", "calibration": "passed", "roster_size": 6 }`
+
+**Errors:** `400` (bad config), `409` (name collision), `422` (calibration failed), `504` (calibration timeout).
+
 ### GET /agents
 
 Active agent sessions and claims. Returns `{ active_agents, active_claims, agents: [...], claims: [...] }`.

@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 pub struct Judge {
-    dogs: Vec<Box<dyn Dog>>,
+    dogs: Vec<Arc<dyn Dog>>,
     breakers: Vec<Arc<dyn HealthGate>>,
     /// Organ handles — one per dog (same index). None for dogs without organ tracking.
     organ_handles: Vec<Option<BackendHandle>>,
@@ -27,7 +27,7 @@ impl std::fmt::Debug for Judge {
 }
 
 impl Judge {
-    pub fn new(dogs: Vec<Box<dyn Dog>>, breakers: Vec<Arc<dyn HealthGate>>) -> Self {
+    pub fn new(dogs: Vec<Arc<dyn Dog>>, breakers: Vec<Arc<dyn HealthGate>>) -> Self {
         assert_eq!(dogs.len(), breakers.len(), "dogs and breakers must be 1:1");
         let n = dogs.len();
         Self {
@@ -55,6 +55,21 @@ impl Judge {
         if let Ok(mut lock) = self.last_hash.lock() {
             *lock = prev_hash;
         }
+    }
+
+    /// Clone internal Arcs for roster reconstruction (refcount++, not deep copy).
+    pub fn dogs(&self) -> &[Arc<dyn Dog>] {
+        &self.dogs
+    }
+
+    /// Clone internal organ handles for roster reconstruction.
+    pub fn organ_handles(&self) -> &[Option<BackendHandle>] {
+        &self.organ_handles
+    }
+
+    /// Snapshot the current chain hash (for preserving across Judge swaps).
+    pub fn last_hash_snapshot(&self) -> Option<String> {
+        self.last_hash.lock().ok().and_then(|g| g.clone())
     }
 
     /// Return list of available Dog IDs.
@@ -675,7 +690,7 @@ mod tests {
     }
 
     /// Convenience: build Judge with auto-created CircuitBreaker per Dog (test-only).
-    fn test_judge(dogs: Vec<Box<dyn Dog>>) -> Judge {
+    fn test_judge(dogs: Vec<Arc<dyn Dog>>) -> Judge {
         let breakers: Vec<Arc<dyn HealthGate>> = dogs
             .iter()
             .map(|d| {
@@ -701,7 +716,7 @@ mod tests {
 
     #[tokio::test]
     async fn single_dog_produces_verdict() {
-        let judge = test_judge(vec![Box::new(FixedDog {
+        let judge = test_judge(vec![Arc::new(FixedDog {
             name: "test".into(),
             scores: AxiomScores {
                 fidelity: 0.5,
@@ -729,7 +744,7 @@ mod tests {
     #[tokio::test]
     async fn multiple_dogs_averaged() {
         let judge = test_judge(vec![
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "high".into(),
                 scores: AxiomScores {
                     fidelity: 0.8,
@@ -742,7 +757,7 @@ mod tests {
                     ..Default::default()
                 },
             }),
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "low".into(),
                 scores: AxiomScores {
                     fidelity: 0.2,
@@ -771,8 +786,8 @@ mod tests {
     #[tokio::test]
     async fn surviving_dog_still_produces_verdict() {
         let judge = test_judge(vec![
-            Box::new(FailDog),
-            Box::new(FixedDog {
+            Arc::new(FailDog),
+            Arc::new(FixedDog {
                 name: "survivor".into(),
                 scores: AxiomScores {
                     fidelity: 0.5,
@@ -796,7 +811,7 @@ mod tests {
 
     #[tokio::test]
     async fn all_dogs_fail_returns_error() {
-        let judge = test_judge(vec![Box::new(FailDog)]);
+        let judge = test_judge(vec![Arc::new(FailDog)]);
         let result = judge
             .evaluate(&test_stimulus(), None, &test_metrics())
             .await;
@@ -815,7 +830,7 @@ mod tests {
     #[tokio::test]
     async fn residual_detection_flags_high_disagreement() {
         let judge = test_judge(vec![
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "optimist".into(),
                 scores: AxiomScores {
                     fidelity: 0.9,
@@ -828,7 +843,7 @@ mod tests {
                     ..Default::default()
                 },
             }),
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "pessimist".into(),
                 scores: AxiomScores {
                     fidelity: 0.1,
@@ -859,7 +874,7 @@ mod tests {
     #[tokio::test]
     async fn no_anomaly_when_dogs_agree() {
         let judge = test_judge(vec![
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "a".into(),
                 scores: AxiomScores {
                     fidelity: 0.5,
@@ -872,7 +887,7 @@ mod tests {
                     ..Default::default()
                 },
             }),
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "b".into(),
                 scores: AxiomScores {
                     fidelity: 0.52,
@@ -901,7 +916,7 @@ mod tests {
     #[tokio::test]
     async fn filter_selects_specific_dogs() {
         let judge = test_judge(vec![
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "alpha".into(),
                 scores: AxiomScores {
                     fidelity: 0.9,
@@ -914,7 +929,7 @@ mod tests {
                     ..Default::default()
                 },
             }),
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "beta".into(),
                 scores: AxiomScores {
                     fidelity: 0.1,
@@ -940,7 +955,7 @@ mod tests {
 
     #[tokio::test]
     async fn filter_with_unknown_id_returns_error() {
-        let judge = test_judge(vec![Box::new(FixedDog {
+        let judge = test_judge(vec![Arc::new(FixedDog {
             name: "alpha".into(),
             scores: AxiomScores::default(),
         })]);
@@ -954,7 +969,7 @@ mod tests {
 
     #[tokio::test]
     async fn stimulus_summary_truncated_at_100_chars() {
-        let judge = test_judge(vec![Box::new(FixedDog {
+        let judge = test_judge(vec![Arc::new(FixedDog {
             name: "t".into(),
             scores: AxiomScores {
                 fidelity: 0.5,
@@ -983,8 +998,8 @@ mod tests {
     #[tokio::test]
     async fn circuit_breaker_skips_open_dog() {
         let judge = test_judge(vec![
-            Box::new(FailDog),
-            Box::new(FixedDog {
+            Arc::new(FailDog),
+            Arc::new(FixedDog {
                 name: "healthy".into(),
                 scores: AxiomScores {
                     fidelity: 0.5,
@@ -1021,7 +1036,7 @@ mod tests {
     #[tokio::test]
     async fn median_reasoning_with_three_dogs() {
         let judge = test_judge(vec![
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "low".into(),
                 scores: AxiomScores {
                     fidelity: 0.2,
@@ -1037,7 +1052,7 @@ mod tests {
                     ..Default::default()
                 },
             }),
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "mid".into(),
                 scores: AxiomScores {
                     fidelity: 0.5,
@@ -1053,7 +1068,7 @@ mod tests {
                     ..Default::default()
                 },
             }),
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "high".into(),
                 scores: AxiomScores {
                     fidelity: 0.8,
@@ -1082,11 +1097,11 @@ mod tests {
     #[tokio::test]
     async fn dog_health_reports_all_dogs() {
         let judge = test_judge(vec![
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "a".into(),
                 scores: AxiomScores::default(),
             }),
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "b".into(),
                 scores: AxiomScores::default(),
             }),
@@ -1102,11 +1117,11 @@ mod tests {
     #[tokio::test]
     async fn dog_ids_returns_all_names() {
         let judge = test_judge(vec![
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "x".into(),
                 scores: AxiomScores::default(),
             }),
-            Box::new(FixedDog {
+            Arc::new(FixedDog {
                 name: "y".into(),
                 scores: AxiomScores::default(),
             }),
@@ -1117,7 +1132,7 @@ mod tests {
 
     #[tokio::test]
     async fn verdict_has_valid_uuid_and_timestamp() {
-        let judge = test_judge(vec![Box::new(FixedDog {
+        let judge = test_judge(vec![Arc::new(FixedDog {
             name: "t".into(),
             scores: AxiomScores {
                 fidelity: 0.5,
@@ -1276,7 +1291,7 @@ mod tests {
 
     #[tokio::test]
     async fn verdict_chain_links_hashes() {
-        let judge = test_judge(vec![Box::new(FixedDog {
+        let judge = test_judge(vec![Arc::new(FixedDog {
             name: "chain".into(),
             scores: AxiomScores {
                 fidelity: 0.5,
@@ -1311,7 +1326,7 @@ mod tests {
 
     #[test]
     fn seed_chain_sets_initial_hash() {
-        let judge = test_judge(vec![Box::new(FixedDog {
+        let judge = test_judge(vec![Arc::new(FixedDog {
             name: "s".into(),
             scores: AxiomScores::default(),
         })]);
@@ -1324,7 +1339,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_integrity_passes_for_valid_verdict() {
-        let judge = test_judge(vec![Box::new(FixedDog {
+        let judge = test_judge(vec![Arc::new(FixedDog {
             name: "v".into(),
             scores: AxiomScores {
                 fidelity: 0.5,
@@ -1350,7 +1365,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_integrity_fails_on_tampered_score() {
-        let judge = test_judge(vec![Box::new(FixedDog {
+        let judge = test_judge(vec![Arc::new(FixedDog {
             name: "v".into(),
             scores: AxiomScores {
                 fidelity: 0.5,
@@ -1378,7 +1393,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_integrity_fails_on_tampered_summary() {
-        let judge = test_judge(vec![Box::new(FixedDog {
+        let judge = test_judge(vec![Arc::new(FixedDog {
             name: "v".into(),
             scores: AxiomScores {
                 fidelity: 0.5,
@@ -1440,7 +1455,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_integrity_across_chain() {
-        let judge = test_judge(vec![Box::new(FixedDog {
+        let judge = test_judge(vec![Arc::new(FixedDog {
             name: "chain".into(),
             scores: AxiomScores {
                 fidelity: 0.5,
@@ -1510,7 +1525,7 @@ mod tests {
             },
         });
 
-        let judge = test_judge(vec![Box::new(good_dog), Box::new(bad_dog)])
+        let judge = test_judge(vec![Arc::new(good_dog), Arc::new(bad_dog)])
             .with_organ_handles(vec![None, Some(handle)]);
 
         let metrics = Arc::new(test_metrics());
@@ -1522,5 +1537,128 @@ mod tests {
         // bad dog is quality-degraded → should be skipped, only good dog scored
         assert_eq!(verdict.dog_scores.len(), 1);
         assert_eq!(verdict.dog_scores[0].dog_id, "good");
+    }
+}
+
+#[cfg(test)]
+mod roster_tests {
+    use super::*;
+    use arc_swap::ArcSwap;
+
+    struct FixedDog {
+        name: String,
+        scores: AxiomScores,
+    }
+
+    #[async_trait::async_trait]
+    impl Dog for FixedDog {
+        fn id(&self) -> &str {
+            &self.name
+        }
+        async fn evaluate(&self, _: &Stimulus) -> Result<AxiomScores, DogError> {
+            Ok(self.scores.clone())
+        }
+    }
+
+    fn make_dog(name: &str) -> Arc<dyn Dog> {
+        Arc::new(FixedDog {
+            name: name.into(),
+            scores: AxiomScores {
+                fidelity: 0.5,
+                phi: 0.4,
+                verify: 0.3,
+                culture: 0.5,
+                burn: 0.4,
+                sovereignty: 0.3,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        })
+    }
+
+    fn make_breaker(name: &str) -> Arc<dyn HealthGate> {
+        Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(
+            name.into(),
+        ))
+    }
+
+    #[tokio::test]
+    async fn arcswap_roster_swap_preserves_chain_and_adds_dog() {
+        // Start with 1 Dog
+        let dog_a = make_dog("alpha");
+        let breaker_a = make_breaker("alpha");
+        let judge = Judge::new(vec![dog_a.clone()], vec![breaker_a.clone()]);
+        judge.seed_chain(Some("seed-hash-123".into()));
+
+        // Wrap in ArcSwap (simulates AppState)
+        let swap = ArcSwap::from_pointee(judge);
+
+        // Load current, verify 1 Dog
+        let current = swap.load_full();
+        assert_eq!(current.dog_ids(), vec!["alpha"]);
+
+        // Simulate registration: clone Arcs + add new Dog
+        let mut dogs: Vec<Arc<dyn Dog>> = current.dogs().iter().map(Arc::clone).collect();
+        let mut breakers: Vec<Arc<dyn HealthGate>> =
+            current.breakers().iter().map(Arc::clone).collect();
+        let mut handles: Vec<Option<crate::organ::BackendHandle>> =
+            current.organ_handles().to_vec();
+
+        dogs.push(make_dog("beta"));
+        breakers.push(make_breaker("beta"));
+        handles.push(None);
+
+        let new_judge = Judge::new(dogs, breakers).with_organ_handles(handles);
+        // Preserve chain
+        let chain = current.last_hash_snapshot();
+        assert_eq!(chain, Some("seed-hash-123".into()));
+        new_judge.seed_chain(chain);
+
+        // Atomic swap
+        swap.store(Arc::new(new_judge));
+
+        // Verify new roster
+        let updated = swap.load_full();
+        let ids = updated.dog_ids();
+        assert_eq!(ids.len(), 2);
+        assert!(ids.contains(&"alpha".to_string()));
+        assert!(ids.contains(&"beta".to_string()));
+
+        // Verify chain preserved
+        assert_eq!(updated.last_hash_snapshot(), Some("seed-hash-123".into()));
+
+        // Verify old judge still accessible (concurrent readers)
+        assert_eq!(current.dog_ids(), vec!["alpha"]);
+    }
+
+    #[tokio::test]
+    async fn new_dog_evaluates_after_swap() {
+        let dog_a = make_dog("alpha");
+        let swap = ArcSwap::from_pointee(Judge::new(vec![dog_a], vec![make_breaker("alpha")]));
+
+        // Add beta
+        let current = swap.load_full();
+        let mut dogs: Vec<Arc<dyn Dog>> = current.dogs().iter().map(Arc::clone).collect();
+        let mut breakers: Vec<Arc<dyn HealthGate>> =
+            current.breakers().iter().map(Arc::clone).collect();
+        dogs.push(make_dog("beta"));
+        breakers.push(make_breaker("beta"));
+        let new_judge = Judge::new(dogs, breakers);
+        swap.store(Arc::new(new_judge));
+
+        // Evaluate with new roster — both Dogs should contribute
+        let stimulus = Stimulus {
+            content: "test".into(),
+            context: None,
+            domain: None,
+        };
+        let verdict = swap
+            .load_full()
+            .evaluate(&stimulus, None, &Metrics::new())
+            .await
+            .unwrap();
+        assert_eq!(verdict.dog_scores.len(), 2);
+        assert!(verdict.dog_id.contains("alpha"));
+        assert!(verdict.dog_id.contains("beta"));
     }
 }

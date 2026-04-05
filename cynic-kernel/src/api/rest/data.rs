@@ -100,7 +100,8 @@ pub async fn crystal_handler(
 pub async fn usage_handler(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let usage = state.usage.lock().await;
     let merged = usage.merged_dogs();
-    let active_ids: std::collections::HashSet<String> = state.judge.dog_ids().into_iter().collect();
+    let active_ids: std::collections::HashSet<String> =
+        state.judge.load_full().dog_ids().into_iter().collect();
 
     let mut active_dogs: Vec<serde_json::Value> = Vec::new();
     let mut retired_tokens: u64 = 0;
