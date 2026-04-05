@@ -190,9 +190,12 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 cooldown_secs: r.cooldown_secs.unwrap_or(60),
             });
 
-            // health_url: explicit if provided, derived if remediation exists, None for cloud APIs
+            // health_url: explicit if provided, derived for all sovereign backends (http://),
+            // None for cloud APIs (https://) — health loop skips them.
+            // Previously only derived when remediation existed, which left local Dogs unprobed.
+            let is_sovereign = entry.base_url.starts_with("http://");
             let health_url = entry.health_url
-                .or_else(|| remediation.as_ref().map(|_| derive_health_url(&entry.base_url)));
+                .or_else(|| if is_sovereign { Some(derive_health_url(&entry.base_url)) } else { None });
 
             Some(BackendConfig {
                 name,
