@@ -23,6 +23,8 @@ pub enum ScoreFailureKind {
     ParseError,
     /// Backend unreachable or timed out.
     Timeout,
+    /// Backend returned HTTP error or was unreachable. Infrastructure issue, not model quality.
+    ApiError,
 }
 
 /// Per-Dog rolling counters. Updated after each Dog evaluation.
@@ -41,6 +43,8 @@ pub struct DogStats {
     pub parse_error_count: u64,
     /// Timeout failures.
     pub timeout_count: u64,
+    /// API/infrastructure failures (backend unreachable, HTTP errors).
+    pub api_error_count: u64,
     /// Timestamp of last successful score (K14: None = never succeeded).
     pub last_success: Option<Instant>,
     /// Cumulative latency of successful calls (ms). Used to compute mean.
@@ -56,6 +60,7 @@ impl DogStats {
             collapse_count: 0,
             parse_error_count: 0,
             timeout_count: 0,
+            api_error_count: 0,
             last_success: None,
             total_latency_ms: 0,
         }
@@ -88,6 +93,7 @@ impl DogStats {
             ScoreFailureKind::Collapse => self.collapse_count += 1,
             ScoreFailureKind::ParseError => self.parse_error_count += 1,
             ScoreFailureKind::Timeout => self.timeout_count += 1,
+            ScoreFailureKind::ApiError => self.api_error_count += 1,
         }
     }
 

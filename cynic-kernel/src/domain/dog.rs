@@ -4,6 +4,7 @@
 //! The kernel phi-bounds and aggregates — the Dog never self-caps.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 // ── PHI CONSTANTS ──────────────────────────────────────────
 pub const PHI: f64 = 1.618_033_988_749_895;
@@ -151,6 +152,10 @@ pub struct Verdict {
     /// Consumed by handlers immediately after evaluation to call usage.record_failure().
     #[serde(default)]
     pub failed_dogs: Vec<String>,
+    /// Error details per failed Dog (dog_id → error description). Ephemeral, not persisted.
+    /// Used by event bus to emit DogFailed events with the actual failure reason.
+    #[serde(default)]
+    pub failed_dog_errors: HashMap<String, String>,
     /// BLAKE3 hash of this verdict's content (L1 integrity)
     #[serde(default)]
     pub integrity_hash: Option<String>,

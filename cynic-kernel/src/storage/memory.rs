@@ -219,8 +219,9 @@ impl StoragePort for InMemoryStorage {
         // State transition (mirrors surreal.rs SQL thresholds)
         crystal.state = compute_state(crystal.observations, crystal.confidence);
 
-        // Provenance: track which verdicts contributed to this crystal
+        // Provenance: track which verdicts contributed to this crystal (capped to prevent unbounded growth)
         if !verdict_id.is_empty()
+            && crystal.contributing_verdicts.len() < crate::domain::ccm::MAX_CONTRIBUTING_VERDICTS
             && !crystal
                 .contributing_verdicts
                 .contains(&verdict_id.to_string())
