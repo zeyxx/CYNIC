@@ -273,6 +273,7 @@ impl Judge {
         let mut dog_scores: Vec<DogScore> = Vec::new();
         let mut errors: Vec<String> = Vec::new();
         let mut failed_dogs: Vec<String> = Vec::new();
+        let mut failed_dog_errors: std::collections::HashMap<String, String> = Default::default();
 
         for (id, result, elapsed_ms) in results {
             // Find the circuit breaker and organ handle for this dog (by index).
@@ -346,7 +347,9 @@ impl Judge {
                                 ScoreOutcome::Failure(ScoreFailureKind::ParseError)
                             }
                             DogError::Timeout => ScoreOutcome::Failure(ScoreFailureKind::Timeout),
-                            _ => ScoreOutcome::Failure(ScoreFailureKind::ParseError),
+                            DogError::ApiError(_) | DogError::RateLimited(_) => {
+                                ScoreOutcome::Failure(ScoreFailureKind::ApiError)
+                            }
                         };
                         InferenceOrgan::update_stats_entry(h, outcome);
                     }
@@ -362,6 +365,13 @@ impl Judge {
                         error = %e,
                         "Dog failed"
                     );
+                    let error_kind = match e {
+                        DogError::ApiError(_) => "api_error",
+                        DogError::ParseError(_) => "parse_error",
+                        DogError::RateLimited(_) => "rate_limited",
+                        DogError::Timeout => "timeout",
+                    };
+                    failed_dog_errors.insert(id.clone(), error_kind.to_string());
                     failed_dogs.push(id.clone());
                     errors.push(format!("{id}: {e}"));
                 }
@@ -527,6 +537,7 @@ impl Judge {
             max_disagreement,
             anomaly_axiom,
             failed_dogs,
+            failed_dog_errors,
             integrity_hash: Some(hash),
             prev_hash,
         })
@@ -1417,6 +1428,7 @@ mod tests {
             anomaly_axiom: None,
             voter_count: 1,
             failed_dogs: vec![],
+            failed_dog_errors: Default::default(),
             integrity_hash: None, // no hash
             prev_hash: None,
         };

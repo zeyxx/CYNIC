@@ -15,6 +15,8 @@ use crate::domain::dog::{PHI_INV, PHI_INV2};
 pub const MIN_CRYSTALLIZATION_CYCLES: u32 = 21;
 /// Fibonacci F(13) = 233 — canonical status (deeply crystallized).
 pub const CANONICAL_CYCLES: u32 = 233;
+/// Max provenance entries per crystal. Prevents unbounded Vec growth on long-lived crystals.
+pub const MAX_CONTRIBUTING_VERDICTS: usize = 500;
 
 // ── CRYSTAL ─────────────────────────────────────────────────
 /// A crystallized truth — persistent wisdom extracted from ephemeral verdicts.

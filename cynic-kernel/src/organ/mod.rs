@@ -101,7 +101,13 @@ impl InferenceOrgan {
             }
             ScoreOutcome::Failure(failure_kind) => {
                 guard.stats.record_failure(failure_kind);
-                guard.gate.record_failure();
+                // Only model-quality failures (parse/zero/collapse) feed the ParseFailureGate.
+                // Infra failures (timeout/api_error) are tracked in DogStats but don't degrade
+                // model quality assessment — the model may be fine, just unreachable.
+                match failure_kind {
+                    ScoreFailureKind::Timeout | ScoreFailureKind::ApiError => {}
+                    _ => guard.gate.record_failure(),
+                }
                 // K14: gate trip → degrade backend (safe default, not optimistic)
                 if guard.gate.is_tripped() {
                     let rate = guard.stats.json_valid_rate();

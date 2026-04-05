@@ -260,6 +260,29 @@ fn extract_scores_lenient(json_str: &str) -> Result<AxiomScores, DogError> {
         ));
     }
 
+    // Warn on missing axioms — silent 0.0 defaults can sneak through validate_scores()
+    // if ≤3 axioms are missing (under the MAX_ZERO_SCORES threshold).
+    let all_axioms = [
+        "fidelity",
+        "phi",
+        "verify",
+        "culture",
+        "burn",
+        "sovereignty",
+    ];
+    let missing: Vec<&str> = all_axioms
+        .iter()
+        .filter(|k| !scores.contains_key(**k))
+        .copied()
+        .collect();
+    if !missing.is_empty() {
+        tracing::warn!(
+            missing_axioms = ?missing,
+            found_count = scores.len(),
+            "lenient parse: missing axioms defaulted to 0.0"
+        );
+    }
+
     let get = |k: &str| *scores.get(k).unwrap_or(&0.0);
     let get_r = |k: &str| reasons.get(k).cloned().unwrap_or_default();
 

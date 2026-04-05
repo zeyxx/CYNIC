@@ -111,6 +111,7 @@ mod tests {
             anomaly_axiom: None,
             voter_count: 0,
             failed_dogs: Vec::new(),
+            failed_dog_errors: Default::default(),
             integrity_hash: Some("abc123".into()),
             prev_hash: None,
         };

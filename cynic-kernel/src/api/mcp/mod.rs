@@ -254,6 +254,8 @@ pub struct CynicMcp {
     event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     /// RC1: Rate limiter — shared across all tool calls.
     rate_limit: Arc<McpRateLimit>,
+    /// Bound fire-and-forget spawns (observe, audit). Mirrors REST bg_semaphore.
+    bg_semaphore: Arc<tokio::sync::Semaphore>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -296,6 +298,7 @@ impl CynicMcp {
             usage,
             event_tx,
             rate_limit: Arc::new(McpRateLimit::new()),
+            bg_semaphore: Arc::new(tokio::sync::Semaphore::new(64)),
             tool_router: Self::tool_router(),
         }
     }
@@ -955,18 +958,27 @@ impl CynicMcp {
         );
 
         let storage = Arc::clone(&self.storage);
-        tokio::spawn(async move {
-            match tokio::time::timeout(
-                std::time::Duration::from_secs(5),
-                storage.store_observation(&obs),
-            )
-            .await
-            {
-                Ok(Err(e)) => tracing::warn!(error = %e, "cynic_observe: store failed"),
-                Err(_) => tracing::warn!("cynic_observe: store timed out (5s)"),
-                _ => {}
+        // Bounded spawn — mirrors REST observe.rs pattern. Semaphore prevents unbounded task accumulation.
+        match self.bg_semaphore.clone().try_acquire_owned() {
+            Ok(permit) => {
+                tokio::spawn(async move {
+                    let _permit = permit; // held until task completes
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(5),
+                        storage.store_observation(&obs),
+                    )
+                    .await
+                    {
+                        Ok(Err(e)) => tracing::warn!(error = %e, "cynic_observe: store failed"),
+                        Err(_) => tracing::warn!("cynic_observe: store timed out (5s)"),
+                        _ => {}
+                    }
+                });
             }
-        });
+            Err(_) => {
+                tracing::warn!("cynic_observe: bg_semaphore full, observation dropped");
+            }
+        }
 
         self.audit(
             "cynic_observe",

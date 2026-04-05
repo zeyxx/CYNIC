@@ -277,6 +277,11 @@ pub fn append_organ_metrics(
             "cynic_dog_quality_failures{{dog=\"{id}\",mode=\"timeout\"}} {}",
             stats.timeout_count
         );
+        let _ = writeln!(
+            out,
+            "cynic_dog_quality_failures{{dog=\"{id}\",mode=\"api_error\"}} {}",
+            stats.api_error_count
+        );
     }
 
     // Mean latency per Dog (gauge)

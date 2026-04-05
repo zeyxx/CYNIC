@@ -153,6 +153,7 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
             .map(|s| s.to_string()),
         voter_count: row["voter_count"].as_u64().unwrap_or(0) as usize,
         failed_dogs: Vec::new(),
+        failed_dog_errors: Default::default(),
         integrity_hash: row["integrity_hash"]
             .as_str()
             .filter(|s| !s.is_empty())
@@ -406,7 +407,7 @@ impl StoragePort for SurrealHttpStorage {
                  observations = $new_obs, \
                  confidence = $new_conf, \
                  state = $new_state, \
-                 contributing_verdicts = array::union(contributing_verdicts ?? [], ['{vid}']), \
+                 contributing_verdicts = IF array::len(contributing_verdicts ?? []) < 500 THEN array::union(contributing_verdicts ?? [], ['{vid}']) ELSE contributing_verdicts ?? [] END, \
                  created_at = created_at ?? '{ts}', \
                  updated_at = '{ts}'; \
              COMMIT TRANSACTION;",
@@ -1557,6 +1558,7 @@ mod tests {
             anomaly_axiom: None,
             voter_count: 0,
             failed_dogs: Vec::new(),
+            failed_dog_errors: Default::default(),
             integrity_hash: Some("deadbeef".into()),
             prev_hash: None,
         }

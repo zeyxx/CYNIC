@@ -62,6 +62,7 @@ fn make_verdict(id: &str) -> Verdict {
         anomaly_axiom: None,
         voter_count: 2,
         failed_dogs: vec![],
+        failed_dog_errors: Default::default(),
         integrity_hash: Some("test-hash".to_string()),
         prev_hash: None,
     }

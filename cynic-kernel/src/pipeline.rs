@@ -230,10 +230,15 @@ pub async fn run(
         }
         // Emit Dog failures as separate events
         for dog_id in &verdict.failed_dogs {
+            let error_detail = verdict
+                .failed_dog_errors
+                .get(dog_id)
+                .cloned()
+                .unwrap_or_else(|| "evaluation_failed".into());
             if tx
                 .send(KernelEvent::DogFailed {
                     dog_id: dog_id.clone(),
-                    error: "evaluation_failed".into(),
+                    error: error_detail,
                 })
                 .is_err()
             {
