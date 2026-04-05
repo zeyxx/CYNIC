@@ -9,7 +9,7 @@
 //! → higher failure rate → more alerts → more judge calls → ...
 
 use crate::domain::metrics::Metrics;
-use crate::domain::probe::{EnvironmentSnapshot, ProbeDetails, ResourceDetails};
+use crate::domain::probe::{EnvironmentSnapshot, FleetDetails, ProbeDetails, ResourceDetails};
 use crate::domain::storage::StoragePort;
 use std::sync::atomic::Ordering;
 
@@ -106,6 +106,24 @@ pub async fn analyze(
         if let Some(r) = &resource {
             check_resource_thresholds(r, &mut alerts);
         }
+        // Fleet: model identity mismatch = wrong model loaded on a backend.
+        let fleet = extract_fleet(snap);
+        if let Some(f) = &fleet {
+            for dog in &f.dogs {
+                if dog.model_mismatch {
+                    alerts.push(Alert {
+                        kind: "model_mismatch",
+                        message: format!(
+                            "Dog '{}' running {:?} but configured as {:?}",
+                            dog.dog_name,
+                            dog.actual_model.as_deref().unwrap_or("unknown"),
+                            dog.expected_model.as_deref().unwrap_or("unknown"),
+                        ),
+                        severity: "critical",
+                    });
+                }
+            }
+        }
     } else {
         tracing::debug!("introspection: no EnvironmentSnapshot yet — skipping resource checks");
     }
@@ -134,6 +152,14 @@ pub async fn analyze(
 fn extract_resource(snap: &EnvironmentSnapshot) -> Option<ResourceDetails> {
     snap.probes.iter().find_map(|p| match &p.details {
         ProbeDetails::Resource(r) => Some(r.clone()),
+        _ => None,
+    })
+}
+
+/// Extract FleetDetails from an EnvironmentSnapshot's probes.
+fn extract_fleet(snap: &EnvironmentSnapshot) -> Option<FleetDetails> {
+    snap.probes.iter().find_map(|p| match &p.details {
+        ProbeDetails::Fleet(f) => Some(f.clone()),
         _ => None,
     })
 }
