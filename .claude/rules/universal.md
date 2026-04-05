@@ -10,7 +10,7 @@ globs: ["**"]
 ## Enforced Rules (verified by make check / hooks)
 
 1. **Zero hardcoded paths.** Use `$(git rev-parse --show-toplevel)` or `${CYNIC_REST_ADDR}`. Never absolute paths in skills, hooks, or configs. — `make lint-rules`
-2. **Handle all fallible I/O.** Propagate with `?` or log + retry/skip. No silent `.ok()`. — `make lint-rules`
+2. **Handle all fallible I/O.** Propagate with `?` or log + retry/skip. No silent `.ok()`. — `make lint-rules` (full `src/` scope; exceptions: probes, `to_str()`, `from_utf8`, `filter_map`, `lock()`/`read()` per K14, `create_dir_all`/`remove_file`)
 3. **Every producer needs a consumer.** `store_*` without a read path = invisible waste. — `make lint-drift`
 4. **Commit before completing.** `git status --short` at session end must show 0 modified files. — `session-stop.sh` (warns)
 5. **No dead architecture.** Commented modules need `DORMANT:` tag. Skills in CLAUDE.md must exist on disk. Hooks on disk must be wired in settings. — `make lint-drift`

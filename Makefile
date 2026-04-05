@@ -67,24 +67,42 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 	if [ -n "$$K1" ]; then echo "FAIL K1: #[cfg] in domain/ (domain purity):"; echo "$$K1"; FAIL=1; fi; \
 	R1=$$(grep -rn '/home/\|/Users/' cynic-kernel/src/ scripts/ .claude/hooks/ --include='*.rs' --include='*.sh' --include='*.toml' | grep -v '//' | grep -v 'target/'); \
 	if [ -n "$$R1" ]; then echo "FAIL R1: hardcoded absolute paths:"; echo "$$R1"; FAIL=1; fi; \
-	R2=$$(grep -n '\.ok()' cynic-kernel/src/pipeline.rs cynic-kernel/src/judge.rs cynic-kernel/src/infra/tasks.rs 2>/dev/null | grep -v '//' | grep -v 'parse()\.ok()' | grep -v 'env::var.*\.ok()' | grep -v 'inspect_err'); \
+	R2=$$(grep -rn '\.ok()' cynic-kernel/src/ --include='*.rs' | grep -v '//' | grep -v '/target/' | grep -v '#\[cfg(test)\]' | grep -v 'mod tests' \
+		| grep -v 'parse()\.ok()' | grep -v 'env::var.*\.ok()' | grep -v 'inspect_err' \
+		| grep -v 'to_str()\.ok()' | grep -v 'from_utf8.*\.ok()' | grep -v 'filter_map.*\.ok()' \
+		| grep -v 'create_dir_all.*\.ok()' | grep -v 'remove_file.*\.ok()' \
+		| grep -v '\.lock()\.ok()' | grep -v '\.read()\.ok()' \
+		| grep -v '\.output()' | grep -v 'read_to_string.*\.ok()'); \
 	if [ -n "$$R2" ]; then \
 		while IFS= read -r okline; do \
 			FILE=$$(echo "$$okline" | cut -d: -f1); LINENUM=$$(echo "$$okline" | cut -d: -f2); \
-			NEARBY=$$(sed -n "$$((LINENUM>3?LINENUM-3:1)),$${LINENUM}p" "$$FILE" 2>/dev/null || true); \
-			if ! echo "$$NEARBY" | grep -q 'inspect_err\|tracing::\|eprintln!\|warn!\|env::var'; then \
-				echo "FAIL R2: .ok() without adjacent logging: $$okline"; FAIL=1; \
-			fi; \
+			NEARBY=$$(sed -n "$$((LINENUM>8?LINENUM-8:1)),$$(( LINENUM+3 ))p" "$$FILE" 2>/dev/null || true); \
+			if echo "$$NEARBY" | grep -q 'inspect_err\|tracing::\|eprintln!\|warn!\|env::var\|WHY:\|K14\|poison'; then continue; fi; \
+			if echo "$$FILE" | grep -q 'probe/\|probes/'; then continue; fi; \
+			echo "FAIL R2: .ok() without adjacent logging: $$okline"; FAIL=1; \
 		done <<< "$$R2"; \
 	fi; \
 	K2=$$(grep -rn 'reqwest' cynic-kernel/src/domain/ cynic-kernel/src/api/ cynic-kernel/src/main.rs --include='*.rs' | grep -v '//'); \
 	if [ -n "$$K2" ]; then echo "FAIL K2: reqwest outside backends/storage:"; echo "$$K2"; FAIL=1; fi; \
-	K3=$$(grep -rn 'format_crystal_context' cynic-kernel/src/api/ --include='*.rs' | grep -v '//'); \
-	if [ -n "$$K3" ]; then echo "FAIL K3: format_crystal_context in handler (should be in pipeline):"; echo "$$K3"; FAIL=1; fi; \
+	PIPELINE_FNS="format_crystal_context build_judgment_prompt compute_consensus"; \
+	for FN in $$PIPELINE_FNS; do \
+		HITS=$$(grep -rn "$$FN" cynic-kernel/src/api/ --include='*.rs' | grep -v '//' | grep -v 'use '); \
+		if [ -n "$$HITS" ]; then echo "FAIL K3/K11: pipeline function '$$FN' duplicated in api/:"; echo "$$HITS"; FAIL=1; fi; \
+	done; \
 	K4=$$(grep -rn 'trait \w*Port' cynic-kernel/src/domain/ --include='*.rs' | sed 's/.*trait //' | sed 's/<.*//' | sed 's/ .*//' | sort | uniq -d); \
 	if [ -n "$$K4" ]; then echo "FAIL K4: duplicate trait names in domain/:"; echo "$$K4"; FAIL=1; fi; \
-	K5=$$(grep -rn 'serde_json::Value' cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]'); \
-	if [ -n "$$K5" ]; then echo "FAIL K5: serde_json::Value in domain/:"; echo "$$K5"; FAIL=1; fi; \
+	K5=$$(grep -rn 'serde_json::Value\|reqwest::\|surrealdb::\|axum::' cynic-kernel/src/domain/ --include='*.rs' | grep -v '//' | grep -v '#\[cfg(test)\]'); \
+	if [ -n "$$K5" ]; then echo "FAIL K5: infra type leakage in domain/:"; echo "$$K5"; FAIL=1; fi; \
+	K12=$$(grep -rn '#\[allow(' cynic-kernel/src/ --include='*.rs' | grep -v '/target/' | grep -v '#\[cfg(test)\]' | grep -v '#\[cfg_attr(test'); \
+	if [ -n "$$K12" ]; then \
+		while IFS= read -r allowline; do \
+			FILE=$$(echo "$$allowline" | cut -d: -f1); LINENUM=$$(echo "$$allowline" | cut -d: -f2); \
+			NEARBY=$$(sed -n "$$(( LINENUM>2 ? LINENUM-2 : 1)),$$(( LINENUM+2 ))p" "$$FILE" 2>/dev/null); \
+			if ! echo "$$NEARBY" | grep -q 'WHY:'; then \
+				echo "FAIL K12: #[allow] without WHY: comment: $$allowline"; FAIL=1; \
+			fi; \
+		done <<< "$$K12"; \
+	fi; \
 	SECRETS=$$(git diff --staged 2>/dev/null | grep -iE 'api.key|token|password|secret|AIza|hf_' | grep -v '#' | grep -v '//'); \
 	if [ -n "$$SECRETS" ]; then echo "FAIL Security: possible secrets in staged changes:"; echo "$$SECRETS"; FAIL=1; fi; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ All grep-enforceable rules pass"; fi; \
@@ -150,6 +168,15 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			echo "FAIL Drift: route '$$ROUTE' registered in code but missing from API.md"; FAIL=1; \
 		fi; \
 	done; \
+	REF_DOGS=$$(sed -n '/^## Dogs/,/^##/p' $(PROJECT_DIR)/.claude/rules/reference.md | grep -oP '(?<=\| )[a-z][-a-z0-9]+(?= +\|)' | sort -u); \
+	LIVE_DOGS="deterministic-dog"; \
+	if [ -f "$$BACKENDS" ]; then \
+		LIVE_DOGS=$$(printf '%s\n' "$$LIVE_DOGS" $$(grep -oP '(?<=\[backend\.)[^]]+' "$$BACKENDS" | grep -v '\.remediation') | sort -u); \
+	fi; \
+	REF_ONLY=$$(comm -23 <(echo "$$REF_DOGS") <(echo "$$LIVE_DOGS")); \
+	LIVE_ONLY=$$(comm -13 <(echo "$$REF_DOGS") <(echo "$$LIVE_DOGS")); \
+	if [ -n "$$REF_ONLY" ]; then echo "FAIL D4: Dogs in reference.md but not active: $$REF_ONLY"; FAIL=1; fi; \
+	if [ -n "$$LIVE_ONLY" ]; then echo "FAIL D4: Dogs active but not in reference.md: $$LIVE_ONLY"; FAIL=1; fi; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ No drift detected"; fi; \
 	exit $$FAIL
 
@@ -207,6 +234,50 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	fi; \
 	mv "$$TARGET.gate-bak" "$$TARGET"; \
 	\
+	echo "[K5+] Injecting axum:: in domain/..."; \
+	cp "$$TARGET" "$$TARGET.gate-bak"; \
+	echo 'fn _k5_test() -> axum::Router { todo!() }' >> "$$TARGET"; \
+	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
+		echo "  ✗ K5 gate MISSED axum:: in domain/ — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ K5 gate caught axum:: in domain/"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$TARGET.gate-bak" "$$TARGET"; \
+	\
+	echo "[K12] Injecting #[allow] without WHY:..."; \
+	ALLOW_TARGET="$(PROJECT_DIR)/cynic-kernel/src/main.rs"; \
+	cp "$$ALLOW_TARGET" "$$ALLOW_TARGET.gate-bak"; \
+	echo '#[allow(unused_variables)]' >> "$$ALLOW_TARGET"; \
+	echo 'fn _k12_test() {}' >> "$$ALLOW_TARGET"; \
+	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
+		echo "  ✗ K12 gate MISSED #[allow] without WHY: — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ K12 gate caught #[allow] without WHY:"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$ALLOW_TARGET.gate-bak" "$$ALLOW_TARGET"; \
+	\
+	echo "[R2] Injecting .ok() without logging..."; \
+	R2_TARGET="$(PROJECT_DIR)/cynic-kernel/src/domain/mod.rs"; \
+	cp "$$R2_TARGET" "$$R2_TARGET.gate-bak"; \
+	printf '\n\n\n\n\n\n\n\n\n\nfn _r2_test() { std::fs::File::open("x").ok(); }\n' >> "$$R2_TARGET"; \
+	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
+		echo "  ✗ R2 gate MISSED .ok() without logging — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ R2 gate caught .ok() without logging"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$R2_TARGET.gate-bak" "$$R2_TARGET"; \
+	\
+	echo "[K3] Injecting pipeline fn in api/..."; \
+	API_TARGET="$(PROJECT_DIR)/cynic-kernel/src/api/rest/mod.rs"; \
+	cp "$$API_TARGET" "$$API_TARGET.gate-bak"; \
+	echo 'fn format_crystal_context() {}' >> "$$API_TARGET"; \
+	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
+		echo "  ✗ K3 gate MISSED pipeline fn in api/ — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ K3 gate caught pipeline fn in api/"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$API_TARGET.gate-bak" "$$API_TARGET"; \
+	\
 	echo ""; echo "── lint-drift ──"; \
 	\
 	echo "[Dormant] Injecting commented module without DORMANT tag..."; \
@@ -218,6 +289,17 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 		echo "  ✓ Dormant gate caught commented module without DORMANT:"; PASS=$$((PASS+1)); \
 	fi; \
 	mv "$$TARGET.gate-bak" "$$TARGET"; \
+	\
+	echo "[D4] Injecting phantom Dog in reference.md..."; \
+	REF="$(PROJECT_DIR)/.claude/rules/reference.md"; \
+	cp "$$REF" "$$REF.gate-bak"; \
+	sed -i '/^| deterministic-dog/a | phantom-dog-test | Test | Nowhere |' "$$REF"; \
+	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
+		echo "  ✗ D4 gate MISSED phantom Dog in reference.md — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ D4 gate caught phantom Dog in reference.md"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$REF.gate-bak" "$$REF"; \
 	\
 	echo ""; echo "── lint-security ──"; \
 	\

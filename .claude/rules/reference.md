@@ -26,10 +26,10 @@ HOWL > 0.528 (φ⁻²+φ⁻⁴) | WAG > 0.382 | GROWL > 0.236 | BARK ≤ 0.236
 | Dog | Model | Where |
 |---|---|---|
 | deterministic-dog | Heuristics | In-kernel |
-| gemini-flash | Gemini 2.5 Flash | Google API |
 | qwen-7b-hf | Qwen 2.5 7B | HF Inference |
 | qwen35-9b-gpu | Qwen 3.5 9B Q4 | cynic-gpu (RTX 4060 Ti, 55 tok/s) |
-| gemma-4b-ubuntu | Gemma 3 4B Q4 | cynic-core (CPU, 13 tok/s) |
+| mistral-7b-gpu | Mistral 7B v0.3 Q4 | cynic-gpu (RTX 4060 Ti) |
+| mistral-7b-core | Mistral 7B v0.3 Q4 | cynic-core (CPU) |
 
 ## Infrastructure
 
