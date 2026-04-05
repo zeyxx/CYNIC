@@ -157,8 +157,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     > = std::collections::HashMap::new();
     let mut health_urls: std::collections::HashMap<String, Option<String>> =
         std::collections::HashMap::new();
-    // Fleet probe needs base_url (for /props) and context_size (for drift detection)
-    let mut fleet_meta: std::collections::HashMap<String, (String, u32)> =
+    // Fleet probe needs base_url (for /props + /v1/models) and context_size + model name
+    let mut fleet_meta: std::collections::HashMap<String, (String, u32, String)> =
         std::collections::HashMap::new();
     for cfg in backend_configs {
         let backend = match backends::openai::OpenAiCompatBackend::new(cfg.clone()) {
@@ -200,7 +200,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             cfg.cost_output_per_mtok,
         ));
         health_urls.insert(cfg.name.clone(), cfg.health_url.clone());
-        fleet_meta.insert(cfg.name.clone(), (cfg.base_url.clone(), cfg.context_size));
+        fleet_meta.insert(
+            cfg.name.clone(),
+            (cfg.base_url.clone(), cfg.context_size, cfg.model.clone()),
+        );
         if let Some(rem) = cfg.remediation.clone() {
             remediation_configs.insert(cfg.name.clone(), rem);
         }
@@ -457,17 +460,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .filter_map(|(name, url)| {
             url.as_ref().map(|u| {
-                let (base_url, ctx_size) =
+                let (base_url, ctx_size, model_name) =
                     fleet_meta.get(name.as_str()).cloned().unwrap_or_default();
+                let base_stripped = base_url
+                    .trim_end_matches('/')
+                    .trim_end_matches("/v1")
+                    .to_string();
                 // Derive /props URL from base_url (strip /v1 suffix)
                 let props_url = if !base_url.is_empty() {
-                    Some(
-                        base_url
-                            .trim_end_matches('/')
-                            .trim_end_matches("/v1")
-                            .to_string()
-                            + "/props",
-                    )
+                    Some(base_stripped.clone() + "/props")
+                } else {
+                    None
+                };
+                // Derive /v1/models URL for model identity verification (B4)
+                let models_url = if !base_url.is_empty() {
+                    Some(base_stripped + "/v1/models")
                 } else {
                     None
                 };
@@ -475,7 +482,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     dog_name: name.clone(),
                     health_url: u.clone(),
                     props_url,
+                    models_url,
                     expected_n_ctx: ctx_size,
+                    expected_model: model_name,
                 }
             })
         })

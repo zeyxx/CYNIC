@@ -51,6 +51,15 @@ pub struct DogHealthDetails {
     pub actual_n_ctx: Option<u32>,
     /// Expected context tokens from configuration.
     pub expected_n_ctx: Option<u32>,
+    /// Actual model name reported by /v1/models (if available).
+    #[serde(default)]
+    pub actual_model: Option<String>,
+    /// Expected model name from backends.toml.
+    #[serde(default)]
+    pub expected_model: Option<String>,
+    /// True when actual_model doesn't match expected_model.
+    #[serde(default)]
+    pub model_mismatch: bool,
 }
 
 /// A single network interface observed on a host.
