@@ -5,7 +5,7 @@
 jobs = 1
 
 [env]
-# Increased to 2GB — tracing-subscriber 0.3.23 release build monomorphization pushes past 1GB.
-# rustc recommends RUST_MIN_STACK=2147483648 on SIGSEGV from deep codegen stack exhaustion.
+# Increased to 4GB — test binary monomorphization (serde+rmcp+test harness) pushes past 2GB.
+# rustc recommends RUST_MIN_STACK=4294967296 on SIGSEGV from deep codegen stack exhaustion.
 # rust-lang/rust #103767, #122357, #138561.
-RUST_MIN_STACK = "2147483648"
+RUST_MIN_STACK = "4294967296"

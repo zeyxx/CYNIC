@@ -608,6 +608,69 @@ pub fn spawn_probe_scheduler(
     })
 }
 
+// ── Dog TTL checker (every 30s) ──────────────────────────────
+
+pub fn spawn_dog_ttl_checker(
+    rest_state: Arc<crate::api::rest::AppState>,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.tick().await; // skip first tick
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Dog TTL checker stopped");
+                    break;
+                }
+                _ = interval.tick() => {
+                    // Collect expired dog IDs under a short read lock
+                    let expired: Vec<String> = match rest_state.registered_dogs.read() {
+                        Ok(map) => map
+                            .iter()
+                            .filter(|(_, dog)| {
+                                dog.last_heartbeat.elapsed().as_secs() > dog.ttl_secs
+                            })
+                            .map(|(id, _)| id.clone())
+                            .collect(),
+                        Err(e) => {
+                            tracing::warn!(error = %e, "registered_dogs RwLock poisoned — skipping TTL check");
+                            vec![]
+                        }
+                    };
+
+                    for dog_id in expired {
+                        // Remove from registered map
+                        match rest_state.registered_dogs.write() {
+                            Ok(mut map) => { map.remove(&dog_id); }
+                            Err(e) => {
+                                tracing::warn!(error = %e, dog_id = %dog_id, "registered_dogs write lock poisoned — cannot remove expired dog");
+                                continue;
+                            }
+                        }
+
+                        // Swap judge without the expired dog
+                        let current = rest_state.judge.load_full();
+                        if let Some(new_judge) = crate::judge::Judge::without_dog(&current, &dog_id) {
+                            rest_state.judge.store(Arc::new(new_judge));
+                            tracing::warn!(dog_id = %dog_id, "Dog TTL expired — removed from active roster");
+                        }
+
+                        // Emit event (fire-and-forget — lagging subscribers just miss it)
+                        let _ = rest_state.event_tx.send(crate::domain::events::KernelEvent::DogExpired {
+                            dog_id: dog_id.clone(),
+                        });
+                    }
+
+                    task_health.touch_dog_ttl();
+                }
+            }
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -752,6 +815,58 @@ mod tests {
         tokio::time::timeout(std::time::Duration::from_secs(2), handle)
             .await
             .expect("probe_scheduler should stop within 2s")
+            .expect("task should not panic");
+    }
+
+    #[tokio::test]
+    async fn dog_ttl_checker_respects_shutdown() {
+        use crate::api::rest::{AppState, PerIpRateLimiter, ReadyCache, StorageInfo};
+        use crate::domain::coord::NullCoord;
+        use crate::domain::embedding::NullEmbedding;
+        use crate::domain::usage::DogUsageTracker;
+        use crate::domain::verdict_cache::VerdictCache;
+        use arc_swap::ArcSwap;
+
+        let (event_tx, _) = tokio::sync::broadcast::channel::<KernelEvent>(16);
+        let judge = crate::judge::Judge::new(vec![], vec![]);
+        let rest_state = Arc::new(AppState {
+            judge: ArcSwap::new(Arc::new(judge)),
+            storage: Arc::new(NullStorage),
+            coord: Arc::new(NullCoord),
+            embedding: Arc::new(NullEmbedding),
+            usage: Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new())),
+            verdict_cache: Arc::new(VerdictCache::new()),
+            task_health: Arc::new(TaskHealth::new()),
+            metrics: Arc::new(crate::domain::metrics::Metrics::new()),
+            api_key: None,
+            storage_info: StorageInfo {
+                namespace: "test".into(),
+                database: "test".into(),
+            },
+            rate_limiter: PerIpRateLimiter::new(30),
+            judge_limiter: PerIpRateLimiter::new(10),
+            ready_cache: ReadyCache::new(),
+            bg_semaphore: Arc::new(tokio::sync::Semaphore::new(4)),
+            bg_tasks: tokio_util::task::TaskTracker::new(),
+            sse_semaphore: Arc::new(tokio::sync::Semaphore::new(4)),
+            introspection_alerts: Arc::new(std::sync::RwLock::new(vec![])),
+            event_tx: event_tx.clone(),
+            chain_verified: std::sync::atomic::AtomicBool::new(false),
+            environment: Arc::new(std::sync::RwLock::new(None)),
+            registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+        });
+        let task_health = Arc::new(TaskHealth::new());
+        let shutdown = CancellationToken::new();
+
+        let handle = spawn_dog_ttl_checker(
+            Arc::clone(&rest_state),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        shutdown.cancel();
+        tokio::time::timeout(std::time::Duration::from_secs(2), handle)
+            .await
+            .expect("dog_ttl_checker should stop within 2s")
             .expect("task should not panic");
     }
 }
