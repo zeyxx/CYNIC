@@ -38,3 +38,5 @@ K14. **Poison/missing = assume degraded.** When reading shared state (`RwLock`, 
 - `#![cfg_attr(test, allow(dead_code, clippy::unwrap_used, clippy::expect_used))]` in `lib.rs` — test code is exempt. Do NOT add per-function `#[allow(clippy::expect_used)]` in `#[cfg(test)]` modules; the crate-level exemption already covers them.
 - Workspace lints in root Cargo.toml (Axum/Embark baseline)
 - Integration tests: `tests/integration_storage.rs` with `#[ignore]`
+
+K15. **Every producer has a consumer that ACTS.** Storing, displaying, or logging is not consuming. A consumer must change system behavior: gate a request, trigger a state transition, emit an alert that is routed to a human. `store_*` without an acting reader = Rule 3 violation. `emit_event` without an acting handler = dead nervous system. — `make lint-drift` (producer-consumer audit)

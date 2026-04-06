@@ -177,6 +177,13 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	LIVE_ONLY=$$(comm -13 <(echo "$$REF_DOGS") <(echo "$$LIVE_DOGS")); \
 	if [ -n "$$REF_ONLY" ]; then echo "FAIL D4: Dogs in reference.md but not active: $$REF_ONLY"; FAIL=1; fi; \
 	if [ -n "$$LIVE_ONLY" ]; then echo "FAIL D4: Dogs active but not in reference.md: $$LIVE_ONLY"; FAIL=1; fi; \
+	KERN="$(PROJECT_DIR)/cynic-kernel/src"; \
+	DISSOLVED=$$(grep -rn "dissolved\|Dissolved" "$$KERN/storage/" "$$KERN/infra/" --include='*.rs' 2>/dev/null | grep -v 'test\|//\|Display\|FromStr\|Serialize\|Deserialize' | grep -i 'dissolved' | wc -l); \
+	if [ "$$DISSOLVED" -eq 0 ]; then echo "FAIL K15: CrystalState::Dissolved defined but never produced"; FAIL=1; fi; \
+	COMPLIANCE_GATES=$$(grep -rn 'compliance.*deny\|compliance.*block\|compliance.*throttle\|compliance.*reject' "$$KERN/" --include='*.rs' 2>/dev/null | grep -v 'test\|//' | wc -l); \
+	if [ "$$COMPLIANCE_GATES" -eq 0 ]; then echo "WARN K15: compliance_score computed but no gate enforces threshold"; fi; \
+	CV_READERS=$$(grep -rn 'contributing_verdicts' "$$KERN/" --include='*.rs' 2>/dev/null | grep -v 'test\|//\|push\|insert\|store\|array::union\|Vec<String>\|struct\|pub ' | wc -l); \
+	if [ "$$CV_READERS" -eq 0 ]; then echo "WARN K15: contributing_verdicts stored but never read"; fi; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ No drift detected"; fi; \
 	exit $$FAIL
 
