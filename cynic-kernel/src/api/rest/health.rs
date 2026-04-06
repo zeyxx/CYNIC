@@ -7,6 +7,7 @@ use axum::{
 };
 use std::sync::Arc;
 
+use super::response::coordination_error;
 use super::types::{AppState, DogHealthResponse, ErrorResponse};
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
 use crate::domain::health_gate::{count_healthy_dogs, system_health_status};
@@ -213,12 +214,7 @@ pub async fn agents_handler(
         )),
         Err(e) => {
             tracing::warn!(error = %e, "agents query failed");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "coordination unavailable".into(),
-                }),
-            ))
+            Err(coordination_error())
         }
     }
 }

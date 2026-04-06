@@ -1,7 +1,29 @@
-//! REST API response mapping — verdict-to-JSON.
+//! REST API response mapping — verdict-to-JSON and shared error helpers.
+
+use axum::{http::StatusCode, response::Json};
 
 use super::types::*;
 use crate::domain::dog::{PHI_INV, Verdict};
+
+/// 500 + "storage unavailable" — used by any handler that fails on StoragePort.
+pub fn storage_error() -> (StatusCode, Json<ErrorResponse>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(ErrorResponse {
+            error: "storage unavailable".into(),
+        }),
+    )
+}
+
+/// 500 + "coordination unavailable" — used by any handler that fails on CoordPort.
+pub fn coordination_error() -> (StatusCode, Json<ErrorResponse>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(ErrorResponse {
+            error: "coordination unavailable".into(),
+        }),
+    )
+}
 
 pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
     JudgeResponse {

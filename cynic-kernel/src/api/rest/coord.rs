@@ -6,6 +6,7 @@ use axum::{extract::State, http::StatusCode, response::Json};
 use serde::Deserialize;
 use std::sync::Arc;
 
+use super::response::coordination_error;
 use super::types::{AppState, ErrorResponse};
 use crate::domain::coord::ClaimResult;
 
@@ -78,12 +79,7 @@ pub async fn coord_register_handler(
         .await
         .map_err(|e| {
             tracing::warn!(error = %e, "coord register failed");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "coordination unavailable".into(),
-                }),
-            )
+            coordination_error()
         })?;
 
     // Heartbeat: keep session alive (REST has no implicit heartbeat like MCP)
@@ -221,12 +217,7 @@ pub async fn coord_claim_batch_handler(
         .await
         .map_err(|e| {
             tracing::warn!(error = %e, "coord claim-batch failed");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "coordination unavailable".into(),
-                }),
-            )
+            coordination_error()
         })?;
 
     let _ = state.coord.store_audit( // ok: fire-and-forget
@@ -274,12 +265,7 @@ pub async fn coord_release_handler(
         .await
         .map_err(|e| {
             tracing::warn!(error = %e, "coord release failed");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "coordination unavailable".into(),
-                }),
-            )
+            coordination_error()
         })?;
 
     let _ = state
