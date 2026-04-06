@@ -77,5 +77,6 @@ fn event_type_name(event: &KernelEvent) -> &'static str {
         KernelEvent::SessionRegistered { .. } => "session",
         KernelEvent::BackfillComplete { .. } => "backfill",
         KernelEvent::Anomaly { .. } => "anomaly",
+        KernelEvent::DogExpired { .. } => "dog_expired",
     }
 }
