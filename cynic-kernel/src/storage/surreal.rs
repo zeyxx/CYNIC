@@ -214,6 +214,28 @@ fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
     }
 }
 
+// ── SHARED HELPERS ─────────────────────────────────────────────
+
+/// Serialize an embedding as a SurrealQL array literal. NaN/Inf → 0.0.
+fn embedding_to_surreal_literal(embedding: &[f32]) -> String {
+    embedding
+        .iter()
+        .map(|v| if v.is_finite() { *v } else { 0.0f32 })
+        .map(|v| format!("{v}"))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// Build a SQL WHERE clause from optional conditions.
+/// Returns empty string if no conditions, or ` WHERE cond1 AND cond2` (leading space).
+fn build_where_clause(conditions: &[String]) -> String {
+    if conditions.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", conditions.join(" AND "))
+    }
+}
+
 // ── STORAGE PORT IMPLEMENTATION ──────────────────────────────
 
 #[async_trait::async_trait]
@@ -306,14 +328,9 @@ impl StoragePort for SurrealHttpStorage {
         if let Some(s) = state {
             conditions.push(format!("state = '{}'", escape_surreal(s)));
         }
-        let where_clause = if conditions.is_empty() {
-            String::new()
-        } else {
-            format!("WHERE {}", conditions.join(" AND "))
-        };
+        let where_clause = build_where_clause(&conditions);
         let sql = format!(
-            "SELECT * FROM crystal {} ORDER BY state ASC, confidence DESC LIMIT {}",
-            where_clause,
+            "SELECT * FROM crystal{where_clause} ORDER BY state ASC, confidence DESC LIMIT {}",
             safe_limit(limit),
         );
         let rows = self.query_one(&sql).await?;
@@ -428,13 +445,7 @@ impl StoragePort for SurrealHttpStorage {
         embedding: &[f32],
     ) -> Result<(), StorageError> {
         let safe_id = sanitize_id(id)?;
-        // Serialize Vec<f32> as SurrealQL array literal (NaN/Inf → 0.0)
-        let vec_str: String = embedding
-            .iter()
-            .map(|v| if v.is_finite() { *v } else { 0.0f32 })
-            .map(|v| format!("{v}"))
-            .collect::<Vec<_>>()
-            .join(",");
+        let vec_str = embedding_to_surreal_literal(embedding);
         let sql = format!("UPDATE crystal:`{safe_id}` SET embedding = [{vec_str}]",);
         self.query_one(&sql).await?;
         Ok(())
@@ -446,12 +457,7 @@ impl StoragePort for SurrealHttpStorage {
         limit: u32,
     ) -> Result<Vec<Crystal>, StorageError> {
         let k = safe_limit(limit).min(20); // Cap KNN at 20
-        let vec_str: String = query_embedding
-            .iter()
-            .map(|v| if v.is_finite() { *v } else { 0.0f32 })
-            .map(|v| format!("{v}"))
-            .collect::<Vec<_>>()
-            .join(",");
+        let vec_str = embedding_to_surreal_literal(query_embedding);
         // KNN search with HNSW index, filter to mature crystals only
         let sql = format!(
             "LET $q = [{vec_str}]; \
@@ -474,12 +480,7 @@ impl StoragePort for SurrealHttpStorage {
         threshold: f64,
     ) -> Result<Option<(String, f64)>, StorageError> {
         let safe_domain = escape_surreal(domain);
-        let vec_str: String = embedding
-            .iter()
-            .map(|v| if v.is_finite() { *v } else { 0.0f32 })
-            .map(|v| format!("{v}"))
-            .collect::<Vec<_>>()
-            .join(",");
+        let vec_str = embedding_to_surreal_literal(embedding);
         // KNN search across ALL crystal states (including Forming) within domain.
         // Used for merging: "1. e4 c5" and "1. e4 c5 — Sicilian Defense" should
         // accumulate observations on the same crystal, not fragment into separate ones.
@@ -960,14 +961,9 @@ impl StoragePort for SurrealHttpStorage {
         if let Some(a) = agent_id {
             conditions.push(format!("agent_id = '{}'", escape_surreal(a)));
         }
-        let where_clause = if conditions.is_empty() {
-            String::new()
-        } else {
-            format!("WHERE {}", conditions.join(" AND "))
-        };
+        let where_clause = build_where_clause(&conditions);
         let sql = format!(
-            "SELECT * FROM observation {} ORDER BY created_at DESC LIMIT {}",
-            where_clause,
+            "SELECT * FROM observation{where_clause} ORDER BY created_at DESC LIMIT {}",
             safe_limit(limit),
         );
         let rows = self.query_one(&sql).await?;
@@ -1433,11 +1429,7 @@ impl CoordPort for SurrealHttpStorage {
         if let Some(agent) = agent_filter {
             conditions.push(format!("agent_id = '{}'", escape_surreal(agent)));
         }
-        let where_clause = if conditions.is_empty() {
-            String::new()
-        } else {
-            format!(" WHERE {}", conditions.join(" AND "))
-        };
+        let where_clause = build_where_clause(&conditions);
         let query =
             format!("SELECT * FROM mcp_audit{where_clause} ORDER BY ts DESC LIMIT {limit};");
         let rows = self
