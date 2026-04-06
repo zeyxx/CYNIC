@@ -1,7 +1,7 @@
 //! REST API handlers for health and introspection — /health, /dogs, /agents.
 
 use axum::{
-    extract::{Request, State},
+    extract::{Path, Request, State},
     http::StatusCode,
     response::Json,
 };
@@ -426,6 +426,21 @@ pub async fn register_dog_handler(
     new_judge.seed_chain(chain_hash);
 
     let roster_size = new_judge.dog_ids().len();
+    // Track TTL for this dynamically registered Dog
+    {
+        let mut map = state
+            .registered_dogs
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
+        map.insert(
+            name.clone(),
+            super::types::RegisteredDog {
+                registered_at: std::time::Instant::now(),
+                last_heartbeat: std::time::Instant::now(),
+                ttl_secs: 120,
+            },
+        );
+    }
     state.judge.store(Arc::new(new_judge));
 
     tracing::info!(dog_id = %name, roster_size, "Dog registered via /dogs/register");
@@ -434,4 +449,84 @@ pub async fn register_dog_handler(
         calibration: "passed".into(),
         roster_size,
     }))
+}
+
+/// POST /dogs/{id}/heartbeat — refresh TTL for a registered Dog.
+pub async fn heartbeat_handler(
+    State(state): State<Arc<AppState>>,
+    Path(dog_id): Path<String>,
+) -> Result<Json<super::types::HeartbeatResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let mut map = state
+        .registered_dogs
+        .write()
+        .unwrap_or_else(|e| e.into_inner());
+    match map.get_mut(&dog_id) {
+        Some(entry) => {
+            entry.last_heartbeat = std::time::Instant::now();
+            Ok(Json(super::types::HeartbeatResponse {
+                dog_id,
+                status: "alive".into(),
+                ttl_remaining_secs: entry.ttl_secs,
+            }))
+        }
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: format!("Dog '{dog_id}' not registered — re-register required"),
+            }),
+        )),
+    }
+}
+
+/// DELETE /dogs/{id} — remove a dynamically registered Dog.
+pub async fn deregister_handler(
+    State(state): State<Arc<AppState>>,
+    Path(dog_id): Path<String>,
+) -> Result<Json<super::types::DeregisterResponse>, (StatusCode, Json<ErrorResponse>)> {
+    {
+        let map = state
+            .registered_dogs
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
+        if !map.contains_key(&dog_id) {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: format!("Dog '{dog_id}' not found in registered Dogs"),
+                }),
+            ));
+        }
+    }
+
+    {
+        let mut map = state
+            .registered_dogs
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
+        map.remove(&dog_id);
+    }
+
+    let current = state.judge.load_full();
+    if let Some(new_judge) = crate::judge::Judge::without_dog(&current, &dog_id) {
+        let roster_size = new_judge.dog_ids().len();
+        state.judge.store(Arc::new(new_judge));
+        tracing::info!(dog_id = %dog_id, roster_size, "Dog deregistered");
+        let _ = state
+            .event_tx
+            .send(crate::domain::events::KernelEvent::DogExpired {
+                dog_id: dog_id.clone(),
+            });
+        Ok(Json(super::types::DeregisterResponse {
+            dog_id,
+            status: "deregistered".into(),
+            roster_size,
+        }))
+    } else {
+        Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: format!("Dog '{dog_id}' not in roster"),
+            }),
+        ))
+    }
 }
