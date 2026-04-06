@@ -196,41 +196,16 @@ impl InferenceOrgan {
                 && let Ok(mut guard) = handle.0.lock()
             {
                 guard.stats = stats.clone();
-                // Re-evaluate gate from loaded stats: replay only MODEL-QUALITY failures
-                // (ZeroFlood, Collapse, ParseError) into ParseFailureGate. Timeout and
-                // ApiError are exempted in the live path (update_stats_entry:107-109) —
-                // replaying them here would false-trip the gate from infra failures that
-                // never indicated bad model output. This was the root cause of Dogs getting
-                // permanently degraded after transient auth/network issues.
-                let gate_failures = stats
-                    .zero_flood_count
-                    .saturating_add(stats.collapse_count)
-                    .saturating_add(stats.parse_error_count);
-                let gate_total = stats.success_count.saturating_add(gate_failures);
-                let total = gate_total.min(10) as usize; // cap at gate window size
-                let fail_count = gate_failures.min(total as u64) as usize;
-                let success_count = total.saturating_sub(fail_count);
-                for _ in 0..success_count {
-                    guard.gate.record_success();
-                }
-                for _ in 0..fail_count {
-                    guard.gate.record_failure();
-                }
-                if guard.gate.is_tripped() {
-                    tracing::warn!(
-                        backend = %dog_id,
-                        gate_failures = gate_failures,
-                        gate_total = gate_total,
-                        "organ: gate tripped from restored stats — Dog will degrade on next failure"
-                    );
-                }
+                // NOTE: Do NOT replay gate state at boot. K14 penalty: we marked Dogs as
+                // quality_degraded before they had a chance to recover, which blocked all
+                // /judge requests on first boot after a failure. Instead, let Dogs rebuild
+                // their gate reputation naturally from requests after boot. Stats are restored
+                // for observability/history, but gates start fresh each boot (B5 amnesia fix).
                 tracing::info!(
                     backend = %dog_id,
                     total_calls = stats.total_calls,
-                    json_valid_rate = format!("{:.1}%", stats.json_valid_rate() * 100.0),
-                    gate_replayed = format!("{}/{} (excl {} timeout + {} api_error)",
-                        fail_count, total, stats.timeout_count, stats.api_error_count),
-                    "organ: restored persisted DogStats"
+                    success_rate = format!("{:.1}%", (stats.success_count as f64 / (stats.total_calls.max(1) as f64)) * 100.0),
+                    "organ: restored DogStats (gates reset — no replay at boot)"
                 );
             }
         }
@@ -399,10 +374,12 @@ mod tests {
     }
 
     #[test]
-    fn restore_stats_trips_gate_for_parse_errors() {
-        // A Dog with real model-quality failures SHOULD have its gate pre-armed.
+    fn restore_stats_does_not_replay_gates_at_boot() {
+        // B5 amnesia fix: gates don't replay at boot. A Dog with model-quality failures
+        // in its persisted stats should have those stats loaded but gate stays fresh.
+        // This prevents blocking /judge on first boot after any previous failure.
         let mut organ = InferenceOrgan::boot_empty();
-        let _handle = organ.register_backend(make_backend("bad-dog"));
+        let _handle = organ.register_backend(make_backend("reviving-dog"));
 
         let stats = DogStats {
             total_calls: 10,
@@ -415,17 +392,21 @@ mod tests {
             last_success: None,
             total_latency_ms: 0,
         };
-        organ.restore_stats(&[("bad-dog".to_string(), stats)]);
+        organ.restore_stats(&[("reviving-dog".to_string(), stats)]);
 
         let handle = organ
             .entries
-            .get(&BackendId("bad-dog".to_string()))
+            .get(&BackendId("reviving-dog".to_string()))
             .unwrap();
+
+        // Stats are loaded (for observability)
         let guard = handle.0.lock().unwrap();
-        // 8 gate-relevant failures (3 zero + 5 parse) out of 10 gate-relevant calls → >50% → tripped
+        assert_eq!(guard.stats.success_count, 2, "stats should be restored");
+
+        // But gate stays empty — doesn't replay failures
         assert!(
-            guard.gate.is_tripped(),
-            "model-quality failures must trip the gate"
+            !guard.gate.is_tripped(),
+            "gate must NOT replay at boot — Dogs rebuild reputation from requests"
         );
     }
 }
