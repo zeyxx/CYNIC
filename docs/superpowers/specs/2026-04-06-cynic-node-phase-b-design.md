@@ -173,7 +173,8 @@ model = "qwen3.5:9b-q4_K_M"
 base_url = "http://<TAILSCALE_GPU>:8080/v1"
 context_size = 8192                          # optional, default 4096
 timeout_secs = 60                            # optional, default 60
-api_key = "optional-backend-auth-key"        # [M6] optional, for authenticated backends
+api_key_env = "DOG_API_KEY"                  # [M6] optional, env var name for backend auth
+                                             # follows CYNIC pattern: secrets in env, never config
 
 [process]
 command = ["llama-server", "-m", "/models/qwen3.5-9b-q4_K_M.gguf",
@@ -348,6 +349,7 @@ async fn register(client, cfg, child, shutdown) -> Result<String, ExitReason> {
         "context_size": cfg.dog.context_size,
         "timeout_secs": cfg.dog.timeout_secs,
     });
+    // api_key_env resolved at config load → cfg.dog.api_key is Option<String>
     if let Some(key) = &cfg.dog.api_key {
         payload["api_key"] = json!(key);
     }
@@ -644,7 +646,9 @@ Windows graceful stop limitation: `TerminateProcess` is not graceful — it's eq
 - Kernel TTL checker: runs every 30s
 - Node heartbeat interval: 40s
 - Worst case: heartbeat sent at T=0, next at T=40. TTL checker runs at T=30 (TTL=120-30=90s remaining), then T=60 (TTL=120-60=60s remaining). Even missing 2 consecutive heartbeats (80s), the dog survives (120-80=40s remaining, next TTL check at T=90 catches it alive at 40s). Missing 3 heartbeats (120s) = eviction.
-- Safety margin: 3 missed heartbeats before eviction. Practical failure window: ~2 minutes of network partition.
+- Safety margin: ~4 missed heartbeats before eviction (kernel checks `elapsed > ttl_secs`, strict greater-than — 120s is not evicted, 150s is). Practical failure window: ~2.5 minutes of network partition.
+
+**Implementation note:** `child.wait()` borrows `&mut child` for the duration of the future. In the `select!` loop, when another branch wins (e.g., health_tick), tokio drops the wait future before executing the branch body — releasing the borrow so `graceful_stop(child, ...)` can proceed. If the borrow checker complains, pin the wait future outside the select and pass `&mut pinned`.
 
 ## Testing Strategy
 
