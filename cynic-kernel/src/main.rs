@@ -624,6 +624,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "[Ring 2] Probe scheduler started (resource+process+pressure+network+fleet: 30s, backup: 1h)"
     );
 
+    infra::tasks::spawn_dog_ttl_checker(
+        Arc::clone(&rest_state),
+        Arc::clone(&task_health),
+        shutdown.clone(),
+    );
+    klog!("[Ring 2] Dog TTL checker started (every 30s)");
+
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
         use rmcp::ServiceExt;

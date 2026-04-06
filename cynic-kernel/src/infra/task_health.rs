@@ -23,6 +23,7 @@ pub struct TaskHealth {
     backfill: AtomicU64,
     event_consumer: AtomicU64,
     probe_scheduler: AtomicU64,
+    dog_ttl: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -47,6 +48,7 @@ impl TaskHealth {
             backfill: AtomicU64::new(0),
             event_consumer: AtomicU64::new(0),
             probe_scheduler: AtomicU64::new(0),
+            dog_ttl: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -86,6 +88,9 @@ impl TaskHealth {
     pub fn touch_probe_scheduler(&self) {
         self.probe_scheduler
             .store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_dog_ttl(&self) {
+        self.dog_ttl.store(Self::now_secs(), Ordering::Relaxed);
     }
 
     /// Summarizer: HONEST touch with detail about what actually happened.
@@ -188,6 +193,13 @@ impl TaskHealth {
                 self.probe_scheduler.load(Ordering::Relaxed),
                 now,
                 20,
+                None,
+            ),
+            TaskSnapshot::new(
+                "dog_ttl",
+                self.dog_ttl.load(Ordering::Relaxed),
+                now,
+                60,
                 None,
             ),
         ]
