@@ -196,24 +196,40 @@ impl InferenceOrgan {
                 && let Ok(mut guard) = handle.0.lock()
             {
                 guard.stats = stats.clone();
-                // Re-evaluate gate from loaded stats: replay success/failure counts
-                // into ParseFailureGate. This is approximate (we don't have the exact
-                // sequence), but it prevents a Dog with 90% failure rate from starting
-                // clean after restart.
-                let total = stats.total_calls.min(10) as usize; // cap at gate window size
-                let failures =
-                    (stats.total_calls.saturating_sub(stats.success_count)).min(10) as usize;
-                let successes = total.saturating_sub(failures);
-                for _ in 0..successes {
+                // Re-evaluate gate from loaded stats: replay only MODEL-QUALITY failures
+                // (ZeroFlood, Collapse, ParseError) into ParseFailureGate. Timeout and
+                // ApiError are exempted in the live path (update_stats_entry:107-109) —
+                // replaying them here would false-trip the gate from infra failures that
+                // never indicated bad model output. This was the root cause of Dogs getting
+                // permanently degraded after transient auth/network issues.
+                let gate_failures = stats
+                    .zero_flood_count
+                    .saturating_add(stats.collapse_count)
+                    .saturating_add(stats.parse_error_count);
+                let gate_total = stats.success_count.saturating_add(gate_failures);
+                let total = gate_total.min(10) as usize; // cap at gate window size
+                let fail_count = gate_failures.min(total as u64) as usize;
+                let success_count = total.saturating_sub(fail_count);
+                for _ in 0..success_count {
                     guard.gate.record_success();
                 }
-                for _ in 0..failures {
+                for _ in 0..fail_count {
                     guard.gate.record_failure();
+                }
+                if guard.gate.is_tripped() {
+                    tracing::warn!(
+                        backend = %dog_id,
+                        gate_failures = gate_failures,
+                        gate_total = gate_total,
+                        "organ: gate tripped from restored stats — Dog will degrade on next failure"
+                    );
                 }
                 tracing::info!(
                     backend = %dog_id,
                     total_calls = stats.total_calls,
                     json_valid_rate = format!("{:.1}%", stats.json_valid_rate() * 100.0),
+                    gate_replayed = format!("{}/{} (excl {} timeout + {} api_error)",
+                        fail_count, total, stats.timeout_count, stats.api_error_count),
                     "organ: restored persisted DogStats"
                 );
             }
@@ -343,6 +359,73 @@ mod tests {
         assert!(
             matches!(guard.backend.health, BackendHealth::Degraded { .. }),
             "backend should be degraded after gate trips"
+        );
+    }
+
+    #[test]
+    fn restore_stats_excludes_api_errors_from_gate() {
+        // F1 fix: a Dog with 8 api_errors (e.g. 401 from wrong auth) and 0 success
+        // must NOT have its gate tripped after restore. ApiError is infra, not model quality.
+        let mut organ = InferenceOrgan::boot_empty();
+        let _handle = organ.register_backend(make_backend("gemma-4b-core"));
+
+        let stats = DogStats {
+            total_calls: 8,
+            success_count: 0,
+            zero_flood_count: 0,
+            collapse_count: 0,
+            parse_error_count: 0,
+            timeout_count: 0,
+            api_error_count: 8,
+            last_success: None,
+            total_latency_ms: 0,
+        };
+        organ.restore_stats(&[("gemma-4b-core".to_string(), stats)]);
+
+        let handle = organ
+            .entries
+            .get(&BackendId("gemma-4b-core".to_string()))
+            .unwrap();
+        // Gate should be empty (0 gate-relevant calls), backend stays Healthy
+        assert!(
+            !handle.is_quality_degraded(),
+            "api_errors must not trip the gate"
+        );
+        let guard = handle.0.lock().unwrap();
+        assert!(
+            !guard.gate.is_tripped(),
+            "gate must not be tripped from api_errors alone"
+        );
+    }
+
+    #[test]
+    fn restore_stats_trips_gate_for_parse_errors() {
+        // A Dog with real model-quality failures SHOULD have its gate pre-armed.
+        let mut organ = InferenceOrgan::boot_empty();
+        let _handle = organ.register_backend(make_backend("bad-dog"));
+
+        let stats = DogStats {
+            total_calls: 10,
+            success_count: 2,
+            zero_flood_count: 3,
+            collapse_count: 0,
+            parse_error_count: 5,
+            timeout_count: 0,
+            api_error_count: 0,
+            last_success: None,
+            total_latency_ms: 0,
+        };
+        organ.restore_stats(&[("bad-dog".to_string(), stats)]);
+
+        let handle = organ
+            .entries
+            .get(&BackendId("bad-dog".to_string()))
+            .unwrap();
+        let guard = handle.0.lock().unwrap();
+        // 8 gate-relevant failures (3 zero + 5 parse) out of 10 gate-relevant calls → >50% → tripped
+        assert!(
+            guard.gate.is_tripped(),
+            "model-quality failures must trip the gate"
         );
     }
 }
