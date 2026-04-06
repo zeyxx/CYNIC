@@ -8,10 +8,24 @@ use axum::{
 use serde::Deserialize;
 use std::sync::Arc;
 
+use super::response::{coordination_error, storage_error};
 use super::types::{AppState, ErrorResponse};
 use crate::domain::ccm;
 use crate::domain::ccm::Crystal;
 use crate::domain::compliance;
+
+fn crystal_to_json(c: &Crystal) -> serde_json::Value {
+    serde_json::json!({
+        "id": c.id,
+        "content": c.content,
+        "domain": c.domain,
+        "confidence": c.confidence,
+        "observations": c.observations,
+        "state": c.state.to_string(),
+        "created_at": c.created_at,
+        "updated_at": c.updated_at,
+    })
+}
 
 #[derive(Debug, Deserialize, Default)]
 pub struct CrystalsQuery {
@@ -34,32 +48,10 @@ pub async fn crystals_handler(
         .list_crystals_filtered(limit, q.domain.as_deref(), q.state.as_deref())
         .await
     {
-        Ok(crystals) => {
-            let items: Vec<serde_json::Value> = crystals
-                .iter()
-                .map(|c| {
-                    serde_json::json!({
-                        "id": c.id,
-                        "content": c.content,
-                        "domain": c.domain,
-                        "confidence": c.confidence,
-                        "observations": c.observations,
-                        "state": c.state.to_string(),
-                        "created_at": c.created_at,
-                        "updated_at": c.updated_at,
-                    })
-                })
-                .collect();
-            Ok(Json(items))
-        }
+        Ok(crystals) => Ok(Json(crystals.iter().map(crystal_to_json).collect())),
         Err(e) => {
             tracing::warn!(error = %e, "crystals list failed");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "storage unavailable".into(),
-                }),
-            ))
+            Err(storage_error())
         }
     }
 }
@@ -69,16 +61,7 @@ pub async fn crystal_handler(
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     match state.storage.get_crystal(&id).await {
-        Ok(Some(c)) => Ok(Json(serde_json::json!({
-            "id": c.id,
-            "content": c.content,
-            "domain": c.domain,
-            "confidence": c.confidence,
-            "observations": c.observations,
-            "state": c.state.to_string(),
-            "created_at": c.created_at,
-            "updated_at": c.updated_at,
-        }))),
+        Ok(Some(c)) => Ok(Json(crystal_to_json(&c))),
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
@@ -87,12 +70,7 @@ pub async fn crystal_handler(
         )),
         Err(e) => {
             tracing::warn!(crystal_id = %id, error = %e, "crystal get failed");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "storage unavailable".into(),
-                }),
-            ))
+            Err(storage_error())
         }
     }
 }
@@ -240,12 +218,7 @@ pub async fn observations_handler(
         Ok(rows) => Ok(Json(rows)),
         Err(e) => {
             tracing::warn!(error = %e, "observations list failed");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "storage unavailable".into(),
-                }),
-            ))
+            Err(storage_error())
         }
     }
 }
@@ -279,12 +252,7 @@ pub async fn sessions_handler(
         }
         Err(e) => {
             tracing::warn!(error = %e, "sessions list failed");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "storage unavailable".into(),
-                }),
-            ))
+            Err(storage_error())
         }
     }
 }
@@ -309,12 +277,7 @@ pub async fn compliance_handler(
         .await
         .map_err(|e| {
             tracing::warn!(error = %e, agent_id = %agent_id, "compliance: observation query failed");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "storage unavailable".into(),
-                }),
-            )
+            storage_error()
         })?;
 
     // 2. Score (pure function — no I/O)
@@ -343,12 +306,7 @@ pub async fn compliance_trend_handler(
         Ok(reports) => Ok(Json(reports)),
         Err(e) => {
             tracing::warn!(error = %e, "compliance trend query failed");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "storage unavailable".into(),
-                }),
-            ))
+            Err(storage_error())
         }
     }
 }
@@ -367,12 +325,7 @@ pub async fn audit_handler(
         Ok(rows) => Ok(Json(rows)),
         Err(e) => {
             tracing::warn!(error = %e, "audit query failed");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "coordination unavailable".into(),
-                }),
-            ))
+            Err(coordination_error())
         }
     }
 }

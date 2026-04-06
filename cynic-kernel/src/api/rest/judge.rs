@@ -7,7 +7,7 @@ use axum::{
 };
 use std::sync::Arc;
 
-use super::response::{verdict_response_cached, verdict_to_response};
+use super::response::{storage_error, verdict_response_cached, verdict_to_response};
 use super::types::*;
 
 /// Max content length in chars — caps token consumption per request.
@@ -126,12 +126,7 @@ pub async fn get_verdict_handler(
         )),
         Err(e) => {
             tracing::warn!(verdict_id = %id, error = %e, "verdict get failed");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "storage unavailable".into(),
-                }),
-            ))
+            Err(storage_error())
         }
     }
 }
@@ -143,12 +138,7 @@ pub async fn list_verdicts_handler(
         Ok(verdicts) => Ok(Json(verdicts.iter().map(verdict_to_response).collect())),
         Err(e) => {
             tracing::warn!(error = %e, "verdicts list failed");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "storage unavailable".into(),
-                }),
-            ))
+            Err(storage_error())
         }
     }
 }
