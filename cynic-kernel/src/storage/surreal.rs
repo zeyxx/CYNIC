@@ -786,6 +786,29 @@ impl StoragePort for SurrealHttpStorage {
         self.query_one("DELETE mcp_audit WHERE ts < time::now() - 7d;")
             .await
             .map_err(|e| StorageError::QueryFailed(format!("TTL cleanup mcp_audit: {e}")))?;
+        // K15: Complete crystal lifecycle — forming zombies and terminal decay.
+        // Forming crystals with no update in 90 days → dissolved (never reached critical mass).
+        // Decaying crystals with confidence < 0.1 → dissolved (irreversibly lost trust).
+        // Dissolved crystals older than 30 days → deleted (final cleanup).
+        let dissolved = self
+            .query_one(
+                "UPDATE crystal SET state = 'dissolved' \
+                 WHERE state = 'forming' AND updated_at < time::now() - 90d; \
+                 UPDATE crystal SET state = 'dissolved' \
+                 WHERE state = 'decaying' AND confidence < 0.1;",
+            )
+            .await;
+        if let Err(e) = dissolved {
+            tracing::warn!("crystal dissolution failed (non-fatal): {e}");
+        }
+        let purged = self
+            .query_one(
+                "DELETE crystal WHERE state = 'dissolved' AND updated_at < time::now() - 30d;",
+            )
+            .await;
+        if let Err(e) = purged {
+            tracing::warn!("dissolved crystal purge failed (non-fatal): {e}");
+        }
         Ok(())
     }
 
