@@ -70,6 +70,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# [M2] Mock servers for tests
+[dev-dependencies]
+axum = "0.8"
+
 [lints]
 workspace = true
 ```
@@ -88,6 +92,9 @@ members = ["cynic-kernel", "cynic-node"]
 - [ ] **Step 3: Create stub main.rs**
 
 ```rust
+// [m3] Binary crate test exemption — same pattern as cynic-kernel lib.rs
+#![cfg_attr(test, allow(dead_code, clippy::unwrap_used, clippy::expect_used))]
+
 mod announce;
 mod config;
 mod supervise;
@@ -236,7 +243,11 @@ pub fn load(path: &str) -> Config {
     if let Some(env_name) = &cfg.dog.api_key_env {
         cfg.dog.api_key = Some(resolve_env(env_name, "dog.api_key_env"));
     }
-    validate(&cfg);
+    // [C3] validate returns Result — clean exit, not panic
+    if let Err(e) = validate(&cfg) {
+        eprintln!("config validation failed: {e}");
+        std::process::exit(1);
+    }
     cfg
 }
 
@@ -247,14 +258,24 @@ fn resolve_env(var_name: &str, field: &str) -> String {
     })
 }
 
-fn validate(cfg: &Config) {
-    assert!(!cfg.process.command.is_empty(), "process.command must not be empty");
-    assert!(cfg.dog.name.len() >= 1 && cfg.dog.name.len() <= 64,
-        "dog.name must be 1-64 chars, got {}", cfg.dog.name.len());
-    assert!(cfg.process.stop_timeout_secs > 0, "stop_timeout_secs must be > 0");
-    assert!(cfg.restart.max_attempts > 0, "max_attempts must be > 0");
-    assert!(cfg.health.startup_timeout_secs > cfg.health.timeout_secs,
-        "startup_timeout_secs must be > timeout_secs");
+// [C3] Returns Result instead of panicking — clean user-facing errors
+fn validate(cfg: &Config) -> Result<(), String> {
+    if cfg.process.command.is_empty() {
+        return Err("process.command must not be empty".into());
+    }
+    if cfg.dog.name.is_empty() || cfg.dog.name.len() > 64 {
+        return Err(format!("dog.name must be 1-64 chars, got {}", cfg.dog.name.len()));
+    }
+    if cfg.process.stop_timeout_secs == 0 {
+        return Err("stop_timeout_secs must be > 0".into());
+    }
+    if cfg.restart.max_attempts == 0 {
+        return Err("max_attempts must be > 0".into());
+    }
+    if cfg.health.startup_timeout_secs <= cfg.health.timeout_secs {
+        return Err("startup_timeout_secs must be > timeout_secs".into());
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -305,19 +326,19 @@ command = ["echo", "hello"]
     }
 
     #[test]
-    #[should_panic(expected = "dog.name must be 1-64 chars")]
     fn reject_empty_name() {
         let toml_str = VALID_TOML.replace("test-dog", "");
         let cfg: Config = toml::from_str(&toml_str).unwrap();
-        validate(&cfg);
+        let err = validate(&cfg).unwrap_err();
+        assert!(err.contains("dog.name must be 1-64 chars"));
     }
 
     #[test]
-    #[should_panic(expected = "process.command must not be empty")]
     fn reject_empty_command() {
         let toml_str = VALID_TOML.replace(r#"command = ["echo", "hello"]"#, "command = []");
         let cfg: Config = toml::from_str(&toml_str).unwrap();
-        validate(&cfg);
+        let err = validate(&cfg).unwrap_err();
+        assert!(err.contains("process.command must not be empty"));
     }
 }
 ```
@@ -518,13 +539,16 @@ use process_wrap::tokio::*;
 use std::collections::HashMap;
 use std::process::Stdio;
 
+// [C1] No expect() in non-test code — workspace lints deny clippy::expect_used.
+// Config validation guarantees command is non-empty before this is called.
 pub fn spawn_backend(
     command: &[impl AsRef<std::ffi::OsStr>],
     working_dir: Option<&str>,
     env: &HashMap<String, String>,
 ) -> std::io::Result<Box<dyn ChildWrapper>> {
-    let (program, args) = command.split_first()
-        .expect("command must not be empty");
+    let Some((program, args)) = command.split_first() else {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "empty command"));
+    };
 
     let wrap = CommandWrap::with_new(program, |cmd| {
         cmd.args(args)
@@ -571,20 +595,21 @@ pub async fn spawn_with_retries(
     env: &HashMap<String, String>,
     max: u32,
 ) -> std::io::Result<Box<dyn ChildWrapper>> {
-    let mut last_err = None;
+    // [C1] No expect() — track last error via Option, return it with unwrap_or
+    let mut last_err = std::io::Error::new(std::io::ErrorKind::Other, "no attempts made");
     for attempt in 1..=max {
         match spawn_backend(command, working_dir, env) {
             Ok(child) => return Ok(child),
             Err(e) => {
                 tracing::error!("spawn attempt {attempt}/{max} failed: {e}");
-                last_err = Some(e);
+                last_err = e;
                 if attempt < max {
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             }
         }
     }
-    Err(last_err.expect("at least one attempt"))
+    Err(last_err)
 }
 ```
 
@@ -1074,6 +1099,12 @@ async fn watch(
     let mut health_failures: u32 = 0;
 
     loop {
+        // [C2] Pin child.wait() OUTSIDE select! to avoid borrow conflict.
+        // When a tick branch wins, this future is dropped → &mut child released →
+        // graceful_stop(child) can proceed in the branch body.
+        let child_wait = child.wait();
+        tokio::pin!(child_wait);
+
         tokio::select! {
             _ = heartbeat_tick.tick() => {
                 match announce::send_heartbeat(client, &cfg.kernel.url, &cfg.kernel.api_key, dog_id).await {
@@ -1105,7 +1136,7 @@ async fn watch(
                     _ => {} // transient — health check handles liveness
                 }
             }
-            status = child.wait() => {
+            status = &mut child_wait => {
                 tracing::error!("backend exited: {status:?}");
                 return ExitReason::Crashed;
             }
@@ -1131,6 +1162,10 @@ async fn wait_healthy(
     let mut tick = tokio::time::interval(Duration::from_secs(2));
 
     loop {
+        // [C2] Pin child.wait() outside select
+        let child_wait = child.wait();
+        tokio::pin!(child_wait);
+
         tokio::select! {
             _ = tick.tick() => {
                 if verify::check_health(client, &health_url, cfg.health.timeout_secs).await {
@@ -1143,7 +1178,7 @@ async fn wait_healthy(
                     return Err(ExitReason::Crashed);
                 }
             }
-            _ = child.wait() => return Err(ExitReason::Crashed),
+            _ = &mut child_wait => return Err(ExitReason::Crashed),
             _ = shutdown.cancelled() => return Err(ExitReason::Shutdown),
         }
     }
@@ -1170,6 +1205,10 @@ async fn register_with_kernel(
         payload["api_key"] = serde_json::json!(key);
     }
 
+    // [M1] Two separate counters:
+    // - calibration_attempts: finite, exits after max_attempts (semi-permanent failure)
+    // - reg_delay: controls backoff delay growth for transient errors (never exhausts)
+    let mut calibration_attempts: u32 = 0;
     let mut reg_backoff = supervise::Backoff::from_config(&cfg.restart);
     loop {
         tokio::select! {
@@ -1183,12 +1222,14 @@ async fn register_with_kernel(
                         return Err(ExitReason::Fatal(format!("name collision: {}", cfg.dog.name)));
                     }
                     Err(announce::RegisterError::CalibrationFail(e)) => {
-                        if reg_backoff.exhausted() {
-                            return Err(ExitReason::Fatal(format!("calibration failed after retries: {e}")));
+                        calibration_attempts += 1;
+                        if calibration_attempts >= cfg.restart.max_attempts {
+                            return Err(ExitReason::Fatal(format!("calibration failed after {calibration_attempts} attempts: {e}")));
                         }
-                        tracing::warn!("calibration failed: {e}, retrying");
+                        tracing::warn!("calibration failed ({calibration_attempts}/{}): {e}", cfg.restart.max_attempts);
                         reg_backoff.wait_or_shutdown(shutdown).await;
                     }
+                    // Transient errors retry indefinitely — backend is still useful
                     Err(e) => {
                         tracing::warn!("registration failed: {e}, retrying");
                         reg_backoff.wait_or_shutdown(shutdown).await;
@@ -1216,13 +1257,34 @@ async fn main() {
     let cli = Cli::parse();
     let cfg = config::load(&cli.config);
 
-    let client = reqwest::Client::builder()
+    // [C1] No expect() — exit cleanly on client build failure
+    let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(cfg.health.timeout_secs))
         .build()
-        .expect("failed to build HTTP client");
+    {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::error!("failed to build HTTP client: {e}");
+            std::process::exit(1);
+        }
+    };
 
+    // [M3] Handle both SIGTERM (systemd) and SIGINT (Ctrl+C)
     let shutdown = CancellationToken::new();
     let shutdown_clone = shutdown.clone();
+    #[cfg(unix)]
+    tokio::spawn(async move {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut sigterm = signal(SignalKind::terminate())
+            .unwrap_or_else(|e| { tracing::error!("sigterm handler: {e}"); std::process::exit(1); });
+        tokio::select! {
+            _ = sigterm.recv() => {}
+            _ = tokio::signal::ctrl_c() => {}
+        }
+        tracing::info!("shutdown signal received");
+        shutdown_clone.cancel();
+    });
+    #[cfg(windows)]
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();
         tracing::info!("shutdown signal received");
@@ -1239,8 +1301,9 @@ async fn main() {
             if let Some(id) = dog_id.take() {
                 announce::try_deregister(&client, &cfg.kernel.url, &cfg.kernel.api_key, &id).await;
             }
+            // [M4] Pass &cfg.process.command directly — String: AsRef<OsStr>
             child = Some(match supervise::spawn_with_retries(
-                &cfg.process.command.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+                &cfg.process.command,
                 cfg.process.working_dir.as_deref(),
                 &cfg.process.env, 3,
             ).await {
@@ -1253,7 +1316,8 @@ async fn main() {
             backoff.record_start();
         }
 
-        let c = child.as_mut().expect("child must exist");
+        // [C1] No expect() — child is always Some after the if-block above
+        let Some(c) = child.as_mut() else { unreachable!() };
 
         // Run lifecycle: wait_healthy → register → watch
         let (reason, id) = run_lifecycle(&client, &cfg, c, &shutdown, &mut backoff).await;
@@ -1463,10 +1527,8 @@ git commit -m "feat(node): example config + integration verification (Phase B Ta
 
 ## Known Implementation Risks
 
-1. **`child.wait()` borrow pattern in `select!`**: If the borrow checker fights, pin the wait future outside the loop: `let wait = child.wait(); tokio::pin!(wait);` then use `&mut wait` in select. See spec note.
+1. **process-wrap API drift**: The spec describes 9.1.0 API from research. Verify actual crate API against `docs.rs/process-wrap/9.1.0`. Key methods: `CommandWrap::with_new()`, `.wrap(ProcessGroup::leader())`, `.wrap(KillOnDrop)`, `.spawn()`, `child.signal()`, `child.start_kill()`, `child.wait()`. If `wait()` returns `Box<dyn Future>` instead of a concrete type, the `tokio::pin!` pattern may need `Box::into_pin()` instead.
 
-2. **process-wrap API drift**: The spec describes 9.1.0 API from research. Verify actual crate API against `docs.rs/process-wrap/9.1.0`. Key methods: `CommandWrap::with_new()`, `.wrap(ProcessGroup::leader())`, `.wrap(KillOnDrop)`, `.spawn()`, `child.signal()`, `child.start_kill()`, `child.wait()`.
+2. **Cross-platform**: `#[cfg(windows)]` code compiles but is only testable on Windows. Verify with `cargo check --target x86_64-pc-windows-msvc` if the target is installed.
 
-3. **Axum version for tests**: The kernel uses `axum = "0.8"`. Test mock servers should use the same version. Add `axum` as a dev-dependency only: `[dev-dependencies] axum = "0.8"`.
-
-4. **Cross-platform**: `#[cfg(windows)]` code compiles but is only testable on Windows. Verify with `cargo check --target x86_64-pc-windows-msvc` if the target is installed.
+3. **Env var isolation in tests**: Config tests use `std::env::set_var`. If tests run in parallel, use unique env var names per test to avoid races.
