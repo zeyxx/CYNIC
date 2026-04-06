@@ -249,6 +249,7 @@ impl Judge {
             .iter()
             .filter(|(dog, cb)| {
                 if !cb.should_allow() {
+                    tracing::warn!(dog_id = %dog.id(), circuit_state = %cb.state(), "Dog skipped — circuit breaker open");
                     return false;
                 }
                 let dog_idx = self.dogs.iter().position(|d| d.id() == dog.id());
@@ -294,6 +295,12 @@ impl Judge {
             .max()
             .unwrap_or(30);
         let wall_clock = std::time::Duration::from_secs(max_dog_timeout + 5);
+
+        tracing::info!(
+            futures_count = futures.len(),
+            max_timeout_secs = max_dog_timeout,
+            "awaiting Dog futures"
+        );
         let results = tokio::time::timeout(
             wall_clock,
             futures_util::future::join_all(futures),
@@ -305,6 +312,11 @@ impl Judge {
                 detail: format!("Wall-clock timeout ({elapsed})"),
             }])
         })?;
+
+        tracing::info!(
+            results_count = results.len(),
+            "join_all() completed, processing results"
+        );
 
         let mut dog_scores: Vec<DogScore> = Vec::new();
         let mut failures: Vec<DogFailure> = Vec::new();
@@ -552,6 +564,10 @@ impl Judge {
 
         let voter_count = dog_scores.len();
         let domain = stimulus.domain.as_deref().unwrap_or("general").to_string();
+        tracing::info!(
+            dog_scores_count = dog_scores.len(),
+            "evaluation complete, returning verdict"
+        );
         Ok(Verdict {
             id,
             domain,

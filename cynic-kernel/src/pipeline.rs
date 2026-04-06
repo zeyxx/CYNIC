@@ -14,6 +14,7 @@ use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::{CacheContext, CacheLookup, VerdictCache};
 use crate::judge::{Judge, JudgeError};
 use tokio::sync::Mutex;
+use tracing::Instrument;
 
 /// Result of the judge pipeline — everything a handler needs to build its response.
 #[derive(Debug)]
@@ -62,15 +63,6 @@ pub async fn run(
     inject_crystals: bool,
     deps: &PipelineDeps<'_>,
 ) -> Result<PipelineResult, JudgeError> {
-    let PipelineDeps {
-        judge,
-        storage,
-        embedding,
-        verdict_cache,
-        metrics,
-        event_tx,
-        ..
-    } = *deps;
     let domain_hint = domain.as_deref().unwrap_or("general");
 
     // ── Domain gate: reject cynic-internal at pipeline entry ──
@@ -94,7 +86,34 @@ pub async fn run(
         domain = %domain_hint,
         content_len = content.len(),
     );
-    let _pipeline_guard = pipeline_span.enter();
+
+    // K6 fix: wrap entire future with .instrument() so span propagates through all .awaits.
+    // CRITICAL: Do NOT use span.enter() before .await — sync guards don't propagate.
+    pipeline_inner(content, context, domain, dogs_filter, inject_crystals, deps)
+        .instrument(pipeline_span)
+        .await
+}
+
+async fn pipeline_inner(
+    content: String,
+    context: Option<String>,
+    domain: Option<String>,
+    dogs_filter: Option<&[String]>,
+    inject_crystals: bool,
+    deps: &PipelineDeps<'_>,
+) -> Result<PipelineResult, JudgeError> {
+    tracing::info!(content_len = content.len(), "pipeline_inner() started");
+
+    let PipelineDeps {
+        judge,
+        storage,
+        embedding,
+        verdict_cache,
+        metrics,
+        event_tx,
+        ..
+    } = *deps;
+    let domain_hint = domain.as_deref().unwrap_or("general");
 
     // ── EMBED: stimulus embedding — used for cache AND semantic crystal retrieval ──
     let stimulus_embedding = match embedding.embed(&content).await {
