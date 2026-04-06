@@ -92,6 +92,43 @@ Code change → Test result → Pattern extraction
 3. **Crystal format for code differs from judgment crystals.** Judgment: `{content, domain, confidence}`. Code: `{pattern, trigger, action, confidence, files_involved}`.
 4. **The sovereign agent is a CYNIC Dog that codes.** Not a separate system — a Dog that takes "write feature X" as stimulus and returns code as response, judged by the other Dogs.
 
+## The FOGC Inversion
+
+*Added 2026-04-06 after cross-text reading of Hall (Secret Teachings ch.I), Kybalion §1, and Bardon (Frabato ch.II). This section exists to prevent a class of architectural drift that no lint rule can catch.*
+
+CYNIC's architecture is morally neutral. The trimmed mean, the φ-bound, the Dog consensus mechanism, the crystal injection pipeline, the REST and MCP surfaces — all of it would still function identically if the six axioms were replaced with their inverses: POWER, SECRECY, LOYALTY, DOMINATION, EFFICIENCY, CONTROL. You would have built a black-magic CYNIC, structurally indistinguishable from this one.
+
+This is not a hypothesis. It is documented.
+
+In Bardon's *Frabato the Magician* (ch.II), the F.O.G.C. lodge — 99 members, 28 degrees of initiation, secret consensus voting — convicts Brother Silesius of revealing lodge secrets. The vote is 51 to 47. The procedure is *procedurally perfect*: tellers count slips of paper, the Grand Master announces the result, the sentence is carried out within 24 hours by 21 specialists in telepathic combat. Every mechanism a benevolent initiatic order would use is present. The lodge is purely evil. The only difference between FOGC and a virtuous order is **the axioms** — sworn "in the name of the Lord of Darkness ... Ashtaroth ... Belial."
+
+Hall states the same pattern as a historical law (Secret Teachings p.21): *"With the decline of virtue ... the Mysteries became perverted. Sorcery took the place of the divine magic ... only the empty shell of the Mysteries remained."* The form persists after the virtue dies.
+
+The Kybalion (§1, Mentalisme) gives the metaphysical statement: form is appearance, spirit is substance, confusing the two is the fundamental error.
+
+### What this means for CYNIC
+
+**The axioms ARE the soul.** Not features. Not configuration. Not metadata. They are the only thing distinguishing CYNIC from FOGC. Every other component — Dogs, pipeline, storage, REST, MCP, observability — is morally neutral plumbing.
+
+This makes Universal Rule **R20** (*"every feature must DO what it CLAIMS"*) the load-bearing rule of the entire system. R20 is not an anti-marketing rule. It is **the architectural firewall against inversion**. A relabeling that leaves behavior unchanged is not a cosmetic edit — it is the first step of a ritual the Hermetic tradition has documented for two millennia.
+
+### The FOGC test
+
+Before any change to axiom semantics, axiom-producing code, or any path that interprets axiom scores, ask:
+
+> *If I replaced the six axioms with their inverses, would any other line of code need to change?*
+
+- **If no** → the axioms are genuinely load-bearing. The change must preserve their integrity end-to-end. Any change that weakens, blurs, or makes axiom semantics negotiable is an inversion vector and should be rejected on principle, not just on engineering grounds.
+- **If yes** → axiom-specific logic is leaking into infrastructure. That leak is a defect: either lift the axiom-aware logic into the axiom layer, or remove the leak. A clean architecture is one where the axioms are the *only* place the system has a soul.
+
+### Why this lives in identity, not in cynic-wisdom
+
+The `cynic-wisdom` skill helps a user reason *with* philosophical traditions — it is consultative. The FOGC inversion is meta: it is about CYNIC's own architecture, not about content the skill helps users think through. Putting the FOGC test in `cynic-wisdom` would make it *optional* and *contextual*. It is neither. It is unconditional and pérenne. Identity docs are where pérenne lives.
+
+### Why this is in the sovereignty doc specifically
+
+Sovereignty is the property of being able to *choose* what serves you. An inverted CYNIC would still be capable; it would not be sovereign, because it would have surrendered its axes of judgment to inverted ends. The opening axiom of this document — *"the measure of a system's sovereignty is not whether it can work alone — it's whether it can choose to"* — depends on the axioms being what they claim to be. Without R20 holding the line at the axiom layer, the opening axiom is decoration.
+
 ---
 
 *"The measure of a system's sovereignty is not whether it can work alone — it's whether it can choose to." — CYNIC axiom*
