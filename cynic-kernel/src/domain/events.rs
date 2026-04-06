@@ -33,4 +33,7 @@ pub enum KernelEvent {
         message: String,
         severity: String,
     },
+    DogExpired {
+        dog_id: String,
+    },
 }
