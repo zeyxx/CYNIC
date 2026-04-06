@@ -22,7 +22,7 @@
 base_url = "http://<TAILSCALE_GPU>:8080/v1"
 model = "Qwen3.5-9B-Q4_K_M.gguf"
 auth_style = "none"
-context_size = 32768           # EXP-5,14: sweet spot (45 tok/s, 8.3GB VRAM)
+context_size = 131072          # INCREASED: 131K (11.5GB VRAM) to support root workspace context
 timeout_secs = 180             # EXP-4: thinking can use 120s+ at T=0.7
 max_tokens = 16384             # EXP-4: enough for thinking + response
 temperature = 0.7              # EXP-4: 100% JSON valid vs 50% at T=0.1
@@ -44,7 +44,7 @@ cooldown_secs = 60
 llama-server.exe ^
   --model Qwen3.5-9B-Q4_K_M.gguf ^
   --n-gpu-layers 33 ^
-  --ctx-size 32768 ^
+  --ctx-size 131072 ^
   -np 1 ^
   --threads 8 ^
   --host 0.0.0.0 --port 8080
