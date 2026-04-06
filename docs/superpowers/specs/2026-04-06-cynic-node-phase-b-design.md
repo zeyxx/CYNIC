@@ -1,7 +1,7 @@
 # cynic-node Phase B — Design Spec
 
 **Date:** 2026-04-06
-**Status:** Draft
+**Status:** Revised (post-review, all C/M/m fixes applied)
 **Crystallized truths:** T1–T10 from `memory/project_cynic_node_design.md`
 **Research inputs:** openfang config, llmfit detection, process-wrap 9.x API, supervisord/s6/systemd/PM2/foreman comparison
 
@@ -49,6 +49,10 @@ Every phase races against `child.wait()` (backend crash) and `shutdown` (SIGTERM
 let shutdown = CancellationToken::new();
 tokio::spawn(signal_handler(shutdown.clone()));
 
+let client = reqwest::Client::builder()       // [M3] shared client
+    .timeout(Duration::from_secs(config.health.timeout_secs))
+    .build()?;
+
 let mut needs_spawn = true;
 let mut child: Option<Box<dyn ChildWrapper>> = None;
 let mut backoff = Backoff::new(&config.restart);
@@ -58,25 +62,28 @@ loop {
     if needs_spawn {
         // Best-effort deregister stale registration
         if let Some(id) = dog_id.take() {
-            try_deregister(&config, &id).await;
+            try_deregister(&client, &config, &id).await;
         }
 
-        child = Some(match spawn_with_retries(&config, 3) {
+        child = Some(match spawn_with_retries(&config, 3).await {  // [m6] async
             Ok(c) => c,
             Err(e) => {
                 tracing::error!("spawn failed after 3 attempts: {e}");
                 std::process::exit(1);
             }
         });
+        backoff.record_start();  // [M1] track start time for min_uptime
     }
 
     let c = child.as_mut().unwrap();
-    let result = run_lifecycle(&config, c, &shutdown, &mut backoff).await;
+    // [C1] run_lifecycle returns (ExitReason, Option<String>) — dog_id propagated
+    let (reason, id) = run_lifecycle(&client, &config, c, &shutdown, &mut backoff).await;
+    dog_id = id;
 
-    match result {
+    match reason {
         Shutdown => {
             if let Some(id) = dog_id.take() {
-                try_deregister(&config, &id).await; // best-effort
+                try_deregister(&client, &config, &id).await; // best-effort
             }
             graceful_stop(c, config.process.stop_timeout_secs).await;
             break;
@@ -89,18 +96,27 @@ loop {
         Crashed => {
             dog_id = None;
             needs_spawn = true;
+            backoff.reset_if_stable();  // [M1] reset counter if lived > min_uptime
             if backoff.exhausted() {
-                tracing::error!("max restart attempts reached");
+                tracing::error!("max restart attempts reached ({} consecutive)", config.restart.max_attempts);
+                graceful_stop(c, config.process.stop_timeout_secs).await;
                 std::process::exit(1);
             }
             backoff.wait_or_shutdown(&shutdown).await;
         }
         Mismatch => {
+            // [C3] kill existing child before respawn — port is still held
+            if let Some(id) = dog_id.take() {
+                try_deregister(&client, &config, &id).await;
+            }
+            graceful_stop(c, config.process.stop_timeout_secs).await;
             needs_spawn = true;
-            // restart backend to reload correct model
         }
         Fatal(e) => {
             tracing::error!("fatal: {e}");
+            if let Some(id) = dog_id.take() {
+                try_deregister(&client, &config, &id).await;
+            }
             if let Some(c) = child.as_mut() {
                 graceful_stop(c, config.process.stop_timeout_secs).await;
             }
@@ -109,17 +125,26 @@ loop {
     }
 }
 
-async fn run_lifecycle(cfg, child, shutdown, backoff) -> ExitReason {
-    wait_healthy(cfg, child, shutdown).await?;
-    let id = register(cfg, child, shutdown).await?;
-    backoff.reset(); // successful registration = healthy cycle
-    watch(cfg, child, &id, shutdown).await
+// [C1] Returns (ExitReason, Option<dog_id>) so outer loop can deregister
+async fn run_lifecycle(client, cfg, child, shutdown, backoff) -> (ExitReason, Option<String>) {
+    if let Err(reason) = wait_healthy(client, cfg, child, shutdown).await {
+        return (reason, None);
+    }
+    match register(client, cfg, child, shutdown).await {
+        Ok(id) => {
+            backoff.reset();  // [M1] successful registration = stable cycle
+            let reason = watch(client, cfg, child, &id, shutdown).await;
+            (reason, Some(id))
+        }
+        Err(reason) => (reason, None),
+    }
 }
 ```
 
 ### Exit reasons
 
 ```rust
+#[derive(Debug)]  // [m9] needed for tracing macros
 enum ExitReason {
     Shutdown,         // SIGTERM/SIGINT received
     Crashed,          // backend process exited unexpectedly
@@ -137,13 +162,18 @@ enum ExitReason {
 [kernel]
 url = "http://<TAILSCALE_CORE>:3030"
 api_key_env = "CYNIC_API_KEY"               # env var name, never literal
+heartbeat_interval_secs = 40                # optional, default 40 (kernel TTL/3)
 
 [dog]
 name = "qwen35-9b-gpu"
 model = "qwen3.5:9b-q4_K_M"
-base_url = "http://localhost:8080/v1"
+# [M4] base_url must be reachable FROM THE KERNEL, not from this node.
+# For cross-machine deployment, use the Tailscale IP of this machine.
+# localhost only works if kernel and backend run on the same machine.
+base_url = "http://<TAILSCALE_GPU>:8080/v1"
 context_size = 8192                          # optional, default 4096
 timeout_secs = 60                            # optional, default 60
+api_key = "optional-backend-auth-key"        # [M6] optional, for authenticated backends
 
 [process]
 command = ["llama-server", "-m", "/models/qwen3.5-9b-q4_K_M.gguf",
@@ -155,14 +185,15 @@ stop_timeout_secs = 10                       # SIGTERM → wait → SIGKILL
 LLAMA_LOG_VERBOSITY = "0"
 
 [restart]
-max_attempts = 5                             # consecutive failures → exit(1)
+max_attempts = 5                             # consecutive retries → exit(1)
 initial_delay_secs = 2
 max_delay_secs = 120                         # backoff cap
 min_uptime_secs = 10                         # resets failure counter
 
 [health]
-interval_secs = 15
-timeout_secs = 5
+interval_secs = 15                           # health probe interval
+verify_interval_secs = 60                    # [m2] identity check interval
+timeout_secs = 5                             # HTTP timeout per probe
 max_failures = 3                             # consecutive failures → kill backend
 startup_timeout_secs = 120                   # max wait for first healthy response
 ```
@@ -179,9 +210,11 @@ startup_timeout_secs = 120                   # max wait for first healthy respon
 
 ### Derived values
 
-- `health_url` = strip `/v1` from `dog.base_url`, append `/health`
+- `health_url` = `dog.base_url.trim_end_matches('/').trim_end_matches("/v1")` + `/health` — [m4] handles trailing slashes and non-standard paths safely
 - `models_url` = `dog.base_url` + `/models`
-- `heartbeat_interval` = `kernel_ttl / 3` = 40s (TTL=120s, check every 30s on kernel → heartbeat at 40s gives ~3 beats per TTL window)
+- `heartbeat_interval` = configurable via `kernel.heartbeat_interval_secs` (default 40s, derived from kernel TTL/3)
+
+**Note on heartbeat response [m5]:** The kernel's `ttl_remaining_secs` field always returns the configured TTL (120), not the actual time remaining. Do not use it to adapt heartbeat interval.
 
 ## Three Concerns
 
@@ -189,11 +222,14 @@ startup_timeout_secs = 120                   # max wait for first healthy respon
 
 **Spawn:**
 ```rust
+// [C2] Use Stdio::inherit() — backend logs flow to node's stdout/stderr,
+// forwarded to journald by systemd. Never Stdio::piped() without a reader
+// (llama-server is extremely verbose; 64KB pipe buffer fills → process blocks).
 fn spawn_backend(config: &ProcessConfig) -> io::Result<Box<dyn ChildWrapper>> {
     let mut wrap = CommandWrap::with_new(&config.command[0], |cmd| {
         cmd.args(&config.command[1..])
-           .stdout(Stdio::piped())
-           .stderr(Stdio::piped());
+           .stdout(Stdio::inherit())
+           .stderr(Stdio::inherit());
         if let Some(dir) = &config.working_dir {
             cmd.current_dir(dir);
         }
@@ -213,14 +249,15 @@ fn spawn_backend(config: &ProcessConfig) -> io::Result<Box<dyn ChildWrapper>> {
 
 **Spawn with retries:**
 ```rust
-fn spawn_with_retries(config, max: u32) -> Result<Child, SpawnError> {
+// [m6] async fn — uses tokio::time::sleep instead of std::thread::sleep
+async fn spawn_with_retries(config: &Config, max: u32) -> Result<Box<dyn ChildWrapper>, SpawnError> {
     for attempt in 1..=max {
         match spawn_backend(&config.process) {
             Ok(child) => return Ok(child),
             Err(e) => {
                 tracing::error!("spawn attempt {attempt}/{max} failed: {e}");
                 if attempt < max {
-                    std::thread::sleep(Duration::from_secs(1));
+                    tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             }
         }
@@ -262,14 +299,23 @@ struct Backoff {
 }
 
 impl Backoff {
+    // Called after each successful spawn, before wait_healthy.
     fn record_start(&mut self) { self.last_start = Instant::now(); }
 
+    // Called before exhausted() check. If backend lived > min_uptime, it was
+    // stable — the crash is a new event, not a flap. Reset counter.
     fn reset_if_stable(&mut self) {
         if self.last_start.elapsed() >= self.min_uptime {
             self.attempt = 0;
         }
     }
 
+    // Called after successful registration. The cycle is healthy.
+    fn reset(&mut self) { self.attempt = 0; }
+
+    // [m1] max_attempts is the number of RETRIES, not total attempts.
+    // exhausted() is checked AFTER reset_if_stable() and BEFORE wait_or_shutdown().
+    // With max_attempts=5: up to 5 backoff waits, then exit on the 6th crash.
     fn exhausted(&self) -> bool { self.attempt >= self.max_attempts }
 
     fn next_delay(&mut self) -> Duration {
@@ -293,19 +339,26 @@ impl Backoff {
 
 **Register (races crash + shutdown):**
 ```rust
-async fn register(cfg, child, shutdown) -> Result<String, ExitReason> {
-    let payload = json!({
+async fn register(client, cfg, child, shutdown) -> Result<String, ExitReason> {
+    // [M6] Include optional api_key for authenticated backends
+    let mut payload = json!({
         "name": cfg.dog.name,
         "base_url": cfg.dog.base_url,
         "model": cfg.dog.model,
         "context_size": cfg.dog.context_size,
         "timeout_secs": cfg.dog.timeout_secs,
     });
+    if let Some(key) = &cfg.dog.api_key {
+        payload["api_key"] = json!(key);
+    }
 
-    let mut backoff = Backoff::new(&cfg.restart);
+    // [m7] Registration retries indefinitely (kernel unreachable is transient,
+    // backend is still useful). No exhausted() check — this is intentional.
+    // The local backoff only controls delay growth (caps at max_delay_secs).
+    let mut reg_backoff = Backoff::new(&cfg.restart);
     loop {
         select! {
-            result = try_register(&cfg.kernel, &payload) => match result {
+            result = try_register(client, &cfg.kernel, &payload) => match result {
                 Ok(resp) => {
                     tracing::info!("registered as {} (roster: {})", resp.dog_id, resp.roster_size);
                     return Ok(resp.dog_id);
@@ -314,7 +367,7 @@ async fn register(cfg, child, shutdown) -> Result<String, ExitReason> {
                 Err(e) if e.is_permanent() => return Err(Fatal(e.to_string())),
                 Err(e) => {
                     tracing::warn!("registration failed: {e}, retrying");
-                    backoff.wait_or_shutdown(shutdown).await;
+                    reg_backoff.wait_or_shutdown(shutdown).await;
                 }
             },
             _ = child.wait() => return Err(Crashed),
@@ -355,13 +408,12 @@ async fn try_deregister(cfg, dog_id: &str) {
 
 **Health check:**
 ```rust
-async fn check_health(cfg) -> bool {
+// [M3] All HTTP calls use the shared reqwest::Client (built once in main).
+// Client has a default timeout matching cfg.health.timeout_secs.
+async fn check_health(client: &Client, cfg: &Config) -> bool {
     let url = derive_health_url(&cfg.dog.base_url);
-    match tokio::time::timeout(
-        Duration::from_secs(cfg.health.timeout_secs),
-        reqwest::get(&url),
-    ).await {
-        Ok(Ok(resp)) if resp.status().is_success() => true,
+    match client.get(&url).send().await {
+        Ok(resp) if resp.status().is_success() => true,
         _ => false,
     }
 }
@@ -369,9 +421,10 @@ async fn check_health(cfg) -> bool {
 
 **Identity check:**
 ```rust
-async fn check_identity(cfg) -> IdentityResult {
+// [M2] Uses shared client with timeout — prevents hangs on slow /v1/models.
+async fn check_identity(client: &Client, cfg: &Config) -> IdentityResult {
     let url = format!("{}/models", cfg.dog.base_url);
-    match reqwest::get(&url).await {
+    match client.get(&url).send().await {
         Ok(resp) => {
             let body: Value = resp.json().await?;
             let models = body["data"].as_array();
@@ -401,16 +454,18 @@ async fn check_identity(cfg) -> IdentityResult {
 ### Watch loop
 
 ```rust
-async fn watch(cfg, child, dog_id, shutdown) -> ExitReason {
-    let mut heartbeat_tick = interval(Duration::from_secs(40));
+async fn watch(client, cfg, child, dog_id, shutdown) -> ExitReason {
+    // [m3] Heartbeat interval from config (default 40s, derived from kernel TTL/3)
+    let mut heartbeat_tick = interval(Duration::from_secs(cfg.kernel.heartbeat_interval_secs));
     let mut health_tick = interval(Duration::from_secs(cfg.health.interval_secs));
-    let mut verify_tick = interval(Duration::from_secs(60));
+    // [m2] Verify interval from config (default 60s)
+    let mut verify_tick = interval(Duration::from_secs(cfg.health.verify_interval_secs));
     let mut health_failures: u32 = 0;
 
     loop {
         select! {
             _ = heartbeat_tick.tick() => {
-                match send_heartbeat(cfg, dog_id).await {
+                match send_heartbeat(client, cfg, dog_id).await {
                     Alive => {}
                     Expired => return ExitReason::Expired,
                     Error(e) => tracing::warn!("heartbeat error: {e}"),
@@ -418,22 +473,25 @@ async fn watch(cfg, child, dog_id, shutdown) -> ExitReason {
             }
 
             _ = health_tick.tick() => {
-                if check_health(cfg).await {
+                if check_health(client, cfg).await {
                     health_failures = 0;
                 } else {
                     health_failures += 1;
                     tracing::warn!("health check failed ({health_failures}/{})", cfg.health.max_failures);
                     if health_failures >= cfg.health.max_failures {
                         tracing::error!("backend unresponsive, killing");
+                        // [M5] Cross-platform kill
                         #[cfg(unix)]
                         let _ = child.signal(libc::SIGTERM);
+                        #[cfg(windows)]
+                        let _ = child.start_kill();
                         // child.wait() will fire → Crashed
                     }
                 }
             }
 
             _ = verify_tick.tick() => {
-                match check_identity(cfg).await {
+                match check_identity(client, cfg).await {
                     Match => {}
                     Mismatch { expected, actual } => {
                         tracing::error!("model mismatch: expected {expected}, got {actual}");
@@ -461,20 +519,23 @@ async fn watch(cfg, child, dog_id, shutdown) -> ExitReason {
 ## Wait Healthy (startup probe)
 
 ```rust
-async fn wait_healthy(cfg, child, shutdown) -> Result<(), ExitReason> {
+async fn wait_healthy(client, cfg, child, shutdown) -> Result<(), ExitReason> {
     let deadline = Instant::now() + Duration::from_secs(cfg.health.startup_timeout_secs);
     let mut tick = interval(Duration::from_secs(2));
 
     loop {
         select! {
             _ = tick.tick() => {
-                if check_health(cfg).await {
+                if check_health(client, cfg).await {
                     tracing::info!("backend healthy");
                     return Ok(());
                 }
                 if Instant::now() >= deadline {
                     tracing::error!("startup health timeout after {}s", cfg.health.startup_timeout_secs);
-                    return Err(Crashed); // kill + restart
+                    // [C4] Kill the unresponsive backend before returning Crashed.
+                    // Without this, the port is still held → next spawn fails.
+                    graceful_stop(child, cfg.process.stop_timeout_secs).await;
+                    return Err(Crashed);
                 }
             }
             _ = Box::into_pin(child.wait()) => return Err(Crashed),
@@ -513,11 +574,20 @@ cynic-node/
 │   └── verify.rs      # check_health(), check_identity(), wait_healthy()
 ```
 
+### Workspace Integration [M7]
+
+Add `"cynic-node"` to `members` in the root `Cargo.toml`:
+```toml
+[workspace]
+members = ["cynic-kernel", "cynic-node"]
+```
+Workspace lints (`deny(dead_code, unused_imports, clippy::unwrap_used, clippy::expect_used)`) apply automatically. Do NOT redeclare them in `cynic-node/Cargo.toml`.
+
 ## Dependencies
 
 ```toml
 [dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "signal", "io-util"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "signal"] }  # [C2] no io-util needed — Stdio::inherit()
 tokio-util = "0.7"            # CancellationToken
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls"] }
 process-wrap = { version = "9.1", features = ["tokio1"] }
@@ -584,7 +654,9 @@ Windows graceful stop limitation: `TerminateProcess` is not graceful — it's eq
 
 ## Deployment
 
-### systemd (Linux)
+### systemd (Linux) [m8]
+
+User service (installed per-user, no root required):
 
 ```ini
 [Unit]
@@ -593,7 +665,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/local/bin/cynic-node --config /etc/cynic/node-%i.toml
+ExecStart=%h/.cargo/bin/cynic-node --config %h/.config/cynic/node-%i.toml
 EnvironmentFile=-%h/.config/cynic/env
 Restart=on-failure
 RestartSec=10
@@ -601,9 +673,10 @@ StartLimitBurst=3
 StartLimitIntervalSec=300
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
 ```
 
+Install to `~/.config/systemd/user/cynic-node@.service`.
 Usage: `systemctl --user enable --now cynic-node@qwen35-9b-gpu`
 
 The node handles its own restart logic (backoff, max_attempts). systemd is the outer circuit-breaker: if the node itself crashes or exits(1) repeatedly, systemd stops trying.
