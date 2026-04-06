@@ -54,4 +54,6 @@ GET  /observations, /sessions, /session/{agent_id}/compliance, /compliance, /aud
 POST /judge, /observe, /crystal
 DELETE /crystal/{id}
 POST /coord/register, /coord/claim, /coord/claim-batch, /coord/release
+POST /dogs/register, /dogs/{id}/heartbeat
+DELETE /dogs/{id}
 ```

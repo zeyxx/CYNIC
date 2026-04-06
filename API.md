@@ -337,6 +337,20 @@ Register a new Dog at runtime via calibration challenge. Auth-gated.
 
 **Errors:** `400` (bad config), `409` (name collision), `422` (calibration failed), `504` (calibration timeout).
 
+### POST /dogs/{id}/heartbeat
+
+Refresh TTL for a dynamically registered Dog. Must be called periodically (default TTL: 120s).
+
+**Response 200:** `{ "dog_id": "...", "status": "alive", "ttl_remaining_secs": 120 }`
+**Response 404:** Dog not registered — re-register required.
+
+### DELETE /dogs/{id}
+
+Remove a dynamically registered Dog from the roster. Config-based Dogs cannot be removed via API.
+
+**Response 200:** `{ "dog_id": "...", "status": "deregistered", "roster_size": 4 }`
+**Response 404:** Dog not found or not a registered Dog.
+
 ### GET /agents
 
 Active agent sessions and claims. Returns `{ active_agents, active_claims, agents: [...], claims: [...] }`.
