@@ -60,6 +60,10 @@ pub struct AppState {
     /// Latest proprioceptive snapshot — updated by probe scheduler (Ring 2).
     /// None until first probe cycle completes. Auth-gated in /health.
     pub environment: Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
+    /// Tracks TTL for dynamically registered Dogs (via POST /dogs/register).
+    /// Config-based Dogs are permanent and not tracked here.
+    /// RwLock: read on every heartbeat, write on register/expire.
+    pub registered_dogs: Arc<std::sync::RwLock<HashMap<String, RegisteredDog>>>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
@@ -237,6 +241,29 @@ fn default_timeout() -> u64 {
 pub struct RegisterDogResponse {
     pub dog_id: String,
     pub calibration: String,
+    pub roster_size: usize,
+}
+
+/// Tracks TTL for Dogs registered via POST /dogs/register.
+/// Config-based Dogs (backends.toml) are permanent and not tracked here.
+#[derive(Debug)]
+pub struct RegisteredDog {
+    pub registered_at: std::time::Instant,
+    pub last_heartbeat: std::time::Instant,
+    pub ttl_secs: u64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct HeartbeatResponse {
+    pub dog_id: String,
+    pub status: String,
+    pub ttl_remaining_secs: u64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeregisterResponse {
+    pub dog_id: String,
+    pub status: String,
     pub roster_size: usize,
 }
 

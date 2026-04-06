@@ -549,6 +549,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         event_tx: event_tx.clone(),
         chain_verified: std::sync::atomic::AtomicBool::new(chain_verified),
         environment: Arc::clone(&environment),
+        registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
