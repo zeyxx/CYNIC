@@ -299,11 +299,15 @@ impl Judge {
             futures_util::future::join_all(futures),
         ).await.map_err(|elapsed| {
             tracing::error!(wall_clock_secs = max_dog_timeout + 5, %elapsed, "Dog evaluation wall-clock TIMEOUT");
-            JudgeError::AllDogsFailed(vec![format!("Evaluation timeout ({elapsed})")])
+            JudgeError::AllDogsFailed(vec![DogFailure {
+                dog_id: "*".into(),
+                kind: DogFailureKind::Timeout,
+                detail: format!("Wall-clock timeout ({elapsed})"),
+            }])
         })?;
 
         let mut dog_scores: Vec<DogScore> = Vec::new();
-        let mut errors: Vec<String> = Vec::new();
+        let mut failures: Vec<DogFailure> = Vec::new();
         let mut failed_dogs: Vec<String> = Vec::new();
         let mut failed_dog_errors: std::collections::HashMap<String, String> = Default::default();
 
@@ -386,32 +390,26 @@ impl Judge {
                         InferenceOrgan::update_stats_entry(h, outcome);
                     }
                     metrics.inc_dog_failure();
+                    let kind = DogFailureKind::from(e);
                     tracing::warn!(
                         phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
-                        error_type = %match e {
-                            DogError::ApiError(_) => "api_error",
-                            DogError::ParseError(_) => "parse_error",
-                            DogError::RateLimited(_) => "rate_limited",
-                            DogError::Timeout => "timeout",
-                        },
+                        error_type = %kind.as_str(),
                         error = %e,
                         "Dog failed"
                     );
-                    let error_kind = match e {
-                        DogError::ApiError(_) => "api_error",
-                        DogError::ParseError(_) => "parse_error",
-                        DogError::RateLimited(_) => "rate_limited",
-                        DogError::Timeout => "timeout",
-                    };
-                    failed_dog_errors.insert(id.clone(), error_kind.to_string());
+                    failed_dog_errors.insert(id.clone(), kind.as_str().to_string());
                     failed_dogs.push(id.clone());
-                    errors.push(format!("{id}: {e}"));
+                    failures.push(DogFailure {
+                        dog_id: id,
+                        kind,
+                        detail: e.to_string(),
+                    });
                 }
             }
         }
 
         if dog_scores.is_empty() {
-            return Err(JudgeError::AllDogsFailed(errors));
+            return Err(JudgeError::AllDogsFailed(failures));
         }
 
         // Aggregate: trimmed mean per axiom (remove highest + lowest when >= 4 dogs,
@@ -655,10 +653,55 @@ pub fn verify_verdict_integrity(verdict: &Verdict) -> bool {
     stored_hash == &recomputed
 }
 
+/// A single Dog's failure — preserves the error kind for programmatic classification.
+#[derive(Debug)]
+pub struct DogFailure {
+    pub dog_id: String,
+    pub kind: DogFailureKind,
+    pub detail: String,
+}
+
+impl std::fmt::Display for DogFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.dog_id, self.detail)
+    }
+}
+
+/// Typed failure kind — mirrors DogError variants for downstream classification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DogFailureKind {
+    ApiError,
+    ParseError,
+    RateLimited,
+    Timeout,
+}
+
+impl DogFailureKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ApiError => "api_error",
+            Self::ParseError => "parse_error",
+            Self::RateLimited => "rate_limited",
+            Self::Timeout => "timeout",
+        }
+    }
+}
+
+impl From<&DogError> for DogFailureKind {
+    fn from(e: &DogError) -> Self {
+        match e {
+            DogError::ApiError(_) => Self::ApiError,
+            DogError::ParseError(_) => Self::ParseError,
+            DogError::RateLimited(_) => Self::RateLimited,
+            DogError::Timeout => Self::Timeout,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum JudgeError {
     NoDogs,
-    AllDogsFailed(Vec<String>),
+    AllDogsFailed(Vec<DogFailure>),
     InvalidInput(String),
 }
 
@@ -666,7 +709,10 @@ impl std::fmt::Display for JudgeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NoDogs => write!(f, "No Dogs configured"),
-            Self::AllDogsFailed(errs) => write!(f, "All Dogs failed: {}", errs.join("; ")),
+            Self::AllDogsFailed(failures) => {
+                let msgs: Vec<String> = failures.iter().map(|f| f.to_string()).collect();
+                write!(f, "All Dogs failed: {}", msgs.join("; "))
+            }
             Self::InvalidInput(reason) => write!(f, "Invalid input: {reason}"),
         }
     }
