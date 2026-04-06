@@ -56,6 +56,9 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         event_tx: tokio::sync::broadcast::channel(16).0,
         chain_verified: std::sync::atomic::AtomicBool::new(true),
         environment: std::sync::Arc::new(std::sync::RwLock::new(None)),
+        registered_dogs: std::sync::Arc::new(std::sync::RwLock::new(
+            std::collections::HashMap::new(),
+        )),
     })
 }
 
@@ -848,6 +851,9 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         event_tx: tokio::sync::broadcast::channel(16).0,
         chain_verified: std::sync::atomic::AtomicBool::new(true),
         environment: std::sync::Arc::new(std::sync::RwLock::new(None)),
+        registered_dogs: std::sync::Arc::new(std::sync::RwLock::new(
+            std::collections::HashMap::new(),
+        )),
     });
     let app = rest::router(state);
 
