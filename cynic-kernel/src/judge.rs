@@ -1700,4 +1700,39 @@ mod roster_tests {
         assert!(verdict.dog_id.contains("alpha"));
         assert!(verdict.dog_id.contains("beta"));
     }
+
+    #[tokio::test]
+    async fn registered_dog_expires_without_heartbeat() {
+        let dog_a = make_dog("permanent");
+        let dog_b = make_dog("ephemeral");
+        let judge = Judge::new(
+            vec![dog_a, dog_b],
+            vec![make_breaker("permanent"), make_breaker("ephemeral")],
+        );
+
+        let swap = ArcSwap::from_pointee(judge);
+        assert_eq!(swap.load_full().dog_ids().len(), 2);
+
+        // Simulate TTL expiry: remove ephemeral
+        let current = swap.load_full();
+        let reduced = Judge::without_dog(&current, "ephemeral").unwrap();
+        swap.store(Arc::new(reduced));
+
+        let final_roster = swap.load_full();
+        assert_eq!(final_roster.dog_ids(), vec!["permanent"]);
+        // Permanent dog still evaluates
+        let verdict = final_roster
+            .evaluate(
+                &Stimulus {
+                    content: "test".into(),
+                    context: None,
+                    domain: None,
+                },
+                None,
+                &Metrics::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(verdict.dog_scores.len(), 1);
+    }
 }
