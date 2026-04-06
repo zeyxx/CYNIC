@@ -200,7 +200,7 @@ startup_timeout_secs = 120                   # max wait for first healthy respon
 
 ### Config validation (fail fast at startup)
 
-- `api_key_env` must resolve to a non-empty env var
+- `api_key_env` must resolve to a non-empty env var. [m10] The resolved value is stored as `KernelConfig.api_key: String` — the env var name is not kept after config load
 - `command` must be non-empty, `command[0]` should be in PATH (warning, not error — might be absolute)
 - `name` must be 1–64 chars (kernel constraint)
 - `base_url` must parse as valid URL
@@ -275,13 +275,13 @@ async fn graceful_stop(child: &mut Box<dyn ChildWrapper>, timeout_secs: u64) {
 
     match tokio::time::timeout(
         Duration::from_secs(timeout_secs),
-        Box::into_pin(child.wait()),
+        child.wait(),
     ).await {
         Ok(_) => { /* clean exit */ }
         Err(_) => {
             tracing::warn!("backend did not stop within {timeout_secs}s, killing");
             let _ = child.start_kill();
-            let _ = Box::into_pin(child.wait()).await;
+            let _ = child.wait().await;
         }
     }
 }
@@ -363,8 +363,21 @@ async fn register(client, cfg, child, shutdown) -> Result<String, ExitReason> {
                     tracing::info!("registered as {} (roster: {})", resp.dog_id, resp.roster_size);
                     return Ok(resp.dog_id);
                 }
+                // Permanent errors → Fatal (no retry)
                 Err(e) if e.is_collision() => return Err(Fatal(format!("name collision: {}", cfg.dog.name))),
                 Err(e) if e.is_permanent() => return Err(Fatal(e.to_string())),
+                // [M9] Calibration failure (422) = semi-permanent. Retry with backoff,
+                // but respect max_attempts. Could be warming up, or genuinely broken model.
+                Err(e) if e.is_calibration_fail() => {
+                    reg_backoff.reset_if_stable();
+                    if reg_backoff.exhausted() {
+                        return Err(Fatal(format!("calibration failed after {} attempts: {e}", cfg.restart.max_attempts)));
+                    }
+                    tracing::warn!("calibration failed: {e}, retrying ({}/{})", reg_backoff.attempt, cfg.restart.max_attempts);
+                    reg_backoff.wait_or_shutdown(shutdown).await;
+                }
+                // Transient errors (kernel unreachable, 504 timeout) → retry indefinitely.
+                // Backend is still useful even without kernel registration.
                 Err(e) => {
                     tracing::warn!("registration failed: {e}, retrying");
                     reg_backoff.wait_or_shutdown(shutdown).await;
@@ -379,24 +392,30 @@ async fn register(client, cfg, child, shutdown) -> Result<String, ExitReason> {
 
 **Heartbeat (inside watch select!):**
 ```rust
-async fn send_heartbeat(cfg, dog_id) -> HeartbeatResult {
+// [C5] All announce functions take shared client as first param
+async fn send_heartbeat(client: &Client, cfg: &Config, dog_id: &str) -> HeartbeatResult {
     let url = format!("{}/dogs/{}/heartbeat", cfg.kernel.url, dog_id);
-    match http_post(&url, &cfg.kernel.api_key).await {
-        Ok(200) => HeartbeatResult::Alive,
-        Ok(404) => HeartbeatResult::Expired,
-        Ok(s)   => HeartbeatResult::Error(format!("unexpected status {s}")),
-        Err(e)  => HeartbeatResult::Error(e.to_string()),
+    match client.post(&url)
+        .header("Authorization", format!("Bearer {}", cfg.kernel.api_key))
+        .send().await {
+        Ok(resp) if resp.status() == 200 => HeartbeatResult::Alive,
+        Ok(resp) if resp.status() == 404 => HeartbeatResult::Expired,
+        Ok(resp) => HeartbeatResult::Error(format!("unexpected status {}", resp.status())),
+        Err(e)   => HeartbeatResult::Error(e.to_string()),
     }
 }
 ```
 
 **Deregister (best-effort, never blocks exit):**
 ```rust
-async fn try_deregister(cfg, dog_id: &str) {
+// [C5] Takes shared client
+async fn try_deregister(client: &Client, cfg: &Config, dog_id: &str) {
     let url = format!("{}/dogs/{}", cfg.kernel.url, dog_id);
     match tokio::time::timeout(
         Duration::from_secs(5),
-        http_delete(&url, &cfg.kernel.api_key),
+        client.delete(&url)
+            .header("Authorization", format!("Bearer {}", cfg.kernel.api_key))
+            .send(),
     ).await {
         Ok(Ok(_)) => tracing::info!("deregistered {dog_id}"),
         _ => tracing::warn!("deregister failed for {dog_id}, TTL will clean up"),
@@ -424,27 +443,28 @@ async fn check_health(client: &Client, cfg: &Config) -> bool {
 // [M2] Uses shared client with timeout — prevents hangs on slow /v1/models.
 async fn check_identity(client: &Client, cfg: &Config) -> IdentityResult {
     let url = format!("{}/models", cfg.dog.base_url);
-    match client.get(&url).send().await {
-        Ok(resp) => {
-            let body: Value = resp.json().await?;
-            let models = body["data"].as_array();
-            if let Some(models) = models {
-                let loaded = models.iter()
-                    .filter_map(|m| m["id"].as_str())
-                    .collect::<Vec<_>>();
-                if loaded.iter().any(|id| id.contains(&cfg.dog.model)) {
-                    IdentityResult::Match
-                } else {
-                    IdentityResult::Mismatch {
-                        expected: cfg.dog.model.clone(),
-                        actual: loaded.join(", "),
-                    }
-                }
-            } else {
-                IdentityResult::Unknown
-            }
+    // [C6] No `?` operator — return type is IdentityResult, not Result.
+    let resp = match client.get(&url).send().await {
+        Ok(r) => r,
+        Err(_) => return IdentityResult::Unreachable,
+    };
+    let body: Value = match resp.json().await {
+        Ok(v) => v,
+        Err(_) => return IdentityResult::Unknown,
+    };
+    let Some(models) = body["data"].as_array() else {
+        return IdentityResult::Unknown;
+    };
+    let loaded: Vec<&str> = models.iter()
+        .filter_map(|m| m["id"].as_str())
+        .collect();
+    if loaded.iter().any(|id| id.contains(&cfg.dog.model)) {
+        IdentityResult::Match
+    } else {
+        IdentityResult::Mismatch {
+            expected: cfg.dog.model.clone(),
+            actual: loaded.join(", "),
         }
-        Err(_) => IdentityResult::Unreachable,
     }
 }
 ```
@@ -479,13 +499,12 @@ async fn watch(client, cfg, child, dog_id, shutdown) -> ExitReason {
                     health_failures += 1;
                     tracing::warn!("health check failed ({health_failures}/{})", cfg.health.max_failures);
                     if health_failures >= cfg.health.max_failures {
-                        tracing::error!("backend unresponsive, killing");
-                        // [M5] Cross-platform kill
-                        #[cfg(unix)]
-                        let _ = child.signal(libc::SIGTERM);
-                        #[cfg(windows)]
-                        let _ = child.start_kill();
-                        // child.wait() will fire → Crashed
+                        // [M8] Don't rely on SIGTERM alone — hung process won't obey.
+                        // Use graceful_stop (SIGTERM → timeout → SIGKILL) and return
+                        // Crashed directly instead of waiting for child.wait() in select.
+                        tracing::error!("backend unresponsive after {} failures, killing", cfg.health.max_failures);
+                        graceful_stop(child, cfg.process.stop_timeout_secs).await;
+                        return ExitReason::Crashed;
                     }
                 }
             }
@@ -503,7 +522,7 @@ async fn watch(client, cfg, child, dog_id, shutdown) -> ExitReason {
                 }
             }
 
-            status = Box::into_pin(child.wait()) => {
+            status = child.wait() => {
                 tracing::error!("backend exited: {status:?}");
                 return ExitReason::Crashed;
             }
@@ -538,7 +557,7 @@ async fn wait_healthy(client, cfg, child, shutdown) -> Result<(), ExitReason> {
                     return Err(Crashed);
                 }
             }
-            _ = Box::into_pin(child.wait()) => return Err(Crashed),
+            _ = child.wait() => return Err(Crashed),
             _ = shutdown.cancelled() => return Err(Shutdown),
         }
     }
