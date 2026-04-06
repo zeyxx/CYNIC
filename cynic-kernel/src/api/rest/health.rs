@@ -8,8 +8,8 @@ use axum::{
 use std::sync::Arc;
 
 use super::types::{AppState, DogHealthResponse, ErrorResponse};
-use crate::domain::dog::PHI_INV;
-use crate::domain::health_gate::system_health_status;
+use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
+use crate::domain::health_gate::{count_healthy_dogs, system_health_status};
 
 pub async fn dogs_handler(State(state): State<Arc<AppState>>) -> Json<Vec<String>> {
     Json(state.judge.load_full().dog_ids())
@@ -26,11 +26,7 @@ pub async fn liveness_handler() -> StatusCode {
 /// Dog health is O(1) (reads circuit breaker state) — no caching needed.
 pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode {
     let dog_health = state.judge.load_full().dog_health();
-    let healthy_dogs = dog_health
-        .iter()
-        .filter(|(_, circuit, _)| circuit == "closed")
-        .count();
-    let total_dogs = dog_health.len();
+    let (healthy_dogs, total_dogs) = count_healthy_dogs(&dog_health);
     let storage_ok = match state.ready_cache.get() {
         Some(cached) => cached,
         None => {
@@ -74,11 +70,7 @@ pub async fn health_handler(
 
     let judge = state.judge.load_full();
     let dog_health = judge.dog_health();
-    let healthy_dogs = dog_health
-        .iter()
-        .filter(|(_, circuit, _)| circuit == "closed")
-        .count();
-    let total_dogs = dog_health.len();
+    let (healthy_dogs, total_dogs) = count_healthy_dogs(&dog_health);
 
     let storage_ok = state.storage.ping().await.is_ok();
 
@@ -184,7 +176,7 @@ pub async fn health_handler(
             "status": status,
             "version": env!("CYNIC_VERSION"),
             "phi_max": PHI_INV,
-            "axioms": ["FIDELITY", "PHI", "VERIFY/FALSIFY", "CULTURE", "BURN", "SOVEREIGNTY"],
+            "axioms": AXIOM_NAMES,
             "dogs": dogs,
             "storage": if storage_ok { "connected" } else { "down" },
             "storage_namespace": state.storage_info.namespace,
@@ -216,12 +208,9 @@ pub async fn agents_handler(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     match state.coord.who(None).await {
-        Ok(snapshot) => Ok(Json(serde_json::json!({
-            "active_agents": snapshot.agents.len(),
-            "active_claims": snapshot.claims.len(),
-            "agents": snapshot.agents,
-            "claims": snapshot.claims,
-        }))),
+        Ok(snapshot) => Ok(Json(
+            serde_json::to_value(snapshot.into_summary()).unwrap_or_default(),
+        )),
         Err(e) => {
             tracing::warn!(error = %e, "agents query failed");
             Err((

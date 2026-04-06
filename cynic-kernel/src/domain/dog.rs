@@ -13,6 +13,16 @@ pub const PHI_INV2: f64 = 0.381_966_011_250_105; // anomaly threshold
 pub const PHI_INV3: f64 = 0.236_067_977_499_790; // GROWL threshold
 pub const PHI_INV4: f64 = 0.145_898_033_750_315; // convergence increment
 
+/// Canonical axiom names — single source of truth for API surfaces.
+pub const AXIOM_NAMES: &[&str] = &[
+    "FIDELITY",
+    "PHI",
+    "VERIFY/FALSIFY",
+    "CULTURE",
+    "BURN",
+    "SOVEREIGNTY",
+];
+
 /// Minimum Dogs required for a verdict to accumulate crystal observations (T8).
 /// Single-Dog verdicts are served for availability but MUST NOT crystallize.
 /// Value 2 = deterministic-dog + at least 1 LLM Dog. Falsified: no crystal

@@ -79,10 +79,43 @@ pub struct AuditEntry {
     pub id: String,
 }
 
+/// Validate an agent_id: 1-64 characters, no control chars.
+/// Returns the error message on failure — callers map to their own error type.
+pub fn validate_agent_id(id: &str) -> Result<(), &'static str> {
+    if id.is_empty() || id.chars().count() > 64 {
+        return Err("agent_id must be 1-64 characters");
+    }
+    if id.chars().any(|c| c.is_control()) {
+        return Err("agent_id contains invalid characters");
+    }
+    Ok(())
+}
+
+/// Serializable summary of coordination state — used by both REST and MCP.
+#[derive(Debug, Serialize)]
+pub struct CoordSummary {
+    pub active_agents: usize,
+    pub active_claims: usize,
+    pub agents: Vec<AgentInfo>,
+    pub claims: Vec<ClaimEntry>,
+}
+
 #[derive(Debug)]
 pub struct CoordSnapshot {
     pub agents: Vec<AgentInfo>,
     pub claims: Vec<ClaimEntry>,
+}
+
+impl CoordSnapshot {
+    /// Convert to a serializable summary with computed counts.
+    pub fn into_summary(self) -> CoordSummary {
+        CoordSummary {
+            active_agents: self.agents.len(),
+            active_claims: self.claims.len(),
+            agents: self.agents,
+            claims: self.claims,
+        }
+    }
 }
 
 #[async_trait]
