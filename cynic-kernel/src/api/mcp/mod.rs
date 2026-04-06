@@ -20,9 +20,9 @@ use serde::Deserialize;
 
 use crate::domain::ccm::build_observation;
 use crate::domain::coord::{ClaimResult, CoordPort};
-use crate::domain::dog::PHI_INV;
+use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
 use crate::domain::events::KernelEvent;
-use crate::domain::health_gate::system_health_status;
+use crate::domain::health_gate::{count_healthy_dogs, system_health_status};
 use crate::domain::inference::InferPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
@@ -91,22 +91,11 @@ impl McpRateLimit {
 
 // ── Input Validation Helpers ──────────────────────────────────
 
-/// RC1: Validate agent_id — must be 1-128 chars (not bytes), no control characters.
+/// RC1: Validate agent_id — delegates to domain::coord::validate_agent_id.
 fn validate_agent_id(agent_id: &Option<String>) -> Result<(), McpError> {
     if let Some(id) = agent_id {
-        let char_count = id.chars().count();
-        if char_count == 0 || char_count > 64 {
-            return Err(McpError::invalid_params(
-                "agent_id must be 1-64 characters",
-                None,
-            ));
-        }
-        if id.chars().any(|c| c.is_control()) {
-            return Err(McpError::invalid_params(
-                "agent_id contains invalid characters",
-                None,
-            ));
-        }
+        crate::domain::coord::validate_agent_id(id)
+            .map_err(|msg| McpError::invalid_params(msg, None))?;
     }
     Ok(())
 }
@@ -439,11 +428,7 @@ impl CynicMcp {
     async fn cynic_health(&self) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
         let dog_health = self.judge.load_full().dog_health();
-        let healthy_dogs = dog_health
-            .iter()
-            .filter(|(_, circuit, _)| circuit == "closed")
-            .count();
-        let total_dogs = dog_health.len();
+        let (healthy_dogs, total_dogs) = count_healthy_dogs(&dog_health);
         let dogs: Vec<serde_json::Value> = dog_health.into_iter().map(|(id, circuit, failures)| {
             serde_json::json!({ "id": id, "circuit": circuit, "failures": failures })
         }).collect();
@@ -467,7 +452,7 @@ impl CynicMcp {
             "dog_count": total_dogs,
             "healthy_dogs": healthy_dogs,
             "storage": if storage_ok { "connected" } else { "down" },
-            "axioms": ["FIDELITY", "PHI", "VERIFY/FALSIFY", "CULTURE", "BURN", "SOVEREIGNTY"],
+            "axioms": AXIOM_NAMES,
             "phi_max": PHI_INV,
         });
 
@@ -911,15 +896,10 @@ impl CynicMcp {
             sanitize_error("Coordination")
         })?;
 
-        let response = serde_json::json!({
-            "active_agents": snapshot.agents.len(),
-            "active_claims": snapshot.claims.len(),
-            "agents": snapshot.agents,
-            "claims": snapshot.claims,
-        });
+        let summary = snapshot.into_summary();
 
         Ok(CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".into()),
+            serde_json::to_string_pretty(&summary).unwrap_or_else(|_| "{}".into()),
         )]))
     }
 

@@ -36,6 +36,16 @@ pub trait HealthGate: Send + Sync {
     fn opened_since(&self) -> Option<Duration>;
 }
 
+/// Count healthy (circuit=closed) Dogs from a health snapshot.
+/// Returns `(healthy_count, total_count)`.
+pub fn count_healthy_dogs(dog_health: &[(String, String, u32)]) -> (usize, usize) {
+    let healthy = dog_health
+        .iter()
+        .filter(|(_, circuit, _)| circuit == "closed")
+        .count();
+    (healthy, dog_health.len())
+}
+
 /// Determine system health status from Dogs, storage, probes, and background tasks.
 ///
 /// Gate: counts only circuit=closed dogs, not total registered dogs.

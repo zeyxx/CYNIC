@@ -10,23 +10,12 @@ use super::types::{AppState, ErrorResponse};
 use crate::domain::coord::ClaimResult;
 
 fn validate_agent_id(id: &str) -> Result<(), (StatusCode, Json<ErrorResponse>)> {
-    if id.is_empty() || id.len() > 64 {
-        return Err((
+    crate::domain::coord::validate_agent_id(id).map_err(|msg| {
+        (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "agent_id must be 1-64 characters".into(),
-            }),
-        ));
-    }
-    if id.chars().any(|c| c.is_control()) {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "agent_id contains invalid characters".into(),
-            }),
-        ));
-    }
-    Ok(())
+            Json(ErrorResponse { error: msg.into() }),
+        )
+    })
 }
 
 // ── Request types ─────────────────────────────────────────
