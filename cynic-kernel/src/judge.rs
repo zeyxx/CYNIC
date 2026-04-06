@@ -72,6 +72,23 @@ impl Judge {
         self.last_hash.lock().ok().and_then(|g| g.clone())
     }
 
+    /// Build a new Judge without the named Dog. Returns None if not found.
+    /// Clones existing Arcs (refcount++), preserves chain hash.
+    pub fn without_dog(current: &Judge, dog_id: &str) -> Option<Judge> {
+        let idx = current.dogs.iter().position(|d| d.id() == dog_id)?;
+        let mut dogs: Vec<Arc<dyn Dog>> = current.dogs.iter().map(Arc::clone).collect();
+        let mut breakers: Vec<Arc<dyn HealthGate>> =
+            current.breakers.iter().map(Arc::clone).collect();
+        let mut handles: Vec<Option<BackendHandle>> = current.organ_handles.clone();
+        dogs.remove(idx);
+        breakers.remove(idx);
+        handles.remove(idx);
+        let new_judge = Judge::new(dogs, breakers).with_organ_handles(handles);
+        let chain = current.last_hash_snapshot();
+        new_judge.seed_chain(chain);
+        Some(new_judge)
+    }
+
     /// Return list of available Dog IDs.
     pub fn dog_ids(&self) -> Vec<String> {
         self.dogs.iter().map(|d| d.id().to_string()).collect()
@@ -1629,6 +1646,28 @@ mod roster_tests {
 
         // Verify old judge still accessible (concurrent readers)
         assert_eq!(current.dog_ids(), vec!["alpha"]);
+    }
+
+    #[tokio::test]
+    async fn without_dog_removes_target_and_preserves_chain() {
+        let dog_a = make_dog("alpha");
+        let dog_b = make_dog("beta");
+        let judge = Judge::new(
+            vec![dog_a, dog_b],
+            vec![make_breaker("alpha"), make_breaker("beta")],
+        );
+        judge.seed_chain(Some("hash-abc".into()));
+
+        let reduced = Judge::without_dog(&judge, "beta").expect("beta exists");
+        assert_eq!(reduced.dog_ids(), vec!["alpha"]);
+        assert_eq!(reduced.last_hash_snapshot(), Some("hash-abc".into()));
+        assert_eq!(reduced.breakers().len(), 1);
+    }
+
+    #[test]
+    fn without_dog_returns_none_for_unknown() {
+        let judge = Judge::new(vec![make_dog("alpha")], vec![make_breaker("alpha")]);
+        assert!(Judge::without_dog(&judge, "nonexistent").is_none());
     }
 
     #[tokio::test]
