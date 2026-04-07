@@ -11,6 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
+use std::time::{Duration, Instant};
 
 /// Failure type classification — different causes, different remediation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,18 +135,26 @@ impl Default for DogStats {
 ///
 /// Window size: 10 calls. Trip threshold: >50% failures.
 /// Minimum samples: 5 (avoid tripping on first bad call).
+/// TTL: 30 seconds. Auto-clears tripped state after TTL expires (allows recovery).
 #[derive(Debug, Clone)]
 pub struct ParseFailureGate {
     /// Ring buffer of recent outcomes: true = success, false = failure.
     window: VecDeque<bool>,
     capacity: usize,
+    /// Timestamp when gate transitioned to tripped state.
+    /// None = never tripped, or auto-cleared by TTL.
+    tripped_at: Option<Instant>,
 }
 
 impl ParseFailureGate {
+    /// TTL for tripped state: 30 seconds (matching CircuitBreaker cooldown).
+    const TTL_DURATION: Duration = Duration::from_secs(30);
+
     pub fn new() -> Self {
         Self {
             window: VecDeque::new(),
             capacity: 10,
+            tripped_at: None,
         }
     }
 
@@ -162,15 +171,45 @@ impl ParseFailureGate {
             self.window.pop_front();
         }
         self.window.push_back(ok);
+
+        // Lazy clear: drop stale tripped_at if TTL already expired. Without this,
+        // a stale timestamp from a past trip could survive across the gate's lifetime
+        // and prevent the next transition from setting a fresh timestamp.
+        if let Some(since) = self.tripped_at
+            && since.elapsed() > Self::TTL_DURATION
+        {
+            self.tripped_at = None;
+        }
+
+        // State transition based on current window. Centralising the write here
+        // keeps is_tripped() as a pure read, and guarantees tripped_at always
+        // reflects the outcome of the latest push.
+        let window_bad = self.window_threshold_exceeded();
+        if window_bad && self.tripped_at.is_none() {
+            self.tripped_at = Some(Instant::now());
+        } else if !window_bad {
+            self.tripped_at = None;
+        }
     }
 
-    /// Gate is tripped when >50% of the last N calls failed (min 5 samples required).
-    pub fn is_tripped(&self) -> bool {
+    /// Pure window check: true when the window has ≥5 samples and >50% are failures.
+    /// Does not consider TTL. Used by `push()` to drive state transitions.
+    fn window_threshold_exceeded(&self) -> bool {
         if self.window.len() < 5 {
             return false;
         }
         let failures = self.window.iter().filter(|&&ok| !ok).count();
         failures as f64 / self.window.len() as f64 > 0.5
+    }
+
+    /// Gate is tripped when `tripped_at` is set and within `TTL_DURATION`.
+    /// State transitions happen in `push()` — this function is a pure read.
+    /// Auto-clears after `TTL_DURATION` expires (allows recovery without manual reset).
+    pub fn is_tripped(&self) -> bool {
+        match self.tripped_at {
+            Some(since) => since.elapsed() <= Self::TTL_DURATION,
+            None => false,
+        }
     }
 
     /// Current failure rate in the window. 0.0 when no data.
@@ -196,6 +235,7 @@ impl Default for ParseFailureGate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{Duration, Instant};
 
     // ── DogStats ────────────────────────────────────────────────
 
@@ -345,5 +385,81 @@ mod tests {
             g.record_failure();
         }
         assert!((g.failure_rate() - 0.3).abs() < 1e-10);
+    }
+
+    // ── ParseFailureGate TTL state transitions ────────────────
+    //
+    // These tests validate the 4 transitions of tripped_at driven by push():
+    //   1. None → Some(now)  when window crosses threshold
+    //   2. Some → None       when window recovers below threshold
+    //   3. is_tripped returns false when Some but elapsed > TTL
+    //   4. Stale Some        is lazily cleared by the next push
+    //
+    // Tests bypass real time by writing tripped_at directly (the test module
+    // has access to private fields via `super::*`). This mirrors the pattern
+    // used in infra/circuit_breaker.rs where tests mutate Inner.state directly.
+
+    #[test]
+    fn push_sets_tripped_at_when_window_crosses_threshold() {
+        let mut g = ParseFailureGate::new();
+        for _ in 0..4 {
+            g.record_success();
+        }
+        for _ in 0..6 {
+            g.record_failure();
+        }
+        // 6/10 failures = 60% > 50% → window bad → tripped_at set
+        assert!(
+            g.tripped_at.is_some(),
+            "tripped_at must be set when window crosses threshold"
+        );
+        assert!(g.is_tripped());
+    }
+
+    #[test]
+    fn push_clears_tripped_at_on_window_recovery() {
+        let mut g = ParseFailureGate::new();
+        for _ in 0..10 {
+            g.record_failure();
+        }
+        assert!(
+            g.tripped_at.is_some(),
+            "precondition: gate must be tripped after 10 failures"
+        );
+        // 10 successes evict all failures → window = 10S → window good → cleared
+        for _ in 0..10 {
+            g.record_success();
+        }
+        assert!(
+            g.tripped_at.is_none(),
+            "tripped_at must be cleared on window recovery"
+        );
+        assert!(!g.is_tripped());
+    }
+
+    #[test]
+    fn is_tripped_returns_false_after_ttl_expired() {
+        let mut g = ParseFailureGate::new();
+        // Simulate a trip that happened > TTL_DURATION ago via direct field access.
+        // Validates the read-side TTL without needing a real sleep.
+        g.tripped_at = Some(Instant::now() - Duration::from_secs(31));
+        assert!(
+            !g.is_tripped(),
+            "is_tripped must return false once TTL has elapsed"
+        );
+    }
+
+    #[test]
+    fn push_lazily_clears_stale_tripped_at() {
+        let mut g = ParseFailureGate::new();
+        // Inject a stale tripped_at from a past trip (> TTL ago).
+        g.tripped_at = Some(Instant::now() - Duration::from_secs(31));
+        // Next push must clean up via the lazy-clear branch in push().
+        g.record_success();
+        // Window has 1 sample (<5) → window good → stale state cleared, no new trip.
+        assert!(
+            g.tripped_at.is_none(),
+            "stale tripped_at must be cleared by subsequent push"
+        );
     }
 }
