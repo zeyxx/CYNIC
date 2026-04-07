@@ -1,0 +1,38 @@
+# Example cynic-node configuration.
+# Copy to /etc/cynic/node-<name>.toml or ~/.config/cynic/node-<name>.toml.
+
+[kernel]
+url = "http://<TAILSCALE_CORE>:3030"
+api_key_env = "CYNIC_API_KEY"
+# heartbeat_interval_secs = 40
+
+[dog]
+name = "qwen35-9b-gpu"
+model = "qwen3.5:9b-q4_K_M"
+# base_url must be reachable FROM THE KERNEL, not from this node.
+# Use Tailscale IP for cross-machine deployment.
+base_url = "http://<TAILSCALE_GPU>:8080/v1"
+# context_size = 8192
+# timeout_secs = 60
+# api_key_env = "DOG_API_KEY"
+
+[process]
+command = ["llama-server", "-m", "/models/qwen3.5-9b-q4_K_M.gguf", "--port", "8080", "--ctx-size", "8192"]
+# working_dir = "/opt/llama"
+# stop_timeout_secs = 10
+
+# [process.env]
+# LLAMA_LOG_VERBOSITY = "0"
+
+[restart]
+# max_attempts = 5
+# initial_delay_secs = 2
+# max_delay_secs = 120
+# min_uptime_secs = 10
+
+[health]
+# interval_secs = 15
+# verify_interval_secs = 60
+# timeout_secs = 5
+# max_failures = 3
+# startup_timeout_secs = 120

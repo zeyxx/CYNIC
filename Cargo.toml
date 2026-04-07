@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "cynic-kernel",
+    "cynic-node",
 ]
 resolver = "2"
 
