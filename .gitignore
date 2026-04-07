@@ -22,6 +22,7 @@ hypercube_db/
 .claude/settings.local.json
 .claude/memory/
 .claude/scheduled_tasks.lock
+.claude/worktrees/
 .playwright-mcp/
 .worktrees/
 
