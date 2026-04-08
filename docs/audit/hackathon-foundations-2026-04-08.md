@@ -87,8 +87,69 @@ $ git status --short
 
 ## 5. Phase 1 — Mechanical layer probes
 
-### L1 CYNIC kernel — `/judge` E2E
-⏳ pending P1.1
+### L1 CYNIC kernel — `/judge` E2E ⚠️ degraded
+
+**Kernel version:** `v0.7.7-34-g335b87e-dirty`. Binary is 34 commits past v0.7.7 tag with dirty working tree — acceptable for D+2 dev state.
+
+**`/health` status = "degraded"** (both unauth and auth endpoints). Full auth payload investigated — cause chain below.
+
+**Pipeline responsive**: test governance proposition returned a valid verdict in ~1.4s (qwen-7b-hf latency 1397ms, deterministic 0ms). Judge pipeline is NOT hung.
+
+**MCP vs REST divergence (K13 violation candidate):**
+- MCP `cynic_health` reports `dog_count: 3` (deterministic + qwen-7b-hf + qwen35-9b-gpu) — gemma-4b-core **omitted**.
+- REST `/health` reports `dog_count: 4`, `/dogs` returns 4 names including gemma-4b-core.
+- Both show `circuit: closed, failures: 0` on every Dog.
+- The MCP surface should call the same `dog_health()` function as REST. One of them is filtering differently. File candidate: `cynic-kernel/src/api/mcp/mod.rs::cynic_health` vs `cynic-kernel/src/api/rest/health.rs::health_handler`. **Not investigated further during audit — filed as post-hackathon finding.**
+
+**Organ quality — the real story behind `degraded`:**
+```json
+{
+  "qwen-7b-hf":     { "total_calls": 12, "json_valid_rate": 1.00, "capability_limit_rate": 0.00 },
+  "qwen35-9b-gpu":  { "total_calls": 11, "json_valid_rate": 0.18, "capability_limit_rate": 0.09 },
+  "gemma-4b-core":  { "total_calls":  1, "json_valid_rate": 0.00, "capability_limit_rate": 0.00 }
+}
+```
+
+**qwen-7b-hf** (HuggingFace remote) is the ONLY LLM Dog producing reliably parseable output.
+
+**qwen35-9b-gpu** (the GPU showpiece) — 82% of its responses are unparseable JSON. Circuit breaker is closed because HTTP 200 returns with garbage body. The scoring pipeline discards them as invalid, so it appears "not voting" without tripping any breaker. **This is a silent failure the circuit breaker cannot catch.** K14 implication.
+
+**gemma-4b-core** — 1 call, 0% valid. Only probed, never used. Same class of silent failure.
+
+**Filter test (falsification):**
+- `cynic_judge({dogs: ["qwen35-9b-gpu"]})` on chess prompt → `dogs_used: "deterministic-dog"`, qwen35 contributed nothing.
+- `cynic_judge({dogs: ["qwen35-9b-gpu"]})` on governance prompt → same result.
+- Historical evidence: `cynic_verdicts` list shows qwen35-9b-gpu voting on chess as recently as some past session (verdicts `92cdd6a4`, `7eacf40d`). **Regression between then and now.**
+
+**Llama-server processes are live**:
+```
+$ curl http://100.119.192.107:8080/health       → {"status":"ok"}
+$ curl http://100.119.192.107:8080/v1/models    → Qwen3.5-9B-Q4_K_M.gguf, 8.95B params, 262K ctx
+$ curl http://100.74.31.10:8080/health          → {"status":"ok"}
+```
+The processes are up, models are loaded. Root cause is in the prompt→response→parse chain, not infrastructure. Deep investigation = post-hackathon.
+
+**Background tasks — 2 stale:**
+- `backfill`: last success 4923s (82 min) ago → marked `stale`
+- `event_consumer`: last success 3186s (53 min) ago → marked `stale`
+
+Both contribute to the `degraded` overall status. `event_consumer` is particularly relevant: kernel events are being broadcast (`VerdictIssued` etc.) but the consumer that processes them is stale. K15 runtime violation — producer without acting consumer.
+
+**Chain-verified:** true ✓
+**Verdict cache size:** 0 ✓ (bypassed via `crystals: false` as planned)
+
+**Audit log probe:** `cynic_audit_query` **fails with parameter type error**:
+```
+MCP error -32602: failed to deserialize parameters: invalid type: string "5", expected u32
+```
+The MCP tool schema expects u32 but the JSON layer is passing a string. Bug in `cynic_audit_query` param declaration. Workaround: not tested (query audit via REST /audit instead, deferred to post-L1).
+
+**Actual foundation fact for hackathon:**
+> The pitch says "5 independent AI validators reach consensus under mathematical doubt". Runtime truth at D+2 is **2 effective voters on any non-chess content**: `deterministic-dog` (heuristic pattern matching) + `qwen-7b-hf` (single remote HuggingFace LLM, SPOF).
+
+This is not a build problem. It's an epistemic/pitch-integrity problem. See verdict section.
+
+**L1 Gate:** ⚠️ **PARTIAL PASS.** Pipeline responds, verdicts store, chain verifies. But the Dogs fleet is degraded in a way the circuit breaker does not catch. **Not a kill switch for the audit (judge does respond) but a major finding for Phase 6 D4 scope and Phase 7 go/no-go.**
 
 ### L2 Dogs fleet
 ⏳ pending P1.2
