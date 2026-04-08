@@ -23,6 +23,126 @@ fn is_oneshot_terminal_detail(detail: &str) -> bool {
     matches!(detail, "done" | "clean:0_orphans")
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskCriticality {
+    ReadinessCritical,
+    Housekeeping,
+    DiagnosticOnly,
+    StartupOneShot,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TaskContract {
+    name: &'static str,
+    expected_interval: u64,
+    criticality: TaskCriticality,
+    consumer: &'static str,
+    failure_effect: &'static str,
+}
+
+const COORD_EXPIRY: TaskContract = TaskContract {
+    name: "coord_expiry",
+    expected_interval: 120,
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "coord claims",
+    failure_effect: "stale claims linger longer than intended",
+};
+const USAGE_FLUSH: TaskContract = TaskContract {
+    name: "usage_flush",
+    expected_interval: 120,
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "usage accounting",
+    failure_effect: "cost and token telemetry lag behind runtime",
+};
+const SUMMARIZER: TaskContract = TaskContract {
+    name: "summarizer",
+    expected_interval: 1200,
+    criticality: TaskCriticality::DiagnosticOnly,
+    consumer: "session summaries",
+    failure_effect: "session memory compacts more slowly",
+};
+const RATE_EVICTION: TaskContract = TaskContract {
+    name: "rate_eviction",
+    expected_interval: 120,
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "per-ip limiter cleanup",
+    failure_effect: "stale limiter buckets accumulate",
+};
+const HEALTH_LOOP: TaskContract = TaskContract {
+    name: "health_loop",
+    expected_interval: 60,
+    criticality: TaskCriticality::ReadinessCritical,
+    consumer: "dog circuit state",
+    failure_effect: "serving health drifts from actual dog reachability",
+};
+const REMEDIATION: TaskContract = TaskContract {
+    name: "remediation",
+    expected_interval: 60,
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "backend recovery",
+    failure_effect: "auto-recovery lags while serving can continue degraded",
+};
+const INTROSPECTION: TaskContract = TaskContract {
+    name: "introspection",
+    expected_interval: 600,
+    criticality: TaskCriticality::DiagnosticOnly,
+    consumer: "ops alerts",
+    failure_effect: "anomalies stop being clustered into actionable alerts",
+};
+const BACKFILL: TaskContract = TaskContract {
+    name: "backfill",
+    expected_interval: 1200,
+    criticality: TaskCriticality::StartupOneShot,
+    consumer: "crystal embeddings",
+    failure_effect: "old crystals remain semantically incomplete",
+};
+const EVENT_CONSUMER: TaskContract = TaskContract {
+    name: "event_consumer",
+    expected_interval: 300,
+    criticality: TaskCriticality::DiagnosticOnly,
+    consumer: "event lag visibility",
+    failure_effect: "internal events stop proving they are consumed",
+};
+const PROBE_SCHEDULER: TaskContract = TaskContract {
+    name: "probe_scheduler",
+    expected_interval: 20,
+    criticality: TaskCriticality::ReadinessCritical,
+    consumer: "environment snapshot + fleet gate",
+    failure_effect: "readiness and backend quality drift from live environment",
+};
+const DOG_TTL: TaskContract = TaskContract {
+    name: "dog_ttl",
+    expected_interval: 60,
+    criticality: TaskCriticality::ReadinessCritical,
+    consumer: "dynamic dog roster",
+    failure_effect: "expired dogs can stay routable and health can overclaim",
+};
+
+fn task_contract(name: &str) -> TaskContract {
+    match name {
+        "coord_expiry" => COORD_EXPIRY,
+        "usage_flush" => USAGE_FLUSH,
+        "summarizer" => SUMMARIZER,
+        "rate_eviction" => RATE_EVICTION,
+        "health_loop" => HEALTH_LOOP,
+        "remediation" => REMEDIATION,
+        "introspection" => INTROSPECTION,
+        "backfill" => BACKFILL,
+        "event_consumer" => EVENT_CONSUMER,
+        "probe_scheduler" => PROBE_SCHEDULER,
+        "dog_ttl" => DOG_TTL,
+        other => panic!("task contract missing for '{other}'"),
+    }
+}
+
+fn is_readiness_critical_task(name: &str) -> bool {
+    matches!(
+        task_contract(name).criticality,
+        TaskCriticality::ReadinessCritical
+    )
+}
+
 /// Shared background task health state.
 /// Timestamps are atomic. Details use RwLock (written every tick, read by /health).
 #[derive(Debug)]
@@ -126,7 +246,16 @@ impl TaskHealth {
     /// Returns true if any critical task is stale (last success > 2× interval).
     /// Used by system_health_status to degrade from "sovereign".
     pub fn has_stale(&self) -> bool {
-        self.snapshot().iter().any(|t| t.status == "stale")
+        !self.readiness_stale_tasks().is_empty()
+    }
+
+    /// Explicit list of readiness-critical tasks that are currently stale.
+    pub fn readiness_stale_tasks(&self) -> Vec<&'static str> {
+        self.snapshot()
+            .into_iter()
+            .filter(|t| is_readiness_critical_task(t.name) && t.status == "stale")
+            .map(|t| t.name)
+            .collect()
     }
 
     /// Snapshot of all task health — for /health endpoint.
@@ -140,52 +269,45 @@ impl TaskHealth {
         let bf_detail = self.backfill_detail.read().map(|d| *d).unwrap_or("unknown");
         vec![
             TaskSnapshot::new(
-                "coord_expiry",
+                COORD_EXPIRY,
                 self.coord_expiry.load(Ordering::Relaxed),
                 now,
-                120,
                 None,
             ),
             TaskSnapshot::new(
-                "usage_flush",
+                USAGE_FLUSH,
                 self.usage_flush.load(Ordering::Relaxed),
                 now,
-                120,
                 None,
             ),
             TaskSnapshot::new(
-                "summarizer",
+                SUMMARIZER,
                 self.summarizer.load(Ordering::Relaxed),
                 now,
-                1200,
                 Some(sum_detail),
             ),
             TaskSnapshot::new(
-                "rate_eviction",
+                RATE_EVICTION,
                 self.rate_eviction.load(Ordering::Relaxed),
                 now,
-                120,
                 None,
             ),
             TaskSnapshot::new(
-                "health_loop",
+                HEALTH_LOOP,
                 self.health_loop.load(Ordering::Relaxed),
                 now,
-                60,
                 None,
             ),
             TaskSnapshot::new(
-                "remediation",
+                REMEDIATION,
                 self.remediation.load(Ordering::Relaxed),
                 now,
-                60,
                 None,
             ),
             TaskSnapshot::new(
-                "introspection",
+                INTROSPECTION,
                 self.introspection.load(Ordering::Relaxed),
                 now,
-                600,
                 None,
             ),
             {
@@ -206,33 +328,28 @@ impl TaskHealth {
                     (s, ago)
                 };
                 TaskSnapshot {
-                    name: "backfill",
+                    name: BACKFILL.name,
                     last_success_ago,
                     status,
+                    criticality: BACKFILL.criticality,
+                    consumer: BACKFILL.consumer,
+                    failure_effect: BACKFILL.failure_effect,
                     detail: Some(bf_detail),
                 }
             },
             TaskSnapshot::new(
-                "event_consumer",
+                EVENT_CONSUMER,
                 self.event_consumer.load(Ordering::Relaxed),
                 now,
-                300,
                 None,
             ),
             TaskSnapshot::new(
-                "probe_scheduler",
+                PROBE_SCHEDULER,
                 self.probe_scheduler.load(Ordering::Relaxed),
                 now,
-                20,
                 None,
             ),
-            TaskSnapshot::new(
-                "dog_ttl",
-                self.dog_ttl.load(Ordering::Relaxed),
-                now,
-                60,
-                None,
-            ),
+            TaskSnapshot::new(DOG_TTL, self.dog_ttl.load(Ordering::Relaxed), now, None),
         ]
     }
 }
@@ -244,37 +361,40 @@ pub struct TaskSnapshot {
     pub last_success_ago: u64,
     /// "ok" | "stale" | "never"
     pub status: &'static str,
+    pub criticality: TaskCriticality,
+    pub consumer: &'static str,
+    pub failure_effect: &'static str,
     /// Honest detail: what actually happened. None = simple task, no detail needed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<&'static str>,
 }
 
 impl TaskSnapshot {
-    fn new(
-        name: &'static str,
-        last: u64,
-        now: u64,
-        expected_interval: u64,
-        detail: Option<&'static str>,
-    ) -> Self {
+    fn new(contract: TaskContract, last: u64, now: u64, detail: Option<&'static str>) -> Self {
         if last == 0 {
             Self {
-                name,
+                name: contract.name,
                 last_success_ago: 0,
                 status: "never",
+                criticality: contract.criticality,
+                consumer: contract.consumer,
+                failure_effect: contract.failure_effect,
                 detail,
             }
         } else {
             let ago = now.saturating_sub(last);
-            let status = if ago <= expected_interval * 2 {
+            let status = if ago <= contract.expected_interval * 2 {
                 "ok"
             } else {
                 "stale"
             };
             Self {
-                name,
+                name: contract.name,
                 last_success_ago: ago,
                 status,
+                criticality: contract.criticality,
+                consumer: contract.consumer,
+                failure_effect: contract.failure_effect,
                 detail,
             }
         }
@@ -399,7 +519,10 @@ mod tests {
             "a stuck in-progress backfill must still age into stale"
         );
         assert_eq!(bf.detail, Some("running"));
-        assert!(th.has_stale());
+        assert!(
+            th.readiness_stale_tasks().is_empty(),
+            "startup-one-shot backfill should stay visible without failing /ready"
+        );
     }
 
     #[test]
@@ -413,7 +536,10 @@ mod tests {
             bf.status, "stale",
             "timeout is incomplete termination — must surface as stale"
         );
-        assert!(th.has_stale());
+        assert!(
+            th.readiness_stale_tasks().is_empty(),
+            "timed out backfill should remain visible in /health without failing /ready"
+        );
     }
 
     #[test]
@@ -427,5 +553,48 @@ mod tests {
             .find(|s| s.name == "probe_scheduler")
             .expect("probe_scheduler");
         assert_eq!(ps.status, "ok");
+    }
+
+    #[test]
+    fn snapshot_exposes_contract_metadata() {
+        let th = TaskHealth::new();
+        let snap = th.snapshot();
+        let health_loop = find_task(&snap, "health_loop");
+        assert_eq!(health_loop.criticality, TaskCriticality::ReadinessCritical);
+        assert_eq!(health_loop.consumer, "dog circuit state");
+    }
+
+    #[test]
+    fn readiness_stale_tasks_list_only_readiness_critical_loops() {
+        let th = TaskHealth::new();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        th.health_loop
+            .store(now.saturating_sub(121), Ordering::Relaxed);
+        th.event_consumer
+            .store(now.saturating_sub(601), Ordering::Relaxed);
+
+        assert_eq!(th.readiness_stale_tasks(), vec!["health_loop"]);
+    }
+
+    #[test]
+    fn event_consumer_stale_stays_visible_without_failing_readiness() {
+        let th = TaskHealth::new();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        th.event_consumer
+            .store(now.saturating_sub(601), Ordering::Relaxed);
+
+        let snap = th.snapshot();
+        let event_consumer = find_task(&snap, "event_consumer");
+        assert_eq!(event_consumer.status, "stale");
+        assert!(
+            !th.has_stale(),
+            "event_consumer must stay visible in /health without failing /ready"
+        );
     }
 }
