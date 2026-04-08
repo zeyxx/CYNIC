@@ -1,0 +1,18 @@
+[Unit]
+Description=llama-server — CYNIC sovereign inference backend
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/cynic/llama-server.env
+ExecStart=/bin/bash -lc 'exec "${LLAMA_SERVER_BIN:?Set LLAMA_SERVER_BIN in ~/.config/cynic/llama-server.env}" -m "${LLAMA_MODEL_PATH:?Set LLAMA_MODEL_PATH in ~/.config/cynic/llama-server.env}" --host "${LLAMA_HOST:-127.0.0.1}" --port "${LLAMA_PORT:-8080}" --ctx-size "${LLAMA_CTX_SIZE:-8192}" ${LLAMA_EXTRA_ARGS:-}'
+# Keep this user unit minimally sandboxed until a compatible hardening
+# profile is proven; the stricter profile currently fails with 218/CAPABILITIES.
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

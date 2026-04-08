@@ -5,6 +5,7 @@ After=network.target cynic-kernel.service
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/make -C %h/Bureau/CYNIC ouroboros
+NoNewPrivileges=true
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=ouroboros

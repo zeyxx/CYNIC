@@ -6,8 +6,12 @@ Wants=surrealdb.service
 [Service]
 Type=simple
 WorkingDirectory=/home/user/Bureau/CYNIC
-ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do curl -sf http://localhost:8000/health >/dev/null 2>&1 && exit 0; sleep 1; done; echo "SurrealDB not ready after 30s" >&2; exit 1'
 ExecStart=/home/user/bin/cynic-kernel
+# Keep boot simple and authoritative: the kernel already reports storage
+# readiness through /ready and degrades honestly if SurrealDB is unavailable.
+# Keep this user unit minimally sandboxed until a compatible hardening profile
+# is proven under live restart conditions; the stricter profile fails here with
+# 218/CAPABILITIES and prevents the kernel from booting at all.
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30
