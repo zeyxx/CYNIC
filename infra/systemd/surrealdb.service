@@ -8,6 +8,13 @@ Type=simple
 # Only surrealkv tuning vars.
 EnvironmentFile=%h/.config/cynic/surrealdb.env
 ExecStart=/usr/local/bin/surreal start --bind 127.0.0.1:8000 --transaction-timeout 10s --query-timeout 30s surrealkv:///home/user/.surrealdb/data
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+LockPersonality=true
+RestrictSUIDSGID=true
 Restart=on-failure
 RestartSec=3
 KillMode=mixed

@@ -13,6 +13,9 @@
 #   make e2e      — end-to-end test against running kernel
 #   make status   — full system dashboard
 #   make runtime-truth — PID/PPID/binary/version/state/port truth for critical processes
+#   make runtime-check — fail on runtime drift or duplicate critical processes; warn on minimal unit profiles
+#   make install-systemd-units — symlink repo-managed user units into ~/.config/systemd/user
+#   make verify-systemd-units — fail if installed user units drift from the repo
 #   make backup   — manual DB backup
 #   make test-gates — R21: verify lint gates catch known violations
 #   make clean    — cargo clean (fix SIGSEGV/LLVM crashes)
@@ -342,6 +345,54 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	fi; \
 	rm -rf "$$TMPROOT"; \
 	\
+	echo ""; echo "── verify-systemd-units ──"; \
+	\
+	echo "[UNIT1] Injecting wrong cynic-kernel.service target..."; \
+	TMPROOT=$$(mktemp -d); \
+	mkdir -p "$$TMPROOT/project/infra/systemd" "$$TMPROOT/systemd"; \
+	cp "$(PROJECT_DIR)/infra/systemd/cynic-kernel.service" "$$TMPROOT/project/infra/systemd/cynic-kernel.service"; \
+	cp "$(PROJECT_DIR)/infra/systemd/surrealdb.service" "$$TMPROOT/project/infra/systemd/surrealdb.service"; \
+	cp "$(PROJECT_DIR)/infra/systemd/cynic-healthcheck.service" "$$TMPROOT/project/infra/systemd/cynic-healthcheck.service"; \
+	cp "$(PROJECT_DIR)/infra/systemd/cynic-healthcheck.timer" "$$TMPROOT/project/infra/systemd/cynic-healthcheck.timer"; \
+	cp "$(PROJECT_DIR)/infra/systemd/surrealdb-backup.service" "$$TMPROOT/project/infra/systemd/surrealdb-backup.service"; \
+	cp "$(PROJECT_DIR)/infra/systemd/surrealdb-backup.timer" "$$TMPROOT/project/infra/systemd/surrealdb-backup.timer"; \
+	cp "$(PROJECT_DIR)/infra/systemd/llama-server.service" "$$TMPROOT/project/infra/systemd/llama-server.service"; \
+	ln -s /bin/true "$$TMPROOT/systemd/cynic-kernel.service"; \
+	ln -s "$$TMPROOT/project/infra/systemd/surrealdb.service" "$$TMPROOT/systemd/surrealdb.service"; \
+	ln -s "$$TMPROOT/project/infra/systemd/cynic-healthcheck.service" "$$TMPROOT/systemd/cynic-healthcheck.service"; \
+	ln -s "$$TMPROOT/project/infra/systemd/cynic-healthcheck.timer" "$$TMPROOT/systemd/cynic-healthcheck.timer"; \
+	ln -s "$$TMPROOT/project/infra/systemd/surrealdb-backup.service" "$$TMPROOT/systemd/surrealdb-backup.service"; \
+	ln -s "$$TMPROOT/project/infra/systemd/surrealdb-backup.timer" "$$TMPROOT/systemd/surrealdb-backup.timer"; \
+	ln -s "$$TMPROOT/project/infra/systemd/llama-server.service" "$$TMPROOT/systemd/llama-server.service"; \
+	if PROJECT_DIR_OVERRIDE="$$TMPROOT/project" SYSTEMD_USER_DIR_OVERRIDE="$$TMPROOT/systemd" bash "$(PROJECT_DIR)/scripts/verify-systemd-units.sh" >/dev/null 2>&1; then \
+		echo "  ✗ UNIT1 gate MISSED wrong cynic-kernel.service target — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ UNIT1 gate caught wrong cynic-kernel.service target"; PASS=$$((PASS+1)); \
+	fi; \
+	rm -rf "$$TMPROOT"; \
+	\
+	echo ""; echo "── runtime-check ──"; \
+	\
+	echo "[RUNTIME1] Injecting duplicate llama-server process..."; \
+	TMPROOT=$$(mktemp -d); \
+	UNITDIR="$$TMPROOT/units"; BINDIR="$$TMPROOT/bin"; \
+	mkdir -p "$$UNITDIR" "$$BINDIR"; \
+	cp "$(PROJECT_DIR)/infra/systemd/cynic-kernel.service" "$$UNITDIR/cynic-kernel.service"; \
+	cp "$(PROJECT_DIR)/infra/systemd/surrealdb.service" "$$UNITDIR/surrealdb.service"; \
+	cp "$(PROJECT_DIR)/infra/systemd/llama-server.service" "$$UNITDIR/llama-server.service"; \
+	cp "$(PROJECT_DIR)/infra/systemd/cynic-healthcheck.service" "$$UNITDIR/cynic-healthcheck.service"; \
+	printf '%s\n' '#!/usr/bin/env bash' 'if [ "$$2" = "is-active" ]; then' '  case "$$3" in' '    cynic-kernel|surrealdb|llama-server) echo active ;;' '    *) echo inactive ;;' '  esac' '  exit 0' 'fi' 'if [ "$$2" = "show" ]; then' '  service="$$3"; prop="$${4#--property=}"' '  if [ "$$5" != "--value" ]; then exit 1; fi' '  case "$$service:$$prop" in' '    cynic-kernel:MainPID) echo 1001 ;;' '    cynic-kernel:SubState) echo running ;;' '    surrealdb:MainPID) echo 1002 ;;' '    surrealdb:SubState) echo running ;;' '    llama-server:MainPID) echo 1003 ;;' '    llama-server:SubState) echo running ;;' '    *) echo "" ;;' '  esac' '  exit 0' 'fi' 'exit 1' > "$$BINDIR/systemctl"; \
+	printf '%s\n' '#!/usr/bin/env bash' 'if [ "$$1" = "-xo" ]; then' '  case "$$2" in' '    cynic-kernel) echo 1001 ;;' '    surreal) echo 1002 ;;' '    llama-server) echo 1003 ;;' '  esac' '  exit 0' 'fi' 'if [ "$$1" = "-xa" ]; then' '  case "$$2" in' '    cynic-kernel) echo "1001 cynic-kernel" ;;' '    surreal) echo "1002 surreal start" ;;' '    llama-server) printf "1003 llama-server\n1004 llama-server\n" ;;' '  esac' '  exit 0' 'fi' 'exit 1' > "$$BINDIR/pgrep"; \
+	printf '%s\n' '#!/usr/bin/env bash' 'case "$$1" in' '  -o)' '    case "$$2" in' '      stat=) echo Ssl ;;' '      ppid=) echo 1 ;;' '    esac' '    ;;' 'esac' > "$$BINDIR/ps"; \
+	printf '%s\n' '#!/usr/bin/env bash' 'cat <<OUT' 'LISTEN 0 128 127.0.0.1:3030 0.0.0.0:* users:(("cynic-kernel",pid=1001,fd=9))' 'LISTEN 0 128 127.0.0.1:8000 0.0.0.0:* users:(("surreal",pid=1002,fd=9))' 'LISTEN 0 128 127.0.0.1:8080 0.0.0.0:* users:(("llama-server",pid=1003,fd=9))' 'LISTEN 0 128 127.0.0.1:8080 0.0.0.0:* users:(("llama-server",pid=1004,fd=9))' 'OUT' > "$$BINDIR/ss"; \
+	chmod +x "$$BINDIR/systemctl" "$$BINDIR/pgrep" "$$BINDIR/ps" "$$BINDIR/ss"; \
+	if UNIT_DIR_OVERRIDE="$$UNITDIR" SYSTEMCTL_BIN_OVERRIDE="$$BINDIR/systemctl" PGREP_BIN_OVERRIDE="$$BINDIR/pgrep" PS_BIN_OVERRIDE="$$BINDIR/ps" SS_BIN_OVERRIDE="$$BINDIR/ss" bash "$(PROJECT_DIR)/scripts/runtime-truth.sh" check >/dev/null 2>&1; then \
+		echo "  ✗ RUNTIME1 gate MISSED duplicate llama-server — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ RUNTIME1 gate caught duplicate llama-server"; PASS=$$((PASS+1)); \
+	fi; \
+	rm -rf "$$TMPROOT"; \
+	\
 	echo ""; \
 	TOTAL=$$((PASS+FAIL)); \
 	if [ $$FAIL -eq 0 ]; then \
@@ -563,6 +614,8 @@ status:
 	@printf "SurrealDB: "; surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"
 	@printf "Services: "; systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""
 	@printf "Hooks: "; $(MAKE) --no-print-directory verify-hooks >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
+	@printf "Units: "; $(MAKE) --no-print-directory verify-systemd-units >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
+	@printf "Runtime: "; $(MAKE) --no-print-directory runtime-check >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
 	@printf "Git: "; git -C $(PROJECT_DIR) rev-parse --abbrev-ref HEAD; git -C $(PROJECT_DIR) log --oneline -1
 	@printf "Backup: "; ls -t ~/.surrealdb/backups/*.surql 2>/dev/null | head -1 || echo "none"
 
@@ -570,6 +623,20 @@ status:
 runtime-truth:
 	@$(source_env)
 	@bash $(PROJECT_DIR)/scripts/runtime-truth.sh
+
+.PHONY: runtime-check
+runtime-check:
+	@$(source_env)
+	@$(MAKE) --no-print-directory verify-systemd-units
+	@bash $(PROJECT_DIR)/scripts/runtime-truth.sh check
+
+.PHONY: install-systemd-units
+install-systemd-units:
+	@bash $(PROJECT_DIR)/scripts/install-systemd-units.sh
+
+.PHONY: verify-systemd-units
+verify-systemd-units:
+	@bash $(PROJECT_DIR)/scripts/verify-systemd-units.sh
 
 # ── Standalone: Manual backup ────────────────────────────────
 .PHONY: backup
