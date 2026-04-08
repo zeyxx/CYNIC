@@ -4,10 +4,24 @@
 //!
 //! HONESTY RULE: touch() means "I ran." detail() explains WHAT happened.
 //! "ok" + "llm_unavailable" is honest. "ok" with no detail when LLM is down is a lie.
+//!
+//! ONE-SHOT RULE: tasks that run once at boot (e.g. backfill) must not age into "stale".
+//! Their terminality is encoded in `detail` — see `is_oneshot_terminal_detail`.
 
 use std::sync::RwLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+/// A one-shot task is healthy forever once it reaches a "good" terminal detail.
+///
+/// Only successful terminations count. `timeout` is intentionally excluded: it
+/// signals an incomplete run, so the aging logic still applies and `/health`
+/// will report the task as stale if it never recovers — which is the honest
+/// answer. Every addition to this list is an implicit contract with the tasks
+/// that touch_*(detail) — keep it minimal.
+fn is_oneshot_terminal_detail(detail: &str) -> bool {
+    matches!(detail, "done" | "clean:0_orphans")
+}
 
 /// Shared background task health state.
 /// Timestamps are atomic. Details use RwLock (written every tick, read by /health).
@@ -174,13 +188,36 @@ impl TaskHealth {
                 600,
                 None,
             ),
-            TaskSnapshot::new(
-                "backfill",
-                self.backfill.load(Ordering::Relaxed),
-                now,
-                600,
-                Some(bf_detail),
-            ),
+            {
+                // backfill is a one-shot: terminal detail ⇒ healthy forever.
+                // Transient details ("scheduled", "consolidating", "running") still
+                // age into "stale" so a silently stuck backfill is caught.
+                // Public contract stays ok|stale|never — terminality lives in `detail`.
+                let last = self.backfill.load(Ordering::Relaxed);
+                if last == 0 {
+                    TaskSnapshot {
+                        name: "backfill",
+                        last_success_ago: 0,
+                        status: "never",
+                        detail: Some(bf_detail),
+                    }
+                } else {
+                    let ago = now.saturating_sub(last);
+                    let status = if is_oneshot_terminal_detail(bf_detail) {
+                        "ok"
+                    } else if ago > 1200 {
+                        "stale"
+                    } else {
+                        "ok"
+                    };
+                    TaskSnapshot {
+                        name: "backfill",
+                        last_success_ago: ago,
+                        status,
+                        detail: Some(bf_detail),
+                    }
+                }
+            },
             TaskSnapshot::new(
                 "event_consumer",
                 self.event_consumer.load(Ordering::Relaxed),
@@ -281,14 +318,110 @@ mod tests {
     fn backfill_visible_in_snapshot() {
         let th = TaskHealth::new();
         assert!(th.snapshot().iter().any(|s| s.name == "backfill"));
-        th.touch_backfill("done:87");
+        th.touch_backfill("done");
         let snap = th.snapshot();
         let bf = snap
             .iter()
             .find(|s| s.name == "backfill")
             .expect("backfill");
         assert_eq!(bf.status, "ok");
-        assert_eq!(bf.detail, Some("done:87"));
+        assert_eq!(bf.detail, Some("done"));
+    }
+
+    #[test]
+    fn oneshot_terminal_helper_tracks_contract() {
+        assert!(is_oneshot_terminal_detail("done"));
+        assert!(is_oneshot_terminal_detail("clean:0_orphans"));
+        // timeout is intentionally NOT terminal — an incomplete run should still
+        // surface as stale so /health is honest about stuck backfill.
+        assert!(!is_oneshot_terminal_detail("timeout"));
+        assert!(!is_oneshot_terminal_detail("consolidating"));
+        assert!(!is_oneshot_terminal_detail("running"));
+        assert!(!is_oneshot_terminal_detail("scheduled"));
+        assert!(!is_oneshot_terminal_detail(""));
+    }
+
+    /// Backdate the backfill atomic to simulate age without a Clock abstraction.
+    /// Tests live in this module so direct access to the private field is legal.
+    fn backdate_backfill(th: &TaskHealth, seconds_ago: u64) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        th.backfill
+            .store(now.saturating_sub(seconds_ago), Ordering::Relaxed);
+    }
+
+    #[test]
+    fn backfill_terminal_done_stays_ok_after_long_age() {
+        let th = TaskHealth::new();
+        th.touch_backfill("done");
+        // Simulate 1 hour elapsed — well beyond 2× expected_interval (1200s).
+        backdate_backfill(&th, 3600);
+        let snap = th.snapshot();
+        let bf = snap
+            .iter()
+            .find(|s| s.name == "backfill")
+            .expect("backfill");
+        assert_eq!(
+            bf.status, "ok",
+            "terminal backfill must not degrade /health after aging"
+        );
+        assert_eq!(bf.detail, Some("done"));
+        assert!(
+            !th.has_stale(),
+            "has_stale must not trip on terminal one-shot"
+        );
+    }
+
+    #[test]
+    fn backfill_terminal_clean_stays_ok_after_long_age() {
+        let th = TaskHealth::new();
+        th.touch_backfill("clean:0_orphans");
+        backdate_backfill(&th, 3600);
+        let snap = th.snapshot();
+        let bf = snap
+            .iter()
+            .find(|s| s.name == "backfill")
+            .expect("backfill");
+        assert_eq!(bf.status, "ok");
+        assert_eq!(bf.detail, Some("clean:0_orphans"));
+        assert!(!th.has_stale());
+    }
+
+    #[test]
+    fn backfill_transient_running_ages_to_stale() {
+        let th = TaskHealth::new();
+        th.touch_backfill("running");
+        backdate_backfill(&th, 3600);
+        let snap = th.snapshot();
+        let bf = snap
+            .iter()
+            .find(|s| s.name == "backfill")
+            .expect("backfill");
+        assert_eq!(
+            bf.status, "stale",
+            "a stuck in-progress backfill must still age into stale"
+        );
+        assert_eq!(bf.detail, Some("running"));
+        assert!(th.has_stale());
+    }
+
+    #[test]
+    fn backfill_timeout_is_not_safe_terminal_and_ages() {
+        let th = TaskHealth::new();
+        th.touch_backfill("timeout");
+        backdate_backfill(&th, 3600);
+        let snap = th.snapshot();
+        let bf = snap
+            .iter()
+            .find(|s| s.name == "backfill")
+            .expect("backfill");
+        assert_eq!(
+            bf.status, "stale",
+            "timeout is incomplete termination — must surface as stale"
+        );
+        assert!(th.has_stale());
     }
 
     #[test]
