@@ -2,6 +2,7 @@
 
 mod activity;
 mod coord;
+mod maintenance;
 mod ops;
 
 use super::{SurrealHttpStorage, escape_surreal, safe_limit, sanitize_id};
@@ -594,49 +595,11 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn cleanup_ttl(&self) -> Result<(), StorageError> {
-        self.query_one("DELETE observation WHERE created_at < time::now() - 30d;")
-            .await
-            .map_err(|e| StorageError::QueryFailed(format!("TTL cleanup observation: {e}")))?;
-        self.query_one("DELETE mcp_audit WHERE ts < time::now() - 7d;")
-            .await
-            .map_err(|e| StorageError::QueryFailed(format!("TTL cleanup mcp_audit: {e}")))?;
-        // K15: Complete crystal lifecycle — forming zombies and terminal decay.
-        // Forming crystals with no update in 90 days → dissolved (never reached critical mass).
-        // Decaying crystals with confidence < 0.1 → dissolved (irreversibly lost trust).
-        // Dissolved crystals older than 30 days → deleted (final cleanup).
-        let dissolved = self
-            .query_one(
-                "UPDATE crystal SET state = 'dissolved' \
-                 WHERE state = 'forming' AND updated_at < time::now() - 90d; \
-                 UPDATE crystal SET state = 'dissolved' \
-                 WHERE state = 'decaying' AND confidence < 0.1;",
-            )
-            .await;
-        if let Err(e) = dissolved {
-            tracing::warn!("crystal dissolution failed (non-fatal): {e}");
-        }
-        let purged = self
-            .query_one(
-                "DELETE crystal WHERE state = 'dissolved' AND updated_at < time::now() - 30d;",
-            )
-            .await;
-        if let Err(e) = purged {
-            tracing::warn!("dissolved crystal purge failed (non-fatal): {e}");
-        }
-        Ok(())
+        maintenance::cleanup_ttl(self).await
     }
 
     async fn last_integrity_hash(&self) -> Result<Option<String>, StorageError> {
-        let rows = self
-            .query_one(
-                "SELECT integrity_hash, created_at FROM verdict ORDER BY created_at DESC LIMIT 1;",
-            )
-            .await?;
-        Ok(rows
-            .first()
-            .and_then(|r| r["integrity_hash"].as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string()))
+        maintenance::last_integrity_hash(self).await
     }
 
     async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
@@ -660,27 +623,15 @@ impl StoragePort for SurrealHttpStorage {
         &self,
         limit: u32,
     ) -> Result<Vec<Crystal>, StorageError> {
-        // Internal migration query — not user-facing. Cap at 500, not safe_limit(100).
-        let sql = format!(
-            "SELECT * FROM crystal WHERE embedding IS NONE OR embedding = [] LIMIT {}",
-            limit.min(500),
-        );
-        let rows = self.query_one(&sql).await?;
-        Ok(rows.iter().map(row_to_crystal).collect())
+        maintenance::list_crystals_missing_embedding(self, limit).await
     }
 
     async fn count_verdicts(&self) -> Result<u64, StorageError> {
-        let rows = self
-            .query_one("SELECT count() AS total FROM verdict GROUP ALL;")
-            .await?;
-        Ok(rows.first().and_then(|r| r["total"].as_u64()).unwrap_or(0))
+        maintenance::count_verdicts(self).await
     }
 
     async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
-        let rows = self
-            .query_one("SELECT math::sum(observations) AS total FROM crystal GROUP ALL;")
-            .await?;
-        Ok(rows.first().and_then(|r| r["total"].as_u64()).unwrap_or(0))
+        maintenance::count_crystal_observations(self).await
     }
 
     async fn list_observations_raw(
@@ -711,144 +662,7 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
-        // Phase 1: find groups of crystals with identical (domain, content).
-        // SurrealDB has no HAVING — filter duplicates (cnt > 1) in Rust.
-        let groups_sql = "SELECT domain, content, \
-                          array::group(meta::id(id)) AS ids, \
-                          count() AS cnt \
-                          FROM crystal \
-                          GROUP BY domain, content";
-        let all_groups = self.query_one(groups_sql).await?;
-        let groups: Vec<&serde_json::Value> = all_groups
-            .iter()
-            .filter(|g| g.get("cnt").and_then(|v| v.as_u64()).unwrap_or(0) > 1)
-            .collect();
-
-        let mut removed: u64 = 0;
-        for group in &groups {
-            let Some(ids) = group.get("ids").and_then(|v| v.as_array()) else {
-                continue;
-            };
-            if ids.len() < 2 {
-                continue;
-            }
-            // Pick survivor: the crystal with the most observations.
-            // Read all crystals in the group to find it.
-            let id_strs: Vec<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
-            if id_strs.is_empty() {
-                continue;
-            }
-            let id_list: String = id_strs
-                .iter()
-                .map(|id| format!("crystal:`{id}`"))
-                .collect::<Vec<_>>()
-                .join(", ");
-            let detail_sql = format!(
-                "SELECT meta::id(id) AS cid, observations, confidence, \
-                 contributing_verdicts, created_at \
-                 FROM [{id_list}] ORDER BY observations DESC"
-            );
-            let details = self.query_one(&detail_sql).await?;
-            if details.len() < 2 {
-                continue;
-            }
-            // Survivor = first (most observations). Merge the rest into it.
-            let survivor_id = match details[0].get("cid").and_then(|v| v.as_str()) {
-                Some(id) => id.to_string(),
-                None => continue,
-            };
-            let mut total_obs: u64 = 0;
-            let mut weighted_conf: f64 = 0.0;
-            let mut all_verdicts: Vec<String> = Vec::new();
-            let mut earliest_created = String::new();
-
-            for d in &details {
-                let obs = d.get("observations").and_then(|v| v.as_u64()).unwrap_or(0);
-                let conf = d.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                total_obs += obs;
-                weighted_conf += conf * obs as f64;
-                if let Some(arr) = d.get("contributing_verdicts").and_then(|v| v.as_array()) {
-                    for v in arr {
-                        if let Some(s) = v.as_str() {
-                            all_verdicts.push(s.to_string());
-                        }
-                    }
-                }
-                if let Some(ca) = d.get("created_at").and_then(|v| v.as_str())
-                    && (earliest_created.is_empty() || ca < earliest_created.as_str())
-                {
-                    earliest_created = ca.to_string();
-                }
-            }
-            let merged_conf = if total_obs > 0 {
-                weighted_conf / total_obs as f64
-            } else {
-                0.0
-            };
-            // Reclassify state based on merged totals.
-            let t_canon = crate::domain::ccm::CANONICAL_CYCLES as u64;
-            let t_cryst = crate::domain::ccm::MIN_CRYSTALLIZATION_CYCLES as u64;
-            let c_high = crate::domain::dog::PHI_INV;
-            let c_low = crate::domain::dog::PHI_INV2;
-            let new_state = if total_obs >= t_canon && merged_conf >= c_high {
-                "canonical"
-            } else if total_obs >= t_cryst && merged_conf >= c_high {
-                "crystallized"
-            } else if total_obs >= t_cryst && merged_conf < c_low {
-                "decaying"
-            } else {
-                "forming"
-            };
-            // Deduplicate verdict IDs.
-            all_verdicts.sort();
-            all_verdicts.dedup();
-            let verdicts_arr: String = all_verdicts
-                .iter()
-                .map(|v| format!("'{}'", escape_surreal(v)))
-                .collect::<Vec<_>>()
-                .join(", ");
-
-            let now = chrono::Utc::now().to_rfc3339();
-            let safe_survivor = sanitize_id(&survivor_id)?;
-            let safe_created = escape_surreal(&earliest_created);
-            let safe_now = escape_surreal(&now);
-
-            // Update survivor with merged totals.
-            let update_sql = format!(
-                "UPDATE crystal:`{safe_survivor}` SET \
-                 observations = {total_obs}, \
-                 confidence = {merged_conf}, \
-                 state = '{new_state}', \
-                 contributing_verdicts = [{verdicts_arr}], \
-                 created_at = '{safe_created}', \
-                 updated_at = '{safe_now}'"
-            );
-            self.query_one(&update_sql).await?;
-
-            // Delete duplicates via SQL — avoids cross-query ID format mismatch.
-            // SurrealDB compares meta::id(id) consistently within a single query.
-            let safe_domain =
-                escape_surreal(group.get("domain").and_then(|v| v.as_str()).unwrap_or(""));
-            let safe_content =
-                escape_surreal(group.get("content").and_then(|v| v.as_str()).unwrap_or(""));
-            let del_sql = format!(
-                "DELETE FROM crystal WHERE domain = '{safe_domain}' \
-                 AND content = '{safe_content}' \
-                 AND meta::id(id) != '{safe_survivor}' \
-                 RETURN BEFORE"
-            );
-            let deleted = self.query_one(&del_sql).await?;
-            removed += deleted.len() as u64;
-            tracing::info!(
-                survivor = %safe_survivor,
-                merged_obs = total_obs,
-                merged_conf = %format!("{merged_conf:.3}"),
-                state = new_state,
-                duplicates_removed = id_strs.len() - 1,
-                "crystal consolidation: merged duplicates"
-            );
-        }
-        Ok(removed)
+        maintenance::consolidate_duplicate_crystals(self).await
     }
 }
 
