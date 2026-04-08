@@ -62,6 +62,40 @@ pub struct InferenceOrgan {
 }
 
 impl InferenceOrgan {
+    fn is_parse_gate_degraded(health: &BackendHealth) -> bool {
+        matches!(
+            health,
+            BackendHealth::Degraded { reason, .. }
+                if reason.starts_with("parse failure rate ")
+        )
+    }
+
+    fn sync_parse_gate_health(guard: &mut BackendEntry) {
+        let rate = guard.stats.json_valid_rate();
+        guard.backend.measured.json_valid_rate = rate;
+
+        if guard.gate.is_tripped() {
+            if matches!(guard.backend.health, BackendHealth::Healthy) {
+                guard.backend.health = BackendHealth::Degraded {
+                    reason: format!(
+                        "parse failure rate {:.0}% > 50% in last 10 calls",
+                        guard.gate.failure_rate() * 100.0
+                    ),
+                    since: Instant::now(),
+                };
+            }
+            return;
+        }
+
+        if Self::is_parse_gate_degraded(&guard.backend.health) {
+            tracing::info!(
+                backend = %guard.backend.id.0,
+                "organ: quality recovered — promoting to Healthy"
+            );
+            guard.backend.health = BackendHealth::Healthy;
+        }
+    }
+
     /// Empty organ — register backends via `register_backend()`.
     pub fn boot_empty() -> Self {
         Self {
@@ -96,8 +130,6 @@ impl InferenceOrgan {
             ScoreOutcome::Success { elapsed_ms } => {
                 guard.stats.record_success_with_latency(elapsed_ms);
                 guard.gate.record_success();
-                let rate = guard.stats.json_valid_rate();
-                guard.backend.measured.json_valid_rate = rate;
             }
             ScoreOutcome::Failure(failure_kind) => {
                 guard.stats.record_failure(failure_kind);
@@ -108,30 +140,10 @@ impl InferenceOrgan {
                     ScoreFailureKind::Timeout | ScoreFailureKind::ApiError => {}
                     _ => guard.gate.record_failure(),
                 }
-                // K14: gate trip → degrade backend (safe default, not optimistic)
-                if guard.gate.is_tripped() {
-                    let rate = guard.stats.json_valid_rate();
-                    guard.backend.health = BackendHealth::Degraded {
-                        reason: format!(
-                            "parse failure rate {:.0}% > 50% in last 10 calls",
-                            guard.gate.failure_rate() * 100.0
-                        ),
-                        since: Instant::now(),
-                    };
-                    guard.backend.measured.json_valid_rate = rate;
-                }
             }
         }
-        // Recovery: if gate is no longer tripped and backend was degraded, promote to Healthy
-        if !guard.gate.is_tripped()
-            && matches!(guard.backend.health, BackendHealth::Degraded { .. })
-        {
-            tracing::info!(
-                backend = %guard.backend.id.0,
-                "organ: quality recovered — promoting to Healthy"
-            );
-            guard.backend.health = BackendHealth::Healthy;
-        }
+
+        Self::sync_parse_gate_health(&mut guard);
     }
 
     /// Snapshot all DogStats for persistence. Returns (dog_id, stats) pairs.

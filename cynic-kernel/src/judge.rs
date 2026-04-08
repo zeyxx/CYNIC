@@ -26,6 +26,12 @@ impl std::fmt::Debug for Judge {
     }
 }
 
+#[derive(Clone, Copy)]
+struct RunnableDog<'a> {
+    idx: usize,
+    dog: &'a Arc<dyn Dog>,
+}
+
 impl Judge {
     pub fn new(dogs: Vec<Arc<dyn Dog>>, breakers: Vec<Arc<dyn HealthGate>>) -> Self {
         assert_eq!(dogs.len(), breakers.len(), "dogs and breakers must be 1:1");
@@ -167,6 +173,33 @@ impl Judge {
             .collect()
     }
 
+    fn runnable_dogs<'a>(&'a self, candidate_indices: &[usize]) -> Vec<RunnableDog<'a>> {
+        candidate_indices
+            .iter()
+            .copied()
+            .filter_map(|idx| {
+                let dog = &self.dogs[idx];
+                let breaker = &self.breakers[idx];
+                if !breaker.should_allow() {
+                    tracing::warn!(
+                        dog_id = %dog.id(),
+                        circuit_state = %breaker.state(),
+                        "Dog skipped — circuit breaker open"
+                    );
+                    return None;
+                }
+                if self.organ_handles[idx]
+                    .as_ref()
+                    .is_some_and(|handle| handle.is_quality_degraded())
+                {
+                    tracing::warn!(dog_id = %dog.id(), "Dog skipped — organ quality degraded");
+                    return None;
+                }
+                Some(RunnableDog { idx, dog })
+            })
+            .collect()
+    }
+
     /// Evaluate a stimulus through Dogs in parallel, aggregate, produce Verdict.
     /// If `filter` is provided, only use Dogs whose IDs match.
     pub async fn evaluate(
@@ -180,23 +213,25 @@ impl Judge {
         }
 
         // Filter Dogs if requested — always include deterministic-dog (free, instant)
-        let active_dogs: Vec<_> = match filter {
+        let requested_indices: Vec<usize> = match filter {
             Some(ids) => {
                 let valid_ids: Vec<&str> = self.dogs.iter().map(|d| d.id()).collect();
                 self.dogs
                     .iter()
+                    .enumerate()
                     .filter(|d| {
-                        d.id() == "deterministic-dog"
+                        d.1.id() == "deterministic-dog"
                             || ids
                                 .iter()
-                                .any(|id| id == d.id() && valid_ids.contains(&id.as_str()))
+                                .any(|id| id == d.1.id() && valid_ids.contains(&id.as_str()))
                     })
+                    .map(|(idx, _)| idx)
                     .collect()
             }
-            None => self.dogs.iter().collect(),
+            None => (0..self.dogs.len()).collect(),
         };
 
-        if active_dogs.is_empty() {
+        if requested_indices.is_empty() {
             return Err(JudgeError::NoDogs);
         }
 
@@ -209,59 +244,47 @@ impl Judge {
                 .unwrap_or(0)
             + 400; // fixed overhead (system prompt + axiom template)
 
-        let context_filtered: Vec<_> = active_dogs.iter()
-            .filter(|d| {
-                let max = d.max_context();
+        let context_filtered: Vec<usize> = requested_indices
+            .iter()
+            .copied()
+            .filter(|&idx| {
+                let dog = &self.dogs[idx];
+                let max = dog.max_context();
                 if max > 0 && estimated > max {
-                    tracing::info!(dog_id = %d.id(), estimated_tokens = estimated, max_context = max, "Dog skipped — context too large");
+                    tracing::info!(
+                        dog_id = %dog.id(),
+                        estimated_tokens = estimated,
+                        max_context = max,
+                        "Dog skipped — context too large"
+                    );
                     false
                 } else {
                     true
                 }
             })
-            .copied()
             .collect();
 
-        let active_dogs = if context_filtered.is_empty() {
+        let candidate_indices = if context_filtered.is_empty() {
             tracing::warn!(
                 estimated_tokens = estimated,
                 "no Dog has enough context — using all Dogs anyway"
             );
-            active_dogs // fallback: try anyway rather than fail
+            requested_indices // fallback: try anyway rather than fail
         } else {
             context_filtered
         };
 
-        // Find breaker indices for active dogs
-        let dog_breaker_pairs: Vec<_> = active_dogs
-            .iter()
-            .filter_map(|dog| {
-                let idx = self.dogs.iter().position(|d| d.id() == dog.id())?;
-                Some((*dog, &self.breakers[idx]))
-            })
-            .collect();
+        let runnable_dogs = self.runnable_dogs(&candidate_indices);
 
         // Per-Dog timeout: from config. Sovereign CPU models need 60s+, cloud APIs use 30s.
         // Aligned with HTTP client timeout in openai.rs (both read BackendConfig.timeout_secs).
 
         // Parallel evaluation — skip Dogs with open circuit breakers or degraded organ quality
-        let futures: Vec<_> = dog_breaker_pairs
+        let futures: Vec<_> = runnable_dogs
             .iter()
-            .filter(|(dog, cb)| {
-                if !cb.should_allow() {
-                    tracing::warn!(dog_id = %dog.id(), circuit_state = %cb.state(), "Dog skipped — circuit breaker open");
-                    return false;
-                }
-                let dog_idx = self.dogs.iter().position(|d| d.id() == dog.id());
-                if let Some(handle) = dog_idx.and_then(|idx| self.organ_handles[idx].as_ref())
-                    && handle.is_quality_degraded()
-                {
-                    tracing::warn!(dog_id = %dog.id(), "Dog skipped — organ quality degraded");
-                    return false;
-                }
-                true
-            })
-            .map(|(dog, _)| {
+            .map(|entry| {
+                let idx = entry.idx;
+                let dog = entry.dog;
                 let id = dog.id().to_string();
                 let dog_timeout = std::time::Duration::from_secs(dog.timeout_secs());
                 async move {
@@ -269,29 +292,17 @@ impl Judge {
                     let result = tokio::time::timeout(dog_timeout, dog.evaluate(stimulus)).await;
                     let elapsed_ms = start.elapsed().as_millis() as u64;
                     match result {
-                        Ok(inner) => (id, inner, elapsed_ms),
-                        Err(_) => (id, Err(DogError::Timeout), elapsed_ms),
+                        Ok(inner) => (idx, id, inner, elapsed_ms),
+                        Err(_) => (idx, id, Err(DogError::Timeout), elapsed_ms),
                     }
                 }
             })
             .collect();
 
         // Wall-clock timeout: max Dog timeout + 5s safety margin.
-        let max_dog_timeout = dog_breaker_pairs
+        let max_dog_timeout = runnable_dogs
             .iter()
-            .filter(|(dog, cb)| {
-                if !cb.should_allow() {
-                    return false;
-                }
-                let dog_idx = self.dogs.iter().position(|d| d.id() == dog.id());
-                if let Some(handle) = dog_idx.and_then(|idx| self.organ_handles[idx].as_ref())
-                    && handle.is_quality_degraded()
-                {
-                    return false;
-                }
-                true
-            })
-            .map(|(dog, _)| dog.timeout_secs())
+            .map(|entry| entry.dog.timeout_secs())
             .max()
             .unwrap_or(30);
         let wall_clock = std::time::Duration::from_secs(max_dog_timeout + 5);
@@ -313,19 +324,15 @@ impl Judge {
         let mut failed_dogs: Vec<String> = Vec::new();
         let mut failed_dog_errors: std::collections::HashMap<String, String> = Default::default();
 
-        for (id, result, elapsed_ms) in results {
-            // Find the circuit breaker and organ handle for this dog (by index).
-            let dog_idx = self.dogs.iter().position(|d| d.id() == id);
-            let cb = dog_idx.map(|idx| &self.breakers[idx]);
-            let organ_handle = dog_idx.and_then(|idx| self.organ_handles[idx].as_ref());
+        for (idx, id, result, elapsed_ms) in results {
+            let cb = &self.breakers[idx];
+            let organ_handle = self.organ_handles[idx].as_ref();
 
             // Count ALL attempts (success + failure) so failure rate = fails / evals ≤ 1.0
             metrics.inc_dog_eval();
             match result {
                 Ok(scores) => {
-                    if let Some(cb) = cb {
-                        cb.record_success();
-                    }
+                    cb.record_success();
                     if let Some(h) = organ_handle {
                         InferenceOrgan::update_stats_entry(h, ScoreOutcome::Success { elapsed_ms });
                     }
@@ -366,11 +373,9 @@ impl Judge {
                     // ParseError = backend returned garbage (e.g., HTML, malformed JSON).
                     //   Repeated parse errors (3+) trip CB — stops wasting time/money.
                     // RateLimited/Timeout = backend is alive, just congested. Does NOT trip CB.
-                    if let Some(cb) = cb {
-                        match e {
-                            DogError::ApiError(_) | DogError::ParseError(_) => cb.record_failure(),
-                            _ => cb.record_success(),
-                        }
+                    match e {
+                        DogError::ApiError(_) | DogError::ParseError(_) => cb.record_failure(),
+                        _ => cb.record_success(),
                     }
                     // Organ: classify failure kind for health tracking.
                     if let Some(h) = organ_handle {
