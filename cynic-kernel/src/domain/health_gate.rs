@@ -46,12 +46,93 @@ pub fn count_healthy_dogs(dog_health: &[(String, String, u32)]) -> (usize, usize
     (healthy, dog_health.len())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum HealthCause {
+    NoHealthyDogs,
+    StorageUnavailable,
+    SingleHealthyDog {
+        healthy_dogs: usize,
+        total_dogs: usize,
+    },
+    MajorityDogsDown {
+        healthy_dogs: usize,
+        total_dogs: usize,
+    },
+    ProbesDegraded,
+    ReadinessTasksStale {
+        tasks: Vec<&'static str>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct HealthAssessment {
+    pub status: &'static str,
+    pub healthy: bool,
+    pub causes: Vec<HealthCause>,
+}
+
 /// Determine system health status from Dogs, storage, probes, and background tasks.
 ///
 /// Gate: counts only circuit=closed dogs, not total registered dogs.
 /// - critical (503): zero healthy dogs OR storage down
 /// - degraded (503): only 1 healthy dog OR majority down OR probes degraded OR tasks stale
 /// - sovereign (200): majority healthy + storage up + probes ok + no critical tasks
+pub fn system_health_assessment(
+    healthy_dogs: usize,
+    total_dogs: usize,
+    storage_ok: bool,
+    probes_degraded: bool,
+    stale_tasks: &[&'static str],
+) -> HealthAssessment {
+    let mut causes = Vec::new();
+
+    if healthy_dogs == 0 {
+        causes.push(HealthCause::NoHealthyDogs);
+    }
+    if !storage_ok {
+        causes.push(HealthCause::StorageUnavailable);
+    }
+    if healthy_dogs == 1 && total_dogs > 0 {
+        causes.push(HealthCause::SingleHealthyDog {
+            healthy_dogs,
+            total_dogs,
+        });
+    }
+    if total_dogs > 0 && healthy_dogs > 0 && healthy_dogs * 2 < total_dogs {
+        causes.push(HealthCause::MajorityDogsDown {
+            healthy_dogs,
+            total_dogs,
+        });
+    }
+    if probes_degraded {
+        causes.push(HealthCause::ProbesDegraded);
+    }
+    if !stale_tasks.is_empty() {
+        causes.push(HealthCause::ReadinessTasksStale {
+            tasks: stale_tasks.to_vec(),
+        });
+    }
+
+    let (status, healthy) = if healthy_dogs == 0 || !storage_ok {
+        ("critical", false)
+    } else if healthy_dogs == 1
+        || (total_dogs > 0 && healthy_dogs * 2 < total_dogs)
+        || probes_degraded
+        || !stale_tasks.is_empty()
+    {
+        ("degraded", false)
+    } else {
+        ("sovereign", true)
+    };
+
+    HealthAssessment {
+        status,
+        healthy,
+        causes,
+    }
+}
+
 pub fn system_health_status(
     healthy_dogs: usize,
     total_dogs: usize,
@@ -59,17 +140,19 @@ pub fn system_health_status(
     probes_degraded: bool,
     tasks_stale: bool,
 ) -> (&'static str, bool) {
-    if healthy_dogs == 0 || !storage_ok {
-        ("critical", false)
-    } else if healthy_dogs == 1
-        || (total_dogs > 0 && healthy_dogs * 2 < total_dogs)
-        || probes_degraded
-        || tasks_stale
-    {
-        ("degraded", false)
+    let stale_tasks = if tasks_stale {
+        vec!["readiness_task"]
     } else {
-        ("sovereign", true)
-    }
+        vec![]
+    };
+    let assessment = system_health_assessment(
+        healthy_dogs,
+        total_dogs,
+        storage_ok,
+        probes_degraded,
+        &stale_tasks,
+    );
+    (assessment.status, assessment.healthy)
 }
 
 #[cfg(test)]
@@ -145,6 +228,18 @@ mod tests {
         assert_eq!(
             system_health_status(5, 5, true, false, true),
             ("degraded", false)
+        );
+    }
+
+    #[test]
+    fn assessment_reports_readiness_stale_task_names() {
+        let assessment = system_health_assessment(5, 5, true, false, &["health_loop"]);
+        assert_eq!(assessment.status, "degraded");
+        assert_eq!(
+            assessment.causes,
+            vec![HealthCause::ReadinessTasksStale {
+                tasks: vec!["health_loop"]
+            }]
         );
     }
 }

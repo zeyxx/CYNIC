@@ -10,7 +10,7 @@ use std::sync::Arc;
 use super::response::coordination_error;
 use super::types::{AppState, DogHealthResponse, ErrorResponse};
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
-use crate::domain::health_gate::{count_healthy_dogs, system_health_status};
+use crate::domain::health_gate::{count_healthy_dogs, system_health_assessment};
 
 pub async fn dogs_handler(State(state): State<Arc<AppState>>) -> Json<Vec<String>> {
     Json(state.judge.load_full().dog_ids())
@@ -38,15 +38,15 @@ pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode
     };
     let probes_degraded =
         crate::domain::probe::EnvironmentSnapshot::is_degraded(&state.environment);
-    let tasks_stale = state.task_health.has_stale();
-    let (_, is_healthy) = system_health_status(
+    let stale_tasks = state.task_health.readiness_stale_tasks();
+    let assessment = system_health_assessment(
         healthy_dogs,
         total_dogs,
         storage_ok,
         probes_degraded,
-        tasks_stale,
+        &stale_tasks,
     );
-    if is_healthy {
+    if assessment.healthy {
         StatusCode::OK
     } else {
         StatusCode::SERVICE_UNAVAILABLE
@@ -77,15 +77,15 @@ pub async fn health_handler(
 
     let probes_degraded =
         crate::domain::probe::EnvironmentSnapshot::is_degraded(&state.environment);
-    let tasks_stale = state.task_health.has_stale();
-    let (status, is_healthy) = system_health_status(
+    let stale_tasks = state.task_health.readiness_stale_tasks();
+    let readiness = system_health_assessment(
         healthy_dogs,
         total_dogs,
         storage_ok,
         probes_degraded,
-        tasks_stale,
+        &stale_tasks,
     );
-    let http_code = if is_healthy {
+    let http_code = if readiness.healthy {
         StatusCode::OK
     } else {
         StatusCode::SERVICE_UNAVAILABLE
@@ -98,7 +98,7 @@ pub async fn health_handler(
         return (
             http_code,
             Json(serde_json::json!({
-                "status": status,
+                "status": readiness.status,
                 "version": env!("CYNIC_VERSION"),
                 "phi_max": PHI_INV,
             })),
@@ -174,7 +174,7 @@ pub async fn health_handler(
     (
         http_code,
         Json(serde_json::json!({
-            "status": status,
+            "status": readiness.status,
             "version": env!("CYNIC_VERSION"),
             "phi_max": PHI_INV,
             "axioms": AXIOM_NAMES,
@@ -186,6 +186,16 @@ pub async fn health_handler(
             "embedding": if tokio::time::timeout(std::time::Duration::from_secs(2), state.embedding.embed("h")).await.map(|r| r.is_ok()).unwrap_or(false) { "sovereign" } else { "unavailable" },
             "crystals": crystal_summary,
             "organ_quality": organ_quality,
+            "readiness": {
+                "status": readiness.status,
+                "healthy": readiness.healthy,
+                "healthy_dogs": healthy_dogs,
+                "total_dogs": total_dogs,
+                "storage_ok": storage_ok,
+                "probes_degraded": probes_degraded,
+                "stale_tasks": stale_tasks,
+                "causes": readiness.causes,
+            },
             "environment": state.environment.read().ok().and_then(|e| e.clone()),
             "chain_verified": state.chain_verified.load(std::sync::atomic::Ordering::Relaxed),
             "verdict_cache_size": state.verdict_cache.len(),

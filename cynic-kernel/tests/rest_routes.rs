@@ -167,6 +167,14 @@ async fn health_with_auth_returns_full_details() {
         v["uptime_seconds"].is_number(),
         "CONTRACT: uptime_seconds must be number"
     );
+    assert!(
+        v["readiness"].is_object(),
+        "CONTRACT: readiness must be object in auth response"
+    );
+    assert!(
+        v["background_tasks"].is_array(),
+        "CONTRACT: background_tasks must be array"
+    );
 
     // Dog structure (MUST have these fields per dog)
     let dogs = v["dogs"].as_array().unwrap();
@@ -187,6 +195,34 @@ async fn health_with_auth_returns_full_details() {
     assert!(
         v.get("storage_metrics").is_some(),
         "CONTRACT: storage_metrics must exist in auth response"
+    );
+
+    // Readiness causes must be explicit for authenticated diagnostics.
+    assert!(
+        v["readiness"]["status"].is_string(),
+        "CONTRACT: readiness.status must be string"
+    );
+    assert!(
+        v["readiness"]["healthy"].is_boolean(),
+        "CONTRACT: readiness.healthy must be boolean"
+    );
+    assert!(
+        v["readiness"]["causes"].is_array(),
+        "CONTRACT: readiness.causes must be array"
+    );
+
+    let task = &v["background_tasks"].as_array().unwrap()[0];
+    assert!(
+        task["criticality"].is_string(),
+        "CONTRACT: task criticality must be explicit"
+    );
+    assert!(
+        task["consumer"].is_string(),
+        "CONTRACT: task consumer must be explicit"
+    );
+    assert!(
+        task["failure_effect"].is_string(),
+        "CONTRACT: task failure effect must be explicit"
     );
 }
 
