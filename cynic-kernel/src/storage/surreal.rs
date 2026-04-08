@@ -2,6 +2,7 @@
 
 mod activity;
 mod coord;
+mod ops;
 
 use super::{SurrealHttpStorage, escape_surreal, safe_limit, sanitize_id};
 use crate::domain::ccm::{CANONICAL_CYCLES, Crystal, CrystalState, MIN_CRYSTALLIZATION_CYCLES};
@@ -589,38 +590,7 @@ impl StoragePort for SurrealHttpStorage {
         &self,
         snapshot: &[(String, crate::domain::usage::DogUsage)],
     ) -> Result<(), StorageError> {
-        if snapshot.is_empty() {
-            return Ok(());
-        }
-        // Idempotent: SET absolute totals, not += deltas.
-        // Callers pass flush_snapshot() (historical + session merged).
-        // On partial failure + retry, the same absolute values are re-written — no double-count.
-        let mut sql = String::new();
-        for (dog_id, u) in snapshot {
-            use std::fmt::Write;
-            let id_key = sanitize_record_id(dog_id);
-            let id_val = escape_surreal(dog_id);
-            let _ = write!(
-                sql, // ok: fmt::Write on String is infallible
-                "UPSERT dog_usage:`{id_key}` SET \
-                    dog_id = '{id_val}', \
-                    prompt_tokens = {pt}, \
-                    completion_tokens = {ct}, \
-                    requests = {req}, \
-                    failures = {fail}, \
-                    total_latency_ms = {lat}, \
-                    updated_at = time::now(); ",
-                id_key = id_key,
-                id_val = id_val,
-                pt = u.prompt_tokens,
-                ct = u.completion_tokens,
-                req = u.requests,
-                fail = u.failures,
-                lat = u.total_latency_ms,
-            );
-        }
-        self.query(&sql).await?;
-        Ok(())
+        ops::flush_usage(self, snapshot).await
     }
 
     async fn cleanup_ttl(&self) -> Result<(), StorageError> {
@@ -670,98 +640,20 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
-        let rows = self.query_one("SELECT * FROM dog_usage;").await?;
-        Ok(rows
-            .iter()
-            .map(|r| UsageRow {
-                dog_id: r["dog_id"].as_str().unwrap_or("").to_string(),
-                prompt_tokens: r["prompt_tokens"].as_u64().unwrap_or(0),
-                completion_tokens: r["completion_tokens"].as_u64().unwrap_or(0),
-                requests: r["requests"].as_u64().unwrap_or(0),
-                failures: r["failures"].as_u64().unwrap_or(0),
-                total_latency_ms: r["total_latency_ms"].as_u64().unwrap_or(0),
-            })
-            .collect())
+        ops::load_usage_history(self).await
     }
 
     async fn flush_dog_stats(
         &self,
         stats: &[(String, crate::organ::health::DogStats)],
     ) -> Result<(), StorageError> {
-        if stats.is_empty() {
-            return Ok(());
-        }
-        // Idempotent: SET absolute totals (same pattern as flush_usage).
-        let mut sql = String::new();
-        for (dog_id, s) in stats {
-            use std::fmt::Write;
-            let id_key = sanitize_record_id(dog_id);
-            let id_val = escape_surreal(dog_id);
-            let last_success_sql = match &s.last_success {
-                Some(ts) => format!("'{}'", escape_surreal(ts)),
-                None => "NONE".to_string(),
-            };
-            let _ = write!(
-                sql,
-                "UPSERT dog_stats:`{id_key}` SET \
-                    dog_id = '{id_val}', \
-                    total_calls = {tc}, \
-                    success_count = {sc}, \
-                    zero_flood_count = {zf}, \
-                    collapse_count = {cc}, \
-                    parse_error_count = {pe}, \
-                    timeout_count = {to}, \
-                    api_error_count = {ae}, \
-                    last_success = {ls}, \
-                    total_latency_ms = {lat}, \
-                    updated_at = time::now(); ",
-                id_key = id_key,
-                id_val = id_val,
-                tc = s.total_calls,
-                sc = s.success_count,
-                zf = s.zero_flood_count,
-                cc = s.collapse_count,
-                pe = s.parse_error_count,
-                to = s.timeout_count,
-                ae = s.api_error_count,
-                ls = last_success_sql,
-                lat = s.total_latency_ms,
-            );
-        }
-        self.query(&sql).await?;
-        Ok(())
+        ops::flush_dog_stats(self, stats).await
     }
 
     async fn load_dog_stats(
         &self,
     ) -> Result<Vec<(String, crate::organ::health::DogStats)>, StorageError> {
-        let rows = self.query_one("SELECT * FROM dog_stats;").await?;
-        Ok(rows
-            .iter()
-            .filter_map(|r| {
-                let dog_id = r["dog_id"].as_str()?.to_string();
-                if dog_id.is_empty() {
-                    return None;
-                }
-                Some((
-                    dog_id,
-                    crate::organ::health::DogStats {
-                        total_calls: r["total_calls"].as_u64().unwrap_or(0),
-                        success_count: r["success_count"].as_u64().unwrap_or(0),
-                        zero_flood_count: r["zero_flood_count"].as_u64().unwrap_or(0),
-                        collapse_count: r["collapse_count"].as_u64().unwrap_or(0),
-                        parse_error_count: r["parse_error_count"].as_u64().unwrap_or(0),
-                        timeout_count: r["timeout_count"].as_u64().unwrap_or(0),
-                        api_error_count: r["api_error_count"].as_u64().unwrap_or(0),
-                        last_success: r["last_success"]
-                            .as_str()
-                            .filter(|s| !s.is_empty())
-                            .map(|s| s.to_string()),
-                        total_latency_ms: r["total_latency_ms"].as_u64().unwrap_or(0),
-                    },
-                ))
-            })
-            .collect())
+        ops::load_dog_stats(self).await
     }
 
     async fn list_crystals_missing_embedding(
@@ -804,70 +696,18 @@ impl StoragePort for SurrealHttpStorage {
         &self,
         snap: &crate::domain::probe::EnvironmentSnapshot,
     ) -> Result<(), StorageError> {
-        let probes_json = serde_json::to_string(&snap.probes)
-            .map_err(|e| StorageError::QueryFailed(format!("serialize probes: {e}")))?;
-        let overall = format!("{:?}", snap.overall);
-        let sql = format!(
-            "INSERT INTO infra_snapshot {{ ts: time::now(), overall: '{}', probes: {} }}",
-            escape_surreal(&overall),
-            probes_json,
-        );
-        self.query(&sql).await?;
-        Ok(())
+        ops::store_infra_snapshot(self, snap).await
     }
 
     async fn list_infra_snapshots(
         &self,
         hours: u32,
     ) -> Result<Vec<crate::domain::probe::EnvironmentSnapshot>, StorageError> {
-        let sql = format!(
-            "SELECT * FROM infra_snapshot WHERE ts > time::now() - {hours}h ORDER BY ts DESC LIMIT 100",
-        );
-        let rows = self.query_one(&sql).await?;
-        Ok(rows
-            .iter()
-            .map(|row| {
-                let timestamp = row["ts"].as_str().unwrap_or("").to_string();
-                let overall_str = row["overall"].as_str().unwrap_or("Unavailable");
-                let overall = match overall_str {
-                    "Ok" => crate::domain::probe::ProbeStatus::Ok,
-                    "Degraded" => crate::domain::probe::ProbeStatus::Degraded,
-                    "Denied" => crate::domain::probe::ProbeStatus::Denied,
-                    _ => crate::domain::probe::ProbeStatus::Unavailable,
-                };
-                let probes: Vec<crate::domain::probe::ProbeResult> = row["probes"]
-                    .as_array()
-                    .map(|arr| {
-                        arr.iter()
-                            .filter_map(|v| {
-                                serde_json::from_value(v.clone())
-                                    .map_err(|e| {
-                                        tracing::warn!(
-                                            error = %e,
-                                            "infra_snapshot probe deserialization failed"
-                                        );
-                                        e
-                                    })
-                                    .ok()
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                crate::domain::probe::EnvironmentSnapshot {
-                    timestamp,
-                    probes,
-                    overall,
-                }
-            })
-            .collect())
+        ops::list_infra_snapshots(self, hours).await
     }
 
     async fn cleanup_infra_snapshots(&self, older_than_days: u32) -> Result<u64, StorageError> {
-        let sql = format!(
-            "DELETE FROM infra_snapshot WHERE ts < time::now() - {older_than_days}d RETURN BEFORE",
-        );
-        let rows = self.query_one(&sql).await?;
-        Ok(rows.len() as u64)
+        ops::cleanup_infra_snapshots(self, older_than_days).await
     }
 
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
