@@ -12,6 +12,7 @@
 #   make restore  — restore DB from backup file (F=path)
 #   make e2e      — end-to-end test against running kernel
 #   make status   — full system dashboard
+#   make runtime-truth — PID/PPID/binary/version/state/port truth for critical processes
 #   make backup   — manual DB backup
 #   make test-gates — R21: verify lint gates catch known violations
 #   make clean    — cargo clean (fix SIGSEGV/LLVM crashes)
@@ -37,9 +38,7 @@ check:
 	@echo "══════════════════════════════════════════"
 	@echo "  CYNIC check — build + test + clippy"
 	@echo "══════════════════════════════════════════"
-	@if [ ! -x .git/hooks/pre-commit ]; then \
-		echo "⚠ Git hooks not installed — run: make install-hooks"; \
-	fi
+	@$(MAKE) --no-print-directory verify-hooks
 	cargo fmt --all -- --check
 	cargo clippy --workspace --release -- -D warnings
 	cargo test --workspace --release
@@ -318,13 +317,30 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 			"$$TRACKER.gate-bak" > "$$TRACKER"; \
 		if $(MAKE) --no-print-directory lint-security >/dev/null 2>&1; then \
 			echo "  ✗ G1 gate MISSED OPEN CRITICAL — BROKEN"; FAIL=$$((FAIL+1)); \
-		else \
-			echo "  ✓ G1 gate caught OPEN CRITICAL finding"; PASS=$$((PASS+1)); \
+	else \
+		echo "  ✓ G1 gate caught OPEN CRITICAL finding"; PASS=$$((PASS+1)); \
 		fi; \
 		mv "$$TRACKER.gate-bak" "$$TRACKER"; \
 	else \
 		echo "  SKIP: findings tracker not found"; \
 	fi; \
+	\
+	echo ""; echo "── verify-hooks ──"; \
+	\
+	echo "[H1] Injecting wrong pre-push hook target..."; \
+	TMPROOT=$$(mktemp -d); \
+	mkdir -p "$$TMPROOT/project/scripts/git-hooks" "$$TMPROOT/git/hooks"; \
+	cp "$(PROJECT_DIR)/scripts/git-hooks/pre-commit" "$$TMPROOT/project/scripts/git-hooks/pre-commit"; \
+	cp "$(PROJECT_DIR)/scripts/git-hooks/pre-push" "$$TMPROOT/project/scripts/git-hooks/pre-push"; \
+	chmod +x "$$TMPROOT/project/scripts/git-hooks/pre-commit" "$$TMPROOT/project/scripts/git-hooks/pre-push"; \
+	ln -s "$$TMPROOT/project/scripts/git-hooks/pre-commit" "$$TMPROOT/git/hooks/pre-commit"; \
+	ln -s /bin/true "$$TMPROOT/git/hooks/pre-push"; \
+	if PROJECT_DIR_OVERRIDE="$$TMPROOT/project" GIT_DIR_OVERRIDE="$$TMPROOT/git" bash "$(PROJECT_DIR)/scripts/verify-hooks.sh" >/dev/null 2>&1; then \
+		echo "  ✗ H1 gate MISSED wrong pre-push target — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ H1 gate caught wrong pre-push target"; PASS=$$((PASS+1)); \
+	fi; \
+	rm -rf "$$TMPROOT"; \
 	\
 	echo ""; \
 	TOTAL=$$((PASS+FAIL)); \
@@ -496,6 +512,10 @@ release-dry:
 install-hooks:
 	@bash $(PROJECT_DIR)/scripts/install-hooks.sh
 
+.PHONY: verify-hooks
+verify-hooks:
+	@bash $(PROJECT_DIR)/scripts/verify-hooks.sh
+
 # ── Clean (fix SIGSEGV/LLVM crashes) ──────────────────────────
 .PHONY: clean
 clean:
@@ -542,8 +562,14 @@ status:
 	@printf "Kernel:  "; HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "http://$${CYNIC_REST_ADDR}/health" 2>/dev/null); [ "$$HTTP" = "200" ] && echo "healthy ($$HTTP)" || echo "DEGRADED (HTTP $${HTTP:-000})"
 	@printf "SurrealDB: "; surreal is-ready --endpoint http://localhost:8000 2>/dev/null && echo "ok" || echo "DOWN"
 	@printf "Services: "; systemctl --user is-active cynic-kernel surrealdb llama-server 2>/dev/null | tr '\n' ' '; echo ""
+	@printf "Hooks: "; $(MAKE) --no-print-directory verify-hooks >/dev/null 2>&1 && echo "verified" || echo "DRIFT"
 	@printf "Git: "; git -C $(PROJECT_DIR) rev-parse --abbrev-ref HEAD; git -C $(PROJECT_DIR) log --oneline -1
 	@printf "Backup: "; ls -t ~/.surrealdb/backups/*.surql 2>/dev/null | head -1 || echo "none"
+
+.PHONY: runtime-truth
+runtime-truth:
+	@$(source_env)
+	@bash $(PROJECT_DIR)/scripts/runtime-truth.sh
 
 # ── Standalone: Manual backup ────────────────────────────────
 .PHONY: backup
