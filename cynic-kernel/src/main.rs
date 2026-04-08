@@ -4,6 +4,26 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
+fn load_rest_api_key() -> Result<Option<String>, String> {
+    match std::env::var("CYNIC_API_KEY") {
+        Ok(key) if !key.is_empty() => Ok(Some(key)),
+        Ok(_) | Err(std::env::VarError::NotPresent) => {
+            let allow_open = std::env::var("CYNIC_ALLOW_OPEN_API")
+                .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
+                .unwrap_or(false);
+            if allow_open {
+                Ok(None)
+            } else {
+                Err(
+                    "CYNIC_API_KEY is required for REST auth; set CYNIC_ALLOW_OPEN_API=1 only for explicit local development"
+                        .into(),
+                )
+            }
+        }
+        Err(std::env::VarError::NotUnicode(_)) => Err("CYNIC_API_KEY must be valid UTF-8".into()),
+    }
+}
+
 // ============================================================
 // BOOT SEQUENCE
 // ============================================================
@@ -434,7 +454,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => klog!("[Ring 2] Usage: failed to load history (non-fatal): {}", e),
         _ => {}
     }
-    let api_key = std::env::var("CYNIC_API_KEY").ok();
+    let api_key = load_rest_api_key().map_err(std::io::Error::other)?;
     // Single VerdictCache shared by REST and MCP — avoids duplicate caches (T4 fix)
     let verdict_cache = Arc::new(domain::verdict_cache::VerdictCache::new());
     // Pipeline metrics — shared by REST and MCP, exposed via /metrics
