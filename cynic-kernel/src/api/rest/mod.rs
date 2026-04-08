@@ -72,7 +72,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     if state.api_key.is_some() {
         tracing::info!("REST Bearer auth ENABLED");
     } else {
-        tracing::warn!("No CYNIC_API_KEY set — REST API is OPEN");
+        tracing::warn!("REST Bearer auth DISABLED via explicit CYNIC_ALLOW_OPEN_API=1");
     }
 
     Router::new()
