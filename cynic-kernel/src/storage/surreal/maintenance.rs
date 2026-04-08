@@ -1,4 +1,4 @@
-use super::row_to_crystal;
+use super::crystals::row_to_crystal;
 use crate::domain::ccm::{CANONICAL_CYCLES, Crystal, MIN_CRYSTALLIZATION_CYCLES};
 use crate::domain::dog::{PHI_INV, PHI_INV2};
 use crate::domain::storage::StorageError;
