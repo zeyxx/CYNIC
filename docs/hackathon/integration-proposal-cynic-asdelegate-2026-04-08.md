@@ -17,6 +17,40 @@ Prize: $250K pre-seed + accelerator. Feature freeze April 27. Submit May 11. Cur
 
 ---
 
+## Evidence (verified 2026-04-08, reproducible)
+
+**On-chain substrate is alive** — devnet JSON-RPC, no signer required:
+
+```
+Programme A4QK3jj2kDx6w3da7FF3wxiBMnD2NrDsL1F7RCJA5NXx
+  executable: true
+  owner:      BPFLoaderUpgradeab1e11111111111111111111111
+  lamports:   1,141,440
+  slot:       454,018,276
+
+Community PDA 8Pyd1hqd6jTX2jR8YvCAjnd3cyP5qB7XaxzwAGtHCSFD
+  executable: false
+  owner:      A4QK3jj2kDx6w3da7FF3wxiBMnD2NrDsL1F7RCJA5NXx  ← owned by the programme
+  lamports:   1,656,480
+  data:       110 bytes (disc + 3 pubkeys + trailing state)
+```
+
+**CYNIC kernel runtime** — probed pre-hackathon pivot (MCP disconnected mid-session; these numbers are the last snapshot, re-verify before demo):
+- `/judge` responsive < 1.5s on governance test proposition (1.4s wall time, 1.397s qwen-7b-hf)
+- `organ_quality` per Dog: `qwen-7b-hf` 100% JSON-valid (12/12), `qwen35-9b-gpu` 18% (2/11 — silent parse failure mode), `gemma-4b-core` 0% (0/1)
+- **Effective voters on non-chess content: 2** (`deterministic-dog` heuristic + `qwen-7b-hf` single remote LLM)
+- `/health` status: `degraded` — cause chain is `qwen35-9b-gpu` parse failure + 2 stale background tasks (`backfill`, `event_consumer`)
+
+**ASDelegate Phase 2 status** — git log on `sollama58/TokenVotingUtil`:
+- PR #1 `dev/gaps-tier1` merged 2026-03-08 (CORS + Jest + Winston + Redis) — authored by S.
+- PR #8 `fix/governance-threshold-and-ties` merged 2026-03-08 — authored by S.
+- `GAP-ANALYSIS.md` (commit `e8e4562c`) — 22 issues identified by S. on 2026-02-25
+- **No further commits on ASDelegate main since 2026-03-08** — Phase 2 has been waiting for architectural feedback for 31 days
+
+**What the evidence means for the proposal**: the substrate for "CYNIC Pinocchio as tally authority" exists today on devnet. The gap between the current state and a running demo is the fork + additive changes on ASDelegate + the D4 polling endpoint on CYNIC. The pitch isn't speculative — it's a joining operation between two already-running systems.
+
+---
+
 ## The observation that makes this integration obvious
 
 On 2026-02-25, S. wrote `GAP-ANALYSIS.md` in `sollama58/TokenVotingUtil` identifying 22 issues in ASDelegate — 2 CRITICAL, 6 HIGH, 9 MEDIUM, 5 LOW. The two CRITICAL ones and the two most severe HIGH ones are:
@@ -98,7 +132,7 @@ The integration wasn't designed for Colosseum. It's the answer to the Phase 2 qu
 | `.env.example` | Add `CYNIC_REST_ADDR`, `CYNIC_API_KEY` env vars (currently undocumented in the bridge) | ~5 |
 | `ARCHITECTURE.md` | Document the dual-layer design | ~100 |
 
-**Total ASDelegate diff: ~485 LOC**. No breaking changes to existing UI. Additive only.
+**Total ASDelegate diff: ~485 LOC (±30%, back-of-envelope — not benchmarked against similar ASDelegate PRs)**. No breaking changes to existing UI. Additive only.
 
 ## What CYNIC provides (mostly already built)
 
@@ -113,23 +147,18 @@ The integration wasn't designed for Colosseum. It's the answer to the Phase 2 qu
 | New devnet deployer keypair | ⚠️ needs regeneration (current one `/tmp/gasdf-deployer.json` lost) |
 | Community re-init with distinct agent + guardian keys | ⚠️ post-hackathon |
 
-## Responsibilities (proposed split)
+## Responsibilities (proposed split — subject to Telegram alignment)
 
-| Task | Owner | Est. |
-|---|---|---|
-| CYNIC D4 `/judge/status/{id}` | T. | 7-18h |
-| Devnet keypair regen + airdrop + bridge env vars | T. | 1h |
-| CYNIC × Pinocchio bridge hardening (retry, timeout, error codes) | T. | 3h |
-| `@gasdf/governance` SDK extraction | T. or S. | 5h |
-| ASDelegate fork setup + CI for fork | S. | 1h |
-| ASDelegate `POST /api/proposals/:id/submit-to-cynic` backend route | S. | 2h |
-| ASDelegate Verdict PDA reader (frontend + backend) | S. | 4h |
-| ASDelegate "AI Deliberation" panel UI (vanilla JS, integrated with polling) | S. | 8-10h |
-| Integration tests (E2E: vote → CYNIC → Pinocchio → PDA read) | both | 4h |
-| Pitch video recording + editing | both | 15h |
-| Demo rehearsal on real $ASDF community | both | 3h |
+| Track | Owner | Scope | Est. |
+|---|---|---|---|
+| **CYNIC kernel + bridge** | T. | D4 `/judge/status/{id}` + devnet keypair regen + bridge hardening (retry/timeout/error codes) + `@gasdf/governance` SDK extraction | **16-27h** |
+| **ASDelegate backend integration** | S. | Fork setup + `POST /api/proposals/:id/submit-to-cynic` route + Verdict PDA reader | **~7h** |
+| **ASDelegate frontend panel** | S. | "AI Deliberation" panel in vanilla JS + progressive polling + per-axiom display | **8-10h** |
+| **E2E integration test** | both | Vote → CYNIC → Pinocchio → PDA read, on devnet with real community | **~4h** |
+| **Pitch + demo video** | both | Recording, editing, narrative delivery | **~15h** |
+| **Community demo rehearsal** | both | On real $ASDFASDFA community with real proposals | **~3h** |
 
-**Rough total: 50-70h split across two contributors over 5 weeks.** Feasible given the integration builds on existing components rather than net-new architecture.
+**Rough total: 50-70h ±25%** across two contributors over 5 weeks. Depends on D4 Option A (polling-on-store, ~7h) vs Option B (progressive writes, ~18h) — decision gated on tomorrow's Telegram alignment. Hours unverified against S.'s actual vélocité on ASDelegate — refine after the first integration PR's measured LOC and wall time.
 
 ---
 
@@ -147,7 +176,7 @@ The integration wasn't designed for Colosseum. It's the answer to the Phase 2 qu
 1. **Problem** (30s). 98.6% of Solana community tokens rug. Jupiter closed its DAO. MetaDAO is illegible for retail. There is no governance layer usable for community tokens in the Solana ecosystem.
 2. **Community** (30s). $ASDFASDFA is a real pump.fun token with a real community, real builders (T., S., sollama58, others), and real product surface (ASDelegate, CultScreener, ASDForecast, HolDex, burn tracker, oracle, bridge).
 3. **Gap** (30s). ASDelegate had 22 audited issues (show GAP-ANALYSIS.md dated 2026-02-25). Two CRITICAL, six HIGH. Phase 2 was blocked on "how do we make the tally trustworthy without surrendering to a central server?"
-4. **Answer** (60s). Dual-layer governance. Humans vote via Streamflow-weighted locks in ASDelegate. AI validators deliberate under φ-bounded doubt (CYNIC, max 61.8% confidence). Every verdict settles on-chain via a custom Pinocchio programme (-95% CU vs Anchor). The audit gap closes as a side-effect of the architecture, not as a patch.
+4. **Answer** (60s). Dual-layer governance. Humans vote via Streamflow-weighted locks in ASDelegate. AI validators deliberate under φ-bounded doubt (CYNIC, max 61.8% confidence). Every verdict settles on-chain via a custom Pinocchio programme (-95% CU vs Anchor). The audit gap closes as a side-effect of the architecture, not as a patch. **Honest note: this is a novel primitive — no precedent on Solana for AI + human dual-layer governance. Mitigation: 6 weeks of independent audit work by S. on the human layer + verified on-chain substrate on the settlement layer. Novelty is hedged by prior work, not by speculation.**
 5. **Demo** (60s). Live devnet proposal → CYNIC `/judge` → Dogs deliberate → `submit_verdict` tx signature → read-back from Verdict PDA → UI updates. Real on-chain tx, real Dog reasoning, real PDA data.
 6. **Team + ask** (15s). Two co-builders already in the same ecosystem, shipping on the same token for months before the hackathon started.
 
@@ -156,16 +185,6 @@ The integration wasn't designed for Colosseum. It's the answer to the Phase 2 qu
 - Ecosystem proof: multiple repos, multiple contributors, pre-existing audit, active community
 - Execution proof: integration builds on shipped components, not a prototype
 - AI track differentiator: φ-bounded doubt + geometric-mean Q-score is genuinely novel vs "LLM calls an API"
-
----
-
-## What this proposal does NOT ask
-
-- **No rewrite of ASDelegate.** Fork, additive changes only, upstream-friendly once sollama58 cycles back to reviewing.
-- **No claim over $ASDF token economics.** This is a governance layer, not a tokenomics change.
-- **No displacement of sollama58.** The fork-based approach means we can either upstream the integration via PR post-hackathon or maintain in parallel if sollama58 prefers.
-- **No hiding behind "AI magic".** The Dogs' reasoning is shown in the UI, per-axiom, with explicit confidence bound (61.8% maximum). Users can see exactly what the AI said and decide accordingly.
-- **No disruption to S.'s current work** beyond the integration scope. `blitz-and-chill` and `ctf-forensique-airlines` remain his personal projects.
 
 ---
 
@@ -180,40 +199,16 @@ The integration wasn't designed for Colosseum. It's the answer to the Phase 2 qu
 
 ---
 
-## Appendix A: on-chain proof-points (probed 2026-04-08, JSON-RPC)
+## Known-weak spots (acknowledged honestly)
 
-```
-Pinocchio programme A4QK3jj2kDx6w3da7FF3wxiBMnD2NrDsL1F7RCJA5NXx
-  executable: true
-  owner:      BPFLoaderUpgradeab1e11111111111111111111111
-  lamports:   1,141,440
-  slot:       454,018,276
-
-Community PDA 8Pyd1hqd6jTX2jR8YvCAjnd3cyP5qB7XaxzwAGtHCSFD
-  executable: false
-  owner:      A4QK3jj2kDx6w3da7FF3wxiBMnD2NrDsL1F7RCJA5NXx  ← owned by the programme
-  lamports:   1,656,480
-  data:       110 bytes (disc + 3 pubkeys + trailing state)
-```
-
-Agent + guardian keys in the PDA are currently identical (test config, single keypair). Post-hackathon fix: re-initialize community with distinct keys for proper asymmetric pause safety.
-
-## Appendix B: CYNIC kernel runtime snapshot (probed 2026-04-08)
-
-```
-status:      degraded
-dog_count:   4 (REST) / 3 (MCP) — K13 surface divergence
-healthy:     deterministic-dog + qwen-7b-hf + qwen35-9b-gpu (gemma down)
-effective voters on non-chess: 2 (deterministic + qwen-7b-hf)
-  - qwen-7b-hf: 100% JSON valid (12/12 recent)
-  - qwen35-9b-gpu: 18% JSON valid (2/11 recent) — silent failure mode
-  - gemma-4b-core: 0% JSON valid (0/1)
-```
-
-Honest framing for the pitch: "CYNIC currently has 2 to 4 independent voters depending on prompt type, under φ-bounded doubt (max 61.8% confidence). Dogs are dynamically registerable via POST /dogs/register; the active count is an operational property, not a marketing number. The architecture supports an arbitrary N-of-N dynamic roster, and the current runtime instance demonstrates this on a real token ecosystem."
-
-This replaces the abstract "5 AI validators" claim with a runtime-accurate, dynamic-roster framing that is both defensible and more technically interesting.
+1. **Agent == guardian in the current community PDA** (byte-identical at offsets 36-65 and 68-97). Single keypair was used to initialize — when `/tmp/gasdf-deployer.json` was lost, both roles were lost. The pitch's "asymmetric pause (guardian-only unpause)" is architecturally supported by the programme but vacuous in the current instance. Post-hackathon: re-init community with distinct keys.
+2. **qwen35-9b-gpu silent parse failure.** Circuit breaker closed, HTTP 200, but output doesn't parse. The K14 class of silent failure the current breaker can't catch. Hackathon mitigation: honest framing (see pitch beat 4). Post-hackathon: investigate prompt→response→parse chain.
+3. **qwen-7b-hf is a SPOF.** Only reliable LLM Dog = single remote HuggingFace endpoint. Hackathon mitigation: use `POST /dogs/register` to add 1-2 external Dogs (OpenAI, Anthropic, OpenRouter) before demo day — the dynamic roster is shipped and waiting to be used. Adds ~1h of config work per Dog.
+4. **ASDelegate live deployment URL unknown.** The `render.yaml` references `https://<service>.onrender.com` as a placeholder. If no live instance exists, spinning one up for the demo period adds ~1-2h.
+5. **LOC and hours estimates unverified.** Refine after the first integration PR's actual measurements.
 
 ---
+
+**Reproducibility note**: the on-chain evidence in the "Evidence" section above can be verified at any time via JSON-RPC `getAccountInfo` against `https://api.devnet.solana.com` (no keypair required). The CYNIC runtime snapshot requires MCP access to the kernel, which was live at start of session 2026-04-08 and disconnected mid-session after parallel ops commits.
 
 *This document is a draft for the Telegram call on 2026-04-09. It is not yet shared with S. or sollama58. T. reviews first, corrects any inaccuracies, then sends.*
