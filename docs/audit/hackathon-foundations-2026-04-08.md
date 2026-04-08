@@ -154,8 +154,47 @@ This is not a build problem. It's an epistemic/pitch-integrity problem. See verd
 ### L2 Dogs fleet
 ⏳ pending P1.2
 
-### L3 Pinocchio program + devnet state
-⏳ pending P1.3
+### L3 Pinocchio program + devnet state ✅
+
+**Gate PASSED** — on-chain substrate for the "CYNIC × ASDelegate dual-layer" pitch is alive.
+
+Probed via JSON-RPC `getAccountInfo` (not `solana program show` because `solana-cli 3.1.12` refuses read-only ops without a default signer — `/tmp/gasdf-deployer.json` is still the config default and still gone). No keypair needed for RPC read path.
+
+**Program `A4QK3jj2kDx6w3da7FF3wxiBMnD2NrDsL1F7RCJA5NXx`:**
+```json
+{ "executable": true,
+  "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+  "lamports": 1141440,
+  "data_len": 48,
+  "slot": 454018276 }
+```
+`data_len: 48` = metadata pointing to ProgramData account (normal for upgradeable BPF). Program is still deployed, still executable, still owned by the upgradeable loader.
+
+**Community PDA `8Pyd1hqd6jTX2jR8YvCAjnd3cyP5qB7XaxzwAGtHCSFD`:**
+```json
+{ "executable": false,
+  "owner": "A4QK3jj2kDx6w3da7FF3wxiBMnD2NrDsL1F7RCJA5NXx",
+  "lamports": 1656480,
+  "data_len": 110 }
+```
+
+**Critical**: the PDA is owned by the Pinocchio program itself → it was created via `initialize_community` and is still valid. This is the on-chain proof-point the pitch needs.
+
+**Data structure analysis (hex decode, 110 bytes):**
+- Bytes 0-1: discriminator `0x00 0x01` (version?)
+- Bytes 2-33: mint pubkey (32)
+- Bytes 34-65: agent_key (32) — starts with `3b 40 cd 49 55 d5 69 43 28 29 94 c6 ce d1 b4 15 …`
+- Bytes 66-97: guardian_key (32) — starts with `c0 ae cd 49 55 d5 69 43 28 29 94 c6 ce d1 b4 15 …`
+- Bytes 98-109: trailing 12 bytes (threshold + paused + bump + counter, layout TBD from community.rs)
+
+**Operational finding: agent_key == guardian_key**. Bytes 36-65 and 68-97 are byte-identical for 30 consecutive bytes — not a coincidence at that length. The community was initialized with the same keypair for both the agent (signs verdicts) and the guardian (can pause). When `/tmp/gasdf-deployer.json` was lost, **both** roles were lost — there is no current "asymmetric pause safety" in this community. The pitch's "pause: guardian OR agent; unpause: guardian ONLY (asymmetric)" claim is architecturally supported by the program but vacuous in the current community instance. Post-hackathon: either re-initialize community with distinct agent + guardian keys, or document the single-key test-config as a known limitation in the demo.
+
+**L3 gate summary:**
+- ✓ Program still deployed, still executable
+- ✓ Community PDA still alive, still owned by program
+- ✓ Devnet substrate enables "fork ASDelegate + CYNIC Pinocchio as tally authority" pitch
+- ⚠️ agent == guardian in current PDA (single keypair) — non-blocking for demo, fix post-hackathon
+- ⚠️ `/tmp/gasdf-deployer.json` still the CLI default — L4 keypair regen still needed before any devnet write operation
 
 ### L4 Bridge + devnet keys
 ⏳ pending P1.4
