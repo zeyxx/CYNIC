@@ -194,28 +194,22 @@ impl TaskHealth {
                 // age into "stale" so a silently stuck backfill is caught.
                 // Public contract stays ok|stale|never — terminality lives in `detail`.
                 let last = self.backfill.load(Ordering::Relaxed);
-                if last == 0 {
-                    TaskSnapshot {
-                        name: "backfill",
-                        last_success_ago: 0,
-                        status: "never",
-                        detail: Some(bf_detail),
-                    }
+                let (status, last_success_ago) = if last == 0 {
+                    ("never", 0)
                 } else {
                     let ago = now.saturating_sub(last);
-                    let status = if is_oneshot_terminal_detail(bf_detail) {
+                    let s = if is_oneshot_terminal_detail(bf_detail) || ago <= 1200 {
                         "ok"
-                    } else if ago > 1200 {
-                        "stale"
                     } else {
-                        "ok"
+                        "stale"
                     };
-                    TaskSnapshot {
-                        name: "backfill",
-                        last_success_ago: ago,
-                        status,
-                        detail: Some(bf_detail),
-                    }
+                    (s, ago)
+                };
+                TaskSnapshot {
+                    name: "backfill",
+                    last_success_ago,
+                    status,
+                    detail: Some(bf_detail),
                 }
             },
             TaskSnapshot::new(
@@ -352,6 +346,16 @@ mod tests {
             .store(now.saturating_sub(seconds_ago), Ordering::Relaxed);
     }
 
+    /// Locate a task entry in a snapshot by name. Panics with the task name if
+    /// the snapshot doesn't contain it — every task in `snapshot()` is a
+    /// static literal, so a missing entry means the snapshot shape changed and
+    /// the calling test needs to know about it loudly.
+    fn find_task<'a>(snap: &'a [TaskSnapshot], name: &str) -> &'a TaskSnapshot {
+        snap.iter()
+            .find(|s| s.name == name)
+            .unwrap_or_else(|| panic!("task '{name}' missing from snapshot"))
+    }
+
     #[test]
     fn backfill_terminal_done_stays_ok_after_long_age() {
         let th = TaskHealth::new();
@@ -359,10 +363,7 @@ mod tests {
         // Simulate 1 hour elapsed — well beyond 2× expected_interval (1200s).
         backdate_backfill(&th, 3600);
         let snap = th.snapshot();
-        let bf = snap
-            .iter()
-            .find(|s| s.name == "backfill")
-            .expect("backfill");
+        let bf = find_task(&snap, "backfill");
         assert_eq!(
             bf.status, "ok",
             "terminal backfill must not degrade /health after aging"
@@ -380,10 +381,7 @@ mod tests {
         th.touch_backfill("clean:0_orphans");
         backdate_backfill(&th, 3600);
         let snap = th.snapshot();
-        let bf = snap
-            .iter()
-            .find(|s| s.name == "backfill")
-            .expect("backfill");
+        let bf = find_task(&snap, "backfill");
         assert_eq!(bf.status, "ok");
         assert_eq!(bf.detail, Some("clean:0_orphans"));
         assert!(!th.has_stale());
@@ -395,10 +393,7 @@ mod tests {
         th.touch_backfill("running");
         backdate_backfill(&th, 3600);
         let snap = th.snapshot();
-        let bf = snap
-            .iter()
-            .find(|s| s.name == "backfill")
-            .expect("backfill");
+        let bf = find_task(&snap, "backfill");
         assert_eq!(
             bf.status, "stale",
             "a stuck in-progress backfill must still age into stale"
@@ -413,10 +408,7 @@ mod tests {
         th.touch_backfill("timeout");
         backdate_backfill(&th, 3600);
         let snap = th.snapshot();
-        let bf = snap
-            .iter()
-            .find(|s| s.name == "backfill")
-            .expect("backfill");
+        let bf = find_task(&snap, "backfill");
         assert_eq!(
             bf.status, "stale",
             "timeout is incomplete termination — must surface as stale"
