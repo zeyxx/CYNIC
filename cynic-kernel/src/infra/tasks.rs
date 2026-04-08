@@ -478,13 +478,48 @@ pub fn spawn_remediation_watcher(
 
 // ── Event bus consumer (internal reactions) ──────────────────
 
+/// How often the event consumer touches `task_health` even when the bus is
+/// idle. Must be strictly less than half `task_health`'s `event_consumer`
+/// expected_interval (300 s → stale at 600 s) so an idle but alive consumer
+/// never drifts into false-stale. 60 s matches the other liveness-style
+/// loops in this file (`coord_expiry`, `usage_flush`).
+const EVENT_CONSUMER_LIVENESS_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
+
 pub fn spawn_event_consumer(
     event_tx: &tokio::sync::broadcast::Sender<KernelEvent>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
+    spawn_event_consumer_with_liveness(
+        event_tx,
+        task_health,
+        shutdown,
+        EVENT_CONSUMER_LIVENESS_INTERVAL,
+    )
+}
+
+/// Internal: same as `spawn_event_consumer` but with a configurable liveness
+/// tick interval, so unit tests can exercise the idle-bus branch without
+/// waiting a minute. Production always goes through `spawn_event_consumer`.
+fn spawn_event_consumer_with_liveness(
+    event_tx: &tokio::sync::broadcast::Sender<KernelEvent>,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+    liveness_interval: std::time::Duration,
+) -> JoinHandle<()> {
     let mut rx = event_tx.subscribe();
     let handle = tokio::spawn(async move {
+        // Idle-liveness tick: the event bus may be quiet for hours (observed
+        // 8+ h in prod on 2026-04-08). Before this branch existed, task_health
+        // could not distinguish "alive and idle" from "dead" and marked the
+        // consumer stale after ~600 s, degrading /health on a perfectly
+        // healthy kernel. Same K15 class as the backfill false-stale fix,
+        // but here the task is genuinely periodic — we just keep its
+        // liveness signal alive during quiet periods.
+        let mut liveness = tokio::time::interval(liveness_interval);
+        liveness.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        liveness.tick().await; // absorb the immediate first tick
+
         loop {
             tokio::select! {
                 _ = shutdown.cancelled() => {
@@ -505,6 +540,9 @@ pub fn spawn_event_consumer(
                             break;
                         }
                     }
+                    task_health.touch_event_consumer();
+                }
+                _ = liveness.tick() => {
                     task_health.touch_event_consumer();
                 }
             }
@@ -769,6 +807,49 @@ mod tests {
 
         shutdown.cancel();
         tokio::time::timeout(std::time::Duration::from_secs(2), handle)
+            .await
+            .expect("event_consumer should stop within 2s")
+            .expect("task should not panic");
+    }
+
+    #[tokio::test]
+    async fn event_consumer_liveness_tick_touches_health_on_idle_bus() {
+        use std::time::Duration;
+
+        let (tx, _rx_sentinel) = tokio::sync::broadcast::channel::<KernelEvent>(16);
+        let task_health = Arc::new(TaskHealth::new());
+        let shutdown = CancellationToken::new();
+
+        // Short liveness interval so the test doesn't wait a minute.
+        // Production uses EVENT_CONSUMER_LIVENESS_INTERVAL (60 s).
+        let handle = spawn_event_consumer_with_liveness(
+            &tx,
+            task_health.clone(),
+            shutdown.clone(),
+            Duration::from_millis(100),
+        );
+
+        // Never send an event. Wait for >= 2 liveness ticks (scheduler jitter
+        // margin included).
+        tokio::time::sleep(Duration::from_millis(350)).await;
+
+        // Consumer must have touched task_health purely from the idle branch.
+        let snapshot = task_health.snapshot();
+        let consumer = snapshot
+            .iter()
+            .find(|t| t.name == "event_consumer")
+            .expect("event_consumer entry in snapshot");
+        assert_eq!(
+            consumer.status, "ok",
+            "liveness tick must keep event_consumer ok on an idle bus"
+        );
+        assert!(
+            !task_health.has_stale(),
+            "has_stale must not trip on an idle-but-alive event_consumer"
+        );
+
+        shutdown.cancel();
+        tokio::time::timeout(Duration::from_secs(2), handle)
             .await
             .expect("event_consumer should stop within 2s")
             .expect("task should not panic");
