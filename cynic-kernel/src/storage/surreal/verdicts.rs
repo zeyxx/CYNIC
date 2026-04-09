@@ -182,7 +182,7 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
 }
 
 #[cfg(test)]
-#[allow(clippy::print_stderr)]
+#[allow(clippy::print_stderr)] // WHY: integration tests use eprintln! for diagnostic output visible in `cargo test -- --nocapture`
 mod tests {
     use super::*;
     use crate::domain::storage::StoragePort;

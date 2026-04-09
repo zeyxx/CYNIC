@@ -98,7 +98,7 @@ pub(super) async fn list_crystals_for_domain(
     Ok(rows.iter().map(row_to_crystal).collect())
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)] // WHY: matches SurrealDB INSERT parameter list 1:1 — reducing args would require a DTO struct just for the query boundary
 pub(super) async fn observe_crystal(
     storage: &SurrealHttpStorage,
     id: &str,

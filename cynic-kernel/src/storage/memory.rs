@@ -273,7 +273,7 @@ impl StoragePort for InMemoryStorage {
                 freq: f,
             })
             .collect();
-        result.sort_by(|a, b| b.freq.cmp(&a.freq));
+        result.sort_by_key(|t| std::cmp::Reverse(t.freq));
         result.truncate(limit as usize);
         Ok(result)
     }
@@ -357,7 +357,7 @@ impl StoragePort for InMemoryStorage {
             .filter(|(sid, (_, count))| *count >= min_observations && !summarized.contains(sid))
             .map(|(sid, (aid, count))| (sid, aid, count))
             .collect();
-        result.sort_by(|a, b| b.2.cmp(&a.2));
+        result.sort_by_key(|r| std::cmp::Reverse(r.2));
         result.truncate(limit as usize);
         Ok(result)
     }

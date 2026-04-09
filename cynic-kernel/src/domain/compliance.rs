@@ -116,17 +116,13 @@ fn compute_read_before_edit(observations: &[RawObservation]) -> f64 {
 
     for obs in observations {
         match obs.tool.as_str() {
-            "Read" => {
-                if !obs.target.is_empty() {
-                    read_files.insert(obs.target.clone());
-                }
+            "Read" if !obs.target.is_empty() => {
+                read_files.insert(obs.target.clone());
             }
-            "Edit" | "Write" => {
-                if !obs.target.is_empty() {
-                    edits_total += 1;
-                    if read_files.contains(&obs.target) {
-                        edits_with_read += 1;
-                    }
+            "Edit" | "Write" if !obs.target.is_empty() => {
+                edits_total += 1;
+                if read_files.contains(&obs.target) {
+                    edits_with_read += 1;
                 }
             }
             _ => {}

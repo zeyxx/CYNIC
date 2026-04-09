@@ -14,4 +14,5 @@ pub mod health_gate;
 pub mod metrics;
 pub mod probe;
 pub mod sanitize;
+pub mod source;
 pub mod summarization;
