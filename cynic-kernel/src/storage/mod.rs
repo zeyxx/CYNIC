@@ -58,11 +58,9 @@ impl StorageMetrics {
             queries,
             errors: self.errors.load(Ordering::Relaxed),
             slow_queries: self.slow_queries.load(Ordering::Relaxed),
-            avg_latency_ms: if queries > 0 {
-                (total_us / queries) as f64 / 1000.0
-            } else {
-                0.0
-            },
+            avg_latency_ms: total_us
+                .checked_div(queries)
+                .map_or(0.0, |avg| avg as f64 / 1000.0),
             uptime_secs: self.started_at.elapsed().as_secs(),
         }
     }

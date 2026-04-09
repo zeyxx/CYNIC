@@ -39,4 +39,5 @@ pub mod judge;
 pub mod organ;
 pub mod pipeline;
 pub mod probe;
+pub mod sources;
 pub mod storage;

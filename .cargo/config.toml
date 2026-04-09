@@ -5,7 +5,7 @@
 jobs = 1
 
 [env]
-# Increased to 4GB — test binary monomorphization (serde+rmcp+test harness) pushes past 2GB.
-# rustc recommends RUST_MIN_STACK=4294967296 on SIGSEGV from deep codegen stack exhaustion.
+# Increased to 8GB — nightly clippy on icu_properties in release mode exhausts 4GB stack.
+# rustc recommends RUST_MIN_STACK=8589934592 on SIGSEGV from deep codegen stack exhaustion.
 # rust-lang/rust #103767, #122357, #138561.
-RUST_MIN_STACK = "4294967296"
+RUST_MIN_STACK = "8589934592"
