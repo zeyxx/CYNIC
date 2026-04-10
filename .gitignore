@@ -49,3 +49,4 @@ benchmarks/
 /algomancer-learning.md
 /history.txt
 .claude/agent-memory/
+scripts/run_niah.py
