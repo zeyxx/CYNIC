@@ -121,6 +121,37 @@ Submit content for epistemic evaluation by independent AI validators (Dogs).
 | Growl | > 0.236 | Questionable |
 | Bark | ≤ 0.236 | Rejected |
 
+### POST /judge/async
+
+Spawn a background judgment job and return immediately with a polling handle.
+
+**Request:** same JSON body as `POST /judge`.
+
+**Response (202):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `request_id` | string (UUID) | Polling identifier for this async job |
+| `status` | `"pending"` | Initial async job state |
+| `dogs_total` | number | Number of Dogs expected to respond after filter/context/health gating |
+
+### GET /judge/status/{id}
+
+Poll the progressive state of an async judgment job created by `POST /judge/async`.
+
+**Response (200):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `request_id` | string (UUID) | Async job identifier |
+| `status` | `"pending"` \| `"evaluating"` \| `"complete"` \| `"failed"` | Current job state |
+| `dogs_total` | number | Number of Dogs expected to respond |
+| `dogs_arrived` | DogArrival[] | Per-Dog progressive arrivals in completion order |
+| `verdict` | JudgeResponse \| null | Present only when status is `"complete"` |
+| `error` | string \| null | Present only when status is `"failed"` |
+
+**DogArrival:** `dog_id` (string), `arrived_at_ms` (number), `success` (bool), `score` (DogScore, success only), `error` (string, failure only).
+
 ### GET /verdicts
 
 List recent verdicts. Returns the 20 most recent verdict objects (limit hardcoded).
