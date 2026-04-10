@@ -336,6 +336,7 @@ impl CynicMcp {
             metrics: &self.metrics,
             event_tx: self.event_tx.as_ref(),
             request_id: Some(uuid::Uuid::new_v4().to_string()),
+            on_dog: None,
         };
         let result = crate::pipeline::run(
             p.content.clone(),

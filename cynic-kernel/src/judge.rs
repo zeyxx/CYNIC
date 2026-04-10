@@ -1,5 +1,5 @@
 //! Judge — orchestrates Dogs, computes consensus, emits Verdicts.
-//! Parallel evaluation via futures_util::future::join_all.
+//! Parallel evaluation via FuturesUnordered (progressive Dog arrival).
 //! Residual detection: disagreement > φ⁻² = ANOMALY.
 
 use crate::domain::dog::{estimate_tokens, *};
@@ -8,6 +8,7 @@ use crate::domain::metrics::Metrics;
 use crate::organ::health::{DogStats, ScoreFailureKind};
 use crate::organ::{BackendHandle, InferenceOrgan, ScoreOutcome};
 use chrono::Utc;
+use futures_util::StreamExt;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
@@ -173,6 +174,88 @@ impl Judge {
             .collect()
     }
 
+    fn selected_candidate_indices(
+        &self,
+        stimulus: &Stimulus,
+        filter: Option<&[String]>,
+    ) -> Result<Vec<usize>, JudgeError> {
+        if self.dogs.is_empty() {
+            return Err(JudgeError::NoDogs);
+        }
+
+        // Filter Dogs if requested — always include deterministic-dog (free, instant)
+        let requested_indices: Vec<usize> = match filter {
+            Some(ids) => {
+                let valid_ids: Vec<&str> = self.dogs.iter().map(|d| d.id()).collect();
+                self.dogs
+                    .iter()
+                    .enumerate()
+                    .filter(|d| {
+                        d.1.id() == "deterministic-dog"
+                            || ids
+                                .iter()
+                                .any(|id| id == d.1.id() && valid_ids.contains(&id.as_str()))
+                    })
+                    .map(|(idx, _)| idx)
+                    .collect()
+            }
+            None => (0..self.dogs.len()).collect(),
+        };
+
+        if requested_indices.is_empty() {
+            return Err(JudgeError::NoDogs);
+        }
+
+        // Context routing: estimate tokens and filter Dogs that can't handle the stimulus.
+        let estimated = estimate_tokens(&stimulus.content)
+            + stimulus
+                .context
+                .as_deref()
+                .map(estimate_tokens)
+                .unwrap_or(0)
+            + 400; // fixed overhead (system prompt + axiom template)
+
+        let context_filtered: Vec<usize> = requested_indices
+            .iter()
+            .copied()
+            .filter(|&idx| {
+                let dog = &self.dogs[idx];
+                let max = dog.max_context();
+                if max > 0 && estimated > max {
+                    tracing::info!(
+                        dog_id = %dog.id(),
+                        estimated_tokens = estimated,
+                        max_context = max,
+                        "Dog skipped — context too large"
+                    );
+                    false
+                } else {
+                    true
+                }
+            })
+            .collect();
+
+        Ok(if context_filtered.is_empty() {
+            tracing::warn!(
+                estimated_tokens = estimated,
+                "no Dog has enough context — using all Dogs anyway"
+            );
+            requested_indices // fallback: try anyway rather than fail
+        } else {
+            context_filtered
+        })
+    }
+
+    /// Count Dogs that would actually run after filter, context routing and health gates.
+    pub fn runnable_dog_count(
+        &self,
+        stimulus: &Stimulus,
+        filter: Option<&[String]>,
+    ) -> Result<usize, JudgeError> {
+        let candidate_indices = self.selected_candidate_indices(stimulus, filter)?;
+        Ok(self.runnable_dogs(&candidate_indices).len())
+    }
+
     fn runnable_dogs<'a>(&'a self, candidate_indices: &[usize]) -> Vec<RunnableDog<'a>> {
         candidate_indices
             .iter()
@@ -208,96 +291,44 @@ impl Judge {
         filter: Option<&[String]>,
         metrics: &Metrics,
     ) -> Result<Verdict, JudgeError> {
-        if self.dogs.is_empty() {
-            return Err(JudgeError::NoDogs);
-        }
+        self.evaluate_progressive(stimulus, filter, metrics, None)
+            .await
+    }
 
-        // Filter Dogs if requested — always include deterministic-dog (free, instant)
-        let requested_indices: Vec<usize> = match filter {
-            Some(ids) => {
-                let valid_ids: Vec<&str> = self.dogs.iter().map(|d| d.id()).collect();
-                self.dogs
-                    .iter()
-                    .enumerate()
-                    .filter(|d| {
-                        d.1.id() == "deterministic-dog"
-                            || ids
-                                .iter()
-                                .any(|id| id == d.1.id() && valid_ids.contains(&id.as_str()))
-                    })
-                    .map(|(idx, _)| idx)
-                    .collect()
-            }
-            None => (0..self.dogs.len()).collect(),
-        };
-
-        if requested_indices.is_empty() {
-            return Err(JudgeError::NoDogs);
-        }
-
-        // Context routing: estimate tokens and filter Dogs that can't handle the stimulus
-        let estimated = estimate_tokens(&stimulus.content)
-            + stimulus
-                .context
-                .as_deref()
-                .map(estimate_tokens)
-                .unwrap_or(0)
-            + 400; // fixed overhead (system prompt + axiom template)
-
-        let context_filtered: Vec<usize> = requested_indices
-            .iter()
-            .copied()
-            .filter(|&idx| {
-                let dog = &self.dogs[idx];
-                let max = dog.max_context();
-                if max > 0 && estimated > max {
-                    tracing::info!(
-                        dog_id = %dog.id(),
-                        estimated_tokens = estimated,
-                        max_context = max,
-                        "Dog skipped — context too large"
-                    );
-                    false
-                } else {
-                    true
-                }
-            })
-            .collect();
-
-        let candidate_indices = if context_filtered.is_empty() {
-            tracing::warn!(
-                estimated_tokens = estimated,
-                "no Dog has enough context — using all Dogs anyway"
-            );
-            requested_indices // fallback: try anyway rather than fail
-        } else {
-            context_filtered
-        };
-
+    /// Evaluate with optional progressive callback — called after each Dog completes.
+    /// `on_dog` receives (dog_id, success, elapsed_ms, optional DogScore clone).
+    /// Used by `/judge/async` to update the job store as Dogs arrive.
+    pub async fn evaluate_progressive(
+        &self,
+        stimulus: &Stimulus,
+        filter: Option<&[String]>,
+        metrics: &Metrics,
+        on_dog: Option<&crate::pipeline::OnDogCallback>,
+    ) -> Result<Verdict, JudgeError> {
+        let candidate_indices = self.selected_candidate_indices(stimulus, filter)?;
         let runnable_dogs = self.runnable_dogs(&candidate_indices);
 
         // Per-Dog timeout: from config. Sovereign CPU models need 60s+, cloud APIs use 30s.
         // Aligned with HTTP client timeout in openai.rs (both read BackendConfig.timeout_secs).
 
-        // Parallel evaluation — skip Dogs with open circuit breakers or degraded organ quality
-        let futures: Vec<_> = runnable_dogs
-            .iter()
-            .map(|entry| {
-                let idx = entry.idx;
-                let dog = entry.dog;
-                let id = dog.id().to_string();
-                let dog_timeout = std::time::Duration::from_secs(dog.timeout_secs());
-                async move {
-                    let start = std::time::Instant::now();
-                    let result = tokio::time::timeout(dog_timeout, dog.evaluate(stimulus)).await;
-                    let elapsed_ms = start.elapsed().as_millis() as u64;
-                    match result {
-                        Ok(inner) => (idx, id, inner, elapsed_ms),
-                        Err(_) => (idx, id, Err(DogError::Timeout), elapsed_ms),
-                    }
+        // Parallel evaluation — skip Dogs with open circuit breakers or degraded organ quality.
+        // Uses FuturesUnordered for progressive Dog arrival (D4: /judge/status polling).
+        let mut futs = futures_util::stream::FuturesUnordered::new();
+        for entry in &runnable_dogs {
+            let idx = entry.idx;
+            let dog = entry.dog;
+            let id = dog.id().to_string();
+            let dog_timeout = std::time::Duration::from_secs(dog.timeout_secs());
+            futs.push(async move {
+                let start = std::time::Instant::now();
+                let result = tokio::time::timeout(dog_timeout, dog.evaluate(stimulus)).await;
+                let elapsed_ms = start.elapsed().as_millis() as u64;
+                match result {
+                    Ok(inner) => (idx, id, inner, elapsed_ms),
+                    Err(_) => (idx, id, Err(DogError::Timeout), elapsed_ms),
                 }
-            })
-            .collect();
+            });
+        }
 
         // Wall-clock timeout: max Dog timeout + 5s safety margin.
         let max_dog_timeout = runnable_dogs
@@ -306,25 +337,23 @@ impl Judge {
             .max()
             .unwrap_or(30);
         let wall_clock = std::time::Duration::from_secs(max_dog_timeout + 5);
-
-        let results = tokio::time::timeout(
-            wall_clock,
-            futures_util::future::join_all(futures),
-        ).await.map_err(|elapsed| {
-            tracing::error!(wall_clock_secs = max_dog_timeout + 5, %elapsed, "Dog evaluation wall-clock TIMEOUT");
-            JudgeError::AllDogsFailed(vec![DogFailure {
-                dog_id: "*".into(),
-                kind: DogFailureKind::Timeout,
-                detail: format!("Wall-clock timeout ({elapsed})"),
-            }])
-        })?;
+        let deadline = tokio::time::Instant::now() + wall_clock;
 
         let mut dog_scores: Vec<DogScore> = Vec::new();
         let mut failures: Vec<DogFailure> = Vec::new();
         let mut failed_dogs: Vec<String> = Vec::new();
         let mut failed_dog_errors: std::collections::HashMap<String, String> = Default::default();
 
-        for (idx, id, result, elapsed_ms) in results {
+        // Process Dogs as they arrive (progressive) instead of waiting for all (join_all).
+        while let Some(result) = tokio::time::timeout_at(deadline, futs.next()).await.map_err(|elapsed| {
+            tracing::error!(wall_clock_secs = max_dog_timeout + 5, %elapsed, "Dog evaluation wall-clock TIMEOUT");
+            JudgeError::AllDogsFailed(vec![DogFailure {
+                dog_id: "*".into(),
+                kind: DogFailureKind::Timeout,
+                detail: format!("Wall-clock timeout ({elapsed})"),
+            }])
+        })? {
+            let (idx, id, result, elapsed_ms) = result;
             let cb = &self.breakers[idx];
             let organ_handle = self.organ_handles[idx].as_ref();
 
@@ -367,6 +396,16 @@ impl Judge {
                         abstentions: scores.abstentions,
                         reasoning: scores.reasoning,
                     });
+                    // D4: notify progressive callback (success)
+                    if let Some(cb) = &on_dog {
+                        cb(
+                            dog_scores.last().map_or("", |s| &s.dog_id),
+                            true,
+                            elapsed_ms,
+                            dog_scores.last(),
+                            None,
+                        );
+                    }
                 }
                 Err(ref e) => {
                     // ApiError = backend unreachable/protocol error. Trips CB.
@@ -404,6 +443,10 @@ impl Judge {
                         error = %e,
                         "Dog failed"
                     );
+                    // D4: notify progressive callback (failure)
+                    if let Some(cb) = &on_dog {
+                        cb(&id, false, elapsed_ms, None, Some(e.to_string()));
+                    }
                     failed_dog_errors.insert(id.clone(), kind.as_str().to_string());
                     failed_dogs.push(id.clone());
                     failures.push(DogFailure {

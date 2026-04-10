@@ -5,6 +5,7 @@ pub mod data;
 pub mod events;
 pub mod health;
 pub mod judge;
+pub mod judge_job;
 pub mod middleware;
 pub mod observe;
 pub mod response;
@@ -35,6 +36,7 @@ use self::health::{
     liveness_handler, metrics_handler, readiness_handler, register_dog_handler,
 };
 use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
+use self::judge_job::{judge_async_handler, judge_status_handler};
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
 use self::observe::observe_handler;
 
@@ -82,6 +84,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/metrics", get(metrics_handler))
         .route("/events", get(events::events_handler))
         .route("/judge", post(judge_handler))
+        .route("/judge/async", post(judge_async_handler))
+        .route("/judge/status/{id}", get(judge_status_handler))
         .route("/dogs", get(dogs_handler))
         .route("/dogs/register", post(register_dog_handler))
         .route("/dogs/{id}", axum::routing::delete(deregister_handler))

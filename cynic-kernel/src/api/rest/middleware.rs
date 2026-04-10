@@ -97,8 +97,8 @@ pub async fn rate_limit_middleware(
         )
             .into_response();
     }
-    // /judge has an additional stricter per-IP limit (inference costs money)
-    if path == "/judge" && !state.judge_limiter.check(ip).await {
+    // /judge and /judge/async have an additional stricter per-IP limit (inference costs money)
+    if (path == "/judge" || path == "/judge/async") && !state.judge_limiter.check(ip).await {
         return (
             StatusCode::TOO_MANY_REQUESTS,
             Json(ErrorResponse {

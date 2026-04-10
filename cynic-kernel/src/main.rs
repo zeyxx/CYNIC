@@ -570,6 +570,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         chain_verified: std::sync::atomic::AtomicBool::new(chain_verified),
         environment: Arc::clone(&environment),
         registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+        judge_jobs: Arc::new(api::rest::judge_job::JudgeJobStore::new()),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 

@@ -352,6 +352,7 @@ mod tests {
             chain_verified: std::sync::atomic::AtomicBool::new(false),
             environment: Arc::new(std::sync::RwLock::new(None)),
             registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+            judge_jobs: Arc::new(crate::api::rest::judge_job::JudgeJobStore::new()),
         });
         let task_health = Arc::new(TaskHealth::new());
         let shutdown = CancellationToken::new();

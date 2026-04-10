@@ -59,6 +59,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         registered_dogs: std::sync::Arc::new(std::sync::RwLock::new(
             std::collections::HashMap::new(),
         )),
+        judge_jobs: Arc::new(cynic_kernel::api::rest::judge_job::JudgeJobStore::new()),
     })
 }
 
@@ -292,6 +293,26 @@ async fn judge_requires_auth() {
 }
 
 #[tokio::test]
+async fn judge_async_requires_auth() {
+    let state = test_state(Some("secret-key"));
+    let app = rest::router(state);
+
+    let resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/judge/async")
+                .header("Content-Type", "application/json")
+                .body(Body::from(r#"{"content":"test"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
 async fn judge_produces_verdict() {
     let state = test_state(Some("key"));
     let app = rest::router(state);
@@ -397,6 +418,65 @@ async fn judge_produces_verdict() {
     assert!(
         ds["sovereignty"].is_number(),
         "CONTRACT: dog_scores[].sovereignty must be number"
+    );
+}
+
+#[tokio::test]
+async fn judge_async_round_trip_exposes_status() {
+    let state = test_state(Some("key"));
+    let app = rest::router(Arc::clone(&state));
+
+    let resp = app
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/judge/async")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer key")
+                .body(Body::from(
+                    r#"{"content":"Short factual sentence.","domain":"general"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 202);
+    let accepted = body_json(resp.into_body()).await;
+    let request_id = accepted["request_id"]
+        .as_str()
+        .expect("CONTRACT: async judge must return request_id");
+    assert_eq!(accepted["status"], "pending");
+    assert_eq!(accepted["dogs_total"], 1);
+
+    tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+
+    let status_resp = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(format!("/judge/status/{request_id}"))
+                .header("Authorization", "Bearer key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(status_resp.status(), 200);
+    let status = body_json(status_resp.into_body()).await;
+    assert_eq!(status["request_id"], request_id);
+    assert_eq!(status["dogs_total"], 1);
+    let phase = status["status"]
+        .as_str()
+        .expect("CONTRACT: async status must expose status string");
+    assert!(
+        ["evaluating", "complete"].contains(&phase),
+        "CONTRACT: async status must progress to evaluating/complete"
+    );
+    assert!(
+        status["dogs_arrived"].is_array(),
+        "CONTRACT: async status must expose dog arrivals"
     );
 }
 
@@ -890,6 +970,7 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         registered_dogs: std::sync::Arc::new(std::sync::RwLock::new(
             std::collections::HashMap::new(),
         )),
+        judge_jobs: Arc::new(cynic_kernel::api::rest::judge_job::JudgeJobStore::new()),
     });
     let app = rest::router(state);
 

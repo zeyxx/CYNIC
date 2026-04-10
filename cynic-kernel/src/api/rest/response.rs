@@ -3,7 +3,7 @@
 use axum::{http::StatusCode, response::Json};
 
 use super::types::*;
-use crate::domain::dog::{PHI_INV, Verdict};
+use crate::domain::dog::{DogScore, PHI_INV, Verdict};
 
 /// 500 + "storage unavailable" — used by any handler that fails on StoragePort.
 pub fn storage_error() -> (StatusCode, Json<ErrorResponse>) {
@@ -49,36 +49,7 @@ pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         },
         dogs_used: v.dog_id.clone(),
         phi_max: PHI_INV,
-        dog_scores: v
-            .dog_scores
-            .iter()
-            .map(|ds| DogScoreResponse {
-                dog_id: ds.dog_id.clone(),
-                latency_ms: ds.latency_ms,
-                prompt_tokens: ds.prompt_tokens,
-                completion_tokens: ds.completion_tokens,
-                fidelity: ds.fidelity,
-                phi: ds.phi,
-                verify: ds.verify,
-                culture: ds.culture,
-                burn: ds.burn,
-                sovereignty: ds.sovereignty,
-                raw_fidelity: ds.raw_fidelity,
-                raw_phi: ds.raw_phi,
-                raw_verify: ds.raw_verify,
-                raw_culture: ds.raw_culture,
-                raw_burn: ds.raw_burn,
-                raw_sovereignty: ds.raw_sovereignty,
-                reasoning: ReasoningResponse {
-                    fidelity: ds.reasoning.fidelity.clone(),
-                    phi: ds.reasoning.phi.clone(),
-                    verify: ds.reasoning.verify.clone(),
-                    culture: ds.reasoning.culture.clone(),
-                    burn: ds.reasoning.burn.clone(),
-                    sovereignty: ds.reasoning.sovereignty.clone(),
-                },
-            })
-            .collect(),
+        dog_scores: v.dog_scores.iter().map(dog_score_to_response).collect(),
         voter_count: v.voter_count,
         anomaly_detected: v.anomaly_detected,
         max_disagreement: v.max_disagreement,
@@ -94,6 +65,35 @@ pub fn verdict_response_cached(v: &Verdict, similarity: f64) -> JudgeResponse {
     let mut resp = verdict_to_response(v);
     resp.cache_hit = Some(similarity);
     resp
+}
+
+pub fn dog_score_to_response(ds: &DogScore) -> DogScoreResponse {
+    DogScoreResponse {
+        dog_id: ds.dog_id.clone(),
+        latency_ms: ds.latency_ms,
+        prompt_tokens: ds.prompt_tokens,
+        completion_tokens: ds.completion_tokens,
+        fidelity: ds.fidelity,
+        phi: ds.phi,
+        verify: ds.verify,
+        culture: ds.culture,
+        burn: ds.burn,
+        sovereignty: ds.sovereignty,
+        raw_fidelity: ds.raw_fidelity,
+        raw_phi: ds.raw_phi,
+        raw_verify: ds.raw_verify,
+        raw_culture: ds.raw_culture,
+        raw_burn: ds.raw_burn,
+        raw_sovereignty: ds.raw_sovereignty,
+        reasoning: ReasoningResponse {
+            fidelity: ds.reasoning.fidelity.clone(),
+            phi: ds.reasoning.phi.clone(),
+            verify: ds.reasoning.verify.clone(),
+            culture: ds.reasoning.culture.clone(),
+            burn: ds.reasoning.burn.clone(),
+            sovereignty: ds.reasoning.sovereignty.clone(),
+        },
+    }
 }
 
 #[cfg(test)]

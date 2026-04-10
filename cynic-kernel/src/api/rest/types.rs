@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 
 use arc_swap::ArcSwap;
 
+use super::judge_job::JudgeJobStore;
 use crate::domain::coord::CoordPort;
 use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
@@ -64,6 +65,8 @@ pub struct AppState {
     /// Config-based Dogs are permanent and not tracked here.
     /// RwLock: read on every heartbeat, write on register/expire.
     pub registered_dogs: Arc<std::sync::RwLock<HashMap<String, RegisteredDog>>>,
+    /// D4: In-memory store for async judge jobs — progressive Dog arrival polling.
+    pub judge_jobs: Arc<JudgeJobStore>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
@@ -283,7 +286,7 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct JudgeResponse {
     pub verdict_id: String,
     pub domain: String,
@@ -310,7 +313,7 @@ pub struct JudgeResponse {
     pub cache_hit: Option<f64>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DogScoreResponse {
     pub dog_id: String,
     pub latency_ms: u64,
@@ -332,7 +335,7 @@ pub struct DogScoreResponse {
     pub reasoning: ReasoningResponse,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct QScoreResponse {
     pub total: f64,
     pub fidelity: f64,
@@ -343,7 +346,7 @@ pub struct QScoreResponse {
     pub sovereignty: f64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ReasoningResponse {
     pub fidelity: String,
     pub phi: String,
