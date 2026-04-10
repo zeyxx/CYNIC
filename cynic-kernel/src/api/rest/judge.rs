@@ -14,11 +14,18 @@ use super::types::*;
 const MAX_CONTENT_LEN: usize = 4_000;
 const MAX_CONTEXT_LEN: usize = 2_000;
 
-pub async fn judge_handler(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<JudgeRequest>,
-) -> Result<Json<JudgeResponse>, (StatusCode, Json<ErrorResponse>)> {
-    // Input validation — prevent token drain attacks
+#[derive(Debug)]
+pub(super) struct ValidatedJudgeRequest {
+    pub content: String,
+    pub context: Option<String>,
+    pub domain: Option<String>,
+    pub dogs: Option<Vec<String>>,
+    pub crystals: bool,
+}
+
+pub(super) fn validate_judge_request(
+    req: JudgeRequest,
+) -> Result<ValidatedJudgeRequest, (StatusCode, Json<ErrorResponse>)> {
     let content = req.content.trim().to_string();
     if content.is_empty() {
         return Err((
@@ -61,6 +68,21 @@ pub async fn judge_handler(
         ));
     }
 
+    Ok(ValidatedJudgeRequest {
+        content,
+        context: req.context,
+        domain: req.domain,
+        dogs: req.dogs,
+        crystals: req.crystals,
+    })
+}
+
+pub async fn judge_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<JudgeRequest>,
+) -> Result<Json<JudgeResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let req = validate_judge_request(req)?;
+
     // Shared pipeline: embed → cache → crystals → sessions → evaluate → store → CCM
     let judge = state.judge.load_full();
     let deps = crate::pipeline::PipelineDeps {
@@ -72,9 +94,10 @@ pub async fn judge_handler(
         metrics: &state.metrics,
         event_tx: Some(&state.event_tx),
         request_id: Some(uuid::Uuid::new_v4().to_string()),
+        on_dog: None,
     };
     let result = crate::pipeline::run(
-        content,
+        req.content,
         req.context,
         req.domain,
         req.dogs.as_deref(),

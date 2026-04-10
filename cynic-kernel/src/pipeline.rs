@@ -13,6 +13,10 @@ use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::{CacheContext, CacheLookup, VerdictCache};
 use crate::judge::{Judge, JudgeError};
+
+/// Callback type for progressive Dog completion notifications.
+pub type OnDogCallback =
+    dyn Fn(&str, bool, u64, Option<&crate::domain::dog::DogScore>, Option<String>) + Send + Sync;
 use tokio::sync::Mutex;
 use tracing::Instrument;
 
@@ -42,6 +46,9 @@ pub struct PipelineDeps<'a> {
     /// RC7-2: caller-supplied request_id for cross-subsystem correlation.
     /// If None, pipeline generates one. Propagated to tracing spans + verdict storage.
     pub request_id: Option<String>,
+    /// D4: optional progressive callback — called as each Dog completes.
+    /// (dog_id, success, elapsed_ms, optional DogScore ref, optional error string)
+    pub on_dog: Option<Box<OnDogCallback>>,
 }
 
 impl std::fmt::Debug for PipelineDeps<'_> {
@@ -218,7 +225,10 @@ async fn pipeline_inner(
         domain,
     };
     tracing::info!(phase = "evaluate", "dispatching to Dogs");
-    let verdict = judge.evaluate(&stimulus, dogs_filter, metrics).await?;
+    let on_dog_ref: Option<&OnDogCallback> = deps.on_dog.as_ref().map(|b| b.as_ref());
+    let verdict = judge
+        .evaluate_progressive(&stimulus, dogs_filter, metrics, on_dog_ref)
+        .await?;
     metrics.inc_verdict();
     tracing::info!(
         phase = "verdict",
@@ -685,6 +695,7 @@ mod tests {
             metrics: &metrics,
             event_tx: None,
             request_id: None,
+            on_dog: None,
         };
         let result = run(
             "1. e4 c5 — The Sicilian Defense".into(),
@@ -744,6 +755,7 @@ mod tests {
             metrics: &metrics,
             event_tx: None,
             request_id: None,
+            on_dog: None,
         };
         let _ = run("test content".into(), None, None, None, true, &deps).await;
 
@@ -901,6 +913,7 @@ mod tests {
             metrics: &metrics,
             event_tx: None,
             request_id: None,
+            on_dog: None,
         };
 
         // First call: should evaluate (cache miss) and embed successfully
@@ -992,6 +1005,7 @@ mod tests {
             metrics: &metrics,
             event_tx: None,
             request_id: None,
+            on_dog: None,
         };
 
         let result = run(
