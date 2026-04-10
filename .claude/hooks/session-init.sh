@@ -106,9 +106,9 @@ if [[ "$KERNEL_STATUS" != "down" ]]; then
     CRYSTALS=$(curl -s --max-time 3 \
         ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
         "http://${KERNEL_ADDR}/crystals?limit=5" 2>/dev/null)
-    if [[ -n "$CRYSTALS" && "$CRYSTALS" != "[]" ]]; then
+    if [[ -n "$CRYSTALS" ]] && echo "$CRYSTALS" | jq -e 'type == "array" and length > 0' >/dev/null 2>&1; then
         echo ""
         echo "CYNIC MEMORY (top crystallized patterns):"
-        echo "$CRYSTALS" | jq -r '.[] | select(.state == "crystallized" or .state == "canonical") | "  [\(.state)] \(.content) (confidence: \(.confidence | tostring | .[0:4]), \(.observations) obs)"' 2>/dev/null | head -5
+        echo "$CRYSTALS" | jq -r '.[] | select(.state == "crystallized" or .state == "canonical") | "  [\(.state)] \(.content) (confidence: \(.confidence | tostring | .[0:4]), \(.observations) obs)"' 2>/dev/null | head -5 || true
     fi
 fi
