@@ -314,20 +314,22 @@ mod tests {
             }
         };
 
-        let v = test_verdict();
+        let verdict_id = format!("test-{}", uuid::Uuid::new_v4());
+        let mut v = test_verdict();
+        v.id = verdict_id.clone();
         storage.store_verdict(&v).await.expect("store must succeed");
 
         let retrieved = storage
-            .get_verdict("test-001")
+            .get_verdict(&verdict_id)
             .await
             .expect("get must succeed");
         assert!(retrieved.is_some());
         let r = retrieved.unwrap();
-        assert_eq!(r.id, "test-001");
+        assert_eq!(r.id, verdict_id);
         assert_eq!(r.kind, VerdictKind::Wag);
 
         let _ = storage
-            .query_one("DELETE verdict WHERE verdict_id = 'test-001'")
+            .query_one(&format!("DELETE verdict WHERE verdict_id = '{}'", v.id))
             .await;
     }
 }
