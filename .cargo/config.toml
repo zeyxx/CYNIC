@@ -5,7 +5,8 @@
 jobs = 1
 
 [env]
-# Increased to 8GB — nightly clippy on icu_properties in release mode exhausts 4GB stack.
-# rustc recommends RUST_MIN_STACK=8589934592 on SIGSEGV from deep codegen stack exhaustion.
+# Increased to 32GB — nightly-2026-04-06 still SIGSEGVs in release-mode LLVM/codegen
+# even after moving to jobs=1 and release codegen-units=1. rustc now explicitly
+# recommends 34359738368 on the failing path.
 # rust-lang/rust #103767, #122357, #138561.
-RUST_MIN_STACK = "8589934592"
+RUST_MIN_STACK = "34359738368"
