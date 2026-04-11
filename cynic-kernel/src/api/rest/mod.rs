@@ -56,6 +56,10 @@ pub fn router(state: Arc<AppState>) -> Router {
                 origins.push(v);
             }
         }
+    } else {
+        tracing::warn!(
+            "CORS: localhost-only origins active — set CYNIC_CORS_ORIGINS for remote frontends"
+        );
     }
     let cors = CorsLayer::new()
         .allow_origin(origins)

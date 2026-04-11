@@ -7,6 +7,7 @@
 //!   Response: JSON array of statement results
 
 pub mod memory;
+pub mod reconnectable;
 pub mod surreal;
 
 use crate::domain::storage::StorageError;

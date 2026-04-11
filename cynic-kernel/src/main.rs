@@ -101,24 +101,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 1: Native Storage Client (UAL) ──────────────────
     // HTTP adapter to SurrealDB 3.x — graceful degradation if unavailable.
-    let (storage_port, coord, has_db): (
+    // Wrapped in ReconnectableStorage/Coord so a background task can swap
+    // NullStorage → SurrealHttpStorage without restarting the kernel.
+    let (storage_port, coord, reconnector): (
         Arc<dyn domain::storage::StoragePort>,
         Arc<dyn domain::coord::CoordPort>,
-        bool,
-    ) = match storage::SurrealHttpStorage::init(&storage_config).await {
-        Ok(s) => {
-            klog!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
-            let db = Arc::new(s);
-            (Arc::clone(&db) as _, Arc::clone(&db) as _, true)
-        }
-        Err(e) => {
-            tracing::warn!(error = %e, "storage DEGRADED — verdicts will not persist");
-            (
-                Arc::new(domain::storage::NullStorage),
-                Arc::new(domain::coord::NullCoord),
-                false,
-            )
-        }
+        Arc<storage::reconnectable::StorageReconnector>,
+    ) = {
+        let (raw_storage, raw_coord): (
+            Arc<dyn domain::storage::StoragePort>,
+            Arc<dyn domain::coord::CoordPort>,
+        ) = match storage::SurrealHttpStorage::init(&storage_config).await {
+            Ok(s) => {
+                klog!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
+                let db = Arc::new(s);
+                (Arc::clone(&db) as _, Arc::clone(&db) as _)
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "storage DEGRADED — will auto-reconnect when SurrealDB is available");
+                (
+                    Arc::new(domain::storage::NullStorage) as _,
+                    Arc::new(domain::coord::NullCoord) as _,
+                )
+            }
+        };
+        let reconnectable_storage = Arc::new(storage::reconnectable::ReconnectableStorage::new(
+            raw_storage,
+        ));
+        let reconnectable_coord =
+            Arc::new(storage::reconnectable::ReconnectableCoord::new(raw_coord));
+        let reconnector = Arc::new(storage::reconnectable::StorageReconnector::new(
+            reconnectable_storage.shared_lock(),
+            reconnectable_coord.shared_lock(),
+            storage_config.clone(),
+        ));
+        (
+            reconnectable_storage as Arc<dyn domain::storage::StoragePort>,
+            reconnectable_coord as Arc<dyn domain::coord::CoordPort>,
+            reconnector,
+        )
     };
 
     // ─── RING 2: Load Backend Configs ──────────────────────────
@@ -460,8 +481,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Pipeline metrics — shared by REST and MCP, exposed via /metrics
     let metrics = Arc::new(domain::metrics::Metrics::new());
 
-    // Hydrate metrics from DB so counters survive reboots
-    if has_db {
+    // Hydrate metrics from DB so counters survive reboots.
+    // On NullStorage these return Err (non-fatal) — counters start at 0.
+    {
         match storage_port.count_verdicts().await {
             Ok(v_count) => {
                 metrics
@@ -493,10 +515,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Probe system (proprioception) ──
     let environment: Arc<std::sync::RwLock<Option<domain::probe::EnvironmentSnapshot>>> =
         Arc::new(std::sync::RwLock::new(None));
-    let backup_dir = dirs::home_dir()
-        .unwrap_or_default()
-        .join(".surrealdb")
-        .join("backups");
+    let backup_dir = std::env::var("CYNIC_BACKUP_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            dirs::home_dir()
+                .unwrap_or_default()
+                .join(".surrealdb")
+                .join("backups")
+        });
     // Build fleet probe targets from Dog health_urls (backends.toml SoT)
     // Wire props_url + expected_n_ctx for context drift detection (D1)
     let fleet_targets: Vec<infra::probes::FleetTarget> = health_urls
@@ -586,16 +612,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     klog!("[Ring 2] Coordination expiry task started (every 60s)");
 
     // Usage + organ stats flush (every 60s)
-    if has_db {
-        infra::tasks::spawn_usage_flush_with_organ(
-            Arc::clone(&storage_port),
-            Arc::clone(&usage_tracker),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-            Some(Arc::clone(&organ)),
-        );
-        klog!("[Ring 2] Usage + organ stats flush task started (every 60s, TTL cleanup every 1h)");
-    }
+    // Always spawned — ReconnectableStorage handles NullStorage gracefully.
+    // If storage reconnects mid-flight, flush starts persisting automatically.
+    infra::tasks::spawn_usage_flush_with_organ(
+        Arc::clone(&storage_port),
+        Arc::clone(&usage_tracker),
+        Arc::clone(&task_health),
+        shutdown.clone(),
+        Some(Arc::clone(&organ)),
+    );
+    klog!("[Ring 2] Usage + organ stats flush task started (every 60s, TTL cleanup every 1h)");
 
     // ─── RING 2: Session summarizer (sovereign inference, background) ──
     if let Ok(summarizer) = backends::summarizer::SovereignSummarizer::from_env() {
@@ -610,16 +636,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ─── One-shot: backfill crystal embeddings (orphan defragmentation) ──
-    if has_db {
-        infra::tasks::spawn_backfill(
-            Arc::clone(&storage_port),
-            Arc::clone(&embedding),
-            Arc::clone(&metrics),
-            Arc::clone(&task_health),
-            event_tx.clone(),
-            shutdown.clone(),
-        );
-    }
+    // Always spawned — on NullStorage the query returns empty (no-op).
+    // After reconnect, backfill runs against the live DB.
+    infra::tasks::spawn_backfill(
+        Arc::clone(&storage_port),
+        Arc::clone(&embedding),
+        Arc::clone(&metrics),
+        Arc::clone(&task_health),
+        event_tx.clone(),
+        shutdown.clone(),
+    );
 
     // ─── Introspection loop (MAPE-K Analyze, every 5 min) ──
     infra::tasks::spawn_introspection(
@@ -632,6 +658,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         shutdown.clone(),
     );
     infra::tasks::spawn_event_consumer(&event_tx, Arc::clone(&task_health), shutdown.clone());
+
+    // ─── Storage reconnect (K15: detection → action) ──
+    // Ephemeral task — exits once storage is connected. No TaskHealth tracking
+    // needed: effect is observable through storage status in /health.
+    infra::tasks::spawn_storage_reconnect(
+        Arc::clone(&reconnector),
+        event_tx.clone(),
+        shutdown.clone(),
+    );
 
     infra::tasks::spawn_probe_scheduler(
         probes,
@@ -697,7 +732,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Cancel background tasks and flush
         shutdown.cancel();
-        infra::tasks::flush_usage_on_shutdown(&storage_port, &usage_tracker, has_db).await;
+        infra::tasks::flush_usage_on_shutdown(&storage_port, &usage_tracker).await;
         return Ok(());
     }
 
@@ -763,7 +798,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     klog!("[SHUTDOWN] REST server drained — flushing state");
-    infra::tasks::flush_usage_on_shutdown(&storage_port, &usage_tracker, has_db).await;
+    infra::tasks::flush_usage_on_shutdown(&storage_port, &usage_tracker).await;
 
     // Drain fire-and-forget background tasks (observations, audits)
     rest_state.bg_tasks.close();
