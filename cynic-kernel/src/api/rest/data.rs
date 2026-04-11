@@ -21,6 +21,7 @@ fn crystal_to_json(c: &Crystal) -> serde_json::Value {
         "domain": c.domain,
         "confidence": c.confidence,
         "observations": c.observations,
+        "contributing_verdicts": c.contributing_verdicts,
         "state": c.state.to_string(),
         "created_at": c.created_at,
         "updated_at": c.updated_at,

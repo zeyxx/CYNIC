@@ -54,6 +54,15 @@ if [[ -n "$COMPLIANCE" ]] && echo "$COMPLIANCE" | jq -e '.score' > /dev/null 2>&
     fi
 fi
 
+# ── K15: compliance score → acting consumer (POST to /observe) ──
+if [[ -n "$COMPLIANCE" ]] && echo "$COMPLIANCE" | jq -e '.score' > /dev/null 2>&1; then
+    curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+        -H "Content-Type: application/json" \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"session_compliance\",\"target\":\"session_end\",\"domain\":\"general\",\"context\":\"score=${SCORE} rbe=${RBE_PCT}% files=${FM}\"}" \
+        > /dev/null 2>&1 || true
+fi
+
 # ── Rule 4: warn about uncommitted changes (staged + unstaged + untracked) ──
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 DIRTY=$(git -C "$PROJECT_DIR" status --short 2>/dev/null | grep -v '^??' | head -5 || true)
