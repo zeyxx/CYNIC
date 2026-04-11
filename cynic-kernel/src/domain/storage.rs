@@ -149,10 +149,8 @@ pub trait StoragePort: Send + Sync {
     ///
     /// `verdict_id` links this observation to its source verdict (provenance trail).
     #[allow(clippy::too_many_arguments)]
-    // WHY: observe_crystal carries 7 primitive/scalar arguments that form the crystal's
-    // immutable identity (id, content, domain, score, timestamp, voter_count, verdict_id).
-    // These are all required by the storage contract and cannot be merged — a struct would
-    // just move the burden to the caller side while adding a layer with no domain meaning.
+    // WHY: observe_crystal carries 8 primitive/scalar arguments that form the crystal's
+    // observation input. verdict_kind enables 4D polarity tracking.
     async fn observe_crystal(
         &self,
         id: &str,
@@ -162,6 +160,7 @@ pub trait StoragePort: Send + Sync {
         timestamp: &str,
         voter_count: usize,
         verdict_id: &str,
+        verdict_kind: &str,
     ) -> Result<(), StorageError>;
 
     /// Store a development workflow observation (tool usage, file edit, error).
@@ -423,6 +422,7 @@ impl StoragePort for NullStorage {
         _timestamp: &str,
         _voter_count: usize,
         _verdict_id: &str,
+        _verdict_kind: &str,
     ) -> Result<(), StorageError> {
         Err(StorageError::ConnectionFailed(
             "NullStorage: observation not persisted (DEGRADED mode)".into(),

@@ -127,6 +127,7 @@ impl StoragePort for ReconnectableStorage {
         timestamp: &str,
         voter_count: usize,
         verdict_id: &str,
+        verdict_kind: &str,
     ) -> Result<(), StorageError> {
         self.current()
             .observe_crystal(
@@ -137,6 +138,7 @@ impl StoragePort for ReconnectableStorage {
                 timestamp,
                 voter_count,
                 verdict_id,
+                verdict_kind,
             )
             .await
     }
