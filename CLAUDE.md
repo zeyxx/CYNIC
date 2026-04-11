@@ -5,7 +5,7 @@
 
 CYNIC is the perennial practice of bounded judgment on six indivisible axes — embodied as a feedback loop of independent validators that bark truth without fear, standing on materially sovereign ground, and judging itself by those same six axes.
 
-The philosophy is the meaning layer. Remove it and CYNIC is a generic multi-model scorer. Keep it and CYNIC knows *why* it scores. The FOGC test can only exist because the philosophy defines what inversion means.
+Not utopia — infrastructure. The philosophy is the meaning layer. Remove it and CYNIC is a generic multi-model scorer. Keep it and CYNIC knows *why* it scores. The FOGC test can only exist because the philosophy defines what inversion means.
 
 > *Loyal to truth, not to comfort. Don't trust, verify. Don't extract, burn.*
 > *Max confidence: 61.8%. phi distrusts phi.*
@@ -158,7 +158,7 @@ The depth lives elsewhere. This constitution points; the sources speak.
 | Source | What | Where |
 |--------|------|-------|
 | **Rules** | 22 universal rules, 15 kernel rules, workflow triggers, reference data | `.claude/rules/` |
-| **Identity** | Epistemology, phi-convergence, sovereignty, Hermes, primary sources, identity graph | `docs/identity/` |
+| **Identity** | Epistemology, phi-convergence, sovereignty, mission, Hermes, primary sources, identity graph | `docs/identity/` |
 | **Reference** | V08 truths, CCM protocol, infra spec | `docs/reference/` |
 | **Audit** | Security debt tracker | `docs/audit/CYNIC-FINDINGS-TRACKER.md` |
 | **API contract** | Full endpoint specification | `API.md` |
