@@ -1,2 +1,2 @@
 [toolchain]
-channel = "nightly-2026-04-06"  # stable 1.94.x ICE in check_tail_calls — revert to "stable" when 1.95.0 lands
+channel = "nightly-2026-04-11"  # stable 1.94.x ICE in check_tail_calls — revert to "stable" when 1.95.0 lands
