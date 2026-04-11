@@ -110,6 +110,7 @@ async fn contract_observe_crystal_rejects_below_quorum(db: &dyn StoragePort) {
             "2026-01-01T00:00:00Z",
             1,
             "test-verdict",
+            "howl",
         )
         .await;
     assert!(
@@ -128,6 +129,7 @@ async fn contract_observe_crystal_content_set_once(db: &dyn StoragePort) {
         "2026-01-01T00:00:00Z",
         2,
         "v1",
+        "howl",
     )
     .await
     .expect("first observe");
@@ -139,6 +141,7 @@ async fn contract_observe_crystal_content_set_once(db: &dyn StoragePort) {
         "2026-01-01T00:01:00Z",
         2,
         "v2",
+        "howl",
     )
     .await
     .expect("second observe");
@@ -175,6 +178,7 @@ async fn contract_crystal_forming_to_crystallized(db: &dyn StoragePort) {
             &format!("2026-01-01T00:{i:02}:00Z"),
             2,
             &format!("v-{i}"),
+            "howl",
         )
         .await
         .expect("observe");
@@ -193,17 +197,20 @@ async fn contract_crystal_forming_to_crystallized(db: &dyn StoragePort) {
     );
 }
 
-/// C6: High observations but low confidence → Decaying state.
+/// C6: High observations with high variance → Decaying state (4D: certainty-based).
 async fn contract_crystal_high_obs_low_confidence_decays(db: &dyn StoragePort) {
     for i in 0..MIN_CRYSTALLIZATION_CYCLES {
+        // Extreme oscillation: 0.0 / 1.0 → high variance → low certainty → decaying
+        let score = if i % 2 == 0 { 1.0 } else { 0.0 };
         db.observe_crystal(
             "c6-decay",
-            "ambiguous claim",
+            "contradictory claim",
             "test",
-            0.2,
+            score,
             &format!("2026-01-01T00:{i:02}:00Z"),
             2,
             &format!("v-{i}"),
+            "howl",
         )
         .await
         .expect("observe");
@@ -216,7 +223,7 @@ async fn contract_crystal_high_obs_low_confidence_decays(db: &dyn StoragePort) {
     assert_eq!(
         crystal.state.to_string(),
         "decaying",
-        "high obs + low confidence → decaying"
+        "high obs + high variance → decaying (4D: certainty < φ⁻²)"
     );
 }
 
@@ -231,6 +238,7 @@ async fn contract_crystal_stays_forming_below_threshold(db: &dyn StoragePort) {
             &format!("2026-01-01T00:{i:02}:00Z"),
             2,
             &format!("v-{i}"),
+            "howl",
         )
         .await
         .expect("observe");
@@ -254,6 +262,7 @@ async fn contract_list_crystals_for_domain_excludes_forming(db: &dyn StoragePort
         "2026-01-01T00:00:00Z",
         2,
         "test-verdict",
+        "howl",
     )
     .await
     .expect("observe");
@@ -267,6 +276,7 @@ async fn contract_list_crystals_for_domain_excludes_forming(db: &dyn StoragePort
             &format!("2026-01-01T00:{i:02}:00Z"),
             2,
             &format!("v-{i}"),
+            "howl",
         )
         .await
         .expect("observe");
@@ -290,6 +300,7 @@ async fn contract_observe_crystal_sanitizes_directives(db: &dyn StoragePort) {
         "2026-01-01T00:00:00Z",
         2,
         "test-verdict",
+        "howl",
     )
     .await
     .expect("observe");
@@ -324,6 +335,7 @@ async fn contract_crystal_delete_is_idempotent(db: &dyn StoragePort) {
         "2026-01-01T00:00:00Z",
         2,
         "test-verdict",
+        "howl",
     )
     .await
     .expect("observe");
@@ -385,6 +397,7 @@ async fn contract_crystal_canonical_at_233_obs(db: &dyn StoragePort) {
             &format!("2026-01-{:02}T{:02}:00:00Z", (i / 24) + 1, i % 24),
             2,
             &format!("v-{i}"),
+            "howl",
         )
         .await
         .expect("observe");

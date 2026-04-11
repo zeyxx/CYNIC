@@ -98,7 +98,7 @@ pub(super) async fn list_crystals_for_domain(
     Ok(rows.iter().map(row_to_crystal).collect())
 }
 
-#[allow(clippy::too_many_arguments)] // WHY: matches SurrealDB INSERT parameter list 1:1 — reducing args would require a DTO struct just for the query boundary
+#[allow(clippy::too_many_arguments)] // WHY: matches SurrealDB INSERT parameter list 1:1
 pub(super) async fn observe_crystal(
     storage: &SurrealHttpStorage,
     id: &str,
@@ -108,6 +108,7 @@ pub(super) async fn observe_crystal(
     timestamp: &str,
     voter_count: usize,
     verdict_id: &str,
+    verdict_kind: &str,
 ) -> Result<(), StorageError> {
     if voter_count < MIN_QUORUM {
         return Err(StorageError::QueryFailed(format!(
@@ -118,22 +119,45 @@ pub(super) async fn observe_crystal(
     let safe_id = sanitize_id(id)?;
     let sanitized_content = crate::domain::sanitize::sanitize_crystal_content(content);
     let score = if score.is_finite() { score } else { 0.0 };
+    // Polarity counter field: howl_count / wag_count / growl_count / bark_count
+    let polarity_field = match verdict_kind {
+        "howl" => "howl_count",
+        "wag" => "wag_count",
+        "growl" => "growl_count",
+        "bark" => "bark_count",
+        _ => "howl_count", // K14: unknown defaults to safest (positive)
+    };
 
     let sql = format!(
         "BEGIN TRANSACTION; \
          LET $prev_obs = (SELECT VALUE observations FROM crystal:`{id}`)[0] ?? 0; \
          LET $prev_conf = (SELECT VALUE confidence FROM crystal:`{id}`)[0] ?? 0.0; \
+         LET $prev_m2 = (SELECT VALUE variance_m2 FROM crystal:`{id}`)[0] ?? 0.0; \
+         LET $prev_quorum = (SELECT VALUE mean_quorum FROM crystal:`{id}`)[0] ?? 0.0; \
          LET $new_obs = $prev_obs + 1; \
          LET $new_conf = IF $prev_obs > 0 THEN ($prev_conf * $prev_obs + {score}) / $new_obs ELSE {score} END; \
-         LET $new_state = IF $new_obs >= {t_canon} AND $new_conf >= {c_high} THEN 'canonical' \
-             ELSE IF $new_obs >= {t_cryst} AND $new_conf >= {c_high} THEN 'crystallized' \
-             ELSE IF $new_obs >= {t_cryst} AND $new_conf < {c_low} THEN 'decaying' \
+         LET $delta = {score} - $prev_conf; \
+         LET $delta2 = {score} - $new_conf; \
+         LET $new_m2 = IF $prev_obs > 0 THEN $prev_m2 + $delta * $delta2 ELSE 0.0 END; \
+         LET $new_quorum = IF $prev_obs > 0 THEN ($prev_quorum * $prev_obs + {voter_count}) / $new_obs ELSE {voter_count}.0 END; \
+         LET $stddev = IF $new_obs > 1 THEN math::sqrt($new_m2 / ($new_obs - 1)) ELSE 0.0 END; \
+         LET $ratio = $stddev / {phi_inv3}; \
+         LET $concordance = 1.0 / (1.0 + $ratio * $ratio); \
+         LET $volume = IF $new_obs >= {t_cryst} THEN 1.0 ELSE <float> $new_obs / {t_cryst}.0 END; \
+         LET $certainty = $concordance * $volume; \
+         LET $new_state = IF $new_obs >= {t_canon} AND $certainty >= {c_high} THEN 'canonical' \
+             ELSE IF $new_obs >= {t_cryst} AND $certainty >= {c_high} THEN 'crystallized' \
+             ELSE IF $new_obs >= {t_cryst} AND $certainty < {c_low} THEN 'decaying' \
              ELSE 'forming' END; \
          UPSERT crystal:`{id}` SET \
              content = content ?? '{content}', \
              domain = domain ?? '{domain}', \
              observations = $new_obs, \
              confidence = $new_conf, \
+             certainty = $certainty, \
+             variance_m2 = $new_m2, \
+             mean_quorum = $new_quorum, \
+             {polarity_field} = ({polarity_field} ?? 0) + 1, \
              state = $new_state, \
              contributing_verdicts = IF array::len(contributing_verdicts ?? []) < 500 THEN array::union(contributing_verdicts ?? [], ['{vid}']) ELSE contributing_verdicts ?? [] END, \
              created_at = created_at ?? '{ts}', \
@@ -144,6 +168,9 @@ pub(super) async fn observe_crystal(
         domain = escape_surreal(domain),
         vid = escape_surreal(verdict_id),
         score = score,
+        voter_count = voter_count,
+        polarity_field = polarity_field,
+        phi_inv3 = crate::domain::dog::PHI_INV3,
         t_canon = CANONICAL_CYCLES,
         t_cryst = MIN_CRYSTALLIZATION_CYCLES,
         c_high = PHI_INV,
@@ -254,6 +281,13 @@ pub(super) fn row_to_crystal(row: &serde_json::Value) -> Crystal {
         created_at: row["created_at"].as_str().unwrap_or("").to_string(),
         updated_at: row["updated_at"].as_str().unwrap_or("").to_string(),
         contributing_verdicts,
+        certainty: row["certainty"].as_f64().unwrap_or(0.0),
+        variance_m2: row["variance_m2"].as_f64().unwrap_or(0.0),
+        mean_quorum: row["mean_quorum"].as_f64().unwrap_or(0.0),
+        howl_count: row["howl_count"].as_u64().unwrap_or(0) as u32,
+        wag_count: row["wag_count"].as_u64().unwrap_or(0) as u32,
+        growl_count: row["growl_count"].as_u64().unwrap_or(0) as u32,
+        bark_count: row["bark_count"].as_u64().unwrap_or(0) as u32,
     }
 }
 

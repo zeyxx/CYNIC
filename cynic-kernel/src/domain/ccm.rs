@@ -1,14 +1,15 @@
 //! CCM — Cognitive Crystallization Mechanism.
 //! Ephemeral verdicts → persistent wisdom. Domain-pure logic.
 //!
-//! A pattern that scores >= φ⁻¹ (0.618) repeatedly across 21+ cycles
-//! crystallizes into persistent wisdom. Below φ⁻² (0.382) it decays.
+//! 4D crystal model: quality (Q-score mean), certainty (Welford variance + volume),
+//! polarity (dominant verdict kind), time (decay relevance).
+//! Crystallization gate: certainty >= φ⁻¹ (not quality). This allows negative truths
+//! (BARK/GROWL) to crystallize when the system is certain, not just when content is "good."
 //! This is how CYNIC learns without training — through phi-bounded consensus.
 
 use serde::{Deserialize, Serialize};
 
-#[cfg(test)]
-use crate::domain::dog::{PHI_INV, PHI_INV2};
+use crate::domain::dog::{PHI_INV, PHI_INV2, PHI_INV3};
 
 /// Fibonacci F(8) = 21 — minimum observations before crystallization.
 /// Single source of truth — used by both SurrealDB SQL and InMemory adapter.
@@ -28,7 +29,7 @@ pub struct Crystal {
     pub content: String,
     /// Domain this was crystallized from (e.g. "chess", "code", "general")
     pub domain: String,
-    /// Running mean of Q-Score totals that contributed
+    /// Running mean of normalized Q-Score totals (= quality dimension)
     pub confidence: f64,
     /// Number of concordant observations
     pub observations: u32,
@@ -42,17 +43,62 @@ pub struct Crystal {
     /// Enables auditing: "why did this crystal crystallize?" → trace back to verdicts.
     #[serde(default)]
     pub contributing_verdicts: Vec<String>,
+
+    // ── 4D Crystal Model ──────────────────────────────────────
+    // Quality = confidence (above). Certainty + polarity + time below.
+    /// Statistical certainty: concordance(Welford) × volume(obs/21).
+    /// Crystallization gate uses this, not confidence. Allows negative truths to crystallize.
+    #[serde(default)]
+    pub certainty: f64,
+    /// Welford running M2 — internal state for incremental variance.
+    /// stddev = sqrt(variance_m2 / (observations - 1)) when observations > 1.
+    #[serde(default)]
+    pub variance_m2: f64,
+    /// Running mean of voter_count across observations (observability, not gating).
+    #[serde(default)]
+    pub mean_quorum: f64,
+    /// HOWL verdict count — for polarity tracking.
+    #[serde(default)]
+    pub howl_count: u32,
+    /// WAG verdict count.
+    #[serde(default)]
+    pub wag_count: u32,
+    /// GROWL verdict count.
+    #[serde(default)]
+    pub growl_count: u32,
+    /// BARK verdict count.
+    #[serde(default)]
+    pub bark_count: u32,
+}
+
+impl Crystal {
+    /// Dominant verdict polarity — argmax of the 4 verdict counters.
+    /// Returns "HOWL"/"WAG"/"GROWL"/"BARK", or "UNKNOWN" if no observations.
+    pub fn dominant_polarity(&self) -> &'static str {
+        let counts = [
+            (self.howl_count, "HOWL"),
+            (self.wag_count, "WAG"),
+            (self.growl_count, "GROWL"),
+            (self.bark_count, "BARK"),
+        ];
+        counts
+            .iter()
+            .max_by_key(|(count, _)| *count)
+            .filter(|(count, _)| *count > 0)
+            .map(|(_, name)| *name)
+            .unwrap_or("UNKNOWN")
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum CrystalState {
     /// Accumulating observations, not yet crystallized (< 21 cycles)
     Forming,
-    /// Reached crystallization threshold (>= 21 cycles, confidence >= φ⁻¹)
+    /// Reached certainty threshold (>= 21 cycles, certainty >= φ⁻¹)
     Crystallized,
-    /// Reached canonical status (>= 233 cycles, confidence >= φ⁻¹)
+    /// Reached canonical status (>= 233 cycles, certainty >= φ⁻¹)
     Canonical,
-    /// Confidence dropped below φ⁻² — decaying
+    /// Certainty dropped below φ⁻² — decaying
     Decaying,
     /// Fully dissolved — no longer valid wisdom
     Dissolved,
@@ -158,6 +204,14 @@ impl MatureCrystal {
     pub fn updated_at(&self) -> &str {
         &self.inner.updated_at
     }
+
+    pub fn certainty(&self) -> f64 {
+        self.inner.certainty
+    }
+
+    pub fn dominant_polarity(&self) -> &'static str {
+        self.inner.dominant_polarity()
+    }
 }
 
 /// Filter a list of Crystals into only mature ones.
@@ -171,38 +225,55 @@ pub fn filter_mature(crystals: Vec<Crystal>) -> Vec<MatureCrystal> {
 
 // ── CRYSTALLIZATION ENGINE (pure domain logic) ──────────────
 
+/// Compute certainty from Welford stats + observation count.
+/// Pure domain logic — used by storage adapters and tests.
+///
+/// Formula: `concordance × volume` where:
+/// - `concordance = 1 / (1 + (stddev / φ⁻³)²)` — quadratic decay, phi-calibrated
+/// - `volume = min(obs / 21, 1.0)` — linear ramp to crystallization threshold
+///
+/// Crystallization (certainty ≥ φ⁻¹) requires stddev ≤ 0.186 at 21+ obs.
+/// Decay (certainty < φ⁻²) requires stddev > 0.300 — maximally disagreeing.
+/// All thresholds self-derive from phi constants (φ⁻¹, φ⁻², φ⁻³).
+pub fn compute_certainty(variance_m2: f64, observations: u32) -> f64 {
+    let stddev = if observations > 1 {
+        (variance_m2 / (observations as f64 - 1.0)).sqrt()
+    } else {
+        0.0
+    };
+    let ratio = stddev / PHI_INV3;
+    let concordance = 1.0 / (1.0 + ratio * ratio);
+    let volume = (observations as f64 / MIN_CRYSTALLIZATION_CYCLES as f64).min(1.0);
+    concordance * volume
+}
+
+/// Classify a crystal based on its certainty and observation count.
+/// Used by InMemoryStorage and tests. SurrealDB does this in SQL.
+pub fn classify(certainty: f64, observations: u32) -> CrystalState {
+    if observations >= CANONICAL_CYCLES && certainty >= PHI_INV {
+        CrystalState::Canonical
+    } else if observations >= MIN_CRYSTALLIZATION_CYCLES && certainty >= PHI_INV {
+        CrystalState::Crystallized
+    } else if observations >= MIN_CRYSTALLIZATION_CYCLES && certainty < PHI_INV2 {
+        CrystalState::Decaying
+    } else {
+        CrystalState::Forming
+    }
+}
+
 /// Observe a new Q-Score for a pattern. Returns the updated crystal state.
 /// Pure domain logic — used in tests. Production uses atomic SQL.
 #[cfg(test)]
 pub fn observe(crystal: &Crystal, new_score: f64) -> CrystalState {
     let next_obs = crystal.observations + 1;
-    let next_confidence = running_mean(crystal.confidence, crystal.observations, new_score);
-
-    classify(next_confidence, next_obs)
-}
-
-/// Floating-point tolerance for phi-threshold comparisons.
-#[cfg(test)]
-const EPSILON: f64 = 1e-10;
-
-/// Classify a crystal based on its confidence and observation count.
-/// Test-only — production state classification is in atomic SQL (observe_crystal).
-#[cfg(test)]
-fn classify(confidence: f64, observations: u32) -> CrystalState {
-    if confidence < PHI_INV2 - EPSILON {
-        if observations > MIN_CRYSTALLIZATION_CYCLES {
-            CrystalState::Decaying
-        } else {
-            // Not enough data to dissolve — keep forming until MIN_CRYSTALLIZATION_CYCLES
-            CrystalState::Forming
-        }
-    } else if observations >= CANONICAL_CYCLES && confidence >= PHI_INV - EPSILON {
-        CrystalState::Canonical
-    } else if observations >= MIN_CRYSTALLIZATION_CYCLES && confidence >= PHI_INV - EPSILON {
-        CrystalState::Crystallized
-    } else {
-        CrystalState::Forming
-    }
+    // Welford M2 update
+    let old_mean = crystal.confidence;
+    let new_mean = running_mean(old_mean, crystal.observations, new_score);
+    let delta = new_score - old_mean;
+    let delta2 = new_score - new_mean;
+    let new_m2 = crystal.variance_m2 + delta * delta2;
+    let certainty = compute_certainty(new_m2, next_obs);
+    classify(certainty, next_obs)
 }
 
 /// Update a crystal with a new observation. Returns the new crystal.
@@ -212,7 +283,12 @@ fn classify(confidence: f64, observations: u32) -> CrystalState {
 pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Crystal {
     let observations = crystal.observations + 1;
     let confidence = running_mean(crystal.confidence, crystal.observations, new_score);
-    let state = classify(confidence, observations);
+    // Welford M2 update
+    let delta = new_score - crystal.confidence;
+    let delta2 = new_score - confidence;
+    let variance_m2 = crystal.variance_m2 + delta * delta2;
+    let certainty = compute_certainty(variance_m2, observations);
+    let state = classify(certainty, observations);
 
     Crystal {
         id: crystal.id.clone(),
@@ -224,6 +300,13 @@ pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Cry
         created_at: crystal.created_at.clone(),
         updated_at: timestamp.to_string(),
         contributing_verdicts: crystal.contributing_verdicts.clone(),
+        certainty,
+        variance_m2,
+        mean_quorum: crystal.mean_quorum,
+        howl_count: crystal.howl_count,
+        wag_count: crystal.wag_count,
+        growl_count: crystal.growl_count,
+        bark_count: crystal.bark_count,
     }
 }
 
@@ -247,6 +330,13 @@ pub fn new_crystal(
         created_at: timestamp.to_string(),
         updated_at: timestamp.to_string(),
         contributing_verdicts: vec![],
+        certainty: 0.0,
+        variance_m2: 0.0,
+        mean_quorum: 0.0,
+        howl_count: 0,
+        wag_count: 0,
+        growl_count: 0,
+        bark_count: 0,
     }
 }
 
@@ -324,11 +414,14 @@ pub fn format_crystal_context(
         } else {
             "CRYSTALLIZED"
         };
+        let polarity = c.dominant_polarity();
         // T7 defense-in-depth: wrap content in delimiters
         let delimited = crate::domain::sanitize::delimit_crystal_content(c.content());
         let line = format!(
-            "- [{}] (confidence: {:.2}, {} observations): {}",
+            "- [{} {}] (certainty: {:.2}, quality: {:.2}, {} obs): {}",
             state_label,
+            polarity,
+            c.certainty(),
             c.confidence(),
             c.observations(),
             delimited
@@ -694,6 +787,13 @@ mod tests {
             created_at: "2026-03-13T00:00:00Z".into(),
             updated_at: "2026-03-13T00:00:00Z".into(),
             contributing_verdicts: vec![],
+            certainty: 0.0,
+            variance_m2: 0.0,
+            mean_quorum: 0.0,
+            howl_count: 0,
+            wag_count: 0,
+            growl_count: 0,
+            bark_count: 0,
         }
     }
 
@@ -716,22 +816,30 @@ mod tests {
     }
 
     #[test]
-    fn does_not_crystallize_below_threshold() {
+    fn concordant_low_quality_crystallizes_under_4d() {
+        // 4D model: 21 concordant observations at 0.5 → high certainty → crystallizes.
+        // Under old 1D model, 0.5 < PHI_INV blocked crystallization. Under 4D,
+        // certainty (not quality) gates crystallization — the system IS certain.
         let c = make_crystal(0.5, MIN_CRYSTALLIZATION_CYCLES - 1, CrystalState::Forming);
         let state = observe(&c, 0.5);
-        // 0.5 < PHI_INV (0.618), so stays Forming
-        assert_eq!(state, CrystalState::Forming);
+        assert_eq!(state, CrystalState::Crystallized);
     }
 
     #[test]
-    fn decays_when_confidence_drops() {
+    fn decays_when_certainty_drops_from_high_variance() {
+        // 4D: decay requires high variance (stddev > 0.300), not low quality.
+        // Extreme oscillation (0.0 / 1.0) produces stddev ≈ 0.45 → certainty ≈ 0.21 → decaying.
         let c = make_crystal(PHI_INV, 25, CrystalState::Crystallized);
-        // Feed many low scores to drag confidence below PHI_INV2
         let mut crystal = c;
-        for _ in 0..100 {
-            crystal = update_crystal(&crystal, 0.1, "now");
+        for i in 0..100 {
+            let score = if i % 2 == 0 { 1.0 } else { 0.0 };
+            crystal = update_crystal(&crystal, score, "now");
         }
-        assert!(crystal.confidence < PHI_INV2);
+        assert!(
+            crystal.certainty < PHI_INV2,
+            "certainty should be low: {}",
+            crystal.certainty
+        );
         assert_eq!(crystal.state, CrystalState::Decaying);
     }
 
@@ -756,8 +864,9 @@ mod tests {
     }
 
     #[test]
-    fn geometric_mean_drag_prevents_false_crystallization() {
-        // A pattern that oscillates between high and low should NOT crystallize
+    fn high_variance_prevents_false_crystallization() {
+        // A pattern that oscillates between high and low should NOT crystallize:
+        // 4D model — high variance → low certainty → stays forming/decaying.
         let mut c = new_crystal(
             "osc".into(),
             "oscillating".into(),
@@ -769,8 +878,11 @@ mod tests {
             let score = if i % 2 == 0 { 0.9 } else { 0.2 };
             c = update_crystal(&c, score, "now");
         }
-        // Mean of alternating 0.9/0.2 ≈ 0.55, below PHI_INV
-        assert!(c.confidence < PHI_INV);
+        assert!(
+            c.certainty < PHI_INV,
+            "certainty should be low: {}",
+            c.certainty
+        );
         assert_ne!(c.state, CrystalState::Crystallized);
     }
 
@@ -799,8 +911,9 @@ mod tests {
             })
             .collect();
         let mature = filter_mature(crystals);
-        let ctx = format_crystal_context(&mature, "test", 200).unwrap();
-        assert!(ctx.len() <= 500); // Slack for header + delimiters
+        // Budget 400: header (~60 chars) + at least one crystal line (~120 chars with 4D format)
+        let ctx = format_crystal_context(&mature, "test", 400).unwrap();
+        assert!(ctx.len() <= 600); // Slack for header + delimiters
     }
 
     #[test]
@@ -1165,8 +1278,10 @@ mod tests {
     }
 
     #[test]
-    fn normalized_bad_qscore_does_not_crystallize() {
-        // Fool's Mate Q-Score ~0.08 → normalized ~0.13 → never crystallizes.
+    fn negative_truth_crystallizes_under_4d() {
+        // 4D FIX: Fool's Mate Q-Score ~0.08 → normalized ~0.13 → under 1D: never crystallizes.
+        // Under 4D: 21 concordant BARK observations → high certainty → CRYSTALLIZES.
+        // This is the whole point of 4D — negative truths with consensus reach crystal state.
         let bad_qscore = 0.08;
         let normalized = (bad_qscore / PHI_INV).min(1.0);
 
@@ -1176,17 +1291,19 @@ mod tests {
             CrystalState::Forming,
         );
         let state = observe(&c, normalized);
-        assert_ne!(
+        assert_eq!(
             state,
             CrystalState::Crystallized,
-            "Normalized bad Q-Score {normalized:.3} (raw {bad_qscore:.3}) must NOT crystallize"
+            "4D: concordant negative truth (normalized {normalized:.3}) MUST crystallize"
         );
     }
 
     #[test]
-    fn raw_qscore_cannot_crystallize() {
-        // Proves the bug: raw Q-Scores can never reach crystallization threshold.
-        let good_qscore = 0.57; // best chess score observed
+    fn raw_qscore_crystallizes_under_4d() {
+        // Under 1D, raw Q-Score 0.57 < PHI_INV (0.618) → could NOT crystallize.
+        // Under 4D, 21 concordant observations at 0.57 → high certainty → crystallizes.
+        // The 1D bug is fixed.
+        let good_qscore = 0.57;
 
         let c = make_crystal(
             good_qscore,
@@ -1194,10 +1311,10 @@ mod tests {
             CrystalState::Forming,
         );
         let state = observe(&c, good_qscore);
-        assert_ne!(
+        assert_eq!(
             state,
             CrystalState::Crystallized,
-            "Raw Q-Score {good_qscore:.3} must NOT crystallize (proves the bug existed)"
+            "4D: concordant raw Q-Score {good_qscore:.3} MUST crystallize"
         );
     }
 

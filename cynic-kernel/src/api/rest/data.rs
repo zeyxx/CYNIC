@@ -159,6 +159,13 @@ pub async fn create_crystal_handler(
         created_at: now.clone(),
         updated_at: now,
         contributing_verdicts: vec![],
+        certainty: 0.0,
+        variance_m2: 0.0,
+        mean_quorum: 0.0,
+        howl_count: 0,
+        wag_count: 0,
+        growl_count: 0,
+        bark_count: 0,
     };
     if let Err(e) = state.storage.store_crystal(&crystal).await {
         tracing::warn!(error = %e, "create crystal failed");

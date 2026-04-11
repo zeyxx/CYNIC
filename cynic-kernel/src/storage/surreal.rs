@@ -124,6 +124,7 @@ impl StoragePort for SurrealHttpStorage {
         timestamp: &str,
         voter_count: usize,
         verdict_id: &str,
+        verdict_kind: &str,
     ) -> Result<(), StorageError> {
         crystals::observe_crystal(
             self,
@@ -134,6 +135,7 @@ impl StoragePort for SurrealHttpStorage {
             timestamp,
             voter_count,
             verdict_id,
+            verdict_kind,
         )
         .await
     }

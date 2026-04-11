@@ -155,6 +155,7 @@ async fn crystal_observe_creates_and_updates() {
         &ts,
         3,
         "test-verdict",
+        "howl",
     )
     .await
     .expect("observe_crystal failed");
@@ -176,6 +177,7 @@ async fn crystal_observe_creates_and_updates() {
         &ts,
         3,
         "test-verdict-2",
+        "howl",
     )
     .await
     .expect("second observe failed");
@@ -223,6 +225,7 @@ async fn contract_observe_crystal_rejects_below_quorum() {
             &ts,
             1,
             "test-verdict",
+            "howl",
         )
         .await;
     assert!(
@@ -240,6 +243,7 @@ async fn contract_observe_crystal_rejects_below_quorum() {
             &ts,
             0,
             "test-verdict",
+            "howl",
         )
         .await;
     assert!(result.is_err(), "observe_crystal must reject voter_count=0");
@@ -254,6 +258,7 @@ async fn contract_observe_crystal_rejects_below_quorum() {
             &ts,
             2,
             "test-verdict",
+            "howl",
         )
         .await;
     assert!(
@@ -290,6 +295,7 @@ async fn contract_observe_crystal_content_set_once() {
         &ts,
         3,
         "v1",
+        "howl",
     )
     .await
     .expect("first observe failed");
@@ -307,6 +313,7 @@ async fn contract_observe_crystal_content_set_once() {
         &ts,
         3,
         "v2",
+        "howl",
     )
     .await
     .expect("second observe failed");
@@ -374,6 +381,7 @@ async fn contract_crystal_forming_to_crystallized_at_21_obs() {
             &ts,
             3,
             &format!("v-{i}"),
+            "howl",
         )
         .await
         .unwrap();
@@ -387,9 +395,18 @@ async fn contract_crystal_forming_to_crystallized_at_21_obs() {
     );
 
     // 21st observation: must transition to Crystallized
-    db.observe_crystal("threshold-test", "content", "test", 0.7, &ts, 3, "v-20")
-        .await
-        .unwrap();
+    db.observe_crystal(
+        "threshold-test",
+        "content",
+        "test",
+        0.7,
+        &ts,
+        3,
+        "v-20",
+        "howl",
+    )
+    .await
+    .unwrap();
     let c21 = db.get_crystal("threshold-test").await.unwrap().unwrap();
     assert_eq!(c21.observations, 21);
     assert_eq!(
@@ -403,21 +420,24 @@ async fn contract_crystal_forming_to_crystallized_at_21_obs() {
 
 #[tokio::test]
 async fn contract_crystal_high_obs_low_confidence_decays() {
-    // Invariant: 21 observations with confidence < 0.382 → Decaying
+    // 4D invariant: 21 observations with HIGH VARIANCE → low certainty → Decaying.
+    // Uses extreme oscillation (0.0 / 1.0) to produce stddev > 0.30 → certainty < φ⁻².
     let Some(db) = common::setup_test_db("contract_decay").await else {
         return;
     };
     let ts = chrono::Utc::now().to_rfc3339();
 
     for i in 0..21 {
+        let score = if i % 2 == 0 { 1.0 } else { 0.0 };
         db.observe_crystal(
             "decay-test",
-            "bad content",
+            "contradictory content",
             "test",
-            0.2,
+            score,
             &ts,
             3,
             &format!("v-{i}"),
+            "howl",
         )
         .await
         .unwrap();
@@ -425,14 +445,14 @@ async fn contract_crystal_high_obs_low_confidence_decays() {
     let c = db.get_crystal("decay-test").await.unwrap().unwrap();
     assert_eq!(c.observations, 21);
     assert!(
-        c.confidence < 0.382,
-        "precondition: confidence {:.3} must be < 0.382",
-        c.confidence
+        c.certainty < 0.382,
+        "precondition: certainty {:.3} must be < 0.382 (high variance)",
+        c.certainty
     );
     assert_eq!(
         c.state,
         cynic_kernel::domain::ccm::CrystalState::Decaying,
-        "CONTRACT: 21 obs + confidence < 0.382 must be Decaying"
+        "CONTRACT: 21 obs + high variance must be Decaying"
     );
 
     common::teardown_test_db(&db).await;
@@ -455,6 +475,7 @@ async fn contract_crystal_forming_stays_forming_at_high_confidence() {
             &ts,
             3,
             &format!("v-{i}"),
+            "howl",
         )
         .await
         .unwrap();
@@ -490,6 +511,7 @@ async fn contract_list_crystals_for_domain_excludes_forming() {
             &ts,
             3,
             &format!("v-{i}"),
+            "howl",
         )
         .await
         .unwrap();
@@ -505,6 +527,7 @@ async fn contract_list_crystals_for_domain_excludes_forming() {
             &ts,
             3,
             &format!("v-{i}"),
+            "howl",
         )
         .await
         .unwrap();
@@ -565,6 +588,7 @@ async fn contract_observe_crystal_sanitizes_directives() {
         &ts,
         3,
         "test-verdict",
+        "howl",
     )
     .await
     .unwrap();
@@ -592,14 +616,32 @@ async fn crystal_list_sorted_by_maturity_then_confidence() {
 
     // c-many: 5 obs, confidence ~0.6 (forming, not enough obs for crystallized)
     for i in 0..5 {
-        db.observe_crystal("c-many", "Many obs", "test", 0.6, &ts, 3, &format!("v-{i}"))
-            .await
-            .unwrap();
-    }
-    // c-few: 1 obs, confidence 0.9 (forming, but higher confidence)
-    db.observe_crystal("c-few", "Few obs", "test", 0.9, &ts, 3, "test-verdict")
+        db.observe_crystal(
+            "c-many",
+            "Many obs",
+            "test",
+            0.6,
+            &ts,
+            3,
+            &format!("v-{i}"),
+            "howl",
+        )
         .await
         .unwrap();
+    }
+    // c-few: 1 obs, confidence 0.9 (forming, but higher confidence)
+    db.observe_crystal(
+        "c-few",
+        "Few obs",
+        "test",
+        0.9,
+        &ts,
+        3,
+        "test-verdict",
+        "howl",
+    )
+    .await
+    .unwrap();
 
     let list = db.list_crystals(10).await.expect("list_crystals failed");
     assert!(list.len() >= 2);
@@ -900,6 +942,7 @@ async fn store_and_search_crystal_embedding() {
         "2026-03-21T12:00:00Z",
         3,
         "test-verdict",
+        "howl",
     )
     .await
     .expect("observe_crystal failed");
@@ -960,7 +1003,7 @@ async fn semantic_search_round_trip() {
     ] {
         for i in 0..26 {
             let ts = format!("2026-03-21T12:{i:02}:00Z");
-            db.observe_crystal(id, content, "chess", 0.7, &ts, 3, &format!("v-{i}"))
+            db.observe_crystal(id, content, "chess", 0.7, &ts, 3, &format!("v-{i}"), "howl")
                 .await
                 .unwrap();
         }

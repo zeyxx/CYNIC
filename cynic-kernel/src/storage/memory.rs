@@ -13,10 +13,8 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use tokio::sync::Mutex;
 
-use crate::domain::ccm::{
-    CANONICAL_CYCLES, Crystal, CrystalState, MIN_CRYSTALLIZATION_CYCLES, SessionSummary,
-};
-use crate::domain::dog::{MIN_QUORUM, PHI_INV, PHI_INV2, Verdict};
+use crate::domain::ccm::{Crystal, CrystalState, SessionSummary};
+use crate::domain::dog::{MIN_QUORUM, Verdict};
 use crate::domain::sanitize::sanitize_crystal_content;
 use crate::domain::storage::{
     Observation, ObservationFrequency, RawObservation, SessionTarget, StorageError, StoragePort,
@@ -54,19 +52,7 @@ impl InMemoryStorage {
     }
 }
 
-/// Compute crystal state from observations + confidence.
-/// Uses domain constants — same source of truth as surreal.rs SQL.
-fn compute_state(observations: u32, confidence: f64) -> CrystalState {
-    if observations >= CANONICAL_CYCLES && confidence >= PHI_INV {
-        CrystalState::Canonical
-    } else if observations >= MIN_CRYSTALLIZATION_CYCLES && confidence >= PHI_INV {
-        CrystalState::Crystallized
-    } else if observations >= MIN_CRYSTALLIZATION_CYCLES && confidence < PHI_INV2 {
-        CrystalState::Decaying
-    } else {
-        CrystalState::Forming
-    }
-}
+// State computation uses domain function (ccm::classify) — single source of truth.
 
 /// Sort crystals by maturity (Canonical > Crystallized > Forming > Decaying > Dissolved)
 /// then by confidence DESC within same state.
@@ -183,6 +169,7 @@ impl StoragePort for InMemoryStorage {
         timestamp: &str,
         voter_count: usize,
         verdict_id: &str,
+        verdict_kind: &str,
     ) -> Result<(), StorageError> {
         // T5+T8: Quorum gate — reject single-Dog observations
         if voter_count < MIN_QUORUM {
@@ -205,21 +192,59 @@ impl StoragePort for InMemoryStorage {
             created_at: timestamp.to_string(),
             updated_at: timestamp.to_string(),
             contributing_verdicts: vec![],
+            certainty: 0.0,
+            variance_m2: 0.0,
+            mean_quorum: 0.0,
+            howl_count: 0,
+            wag_count: 0,
+            growl_count: 0,
+            bark_count: 0,
         });
 
         // Content set-once: first observation's content wins (F16 fix)
-        // (content is already set from or_insert_with above, don't overwrite)
 
-        // Running mean: new_conf = (old_conf * old_obs + score) / (old_obs + 1)
+        // Welford online variance + running mean
+        let old_mean = crystal.confidence;
         let old_obs = crystal.observations as f64;
-        crystal.confidence = (crystal.confidence * old_obs + score) / (old_obs + 1.0);
+        let new_conf = if crystal.observations > 0 {
+            (old_mean * old_obs + score) / (old_obs + 1.0)
+        } else {
+            score
+        };
+        let delta = score - old_mean;
+        let delta2 = score - new_conf;
+        crystal.variance_m2 = if crystal.observations > 0 {
+            crystal.variance_m2 + delta * delta2
+        } else {
+            0.0
+        };
+        crystal.confidence = new_conf;
         crystal.observations += 1;
+
+        // Running mean quorum
+        crystal.mean_quorum = if crystal.observations > 1 {
+            (crystal.mean_quorum * old_obs + voter_count as f64) / crystal.observations as f64
+        } else {
+            voter_count as f64
+        };
+
+        // Polarity counters
+        match verdict_kind {
+            "howl" => crystal.howl_count += 1,
+            "wag" => crystal.wag_count += 1,
+            "growl" => crystal.growl_count += 1,
+            "bark" => crystal.bark_count += 1,
+            _ => crystal.howl_count += 1, // K14: unknown defaults safe
+        }
+
         crystal.updated_at = timestamp.to_string();
 
-        // State transition (mirrors surreal.rs SQL thresholds)
-        crystal.state = compute_state(crystal.observations, crystal.confidence);
+        // 4D certainty + state transition
+        crystal.certainty =
+            crate::domain::ccm::compute_certainty(crystal.variance_m2, crystal.observations);
+        crystal.state = crate::domain::ccm::classify(crystal.certainty, crystal.observations);
 
-        // Provenance: track which verdicts contributed to this crystal (capped to prevent unbounded growth)
+        // Provenance
         if !verdict_id.is_empty()
             && crystal.contributing_verdicts.len() < crate::domain::ccm::MAX_CONTRIBUTING_VERDICTS
             && !crystal
