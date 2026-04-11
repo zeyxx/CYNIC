@@ -101,6 +101,35 @@ COORD: Agent auto-registered. Claim → cynic_coord_who + cynic_coord_claim | Re
 RULES: Public repo — no secrets, no real IPs, no names. Use skills before acting.
 EOF
 
+# ── Last session compliance (K15: session-stop produces, this consumes) ──
+if [[ "$KERNEL_STATUS" != "down" ]]; then
+    LAST_COMPLIANCE=$(curl -s --max-time 3 \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        "http://${KERNEL_ADDR}/compliance?limit=1" 2>/dev/null)
+    if [[ -n "$LAST_COMPLIANCE" ]] && echo "$LAST_COMPLIANCE" | jq -e 'type == "array" and length > 0' >/dev/null 2>&1; then
+        LAST_SCORE=$(echo "$LAST_COMPLIANCE" | jq -r '.[0].score // empty' 2>/dev/null)
+        LAST_AGENT=$(echo "$LAST_COMPLIANCE" | jq -r '.[0].agent_id // empty' 2>/dev/null)
+        if [[ -n "$LAST_SCORE" ]]; then
+            # φ⁻² = 0.382 — below this, compliance is degraded
+            BELOW_THRESHOLD=$(LC_ALL=C awk "BEGIN {print ($LAST_SCORE < 0.382) ? 1 : 0}" 2>/dev/null || echo 0)
+            if [[ "$BELOW_THRESHOLD" == "1" ]]; then
+                echo ""
+                echo "COMPLIANCE: Last session (${LAST_AGENT}) scored ${LAST_SCORE}/0.618 — BELOW φ⁻² threshold. Review warnings."
+            fi
+        fi
+    fi
+fi
+
+# ── Dream consolidation check (K15: dream-trigger produces, this consumes) ──
+DREAM_STATE="${HOME}/.claude/projects/-home-user-Bureau-CYNIC/memory/.dream-state"
+if [[ -f "$DREAM_STATE" ]]; then
+    SESSIONS_SINCE=$(grep '^sessions_since=' "$DREAM_STATE" | cut -d= -f2 || echo 0)
+    if [[ "$SESSIONS_SINCE" -ge 5 ]]; then
+        echo ""
+        echo "DREAM: ${SESSIONS_SINCE} sessions since last consolidation — run /dream"
+    fi
+fi
+
 # ── Inject top CCM crystals as learnings (CYNIC remembers) ──
 if [[ "$KERNEL_STATUS" != "down" ]]; then
     CRYSTALS=$(curl -s --max-time 3 \

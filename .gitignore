@@ -41,6 +41,9 @@ benchmarks/
 .replit
 .mcp.json
 
+# Compiler crash reports
+rustc-ice-*.txt
+
 # Session artifacts (AI-generated scratch files at root only)
 /state*.md
 /*-state*.md
