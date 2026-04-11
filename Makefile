@@ -630,6 +630,12 @@ runtime-check:
 	@$(MAKE) --no-print-directory verify-systemd-units
 	@bash $(PROJECT_DIR)/scripts/runtime-truth.sh check
 
+# ── Benchmark: Empirical evaluation against running kernel ───
+.PHONY: benchmark
+benchmark:
+	@$(source_env)
+	@python3 $(PROJECT_DIR)/scripts/benchmark.py --save
+
 .PHONY: install-systemd-units
 install-systemd-units:
 	@bash $(PROJECT_DIR)/scripts/install-systemd-units.sh
