@@ -1,0 +1,72 @@
+[
+  {
+    "id": "chess-good-1",
+    "domain": "chess",
+    "label": "good",
+    "content": "The Sicilian Defense (1.e4 c5) gives Black active counterplay on the queenside while conceding the center temporarily, leading to asymmetric positions where both sides have chances.",
+    "why": "Accurate, nuanced, acknowledges trade-offs"
+  },
+  {
+    "id": "chess-good-2",
+    "domain": "chess",
+    "label": "good",
+    "content": "In the King's Indian Defense, Black allows White to build a broad pawn center with d4+e4, planning to undermine it later with ...e5 or ...c5. The resulting positions are double-edged.",
+    "why": "Sound strategic description with concrete plans"
+  },
+  {
+    "id": "chess-bad-1",
+    "domain": "chess",
+    "label": "bad",
+    "content": "The best opening move in chess is 1.a4 because it controls the b5 square which is the most important square on the board.",
+    "why": "Objectively wrong — 1.a4 is one of the worst opening moves"
+  },
+  {
+    "id": "chess-bad-2",
+    "domain": "chess",
+    "label": "bad",
+    "content": "Checkmate always requires a queen. Without a queen you cannot win a chess game.",
+    "why": "False — many checkmates use rooks, bishops, knights"
+  },
+  {
+    "id": "general-good-1",
+    "domain": "general",
+    "label": "good",
+    "content": "Water boils at 100°C at standard atmospheric pressure (1 atm). At higher altitudes, lower pressure reduces the boiling point.",
+    "why": "Correct, includes the important nuance of pressure dependence"
+  },
+  {
+    "id": "general-good-2",
+    "domain": "general",
+    "label": "good",
+    "content": "Antibiotics treat bacterial infections but are ineffective against viruses. Overuse promotes antibiotic-resistant bacteria, a growing public health concern.",
+    "why": "Accurate, includes the important caveat about resistance"
+  },
+  {
+    "id": "general-good-3",
+    "domain": "general",
+    "label": "good",
+    "content": "The halting problem, proven by Turing in 1936, shows that no general algorithm can determine whether an arbitrary program will terminate. This is a fundamental limit of computation.",
+    "why": "Correct attribution, accurate statement, acknowledges significance"
+  },
+  {
+    "id": "general-bad-1",
+    "domain": "general",
+    "label": "bad",
+    "content": "Humans only use 10% of their brains. Scientists have proven this with brain scans showing most of the brain is inactive.",
+    "why": "Debunked myth — brain scans show all regions are active"
+  },
+  {
+    "id": "general-bad-2",
+    "domain": "general",
+    "label": "bad",
+    "content": "The Great Wall of China is visible from space with the naked eye. It is the only man-made structure visible from orbit.",
+    "why": "False — not visible from orbit, many structures are larger"
+  },
+  {
+    "id": "general-bad-3",
+    "domain": "general",
+    "label": "bad",
+    "content": "Lightning never strikes the same place twice. This is a basic law of physics related to electrical discharge patterns.",
+    "why": "False — tall structures get struck repeatedly, not a physical law"
+  }
+]

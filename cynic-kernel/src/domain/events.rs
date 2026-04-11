@@ -36,4 +36,5 @@ pub enum KernelEvent {
     DogExpired {
         dog_id: String,
     },
+    StorageReconnected,
 }

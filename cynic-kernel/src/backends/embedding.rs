@@ -39,7 +39,8 @@ impl EmbeddingBackend {
         let base_url = std::env::var("CYNIC_EMBED_URL").unwrap_or_else(|_| {
             let rest = std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".into());
             let host = rest.split(':').next().unwrap_or("127.0.0.1");
-            format!("http://{host}:8081/v1")
+            let port = std::env::var("CYNIC_EMBED_PORT").unwrap_or_else(|_| "8081".into());
+            format!("http://{host}:{port}/v1")
         });
         let api_key = std::env::var("SOVEREIGN_API_KEY").ok();
         let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());

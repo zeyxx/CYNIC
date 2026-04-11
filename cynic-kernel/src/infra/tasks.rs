@@ -28,12 +28,7 @@ pub use runtime_loops::{spawn_dog_ttl_checker, spawn_event_consumer, spawn_probe
 pub async fn flush_usage_on_shutdown(
     storage: &Arc<dyn StoragePort>,
     usage: &Arc<tokio::sync::Mutex<DogUsageTracker>>,
-    has_db: bool,
 ) {
-    if !has_db {
-        klog!("[SHUTDOWN] No DB — skipping flush");
-        return;
-    }
     let (snapshot, dog_count) = {
         let u = usage.lock().await;
         (u.flush_snapshot(), u.dogs.len())
@@ -306,6 +301,62 @@ pub fn spawn_backfill(
     handle
 }
 
+// ── Storage reconnect (K15: detection → action) ────────────
+//
+// When the kernel boots with NullStorage (SurrealDB unavailable), this task
+// periodically attempts to reconnect. On success, swaps NullStorage → SurrealDB
+// transparently for all consumers. Stops polling once connected.
+
+pub fn spawn_storage_reconnect(
+    reconnector: Arc<crate::storage::reconnectable::StorageReconnector>,
+    event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    let handle = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.tick().await; // skip first tick
+
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Storage reconnect task stopped");
+                    break;
+                }
+                _ = interval.tick() => {
+                    // K6: timeout the reconnect attempt
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(10),
+                        reconnector.try_reconnect(),
+                    ).await {
+                        Ok(true) => {
+                            klog!("[Ring 1] Storage RECONNECTED — NullStorage → SurrealDB");
+                            let _ = event_tx.send(KernelEvent::StorageReconnected);
+                            break;
+                        }
+                        Ok(false) => {
+                            // Either already connected or reconnect failed.
+                            // If already connected, stop polling.
+                            if let Ok(false) = tokio::time::timeout(
+                                std::time::Duration::from_secs(5),
+                                reconnector.is_degraded(),
+                            ).await {
+                                klog!("[Ring 1] Storage healthy — reconnect task exiting");
+                                break;
+                            }
+                        }
+                        Err(_) => {
+                            tracing::debug!("storage reconnect attempt timed out (10s)");
+                        }
+                    }
+                }
+            }
+        }
+    });
+    klog!("[Ring 2] Storage reconnect task started (every 30s)");
+    handle
+}
+
 // ── Introspection loop (MAPE-K Analyze, every 5 min) ────────
 
 #[allow(clippy::too_many_arguments)]
@@ -491,19 +542,11 @@ mod tests {
     use crate::infra::task_health::TaskHealth;
 
     #[tokio::test]
-    async fn flush_usage_on_shutdown_skips_when_no_db() {
-        let storage: Arc<dyn StoragePort> = Arc::new(NullStorage);
-        let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
-        // has_db=false → should skip immediately without error
-        flush_usage_on_shutdown(&storage, &usage, false).await;
-    }
-
-    #[tokio::test]
     async fn flush_usage_on_shutdown_skips_when_empty() {
         let storage: Arc<dyn StoragePort> = Arc::new(NullStorage);
         let usage = Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new()));
-        // has_db=true but no usage recorded → should skip
-        flush_usage_on_shutdown(&storage, &usage, true).await;
+        // No usage recorded → should skip
+        flush_usage_on_shutdown(&storage, &usage).await;
     }
 
     #[tokio::test]
@@ -516,7 +559,7 @@ mod tests {
             u.record("test-dog", 100, 50, 200);
         }
         // NullStorage will return error on flush, but function should not panic
-        flush_usage_on_shutdown(&storage, &usage, true).await;
+        flush_usage_on_shutdown(&storage, &usage).await;
     }
 
     #[tokio::test]
