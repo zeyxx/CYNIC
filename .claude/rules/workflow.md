@@ -3,6 +3,17 @@ description: Workflow triggers and tool use discipline — always active
 globs: ["**"]
 ---
 
+## Session Continuity
+
+At session start, after reading injected context:
+1. **Read TODO.md** — P1 items are injected by session-init.sh. Check if any are stale or completed.
+2. **Read #cynic on Slack** — the human posts priorities/thoughts between sessions. Use `mcp__plugin_slack_slack__slack_read_channel` on `#cynic`, last 5 messages. Non-blocking: skip if unavailable.
+3. **Probe live state** — don't trust memory. `curl /health`, `git status`, check what changed since last session.
+
+At session end:
+- Update TODO.md if any items were completed or discovered.
+- session-stop.sh will warn if TODO.md was not touched.
+
 ## Workflow Triggers
 
 BEFORE triggers — invoke PROACTIVELY before acting:
