@@ -52,10 +52,28 @@ fn spawn_event_consumer_with_liveness(
                 }
                 event = rx.recv() => {
                     match event {
-                        Ok(_) => {
-                            // Events are logged at emission and metrics are
-                            // counted at origin. This consumer owns only lag
-                            // visibility and task-health liveness.
+                        Ok(ref evt) => {
+                            // Most events are logged at emission. This consumer
+                            // acts on contract-level signals — the first acting
+                            // consumer on the bus.
+                            match evt {
+                                KernelEvent::ContractDelta { missing, expected, fulfilled } => {
+                                    if !fulfilled {
+                                        tracing::warn!(
+                                            missing = ?missing,
+                                            expected = expected,
+                                            "PROPRIOCEPTION: contract not fulfilled — {} Dog(s) missing",
+                                            missing.len()
+                                        );
+                                    } else {
+                                        tracing::info!("PROPRIOCEPTION: contract fulfilled — all {expected} Dogs present");
+                                    }
+                                }
+                                KernelEvent::DogDiscovered { dog_id } => {
+                                    tracing::info!(dog_id = %dog_id, "PROPRIOCEPTION: Dog discovered and registered");
+                                }
+                                _ => {}
+                            }
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                             tracing::warn!(skipped = n, "Event consumer lagged — dropped {n} events");
@@ -352,6 +370,11 @@ pub fn spawn_discovery_loop(
                                             model = %expected_model,
                                             "Dog discovered and registered"
                                         );
+                                        let _ = rest_state.event_tx.send(
+                                            crate::domain::events::KernelEvent::DogDiscovered {
+                                                dog_id: dog_name.clone(),
+                                            },
+                                        );
                                     }
                                     409 => {
                                         // Already registered (shouldn't happen after roster check, but ok)
@@ -386,6 +409,27 @@ pub fn spawn_discovery_loop(
                     if discovered > 0 {
                         tracing::info!(count = discovered, "Discovery cycle: {} Dogs registered", discovered);
                     }
+
+                    // Self-model: compare contract against live roster after each cycle.
+                    // Emit ContractDelta so acting consumers can react.
+                    let live_ids = rest_state.judge.load_full().dog_ids();
+                    let delta = rest_state.system_contract.assess(&live_ids);
+                    if !delta.fulfilled {
+                        tracing::warn!(
+                            missing = ?delta.missing,
+                            expected = delta.expected,
+                            actual = delta.actual,
+                            "Contract gap: {} missing Dog(s)",
+                            delta.missing.len()
+                        );
+                    }
+                    let _ = rest_state.event_tx.send(
+                        crate::domain::events::KernelEvent::ContractDelta {
+                            missing: delta.missing,
+                            expected: delta.expected,
+                            fulfilled: delta.fulfilled,
+                        },
+                    );
 
                     task_health.touch_discovery();
                 }

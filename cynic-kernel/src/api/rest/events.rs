@@ -78,6 +78,8 @@ fn event_type_name(event: &KernelEvent) -> &'static str {
         KernelEvent::BackfillComplete { .. } => "backfill",
         KernelEvent::Anomaly { .. } => "anomaly",
         KernelEvent::DogExpired { .. } => "dog_expired",
+        KernelEvent::DogDiscovered { .. } => "dog_discovered",
+        KernelEvent::ContractDelta { .. } => "contract_delta",
         KernelEvent::StorageReconnected => "storage_reconnected",
     }
 }

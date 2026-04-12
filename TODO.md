@@ -3,7 +3,7 @@
 > *Single source of truth for what needs doing. Updated every session.*
 > *Strong foundation > no foundation > weak foundation.*
 
-Last updated: 2026-04-12 | Session: body work
+Last updated: 2026-04-12 | Session: self-model (SystemContract)
 
 ---
 
@@ -35,6 +35,14 @@ Last updated: 2026-04-12 | Session: body work
 - [ ] **Kernel running outside systemd** — PID present but `cynic-kernel.service` is `inactive (dead)`. Dependency chain (`Wants=surrealdb.service`) is bypassed. Run via systemd for proper lifecycle management.
 - [ ] **Kairos hl_collector.py missing pyarrow import** — `import pyarrow as pa` needed. Fix before restarting kairos-snapshot and kairos-stream.
 
+## P1 — Proprioception (Greffe 2 — next)
+
+- [ ] **Discovery loop reads SystemContract** — currently re-probes all backends.toml entries. Should use contract.expected_dogs() and emit event when delta changes.
+- [ ] **Event bus emits ContractGap** — DogMissing/DogReturned events for the delta between contract and roster. Consumer: health-watcher agent, Slack bridge.
+- [ ] **organ_quality gated** — Dog below JSON validity threshold (e.g. 80%) excluded from jury. Measured but not gated = K15 violation.
+- [ ] **MCP health uses contract** — cynic_health MCP tool should use system_health_assessment_with_contract (K13).
+- [ ] **Deploy + live verify** — rebuild, deploy, `curl /health` must show "operational" with 3/4 Dogs (not "sovereign"). Rule 7 live measurement.
+
 ## P3 — Polish + Verify
 
 - [x] **Replace observe-tool.sh with type: "http" hook** — DEFERRED 2026-04-12. Requires kernel-side /observe to accept raw PostToolUse hook JSON. Current async:true already non-blocking (~50ms spawn overhead).
@@ -55,13 +63,10 @@ Each session:
 
 ## Context for Next Session
 
-- Body work session (2026-04-12): 5/5 P1s fixed, 3 structural issues discovered+fixed
-- SurrealDB crash audit: SurrealKV 3.0.3 key ordering bug on crystal table. Data recovered via WAL. `Restart=always` now set.
-- Subagent DNA: SubagentStart hook injects axioms + φ⁻¹ + triad. health-watcher + kernel-auditor have proper frontmatter.
-- Embedding pipeline: sovereign. qwen35 json_mode fix needs manual apply to backends.toml.
-- Kairos: CEX ingesting, snapshot+stream stopped (pyarrow import fix needed in KAIROS repo).
-- Kernel runs outside systemd — consider migrating to `systemctl --user start cynic-kernel`.
-- All P1 + P2 complete. Remaining: P3 (T3a verification, coord-claim if field test) + structural debt (crystal contention, kernel outside systemd, Kairos pyarrow).
+- **SystemContract landed** (f7bd6f5): kernel self-model loads ALL backend names from backends.toml, compares against live roster, new "operational" status between sovereign and degraded. /health exposes contract delta.
+- **Greffe 1 of 3** complete. Greffe 2 (event bus + discovery loop + organ_quality gating) is next. Greffe 3 (alerting consumer) follows.
+- **7 foundation debts mapped** (F1-F7): storage, immunity, dog quality, crystal pipeline, security (51 open), operational, K15 tooling. Self-model addresses F2 (immunity) and partially F7 (K15).
+- **Deploy needed** to verify live behavior. Kernel running outside systemd.
+- Crystal index contention (176/24h), kernel outside systemd, Kairos pyarrow still open.
 - json_mode=true applied to backends.toml for qwen35 — kernel restart needed to pick up.
-- Settings.json hook additions don't live-reload — verify coord-claim if field next session.
 - observe-tool.sh → type:http deferred (needs kernel /observe endpoint change).

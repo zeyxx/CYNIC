@@ -36,5 +36,15 @@ pub enum KernelEvent {
     DogExpired {
         dog_id: String,
     },
+    /// Discovery loop successfully re-registered a Dog that was missing.
+    DogDiscovered {
+        dog_id: String,
+    },
+    /// Contract delta changed — emitted each discovery cycle when expected ≠ actual.
+    ContractDelta {
+        missing: Vec<String>,
+        expected: usize,
+        fulfilled: bool,
+    },
     StorageReconnected,
 }
