@@ -43,7 +43,7 @@ Last updated: 2026-04-13 | Session: dog-registry-fix-deployed + heartbeat-verifi
 **Practice:** CI remote runner (GAP-7), peer review (GAP-6), functional specs (GAP-4), TCO (GAP-9), SurrealDB vs Postgres falsification (GAP-5), threat model STRIDE (GAP-8).
 **Architecture:** Pipeline module split (T4), cynic-node Phase C, sources supervisor, CredentialPort.
 **Identity:** T3a incarnation metrics (baseline still 0), identity layer audit.
-**Kairos:** pyarrow fixed, node offline, restart when online.
+**Kairos:** ✅ WIRED 2026-04-13 — 60s analysis cycle running, TRADE verdicts ready to flow to /judge.
 **Infra:** Dual sensing R12, MCP lifecycle, boot-state capture (A1), RUST_MIN_STACK spiraling (4GB→8GB+ requests, LLVM crashes, linker errors). Nightly-2026-04-11 SIGSEGV persistent. Switched to stable but build environment still broken.
 **Security:** MCP zero auth (RC1-1), boot integrity, tamper detection.
 
@@ -53,6 +53,7 @@ Last updated: 2026-04-13 | Session: dog-registry-fix-deployed + heartbeat-verifi
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-13 | kairos-infrastructure-wiring | ~55m | 1 | 0 | 1 | 0 | Diagnosed KAIROS network binding (services on Tailscale IP). Fixed CynicHttpAdapter URL (8000→3030), KairosKernel inference (8080 Tailscale IP), API key reading from CYNIC config, JSON parsing (markdown wrapping). Enabled kairos.service: now running 60s analysis cycle on BTC/ETH/SOL/WIF. LLM returning valid decisions (NO_TRADE observed). Infrastructure ready: when LLM returns TRADE, verdict flows to CYNIC /judge. Outcome tracking & crystal feedback deferred. |
 | 2026-04-13 | k15-dead-ends+burn-reduction | ~25m | 2 | 0 | 1 | 0 | Audited K15 dead-ends: store_infra_snapshot had no consumers (REST, pipeline, decision), deleted 73 lines. session_summaries verified wired (2 consumers: REST /sessions, pipeline). dream_counter doesn't exist. Fix: eliminated periodic cleanup overhead, resolved K15 violation. |
 | 2026-04-13 | heartbeat-verification | ~20m | 1 | 0 | 0 | 0 | Fixed build environment: rustup reinstall (stable 1.94.1) eliminated SIGSEGV. Deployed heartbeat fix (ece7e79): all 4 Dogs now correctly registered, heartbeat endpoints return `"status": "alive"`. K15 acting consumer (dog-health-monitor.sh) verified operational. Zero Dogs degradation since deployment. |
 | 2026-04-13 | dog-registry-fix-O3 | ~1h | 1 | 0 | 0 | 1 | Root cause: qwen35-9b-gpu unregistered due to heartbeat handler only checking registered_dogs (dynamic Dogs), not judge.dog_ids() (config-based Dogs). Fixed: heartbeat now accepts both sources. Build environment unstable (LLVM SIGSEGV, linker errors, RUST_MIN_STACK spiraling). Fix committed but not yet deployed — awaits build stabilization. Infrastructure debt A1 confirmed. |
