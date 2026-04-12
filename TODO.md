@@ -3,7 +3,7 @@
 > *Single source of truth for what needs doing. Updated every session.*
 > *Strong foundation > no foundation > weak foundation.*
 
-Last updated: 2026-04-12 | Session: crystal-contention + K13 + systemd
+Last updated: 2026-04-13 | Session: roadmap-start + kairos-fix
 
 ---
 
@@ -33,7 +33,7 @@ Last updated: 2026-04-12 | Session: crystal-contention + K13 + systemd
 - [x] **Kairos snapshot+stream death loop** — stopped 2026-04-12. 27K+ restarts on `NameError: name 'pa' is not defined` in hl_collector.py. kairos-cex still running.
 - [x] **Crystal index contention** — fixed 2026-04-12. Skip redundant embedding writes for existing crystals (already have HNSW embedding). Rate-limit backfill (50ms between writes). Expected ~70-80% reduction in HNSW mutations.
 - [x] **Kernel running outside systemd** — fixed 2026-04-12. Killed bare process, deployed new binary (mv+cp), started via `systemctl --user start cynic-kernel.service`. Status: sovereign, 4/4 Dogs, contract fulfilled.
-- [ ] **Kairos hl_collector.py missing pyarrow import** — `import pyarrow as pa` needed. Fix before restarting kairos-snapshot and kairos-stream.
+- [x] **Kairos hl_collector.py missing pyarrow import** — fixed 2026-04-13. Added `import pyarrow as pa` at line 40. kairos node currently offline (100.75.118.79) — will restart kairos-snapshot and kairos-stream once node comes online.
 
 ## P1 — Proprioception (Greffe 3 — next)
 
