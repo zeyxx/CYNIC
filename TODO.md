@@ -28,7 +28,7 @@ Last updated: 2026-04-13 | Session: dog-registry-fix-deployed + heartbeat-verifi
 - [ ] **#5 Crystal challenge mechanism** — Background task re-judges oldest crystallized crystals without injection. If Q-Score delta > φ⁻², dissolve. Prevents crystal poison (DEBT-A2: content write-once, no contradiction detection).
 - [ ] **#6 Greffe 3: alerting consumer** — ContractDelta { fulfilled: false } → Slack message. K15: structured log only is not "acting."
 - [x] **#7 Coord: sessions register + claim** — Verify coord-claim hook. ✅ FINDING: protect-files.sh and coord-claim.sh hooks were registered in settings.json but scripts missing (K5 violation). Created both hooks + validated. /coord/claim API working. Both sessions should now appear in /coord/who. Hooks live-reload script changes (not new entries). Done 2026-04-13.
-- [ ] **#8 Wire or delete K15 dead-ends** — Triage 3 orphan producers: store_infra_snapshot, session_summaries, dream_counter. Wire acting consumer OR delete producer. Note: protect-files.sh was dead architecture (K5) — now wired (hooks in settings.json).
+- [x] **#8 Wire or delete K15 dead-ends** — Triage 3 orphan producers: ✅ store_infra_snapshot DELETED (no consumers, in-memory environment serves all use cases). ✅ session_summaries has 2 consumers (REST /sessions endpoint, pipeline session context). ❓ dream_counter doesn't exist. RESULT: Fixed K15 violation, eliminated 73 lines of waste.
 
 ### Verify — measure what changed
 
@@ -53,6 +53,7 @@ Last updated: 2026-04-13 | Session: dog-registry-fix-deployed + heartbeat-verifi
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-13 | k15-dead-ends+burn-reduction | ~25m | 2 | 0 | 1 | 0 | Audited K15 dead-ends: store_infra_snapshot had no consumers (REST, pipeline, decision), deleted 73 lines. session_summaries verified wired (2 consumers: REST /sessions, pipeline). dream_counter doesn't exist. Fix: eliminated periodic cleanup overhead, resolved K15 violation. |
 | 2026-04-13 | heartbeat-verification | ~20m | 1 | 0 | 0 | 0 | Fixed build environment: rustup reinstall (stable 1.94.1) eliminated SIGSEGV. Deployed heartbeat fix (ece7e79): all 4 Dogs now correctly registered, heartbeat endpoints return `"status": "alive"`. K15 acting consumer (dog-health-monitor.sh) verified operational. Zero Dogs degradation since deployment. |
 | 2026-04-13 | dog-registry-fix-O3 | ~1h | 1 | 0 | 0 | 1 | Root cause: qwen35-9b-gpu unregistered due to heartbeat handler only checking registered_dogs (dynamic Dogs), not judge.dog_ids() (config-based Dogs). Fixed: heartbeat now accepts both sources. Build environment unstable (LLVM SIGSEGV, linker errors, RUST_MIN_STACK spiraling). Fix committed but not yet deployed — awaits build stabilization. Infrastructure debt A1 confirmed. |
 | 2026-04-13 | session-cost+coord-O3 | ~45m | 2 | 2 forming | 2 | 0 | Session cost tracking + coord-claim hooks. #3 (cost tracking) + #7 (coord-claim) closed. Hook validation verified. |
