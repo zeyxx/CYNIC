@@ -6,6 +6,8 @@
 
 use std::time::Duration;
 
+use super::contract::ContractDelta;
+
 /// Port trait for per-Dog health state.
 ///
 /// Implemented by `CircuitBreaker` in `infra/`. Domain and application
@@ -63,6 +65,12 @@ pub enum HealthCause {
     ReadinessTasksStale {
         tasks: Vec<&'static str>,
     },
+    /// Contract declares Dogs that are missing from the live roster.
+    ContractGap {
+        missing: Vec<String>,
+        expected: usize,
+        actual: usize,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -72,18 +80,39 @@ pub struct HealthAssessment {
     pub causes: Vec<HealthCause>,
 }
 
-/// Determine system health status from Dogs, storage, probes, and background tasks.
+/// Determine system health status from Dogs, storage, probes, background tasks,
+/// and optionally a SystemContract (self-model).
 ///
 /// Gate: counts only circuit=closed dogs, not total registered dogs.
 /// - critical (503): zero healthy dogs OR storage down
 /// - degraded (503): only 1 healthy dog OR majority down OR probes degraded OR tasks stale
-/// - sovereign (200): majority healthy + storage up + probes ok + no critical tasks
+/// - operational (200): above threshold, but contract has gaps (missing expected Dogs)
+/// - sovereign (200): contract fulfilled (or no contract) + all other checks pass
 pub fn system_health_assessment(
     healthy_dogs: usize,
     total_dogs: usize,
     storage_ok: bool,
     probes_degraded: bool,
     stale_tasks: &[&'static str],
+) -> HealthAssessment {
+    system_health_assessment_with_contract(
+        healthy_dogs,
+        total_dogs,
+        storage_ok,
+        probes_degraded,
+        stale_tasks,
+        None,
+    )
+}
+
+/// Full assessment with optional contract comparison.
+pub fn system_health_assessment_with_contract(
+    healthy_dogs: usize,
+    total_dogs: usize,
+    storage_ok: bool,
+    probes_degraded: bool,
+    stale_tasks: &[&'static str],
+    contract_delta: Option<&ContractDelta>,
 ) -> HealthAssessment {
     let mut causes = Vec::new();
 
@@ -114,6 +143,17 @@ pub fn system_health_assessment(
         });
     }
 
+    let contract_gap = contract_delta.is_some_and(|d| !d.fulfilled);
+    if let Some(delta) = contract_delta
+        && !delta.fulfilled
+    {
+        causes.push(HealthCause::ContractGap {
+            missing: delta.missing.clone(),
+            expected: delta.expected,
+            actual: delta.actual,
+        });
+    }
+
     let (status, healthy) = if healthy_dogs == 0 || !storage_ok {
         ("critical", false)
     } else if healthy_dogs == 1
@@ -122,6 +162,10 @@ pub fn system_health_assessment(
         || !stale_tasks.is_empty()
     {
         ("degraded", false)
+    } else if contract_gap {
+        // Above operational threshold, but contract not fulfilled.
+        // The organism is functional but not fully aware — it's missing senses.
+        ("operational", true)
     } else {
         ("sovereign", true)
     };
@@ -241,5 +285,57 @@ mod tests {
                 tasks: vec!["health_loop"]
             }]
         );
+    }
+
+    // ── Contract-aware tests ─────────────────────────────────
+
+    use crate::domain::contract::SystemContract;
+
+    #[test]
+    fn contract_fulfilled_stays_sovereign() {
+        let contract = SystemContract::new(vec!["a".into(), "b".into()], true);
+        let live = vec!["deterministic-dog".into(), "a".into(), "b".into()];
+        let delta = contract.assess(&live);
+        let assessment =
+            system_health_assessment_with_contract(3, 3, true, false, &[], Some(&delta));
+        assert_eq!(assessment.status, "sovereign");
+        assert!(assessment.healthy);
+        assert!(assessment.causes.is_empty());
+    }
+
+    #[test]
+    fn contract_gap_produces_operational() {
+        let contract = SystemContract::new(vec!["qwen".into(), "gemma".into(), "hf".into()], true);
+        // gemma missing from live roster
+        let live = vec!["deterministic-dog".into(), "qwen".into(), "hf".into()];
+        let delta = contract.assess(&live);
+        let assessment =
+            system_health_assessment_with_contract(3, 3, true, false, &[], Some(&delta));
+        assert_eq!(assessment.status, "operational");
+        assert!(assessment.healthy); // still functional
+        assert!(assessment.causes.iter().any(|c| matches!(
+            c,
+            HealthCause::ContractGap { missing, .. } if missing.contains(&"gemma".to_string())
+        )));
+    }
+
+    #[test]
+    fn contract_gap_does_not_override_degraded() {
+        // degraded conditions take precedence over operational
+        let contract = SystemContract::new(vec!["a".into()], true);
+        let live = vec!["deterministic-dog".into()]; // missing "a"
+        let delta = contract.assess(&live);
+        // healthy_dogs=1 → degraded regardless of contract
+        let assessment =
+            system_health_assessment_with_contract(1, 1, true, false, &[], Some(&delta));
+        assert_eq!(assessment.status, "degraded");
+        assert!(!assessment.healthy);
+    }
+
+    #[test]
+    fn no_contract_stays_sovereign() {
+        // Backward compat: no contract = old behavior
+        let assessment = system_health_assessment_with_contract(3, 3, true, false, &[], None);
+        assert_eq!(assessment.status, "sovereign");
     }
 }

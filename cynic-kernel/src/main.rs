@@ -152,6 +152,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         infra::config::load_backends_from_env()
     };
 
+    // Self-model: load SystemContract from backends.toml — ALL declared Dogs,
+    // regardless of whether their env vars resolve right now.
+    let system_contract = infra::config::load_system_contract(&backends_path);
+    klog!(
+        "[Ring 2] SystemContract: {} expected Dogs {:?}",
+        system_contract.expected_count(),
+        system_contract.expected_dogs()
+    );
+
     // Validate config — probe health URLs, log warnings (non-blocking)
     infra::config::validate_config(&backend_configs).await;
 
@@ -597,6 +606,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         environment: Arc::clone(&environment),
         registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
         judge_jobs: Arc::new(api::rest::judge_job::JudgeJobStore::new()),
+        system_contract,
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 

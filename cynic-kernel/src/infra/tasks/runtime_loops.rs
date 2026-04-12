@@ -598,6 +598,7 @@ mod tests {
             environment: Arc::new(std::sync::RwLock::new(None)),
             registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
             judge_jobs: Arc::new(crate::api::rest::judge_job::JudgeJobStore::new()),
+            system_contract: crate::domain::contract::SystemContract::new(vec![], true),
         });
         let task_health = Arc::new(TaskHealth::new());
         let shutdown = CancellationToken::new();
