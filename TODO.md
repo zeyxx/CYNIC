@@ -3,7 +3,7 @@
 > *Single source of truth for what needs doing. Updated every session.*
 > *Strong foundation > no foundation > weak foundation.*
 
-Last updated: 2026-04-12 | Session: self-model (SystemContract)
+Last updated: 2026-04-12 | Session: crystal-contention + K13 + systemd
 
 ---
 
@@ -31,8 +31,8 @@ Last updated: 2026-04-12 | Session: self-model (SystemContract)
 - [x] **SurrealDB crashed — SurrealKV key ordering bug** — fixed 2026-04-12. Restarted, data backed up. Root cause: crystal IX:2 compaction failures (176 over 24h) → 88MB memtable → key ordering violation on flush. WAL recovery succeeded.
 - [x] **SurrealDB Restart=on-failure insufficient** — fixed 2026-04-12. Changed to `Restart=always`. SurrealDB exits 0 on data loss, `on-failure` doesn't catch it.
 - [x] **Kairos snapshot+stream death loop** — stopped 2026-04-12. 27K+ restarts on `NameError: name 'pa' is not defined` in hl_collector.py. kairos-cex still running.
-- [ ] **Crystal index contention** — 176 compaction conflicts on crystal IX:2 over 24h. Concurrent crystal writes (backfill, crystal_observer, verdict storage) create hot-index pressure. Serialize or batch to prevent SurrealKV recurrence.
-- [ ] **Kernel running outside systemd** — PID present but `cynic-kernel.service` is `inactive (dead)`. Dependency chain (`Wants=surrealdb.service`) is bypassed. Run via systemd for proper lifecycle management.
+- [x] **Crystal index contention** — fixed 2026-04-12. Skip redundant embedding writes for existing crystals (already have HNSW embedding). Rate-limit backfill (50ms between writes). Expected ~70-80% reduction in HNSW mutations.
+- [x] **Kernel running outside systemd** — fixed 2026-04-12. Killed bare process, deployed new binary (mv+cp), started via `systemctl --user start cynic-kernel.service`. Status: sovereign, 4/4 Dogs, contract fulfilled.
 - [ ] **Kairos hl_collector.py missing pyarrow import** — `import pyarrow as pa` needed. Fix before restarting kairos-snapshot and kairos-stream.
 
 ## P1 — Proprioception (Greffe 3 — next)
@@ -41,7 +41,7 @@ Last updated: 2026-04-12 | Session: self-model (SystemContract)
 - [x] **Event bus emits ContractDelta + DogDiscovered** — done 2026-04-12 (2096e05). First acting consumer: PROPRIOCEPTION logs.
 - [x] **Deploy + live verify** — done 2026-04-12. Log: "contract fulfilled — all 4 Dogs present". SSE: contract_delta visible.
 - [ ] **organ_quality gated** — Dog below JSON validity threshold excluded from jury? Verify ParseFailureGate is sufficient or json_valid_rate needs explicit gate.
-- [ ] **MCP health uses contract** — cynic_health MCP tool should use system_health_assessment_with_contract (K13).
+- [x] **MCP health uses contract** — fixed 2026-04-12. MCP cynic_health now uses same `system_health_assessment_with_contract` as REST /health. K13 closed.
 - [ ] **Greffe 3: alerting consumer** — ContractDelta { fulfilled: false } → Slack or crystal alert. Current consumer is structured log only.
 
 ## P3 — Polish + Verify
@@ -64,10 +64,11 @@ Each session:
 
 ## Context for Next Session
 
-- **SystemContract landed** (f7bd6f5): kernel self-model loads ALL backend names from backends.toml, compares against live roster, new "operational" status between sovereign and degraded. /health exposes contract delta.
-- **Greffe 1 of 3** complete. Greffe 2 (event bus + discovery loop + organ_quality gating) is next. Greffe 3 (alerting consumer) follows.
-- **7 foundation debts mapped** (F1-F7): storage, immunity, dog quality, crystal pipeline, security (51 open), operational, K15 tooling. Self-model addresses F2 (immunity) and partially F7 (K15).
-- **Deploy needed** to verify live behavior. Kernel running outside systemd.
-- Crystal index contention (176/24h), kernel outside systemd, Kairos pyarrow still open.
-- json_mode=true applied to backends.toml for qwen35 — kernel restart needed to pick up.
-- observe-tool.sh → type:http deferred (needs kernel /observe endpoint change).
+- **Crystal contention fixed**: skip redundant HNSW writes for existing crystals + backfill rate-limited. Monitor SurrealDB logs for compaction conflicts (should drop from 176/24h to near zero).
+- **K13 closed**: MCP + REST use same `system_health_assessment_with_contract`. Both report contract delta.
+- **Kernel under systemd**: `cynic-kernel.service` active, 4/4 Dogs sovereign. New binary deployed with crystal contention fix + MCP K13 fix.
+- **Greffe 2 complete** (2096e05). Greffe 3 (alerting consumer for ContractDelta) still open.
+- **69 open items mapped** across 6 categories (TODO, Findings Tracker, code TODOs, arch debt, practice gaps, K15 violations). Deduplicated to ~26 distinct items across 6 tiers.
+- **R22 elephant**: 1261 dev sessions → 0 dev wisdom crystals. Crystal pipeline only compounds chess. This is the compound loop's falsification test.
+- json_mode=true in backends.toml for qwen35 — now active (kernel restarted).
+- Kairos pyarrow still open (deprioritized, offline).
