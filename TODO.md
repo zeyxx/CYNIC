@@ -10,7 +10,7 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3 + session-cost+coord-O3 + dog-registry-fix-O3
+Last updated: 2026-04-13 | Session: dog-registry-fix-deployed + heartbeat-verification
 
 ---
 
@@ -53,6 +53,7 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3 + 
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-13 | heartbeat-verification | ~20m | 1 | 0 | 0 | 0 | Fixed build environment: rustup reinstall (stable 1.94.1) eliminated SIGSEGV. Deployed heartbeat fix (ece7e79): all 4 Dogs now correctly registered, heartbeat endpoints return `"status": "alive"`. K15 acting consumer (dog-health-monitor.sh) verified operational. Zero Dogs degradation since deployment. |
 | 2026-04-13 | dog-registry-fix-O3 | ~1h | 1 | 0 | 0 | 1 | Root cause: qwen35-9b-gpu unregistered due to heartbeat handler only checking registered_dogs (dynamic Dogs), not judge.dog_ids() (config-based Dogs). Fixed: heartbeat now accepts both sources. Build environment unstable (LLVM SIGSEGV, linker errors, RUST_MIN_STACK spiraling). Fix committed but not yet deployed — awaits build stabilization. Infrastructure debt A1 confirmed. |
 | 2026-04-13 | session-cost+coord-O3 | ~45m | 2 | 2 forming | 2 | 0 | Session cost tracking + coord-claim hooks. #3 (cost tracking) + #7 (coord-claim) closed. Hook validation verified. |
 | 2026-04-13 | dev-crystal-proof-O3 | ~30m | 0 | 2 forming | 1 (partial) | 1 | 5 dev patterns + 1 re-judge test. Crystals forming (not chess-specific) — phase 1 complete. Need 19-20 more observations/pattern to crystallize. Re-judge after crystallization phase (deferred). |
@@ -63,9 +64,9 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3 + 
 
 ## State Snapshot
 
-- Kernel: 3/4 Dogs active (qwen35-9b-gpu unregistered), degraded but functioning
+- Kernel: 4/4 Dogs active, FULLY OPERATIONAL
 - K14 jury gate: **IMPLEMENTED** (downgrades verdict kind HOWL→BARK when Dogs < expected count)
-- qwen35-9b-gpu: **FIX COMMITTED** (heartbeat handler now accepts config-based Dogs), awaits build + deploy
+- qwen35-9b-gpu: **FIX DEPLOYED** (heartbeat handler now accepts config-based Dogs via judge.dog_ids() fallback). Deployed: ece7e79 + toolchain fix (stable Rust 1.94.1 + reinstall) + kernel restart. Verification: all 4 Dogs heartbeat endpoints return `"status": "alive"`, TTL=86400s.
 - Temporal wiring complete (O2 strategy: hardcoded heuristic, 7 perspectives, geometric mean aggregation)
 - **Crystal formation verified on dev domain (non-chess)** — 2 crystals forming, need 19-20 more observations to crystallize
 - **Session cost tracking wired** — duration + commit count logged via hooks, foundation for Rule 7 (measure before/after)
@@ -75,4 +76,4 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3 + 
 - GROWL verdict (Q=52.6): BURN=30 wound, SOVEREIGNTY=75 strength
 - 7 anti-patterns identified → saved to memory (feedback_anti_patterns.md)
 - R22 status: PARTIALLY FALSIFIED (crystal formation generalizes; injection timing validated)
-- **Build environment degraded** (LLVM crashes, linker errors, RUST_MIN_STACK spiral) — A1 debt, needs investigation
+- **Build environment REPAIRED** — toolchain reinstall (stable Rust 1.94.1) fixed SIGSEGV; cargo build --release completes cleanly. A1 root cause: corrupted rustc binary (not a code issue). Infra now stable.
