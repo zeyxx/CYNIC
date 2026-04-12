@@ -1,19 +1,19 @@
 pub mod ccm;
 pub mod chat;
 pub mod compliance;
+pub mod contract;
 pub mod coord;
 pub mod dog;
 pub mod embedding;
 pub mod events;
-pub mod inference;
-pub mod storage;
-pub mod usage;
-pub mod verdict_cache;
-// pub mod temporal; // DORMANT: math sound but wiring was fake (dog_scores[i%7] relabeling). Burned 2026-03-24. Reactivate with real per-perspective Dog prompting.
-pub mod contract;
 pub mod health_gate;
+pub mod inference;
 pub mod metrics;
 pub mod probe;
 pub mod sanitize;
 pub mod source;
+pub mod storage;
 pub mod summarization;
+pub mod temporal; // WIRED: 2026-04-13. 7 temporal perspectives, geometric mean aggregation, outlier detection.
+pub mod usage;
+pub mod verdict_cache;
