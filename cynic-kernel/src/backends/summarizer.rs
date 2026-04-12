@@ -87,6 +87,7 @@ impl SovereignSummarizer {
         messages: Vec<serde_json::Value>,
         temperature: f64,
         max_tokens: u32,
+        request_id: Option<&str>,
     ) -> Result<CompletionResult, BackendError> {
         let body = serde_json::json!({
             "model": self.model,
@@ -101,6 +102,9 @@ impl SovereignSummarizer {
             .header("Content-Type", "application/json");
         if let Some(ref key) = self.api_key {
             req = req.header("Authorization", format!("Bearer {key}"));
+        }
+        if let Some(rid) = request_id {
+            req = req.header("X-Request-Id", rid);
         }
 
         let resp = req.json(&body).send().await.map_err(|e| {
@@ -159,7 +163,7 @@ impl SummarizationPort for SovereignSummarizer {
         ];
 
         let result = self
-            .call_completions(messages, 0.3, 512)
+            .call_completions(messages, 0.3, 512, None)
             .await
             .map_err(|e| match e {
                 BackendError::Timeout { .. } => SummarizationError::Timeout,
@@ -179,14 +183,23 @@ impl SummarizationPort for SovereignSummarizer {
 
 #[async_trait]
 impl InferPort for SovereignSummarizer {
-    async fn infer(&self, request: &InferRequest) -> Result<InferResponse, BackendError> {
+    async fn infer(
+        &self,
+        request: &InferRequest,
+        request_id: Option<&str>,
+    ) -> Result<InferResponse, BackendError> {
         let mut messages = vec![serde_json::json!({"role": "user", "content": request.prompt})];
         if let Some(ref sys) = request.system {
             messages.insert(0, serde_json::json!({"role": "system", "content": sys}));
         }
 
         let result = self
-            .call_completions(messages, request.temperature, request.max_tokens)
+            .call_completions(
+                messages,
+                request.temperature,
+                request.max_tokens,
+                request_id,
+            )
             .await?;
 
         if result.text.is_empty() {

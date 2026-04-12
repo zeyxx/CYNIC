@@ -229,10 +229,11 @@ async fn pipeline_inner(
         content,
         context: enriched_context,
         domain,
+        request_id: deps.request_id.clone(),
     };
     tracing::info!(phase = "evaluate", "dispatching to Dogs");
     let on_dog_ref: Option<&OnDogCallback> = deps.on_dog.as_ref().map(|b| b.as_ref());
-    let verdict = judge
+    let mut verdict = judge
         .evaluate_progressive(&stimulus, dogs_filter, metrics, on_dog_ref)
         .await?;
     metrics.inc_verdict();
@@ -246,6 +247,33 @@ async fn pipeline_inner(
         anomaly = verdict.anomaly_detected,
         "verdict issued"
     );
+
+    // ── K14 GATE: Jury Completeness (missing = degraded) ──
+    // Expected Dogs: 4 (deterministic-dog, qwen-7b-hf, qwen35-9b-gpu, gemma-4b-core)
+    // If Dogs < expected and not explicitly filtered, downgrade verdict to reflect degraded jury.
+    // This prevents silent degradation where missing qwen35 is masked as consensus.
+    let expected_dogs = dogs_filter.map(|f| f.len()).unwrap_or(4);
+    let actual_dogs = verdict.dog_scores.len();
+    if actual_dogs < expected_dogs {
+        // K14: Missing Dogs = unreliable jury. Downgrade verdict kind (HOWL → WAG → GROWL).
+        use crate::domain::dog::VerdictKind;
+        let downgraded = match verdict.kind {
+            VerdictKind::Howl => VerdictKind::Wag,
+            VerdictKind::Wag => VerdictKind::Growl,
+            VerdictKind::Growl => VerdictKind::Bark,
+            VerdictKind::Bark => VerdictKind::Bark, // already minimal
+        };
+        tracing::warn!(
+            phase = "jury_gate",
+            expected = expected_dogs,
+            actual = actual_dogs,
+            missing = expected_dogs - actual_dogs,
+            original_kind = ?verdict.kind,
+            downgraded_kind = ?downgraded,
+            "jury incomplete — downgrading verdict per K14 (missing = degraded)"
+        );
+        verdict.kind = downgraded;
+    }
 
     // ── TEMPORAL PERSPECTIVES (O2: single Dog call for 7 perspectives) ──
     match evaluate_temporal(&stimulus.content) {

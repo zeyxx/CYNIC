@@ -825,6 +825,7 @@ mod tests {
             content: "e4 e5 Nf3".into(),
             context: None,
             domain: Some("chess".into()),
+            request_id: None,
         }
     }
 
@@ -1101,6 +1102,7 @@ mod tests {
             content: "a".repeat(200),
             context: None,
             domain: None,
+            request_id: None,
         };
         let verdict = judge
             .evaluate(&long_stimulus, None, &test_metrics())
@@ -1787,6 +1789,7 @@ mod roster_tests {
             content: "test".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let verdict = swap
             .load_full()
@@ -1824,6 +1827,7 @@ mod roster_tests {
                     content: "test".into(),
                     context: None,
                     domain: None,
+                    request_id: None,
                 },
                 None,
                 &Metrics::new(),

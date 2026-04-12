@@ -146,6 +146,7 @@ impl OpenAiCompatBackend {
         max_tokens: Option<u32>,
         n: Option<u32>,
         disable_thinking: bool,
+        request_id: Option<&str>,
     ) -> Result<ChatCompletionResponse, ChatError> {
         let url = self.build_url("/chat/completions");
         let response_format = if self.config.json_mode {
@@ -175,8 +176,12 @@ impl OpenAiCompatBackend {
             chat_template_kwargs,
         };
 
-        let req = self.client.post(&url).json(&body);
-        let req = self.apply_auth(req);
+        let mut req = self.client.post(&url).json(&body);
+        req = self.apply_auth(req);
+
+        if let Some(rid) = request_id {
+            req = req.header("X-Request-Id", rid);
+        }
 
         let resp = req.send().await.map_err(|e| {
             if e.is_timeout() {
@@ -283,6 +288,7 @@ impl ChatPort for OpenAiCompatBackend {
         system: &str,
         user: &str,
         profile: InferenceProfile,
+        request_id: Option<&str>,
     ) -> Result<ChatResponse, ChatError> {
         let mut messages = Vec::new();
         if !system.is_empty() {
@@ -310,6 +316,7 @@ impl ChatPort for OpenAiCompatBackend {
                 Some(max_tokens),
                 None,
                 should_disable_thinking,
+                request_id,
             )
             .await?;
 

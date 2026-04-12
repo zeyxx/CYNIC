@@ -141,7 +141,12 @@ impl Dog for InferenceDog {
 
         let chat_resp = self
             .chat
-            .chat(system, &user, InferenceProfile::Scoring)
+            .chat(
+                system,
+                &user,
+                InferenceProfile::Scoring,
+                stimulus.request_id.as_deref(),
+            )
             .await
             .map_err(|e| match e {
                 crate::domain::chat::ChatError::RateLimited(m) => DogError::RateLimited(m),
@@ -361,6 +366,7 @@ mod tests {
             content: "e4 e5 Nf3".into(),
             context: Some("Chess opening".into()),
             domain: Some("chess".into()),
+            request_id: None,
         };
         let empty = std::collections::HashMap::new();
         let prompt = InferenceDog::build_user_prompt(&stimulus, &empty);
@@ -380,6 +386,7 @@ mod tests {
             content: "e4 c5 Sicilian".into(),
             context: None,
             domain: Some("chess".into()),
+            request_id: None,
         };
         let mut prompts = std::collections::HashMap::new();
         prompts.insert(
@@ -410,6 +417,7 @@ mod tests {
             content: "The sky is blue.".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
 
         let scores = dog.evaluate(&stimulus).await.unwrap();

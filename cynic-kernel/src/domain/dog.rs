@@ -39,6 +39,9 @@ pub struct Stimulus {
     pub context: Option<String>,
     /// Domain hint for weight adjustment (e.g. "chess", "code", "geopolitics")
     pub domain: Option<String>,
+    /// RC7-2: Distributed tracing identifier propagated from the REST boundary
+    #[serde(default)]
+    pub request_id: Option<String>,
 }
 
 // ── AXIOM SCORES ───────────────────────────────────────────

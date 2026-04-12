@@ -224,6 +224,7 @@ pub async fn judge_async_handler(
         content: req.content.clone(),
         context: req.context.clone(),
         domain: req.domain.clone(),
+        request_id: None,
     };
     let judge = state.judge.load_full();
     let dogs_total = judge
