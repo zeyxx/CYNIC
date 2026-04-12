@@ -224,7 +224,9 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
 pub fn load_storage_config(path: &Path) -> StorageConfig {
     let defaults = StorageConfig::default();
 
-    let from_toml = std::fs::read_to_string(path).ok()
+    let from_toml = std::fs::read_to_string(path)
+        .inspect_err(|e| tracing::warn!(path = %path.display(), error = %e, "storage config: cannot read backends.toml — falling back to env vars"))
+        .ok()
         .and_then(|content| toml::from_str::<BackendsFile>(&content)
             .inspect_err(|e| tracing::warn!(path = %path.display(), error = %e, "backends.toml parse failed — falling back to env vars"))
             .ok())
