@@ -120,6 +120,22 @@ if [[ "$KERNEL_STATUS" != "down" ]]; then
     fi
 fi
 
+# ── TODO injection (continuity: the Dog knows what needs doing) ──
+TODO_FILE="${PROJECT_DIR}/TODO.md"
+if [[ -f "$TODO_FILE" ]]; then
+    # Extract P1 items (unchecked only)
+    P1_ITEMS=$(grep -A1 '## P1' "$TODO_FILE" | grep '^\- \[ \]' | head -5 || true)
+    if [[ -n "$P1_ITEMS" ]]; then
+        echo ""
+        echo "TODO (P1 — do first):"
+        echo "$P1_ITEMS"
+    fi
+    TODO_AGE_DAYS=$(( ( $(date +%s) - $(stat -c %Y "$TODO_FILE") ) / 86400 ))
+    if [[ "$TODO_AGE_DAYS" -gt 3 ]]; then
+        echo "WARNING: TODO.md last updated ${TODO_AGE_DAYS} days ago — review and update."
+    fi
+fi
+
 # ── Dream consolidation check (K15: dream-trigger produces, this consumes) ──
 DREAM_STATE="${HOME}/.claude/projects/-home-user-Bureau-CYNIC/memory/.dream-state"
 if [[ -f "$DREAM_STATE" ]]; then

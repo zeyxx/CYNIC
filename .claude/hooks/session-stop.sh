@@ -63,6 +63,16 @@ if [[ -n "$COMPLIANCE" ]] && echo "$COMPLIANCE" | jq -e '.score' > /dev/null 2>&
         > /dev/null 2>&1 || true
 fi
 
+# ── TODO staleness check (continuity: did this session update the TODO?) ──
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+TODO_FILE="${PROJECT_DIR}/TODO.md"
+if [[ -f "$TODO_FILE" ]]; then
+    TODO_CHANGED=$(git -C "$PROJECT_DIR" diff --name-only -- TODO.md 2>/dev/null || true)
+    if [[ -z "$TODO_CHANGED" ]]; then
+        echo "NOTE: TODO.md not updated this session. Review if any items were completed or discovered."
+    fi
+fi
+
 # ── Rule 4: warn about uncommitted changes (staged + unstaged + untracked) ──
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 DIRTY=$(git -C "$PROJECT_DIR" status --short 2>/dev/null | grep -v '^??' | head -5 || true)
