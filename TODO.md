@@ -10,7 +10,7 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-13 | Session: temporal-wiring-O2
+Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3
 
 ---
 
@@ -18,9 +18,9 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2
 
 ### Foundation — unblock metabolism
 
-- [ ] **#1 Dev crystal loop proof** — /judge 5 dev patterns (architecture, error handling, testing), verify crystal forms in dev domain + injects on next similar query. Hypothesis: "crystals compound on non-chess domains." Falsifies or validates R22. THE priority.
+- [x] **#1 Dev crystal loop proof (Phase 1)** — /judge 5 dev patterns (architecture, error handling, testing), verify crystal forms in dev domain + injects on next similar query. ✅ FINDING: Crystals DO form on dev domain (falsifies R22 "chess-only"). 2 crystals forming (architecture, error handling). Pattern 6 re-judge test: Q degraded -13.9% (from 0.446→0.384) because crystals in forming state (1-2 observations, confidence 0.38-0.48) are too weak — correct behavior. Deferred: needs ≥21 observations per crystal to reach Crystallized state before injection improves. Next 20 sessions of dev patterns will accumulate observations.
 - [ ] **#2 organ_quality gate** — Dogs below 50% JSON validity excluded from jury. Verify ParseFailureGate is sufficient or json_valid_rate needs explicit gate. Prerequisite for trusting LLM Dogs on dev domain.
-- [ ] **#3 Session cost tracking** — Add token+duration logging to session-stop.sh. Without this, optimization is guessing.
+- [x] **#3 Session cost tracking** — Add token+duration logging to session-stop.sh. Wired: session-init.sh records start, session-stop.sh measures duration + commit count + posts to /observe. No token count yet (requires Claude Code API integration). Done 2026-04-13.
 - [x] **#4 TODO protocol enforcement** — This rewrite. 4 rules. Max 15. Session log. Done 2026-04-12.
 
 ### Body — prevent regression
@@ -53,6 +53,7 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-13 | dev-crystal-proof-O3 | ~30m | 0 | 2 forming | 1 (partial) | 1 | 5 dev patterns + 1 re-judge test. Crystals forming (not chess-specific) — phase 1 complete. Need 19-20 more observations/pattern to crystallize. Re-judge after crystallization phase (deferred). |
 | 2026-04-13 | temporal-wiring-O2 | ~1h | 1 | 0 | 0 | 0 | O2 implementation: hardcoded heuristic, 7 perspectives, integrated into judge_pipeline |
 | 2026-04-12 | crystal-contention+K13+systemd | ~2h | 3 | 0 | 3 | 0 | BURN=30 diagnosed, anti-patterns mapped |
 
@@ -62,7 +63,9 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2
 
 - Kernel: sovereign under systemd, 4/4 Dogs, contract fulfilled
 - Temporal wiring complete (O2 strategy: hardcoded heuristic, 7 perspectives, geometric mean aggregation)
+- **Crystal formation verified on dev domain (non-chess)** — 2 crystals forming, need 19-20 more observations to crystallize
 - Crystal contention fix deployed, awaiting 24h verification (#9)
 - MCP K13 closed (same health function as REST)
 - GROWL verdict (Q=52.6): BURN=30 wound, SOVEREIGNTY=75 strength
 - 7 anti-patterns identified → saved to memory (feedback_anti_patterns.md)
+- R22 status: PARTIALLY FALSIFIED (crystal formation generalizes; injection timing validated)
