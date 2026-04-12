@@ -596,7 +596,7 @@ impl CynicMcp {
             temperature,
             max_tokens,
         };
-        let infer_resp = self.infer.infer(&request).await.map_err(|e| {
+        let infer_resp = self.infer.infer(&request, None).await.map_err(|e| {
             tracing::warn!(error = %e, "MCP infer failed");
             sanitize_error("Inference")
         })?;

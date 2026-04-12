@@ -99,7 +99,11 @@ pub struct InferResponse {
 
 #[async_trait]
 pub trait InferPort: Send + Sync {
-    async fn infer(&self, request: &InferRequest) -> Result<InferResponse, BackendError>;
+    async fn infer(
+        &self,
+        request: &InferRequest,
+        request_id: Option<&str>,
+    ) -> Result<InferResponse, BackendError>;
 }
 
 /// Null implementation for graceful degradation when no sovereign LLM available.
@@ -108,7 +112,11 @@ pub struct NullInfer;
 
 #[async_trait]
 impl InferPort for NullInfer {
-    async fn infer(&self, _request: &InferRequest) -> Result<InferResponse, BackendError> {
+    async fn infer(
+        &self,
+        _request: &InferRequest,
+        _request_id: Option<&str>,
+    ) -> Result<InferResponse, BackendError> {
         Err(BackendError::Unreachable(
             "No sovereign LLM available".into(),
         ))

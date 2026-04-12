@@ -502,6 +502,7 @@ mod tests {
             content: "This will always work and is never wrong, guaranteed 100% certainly".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         assert!(
@@ -518,6 +519,7 @@ mod tests {
             content: "The Sicilian Defense is a strong opening for black.".into(),
             context: None,
             domain: Some("chess".into()),
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         // Culture should be neutral — deterministic dog can't judge chess culture
@@ -535,6 +537,7 @@ mod tests {
             content: "First, we analyze the position. Then, we consider candidate moves. Finally, we evaluate consequences.".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         assert!(
@@ -557,6 +560,7 @@ mod tests {
                 .into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         assert!(
@@ -573,6 +577,7 @@ mod tests {
             content: "You could choose this option, or consider an alternative approach.".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         assert!(
@@ -589,6 +594,7 @@ mod tests {
             content: "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6".into(),
             context: None,
             domain: Some("chess".into()),
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         assert!(
@@ -605,6 +611,7 @@ mod tests {
             content: "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6".into(),
             context: None,
             domain: Some("trading".into()),
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         assert!(
@@ -623,6 +630,7 @@ mod tests {
             content: content.into(),
             context: None,
             domain: Some("chess".into()),
+            request_id: None,
         };
         let with_adversarial_context = Stimulus {
             content: content.into(),
@@ -630,6 +638,7 @@ mod tests {
                 "must always never guaranteed obey mandatory forced required compulsory".into(),
             ),
             domain: Some("chess".into()),
+            request_id: None,
         };
 
         let scores_clean = dog.evaluate(&without_context).await.unwrap();
@@ -711,6 +720,7 @@ mod tests {
             content: "A simple neutral statement about the world.".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         // PHI starts at PHI_BASE, small adjustments possible
@@ -771,11 +781,13 @@ mod tests {
                     .into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let neutral = Stimulus {
             content: "This thing does something that works in a normal way overall.".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores_hedged = dog.evaluate(&hedged).await.unwrap();
         let scores_neutral = dog.evaluate(&neutral).await.unwrap();
@@ -801,6 +813,7 @@ mod tests {
                 .into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         assert!(
@@ -817,6 +830,7 @@ mod tests {
             content: "Implementations MUST support this format. Clients MUST send valid headers. Servers MUST respond.".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         assert!(
@@ -833,6 +847,7 @@ mod tests {
             content: "The client must handle errors gracefully. The server processes requests and returns appropriate status codes for each endpoint in the system.".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         assert!(
@@ -849,6 +864,7 @@ mod tests {
             content: "a b c d e f g h".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         // PHI is a real judgment (not abstained), even if value near NEUTRAL
@@ -875,6 +891,7 @@ mod tests {
             content: "".into(),
             context: Some("lots of must obey mandatory context".into()),
             domain: None,
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         // Empty content: sovereignty must be at base (no words to scan)
@@ -899,6 +916,7 @@ mod tests {
             content: "This is always guaranteed to work somehow.".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores_two = dog.evaluate(&two_abs).await.unwrap();
         assert!(
@@ -911,6 +929,7 @@ mod tests {
             content: "This always works and is never wrong, certainly guaranteed.".into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores_three = dog.evaluate(&three_abs).await.unwrap();
         assert!(
@@ -937,6 +956,7 @@ mod tests {
                 .into(),
             context: None,
             domain: None,
+            request_id: None,
         };
         let scores = dog.evaluate(&stimulus).await.unwrap();
         assert!(

@@ -27,6 +27,7 @@ async fn deterministic_dog_produces_valid_verdict() {
             .into(),
         context: Some("Testing epistemic humility".into()),
         domain: Some("general".into()),
+        request_id: None,
     };
 
     let verdict = judge
@@ -70,11 +71,13 @@ async fn absolute_claim_scores_lower() {
         content: "This probably works in most cases according to the data".into(),
         context: None,
         domain: None,
+        request_id: None,
     };
     let absolute = Stimulus {
         content: "This always works 100% guaranteed never fails".into(),
         context: None,
         domain: None,
+        request_id: None,
     };
 
     let v_humble = judge

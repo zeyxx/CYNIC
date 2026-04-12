@@ -82,6 +82,7 @@ pub trait ChatPort: BackendPort {
         system: &str,
         user: &str,
         profile: InferenceProfile,
+        request_id: Option<&str>,
     ) -> Result<ChatResponse, ChatError>;
 }
 
@@ -125,6 +126,7 @@ impl ChatPort for MockChatBackend {
         _system: &str,
         _user: &str,
         _profile: InferenceProfile,
+        _request_id: Option<&str>,
     ) -> Result<ChatResponse, ChatError> {
         if let Some(ref err) = self.force_error {
             return Err(err.clone());

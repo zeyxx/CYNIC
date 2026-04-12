@@ -392,6 +392,7 @@ pub async fn register_dog_handler(
         content: "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 — Ruy Lopez opening in chess.".into(),
         context: None,
         domain: Some("chess".into()),
+        request_id: None,
     };
 
     let scores = tokio::time::timeout(

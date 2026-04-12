@@ -15,6 +15,7 @@ async fn dog_contract(dog: &dyn Dog) {
         content: "The Earth orbits the Sun, based on centuries of astronomical observation.".into(),
         context: None,
         domain: Some("science".into()),
+        request_id: None,
     };
 
     let result = dog.evaluate(&stimulus).await;
@@ -37,10 +38,12 @@ async fn dog_contract(dog: &dyn Dog) {
                 scores.verify
             );
         }
-        Err(DogError::ApiError(_)) => {}    // acceptable
-        Err(DogError::ParseError(_)) => {}  // acceptable
-        Err(DogError::RateLimited(_)) => {} // acceptable
-        Err(DogError::Timeout) => {}        // acceptable
+        Err(DogError::ApiError(_)) => {}             // acceptable
+        Err(DogError::ParseError(_)) => {}           // acceptable
+        Err(DogError::ZeroFlood(_)) => {}            // acceptable
+        Err(DogError::DegenerateScores { .. }) => {} // acceptable
+        Err(DogError::RateLimited(_)) => {}          // acceptable
+        Err(DogError::Timeout) => {}                 // acceptable
     }
 }
 
