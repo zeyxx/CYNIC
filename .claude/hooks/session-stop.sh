@@ -63,6 +63,37 @@ if [[ -n "$COMPLIANCE" ]] && echo "$COMPLIANCE" | jq -e '.score' > /dev/null 2>&
         > /dev/null 2>&1 || true
 fi
 
+# ── Rule 3: Session cost tracking (duration, commits, context size) ──
+SESSION_STATE_DIR="/tmp/cynic-sessions"
+SESSION_STATE_FILE="${SESSION_STATE_DIR}/${AGENT_ID}.state"
+SESSION_COST=""
+if [[ -f "$SESSION_STATE_FILE" ]]; then
+    source "$SESSION_STATE_FILE" 2>/dev/null || true
+    if [[ -n "${session_start:-}" ]]; then
+        SESSION_END=$(date +%s)
+        SESSION_DURATION=$((SESSION_END - session_start))
+        SESSION_MINUTES=$((SESSION_DURATION / 60))
+
+        # Commit count (via git log)
+        PROJECT_DIR="${project_dir:-.}"
+        COMMITS_THIS_SESSION=$(git -C "$PROJECT_DIR" rev-list --since="${session_start}" --until="${SESSION_END}" --count HEAD 2>/dev/null || echo 0)
+
+        # Context: estimate from git object count delta (rough signal)
+        # Real token usage would need Claude Code API integration (future)
+        SESSION_COST="duration_sec=${SESSION_DURATION} duration_min=${SESSION_MINUTES} commits=${COMMITS_THIS_SESSION}"
+
+        # POST cost metrics to /observe (K15 consumer)
+        curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+            -H "Content-Type: application/json" \
+            ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+            -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"session_cost\",\"target\":\"session_end\",\"domain\":\"general\",\"context\":\"${SESSION_COST}\"}" \
+            > /dev/null 2>&1 || true
+
+        echo "Session cost: ${SESSION_MINUTES}min, ${COMMITS_THIS_SESSION} commits"
+        rm -f "$SESSION_STATE_FILE"  # Clean up after measuring
+    fi
+fi
+
 # ── TODO staleness check (continuity: did this session update the TODO?) ──
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 TODO_FILE="${PROJECT_DIR}/TODO.md"

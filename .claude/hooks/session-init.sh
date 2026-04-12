@@ -70,6 +70,16 @@ else
     AGENT_ID="claude-$(date +%s)"
 fi
 
+# ── Session cost tracking (Rule 3: measure baseline) ──
+SESSION_STATE_DIR="/tmp/cynic-sessions"
+mkdir -p "$SESSION_STATE_DIR"
+SESSION_STATE_FILE="${SESSION_STATE_DIR}/${AGENT_ID}.state"
+cat > "$SESSION_STATE_FILE" << STATE_EOF
+agent_id=${AGENT_ID}
+session_start=$(date +%s)
+project_dir=${PROJECT_DIR}
+STATE_EOF
+
 # ── Auto-register agent via REST (hard enforcement, not hope) ──
 REGISTER_STATUS="skipped"
 if [[ "$KERNEL_STATUS" != "down" ]]; then
