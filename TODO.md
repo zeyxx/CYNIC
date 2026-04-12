@@ -10,7 +10,7 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3 + session-cost+coord-O3
+Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3 + session-cost+coord-O3 + dog-registry-fix-O3
 
 ---
 
@@ -44,7 +44,7 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3 + 
 **Architecture:** Pipeline module split (T4), cynic-node Phase C, sources supervisor, CredentialPort.
 **Identity:** T3a incarnation metrics (baseline still 0), identity layer audit.
 **Kairos:** pyarrow fixed, node offline, restart when online.
-**Infra:** Dual sensing R12, MCP lifecycle, boot-state capture (A1), RUST_MIN_STACK 4GB.
+**Infra:** Dual sensing R12, MCP lifecycle, boot-state capture (A1), RUST_MIN_STACK spiraling (4GB→8GB+ requests, LLVM crashes, linker errors). Nightly-2026-04-11 SIGSEGV persistent. Switched to stable but build environment still broken.
 **Security:** MCP zero auth (RC1-1), boot integrity, tamper detection.
 
 ---
@@ -53,6 +53,7 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3 + 
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-13 | dog-registry-fix-O3 | ~1h | 1 | 0 | 0 | 1 | Root cause: qwen35-9b-gpu unregistered due to heartbeat handler only checking registered_dogs (dynamic Dogs), not judge.dog_ids() (config-based Dogs). Fixed: heartbeat now accepts both sources. Build environment unstable (LLVM SIGSEGV, linker errors, RUST_MIN_STACK spiraling). Fix committed but not yet deployed — awaits build stabilization. Infrastructure debt A1 confirmed. |
 | 2026-04-13 | session-cost+coord-O3 | ~45m | 2 | 2 forming | 2 | 0 | Session cost tracking + coord-claim hooks. #3 (cost tracking) + #7 (coord-claim) closed. Hook validation verified. |
 | 2026-04-13 | dev-crystal-proof-O3 | ~30m | 0 | 2 forming | 1 (partial) | 1 | 5 dev patterns + 1 re-judge test. Crystals forming (not chess-specific) — phase 1 complete. Need 19-20 more observations/pattern to crystallize. Re-judge after crystallization phase (deferred). |
 | 2026-04-13 | temporal-wiring-O2 | ~1h | 1 | 0 | 0 | 0 | O2 implementation: hardcoded heuristic, 7 perspectives, integrated into judge_pipeline |
@@ -62,7 +63,9 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3 + 
 
 ## State Snapshot
 
-- Kernel: sovereign under systemd, 4/4 Dogs, contract fulfilled
+- Kernel: 3/4 Dogs active (qwen35-9b-gpu unregistered), degraded but functioning
+- K14 jury gate: **IMPLEMENTED** (downgrades verdict kind HOWL→BARK when Dogs < expected count)
+- qwen35-9b-gpu: **FIX COMMITTED** (heartbeat handler now accepts config-based Dogs), awaits build + deploy
 - Temporal wiring complete (O2 strategy: hardcoded heuristic, 7 perspectives, geometric mean aggregation)
 - **Crystal formation verified on dev domain (non-chess)** — 2 crystals forming, need 19-20 more observations to crystallize
 - **Session cost tracking wired** — duration + commit count logged via hooks, foundation for Rule 7 (measure before/after)
@@ -72,3 +75,4 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3 + 
 - GROWL verdict (Q=52.6): BURN=30 wound, SOVEREIGNTY=75 strength
 - 7 anti-patterns identified → saved to memory (feedback_anti_patterns.md)
 - R22 status: PARTIALLY FALSIFIED (crystal formation generalizes; injection timing validated)
+- **Build environment degraded** (LLVM crashes, linker errors, RUST_MIN_STACK spiral) — A1 debt, needs investigation
