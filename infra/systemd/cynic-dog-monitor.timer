@@ -1,0 +1,11 @@
+[Unit]
+Description=CYNIC Dog Health Monitor — every 30 seconds
+PartOf=cynic.target
+
+[Timer]
+OnBootSec=10s
+OnUnitActiveSec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

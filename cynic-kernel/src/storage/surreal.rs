@@ -285,24 +285,6 @@ impl StoragePort for SurrealHttpStorage {
         activity::list_observations_raw(self, domain, agent_id, limit).await
     }
 
-    async fn store_infra_snapshot(
-        &self,
-        snap: &crate::domain::probe::EnvironmentSnapshot,
-    ) -> Result<(), StorageError> {
-        ops::store_infra_snapshot(self, snap).await
-    }
-
-    async fn list_infra_snapshots(
-        &self,
-        hours: u32,
-    ) -> Result<Vec<crate::domain::probe::EnvironmentSnapshot>, StorageError> {
-        ops::list_infra_snapshots(self, hours).await
-    }
-
-    async fn cleanup_infra_snapshots(&self, older_than_days: u32) -> Result<u64, StorageError> {
-        ops::cleanup_infra_snapshots(self, older_than_days).await
-    }
-
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
         maintenance::consolidate_duplicate_crystals(self).await
     }

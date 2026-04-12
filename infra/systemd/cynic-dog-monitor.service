@@ -1,0 +1,12 @@
+[Unit]
+Description=CYNIC Dog Health Monitor — K15 Acting Consumer
+After=cynic-kernel.service
+PartOf=cynic.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/Bureau/CYNIC/infra/systemd/dog-health-monitor.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cynic-dog-monitor
+EnvironmentFile=%h/.config/cynic/env

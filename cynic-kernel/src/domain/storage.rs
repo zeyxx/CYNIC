@@ -337,26 +337,6 @@ pub trait StoragePort: Send + Sync {
         Ok(vec![]) // Default: no history (K14: starts pessimistic)
     }
 
-    // ── Infrastructure snapshots (probe system) ──────────────
-
-    async fn store_infra_snapshot(
-        &self,
-        _snap: &crate::domain::probe::EnvironmentSnapshot,
-    ) -> Result<(), StorageError> {
-        Ok(())
-    }
-
-    async fn list_infra_snapshots(
-        &self,
-        _hours: u32,
-    ) -> Result<Vec<crate::domain::probe::EnvironmentSnapshot>, StorageError> {
-        Ok(vec![])
-    }
-
-    async fn cleanup_infra_snapshots(&self, _older_than_days: u32) -> Result<u64, StorageError> {
-        Ok(0)
-    }
-
     /// Consolidate duplicate crystals — find crystals with identical (domain, content),
     /// merge observation counts and confidence into the survivor (most observations),
     /// delete duplicates. Returns number of duplicates removed.

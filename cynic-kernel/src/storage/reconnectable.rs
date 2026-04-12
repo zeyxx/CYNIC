@@ -275,23 +275,6 @@ impl StoragePort for ReconnectableStorage {
     ) -> Result<Vec<(String, crate::organ::health::DogStats)>, StorageError> {
         self.current().load_dog_stats().await
     }
-    async fn store_infra_snapshot(
-        &self,
-        snap: &crate::domain::probe::EnvironmentSnapshot,
-    ) -> Result<(), StorageError> {
-        self.current().store_infra_snapshot(snap).await
-    }
-    async fn list_infra_snapshots(
-        &self,
-        hours: u32,
-    ) -> Result<Vec<crate::domain::probe::EnvironmentSnapshot>, StorageError> {
-        self.current().list_infra_snapshots(hours).await
-    }
-    async fn cleanup_infra_snapshots(&self, older_than_days: u32) -> Result<u64, StorageError> {
-        self.current()
-            .cleanup_infra_snapshots(older_than_days)
-            .await
-    }
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
         self.current().consolidate_duplicate_crystals().await
     }
