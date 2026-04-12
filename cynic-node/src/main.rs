@@ -272,7 +272,7 @@ fn build_registration_payload(cfg: &Config) -> serde_json::Value {
     let mut payload = serde_json::json!({
         "name":         cfg.dog.name,
         "model":        cfg.dog.model,
-        "endpoint":     cfg.dog.base_url,
+        "base_url":     cfg.dog.base_url,
         "context_size": cfg.dog.context_size,
         "timeout_secs": cfg.dog.timeout_secs,
     });
