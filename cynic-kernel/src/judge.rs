@@ -409,20 +409,19 @@ impl Judge {
                 }
                 Err(ref e) => {
                     // ApiError = backend unreachable/protocol error. Trips CB.
-                    // ParseError = backend returned garbage (e.g., HTML, malformed JSON).
-                    //   Repeated parse errors (3+) trip CB — stops wasting time/money.
+                    // ParseError/ZeroFlood/Degenerate = backend returned garbage. Trips CB.
                     // RateLimited/Timeout = backend is alive, just congested. Does NOT trip CB.
                     match e {
-                        DogError::ApiError(_) | DogError::ParseError(_) => cb.record_failure(),
+                        DogError::ApiError(_) | DogError::ParseError(_) | DogError::ZeroFlood(_) | DogError::DegenerateScores { .. } => cb.record_failure(),
                         _ => cb.record_success(),
                     }
                     // Organ: classify failure kind for health tracking.
                     if let Some(h) = organ_handle {
                         let outcome = match e {
-                            DogError::ParseError(msg) if msg.contains("zero flood") => {
+                            DogError::ZeroFlood(_) => {
                                 ScoreOutcome::Failure(ScoreFailureKind::ZeroFlood)
                             }
-                            DogError::ParseError(msg) if msg.contains("degenerate scores") => {
+                            DogError::DegenerateScores { .. } => {
                                 ScoreOutcome::Failure(ScoreFailureKind::Collapse)
                             }
                             DogError::ParseError(_) => {
@@ -741,7 +740,9 @@ impl From<&DogError> for DogFailureKind {
     fn from(e: &DogError) -> Self {
         match e {
             DogError::ApiError(_) => Self::ApiError,
-            DogError::ParseError(_) => Self::ParseError,
+            DogError::ParseError(_)
+            | DogError::ZeroFlood(_)
+            | DogError::DegenerateScores { .. } => Self::ParseError,
             DogError::RateLimited(_) => Self::RateLimited,
             DogError::Timeout => Self::Timeout,
         }

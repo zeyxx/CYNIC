@@ -146,7 +146,15 @@ pub async fn health_handler(
         })
         .collect();
 
-    let usage = state.usage.lock().await;
+    let (total_requests, total_tokens, estimated_cost_usd, uptime_seconds) = {
+        let usage = state.usage.lock().await;
+        (
+            usage.all_time_requests(),
+            usage.total_tokens(),
+            usage.estimated_cost_usd(),
+            usage.uptime_seconds(),
+        )
+    };
 
     // Proprioception: crystal state summary (best-effort, non-blocking)
     let crystal_summary = match tokio::time::timeout(
@@ -216,10 +224,10 @@ pub async fn health_handler(
             "chain_verified": state.chain_verified.load(std::sync::atomic::Ordering::Relaxed),
             "verdict_cache_size": state.verdict_cache.len(),
             "background_tasks": state.task_health.snapshot(),
-            "total_requests": usage.all_time_requests(),
-            "total_tokens": usage.total_tokens(),
-            "estimated_cost_usd": usage.estimated_cost_usd(),
-            "uptime_seconds": usage.uptime_seconds(),
+            "total_requests": total_requests,
+            "total_tokens": total_tokens,
+            "estimated_cost_usd": estimated_cost_usd,
+            "uptime_seconds": uptime_seconds,
             "alerts": state.introspection_alerts.read()
                 .map(|a| a.clone())
                 .unwrap_or_else(|e| {

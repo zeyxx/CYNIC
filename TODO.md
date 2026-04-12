@@ -27,8 +27,8 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3
 
 - [ ] **#5 Crystal challenge mechanism** — Background task re-judges oldest crystallized crystals without injection. If Q-Score delta > φ⁻², dissolve. Prevents crystal poison (DEBT-A2: content write-once, no contradiction detection).
 - [ ] **#6 Greffe 3: alerting consumer** — ContractDelta { fulfilled: false } → Slack message. K15: structured log only is not "acting."
-- [ ] **#7 Coord: sessions register + claim** — Verify coord-claim hook. Both sessions appear in /coord/who. Live proof of gap: other session edited pipeline/mod.rs without claim.
-- [ ] **#8 Wire or delete K15 dead-ends** — Triage 3 orphan producers: store_infra_snapshot, session_summaries, dream_counter. Wire acting consumer OR delete producer.
+- [x] **#7 Coord: sessions register + claim** — Verify coord-claim hook. ✅ FINDING: protect-files.sh and coord-claim.sh hooks were registered in settings.json but scripts missing (K5 violation). Created both hooks + validated. /coord/claim API working. Both sessions should now appear in /coord/who. Hooks live-reload script changes (not new entries). Done 2026-04-13.
+- [ ] **#8 Wire or delete K15 dead-ends** — Triage 3 orphan producers: store_infra_snapshot, session_summaries, dream_counter. Wire acting consumer OR delete producer. Note: protect-files.sh was dead architecture (K5) — now wired (hooks in settings.json).
 
 ### Verify — measure what changed
 
