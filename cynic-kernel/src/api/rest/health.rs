@@ -10,7 +10,7 @@ use std::sync::Arc;
 use super::response::coordination_error;
 use super::types::{AppState, DogHealthResponse, ErrorResponse};
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
-use crate::domain::health_gate::{count_healthy_dogs, system_health_assessment};
+use crate::domain::health_gate::{count_healthy_dogs, system_health_assessment_with_contract};
 
 pub async fn dogs_handler(State(state): State<Arc<AppState>>) -> Json<Vec<String>> {
     Json(state.judge.load_full().dog_ids())
@@ -26,7 +26,8 @@ pub async fn liveness_handler() -> StatusCode {
 /// F22: Caches DB ping result (30s TTL) to avoid hammering storage on every probe.
 /// Dog health is O(1) (reads circuit breaker state) — no caching needed.
 pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode {
-    let dog_health = state.judge.load_full().dog_health();
+    let judge = state.judge.load_full();
+    let dog_health = judge.dog_health();
     let (healthy_dogs, total_dogs) = count_healthy_dogs(&dog_health);
     let storage_ok = match state.ready_cache.get() {
         Some(cached) => cached,
@@ -36,15 +37,18 @@ pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode
             ok
         }
     };
+    let live_dog_ids = judge.dog_ids();
+    let contract_delta = state.system_contract.assess(&live_dog_ids);
     let probes_degraded =
         crate::domain::probe::EnvironmentSnapshot::is_degraded(&state.environment);
     let stale_tasks = state.task_health.readiness_stale_tasks();
-    let assessment = system_health_assessment(
+    let assessment = system_health_assessment_with_contract(
         healthy_dogs,
         total_dogs,
         storage_ok,
         probes_degraded,
         &stale_tasks,
+        Some(&contract_delta),
     );
     if assessment.healthy {
         StatusCode::OK
@@ -75,15 +79,20 @@ pub async fn health_handler(
 
     let storage_ok = state.storage.ping().await.is_ok();
 
+    // Self-model: compare contract against live roster
+    let live_dog_ids = judge.dog_ids();
+    let contract_delta = state.system_contract.assess(&live_dog_ids);
+
     let probes_degraded =
         crate::domain::probe::EnvironmentSnapshot::is_degraded(&state.environment);
     let stale_tasks = state.task_health.readiness_stale_tasks();
-    let readiness = system_health_assessment(
+    let readiness = system_health_assessment_with_contract(
         healthy_dogs,
         total_dogs,
         storage_ok,
         probes_degraded,
         &stale_tasks,
+        Some(&contract_delta),
     );
     let http_code = if readiness.healthy {
         StatusCode::OK
@@ -186,6 +195,13 @@ pub async fn health_handler(
             "embedding": if tokio::time::timeout(std::time::Duration::from_secs(2), state.embedding.embed("h")).await.map(|r| r.is_ok()).unwrap_or(false) { "sovereign" } else { "unavailable" },
             "crystals": crystal_summary,
             "organ_quality": organ_quality,
+            "contract": {
+                "expected_dogs": state.system_contract.expected_dogs(),
+                "expected_count": state.system_contract.expected_count(),
+                "missing_dogs": &contract_delta.missing,
+                "unexpected_dogs": &contract_delta.unexpected,
+                "fulfilled": contract_delta.fulfilled,
+            },
             "readiness": {
                 "status": readiness.status,
                 "healthy": readiness.healthy,

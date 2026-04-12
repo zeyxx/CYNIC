@@ -67,6 +67,9 @@ pub struct AppState {
     pub registered_dogs: Arc<std::sync::RwLock<HashMap<String, RegisteredDog>>>,
     /// D4: In-memory store for async judge jobs — progressive Dog arrival polling.
     pub judge_jobs: Arc<JudgeJobStore>,
+    /// Self-model: expected system state loaded from backends.toml at boot.
+    /// Compared against live roster in /health to detect missing Dogs.
+    pub system_contract: crate::domain::contract::SystemContract,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
