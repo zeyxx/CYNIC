@@ -10,11 +10,11 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3
+Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3 + session-cost+coord-O3
 
 ---
 
-## Active (10/15)
+## Active (9/15)
 
 ### Foundation — unblock metabolism
 
@@ -53,6 +53,7 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-13 | session-cost+coord-O3 | ~45m | 2 | 2 forming | 2 | 0 | Session cost tracking + coord-claim hooks. #3 (cost tracking) + #7 (coord-claim) closed. Hook validation verified. |
 | 2026-04-13 | dev-crystal-proof-O3 | ~30m | 0 | 2 forming | 1 (partial) | 1 | 5 dev patterns + 1 re-judge test. Crystals forming (not chess-specific) — phase 1 complete. Need 19-20 more observations/pattern to crystallize. Re-judge after crystallization phase (deferred). |
 | 2026-04-13 | temporal-wiring-O2 | ~1h | 1 | 0 | 0 | 0 | O2 implementation: hardcoded heuristic, 7 perspectives, integrated into judge_pipeline |
 | 2026-04-12 | crystal-contention+K13+systemd | ~2h | 3 | 0 | 3 | 0 | BURN=30 diagnosed, anti-patterns mapped |
@@ -64,6 +65,8 @@ Last updated: 2026-04-13 | Session: temporal-wiring-O2 + dev-crystal-proof-O3
 - Kernel: sovereign under systemd, 4/4 Dogs, contract fulfilled
 - Temporal wiring complete (O2 strategy: hardcoded heuristic, 7 perspectives, geometric mean aggregation)
 - **Crystal formation verified on dev domain (non-chess)** — 2 crystals forming, need 19-20 more observations to crystallize
+- **Session cost tracking wired** — duration + commit count logged via hooks, foundation for Rule 7 (measure before/after)
+- **Coord-claim hooks operational** — protect-files.sh + coord-claim.sh auto-enforce file claims (K5 debt resolved)
 - Crystal contention fix deployed, awaiting 24h verification (#9)
 - MCP K13 closed (same health function as REST)
 - GROWL verdict (Q=52.6): BURN=30 wound, SOVEREIGNTY=75 strength
