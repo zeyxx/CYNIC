@@ -44,6 +44,10 @@ Last updated: 2026-04-12 | Session: crystal-contention + K13 + systemd
 - [x] **MCP health uses contract** — fixed 2026-04-12. MCP cynic_health now uses same `system_health_assessment_with_contract` as REST /health. K13 closed.
 - [ ] **Greffe 3: alerting consumer** — ContractDelta { fulfilled: false } → Slack or crystal alert. Current consumer is structured log only.
 
+## P2 — Architecture Clarity (cosmetic, P3 priority)
+
+- [ ] **T4: Pipeline module split** — Extract pipeline/consensus.rs + pipeline/observer.rs from pipeline/mod.rs (5 functions). Improves onboarding, zero reliability impact. Defer 1-2 sessions.
+
 ## P3 — Polish + Verify
 
 - [x] **Replace observe-tool.sh with type: "http" hook** — DEFERRED 2026-04-12. Requires kernel-side /observe to accept raw PostToolUse hook JSON. Current async:true already non-blocking (~50ms spawn overhead).
@@ -64,10 +68,21 @@ Each session:
 
 ## Context for Next Session
 
-- **Crystal contention fixed**: skip redundant HNSW writes for existing crystals + backfill rate-limited. Monitor SurrealDB logs for compaction conflicts (should drop from 176/24h to near zero).
-- **K13 closed**: MCP + REST use same `system_health_assessment_with_contract`. Both report contract delta.
-- **Kernel under systemd**: `cynic-kernel.service` active, 4/4 Dogs sovereign. New binary deployed with crystal contention fix + MCP K13 fix.
-- **Greffe 2 complete** (2096e05). Greffe 3 (alerting consumer for ContractDelta) still open.
+**SoC Audit Crystallized (2026-04-12):**
+- **T1: Cancellation tokens** ✓ Implemented (637b43b+). All spawns listen to shutdown token. Measurement test needed: verify kernel exits <5s.
+- **T2: Config async leak** ✓ Fixed (validate_config moved to background). Boot <100ms measurable benefit with unreachable backends.
+- **T3a: Storage access** ✓ Measured. 20 direct calls not K3 violation (infrastructure CRUD ≠ pipeline logic). Acceptable pattern.
+- **T3b: Unwrap/expect** ✓ Measured. 78 total; all test/build (no request-path panic). Acceptable pattern.
+- **T4: Pipeline clarity** Deferred (cosmetic, low priority).
+
+**Organic priorities (next session):**
+1. Crystal contention fix: skip redundant HNSW writes + backfill rate-limited (788c6d6, 2026-04-12)
+2. Kernel systemd migration (already done, 2026-04-12)
+3. Measurements: shutdown latency (<5s), boot latency with unreachable backends (<100ms)
+4. Kairos pyarrow fix (15min, unblock snapshot service)
+
+- **K13 closed**: MCP + REST use same `system_health_assessment_with_contract`. Both report contract delta (f93dd9c, 2026-04-12).
+- **Greffe 2 complete** (2096e05). Greffe 3 (alerting consumer for ContractDelta) → Slack alert on contract gap.
 - **69 open items mapped** across 6 categories (TODO, Findings Tracker, code TODOs, arch debt, practice gaps, K15 violations). Deduplicated to ~26 distinct items across 6 tiers.
 - **R22 elephant**: 1261 dev sessions → 0 dev wisdom crystals. Crystal pipeline only compounds chess. This is the compound loop's falsification test.
 - json_mode=true in backends.toml for qwen35 — now active (kernel restarted).
