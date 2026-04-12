@@ -1,0 +1,34 @@
+# cynic-node: qwen35-9b-gpu supervisor on <TAILSCALE_GPU>:8081
+# Phase B: auto-spawned, supervised, heartbeating to kernel
+
+[kernel]
+url = "http://100.74.31.10:3030"
+api_key_env = "CYNIC_API_KEY"
+heartbeat_interval_secs = 40
+
+[dog]
+name = "qwen35-9b-gpu"
+model = "Qwen3.5-9B-Q4_K_M.gguf"
+# base_url MUST be reachable FROM THE KERNEL, use Tailscale IP
+base_url = "http://100.119.192.107:8081/v1"
+context_size = 131072
+timeout_secs = 60
+
+[process]
+# Supervise llama-server on port 8081
+command = ["llama-server", "-m", "/models/Qwen3.5-9B-Q4_K_M.gguf", "--port", "8081", "--ctx-size", "131072"]
+working_dir = "/opt/models"
+stop_timeout_secs = 10
+
+[restart]
+max_attempts = 5
+initial_delay_secs = 2
+max_delay_secs = 120
+min_uptime_secs = 10
+
+[health]
+interval_secs = 15
+verify_interval_secs = 60
+timeout_secs = 5
+max_failures = 3
+startup_timeout_secs = 120
