@@ -5,6 +5,7 @@
 //! Handlers call this, then format the response for their transport.
 
 mod crystal_observer;
+mod temporal_eval;
 
 use crate::domain::ccm;
 use crate::domain::dog::{Stimulus, Verdict};
@@ -23,6 +24,7 @@ use tokio::sync::Mutex;
 use tracing::Instrument;
 
 use crystal_observer::observe_crystal_for_verdict;
+use temporal_eval::evaluate_temporal;
 
 /// Result of the judge pipeline — everything a handler needs to build its response.
 #[derive(Debug)]
@@ -244,6 +246,23 @@ async fn pipeline_inner(
         anomaly = verdict.anomaly_detected,
         "verdict issued"
     );
+
+    // ── TEMPORAL PERSPECTIVES (O2: single Dog call for 7 perspectives) ──
+    match evaluate_temporal(&stimulus.content) {
+        Ok(temporal_verdict) => {
+            tracing::info!(
+                phase = "temporal",
+                perspectives_count = temporal_verdict.perspectives.len(),
+                temporal_total = %format!("{:.3}", temporal_verdict.temporal_total),
+                outlier = ?temporal_verdict.outlier_perspective,
+                divergence = %format!("{:.3}", temporal_verdict.max_divergence),
+                "temporal evaluation complete"
+            );
+        }
+        Err(e) => {
+            tracing::warn!(phase = "temporal", error = %e, "temporal evaluation failed — continuing without temporal perspective");
+        }
+    }
 
     // ── EMIT EVENT (best-effort — no subscribers = no-op) ──
     if let Some(tx) = event_tx {

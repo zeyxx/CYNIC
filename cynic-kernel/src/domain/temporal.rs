@@ -5,8 +5,8 @@
 //! Novel: no existing system evaluates through temporal perspectives
 //! with phi-bounded confidence and geometric mean aggregation.
 
-use serde::{Deserialize, Serialize};
 use crate::domain::dog::{AxiomScores, phi_bound};
+use serde::{Deserialize, Serialize};
 
 /// The 7 temporal perspectives — irreducible set.
 /// Each sees the stimulus through a different time lens.
@@ -43,13 +43,27 @@ impl TemporalPerspective {
     /// Human-readable description for prompt construction.
     pub fn description(&self) -> &'static str {
         match self {
-            Self::Past => "Evaluate through PAST: What historical context and precedent inform this? What happened before in similar situations?",
-            Self::Present => "Evaluate through PRESENT: What is the current state? What is immediately true right now?",
-            Self::Future => "Evaluate through FUTURE: What are the likely consequences? Where does this lead?",
-            Self::Cycle => "Evaluate through CYCLE: Has this pattern occurred before? Is this a recurring phenomenon?",
-            Self::Trend => "Evaluate through TREND: What is the trajectory? Is this accelerating, decelerating, or stable?",
-            Self::Emergence => "Evaluate through EMERGENCE: What new thing is appearing here that hasn't been seen before?",
-            Self::Transcendence => "Evaluate through TRANSCENDENCE: What deeper truth does this reveal beyond the immediate facts?",
+            Self::Past => {
+                "Evaluate through PAST: What historical context and precedent inform this? What happened before in similar situations?"
+            }
+            Self::Present => {
+                "Evaluate through PRESENT: What is the current state? What is immediately true right now?"
+            }
+            Self::Future => {
+                "Evaluate through FUTURE: What are the likely consequences? Where does this lead?"
+            }
+            Self::Cycle => {
+                "Evaluate through CYCLE: Has this pattern occurred before? Is this a recurring phenomenon?"
+            }
+            Self::Trend => {
+                "Evaluate through TREND: What is the trajectory? Is this accelerating, decelerating, or stable?"
+            }
+            Self::Emergence => {
+                "Evaluate through EMERGENCE: What new thing is appearing here that hasn't been seen before?"
+            }
+            Self::Transcendence => {
+                "Evaluate through TRANSCENDENCE: What deeper truth does this reveal beyond the immediate facts?"
+            }
         }
     }
 
@@ -112,7 +126,8 @@ pub fn aggregate_temporal(scores: &[TemporalScore]) -> TemporalVerdict {
 
     // Find outlier perspective (max divergence from consensus)
     let mean_q: f64 = scores.iter().map(|s| s.q_total).sum::<f64>() / n;
-    let (outlier, max_div) = scores.iter()
+    let (outlier, max_div) = scores
+        .iter()
         .map(|s| (s.perspective, (s.q_total - mean_q).abs()))
         .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
         .unwrap_or((TemporalPerspective::Present, 0.0));
@@ -120,7 +135,11 @@ pub fn aggregate_temporal(scores: &[TemporalScore]) -> TemporalVerdict {
     TemporalVerdict {
         perspectives: scores.to_vec(),
         temporal_total,
-        outlier_perspective: if max_div > crate::domain::dog::PHI_INV2 { Some(outlier) } else { None },
+        outlier_perspective: if max_div > crate::domain::dog::PHI_INV2 {
+            Some(outlier)
+        } else {
+            None
+        },
         max_divergence: max_div,
     }
 }
@@ -129,18 +148,27 @@ pub fn aggregate_temporal(scores: &[TemporalScore]) -> TemporalVerdict {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::dog::{AxiomReasoning, compute_qscore, PHI_INV};
+    use crate::domain::dog::{AxiomReasoning, PHI_INV, compute_qscore};
 
     // ucb1_phi removed — MCTS exploration is not wired, will be rebuilt for real temporal eval
 
     fn make_temporal_score(perspective: TemporalPerspective, value: f64) -> TemporalScore {
         let scores = AxiomScores {
-            fidelity: value, phi: value, verify: value,
-            culture: value, burn: value, sovereignty: value,
-            reasoning: AxiomReasoning::default(), ..Default::default()
+            fidelity: value,
+            phi: value,
+            verify: value,
+            culture: value,
+            burn: value,
+            sovereignty: value,
+            reasoning: AxiomReasoning::default(),
+            ..Default::default()
         };
         let q = compute_qscore(&scores);
-        TemporalScore { perspective, axiom_scores: scores, q_total: q.total }
+        TemporalScore {
+            perspective,
+            axiom_scores: scores,
+            q_total: q.total,
+        }
     }
 
     #[test]
@@ -165,7 +193,8 @@ mod tests {
 
     #[test]
     fn aggregate_uniform_scores() {
-        let scores: Vec<_> = TemporalPerspective::ALL.iter()
+        let scores: Vec<_> = TemporalPerspective::ALL
+            .iter()
             .map(|&p| make_temporal_score(p, 0.5))
             .collect();
         let v = aggregate_temporal(&scores);
@@ -177,7 +206,8 @@ mod tests {
 
     #[test]
     fn outlier_detected_when_perspectives_disagree() {
-        let mut scores: Vec<_> = TemporalPerspective::ALL.iter()
+        let mut scores: Vec<_> = TemporalPerspective::ALL
+            .iter()
             .map(|&p| make_temporal_score(p, 0.5))
             .collect();
         // Make EMERGENCE score very differently
@@ -189,7 +219,8 @@ mod tests {
 
     #[test]
     fn temporal_total_phi_bounded() {
-        let scores: Vec<_> = TemporalPerspective::ALL.iter()
+        let scores: Vec<_> = TemporalPerspective::ALL
+            .iter()
             .map(|&p| make_temporal_score(p, 0.95))
             .collect();
         let v = aggregate_temporal(&scores);
@@ -198,7 +229,8 @@ mod tests {
 
     #[test]
     fn one_weak_perspective_drags_total() {
-        let strong: Vec<_> = TemporalPerspective::ALL.iter()
+        let strong: Vec<_> = TemporalPerspective::ALL
+            .iter()
             .map(|&p| make_temporal_score(p, 0.6))
             .collect();
         let mut weak = strong.clone();
