@@ -130,11 +130,23 @@ def main():
         tag = "\u2713" if tm else ("\u2248" if am else "\u2717")
         print(f"{expected:5s}\u2192{vd_on:5s} Q={q_on:.3f} \u0394={delta:+.3f} [{tag}]")
 
+        # Per-dog scores: {dog_id: {axiom: score}}
+        dog_scores = {}
+        for ds in v_on.get("dog_scores", []):
+            dog_id = ds.get("dog_id", "?")
+            dog_scores[dog_id] = {
+                a: ds.get(a, 0.0)
+                for a in ["fidelity","phi","verify","culture","burn","sovereignty"]
+            }
+            dog_scores[dog_id]["latency_ms"] = ds.get("latency_ms", 0)
+
         results.append({
             "id": sid, "domain": s["domain"], "expected": expected,
             "verdict_on": vd_on, "q_on": q_on, "verdict_off": vd_off, "q_off": q_off,
             "delta": delta, "tier_match": tm, "adjacent_match": am,
             "max_disagreement": disagree, "dogs_on": v_on.get("dogs_used", ""),
+            "dog_scores": dog_scores,
+            "q_score_axioms": v_on.get("q_score", {}),
         })
 
     elapsed = time.time() - t0
@@ -175,6 +187,27 @@ def main():
     print(f"  Dog Concordance:            {concordance:.4f}")
     print(f"  QBR (composite):            {qbr:.4f}")
     print()
+
+    # Per-dog accuracy breakdown
+    all_dogs = set()
+    for r in results:
+        all_dogs.update(r.get("dog_scores", {}).keys())
+    if all_dogs:
+        print(f"  Per-Dog mean scores (across all stimuli):")
+        for dog in sorted(all_dogs):
+            axiom_sums = {a: [] for a in ["fidelity","phi","verify","culture","burn","sovereignty"]}
+            latencies = []
+            for r in results:
+                ds = r.get("dog_scores", {}).get(dog)
+                if ds:
+                    for a in axiom_sums:
+                        axiom_sums[a].append(ds.get(a, 0.0))
+                    latencies.append(ds.get("latency_ms", 0))
+            if latencies:
+                means = " ".join(f"{a[:3]}={sum(v)/len(v):.2f}" for a, v in axiom_sums.items())
+                lat = sum(latencies) / len(latencies)
+                print(f"    {dog:22s}: {means}  lat={lat:.0f}ms (n={len(latencies)})")
+        print()
 
     # Per-domain breakdown
     domains = sorted(set(s["domain"] for s in stimuli))

@@ -219,6 +219,251 @@ pub fn spawn_dog_ttl_checker(
     })
 }
 
+/// Service discovery loop — organism-agnostic auto-registration.
+/// Every 60s, probes known inference service addresses for /v1/models.
+/// If a service responds with the expected model, registers it via POST /dogs/register.
+/// Already-registered Dogs are skipped (409 conflict → no-op).
+/// Offline services are gracefully skipped — TTL expiry handles cleanup.
+///
+/// Organism-agnostic: works with Windows services, Docker, Kubernetes, cloud APIs,
+/// local processes — anything that exposes OpenAI-compatible /v1/models endpoint.
+pub fn spawn_discovery_loop(
+    rest_state: Arc<crate::api::rest::AppState>,
+    fleet_meta: std::collections::HashMap<String, (String, u32, String, Option<String>)>,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        if fleet_meta.is_empty() {
+            klog!("[Discovery] No discovery targets configured — skipping");
+            return;
+        }
+
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.tick().await; // skip first tick
+
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Discovery loop stopped");
+                    break;
+                }
+                _ = interval.tick() => {
+                    let mut discovered = 0u32;
+
+                    for (dog_name, (base_url, ctx_size, expected_model, api_key)) in &fleet_meta {
+                        // Already registered? Check roster.
+                        {
+                            let map = match rest_state.registered_dogs.read() {
+                                Ok(m) => m,
+                                Err(e) => {
+                                    tracing::warn!(error = %e, dog_id = %dog_name, "registered_dogs read lock poisoned");
+                                    continue;
+                                }
+                            };
+                            if map.contains_key(dog_name) {
+                                // Already registered, heartbeat will maintain it.
+                                continue;
+                            }
+                        }
+
+                        // Probe /v1/models endpoint to verify model matches
+                        let models_url = format!(
+                            "{}/v1/models",
+                            base_url.trim_end_matches('/').trim_end_matches("/v1")
+                        );
+
+                        let model_match = tokio::time::timeout(
+                            std::time::Duration::from_secs(5),
+                            async {
+                                match reqwest::Client::new()
+                                    .get(&models_url)
+                                    .timeout(std::time::Duration::from_secs(5))
+                                    .send()
+                                    .await
+                                {
+                                    Ok(resp) if resp.status().is_success() => {
+                                        match resp.json::<serde_json::Value>().await {
+                                            Ok(body) => {
+                                                // Extract model ID from response
+                                                // Standard format: { "data": [{ "id": "model-name" }] }
+                                                body
+                                                    .get("data")
+                                                    .and_then(|data| data.as_array())
+                                                    .and_then(|arr| arr.first())
+                                                    .and_then(|item| item.get("id"))
+                                                    .and_then(|id| id.as_str())
+                                                    .map(|s| s.contains(expected_model))
+                                                    .unwrap_or(false)
+                                            }
+                                            Err(_) => false,
+                                        }
+                                    }
+                                    _ => false,
+                                }
+                            },
+                        )
+                        .await
+                        .unwrap_or(false);
+
+                        if !model_match {
+                            continue;
+                        }
+
+                        // Model matches — try to register via POST /dogs/register
+                        let register_url = std::env::var("CYNIC_REST_ADDR")
+                            .unwrap_or_else(|_| "http://localhost:3030".to_string());
+                        let register_endpoint = format!("{register_url}/dogs/register");
+
+                        let payload = serde_json::json!({
+                            "name": dog_name,
+                            "base_url": base_url,
+                            "model": expected_model,
+                            "context_size": ctx_size,
+                            "timeout_secs": 90,
+                            "api_key": api_key,
+                        });
+
+                        let api_key = rest_state.api_key.clone();
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(10),
+                            async {
+                                let mut req = reqwest::Client::new()
+                                    .post(&register_endpoint)
+                                    .json(&payload)
+                                    .timeout(std::time::Duration::from_secs(10));
+
+                                if let Some(key) = &api_key {
+                                    req = req.bearer_auth(key);
+                                }
+
+                                req.send().await
+                            },
+                        )
+                        .await
+                        {
+                            Ok(Ok(resp)) => {
+                                match resp.status().as_u16() {
+                                    200 => {
+                                        discovered += 1;
+                                        tracing::info!(
+                                            dog_id = %dog_name,
+                                            model = %expected_model,
+                                            "Dog discovered and registered"
+                                        );
+                                    }
+                                    409 => {
+                                        // Already registered (shouldn't happen after roster check, but ok)
+                                        tracing::debug!(dog_id = %dog_name, "Dog already registered");
+                                    }
+                                    422 => {
+                                        // Model mismatch or calibration failed — log and skip
+                                        tracing::warn!(
+                                            dog_id = %dog_name,
+                                            status = 422,
+                                            "Dog calibration failed (model mismatch?)"
+                                        );
+                                    }
+                                    code => {
+                                        tracing::warn!(
+                                            dog_id = %dog_name,
+                                            status = code,
+                                            "Dog registration failed"
+                                        );
+                                    }
+                                }
+                            }
+                            Ok(Err(e)) => {
+                                tracing::debug!(dog_id = %dog_name, error = %e, "Discovery HTTP error");
+                            }
+                            Err(_) => {
+                                tracing::debug!(dog_id = %dog_name, "Discovery timeout (10s)");
+                            }
+                        }
+                    }
+
+                    if discovered > 0 {
+                        tracing::info!(count = discovered, "Discovery cycle: {} Dogs registered", discovered);
+                    }
+
+                    task_health.touch_discovery();
+                }
+            }
+        }
+    })
+}
+
+/// Heartbeat loop — K15 consumer for Dog registration producer.
+/// Every 40s, refreshes TTL for all registered Dogs to keep them alive.
+/// Runs on the same interval as cynic-node's heartbeat sender (40s), ensuring
+/// staggered timing: when a remote node's heartbeat is stale or unavailable,
+/// the kernel can still keep bootstrap Dogs alive via local heartbeat.
+pub fn spawn_dog_heartbeat_loop(
+    rest_state: Arc<crate::api::rest::AppState>,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        // K6: 40s interval matches cynic-node heartbeat cadence
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(40));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.tick().await; // skip first tick
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Dog heartbeat loop stopped");
+                    break;
+                }
+                _ = interval.tick() => {
+                    // Count Dogs needing heartbeat (TTL < 60s means heartbeat within safe margin)
+                    let to_refresh: Vec<String> = match rest_state.registered_dogs.read() {
+                        Ok(map) => map
+                            .iter()
+                            .filter(|(_, dog)| {
+                                let elapsed = dog.last_heartbeat.elapsed().as_secs();
+                                elapsed > dog.ttl_secs.saturating_sub(60)
+                            })
+                            .map(|(id, _)| id.clone())
+                            .collect(),
+                        Err(e) => {
+                            tracing::warn!(error = %e, "registered_dogs RwLock poisoned — skipping heartbeat");
+                            vec![]
+                        }
+                    };
+
+                    if !to_refresh.is_empty() {
+                        let mut updated = 0;
+                        for dog_id in to_refresh {
+                            match rest_state.registered_dogs.write() {
+                                Ok(mut map) => {
+                                    if let Some(entry) = map.get_mut(&dog_id) {
+                                        entry.last_heartbeat = std::time::Instant::now();
+                                        updated += 1;
+                                        tracing::debug!(dog_id = %dog_id, "Dog heartbeat refreshed");
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        error = %e,
+                                        dog_id = %dog_id,
+                                        "registered_dogs write lock poisoned — cannot refresh heartbeat"
+                                    );
+                                }
+                            }
+                        }
+                        if updated > 0 {
+                            tracing::info!(count = updated, "Dogs heartbeat refreshed");
+                        }
+                    }
+
+                    task_health.touch_dog_heartbeat();
+                }
+            }
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

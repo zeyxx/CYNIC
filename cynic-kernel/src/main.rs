@@ -687,6 +687,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     klog!("[Ring 2] Dog TTL checker started (every 30s)");
 
+    infra::tasks::spawn_dog_heartbeat_loop(
+        Arc::clone(&rest_state),
+        Arc::clone(&task_health),
+        shutdown.clone(),
+    );
+    klog!("[Ring 2] Dog heartbeat loop started (every 40s, K15 consumer)");
+
+    infra::tasks::spawn_discovery_loop(
+        Arc::clone(&rest_state),
+        fleet_meta,
+        Arc::clone(&task_health),
+        shutdown.clone(),
+    );
+    klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
+
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
         use rmcp::ServiceExt;

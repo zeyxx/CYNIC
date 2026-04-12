@@ -118,6 +118,20 @@ const DOG_TTL: TaskContract = TaskContract {
     consumer: "dynamic dog roster",
     failure_effect: "expired dogs can stay routable and health can overclaim",
 };
+const DOG_HEARTBEAT: TaskContract = TaskContract {
+    name: "dog_heartbeat",
+    expected_interval: 80,
+    criticality: TaskCriticality::ReadinessCritical,
+    consumer: "registered dog ttl refresh",
+    failure_effect: "registered dogs expire and go unavailable",
+};
+const DISCOVERY: TaskContract = TaskContract {
+    name: "discovery",
+    expected_interval: 120,
+    criticality: TaskCriticality::ReadinessCritical,
+    consumer: "organism-agnostic dog auto-discovery",
+    failure_effect: "inference nodes offline go undetected, roster stagnates",
+};
 
 fn task_contract(name: &str) -> TaskContract {
     match name {
@@ -132,6 +146,8 @@ fn task_contract(name: &str) -> TaskContract {
         "event_consumer" => EVENT_CONSUMER,
         "probe_scheduler" => PROBE_SCHEDULER,
         "dog_ttl" => DOG_TTL,
+        "dog_heartbeat" => DOG_HEARTBEAT,
+        "discovery" => DISCOVERY,
         other => panic!("task contract missing for '{other}'"),
     }
 }
@@ -158,6 +174,8 @@ pub struct TaskHealth {
     event_consumer: AtomicU64,
     probe_scheduler: AtomicU64,
     dog_ttl: AtomicU64,
+    dog_heartbeat: AtomicU64,
+    discovery: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -183,6 +201,8 @@ impl TaskHealth {
             event_consumer: AtomicU64::new(0),
             probe_scheduler: AtomicU64::new(0),
             dog_ttl: AtomicU64::new(0),
+            dog_heartbeat: AtomicU64::new(0),
+            discovery: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -225,6 +245,13 @@ impl TaskHealth {
     }
     pub fn touch_dog_ttl(&self) {
         self.dog_ttl.store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_dog_heartbeat(&self) {
+        self.dog_heartbeat
+            .store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_discovery(&self) {
+        self.discovery.store(Self::now_secs(), Ordering::Relaxed);
     }
 
     /// Summarizer: HONEST touch with detail about what actually happened.
@@ -350,6 +377,13 @@ impl TaskHealth {
                 None,
             ),
             TaskSnapshot::new(DOG_TTL, self.dog_ttl.load(Ordering::Relaxed), now, None),
+            TaskSnapshot::new(
+                DOG_HEARTBEAT,
+                self.dog_heartbeat.load(Ordering::Relaxed),
+                now,
+                None,
+            ),
+            TaskSnapshot::new(DISCOVERY, self.discovery.load(Ordering::Relaxed), now, None),
         ]
     }
 }
