@@ -205,18 +205,17 @@ pub fn validate_scores(scores: &AxiomScores) -> Result<(), DogError> {
     // Zero flood: too many axioms at exactly 0.0 = parse/generation failure
     let zero_count = raw.iter().filter(|&&v| v == 0.0).count();
     if zero_count > MAX_ZERO_SCORES {
-        return Err(DogError::ParseError(format!(
-            "zero flood: {zero_count}/6 axioms at 0.0"
-        )));
+        return Err(DogError::ZeroFlood(zero_count));
     }
 
     // Degenerate variance: all scores nearly identical = model collapsed
     let mean = raw.iter().sum::<f64>() / 6.0;
     let variance = raw.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / 6.0;
     if variance < MIN_SCORE_VARIANCE {
-        return Err(DogError::ParseError(format!(
-            "degenerate scores: variance {variance:.6} < {MIN_SCORE_VARIANCE} (all ~{mean:.3})"
-        )));
+        return Err(DogError::DegenerateScores {
+            variance,
+            min_variance: MIN_SCORE_VARIANCE,
+        });
     }
 
     Ok(())
@@ -316,6 +315,10 @@ pub enum DogError {
     ApiError(String),
     #[error("Dog parse error: {0}")]
     ParseError(String),
+    #[error("zero flood: {0}/6 axioms at 0.0")]
+    ZeroFlood(usize),
+    #[error("degenerate scores: variance {variance:.6} < {min_variance}")]
+    DegenerateScores { variance: f64, min_variance: f64 },
     #[error("Dog rate limited: {0}")]
     RateLimited(String),
     #[error("Dog evaluation timed out")]
