@@ -35,13 +35,14 @@ Last updated: 2026-04-12 | Session: self-model (SystemContract)
 - [ ] **Kernel running outside systemd** — PID present but `cynic-kernel.service` is `inactive (dead)`. Dependency chain (`Wants=surrealdb.service`) is bypassed. Run via systemd for proper lifecycle management.
 - [ ] **Kairos hl_collector.py missing pyarrow import** — `import pyarrow as pa` needed. Fix before restarting kairos-snapshot and kairos-stream.
 
-## P1 — Proprioception (Greffe 2 — next)
+## P1 — Proprioception (Greffe 3 — next)
 
-- [ ] **Discovery loop reads SystemContract** — currently re-probes all backends.toml entries. Should use contract.expected_dogs() and emit event when delta changes.
-- [ ] **Event bus emits ContractGap** — DogMissing/DogReturned events for the delta between contract and roster. Consumer: health-watcher agent, Slack bridge.
-- [ ] **organ_quality gated** — Dog below JSON validity threshold (e.g. 80%) excluded from jury. Measured but not gated = K15 violation.
+- [x] **Discovery loop reads SystemContract** — done 2026-04-12 (2096e05). Compares contract vs roster each 60s cycle, emits ContractDelta event.
+- [x] **Event bus emits ContractDelta + DogDiscovered** — done 2026-04-12 (2096e05). First acting consumer: PROPRIOCEPTION logs.
+- [x] **Deploy + live verify** — done 2026-04-12. Log: "contract fulfilled — all 4 Dogs present". SSE: contract_delta visible.
+- [ ] **organ_quality gated** — Dog below JSON validity threshold excluded from jury? Verify ParseFailureGate is sufficient or json_valid_rate needs explicit gate.
 - [ ] **MCP health uses contract** — cynic_health MCP tool should use system_health_assessment_with_contract (K13).
-- [ ] **Deploy + live verify** — rebuild, deploy, `curl /health` must show "operational" with 3/4 Dogs (not "sovereign"). Rule 7 live measurement.
+- [ ] **Greffe 3: alerting consumer** — ContractDelta { fulfilled: false } → Slack or crystal alert. Current consumer is structured log only.
 
 ## P3 — Polish + Verify
 
