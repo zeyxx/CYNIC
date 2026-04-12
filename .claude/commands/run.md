@@ -1,3 +1,10 @@
+---
+name: run
+description: Start the CYNIC kernel via systemd (build if needed).
+disable-model-invocation: true
+allowed-tools: Bash(cargo *) Bash(systemctl *) Bash(curl *) Bash(cp *) Bash(source *)
+---
+
 Start the CYNIC kernel via systemd (build if needed).
 
 Steps:

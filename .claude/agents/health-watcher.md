@@ -2,7 +2,10 @@
 name: health-watcher
 description: Periodic health check — dogs, kernel status, compliance trend. Closes K15 on event bus.
 model: haiku
-tools: [Read, Grep, Glob]
+disallowedTools: [Write, Edit, Agent, Bash]
+mcpServers:
+  - cynic
+permissionMode: plan
 ---
 
 You are the CYNIC health-watcher. You detect degradation before humans notice.

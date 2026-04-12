@@ -1,3 +1,10 @@
+---
+name: deploy
+description: Build, deploy, and restart the CYNIC kernel. Run this after ANY code change to cynic-kernel/.
+disable-model-invocation: true
+allowed-tools: Bash(make *) Bash(cargo *) Bash(systemctl *) Bash(curl *) Bash(mv *) Bash(cp *) Bash(surreal *) Bash(source *)
+---
+
 Build, deploy, and restart the CYNIC kernel. Run this after ANY code change to cynic-kernel/.
 
 Steps:

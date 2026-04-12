@@ -19,6 +19,26 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/phi-reminder.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/subagent-context.sh"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write|Read|Bash",
@@ -26,6 +46,21 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-files.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Edit(cynic-kernel/src/**)",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/coord-claim.sh"
+          },
+          {
+            "type": "command",
+            "if": "Write(cynic-kernel/src/**)",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/coord-claim.sh"
           }
         ]
       }

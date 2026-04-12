@@ -1,3 +1,8 @@
+---
+name: cynic-kernel
+description: CYNIC Kernel — Architecture Reference. Use when touching kernel source code.
+paths: cynic-kernel/src/**
+---
 
 # CYNIC Kernel — Architecture Reference
 
