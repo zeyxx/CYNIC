@@ -400,6 +400,9 @@ pub async fn backfill_crystal_embeddings(
                 failed += 1;
             }
         }
+        // Rate-limit HNSW index writes: 50ms between each prevents SurrealKV
+        // compaction conflicts from burst pressure at boot (176 conflicts/24h root cause).
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
     tracing::info!(
         phase = "backfill",

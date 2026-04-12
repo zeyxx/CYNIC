@@ -85,8 +85,11 @@ pub(crate) async fn observe_crystal_for_verdict(
             "disputed verdict — crystal observation weight reduced"
         );
     }
-    // Semantic merge: find existing crystal or create new via FNV hash
-    let crystal_id = if let Some(emb) = stimulus_embedding {
+    // Semantic merge: find existing crystal or create new via FNV hash.
+    // Track `needs_embedding`: existing crystals already have a working embedding
+    // in the HNSW index — re-writing it on every observation is pure waste and the
+    // primary cause of SurrealKV compaction conflicts on IX:2 (176/24h).
+    let (crystal_id, needs_embedding) = if let Some(emb) = stimulus_embedding {
         match deps
             .storage
             .find_similar_crystal(&emb.vector, domain, 0.75)
@@ -94,29 +97,35 @@ pub(crate) async fn observe_crystal_for_verdict(
         {
             Ok(Some((existing_id, sim))) => {
                 tracing::info!(phase = "crystal_merge", crystal_id = %existing_id, similarity = %format!("{:.3}", sim), "reusing existing crystal");
-                existing_id
+                (existing_id, false)
             }
             Ok(None) => {
                 tracing::info!(
                     phase = "crystal_merge",
                     "no similar crystal (sim < 0.75), creating new"
                 );
-                format!(
-                    "{:x}",
-                    ccm::content_hash(&ccm::normalize_for_hash(&format!(
-                        "{}:{}",
-                        domain, verdict.stimulus_summary
-                    )))
+                (
+                    format!(
+                        "{:x}",
+                        ccm::content_hash(&ccm::normalize_for_hash(&format!(
+                            "{}:{}",
+                            domain, verdict.stimulus_summary
+                        )))
+                    ),
+                    true,
                 )
             }
             Err(e) => {
                 tracing::warn!(phase = "crystal_merge", error = %e, "similarity search failed, using FNV hash");
-                format!(
-                    "{:x}",
-                    ccm::content_hash(&ccm::normalize_for_hash(&format!(
-                        "{}:{}",
-                        domain, verdict.stimulus_summary
-                    )))
+                (
+                    format!(
+                        "{:x}",
+                        ccm::content_hash(&ccm::normalize_for_hash(&format!(
+                            "{}:{}",
+                            domain, verdict.stimulus_summary
+                        )))
+                    ),
+                    true,
                 )
             }
         }
@@ -125,12 +134,15 @@ pub(crate) async fn observe_crystal_for_verdict(
             phase = "crystal_merge",
             "no embedding available, using FNV hash"
         );
-        format!(
-            "{:x}",
-            ccm::content_hash(&ccm::normalize_for_hash(&format!(
-                "{}:{}",
-                domain, verdict.stimulus_summary
-            )))
+        (
+            format!(
+                "{:x}",
+                ccm::content_hash(&ccm::normalize_for_hash(&format!(
+                    "{}:{}",
+                    domain, verdict.stimulus_summary
+                )))
+            ),
+            true,
         )
     };
 
@@ -180,8 +192,12 @@ pub(crate) async fn observe_crystal_for_verdict(
             }); // ok: no subscribers = silent no-op (receiver_count=0 returns Err)
         }
     }
-    // Store embedding for KNN merge — domain gate above already blocked cynic-internal.
-    if let Some(emb) = stimulus_embedding
+    // Store embedding for KNN merge — only for NEW crystals.
+    // Existing crystals (found via semantic search) already have a working embedding
+    // in the HNSW index. Overwriting it on every observation caused 176 SurrealKV
+    // compaction conflicts/24h on IX:2, eventually crashing the DB.
+    if needs_embedding
+        && let Some(emb) = stimulus_embedding
         && let Err(e) = deps
             .storage
             .store_crystal_embedding(&crystal_id, &emb.vector)
