@@ -1,3 +1,10 @@
+---
+name: test-chess
+description: Run 3 chess test cases against the live kernel and display results.
+disable-model-invocation: true
+allowed-tools: Bash(curl *) Bash(source *)
+---
+
 Run 3 chess test cases against the live kernel and display results.
 
 First: `source ~/.cynic-env 2>/dev/null`

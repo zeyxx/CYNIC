@@ -1,3 +1,10 @@
+---
+name: status
+description: CYNIC system diagnostic — not a green facade, a real picture.
+disable-model-invocation: true
+allowed-tools: Bash(curl *) Bash(source *) Bash(systemctl *) Bash(free *) Bash(df *) Bash(ps *)
+---
+
 CYNIC system diagnostic — not a green facade, a real picture.
 
 First: `source ~/.cynic-env 2>/dev/null`

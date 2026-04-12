@@ -1,3 +1,10 @@
+---
+name: build
+description: Build, test, and lint the CYNIC kernel in one shot. Run this after any code change.
+disable-model-invocation: true
+allowed-tools: Bash(make *) Bash(cargo *) Bash(source *)
+---
+
 Build, test, and lint the CYNIC kernel in one shot. Run this after any code change.
 
 Run `make check` from the project root. This is the single entry point — never run cargo build/test/clippy manually.

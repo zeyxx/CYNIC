@@ -1,3 +1,10 @@
+---
+name: e2e
+description: Run an end-to-end test against the running CYNIC kernel.
+disable-model-invocation: true
+allowed-tools: Bash(curl *) Bash(source *)
+---
+
 Run an end-to-end test against the running CYNIC kernel.
 
 Steps:

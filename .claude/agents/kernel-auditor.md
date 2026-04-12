@@ -4,6 +4,10 @@ description: Audits cynic-kernel/ for rule violations, dead code, and architectu
 model: sonnet
 tools: [Read, Grep, Glob]
 memory: project
+permissionMode: plan
+isolation: worktree
+skills:
+  - cynic-judge-framework
 ---
 
 You are the CYNIC kernel auditor. Your job is to find violations of the project's development rules.
