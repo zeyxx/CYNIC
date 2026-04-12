@@ -472,30 +472,43 @@ pub async fn register_dog_handler(
 }
 
 /// POST /dogs/{id}/heartbeat — refresh TTL for a registered Dog.
+/// Accepts both dynamically registered Dogs (TTL-managed) and config-based Dogs (static).
 pub async fn heartbeat_handler(
     State(state): State<Arc<AppState>>,
     Path(dog_id): Path<String>,
 ) -> Result<Json<super::types::HeartbeatResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Check dynamically registered Dogs first (they have TTL).
     let mut map = state
         .registered_dogs
         .write()
         .unwrap_or_else(|e| e.into_inner());
-    match map.get_mut(&dog_id) {
-        Some(entry) => {
-            entry.last_heartbeat = std::time::Instant::now();
-            Ok(Json(super::types::HeartbeatResponse {
-                dog_id,
-                status: "alive".into(),
-                ttl_remaining_secs: entry.ttl_secs,
-            }))
-        }
-        None => Err((
-            StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                error: format!("Dog '{dog_id}' not registered — re-register required"),
-            }),
-        )),
+    if let Some(entry) = map.get_mut(&dog_id) {
+        entry.last_heartbeat = std::time::Instant::now();
+        return Ok(Json(super::types::HeartbeatResponse {
+            dog_id,
+            status: "alive".into(),
+            ttl_remaining_secs: entry.ttl_secs,
+        }));
     }
+    drop(map); // Release write lock before querying judge
+
+    // Fall back: check if Dog exists in judge's config-based roster.
+    let judge = state.judge.load_full();
+    if judge.dog_ids().contains(&dog_id) {
+        // Config-based Dogs are permanent (no TTL). Return OK with large TTL value.
+        return Ok(Json(super::types::HeartbeatResponse {
+            dog_id,
+            status: "alive".into(),
+            ttl_remaining_secs: 86400, // 24h placeholder — config Dogs don't expire
+        }));
+    }
+
+    Err((
+        StatusCode::NOT_FOUND,
+        Json(ErrorResponse {
+            error: format!("Dog '{dog_id}' not registered — re-register required"),
+        }),
+    ))
 }
 
 /// DELETE /dogs/{id} — remove a dynamically registered Dog.
