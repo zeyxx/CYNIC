@@ -10,7 +10,7 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-12
+Last updated: 2026-04-13 | Session: temporal-wiring-O2
 
 ---
 
@@ -53,6 +53,7 @@ Last updated: 2026-04-12
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-13 | temporal-wiring-O2 | ~1h | 1 | 0 | 0 | 0 | O2 implementation: hardcoded heuristic, 7 perspectives, integrated into judge_pipeline |
 | 2026-04-12 | crystal-contention+K13+systemd | ~2h | 3 | 0 | 3 | 0 | BURN=30 diagnosed, anti-patterns mapped |
 
 ---
@@ -60,8 +61,8 @@ Last updated: 2026-04-12
 ## State Snapshot
 
 - Kernel: sovereign under systemd, 4/4 Dogs, contract fulfilled
+- Temporal wiring complete (O2 strategy: hardcoded heuristic, 7 perspectives, geometric mean aggregation)
 - Crystal contention fix deployed, awaiting 24h verification (#9)
 - MCP K13 closed (same health function as REST)
-- Other session active: added `mod temporal_eval` to pipeline/mod.rs — uncoordinated
 - GROWL verdict (Q=52.6): BURN=30 wound, SOVEREIGNTY=75 strength
 - 7 anti-patterns identified → saved to memory (feedback_anti_patterns.md)
