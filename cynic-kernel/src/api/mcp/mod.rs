@@ -22,7 +22,7 @@ use crate::domain::ccm::build_observation;
 use crate::domain::coord::{ClaimResult, CoordPort};
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
 use crate::domain::events::KernelEvent;
-use crate::domain::health_gate::{count_healthy_dogs, system_health_status};
+use crate::domain::health_gate::{count_healthy_dogs, system_health_assessment_with_contract};
 use crate::domain::inference::InferPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
@@ -239,6 +239,8 @@ pub struct CynicMcp {
     environment: Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
     /// Background task health — shared with REST for honest status.
     task_health: Arc<crate::infra::task_health::TaskHealth>,
+    /// Self-model: expected system state. Shared with REST for K13 (one function, both surfaces).
+    system_contract: crate::domain::contract::SystemContract,
     /// Kernel event bus — shared with REST SSE. None only in tests.
     event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     /// RC1: Rate limiter — shared across all tool calls.
@@ -272,6 +274,7 @@ impl CynicMcp {
         metrics: Arc<crate::domain::metrics::Metrics>,
         environment: Arc<std::sync::RwLock<Option<crate::domain::probe::EnvironmentSnapshot>>>,
         task_health: Arc<crate::infra::task_health::TaskHealth>,
+        system_contract: crate::domain::contract::SystemContract,
         event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     ) -> Self {
         Self {
@@ -284,6 +287,7 @@ impl CynicMcp {
             metrics,
             environment,
             task_health,
+            system_contract,
             usage,
             event_tx,
             rate_limit: Arc::new(McpRateLimit::new()),
@@ -428,7 +432,8 @@ impl CynicMcp {
     )]
     async fn cynic_health(&self) -> Result<CallToolResult, McpError> {
         self.rate_limit.check_other()?;
-        let dog_health = self.judge.load_full().dog_health();
+        let judge = self.judge.load_full();
+        let dog_health = judge.dog_health();
         let (healthy_dogs, total_dogs) = count_healthy_dogs(&dog_health);
         let dogs: Vec<serde_json::Value> = dog_health.into_iter().map(|(id, circuit, failures)| {
             serde_json::json!({ "id": id, "circuit": circuit, "failures": failures })
@@ -436,25 +441,35 @@ impl CynicMcp {
 
         let storage_ok = self.storage.ping().await.is_ok();
 
+        // K13: same health assessment as REST /health — system_health_assessment_with_contract
+        let live_dog_ids = judge.dog_ids();
+        let contract_delta = self.system_contract.assess(&live_dog_ids);
         let probes_degraded =
             crate::domain::probe::EnvironmentSnapshot::is_degraded(&self.environment);
-        let tasks_stale = self.task_health.has_stale();
-        let (status, _is_healthy) = system_health_status(
+        let stale_tasks = self.task_health.readiness_stale_tasks();
+        let assessment = system_health_assessment_with_contract(
             healthy_dogs,
             total_dogs,
             storage_ok,
             probes_degraded,
-            tasks_stale,
+            &stale_tasks,
+            Some(&contract_delta),
         );
 
         let response = serde_json::json!({
-            "status": status,
+            "status": assessment.status,
             "dogs": dogs,
             "dog_count": total_dogs,
             "healthy_dogs": healthy_dogs,
             "storage": if storage_ok { "connected" } else { "down" },
             "axioms": AXIOM_NAMES,
             "phi_max": PHI_INV,
+            "contract": {
+                "expected_dogs": self.system_contract.expected_dogs(),
+                "expected_count": self.system_contract.expected_count(),
+                "missing_dogs": &contract_delta.missing,
+                "fulfilled": contract_delta.fulfilled,
+            },
         });
 
         Ok(CallToolResult::success(vec![Content::text(
@@ -1136,6 +1151,7 @@ mod tests {
             metrics,
             Arc::new(std::sync::RwLock::new(None)),
             Arc::new(crate::infra::task_health::TaskHealth::new()),
+            crate::domain::contract::SystemContract::new(vec!["deterministic-dog".into()], false),
             None,
         )
     }
@@ -1336,6 +1352,7 @@ mod tests {
             metrics,
             Arc::new(std::sync::RwLock::new(None)),
             Arc::new(crate::infra::task_health::TaskHealth::new()),
+            crate::domain::contract::SystemContract::new(vec!["deterministic-dog".into()], false),
             None,
         );
 

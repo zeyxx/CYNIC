@@ -161,8 +161,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         system_contract.expected_dogs()
     );
 
-    // Validate config — probe health URLs, log warnings (non-blocking)
-    infra::config::validate_config(&backend_configs).await;
+    // Validate config — probe health URLs, log warnings.
+    // Spawned as background task (not awaited) so boot isn't delayed by network.
+    // Health loop will catch any unhealthy backends within ~60s.
+    {
+        let configs = backend_configs.clone();
+        tokio::spawn(async move {
+            infra::config::validate_config(&configs).await;
+        });
+    }
 
     // ─── RING 1: Load domain prompts (chess.md, trading.md, etc.) ──
     // RC3: use runtime path discovery, not compile-time CARGO_MANIFEST_DIR
@@ -606,7 +613,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         environment: Arc::clone(&environment),
         registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
         judge_jobs: Arc::new(api::rest::judge_job::JudgeJobStore::new()),
-        system_contract,
+        system_contract: system_contract.clone(),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
@@ -735,6 +742,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&metrics),
             Arc::clone(&environment),
             Arc::clone(&task_health),
+            system_contract.clone(),
             Some(event_tx.clone()),
         );
 
