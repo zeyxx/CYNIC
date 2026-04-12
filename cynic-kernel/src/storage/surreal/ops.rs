@@ -1,5 +1,4 @@
 use super::sanitize_record_id;
-use crate::domain::probe::{EnvironmentSnapshot, ProbeResult, ProbeStatus};
 use crate::domain::storage::{StorageError, UsageRow};
 use crate::organ::health::DogStats;
 use crate::storage::{SurrealHttpStorage, escape_surreal};
@@ -135,76 +134,4 @@ pub(super) async fn load_dog_stats(
             ))
         })
         .collect())
-}
-
-pub(super) async fn store_infra_snapshot(
-    storage: &SurrealHttpStorage,
-    snapshot: &EnvironmentSnapshot,
-) -> Result<(), StorageError> {
-    let probes_json = serde_json::to_string(&snapshot.probes)
-        .map_err(|e| StorageError::QueryFailed(format!("serialize probes: {e}")))?;
-    let overall = format!("{:?}", snapshot.overall);
-    let sql = format!(
-        "INSERT INTO infra_snapshot {{ ts: time::now(), overall: '{}', probes: {} }}",
-        escape_surreal(&overall),
-        probes_json,
-    );
-    storage.query(&sql).await?;
-    Ok(())
-}
-
-fn row_to_infra_snapshot(row: &serde_json::Value) -> EnvironmentSnapshot {
-    let timestamp = row["ts"].as_str().unwrap_or("").to_string();
-    let overall = match row["overall"].as_str().unwrap_or("Unavailable") {
-        "Ok" => ProbeStatus::Ok,
-        "Degraded" => ProbeStatus::Degraded,
-        "Denied" => ProbeStatus::Denied,
-        _ => ProbeStatus::Unavailable,
-    };
-    let probes: Vec<ProbeResult> = row["probes"]
-        .as_array()
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|value| {
-                    serde_json::from_value(value.clone())
-                        .map_err(|e| {
-                            tracing::warn!(
-                                error = %e,
-                                "infra_snapshot probe deserialization failed"
-                            );
-                            e
-                        })
-                        .ok()
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-
-    EnvironmentSnapshot {
-        timestamp,
-        probes,
-        overall,
-    }
-}
-
-pub(super) async fn list_infra_snapshots(
-    storage: &SurrealHttpStorage,
-    hours: u32,
-) -> Result<Vec<EnvironmentSnapshot>, StorageError> {
-    let sql = format!(
-        "SELECT * FROM infra_snapshot WHERE ts > time::now() - {hours}h ORDER BY ts DESC LIMIT 100",
-    );
-    let rows = storage.query_one(&sql).await?;
-    Ok(rows.iter().map(row_to_infra_snapshot).collect())
-}
-
-pub(super) async fn cleanup_infra_snapshots(
-    storage: &SurrealHttpStorage,
-    older_than_days: u32,
-) -> Result<u64, StorageError> {
-    let sql = format!(
-        "DELETE FROM infra_snapshot WHERE ts < time::now() - {older_than_days}d RETURN BEFORE",
-    );
-    let rows = storage.query_one(&sql).await?;
-    Ok(rows.len() as u64)
 }

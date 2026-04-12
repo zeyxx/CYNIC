@@ -96,7 +96,7 @@ fn spawn_event_consumer_with_liveness(
 
 pub fn spawn_probe_scheduler(
     probes: Vec<Arc<dyn Probe>>,
-    storage: Arc<dyn StoragePort>,
+    _storage: Arc<dyn StoragePort>,
     environment: Arc<std::sync::RwLock<Option<EnvironmentSnapshot>>>,
     organ: Arc<crate::organ::InferenceOrgan>,
     task_health: Arc<TaskHealth>,
@@ -111,8 +111,6 @@ pub fn spawn_probe_scheduler(
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         interval.tick().await; // skip first tick (consistent with all other tasks)
 
-        let mut tick_count: u64 = 0;
-
         loop {
             tokio::select! {
                 _ = shutdown.cancelled() => {
@@ -125,15 +123,6 @@ pub fn spawn_probe_scheduler(
                     if let Some(snapshot) = scheduler.tick().await {
                         if let Ok(mut env) = environment.write() {
                             *env = Some(snapshot.clone());
-                        }
-
-                        match tokio::time::timeout(
-                            std::time::Duration::from_secs(5),
-                            storage.store_infra_snapshot(&snapshot),
-                        ).await {
-                            Ok(Ok(())) => {}
-                            Ok(Err(e)) => tracing::warn!("probe snapshot storage failed: {e}"),
-                            Err(_) => tracing::warn!("probe snapshot storage timed out"),
                         }
 
                         for probe in &snapshot.probes {
@@ -155,22 +144,6 @@ pub fn spawn_probe_scheduler(
                         }
 
                         task_health.touch_probe_scheduler();
-                    }
-
-                    tick_count += 1;
-
-                    if tick_count.is_multiple_of(100) {
-                        match tokio::time::timeout(
-                            std::time::Duration::from_secs(10),
-                            storage.cleanup_infra_snapshots(7),
-                        ).await {
-                            Ok(Ok(n)) if n > 0 => {
-                                tracing::info!(deleted = n, "infra_snapshot TTL cleanup");
-                            }
-                            Ok(Err(e)) => tracing::warn!("infra_snapshot cleanup failed: {e}"),
-                            Err(_) => tracing::warn!("infra_snapshot cleanup timed out"),
-                            _ => {}
-                        }
                     }
                 }
             }
