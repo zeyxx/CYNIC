@@ -10,7 +10,7 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-13 | Session: dog-registry-fix-deployed + heartbeat-verification
+Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis
 
 ---
 
@@ -59,6 +59,7 @@ Last updated: 2026-04-13 | Session: dog-registry-fix-deployed + heartbeat-verifi
 | 2026-04-13 | dog-registry-fix-O3 | ~1h | 1 | 0 | 0 | 1 | Root cause: qwen35-9b-gpu unregistered due to heartbeat handler only checking registered_dogs (dynamic Dogs), not judge.dog_ids() (config-based Dogs). Fixed: heartbeat now accepts both sources. Build environment unstable (LLVM SIGSEGV, linker errors, RUST_MIN_STACK spiraling). Fix committed but not yet deployed — awaits build stabilization. Infrastructure debt A1 confirmed. |
 | 2026-04-13 | session-cost+coord-O3 | ~45m | 2 | 2 forming | 2 | 0 | Session cost tracking + coord-claim hooks. #3 (cost tracking) + #7 (coord-claim) closed. Hook validation verified. |
 | 2026-04-13 | dev-crystal-proof-O3 | ~30m | 0 | 2 forming | 1 (partial) | 1 | 5 dev patterns + 1 re-judge test. Crystals forming (not chess-specific) — phase 1 complete. Need 19-20 more observations/pattern to crystallize. Re-judge after crystallization phase (deferred). |
+| 2026-04-13 | kairos-signal-audit | ~20m | 0 | 0 | 1 | 0 | Diagnosed FrequencyBridge signal integrity. Observable: 4/7 dimensions live (price_kalman, z_score_volume, funding_phase, kill_zone). 3 hardcoded placeholders (oracle_divergence=0.0, slippage=25.0, narrative_velocity=0.0). Deferred full integration to next session (option 3: all signals computed from live sources). Task #2 closed. Task #3 (K15 wounds #5 + #6) ready next session. |
 | 2026-04-13 | temporal-wiring-O2 | ~1h | 1 | 0 | 0 | 0 | O2 implementation: hardcoded heuristic, 7 perspectives, integrated into judge_pipeline |
 | 2026-04-12 | crystal-contention+K13+systemd | ~2h | 3 | 0 | 3 | 0 | BURN=30 diagnosed, anti-patterns mapped |
 

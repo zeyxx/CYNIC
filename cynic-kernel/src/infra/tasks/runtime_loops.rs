@@ -6,6 +6,7 @@ use tokio_util::sync::CancellationToken;
 use crate::domain::events::KernelEvent;
 use crate::domain::probe::{EnvironmentSnapshot, Probe, ProbeDetails};
 use crate::domain::storage::StoragePort;
+use crate::infra::alerts::SlackAlerter;
 use crate::infra::task_health::TaskHealth;
 
 /// How often the event consumer touches `task_health` even when the bus is
@@ -18,12 +19,14 @@ pub fn spawn_event_consumer(
     event_tx: &tokio::sync::broadcast::Sender<KernelEvent>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
+    slack: Option<SlackAlerter>,
 ) -> JoinHandle<()> {
     spawn_event_consumer_with_liveness(
         event_tx,
         task_health,
         shutdown,
         EVENT_CONSUMER_LIVENESS_INTERVAL,
+        slack,
     )
 }
 
@@ -35,6 +38,7 @@ fn spawn_event_consumer_with_liveness(
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
     liveness_interval: std::time::Duration,
+    slack: Option<SlackAlerter>,
 ) -> JoinHandle<()> {
     let mut rx = event_tx.subscribe();
     let handle = tokio::spawn(async move {
@@ -43,6 +47,9 @@ fn spawn_event_consumer_with_liveness(
         let mut liveness = tokio::time::interval(liveness_interval);
         liveness.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         liveness.tick().await; // absorb the immediate first tick
+
+        // State tracking for ContractDelta changes (K15 acting consumer).
+        let mut last_fulfilled: Option<bool> = None;
 
         loop {
             tokio::select! {
@@ -65,8 +72,36 @@ fn spawn_event_consumer_with_liveness(
                                             "PROPRIOCEPTION: contract not fulfilled — {} Dog(s) missing",
                                             missing.len()
                                         );
+
+                                        // K15 acting consumer: send Slack alert on state change.
+                                        // Only alert when state changes from fulfilled=true → fulfilled=false.
+                                        if last_fulfilled != Some(false) {
+                                            if let Some(ref alerter) = slack {
+                                                let message = crate::infra::alerts::format_contract_delta(
+                                                    missing,
+                                                    *expected,
+                                                    *expected - missing.len(),
+                                                );
+                                                match tokio::time::timeout(
+                                                    std::time::Duration::from_secs(3),
+                                                    alerter.send(&message),
+                                                ).await {
+                                                    Ok(Ok(())) => {
+                                                        tracing::info!("Slack alert sent for contract breach");
+                                                    }
+                                                    Ok(Err(e)) => {
+                                                        tracing::warn!(error = %e, "Failed to send Slack alert");
+                                                    }
+                                                    Err(_) => {
+                                                        tracing::warn!("Slack alert timeout (3s)");
+                                                    }
+                                                }
+                                            }
+                                            last_fulfilled = Some(false);
+                                        }
                                     } else {
                                         tracing::info!("PROPRIOCEPTION: contract fulfilled — all {expected} Dogs present");
+                                        last_fulfilled = Some(true);
                                     }
                                 }
                                 KernelEvent::DogDiscovered { dog_id } => {
@@ -498,7 +533,7 @@ mod tests {
         let task_health = Arc::new(TaskHealth::new());
         let shutdown = CancellationToken::new();
 
-        let handle = spawn_event_consumer(&tx, task_health.clone(), shutdown.clone());
+        let handle = spawn_event_consumer(&tx, task_health.clone(), shutdown.clone(), None);
 
         let _ = tx.send(KernelEvent::VerdictIssued {
             verdict_id: "test-v1".into(),
@@ -536,6 +571,7 @@ mod tests {
             task_health.clone(),
             shutdown.clone(),
             Duration::from_millis(100),
+            None,
         );
 
         tokio::time::sleep(Duration::from_millis(350)).await;
