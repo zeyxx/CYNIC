@@ -10,16 +10,16 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis
+Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis + organ-quality-gate
 
 ---
 
-## Active (9/15)
+## Active (10/15)
 
 ### Foundation — unblock metabolism
 
 - [x] **#1 Dev crystal loop proof (Phase 1)** — /judge 5 dev patterns (architecture, error handling, testing), verify crystal forms in dev domain + injects on next similar query. ✅ FINDING: Crystals DO form on dev domain (falsifies R22 "chess-only"). 2 crystals forming (architecture, error handling). Pattern 6 re-judge test: Q degraded -13.9% (from 0.446→0.384) because crystals in forming state (1-2 observations, confidence 0.38-0.48) are too weak — correct behavior. Deferred: needs ≥21 observations per crystal to reach Crystallized state before injection improves. Next 20 sessions of dev patterns will accumulate observations.
-- [ ] **#2 organ_quality gate** — Dogs below 50% JSON validity excluded from jury. Verify ParseFailureGate is sufficient or json_valid_rate needs explicit gate. Prerequisite for trusting LLM Dogs on dev domain.
+- [x] **#2 organ_quality gate** — ✅ COMPLETED 2026-04-13: Dual-gate architecture implemented. K14 gate 1 (ParseFailureGate) + K14 gate 2 (json_valid_rate >= 0.5). Gate 2 requires baseline_established (>= 20 calls) before triggering (respects K14 pessimism). 3 unit tests verify: (1) low-quality Dogs excluded when json_valid_rate < 0.5, (2) gate doesn't trip pre-baseline, (3) recovery when rate improves. All 31 organ tests passing. Dogs with global json_valid_rate < 50% now excluded from jury after 20 calls (qwen35-9b-gpu, qwen-7b-hf will be excluded when baseline reached).
 - [x] **#3 Session cost tracking** — Add token+duration logging to session-stop.sh. Wired: session-init.sh records start, session-stop.sh measures duration + commit count + posts to /observe. No token count yet (requires Claude Code API integration). Done 2026-04-13.
 - [x] **#4 TODO protocol enforcement** — This rewrite. 4 rules. Max 15. Session log. Done 2026-04-12.
 
@@ -53,6 +53,7 @@ Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-13 | organ-quality-gate-K14 | ~15m | 1 | 0 | 1 | 0 | TODO #2 implementation verified: Dual-gate K14 architecture (ParseFailureGate + json_valid_rate >= 0.5). K14 gate 2 respects baseline_established (>= 20 calls) to honor K14 pessimism. 3 new unit tests verify: low-quality dogs excluded, pre-baseline gate doesn't trip, recovery on improvement. All 31 organ tests passing. Fixes compile error on reference borrow in matches! (String doesn't Copy). Dogs with <50% json_valid_rate now excluded from jury after reaching 20 calls. Closes TODO #2 (K14 completeness). |
 | 2026-04-13 | kairos-infrastructure-wiring | ~55m | 1 | 0 | 1 | 0 | Diagnosed KAIROS network binding (services on Tailscale IP). Fixed CynicHttpAdapter URL (8000→3030), KairosKernel inference (8080 Tailscale IP), API key reading from CYNIC config, JSON parsing (markdown wrapping). Enabled kairos.service: now running 60s analysis cycle on BTC/ETH/SOL/WIF. LLM returning valid decisions (NO_TRADE observed). Infrastructure ready: when LLM returns TRADE, verdict flows to CYNIC /judge. Outcome tracking & crystal feedback deferred. |
 | 2026-04-13 | k15-dead-ends+burn-reduction | ~25m | 2 | 0 | 1 | 0 | Audited K15 dead-ends: store_infra_snapshot had no consumers (REST, pipeline, decision), deleted 73 lines. session_summaries verified wired (2 consumers: REST /sessions, pipeline). dream_counter doesn't exist. Fix: eliminated periodic cleanup overhead, resolved K15 violation. |
 | 2026-04-13 | heartbeat-verification | ~20m | 1 | 0 | 0 | 0 | Fixed build environment: rustup reinstall (stable 1.94.1) eliminated SIGSEGV. Deployed heartbeat fix (ece7e79): all 4 Dogs now correctly registered, heartbeat endpoints return `"status": "alive"`. K15 acting consumer (dog-health-monitor.sh) verified operational. Zero Dogs degradation since deployment. |
@@ -81,4 +82,4 @@ Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis
 - GROWL verdict (Q=52.6): BURN=30 wound, SOVEREIGNTY=75 strength
 - 7 anti-patterns identified → saved to memory (feedback_anti_patterns.md)
 - R22 status: PARTIALLY FALSIFIED (crystal formation generalizes; injection timing validated)
-- **A1 Infrastructure Debt: Rust 1.94.1 LLVM SIGSEGV** — Diagnosed 2026-04-13: LLVM crash in rmcp monomorphization (serde+schemars). Workaround: RUST_MIN_STACK=8388608. Documented in CLAUDE.md § VII + enforced in Makefile + pre-commit hook. Upstream compiler bug (rust-lang/rust #103767, #122357, #138561). Obsolete when: Rust 1.95.0+ confirmed fixed.
+- **A1 Infrastructure Debt: Rust LLVM Debug Info Stack Overflow** — Fully diagnosed 2026-04-13: rust-lang/rust #103767 (OPEN since 2022). Root cause: rustc_query_system hits stack limits on deeply nested macro expansions. NOT crate/version-specific (tested: Rust 1.93.0 fails in winnow, 1.94.1 fails in rmcp, identical SIGSEGV). schemars 1.2.1 modern (legacy LLVM quad-compile fixed in 0.8.16+). Workaround: RUST_MIN_STACK=8388608 (mechanically enforced: Makefile, pre-commit hook, CLAUDE.md § VII). System-level compiler issue, not reportable (already exists, no scheduled fix). Obsolete: Rust 1.95.0+ with LLVM update fixing debug info recursion.
