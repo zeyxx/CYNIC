@@ -139,6 +139,13 @@ const CRYSTAL_CHALLENGE: TaskContract = TaskContract {
     consumer: "crystal quality immune system",
     failure_effect: "poisoned crystals (Q-delta > φ⁻²) linger in jury feedback",
 };
+const NIGHTSHIFT: TaskContract = TaskContract {
+    name: "nightshift",
+    expected_interval: 4 * 3600 + 600, // 4h + 10min grace
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "dev crystal formation",
+    failure_effect: "autonomous dev judgment stops, no new dev crystals form overnight",
+};
 
 fn task_contract(name: &str) -> TaskContract {
     match name {
@@ -156,6 +163,7 @@ fn task_contract(name: &str) -> TaskContract {
         "dog_heartbeat" => DOG_HEARTBEAT,
         "discovery" => DISCOVERY,
         "crystal_challenge" => CRYSTAL_CHALLENGE,
+        "nightshift" => NIGHTSHIFT,
         other => panic!("task contract missing for '{other}'"),
     }
 }
@@ -185,6 +193,7 @@ pub struct TaskHealth {
     dog_heartbeat: AtomicU64,
     discovery: AtomicU64,
     crystal_challenge: AtomicU64,
+    nightshift: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -213,6 +222,7 @@ impl TaskHealth {
             dog_heartbeat: AtomicU64::new(0),
             discovery: AtomicU64::new(0),
             crystal_challenge: AtomicU64::new(0),
+            nightshift: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -266,6 +276,9 @@ impl TaskHealth {
     pub fn touch_crystal_challenge(&self) {
         self.crystal_challenge
             .store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_nightshift(&self) {
+        self.nightshift.store(Self::now_secs(), Ordering::Relaxed);
     }
 
     /// Summarizer: HONEST touch with detail about what actually happened.
@@ -401,6 +414,12 @@ impl TaskHealth {
             TaskSnapshot::new(
                 CRYSTAL_CHALLENGE,
                 self.crystal_challenge.load(Ordering::Relaxed),
+                now,
+                None,
+            ),
+            TaskSnapshot::new(
+                NIGHTSHIFT,
+                self.nightshift.load(Ordering::Relaxed),
                 now,
                 None,
             ),
