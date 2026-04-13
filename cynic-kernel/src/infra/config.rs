@@ -30,6 +30,8 @@ impl Default for StorageConfig {
 #[derive(Debug, Clone)]
 pub struct BackendConfig {
     pub name: String,
+    /// Which adapter to use. Default: `OpenAi` (HTTP). Use `Cli` for subprocess-based tools.
+    pub backend_type: BackendType,
     pub base_url: String,
     pub api_key: Option<String>,
     pub model: String,
@@ -73,6 +75,16 @@ pub struct BackendRemediation {
     pub cooldown_secs: u64,
 }
 
+/// Selects the adapter used to communicate with a backend.
+/// - `OpenAi` (default): HTTP/OpenAI-compatible REST API.
+/// - `Cli`: subprocess (`binary --prompt "..."`) — for CLI tools like `gemini`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BackendType {
+    #[default]
+    OpenAi,
+    Cli,
+}
+
 #[derive(Debug, Clone)]
 pub enum AuthStyle {
     Bearer,
@@ -96,6 +108,7 @@ struct StorageEntry {
 #[derive(Deserialize)]
 struct BackendEntry {
     base_url: String,
+    backend_type: Option<String>,
     api_key_env: Option<String>,
     model: String,
     auth_style: Option<String>,
@@ -171,6 +184,15 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 return None;
             }
 
+            let backend_type = match entry.backend_type.as_deref() {
+                Some("cli") => BackendType::Cli,
+                Some("openai") | None => BackendType::OpenAi,
+                Some(other) => {
+                    tracing::warn!(backend_type = %other, backend = %name, "unknown backend_type, defaulting to openai");
+                    BackendType::OpenAi
+                }
+            };
+
             let auth_style = match entry.auth_style.as_deref() {
                 Some("bearer") | None => AuthStyle::Bearer,
                 Some("none") => AuthStyle::None,
@@ -190,15 +212,27 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 cooldown_secs: r.cooldown_secs.unwrap_or(60),
             });
 
-            // health_url: explicit if provided, derived for all sovereign backends (http://),
-            // None for cloud APIs (https://) — health loop skips them.
+            // health_url: explicit if provided, derived for sovereign (http://) non-CLI backends,
+            // None for cloud APIs (https://) and CLI backends (no HTTP endpoint).
             // Previously only derived when remediation existed, which left local Dogs unprobed.
             let is_sovereign = entry.base_url.starts_with("http://");
-            let health_url = entry.health_url
-                .or_else(|| if is_sovereign { Some(derive_health_url(&entry.base_url)) } else { None });
+            let health_url = if backend_type == BackendType::Cli {
+                None
+            } else {
+                entry
+                    .health_url
+                    .or_else(|| {
+                        if is_sovereign {
+                            Some(derive_health_url(&entry.base_url))
+                        } else {
+                            None
+                        }
+                    })
+            };
 
             Some(BackendConfig {
                 name,
+                backend_type,
                 base_url: entry.base_url,
                 api_key,
                 model: entry.model,
@@ -289,6 +323,7 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
         let base_url = "https://generativelanguage.googleapis.com/v1beta/openai".to_string();
         configs.push(BackendConfig {
             name: "gemini".to_string(),
+            backend_type: BackendType::OpenAi,
             base_url,
             api_key: Some(api_key),
             model,
@@ -713,5 +748,34 @@ model = "gpt-4"
     fn keeps_h2_after_blank_lines() {
         let input = "\n\n## FIDELITY\nContent";
         assert!(strip_domain_heading(input).starts_with("## FIDELITY"));
+    }
+
+    #[test]
+    fn parse_cli_backend_type() {
+        let toml_content = r#"
+[backend.gemini-flash]
+backend_type = "cli"
+base_url = "gemini"
+model = "gemini-2.5-flash"
+auth_style = "none"
+timeout_secs = 60
+"#;
+        let dir = std::env::temp_dir().join("cynic_config_cli_type_test");
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("backends.toml");
+        std::fs::write(&path, toml_content).unwrap();
+
+        let configs = load_backends(&path);
+        assert_eq!(configs.len(), 1);
+        assert_eq!(configs[0].backend_type, BackendType::Cli);
+        assert_eq!(configs[0].name, "gemini-flash");
+        assert_eq!(configs[0].base_url, "gemini");
+        // CLI backends must not get a derived health_url
+        assert!(
+            configs[0].health_url.is_none(),
+            "CLI backend should have no health_url"
+        );
+
+        std::fs::remove_file(&path).ok();
     }
 }

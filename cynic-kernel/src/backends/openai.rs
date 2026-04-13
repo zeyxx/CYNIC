@@ -392,11 +392,13 @@ impl ChatPort for OpenAiCompatBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::infra::config::BackendType;
 
     #[test]
     fn build_url_bearer_no_query() {
         let backend = OpenAiCompatBackend::new(BackendConfig {
             name: "test".into(),
+            backend_type: BackendType::OpenAi,
             base_url: "https://api.example.com/v1".into(),
             api_key: Some("sk-123".into()),
             model: "gpt-4".into(),
@@ -423,6 +425,7 @@ mod tests {
     fn build_url_query_param() {
         let backend = OpenAiCompatBackend::new(BackendConfig {
             name: "test".into(),
+            backend_type: BackendType::OpenAi,
             base_url: "https://api.example.com/v1".into(),
             api_key: Some("key123".into()),
             model: "gemini".into(),
@@ -449,6 +452,7 @@ mod tests {
     fn build_url_no_auth() {
         let backend = OpenAiCompatBackend::new(BackendConfig {
             name: "local".into(),
+            backend_type: BackendType::OpenAi,
             base_url: "http://localhost:8080/v1".into(),
             api_key: None,
             model: "phi-3".into(),
@@ -475,6 +479,7 @@ mod tests {
     fn trailing_slash_handled() {
         let backend = OpenAiCompatBackend::new(BackendConfig {
             name: "test".into(),
+            backend_type: BackendType::OpenAi,
             base_url: "https://api.example.com/v1/".into(),
             api_key: None,
             model: "m".into(),
