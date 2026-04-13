@@ -1,4 +1,5 @@
 use cynic_kernel::domain::inference::BackendPort;
+use cynic_kernel::infra::alerts::SlackAlerter;
 use cynic_kernel::*;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
@@ -674,7 +675,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&task_health),
         shutdown.clone(),
     );
-    infra::tasks::spawn_event_consumer(&event_tx, Arc::clone(&task_health), shutdown.clone());
+
+    // ─── Event consumer + K15 alerting (ContractDelta → Slack) ────
+    let slack = SlackAlerter::from_env();
+    if slack.is_some() {
+        klog!("[Ring 2] Slack alerter initialized (CYNIC_SLACK_WEBHOOK set)");
+    } else {
+        klog!("[Ring 2] Slack alerter disabled (CYNIC_SLACK_WEBHOOK not set)");
+    }
+    infra::tasks::spawn_event_consumer(
+        &event_tx,
+        Arc::clone(&task_health),
+        shutdown.clone(),
+        slack,
+    );
 
     // ─── Storage reconnect (K15: detection → action) ──
     // Ephemeral task — exits once storage is connected. No TaskHealth tracking
