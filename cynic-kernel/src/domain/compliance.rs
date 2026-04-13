@@ -197,6 +197,7 @@ mod tests {
             project: String::new(),
             agent_id: String::new(),
             session_id: String::new(),
+            tags: vec![],
         }
     }
 

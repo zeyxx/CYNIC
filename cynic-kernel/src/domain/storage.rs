@@ -22,6 +22,7 @@ pub struct Observation {
     pub context: String,
     pub session_id: String,
     pub timestamp: String,
+    pub tags: Vec<String>,
 }
 
 // ── TYPED QUERY RESULTS (Gate 3: zero serde_json::Value in domain/) ──
@@ -61,6 +62,8 @@ pub struct RawObservation {
     pub agent_id: String,
     #[serde(default)]
     pub session_id: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 /// Historical usage row loaded at boot.

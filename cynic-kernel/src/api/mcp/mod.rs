@@ -243,6 +243,8 @@ pub struct ObserveParams {
     pub agent_id: Option<String>,
     /// Session identifier for CCM aggregation
     pub session_id: Option<String>,
+    /// Categorical tags (e.g. session-summary, finding, debt, hypothesis)
+    pub tags: Option<Vec<String>>,
 }
 
 // ── MCP Server ───────────────────────────────────────────────
@@ -1030,6 +1032,7 @@ impl CynicMcp {
             params.project,
             params.agent_id,
             params.session_id,
+            params.tags,
         );
 
         let storage = Arc::clone(&self.storage);

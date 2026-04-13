@@ -707,6 +707,7 @@ pub fn build_observation(
     project: Option<String>,
     agent_id: Option<String>,
     session_id: Option<String>,
+    tags: Option<Vec<String>>,
 ) -> crate::domain::storage::Observation {
     let resolved_domain = domain.unwrap_or_else(|| infer_domain(target.as_deref(), Some(&tool)));
 
@@ -722,6 +723,7 @@ pub fn build_observation(
             .unwrap_or_default(),
         session_id: session_id.unwrap_or_default(),
         timestamp: chrono::Utc::now().to_rfc3339(),
+        tags: tags.unwrap_or_default(),
     }
 }
 
@@ -1148,6 +1150,7 @@ mod tests {
                 project: String::new(),
                 agent_id: String::new(),
                 session_id: String::new(),
+                tags: vec![],
             },
             RawObservation {
                 id: String::new(),
@@ -1160,6 +1163,7 @@ mod tests {
                 project: String::new(),
                 agent_id: String::new(),
                 session_id: String::new(),
+                tags: vec![],
             },
         ];
         let prompt = format_summarization_prompt(&obs);
@@ -1183,6 +1187,7 @@ mod tests {
                 project: String::new(),
                 agent_id: String::new(),
                 session_id: String::new(),
+                tags: vec![],
             })
             .collect();
         let prompt = format_summarization_prompt(&obs);

@@ -79,6 +79,7 @@ fn make_obs(agent: &str, tool: &str, target: &str) -> Observation {
         context: "contract test".to_string(),
         session_id: agent.to_string(),
         timestamp: "2026-01-01T00:00:00Z".to_string(),
+        tags: vec![],
     }
 }
 
