@@ -2,6 +2,8 @@
 
 # CYNIC
 
+> **"Sovereign infrastructure making the cost of lying visible through the geometry of calibrated doubt."**
+
 **Decentralized epistemic consensus — independent AI validators judging content under mathematical doubt**
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
