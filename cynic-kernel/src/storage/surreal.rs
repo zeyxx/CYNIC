@@ -54,6 +54,7 @@ fn sanitize_record_id(s: &str) -> String {
 
 #[async_trait::async_trait]
 impl StoragePort for SurrealHttpStorage {
+    #[tracing::instrument(skip(self), err)]
     async fn ping(&self) -> Result<(), StorageError> {
         self.query("INFO FOR DB;").await?;
         Ok(())
@@ -70,30 +71,37 @@ impl StoragePort for SurrealHttpStorage {
         })
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn store_verdict(&self, verdict: &Verdict) -> Result<(), StorageError> {
         verdicts::store_verdict(self, verdict).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError> {
         verdicts::get_verdict(self, id).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError> {
         verdicts::list_verdicts(self, limit).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError> {
         crystals::store_crystal(self, crystal).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError> {
         crystals::get_crystal(self, id).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError> {
         crystals::list_crystals(self, limit).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn list_crystals_filtered(
         &self,
         limit: u32,
@@ -103,10 +111,12 @@ impl StoragePort for SurrealHttpStorage {
         crystals::list_crystals_filtered(self, limit, domain, state).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn delete_crystal(&self, id: &str) -> Result<(), StorageError> {
         crystals::delete_crystal(self, id).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn list_crystals_for_domain(
         &self,
         domain: &str,
@@ -115,6 +125,7 @@ impl StoragePort for SurrealHttpStorage {
         crystals::list_crystals_for_domain(self, domain, limit).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn observe_crystal(
         &self,
         id: &str,
@@ -140,6 +151,7 @@ impl StoragePort for SurrealHttpStorage {
         .await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn store_crystal_embedding(
         &self,
         id: &str,
@@ -148,6 +160,7 @@ impl StoragePort for SurrealHttpStorage {
         crystals::store_crystal_embedding(self, id, embedding).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn search_crystals_semantic(
         &self,
         query_embedding: &[f32],
@@ -156,6 +169,7 @@ impl StoragePort for SurrealHttpStorage {
         crystals::search_crystals_semantic(self, query_embedding, limit).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn find_similar_crystal(
         &self,
         embedding: &[f32],
@@ -165,10 +179,12 @@ impl StoragePort for SurrealHttpStorage {
         crystals::find_similar_crystal(self, embedding, domain, threshold).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
         activity::store_observation(self, obs).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn query_observations(
         &self,
         project: &str,
@@ -178,6 +194,7 @@ impl StoragePort for SurrealHttpStorage {
         activity::query_observations(self, project, domain, limit).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn query_session_targets(
         &self,
         project: &str,
@@ -186,6 +203,7 @@ impl StoragePort for SurrealHttpStorage {
         activity::query_session_targets(self, project, limit).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn store_session_summary(
         &self,
         summary: &crate::domain::ccm::SessionSummary,
@@ -193,6 +211,7 @@ impl StoragePort for SurrealHttpStorage {
         activity::store_session_summary(self, summary).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn list_session_summaries(
         &self,
         limit: u32,
@@ -200,6 +219,7 @@ impl StoragePort for SurrealHttpStorage {
         activity::list_session_summaries(self, limit).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn get_unsummarized_sessions(
         &self,
         min_observations: u32,
@@ -208,6 +228,7 @@ impl StoragePort for SurrealHttpStorage {
         activity::get_unsummarized_sessions(self, min_observations, limit).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn get_session_observations(
         &self,
         session_id: &str,
@@ -215,6 +236,7 @@ impl StoragePort for SurrealHttpStorage {
         activity::get_session_observations(self, session_id).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn store_session_compliance(
         &self,
         c: &crate::domain::compliance::SessionCompliance,
@@ -222,6 +244,7 @@ impl StoragePort for SurrealHttpStorage {
         activity::store_session_compliance(self, c).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn list_session_compliance(
         &self,
         limit: u32,
@@ -229,6 +252,7 @@ impl StoragePort for SurrealHttpStorage {
         activity::list_session_compliance(self, limit).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn flush_usage(
         &self,
         snapshot: &[(String, crate::domain::usage::DogUsage)],
@@ -236,18 +260,22 @@ impl StoragePort for SurrealHttpStorage {
         ops::flush_usage(self, snapshot).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn cleanup_ttl(&self) -> Result<(), StorageError> {
         maintenance::cleanup_ttl(self).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn last_integrity_hash(&self) -> Result<Option<String>, StorageError> {
         maintenance::last_integrity_hash(self).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn load_usage_history(&self) -> Result<Vec<UsageRow>, StorageError> {
         ops::load_usage_history(self).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn flush_dog_stats(
         &self,
         stats: &[(String, crate::organ::health::DogStats)],
@@ -255,12 +283,14 @@ impl StoragePort for SurrealHttpStorage {
         ops::flush_dog_stats(self, stats).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn load_dog_stats(
         &self,
     ) -> Result<Vec<(String, crate::organ::health::DogStats)>, StorageError> {
         ops::load_dog_stats(self).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn list_crystals_missing_embedding(
         &self,
         limit: u32,
@@ -268,14 +298,17 @@ impl StoragePort for SurrealHttpStorage {
         maintenance::list_crystals_missing_embedding(self, limit).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn count_verdicts(&self) -> Result<u64, StorageError> {
         maintenance::count_verdicts(self).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
         maintenance::count_crystal_observations(self).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn list_observations_raw(
         &self,
         domain: Option<&str>,
@@ -285,6 +318,7 @@ impl StoragePort for SurrealHttpStorage {
         activity::list_observations_raw(self, domain, agent_id, limit).await
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
         maintenance::consolidate_duplicate_crystals(self).await
     }

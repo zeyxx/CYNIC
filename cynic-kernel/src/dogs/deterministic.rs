@@ -187,6 +187,7 @@ impl Dog for DeterministicDog {
         "deterministic-dog"
     }
 
+    #[tracing::instrument(skip(self), err)]
     async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError> {
         let content = &stimulus.content;
         // Context intentionally unused — DeterministicDog judges FORM of content only.

@@ -135,6 +135,7 @@ impl Dog for InferenceDog {
         BackendPort::health(self.chat.as_ref()).await
     }
 
+    #[tracing::instrument(skip(self), err, fields(dog_id = %self.dog_name))]
     async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError> {
         let system = Self::build_system_prompt();
         let user = Self::build_user_prompt(stimulus, &self.domain_prompts);
