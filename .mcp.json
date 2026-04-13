@@ -1,8 +1,10 @@
 {
   "mcpServers": {
     "cynic": {
-      "command": "cynic-kernel",
-      "args": ["--mcp"]
+      "command": "/home/user/Bureau/CYNIC/cynic-kernel",
+      "args": [
+        "--mcp"
+      ]
     },
     "tailscale": {
       "command": "tailscale-mcp",

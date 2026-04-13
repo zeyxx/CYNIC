@@ -271,6 +271,7 @@ impl StoragePort for InMemoryStorage {
             project: obs.project.clone(),
             agent_id: obs.agent_id.clone(),
             session_id: obs.session_id.clone(),
+            tags: obs.tags.clone(),
         });
         Ok(())
     }

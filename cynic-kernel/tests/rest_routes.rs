@@ -691,6 +691,7 @@ fn raw_observation_json_shape() {
         project: "CYNIC".into(),
         agent_id: "agent-1".into(),
         session_id: "sess-1".into(),
+        tags: vec!["test-tag".into()],
     };
     let v: serde_json::Value = serde_json::to_value(&obs).unwrap();
     // CONTRACT: these fields must exist with these exact names
@@ -705,6 +706,7 @@ fn raw_observation_json_shape() {
         "project",
         "agent_id",
         "session_id",
+        "tags",
     ] {
         assert!(
             v.get(field).is_some(),

@@ -55,6 +55,45 @@ async fn git_commits_since(lookback: &str, repo_path: &str) -> Result<Vec<GitCom
     Ok(parse_git_log(&stdout))
 }
 
+/// Judge a session observation and observe the result as a session crystal.
+async fn judge_session_observation(
+    obs: &crate::domain::storage::RawObservation,
+    judge: &Arc<crate::judge::Judge>,
+    storage: &Arc<dyn StoragePort>,
+) -> Result<(), String> {
+    let stimulus = Stimulus {
+        content: format!("[{}] {}: {}", obs.agent_id, obs.tool, obs.context),
+        context: Some(format!("tags: {:?}", obs.tags)),
+        domain: Some("session".to_string()),
+        request_id: None,
+    };
+
+    let metrics = Metrics::new();
+    let verdict = judge
+        .evaluate(&stimulus, None, &metrics)
+        .await
+        .map_err(|e| format!("judge failed for session obs {}: {e}", obs.id))?;
+
+    let timestamp = chrono::Utc::now().to_rfc3339();
+    let verdict_kind = format!("{:?}", verdict.kind).to_lowercase();
+
+    storage
+        .observe_crystal(
+            &format!("nightshift-session-{}", &obs.id),
+            &stimulus.content,
+            "session",
+            verdict.q_score.total,
+            &timestamp,
+            verdict.voter_count,
+            &verdict.id,
+            &verdict_kind,
+        )
+        .await
+        .map_err(|e| format!("observe_crystal failed for session obs {}: {e}", obs.id))?;
+
+    Ok(())
+}
+
 /// Judge a single commit and observe the result as a dev crystal.
 async fn judge_commit(
     commit: &GitCommit,
@@ -167,7 +206,37 @@ pub fn spawn_nightshift_loop(
                         }
                     }
 
-                    klog!("[Nightshift] Cycle complete — {} judged, {} errors", judged, errors);
+                    klog!("[Nightshift] Commits: {} judged, {} errors", judged, errors);
+
+                    // Phase 2: judge recent session observations (inter-agent learning)
+                    match storage.list_observations_raw(Some("session"), None, 10).await {
+                        Ok(session_obs) if !session_obs.is_empty() => {
+                            klog!("[Nightshift] {} session observation(s) to review", session_obs.len());
+                            let mut s_judged = 0usize;
+                            let mut s_errors = 0usize;
+                            for obs in &session_obs {
+                                match tokio::time::timeout(
+                                    constants::NIGHTSHIFT_COMMIT_TIMEOUT,
+                                    judge_session_observation(obs, &judge, &storage),
+                                ).await {
+                                    Ok(Ok(())) => s_judged += 1,
+                                    Ok(Err(e)) => {
+                                        s_errors += 1;
+                                        tracing::warn!(id = %obs.id, error = %e, "[Nightshift] session obs judgment failed");
+                                    }
+                                    Err(_) => {
+                                        s_errors += 1;
+                                        tracing::warn!(id = %obs.id, "[Nightshift] session obs judgment timed out");
+                                    }
+                                }
+                            }
+                            klog!("[Nightshift] Sessions: {} judged, {} errors", s_judged, s_errors);
+                        }
+                        Ok(_) => klog!("[Nightshift] No session observations to review"),
+                        Err(e) => tracing::warn!(error = %e, "[Nightshift] Failed to fetch session observations"),
+                    }
+
+                    klog!("[Nightshift] Cycle complete");
                     task_health.touch_nightshift();
                 }
             }

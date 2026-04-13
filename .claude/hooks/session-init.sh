@@ -156,6 +156,20 @@ if [[ -f "$DREAM_STATE" ]]; then
     fi
 fi
 
+# ── Inter-agent bus: read prior session summaries (domain=session) ──
+# Other agents (Claude, Gemini) POST session summaries at session end.
+# Reading them here gives continuity across agents and sessions.
+if [[ "$KERNEL_STATUS" != "down" ]]; then
+    SESSION_OBS=$(curl -s --max-time 3 \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        "http://${KERNEL_ADDR}/observations?domain=session&limit=5" 2>/dev/null)
+    if [[ -n "$SESSION_OBS" ]] && echo "$SESSION_OBS" | jq -e 'type == "array" and length > 0' >/dev/null 2>&1; then
+        echo ""
+        echo "RECENT SESSIONS (inter-agent bus):"
+        echo "$SESSION_OBS" | jq -r '.[] | "  [\(.agent_id // "?")] \(.context // "no context") (\(.created_at // "?" | split("T")[0] // "?"))"' 2>/dev/null | head -5 || true
+    fi
+fi
+
 # ── Inject top CCM crystals as learnings (CYNIC remembers) ──
 if [[ "$KERNEL_STATUS" != "down" ]]; then
     CRYSTALS=$(curl -s --max-time 3 \
