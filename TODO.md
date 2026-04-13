@@ -10,7 +10,7 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis + organ-quality-gate
+Last updated: 2026-04-13 | Session: deploy-and-break
 
 ---
 
@@ -43,8 +43,8 @@ Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis + organ-
 **Practice:** CI remote runner (GAP-7), peer review (GAP-6), functional specs (GAP-4), TCO (GAP-9), SurrealDB vs Postgres falsification (GAP-5), threat model STRIDE (GAP-8).
 **Architecture:** Pipeline module split (T4), cynic-node Phase C, sources supervisor, CredentialPort.
 **Identity:** T3a incarnation metrics (baseline still 0), identity layer audit.
-**Kairos:** ✅ WIRED 2026-04-13 — 60s analysis cycle running, TRADE verdicts ready to flow to /judge.
-**Infra:** Dual sensing R12, MCP lifecycle, boot-state capture (A1), RUST_MIN_STACK spiraling (4GB→8GB+ requests, LLVM crashes, linker errors). Nightly-2026-04-11 SIGSEGV persistent. Switched to stable but build environment still broken.
+**Kairos:** WIRED but NOT FLOWING: 2168 decisions in 15h = 100% NO_TRADE. Integration code correct (line 110 kernel.py), but 3/7 signal dimensions hardcoded (oracle_divergence=0.0, slippage=25.0, narrative_velocity=0.0 in data/bridge.py:102-105). LLM too conservative with partial signals.
+**Infra:** Dual sensing R12, MCP lifecycle, boot-state capture (A1), RUST_MIN_STACK escalated 8MB→16MB (release builds). GPU backend (cynic-gpu) UNREACHABLE — qwen35-9b-gpu 100% failure rate.
 **Security:** MCP zero auth (RC1-1), boot integrity, tamper detection.
 
 ---
@@ -53,6 +53,7 @@ Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis + organ-
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-13 | deploy-and-break | ~25m | 2 | 0 | 0 | 0 | **DEPLOYED v0.7.7-110-g1aab302** (SOLID fixes + A1 escalation). Kernel sovereign, 4/4 Dogs registered. Crystal challenge loop STARTED but times out (30s) — gemma-4b-core avg 21.8s, qwen35-9b-gpu 100% fail (GPU backend unreachable). KAIROS: 2168 decisions/15h, ALL NO_TRADE (3/7 signals hardcoded). Zero trading verdicts, zero trading crystals. Hypothesis falsified: KAIROS→CYNIC integration wired but not exercised. Bottleneck is operational (signal quality + GPU down), not architectural. A1 debt: RUST_MIN_STACK 8MB→16MB (release builds hit deeper LLVM SROA). Pre-push gate: 558 tests pass in release. |
 | 2026-04-13 | crystal-challenge-K15 | ~30m | 1 | 0 | 1 | 0 | TODO #5 (K15 immune system) completed: spawn_crystal_challenge_loop spawns every 300s, re-judges oldest Crystallized/Canonical crystal without injection. Compares Q-scores: if delta > φ⁻² (0.382), calls observe_crystal with degraded score to trigger state machine. Implementation fixes: (1) list_crystals_filtered takes (limit, domain, state), (2) Judge::evaluate takes (stimulus, filter, metrics), (3) QScore is struct with .total field, (4) use observe_crystal to update crystal state (delegates to adapter). K15 verified: crystal challenge background task integrated into runtime_loops, task health tracking via TaskHealth.touch_crystal_challenge(). Clippy clean. |
 | 2026-04-13 | organ-quality-gate-K14 | ~15m | 1 | 0 | 1 | 0 | TODO #2 implementation verified: Dual-gate K14 architecture (ParseFailureGate + json_valid_rate >= 0.5). K14 gate 2 respects baseline_established (>= 20 calls) to honor K14 pessimism. 3 new unit tests verify: low-quality dogs excluded, pre-baseline gate doesn't trip, recovery on improvement. All 31 organ tests passing. Fixes compile error on reference borrow in matches! (String doesn't Copy). Dogs with <50% json_valid_rate now excluded from jury after reaching 20 calls. Closes TODO #2 (K14 completeness). |
 | 2026-04-13 | kairos-infrastructure-wiring | ~55m | 1 | 0 | 1 | 0 | Diagnosed KAIROS network binding (services on Tailscale IP). Fixed CynicHttpAdapter URL (8000→3030), KairosKernel inference (8080 Tailscale IP), API key reading from CYNIC config, JSON parsing (markdown wrapping). Enabled kairos.service: now running 60s analysis cycle on BTC/ETH/SOL/WIF. LLM returning valid decisions (NO_TRADE observed). Infrastructure ready: when LLM returns TRADE, verdict flows to CYNIC /judge. Outcome tracking & crystal feedback deferred. |
@@ -71,9 +72,10 @@ Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis + organ-
 
 ## State Snapshot
 
-- Kernel: 4/4 Dogs active, FULLY OPERATIONAL
+- Kernel: v0.7.7-110-g1aab302, SOVEREIGN, 4/4 Dogs registered
+- Crystal challenge loop: STARTED (5min interval) — times out at 30s. gemma-4b-core avg 21.8s saturates budget.
+- qwen35-9b-gpu: REGISTERED but GPU backend (cynic-gpu) UNREACHABLE — 100% failure rate. Machine likely offline (kairos-repair session: "network down").
 - K14 jury gate: **IMPLEMENTED** (downgrades verdict kind HOWL→BARK when Dogs < expected count)
-- qwen35-9b-gpu: **FIX DEPLOYED** (heartbeat handler now accepts config-based Dogs via judge.dog_ids() fallback). Deployed: ece7e79 + toolchain fix (stable Rust 1.94.1 + reinstall) + kernel restart. Verification: all 4 Dogs heartbeat endpoints return `"status": "alive"`, TTL=86400s.
 - Temporal wiring complete (O2 strategy: hardcoded heuristic, 7 perspectives, geometric mean aggregation)
 - **Crystal formation verified on dev domain (non-chess)** — 2 crystals forming, need 19-20 more observations to crystallize
 - **Session cost tracking wired** — duration + commit count logged via hooks, foundation for Rule 7 (measure before/after)
@@ -83,4 +85,4 @@ Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis + organ-
 - GROWL verdict (Q=52.6): BURN=30 wound, SOVEREIGNTY=75 strength
 - 7 anti-patterns identified → saved to memory (feedback_anti_patterns.md)
 - R22 status: PARTIALLY FALSIFIED (crystal formation generalizes; injection timing validated)
-- **A1 Infrastructure Debt: Rust LLVM Debug Info Stack Overflow** — Fully diagnosed 2026-04-13: rust-lang/rust #103767 (OPEN since 2022). Root cause: rustc_query_system hits stack limits on deeply nested macro expansions. NOT crate/version-specific (tested: Rust 1.93.0 fails in winnow, 1.94.1 fails in rmcp, identical SIGSEGV). schemars 1.2.1 modern (legacy LLVM quad-compile fixed in 0.8.16+). Workaround: RUST_MIN_STACK=8388608 (mechanically enforced: Makefile, pre-commit hook, CLAUDE.md § VII). System-level compiler issue, not reportable (already exists, no scheduled fix). Obsolete: Rust 1.95.0+ with LLVM update fixing debug info recursion.
+- **A1 Infrastructure Debt** — RUST_MIN_STACK escalated 8MB→16MB (2026-04-13). Release builds with codegen-units=1 hit deeper LLVM SROA optimization. Debug builds pass at 8MB. Workaround: 16MB in Makefile, CLAUDE.md, workflow.md. Pre-push hook uses 64MB (safe). Obsolete: Rust 1.95.0+.
