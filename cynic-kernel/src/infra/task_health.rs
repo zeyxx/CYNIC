@@ -132,6 +132,13 @@ const DISCOVERY: TaskContract = TaskContract {
     consumer: "organism-agnostic dog auto-discovery",
     failure_effect: "inference nodes offline go undetected, roster stagnates",
 };
+const CRYSTAL_CHALLENGE: TaskContract = TaskContract {
+    name: "crystal_challenge",
+    expected_interval: 600,
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "crystal quality immune system",
+    failure_effect: "poisoned crystals (Q-delta > φ⁻²) linger in jury feedback",
+};
 
 fn task_contract(name: &str) -> TaskContract {
     match name {
@@ -148,6 +155,7 @@ fn task_contract(name: &str) -> TaskContract {
         "dog_ttl" => DOG_TTL,
         "dog_heartbeat" => DOG_HEARTBEAT,
         "discovery" => DISCOVERY,
+        "crystal_challenge" => CRYSTAL_CHALLENGE,
         other => panic!("task contract missing for '{other}'"),
     }
 }
@@ -176,6 +184,7 @@ pub struct TaskHealth {
     dog_ttl: AtomicU64,
     dog_heartbeat: AtomicU64,
     discovery: AtomicU64,
+    crystal_challenge: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -203,6 +212,7 @@ impl TaskHealth {
             dog_ttl: AtomicU64::new(0),
             dog_heartbeat: AtomicU64::new(0),
             discovery: AtomicU64::new(0),
+            crystal_challenge: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -252,6 +262,10 @@ impl TaskHealth {
     }
     pub fn touch_discovery(&self) {
         self.discovery.store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_crystal_challenge(&self) {
+        self.crystal_challenge
+            .store(Self::now_secs(), Ordering::Relaxed);
     }
 
     /// Summarizer: HONEST touch with detail about what actually happened.
@@ -384,6 +398,12 @@ impl TaskHealth {
                 None,
             ),
             TaskSnapshot::new(DISCOVERY, self.discovery.load(Ordering::Relaxed), now, None),
+            TaskSnapshot::new(
+                CRYSTAL_CHALLENGE,
+                self.crystal_challenge.load(Ordering::Relaxed),
+                now,
+                None,
+            ),
         ]
     }
 }

@@ -22,8 +22,8 @@ use crate::infra::config::BackendRemediation;
 use crate::infra::task_health::TaskHealth;
 
 pub use runtime_loops::{
-    spawn_discovery_loop, spawn_dog_heartbeat_loop, spawn_dog_ttl_checker, spawn_event_consumer,
-    spawn_probe_scheduler,
+    spawn_crystal_challenge_loop, spawn_discovery_loop, spawn_dog_heartbeat_loop,
+    spawn_dog_ttl_checker, spawn_event_consumer, spawn_probe_scheduler,
 };
 
 // ── Shutdown flush — used by both REST and MCP exit paths ────
