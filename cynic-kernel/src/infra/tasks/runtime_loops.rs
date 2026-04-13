@@ -563,7 +563,7 @@ pub fn spawn_crystal_challenge_loop(
                             task_health.touch_crystal_challenge();
                         }
                         Err(_) => {
-                            tracing::warn!("crystal challenge timed out (30s)");
+                            tracing::warn!("crystal challenge timed out (60s)");
                         }
                     }
                 }
