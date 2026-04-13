@@ -9,7 +9,7 @@
 //! Inspiration credit: NousResearch/hermes-agent (tool architecture patterns).
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use rmcp::{
     ErrorData as McpError, ServerHandler, handler::server::tool::ToolRouter,
@@ -155,6 +155,14 @@ pub struct AuditQueryParams {
     pub limit: Option<u32>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct AuthParams {
+    /// API key — must match the kernel's CYNIC_API_KEY
+    pub api_key: String,
+    /// Agent identity for audit trail
+    pub agent_id: Option<String>,
+}
+
 // ── Coordination Tool Parameters ─────────────────────────────
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -247,6 +255,8 @@ pub struct CynicMcp {
     rate_limit: Arc<McpRateLimit>,
     /// Bound fire-and-forget spawns (observe, audit). Mirrors REST bg_semaphore.
     bg_semaphore: Arc<tokio::sync::Semaphore>,
+    /// RC1-1: Session authentication state. Set to true after successful cynic_auth call.
+    authenticated: Arc<AtomicBool>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -294,8 +304,44 @@ impl CynicMcp {
             bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
                 crate::domain::constants::BG_SEMAPHORE_PERMITS,
             )),
+            authenticated: Arc::new(AtomicBool::new(false)),
             tool_router: Self::tool_router(),
         }
+    }
+
+    // ── AUTH ──────────────────────────────────────────────────
+
+    #[tool(
+        name = "cynic_auth",
+        description = "Authenticate this MCP session. Required before calling sensitive tools (judge, observe, validate, git, coord). Pass the CYNIC_API_KEY. Call once per session."
+    )]
+    async fn cynic_auth(&self, params: Parameters<AuthParams>) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+        let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
+
+        let expected = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+        if expected.is_empty() {
+            return Err(McpError::internal_error(
+                "Kernel has no CYNIC_API_KEY configured",
+                None,
+            ));
+        }
+
+        if p.api_key != expected {
+            tracing::warn!(agent_id, "MCP auth failed — invalid key");
+            return Err(McpError::new(
+                rmcp::model::ErrorCode(-32000),
+                "Authentication failed — invalid API key",
+                None,
+            ));
+        }
+
+        self.authenticated.store(true, Ordering::Relaxed);
+        tracing::info!(agent_id, "MCP session authenticated");
+
+        Ok(CallToolResult::success(vec![Content::text(
+            r#"{"authenticated": true}"#,
+        )]))
     }
 
     // ── cynic_judge ──────────────────────────────────────────
@@ -308,6 +354,7 @@ impl CynicMcp {
         &self,
         params: Parameters<JudgeParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
         self.rate_limit.check_judge()?;
         let p = params.0;
         validate_agent_id(&p.agent_id)?;
@@ -573,6 +620,7 @@ impl CynicMcp {
         &self,
         params: Parameters<InferParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
         self.rate_limit.check_judge()?; // Same limit as judge — both use LLM resources
         let p = params.0;
         validate_agent_id(&p.agent_id)?;
@@ -670,6 +718,7 @@ impl CynicMcp {
         &self,
         params: Parameters<RegisterParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
         validate_agent_id(&Some(p.agent_id.clone()))?;
@@ -724,6 +773,7 @@ impl CynicMcp {
         &self,
         params: Parameters<ClaimParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
         validate_agent_id(&Some(p.agent_id.clone()))?;
@@ -794,6 +844,7 @@ impl CynicMcp {
         &self,
         params: Parameters<BatchClaimParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
         validate_agent_id(&Some(p.agent_id.clone()))?;
@@ -868,6 +919,7 @@ impl CynicMcp {
         &self,
         params: Parameters<ReleaseParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
         self.rate_limit.check_other()?;
         let p = params.0;
         validate_agent_id(&Some(p.agent_id.clone()))?;
@@ -934,6 +986,7 @@ impl CynicMcp {
         &self,
         params: Parameters<ObserveParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
         self.rate_limit.check_other()?;
         let params = params.0;
 
@@ -995,6 +1048,18 @@ impl CynicMcp {
     }
 
     // ── Helpers ────────────────────────────────────────────────
+
+    /// RC1-1: Check session authentication. Returns Err if not authenticated.
+    fn require_auth(&self) -> Result<(), McpError> {
+        if !self.authenticated.load(Ordering::Relaxed) {
+            return Err(McpError::new(
+                rmcp::model::ErrorCode(-32000),
+                "Not authenticated — call cynic_auth first",
+                None,
+            ));
+        }
+        Ok(())
+    }
 
     /// Refresh heartbeat for any agent that identifies itself.
     /// Called by every tool via audit() — fixes stale-session problem.
@@ -1145,7 +1210,7 @@ mod tests {
         let verdict_cache = Arc::new(crate::domain::verdict_cache::VerdictCache::new());
         let infer = Arc::new(crate::domain::inference::NullInfer) as Arc<dyn InferPort>;
         let metrics = Arc::new(crate::domain::metrics::Metrics::new());
-        CynicMcp::new(
+        let mcp = CynicMcp::new(
             judge,
             storage,
             coord,
@@ -1158,7 +1223,9 @@ mod tests {
             Arc::new(crate::infra::task_health::TaskHealth::new()),
             crate::domain::contract::SystemContract::new(vec!["deterministic-dog".into()], false),
             None,
-        )
+        );
+        mcp.authenticated.store(true, Ordering::Relaxed);
+        mcp
     }
 
     /// Extract text from the first Content element in a CallToolResult.
@@ -1360,6 +1427,7 @@ mod tests {
             crate::domain::contract::SystemContract::new(vec!["deterministic-dog".into()], false),
             None,
         );
+        mcp.authenticated.store(true, Ordering::Relaxed);
 
         let result = mcp.cynic_health().await.unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
