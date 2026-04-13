@@ -168,7 +168,7 @@ Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`, `/live`, `/read
 
 **Workaround (MANDATORY FOR ALL BUILDS):**
 ```bash
-export RUST_MIN_STACK=8388608  # 8GB stack minimum
+export RUST_MIN_STACK=16777216  # 16MB stack minimum (release builds need more than 8MB)
 cargo build                     # any variant: --tests, --release, etc.
 ```
 

@@ -19,7 +19,7 @@ At session end:
 **BEFORE ANY `git commit` to cynic-kernel/**, run locally:
 
 ```bash
-export RUST_MIN_STACK=8388608    # Required: Rust 1.94.1 compiler bug (A1)
+export RUST_MIN_STACK=16777216   # Required: Rust 1.94.1 compiler bug (A1, release needs 16MB)
 cargo build --tests               # Must pass: 0 errors, 0 failing tests
 cargo clippy --all -- -D warnings # Must pass: zero lint violations
 ```
