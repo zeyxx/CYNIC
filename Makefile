@@ -123,6 +123,7 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			[ -z "$$NAME" ] && continue; \
 			MODEL=$$(sed -n "/\[backend\.$${NAME}\]/,/^\[/p" "$$BACKENDS" | grep '^model' | head -1 | sed 's/.*= *"//;s/".*//'); \
 			[ -z "$$MODEL" ] && continue; \
+			if [ "$$MODEL" = "auto" ]; then continue; fi; \
 			PREFIX=$$(echo "$$NAME" | sed 's/[-_].*//' | tr -d '.' | tr '[:upper:]' '[:lower:]'); \
 			MODEL_NODOTS=$$(echo "$$MODEL" | tr -d '.' | tr '[:upper:]' '[:lower:]'); \
 			if ! echo "$$MODEL_NODOTS" | grep -q "$$PREFIX"; then \
