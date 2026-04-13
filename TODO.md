@@ -26,7 +26,7 @@ Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis
 ### Body — prevent regression
 
 - [ ] **#5 Crystal challenge mechanism** — Background task re-judges oldest crystallized crystals without injection. If Q-Score delta > φ⁻², dissolve. Prevents crystal poison (DEBT-A2: content write-once, no contradiction detection).
-- [ ] **#6 Greffe 3: alerting consumer** — ContractDelta { fulfilled: false } → Slack message. K15: structured log only is not "acting."
+- [x] **#6 Greffe 3: alerting consumer** — ContractDelta { fulfilled: false } → Slack message. K15: structured log only is not "acting." ✅ DONE 2026-04-13: SlackAlerter monitors ContractDelta events, alerts on fulfilled=true→false transition (no spam), 3s timeout, logs errors. Integrated into event_consumer loop. K15 acting consumer verified.
 - [x] **#7 Coord: sessions register + claim** — Verify coord-claim hook. ✅ FINDING: protect-files.sh and coord-claim.sh hooks were registered in settings.json but scripts missing (K5 violation). Created both hooks + validated. /coord/claim API working. Both sessions should now appear in /coord/who. Hooks live-reload script changes (not new entries). Done 2026-04-13.
 - [x] **#8 Wire or delete K15 dead-ends** — Triage 3 orphan producers: ✅ store_infra_snapshot DELETED (no consumers, in-memory environment serves all use cases). ✅ session_summaries has 2 consumers (REST /sessions endpoint, pipeline session context). ❓ dream_counter doesn't exist. RESULT: Fixed K15 violation, eliminated 73 lines of waste.
 
@@ -61,6 +61,7 @@ Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis
 | 2026-04-13 | dev-crystal-proof-O3 | ~30m | 0 | 2 forming | 1 (partial) | 1 | 5 dev patterns + 1 re-judge test. Crystals forming (not chess-specific) — phase 1 complete. Need 19-20 more observations/pattern to crystallize. Re-judge after crystallization phase (deferred). |
 | 2026-04-13 | kairos-signal-audit | ~20m | 0 | 0 | 1 | 0 | Diagnosed FrequencyBridge signal integrity. Observable: 4/7 dimensions live (price_kalman, z_score_volume, funding_phase, kill_zone). 3 hardcoded placeholders (oracle_divergence=0.0, slippage=25.0, narrative_velocity=0.0). Deferred full integration to next session (option 3: all signals computed from live sources). Task #2 closed. Task #3 (K15 wounds #5 + #6) ready next session. |
 | 2026-04-13 | temporal-wiring-O2 | ~1h | 1 | 0 | 0 | 0 | O2 implementation: hardcoded heuristic, 7 perspectives, integrated into judge_pipeline |
+| 2026-04-13 | k15-alerting-closure | ~50m | 1 | 0 | 1 | 0 | K15 #6 closed: SlackAlerter implemented (env-driven, 3s timeout, 0-spam on repeat breach). Integration: event_consumer monitors ContractDelta fulfilled state transitions. Tests fixed: refactored env-var tests to avoid unsafe blocks (created SlackAlerter::new() constructor). Commit af45924. Workflow note: pre-commit hook caught compilation errors; future sessions should run `cargo build --tests` before attempting commit to avoid iteration. |
 | 2026-04-12 | crystal-contention+K13+systemd | ~2h | 3 | 0 | 3 | 0 | BURN=30 diagnosed, anti-patterns mapped |
 
 ---
