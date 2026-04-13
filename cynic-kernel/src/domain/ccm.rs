@@ -647,52 +647,6 @@ pub fn extract_cooccurrences(
     patterns
 }
 
-/// Run a full aggregation cycle against storage.
-/// Returns the number of patterns fed into CCM.
-pub async fn aggregate_observations(
-    storage: &dyn crate::domain::storage::StoragePort,
-    project: &str,
-) -> u32 {
-    // Get top patterns (target+tool frequency) — single query, derive total from results
-    let Ok(rows) = storage.query_observations(project, None, 50).await else {
-        return 0;
-    };
-
-    // Derive total from the same result set — atomic, no race between two queries
-    let total = rows.iter().map(|r| r.freq).sum::<u64>().max(1); // Avoid division by zero
-
-    let patterns = extract_patterns(&rows, total);
-
-    // Phase 2: Co-occurrence patterns (targets edited together in the same session)
-    let session_rows = storage
-        .query_session_targets(project, 500)
-        .await
-        .inspect_err(|e| klog!("[CCM/aggregate] session_targets query failed: {}", e))
-        .unwrap_or_default();
-    let cooccurrences = extract_cooccurrences(&session_rows);
-
-    // Workflow patterns are ANALYTICS, not epistemic memory.
-    // They are NOT fed into the crystal system because:
-    // 1. Frequency ratios (freq/total ≈ 0.01–0.30) can NEVER reach crystallization threshold (0.618)
-    // 2. Content is tool usage logs ("Read main.rs — 152x"), not knowledge
-    // 3. Mixing operational telemetry with judgment crystals degrades prompt injection quality
-    //    (confirmed by RAG contamination research — PoisonedRAG, USENIX Security 2025)
-    //
-    // Only the judge pipeline (pipeline.rs::side_effects) creates epistemic crystals,
-    // using phi-bounded Q-Scores from consensus evaluation.
-    let freq_count = patterns.len() as u32;
-    let cooccur_count = cooccurrences.len() as u32;
-
-    klog!(
-        "[CCM/aggregate] {} freq + {} co-occur patterns from {} observations (analytics only)",
-        freq_count,
-        cooccur_count,
-        total
-    );
-
-    freq_count + cooccur_count
-}
-
 // ── DOMAIN INFERENCE ────────────────────────────────────────
 /// Infer domain from file extension or target pattern.
 /// Moved from api/rest/observe.rs — this is domain logic (K5 compliance).

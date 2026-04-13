@@ -1,6 +1,7 @@
 pub mod ccm;
 pub mod chat;
 pub mod compliance;
+pub mod constants;
 pub mod contract;
 pub mod coord;
 pub mod dog;
@@ -11,9 +12,7 @@ pub mod inference;
 pub mod metrics;
 pub mod probe;
 pub mod sanitize;
-pub mod source;
 pub mod storage;
 pub mod summarization;
-pub mod temporal; // WIRED: 2026-04-13. 7 temporal perspectives, geometric mean aggregation, outlier detection.
 pub mod usage;
 pub mod verdict_cache;

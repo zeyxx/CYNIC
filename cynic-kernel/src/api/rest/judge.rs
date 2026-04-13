@@ -10,9 +10,7 @@ use std::sync::Arc;
 use super::response::{storage_error, verdict_response_cached, verdict_to_response};
 use super::types::*;
 
-/// Max content length in chars — caps token consumption per request.
-const MAX_CONTENT_LEN: usize = 4_000;
-const MAX_CONTEXT_LEN: usize = 2_000;
+use crate::domain::constants::{MAX_CONTENT_LEN, MAX_CONTEXT_LEN};
 
 #[derive(Debug)]
 pub(super) struct ValidatedJudgeRequest {
@@ -95,6 +93,7 @@ pub async fn judge_handler(
         event_tx: Some(&state.event_tx),
         request_id: Some(uuid::Uuid::new_v4().to_string()),
         on_dog: None,
+        expected_dog_count: judge.dog_ids().len(),
     };
     let result = crate::pipeline::run(
         req.content,
