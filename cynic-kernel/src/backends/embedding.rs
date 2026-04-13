@@ -37,7 +37,8 @@ impl EmbeddingBackend {
     /// CYNIC_EMBED_URL overrides, else derives from CYNIC_REST_ADDR host + port 8081.
     pub fn from_env() -> Result<Self, crate::domain::inference::BackendInitError> {
         let base_url = std::env::var("CYNIC_EMBED_URL").unwrap_or_else(|_| {
-            let rest = std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".into());
+            let rest = std::env::var("CYNIC_REST_ADDR")
+                .unwrap_or_else(|_| crate::domain::constants::DEFAULT_REST_ADDR.into());
             let host = rest.split(':').next().unwrap_or("127.0.0.1");
             let port = std::env::var("CYNIC_EMBED_PORT").unwrap_or_else(|_| "8081".into());
             format!("http://{host}:{port}/v1")

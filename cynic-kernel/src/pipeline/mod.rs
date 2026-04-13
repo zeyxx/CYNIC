@@ -5,8 +5,6 @@
 //! Handlers call this, then format the response for their transport.
 
 mod crystal_observer;
-mod temporal_eval;
-
 use crate::domain::ccm;
 use crate::domain::dog::{Stimulus, Verdict};
 use crate::domain::embedding::{Embedding, EmbeddingPort};
@@ -24,7 +22,6 @@ use tokio::sync::Mutex;
 use tracing::Instrument;
 
 use crystal_observer::observe_crystal_for_verdict;
-use temporal_eval::evaluate_temporal;
 
 /// Result of the judge pipeline — everything a handler needs to build its response.
 #[derive(Debug)]
@@ -55,6 +52,9 @@ pub struct PipelineDeps<'a> {
     /// D4: optional progressive callback — called as each Dog completes.
     /// (dog_id, success, elapsed_ms, optional DogScore ref, optional error string)
     pub on_dog: Option<Box<OnDogCallback>>,
+    /// Expected fleet size — drives K14 jury gate.
+    /// Comes from `judge.dog_ids().len()`, NOT hardcoded.
+    pub expected_dog_count: usize,
 }
 
 impl std::fmt::Debug for PipelineDeps<'_> {
@@ -249,10 +249,11 @@ async fn pipeline_inner(
     );
 
     // ── K14 GATE: Jury Completeness (missing = degraded) ──
-    // Expected Dogs: 4 (deterministic-dog, qwen-7b-hf, qwen35-9b-gpu, gemma-4b-core)
     // If Dogs < expected and not explicitly filtered, downgrade verdict to reflect degraded jury.
-    // This prevents silent degradation where missing qwen35 is masked as consensus.
-    let expected_dogs = dogs_filter.map(|f| f.len()).unwrap_or(4);
+    // This prevents silent degradation where missing Dogs are masked as consensus.
+    let expected_dogs = dogs_filter
+        .map(|f| f.len())
+        .unwrap_or(deps.expected_dog_count);
     let actual_dogs = verdict.dog_scores.len();
     if actual_dogs < expected_dogs {
         // K14: Missing Dogs = unreliable jury. Downgrade verdict kind (HOWL → WAG → GROWL).
@@ -273,23 +274,6 @@ async fn pipeline_inner(
             "jury incomplete — downgrading verdict per K14 (missing = degraded)"
         );
         verdict.kind = downgraded;
-    }
-
-    // ── TEMPORAL PERSPECTIVES (O2: single Dog call for 7 perspectives) ──
-    match evaluate_temporal(&stimulus.content) {
-        Ok(temporal_verdict) => {
-            tracing::info!(
-                phase = "temporal",
-                perspectives_count = temporal_verdict.perspectives.len(),
-                temporal_total = %format!("{:.3}", temporal_verdict.temporal_total),
-                outlier = ?temporal_verdict.outlier_perspective,
-                divergence = %format!("{:.3}", temporal_verdict.max_divergence),
-                "temporal evaluation complete"
-            );
-        }
-        Err(e) => {
-            tracing::warn!(phase = "temporal", error = %e, "temporal evaluation failed — continuing without temporal perspective");
-        }
     }
 
     // ── EMIT EVENT (best-effort — no subscribers = no-op) ──
@@ -577,6 +561,7 @@ mod tests {
             event_tx: None,
             request_id: None,
             on_dog: None,
+            expected_dog_count: judge.dog_ids().len(),
         };
 
         let result = run(
@@ -638,6 +623,7 @@ mod tests {
             event_tx: None,
             request_id: None,
             on_dog: None,
+            expected_dog_count: judge.dog_ids().len(),
         };
         let _ = run("test content".into(), None, None, None, true, &deps).await;
 
@@ -682,6 +668,7 @@ mod tests {
             event_tx: None,
             request_id: None,
             on_dog: None,
+            expected_dog_count: judge.dog_ids().len(),
         };
 
         // First call: should evaluate (cache miss) and embed successfully
@@ -774,6 +761,7 @@ mod tests {
             event_tx: None,
             request_id: None,
             on_dog: None,
+            expected_dog_count: judge.dog_ids().len(),
         };
 
         let result = run(

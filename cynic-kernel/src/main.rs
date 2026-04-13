@@ -605,9 +605,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         rate_limiter: api::rest::PerIpRateLimiter::new(30), // 30 requests/minute global
         judge_limiter: api::rest::PerIpRateLimiter::new(10), // 10 /judge per minute (inference costs money)
         ready_cache: api::rest::ReadyCache::new(),
-        bg_semaphore: Arc::new(tokio::sync::Semaphore::new(64)), // bound fire-and-forget spawns
-        bg_tasks: tokio_util::task::TaskTracker::new(),          // track for drain at shutdown
-        sse_semaphore: Arc::new(tokio::sync::Semaphore::new(32)), // F23: bound SSE connections
+        bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
+            domain::constants::BG_SEMAPHORE_PERMITS,
+        )),
+        bg_tasks: tokio_util::task::TaskTracker::new(),
+        sse_semaphore: Arc::new(tokio::sync::Semaphore::new(
+            domain::constants::SSE_SEMAPHORE_PERMITS,
+        )),
         introspection_alerts: Arc::new(std::sync::RwLock::new(Vec::new())),
         event_tx: event_tx.clone(),
         chain_verified: std::sync::atomic::AtomicBool::new(chain_verified),
@@ -733,6 +737,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
 
+    // ─── Crystal immune system (re-judge oldest crystals, dissolve if degraded) ──
+    infra::tasks::spawn_crystal_challenge_loop(
+        rest_state.judge.load_full(),
+        Arc::clone(&storage_port),
+        Arc::clone(&task_health),
+        shutdown.clone(),
+    );
+    klog!("[Ring 2] Crystal challenge loop started (every 5min, immune system)");
+
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
         use rmcp::ServiceExt;
@@ -784,8 +797,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ─── RING 3: REST Server ─────────────────────────────────
-    let rest_addr =
-        std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".to_string());
+    let rest_addr = std::env::var("CYNIC_REST_ADDR")
+        .unwrap_or_else(|_| domain::constants::DEFAULT_REST_ADDR.to_string());
     klog!("[Ring 3] REST API on http://{}", rest_addr);
 
     // Rate limiter eviction (REST delivery concern — lives here, not in infra/tasks.rs)

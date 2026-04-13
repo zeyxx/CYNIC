@@ -291,7 +291,9 @@ impl CynicMcp {
             usage,
             event_tx,
             rate_limit: Arc::new(McpRateLimit::new()),
-            bg_semaphore: Arc::new(tokio::sync::Semaphore::new(64)),
+            bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
+                crate::domain::constants::BG_SEMAPHORE_PERMITS,
+            )),
             tool_router: Self::tool_router(),
         }
     }
@@ -341,6 +343,7 @@ impl CynicMcp {
             event_tx: self.event_tx.as_ref(),
             request_id: Some(uuid::Uuid::new_v4().to_string()),
             on_dog: None,
+            expected_dog_count: judge.dog_ids().len(),
         };
         let result = crate::pipeline::run(
             p.content.clone(),

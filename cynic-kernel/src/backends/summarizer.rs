@@ -32,10 +32,10 @@ impl SovereignSummarizer {
     /// Config sources: CYNIC_SUMMARIZER_URL > derived from CYNIC_REST_ADDR host + :8080.
     pub fn from_env() -> Result<Self, crate::domain::inference::BackendInitError> {
         let host = std::env::var("CYNIC_REST_ADDR")
-            .unwrap_or_else(|_| "localhost:3030".into())
+            .unwrap_or_else(|_| crate::domain::constants::DEFAULT_REST_ADDR.into())
             .split(':')
             .next()
-            .unwrap_or("localhost")
+            .unwrap_or("127.0.0.1")
             .to_string();
         let base_url = std::env::var("CYNIC_SUMMARIZER_URL")
             .unwrap_or_else(|_| format!("http://{host}:8080/v1"));

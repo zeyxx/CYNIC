@@ -21,10 +21,12 @@ use super::response::{dog_score_to_response, verdict_response_cached, verdict_to
 use super::types::{AppState, DogScoreResponse, ErrorResponse, JudgeRequest, JudgeResponse};
 use crate::domain::dog::Stimulus;
 
+use crate::domain::constants;
+
 /// Max concurrent jobs — prevents memory exhaustion under load.
-const MAX_JOBS: usize = 100;
+const MAX_JOBS: usize = constants::MAX_JUDGE_JOBS;
 /// Jobs expire after 5 minutes — covers slowest Dog timeout + client polling window.
-const JOB_TTL_SECS: u64 = 300;
+const JOB_TTL_SECS: u64 = constants::JUDGE_JOB_TTL.as_secs();
 
 /// A progressive judge job tracked in memory.
 #[derive(Debug)]
@@ -311,6 +313,7 @@ pub async fn judge_async_handler(
             event_tx: Some(&event_tx),
             request_id: Some(request_id_for_task.clone()),
             on_dog: Some(on_dog),
+            expected_dog_count: judge.dog_ids().len(),
         };
 
         let result = crate::pipeline::run(
@@ -449,7 +452,7 @@ mod tests {
                     sovereignty: "ok".into(),
                 },
                 dogs_used: "det".into(),
-                phi_max: 0.618,
+                phi_max: crate::domain::dog::PHI_INV,
                 dog_scores: vec![],
                 voter_count: 1,
                 anomaly_detected: false,

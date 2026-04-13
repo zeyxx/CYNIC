@@ -3,18 +3,13 @@ use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
+use crate::domain::constants;
 use crate::domain::events::KernelEvent;
 use crate::domain::probe::{EnvironmentSnapshot, Probe, ProbeDetails};
 use crate::domain::storage::StoragePort;
 use crate::infra::alerts::SlackAlerter;
 use crate::infra::task_health::TaskHealth;
 use chrono::Utc;
-
-/// How often the event consumer touches `task_health` even when the bus is
-/// idle. Must be strictly less than half `task_health`'s `event_consumer`
-/// expected_interval (300 s -> stale at 600 s) so an idle but alive consumer
-/// never drifts into false-stale. 60 s matches the other liveness-style loops.
-const EVENT_CONSUMER_LIVENESS_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 
 pub fn spawn_event_consumer(
     event_tx: &tokio::sync::broadcast::Sender<KernelEvent>,
@@ -26,7 +21,7 @@ pub fn spawn_event_consumer(
         event_tx,
         task_health,
         shutdown,
-        EVENT_CONSUMER_LIVENESS_INTERVAL,
+        constants::EVENT_LIVENESS_INTERVAL,
         slack,
     )
 }
@@ -84,7 +79,7 @@ fn spawn_event_consumer_with_liveness(
                                                     *expected - missing.len(),
                                                 );
                                                 match tokio::time::timeout(
-                                                    std::time::Duration::from_secs(3),
+                                                    constants::SLACK_ALERT_TIMEOUT,
                                                     alerter.send(&message),
                                                 ).await {
                                                     Ok(Ok(())) => {
@@ -108,6 +103,11 @@ fn spawn_event_consumer_with_liveness(
                                 KernelEvent::DogDiscovered { dog_id } => {
                                     tracing::info!(dog_id = %dog_id, "PROPRIOCEPTION: Dog discovered and registered");
                                 }
+                                // Events without internal acting consumers — consumed externally
+                                // via SSE (/events endpoint) by dashboards and monitoring tools.
+                                // VerdictIssued, CrystalObserved, DogFailed, DogExpired,
+                                // SessionRegistered, BackfillComplete, Anomaly, StorageReconnected
+                                // are correctly external-only: their consumers act outside the kernel.
                                 _ => {}
                             }
                         }
@@ -143,7 +143,7 @@ pub fn spawn_probe_scheduler(
     let mut scheduler = ProbeScheduler::new(probes);
 
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
+        let mut interval = tokio::time::interval(constants::PROBE_SCHEDULER_INTERVAL);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         interval.tick().await; // skip first tick (consistent with all other tasks)
 
@@ -193,7 +193,7 @@ pub fn spawn_dog_ttl_checker(
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        let mut interval = tokio::time::interval(constants::DOG_TTL_CHECK_INTERVAL);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         interval.tick().await; // skip first tick
         loop {
@@ -266,7 +266,7 @@ pub fn spawn_discovery_loop(
             return;
         }
 
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        let mut interval = tokio::time::interval(constants::DISCOVERY_INTERVAL);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         interval.tick().await; // skip first tick
 
@@ -302,11 +302,11 @@ pub fn spawn_discovery_loop(
                         );
 
                         let model_match = tokio::time::timeout(
-                            std::time::Duration::from_secs(5),
+                            constants::DEFAULT_HTTP_TIMEOUT,
                             async {
                                 match reqwest::Client::new()
                                     .get(&models_url)
-                                    .timeout(std::time::Duration::from_secs(5))
+                                    .timeout(constants::DEFAULT_HTTP_TIMEOUT)
                                     .send()
                                     .await
                                 {
@@ -340,7 +340,7 @@ pub fn spawn_discovery_loop(
 
                         // Model matches — try to register via POST /dogs/register
                         let register_url = std::env::var("CYNIC_REST_ADDR")
-                            .unwrap_or_else(|_| "http://localhost:3030".to_string());
+                            .unwrap_or_else(|_| constants::DEFAULT_REST_ADDR.to_string());
                         let register_endpoint = format!("{register_url}/dogs/register");
 
                         let payload = serde_json::json!({
@@ -348,18 +348,18 @@ pub fn spawn_discovery_loop(
                             "base_url": base_url,
                             "model": expected_model,
                             "context_size": ctx_size,
-                            "timeout_secs": 90,
+                            "timeout_secs": constants::DEFAULT_REGISTRATION_TTL,
                             "api_key": api_key,
                         });
 
                         let api_key = rest_state.api_key.clone();
                         match tokio::time::timeout(
-                            std::time::Duration::from_secs(10),
+                            constants::REGISTRATION_TIMEOUT,
                             async {
                                 let mut req = reqwest::Client::new()
                                     .post(&register_endpoint)
                                     .json(&payload)
-                                    .timeout(std::time::Duration::from_secs(10));
+                                    .timeout(constants::REGISTRATION_TIMEOUT);
 
                                 if let Some(key) = &api_key {
                                     req = req.bearer_auth(key);
@@ -459,7 +459,7 @@ pub fn spawn_dog_heartbeat_loop(
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         // K6: 40s interval matches cynic-node heartbeat cadence
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(40));
+        let mut interval = tokio::time::interval(constants::DOG_HEARTBEAT_INTERVAL);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         interval.tick().await; // skip first tick
         loop {
@@ -475,7 +475,7 @@ pub fn spawn_dog_heartbeat_loop(
                             .iter()
                             .filter(|(_, dog)| {
                                 let elapsed = dog.last_heartbeat.elapsed().as_secs();
-                                elapsed > dog.ttl_secs.saturating_sub(60)
+                                elapsed > dog.ttl_secs.saturating_sub(constants::HEARTBEAT_TTL_MARGIN)
                             })
                             .map(|(id, _)| id.clone())
                             .collect(),
@@ -529,8 +529,8 @@ pub fn spawn_crystal_challenge_loop(
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        // Challenge interval: 300s (5 min). Balances responsiveness vs compute cost.
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
+        // Challenge interval: 5 min. Balances responsiveness vs compute cost.
+        let mut interval = tokio::time::interval(constants::CRYSTAL_CHALLENGE_INTERVAL);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         interval.tick().await; // skip first tick
         loop {
@@ -542,7 +542,7 @@ pub fn spawn_crystal_challenge_loop(
                 _ = interval.tick() => {
                     // K15: background task that challenges oldest Crystallized/Canonical crystals
                     match tokio::time::timeout(
-                        std::time::Duration::from_secs(30),
+                        constants::CRYSTAL_CHALLENGE_TIMEOUT,
                         challenge_one_crystal(&judge, &storage),
                     )
                     .await
@@ -582,13 +582,17 @@ async fn challenge_one_crystal(
 
     // Step 1: fetch oldest Crystallized/Canonical crystal
     let crystal = storage
-        .list_crystals_filtered(100, None, Some("crystallized"))
+        .list_crystals_filtered(
+            constants::CRYSTAL_CHALLENGE_BATCH,
+            None,
+            Some("crystallized"),
+        )
         .await
         .map_err(|e| format!("failed to list crystals: {e}"))?
         .into_iter()
         .chain(
             storage
-                .list_crystals_filtered(100, None, Some("canonical"))
+                .list_crystals_filtered(constants::CRYSTAL_CHALLENGE_BATCH, None, Some("canonical"))
                 .await
                 .unwrap_or_default(),
         )
@@ -615,7 +619,7 @@ async fn challenge_one_crystal(
     let q_delta = (original_q - new_q).abs();
 
     // Step 3: if delta > φ⁻² (0.382), the crystal's knowledge has degraded significantly
-    const PHI_INV2: f64 = 0.382;
+    use crate::domain::dog::PHI_INV2;
     if q_delta > PHI_INV2 {
         // Record a degraded observation with the new score to transition crystal state
         let timestamp = Utc::now().to_rfc3339();
