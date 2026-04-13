@@ -32,6 +32,7 @@ PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
 define source_env
 	source ~/.cargo/env 2>/dev/null || true
 	source ~/.cynic-env 2>/dev/null || true
+	export RUST_MIN_STACK=8388608  # Required: Rust 1.94.1 compiler bug (A1 debt, LLVM SIGSEGV)
 endef
 
 # ── Stage 1: Validate ───────────────────────────────────────

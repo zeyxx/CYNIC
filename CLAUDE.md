@@ -160,6 +160,27 @@ Never commit: real IPs, API keys/tokens/passwords, real names (use T./S.), machi
 Secrets live in `~/.cynic-env` only. Systemd uses `~/.config/cynic/env`.
 Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`, `/live`, `/ready`, `/metrics`, `/events`.
 
+### Build Environment (A1 Infrastructure Debt)
+
+**Rust 1.94.1 compiler bug:** LLVM SIGSEGV in rmcp (1.2.0) monomorphization pass.
+
+**Root cause (Observed 2026-04-13):** rmcp generates deeply nested serde+schemars IR during compilation. LLVM's SROA optimization pass crashes without sufficient stack (rust-lang/rust #103767, #122357, #138561). This is upstream compiler bug, not our code.
+
+**Workaround (MANDATORY FOR ALL BUILDS):**
+```bash
+export RUST_MIN_STACK=8388608  # 8GB stack minimum
+cargo build                     # any variant: --tests, --release, etc.
+```
+
+**Why required:** Every session's pre-commit validation uses `cargo build --tests`. Without this workaround, builds fail with SIGSEGV. Cost: documented, mechanical, acceptable.
+
+**Obsolete when:** Rust 1.95.0+ released and verified to fix LLVM SROA bug. See `rust-toolchain.toml` for current toolchain and known ICE status.
+
+**Do NOT:**
+- Ignore the workaround hoping the problem disappears
+- Assume builds are stable without this var set
+- Report "builds are broken" without checking this first
+
 ---
 
 ## VIII. Sources
