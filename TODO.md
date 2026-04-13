@@ -10,7 +10,7 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-13 | Session: dream+diagnosis
+Last updated: 2026-04-13 | Session: gemini-dog+nightshift+mcp-auth
 
 ---
 
@@ -53,6 +53,7 @@ Last updated: 2026-04-13 | Session: dream+diagnosis
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-13 | gemini-dog+nightshift+mcp-auth | ~2h | 11 | 0 | 0 | 2 | **Two chantiers.** (1) Gemini-cli as 5th Dog: CliBackend (ChatPort via subprocess), BackendType enum, nightshift loop (4h git→judge→observe), dev domain prompt, calibration corpus 10+10. Discrimination: Δ0.498 FIDELITY. (2) MCP Auth: RC1-1 FIXED (cynic_auth + require_auth on 7 tools). Build tools: cynic_validate + cynic_git (typed ops, no shell injection). Reverted Gemini's unsafe cynic_sys_exec. 571 tests, 5 Dogs, deployed. |
 | 2026-04-13 | dream+diagnosis | ~25m | 0 | 0 | 2 | 0 | **Dream #4:** 69→64 memory files (5 deleted, 2 rewritten). Falsified Gemini diagnostic (KAIROS flowing, GPU alive, kernel sovereign). **Trading Q-score diagnosis:** qwen35-9b-gpu is only discriminating Dog (Δ=+0.35 good vs bad); qwen-7b-hf anti-discriminates (raw_sovereignty=0.95 on all stimuli). Removing bad Dogs: WAG→HOWL. Stimulus quality: +25%. Contention verified (176→27, DB-internal). Coord-claim `if` pattern fixed (missing `/` prefix). |
 | 2026-04-13 | deploy-and-break | ~25m | 2 | 0 | 0 | 0 | **DEPLOYED v0.7.7-110-g1aab302** (SOLID fixes + A1 escalation). Kernel sovereign, 4/4 Dogs registered. Crystal challenge loop STARTED but times out (30s) — gemma-4b-core avg 21.8s, qwen35-9b-gpu 100% fail (GPU backend unreachable). KAIROS: 2168 decisions/15h, ALL NO_TRADE (3/7 signals hardcoded). Zero trading verdicts, zero trading crystals. Hypothesis falsified: KAIROS→CYNIC integration wired but not exercised. Bottleneck is operational (signal quality + GPU down), not architectural. A1 debt: RUST_MIN_STACK 8MB→16MB (release builds hit deeper LLVM SROA). Pre-push gate: 558 tests pass in release. |
 | 2026-04-13 | crystal-challenge-K15 | ~30m | 1 | 0 | 1 | 0 | TODO #5 (K15 immune system) completed: spawn_crystal_challenge_loop spawns every 300s, re-judges oldest Crystallized/Canonical crystal without injection. Compares Q-scores: if delta > φ⁻² (0.382), calls observe_crystal with degraded score to trigger state machine. Implementation fixes: (1) list_crystals_filtered takes (limit, domain, state), (2) Judge::evaluate takes (stimulus, filter, metrics), (3) QScore is struct with .total field, (4) use observe_crystal to update crystal state (delegates to adapter). K15 verified: crystal challenge background task integrated into runtime_loops, task health tracking via TaskHealth.touch_crystal_challenge(). Clippy clean. |
@@ -71,19 +72,17 @@ Last updated: 2026-04-13 | Session: dream+diagnosis
 
 ---
 
-## State Snapshot (updated 2026-04-13)
+## State Snapshot (updated 2026-04-13, session: gemini-dog+nightshift+mcp-auth)
 
-- Kernel: v0.7.7-113-g3becaea, **SOVEREIGN**, 4/4 Dogs registered, all circuits closed
-- Crystal challenge loop: RUNNING (5min interval, 60s timeout). 3 crystals decaying (Scholar's Mate, Fool's Mate, Bongcloud).
-- qwen35-9b-gpu: **ALIVE** — circuit closed, 0 failures, 7.4s latency. Best trading discriminator.
-- qwen-7b-hf: Active but anti-discriminates on trading domain (inflated scores, raw sovereignty=0.95 on all stimuli).
-- KAIROS: **FLOWING** — 11+ trading verdicts, 7/7 signals live. Q-scores low (0.28–0.39 GROWL). Candle data stale since March 23.
-- Crystals: 5 crystallized (chess), 3 decaying (chess), 0 trading. Dev-domain crystals forming.
-- Coord-claim hooks: `if` pattern fixed (needs `/` prefix). Takes effect next session.
-- Contention: 27/24h (down from 176, all SurrealDB-internal index compaction).
-- Crystal contention fix deployed, awaiting 24h verification (#9)
-- MCP K13 closed (same health function as REST)
-- GROWL verdict (Q=52.6): BURN=30 wound, SOVEREIGNTY=75 strength
-- 7 anti-patterns identified → saved to memory (feedback_anti_patterns.md)
-- R22 status: PARTIALLY FALSIFIED (crystal formation generalizes; injection timing validated)
-- **A1 Infrastructure Debt** — RUST_MIN_STACK escalated 8MB→16MB (2026-04-13). Release builds with codegen-units=1 hit deeper LLVM SROA optimization. Debug builds pass at 8MB. Workaround: 16MB in Makefile, CLAUDE.md, workflow.md. Pre-push hook uses 64MB (safe). Obsolete: Rust 1.95.0+.
+- Kernel: v0.7.7-126-gaa1f201, **SOVEREIGN**, **5/5 Dogs** registered (gemini-cli added)
+- **Gemini-cli**: 5th Dog, CLI backend (tokio::process::Command), model="auto" (Google routes to gemini-2.0-flash). Discrimination: Δ0.498 FIDELITY on dev domain.
+- **Nightshift**: Loop active (4h interval, 60s warmup). First cycle pending. git log → judge(domain="dev") → observe_crystal.
+- **MCP Auth (RC1-1)**: FIXED. `cynic_auth` session-based auth. 7 sensitive tools gated. 5 public tools open.
+- **MCP Build Tools**: `cynic_validate` (cargo build+clippy+test) + `cynic_git` (status/log/diff/commit). Gemini snap autonomy enabled.
+- Crystal challenge loop: RUNNING (5min interval, 60s timeout). 3 crystals decaying.
+- qwen35-9b-gpu: **ALIVE** — best trading discriminator.
+- qwen-7b-hf: Active but anti-discriminates on trading domain.
+- KAIROS: **FLOWING** but STALE — candle data since March 23. Ingestor services likely dead.
+- Crystals: 5 crystallized (chess), 3 decaying (chess), 0 trading, 0 dev (forming expected after nightshift).
+- Tests: 571 pass, 0 clippy warnings.
+- **A1 Infrastructure Debt** — RUST_MIN_STACK 16MB. Obsolete: Rust 1.95.0+.
