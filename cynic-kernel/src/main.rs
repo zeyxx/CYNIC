@@ -223,18 +223,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut fleet_meta: std::collections::HashMap<String, (String, u32, String, Option<String>)> =
         std::collections::HashMap::new();
     for cfg in backend_configs {
-        let backend = match backends::openai::OpenAiCompatBackend::new(cfg.clone()) {
-            Ok(b) => Arc::new(b),
-            Err(e) => {
-                klog!(
-                    "[Ring 2] InferenceDog '{}' SKIPPED — HTTP client init failed: {}",
-                    cfg.name,
-                    e
-                );
-                continue;
+        let backend: Arc<dyn domain::chat::ChatPort> = match cfg.backend_type {
+            infra::config::BackendType::Cli => Arc::new(backends::cli::CliBackend::new(
+                &cfg.name,
+                &cfg.base_url, // for CLI backends, base_url holds the binary path/name
+                cfg.timeout_secs,
+            )),
+            infra::config::BackendType::OpenAi => {
+                match backends::openai::OpenAiCompatBackend::new(cfg.clone()) {
+                    Ok(b) => Arc::new(b),
+                    Err(e) => {
+                        klog!(
+                            "[Ring 2] InferenceDog '{}' SKIPPED — HTTP client init failed: {}",
+                            cfg.name,
+                            e
+                        );
+                        continue;
+                    }
+                }
             }
         };
-        let health = BackendPort::health(backend.as_ref()).await;
+        let health = domain::inference::BackendPort::health(backend.as_ref()).await;
         // Always load the Dog — health loop will recover it if unreachable.
         // Skipping at boot prevents the health loop from ever probing it.
         match health {
@@ -262,15 +271,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             cfg.cost_output_per_mtok,
         ));
         health_urls.insert(cfg.name.clone(), cfg.health_url.clone());
-        fleet_meta.insert(
-            cfg.name.clone(),
-            (
-                cfg.base_url.clone(),
-                cfg.context_size,
-                cfg.model.clone(),
-                cfg.api_key.clone(),
-            ),
-        );
+        // CLI backends have no HTTP URL to probe — skip fleet_meta insertion
+        if cfg.backend_type != infra::config::BackendType::Cli {
+            fleet_meta.insert(
+                cfg.name.clone(),
+                (
+                    cfg.base_url.clone(),
+                    cfg.context_size,
+                    cfg.model.clone(),
+                    cfg.api_key.clone(),
+                ),
+            );
+        }
         if let Some(rem) = cfg.remediation.clone() {
             remediation_configs.insert(cfg.name.clone(), rem);
         }
