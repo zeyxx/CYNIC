@@ -8,6 +8,7 @@ use crate::domain::probe::{EnvironmentSnapshot, Probe, ProbeDetails};
 use crate::domain::storage::StoragePort;
 use crate::infra::alerts::SlackAlerter;
 use crate::infra::task_health::TaskHealth;
+use chrono::Utc;
 
 /// How often the event consumer touches `task_health` even when the bus is
 /// idle. Must be strictly less than half `task_health`'s `event_consumer`
@@ -514,6 +515,129 @@ pub fn spawn_dog_heartbeat_loop(
             }
         }
     })
+}
+
+/// Crystal challenge loop — re-judge oldest crystallized crystals without injection.
+/// If Q-Score delta > φ⁻² (0.382), dissolve the crystal (DEBT-A2: prevents write-once poisoning).
+///
+/// Runs every 300s to re-evaluate aged crystals. This is the immune system that
+/// detects when crystallized knowledge becomes false over time.
+pub fn spawn_crystal_challenge_loop(
+    judge: Arc<crate::judge::Judge>,
+    storage: Arc<dyn StoragePort>,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        // Challenge interval: 300s (5 min). Balances responsiveness vs compute cost.
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.tick().await; // skip first tick
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Crystal challenge loop stopped");
+                    break;
+                }
+                _ = interval.tick() => {
+                    // K15: background task that challenges oldest Crystallized/Canonical crystals
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(30),
+                        challenge_one_crystal(&judge, &storage),
+                    )
+                    .await
+                    {
+                        Ok(Ok(Some(dissolved_id))) => {
+                            tracing::info!(
+                                crystal_id = %dissolved_id,
+                                "crystal challenge: Q-delta > φ⁻² — dissolved"
+                            );
+                            task_health.touch_crystal_challenge();
+                        }
+                        Ok(Ok(None)) => {
+                            // No crystallized crystals to challenge, or all are stable
+                            task_health.touch_crystal_challenge();
+                        }
+                        Ok(Err(e)) => {
+                            tracing::warn!(error = %e, "crystal challenge failed");
+                            task_health.touch_crystal_challenge();
+                        }
+                        Err(_) => {
+                            tracing::warn!("crystal challenge timed out (30s)");
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// Challenge one crystal: re-judge without injection, compare Q-scores.
+/// Returns Some(crystal_id) if dissolved, None if stable.
+async fn challenge_one_crystal(
+    judge: &Arc<crate::judge::Judge>,
+    storage: &Arc<dyn StoragePort>,
+) -> Result<Option<String>, String> {
+    use crate::domain::metrics::Metrics;
+
+    // Step 1: fetch oldest Crystallized/Canonical crystal
+    let crystal = storage
+        .list_crystals_filtered(100, None, Some("crystallized"))
+        .await
+        .map_err(|e| format!("failed to list crystals: {e}"))?
+        .into_iter()
+        .chain(
+            storage
+                .list_crystals_filtered(100, None, Some("canonical"))
+                .await
+                .unwrap_or_default(),
+        )
+        .min_by_key(|c| c.created_at.clone()) // oldest first
+        .ok_or_else(|| "no crystallized crystals to challenge".to_string())?;
+
+    let original_q = crystal.confidence;
+
+    // Step 2: re-judge the crystal's content without injection
+    let stimulus = crate::domain::dog::Stimulus {
+        content: crystal.content.clone(),
+        context: None,
+        domain: Some(crystal.domain.clone()),
+        request_id: None,
+    };
+
+    let metrics = Metrics::new();
+    let verdict = match judge.evaluate(&stimulus, None, &metrics).await {
+        Ok(v) => v,
+        Err(e) => return Err(format!("failed to re-judge crystal: {e}")),
+    };
+
+    let new_q = verdict.q_score.total;
+    let q_delta = (original_q - new_q).abs();
+
+    // Step 3: if delta > φ⁻² (0.382), the crystal's knowledge has degraded significantly
+    const PHI_INV2: f64 = 0.382;
+    if q_delta > PHI_INV2 {
+        // Record a degraded observation with the new score to transition crystal state
+        let timestamp = Utc::now().to_rfc3339();
+        storage
+            .observe_crystal(
+                &crystal.id,
+                &crystal.content,
+                &crystal.domain,
+                new_q,
+                &timestamp,
+                verdict.voter_count,
+                &verdict.id,
+                format!("{:?}", verdict.kind).as_str(),
+            )
+            .await
+            .map_err(|e| format!("failed to degrade crystal via observation: {e}"))?;
+
+        Ok(Some(crystal.id))
+    } else {
+        // Crystal is still valid
+        Ok(None)
+    }
 }
 
 #[cfg(test)]

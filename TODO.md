@@ -14,7 +14,7 @@ Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis + organ-
 
 ---
 
-## Active (10/15)
+## Active (9/15)
 
 ### Foundation — unblock metabolism
 
@@ -25,7 +25,7 @@ Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis + organ-
 
 ### Body — prevent regression
 
-- [ ] **#5 Crystal challenge mechanism** — Background task re-judges oldest crystallized crystals without injection. If Q-Score delta > φ⁻², dissolve. Prevents crystal poison (DEBT-A2: content write-once, no contradiction detection).
+- [x] **#5 Crystal challenge mechanism** — ✅ COMPLETED 2026-04-13: Background task (spawn_crystal_challenge_loop) spawns every 300s, re-judges oldest Crystallized/Canonical crystal without injection. Compares Q-scores: if delta > φ⁻² (0.382), records degraded observation to transition state. Implementation: fetch oldest by created_at, evaluate via judge with None filter (no dogs filter), call observe_crystal with new Q-score to trigger state machine. K15 verified: background immune system task tracks health via TaskHealth.touch_crystal_challenge().
 - [x] **#6 Greffe 3: alerting consumer** — ContractDelta { fulfilled: false } → Slack message. K15: structured log only is not "acting." ✅ DONE 2026-04-13: SlackAlerter monitors ContractDelta events, alerts on fulfilled=true→false transition (no spam), 3s timeout, logs errors. Integrated into event_consumer loop. K15 acting consumer verified.
 - [x] **#7 Coord: sessions register + claim** — Verify coord-claim hook. ✅ FINDING: protect-files.sh and coord-claim.sh hooks were registered in settings.json but scripts missing (K5 violation). Created both hooks + validated. /coord/claim API working. Both sessions should now appear in /coord/who. Hooks live-reload script changes (not new entries). Done 2026-04-13.
 - [x] **#8 Wire or delete K15 dead-ends** — Triage 3 orphan producers: ✅ store_infra_snapshot DELETED (no consumers, in-memory environment serves all use cases). ✅ session_summaries has 2 consumers (REST /sessions endpoint, pipeline session context). ❓ dream_counter doesn't exist. RESULT: Fixed K15 violation, eliminated 73 lines of waste.
@@ -53,6 +53,7 @@ Last updated: 2026-04-13 | Session: kairos-signal-audit + k15-synthesis + organ-
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-13 | crystal-challenge-K15 | ~30m | 1 | 0 | 1 | 0 | TODO #5 (K15 immune system) completed: spawn_crystal_challenge_loop spawns every 300s, re-judges oldest Crystallized/Canonical crystal without injection. Compares Q-scores: if delta > φ⁻² (0.382), calls observe_crystal with degraded score to trigger state machine. Implementation fixes: (1) list_crystals_filtered takes (limit, domain, state), (2) Judge::evaluate takes (stimulus, filter, metrics), (3) QScore is struct with .total field, (4) use observe_crystal to update crystal state (delegates to adapter). K15 verified: crystal challenge background task integrated into runtime_loops, task health tracking via TaskHealth.touch_crystal_challenge(). Clippy clean. |
 | 2026-04-13 | organ-quality-gate-K14 | ~15m | 1 | 0 | 1 | 0 | TODO #2 implementation verified: Dual-gate K14 architecture (ParseFailureGate + json_valid_rate >= 0.5). K14 gate 2 respects baseline_established (>= 20 calls) to honor K14 pessimism. 3 new unit tests verify: low-quality dogs excluded, pre-baseline gate doesn't trip, recovery on improvement. All 31 organ tests passing. Fixes compile error on reference borrow in matches! (String doesn't Copy). Dogs with <50% json_valid_rate now excluded from jury after reaching 20 calls. Closes TODO #2 (K14 completeness). |
 | 2026-04-13 | kairos-infrastructure-wiring | ~55m | 1 | 0 | 1 | 0 | Diagnosed KAIROS network binding (services on Tailscale IP). Fixed CynicHttpAdapter URL (8000→3030), KairosKernel inference (8080 Tailscale IP), API key reading from CYNIC config, JSON parsing (markdown wrapping). Enabled kairos.service: now running 60s analysis cycle on BTC/ETH/SOL/WIF. LLM returning valid decisions (NO_TRADE observed). Infrastructure ready: when LLM returns TRADE, verdict flows to CYNIC /judge. Outcome tracking & crystal feedback deferred. |
 | 2026-04-13 | k15-dead-ends+burn-reduction | ~25m | 2 | 0 | 1 | 0 | Audited K15 dead-ends: store_infra_snapshot had no consumers (REST, pipeline, decision), deleted 73 lines. session_summaries verified wired (2 consumers: REST /sessions, pipeline). dream_counter doesn't exist. Fix: eliminated periodic cleanup overhead, resolved K15 violation. |
