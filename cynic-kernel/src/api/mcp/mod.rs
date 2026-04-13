@@ -18,6 +18,8 @@ use rmcp::{
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+pub mod build_tools;
+
 use crate::domain::ccm::build_observation;
 use crate::domain::coord::{ClaimResult, CoordPort};
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
@@ -163,6 +165,20 @@ pub struct AuthParams {
     pub agent_id: Option<String>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ValidateParams {
+    /// Agent identity for audit trail
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct GitParams {
+    /// Git operation to perform
+    pub op: build_tools::GitOp,
+    /// Agent identity for audit trail
+    pub agent_id: Option<String>,
+}
+
 // ── Coordination Tool Parameters ─────────────────────────────
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -257,6 +273,8 @@ pub struct CynicMcp {
     bg_semaphore: Arc<tokio::sync::Semaphore>,
     /// RC1-1: Session authentication state. Set to true after successful cynic_auth call.
     authenticated: Arc<AtomicBool>,
+    /// Project root path — for build tools (validate, git).
+    project_root: String,
     tool_router: ToolRouter<Self>,
 }
 
@@ -286,6 +304,7 @@ impl CynicMcp {
         task_health: Arc<crate::infra::task_health::TaskHealth>,
         system_contract: crate::domain::contract::SystemContract,
         event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+        project_root: String,
     ) -> Self {
         Self {
             judge: Arc::new(arc_swap::ArcSwap::from(judge)),
@@ -305,6 +324,7 @@ impl CynicMcp {
                 crate::domain::constants::BG_SEMAPHORE_PERMITS,
             )),
             authenticated: Arc::new(AtomicBool::new(false)),
+            project_root,
             tool_router: Self::tool_router(),
         }
     }
@@ -1047,6 +1067,70 @@ impl CynicMcp {
         )]))
     }
 
+    // ── BUILD TOOLS ──────────────────────────────────────────
+
+    #[tool(
+        name = "cynic_validate",
+        description = "Run the full validation pipeline: cargo build --tests + cargo clippy + cargo test. Returns pass/fail with stdout/stderr. Requires authentication. Takes ~2-5 minutes."
+    )]
+    async fn cynic_validate(
+        &self,
+        params: Parameters<ValidateParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let agent_id = params.0.agent_id.unwrap_or_else(|| "unknown".into());
+
+        tracing::info!(agent_id, "cynic_validate started");
+        let result = build_tools::run_validate(&self.project_root).await;
+
+        self.audit(
+            "cynic_validate",
+            &agent_id,
+            &serde_json::json!({
+                "passed": result.passed,
+                "build_ok": result.build_ok,
+                "clippy_ok": result.clippy_ok,
+                "test_ok": result.test_ok,
+                "duration_ms": result.duration_ms,
+            }),
+        )
+        .await;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string(&result)
+                .unwrap_or_else(|_| r#"{"error":"serialize failed"}"#.into()),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_git",
+        description = "Git operations: status, log, diff, commit. For commit: provide message + file list. No push (deploy = human decision). Requires authentication."
+    )]
+    async fn cynic_git(&self, params: Parameters<GitParams>) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
+
+        let result = build_tools::run_git(&self.project_root, &p.op).await;
+
+        self.audit(
+            "cynic_git",
+            &agent_id,
+            &serde_json::json!({
+                "op": format!("{:?}", p.op),
+                "success": result.success,
+            }),
+        )
+        .await;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string(&result)
+                .unwrap_or_else(|_| r#"{"error":"serialize failed"}"#.into()),
+        )]))
+    }
+
     // ── Helpers ────────────────────────────────────────────────
 
     /// RC1-1: Check session authentication. Returns Err if not authenticated.
@@ -1223,6 +1307,7 @@ mod tests {
             Arc::new(crate::infra::task_health::TaskHealth::new()),
             crate::domain::contract::SystemContract::new(vec!["deterministic-dog".into()], false),
             None,
+            "/tmp".to_string(),
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
         mcp
@@ -1426,6 +1511,7 @@ mod tests {
             Arc::new(crate::infra::task_health::TaskHealth::new()),
             crate::domain::contract::SystemContract::new(vec!["deterministic-dog".into()], false),
             None,
+            "/tmp".to_string(),
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
 
