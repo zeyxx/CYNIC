@@ -10,7 +10,7 @@ use std::sync::Arc;
 use super::response::coordination_error;
 use super::types::{AppState, DogHealthResponse, ErrorResponse};
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
-use crate::domain::health_gate::{count_healthy_dogs, system_health_assessment_with_contract};
+use crate::domain::health_gate::count_healthy_dogs;
 
 pub async fn dogs_handler(State(state): State<Arc<AppState>>) -> Json<Vec<String>> {
     Json(state.judge.load_full().dog_ids())
@@ -26,30 +26,7 @@ pub async fn liveness_handler() -> StatusCode {
 /// F22: Caches DB ping result (30s TTL) to avoid hammering storage on every probe.
 /// Dog health is O(1) (reads circuit breaker state) — no caching needed.
 pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode {
-    let judge = state.judge.load_full();
-    let dog_health = judge.dog_health();
-    let (healthy_dogs, total_dogs) = count_healthy_dogs(&dog_health);
-    let storage_ok = match state.ready_cache.get() {
-        Some(cached) => cached,
-        None => {
-            let ok = state.storage.ping().await.is_ok();
-            state.ready_cache.set(ok);
-            ok
-        }
-    };
-    let live_dog_ids = judge.dog_ids();
-    let contract_delta = state.system_contract.assess(&live_dog_ids);
-    let probes_degraded =
-        crate::domain::probe::EnvironmentSnapshot::is_degraded(&state.environment);
-    let stale_tasks = state.task_health.readiness_stale_tasks();
-    let assessment = system_health_assessment_with_contract(
-        healthy_dogs,
-        total_dogs,
-        storage_ok,
-        probes_degraded,
-        &stale_tasks,
-        Some(&contract_delta),
-    );
+    let assessment = state.system_health().await;
     if assessment.healthy {
         StatusCode::OK
     } else {
@@ -73,27 +50,7 @@ pub async fn health_handler(
         None => true, // No auth configured → everyone gets full details
     };
 
-    let judge = state.judge.load_full();
-    let dog_health = judge.dog_health();
-    let (healthy_dogs, total_dogs) = count_healthy_dogs(&dog_health);
-
-    let storage_ok = state.storage.ping().await.is_ok();
-
-    // Self-model: compare contract against live roster
-    let live_dog_ids = judge.dog_ids();
-    let contract_delta = state.system_contract.assess(&live_dog_ids);
-
-    let probes_degraded =
-        crate::domain::probe::EnvironmentSnapshot::is_degraded(&state.environment);
-    let stale_tasks = state.task_health.readiness_stale_tasks();
-    let readiness = system_health_assessment_with_contract(
-        healthy_dogs,
-        total_dogs,
-        storage_ok,
-        probes_degraded,
-        &stale_tasks,
-        Some(&contract_delta),
-    );
+    let readiness = state.system_health().await;
     let http_code = if readiness.healthy {
         StatusCode::OK
     } else {
@@ -115,6 +72,22 @@ pub async fn health_handler(
     }
 
     // Authenticated: full details
+    let judge = state.judge.load_full();
+    let dog_health = judge.dog_health();
+    let (healthy_dogs, total_dogs) = count_healthy_dogs(&dog_health);
+    let live_dog_ids = judge.dog_ids();
+    let contract_delta = {
+        let guard = state
+            .system_contract
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
+        guard.assess(&live_dog_ids)
+    };
+    let storage_ok = state.storage.ping().await.is_ok();
+    let probes_degraded =
+        crate::domain::probe::EnvironmentSnapshot::is_degraded(&state.environment);
+    let stale_tasks = state.task_health.readiness_stale_tasks();
+
     let dogs: Vec<DogHealthResponse> = dog_health
         .into_iter()
         .map(|(id, circuit, failures)| {
@@ -188,6 +161,14 @@ pub async fn health_handler(
         _ => serde_json::json!({ "error": "unavailable" }),
     };
 
+    let (expected_dogs, expected_count) = {
+        let guard = state
+            .system_contract
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
+        (guard.expected_dogs().to_vec(), guard.expected_count())
+    };
+
     (
         http_code,
         Json(serde_json::json!({
@@ -204,8 +185,8 @@ pub async fn health_handler(
             "crystals": crystal_summary,
             "organ_quality": organ_quality,
             "contract": {
-                "expected_dogs": state.system_contract.expected_dogs(),
-                "expected_count": state.system_contract.expected_count(),
+                "expected_dogs": expected_dogs,
+                "expected_count": expected_count,
                 "missing_dogs": &contract_delta.missing,
                 "unexpected_dogs": &contract_delta.unexpected,
                 "fulfilled": contract_delta.fulfilled,

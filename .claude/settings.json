@@ -54,12 +54,12 @@
         "hooks": [
           {
             "type": "command",
-            "if": "Edit(cynic-kernel/src/**)",
+            "if": "Edit(/cynic-kernel/src/**)",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/coord-claim.sh"
           },
           {
             "type": "command",
-            "if": "Write(cynic-kernel/src/**)",
+            "if": "Write(/cynic-kernel/src/**)",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/coord-claim.sh"
           }
         ]

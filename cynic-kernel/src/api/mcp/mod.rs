@@ -22,7 +22,7 @@ use crate::domain::ccm::build_observation;
 use crate::domain::coord::{ClaimResult, CoordPort};
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
 use crate::domain::events::KernelEvent;
-use crate::domain::health_gate::{count_healthy_dogs, system_health_assessment_with_contract};
+use crate::domain::health_gate::count_healthy_dogs;
 use crate::domain::inference::InferPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
@@ -444,13 +444,14 @@ impl CynicMcp {
 
         let storage_ok = self.storage.ping().await.is_ok();
 
-        // K13: same health assessment as REST /health — system_health_assessment_with_contract
+        // K13: same health logic as REST
         let live_dog_ids = judge.dog_ids();
         let contract_delta = self.system_contract.assess(&live_dog_ids);
+
         let probes_degraded =
             crate::domain::probe::EnvironmentSnapshot::is_degraded(&self.environment);
         let stale_tasks = self.task_health.readiness_stale_tasks();
-        let assessment = system_health_assessment_with_contract(
+        let assessment = crate::domain::health_gate::system_health_assessment_with_contract(
             healthy_dogs,
             total_dogs,
             storage_ok,
@@ -471,6 +472,7 @@ impl CynicMcp {
                 "expected_dogs": self.system_contract.expected_dogs(),
                 "expected_count": self.system_contract.expected_count(),
                 "missing_dogs": &contract_delta.missing,
+                "unexpected_dogs": &contract_delta.unexpected,
                 "fulfilled": contract_delta.fulfilled,
             },
         });
