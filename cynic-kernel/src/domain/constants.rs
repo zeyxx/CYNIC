@@ -36,7 +36,8 @@ pub const DISCOVERY_INTERVAL: Duration = Duration::from_secs(60);
 pub const CRYSTAL_CHALLENGE_INTERVAL: Duration = Duration::from_secs(300);
 
 /// Per-crystal re-judge timeout.
-pub const CRYSTAL_CHALLENGE_TIMEOUT: Duration = Duration::from_secs(30);
+/// 60s: gemma-4b-core (CPU) averages 22s, needs headroom for tail latency + DB.
+pub const CRYSTAL_CHALLENGE_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Event consumer idle liveness tick.
 pub const EVENT_LIVENESS_INTERVAL: Duration = Duration::from_secs(60);
