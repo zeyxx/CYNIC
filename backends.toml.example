@@ -64,7 +64,7 @@ auth_style = "none"
 [backend.gemini-cli]
 backend_type = "cli"
 base_url = "gemini"
-model = "gemini-2.5-flash"
+model = "auto"
 auth_style = "none"
 context_size = 1000000
 timeout_secs = 60
