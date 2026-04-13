@@ -763,6 +763,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     klog!("[Ring 2] Crystal challenge loop started (every 5min, immune system)");
 
+    // ─── Nightshift: autonomous dev judgment (every 4h) ───────
+    let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
+        rest_state.judge.load_full(),
+        Arc::clone(&storage_port),
+        Arc::clone(&task_health),
+        shutdown.clone(),
+        project_root.display().to_string(),
+    );
+    klog!("[Ring 3] Nightshift loop started (every 4h, git lookback 24h)");
+
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
         use rmcp::ServiceExt;
