@@ -3,6 +3,10 @@
 # fmt (fast, <1s) → clippy (debug mode, 5-15s incremental).
 # Full test suite + release build runs via `make check` before deploy.
 
+# Required: Rust 1.94.1 compiler bug (A1 debt, LLVM SIGSEGV in rmcp)
+# See CLAUDE.md § VII: Build Environment
+export RUST_MIN_STACK=8388608
+
 # Skip if no .rs files are staged (docs-only commits don't need checks)
 STAGED_RS=$(git diff --cached --name-only --diff-filter=ACM | grep '\.rs$' || true)
 if [ -z "$STAGED_RS" ]; then

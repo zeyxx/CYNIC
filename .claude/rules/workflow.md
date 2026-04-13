@@ -14,6 +14,24 @@ At session end:
 - Update TODO.md if any items were completed or discovered.
 - session-stop.sh will warn if TODO.md was not touched.
 
+## Pre-Commit Validation (MANDATORY for cynic-kernel/)
+
+**BEFORE ANY `git commit` to cynic-kernel/**, run locally:
+
+```bash
+export RUST_MIN_STACK=8388608    # Required: Rust 1.94.1 compiler bug (A1)
+cargo build --tests               # Must pass: 0 errors, 0 failing tests
+cargo clippy --all -- -D warnings # Must pass: zero lint violations
+```
+
+If any step fails: fix root cause, re-validate, THEN commit.
+
+**Cost:** ~2-3 min per commit. **Saves:** 4-5 failed commit attempts × (5-10 min debugging each).
+
+**Why:** Pre-commit validation moves failures LEFT (local validation) not RIGHT (git hook rejection). A failed pre-commit validation costs 3 min to fix locally; a failed git hook costs 5-10 min (diagnose, iterate, retry). This discipline is load-bearing per kernel rules K6, K8.
+
+**Falsifiable:** Track failed commits per session. Target: 0 failed commits post-validation.
+
 ## Workflow Triggers
 
 BEFORE triggers — invoke PROACTIVELY before acting:
