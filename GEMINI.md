@@ -76,7 +76,8 @@ Every session follows this lifecycle:
 |-------|--------|------|
 | Start | Register intent | `cynic_coord_register(agent_id="gemini-<timestamp>", intent="<what>")` |
 | Before edit | Check + claim | `cynic_coord_who()` → `cynic_coord_claim(agent_id, target-file)` |
-| After ILC | Validate + release | `make check` → `cynic_coord_release(agent_id, target-file)` |
+| Auth | Authenticate MCP session | `cynic_auth(api_key=$CYNIC_API_KEY, agent_id="gemini-<session>")` |
+| After ILC | Validate + release | `cynic_validate()` → `cynic_coord_release(agent_id, target-file)` |
 | End | Release session | `cynic_coord_release(agent_id)` |
 
 **ILC (Independent Logical Component):** Unit of work. One branch per ILC:
@@ -85,7 +86,13 @@ Every session follows this lifecycle:
 Git rejects duplicate branch names — hard enforcement against parallel work collision.
 `cynic_coord_claim` adds soft visibility before work starts.
 
-**Gemini MCP config:** cynic_coord_* tools must be in your MCP configuration.
+**MCP Authentication:** Call `cynic_auth` FIRST in every session. Without it, sensitive tools (judge, observe, validate, git, coord) will reject with "Not authenticated."
+
+**Build validation:** Use `cynic_validate()` instead of `make check` — it runs the same pipeline (build+clippy+test) through the kernel MCP, bypassing snap sandbox restrictions.
+
+**Git operations:** Use `cynic_git(op={...})` for status/log/diff/commit. No push — deploy decisions are human.
+
+**Gemini MCP config:** cynic tools must be in your MCP configuration.
 Verify: `cynic_coord_who()` returns valid JSON (not "tool not found").
 If missing: add the CYNIC MCP server to your ~/.gemini/ config.
 
