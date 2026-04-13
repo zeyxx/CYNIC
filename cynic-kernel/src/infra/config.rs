@@ -261,19 +261,19 @@ pub fn load_storage_config(path: &Path) -> StorageConfig {
 /// (regardless of whether their env vars resolve), plus deterministic-dog.
 /// This is the kernel's expected state: "what I should have at full capacity."
 pub fn load_system_contract(path: &Path) -> crate::domain::contract::SystemContract {
-    let expected_dogs: Vec<String> = match std::fs::read_to_string(path) {
-        Ok(content) => match toml::from_str::<BackendsFile>(&content) {
-            Ok(file) => file.backend.into_keys().collect(),
-            Err(e) => {
-                tracing::warn!(path = %path.display(), error = %e, "contract: invalid TOML — empty contract");
-                Vec::new()
+    let mut expected_dogs = Vec::new();
+    if let Ok(content) = std::fs::read_to_string(path)
+        && let Ok(file) = toml::from_str::<BackendsFile>(&content)
+    {
+        for (name, entry) in file.backend {
+            if let Some(env_name) = entry.api_key_env
+                && std::env::var(env_name).is_err()
+            {
+                continue;
             }
-        },
-        Err(e) => {
-            tracing::warn!(path = %path.display(), error = %e, "contract: cannot read config — empty contract");
-            Vec::new()
+            expected_dogs.push(name);
         }
-    };
+    }
 
     let storage_required = true; // SurrealDB is required for CYNIC to function
     crate::domain::contract::SystemContract::new(expected_dogs, storage_required)

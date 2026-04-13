@@ -69,7 +69,7 @@ pub struct AppState {
     pub judge_jobs: Arc<JudgeJobStore>,
     /// Self-model: expected system state loaded from backends.toml at boot.
     /// Compared against live roster in /health to detect missing Dogs.
-    pub system_contract: crate::domain::contract::SystemContract,
+    pub system_contract: Arc<std::sync::RwLock<crate::domain::contract::SystemContract>>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
@@ -145,6 +145,37 @@ impl std::fmt::Debug for AppState {
 impl AppState {
     pub fn storage_metrics(&self) -> Option<crate::domain::storage::StorageMetrics> {
         self.storage.metrics()
+    }
+
+    /// Centralized system health assessment (SSoT for REST and MCP).
+    /// Computes status from Dogs, storage, probes, background tasks, and contract.
+    pub async fn system_health(&self) -> crate::domain::health_gate::HealthAssessment {
+        let judge = self.judge.load_full();
+        let dog_health = judge.dog_health();
+        let (healthy_dogs, total_dogs) =
+            crate::domain::health_gate::count_healthy_dogs(&dog_health);
+
+        let storage_ok = self.storage.ping().await.is_ok();
+        let live_dog_ids = judge.dog_ids();
+
+        let contract_guard = self
+            .system_contract
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
+        let contract_delta = contract_guard.assess(&live_dog_ids);
+
+        let probes_degraded =
+            crate::domain::probe::EnvironmentSnapshot::is_degraded(&self.environment);
+        let stale_tasks = self.task_health.readiness_stale_tasks();
+
+        crate::domain::health_gate::system_health_assessment_with_contract(
+            healthy_dogs,
+            total_dogs,
+            storage_ok,
+            probes_degraded,
+            &stale_tasks,
+            Some(&contract_delta),
+        )
     }
 }
 

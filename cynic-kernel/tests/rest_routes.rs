@@ -60,7 +60,9 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
             std::collections::HashMap::new(),
         )),
         judge_jobs: Arc::new(cynic_kernel::api::rest::judge_job::JudgeJobStore::new()),
-        system_contract: cynic_kernel::domain::contract::SystemContract::new(vec![], true),
+        system_contract: std::sync::Arc::new(std::sync::RwLock::new(
+            cynic_kernel::domain::contract::SystemContract::new(vec![], true),
+        )),
     })
 }
 
@@ -972,7 +974,9 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
             std::collections::HashMap::new(),
         )),
         judge_jobs: Arc::new(cynic_kernel::api::rest::judge_job::JudgeJobStore::new()),
-        system_contract: cynic_kernel::domain::contract::SystemContract::new(vec![], true),
+        system_contract: std::sync::Arc::new(std::sync::RwLock::new(
+            cynic_kernel::domain::contract::SystemContract::new(vec![], true),
+        )),
     });
     let app = rest::router(state);
 

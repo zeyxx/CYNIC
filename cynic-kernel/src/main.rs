@@ -156,10 +156,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Self-model: load SystemContract from backends.toml — ALL declared Dogs,
     // regardless of whether their env vars resolve right now.
     let system_contract = infra::config::load_system_contract(&backends_path);
+    let expected_count = system_contract.expected_count();
+    let expected_dogs = system_contract.expected_dogs().to_vec();
+    let system_contract = Arc::new(std::sync::RwLock::new(system_contract));
+
     klog!(
         "[Ring 2] SystemContract: {} expected Dogs {:?}",
-        system_contract.expected_count(),
-        system_contract.expected_dogs()
+        expected_count,
+        expected_dogs
     );
 
     // Validate config — probe health URLs, log warnings.
@@ -689,6 +693,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     infra::tasks::spawn_event_consumer(
         &event_tx,
+        Arc::clone(&rest_state),
         Arc::clone(&task_health),
         shutdown.clone(),
         slack,
@@ -769,7 +774,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&metrics),
             Arc::clone(&environment),
             Arc::clone(&task_health),
-            system_contract.clone(),
+            system_contract
+                .read()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone(),
             Some(event_tx.clone()),
         );
 

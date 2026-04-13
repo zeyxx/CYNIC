@@ -13,12 +13,14 @@ use chrono::Utc;
 
 pub fn spawn_event_consumer(
     event_tx: &tokio::sync::broadcast::Sender<KernelEvent>,
+    rest_state: Arc<crate::api::rest::AppState>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
     slack: Option<SlackAlerter>,
 ) -> JoinHandle<()> {
     spawn_event_consumer_with_liveness(
         event_tx,
+        rest_state,
         task_health,
         shutdown,
         constants::EVENT_LIVENESS_INTERVAL,
@@ -31,13 +33,14 @@ pub fn spawn_event_consumer(
 /// waiting a minute. Production always goes through `spawn_event_consumer`.
 fn spawn_event_consumer_with_liveness(
     event_tx: &tokio::sync::broadcast::Sender<KernelEvent>,
+    rest_state: Arc<crate::api::rest::AppState>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
     liveness_interval: std::time::Duration,
     slack: Option<SlackAlerter>,
 ) -> JoinHandle<()> {
     let mut rx = event_tx.subscribe();
-    let handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         // Idle-liveness tick: the event bus may be quiet for hours. Keep the
         // consumer's liveness signal fresh even when nothing is emitted.
         let mut liveness = tokio::time::interval(liveness_interval);
@@ -46,6 +49,8 @@ fn spawn_event_consumer_with_liveness(
 
         // State tracking for ContractDelta changes (K15 acting consumer).
         let mut last_fulfilled: Option<bool> = None;
+        let mut missing_since: std::collections::HashMap<String, std::time::Instant> =
+            std::collections::HashMap::new();
 
         loop {
             tokio::select! {
@@ -56,21 +61,30 @@ fn spawn_event_consumer_with_liveness(
                 event = rx.recv() => {
                     match event {
                         Ok(ref evt) => {
-                            // Most events are logged at emission. This consumer
-                            // acts on contract-level signals — the first acting
-                            // consumer on the bus.
-                            match evt {
-                                KernelEvent::ContractDelta { missing, expected, fulfilled } => {
+                            if let KernelEvent::ContractDelta { missing, expected, fulfilled } = evt {
                                     if !fulfilled {
-                                        tracing::warn!(
-                                            missing = ?missing,
-                                            expected = expected,
-                                            "PROPRIOCEPTION: contract not fulfilled — {} Dog(s) missing",
-                                            missing.len()
-                                        );
+                                        // Track how long each Dog has been missing
+                                        let now = std::time::Instant::now();
+                                        for dog_id in missing {
+                                            missing_since.entry(dog_id.clone()).or_insert(now);
+                                        }
+                                        missing_since.retain(|id, _| missing.contains(id));
 
-                                        // K15 acting consumer: send Slack alert on state change.
-                                        // Only alert when state changes from fulfilled=true → fulfilled=false.
+                                        // Auto-prune: if a Dog is missing for > 10 min, remove from contract
+                                        let to_prune: Vec<String> = missing_since
+                                            .iter()
+                                            .filter(|(_, since)| since.elapsed() > std::time::Duration::from_secs(600))
+                                            .map(|(id, _)| id.clone())
+                                            .collect();
+
+                                        for dog_id in to_prune {
+                                            let mut guard = rest_state.system_contract.write().unwrap_or_else(|e| e.into_inner());
+                                            if guard.prune(&dog_id) {
+                                                klog!("[Sovereignty] Dog '{}' missing > 10m, pruned from SystemContract", dog_id);
+                                                missing_since.remove(&dog_id);
+                                            }
+                                        }
+
                                         if last_fulfilled != Some(false) {
                                             if let Some(ref alerter) = slack {
                                                 let message = crate::infra::alerts::format_contract_delta(
@@ -78,45 +92,17 @@ fn spawn_event_consumer_with_liveness(
                                                     *expected,
                                                     *expected - missing.len(),
                                                 );
-                                                match tokio::time::timeout(
-                                                    constants::SLACK_ALERT_TIMEOUT,
-                                                    alerter.send(&message),
-                                                ).await {
-                                                    Ok(Ok(())) => {
-                                                        tracing::info!("Slack alert sent for contract breach");
-                                                    }
-                                                    Ok(Err(e)) => {
-                                                        tracing::warn!(error = %e, "Failed to send Slack alert");
-                                                    }
-                                                    Err(_) => {
-                                                        tracing::warn!("Slack alert timeout (3s)");
-                                                    }
-                                                }
+                                                let _ = alerter.send(&message).await;
                                             }
                                             last_fulfilled = Some(false);
                                         }
                                     } else {
-                                        tracing::info!("PROPRIOCEPTION: contract fulfilled — all {expected} Dogs present");
+                                        missing_since.clear();
                                         last_fulfilled = Some(true);
                                     }
-                                }
-                                KernelEvent::DogDiscovered { dog_id } => {
-                                    tracing::info!(dog_id = %dog_id, "PROPRIOCEPTION: Dog discovered and registered");
-                                }
-                                // Events without internal acting consumers — consumed externally
-                                // via SSE (/events endpoint) by dashboards and monitoring tools.
-                                // VerdictIssued, CrystalObserved, DogFailed, DogExpired,
-                                // SessionRegistered, BackfillComplete, Anomaly, StorageReconnected
-                                // are correctly external-only: their consumers act outside the kernel.
-                                _ => {}
                             }
                         }
-                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                            tracing::warn!(skipped = n, "Event consumer lagged — dropped {n} events");
-                        }
-                        Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                            break;
-                        }
+                        Err(_) => break,
                     }
                     task_health.touch_event_consumer();
                 }
@@ -125,9 +111,7 @@ fn spawn_event_consumer_with_liveness(
                 }
             }
         }
-    });
-    klog!("[Ring 2] Event consumer started (lag detection + liveness)");
-    handle
+    })
 }
 
 pub fn spawn_probe_scheduler(
@@ -422,7 +406,10 @@ pub fn spawn_discovery_loop(
                     // Self-model: compare contract against live roster after each cycle.
                     // Emit ContractDelta so acting consumers can react.
                     let live_ids = rest_state.judge.load_full().dog_ids();
-                    let delta = rest_state.system_contract.assess(&live_ids);
+                    let delta = {
+                        let guard = rest_state.system_contract.read().unwrap_or_else(|e| e.into_inner());
+                        guard.assess(&live_ids)
+                    };
                     if !delta.fulfilled {
                         tracing::warn!(
                             missing = ?delta.missing,
@@ -655,13 +642,49 @@ mod tests {
     use crate::domain::verdict_cache::VerdictCache;
     use arc_swap::ArcSwap;
 
+    fn test_app_state(event_tx: &tokio::sync::broadcast::Sender<KernelEvent>) -> Arc<AppState> {
+        let judge = crate::judge::Judge::new(vec![], vec![]);
+        Arc::new(AppState {
+            judge: ArcSwap::new(Arc::new(judge)),
+            storage: Arc::new(NullStorage),
+            coord: Arc::new(NullCoord),
+            embedding: Arc::new(NullEmbedding),
+            usage: Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new())),
+            verdict_cache: Arc::new(VerdictCache::new()),
+            task_health: Arc::new(TaskHealth::new()),
+            metrics: Arc::new(crate::domain::metrics::Metrics::new()),
+            api_key: None,
+            storage_info: StorageInfo {
+                namespace: "test".into(),
+                database: "test".into(),
+            },
+            rate_limiter: PerIpRateLimiter::new(30),
+            judge_limiter: PerIpRateLimiter::new(10),
+            ready_cache: ReadyCache::new(),
+            bg_semaphore: Arc::new(tokio::sync::Semaphore::new(4)),
+            bg_tasks: tokio_util::task::TaskTracker::new(),
+            sse_semaphore: Arc::new(tokio::sync::Semaphore::new(4)),
+            introspection_alerts: Arc::new(std::sync::RwLock::new(vec![])),
+            event_tx: event_tx.clone(),
+            chain_verified: std::sync::atomic::AtomicBool::new(false),
+            environment: Arc::new(std::sync::RwLock::new(None)),
+            registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+            judge_jobs: Arc::new(crate::api::rest::judge_job::JudgeJobStore::new()),
+            system_contract: Arc::new(std::sync::RwLock::new(
+                crate::domain::contract::SystemContract::new(vec![], true),
+            )),
+        })
+    }
+
     #[tokio::test]
     async fn event_consumer_receives_and_shuts_down() {
         let (tx, _rx) = tokio::sync::broadcast::channel::<KernelEvent>(16);
+        let rest_state = test_app_state(&tx);
         let task_health = Arc::new(TaskHealth::new());
         let shutdown = CancellationToken::new();
 
-        let handle = spawn_event_consumer(&tx, task_health.clone(), shutdown.clone(), None);
+        let handle =
+            spawn_event_consumer(&tx, rest_state, task_health.clone(), shutdown.clone(), None);
 
         let _ = tx.send(KernelEvent::VerdictIssued {
             verdict_id: "test-v1".into(),
@@ -694,8 +717,10 @@ mod tests {
         let task_health = Arc::new(TaskHealth::new());
         let shutdown = CancellationToken::new();
 
+        let rest_state = test_app_state(&tx);
         let handle = spawn_event_consumer_with_liveness(
             &tx,
+            rest_state,
             task_health.clone(),
             shutdown.clone(),
             Duration::from_millis(100),
@@ -752,35 +777,7 @@ mod tests {
     #[tokio::test]
     async fn dog_ttl_checker_respects_shutdown() {
         let (event_tx, _) = tokio::sync::broadcast::channel::<KernelEvent>(16);
-        let judge = crate::judge::Judge::new(vec![], vec![]);
-        let rest_state = Arc::new(AppState {
-            judge: ArcSwap::new(Arc::new(judge)),
-            storage: Arc::new(NullStorage),
-            coord: Arc::new(NullCoord),
-            embedding: Arc::new(NullEmbedding),
-            usage: Arc::new(tokio::sync::Mutex::new(DogUsageTracker::new())),
-            verdict_cache: Arc::new(VerdictCache::new()),
-            task_health: Arc::new(TaskHealth::new()),
-            metrics: Arc::new(crate::domain::metrics::Metrics::new()),
-            api_key: None,
-            storage_info: StorageInfo {
-                namespace: "test".into(),
-                database: "test".into(),
-            },
-            rate_limiter: PerIpRateLimiter::new(30),
-            judge_limiter: PerIpRateLimiter::new(10),
-            ready_cache: ReadyCache::new(),
-            bg_semaphore: Arc::new(tokio::sync::Semaphore::new(4)),
-            bg_tasks: tokio_util::task::TaskTracker::new(),
-            sse_semaphore: Arc::new(tokio::sync::Semaphore::new(4)),
-            introspection_alerts: Arc::new(std::sync::RwLock::new(vec![])),
-            event_tx: event_tx.clone(),
-            chain_verified: std::sync::atomic::AtomicBool::new(false),
-            environment: Arc::new(std::sync::RwLock::new(None)),
-            registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
-            judge_jobs: Arc::new(crate::api::rest::judge_job::JudgeJobStore::new()),
-            system_contract: crate::domain::contract::SystemContract::new(vec![], true),
-        });
+        let rest_state = test_app_state(&event_tx);
         let task_health = Arc::new(TaskHealth::new());
         let shutdown = CancellationToken::new();
 

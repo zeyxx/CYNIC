@@ -43,6 +43,15 @@ impl SystemContract {
         self.expected_dogs.len()
     }
 
+    /// Prune a Dog from the expected list.
+    /// Used when a Dog is confirmed to be permanently or long-term offline.
+    /// Returns true if the Dog was removed.
+    pub fn prune(&mut self, dog_id: &str) -> bool {
+        let before = self.expected_dogs.len();
+        self.expected_dogs.retain(|id| id != dog_id);
+        self.expected_dogs.len() < before
+    }
+
     /// Compare contract against live roster. Returns the delta.
     pub fn assess(&self, live_dog_ids: &[String]) -> ContractDelta {
         let missing: Vec<String> = self
