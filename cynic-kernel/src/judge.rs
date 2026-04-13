@@ -285,6 +285,7 @@ impl Judge {
 
     /// Evaluate a stimulus through Dogs in parallel, aggregate, produce Verdict.
     /// If `filter` is provided, only use Dogs whose IDs match.
+    #[tracing::instrument(skip(self, metrics), err)]
     pub async fn evaluate(
         &self,
         stimulus: &Stimulus,
@@ -298,6 +299,7 @@ impl Judge {
     /// Evaluate with optional progressive callback — called after each Dog completes.
     /// `on_dog` receives (dog_id, success, elapsed_ms, optional DogScore clone).
     /// Used by `/judge/async` to update the job store as Dogs arrive.
+    #[tracing::instrument(skip(self, metrics, on_dog), err)]
     pub async fn evaluate_progressive(
         &self,
         stimulus: &Stimulus,
