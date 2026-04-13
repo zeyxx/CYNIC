@@ -1,5 +1,7 @@
 # CYNIC — Constitution
 
+> **"Sovereign infrastructure making the cost of lying visible through the geometry of calibrated doubt."**
+
 > *"The lips of Wisdom are closed, except to the ears of Understanding."*
 > — The Kybalion (1908)
 
