@@ -57,7 +57,23 @@ auth_style = "none"
 #model = "microsoft/phi-4-mini"
 #auth_style = "none"
 
-# ── Dog 6: Sovereign Ubuntu (CPU inference via Tailscale) ──────
+# ── Dog 6: Gemini CLI (subscription, no API key) ────────────
+# Uses gemini-cli binary with OAuth auth (Google subscription).
+# backend_type = "cli" means base_url is the binary path, not an HTTP URL.
+# Different model family (Google) = architectural diversity.
+[backend.gemini-cli]
+backend_type = "cli"
+base_url = "gemini"
+model = "gemini-2.5-flash"
+auth_style = "none"
+context_size = 1000000
+timeout_secs = 60
+max_tokens = 1024
+temperature = 0.3
+cost_input_per_mtok = 0.0
+cost_output_per_mtok = 0.0
+
+# ── Dog 7: Sovereign Ubuntu (CPU inference via Tailscale) ──────
 # Ryzen 7 5700G, Gemma 3 4B Q4_K_M, CPU-only, 53 t/s prompt / 23 t/s gen.
 # Different model family from sovereign (Qwen) = multi-family diversity.
 [backend.sovereign-ubuntu]
