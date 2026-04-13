@@ -801,6 +801,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .unwrap_or_else(|e| e.into_inner())
                 .clone(),
             Some(event_tx.clone()),
+            project_root.display().to_string(),
         );
 
         // MCP signal handler — cancel background tasks on SIGTERM/SIGINT
