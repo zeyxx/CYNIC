@@ -40,3 +40,5 @@ K14. **Poison/missing = assume degraded.** When reading shared state (`RwLock`, 
 - Integration tests: `tests/integration_storage.rs` with `#[ignore]`
 
 K15. **Every producer has a consumer that ACTS.** Storing, displaying, or logging is not consuming. A consumer must change system behavior: gate a request, trigger a state transition, emit an alert that is routed to a human. `store_*` without an acting reader = Rule 3 violation. `emit_event` without an acting handler = dead nervous system. — `make lint-drift` (producer-consumer audit)
+
+K16. **Context is metabolic.** Every line the LLM reads costs cognition. Comments that paraphrase code, imports unused in the current concern, and mixed responsibilities in a single file are active noise — empirically worse than absent context (arXiv 2406.11927). Split by responsibility, not by line count. A file should be describable in 3 words; if not, it does too much.

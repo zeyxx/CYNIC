@@ -188,6 +188,25 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	if [ "$$COMPLIANCE_GATES" -eq 0 ]; then echo "WARN K15: compliance_score computed but no gate enforces threshold"; fi; \
 	CV_READERS=$$(grep -rn 'contributing_verdicts' "$$KERN/" --include='*.rs' 2>/dev/null | grep -v 'test\|//\|push\|insert\|store\|array::union\|Vec<String>\|struct\|pub ' | wc -l); \
 	if [ "$$CV_READERS" -eq 0 ]; then echo "WARN K15: contributing_verdicts stored but never read"; fi; \
+	EVENT_VARIANTS=$$(grep -oP 'KernelEvent::\K\w+' "$$KERN/domain/events.rs" 2>/dev/null | sort -u); \
+	EVENT_HANDLERS=$$(grep -oP 'KernelEvent::\K\w+' "$$KERN/infra/tasks/runtime_loops.rs" 2>/dev/null | sort -u); \
+	for EV in $$EVENT_VARIANTS; do \
+		if ! echo "$$EVENT_HANDLERS" | grep -q "$$EV"; then \
+			EMITTERS=$$(grep -rn "KernelEvent::$$EV" "$$KERN/" --include='*.rs' 2>/dev/null | grep -v 'test\|//\|match\|=>' | wc -l); \
+			if [ "$$EMITTERS" -gt 0 ]; then \
+				echo "WARN K15: KernelEvent::$$EV emitted ($$EMITTERS site(s)) but not matched in event_consumer"; \
+			fi; \
+		fi; \
+	done; \
+	for RULE in $(PROJECT_DIR)/.claude/rules/*.md; do \
+		grep -oP '`[a-zA-Z_/]+\.(rs|toml|sh|md)`' "$$RULE" 2>/dev/null | tr -d '`' | while read -r REF; do \
+			if echo "$$REF" | grep -qE '\.rs$$' && ! find "$$KERN" -path "*$$REF" 2>/dev/null | grep -q .; then \
+				if ! find "$(PROJECT_DIR)" -path "*$$REF" 2>/dev/null | grep -q .; then \
+					echo "WARN Drift: '$$REF' referenced in $$(basename $$RULE) but not found on disk"; \
+				fi; \
+			fi; \
+		done; \
+	done; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ No drift detected"; fi; \
 	exit $$FAIL
 
