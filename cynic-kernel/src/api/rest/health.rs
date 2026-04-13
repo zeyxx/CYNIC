@@ -332,6 +332,7 @@ pub async fn register_dog_handler(
 
     let cfg = crate::infra::config::BackendConfig {
         name: name.clone(),
+        backend_type: crate::infra::config::BackendType::OpenAi,
         base_url: req.base_url,
         model: req.model,
         api_key: req.api_key,
