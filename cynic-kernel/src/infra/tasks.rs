@@ -5,6 +5,7 @@
 //! All tasks respect the CancellationToken for graceful shutdown.
 //! All `.await` inside spawns are wrapped in `tokio::time::timeout()` (Rule #10).
 
+mod nightshift;
 mod runtime_loops;
 
 use std::sync::Arc;
@@ -21,6 +22,7 @@ use crate::domain::usage::DogUsageTracker;
 use crate::infra::config::BackendRemediation;
 use crate::infra::task_health::TaskHealth;
 
+pub use nightshift::spawn_nightshift_loop;
 pub use runtime_loops::{
     spawn_crystal_challenge_loop, spawn_discovery_loop, spawn_dog_heartbeat_loop,
     spawn_dog_ttl_checker, spawn_event_consumer, spawn_probe_scheduler,
