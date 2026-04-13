@@ -103,9 +103,11 @@ impl InferenceOrgan {
 
         // Promote to Healthy if both gates clear (parse + json_valid_rate)
         if Self::is_parse_gate_degraded(&guard.backend.health)
-            || (matches!(&guard.backend.health, BackendHealth::Degraded { reason, .. }
-                if reason.contains("json valid rate"))
-                && !is_json_rate_degraded)
+            || (matches!(
+                &guard.backend.health,
+                BackendHealth::Degraded { reason, .. }
+                    if reason.contains("json valid rate")
+            ) && !is_json_rate_degraded)
         {
             tracing::info!(
                 backend = %guard.backend.id.0,
