@@ -74,6 +74,7 @@ impl InferenceOrgan {
         let rate = guard.stats.json_valid_rate();
         guard.backend.measured.json_valid_rate = rate;
 
+        // K14 gate 1: ParseFailureGate (sliding 10-call window, >50% failures)
         if guard.gate.is_tripped() {
             if matches!(guard.backend.health, BackendHealth::Healthy) {
                 guard.backend.health = BackendHealth::Degraded {
@@ -87,7 +88,25 @@ impl InferenceOrgan {
             return;
         }
 
-        if Self::is_parse_gate_degraded(&guard.backend.health) {
+        // K14 gate 2: json_valid_rate >= 0.5 (after baseline established, >=20 calls)
+        // Prevents Dogs with global low JSON validity from poisoning jury.
+        let is_json_rate_degraded = guard.stats.is_baseline_established() && rate < 0.5;
+        if is_json_rate_degraded {
+            if matches!(guard.backend.health, BackendHealth::Healthy) {
+                guard.backend.health = BackendHealth::Degraded {
+                    reason: format!("json valid rate {:.1}% < 50%", rate * 100.0),
+                    since: Instant::now(),
+                };
+            }
+            return;
+        }
+
+        // Promote to Healthy if both gates clear (parse + json_valid_rate)
+        if Self::is_parse_gate_degraded(&guard.backend.health)
+            || (matches!(&guard.backend.health, BackendHealth::Degraded { reason, .. }
+                if reason.contains("json valid rate"))
+                && !is_json_rate_degraded)
+        {
             tracing::info!(
                 backend = %guard.backend.id.0,
                 "organ: quality recovered — promoting to Healthy"
@@ -383,6 +402,102 @@ mod tests {
             !guard.gate.is_tripped(),
             "gate must not be tripped from api_errors alone"
         );
+    }
+
+    #[test]
+    fn json_valid_rate_gate_excludes_low_quality_dogs() {
+        // K14 gate 2: Dogs with json_valid_rate < 0.5 after baseline (20+ calls) are degraded.
+        // Use ApiError (infrastructure) instead of ParseError (model quality) so the
+        // ParseFailureGate doesn't trip. This isolates the json_valid_rate gate test.
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("low-quality-dog"));
+
+        // Accumulate 25 calls: 5 successes (20% valid rate), 20 infra failures (ApiError).
+        // ApiError doesn't feed ParseFailureGate, so it won't degrade via parse gate.
+        for _ in 0..5 {
+            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+        }
+        for _ in 0..20 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Failure(ScoreFailureKind::ApiError),
+            );
+        }
+
+        // Verify stats
+        let stats = handle.stats_snapshot().unwrap();
+        assert_eq!(stats.total_calls, 25);
+        assert_eq!(stats.success_count, 5);
+        assert_eq!(stats.json_valid_rate(), 0.2);
+
+        // Verify json_valid_rate gate degraded the Dog (not parse gate)
+        let guard = handle.0.lock().unwrap();
+        assert!(matches!(
+            &guard.backend.health,
+            BackendHealth::Degraded { reason, .. }
+                if reason.contains("json valid rate")
+        ));
+    }
+
+    #[test]
+    fn json_valid_rate_gate_requires_baseline() {
+        // K14 gate: json_valid_rate gate only trips after baseline (20 calls).
+        // Before baseline, pessimistic K14 defaults are used (0% assumed healthy).
+        // Use ApiError so ParseFailureGate doesn't trip independently.
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("new-dog"));
+
+        // 10 calls: 2 successes (20% — below 50%), 8 infra failures (ApiError).
+        // ApiError doesn't feed ParseFailureGate, so only json_valid_rate gate matters.
+        for _ in 0..2 {
+            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+        }
+        for _ in 0..8 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Failure(ScoreFailureKind::ApiError),
+            );
+        }
+
+        // Below baseline (10 < 20 calls): should still be Healthy
+        let guard = handle.0.lock().unwrap();
+        assert!(matches!(guard.backend.health, BackendHealth::Healthy));
+    }
+
+    #[test]
+    fn json_valid_rate_gate_recovery() {
+        // When json_valid_rate improves to >= 0.5, Dog recovers to Healthy.
+        // Use ApiError so only json_valid_rate gate is being tested, not ParseFailureGate.
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("recovering-dog"));
+
+        // 20 calls: 5 successes (25% — below gate), 15 ApiErrors (infrastructure, no parse gate impact)
+        for _ in 0..5 {
+            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+        }
+        for _ in 0..15 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Failure(ScoreFailureKind::ApiError),
+            );
+        }
+
+        let guard = handle.0.lock().unwrap();
+        assert!(matches!(
+            &guard.backend.health,
+            BackendHealth::Degraded { reason, .. }
+                if reason.contains("json valid rate")
+        ));
+        drop(guard);
+
+        // Add 30 successes (now 35/50 = 70% — above gate)
+        for _ in 0..30 {
+            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+        }
+
+        // Should recover to Healthy (json_valid_rate improved from 25% to 70%)
+        let guard = handle.0.lock().unwrap();
+        assert!(matches!(guard.backend.health, BackendHealth::Healthy));
     }
 
     #[test]
