@@ -97,6 +97,7 @@ fi
 # ── Inter-agent bus: POST session summary to /observe (domain=session) ──
 # This is the structured handover channel. Other agents (Claude, Gemini, nightshift)
 # read domain="session" observations at session start to understand prior work.
+KERNEL_STATUS=$(curl -s --connect-timeout 2 --max-time 3 "http://${KERNEL_ADDR}/health" 2>/dev/null | jq -r '.status // "down"' 2>/dev/null || echo "down")
 if [[ "$KERNEL_STATUS" != "down" ]]; then
     # Collect session metadata
     COMMITS_COUNT="${COMMITS_THIS_SESSION:-0}"
