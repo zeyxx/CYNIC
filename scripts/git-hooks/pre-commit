@@ -7,6 +7,45 @@
 # See CLAUDE.md § VII: Build Environment
 export RUST_MIN_STACK=67108864
 
+# ── L2: Staged secret / real infra leak check ──
+# Blocks obvious credential leaks and real Tailscale IPs anywhere in the staged diff,
+# not just in Rust files. This catches config/docs regressions before they reach the repo.
+security_check() {
+    STAGED_ADDED=$(git diff --cached --no-color --unified=0 2>/dev/null | grep '^+' | grep -v '^+++' || true)
+    [ -z "$STAGED_ADDED" ] && return 0
+    FILTERED_ADDED=$(printf '%s\n' "$STAGED_ADDED" \
+        | grep -v 'RAW_SECRETS=' \
+        | grep -v 'HARDCODED_CREDS=' \
+        | grep -v 'REAL_INFRA=' \
+        | grep -v 'grep -iE .*api\[_-\]?key' \
+        | grep -v 'grep -iE .*AIza' \
+        | grep -v 'grep -E .*100\\\.' || true)
+    [ -z "$FILTERED_ADDED" ] && return 0
+
+    RAW_SECRETS=$(printf '%s\n' "$FILTERED_ADDED" \
+        | grep -iE 'AIza[[:alnum:]_-]{10,}|hf_[[:alnum:]_-]{10,}|sk-[[:alnum:]_-]{10,}' || true)
+    HARDCODED_CREDS=$(printf '%s\n' "$FILTERED_ADDED" \
+        | grep -iE '(api[_-]?key|token|password|secret)[^[:alnum:]]*[:=][[:space:]]*["'"'"']?[^$<[:space:]][^"'"'"'[:space:]]{6,}' \
+        | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken' || true)
+    if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
+        echo "SECURITY FAIL: possible secrets in staged changes:"
+        [ -n "$RAW_SECRETS" ] && echo "$RAW_SECRETS"
+        [ -n "$HARDCODED_CREDS" ] && echo "$HARDCODED_CREDS"
+        return 1
+    fi
+
+    REAL_INFRA=$(printf '%s\n' "$FILTERED_ADDED" \
+        | grep -E '100\.(74|75|119)\.[0-9]{1,3}\.[0-9]{1,3}' || true)
+    if [ -n "$REAL_INFRA" ]; then
+        echo "SECURITY FAIL: real Tailscale IPs in staged changes:"
+        echo "$REAL_INFRA"
+        return 1
+    fi
+
+    return 0
+}
+security_check || exit 1
+
 # ── L2: Coordination claim verification ──
 # Checks that staged kernel files are not claimed by ANOTHER agent.
 # Graceful: skips if kernel unreachable or no env. Does NOT block on unclaimed files.

@@ -106,8 +106,12 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 			fi; \
 		done <<< "$$K12"; \
 	fi; \
-	SECRETS=$$(git diff --staged 2>/dev/null | grep '^+' | grep -v '^+++' | grep -iE 'api.key|token|password|secret|AIza|hf_' | grep -v '#' | grep -v '//' | grep -v 'CancellationToken'); \
-	if [ -n "$$SECRETS" ]; then echo "FAIL Security: possible secrets in staged changes:"; echo "$$SECRETS"; FAIL=1; fi; \
+	ADDED=$$(git diff --staged 2>/dev/null | grep '^+' | grep -v '^+++' | grep -v 'RAW_SECRETS=' | grep -v 'HARDCODED_CREDS=' | grep -v 'REAL_INFRA=' | grep -v 'grep -iE .*api\[_-\]?key' | grep -v 'grep -iE .*AIza' | grep -v 'grep -E .*100\\\.'); \
+	RAW_SECRETS=$$(printf '%s\n' "$$ADDED" | grep -iE 'AIza[[:alnum:]_-]{10,}|hf_[[:alnum:]_-]{10,}|sk-[[:alnum:]_-]{10,}'); \
+	HARDCODED_CREDS=$$(printf '%s\n' "$$ADDED" | grep -iE '(api[_-]?key|token|password|secret)[^[:alnum:]]*[:=][[:space:]]*["'"'"']?[^$$<[:space:]][^"'"'"'[:space:]]{6,}' | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken'); \
+	if [ -n "$$RAW_SECRETS$$HARDCODED_CREDS" ]; then echo "FAIL Security: possible hardcoded secrets in staged changes:"; echo "$$RAW_SECRETS"; echo "$$HARDCODED_CREDS"; FAIL=1; fi; \
+	REAL_INFRA=$$(printf '%s\n' "$$ADDED" | grep -E '100\.(74|75|119)\.[0-9]{1,3}\.[0-9]{1,3}'); \
+	if [ -n "$$REAL_INFRA" ]; then echo "FAIL Security: real Tailscale IPs in staged changes:"; echo "$$REAL_INFRA"; FAIL=1; fi; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ All grep-enforceable rules pass"; fi; \
 	exit $$FAIL
 
