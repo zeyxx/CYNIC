@@ -73,31 +73,28 @@ cargo clippy -p cynic-kernel --release -- -D warnings
 This section explains how Gemini executes the shared protocol from `AGENTS.md`.
 If this file and `AGENTS.md` ever disagree on coordination semantics, `AGENTS.md` wins.
 
+Default repo config wires Gemini to the `cynic-coord` proxy only. That gives Gemini these shared tools:
+
+- `cynic_coord_register`
+- `cynic_coord_claim`
+- `cynic_coord_who`
+- `cynic_coord_release`
+- `cynic_observe`
+- `cynic_health`
+- `cynic_handoff`
+
 Every session follows this lifecycle:
 
 | Stage | Action | Tool |
 |-------|--------|------|
-| Start | Register intent | `cynic_coord_register(agent_id="gemini-<timestamp>", intent="<what>")` |
-| Before edit | Check + claim | `cynic_coord_who()` → `cynic_coord_claim(agent_id, target-file)` |
-| Auth | Authenticate MCP session | `cynic_auth(api_key=$CYNIC_API_KEY, agent_id="gemini-<session>")` |
-| After ILC | Validate + release | `cynic_validate()` → `cynic_coord_release(agent_id, target-file)` |
-| End | Release session | `cynic_coord_release(agent_id)` |
+| Start | Register, read handoff, inspect active work | `cynic_coord_register(...)` → `cynic_handoff(action="read")` → `cynic_coord_who()` |
+| Before edit | Claim explicitly when in doubt | `cynic_coord_claim(agent_id, target-file)` |
+| During | Record discoveries, decisions, blockers | `cynic_observe(...)` |
+| End | Append handoff, release all claims | `cynic_handoff(action="append", ...)` → `cynic_coord_release(agent_id)` |
 
-**ILC (Independent Logical Component):** Unit of work. One branch per ILC:
-`session/gemini/<slug>` (e.g., `session/gemini/ccm-decay-threshold`)
-
-Git rejects duplicate branch names — hard enforcement against parallel work collision.
-`cynic_coord_claim` adds soft visibility before work starts.
-
-**MCP Authentication:** Call `cynic_auth` FIRST in every session. Without it, sensitive tools (judge, observe, validate, git, coord) will reject with "Not authenticated."
-
-**Build validation:** Use `cynic_validate()` instead of `make check` — it runs the same pipeline (build+clippy+test) through the kernel MCP, bypassing snap sandbox restrictions.
-
-**Git operations:** Use `cynic_git(op={...})` for status/log/diff/commit. No push — deploy decisions are human.
-
-**Gemini MCP config:** cynic tools must be in your MCP configuration.
-Verify: `cynic_coord_who()` returns valid JSON (not "tool not found").
-If missing: add the CYNIC MCP server to your ~/.gemini/ config.
+The repo does **not** currently configure Gemini with the full kernel MCP surface by default.
+Do not assume `cynic_auth`, `cynic_validate`, or `cynic_git` exist unless you explicitly added a second MCP server that exposes them.
+Default validation remains repo commands such as `make check` or direct `cargo` commands.
 
 ## Security Rules (INVIOLABLE — repo is PUBLIC)
 
@@ -114,7 +111,7 @@ Your `.gemini/settings.json` has a `BeforeTool` hook on file write operations. W
 
 This is mechanical — you don't need to remember to call `cynic_coord_claim`. The hook does it. But you SHOULD call `cynic_coord_who()` at session start to understand who's working on what.
 
-**MCP config:** `.gemini/settings.json` connects to the `cynic-coord` proxy (Go binary at `mcp-coord/cynic-coord`), which forwards to the running kernel. This is lighter than launching a full kernel instance.
+**MCP config:** `.gemini/settings.json` launches `./.gemini/run-cynic-coord.sh`, which sources `~/.cynic-env` locally and then starts the `cynic-coord` proxy. This keeps real addresses and API keys out of the repo while preserving the same proxy path to the kernel.
 
 ## Compound Protocol — Inter-Agent Collaboration
 
