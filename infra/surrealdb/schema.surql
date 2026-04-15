@@ -155,6 +155,7 @@ DEFINE TABLE ouroboros_run TYPE ANY SCHEMALESS PERMISSIONS NONE;
 DEFINE FIELD corpus_version ON ouroboros_run TYPE string PERMISSIONS FULL;
 DEFINE FIELD trigger ON ouroboros_run TYPE string PERMISSIONS FULL;
 DEFINE FIELD mode ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD agent_family ON ouroboros_run TYPE string PERMISSIONS FULL;
 DEFINE FIELD run_id ON ouroboros_run TYPE string PERMISSIONS FULL;
 DEFINE FIELD status ON ouroboros_run TYPE string PERMISSIONS FULL;
 DEFINE FIELD started_at ON ouroboros_run TYPE datetime PERMISSIONS FULL;
@@ -180,6 +181,7 @@ DEFINE INDEX ouroboros_run_started_idx ON ouroboros_run FIELDS started_at;
 DEFINE TABLE ouroboros_repo_eval TYPE ANY SCHEMALESS PERMISSIONS NONE;
 
 DEFINE FIELD run_id ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD agent_family ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
 DEFINE FIELD repo_id ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
 DEFINE FIELD full_name ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
 DEFINE FIELD track ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;

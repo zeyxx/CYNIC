@@ -9,6 +9,7 @@ This is intentionally small. The foundation is:
 Usage:
   python3 scripts/ouroboros_scorecard.py
   python3 scripts/ouroboros_scorecard.py --date 2026-04-15
+  python3 scripts/ouroboros_scorecard.py --agent-family hermes
   python3 scripts/ouroboros_scorecard.py --all
 """
 
@@ -70,7 +71,7 @@ def blank_repo_eval(repo: dict, task_profiles: list[dict]) -> dict:
     }
 
 
-def build_run_record(corpus: dict, run_date: dt.date, include_all: bool) -> dict:
+def build_run_record(corpus: dict, run_date: dt.date, include_all: bool, agent_family: str) -> dict:
     offset, selected = select_repos(corpus, run_date, include_all)
     run_id = f"ouroboros-{run_date.isoformat()}"
     return {
@@ -81,6 +82,7 @@ def build_run_record(corpus: dict, run_date: dt.date, include_all: bool) -> dict
         "trigger": "nightly",
         "status": "planned",
         "corpus_version": corpus["version"],
+        "agent_family": agent_family,
         "rotation_offset_days": offset,
         "guardrails": {
             "external_repo_writes": False,
@@ -132,11 +134,17 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--date", help="Run date in YYYY-MM-DD. Defaults to today.")
     parser.add_argument("--all", action="store_true", help="Emit all corpus repos instead of nightly rotation.")
+    parser.add_argument(
+        "--agent-family",
+        default=None,
+        help="Logical agent family for the run (e.g. hermes, gemini-cli, openclaude).",
+    )
     args = parser.parse_args()
 
     run_date = dt.date.fromisoformat(args.date) if args.date else dt.date.today()
     corpus = load_corpus()
-    record = build_run_record(corpus, run_date, args.all)
+    agent_family = args.agent_family or "hermes"
+    record = build_run_record(corpus, run_date, args.all, agent_family)
     print(json.dumps(record, indent=2, ensure_ascii=True))
 
 

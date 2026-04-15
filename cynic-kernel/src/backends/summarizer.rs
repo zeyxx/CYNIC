@@ -10,13 +10,16 @@ use crate::domain::inference::{BackendError, InferPort, InferRequest, InferRespo
 use crate::domain::summarization::{SummarizationError, SummarizationPort};
 use async_trait::async_trait;
 use reqwest::Client;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct SovereignSummarizer {
     client: Client,
+    backend_id: String,
     base_url: String,
     api_key: Option<String>,
     model: String,
+    timeout_ms: u64,
 }
 
 /// Raw response from the LLM completions endpoint.
@@ -28,6 +31,27 @@ struct CompletionResult {
 }
 
 impl SovereignSummarizer {
+    fn new(
+        backend_id: &str,
+        base_url: &str,
+        api_key: Option<String>,
+        model: &str,
+        timeout_secs: u64,
+    ) -> Result<Self, crate::domain::inference::BackendInitError> {
+        let timeout = Duration::from_secs(timeout_secs);
+        Ok(Self {
+            client: Client::builder()
+                .timeout(timeout)
+                .build()
+                .map_err(crate::domain::inference::BackendInitError::from_http)?,
+            backend_id: backend_id.to_string(),
+            base_url: base_url.trim_end_matches('/').to_string(),
+            api_key,
+            model: model.to_string(),
+            timeout_ms: timeout.as_millis() as u64,
+        })
+    }
+
     /// Construct from env vars. Uses the sovereign LLM endpoint.
     /// Config sources: CYNIC_SUMMARIZER_URL > derived from CYNIC_REST_ADDR host + :8080.
     pub fn from_env() -> Result<Self, crate::domain::inference::BackendInitError> {
@@ -54,16 +78,28 @@ impl SovereignSummarizer {
                 }
             });
         let model = std::env::var("CYNIC_SUMMARIZER_MODEL").unwrap_or_else(|_| "local".into());
+        let backend_id =
+            std::env::var("CYNIC_SUMMARIZER_BACKEND").unwrap_or_else(|_| "sovereign".into());
+        let timeout_secs = std::env::var("CYNIC_SUMMARIZER_TIMEOUT_SECS")
+            .ok()
+            .and_then(|raw| raw.parse::<u64>().ok())
+            .filter(|secs| *secs > 0)
+            .unwrap_or(60);
 
-        Ok(Self {
-            client: Client::builder()
-                .timeout(std::time::Duration::from_secs(60))
-                .build()
-                .map_err(crate::domain::inference::BackendInitError::from_http)?,
-            base_url: base_url.trim_end_matches('/').to_string(),
-            api_key,
-            model,
-        })
+        Self::new(&backend_id, &base_url, api_key, &model, timeout_secs)
+    }
+
+    /// Construct from the canonical backend config loaded from backends.toml.
+    pub fn from_backend_config(
+        cfg: &crate::infra::config::BackendConfig,
+    ) -> Result<Self, crate::domain::inference::BackendInitError> {
+        Self::new(
+            &cfg.name,
+            &cfg.base_url,
+            cfg.api_key.clone(),
+            &cfg.model,
+            cfg.timeout_secs,
+        )
     }
 
     /// Health check — can the LLM be reached?
@@ -110,8 +146,8 @@ impl SovereignSummarizer {
         let resp = req.json(&body).send().await.map_err(|e| {
             if e.is_timeout() {
                 BackendError::Timeout {
-                    backend_id: "sovereign".into(),
-                    ms: 60_000,
+                    backend_id: self.backend_id.clone(),
+                    ms: self.timeout_ms,
                 }
             } else {
                 BackendError::Unreachable(e.to_string())
@@ -212,5 +248,38 @@ impl InferPort for SovereignSummarizer {
             prompt_tokens: result.prompt_tokens,
             completion_tokens: result.completion_tokens,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::infra::config::{AuthStyle, BackendConfig, BackendType};
+
+    #[test]
+    fn backend_config_constructor_uses_runtime_timeout_and_backend_id() {
+        let cfg = BackendConfig {
+            name: "qwen35-9b-gpu".into(),
+            backend_type: BackendType::OpenAi,
+            base_url: "http://127.0.0.1:8080/v1".into(),
+            api_key: Some("secret".into()),
+            model: "Qwen3.5-9B".into(),
+            auth_style: AuthStyle::Bearer,
+            context_size: 32768,
+            timeout_secs: 120,
+            max_tokens: 4096,
+            temperature: 0.3,
+            disable_thinking: false,
+            json_mode: false,
+            cost_input_per_mtok: 0.0,
+            cost_output_per_mtok: 0.0,
+            health_url: Some("http://127.0.0.1:8080/health".into()),
+            remediation: None,
+        };
+
+        let summarizer = SovereignSummarizer::from_backend_config(&cfg).expect("init summarizer");
+        assert_eq!(summarizer.backend_id, "qwen35-9b-gpu");
+        assert_eq!(summarizer.model, "Qwen3.5-9B");
+        assert_eq!(summarizer.timeout_ms, 120_000);
     }
 }
