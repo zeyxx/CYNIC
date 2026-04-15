@@ -28,6 +28,133 @@ pub fn normalize_for_hash(input: &str) -> String {
         .join(" ")
 }
 
+// ── SEMANTIC SLUG ─────────────────────────────────────────
+/// Reduce content to a domain-aware "semantic slug" before FNV hashing.
+/// Without this, every unique stimulus creates a new crystal — chess works
+/// because "1. e4 c5" repeats exactly, but dev/token/session content never does.
+///
+/// The slug captures the TOPIC (what category of thing), not the INSTANCE
+/// (what specific thing). This lets observations accumulate on the same crystal
+/// even when the exact text varies.
+///
+/// Returns `"domain:slug"` ready for `normalize_for_hash` → `content_hash`.
+pub fn semantic_slug(domain: &str, content: &str) -> String {
+    let slug = match domain {
+        "dev" => slug_dev(content),
+        "token" => slug_token(content),
+        "session" => slug_session(content),
+        "chess" => return format!("chess:{content}"), // chess: keep exact (already repetitive)
+        _ => first_n_words(content, 3),
+    };
+    format!("{domain}:{slug}")
+}
+
+/// Dev commits: extract conventional commit type + scope.
+/// "abc1234: feat(inference): add feature" → "feat:inference"
+/// "fix: handle edge case in storage" → "fix:storage" (first .rs file or first noun)
+fn slug_dev(content: &str) -> String {
+    // Strip leading git hash: 7+ hex chars followed by separator (: or space).
+    // Can't use trim_start_matches(hex) — it eats "f" from "fix" since 'f' is hex.
+    let trimmed = content.trim();
+    let hex_prefix_len = trimmed
+        .chars()
+        .take_while(|c| c.is_ascii_hexdigit())
+        .count();
+    let stripped = if hex_prefix_len >= 7 {
+        trimmed[hex_prefix_len..]
+            .trim_start_matches(':')
+            .trim_start_matches(' ')
+            .trim()
+    } else {
+        trimmed
+    };
+
+    // Parse conventional commit: type(scope): message
+    let types = [
+        "feat", "fix", "refactor", "chore", "docs", "test", "style", "perf", "ci", "build",
+    ];
+
+    let lower = stripped.to_lowercase();
+    for t in types {
+        if lower.starts_with(t) {
+            let rest = &stripped[t.len()..];
+            // Check for (scope)
+            if let Some(rest_after_paren) = rest.strip_prefix('(')
+                && let Some(end) = rest_after_paren.find(')')
+            {
+                let scope = &rest_after_paren[..end];
+                return format!("{t}:{scope}").to_lowercase();
+            }
+            // No explicit scope — extract first significant file reference
+            if let Some(file) = extract_file_stem(rest) {
+                return format!("{t}:{file}").to_lowercase();
+            }
+            return t.to_string();
+        }
+    }
+
+    // No conventional commit type — use first 3 words
+    first_n_words(stripped, 3)
+}
+
+/// Token analysis: extract mint address (base58, 32-44 chars) or token name.
+fn slug_token(content: &str) -> String {
+    // Look for a Solana address (base58: 32-44 chars of alphanumeric, no 0/O/I/l)
+    for word in content.split_whitespace() {
+        let clean = word.trim_matches(|c: char| !c.is_alphanumeric());
+        if clean.len() >= 32
+            && clean.len() <= 44
+            && clean
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() && c != '0' && c != 'O' && c != 'I' && c != 'l')
+        {
+            return clean.to_string();
+        }
+    }
+    // No address found — use first 3 words
+    first_n_words(content, 3)
+}
+
+/// Session: collapse to agent type only.
+fn slug_session(content: &str) -> String {
+    // "[agent_id] tool: context" → extract agent type
+    let lower = content.to_lowercase();
+    if lower.contains("claude") {
+        "agent:claude".to_string()
+    } else if lower.contains("gemini") {
+        "agent:gemini".to_string()
+    } else if lower.contains("hermes") {
+        "agent:hermes".to_string()
+    } else {
+        "summary".to_string()
+    }
+}
+
+/// Generic: first N significant words, lowercased.
+fn first_n_words(content: &str, n: usize) -> String {
+    content
+        .split_whitespace()
+        .filter(|w| w.len() > 2) // skip short words
+        .take(n)
+        .collect::<Vec<_>>()
+        .join("_")
+        .to_lowercase()
+}
+
+/// Extract a Rust/source file stem from text. "in storage.rs" → "storage"
+fn extract_file_stem(text: &str) -> Option<String> {
+    for word in text.split_whitespace() {
+        let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '_');
+        if clean.contains('.') {
+            let stem = clean.split('.').next().unwrap_or(clean);
+            if !stem.is_empty() && stem.len() > 1 {
+                return Some(stem.to_lowercase());
+            }
+        }
+    }
+    None
+}
+
 // ── WORKFLOW AGGREGATOR ────────────────────────────────────
 /// Aggregate raw observations into CCM crystals. Runs periodically.
 /// Extracts frequency patterns and co-occurrences from the observation table,
@@ -331,6 +458,101 @@ mod tests {
         ];
         let patterns = extract_cooccurrences(&rows);
         assert!(patterns.is_empty());
+    }
+
+    // ── Semantic slug tests ─────────────────────────────────
+
+    #[test]
+    fn slug_dev_conventional_commit_with_scope() {
+        assert_eq!(
+            semantic_slug("dev", "abc1234: feat(inference): add new feature"),
+            "dev:feat:inference"
+        );
+    }
+
+    #[test]
+    fn slug_dev_conventional_commit_no_scope() {
+        // "fix: handle edge case" — no scope, no file reference → just the type
+        let slug = semantic_slug("dev", "fix: handle edge case");
+        assert!(slug.starts_with("dev:fix"), "got: {slug}");
+    }
+
+    #[test]
+    fn slug_dev_with_file_reference() {
+        assert_eq!(
+            semantic_slug("dev", "refactor: split storage.rs into modules"),
+            "dev:refactor:storage"
+        );
+    }
+
+    #[test]
+    fn slug_dev_similar_commits_coalesce() {
+        let a = semantic_slug("dev", "abc1234: feat(inference): add timeout");
+        let b = semantic_slug("dev", "def5678: feat(inference): improve retry");
+        assert_eq!(
+            a, b,
+            "similar feat(inference) commits should produce same slug"
+        );
+    }
+
+    #[test]
+    fn slug_dev_different_types_differ() {
+        let a = semantic_slug("dev", "feat: add feature");
+        let b = semantic_slug("dev", "fix: fix bug");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn slug_token_extracts_address() {
+        let content = "Token analysis: 9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump has 20 holders";
+        let slug = semantic_slug("token", content);
+        assert!(slug.contains("9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump"));
+    }
+
+    #[test]
+    fn slug_token_same_mint_coalesces() {
+        let a = semantic_slug(
+            "token",
+            "Token 9zB5wRarXMj has 20 holders, 98% concentration",
+        );
+        let b = semantic_slug(
+            "token",
+            "Token 9zB5wRarXMj has 25 holders, 95% concentration",
+        );
+        assert_eq!(a, b, "same token name should produce same slug");
+    }
+
+    #[test]
+    fn slug_session_claude() {
+        assert_eq!(
+            semantic_slug("session", "[claude-abc123] Edit: modified storage.rs"),
+            "session:agent:claude"
+        );
+    }
+
+    #[test]
+    fn slug_session_gemini() {
+        assert_eq!(
+            semantic_slug("session", "[gemini-xyz] Read: checked file"),
+            "session:agent:gemini"
+        );
+    }
+
+    #[test]
+    fn slug_chess_preserved() {
+        assert_eq!(semantic_slug("chess", "1. e4 c5"), "chess:1. e4 c5");
+    }
+
+    #[test]
+    fn slug_generic_first_words() {
+        let slug = semantic_slug("claim", "The earth is flat and vaccines cause autism");
+        // first_n_words skips words <=2 chars ("The", "is", "and")
+        assert!(slug.starts_with("claim:"), "got: {slug}");
+        assert!(
+            slug.contains("earth"),
+            "should contain 'earth', got: {slug}"
+        );
+        assert!(slug.contains("flat"), "should contain 'flat', got: {slug}");
     }
 
     #[test]
