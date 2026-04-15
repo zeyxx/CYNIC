@@ -4,6 +4,7 @@ target/
 *.dll
 *.pdb
 *.zip
+*.bin
 
 # Dependencies
 node_modules/
