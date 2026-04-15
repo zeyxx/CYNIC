@@ -2,11 +2,11 @@
 set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 HERMES_HOME="${PROJECT_DIR}/.hermes_ouroboros"
-HERMES_BIN="${HOME}/.hermes/hermes-agent/venv/bin/hermes"
+HERMES_BIN="${OUROBOROS_HERMES_BIN_OVERRIDE:-${HOME}/.hermes/hermes-agent/venv/bin/hermes}"
 HERMES_BUNDLED_SKILLS="${HOME}/.hermes/hermes-agent/agent/skills"
 CONFIG_FILE="${HOME}/.config/cynic/backends.toml"
 LOG_FILE="${PROJECT_DIR}/cynic-ouroboros.log"
-RUN_DATE="$(date -I)"
+RUN_DATE="${OUROBOROS_DATE_OVERRIDE:-$(date -I)}"
 RUN_STARTED_AT="$(date --iso-8601=seconds -u)"
 RUN_START_EPOCH="$(date +%s)"
 
@@ -91,7 +91,7 @@ mcp_servers:
 EOF
 
 PLAN_JSON="${HERMES_HOME}/ouroboros-plan.json"
-REPORT_JSON="${HERMES_HOME}/ouroboros-report.json"
+REPORT_JSON="${OUROBOROS_REPORT_JSON_OVERRIDE:-${HERMES_HOME}/ouroboros-report.json}"
 python3 "${PROJECT_DIR}/scripts/ouroboros_scorecard.py" --date "${RUN_DATE}" > "${PLAN_JSON}"
 
 if [ -f "${PLAN_JSON}" ]; then
