@@ -40,6 +40,7 @@ benchmarks/
 # Platform configs
 .replit
 .mcp.json
+.gemini/
 
 # Compiler crash reports
 rustc-ice-*.txt

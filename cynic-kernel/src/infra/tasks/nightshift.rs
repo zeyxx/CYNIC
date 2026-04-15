@@ -6,8 +6,9 @@ use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
+use crate::domain::ccm;
 use crate::domain::constants;
-use crate::domain::dog::Stimulus;
+use crate::domain::dog::{MIN_QUORUM, Stimulus};
 use crate::domain::metrics::Metrics;
 use crate::domain::storage::StoragePort;
 use crate::infra::task_health::TaskHealth;
@@ -77,9 +78,13 @@ async fn judge_session_observation(
     let timestamp = chrono::Utc::now().to_rfc3339();
     let verdict_kind = format!("{:?}", verdict.kind).to_lowercase();
 
+    // Use semantic slug for crystal ID — not per-observation ID.
+    let slug = ccm::semantic_slug("session", &stimulus.content);
+    let crystal_id = format!("{:x}", ccm::content_hash(&ccm::normalize_for_hash(&slug)));
+
     storage
         .observe_crystal(
-            &format!("nightshift-session-{}", &obs.id),
+            &crystal_id,
             &stimulus.content,
             "session",
             verdict.q_score.total,
@@ -116,9 +121,15 @@ async fn judge_commit(
     let timestamp = chrono::Utc::now().to_rfc3339();
     let verdict_kind = format!("{:?}", verdict.kind).to_lowercase();
 
+    // Use semantic slug for crystal ID — not per-commit hash.
+    // "nightshift-{hash}" guarantees fragmentation (1 crystal per commit, never reaches 21 obs).
+    // semantic_slug("dev", message) → "dev:feat:inference" → same crystal for similar commits.
+    let slug = ccm::semantic_slug("dev", &commit.message);
+    let crystal_id = format!("{:x}", ccm::content_hash(&ccm::normalize_for_hash(&slug)));
+
     storage
         .observe_crystal(
-            &format!("nightshift-{}", commit.hash),
+            &crystal_id,
             &stimulus.content,
             "dev",
             verdict.q_score.total,
@@ -181,6 +192,34 @@ pub fn spawn_nightshift_loop(
                     }
 
                     klog!("[Nightshift] {} commit(s) to judge", commits.len());
+
+                    // Quorum guard: check that at least MIN_QUORUM Dogs respond
+                    // before burning cycles on commits that will all fail at storage level.
+                    let probe = Stimulus {
+                        content: "nightshift quorum probe".to_string(),
+                        context: None,
+                        domain: Some("dev".to_string()),
+                        request_id: None,
+                    };
+                    let probe_metrics = Metrics::new();
+                    match judge.evaluate(&probe, None, &probe_metrics).await {
+                        Ok(v) if v.voter_count < MIN_QUORUM => {
+                            tracing::warn!(
+                                voter_count = v.voter_count,
+                                min_quorum = MIN_QUORUM,
+                                "[Nightshift] quorum insufficient — skipping cycle (Dogs may be down)"
+                            );
+                            task_health.touch_nightshift();
+                            continue;
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, "[Nightshift] quorum probe failed — skipping cycle");
+                            task_health.touch_nightshift();
+                            continue;
+                        }
+                        Ok(_) => {} // quorum OK, proceed
+                    }
+
                     let mut judged = 0usize;
                     let mut errors = 0usize;
 
