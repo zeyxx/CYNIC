@@ -16,12 +16,13 @@ use cynic_kernel::domain::dog::{
 };
 use cynic_kernel::domain::storage::{Observation, StoragePort};
 use cynic_kernel::domain::usage::DogUsage;
+use cynic_kernel::judge::verify_verdict_integrity;
 use cynic_kernel::storage::memory::InMemoryStorage;
 
 // ── Test helpers ──────────────────────────────────────────
 
 fn make_verdict(id: &str) -> Verdict {
-    Verdict {
+    let mut verdict = Verdict {
         id: id.to_string(),
         domain: "test".to_string(),
         kind: VerdictKind::Howl,
@@ -63,9 +64,33 @@ fn make_verdict(id: &str) -> Verdict {
         voter_count: 2,
         failed_dogs: vec![],
         failed_dog_errors: Default::default(),
-        integrity_hash: Some("test-hash".to_string()),
+        integrity_hash: None,
         prev_hash: None,
+    };
+    verdict.integrity_hash = Some(compute_integrity_hash(&verdict));
+    verdict
+}
+
+fn compute_integrity_hash(verdict: &Verdict) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(verdict.id.as_bytes());
+    hasher.update(&verdict.q_score.total.to_le_bytes());
+    for score in [
+        verdict.q_score.fidelity,
+        verdict.q_score.phi,
+        verdict.q_score.verify,
+        verdict.q_score.culture,
+        verdict.q_score.burn,
+        verdict.q_score.sovereignty,
+    ] {
+        hasher.update(&score.to_le_bytes());
     }
+    hasher.update(verdict.stimulus_summary.as_bytes());
+    hasher.update(verdict.timestamp.replace("+00:00", "Z").as_bytes());
+    if let Some(prev_hash) = verdict.prev_hash.as_deref() {
+        hasher.update(prev_hash.as_bytes());
+    }
+    hasher.finalize().to_hex().to_string()
 }
 
 fn make_obs(agent: &str, tool: &str, target: &str) -> Observation {
@@ -96,8 +121,16 @@ async fn contract_verdict_store_get_roundtrip(db: &dyn StoragePort) {
         .expect("verdict should exist");
     assert_eq!(got.id, "c1-roundtrip");
     assert_eq!(got.domain, "test");
+    assert_eq!(got.stimulus_summary, "Test stimulus");
+    assert_eq!(got.timestamp, "2026-01-01T00:00:00Z");
     assert_eq!(got.voter_count, 2);
+    assert_eq!(got.integrity_hash, v.integrity_hash);
+    assert_eq!(got.prev_hash, None);
     assert!((got.q_score.total - 0.55).abs() < 0.001);
+    assert!(
+        verify_verdict_integrity(&got),
+        "verdict must remain integrity-valid after store/get round-trip"
+    );
 }
 
 /// C2: Observe crystal below quorum → must reject with error.
