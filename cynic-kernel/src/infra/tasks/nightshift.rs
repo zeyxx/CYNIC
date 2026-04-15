@@ -56,16 +56,32 @@ async fn git_commits_since(lookback: &str, repo_path: &str) -> Result<Vec<GitCom
     Ok(parse_git_log(&stdout))
 }
 
-/// Judge a session observation and observe the result as a session crystal.
-async fn judge_session_observation(
+/// Map raw observation domains to stable CCM compounding domains.
+/// Keeps temporal accumulation coherent instead of fragmenting by file extension.
+fn ccm_domain_for_observation(raw_domain: &str) -> &'static str {
+    match raw_domain {
+        "session" => "session",
+        "token" => "token",
+        "chess" => "chess",
+        "rust" | "typescript" | "javascript" | "python" | "docs" | "config" | "infra" => "dev",
+        _ => "general",
+    }
+}
+
+/// Judge an observation and observe the result as a CCM crystal.
+async fn judge_observation(
     obs: &crate::domain::storage::RawObservation,
     judge: &Arc<crate::judge::Judge>,
     storage: &Arc<dyn StoragePort>,
 ) -> Result<(), String> {
+    let domain = ccm_domain_for_observation(&obs.domain);
     let stimulus = Stimulus {
-        content: format!("[{}] {}: {}", obs.agent_id, obs.tool, obs.context),
+        content: format!(
+            "[{}] {} {}: {}",
+            obs.agent_id, obs.tool, obs.target, obs.context
+        ),
         context: Some(format!("tags: {:?}", obs.tags)),
-        domain: Some("session".to_string()),
+        domain: Some(domain.to_string()),
         request_id: None,
     };
 
@@ -73,20 +89,20 @@ async fn judge_session_observation(
     let verdict = judge
         .evaluate(&stimulus, None, &metrics)
         .await
-        .map_err(|e| format!("judge failed for session obs {}: {e}", obs.id))?;
+        .map_err(|e| format!("judge failed for observation {}: {e}", obs.id))?;
 
     let timestamp = chrono::Utc::now().to_rfc3339();
     let verdict_kind = format!("{:?}", verdict.kind).to_lowercase();
 
     // Use semantic slug for crystal ID — not per-observation ID.
-    let slug = ccm::semantic_slug("session", &stimulus.content);
+    let slug = ccm::semantic_slug(domain, &stimulus.content);
     let crystal_id = format!("{:x}", ccm::content_hash(&ccm::normalize_for_hash(&slug)));
 
     storage
         .observe_crystal(
             &crystal_id,
             &stimulus.content,
-            "session",
+            domain,
             verdict.q_score.total,
             &timestamp,
             verdict.voter_count,
@@ -94,7 +110,7 @@ async fn judge_session_observation(
             &verdict_kind,
         )
         .await
-        .map_err(|e| format!("observe_crystal failed for session obs {}: {e}", obs.id))?;
+        .map_err(|e| format!("observe_crystal failed for observation {}: {e}", obs.id))?;
 
     Ok(())
 }
@@ -247,32 +263,32 @@ pub fn spawn_nightshift_loop(
 
                     klog!("[Nightshift] Commits: {} judged, {} errors", judged, errors);
 
-                    // Phase 2: judge recent session observations (inter-agent learning)
-                    match storage.list_observations_raw(Some("session"), None, 10).await {
-                        Ok(session_obs) if !session_obs.is_empty() => {
-                            klog!("[Nightshift] {} session observation(s) to review", session_obs.len());
+                    // Phase 2: judge recent observations across domains (temporal compounding).
+                    match storage.list_observations_raw(None, None, 30).await {
+                        Ok(observations) if !observations.is_empty() => {
+                            klog!("[Nightshift] {} observation(s) to review", observations.len());
                             let mut s_judged = 0usize;
                             let mut s_errors = 0usize;
-                            for obs in &session_obs {
+                            for obs in &observations {
                                 match tokio::time::timeout(
                                     constants::NIGHTSHIFT_COMMIT_TIMEOUT,
-                                    judge_session_observation(obs, &judge, &storage),
+                                    judge_observation(obs, &judge, &storage),
                                 ).await {
                                     Ok(Ok(())) => s_judged += 1,
                                     Ok(Err(e)) => {
                                         s_errors += 1;
-                                        tracing::warn!(id = %obs.id, error = %e, "[Nightshift] session obs judgment failed");
+                                        tracing::warn!(id = %obs.id, error = %e, "[Nightshift] observation judgment failed");
                                     }
                                     Err(_) => {
                                         s_errors += 1;
-                                        tracing::warn!(id = %obs.id, "[Nightshift] session obs judgment timed out");
+                                        tracing::warn!(id = %obs.id, "[Nightshift] observation judgment timed out");
                                     }
                                 }
                             }
-                            klog!("[Nightshift] Sessions: {} judged, {} errors", s_judged, s_errors);
+                            klog!("[Nightshift] Observations: {} judged, {} errors", s_judged, s_errors);
                         }
-                        Ok(_) => klog!("[Nightshift] No session observations to review"),
-                        Err(e) => tracing::warn!(error = %e, "[Nightshift] Failed to fetch session observations"),
+                        Ok(_) => klog!("[Nightshift] No observations to review"),
+                        Err(e) => tracing::warn!(error = %e, "[Nightshift] Failed to fetch observations"),
                     }
 
                     klog!("[Nightshift] Cycle complete");
@@ -306,6 +322,14 @@ mod tests {
         let commits = parse_git_log("a1b2c3d refactor\n");
         assert_eq!(commits.len(), 1);
         assert_eq!(commits[0].message, "refactor");
+    }
+
+    #[test]
+    fn maps_observation_domains_to_stable_ccm_domains() {
+        assert_eq!(ccm_domain_for_observation("rust"), "dev");
+        assert_eq!(ccm_domain_for_observation("session"), "session");
+        assert_eq!(ccm_domain_for_observation("token"), "token");
+        assert_eq!(ccm_domain_for_observation("unknown"), "general");
     }
 
     #[tokio::test]
