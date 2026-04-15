@@ -6,6 +6,9 @@ HERMES_BIN="${HOME}/.hermes/hermes-agent/venv/bin/hermes"
 HERMES_BUNDLED_SKILLS="${HOME}/.hermes/hermes-agent/agent/skills"
 CONFIG_FILE="${HOME}/.config/cynic/backends.toml"
 LOG_FILE="${PROJECT_DIR}/cynic-ouroboros.log"
+RUN_DATE="$(date -I)"
+RUN_STARTED_AT="$(date --iso-8601=seconds -u)"
+RUN_START_EPOCH="$(date +%s)"
 
 # Load local runtime env so nightly works the same way under systemd and shell.
 if [ -f "${HOME}/.cynic-env" ]; then
@@ -87,6 +90,20 @@ mcp_servers:
       GEMMA_CORE_API_KEY: "${GEMMA_CORE_API_KEY:-}"
 EOF
 
+PLAN_JSON="${HERMES_HOME}/ouroboros-plan.json"
+REPORT_JSON="${HERMES_HOME}/ouroboros-report.json"
+python3 "${PROJECT_DIR}/scripts/ouroboros_scorecard.py" --date "${RUN_DATE}" > "${PLAN_JSON}"
+
+if [ -f "${PLAN_JSON}" ]; then
+    env \
+        OUROBOROS_STARTED_AT="${RUN_STARTED_AT}" \
+        OUROBOROS_STATUS="running" \
+        OUROBOROS_AGENT_ID="hermes" \
+        OUROBOROS_MODEL="${BACKEND_MODEL}" \
+        OUROBOROS_BACKEND_ID="qwen35-9b-gpu" \
+        python3 "${PROJECT_DIR}/scripts/ouroboros_persist.py" --input "${PLAN_JSON}"
+fi
+
 # Force Hermes onto the sovereign backend defined in CYNIC's backend config.
 unset OPENROUTER_API_KEY
 unset LLM_PROVIDER
@@ -110,11 +127,13 @@ fi
 echo "▶ Ouroboros verified worktree at: ${WORKTREE}"
 prompt_file="${PROJECT_DIR}/docs/identity/HERMES-OUROBOROS.md"
 runtime_note=$'\n\n## Runtime Notes\n- `CYNIC_API_KEY` is already available in your environment on this machine.\n- First run `printenv CYNIC_API_KEY` in the terminal tool and capture the full exact value.\n- Then call `cynic_auth` with that exact full string as `api_key`.\n- Do not pass the literal text `${CYNIC_API_KEY}`.\n- Do not truncate, preview, mask, or shorten the key before calling `cynic_auth`.\n- Do not ask the user for API keys or other credentials.\n'
+runtime_note+=$'\n- If you produce a structured nightly report, write it to `'"${REPORT_JSON}"$'` as JSON with `run` and `repo_results` keys so the launcher can persist it.\n'
 mission_note=""
 if [ -n "${OUROBOROS_MISSION:-}" ]; then
     mission_note=$'\n\n## Mission\n'"${OUROBOROS_MISSION}"$'\n'
 fi
 
+hermes_status="failed"
 if env HERMES_HOME="${HERMES_HOME}" HERMES_BUNDLED_SKILLS="${HERMES_BUNDLED_SKILLS}" $HERMES_BIN chat \
     --model "${BACKEND_MODEL}" \
     -t "file,terminal,cynic" \
@@ -122,7 +141,33 @@ if env HERMES_HOME="${HERMES_HOME}" HERMES_BUNDLED_SKILLS="${HERMES_BUNDLED_SKIL
     --yolo \
     --verbose 2>&1 | tee -a "${LOG_FILE}"; then
     echo "✓ Success"
+    hermes_status="completed"
 else
     echo "✗ Failed"
+fi
+
+RUN_FINISHED_AT="$(date --iso-8601=seconds -u)"
+RUN_FINISH_EPOCH="$(date +%s)"
+RUN_DURATION_S="$(python3 - <<PY
+print(round(${RUN_FINISH_EPOCH} - ${RUN_START_EPOCH}, 3))
+PY
+)"
+
+FINAL_INPUT="${PLAN_JSON}"
+if [ -f "${REPORT_JSON}" ]; then
+    FINAL_INPUT="${REPORT_JSON}"
+fi
+
+env \
+    OUROBOROS_STARTED_AT="${RUN_STARTED_AT}" \
+    OUROBOROS_FINISHED_AT="${RUN_FINISHED_AT}" \
+    OUROBOROS_DURATION_S="${RUN_DURATION_S}" \
+    OUROBOROS_STATUS="${hermes_status}" \
+    OUROBOROS_AGENT_ID="hermes" \
+    OUROBOROS_MODEL="${BACKEND_MODEL}" \
+    OUROBOROS_BACKEND_ID="qwen35-9b-gpu" \
+    python3 "${PROJECT_DIR}/scripts/ouroboros_persist.py" --input "${FINAL_INPUT}"
+
+if [ "${hermes_status}" != "completed" ]; then
     exit 1
 fi

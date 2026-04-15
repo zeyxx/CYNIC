@@ -147,3 +147,54 @@ DEFINE FIELD IF NOT EXISTS overall ON infra_snapshot TYPE string;
 DEFINE FIELD IF NOT EXISTS probes ON infra_snapshot TYPE array;
 DEFINE FIELD IF NOT EXISTS probes.* ON infra_snapshot TYPE object;
 DEFINE INDEX IF NOT EXISTS idx_infra_ts ON infra_snapshot FIELDS ts;
+
+-- ── Ouroboros nightly evaluation ────────────────────────────
+
+DEFINE TABLE ouroboros_run TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD corpus_version ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD trigger ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD mode ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD run_id ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD status ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD started_at ON ouroboros_run TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD finished_at ON ouroboros_run TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD duration_s ON ouroboros_run TYPE float PERMISSIONS FULL;
+DEFINE FIELD agent_id ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD model ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD backend_id ON ouroboros_run TYPE string PERMISSIONS FULL;
+DEFINE FIELD repos_attempted ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD repos_completed ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD tool_failures ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD prompt_tokens ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD completion_tokens ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD internal_patch_candidates ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD internal_patches_authored ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD tests_run ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD tests_passed ON ouroboros_run TYPE int PERMISSIONS FULL;
+DEFINE FIELD summary_json ON ouroboros_run TYPE string PERMISSIONS FULL;
+
+DEFINE INDEX ouroboros_run_id_idx ON ouroboros_run FIELDS run_id UNIQUE;
+DEFINE INDEX ouroboros_run_started_idx ON ouroboros_run FIELDS started_at;
+
+DEFINE TABLE ouroboros_repo_eval TYPE ANY SCHEMALESS PERMISSIONS NONE;
+
+DEFINE FIELD run_id ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD repo_id ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD full_name ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD track ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD task_profile ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD outcome ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD decision ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD effort ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+DEFINE FIELD confidence ON ouroboros_repo_eval TYPE float PERMISSIONS FULL;
+DEFINE FIELD evidence_count ON ouroboros_repo_eval TYPE int PERMISSIONS FULL;
+DEFINE FIELD exact_files_cited ON ouroboros_repo_eval TYPE int PERMISSIONS FULL;
+DEFINE FIELD stale_repo ON ouroboros_repo_eval TYPE bool PERMISSIONS FULL;
+DEFINE FIELD elapsed_s ON ouroboros_repo_eval TYPE float PERMISSIONS FULL;
+DEFINE FIELD created_at ON ouroboros_repo_eval TYPE datetime PERMISSIONS FULL;
+DEFINE FIELD notes ON ouroboros_repo_eval TYPE string PERMISSIONS FULL;
+
+DEFINE INDEX ouroboros_repo_eval_run_idx ON ouroboros_repo_eval FIELDS run_id;
+DEFINE INDEX ouroboros_repo_eval_repo_idx ON ouroboros_repo_eval FIELDS repo_id;
+DEFINE INDEX ouroboros_repo_eval_created_idx ON ouroboros_repo_eval FIELDS created_at;
