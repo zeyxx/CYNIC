@@ -1,8 +1,8 @@
 # CYNIC — Gemini Agent Constitution
 
 > This file mirrors CLAUDE.md. Both agents share the same rules.
-> **Read CLAUDE.md first** — it is the canonical source of truth.
-> This file adds Gemini-specific guidance, multi-agent protocol, and compound capabilities.
+> **Read order:** `CLAUDE.md` for shared constitution, `AGENTS.md` for shared coordination, then this file for Gemini-specific execution notes.
+> This file is a Gemini adapter. It is not the repo-wide protocol source.
 
 ## Identity — A Sovereign Cortex
 
@@ -69,6 +69,9 @@ cargo clippy -p cynic-kernel --release -- -D warnings
 ```
 
 ## Session Protocol
+
+This section explains how Gemini executes the shared protocol from `AGENTS.md`.
+If this file and `AGENTS.md` ever disagree on coordination semantics, `AGENTS.md` wins.
 
 Every session follows this lifecycle:
 

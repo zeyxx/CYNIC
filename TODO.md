@@ -1,7 +1,8 @@
 # CYNIC — TODO
 
-> **Protocol, not backlog. The organism must metabolize, not just grow.**
+> **Live work ledger, not protocol spec. The organism must metabolize, not just grow.**
 > GROWL verdict (Q=52.6, 2026-04-12) — BURN=30 is the wound. Every item must lift BURN.
+> Coordination and session lifecycle live in `AGENTS.md` and the agent adapter docs. Session rows below are historical snapshots, not normative workflow state.
 
 ## Rules
 
