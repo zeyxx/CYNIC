@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "cynic-coord": {
+      "command": "./.gemini/run-cynic-coord.sh"
+    }
+  },
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "write_file|edit_file|replace_in_file|apply_diff|patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.gemini/hooks/coord-claim.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
