@@ -1,55 +1,113 @@
 # CYNIC — Multi-Agent Coordination
 
-Two developers, two Claude Code instances, one repo, one branch.
+Three cortex agents, one kernel, one repo. The kernel is the coordination bus.
 
 ## Agents
 
-| Agent | Human | Zone | Device |
-|---|---|---|---|
-| Backend Agent | T. | `cynic-kernel/`, root docs, scripts/ | Ubuntu desktop (<TAILSCALE_CORE>) |
-| Frontend Agent | S. | `cynic-ui/` only | Windows desktop (<TAILSCALE_GPU>) + Replit |
+| Agent | CLI | Instructions | MCP Config | L3 Enforcement |
+|-------|-----|-------------|------------|----------------|
+| Claude Code | `claude` | `CLAUDE.md` | `.claude/settings.json` | Hooks (PreToolUse → coord-claim.sh) |
+| Gemini CLI | `gemini` | `GEMINI.md` | `.gemini/settings.json` | Hooks (BeforeTool → coord-claim.sh) |
+| Codex CLI | `codex` | `AGENTS.md` (this file) | `.codex/config.toml` | MCP proxy (apply_patch lacks hooks — [#16732](https://github.com/openai/codex/issues/16732)) |
 
-## Conflict Prevention
+## The Kernel Is the Bus
 
-Separate directories = zero merge conflicts. This ONLY works if:
-1. **Never touch files outside your zone.** Backend agent never edits cynic-ui/. Frontend agent never edits cynic-kernel/.
-2. **`git pull --rebase` before every push.** Always.
-3. **Root files are frozen:** CLAUDE.md, API.md, AGENTS.md — do not modify during hackathon.
+The CYNIC kernel runs on `${CYNIC_REST_ADDR}` (Tailscale). All agents access it — Claude via hooks, Gemini/Codex via the `cynic-coord` MCP proxy (`mcp-coord/cynic-coord`).
 
-## Communication Protocol
+### MCP Coordination Tools
 
-Changes to the API contract (API.md) go through T. only. If the frontend needs a new endpoint or field:
-1. Frontend agent documents what's needed in a comment or message
-2. Backend agent implements it, updates API.md, pushes
-3. Frontend agent pulls and adapts
+All agents have these tools via MCP:
 
-## Deploy Workflow
+| Tool | What | When |
+|------|------|------|
+| `cynic_coord_register` | Register yourself with the kernel | Session start |
+| `cynic_coord_claim` | Claim a file before editing | Before every file write |
+| `cynic_coord_who` | See active agents and claims | Before starting work |
+| `cynic_coord_release` | Release your claims | Session end or done with file |
+| `cynic_observe` | Record a discovery/decision/blocker | When something material happens |
+| `cynic_health` | Check kernel health | When in doubt |
+| `cynic_handoff` | Read/write `.handoff.md` | Session start (read) and end (append) |
 
-### Backend (T.)
+### Coordination Protocol
+
 ```
-Code change → /deploy (build+test+clippy+restart) → /test-chess → git commit + push
+1. SESSION START
+   → cynic_coord_register(agent_id, intent, agent_type)
+   → cynic_handoff(action="read")  — load context from previous sessions
+   → cynic_coord_who()             — see who else is working
+
+2. BEFORE EDITING A FILE
+   → cynic_coord_claim(agent_id, target)
+   → If CONFLICT: STOP. Check cynic_coord_who(). Coordinate.
+
+3. DURING SESSION
+   → cynic_observe() on discoveries, decisions, blockers
+   → cynic_coord_who() periodically if session is long
+
+4. SESSION END
+   → cynic_handoff(action="append", message="what I did, what's next")
+   → cynic_coord_release(agent_id)  — release ALL claims
 ```
 
-### Frontend (S.)
+### Enforcement Layers
+
+| Layer | Mechanism | Coverage | Deterministic |
+|-------|-----------|----------|---------------|
+| **L1** | Instructions (this file) | All agents | No — LLM may ignore |
+| **L2** | Pre-commit hook | Git boundary | **Yes** — rejects commit on conflict |
+| **L3** | Per-agent hooks | File write time | **Yes** for Claude/Gemini. MCP-dependent for Codex. |
+
+L2 is the safety net. Even if an agent skips L1 and L3, the commit will be rejected if another agent holds the file.
+
+## Codex CLI — Specific Instructions
+
+### Environment
+
+Source `~/.cynic-env` before launching Codex, or configure env forwarding:
+```bash
+source ~/.cynic-env && codex
 ```
-Code change → npm run dev (local preview) → git commit + push → Replit auto-pulls or manual deploy
+
+### MCP Setup
+
+The `cynic-coord` MCP server is configured in `.codex/config.toml`:
+```toml
+[mcp.cynic-coord]
+type = "stdio"
+command = ["./mcp-coord/cynic-coord"]
+env = { CYNIC_REST_ADDR = "<TAILSCALE_CORE>:3030", CYNIC_API_KEY = "..." }
 ```
 
-## Infrastructure
+### Sandbox
 
-The CYNIC kernel runs on T.'s Ubuntu machine and is the SINGLE SOURCE OF TRUTH for inference.
-- API: `http://<TAILSCALE_CORE>:3030` (Tailscale only, Bearer auth required)
-- No public tunnel. No Cloudflare. No ngrok. Ever.
+For coordination to work, Codex needs network access to the kernel:
+- `sandbox_mode = "full-access"` — or ensure Tailscale IP is reachable from sandbox
 
-Frontend (cynic-ui) connects to the kernel API. It NEVER does inference directly.
+### Workflow for Codex
 
-## Security Rules (both agents)
+1. At session start: call `cynic_coord_register` with your agent ID and intent
+2. Before editing any file in `cynic-kernel/`: call `cynic_coord_claim`
+3. If you get CONFLICT: do NOT proceed. Call `cynic_coord_who` to see who has the file
+4. Record material discoveries with `cynic_observe`
+5. At session end: call `cynic_handoff(action="append")` with a summary, then `cynic_coord_release`
 
-**This repo is PUBLIC.** Every commit is visible to the world.
+## Handoff Protocol
 
-1. **Never commit secrets.** API keys, tokens, passwords, real IPs, real names → env files only.
-2. **Use placeholders** for infrastructure: `<TAILSCALE_CORE>`, `<TAILSCALE_GPU>`, etc.
-3. **Use initials** for people: `T.`, `S.` — never full names.
-4. **Verify before pushing:** `git diff --staged | grep -iE "api.key|token|password|AIza|hf_|100\.(74|75|119)"` must return empty.
-5. **Never open a public tunnel** (Cloudflare, ngrok) without auth on the API.
-6. **All API calls require Bearer auth** — `Authorization: Bearer $CYNIC_API_KEY`.
+`.handoff.md` is the semantic context bus — what was discovered, what's hot, what's next. The kernel coord system handles file-level mutex; handoff carries meaning.
+
+Format:
+```markdown
+## [agent-id] 2026-04-15T18:30:00Z
+STATUS: what I did
+TOUCHED: files modified
+NEXT: what should happen next
+BLOCKS: any blockers
+FOR_OTHER_AGENT: specific messages
+```
+
+## Security (inviolable — public repo)
+
+- **Never commit secrets.** API keys, tokens, real IPs → `~/.cynic-env` only.
+- **Use placeholders:** `<TAILSCALE_CORE>`, `<TAILSCALE_GPU>`, `<TAILSCALE_KAIROS>`.
+- **All API calls require Bearer auth** — `Authorization: Bearer $CYNIC_API_KEY`.
+- **The kernel is Tailscale-only.** No public tunnel. No ngrok. No Cloudflare.
