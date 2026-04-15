@@ -170,11 +170,11 @@ Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`, `/live`, `/read
 
 **Workaround (MANDATORY FOR ALL BUILDS):**
 ```bash
-export RUST_MIN_STACK=16777216  # 16MB stack minimum (release builds need more than 8MB)
+export RUST_MIN_STACK=67108864  # 64MB robust default; lower values still fail intermittently
 cargo build                     # any variant: --tests, --release, etc.
 ```
 
-**Why required:** Every session's pre-commit validation uses `cargo build --tests`. Without this workaround, builds fail with SIGSEGV. Cost: documented, mechanical, acceptable.
+**Why required:** Every session's pre-commit validation uses `cargo build --tests`. Lower values such as 16-32 MiB can pass sometimes and still fail on rmcp-heavy paths, so 64 MiB is the repo default. Cost: documented, mechanical, acceptable.
 
 **Obsolete when:** Rust 1.95.0+ released and verified to fix LLVM SROA bug. See `rust-toolchain.toml` for current toolchain and known ICE status.
 

@@ -5,7 +5,7 @@
 
 # Required: Rust 1.94.1 compiler bug (A1 debt, LLVM SIGSEGV in rmcp)
 # See CLAUDE.md § VII: Build Environment
-export RUST_MIN_STACK=33554432
+export RUST_MIN_STACK=67108864
 
 # ── L2: Coordination claim verification ──
 # Checks that staged kernel files are not claimed by ANOTHER agent.
