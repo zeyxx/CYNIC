@@ -19,10 +19,15 @@ At session end:
 **BEFORE ANY `git commit` to cynic-kernel/**, run locally:
 
 ```bash
-export RUST_MIN_STACK=16777216   # Required: Rust 1.94.1 compiler bug (A1, release needs 16MB)
+export RUST_MIN_STACK=67108864
+export RUSTFLAGS="-C debuginfo=1" # Required: rmcp debug DWARF overflows without reduced debuginfo
 cargo build --tests               # Must pass: 0 errors, 0 failing tests
 cargo clippy --all -- -D warnings # Must pass: zero lint violations
 ```
+
+Repo default: `.cargo/config.toml` already sets the same values for local `cargo` invocations.
+Keep the explicit exports for shells, wrappers, and any environment that bypasses repo-local Cargo config.
+`16777216` is treated as a lower bound that may pass on some paths, not the robustness default.
 
 If any step fails: fix root cause, re-validate, THEN commit.
 
