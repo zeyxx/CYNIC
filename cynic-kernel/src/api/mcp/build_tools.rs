@@ -103,7 +103,7 @@ async fn run_cargo(project_root: &str, args: &[&str]) -> CmdResult {
         tokio::process::Command::new("cargo")
             .args(args)
             .current_dir(project_root)
-            .env("RUST_MIN_STACK", "16777216")
+            .env("RUST_MIN_STACK", "67108864")
             .output(),
     )
     .await;
