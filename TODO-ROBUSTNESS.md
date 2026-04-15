@@ -1,5 +1,9 @@
 # CYNIC Robustness Sprint — 1, 3, 4, 5
 
+> Historical sprint snapshot.
+> Not the live protocol source and not the current source of truth for task status.
+> Use `TODO.md` for active work. Keep this file only as dated context unless explicitly reactivated.
+
 ## 1. GET KERNEL RUNNING — CRITICAL
 
 **Status:** Build passes, tests 469/469 green (need RUSTFLAGS="-C debuginfo=1")

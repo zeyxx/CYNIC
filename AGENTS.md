@@ -14,6 +14,24 @@ Three cortex agents, one kernel, one repo. The kernel is the coordination bus.
 
 The CYNIC kernel runs on `${CYNIC_REST_ADDR}` (Tailscale). All agents access it — Claude via hooks, Gemini/Codex via the `cynic-coord` MCP proxy (`mcp-coord/cynic-coord`).
 
+## Document Hierarchy
+
+Use this order when two files appear to disagree:
+
+1. `AGENTS.md`
+   Shared repo-wide protocol. This file is the stable source of truth for session lifecycle, claims, handoff semantics, and security rules.
+2. Agent adapters
+   - `CLAUDE.md`
+   - `GEMINI.md`
+   - `.codex/CODEX-PROTOCOL.md`
+   These explain how each client executes the shared protocol and what automation or fallback paths it really has.
+3. `.handoff.md`
+   Append-only session journal. Useful context, but non-normative by design. Older entries may be superseded by newer reality.
+4. Roadmap / backlog files
+   `TODO.md` is the live work ledger. Historical sprint snapshots such as `TODO-ROBUSTNESS.md` and `docs/TODO.md` are not protocol sources.
+
+Rule: protocol beats journal, and live ledger beats historical snapshot.
+
 ### MCP Coordination Tools
 
 All agents have these tools via MCP:
@@ -94,6 +112,8 @@ For coordination to work, Codex needs network access to the kernel:
 ## Handoff Protocol
 
 `.handoff.md` is the semantic context bus — what was discovered, what's hot, what's next. The kernel coord system handles file-level mutex; handoff carries meaning.
+
+Important: `.handoff.md` is a journal, not a spec. Do not treat old entries as stable protocol. If a handoff entry conflicts with this file or an adapter file, the handoff entry is historical context only.
 
 Format:
 ```markdown
