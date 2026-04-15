@@ -39,6 +39,7 @@ BEFORE triggers — invoke PROACTIVELY before acting:
 - **Before choosing between architecturally different approaches:** `/cynic-skills:crystallize-truth`
 - **Before designing a new subsystem OR making a decision that constrains future options** (new port trait, new storage table, new API surface, new external dependency): `/cynic-skills:engineering-stack-design`
 - **Before any technical decision with measurable impact:** apply the Scientific Protocol (see below)
+- **Before building domain-specific features** (stimulus builders, prompts, screeners, domain endpoints): create a calibration corpus first — 3 easy-positive, 3 easy-negative, 3 ambiguous cases with expected verdicts. Run through `/cynic-skills:cynic-judge`, measure inter-Dog agreement (σ). If max_disagreement ≥ φ⁻² on easy cases, fix Dog prompts before building features.
 
 AFTER triggers — MUST execute, no exceptions:
 - **After ANY code change to cynic-kernel/:** `/build`

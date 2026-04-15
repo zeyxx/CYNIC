@@ -253,6 +253,7 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS corpus_version ON ouroboros_run TYPE string;\
             DEFINE FIELD IF NOT EXISTS trigger ON ouroboros_run TYPE string;\
             DEFINE FIELD IF NOT EXISTS mode ON ouroboros_run TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_family ON ouroboros_run TYPE string;\
             DEFINE FIELD IF NOT EXISTS status ON ouroboros_run TYPE string;\
             DEFINE FIELD IF NOT EXISTS started_at ON ouroboros_run TYPE datetime;\
             DEFINE FIELD IF NOT EXISTS finished_at ON ouroboros_run TYPE datetime;\
@@ -273,6 +274,7 @@ impl SurrealHttpStorage {
             DEFINE INDEX IF NOT EXISTS ouroboros_run_id_idx ON ouroboros_run FIELDS run_id UNIQUE;\
             DEFINE INDEX IF NOT EXISTS ouroboros_run_started_idx ON ouroboros_run FIELDS started_at;\
             DEFINE FIELD IF NOT EXISTS run_id ON ouroboros_repo_eval TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_family ON ouroboros_repo_eval TYPE string;\
             DEFINE FIELD IF NOT EXISTS repo_id ON ouroboros_repo_eval TYPE string;\
             DEFINE FIELD IF NOT EXISTS full_name ON ouroboros_repo_eval TYPE string;\
             DEFINE FIELD IF NOT EXISTS track ON ouroboros_repo_eval TYPE string;\

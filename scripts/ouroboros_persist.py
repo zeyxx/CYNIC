@@ -115,7 +115,45 @@ def sql_number(value: int | float | None) -> str:
 
 
 def sql_datetime(value: str | None) -> str:
-    return sql_string(value)
+    if value is None:
+        return "NONE"
+    return f"d'{surreal_escape(value)}'"
+
+
+def exact_files_count(value: object) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, list):
+        return len(value)
+    if isinstance(value, tuple):
+        return len(value)
+    if isinstance(value, dict):
+        return len(value)
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return int(value)
+    return int(value)
+
+
+def confidence_value(value: object) -> float:
+    if value is None:
+        return 0.0
+    if isinstance(value, bool):
+        return float(int(value))
+    if isinstance(value, (int, float)):
+        return float(value)
+    return float(value)
+
+
+def elapsed_seconds(value: object) -> float:
+    if value is None:
+        return 0.0
+    if isinstance(value, bool):
+        return float(int(value))
+    if isinstance(value, (int, float)):
+        return float(value)
+    return float(value)
 
 
 def normalize_payload(payload: dict) -> dict:
@@ -161,10 +199,30 @@ def resolve_run(payload: dict) -> dict:
     if env_status:
         run["status"] = env_status
 
+    run.setdefault("trigger", "nightly")
+    run.setdefault("mode", "landscape")
+    run.setdefault("agent_family", os.environ.get("OUROBOROS_AGENT_FAMILY") or infer_agent_family(run))
     run.setdefault("agent_id", os.environ.get("OUROBOROS_AGENT_ID", "hermes"))
     run.setdefault("model", os.environ.get("OUROBOROS_MODEL", "unknown"))
     run.setdefault("backend_id", os.environ.get("OUROBOROS_BACKEND_ID", "unknown"))
+    run.setdefault("corpus_version", os.environ.get("OUROBOROS_CORPUS_VERSION", "0.1"))
     return run
+
+
+def infer_agent_family(run: dict) -> str:
+    agent_id = str(run.get("agent_id") or "").strip().lower()
+    model = str(run.get("model") or "").strip().lower()
+    backend_id = str(run.get("backend_id") or "").strip().lower()
+    for candidate in (agent_id, model, backend_id):
+        if "openclaude" in candidate:
+            return "openclaude"
+        if "claude" in candidate:
+            return "claude-code"
+        if "gemini" in candidate:
+            return "gemini-cli"
+        if "hermes" in candidate:
+            return "hermes"
+    return os.environ.get("OUROBOROS_AGENT_FAMILY") or "hermes"
 
 
 def build_run_sql(payload: dict) -> str:
@@ -198,6 +256,7 @@ def build_run_sql(payload: dict) -> str:
         f"corpus_version = {sql_string(run.get('corpus_version'))}, "
         f"trigger = {sql_string(run.get('trigger'))}, "
         f"mode = {sql_string(run.get('mode'))}, "
+        f"agent_family = {sql_string(run.get('agent_family'))}, "
         f"status = {sql_string(status)}, "
         f"started_at = {sql_datetime(run['started_at'])}, "
         f"finished_at = {sql_datetime(run['finished_at'])}, "
@@ -236,11 +295,11 @@ def resolve_repo_results(payload: dict) -> list[dict]:
                 "outcome": "planned",
                 "decision": "PENDING",
                 "effort": "S",
-                "confidence": None,
+                "confidence": 0.0,
                 "evidence_count": 0,
                 "exact_files_cited": 0,
                 "stale_repo": False,
-                "elapsed_s": None,
+                "elapsed_s": 0.0,
                 "notes": "planned nightly slot",
             }
         )
@@ -257,6 +316,7 @@ def build_repo_sql(payload: dict) -> str:
         statements.append(
             "UPSERT ouroboros_repo_eval:`{key}` SET "
             "run_id = {run_id}, "
+            "agent_family = {agent_family}, "
             "repo_id = {repo_id}, "
             "full_name = {full_name}, "
             "track = {track}, "
@@ -273,6 +333,7 @@ def build_repo_sql(payload: dict) -> str:
             "notes = {notes};".format(
                 key=key,
                 run_id=sql_string(run_id),
+                agent_family=sql_string(run.get("agent_family")),
                 repo_id=sql_string(row["repo_id"]),
                 full_name=sql_string(row["full_name"]),
                 track=sql_string(row["track"]),
@@ -280,11 +341,11 @@ def build_repo_sql(payload: dict) -> str:
                 outcome=sql_string(row.get("outcome", "measured")),
                 decision=sql_string(row.get("decision")),
                 effort=sql_string(row.get("effort")),
-                confidence=sql_number(row.get("confidence")),
+                confidence=sql_number(confidence_value(row.get("confidence"))),
                 evidence_count=int(row.get("evidence_count", 0)),
-                exact_files_cited=int(row.get("exact_files_cited", 0)),
+                exact_files_cited=exact_files_count(row.get("exact_files_cited", 0)),
                 stale_repo=sql_bool(row.get("stale_repo")),
-                elapsed_s=sql_number(row.get("elapsed_s")),
+                elapsed_s=sql_number(elapsed_seconds(row.get("elapsed_s"))),
                 created_at=sql_datetime(row.get("created_at", created_at)),
                 notes=sql_string(row.get("notes", "")),
             )

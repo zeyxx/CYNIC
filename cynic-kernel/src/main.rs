@@ -5,6 +5,46 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
+fn select_summarizer_backend(
+    backend_configs: &[infra::config::BackendConfig],
+) -> Option<infra::config::BackendConfig> {
+    if let Ok(explicit_name) = std::env::var("CYNIC_SUMMARIZER_BACKEND")
+        && let Some(cfg) = backend_configs.iter().find(|cfg| cfg.name == explicit_name)
+    {
+        return Some(cfg.clone());
+    }
+
+    backend_configs
+        .iter()
+        .find(|cfg| cfg.name == "qwen35-9b-gpu")
+        .cloned()
+        .or_else(|| {
+            backend_configs
+                .iter()
+                .find(|cfg| cfg.name == "sovereign")
+                .cloned()
+        })
+        .or_else(|| {
+            backend_configs
+                .iter()
+                .find(|cfg| {
+                    cfg.backend_type != infra::config::BackendType::Cli
+                        && cfg.base_url.starts_with("http://")
+                })
+                .cloned()
+        })
+}
+
+fn build_summarizer(
+    cfg: Option<&infra::config::BackendConfig>,
+) -> Result<backends::summarizer::SovereignSummarizer, domain::inference::BackendInitError> {
+    if let Some(cfg) = cfg {
+        backends::summarizer::SovereignSummarizer::from_backend_config(cfg)
+    } else {
+        backends::summarizer::SovereignSummarizer::from_env()
+    }
+}
+
 fn load_rest_api_key() -> Result<Option<String>, String> {
     match std::env::var("CYNIC_API_KEY") {
         Ok(key) if !key.is_empty() => Ok(Some(key)),
@@ -152,6 +192,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] No backends.toml found, using env var fallback");
         infra::config::load_backends_from_env()
     };
+    let summarizer_backend_cfg = select_summarizer_backend(&backend_configs);
+    if let Some(cfg) = summarizer_backend_cfg.as_ref() {
+        klog!(
+            "[Ring 2] Sovereign summarizer backend: {} (timeout={}s)",
+            cfg.name,
+            cfg.timeout_secs
+        );
+    }
 
     // Self-model: load SystemContract from backends.toml — ALL declared Dogs,
     // regardless of whether their env vars resolve right now.
@@ -662,7 +710,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     klog!("[Ring 2] Usage + organ stats flush task started (every 60s, TTL cleanup every 1h)");
 
     // ─── RING 2: Session summarizer (sovereign inference, background) ──
-    if let Ok(summarizer) = backends::summarizer::SovereignSummarizer::from_env() {
+    if let Ok(summarizer) = build_summarizer(summarizer_backend_cfg.as_ref()) {
         infra::tasks::spawn_session_summarizer(
             Arc::clone(&storage_port),
             summarizer,
@@ -777,14 +825,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if mcp_mode {
         use rmcp::ServiceExt;
         tracing::info!("MCP mode — serving over stdio (background tasks active)");
-        let mcp_infer: Arc<dyn domain::inference::InferPort> =
-            match backends::summarizer::SovereignSummarizer::from_env() {
-                Ok(s) => Arc::new(s),
-                Err(e) => {
-                    tracing::warn!(error = %e, "MCP inference unavailable — HTTP client init failed");
-                    Arc::new(domain::inference::NullInfer)
-                }
-            };
+        let mcp_infer: Arc<dyn domain::inference::InferPort> = match build_summarizer(
+            summarizer_backend_cfg.as_ref(),
+        ) {
+            Ok(s) => Arc::new(s),
+            Err(e) => {
+                tracing::warn!(error = %e, "MCP inference unavailable — HTTP client init failed");
+                Arc::new(domain::inference::NullInfer)
+            }
+        };
         let mcp_server = api::mcp::CynicMcp::new(
             Arc::clone(&judge),
             Arc::clone(&storage_port),

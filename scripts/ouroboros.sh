@@ -98,6 +98,7 @@ if [ -f "${PLAN_JSON}" ]; then
     env \
         OUROBOROS_STARTED_AT="${RUN_STARTED_AT}" \
         OUROBOROS_STATUS="running" \
+        OUROBOROS_AGENT_FAMILY="hermes" \
         OUROBOROS_AGENT_ID="hermes" \
         OUROBOROS_MODEL="${BACKEND_MODEL}" \
         OUROBOROS_BACKEND_ID="qwen35-9b-gpu" \
@@ -115,7 +116,7 @@ export HERMES_CONTEXT_WINDOW="${BACKEND_CTX}"
 # Manual Scope (More robust than 'make scope' for this iteration)
 SLUG="ouroboros-verify-$(date +%s)"
 WORKTREE="${PROJECT_DIR}/../cynic-${SLUG}"
-BRANCH="session/gemini/${SLUG}"
+BRANCH="session/hermes/${SLUG}"
 
 git worktree add -b "${BRANCH}" "${WORKTREE}"
 # Ensure files are there (force checkout if empty)
@@ -127,7 +128,9 @@ fi
 echo "▶ Ouroboros verified worktree at: ${WORKTREE}"
 prompt_file="${PROJECT_DIR}/docs/identity/HERMES-OUROBOROS.md"
 runtime_note=$'\n\n## Runtime Notes\n- `CYNIC_API_KEY` is already available in your environment on this machine.\n- First run `printenv CYNIC_API_KEY` in the terminal tool and capture the full exact value.\n- Then call `cynic_auth` with that exact full string as `api_key`.\n- Do not pass the literal text `${CYNIC_API_KEY}`.\n- Do not truncate, preview, mask, or shorten the key before calling `cynic_auth`.\n- Do not ask the user for API keys or other credentials.\n'
-runtime_note+=$'\n- If you produce a structured nightly report, write it to `'"${REPORT_JSON}"$'` as JSON with `run` and `repo_results` keys so the launcher can persist it.\n'
+runtime_note+=$'\n- Your isolated CYNIC worktree is `'"${WORKTREE}"$'` on branch `'"${BRANCH}"$'`.\n- You may edit CYNIC only inside that worktree branch.\n- Never commit to `main` or merge into `main`.\n- You may create commits on `'"${BRANCH}"$'`, but human validation is required before any merge.\n- Do not open or merge a PR automatically unless the human explicitly asks for it.\n'
+runtime_note+=$'\n- The nightly corpus is already selected for you in `'"${PLAN_JSON}"$'`.\n- Read `'"${PLAN_JSON}"$'` before any repo analysis.\n- Analyze only the repositories listed in `run.selected_repos` from that plan file.\n- Do not infer candidate repositories from parent directory listings or workspace siblings.\n- Ignore unrelated sibling repositories unless they are explicitly present in `run.selected_repos`.\n'
+runtime_note+=$'\n- Before you finish, write a structured nightly report to `'"${REPORT_JSON}"$'` as JSON with these top-level keys: `run`, `repo_results`.\n- `run` must include `run_id`, `status`, `started_at`, `finished_at`, `duration_s`, `agent_id`, `model`, `backend_id`, `repos_attempted`, `repos_completed`, `tool_failures`, `tests_run`, `tests_passed`.\n- `repo_results` must be a list of repo result objects with `repo_id`, `full_name`, `track`, `task_profile`, `outcome`, `decision`, `effort`, `confidence`, `evidence_count`, `exact_files_cited`, `stale_repo`, `elapsed_s`, `notes`.\n- If you cannot finish the analysis, still write the partial report with `status = failed` and the repos you completed.\n'
 mission_note=""
 if [ -n "${OUROBOROS_MISSION:-}" ]; then
     mission_note=$'\n\n## Mission\n'"${OUROBOROS_MISSION}"$'\n'
@@ -163,6 +166,7 @@ env \
     OUROBOROS_FINISHED_AT="${RUN_FINISHED_AT}" \
     OUROBOROS_DURATION_S="${RUN_DURATION_S}" \
     OUROBOROS_STATUS="${hermes_status}" \
+    OUROBOROS_AGENT_FAMILY="hermes" \
     OUROBOROS_AGENT_ID="hermes" \
     OUROBOROS_MODEL="${BACKEND_MODEL}" \
     OUROBOROS_BACKEND_ID="qwen35-9b-gpu" \
