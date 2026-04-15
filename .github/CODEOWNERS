@@ -1,0 +1,14 @@
+# Default owner for repository-wide review routing.
+* @zeyxx
+
+# Kernel and workflow control plane changes need both maintainers in the loop.
+/cynic-kernel/ @zeyxx @Ragnar-no-sleep
+/mcp-coord/ @zeyxx @Ragnar-no-sleep
+/AGENTS.md @zeyxx @Ragnar-no-sleep
+/CLAUDE.md @zeyxx @Ragnar-no-sleep
+/GEMINI.md @zeyxx @Ragnar-no-sleep
+/.codex/** @zeyxx @Ragnar-no-sleep
+/.claude/** @zeyxx @Ragnar-no-sleep
+/.gemini/** @zeyxx @Ragnar-no-sleep
+/Makefile @zeyxx @Ragnar-no-sleep
+/scripts/git-hooks/** @zeyxx @Ragnar-no-sleep
