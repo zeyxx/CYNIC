@@ -4,104 +4,18 @@
 //! register_trust, verify_trust). This v1 is scoped to verdict CRUD for the hackathon.
 //! The full fact/trust API will extend this trait post-hackathon.
 
+mod null;
+mod types;
+
+pub use null::NullStorage;
+pub use types::{
+    Observation, ObservationFrequency, RawObservation, SessionTarget, StorageError, StorageMetrics,
+    UsageRow,
+};
+
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-
-/// A development workflow observation — tool usage, file edits, errors.
-/// Captured automatically by hooks, stored with TTL, feeds CCM.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Observation {
-    pub project: String,
-    pub agent_id: String,
-    pub tool: String,
-    pub target: String,
-    pub domain: String,
-    pub status: String,
-    pub context: String,
-    pub session_id: String,
-    pub timestamp: String,
-    pub tags: Vec<String>,
-}
-
-// ── TYPED QUERY RESULTS (Gate 3: zero serde_json::Value in domain/) ──
-
-/// Aggregated observation frequency — result of GROUP BY target, tool.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ObservationFrequency {
-    pub target: String,
-    pub tool: String,
-    pub freq: u64,
-}
-
-/// Session × target pair for co-occurrence extraction.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SessionTarget {
-    pub session_id: String,
-    pub target: String,
-}
-
-/// Raw observation row — used by list_observations_raw and get_session_observations.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RawObservation {
-    /// SurrealDB record ID (e.g. "observation:abc123") — preserved for API compat.
-    #[serde(default)]
-    pub id: String,
-    pub tool: String,
-    pub target: String,
-    pub domain: String,
-    pub status: String,
-    #[serde(default)]
-    pub context: String,
-    #[serde(default)]
-    pub created_at: String,
-    #[serde(default)]
-    pub project: String,
-    #[serde(default)]
-    pub agent_id: String,
-    #[serde(default)]
-    pub session_id: String,
-    #[serde(default)]
-    pub tags: Vec<String>,
-}
-
-/// Historical usage row loaded at boot.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageRow {
-    pub dog_id: String,
-    #[serde(default)]
-    pub prompt_tokens: u64,
-    #[serde(default)]
-    pub completion_tokens: u64,
-    #[serde(default)]
-    pub requests: u64,
-    #[serde(default)]
-    pub failures: u64,
-    #[serde(default)]
-    pub total_latency_ms: u64,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum StorageError {
-    #[error("Storage connection failed: {0}")]
-    ConnectionFailed(String),
-    #[error("Storage query failed: {0}")]
-    QueryFailed(String),
-    #[error("Not found: {0}")]
-    NotFound(String),
-}
-
-/// Storage metrics snapshot — exposed via /health for observability.
-/// Domain type — no dependency on specific DB adapter.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct StorageMetrics {
-    pub queries: u64,
-    pub errors: u64,
-    pub slow_queries: u64,
-    pub avg_latency_ms: f64,
-    pub uptime_secs: u64,
-}
 
 #[async_trait]
 pub trait StoragePort: Send + Sync {
@@ -346,101 +260,5 @@ pub trait StoragePort: Send + Sync {
     /// One-shot cleanup to fix historical fragmentation from FNV hash collisions.
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
         Ok(0) // Default no-op for NullStorage/MemoryStorage
-    }
-}
-
-/// No-op storage for graceful degradation when DB is unavailable.
-/// Verdicts pass through but are not persisted.
-#[derive(Debug)]
-pub struct NullStorage;
-
-#[async_trait]
-impl StoragePort for NullStorage {
-    async fn ping(&self) -> Result<(), StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "Storage unavailable (DEGRADED mode)".into(),
-        ))
-    }
-    async fn store_verdict(&self, _verdict: &Verdict) -> Result<(), StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "NullStorage: verdict not persisted (DEGRADED mode)".into(),
-        ))
-    }
-    async fn get_verdict(&self, _id: &str) -> Result<Option<Verdict>, StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "Storage unavailable (DEGRADED mode)".into(),
-        ))
-    }
-    async fn list_verdicts(&self, _limit: u32) -> Result<Vec<Verdict>, StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "Storage unavailable (DEGRADED mode)".into(),
-        ))
-    }
-    async fn store_crystal(&self, _crystal: &Crystal) -> Result<(), StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "NullStorage: crystal not persisted (DEGRADED mode)".into(),
-        ))
-    }
-    async fn get_crystal(&self, _id: &str) -> Result<Option<Crystal>, StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "Storage unavailable (DEGRADED mode)".into(),
-        ))
-    }
-    async fn list_crystals(&self, _limit: u32) -> Result<Vec<Crystal>, StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "Storage unavailable (DEGRADED mode)".into(),
-        ))
-    }
-    async fn delete_crystal(&self, _id: &str) -> Result<(), StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "NullStorage: cannot delete (DEGRADED mode)".into(),
-        ))
-    }
-    async fn observe_crystal(
-        &self,
-        _id: &str,
-        _content: &str,
-        _domain: &str,
-        _score: f64,
-        _timestamp: &str,
-        _voter_count: usize,
-        _verdict_id: &str,
-        _verdict_kind: &str,
-    ) -> Result<(), StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "NullStorage: observation not persisted (DEGRADED mode)".into(),
-        ))
-    }
-    async fn store_observation(&self, _obs: &Observation) -> Result<(), StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "NullStorage: observation not persisted (DEGRADED mode)".into(),
-        ))
-    }
-    async fn query_observations(
-        &self,
-        _project: &str,
-        _domain: Option<&str>,
-        _limit: u32,
-    ) -> Result<Vec<ObservationFrequency>, StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "Storage unavailable (DEGRADED mode)".into(),
-        ))
-    }
-    async fn query_session_targets(
-        &self,
-        _project: &str,
-        _limit: u32,
-    ) -> Result<Vec<SessionTarget>, StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "Storage unavailable (DEGRADED mode)".into(),
-        ))
-    }
-    async fn flush_usage(
-        &self,
-        _snapshot: &[(String, crate::domain::usage::DogUsage)],
-    ) -> Result<(), StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "NullStorage: usage not flushed (DEGRADED mode)".into(),
-        ))
     }
 }

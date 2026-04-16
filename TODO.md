@@ -11,7 +11,7 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-16 | Session: structural-plan (Opus) + heartbeat-fix + S1
+Last updated: 2026-04-16 | Session: structural-plan (Opus) + heartbeat-fix + S1 + S3
 
 ---
 
@@ -25,7 +25,7 @@ Contexte : 10 fichiers >400 lignes prod. `main.rs` 956 lignes / 0 test. `domain/
 
 - [ ] **S2 — `api/rest/health.rs` → `health.rs` + `dogs.rs`** — handler health/metrics (~220L) vs roster management register/heartbeat/deregister (~320L). Concerns orthogonaux, dépendances asymétriques. Falsification: `POST /dogs/register` échoue en integration test. Dépend de: rien (parallèle S1).
 
-- [ ] **S3 — `domain/storage.rs` → `domain/storage/`** — `types.rs` (Observation*, StorageError ~120L), `null.rs` (NullStorage adapter ~100L), `mod.rs` (StoragePort trait ~200L). NullStorage ≠ domain, doit migrer. Falsification: `grep "domain::storage::NullStorage"` retourne mêmes call sites. Dépend de: rien (parallèle S1+S2).
+- [x] **S3 — `domain/storage.rs` → `domain/storage/`** — LIVRÉ 2026-04-16. Mesures : `mod.rs` 265L (StoragePort trait pur), `null.rs` 107L (NullStorage adapter), `types.rs` 97L (Observation*, RawObservation, UsageRow, StorageError, StorageMetrics). Total 469L (vs 446 — overhead module boilerplate acceptable). 476 tests pass, clippy lib clean. Callers préservés via `pub use types::{...}; pub use null::NullStorage;` — 14 fichiers (storage/*, pipeline/, main.rs, infra/tasks/nightshift.rs) compilent sans changement.
 
 - [ ] **S4 — `main.rs` → `infra/boot/`** — `boot/storage.rs` (~80L), `boot/dogs.rs` (~150L), `boot/state.rs` (~120L), `boot/tasks.rs` (~200L), `boot/server.rs` (~120L). `main.rs` réduit à ~80L (parse flags + `boot().await`). Falsification: `cargo build --release` échoue ou import `api::` depuis `infra/`. Dépend de: S1 (judge paths stables).
 
