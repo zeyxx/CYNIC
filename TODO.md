@@ -11,7 +11,7 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-15 | Session: robustness-audit-hermes-continuation
+Last updated: 2026-04-16 | Session: codex-handoff + coord-diagnosis (paused for restart)
 
 ---
 
@@ -42,6 +42,7 @@ Last updated: 2026-04-15 | Session: robustness-audit-hermes-continuation
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-16 | codex-handoff + coord-diagnosis | ~2h | 2 (f18b080, 052057c) | 0 | 0 | 0 | **Commits:** (1) nightshift K15 multi-domain CCM (rust/ts/py/docs → "dev", session/token/chess preserved, obs.target in stimulus, +test). (2) Makefile: debug mode for make check (~5x faster), sequential integration tests (fixes SurrealDB race), RUST_MIN_STACK aligned to 64 MiB via .cargo/config.toml (R12). **Diagnosed:** rmcp 1.2→1.4 no gain on ICE (breaking on tool_router struct field). rustc 1.94 ICE = stale incremental cache (cargo clean = fix, stable 1.95 not released). **Coord hooks DEAD:** agent expires in 5min (TTL), no hook sends heartbeat — 0 active agents despite session-init showing "(registered)". Bug observed empirically via /agents endpoint. **Crystallized 6 truths:** REST=bus common to all 4 agents, coord=reflex (fix hooks), MCP cognitive=multi-Dog judgment (rare, targeted for Hermes), T6 Hermes autonomous=real catalyst. Memory: project_mcp_coordination_truth.md. **Paused for restart:** next session starts with heartbeat fix in observe-tool.sh (15 min). |
 | 2026-04-15 | robustness-audit + hermes-continuation | ~2h 15min | 0 (staged: TODO-ROBUSTNESS.md) | 0 | 0 | 0 | **Blitz-and-chill:** CLAUDE.md (S. backend) + GEMINI.md (Robin frontend) created. 7 philosophy docs transferred to cynic-gpu. **Robustness Diagnosis:** Analyzed 26 holes, produced TODO-ROBUSTNESS.md (4 critical paths: #1 kernel service boot, #3 dirty files cleanup, #4 K15 wiring, #5 peer review). Tests passing (469/469 with RUSTFLAGS="-C debuginfo=1"), build infra fix needed. **Hermes:** stimulus.rs work deferred to dedicated session (token-analysis + calibration docs untracked). **Codex hand-off:** Ready at 21:00 for structured commits + build infra. |
 | 2026-04-14 | soc-splits+metathinking | ~2h | 1 | 0 | 10 (prev) | 4 | **SoC splits:** ccm.rs→ccm/ (crystal+engine+intake), mcp/mod.rs→4 files (rmcp split tool_router validated). Dream #5: 67→60 memory files, 4227→2360 lines (-44%). 14 plan/spec files purged (-10K). Hook fix (KERNEL_STATUS). Metathinking: 6 truths crystallized (T1-T6). evaluate_progressive identified as #1 structural target. |
 | 2026-04-13 | gemini-dog+nightshift+mcp-auth | ~2h | 11 | 0 | 0 | 2 | **Two chantiers.** (1) Gemini-cli as 5th Dog: CliBackend (ChatPort via subprocess), BackendType enum, nightshift loop (4h git→judge→observe), dev domain prompt, calibration corpus 10+10. Discrimination: Δ0.498 FIDELITY. (2) MCP Auth: RC1-1 FIXED (cynic_auth + require_auth on 7 tools). Build tools: cynic_validate + cynic_git (typed ops, no shell injection). Reverted Gemini's unsafe cynic_sys_exec. 571 tests, 5 Dogs, deployed. |
