@@ -2,6 +2,12 @@
 //! Parallel evaluation via FuturesUnordered (progressive Dog arrival).
 //! Residual detection: disagreement > φ⁻² = ANOMALY.
 
+mod math;
+mod types;
+
+pub use math::verify_verdict_integrity;
+pub use types::{DogFailure, DogFailureKind, JudgeError};
+
 use crate::domain::dog::{estimate_tokens, *};
 use crate::domain::health_gate::HealthGate;
 use crate::domain::metrics::Metrics;
@@ -9,6 +15,9 @@ use crate::organ::health::{DogStats, ScoreFailureKind};
 use crate::organ::{BackendHandle, InferenceOrgan, ScoreOutcome};
 use chrono::Utc;
 use futures_util::StreamExt;
+#[cfg(test)]
+use math::trimmed_mean;
+use math::{aggregate_scores, chain_hash, detect_residuals};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
@@ -463,111 +472,12 @@ impl Judge {
             return Err(JudgeError::AllDogsFailed(failures));
         }
 
-        // Aggregate: trimmed mean per axiom (remove highest + lowest when >= 4 dogs,
-        // otherwise arithmetic mean). This rejects outlier LLM scores that would
-        // pollute the consensus — standard robust aggregation (Olympic scoring).
-        let avg_fidelity = trimmed_mean(&dog_scores, "fidelity", |s| s.fidelity);
-        let avg_phi = trimmed_mean(&dog_scores, "phi", |s| s.phi);
-        let avg_verify = trimmed_mean(&dog_scores, "verify", |s| s.verify);
-        let avg_culture = trimmed_mean(&dog_scores, "culture", |s| s.culture);
-        let avg_burn = trimmed_mean(&dog_scores, "burn", |s| s.burn);
-        let avg_sovereignty = trimmed_mean(&dog_scores, "sovereignty", |s| s.sovereignty);
-
-        // Use median Dog's reasoning (deterministic under parallel execution)
-        let mut sorted_by_q: Vec<&DogScore> = dog_scores.iter().collect();
-        sorted_by_q.sort_by(|a, b| {
-            let qa = compute_qscore(&AxiomScores {
-                fidelity: a.fidelity,
-                phi: a.phi,
-                verify: a.verify,
-                culture: a.culture,
-                burn: a.burn,
-                sovereignty: a.sovereignty,
-                reasoning: AxiomReasoning::default(),
-                ..Default::default()
-            })
-            .total;
-            let qb = compute_qscore(&AxiomScores {
-                fidelity: b.fidelity,
-                phi: b.phi,
-                verify: b.verify,
-                culture: b.culture,
-                burn: b.burn,
-                sovereignty: b.sovereignty,
-                reasoning: AxiomReasoning::default(),
-                ..Default::default()
-            })
-            .total;
-            qa.partial_cmp(&qb).unwrap_or(std::cmp::Ordering::Equal)
-        });
-        let median_reasoning = sorted_by_q
-            .get(sorted_by_q.len() / 2)
-            .map(|s| s.reasoning.clone())
-            .unwrap_or_default();
-
-        let aggregated = AxiomScores {
-            fidelity: avg_fidelity,
-            phi: avg_phi,
-            verify: avg_verify,
-            culture: avg_culture,
-            burn: avg_burn,
-            sovereignty: avg_sovereignty,
-            reasoning: median_reasoning,
-            ..Default::default()
-        };
-
+        // Aggregate (trimmed mean per axiom + median reasoning) and detect anomalies.
+        // Rejects outlier LLM scores (Olympic scoring), catches axiom disagreement.
+        let aggregated = aggregate_scores(&dog_scores);
         let q_score = compute_qscore(&aggregated);
         let kind = verdict_kind(q_score.total);
-
-        // Residual detection: find max per-axiom spread across Dogs
-        // This catches cases where Dogs agree on Q-Score total but disagree on individual axioms
-        let axiom_names = [
-            "fidelity",
-            "phi",
-            "verify",
-            "culture",
-            "burn",
-            "sovereignty",
-        ];
-        let (max_disagreement, anomaly_axiom) = if dog_scores.len() > 1 {
-            let spreads: Vec<(f64, &str)> = axiom_names
-                .iter()
-                .map(|&name| {
-                    // Exclude Dogs that abstained on this axiom — abstention ≠ disagreement.
-                    let values: Vec<f64> = dog_scores
-                        .iter()
-                        .filter(|s| !s.abstentions.iter().any(|a| a == name))
-                        .map(|s| match name {
-                            "fidelity" => s.fidelity,
-                            "phi" => s.phi,
-                            "verify" => s.verify,
-                            "culture" => s.culture,
-                            "burn" => s.burn,
-                            "sovereignty" => s.sovereignty,
-                            _ => 0.0,
-                        })
-                        .collect();
-                    if values.len() < 2 {
-                        return (0.0, name); // Can't compute spread with < 2 active scores
-                    }
-                    let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-                    let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
-                    (max - min, name)
-                })
-                .collect();
-            let (max_spread, max_axiom) = spreads
-                .iter()
-                .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
-                .map(|(s, n)| (*s, *n))
-                .unwrap_or((0.0, ""));
-            if max_spread > PHI_INV2 {
-                (max_spread, Some(max_axiom.to_string()))
-            } else {
-                (max_spread, None)
-            }
-        } else {
-            (0.0, None)
-        };
+        let (max_disagreement, anomaly_axiom) = detect_residuals(&dog_scores);
         let anomaly_detected = anomaly_axiom.is_some();
 
         let mut dog_ids: Vec<&str> = dog_scores.iter().map(|s| s.dog_id.as_str()).collect();
@@ -582,17 +492,9 @@ impl Judge {
         let (hash, prev_hash) = {
             let mut lock = self.last_hash.lock().unwrap_or_else(|e| e.into_inner());
             let prev = lock.clone();
-            let h = verdict_hash(
+            let h = chain_hash(
                 &id,
-                q_score.total,
-                [
-                    q_score.fidelity,
-                    q_score.phi,
-                    q_score.verify,
-                    q_score.culture,
-                    q_score.burn,
-                    q_score.sovereignty,
-                ],
+                &q_score,
                 &stimulus_summary,
                 &timestamp,
                 prev.as_deref(),
@@ -624,154 +526,6 @@ impl Judge {
         })
     }
 }
-
-/// Trimmed mean: drop highest + lowest value when >= 4 scores, average the rest.
-/// With 2-3 scores: plain arithmetic mean. Robust against outlier LLM responses.
-/// Dogs that abstained on the target axiom are excluded — abstention ≠ low score.
-fn trimmed_mean(scores: &[DogScore], axiom_name: &str, extract: impl Fn(&DogScore) -> f64) -> f64 {
-    let mut values: Vec<f64> = scores
-        .iter()
-        .filter(|s| !s.abstentions.iter().any(|a| a == axiom_name))
-        .map(&extract)
-        .collect();
-
-    // Fallback: if all dogs abstained, include everyone (better than empty)
-    if values.is_empty() {
-        values = scores.iter().map(&extract).collect();
-    }
-
-    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
-    if values.len() >= 4 {
-        let trimmed = &values[1..values.len() - 1];
-        trimmed.iter().sum::<f64>() / trimmed.len() as f64
-    } else {
-        values.iter().sum::<f64>() / values.len() as f64
-    }
-}
-
-/// BLAKE3 integrity hash of a verdict — forms a hash chain linking verdicts.
-/// Lives here (not in domain/) because blake3 is an external crate.
-/// Timestamp is canonicalized to `Z` suffix before hashing — SurrealDB normalizes
-/// `+00:00` → `Z` on round-trip, so the hash must be format-independent.
-fn verdict_hash(
-    id: &str,
-    q_total: f64,
-    scores: [f64; 6],
-    stimulus: &str,
-    timestamp: &str,
-    prev_hash: Option<&str>,
-) -> String {
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(id.as_bytes());
-    hasher.update(&q_total.to_le_bytes());
-    for s in &scores {
-        hasher.update(&s.to_le_bytes());
-    }
-    hasher.update(stimulus.as_bytes());
-    // Canonicalize: Rust to_rfc3339() emits "+00:00", SurrealDB returns "Z".
-    // Both are semantically identical but byte-different → hash mismatch.
-    let canonical_ts = timestamp.replace("+00:00", "Z");
-    hasher.update(canonical_ts.as_bytes());
-    if let Some(ph) = prev_hash {
-        hasher.update(ph.as_bytes());
-    }
-    hasher.finalize().to_hex().to_string()
-}
-
-/// Verify the BLAKE3 integrity hash of a verdict.
-/// Re-derives the hash from verdict fields and compares against the stored hash.
-/// Returns `false` if the hash is missing (pre-chain verdict) or mismatches (tampered).
-pub fn verify_verdict_integrity(verdict: &Verdict) -> bool {
-    let Some(ref stored_hash) = verdict.integrity_hash else {
-        return false;
-    };
-    let recomputed = verdict_hash(
-        &verdict.id,
-        verdict.q_score.total,
-        [
-            verdict.q_score.fidelity,
-            verdict.q_score.phi,
-            verdict.q_score.verify,
-            verdict.q_score.culture,
-            verdict.q_score.burn,
-            verdict.q_score.sovereignty,
-        ],
-        &verdict.stimulus_summary,
-        &verdict.timestamp,
-        verdict.prev_hash.as_deref(),
-    );
-    stored_hash == &recomputed
-}
-
-/// A single Dog's failure — preserves the error kind for programmatic classification.
-#[derive(Debug)]
-pub struct DogFailure {
-    pub dog_id: String,
-    pub kind: DogFailureKind,
-    pub detail: String,
-}
-
-impl std::fmt::Display for DogFailure {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.dog_id, self.detail)
-    }
-}
-
-/// Typed failure kind — mirrors DogError variants for downstream classification.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DogFailureKind {
-    ApiError,
-    ParseError,
-    RateLimited,
-    Timeout,
-}
-
-impl DogFailureKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::ApiError => "api_error",
-            Self::ParseError => "parse_error",
-            Self::RateLimited => "rate_limited",
-            Self::Timeout => "timeout",
-        }
-    }
-}
-
-impl From<&DogError> for DogFailureKind {
-    fn from(e: &DogError) -> Self {
-        match e {
-            DogError::ApiError(_) => Self::ApiError,
-            DogError::ParseError(_)
-            | DogError::ZeroFlood(_)
-            | DogError::DegenerateScores { .. } => Self::ParseError,
-            DogError::RateLimited(_) => Self::RateLimited,
-            DogError::Timeout => Self::Timeout,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum JudgeError {
-    NoDogs,
-    AllDogsFailed(Vec<DogFailure>),
-    InvalidInput(String),
-}
-
-impl std::fmt::Display for JudgeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NoDogs => write!(f, "No Dogs configured"),
-            Self::AllDogsFailed(failures) => {
-                let msgs: Vec<String> = failures.iter().map(|f| f.to_string()).collect();
-                write!(f, "All Dogs failed: {}", msgs.join("; "))
-            }
-            Self::InvalidInput(reason) => write!(f, "Invalid input: {reason}"),
-        }
-    }
-}
-
-impl std::error::Error for JudgeError {}
 
 #[cfg(test)]
 mod tests {

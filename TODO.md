@@ -11,18 +11,35 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-16 | Session: codex-handoff + coord-diagnosis (paused for restart)
+Last updated: 2026-04-16 | Session: structural-plan (Opus) + heartbeat-fix + S1
 
 ---
 
-## Active (4/15)
+## Active (7/15)
 
-### Structure — reduce context cost (T1, T3, T5)
+### Structural refactor — K16 violations (plan Opus 2026-04-16)
 
-- [ ] **#1 Decompose evaluate_progressive** — Extract cross-cutting concerns (circuit breaker updates, organ tracking, hash chain) from the 450-line monolith into composable pre/post steps. Hypothesis: refactored function < 200 lines, bookkeeping in separate fns. Falsification: if extracting breaks hash chain integrity test.
-- [ ] **#2 judge.rs → judge/ directory** — Split types (DogFailure, JudgeError → 68 lines), math (trimmed_mean, verdict_hash → 78 lines), keep orchestrator + tests. Same pattern as ccm/ split.
-- [ ] **#3 Test infrastructure** — Deduplicate make_crystal (2+ copies), test_mcp builder. Shared `#[cfg(test)]` helpers in domain/. T4: tests = 50% of largest files.
-- [ ] **#4 Verify read-frequency hypothesis (T5)** — Query /observe data for most-read .rs files. Prioritize next splits by frequency × size, not just size.
+Contexte : 10 fichiers >400 lignes prod. `main.rs` 956 lignes / 0 test. `domain/storage.rs` 446 lignes / 0 test. Plan séquentiel : chaque étape laisse `cargo build --tests` vert.
+
+- [x] **S1 — `judge.rs` → `judge/`** (TODO #1+#2 fusionnés) — LIVRÉ 2026-04-16. Mesures réelles : `judge/types.rs` 73L, `judge/math.rs` 232L, `judge/mod.rs` 523L prod (down 776). `evaluate_progressive` 322 → **210 lignes (hypothèse <200 partiellement falsifiée, −35%)**. 476 tests pass, `verdict_chain_links_hashes` + 5 `verify_integrity_*` passent (falsification négative). Clippy lib clean. Extractions : `aggregate_scores`, `detect_residuals`, `chain_hash` dans `math.rs`.
+
+- [ ] **S2 — `api/rest/health.rs` → `health.rs` + `dogs.rs`** — handler health/metrics (~220L) vs roster management register/heartbeat/deregister (~320L). Concerns orthogonaux, dépendances asymétriques. Falsification: `POST /dogs/register` échoue en integration test. Dépend de: rien (parallèle S1).
+
+- [ ] **S3 — `domain/storage.rs` → `domain/storage/`** — `types.rs` (Observation*, StorageError ~120L), `null.rs` (NullStorage adapter ~100L), `mod.rs` (StoragePort trait ~200L). NullStorage ≠ domain, doit migrer. Falsification: `grep "domain::storage::NullStorage"` retourne mêmes call sites. Dépend de: rien (parallèle S1+S2).
+
+- [ ] **S4 — `main.rs` → `infra/boot/`** — `boot/storage.rs` (~80L), `boot/dogs.rs` (~150L), `boot/state.rs` (~120L), `boot/tasks.rs` (~200L), `boot/server.rs` (~120L). `main.rs` réduit à ~80L (parse flags + `boot().await`). Falsification: `cargo build --release` échoue ou import `api::` depuis `infra/`. Dépend de: S1 (judge paths stables).
+
+- [ ] **S5 — `infra/config.rs` → `infra/config/`** — `types.rs` (~100L), `loader.rs` (~200L), `validation.rs` (~80L), `prompts.rs` (~80L). Fixe violation K2 : `reqwest::Client::builder()` dans config → vers `backends/` ou port. Falsification: `grep "reqwest" infra/config/` retourne 0 après migration. Dépend de: S4.
+
+- [ ] **S6 — `infra/tasks.rs` + `runtime_loops.rs` → `infra/tasks/`** — `periodic.rs` (~200L), `lifecycle.rs` (~200L), `roster.rs` (~300L), `events.rs` (~200L), `probes.rs` (~200L). 1414 lignes combinées, 6+ concerns sans rapport. Falsification: tests `spawn_event_consumer_with_liveness` passent dans `events.rs`. Dépend de: S4.
+
+- [ ] **S7 — Test infrastructure** — Deduplicate `make_crystal` (2+ copies), `test_mcp` builder. Shared `#[cfg(test)]` helpers in `domain/`. Dépend de: S1-S3 terminés.
+
+### Invariants après chaque étape S1-S6
+- `cargo build --tests` vert
+- Aucun import `api::` depuis `domain/` ou `infra/` (K5)
+- Aucun `reqwest::Client` dans `domain/` (K2)
+- `pub use` dans `mod.rs` préserve tous les paths publics existants
 
 ---
 
@@ -35,6 +52,7 @@ Last updated: 2026-04-16 | Session: codex-handoff + coord-diagnosis (paused for 
 **Kairos:** FLOWING — 11+ trading verdicts (1 WAG, rest GROWL). 7/7 signals live. Trading Q-scores low (0.28–0.39) due to Dog calibration: qwen-7b-hf anti-discriminates on trading (raw sovereignty=0.95 on both good+bad stimuli), qwen35-9b-gpu is the only discriminating Dog. Short-term: KAIROS could filter dogs=["qwen35-9b-gpu","deterministic-dog"] for better verdicts. Candle data stale since March 23.
 **Infra:** Dual sensing R12, MCP lifecycle, boot-state capture (A1). GPU backend (cynic-gpu) REACHABLE. Kairos machine offline.
 **Security:** Boot integrity, tamper detection. RC1-1 MCP auth FIXED.
+**Clippy test debt:** `cargo clippy --all-targets` rouge (découvert 2026-04-16). ~15 violations préexistantes dans `tests/calibration_token.rs` (print_stdout x7), `tests/storage_contract.rs` (uninlined_format_args x2), `tests/rest_routes.rs` (manual_repeat x3), `src/backends/cli.rs` (print_stderr x1, test), `src/infra/probes/network.rs` (absurd_extreme_comparisons x1, test), `src/domain/compliance.rs` (calls_to_push x1). Nécessite chantier dédié "clippy sweep tests" — pas dans S1-S7.
 
 ---
 
