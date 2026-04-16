@@ -22,7 +22,7 @@ At session end:
 export RUST_MIN_STACK=67108864
 export RUSTFLAGS="-C debuginfo=1" # Required: rmcp debug DWARF overflows without reduced debuginfo
 cargo build --tests               # Must pass: 0 errors, 0 failing tests
-cargo clippy --all -- -D warnings # Must pass: zero lint violations
+cargo clippy --workspace --all-targets -- -D warnings # Must pass: zero lint violations (covers tests/examples/benches)
 ```
 
 Repo default: `.cargo/config.toml` already sets the same values for local `cargo` invocations.

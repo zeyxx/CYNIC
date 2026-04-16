@@ -105,8 +105,10 @@ fi
 # Fast fail: format check (<1s)
 cargo fmt -p cynic-kernel -- --check || { echo "Run 'cargo fmt' to fix formatting."; exit 1; }
 
-# Lint check (5-15s incremental, debug mode — same lints as release)
-cargo clippy --workspace -- -D warnings || exit 1
+# Lint check (5-15s incremental, debug mode — same lints as release).
+# --all-targets includes test modules, examples, benches — without it, lints
+# on tests/ and #[cfg(test)] blocks never run, silently admitting drift.
+cargo clippy --workspace --all-targets -- -D warnings || exit 1
 
 # Unit tests in release mode (debug mode hits rmcp linker bug — A1 debt)
 cargo test -p cynic-kernel --lib --release || { echo "Tests failed — fix before committing."; exit 1; }
