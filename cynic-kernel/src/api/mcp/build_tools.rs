@@ -4,10 +4,12 @@
 
 use std::time::Instant;
 
-/// Result of a full validate cycle (build + clippy + test).
+/// Result of a full validate cycle — mirrors the pre-commit gate
+/// (fmt + build + clippy --all-targets + test --release).
 #[derive(Debug, serde::Serialize)]
 pub struct ValidateResult {
     pub passed: bool,
+    pub fmt_ok: bool,
     pub build_ok: bool,
     pub clippy_ok: bool,
     pub test_ok: bool,
@@ -42,52 +44,96 @@ pub async fn run_validate(project_root: &str) -> ValidateResult {
     let start = Instant::now();
     let mut all_stdout = String::new();
     let mut all_stderr = String::new();
+    let elapsed_ms = |start: Instant| start.elapsed().as_millis() as u64;
 
-    // Step 1: cargo build --tests
+    // Step 1: cargo fmt -p cynic-kernel -- --check
+    //   Mirrors scripts/git-hooks/pre-commit step 1 — fails fast on formatting drift.
+    let fmt = run_cargo(
+        project_root,
+        &["fmt", "-p", "cynic-kernel", "--", "--check"],
+    )
+    .await;
+    all_stdout.push_str(&format!("=== FMT ===\n{}\n", fmt.stdout));
+    all_stderr.push_str(&fmt.stderr);
+    if !fmt.success {
+        return ValidateResult {
+            passed: false,
+            fmt_ok: false,
+            build_ok: false,
+            clippy_ok: false,
+            test_ok: false,
+            stdout: all_stdout,
+            stderr: all_stderr,
+            duration_ms: elapsed_ms(start),
+        };
+    }
+
+    // Step 2: cargo build --tests
     let build = run_cargo(project_root, &["build", "--tests"]).await;
     all_stdout.push_str(&format!("=== BUILD ===\n{}\n", build.stdout));
     all_stderr.push_str(&build.stderr);
     if !build.success {
         return ValidateResult {
             passed: false,
+            fmt_ok: true,
             build_ok: false,
             clippy_ok: false,
             test_ok: false,
             stdout: all_stdout,
             stderr: all_stderr,
-            duration_ms: start.elapsed().as_millis() as u64,
+            duration_ms: elapsed_ms(start),
         };
     }
 
-    // Step 2: cargo clippy
-    let clippy = run_cargo(project_root, &["clippy", "--all", "--", "-D", "warnings"]).await;
+    // Step 3: cargo clippy --workspace --all-targets -- -D warnings
+    //   Matches the promoted R20 gate (pre-commit + Makefile + workflow.md):
+    //   --all-targets covers test modules/examples/benches, -D warnings fails hard.
+    let clippy = run_cargo(
+        project_root,
+        &[
+            "clippy",
+            "--workspace",
+            "--all-targets",
+            "--",
+            "-D",
+            "warnings",
+        ],
+    )
+    .await;
     all_stdout.push_str(&format!("=== CLIPPY ===\n{}\n", clippy.stdout));
     all_stderr.push_str(&clippy.stderr);
     if !clippy.success {
         return ValidateResult {
             passed: false,
+            fmt_ok: true,
             build_ok: true,
             clippy_ok: false,
             test_ok: false,
             stdout: all_stdout,
             stderr: all_stderr,
-            duration_ms: start.elapsed().as_millis() as u64,
+            duration_ms: elapsed_ms(start),
         };
     }
 
-    // Step 3: cargo test
-    let test = run_cargo(project_root, &["test"]).await;
+    // Step 4: cargo test -p cynic-kernel --lib --release
+    //   Release mode required: debug mode hits rmcp linker bug (A1 debt).
+    let test = run_cargo(
+        project_root,
+        &["test", "-p", "cynic-kernel", "--lib", "--release"],
+    )
+    .await;
     all_stdout.push_str(&format!("=== TEST ===\n{}\n", test.stdout));
     all_stderr.push_str(&test.stderr);
 
     ValidateResult {
         passed: test.success,
+        fmt_ok: true,
         build_ok: true,
         clippy_ok: true,
         test_ok: test.success,
         stdout: all_stdout,
         stderr: all_stderr,
-        duration_ms: start.elapsed().as_millis() as u64,
+        duration_ms: elapsed_ms(start),
     }
 }
 
@@ -98,12 +144,16 @@ struct CmdResult {
 }
 
 async fn run_cargo(project_root: &str, args: &[&str]) -> CmdResult {
+    // RUST_MIN_STACK + RUSTFLAGS match CLAUDE.md § VII + .cargo/config.toml —
+    // rmcp monomorphization needs the larger stack, and debuginfo=1 works around
+    // the DWARF overflow in debug builds (A1 infra debt).
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(300),
         tokio::process::Command::new("cargo")
             .args(args)
             .current_dir(project_root)
             .env("RUST_MIN_STACK", "67108864")
+            .env("RUSTFLAGS", "-C debuginfo=1")
             .output(),
     )
     .await;
