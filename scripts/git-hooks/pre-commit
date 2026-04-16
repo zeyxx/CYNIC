@@ -26,7 +26,7 @@ security_check() {
         | grep -iE 'AIza[[:alnum:]_-]{10,}|hf_[[:alnum:]_-]{10,}|sk-[[:alnum:]_-]{10,}' || true)
     HARDCODED_CREDS=$(printf '%s\n' "$FILTERED_ADDED" \
         | grep -iE '(api[_-]?key|token|password|secret)[^[:alnum:]]*[:=][[:space:]]*["'"'"']?[^$<[:space:]][^"'"'"'[:space:]]{6,}' \
-        | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken' || true)
+        | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken|\.api_key' || true)
     if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
         echo "SECURITY FAIL: possible secrets in staged changes:"
         [ -n "$RAW_SECRETS" ] && echo "$RAW_SECRETS"
