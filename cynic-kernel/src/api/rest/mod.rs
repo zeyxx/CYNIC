@@ -2,6 +2,7 @@
 
 pub mod coord;
 pub mod data;
+pub mod dogs;
 pub mod events;
 pub mod health;
 pub mod judge;
@@ -31,9 +32,9 @@ use self::data::{
     crystal_handler, crystals_handler, delete_crystal_handler, observations_handler,
     sessions_handler, usage_handler,
 };
+use self::dogs::{deregister_handler, dogs_handler, heartbeat_handler, register_dog_handler};
 use self::health::{
-    agents_handler, deregister_handler, dogs_handler, health_handler, heartbeat_handler,
-    liveness_handler, metrics_handler, readiness_handler, register_dog_handler,
+    agents_handler, health_handler, liveness_handler, metrics_handler, readiness_handler,
 };
 use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
 use self::judge_job::{judge_async_handler, judge_status_handler};
