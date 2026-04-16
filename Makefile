@@ -48,6 +48,7 @@ check:
 	cargo test --workspace
 	@$(MAKE) --no-print-directory lint-rules
 	@$(MAKE) --no-print-directory lint-drift
+	@$(MAKE) --no-print-directory lint-subprocess-env
 	@$(MAKE) --no-print-directory lint-security
 	@echo ""; echo "▶ Security audit (cargo audit)..."
 	cargo audit --deny warnings
@@ -215,6 +216,10 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	if [ $$FAIL -eq 0 ]; then echo "✓ No drift detected"; fi; \
 	exit $$FAIL
 
+.PHONY: lint-subprocess-env
+lint-subprocess-env: ## R23 gate: hooks/scripts/Rust subprocess env is explicit (RUST_MIN_STACK, --edition)
+	@bash $(PROJECT_DIR)/scripts/lint-subprocess-env.sh
+
 .PHONY: lint-security
 lint-security: ## G1 gate: 0 OPEN findings in CRITICAL or HIGH sections of findings tracker
 	@echo ""
@@ -335,6 +340,39 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 		echo "  ✓ D4 gate caught phantom Dog in reference.md"; PASS=$$((PASS+1)); \
 	fi; \
 	mv "$$REF.gate-bak" "$$REF"; \
+	\
+	echo ""; echo "── lint-subprocess-env ──"; \
+	\
+	echo "[R23a] Injecting shell script with cargo build and no RUST_MIN_STACK..."; \
+	R23_STUB="$(PROJECT_DIR)/.claude/hooks/_r23_gate_probe.sh"; \
+	printf '%s\n' '#!/usr/bin/env bash' '# R23 gate-test probe' 'cargo build --tests' > "$$R23_STUB"; \
+	chmod +x "$$R23_STUB"; \
+	if $(MAKE) --no-print-directory lint-subprocess-env >/dev/null 2>&1; then \
+		echo "  ✗ R23a gate MISSED cargo without RUST_MIN_STACK — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ R23a gate caught cargo without RUST_MIN_STACK"; PASS=$$((PASS+1)); \
+	fi; \
+	rm -f "$$R23_STUB"; \
+	\
+	echo "[R23b] Injecting shell script with standalone rustfmt and no --edition..."; \
+	printf '%s\n' '#!/usr/bin/env bash' '# R23 gate-test probe' 'export RUST_MIN_STACK=67108864' 'rustfmt "$$FILE"' > "$$R23_STUB"; \
+	chmod +x "$$R23_STUB"; \
+	if $(MAKE) --no-print-directory lint-subprocess-env >/dev/null 2>&1; then \
+		echo "  ✗ R23b gate MISSED rustfmt without --edition — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ R23b gate caught rustfmt without --edition"; PASS=$$((PASS+1)); \
+	fi; \
+	rm -f "$$R23_STUB"; \
+	\
+	echo "[R23c] Injecting Rust Command::new(\"cargo\") without .env..."; \
+	R23_RS_STUB="$(PROJECT_DIR)/cynic-kernel/src/_r23_gate_probe.rs"; \
+	printf '%s\n' '// R23 gate-test probe' 'fn _r23_probe() {' '    tokio::process::Command::new("cargo").args(["build"]).spawn().ok();' '}' > "$$R23_RS_STUB"; \
+	if $(MAKE) --no-print-directory lint-subprocess-env >/dev/null 2>&1; then \
+		echo "  ✗ R23c gate MISSED Command::new(\"cargo\") without .env — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ R23c gate caught Command::new(\"cargo\") without .env"; PASS=$$((PASS+1)); \
+	fi; \
+	rm -f "$$R23_RS_STUB"; \
 	\
 	echo ""; echo "── lint-security ──"; \
 	\
