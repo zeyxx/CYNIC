@@ -4,6 +4,7 @@ target/
 *.dll
 *.pdb
 *.zip
+*.bin
 
 # Dependencies
 node_modules/
@@ -40,6 +41,10 @@ benchmarks/
 # Platform configs
 .replit
 .mcp.json
+.gemini/
+
+# Go build artifacts
+mcp-coord/cynic-coord
 
 # Compiler crash reports
 rustc-ice-*.txt
@@ -52,4 +57,24 @@ rustc-ice-*.txt
 /algomancer-learning.md
 /history.txt
 .claude/agent-memory/
+.claude/CODEX-HANDOFF-*.md
+.claude/session-convention-*.md
 scripts/run_niah.py
+
+# Untracked projects & exploratory directories
+/ASDFBurnTracker/
+/ASDev/
+/CultScreener/
+/HolDex/
+/asdf_grinder/
+/web/
+
+# Experimental scripts & utilities
+scripts/coord-claim-gemini.sh
+scripts/cynic-api.py
+scripts/experiment_phi.py
+scripts/x-consumer.sh
+scripts/x-interceptor.py
+
+# Duplicate binary artifacts
+cynic-kernel/cynic-kernel.bin

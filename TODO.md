@@ -1,7 +1,8 @@
 # CYNIC — TODO
 
-> **Protocol, not backlog. The organism must metabolize, not just grow.**
+> **Live work ledger, not protocol spec. The organism must metabolize, not just grow.**
 > GROWL verdict (Q=52.6, 2026-04-12) — BURN=30 is the wound. Every item must lift BURN.
+> Coordination and session lifecycle live in `AGENTS.md` and the agent adapter docs. Session rows below are historical snapshots, not normative workflow state.
 
 ## Rules
 
@@ -10,30 +11,43 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-13 | Session: gemini-dog+nightshift+mcp-auth
+Last updated: 2026-04-16 | Session: structural-plan (Opus) + heartbeat-fix + S1 + S2 + S3 + S4
 
 ---
 
-## Active (9/15)
+## Active (6/15)
 
-### Foundation — unblock metabolism
+### Structural refactor — K16 violations (plan Opus 2026-04-16)
 
-- [x] **#1 Dev crystal loop proof (Phase 1)** — /judge 5 dev patterns (architecture, error handling, testing), verify crystal forms in dev domain + injects on next similar query. ✅ FINDING: Crystals DO form on dev domain (falsifies R22 "chess-only"). 2 crystals forming (architecture, error handling). Pattern 6 re-judge test: Q degraded -13.9% (from 0.446→0.384) because crystals in forming state (1-2 observations, confidence 0.38-0.48) are too weak — correct behavior. Deferred: needs ≥21 observations per crystal to reach Crystallized state before injection improves. Next 20 sessions of dev patterns will accumulate observations.
-- [x] **#2 organ_quality gate** — ✅ COMPLETED 2026-04-13: Dual-gate architecture implemented. K14 gate 1 (ParseFailureGate) + K14 gate 2 (json_valid_rate >= 0.5). Gate 2 requires baseline_established (>= 20 calls) before triggering (respects K14 pessimism). 3 unit tests verify: (1) low-quality Dogs excluded when json_valid_rate < 0.5, (2) gate doesn't trip pre-baseline, (3) recovery when rate improves. All 31 organ tests passing. Dogs with global json_valid_rate < 50% now excluded from jury after 20 calls (qwen35-9b-gpu, qwen-7b-hf will be excluded when baseline reached).
-- [x] **#3 Session cost tracking** — Add token+duration logging to session-stop.sh. Wired: session-init.sh records start, session-stop.sh measures duration + commit count + posts to /observe. No token count yet (requires Claude Code API integration). Done 2026-04-13.
-- [x] **#4 TODO protocol enforcement** — This rewrite. 4 rules. Max 15. Session log. Done 2026-04-12.
+Contexte : 10 fichiers >400 lignes prod. `main.rs` 956 lignes / 0 test. `domain/storage.rs` 446 lignes / 0 test. Plan séquentiel : chaque étape laisse `cargo build --tests` vert.
 
-### Body — prevent regression
+- [x] **S1 — `judge.rs` → `judge/`** (TODO #1+#2 fusionnés) — LIVRÉ 2026-04-16.
+- [x] **BURN — `evaluate_progressive` decomposition** — LIVRÉ 2026-04-16. Extraction de `process_dog_result`. Fonction passée de 211L à <100L de logique pure. Architecture PHI.
 
-- [x] **#5 Crystal challenge mechanism** — ✅ COMPLETED 2026-04-13: Background task (spawn_crystal_challenge_loop) spawns every 300s, re-judges oldest Crystallized/Canonical crystal without injection. Compares Q-scores: if delta > φ⁻² (0.382), records degraded observation to transition state. Implementation: fetch oldest by created_at, evaluate via judge with None filter (no dogs filter), call observe_crystal with new Q-score to trigger state machine. K15 verified: background immune system task tracks health via TaskHealth.touch_crystal_challenge().
-- [x] **#6 Greffe 3: alerting consumer** — ContractDelta { fulfilled: false } → Slack message. K15: structured log only is not "acting." ✅ DONE 2026-04-13: SlackAlerter monitors ContractDelta events, alerts on fulfilled=true→false transition (no spam), 3s timeout, logs errors. Integrated into event_consumer loop. K15 acting consumer verified.
-- [x] **#7 Coord: sessions register + claim** — Verify coord-claim hook. ✅ FINDING: protect-files.sh and coord-claim.sh hooks were registered in settings.json but scripts missing (K5 violation). Created both hooks + validated. /coord/claim API working. Both sessions should now appear in /coord/who. Hooks live-reload script changes (not new entries). Done 2026-04-13.
-- [x] **#8 Wire or delete K15 dead-ends** — Triage 3 orphan producers: ✅ store_infra_snapshot DELETED (no consumers, in-memory environment serves all use cases). ✅ session_summaries has 2 consumers (REST /sessions endpoint, pipeline session context). ❓ dream_counter doesn't exist. RESULT: Fixed K15 violation, eliminated 73 lines of waste.
+- [x] **S2 — `api/rest/health.rs` → `health.rs` + `dogs.rs`** — LIVRÉ 2026-04-16. Mesures : `health.rs` 547 → 300L (readonly observability : live, ready, health, agents, metrics), `dogs.rs` 261L (roster : list, register, heartbeat, deregister). Split par namespace URL (/dogs/* = dogs.rs, /health /ready /live /agents /metrics = health.rs). 476 tests pass, clippy lib clean. `api/rest/mod.rs` router mis à jour avec `pub mod dogs;` et imports séparés.
 
-### Verify — measure what changed
+- [x] **S3 — `domain/storage.rs` → `domain/storage/`** — LIVRÉ 2026-04-16. Mesures : `mod.rs` 265L (StoragePort trait pur), `null.rs` 107L (NullStorage adapter), `types.rs` 97L (Observation*, RawObservation, UsageRow, StorageError, StorageMetrics). Total 469L (vs 446 — overhead module boilerplate acceptable). 476 tests pass, clippy lib clean. Callers préservés via `pub use types::{...}; pub use null::NullStorage;` — 14 fichiers (storage/*, pipeline/, main.rs, infra/tasks/nightshift.rs) compilent sans changement.
 
-- [x] **#9 Verify crystal contention fix** — ✅ VERIFIED 2026-04-13: 27/24h (down from 176, 85% reduction). All remaining are SurrealDB internal index compaction on crystal table IX:2, not application-level contention. Above <10 target but not actionable from app side.
-- [x] **#10 Verify coord-claim if field** — ✅ FIXED 2026-04-13: `if` pattern was `Edit(cynic-kernel/src/**)` (relative, no anchor) — never matched because Edit passes absolute paths. Fixed to `Edit(/cynic-kernel/src/**)` (leading `/` = project-root-relative). Takes effect next session (settings.json doesn't live-reload).
+- [x] **S4 — `main.rs` phase extraction (livré 2026-04-16)** — Plan Opus initial (5 fichiers `infra/boot/*`) rejeté après lecture + Gemini consult. main.rs 956L = composition root linéaire. Livré : **3 extractions dans `infra/boot.rs` (flat, 281L)** :
+    - **S4a** ✓ `boot::build_dogs_and_organ()` — 134 lignes extraites (251-384) → 3 params, retourne `struct DogsAndOrgan` (7 champs nommés, pas de tuple)
+    - **S4b** ✓ `boot::seed_integrity_chain()` — 42 lignes extraites (437-478) → 2 params, `bool`
+    - **S4c** ✓ `boot::build_fleet_targets()` — 36 lignes extraites (607-642) → 2 params, `Vec<FleetTarget>`
+    - **S4d** non extrait — 3 helpers top (select_summarizer_backend, build_summarizer, load_rest_api_key) restent inline. Les regrouper aurait exigé un label "helpers" (anti-pattern fourre-tout, leçon S1).
+    - **Mesures** : main.rs 956 → **760L (-196, -20.5%)**. Cible 500-550 non atteinte (falsification #2 : "sans gain de lisibilité" ? faux — 3 blocs imperatifs deviennent 3 appels d'une ligne, Rings 0-3 toujours visibles en séquence). La cible était aspirationnelle vu que 13 spawn_* + AppState + branches MCP/REST restent inline par plan.
+    - **Falsifications** : (1) max params = 3 ✓ ; (2) 760L > 500 MAIS gain lisibilité observé ✓ ; (3) 476/476 tests pass (zéro régression) ✓ ; (4) relecture sites extraction : intention-first + destructuring nommé préserve l'ordre causal.
+    - Debug impl minimale (`finish_non_exhaustive`) ajoutée sur `DogsAndOrgan` — pattern suivant `Judge` (Arc<dyn Dog> interdit derive(Debug)).
+
+- [ ] **S5 — `infra/config.rs` → `infra/config/`** — `types.rs` (~100L), `loader.rs` (~200L), `validation.rs` (~80L), `prompts.rs` (~80L). Fixe violation K2 : `reqwest::Client::builder()` dans config → vers `backends/` ou port. Falsification: `grep "reqwest" infra/config/` retourne 0 après migration. Dépend de: S4.
+
+- [ ] **S6 — `infra/tasks.rs` + `runtime_loops.rs` → `infra/tasks/`** — `periodic.rs` (~200L), `lifecycle.rs` (~200L), `roster.rs` (~300L), `events.rs` (~200L), `probes.rs` (~200L). 1414 lignes combinées, 6+ concerns sans rapport. Falsification: tests `spawn_event_consumer_with_liveness` passent dans `events.rs`. Dépend de: S4.
+
+- [ ] **S7 — Test infrastructure** — Deduplicate `make_crystal` (2+ copies), `test_mcp` builder. Shared `#[cfg(test)]` helpers in `domain/`. Dépend de: S1-S3 terminés.
+
+### Invariants après chaque étape S1-S6
+- `cargo build --tests` vert
+- Aucun import `api::` depuis `domain/` ou `infra/` (K5)
+- Aucun `reqwest::Client` dans `domain/` (K2)
+- `pub use` dans `mod.rs` préserve tous les paths publics existants
 
 ---
 
@@ -41,11 +55,12 @@ Last updated: 2026-04-13 | Session: gemini-dog+nightshift+mcp-auth
 
 **Findings:** 38 open (1 critical RC1-1, 4 high, 16 medium, 4 low, 7 concurrency). See `docs/audit/CYNIC-FINDINGS-TRACKER.md`.
 **Practice:** CI remote runner (GAP-7), peer review (GAP-6), functional specs (GAP-4), TCO (GAP-9), SurrealDB vs Postgres falsification (GAP-5), threat model STRIDE (GAP-8).
-**Architecture:** Pipeline module split (T4), cynic-node Phase C, sources supervisor, CredentialPort.
+**Architecture:** cynic-node Phase C, sources supervisor, CredentialPort.
 **Identity:** T3a incarnation metrics (baseline still 0), identity layer audit.
 **Kairos:** FLOWING — 11+ trading verdicts (1 WAG, rest GROWL). 7/7 signals live. Trading Q-scores low (0.28–0.39) due to Dog calibration: qwen-7b-hf anti-discriminates on trading (raw sovereignty=0.95 on both good+bad stimuli), qwen35-9b-gpu is the only discriminating Dog. Short-term: KAIROS could filter dogs=["qwen35-9b-gpu","deterministic-dog"] for better verdicts. Candle data stale since March 23.
-**Infra:** Dual sensing R12, MCP lifecycle, boot-state capture (A1), RUST_MIN_STACK 8MB→16MB (release builds). GPU backend (cynic-gpu) REACHABLE — qwen35-9b-gpu circuit closed, 0 failures, 7.4s latency. Kairos machine offline (network down).
-**Security:** MCP zero auth (RC1-1), boot integrity, tamper detection.
+**Infra:** Dual sensing R12, MCP lifecycle, boot-state capture (A1). GPU backend (cynic-gpu) REACHABLE. Kairos machine offline.
+**Security:** Boot integrity, tamper detection. RC1-1 MCP auth FIXED.
+**Clippy debt — CLOSED 2026-04-16.** `cargo clippy --workspace --all-targets -- -D warnings` passe clean (0 errors + 0 warnings) sur tout le workspace. Classes extinguées sur 4 commits successifs : `manual_repeat` (5 sites), `vec_init_then_push` (workaround ICE nightly stale), `absurd_extreme_comparisons` (assert tautologique), `print_stdout` x7 (K12-allow sur `print_corpus`), `print_stderr` x1 (K12-allow sur test gemini CLI), `uninlined_format_args` x2 (inline `{VAR}`), `collapsible_if` (cynic-node let-chain). **R20 gate promoted** : `scripts/git-hooks/pre-commit:109`, `Makefile:47`, `.claude/rules/workflow.md:25` utilisent maintenant `--workspace --all-targets -- -D warnings`. R21 honoré : gate a capturé cynic-node:328 avant fix (positive control) + passe clean post-fix (negative control).
 
 ---
 
@@ -53,6 +68,12 @@ Last updated: 2026-04-13 | Session: gemini-dog+nightshift+mcp-auth
 
 | Date | Session | Duration | Commits | Crystals | Closed | Opened | Notes |
 |------|---------|----------|---------|----------|--------|--------|-------|
+| 2026-04-16 | clippy-style-warnings-extinction | ~25m | 1 | 0 | 1 (clippy debt CLOSED) | 0 | **Finding 1 sur 3 purgé.** Triage findings résiduels : (1) 10 style warnings → clean gate, (2) R20 gate promotion (dépend de 1), (3) idle expiry architectural L. Pick = 1 (débloque 2). **Approach K12-compliant** : `#[allow(clippy::print_stdout)]` + WHY sur `print_corpus` (diagnostic `--nocapture` explicite), `#[allow(clippy::print_stderr)]` + WHY sur test `#[ignore]`d gemini CLI, inline format args `{VAR}` × 2 sites storage_contract.rs. **Falsification** : fn-level allow couvre bien tous les println/eprintln du body (pas de closure-scope). Inline format args ne break pas assert_eq! macro. **Observation flake** : rust-lld parallelFor SIGSEGV sur première build (non-déterministe, retry clean — A1 infra debt). **Mesure** : 0e+10w → **0e+0w**, `cargo clippy --all-targets -- -D warnings` passe clean. 26+1 tests edited pass, 477/477 lib en release via pre-commit. **Clippy debt entry DEFERRED closed** ; nouveau micro-item émergé : R20 gate promotion workflow.md + Makefile (trivial, non-chaîné per pacing-discipline). |
+| 2026-04-16 | clippy-prod-errors-extinction | ~20m | 1 | 0 | 0 (partial DEFERRED) | 0 | **Continuation rigoureuse.** Probe : /agents=2 (session + probe), heartbeat file 248s old (throttle 240s, fonctionnel). Heartbeat hook pas clairement broken aujourd'hui — fix 1105c75 effective. Pivot : 2 errors prod clippy restantes. **Hypothèses** : (1) `vec_init_then_push` compliance.rs:252 — WHY comment cite ICE nightly-2026-04-06 mais toolchain = stable 1.94.1, workaround suspecté stale. (2) `absurd_extreme_comparisons` network.rs:189 — `assert!(x <= u64::MAX)` tautologique (u64 impossible > u64::MAX). **Observations post-edit** : (1) `vec![...]` compile clean sur stable 1.94.1, workaround confirmé obsolète (falsifie note WHY). (2) Assert remplacé par smoke test `saturating_add` — exerce les champs sans assertion vide. 2e+10w → **0e+10w**. 2/2 tests edités pass, 477 lib tests toujours vert. 2 classes extinguées (vec_init_then_push + absurd_extreme). `--all-targets -D correctness -D perf` passe désormais. |
+| 2026-04-16 | clippy-manual-repeat-class | ~35m | 1 | 0 | 0 (partial DEFERRED) | 0 | **Triage probe live :** service sovereign, 5 dogs, ≥20 verdicts, 8 crystals (contre snapshot 2026-04-15 "DOWN" = stale). Clippy `--lib` clean, `--all-targets` = 3 errors + 13 warnings. Choix triage : **pas S5** (plan-continuation sunk cost), pas F asdf-web (ask hackathon = frontend Robin, pas kernel). **Hypothèse :** remplacer `iter::repeat(X).take(N).collect()` par `"X".repeat(N)` aux 3 sites rest_routes.rs → 3e→0e sur la classe, pas d'autres changements. **Observation post-edit :** 3 errors → 2 errors ; 13w → 10w. Falsifié en count absolu : 2 nouvelles errors exposées (`vec_init_then_push` compliance.rs:252, `absurd_extreme` probes/network.rs:189) — MASQUÉES avant par arrêt précoce clippy sur rest_routes. R11 appliqué : 2 sites identiques trouvés dans `src/api/rest/data.rs:428,438`, extinction complète de la classe (5 sites au total, grep=0). 6/6 tests edités pass. **DEFERRED mis à jour** avec measure actuelle + gap R20 découvert : pre-commit `cargo clippy --lib` ne couvre pas `--all-targets` → gate qui ne DIT pas ce qu'il claim. |
+| 2026-04-16 | codex-handoff + coord-diagnosis | ~2h | 2 (f18b080, 052057c) | 0 | 0 | 0 | **Commits:** (1) nightshift K15 multi-domain CCM (rust/ts/py/docs → "dev", session/token/chess preserved, obs.target in stimulus, +test). (2) Makefile: debug mode for make check (~5x faster), sequential integration tests (fixes SurrealDB race), RUST_MIN_STACK aligned to 64 MiB via .cargo/config.toml (R12). **Diagnosed:** rmcp 1.2→1.4 no gain on ICE (breaking on tool_router struct field). rustc 1.94 ICE = stale incremental cache (cargo clean = fix, stable 1.95 not released). **Coord hooks DEAD:** agent expires in 5min (TTL), no hook sends heartbeat — 0 active agents despite session-init showing "(registered)". Bug observed empirically via /agents endpoint. **Crystallized 6 truths:** REST=bus common to all 4 agents, coord=reflex (fix hooks), MCP cognitive=multi-Dog judgment (rare, targeted for Hermes), T6 Hermes autonomous=real catalyst. Memory: project_mcp_coordination_truth.md. **Paused for restart:** next session starts with heartbeat fix in observe-tool.sh (15 min). |
+| 2026-04-15 | robustness-audit + hermes-continuation | ~2h 15min | 0 (staged: TODO-ROBUSTNESS.md) | 0 | 0 | 0 | **Blitz-and-chill:** CLAUDE.md (S. backend) + GEMINI.md (Robin frontend) created. 7 philosophy docs transferred to cynic-gpu. **Robustness Diagnosis:** Analyzed 26 holes, produced TODO-ROBUSTNESS.md (4 critical paths: #1 kernel service boot, #3 dirty files cleanup, #4 K15 wiring, #5 peer review). Tests passing (469/469 with RUSTFLAGS="-C debuginfo=1"), build infra fix needed. **Hermes:** stimulus.rs work deferred to dedicated session (token-analysis + calibration docs untracked). **Codex hand-off:** Ready at 21:00 for structured commits + build infra. |
+| 2026-04-14 | soc-splits+metathinking | ~2h | 1 | 0 | 10 (prev) | 4 | **SoC splits:** ccm.rs→ccm/ (crystal+engine+intake), mcp/mod.rs→4 files (rmcp split tool_router validated). Dream #5: 67→60 memory files, 4227→2360 lines (-44%). 14 plan/spec files purged (-10K). Hook fix (KERNEL_STATUS). Metathinking: 6 truths crystallized (T1-T6). evaluate_progressive identified as #1 structural target. |
 | 2026-04-13 | gemini-dog+nightshift+mcp-auth | ~2h | 11 | 0 | 0 | 2 | **Two chantiers.** (1) Gemini-cli as 5th Dog: CliBackend (ChatPort via subprocess), BackendType enum, nightshift loop (4h git→judge→observe), dev domain prompt, calibration corpus 10+10. Discrimination: Δ0.498 FIDELITY. (2) MCP Auth: RC1-1 FIXED (cynic_auth + require_auth on 7 tools). Build tools: cynic_validate + cynic_git (typed ops, no shell injection). Reverted Gemini's unsafe cynic_sys_exec. 571 tests, 5 Dogs, deployed. |
 | 2026-04-13 | dream+diagnosis | ~25m | 0 | 0 | 2 | 0 | **Dream #4:** 69→64 memory files (5 deleted, 2 rewritten). Falsified Gemini diagnostic (KAIROS flowing, GPU alive, kernel sovereign). **Trading Q-score diagnosis:** qwen35-9b-gpu is only discriminating Dog (Δ=+0.35 good vs bad); qwen-7b-hf anti-discriminates (raw_sovereignty=0.95 on all stimuli). Removing bad Dogs: WAG→HOWL. Stimulus quality: +25%. Contention verified (176→27, DB-internal). Coord-claim `if` pattern fixed (missing `/` prefix). |
 | 2026-04-13 | deploy-and-break | ~25m | 2 | 0 | 0 | 0 | **DEPLOYED v0.7.7-110-g1aab302** (SOLID fixes + A1 escalation). Kernel sovereign, 4/4 Dogs registered. Crystal challenge loop STARTED but times out (30s) — gemma-4b-core avg 21.8s, qwen35-9b-gpu 100% fail (GPU backend unreachable). KAIROS: 2168 decisions/15h, ALL NO_TRADE (3/7 signals hardcoded). Zero trading verdicts, zero trading crystals. Hypothesis falsified: KAIROS→CYNIC integration wired but not exercised. Bottleneck is operational (signal quality + GPU down), not architectural. A1 debt: RUST_MIN_STACK 8MB→16MB (release builds hit deeper LLVM SROA). Pre-push gate: 558 tests pass in release. |
@@ -72,17 +93,29 @@ Last updated: 2026-04-13 | Session: gemini-dog+nightshift+mcp-auth
 
 ---
 
-## State Snapshot (updated 2026-04-13, session: gemini-dog+nightshift+mcp-auth)
+## State Snapshot (updated 2026-04-15, session: robustness-audit + hermes-continuation)
 
-- Kernel: v0.7.7-126-gaa1f201, **SOVEREIGN**, **5/5 Dogs** registered (gemini-cli added)
-- **Gemini-cli**: 5th Dog, CLI backend (tokio::process::Command), model="auto" (Google routes to gemini-2.0-flash). Discrimination: Δ0.498 FIDELITY on dev domain.
-- **Nightshift**: Loop active (4h interval, 60s warmup). First cycle pending. git log → judge(domain="dev") → observe_crystal.
-- **MCP Auth (RC1-1)**: FIXED. `cynic_auth` session-based auth. 7 sensitive tools gated. 5 public tools open.
-- **MCP Build Tools**: `cynic_validate` (cargo build+clippy+test) + `cynic_git` (status/log/diff/commit). Gemini snap autonomy enabled.
-- Crystal challenge loop: RUNNING (5min interval, 60s timeout). 3 crystals decaying.
-- qwen35-9b-gpu: **ALIVE** — best trading discriminator.
-- qwen-7b-hf: Active but anti-discriminates on trading domain.
-- KAIROS: **FLOWING** but STALE — candle data since March 23. Ingestor services likely dead.
-- Crystals: 5 crystallized (chess), 3 decaying (chess), 0 trading, 0 dev (forming expected after nightshift).
-- Tests: 571 pass, 0 clippy warnings.
-- **A1 Infrastructure Debt** — RUST_MIN_STACK 16MB. Obsolete: Rust 1.95.0+.
+**Robustness Status:**
+- Kernel: v0.7.7, **SOVEREIGN**, **5/5 Dogs** registered, tests 469/469 pass (release mode)
+- Build issue: Debug linker fails on rmcp (LLVM debug info overflow) — fixed with RUSTFLAGS="-C debuginfo=1"
+- Service: DOWN (needs boot sequence on <TAILSCALE_CORE>:3030)
+- **Dirty files: 11 modified + 11 untracked** (22 total) — requires Codex cleanup for single source of truth
+
+**SoC & Architecture:**
+- **SoC splits done**: ccm/ (4 files), mcp/ (4 tool files). Max kernel file: 490 lines (was 1555).
+- **Remaining giants**: judge.rs (1841), main.rs (907), pipeline/mod.rs (797), deterministic.rs (987)
+- Structural target #1: evaluate_progressive (450 lines, circuit breaker + organ + hash chain inlined)
+- MCP: rmcp split tool_router validated — tools in judge_tools/coord_tools/observe_tools
+
+**Data & Organisms:**
+- Memory: 60 files, 2360 lines (was 67/4227). Dream #5 done.
+- Crystals: 0 outside chess (metabolism broken for non-chess domains)
+- Dogs: Gemini CLI 66.7% JSON valid, Qwen 74.9% valid (25-33% noise)
+- K15 violations: 6 remaining (dream counter, compliance display, metrics non-gated, session summaries, observe→CCM chess-only, event bus)
+
+**Infrastructure Debt:**
+- **A1** — RUST_MIN_STACK 16MB enforced (Rust 1.94.1 LLVM SIGSEGV fix)
+- **A2-A5** — See CYNIC-FINDINGS-TRACKER.md
+
+**Hermes Continuation:**
+- stimulus.rs (core work), token-analysis.md, calibration docs UNTRACKED (preserved for Hermes session)

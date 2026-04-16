@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CYNIC pre-push — sovereign CI gate
+# CYNIC pre-push — sovereign CI gate + branch discipline
 # No cloud CI, no GitHub Actions, no external dependency.
 # The machine that pushes is the machine that verifies.
 # Universal: protects against all agents (Claude, Gemini, human).
@@ -7,7 +7,29 @@
 # Runs the FULL make check pipeline:
 #   fmt → clippy → test → lint-rules → lint-drift → lint-security → audit
 # If any gate fails, push is blocked. No exceptions.
+#
+# Also: blocks direct push to `main` — protected branch on origin requires
+# PR flow (GH006). Fail early and explain, instead of letting the user wait
+# through the gate only to be rejected by GitHub.
 set -euo pipefail
+
+# Detect pushes to main and fail fast with remediation instructions.
+# Git passes refs via stdin: "<local_ref> <local_sha> <remote_ref> <remote_sha>\n".
+while IFS= read -r line; do
+    remote_ref=$(printf '%s\n' "$line" | awk '{print $3}')
+    if [ "$remote_ref" = "refs/heads/main" ]; then
+        echo ""
+        echo "✗ Direct push to main is blocked — protected branch workflow."
+        echo ""
+        echo "  Flow:"
+        echo "    git checkout -b <type>/<scope>-$(date +%Y-%m-%d)"
+        echo "    git push -u origin <branch>"
+        echo "    gh pr create --base main"
+        echo ""
+        echo "  See .claude/rules/workflow.md § Branch-PR discipline."
+        exit 1
+    fi
+done
 
 source ~/.cargo/env 2>/dev/null || true
 export RUST_MIN_STACK=${RUST_MIN_STACK:-67108864}

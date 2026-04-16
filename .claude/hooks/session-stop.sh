@@ -94,6 +94,26 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
     fi
 fi
 
+# ── Inter-agent bus: POST session summary to /observe (domain=session) ──
+# This is the structured handover channel. Other agents (Claude, Gemini, nightshift)
+# read domain="session" observations at session start to understand prior work.
+KERNEL_STATUS=$(curl -s --connect-timeout 2 --max-time 3 "http://${KERNEL_ADDR}/health" 2>/dev/null | jq -r '.status // "down"' 2>/dev/null || echo "down")
+if [[ "$KERNEL_STATUS" != "down" ]]; then
+    # Collect session metadata
+    COMMITS_COUNT="${COMMITS_THIS_SESSION:-0}"
+    DURATION_MIN="${SESSION_MINUTES:-0}"
+    COMPLIANCE_SCORE="${SCORE:-unknown}"
+
+    # Build a structured summary (context field, 200 char max enforced by kernel)
+    SUMMARY="dur=${DURATION_MIN}m commits=${COMMITS_COUNT} compliance=${COMPLIANCE_SCORE}"
+
+    curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+        -H "Content-Type: application/json" \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"session_summary\",\"target\":\"handover\",\"domain\":\"session\",\"tags\":[\"session-summary\"],\"context\":\"${SUMMARY}\"}" \
+        > /dev/null 2>&1 || true
+fi
+
 # ── TODO staleness check (continuity: did this session update the TODO?) ──
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 TODO_FILE="${PROJECT_DIR}/TODO.md"

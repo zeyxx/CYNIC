@@ -1,5 +1,9 @@
 # CYNIC — Open Work
 
+> Historical/open-work snapshot.
+> This file is not the live session protocol or authoritative task ledger.
+> Use `TODO.md` for active work unless this file is explicitly revived.
+
 *Single source of truth. Updated at session end. Read at session start.*
 *Strong foundation > no foundation > weak foundation (R14).*
 

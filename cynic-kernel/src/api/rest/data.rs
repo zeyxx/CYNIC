@@ -425,7 +425,7 @@ mod tests {
     #[test]
     fn create_crystal_content_2001_chars_is_invalid() {
         // Mirrors the handler validation: > 2000 chars is rejected
-        let content: String = std::iter::repeat('x').take(2001).collect();
+        let content: String = "x".repeat(2001);
         assert!(
             content.chars().count() > 2000,
             "oversized content must fail validation"
@@ -435,7 +435,7 @@ mod tests {
     #[test]
     fn create_crystal_content_2000_chars_is_valid() {
         // Boundary: exactly 2000 chars must pass
-        let content: String = std::iter::repeat('x').take(2000).collect();
+        let content: String = "x".repeat(2000);
         assert!(
             !content.trim().is_empty() && content.chars().count() <= 2000,
             "2000 chars must pass validation"

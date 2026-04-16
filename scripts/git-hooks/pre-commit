@@ -1,11 +1,95 @@
 #!/bin/sh
 # CYNIC — Pre-commit gate (Layer 2 enforcement, agnostic)
-# fmt (fast, <1s) → clippy (debug mode, 5-15s incremental).
+# L2 coord check → fmt (fast, <1s) → clippy (debug mode, 5-15s incremental).
 # Full test suite + release build runs via `make check` before deploy.
 
 # Required: Rust 1.94.1 compiler bug (A1 debt, LLVM SIGSEGV in rmcp)
 # See CLAUDE.md § VII: Build Environment
-export RUST_MIN_STACK=8388608
+export RUST_MIN_STACK=67108864
+
+# ── L2: Staged secret / real infra leak check ──
+# Blocks obvious credential leaks and real Tailscale IPs anywhere in the staged diff,
+# not just in Rust files. This catches config/docs regressions before they reach the repo.
+security_check() {
+    STAGED_ADDED=$(git diff --cached --no-color --unified=0 2>/dev/null | grep '^+' | grep -v '^+++' || true)
+    [ -z "$STAGED_ADDED" ] && return 0
+    FILTERED_ADDED=$(printf '%s\n' "$STAGED_ADDED" \
+        | grep -v 'RAW_SECRETS=' \
+        | grep -v 'HARDCODED_CREDS=' \
+        | grep -v 'REAL_INFRA=' \
+        | grep -v 'grep -iE .*api\[_-\]?key' \
+        | grep -v 'grep -iE .*AIza' \
+        | grep -v 'grep -E .*100\\\.' || true)
+    [ -z "$FILTERED_ADDED" ] && return 0
+
+    RAW_SECRETS=$(printf '%s\n' "$FILTERED_ADDED" \
+        | grep -iE 'AIza[[:alnum:]_-]{10,}|hf_[[:alnum:]_-]{10,}|sk-[[:alnum:]_-]{10,}' || true)
+    HARDCODED_CREDS=$(printf '%s\n' "$FILTERED_ADDED" \
+        | grep -iE '(api[_-]?key|token|password|secret)[^[:alnum:]]*[:=][[:space:]]*["'"'"']?[^$<[:space:]][^"'"'"'[:space:]]{6,}' \
+        | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken|\.api_key' || true)
+    if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
+        echo "SECURITY FAIL: possible secrets in staged changes:"
+        [ -n "$RAW_SECRETS" ] && echo "$RAW_SECRETS"
+        [ -n "$HARDCODED_CREDS" ] && echo "$HARDCODED_CREDS"
+        return 1
+    fi
+
+    REAL_INFRA=$(printf '%s\n' "$FILTERED_ADDED" \
+        | grep -E '100\.(74|75|119)\.[0-9]{1,3}\.[0-9]{1,3}' || true)
+    if [ -n "$REAL_INFRA" ]; then
+        echo "SECURITY FAIL: real Tailscale IPs in staged changes:"
+        echo "$REAL_INFRA"
+        return 1
+    fi
+
+    return 0
+}
+security_check || exit 1
+
+# ── L2: Coordination claim verification ──
+# Checks that staged kernel files are not claimed by ANOTHER agent.
+# Graceful: skips if kernel unreachable or no env. Does NOT block on unclaimed files.
+coord_check() {
+    . ~/.cynic-env 2>/dev/null || return 0
+    KERNEL_ADDR="${CYNIC_REST_ADDR:-}"
+    API_KEY="${CYNIC_API_KEY:-}"
+    [ -z "$KERNEL_ADDR" ] && return 0
+    [ -z "$API_KEY" ] && return 0
+    command -v curl >/dev/null 2>&1 || return 0
+    command -v jq >/dev/null 2>&1 || return 0
+
+    # Get current agent ID (Claude hook format or fallback)
+    MY_AGENT=$(echo "${CLAUDE_SESSION_ID:-${GEMINI_SESSION_ID:-${CODEX_SESSION_ID:-unknown}}}" | head -c 20)
+
+    STAGED_KERNEL=$(git diff --cached --name-only --diff-filter=ACM | grep '^cynic-kernel/' || true)
+    [ -z "$STAGED_KERNEL" ] && return 0
+
+    # Fetch active claims
+    CLAIMS_JSON=$(curl -s --connect-timeout 2 --max-time 3 \
+        "http://${KERNEL_ADDR}/agents" \
+        -H "Authorization: Bearer $API_KEY" 2>/dev/null || echo '{}')
+
+    for file in $STAGED_KERNEL; do
+        target="${file#cynic-kernel/}"
+        # Check if this file is claimed by a DIFFERENT agent
+        holder=$(echo "$CLAIMS_JSON" | jq -r \
+            --arg t "$target" \
+            '.claims[]? | select(.target == $t and .active == true) | .agent_id' 2>/dev/null || true)
+        if [ -n "$holder" ]; then
+            case "$holder" in
+                *"$MY_AGENT"*) ;; # our own claim — OK
+                *)
+                    echo "COORD CONFLICT: '$file' is claimed by '$holder'."
+                    echo "Release the claim or coordinate before committing."
+                    echo "  curl -X POST http://${KERNEL_ADDR}/coord/who"
+                    return 1
+                    ;;
+            esac
+        fi
+    done
+    return 0
+}
+coord_check || exit 1
 
 # Skip if no .rs files are staged (docs-only commits don't need checks)
 STAGED_RS=$(git diff --cached --name-only --diff-filter=ACM | grep '\.rs$' || true)
@@ -21,8 +105,10 @@ fi
 # Fast fail: format check (<1s)
 cargo fmt -p cynic-kernel -- --check || { echo "Run 'cargo fmt' to fix formatting."; exit 1; }
 
-# Lint check (5-15s incremental, debug mode — same lints as release)
-cargo clippy --workspace -- -D warnings || exit 1
+# Lint check (5-15s incremental, debug mode — same lints as release).
+# --all-targets includes test modules, examples, benches — without it, lints
+# on tests/ and #[cfg(test)] blocks never run, silently admitting drift.
+cargo clippy --workspace --all-targets -- -D warnings || exit 1
 
-# Unit tests (catch FEAT→FIX cycle before it enters git history)
-cargo test -p cynic-kernel --lib || { echo "Tests failed — fix before committing."; exit 1; }
+# Unit tests in release mode (debug mode hits rmcp linker bug — A1 debt)
+cargo test -p cynic-kernel --lib --release || { echo "Tests failed — fix before committing."; exit 1; }

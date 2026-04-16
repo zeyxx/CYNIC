@@ -1,0 +1,3 @@
+# Lightweight default routing only.
+# Review enforcement comes from branch protection, not CODEOWNERS.
+* @zeyxx

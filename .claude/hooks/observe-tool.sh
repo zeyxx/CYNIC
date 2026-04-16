@@ -65,4 +65,20 @@ curl -s --max-time 2 -X POST "http://${KERNEL_ADDR}/observe" \
     ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
     -d "$PAYLOAD" > /dev/null 2>&1 &
 
+# ── Coord heartbeat (keep-alive: prevent 5-min TTL expiry) ──
+# register_agent is an UPSERT that resets last_seen — call every 4 min
+SESSION_STATE_DIR="/tmp/cynic-sessions"
+HEARTBEAT_FILE="${SESSION_STATE_DIR}/${AGENT_ID}.heartbeat"
+NOW=$(date +%s)
+LAST_HB=0
+[[ -f "$HEARTBEAT_FILE" ]] && LAST_HB=$(cat "$HEARTBEAT_FILE" 2>/dev/null || echo 0)
+if [[ $((NOW - LAST_HB)) -gt 240 ]]; then
+    echo "$NOW" > "$HEARTBEAT_FILE"
+    curl -s --max-time 2 -X POST "http://${KERNEL_ADDR}/coord/register" \
+        -H "Content-Type: application/json" \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"intent\":\"claude-code session\",\"agent_type\":\"claude\"}" \
+        > /dev/null 2>&1 &
+fi
+
 exit 0

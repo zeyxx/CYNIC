@@ -71,6 +71,7 @@ fn test_obs(agent: &str, tool: &str, target: &str) -> Observation {
         context: "test context".to_string(),
         session_id: agent.to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
+        tags: vec![],
     }
 }
 
