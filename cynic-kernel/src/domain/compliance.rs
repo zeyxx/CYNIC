@@ -197,6 +197,7 @@ mod tests {
             project: String::new(),
             agent_id: String::new(),
             session_id: String::new(),
+            tags: vec![],
         }
     }
 
@@ -245,13 +246,11 @@ mod tests {
 
     #[test]
     fn bash_different_commands_no_violation() {
-        // WHY: nightly-2026-04-06 has an intermittent release-test ICE/E0080 on this
-        // specific `vec![obs(...), ...]` literal shape. Building the Vec incrementally
-        // preserves the test intent while avoiding the compiler bug in pre-push `make check`.
-        let mut observations = Vec::with_capacity(3);
-        observations.push(obs("Bash", "cargo test --release", "error"));
-        observations.push(obs("Bash", "cargo build --release", "error"));
-        observations.push(obs("Bash", "cargo clippy --release", "error"));
+        let observations = vec![
+            obs("Bash", "cargo test --release", "error"),
+            obs("Bash", "cargo build --release", "error"),
+            obs("Bash", "cargo clippy --release", "error"),
+        ];
         let c = score_session("s1", "a1", &observations);
         assert_eq!(c.bash_retry_violations, 0);
     }

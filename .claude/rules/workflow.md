@@ -19,10 +19,15 @@ At session end:
 **BEFORE ANY `git commit` to cynic-kernel/**, run locally:
 
 ```bash
-export RUST_MIN_STACK=16777216   # Required: Rust 1.94.1 compiler bug (A1, release needs 16MB)
+export RUST_MIN_STACK=67108864
+export RUSTFLAGS="-C debuginfo=1" # Required: rmcp debug DWARF overflows without reduced debuginfo
 cargo build --tests               # Must pass: 0 errors, 0 failing tests
-cargo clippy --all -- -D warnings # Must pass: zero lint violations
+cargo clippy --workspace --all-targets -- -D warnings # Must pass: zero lint violations (covers tests/examples/benches)
 ```
+
+Repo default: `.cargo/config.toml` already sets the same values for local `cargo` invocations.
+Keep the explicit exports for shells, wrappers, and any environment that bypasses repo-local Cargo config.
+`16777216` is treated as a lower bound that may pass on some paths, not the robustness default.
 
 If any step fails: fix root cause, re-validate, THEN commit.
 
@@ -32,6 +37,38 @@ If any step fails: fix root cause, re-validate, THEN commit.
 
 **Falsifiable:** Track failed commits per session. Target: 0 failed commits post-validation.
 
+## Branch-PR Discipline (MANDATORY — origin/main is protected)
+
+`origin/main` is a GitHub protected branch (activated 2026-04-13 per commit `46b0fc8`). Direct pushes are rejected with `GH006: protected branch hook declined`. Every change to main must land via a pull request.
+
+**Flow for each session's batch of commits:**
+
+```bash
+# 1. Work locally on main (or a feature branch)
+git checkout main
+# ... edit, commit, repeat ...
+
+# 2. When ready to sync origin, create a branch from HEAD
+git checkout -b <type>/<scope>-YYYY-MM-DD      # e.g. sync/origin-catchup-2026-04-16
+                                                 # or feat/trading-calibration-2026-04-17
+                                                 # or fix/heartbeat-idle-expiry-2026-04-18
+
+# 3. Push the branch (pre-push hook runs the full gate)
+git push -u origin <branch>
+
+# 4. Open a PR targeting main
+gh pr create --base main --title "..." --body "..."
+```
+
+**The pre-push hook blocks direct pushes to `refs/heads/main`** and prints this remediation. The block is at the local hook layer (fail fast) before GitHub's server-side rejection (slow round-trip).
+
+**Why not push to main directly even when protected allows emergency overrides?**
+- Audit trail: PRs give reviewable diffs, CI run links, discussion context.
+- Mechanical gate: the same PR mechanism enforces squash/merge policy, release notes, co-author attribution.
+- Multi-agent coord: Gemini/Codex also see the branch + PR and can avoid conflicts.
+
+**Local deploy does NOT require push.** `~/bin/cynic-kernel` is swapped from `target/release/cynic-kernel` — this is a local file-system operation. A stale `origin/main` does not block kernel deploy. But leaving origin behind creates drift that future clones will inherit; always open the PR before ending the session.
+
 ## Workflow Triggers
 
 BEFORE triggers — invoke PROACTIVELY before acting:
@@ -39,6 +76,7 @@ BEFORE triggers — invoke PROACTIVELY before acting:
 - **Before choosing between architecturally different approaches:** `/cynic-skills:crystallize-truth`
 - **Before designing a new subsystem OR making a decision that constrains future options** (new port trait, new storage table, new API surface, new external dependency): `/cynic-skills:engineering-stack-design`
 - **Before any technical decision with measurable impact:** apply the Scientific Protocol (see below)
+- **Before building domain-specific features** (stimulus builders, prompts, screeners, domain endpoints): create a calibration corpus first — 3 easy-positive, 3 easy-negative, 3 ambiguous cases with expected verdicts. Run through `/cynic-skills:cynic-judge`, measure inter-Dog agreement (σ). If max_disagreement ≥ φ⁻² on easy cases, fix Dog prompts before building features.
 
 AFTER triggers — MUST execute, no exceptions:
 - **After ANY code change to cynic-kernel/:** `/build`

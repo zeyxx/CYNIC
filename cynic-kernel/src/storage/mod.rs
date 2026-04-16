@@ -249,6 +249,49 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS created_at ON session_summary TYPE datetime;\
             DEFINE INDEX IF NOT EXISTS session_summary_session_idx ON session_summary FIELDS session_id UNIQUE;\
             DEFINE INDEX IF NOT EXISTS session_summary_created_idx ON session_summary FIELDS created_at;\
+            DEFINE FIELD IF NOT EXISTS run_id ON ouroboros_run TYPE string;\
+            DEFINE FIELD IF NOT EXISTS corpus_version ON ouroboros_run TYPE string;\
+            DEFINE FIELD IF NOT EXISTS trigger ON ouroboros_run TYPE string;\
+            DEFINE FIELD IF NOT EXISTS mode ON ouroboros_run TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_family ON ouroboros_run TYPE string;\
+            DEFINE FIELD IF NOT EXISTS status ON ouroboros_run TYPE string;\
+            DEFINE FIELD IF NOT EXISTS started_at ON ouroboros_run TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS finished_at ON ouroboros_run TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS duration_s ON ouroboros_run TYPE float;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON ouroboros_run TYPE string;\
+            DEFINE FIELD IF NOT EXISTS model ON ouroboros_run TYPE string;\
+            DEFINE FIELD IF NOT EXISTS backend_id ON ouroboros_run TYPE string;\
+            DEFINE FIELD IF NOT EXISTS repos_attempted ON ouroboros_run TYPE int;\
+            DEFINE FIELD IF NOT EXISTS repos_completed ON ouroboros_run TYPE int;\
+            DEFINE FIELD IF NOT EXISTS tool_failures ON ouroboros_run TYPE int;\
+            DEFINE FIELD IF NOT EXISTS prompt_tokens ON ouroboros_run TYPE int;\
+            DEFINE FIELD IF NOT EXISTS completion_tokens ON ouroboros_run TYPE int;\
+            DEFINE FIELD IF NOT EXISTS internal_patch_candidates ON ouroboros_run TYPE int;\
+            DEFINE FIELD IF NOT EXISTS internal_patches_authored ON ouroboros_run TYPE int;\
+            DEFINE FIELD IF NOT EXISTS tests_run ON ouroboros_run TYPE int;\
+            DEFINE FIELD IF NOT EXISTS tests_passed ON ouroboros_run TYPE int;\
+            DEFINE FIELD IF NOT EXISTS summary_json ON ouroboros_run TYPE string;\
+            DEFINE INDEX IF NOT EXISTS ouroboros_run_id_idx ON ouroboros_run FIELDS run_id UNIQUE;\
+            DEFINE INDEX IF NOT EXISTS ouroboros_run_started_idx ON ouroboros_run FIELDS started_at;\
+            DEFINE FIELD IF NOT EXISTS run_id ON ouroboros_repo_eval TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_family ON ouroboros_repo_eval TYPE string;\
+            DEFINE FIELD IF NOT EXISTS repo_id ON ouroboros_repo_eval TYPE string;\
+            DEFINE FIELD IF NOT EXISTS full_name ON ouroboros_repo_eval TYPE string;\
+            DEFINE FIELD IF NOT EXISTS track ON ouroboros_repo_eval TYPE string;\
+            DEFINE FIELD IF NOT EXISTS task_profile ON ouroboros_repo_eval TYPE string;\
+            DEFINE FIELD IF NOT EXISTS outcome ON ouroboros_repo_eval TYPE string;\
+            DEFINE FIELD IF NOT EXISTS decision ON ouroboros_repo_eval TYPE string;\
+            DEFINE FIELD IF NOT EXISTS effort ON ouroboros_repo_eval TYPE string;\
+            DEFINE FIELD IF NOT EXISTS confidence ON ouroboros_repo_eval TYPE float;\
+            DEFINE FIELD IF NOT EXISTS evidence_count ON ouroboros_repo_eval TYPE int;\
+            DEFINE FIELD IF NOT EXISTS exact_files_cited ON ouroboros_repo_eval TYPE int;\
+            DEFINE FIELD IF NOT EXISTS stale_repo ON ouroboros_repo_eval TYPE bool;\
+            DEFINE FIELD IF NOT EXISTS elapsed_s ON ouroboros_repo_eval TYPE float;\
+            DEFINE FIELD IF NOT EXISTS created_at ON ouroboros_repo_eval TYPE datetime;\
+            DEFINE FIELD IF NOT EXISTS notes ON ouroboros_repo_eval TYPE string;\
+            DEFINE INDEX IF NOT EXISTS ouroboros_repo_eval_run_idx ON ouroboros_repo_eval FIELDS run_id;\
+            DEFINE INDEX IF NOT EXISTS ouroboros_repo_eval_repo_idx ON ouroboros_repo_eval FIELDS repo_id;\
+            DEFINE INDEX IF NOT EXISTS ouroboros_repo_eval_created_idx ON ouroboros_repo_eval FIELDS created_at;\
         ";
         if let Err(e) = storage.query(schema_sql).await {
             // CRITICAL, not WARNING: HNSW vector index (crystal_vec_idx) is in this batch.

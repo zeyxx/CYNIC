@@ -12,6 +12,7 @@ pub mod inference;
 pub mod metrics;
 pub mod probe;
 pub mod sanitize;
+pub mod stimulus;
 pub mod storage;
 pub mod summarization;
 pub mod usage;

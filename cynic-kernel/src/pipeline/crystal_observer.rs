@@ -100,48 +100,38 @@ pub(crate) async fn observe_crystal_for_verdict(
                 (existing_id, false)
             }
             Ok(None) => {
+                let slug = ccm::semantic_slug(domain, &verdict.stimulus_summary);
                 tracing::info!(
                     phase = "crystal_merge",
-                    "no similar crystal (sim < 0.75), creating new"
+                    %slug,
+                    "no similar crystal (sim < 0.75), creating new with semantic slug"
                 );
                 (
-                    format!(
-                        "{:x}",
-                        ccm::content_hash(&ccm::normalize_for_hash(&format!(
-                            "{}:{}",
-                            domain, verdict.stimulus_summary
-                        )))
-                    ),
+                    format!("{:x}", ccm::content_hash(&ccm::normalize_for_hash(&slug))),
                     true,
                 )
             }
             Err(e) => {
-                tracing::warn!(phase = "crystal_merge", error = %e, "similarity search failed, using FNV hash");
+                let slug = ccm::semantic_slug(domain, &verdict.stimulus_summary);
+                tracing::warn!(phase = "crystal_merge", error = %e, %slug, "similarity search failed, using semantic slug + FNV hash");
                 (
-                    format!(
-                        "{:x}",
-                        ccm::content_hash(&ccm::normalize_for_hash(&format!(
-                            "{}:{}",
-                            domain, verdict.stimulus_summary
-                        )))
-                    ),
+                    format!("{:x}", ccm::content_hash(&ccm::normalize_for_hash(&slug))),
                     true,
                 )
             }
         }
     } else {
+        // Semantic slug: reduce content to domain-aware topic before hashing.
+        // Without this, every unique stimulus creates a new crystal.
+        // Chess works because moves repeat exactly; dev/token/session never do.
+        let slug = ccm::semantic_slug(domain, &verdict.stimulus_summary);
         tracing::info!(
             phase = "crystal_merge",
-            "no embedding available, using FNV hash"
+            %slug,
+            "no embedding available, using semantic slug + FNV hash"
         );
         (
-            format!(
-                "{:x}",
-                ccm::content_hash(&ccm::normalize_for_hash(&format!(
-                    "{}:{}",
-                    domain, verdict.stimulus_summary
-                )))
-            ),
+            format!("{:x}", ccm::content_hash(&ccm::normalize_for_hash(&slug))),
             true,
         )
     };

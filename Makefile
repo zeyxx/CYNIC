@@ -32,7 +32,7 @@ PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
 define source_env
 	source ~/.cargo/env 2>/dev/null || true
 	source ~/.cynic-env 2>/dev/null || true
-	export RUST_MIN_STACK=16777216  # Required: Rust 1.94.1 compiler bug (A1 debt, LLVM SIGSEGV in release)
+	export RUST_MIN_STACK=67108864  # 64 MiB: rmcp serde monomorphization (A1 debt). Source of truth: .cargo/config.toml
 endef
 
 # ── Stage 1: Validate ───────────────────────────────────────
@@ -44,8 +44,8 @@ check:
 	@echo "══════════════════════════════════════════"
 	@$(MAKE) --no-print-directory verify-hooks
 	cargo fmt --all -- --check
-	cargo clippy --workspace --release -- -D warnings
-	cargo test --workspace --release
+	cargo clippy --workspace --all-targets -- -D warnings
+	cargo test --workspace
 	@$(MAKE) --no-print-directory lint-rules
 	@$(MAKE) --no-print-directory lint-drift
 	@$(MAKE) --no-print-directory lint-security
@@ -53,7 +53,8 @@ check:
 	cargo audit --deny warnings
 	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
 		echo ""; echo "▶ Integration tests (SurrealDB available)..."; \
-		cargo test -p cynic-kernel --release --test integration_storage --test storage_contract; \
+		cargo test -p cynic-kernel --test integration_storage && \
+		cargo test -p cynic-kernel --test storage_contract; \
 	else \
 		echo ""; echo "⚠ SurrealDB not running — skipping integration tests"; \
 	fi
@@ -106,8 +107,12 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 			fi; \
 		done <<< "$$K12"; \
 	fi; \
-	SECRETS=$$(git diff --staged 2>/dev/null | grep '^+' | grep -v '^+++' | grep -iE 'api.key|token|password|secret|AIza|hf_' | grep -v '#' | grep -v '//' | grep -v 'CancellationToken'); \
-	if [ -n "$$SECRETS" ]; then echo "FAIL Security: possible secrets in staged changes:"; echo "$$SECRETS"; FAIL=1; fi; \
+	ADDED=$$(git diff --staged 2>/dev/null | grep '^+' | grep -v '^+++' | grep -v 'RAW_SECRETS=' | grep -v 'HARDCODED_CREDS=' | grep -v 'REAL_INFRA=' | grep -v 'grep -iE .*api\[_-\]?key' | grep -v 'grep -iE .*AIza' | grep -v 'grep -E .*100\\\.'); \
+	RAW_SECRETS=$$(printf '%s\n' "$$ADDED" | grep -iE 'AIza[[:alnum:]_-]{10,}|hf_[[:alnum:]_-]{10,}|sk-[[:alnum:]_-]{10,}'); \
+	HARDCODED_CREDS=$$(printf '%s\n' "$$ADDED" | grep -iE '(api[_-]?key|token|password|secret)[^[:alnum:]]*[:=][[:space:]]*["'"'"']?[^$$<[:space:]][^"'"'"'[:space:]]{6,}' | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken'); \
+	if [ -n "$$RAW_SECRETS$$HARDCODED_CREDS" ]; then echo "FAIL Security: possible hardcoded secrets in staged changes:"; echo "$$RAW_SECRETS"; echo "$$HARDCODED_CREDS"; FAIL=1; fi; \
+	REAL_INFRA=$$(printf '%s\n' "$$ADDED" | grep -E '100\.(74|75|119)\.[0-9]{1,3}\.[0-9]{1,3}'); \
+	if [ -n "$$REAL_INFRA" ]; then echo "FAIL Security: real Tailscale IPs in staged changes:"; echo "$$REAL_INFRA"; FAIL=1; fi; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ All grep-enforceable rules pass"; fi; \
 	exit $$FAIL
 

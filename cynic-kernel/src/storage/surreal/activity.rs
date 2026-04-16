@@ -7,6 +7,14 @@ use crate::domain::storage::{
 use crate::storage::{SurrealHttpStorage, escape_surreal};
 
 fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
+    let tags = row["tags"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
     RawObservation {
         id: row["id"].as_str().unwrap_or("").to_string(),
         tool: row["tool"].as_str().unwrap_or("").to_string(),
@@ -18,6 +26,7 @@ fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
         project: row["project"].as_str().unwrap_or("").to_string(),
         agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
         session_id: row["session_id"].as_str().unwrap_or("").to_string(),
+        tags,
     }
 }
 
@@ -25,6 +34,16 @@ pub(super) async fn store_observation(
     storage: &SurrealHttpStorage,
     obs: &Observation,
 ) -> Result<(), StorageError> {
+    let tags_sql = if obs.tags.is_empty() {
+        "[]".to_string()
+    } else {
+        let escaped: Vec<String> = obs
+            .tags
+            .iter()
+            .map(|t| format!("'{}'", escape_surreal(t)))
+            .collect();
+        format!("[{}]", escaped.join(", "))
+    };
     let sql = format!(
         "CREATE observation SET \
             project = '{project}', \
@@ -35,6 +54,7 @@ pub(super) async fn store_observation(
             status = '{status}', \
             context = '{context}', \
             session_id = '{session_id}', \
+            tags = {tags}, \
             created_at = time::now();",
         project = escape_surreal(&obs.project),
         agent_id = escape_surreal(&obs.agent_id),
@@ -44,6 +64,7 @@ pub(super) async fn store_observation(
         status = escape_surreal(&obs.status),
         context = escape_surreal(&obs.context),
         session_id = escape_surreal(&obs.session_id),
+        tags = tags_sql,
     );
     storage.query(&sql).await?;
     Ok(())

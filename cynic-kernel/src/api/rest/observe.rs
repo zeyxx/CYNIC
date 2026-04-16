@@ -19,6 +19,7 @@ pub struct ObserveRequest {
     pub project: Option<String>,
     pub agent_id: Option<String>,
     pub session_id: Option<String>,
+    pub tags: Option<Vec<String>>,
 }
 
 pub async fn observe_handler(
@@ -44,6 +45,7 @@ pub async fn observe_handler(
         req.project,
         req.agent_id,
         req.session_id,
+        req.tags,
     );
 
     // Fire-and-forget — bounded (Semaphore) + tracked (TaskTracker) + timed out (5s)

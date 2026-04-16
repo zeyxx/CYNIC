@@ -3,10 +3,9 @@
 # rust-lang/rust #103767, #122357, #138561.
 # -j 1 is the only reliable setting; -j 2 is flaky under memory pressure.
 jobs = 1
+rustflags = ["-C", "debuginfo=1"]
 
 [env]
-# Increased to 32GB — nightly-2026-04-06 still SIGSEGVs in release-mode LLVM/codegen
-# even after moving to jobs=1 and release codegen-units=1. rustc now explicitly
-# recommends 34359738368 on the failing path.
-# rust-lang/rust #103767, #122357, #138561.
-RUST_MIN_STACK = "34359738368"
+# A1 debt: rmcp's generated DWARF overflows debug linking unless debug info is reduced.
+# Keep the repo default here so plain `cargo build` works without shell setup.
+RUST_MIN_STACK = "67108864"

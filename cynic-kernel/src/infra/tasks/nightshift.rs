@@ -6,8 +6,9 @@ use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
+use crate::domain::ccm;
 use crate::domain::constants;
-use crate::domain::dog::Stimulus;
+use crate::domain::dog::{MIN_QUORUM, Stimulus};
 use crate::domain::metrics::Metrics;
 use crate::domain::storage::StoragePort;
 use crate::infra::task_health::TaskHealth;
@@ -55,6 +56,65 @@ async fn git_commits_since(lookback: &str, repo_path: &str) -> Result<Vec<GitCom
     Ok(parse_git_log(&stdout))
 }
 
+/// Map raw observation domains to stable CCM compounding domains.
+/// Keeps temporal accumulation coherent instead of fragmenting by file extension.
+fn ccm_domain_for_observation(raw_domain: &str) -> &'static str {
+    match raw_domain {
+        "session" => "session",
+        "token" => "token",
+        "chess" => "chess",
+        "rust" | "typescript" | "javascript" | "python" | "docs" | "config" | "infra" => "dev",
+        _ => "general",
+    }
+}
+
+/// Judge an observation and observe the result as a CCM crystal.
+async fn judge_observation(
+    obs: &crate::domain::storage::RawObservation,
+    judge: &Arc<crate::judge::Judge>,
+    storage: &Arc<dyn StoragePort>,
+) -> Result<(), String> {
+    let domain = ccm_domain_for_observation(&obs.domain);
+    let stimulus = Stimulus {
+        content: format!(
+            "[{}] {} {}: {}",
+            obs.agent_id, obs.tool, obs.target, obs.context
+        ),
+        context: Some(format!("tags: {:?}", obs.tags)),
+        domain: Some(domain.to_string()),
+        request_id: None,
+    };
+
+    let metrics = Metrics::new();
+    let verdict = judge
+        .evaluate(&stimulus, None, &metrics)
+        .await
+        .map_err(|e| format!("judge failed for observation {}: {e}", obs.id))?;
+
+    let timestamp = chrono::Utc::now().to_rfc3339();
+    let verdict_kind = format!("{:?}", verdict.kind).to_lowercase();
+
+    // Use semantic slug for crystal ID — not per-observation ID.
+    let slug = ccm::semantic_slug(domain, &stimulus.content);
+    let crystal_id = format!("{:x}", ccm::content_hash(&ccm::normalize_for_hash(&slug)));
+
+    storage
+        .observe_crystal(
+            &crystal_id,
+            &stimulus.content,
+            domain,
+            verdict.q_score.total,
+            &timestamp,
+            verdict.voter_count,
+            &verdict.id,
+            &verdict_kind,
+        )
+        .await
+        .map_err(|e| format!("observe_crystal failed for observation {}: {e}", obs.id))?;
+
+    Ok(())
+}
+
 /// Judge a single commit and observe the result as a dev crystal.
 async fn judge_commit(
     commit: &GitCommit,
@@ -77,9 +137,15 @@ async fn judge_commit(
     let timestamp = chrono::Utc::now().to_rfc3339();
     let verdict_kind = format!("{:?}", verdict.kind).to_lowercase();
 
+    // Use semantic slug for crystal ID — not per-commit hash.
+    // "nightshift-{hash}" guarantees fragmentation (1 crystal per commit, never reaches 21 obs).
+    // semantic_slug("dev", message) → "dev:feat:inference" → same crystal for similar commits.
+    let slug = ccm::semantic_slug("dev", &commit.message);
+    let crystal_id = format!("{:x}", ccm::content_hash(&ccm::normalize_for_hash(&slug)));
+
     storage
         .observe_crystal(
-            &format!("nightshift-{}", commit.hash),
+            &crystal_id,
             &stimulus.content,
             "dev",
             verdict.q_score.total,
@@ -142,6 +208,34 @@ pub fn spawn_nightshift_loop(
                     }
 
                     klog!("[Nightshift] {} commit(s) to judge", commits.len());
+
+                    // Quorum guard: check that at least MIN_QUORUM Dogs respond
+                    // before burning cycles on commits that will all fail at storage level.
+                    let probe = Stimulus {
+                        content: "nightshift quorum probe".to_string(),
+                        context: None,
+                        domain: Some("dev".to_string()),
+                        request_id: None,
+                    };
+                    let probe_metrics = Metrics::new();
+                    match judge.evaluate(&probe, None, &probe_metrics).await {
+                        Ok(v) if v.voter_count < MIN_QUORUM => {
+                            tracing::warn!(
+                                voter_count = v.voter_count,
+                                min_quorum = MIN_QUORUM,
+                                "[Nightshift] quorum insufficient — skipping cycle (Dogs may be down)"
+                            );
+                            task_health.touch_nightshift();
+                            continue;
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, "[Nightshift] quorum probe failed — skipping cycle");
+                            task_health.touch_nightshift();
+                            continue;
+                        }
+                        Ok(_) => {} // quorum OK, proceed
+                    }
+
                     let mut judged = 0usize;
                     let mut errors = 0usize;
 
@@ -167,7 +261,37 @@ pub fn spawn_nightshift_loop(
                         }
                     }
 
-                    klog!("[Nightshift] Cycle complete — {} judged, {} errors", judged, errors);
+                    klog!("[Nightshift] Commits: {} judged, {} errors", judged, errors);
+
+                    // Phase 2: judge recent observations across domains (temporal compounding).
+                    match storage.list_observations_raw(None, None, 30).await {
+                        Ok(observations) if !observations.is_empty() => {
+                            klog!("[Nightshift] {} observation(s) to review", observations.len());
+                            let mut s_judged = 0usize;
+                            let mut s_errors = 0usize;
+                            for obs in &observations {
+                                match tokio::time::timeout(
+                                    constants::NIGHTSHIFT_COMMIT_TIMEOUT,
+                                    judge_observation(obs, &judge, &storage),
+                                ).await {
+                                    Ok(Ok(())) => s_judged += 1,
+                                    Ok(Err(e)) => {
+                                        s_errors += 1;
+                                        tracing::warn!(id = %obs.id, error = %e, "[Nightshift] observation judgment failed");
+                                    }
+                                    Err(_) => {
+                                        s_errors += 1;
+                                        tracing::warn!(id = %obs.id, "[Nightshift] observation judgment timed out");
+                                    }
+                                }
+                            }
+                            klog!("[Nightshift] Observations: {} judged, {} errors", s_judged, s_errors);
+                        }
+                        Ok(_) => klog!("[Nightshift] No observations to review"),
+                        Err(e) => tracing::warn!(error = %e, "[Nightshift] Failed to fetch observations"),
+                    }
+
+                    klog!("[Nightshift] Cycle complete");
                     task_health.touch_nightshift();
                 }
             }
@@ -198,6 +322,14 @@ mod tests {
         let commits = parse_git_log("a1b2c3d refactor\n");
         assert_eq!(commits.len(), 1);
         assert_eq!(commits[0].message, "refactor");
+    }
+
+    #[test]
+    fn maps_observation_domains_to_stable_ccm_domains() {
+        assert_eq!(ccm_domain_for_observation("rust"), "dev");
+        assert_eq!(ccm_domain_for_observation("session"), "session");
+        assert_eq!(ccm_domain_for_observation("token"), "token");
+        assert_eq!(ccm_domain_for_observation("unknown"), "general");
     }
 
     #[tokio::test]

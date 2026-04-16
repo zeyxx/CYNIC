@@ -691,6 +691,7 @@ fn raw_observation_json_shape() {
         project: "CYNIC".into(),
         agent_id: "agent-1".into(),
         session_id: "sess-1".into(),
+        tags: vec!["test-tag".into()],
     };
     let v: serde_json::Value = serde_json::to_value(&obs).unwrap();
     // CONTRACT: these fields must exist with these exact names
@@ -705,6 +706,7 @@ fn raw_observation_json_shape() {
         "project",
         "agent_id",
         "session_id",
+        "tags",
     ] {
         assert!(
             v.get(field).is_some(),
@@ -821,7 +823,7 @@ fn usage_row_json_shape() {
 async fn judge_cjk_content_counts_chars_not_bytes() {
     // 1000 CJK chars = 3000 bytes. Must be accepted (limit is 4000 chars).
     // Before fix: .len() saw 3000 bytes, worked but would reject at ~1333 CJK chars.
-    let cjk_content: String = std::iter::repeat('漢').take(1000).collect();
+    let cjk_content: String = "漢".repeat(1000);
     assert_eq!(
         cjk_content.len(),
         3000,
@@ -885,7 +887,7 @@ async fn coord_register_rejects_oversized_intent() {
     let state = test_state(Some("key"));
     let app = rest::router(state);
 
-    let long_intent: String = std::iter::repeat('x').take(501).collect();
+    let long_intent: String = "x".repeat(501);
     let body = serde_json::json!({"agent_id": "test", "intent": long_intent});
     let resp = app
         .oneshot(
@@ -1425,7 +1427,7 @@ async fn create_crystal_rejects_oversized_content() {
     // Content > 2000 chars must return 400 before hitting storage
     let state = test_state(Some("key"));
     let app = rest::router(state);
-    let long_content: String = std::iter::repeat('x').take(2001).collect();
+    let long_content: String = "x".repeat(2001);
     let body = serde_json::json!({"content": long_content, "domain": "chess"});
     let resp = app
         .oneshot(
