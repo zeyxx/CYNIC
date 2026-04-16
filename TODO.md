@@ -11,7 +11,78 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-17 | Session: r23-gate (lint-subprocess-env + R21 falsification)
+Last updated: 2026-04-17 | Session: r23-gate → bucket S → 5-domain audit dispatch (5 agents)
+
+---
+
+## HANDOFF 2026-04-17 → 2026-04-18 (from 5-agent parallel audit)
+
+> *Fractale observée : à chaque couche, "surface active ≠ outcome produit". Strong > No > weak.*
+
+### Le fractal (7 couches, observed)
+
+| Couche | Surface active | Outcome réel | Root cause (file:line) |
+|---|---|---|---|
+| **Hackathon 24j** | 14j commits kernel (clippy/refactor/gate) | **0 commit demo-critical**, 0 public URL | Refactor tunnel; feature freeze dans 11j (27 avril) |
+| **KAIROS → trading** | 4 systemd services up, heartbeat frais | 0 trading verdicts en CYNIC DB | `DRY_RUN=true` hardcoded `~/Bureau/KAIROS/agent/__main__.py:30` + `CYNIC_JUDGE_URL` absent de `.env` + exception swallowed `decision/adapters/cynic_http.py:80-86` |
+| **Nightshift → dev** | "Starting cycle" log /4h | "No commits last 24h" x5 malgré 6+ commits réels | `git_commits_since()` `cynic-kernel/src/infra/tasks/nightshift.rs:38` avec `repo_path` probablement vide (env `CYNIC_PROJECT_ROOT` ou systemd WorkingDirectory incorrect) |
+| **Crystal lifecycle** | counter 342 | 8 crystals statiques depuis 25j | (a) Counter readback côté probe : field s'appelle `observations` (pas `observation_count`), (b) quorum gate `crystal_observer.rs:56` rejette voter_count<MIN_QUORUM — à vérifier si Dogs produisent voter_count=1 |
+| **Verdict timestamp** | verdicts écrits | `timestamp: null` sur read | SurrealDB datetime = JSON object, `row["created_at"].as_str()` → None. Fix = handle object OR string dans `storage/surreal/verdicts.rs:135` |
+| **5-Dog ensemble (chess)** | 5 Dogs registered | Tier match **29% (5/17)** | qwen-7b-hf sovereignty saturée 0.618 sur TOUS chess stimuli (anti-discrimine), gemini-cli absent du benchmark 04-12, gemma-4b "backwards on JUP" |
+| **Crystal injection A/B** | 1100-char budget pipeline | Mean Δ = **-0.013** sur 30 stimuli (hurt Howl, noise sur Bark) | Faith-based infrastructure unvalidated, N=31 insuffisant |
+
+### Priority stack (compound par ROI hackathon × foundation)
+
+**T0 — Hackathon critical path (Agent 5 brutal verdict, confidence 0.58)**
+- [ ] **FREEZE kernel refactor.** No more K16/S5/S6/S7, no more R-gate additions. 11j au feature freeze (2026-04-27).
+- [ ] **Ship UNE URL publique** : textarea → `/judge` → verdict + tx_signature + Solana explorer link. 6-10h (cynic-ui existe, manque wallet + tx display + Vercel deploy).
+- [ ] **Verify Pinocchio deploy live** (memory 2j old) : program ID `A4QK3jj2kDx6w3da7FF3wxiBMnD2NrDsL1F7RCJA5NXx`, community PDA `2ceFyS3H2VfF7A1ULcu6xcchHbHQW5Srph8KA5S2kB3v`. Keypair → secret manager (pas /tmp, risque d'existentielle perte déjà survenue une fois).
+- [ ] **Submission form** Colosseum (deadline 2026-05-04, registration pas code).
+
+**T1 — Foundation repair (unblock demo + measurement)**
+- [ ] **KAIROS bridge** (Agent 4, 2 lignes, ~15min) : `DRY_RUN=false` + `CYNIC_JUDGE_URL=...` dans `~/Bureau/KAIROS/.env`, fix `__main__.py:30` à `os.getenv("DRY_RUN","true").lower()=="true"`. **Falsification** : après restart, `curl /verdicts?domain=trading | jq length` > 0 sous 1 trade cycle.
+- [ ] **Nightshift `git_commits_since`** (Agent 1 Hole 1) : trace `repo_path` à runtime (env var ou WorkingDirectory). **Falsification** : cycle suivant log "N commits processed" > 0, crystal dev-domain apparait.
+- [ ] **Verdict timestamp parsing** (Agent 1 Hole 3) : parser SurrealDB datetime object dans `storage/surreal/verdicts.rs:135`. **Falsification** : `curl /verdicts | jq '.[].timestamp'` retourne chaîne ISO 8601.
+
+**T2 — Measurement (can't improve what you don't measure)**
+- [ ] **Expérience token prompt A/B** (Agent 3, ~20min wall clock) : 3 stimuli (ClassicRug/JUP/ASDF) × 2 modes (domain prompt on/off, crystals off). **Hypothèse** : JUP Q passe ≥ 0.528 (WAG→HOWL), Δ ≥ 0.08. **Falsification** : Δ < 0.05 = problème = Dogs saturés (qwen-7b-hf), pas prompts.
+- [ ] **Chess tier match re-mesure** avec gemini-cli présent (absent du benchmark 04-12). Baseline honnête pour "CYNIC judge chess". Target ≥ 50% pour demo viable.
+- [ ] **Corpus token + trading N≥50** (Agent 3 Gap 2) : sans ça, aucune A/B possible, crystal injection reste faith-based.
+
+**T3 — Build discipline (deprioritize hackathon)**
+- NaN filter `judge/math.rs:27` (`partial_cmp` + `unwrap_or(Equal)` laisse NaN glisser à travers trimmed_mean)
+- `storage/memory.rs` 437L zero test (test harness non-testé — tous les unit tests héritent du biais)
+- cargo-nextest (1-line config, decouples test parallelism malgré `jobs=1`)
+
+**T4 — Backlog (noté, pas bloquant)**
+- Heartbeat hook PostToolUse → /coord/register (Agent 4 Bug B, fix 0-active-agents)
+- RC5-4 fleet.rs:41 silent fallback
+- `.claude/hooks/exercise-scheduler.sh` untracked debris (path hardcoded)
+- Replace qwen-7b-hf par Prometheus-2 7B GGUF (Agent 3 Gap 1)
+
+### Tomorrow's attack — 1 item, pacing-discipline
+
+**Recommandation externe (inferred, 0.50)** : **T1 KAIROS bridge fix**.
+- Effort : 15-30 min
+- Unblocks : trading verdicts fluent → empirical foundation pour Dogs trading → demoable ("voici CYNIC sur données réelles Binance OI")
+- Upstream de tout : si pas fixé, aucune mesure trading possible, aucun demo trading, corpus trading reste N=0
+- Falsifiable binaire (GET /verdicts?domain=trading > 0 oui/non)
+
+Si tu préfères foundation-first : **T1 Nightshift fix** = kernel "apprend de lui-même" narrative, mais invisible au judge.
+
+Si tu préfères demo-first : **T0 public URL** = 6-10h, priorise par rapport à tout si timeline serrée.
+
+### Falsification globale de cette synthèse
+
+- Si tu ships 1 PR demo-critical ce weekend, "kill decision T0 freeze refactor" tombe partiellement. Sinon, observation = le demo ne sort pas.
+- Si tu me montres un nightshift log "N commits processed" > 0, mon Hole 1 root cause tombe.
+- Si tu me montres un `/verdicts | jq '.[].timestamp'` non-null, Hole 3 root cause tombe.
+
+### Cost de cette session (pour budget tracking)
+
+- 5 agents dispatched (2 opus AI/ML + hackathon, 3 sonnet pipeline/Rust/infra) + synthesis
+- Output : handoff block + no code changes
+- Session durée totale : ~4h30 (R23 + bucket S + 5-audit)
 
 ---
 
