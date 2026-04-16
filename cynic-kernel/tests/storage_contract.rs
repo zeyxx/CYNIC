@@ -226,8 +226,7 @@ async fn contract_crystal_forming_to_crystallized(db: &dyn StoragePort) {
     assert_eq!(
         crystal.state.to_string(),
         "crystallized",
-        "at {} obs with high confidence → crystallized",
-        MIN_CRYSTALLIZATION_CYCLES
+        "at {MIN_CRYSTALLIZATION_CYCLES} obs with high confidence → crystallized",
     );
 }
 
@@ -445,8 +444,7 @@ async fn contract_crystal_canonical_at_233_obs(db: &dyn StoragePort) {
     assert_eq!(
         crystal.state.to_string(),
         "canonical",
-        "at {} obs with high confidence → canonical",
-        CANONICAL_CYCLES
+        "at {CANONICAL_CYCLES} obs with high confidence → canonical",
     );
 }
 

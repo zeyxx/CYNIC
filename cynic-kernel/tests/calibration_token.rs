@@ -328,6 +328,9 @@ fn ambiguous_stimuli_contain_mixed_signals() {
 
 /// Print all 9 stimuli for manual review.
 /// Run with: cargo test --test calibration_token print_corpus -- --nocapture
+// WHY: diagnostic output explicitly invoked with --nocapture for operator calibration review.
+// stdout is the intended surface; tracing/logging would be worse UX for the interactive use case.
+#[allow(clippy::print_stdout)]
 #[test]
 fn print_corpus() {
     let corpus: Vec<(&str, &str, TokenData)> = vec![

@@ -145,6 +145,9 @@ mod tests {
         assert_eq!(backend.name(), "gemini-2.5-flash");
     }
 
+    // WHY: runtime skip notice when gemini CLI is absent — operator-facing message
+    // for an #[ignore]d test invoked explicitly. stderr avoids polluting test output capture.
+    #[allow(clippy::print_stderr)]
     #[tokio::test]
     #[ignore] // Requires working gemini CLI — times out in sandboxed environments
     async fn chat_returns_text_from_cli_stdout() {
