@@ -623,7 +623,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         shutdown.clone(),
         project_root.display().to_string(),
     );
-    klog!("[Ring 3] Nightshift loop started (every 4h, git lookback 24h)");
+    klog!(
+        "[Ring 3] Nightshift loop started (every 4h, git lookback {})",
+        crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
+    );
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
