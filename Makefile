@@ -163,12 +163,12 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			echo "WARN Drift: hook '$$HOOK_BASE' on disk but not wired in settings.json or settings.local.json"; FAIL=1; \
 		fi; \
 	done; \
-	STORES=$$(grep -oP 'async fn \Kstore_\w+' $(PROJECT_DIR)/cynic-kernel/src/domain/storage.rs | sort -u); \
+	STORES=$$(grep -oP 'async fn \Kstore_\w+' $(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs | sort -u); \
 	for STORE in $$STORES; do \
 		ENTITY=$$(echo "$$STORE" | sed 's/^store_//'); \
 		STEM=$$(echo "$$ENTITY" | sed 's/y$$//' | sed 's/ing$$//'); \
 		CORE=$$(echo "$$ENTITY" | sed 's/^.*_//'); \
-		if ! grep -qE "async fn (list_|get_|load_|query_|count_|search_|find_)\w*($$STEM|$$CORE)" $(PROJECT_DIR)/cynic-kernel/src/domain/storage.rs; then \
+		if ! grep -qE "async fn (list_|get_|load_|query_|count_|search_|find_)\w*($$STEM|$$CORE)" $(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs; then \
 			echo "FAIL Rule 33: '$$STORE' has no read path (searched '$$STEM' or '$$CORE')"; FAIL=1; \
 		fi; \
 	done; \
@@ -340,6 +340,17 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 		echo "  ✓ D4 gate caught phantom Dog in reference.md"; PASS=$$((PASS+1)); \
 	fi; \
 	mv "$$REF.gate-bak" "$$REF"; \
+	\
+	echo "[K15] Injecting store_* with no read path in storage/mod.rs..."; \
+	K15_TARGET="$(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs"; \
+	cp "$$K15_TARGET" "$$K15_TARGET.gate-bak"; \
+	printf '\n    async fn store_phantom_k15_gate_probe(&self) -> Result<(), StorageError> { unimplemented!() }\n' >> "$$K15_TARGET"; \
+	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
+		echo "  ✗ K15 gate MISSED store_* without read path — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ K15 gate caught store_* without read path"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$K15_TARGET.gate-bak" "$$K15_TARGET"; \
 	\
 	echo ""; echo "── lint-subprocess-env ──"; \
 	\
