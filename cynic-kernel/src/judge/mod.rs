@@ -308,7 +308,98 @@ impl Judge {
     /// Evaluate with optional progressive callback — called after each Dog completes.
     /// `on_dog` receives (dog_id, success, elapsed_ms, optional DogScore clone).
     /// Used by `/judge/async` to update the job store as Dogs arrive.
-    #[tracing::instrument(skip(self, metrics, on_dog), err)]
+    #[tracing::instrument(skip(self, metrics), err)]
+    fn process_dog_result(
+        &self,
+        idx: usize,
+        id: String,
+        result: Result<AxiomScores, DogError>,
+        elapsed_ms: u64,
+        metrics: &Metrics,
+    ) -> Result<DogScore, DogFailure> {
+        let cb = &self.breakers[idx];
+        let organ_handle = self.organ_handles[idx].as_ref();
+
+        metrics.inc_dog_eval();
+        match result {
+            Ok(scores) => {
+                cb.record_success();
+                if let Some(h) = organ_handle {
+                    InferenceOrgan::update_stats_entry(h, ScoreOutcome::Success { elapsed_ms });
+                }
+                tracing::info!(
+                    phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
+                    q = %format!("{:.3}", compute_qscore(&scores).total),
+                    raw_fidelity = %format!("{:.3}", scores.fidelity),
+                    raw_phi = %format!("{:.3}", scores.phi),
+                    raw_verify = %format!("{:.3}", scores.verify),
+                    raw_culture = %format!("{:.3}", scores.culture),
+                    raw_burn = %format!("{:.3}", scores.burn),
+                    raw_sovereignty = %format!("{:.3}", scores.sovereignty),
+                    "Dog responded"
+                );
+                Ok(DogScore {
+                    dog_id: id,
+                    latency_ms: elapsed_ms,
+                    prompt_tokens: scores.prompt_tokens,
+                    completion_tokens: scores.completion_tokens,
+                    fidelity: phi_bound(scores.fidelity),
+                    phi: phi_bound(scores.phi),
+                    verify: phi_bound(scores.verify),
+                    culture: phi_bound(scores.culture),
+                    burn: phi_bound(scores.burn),
+                    sovereignty: phi_bound(scores.sovereignty),
+                    raw_fidelity: scores.fidelity,
+                    raw_phi: scores.phi,
+                    raw_verify: scores.verify,
+                    raw_culture: scores.culture,
+                    raw_burn: scores.burn,
+                    raw_sovereignty: scores.sovereignty,
+                    abstentions: scores.abstentions,
+                    reasoning: scores.reasoning,
+                })
+            }
+            Err(e) => {
+                match &e {
+                    DogError::ApiError(_)
+                    | DogError::ParseError(_)
+                    | DogError::ZeroFlood(_)
+                    | DogError::DegenerateScores { .. } => cb.record_failure(),
+                    _ => cb.record_success(),
+                }
+                if let Some(h) = organ_handle {
+                    let outcome = match &e {
+                        DogError::ZeroFlood(_) => {
+                            ScoreOutcome::Failure(ScoreFailureKind::ZeroFlood)
+                        }
+                        DogError::DegenerateScores { .. } => {
+                            ScoreOutcome::Failure(ScoreFailureKind::Collapse)
+                        }
+                        DogError::ParseError(_) => {
+                            ScoreOutcome::Failure(ScoreFailureKind::ParseError)
+                        }
+                        DogError::Timeout => ScoreOutcome::Failure(ScoreFailureKind::Timeout),
+                        _ => ScoreOutcome::Failure(ScoreFailureKind::ApiError),
+                    };
+                    InferenceOrgan::update_stats_entry(h, outcome);
+                }
+                metrics.inc_dog_failure();
+                let kind = DogFailureKind::from(&e);
+                tracing::warn!(
+                    phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
+                    error_type = %kind.as_str(),
+                    error = %e,
+                    "Dog failed"
+                );
+                Err(DogFailure {
+                    dog_id: id,
+                    kind,
+                    detail: e.to_string(),
+                })
+            }
+        }
+    }
+
     pub async fn evaluate_progressive(
         &self,
         stimulus: &Stimulus,
@@ -364,106 +455,21 @@ impl Judge {
                 detail: format!("Wall-clock timeout ({elapsed})"),
             }])
         })? {
-            let (idx, id, result, elapsed_ms) = result;
-            let cb = &self.breakers[idx];
-            let organ_handle = self.organ_handles[idx].as_ref();
-
-            // Count ALL attempts (success + failure) so failure rate = fails / evals ≤ 1.0
-            metrics.inc_dog_eval();
-            match result {
-                Ok(scores) => {
-                    cb.record_success();
-                    if let Some(h) = organ_handle {
-                        InferenceOrgan::update_stats_entry(h, ScoreOutcome::Success { elapsed_ms });
-                    }
-                    tracing::info!(
-                        phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
-                        q = %format!("{:.3}", compute_qscore(&scores).total),
-                        raw_fidelity = %format!("{:.3}", scores.fidelity),
-                        raw_phi = %format!("{:.3}", scores.phi),
-                        raw_verify = %format!("{:.3}", scores.verify),
-                        raw_culture = %format!("{:.3}", scores.culture),
-                        raw_burn = %format!("{:.3}", scores.burn),
-                        raw_sovereignty = %format!("{:.3}", scores.sovereignty),
-                        "Dog responded"
-                    );
-                    dog_scores.push(DogScore {
-                        dog_id: id,
-                        latency_ms: elapsed_ms,
-                        prompt_tokens: scores.prompt_tokens,
-                        completion_tokens: scores.completion_tokens,
-                        fidelity: phi_bound(scores.fidelity),
-                        phi: phi_bound(scores.phi),
-                        verify: phi_bound(scores.verify),
-                        culture: phi_bound(scores.culture),
-                        burn: phi_bound(scores.burn),
-                        sovereignty: phi_bound(scores.sovereignty),
-                        raw_fidelity: scores.fidelity,
-                        raw_phi: scores.phi,
-                        raw_verify: scores.verify,
-                        raw_culture: scores.culture,
-                        raw_burn: scores.burn,
-                        raw_sovereignty: scores.sovereignty,
-                        abstentions: scores.abstentions,
-                        reasoning: scores.reasoning,
-                    });
-                    // D4: notify progressive callback (success)
+            let (idx, id, res, elapsed_ms) = result;
+            match self.process_dog_result(idx, id.clone(), res, elapsed_ms, metrics) {
+                Ok(score) => {
                     if let Some(cb) = &on_dog {
-                        cb(
-                            dog_scores.last().map_or("", |s| &s.dog_id),
-                            true,
-                            elapsed_ms,
-                            dog_scores.last(),
-                            None,
-                        );
+                        cb(&id, true, elapsed_ms, Some(&score), None);
                     }
+                    dog_scores.push(score);
                 }
-                Err(ref e) => {
-                    // ApiError = backend unreachable/protocol error. Trips CB.
-                    // ParseError/ZeroFlood/Degenerate = backend returned garbage. Trips CB.
-                    // RateLimited/Timeout = backend is alive, just congested. Does NOT trip CB.
-                    match e {
-                        DogError::ApiError(_) | DogError::ParseError(_) | DogError::ZeroFlood(_) | DogError::DegenerateScores { .. } => cb.record_failure(),
-                        _ => cb.record_success(),
-                    }
-                    // Organ: classify failure kind for health tracking.
-                    if let Some(h) = organ_handle {
-                        let outcome = match e {
-                            DogError::ZeroFlood(_) => {
-                                ScoreOutcome::Failure(ScoreFailureKind::ZeroFlood)
-                            }
-                            DogError::DegenerateScores { .. } => {
-                                ScoreOutcome::Failure(ScoreFailureKind::Collapse)
-                            }
-                            DogError::ParseError(_) => {
-                                ScoreOutcome::Failure(ScoreFailureKind::ParseError)
-                            }
-                            DogError::Timeout => ScoreOutcome::Failure(ScoreFailureKind::Timeout),
-                            DogError::ApiError(_) | DogError::RateLimited(_) => {
-                                ScoreOutcome::Failure(ScoreFailureKind::ApiError)
-                            }
-                        };
-                        InferenceOrgan::update_stats_entry(h, outcome);
-                    }
-                    metrics.inc_dog_failure();
-                    let kind = DogFailureKind::from(e);
-                    tracing::warn!(
-                        phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
-                        error_type = %kind.as_str(),
-                        error = %e,
-                        "Dog failed"
-                    );
-                    // D4: notify progressive callback (failure)
+                Err(failure) => {
                     if let Some(cb) = &on_dog {
-                        cb(&id, false, elapsed_ms, None, Some(e.to_string()));
+                        cb(&id, false, elapsed_ms, None, Some(failure.detail.clone()));
                     }
-                    failed_dog_errors.insert(id.clone(), kind.as_str().to_string());
+                    failed_dog_errors.insert(id.clone(), failure.kind.as_str().to_string());
                     failed_dogs.push(id.clone());
-                    failures.push(DogFailure {
-                        dog_id: id,
-                        kind,
-                        detail: e.to_string(),
-                    });
+                    failures.push(failure);
                 }
             }
         }
