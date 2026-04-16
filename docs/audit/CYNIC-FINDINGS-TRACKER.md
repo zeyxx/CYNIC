@@ -1,9 +1,9 @@
 # CYNIC Findings Tracker — v0.8.0-dev
 
-*Updated 2026-03-29. Honest inventory — no overclaims.*
+*Updated 2026-04-16. Honest inventory — no overclaims.*
 
 **Sources:** Industrial Audit (67 findings, 2026-03-24) + Stress Test (23 findings, 2026-03-25)
-**Total: 90 findings. 43 fixed. 9 partial/accepted. 38 open.**
+**Total: 90 findings. 45 fixed. 10 partial/accepted. 35 open.**
 
 **v0.8 Wave 0+1 (2026-03-27):** Crystal lifecycle integrity + consensus enforcement.
 Defends the crystal feedback loop (permanent damage path). Does NOT fix direct stimulus injection (fundamental LLM limitation, mitigated by multi-Dog consensus — arxiv 2504.18333).
@@ -49,9 +49,9 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 |---|---|---|---|
 | F5 | Stress | Sovereign Dogs can't handle concurrency (serial) | OPEN |
 | F7 | Stress | SurrealDB intermittent 401 | OPEN (has retry) |
-| F9 | Stress | Fake algebraic notation (f64, Rc4 match chess regex) | OPEN |
-| F10 | Stress | "100%" undetected as absolute claim | OPEN |
-| F11 | Stress | Context inflates unique_ratio | OPEN |
+| F9 | Stress | Fake algebraic notation (f64, Rc4 match chess regex) | ACCEPTED — `detect_formal_notation` (dogs/deterministic.rs:86-92) domain-guards: detector only runs when `stimulus.domain == "chess"`. Test at :756 `detect_algebraic_rejects_non_chess` documents the design — "domain guard is the real filter". Residual risk in chess-tagged docs is near-zero (CS tokens unlikely in chess content). Defense-in-depth tightening possible but low value. |
+| F10 | Stress | "100%" undetected as absolute claim | **FIXED** — dogs/deterministic.rs:209-220 (`F10 fix: match percentage patterns`): `pct_absolutes` filters words ending in `%` where numeric portion ≥100 or ≤0. Counted alongside `always`/`never`/`guaranteed`. Regression test at :500 `penalizes_absolute_claims` uses "guaranteed 100% certainly" in content. |
+| F11 | Stress | Context inflates unique_ratio | **FIXED** — dogs/deterministic.rs:192-196 + :254-257: `unique_ratio` computed only from `stimulus.content` words, not context. Comment at :193 explicit: "Context intentionally unused — DeterministicDog judges FORM of content only. LLM Dogs use context for SUBSTANCE evaluation. See Fix 1 / F11." |
 | F13 | Stress | CJK byte/char mismatch in validation | **FIXED** — v0.8w2: .chars().count() in all free-text validation (REST+MCP content, context, prompt, intent). Regression test: 1000 CJK chars (3000 bytes) accepted. |
 | F17 | Stress | VerdictCache key: no domain, no dogs filter | **FIXED** — v0.8w0: CacheContext newtype (domain + dogs_hash). Lookup skips mismatched entries. 3 contract tests. |
 | F19 | Stress | Dogs filter ignored on cache hits | **FIXED** — v0.8w0: CacheContext.dogs_hash from Judge::available_dogs_hash(filter). Different Dog config = cache miss. |
@@ -137,8 +137,8 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 - **F14 (direct stimulus injection)** — fundamental LLM limitation. Multi-Dog consensus is the defense. Structural isolation (ChatPort multi-turn) is v0.9.
 - **F17/F19 (cache cross-domain)** — **Already fixed** in v0.8w0 (CacheContext). Tracker was stale.
 - **F6** — gemma parse failure (needs Dog prompt research).
-- **DeterministicDog (F9/F10/F11)** — needs research on false positive patterns.
-- **Observability (RC7)** — needs request_id propagation design.
+- **DeterministicDog** — F10 (percentage absolutes) + F11 (context excluded from form judgment) shipped; F9 accepted by domain-guard design.
+- **Observability (RC7)** — RC7-1/RC7-2 shipped (request_id + #[instrument] multi-hop, commit a2472ae). Remaining RC7 items scoped separately.
 - **Infrastructure (RC2/RC6)** — systemd/ops work.
 
 ## Compound Priority (remaining)
@@ -147,8 +147,7 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 1. **F6** gemma parse failure (Dog prompt research)
 
 ### Research Required
-3. **F9/F10/F11** DeterministicDog heuristics
-4. **RC7** Observability propagation
+3. **RC7** Observability remaining (beyond RC7-1/RC7-2 which shipped)
 
 ### v0.9 Architectural
 5. **F14** ChatPort multi-turn for structural stimulus isolation (StruQ USENIX Sec'25)
