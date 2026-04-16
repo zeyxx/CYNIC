@@ -1,6 +1,6 @@
 # CYNIC Findings Tracker — v0.8.0-dev
 
-*Updated 2026-04-16. Honest inventory — no overclaims.*
+*Updated 2026-04-17. Honest inventory — no overclaims.*
 
 **Sources:** Industrial Audit (67 findings, 2026-03-24) + Stress Test (23 findings, 2026-03-25)
 **Total: 90 findings. 45 fixed. 10 partial/accepted. 35 open.**
@@ -19,7 +19,7 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 |---|---|---|---|
 | F15 | Stress | Crystal API bypasses epistemic gate — 25 calls = Crystallized | **FIXED** — v0.8: REST observe returns 422 (quorum gate T8), StoragePort rejects voter_count < MIN_QUORUM. POST /crystal still creates Forming (harmless — can't promote without Dogs). |
 | F20 | Stress | Single-dog mode indistinguishable from consensus | **FIXED** — v0.8: voter_count in Verdict struct + REST response. Quorum gate (T8) blocks single-Dog crystallization. Verdict still served (availability). |
-| RC1-1 | Audit | MCP zero authentication (stdio = process trust, but no shared ServiceLayer) | PARTIAL — rate limit added, no auth |
+| RC1-1 | Audit | MCP zero authentication (stdio = process trust, but no shared ServiceLayer) | **FIXED** — v0.7.7-110+: `cynic_auth` tool (judge_tools.rs:21) establishes session via Bearer; `require_auth()?` gates 6+ MCP handlers (coord_tools.rs:25,80,151,226 + judge_tools.rs:62,317). Error path at `api/mcp/mod.rs:277-281` ("Not authenticated — call cynic_auth first"). Verified 2026-04-17. |
 
 ## HIGH (8 open, 8 fixed)
 
@@ -30,7 +30,7 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 | F16 | Stress | Crystal observe overwrites content | **FIXED** — v0.8: SQL `content = content ?? '{content}'` (set-once, event sourcing pattern). Content preserved from first observation. |
 | F23 | Stress | /events unauthenticated, no connection limit, FD exhaustion | **FIXED** — v0.8w2: sse_semaphore(32) limits concurrent SSE connections. 503 when full. Permit held via stream lifetime. Still unauthenticated (operational data). |
 | RC1-2 | Audit | MCP no rate limiting | **FIXED** — McpRateLimit 10/min judge, 30/min other |
-| RC1-3 | Audit | cynic_infer MCP-only, unprotected | PARTIAL — rate-limited, no auth |
+| RC1-3 | Audit | cynic_infer MCP-only, unprotected | **FIXED** — via RC1-1: `cynic_infer` at judge_tools.rs:313-318 now requires `self.require_auth()?` + `self.rate_limit.check_judge()?`. Verified 2026-04-17. |
 | RC2-1 | Audit | Health counts all Dogs, not healthy ones | **FIXED** — system_health_status() |
 | RC2-2 | Audit | No liveness/readiness separation | **FIXED** — /live + /ready |
 | RC3-1 | Audit | No model name verification at boot | **FIXED** — verify_model_loaded() |
@@ -65,7 +65,7 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 | RC4-2 | Audit | sanitize_record_id collision | **FIXED** — percent-encoding |
 | RC4-3 | Audit | sanitize_record_id no length limit | **FIXED** — chars().take(256) |
 | RC5-3 | Audit | SSE serialization → empty event | **FIXED** — log + skip |
-| RC5-4 | Audit | Probe reqwest → silent default | PARTIAL — logged, still fallback |
+| RC5-4 | Audit | Probe reqwest → silent default | PARTIAL — `probe/llm.rs:354-365` logs fallback ✓. **Regression note 2026-04-17**: `infra/probes/fleet.rs:41-45` silently falls back to `reqwest::Client::new()` via `.unwrap_or_else` with no log — introduced by FleetProbe extraction (post-audit). Still returns fallback, no gate. |
 | RC5-5 | Audit | Integrity chain seed not logged | **FIXED** |
 | RC5-6 | Audit | Metrics hydration silent | **FIXED** |
 | RC5-7 | Audit | RwLock poison swallowed | **FIXED** — logged |
@@ -78,7 +78,7 @@ Defends the crystal feedback loop (permanent damage path). Does NOT fix direct s
 | RC6-4 | Audit | Zero security hardening in units | OPEN |
 | RC8-2 | Audit | setup-ubuntu.sh 0.0.0.0 default | **FIXED** — 127.0.0.1 |
 | RC8-3 | Audit | Makefile rollback/hotfix parse JSON | **FIXED** — status codes |
-| RC8-4 | Audit | No cargo audit in pipeline | PARTIAL — conditional |
+| RC8-4 | Audit | No cargo audit in pipeline | **FIXED** — `cargo audit --deny warnings` unconditional in `make check` (Makefile:54-55). `make check` is the pre-push gate (scripts/git-hooks/pre-push:47) → audit runs on every push. Verified 2026-04-17. |
 
 ## LOW (16 open, 12 fixed/accepted)
 
