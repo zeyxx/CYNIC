@@ -11,7 +11,7 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-16 | Session: structural-plan (Opus) + heartbeat-fix + S1 + S3
+Last updated: 2026-04-16 | Session: structural-plan (Opus) + heartbeat-fix + S1 + S2 + S3
 
 ---
 
@@ -23,7 +23,7 @@ Contexte : 10 fichiers >400 lignes prod. `main.rs` 956 lignes / 0 test. `domain/
 
 - [x] **S1 — `judge.rs` → `judge/`** (TODO #1+#2 fusionnés) — LIVRÉ 2026-04-16. Mesures réelles : `judge/types.rs` 73L, `judge/math.rs` 232L, `judge/mod.rs` 523L prod (down 776). `evaluate_progressive` 322 → **210 lignes (hypothèse <200 partiellement falsifiée, −35%)**. 476 tests pass, `verdict_chain_links_hashes` + 5 `verify_integrity_*` passent (falsification négative). Clippy lib clean. Extractions : `aggregate_scores`, `detect_residuals`, `chain_hash` dans `math.rs`.
 
-- [ ] **S2 — `api/rest/health.rs` → `health.rs` + `dogs.rs`** — handler health/metrics (~220L) vs roster management register/heartbeat/deregister (~320L). Concerns orthogonaux, dépendances asymétriques. Falsification: `POST /dogs/register` échoue en integration test. Dépend de: rien (parallèle S1).
+- [x] **S2 — `api/rest/health.rs` → `health.rs` + `dogs.rs`** — LIVRÉ 2026-04-16. Mesures : `health.rs` 547 → 300L (readonly observability : live, ready, health, agents, metrics), `dogs.rs` 261L (roster : list, register, heartbeat, deregister). Split par namespace URL (/dogs/* = dogs.rs, /health /ready /live /agents /metrics = health.rs). 476 tests pass, clippy lib clean. `api/rest/mod.rs` router mis à jour avec `pub mod dogs;` et imports séparés.
 
 - [x] **S3 — `domain/storage.rs` → `domain/storage/`** — LIVRÉ 2026-04-16. Mesures : `mod.rs` 265L (StoragePort trait pur), `null.rs` 107L (NullStorage adapter), `types.rs` 97L (Observation*, RawObservation, UsageRow, StorageError, StorageMetrics). Total 469L (vs 446 — overhead module boilerplate acceptable). 476 tests pass, clippy lib clean. Callers préservés via `pub use types::{...}; pub use null::NullStorage;` — 14 fichiers (storage/*, pipeline/, main.rs, infra/tasks/nightshift.rs) compilent sans changement.
 
