@@ -325,10 +325,10 @@ command = ["llama-server", "-m", "/models/test.gguf"]
         //  to avoid needing a real file on disk)
         let mut cfg: Config = toml::from_str(toml).map_err(|e| e.to_string())?;
         cfg.kernel.api_key = kernel_key.to_owned();
-        if let Some(env_name) = &cfg.dog.api_key_env {
-            if let Ok(v) = std::env::var(env_name) {
-                cfg.dog.api_key = Some(v);
-            }
+        if let Some(env_name) = &cfg.dog.api_key_env
+            && let Ok(v) = std::env::var(env_name)
+        {
+            cfg.dog.api_key = Some(v);
         }
         Ok(cfg)
     }
