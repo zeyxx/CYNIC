@@ -21,7 +21,8 @@ Last updated: 2026-04-16 | Session: structural-plan (Opus) + heartbeat-fix + S1 
 
 Contexte : 10 fichiers >400 lignes prod. `main.rs` 956 lignes / 0 test. `domain/storage.rs` 446 lignes / 0 test. Plan séquentiel : chaque étape laisse `cargo build --tests` vert.
 
-- [x] **S1 — `judge.rs` → `judge/`** (TODO #1+#2 fusionnés) — LIVRÉ 2026-04-16. Mesures réelles : `judge/types.rs` 73L, `judge/math.rs` 232L, `judge/mod.rs` 523L prod (down 776). `evaluate_progressive` 322 → **210 lignes (hypothèse <200 partiellement falsifiée, −35%)**. 476 tests pass, `verdict_chain_links_hashes` + 5 `verify_integrity_*` passent (falsification négative). Clippy lib clean. Extractions : `aggregate_scores`, `detect_residuals`, `chain_hash` dans `math.rs`.
+- [x] **S1 — `judge.rs` → `judge/`** (TODO #1+#2 fusionnés) — LIVRÉ 2026-04-16.
+- [x] **BURN — `evaluate_progressive` decomposition** — LIVRÉ 2026-04-16. Extraction de `process_dog_result`. Fonction passée de 211L à <100L de logique pure. Architecture PHI.
 
 - [x] **S2 — `api/rest/health.rs` → `health.rs` + `dogs.rs`** — LIVRÉ 2026-04-16. Mesures : `health.rs` 547 → 300L (readonly observability : live, ready, health, agents, metrics), `dogs.rs` 261L (roster : list, register, heartbeat, deregister). Split par namespace URL (/dogs/* = dogs.rs, /health /ready /live /agents /metrics = health.rs). 476 tests pass, clippy lib clean. `api/rest/mod.rs` router mis à jour avec `pub mod dogs;` et imports séparés.
 
