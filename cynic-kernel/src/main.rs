@@ -248,140 +248,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     let domain_prompts = Arc::new(infra::config::load_domain_prompts(&project_root));
 
-    // ─── RING 2: Build Dogs (model-agnostic evaluators) ───────
-    let mut dogs: Vec<Arc<dyn domain::dog::Dog>> = Vec::new();
-    let mut organ_handles: Vec<Option<organ::BackendHandle>> = Vec::new();
-    let mut organ = organ::InferenceOrgan::boot_empty();
-
-    // Always add the deterministic Dog (free, fast)
-    dogs.push(Arc::new(dogs::deterministic::DeterministicDog));
-    organ_handles.push(None); // deterministic dog has no backend to track
-    klog!("[Ring 2] DeterministicDog loaded");
-
-    // Create InferenceDog per configured backend
-    // Also collect health URLs and remediation configs from the SoT (backends.toml)
-    let mut cost_rates: Vec<(String, f64, f64)> = Vec::new();
-    let mut remediation_configs: std::collections::HashMap<
-        String,
-        infra::config::BackendRemediation,
-    > = std::collections::HashMap::new();
-    let mut health_urls: std::collections::HashMap<String, Option<String>> =
-        std::collections::HashMap::new();
-    // Fleet probe needs base_url (for /props + /v1/models), context_size, model name, api_key
-    let mut fleet_meta: std::collections::HashMap<String, (String, u32, String, Option<String>)> =
-        std::collections::HashMap::new();
-    for cfg in backend_configs {
-        let backend: Arc<dyn domain::chat::ChatPort> = match cfg.backend_type {
-            infra::config::BackendType::Cli => Arc::new(backends::cli::CliBackend::new(
-                &cfg.name,
-                &cfg.base_url, // for CLI backends, base_url holds the binary path/name
-                cfg.timeout_secs,
-            )),
-            infra::config::BackendType::OpenAi => {
-                match backends::openai::OpenAiCompatBackend::new(cfg.clone()) {
-                    Ok(b) => Arc::new(b),
-                    Err(e) => {
-                        klog!(
-                            "[Ring 2] InferenceDog '{}' SKIPPED — HTTP client init failed: {}",
-                            cfg.name,
-                            e
-                        );
-                        continue;
-                    }
-                }
-            }
-        };
-        let health = domain::inference::BackendPort::health(backend.as_ref()).await;
-        // Always load the Dog — health loop will recover it if unreachable.
-        // Skipping at boot prevents the health loop from ever probing it.
-        match health {
-            domain::inference::BackendStatus::Healthy
-            | domain::inference::BackendStatus::Degraded { .. } => {
-                klog!(
-                    "[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?})",
-                    cfg.name,
-                    cfg.model,
-                    health
-                );
-            }
-            _ => {
-                klog!(
-                    "[Ring 2] InferenceDog '{}' loaded (model: {}, health: {:?}) — health loop will recover",
-                    cfg.name,
-                    cfg.model,
-                    health
-                );
-            }
-        }
-        cost_rates.push((
-            cfg.name.clone(),
-            cfg.cost_input_per_mtok,
-            cfg.cost_output_per_mtok,
-        ));
-        health_urls.insert(cfg.name.clone(), cfg.health_url.clone());
-        // CLI backends have no HTTP URL to probe — skip fleet_meta insertion
-        if cfg.backend_type != infra::config::BackendType::Cli {
-            fleet_meta.insert(
-                cfg.name.clone(),
-                (
-                    cfg.base_url.clone(),
-                    cfg.context_size,
-                    cfg.model.clone(),
-                    cfg.api_key.clone(),
-                ),
-            );
-        }
-        if let Some(rem) = cfg.remediation.clone() {
-            remediation_configs.insert(cfg.name.clone(), rem);
-        }
-        dogs.push(Arc::new(
-            dogs::inference::InferenceDog::new(
-                backend,
-                cfg.name.clone(),
-                cfg.context_size,
-                cfg.timeout_secs,
-            )
-            .with_domain_prompts(Arc::clone(&domain_prompts)),
-        ));
-
-        // Register backend in organ — maps BackendConfig → organ registry entry
-        let organ_backend = organ::registry::Backend {
-            id: organ::registry::BackendId(cfg.name.clone()),
-            declared: organ::registry::DeclaredCapabilities {
-                json: cfg.json_mode,
-                thinking: !cfg.disable_thinking,
-                scoring: true,
-                ..Default::default()
-            },
-            measured: organ::registry::MeasuredCapabilities::default(),
-            health: organ::registry::BackendHealth::Healthy,
-        };
-        let handle = organ.register_backend(organ_backend);
-        organ_handles.push(Some(handle));
-    }
-
-    klog!(
-        "[Ring 2] {} Dog(s) active, InferenceOrgan: {} backend(s) registered",
-        dogs.len(),
-        organ.backend_count()
-    );
-
-    // Load persisted DogStats from DB — restores quality knowledge across restarts (B5 amnesia fix)
-    match storage_port.load_dog_stats().await {
-        Ok(loaded) if !loaded.is_empty() => {
-            organ.restore_stats(&loaded);
-            klog!(
-                "[Ring 2] Organ: restored {} Dog quality histories",
-                loaded.len()
-            );
-        }
-        Err(e) => klog!(
-            "[Ring 2] Organ: failed to load Dog stats (non-fatal): {}",
-            e
-        ),
-        _ => {}
-    }
-    let organ = std::sync::Arc::new(organ);
+    // ─── RING 2: Build Dogs + organ from backend_configs ──────
+    // Factory loop lives in infra::boot so main stays a composition root.
+    let infra::boot::DogsAndOrgan {
+        dogs,
+        organ_handles,
+        organ,
+        cost_rates,
+        health_urls,
+        fleet_meta,
+        remediation_configs,
+    } = infra::boot::build_dogs_and_organ(backend_configs, &domain_prompts, &storage_port).await;
 
     // ─── RING 2: Health Loop + Remediation ──────────────────────
     // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
@@ -435,47 +312,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shutdown = CancellationToken::new();
 
     // Seed integrity hash chain from last stored verdict + verify integrity
-    let chain_verified = match storage_port.list_verdicts(1).await {
-        Ok(verdicts) if !verdicts.is_empty() => {
-            let last = &verdicts[0];
-            let verified = judge::verify_verdict_integrity(last);
-            if let Some(ref hash) = last.integrity_hash {
-                judge.seed_chain(Some(hash.clone()));
-                if verified {
-                    klog!(
-                        "[Ring 2] Integrity chain seeded + VERIFIED: {}…",
-                        &hash[..16.min(hash.len())]
-                    );
-                    true
-                } else {
-                    tracing::error!(
-                        verdict_id = %last.id,
-                        hash = %hash,
-                        "INTEGRITY VIOLATION: last verdict hash does not match — chain may be corrupted"
-                    );
-                    klog!(
-                        "[Ring 2] ⚠ INTEGRITY VIOLATION on verdict {} — chain seeded but UNVERIFIED",
-                        &last.id[..8.min(last.id.len())]
-                    );
-                    false
-                }
-            } else {
-                klog!("[Ring 2] Integrity chain: last verdict has no hash (pre-chain era)");
-                true // pre-chain verdicts are not a violation
-            }
-        }
-        Ok(_) => {
-            klog!("[Ring 2] Integrity chain: no previous verdicts (first boot or empty DB)");
-            true // empty DB is not a violation
-        }
-        Err(e) => {
-            klog!(
-                "[Ring 2] Integrity chain: failed to load (non-fatal): {}",
-                e
-            );
-            true // DB unreachable at boot = degraded, not integrity violation
-        }
-    };
+    let chain_verified = infra::boot::seed_integrity_chain(&storage_port, &judge).await;
 
     // ─── RING 2: Spawn health loop + remediation watcher ──────
     let all_breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> =
@@ -604,42 +441,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .join(".surrealdb")
                 .join("backups")
         });
-    // Build fleet probe targets from Dog health_urls (backends.toml SoT)
-    // Wire props_url + expected_n_ctx for context drift detection (D1)
-    let fleet_targets: Vec<infra::probes::FleetTarget> = health_urls
-        .iter()
-        .filter_map(|(name, url)| {
-            url.as_ref().map(|u| {
-                let (base_url, ctx_size, model_name, api_key) =
-                    fleet_meta.get(name.as_str()).cloned().unwrap_or_default();
-                let base_stripped = base_url
-                    .trim_end_matches('/')
-                    .trim_end_matches("/v1")
-                    .to_string();
-                // Derive /props URL from base_url (strip /v1 suffix)
-                let props_url = if !base_url.is_empty() {
-                    Some(base_stripped.clone() + "/props")
-                } else {
-                    None
-                };
-                // Derive /v1/models URL for model identity verification (B4)
-                let models_url = if !base_url.is_empty() {
-                    Some(base_stripped + "/v1/models")
-                } else {
-                    None
-                };
-                infra::probes::FleetTarget {
-                    dog_name: name.clone(),
-                    health_url: u.clone(),
-                    props_url,
-                    models_url,
-                    expected_n_ctx: ctx_size,
-                    expected_model: model_name,
-                    api_key,
-                }
-            })
-        })
-        .collect();
+    // Build fleet probe targets from Dog health_urls (backends.toml SoT).
+    // Pure transform extracted to infra::boot.
+    let fleet_targets = infra::boot::build_fleet_targets(&health_urls, &fleet_meta);
     let probes: Vec<Arc<dyn domain::probe::Probe>> = vec![
         Arc::new(infra::probes::ResourceProbe::default()),
         Arc::new(infra::probes::BackupProbe::new(backup_dir)),
