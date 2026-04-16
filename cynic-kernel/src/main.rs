@@ -220,7 +220,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let configs = backend_configs.clone();
         tokio::spawn(async move {
-            infra::config::validate_config(&configs).await;
+            backends::health_probe::validate_config(&configs).await;
         });
     }
 
