@@ -27,7 +27,17 @@ Contexte : 10 fichiers >400 lignes prod. `main.rs` 956 lignes / 0 test. `domain/
 
 - [x] **S3 — `domain/storage.rs` → `domain/storage/`** — LIVRÉ 2026-04-16. Mesures : `mod.rs` 265L (StoragePort trait pur), `null.rs` 107L (NullStorage adapter), `types.rs` 97L (Observation*, RawObservation, UsageRow, StorageError, StorageMetrics). Total 469L (vs 446 — overhead module boilerplate acceptable). 476 tests pass, clippy lib clean. Callers préservés via `pub use types::{...}; pub use null::NullStorage;` — 14 fichiers (storage/*, pipeline/, main.rs, infra/tasks/nightshift.rs) compilent sans changement.
 
-- [ ] **S4 — `main.rs` → `infra/boot/`** — `boot/storage.rs` (~80L), `boot/dogs.rs` (~150L), `boot/state.rs` (~120L), `boot/tasks.rs` (~200L), `boot/server.rs` (~120L). `main.rs` réduit à ~80L (parse flags + `boot().await`). Falsification: `cargo build --release` échoue ou import `api::` depuis `infra/`. Dépend de: S1 (judge paths stables).
+- [ ] **S4 — `main.rs` phase extraction (reformulé 2026-04-16 après lecture + Gemini consult)** — Le plan Opus initial (5 fichiers `infra/boot/*`) était faux : `build_app_state()` aurait 14 params, `spawn_background_tasks()` 15 params, un `BootContext` struct = god-struct déguisé. Vrai problème observé : main.rs 956L est un **composition root** linéaire, pas un fichier à concerns mixés. Les phases Ring 0/1/2/3 sont déjà sémantiquement marquées via `klog!`. Nouveau plan :
+    - **S4a** : `boot::build_dogs_and_organ()` — factory loop (lignes 251-383) retourne `(Vec<Dog>, Vec<organ_handle>, cost_rates, health_urls, fleet_meta, remediation_configs)`
+    - **S4b** : `boot::seed_integrity_chain()` — load verdict + verify + seed (lignes 437-478) → `bool`
+    - **S4c** : `boot::build_fleet_targets()` — pure transform (lignes 607-642) → `Vec<FleetTarget>`
+    - **S4d (optionnel)** : 3 helpers top (`select_summarizer_backend`, `build_summarizer`, `load_rest_api_key`) → `boot::helpers` si cohérent, sinon laissés inline
+    - **NE PAS extraire** : AppState struct literal, 13 spawn_* (déjà dans `infra::tasks::*`), MCP/REST branches
+    - Nouveau fichier probable : `cynic-kernel/src/infra/boot.rs` (flat, pas un dir)
+    - Cible : main.rs ~500-550L, chaque Ring reste visible comme séquence d'appels
+    - Falsifications : (1) une phase fn > 10 params → design faux ; (2) main.rs > 500L sans gain de lisibilité → extraction inutile ; (3) un test passe avant, échoue après → ordre causal cassé ; (4) relecture à froid dit "moins clair qu'avant" → régression.
+    - Confidence 0.6 (< φ⁻¹). Convergence cross-arch Claude+Gemini.
+    - Dépend de : S1 ✓
 
 - [ ] **S5 — `infra/config.rs` → `infra/config/`** — `types.rs` (~100L), `loader.rs` (~200L), `validation.rs` (~80L), `prompts.rs` (~80L). Fixe violation K2 : `reqwest::Client::builder()` dans config → vers `backends/` ou port. Falsification: `grep "reqwest" infra/config/` retourne 0 après migration. Dépend de: S4.
 
