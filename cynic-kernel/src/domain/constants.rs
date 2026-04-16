@@ -67,7 +67,11 @@ pub const NIGHTSHIFT_INTERVAL: Duration = Duration::from_secs(4 * 3600); // 4 ho
 /// Per-commit judgment timeout (includes all Dogs).
 pub const NIGHTSHIFT_COMMIT_TIMEOUT: Duration = Duration::from_secs(300); // 5 min
 /// Git lookback window for nightshift commit discovery.
-pub const NIGHTSHIFT_GIT_LOOKBACK: &str = "24h";
+/// Must be a git-accepted approxidate ("24 hours ago" / "1 day ago"), NOT a
+/// shorthand like "24h" which git silently returns empty for. Observed
+/// 2026-04-17: "24h" → 0 commits while "24 hours ago" → 3 commits for the
+/// same repo state. Silent fail mode of `git log --since`.
+pub const NIGHTSHIFT_GIT_LOOKBACK: &str = "24 hours ago";
 
 // ── Concurrency bounds ────────────────────────────────────────
 
