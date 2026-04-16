@@ -7,6 +7,7 @@
 #   make commit   — check + commit (validated commit)
 #   make ship     — commit + push (pre-push re-validates)
 #   make deploy   — ship + backup DB + restart kernel + verify
+#   make deploy-only — deploy existing binary WITHOUT commit/push/check (fast-path)
 #   make hotfix   — deploy WITHOUT push (emergency only — skips ship)
 #   make rollback — restore previous binary
 #   make restore  — restore DB from backup file (F=path)
@@ -318,6 +319,32 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	fi; \
 	mv "$$API_TARGET.gate-bak" "$$API_TARGET"; \
 	\
+	echo "[K4] Injecting duplicate Port trait name across domain/..."; \
+	K4_TARGET1="$(PROJECT_DIR)/cynic-kernel/src/domain/mod.rs"; \
+	K4_TARGET2="$(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs"; \
+	cp "$$K4_TARGET1" "$$K4_TARGET1.gate-bak"; \
+	cp "$$K4_TARGET2" "$$K4_TARGET2.gate-bak"; \
+	echo 'trait _K4PhantomPort {}' >> "$$K4_TARGET1"; \
+	echo 'trait _K4PhantomPort {}' >> "$$K4_TARGET2"; \
+	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
+		echo "  ✗ K4 gate MISSED duplicate Port trait — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ K4 gate caught duplicate Port trait"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$K4_TARGET1.gate-bak" "$$K4_TARGET1"; \
+	mv "$$K4_TARGET2.gate-bak" "$$K4_TARGET2"; \
+	\
+	echo "[R1] Injecting hardcoded /home/ path in scripts/..."; \
+	R1_STUB="$(PROJECT_DIR)/scripts/_r1_gate_probe.sh"; \
+	printf '%s\n' '#!/usr/bin/env bash' 'CYNIC=/home/user/cynic-hardcoded' > "$$R1_STUB"; \
+	chmod +x "$$R1_STUB"; \
+	if $(MAKE) --no-print-directory lint-rules >/dev/null 2>&1; then \
+		echo "  ✗ R1 gate MISSED hardcoded /home/ path — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ R1 gate caught hardcoded /home/ path"; PASS=$$((PASS+1)); \
+	fi; \
+	rm -f "$$R1_STUB"; \
+	\
 	echo ""; echo "── lint-drift ──"; \
 	\
 	echo "[Dormant] Injecting commented module without DORMANT tag..."; \
@@ -534,6 +561,45 @@ deploy: ship check-storage
 	@echo "▶ Healthcheck self-test..."
 	@bash ~/bin/cynic-healthcheck.sh && echo "  Healthcheck: PASS" || echo "  ⚠ Healthcheck: FAIL — review ~/bin/cynic-healthcheck.sh"
 	@echo "✓ Deployed and verified"
+
+# ── Fast-path: Deploy existing binary without commit/push ────
+# Use when origin/main is already current (e.g. after a PR merged through CI)
+# and you just want to roll the release binary into ~/bin. Skips all validation
+# gates — caller is responsible for freshness.
+.PHONY: deploy-only
+deploy-only:  ## Deploy target/release/cynic-kernel with no validation (skips check/commit/push)
+	@$(source_env)
+	@BIN="$(PROJECT_DIR)/target/release/cynic-kernel"; \
+	[ -f "$$BIN" ] || { echo "✗ No release binary at $$BIN — run 'cargo build --release' or 'make check' first"; exit 1; }; \
+	AGE_SEC=$$(( $$(date +%s) - $$(stat -c %Y "$$BIN") )); \
+	if [ $$AGE_SEC -gt 3600 ]; then \
+		echo "⚠ Binary is $$((AGE_SEC/60))min old — consider rebuild if source changed"; \
+	fi
+	@echo ""
+	@echo "▶ deploy-only — no commit, no push, no validation"
+	@echo "▶ Backing up DB before deploy..."
+	surreal export --endpoint http://localhost:8000 --namespace cynic --database v2 \
+		--username root --password "$${SURREALDB_PASS:?Set SURREALDB_PASS in ~/.cynic-env}" \
+		~/.surrealdb/backups/cynic_v2_deploy_only_$$(date +%Y%m%d_%H%M%S).surql
+	@echo "▶ Deploying kernel (saving previous for rollback)..."
+	systemctl --user stop cynic-kernel
+	@[ -f ~/bin/cynic-kernel ] && cp ~/bin/cynic-kernel ~/bin/cynic-kernel.prev || true
+	cp $(PROJECT_DIR)/target/release/cynic-kernel ~/bin/cynic-kernel
+
+	systemctl --user start cynic-kernel
+	@echo "▶ Verifying (HTTP status code — no JSON parsing)..."
+	@for i in $$(seq 1 15); do \
+		sleep 3; \
+		HTTP=$$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+			$${CYNIC_API_KEY:+-H "Authorization: Bearer $${CYNIC_API_KEY}"} \
+			"http://$${CYNIC_REST_ADDR}/health" 2>/dev/null) && \
+		[ "$$HTTP" = "200" ] && echo "  Kernel: sovereign (HTTP 200)" && break || \
+		[ "$$HTTP" = "503" ] && echo "  Kernel: degraded (HTTP 503) — check Dogs" && break || \
+		printf "."; \
+	done
+	@echo "▶ Healthcheck self-test..."
+	@bash ~/bin/cynic-healthcheck.sh && echo "  Healthcheck: PASS" || echo "  ⚠ Healthcheck: FAIL — review ~/bin/cynic-healthcheck.sh"
+	@echo "✓ Deployed (no commit, no push)"
 
 # ── Emergency: Rollback to previous binary ─────────────────
 .PHONY: rollback
