@@ -44,7 +44,7 @@ check:
 	@echo "══════════════════════════════════════════"
 	@$(MAKE) --no-print-directory verify-hooks
 	cargo fmt --all -- --check
-	cargo clippy --workspace -- -D warnings
+	cargo clippy --workspace --all-targets -- -D warnings
 	cargo test --workspace
 	@$(MAKE) --no-print-directory lint-rules
 	@$(MAKE) --no-print-directory lint-drift
