@@ -44,6 +44,7 @@ async fn dog_contract(dog: &dyn Dog) {
         Err(DogError::DegenerateScores { .. }) => {} // acceptable
         Err(DogError::RateLimited(_)) => {}          // acceptable
         Err(DogError::Timeout) => {}                 // acceptable
+        Err(DogError::ContextOverflow { .. }) => {}  // acceptable
     }
 }
 

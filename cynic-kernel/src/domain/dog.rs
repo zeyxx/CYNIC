@@ -326,6 +326,15 @@ pub enum DogError {
     RateLimited(String),
     #[error("Dog evaluation timed out")]
     Timeout,
+    #[error(
+        "context overflow: prompt {prompt_tokens} + completion {completion_budget} = {total} > context {context_size}"
+    )]
+    ContextOverflow {
+        prompt_tokens: u32,
+        completion_budget: u32,
+        total: u32,
+        context_size: u32,
+    },
 }
 
 #[cfg(test)]

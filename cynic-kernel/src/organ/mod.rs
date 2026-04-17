@@ -148,8 +148,12 @@ impl InferenceOrgan {
             return;
         };
         match kind {
-            ScoreOutcome::Success { elapsed_ms } => {
+            ScoreOutcome::Success {
+                elapsed_ms,
+                completion_tokens,
+            } => {
                 guard.stats.record_success_with_latency(elapsed_ms);
+                guard.stats.record_completion_tokens(completion_tokens);
                 guard.gate.record_success();
             }
             ScoreOutcome::Failure(failure_kind) => {
@@ -248,7 +252,10 @@ impl InferenceOrgan {
 /// Outcome of a single Dog evaluation, used to update organ health tracking.
 #[derive(Debug, Clone, Copy)]
 pub enum ScoreOutcome {
-    Success { elapsed_ms: u64 },
+    Success {
+        elapsed_ms: u64,
+        completion_tokens: u32,
+    },
     Failure(ScoreFailureKind),
 }
 
@@ -293,8 +300,20 @@ mod tests {
     fn update_success_increments_rate() {
         let mut organ = InferenceOrgan::boot_empty();
         let handle = organ.register_backend(make_backend("dog-a"));
-        InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
-        InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+        InferenceOrgan::update_stats_entry(
+            &handle,
+            ScoreOutcome::Success {
+                elapsed_ms: 0,
+                completion_tokens: 0,
+            },
+        );
+        InferenceOrgan::update_stats_entry(
+            &handle,
+            ScoreOutcome::Success {
+                elapsed_ms: 0,
+                completion_tokens: 0,
+            },
+        );
         InferenceOrgan::update_stats_entry(
             &handle,
             ScoreOutcome::Failure(ScoreFailureKind::ZeroFlood),
@@ -317,7 +336,13 @@ mod tests {
         let handle = organ.register_backend(make_backend("dog-a"));
         // Trip the gate: 6 failures out of 10 (>50%)
         for _ in 0..4 {
-            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 0,
+                    completion_tokens: 0,
+                },
+            );
         }
         for _ in 0..6 {
             InferenceOrgan::update_stats_entry(
@@ -343,7 +368,13 @@ mod tests {
 
         // Recover: 10 successes evict all failures from window
         for _ in 0..10 {
-            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 0,
+                    completion_tokens: 0,
+                },
+            );
         }
         // Gate is no longer tripped → should recover to Healthy
         assert!(!handle.is_quality_degraded());
@@ -355,7 +386,13 @@ mod tests {
         let handle = organ.register_backend(make_backend("dog-a"));
         // 5 successes + 6 failures → gate trips at 6/11 > 50%
         for _ in 0..5 {
-            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 0,
+                    completion_tokens: 0,
+                },
+            );
         }
         for _ in 0..6 {
             InferenceOrgan::update_stats_entry(
@@ -387,6 +424,8 @@ mod tests {
             api_error_count: 8,
             last_success: None,
             total_latency_ms: 0,
+            total_completion_tokens: 0,
+            max_completion_tokens: 0,
         };
         organ.restore_stats(&[("gemma-4b-core".to_string(), stats)]);
 
@@ -417,7 +456,13 @@ mod tests {
         // Accumulate 25 calls: 5 successes (20% valid rate), 20 infra failures (ApiError).
         // ApiError doesn't feed ParseFailureGate, so it won't degrade via parse gate.
         for _ in 0..5 {
-            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 0,
+                    completion_tokens: 0,
+                },
+            );
         }
         for _ in 0..20 {
             InferenceOrgan::update_stats_entry(
@@ -452,7 +497,13 @@ mod tests {
         // 10 calls: 2 successes (20% — below 50%), 8 infra failures (ApiError).
         // ApiError doesn't feed ParseFailureGate, so only json_valid_rate gate matters.
         for _ in 0..2 {
-            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 0,
+                    completion_tokens: 0,
+                },
+            );
         }
         for _ in 0..8 {
             InferenceOrgan::update_stats_entry(
@@ -475,7 +526,13 @@ mod tests {
 
         // 20 calls: 5 successes (25% — below gate), 15 ApiErrors (infrastructure, no parse gate impact)
         for _ in 0..5 {
-            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 0,
+                    completion_tokens: 0,
+                },
+            );
         }
         for _ in 0..15 {
             InferenceOrgan::update_stats_entry(
@@ -494,7 +551,13 @@ mod tests {
 
         // Add 30 successes (now 35/50 = 70% — above gate)
         for _ in 0..30 {
-            InferenceOrgan::update_stats_entry(&handle, ScoreOutcome::Success { elapsed_ms: 0 });
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 0,
+                    completion_tokens: 0,
+                },
+            );
         }
 
         // Should recover to Healthy (json_valid_rate improved from 25% to 70%)
@@ -520,6 +583,8 @@ mod tests {
             api_error_count: 0,
             last_success: None,
             total_latency_ms: 0,
+            total_completion_tokens: 0,
+            max_completion_tokens: 0,
         };
         organ.restore_stats(&[("reviving-dog".to_string(), stats)]);
 
@@ -537,5 +602,67 @@ mod tests {
             !guard.gate.is_tripped(),
             "gate must NOT replay at boot — Dogs rebuild reputation from requests"
         );
+    }
+
+    // ── Dynamic budget tests ──────────────────────────────────
+
+    #[test]
+    fn completion_budget_not_available_before_baseline() {
+        let stats = DogStats::new();
+        assert!(
+            stats.completion_budget().is_none(),
+            "no budget before 20 calls"
+        );
+    }
+
+    #[test]
+    fn completion_budget_derived_from_observed_max() {
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("budget-dog"));
+
+        // Accumulate 25 calls with varying completion tokens
+        for ct in [
+            150, 200, 180, 220, 195, 210, 175, 190, 205, 185, 200, 210, 195, 180, 220, 200, 190,
+            205, 185, 200, 210, 195, 180, 190, 250,
+        ] {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 100,
+                    completion_tokens: ct,
+                },
+            );
+        }
+
+        let stats = handle.stats_snapshot().unwrap();
+        assert!(stats.is_baseline_established());
+        assert_eq!(stats.max_completion_tokens, 250);
+
+        let budget = stats.completion_budget().unwrap();
+        // 250 * 1.2 = 300
+        assert_eq!(budget, 300, "budget = max * 1.2 rounded up");
+    }
+
+    #[test]
+    fn tok_per_sec_computed_from_history() {
+        let mut stats = DogStats::new();
+        // Simulate 10 calls: 200 tokens each, 1000ms each → 2000 tok / 10s = 200 tok/s
+        for _ in 0..10 {
+            stats.record_success_with_latency(1000);
+            stats.record_completion_tokens(200);
+        }
+
+        let tps = stats.tok_per_sec().unwrap();
+        assert!((tps - 200.0).abs() < 1.0, "expected ~200 tok/s, got {tps}");
+    }
+
+    #[test]
+    fn scoring_with_budget_overrides_default() {
+        use crate::domain::chat::InferenceProfile;
+        // Default scoring
+        assert_eq!(InferenceProfile::SCORING.max_tokens(), 1024);
+        // Dynamic budget
+        let profile = InferenceProfile::scoring_with_budget(6000);
+        assert_eq!(profile.max_tokens(), 6000);
     }
 }

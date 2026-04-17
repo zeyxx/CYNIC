@@ -313,6 +313,16 @@ Release claims. If `target` omitted, releases all claims for the agent.
 
 **Response (200):** `{ "status": "released", "agent_id": "...", "detail": "..." }`
 
+### POST /coord/heartbeat
+
+Keep an agent session alive. Resets the TTL expiry timer.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `agent_id` | string (1-64) | yes | Agent to keep alive |
+
+**Response (200):** `{ "status": "heartbeat_accepted", "agent_id": "..." }`
+
 ---
 
 ## Compliance

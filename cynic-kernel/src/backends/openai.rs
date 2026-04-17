@@ -527,7 +527,7 @@ mod tests {
     fn thinking_active_uses_config_max_tokens() {
         // Qwen 3.5 with thinking ON: config says 4096, profile says 1024
         assert_eq!(
-            effective_max_tokens(false, 4096, InferenceProfile::Scoring),
+            effective_max_tokens(false, 4096, InferenceProfile::SCORING),
             4096
         );
     }
@@ -536,7 +536,7 @@ mod tests {
     fn thinking_disabled_uses_profile_max_tokens() {
         // Thinking OFF: profile controls the budget
         assert_eq!(
-            effective_max_tokens(true, 4096, InferenceProfile::Scoring),
+            effective_max_tokens(true, 4096, InferenceProfile::SCORING),
             1024
         );
     }
@@ -545,7 +545,7 @@ mod tests {
     fn thinking_active_but_config_smaller_uses_profile() {
         // Config max_tokens < profile max_tokens: profile wins
         assert_eq!(
-            effective_max_tokens(false, 512, InferenceProfile::Scoring),
+            effective_max_tokens(false, 512, InferenceProfile::SCORING),
             1024
         );
     }
@@ -554,7 +554,7 @@ mod tests {
     fn agent_profile_unaffected_by_thinking() {
         // Agent already has 8192 — config 4096 is smaller, profile wins
         assert_eq!(
-            effective_max_tokens(false, 4096, InferenceProfile::Agent),
+            effective_max_tokens(false, 4096, InferenceProfile::AGENT),
             8192
         );
     }

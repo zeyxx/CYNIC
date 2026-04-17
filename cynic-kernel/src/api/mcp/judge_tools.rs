@@ -166,6 +166,7 @@ impl CynicMcp {
             },
             "dogs_used": verdict.dog_id,
             "dog_count": verdict.dog_scores.len(),
+            "timestamp": verdict.timestamp,
             "anomaly_detected": verdict.anomaly_detected,
             "phi_max": PHI_INV,
         });

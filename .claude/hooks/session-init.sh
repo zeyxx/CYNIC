@@ -130,6 +130,18 @@ if [[ "$KERNEL_STATUS" != "down" ]]; then
     fi
 fi
 
+# ── Handoff injection (inter-agent context bus) ──
+HANDOFF_FILE="${PROJECT_DIR}/.handoff.md"
+if [[ -f "$HANDOFF_FILE" ]]; then
+    # Inject last agent's handoff entry (most recent ## section)
+    LAST_HANDOFF=$(awk '/^## \[/{found++; if(found==2) exit} found{print}' "$HANDOFF_FILE" | head -30)
+    if [[ -n "$LAST_HANDOFF" ]]; then
+        echo ""
+        echo "LAST HANDOFF:"
+        echo "$LAST_HANDOFF"
+    fi
+fi
+
 # ── TODO injection (continuity: the Dog knows what needs doing) ──
 TODO_FILE="${PROJECT_DIR}/TODO.md"
 if [[ -f "$TODO_FILE" ]]; then

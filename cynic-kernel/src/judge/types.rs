@@ -46,6 +46,7 @@ impl From<&DogError> for DogFailureKind {
             | DogError::DegenerateScores { .. } => Self::ParseError,
             DogError::RateLimited(_) => Self::RateLimited,
             DogError::Timeout => Self::Timeout,
+            DogError::ContextOverflow { .. } => Self::ApiError,
         }
     }
 }

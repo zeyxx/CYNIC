@@ -22,7 +22,7 @@ async fn chat_port_contract(port: &dyn ChatPort) {
         .chat(
             "You are a test.",
             "Say hello.",
-            InferenceProfile::Scoring,
+            InferenceProfile::SCORING,
             None,
         )
         .await;

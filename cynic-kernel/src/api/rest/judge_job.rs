@@ -453,6 +453,7 @@ mod tests {
                 },
                 dogs_used: "det".into(),
                 phi_max: crate::domain::dog::PHI_INV,
+                timestamp: "2026-04-17T00:00:00Z".into(),
                 dog_scores: vec![],
                 voter_count: 1,
                 anomaly_detected: false,
