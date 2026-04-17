@@ -25,6 +25,7 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "nat
 yup-oauth2 = "12"
 async-trait = "0.1"
 tracing = "0.1"
+urlencoding = "2"
 
 [dev-dependencies]
 tempfile = "3"

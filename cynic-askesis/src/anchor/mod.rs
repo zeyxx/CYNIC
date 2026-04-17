@@ -30,6 +30,8 @@ pub trait AnchorProvider: Send + Sync {
     async fn update_description(&self, id: AnchorId, new: &str) -> crate::Result<()>;
 }
 
+pub mod gcal;
+
 #[cfg(test)]
 mod tests {
     use super::*;
