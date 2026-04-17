@@ -64,6 +64,8 @@ impl InferenceDog {
         let axioms_section = if let Some(domain_prompt) = domain_prompts.get(domain) {
             format!("DOMAIN-SPECIFIC EVALUATION CRITERIA:\n{domain_prompt}")
         } else {
+            tracing::warn!(domain = %domain, "unknown domain — falling back to generic axioms (no domain prompt loaded)");
+
             "AXIOMS:\n\
              1. FIDELITY — Is the SUBJECT MATTER itself sound? Judge the THING, not the accuracy of its description.\n\
              2. PHI — Is this structurally harmonious? Well-coordinated? Proportional?\n\

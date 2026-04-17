@@ -246,6 +246,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     fallback
                 })
         });
+    // Validate project_root has a .git directory — nightshift depends on this
+    if !project_root.join(".git").exists() {
+        tracing::error!(
+            path = %project_root.display(),
+            "project_root has no .git/ — nightshift git log will fail silently. Set CYNIC_PROJECT_ROOT or start from repo root."
+        );
+    }
     let domain_prompts = Arc::new(infra::config::load_domain_prompts(&project_root));
 
     // ─── RING 2: Build Dogs + organ from backend_configs ──────
