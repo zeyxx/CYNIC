@@ -59,53 +59,51 @@ Last updated: 2026-04-17 | Session: r23-gate → bucket S → 5-domain audit dis
 - RC5-4 fleet.rs:41 silent fallback
 - `.claude/hooks/exercise-scheduler.sh` untracked debris (path hardcoded)
 
-**T-INF — Inference Foundations (research DONE, code session next)**
+**T-INF — Inference Foundations (SHIPPED 2026-04-17)**
 
-Reference: `docs/inference/INFERENCE-FOUNDATIONS.md` (12 truths, 10 papers, 10 repos)
+Reference: `docs/inference/INFERENCE-FOUNDATIONS.md` (16 truths T1-T13, 10 papers, 10 repos)
 
-Done (2026-04-17):
+Done (2026-04-17, commit `231b2b3`):
 - [x] C1-C4 : backends.toml completed (thinking, json_mode, ctx, comments)
 - [x] Research : 10 papers + 10 repos deep-dived (hermes-agent, SE-Jury, LiteLLM, etc.)
 - [x] Gemma ctx 4096→8192, parallel 2→1 (serves ALL 5 domains now)
-- [x] KAIROS DRY_RUN=false + env var read (needs `systemctl --user restart kairos`)
+- [x] KAIROS bridge live (10 trading verdicts, 5 voters)
+- [x] **Profiling** : `scripts/profile-dogs.py` — 5 domains × 3 Dogs, real prompt_tokens/ct/latency
+- [x] **A1**: `DogError::ContextOverflow` — pre-check before dispatch
+- [x] **A2**: Dynamic prompt estimation in `InferenceDog::evaluate()`
+- [x] **F1**: Context check + dynamic `InferenceProfile` (enum→struct with budget)
+- [x] **DogStats** tracks `completion_tokens` (total + max) → `completion_budget()`, `tok_per_sec()`
+- [x] NaN filter in `trimmed_mean` (judge/math.rs)
+- [x] Deployed, verified live: sovereign, /judge chess → WAG Q=0.577, ct tracked
 
-Next session — BUILD (ordered by dependency):
-- [ ] **A1**: `DogError::ContextOverflow { needed, available }` variant (5 min)
-- [ ] **A2**: `InferenceDog::estimate_prompt_tokens(&Stimulus) -> u32` (10 min)
-- [ ] **F1**: Context check in `InferenceDog::evaluate()` — skip if overflow (30 min)
-- [ ] **A3**: Crystal truncation per-Dog in evaluate() (20 min)
-- [ ] **F2**: Tiered prompts in `build_user_prompt(tier)` — full/condensed/minimal (45 min)
-- [ ] **F4**: `scripts/qualify-dog.sh` — 10 stimuli × 5 Dogs → σ, ρ (30 min)
-- [ ] Verify: voter_count ≥ 4 on chess + token-analysis + trading
+Remaining (next sessions):
+- [ ] **A3**: Crystal truncation per-Dog in evaluate()
+- [ ] **F2**: Tiered prompts in `build_user_prompt(tier)` — full/condensed/minimal
+- [ ] **F4**: `scripts/qualify-dog.sh` — 10 stimuli × 5 Dogs → σ, ρ
+- [ ] Wire `DogStats.completion_budget()` into InferenceDog (replaces fallback 1024)
+- [ ] Fix qwen35 thinking mode (4/5 domains fail, only chess works)
 
-Structural gaps identified (not blocking, do later):
-- judge/mod.rs 1601L (biggest inference file, split when F1-F2 shipped)
-- Pipeline builds ONE stimulus for ALL Dogs (crystal context per-Dog via truncation in A3)
-- No strategy diversity yet (T3 — design only, post-F1-F2)
+**T-ARCH — Inference Architecture Debt (discovered 2026-04-17)**
 
-### Tomorrow's attack — 1 item, pacing-discipline
+Budget computed in 3 places, should be 1:
+1. `Judge::selected_candidate_indices()` — crude filter (+400 overhead magic number)
+2. `InferenceDog::evaluate()` — exact pre-check (new)
+3. `OpenAiCompatBackend::effective_max_tokens()` — re-overrides profile
 
-**Recommandation externe (inferred, 0.50)** : **T1 KAIROS bridge fix**.
-- Effort : 15-30 min
-- Unblocks : trading verdicts fluent → empirical foundation pour Dogs trading → demoable ("voici CYNIC sur données réelles Binance OI")
-- Upstream de tout : si pas fixé, aucune mesure trading possible, aucun demo trading, corpus trading reste N=0
-- Falsifiable binaire (GET /verdicts?domain=trading > 0 oui/non)
+Two disjoint inference paths:
+- Dogs (ChatPort → InferenceDog → Judge pipeline) — has dynamic budget
+- Summarizer/cynic_infer (InferPort → SovereignSummarizer) — hardcoded, no budget
 
-Si tu préfères foundation-first : **T1 Nightshift fix** = kernel "apprend de lui-même" narrative, mais invisible au judge.
+Dog capabilities fragmented across 4 structs: BackendConfig, DeclaredCapabilities, DogStats, InferenceProfile.
 
-Si tu préfères demo-first : **T0 public URL** = 6-10h, priorise par rapport à tout si timeline serrée.
+**Resolution**: Unify into single budget computation. Session dédiée avec plan.
 
-### Falsification globale de cette synthèse
+### Handoff 2026-04-17 → next
 
-- Si tu ships 1 PR demo-critical ce weekend, "kill decision T0 freeze refactor" tombe partiellement. Sinon, observation = le demo ne sort pas.
-- Si tu me montres un nightshift log "N commits processed" > 0, mon Hole 1 root cause tombe.
-- Si tu me montres un `/verdicts | jq '.[].timestamp'` non-null, Hole 3 root cause tombe.
-
-### Cost de cette session (pour budget tracking)
-
-- 5 agents dispatched (2 opus AI/ML + hackathon, 3 sonnet pipeline/Rust/infra) + synthesis
-- Output : handoff block + no code changes
-- Session durée totale : ~4h30 (R23 + bucket S + 5-audit)
+**Priority stack:**
+1. Dettes/gaps fondamentaux (T-ARCH, nightshift, verdict timestamps) — avant hackathon
+2. Hackathon plan propre (X/Telegram, ce qu'on propose, demo) — session dédiée
+3. T0 items (public URL, Pinocchio, submission) — dépend du plan
 
 ---
 
