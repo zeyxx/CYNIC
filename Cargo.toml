@@ -2,6 +2,7 @@
 members = [
     "cynic-kernel",
     "cynic-node",
+    "cynic-askesis",
 ]
 resolver = "2"
 
