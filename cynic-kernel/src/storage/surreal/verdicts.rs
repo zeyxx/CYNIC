@@ -67,6 +67,8 @@ fn verdict_to_sql(v: &Verdict) -> String {
             anomaly_axiom = '{}', \
             voter_count = {}, \
             dog_scores_json = '{}', \
+            failed_dogs = {}, \
+            failed_dog_errors = '{}', \
             created_at = d'{}'",
         escape(&v.id),
         escape(&v.domain),
@@ -93,6 +95,8 @@ fn verdict_to_sql(v: &Verdict) -> String {
         escape(v.anomaly_axiom.as_deref().unwrap_or("")),
         v.voter_count,
         escape(&serde_json::to_string(&v.dog_scores).unwrap_or_else(|_| "[]".to_string())),
+        serde_json::to_string(&v.failed_dogs).unwrap_or_else(|_| "[]".to_string()),
+        escape(&serde_json::to_string(&v.failed_dog_errors).unwrap_or_else(|_| "{}".to_string())),
         escape(&v.timestamp),
     )
 }
@@ -184,8 +188,19 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string()),
         voter_count: row["voter_count"].as_u64().unwrap_or(0) as usize,
-        failed_dogs: Vec::new(),
-        failed_dog_errors: Default::default(),
+        failed_dogs: row["failed_dogs"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default(),
+        failed_dog_errors: row["failed_dog_errors"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or_default(),
         integrity_hash: row["integrity_hash"]
             .as_str()
             .filter(|s| !s.is_empty())
