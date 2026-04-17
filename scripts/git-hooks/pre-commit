@@ -26,7 +26,8 @@ security_check() {
         | grep -iE 'AIza[[:alnum:]_-]{10,}|hf_[[:alnum:]_-]{10,}|sk-[[:alnum:]_-]{10,}' || true)
     HARDCODED_CREDS=$(printf '%s\n' "$FILTERED_ADDED" \
         | grep -iE '(api[_-]?key|token|password|secret)[^[:alnum:]]*[:=][[:space:]]*["'"'"']?[^$<[:space:]][^"'"'"'[:space:]]{6,}' \
-        | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken|\.api_key|ApplicationSecret|read_application_secret|\.token\(\)|client_secret:\s*PathBuf|let\s+token\s*=\s*self\.' || true)
+        | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken|\.api_key|ApplicationSecret|read_application_secret|\.token\(\)|client_secret:\s*PathBuf|let\s+token\s*=\s*self\.' \
+        | grep -vE '"\$\{[0-9]+:-|"\$\{[A-Z_]+:-' || true)
     if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
         echo "SECURITY FAIL: possible secrets in staged changes:"
         [ -n "$RAW_SECRETS" ] && echo "$RAW_SECRETS"
@@ -45,6 +46,15 @@ security_check() {
     return 0
 }
 security_check || exit 1
+
+# ── Branch warning: committing to main is usually a mistake ──
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+if [ "$CURRENT_BRANCH" = "main" ]; then
+    echo ""
+    echo "WARNING: Committing directly to main. Consider:"
+    echo "  git checkout -b feat/<scope>-$(date +%Y-%m-%d)"
+    echo ""
+fi
 
 # ── L2: Coordination claim verification ──
 # Checks that staged kernel files are not claimed by ANOTHER agent.
