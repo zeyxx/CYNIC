@@ -439,4 +439,43 @@ CYNIC juge mais N'AGIT JAMAIS. Les verdicts ne changent rien dans le monde mater
 
 ---
 
-*Epistemic status: ce programme est une CONJECTURE structuree (confidence 0.45). Chaque track sera validee ou rejetee par ses propres donnees. Le programme lui-meme est falsifiable : si RT3 montre que les Dogs sont aleatoires, les tracks RT4/RT5 sont inutiles et CYNIC doit pivoter.*
+## Ingestion brute (2026-04-17, non digeree)
+
+> **AVERTISSEMENT : ceci est de l'ingestion naive.** Ces sources n'ont pas ete digerees par les axiomes. La prochaine session portera sur la digestion — passer chaque element au crible des 6 axiomes, falsifier, transmuter ou rejeter. Organic always wins.
+
+### Source: @0xRicker — Markov Chains pour prediction markets ($1.3M/30j Polymarket)
+
+**Contenu :** 3 bots Polymarket, $1.33M profit, 48K predictions. Framework : transition matrix (Markov chains), entry quand `p(stay_in_state) >= 0.87`, Kelly criterion f*=0.71 pour le sizing. L'edge = gap entre le prix de marche et la probabilite du modele, maximal quand l'attention humaine baisse (3AM). "No prediction required — just measure which state the market is in."
+
+**Classification :** RT1 (calibre sur quoi) + KAIROS
+**Hypothese a digerer :** KAIROS devrait utiliser des Markov chains sur les transitions de prix, pas du LLM-as-judge sur des descriptions textuelles de trades. Le signal est dans la matrice, pas dans le texte. L'edge temporel (attention humaine basse) = le kairos au sens grec.
+**Falsification :** Construire une transition matrix sur les donnees candle existantes (meme stale) et comparer la discrimination signal/bruit avec l'approche LLM actuelle.
+
+### Source: @TheAhmadOsman — SearXNG + Firecrawl + Camofox (agent web stack)
+
+**Contenu :** Stack pour donner la recherche web aux agents locaux. SearXNG (search), Firecrawl (extraction), Camofox (browser JS). "Self-host your tools — if it breaks, tell an agent to fix it."
+
+**Classification :** RT6 (souverainete) + G5 (agentique)
+**Hypothese a digerer :** L'agent souverain (Hermes, nightshift redesigne) a besoin de chercher a l'exterieur. SearXNG = search sans Google. Firecrawl = extraction structuree. Le nightshift redesigne pourrait CHERCHER au lieu de juger du bruit.
+**Falsification :** Deployer SearXNG en local, mesurer si le nightshift produit du signal plus discriminant avec web search qu'avec git log.
+
+### Source: @RedHat_AI — 7 techniques GPU optimization
+
+**Contenu :** Quantization FP8/INT4 (2x throughput), prefix caching (30-80% economie sur system prompts), disaggregated prefill/decode, Flash Attention, continuous batching, KV cache management, speculative decoding (2-4x avec draft model).
+
+**Classification :** RT6 (souverainete) + RT0 (fondations)
+**Etat CYNIC :** 1/7 utilisee (KV cache q8_0). Prefix caching = gain immediat (system prompt Dog identique a chaque appel). Speculative decoding faisable avec Qwen3-Embedding-0.6B comme draft model. `--parallel 1` = zero batching.
+**Hypothese a digerer :** Appliquer 3 techniques (prefix caching, speculative decoding, parallel>1) augmenterait le throughput de 2-4x sans changer de hardware. Le GPU passe de 99% idle a utile.
+**Falsification :** Benchmark avant/apres sur 50 /judge calls. Si throughput n'augmente pas de >50%, les techniques ne s'appliquent pas a notre workload.
+
+### Source: @varun_mathur — Hyperspace distributed training (32 consumer devices, no trusted infra)
+
+**Contenu :** 32 nodes heterogenes (4GB laptop a 68GB workstation), CRDT+GossipSub, loss 2.0->0.326, Qwen2.5-0.5B fine-tune sur 4513 conversations. Zero coordinateur central. "Run `hyperspace start` on a 4GB laptop and you're training."
+
+**Classification :** RT6 (souverainete) + RT4b (prompt evolution)
+**Hypothese a digerer :** cynic-core + cynic-gpu pourraient collaborer pour fine-tuner un Dog specialise sans API externe. Hyperspace = pattern pour l'entrainement distribue souverain. Combined avec darwinian_evolver = evolution de prompts ET de modeles en souverain.
+**Falsification :** Le overhead du distributed training sur 2 nodes heterogenes (CPU vs GPU) peut-il converger en temps raisonnable (<24h) sur un fine-tune Dog ?
+
+---
+
+*Epistemic status: ce programme est une CONJECTURE structuree (confidence 0.45). Chaque track sera validee ou rejetee par ses propres donnees. Le programme lui-meme est falsifiable : si RT3 montre que les Dogs sont aleatoires, les tracks RT4/RT5 sont inutiles et CYNIC doit pivoter. L'ingestion brute ci-dessus n'a PAS ete digeree — la digestion est le travail de la prochaine session.*
