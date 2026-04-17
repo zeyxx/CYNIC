@@ -37,6 +37,8 @@ pub trait LogStore {
     fn range(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<LogEntry>>;
 }
 
+pub mod jsonl;
+
 #[cfg(test)]
 mod tests {
     use super::*;
