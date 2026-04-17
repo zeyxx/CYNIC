@@ -43,6 +43,7 @@ pub fn semantic_slug(domain: &str, content: &str) -> String {
         "dev" => slug_dev(content),
         "token" => slug_token(content),
         "session" => slug_session(content),
+        "trading" => slug_trading(content),
         "chess" => return format!("chess:{content}"), // chess: keep exact (already repetitive)
         _ => first_n_words(content, 3),
     };
@@ -128,6 +129,55 @@ fn slug_session(content: &str) -> String {
     } else {
         "summary".to_string()
     }
+}
+
+/// Trading: extract side + symbol only.
+/// "LONG 2.0x on SOL @ 142.50" → "long:sol"
+/// "SHORT 1x on BTC @ 98500" → "short:btc"
+/// Ignores leverage, entry price, and timestamp so observations accumulate across different entries.
+fn slug_trading(content: &str) -> String {
+    let lower = content.to_lowercase();
+
+    // Extract side (long, short, buy, sell)
+    let side = if lower.contains("long") {
+        "long"
+    } else if lower.contains("short") {
+        "short"
+    } else if lower.contains("buy") {
+        "buy"
+    } else if lower.contains("sell") {
+        "sell"
+    } else {
+        // Fallback: first word as side
+        lower.split_whitespace().next().unwrap_or("unknown")
+    };
+
+    // Extract symbol: look for capitalized ticker after "on" or as all-caps word
+    let symbol = lower
+        .split_whitespace()
+        .skip_while(|w| w != &"on")
+        .nth(1)
+        .and_then(|w| {
+            let clean = w.trim_matches(|c: char| !c.is_alphabetic());
+            if clean.len() >= 2 && clean.len() <= 6 {
+                Some(clean.to_string())
+            } else {
+                None
+            }
+        })
+        .or_else(|| {
+            // Fallback: look for any all-caps 2-4 letter word
+            lower
+                .split_whitespace()
+                .find(|w| {
+                    let clean = w.trim_matches(|c: char| !c.is_alphabetic());
+                    clean.len() >= 2 && clean.len() <= 4
+                })
+                .map(|w| w.trim_matches(|c: char| !c.is_alphabetic()).to_string())
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+
+    format!("{side}:{symbol}")
 }
 
 /// Generic: first N significant words, lowercased.
@@ -639,5 +689,43 @@ mod tests {
         let a = content_hash(&normalize_for_hash("chess:1. e4 c5"));
         let b = content_hash(&normalize_for_hash("chess:1. d4 d5"));
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn slug_trading_extracts_side_and_symbol() {
+        let slug = semantic_slug("trading", "LONG 2.0x on SOL @ 142.50");
+        assert_eq!(slug, "trading:long:sol");
+    }
+
+    #[test]
+    fn slug_trading_same_side_and_symbol_coalesces() {
+        let a = semantic_slug("trading", "LONG 2.0x on SOL @ 142.50");
+        let b = semantic_slug("trading", "LONG 1x on SOL @ 145.75");
+        let c = semantic_slug("trading", "LONG 5.0x on SOL @ 140.00");
+        assert_eq!(
+            a, b,
+            "same side/symbol should coalesce despite different leverage"
+        );
+        assert_eq!(
+            b, c,
+            "observations should accumulate across different prices"
+        );
+    }
+
+    #[test]
+    fn slug_trading_different_side_differs() {
+        let long = semantic_slug("trading", "LONG 2.0x on SOL @ 142.50");
+        let short = semantic_slug("trading", "SHORT 2.0x on SOL @ 142.50");
+        assert_ne!(
+            long, short,
+            "different sides should produce different slugs"
+        );
+    }
+
+    #[test]
+    fn slug_trading_different_symbol_differs() {
+        let sol = semantic_slug("trading", "LONG 2.0x on SOL @ 142.50");
+        let btc = semantic_slug("trading", "LONG 2.0x on BTC @ 98500.00");
+        assert_ne!(sol, btc, "different symbols should produce different slugs");
     }
 }
