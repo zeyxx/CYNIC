@@ -11,7 +11,7 @@
 3. **CLOSE ≥ OPEN.** Discover N items → close or defer N. The TODO never grows.
 4. **TRACK COST.** Each session logs tokens, duration, output in the Session Log below.
 
-Last updated: 2026-04-17 | Session: r23-gate → bucket S → 5-domain audit dispatch (5 agents)
+Last updated: 2026-04-17 | Session: ccc981d7 (claude-opus) — T1.1 Complete: non-chess crystallization unblocked via domain prompt embedding
 
 ---
 
@@ -30,6 +30,26 @@ Last updated: 2026-04-17 | Session: r23-gate → bucket S → 5-domain audit dis
 | **Verdict timestamp** | verdicts écrits | `timestamp: null` sur read | SurrealDB datetime = JSON object, `row["created_at"].as_str()` → None. Fix = handle object OR string dans `storage/surreal/verdicts.rs:135` |
 | **5-Dog ensemble (chess)** | 5 Dogs registered | Tier match **29% (5/17)** | qwen-7b-hf sovereignty saturée 0.618 sur TOUS chess stimuli (anti-discrimine), gemini-cli absent du benchmark 04-12, gemma-4b "backwards on JUP" |
 | **Crystal injection A/B** | 1100-char budget pipeline | Mean Δ = **-0.013** sur 30 stimuli (hurt Howl, noise sur Bark) | Faith-based infrastructure unvalidated, N=31 insuffisant |
+
+### ✓ T1.1 COMPLETE — Non-Chess Crystallization (2026-04-17)
+
+**Hypothesis:** Dogs disagree on trading/token/code because domain prompts don't load at runtime.
+
+**Root cause:** Filesystem path discovery fragile — binary runs from /home/user, no .git repo, git lookup fails, fallback to cwd, /home/user/domains/ missing → empty HashMap → generic axioms → max_disagreement=0.468 (blocks crystallization).
+
+**Fix:** Embed domains/ via include_str!() at compile time. Zero runtime path discovery, works from any cwd.
+
+**Result:** 
+- max_disagreement: 0.468 → 0.25 (46% drop)
+- anomaly_detected: true → false
+- trading crystals now actively forming (2 observations)
+- No env var config required
+
+**Code:** commit e2b1cf1 — new `embedded_domains.rs` module, updated `config.rs`
+
+**Next:** T1.2 (verify non-chess stimulus/verdict structures in DB), T2 (event bus audit), T3 (health gates).
+
+---
 
 ### Priority stack (compound par ROI hackathon × foundation)
 
