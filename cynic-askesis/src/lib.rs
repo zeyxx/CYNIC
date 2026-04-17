@@ -3,6 +3,7 @@
 
 pub mod anchor;
 pub mod audit;
+pub mod domains;
 pub mod error;
 pub mod log;
 pub mod reflection;
