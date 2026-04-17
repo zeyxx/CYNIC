@@ -24,3 +24,5 @@ pub fn default_phase1_questions() -> Vec<&'static str> {
         "Is the language concrete and grounded, or abstract and smoothing?",
     ]
 }
+
+pub mod gemini_wisdom;
