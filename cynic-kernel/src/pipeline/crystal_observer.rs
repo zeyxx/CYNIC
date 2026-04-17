@@ -60,6 +60,7 @@ pub(crate) async fn observe_crystal_for_verdict(
             min_quorum = crate::domain::dog::MIN_QUORUM,
             "quorum not met — crystal observation skipped (verdict still served)"
         );
+        deps.metrics.inc_crystal_quorum_blocked();
         return;
     }
 
@@ -73,6 +74,7 @@ pub(crate) async fn observe_crystal_for_verdict(
             disagreement = %format!("{:.3}", verdict.max_disagreement),
             "contested verdict — crystal observation quarantined"
         );
+        deps.metrics.inc_crystal_contested();
         return;
     }
 
@@ -84,6 +86,7 @@ pub(crate) async fn observe_crystal_for_verdict(
             disagreement = %format!("{:.3}", verdict.max_disagreement),
             "disputed verdict — crystal observation weight reduced"
         );
+        deps.metrics.inc_crystal_disputed();
     }
     // Semantic merge: find existing crystal or create new via FNV hash.
     // Track `needs_embedding`: existing crystals already have a working embedding
@@ -162,6 +165,7 @@ pub(crate) async fn observe_crystal_for_verdict(
         .await
     {
         tracing::warn!(phase = "crystal_observe", crystal_id = %crystal_id, error = %e, "failed to observe crystal");
+        deps.metrics.inc_crystal_observe_failed();
     } else {
         tracing::info!(
             organ = "crystal",

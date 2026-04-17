@@ -61,6 +61,15 @@ fn spawn_event_consumer_with_liveness(
                 event = rx.recv() => {
                     match event {
                         Ok(ref evt) => {
+                            // K15: Anomaly → Slack alert (acting consumer)
+                            if let KernelEvent::Anomaly { kind, message, severity } = evt
+                                && let Some(ref alerter) = slack
+                            {
+                                let alert = format!(
+                                    "🔺 CYNIC Anomaly [{severity}]: {kind} — {message}"
+                                );
+                                let _ = alerter.send(&alert).await;
+                            }
                             if let KernelEvent::ContractDelta { missing, expected, fulfilled } = evt {
                                     if !fulfilled {
                                         // Track how long each Dog has been missing

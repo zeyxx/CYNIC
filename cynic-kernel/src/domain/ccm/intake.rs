@@ -166,12 +166,12 @@ fn slug_trading(content: &str) -> String {
             }
         })
         .or_else(|| {
-            // Fallback: look for any all-caps 2-4 letter word
+            // Fallback: look for any 2-4 letter word that isn't the side itself
             lower
                 .split_whitespace()
                 .find(|w| {
                     let clean = w.trim_matches(|c: char| !c.is_alphabetic());
-                    clean.len() >= 2 && clean.len() <= 4
+                    clean.len() >= 2 && clean.len() <= 4 && clean != side
                 })
                 .map(|w| w.trim_matches(|c: char| !c.is_alphabetic()).to_string())
         })
@@ -727,5 +727,19 @@ mod tests {
         let sol = semantic_slug("trading", "LONG 2.0x on SOL @ 142.50");
         let btc = semantic_slug("trading", "LONG 2.0x on BTC @ 98500.00");
         assert_ne!(sol, btc, "different symbols should produce different slugs");
+    }
+
+    #[test]
+    fn slug_trading_fallback_excludes_side() {
+        // When "on <SYMBOL>" pattern fails (word after "on" too long), fallback
+        // must not pick the side itself as the symbol.
+        let slug = semantic_slug(
+            "trading",
+            "LONG SOL at $148, leverage 5x, based on breakout above resistance",
+        );
+        assert_eq!(
+            slug, "trading:long:sol",
+            "fallback should pick 'sol' not 'long' as symbol"
+        );
     }
 }
