@@ -165,7 +165,7 @@ mod tests {
             .chat(
                 "You are a test.",
                 "Reply with exactly: PONG",
-                crate::domain::chat::InferenceProfile::Scoring,
+                crate::domain::chat::InferenceProfile::SCORING,
                 None,
             )
             .await;

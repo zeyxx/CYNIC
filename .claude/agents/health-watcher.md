@@ -37,7 +37,7 @@ HEALTH OK — 5/5 dogs, sovereign, compliance 0.512, dream debt 2
 Multi-line alert if degraded:
 ```
 HEALTH DEGRADED:
-  ⚠ Dogs: 3/5 (qwen35-9b-gpu DOWN, gemma-4b-core DOWN)
+  ⚠ Dogs: 3/5 (qwen35-9b-gpu DOWN, gemma-4-e4b-core DOWN)
   ⚠ Compliance: 0.291 — below φ⁻² threshold
   ⚠ Dream: 12 sessions since last consolidation
 ```

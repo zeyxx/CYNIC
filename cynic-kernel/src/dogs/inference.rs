@@ -142,14 +142,35 @@ impl Dog for InferenceDog {
         let system = Self::build_system_prompt();
         let user = Self::build_user_prompt(stimulus, &self.domain_prompts);
 
+        // ── Dynamic budget: estimate prompt size, check context fit ──
+        let prompt_tokens = estimate_tokens(system) + estimate_tokens(&user);
+        let completion_budget = InferenceProfile::SCORING.max_tokens(); // fallback default
+        let total = prompt_tokens + completion_budget;
+        if self.context_size > 0 && total > self.context_size {
+            return Err(DogError::ContextOverflow {
+                prompt_tokens,
+                completion_budget,
+                total,
+                context_size: self.context_size,
+            });
+        }
+        // Dynamic max_tokens: the MINIMUM of what fits and what the Dog needs.
+        // available = what the context can hold after the prompt
+        // effective = capped by the scoring default, because sending max_tokens=30K
+        // to a cloud API that produces ~200 tokens is waste AND may be rejected.
+        // When DogStats.completion_budget() is wired (Phase 2), the cap will come
+        // from calibration data instead of the profile default.
+        let available = if self.context_size > 0 {
+            self.context_size.saturating_sub(prompt_tokens)
+        } else {
+            completion_budget
+        };
+        let effective = available.min(completion_budget);
+        let profile = InferenceProfile::scoring_with_budget(effective);
+
         let chat_resp = self
             .chat
-            .chat(
-                system,
-                &user,
-                InferenceProfile::Scoring,
-                stimulus.request_id.as_deref(),
-            )
+            .chat(system, &user, profile, stimulus.request_id.as_deref())
             .await
             .map_err(|e| match e {
                 crate::domain::chat::ChatError::RateLimited(m) => DogError::RateLimited(m),

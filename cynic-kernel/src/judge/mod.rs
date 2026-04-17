@@ -325,7 +325,13 @@ impl Judge {
             Ok(scores) => {
                 cb.record_success();
                 if let Some(h) = organ_handle {
-                    InferenceOrgan::update_stats_entry(h, ScoreOutcome::Success { elapsed_ms });
+                    InferenceOrgan::update_stats_entry(
+                        h,
+                        ScoreOutcome::Success {
+                            elapsed_ms,
+                            completion_tokens: scores.completion_tokens,
+                        },
+                    );
                 }
                 tracing::info!(
                     phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
@@ -365,6 +371,9 @@ impl Judge {
                     | DogError::ParseError(_)
                     | DogError::ZeroFlood(_)
                     | DogError::DegenerateScores { .. } => cb.record_failure(),
+                    // ContextOverflow is a pre-condition, not a quality signal —
+                    // don't penalize the Dog's circuit breaker.
+                    DogError::ContextOverflow { .. } => {}
                     _ => cb.record_success(),
                 }
                 if let Some(h) = organ_handle {

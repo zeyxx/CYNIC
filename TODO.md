@@ -58,7 +58,30 @@ Last updated: 2026-04-17 | Session: r23-gate → bucket S → 5-domain audit dis
 - Heartbeat hook PostToolUse → /coord/register (Agent 4 Bug B, fix 0-active-agents)
 - RC5-4 fleet.rs:41 silent fallback
 - `.claude/hooks/exercise-scheduler.sh` untracked debris (path hardcoded)
-- Replace qwen-7b-hf par Prometheus-2 7B GGUF (Agent 3 Gap 1)
+
+**T-INF — Inference Foundations (research DONE, code session next)**
+
+Reference: `docs/inference/INFERENCE-FOUNDATIONS.md` (12 truths, 10 papers, 10 repos)
+
+Done (2026-04-17):
+- [x] C1-C4 : backends.toml completed (thinking, json_mode, ctx, comments)
+- [x] Research : 10 papers + 10 repos deep-dived (hermes-agent, SE-Jury, LiteLLM, etc.)
+- [x] Gemma ctx 4096→8192, parallel 2→1 (serves ALL 5 domains now)
+- [x] KAIROS DRY_RUN=false + env var read (needs `systemctl --user restart kairos`)
+
+Next session — BUILD (ordered by dependency):
+- [ ] **A1**: `DogError::ContextOverflow { needed, available }` variant (5 min)
+- [ ] **A2**: `InferenceDog::estimate_prompt_tokens(&Stimulus) -> u32` (10 min)
+- [ ] **F1**: Context check in `InferenceDog::evaluate()` — skip if overflow (30 min)
+- [ ] **A3**: Crystal truncation per-Dog in evaluate() (20 min)
+- [ ] **F2**: Tiered prompts in `build_user_prompt(tier)` — full/condensed/minimal (45 min)
+- [ ] **F4**: `scripts/qualify-dog.sh` — 10 stimuli × 5 Dogs → σ, ρ (30 min)
+- [ ] Verify: voter_count ≥ 4 on chess + token-analysis + trading
+
+Structural gaps identified (not blocking, do later):
+- judge/mod.rs 1601L (biggest inference file, split when F1-F2 shipped)
+- Pipeline builds ONE stimulus for ALL Dogs (crystal context per-Dog via truncation in A3)
+- No strategy diversity yet (T3 — design only, post-F1-F2)
 
 ### Tomorrow's attack — 1 item, pacing-discipline
 
