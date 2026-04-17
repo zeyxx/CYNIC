@@ -48,6 +48,11 @@ pub struct ReleaseRequest {
     pub target: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CoordHeartbeatRequest {
+    pub agent_id: String,
+}
+
 // ── Handlers ──────────────────────────────────────────────
 
 pub async fn coord_register_handler(
@@ -282,5 +287,22 @@ pub async fn coord_release_handler(
         "status": "released",
         "agent_id": req.agent_id,
         "detail": desc,
+    })))
+}
+
+pub async fn coord_heartbeat_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<CoordHeartbeatRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    validate_agent_id(&req.agent_id)?;
+
+    state.coord.heartbeat(&req.agent_id).await.map_err(|e| {
+        tracing::warn!(error = %e, "coord heartbeat failed");
+        coordination_error()
+    })?;
+
+    Ok(Json(serde_json::json!({
+        "status": "heartbeat_accepted",
+        "agent_id": req.agent_id,
     })))
 }

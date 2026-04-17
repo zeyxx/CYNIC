@@ -349,79 +349,21 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
 
 // ── DOMAIN PROMPTS ───────────────────────────────────────────
 
-/// Strip the H1 title from domain prompt content, preserving all H2+ sections.
-/// Pure function — no I/O. Extracted for testability (K3/K13).
-fn strip_domain_heading(content: &str) -> String {
-    let lines: Vec<&str> = content.lines().collect();
-    let first_content = lines.iter().find(|l| !l.trim().is_empty());
-    // Space after `#` required: `# Title` is H1, `## FIDELITY` is H2 (must not skip).
-    // The `!starts_with("## ")` guard prevents reintroducing the original bug.
-    let skip_heading = first_content.is_some_and(|l| l.starts_with("# ") && !l.starts_with("## "));
-    content
-        .lines()
-        .skip_while(|l| l.trim().is_empty())
-        .skip(if skip_heading { 1 } else { 0 })
-        .collect::<Vec<_>>()
-        .join("\n")
-        .trim()
-        .to_string()
-}
-
-/// Load domain-specific axiom evaluation prompts from `domains/*.md`.
+/// Load domain-specific axiom evaluation prompts.
+/// Uses embedded domain files (compiled into binary) — works from any cwd, no path discovery needed.
 /// Returns a map of domain name → axiom prompt text.
-/// The markdown heading (first `# ...` line) and any content before the first
-/// `## FIDELITY` section is used as a preamble. Each `## AXIOM` section
-/// provides domain-specific evaluation criteria for that axiom.
-///
-/// If the directory doesn't exist or is empty, returns an empty map (graceful degradation).
-pub fn load_domain_prompts(project_root: &Path) -> std::collections::HashMap<String, String> {
-    let domains_dir = project_root.join("domains");
-    let mut prompts = std::collections::HashMap::new();
-
-    let Ok(entries) = std::fs::read_dir(&domains_dir) else {
-        klog!("[config] No domains/ directory — using generic prompts for all domains");
-        return prompts;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("md") {
-            continue;
-        }
-        let domain = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("")
-            .to_string();
-        if domain.is_empty() {
-            continue;
-        }
-
-        match std::fs::read_to_string(&path) {
-            Ok(content) => {
-                // Strip the H1 title (# Domain Name) but preserve H2+ (## FIDELITY etc.)
-                let prompt = strip_domain_heading(&content);
-                if !prompt.is_empty() {
-                    klog!(
-                        "[config] Domain prompt loaded: '{}' ({} chars)",
-                        domain,
-                        prompt.len()
-                    );
-                    prompts.insert(domain, prompt);
-                }
-            }
-            Err(e) => {
-                tracing::warn!(path = %path.display(), error = %e, "failed to read domain prompt file");
-            }
-        }
-    }
-
+pub fn load_domain_prompts(_project_root: &Path) -> std::collections::HashMap<String, String> {
+    // Load from embedded strings (compiled at build time).
+    // The _project_root parameter is kept for backwards compatibility but no longer used.
+    let prompts = crate::infra::embedded_domains::load_embedded_domain_prompts();
     if prompts.is_empty() {
         klog!("[config] No domain prompts found — using generic prompts");
     } else {
-        klog!("[config] {} domain prompt(s) loaded", prompts.len());
+        klog!(
+            "[config] {} domain prompt(s) loaded (embedded)",
+            prompts.len()
+        );
     }
-
     prompts
 }
 
@@ -643,30 +585,6 @@ model = "gpt-4"
         assert!(!configs[0].disable_thinking);
 
         std::fs::remove_file(&path).ok();
-    }
-
-    #[test]
-    fn skips_h1_title() {
-        let input = "# Chess Domain\n## FIDELITY\nIs this faithful?";
-        assert!(strip_domain_heading(input).starts_with("## FIDELITY"));
-    }
-
-    #[test]
-    fn keeps_h2_when_no_title() {
-        let input = "## FIDELITY\nIs this faithful?";
-        assert!(strip_domain_heading(input).starts_with("## FIDELITY"));
-    }
-
-    #[test]
-    fn skips_blank_lines_and_title() {
-        let input = "\n\n# Title\n## FIDELITY\nContent";
-        assert!(strip_domain_heading(input).starts_with("## FIDELITY"));
-    }
-
-    #[test]
-    fn keeps_h2_after_blank_lines() {
-        let input = "\n\n## FIDELITY\nContent";
-        assert!(strip_domain_heading(input).starts_with("## FIDELITY"));
     }
 
     #[test]

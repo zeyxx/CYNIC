@@ -97,6 +97,22 @@ fn verdict_to_sql(v: &Verdict) -> String {
     )
 }
 
+/// Extract a datetime from a SurrealDB JSON value.
+/// SurrealDB HTTP API returns datetimes as ISO 8601 strings (observed on /observations).
+/// Fallback: if the value is a non-null non-string (object/number), serialize it so we
+/// capture something rather than silently returning empty.
+fn extract_surreal_datetime(val: &serde_json::Value) -> String {
+    if let Some(s) = val.as_str() {
+        return s.to_string();
+    }
+    if val.is_null() {
+        return String::new();
+    }
+    // Unexpected format — log and serialize raw
+    tracing::warn!(raw = %val, "SurrealDB datetime not a string — serializing raw value");
+    val.to_string().trim_matches('"').to_string()
+}
+
 fn row_to_verdict(row: &serde_json::Value) -> Verdict {
     let kind_str = row["kind"].as_str().unwrap_or("Bark");
     let kind = match kind_str {
@@ -132,7 +148,7 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
         },
         dog_id: row["dog_id"].as_str().unwrap_or("").to_string(),
         stimulus_summary: row["stimulus"].as_str().unwrap_or("").to_string(),
-        timestamp: row["created_at"].as_str().unwrap_or("").to_string(),
+        timestamp: extract_surreal_datetime(&row["created_at"]),
         dog_scores: {
             let verdict_id_for_log = row["verdict_id"].as_str().unwrap_or("?");
             let voter_count_for_log = row["voter_count"].as_u64().unwrap_or(0);
@@ -267,7 +283,27 @@ mod tests {
         assert_eq!(v.q_score.total, 0.82);
         assert_eq!(v.q_score.sovereignty, 0.70);
         assert_eq!(v.reasoning.burn, "concise");
+        assert_eq!(v.timestamp, "2026-03-13T10:00:00Z");
         assert_eq!(v.voter_count, 0);
+    }
+
+    #[test]
+    fn extract_surreal_datetime_handles_variants() {
+        // Normal string (SurrealDB HTTP default)
+        let s = serde_json::json!("2026-04-17T12:00:00Z");
+        assert_eq!(extract_surreal_datetime(&s), "2026-04-17T12:00:00Z");
+
+        // Null → empty
+        let n = serde_json::json!(null);
+        assert_eq!(extract_surreal_datetime(&n), "");
+
+        // Object fallback (defensive — shouldn't happen with SurrealDB HTTP)
+        let o = serde_json::json!({"secs": 1234567890});
+        let result = extract_surreal_datetime(&o);
+        assert!(
+            !result.is_empty(),
+            "object should produce non-empty fallback"
+        );
     }
 
     #[test]

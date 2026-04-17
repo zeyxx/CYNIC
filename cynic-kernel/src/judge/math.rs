@@ -24,6 +24,13 @@ pub(super) fn trimmed_mean(
         values = scores.iter().map(&extract).collect();
     }
 
+    // WHY: malformed LLM responses can produce NaN/Inf scores. NaN compares as
+    // Equal via unwrap_or, bypassing trimmed-mean outlier filtering silently.
+    values.retain(|v| v.is_finite());
+    if values.is_empty() {
+        return 0.0;
+    }
+
     values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
     if values.len() >= 4 {

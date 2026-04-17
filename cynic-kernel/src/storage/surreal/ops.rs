@@ -86,6 +86,8 @@ pub(super) async fn flush_dog_stats(
                 api_error_count = {ae}, \
                 last_success = {ls}, \
                 total_latency_ms = {lat}, \
+                total_completion_tokens = {tct}, \
+                max_completion_tokens = {mct}, \
                 updated_at = time::now(); ",
             id_key = id_key,
             id_val = id_val,
@@ -98,6 +100,8 @@ pub(super) async fn flush_dog_stats(
             ae = stats.api_error_count,
             ls = last_success_sql,
             lat = stats.total_latency_ms,
+            tct = stats.total_completion_tokens,
+            mct = stats.max_completion_tokens,
         );
     }
     storage.query(&sql).await?;
@@ -130,6 +134,8 @@ pub(super) async fn load_dog_stats(
                         .filter(|s| !s.is_empty())
                         .map(|s| s.to_string()),
                     total_latency_ms: r["total_latency_ms"].as_u64().unwrap_or(0),
+                    total_completion_tokens: r["total_completion_tokens"].as_u64().unwrap_or(0),
+                    max_completion_tokens: r["max_completion_tokens"].as_u64().unwrap_or(0) as u32,
                 },
             ))
         })

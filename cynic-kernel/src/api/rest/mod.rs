@@ -25,7 +25,8 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
 use self::coord::{
-    coord_claim_batch_handler, coord_claim_handler, coord_register_handler, coord_release_handler,
+    coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
+    coord_register_handler, coord_release_handler,
 };
 use self::data::{
     audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
@@ -115,6 +116,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/claim", post(coord_claim_handler))
         .route("/coord/claim-batch", post(coord_claim_batch_handler))
         .route("/coord/release", post(coord_release_handler))
+        .route("/coord/heartbeat", post(coord_heartbeat_handler))
         .layer(axum_mw::from_fn_with_state(state.clone(), audit_middleware))
         .layer(axum_mw::from_fn_with_state(state.clone(), auth_middleware))
         .layer(axum_mw::from_fn_with_state(

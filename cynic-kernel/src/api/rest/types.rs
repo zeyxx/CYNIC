@@ -329,6 +329,7 @@ pub struct JudgeResponse {
     pub reasoning: ReasoningResponse,
     pub dogs_used: String,
     pub phi_max: f64,
+    pub timestamp: String,
     pub dog_scores: Vec<DogScoreResponse>,
     /// Number of Dogs that contributed to this verdict (T9: transparency).
     /// Consumers can distinguish single-Dog from consensus.

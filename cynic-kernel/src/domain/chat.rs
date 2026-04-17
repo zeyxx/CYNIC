@@ -9,14 +9,10 @@ use async_trait::async_trait;
 
 // ── Inference Profiles ───────────────────────────────────────
 
-/// The kernel knows what kind of work it's doing. Profiles tune inference
-/// parameters per call without duplicating backend config.
-///
-/// Hardware is fixed (288 GB/s on RTX 4060 Ti). The only software lever
-/// that matters is how many tokens we ask the model to generate.
+/// What kind of work the kernel is doing. Determines baseline parameters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InferenceProfile {
-    /// Dog axiom scoring: structured JSON output. Thinking controlled by backend config.
+pub enum InferenceProfileKind {
+    /// Dog axiom scoring: structured JSON output.
     Scoring,
     /// Hermes agent / deep analysis: full reasoning, large context window.
     Agent,
@@ -26,25 +22,67 @@ pub enum InferenceProfile {
     Infer,
 }
 
+/// Inference profile = intent (kind) + dynamic budget.
+///
+/// The Dog computes `max_tokens` per request from:
+///   `min(context_size - estimated_prompt_tokens, completion_budget_from_calibration)`
+/// instead of a hardcoded value. When `max_tokens` is None, falls back to kind default.
+#[derive(Debug, Clone, Copy)]
+pub struct InferenceProfile {
+    pub kind: InferenceProfileKind,
+    /// Dynamic completion budget computed by the Dog for THIS specific request.
+    /// When Some, overrides the kind's default max_tokens.
+    /// When None, the kind's default applies (backwards compatible).
+    max_tokens: Option<u32>,
+}
+
 impl InferenceProfile {
-    /// Max completion tokens for this profile.
-    /// Scoring uses 1024 (not 512) because cloud API tokenizers (Gemini) have
-    /// different token counts than llama.cpp — 512 truncated Gemini's JSON response.
+    /// Backwards-compatible constructors matching the old enum variants.
+    pub const SCORING: Self = Self {
+        kind: InferenceProfileKind::Scoring,
+        max_tokens: None,
+    };
+    pub const AGENT: Self = Self {
+        kind: InferenceProfileKind::Agent,
+        max_tokens: None,
+    };
+    pub const SUMMARY: Self = Self {
+        kind: InferenceProfileKind::Summary,
+        max_tokens: None,
+    };
+    pub const INFER: Self = Self {
+        kind: InferenceProfileKind::Infer,
+        max_tokens: None,
+    };
+
+    /// Create a Scoring profile with a dynamic max_tokens budget.
+    /// The Dog calls this after computing `context_size - estimated_prompt_tokens`.
+    pub fn scoring_with_budget(max_tokens: u32) -> Self {
+        Self {
+            kind: InferenceProfileKind::Scoring,
+            max_tokens: Some(max_tokens),
+        }
+    }
+
+    /// Max completion tokens — dynamic budget if set, otherwise kind default.
     pub fn max_tokens(&self) -> u32 {
-        match self {
-            Self::Scoring => 1024,
-            Self::Agent => 8192,
-            Self::Summary => 1024,
-            Self::Infer => 4096,
+        if let Some(override_val) = self.max_tokens {
+            return override_val;
+        }
+        match self.kind {
+            InferenceProfileKind::Scoring => 1024,
+            InferenceProfileKind::Agent => 8192,
+            InferenceProfileKind::Summary => 1024,
+            InferenceProfileKind::Infer => 4096,
         }
     }
 
     /// Temperature override. None = use backend default.
     pub fn temperature(&self) -> Option<f32> {
-        match self {
-            Self::Scoring => Some(0.3),
-            Self::Summary => Some(0.2),
-            Self::Agent | Self::Infer => None,
+        match self.kind {
+            InferenceProfileKind::Scoring => Some(0.3),
+            InferenceProfileKind::Summary => Some(0.2),
+            InferenceProfileKind::Agent | InferenceProfileKind::Infer => None,
         }
     }
 }
