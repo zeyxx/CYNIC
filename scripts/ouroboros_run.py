@@ -356,18 +356,86 @@ Analyse ce repo selon les 6 axiomes et les traditions. Réponds en JSON strict."
     return analysis
 
 
+def discover_repos(max_results: int = 5) -> list[dict]:
+    """Search GitHub for repos relevant to CYNIC's research tracks."""
+    # Queries derived from CYNIC research tracks (RT0-RT7)
+    # Broader terms work better with GitHub search than hyper-specific ones
+    queries = [
+        ("llm judge benchmark evaluation", "calibration"),
+        ("llm-as-judge", "calibration"),
+        ("model evaluation framework", "calibration"),
+        ("local llm inference server", "sovereign-inference"),
+        ("llama.cpp server production", "sovereign-inference"),
+        ("autonomous agent framework", "agent-runtimes"),
+        ("coding agent cli", "agent-runtimes"),
+        ("prediction market bot", "market-execution"),
+        ("solana trading bot rust", "market-execution"),
+        ("knowledge graph memory agent", "context-retrieval"),
+        ("prompt optimization evolution", "calibration"),
+        ("multi agent orchestration", "orchestration"),
+    ]
+
+    seen = set()
+    candidates = []
+
+    for query, track in queries:
+        try:
+            result = subprocess.run(
+                ["gh", "search", "repos", query,
+                 "--sort", "stars", "--limit", "3",
+                 "--json", "fullName,description,language,stargazersCount,updatedAt"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode != 0:
+                continue
+            repos = json.loads(result.stdout)
+            for r in repos:
+                name = r.get("fullName", "")
+                if name in seen or r.get("stargazersCount", 0) < 5:
+                    continue
+                seen.add(name)
+                candidates.append({
+                    "repo_id": name.split("/")[-1].lower(),
+                    "full_name": name,
+                    "track": track,
+                    "language": r.get("language", "Unknown") or "Unknown",
+                    "why_it_matters": r.get("description", "")[:200],
+                    "nightly_question": f"What mechanisms from {name} are transferable to CYNIC's epistemic infrastructure?",
+                    "stars": r.get("stargazersCount", 0),
+                })
+        except Exception as e:
+            log.warning(f"  gh search failed for '{query}': {e}")
+
+    # Sort by stars, take top N
+    candidates.sort(key=lambda x: x.get("stars", 0), reverse=True)
+    selected = candidates[:max_results]
+    log.info(f"Discovery: {len(seen)} unique repos found, {len(selected)} selected (top by stars)")
+    for r in selected:
+        log.info(f"  {r['full_name']:40s} | {r.get('stars',0):5d} stars | {r['track']}")
+    return selected
+
+
 def main():
     parser = argparse.ArgumentParser(description="Sovereign Ouroboros runner")
-    parser.add_argument("--plan", required=True, help="Path to plan.json from scorecard")
+    parser.add_argument("--plan", help="Path to plan.json from scorecard (omit for --discover mode)")
     parser.add_argument("--report", required=True, help="Path to write report.json")
+    parser.add_argument("--discover", action="store_true", help="Search GitHub dynamically instead of using a static plan")
+    parser.add_argument("--max-repos", type=int, default=5, help="Max repos to analyze (default 5)")
     parser.add_argument("--dry-run", action="store_true", help="Print plan without executing")
     args = parser.parse_args()
 
-    # Load plan
-    with open(args.plan) as f:
-        plan = json.load(f)
+    # Load or discover repos
+    if args.discover:
+        repos = discover_repos(max_results=args.max_repos)
+        plan = {"run_id": f"discover-{time.strftime('%Y-%m-%d')}", "selected_repos": repos}
+    elif args.plan:
+        with open(args.plan) as f:
+            plan = json.load(f)
+        repos = plan.get("selected_repos", [])
+    else:
+        log.error("Either --plan or --discover is required.")
+        sys.exit(1)
 
-    repos = plan.get("selected_repos", [])
     log.info(f"Plan: {plan.get('run_id', '?')} — {len(repos)} repos")
 
     if args.dry_run:
