@@ -21,6 +21,9 @@ struct BackendEntry {
     backend: Backend,
     stats: DogStats,
     gate: ParseFailureGate,
+    /// Timestamp of last quality probe allowed for a degraded Dog.
+    /// Mirrors CircuitBreaker HalfOpen pattern: at most one probe per TTL period.
+    last_quality_probe: Option<Instant>,
 }
 
 /// Opaque handle to a backend entry, obtained from `InferenceOrgan::register_backend()`.
@@ -39,6 +42,32 @@ impl BackendHandle {
                 BackendHealth::Degraded { .. } | BackendHealth::Dead { .. }
             )
         })
+    }
+
+    /// Allow one quality probe per TTL period for degraded Dogs.
+    /// Mirrors CircuitBreaker HalfOpen: after TTL expires since degradation,
+    /// allow one evaluation so `update_stats_entry → sync_parse_gate_health`
+    /// can promote back to Healthy if the gate has cleared.
+    ///
+    /// Without this, degraded Dogs are excluded from /judge forever — a deadlock
+    /// where recovery requires participation but participation requires recovery.
+    pub fn should_allow_quality_probe(&self) -> bool {
+        let Ok(mut guard) = self.0.lock() else {
+            return false; // K14: poison = no probe
+        };
+        let BackendHealth::Degraded { since, .. } = &guard.backend.health else {
+            return false; // not degraded — no probe needed
+        };
+        if since.elapsed() <= ParseFailureGate::TTL_DURATION {
+            return false; // degradation too recent
+        }
+        if let Some(last_probe) = guard.last_quality_probe
+            && last_probe.elapsed() <= ParseFailureGate::TTL_DURATION
+        {
+            return false; // already probed within TTL window
+        }
+        guard.last_quality_probe = Some(Instant::now());
+        true
     }
 
     /// Snapshot DogStats from this handle. Returns None if Mutex is poisoned.
@@ -131,6 +160,7 @@ impl InferenceOrgan {
             backend,
             stats: DogStats::new(),
             gate: ParseFailureGate::new(),
+            last_quality_probe: None,
         })));
         self.entries.insert(id, handle.clone());
         handle
@@ -263,6 +293,7 @@ pub enum ScoreOutcome {
 mod tests {
     use super::*;
     use crate::organ::registry::{BackendHealth, DeclaredCapabilities, MeasuredCapabilities};
+    use std::time::Duration;
 
     fn make_backend(id: &str) -> Backend {
         Backend {
@@ -351,6 +382,90 @@ mod tests {
             );
         }
         assert!(handle.is_quality_degraded());
+    }
+
+    #[test]
+    fn quality_probe_allowed_after_ttl_expired() {
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("latched-dog"));
+        // Trip the gate: 10 failures → degraded
+        for _ in 0..10 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Failure(ScoreFailureKind::ParseError),
+            );
+        }
+        assert!(
+            handle.is_quality_degraded(),
+            "precondition: must be degraded"
+        );
+
+        // Before TTL: no probe allowed
+        assert!(
+            !handle.should_allow_quality_probe(),
+            "probe must be denied before TTL expires"
+        );
+
+        // Simulate TTL expiry by backdating the degradation timestamp
+        {
+            let mut guard = handle.0.lock().unwrap();
+            guard.backend.health = BackendHealth::Degraded {
+                reason: "parse failure rate 80% > 50% in last 10 calls".into(),
+                since: Instant::now() - Duration::from_secs(31),
+            };
+        }
+
+        // After TTL: first probe allowed
+        assert!(
+            handle.should_allow_quality_probe(),
+            "probe must be allowed after TTL expires"
+        );
+        // Second probe immediately: denied (rate-limited)
+        assert!(
+            !handle.should_allow_quality_probe(),
+            "second probe within TTL must be denied"
+        );
+    }
+
+    #[test]
+    fn quality_probe_success_recovers_dog() {
+        // Full latch-recovery cycle: degrade → TTL expires → probe succeeds → Healthy
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("recovering-latched"));
+        // Trip: 10 failures
+        for _ in 0..10 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Failure(ScoreFailureKind::ParseError),
+            );
+        }
+        assert!(handle.is_quality_degraded());
+
+        // Simulate TTL expiry + clear the gate window with successes
+        {
+            let mut guard = handle.0.lock().unwrap();
+            guard.backend.health = BackendHealth::Degraded {
+                reason: "parse failure rate 80% > 50% in last 10 calls".into(),
+                since: Instant::now() - Duration::from_secs(31),
+            };
+        }
+        // Probe allowed — simulate what the judge does: evaluate + update_stats_entry
+        assert!(handle.should_allow_quality_probe());
+        // 10 successes push failures out of the 10-call sliding window
+        for _ in 0..10 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 100,
+                    completion_tokens: 200,
+                },
+            );
+        }
+        // Dog should be healthy now — gate cleared, sync_parse_gate_health promoted
+        assert!(
+            !handle.is_quality_degraded(),
+            "Dog must recover after successful probe clears the gate window"
+        );
     }
 
     #[test]

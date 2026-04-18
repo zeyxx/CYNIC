@@ -280,12 +280,21 @@ impl Judge {
                     );
                     return None;
                 }
-                if self.organ_handles[idx]
-                    .as_ref()
-                    .is_some_and(|handle| handle.is_quality_degraded())
+                if let Some(handle) = self.organ_handles[idx].as_ref()
+                    && handle.is_quality_degraded()
                 {
-                    tracing::warn!(dog_id = %dog.id(), "Dog skipped — organ quality degraded");
-                    return None;
+                    if handle.should_allow_quality_probe() {
+                        tracing::info!(
+                            dog_id = %dog.id(),
+                            "quality probe — degradation TTL expired, allowing one evaluation"
+                        );
+                    } else {
+                        tracing::warn!(
+                            dog_id = %dog.id(),
+                            "Dog skipped — organ quality degraded"
+                        );
+                        return None;
+                    }
                 }
                 Some(RunnableDog { idx, dog })
             })

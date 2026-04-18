@@ -213,6 +213,31 @@ impl Dog for InferenceDog {
         scores.prompt_tokens = prompt_tokens;
         scores.completion_tokens = completion_tokens;
 
+        // Defense in depth: remap 0.0 → 0.05 before validation.
+        // System prompt says "minimum 0.05" but some models (qwen-7b-hf observed)
+        // return 0.0 for bad content regardless. Without this, those responses
+        // trigger ZeroFlood rejection and feed the ParseFailureGate → permanent
+        // degradation. The 0.05 floor matches the deterministic dog's minimum.
+        const SCORE_FLOOR: f64 = 0.05;
+        if scores.fidelity == 0.0 {
+            scores.fidelity = SCORE_FLOOR;
+        }
+        if scores.phi == 0.0 {
+            scores.phi = SCORE_FLOOR;
+        }
+        if scores.verify == 0.0 {
+            scores.verify = SCORE_FLOOR;
+        }
+        if scores.culture == 0.0 {
+            scores.culture = SCORE_FLOOR;
+        }
+        if scores.burn == 0.0 {
+            scores.burn = SCORE_FLOOR;
+        }
+        if scores.sovereignty == 0.0 {
+            scores.sovereignty = SCORE_FLOOR;
+        }
+
         // Validate BEFORE phi_bound — catch pathological outputs that phi_bound would mask
         crate::domain::dog::validate_scores(&scores)?;
 
