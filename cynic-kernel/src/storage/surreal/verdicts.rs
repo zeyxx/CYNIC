@@ -199,7 +199,11 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
         failed_dog_errors: row["failed_dog_errors"]
             .as_str()
             .filter(|s| !s.is_empty())
-            .and_then(|s| serde_json::from_str(s).ok())
+            .and_then(|s| {
+                serde_json::from_str(s)
+                    .inspect_err(|e| tracing::warn!("failed_dog_errors deserialize: {e}"))
+                    .ok()
+            })
             .unwrap_or_default(),
         integrity_hash: row["integrity_hash"]
             .as_str()
