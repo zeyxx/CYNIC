@@ -9,5 +9,8 @@ export function getKernelUrl(): string {
 
 export function getSelectedDogs(): string[] | undefined {
   const stored = localStorage.getItem(SELECTED_DOGS_LS_KEY);
-  return stored ? JSON.parse(stored) : undefined;
+  if (!stored) return undefined;
+  const parsed: string[] = JSON.parse(stored);
+  // Empty array means "all dogs" — return undefined so kernel omits the filter
+  return parsed.length > 0 ? parsed : undefined;
 }

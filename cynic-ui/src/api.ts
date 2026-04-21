@@ -1,4 +1,4 @@
-import type { HealthResponse, JudgeRequest, Verdict, Crystal } from './types';
+import type { HealthResponse, JudgeRequest, Verdict, Crystal, AsyncJudgeResponse, AsyncJudgeStatus } from './types';
 
 import { getKernelUrl } from './utils';
 
@@ -47,11 +47,34 @@ export async function getVerdict(id: string): Promise<Verdict> {
 export async function getAvailableDogs(): Promise<string[]> {
   const res = await fetch(`${base()}/dogs`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Failed to fetch dogs');
-  return res.json();
+  const data = await res.json();
+  if (!Array.isArray(data) || data.length === 0) return [];
+  // /dogs returns objects {id, circuit_state, ...} — extract id
+  if (typeof data[0] === 'string') return data;
+  return data.map((d: { id: string }) => d.id);
 }
 
 export async function getCrystals(): Promise<Crystal[]> {
   const res = await fetch(`${base()}/crystals`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Failed to fetch crystals');
+  return res.json();
+}
+
+export async function judgeAsync(req: JudgeRequest): Promise<AsyncJudgeResponse> {
+  const res = await fetch(`${base()}/judge/async`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Async judge failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+export async function getJudgeStatus(requestId: string): Promise<AsyncJudgeStatus> {
+  const res = await fetch(`${base()}/judge/status/${requestId}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`Status poll failed: ${res.status}`);
   return res.json();
 }
