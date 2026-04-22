@@ -140,14 +140,6 @@ DEFINE FIELD target ON work_claim TYPE string PERMISSIONS FULL;
 DEFINE INDEX work_claim_active_idx ON work_claim FIELDS active;
 DEFINE INDEX work_claim_target_idx ON work_claim FIELDS target;
 
--- ── Infrastructure snapshots (probe system) ──────────────────
-DEFINE TABLE IF NOT EXISTS infra_snapshot SCHEMAFULL;
-DEFINE FIELD IF NOT EXISTS ts ON infra_snapshot TYPE datetime;
-DEFINE FIELD IF NOT EXISTS overall ON infra_snapshot TYPE string;
-DEFINE FIELD IF NOT EXISTS probes ON infra_snapshot TYPE array;
-DEFINE FIELD IF NOT EXISTS probes.* ON infra_snapshot TYPE object;
-DEFINE INDEX IF NOT EXISTS idx_infra_ts ON infra_snapshot FIELDS ts;
-
 -- ── Ouroboros nightly evaluation ────────────────────────────
 
 DEFINE TABLE ouroboros_run TYPE ANY SCHEMALESS PERMISSIONS NONE;

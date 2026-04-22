@@ -1,3 +1,20 @@
+:root {
+  --gold: #C9A84C;
+  --gold-dim: #8a7030;
+  --gold-glow: rgba(201, 168, 76, 0.12);
+  --bg: #080808;
+  --surface: #0d0d0d;
+  --card: #101010;
+  --border: #1a1a1a;
+  --border-bright: #2a2a2a;
+  --text: #e2dfd8;
+  --text-dim: #7a7570;
+  --text-muted: #333030;
+  --font-display: 'Cinzel', Georgia, 'Times New Roman', serif;
+  --font-display-deco: 'Cinzel Decorative', 'Cinzel', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -5,11 +22,64 @@
 body {
   margin: 0;
   padding: 0;
-  background: #0d0d0d;
-  color: #e0e0e0;
-  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* ── Keyframes ─────────────────────────────── */
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(201, 168, 76, 0.3); }
+  50% { box-shadow: 0 0 14px rgba(201, 168, 76, 0.6); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes verdict-reveal {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes bar-fill {
+  from { width: 0; }
+}
+
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-1%, -1%); }
+  30% { transform: translate(1%, 0); }
+  50% { transform: translate(-1%, 1%); }
+  70% { transform: translate(0, -1%); }
+  90% { transform: translate(1%, 1%); }
 }

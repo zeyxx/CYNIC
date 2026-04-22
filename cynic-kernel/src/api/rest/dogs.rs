@@ -57,6 +57,7 @@ pub async fn register_dog_handler(
         temperature: 0.3,
         disable_thinking: false,
         json_mode: false,
+        prompt_tier: crate::infra::config::PromptTier::Full,
         cost_input_per_mtok: 0.0,
         cost_output_per_mtok: 0.0,
         health_url: None,
@@ -81,6 +82,7 @@ pub async fn register_dog_handler(
             name.clone(),
             cfg.context_size,
             cfg.timeout_secs,
+            cfg.prompt_tier,
         ));
 
     // Calibration challenge: evaluate a known stimulus, validate_scores() must pass

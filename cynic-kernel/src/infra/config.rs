@@ -4,6 +4,33 @@
 use serde::Deserialize;
 use std::path::Path;
 
+// ── PROMPT TIER ──────────────────────────────────────────
+
+/// Controls how much domain context a Dog receives in its prompt.
+/// Small models (<10B) work better with Lite (concise instructions).
+/// Larger models benefit from Full (detailed rubrics per axiom).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PromptTier {
+    /// Generic 6-line axiom descriptions. Best for small models.
+    Lite,
+    /// Full domain-specific rubrics (HIGH/MEDIUM/LOW per axiom). Best for capable models.
+    #[default]
+    Full,
+}
+
+impl PromptTier {
+    fn from_str_opt(s: Option<&str>) -> Self {
+        match s {
+            Some("lite") => Self::Lite,
+            Some("full") | None => Self::Full,
+            Some(other) => {
+                tracing::warn!(tier = other, "unknown prompt_tier — defaulting to Full");
+                Self::Full
+            }
+        }
+    }
+}
+
 // ── STORAGE CONFIG ────────────────────────────────────────
 
 /// SurrealDB connection config. Read from [storage] in backends.toml,
@@ -51,6 +78,11 @@ pub struct BackendConfig {
     /// Default: false. Set true for llama-server backends where JSON reliability matters.
     /// Not all backends support this (cloud APIs may use different mechanisms).
     pub json_mode: bool,
+    /// Prompt tier: controls how much domain context this Dog receives.
+    /// Lite = generic 6-line axioms (better for small models <10B).
+    /// Full = complete domain prompt with rubrics (better for capable models).
+    /// Default: Full.
+    pub prompt_tier: PromptTier,
     /// Cost per 1M input tokens in USD. 0.0 = free (sovereign, free tier).
     pub cost_input_per_mtok: f64,
     /// Cost per 1M output tokens in USD. 0.0 = free.
@@ -118,6 +150,7 @@ struct BackendEntry {
     temperature: Option<f32>,
     disable_thinking: Option<bool>,
     json_mode: Option<bool>,
+    prompt_tier: Option<String>,
     cost_input_per_mtok: Option<f64>,
     cost_output_per_mtok: Option<f64>,
     /// Explicit health URL — if omitted, derived from base_url.
@@ -243,6 +276,7 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 temperature: entry.temperature.unwrap_or(0.3),
                 disable_thinking: entry.disable_thinking.unwrap_or(false),
                 json_mode: entry.json_mode.unwrap_or(false),
+                prompt_tier: PromptTier::from_str_opt(entry.prompt_tier.as_deref()),
                 cost_input_per_mtok: entry.cost_input_per_mtok.unwrap_or(0.0),
                 cost_output_per_mtok: entry.cost_output_per_mtok.unwrap_or(0.0),
                 health_url,
@@ -334,6 +368,7 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             temperature: 0.3,
             disable_thinking: false,
             json_mode: false,
+            prompt_tier: PromptTier::Full,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: None, // Cloud API — no health endpoint
@@ -350,18 +385,67 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
 // ── DOMAIN PROMPTS ───────────────────────────────────────────
 
 /// Load domain-specific axiom evaluation prompts.
-/// Uses embedded domain files (compiled into binary) — works from any cwd, no path discovery needed.
-/// Returns a map of domain name → axiom prompt text.
-pub fn load_domain_prompts(_project_root: &Path) -> std::collections::HashMap<String, String> {
-    // Load from embedded strings (compiled at build time).
-    // The _project_root parameter is kept for backwards compatibility but no longer used.
-    let prompts = crate::infra::embedded_domains::load_embedded_domain_prompts();
+/// Priority: filesystem (runtime, editable) → embedded (compile-time, fallback).
+/// Filesystem prompts live in `{project_root}/domains/*.md`.
+/// This enables prompt iteration without rebuild: edit file → restart kernel.
+pub fn load_domain_prompts(project_root: &Path) -> std::collections::HashMap<String, String> {
+    let domains_dir = project_root.join("domains");
+    let mut prompts = std::collections::HashMap::new();
+
+    // Try filesystem first — enables prompt iteration without rebuild
+    if domains_dir.is_dir()
+        && let Ok(entries) = std::fs::read_dir(&domains_dir)
+    {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("md") {
+                continue;
+            }
+            let Some(name) = path.file_stem().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            match std::fs::read_to_string(&path) {
+                Ok(content) => {
+                    let stripped = crate::infra::embedded_domains::strip_domain_heading(&content);
+                    if !stripped.is_empty() {
+                        klog!(
+                            "[config] Domain prompt loaded (filesystem): '{}' ({} chars)",
+                            name,
+                            stripped.len()
+                        );
+                        prompts.insert(name.to_string(), stripped);
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        path = %path.display(),
+                        error = %e,
+                        "failed to read domain prompt file"
+                    );
+                }
+            }
+        }
+    }
+
+    // Fallback: embedded prompts for any domain not found on filesystem
+    let embedded = crate::infra::embedded_domains::load_embedded_domain_prompts();
+    let mut fallback_count = 0;
+    for (name, content) in embedded {
+        prompts.entry(name).or_insert_with(|| {
+            fallback_count += 1;
+            content
+        });
+    }
+
     if prompts.is_empty() {
         klog!("[config] No domain prompts found — using generic prompts");
     } else {
+        let fs_count = prompts.len() - fallback_count;
         klog!(
-            "[config] {} domain prompt(s) loaded (embedded)",
-            prompts.len()
+            "[config] {} domain prompt(s) loaded ({} filesystem, {} embedded fallback)",
+            prompts.len(),
+            fs_count,
+            fallback_count
         );
     }
     prompts

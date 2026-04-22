@@ -211,10 +211,14 @@ pub fn validate_scores(scores: &AxiomScores) -> Result<(), DogError> {
         return Err(DogError::ZeroFlood(zero_count));
     }
 
-    // Degenerate variance: all scores nearly identical = model collapsed
+    // Degenerate variance: all scores nearly identical = model collapsed.
+    // Exception: uniform scores near the floor (mean ≤ 0.10) are a valid signal —
+    // "everything is terrible" is a legitimate judgment on genuinely bad content.
+    // Without this exception, models that correctly identify rug pulls (all axioms
+    // at minimum) are rejected as collapsed, and their valid reasoning is lost.
     let mean = raw.iter().sum::<f64>() / 6.0;
     let variance = raw.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / 6.0;
-    if variance < MIN_SCORE_VARIANCE {
+    if variance < MIN_SCORE_VARIANCE && mean > 0.10 {
         return Err(DogError::DegenerateScores {
             variance,
             min_variance: MIN_SCORE_VARIANCE,

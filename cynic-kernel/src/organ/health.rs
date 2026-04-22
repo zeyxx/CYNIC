@@ -200,7 +200,8 @@ pub struct ParseFailureGate {
 
 impl ParseFailureGate {
     /// TTL for tripped state: 30 seconds (matching CircuitBreaker cooldown).
-    const TTL_DURATION: Duration = Duration::from_secs(30);
+    /// pub(crate): BackendHandle::should_allow_quality_probe needs this value.
+    pub(crate) const TTL_DURATION: Duration = Duration::from_secs(30);
 
     pub fn new() -> Self {
         Self {

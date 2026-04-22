@@ -63,6 +63,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         system_contract: std::sync::Arc::new(std::sync::RwLock::new(
             cynic_kernel::domain::contract::SystemContract::new(vec![], true),
         )),
+        enricher: None,
     })
 }
 
@@ -979,6 +980,7 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         system_contract: std::sync::Arc::new(std::sync::RwLock::new(
             cynic_kernel::domain::contract::SystemContract::new(vec![], true),
         )),
+        enricher: None,
     });
     let app = rest::router(state);
 

@@ -39,7 +39,9 @@ fi
 EXPECTED_DOGS=0
 BACKENDS_FILE="${HOME}/.config/cynic/backends.toml"
 if [[ -f "$BACKENDS_FILE" ]]; then
-    EXPECTED_DOGS=$(( $(grep -c '^\[backend\.' "$BACKENDS_FILE" || echo 0) + 1 ))
+    # deterministic-dog is in-kernel (no backends.toml entry) but the /health
+    # endpoint already includes it in the dogs array, so no +1 needed here.
+    EXPECTED_DOGS=$(grep -c '^\[backend\.' "$BACKENDS_FILE" || echo 0)
 fi
 # Count dogs from authenticated /health (dogs array length)
 ACTIVE_DOGS=0

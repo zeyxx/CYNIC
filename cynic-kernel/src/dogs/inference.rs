@@ -4,6 +4,7 @@
 use crate::domain::chat::{ChatPort, InferenceProfile};
 use crate::domain::dog::*;
 use crate::domain::inference::{BackendPort, BackendStatus};
+use crate::infra::config::PromptTier;
 use async_trait::async_trait;
 use serde::Deserialize;
 use std::sync::Arc;
@@ -14,6 +15,7 @@ pub struct InferenceDog {
     context_size: u32,
     timeout: u64,
     domain_prompts: Arc<std::collections::HashMap<String, String>>,
+    prompt_tier: PromptTier,
 }
 
 impl std::fmt::Debug for InferenceDog {
@@ -28,6 +30,7 @@ impl InferenceDog {
         name: String,
         context_size: u32,
         timeout_secs: u64,
+        prompt_tier: PromptTier,
     ) -> Self {
         Self {
             chat,
@@ -35,6 +38,7 @@ impl InferenceDog {
             context_size,
             timeout: timeout_secs,
             domain_prompts: Arc::new(std::collections::HashMap::new()),
+            prompt_tier,
         }
     }
 
@@ -50,9 +54,18 @@ impl InferenceDog {
         "You are CYNIC, a sovereign epistemic judge. You evaluate THE SUBJECT MATTER described in the stimulus — not the quality of its description. In chess, judge the MOVE or STRATEGY, not the text. In science, judge the CLAIM, not the writing. Your axioms measure the SUBSTANCE, not the FORM.\n\nVERIFY means 'does this SURVIVE testing?' — not 'can you test it?' A strategy easily refuted by analysis scores LOW on VERIFY. A claim disproven by evidence scores LOW on VERIFY.\n\nBe harsh. Be honest. Overconfidence is the enemy. Most things deserve 0.3-0.6, not 0.8-0.9. The value 0.618 (phi^-1) is your absolute upper limit for confidence in any standard evaluation.\n\nSCORING RANGE: 0.05 to 1.0. Never return exactly 0.0 for any axiom. The minimum possible score is 0.05. A score of 0.0 means you failed to evaluate, not that the content is bad. Terrible content scores 0.05-0.15, not 0.0."
     }
 
+    const GENERIC_AXIOMS: &'static str = "AXIOMS:\n\
+             1. FIDELITY — Is the SUBJECT MATTER itself sound? Judge the THING, not the accuracy of its description.\n\
+             2. PHI — Is this structurally harmonious? Well-coordinated? Proportional?\n\
+             3. VERIFY — Does this SURVIVE scrutiny? When tested against the strongest counterarguments, does it hold?\n\
+             4. CULTURE — Does this honor existing traditions, conventions, and established patterns?\n\
+             5. BURN — Is this efficient? Minimal waste? Could excess be destroyed without loss?\n\
+             6. SOVEREIGNTY — Does this preserve individual agency and freedom of choice?";
+
     fn build_user_prompt(
         stimulus: &Stimulus,
         domain_prompts: &std::collections::HashMap<String, String>,
+        prompt_tier: PromptTier,
     ) -> String {
         let context_block = stimulus
             .context
@@ -60,17 +73,18 @@ impl InferenceDog {
             .unwrap_or("(no additional context)");
         let domain = stimulus.domain.as_deref().unwrap_or("general");
 
-        // Domain-specific axiom evaluation criteria (from domains/*.md)
-        let axioms_section = if let Some(domain_prompt) = domain_prompts.get(domain) {
-            format!("DOMAIN-SPECIFIC EVALUATION CRITERIA:\n{domain_prompt}")
-        } else {
-            "AXIOMS:\n\
-             1. FIDELITY — Is the SUBJECT MATTER itself sound? Judge the THING, not the accuracy of its description.\n\
-             2. PHI — Is this structurally harmonious? Well-coordinated? Proportional?\n\
-             3. VERIFY — Does this SURVIVE scrutiny? When tested against the strongest counterarguments, does it hold?\n\
-             4. CULTURE — Does this honor existing traditions, conventions, and established patterns?\n\
-             5. BURN — Is this efficient? Minimal waste? Could excess be destroyed without loss?\n\
-             6. SOVEREIGNTY — Does this preserve individual agency and freedom of choice?".to_string()
+        // Prompt tier routing: Lite Dogs get generic axioms (6 lines).
+        // Full Dogs get domain-specific rubrics (HIGH/MEDIUM/LOW per axiom).
+        let axioms_section = match prompt_tier {
+            PromptTier::Lite => Self::GENERIC_AXIOMS.to_string(),
+            PromptTier::Full => {
+                if let Some(domain_prompt) = domain_prompts.get(domain) {
+                    format!("DOMAIN-SPECIFIC EVALUATION CRITERIA:\n{domain_prompt}")
+                } else {
+                    tracing::warn!(domain = %domain, "unknown domain — falling back to generic axioms");
+                    Self::GENERIC_AXIOMS.to_string()
+                }
+            }
         };
 
         format!(
@@ -140,7 +154,7 @@ impl Dog for InferenceDog {
     #[tracing::instrument(skip(self), err, fields(dog_id = %self.dog_name))]
     async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError> {
         let system = Self::build_system_prompt();
-        let user = Self::build_user_prompt(stimulus, &self.domain_prompts);
+        let user = Self::build_user_prompt(stimulus, &self.domain_prompts, self.prompt_tier);
 
         // ── Dynamic budget: estimate prompt size, check context fit ──
         let prompt_tokens = estimate_tokens(system) + estimate_tokens(&user);
@@ -210,6 +224,31 @@ impl Dog for InferenceDog {
         };
         scores.prompt_tokens = prompt_tokens;
         scores.completion_tokens = completion_tokens;
+
+        // Defense in depth: remap 0.0 → 0.05 before validation.
+        // System prompt says "minimum 0.05" but some models (qwen-7b-hf observed)
+        // return 0.0 for bad content regardless. Without this, those responses
+        // trigger ZeroFlood rejection and feed the ParseFailureGate → permanent
+        // degradation. The 0.05 floor matches the deterministic dog's minimum.
+        const SCORE_FLOOR: f64 = 0.05;
+        if scores.fidelity == 0.0 {
+            scores.fidelity = SCORE_FLOOR;
+        }
+        if scores.phi == 0.0 {
+            scores.phi = SCORE_FLOOR;
+        }
+        if scores.verify == 0.0 {
+            scores.verify = SCORE_FLOOR;
+        }
+        if scores.culture == 0.0 {
+            scores.culture = SCORE_FLOOR;
+        }
+        if scores.burn == 0.0 {
+            scores.burn = SCORE_FLOOR;
+        }
+        if scores.sovereignty == 0.0 {
+            scores.sovereignty = SCORE_FLOOR;
+        }
 
         // Validate BEFORE phi_bound — catch pathological outputs that phi_bound would mask
         crate::domain::dog::validate_scores(&scores)?;
@@ -417,11 +456,11 @@ mod tests {
             request_id: None,
         };
         let empty = std::collections::HashMap::new();
-        let prompt = InferenceDog::build_user_prompt(&stimulus, &empty);
+        let prompt = InferenceDog::build_user_prompt(&stimulus, &empty, PromptTier::Full);
         assert!(prompt.contains("e4 e5 Nf3"));
         assert!(prompt.contains("chess"));
         assert!(prompt.contains("FIDELITY"));
-        // Generic fallback — no domain-specific criteria
+        // Generic fallback — no domain-specific criteria (Full tier, but no prompt file)
         assert!(
             prompt.contains("AXIOMS:"),
             "should use generic axioms when no domain prompt"
@@ -441,15 +480,26 @@ mod tests {
             "chess".to_string(),
             "## FIDELITY\nIs this faithful to sound chess principles?".to_string(),
         );
-        let prompt = InferenceDog::build_user_prompt(&stimulus, &prompts);
+        let prompt = InferenceDog::build_user_prompt(&stimulus, &prompts, PromptTier::Full);
         assert!(
             prompt.contains("DOMAIN-SPECIFIC EVALUATION CRITERIA:"),
-            "should use domain prompt"
+            "Full tier should use domain prompt"
         );
         assert!(prompt.contains("faithful to sound chess principles"));
         assert!(
             !prompt.contains("AXIOMS:"),
             "should NOT have generic axioms when domain prompt exists"
+        );
+
+        // Lite tier always uses generic axioms, even when domain prompt exists
+        let lite_prompt = InferenceDog::build_user_prompt(&stimulus, &prompts, PromptTier::Lite);
+        assert!(
+            lite_prompt.contains("AXIOMS:"),
+            "Lite tier should always use generic axioms"
+        );
+        assert!(
+            !lite_prompt.contains("DOMAIN-SPECIFIC EVALUATION CRITERIA:"),
+            "Lite tier should NOT use domain prompt"
         );
     }
 
@@ -460,7 +510,7 @@ mod tests {
             r#"{"fidelity": 0.6, "phi": 0.5, "verify": 0.4, "culture": 0.45, "burn": 0.5, "sovereignty": 0.55, "fidelity_reason": "good", "phi_reason": "ok", "verify_reason": "decent", "culture_reason": "respects patterns", "burn_reason": "efficient", "sovereignty_reason": "preserves agency"}"#,
         ));
 
-        let dog = InferenceDog::new(mock, "test-dog".into(), 4096, 30);
+        let dog = InferenceDog::new(mock, "test-dog".into(), 4096, 30, PromptTier::Full);
         let stimulus = Stimulus {
             content: "The sky is blue.".into(),
             context: None,

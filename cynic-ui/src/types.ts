@@ -102,4 +102,30 @@ export const AXIOM_ICONS: Record<string, string> = {
   sovereignty: '👑',
 };
 
+// Async judge types
+export interface AsyncJudgeResponse {
+  request_id: string;
+  status: 'pending';
+  dogs_total: number;
+}
+
+export interface DogArrival {
+  dog_id: string;
+  arrived_at_ms: number;
+  success: boolean;
+  score?: DogScore;
+  error?: string;
+}
+
+export type AsyncStatus = 'pending' | 'evaluating' | 'complete' | 'failed';
+
+export interface AsyncJudgeStatus {
+  request_id: string;
+  status: AsyncStatus;
+  dogs_total: number;
+  dogs_arrived: DogArrival[];
+  verdict: Verdict | null;
+  error: string | null;
+}
+
 export const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3030';

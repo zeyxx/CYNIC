@@ -25,9 +25,13 @@ export function KernelSettings({ onClose }: { onClose: () => void }) {
   };
 
   const toggleDog = (id: string) => {
-    setSelectedDogs(prev => 
-      prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]
-    );
+    setSelectedDogs(prev => {
+      // Empty list means "all selected" — materialize it before toggling
+      const effective = prev.length === 0 ? [...availableDogs] : prev;
+      return effective.includes(id)
+        ? effective.filter(d => d !== id)
+        : [...effective, id];
+    });
   };
 
   const reset = () => {

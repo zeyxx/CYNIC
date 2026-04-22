@@ -59,6 +59,12 @@ async fn inference_dog_with_mock_passes_contract() {
         "mock",
         r#"{"fidelity": 0.7, "phi": 0.6, "verify": 0.5, "fidelity_reason": "r1", "phi_reason": "r2", "verify_reason": "r3"}"#,
     ));
-    let dog = InferenceDog::new(mock, "mock-dog".into(), 4096, 30);
+    let dog = InferenceDog::new(
+        mock,
+        "mock-dog".into(),
+        4096,
+        30,
+        cynic_kernel::infra::config::PromptTier::Full,
+    );
     dog_contract(&dog).await;
 }

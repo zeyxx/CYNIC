@@ -131,6 +131,7 @@ pub async fn build_dogs_and_organ(
                 cfg.name.clone(),
                 cfg.context_size,
                 cfg.timeout_secs,
+                cfg.prompt_tier,
             )
             .with_domain_prompts(Arc::clone(domain_prompts)),
         ));

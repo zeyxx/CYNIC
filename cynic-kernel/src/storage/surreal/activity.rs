@@ -170,10 +170,13 @@ pub(super) async fn get_unsummarized_sessions(
     min_observations: u32,
     limit: u32,
 ) -> Result<Vec<(String, String, u32)>, StorageError> {
+    // Bound to 7d window — observations older than that are not worth summarizing,
+    // and the time filter uses obs_created_idx to avoid full-table scan (was 8.9s unbounded).
     let sql = format!(
         "SELECT agent_id, count() AS obs_count \
          FROM observation \
          WHERE agent_id != '' AND agent_id != 'unknown' \
+         AND created_at > time::now() - 7d \
          AND agent_id NOT IN (SELECT VALUE session_id FROM session_summary) \
          GROUP BY agent_id \
          ORDER BY obs_count DESC \

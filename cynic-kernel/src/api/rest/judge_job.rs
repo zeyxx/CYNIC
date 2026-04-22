@@ -275,6 +275,7 @@ pub async fn judge_async_handler(
     let verdict_cache = Arc::clone(&state.verdict_cache);
     let metrics = Arc::clone(&state.metrics);
     let event_tx = state.event_tx.clone();
+    let enricher = state.enricher.clone();
 
     state.bg_tasks.spawn(async move {
         let _permit = permit;
@@ -314,6 +315,7 @@ pub async fn judge_async_handler(
             request_id: Some(request_id_for_task.clone()),
             on_dog: Some(on_dog),
             expected_dog_count: judge.dog_ids().len(),
+            enricher: enricher.as_deref(),
         };
 
         let result = crate::pipeline::run(
@@ -336,8 +338,15 @@ pub async fn judge_async_handler(
                     verdict_response_cached(verdict.as_ref(), similarity),
                 );
             }
-            Ok(crate::pipeline::PipelineResult::Evaluated { verdict }) => {
-                job_store.complete(&request_id_for_task, verdict_to_response(verdict.as_ref()));
+            Ok(crate::pipeline::PipelineResult::Evaluated {
+                verdict,
+                token_data,
+                enriched_content,
+            }) => {
+                let mut resp = verdict_to_response(verdict.as_ref());
+                resp.token_data = token_data.map(|b| *b);
+                resp.stimulus_content = enriched_content;
+                job_store.complete(&request_id_for_task, resp);
             }
             Err(e) => {
                 tracing::error!(request_id = %request_id_for_task, error = %e, "judge async pipeline failed");
@@ -462,6 +471,8 @@ mod tests {
                 integrity_hash: None,
                 prev_hash: None,
                 cache_hit: None,
+                token_data: None,
+                stimulus_content: None,
             },
         );
         let snapshot = store.get("req-3").unwrap();

@@ -70,6 +70,9 @@ pub struct AppState {
     /// Self-model: expected system state loaded from backends.toml at boot.
     /// Compared against live roster in /health to detect missing Dogs.
     pub system_contract: Arc<std::sync::RwLock<crate::domain::contract::SystemContract>>,
+    /// Token enricher — fetches on-chain data for domain=token-analysis stimuli.
+    /// None if Helius API key not configured. Graceful degradation: Dogs judge raw address.
+    pub enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
@@ -346,6 +349,12 @@ pub struct JudgeResponse {
     /// True if this verdict came from semantic cache (0 API calls consumed)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_hit: Option<f64>,
+    /// Enriched token data — present when domain=token-analysis and address was enriched via Helius.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_data: Option<crate::domain::enrichment::TokenData>,
+    /// The actual stimulus content sent to Dogs (may differ from request content if enriched).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stimulus_content: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

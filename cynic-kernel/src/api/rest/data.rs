@@ -296,6 +296,23 @@ pub async fn compliance_handler(
         tracing::warn!(error = %e, "compliance: failed to persist score");
     }
 
+    // K15: emit Anomaly when compliance drops below φ⁻² (acting consumer → Slack alert)
+    if result.score < crate::domain::dog::PHI_INV2 {
+        let _ = state
+            .event_tx
+            .send(crate::domain::events::KernelEvent::Anomaly {
+                kind: "low_compliance".to_string(),
+                message: format!(
+                    "Agent {} compliance={:.3} (threshold={:.3}): {}",
+                    result.agent_id,
+                    result.score,
+                    crate::domain::dog::PHI_INV2,
+                    result.warnings.join("; "),
+                ),
+                severity: "warning".to_string(),
+            });
+    }
+
     Ok(Json(result))
 }
 

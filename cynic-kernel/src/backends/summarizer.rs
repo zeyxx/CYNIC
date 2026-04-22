@@ -271,6 +271,7 @@ mod tests {
             temperature: 0.3,
             disable_thinking: false,
             json_mode: false,
+            prompt_tier: crate::infra::config::PromptTier::Full,
             cost_input_per_mtok: 0.0,
             cost_output_per_mtok: 0.0,
             health_url: Some("http://127.0.0.1:8080/health".into()),
