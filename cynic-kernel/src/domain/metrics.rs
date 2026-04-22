@@ -13,6 +13,10 @@ pub struct Metrics {
     pub dog_evaluations_total: AtomicU64,
     pub dog_failures_total: AtomicU64,
     pub crystal_observations_total: AtomicU64,
+    pub crystal_gate_quorum_blocked: AtomicU64,
+    pub crystal_gate_contested: AtomicU64,
+    pub crystal_gate_disputed: AtomicU64,
+    pub crystal_observe_failed: AtomicU64,
     pub embedding_successes_total: AtomicU64,
     pub embedding_failures_total: AtomicU64,
 }
@@ -32,6 +36,10 @@ impl Metrics {
             dog_evaluations_total: AtomicU64::new(0),
             dog_failures_total: AtomicU64::new(0),
             crystal_observations_total: AtomicU64::new(0),
+            crystal_gate_quorum_blocked: AtomicU64::new(0),
+            crystal_gate_contested: AtomicU64::new(0),
+            crystal_gate_disputed: AtomicU64::new(0),
+            crystal_observe_failed: AtomicU64::new(0),
             embedding_successes_total: AtomicU64::new(0),
             embedding_failures_total: AtomicU64::new(0),
         }
@@ -55,6 +63,19 @@ impl Metrics {
     pub fn inc_crystal_obs(&self) {
         self.crystal_observations_total
             .fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_crystal_quorum_blocked(&self) {
+        self.crystal_gate_quorum_blocked
+            .fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_crystal_contested(&self) {
+        self.crystal_gate_contested.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_crystal_disputed(&self) {
+        self.crystal_gate_disputed.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_crystal_observe_failed(&self) {
+        self.crystal_observe_failed.fetch_add(1, Ordering::Relaxed);
     }
     pub fn inc_embed_ok(&self) {
         self.embedding_successes_total
@@ -104,6 +125,30 @@ impl Metrics {
             "cynic_crystal_observations_total",
             "Crystal observations recorded",
             self.crystal_observations_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_crystal_gate_quorum_blocked",
+            "Crystal observations blocked by quorum gate (voter_count < 2)",
+            self.crystal_gate_quorum_blocked.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_crystal_gate_contested",
+            "Crystal observations quarantined (disagreement >= phi^-2)",
+            self.crystal_gate_contested.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_crystal_gate_disputed",
+            "Crystal observations with reduced weight (disputed)",
+            self.crystal_gate_disputed.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_crystal_observe_failed",
+            "Crystal observation storage failures",
+            self.crystal_observe_failed.load(Ordering::Relaxed),
         );
         prom_counter(
             &mut out,

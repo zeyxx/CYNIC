@@ -181,7 +181,11 @@ pub fn spawn_nightshift_loop(
 
         let mut interval = tokio::time::interval(constants::NIGHTSHIFT_INTERVAL);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        interval.tick().await; // skip first tick — consistent with all other loops
+        // NOTE: Do NOT consume the first tick here. Other loops skip it because
+        // their intervals are short (seconds/minutes). Nightshift is 4h — skipping
+        // the first tick means the kernel needs 4h+ continuous uptime before the
+        // first cycle ever runs. With frequent redeploys, nightshift never fires.
+        // The 60s warmup above is sufficient boot protection.
 
         loop {
             tokio::select! {

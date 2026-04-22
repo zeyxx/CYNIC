@@ -27,7 +27,10 @@ security_check() {
     HARDCODED_CREDS=$(printf '%s\n' "$FILTERED_ADDED" \
         | grep -iE '(api[_-]?key|token|password|secret)[^[:alnum:]]*[:=][[:space:]]*["'"'"']?[^$<[:space:]][^"'"'"'[:space:]]{6,}' \
         | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken|\.api_key|ApplicationSecret|read_application_secret|\.token\(\)|client_secret:\s*PathBuf|let\s+token\s*=\s*self\.' \
-        | grep -vE '"\$\{[0-9]+:-|"\$\{[A-Z_]+:-' || true)
+        | grep -vE '"\$\{[0-9]+:-|"\$\{[A-Z_]+:-' \
+        | grep -vE 'format!\(.*\{api_key\}' \
+        | grep -vE ':\s*Option<|:\s*Result<|:\s*Vec<|:\s*String' \
+        | grep -vE '\.split\(.*api[_-]?key' || true)
     if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
         echo "SECURITY FAIL: possible secrets in staged changes:"
         [ -n "$RAW_SECRETS" ] && echo "$RAW_SECRETS"

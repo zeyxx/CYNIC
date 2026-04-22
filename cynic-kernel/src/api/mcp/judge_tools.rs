@@ -94,6 +94,7 @@ impl CynicMcp {
             request_id: Some(uuid::Uuid::new_v4().to_string()),
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
+            enricher: self.enricher.as_deref(),
         };
         let result = crate::pipeline::run(
             p.content.clone(),
@@ -128,7 +129,7 @@ impl CynicMcp {
                     serde_json::to_string_pretty(&response).unwrap_or_default(),
                 )]));
             }
-            crate::pipeline::PipelineResult::Evaluated { verdict } => verdict,
+            crate::pipeline::PipelineResult::Evaluated { verdict, .. } => verdict,
         };
 
         let _ = self

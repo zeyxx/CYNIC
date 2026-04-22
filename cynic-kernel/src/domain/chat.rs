@@ -80,7 +80,7 @@ impl InferenceProfile {
     /// Temperature override. None = use backend default.
     pub fn temperature(&self) -> Option<f32> {
         match self.kind {
-            InferenceProfileKind::Scoring => Some(0.3),
+            InferenceProfileKind::Scoring => Some(0.1),
             InferenceProfileKind::Summary => Some(0.2),
             InferenceProfileKind::Agent | InferenceProfileKind::Infer => None,
         }

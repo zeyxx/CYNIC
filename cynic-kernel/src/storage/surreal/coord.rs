@@ -386,6 +386,10 @@ impl CoordPort for SurrealHttpStorage {
             .map_err(|e| CoordError::StorageFailed(format!("expire sessions: {e}")))?;
         self.query_one("UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await
             .map_err(|e| CoordError::StorageFailed(format!("expire claims: {e}")))?;
+        // K15: audit trail TTL — prevent unbounded growth (was 11K+ rows, never pruned)
+        self.query_one("DELETE FROM mcp_audit WHERE ts < time::now() - 7d;")
+            .await
+            .map_err(|e| CoordError::StorageFailed(format!("audit ttl: {e}")))?;
         Ok(())
     }
 }

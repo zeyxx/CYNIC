@@ -36,7 +36,8 @@ pub fn load_embedded_domain_prompts() -> HashMap<String, String> {
 }
 
 /// Strip the H1 heading (first `# ...` line) but preserve H2+ sections.
-fn strip_domain_heading(content: &str) -> String {
+/// pub(crate): also used by config.rs for filesystem-loaded domain prompts.
+pub(crate) fn strip_domain_heading(content: &str) -> String {
     let lines: Vec<&str> = content.lines().collect();
 
     // Find first line that starts with `#` (H1 heading)
