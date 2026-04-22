@@ -1,5 +1,8 @@
+# DORMANT: Superseded by kernel-native monitoring (planned).
+# cynic-health.timer (standalone in ~/.config/systemd/user/) was the more comprehensive
+# version but both are disabled — monitoring should move into the kernel itself.
 [Unit]
-Description=CYNIC Readiness Check
+Description=DORMANT — CYNIC Readiness Check (external timer, superseded)
 After=cynic-kernel.service
 
 [Service]
