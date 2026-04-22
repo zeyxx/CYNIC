@@ -94,6 +94,7 @@ pub async fn judge_handler(
         request_id: Some(uuid::Uuid::new_v4().to_string()),
         on_dog: None,
         expected_dog_count: judge.dog_ids().len(),
+        enricher: state.enricher.as_deref(),
     };
     let result = crate::pipeline::run(
         req.content,
@@ -128,8 +129,15 @@ pub async fn judge_handler(
             tracing::info!(similarity = %format!("{:.4}", similarity), "verdict cache HIT");
             Ok(Json(verdict_response_cached(&verdict, similarity)))
         }
-        crate::pipeline::PipelineResult::Evaluated { verdict } => {
-            Ok(Json(verdict_to_response(verdict.as_ref())))
+        crate::pipeline::PipelineResult::Evaluated {
+            verdict,
+            token_data,
+            enriched_content,
+        } => {
+            let mut resp = verdict_to_response(verdict.as_ref());
+            resp.token_data = token_data.map(|b| *b);
+            resp.stimulus_content = enriched_content;
+            Ok(Json(resp))
         }
     }
 }

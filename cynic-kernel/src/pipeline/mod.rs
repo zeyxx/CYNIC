@@ -32,7 +32,13 @@ pub enum PipelineResult {
         similarity: f64,
     },
     /// Full evaluation — fresh verdict.
-    Evaluated { verdict: Box<Verdict> },
+    Evaluated {
+        verdict: Box<Verdict>,
+        /// Enriched token data, if applicable (domain=token-analysis + Helius).
+        token_data: Option<Box<crate::domain::enrichment::TokenData>>,
+        /// The actual stimulus content sent to Dogs (may differ from input if enriched).
+        enriched_content: Option<String>,
+    },
 }
 
 /// Dependencies for the judge pipeline — avoids 9-argument function.
@@ -55,6 +61,9 @@ pub struct PipelineDeps<'a> {
     /// Expected fleet size — drives K14 jury gate.
     /// Comes from `judge.dog_ids().len()`, NOT hardcoded.
     pub expected_dog_count: usize,
+    /// Optional token enricher — when domain=token-analysis and content is a Solana address,
+    /// enriches the stimulus with on-chain data before Dogs evaluate.
+    pub enricher: Option<&'a dyn crate::domain::enrichment::TokenEnricherPort>,
 }
 
 impl std::fmt::Debug for PipelineDeps<'_> {
@@ -224,6 +233,63 @@ async fn pipeline_inner(
         }
     };
 
+    // ── TOKEN ENRICHMENT: rewrite stimulus with on-chain data when applicable ──
+    let mut captured_token_data: Option<crate::domain::enrichment::TokenData> = None;
+    let content = if domain_hint == "token-analysis"
+        && crate::domain::enrichment::looks_like_solana_address(&content)
+    {
+        if let Some(enricher) = deps.enricher {
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(12),
+                enricher.enrich(&content),
+            )
+            .await
+            {
+                Ok(Ok(Some(token_data))) => {
+                    let enriched = token_data.to_stimulus();
+                    tracing::info!(
+                        phase = "enrich",
+                        mint = %content,
+                        name = ?token_data.name,
+                        symbol = ?token_data.symbol,
+                        holders = ?token_data.holder_count,
+                        "token enriched via Helius"
+                    );
+                    captured_token_data = Some(token_data);
+                    enriched
+                }
+                Ok(Ok(None)) => {
+                    tracing::warn!(phase = "enrich", mint = %content, "not a recognized token — using raw address");
+                    content
+                }
+                Ok(Err(e)) => {
+                    tracing::warn!(phase = "enrich", error = %e, "enrichment failed — using raw address");
+                    content
+                }
+                Err(_) => {
+                    tracing::warn!(
+                        phase = "enrich",
+                        "enrichment timed out (12s) — using raw address"
+                    );
+                    content
+                }
+            }
+        } else {
+            tracing::debug!(
+                phase = "enrich",
+                "no enricher configured — using raw address"
+            );
+            content
+        }
+    } else {
+        content
+    };
+    let enriched_content = if captured_token_data.is_some() {
+        Some(content.clone())
+    } else {
+        None
+    };
+
     // ── EVALUATE: fan out to Dogs ──
     let stimulus = Stimulus {
         content,
@@ -316,6 +382,8 @@ async fn pipeline_inner(
 
     Ok(PipelineResult::Evaluated {
         verdict: Box::new(verdict),
+        token_data: captured_token_data.map(Box::new),
+        enriched_content,
     })
 }
 
@@ -562,6 +630,7 @@ mod tests {
             request_id: None,
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
+            enricher: None,
         };
 
         let result = run(
@@ -575,7 +644,7 @@ mod tests {
         .await;
 
         match result {
-            Ok(PipelineResult::Evaluated { verdict }) => {
+            Ok(PipelineResult::Evaluated { verdict, .. }) => {
                 assert!(verdict.q_score.total > 0.0, "Q-Score should be > 0");
                 assert!(!verdict.dog_scores.is_empty(), "should have dog scores");
             }
@@ -624,6 +693,7 @@ mod tests {
             request_id: None,
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
+            enricher: None,
         };
         let _ = run("test content".into(), None, None, None, true, &deps).await;
 
@@ -669,6 +739,7 @@ mod tests {
             request_id: None,
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
+            enricher: None,
         };
 
         // First call: should evaluate (cache miss) and embed successfully
@@ -762,6 +833,7 @@ mod tests {
             request_id: None,
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
+            enricher: None,
         };
 
         let result = run(
@@ -777,7 +849,7 @@ mod tests {
 
         // Extract verdict ID for provenance check
         let verdict_id = match &result {
-            PipelineResult::Evaluated { verdict } => verdict.id.clone(),
+            PipelineResult::Evaluated { verdict, .. } => verdict.id.clone(),
             PipelineResult::CacheHit { verdict, .. } => verdict.id.clone(),
         };
 

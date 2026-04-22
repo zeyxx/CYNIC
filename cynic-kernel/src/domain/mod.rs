@@ -6,6 +6,7 @@ pub mod contract;
 pub mod coord;
 pub mod dog;
 pub mod embedding;
+pub mod enrichment;
 pub mod events;
 pub mod health_gate;
 pub mod inference;
