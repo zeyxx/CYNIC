@@ -26,7 +26,7 @@ HEALTH=$(curl -s --max-time 5 \
 
 # Extract Dog count
 ACTIVE_DOGS=$(echo "$HEALTH" | jq '.dogs | length // 0' 2>/dev/null || echo 0)
-EXPECTED_DOGS=4
+EXPECTED_DOGS=5
 
 if [[ "$ACTIVE_DOGS" -lt "$EXPECTED_DOGS" ]]; then
     MISSING=$((EXPECTED_DOGS - ACTIVE_DOGS))
@@ -36,7 +36,8 @@ if [[ "$ACTIVE_DOGS" -lt "$EXPECTED_DOGS" ]]; then
     # ── Identify which Dogs are missing ──
     ACTIVE_DOG_IDS=$(echo "$HEALTH" | jq -r '.dogs[].id // empty' 2>/dev/null | sort)
     EXPECTED="deterministic-dog
-gemma-4b-core
+gemini-cli
+gemma-4-e4b-core
 qwen-7b-hf
 qwen35-9b-gpu"
 
@@ -46,21 +47,16 @@ qwen35-9b-gpu"
 
             # Restart the appropriate backend
             case "$dog" in
-                gemma-4b-core)
-                    echo "  → Restarting gemma-4b (llama-server on :8080)"
-                    systemctl --user restart llama-server@gemma-4b.service 2>/dev/null || \
-                        ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=3 user@${CYNIC_REST_ADDR%:*} \
-                            "systemctl --user restart llama-server@gemma-4b.service" || \
-                        echo "  ✗ Could not restart gemma-4b"
+                gemma-4-e4b-core)
+                    echo "  → Restarting llama-server (gemma-4-e4b on :8080)"
+                    systemctl --user restart llama-server.service 2>/dev/null || \
+                        echo "  ✗ Could not restart llama-server"
                     ;;
                 qwen-7b-hf)
                     echo "  → qwen-7b-hf is API-based (HF); check network/auth"
                     ;;
                 qwen35-9b-gpu)
-                    echo "  → Restarting qwen35-9b on GPU node"
-                    ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=3 titou@100.119.192.107 \
-                        "taskkill /im llama-server.exe /f 2>/dev/null || true; sleep 2; taskkill /im cmd.exe /f 2>/dev/null || true" || \
-                        echo "  ✗ Could not reach GPU node"
+                    echo "  → qwen35-9b-gpu is on <TAILSCALE_GPU>; check Tailscale connectivity"
                     ;;
                 deterministic-dog)
                     echo "  → deterministic-dog is in-kernel; check kernel logs"

@@ -7,10 +7,11 @@ export function getKernelUrl(): string {
   return localStorage.getItem(KERNEL_URL_LS_KEY) ?? DEFAULT_API_BASE;
 }
 
-export function getSelectedDogs(): string[] | undefined {
+const DEFAULT_DOGS = ['deterministic-dog', 'gemini-cli'];
+
+export function getSelectedDogs(): string[] {
   const stored = localStorage.getItem(SELECTED_DOGS_LS_KEY);
-  if (!stored) return undefined;
+  if (!stored) return DEFAULT_DOGS;
   const parsed: string[] = JSON.parse(stored);
-  // Empty array means "all dogs" — return undefined so kernel omits the filter
-  return parsed.length > 0 ? parsed : undefined;
+  return parsed.length > 0 ? parsed : DEFAULT_DOGS;
 }

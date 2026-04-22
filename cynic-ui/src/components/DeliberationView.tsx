@@ -200,6 +200,7 @@ function ProgressHeader({ phase, arrived, total, verdict }: {
 
 function DogCard({ arrival, index }: { arrival: DogArrival; index: number }) {
   const [visible, setVisible] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), index * 80);
@@ -230,6 +231,7 @@ function DogCard({ arrival, index }: { arrival: DogArrival; index: number }) {
 
   const score = arrival.score!;
   const axioms = ['fidelity', 'phi', 'verify', 'culture', 'burn', 'sovereignty'] as const;
+  const hasReasoning = axioms.some(ax => score.reasoning?.[ax]);
 
   return (
     <div style={{
@@ -237,12 +239,16 @@ function DogCard({ arrival, index }: { arrival: DogArrival; index: number }) {
       background: 'var(--card)',
       border: '1px solid var(--border)',
     }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
-      }}>
+      <div
+        onClick={() => hasReasoning && setExpanded(e => !e)}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 10,
+          cursor: hasReasoning ? 'pointer' : 'default',
+        }}
+      >
         <span style={{
           fontFamily: 'var(--font-display)',
           fontSize: 11,
@@ -253,20 +259,69 @@ function DogCard({ arrival, index }: { arrival: DogArrival; index: number }) {
         }}>
           {arrival.dog_id}
         </span>
-        <span style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 10,
-          color: 'var(--text-muted)',
-          letterSpacing: 0.5,
-        }}>
-          {arrival.arrived_at_ms}ms
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            color: 'var(--text-muted)',
+            letterSpacing: 0.5,
+          }}>
+            {arrival.arrived_at_ms}ms
+          </span>
+          {hasReasoning && (
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              color: 'var(--text-muted)',
+              transition: 'transform 0.2s ease',
+              display: 'inline-block',
+              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            }}>▾</span>
+          )}
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
         {axioms.map((ax) => (
           <AxiomPill key={ax} axiom={ax} value={score[ax]} />
         ))}
       </div>
+      {expanded && score.reasoning && (
+        <div style={{
+          marginTop: 10,
+          borderTop: '1px solid var(--border)',
+          paddingTop: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+        }}>
+          {axioms
+            .filter(ax => score.reasoning[ax])
+            .map(ax => (
+              <div key={ax} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <span style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 8,
+                  color: AXIOM_COLORS[ax],
+                  letterSpacing: 1.5,
+                  textTransform: 'uppercase',
+                  paddingTop: 1,
+                  flexShrink: 0,
+                  minWidth: 72,
+                }}>
+                  {AXIOM_ICONS[ax]} {ax}
+                </span>
+                <span style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10,
+                  color: 'var(--text-dim)',
+                  lineHeight: 1.5,
+                }}>
+                  {score.reasoning[ax]}
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -459,6 +514,54 @@ function FinalVerdict({ verdict }: { verdict: Verdict }) {
             }}>
               Dogs disagree on {verdict.anomaly_axiom} — max Δ {verdict.max_disagreement.toFixed(3)}
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Consensus reasoning */}
+      {axioms.some(ax => verdict.reasoning?.[ax]) && (
+        <div style={{
+          marginTop: 20,
+          paddingTop: 16,
+          borderTop: '1px solid var(--border)',
+        }}>
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 8,
+            color: 'var(--text-muted)',
+            letterSpacing: 3,
+            textTransform: 'uppercase',
+            marginBottom: 12,
+          }}>
+            Consensus Reasoning
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {axioms
+              .filter(ax => verdict.reasoning?.[ax])
+              .map(ax => (
+                <div key={ax} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 8,
+                    color: AXIOM_COLORS[ax],
+                    letterSpacing: 1.5,
+                    textTransform: 'uppercase',
+                    paddingTop: 1,
+                    flexShrink: 0,
+                    minWidth: 80,
+                  }}>
+                    {AXIOM_ICONS[ax]} {ax}
+                  </div>
+                  <div style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 11,
+                    color: 'var(--text-dim)',
+                    lineHeight: 1.6,
+                  }}>
+                    {verdict.reasoning[ax]}
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       )}
