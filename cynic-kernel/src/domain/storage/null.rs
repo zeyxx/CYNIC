@@ -3,7 +3,7 @@
 //! still pass through the pipeline (but are not persisted). K14: degraded
 //! mode returns explicit errors rather than silently succeeding.
 
-use super::{Observation, ObservationFrequency, SessionTarget, StorageError, StoragePort};
+use super::{Observation, StorageError, StoragePort};
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
 use async_trait::async_trait;
@@ -73,25 +73,6 @@ impl StoragePort for NullStorage {
     async fn store_observation(&self, _obs: &Observation) -> Result<(), StorageError> {
         Err(StorageError::ConnectionFailed(
             "NullStorage: observation not persisted (DEGRADED mode)".into(),
-        ))
-    }
-    async fn query_observations(
-        &self,
-        _project: &str,
-        _domain: Option<&str>,
-        _limit: u32,
-    ) -> Result<Vec<ObservationFrequency>, StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "Storage unavailable (DEGRADED mode)".into(),
-        ))
-    }
-    async fn query_session_targets(
-        &self,
-        _project: &str,
-        _limit: u32,
-    ) -> Result<Vec<SessionTarget>, StorageError> {
-        Err(StorageError::ConnectionFailed(
-            "Storage unavailable (DEGRADED mode)".into(),
         ))
     }
     async fn flush_usage(

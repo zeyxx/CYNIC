@@ -4,7 +4,6 @@ set -e
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 LOCK_DIR="${HOME}/.cynic-exercise"
 LOCK_FILE="${LOCK_DIR}/$(date +%Y-%m-%d).lock"
-WISDOM_FILE="${LOCK_DIR}/wisdom-needed.txt"
 
 mkdir -p "$LOCK_DIR"
 
@@ -53,18 +52,6 @@ fi
 echo "[DURATION] $DURATION min (conservative baseline)"
 echo "[REALITY] Intensity score: $WORK_INTENSITY"
 
-# Écrire marker pour cynic-wisdom
-cat > "$WISDOM_FILE" << EOF
-COMMITS=$COMMIT_COUNT
-FILES=$FILES_CHANGED
-LINES_ADDED=$LINES_ADDED
-LINES_DELETED=$LINES_DELETED
-DURATION=$DURATION
-EOF
-
-echo "[WISDOM] Marker written. Next Gemini session should invoke /cynic-skills:cynic-wisdom"
-echo "[FRICTION] Force cognitive: reality check before calendar event creation"
-
 # Lock aujourd'hui
 touch "$LOCK_FILE"
-echo "✓ Exercise anchor locked for 19:00"
+echo "[EXERCISE] ${DURATION}min anchor locked (intensity=${WORK_INTENSITY}, commits=${COMMIT_COUNT})"

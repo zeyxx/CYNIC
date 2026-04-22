@@ -385,21 +385,6 @@ mod tests {
         ) -> Result<(), StorageError> {
             Ok(())
         }
-        async fn query_observations(
-            &self,
-            _: &str,
-            _: Option<&str>,
-            _: u32,
-        ) -> Result<Vec<crate::domain::storage::ObservationFrequency>, StorageError> {
-            Ok(vec![])
-        }
-        async fn query_session_targets(
-            &self,
-            _: &str,
-            _: u32,
-        ) -> Result<Vec<crate::domain::storage::SessionTarget>, StorageError> {
-            Ok(vec![])
-        }
         async fn flush_usage(
             &self,
             _: &[(String, crate::domain::usage::DogUsage)],
