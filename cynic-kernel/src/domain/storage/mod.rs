@@ -8,10 +8,7 @@ mod null;
 mod types;
 
 pub use null::NullStorage;
-pub use types::{
-    Observation, ObservationFrequency, RawObservation, SessionTarget, StorageError, StorageMetrics,
-    UsageRow,
-};
+pub use types::{Observation, RawObservation, StorageError, StorageMetrics, UsageRow};
 
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
@@ -83,22 +80,6 @@ pub trait StoragePort: Send + Sync {
     /// Store a development workflow observation (tool usage, file edit, error).
     /// Fire-and-forget — callers should not block on this.
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError>;
-
-    /// Query observations by project, with optional domain filter.
-    /// Returns top observations ordered by frequency (co-occurrence patterns).
-    async fn query_observations(
-        &self,
-        project: &str,
-        domain: Option<&str>,
-        limit: u32,
-    ) -> Result<Vec<ObservationFrequency>, StorageError>;
-
-    /// Query distinct targets per session — used for co-occurrence extraction.
-    async fn query_session_targets(
-        &self,
-        project: &str,
-        limit: u32,
-    ) -> Result<Vec<SessionTarget>, StorageError>;
 
     /// List crystals that have no embedding vector stored.
     /// Used by the backfill task to retroactively embed orphan crystals.

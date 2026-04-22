@@ -9,6 +9,7 @@ At session start, after reading injected context:
 1. **Read TODO.md** — P1 items are injected by session-init.sh. Check if any are stale or completed.
 2. **Read #cynic on Slack** — the human posts priorities/thoughts between sessions. Use `mcp__plugin_slack_slack__slack_read_channel` on `#cynic`, last 5 messages. Non-blocking: skip if unavailable.
 3. **Probe live state** — don't trust memory. `curl /health`, `git status`, check what changed since last session.
+4. **Dream auto-dispatch** — if session-init outputs `DREAM_REQUIRED`, dispatch the `dream-consolidator` agent in background (`run_in_background: true`) before starting any work. Non-blocking: the dream runs while you work on the human's request.
 
 At session end:
 - Update TODO.md if any items were completed or discovered.

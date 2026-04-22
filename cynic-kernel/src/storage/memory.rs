@@ -16,10 +16,7 @@ use tokio::sync::Mutex;
 use crate::domain::ccm::{Crystal, CrystalState, SessionSummary};
 use crate::domain::dog::{MIN_QUORUM, Verdict};
 use crate::domain::sanitize::sanitize_crystal_content;
-use crate::domain::storage::{
-    Observation, ObservationFrequency, RawObservation, SessionTarget, StorageError, StoragePort,
-    UsageRow,
-};
+use crate::domain::storage::{Observation, RawObservation, StorageError, StoragePort, UsageRow};
 use crate::domain::usage::DogUsage;
 
 /// In-memory storage for deterministic testing. Thread-safe via tokio::sync::Mutex.
@@ -274,57 +271,6 @@ impl StoragePort for InMemoryStorage {
             tags: obs.tags.clone(),
         });
         Ok(())
-    }
-
-    async fn query_observations(
-        &self,
-        project: &str,
-        domain: Option<&str>,
-        limit: u32,
-    ) -> Result<Vec<ObservationFrequency>, StorageError> {
-        let s = self.state.lock().await;
-        let mut freq: HashMap<(String, String), u64> = HashMap::new();
-        for obs in &s.observations {
-            if obs.project == project && domain.is_none_or(|d| obs.domain == d) {
-                *freq
-                    .entry((obs.target.clone(), obs.tool.clone()))
-                    .or_default() += 1;
-            }
-        }
-        let mut result: Vec<_> = freq
-            .into_iter()
-            .map(|((target, tool), f)| ObservationFrequency {
-                target,
-                tool,
-                freq: f,
-            })
-            .collect();
-        result.sort_by_key(|t| std::cmp::Reverse(t.freq));
-        result.truncate(limit as usize);
-        Ok(result)
-    }
-
-    async fn query_session_targets(
-        &self,
-        project: &str,
-        limit: u32,
-    ) -> Result<Vec<SessionTarget>, StorageError> {
-        let s = self.state.lock().await;
-        let mut seen = std::collections::HashSet::new();
-        let mut result = Vec::new();
-        for obs in &s.observations {
-            if obs.project == project {
-                let key = (obs.session_id.clone(), obs.target.clone());
-                if seen.insert(key.clone()) {
-                    result.push(SessionTarget {
-                        session_id: key.0,
-                        target: key.1,
-                    });
-                }
-            }
-        }
-        result.truncate(limit as usize);
-        Ok(result)
     }
 
     async fn list_observations_raw(

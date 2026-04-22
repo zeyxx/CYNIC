@@ -1,8 +1,8 @@
 ---
 name: kernel-auditor
-description: Audits cynic-kernel/ for rule violations, dead code, and architectural drift
+description: Audits cynic-kernel/ for rule violations, dead code, and architectural drift. POSTs findings to /observe.
 model: sonnet
-tools: [Read, Grep, Glob]
+tools: [Read, Grep, Glob, Bash, Write]
 memory: project
 permissionMode: plan
 isolation: worktree
@@ -31,3 +31,18 @@ For each finding, report:
 - Suggested fix
 
 Sort by severity: CRITICAL (security/data loss) > HIGH (architectural) > MEDIUM (convention).
+
+## After audit: POST findings to /observe (K15 consumer)
+
+After completing the audit, POST the findings summary to the kernel so nightshift and the anomaly pipeline can act on it:
+
+```bash
+source ~/.cynic-env 2>/dev/null
+FINDINGS="$(echo "$AUDIT_SUMMARY" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')"
+curl -s -X POST -H "Authorization: Bearer ${CYNIC_API_KEY}" \
+  -H "Content-Type: application/json" \
+  "http://${CYNIC_REST_ADDR}/observe" \
+  -d "{\"agent_id\":\"kernel-auditor\",\"tool\":\"audit\",\"target\":\"cynic-kernel\",\"domain\":\"audit\",\"tags\":[\"automated\"],\"content\":${FINDINGS}}"
+```
+
+This ensures audit findings enter the observation pipeline and can crystallize into patterns over time.

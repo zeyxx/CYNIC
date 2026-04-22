@@ -18,23 +18,6 @@ pub struct Observation {
     pub tags: Vec<String>,
 }
 
-// ── TYPED QUERY RESULTS (Gate 3: zero serde_json::Value in domain/) ──
-
-/// Aggregated observation frequency — result of GROUP BY target, tool.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ObservationFrequency {
-    pub target: String,
-    pub tool: String,
-    pub freq: u64,
-}
-
-/// Session × target pair for co-occurrence extraction.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SessionTarget {
-    pub session_id: String,
-    pub target: String,
-}
-
 /// Raw observation row — used by list_observations_raw and get_session_observations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RawObservation {
