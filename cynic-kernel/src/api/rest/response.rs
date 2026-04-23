@@ -58,6 +58,8 @@ pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         integrity_hash: v.integrity_hash.clone(),
         prev_hash: v.prev_hash.clone(),
         cache_hit: None,
+        token_data: None,
+        stimulus_content: None,
     }
 }
 

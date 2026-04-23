@@ -682,6 +682,7 @@ mod tests {
             system_contract: Arc::new(std::sync::RwLock::new(
                 crate::domain::contract::SystemContract::new(vec![], true),
             )),
+            enricher: None,
         })
     }
 

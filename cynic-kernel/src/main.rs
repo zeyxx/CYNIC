@@ -460,6 +460,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(infra::probes::FleetProbe::new(fleet_targets)),
     ];
 
+    // ── Token enricher (Helius) — optional, graceful degradation ──
+    let enricher: Option<Arc<dyn domain::enrichment::TokenEnricherPort>> =
+        match backends::helius::HeliusEnricher::from_env() {
+            Some(h) => {
+                klog!("[Boot] Helius enricher configured — token-analysis will use on-chain data");
+                Some(Arc::new(h))
+            }
+            None => {
+                klog!(
+                    "[Boot] Helius enricher not configured — token-analysis will use raw addresses"
+                );
+                None
+            }
+        };
+
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
@@ -494,6 +509,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         registered_dogs: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
         judge_jobs: Arc::new(api::rest::judge_job::JudgeJobStore::new()),
         system_contract: system_contract.clone(),
+        enricher: enricher.clone(),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
@@ -665,6 +681,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .clone(),
             Some(event_tx.clone()),
             project_root.display().to_string(),
+            enricher.clone(),
         );
 
         // MCP signal handler — cancel background tasks on SIGTERM/SIGINT

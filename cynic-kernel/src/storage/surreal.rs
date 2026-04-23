@@ -10,10 +10,7 @@ mod verdicts;
 use super::{SurrealHttpStorage, safe_limit};
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
-use crate::domain::storage::{
-    Observation, ObservationFrequency, RawObservation, SessionTarget, StorageError, StoragePort,
-    UsageRow,
-};
+use crate::domain::storage::{Observation, RawObservation, StorageError, StoragePort, UsageRow};
 
 // ── SHARED HELPERS ─────────────────────────────────────────────
 
@@ -182,25 +179,6 @@ impl StoragePort for SurrealHttpStorage {
     #[tracing::instrument(skip(self), err)]
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
         activity::store_observation(self, obs).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn query_observations(
-        &self,
-        project: &str,
-        domain: Option<&str>,
-        limit: u32,
-    ) -> Result<Vec<ObservationFrequency>, StorageError> {
-        activity::query_observations(self, project, domain, limit).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn query_session_targets(
-        &self,
-        project: &str,
-        limit: u32,
-    ) -> Result<Vec<SessionTarget>, StorageError> {
-        activity::query_session_targets(self, project, limit).await
     }
 
     #[tracing::instrument(skip(self), err)]

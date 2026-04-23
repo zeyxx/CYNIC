@@ -16,8 +16,7 @@ use crate::domain::coord::{
     AuditEntry, BatchClaimResult, ClaimResult, CoordError, CoordPort, CoordSnapshot,
 };
 use crate::domain::storage::{
-    Observation, ObservationFrequency, RawObservation, SessionTarget, StorageError, StorageMetrics,
-    StoragePort, UsageRow,
+    Observation, RawObservation, StorageError, StorageMetrics, StoragePort, UsageRow,
 };
 use crate::infra::config::StorageConfig;
 
@@ -144,23 +143,6 @@ impl StoragePort for ReconnectableStorage {
     }
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
         self.current().store_observation(obs).await
-    }
-    async fn query_observations(
-        &self,
-        project: &str,
-        domain: Option<&str>,
-        limit: u32,
-    ) -> Result<Vec<ObservationFrequency>, StorageError> {
-        self.current()
-            .query_observations(project, domain, limit)
-            .await
-    }
-    async fn query_session_targets(
-        &self,
-        project: &str,
-        limit: u32,
-    ) -> Result<Vec<SessionTarget>, StorageError> {
-        self.current().query_session_targets(project, limit).await
     }
     async fn list_crystals_missing_embedding(
         &self,

@@ -161,12 +161,14 @@ if [[ -f "$TODO_FILE" ]]; then
 fi
 
 # ── Dream consolidation check (K15: dream-trigger produces, this consumes) ──
+# When threshold met, output DREAM_REQUIRED directive.
+# Workflow rule: LLM must dispatch dream-consolidator agent in background.
 DREAM_STATE="${HOME}/.claude/projects/-home-user-Bureau-CYNIC/memory/.dream-state"
 if [[ -f "$DREAM_STATE" ]]; then
     SESSIONS_SINCE=$(grep '^sessions_since=' "$DREAM_STATE" | cut -d= -f2 || echo 0)
     if [[ "$SESSIONS_SINCE" -ge 5 ]]; then
         echo ""
-        echo "DREAM: ${SESSIONS_SINCE} sessions since last consolidation — run /dream"
+        echo "DREAM_REQUIRED: ${SESSIONS_SINCE} sessions since last consolidation — dispatch dream-consolidator agent in background"
     fi
 fi
 

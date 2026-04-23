@@ -1,9 +1,7 @@
 use super::{build_where_clause, safe_limit, sanitize_record_id};
 use crate::domain::ccm::SessionSummary;
 use crate::domain::compliance::SessionCompliance;
-use crate::domain::storage::{
-    Observation, ObservationFrequency, RawObservation, SessionTarget, StorageError,
-};
+use crate::domain::storage::{Observation, RawObservation, StorageError};
 use crate::storage::{SurrealHttpStorage, escape_surreal};
 
 fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
@@ -70,58 +68,6 @@ pub(super) async fn store_observation(
     Ok(())
 }
 
-pub(super) async fn query_observations(
-    storage: &SurrealHttpStorage,
-    project: &str,
-    domain: Option<&str>,
-    limit: u32,
-) -> Result<Vec<ObservationFrequency>, StorageError> {
-    let domain_clause = match domain {
-        Some(d) => format!(" AND domain = '{}'", escape_surreal(d)),
-        None => String::new(),
-    };
-    let sql = format!(
-        "SELECT target, tool, count() AS freq FROM observation \
-         WHERE project = '{}'{} \
-         GROUP BY target, tool ORDER BY freq DESC LIMIT {};",
-        escape_surreal(project),
-        domain_clause,
-        safe_limit(limit),
-    );
-    let rows = storage.query_one(&sql).await?;
-    Ok(rows
-        .iter()
-        .map(|r| ObservationFrequency {
-            target: r["target"].as_str().unwrap_or("").to_string(),
-            tool: r["tool"].as_str().unwrap_or("").to_string(),
-            freq: r["freq"].as_u64().unwrap_or(0),
-        })
-        .collect())
-}
-
-pub(super) async fn query_session_targets(
-    storage: &SurrealHttpStorage,
-    project: &str,
-    limit: u32,
-) -> Result<Vec<SessionTarget>, StorageError> {
-    let sql = format!(
-        "SELECT agent_id AS session_id, target FROM observation \
-         WHERE project = '{}' AND agent_id != '' AND agent_id != 'unknown' \
-         AND tool IN ['Edit', 'Write', 'Read'] \
-         ORDER BY agent_id, target LIMIT {};",
-        escape_surreal(project),
-        limit.min(1000),
-    );
-    let rows = storage.query_one(&sql).await?;
-    Ok(rows
-        .iter()
-        .map(|r| SessionTarget {
-            session_id: r["session_id"].as_str().unwrap_or("").to_string(),
-            target: r["target"].as_str().unwrap_or("").to_string(),
-        })
-        .collect())
-}
-
 pub(super) async fn store_session_summary(
     storage: &SurrealHttpStorage,
     summary: &SessionSummary,
@@ -170,10 +116,13 @@ pub(super) async fn get_unsummarized_sessions(
     min_observations: u32,
     limit: u32,
 ) -> Result<Vec<(String, String, u32)>, StorageError> {
+    // Bound to 7d window — observations older than that are not worth summarizing,
+    // and the time filter uses obs_created_idx to avoid full-table scan (was 8.9s unbounded).
     let sql = format!(
         "SELECT agent_id, count() AS obs_count \
          FROM observation \
          WHERE agent_id != '' AND agent_id != 'unknown' \
+         AND created_at > time::now() - 7d \
          AND agent_id NOT IN (SELECT VALUE session_id FROM session_summary) \
          GROUP BY agent_id \
          ORDER BY obs_count DESC \

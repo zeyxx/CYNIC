@@ -221,6 +221,7 @@ pub struct CynicMcp {
     pub(crate) bg_semaphore: Arc<tokio::sync::Semaphore>,
     pub(crate) authenticated: Arc<AtomicBool>,
     pub(crate) project_root: String,
+    pub(crate) enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -248,6 +249,7 @@ impl CynicMcp {
         system_contract: crate::domain::contract::SystemContract,
         event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
         project_root: String,
+        enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
     ) -> Self {
         Self {
             judge: Arc::new(arc_swap::ArcSwap::from(judge)),
@@ -262,6 +264,7 @@ impl CynicMcp {
             system_contract,
             usage,
             event_tx,
+            enricher,
             rate_limit: Arc::new(McpRateLimit::new()),
             bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
                 crate::domain::constants::BG_SEMAPHORE_PERMITS,
@@ -382,21 +385,6 @@ mod tests {
         ) -> Result<(), StorageError> {
             Ok(())
         }
-        async fn query_observations(
-            &self,
-            _: &str,
-            _: Option<&str>,
-            _: u32,
-        ) -> Result<Vec<crate::domain::storage::ObservationFrequency>, StorageError> {
-            Ok(vec![])
-        }
-        async fn query_session_targets(
-            &self,
-            _: &str,
-            _: u32,
-        ) -> Result<Vec<crate::domain::storage::SessionTarget>, StorageError> {
-            Ok(vec![])
-        }
         async fn flush_usage(
             &self,
             _: &[(String, crate::domain::usage::DogUsage)],
@@ -439,6 +427,7 @@ mod tests {
             crate::domain::contract::SystemContract::new(vec!["deterministic-dog".into()], false),
             None,
             "/tmp".to_string(),
+            None,
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
         mcp
@@ -622,6 +611,7 @@ mod tests {
             crate::domain::contract::SystemContract::new(vec!["deterministic-dog".into()], false),
             None,
             "/tmp".to_string(),
+            None,
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
 
