@@ -285,6 +285,13 @@ impl InferenceOrgan {
                 && let Ok(mut guard) = handle.0.lock()
             {
                 guard.stats = stats.clone();
+                // Push calibrated budget to Dog's AtomicU32 so it doesn't fall back
+                // to the bootstrap formula (which ignores MIN_COMPLETION_BUDGET).
+                if let (Some(budget_val), Some(bh)) =
+                    (guard.stats.completion_budget(), &guard.budget_handle)
+                {
+                    bh.store(budget_val, Ordering::Relaxed);
+                }
                 // NOTE: Do NOT replay gate state at boot. K14 penalty: we marked Dogs as
                 // quality_degraded before they had a chance to recover, which blocked all
                 // /judge requests on first boot after a failure. Instead, let Dogs rebuild
@@ -294,6 +301,7 @@ impl InferenceOrgan {
                     backend = %dog_id,
                     total_calls = stats.total_calls,
                     success_rate = format!("{:.1}%", (stats.success_count as f64 / (stats.total_calls.max(1) as f64)) * 100.0),
+                    budget = guard.stats.completion_budget().unwrap_or(0),
                     "organ: restored DogStats (gates reset — no replay at boot)"
                 );
             }
