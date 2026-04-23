@@ -41,7 +41,7 @@ pub fn normalize_for_hash(input: &str) -> String {
 pub fn semantic_slug(domain: &str, content: &str) -> String {
     let slug = match domain {
         "dev" => slug_dev(content),
-        "token" => slug_token(content),
+        "token" | "token-analysis" => slug_token(content),
         "session" => slug_session(content),
         "trading" => slug_trading(content),
         "chess" => return format!("chess:{content}"), // chess: keep exact (already repetitive)
@@ -334,6 +334,42 @@ mod tests {
         let content = "Token analysis: 9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump has 20 holders";
         let slug = semantic_slug("token", content);
         assert!(slug.contains("9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump"));
+    }
+
+    #[test]
+    fn slug_token_analysis_domain_routes_to_slug_token() {
+        // The screener sends domain="token-analysis", not "token"
+        let a = semantic_slug(
+            "token-analysis",
+            "mint: JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN name: Jupiter",
+        );
+        let b = semantic_slug(
+            "token",
+            "mint: JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN name: Jupiter",
+        );
+        assert!(
+            a.contains("JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"),
+            "token-analysis should extract mint address, got: {a}"
+        );
+        // Both domains should produce the same slug content (mint address)
+        assert_eq!(
+            a.split(':').skip(1).collect::<Vec<_>>().join(":"),
+            b.split(':').skip(1).collect::<Vec<_>>().join(":"),
+            "token-analysis and token should extract the same mint"
+        );
+    }
+
+    #[test]
+    fn slug_token_analysis_enriched_stimulus_coalesces() {
+        // Enriched stimulus from screener — different prices but same token
+        let stim_a = "[DOMAIN: token-analysis]\n\n[METRICS]\nmint: 9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump\nname: asdf\nprice: $0.001";
+        let stim_b = "[DOMAIN: token-analysis]\n\n[METRICS]\nmint: 9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump\nname: asdf\nprice: $0.002";
+        let a = semantic_slug("token-analysis", stim_a);
+        let b = semantic_slug("token-analysis", stim_b);
+        assert_eq!(
+            a, b,
+            "same token with different prices should produce same slug"
+        );
     }
 
     #[test]
