@@ -1,20 +1,7 @@
 ---
-description: Reference data — API, Dogs, axioms, infrastructure
+description: Quick-reference data — φ constants, Dogs, infrastructure
 globs: ["**"]
 ---
-
-## Axioms
-
-| Axiom | Judges |
-|---|---|
-| FIDELITY | Faithful to truth? Sound principles? |
-| PHI | Structurally harmonious? Proportional? |
-| VERIFY | Testable? Verifiable or refutable? |
-| CULTURE | Honors traditions and patterns? |
-| BURN | Efficient? Minimal waste? |
-| SOVEREIGNTY | Preserves agency and freedom? |
-
-CYNIC judges SUBSTANCE, not FORM.
 
 ## φ Constants
 
@@ -38,22 +25,7 @@ Source of truth: `~/.config/cynic/fleet.toml`
 | Service | Location | What |
 |---|---|---|
 | CYNIC Kernel | `<TAILSCALE_CORE>`:3030 | REST API |
-| llama-server | `<TAILSCALE_CORE>`:8080 | Gemma 3 4B (CPU) |
+| llama-server | `<TAILSCALE_CORE>`:8080 | Gemma 4 E4B (CPU) |
 | llama-server | `<TAILSCALE_GPU>`:8080 | Qwen 3.5 9B (GPU, 55 tok/s) |
 
-## API Endpoints
-
-All require `Bearer $CYNIC_API_KEY` except `/health`, `/live`, `/ready`, `/metrics`, `/events`.
-Rate limit: 30/min. Full contract: `API.md`.
-
-```
-GET  /health, /live, /ready, /metrics, /events
-GET  /verdicts, /verdict/{id}, /crystals, /crystal/{id}
-GET  /usage, /dogs, /agents
-GET  /observations, /sessions, /session/{agent_id}/compliance, /compliance, /audit
-POST /judge, /observe, /crystal
-DELETE /crystal/{id}
-POST /coord/register, /coord/claim, /coord/claim-batch, /coord/release
-POST /dogs/register, /dogs/{id}/heartbeat
-DELETE /dogs/{id}
-```
+Full API contract: `API.md`. Env: `${CYNIC_REST_ADDR}`, `${CYNIC_API_KEY}` from `~/.cynic-env`.
