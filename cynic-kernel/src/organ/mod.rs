@@ -12,6 +12,7 @@ pub mod registry;
 use crate::organ::health::{DogStats, ParseFailureGate, ScoreFailureKind};
 use crate::organ::registry::{Backend, BackendHealth, BackendId};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -24,6 +25,9 @@ struct BackendEntry {
     /// Timestamp of last quality probe allowed for a degraded Dog.
     /// Mirrors CircuitBreaker HalfOpen pattern: at most one probe per TTL period.
     last_quality_probe: Option<Instant>,
+    /// Shared handle to the Dog's dynamic completion budget.
+    /// Updated here after each successful eval; read by InferenceDog at eval time.
+    budget_handle: Option<Arc<AtomicU32>>,
 }
 
 /// Opaque handle to a backend entry, obtained from `InferenceOrgan::register_backend()`.
@@ -161,6 +165,7 @@ impl InferenceOrgan {
             stats: DogStats::new(),
             gate: ParseFailureGate::new(),
             last_quality_probe: None,
+            budget_handle: None,
         })));
         self.entries.insert(id, handle.clone());
         handle
@@ -169,6 +174,14 @@ impl InferenceOrgan {
     /// Number of registered backends.
     pub fn backend_count(&self) -> usize {
         self.entries.len()
+    }
+
+    /// Attach a Dog's budget handle so the organ can push calibrated budgets.
+    /// Called once after Dog construction, before any evaluations.
+    pub fn attach_budget_handle(handle: &BackendHandle, budget: Arc<AtomicU32>) {
+        if let Ok(mut guard) = handle.0.lock() {
+            guard.budget_handle = Some(budget);
+        }
     }
 
     /// Update stats for a backend after a Dog evaluation.
@@ -185,6 +198,12 @@ impl InferenceOrgan {
                 guard.stats.record_success_with_latency(elapsed_ms);
                 guard.stats.record_completion_tokens(completion_tokens);
                 guard.gate.record_success();
+                // Push calibrated budget to the Dog's AtomicU32 if available.
+                if let (Some(budget_val), Some(bh)) =
+                    (guard.stats.completion_budget(), &guard.budget_handle)
+                {
+                    bh.store(budget_val, Ordering::Relaxed);
+                }
             }
             ScoreOutcome::Failure(failure_kind) => {
                 guard.stats.record_failure(failure_kind);

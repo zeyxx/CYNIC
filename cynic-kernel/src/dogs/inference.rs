@@ -8,6 +8,7 @@ use crate::infra::config::PromptTier;
 use async_trait::async_trait;
 use serde::Deserialize;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 pub struct InferenceDog {
     chat: Arc<dyn ChatPort>,
@@ -16,6 +17,10 @@ pub struct InferenceDog {
     timeout: u64,
     domain_prompts: Arc<std::collections::HashMap<String, String>>,
     prompt_tier: PromptTier,
+    /// Dynamic completion budget from DogStats calibration.
+    /// 0 = not yet calibrated, use profile default.
+    /// Updated by the organ when DogStats.completion_budget() becomes available.
+    calibrated_budget: Arc<AtomicU32>,
 }
 
 impl std::fmt::Debug for InferenceDog {
@@ -39,6 +44,7 @@ impl InferenceDog {
             timeout: timeout_secs,
             domain_prompts: Arc::new(std::collections::HashMap::new()),
             prompt_tier,
+            calibrated_budget: Arc::new(AtomicU32::new(0)),
         }
     }
 
@@ -48,6 +54,13 @@ impl InferenceDog {
     ) -> Self {
         self.domain_prompts = prompts;
         self
+    }
+
+    /// Get a shared handle to the calibrated budget for external updates.
+    /// The organ calls this at registration, then updates the AtomicU32
+    /// whenever DogStats.completion_budget() produces a new value.
+    pub fn budget_handle(&self) -> Arc<AtomicU32> {
+        Arc::clone(&self.calibrated_budget)
     }
 
     fn build_system_prompt() -> &'static str {
@@ -158,7 +171,21 @@ impl Dog for InferenceDog {
 
         // ── Dynamic budget: estimate prompt size, check context fit ──
         let prompt_tokens = estimate_tokens(system) + estimate_tokens(&user);
-        let completion_budget = InferenceProfile::SCORING.max_tokens(); // fallback default
+        let calibrated = self.calibrated_budget.load(Ordering::Relaxed);
+        let completion_budget = if calibrated > 0 {
+            // Calibrated: use observed max * 1.2 from DogStats
+            calibrated
+        } else {
+            // Bootstrap: cap at what this Dog can reasonably generate in its timeout.
+            // Scoring JSON is ~150-300 tokens; 1024 is generous but safe for fast Dogs.
+            // For slow Dogs (CPU), the profile default 1024 would exceed the timeout.
+            // Conservative estimate: 8 tok/s baseline for CPU Dogs (Vulkan iGPU).
+            // The first 20 successful evals will replace this with calibrated data.
+            let conservative_tok_s: u32 = 8;
+            let time_for_generation = self.timeout.saturating_sub(10) as u32; // reserve 10s for prompt processing
+            let timeout_capped = conservative_tok_s * time_for_generation;
+            InferenceProfile::SCORING.max_tokens().min(timeout_capped)
+        };
         let total = prompt_tokens + completion_budget;
         if self.context_size > 0 && total > self.context_size {
             return Err(DogError::ContextOverflow {
@@ -170,10 +197,9 @@ impl Dog for InferenceDog {
         }
         // Dynamic max_tokens: the MINIMUM of what fits and what the Dog needs.
         // available = what the context can hold after the prompt
-        // effective = capped by the scoring default, because sending max_tokens=30K
-        // to a cloud API that produces ~200 tokens is waste AND may be rejected.
-        // When DogStats.completion_budget() is wired (Phase 2), the cap will come
-        // from calibration data instead of the profile default.
+        // effective = capped by calibrated budget (from DogStats) or profile default.
+        // The organ updates calibrated_budget via the AtomicU32 handle when
+        // DogStats.completion_budget() has enough baseline data (≥20 calls).
         let available = if self.context_size > 0 {
             self.context_size.saturating_sub(prompt_tokens)
         } else {
