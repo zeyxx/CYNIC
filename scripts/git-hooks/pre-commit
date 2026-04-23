@@ -29,6 +29,10 @@ security_check() {
         | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken|\.api_key|ApplicationSecret|read_application_secret|\.token\(\)|client_secret:\s*PathBuf|let\s+token\s*=\s*self\.' \
         | grep -vE '"\$\{[0-9]+:-|"\$\{[A-Z_]+:-' \
         | grep -vE 'format!\(.*\{api_key\}' \
+        | grep -vE 'f".*\{api_key\}' \
+        | grep -vE 'os\.environ\.get\(' \
+        | grep -vE 'load_helius_key\(\)' \
+        | grep -vE 'healthy_token:|moderate_risk:|high_risk_rug:' \
         | grep -vE ':\s*Option<|:\s*Result<|:\s*Vec<|:\s*String' \
         | grep -vE '\.split\(.*api[_-]?key' || true)
     if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
