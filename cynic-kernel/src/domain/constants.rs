@@ -86,3 +86,11 @@ pub const HEARTBEAT_TTL_MARGIN: u64 = 60;
 
 /// Default Dog registration TTL (seconds) in discovery payloads.
 pub const DEFAULT_REGISTRATION_TTL: u64 = 90;
+
+// ── Budget calibration ─────────────────────────────────────
+
+/// Minimum completion budget — prevents thinking model death spirals.
+/// Thinking models (Gemma 4) consume tokens on reasoning before producing JSON.
+/// Without a floor, the budget calibrates on truncated outputs and collapses.
+/// 768: covers ~450 thinking tokens + ~300 content tokens with margin.
+pub const MIN_COMPLETION_BUDGET: u32 = 768;

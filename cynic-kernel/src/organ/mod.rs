@@ -194,9 +194,12 @@ impl InferenceOrgan {
             ScoreOutcome::Success {
                 elapsed_ms,
                 completion_tokens,
+                thinking_tokens,
             } => {
                 guard.stats.record_success_with_latency(elapsed_ms);
-                guard.stats.record_completion_tokens(completion_tokens);
+                guard
+                    .stats
+                    .record_completion_tokens(completion_tokens, thinking_tokens);
                 guard.gate.record_success();
                 // Push calibrated budget to the Dog's AtomicU32 if available.
                 if let (Some(budget_val), Some(bh)) =
@@ -304,6 +307,7 @@ pub enum ScoreOutcome {
     Success {
         elapsed_ms: u64,
         completion_tokens: u32,
+        thinking_tokens: u32,
     },
     Failure(ScoreFailureKind),
 }
@@ -355,6 +359,7 @@ mod tests {
             ScoreOutcome::Success {
                 elapsed_ms: 0,
                 completion_tokens: 0,
+                thinking_tokens: 0,
             },
         );
         InferenceOrgan::update_stats_entry(
@@ -362,6 +367,7 @@ mod tests {
             ScoreOutcome::Success {
                 elapsed_ms: 0,
                 completion_tokens: 0,
+                thinking_tokens: 0,
             },
         );
         InferenceOrgan::update_stats_entry(
@@ -391,6 +397,7 @@ mod tests {
                 ScoreOutcome::Success {
                     elapsed_ms: 0,
                     completion_tokens: 0,
+                    thinking_tokens: 0,
                 },
             );
         }
@@ -477,6 +484,7 @@ mod tests {
                 ScoreOutcome::Success {
                     elapsed_ms: 100,
                     completion_tokens: 200,
+                    thinking_tokens: 0,
                 },
             );
         }
@@ -507,6 +515,7 @@ mod tests {
                 ScoreOutcome::Success {
                     elapsed_ms: 0,
                     completion_tokens: 0,
+                    thinking_tokens: 0,
                 },
             );
         }
@@ -525,6 +534,7 @@ mod tests {
                 ScoreOutcome::Success {
                     elapsed_ms: 0,
                     completion_tokens: 0,
+                    thinking_tokens: 0,
                 },
             );
         }
@@ -560,6 +570,8 @@ mod tests {
             total_latency_ms: 0,
             total_completion_tokens: 0,
             max_completion_tokens: 0,
+            max_content_tokens: 0,
+            max_thinking_tokens: 0,
         };
         organ.restore_stats(&[("gemma-4b-core".to_string(), stats)]);
 
@@ -595,6 +607,7 @@ mod tests {
                 ScoreOutcome::Success {
                     elapsed_ms: 0,
                     completion_tokens: 0,
+                    thinking_tokens: 0,
                 },
             );
         }
@@ -636,6 +649,7 @@ mod tests {
                 ScoreOutcome::Success {
                     elapsed_ms: 0,
                     completion_tokens: 0,
+                    thinking_tokens: 0,
                 },
             );
         }
@@ -665,6 +679,7 @@ mod tests {
                 ScoreOutcome::Success {
                     elapsed_ms: 0,
                     completion_tokens: 0,
+                    thinking_tokens: 0,
                 },
             );
         }
@@ -690,6 +705,7 @@ mod tests {
                 ScoreOutcome::Success {
                     elapsed_ms: 0,
                     completion_tokens: 0,
+                    thinking_tokens: 0,
                 },
             );
         }
@@ -719,6 +735,8 @@ mod tests {
             total_latency_ms: 0,
             total_completion_tokens: 0,
             max_completion_tokens: 0,
+            max_content_tokens: 0,
+            max_thinking_tokens: 0,
         };
         organ.restore_stats(&[("reviving-dog".to_string(), stats)]);
 
@@ -764,6 +782,7 @@ mod tests {
                 ScoreOutcome::Success {
                     elapsed_ms: 100,
                     completion_tokens: ct,
+                    thinking_tokens: 0,
                 },
             );
         }
@@ -773,8 +792,12 @@ mod tests {
         assert_eq!(stats.max_completion_tokens, 250);
 
         let budget = stats.completion_budget().unwrap();
-        // 250 * 1.2 = 300
-        assert_eq!(budget, 300, "budget = max * 1.2 rounded up");
+        // content_budget = 250 * 1.2 = 300, thinking_budget = 0
+        // floor = MIN_COMPLETION_BUDGET = 768
+        assert_eq!(
+            budget, 768,
+            "budget = max(content*1.2, MIN_COMPLETION_BUDGET)"
+        );
     }
 
     #[test]
@@ -783,7 +806,7 @@ mod tests {
         // Simulate 10 calls: 200 tokens each, 1000ms each → 2000 tok / 10s = 200 tok/s
         for _ in 0..10 {
             stats.record_success_with_latency(1000);
-            stats.record_completion_tokens(200);
+            stats.record_completion_tokens(200, 0);
         }
 
         let tps = stats.tok_per_sec().unwrap();
@@ -798,5 +821,85 @@ mod tests {
         // Dynamic budget
         let profile = InferenceProfile::scoring_with_budget(6000);
         assert_eq!(profile.max_tokens(), 6000);
+    }
+
+    #[test]
+    fn thinking_budget_accounts_for_thinking_overhead() {
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("gemma-thinking"));
+
+        // Simulate Gemma: 400 combined, 370 thinking + 30 content
+        for _ in 0..25 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 5000,
+                    completion_tokens: 400,
+                    thinking_tokens: 370,
+                },
+            );
+        }
+
+        let stats = handle.stats_snapshot().unwrap();
+        assert!(stats.is_baseline_established());
+        assert_eq!(stats.max_thinking_tokens, 370);
+        assert_eq!(stats.max_content_tokens, 30);
+
+        let budget = stats.completion_budget().unwrap();
+        // content_budget = ceil(30 * 1.2) = 36
+        // thinking_budget = ceil(370 * 1.5) = 555
+        // sum = 591, floor = 768 → 768
+        assert!(
+            budget >= 768,
+            "budget must be at least MIN_COMPLETION_BUDGET, got {budget}"
+        );
+        assert!(
+            budget > 370,
+            "budget must exceed thinking overhead to leave room for content"
+        );
+    }
+
+    #[test]
+    fn non_thinking_model_budget_covers_content() {
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("qwen-no-think"));
+
+        // Non-thinking model: 300 content, 0 thinking
+        for _ in 0..25 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 200,
+                    completion_tokens: 300,
+                    thinking_tokens: 0,
+                },
+            );
+        }
+
+        let stats = handle.stats_snapshot().unwrap();
+        assert_eq!(stats.max_content_tokens, 300);
+        assert_eq!(stats.max_thinking_tokens, 0);
+
+        let budget = stats.completion_budget().unwrap();
+        // content_budget = ceil(300 * 1.2) = 360, thinking = 0
+        // floor = 768 → max(360, 768) = 768
+        assert!(budget >= 360, "budget must cover content headroom");
+    }
+
+    #[test]
+    fn min_completion_budget_floor_prevents_collapse() {
+        use crate::domain::constants::MIN_COMPLETION_BUDGET;
+        let mut stats = DogStats::new();
+        // Worst case: 5 content tokens, 395 thinking (Gemma truncation)
+        for _ in 0..25 {
+            stats.record_success_with_latency(1000);
+            stats.record_completion_tokens(400, 395);
+        }
+
+        let budget = stats.completion_budget().unwrap();
+        assert!(
+            budget >= MIN_COMPLETION_BUDGET,
+            "budget must never fall below floor, got {budget}"
+        );
     }
 }

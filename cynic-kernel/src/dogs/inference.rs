@@ -244,12 +244,14 @@ impl Dog for InferenceDog {
                 },
                 prompt_tokens: 0,
                 completion_tokens: 0,
+                thinking_tokens: 0,
                 abstentions: vec![],
             },
             Err(_) => extract_scores_lenient(json_str)?,
         };
         scores.prompt_tokens = prompt_tokens;
         scores.completion_tokens = completion_tokens;
+        scores.thinking_tokens = chat_resp.thinking_tokens;
 
         // Defense in depth: remap 0.0 → 0.05 before validation.
         // System prompt says "minimum 0.05" but some models (qwen-7b-hf observed)
@@ -400,6 +402,7 @@ fn extract_scores_lenient(json_str: &str) -> Result<AxiomScores, DogError> {
         },
         prompt_tokens: 0,
         completion_tokens: 0,
+        thinking_tokens: 0,
         abstentions: vec![],
     })
 }

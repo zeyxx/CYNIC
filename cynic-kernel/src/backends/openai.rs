@@ -325,7 +325,7 @@ impl ChatPort for OpenAiCompatBackend {
             .map(|u| (u.prompt_tokens, u.completion_tokens))
             .unwrap_or((0, 0));
 
-        let text = resp
+        let (text, thinking_chars) = resp
             .choices
             .into_iter()
             .next()
@@ -368,23 +368,28 @@ impl ChatPort for OpenAiCompatBackend {
                         .and_then(|r| Some((r.find('{')?, r.rfind('}')?)))
                     && let Some(r) = c.message.reasoning_content.as_deref()
                 {
-                    return r[start..=end].to_string();
+                    return (r[start..=end].to_string(), thinking_chars);
                 }
                 // If content has a </think> preamble (reasoning-format=none), strip it.
                 if let Some(pos) = content.find("</think>") {
                     let after = content[pos + 8..].trim_start();
                     if !after.is_empty() {
-                        return after.to_string();
+                        return (after.to_string(), thinking_chars);
                     }
                 }
-                content
+                (content, thinking_chars)
             })
             .ok_or_else(|| ChatError::Protocol(format!("{}: empty response", self.config.name)))?;
+
+        // Estimate thinking tokens from char count (~4 chars/token BPE heuristic).
+        // Used by DogStats to calibrate budget separately from content tokens.
+        let thinking_tokens = (thinking_chars as u32) / 4;
 
         Ok(ChatResponse {
             text,
             prompt_tokens,
             completion_tokens,
+            thinking_tokens,
         })
     }
 }

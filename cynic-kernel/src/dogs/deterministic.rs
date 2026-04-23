@@ -479,6 +479,7 @@ impl Dog for DeterministicDog {
             sovereignty,
             prompt_tokens: 0,
             completion_tokens: 0,
+            thinking_tokens: 0,
             reasoning: AxiomReasoning {
                 fidelity: fidelity_reason,
                 phi: phi_reason,

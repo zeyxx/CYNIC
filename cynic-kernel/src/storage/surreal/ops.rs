@@ -136,6 +136,8 @@ pub(super) async fn load_dog_stats(
                     total_latency_ms: r["total_latency_ms"].as_u64().unwrap_or(0),
                     total_completion_tokens: r["total_completion_tokens"].as_u64().unwrap_or(0),
                     max_completion_tokens: r["max_completion_tokens"].as_u64().unwrap_or(0) as u32,
+                    max_content_tokens: r["max_content_tokens"].as_u64().unwrap_or(0) as u32,
+                    max_thinking_tokens: r["max_thinking_tokens"].as_u64().unwrap_or(0) as u32,
                 },
             ))
         })
