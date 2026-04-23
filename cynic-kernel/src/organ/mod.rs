@@ -793,9 +793,9 @@ mod tests {
 
         let budget = stats.completion_budget().unwrap();
         // content_budget = 250 * 1.2 = 300, thinking_budget = 0
-        // floor = MIN_COMPLETION_BUDGET = 768
+        // floor = MIN_COMPLETION_BUDGET = 512
         assert_eq!(
-            budget, 768,
+            budget, 512,
             "budget = max(content*1.2, MIN_COMPLETION_BUDGET)"
         );
     }
@@ -848,11 +848,13 @@ mod tests {
         let budget = stats.completion_budget().unwrap();
         // content_budget = ceil(30 * 1.2) = 36
         // thinking_budget = ceil(370 * 1.5) = 555
-        // sum = 591, floor = 768 → 768
+        // content_budget = ceil(30*1.2) = 36, thinking_budget = ceil(370*1.5) = 555
+        // sum = 591 > floor 512 → 591
         assert!(
-            budget >= 768,
+            budget >= 512,
             "budget must be at least MIN_COMPLETION_BUDGET, got {budget}"
         );
+        assert_eq!(budget, 591, "budget = content*1.2 + thinking*1.5");
         assert!(
             budget > 370,
             "budget must exceed thinking overhead to leave room for content"
@@ -882,7 +884,7 @@ mod tests {
 
         let budget = stats.completion_budget().unwrap();
         // content_budget = ceil(300 * 1.2) = 360, thinking = 0
-        // floor = 768 → max(360, 768) = 768
+        // floor = 512 → max(360, 512) = 512
         assert!(budget >= 360, "budget must cover content headroom");
     }
 
