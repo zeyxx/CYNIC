@@ -67,6 +67,9 @@ pub struct AxiomScores {
     pub prompt_tokens: u32,
     #[serde(default)]
     pub completion_tokens: u32,
+    /// Estimated thinking tokens (0 for non-thinking models).
+    #[serde(default)]
+    pub thinking_tokens: u32,
     /// Axioms where this Dog abstained (returned NEUTRAL, not active evaluation).
     #[serde(default)]
     pub abstentions: Vec<String>,

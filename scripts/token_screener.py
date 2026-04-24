@@ -166,6 +166,46 @@ def fetch_asset(api_key: str, mint: str) -> dict:
     return info
 
 
+def estimate_maturity_tier(asset: dict, concentration: dict) -> str:
+    """Derive maturity tier from on-chain signals already available.
+    No extra API calls — uses data from getAsset + concentration analysis.
+    Returns a human-readable maturity string for the stimulus."""
+    revoked_mint = not asset.get("mint_authority")
+    revoked_freeze = not asset.get("freeze_authority")
+    immutable = asset.get("mutable") is False
+    hhi = concentration.get("herfindahl")
+    mcap = 0
+    supply = asset.get("supply", 0)
+    decimals = asset.get("decimals", 0)
+    price = asset.get("price_usd", 0)
+    if supply and decimals is not None and price:
+        mcap = (supply / (10 ** decimals)) * price
+
+    # Tier logic — derived from observable signals, no hardcoded age
+    # For fungible tokens, metadata mutability is normal (UI updates).
+    # Weight immutability as a bonus, not a requirement.
+    is_fungible = asset.get("token_standard") in ("Fungible", "FungibleAsset", None)
+    signals_strong = sum([
+        revoked_mint,
+        revoked_freeze,
+        immutable or (is_fungible and revoked_mint and revoked_freeze),  # fungibles: authorities matter more than metadata
+        hhi is not None and hhi < 0.15,
+        mcap > 100_000_000,
+    ])
+    signals_moderate = sum([
+        revoked_mint or revoked_freeze,
+        mcap > 1_000_000,
+        hhi is not None and hhi < 0.40,
+    ])
+
+    if signals_strong >= 4:
+        return "ESTABLISHED (authorities revoked, distributed holders, high market cap — eligible for full score range)"
+    elif signals_moderate >= 2:
+        return "MODERATE (some positive signals, building track record — max axiom score ~0.55)"
+    else:
+        return "NEW/UNPROVEN (few positive signals, high caution — max axiom score ~0.45)"
+
+
 def fetch_largest_accounts(api_key: str, mint: str) -> list[dict]:
     """Fetch top-20 largest token accounts via Solana RPC."""
     result = helius_rpc(api_key, "getTokenLargestAccounts", [mint])
@@ -332,6 +372,11 @@ def build_stimulus(mint: str, asset: dict, concentration: dict) -> str:
         desc = asset["description"][:200]
         lines.append(f"description: {desc}")
 
+    # Maturity tier — derived from on-chain signals, drives HOWL/AMB discrimination
+    maturity = asset.get("maturity_tier")
+    if maturity:
+        lines.append(f"maturity_assessment: {maturity}")
+
     # Baselines
     lines.append("")
     lines.append("[BASELINES]")
@@ -427,6 +472,7 @@ def main():
     print(f"Fetching {mint[:8]}...", file=sys.stderr)
     asset = fetch_asset(api_key, mint)
     largest = fetch_largest_accounts(api_key, mint)
+    # (age_days removed — rentEpoch unreliable for rent-exempt accounts)
 
     if verbose:
         print(f"\n--- getAsset ---\n{json.dumps(asset, indent=2)}", file=sys.stderr)
@@ -446,6 +492,7 @@ def main():
         print(f"\n--- Concentration ---\n{json.dumps(concentration, indent=2)}", file=sys.stderr)
 
     # 3. Build stimulus
+    asset["maturity_tier"] = estimate_maturity_tier(asset, concentration)
     stimulus = build_stimulus(mint, asset, concentration)
 
     if dry_run:

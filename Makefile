@@ -118,6 +118,27 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 	if [ $$FAIL -eq 0 ]; then echo "✓ All grep-enforceable rules pass"; fi; \
 	exit $$FAIL
 
+.PHONY: lint-services
+lint-services: ## Compare running user services vs expected list — catches zombie/missing services
+	@echo ""
+	@echo "▶ Checking service state..."
+	@EXPECTED="docs/ops/expected-services.txt"; \
+	if [ ! -f "$$EXPECTED" ]; then echo "⚠ $$EXPECTED not found — skipping"; exit 0; fi; \
+	FAIL=0; \
+	while IFS= read -r svc; do \
+		case "$$svc" in \#*|"") continue;; esac; \
+		if ! systemctl --user is-active --quiet "$$svc" 2>/dev/null; then \
+			echo "✗ MISSING: $$svc (expected active, not found)"; FAIL=1; \
+		fi; \
+	done < "$$EXPECTED"; \
+	for svc in $$(systemctl --user list-units --type=service --state=active --no-legend 2>/dev/null | awk '{print $$1}' | grep -E "cynic|llama|surreal|kairos|cloudflare"); do \
+		if ! grep -q "^$$svc$$" "$$EXPECTED" 2>/dev/null; then \
+			echo "✗ UNEXPECTED: $$svc (running but not in expected list)"; FAIL=1; \
+		fi; \
+	done; \
+	if [ $$FAIL -eq 0 ]; then echo "✓ All services match expected state"; fi; \
+	exit $$FAIL
+
 .PHONY: lint-drift
 lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules, phantom skills, unwired hooks
 	@echo ""

@@ -339,6 +339,7 @@ impl Judge {
                         ScoreOutcome::Success {
                             elapsed_ms,
                             completion_tokens: scores.completion_tokens,
+                            thinking_tokens: scores.thinking_tokens,
                         },
                     );
                 }

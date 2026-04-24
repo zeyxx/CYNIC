@@ -60,6 +60,8 @@ pub fn verdict_to_response(v: &Verdict) -> JudgeResponse {
         cache_hit: None,
         token_data: None,
         stimulus_content: None,
+        failed_dogs: v.failed_dogs.clone(),
+        failed_dog_errors: v.failed_dog_errors.clone(),
     }
 }
 

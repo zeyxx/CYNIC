@@ -473,6 +473,8 @@ mod tests {
                 cache_hit: None,
                 token_data: None,
                 stimulus_content: None,
+                failed_dogs: Vec::new(),
+                failed_dog_errors: Default::default(),
             },
         );
         let snapshot = store.get("req-3").unwrap();
