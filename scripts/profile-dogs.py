@@ -30,7 +30,7 @@ load_env()
 # ── Dog configs ───────────────────────────────────────────
 DOGS = {
     "gemma-4-e4b-core": {
-        "url": "http://100.74.31.10:8080/v1/chat/completions",
+        "url": "http://<TAILSCALE_CORE>:8080/v1/chat/completions",
         "model": "gemma-4-E4B-it-Q4_K_M.gguf",
         "api_key": os.environ.get("GEMMA_CORE_API_KEY", ""),
         "context_size": 8192,
@@ -41,7 +41,7 @@ DOGS = {
         "json_mode": True,
     },
     "qwen35-9b-gpu": {
-        "url": "http://100.119.192.107:8080/v1/chat/completions",
+        "url": "http://<TAILSCALE_GPU>:8080/v1/chat/completions",
         "model": "Qwen3.5-9B-Q4_K_M.gguf",
         "api_key": os.environ.get("QWEN35_API_KEY", ""),
         "context_size": 131072,

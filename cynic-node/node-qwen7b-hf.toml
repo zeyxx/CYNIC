@@ -2,7 +2,7 @@
 # Phase B: auto-spawned, supervised, heartbeating to kernel
 
 [kernel]
-url = "http://100.74.31.10:3030"
+url = "http://<TAILSCALE_CORE>:3030"
 api_key_env = "CYNIC_API_KEY"
 heartbeat_interval_secs = 40
 
@@ -10,7 +10,7 @@ heartbeat_interval_secs = 40
 name = "qwen-7b-hf"
 model = "qwen2.5-7b-instruct.gguf"
 # base_url MUST be reachable FROM THE KERNEL, use Tailscale IP
-base_url = "http://100.119.192.107:8080/v1"
+base_url = "http://<TAILSCALE_GPU>:8080/v1"
 context_size = 32768
 timeout_secs = 60
 

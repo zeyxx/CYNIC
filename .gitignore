@@ -76,6 +76,22 @@ scripts/experiment_phi.py
 scripts/x-consumer.sh
 scripts/x-interceptor.py
 
-# Duplicate binary artifacts
+# Binary artifacts & scratch
 cynic-kernel/cynic-kernel.bin
 scripts/openclaude.sh
+apps/
+data/
+.venv/
+plan-test.json
+report-test.json
+
+# Python cache
+scripts/__pycache__/
+scripts/hermes-x/__pycache__/
+
+# Hermes-x runtime state (captures + verdicts are local only)
+scripts/hermes-x/captures/
+scripts/hermes-x/verdicts/
+
+# npm lockfile (noisy, not cross-platform canonical)
+package-lock.json
