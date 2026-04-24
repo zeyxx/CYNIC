@@ -168,18 +168,25 @@ impl DogStats {
     /// Returns None when baseline not yet established (< 20 calls) — caller must use
     /// a fallback (e.g. InferenceProfile default or backend config max_tokens).
     ///
-    /// For non-thinking models (thinking=0), degenerates to: max_content * 1.2.
-    /// For thinking models: content * 1.2 + thinking * 1.5 (thinking is more variable).
-    /// Floor at MIN_COMPLETION_BUDGET prevents death spirals during bootstrap.
+    /// Two paths:
+    /// - **Calibrated** (max_content or max_thinking > 0): content*1.2 + thinking*1.5.
+    ///   Derived from observed data. No magic floor — the data IS the floor.
+    /// - **Legacy** (both 0, pre-thinking-aware stats): max_completion_tokens * 1.2.
+    ///   Preserves backward compat until new calibration data accumulates.
     pub fn completion_budget(&self) -> Option<u32> {
-        use crate::domain::constants::MIN_COMPLETION_BUDGET;
         if !self.is_baseline_established() {
             return None;
         }
-        let content_budget = (self.max_content_tokens as f64 * 1.2).ceil() as u32;
-        let thinking_budget = (self.max_thinking_tokens as f64 * 1.5).ceil() as u32;
-        let budget = content_budget + thinking_budget;
-        Some(budget.clamp(MIN_COMPLETION_BUDGET, 4096))
+        if self.max_content_tokens > 0 || self.max_thinking_tokens > 0 {
+            // Thinking-aware: budget covers both content needs and thinking overhead
+            let content_budget = (self.max_content_tokens as f64 * 1.2).ceil() as u32;
+            let thinking_budget = (self.max_thinking_tokens as f64 * 1.5).ceil() as u32;
+            Some((content_budget + thinking_budget).min(4096))
+        } else {
+            // Legacy: pre-thinking-aware stats, use total completion tokens
+            let budget = (self.max_completion_tokens as f64 * 1.2).ceil() as u32;
+            Some(budget.min(4096))
+        }
     }
 
     /// Estimated tokens/second for this Dog from latency and completion data.

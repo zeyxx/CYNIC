@@ -87,11 +87,7 @@ pub const HEARTBEAT_TTL_MARGIN: u64 = 60;
 /// Default Dog registration TTL (seconds) in discovery payloads.
 pub const DEFAULT_REGISTRATION_TTL: u64 = 90;
 
-// ── Budget calibration ─────────────────────────────────────
-
-/// Minimum completion budget — prevents thinking model death spirals.
-/// Thinking models (Gemma 4) consume tokens on reasoning before producing JSON.
-/// Without a floor, the budget calibrates on truncated outputs and collapses.
-/// 512: covers ~300 thinking + ~200 content. Fits in 60s timeout at 12.6 tok/s (41s gen).
-/// Was 768 — caused timeouts on CPU/iGPU Dogs (768/12.6 = 61s > 60s timeout).
-pub const MIN_COMPLETION_BUDGET: u32 = 512;
+// Budget calibration: no magic constants. Budget is derived from observed data:
+// - Legacy (pre-thinking-aware stats): max_completion_tokens * 1.2
+// - Calibrated: content_p95 * 1.2 + thinking_p95 * 1.5
+// The thinking_max handle feeds calibration from ALL Dog calls (including failures).

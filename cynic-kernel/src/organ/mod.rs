@@ -28,6 +28,10 @@ struct BackendEntry {
     /// Shared handle to the Dog's dynamic completion budget.
     /// Updated here after each successful eval; read by InferenceDog at eval time.
     budget_handle: Option<Arc<AtomicU32>>,
+    /// Shared handle to the Dog's max observed thinking tokens.
+    /// Written by InferenceDog after every chat() response (including parse failures).
+    /// Read by the organ during update_stats_entry to feed thinking-aware calibration.
+    thinking_handle: Option<Arc<AtomicU32>>,
 }
 
 /// Opaque handle to a backend entry, obtained from `InferenceOrgan::register_backend()`.
@@ -166,6 +170,7 @@ impl InferenceOrgan {
             gate: ParseFailureGate::new(),
             last_quality_probe: None,
             budget_handle: None,
+            thinking_handle: None,
         })));
         self.entries.insert(id, handle.clone());
         handle
@@ -186,6 +191,13 @@ impl InferenceOrgan {
                 budget.store(val, Ordering::Relaxed);
             }
             guard.budget_handle = Some(budget);
+        }
+    }
+
+    /// Attach the Dog's thinking_max handle so the organ can read observed thinking overhead.
+    pub fn attach_thinking_handle(handle: &BackendHandle, thinking: Arc<AtomicU32>) {
+        if let Ok(mut guard) = handle.0.lock() {
+            guard.thinking_handle = Some(thinking);
         }
     }
 
@@ -223,6 +235,21 @@ impl InferenceOrgan {
                     _ => guard.gate.record_failure(),
                 }
             }
+        }
+
+        // Read the Dog's observed thinking_max (written by InferenceDog after every chat response).
+        // This feeds thinking-aware calibration even from parse failures — the key to self-calibration.
+        if let Some(th) = &guard.thinking_handle {
+            let observed_thinking = th.load(Ordering::Relaxed);
+            if observed_thinking > guard.stats.max_thinking_tokens {
+                guard.stats.max_thinking_tokens = observed_thinking;
+            }
+        }
+        // Re-push calibrated budget (may have changed from new thinking data)
+        if let (Some(budget_val), Some(bh)) =
+            (guard.stats.completion_budget(), &guard.budget_handle)
+        {
+            bh.store(budget_val, Ordering::Relaxed);
         }
 
         Self::sync_parse_gate_health(&mut guard);
@@ -291,7 +318,7 @@ impl InferenceOrgan {
             {
                 guard.stats = stats.clone();
                 // Push calibrated budget to Dog's AtomicU32 so it doesn't fall back
-                // to the bootstrap formula (which ignores MIN_COMPLETION_BUDGET).
+                // to the bootstrap formula.
                 if let (Some(budget_val), Some(bh)) =
                     (guard.stats.completion_budget(), &guard.budget_handle)
                 {
@@ -805,12 +832,8 @@ mod tests {
         assert_eq!(stats.max_completion_tokens, 250);
 
         let budget = stats.completion_budget().unwrap();
-        // content_budget = 250 * 1.2 = 300, thinking_budget = 0
-        // floor = MIN_COMPLETION_BUDGET = 512
-        assert_eq!(
-            budget, 512,
-            "budget = max(content*1.2, MIN_COMPLETION_BUDGET)"
-        );
+        // max_content=250, max_thinking=0 → calibrated path: ceil(250*1.2) + 0 = 300
+        assert_eq!(budget, 300, "budget = content*1.2 (no thinking overhead)");
     }
 
     #[test]
@@ -859,19 +882,10 @@ mod tests {
         assert_eq!(stats.max_content_tokens, 30);
 
         let budget = stats.completion_budget().unwrap();
-        // content_budget = ceil(30 * 1.2) = 36
-        // thinking_budget = ceil(370 * 1.5) = 555
         // content_budget = ceil(30*1.2) = 36, thinking_budget = ceil(370*1.5) = 555
-        // sum = 591 > floor 512 → 591
-        assert!(
-            budget >= 512,
-            "budget must be at least MIN_COMPLETION_BUDGET, got {budget}"
-        );
+        // total = 591 — derived from data, no magic floor
         assert_eq!(budget, 591, "budget = content*1.2 + thinking*1.5");
-        assert!(
-            budget > 370,
-            "budget must exceed thinking overhead to leave room for content"
-        );
+        assert!(budget > 370, "budget must exceed thinking overhead");
     }
 
     #[test]
@@ -896,25 +910,26 @@ mod tests {
         assert_eq!(stats.max_thinking_tokens, 0);
 
         let budget = stats.completion_budget().unwrap();
-        // content_budget = ceil(300 * 1.2) = 360, thinking = 0
-        // floor = 512 → max(360, 512) = 512
-        assert!(budget >= 360, "budget must cover content headroom");
+        // max_content=300, max_thinking=0 → calibrated: ceil(300*1.2) = 360
+        assert_eq!(budget, 360, "budget = content*1.2, no floor needed");
     }
 
     #[test]
-    fn min_completion_budget_floor_prevents_collapse() {
-        use crate::domain::constants::MIN_COMPLETION_BUDGET;
+    fn budget_from_truncated_thinking_model() {
         let mut stats = DogStats::new();
-        // Worst case: 5 content tokens, 395 thinking (Gemma truncation)
+        // Gemma-like: 400 total, 395 thinking, 5 content (truncation scenario)
         for _ in 0..25 {
             stats.record_success_with_latency(1000);
             stats.record_completion_tokens(400, 395);
         }
 
         let budget = stats.completion_budget().unwrap();
-        assert!(
-            budget >= MIN_COMPLETION_BUDGET,
-            "budget must never fall below floor, got {budget}"
+        // content_budget = ceil(5*1.2) = 6, thinking_budget = ceil(395*1.5) = 593
+        // total = 599 — enough to cover thinking + content without any magic floor
+        assert_eq!(
+            budget, 599,
+            "budget derived from observed thinking + content"
         );
+        assert!(budget > 395, "budget must exceed thinking overhead");
     }
 }

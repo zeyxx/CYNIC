@@ -21,6 +21,9 @@ pub struct InferenceDog {
     /// 0 = not yet calibrated, use profile default.
     /// Updated by the organ when DogStats.completion_budget() becomes available.
     calibrated_budget: Arc<AtomicU32>,
+    /// Max observed thinking tokens — updated after EVERY chat response (success or failure).
+    /// The organ reads this to calibrate thinking overhead even when parse fails.
+    thinking_max: Arc<AtomicU32>,
 }
 
 impl std::fmt::Debug for InferenceDog {
@@ -45,6 +48,7 @@ impl InferenceDog {
             domain_prompts: Arc::new(std::collections::HashMap::new()),
             prompt_tier,
             calibrated_budget: Arc::new(AtomicU32::new(0)),
+            thinking_max: Arc::new(AtomicU32::new(0)),
         }
     }
 
@@ -61,6 +65,12 @@ impl InferenceDog {
     /// whenever DogStats.completion_budget() produces a new value.
     pub fn budget_handle(&self) -> Arc<AtomicU32> {
         Arc::clone(&self.calibrated_budget)
+    }
+
+    /// Handle to the max observed thinking tokens.
+    /// The organ reads this to calibrate thinking overhead from ALL calls (including failures).
+    pub fn thinking_handle(&self) -> Arc<AtomicU32> {
+        Arc::clone(&self.thinking_max)
     }
 
     fn build_system_prompt() -> &'static str {
@@ -220,6 +230,12 @@ impl Dog for InferenceDog {
         let text = &chat_resp.text;
         let prompt_tokens = chat_resp.prompt_tokens;
         let completion_tokens = chat_resp.completion_tokens;
+
+        // Record thinking overhead BEFORE parse — feeds calibration even on parse failures.
+        // This is the key to self-calibration: the organ reads thinking_max on every
+        // update_stats_entry call (success or failure), so the budget adapts from ALL data.
+        self.thinking_max
+            .fetch_max(chat_resp.thinking_tokens, Ordering::Relaxed);
 
         let json_str = extract_json(text)
             .ok_or_else(|| DogError::ParseError(format!("No JSON found in: {text}")))?;
