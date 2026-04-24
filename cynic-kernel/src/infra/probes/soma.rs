@@ -109,7 +109,9 @@ impl crate::domain::probe::Probe for SomaProbe {
     }
 
     fn interval(&self) -> Duration {
-        Duration::from_secs(60)
+        // Must match other probes (30s) — ProbeScheduler replaces the
+        // snapshot on each tick, so mismatched intervals drop probes from view.
+        Duration::from_secs(30)
     }
 
     async fn sense(&self) -> Result<ProbeResult, ProbeError> {
