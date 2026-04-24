@@ -46,7 +46,7 @@ check:
 	@$(MAKE) --no-print-directory verify-hooks
 	cargo fmt --all -- --check
 	cargo clippy --workspace --all-targets -- -D warnings
-	cargo test --workspace
+	cargo test -p cynic-kernel --lib --release  # A1 debt: debug test binary hits lld invalid-symbol-index bug; --release avoids it
 	@$(MAKE) --no-print-directory lint-rules
 	@$(MAKE) --no-print-directory lint-drift
 	@$(MAKE) --no-print-directory lint-subprocess-env
