@@ -2,15 +2,20 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-24 | KC3+KC7 security fixes in progress
+Last updated: 2026-04-24 | Hermes rework session planned
 
 ---
 
 ## HACKATHON (freeze Apr 27, submission May 11)
 
-- [ ] **submit_verdict on-chain.** Write client script that calls Pinocchio `submit_verdict` with a real kernel verdict. Without this, "on-chain settlement" claim is aspirational. PDA ready: `8DVUKmJabj5gzQXE6u6DpnQxsDMGy8Be5aHzjqxttHow`. **Falsify:** `solana confirm <tx>` shows verdict data on-chain.
+- [x] **submit_verdict on-chain.** `scripts/submit-verdict.ts` ships. Confirmed devnet: tx `3bToTTx…`, PDA `AYD9xNQ3…`, Status: Ok, 3401 CU, 6 axiom scores on-chain.
 - [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: description longue, video demo (3min), GitHub link, deployed URL. Deadline: May 10 23:59 PDT.
 - [ ] **Video demo.** Screen recording: paste token → Dogs deliberate → verdict → (stretch: on-chain tx). 2-3 min.
+
+## ARCHITECTURE (session dédiée requise)
+
+- [ ] **Hermes rework — session dédiée.** 3 Hermes distincts (Ouroboros/GPU, NousResearch, Antenne-X) à renommer + repositionner dans la topologie. Décisions : noms canoniques, `organs/` directory, scripts/ nettoyé. **Falsify:** `grep -r "Hermes" docs/ scripts/ cynic-kernel/` retourne des résultats non-ambigus.
+- [ ] **Topologie organs/.** Créer couche `organs/` (hermes/, askesis/), déplacer `cynic-askesis/` et `scripts/hermes-x/` dedans. Dépend du Hermes rework.
 
 ## ORGANISM (no deadline, compound value)
 
