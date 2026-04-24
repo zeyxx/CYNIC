@@ -152,17 +152,17 @@ impl TokenEnricherPort for HeliusEnricher {
             .and_then(|t| t.price_info.as_ref())
             .and_then(|p| p.price_per_token);
 
-        let mint_authority_revoked = asset
+        let mint_authority_active = asset
             .token_info
             .as_ref()
             .and_then(|t| t.mint_authority.as_ref())
-            .is_none();
+            .is_some();
 
-        let freeze_authority_revoked = asset
+        let freeze_authority_active = asset
             .token_info
             .as_ref()
             .and_then(|t| t.freeze_authority.as_ref())
-            .is_none();
+            .is_some();
 
         // Get off-chain description (separate call, best-effort)
         let description = self
@@ -177,10 +177,17 @@ impl TokenEnricherPort for HeliusEnricher {
             supply,
             decimals,
             price_usd,
-            holder_count: None, // DAS getTokenAccounts doesn't return global count; skip for MVP
-            top10_concentration: None,
-            mint_authority_revoked,
-            freeze_authority_revoked,
+            holder_count: 0, // DAS doesn't always return this; set to 0 for now
+            top1_pct: 0.0,
+            top10_pct: 0.0,
+            herfindahl: None,
+            age_hours: 0,
+            mint_authority_active,
+            freeze_authority_active,
+            lp_status: "unsecured".into(), // Default to unsecured if unknown
+            supply_burned_pct: None,
+            supply_locked_pct: None,
+            origin: None,
             token_standard,
             description,
             created_at: None,

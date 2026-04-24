@@ -1,22 +1,9 @@
-//! Stimulus Protocol — structured bridge between raw data and epistemic judgment.
-//!
-//! The stimulus IS the prompt for the Dogs. Its quality bounds CYNIC's judgment quality.
-//! Garbage stimulus → noisy scores → high disagreement → quarantined → no crystals.
-//!
-//! Design principles:
-//! - METRICS: factual data without interpretation (Dogs interpret)
-//! - BASELINES: reference points so Dogs know what "normal" looks like
-//! - AXIOM EVIDENCE: explicit mapping data→axiom (reduces inter-Dog spread)
-//! - QUESTION: frames the judgment (not "evaluate this text" but "is this legitimate?")
-//!
-//! Each domain has its own builder. The format is universal, the content domain-specific.
+use crate::domain::enrichment::TokenData;
 
 /// Build a structured token analysis stimulus from on-chain metrics.
 ///
 /// The caller (screener, API consumer) fetches data from Helius/DexScreener/etc.
 /// This function formats it so Dogs can judge rigorously with minimal disagreement.
-///
-/// All fields are strings to keep the builder agnostic to data source.
 pub fn build_token_stimulus(data: &TokenData) -> String {
     let mut s = String::with_capacity(1500);
 
@@ -32,8 +19,8 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
         s.push_str(&format!("symbol: {symbol}\n"));
     }
     s.push_str(&format!("holders: {}\n", data.holder_count));
-    s.push_str(&format!("top_1_wallet_pct: {}%\n", data.top1_pct));
-    s.push_str(&format!("top_10_wallets_pct: {}%\n", data.top10_pct));
+    s.push_str(&format!("top_1_wallet_pct: {:.2}%\n", data.top1_pct));
+    s.push_str(&format!("top_10_wallets_pct: {:.2}%\n", data.top10_pct));
     if let Some(hhi) = data.herfindahl {
         s.push_str(&format!("herfindahl_index: {hhi:.3}\n"));
     }
@@ -64,13 +51,16 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
         }
     ));
     if let Some(burned) = data.supply_burned_pct {
-        s.push_str(&format!("supply_burned_pct: {burned}%\n"));
+        s.push_str(&format!("supply_burned_pct: {burned:.2}%\n"));
     }
     if let Some(locked) = data.supply_locked_pct {
-        s.push_str(&format!("supply_locked_pct: {locked}%\n"));
+        s.push_str(&format!("supply_locked_pct: {locked:.2}%\n"));
     }
     if let Some(ref origin) = data.origin {
         s.push_str(&format!("origin: {origin}\n"));
+    }
+    if let Some(ref std) = data.token_standard {
+        s.push_str(&format!("standard: {std}\n"));
     }
 
     // ── Baselines: what "normal" looks like ──
@@ -96,29 +86,6 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
     s.push_str("Based on the on-chain metrics above, evaluate this token's legitimacy and risk level. Score each axiom from 0.05 to 0.618.\n");
 
     s
-}
-
-/// On-chain token data for stimulus building.
-/// All fields populated by the caller from Helius/DexScreener/CultScreener.
-/// The kernel does not fetch external data — callers bring the data, kernel judges.
-#[derive(Debug)]
-pub struct TokenData {
-    pub mint: String,
-    pub name: Option<String>,
-    pub symbol: Option<String>,
-    pub holder_count: u32,
-    pub top1_pct: f64,
-    pub top10_pct: f64,
-    pub herfindahl: Option<f64>,
-    pub age_hours: u64,
-    pub mint_authority_active: bool,
-    pub freeze_authority_active: bool,
-    /// "burned", "locked", or "unsecured"
-    pub lp_status: String,
-    pub supply_burned_pct: Option<f64>,
-    pub supply_locked_pct: Option<f64>,
-    /// "pump.fun", "raydium", "manual", etc.
-    pub origin: Option<String>,
 }
 
 /// Build a structured dev commit stimulus.
@@ -205,6 +172,9 @@ mod tests {
             mint: "9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump".into(),
             name: Some("ASDF".into()),
             symbol: Some("ASDF".into()),
+            supply: None,
+            decimals: None,
+            price_usd: None,
             holder_count: 20,
             top1_pct: 94.0,
             top10_pct: 99.0,
@@ -216,6 +186,9 @@ mod tests {
             supply_burned_pct: Some(10.5),
             supply_locked_pct: None,
             origin: Some("pump.fun".into()),
+            token_standard: None,
+            description: None,
+            created_at: None,
         };
 
         let stimulus = build_token_stimulus(&data);
@@ -226,7 +199,7 @@ mod tests {
         assert!(stimulus.contains("[AXIOM EVIDENCE]"));
         assert!(stimulus.contains("[QUESTION]"));
         assert!(stimulus.contains("holders: 20"));
-        assert!(stimulus.contains("top_1_wallet_pct: 94%"));
+        assert!(stimulus.contains("top_1_wallet_pct: 94.00%"));
         assert!(stimulus.contains("ACTIVE (can mint more tokens)"));
         assert!(stimulus.contains("NO — LP tokens in creator wallet"));
         assert!(stimulus.contains("98.6%"));
@@ -238,6 +211,9 @@ mod tests {
             mint: "test".into(),
             name: None,
             symbol: None,
+            supply: None,
+            decimals: None,
+            price_usd: None,
             holder_count: 5,
             top1_pct: 99.0,
             top10_pct: 100.0,
@@ -249,6 +225,9 @@ mod tests {
             supply_burned_pct: None,
             supply_locked_pct: None,
             origin: None,
+            token_standard: None,
+            description: None,
+            created_at: None,
         };
 
         let stimulus = build_token_stimulus(&data);
@@ -288,6 +267,9 @@ mod tests {
             mint: "rugpull123".into(),
             name: Some("SCAM".into()),
             symbol: Some("RUG".into()),
+            supply: None,
+            decimals: None,
+            price_usd: None,
             holder_count: 3,
             top1_pct: 99.0,
             top10_pct: 100.0,
@@ -299,12 +281,15 @@ mod tests {
             supply_burned_pct: Some(0.0),
             supply_locked_pct: Some(0.0),
             origin: Some("pump.fun".into()),
+            token_standard: None,
+            description: None,
+            created_at: None,
         };
 
         let stimulus = build_token_stimulus(&data);
         // Every metric should map to "high_risk_rug" baseline
         assert!(stimulus.contains("holders: 3"));
-        assert!(stimulus.contains("99%"));
+        assert!(stimulus.contains("99.00%"));
         assert!(stimulus.contains("ACTIVE (can mint"));
         assert!(stimulus.contains("ACTIVE (can freeze"));
         assert!(stimulus.contains("NO — LP tokens in creator wallet"));

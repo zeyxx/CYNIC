@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 /// Enriched token data from on-chain sources.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TokenData {
     /// Mint address
     pub mint: String,
@@ -22,13 +22,27 @@ pub struct TokenData {
     /// Price per token in USD
     pub price_usd: Option<f64>,
     /// Number of unique token holders
-    pub holder_count: Option<u64>,
-    /// Top 10 holder concentration (HHI-like)
-    pub top10_concentration: Option<f64>,
-    /// Whether the mint authority is revoked (good sign)
-    pub mint_authority_revoked: bool,
-    /// Whether the freeze authority is revoked (good sign)
-    pub freeze_authority_revoked: bool,
+    pub holder_count: u64,
+    /// Percentage held by the largest wallet
+    pub top1_pct: f64,
+    /// Percentage held by the top 10 wallets
+    pub top10_pct: f64,
+    /// Herfindahl-Hirschman Index for holder concentration (0.0 to 1.0)
+    pub herfindahl: Option<f64>,
+    /// Token age in hours
+    pub age_hours: u64,
+    /// Whether the mint authority is active
+    pub mint_authority_active: bool,
+    /// Whether the freeze authority is active
+    pub freeze_authority_active: bool,
+    /// Liquidity pool status: "burned", "locked", "unsecured"
+    pub lp_status: String,
+    /// Percentage of supply burned
+    pub supply_burned_pct: Option<f64>,
+    /// Percentage of supply locked
+    pub supply_locked_pct: Option<f64>,
+    /// Source of the token (e.g. "pump.fun", "raydium")
+    pub origin: Option<String>,
     /// Token standard (Fungible, NonFungible, etc.)
     pub token_standard: Option<String>,
     /// Off-chain description from token metadata
@@ -39,62 +53,9 @@ pub struct TokenData {
 
 impl TokenData {
     /// Format enriched data as a structured stimulus for Dogs.
-    /// Dogs receive this instead of a raw base58 address.
+    /// This follows the [METRICS] / [BASELINES] / [AXIOM EVIDENCE] / [QUESTION] format.
     pub fn to_stimulus(&self) -> String {
-        let mut parts = Vec::new();
-
-        parts.push(format!("Token: {}", self.mint));
-
-        if let Some(ref name) = self.name {
-            parts.push(format!("Name: {name}"));
-        }
-        if let Some(ref sym) = self.symbol {
-            parts.push(format!("Symbol: {sym}"));
-        }
-        if let Some(price) = self.price_usd {
-            parts.push(format!("Price: ${price:.6}"));
-        }
-        if let (Some(supply), Some(decimals)) = (self.supply, self.decimals) {
-            let human_supply = supply as f64 / 10f64.powi(decimals as i32);
-            parts.push(format!("Supply: {human_supply:.0}"));
-        }
-        if let Some(holders) = self.holder_count {
-            parts.push(format!("Holders: {holders}"));
-        }
-        if let Some(conc) = self.top10_concentration {
-            parts.push(format!("Top-10 concentration: {conc:.1}%"));
-        }
-
-        parts.push(format!(
-            "Mint authority: {}",
-            if self.mint_authority_revoked {
-                "REVOKED"
-            } else {
-                "ACTIVE"
-            }
-        ));
-        parts.push(format!(
-            "Freeze authority: {}",
-            if self.freeze_authority_revoked {
-                "REVOKED"
-            } else {
-                "ACTIVE"
-            }
-        ));
-
-        if let Some(ref std) = self.token_standard {
-            parts.push(format!("Standard: {std}"));
-        }
-        if let Some(ref desc) = self.description {
-            let truncated = if desc.len() > 200 {
-                format!("{}...", &desc[..200])
-            } else {
-                desc.clone()
-            };
-            parts.push(format!("Description: {truncated}"));
-        }
-
-        parts.join("\n")
+        crate::domain::stimulus::build_token_stimulus(self)
     }
 }
 
@@ -118,7 +79,7 @@ pub enum EnrichmentError {
     Unavailable,
 }
 
-/// Check if a string looks like a Solana base58 address (32-44 chars, base58 alphabet).
+/// Check if a string looks like a Solana address (32-44 chars, base58 alphabet).
 pub fn looks_like_solana_address(s: &str) -> bool {
     let len = s.len();
     (32..=44).contains(&len)
@@ -155,10 +116,17 @@ mod tests {
             supply: Some(6_863_982_190_903_847),
             decimals: Some(6),
             price_usd: Some(0.178),
-            holder_count: Some(250_000),
-            top10_concentration: Some(45.2),
-            mint_authority_revoked: true,
-            freeze_authority_revoked: true,
+            holder_count: 250_000,
+            top1_pct: 12.5,
+            top10_pct: 45.2,
+            herfindahl: Some(0.08),
+            age_hours: 1200,
+            mint_authority_active: false,
+            freeze_authority_active: false,
+            lp_status: "burned".into(),
+            supply_burned_pct: Some(0.0),
+            supply_locked_pct: Some(0.0),
+            origin: Some("manual".into()),
             token_standard: Some("Fungible".into()),
             description: Some("JUP is the governance token for Jupiter.".into()),
             created_at: None,
@@ -166,6 +134,6 @@ mod tests {
         let stim = data.to_stimulus();
         assert!(stim.contains("Jupiter"));
         assert!(stim.contains("REVOKED"));
-        assert!(stim.contains("250000"));
+        assert!(stim.contains("holders: 250000"));
     }
 }
