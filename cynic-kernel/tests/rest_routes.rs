@@ -97,10 +97,13 @@ async fn health_no_auth_returns_public_info() {
         resp.status()
     );
     let v = body_json(resp.into_body()).await;
-    // Public: has status, version, phi_max — but NOT dog_count or dogs array (attack surface)
+    // Public: has status, phi_max — but NOT version (KC3: leaks git SHA), dog_count or dogs array
     assert!(v["status"].is_string());
-    assert!(v["version"].is_string());
     assert!(v["phi_max"].is_number());
+    assert!(
+        v.get("version").is_none(),
+        "Public health should not expose version (KC3)"
+    );
     assert!(
         v.get("dog_count").is_none(),
         "Public health should not expose dog_count"

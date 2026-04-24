@@ -53,15 +53,15 @@ pub async fn health_handler(
         StatusCode::SERVICE_UNAVAILABLE
     };
 
-    // Public: minimal info only — dog_count withheld to prevent attack surface mapping
+    // Public: minimal info only — no version, no dog count, no topology.
     // HTTP status code tells the story: 200 = healthy, 503 = degraded/critical.
     // Any monitoring tool can check without parsing JSON: curl -sf URL || alert
+    // KC3: version removed — leaks git SHA + commit count to unauthenticated callers.
     if !authenticated {
         return (
             http_code,
             Json(serde_json::json!({
                 "status": readiness.status,
-                "version": env!("CYNIC_VERSION"),
                 "phi_max": PHI_INV,
             })),
         );
@@ -231,7 +231,7 @@ pub async fn agents_handler(
 }
 
 /// GET /metrics — Prometheus text exposition format.
-/// Public endpoint (no auth) — metrics are operational data, not secrets.
+/// Auth required (KC3) — leaks Dog roster, failure modes, circuit states, token counts.
 pub async fn metrics_handler(
     State(state): State<Arc<AppState>>,
 ) -> (

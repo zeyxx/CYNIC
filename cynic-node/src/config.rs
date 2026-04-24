@@ -260,8 +260,43 @@ pub(crate) fn load(path: &str) -> Result<Config, String> {
         }
     }
 
+    // Expand ${VAR} references in the process command from environment.
+    // This runs AFTER api_key_env resolution so that env vars set by the
+    // system are available. Pattern: ${VAR_NAME} → std::env::var("VAR_NAME").
+    cfg.process.command = cfg
+        .process
+        .command
+        .iter()
+        .map(|arg| expand_env_vars(arg))
+        .collect::<Result<Vec<_>, _>>()?;
+
     validate(&cfg)?;
     Ok(cfg)
+}
+
+/// Expand `${VAR_NAME}` patterns in a string from environment variables.
+/// Returns Err if a referenced variable is not set.
+fn expand_env_vars(input: &str) -> Result<String, String> {
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '$' && chars.peek() == Some(&'{') {
+            chars.next(); // consume '{'
+            let var_name: String = chars.by_ref().take_while(|&c| c != '}').collect();
+            if var_name.is_empty() {
+                return Err("empty variable name in ${} expansion".to_owned());
+            }
+            let value = std::env::var(&var_name).map_err(|e| {
+                format!(
+                    "environment variable `{var_name}` not set (referenced in process.command): {e}"
+                )
+            })?;
+            result.push_str(&value);
+        } else {
+            result.push(ch);
+        }
+    }
+    Ok(result)
 }
 
 /// Validate config constraints. Returns `Ok(())` on success or `Err(String)`
@@ -488,6 +523,33 @@ command = ["llama-server", "-m", "/models/test.gguf"]
         let result = validate(&cfg);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("startup_timeout_secs"));
+    }
+
+    // ── expand_env_vars ────────────────────────────────────────────────────
+
+    #[test]
+    fn expand_env_vars_no_pattern() {
+        assert_eq!(expand_env_vars("plain-string").unwrap(), "plain-string");
+    }
+
+    #[test]
+    fn expand_env_vars_uses_real_env() {
+        // PATH is always set — use it to test expansion without unsafe set_var
+        let path_val = std::env::var("PATH").unwrap();
+        let result = expand_env_vars("prefix-${PATH}-suffix").unwrap();
+        assert_eq!(result, format!("prefix-{path_val}-suffix"));
+    }
+
+    #[test]
+    fn expand_env_vars_missing_var() {
+        let result = expand_env_vars("${DEFINITELY_MISSING_XYZ_99}");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("DEFINITELY_MISSING_XYZ_99"));
+    }
+
+    #[test]
+    fn expand_env_vars_dollar_without_brace() {
+        assert_eq!(expand_env_vars("price=$5").unwrap(), "price=$5");
     }
 
     // ── load: env var not set ────────────────────────────────────────────────

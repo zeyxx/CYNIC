@@ -27,14 +27,10 @@ pub async fn auth_middleware(
     request: Request,
     next: Next,
 ) -> Response {
-    // /health, /live, /ready, /metrics, /events are public — no auth required
+    // /health, /live, /ready are public — no auth required.
+    // /metrics and /events require auth (KC3: leak Dog roster + operational state).
     let path = request.uri().path();
-    if path == "/health"
-        || path == "/live"
-        || path == "/ready"
-        || path == "/metrics"
-        || path == "/events"
-    {
+    if path == "/health" || path == "/live" || path == "/ready" {
         return next.run(request).await;
     }
 
@@ -69,12 +65,7 @@ pub async fn rate_limit_middleware(
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health"
-        || path == "/live"
-        || path == "/ready"
-        || path == "/metrics"
-        || path == "/events"
-    {
+    if path == "/health" || path == "/live" || path == "/ready" {
         return next.run(request).await;
     }
 
@@ -117,12 +108,7 @@ pub async fn audit_middleware(
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health"
-        || path == "/live"
-        || path == "/ready"
-        || path == "/metrics"
-        || path == "/events"
-    {
+    if path == "/health" || path == "/live" || path == "/ready" {
         return next.run(request).await;
     }
 

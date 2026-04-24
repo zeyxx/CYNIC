@@ -10,7 +10,8 @@
 //! This does NOT run through the pipeline (no Dogs needed).
 //! It validates that stimulus generation produces the right signal for each case.
 
-use cynic_kernel::domain::stimulus::{TokenData, build_token_stimulus};
+use cynic_kernel::domain::enrichment::TokenData;
+use cynic_kernel::domain::stimulus::build_token_stimulus;
 
 // ═══════════════════════════════════════════════════════════════════
 // EASY-BARK: Known rug patterns — Dogs MUST score these LOW
@@ -35,6 +36,7 @@ fn corpus_bark_classic_rug() -> TokenData {
         supply_burned_pct: Some(0.0),
         supply_locked_pct: Some(0.0),
         origin: Some("pump.fun".into()),
+        ..Default::default()
     }
 }
 
@@ -57,6 +59,7 @@ fn corpus_bark_freeze_trap() -> TokenData {
         supply_burned_pct: None,
         supply_locked_pct: Some(30.0),
         origin: Some("raydium".into()),
+        ..Default::default()
     }
 }
 
@@ -79,6 +82,7 @@ fn corpus_bark_copycat() -> TokenData {
         supply_burned_pct: None,
         supply_locked_pct: None,
         origin: Some("pump.fun".into()),
+        ..Default::default()
     }
 }
 
@@ -105,6 +109,7 @@ fn corpus_howl_governance() -> TokenData {
         supply_burned_pct: Some(30.0),
         supply_locked_pct: None,
         origin: Some("jupiter-lfg".into()),
+        ..Default::default()
     }
 }
 
@@ -127,6 +132,7 @@ fn corpus_howl_community() -> TokenData {
         supply_burned_pct: Some(50.0),
         supply_locked_pct: None,
         origin: Some("manual".into()),
+        ..Default::default()
     }
 }
 
@@ -148,6 +154,7 @@ fn corpus_howl_defi() -> TokenData {
         supply_burned_pct: Some(15.0),
         supply_locked_pct: Some(20.0),
         origin: Some("raydium".into()),
+        ..Default::default()
     }
 }
 
@@ -175,6 +182,7 @@ fn corpus_ambiguous_pumpfun_legit() -> TokenData {
         supply_burned_pct: None,
         supply_locked_pct: None,
         origin: Some("pump.fun".into()),
+        ..Default::default()
     }
 }
 
@@ -196,6 +204,7 @@ fn corpus_ambiguous_new_clean() -> TokenData {
         supply_burned_pct: Some(5.0),
         supply_locked_pct: None,
         origin: Some("raydium".into()),
+        ..Default::default()
     }
 }
 
@@ -218,6 +227,7 @@ fn corpus_ambiguous_concentrated() -> TokenData {
         supply_burned_pct: None,
         supply_locked_pct: Some(40.0),
         origin: Some("raydium".into()),
+        ..Default::default()
     }
 }
 
