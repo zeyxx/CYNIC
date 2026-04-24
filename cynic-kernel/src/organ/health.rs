@@ -61,6 +61,14 @@ pub struct DogStats {
     /// Used as conservative upper bound when calibrating per-Dog budgets.
     #[serde(default)]
     pub max_completion_tokens: u32,
+    /// Max content tokens observed (completion_tokens - thinking_tokens per call).
+    /// Drives the content portion of completion_budget(). 0 for legacy persisted stats.
+    #[serde(default)]
+    pub max_content_tokens: u32,
+    /// Max thinking tokens observed in any single call.
+    /// Drives the thinking overhead portion of completion_budget(). 0 for non-thinking models.
+    #[serde(default)]
+    pub max_thinking_tokens: u32,
 }
 
 impl DogStats {
@@ -77,6 +85,8 @@ impl DogStats {
             total_latency_ms: 0,
             total_completion_tokens: 0,
             max_completion_tokens: 0,
+            max_content_tokens: 0,
+            max_thinking_tokens: 0,
         }
     }
 
@@ -92,11 +102,19 @@ impl DogStats {
     }
 
     /// Record completion token usage from a successful evaluation.
-    /// Accumulates total and tracks max for budget derivation.
-    pub fn record_completion_tokens(&mut self, completion_tokens: u32) {
+    /// Tracks content and thinking tokens separately for thinking-aware budget calibration.
+    /// For non-thinking models, thinking_tokens = 0 and behavior is unchanged.
+    pub fn record_completion_tokens(&mut self, completion_tokens: u32, thinking_tokens: u32) {
         self.total_completion_tokens += completion_tokens as u64;
         if completion_tokens > self.max_completion_tokens {
             self.max_completion_tokens = completion_tokens;
+        }
+        let content_tokens = completion_tokens.saturating_sub(thinking_tokens);
+        if content_tokens > self.max_content_tokens {
+            self.max_content_tokens = content_tokens;
+        }
+        if thinking_tokens > self.max_thinking_tokens {
+            self.max_thinking_tokens = thinking_tokens;
         }
     }
 
@@ -146,17 +164,29 @@ impl DogStats {
         (self.total_completion_tokens / self.success_count) as u32
     }
 
-    /// Conservative completion budget for this Dog: max observed × 1.2 safety margin.
+    /// Thinking-aware completion budget: content needs + thinking overhead.
     /// Returns None when baseline not yet established (< 20 calls) — caller must use
     /// a fallback (e.g. InferenceProfile default or backend config max_tokens).
-    /// This replaces the old hardcoded `InferenceProfile::Scoring.max_tokens() = 1024`.
+    ///
+    /// Two paths:
+    /// - **Calibrated** (max_content or max_thinking > 0): content*1.2 + thinking*1.5.
+    ///   Derived from observed data. No magic floor — the data IS the floor.
+    /// - **Legacy** (both 0, pre-thinking-aware stats): max_completion_tokens * 1.2.
+    ///   Preserves backward compat until new calibration data accumulates.
     pub fn completion_budget(&self) -> Option<u32> {
         if !self.is_baseline_established() {
             return None;
         }
-        // 20% safety margin over observed max, capped at reasonable ceiling
-        let budget = (self.max_completion_tokens as f64 * 1.2).ceil() as u32;
-        Some(budget.min(4096))
+        if self.max_content_tokens > 0 || self.max_thinking_tokens > 0 {
+            // Thinking-aware: budget covers both content needs and thinking overhead
+            let content_budget = (self.max_content_tokens as f64 * 1.2).ceil() as u32;
+            let thinking_budget = (self.max_thinking_tokens as f64 * 1.5).ceil() as u32;
+            Some((content_budget + thinking_budget).min(4096))
+        } else {
+            // Legacy: pre-thinking-aware stats, use total completion tokens
+            let budget = (self.max_completion_tokens as f64 * 1.2).ceil() as u32;
+            Some(budget.min(4096))
+        }
     }
 
     /// Estimated tokens/second for this Dog from latency and completion data.

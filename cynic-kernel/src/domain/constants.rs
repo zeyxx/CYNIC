@@ -86,3 +86,8 @@ pub const HEARTBEAT_TTL_MARGIN: u64 = 60;
 
 /// Default Dog registration TTL (seconds) in discovery payloads.
 pub const DEFAULT_REGISTRATION_TTL: u64 = 90;
+
+// Budget calibration: no magic constants. Budget is derived from observed data:
+// - Legacy (pre-thinking-aware stats): max_completion_tokens * 1.2
+// - Calibrated: content_p95 * 1.2 + thinking_p95 * 1.5
+// The thinking_max handle feeds calibration from ALL Dog calls (including failures).

@@ -95,6 +95,9 @@ pub struct ChatResponse {
     pub text: String,
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
+    /// Estimated thinking tokens (0 for non-thinking models/CLI backends).
+    /// Estimated from reasoning_content char count in openai.rs.
+    pub thinking_tokens: u32,
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
@@ -173,6 +176,7 @@ impl ChatPort for MockChatBackend {
             text: self.response.clone(),
             prompt_tokens: 0,
             completion_tokens: 0,
+            thinking_tokens: 0,
         })
     }
 }

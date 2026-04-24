@@ -125,16 +125,17 @@ pub async fn build_dogs_and_organ(
         if let Some(rem) = cfg.remediation.clone() {
             remediation_configs.insert(cfg.name.clone(), rem);
         }
-        dogs.push(Arc::new(
-            dogs::inference::InferenceDog::new(
-                backend,
-                cfg.name.clone(),
-                cfg.context_size,
-                cfg.timeout_secs,
-                cfg.prompt_tier,
-            )
-            .with_domain_prompts(Arc::clone(domain_prompts)),
-        ));
+        let inference_dog = dogs::inference::InferenceDog::new(
+            backend,
+            cfg.name.clone(),
+            cfg.context_size,
+            cfg.timeout_secs,
+            cfg.prompt_tier,
+        )
+        .with_domain_prompts(Arc::clone(domain_prompts));
+        let budget_handle = inference_dog.budget_handle();
+        let thinking_handle = inference_dog.thinking_handle();
+        dogs.push(Arc::new(inference_dog));
 
         // Register backend in organ — maps BackendConfig → organ registry entry
         let organ_backend = organ::registry::Backend {
@@ -149,6 +150,9 @@ pub async fn build_dogs_and_organ(
             health: organ::registry::BackendHealth::Healthy,
         };
         let handle = organ.register_backend(organ_backend);
+        // Wire dynamic budget + thinking: organ pushes calibrated budget, reads thinking max
+        organ::InferenceOrgan::attach_budget_handle(&handle, budget_handle);
+        organ::InferenceOrgan::attach_thinking_handle(&handle, thinking_handle);
         organ_handles.push(Some(handle));
     }
 

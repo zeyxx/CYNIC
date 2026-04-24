@@ -355,6 +355,12 @@ pub struct JudgeResponse {
     /// The actual stimulus content sent to Dogs (may differ from request content if enriched).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stimulus_content: Option<String>,
+    /// Dogs that failed during this evaluation (telemetry — why N Dogs voted, not 5).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub failed_dogs: Vec<String>,
+    /// Error reason per failed Dog (dog_id → error string).
+    #[serde(skip_serializing_if = "std::collections::HashMap::is_empty")]
+    pub failed_dog_errors: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

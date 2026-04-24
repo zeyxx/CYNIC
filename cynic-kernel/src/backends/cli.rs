@@ -127,6 +127,7 @@ impl ChatPort for CliBackend {
                     text,
                     prompt_tokens: 0,
                     completion_tokens: 0,
+                    thinking_tokens: 0,
                 })
             }
         }

@@ -78,3 +78,4 @@ scripts/x-interceptor.py
 
 # Duplicate binary artifacts
 cynic-kernel/cynic-kernel.bin
+scripts/openclaude.sh
