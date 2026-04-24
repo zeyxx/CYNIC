@@ -60,12 +60,21 @@ impl SomaProbe {
         ports
     }
 
-    /// Detect wild binds — ports listening on 0.0.0.0 or [::].
+    /// Ports that are legitimately wild-bound (0.0.0.0 / [::]) by design.
+    /// WireGuard needs 0.0.0.0 for mesh. mDNS/DHCP are OS-level.
+    const WILD_BIND_WHITELIST: &[u16] = &[
+        41641, // WireGuard (Tailscale mesh)
+        5353,  // mDNS (service discovery)
+        67,    // DHCP (libvirt VM bridge)
+    ];
+
+    /// Detect wild binds — ports listening on 0.0.0.0 or [::], excluding whitelisted.
     fn find_wild_binds(ports: &[ListeningPort]) -> Vec<ListeningPort> {
         ports
             .iter()
             .filter(|p| {
-                p.bind_address == "0.0.0.0" || p.bind_address == "::" || p.bind_address == "*"
+                (p.bind_address == "0.0.0.0" || p.bind_address == "::" || p.bind_address == "*")
+                    && !Self::WILD_BIND_WHITELIST.contains(&p.port)
             })
             .cloned()
             .collect()
@@ -86,13 +95,15 @@ impl SomaProbe {
         match result {
             Ok(output) if output.status.success() => {
                 let stdout = String::from_utf8_lossy(&output.stdout);
+                // Count lines containing accept/drop/reject — nft comments
+                // appear after the action, so ends_with doesn't work.
                 let rule_count = stdout
                     .lines()
                     .filter(|l| {
                         let trimmed = l.trim();
-                        trimmed.ends_with("accept")
-                            || trimmed.ends_with("drop")
-                            || trimmed.ends_with("reject")
+                        trimmed.contains(" accept")
+                            || trimmed.contains(" drop")
+                            || trimmed.contains(" reject")
                     })
                     .count() as u32;
                 (rule_count > 0, rule_count)
@@ -226,5 +237,32 @@ LISTEN 0      4096   0.0.0.0:8888         0.0.0.0:*     users:(("mitmdump",pid=5
             process: Some("cynic-kernel".into()),
         }];
         assert!(SomaProbe::find_wild_binds(&ports).is_empty());
+    }
+
+    #[test]
+    fn whitelisted_wild_binds_ignored() {
+        let ports = vec![
+            ListeningPort {
+                port: 41641, // WireGuard — whitelisted
+                protocol: "udp".into(),
+                bind_address: "0.0.0.0".into(),
+                process: None,
+            },
+            ListeningPort {
+                port: 5353, // mDNS — whitelisted
+                protocol: "udp".into(),
+                bind_address: "::".into(),
+                process: None,
+            },
+            ListeningPort {
+                port: 9999, // unknown — NOT whitelisted
+                protocol: "tcp".into(),
+                bind_address: "0.0.0.0".into(),
+                process: Some("rogue".into()),
+            },
+        ];
+        let wild = SomaProbe::find_wild_binds(&ports);
+        assert_eq!(wild.len(), 1);
+        assert_eq!(wild[0].port, 9999);
     }
 }
