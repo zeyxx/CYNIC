@@ -178,8 +178,13 @@ impl InferenceOrgan {
 
     /// Attach a Dog's budget handle so the organ can push calibrated budgets.
     /// Called once after Dog construction, before any evaluations.
+    /// If stats were already restored (restore_stats ran first), push the
+    /// calibrated budget immediately so the Dog doesn't fall back to bootstrap.
     pub fn attach_budget_handle(handle: &BackendHandle, budget: Arc<AtomicU32>) {
         if let Ok(mut guard) = handle.0.lock() {
+            if let Some(val) = guard.stats.completion_budget() {
+                budget.store(val, Ordering::Relaxed);
+            }
             guard.budget_handle = Some(budget);
         }
     }
