@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "@solana/web3.js": "^1.98.4",
+    "@types/node": "^25.6.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}

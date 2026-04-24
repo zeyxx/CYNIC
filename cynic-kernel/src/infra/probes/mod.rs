@@ -4,6 +4,7 @@ pub mod network;
 pub mod pressure;
 pub mod process;
 pub mod resource;
+pub mod soma;
 
 pub use backup::BackupProbe;
 pub use fleet::{FleetProbe, FleetTarget};
@@ -11,6 +12,7 @@ pub use network::NetworkProbe;
 pub use pressure::PressureProbe;
 pub use process::ProcessProbe;
 pub use resource::ResourceProbe;
+pub use soma::SomaProbe;
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};

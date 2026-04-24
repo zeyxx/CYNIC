@@ -110,6 +110,26 @@ pub struct FleetDetails {
     pub dogs: Vec<DogHealthDetails>,
 }
 
+/// A listening port observed on the host.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListeningPort {
+    pub port: u16,
+    pub protocol: String,
+    pub bind_address: String,
+    pub process: Option<String>,
+}
+
+/// Body awareness: ports, firewall, process bindings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SomaDetails {
+    pub tcp_ports: Vec<ListeningPort>,
+    pub udp_ports: Vec<ListeningPort>,
+    pub firewall_active: bool,
+    pub firewall_rule_count: u32,
+    /// Ports binding 0.0.0.0 or [::] (wild-bind = exposed to all interfaces).
+    pub wild_binds: Vec<ListeningPort>,
+}
+
 // ─── Typed Details ────────────────────────────────────────────────────────────
 
 /// Typed payload carried by a `ProbeResult`.
@@ -123,6 +143,7 @@ pub enum ProbeDetails {
     Process(ProcessDetails),
     Pressure(PressureDetails),
     Fleet(FleetDetails),
+    Soma(SomaDetails),
     /// NullProbe and test doubles only. Real probes must use a typed variant.
     Empty,
 }

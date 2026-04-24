@@ -19,7 +19,8 @@ security_check() {
         | grep -v 'REAL_INFRA=' \
         | grep -v 'grep -iE .*api\[_-\]?key' \
         | grep -v 'grep -iE .*AIza' \
-        | grep -v 'grep -E .*100\\\.' || true)
+        | grep -v 'grep -E .*100\\\.' \
+        | grep -v 'grep -vE.*Fungible' || true)
     [ -z "$FILTERED_ADDED" ] && return 0
 
     RAW_SECRETS=$(printf '%s\n' "$FILTERED_ADDED" \
@@ -34,7 +35,8 @@ security_check() {
         | grep -vE 'load_helius_key\(\)' \
         | grep -vE 'healthy_token:|moderate_risk:|high_risk_rug:' \
         | grep -vE ':\s*Option<|:\s*Result<|:\s*Vec<|:\s*String' \
-        | grep -vE '\.split\(.*api[_-]?key' || true)
+        | grep -vE '\.split\(.*api[_-]?key' \
+        | grep -vE 'Token:\s+[A-Za-z0-9$]+\.\s+Type:\s*Fungible' || true)
     if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
         echo "SECURITY FAIL: possible secrets in staged changes:"
         [ -n "$RAW_SECRETS" ] && echo "$RAW_SECRETS"

@@ -1,0 +1,15 @@
+[Unit]
+Description=CYNIC Soma firewall (nftables)
+Documentation=file:%h/Bureau/CYNIC/docs/ops/soma-design.md
+Before=cynic-kernel.service
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/sudo /usr/sbin/nft -f %h/.config/cynic/firewall.nft
+ExecStop=/usr/bin/sudo /usr/sbin/nft flush ruleset
+ExecReload=/usr/bin/sudo /usr/sbin/nft -f %h/.config/cynic/firewall.nft
+
+[Install]
+WantedBy=default.target
