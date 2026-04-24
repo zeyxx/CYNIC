@@ -31,6 +31,37 @@ impl CliBackend {
             timeout: Duration::from_secs(timeout_secs),
         }
     }
+
+    /// Build a Command with explicit environment variables.
+    /// R23: subprocess env is explicit, not inherited from systemd EnvironmentFile.
+    /// Node.js CLI tools (e.g., `gemini`) need PATH, HOME, USER, NODE_PATH to resolve modules.
+    fn build_command(&self) -> tokio::process::Command {
+        let mut cmd = tokio::process::Command::new(&self.binary);
+
+        // Set essential environment variables for Node.js CLI tools.
+        // These come from the login shell environment, not from systemd.
+        if let Ok(path) = std::env::var("PATH") {
+            cmd.env("PATH", path);
+        } else {
+            // Fallback: common system PATH if not set
+            cmd.env("PATH", "/usr/local/bin:/usr/bin:/bin");
+        }
+        if let Ok(home) = std::env::var("HOME") {
+            cmd.env("HOME", home);
+        }
+        if let Ok(user) = std::env::var("USER") {
+            cmd.env("USER", user);
+        }
+        if let Ok(shell) = std::env::var("SHELL") {
+            cmd.env("SHELL", shell);
+        }
+        // NPM global modules need to be discoverable
+        if let Ok(npm_global) = std::env::var("npm_config_prefix") {
+            cmd.env("npm_config_prefix", npm_global);
+        }
+
+        cmd
+    }
 }
 
 // ── BackendPort ──────────────────────────────────────────────
@@ -44,9 +75,7 @@ impl BackendPort for CliBackend {
     async fn health(&self) -> BackendStatus {
         let probe = tokio::time::timeout(
             Duration::from_secs(5),
-            tokio::process::Command::new(&self.binary)
-                .arg("--version")
-                .output(),
+            self.build_command().arg("--version").output(),
         )
         .await;
 
@@ -88,10 +117,7 @@ impl ChatPort for CliBackend {
 
         let run = tokio::time::timeout(
             self.timeout,
-            tokio::process::Command::new(&self.binary)
-                .arg("--prompt")
-                .arg(&prompt)
-                .output(),
+            self.build_command().arg("--prompt").arg(&prompt).output(),
         )
         .await;
 
