@@ -119,10 +119,7 @@ impl Judge {
                 .dogs
                 .iter()
                 .zip(self.breakers.iter())
-                .filter(|(d, cb)| {
-                    cb.should_allow()
-                        && (d.id() == "deterministic-dog" || f.iter().any(|id| id == d.id()))
-                })
+                .filter(|(d, cb)| cb.should_allow() && f.iter().any(|id| id == d.id()))
                 .map(|(d, _)| d.id())
                 .collect(),
             None => self
@@ -192,7 +189,7 @@ impl Judge {
             return Err(JudgeError::NoDogs);
         }
 
-        // Filter Dogs if requested — always include deterministic-dog (free, instant)
+        // Filter Dogs if requested
         let requested_indices: Vec<usize> = match filter {
             Some(ids) => {
                 let valid_ids: Vec<&str> = self.dogs.iter().map(|d| d.id()).collect();
@@ -200,10 +197,8 @@ impl Judge {
                     .iter()
                     .enumerate()
                     .filter(|d| {
-                        d.1.id() == "deterministic-dog"
-                            || ids
-                                .iter()
-                                .any(|id| id == d.1.id() && valid_ids.contains(&id.as_str()))
+                        ids.iter()
+                            .any(|id| id == d.1.id() && valid_ids.contains(&id.as_str()))
                     })
                     .map(|(idx, _)| idx)
                     .collect()
