@@ -89,9 +89,48 @@ gh pr create --base main --title "..." --body "..."
 - `/build` — after kernel code changes (enforced by pre-commit hook)
 - Coord claims — auto-claimed on Edit/Write to cynic-kernel/src/*
 
+## Reverse Turing Test (extends Manifesto V.3 + CWO Principle 7)
+
+The organism must prove it hasn't sacrificed sovereignty for efficiency.
+
+**Trigger:** Before any demo, after major pipeline changes, or on cron (weekly).
+
+**Protocol:**
+1. Inject a known-bad token (rug-pulled, honeypot, or synthetic poison) into `/judge`
+2. Verify Dogs produce BARK (≤0.236) or GROWL (≤0.382)
+3. If verdict is WAG or HOWL → Dogs are broken or compromised. **Stop. Investigate.**
+
+**Falsification of the test itself:** If detection rate = 100% across 10+ runs, the trap is too easy — make it harder. Target: detection rate > φ⁻¹ (0.618) but < 1.0. A perfect test is a useless test.
+
+**Implementation:** `scripts/reverse-turing.sh` (when it exists). Until then, manual: `curl -X POST ${CYNIC_REST_ADDR}/judge -H "Authorization: Bearer ${CYNIC_API_KEY}" -d '{"content":"<known-bad-token>"}'` and verify score.
+
+## Schism Protocol (extends Manifesto III.3)
+
+When a design decision is blocked >30 minutes of back-and-forth (human↔agent or agent↔agent):
+
+1. **Fork:** Create 2 worktrees, one per thesis. Name: `schism/<choice-a>` and `schism/<choice-b>`.
+2. **Build:** Each branch implements its thesis to minimum testable state.
+3. **Measure at J+7:** Tests green, performance, lines of code, debt introduced, BURN score.
+4. **Absorb:** The materially superior branch merges. The other is deleted without sentiment.
+
+**Anti-pattern:** Using Schism to avoid making a decision. If one option is clearly better but uncomfortable, that's not a deadlock — that's cowardice. Schism is for genuine uncertainty only.
+
 ## Scientific Protocol (reference — extends R7 + R15)
 
 OBSERVE → HYPOTHESIZE → EXPERIMENT → ANALYZE → CONCLUDE. One variable per experiment. Measure before AND after. State what would falsify before starting. Skip for mechanical fixes (typos, lint, formatting).
+
+## Exposure Awareness (Funnel is ON)
+
+The kernel is exposed to public internet via Tailscale Funnel. This is not theoretical — `/health` returns 200 without auth and leaks topology, version, dog names, quality rates.
+
+**Before any deploy or kernel restart**, verify:
+1. `curl -s ${CYNIC_REST_ADDR}/health` — what does it leak? Compare against what an attacker would learn.
+2. Auth endpoints return 401 without Bearer token.
+3. No new endpoints were added without auth check.
+
+**T1 is the priority security fix** (TODO.md): split `/live` (open, boolean) from `/health` (auth'd, full topology). Until T1 is fixed, every session with Funnel active = topology exposure.
+
+**Aegis seed (Manifesto III.2):** When T1 is fixed, consider: should `/health` return structured noise on unauthenticated requests instead of 401? A 401 confirms the endpoint exists. A 200 with plausible-but-fake topology reveals nothing. This is the first Aegis primitive — deferred until T1 is closed.
 
 ## Automatic Enforcement (hooks — no LLM action needed)
 
