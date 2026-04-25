@@ -8,7 +8,7 @@ mod null;
 mod types;
 
 pub use null::NullStorage;
-pub use types::{Observation, RawObservation, StorageError, StorageMetrics, UsageRow};
+pub use types::{AgentTask, Observation, RawObservation, StorageError, StorageMetrics, UsageRow};
 
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
@@ -241,5 +241,38 @@ pub trait StoragePort: Send + Sync {
     /// One-shot cleanup to fix historical fragmentation from FNV hash collisions.
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
         Ok(0) // Default no-op for NullStorage/MemoryStorage
+    }
+
+    // ── Agent Task Queue (K15: executor framework) ──────────
+
+    /// Store a new agent task. Returns the task ID.
+    async fn store_agent_task(&self, _task: &AgentTask) -> Result<String, StorageError> {
+        Err(StorageError::QueryFailed(
+            "agent_tasks not supported".to_string(),
+        ))
+    }
+
+    /// List pending agent tasks for a specific kind (e.g., "hermes", "nightshift").
+    async fn list_pending_agent_tasks(
+        &self,
+        _kind: &str,
+        _limit: u32,
+    ) -> Result<Vec<AgentTask>, StorageError> {
+        Ok(vec![])
+    }
+
+    /// Update agent task result. Sets status to "completed" or "failed" + result/error.
+    async fn update_agent_task_result(
+        &self,
+        _task_id: &str,
+        _result: Option<String>,
+        _error: Option<String>,
+    ) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    /// Mark agent task as processing (status = "processing").
+    async fn mark_agent_task_processing(&self, _task_id: &str) -> Result<(), StorageError> {
+        Ok(())
     }
 }

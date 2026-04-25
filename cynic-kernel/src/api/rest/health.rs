@@ -151,7 +151,7 @@ pub async fn health_handler(
                 "crystallized": crystallized,
                 "canonical": canonical,
                 "decaying": decaying,
-                "loop_active": crystallized + canonical > 0,
+                "ever_crystallized": crystallized + canonical > 0,
             })
         }
         _ => serde_json::json!({ "error": "unavailable" }),

@@ -1,5 +1,27 @@
 use crate::domain::enrichment::TokenData;
 
+/// INTEGRATION: B&C + CYNIC Personality Cards
+///
+/// **Entry Point**: When S. completes J6-7 (Mint Permit Service):
+/// 1. Client signs: {nonce, personality_card, wallet_address}
+/// 2. POST /mint-permit → S.'s backend
+/// 3. S. calls CYNIC: POST /judge with personality data
+/// 4. CYNIC uses build_personality_card_stimulus() to format 6 signals
+/// 5. Dogs evaluate: FIDELITY (genuine human play?), PHI (signal coherence), etc.
+/// 6. Verdict returned to S.'s backend (async or sync, TBD)
+/// 7. If HOWL/WAG: proceed to Arweave upload + Metaplex mint
+/// 8. If BARK: reject, nonce stays in LRU, 1/wallet/hour enforced
+///
+/// **Scope Questions** (waiting for S. on Slack):
+/// - Pre-mint validation (sync, blocks mint) or post-mint audit (async)?
+/// - Confidence threshold: require Dogs verdict >= φ⁻¹ (0.618) or is Dogs consensus enough?
+/// - Fallback if CYNIC is down: block mint or proceed?
+///
+/// **Chess Domain** (cynic-kernel/domains/chess.md):
+/// - Already optimized for move/opening/position evaluation
+/// - Personality card fits: archetype = chess signature, signals = game patterns
+/// - Dogs will score: is this wallet's pattern genuine + sybil-resistant?
+
 /// Build a structured token analysis stimulus from on-chain metrics.
 ///
 /// The caller (screener, API consumer) fetches data from Helius/DexScreener/etc.
@@ -115,6 +137,60 @@ pub fn build_dev_stimulus(hash: &str, message: &str, files_changed: &[String]) -
 
     s.push_str("\n[QUESTION]\n");
     s.push_str("Evaluate this commit's quality and rigor. Score each axiom from 0.05 to 0.618.\n");
+
+    s
+}
+
+/// Build a structured personality card (chess) stimulus.
+/// Used when CYNIC validates chess personality cards from Blitz & Chill.
+pub fn build_personality_card_stimulus(
+    archetype: &str,
+    confidence: f64,
+    avg_time_ms: f64,
+    time_variance: f64,
+    aggression_score: f64,
+    resign_rate: f64,
+    avg_game_length: f64,
+    opening_speed_ratio: f64,
+    games_analyzed: u32,
+) -> String {
+    let mut s = String::with_capacity(1000);
+    s.push_str("[DOMAIN: chess-personality]\n\n");
+
+    // ── Metrics: signals from 5+ games ──
+    s.push_str("[METRICS]\n");
+    s.push_str(&format!("archetype: {archetype}\n"));
+    s.push_str(&format!("confidence_q_score: {confidence:.3}\n"));
+    s.push_str(&format!("avg_time_per_move_ms: {avg_time_ms:.1}\n"));
+    s.push_str(&format!("time_variance_ms: {time_variance:.1}\n"));
+    s.push_str(&format!("aggression_score (0-1): {aggression_score:.3}\n"));
+    s.push_str(&format!("resign_rate (0-1): {resign_rate:.3}\n"));
+    s.push_str(&format!("avg_game_length_moves: {avg_game_length:.1}\n"));
+    s.push_str(&format!(
+        "opening_speed_ratio: {opening_speed_ratio:.3} (< 1.0 = fast opening, > 1.0 = slow opening)\n"
+    ));
+    s.push_str(&format!("games_analyzed: {games_analyzed}\n"));
+
+    // ── Baselines: what "normal" personality distribution looks like ──
+    s.push_str("\n[BASELINES]\n");
+    s.push_str(
+        "strong_signal: games_analyzed ≥ 5, confidence ≥ φ⁻¹ (0.618), all signals coherent\n",
+    );
+    s.push_str("weak_signal: games_analyzed < 5, confidence < φ⁻¹, signals contradictory\n");
+    s.push_str("sybil_risk: same archetype claimed repeatedly from different wallets, impossible signal combos, timeout patterns suggest bot\n");
+
+    // ── Axiom evidence ──
+    s.push_str("\n[AXIOM EVIDENCE]\n");
+    s.push_str("FIDELITY: Does this personality genuinely reflect human chess play? Are the signals faithful to the archetype claimed?\n");
+    s.push_str("PHI: Are the 6 signals proportional to each other? Do they form a coherent personality pattern (not random)?\n");
+    s.push_str("VERIFY: Can this personality be verified by replaying the games? Are the signal calculations auditable?\n");
+    s.push_str("CULTURE: Does this personality respect established chess traditions (opening theory, endgame discipline)?\n");
+    s.push_str("BURN: Is the profile efficient? No wasted games, clear pattern, minimal contradiction across 5+ games?\n");
+    s.push_str("SOVEREIGNTY: Is this wallet's claim voluntary and self-owned? No coercion or sybil farming detectable?\n");
+
+    // ── Question ──
+    s.push_str("\n[QUESTION]\n");
+    s.push_str("Based on the 6 chess personality signals above, evaluate whether this wallet's claim to the archetype is genuine and anti-sybil-resistant. Score each axiom from 0.05 to 0.618. Is confidence ≥ 0.618? Are signals consistent? Any sybil patterns?\n");
 
     s
 }
@@ -293,5 +369,42 @@ mod tests {
         assert!(stimulus.contains("ACTIVE (can mint"));
         assert!(stimulus.contains("ACTIVE (can freeze"));
         assert!(stimulus.contains("NO — LP tokens in creator wallet"));
+    }
+
+    #[test]
+    fn personality_card_stimulus_contains_all_sections() {
+        let stimulus = build_personality_card_stimulus(
+            "philosophe",
+            0.72,   // confidence
+            2500.0, // avg_time_ms
+            1200.0, // time_variance
+            0.35,   // aggression
+            0.15,   // resign_rate
+            25.5,   // avg_game_length
+            1.1,    // opening_speed_ratio
+            7,      // games_analyzed
+        );
+
+        assert!(stimulus.contains("[DOMAIN: chess-personality]"));
+        assert!(stimulus.contains("[METRICS]"));
+        assert!(stimulus.contains("[BASELINES]"));
+        assert!(stimulus.contains("[AXIOM EVIDENCE]"));
+        assert!(stimulus.contains("[QUESTION]"));
+        assert!(stimulus.contains("archetype: philosophe"));
+        assert!(stimulus.contains("confidence_q_score: 0.720"));
+        assert!(stimulus.contains("games_analyzed: 7"));
+        assert!(stimulus.contains("strong_signal"));
+        assert!(stimulus.contains("FIDELITY:"));
+    }
+
+    #[test]
+    fn personality_card_stimulus_with_strong_signal() {
+        let stimulus = build_personality_card_stimulus(
+            "intuitif", 0.7, // >= phi^-1
+            1800.0, 800.0, 0.65, 0.05, 30.0, 0.8, 10, // >= 5 games
+        );
+        // Should mention strong signal baseline
+        assert!(stimulus.contains("strong_signal"));
+        assert!(stimulus.contains("0.618"));
     }
 }

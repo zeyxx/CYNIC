@@ -1,6 +1,7 @@
 //! StoragePort + CoordPort implementations for SurrealHttpStorage.
 
 mod activity;
+mod agent_tasks;
 mod coord;
 mod crystals;
 mod maintenance;
@@ -10,7 +11,9 @@ mod verdicts;
 use super::{SurrealHttpStorage, safe_limit};
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
-use crate::domain::storage::{Observation, RawObservation, StorageError, StoragePort, UsageRow};
+use crate::domain::storage::{
+    AgentTask, Observation, RawObservation, StorageError, StoragePort, UsageRow,
+};
 
 // ── SHARED HELPERS ─────────────────────────────────────────────
 
@@ -299,6 +302,37 @@ impl StoragePort for SurrealHttpStorage {
     #[tracing::instrument(skip(self), err)]
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
         maintenance::consolidate_duplicate_crystals(self).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn store_agent_task(&self, task: &AgentTask) -> Result<String, StorageError> {
+        agent_tasks::store_agent_task(self, task).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn list_pending_agent_tasks(
+        &self,
+        kind: &str,
+        limit: u32,
+    ) -> Result<Vec<AgentTask>, StorageError> {
+        agent_tasks::list_pending_agent_tasks(self, kind, limit).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn mark_agent_task_processing(&self, task_id: &str) -> Result<(), StorageError> {
+        agent_tasks::mark_agent_task_processing(self, task_id).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn update_agent_task_result(
+        &self,
+        task_id: &str,
+        result: Option<String>,
+        error: Option<String>,
+    ) -> Result<(), StorageError> {
+        let result_ref = result.as_deref();
+        let error_ref = error.as_deref();
+        agent_tasks::update_agent_task_result(self, task_id, result_ref, error_ref).await
     }
 }
 

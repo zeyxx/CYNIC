@@ -20,6 +20,7 @@ use rmcp::{
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+mod agent_tools;
 pub mod build_tools;
 mod coord_tools;
 mod judge_tools;
@@ -200,6 +201,29 @@ pub struct ObserveParams {
     pub tags: Option<Vec<String>>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct DispatchAgentTaskParams {
+    pub kind: String,    // "hermes" | "nightshift" | future agent
+    pub domain: String,  // "twitter" | "token" | "on-chain"
+    pub content: String, // task payload
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListPendingAgentTasksParams {
+    pub kind: String,
+    pub limit: Option<u32>,
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct UpdateAgentTaskResultParams {
+    pub task_id: String,
+    pub result: Option<String>,
+    pub error: Option<String>,
+    pub agent_id: Option<String>,
+}
+
 // ── MCP Server ───────────────────────────────────────────────
 
 #[derive(Clone)]
@@ -269,11 +293,19 @@ impl CynicMcp {
             bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
                 crate::domain::constants::BG_SEMAPHORE_PERMITS,
             )),
-            authenticated: Arc::new(AtomicBool::new(false)),
+            // WHY: MCP over stdio is inherently local (subprocess on this machine).
+            // When CYNIC_ALLOW_OPEN_API=1 (set by cynic-kernel-mcp wrapper),
+            // auto-authenticate so agents don't need to call cynic_auth.
+            authenticated: Arc::new(AtomicBool::new(
+                std::env::var("CYNIC_ALLOW_OPEN_API")
+                    .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
+                    .unwrap_or(false),
+            )),
             project_root,
             tool_router: Self::tool_router_judge()
                 + Self::tool_router_coord()
-                + Self::tool_router_observe(),
+                + Self::tool_router_observe()
+                + Self::tool_router_agent(),
         }
     }
 
