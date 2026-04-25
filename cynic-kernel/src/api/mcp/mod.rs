@@ -293,7 +293,14 @@ impl CynicMcp {
             bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
                 crate::domain::constants::BG_SEMAPHORE_PERMITS,
             )),
-            authenticated: Arc::new(AtomicBool::new(false)),
+            // WHY: MCP over stdio is inherently local (subprocess on this machine).
+            // When CYNIC_ALLOW_OPEN_API=1 (set by cynic-kernel-mcp wrapper),
+            // auto-authenticate so agents don't need to call cynic_auth.
+            authenticated: Arc::new(AtomicBool::new(
+                std::env::var("CYNIC_ALLOW_OPEN_API")
+                    .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
+                    .unwrap_or(false),
+            )),
             project_root,
             tool_router: Self::tool_router_judge()
                 + Self::tool_router_coord()

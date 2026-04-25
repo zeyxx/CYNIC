@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-25 11:45 | Video demo script ready, kernel stable, verdicts live
+Last updated: 2026-04-25 18:30 | Hermes X organ live, dataset 1649 tweets, git cleanup in progress
 
 ---
 
@@ -14,6 +14,13 @@ Last updated: 2026-04-25 11:45 | Video demo script ready, kernel stable, verdict
 - [x] **B&C integration analysis.** Reports created: B2C-SOLANA-CONVERGENCE-AUDIT.md (T.'s code patterns), B2C-CYNIC-INTEGRATION-SPECIFICATION.md (scope clarification pending from S.). Decision: stimulus architecture is sound. Blocking: S.'s J6-7 (nonce/permit/Arweave/mint), scope clarification (crypto vs reputation validation).
 - [x] **Personality card stimulus + integration stub.** New builder: build_personality_card_stimulus(archetype, confidence, 6 signals). Tests: 7/7 passing. Integration doc added showing B&C flow: client sign → POST /mint-permit → CYNIC /judge → Dogs evaluate chess domain → HOWL/WAG/BARK. Waiting on S. for scope clarification (pre vs post mint, fallback behavior).
 - [ ] **Video demo.** Script ready at `/tmp/video-demo-script.md`. Scenes: (1) Token input (15s), (2) Dogs deliberate + axiom scoring (45s), (3) Crystal verdict (40s), (4) On-chain tx (30s stretch). Latencies confirmed: deterministic 0ms, qwen7b ~1.5s, qwen35-gpu ~8.8s. Use latest GROWL/BARK verdicts from `/verdicts` endpoint. **Falsify:** 2-3 min narration + kernel logs visible, q_score + dog_scores visible.
+
+## HERMES X ORGAN (next session)
+
+- [ ] **Git cleanup.** 3 branches + 2 stashes + main ahead of origin. Consolidate into 1 PR. See memory `project_hermes_x_organ_session.md` for full state + prompt. **Falsify:** `git branch | wc -l` <= 2 after cleanup.
+- [ ] **Re-create chaos_collecteur.py v3.** Linter deleted it. Dataset (1649 tweets) proves it worked. Signal scoring, author tiers, narratives, coordination detection. **Falsify:** `python3 chaos_collecteur.py --stats` outputs enriched stats.
+- [ ] **Re-create x_proxy.py v2.** Linter reverted to v1. Needs tweet extraction + forwarding to /observe. **Falsify:** proxy captures SearchTimeline → tweets forwarded to kernel.
+- [ ] **Hermes autonomous session.** Launch `hermes chat --continue` with SOUL + /cynic skill. Observe if it avoids loops, prioritizes correctly, evolves. **Falsify:** 3+ sessions without repeating same search query.
 
 ## ARCHITECTURE (session dédiée requise)
 
@@ -43,9 +50,16 @@ Last updated: 2026-04-25 11:45 | Video demo script ready, kernel stable, verdict
 - [ ] SurrealDB summarizer slow query 8.9s — needs index
 - [ ] LUKS full-disk encryption on cynic-core. KC1: physical access = full data. Post-hackathon priority.
 - [ ] Headscale self-hosted coordinator. KC2: Tailscale Inc = single point of mesh failure.
-- [ ] mitmdump currently running on 0.0.0.0:8888 — kill and restart with `--listen-host 127.0.0.1` (KC4).
+- [x] mitmdump running with `--listen-host 127.0.0.1` (KC4 fixed this session).
 
 ## DONE (remove next session)
+
+- [x] Hermes Agent v0.11.0 live on CYNIC (MCP, Qwen 3.5 GPU, X browsing)
+- [x] X proxy pipeline: mitmproxy → captures → collecteur → enriched dataset (1649 tweets)
+- [x] 5 analysis passes: surface, auteurs, narratifs, réseau, curation
+- [x] Bot ring identified: 17 accounts, coordination proven
+- [x] MCP auto-auth deployed (cynic-kernel-mcp wrapper)
+- [x] SOUL.md + /cynic skill v0.2 installed
 
 - [x] PR #22 merged — self-calibrating budget, deploy script, lint-services, maturity tier
 - [x] Pinocchio PDA re-init (8DVUKmJa...)
