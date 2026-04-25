@@ -23,7 +23,7 @@ Last updated: 2026-04-25 11:45 | Video demo script ready, kernel stable, verdict
 ## AGENT LIFECYCLE (K15 consumer, ops/opsec validation)
 
 - [ ] **Hermes polling daemon.** Add loop to hermes-agent: poll cynic_list_pending_agent_tasks every 5s, stub executor (mark complete immediately), report via cynic_update_agent_task_result. Validates dispatch→poll→execute→complete cycle. Estimated: 30 min code + 15 min test. **Falsify:** Full cycle runs; task moves pending→processing→completed.
-- [ ] **K15 consumer for tasks.** Add observation listener: task completion triggers observe_crystal with task result as content. Closes audit→observation gap. **Falsify:** Task completion logged; crystal appears 5s later.
+- [x] **K15 consumer for tasks.** Add observation listener: task completion triggers observe_crystal with task result as content. Closes audit→observation gap. **Falsify:** Task completion logged; crystal appears 5s later.
 - [ ] **Dead letter queue.** Retry failed tasks up to 3x with exponential backoff. Timeouts auto-fail tasks after 30 min. **Falsify:** Failed task retried; timeout task marked failed.
 - [ ] **Agent health monitoring.** Require heartbeat on poll (cynic_list_pending_agent_tasks). Track agent uptime per kind. Alert if agent silent >5min. **Falsify:** No pending tasks assigned to silent agent.
 

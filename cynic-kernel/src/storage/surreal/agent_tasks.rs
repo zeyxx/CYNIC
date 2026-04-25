@@ -4,6 +4,8 @@ use super::SurrealHttpStorage;
 use crate::domain::storage::{AgentTask, StorageError};
 use serde_json::Value;
 
+use super::crystals;
+
 fn row_to_agent_task(row: &Value) -> Option<AgentTask> {
     row.as_object().map(|obj| AgentTask {
         id: obj
@@ -81,6 +83,16 @@ pub(super) async fn list_pending_agent_tasks(
     Ok(rows.iter().filter_map(row_to_agent_task).collect())
 }
 
+/// Get a single agent task by ID.
+pub(super) async fn get_agent_task(
+    storage: &SurrealHttpStorage,
+    task_id: &str,
+) -> Result<Option<AgentTask>, StorageError> {
+    let query = format!("SELECT * FROM agent_tasks WHERE id = '{}';", task_id);
+    let rows = storage.query_one(&query).await?;
+    Ok(rows.first().and_then(row_to_agent_task))
+}
+
 /// Mark task as processing.
 pub(super) async fn mark_agent_task_processing(
     storage: &SurrealHttpStorage,
@@ -94,7 +106,7 @@ pub(super) async fn mark_agent_task_processing(
     Ok(())
 }
 
-/// Update task result and status.
+/// Update task result and status. K15: Also observe the result as a crystal.
 pub(super) async fn update_agent_task_result(
     storage: &SurrealHttpStorage,
     task_id: &str,
@@ -119,5 +131,29 @@ pub(super) async fn update_agent_task_result(
         status, result_str, error_str, now, task_id
     );
     storage.query_one(&query).await?;
+
+    // K15: Observe the task result as a crystal to close audit→observation loop.
+    // Fire-and-forget: error in observation should not fail the task update.
+    if let Ok(Some(task)) = get_agent_task(storage, task_id).await {
+        let obs_content = task
+            .result
+            .as_deref()
+            .or(task.error.as_deref())
+            .unwrap_or("no result or error");
+        let obs_score = if task.error.is_some() { 0.0 } else { 1.0 };
+        let _ = crystals::observe_crystal(
+            storage,
+            &task.id,
+            obs_content,
+            &task.domain,
+            obs_score,
+            task.completed_at.as_deref().unwrap_or(&now),
+            1,
+            &task.id,
+            &task.status,
+        )
+        .await;
+    }
+
     Ok(())
 }
