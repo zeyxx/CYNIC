@@ -78,3 +78,18 @@ pub struct StorageMetrics {
     pub avg_latency_ms: f64,
     pub uptime_secs: u64,
 }
+
+/// Agent task — submitted to queue for execution by specialized agents (Hermes, future agents).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentTask {
+    pub id: String,
+    pub kind: String,           // "hermes" | "nightshift" | "future-agent"
+    pub domain: String,         // "twitter" | "token" | "on-chain"
+    pub content: String,        // task payload (tweet, token_address, etc)
+    pub status: String,         // "pending" | "processing" | "completed" | "failed"
+    pub result: Option<String>, // agent result (verdict summary, action taken)
+    pub created_at: String,
+    pub completed_at: Option<String>,
+    pub agent_id: Option<String>,
+    pub error: Option<String>,
+}

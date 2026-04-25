@@ -1,0 +1,123 @@
+//! Agent task queue persistence in SurrealDB.
+
+use super::SurrealHttpStorage;
+use crate::domain::storage::{AgentTask, StorageError};
+use serde_json::Value;
+
+fn row_to_agent_task(row: &Value) -> Option<AgentTask> {
+    row.as_object().map(|obj| AgentTask {
+        id: obj
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        kind: obj
+            .get("kind")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        domain: obj
+            .get("domain")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        content: obj
+            .get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        status: obj
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("pending")
+            .to_string(),
+        result: obj.get("result").and_then(|v| v.as_str()).map(String::from),
+        created_at: obj
+            .get("created_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        completed_at: obj
+            .get("completed_at")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+        agent_id: obj
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+        error: obj.get("error").and_then(|v| v.as_str()).map(String::from),
+    })
+}
+
+/// Store a new agent task. Returns task ID.
+pub(super) async fn store_agent_task(
+    storage: &SurrealHttpStorage,
+    task: &AgentTask,
+) -> Result<String, StorageError> {
+    let agent_id = task
+        .agent_id
+        .as_ref()
+        .map(|id| format!("'{}'", id))
+        .unwrap_or_else(|| "null".to_string());
+    let query = format!(
+        "INSERT INTO agent_tasks {{ kind: '{}', domain: '{}', content: '{}', status: 'pending', created_at: '{}', agent_id: {} }} RETURN id;",
+        task.kind, task.domain, task.content, task.created_at, agent_id
+    );
+    storage.query_one(&query).await?;
+    Ok(task.id.clone())
+}
+
+/// List pending tasks of a specific kind.
+pub(super) async fn list_pending_agent_tasks(
+    storage: &SurrealHttpStorage,
+    kind: &str,
+    limit: u32,
+) -> Result<Vec<AgentTask>, StorageError> {
+    let query = format!(
+        "SELECT * FROM agent_tasks WHERE kind = '{}' AND status = 'pending' ORDER BY created_at ASC LIMIT {};",
+        kind, limit
+    );
+    let rows = storage.query_one(&query).await?;
+    Ok(rows.iter().filter_map(row_to_agent_task).collect())
+}
+
+/// Mark task as processing.
+pub(super) async fn mark_agent_task_processing(
+    storage: &SurrealHttpStorage,
+    task_id: &str,
+) -> Result<(), StorageError> {
+    let query = format!(
+        "UPDATE agent_tasks SET status = 'processing' WHERE id = '{}';",
+        task_id
+    );
+    storage.query_one(&query).await?;
+    Ok(())
+}
+
+/// Update task result and status.
+pub(super) async fn update_agent_task_result(
+    storage: &SurrealHttpStorage,
+    task_id: &str,
+    result: Option<&str>,
+    error: Option<&str>,
+) -> Result<(), StorageError> {
+    let status = if error.is_some() {
+        "failed"
+    } else {
+        "completed"
+    };
+    let now = chrono::Utc::now().to_rfc3339();
+    let result_str = result
+        .map(|r| format!("'{}'", r))
+        .unwrap_or_else(|| "null".to_string());
+    let error_str = error
+        .map(|e| format!("'{}'", e))
+        .unwrap_or_else(|| "null".to_string());
+
+    let query = format!(
+        "UPDATE agent_tasks SET status = '{}', result = {}, error = {}, completed_at = '{}' WHERE id = '{}';",
+        status, result_str, error_str, now, task_id
+    );
+    storage.query_one(&query).await?;
+    Ok(())
+}

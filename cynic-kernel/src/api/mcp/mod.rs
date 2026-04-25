@@ -20,6 +20,7 @@ use rmcp::{
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+mod agent_tools;
 pub mod build_tools;
 mod coord_tools;
 mod judge_tools;
@@ -200,6 +201,29 @@ pub struct ObserveParams {
     pub tags: Option<Vec<String>>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct DispatchAgentTaskParams {
+    pub kind: String,    // "hermes" | "nightshift" | future agent
+    pub domain: String,  // "twitter" | "token" | "on-chain"
+    pub content: String, // task payload
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListPendingAgentTasksParams {
+    pub kind: String,
+    pub limit: Option<u32>,
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct UpdateAgentTaskResultParams {
+    pub task_id: String,
+    pub result: Option<String>,
+    pub error: Option<String>,
+    pub agent_id: Option<String>,
+}
+
 // ── MCP Server ───────────────────────────────────────────────
 
 #[derive(Clone)]
@@ -273,7 +297,8 @@ impl CynicMcp {
             project_root,
             tool_router: Self::tool_router_judge()
                 + Self::tool_router_coord()
-                + Self::tool_router_observe(),
+                + Self::tool_router_observe()
+                + Self::tool_router_agent(),
         }
     }
 

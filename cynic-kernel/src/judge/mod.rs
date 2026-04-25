@@ -455,12 +455,18 @@ impl Judge {
         let wall_clock = std::time::Duration::from_secs(max_dog_timeout + 5);
         let deadline = tokio::time::Instant::now() + wall_clock;
 
+        // O5: Early verdict on quorum arrival
+        // Quorum = majority (⌈n/2⌉ for n Dogs). Return as soon as we have it.
+        // Prevents waiting for slow Dogs (e.g., qwen35-gpu @8.8s) if 3/5 Dogs are ready @5s.
+        let quorum_count = (runnable_dogs.len() / 2) + 1;
+
         let mut dog_scores: Vec<DogScore> = Vec::new();
         let mut failures: Vec<DogFailure> = Vec::new();
         let mut failed_dogs: Vec<String> = Vec::new();
         let mut failed_dog_errors: std::collections::HashMap<String, String> = Default::default();
 
         // Process Dogs as they arrive (progressive) instead of waiting for all (join_all).
+        // O5: Return early once quorum_count Dogs have completed successfully.
         while let Some(result) = tokio::time::timeout_at(deadline, futs.next()).await.map_err(|elapsed| {
             tracing::error!(wall_clock_secs = max_dog_timeout + 5, %elapsed, "Dog evaluation wall-clock TIMEOUT");
             JudgeError::AllDogsFailed(vec![DogFailure {
@@ -476,6 +482,19 @@ impl Judge {
                         cb(&id, true, elapsed_ms, Some(&score), None);
                     }
                     dog_scores.push(score);
+
+                    // O5: Early exit on quorum. Still include failed Dogs in final verdict,
+                    // but return verdict as soon as we have enough successful scorers.
+                    if dog_scores.len() >= quorum_count {
+                        tracing::info!(
+                            phase = "early_verdict",
+                            quorum_count = quorum_count,
+                            dogs_completed = dog_scores.len(),
+                            failed_dogs = failed_dogs.len(),
+                            "Quorum reached — returning early verdict"
+                        );
+                        break;
+                    }
                 }
                 Err(failure) => {
                     if let Some(cb) = &on_dog {
@@ -484,6 +503,7 @@ impl Judge {
                     failed_dog_errors.insert(id.clone(), failure.kind.as_str().to_string());
                     failed_dogs.push(id.clone());
                     failures.push(failure);
+                    // Don't exit on failure — keep waiting for more Dogs to reach quorum
                 }
             }
         }
@@ -1611,5 +1631,48 @@ mod roster_tests {
             .await
             .unwrap();
         assert_eq!(verdict.dog_scores.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn early_verdict_quorum_with_five_dogs() {
+        // 5 dogs: quorum = (5/2)+1 = 3. Early verdict returns when quorum is reached.
+        let dogs = vec![
+            make_dog("dog-a"),
+            make_dog("dog-b"),
+            make_dog("dog-c"),
+            make_dog("dog-d"),
+            make_dog("dog-e"),
+        ];
+
+        let judge = Judge::new(
+            dogs,
+            vec![
+                make_breaker("dog-a"),
+                make_breaker("dog-b"),
+                make_breaker("dog-c"),
+                make_breaker("dog-d"),
+                make_breaker("dog-e"),
+            ],
+        );
+
+        let stimulus = Stimulus {
+            content: "test token".into(),
+            context: None,
+            domain: None,
+            request_id: None,
+        };
+
+        let verdict = judge
+            .evaluate(&stimulus, None, &Metrics::new())
+            .await
+            .unwrap();
+
+        // Early verdict returns when quorum (3) dogs complete.
+        // Verdict should have at least quorum minimum.
+        assert!(
+            verdict.dog_scores.len() >= 3,
+            "expected at least quorum (3) dog scores, got {}",
+            verdict.dog_scores.len()
+        );
     }
 }

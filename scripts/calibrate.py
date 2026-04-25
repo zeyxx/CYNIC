@@ -389,6 +389,8 @@ SOLRPDS_PATHS = [
 
 def format_rug_token(row: dict) -> str:
     """Format a SolRPDS row as a token-analysis content string."""
+    from datetime import datetime, timezone
+
     mint = row.get("MINT", "unknown")
     lp = row.get("LIQUIDITY_POOL_ADDRESS", "unknown")
     added = float(row.get("TOTAL_ADDED_LIQUIDITY", 0))
@@ -399,17 +401,74 @@ def format_rug_token(row: dict) -> str:
     status = row.get("INACTIVITY_STATUS", "unknown")
     drain_pct = (removed / added * 100) if added > 0 else 0
 
+    # Timestamp signals — pool lifetime and staleness
+    now = datetime.now(tz=timezone.utc)
+    def parse_ts(s: str) -> datetime | None:
+        if not s:
+            return None
+        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+            try:
+                return datetime.strptime(s.strip(), fmt).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+        return None
+
+    first_ts = parse_ts(row.get("FIRST_POOL_ACTIVITY_TIMESTAMP", ""))
+    last_ts = parse_ts(row.get("LAST_POOL_ACTIVITY_TIMESTAMP", ""))
+    last_swap_ts = parse_ts(row.get("LAST_SWAP_TIMESTAMP", ""))
+
+    pool_age_days: float | None = None
+    lifetime_minutes: float | None = None
+    days_since_activity: float | None = None
+
+    if first_ts:
+        pool_age_days = (now - first_ts).total_seconds() / 86400
+    if first_ts and last_ts:
+        lifetime_minutes = (last_ts - first_ts).total_seconds() / 60
+    if last_swap_ts:
+        days_since_activity = (now - last_swap_ts).total_seconds() / 86400
+
+    # Lifetime signal: short-lived pools are textbook rugs
+    if lifetime_minutes is not None:
+        if lifetime_minutes < 60:
+            lifetime_label = f"CRITICAL: pool active for only {lifetime_minutes:.0f} minutes (textbook rug window)"
+        elif lifetime_minutes < 24 * 60:
+            lifetime_label = f"WARNING: pool active for only {lifetime_minutes/60:.1f} hours"
+        else:
+            lifetime_label = f"{lifetime_minutes/60/24:.1f} days total pool activity window"
+    else:
+        lifetime_label = "unknown"
+
+    # Staleness: long-inactive pools are dead/abandoned
+    if days_since_activity is not None:
+        if days_since_activity > 365:
+            stale_label = f"ABANDONED: no swap activity for {days_since_activity:.0f} days (>{days_since_activity/365:.1f} years)"
+        elif days_since_activity > 90:
+            stale_label = f"INACTIVE: no swap activity for {days_since_activity:.0f} days"
+        else:
+            stale_label = f"{days_since_activity:.0f} days since last swap"
+    else:
+        stale_label = "unknown"
+
+    # Launch origin: pump.fun tokens have 98.6% failure rate
+    is_pumpfun = mint.endswith("pump")
+    origin_label = "pump.fun (98.6% rug rate per Solidus Labs 2025)" if is_pumpfun else "unknown launchpad"
+
     return (
         f"Solana Token Liquidity Analysis — SolRPDS Historical Record.\n"
         f"Mint: {mint}\n"
+        f"Launch origin: {origin_label}\n"
         f"Liquidity pool: {lp}\n"
+        f"Pool created: {first_ts.strftime('%Y-%m-%d') if first_ts else 'unknown'}"
+        f"{f' ({pool_age_days:.0f} days ago)' if pool_age_days is not None else ''}\n"
+        f"Pool lifetime: {lifetime_label}\n"
+        f"Last swap activity: {stale_label}\n"
+        f"Pool status: {status}\n"
         f"Total liquidity added: {added:,.0f} SOL equivalent\n"
         f"Total liquidity removed: {removed:,.0f} SOL ({drain_pct:.1f}% of added)\n"
         f"Add/remove events: {n_adds} adds, {n_removes} removes\n"
         f"Add-to-remove ratio: {ratio:.3f} (< 1.0 = more removed than added)\n"
-        f"Pool status: {status}\n"
-        f"Drain percentage: {drain_pct:.1f}%\n"
-        f"Add-to-remove ratio interpretation: {'ratio < 0.5 — majority of liquidity withdrawn' if ratio < 0.5 else 'ratio < 1.0 — more withdrawn than added' if ratio < 1.0 else 'ratio >= 1.0 — net liquidity positive'}"
+        f"Add-to-remove ratio interpretation: {'ratio < 0.5 — majority of liquidity withdrawn' if ratio < 0.5 else 'ratio < 1.0 — more withdrawn than added' if ratio < 1.0 else 'ratio >= 1.0 — net liquidity positive (but check lifetime)'}"
     )
 
 
@@ -458,7 +517,7 @@ def build_rug_token_index(max_freq: int = 5) -> list[dict]:
     return rug_rows
 
 
-def feed_ccm(max_tokens: int, verbose: bool = False):
+def feed_ccm(max_tokens: int, verbose: bool = False, dogs_override: list[str] | None = None):
     """Feed SolRPDS rug-pull tokens to /judge (crystals=true) to build CCM observations."""
     import urllib.request
     addr = KERNEL_ADDR if KERNEL_ADDR.startswith("http") else f"http://{KERNEL_ADDR}"
@@ -478,11 +537,15 @@ def feed_ccm(max_tokens: int, verbose: bool = False):
     crystals_before = get_crystal_count()
     print(f"Crystal state before: {crystals_before}", file=sys.stderr)
 
-    healthy_dogs = get_healthy_dogs()
-    if healthy_dogs:
-        print(f"Dogs filter: {healthy_dogs}", file=sys.stderr)
+    if dogs_override is not None:
+        active_dogs = dogs_override
+        print(f"Dogs filter: {active_dogs} (--dogs override)", file=sys.stderr)
     else:
-        print("Dogs filter: none (using all)", file=sys.stderr)
+        active_dogs = get_healthy_dogs()
+        if active_dogs:
+            print(f"Dogs filter: {active_dogs} (from /health)", file=sys.stderr)
+        else:
+            print("Dogs filter: none (using all)", file=sys.stderr)
 
     # Build deduplicated rug token index (excludes SOL/USDC/USDT/etc.)
     rug_rows = build_rug_token_index(max_freq=5)
@@ -497,7 +560,7 @@ def feed_ccm(max_tokens: int, verbose: bool = False):
         content = format_rug_token(row)
         mint = row.get("MINT", "?")[:20]
         print(f"  [{fed+1:4d}/{total}] {mint} ...", end="", flush=True, file=sys.stderr)
-        verdict = judge(content, domain="token-analysis", crystals=True, dogs=healthy_dogs)
+        verdict = judge(content, domain="token-analysis", crystals=True, dogs=active_dogs or None)
         if verdict:
             q = verdict.get("q_score", {}).get("total", 0)
             vtype = verdict.get("verdict", "?")
@@ -545,14 +608,28 @@ def main():
     parser.add_argument("--max", type=int, default=100, help="Max tokens to feed (--feed-ccm)")
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--dogs",
+        type=str,
+        default=None,
+        help="Comma-separated Dog IDs to use (overrides health check). "
+             "Use to exclude quota-constrained Dogs: "
+             "'qwen35-9b-gpu,gemma-4-e4b-core,deterministic-dog'",
+    )
     args = parser.parse_args()
 
     if not KERNEL_ADDR:
         print("ERROR: CYNIC_REST_ADDR not set", file=sys.stderr)
         sys.exit(1)
 
+    # --dogs overrides the automatic health-check filter
+    explicit_dogs: list[str] | None = None
+    if args.dogs:
+        explicit_dogs = [d.strip() for d in args.dogs.split(",") if d.strip()]
+        print(f"  Dogs override: {explicit_dogs}", file=sys.stderr)
+
     if args.feed_ccm:
-        results = feed_ccm(args.max, verbose=args.verbose)
+        results = feed_ccm(args.max, verbose=args.verbose, dogs_override=explicit_dogs)
         if args.json:
             print(json.dumps(results, indent=2))
         return
