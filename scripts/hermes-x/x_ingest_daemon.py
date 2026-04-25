@@ -63,11 +63,54 @@ def load_env():
             API_KEY = val
 
 
-# ── Observe POST ──
+# ── Kernel POST ──
+
+# High-signal tweets go to /judge (Dogs evaluate → crystal accumulation → CCM compounds).
+# Low-signal tweets go to /observe (stored, no Dog evaluation).
+JUDGE_THRESHOLD = 3
+
+
+def _kernel_addr() -> str:
+    return KERNEL_ADDR if KERNEL_ADDR.startswith("http") else f"http://{KERNEL_ADDR}"
+
+
+def _headers() -> dict:
+    return {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
+
+
+def post_judge(row: dict) -> bool:
+    """POST high-signal tweet to /judge → Dogs evaluate → crystal accumulation."""
+    text = row.get("text", "")[:500]
+    author = row.get("author_screen_name", "?")
+    score = row.get("signal_score", 0)
+    cashtags = ", ".join(f"${c}" for c in row.get("cashtags", []))
+    narratives = ", ".join(row.get("narratives", []))
+
+    content = f"X social signal — @{author} (signal {score}): {text}"
+    context = f"Passive capture via x-organ. Cashtags: {cashtags or 'none'}. Narratives: {narratives or 'none'}. Author tier: {row.get('author_tier', '?')}."
+
+    try:
+        resp = requests.post(
+            f"{_kernel_addr()}/judge",
+            json={"content": content, "context": context, "domain": "social-signal"},
+            headers=_headers(),
+            timeout=120,
+        )
+        if resp.status_code == 200:
+            verdict = resp.json()
+            logger.info("JUDGE @%s [%d]: %s Q=%.3f",
+                        author, score, verdict.get("verdict", "?"),
+                        verdict.get("q_score", {}).get("total", 0))
+            return True
+        logger.warning("POST /judge %d: %s", resp.status_code, resp.text[:100])
+        return False
+    except requests.RequestException as e:
+        logger.warning("POST /judge failed: %s", e)
+        return False
+
 
 def post_observe(row: dict, organ_name: str = ORGAN_NAME) -> bool:
-    """POST one enriched tweet to /observe. Returns True on success."""
-    addr = KERNEL_ADDR if KERNEL_ADDR.startswith("http") else f"http://{KERNEL_ADDR}"
+    """POST low-signal tweet to /observe (store only, no Dog evaluation)."""
     text = row.get("text", "")[:200]
     author = row.get("author_screen_name", "?")
     score = row.get("signal_score", 0)
@@ -85,18 +128,23 @@ def post_observe(row: dict, organ_name: str = ORGAN_NAME) -> bool:
 
     try:
         resp = requests.post(
-            f"{addr}/observe",
+            f"{_kernel_addr()}/observe",
             json=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {API_KEY}",
-            },
+            headers=_headers(),
             timeout=5,
         )
         return resp.status_code == 200
     except requests.RequestException as e:
         logger.warning("POST /observe failed: %s", e)
         return False
+
+
+def ingest_row(row: dict, organ_name: str = ORGAN_NAME) -> bool:
+    """Route tweet: high-signal → /judge, low-signal → /observe."""
+    score = row.get("signal_score", 0)
+    if score >= JUDGE_THRESHOLD:
+        return post_judge(row)
+    return post_observe(row, organ_name)
 
 
 # ── State file for cursor persistence ──
@@ -164,7 +212,7 @@ def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, 
                     continue
                 if len(batch) >= BATCH_SIZE:
                     for row in batch:
-                        if post_observe(row, organ_name):
+                        if ingest_row(row, organ_name):
                             sent += 1
                         else:
                             errors += 1
@@ -173,7 +221,7 @@ def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, 
 
         # Flush remaining
         for row in batch:
-            if post_observe(row, organ_name):
+            if ingest_row(row, organ_name):
                 sent += 1
             else:
                 errors += 1
