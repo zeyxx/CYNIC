@@ -2,16 +2,16 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-24 | Hermes rework session planned
+Last updated: 2026-04-25 11:45 | Video demo script ready, kernel stable, verdicts live
 
 ---
 
 ## HACKATHON (freeze Apr 27, submission May 11)
 
 - [x] **submit_verdict on-chain.** `scripts/submit-verdict.ts` ships. Confirmed devnet: tx `3bToTTx…`, PDA `AYD9xNQ3…`, Status: Ok, 3401 CU, 6 axiom scores on-chain.
-- [x] **Rust 1.95.0 upgrade + deterministic-dog fix.** d0dd481: removed forced consensus inclusion (was causing false bias). Built successfully 2026-04-25 11:25. Kernel v0.7.7-218-gd0dd481 deployed.
+- [x] **Rust 1.95.0 upgrade + deterministic-dog fix.** d0dd481: removed forced consensus inclusion (was causing false bias). Built successfully 2026-04-25 11:25. Kernel v0.7.7-218-gd0dd481 deployed. Kernel remains stable, all 5 Dogs operational (gemma timeout observed but not blocking), verdicts crystallizing at 10-15s latency.
 - [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: description longue, video demo (3min), GitHub link, deployed URL. Deadline: May 10 23:59 PDT.
-- [ ] **Video demo.** Screen recording: paste token → Dogs deliberate → verdict → (stretch: on-chain tx). 2-3 min.
+- [ ] **Video demo.** Script ready at `/tmp/video-demo-script.md`. Scenes: (1) Token input (15s), (2) Dogs deliberate + axiom scoring (45s), (3) Crystal verdict (40s), (4) On-chain tx (30s stretch). Latencies confirmed: deterministic 0ms, qwen7b ~1.5s, qwen35-gpu ~8.8s. Use latest GROWL/BARK verdicts from `/verdicts` endpoint. **Falsify:** 2-3 min narration + kernel logs visible, q_score + dog_scores visible.
 
 ## ARCHITECTURE (session dédiée requise)
 

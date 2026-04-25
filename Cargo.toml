@@ -58,3 +58,8 @@ opt-level = 1
 # monomorphization/codegen fan-out and has proven to be the most reliable
 # mitigation short of changing toolchains mid-sprint.
 codegen-units = 1
+
+[profile.release-safe]
+inherits = "release"
+opt-level = 0
+codegen-units = 256
