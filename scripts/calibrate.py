@@ -413,9 +413,53 @@ def format_rug_token(row: dict) -> str:
     )
 
 
+def build_rug_token_index(max_freq: int = 5) -> list[dict]:
+    """
+    Build a deduplicated index of actual rug tokens from all SolRPDS CSVs.
+
+    Each liquidity pool row pairs a rug token with a well-known counterpart
+    (SOL, USDC, USDT, etc.). Tokens appearing > max_freq times are almost
+    certainly well-known paired tokens, not rugs. We exclude them.
+
+    Returns: list of unique row dicts for the rug token side of each pool.
+    """
+    from collections import Counter
+
+    # Pass 1: count mint frequencies across the entire dataset
+    freq: Counter = Counter()
+    all_rows: list[dict] = []
+    for csv_path in SOLRPDS_PATHS:
+        if not csv_path.exists():
+            continue
+        with open(csv_path, newline="") as f:
+            for row in csv.DictReader(f):
+                mint = row.get("MINT", "")
+                freq[mint] += 1
+                all_rows.append(row)
+
+    excluded = {mint for mint, count in freq.items() if count > max_freq}
+    print(
+        f"Dataset: {len(all_rows)} rows | {len(freq)} unique mints | "
+        f"{len(excluded)} excluded as paired tokens (freq > {max_freq})",
+        file=sys.stderr,
+    )
+
+    # Pass 2: deduplicate + filter
+    seen: set[str] = set()
+    rug_rows: list[dict] = []
+    for row in all_rows:
+        mint = row.get("MINT", "")
+        if mint in excluded or mint in seen:
+            continue
+        seen.add(mint)
+        rug_rows.append(row)
+
+    print(f"Rug token candidates: {len(rug_rows)} unique", file=sys.stderr)
+    return rug_rows
+
+
 def feed_ccm(max_tokens: int, verbose: bool = False):
     """Feed SolRPDS rug-pull tokens to /judge (crystals=true) to build CCM observations."""
-    # Check crystal count before
     import urllib.request
     addr = KERNEL_ADDR if KERNEL_ADDR.startswith("http") else f"http://{KERNEL_ADDR}"
 
@@ -440,32 +484,28 @@ def feed_ccm(max_tokens: int, verbose: bool = False):
     else:
         print("Dogs filter: none (using all)", file=sys.stderr)
 
+    # Build deduplicated rug token index (excludes SOL/USDC/USDT/etc.)
+    rug_rows = build_rug_token_index(max_freq=5)
+    total = min(max_tokens, len(rug_rows))
+    print(f"Running {total} rug tokens ...", file=sys.stderr)
+
     fed = 0
     verdicts = []
-    for csv_path in SOLRPDS_PATHS:
+    for row in rug_rows:
         if fed >= max_tokens:
             break
-        if not csv_path.exists():
-            print(f"  SKIP (not found): {csv_path}", file=sys.stderr)
-            continue
-        print(f"  Reading {csv_path.name} ...", file=sys.stderr)
-        with open(csv_path, newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                if fed >= max_tokens:
-                    break
-                content = format_rug_token(row)
-                mint = row.get("MINT", "?")[:20]
-                print(f"  [{fed+1:4d}/{max_tokens}] {mint} ...", end="", flush=True, file=sys.stderr)
-                verdict = judge(content, domain="token-analysis", crystals=True, dogs=healthy_dogs)
-                if verdict:
-                    q = verdict.get("q_score", {}).get("total", 0)
-                    vtype = verdict.get("verdict", "?")
-                    print(f" {vtype:<5} Q={q:.3f}", file=sys.stderr)
-                    verdicts.append({"mint": mint, "verdict": vtype, "q": q})
-                else:
-                    print(" FAIL", file=sys.stderr)
-                fed += 1
+        content = format_rug_token(row)
+        mint = row.get("MINT", "?")[:20]
+        print(f"  [{fed+1:4d}/{total}] {mint} ...", end="", flush=True, file=sys.stderr)
+        verdict = judge(content, domain="token-analysis", crystals=True, dogs=healthy_dogs)
+        if verdict:
+            q = verdict.get("q_score", {}).get("total", 0)
+            vtype = verdict.get("verdict", "?")
+            print(f" {vtype:<5} Q={q:.3f}", file=sys.stderr)
+            verdicts.append({"mint": mint, "verdict": vtype, "q": q})
+        else:
+            print(" FAIL", file=sys.stderr)
+        fed += 1
 
     crystals_after = get_crystal_count()
     print(f"\nCrystal state after: {crystals_after}", file=sys.stderr)
