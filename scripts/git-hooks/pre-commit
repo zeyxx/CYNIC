@@ -1,7 +1,7 @@
 #!/bin/sh
 # CYNIC — Pre-commit gate (Layer 2 enforcement, agnostic)
-# L2 coord check → fmt (fast, <1s) → clippy (debug mode, 5-15s incremental).
-# Full test suite + release build runs via `make check` before deploy.
+# L2 coord check → security → fmt. Fast (<2s total).
+# Heavy gates (clippy, test, lint-rules) run once at pre-push via `make check`.
 
 # Required: Rust 1.94.1 compiler bug (A1 debt, LLVM SIGSEGV in rmcp)
 # See CLAUDE.md § VII: Build Environment
@@ -125,10 +125,4 @@ fi
 # Fast fail: format check (<1s)
 cargo fmt -p cynic-kernel -- --check || { echo "Run 'cargo fmt' to fix formatting."; exit 1; }
 
-# Lint check (5-15s incremental, debug mode — same lints as release).
-# --all-targets includes test modules, examples, benches — without it, lints
-# on tests/ and #[cfg(test)] blocks never run, silently admitting drift.
-cargo clippy --workspace --all-targets -- -D warnings || exit 1
-
-# Unit tests in release mode (debug mode hits rmcp linker bug — A1 debt)
-cargo test -p cynic-kernel --lib --release || { echo "Tests failed — fix before committing."; exit 1; }
+# clippy + test run at pre-push (make check). No duplication here.
