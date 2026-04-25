@@ -2,17 +2,16 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-25 15:45 | **BLOCKED: Waiting for Opus (PR #28)** — K15 + Colosseum staged locally, demo ready
+Last updated: 2026-04-24 | Hermes rework session planned
 
 ---
 
 ## HACKATHON (freeze Apr 27, submission May 11)
 
 - [x] **submit_verdict on-chain.** `scripts/submit-verdict.ts` ships. Confirmed devnet: tx `3bToTTx…`, PDA `AYD9xNQ3…`, Status: Ok, 3401 CU, 6 axiom scores on-chain.
-- [x] **K15 consumer for tasks.** agent_tasks.rs: task completion → crystal observation. Closes audit→observation gap. **Staged, not committed** (waiting for PR #28 to stabilize).
-- [x] **Colosseum description longue.** Problem statement + six axioms + architecture + use cases. **Staged, not committed**.
-- [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: video demo (3min) + GitHub link + deployed URL. Deadline: May 10 23:59 PDT. **Blocked on:** video recording (scheduled 2026-04-26/27).
-- [ ] **Video demo.** Screen recording: paste token → Dogs deliberate → verdict → (stretch: on-chain tx). 2-3 min. **Ready to shoot:** script (/tmp/video-demo-script.md), kernel live, verdicts in DB.
+- [x] **Rust 1.95.0 upgrade + deterministic-dog fix.** d0dd481: removed forced consensus inclusion (was causing false bias). Built successfully 2026-04-25 11:25. Kernel v0.7.7-218-gd0dd481 deployed.
+- [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: description longue, video demo (3min), GitHub link, deployed URL. Deadline: May 10 23:59 PDT.
+- [ ] **Video demo.** Screen recording: paste token → Dogs deliberate → verdict → (stretch: on-chain tx). 2-3 min.
 
 ## ARCHITECTURE (session dédiée requise)
 
@@ -21,6 +20,7 @@ Last updated: 2026-04-25 15:45 | **BLOCKED: Waiting for Opus (PR #28)** — K15 
 
 ## ORGANISM (no deadline, compound value)
 
+- [ ] **CCM gate threshold tuning (K15 blocker).** Current: max_disagreement > φ⁻² (0.382) quarantines verdicts. Observed: USDC (0.568), rug-pull (0.468) — all legitimate tokens exceed threshold. Conjecture: axiom divergence between qwen7b and qwen35 is structural, not calibration drift. **Options:** (a) lower gate to φ⁻³ (0.236), (b) per-axiom disagreement thresholds, (c) accept 80%+ quarantine rate. **Falsify:** (a) new verdicts crystallize & improve over 48h.
 - [ ] **Record thinking_tokens on failure (D2).** InferenceDog has thinking_max AtomicU32 but organ only reads it on Success. Wire reading on ALL update_stats_entry calls. Closes self-calibration loop. **Falsify:** gemma budget adapts after 5 failures without any success.
 - [ ] **Domain-aware routing (D4).** Exclude Dogs with <50% json_valid_rate per domain. Gemma on token-analysis = 12% → skip. **Falsify:** token-analysis verdicts use only functional Dogs.
 - [ ] **Auth /health (T1/O4).** ~~Split /live (boolean, open) + /health (full topology, auth required).~~ DONE in code: /metrics + /events now require auth, /health public response stripped of version. **Remaining:** deploy new binary + verify. **Falsify:** `curl funnel/metrics` → 401; `curl funnel/health` returns no version field.
