@@ -183,41 +183,82 @@ TIER_RANK = {"howl": 3, "ambiguous": 2, "bark": 1}
 
 # ── Kernel call ────────────────────────────────────────────────
 
-def judge(content: str, domain: str = "token-analysis", crystals: bool = False) -> dict | None:
+def get_healthy_dogs() -> list[str] | None:
+    """Query /health and return Dogs with circuit=closed. Returns None on error."""
     import urllib.request, urllib.error
     addr = KERNEL_ADDR if KERNEL_ADDR.startswith("http") else f"http://{KERNEL_ADDR}"
-    body = json.dumps({
-        "content": content,
-        "domain": domain,
-        "crystals": crystals,
-    }).encode()
     req = urllib.request.Request(
-        f"{addr}/judge",
-        data=body,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {API_KEY}",
-        },
-        method="POST",
+        f"{addr}/health",
+        headers={"Authorization": f"Bearer {API_KEY}"},
     )
-    t0 = time.monotonic()
     try:
-        with urllib.request.urlopen(req, timeout=180) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
-        data["_latency_ms"] = int((time.monotonic() - t0) * 1000)
-        return data
     except urllib.error.HTTPError as e:
-        print(f"  [HTTP {e.code}] {e.read()[:200]}", file=sys.stderr)
+        # 503 = degraded kernel — body still contains full health JSON for auth'd callers
+        if e.code in (503, 200):
+            data = json.loads(e.read())
+        else:
+            return None
+    except Exception:
         return None
-    except Exception as e:
-        print(f"  [ERR] {e}", file=sys.stderr)
-        return None
+    healthy = [d["id"] for d in data.get("dogs", []) if d.get("circuit") == "closed"]
+    return healthy or None
+
+
+def judge(
+    content: str,
+    domain: str = "token-analysis",
+    crystals: bool = False,
+    dogs: list[str] | None = None,
+    max_retries: int = 3,
+) -> dict | None:
+    """Call /judge with retry on 429 (rate limit). dogs= filters jury to specific Dogs."""
+    import urllib.request, urllib.error
+    addr = KERNEL_ADDR if KERNEL_ADDR.startswith("http") else f"http://{KERNEL_ADDR}"
+    payload: dict = {"content": content, "domain": domain, "crystals": crystals}
+    if dogs:
+        payload["dogs"] = dogs
+    body = json.dumps(payload).encode()
+
+    for attempt in range(max_retries + 1):
+        req = urllib.request.Request(
+            f"{addr}/judge",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {API_KEY}",
+            },
+            method="POST",
+        )
+        t0 = time.monotonic()
+        try:
+            with urllib.request.urlopen(req, timeout=180) as resp:
+                data = json.loads(resp.read())
+            data["_latency_ms"] = int((time.monotonic() - t0) * 1000)
+            return data
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < max_retries:
+                print(f"  [429 rate limit — sleeping 7s, retry {attempt+1}/{max_retries}]", file=sys.stderr)
+                time.sleep(7)
+                continue
+            print(f"  [HTTP {e.code}] {e.read()[:200]}", file=sys.stderr)
+            return None
+        except Exception as e:
+            print(f"  [ERR] {e}", file=sys.stderr)
+            return None
+    return None
 
 
 # ── Calibration run ────────────────────────────────────────────
 
 def run_calibration(n_runs: int, verbose: bool = False) -> list[dict]:
     """Run 9 stimuli × n_runs via /judge (crystals=false). Returns all records."""
+    healthy_dogs = get_healthy_dogs()
+    if healthy_dogs:
+        print(f"  Dogs filter: {healthy_dogs}", file=sys.stderr)
+    else:
+        print("  Dogs filter: none (using all)", file=sys.stderr)
     records = []
     total = len(STIMULI) * n_runs
     done = 0
@@ -226,7 +267,7 @@ def run_calibration(n_runs: int, verbose: bool = False) -> list[dict]:
             done += 1
             label = f"[{done:2d}/{total}] {s['id']} run{run}"
             print(f"  {label} ...", end="", flush=True, file=sys.stderr)
-            verdict = judge(s["content"], domain="token-analysis", crystals=False)
+            verdict = judge(s["content"], domain="token-analysis", crystals=False, dogs=healthy_dogs)
             if verdict is None:
                 print(" FAIL", file=sys.stderr)
                 records.append({**s, "run": run, "error": True, "q_total": None, "dog_scores": []})
@@ -367,7 +408,8 @@ def format_rug_token(row: dict) -> str:
         f"Add/remove events: {n_adds} adds, {n_removes} removes\n"
         f"Add-to-remove ratio: {ratio:.3f} (< 1.0 = more removed than added)\n"
         f"Pool status: {status}\n"
-        f"Pattern: {'HIGH_DRAIN — classic rug indicator' if drain_pct > 80 else 'MODERATE_DRAIN' if drain_pct > 50 else 'LOW_DRAIN'}"
+        f"Drain percentage: {drain_pct:.1f}%\n"
+        f"Add-to-remove ratio interpretation: {'ratio < 0.5 — majority of liquidity withdrawn' if ratio < 0.5 else 'ratio < 1.0 — more withdrawn than added' if ratio < 1.0 else 'ratio >= 1.0 — net liquidity positive'}"
     )
 
 
@@ -392,6 +434,12 @@ def feed_ccm(max_tokens: int, verbose: bool = False):
     crystals_before = get_crystal_count()
     print(f"Crystal state before: {crystals_before}", file=sys.stderr)
 
+    healthy_dogs = get_healthy_dogs()
+    if healthy_dogs:
+        print(f"Dogs filter: {healthy_dogs}", file=sys.stderr)
+    else:
+        print("Dogs filter: none (using all)", file=sys.stderr)
+
     fed = 0
     verdicts = []
     for csv_path in SOLRPDS_PATHS:
@@ -409,7 +457,7 @@ def feed_ccm(max_tokens: int, verbose: bool = False):
                 content = format_rug_token(row)
                 mint = row.get("MINT", "?")[:20]
                 print(f"  [{fed+1:4d}/{max_tokens}] {mint} ...", end="", flush=True, file=sys.stderr)
-                verdict = judge(content, domain="token-analysis", crystals=True)
+                verdict = judge(content, domain="token-analysis", crystals=True, dogs=healthy_dogs)
                 if verdict:
                     q = verdict.get("q_score", {}).get("total", 0)
                     vtype = verdict.get("verdict", "?")
@@ -429,6 +477,21 @@ def feed_ccm(max_tokens: int, verbose: bool = False):
     else:
         forming = crystals_after.get("forming", 0)
         print(f"Still forming: {forming}. Max obs needed: 21.", file=sys.stderr)
+
+    # Detection rate: SolRPDS = confirmed rugs. BARK (≤0.236) or GROWL (≤0.382) = correct signal.
+    if verdicts:
+        bark  = sum(1 for v in verdicts if v["q"] <= 0.236)
+        growl = sum(1 for v in verdicts if 0.236 < v["q"] <= 0.382)
+        wag   = sum(1 for v in verdicts if 0.382 < v["q"] <= 0.528)
+        howl  = sum(1 for v in verdicts if v["q"] > 0.528)
+        n = len(verdicts)
+        detected = bark + growl
+        print(f"\n── Detection rate (confirmed rugs, blind signal) ──", file=sys.stderr)
+        print(f"  BARK  (≤0.236): {bark:4d} / {n} = {bark/n*100:.1f}%", file=sys.stderr)
+        print(f"  GROWL (≤0.382): {growl:4d} / {n} = {growl/n*100:.1f}%", file=sys.stderr)
+        print(f"  WAG   (≤0.528): {wag:4d} / {n} = {wag/n*100:.1f}%", file=sys.stderr)
+        print(f"  HOWL  (>0.528): {howl:4d} / {n} = {howl/n*100:.1f}%", file=sys.stderr)
+        print(f"  ── BARK+GROWL:  {detected:4d} / {n} = {detected/n*100:.1f}% (correct rug signal)", file=sys.stderr)
 
     return verdicts
 
