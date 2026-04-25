@@ -2,15 +2,17 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-24 | Hermes rework session planned
+Last updated: 2026-04-25 15:45 | **BLOCKED: Waiting for Opus (PR #28)** — K15 + Colosseum staged locally, demo ready
 
 ---
 
 ## HACKATHON (freeze Apr 27, submission May 11)
 
 - [x] **submit_verdict on-chain.** `scripts/submit-verdict.ts` ships. Confirmed devnet: tx `3bToTTx…`, PDA `AYD9xNQ3…`, Status: Ok, 3401 CU, 6 axiom scores on-chain.
-- [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: description longue, video demo (3min), GitHub link, deployed URL. Deadline: May 10 23:59 PDT.
-- [ ] **Video demo.** Screen recording: paste token → Dogs deliberate → verdict → (stretch: on-chain tx). 2-3 min.
+- [x] **K15 consumer for tasks.** agent_tasks.rs: task completion → crystal observation. Closes audit→observation gap. **Staged, not committed** (waiting for PR #28 to stabilize).
+- [x] **Colosseum description longue.** Problem statement + six axioms + architecture + use cases. **Staged, not committed**.
+- [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: video demo (3min) + GitHub link + deployed URL. Deadline: May 10 23:59 PDT. **Blocked on:** video recording (scheduled 2026-04-26/27).
+- [ ] **Video demo.** Screen recording: paste token → Dogs deliberate → verdict → (stretch: on-chain tx). 2-3 min. **Ready to shoot:** script (/tmp/video-demo-script.md), kernel live, verdicts in DB.
 
 ## ARCHITECTURE (session dédiée requise)
 
