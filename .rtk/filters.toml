@@ -3,19 +3,63 @@
 schema_version = 1
 
 [filters.cargo-build]
-description = "Strip Compiling/Downloading noise from cargo build"
+description = "Strip Compiling/Downloading noise, keep errors and warnings"
 match_command = "^cargo build"
-strip_lines_matching = ["^\\s*Compiling ", "^\\s*Downloading ", "^\\s*Downloaded "]
-max_lines = 50
+strip_lines_matching = [
+    "^\\s*Compiling ",
+    "^\\s*Downloading ",
+    "^\\s*Downloaded ",
+    "^\\s*Finished ",
+    "^\\s*Fresh ",
+    "^\\s*Blocking ",
+    "^\\s*Updating ",
+]
+max_lines = 40
+
+[filters.cargo-check]
+description = "Fast type-check — keep only errors"
+match_command = "^cargo check"
+strip_lines_matching = [
+    "^\\s*Compiling ",
+    "^\\s*Checking ",
+    "^\\s*Finished ",
+    "^\\s*Fresh ",
+]
+max_lines = 30
+
+[filters.cargo-clippy]
+description = "Lint — strip compilation noise, keep warnings and errors"
+match_command = "^cargo clippy"
+strip_lines_matching = [
+    "^\\s*Compiling ",
+    "^\\s*Checking ",
+    "^\\s*Finished ",
+    "^\\s*Fresh ",
+]
+max_lines = 60
 
 [filters.make-check]
-description = "Keep verdict + errors from make check"
+description = "Full gate — keep verdict + errors only"
 match_command = "^make check"
-strip_lines_matching = ["^\\s*Compiling ", "^\\s*Finished ", "^\\s*Running "]
-max_lines = 80
+strip_lines_matching = [
+    "^\\s*Compiling ",
+    "^\\s*Checking ",
+    "^\\s*Finished ",
+    "^\\s*Running ",
+    "^\\s*Fresh ",
+    "^\\s*Downloading ",
+    "^test .* ok$",
+]
+max_lines = 60
 
 [filters.cargo-test]
-description = "Strip passing tests, keep failures"
+description = "Strip passing tests, keep failures and summary"
 match_command = "^cargo test"
-strip_lines_matching = ["^test .* ok$", "^\\s*Running "]
-max_lines = 60
+strip_lines_matching = [
+    "^test .* ok$",
+    "^\\s*Running ",
+    "^\\s*Compiling ",
+    "^\\s*Fresh ",
+    "^\\s*Doc-tests ",
+]
+max_lines = 50
