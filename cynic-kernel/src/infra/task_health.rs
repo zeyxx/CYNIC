@@ -153,6 +153,13 @@ const STATE_LOG: TaskContract = TaskContract {
     consumer: "organism state history",
     failure_effect: "historical state chain stops growing, trend detection blind",
 };
+const SUBMISSION_QUEUE: TaskContract = TaskContract {
+    name: "submission_queue",
+    expected_interval: 600, // 5min interval + grace
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "pinocchio verdicts",
+    failure_effect: "verdicts stop being anchored onchain, submission queue backs up",
+};
 
 fn task_contract(name: &str) -> TaskContract {
     match name {
@@ -172,6 +179,7 @@ fn task_contract(name: &str) -> TaskContract {
         "crystal_challenge" => CRYSTAL_CHALLENGE,
         "nightshift" => NIGHTSHIFT,
         "state_log" => STATE_LOG,
+        "submission_queue" => SUBMISSION_QUEUE,
         other => panic!("task contract missing for '{other}'"),
     }
 }
@@ -203,6 +211,7 @@ pub struct TaskHealth {
     crystal_challenge: AtomicU64,
     nightshift: AtomicU64,
     state_log: AtomicU64,
+    submission_queue: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -233,6 +242,7 @@ impl TaskHealth {
             crystal_challenge: AtomicU64::new(0),
             nightshift: AtomicU64::new(0),
             state_log: AtomicU64::new(0),
+            submission_queue: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -292,6 +302,10 @@ impl TaskHealth {
     }
     pub fn touch_state_log(&self) {
         self.state_log.store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_submission_queue(&self) {
+        self.submission_queue
+            .store(Self::now_secs(), Ordering::Relaxed);
     }
 
     /// Summarizer: HONEST touch with detail about what actually happened.
