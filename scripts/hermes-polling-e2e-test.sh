@@ -212,7 +212,7 @@ VALIDATION SUMMARY
 NEXT: To validate with real kernel
 ═════════════════════════════════════════════════════════════════
 
-1. Start kernel: /home/user/bin/cynic-kernel --mcp
+1. Start kernel: ~/bin/cynic-kernel --mcp
 2. Set auth: export CYNIC_API_KEY=<token>
 3. Run real test: ./scripts/hermes-polling-e2e-test.sh --real
 4. Verify: Check DB for task_id in agent_tasks + audit logs

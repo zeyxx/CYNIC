@@ -97,7 +97,11 @@ fn row_to_state_block(row: &serde_json::Value) -> Result<StateBlock, StorageErro
 
     let dogs: Vec<DogSnapshot> = row
         .get("dogs")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .and_then(|v| {
+            serde_json::from_value(v.clone())
+                .inspect_err(|e| tracing::debug!("state_log dogs deserialize: {e}"))
+                .ok()
+        })
         .unwrap_or_default();
 
     let system = SystemSnapshot {
