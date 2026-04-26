@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "cynic-coord": {
-      "command": "./.gemini/run-cynic-coord.sh"
+    "cynic": {
+      "command": "/home/user/bin/cynic-kernel-mcp"
     }
   },
   "hooks": {
