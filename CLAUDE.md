@@ -122,15 +122,15 @@ Never commit: real IPs, API keys/tokens/passwords, real names (use T./S.).
 Secrets: `~/.cynic-env`. Systemd: `~/.config/cynic/env`.
 Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`, `/live`, `/ready`.
 
-## Build (A1 Debt)
+## Build
 
-Rust 1.94.1 LLVM SIGSEGV in rmcp. Mandatory for all builds:
+Rust 1.95.0 active (LLVM SROA bug from 1.94.1 resolved). Stack/debuginfo kept as safety net in `.cargo/config.toml`:
 ```bash
 export RUST_MIN_STACK=67108864
 export RUSTFLAGS="-C debuginfo=1"
 cargo build
 ```
-Obsolete when Rust 1.95.0+ fixes LLVM SROA. See `rust-toolchain.toml`.
+Remove explicit exports once a session confirms build succeeds without them.
 
 ---
 
