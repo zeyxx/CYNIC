@@ -673,56 +673,43 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
         use rmcp::ServiceExt;
-        tracing::info!("MCP mode — serving over stdio (tool dispatch only)");
-        let mcp_infer: Arc<dyn domain::inference::InferPort> = match build_summarizer(
-            summarizer_backend_cfg.as_ref(),
-        ) {
-            Ok(s) => Arc::new(s),
-            Err(e) => {
-                tracing::warn!(error = %e, "MCP inference unavailable — HTTP client init failed");
-                Arc::new(domain::inference::NullInfer)
-            }
-        };
-        let mcp_server = api::mcp::CynicMcp::new(
-            Arc::clone(&judge),
-            Arc::clone(&storage_port),
-            Arc::clone(&coord),
-            Arc::clone(&usage_tracker),
-            Arc::clone(&embedding),
-            Arc::clone(&verdict_cache),
-            mcp_infer,
-            Arc::clone(&metrics),
-            Arc::clone(&environment),
-            Arc::clone(&task_health),
-            system_contract
-                .read()
-                .unwrap_or_else(|e| e.into_inner())
-                .clone(),
-            Some(event_tx.clone()),
-            project_root.display().to_string(),
-            enricher.clone(),
+
+        // Proxy mode: forward all tool calls to the REST kernel via HTTP.
+        // Zero local state — no Judge, no StoragePort, no Dogs loaded.
+        // Requires REST kernel running at CYNIC_REST_ADDR.
+        let rest_addr =
+            std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "http://127.0.0.1:3030".into());
+        let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+
+        tracing::info!(
+            rest_addr,
+            "MCP proxy mode — forwarding to REST kernel (zero local state)"
         );
 
-        // MCP signal handler — cancel background tasks on SIGTERM/SIGINT
+        let mcp_proxy = api::mcp::proxy::CynicMcpProxy::new(
+            rest_addr,
+            api_key,
+            project_root.display().to_string(),
+        );
+
+        // MCP signal handler
         infra::tasks::spawn_signal_handler(shutdown.clone());
 
         let transport = rmcp::transport::io::stdio();
-        let server = mcp_server
+        let server = mcp_proxy
             .serve(transport)
             .await
-            .map_err(|e| format!("MCP server error: {e}"))?;
+            .map_err(|e| format!("MCP proxy server error: {e}"))?;
 
         // Wait for MCP disconnect or shutdown signal
         tokio::select! {
             _ = server.waiting() => {} // ok: MCP client disconnected
             _ = shutdown.clone().cancelled_owned() => {
-                tracing::info!("MCP shutting down");
+                tracing::info!("MCP proxy shutting down");
             }
         }
 
-        // Cancel background tasks and flush
         shutdown.cancel();
-        infra::tasks::flush_usage_on_shutdown(&storage_port, &usage_tracker).await;
         return Ok(());
     }
 
