@@ -1,7 +1,6 @@
 [Unit]
 Description=CYNIC Dog Health Monitor — K15 Acting Consumer
 After=cynic-kernel.service
-PartOf=cynic.target
 
 [Service]
 Type=oneshot

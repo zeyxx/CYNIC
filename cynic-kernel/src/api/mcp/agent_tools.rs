@@ -64,7 +64,7 @@ impl CynicMcp {
         self.storage
             .store_agent_task(&task)
             .await
-            .map_err(|_| sanitize_error("Agent task store"))?;
+            .map_err(|_e| sanitize_error("Agent task store"))?;
 
         let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
         self.audit(
@@ -114,7 +114,7 @@ impl CynicMcp {
             .storage
             .list_pending_agent_tasks(&p.kind, limit)
             .await
-            .map_err(|_| sanitize_error("Agent task list"))?;
+            .map_err(|_e| sanitize_error("Agent task list"))?;
 
         let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
         self.audit(
@@ -165,22 +165,22 @@ impl CynicMcp {
         }
 
         // Validate result/error bounds if present
-        if let Some(ref r) = p.result {
-            if r.chars().count() > 10_000 {
-                return Err(McpError::invalid_params(
-                    "result must be ≤10000 characters",
-                    None,
-                ));
-            }
+        if let Some(ref r) = p.result
+            && r.chars().count() > 10_000
+        {
+            return Err(McpError::invalid_params(
+                "result must be ≤10000 characters",
+                None,
+            ));
         }
 
-        if let Some(ref e) = p.error {
-            if e.chars().count() > 10_000 {
-                return Err(McpError::invalid_params(
-                    "error must be ≤10000 characters",
-                    None,
-                ));
-            }
+        if let Some(ref e) = p.error
+            && e.chars().count() > 10_000
+        {
+            return Err(McpError::invalid_params(
+                "error must be ≤10000 characters",
+                None,
+            ));
         }
 
         let has_result = p.result.is_some();
@@ -189,7 +189,7 @@ impl CynicMcp {
         self.storage
             .update_agent_task_result(&p.task_id, p.result, p.error)
             .await
-            .map_err(|_| sanitize_error("Agent task result update"))?;
+            .map_err(|_e| sanitize_error("Agent task result update"))?;
 
         let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
         self.audit(

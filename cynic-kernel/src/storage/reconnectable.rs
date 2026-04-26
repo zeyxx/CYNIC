@@ -260,6 +260,59 @@ impl StoragePort for ReconnectableStorage {
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
         self.current().consolidate_duplicate_crystals().await
     }
+    async fn last_observation_per_source(
+        &self,
+    ) -> Result<Vec<(String, String, u64)>, StorageError> {
+        self.current().last_observation_per_source().await
+    }
+
+    // ── State Log ──────────────────────────────────
+    async fn store_state_block(
+        &self,
+        block: &crate::domain::state_log::StateBlock,
+    ) -> Result<(), StorageError> {
+        self.current().store_state_block(block).await
+    }
+    async fn last_state_block(
+        &self,
+    ) -> Result<Option<crate::domain::state_log::StateBlock>, StorageError> {
+        self.current().last_state_block().await
+    }
+    async fn list_state_blocks(
+        &self,
+        since: &str,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
+        self.current().list_state_blocks(since, limit).await
+    }
+
+    // ── Agent Tasks (pre-existing, was missing from reconnectable) ──
+    async fn store_agent_task(
+        &self,
+        task: &crate::domain::storage::AgentTask,
+    ) -> Result<String, StorageError> {
+        self.current().store_agent_task(task).await
+    }
+    async fn list_pending_agent_tasks(
+        &self,
+        kind: &str,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::storage::AgentTask>, StorageError> {
+        self.current().list_pending_agent_tasks(kind, limit).await
+    }
+    async fn update_agent_task_result(
+        &self,
+        task_id: &str,
+        result: Option<String>,
+        error: Option<String>,
+    ) -> Result<(), StorageError> {
+        self.current()
+            .update_agent_task_result(task_id, result, error)
+            .await
+    }
+    async fn mark_agent_task_processing(&self, task_id: &str) -> Result<(), StorageError> {
+        self.current().mark_agent_task_processing(task_id).await
+    }
 }
 
 // ── ReconnectableCoord ──────────────────────────────────────

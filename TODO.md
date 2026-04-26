@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-25 18:30 | Hermes X organ live, dataset 1649 tweets, git cleanup in progress
+Last updated: 2026-04-25 19:10 | Organ X infra shipped: systemd, domain filter, enrichment, ingest, E2E verified (1703 tweets)
 
 ---
 
@@ -10,22 +10,25 @@ Last updated: 2026-04-25 18:30 | Hermes X organ live, dataset 1649 tweets, git c
 
 - [x] **submit_verdict on-chain.** `scripts/submit-verdict.ts` ships. Confirmed devnet: tx `3bToTTx…`, PDA `AYD9xNQ3…`, Status: Ok, 3401 CU, 6 axiom scores on-chain.
 - [x] **Rust 1.95.0 upgrade + deterministic-dog fix.** d0dd481: removed forced consensus inclusion (was causing false bias). Built successfully 2026-04-25 11:25. Kernel v0.7.7-218-gd0dd481 deployed. Kernel remains stable, all 5 Dogs operational (gemma timeout observed but not blocking), verdicts crystallizing at 10-15s latency.
+- [ ] **Wallet-judgment Dogs (deterministic).** Implement in cynic-kernel/src/domain/dog/ per pseudocode in cynic-kernel/domains/wallet-judgment-dogs.md. Gates: games≥5, replay_risk, suspicious_cluster. Register in Judge. Target: before May 1 (optional for J6-7, but unlocks CYNIC integration).
 - [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: description longue, video demo (3min), GitHub link, deployed URL. Deadline: May 10 23:59 PDT.
-- [x] **B&C integration analysis.** Reports created: B2C-SOLANA-CONVERGENCE-AUDIT.md (T.'s code patterns), B2C-CYNIC-INTEGRATION-SPECIFICATION.md (scope clarification pending from S.). Decision: stimulus architecture is sound. Blocking: S.'s J6-7 (nonce/permit/Arweave/mint), scope clarification (crypto vs reputation validation).
+- [x] **B&C integration analysis + wallet-judgment domain.** Decided: Option C (CYNIC validates wallet anti-Sybil). Created: wallet-judgment domain (6 axioms on gameplay behavior), Dogs prompts (deterministic + 4 LLM), enrichment utility (cynic_kernel::domain::wallet_enrichment), integration specs. B&C gates mint on: Ed25519 sig ✓ + games≥5 ✓ + CYNIC q_score≥φ⁻¹ (0.618). Fallback: B&C ships J6-7 with Ed25519+game gate, add CYNIC post-May 11.
 - [x] **Personality card stimulus + integration stub.** New builder: build_personality_card_stimulus(archetype, confidence, 6 signals). Tests: 7/7 passing. Integration doc added showing B&C flow: client sign → POST /mint-permit → CYNIC /judge → Dogs evaluate chess domain → HOWL/WAG/BARK. Waiting on S. for scope clarification (pre vs post mint, fallback behavior).
 - [ ] **Video demo.** Script ready at `/tmp/video-demo-script.md`. Scenes: (1) Token input (15s), (2) Dogs deliberate + axiom scoring (45s), (3) Crystal verdict (40s), (4) On-chain tx (30s stretch). Latencies confirmed: deterministic 0ms, qwen7b ~1.5s, qwen35-gpu ~8.8s. Use latest GROWL/BARK verdicts from `/verdicts` endpoint. **Falsify:** 2-3 min narration + kernel logs visible, q_score + dog_scores visible.
 
-## HERMES X ORGAN (next session)
+## HERMES X ORGAN
 
-- [ ] **Git cleanup.** 3 branches + 2 stashes + main ahead of origin. Consolidate into 1 PR. See memory `project_hermes_x_organ_session.md` for full state + prompt. **Falsify:** `git branch | wc -l` <= 2 after cleanup.
-- [ ] **Re-create chaos_collecteur.py v3.** Linter deleted it. Dataset (1649 tweets) proves it worked. Signal scoring, author tiers, narratives, coordination detection. **Falsify:** `python3 chaos_collecteur.py --stats` outputs enriched stats.
-- [ ] **Re-create x_proxy.py v2.** Linter reverted to v1. Needs tweet extraction + forwarding to /observe. **Falsify:** proxy captures SearchTimeline → tweets forwarded to kernel.
-- [ ] **Hermes autonomous session.** Launch `hermes chat --continue` with SOUL + /cynic skill. Observe if it avoids loops, prioritizes correctly, evolves. **Falsify:** 3+ sessions without repeating same search query.
+- [x] **Organ X infrastructure.** mitmproxy (systemd, domain-filtered) → x_proxy.py (extract+enrich) → dataset.jsonl → x_ingest_daemon → POST /observe → kernel. E2E verified: 54 new tweets, 28 observations in kernel.
+- [x] **Enrichment in x_proxy.py.** Signal score (-5 to +7), author tier, coordination detection, narratives. Replaces deleted chaos_collecteur.py — enrichment now inline in proxy addon.
+- [x] **SOUL.md updated.** Hermes = CYNIC citizen, not X-only. Register, observe, check tasks, judge sparingly.
+- [ ] **Hermes cron missions.** Set up `hermes cron create` for recurring X scanning sessions. **Falsify:** `hermes cron list` shows ≥1 active job.
+- [ ] **Chrome launcher script.** Discover CDP port on launch, write to config. Current port 40769 is hardcoded. **Falsify:** reboot → Chrome starts → Hermes can connect via CDP.
+- [ ] **Hermes autonomous session.** `hermes chat --continue` with updated SOUL + /cynic skill. Test registration + task polling. **Falsify:** kernel shows hermes registered via cynic_coord_who.
 
-## ARCHITECTURE (session dédiée requise)
+## ARCHITECTURE
 
-- [ ] **Hermes rework — session dédiée.** 3 Hermes distincts (Ouroboros/GPU, NousResearch, Antenne-X) à renommer + repositionner dans la topologie. Décisions : noms canoniques, `organs/` directory, scripts/ nettoyé. **Falsify:** `grep -r "Hermes" docs/ scripts/ cynic-kernel/` retourne des résultats non-ambigus.
-- [ ] **Topologie organs/.** Créer couche `organs/` (hermes/, askesis/), déplacer `cynic-askesis/` et `scripts/hermes-x/` dedans. Dépend du Hermes rework.
+- [ ] **CCM volume → crystallization.** 28+ x-organ observations stored but CCM loop_active=false. Study CCM intake path (haiku session). **Falsify:** observation count grows → forming crystals appear.
+- [ ] **`.cynic-env` format.** Has `export` prefixes incompatible with systemd EnvironmentFile. Strip exports or use wrapper. **Falsify:** `systemctl --user status hermes-x-ingest` shows no env warnings.
 
 ## AGENT LIFECYCLE (K15 consumer, ops/opsec validation)
 

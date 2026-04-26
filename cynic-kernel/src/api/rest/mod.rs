@@ -1,5 +1,6 @@
 //! REST API — JSON interface for external clients (React, curl, etc.)
 
+pub mod agent_tasks;
 pub mod coord;
 pub mod data;
 pub mod dogs;
@@ -36,6 +37,7 @@ use self::data::{
 use self::dogs::{deregister_handler, dogs_handler, heartbeat_handler, register_dog_handler};
 use self::health::{
     agents_handler, health_handler, liveness_handler, metrics_handler, readiness_handler,
+    state_history_handler,
 };
 use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
 use self::judge_job::{judge_async_handler, judge_status_handler};
@@ -111,6 +113,13 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/session/{agent_id}/compliance", get(compliance_handler))
         .route("/compliance", get(compliance_trend_handler))
         .route("/audit", get(audit_handler))
+        .route("/state-history", get(state_history_handler))
+        .route("/agent-tasks", post(agent_tasks::dispatch_task_handler))
+        .route("/agent-tasks", get(agent_tasks::list_tasks_handler))
+        .route(
+            "/agent-tasks/{id}/result",
+            post(agent_tasks::complete_task_handler),
+        )
         .route("/observe", post(observe_handler))
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))

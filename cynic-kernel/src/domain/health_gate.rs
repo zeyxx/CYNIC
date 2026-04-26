@@ -8,6 +8,49 @@ use std::time::Duration;
 
 use super::contract::ContractDelta;
 
+/// Why a Dog failed — propagates from judge → circuit breaker → /health → events.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureReason {
+    /// Backend returned HTTP error or connection refused.
+    ApiError,
+    /// Response couldn't be parsed as valid scores.
+    ParseError,
+    /// All axiom scores zero or degenerate (model capability limit).
+    ScoreQuality,
+    /// Request exceeded timeout.
+    Timeout,
+    /// Backend rate-limited (healthy but busy). Should NOT open circuit.
+    RateLimited,
+    /// Context too large for model (pre-condition, not quality signal).
+    ContextOverflow,
+    /// Health probe failed (liveness check, not evaluation).
+    HealthProbe,
+    /// Quota exhausted (external API limit, e.g. Gemini free tier).
+    QuotaExhausted,
+}
+
+impl FailureReason {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ApiError => "api_error",
+            Self::ParseError => "parse_error",
+            Self::ScoreQuality => "score_quality",
+            Self::Timeout => "timeout",
+            Self::RateLimited => "rate_limited",
+            Self::ContextOverflow => "context_overflow",
+            Self::HealthProbe => "health_probe",
+            Self::QuotaExhausted => "quota_exhausted",
+        }
+    }
+}
+
+impl std::fmt::Display for FailureReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// Port trait for per-Dog health state.
 ///
 /// Implemented by `CircuitBreaker` in `infra/`. Domain and application
@@ -19,8 +62,8 @@ pub trait HealthGate: Send + Sync {
     /// Report a successful call — resets failure state.
     fn record_success(&self);
 
-    /// Report a failed call — may trip the gate open.
-    fn record_failure(&self);
+    /// Report a failed call with reason — may trip the gate open.
+    fn record_failure(&self, reason: FailureReason);
 
     /// Is the gate currently open (blocking requests)?
     fn is_open(&self) -> bool;
@@ -36,6 +79,9 @@ pub trait HealthGate: Send + Sync {
 
     /// How long the gate has been open. None if closed or half-open.
     fn opened_since(&self) -> Option<Duration>;
+
+    /// Why the circuit last failed. None if never failed or recovered.
+    fn last_failure_reason(&self) -> Option<FailureReason>;
 }
 
 /// Count healthy (circuit=closed) Dogs from a health snapshot.

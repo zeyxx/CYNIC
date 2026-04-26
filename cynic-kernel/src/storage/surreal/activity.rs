@@ -238,3 +238,29 @@ pub(super) async fn list_observations_raw(
     let rows = storage.query_one(&sql).await?;
     Ok(rows.iter().map(row_to_raw_observation).collect())
 }
+
+/// Last observation per source — GROUP BY agent_id, return last timestamp + count.
+/// Uses array::max instead of math::max (created_at is stored as string, not datetime).
+pub(super) async fn last_observation_per_source(
+    storage: &SurrealHttpStorage,
+) -> Result<Vec<(String, String, u64)>, StorageError> {
+    let sql = "SELECT agent_id, array::max(array::group(created_at)) AS last_at, count() AS total \
+               FROM observation WHERE agent_id != '' \
+               GROUP BY agent_id ORDER BY total DESC LIMIT 50;";
+    let rows = storage
+        .query_one(sql)
+        .await
+        .map_err(|e| StorageError::QueryFailed(format!("last_observation_per_source: {e}")))?;
+    Ok(rows
+        .iter()
+        .filter_map(|r| {
+            let agent_id = r["agent_id"].as_str().unwrap_or("").to_string();
+            if agent_id.is_empty() {
+                return None;
+            }
+            let last_at = r["last_at"].as_str().unwrap_or("").to_string();
+            let total = r["total"].as_u64().unwrap_or(0);
+            Some((agent_id, last_at, total))
+        })
+        .collect())
+}

@@ -9,7 +9,7 @@ globs: ["cynic-kernel/**"]
 
 K1. **Domain purity.** Zero `#[cfg]` in domain code (except `#[cfg(test)]`). — `make lint-rules`
 K2. **Every adapter through a port trait.** No raw `reqwest::Client` outside `backends/` and `storage/`. — `make lint-rules`
-K3. **No logic duplication across API surfaces.** Pipeline lives in `pipeline.rs`. REST and MCP call it. — `make lint-rules` (protected function list: `format_crystal_context`, `compute_qscore`, `trimmed_mean`)
+K3. **No logic duplication across API surfaces.** Pipeline lives in `pipeline/mod.rs`. REST and MCP call it. — `make lint-rules` (protected function list: `format_crystal_context`, `compute_qscore`, `trimmed_mean`)
 K4. **No trait name collisions.** Each port trait name unique across `domain/`. — `make lint-rules`
 K5. **No cross-layer type leakage.** App services never import from `api/`. Domain never exposes infra types. — `make lint-rules` (checks `serde_json::Value`, `reqwest::`, `surrealdb::`, `axum::` in domain/)
 
@@ -40,5 +40,7 @@ K14. **Poison/missing = assume degraded.** When reading shared state (`RwLock`, 
 - Integration tests: `tests/integration_storage.rs` with `#[ignore]`
 
 K15. **Every producer has a consumer that ACTS.** Storing, displaying, or logging is not consuming. A consumer must change system behavior: gate a request, trigger a state transition, emit an alert that is routed to a human. `store_*` without an acting reader = Rule 3 violation. `emit_event` without an acting handler = dead nervous system. — `make lint-drift` (producer-consumer audit)
+
+K17. **Every port trait method forwarded in proxies.** `ReconnectableStorage` must forward ALL `StoragePort` methods. Default trait impls return `Ok(())` or empty — a new method that isn't forwarded silently succeeds with no persistence. This has caused 3 separate incidents (state_log, agent_tasks, last_observation). After adding a `StoragePort` method: verify `ReconnectableStorage` forwards it. — `make lint-drift` (method count comparison)
 
 K16. **Context is metabolic.** Every line the LLM reads costs cognition. Comments that paraphrase code, imports unused in the current concern, and mixed responsibilities in a single file are active noise — empirically worse than absent context (arXiv 2406.11927). Split by responsibility, not by line count. A file should be describable in 3 words; if not, it does too much.

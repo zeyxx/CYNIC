@@ -1,0 +1,15 @@
+[Unit]
+Description=CYNIC Hermes task runner — polls kernel for missions and executes
+After=cynic-kernel.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/cynic/env
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/hermes_task_runner.py --kind hermes --interval 10
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=default.target

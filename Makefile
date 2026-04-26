@@ -846,17 +846,3 @@ agents:  ## Show active agents and work claims (requires kernel running)
 	@$(source_env)
 	@curl -sf -H "Authorization: Bearer $${CYNIC_API_KEY}" "http://$${CYNIC_REST_ADDR}/agents" | python3 -m json.tool 2>/dev/null || { [ -n "$${CYNIC_REST_ADDR:-}" ] && echo "ERROR: kernel not responding at $${CYNIC_REST_ADDR}" || echo "ERROR: CYNIC_REST_ADDR not set — source ~/.cynic-env first"; }
 
-# ── Ouroboros Autonomous Loop ───────────────────────────────────
-.PHONY: ouroboros
-ouroboros: ## make ouroboros — trigger the autonomous Hermes Agent nightly loop
-	@bash $(PROJECT_DIR)/scripts/ouroboros.sh
-
-.PHONY: install-ouroboros
-install-ouroboros: ## make install-ouroboros — setup the systemd timer for the nightly loop
-	@echo "▶ Installing Ouroboros systemd timer..."
-	@mkdir -p ~/.config/systemd/user
-	@cp $(PROJECT_DIR)/scripts/cynic-ouroboros.service ~/.config/systemd/user/
-	@cp $(PROJECT_DIR)/scripts/cynic-ouroboros.timer ~/.config/systemd/user/
-	@systemctl --user daemon-reload
-	@systemctl --user enable --now cynic-ouroboros.timer
-	@echo "✓ Ouroboros nightly timer activated. It will run every night at 03:00."
