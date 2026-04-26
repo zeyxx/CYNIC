@@ -12,9 +12,10 @@ Last updated: 2026-04-26 21:45 | Crystallization done: orchestration fractal ide
 - [x] **Rust 1.95.0 upgrade.** Active (`rustc 1.95.0`). LLVM SROA bug from 1.94.1 resolved.
 - [ ] **Deterministic-dog forced consensus fix.** Claimed in d0dd481 (squash-merged, hash gone). No test asserts absence of forced consensus. Untraceable. **Falsify:** regression test + `git log -p -S "forced_consensus"` identifies original code.
 - [x] **Wallet-judgment Dogs (deterministic).** Implemented in cynic-kernel/src/domain/wallet_judgment/mod.rs. All 8 tests passing. Algorithm: strict age ceiling (<3 days: 0.30), age-based BURN, variance-coupled PHI, tier CULTURE. Next: pipeline integration + real wallet validation.
+- [x] **Holder concentration in Helius enrichment.** Added getTokenLargestAccounts to HeliusEnricher. Compute HHI, top1_pct, top10_pct. Dogs now receive holder distribution signals.
+- [ ] **Submission queue + auto-anchor.** Queue verdicts ≥ 0.618. Background task every 5min submits batches to Pinocchio. Status: pending/submitted/confirmed.
+- [ ] **Onchain observability.** /health metrics: verdicts_queued, verdicts_anchored, verdicts_failed. Structured logging for Helius latency, submission status.
 - [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: description longue, video demo (3min), GitHub link, deployed URL. Deadline: May 10 23:59 PDT. Note: 123-line skeleton was never committed — only 60-line draft exists.
-- [x] **B&C integration analysis + wallet-judgment domain.** Domain files created. Wallet-judgment now embedded in binary. Enrichment utility exists. Integration spec exists.
-- [x] **Personality card stimulus + integration stub.** 7/7 tests passing. No external caller yet — stub only.
 - [ ] **Video demo.** **Falsify:** 2-3 min narration + kernel logs visible, q_score + dog_scores visible.
 - [ ] **Vercel UI → kernel API path.** Cloudflare tunnel dead. VITE_API_BASE may point to defunct URL. **Falsify:** browser console shows /judge returning 200.
 
