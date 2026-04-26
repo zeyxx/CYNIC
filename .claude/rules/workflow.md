@@ -17,26 +17,36 @@ At session end:
 
 ## Pre-Commit Validation (MANDATORY for cynic-kernel/)
 
-**BEFORE ANY `git commit` to cynic-kernel/**, run locally:
+**BEFORE ANY `git commit` to cynic-kernel/**, validate in this order:
 
 ```bash
-export RUST_MIN_STACK=67108864
-export RUSTFLAGS="-C debuginfo=1" # Required: rmcp debug DWARF overflows without reduced debuginfo
-cargo build --tests               # Must pass: 0 errors, 0 failing tests
-cargo clippy --workspace --all-targets -- -D warnings # Must pass: zero lint violations (covers tests/examples/benches)
+# Step 1: Fast type-check — catches 80% of errors in seconds, not minutes.
+# cargo check is 2-5× faster than cargo build. Fix all errors here first.
+cargo check --workspace --all-targets
+
+# Step 2: Lint — only after check passes. clippy re-checks types + adds lint layer.
+cargo clippy --workspace --all-targets -- -D warnings
+
+# Step 3: Build tests — only after clippy passes. This compiles test binaries.
+cargo build --tests
 ```
 
-Repo default: `.cargo/config.toml` already sets the same values for local `cargo` invocations.
-Keep the explicit exports for shells, wrappers, and any environment that bypasses repo-local Cargo config.
-`16777216` is treated as a lower bound that may pass on some paths, not the robustness default.
+**Anti-patterns (observed via RTK metabolic data, 2026-04-26):**
+- ❌ `cargo build` then `cargo clippy` then `cargo build` again → double compile (KC1: 740 occurrences)
+- ❌ `cargo build --release` for dev iteration → 2-3× slower than debug (KC3: 394 release builds, 84 commits)
+- ❌ Running build+test+clippy individually, THEN `make check` → triple compile (KC5)
+- ❌ Repeating identical commands hoping for different results → 232× consecutive `make check` observed (KC2)
 
-If any step fails: fix root cause, re-validate, THEN commit.
+**Rules:**
+- **Debug by default.** Use `cargo build` (debug), never `--release`, unless deploying to `~/bin/cynic-kernel`.
+- **`make check` OR components, never both.** If you already ran check+clippy+build → commit. If you want the full gate → `make check` directly, skip the individual steps.
+- **Fix before retrying.** If a build fails, read the error, fix, THEN rebuild. Never re-run the same command without a code change.
 
-**Cost:** ~2-3 min per commit. **Saves:** 4-5 failed commit attempts × (5-10 min debugging each).
+**Cost:** ~1-2 min per commit with this order. **Previous cost:** ~27 min/commit (8.3 builds + 10.5 tests + 4.8 clippy observed average).
 
-**Why:** Pre-commit validation moves failures LEFT (local validation) not RIGHT (git hook rejection). A failed pre-commit validation costs 3 min to fix locally; a failed git hook costs 5-10 min (diagnose, iterate, retry). This discipline is load-bearing per kernel rules K6, K8.
+**Why:** RTK metabolic analysis (2026-04-26) showed 84% of cortex wall-clock time = waiting for the compiler. The kill chain is `edit→build→fail→fix→build→clippy→fail→fix→build→commit`. `cargo check` first breaks the chain early.
 
-**Falsifiable:** Track failed commits per session. Target: 0 failed commits post-validation.
+**Falsifiable:** Track builds/commit ratio via RTK. Baseline: 8.3. Target: <4. Measure after 10 sessions.
 
 ## Branch-PR Discipline (MANDATORY — origin/main is protected)
 
