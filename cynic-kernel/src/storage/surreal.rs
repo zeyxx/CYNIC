@@ -375,8 +375,30 @@ impl StoragePort for SurrealHttpStorage {
         verdict_id: &str,
         content_hash: &str,
         q_score: f64,
+        score_fidelity: f64,
+        score_phi: f64,
+        score_verify: f64,
+        score_culture: f64,
+        score_burn: f64,
+        score_sovereignty: f64,
+        dog_count: u32,
+        verdict_type: &str,
     ) -> Result<(), StorageError> {
-        verdict_queue::enqueue_verdict(self, verdict_id, content_hash, q_score).await
+        verdict_queue::enqueue_verdict(
+            self,
+            verdict_id,
+            content_hash,
+            q_score,
+            score_fidelity,
+            score_phi,
+            score_verify,
+            score_culture,
+            score_burn,
+            score_sovereignty,
+            dog_count,
+            verdict_type,
+        )
+        .await
     }
 
     #[tracing::instrument(skip(self), err)]

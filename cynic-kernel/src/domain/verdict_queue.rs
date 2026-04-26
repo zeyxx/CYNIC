@@ -9,10 +9,26 @@ use serde::{Deserialize, Serialize};
 pub struct QueuedVerdict {
     /// Verdict ID (same as verdict.id)
     pub verdict_id: String,
-    /// Verdict content hash (proposal_hash on-chain)
+    /// Verdict content hash (proposal_hash on-chain, sha256)
     pub content_hash: String,
-    /// Q-Score (should be ≥ 0.618 to queue)
+    /// Q-Score total (0.0-1.0, should be ≥ 0.618 to queue)
     pub q_score: f64,
+    /// FIDELITY axiom score (0.0-1.0)
+    pub score_fidelity: f64,
+    /// PHI axiom score (0.0-1.0)
+    pub score_phi: f64,
+    /// VERIFY axiom score (0.0-1.0)
+    pub score_verify: f64,
+    /// CULTURE axiom score (0.0-1.0)
+    pub score_culture: f64,
+    /// BURN axiom score (0.0-1.0)
+    pub score_burn: f64,
+    /// SOVEREIGNTY axiom score (0.0-1.0)
+    pub score_sovereignty: f64,
+    /// Number of Dogs that voted
+    pub dog_count: u32,
+    /// Verdict label: HOWL, WAG, GROWL, BARK
+    pub verdict_type: String,
     /// Queue status: pending, submitted, confirmed, failed
     pub status: SubmissionStatus,
     /// Solana transaction signature (if submitted)
