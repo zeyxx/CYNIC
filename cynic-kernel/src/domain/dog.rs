@@ -238,6 +238,9 @@ pub fn validate_scores(scores: &AxiomScores) -> Result<(), DogError> {
 /// signal without mathematical pathology.
 const SCORE_FLOOR: f64 = 0.05;
 pub fn phi_bound(raw: f64) -> f64 {
+    if !raw.is_finite() {
+        return SCORE_FLOOR;
+    }
     raw.clamp(SCORE_FLOOR, PHI_INV)
 }
 
@@ -365,6 +368,13 @@ mod tests {
     fn phi_bound_clamps_negative() {
         // Negative values are floored to SCORE_FLOOR
         assert!((phi_bound(-0.5) - SCORE_FLOOR).abs() < 1e-10);
+    }
+
+    #[test]
+    fn phi_bound_floors_nan_and_infinity() {
+        assert!((phi_bound(f64::NAN) - SCORE_FLOOR).abs() < 1e-10);
+        assert!((phi_bound(f64::INFINITY) - SCORE_FLOOR).abs() < 1e-10);
+        assert!((phi_bound(f64::NEG_INFINITY) - SCORE_FLOOR).abs() < 1e-10);
     }
 
     #[test]
