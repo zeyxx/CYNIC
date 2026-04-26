@@ -1,0 +1,21 @@
+# CYNIC project-local RTK filters — trusted via `rtk trust`.
+# Targets: push make check from 59.7% → 80%+, cargo test from 87% → 95%+.
+schema_version = 1
+
+[filters.cargo-build]
+description = "Strip Compiling/Downloading noise from cargo build"
+match_command = "^cargo build"
+strip_lines_matching = ["^\\s*Compiling ", "^\\s*Downloading ", "^\\s*Downloaded "]
+max_lines = 50
+
+[filters.make-check]
+description = "Keep verdict + errors from make check"
+match_command = "^make check"
+strip_lines_matching = ["^\\s*Compiling ", "^\\s*Finished ", "^\\s*Running "]
+max_lines = 80
+
+[filters.cargo-test]
+description = "Strip passing tests, keep failures"
+match_command = "^cargo test"
+strip_lines_matching = ["^test .* ok$", "^\\s*Running "]
+max_lines = 60
