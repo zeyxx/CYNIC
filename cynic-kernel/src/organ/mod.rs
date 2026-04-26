@@ -300,6 +300,18 @@ impl InferenceOrgan {
             && matches!(guard.backend.health, BackendHealth::Degraded { .. })
             && !guard.gate.is_tripped()
         {
+            // K14 gate 2: also verify json_valid_rate is acceptable.
+            // Without this, FleetProbe promotes Dogs with chronic timeout/api_error
+            // patterns because timeouts don't feed the ParseFailureGate.
+            // Observed: 954 spurious Gemma promotions (16% success rate, parse gate clean).
+            if guard.stats.is_baseline_established() && guard.stats.json_valid_rate() < 0.5 {
+                tracing::debug!(
+                    backend = %dog_id,
+                    json_valid_rate = format!("{:.1}%", guard.stats.json_valid_rate() * 100.0),
+                    "promote blocked — json_valid_rate below 50% threshold"
+                );
+                return;
+            }
             tracing::info!(
                 backend = %dog_id,
                 "organ: fleet signal clear + gate clear — promoting to Healthy"
@@ -931,5 +943,98 @@ mod tests {
             "budget derived from observed thinking + content"
         );
         assert!(budget > 395, "budget must exceed thinking overhead");
+    }
+
+    // ── Chronic failure gate (H3): promote_if_gate_clear must respect json_valid_rate ──
+
+    #[test]
+    fn promote_if_gate_clear_blocked_by_json_valid_rate() {
+        // A Dog degraded by FleetProbe with chronic low json_valid_rate
+        // must NOT be promoted when parse gate is clear.
+        // This is the Gemma E4B bug: FleetProbe promotes every 30s because
+        // parse gate doesn't track timeouts, but json_valid_rate is 16%.
+        // Confirmed: 954 Gemma promotions observed in production logs.
+        let mut organ = InferenceOrgan::boot_empty();
+        let _handle = organ.register_backend(make_backend("slow-dog"));
+
+        let handle = organ
+            .entries
+            .get(&BackendId("slow-dog".to_string()))
+            .unwrap();
+        {
+            let mut guard = handle.0.lock().unwrap();
+            // 25 calls: 5 successes + 20 timeouts → 20% json_valid_rate
+            guard.stats = DogStats {
+                total_calls: 25,
+                success_count: 5,
+                zero_flood_count: 0,
+                collapse_count: 0,
+                parse_error_count: 0,
+                timeout_count: 20,
+                api_error_count: 0,
+                last_success: Some("2026-04-26T14:00:00Z".to_string()),
+                total_latency_ms: 300000,
+                total_completion_tokens: 0,
+                max_completion_tokens: 0,
+                max_content_tokens: 0,
+                max_thinking_tokens: 0,
+            };
+            // Simulate FleetProbe degradation (different reason string than parse gate)
+            guard.backend.health = BackendHealth::Degraded {
+                reason: "fleet probe signal".into(),
+                since: Instant::now() - Duration::from_secs(31),
+            };
+        }
+
+        // Parse gate is NOT tripped (no parse failures fed to it)
+        assert!(!handle.0.lock().unwrap().gate.is_tripped());
+
+        // promote_if_gate_clear should NOT promote because json_valid_rate is 20% < 50%
+        organ.promote_if_gate_clear("slow-dog");
+
+        let guard = handle.0.lock().unwrap();
+        assert!(
+            matches!(guard.backend.health, BackendHealth::Degraded { .. }),
+            "promote must be blocked when json_valid_rate < 0.5"
+        );
+    }
+
+    #[test]
+    fn chronic_timeout_dog_stays_degraded() {
+        // Full cycle: Dog starts Healthy, accumulates timeouts, gets degraded
+        // by json_valid_rate gate, FleetProbe tries to promote, promotion blocked.
+        let mut organ = InferenceOrgan::boot_empty();
+        let handle = organ.register_backend(make_backend("chronic-timeout-dog"));
+
+        // 5 successes + 20 timeouts → 20% json_valid_rate
+        for _ in 0..5 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Success {
+                    elapsed_ms: 50000,
+                    completion_tokens: 200,
+                    thinking_tokens: 0,
+                },
+            );
+        }
+        for _ in 0..20 {
+            InferenceOrgan::update_stats_entry(
+                &handle,
+                ScoreOutcome::Failure(ScoreFailureKind::Timeout),
+            );
+        }
+
+        // json_valid_rate = 5/25 = 20% → K14 gate 2 fires → Degraded
+        assert!(
+            handle.is_quality_degraded(),
+            "Dog must be degraded after 20% success rate with baseline"
+        );
+
+        // FleetProbe would call promote_if_gate_clear — must NOT promote
+        organ.promote_if_gate_clear("chronic-timeout-dog");
+        assert!(
+            handle.is_quality_degraded(),
+            "FleetProbe must not undo json_valid_rate degradation"
+        );
     }
 }

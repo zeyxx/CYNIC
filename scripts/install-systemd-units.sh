@@ -13,6 +13,8 @@ managed_units=(
     "infra/systemd/surrealdb-backup.service"
     "infra/systemd/surrealdb-backup.timer"
     "infra/systemd/llama-server.service"
+    "infra/systemd/hermes-proxy.service"
+    "infra/systemd/hermes-x-ingest.service"
 )
 
 mkdir -p "$SYSTEMD_USER_DIR"

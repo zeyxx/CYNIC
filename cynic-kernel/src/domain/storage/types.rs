@@ -66,6 +66,8 @@ pub enum StorageError {
     QueryFailed(String),
     #[error("Not found: {0}")]
     NotFound(String),
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 }
 
 /// Storage metrics snapshot — exposed via /health for observability.

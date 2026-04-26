@@ -213,6 +213,13 @@ async fn pipeline_inner(
         .ok()
         .and_then(|s| ccm::format_session_context(&s, 400));
 
+    // ── WALLET JUDGMENT: save raw context before enrichment merges it ──
+    let wallet_context_json = if domain_hint == "wallet-judgment" {
+        context.clone()
+    } else {
+        None
+    };
+
     // ── CONTEXT ENRICHMENT: merge user context + crystals + sessions ──
     let enriched_context = {
         // Crystal budget derived from ML theory:
@@ -292,13 +299,127 @@ async fn pipeline_inner(
         None
     };
 
+    // ── WALLET ENRICHMENT: rewrite content with structured wallet metrics ──
+    let mut captured_wallet_profile: Option<crate::domain::wallet_judgment::WalletProfile> = None;
+    let content = if domain_hint == "wallet-judgment" {
+        match wallet_context_json.as_deref().and_then(|ctx| {
+            serde_json::from_str::<crate::domain::wallet_judgment::WalletProfile>(ctx).ok()
+        }) {
+            Some(profile) => {
+                tracing::info!(
+                    phase = "enrich",
+                    wallet = %profile.wallet_address,
+                    games = profile.games_completed,
+                    age_days = profile.wallet_age_days,
+                    "wallet profile parsed"
+                );
+                let stimulus = profile.to_stimulus();
+                captured_wallet_profile = Some(profile);
+                stimulus
+            }
+            None => {
+                tracing::warn!(
+                    phase = "enrich",
+                    "wallet-judgment: no valid WalletProfile JSON in context — using raw content"
+                );
+                content
+            }
+        }
+    } else {
+        content
+    };
+
     // ── EVALUATE: fan out to Dogs ──
     let stimulus = Stimulus {
         content,
         context: enriched_context,
-        domain,
+        domain: domain.clone(),
         request_id: deps.request_id.clone(),
     };
+
+    // ── WALLET-JUDGMENT: fast-path deterministic verdict (no LLM Dogs) ──
+    if domain_hint == "wallet-judgment" {
+        let verdict = if let Some(ref profile) = captured_wallet_profile {
+            use crate::domain::dog::{DogScore, Verdict, compute_qscore, phi_bound, verdict_kind};
+            let (_, axiom_scores) = crate::domain::wallet_judgment::deterministic_dog(profile);
+            let q_score = compute_qscore(&axiom_scores);
+            let kind = verdict_kind(q_score.total);
+            let id = uuid::Uuid::new_v4().to_string();
+            let timestamp = chrono::Utc::now().to_rfc3339();
+            let stimulus_summary: String = stimulus.content.chars().take(100).collect();
+            let dog_score = DogScore {
+                dog_id: "wallet-deterministic-dog".to_string(),
+                latency_ms: 0,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                fidelity: phi_bound(axiom_scores.fidelity),
+                phi: phi_bound(axiom_scores.phi),
+                verify: phi_bound(axiom_scores.verify),
+                culture: phi_bound(axiom_scores.culture),
+                burn: phi_bound(axiom_scores.burn),
+                sovereignty: phi_bound(axiom_scores.sovereignty),
+                raw_fidelity: axiom_scores.fidelity,
+                raw_phi: axiom_scores.phi,
+                raw_verify: axiom_scores.verify,
+                raw_culture: axiom_scores.culture,
+                raw_burn: axiom_scores.burn,
+                raw_sovereignty: axiom_scores.sovereignty,
+                reasoning: axiom_scores.reasoning.clone(),
+                abstentions: axiom_scores.abstentions.clone(),
+            };
+            Verdict {
+                id,
+                domain: "wallet-judgment".to_string(),
+                kind,
+                q_score,
+                reasoning: axiom_scores.reasoning,
+                dog_id: "wallet-deterministic-dog".to_string(),
+                stimulus_summary,
+                timestamp,
+                voter_count: 1,
+                dog_scores: vec![dog_score],
+                anomaly_detected: false,
+                max_disagreement: 0.0,
+                anomaly_axiom: None,
+                failed_dogs: vec![],
+                failed_dog_errors: std::collections::HashMap::new(),
+                integrity_hash: None, // MVP: wallet verdicts start fresh chain post-hackathon
+                prev_hash: None,
+            }
+        } else {
+            return Err(crate::judge::JudgeError::InvalidInput(
+                "wallet-judgment requires valid WalletProfile JSON in context field".to_string(),
+            ));
+        };
+
+        tracing::info!(
+            phase = "verdict",
+            verdict_id = %verdict.id,
+            q_score = %format!("{:.3}", verdict.q_score.total),
+            kind = ?verdict.kind,
+            "wallet verdict issued (deterministic)"
+        );
+
+        // Event emission (best-effort)
+        if let Some(tx) = event_tx {
+            let _ = tx.send(KernelEvent::VerdictIssued {
+                verdict_id: verdict.id.clone(),
+                domain: "wallet-judgment".to_string(),
+                verdict: format!("{:?}", verdict.kind),
+                q_score: verdict.q_score.total,
+            });
+        }
+
+        // Side effects (store + usage tracking + CCM)
+        side_effects(&stimulus, &verdict, &stimulus_embedding, deps).await;
+
+        return Ok(PipelineResult::Evaluated {
+            verdict: Box::new(verdict),
+            token_data: None,
+            enriched_content: None,
+        });
+    }
+
     tracing::info!(phase = "evaluate", "dispatching to Dogs");
     let on_dog_ref: Option<&OnDogCallback> = deps.on_dog.as_ref().map(|b| b.as_ref());
     let mut verdict = judge
@@ -736,5 +857,197 @@ mod tests {
             "crystal should reference the source verdict (provenance)"
         );
         assert_eq!(crystal.observations, 1);
+    }
+
+    #[tokio::test]
+    async fn wallet_judgment_returns_verdict_from_deterministic_dog() {
+        use crate::domain::embedding::FixedEmbedding;
+        use crate::domain::wallet_judgment::WalletProfile;
+        use crate::storage::memory::InMemoryStorage;
+
+        // Build a valid WalletProfile with 5+ games
+        let profile = WalletProfile {
+            wallet_address: "TestWallet1234567890".to_string(),
+            games_completed: 10,
+            archetype_consistency: 0.80,
+            wallet_age_days: 30,
+            average_game_duration: 300,
+            duration_variance: 0.20,
+            opening_repertoire_hash: "hash1".to_string(),
+            move_sequence_hash: "hash2".to_string(),
+            suspicious_cluster: false,
+            replay_risk: false,
+        };
+        let ctx = serde_json::to_string(&profile).unwrap();
+
+        // Set up pipeline dependencies
+        let dogs: Vec<Arc<dyn Dog>> = vec![Arc::new(crate::dogs::deterministic::DeterministicDog)];
+        let judge = test_judge(dogs);
+        let storage = InMemoryStorage::new();
+        let embedding = FixedEmbedding::new(vec![0.5; 4]);
+        let usage = Mutex::new(DogUsageTracker::new());
+        let verdict_cache = VerdictCache::new();
+        let metrics = Metrics::new();
+
+        let deps = PipelineDeps {
+            judge: &judge,
+            storage: &storage,
+            embedding: &embedding,
+            usage: &usage,
+            verdict_cache: &verdict_cache,
+            metrics: &metrics,
+            event_tx: None,
+            request_id: None,
+            on_dog: None,
+            expected_dog_count: judge.dog_ids().len(),
+            enricher: None,
+        };
+
+        let result = run(
+            profile.wallet_address.clone(),
+            Some(ctx),
+            Some("wallet-judgment".into()),
+            None,
+            true,
+            &deps,
+        )
+        .await
+        .unwrap();
+
+        // Assert verdict returned with q_score > 0 and dog_id = "wallet-deterministic-dog"
+        match result {
+            PipelineResult::Evaluated { verdict, .. } => {
+                assert_eq!(verdict.dog_id, "wallet-deterministic-dog");
+                assert!(
+                    verdict.q_score.total > 0.0,
+                    "wallet verdict should have positive q_score"
+                );
+                assert_eq!(verdict.domain, "wallet-judgment");
+            }
+            _ => panic!("Expected Evaluated result"),
+        }
+    }
+
+    #[tokio::test]
+    async fn wallet_judgment_bark_on_insufficient_games() {
+        use crate::domain::embedding::FixedEmbedding;
+        use crate::domain::wallet_judgment::WalletProfile;
+        use crate::storage::memory::InMemoryStorage;
+
+        // Create profile with only 3 games (below gate threshold of 5)
+        let profile = WalletProfile {
+            wallet_address: "InsufficientGames".to_string(),
+            games_completed: 3,
+            archetype_consistency: 0.80,
+            wallet_age_days: 30,
+            average_game_duration: 300,
+            duration_variance: 0.20,
+            opening_repertoire_hash: "hash1".to_string(),
+            move_sequence_hash: "hash2".to_string(),
+            suspicious_cluster: false,
+            replay_risk: false,
+        };
+        let ctx = serde_json::to_string(&profile).unwrap();
+
+        // Set up pipeline
+        let dogs: Vec<Arc<dyn Dog>> = vec![Arc::new(crate::dogs::deterministic::DeterministicDog)];
+        let judge = test_judge(dogs);
+        let storage = InMemoryStorage::new();
+        let embedding = FixedEmbedding::new(vec![0.5; 4]);
+        let usage = Mutex::new(DogUsageTracker::new());
+        let verdict_cache = VerdictCache::new();
+        let metrics = Metrics::new();
+
+        let deps = PipelineDeps {
+            judge: &judge,
+            storage: &storage,
+            embedding: &embedding,
+            usage: &usage,
+            verdict_cache: &verdict_cache,
+            metrics: &metrics,
+            event_tx: None,
+            request_id: None,
+            on_dog: None,
+            expected_dog_count: judge.dog_ids().len(),
+            enricher: None,
+        };
+
+        let result = run(
+            profile.wallet_address.clone(),
+            Some(ctx),
+            Some("wallet-judgment".into()),
+            None,
+            true,
+            &deps,
+        )
+        .await
+        .unwrap();
+
+        // Assert BARK verdict
+        match result {
+            PipelineResult::Evaluated { verdict, .. } => {
+                assert_eq!(
+                    verdict.kind,
+                    crate::domain::dog::VerdictKind::Bark,
+                    "insufficient games should produce BARK verdict"
+                );
+            }
+            _ => panic!("Expected Evaluated result"),
+        }
+    }
+
+    #[tokio::test]
+    async fn wallet_judgment_error_on_missing_profile() {
+        use crate::domain::embedding::FixedEmbedding;
+        use crate::storage::memory::InMemoryStorage;
+
+        // Call with domain="wallet-judgment" but no/invalid context
+        let dogs: Vec<Arc<dyn Dog>> = vec![Arc::new(crate::dogs::deterministic::DeterministicDog)];
+        let judge = test_judge(dogs);
+        let storage = InMemoryStorage::new();
+        let embedding = FixedEmbedding::new(vec![0.5; 4]);
+        let usage = Mutex::new(DogUsageTracker::new());
+        let verdict_cache = VerdictCache::new();
+        let metrics = Metrics::new();
+
+        let deps = PipelineDeps {
+            judge: &judge,
+            storage: &storage,
+            embedding: &embedding,
+            usage: &usage,
+            verdict_cache: &verdict_cache,
+            metrics: &metrics,
+            event_tx: None,
+            request_id: None,
+            on_dog: None,
+            expected_dog_count: judge.dog_ids().len(),
+            enricher: None,
+        };
+
+        let result = run(
+            "TestWallet".into(),
+            None, // No context provided
+            Some("wallet-judgment".into()),
+            None,
+            true,
+            &deps,
+        )
+        .await;
+
+        // Assert JudgeError::InvalidInput returned
+        assert!(
+            result.is_err(),
+            "wallet-judgment without valid profile should error"
+        );
+        match result {
+            Err(e) => {
+                // Verify it's an InvalidInput error
+                assert!(
+                    format!("{e:?}").contains("InvalidInput"),
+                    "should be InvalidInput error"
+                );
+            }
+            _ => panic!("Expected error result"),
+        }
     }
 }

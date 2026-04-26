@@ -25,6 +25,7 @@ pub mod build_tools;
 mod coord_tools;
 mod judge_tools;
 mod observe_tools;
+pub mod proxy;
 
 use crate::domain::coord::CoordPort;
 use crate::domain::events::KernelEvent;

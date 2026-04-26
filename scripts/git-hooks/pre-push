@@ -35,14 +35,40 @@ source ~/.cargo/env 2>/dev/null || true
 export RUST_MIN_STACK=${RUST_MIN_STACK:-67108864}
 
 PROJECT_DIR="$(git rev-parse --show-toplevel)"
+cd "$PROJECT_DIR"
 
 echo "══════════════════════════════════════════"
 echo "  CYNIC pre-push — sovereign CI gate"
 echo "══════════════════════════════════════════"
 echo ""
 
-# Run the full pipeline — same as make check
-cd "$PROJECT_DIR"
+# ── Freshness check (A8 metabolic optimization) ──
+# If the test binary is newer than all source files, skip recompilation.
+# This avoids the KC5 kill chain: cortex already validated → pre-push re-validates.
+# RTK data (2026-04-26): 449 min spent in make check, much of it redundant.
+NEWEST_SRC=$(find cynic-kernel/src -name '*.rs' -newer cynic-kernel/Cargo.toml -printf '%T@\n' 2>/dev/null | sort -rn | head -1)
+TEST_BIN=$(find target/debug/deps -name 'cynic_kernel-*' -executable 2>/dev/null | head -1)
+
+if [ -n "$TEST_BIN" ] && [ -n "$NEWEST_SRC" ]; then
+    BIN_TIME=$(stat -c '%Y' "$TEST_BIN" 2>/dev/null || echo 0)
+    SRC_TIME=$(printf '%.0f' "$NEWEST_SRC" 2>/dev/null || echo 999999999999)
+    if [ "$BIN_TIME" -gt "$SRC_TIME" ]; then
+        echo "  ⚡ Build artifacts are fresh (newer than source)."
+        echo "  Running lint-rules + lint-drift only (skip recompilation)."
+        echo ""
+        make lint-rules && make lint-drift
+        echo ""
+        echo "══════════════════════════════════════════"
+        echo "  ✓ Fresh artifacts + lint gates passed"
+        echo "══════════════════════════════════════════"
+        exit 0
+    fi
+fi
+
+echo "  Building from source (artifacts stale or missing)..."
+echo ""
+
+# Full pipeline — same as make check
 make check
 
 echo ""

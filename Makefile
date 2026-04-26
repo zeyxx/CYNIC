@@ -88,7 +88,7 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 			echo "FAIL R2: .ok() without adjacent logging: $$okline"; FAIL=1; \
 		done <<< "$$R2"; \
 	fi; \
-	K2=$$(grep -rn 'reqwest' cynic-kernel/src/domain/ cynic-kernel/src/api/ cynic-kernel/src/main.rs --include='*.rs' | grep -v '//'); \
+	K2=$$(grep -rn 'reqwest' cynic-kernel/src/domain/ cynic-kernel/src/api/ cynic-kernel/src/main.rs --include='*.rs' | grep -v '//' | grep -v 'api/mcp/proxy.rs'); \
 	if [ -n "$$K2" ]; then echo "FAIL K2: reqwest outside backends/storage:"; echo "$$K2"; FAIL=1; fi; \
 	PIPELINE_FNS="format_crystal_context compute_qscore trimmed_mean"; \
 	for FN in $$PIPELINE_FNS; do \

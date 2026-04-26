@@ -718,6 +718,7 @@ mod tests {
                 crate::domain::contract::SystemContract::new(vec![], true),
             )),
             enricher: None,
+            senses: vec![],
         })
     }
 

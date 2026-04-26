@@ -109,6 +109,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .init();
     }
 
+    // ─── MCP PROXY EARLY EXIT ─────────────────────────────────
+    // When --mcp is set, skip the entire kernel init (Rings 0-2).
+    // Forward all tool calls to the running REST kernel via HTTP.
+    // This is the monolith fix: MCP clients get zero local state.
+    if mcp_mode {
+        use rmcp::ServiceExt;
+
+        let raw_addr =
+            std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "http://127.0.0.1:3030".into());
+        // Env may contain bare "IP:PORT" — prepend http:// if missing.
+        let rest_addr = if raw_addr.starts_with("http://") || raw_addr.starts_with("https://") {
+            raw_addr
+        } else {
+            format!("http://{raw_addr}")
+        };
+        let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+        let project_root = std::env::current_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .display()
+            .to_string();
+
+        tracing::info!(
+            rest_addr,
+            "MCP proxy mode — forwarding to REST kernel (zero local state)"
+        );
+
+        let mcp_proxy = api::mcp::proxy::CynicMcpProxy::new(rest_addr, api_key, project_root);
+
+        let shutdown = CancellationToken::new();
+        infra::tasks::spawn_signal_handler(shutdown.clone());
+
+        let transport = rmcp::transport::io::stdio();
+        let server = mcp_proxy
+            .serve(transport)
+            .await
+            .map_err(|e| format!("MCP proxy error: {e}"))?;
+
+        tokio::select! {
+            _ = server.waiting() => {}
+            _ = shutdown.clone().cancelled_owned() => {
+                tracing::info!("MCP proxy shutting down");
+            }
+        }
+
+        shutdown.cancel();
+        return Ok(());
+    }
+
     tracing::info!("CYNIC V2 — SOVEREIGN BOOT");
     klog!("╔══════════════════════════════════════╗");
     klog!("║       CYNIC OS V2 — SOVEREIGN BOOT    ║");
@@ -476,6 +524,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
+    // Sense registry — best-effort organ readers (RTK, Hermes X, etc.)
+    let sense_root = match std::env::current_dir() {
+        Ok(p) => p.display().to_string(),
+        Err(_) => String::new(),
+    };
+    let senses = senses::build_sense_registry(&sense_root);
+    if !senses.is_empty() {
+        klog!("[senses] {} organ(s) registered", senses.len());
+        for s in &senses {
+            klog!("[senses]   → {}", s.name());
+        }
+    }
+
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
@@ -511,209 +572,176 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         judge_jobs: Arc::new(api::rest::judge_job::JudgeJobStore::new()),
         system_contract: system_contract.clone(),
         enricher: enricher.clone(),
+        senses,
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
-    // ─── Background tasks (universal — run in BOTH MCP and REST modes) ──
-    // These MUST be spawned before the MCP/REST branch.
-
-    // Coordination expiry (every 60s)
-    infra::tasks::spawn_coord_expiry(
-        Arc::clone(&coord),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!("[Ring 2] Coordination expiry task started (every 60s)");
-
-    // Usage + organ stats flush (every 60s)
-    // Always spawned — ReconnectableStorage handles NullStorage gracefully.
-    // If storage reconnects mid-flight, flush starts persisting automatically.
-    infra::tasks::spawn_usage_flush_with_organ(
-        Arc::clone(&storage_port),
-        Arc::clone(&usage_tracker),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-        Some(Arc::clone(&organ)),
-    );
-    klog!("[Ring 2] Usage + organ stats flush task started (every 60s, TTL cleanup every 1h)");
-
-    // ─── RING 2: Session summarizer (sovereign inference, background) ──
-    if let Ok(summarizer) = build_summarizer(summarizer_backend_cfg.as_ref()) {
-        infra::tasks::spawn_session_summarizer(
-            Arc::clone(&storage_port),
-            summarizer,
+    // ─── Background tasks (REST-only — MCP is a thin tool-dispatch layer) ──
+    // MCP mode skips all background tasks: the REST kernel already runs them.
+    // Spawning duplicates causes SurrealDB contention, double nightshifts,
+    // and 60s+ MCP startup delay that kills Hermes sessions.
+    if !mcp_mode {
+        // Coordination expiry (every 60s)
+        infra::tasks::spawn_coord_expiry(
+            Arc::clone(&coord),
             Arc::clone(&task_health),
             shutdown.clone(),
         );
-    } else {
-        klog!("[Ring 2] Session summarizer DISABLED — HTTP client init failed");
-    }
+        klog!("[Ring 2] Coordination expiry task started (every 60s)");
 
-    // ─── One-shot: backfill crystal embeddings (orphan defragmentation) ──
-    // Always spawned — on NullStorage the query returns empty (no-op).
-    // After reconnect, backfill runs against the live DB.
-    infra::tasks::spawn_backfill(
-        Arc::clone(&storage_port),
-        Arc::clone(&embedding),
-        Arc::clone(&metrics),
-        Arc::clone(&task_health),
-        event_tx.clone(),
-        shutdown.clone(),
-    );
-
-    // ─── Introspection loop (MAPE-K Analyze, every 5 min) ──
-    infra::tasks::spawn_introspection(
-        Arc::clone(&storage_port),
-        Arc::clone(&metrics),
-        Arc::clone(&environment),
-        Arc::clone(&rest_state.introspection_alerts),
-        event_tx.clone(),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-
-    // ─── State log (hash-chained organism state, every 5min) ────
-    infra::tasks::spawn_state_log(
-        Arc::clone(&rest_state),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-
-    // ─── Event consumer + K15 alerting (ContractDelta → Slack) ────
-    let slack = SlackAlerter::from_env();
-    if slack.is_some() {
-        klog!("[Ring 2] Slack alerter initialized (CYNIC_SLACK_WEBHOOK set)");
-    } else {
-        klog!("[Ring 2] Slack alerter disabled (CYNIC_SLACK_WEBHOOK not set)");
-    }
-    infra::tasks::spawn_event_consumer(
-        &event_tx,
-        Arc::clone(&rest_state),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-        slack,
-    );
-
-    // ─── Storage reconnect (K15: detection → action) ──
-    // Ephemeral task — exits once storage is connected. No TaskHealth tracking
-    // needed: effect is observable through storage status in /health.
-    infra::tasks::spawn_storage_reconnect(
-        Arc::clone(&reconnector),
-        event_tx.clone(),
-        shutdown.clone(),
-    );
-
-    infra::tasks::spawn_probe_scheduler(
-        probes,
-        Arc::clone(&storage_port),
-        Arc::clone(&environment),
-        Arc::clone(&organ),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!(
-        "[Ring 2] Probe scheduler started (resource+process+pressure+network+fleet: 30s, backup: 1h)"
-    );
-
-    infra::tasks::spawn_dog_ttl_checker(
-        Arc::clone(&rest_state),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!("[Ring 2] Dog TTL checker started (every 30s)");
-
-    infra::tasks::spawn_dog_heartbeat_loop(
-        Arc::clone(&rest_state),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!("[Ring 2] Dog heartbeat loop started (every 40s, K15 consumer)");
-
-    infra::tasks::spawn_discovery_loop(
-        Arc::clone(&rest_state),
-        fleet_meta,
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
-
-    // ─── Crystal immune system (re-judge oldest crystals, dissolve if degraded) ──
-    infra::tasks::spawn_crystal_challenge_loop(
-        rest_state.judge.load_full(),
-        Arc::clone(&storage_port),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!("[Ring 2] Crystal challenge loop started (every 5min, immune system)");
-
-    // ─── Nightshift: autonomous dev judgment (every 4h) ───────
-    let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
-        rest_state.judge.load_full(),
-        Arc::clone(&storage_port),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-        project_root.display().to_string(),
-    );
-    klog!(
-        "[Ring 3] Nightshift loop started (every 4h, git lookback {})",
-        crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
-    );
-
-    // ─── RING 3: MCP Server (for AI agents via stdio) ────────
-    if mcp_mode {
-        use rmcp::ServiceExt;
-        tracing::info!("MCP mode — serving over stdio (background tasks active)");
-        let mcp_infer: Arc<dyn domain::inference::InferPort> = match build_summarizer(
-            summarizer_backend_cfg.as_ref(),
-        ) {
-            Ok(s) => Arc::new(s),
-            Err(e) => {
-                tracing::warn!(error = %e, "MCP inference unavailable — HTTP client init failed");
-                Arc::new(domain::inference::NullInfer)
-            }
-        };
-        let mcp_server = api::mcp::CynicMcp::new(
-            Arc::clone(&judge),
+        // Usage + organ stats flush (every 60s)
+        // Always spawned — ReconnectableStorage handles NullStorage gracefully.
+        // If storage reconnects mid-flight, flush starts persisting automatically.
+        infra::tasks::spawn_usage_flush_with_organ(
             Arc::clone(&storage_port),
-            Arc::clone(&coord),
             Arc::clone(&usage_tracker),
-            Arc::clone(&embedding),
-            Arc::clone(&verdict_cache),
-            mcp_infer,
-            Arc::clone(&metrics),
-            Arc::clone(&environment),
             Arc::clone(&task_health),
-            system_contract
-                .read()
-                .unwrap_or_else(|e| e.into_inner())
-                .clone(),
-            Some(event_tx.clone()),
-            project_root.display().to_string(),
-            enricher.clone(),
+            shutdown.clone(),
+            Some(Arc::clone(&organ)),
         );
+        klog!("[Ring 2] Usage + organ stats flush task started (every 60s, TTL cleanup every 1h)");
 
-        // MCP signal handler — cancel background tasks on SIGTERM/SIGINT
-        infra::tasks::spawn_signal_handler(shutdown.clone());
-
-        let transport = rmcp::transport::io::stdio();
-        let server = mcp_server
-            .serve(transport)
-            .await
-            .map_err(|e| format!("MCP server error: {e}"))?;
-
-        // Wait for MCP disconnect or shutdown signal
-        tokio::select! {
-            _ = server.waiting() => {} // ok: MCP client disconnected
-            _ = shutdown.clone().cancelled_owned() => {
-                tracing::info!("MCP shutting down");
-            }
+        // ─── RING 2: Session summarizer (sovereign inference, background) ──
+        if let Ok(summarizer) = build_summarizer(summarizer_backend_cfg.as_ref()) {
+            infra::tasks::spawn_session_summarizer(
+                Arc::clone(&storage_port),
+                summarizer,
+                Arc::clone(&task_health),
+                shutdown.clone(),
+            );
+        } else {
+            klog!("[Ring 2] Session summarizer DISABLED — HTTP client init failed");
         }
 
-        // Cancel background tasks and flush
-        shutdown.cancel();
-        infra::tasks::flush_usage_on_shutdown(&storage_port, &usage_tracker).await;
-        return Ok(());
+        // ─── One-shot: backfill crystal embeddings (orphan defragmentation) ──
+        // Always spawned — on NullStorage the query returns empty (no-op).
+        // After reconnect, backfill runs against the live DB.
+        infra::tasks::spawn_backfill(
+            Arc::clone(&storage_port),
+            Arc::clone(&embedding),
+            Arc::clone(&metrics),
+            Arc::clone(&task_health),
+            event_tx.clone(),
+            shutdown.clone(),
+        );
+
+        // ─── Introspection loop (MAPE-K Analyze, every 5 min) ──
+        infra::tasks::spawn_introspection(
+            Arc::clone(&storage_port),
+            Arc::clone(&metrics),
+            Arc::clone(&environment),
+            Arc::clone(&rest_state.introspection_alerts),
+            event_tx.clone(),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+
+        // ─── State log (hash-chained organism state, every 5min) ────
+        infra::tasks::spawn_state_log(
+            Arc::clone(&rest_state),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+
+        // ─── Verdict Submission Queue (K15: auto-anchor to Pinocchio, every 5min) ────
+        infra::tasks::spawn_submission_queue(
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Verdict submission queue task started (every 5min)");
+
+        // ─── Event consumer + K15 alerting (ContractDelta → Slack) ────
+        let slack = SlackAlerter::from_env();
+        if slack.is_some() {
+            klog!("[Ring 2] Slack alerter initialized (CYNIC_SLACK_WEBHOOK set)");
+        } else {
+            klog!("[Ring 2] Slack alerter disabled (CYNIC_SLACK_WEBHOOK not set)");
+        }
+        infra::tasks::spawn_event_consumer(
+            &event_tx,
+            Arc::clone(&rest_state),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+            slack,
+        );
+
+        // ─── Storage reconnect (K15: detection → action) ──
+        // Ephemeral task — exits once storage is connected. No TaskHealth tracking
+        // needed: effect is observable through storage status in /health.
+        infra::tasks::spawn_storage_reconnect(
+            Arc::clone(&reconnector),
+            event_tx.clone(),
+            shutdown.clone(),
+        );
+
+        infra::tasks::spawn_probe_scheduler(
+            probes,
+            Arc::clone(&storage_port),
+            Arc::clone(&environment),
+            Arc::clone(&organ),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!(
+            "[Ring 2] Probe scheduler started (resource+process+pressure+network+fleet: 30s, backup: 1h)"
+        );
+
+        infra::tasks::spawn_dog_ttl_checker(
+            Arc::clone(&rest_state),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Dog TTL checker started (every 30s)");
+
+        infra::tasks::spawn_dog_heartbeat_loop(
+            Arc::clone(&rest_state),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Dog heartbeat loop started (every 40s, K15 consumer)");
+
+        infra::tasks::spawn_discovery_loop(
+            Arc::clone(&rest_state),
+            fleet_meta,
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
+
+        // ─── Crystal immune system (re-judge oldest crystals, dissolve if degraded) ──
+        infra::tasks::spawn_crystal_challenge_loop(
+            rest_state.judge.load_full(),
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Crystal challenge loop started (every 5min, immune system)");
+
+        // ─── Nightshift: autonomous dev judgment (every 4h) ───────
+        // T6D DEBT: Nightshift PAUSED 2026-04-26 through 2026-05-11 (hackathon window)
+        // GPU reserved for Hermes organ pipeline. See TODO.md "IMMEDIATE ACTIONS" + memory/project_orchestration_fractal.md.
+        // Unblock: uncomment spawn_nightshift_loop once Soma orchestrator is live (post-hackathon).
+        // let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
+        //     rest_state.judge.load_full(),
+        //     Arc::clone(&storage_port),
+        //     Arc::clone(&task_health),
+        //     shutdown.clone(),
+        //     project_root.display().to_string(),
+        // );
+        // klog!(
+        //     "[Ring 3] Nightshift loop started (every 4h, git lookback {})",
+        //     crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
+        // );
+        klog!(
+            "[Ring 3] Nightshift PAUSED (T6D: GPU reserved for Hermes, hackathon 2026-04-26→05-11)"
+        );
+    } else {
+        klog!("[Ring 2] MCP mode — background tasks SKIPPED (REST kernel handles them)");
     }
+
+    // MCP mode exits early (before Ring 0) — see MCP PROXY EARLY EXIT above.
+    // This branch is unreachable when --mcp is set.
 
     // ─── RING 3: REST Server ─────────────────────────────────
     let rest_addr = std::env::var("CYNIC_REST_ADDR")
