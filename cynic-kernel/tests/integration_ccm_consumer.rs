@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stdout)]
 //! K15 Consumer Testing: Does crystal injection actually change verdicts?
 //!
 //! **Hypothesis:** Crystals are injected into Dog context. If they're read and used,

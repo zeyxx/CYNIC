@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stdout)]
 //! K15 Falsification E2E: Crystal context changes verdicts or fails.
 //!
 //! Uses the ONE crystallized pattern known to exist (141 obs, certainty=0.999)
@@ -32,7 +33,7 @@ mod k15_e2e_falsification {
             created_at: "2026-04-15T00:00:00Z".to_string(),
             updated_at: "2026-04-25T10:00:00Z".to_string(),
             contributing_verdicts: (0..141)
-                .map(|i| format!("v-{:03}", i))
+                .map(|i| format!("v-{i:03}"))
                 .collect(),
             certainty: 0.999,  // matches handoff claim
             variance_m2: 0.005, // very low variance — highly consensual
@@ -67,7 +68,7 @@ mod k15_e2e_falsification {
         assert!(ctx.contains("141"), "context should show observation count");
 
         println!("✓ Step 1: Crystal formats correctly");
-        println!("  Context:\n{}\n", ctx);
+        println!("  Context:\n{ctx}\n");
     }
 
     #[test]
@@ -87,15 +88,21 @@ mod k15_e2e_falsification {
         // ISOLATION TEST: crystal for domain "chess" should not inject into "trading" domain.
         let crystal = make_test_crystallized_pattern();
 
-        let formatted_chess =
-            cynic_kernel::domain::ccm::format_crystal_context(&[crystal.clone()], "chess", 1100);
+        let formatted_chess = cynic_kernel::domain::ccm::format_crystal_context(
+            std::slice::from_ref(&crystal),
+            "chess",
+            1100,
+        );
         assert!(
             formatted_chess.is_none(),
             "general-domain crystal should not inject for specific domain without match"
         );
 
-        let formatted_general =
-            cynic_kernel::domain::ccm::format_crystal_context(&[crystal.clone()], "general", 1100);
+        let formatted_general = cynic_kernel::domain::ccm::format_crystal_context(
+            std::slice::from_ref(&crystal),
+            "general",
+            1100,
+        );
         assert!(
             formatted_general.is_some(),
             "crystal.domain='general' should inject for domain='general'"
@@ -134,8 +141,8 @@ mod k15_e2e_falsification {
         let observations = crystal.observations();
 
         println!("K15 FALSIFICATION SETUP:");
-        println!("  Test crystal certainty: {:.3}", certainty);
-        println!("  Test crystal observations: {}", observations);
+        println!("  Test crystal certainty: {certainty:.3}");
+        println!("  Test crystal observations: {observations}");
         println!("  Threshold for passing delta: >= {:.3}", PHI_INV4 * 0.5);
         println!();
         println!("To run full falsification:");
