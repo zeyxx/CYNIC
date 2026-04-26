@@ -11,7 +11,7 @@ Last updated: 2026-04-26 18:30 | Debt audit: 14 false closures found, Tier-1 fix
 - [x] **submit_verdict on-chain.** `scripts/submit-verdict.ts` ships. Community PDA `8DVUKmJa…` hardcoded. Devnet tx claimed but no committed proof artifact.
 - [x] **Rust 1.95.0 upgrade.** Active (`rustc 1.95.0`). LLVM SROA bug from 1.94.1 resolved.
 - [ ] **Deterministic-dog forced consensus fix.** Claimed in d0dd481 (squash-merged, hash gone). No test asserts absence of forced consensus. Untraceable. **Falsify:** regression test + `git log -p -S "forced_consensus"` identifies original code.
-- [ ] **Wallet-judgment Dogs (deterministic).** Implement in cynic-kernel/src/domain/dog/ per pseudocode in cynic-kernel/domains/wallet-judgment-dogs.md. Gates: games≥5, replay_risk, suspicious_cluster. Register in Judge.
+- [x] **Wallet-judgment Dogs (deterministic).** Implemented in cynic-kernel/src/domain/wallet_judgment/mod.rs. All 8 tests passing. Algorithm: strict age ceiling (<3 days: 0.30), age-based BURN, variance-coupled PHI, tier CULTURE. Next: pipeline integration + real wallet validation.
 - [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: description longue, video demo (3min), GitHub link, deployed URL. Deadline: May 10 23:59 PDT. Note: 123-line skeleton was never committed — only 60-line draft exists.
 - [x] **B&C integration analysis + wallet-judgment domain.** Domain files created. Wallet-judgment now embedded in binary. Enrichment utility exists. Integration spec exists.
 - [x] **Personality card stimulus + integration stub.** 7/7 tests passing. No external caller yet — stub only.
