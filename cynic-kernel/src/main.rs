@@ -524,6 +524,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
+    // Sense registry — best-effort organ readers (RTK, Hermes X, etc.)
+    let sense_root = match std::env::current_dir() {
+        Ok(p) => p.display().to_string(),
+        Err(_) => String::new(),
+    };
+    let senses = senses::build_sense_registry(&sense_root);
+    if !senses.is_empty() {
+        klog!("[senses] {} organ(s) registered", senses.len());
+        for s in &senses {
+            klog!("[senses]   → {}", s.name());
+        }
+    }
+
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
@@ -559,6 +572,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         judge_jobs: Arc::new(api::rest::judge_job::JudgeJobStore::new()),
         system_contract: system_contract.clone(),
         enricher: enricher.clone(),
+        senses,
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 

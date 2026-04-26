@@ -14,6 +14,7 @@ use crate::domain::coord::CoordPort;
 use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::metrics::Metrics;
+use crate::domain::organ::OrganPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
@@ -73,6 +74,9 @@ pub struct AppState {
     /// Token enricher — fetches on-chain data for domain=token-analysis stimuli.
     /// None if Helius API key not configured. Graceful degradation: Dogs judge raw address.
     pub enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
+    /// Sensory organ readers — organism perceiving external data stores.
+    /// K15 deferred-consumer: deadline 2026-05-26. If no consumer by then, remove.
+    pub senses: Vec<Arc<dyn OrganPort>>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
