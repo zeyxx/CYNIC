@@ -259,6 +259,17 @@ Token consumption and cost tracking.
 
 Query the MCP/REST audit trail. Query params: `limit` (default 50, max 100), `tool`, `agent_id`.
 
+### GET /state-history
+
+Hash-chained organism state log. Returns state blocks ordered by sequence number.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `since` | all | RFC3339 timestamp filter |
+| `limit` | 100 | Max blocks to return (max 1000) |
+
+Response includes `chain_valid` (prev_hash linkage) and `blocks_valid` (SHA-256 verification). Each block contains Dog snapshots, system status, and resource metrics.
+
 ---
 
 ## Coordination
