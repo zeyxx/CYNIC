@@ -48,6 +48,8 @@ cargo build --tests
 
 **Falsifiable:** Track builds/commit ratio via RTK. Baseline: 8.3. Target: <4. Measure after 10 sessions.
 
+**Identical command repetition (KC2):** If a build/test/clippy command fails, do NOT re-run the same command without making a code change first. RTK data shows 232 consecutive identical `make check` runs and 73 consecutive identical `cargo test` runs. Repeating the same command expecting different results = metabolic waste. Fix the code, THEN rebuild.
+
 ## Branch-PR Discipline (MANDATORY — origin/main is protected)
 
 `origin/main` is a GitHub protected branch (activated 2026-04-13 per commit `46b0fc8`). Direct pushes are rejected with `GH006: protected branch hook declined`. Every change to main must land via a pull request.
