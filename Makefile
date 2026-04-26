@@ -235,6 +235,13 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			fi; \
 		done; \
 	done; \
+	PORT_METHODS=$$(grep -P '^\s+async fn \w+' $(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs | grep -oP 'fn \K\w+' | sort); \
+	RECON_METHODS=$$(grep -P '^\s+async fn \w+' $(PROJECT_DIR)/cynic-kernel/src/storage/reconnectable.rs | grep -oP 'fn \K\w+' | sort); \
+	for PM in $$PORT_METHODS; do \
+		if ! echo "$$RECON_METHODS" | grep -qw "$$PM"; then \
+			echo "FAIL K17: StoragePort::$$PM not forwarded in ReconnectableStorage"; FAIL=1; \
+		fi; \
+	done; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ No drift detected"; fi; \
 	exit $$FAIL
 
