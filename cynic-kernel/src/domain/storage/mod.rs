@@ -315,11 +315,23 @@ pub trait StoragePort: Send + Sync {
 
     /// Enqueue a verdict with q_score >= 0.618 for onchain submission.
     /// Rejects if q_score < 0.618 (below phi⁻¹ threshold).
+    /// Stores all axiom scores and metadata needed for Pinocchio submission.
+    #[allow(clippy::too_many_arguments)]
+    // WHY: enqueue_verdict captures all submission metadata in a single write to prevent
+    // race conditions: axiom scores, verdict type, and dog count all needed for onchain instruction.
     async fn enqueue_verdict(
         &self,
         _verdict_id: &str,
         _content_hash: &str,
         _q_score: f64,
+        _score_fidelity: f64,
+        _score_phi: f64,
+        _score_verify: f64,
+        _score_culture: f64,
+        _score_burn: f64,
+        _score_sovereignty: f64,
+        _dog_count: u32,
+        _verdict_type: &str,
     ) -> Result<(), StorageError> {
         Ok(()) // Default no-op for NullStorage
     }

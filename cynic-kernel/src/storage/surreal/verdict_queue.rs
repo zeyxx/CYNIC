@@ -8,6 +8,14 @@ pub(super) async fn enqueue_verdict(
     verdict_id: &str,
     content_hash: &str,
     q_score: f64,
+    score_fidelity: f64,
+    score_phi: f64,
+    score_verify: f64,
+    score_culture: f64,
+    score_burn: f64,
+    score_sovereignty: f64,
+    dog_count: u32,
+    verdict_type: &str,
 ) -> Result<(), StorageError> {
     if q_score < 0.618 {
         return Err(StorageError::InvalidInput(format!(
@@ -17,6 +25,7 @@ pub(super) async fn enqueue_verdict(
 
     let verdict_id = sanitize_id(verdict_id)?;
     let content_hash = sanitize_id(content_hash)?;
+    let verdict_type = escape_surreal(verdict_type);
     let now = chrono::Utc::now().to_rfc3339();
 
     let sql = format!(
@@ -24,6 +33,14 @@ pub(super) async fn enqueue_verdict(
             verdict_id = '{}', \
             content_hash = '{}', \
             q_score = {}, \
+            score_fidelity = {}, \
+            score_phi = {}, \
+            score_verify = {}, \
+            score_culture = {}, \
+            score_burn = {}, \
+            score_sovereignty = {}, \
+            dog_count = {}, \
+            verdict_type = '{}', \
             status = 'pending', \
             retry_count = 0, \
             created_at = d'{}', \
@@ -32,7 +49,18 @@ pub(super) async fn enqueue_verdict(
             tx_signature = NULL, \
             verdict_pda = NULL, \
             error_reason = NULL",
-        verdict_id, content_hash, q_score, now
+        verdict_id,
+        content_hash,
+        q_score,
+        score_fidelity,
+        score_phi,
+        score_verify,
+        score_culture,
+        score_burn,
+        score_sovereignty,
+        dog_count,
+        verdict_type,
+        now
     );
 
     storage.query_one(&sql).await?;
@@ -168,6 +196,14 @@ fn row_to_queued_verdict(row: &serde_json::Value) -> QueuedVerdict {
         verdict_id: row["verdict_id"].as_str().unwrap_or("").to_string(),
         content_hash: row["content_hash"].as_str().unwrap_or("").to_string(),
         q_score: row["q_score"].as_f64().unwrap_or(0.0),
+        score_fidelity: row["score_fidelity"].as_f64().unwrap_or(0.0),
+        score_phi: row["score_phi"].as_f64().unwrap_or(0.0),
+        score_verify: row["score_verify"].as_f64().unwrap_or(0.0),
+        score_culture: row["score_culture"].as_f64().unwrap_or(0.0),
+        score_burn: row["score_burn"].as_f64().unwrap_or(0.0),
+        score_sovereignty: row["score_sovereignty"].as_f64().unwrap_or(0.0),
+        dog_count: row["dog_count"].as_u64().unwrap_or(0) as u32,
+        verdict_type: row["verdict_type"].as_str().unwrap_or("BARK").to_string(),
         status,
         tx_signature: row["tx_signature"]
             .as_str()

@@ -116,8 +116,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if mcp_mode {
         use rmcp::ServiceExt;
 
-        let rest_addr =
+        let raw_addr =
             std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "http://127.0.0.1:3030".into());
+        // Env may contain bare "IP:PORT" — prepend http:// if missing.
+        let rest_addr = if raw_addr.starts_with("http://") || raw_addr.starts_with("https://") {
+            raw_addr
+        } else {
+            format!("http://{}", raw_addr)
+        };
         let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
         let project_root = std::env::current_dir()
             .unwrap_or_else(|_| std::path::PathBuf::from("."))
