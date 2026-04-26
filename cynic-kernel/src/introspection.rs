@@ -128,6 +128,55 @@ pub async fn analyze(
         tracing::debug!("introspection: no EnvironmentSnapshot yet — skipping resource checks");
     }
 
+    // ── State log trend detection (K15 consumer of state_log) ──
+    // Compare last 2 blocks: alert if any Dog's success_rate dropped >20pp.
+    // Query all blocks (ASC) and take last 2 for trend comparison.
+    // At 60s/block, 1 day = 1440 blocks. Introspection runs every 5min — acceptable query.
+    match storage.list_state_blocks("", 1000).await {
+        Ok(blocks) if blocks.len() >= 2 => {
+            let prev = &blocks[blocks.len() - 2];
+            let curr = &blocks[blocks.len() - 1];
+            for curr_dog in &curr.dogs {
+                if let Some(prev_dog) = prev.dogs.iter().find(|d| d.id == curr_dog.id) {
+                    let delta = prev_dog.success_rate - curr_dog.success_rate;
+                    if delta > 0.20 {
+                        alerts.push(Alert {
+                            kind: "dog_degradation_trend",
+                            message: format!(
+                                "Dog '{}' success rate dropped {:.0}pp ({:.1}% → {:.1}%) in 60s",
+                                curr_dog.id,
+                                delta * 100.0,
+                                prev_dog.success_rate * 100.0,
+                                curr_dog.success_rate * 100.0,
+                            ),
+                            severity: "warning",
+                        });
+                    }
+                }
+            }
+            // System status regression: sovereign → degraded/critical
+            if prev.system.status == "sovereign" && curr.system.status != "sovereign" {
+                alerts.push(Alert {
+                    kind: "system_regression",
+                    message: format!(
+                        "System regressed: {} → {} (dogs {}/{} → {}/{})",
+                        prev.system.status,
+                        curr.system.status,
+                        prev.system.healthy_dogs,
+                        prev.system.total_dogs,
+                        curr.system.healthy_dogs,
+                        curr.system.total_dogs,
+                    ),
+                    severity: "warning",
+                });
+            }
+        }
+        Ok(_) => {} // < 2 blocks, skip trend detection
+        Err(e) => {
+            tracing::debug!("introspection: state_log query failed: {e} — skipping trends");
+        }
+    }
+
     if !alerts.is_empty() {
         let summary: String = alerts
             .iter()
