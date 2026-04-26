@@ -82,7 +82,7 @@ Submit content for epistemic evaluation by independent AI validators (Dogs).
 |-------|------|----------|-------------|
 | `content` | string | yes | Content to evaluate |
 | `context` | string | no | Additional context |
-| `domain` | string | no | Domain hint: `"chess"`, `"trading"`, `"code"`, `"general"` |
+| `domain` | string | no | Domain hint: `"chess"`, `"trading"`, `"code"`, `"token-analysis"`, `"wallet-judgment"`, `"general"` |
 | `dogs` | string[] | no | Filter to specific Dog IDs |
 | `crystals` | bool | no | Default `true`. Set `false` to disable crystal injection (A/B testing) |
 
@@ -120,6 +120,86 @@ Submit content for epistemic evaluation by independent AI validators (Dogs).
 | Wag | > 0.382 | Good quality |
 | Growl | > 0.236 | Questionable |
 | Bark | ≤ 0.236 | Rejected |
+
+### POST /judge (domain: wallet-judgment)
+
+**Wallet Anti-Sybil Evaluation** — Fast-path deterministic verdict (no LLM Dogs).
+
+Used to validate chess wallet authenticity for Personality Card minting. Dogs score on game history: archetype consistency, temporal distribution, Sybil risk markers.
+
+**Request:**
+
+```json
+{
+  "content": "<wallet_address>",
+  "context": "{\"wallet_address\":\"<address>\",\"games_completed\":10,\"archetype_consistency\":0.80,\"wallet_age_days\":30,\"average_game_duration\":300,\"duration_variance\":0.20,\"opening_repertoire_hash\":\"...\",\"move_sequence_hash\":\"...\",\"suspicious_cluster\":false,\"replay_risk\":false}",
+  "domain": "wallet-judgment"
+}
+```
+
+**Context** (`WalletProfile` JSON, required):
+- `wallet_address` (string): Solana wallet address
+- `games_completed` (u32): Total games played
+- `archetype_consistency` (f64, 0–1): Consistency of play style
+- `wallet_age_days` (u32): Days since first game
+- `average_game_duration` (u32): Median game duration in seconds
+- `duration_variance` (f64): Coefficient of variation in game durations
+- `opening_repertoire_hash` (string): Hash of opening sequence diversity
+- `move_sequence_hash` (string): Hash of move patterns
+- `suspicious_cluster` (bool): Circular funding / shared IP detected
+- `replay_risk` (bool): Moves copied from other wallet
+
+**Evaluation gates:**
+1. `games_completed ≥ 5` — minimum samples for statistical confidence
+2. `suspicious_cluster = false AND replay_risk = false` — no critical Sybil markers
+
+**Response:** Same `JudgeResponse` schema. `dogs_used` will be `"wallet-deterministic-dog"` (no LLM latency).
+
+**Example verdict (Wag):**
+```json
+{
+  "verdict_id": "550e8400-e29b-41d4-a716-446655440000",
+  "domain": "wallet-judgment",
+  "verdict": "Wag",
+  "q_score": {
+    "total": 0.52,
+    "fidelity": 0.55,
+    "phi": 0.48,
+    "verify": 0.50,
+    "culture": 0.52,
+    "burn": 0.50,
+    "sovereignty": 0.54
+  },
+  "dogs_used": "wallet-deterministic-dog",
+  "voter_count": 1,
+  "dog_scores": [
+    {
+      "dog_id": "wallet-deterministic-dog",
+      "latency_ms": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "fidelity": 0.55,
+      "phi": 0.48,
+      "verify": 0.50,
+      "culture": 0.52,
+      "burn": 0.50,
+      "sovereignty": 0.54,
+      "reasoning": {
+        "fidelity": "Archetype consistency 80% indicates authentic play style",
+        "phi": "Time distribution harmonious with 30-day age and low variance",
+        "verify": "Move history verifiable on-chain",
+        "culture": "Multiple games across dated span shows engagement",
+        "burn": "Active player with commitment proportional to wallet age",
+        "sovereignty": "No Sybil coordination or replay evidence"
+      }
+    }
+  ]
+}
+```
+
+**Errors:**
+- `400` if context is missing or invalid JSON: `"wallet-judgment requires valid WalletProfile JSON in context field"`
+- `422` if context fails validation gates (e.g., `games_completed < 5`): returns `Bark` verdict
 
 ### POST /judge/async
 
