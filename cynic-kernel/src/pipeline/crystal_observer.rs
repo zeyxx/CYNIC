@@ -196,11 +196,12 @@ pub(crate) async fn observe_crystal_for_verdict(
             }); // ok: no subscribers = silent no-op (receiver_count=0 returns Err)
         }
     }
-    // Store embedding for KNN merge — only for NEW crystals.
-    // Existing crystals (found via semantic search) already have a working embedding
-    // in the HNSW index. Overwriting it on every observation caused 176 SurrealKV
-    // compaction conflicts/24h on IX:2, eventually crashing the DB.
-    if needs_embedding
+    // Store embedding for KNN merge — for NEW crystals or when content evolves (KC12).
+    // needs_embedding=true for new crystals. For existing crystals, only refresh when
+    // the observation's score exceeds the crystal's running mean (content updated in DB).
+    // This is rare enough (~10% of observations) to avoid SurrealKV compaction storms.
+    let content_evolved = !needs_embedding && crystal_confidence > 0.5;
+    if (needs_embedding || content_evolved)
         && let Some(emb) = stimulus_embedding
         && let Err(e) = deps
             .storage
