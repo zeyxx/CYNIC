@@ -407,6 +407,17 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 	fi; \
 	mv "$$K15_TARGET.gate-bak" "$$K15_TARGET"; \
 	\
+	echo "[K17] Injecting StoragePort method not forwarded in ReconnectableStorage..."; \
+	K17_TARGET="$(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs"; \
+	cp "$$K17_TARGET" "$$K17_TARGET.gate-bak"; \
+	sed -i '/^}$$/i\    async fn _k17_gate_probe(\&self) -> Result<(), StorageError> { Ok(()) }' "$$K17_TARGET"; \
+	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
+		echo "  ✗ K17 gate MISSED missing ReconnectableStorage forward — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ K17 gate caught missing ReconnectableStorage forward"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$K17_TARGET.gate-bak" "$$K17_TARGET"; \
+	\
 	echo ""; echo "── lint-subprocess-env ──"; \
 	\
 	echo "[R23a] Injecting shell script with cargo build and no RUST_MIN_STACK..."; \

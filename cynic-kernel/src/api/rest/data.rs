@@ -391,6 +391,16 @@ mod tests {
             bark_count: 1,
         };
         let json = crystal_to_json(&c);
+        let obj = json
+            .as_object()
+            .expect("crystal_to_json must return object");
+        assert_eq!(
+            obj.len(),
+            16,
+            "crystal_to_json must serialize all 16 Crystal fields"
+        );
+        assert_eq!(json["id"], "test-id");
+        assert_eq!(json["content"], "test");
         assert_eq!(json["certainty"], 0.75);
         assert_eq!(json["variance_m2"], 1.23);
         assert_eq!(json["mean_quorum"], 3.5);

@@ -29,7 +29,7 @@ Last updated: 2026-04-26 18:30 | Debt audit: 14 false closures found, Tier-1 fix
 
 - [ ] **CCM volume → crystallization.** CCM loop_active=false. **Falsify:** observation count grows → forming crystals appear.
 - [ ] **Auth /health (T1/O4).** /metrics + /events require auth in code. **Remaining:** deploy + verify. **Falsify:** `curl funnel/metrics` → 401.
-- [ ] **K17 ReconnectableStorage forwards.** lint-drift gate added, caught 4 missing agent_task methods. Fix reconnectable.rs. **Falsify:** `make lint-drift` passes.
+- [x] **K17 lint-drift gate.** Method-count check added to `make lint-drift`. R21 falsification test added to `make test-gates`. Agent_task methods already forwarded on origin/main (PR #30). **Falsify:** `make test-gates` K17 block passes.
 
 ## DEBT (fix when touching adjacent code)
 
