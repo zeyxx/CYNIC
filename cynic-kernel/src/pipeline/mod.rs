@@ -1043,7 +1043,7 @@ mod tests {
             Err(e) => {
                 // Verify it's an InvalidInput error
                 assert!(
-                    format!("{:?}", e).contains("InvalidInput"),
+                    format!("{e:?}").contains("InvalidInput"),
                     "should be InvalidInput error"
                 );
             }
