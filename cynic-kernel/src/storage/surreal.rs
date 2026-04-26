@@ -6,6 +6,7 @@ mod coord;
 mod crystals;
 mod maintenance;
 mod ops;
+mod state_log;
 mod verdicts;
 
 use super::{SurrealHttpStorage, safe_limit};
@@ -299,6 +300,12 @@ impl StoragePort for SurrealHttpStorage {
         activity::list_observations_raw(self, domain, agent_id, limit).await
     }
 
+    async fn last_observation_per_source(
+        &self,
+    ) -> Result<Vec<(String, String, u64)>, StorageError> {
+        activity::last_observation_per_source(self).await
+    }
+
     #[tracing::instrument(skip(self), err)]
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
         maintenance::consolidate_duplicate_crystals(self).await
@@ -333,6 +340,29 @@ impl StoragePort for SurrealHttpStorage {
         let result_ref = result.as_deref();
         let error_ref = error.as_deref();
         agent_tasks::update_agent_task_result(self, task_id, result_ref, error_ref).await
+    }
+
+    // ── State Log ──────────────────────────────────
+
+    async fn store_state_block(
+        &self,
+        block: &crate::domain::state_log::StateBlock,
+    ) -> Result<(), StorageError> {
+        state_log::store_state_block(self, block).await
+    }
+
+    async fn last_state_block(
+        &self,
+    ) -> Result<Option<crate::domain::state_log::StateBlock>, StorageError> {
+        state_log::last_state_block(self).await
+    }
+
+    async fn list_state_blocks(
+        &self,
+        since: &str,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
+        state_log::list_state_blocks(self, since, limit).await
     }
 }
 

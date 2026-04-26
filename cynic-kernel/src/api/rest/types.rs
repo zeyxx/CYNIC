@@ -417,6 +417,10 @@ pub struct DogHealthResponse {
     pub kind: String,
     pub circuit: String,
     pub failures: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_failure_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub open_since_secs: Option<u64>,
 }
 
 #[cfg(test)]

@@ -7,6 +7,7 @@
 
 mod nightshift;
 mod runtime_loops;
+mod state_log;
 
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -27,6 +28,7 @@ pub use runtime_loops::{
     spawn_crystal_challenge_loop, spawn_discovery_loop, spawn_dog_heartbeat_loop,
     spawn_dog_ttl_checker, spawn_event_consumer, spawn_probe_scheduler,
 };
+pub use state_log::spawn_state_log;
 
 // ── Shutdown flush — used by both REST and MCP exit paths ────
 

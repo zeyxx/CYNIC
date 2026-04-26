@@ -138,11 +138,12 @@ Obsolete when Rust 1.95.0+ fixes LLVM SROA. See `rust-toolchain.toml`.
 
 | What | Where |
 |------|-------|
-| Rules (23 universal, 16 kernel) | `.claude/rules/` |
+| Rules (23 universal, 16 kernel, 15 python) | `.claude/rules/` |
 | Full philosophy | `docs/identity/CYNIC-CONSTITUTION-FULL.md` |
 | API contract | `API.md` |
 | Multi-agent coordination | `AGENTS.md` |
-| Build gates | `.claude/rules/kernel.md` |
+| Build gates (Rust tier-1) | `.claude/rules/kernel.md` |
+| Analysis toolkit (Python tier-2) | `.claude/rules/python.md` + `cynic-python/` |
 
 ---
 

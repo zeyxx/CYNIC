@@ -110,6 +110,14 @@ pub trait StoragePort: Send + Sync {
         Ok(vec![])
     }
 
+    /// Last observation timestamp per agent_id — used by state_log for organ liveness.
+    /// Returns Vec<(agent_id, last_created_at, observation_count)>.
+    async fn last_observation_per_source(
+        &self,
+    ) -> Result<Vec<(String, String, u64)>, StorageError> {
+        Ok(vec![])
+    }
+
     /// Store a pre-computed embedding vector for a crystal.
     /// Enables semantic retrieval via search_crystals_semantic.
     async fn store_crystal_embedding(
@@ -274,5 +282,31 @@ pub trait StoragePort: Send + Sync {
     /// Mark agent task as processing (status = "processing").
     async fn mark_agent_task_processing(&self, _task_id: &str) -> Result<(), StorageError> {
         Ok(())
+    }
+
+    // ── State Log (hash-chained organism state) ──────────
+
+    /// Append a state block to the log. Blocks are append-only — never updated.
+    async fn store_state_block(
+        &self,
+        _block: &crate::domain::state_log::StateBlock,
+    ) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    /// Get the most recent state block (for chain continuation).
+    async fn last_state_block(
+        &self,
+    ) -> Result<Option<crate::domain::state_log::StateBlock>, StorageError> {
+        Ok(None)
+    }
+
+    /// List state blocks since a given timestamp, ordered by seq ASC.
+    async fn list_state_blocks(
+        &self,
+        _since: &str,
+        _limit: u32,
+    ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
+        Ok(vec![])
     }
 }

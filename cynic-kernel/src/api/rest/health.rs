@@ -84,9 +84,10 @@ pub async fn health_handler(
         crate::domain::probe::EnvironmentSnapshot::is_degraded(&state.environment);
     let stale_tasks = state.task_health.readiness_stale_tasks();
 
-    let dogs: Vec<DogHealthResponse> = dog_health
+    let dog_health_detail = judge.dog_health_detailed();
+    let dogs: Vec<DogHealthResponse> = dog_health_detail
         .into_iter()
-        .map(|(id, circuit, failures)| {
+        .map(|(id, circuit, failures, reason, open_secs)| {
             let kind = if id == "deterministic-dog" {
                 "heuristic"
             } else {
@@ -98,6 +99,8 @@ pub async fn health_handler(
                 kind,
                 circuit,
                 failures,
+                last_failure_reason: reason.map(|r| r.as_str().to_string()),
+                open_since_secs: open_secs,
             }
         })
         .collect();
@@ -106,12 +109,34 @@ pub async fn health_handler(
         .dog_quality_snapshot()
         .into_iter()
         .map(|(id, stats)| {
-            serde_json::json!({
+            let mut obj = serde_json::json!({
                 "dog": id,
                 "json_valid_rate": stats.json_valid_rate(),
                 "capability_limit_rate": stats.capability_limit_rate(),
                 "total_calls": stats.total_calls,
-            })
+                "success_count": stats.success_count,
+                "mean_latency_ms": (stats.mean_latency_ms() * 10.0).round() / 10.0,
+                "failures": {
+                    "zero_flood": stats.zero_flood_count,
+                    "collapse": stats.collapse_count,
+                    "parse_error": stats.parse_error_count,
+                    "timeout": stats.timeout_count,
+                    "api_error": stats.api_error_count,
+                },
+            });
+            if let Some(ts) = &stats.last_success {
+                obj["last_success"] = serde_json::Value::String(ts.clone());
+            }
+            if stats.success_count > 0 {
+                let tok_per_sec = if stats.mean_latency_ms() > 0.0 {
+                    (stats.total_completion_tokens as f64 / stats.success_count as f64)
+                        / (stats.mean_latency_ms() / 1000.0)
+                } else {
+                    0.0
+                };
+                obj["tok_per_sec"] = serde_json::json!((tok_per_sec * 10.0).round() / 10.0);
+            }
+            obj
         })
         .collect();
 
@@ -294,6 +319,44 @@ pub async fn metrics_handler(
         )],
         out,
     )
+}
+
+/// GET /state-history?since=RFC3339&limit=N — Hash-chained organism state log.
+/// Auth required. Returns state blocks ordered by seq ASC.
+pub async fn state_history_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let since = params
+        .get("since")
+        .map(|s| s.as_str())
+        .unwrap_or("1970-01-01T00:00:00Z");
+    let limit: u32 = params
+        .get("limit")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(100);
+
+    match state.storage.list_state_blocks(since, limit).await {
+        Ok(blocks) => {
+            let chain_valid = blocks.windows(2).all(|w| w[1].prev_hash == w[0].hash);
+            let blocks_valid = blocks.iter().all(|b| b.verify());
+            Ok(Json(serde_json::json!({
+                "blocks": blocks,
+                "count": blocks.len(),
+                "chain_valid": chain_valid,
+                "blocks_valid": blocks_valid,
+            })))
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "state-history query failed");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("state-history query failed: {e}"),
+                }),
+            ))
+        }
+    }
 }
 
 // Logic tests live in domain::health_gate::tests — single source of truth.

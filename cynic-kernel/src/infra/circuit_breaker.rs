@@ -5,6 +5,7 @@
 //! Thresholds are φ-derived: open after 3 consecutive failures,
 //! cooldown = 30 seconds before half-open probe.
 
+use crate::domain::health_gate::FailureReason;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -30,6 +31,7 @@ pub enum CircuitState {
 struct Inner {
     state: CircuitState,
     consecutive_failures: u32,
+    last_failure_reason: Option<FailureReason>,
 }
 
 #[derive(Debug)]
@@ -44,6 +46,7 @@ impl CircuitBreaker {
             inner: Mutex::new(Inner {
                 state: CircuitState::Closed,
                 consecutive_failures: 0,
+                last_failure_reason: None,
             }),
             dog_id,
         }
@@ -71,27 +74,37 @@ impl CircuitBreaker {
     pub fn record_success(&self) {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.consecutive_failures = 0;
+        inner.last_failure_reason = None;
         if inner.state != CircuitState::Closed {
             tracing::info!(dog_id = %self.dog_id, from = ?inner.state, "circuit breaker recovered → Closed");
             inner.state = CircuitState::Closed;
         }
     }
 
-    /// Report a failed call
-    pub fn record_failure(&self) {
+    /// Report a failed call with the reason why.
+    pub fn record_failure(&self, reason: FailureReason) {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.consecutive_failures += 1;
+        inner.last_failure_reason = Some(reason);
         if inner.consecutive_failures >= FAILURE_THRESHOLD && inner.state == CircuitState::Closed {
             inner.state = CircuitState::Open {
                 since: Instant::now(),
             };
-            tracing::warn!(dog_id = %self.dog_id, failures = inner.consecutive_failures, "circuit breaker OPENED");
+            tracing::warn!(dog_id = %self.dog_id, failures = inner.consecutive_failures, reason = %reason, "circuit breaker OPENED");
         } else if matches!(inner.state, CircuitState::HalfOpen) {
             inner.state = CircuitState::Open {
                 since: Instant::now(),
             };
-            tracing::warn!(dog_id = %self.dog_id, "circuit breaker probe failed → Open");
+            tracing::warn!(dog_id = %self.dog_id, reason = %reason, "circuit breaker probe failed → Open");
         }
+    }
+
+    /// Why the circuit last failed. None if never failed or recovered.
+    pub fn last_failure_reason(&self) -> Option<FailureReason> {
+        self.inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .last_failure_reason
     }
 
     /// Current state for health reporting
@@ -139,8 +152,8 @@ impl crate::domain::health_gate::HealthGate for CircuitBreaker {
     fn record_success(&self) {
         self.record_success()
     }
-    fn record_failure(&self) {
-        self.record_failure()
+    fn record_failure(&self, reason: FailureReason) {
+        self.record_failure(reason)
     }
     fn is_open(&self) -> bool {
         self.is_open()
@@ -156,6 +169,9 @@ impl crate::domain::health_gate::HealthGate for CircuitBreaker {
     }
     fn opened_since(&self) -> Option<Duration> {
         self.opened_since()
+    }
+    fn last_failure_reason(&self) -> Option<FailureReason> {
+        self.last_failure_reason()
     }
 }
 
@@ -174,27 +190,29 @@ mod tests {
     fn opens_after_threshold_failures() {
         let cb = CircuitBreaker::new("test".into());
         for _ in 0..FAILURE_THRESHOLD {
-            cb.record_failure();
+            cb.record_failure(FailureReason::Timeout);
         }
         assert!(!cb.should_allow());
         assert_eq!(cb.state(), "open");
+        assert_eq!(cb.last_failure_reason(), Some(FailureReason::Timeout));
     }
 
     #[test]
     fn success_resets_failures() {
         let cb = CircuitBreaker::new("test".into());
-        cb.record_failure();
-        cb.record_failure();
+        cb.record_failure(FailureReason::ApiError);
+        cb.record_failure(FailureReason::ApiError);
         cb.record_success();
         assert_eq!(cb.consecutive_failures(), 0);
         assert!(cb.should_allow());
+        assert_eq!(cb.last_failure_reason(), None);
     }
 
     #[test]
     fn recovers_on_half_open_success() {
         let cb = CircuitBreaker::new("test".into());
         for _ in 0..FAILURE_THRESHOLD {
-            cb.record_failure();
+            cb.record_failure(FailureReason::Timeout);
         }
         // Manually set to HalfOpen for testing
         cb.inner.lock().unwrap().state = CircuitState::HalfOpen;
@@ -206,15 +224,19 @@ mod tests {
     fn half_open_failure_reopens() {
         let cb = CircuitBreaker::new("test".into());
         cb.inner.lock().unwrap().state = CircuitState::HalfOpen;
-        cb.record_failure();
+        cb.record_failure(FailureReason::QuotaExhausted);
         assert_eq!(cb.state(), "open");
+        assert_eq!(
+            cb.last_failure_reason(),
+            Some(FailureReason::QuotaExhausted)
+        );
     }
 
     #[test]
     fn is_open_returns_true_when_open() {
         let cb = CircuitBreaker::new("test".into());
         for _ in 0..FAILURE_THRESHOLD {
-            cb.record_failure();
+            cb.record_failure(FailureReason::ApiError);
         }
         assert!(cb.is_open());
     }
@@ -229,7 +251,7 @@ mod tests {
     fn opened_since_returns_duration_when_open() {
         let cb = CircuitBreaker::new("test".into());
         for _ in 0..FAILURE_THRESHOLD {
-            cb.record_failure();
+            cb.record_failure(FailureReason::Timeout);
         }
         let d = cb.opened_since();
         assert!(d.is_some());

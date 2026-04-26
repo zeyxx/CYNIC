@@ -1,26 +1,26 @@
 use crate::domain::enrichment::TokenData;
 
-/// INTEGRATION: B&C + CYNIC Personality Cards
-///
-/// **Entry Point**: When S. completes J6-7 (Mint Permit Service):
-/// 1. Client signs: {nonce, personality_card, wallet_address}
-/// 2. POST /mint-permit → S.'s backend
-/// 3. S. calls CYNIC: POST /judge with personality data
-/// 4. CYNIC uses build_personality_card_stimulus() to format 6 signals
-/// 5. Dogs evaluate: FIDELITY (genuine human play?), PHI (signal coherence), etc.
-/// 6. Verdict returned to S.'s backend (async or sync, TBD)
-/// 7. If HOWL/WAG: proceed to Arweave upload + Metaplex mint
-/// 8. If BARK: reject, nonce stays in LRU, 1/wallet/hour enforced
-///
-/// **Scope Questions** (waiting for S. on Slack):
-/// - Pre-mint validation (sync, blocks mint) or post-mint audit (async)?
-/// - Confidence threshold: require Dogs verdict >= φ⁻¹ (0.618) or is Dogs consensus enough?
-/// - Fallback if CYNIC is down: block mint or proceed?
-///
-/// **Chess Domain** (cynic-kernel/domains/chess.md):
-/// - Already optimized for move/opening/position evaluation
-/// - Personality card fits: archetype = chess signature, signals = game patterns
-/// - Dogs will score: is this wallet's pattern genuine + sybil-resistant?
+// INTEGRATION: B&C + CYNIC Personality Cards
+//
+// **Entry Point**: When S. completes J6-7 (Mint Permit Service):
+// 1. Client signs: {nonce, personality_card, wallet_address}
+// 2. POST /mint-permit → S.'s backend
+// 3. S. calls CYNIC: POST /judge with personality data
+// 4. CYNIC uses build_personality_card_stimulus() to format 6 signals
+// 5. Dogs evaluate: FIDELITY (genuine human play?), PHI (signal coherence), etc.
+// 6. Verdict returned to S.'s backend (async or sync, TBD)
+// 7. If HOWL/WAG: proceed to Arweave upload + Metaplex mint
+// 8. If BARK: reject, nonce stays in LRU, 1/wallet/hour enforced
+//
+// **Scope Questions** (waiting for S. on Slack):
+// - Pre-mint validation (sync, blocks mint) or post-mint audit (async)?
+// - Confidence threshold: require Dogs verdict >= φ⁻¹ (0.618) or is Dogs consensus enough?
+// - Fallback if CYNIC is down: block mint or proceed?
+//
+// **Chess Domain** (cynic-kernel/domains/chess.md):
+// - Already optimized for move/opening/position evaluation
+// - Personality card fits: archetype = chess signature, signals = game patterns
+// - Dogs will score: is this wallet's pattern genuine + sybil-resistant?
 
 /// Build a structured token analysis stimulus from on-chain metrics.
 ///
@@ -143,6 +143,9 @@ pub fn build_dev_stimulus(hash: &str, message: &str, files_changed: &[String]) -
 
 /// Build a structured personality card (chess) stimulus.
 /// Used when CYNIC validates chess personality cards from Blitz & Chill.
+// WHY: personality card has 9 orthogonal signals; grouping them into a struct
+// would add indirection without simplifying the call sites (single call from API layer).
+#[allow(clippy::too_many_arguments)]
 pub fn build_personality_card_stimulus(
     archetype: &str,
     confidence: f64,

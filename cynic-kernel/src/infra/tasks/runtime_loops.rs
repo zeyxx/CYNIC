@@ -61,6 +61,41 @@ fn spawn_event_consumer_with_liveness(
                 event = rx.recv() => {
                     match event {
                         Ok(ref evt) => {
+                            // Kernel self-observation: significant events → /observe store.
+                            // Closes maladie 2: kernel tracks its own lifecycle events.
+                            let self_obs = match evt {
+                                KernelEvent::DogFailed { dog_id, error } =>
+                                    Some(("dog_failed", format!("{dog_id}: {}", &error[..error.len().min(100)]))),
+                                KernelEvent::DogExpired { dog_id } =>
+                                    Some(("dog_expired", dog_id.clone())),
+                                KernelEvent::DogDiscovered { dog_id } =>
+                                    Some(("dog_discovered", dog_id.clone())),
+                                KernelEvent::StorageReconnected =>
+                                    Some(("storage_reconnected", String::new())),
+                                KernelEvent::Anomaly { kind, message, .. } =>
+                                    Some(("anomaly", format!("{kind}: {}", &message[..message.len().min(100)]))),
+                                _ => None,
+                            };
+                            if let Some((tool, context)) = self_obs {
+                                let obs = crate::domain::storage::Observation {
+                                    project: "CYNIC".into(),
+                                    agent_id: "kernel".into(),
+                                    tool: tool.into(),
+                                    target: "self".into(),
+                                    domain: "kernel-lifecycle".into(),
+                                    status: "event".into(),
+                                    context,
+                                    session_id: String::new(),
+                                    timestamp: chrono::Utc::now().to_rfc3339(),
+                                    tags: vec!["kernel-self-obs".into()],
+                                };
+                                // Fire-and-forget — don't block event processing.
+                                let storage = Arc::clone(&rest_state.storage);
+                                tokio::spawn(async move {
+                                    let _ = storage.store_observation(&obs).await;
+                                });
+                            }
+
                             // K15: Anomaly → Slack alert (acting consumer)
                             if let KernelEvent::Anomaly { kind, message, severity } = evt
                                 && let Some(ref alerter) = slack
