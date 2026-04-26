@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-26 18:30 | Debt audit: 14 false closures found, Tier-1 fixed (F1 crystal_to_json, F3 wallet-judgment embed, gates added)
+Last updated: 2026-04-26 21:45 | Crystallization done: orchestration fractal identified (GPU/kernel/DB/task = identical single-point disease). Soma design sketched. Band-aids ready (pause nightshift + --parallel 2).
 
 ---
 
@@ -23,7 +23,8 @@ Last updated: 2026-04-26 18:30 | Debt audit: 14 false closures found, Tier-1 fix
 - [x] **Organ X infrastructure.** 3 systemd services active. Dataset: 1772 tweets. Note: kernel reports x-proxy organ silent >24h — heartbeat link gap.
 - [x] **Enrichment in x_proxy.py.** Signal score, author tier, coordination detection. No Python test coverage (P2 violation).
 - [x] **SOUL.md updated.** Hermes = CYNIC citizen, not X-only.
-- [ ] **Hermes cron missions.** **Falsify:** `hermes cron list` shows ≥1 active job.
+- [x] **Hermes cron missions.** 2 crons live: x-explorer (4h), x-analyst (24h). MCP lightweight fix deployed (PR pending). **Falsify:** `hermes cron list` shows 2 active jobs ✓. Next: verify first cron run produces observations.
+- [ ] **GPU contention: Hermes vs Dog qwen35-9b-gpu.** Same llama-server serves both. Hermes blocked during nightshift Dog evals. **Fix options:** pause nightshift, `--parallel 2` on llama-server, or Soma orchestrator. **Falsify:** Hermes cron completes with 0 MCP errors in a run without nightshift.
 
 ## ORGANISM (no deadline, compound value)
 
@@ -31,8 +32,18 @@ Last updated: 2026-04-26 18:30 | Debt audit: 14 false closures found, Tier-1 fix
 - [ ] **Auth /health (T1/O4).** /metrics + /events require auth in code. **Remaining:** deploy + verify. **Falsify:** `curl funnel/metrics` → 401.
 - [x] **K17 lint-drift gate.** Method-count check added to `make lint-drift`. R21 falsification test added to `make test-gates`. Agent_task methods already forwarded on origin/main (PR #30). **Falsify:** `make test-gates` K17 block passes.
 
+## IMMEDIATE ACTIONS (Unblock Hermes)
+
+- [ ] **Pause nightshift Dog evals.** Document as temporary band-aid (T6D debt). Comment in `~/bin/schedule-nightshift-eval` or systemd timer: "GPU reserved for Hermes 2026-04-26 through 2026-05-11. Post-hackathon: coordinate via Soma."
+- [ ] **Set `--parallel 2` on llama-server.** Update cynic-gpu systemd service or `CynicLlamaServer` schtask: `llama-server --parallel 2 ...`. Verify with `curl -s localhost:8080/health | jq '.status'` returns 200.
+- [ ] **Verify Hermes crons complete without MCP timeout.** Monitor for 2-4h after changes. If crons produce observations (non-null), contention resolved. If still null, root cause is NOT GPU.
+
 ## DEBT (fix when touching adjacent code)
 
+- [ ] **T6D: Soma orchestrator (deferred post-hackathon).** Budget=60h. Mandatory for multi-cortex, scale >1 organ, resource awareness. Temporary band-aids active 2026-04-26→2026-05-11: nightshift paused, --parallel 2 explicit. Design doc: `memory/project_orchestration_fractal.md` (fractal pattern + 4 levers). Root cause: GPU/kernel/DB/task layers all have single-point-of-failure (shared resource + no arbiter).
+- [ ] **Kernel monolith → composable.** MCP spawns full kernel per client. Nightshift not pausable. No resource awareness. Root blocker for multi-cortex + Soma. **Falsify:** MCP-to-REST proxy replaces MCP subprocess model.
+- [ ] **Nightshift rework.** Poorly designed, runs every 4h with no awareness of GPU contention or organism state. Should check resource availability before dispatching Dog evals.
+- [ ] **MCP poison input hardening.** Small models (9B) produce null/invalid tool args. Every MCP handler must validate defensively. **Falsify:** send garbage args to all 22 MCP tools → all return error, none crash.
 - [ ] NaN filter in judge/math.rs (trimmed_mean lets NaN through)
 - [ ] Two TokenData structs (enrichment.rs vs stimulus.rs)
 - [ ] LUKS full-disk encryption on cynic-core (KC1)
