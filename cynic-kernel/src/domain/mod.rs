@@ -20,3 +20,4 @@ pub mod summarization;
 pub mod usage;
 pub mod verdict_cache;
 pub mod wallet_enrichment;
+pub mod wallet_judgment;

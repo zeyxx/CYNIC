@@ -514,155 +514,160 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
-    // ─── Background tasks (universal — run in BOTH MCP and REST modes) ──
-    // These MUST be spawned before the MCP/REST branch.
-
-    // Coordination expiry (every 60s)
-    infra::tasks::spawn_coord_expiry(
-        Arc::clone(&coord),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!("[Ring 2] Coordination expiry task started (every 60s)");
-
-    // Usage + organ stats flush (every 60s)
-    // Always spawned — ReconnectableStorage handles NullStorage gracefully.
-    // If storage reconnects mid-flight, flush starts persisting automatically.
-    infra::tasks::spawn_usage_flush_with_organ(
-        Arc::clone(&storage_port),
-        Arc::clone(&usage_tracker),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-        Some(Arc::clone(&organ)),
-    );
-    klog!("[Ring 2] Usage + organ stats flush task started (every 60s, TTL cleanup every 1h)");
-
-    // ─── RING 2: Session summarizer (sovereign inference, background) ──
-    if let Ok(summarizer) = build_summarizer(summarizer_backend_cfg.as_ref()) {
-        infra::tasks::spawn_session_summarizer(
-            Arc::clone(&storage_port),
-            summarizer,
+    // ─── Background tasks (REST-only — MCP is a thin tool-dispatch layer) ──
+    // MCP mode skips all background tasks: the REST kernel already runs them.
+    // Spawning duplicates causes SurrealDB contention, double nightshifts,
+    // and 60s+ MCP startup delay that kills Hermes sessions.
+    if !mcp_mode {
+        // Coordination expiry (every 60s)
+        infra::tasks::spawn_coord_expiry(
+            Arc::clone(&coord),
             Arc::clone(&task_health),
             shutdown.clone(),
         );
+        klog!("[Ring 2] Coordination expiry task started (every 60s)");
+
+        // Usage + organ stats flush (every 60s)
+        // Always spawned — ReconnectableStorage handles NullStorage gracefully.
+        // If storage reconnects mid-flight, flush starts persisting automatically.
+        infra::tasks::spawn_usage_flush_with_organ(
+            Arc::clone(&storage_port),
+            Arc::clone(&usage_tracker),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+            Some(Arc::clone(&organ)),
+        );
+        klog!("[Ring 2] Usage + organ stats flush task started (every 60s, TTL cleanup every 1h)");
+
+        // ─── RING 2: Session summarizer (sovereign inference, background) ──
+        if let Ok(summarizer) = build_summarizer(summarizer_backend_cfg.as_ref()) {
+            infra::tasks::spawn_session_summarizer(
+                Arc::clone(&storage_port),
+                summarizer,
+                Arc::clone(&task_health),
+                shutdown.clone(),
+            );
+        } else {
+            klog!("[Ring 2] Session summarizer DISABLED — HTTP client init failed");
+        }
+
+        // ─── One-shot: backfill crystal embeddings (orphan defragmentation) ──
+        // Always spawned — on NullStorage the query returns empty (no-op).
+        // After reconnect, backfill runs against the live DB.
+        infra::tasks::spawn_backfill(
+            Arc::clone(&storage_port),
+            Arc::clone(&embedding),
+            Arc::clone(&metrics),
+            Arc::clone(&task_health),
+            event_tx.clone(),
+            shutdown.clone(),
+        );
+
+        // ─── Introspection loop (MAPE-K Analyze, every 5 min) ──
+        infra::tasks::spawn_introspection(
+            Arc::clone(&storage_port),
+            Arc::clone(&metrics),
+            Arc::clone(&environment),
+            Arc::clone(&rest_state.introspection_alerts),
+            event_tx.clone(),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+
+        // ─── State log (hash-chained organism state, every 5min) ────
+        infra::tasks::spawn_state_log(
+            Arc::clone(&rest_state),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+
+        // ─── Event consumer + K15 alerting (ContractDelta → Slack) ────
+        let slack = SlackAlerter::from_env();
+        if slack.is_some() {
+            klog!("[Ring 2] Slack alerter initialized (CYNIC_SLACK_WEBHOOK set)");
+        } else {
+            klog!("[Ring 2] Slack alerter disabled (CYNIC_SLACK_WEBHOOK not set)");
+        }
+        infra::tasks::spawn_event_consumer(
+            &event_tx,
+            Arc::clone(&rest_state),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+            slack,
+        );
+
+        // ─── Storage reconnect (K15: detection → action) ──
+        // Ephemeral task — exits once storage is connected. No TaskHealth tracking
+        // needed: effect is observable through storage status in /health.
+        infra::tasks::spawn_storage_reconnect(
+            Arc::clone(&reconnector),
+            event_tx.clone(),
+            shutdown.clone(),
+        );
+
+        infra::tasks::spawn_probe_scheduler(
+            probes,
+            Arc::clone(&storage_port),
+            Arc::clone(&environment),
+            Arc::clone(&organ),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!(
+            "[Ring 2] Probe scheduler started (resource+process+pressure+network+fleet: 30s, backup: 1h)"
+        );
+
+        infra::tasks::spawn_dog_ttl_checker(
+            Arc::clone(&rest_state),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Dog TTL checker started (every 30s)");
+
+        infra::tasks::spawn_dog_heartbeat_loop(
+            Arc::clone(&rest_state),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Dog heartbeat loop started (every 40s, K15 consumer)");
+
+        infra::tasks::spawn_discovery_loop(
+            Arc::clone(&rest_state),
+            fleet_meta,
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
+
+        // ─── Crystal immune system (re-judge oldest crystals, dissolve if degraded) ──
+        infra::tasks::spawn_crystal_challenge_loop(
+            rest_state.judge.load_full(),
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Crystal challenge loop started (every 5min, immune system)");
+
+        // ─── Nightshift: autonomous dev judgment (every 4h) ───────
+        let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
+            rest_state.judge.load_full(),
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+            project_root.display().to_string(),
+        );
+        klog!(
+            "[Ring 3] Nightshift loop started (every 4h, git lookback {})",
+            crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
+        );
     } else {
-        klog!("[Ring 2] Session summarizer DISABLED — HTTP client init failed");
+        klog!("[Ring 2] MCP mode — background tasks SKIPPED (REST kernel handles them)");
     }
-
-    // ─── One-shot: backfill crystal embeddings (orphan defragmentation) ──
-    // Always spawned — on NullStorage the query returns empty (no-op).
-    // After reconnect, backfill runs against the live DB.
-    infra::tasks::spawn_backfill(
-        Arc::clone(&storage_port),
-        Arc::clone(&embedding),
-        Arc::clone(&metrics),
-        Arc::clone(&task_health),
-        event_tx.clone(),
-        shutdown.clone(),
-    );
-
-    // ─── Introspection loop (MAPE-K Analyze, every 5 min) ──
-    infra::tasks::spawn_introspection(
-        Arc::clone(&storage_port),
-        Arc::clone(&metrics),
-        Arc::clone(&environment),
-        Arc::clone(&rest_state.introspection_alerts),
-        event_tx.clone(),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-
-    // ─── State log (hash-chained organism state, every 5min) ────
-    infra::tasks::spawn_state_log(
-        Arc::clone(&rest_state),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-
-    // ─── Event consumer + K15 alerting (ContractDelta → Slack) ────
-    let slack = SlackAlerter::from_env();
-    if slack.is_some() {
-        klog!("[Ring 2] Slack alerter initialized (CYNIC_SLACK_WEBHOOK set)");
-    } else {
-        klog!("[Ring 2] Slack alerter disabled (CYNIC_SLACK_WEBHOOK not set)");
-    }
-    infra::tasks::spawn_event_consumer(
-        &event_tx,
-        Arc::clone(&rest_state),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-        slack,
-    );
-
-    // ─── Storage reconnect (K15: detection → action) ──
-    // Ephemeral task — exits once storage is connected. No TaskHealth tracking
-    // needed: effect is observable through storage status in /health.
-    infra::tasks::spawn_storage_reconnect(
-        Arc::clone(&reconnector),
-        event_tx.clone(),
-        shutdown.clone(),
-    );
-
-    infra::tasks::spawn_probe_scheduler(
-        probes,
-        Arc::clone(&storage_port),
-        Arc::clone(&environment),
-        Arc::clone(&organ),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!(
-        "[Ring 2] Probe scheduler started (resource+process+pressure+network+fleet: 30s, backup: 1h)"
-    );
-
-    infra::tasks::spawn_dog_ttl_checker(
-        Arc::clone(&rest_state),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!("[Ring 2] Dog TTL checker started (every 30s)");
-
-    infra::tasks::spawn_dog_heartbeat_loop(
-        Arc::clone(&rest_state),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!("[Ring 2] Dog heartbeat loop started (every 40s, K15 consumer)");
-
-    infra::tasks::spawn_discovery_loop(
-        Arc::clone(&rest_state),
-        fleet_meta,
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
-
-    // ─── Crystal immune system (re-judge oldest crystals, dissolve if degraded) ──
-    infra::tasks::spawn_crystal_challenge_loop(
-        rest_state.judge.load_full(),
-        Arc::clone(&storage_port),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-    );
-    klog!("[Ring 2] Crystal challenge loop started (every 5min, immune system)");
-
-    // ─── Nightshift: autonomous dev judgment (every 4h) ───────
-    let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
-        rest_state.judge.load_full(),
-        Arc::clone(&storage_port),
-        Arc::clone(&task_health),
-        shutdown.clone(),
-        project_root.display().to_string(),
-    );
-    klog!(
-        "[Ring 3] Nightshift loop started (every 4h, git lookback {})",
-        crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
-    );
 
     // ─── RING 3: MCP Server (for AI agents via stdio) ────────
     if mcp_mode {
         use rmcp::ServiceExt;
-        tracing::info!("MCP mode — serving over stdio (background tasks active)");
+        tracing::info!("MCP mode — serving over stdio (tool dispatch only)");
         let mcp_infer: Arc<dyn domain::inference::InferPort> = match build_summarizer(
             summarizer_backend_cfg.as_ref(),
         ) {
