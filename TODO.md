@@ -11,13 +11,13 @@ Last updated: 2026-04-26 21:45 | Crystallization done: orchestration fractal ide
 - [x] **submit_verdict on-chain.** `scripts/submit-verdict.ts` ships. Community PDA `8DVUKmJa…` hardcoded. Devnet tx claimed but no committed proof artifact.
 - [x] **Rust 1.95.0 upgrade.** Active (`rustc 1.95.0`). LLVM SROA bug from 1.94.1 resolved.
 - [ ] **Deterministic-dog forced consensus fix.** Claimed in d0dd481 (squash-merged, hash gone). No test asserts absence of forced consensus. Untraceable. **Falsify:** regression test + `git log -p -S "forced_consensus"` identifies original code.
-- [x] **Wallet-judgment Dogs (deterministic).** Implemented in cynic-kernel/src/domain/wallet_judgment/mod.rs. All 8 tests passing. Algorithm: strict age ceiling (<3 days: 0.30), age-based BURN, variance-coupled PHI, tier CULTURE. Next: pipeline integration + real wallet validation.
+- [x] **Wallet-judgment Dogs (deterministic).** Implemented in cynic-kernel/src/domain/wallet_judgment/mod.rs. 8 domain tests passing. Pipeline wired (fast-path in run() + 3 integration tests). API documented. Dog score: deterministic, 0ms latency, no LLM. **Pending:** real wallet validation test corpus (S. J6-7 integration + live game history data).
 - [x] **Holder concentration in Helius enrichment.** Added getTokenLargestAccounts to HeliusEnricher. Compute HHI, top1_pct, top10_pct. Dogs now receive holder distribution signals.
-- [ ] **Submission queue + auto-anchor.** Queue verdicts ≥ 0.618. Background task every 5min submits batches to Pinocchio. Status: pending/submitted/confirmed.
+- [x] **Submission queue + auto-anchor (Task #6).** QueuedVerdict extended with axiom scores + dog_count + verdict_type. Background task spawned every 5min. Status: pending/submitted/confirmed/failed. 534 tests passing. MVP: mock Helius signature for pipeline validation. **Pending production (Task #7):** load keypairs, real Solana tx building, onchain observability metrics.
 - [ ] **Onchain observability.** /health metrics: verdicts_queued, verdicts_anchored, verdicts_failed. Structured logging for Helius latency, submission status.
 - [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: description longue, video demo (3min), GitHub link, deployed URL. Deadline: May 10 23:59 PDT. Note: 123-line skeleton was never committed — only 60-line draft exists.
 - [ ] **Video demo.** **Falsify:** 2-3 min narration + kernel logs visible, q_score + dog_scores visible.
-- [ ] **Vercel UI → kernel API path.** Cloudflare tunnel dead. VITE_API_BASE may point to defunct URL. **Falsify:** browser console shows /judge returning 200.
+- [ ] **Vercel UI → kernel API path.** Cloudflare tunnel status unknown. VITE_API_BASE may point to defunct URL. **Falsify:** probe from browser console: `fetch('/judge', {method: 'POST', headers: {'Authorization': 'Bearer ...'}, body: JSON.stringify({content: 'test'})}).then(r => r.json()).then(console.log)` returns 200 + verdict_id.
 
 ## HERMES X ORGAN
 
@@ -35,9 +35,9 @@ Last updated: 2026-04-26 21:45 | Crystallization done: orchestration fractal ide
 
 ## IMMEDIATE ACTIONS (Unblock Hermes)
 
-- [ ] **Pause nightshift Dog evals.** Document as temporary band-aid (T6D debt). Comment in `~/bin/schedule-nightshift-eval` or systemd timer: "GPU reserved for Hermes 2026-04-26 through 2026-05-11. Post-hackathon: coordinate via Soma."
-- [ ] **Set `--parallel 2` on llama-server.** Update cynic-gpu systemd service or `CynicLlamaServer` schtask: `llama-server --parallel 2 ...`. Verify with `curl -s localhost:8080/health | jq '.status'` returns 200.
-- [ ] **Verify Hermes crons complete without MCP timeout.** Monitor for 2-4h after changes. If crons produce observations (non-null), contention resolved. If still null, root cause is NOT GPU.
+- [ ] **Pause nightshift Dog evals (band-aid, T6D debt).** Comment in main.rs:652 marks as paused. GPU reserved for Hermes 2026-04-26→2026-05-11. Verify: `grep -n "spawn_nightshift" src/main.rs` shows commented.
+- [x] **GPU already at --parallel 2.** llama-server.env already configured. No change needed.
+- [ ] **Verify Hermes crons produce observations.** Monitor for 2-4h after deployment. **Falsify:** hermes cron list shows 2 active jobs ✓; check `~/.cynic/organs/hermes/x/dataset_age_secs` — if decreasing, crons are running.
 
 ## DEBT (fix when touching adjacent code)
 
