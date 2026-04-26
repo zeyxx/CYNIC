@@ -313,6 +313,11 @@ impl StoragePort for ReconnectableStorage {
     async fn mark_agent_task_processing(&self, task_id: &str) -> Result<(), StorageError> {
         self.current().mark_agent_task_processing(task_id).await
     }
+    async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError> {
+        let (p, s, c, f) = self.current().queue_status_counts().await?;
+        // Cast u64 to u32 for health endpoint compatibility (shouldn't overflow in practice)
+        Ok((p as u32, s as u32, c as u32, f as u32))
+    }
 }
 
 // ── ReconnectableCoord ──────────────────────────────────────
