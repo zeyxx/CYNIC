@@ -110,6 +110,14 @@ pub trait StoragePort: Send + Sync {
         Ok(vec![])
     }
 
+    /// Last observation timestamp per agent_id — used by state_log for organ liveness.
+    /// Returns Vec<(agent_id, last_created_at, observation_count)>.
+    async fn last_observation_per_source(
+        &self,
+    ) -> Result<Vec<(String, String, u64)>, StorageError> {
+        Ok(vec![])
+    }
+
     /// Store a pre-computed embedding vector for a crystal.
     /// Enables semantic retrieval via search_crystals_semantic.
     async fn store_crystal_embedding(

@@ -170,6 +170,24 @@ pub async fn analyze(
                     severity: "warning",
                 });
             }
+            // Organ silence: any source silent > 1 hour
+            for organ in &curr.organs {
+                if organ.silence_secs > 3600 {
+                    let hours = organ.silence_secs / 3600;
+                    alerts.push(Alert {
+                        kind: "organ_silence",
+                        message: format!(
+                            "Organ '{}' silent for {}h (last obs: {}, total: {})",
+                            organ.source, hours, organ.last_observation, organ.total_observations,
+                        ),
+                        severity: if organ.silence_secs > 86400 {
+                            "critical"
+                        } else {
+                            "warning"
+                        },
+                    });
+                }
+            }
         }
         Ok(_) => {} // < 2 blocks, skip trend detection
         Err(e) => {

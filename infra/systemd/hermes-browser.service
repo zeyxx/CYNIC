@@ -1,0 +1,22 @@
+[Unit]
+Description=CYNIC Hermes browser — Chrome with proxy + CDP for passive capture and agent control
+After=hermes-proxy.service
+Wants=hermes-proxy.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/cynic/env
+Environment=CHROME_BIN=/usr/bin/google-chrome
+Environment=HERMES_CDP_PORT=40769
+Environment=HERMES_PROXY_PORT=8888
+Environment=DISPLAY=:0
+ExecStart=%h/Bureau/CYNIC/scripts/hermes-x/launch-browser.sh
+Restart=on-failure
+RestartSec=30
+# Chrome can be slow to exit
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target

@@ -43,6 +43,16 @@ pub struct ResourceSnapshot {
     pub uptime_secs: u64,
 }
 
+/// Organ/agent liveness at snapshot time.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrganSnapshot {
+    pub source: String,
+    pub last_observation: String,
+    pub total_observations: u64,
+    /// Seconds since last observation. >3600 = likely dead.
+    pub silence_secs: u64,
+}
+
 /// Full organism state snapshot — one block in the chain.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateBlock {
@@ -52,6 +62,8 @@ pub struct StateBlock {
     pub dogs: Vec<DogSnapshot>,
     pub system: SystemSnapshot,
     pub resource: ResourceSnapshot,
+    #[serde(default)]
+    pub organs: Vec<OrganSnapshot>,
     pub hash: String,
 }
 
@@ -66,6 +78,7 @@ impl StateBlock {
         dogs: Vec<DogSnapshot>,
         system: SystemSnapshot,
         resource: ResourceSnapshot,
+        organs: Vec<OrganSnapshot>,
     ) -> Self {
         let timestamp = chrono::Utc::now().to_rfc3339();
         let mut block = Self {
@@ -75,6 +88,7 @@ impl StateBlock {
             dogs,
             system,
             resource,
+            organs,
             hash: String::new(),
         };
         block.hash = block.compute_hash();
@@ -90,6 +104,7 @@ impl StateBlock {
             "dogs": self.dogs,
             "system": self.system,
             "resource": self.resource,
+            "organs": self.organs,
         });
         let mut hasher = Sha256::new();
         hasher.update(self.prev_hash.as_bytes());
@@ -135,6 +150,7 @@ mod tests {
                 disk_avail_gb: 70.0,
                 uptime_secs: 3600,
             },
+            vec![],
         )
     }
 
@@ -180,6 +196,7 @@ mod tests {
             }],
             b1.system.clone(),
             b1.resource.clone(),
+            vec![],
         );
         assert_ne!(b1.hash, b2.hash);
     }

@@ -260,6 +260,11 @@ impl StoragePort for ReconnectableStorage {
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
         self.current().consolidate_duplicate_crystals().await
     }
+    async fn last_observation_per_source(
+        &self,
+    ) -> Result<Vec<(String, String, u64)>, StorageError> {
+        self.current().last_observation_per_source().await
+    }
 
     // ── State Log ──────────────────────────────────
     async fn store_state_block(

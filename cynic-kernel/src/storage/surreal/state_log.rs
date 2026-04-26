@@ -8,6 +8,8 @@ pub(super) async fn store_state_block(
 ) -> Result<(), StorageError> {
     let dogs_json = serde_json::to_string(&block.dogs)
         .map_err(|e| StorageError::QueryFailed(format!("serialize dogs: {e}")))?;
+    let organs_json = serde_json::to_string(&block.organs)
+        .map_err(|e| StorageError::QueryFailed(format!("serialize organs: {e}")))?;
 
     let sql = format!(
         "CREATE state_log SET \
@@ -15,6 +17,7 @@ pub(super) async fn store_state_block(
             timestamp = '{ts}', \
             prev_hash = '{prev}', \
             dogs = {dogs}, \
+            organs = {organs}, \
             system_status = '{sys_status}', \
             system_healthy_dogs = {sys_hd}, \
             system_total_dogs = {sys_td}, \
@@ -31,6 +34,7 @@ pub(super) async fn store_state_block(
         ts = escape_surreal(&block.timestamp),
         prev = escape_surreal(&block.prev_hash),
         dogs = dogs_json,
+        organs = organs_json,
         sys_status = escape_surreal(&block.system.status),
         sys_hd = block.system.healthy_dogs,
         sys_td = block.system.total_dogs,
@@ -93,7 +97,7 @@ pub(super) async fn list_state_blocks(
 }
 
 fn row_to_state_block(row: &serde_json::Value) -> Result<StateBlock, StorageError> {
-    use crate::domain::state_log::{DogSnapshot, ResourceSnapshot, SystemSnapshot};
+    use crate::domain::state_log::{DogSnapshot, OrganSnapshot, ResourceSnapshot, SystemSnapshot};
 
     let dogs: Vec<DogSnapshot> = row
         .get("dogs")
@@ -124,6 +128,15 @@ fn row_to_state_block(row: &serde_json::Value) -> Result<StateBlock, StorageErro
         uptime_secs: row["resource_uptime_secs"].as_u64().unwrap_or(0),
     };
 
+    let organs: Vec<OrganSnapshot> = row
+        .get("organs")
+        .and_then(|v| {
+            serde_json::from_value(v.clone())
+                .inspect_err(|e| tracing::debug!("state_log organs deserialize: {e}"))
+                .ok()
+        })
+        .unwrap_or_default();
+
     Ok(StateBlock {
         seq: row["seq"].as_u64().unwrap_or(0),
         timestamp: row["timestamp"].as_str().unwrap_or("").to_string(),
@@ -131,6 +144,7 @@ fn row_to_state_block(row: &serde_json::Value) -> Result<StateBlock, StorageErro
         dogs,
         system,
         resource,
+        organs,
         hash: row["hash"].as_str().unwrap_or("").to_string(),
     })
 }

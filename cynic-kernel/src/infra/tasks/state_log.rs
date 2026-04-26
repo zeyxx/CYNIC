@@ -12,7 +12,7 @@ use tokio_util::sync::CancellationToken;
 use crate::api::rest::AppState;
 use crate::domain::health_gate::count_healthy_dogs;
 use crate::domain::state_log::{
-    DogSnapshot, GENESIS_HASH, ResourceSnapshot, StateBlock, SystemSnapshot,
+    DogSnapshot, GENESIS_HASH, OrganSnapshot, ResourceSnapshot, StateBlock, SystemSnapshot,
 };
 use crate::infra::task_health::TaskHealth;
 
@@ -185,5 +185,47 @@ async fn capture_snapshot(state: &AppState, seq: u64, prev_hash: &str) -> StateB
         }
     };
 
-    StateBlock::new(seq, prev_hash.to_string(), dogs, system, resource)
+    // Organs — last observation per source (agent_id)
+    let organs = match tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        state.storage.last_observation_per_source(),
+    )
+    .await
+    {
+        Ok(Ok(sources)) => {
+            tracing::info!(
+                source_count = sources.len(),
+                "state_log: organ sources loaded"
+            );
+            let now_ts = chrono::Utc::now();
+            sources
+                .into_iter()
+                .map(|(source, last_at, total)| {
+                    let silence = chrono::DateTime::parse_from_rfc3339(&last_at)
+                        .map(|t| {
+                            (now_ts - t.with_timezone(&chrono::Utc))
+                                .num_seconds()
+                                .max(0) as u64
+                        })
+                        .unwrap_or(u64::MAX);
+                    OrganSnapshot {
+                        source,
+                        last_observation: last_at,
+                        total_observations: total,
+                        silence_secs: silence,
+                    }
+                })
+                .collect()
+        }
+        Ok(Err(e)) => {
+            tracing::warn!("state_log: organ query failed: {e}");
+            vec![]
+        }
+        Err(_) => {
+            tracing::warn!("state_log: organ query timed out (3s)");
+            vec![]
+        }
+    };
+
+    StateBlock::new(seq, prev_hash.to_string(), dogs, system, resource, organs)
 }

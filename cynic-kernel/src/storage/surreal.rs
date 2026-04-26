@@ -300,6 +300,12 @@ impl StoragePort for SurrealHttpStorage {
         activity::list_observations_raw(self, domain, agent_id, limit).await
     }
 
+    async fn last_observation_per_source(
+        &self,
+    ) -> Result<Vec<(String, String, u64)>, StorageError> {
+        activity::last_observation_per_source(self).await
+    }
+
     #[tracing::instrument(skip(self), err)]
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
         maintenance::consolidate_duplicate_crystals(self).await

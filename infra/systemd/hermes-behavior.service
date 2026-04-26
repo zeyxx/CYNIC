@@ -1,0 +1,15 @@
+[Unit]
+Description=CYNIC Hermes behavior logger — mouse/keyboard capture for ML training
+After=hermes-browser.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+ExecStart=%h/.cynic/organs/hermes/behavior/.venv/bin/python %h/Bureau/CYNIC/scripts/hermes-x/behavior_logger.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

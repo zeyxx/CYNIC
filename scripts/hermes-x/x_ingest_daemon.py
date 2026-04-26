@@ -40,6 +40,7 @@ ORGAN_NAME = "x-organ"
 DOMAIN = "social-signal"
 POLL_INTERVAL = 2.0
 BATCH_SIZE = 20
+HEARTBEAT_INTERVAL = 60.0  # seconds between heartbeat /observe posts
 
 
 def load_env():
@@ -147,6 +148,86 @@ def ingest_row(row: dict, organ_name: str = ORGAN_NAME) -> bool:
     return post_observe(row, organ_name)
 
 
+# ── Organ heartbeat ──
+
+_heartbeat_sent = 0
+_heartbeat_errors = 0
+
+
+def post_heartbeat(organ_name: str, dataset: Path) -> bool:
+    """POST organ heartbeat to /observe — tells the kernel this organ is alive."""
+    global _heartbeat_sent, _heartbeat_errors
+
+    # Check if dataset is growing (proxy is capturing)
+    try:
+        size = dataset.stat().st_size
+        mtime = dataset.stat().st_mtime
+        age_secs = time.time() - mtime
+        dataset_growing = age_secs < 300  # modified in last 5 min
+    except OSError:
+        size = 0
+        age_secs = -1
+        dataset_growing = False
+
+    # Check if proxy is listening
+    import socket
+    proxy_up = False
+    try:
+        with socket.create_connection(("127.0.0.1", 8888), timeout=1):
+            proxy_up = True
+    except (ConnectionRefusedError, OSError):
+        pass
+
+    # Check if Chrome CDP is responding
+    cdp_up = False
+    try:
+        resp = requests.get("http://127.0.0.1:40769/json/version", timeout=2)
+        cdp_up = resp.status_code == 200
+    except requests.RequestException:
+        pass
+
+    status = "ok"
+    if not proxy_up:
+        status = "critical"
+    elif not cdp_up:
+        status = "degraded"
+    elif not dataset_growing:
+        status = "degraded"
+
+    context = (
+        f"sent={_heartbeat_sent} errors={_heartbeat_errors} "
+        f"dataset_bytes={size} dataset_age_secs={int(age_secs)} "
+        f"dataset_growing={dataset_growing} "
+        f"proxy_up={proxy_up} cdp_up={cdp_up}"
+    )
+
+    payload = {
+        "tool": "heartbeat",
+        "target": organ_name,
+        "domain": "organ-health",
+        "status": status,
+        "context": context,
+        "tags": ["heartbeat", organ_name],
+        "agent_id": f"hermes-{organ_name}",
+    }
+
+    try:
+        resp = requests.post(
+            f"{_kernel_addr()}/observe",
+            json=payload,
+            headers=_headers(),
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            logger.debug("heartbeat: %s (%s)", status, context)
+            return True
+        logger.warning("heartbeat POST %d", resp.status_code)
+        return False
+    except requests.RequestException as e:
+        logger.warning("heartbeat failed: %s", e)
+        return False
+
+
 # ── State file for cursor persistence ──
 
 def load_cursor(state_path: Path) -> int:
@@ -183,9 +264,18 @@ def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, 
 
     logger.info("Tailing %s from offset %d (replay=%s)", dataset, offset, replay)
 
+    global _heartbeat_sent, _heartbeat_errors
     sent = 0
     errors = 0
+    last_heartbeat = 0.0
     while True:
+        # Organ heartbeat — self-diagnosis every 60s
+        now = time.time()
+        if not replay and now - last_heartbeat >= HEARTBEAT_INTERVAL:
+            _heartbeat_sent = sent
+            _heartbeat_errors = errors
+            post_heartbeat(organ_name, dataset)
+            last_heartbeat = now
         try:
             size = dataset.stat().st_size
         except OSError:
