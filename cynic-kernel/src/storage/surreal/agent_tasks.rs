@@ -87,7 +87,7 @@ pub(super) async fn get_agent_task(
     storage: &SurrealHttpStorage,
     task_id: &str,
 ) -> Result<Option<AgentTask>, StorageError> {
-    let query = format!("SELECT * FROM agent_tasks WHERE id = '{task_id}';");
+    let query = format!("SELECT * FROM agent_tasks WHERE id = {task_id};");
     let rows = storage.query_one(&query).await?;
     Ok(rows.first().and_then(row_to_agent_task))
 }
@@ -97,7 +97,7 @@ pub(super) async fn mark_agent_task_processing(
     storage: &SurrealHttpStorage,
     task_id: &str,
 ) -> Result<(), StorageError> {
-    let query = format!("UPDATE agent_tasks SET status = 'processing' WHERE id = '{task_id}';");
+    let query = format!("UPDATE agent_tasks SET status = 'processing' WHERE id = {task_id};");
     storage.query_one(&query).await?;
     Ok(())
 }
@@ -116,14 +116,14 @@ pub(super) async fn update_agent_task_result(
     };
     let now = chrono::Utc::now().to_rfc3339();
     let result_str = result
-        .map(|r| format!("'{r}'"))
+        .map(|r| format!("'{}'", crate::storage::escape_surreal(r)))
         .unwrap_or_else(|| "null".to_string());
     let error_str = error
-        .map(|e| format!("'{e}'"))
+        .map(|e| format!("'{}'", crate::storage::escape_surreal(e)))
         .unwrap_or_else(|| "null".to_string());
 
     let query = format!(
-        "UPDATE agent_tasks SET status = '{status}', result = {result_str}, error = {error_str}, completed_at = '{now}' WHERE id = '{task_id}';"
+        "UPDATE agent_tasks SET status = '{status}', result = {result_str}, error = {error_str}, completed_at = '{now}' WHERE id = {task_id};"
     );
     storage.query_one(&query).await?;
 

@@ -259,6 +259,25 @@ Token consumption and cost tracking.
 
 Query the MCP/REST audit trail. Query params: `limit` (default 50, max 100), `tool`, `agent_id`.
 
+### POST /agent-tasks
+
+Dispatch a task to the agent queue. Returns task_id.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `kind` | string (1-64) | yes | Task kind (e.g. "hermes", "nightshift") |
+| `domain` | string (1-64) | yes | Domain (e.g. "social-signal") |
+| `content` | string (1-10000) | yes | Task content/instructions |
+| `agent_id` | string | no | Dispatching agent ID |
+
+### GET /agent-tasks
+
+Poll pending tasks. Query params: `kind` (default "hermes"), `limit` (default 10).
+
+### POST /agent-tasks/{id}/result
+
+Complete a task with result or error. Body: `{ "result": "...", "error": "..." }`.
+
 ### GET /state-history
 
 Hash-chained organism state log. Returns state blocks ordered by sequence number.

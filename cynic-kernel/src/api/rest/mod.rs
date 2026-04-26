@@ -1,5 +1,6 @@
 //! REST API — JSON interface for external clients (React, curl, etc.)
 
+pub mod agent_tasks;
 pub mod coord;
 pub mod data;
 pub mod dogs;
@@ -113,6 +114,12 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/compliance", get(compliance_trend_handler))
         .route("/audit", get(audit_handler))
         .route("/state-history", get(state_history_handler))
+        .route("/agent-tasks", post(agent_tasks::dispatch_task_handler))
+        .route("/agent-tasks", get(agent_tasks::list_tasks_handler))
+        .route(
+            "/agent-tasks/{id}/result",
+            post(agent_tasks::complete_task_handler),
+        )
         .route("/observe", post(observe_handler))
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))
