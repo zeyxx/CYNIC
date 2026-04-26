@@ -170,8 +170,21 @@ pub async fn analyze(
                     severity: "warning",
                 });
             }
-            // Organ silence: any source silent > 1 hour
+            // Organ silence: only permanent sources should trigger alerts.
+            // Convention: agent_type "organ" or "service" = permanent.
+            // Fallback: prefix-match for sources that predate the convention.
+            let is_permanent_source = |s: &str| -> bool {
+                s.starts_with("hermes")
+                    || s.starts_with("x-")
+                    || s == "kernel"
+                    || s == "nightshift"
+                    || s == "watchlist"
+                    || s.starts_with("organ-")
+            };
             for organ in &curr.organs {
+                if !is_permanent_source(&organ.source) {
+                    continue;
+                }
                 if organ.silence_secs > 3600 {
                     let hours = organ.silence_secs / 3600;
                     alerts.push(Alert {

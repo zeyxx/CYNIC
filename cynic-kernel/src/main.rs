@@ -720,6 +720,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|_| domain::constants::DEFAULT_REST_ADDR.to_string());
     klog!("[Ring 3] REST API on http://{}", rest_addr);
 
+    // Kernel self-observation: boot event
+    {
+        let storage = Arc::clone(&storage_port);
+        let obs = domain::storage::Observation {
+            project: "CYNIC".into(),
+            agent_id: "kernel".into(),
+            tool: "boot".into(),
+            target: "self".into(),
+            domain: "kernel-lifecycle".into(),
+            status: "event".into(),
+            context: format!(
+                "version={} dogs={}",
+                env!("CARGO_PKG_VERSION"),
+                rest_state.judge.load_full().dog_ids().len()
+            ),
+            session_id: String::new(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            tags: vec!["kernel-self-obs".into()],
+        };
+        let _ = storage.store_observation(&obs).await;
+    }
+
     // Rate limiter eviction (REST delivery concern — lives here, not in infra/tasks.rs)
     {
         let rs = Arc::clone(&rest_state);
