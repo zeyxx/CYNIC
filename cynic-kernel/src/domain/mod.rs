@@ -13,6 +13,7 @@ pub mod inference;
 pub mod metrics;
 pub mod probe;
 pub mod sanitize;
+pub mod state_log;
 pub mod stimulus;
 pub mod storage;
 pub mod summarization;

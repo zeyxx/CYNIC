@@ -102,7 +102,7 @@ pub fn spawn_health_loop(
                         if *ok {
                             cb.record_success();
                         } else {
-                            cb.record_failure();
+                            cb.record_failure(crate::domain::health_gate::FailureReason::HealthProbe);
                             failure_count += 1;
                             klog!(
                                 "[health_loop] Dog '{}' probe failed ({})",

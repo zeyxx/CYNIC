@@ -260,6 +260,26 @@ impl StoragePort for ReconnectableStorage {
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
         self.current().consolidate_duplicate_crystals().await
     }
+
+    // ── State Log ──────────────────────────────────
+    async fn store_state_block(
+        &self,
+        block: &crate::domain::state_log::StateBlock,
+    ) -> Result<(), StorageError> {
+        self.current().store_state_block(block).await
+    }
+    async fn last_state_block(
+        &self,
+    ) -> Result<Option<crate::domain::state_log::StateBlock>, StorageError> {
+        self.current().last_state_block().await
+    }
+    async fn list_state_blocks(
+        &self,
+        since: &str,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
+        self.current().list_state_blocks(since, limit).await
+    }
 }
 
 // ── ReconnectableCoord ──────────────────────────────────────

@@ -9,7 +9,7 @@ pub use math::verify_verdict_integrity;
 pub use types::{DogFailure, DogFailureKind, JudgeError};
 
 use crate::domain::dog::{estimate_tokens, *};
-use crate::domain::health_gate::HealthGate;
+use crate::domain::health_gate::{FailureReason, HealthGate};
 use crate::domain::metrics::Metrics;
 use crate::organ::health::{DogStats, ScoreFailureKind};
 use crate::organ::{BackendHandle, InferenceOrgan, ScoreOutcome};
@@ -162,6 +162,32 @@ impl Judge {
                     cb.state()
                 };
                 (dog.id().to_string(), state, cb.consecutive_failures())
+            })
+            .collect()
+    }
+
+    /// Extended health snapshot including failure reason and open duration.
+    pub fn dog_health_detailed(
+        &self,
+    ) -> Vec<(String, String, u32, Option<FailureReason>, Option<u64>)> {
+        self.dogs
+            .iter()
+            .zip(self.breakers.iter())
+            .map(|(dog, cb)| {
+                let state = if cb.is_open() {
+                    "critical".to_string()
+                } else {
+                    cb.state()
+                };
+                let reason = cb.last_failure_reason();
+                let open_secs = cb.opened_since().map(|d| d.as_secs());
+                (
+                    dog.id().to_string(),
+                    state,
+                    cb.consecutive_failures(),
+                    reason,
+                    open_secs,
+                )
             })
             .collect()
     }
@@ -372,14 +398,28 @@ impl Judge {
             }
             Err(e) => {
                 match &e {
-                    DogError::ApiError(_)
-                    | DogError::ParseError(_)
-                    | DogError::ZeroFlood(_)
-                    | DogError::DegenerateScores { .. } => cb.record_failure(),
+                    DogError::ApiError(msg) => {
+                        // Detect quota exhaustion from error message (gemini-cli, HF, etc.)
+                        let reason = if msg.to_lowercase().contains("quota")
+                            || msg.to_lowercase().contains("exhausted")
+                            || msg.to_lowercase().contains("rate limit")
+                        {
+                            FailureReason::QuotaExhausted
+                        } else {
+                            FailureReason::ApiError
+                        };
+                        cb.record_failure(reason);
+                    }
+                    DogError::ParseError(_) => cb.record_failure(FailureReason::ParseError),
+                    DogError::ZeroFlood(_) | DogError::DegenerateScores { .. } => {
+                        cb.record_failure(FailureReason::ScoreQuality)
+                    }
+                    DogError::Timeout => cb.record_failure(FailureReason::Timeout),
                     // ContextOverflow is a pre-condition, not a quality signal —
                     // don't penalize the Dog's circuit breaker.
                     DogError::ContextOverflow { .. } => {}
-                    _ => cb.record_success(),
+                    // RateLimited = backend healthy but busy — don't open circuit.
+                    DogError::RateLimited(_) => cb.record_success(),
                 }
                 if let Some(h) = organ_handle {
                     let outcome = match &e {
@@ -500,7 +540,7 @@ impl Judge {
                     if let Some(cb) = &on_dog {
                         cb(&id, false, elapsed_ms, None, Some(failure.detail.clone()));
                     }
-                    failed_dog_errors.insert(id.clone(), failure.kind.as_str().to_string());
+                    failed_dog_errors.insert(id.clone(), failure.detail.clone());
                     failed_dogs.push(id.clone());
                     failures.push(failure);
                     // Don't exit on failure — keep waiting for more Dogs to reach quorum

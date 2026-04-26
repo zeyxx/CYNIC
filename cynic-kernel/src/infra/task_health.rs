@@ -146,6 +146,13 @@ const NIGHTSHIFT: TaskContract = TaskContract {
     consumer: "dev crystal formation",
     failure_effect: "autonomous dev judgment stops, no new dev crystals form overnight",
 };
+const STATE_LOG: TaskContract = TaskContract {
+    name: "state_log",
+    expected_interval: 120, // 60s interval + 60s grace
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "organism state history",
+    failure_effect: "historical state chain stops growing, trend detection blind",
+};
 
 fn task_contract(name: &str) -> TaskContract {
     match name {
@@ -164,6 +171,7 @@ fn task_contract(name: &str) -> TaskContract {
         "discovery" => DISCOVERY,
         "crystal_challenge" => CRYSTAL_CHALLENGE,
         "nightshift" => NIGHTSHIFT,
+        "state_log" => STATE_LOG,
         other => panic!("task contract missing for '{other}'"),
     }
 }
@@ -194,6 +202,7 @@ pub struct TaskHealth {
     discovery: AtomicU64,
     crystal_challenge: AtomicU64,
     nightshift: AtomicU64,
+    state_log: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -223,6 +232,7 @@ impl TaskHealth {
             discovery: AtomicU64::new(0),
             crystal_challenge: AtomicU64::new(0),
             nightshift: AtomicU64::new(0),
+            state_log: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -279,6 +289,9 @@ impl TaskHealth {
     }
     pub fn touch_nightshift(&self) {
         self.nightshift.store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_state_log(&self) {
+        self.state_log.store(Self::now_secs(), Ordering::Relaxed);
     }
 
     /// Summarizer: HONEST touch with detail about what actually happened.
@@ -423,6 +436,7 @@ impl TaskHealth {
                 now,
                 None,
             ),
+            TaskSnapshot::new(STATE_LOG, self.state_log.load(Ordering::Relaxed), now, None),
         ]
     }
 }

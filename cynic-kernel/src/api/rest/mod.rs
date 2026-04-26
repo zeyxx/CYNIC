@@ -36,6 +36,7 @@ use self::data::{
 use self::dogs::{deregister_handler, dogs_handler, heartbeat_handler, register_dog_handler};
 use self::health::{
     agents_handler, health_handler, liveness_handler, metrics_handler, readiness_handler,
+    state_history_handler,
 };
 use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
 use self::judge_job::{judge_async_handler, judge_status_handler};
@@ -111,6 +112,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/session/{agent_id}/compliance", get(compliance_handler))
         .route("/compliance", get(compliance_trend_handler))
         .route("/audit", get(audit_handler))
+        .route("/state-history", get(state_history_handler))
         .route("/observe", post(observe_handler))
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))

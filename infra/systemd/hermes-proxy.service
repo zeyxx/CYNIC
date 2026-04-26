@@ -1,6 +1,8 @@
 [Unit]
 Description=CYNIC Hermes proxy — passive X/Twitter capture (mitmdump)
 After=cynic-kernel.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -19,8 +21,6 @@ ExecStart=%h/.local/bin/mitmdump \
     -q
 Restart=on-failure
 RestartSec=10
-StartLimitIntervalSec=300
-StartLimitBurst=5
 
 [Install]
 WantedBy=default.target

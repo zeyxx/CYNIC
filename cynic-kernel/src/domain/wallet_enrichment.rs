@@ -123,8 +123,7 @@ impl WalletEnrichmentBuilder {
             .collect();
         let unique_openings: std::collections::HashSet<String> =
             all_openings.iter().cloned().collect();
-        let opening_repertoire_hash =
-            format!("0x{:x}", std::collections::hash_map::DefaultHasher::new()); // Placeholder; real implementation would hash
+        let opening_repertoire_hash = "0x0000".to_string(); // Placeholder; real implementation would hash
 
         // Opening frequency (top 3)
         let mut opening_freq: std::collections::HashMap<String, usize> =
@@ -139,7 +138,7 @@ impl WalletEnrichmentBuilder {
             .take(3)
             .map(|(o, c)| {
                 let pct = if unique_openings.len() > 0 {
-                    ((c * 100) / unique_openings.len())
+                    (c * 100) / unique_openings.len()
                 } else {
                     0
                 };
@@ -148,8 +147,7 @@ impl WalletEnrichmentBuilder {
             .collect();
 
         // Move sequence hashes (placeholder)
-        let move_sequence_hash =
-            format!("0x{:x}", std::collections::hash_map::DefaultHasher::new()); // Placeholder
+        let move_sequence_hash = "0x0000".to_string(); // Placeholder
 
         // Build formatted context
         format!(

@@ -572,6 +572,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         shutdown.clone(),
     );
 
+    // ─── State log (hash-chained organism state, every 5min) ────
+    infra::tasks::spawn_state_log(
+        Arc::clone(&rest_state),
+        Arc::clone(&task_health),
+        shutdown.clone(),
+    );
+
     // ─── Event consumer + K15 alerting (ContractDelta → Slack) ────
     let slack = SlackAlerter::from_env();
     if slack.is_some() {
