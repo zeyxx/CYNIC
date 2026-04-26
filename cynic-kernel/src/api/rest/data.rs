@@ -25,6 +25,13 @@ fn crystal_to_json(c: &Crystal) -> serde_json::Value {
         "state": c.state.to_string(),
         "created_at": c.created_at,
         "updated_at": c.updated_at,
+        "certainty": c.certainty,
+        "variance_m2": c.variance_m2,
+        "mean_quorum": c.mean_quorum,
+        "howl_count": c.howl_count,
+        "wag_count": c.wag_count,
+        "growl_count": c.growl_count,
+        "bark_count": c.bark_count,
     })
 }
 
@@ -360,6 +367,48 @@ pub async fn audit_handler(
 // WHY: test assertions — panics are acceptable and expected in test context
 mod tests {
     use super::*;
+
+    // ── crystal_to_json completeness ──────────────────────────
+
+    #[test]
+    fn crystal_to_json_includes_4d_fields() {
+        let c = Crystal {
+            id: "test-id".into(),
+            content: "test".into(),
+            domain: "chess".into(),
+            confidence: 0.5,
+            observations: 10,
+            state: ccm::CrystalState::Forming,
+            created_at: "2026-01-01".into(),
+            updated_at: "2026-01-02".into(),
+            contributing_verdicts: vec![],
+            certainty: 0.75,
+            variance_m2: 1.23,
+            mean_quorum: 3.5,
+            howl_count: 4,
+            wag_count: 3,
+            growl_count: 2,
+            bark_count: 1,
+        };
+        let json = crystal_to_json(&c);
+        let obj = json
+            .as_object()
+            .expect("crystal_to_json must return object");
+        assert_eq!(
+            obj.len(),
+            16,
+            "crystal_to_json must serialize all 16 Crystal fields"
+        );
+        assert_eq!(json["id"], "test-id");
+        assert_eq!(json["content"], "test");
+        assert_eq!(json["certainty"], 0.75);
+        assert_eq!(json["variance_m2"], 1.23);
+        assert_eq!(json["mean_quorum"], 3.5);
+        assert_eq!(json["howl_count"], 4);
+        assert_eq!(json["wag_count"], 3);
+        assert_eq!(json["growl_count"], 2);
+        assert_eq!(json["bark_count"], 1);
+    }
 
     // ── CrystalsQuery deserialization ──────────────────────────
 

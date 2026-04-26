@@ -1718,4 +1718,100 @@ mod roster_tests {
             verdict.dog_scores.len()
         );
     }
+
+    /// O5 falsification: verdict returns within timeout even when 2/5 dogs are slow.
+    /// Slow dogs sleep 30s. Fast dogs return instantly. Quorum = 3 fast dogs.
+    #[tokio::test]
+    async fn early_verdict_returns_before_slow_dogs() {
+        struct SlowDog {
+            name: String,
+            delay: std::time::Duration,
+            scores: AxiomScores,
+        }
+
+        #[async_trait::async_trait]
+        impl Dog for SlowDog {
+            fn id(&self) -> &str {
+                &self.name
+            }
+            async fn evaluate(&self, _: &Stimulus) -> Result<AxiomScores, DogError> {
+                tokio::time::sleep(self.delay).await;
+                Ok(self.scores.clone())
+            }
+        }
+
+        let fast_scores = AxiomScores {
+            fidelity: 0.5,
+            phi: 0.4,
+            verify: 0.3,
+            culture: 0.5,
+            burn: 0.4,
+            sovereignty: 0.3,
+            reasoning: AxiomReasoning::default(),
+            ..Default::default()
+        };
+
+        let dogs: Vec<Arc<dyn Dog>> = vec![
+            Arc::new(SlowDog {
+                name: "fast-a".into(),
+                delay: std::time::Duration::from_millis(0),
+                scores: fast_scores.clone(),
+            }),
+            Arc::new(SlowDog {
+                name: "fast-b".into(),
+                delay: std::time::Duration::from_millis(0),
+                scores: fast_scores.clone(),
+            }),
+            Arc::new(SlowDog {
+                name: "fast-c".into(),
+                delay: std::time::Duration::from_millis(0),
+                scores: fast_scores.clone(),
+            }),
+            Arc::new(SlowDog {
+                name: "slow-d".into(),
+                delay: std::time::Duration::from_secs(30),
+                scores: fast_scores.clone(),
+            }),
+            Arc::new(SlowDog {
+                name: "slow-e".into(),
+                delay: std::time::Duration::from_secs(30),
+                scores: fast_scores,
+            }),
+        ];
+
+        let breakers: Vec<Arc<dyn HealthGate>> = dogs
+            .iter()
+            .map(|d| {
+                Arc::new(crate::infra::circuit_breaker::CircuitBreaker::new(
+                    d.id().to_string(),
+                )) as Arc<dyn HealthGate>
+            })
+            .collect();
+
+        let judge = Judge::new(dogs, breakers);
+
+        let stimulus = Stimulus {
+            content: "test O5 timing".into(),
+            context: None,
+            domain: None,
+            request_id: None,
+        };
+
+        let start = std::time::Instant::now();
+        let verdict = judge
+            .evaluate(&stimulus, None, &Metrics::new())
+            .await
+            .unwrap();
+        let elapsed = start.elapsed();
+
+        assert!(
+            elapsed < std::time::Duration::from_secs(5),
+            "O5 FAIL: verdict took {elapsed:?}, expected < 5s (slow dogs should not block quorum)"
+        );
+        assert!(
+            verdict.dog_scores.len() >= 3,
+            "expected at least quorum (3) scores, got {}",
+            verdict.dog_scores.len()
+        );
+    }
 }

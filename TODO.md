@@ -2,70 +2,39 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-25 19:10 | Organ X infra shipped: systemd, domain filter, enrichment, ingest, E2E verified (1703 tweets)
+Last updated: 2026-04-26 18:30 | Debt audit: 14 false closures found, Tier-1 fixed (F1 crystal_to_json, F3 wallet-judgment embed, gates added)
 
 ---
 
-## HACKATHON (freeze May 4, submission May 11)
+## HACKATHON (registration May 4, submission May 11)
 
-- [x] **submit_verdict on-chain.** `scripts/submit-verdict.ts` ships. Confirmed devnet: tx `3bToTTx…`, PDA `AYD9xNQ3…`, Status: Ok, 3401 CU, 6 axiom scores on-chain.
-- [x] **Rust 1.95.0 upgrade + deterministic-dog fix.** d0dd481: removed forced consensus inclusion (was causing false bias). Built successfully 2026-04-25 11:25. Kernel v0.7.7-218-gd0dd481 deployed. Kernel remains stable, all 5 Dogs operational (gemma timeout observed but not blocking), verdicts crystallizing at 10-15s latency.
-- [ ] **Wallet-judgment Dogs (deterministic).** Implement in cynic-kernel/src/domain/dog/ per pseudocode in cynic-kernel/domains/wallet-judgment-dogs.md. Gates: games≥5, replay_risk, suspicious_cluster. Register in Judge. Target: before May 1 (optional for J6-7, but unlocks CYNIC integration).
-- [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: description longue, video demo (3min), GitHub link, deployed URL. Deadline: May 10 23:59 PDT.
-- [x] **B&C integration analysis + wallet-judgment domain.** Decided: Option C (CYNIC validates wallet anti-Sybil). Created: wallet-judgment domain (6 axioms on gameplay behavior), Dogs prompts (deterministic + 4 LLM), enrichment utility (cynic_kernel::domain::wallet_enrichment), integration specs. B&C gates mint on: Ed25519 sig ✓ + games≥5 ✓ + CYNIC q_score≥φ⁻¹ (0.618). Fallback: B&C ships J6-7 with Ed25519+game gate, add CYNIC post-May 11.
-- [x] **Personality card stimulus + integration stub.** New builder: build_personality_card_stimulus(archetype, confidence, 6 signals). Tests: 7/7 passing. Integration doc added showing B&C flow: client sign → POST /mint-permit → CYNIC /judge → Dogs evaluate chess domain → HOWL/WAG/BARK. Waiting on S. for scope clarification (pre vs post mint, fallback behavior).
-- [ ] **Video demo.** Script ready at `/tmp/video-demo-script.md`. Scenes: (1) Token input (15s), (2) Dogs deliberate + axiom scoring (45s), (3) Crystal verdict (40s), (4) On-chain tx (30s stretch). Latencies confirmed: deterministic 0ms, qwen7b ~1.5s, qwen35-gpu ~8.8s. Use latest GROWL/BARK verdicts from `/verdicts` endpoint. **Falsify:** 2-3 min narration + kernel logs visible, q_score + dog_scores visible.
+- [x] **submit_verdict on-chain.** `scripts/submit-verdict.ts` ships. Community PDA `8DVUKmJa…` hardcoded. Devnet tx claimed but no committed proof artifact.
+- [x] **Rust 1.95.0 upgrade.** Active (`rustc 1.95.0`). LLVM SROA bug from 1.94.1 resolved.
+- [ ] **Deterministic-dog forced consensus fix.** Claimed in d0dd481 (squash-merged, hash gone). No test asserts absence of forced consensus. Untraceable. **Falsify:** regression test + `git log -p -S "forced_consensus"` identifies original code.
+- [ ] **Wallet-judgment Dogs (deterministic).** Implement in cynic-kernel/src/domain/dog/ per pseudocode in cynic-kernel/domains/wallet-judgment-dogs.md. Gates: games≥5, replay_risk, suspicious_cluster. Register in Judge.
+- [ ] **Colosseum full submission.** Project created on arena.colosseum.org. Need: description longue, video demo (3min), GitHub link, deployed URL. Deadline: May 10 23:59 PDT. Note: 123-line skeleton was never committed — only 60-line draft exists.
+- [x] **B&C integration analysis + wallet-judgment domain.** Domain files created. Wallet-judgment now embedded in binary. Enrichment utility exists. Integration spec exists.
+- [x] **Personality card stimulus + integration stub.** 7/7 tests passing. No external caller yet — stub only.
+- [ ] **Video demo.** **Falsify:** 2-3 min narration + kernel logs visible, q_score + dog_scores visible.
+- [ ] **Vercel UI → kernel API path.** Cloudflare tunnel dead. VITE_API_BASE may point to defunct URL. **Falsify:** browser console shows /judge returning 200.
 
 ## HERMES X ORGAN
 
-- [x] **Organ X infrastructure.** mitmproxy (systemd, domain-filtered) → x_proxy.py (extract+enrich) → dataset.jsonl → x_ingest_daemon → POST /observe → kernel. E2E verified: 54 new tweets, 28 observations in kernel.
-- [x] **Enrichment in x_proxy.py.** Signal score (-5 to +7), author tier, coordination detection, narratives. Replaces deleted chaos_collecteur.py — enrichment now inline in proxy addon.
-- [x] **SOUL.md updated.** Hermes = CYNIC citizen, not X-only. Register, observe, check tasks, judge sparingly.
-- [ ] **Hermes cron missions.** Set up `hermes cron create` for recurring X scanning sessions. **Falsify:** `hermes cron list` shows ≥1 active job.
-- [ ] **Chrome launcher script.** Discover CDP port on launch, write to config. Current port 40769 is hardcoded. **Falsify:** reboot → Chrome starts → Hermes can connect via CDP.
-- [ ] **Hermes autonomous session.** `hermes chat --continue` with updated SOUL + /cynic skill. Test registration + task polling. **Falsify:** kernel shows hermes registered via cynic_coord_who.
-
-## ARCHITECTURE
-
-- [ ] **CCM volume → crystallization.** 28+ x-organ observations stored but CCM loop_active=false. Study CCM intake path (haiku session). **Falsify:** observation count grows → forming crystals appear.
-- [ ] **`.cynic-env` format.** Has `export` prefixes incompatible with systemd EnvironmentFile. Strip exports or use wrapper. **Falsify:** `systemctl --user status hermes-x-ingest` shows no env warnings.
-
-## AGENT LIFECYCLE (K15 consumer, ops/opsec validation)
-
-- [ ] **Hermes polling daemon.** Add loop to hermes-agent: poll cynic_list_pending_agent_tasks every 5s, stub executor (mark complete immediately), report via cynic_update_agent_task_result. Validates dispatch→poll→execute→complete cycle. Estimated: 30 min code + 15 min test. **Falsify:** Full cycle runs; task moves pending→processing→completed.
-- [x] **K15 consumer for tasks.** Add observation listener: task completion triggers observe_crystal with task result as content. Closes audit→observation gap. **Falsify:** Task completion logged; crystal appears 5s later.
-- [ ] **Dead letter queue.** Retry failed tasks up to 3x with exponential backoff. Timeouts auto-fail tasks after 30 min. **Falsify:** Failed task retried; timeout task marked failed.
-- [ ] **Agent health monitoring.** Require heartbeat on poll (cynic_list_pending_agent_tasks). Track agent uptime per kind. Alert if agent silent >5min. **Falsify:** No pending tasks assigned to silent agent.
+- [x] **Organ X infrastructure.** 3 systemd services active. Dataset: 1772 tweets. Note: kernel reports x-proxy organ silent >24h — heartbeat link gap.
+- [x] **Enrichment in x_proxy.py.** Signal score, author tier, coordination detection. No Python test coverage (P2 violation).
+- [x] **SOUL.md updated.** Hermes = CYNIC citizen, not X-only.
+- [ ] **Hermes cron missions.** **Falsify:** `hermes cron list` shows ≥1 active job.
 
 ## ORGANISM (no deadline, compound value)
 
-- [ ] **CCM gate threshold tuning (K15 blocker).** Current: max_disagreement > φ⁻² (0.382) quarantines verdicts. Observed: USDC (0.568), rug-pull (0.468) — all legitimate tokens exceed threshold. Conjecture: axiom divergence between qwen7b and qwen35 is structural, not calibration drift. **Options:** (a) lower gate to φ⁻³ (0.236), (b) per-axiom disagreement thresholds, (c) accept 80%+ quarantine rate. **Falsify:** (a) new verdicts crystallize & improve over 48h.
-- [ ] **Record thinking_tokens on failure (D2).** InferenceDog has thinking_max AtomicU32 but organ only reads it on Success. Wire reading on ALL update_stats_entry calls. Closes self-calibration loop. **Falsify:** gemma budget adapts after 5 failures without any success.
-- [ ] **Domain-aware routing (D4).** Exclude Dogs with <50% json_valid_rate per domain. Gemma on token-analysis = 12% → skip. **Falsify:** token-analysis verdicts use only functional Dogs.
-- [ ] **Auth /health (T1/O4).** ~~Split /live (boolean, open) + /health (full topology, auth required).~~ DONE in code: /metrics + /events now require auth, /health public response stripped of version. **Remaining:** deploy new binary + verify. **Falsify:** `curl funnel/metrics` → 401; `curl funnel/health` returns no version field.
-- [x] **Early verdict (O5).** Return response when quorum_count Dogs responded. Don't wait for slow Dogs. **Falsify:** verdict latency < 10s when 3/5 Dogs respond in 5s.
-- [ ] **Nightshift first-cycle.** Add CYNIC_PROJECT_ROOT to ~/.config/cynic/env. **Falsify:** nightshift status != "never" within 5min of boot.
+- [ ] **CCM volume → crystallization.** CCM loop_active=false. **Falsify:** observation count grows → forming crystals appear.
+- [ ] **Auth /health (T1/O4).** /metrics + /events require auth in code. **Remaining:** deploy + verify. **Falsify:** `curl funnel/metrics` → 401.
+- [x] **K17 lint-drift gate.** Method-count check added to `make lint-drift`. R21 falsification test added to `make test-gates`. Agent_task methods already forwarded on origin/main (PR #30). **Falsify:** `make test-gates` K17 block passes.
 
 ## DEBT (fix when touching adjacent code)
 
 - [ ] NaN filter in judge/math.rs (trimmed_mean lets NaN through)
-- [ ] Two TokenData structs (enrichment.rs vs stimulus.rs) — Python screener bypasses both. Test `calibration_token.rs` broken (pre-existing).
-- [ ] SurrealDB summarizer slow query 8.9s — needs index
-- [ ] LUKS full-disk encryption on cynic-core. KC1: physical access = full data. Post-hackathon priority.
-- [ ] Headscale self-hosted coordinator. KC2: Tailscale Inc = single point of mesh failure.
-- [x] mitmdump running with `--listen-host 127.0.0.1` (KC4 fixed this session).
-
-## DONE (remove next session)
-
-- [x] Hermes Agent v0.11.0 live on CYNIC (MCP, Qwen 3.5 GPU, X browsing)
-- [x] X proxy pipeline: mitmproxy → captures → collecteur → enriched dataset (1649 tweets)
-- [x] 5 analysis passes: surface, auteurs, narratifs, réseau, curation
-- [x] Bot ring identified: 17 accounts, coordination proven
-- [x] MCP auto-auth deployed (cynic-kernel-mcp wrapper)
-- [x] SOUL.md + /cynic skill v0.2 installed
-
-- [x] PR #22 merged — self-calibrating budget, deploy script, lint-services, maturity tier
-- [x] Pinocchio PDA re-init (8DVUKmJa...)
-- [x] Colosseum project created
-- [x] DIAG-01/02/03 fixed
-- [x] System llama-server killed
+- [ ] Two TokenData structs (enrichment.rs vs stimulus.rs)
+- [ ] LUKS full-disk encryption on cynic-core (KC1)
+- [ ] `.cynic-env` format — `export` prefixes incompatible with systemd EnvironmentFile
+- [x] mitmdump running with `--listen-host 127.0.0.1` (KC4)

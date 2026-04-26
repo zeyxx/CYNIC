@@ -235,6 +235,13 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			fi; \
 		done; \
 	done; \
+	PORT_METHODS=$$(grep -P '^\s+async fn \w+' $(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs | grep -oP 'fn \K\w+' | sort); \
+	RECON_METHODS=$$(grep -P '^\s+async fn \w+' $(PROJECT_DIR)/cynic-kernel/src/storage/reconnectable.rs | grep -oP 'fn \K\w+' | sort); \
+	for PM in $$PORT_METHODS; do \
+		if ! echo "$$RECON_METHODS" | grep -qw "$$PM"; then \
+			echo "FAIL K17: StoragePort::$$PM not forwarded in ReconnectableStorage"; FAIL=1; \
+		fi; \
+	done; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ No drift detected"; fi; \
 	exit $$FAIL
 
@@ -399,6 +406,17 @@ test-gates: ## R21: Verify lint gates catch known violations (inject → check �
 		echo "  ✓ K15 gate caught store_* without read path"; PASS=$$((PASS+1)); \
 	fi; \
 	mv "$$K15_TARGET.gate-bak" "$$K15_TARGET"; \
+	\
+	echo "[K17] Injecting StoragePort method not forwarded in ReconnectableStorage..."; \
+	K17_TARGET="$(PROJECT_DIR)/cynic-kernel/src/domain/storage/mod.rs"; \
+	cp "$$K17_TARGET" "$$K17_TARGET.gate-bak"; \
+	sed -i '/^}$$/i\    async fn _k17_gate_probe(\&self) -> Result<(), StorageError> { Ok(()) }' "$$K17_TARGET"; \
+	if $(MAKE) --no-print-directory lint-drift >/dev/null 2>&1; then \
+		echo "  ✗ K17 gate MISSED missing ReconnectableStorage forward — BROKEN"; FAIL=$$((FAIL+1)); \
+	else \
+		echo "  ✓ K17 gate caught missing ReconnectableStorage forward"; PASS=$$((PASS+1)); \
+	fi; \
+	mv "$$K17_TARGET.gate-bak" "$$K17_TARGET"; \
 	\
 	echo ""; echo "── lint-subprocess-env ──"; \
 	\
