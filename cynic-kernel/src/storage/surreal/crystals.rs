@@ -85,9 +85,12 @@ pub(super) async fn list_crystals_for_domain(
     limit: u32,
 ) -> Result<Vec<Crystal>, StorageError> {
     let safe_domain = escape_surreal(domain);
+    // Domain-exact only. No 'general' fallback — it's a poison vector
+    // (hermes heartbeats, curl commands contaminate all domains).
+    // Cross-domain discovery handled by embedding similarity (primary path).
     let sql = format!(
         "SELECT * FROM crystal \
-         WHERE (domain = '{domain}' OR domain = 'general') \
+         WHERE domain = '{domain}' \
          AND (state = 'crystallized' OR state = 'canonical') \
          ORDER BY confidence DESC \
          LIMIT {limit}",

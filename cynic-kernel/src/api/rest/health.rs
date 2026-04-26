@@ -150,6 +150,13 @@ pub async fn health_handler(
         )
     };
 
+    // Onchain submission observability (K15: producer-consumer audit)
+    let (verdicts_queued, verdicts_submitted, verdicts_confirmed, verdicts_failed) =
+        match state.storage.queue_status_counts().await {
+            Ok(counts) => counts,
+            Err(_) => (0, 0, 0, 0), // K14: degraded if storage unavailable
+        };
+
     // Proprioception: crystal state summary (best-effort, non-blocking)
     let crystal_summary = match tokio::time::timeout(
         std::time::Duration::from_secs(2),
@@ -236,6 +243,12 @@ pub async fn health_handler(
                     tracing::warn!(error = %e, "introspection_alerts RwLock poisoned");
                     Vec::new()
                 }),
+            "onchain_observability": {
+                "verdicts_queued": verdicts_queued,
+                "verdicts_submitted": verdicts_submitted,
+                "verdicts_confirmed": verdicts_confirmed,
+                "verdicts_failed": verdicts_failed,
+            },
         })),
     )
 }

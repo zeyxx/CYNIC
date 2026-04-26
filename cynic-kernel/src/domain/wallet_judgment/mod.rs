@@ -23,6 +23,13 @@ pub struct WalletProfile {
     pub replay_risk: bool,               // moves copy-pasted from another wallet
 }
 
+impl WalletProfile {
+    /// Convert wallet profile to a structured stimulus for Dogs to evaluate.
+    pub fn to_stimulus(&self) -> String {
+        crate::domain::stimulus::build_wallet_stimulus(self)
+    }
+}
+
 /// Deterministic dog for wallet authenticity validation.
 /// Pure function — no state, no side effects.
 /// Implements the algorithm from `cynic-kernel/domains/wallet-judgment-dogs.md`.
