@@ -49,7 +49,7 @@ async fn process_pending_verdicts(storage: &Arc<dyn StoragePort>) -> Result<(), 
     let pending = storage
         .list_pending_verdicts(10)
         .await
-        .map_err(|e| format!("list_pending_verdicts failed: {}", e))?;
+        .map_err(|e| format!("list_pending_verdicts failed: {e}"))?;
 
     if pending.is_empty() {
         return Ok(()); // No work to do
@@ -90,7 +90,7 @@ async fn process_pending_verdicts(storage: &Arc<dyn StoragePort>) -> Result<(), 
                     verdict.retry_count
                 );
                 if let Err(ue) = storage
-                    .update_verdict_failed(&verdict.verdict_id, &format!("submission_error: {}", e))
+                    .update_verdict_failed(&verdict.verdict_id, &format!("submission_error: {e}"))
                     .await
                 {
                     klog!(
@@ -137,7 +137,7 @@ async fn submit_verdict_to_pinocchio(
     // Submit via Helius RPC
     submit_via_helius(&instruction_data, &verdict.content_hash)
         .await
-        .map_err(|e| format!("helius submission failed: {}", e))
+        .map_err(|e| format!("helius submission failed: {e}"))
 }
 
 /// Build 49-byte instruction data for submit_verdict on Pinocchio.
@@ -153,8 +153,8 @@ fn build_instruction_data(
     offset += 1;
 
     // Proposal hash (32 bytes, as-is from content_hash)
-    let hash_bytes = hex::decode(&verdict.content_hash)
-        .map_err(|e| format!("invalid content_hash hex: {}", e))?;
+    let hash_bytes =
+        hex::decode(&verdict.content_hash).map_err(|e| format!("invalid content_hash hex: {e}"))?;
     if hash_bytes.len() != 32 {
         return Err(format!(
             "content_hash must be 32 bytes, got {}",

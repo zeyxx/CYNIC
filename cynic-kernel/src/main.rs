@@ -122,7 +122,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let rest_addr = if raw_addr.starts_with("http://") || raw_addr.starts_with("https://") {
             raw_addr
         } else {
-            format!("http://{}", raw_addr)
+            format!("http://{raw_addr}")
         };
         let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
         let project_root = std::env::current_dir()

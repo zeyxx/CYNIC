@@ -1,4 +1,4 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stderr)]
 //! Integration test for RtkReader against real history.db.
 //! #[ignore] — requires RTK installed with data.
 
@@ -35,8 +35,7 @@ async fn rtk_freshness_returns_reasonable_duration() {
     let fresh = reader.freshness().await.unwrap();
     assert!(
         fresh.as_secs() < 7 * 24 * 3600,
-        "freshness too old: {:?}",
-        fresh
+        "freshness too old: {fresh:?}"
     );
 }
 

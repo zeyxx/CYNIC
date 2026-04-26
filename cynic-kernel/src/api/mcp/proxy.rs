@@ -44,6 +44,9 @@ impl std::fmt::Debug for CynicMcpProxy {
 
 impl CynicMcpProxy {
     pub fn new(base_url: String, api_key: String, project_root: String) -> Self {
+        // WHY: reqwest::Client::builder().build() only fails on TLS init error,
+        // which is unrecoverable. Unwrap is safe here but clippy wants map_err.
+        #[allow(clippy::expect_used)] // WHY: TLS init failure = unrecoverable
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()

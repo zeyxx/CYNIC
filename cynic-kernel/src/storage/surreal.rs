@@ -441,8 +441,7 @@ impl StoragePort for SurrealHttpStorage {
             verdict_queue::update_verdict_failed(self, verdict_id, error_reason, new_count).await
         } else {
             Err(StorageError::NotFound(format!(
-                "queued verdict {} not found",
-                verdict_id
+                "queued verdict {verdict_id} not found"
             )))
         }
     }

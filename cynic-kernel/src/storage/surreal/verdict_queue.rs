@@ -3,6 +3,7 @@ use crate::domain::storage::StorageError;
 use crate::domain::verdict_queue::{QueuedVerdict, SubmissionStatus};
 use crate::storage::{escape_surreal, sanitize_id};
 
+#[allow(clippy::too_many_arguments)] // WHY: 1:1 mapping to SurrealDB columns, struct would add indirection without value
 pub(super) async fn enqueue_verdict(
     storage: &SurrealHttpStorage,
     verdict_id: &str,
@@ -30,37 +31,25 @@ pub(super) async fn enqueue_verdict(
 
     let sql = format!(
         "CREATE queued_verdict SET \
-            verdict_id = '{}', \
-            content_hash = '{}', \
-            q_score = {}, \
-            score_fidelity = {}, \
-            score_phi = {}, \
-            score_verify = {}, \
-            score_culture = {}, \
-            score_burn = {}, \
-            score_sovereignty = {}, \
-            dog_count = {}, \
-            verdict_type = '{}', \
+            verdict_id = '{verdict_id}', \
+            content_hash = '{content_hash}', \
+            q_score = {q_score}, \
+            score_fidelity = {score_fidelity}, \
+            score_phi = {score_phi}, \
+            score_verify = {score_verify}, \
+            score_culture = {score_culture}, \
+            score_burn = {score_burn}, \
+            score_sovereignty = {score_sovereignty}, \
+            dog_count = {dog_count}, \
+            verdict_type = '{verdict_type}', \
             status = 'pending', \
             retry_count = 0, \
-            created_at = d'{}', \
+            created_at = d'{now}', \
             submitted_at = NULL, \
             confirmed_at = NULL, \
             tx_signature = NULL, \
             verdict_pda = NULL, \
-            error_reason = NULL",
-        verdict_id,
-        content_hash,
-        q_score,
-        score_fidelity,
-        score_phi,
-        score_verify,
-        score_culture,
-        score_burn,
-        score_sovereignty,
-        dog_count,
-        verdict_type,
-        now
+            error_reason = NULL"
     );
 
     storage.query_one(&sql).await?;
@@ -84,10 +73,7 @@ pub(super) async fn get_queued_verdict(
     verdict_id: &str,
 ) -> Result<Option<QueuedVerdict>, StorageError> {
     let verdict_id = sanitize_id(verdict_id)?;
-    let sql = format!(
-        "SELECT * FROM queued_verdict WHERE verdict_id = '{}' LIMIT 1",
-        verdict_id
-    );
+    let sql = format!("SELECT * FROM queued_verdict WHERE verdict_id = '{verdict_id}' LIMIT 1");
     let rows = storage.query_one(&sql).await?;
     Ok(rows.first().map(row_to_queued_verdict))
 }
@@ -104,8 +90,7 @@ pub(super) async fn update_verdict_submitted(
     let now = chrono::Utc::now().to_rfc3339();
 
     let sql = format!(
-        "UPDATE queued_verdict SET status = 'submitted', tx_signature = '{}', verdict_pda = '{}', submitted_at = d'{}' WHERE verdict_id = '{}'",
-        tx_signature, verdict_pda, now, verdict_id
+        "UPDATE queued_verdict SET status = 'submitted', tx_signature = '{tx_signature}', verdict_pda = '{verdict_pda}', submitted_at = d'{now}' WHERE verdict_id = '{verdict_id}'"
     );
 
     storage.query_one(&sql).await?;
@@ -120,8 +105,7 @@ pub(super) async fn update_verdict_confirmed(
     let now = chrono::Utc::now().to_rfc3339();
 
     let sql = format!(
-        "UPDATE queued_verdict SET status = 'confirmed', confirmed_at = d'{}' WHERE verdict_id = '{}'",
-        now, verdict_id
+        "UPDATE queued_verdict SET status = 'confirmed', confirmed_at = d'{now}' WHERE verdict_id = '{verdict_id}'"
     );
 
     storage.query_one(&sql).await?;
@@ -143,8 +127,7 @@ pub(super) async fn update_verdict_failed(
     };
 
     let sql = format!(
-        "UPDATE queued_verdict SET status = '{}', error_reason = '{}', retry_count = {} WHERE verdict_id = '{}'",
-        status, error_reason, retry_count, verdict_id
+        "UPDATE queued_verdict SET status = '{status}', error_reason = '{error_reason}', retry_count = {retry_count} WHERE verdict_id = '{verdict_id}'"
     );
 
     storage.query_one(&sql).await?;
