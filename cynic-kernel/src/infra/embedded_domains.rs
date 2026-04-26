@@ -18,6 +18,10 @@ pub fn load_embedded_domain_prompts() -> HashMap<String, String> {
         ),
         ("dev", include_str!("../../domains/dev.md")),
         ("general", include_str!("../../domains/general.md")),
+        (
+            "wallet-judgment",
+            include_str!("../../domains/wallet-judgment.md"),
+        ),
     ];
 
     for (domain_name, content) in &domains {
@@ -75,6 +79,10 @@ mod tests {
         assert!(
             prompts.contains_key("general"),
             "should load general domain"
+        );
+        assert!(
+            prompts.contains_key("wallet-judgment"),
+            "should load wallet-judgment domain"
         );
     }
 
