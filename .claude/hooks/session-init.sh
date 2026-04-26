@@ -172,13 +172,27 @@ if [[ -f "$DREAM_STATE" ]]; then
     fi
 fi
 
-# ── Inter-agent bus: read prior session summaries (domain=session) ──
-# Other agents (Claude, Gemini) POST session summaries at session end.
+# ── Active sessions check (MC4: auto-partition with escalade) ──
+if [[ "$KERNEL_STATUS" != "down" ]]; then
+    WHO_JSON=$(curl -s --max-time 3 \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        "http://${KERNEL_ADDR}/coord/who" 2>/dev/null)
+    ACTIVE_AGENTS=$(echo "$WHO_JSON" | jq '[.agents[]? | select(.active == true)] | length' 2>/dev/null || echo 0)
+    if [[ "$ACTIVE_AGENTS" -gt 1 ]]; then
+        echo ""
+        echo "⚠ CONCURRENT SESSIONS: ${ACTIVE_AGENTS} active cortex detected."
+        echo "  Rule MC4: check /coord/who before touching shared files."
+        echo "$WHO_JSON" | jq -r '.agents[]? | select(.active == true) | "  → \(.agent_id) claiming: \(.claims // [] | join(", "))"' 2>/dev/null | head -5 || true
+    fi
+fi
+
+# ── Inter-agent bus: read prior session distillations (domain=session) ──
+# Cortex POST rich handoffs (up to 2000 chars) at session end via self-distill.
 # Reading them here gives continuity across agents and sessions.
 if [[ "$KERNEL_STATUS" != "down" ]]; then
     SESSION_OBS=$(curl -s --max-time 3 \
         ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-        "http://${KERNEL_ADDR}/observations?domain=session&limit=5" 2>/dev/null)
+        "http://${KERNEL_ADDR}/observations?domain=session&limit=3" 2>/dev/null)
     if [[ -n "$SESSION_OBS" ]] && echo "$SESSION_OBS" | jq -e 'type == "array" and length > 0' >/dev/null 2>&1; then
         echo ""
         echo "RECENT SESSIONS (inter-agent bus):"
