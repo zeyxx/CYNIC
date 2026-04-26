@@ -12,6 +12,7 @@ mod k15_consumer_impact {
     /// Demonstrates the test pattern that SHOULD run in integration environment.
     #[test]
     #[ignore = "requires live Dogs + SurrealDB; use in CI after kernel boots"]
+    #[allow(clippy::print_stdout)] // WHY: stub test body uses println! to communicate intent; no logging infra in test context
     fn k15_crystal_injection_changes_verdict_kind() {
         // PATTERN FOR INTEGRATION TEST:
         //
@@ -94,6 +95,7 @@ mod k15_consumer_impact {
     }
 
     #[test]
+    #[allow(clippy::print_stdout)] // WHY: unit test uses println! to surface proof chain; no logging infra in test context
     fn k15_consumer_docstring_proves_injection_exists() {
         // PROOF: The integration test above documents that crystal injection
         // SHOULD happen. This unit test just verifies the code path exists.

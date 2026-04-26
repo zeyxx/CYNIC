@@ -132,17 +132,17 @@ impl WalletEnrichmentBuilder {
             *opening_freq.entry(opening).or_insert(0) += 1;
         }
         let mut top_openings: Vec<_> = opening_freq.into_iter().collect();
-        top_openings.sort_by(|a, b| b.1.cmp(&a.1));
+        top_openings.sort_by_key(|b| std::cmp::Reverse(b.1));
         let top_3: Vec<String> = top_openings
             .iter()
             .take(3)
             .map(|(o, c)| {
-                let pct = if unique_openings.len() > 0 {
+                let pct = if !unique_openings.is_empty() {
                     (c * 100) / unique_openings.len()
                 } else {
                     0
                 };
-                format!("{} ({}%)", o, pct)
+                format!("{o} ({pct}%)")
             })
             .collect();
 
@@ -186,12 +186,12 @@ Variance > φ⁻⁴ (0.146): {}
             archetype_consistency,
             archetype_sequence
                 .iter()
-                .map(|s| format!("\"{}\"", s))
+                .map(|s| format!("\"{s}\""))
                 .collect::<Vec<_>>()
                 .join(", "),
             game_timestamps
                 .iter()
-                .map(|s| format!("\"{}\"", s))
+                .map(|s| format!("\"{s}\""))
                 .collect::<Vec<_>>()
                 .join(", "),
             self.games

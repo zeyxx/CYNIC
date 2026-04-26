@@ -92,10 +92,7 @@ async fn capture_snapshot(state: &AppState, seq: u64, prev_hash: &str) -> StateB
     // Dogs
     let dog_health = judge.dog_health_detailed();
     let dog_quality = judge.dog_quality_snapshot();
-    let quality_map: std::collections::HashMap<String, _> = dog_quality
-        .into_iter()
-        .map(|(id, stats)| (id, stats))
-        .collect();
+    let quality_map: std::collections::HashMap<String, _> = dog_quality.into_iter().collect();
 
     let dogs: Vec<DogSnapshot> = dog_health
         .into_iter()

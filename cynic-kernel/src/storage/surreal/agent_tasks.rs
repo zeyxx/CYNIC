@@ -59,11 +59,11 @@ pub(super) async fn store_agent_task(
     let agent_id = task
         .agent_id
         .as_ref()
-        .map(|id| format!("'{}'", id))
+        .map(|id| format!("'{id}'"))
         .unwrap_or_else(|| "null".to_string());
     let query = format!(
-        "INSERT INTO agent_tasks {{ kind: '{}', domain: '{}', content: '{}', status: 'pending', created_at: '{}', agent_id: {} }} RETURN id;",
-        task.kind, task.domain, task.content, task.created_at, agent_id
+        "INSERT INTO agent_tasks {{ kind: '{}', domain: '{}', content: '{}', status: 'pending', created_at: '{}', agent_id: {agent_id} }} RETURN id;",
+        task.kind, task.domain, task.content, task.created_at
     );
     storage.query_one(&query).await?;
     Ok(task.id.clone())
@@ -76,8 +76,7 @@ pub(super) async fn list_pending_agent_tasks(
     limit: u32,
 ) -> Result<Vec<AgentTask>, StorageError> {
     let query = format!(
-        "SELECT * FROM agent_tasks WHERE kind = '{}' AND status = 'pending' ORDER BY created_at ASC LIMIT {};",
-        kind, limit
+        "SELECT * FROM agent_tasks WHERE kind = '{kind}' AND status = 'pending' ORDER BY created_at ASC LIMIT {limit};"
     );
     let rows = storage.query_one(&query).await?;
     Ok(rows.iter().filter_map(row_to_agent_task).collect())
@@ -88,7 +87,7 @@ pub(super) async fn get_agent_task(
     storage: &SurrealHttpStorage,
     task_id: &str,
 ) -> Result<Option<AgentTask>, StorageError> {
-    let query = format!("SELECT * FROM agent_tasks WHERE id = '{}';", task_id);
+    let query = format!("SELECT * FROM agent_tasks WHERE id = '{task_id}';");
     let rows = storage.query_one(&query).await?;
     Ok(rows.first().and_then(row_to_agent_task))
 }
@@ -98,10 +97,7 @@ pub(super) async fn mark_agent_task_processing(
     storage: &SurrealHttpStorage,
     task_id: &str,
 ) -> Result<(), StorageError> {
-    let query = format!(
-        "UPDATE agent_tasks SET status = 'processing' WHERE id = '{}';",
-        task_id
-    );
+    let query = format!("UPDATE agent_tasks SET status = 'processing' WHERE id = '{task_id}';");
     storage.query_one(&query).await?;
     Ok(())
 }
@@ -120,15 +116,14 @@ pub(super) async fn update_agent_task_result(
     };
     let now = chrono::Utc::now().to_rfc3339();
     let result_str = result
-        .map(|r| format!("'{}'", r))
+        .map(|r| format!("'{r}'"))
         .unwrap_or_else(|| "null".to_string());
     let error_str = error
-        .map(|e| format!("'{}'", e))
+        .map(|e| format!("'{e}'"))
         .unwrap_or_else(|| "null".to_string());
 
     let query = format!(
-        "UPDATE agent_tasks SET status = '{}', result = {}, error = {}, completed_at = '{}' WHERE id = '{}';",
-        status, result_str, error_str, now, task_id
+        "UPDATE agent_tasks SET status = '{status}', result = {result_str}, error = {error_str}, completed_at = '{now}' WHERE id = '{task_id}';"
     );
     storage.query_one(&query).await?;
 

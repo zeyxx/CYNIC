@@ -167,6 +167,9 @@ impl Judge {
     }
 
     /// Extended health snapshot including failure reason and open duration.
+    #[allow(clippy::type_complexity)]
+    // WHY: 5-tuple matches the flat decomposition needed by /health JSON serializer.
+    // A struct would add a type that only /health uses — premature abstraction.
     pub fn dog_health_detailed(
         &self,
     ) -> Vec<(String, String, u32, Option<FailureReason>, Option<u64>)> {
