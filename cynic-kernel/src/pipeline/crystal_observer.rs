@@ -4,7 +4,7 @@
 //! Called on BOTH cache hits and full evaluations.
 
 use crate::domain::ccm;
-use crate::domain::dog::{PHI_INV, PHI_INV2, PHI_INV3};
+use crate::domain::dog::{PHI_INV, PHI_INV2};
 use crate::domain::embedding::Embedding;
 use crate::domain::events::KernelEvent;
 
@@ -14,13 +14,23 @@ use super::PipelineDeps;
 ///
 /// Returns `(tag, weight)` where tag is "agreed"/"disputed"/"contested"
 /// and weight is in [0.0, 1.0]. Pure function — no side effects.
+///
+/// Thresholds widened (2026-04-26): structural divergence between qwen7b and
+/// qwen35 produces per-axiom spreads of 0.4–0.6 on legitimate tokens. The
+/// original φ⁻² (0.382) contested gate quarantined >80% of verdicts, starving
+/// the CCM of observations. New gate uses φ⁻¹ (0.618) — philosophically
+/// consistent: only quarantine disagreement beyond max-confidence ceiling.
+///
+///   - Agreed   (disagree < φ⁻²): full weight (1.0)
+///   - Disputed (φ⁻² ≤ disagree < φ⁻¹): linear decay 1.0→0.0
+///   - Contested (disagree ≥ φ⁻¹): quarantined — zero crystal update
 pub(crate) fn epistemic_gate(max_disagreement: f64) -> (&'static str, f64) {
-    if max_disagreement < PHI_INV3 {
+    if max_disagreement < PHI_INV2 {
         ("agreed", 1.0)
-    } else if max_disagreement < PHI_INV2 {
-        // Linear decay from 1.0 (at φ⁻³) to 0.0 (at φ⁻²)
-        let range = PHI_INV2 - PHI_INV3;
-        let position = max_disagreement - PHI_INV3;
+    } else if max_disagreement < PHI_INV {
+        // Linear decay from 1.0 (at φ⁻²) to 0.0 (at φ⁻¹)
+        let range = PHI_INV - PHI_INV2;
+        let position = max_disagreement - PHI_INV2;
         ("disputed", (1.0 - position / range).max(0.0))
     } else {
         ("contested", 0.0)
@@ -36,12 +46,12 @@ pub(crate) fn epistemic_gate(max_disagreement: f64) -> (&'static str, f64) {
 /// Uses semantic merge (cosine ≥ 0.75) to accumulate on existing crystals
 /// instead of creating fragmented duplicates.
 ///
-/// **Epistemic soft gate** (2026-03-24): verdicts with high Dog disagreement
+/// **Epistemic soft gate** (widened 2026-04-26): verdicts with high Dog disagreement
 /// are weighted down to prevent crystal poisoning. Three tiers:
 ///
-///   - Agreed   (disagree < φ⁻³): full weight (1.0)
-///   - Disputed (φ⁻³ ≤ disagree < φ⁻²): linear decay 1.0→0.0
-///   - Contested (disagree ≥ φ⁻²): quarantined — zero crystal update
+///   - Agreed   (disagree < φ⁻²): full weight (1.0)
+///   - Disputed (φ⁻² ≤ disagree < φ⁻¹): linear decay 1.0→0.0
+///   - Contested (disagree ≥ φ⁻¹): quarantined — zero crystal update
 ///
 /// Research: noisy-label learning (Northcutt JAIR 2022),
 /// recommender feedback bias (FAccT 2024), QBC active learning.
@@ -222,9 +232,16 @@ mod tests {
     }
 
     #[test]
+    fn epistemic_gate_agreed_below_phi_inv2() {
+        let (tag, weight) = epistemic_gate(PHI_INV2 - 0.001);
+        assert_eq!(tag, "agreed");
+        assert!((weight - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
     fn epistemic_gate_disputed_mid_range() {
-        // Midpoint between φ⁻³ (0.236) and φ⁻² (0.382)
-        let mid = (PHI_INV3 + PHI_INV2) / 2.0;
+        // Midpoint between φ⁻² (0.382) and φ⁻¹ (0.618)
+        let mid = (PHI_INV2 + PHI_INV) / 2.0;
         let (tag, weight) = epistemic_gate(mid);
         assert_eq!(tag, "disputed");
         assert!(
@@ -235,7 +252,7 @@ mod tests {
 
     #[test]
     fn epistemic_gate_disputed_near_agreed_boundary() {
-        let (tag, weight) = epistemic_gate(PHI_INV3 + 0.001);
+        let (tag, weight) = epistemic_gate(PHI_INV2 + 0.001);
         assert_eq!(tag, "disputed");
         assert!(
             weight > 0.9,
@@ -245,7 +262,7 @@ mod tests {
 
     #[test]
     fn epistemic_gate_disputed_near_contested_boundary() {
-        let (tag, weight) = epistemic_gate(PHI_INV2 - 0.001);
+        let (tag, weight) = epistemic_gate(PHI_INV - 0.001);
         assert_eq!(tag, "disputed");
         assert!(
             weight < 0.01,
@@ -255,16 +272,35 @@ mod tests {
 
     #[test]
     fn epistemic_gate_contested_at_threshold() {
-        let (tag, weight) = epistemic_gate(PHI_INV2);
+        let (tag, weight) = epistemic_gate(PHI_INV);
         assert_eq!(tag, "contested");
         assert!((weight - 0.0).abs() < 1e-10);
     }
 
     #[test]
     fn epistemic_gate_contested_above_threshold() {
-        let (tag, weight) = epistemic_gate(0.55);
+        let (tag, weight) = epistemic_gate(0.75);
         assert_eq!(tag, "contested");
         assert!((weight - 0.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn epistemic_gate_real_world_disagreement_passes() {
+        // Observed: USDC disagreement = 0.568, rug-pull = 0.468
+        // Both should now be "disputed" (not quarantined)
+        let (tag_usdc, weight_usdc) = epistemic_gate(0.568);
+        assert_eq!(tag_usdc, "disputed");
+        assert!(
+            weight_usdc > 0.0,
+            "USDC should pass with positive weight, got {weight_usdc}"
+        );
+
+        let (tag_rug, weight_rug) = epistemic_gate(0.468);
+        assert_eq!(tag_rug, "disputed");
+        assert!(
+            weight_rug > weight_usdc,
+            "lower disagreement should have higher weight"
+        );
     }
 
     // ── crystal_confidence normalization (P1 ACCURACY) ──────

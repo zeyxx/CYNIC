@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stdout)]
 //! K15 Falsification E2E: Crystal context changes verdicts or fails.
 //!
 //! Uses the ONE crystallized pattern known to exist (141 obs, certainty=0.999)
@@ -13,16 +14,6 @@
 //! Dogs either ignore context or consumer is broken.
 
 #[cfg(test)]
-// WHY: test-only lints — println! is the only output mechanism available in integration stubs
-// without live infrastructure; unwrap/expect are appropriate in test assertions.
-#[allow(
-    clippy::print_stdout,
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::uninlined_format_args,
-    clippy::redundant_clone,
-    clippy::cloned_ref_to_slice_refs
-)]
 mod k15_e2e_falsification {
     use cynic_kernel::domain::ccm::{Crystal, CrystalState, MatureCrystal};
     use cynic_kernel::domain::dog::{PHI_INV, PHI_INV4};

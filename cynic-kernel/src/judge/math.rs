@@ -188,6 +188,7 @@ pub(super) fn detect_residuals(dog_scores: &[DogScore]) -> (f64, Option<String>)
                     "sovereignty" => s.sovereignty,
                     _ => 0.0,
                 })
+                .filter(|v| v.is_finite())
                 .collect();
             if values.len() < 2 {
                 return (0.0, name); // Can't compute spread with < 2 active scores

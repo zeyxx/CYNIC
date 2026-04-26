@@ -1242,6 +1242,31 @@ mod tests {
         );
     }
 
+    #[test]
+    fn trimmed_mean_filters_nan_values() {
+        let mut nan_dog = make_dog_score("nan-dog", f64::NAN);
+        nan_dog.fidelity = f64::NAN;
+        let normal = make_dog_score("normal", 0.6);
+        let scores = vec![nan_dog, normal];
+        let result = trimmed_mean(&scores, "fidelity", |s| s.fidelity);
+        assert!(
+            (result - 0.6).abs() < 1e-10,
+            "NaN should be filtered, got {result}"
+        );
+    }
+
+    #[test]
+    fn detect_residuals_ignores_nan_scores() {
+        let mut nan_dog = make_dog_score("nan-dog", 0.5);
+        nan_dog.fidelity = f64::NAN;
+        let normal = make_dog_score("normal", 0.5);
+        let (spread, axiom) = math::detect_residuals(&[nan_dog, normal]);
+        // NaN filtered → only 1 finite fidelity value → spread 0 on fidelity
+        // Other axioms: both 0.5 → spread 0
+        assert!(spread < 0.01, "NaN should not inflate spread, got {spread}");
+        assert!(axiom.is_none());
+    }
+
     // ── hash chain integrity ─────────────────────────────
 
     #[tokio::test]
