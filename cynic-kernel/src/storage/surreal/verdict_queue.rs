@@ -56,7 +56,10 @@ pub(super) async fn get_queued_verdict(
     verdict_id: &str,
 ) -> Result<Option<QueuedVerdict>, StorageError> {
     let verdict_id = sanitize_id(verdict_id)?;
-    let sql = format!("SELECT * FROM queued_verdict WHERE verdict_id = '{}' LIMIT 1", verdict_id);
+    let sql = format!(
+        "SELECT * FROM queued_verdict WHERE verdict_id = '{}' LIMIT 1",
+        verdict_id
+    );
     let rows = storage.query_one(&sql).await?;
     Ok(rows.first().map(row_to_queued_verdict))
 }
@@ -105,7 +108,11 @@ pub(super) async fn update_verdict_failed(
 ) -> Result<(), StorageError> {
     let verdict_id = sanitize_id(verdict_id)?;
     let error_reason = escape_surreal(error_reason);
-    let status = if retry_count >= 3 { "failed" } else { "pending" };
+    let status = if retry_count >= 3 {
+        "failed"
+    } else {
+        "pending"
+    };
 
     let sql = format!(
         "UPDATE queued_verdict SET status = '{}', error_reason = '{}', retry_count = {} WHERE verdict_id = '{}'",
@@ -118,19 +125,20 @@ pub(super) async fn update_verdict_failed(
 
 pub(super) async fn queue_status_counts(
     storage: &SurrealHttpStorage,
-) -> Result<(u64, u64, u64), StorageError> {
+) -> Result<(u64, u64, u64, u64), StorageError> {
     let sql = r#"
-        SELECT 
-            count(id) as cnt, 
-            status 
-        FROM queued_verdict 
+        SELECT
+            count(id) as cnt,
+            status
+        FROM queued_verdict
         GROUP BY status
     "#;
     let rows = storage.query_one(sql).await?;
-    
+
     let mut pending = 0u64;
     let mut submitted = 0u64;
     let mut confirmed = 0u64;
+    let mut failed = 0u64;
 
     for row in rows.iter() {
         let status = row["status"].as_str().unwrap_or("");
@@ -139,11 +147,12 @@ pub(super) async fn queue_status_counts(
             "pending" => pending = count,
             "submitted" => submitted = count,
             "confirmed" => confirmed = count,
+            "failed" => failed = count,
             _ => {}
         }
     }
 
-    Ok((pending, submitted, confirmed))
+    Ok((pending, submitted, confirmed, failed))
 }
 
 fn row_to_queued_verdict(row: &serde_json::Value) -> QueuedVerdict {

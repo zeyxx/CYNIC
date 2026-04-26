@@ -7,6 +7,7 @@ mod crystals;
 mod maintenance;
 mod ops;
 mod state_log;
+mod verdict_queue;
 mod verdicts;
 
 use super::{SurrealHttpStorage, safe_limit};
@@ -15,6 +16,7 @@ use crate::domain::dog::Verdict;
 use crate::domain::storage::{
     AgentTask, Observation, RawObservation, StorageError, StoragePort, UsageRow,
 };
+use crate::domain::verdict_queue::QueuedVerdict;
 
 // ── SHARED HELPERS ─────────────────────────────────────────────
 
@@ -363,6 +365,76 @@ impl StoragePort for SurrealHttpStorage {
         limit: u32,
     ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
         state_log::list_state_blocks(self, since, limit).await
+    }
+
+    // ── Verdict Submission Queue ──────────────────────────────
+
+    #[tracing::instrument(skip(self), err)]
+    async fn enqueue_verdict(
+        &self,
+        verdict_id: &str,
+        content_hash: &str,
+        q_score: f64,
+    ) -> Result<(), StorageError> {
+        verdict_queue::enqueue_verdict(self, verdict_id, content_hash, q_score).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn list_pending_verdicts(&self, limit: u32) -> Result<Vec<QueuedVerdict>, StorageError> {
+        verdict_queue::list_pending_verdicts(self, limit).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn get_queued_verdict(
+        &self,
+        verdict_id: &str,
+    ) -> Result<Option<QueuedVerdict>, StorageError> {
+        verdict_queue::get_queued_verdict(self, verdict_id).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn update_verdict_submitted(
+        &self,
+        verdict_id: &str,
+        tx_signature: &str,
+    ) -> Result<(), StorageError> {
+        // Default: no verdict PDA at submission time, only after confirmation
+        verdict_queue::update_verdict_submitted(self, verdict_id, tx_signature, "").await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn update_verdict_confirmed(&self, verdict_id: &str) -> Result<(), StorageError> {
+        verdict_queue::update_verdict_confirmed(self, verdict_id).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn update_verdict_failed(
+        &self,
+        verdict_id: &str,
+        error_reason: &str,
+    ) -> Result<(), StorageError> {
+        // Fetch current retry_count and increment
+        if let Some(verdict) = verdict_queue::get_queued_verdict(self, verdict_id).await? {
+            let new_count = verdict.retry_count + 1;
+            verdict_queue::update_verdict_failed(self, verdict_id, error_reason, new_count).await
+        } else {
+            Err(StorageError::NotFound(format!(
+                "queued verdict {} not found",
+                verdict_id
+            )))
+        }
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError> {
+        let (pending, submitted, confirmed, failed) =
+            verdict_queue::queue_status_counts(self).await?;
+        Ok((
+            pending as u32,
+            submitted as u32,
+            confirmed as u32,
+            failed as u32,
+        ))
     }
 }
 

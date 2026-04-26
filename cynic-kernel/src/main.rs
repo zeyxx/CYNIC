@@ -109,6 +109,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .init();
     }
 
+    // ─── MCP PROXY EARLY EXIT ─────────────────────────────────
+    // When --mcp is set, skip the entire kernel init (Rings 0-2).
+    // Forward all tool calls to the running REST kernel via HTTP.
+    // This is the monolith fix: MCP clients get zero local state.
+    if mcp_mode {
+        use rmcp::ServiceExt;
+
+        let rest_addr =
+            std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "http://127.0.0.1:3030".into());
+        let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+        let project_root = std::env::current_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .display()
+            .to_string();
+
+        tracing::info!(
+            rest_addr,
+            "MCP proxy mode — forwarding to REST kernel (zero local state)"
+        );
+
+        let mcp_proxy = api::mcp::proxy::CynicMcpProxy::new(rest_addr, api_key, project_root);
+
+        let shutdown = CancellationToken::new();
+        infra::tasks::spawn_signal_handler(shutdown.clone());
+
+        let transport = rmcp::transport::io::stdio();
+        let server = mcp_proxy
+            .serve(transport)
+            .await
+            .map_err(|e| format!("MCP proxy error: {e}"))?;
+
+        tokio::select! {
+            _ = server.waiting() => {}
+            _ = shutdown.clone().cancelled_owned() => {
+                tracing::info!("MCP proxy shutting down");
+            }
+        }
+
+        shutdown.cancel();
+        return Ok(());
+    }
+
     tracing::info!("CYNIC V2 — SOVEREIGN BOOT");
     klog!("╔══════════════════════════════════════╗");
     klog!("║       CYNIC OS V2 — SOVEREIGN BOOT    ║");
@@ -581,6 +623,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             shutdown.clone(),
         );
 
+        // ─── Verdict Submission Queue (K15: auto-anchor to Pinocchio, every 5min) ────
+        infra::tasks::spawn_submission_queue(
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Verdict submission queue task started (every 5min)");
+
         // ─── Event consumer + K15 alerting (ContractDelta → Slack) ────
         let slack = SlackAlerter::from_env();
         if slack.is_some() {
@@ -670,48 +720,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] MCP mode — background tasks SKIPPED (REST kernel handles them)");
     }
 
-    // ─── RING 3: MCP Server (for AI agents via stdio) ────────
-    if mcp_mode {
-        use rmcp::ServiceExt;
-
-        // Proxy mode: forward all tool calls to the REST kernel via HTTP.
-        // Zero local state — no Judge, no StoragePort, no Dogs loaded.
-        // Requires REST kernel running at CYNIC_REST_ADDR.
-        let rest_addr =
-            std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "http://127.0.0.1:3030".into());
-        let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
-
-        tracing::info!(
-            rest_addr,
-            "MCP proxy mode — forwarding to REST kernel (zero local state)"
-        );
-
-        let mcp_proxy = api::mcp::proxy::CynicMcpProxy::new(
-            rest_addr,
-            api_key,
-            project_root.display().to_string(),
-        );
-
-        // MCP signal handler
-        infra::tasks::spawn_signal_handler(shutdown.clone());
-
-        let transport = rmcp::transport::io::stdio();
-        let server = mcp_proxy
-            .serve(transport)
-            .await
-            .map_err(|e| format!("MCP proxy server error: {e}"))?;
-
-        // Wait for MCP disconnect or shutdown signal
-        tokio::select! {
-            _ = server.waiting() => {} // ok: MCP client disconnected
-            _ = shutdown.clone().cancelled_owned() => {
-                tracing::info!("MCP proxy shutting down");
-            }
-        }
-
-        shutdown.cancel();
-        return Ok(());
-    }
+    // MCP mode exits early (before Ring 0) — see MCP PROXY EARLY EXIT above.
+    // This branch is unreachable when --mcp is set.
 
     // ─── RING 3: REST Server ─────────────────────────────────
     let rest_addr = std::env::var("CYNIC_REST_ADDR")
