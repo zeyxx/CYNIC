@@ -153,7 +153,7 @@ pub(super) async fn observe_crystal(
              ELSE IF $new_obs >= {t_cryst} AND $certainty < {c_low} THEN 'decaying' \
              ELSE 'forming' END; \
          UPSERT crystal:`{id}` SET \
-             content = content ?? '{content}', \
+             content = IF {score} > $prev_conf OR content IS NONE THEN '{content}' ELSE content END, \
              domain = domain ?? '{domain}', \
              observations = $new_obs, \
              confidence = $new_conf, \
