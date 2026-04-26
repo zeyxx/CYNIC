@@ -13,16 +13,6 @@
 //! Dogs either ignore context or consumer is broken.
 
 #[cfg(test)]
-// WHY: test-only lints — println! is the only output mechanism available in integration stubs
-// without live infrastructure; unwrap/expect are appropriate in test assertions.
-#[allow(
-    clippy::print_stdout,
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::uninlined_format_args,
-    clippy::redundant_clone,
-    clippy::cloned_ref_to_slice_refs
-)]
 mod k15_e2e_falsification {
     use cynic_kernel::domain::ccm::{Crystal, CrystalState, MatureCrystal};
     use cynic_kernel::domain::dog::{PHI_INV, PHI_INV4};
@@ -42,7 +32,7 @@ mod k15_e2e_falsification {
             created_at: "2026-04-15T00:00:00Z".to_string(),
             updated_at: "2026-04-25T10:00:00Z".to_string(),
             contributing_verdicts: (0..141)
-                .map(|i| format!("v-{i:03}"))
+                .map(|i| format!("v-{:03}", i))
                 .collect(),
             certainty: 0.999,  // matches handoff claim
             variance_m2: 0.005, // very low variance — highly consensual
@@ -77,7 +67,7 @@ mod k15_e2e_falsification {
         assert!(ctx.contains("141"), "context should show observation count");
 
         println!("✓ Step 1: Crystal formats correctly");
-        println!("  Context:\n{ctx}\n");
+        println!("  Context:\n{}\n", ctx);
     }
 
     #[test]
@@ -97,21 +87,15 @@ mod k15_e2e_falsification {
         // ISOLATION TEST: crystal for domain "chess" should not inject into "trading" domain.
         let crystal = make_test_crystallized_pattern();
 
-        let formatted_chess = cynic_kernel::domain::ccm::format_crystal_context(
-            std::slice::from_ref(&crystal),
-            "chess",
-            1100,
-        );
+        let formatted_chess =
+            cynic_kernel::domain::ccm::format_crystal_context(&[crystal.clone()], "chess", 1100);
         assert!(
             formatted_chess.is_none(),
             "general-domain crystal should not inject for specific domain without match"
         );
 
-        let formatted_general = cynic_kernel::domain::ccm::format_crystal_context(
-            std::slice::from_ref(&crystal),
-            "general",
-            1100,
-        );
+        let formatted_general =
+            cynic_kernel::domain::ccm::format_crystal_context(&[crystal.clone()], "general", 1100);
         assert!(
             formatted_general.is_some(),
             "crystal.domain='general' should inject for domain='general'"
@@ -150,8 +134,8 @@ mod k15_e2e_falsification {
         let observations = crystal.observations();
 
         println!("K15 FALSIFICATION SETUP:");
-        println!("  Test crystal certainty: {certainty:.3}");
-        println!("  Test crystal observations: {observations}");
+        println!("  Test crystal certainty: {:.3}", certainty);
+        println!("  Test crystal observations: {}", observations);
         println!("  Threshold for passing delta: >= {:.3}", PHI_INV4 * 0.5);
         println!();
         println!("To run full falsification:");
