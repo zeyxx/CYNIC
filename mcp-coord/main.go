@@ -1,3 +1,7 @@
+// DORMANT: Replaced by cynic-kernel MCP proxy (Rust, 17 tools vs 7).
+// All cortex now use /home/user/bin/cynic-kernel-mcp wrapper.
+// Keep for reference — delete after 2026-05-15 if no regression.
+//
 // cynic-coord — MCP STDIO proxy to the CYNIC kernel coordination API.
 //
 // Exposes coord/observe/health tools for any MCP-compatible agent

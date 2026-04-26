@@ -64,6 +64,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
             cynic_kernel::domain::contract::SystemContract::new(vec![], true),
         )),
         enricher: None,
+        senses: vec![],
     })
 }
 
@@ -984,6 +985,7 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
             cynic_kernel::domain::contract::SystemContract::new(vec![], true),
         )),
         enricher: None,
+        senses: vec![],
     });
     let app = rest::router(state);
 

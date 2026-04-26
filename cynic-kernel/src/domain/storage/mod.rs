@@ -12,6 +12,7 @@ pub use types::{AgentTask, Observation, RawObservation, StorageError, StorageMet
 
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
+use crate::domain::verdict_queue::QueuedVerdict;
 use async_trait::async_trait;
 
 #[async_trait]
@@ -308,5 +309,71 @@ pub trait StoragePort: Send + Sync {
         _limit: u32,
     ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
         Ok(vec![])
+    }
+
+    // ── Verdict Submission Queue (K15: Helius credit tracking + onchain submission) ──────────
+
+    /// Enqueue a verdict with q_score >= 0.618 for onchain submission.
+    /// Rejects if q_score < 0.618 (below phi⁻¹ threshold).
+    /// Stores all axiom scores and metadata needed for Pinocchio submission.
+    #[allow(clippy::too_many_arguments)]
+    // WHY: enqueue_verdict captures all submission metadata in a single write to prevent
+    // race conditions: axiom scores, verdict type, and dog count all needed for onchain instruction.
+    async fn enqueue_verdict(
+        &self,
+        _verdict_id: &str,
+        _content_hash: &str,
+        _q_score: f64,
+        _score_fidelity: f64,
+        _score_phi: f64,
+        _score_verify: f64,
+        _score_culture: f64,
+        _score_burn: f64,
+        _score_sovereignty: f64,
+        _dog_count: u32,
+        _verdict_type: &str,
+    ) -> Result<(), StorageError> {
+        Ok(()) // Default no-op for NullStorage
+    }
+
+    /// List verdicts pending submission (status = "pending"), ordered by created_at ASC.
+    async fn list_pending_verdicts(&self, _limit: u32) -> Result<Vec<QueuedVerdict>, StorageError> {
+        Ok(vec![])
+    }
+
+    /// Get a queued verdict by ID.
+    async fn get_queued_verdict(
+        &self,
+        _verdict_id: &str,
+    ) -> Result<Option<QueuedVerdict>, StorageError> {
+        Ok(None)
+    }
+
+    /// Mark a verdict as submitted with tx_signature. Increments retry_count and sets submitted_at.
+    async fn update_verdict_submitted(
+        &self,
+        _verdict_id: &str,
+        _tx_signature: &str,
+    ) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    /// Mark a verdict as confirmed onchain. Sets status = "confirmed" and confirmed_at timestamp.
+    async fn update_verdict_confirmed(&self, _verdict_id: &str) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    /// Mark a verdict as failed with error reason. Sets status = "failed" if retry_count >= 3.
+    async fn update_verdict_failed(
+        &self,
+        _verdict_id: &str,
+        _error_reason: &str,
+    ) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    /// Get counts of queued verdicts by status: (pending, submitted, confirmed, failed).
+    async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError> {
+        Ok((0, 0, 0, 0))
     }
 }

@@ -150,6 +150,13 @@ pub async fn health_handler(
         )
     };
 
+    // Onchain submission observability (K15: producer-consumer audit)
+    let (verdicts_queued, verdicts_submitted, verdicts_confirmed, verdicts_failed) = state
+        .storage
+        .queue_status_counts()
+        .await
+        .unwrap_or_default(); // K14: degraded if storage unavailable
+
     // Proprioception: crystal state summary (best-effort, non-blocking)
     let crystal_summary = match tokio::time::timeout(
         std::time::Duration::from_secs(2),
@@ -189,6 +196,33 @@ pub async fn health_handler(
             .unwrap_or_else(|e| e.into_inner());
         (guard.expected_dogs().to_vec(), guard.expected_count())
     };
+
+    // Senses: organism perceiving its own external data stores (K15 consumer)
+    let mut senses_report: Vec<serde_json::Value> = Vec::new();
+    for sense in &state.senses {
+        let health = sense.health().await;
+        let (health_str, reason) = match &health {
+            crate::domain::organ::OrganHealth::Alive => ("alive", None),
+            crate::domain::organ::OrganHealth::Degraded { reason } => {
+                ("degraded", Some(reason.as_str()))
+            }
+            crate::domain::organ::OrganHealth::Dead { reason } => ("dead", Some(reason.as_str())),
+        };
+        let freshness_secs = sense
+            .freshness()
+            .await
+            .map(|d| d.as_secs())
+            .unwrap_or(u64::MAX);
+        let mut entry = serde_json::json!({
+            "name": sense.name(),
+            "health": health_str,
+            "freshness_secs": if freshness_secs == u64::MAX { serde_json::Value::Null } else { serde_json::json!(freshness_secs) },
+        });
+        if let Some(r) = reason {
+            entry["reason"] = serde_json::json!(r);
+        }
+        senses_report.push(entry);
+    }
 
     (
         http_code,
@@ -236,6 +270,13 @@ pub async fn health_handler(
                     tracing::warn!(error = %e, "introspection_alerts RwLock poisoned");
                     Vec::new()
                 }),
+            "onchain_observability": {
+                "verdicts_queued": verdicts_queued,
+                "verdicts_submitted": verdicts_submitted,
+                "verdicts_confirmed": verdicts_confirmed,
+                "verdicts_failed": verdicts_failed,
+            },
+            "senses": senses_report,
         })),
     )
 }

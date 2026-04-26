@@ -313,6 +313,73 @@ impl StoragePort for ReconnectableStorage {
     async fn mark_agent_task_processing(&self, task_id: &str) -> Result<(), StorageError> {
         self.current().mark_agent_task_processing(task_id).await
     }
+    async fn enqueue_verdict(
+        &self,
+        verdict_id: &str,
+        content_hash: &str,
+        q_score: f64,
+        score_fidelity: f64,
+        score_phi: f64,
+        score_verify: f64,
+        score_culture: f64,
+        score_burn: f64,
+        score_sovereignty: f64,
+        dog_count: u32,
+        verdict_type: &str,
+    ) -> Result<(), StorageError> {
+        self.current()
+            .enqueue_verdict(
+                verdict_id,
+                content_hash,
+                q_score,
+                score_fidelity,
+                score_phi,
+                score_verify,
+                score_culture,
+                score_burn,
+                score_sovereignty,
+                dog_count,
+                verdict_type,
+            )
+            .await
+    }
+    async fn list_pending_verdicts(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::verdict_queue::QueuedVerdict>, StorageError> {
+        self.current().list_pending_verdicts(limit).await
+    }
+    async fn get_queued_verdict(
+        &self,
+        verdict_id: &str,
+    ) -> Result<Option<crate::domain::verdict_queue::QueuedVerdict>, StorageError> {
+        self.current().get_queued_verdict(verdict_id).await
+    }
+    async fn update_verdict_submitted(
+        &self,
+        verdict_id: &str,
+        tx_signature: &str,
+    ) -> Result<(), StorageError> {
+        self.current()
+            .update_verdict_submitted(verdict_id, tx_signature)
+            .await
+    }
+    async fn update_verdict_confirmed(&self, verdict_id: &str) -> Result<(), StorageError> {
+        self.current().update_verdict_confirmed(verdict_id).await
+    }
+    async fn update_verdict_failed(
+        &self,
+        verdict_id: &str,
+        error_reason: &str,
+    ) -> Result<(), StorageError> {
+        self.current()
+            .update_verdict_failed(verdict_id, error_reason)
+            .await
+    }
+    async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError> {
+        let (p, s, c, f) = self.current().queue_status_counts().await?;
+        Ok((p, s, c, f))
+    }
 }
 
 // ── ReconnectableCoord ──────────────────────────────────────

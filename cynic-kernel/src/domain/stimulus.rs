@@ -110,6 +110,54 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
     s
 }
 
+/// Build a structured wallet judgment stimulus from game history metrics.
+///
+/// Used when CYNIC validates chess wallet authenticity for Personality Card anti-Sybil gate.
+/// The WalletProfile contains on-chain game history: games played, archetype consistency,
+/// temporal distribution, and Sybil risk markers.
+pub fn build_wallet_stimulus(profile: &crate::domain::wallet_judgment::WalletProfile) -> String {
+    let mut s = String::with_capacity(800);
+    s.push_str("[DOMAIN: wallet-judgment]\n\n");
+    s.push_str("[METRICS]\n");
+    s.push_str(&format!("wallet: {}\n", profile.wallet_address));
+    s.push_str(&format!("games_completed: {}\n", profile.games_completed));
+    s.push_str(&format!("wallet_age_days: {}\n", profile.wallet_age_days));
+    s.push_str(&format!(
+        "archetype_consistency: {:.2}\n",
+        profile.archetype_consistency
+    ));
+    s.push_str(&format!(
+        "avg_game_duration_secs: {}\n",
+        profile.average_game_duration
+    ));
+    s.push_str(&format!(
+        "duration_variance_cv: {:.2}\n",
+        profile.duration_variance
+    ));
+    s.push_str(&format!(
+        "suspicious_cluster: {}\n",
+        profile.suspicious_cluster
+    ));
+    s.push_str(&format!("replay_risk: {}\n", profile.replay_risk));
+    s.push_str("\n[GATES]\n");
+    s.push_str("gate_1_min_games: 5 games required\n");
+    s.push_str("gate_2_sybil: suspicious_cluster=false AND replay_risk=false required\n");
+    s.push_str("\n[AXIOM EVIDENCE]\n");
+    s.push_str(
+        "FIDELITY: Is the archetype consistent? Does the wallet play one authentic style?\n",
+    );
+    s.push_str("PHI: Is time distribution harmonious? Low variance + temporal spread over days?\n");
+    s.push_str("VERIFY: Are timestamps verifiable on-chain? Is move history authentic?\n");
+    s.push_str("CULTURE: Does the wallet engage with gameplay culture? Multiple games, consistent patterns?\n");
+    s.push_str("BURN: Is the wallet active without waste? Age-adjusted commitment?\n");
+    s.push_str("SOVEREIGNTY: Does the wallet make autonomous decisions? No replay or clustering evidence?\n");
+    s.push_str("\n[QUESTION]\n");
+    s.push_str(
+        "Evaluate this chess wallet for authentic human play. Score each axiom 0.05-0.618.\n",
+    );
+    s
+}
+
 /// Build a structured dev commit stimulus.
 pub fn build_dev_stimulus(hash: &str, message: &str, files_changed: &[String]) -> String {
     let mut s = String::with_capacity(500);

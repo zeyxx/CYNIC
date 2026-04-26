@@ -8,6 +8,7 @@
 mod nightshift;
 mod runtime_loops;
 mod state_log;
+mod submission_queue;
 
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -29,6 +30,7 @@ pub use runtime_loops::{
     spawn_dog_ttl_checker, spawn_event_consumer, spawn_probe_scheduler,
 };
 pub use state_log::spawn_state_log;
+pub use submission_queue::spawn_submission_queue;
 
 // ── Shutdown flush — used by both REST and MCP exit paths ────
 

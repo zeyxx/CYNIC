@@ -48,6 +48,7 @@ impl HeliusEnricher {
     }
 
     async fn get_asset(&self, mint: &str) -> Result<Option<HeliusAsset>, EnrichmentError> {
+        let start = std::time::Instant::now();
         let body = serde_json::json!({
             "jsonrpc": "2.0",
             "id": 1,
@@ -61,24 +62,160 @@ impl HeliusEnricher {
             .json(&body)
             .send()
             .await
-            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+            .map_err(|e| {
+                tracing::warn!(
+                    method = "getAsset",
+                    mint = %mint,
+                    error = %e,
+                    latency_ms = start.elapsed().as_millis(),
+                    "Helius RPC call failed"
+                );
+                EnrichmentError::RequestFailed(e.to_string())
+            })?;
 
+        let status_code = resp.status().as_u16();
         if !resp.status().is_success() {
+            tracing::warn!(
+                method = "getAsset",
+                mint = %mint,
+                status = status_code,
+                latency_ms = start.elapsed().as_millis(),
+                "Helius returned error status"
+            );
             return Err(EnrichmentError::RequestFailed(format!(
                 "Helius returned {}",
                 resp.status()
             )));
         }
 
-        let rpc: RpcResponse<HeliusAsset> = resp
-            .json()
-            .await
-            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+        let rpc: RpcResponse<HeliusAsset> = resp.json().await.map_err(|e| {
+            tracing::warn!(
+                method = "getAsset",
+                mint = %mint,
+                error = %e,
+                latency_ms = start.elapsed().as_millis(),
+                "Helius response deserialize failed"
+            );
+            EnrichmentError::RequestFailed(e.to_string())
+        })?;
+
+        tracing::debug!(
+            method = "getAsset",
+            mint = %mint,
+            status = 200,
+            latency_ms = start.elapsed().as_millis(),
+            credits_cost = 10,
+            "Helius getAsset succeeded"
+        );
 
         Ok(rpc.result)
     }
 
-    /// Fetch off-chain metadata (description, links) via Helius REST API.
+    /// Fetch largest accounts for holder concentration metrics.
+    async fn get_largest_accounts(
+        &self,
+        mint: &str,
+    ) -> Result<Option<HolderConcentration>, EnrichmentError> {
+        let start = std::time::Instant::now();
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getTokenLargestAccounts",
+            "params": { "mint": mint }
+        });
+
+        let resp = self
+            .client
+            .post(&self.rpc_url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| {
+                tracing::warn!(
+                    method = "getTokenLargestAccounts",
+                    mint = %mint,
+                    error = %e,
+                    latency_ms = start.elapsed().as_millis(),
+                    "Helius RPC call failed"
+                );
+                EnrichmentError::RequestFailed(e.to_string())
+            })?;
+
+        let status_code = resp.status().as_u16();
+        if !resp.status().is_success() {
+            tracing::warn!(
+                method = "getTokenLargestAccounts",
+                mint = %mint,
+                status = status_code,
+                latency_ms = start.elapsed().as_millis(),
+                "Helius returned error status — holder concentration unavailable"
+            );
+            return Ok(None);
+        }
+
+        let rpc: RpcResponse<Vec<LargestAccount>> = resp.json().await.map_err(|e| {
+            tracing::warn!(
+                method = "getTokenLargestAccounts",
+                mint = %mint,
+                error = %e,
+                latency_ms = start.elapsed().as_millis(),
+                "Helius response deserialize failed"
+            );
+            EnrichmentError::RequestFailed(e.to_string())
+        })?;
+
+        let Some(accounts) = rpc.result else {
+            return Ok(None);
+        };
+
+        if accounts.is_empty() {
+            return Ok(None);
+        }
+
+        let total_supply: u64 = accounts
+            .iter()
+            .map(|a| a.ui_amount.unwrap_or(0.0) as u64)
+            .sum();
+        if total_supply == 0 {
+            return Ok(None);
+        }
+
+        let supply_f64 = total_supply as f64;
+        let mut hhi = 0.0;
+        let mut top1_pct = 0.0;
+        let mut top10_pct = 0.0;
+
+        for (idx, account) in accounts.iter().enumerate() {
+            let balance = account.ui_amount.unwrap_or(0.0);
+            let share = balance / supply_f64;
+            hhi += share * share;
+
+            if idx == 0 {
+                top1_pct = share * 100.0;
+            }
+            if idx < 10 {
+                top10_pct += share * 100.0;
+            }
+        }
+
+        tracing::debug!(
+            method = "getTokenLargestAccounts",
+            mint = %mint,
+            status = 200,
+            holder_count = accounts.len(),
+            latency_ms = start.elapsed().as_millis(),
+            credits_cost = 10,
+            "Helius getTokenLargestAccounts succeeded"
+        );
+
+        Ok(Some(HolderConcentration {
+            holder_count: accounts.len() as u64,
+            top1_pct,
+            top10_pct,
+            herfindahl: hhi,
+        }))
+    }
+
     async fn get_offchain_metadata(&self, mint: &str) -> Result<Option<String>, EnrichmentError> {
         // Extract API key from RPC URL
         let api_key = self.rpc_url.split("api-key=").nth(1).unwrap_or_default();
@@ -164,6 +301,19 @@ impl TokenEnricherPort for HeliusEnricher {
             .and_then(|t| t.freeze_authority.as_ref())
             .is_some();
 
+        // Get holder concentration (best-effort; defaults to zero if unavailable)
+        let (holder_count, top1_pct, top10_pct, herfindahl) =
+            if let Ok(Some(conc)) = self.get_largest_accounts(mint_address).await {
+                (
+                    conc.holder_count,
+                    conc.top1_pct,
+                    conc.top10_pct,
+                    Some(conc.herfindahl),
+                )
+            } else {
+                (0, 0.0, 0.0, None)
+            };
+
         // Get off-chain description (separate call, best-effort)
         let description = self
             .get_offchain_metadata(mint_address)
@@ -177,10 +327,10 @@ impl TokenEnricherPort for HeliusEnricher {
             supply,
             decimals,
             price_usd,
-            holder_count: 0, // DAS doesn't always return this; set to 0 for now
-            top1_pct: 0.0,
-            top10_pct: 0.0,
-            herfindahl: None,
+            holder_count,
+            top1_pct,
+            top10_pct,
+            herfindahl,
             age_hours: 0,
             mint_authority_active,
             freeze_authority_active,
@@ -232,4 +382,17 @@ struct TokenInfo {
 #[derive(Debug, Deserialize)]
 struct PriceInfo {
     price_per_token: Option<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LargestAccount {
+    ui_amount: Option<f64>,
+}
+
+#[derive(Debug, Clone)]
+struct HolderConcentration {
+    holder_count: u64,
+    top1_pct: f64,
+    top10_pct: f64,
+    herfindahl: f64,
 }
