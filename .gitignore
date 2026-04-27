@@ -99,3 +99,11 @@ scripts/hermes-x/verdicts/
 
 # npm lockfile (noisy, not cross-platform canonical)
 package-lock.json
+cynic-python/benchmarks/__pycache__/
+cynic-python/inference_organ/
+cynic-python/benchmarks/
+cynic-python/experiment_thinking_tradeoff.py
+cynic-python/research_gpu_capabilities.py
+.claude-research/
+.cynic-explorer-*.md
+observations/
