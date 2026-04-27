@@ -76,6 +76,7 @@ pub async fn register_dog_handler(
         }
     };
 
+    let sovereign = crate::infra::boot::is_sovereign_url(&cfg.base_url);
     let new_dog: Arc<dyn crate::domain::dog::Dog> =
         Arc::new(crate::dogs::inference::InferenceDog::new(
             backend,
@@ -83,6 +84,7 @@ pub async fn register_dog_handler(
             cfg.context_size,
             cfg.timeout_secs,
             cfg.prompt_tier,
+            sovereign,
         ));
 
     // Calibration challenge: evaluate a known stimulus, validate_scores() must pass

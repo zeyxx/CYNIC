@@ -110,6 +110,16 @@ impl Judge {
         self.dogs.iter().map(|d| d.id().to_string()).collect()
     }
 
+    /// IDs of sovereign Dogs only (local infrastructure, no cloud dependency).
+    /// Live: reads `is_sovereign()` from each Dog at call time.
+    pub fn sovereign_dog_ids(&self) -> Vec<String> {
+        self.dogs
+            .iter()
+            .filter(|d| d.is_sovereign())
+            .map(|d| d.id().to_string())
+            .collect()
+    }
+
     /// Hash of Dogs that would participate in evaluation (filter + CB check).
     /// Used by VerdictCache to invalidate entries when Dog configuration changes.
     /// FNV-1a hash of sorted Dog IDs that pass filter + circuit breaker.

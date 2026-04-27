@@ -24,6 +24,10 @@ pub struct InferenceDog {
     /// Max observed thinking tokens — updated after EVERY chat response (success or failure).
     /// The organ reads this to calibrate thinking overhead even when parse fails.
     thinking_max: Arc<AtomicU32>,
+    /// Whether this Dog runs on sovereign infrastructure (local network, no cloud dependency).
+    /// Determined at construction from BackendConfig: local/Tailscale URLs = sovereign,
+    /// external APIs (huggingface.co, googleapis.com, etc.) = non-sovereign.
+    sovereign: bool,
 }
 
 impl std::fmt::Debug for InferenceDog {
@@ -39,6 +43,7 @@ impl InferenceDog {
         context_size: u32,
         timeout_secs: u64,
         prompt_tier: PromptTier,
+        sovereign: bool,
     ) -> Self {
         Self {
             chat,
@@ -49,6 +54,7 @@ impl InferenceDog {
             prompt_tier,
             calibrated_budget: Arc::new(AtomicU32::new(0)),
             thinking_max: Arc::new(AtomicU32::new(0)),
+            sovereign,
         }
     }
 
@@ -168,6 +174,10 @@ impl Dog for InferenceDog {
 
     fn timeout_secs(&self) -> u64 {
         self.timeout
+    }
+
+    fn is_sovereign(&self) -> bool {
+        self.sovereign
     }
 
     async fn health(&self) -> BackendStatus {

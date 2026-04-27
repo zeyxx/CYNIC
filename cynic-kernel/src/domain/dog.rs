@@ -306,6 +306,14 @@ pub trait Dog: Send + Sync {
         30
     }
 
+    /// Whether this Dog runs on sovereign infrastructure (our hardware, no cloud dependency).
+    /// Default: true (correct for DeterministicDog and any in-process evaluator).
+    /// InferenceDog overrides based on BackendConfig (local URL = sovereign, cloud API = false).
+    /// Used by `dogs=sovereign` filter to avoid consuming cloud quotas on autonomous volume.
+    fn is_sovereign(&self) -> bool {
+        true
+    }
+
     /// Backend health — cascades from the underlying inference provider.
     /// Default: Healthy (correct for DeterministicDog and any in-process evaluator).
     /// InferenceDog delegates to its ChatPort's BackendPort::health().
