@@ -7,6 +7,7 @@ pub mod dogs;
 pub mod event;
 pub mod events;
 pub mod health;
+pub mod inference_router;
 pub mod judge;
 pub mod judge_job;
 pub mod middleware;
@@ -41,6 +42,7 @@ use self::health::{
     agents_handler, health_handler, liveness_handler, metrics_handler, readiness_handler,
     state_history_handler,
 };
+use self::inference_router::{inference_candidates_handler, inference_route_handler};
 use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
 use self::judge_job::{judge_async_handler, judge_status_handler};
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
@@ -125,6 +127,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/observe", post(observe_handler))
         .route("/event", post(event_handler))
         .route("/fleet-stats", get(fleet_stats_handler))
+        .route("/inference/route", post(inference_route_handler))
+        .route("/inference/candidates", get(inference_candidates_handler))
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))
         .route("/coord/claim-batch", post(coord_claim_batch_handler))
