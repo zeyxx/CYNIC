@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-26 23:15 | Wallet-judgment fast-path deployed + verified (0ms latency). Onchain observability metrics added (/health: verdicts_queued/submitted/confirmed/failed). Nightshift paused (T6D band-aid active).
+Last updated: 2026-04-27 | K15 wisdom consumer shipped (commit 231695e): curated domain signals loaded at boot, injected into Dogs' stimulus context. Falsification blocked: requires CCM crystallization (hermes cron health TBD in parallel session). Wallet-judgment fast-path deployed + verified (0ms latency). Onchain observability metrics added (/health: verdicts_queued/submitted/confirmed/failed). Nightshift paused (T6D band-aid active).
 
 ---
 
