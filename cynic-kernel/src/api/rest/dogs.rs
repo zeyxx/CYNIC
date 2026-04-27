@@ -62,6 +62,7 @@ pub async fn register_dog_handler(
         cost_output_per_mtok: 0.0,
         health_url: None,
         remediation: None,
+        fleet_node: None,
     };
 
     let backend = match crate::backends::openai::OpenAiCompatBackend::new(cfg.clone()) {

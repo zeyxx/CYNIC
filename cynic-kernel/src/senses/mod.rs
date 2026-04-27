@@ -5,6 +5,7 @@
 
 pub mod hermes_x;
 pub mod rtk;
+pub mod tailscale;
 
 use crate::domain::organ::OrganPort;
 use std::sync::Arc;
@@ -22,6 +23,15 @@ pub fn build_sense_registry(project_root: &str) -> Vec<Arc<dyn OrganPort>> {
             rtk_db,
             project_root.to_string(),
         )));
+    }
+
+    // Tailscale — fleet nervous system (local CLI)
+    if which::which("tailscale").is_ok() {
+        senses.push(Arc::new(tailscale::TailscaleReader::new(vec![
+            "cynic-core".into(),
+            "cynic-gpu".into(),
+            "kairos".into(),
+        ])));
     }
 
     // Hermes X — social perception (JSONL + filesystem)

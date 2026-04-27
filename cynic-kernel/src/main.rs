@@ -313,6 +313,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         health_urls,
         fleet_meta,
         remediation_configs,
+        dog_to_fleet_node,
     } = infra::boot::build_dogs_and_organ(backend_configs, &domain_prompts, &storage_port).await;
 
     // ─── RING 2: Health Loop + Remediation ──────────────────────
@@ -369,6 +370,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Seed integrity hash chain from last stored verdict + verify integrity
     let chain_verified = infra::boot::seed_integrity_chain(&storage_port, &judge).await;
 
+    // Sense registry — best-effort organ readers (RTK, Hermes X, Tailscale)
+    // Built early so health_loop can use Tailscale sense for fleet awareness.
+    let sense_root = match std::env::current_dir() {
+        Ok(p) => p.display().to_string(),
+        Err(_) => String::new(),
+    };
+    let senses = senses::build_sense_registry(&sense_root);
+    if !senses.is_empty() {
+        klog!("[senses] {} organ(s) registered", senses.len());
+        for s in &senses {
+            klog!("[senses]   → {}", s.name());
+        }
+    }
+
     // ─── RING 2: Spawn health loop + remediation watcher ──────
     let all_breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> =
         judge.breakers().iter().map(Arc::clone).collect();
@@ -401,6 +416,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 probe_configs,
                 probe_breakers,
                 Arc::clone(&task_health),
+                senses.clone(),
+                dog_to_fleet_node.clone(),
                 shutdown.clone(),
             );
             klog!(
@@ -524,19 +541,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-    // Sense registry — best-effort organ readers (RTK, Hermes X, etc.)
-    let sense_root = match std::env::current_dir() {
-        Ok(p) => p.display().to_string(),
-        Err(_) => String::new(),
-    };
-    let senses = senses::build_sense_registry(&sense_root);
-    if !senses.is_empty() {
-        klog!("[senses] {} organ(s) registered", senses.len());
-        for s in &senses {
-            klog!("[senses]   → {}", s.name());
-        }
-    }
-
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
@@ -633,6 +637,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&rest_state.introspection_alerts),
             event_tx.clone(),
             Arc::clone(&task_health),
+            rest_state.senses.clone(),
             shutdown.clone(),
         );
 

@@ -92,6 +92,9 @@ pub struct BackendConfig {
     pub health_url: Option<String>,
     /// Remediation config — optional. Only for backends that can be restarted.
     pub remediation: Option<BackendRemediation>,
+    /// Tailscale hostname — if set, health_loop can preemptively open circuit
+    /// when this node goes offline (before Dog times out).
+    pub fleet_node: Option<String>,
 }
 
 /// Remediation config for a backend — how to restart it when the circuit breaker opens.
@@ -157,6 +160,8 @@ struct BackendEntry {
     health_url: Option<String>,
     /// Inline remediation config.
     remediation: Option<RemediationEntry>,
+    /// Tailscale hostname for fleet awareness — maps this Dog to a fleet node.
+    fleet_node: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -281,6 +286,7 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 cost_output_per_mtok: entry.cost_output_per_mtok.unwrap_or(0.0),
                 health_url,
                 remediation,
+                fleet_node: entry.fleet_node,
             })
         })
         .collect()
@@ -373,6 +379,7 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             cost_output_per_mtok: 0.0,
             health_url: None, // Cloud API — no health endpoint
             remediation: None,
+            fleet_node: None, // Cloud API — no fleet node
         });
     }
 

@@ -9,6 +9,7 @@
 //! → higher failure rate → more alerts → more judge calls → ...
 
 use crate::domain::metrics::Metrics;
+use crate::domain::organ::{MetricValue, OrganSnapshot as SenseSnapshot};
 use crate::domain::probe::{EnvironmentSnapshot, FleetDetails, ProbeDetails, ResourceDetails};
 use crate::domain::storage::StoragePort;
 use std::sync::atomic::Ordering;
@@ -16,6 +17,8 @@ use std::sync::atomic::Ordering;
 /// Anomaly thresholds — conservative defaults.
 const FAILURE_RATE_THRESHOLD: f64 = 0.20; // > 20% failure rate
 const EMBED_FAILURE_THRESHOLD: f64 = 0.50; // > 50% embedding failures
+/// phi^-2 = 0.382 — minimum acceptable savings rate (RTK gauge is 0-100).
+const SAVINGS_PCT_THRESHOLD: f64 = 38.2;
 
 /// Alert produced by introspection — serialized into /health "alerts" section.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -31,6 +34,7 @@ pub async fn analyze(
     storage: &dyn StoragePort,
     metrics: &Metrics,
     environment: &Option<EnvironmentSnapshot>,
+    sense_snapshots: &[(String, SenseSnapshot)],
 ) -> Vec<Alert> {
     let mut alerts = Vec::new();
 
@@ -140,6 +144,9 @@ pub async fn analyze(
             tracing::debug!("introspection: state_log query failed: {e} — skipping trends");
         }
     }
+
+    // ── Sense metabolism (K15 consumer for RTK + Tailscale) ──
+    alerts.extend(check_sense_health(sense_snapshots));
 
     if !alerts.is_empty() {
         let summary: String = alerts
@@ -251,6 +258,49 @@ fn check_resource_thresholds(r: &ResourceDetails, alerts: &mut Vec<Alert>) {
     }
 }
 
+// ── Sense health checks (K15 consumers for RTK + Tailscale) ──
+
+/// Check sense snapshots for anomalies. Pure function — no I/O.
+pub fn check_sense_health(snapshots: &[(String, SenseSnapshot)]) -> Vec<Alert> {
+    let mut alerts = Vec::new();
+
+    for (name, snap) in snapshots {
+        for metric in &snap.metrics {
+            match (name.as_str(), metric.key.as_str()) {
+                ("rtk", "savings_pct") => {
+                    if let MetricValue::F64(pct) = &metric.value
+                        && *pct < SAVINGS_PCT_THRESHOLD
+                    {
+                        alerts.push(Alert {
+                            kind: "metabolism_anomaly",
+                            message: format!(
+                                "RTK savings {pct:.1}% below threshold {SAVINGS_PCT_THRESHOLD:.1}% — token filtering degraded"
+                            ),
+                            severity: if *pct < 20.0 { "critical" } else { "warning" },
+                        });
+                    }
+                }
+                ("tailscale", key) if key.starts_with("node_") && key.ends_with("_online") => {
+                    if let MetricValue::Bool(false) = &metric.value {
+                        let node = key
+                            .strip_prefix("node_")
+                            .and_then(|s| s.strip_suffix("_online"))
+                            .unwrap_or(key);
+                        alerts.push(Alert {
+                            kind: "fleet_drift",
+                            message: format!("Fleet node '{node}' offline"),
+                            severity: "warning",
+                        });
+                    }
+                }
+                _ => {} // Other senses: extend here as consumers are added
+            }
+        }
+    }
+
+    alerts
+}
+
 // ── Pure trend analysis — extracted for testability ─────────
 
 use crate::domain::state_log::StateBlock;
@@ -336,10 +386,67 @@ pub fn analyze_state_log_trends(prev: &StateBlock, curr: &StateBlock) -> Vec<Ale
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::organ::{Metric, MetricKind, MetricValue, OrganSnapshot as OSnap};
     use crate::domain::state_log::{
         DogSnapshot, GENESIS_HASH, OrganSnapshot, ResourceSnapshot, StateBlock, SystemSnapshot,
     };
     use crate::domain::storage::NullStorage;
+
+    // ── Sense alert helpers ──
+
+    fn make_rtk_snapshot(savings_pct: f64) -> Vec<(String, OSnap)> {
+        vec![(
+            "rtk".into(),
+            OSnap {
+                taken_at: chrono::Utc::now(),
+                metrics: vec![Metric {
+                    key: "savings_pct".into(),
+                    value: MetricValue::F64(savings_pct),
+                    kind: MetricKind::Gauge,
+                    unit: None,
+                }],
+            },
+        )]
+    }
+
+    fn make_tailscale_snapshot(gpu_online: bool) -> Vec<(String, OSnap)> {
+        vec![(
+            "tailscale".into(),
+            OSnap {
+                taken_at: chrono::Utc::now(),
+                metrics: vec![Metric {
+                    key: "node_cynic-gpu_online".into(),
+                    value: MetricValue::Bool(gpu_online),
+                    kind: MetricKind::Gauge,
+                    unit: None,
+                }],
+            },
+        )]
+    }
+
+    #[test]
+    fn metabolism_low_savings_triggers_alert() {
+        let alerts = check_sense_health(&make_rtk_snapshot(25.0));
+        assert!(alerts.iter().any(|a| a.kind == "metabolism_anomaly"));
+    }
+
+    #[test]
+    fn metabolism_healthy_savings_no_alert() {
+        let alerts = check_sense_health(&make_rtk_snapshot(85.0));
+        assert!(alerts.iter().all(|a| a.kind != "metabolism_anomaly"));
+    }
+
+    #[test]
+    fn fleet_drift_gpu_offline_triggers_alert() {
+        let alerts = check_sense_health(&make_tailscale_snapshot(false));
+        assert!(alerts.iter().any(|a| a.kind == "fleet_drift"));
+    }
+
+    #[test]
+    fn fleet_drift_gpu_online_no_alert() {
+        let alerts = check_sense_health(&make_tailscale_snapshot(true));
+        assert!(alerts.iter().all(|a| a.kind != "fleet_drift"));
+    }
 
     #[tokio::test]
     async fn healthy_system_produces_no_alerts() {
@@ -349,7 +456,7 @@ mod tests {
         metrics.inc_dog_eval();
         metrics.inc_dog_eval();
         metrics.inc_embed_ok();
-        let alerts = analyze(&NullStorage, &metrics, &None).await;
+        let alerts = analyze(&NullStorage, &metrics, &None, &[]).await;
         // NullStorage ping fails → storage_down alert, but no other anomalies
         assert!(alerts.iter().all(|a| a.kind == "storage_down"));
     }
@@ -364,7 +471,7 @@ mod tests {
         for _ in 0..10 {
             metrics.inc_dog_failure();
         }
-        let alerts = analyze(&NullStorage, &metrics, &None).await;
+        let alerts = analyze(&NullStorage, &metrics, &None, &[]).await;
         assert!(alerts.iter().any(|a| a.kind == "dog_failure_rate"));
     }
 
@@ -383,7 +490,7 @@ mod tests {
             metrics.inc_dog_failure();
         }
         // Even with 75% failure rate, analyze() just returns alerts — no side effects
-        let alerts = analyze(&NullStorage, &metrics, &None).await;
+        let alerts = analyze(&NullStorage, &metrics, &None, &[]).await;
         assert!(alerts.iter().any(|a| a.kind == "dog_failure_rate"));
         // If pipeline::run were called, it would need a Judge (which we don't have).
         // The fact this compiles and runs proves no pipeline call happens.
@@ -402,7 +509,7 @@ mod tests {
         for _ in 0..12 {
             metrics.inc_dog_failure(); // just the failures
         }
-        let alerts = analyze(&NullStorage, &metrics, &None).await;
+        let alerts = analyze(&NullStorage, &metrics, &None, &[]).await;
         let dog_alert = alerts.iter().find(|a| a.kind == "dog_failure_rate");
         assert!(dog_alert.is_some(), "should trigger failure rate alert");
         // Parse the rate from the message: "Dog failure rate 80.0% (12/15 evals)"
