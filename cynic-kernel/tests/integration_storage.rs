@@ -320,9 +320,11 @@ async fn contract_observe_crystal_content_set_once() {
     .expect("second observe failed");
 
     let c2 = db.get_crystal("setonce-test").await.unwrap().unwrap();
+    // KC12 (2026-04-27): crystal content EVOLVES with observations — most recent wins.
+    // Previous F16 contract (content frozen at first observation) was reversed.
     assert_eq!(
-        c2.content, "Original content",
-        "F16 contract: content must NOT be overwritten by subsequent observations"
+        c2.content, "Overwritten content",
+        "KC12: crystal content should evolve to latest observation"
     );
     assert_eq!(c2.observations, 2, "observations count should increase");
     assert!(c2.confidence > c1.confidence, "confidence should update");
