@@ -61,6 +61,18 @@ pub(crate) async fn observe_crystal_for_verdict(
     domain: &str,
     deps: &PipelineDeps<'_>,
 ) {
+    // ── Domain gate: "general" is a poison domain (KC poison fix) ──
+    // Verdicts without an explicit domain default to "general" in the pipeline.
+    // These are noise (test probes, unclassified requests). Crystallizing them
+    // contaminates all domain queries. Skip.
+    if domain == "general" {
+        tracing::debug!(
+            phase = "crystal_gate",
+            "domain='general' — crystal observation skipped (noise, not knowledge)"
+        );
+        return;
+    }
+
     // ── T8+T9: Quorum gate — single-Dog verdicts must NOT crystallize ──
     // Verdict is still SERVED (availability), but only consensus crystallizes (integrity).
     if verdict.voter_count < crate::domain::dog::MIN_QUORUM {
