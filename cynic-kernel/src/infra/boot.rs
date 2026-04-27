@@ -13,6 +13,21 @@ use crate::infra::probes::FleetTarget;
 use crate::judge;
 use crate::organ;
 
+/// Determine if a backend URL points to sovereign infrastructure.
+/// Sovereign = local network (127.x, 10.x, 100.x Tailscale, 192.168.x) or localhost.
+/// CLI backends (gemini-cli) use file paths, not URLs — treated as non-sovereign.
+/// This is alive: adding a new local backend automatically classifies it as sovereign.
+pub fn is_sovereign_url(url: &str) -> bool {
+    let url_lower = url.to_lowercase();
+    // Local/private network ranges
+    url_lower.starts_with("http://127.")
+        || url_lower.starts_with("http://localhost")
+        || url_lower.starts_with("http://10.")
+        || url_lower.starts_with("http://100.") // Tailscale CGNAT range
+        || url_lower.starts_with("http://192.168.")
+        || url_lower.starts_with("http://172.") // Docker/k8s private
+}
+
 /// Everything derived from `backend_configs` at boot: the judge's Dogs, organ
 /// backend handles, and the ancillary maps downstream systems consume
 /// (health probes, fleet drift detection, remediation watchers, usage costs).
@@ -125,12 +140,18 @@ pub async fn build_dogs_and_organ(
         if let Some(rem) = cfg.remediation.clone() {
             remediation_configs.insert(cfg.name.clone(), rem);
         }
+        // Sovereign = local/Tailscale URL, no cloud dependency.
+        // Heuristic: URLs starting with http://10. http://100. http://192.168. http://127.
+        // or http://localhost are sovereign. Everything else (https://*.huggingface.co,
+        // gemini CLI, etc.) is non-sovereign. Alive: reads from config, not hardcoded list.
+        let sovereign = is_sovereign_url(&cfg.base_url);
         let inference_dog = dogs::inference::InferenceDog::new(
             backend,
             cfg.name.clone(),
             cfg.context_size,
             cfg.timeout_secs,
             cfg.prompt_tier,
+            sovereign,
         )
         .with_domain_prompts(Arc::clone(domain_prompts));
         let budget_handle = inference_dog.budget_handle();
