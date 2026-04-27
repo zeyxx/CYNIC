@@ -35,6 +35,10 @@ scripts/ollama-bench.py
 scripts/sovereign-bench.sh
 benchmarks/
 
+# Exception: cynic-python/benchmarks is infrastructure (self-evolving inference organ)
+!cynic-python/benchmarks/
+cynic-python/observations/
+
 # Hermes agent state (contains .env + local DB)
 .hermes_ouroboros/
 
