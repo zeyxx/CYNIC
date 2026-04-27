@@ -420,6 +420,7 @@ mod tests {
             health_url: None,
             remediation: None,
             fleet_node: None,
+            cli_extra_args: vec![],
         })
         .unwrap();
         assert_eq!(
@@ -449,6 +450,7 @@ mod tests {
             health_url: None,
             remediation: None,
             fleet_node: None,
+            cli_extra_args: vec![],
         })
         .unwrap();
         assert_eq!(
@@ -478,6 +480,7 @@ mod tests {
             health_url: None,
             remediation: None,
             fleet_node: None,
+            cli_extra_args: vec![],
         })
         .unwrap();
         assert_eq!(
@@ -507,6 +510,7 @@ mod tests {
             health_url: None,
             remediation: None,
             fleet_node: None,
+            cli_extra_args: vec![],
         })
         .unwrap();
         assert_eq!(

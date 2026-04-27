@@ -95,6 +95,9 @@ pub struct BackendConfig {
     /// Tailscale hostname — if set, health_loop can preemptively open circuit
     /// when this node goes offline (before Dog times out).
     pub fleet_node: Option<String>,
+    /// Extra CLI arguments passed before --prompt (CLI backends only).
+    /// Parsed by splitting on whitespace. Example: "-o json --approval-mode plan"
+    pub cli_extra_args: Vec<String>,
 }
 
 /// Remediation config for a backend — how to restart it when the circuit breaker opens.
@@ -162,6 +165,8 @@ struct BackendEntry {
     remediation: Option<RemediationEntry>,
     /// Tailscale hostname for fleet awareness — maps this Dog to a fleet node.
     fleet_node: Option<String>,
+    /// Extra CLI arguments (space-separated string, parsed at load time).
+    cli_extra_args: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -287,6 +292,10 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 health_url,
                 remediation,
                 fleet_node: entry.fleet_node,
+                cli_extra_args: entry
+                    .cli_extra_args
+                    .map(|s| s.split_whitespace().map(String::from).collect())
+                    .unwrap_or_default(),
             })
         })
         .collect()
@@ -379,7 +388,8 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             cost_output_per_mtok: 0.0,
             health_url: None, // Cloud API — no health endpoint
             remediation: None,
-            fleet_node: None, // Cloud API — no fleet node
+            fleet_node: None,
+            cli_extra_args: vec![],
         });
     }
 
