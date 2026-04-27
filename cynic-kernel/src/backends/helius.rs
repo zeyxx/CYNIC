@@ -2,9 +2,11 @@
 //! Implements TokenEnricherPort. Uses mainnet RPC for real token data.
 
 use crate::domain::enrichment::{EnrichmentError, TokenData, TokenEnricherPort};
+use crate::domain::helius_credit::HeliumsCreditTracker;
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
+use std::sync::Arc;
 use std::time::Duration;
 
 const HELIUS_TIMEOUT: Duration = Duration::from_secs(10);
@@ -13,6 +15,7 @@ const HELIUS_TIMEOUT: Duration = Duration::from_secs(10);
 pub struct HeliusEnricher {
     client: Client,
     rpc_url: String,
+    credits: Arc<HeliumsCreditTracker>,
 }
 
 impl HeliusEnricher {
@@ -23,7 +26,13 @@ impl HeliusEnricher {
                 .build()
                 .unwrap_or_default(),
             rpc_url: format!("https://mainnet.helius-rpc.com/?api-key={api_key}"),
+            credits: Arc::new(HeliumsCreditTracker::new(chrono::Utc::now().to_rfc3339())),
         }
+    }
+
+    /// Get a snapshot of credit usage for /health reporting.
+    pub fn credit_snapshot(&self) -> Option<crate::domain::helius_credit::HeliumsCreditBudget> {
+        self.credits.snapshot()
     }
 
     /// Build from HELIUS_API_KEY env var or ~/.helius/config.json.
@@ -99,11 +108,13 @@ impl HeliusEnricher {
             EnrichmentError::RequestFailed(e.to_string())
         })?;
 
+        let latency = start.elapsed().as_millis();
+        self.credits.record_call(latency, true, 10); // DAS: 10 credits
         tracing::debug!(
             method = "getAsset",
             mint = %mint,
             status = 200,
-            latency_ms = start.elapsed().as_millis(),
+            latency_ms = latency,
             credits_cost = 10,
             "Helius getAsset succeeded"
         );
@@ -205,13 +216,15 @@ impl HeliusEnricher {
             }
         }
 
+        let latency = start.elapsed().as_millis();
+        self.credits.record_call(latency, true, 1); // Standard RPC: 1 credit
         tracing::debug!(
             method = "getTokenLargestAccounts",
             mint = %mint,
             status = 200,
             holder_count = accounts.len(),
-            latency_ms = start.elapsed().as_millis(),
-            credits_cost = 10,
+            latency_ms = latency,
+            credits_cost = 1,
             "Helius getTokenLargestAccounts succeeded"
         );
 
@@ -259,6 +272,76 @@ impl HeliusEnricher {
             .map(|s| s.to_string());
 
         Ok(desc)
+    }
+
+    /// Estimate token age from transaction history. 1 credit.
+    ///
+    /// Calls getSignaturesForAddress (newest-first, limit=1000).
+    /// - If < 1000 results: last result = creation tx → exact age.
+    /// - If = 1000 results: token has >1000 txs → mature (≥ oldest in batch).
+    ///
+    /// This is exact for young/pump.fun tokens (the critical case for scoring)
+    /// and conservative for established tokens.
+    async fn get_token_age_hours(&self, mint: &str) -> Result<u64, EnrichmentError> {
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getSignaturesForAddress",
+            "params": [mint, {"limit": 1000}]
+        });
+
+        let resp = self
+            .client
+            .post(&self.rpc_url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+
+        if !resp.status().is_success() {
+            return Ok(0);
+        }
+
+        let rpc: RpcResponse<Vec<SignatureInfo>> = resp
+            .json()
+            .await
+            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+
+        let Some(sigs) = rpc.result else {
+            return Ok(0);
+        };
+
+        if sigs.is_empty() {
+            return Ok(0);
+        }
+
+        // Last item in the array = oldest in this batch (newest-first ordering)
+        let oldest_block_time = sigs.last().and_then(|s| s.block_time).unwrap_or(0);
+
+        if oldest_block_time == 0 {
+            return Ok(0);
+        }
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0) as i64;
+
+        let age_secs = (now - oldest_block_time).max(0) as u64;
+        let age_hours = age_secs / 3600;
+
+        tracing::debug!(
+            method = "getSignaturesForAddress",
+            mint = %mint,
+            sigs_returned = sigs.len(),
+            oldest_block_time,
+            age_hours,
+            exact = sigs.len() < 1000,
+            credits_cost = 1,
+            "Token age estimated"
+        );
+
+        Ok(age_hours)
     }
 }
 
@@ -351,7 +434,7 @@ impl TokenEnricherPort for HeliusEnricher {
             top1_pct,
             top10_pct,
             herfindahl,
-            age_hours: 0, // TODO: compute from first transaction signature
+            age_hours: self.get_token_age_hours(mint_address).await.unwrap_or(0),
             mint_authority_active,
             freeze_authority_active,
             lp_status: "unsecured".into(), // TODO: check Raydium/Jupiter LP state
@@ -419,6 +502,12 @@ struct RpcContext<T> {
 #[serde(rename_all = "camelCase")]
 struct LargestAccount {
     ui_amount: Option<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SignatureInfo {
+    block_time: Option<i64>,
 }
 
 #[derive(Debug, Clone)]
