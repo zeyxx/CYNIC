@@ -63,6 +63,7 @@ pub async fn register_dog_handler(
         health_url: None,
         remediation: None,
         fleet_node: None,
+        cli_extra_args: vec![],
     };
 
     let backend = match crate::backends::openai::OpenAiCompatBackend::new(cfg.clone()) {

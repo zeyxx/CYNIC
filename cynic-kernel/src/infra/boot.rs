@@ -83,11 +83,14 @@ pub async fn build_dogs_and_organ(
     let mut fleet_meta: HashMap<String, (String, u32, String, Option<String>)> = HashMap::new();
     for cfg in backend_configs {
         let backend: Arc<dyn domain::chat::ChatPort> = match cfg.backend_type {
-            BackendType::Cli => Arc::new(backends::cli::CliBackend::new(
-                &cfg.name,
-                &cfg.base_url, // for CLI backends, base_url holds the binary path/name
-                cfg.timeout_secs,
-            )),
+            BackendType::Cli => Arc::new(
+                backends::cli::CliBackend::new(
+                    &cfg.name,
+                    &cfg.base_url, // for CLI backends, base_url holds the binary path/name
+                    cfg.timeout_secs,
+                )
+                .with_extra_args(cfg.cli_extra_args.clone()),
+            ),
             BackendType::OpenAi => match backends::openai::OpenAiCompatBackend::new(cfg.clone()) {
                 Ok(b) => Arc::new(b),
                 Err(e) => {

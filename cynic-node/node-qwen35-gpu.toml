@@ -17,7 +17,7 @@ api_key_env = "CYNIC_LLAMA_API_KEY"
 
 [process]
 # Supervise llama-server on port 8080 (Windows, Tailscale-only binding)
-command = ["C:\\llama.cpp\\llama-server.exe", "--model", "C:\\llama.cpp\\Qwen3.5-9B-Q4_K_M.gguf", "--n-gpu-layers", "33", "--ctx-size", "131072", "-ctk", "q8_0", "--threads", "6", "--port", "8080", "--host", "<TAILSCALE_GPU>", "--reasoning-format", "deepseek", "--api-key", "${CYNIC_LLAMA_API_KEY}"]
+command = ["C:\\llama.cpp\\llama-server.exe", "--model", "C:\\llama.cpp\\Qwen3.5-9B-Q4_K_M.gguf", "--n-gpu-layers", "33", "--ctx-size", "131072", "--threads", "6", "--port", "8080", "--host", "<TAILSCALE_GPU>", "--metrics", "--api-key", "${CYNIC_LLAMA_API_KEY}"]
 working_dir = "C:\\llama.cpp"
 stop_timeout_secs = 10
 
