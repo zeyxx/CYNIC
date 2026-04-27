@@ -8,7 +8,9 @@ mod null;
 mod types;
 
 pub use null::NullStorage;
-pub use types::{AgentTask, Observation, RawObservation, StorageError, StorageMetrics, UsageRow};
+pub use types::{
+    AgentTask, Event, Observation, RawEvent, RawObservation, StorageError, StorageMetrics, UsageRow,
+};
 
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
@@ -81,6 +83,35 @@ pub trait StoragePort: Send + Sync {
     /// Store a development workflow observation (tool usage, file edit, error).
     /// Fire-and-forget — callers should not block on this.
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError>;
+
+    /// Store infrastructure event: node latency, output size, success/fail.
+    /// Fire-and-forget. Consumer: inference router (fleet_stats query).
+    /// K15: acting consumer is fleet-aware routing logic (Phase 2).
+    async fn store_event(&self, _event: &Event) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    /// Fleet stats: aggregate latencies per node over a time window (secs).
+    /// Returns (node, avg_latency_ms, success_rate, last_seen_secs).
+    /// Consumer: inference router selects node by latency.
+    async fn fleet_stats(
+        &self,
+        _window_secs: u64,
+        _limit: u32,
+    ) -> Result<Vec<(String, u64, f64, u64)>, StorageError> {
+        Ok(vec![])
+    }
+
+    /// List recent events with optional filters (node, tool).
+    /// Used by /events endpoint for debugging and event log inspection.
+    async fn list_events(
+        &self,
+        _node: Option<&str>,
+        _tool: Option<&str>,
+        _limit: u32,
+    ) -> Result<Vec<RawEvent>, StorageError> {
+        Ok(vec![])
+    }
 
     /// List crystals that have no embedding vector stored.
     /// Used by the backfill task to retroactively embed orphan crystals.

@@ -1,7 +1,7 @@
 use super::{build_where_clause, safe_limit, sanitize_record_id};
 use crate::domain::ccm::SessionSummary;
 use crate::domain::compliance::SessionCompliance;
-use crate::domain::storage::{Observation, RawObservation, StorageError};
+use crate::domain::storage::{Event, Observation, RawEvent, RawObservation, StorageError};
 use crate::storage::{SurrealHttpStorage, escape_surreal};
 
 fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
@@ -263,4 +263,119 @@ pub(super) async fn last_observation_per_source(
             Some((agent_id, last_at, total))
         })
         .collect())
+}
+
+// ── EVENT STORAGE ────────────────────────────────────
+
+fn row_to_raw_event(row: &serde_json::Value) -> RawEvent {
+    RawEvent {
+        id: row["id"].as_str().unwrap_or("").to_string(),
+        tool: row["tool"].as_str().unwrap_or("").to_string(),
+        node: row["node"].as_str().unwrap_or("").to_string(),
+        elapsed_ms: row["elapsed_ms"].as_u64().unwrap_or(0),
+        output_bytes: row["output_bytes"].as_u64().unwrap_or(0),
+        success: row["success"].as_bool().unwrap_or(false),
+        metadata: row["metadata"].as_str().unwrap_or("").to_string(),
+        agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
+        created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+    }
+}
+
+/// Store infrastructure event: node latency, output size, success/fail.
+/// Fire-and-forget, similar to store_observation.
+pub(super) async fn store_event(
+    storage: &SurrealHttpStorage,
+    event: &Event,
+) -> Result<(), StorageError> {
+    let sql = format!(
+        "CREATE event SET \
+            tool = '{tool}', \
+            node = '{node}', \
+            elapsed_ms = {elapsed_ms}, \
+            output_bytes = {output_bytes}, \
+            success = {success}, \
+            metadata = '{metadata}', \
+            agent_id = '{agent_id}', \
+            created_at = time::now();",
+        tool = escape_surreal(&event.tool),
+        node = escape_surreal(&event.node),
+        elapsed_ms = event.elapsed_ms,
+        output_bytes = event.output_bytes,
+        success = event.success,
+        metadata = escape_surreal(&event.metadata),
+        agent_id = escape_surreal(&event.agent_id),
+    );
+    storage.query(&sql).await?;
+    Ok(())
+}
+
+/// Fleet stats: aggregate latencies per node over a time window.
+/// Returns: (node, avg_latency_ms, success_rate, last_seen_secs).
+/// Used by inference router to select best node.
+pub(super) async fn fleet_stats(
+    storage: &SurrealHttpStorage,
+    window_secs: u64,
+    limit: u32,
+) -> Result<Vec<(String, u64, f64, u64)>, StorageError> {
+    let sql = format!(
+        "SELECT node, \
+                math::mean(elapsed_ms) AS avg_latency, \
+                count(success == true) / count() AS success_rate, \
+                math::max(created_at) AS last_seen \
+         FROM event \
+         WHERE created_at > time::now() - {}s \
+         GROUP BY node \
+         ORDER BY avg_latency ASC \
+         LIMIT {};",
+        window_secs,
+        safe_limit(limit),
+    );
+    let rows = storage
+        .query_one(&sql)
+        .await
+        .map_err(|e| StorageError::QueryFailed(format!("fleet_stats: {e}")))?;
+
+    Ok(rows
+        .iter()
+        .filter_map(|r| {
+            let node = r["node"].as_str()?.to_string();
+            let avg_latency = r["avg_latency"].as_f64().unwrap_or(0.0) as u64;
+            let success_rate = r["success_rate"].as_f64().unwrap_or(0.0);
+
+            // Calculate age in seconds from last_seen timestamp
+            let last_seen_str = r["last_seen"].as_str().unwrap_or("1970-01-01T00:00:00Z");
+            let age_secs = match chrono::DateTime::parse_from_rfc3339(last_seen_str) {
+                Ok(dt) => chrono::Utc::now()
+                    .signed_duration_since(dt.with_timezone(&chrono::Utc))
+                    .num_seconds()
+                    .max(0) as u64,
+                Err(_) => u64::MAX,
+            };
+
+            Some((node, avg_latency, success_rate, age_secs))
+        })
+        .collect())
+}
+
+/// List recent events, optionally filtered by node or tool.
+pub(super) async fn list_events(
+    storage: &SurrealHttpStorage,
+    node: Option<&str>,
+    tool: Option<&str>,
+    limit: u32,
+) -> Result<Vec<RawEvent>, StorageError> {
+    let mut conditions = Vec::new();
+    if let Some(n) = node {
+        conditions.push(format!("node = '{}'", escape_surreal(n)));
+    }
+    if let Some(t) = tool {
+        conditions.push(format!("tool = '{}'", escape_surreal(t)));
+    }
+    let where_clause = build_where_clause(&conditions);
+    let sql = format!(
+        "SELECT * FROM event{where_clause} ORDER BY created_at DESC LIMIT {}",
+        safe_limit(limit),
+    );
+    let rows = storage.query_one(&sql).await?;
+    Ok(rows.iter().map(row_to_raw_event).collect())
 }

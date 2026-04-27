@@ -4,6 +4,7 @@ pub mod agent_tasks;
 pub mod coord;
 pub mod data;
 pub mod dogs;
+pub mod event;
 pub mod events;
 pub mod health;
 pub mod judge;
@@ -35,6 +36,7 @@ use self::data::{
     sessions_handler, usage_handler,
 };
 use self::dogs::{deregister_handler, dogs_handler, heartbeat_handler, register_dog_handler};
+use self::event::{event_handler, fleet_stats_handler};
 use self::health::{
     agents_handler, health_handler, liveness_handler, metrics_handler, readiness_handler,
     state_history_handler,
@@ -121,6 +123,8 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(agent_tasks::complete_task_handler),
         )
         .route("/observe", post(observe_handler))
+        .route("/event", post(event_handler))
+        .route("/fleet-stats", get(fleet_stats_handler))
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))
         .route("/coord/claim-batch", post(coord_claim_batch_handler))
