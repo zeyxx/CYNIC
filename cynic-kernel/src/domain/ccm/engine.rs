@@ -157,7 +157,9 @@ pub fn decay_relevance(confidence: f64, updated_at: &str, now: &str) -> f64 {
 
 /// Format mature crystals as context for Dog prompts.
 /// Accepts `&[MatureCrystal]` — type system guarantees only Crystallized/Canonical.
-/// Filters by domain (including "general" cross-domain).
+/// Filters by exact domain match only. No "general" cross-domain fallback —
+/// it was a poison vector (hermes heartbeats, curl commands contaminating all domains).
+/// Cross-domain discovery is handled by embedding similarity (pipeline primary path).
 /// Token-budget-aware: caps at max_chars to avoid overflowing small models.
 /// Content wrapped in delimiters (T7 defense-in-depth).
 pub fn format_crystal_context(
@@ -165,10 +167,8 @@ pub fn format_crystal_context(
     domain: &str,
     max_chars: usize,
 ) -> Option<String> {
-    let domain_filtered: Vec<&MatureCrystal> = crystals
-        .iter()
-        .filter(|c| c.domain() == domain || c.domain() == "general")
-        .collect();
+    let domain_filtered: Vec<&MatureCrystal> =
+        crystals.iter().filter(|c| c.domain() == domain).collect();
 
     if domain_filtered.is_empty() {
         return None;
