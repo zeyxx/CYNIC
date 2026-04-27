@@ -940,7 +940,7 @@ mod tests {
         })]);
 
         let long_stimulus = Stimulus {
-            content: "a".repeat(200),
+            content: "a".repeat(500),
             context: None,
             domain: None,
             request_id: None,
@@ -949,7 +949,7 @@ mod tests {
             .evaluate(&long_stimulus, None, &test_metrics())
             .await
             .unwrap();
-        assert_eq!(verdict.stimulus_summary.len(), 100);
+        assert_eq!(verdict.stimulus_summary.len(), 300);
     }
 
     #[tokio::test]
