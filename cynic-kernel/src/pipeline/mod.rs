@@ -14,6 +14,8 @@ use crate::domain::metrics::Metrics;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::{CacheContext, CacheLookup, VerdictCache};
+use crate::domain::wisdom::DomainCurations;
+use crate::domain::wisdom::engine::format_wisdom_context;
 use crate::judge::{Judge, JudgeError};
 pub use maintenance::{backfill_crystal_embeddings, summarize_pending_sessions};
 
@@ -66,6 +68,9 @@ pub struct PipelineDeps<'a> {
     /// Optional token enricher — when domain=token-analysis and content is a Solana address,
     /// enriches the stimulus with on-chain data before Dogs evaluate.
     pub enricher: Option<&'a dyn crate::domain::enrichment::TokenEnricherPort>,
+    /// Domain curations (D1-D6 signals) for wisdom enrichment.
+    /// K15: Dogs query patterns matching stimulus keywords to ground judgment in domain knowledge.
+    pub domain_curations: &'a DomainCurations,
 }
 
 impl std::fmt::Debug for PipelineDeps<'_> {
@@ -220,7 +225,7 @@ async fn pipeline_inner(
         None
     };
 
-    // ── CONTEXT ENRICHMENT: merge user context + crystals + sessions ──
+    // ── CONTEXT ENRICHMENT: merge user context + crystals + wisdom + sessions ──
     let enriched_context = {
         // Crystal budget derived from ML theory:
         // - Golden ratio weighting (arXiv 2502.18049): supplementary:primary = φ⁻²
@@ -229,9 +234,24 @@ async fn pipeline_inner(
         // All three converge at ~domain_prompt_length × φ⁻² ≈ 1089 for chess (2850 chars).
         // Hardcoded for now; will scale dynamically with domain prompt length.
         const CRYSTAL_BUDGET_CHARS: usize = 1100;
+        const WISDOM_BUDGET_CHARS: usize = 800;
         let crystal_ctx =
             ccm::format_crystal_context(&mature_crystals, domain_hint, CRYSTAL_BUDGET_CHARS);
-        let parts: Vec<String> = [context, crystal_ctx, session_ctx]
+
+        // K15: Query wisdom signals matching stimulus keywords
+        let wisdom_ctx = format_wisdom_context(
+            deps.domain_curations,
+            domain_hint,
+            &content,
+            WISDOM_BUDGET_CHARS,
+        );
+        tracing::info!(
+            phase = "wisdom",
+            has_signals = wisdom_ctx.is_some(),
+            "wisdom context query"
+        );
+
+        let parts: Vec<String> = [context, crystal_ctx, wisdom_ctx, session_ctx]
             .into_iter()
             .flatten()
             .collect();
@@ -619,6 +639,7 @@ mod tests {
         let verdict_cache = VerdictCache::new();
         let metrics = Metrics::new();
 
+        let domain_curations = crate::domain::wisdom::DomainCurations::new();
         let deps = PipelineDeps {
             judge: &judge,
             storage: &storage,
@@ -631,6 +652,7 @@ mod tests {
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
+            domain_curations: &domain_curations,
         };
 
         let result = run(
@@ -682,6 +704,7 @@ mod tests {
         let verdict_cache = VerdictCache::new();
         let metrics = Metrics::new();
 
+        let domain_curations = crate::domain::wisdom::DomainCurations::new();
         let deps = PipelineDeps {
             judge: &judge,
             storage: &storage,
@@ -694,6 +717,7 @@ mod tests {
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
+            domain_curations: &domain_curations,
         };
         let _ = run("test content".into(), None, None, None, true, &deps).await;
 
@@ -720,6 +744,7 @@ mod tests {
         let verdict_cache = VerdictCache::new();
         let metrics = Metrics::new();
 
+        let domain_curations = crate::domain::wisdom::DomainCurations::new();
         let deps = PipelineDeps {
             judge: &judge,
             storage: &storage,
@@ -732,6 +757,7 @@ mod tests {
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
+            domain_curations: &domain_curations,
         };
 
         // First call: should evaluate (cache miss) and embed successfully
@@ -814,6 +840,7 @@ mod tests {
         let verdict_cache = VerdictCache::new();
         let metrics = Metrics::new();
 
+        let domain_curations = crate::domain::wisdom::DomainCurations::new();
         let deps = PipelineDeps {
             judge: &judge,
             storage: &storage,
@@ -826,6 +853,7 @@ mod tests {
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
+            domain_curations: &domain_curations,
         };
 
         let result = run(
@@ -889,6 +917,7 @@ mod tests {
         let verdict_cache = VerdictCache::new();
         let metrics = Metrics::new();
 
+        let domain_curations = crate::domain::wisdom::DomainCurations::new();
         let deps = PipelineDeps {
             judge: &judge,
             storage: &storage,
@@ -901,6 +930,7 @@ mod tests {
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
+            domain_curations: &domain_curations,
         };
 
         let result = run(
@@ -958,6 +988,7 @@ mod tests {
         let verdict_cache = VerdictCache::new();
         let metrics = Metrics::new();
 
+        let domain_curations = crate::domain::wisdom::DomainCurations::new();
         let deps = PipelineDeps {
             judge: &judge,
             storage: &storage,
@@ -970,6 +1001,7 @@ mod tests {
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
+            domain_curations: &domain_curations,
         };
 
         let result = run(
@@ -1010,6 +1042,7 @@ mod tests {
         let verdict_cache = VerdictCache::new();
         let metrics = Metrics::new();
 
+        let domain_curations = crate::domain::wisdom::DomainCurations::new();
         let deps = PipelineDeps {
             judge: &judge,
             storage: &storage,
@@ -1022,6 +1055,7 @@ mod tests {
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
+            domain_curations: &domain_curations,
         };
 
         let result = run(

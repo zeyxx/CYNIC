@@ -95,6 +95,7 @@ impl CynicMcp {
             on_dog: None,
             expected_dog_count: judge.dog_ids().len(),
             enricher: self.enricher.as_deref(),
+            domain_curations: self.domain_curations.as_ref(),
         };
         let result = crate::pipeline::run(
             p.content.clone(),

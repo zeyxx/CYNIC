@@ -730,6 +730,7 @@ mod tests {
             )),
             enricher: None,
             senses: vec![],
+            domain_curations: Arc::new(crate::domain::wisdom::DomainCurations::new()),
         })
     }
 

@@ -247,6 +247,7 @@ pub struct CynicMcp {
     pub(crate) authenticated: Arc<AtomicBool>,
     pub(crate) project_root: String,
     pub(crate) enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
+    pub(crate) domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -275,6 +276,7 @@ impl CynicMcp {
         event_tx: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
         project_root: String,
         enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
+        domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
     ) -> Self {
         Self {
             judge: Arc::new(arc_swap::ArcSwap::from(judge)),
@@ -290,6 +292,7 @@ impl CynicMcp {
             usage,
             event_tx,
             enricher,
+            domain_curations,
             rate_limit: Arc::new(McpRateLimit::new()),
             bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
                 crate::domain::constants::BG_SEMAPHORE_PERMITS,
@@ -461,6 +464,7 @@ mod tests {
             None,
             "/tmp".to_string(),
             None,
+            Arc::new(crate::domain::wisdom::DomainCurations::new()),
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
         mcp
@@ -645,6 +649,7 @@ mod tests {
             None,
             "/tmp".to_string(),
             None,
+            Arc::new(crate::domain::wisdom::DomainCurations::new()),
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
 
