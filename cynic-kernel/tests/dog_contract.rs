@@ -65,6 +65,7 @@ async fn inference_dog_with_mock_passes_contract() {
         4096,
         30,
         cynic_kernel::infra::config::PromptTier::Full,
+        true, // sovereign (test mock)
     );
     dog_contract(&dog).await;
 }

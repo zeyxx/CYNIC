@@ -565,7 +565,7 @@ mod tests {
             r#"{"fidelity": 0.6, "phi": 0.5, "verify": 0.4, "culture": 0.45, "burn": 0.5, "sovereignty": 0.55, "fidelity_reason": "good", "phi_reason": "ok", "verify_reason": "decent", "culture_reason": "respects patterns", "burn_reason": "efficient", "sovereignty_reason": "preserves agency"}"#,
         ));
 
-        let dog = InferenceDog::new(mock, "test-dog".into(), 4096, 30, PromptTier::Full);
+        let dog = InferenceDog::new(mock, "test-dog".into(), 4096, 30, PromptTier::Full, true);
         let stimulus = Stimulus {
             content: "The sky is blue.".into(),
             context: None,

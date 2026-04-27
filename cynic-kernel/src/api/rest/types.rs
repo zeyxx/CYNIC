@@ -419,6 +419,7 @@ pub struct ErrorResponse {
 pub struct DogHealthResponse {
     pub id: String,
     pub kind: String,
+    pub sovereign: bool,
     pub circuit: String,
     pub failures: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
