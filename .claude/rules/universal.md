@@ -13,7 +13,7 @@ globs: ["**"]
 2. **Handle all fallible I/O.** Propagate with `?` or log + retry/skip. No silent `.ok()`. — `make lint-rules` (full `src/` scope; exceptions: probes, `to_str()`, `from_utf8`, `filter_map`, `lock()`/`read()` per K14, `create_dir_all`/`remove_file`)
 3. **Every producer needs a consumer.** `store_*` without a read path = invisible waste. — `make lint-drift`
 4. **Commit before completing.** `git status --short` at session end must show 0 modified files. — `session-stop.sh` (warns)
-5. **No dead architecture.** Commented modules need `DORMANT:` tag. Skills in CLAUDE.md must exist on disk. Hooks on disk must be wired in settings. — `make lint-drift`
+5. **No dead architecture.** Commented modules need `DORMANT:` tag. Skills in CLAUDE.md must exist on disk. Hooks on disk must be wired in settings. Crate deps in Cargo.toml must have ≥1 `use` in `src/` — dead deps rot silently until audit flags them (bincode 2026-04-27). — `make lint-drift`
 
 ## Design Principles (judgment guidance — no mechanical gate)
 

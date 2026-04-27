@@ -184,7 +184,11 @@ async fn contract_observe_crystal_content_set_once(db: &dyn StoragePort) {
         .await
         .expect("get_crystal")
         .expect("crystal should exist");
-    assert_eq!(crystal.content, "first content", "content must be set-once");
+    // KC12: crystal content evolves with observations — most recent wins.
+    assert_eq!(
+        crystal.content, "second content OVERWRITE",
+        "KC12: content evolves to latest"
+    );
     assert_eq!(crystal.observations, 2);
 }
 

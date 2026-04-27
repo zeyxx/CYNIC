@@ -14,6 +14,37 @@ At session start, after reading injected context:
 At session end:
 - Update TODO.md if any items were completed or discovered.
 - session-stop.sh will warn if TODO.md was not touched.
+- **Self-distill to kernel** (T1 — crystallize-truth 2026-04-27): POST a rich handoff observation before ending. The LLM has the context; the bash hook doesn't. This is the ONLY moment the session's reasoning can be captured.
+
+```bash
+# POST via curl (the LLM composes this, not the hook):
+curl -s -X POST "${CYNIC_REST_ADDR}/observe" \
+  -H "Authorization: Bearer ${CYNIC_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"tool":"session_distill","target":"handover","domain":"session",
+       "context":"<WHAT: what was done> <WHY: key decisions and rejected alternatives> <NEXT: what the next session should do> <BLOCKED: what is stuck>",
+       "agent_id":"<your agent_id>","tags":["session-distill"]}'
+```
+
+Keep context under 2000 chars. Focus on decisions and next steps, not actions (git log has those).
+
+## Multi-Cortex Coordination (5 rules — crystallized 2026-04-27)
+
+**Rule MC1: One branch = one cortex = one scope.**
+Never two cortex on the same branch. Branch name includes session-id short:
+`feat/<scope>-<session-id-8chars>-YYYY-MM-DD`
+
+**Rule MC2: PR before new work.**
+A cortex does NOT start new work while its previous branch is unmerged. No orphan branches.
+
+**Rule MC3: Main always fresh.**
+Before creating a branch: `git pull origin main`. After any merge: all active cortex rebase.
+
+**Rule MC4: Auto-partition with escalade.**
+At session start, the cortex checks `/coord/who`. If another cortex touches the same module → STOP, show the conflict, ask T. to re-partition. The cortex carries the verification burden, not the human.
+
+**Rule MC5: Atomic scope.**
+Each branch = 1 coherent feature/fix. Not a catch-all with 26 commits spanning MCP + queues + OrganPort + metabolic fixes. If scope creeps → new branch.
 
 ## Pre-Commit Validation (MANDATORY for cynic-kernel/)
 

@@ -346,7 +346,7 @@ async fn pipeline_inner(
             let kind = verdict_kind(q_score.total);
             let id = uuid::Uuid::new_v4().to_string();
             let timestamp = chrono::Utc::now().to_rfc3339();
-            let stimulus_summary: String = stimulus.content.chars().take(100).collect();
+            let stimulus_summary: String = stimulus.content.chars().take(300).collect();
             let dog_score = DogScore {
                 dog_id: "wallet-deterministic-dog".to_string(),
                 latency_ms: 0,
