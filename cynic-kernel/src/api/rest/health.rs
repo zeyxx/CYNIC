@@ -85,6 +85,7 @@ pub async fn health_handler(
     let stale_tasks = state.task_health.readiness_stale_tasks();
 
     let dog_health_detail = judge.dog_health_detailed();
+    let sovereign_ids = judge.sovereign_dog_ids();
     let dogs: Vec<DogHealthResponse> = dog_health_detail
         .into_iter()
         .map(|(id, circuit, failures, reason, open_secs)| {
@@ -94,9 +95,11 @@ pub async fn health_handler(
                 "inference"
             }
             .to_string();
+            let sovereign = sovereign_ids.iter().any(|s| s == &id);
             DogHealthResponse {
                 id,
                 kind,
+                sovereign,
                 circuit,
                 failures,
                 last_failure_reason: reason.map(|r| r.as_str().to_string()),
