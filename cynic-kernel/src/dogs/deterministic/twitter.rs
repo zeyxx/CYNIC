@@ -88,8 +88,7 @@ pub(super) fn parse(content: &str, context: Option<&str>) -> Option<TwitterSigna
         .and_then(|start| {
             content[start + 8..]
                 .find(')')
-                // R2-exempt: parse failure = no signal score → default 0 (filter_map pattern)
-                .and_then(|end| content[start + 8..start + 8 + end].parse::<i32>().ok())
+                .and_then(|end| content[start + 8..start + 8 + end].parse::<i32>().ok()) // R2-exempt: filter_map
         })
         .unwrap_or(0);
 

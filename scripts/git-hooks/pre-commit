@@ -112,6 +112,22 @@ coord_check() {
 }
 coord_check || exit 1
 
+# ── Cargo.lock coherence check ──
+# If Cargo.toml changed, verify lock is consistent WITHOUT upgrading deps.
+# cargo update --locked fails if lock needs regeneration but doesn't modify it.
+# Catches phantom diffs without pulling breaking upgrades (rmcp 1.2→1.5 incident).
+STAGED_TOML=$(git diff --cached --name-only | grep 'Cargo\.toml$' || true)
+if [ -n "$STAGED_TOML" ]; then
+    if command -v cargo >/dev/null 2>&1; then
+        if ! cargo check --locked 2>/dev/null; then
+            echo "LOCKFILE DRIFT: Cargo.lock inconsistent with Cargo.toml."
+            echo "  Run: cargo update && git add Cargo.lock"
+            echo "  WARNING: cargo update may pull breaking dep upgrades. Pin versions if needed."
+            exit 1
+        fi
+    fi
+fi
+
 # Skip if no .rs files are staged (docs-only commits don't need checks)
 STAGED_RS=$(git diff --cached --name-only --diff-filter=ACM | grep '\.rs$' || true)
 if [ -z "$STAGED_RS" ]; then
