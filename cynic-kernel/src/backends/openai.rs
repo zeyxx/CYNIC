@@ -419,6 +419,7 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
+            fleet_node: None,
         })
         .unwrap();
         assert_eq!(
@@ -447,6 +448,7 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
+            fleet_node: None,
         })
         .unwrap();
         assert_eq!(
@@ -475,6 +477,7 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
+            fleet_node: None,
         })
         .unwrap();
         assert_eq!(
@@ -503,6 +506,7 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: None,
             remediation: None,
+            fleet_node: None,
         })
         .unwrap();
         assert_eq!(

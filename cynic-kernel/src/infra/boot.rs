@@ -41,6 +41,8 @@ pub struct DogsAndOrgan {
     /// and the discovery loop. CLI backends are intentionally absent (no HTTP URL).
     pub fleet_meta: HashMap<String, (String, u32, String, Option<String>)>,
     pub remediation_configs: HashMap<String, BackendRemediation>,
+    /// Dog ID → Tailscale hostname. Used by health_loop for preemptive marking.
+    pub dog_to_fleet_node: HashMap<String, String>,
 }
 
 impl std::fmt::Debug for DogsAndOrgan {
@@ -76,6 +78,7 @@ pub async fn build_dogs_and_organ(
     let mut cost_rates: Vec<(String, f64, f64)> = Vec::new();
     let mut remediation_configs: HashMap<String, BackendRemediation> = HashMap::new();
     let mut health_urls: HashMap<String, Option<String>> = HashMap::new();
+    let mut dog_to_fleet_node: HashMap<String, String> = HashMap::new();
     // Fleet probe needs base_url (for /props + /v1/models), context_size, model name, api_key
     let mut fleet_meta: HashMap<String, (String, u32, String, Option<String>)> = HashMap::new();
     for cfg in backend_configs {
@@ -139,6 +142,9 @@ pub async fn build_dogs_and_organ(
         }
         if let Some(rem) = cfg.remediation.clone() {
             remediation_configs.insert(cfg.name.clone(), rem);
+        }
+        if let Some(node) = &cfg.fleet_node {
+            dog_to_fleet_node.insert(cfg.name.clone(), node.clone());
         }
         // Sovereign = local/Tailscale URL, no cloud dependency.
         // Heuristic: URLs starting with http://10. http://100. http://192.168. http://127.
@@ -208,6 +214,7 @@ pub async fn build_dogs_and_organ(
         health_urls,
         fleet_meta,
         remediation_configs,
+        dog_to_fleet_node,
     }
 }
 

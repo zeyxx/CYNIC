@@ -380,6 +380,7 @@ pub fn spawn_introspection(
     introspection_alerts: Arc<std::sync::RwLock<Vec<crate::introspection::Alert>>>,
     event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     task_health: Arc<TaskHealth>,
+    senses: Vec<Arc<dyn crate::domain::organ::OrganPort>>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     let handle = tokio::spawn(async move {
@@ -404,12 +405,26 @@ pub fn spawn_introspection(
                             None
                         }
                     };
+                    // Read all sense snapshots — best-effort, skip failures
+                    let mut sense_snapshots = Vec::new();
+                    for sense in &senses {
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(5),
+                            sense.snapshot(),
+                        ).await {
+                            Ok(Ok(snap)) => sense_snapshots.push((sense.name().to_string(), snap)),
+                            Ok(Err(e)) => tracing::debug!(organ = sense.name(), error = %e, "sense snapshot failed"),
+                            Err(_) => tracing::debug!(organ = sense.name(), "sense snapshot timed out"),
+                        }
+                    }
+
                     match tokio::time::timeout(
                         std::time::Duration::from_secs(180),
                         crate::introspection::analyze(
                             storage.as_ref(),
                             &metrics,
                             &env_snap,
+                            &sense_snapshots,
                         ),
                     ).await {
                         Ok(alerts) => {
