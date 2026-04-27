@@ -28,6 +28,8 @@ pub enum FailureReason {
     HealthProbe,
     /// Quota exhausted (external API limit, e.g. Gemini free tier).
     QuotaExhausted,
+    /// Fleet node offline — preemptive marking via Tailscale sense.
+    FleetOffline,
 }
 
 impl FailureReason {
@@ -41,6 +43,7 @@ impl FailureReason {
             Self::ContextOverflow => "context_overflow",
             Self::HealthProbe => "health_probe",
             Self::QuotaExhausted => "quota_exhausted",
+            Self::FleetOffline => "fleet_offline",
         }
     }
 }

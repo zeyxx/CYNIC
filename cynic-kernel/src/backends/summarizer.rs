@@ -276,6 +276,7 @@ mod tests {
             cost_output_per_mtok: 0.0,
             health_url: Some("http://127.0.0.1:8080/health".into()),
             remediation: None,
+            fleet_node: None,
         };
 
         let summarizer = SovereignSummarizer::from_backend_config(&cfg).expect("init summarizer");
