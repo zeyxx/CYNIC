@@ -2,9 +2,11 @@
 //! Implements TokenEnricherPort. Uses mainnet RPC for real token data.
 
 use crate::domain::enrichment::{EnrichmentError, TokenData, TokenEnricherPort};
+use crate::domain::helius_credit::HeliumsCreditTracker;
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
+use std::sync::Arc;
 use std::time::Duration;
 
 const HELIUS_TIMEOUT: Duration = Duration::from_secs(10);
@@ -13,6 +15,7 @@ const HELIUS_TIMEOUT: Duration = Duration::from_secs(10);
 pub struct HeliusEnricher {
     client: Client,
     rpc_url: String,
+    credits: Arc<HeliumsCreditTracker>,
 }
 
 impl HeliusEnricher {
@@ -23,7 +26,13 @@ impl HeliusEnricher {
                 .build()
                 .unwrap_or_default(),
             rpc_url: format!("https://mainnet.helius-rpc.com/?api-key={api_key}"),
+            credits: Arc::new(HeliumsCreditTracker::new(chrono::Utc::now().to_rfc3339())),
         }
+    }
+
+    /// Get a snapshot of credit usage for /health reporting.
+    pub fn credit_snapshot(&self) -> Option<crate::domain::helius_credit::HeliumsCreditBudget> {
+        self.credits.snapshot()
     }
 
     /// Build from HELIUS_API_KEY env var or ~/.helius/config.json.
@@ -99,11 +108,13 @@ impl HeliusEnricher {
             EnrichmentError::RequestFailed(e.to_string())
         })?;
 
+        let latency = start.elapsed().as_millis();
+        self.credits.record_call(latency, true, 10); // DAS: 10 credits
         tracing::debug!(
             method = "getAsset",
             mint = %mint,
             status = 200,
-            latency_ms = start.elapsed().as_millis(),
+            latency_ms = latency,
             credits_cost = 10,
             "Helius getAsset succeeded"
         );
@@ -112,16 +123,19 @@ impl HeliusEnricher {
     }
 
     /// Fetch largest accounts for holder concentration metrics.
+    /// `total_supply` from getAsset is the real denominator for share %.
+    /// Without it, shares are relative to the top-20 sum (misleading).
     async fn get_largest_accounts(
         &self,
         mint: &str,
+        total_supply: Option<f64>,
     ) -> Result<Option<HolderConcentration>, EnrichmentError> {
         let start = std::time::Instant::now();
         let body = serde_json::json!({
             "jsonrpc": "2.0",
             "id": 1,
             "method": "getTokenLargestAccounts",
-            "params": { "mint": mint }
+            "params": [mint]
         });
 
         let resp = self
@@ -153,7 +167,7 @@ impl HeliusEnricher {
             return Ok(None);
         }
 
-        let rpc: RpcResponse<Vec<LargestAccount>> = resp.json().await.map_err(|e| {
+        let rpc: RpcResponseWithContext<Vec<LargestAccount>> = resp.json().await.map_err(|e| {
             tracing::warn!(
                 method = "getTokenLargestAccounts",
                 mint = %mint,
@@ -164,23 +178,27 @@ impl HeliusEnricher {
             EnrichmentError::RequestFailed(e.to_string())
         })?;
 
-        let Some(accounts) = rpc.result else {
+        let Some(ctx) = rpc.result else {
             return Ok(None);
         };
+        let accounts = ctx.value;
 
         if accounts.is_empty() {
             return Ok(None);
         }
 
-        let total_supply: u64 = accounts
-            .iter()
-            .map(|a| a.ui_amount.unwrap_or(0.0) as u64)
-            .sum();
-        if total_supply == 0 {
-            return Ok(None);
-        }
-
-        let supply_f64 = total_supply as f64;
+        // Use real total supply if available; fall back to sum of top accounts
+        let supply_f64 = if let Some(ts) = total_supply
+            && ts > 0.0
+        {
+            ts
+        } else {
+            let sum: f64 = accounts.iter().map(|a| a.ui_amount.unwrap_or(0.0)).sum();
+            if sum <= 0.0 {
+                return Ok(None);
+            }
+            sum
+        };
         let mut hhi = 0.0;
         let mut top1_pct = 0.0;
         let mut top10_pct = 0.0;
@@ -198,18 +216,20 @@ impl HeliusEnricher {
             }
         }
 
+        let latency = start.elapsed().as_millis();
+        self.credits.record_call(latency, true, 1); // Standard RPC: 1 credit
         tracing::debug!(
             method = "getTokenLargestAccounts",
             mint = %mint,
             status = 200,
             holder_count = accounts.len(),
-            latency_ms = start.elapsed().as_millis(),
-            credits_cost = 10,
+            latency_ms = latency,
+            credits_cost = 1,
             "Helius getTokenLargestAccounts succeeded"
         );
 
         Ok(Some(HolderConcentration {
-            holder_count: accounts.len() as u64,
+            accounts_seen: accounts.len() as u64,
             top1_pct,
             top10_pct,
             herfindahl: hhi,
@@ -252,6 +272,76 @@ impl HeliusEnricher {
             .map(|s| s.to_string());
 
         Ok(desc)
+    }
+
+    /// Estimate token age from transaction history. 1 credit.
+    ///
+    /// Calls getSignaturesForAddress (newest-first, limit=1000).
+    /// - If < 1000 results: last result = creation tx → exact age.
+    /// - If = 1000 results: token has >1000 txs → mature (≥ oldest in batch).
+    ///
+    /// This is exact for young/pump.fun tokens (the critical case for scoring)
+    /// and conservative for established tokens.
+    async fn get_token_age_hours(&self, mint: &str) -> Result<u64, EnrichmentError> {
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getSignaturesForAddress",
+            "params": [mint, {"limit": 1000}]
+        });
+
+        let resp = self
+            .client
+            .post(&self.rpc_url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+
+        if !resp.status().is_success() {
+            return Ok(0);
+        }
+
+        let rpc: RpcResponse<Vec<SignatureInfo>> = resp
+            .json()
+            .await
+            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+
+        let Some(sigs) = rpc.result else {
+            return Ok(0);
+        };
+
+        if sigs.is_empty() {
+            return Ok(0);
+        }
+
+        // Last item in the array = oldest in this batch (newest-first ordering)
+        let oldest_block_time = sigs.last().and_then(|s| s.block_time).unwrap_or(0);
+
+        if oldest_block_time == 0 {
+            return Ok(0);
+        }
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0) as i64;
+
+        let age_secs = (now - oldest_block_time).max(0) as u64;
+        let age_hours = age_secs / 3600;
+
+        tracing::debug!(
+            method = "getSignaturesForAddress",
+            mint = %mint,
+            sigs_returned = sigs.len(),
+            oldest_block_time,
+            age_hours,
+            exact = sigs.len() < 1000,
+            credits_cost = 1,
+            "Token age estimated"
+        );
+
+        Ok(age_hours)
     }
 }
 
@@ -301,11 +391,17 @@ impl TokenEnricherPort for HeliusEnricher {
             .and_then(|t| t.freeze_authority.as_ref())
             .is_some();
 
-        // Get holder concentration (best-effort; defaults to zero if unavailable)
+        // Compute real supply in human units for concentration denominator
+        let real_supply = match (supply, decimals) {
+            (Some(s), Some(d)) if s > 0 => Some(s as f64 / 10_f64.powi(d as i32)),
+            _ => None,
+        };
+
+        // Get concentration metrics from top-20 accounts, using real supply as denominator
         let (holder_count, top1_pct, top10_pct, herfindahl) =
-            if let Ok(Some(conc)) = self.get_largest_accounts(mint_address).await {
+            if let Ok(Some(conc)) = self.get_largest_accounts(mint_address, real_supply).await {
                 (
-                    conc.holder_count,
+                    conc.accounts_seen,
                     conc.top1_pct,
                     conc.top10_pct,
                     Some(conc.herfindahl),
@@ -313,6 +409,13 @@ impl TokenEnricherPort for HeliusEnricher {
             } else {
                 (0, 0.0, 0.0, None)
             };
+
+        // Detect pump.fun origin from mint suffix
+        let origin = if mint_address.ends_with("pump") {
+            Some("pump.fun".to_string())
+        } else {
+            None
+        };
 
         // Get off-chain description (separate call, best-effort)
         let description = self
@@ -331,13 +434,13 @@ impl TokenEnricherPort for HeliusEnricher {
             top1_pct,
             top10_pct,
             herfindahl,
-            age_hours: 0,
+            age_hours: self.get_token_age_hours(mint_address).await.unwrap_or(0),
             mint_authority_active,
             freeze_authority_active,
-            lp_status: "unsecured".into(), // Default to unsecured if unknown
+            lp_status: "unsecured".into(), // TODO: check Raydium/Jupiter LP state
             supply_burned_pct: None,
             supply_locked_pct: None,
-            origin: None,
+            origin,
             token_standard,
             description,
             created_at: None,
@@ -384,14 +487,34 @@ struct PriceInfo {
     price_per_token: Option<f64>,
 }
 
+/// Solana RPC responses with context wrapper (getTokenLargestAccounts, etc.)
 #[derive(Debug, Deserialize)]
+struct RpcResponseWithContext<T> {
+    result: Option<RpcContext<T>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RpcContext<T> {
+    value: T,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct LargestAccount {
     ui_amount: Option<f64>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SignatureInfo {
+    block_time: Option<i64>,
+}
+
 #[derive(Debug, Clone)]
 struct HolderConcentration {
-    holder_count: u64,
+    /// Number of accounts returned by getTokenLargestAccounts (max 20).
+    /// NOT the real holder count — a lower bound.
+    accounts_seen: u64,
     top1_pct: f64,
     top10_pct: f64,
     herfindahl: f64,

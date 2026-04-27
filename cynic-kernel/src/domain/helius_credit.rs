@@ -39,14 +39,13 @@ pub struct HeliumsCreditBudget {
 }
 
 impl HeliumsCreditBudget {
-    pub fn record_call(&mut self, latency_ms: u128, success: bool) {
+    pub fn record_call(&mut self, latency_ms: u128, success: bool, credits: u32) {
         self.total_calls += 1;
         if !success {
             self.failed_calls += 1;
         }
         self.sum_latencies_ms += latency_ms;
-        // DAS API calls cost 10 credits each
-        self.total_credits_consumed += 10;
+        self.total_credits_consumed += credits as u64;
 
         if self.total_calls > 0 {
             self.avg_latency_ms = self.sum_latencies_ms / (self.total_calls as u128);
@@ -76,9 +75,9 @@ impl HeliumsCreditTracker {
         }
     }
 
-    pub fn record_call(&self, latency_ms: u128, success: bool) {
+    pub fn record_call(&self, latency_ms: u128, success: bool, credits: u32) {
         if let Ok(mut budget) = self.budget.lock() {
-            budget.record_call(latency_ms, success);
+            budget.record_call(latency_ms, success, credits);
         }
     }
 
