@@ -83,6 +83,14 @@ pub async fn judge_handler(
 
     // Shared pipeline: embed → cache → crystals → sessions → evaluate → store → CCM
     let judge = state.judge.load_full();
+
+    // Expand dog presets: "sovereign" → live sovereign Dog IDs from Judge.
+    // Alive: reads is_sovereign() from each Dog, not a hardcoded list.
+    let dogs = match req.dogs {
+        Some(ref d) if d.len() == 1 && d[0] == "sovereign" => Some(judge.sovereign_dog_ids()),
+        other => other,
+    };
+
     let deps = crate::pipeline::PipelineDeps {
         judge: &judge,
         storage: state.storage.as_ref(),
@@ -100,7 +108,7 @@ pub async fn judge_handler(
         req.content,
         req.context,
         req.domain,
-        req.dogs.as_deref(),
+        dogs.as_deref(),
         req.crystals,
         &deps,
     )

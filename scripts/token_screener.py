@@ -437,6 +437,7 @@ def submit_to_kernel(stimulus: str) -> dict | None:
     body = json.dumps({
         "content": stimulus,
         "domain": "token-analysis",
+        "dogs": ["sovereign"],  # Use only local Dogs — preserve cloud quota for human/agent analysis
     }).encode()
 
     headers = {"Content-Type": "application/json"}
