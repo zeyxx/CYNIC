@@ -22,6 +22,7 @@ pub fn load_embedded_domain_prompts() -> HashMap<String, String> {
             "wallet-judgment",
             include_str!("../../domains/wallet-judgment.md"),
         ),
+        ("twitter", include_str!("../../domains/twitter.md")),
     ];
 
     for (domain_name, content) in &domains {

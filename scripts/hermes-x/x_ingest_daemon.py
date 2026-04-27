@@ -36,8 +36,8 @@ DEFAULT_DATASET = Path(os.environ.get(
 ))
 KERNEL_ADDR = ""
 API_KEY = ""
-ORGAN_NAME = "x-organ"
-DOMAIN = "social-signal"
+ORGAN_NAME = "x-proxy"
+DOMAIN = "twitter"
 POLL_INTERVAL = 2.0
 BATCH_SIZE = 20
 HEARTBEAT_INTERVAL = 60.0  # seconds between heartbeat /observe posts
@@ -93,7 +93,7 @@ def post_judge(row: dict) -> bool:
     try:
         resp = requests.post(
             f"{_kernel_addr()}/judge",
-            json={"content": content, "context": context, "domain": "social-signal"},
+            json={"content": content, "context": context, "domain": "twitter"},
             headers=_headers(),
             timeout=120,
         )

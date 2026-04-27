@@ -1,19 +1,19 @@
-//! DeterministicDog — structural form evaluator.
+//! DeterministicDog — structural form evaluator + domain-specific scorers.
 //!
-//! Role: FORM judge, not SUBSTANCE judge. Evaluates what heuristics CAN
-//! evaluate reliably: structure (PHI), efficiency (BURN), coercion signals
-//! (SOVEREIGNTY). Returns NEUTRAL scores (φ⁻¹/2 ≈ 0.309) for axioms that
-//! require semantic understanding (FIDELITY, VERIFY, CULTURE) — these are
-//! left to LLM Dogs. This prevents the deterministic dog from dragging the
-//! consensus average on axioms it cannot meaningfully assess.
+//! Dispatch chain: domain-specific parsers are tried first (token, twitter).
+//! If none match, FORM scoring evaluates text structure with 3 abstentions.
 //!
-//! Design principle: better to abstain than to guess.
+//! Adding a new domain: create `<domain>.rs`, implement parse() + score(),
+//! add `mod <domain>;` here, add one line to the dispatch in evaluate().
+
+mod token;
+mod twitter;
 
 use crate::domain::dog::*;
 use async_trait::async_trait;
 
 /// Neutral score — center of [0, φ⁻¹]. Neither boosts nor drags LLM consensus.
-const NEUTRAL: f64 = PHI_INV / 2.0; // ≈ 0.309
+pub(super) const NEUTRAL: f64 = PHI_INV / 2.0; // ≈ 0.309
 
 // ── Scoring constants (empirically calibrated) ──────────────
 // These values produce scores in [0.05, φ⁻¹] that distribute verdicts
@@ -21,18 +21,18 @@ const NEUTRAL: f64 = PHI_INV / 2.0; // ≈ 0.309
 // justifies specific values — engineering choices validated by tests.
 
 /// PHI base score — center of scoring range.
-const PHI_BASE: f64 = 0.30;
+pub(super) const PHI_BASE: f64 = 0.30;
 /// BURN base score — slightly above center (benefit of the doubt on efficiency).
-const BURN_BASE: f64 = 0.35;
+pub(super) const BURN_BASE: f64 = 0.35;
 /// SOVEREIGNTY base score — default assumes moderate agency.
-const SOVEREIGNTY_BASE: f64 = 0.40;
+pub(super) const SOVEREIGNTY_BASE: f64 = 0.40;
 
 /// Small signal adjustment (single structural indicator).
-const ADJUST_SMALL: f64 = 0.05;
+pub(super) const ADJUST_SMALL: f64 = 0.05;
 /// Medium signal adjustment (strong structural indicator).
-const ADJUST_MEDIUM: f64 = 0.10;
+pub(super) const ADJUST_MEDIUM: f64 = 0.10;
 /// Large penalty (severe structural deficiency).
-const ADJUST_LARGE: f64 = 0.15;
+pub(super) const ADJUST_LARGE: f64 = 0.15;
 /// Vocabulary diversity proportion scaling.
 const DIVERSITY_SCALE: f64 = 0.20;
 
@@ -190,7 +190,20 @@ impl Dog for DeterministicDog {
     #[tracing::instrument(skip(self), err)]
     async fn evaluate(&self, stimulus: &Stimulus) -> Result<AxiomScores, DogError> {
         let content = &stimulus.content;
-        // Context intentionally unused — DeterministicDog judges FORM of content only.
+
+        // ── Domain dispatch: structured data → substance scoring ──
+        // Known domains with parseable metrics get domain-specific scoring.
+        // Unknown domains fall through to FORM scoring below.
+        // New domain = new file + one line here.
+        if let Some(ref m) = token::parse(content) {
+            return Ok(token::score(m));
+        }
+        if let Some(ref s) = twitter::parse(content, stimulus.context.as_deref()) {
+            return Ok(twitter::score(s));
+        }
+
+        // ── FORM scoring (fallback for unstructured / unknown domains) ──
+        // Context intentionally unused — FORM judges text structure only.
         // LLM Dogs use context for SUBSTANCE evaluation. See Fix 1 / F11.
         let len = content.chars().count();
         let words: Vec<&str> = content.split_whitespace().collect();
@@ -983,6 +996,22 @@ mod tests {
         assert_eq!(
             count_sentences("Dr. Smith asked: why? Because it works! Then he left."),
             3
+        );
+    }
+
+    #[tokio::test]
+    async fn unknown_domain_falls_through_to_form() {
+        let dog = DeterministicDog;
+        let stimulus = Stimulus {
+            content: "A simple neutral statement about the world.".into(),
+            context: None,
+            domain: None,
+            request_id: None,
+        };
+        let scores = dog.evaluate(&stimulus).await.unwrap();
+        assert!(
+            scores.abstentions.contains(&"culture".to_string()),
+            "unknown domain should use FORM scoring with abstentions"
         );
     }
 }

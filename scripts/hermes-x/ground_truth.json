@@ -1,0 +1,89 @@
+{
+  "_meta": {
+    "created": "2026-04-27",
+    "source": "Helius DAS API + dataset rug_warning narratives",
+    "purpose": "Ground truth labels for twitter domain calibration",
+    "labeling": "DEAD=<5 real holders or price=0; DYING=<20 holders, concentrated; ALIVE=>100 holders or active price; COMMUNITY=small but organic"
+  },
+  "tokens": [
+    {
+      "symbol": "ISO",
+      "dataset_tag": "$SSE",
+      "mint": "DTkrpySU8LEQb6S9DUdxAdmv9hyqvgnSQ1YrDHoZpump",
+      "name": "isometric",
+      "holders": 20,
+      "top1_pct": 31.4,
+      "price_usd": 0.000154,
+      "origin": "pump.fun",
+      "status": "mutable",
+      "label": "DYING",
+      "rug_warning_signal": 4,
+      "rug_warning_author": "redemptionarcc",
+      "warning_accurate": true,
+      "notes": "Claims 'defi primitive' but nearly dead. pump.fun token with 20 holders."
+    },
+    {
+      "symbol": "TST",
+      "dataset_tag": "$TST",
+      "mint": "HdvZF538TerjMWc1cmtWVKUaGkS8d77sGH5QaDCCpump",
+      "name": "Test",
+      "holders": 20,
+      "top1_pct": 60.8,
+      "price_usd": null,
+      "origin": "pump.fun",
+      "status": "mutable",
+      "label": "DEAD",
+      "rug_warning_signal": 3,
+      "rug_warning_author": "CryptoScamHuntO",
+      "warning_accurate": true,
+      "notes": "Named 'Test', top holder 60.8%. Obviously dead."
+    },
+    {
+      "symbol": "ASDFASDFA",
+      "dataset_tag": "$ASDFASDFA",
+      "mint": "9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump",
+      "name": "asdfasdf",
+      "holders": 12,
+      "top1_pct": 82.0,
+      "price_usd": null,
+      "origin": "pump.fun",
+      "status": "mutable",
+      "label": "COMMUNITY",
+      "rug_warning_signal": 7,
+      "rug_warning_author": "gcrtrd",
+      "warning_accurate": false,
+      "notes": "Curator's community token. gcrtrd mentioned alongside $BEDROCK rug — ASDFASDFA was the SURVIVING community, not the rug. Mislabeled as rug_warning by narrative extraction."
+    },
+    {
+      "symbol": "BEDROCK",
+      "dataset_tag": "$BEDROCK",
+      "mint": null,
+      "name": null,
+      "holders": null,
+      "top1_pct": null,
+      "price_usd": null,
+      "origin": "unknown",
+      "status": "unknown",
+      "label": "RUGGED",
+      "rug_warning_signal": 7,
+      "rug_warning_author": "gcrtrd",
+      "warning_accurate": true,
+      "notes": "Confirmed rug (fee assignment drain). Mint address not in dataset — need manual lookup."
+    }
+  ],
+  "unlabeled_rug_mentions": [
+    {"symbol": "SGOLD", "signal": 3, "author": "solanagold_meme", "mint": null},
+    {"symbol": "PILL", "signal": 4, "author": "Bri100x", "mint": null},
+    {"symbol": "MOLTBOOK", "signal": 3, "author": "CryptoRugMunch", "mint": null},
+    {"symbol": "YZY", "signal": 3, "author": "topsolxyz", "mint": null},
+    {"symbol": "NDQ", "signal": 3, "author": "CryptoScamHuntO", "mint": null},
+    {"symbol": "SAND", "signal": 3, "author": "swisstrader09", "mint": null}
+  ],
+  "control_tokens": [
+    {"symbol": "WIF", "mint": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", "label": "ALIVE"},
+    {"symbol": "BONK", "mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", "label": "ALIVE"},
+    {"symbol": "POPCAT", "mint": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr", "label": "ALIVE"},
+    {"symbol": "GIGA", "mint": "FU1q8vJpZNUrmqsciSjp8bAKKidGsLmouB8CBdf8TKQv", "label": "ALIVE"},
+    {"symbol": "FARTCOIN", "mint": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump", "label": "ALIVE"}
+  ]
+}
