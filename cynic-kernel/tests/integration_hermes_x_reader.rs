@@ -17,7 +17,7 @@ fn hermes_x_dir() -> PathBuf {
 async fn hermes_x_health_alive_with_real_data() {
     let dir = hermes_x_dir();
     if !dir.exists() {
-        eprintln!("SKIP: Hermes X organ dir not found at {}", dir.display());
+        // Organ dir not found — skip silently (test is #[ignore] anyway)
         return;
     }
     let reader = HermesXReader::new(dir);
