@@ -58,14 +58,24 @@ pub async fn auth_middleware(
     next.run(request).await
 }
 
-/// Rate limiter — per-IP token bucket. /health, /live, /ready exempt. /judge has stricter limit.
+/// Rate limiter — per-IP token bucket. Exempt: health probes, observe, coord.
+/// /judge has stricter limit (inference costs money).
 pub async fn rate_limit_middleware(
     State(state): State<Arc<AppState>>,
     request: Request,
     next: Next,
 ) -> Response {
     let path = request.uri().path().to_string();
-    if path == "/health" || path == "/live" || path == "/ready" {
+    // Exempt: health probes (monitoring), observe (fire-and-forget organ data),
+    // coord (agent coordination). These are high-frequency, low-cost endpoints
+    // that organs and hooks call continuously. Rate-limiting them blocks organ
+    // lifecycle (Hermes X 429 incident 2026-04-26).
+    if path == "/health"
+        || path == "/live"
+        || path == "/ready"
+        || path == "/observe"
+        || path.starts_with("/coord/")
+    {
         return next.run(request).await;
     }
 
