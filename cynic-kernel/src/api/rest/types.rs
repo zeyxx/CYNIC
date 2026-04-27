@@ -319,12 +319,26 @@ pub struct JudgeRequest {
     /// Optional: evaluate with only these Dogs (by ID). If omitted, all Dogs are used.
     pub dogs: Option<Vec<String>>,
     /// Optional: disable crystal injection for A/B testing. Default: true.
-    #[serde(default = "default_true")]
+    /// Accepts: true, false, or null/absent (→ true).
+    #[serde(
+        default = "default_true",
+        deserialize_with = "deserialize_bool_or_null"
+    )]
     pub crystals: bool,
 }
 
 fn default_true() -> bool {
     true
+}
+
+/// Deserialize a bool that also accepts null (→ true).
+/// Hermes Agent MCP sends crystals: null when the field is unset.
+fn deserialize_bool_or_null<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let v: Option<bool> = Option::deserialize(deserializer)?;
+    Ok(v.unwrap_or(true))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -444,5 +458,26 @@ mod tests {
         let ip2: std::net::IpAddr = "10.0.0.1".parse().unwrap();
         assert!(ip2 != ip);
         assert!(limiter.check(ip2).await); // separate bucket, allowed
+    }
+
+    #[test]
+    fn judge_request_crystals_null_defaults_to_true() {
+        let json = r#"{"content":"test","crystals":null}"#;
+        let req: JudgeRequest = serde_json::from_str(json).unwrap();
+        assert!(req.crystals, "crystals: null should default to true");
+    }
+
+    #[test]
+    fn judge_request_crystals_absent_defaults_to_true() {
+        let json = r#"{"content":"test"}"#;
+        let req: JudgeRequest = serde_json::from_str(json).unwrap();
+        assert!(req.crystals, "crystals absent should default to true");
+    }
+
+    #[test]
+    fn judge_request_crystals_false_works() {
+        let json = r#"{"content":"test","crystals":false}"#;
+        let req: JudgeRequest = serde_json::from_str(json).unwrap();
+        assert!(!req.crystals);
     }
 }
