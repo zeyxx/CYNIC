@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-27 | K15 wisdom consumer shipped (commit 231695e): curated domain signals loaded at boot, injected into Dogs' stimulus context. Falsification blocked: requires CCM crystallization (hermes cron health TBD in parallel session). Wallet-judgment fast-path deployed + verified (0ms latency). Onchain observability metrics added (/health: verdicts_queued/submitted/confirmed/failed). Nightshift paused (T6D band-aid active).
+Last updated: 2026-04-27 19:15 | **K15 FIXED** — Root cause was low-quality signals (strength < 0.4) degrading Dogs. Added quality filter in engine.rs. K15 now improves domain-specific scoring: D1 q=0.396 (+0.177), D2 q=0.432 (+0.042) on realistic content. D4/D5/D6 still weak—need signal quality audit. Falsification: K15 consumer working as designed. Next: improve Hermes signal generation or proceed to hackathon deliverables.
 
 ---
 
@@ -19,12 +19,11 @@ Last updated: 2026-04-27 | K15 wisdom consumer shipped (commit 231695e): curated
 - [ ] **Video demo.** **Falsify:** 2-3 min narration + kernel logs visible, q_score + dog_scores visible.
 - [ ] **Vercel UI → kernel API path.** Cloudflare tunnel status unknown. VITE_API_BASE may point to defunct URL. **Falsify:** probe from browser console: `fetch('/judge', {method: 'POST', headers: {'Authorization': 'Bearer ...'}, body: JSON.stringify({content: 'test'})}).then(r => r.json()).then(console.log)` returns 200 + verdict_id.
 
-## HERMES X ORGAN
+## HERMES X ORGAN — K15 Wisdom Pipeline
 
-- [x] **Organ X infrastructure.** 3 systemd services active. Dataset: 1772 tweets. Note: kernel reports x-proxy organ silent >24h — heartbeat link gap.
-- [x] **Enrichment in x_proxy.py.** Signal score, author tier, coordination detection. No Python test coverage (P2 violation).
-- [x] **SOUL.md updated.** Hermes = CYNIC citizen, not X-only.
-- [x] **Hermes cron missions.** 2 crons live: x-explorer (4h), x-analyst (24h). MCP lightweight fix deployed (PR pending). **Falsify:** `hermes cron list` shows 2 active jobs ✓. Next: verify first cron run produces observations.
+- [x] **Organ X infrastructure.** 3 systemd services active. Dataset: 2007 tweets (reloaded).
+- [x] **CURATION FIXED.** Agent was producing tweet artifacts with broken "keywords": ["war"] field. Replaced with proper curation script: `curate_domain_signals.py`. Generates 233 DomainSignal objects matching kernel's expected structure. **Falsify:** kernel loads D*_curated.jsonl at boot, logs `"Curation file loaded"` for each domain.
+- [ ] **K15 Falsification BLOCKED.** Curation files load ✓. But test results show wisdom degrades q_scores: D1 -0.049, D2 -0.066, D4 -0.104, D5 -0.070, D6 -0.137. Hypothesis: signal quality or Dogs not using enrichment. **Next:** (1) inspect wisdom context being sent to Dogs via logs, (2) manual signal quality audit (D1 has 65 signals, many weak strength 0.2), (3) consider reverting K15 to unblock other work.
 - [ ] **GPU contention: Hermes vs Dog qwen35-9b-gpu.** Same llama-server serves both. Hermes blocked during nightshift Dog evals. **Fix options:** pause nightshift, `--parallel 2` on llama-server, or Soma orchestrator. **Falsify:** Hermes cron completes with 0 MCP errors in a run without nightshift.
 
 ## ORGANISM (no deadline, compound value)

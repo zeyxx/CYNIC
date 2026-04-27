@@ -10,7 +10,15 @@ pub fn format_wisdom_context(
     content: &str,
     budget_chars: usize,
 ) -> Option<String> {
-    let signals = curations.find_matching_signals(domain, content);
+    let all_signals = curations.find_matching_signals(domain, content);
+
+    // K15: Filter low-confidence signals (strength < 0.4) to avoid injecting noisy wisdom
+    // that degrades Dogs' discrimination. Wisdom should boost confidence, not muddy it.
+    const STRENGTH_THRESHOLD: f64 = 0.4;
+    let signals: Vec<_> = all_signals
+        .into_iter()
+        .filter(|s| s.strength >= STRENGTH_THRESHOLD)
+        .collect();
 
     if signals.is_empty() {
         return None;
