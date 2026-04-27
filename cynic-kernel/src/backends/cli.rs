@@ -17,6 +17,8 @@ pub struct CliBackend {
     name: String,
     binary: String,
     timeout: Duration,
+    /// Extra arguments injected before --prompt (e.g. ["-o", "json", "--approval-mode", "plan"]).
+    extra_args: Vec<String>,
 }
 
 impl CliBackend {
@@ -29,7 +31,14 @@ impl CliBackend {
             name: name.to_string(),
             binary: binary.to_string(),
             timeout: Duration::from_secs(timeout_secs),
+            extra_args: Vec::new(),
         }
+    }
+
+    /// Set extra CLI arguments passed before --prompt.
+    pub fn with_extra_args(mut self, args: Vec<String>) -> Self {
+        self.extra_args = args;
+        self
     }
 
     /// Build a Command with explicit environment variables.
@@ -115,11 +124,13 @@ impl ChatPort for CliBackend {
             format!("{system}\n\n{user}")
         };
 
-        let run = tokio::time::timeout(
-            self.timeout,
-            self.build_command().arg("--prompt").arg(&prompt).output(),
-        )
-        .await;
+        let mut cmd = self.build_command();
+        for arg in &self.extra_args {
+            cmd.arg(arg);
+        }
+        cmd.arg("--prompt").arg(&prompt);
+
+        let run = tokio::time::timeout(self.timeout, cmd.output()).await;
 
         match run {
             Err(_elapsed) => Err(ChatError::Timeout {
@@ -143,14 +154,49 @@ impl ChatPort for CliBackend {
                     )));
                 }
 
-                let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                let raw = String::from_utf8_lossy(&out.stdout).trim().to_string();
 
-                if text.is_empty() {
+                if raw.is_empty() {
                     return Err(ChatError::Protocol(format!("{}: empty stdout", self.name)));
                 }
 
+                // If output is JSON (e.g. gemini -o json), extract .response and token stats.
+                if raw.starts_with('{')
+                    && let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw)
+                {
+                    let text = v
+                        .get("response")
+                        .and_then(|r| r.as_str())
+                        .unwrap_or(&raw)
+                        .to_string();
+
+                    // Extract token counts from .stats.models.<model>.tokens
+                    let (prompt_tokens, completion_tokens, thinking_tokens) = v
+                        .get("stats")
+                        .and_then(|s| s.get("models"))
+                        .and_then(|m| m.as_object())
+                        .and_then(|m| m.values().next())
+                        .and_then(|model| model.get("tokens"))
+                        .map(|t| {
+                            let input = t.get("input").and_then(|v| v.as_u64()).unwrap_or(0);
+                            let candidates =
+                                t.get("candidates").and_then(|v| v.as_u64()).unwrap_or(0);
+                            let thoughts = t.get("thoughts").and_then(|v| v.as_u64()).unwrap_or(0);
+                            (input as u32, candidates as u32, thoughts as u32)
+                        })
+                        .unwrap_or((0, 0, 0));
+
+                    return Ok(ChatResponse {
+                        text,
+                        prompt_tokens,
+                        completion_tokens,
+                        thinking_tokens,
+                    });
+                }
+
+                // Fallback: plain text output
                 Ok(ChatResponse {
-                    text,
+                    text: raw,
                     prompt_tokens: 0,
                     completion_tokens: 0,
                     thinking_tokens: 0,

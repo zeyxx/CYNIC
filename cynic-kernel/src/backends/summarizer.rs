@@ -277,6 +277,7 @@ mod tests {
             health_url: Some("http://127.0.0.1:8080/health".into()),
             remediation: None,
             fleet_node: None,
+            cli_extra_args: vec![],
         };
 
         let summarizer = SovereignSummarizer::from_backend_config(&cfg).expect("init summarizer");
