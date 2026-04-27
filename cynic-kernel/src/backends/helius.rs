@@ -121,7 +121,7 @@ impl HeliusEnricher {
             "jsonrpc": "2.0",
             "id": 1,
             "method": "getTokenLargestAccounts",
-            "params": { "mint": mint }
+            "params": [mint]
         });
 
         let resp = self
@@ -153,7 +153,7 @@ impl HeliusEnricher {
             return Ok(None);
         }
 
-        let rpc: RpcResponse<Vec<LargestAccount>> = resp.json().await.map_err(|e| {
+        let rpc: RpcResponseWithContext<Vec<LargestAccount>> = resp.json().await.map_err(|e| {
             tracing::warn!(
                 method = "getTokenLargestAccounts",
                 mint = %mint,
@@ -164,9 +164,10 @@ impl HeliusEnricher {
             EnrichmentError::RequestFailed(e.to_string())
         })?;
 
-        let Some(accounts) = rpc.result else {
+        let Some(ctx) = rpc.result else {
             return Ok(None);
         };
+        let accounts = ctx.value;
 
         if accounts.is_empty() {
             return Ok(None);
@@ -384,7 +385,19 @@ struct PriceInfo {
     price_per_token: Option<f64>,
 }
 
+/// Solana RPC responses with context wrapper (getTokenLargestAccounts, etc.)
 #[derive(Debug, Deserialize)]
+struct RpcResponseWithContext<T> {
+    result: Option<RpcContext<T>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RpcContext<T> {
+    value: T,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct LargestAccount {
     ui_amount: Option<f64>,
 }
