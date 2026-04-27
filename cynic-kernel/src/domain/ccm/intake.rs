@@ -274,7 +274,7 @@ pub fn build_observation(
         domain: resolved_domain,
         status: status.unwrap_or_else(|| "success".into()),
         context: context
-            .map(|c| c.chars().take(200).collect())
+            .map(|c| c.chars().take(2000).collect())
             .unwrap_or_default(),
         session_id: session_id.unwrap_or_default(),
         timestamp: chrono::Utc::now().to_rfc3339(),

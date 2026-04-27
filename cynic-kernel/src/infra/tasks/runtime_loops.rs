@@ -646,6 +646,17 @@ async fn challenge_one_crystal(
         Err(e) => return Err(format!("failed to re-judge crystal: {e}")),
     };
 
+    // KC fix: challenge must meet same quorum as accumulation.
+    // Without this, 1 Dog can degrade a crystal that required 2+ to build.
+    if verdict.voter_count < crate::domain::dog::MIN_QUORUM {
+        tracing::info!(
+            crystal_id = %crystal.id,
+            voter_count = verdict.voter_count,
+            "crystal challenge: quorum not met — skipping (same rule as accumulation)"
+        );
+        return Ok(None);
+    }
+
     let new_q = verdict.q_score.total;
     let q_delta = (original_q - new_q).abs();
 

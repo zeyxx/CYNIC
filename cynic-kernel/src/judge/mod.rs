@@ -568,7 +568,9 @@ impl Judge {
 
         let id = Uuid::new_v4().to_string();
         let timestamp = Utc::now().to_rfc3339();
-        let stimulus_summary: String = stimulus.content.chars().take(100).collect();
+        // KC10: 300 chars gives crystals enough signal to be meaningful knowledge.
+        // Previous 100 chars truncated most domain prompts to noise.
+        let stimulus_summary: String = stimulus.content.chars().take(300).collect();
 
         // L1 integrity: compute BLAKE3 hash chained to previous verdict.
         // Single lock acquisition prevents TOCTOU race under concurrent /judge requests.
@@ -938,7 +940,7 @@ mod tests {
         })]);
 
         let long_stimulus = Stimulus {
-            content: "a".repeat(200),
+            content: "a".repeat(500),
             context: None,
             domain: None,
             request_id: None,
@@ -947,7 +949,7 @@ mod tests {
             .evaluate(&long_stimulus, None, &test_metrics())
             .await
             .unwrap();
-        assert_eq!(verdict.stimulus_summary.len(), 100);
+        assert_eq!(verdict.stimulus_summary.len(), 300);
     }
 
     #[tokio::test]

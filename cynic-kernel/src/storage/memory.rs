@@ -3,7 +3,7 @@
 //! Implements the same StoragePort contract as SurrealHttpStorage, including:
 //! - Crystal state transitions at exact thresholds (21/233 obs, φ⁻¹/φ⁻² confidence)
 //! - Quorum gate (voter_count < MIN_QUORUM → reject)
-//! - Content set-once (first observation's content wins)
+//! - Content evolves: updated when new observation has higher confidence (KC12 fix)
 //! - Content sanitization via domain::sanitize
 //! - Sorting by maturity then confidence DESC
 //!
@@ -198,7 +198,11 @@ impl StoragePort for InMemoryStorage {
             bark_count: 0,
         });
 
-        // Content set-once: first observation's content wins (F16 fix)
+        // KC12 fix: update content when new observation has higher confidence than running mean.
+        // Crystals evolve toward their best expression, not frozen at first observation.
+        if score > crystal.confidence {
+            crystal.content = sanitized.clone();
+        }
 
         // Welford online variance + running mean
         let old_mean = crystal.confidence;
