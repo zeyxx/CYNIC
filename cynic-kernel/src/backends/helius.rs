@@ -112,9 +112,12 @@ impl HeliusEnricher {
     }
 
     /// Fetch largest accounts for holder concentration metrics.
+    /// `total_supply` from getAsset is the real denominator for share %.
+    /// Without it, shares are relative to the top-20 sum (misleading).
     async fn get_largest_accounts(
         &self,
         mint: &str,
+        total_supply: Option<f64>,
     ) -> Result<Option<HolderConcentration>, EnrichmentError> {
         let start = std::time::Instant::now();
         let body = serde_json::json!({
@@ -173,15 +176,18 @@ impl HeliusEnricher {
             return Ok(None);
         }
 
-        let total_supply: u64 = accounts
-            .iter()
-            .map(|a| a.ui_amount.unwrap_or(0.0) as u64)
-            .sum();
-        if total_supply == 0 {
-            return Ok(None);
-        }
-
-        let supply_f64 = total_supply as f64;
+        // Use real total supply if available; fall back to sum of top accounts
+        let supply_f64 = if let Some(ts) = total_supply
+            && ts > 0.0
+        {
+            ts
+        } else {
+            let sum: f64 = accounts.iter().map(|a| a.ui_amount.unwrap_or(0.0)).sum();
+            if sum <= 0.0 {
+                return Ok(None);
+            }
+            sum
+        };
         let mut hhi = 0.0;
         let mut top1_pct = 0.0;
         let mut top10_pct = 0.0;
@@ -210,69 +216,11 @@ impl HeliusEnricher {
         );
 
         Ok(Some(HolderConcentration {
+            accounts_seen: accounts.len() as u64,
             top1_pct,
             top10_pct,
             herfindahl: hhi,
         }))
-    }
-
-    /// Get real holder count via Helius DAS `getTokenAccounts`.
-    /// Returns the `total` field (actual number of token accounts) without
-    /// fetching all pages. Only costs ~10 credits (1 page, limit=1).
-    async fn get_holder_count(&self, mint: &str) -> Result<u64, EnrichmentError> {
-        let start = std::time::Instant::now();
-        let body = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getTokenAccounts",
-            "params": {
-                "mint": mint,
-                "page": 1,
-                "limit": 1
-            }
-        });
-
-        let resp = self
-            .client
-            .post(&self.rpc_url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
-
-        if !resp.status().is_success() {
-            tracing::warn!(
-                method = "getTokenAccounts",
-                mint = %mint,
-                status = resp.status().as_u16(),
-                latency_ms = start.elapsed().as_millis(),
-                "Helius getTokenAccounts failed — holder count unavailable"
-            );
-            return Ok(0);
-        }
-
-        let data: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
-
-        // Helius DAS returns { result: { total: N, ... } }
-        let total = data
-            .get("result")
-            .and_then(|r| r.get("total"))
-            .and_then(|t| t.as_u64())
-            .unwrap_or(0);
-
-        tracing::debug!(
-            method = "getTokenAccounts",
-            mint = %mint,
-            total_holders = total,
-            latency_ms = start.elapsed().as_millis(),
-            credits_cost = 10,
-            "Helius getTokenAccounts holder count"
-        );
-
-        Ok(total)
     }
 
     async fn get_offchain_metadata(&self, mint: &str) -> Result<Option<String>, EnrichmentError> {
@@ -360,16 +308,24 @@ impl TokenEnricherPort for HeliusEnricher {
             .and_then(|t| t.freeze_authority.as_ref())
             .is_some();
 
-        // Get concentration metrics from top-20 (best-effort)
-        let (top1_pct, top10_pct, herfindahl) =
-            if let Ok(Some(conc)) = self.get_largest_accounts(mint_address).await {
-                (conc.top1_pct, conc.top10_pct, Some(conc.herfindahl))
-            } else {
-                (0.0, 0.0, None)
-            };
+        // Compute real supply in human units for concentration denominator
+        let real_supply = match (supply, decimals) {
+            (Some(s), Some(d)) if s > 0 => Some(s as f64 / 10_f64.powi(d as i32)),
+            _ => None,
+        };
 
-        // Get REAL holder count via DAS getTokenAccounts (best-effort)
-        let holder_count = self.get_holder_count(mint_address).await.unwrap_or(0);
+        // Get concentration metrics from top-20 accounts, using real supply as denominator
+        let (holder_count, top1_pct, top10_pct, herfindahl) =
+            if let Ok(Some(conc)) = self.get_largest_accounts(mint_address, real_supply).await {
+                (
+                    conc.accounts_seen,
+                    conc.top1_pct,
+                    conc.top10_pct,
+                    Some(conc.herfindahl),
+                )
+            } else {
+                (0, 0.0, 0.0, None)
+            };
 
         // Detect pump.fun origin from mint suffix
         let origin = if mint_address.ends_with("pump") {
@@ -467,6 +423,9 @@ struct LargestAccount {
 
 #[derive(Debug, Clone)]
 struct HolderConcentration {
+    /// Number of accounts returned by getTokenLargestAccounts (max 20).
+    /// NOT the real holder count — a lower bound.
+    accounts_seen: u64,
     top1_pct: f64,
     top10_pct: f64,
     herfindahl: f64,
