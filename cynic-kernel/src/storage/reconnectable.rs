@@ -380,6 +380,26 @@ impl StoragePort for ReconnectableStorage {
         let (p, s, c, f) = self.current().queue_status_counts().await?;
         Ok((p, s, c, f))
     }
+
+    // ── Events (infrastructure observability) ──────────────────
+    async fn store_event(&self, event: &crate::domain::storage::Event) -> Result<(), StorageError> {
+        self.current().store_event(event).await
+    }
+    async fn fleet_stats(
+        &self,
+        window_secs: u64,
+        limit: u32,
+    ) -> Result<Vec<(String, u64, f64, u64)>, StorageError> {
+        self.current().fleet_stats(window_secs, limit).await
+    }
+    async fn list_events(
+        &self,
+        node: Option<&str>,
+        tool: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::storage::RawEvent>, StorageError> {
+        self.current().list_events(node, tool, limit).await
+    }
 }
 
 // ── ReconnectableCoord ──────────────────────────────────────
