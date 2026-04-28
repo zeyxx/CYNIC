@@ -36,6 +36,7 @@ pub async fn observe_handler(
         ));
     }
 
+    let agent_id = req.agent_id.clone();
     let obs = build_observation(
         req.tool,
         req.target,
@@ -43,7 +44,7 @@ pub async fn observe_handler(
         req.status,
         req.context,
         req.project,
-        req.agent_id.clone(),
+        agent_id.clone(),
         req.session_id,
         req.tags,
     );
@@ -55,7 +56,6 @@ pub async fn observe_handler(
             let storage = Arc::clone(&state.storage);
             let senses = state.senses.clone();
             let obs_clone = obs;
-            let agent_id = req.agent_id.clone();
 
             state.bg_tasks.spawn(async move {
                 let _permit = permit;

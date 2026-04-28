@@ -3,9 +3,9 @@
 
 use clap::Parser;
 use cynic_askesis::audit::gemini_wisdom::GeminiWisdomAudit;
-use cynic_askesis::audit::{default_phase2_directives, AuditEngine};
-use cynic_askesis::log::jsonl::JsonlLog;
+use cynic_askesis::audit::{AuditEngine, default_phase2_directives};
 use cynic_askesis::log::LogStore;
+use cynic_askesis::log::jsonl::JsonlLog;
 use std::path::PathBuf;
 
 #[derive(Parser)]
