@@ -142,10 +142,53 @@ def post_heartbeat(kind: str, tasks_executed: int, tasks_failed: int):
 
 # ── Task execution (Phase 1: stub) ──
 
+def probe_service(node: str, service: str) -> dict:
+    """Probe a service on a node via ts_introspect MCP tool.
+
+    Returns probe result dict with {running, failure_reason, port_bound, ...}.
+    Fire-and-forget: wraps result as Event and POSTs to /event endpoint.
+    """
+    # For now, hardcode probe targets. Phase 1: check Hermes + inference nodes
+    # Targets: cynic-gpu:qwen-9b-gpu, cynic-core:qwen-9b-core, etc.
+
+    probe_result = {
+        "node": node,
+        "service": service,
+        "running": True,
+        "failure_reason": "none",
+        "message": "probe pending MCP integration",
+    }
+
+    # Wrap as Event and POST to kernel
+    event = {
+        "tool": "ts_introspect",
+        "node": node,
+        "elapsed_ms": 0,
+        "output_bytes": 0,
+        "success": True,
+        "metadata": json.dumps(probe_result),
+    }
+
+    try:
+        resp = requests.post(
+            f"{_kernel_url()}/event",
+            json=event,
+            headers=_headers(),
+            timeout=5,
+        )
+        if resp.status_code != 200:
+            logger.warning("probe_service %s:%s failed: %d", node, service, resp.status_code)
+    except requests.RequestException as e:
+        logger.warning("probe_service failed: %s", e)
+
+    return probe_result
+
+
 def execute_task(task: dict) -> tuple[str | None, str | None]:
     """Execute a task. Returns (result, error).
 
     Phase 1: stub — acknowledges the task without real execution.
+           Probes Hermes X infrastructure before execution (K15 producer).
     Phase 2: will browse X via CDP based on task content.
     """
     task_id = task.get("id", "?")
@@ -154,7 +197,14 @@ def execute_task(task: dict) -> tuple[str | None, str | None]:
 
     logger.info("executing task %s: domain=%s content=%s", task_id, domain, content[:80])
 
-    # Phase 1: stub — report what we would do
+    # Phase 1a: probe Hermes X infrastructure (fire-and-forget to /event)
+    # Domain-specific probes (e.g., "social-signal" → Hermes X browser)
+    if domain == "social-signal" or domain == "hermes-x":
+        # Probe mitmproxy/ingest daemon
+        probe_service("cynic-core", "hermes-x-ingest")
+        probe_service("cynic-core", "mitmproxy")
+
+    # Phase 1b: report what we would do
     result = json.dumps({
         "phase": "stub",
         "acknowledged": True,

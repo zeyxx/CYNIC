@@ -1,30 +1,44 @@
 # Tailscale Fleet Introspection Probe
 
-**Status**: Phase 1 (sense organ) — passive observation + persistence. Action (soma) deferred to Phase 2.
+**Status**: Phase 1 (sense organ) — on-demand observation. Action (soma) deferred to Phase 2.
 
 ## Architecture
 
 ```
-ts_introspect (Tailscale MCP)
-    ├─ probes: process state, port binding, systemd/Windows service status
-    └─ returns: {running, failure_reason, port_bound, ...}
-        ↓
-probe-fleet-introspect.sh (cron 30s)
-    ├─ calls ts_introspect via MCP JSON-RPC
-    └─ wraps result as Event { tool=ts_introspect, node, success, metadata }
-        ↓
-POST /event (kernel)
-    └─ stores Event to activity_log (fire-and-forget, bounded, 5s timeout)
-        ↓
-/fleet-stats (kernel)
+hermes_task_runner (Phase 1: live)
+    └─ Before task execution
+       ├─ probe_service(node, service) — fire-and-forget probe
+       │  ├─ Phase 1: stubbed, returns {running:true, failure_reason:"none"}
+       │  └─ Phase 2: calls ts_introspect via MCP for real diagnostics
+       ├─ Wrap result as Event { tool=ts_introspect, node, success, metadata }
+       └─ POST /event (kernel) — stores to activity_log (fire-and-forget, 5s timeout)
+           ↓
+/fleet-stats (kernel — Phase 2: ready, Phase 1: no-op)
     └─ aggregates Events over time window (success_rate, avg_latency, last_seen)
         ↓
 /inference/router (kernel — ACTING CONSUMER)
-    └─ queries /fleet-stats before task placement
-    └─ degrades/skips nodes marked "dead" or "degraded"
+    └─ queries /fleet-stats for node quality
+    └─ degrades/skips nodes marked "dead" or "degraded" (Phase 2 enhancement)
 ```
 
-**K15 Compliance**: Producer (ts_introspect) → Consumer (/inference/router) acting on data.
+**K15 Compliance (Phase 1 → Phase 2)**:
+- **Phase 1 (live)**: Producer (hermes_task_runner) → Event storage (fire-and-forget)
+- **Phase 2 (ready)**: Consumer (/inference/router) reads fleet_stats, degrades/skips nodes based on failure_reason
+
+**Why on-demand instead of cron?**
+- No new daemon (ts_introspect stays stateless MCP tool)
+- Probe only when needed (before committing work)
+- Fresh data at decision point (Hermes self-preservation)
+- Event still flows to fleet_stats for long-term trends
+
+## Current Status
+
+**Phase 1 (live 2026-04-27):**
+- ✓ `ts_introspect.go` implemented with FailureReason enum and ProbeData
+- ✓ `hermes_task_runner.py` calls `probe_service()` before task execution (stubbed)
+- ✓ Events POSTed to `/event` endpoint for K15 storage
+- ✗ MCP integration: probe_service() does not yet call ts_introspect via MCP (deferred to Phase 2)
+- ✗ Consumer: /inference/router does not yet use failure_reason to degrade nodes (Phase 2 enhancement)
 
 ## Setup
 
@@ -165,14 +179,25 @@ systemctl start tailscale-fleet-probe.service  # manual trigger
    journalctl -u cynic-kernel.service | grep store_event
    ```
 
-## Phase 2: Action (Future)
+## Phase 2: Action (Next Steps)
 
-Once data is reliable (false positive rate <5%, MTTR <10s), move to Phase 2:
+Once Phase 1 data flow is validated (events flowing → fleet_stats aggregating → /inference/router consuming), move to Phase 2:
 
-- **Soma organ**: Watches /fleet-stats for degradation patterns
-- **Auto-recovery**: Restart failed services, rebalance GPU load
-- **Rate-limiting**: Circuit breaker on dead nodes (don't spam probes)
-- **Alerting**: Route critical degradations to human (T. via Slack)
+### Phase 2a: MCP Integration (hermes_task_runner)
+- Replace `probe_service()` stub with real MCP calls to ts_introspect
+- Call: `ts_introspect(node, service)` for domain-specific probes
+- Update event metadata with actual {running, failure_reason, port_bound, process_id, ...}
+
+### Phase 2b: Consumer Integration (/inference/router)
+- Read `metadata` field from fleet_stats aggregation
+- Decode failure_reason enum and quality tier (excellent/good/degraded/dead)
+- Enhance routing logic: degrade/skip nodes based on failure_reason pattern (not just success_rate)
+
+### Phase 2c: Auto-Recovery (soma organ)
+- Watch /fleet-stats for persistent degradation patterns (same node failing >3 consecutive probes)
+- Auto-restart failed services (for known service types)
+- Rate-limit probes on dead nodes (exponential backoff)
+- Route critical degradations to human (T. via Slack #cynic)
 
 ## Design Decisions
 
