@@ -36,6 +36,26 @@ def load_config(config_dir: str = "config") -> dict:
     return config
 
 
+def load_observations_from_organ(organ_dir: str = None) -> list:
+    """Load observations from organ directory (JSON files in observations/ subdir)."""
+    if organ_dir is None:
+        organ_dir = str(Path.home() / ".cynic" / "organs" / "hermes" / "x")
+
+    obs_dir = Path(organ_dir) / "observations"
+    if not obs_dir.exists():
+        return []
+
+    observations = []
+    for json_file in sorted(obs_dir.glob("*.json")):
+        try:
+            with open(json_file) as f:
+                obs = json.load(f)
+                observations.append(obs)
+        except (json.JSONDecodeError, IOError):
+            continue
+    return observations
+
+
 # ── STANDARDIZE ──
 
 def standardize_tweet(raw: dict) -> dict:
@@ -205,8 +225,12 @@ def analyze_disagreement_zones(tweets: list) -> dict:
 
 # ── BRIEFING ──
 
-def generate_briefing(dataset_path: str) -> dict:
-    """Full analysis → briefing for Hermes/Claude."""
+def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
+    """Full analysis → briefing for Hermes/Claude.
+
+    Loads initial dataset + observations from organ.
+    K15: observations from /observe flow back into analysis.
+    """
     print(f"Loading dataset: {dataset_path}")
     tweets_raw = []
     with open(dataset_path) as f:
@@ -215,6 +239,11 @@ def generate_briefing(dataset_path: str) -> dict:
                 tweets_raw.append(json.loads(line.strip()))
             except json.JSONDecodeError:
                 continue
+
+    # K15: Load observations from organ (stored via /observe → HermesXReader)
+    organ_obs = load_observations_from_organ(organ_dir)
+    print(f"Loading {len(organ_obs)} observations from organ...")
+    tweets_raw.extend(organ_obs)
 
     print(f"Standardizing {len(tweets_raw)} tweets...")
     tweets = [standardize_tweet(t) for t in tweets_raw]
