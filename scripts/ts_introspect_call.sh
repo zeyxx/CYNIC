@@ -10,7 +10,9 @@ SERVICE="${2:?service required}"
 PORT="${3:-0}"  # 0 = auto-lookup from ServiceRegistry
 
 # MCP server config (stdio-based, spawned on-demand)
-MCP_PROG="${TAILSCALE_MCP:-/home/user/Bureau/tailscale-mcp/tailscale-mcp}"
+# Fallback: derive from git root if TAILSCALE_MCP not set
+_GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+MCP_PROG="${TAILSCALE_MCP:-${_GIT_ROOT}/../tailscale-mcp/tailscale-mcp}"
 
 if [[ ! -f "$MCP_PROG" ]]; then
     echo '{"error":"MCP binary not found at '"$MCP_PROG"'"}' >&2

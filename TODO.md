@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-28 14:00 | **K15 Phase 2c VALIDATED** — Consumer loop end-to-end: probe → store_event(failure_reason) → fleet_stats + list_degraded_nodes → /inference/remediate detects. SQL fixed (commit e577b61): two-pass degradation detection working. Tested: 6 process_crash events detected → node marked degraded. Phase 2d (MCP recovery execution) deferred. **Now: Focus on hackathon — video demo, Colosseum submission, Vercel UI link (deadline May 10-11).**
+Last updated: 2026-04-28 16:30 | **K15 Phase 2c COMPLETE** — Consumer loop end-to-end: probe → store_event(failure_reason) → fleet_stats + list_degraded_nodes → /inference/remediate detects. All layers verified: event ingestion ✓, storage ✓, aggregation ✓, detection ✓, consumption ✓, routing action ✓. K17 trait forwarding verified. Build gates pass. **Phase 2d (MCP recovery execution) begins now.** Then: hackathon — video demo, Colosseum submission (deadline May 10-11).
 
 ---
 
@@ -31,6 +31,12 @@ Last updated: 2026-04-28 14:00 | **K15 Phase 2c VALIDATED** — Consumer loop en
 - [ ] **CCM volume → crystallization.** CCM loop_active=false. **Falsify:** observation count grows → forming crystals appear.
 - [ ] **Auth /health (T1/O4).** /metrics + /events require auth in code. **Remaining:** deploy + verify. **Falsify:** `curl funnel/metrics` → 401.
 - [x] **K17 lint-drift gate.** Method-count check added to `make lint-drift`. R21 falsification test added to `make test-gates`. Agent_task methods already forwarded on origin/main (PR #30). **Falsify:** `make test-gates` K17 block passes.
+
+## K15 PHASE 2D — Auto-Recovery Execution
+
+- [ ] **MCP recovery integration.** Wire ts_exec on degraded nodes via remediate endpoint. Restart llama-server, timeout 30s. Circuit-break on 3 failures.
+- [ ] **Recovery observability.** Emit observations with status succeeded/failed/circuit_broken. Track in /health.
+- [ ] **Falsification test.** Inject process_crash → verify detection → verify recovery execution → verify routing resumes.
 
 ## IMMEDIATE ACTIONS (Unblock Hermes)
 

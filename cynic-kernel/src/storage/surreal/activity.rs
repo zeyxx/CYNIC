@@ -320,26 +320,47 @@ pub(super) async fn fleet_stats(
     window_secs: u64,
     limit: u32,
 ) -> Result<Vec<(String, u64, f64, u64, String)>, StorageError> {
-    // Aggregate stats per node: avg latency, success rate, and latest failure_reason.
-    // Subquery gets the most recent failure_reason for each node in the time window.
+    // Aggregate stats per node: avg latency, success rate.
     let sql = format!(
         "SELECT node, \
                 math::mean(elapsed_ms) AS avg_latency, \
-                count(success == true) / count() AS success_rate, \
-                (SELECT VALUE failure_reason FROM event WHERE node = PARENT.node AND created_at > time::now() - {}s ORDER BY created_at DESC LIMIT 1) AS latest_failure \
+                count(success == true) / count() AS success_rate \
          FROM event \
          WHERE created_at > time::now() - {}s \
          GROUP BY node \
          ORDER BY avg_latency ASC \
          LIMIT {};",
         window_secs,
-        window_secs,
         safe_limit(limit),
     );
     let rows = storage
         .query_one(&sql)
         .await
-        .map_err(|e| StorageError::QueryFailed(format!("fleet_stats: {e}")))?;
+        .map_err(|e| StorageError::QueryFailed(format!("fleet_stats (agg): {e}")))?;
+
+    // Get most recent failure_reason per node (separate query to avoid SurrealDB ORDER BY subquery issues)
+    let sql_reasons = format!(
+        "SELECT node, failure_reason FROM event \
+         WHERE created_at > time::now() - {window_secs}s \
+         ORDER BY created_at DESC;"
+    );
+    let reason_rows = storage
+        .query_one(&sql_reasons)
+        .await
+        .map_err(|e| StorageError::QueryFailed(format!("fleet_stats (reasons): {e}")))?;
+
+    // Build a map of node → most recent failure_reason
+    let mut latest_reason: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    for row in reason_rows {
+        if let Some(node) = row["node"].as_str() {
+            let reason = row["failure_reason"].as_str().unwrap_or("unknown");
+            // Only keep the first (most recent) reason for each node due to ORDER BY DESC
+            if !latest_reason.contains_key(node) {
+                latest_reason.insert(node.to_string(), reason.to_string());
+            }
+        }
+    }
 
     Ok(rows
         .iter()
@@ -347,10 +368,10 @@ pub(super) async fn fleet_stats(
             let node = r["node"].as_str()?.to_string();
             let avg_latency = r["avg_latency"].as_f64().unwrap_or(0.0) as u64;
             let success_rate = r["success_rate"].as_f64().unwrap_or(0.0);
-            let failure_reason = r["latest_failure"]
-                .as_str()
-                .unwrap_or("unknown")
-                .to_string();
+            let failure_reason = latest_reason
+                .get(&node)
+                .cloned()
+                .unwrap_or_else(|| "unknown".to_string());
 
             // Since events matched the WHERE clause (created_at > now - window_secs),
             // we know they're recent. For now, report age as 0 (very fresh).
@@ -398,9 +419,8 @@ pub(super) async fn list_degraded_nodes(
     let sql = format!(
         "SELECT node, failure_reason, count() AS fatal_count \
          FROM event \
-         WHERE created_at > time::now() - {}s AND failure_reason IN ['process_crash', 'not_started'] \
-         GROUP BY node, failure_reason;",
-        window_secs
+         WHERE created_at > time::now() - {window_secs}s AND failure_reason IN ['process_crash', 'not_started'] \
+         GROUP BY node, failure_reason;"
     );
     let fatal_rows = storage
         .query_one(&sql)
@@ -411,9 +431,8 @@ pub(super) async fn list_degraded_nodes(
     let sql_total = format!(
         "SELECT node, count() AS total_count \
          FROM event \
-         WHERE created_at > time::now() - {}s \
-         GROUP BY node;",
-        window_secs
+         WHERE created_at > time::now() - {window_secs}s \
+         GROUP BY node;"
     );
     let total_rows = storage
         .query_one(&sql_total)
