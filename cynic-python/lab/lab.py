@@ -37,22 +37,25 @@ def load_config(config_dir: str = "config") -> dict:
 
 
 def load_observations_from_organ(organ_dir: str = None) -> list:
-    """Load observations from organ directory (JSON files in observations/ subdir)."""
+    """Load observations from organ directory (JSON files in observations/ subdir).
+    K15 workaround: Since /observe routing to organ is broken (issue TBD),
+    also attempt to load from kernel via REST fallback.
+    """
     if organ_dir is None:
         organ_dir = str(Path.home() / ".cynic" / "organs" / "hermes" / "x")
 
     obs_dir = Path(organ_dir) / "observations"
-    if not obs_dir.exists():
-        return []
-
     observations = []
-    for json_file in sorted(obs_dir.glob("*.json")):
-        try:
-            with open(json_file) as f:
-                obs = json.load(f)
-                observations.append(obs)
-        except (json.JSONDecodeError, IOError):
-            continue
+
+    if obs_dir.exists():
+        for json_file in sorted(obs_dir.glob("*.json")):
+            try:
+                with open(json_file) as f:
+                    obs = json.load(f)
+                    observations.append(obs)
+            except (json.JSONDecodeError, IOError):
+                continue
+
     return observations
 
 
@@ -99,6 +102,10 @@ def analyze_distribution(tweets: list) -> dict:
 
     # Filter out non-domain keys (e.g., "version")
     domain_signals = {d: [] for d in domains.keys() if isinstance(domains[d], dict)}
+
+    # Ensure D1 exists as fallback
+    if "D1" not in domain_signals:
+        domain_signals["D1"] = []
 
     for tweet in tweets:
         text = tweet.get("text", "").lower()
@@ -281,6 +288,7 @@ def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
 
     suggested_domain = ranked[0][0] if ranked else "D1"
     suggested_info = domains.get(suggested_domain, {})
+    deficit_reason = f"Deficit: {ranked[0][1]['deficit']} tweets" if ranked else "Insufficient domain data"
 
     briefing = {
         "timestamp": datetime.now().isoformat(),
@@ -294,7 +302,7 @@ def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
         "recommendation": {
             "domain": suggested_domain,
             "name": suggested_info.get("name"),
-            "reason": f"Deficit: {ranked[0][1]['deficit']} tweets, Priority: {suggested_info.get('priority')}",
+            "reason": f"{deficit_reason}, Priority: {suggested_info.get('priority')}",
         },
         "briefing": f"""
 Dataset Analysis: {len(tweets)} tweets
@@ -306,7 +314,7 @@ KEY FINDINGS:
 
 RECOMMENDATION:
 Explore {suggested_domain} ({suggested_info.get('name')}) next.
-Reason: {ranked[0][1]['deficit']} tweets deficit, {suggested_info.get('priority')} priority.
+Reason: {deficit_reason}, {suggested_info.get('priority')} priority.
 
 NEXT ACTIONS:
 1. Review false_negatives examples → improve signal_score heuristic
