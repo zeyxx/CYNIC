@@ -340,7 +340,7 @@ pub(super) async fn fleet_stats(
 
     // Get most recent failure_reason per node (separate query to avoid SurrealDB ORDER BY subquery issues)
     let sql_reasons = format!(
-        "SELECT node, failure_reason FROM event \
+        "SELECT node, failure_reason, created_at FROM event \
          WHERE created_at > time::now() - {window_secs}s \
          ORDER BY created_at DESC;"
     );

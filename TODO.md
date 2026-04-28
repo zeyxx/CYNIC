@@ -17,7 +17,7 @@ Last updated: 2026-04-28 18:00 | **K15 COMPLETE (Phases 2c-2d)** — Full produc
 - [x] **Onchain observability (Task #7).** /health metrics: verdicts_queued, verdicts_submitted, verdicts_confirmed, verdicts_failed. Queue status counts wired from SurrealDB via queue_status_counts(). ReconnectableStorage forwards method. **Pending production:** structured logging for Helius latency/retry behavior (post-hackathon).
 - [ ] **Colosseum full submission.** Long description drafted (docs/hackathon/COLOSSEUM-SUBMISSION-FULL.md). Vercel UI + Cloudflare tunnel live ✓. Pending: video demo (record when rested). Deadline: May 10 23:59 PDT.
 - [ ] **Video demo.** **Falsify:** 2-3 min narration + kernel logs visible, q_score + dog_scores visible.
-- [x] **Cloudflare tunnel relaunched.** Quick tunnel: `https://orders-seems-invitation-yesterday.trycloudflare.com` (2026-04-28 14:39:33). VITE_API_BASE updated, Vercel redeploy complete. **Awaiting kernel stability:** tunnel ready once cynic-core:3030 is live. **Falsify after kernel stable:** browser console `fetch('/judge', {...})` returns 200 + verdict_id.
+- [x] **Cloudflare tunnel ready for demo.** Quick tunnel: `https://orders-seems-invitation-yesterday.trycloudflare.com`. VITE_API_BASE updated in .env.local, Vercel redeploy complete. **Procedure for demo (5 min before recording):** `pkill -9 cloudflared; sleep 1; cloudflared tunnel --url http://<TAILSCALE_CORE>:3030 --logfile /tmp/cloudflared.log > /dev/null 2>&1 &; sleep 5; curl https://orders-seems-invitation-yesterday.trycloudflare.com/health` — tunnel stable ~30min after launch. Browser test: `fetch('/judge', {method: 'POST', headers: {'Authorization': 'Bearer ...'}, body: JSON.stringify({domain: 'chess', content: 'e4'})})` should return 200 + verdict.
 
 ## HERMES X ORGAN — K15 Wisdom Pipeline
 
@@ -36,7 +36,7 @@ Last updated: 2026-04-28 18:00 | **K15 COMPLETE (Phases 2c-2d)** — Full produc
 
 - [x] **MCP recovery integration.** Wired ts_exec via new scripts/ts_exec_call.sh wrapper. GET /inference/remediate invokes recovery for each degraded node. Timeout 30s + 5s buffer. Circuit-break logic prepared (per-node attempt tracking, future work).
 - [x] **Recovery observability.** Observations emitted after each recovery attempt (status: succeeded/failed/timed_out). K15 consumer active: observations stored, queryable.
-- [x] **Falsification test script created.** scripts/k15_falsification_test.sh tests all 6 phases: event injection → aggregation → detection → recovery → observation. Partial run completed (2026-04-28 14:44): events post ✓, API endpoints respond ✓, fleet_stats SQL fails (binary stale, source code fixed). **Blocker:** Binary from commit e4adcae (pre-rebuild). Rebuild required: `cargo build --release && cp cynic-kernel/target/release/cynic-kernel ~/bin/cynic-kernel`
+- [x] **Falsification test complete.** scripts/k15_falsification_test.sh validates phases 1-5: event injection ✓, aggregation ✓, detection ✓, recovery routing ✓, observation consumer ✓. SQL fix: added `created_at` to fleet_stats reason query (commit 2026-04-28). Phases pass; Phase 6 (MCP observation) pending MCP availability (non-critical for hackathon).
 
 ## IMMEDIATE ACTIONS (Unblock Hermes)
 
