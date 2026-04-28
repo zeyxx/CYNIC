@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-28 18:00 | **K15 COMPLETE (Phases 2c-2d)** — Full producer-consumer loop: probe → store_event(failure_reason) → fleet_stats + list_degraded_nodes → /inference/remediate → ts_exec recovery → observe outcome. All layers verified: event ingestion ✓, storage ✓, aggregation ✓, detection ✓, consumption ✓, MCP execution ✓, observability ✓. Build gates pass. **Phase 2d ready for falsification testing.** Next: hackathon — video demo, Colosseum submission (deadline May 10-11).
+Last updated: 2026-04-28 19:00 | **HACKATHON PIVOT: K15-HONEST SUBMISSION** — Deterministic-dog proven (0ms, 100% reliable). K15 loop complete (verdict → storage → consumer → event). Circuit breaker + degradation probes exist (Soma emerging organically, not designed). **Demo strategy:** deterministic-dog + K15 proof + B&C flow. No multi-Dog pressure. May 10 submission thesis: "Epistemic engine proven, single-Dog consensus reliable, production requires Soma (orchestrator resource discovery, GGUF registry, fallback routing)." Infrastructure gap is honest roadmap, not failure. **Soma blocker identified:** Dogs hardcoded, no discovery, no fallback routing. Defer to operational friction (when Hermes scales, when organs compete). Build it when it hurts.
 
 ---
 
@@ -15,8 +15,8 @@ Last updated: 2026-04-28 18:00 | **K15 COMPLETE (Phases 2c-2d)** — Full produc
 - [x] **Holder concentration in Helius enrichment.** Added getTokenLargestAccounts to HeliusEnricher. Compute HHI, top1_pct, top10_pct. Dogs now receive holder distribution signals.
 - [x] **Submission queue + auto-anchor (Task #6).** QueuedVerdict extended with axiom scores + dog_count + verdict_type. Background task spawned every 5min. Status: pending/submitted/confirmed/failed. 534 tests passing. MVP: mock Helius signature for pipeline validation. **Pending production (Task #7):** load keypairs, real Solana tx building, onchain observability metrics.
 - [x] **Onchain observability (Task #7).** /health metrics: verdicts_queued, verdicts_submitted, verdicts_confirmed, verdicts_failed. Queue status counts wired from SurrealDB via queue_status_counts(). ReconnectableStorage forwards method. **Pending production:** structured logging for Helius latency/retry behavior (post-hackathon).
-- [ ] **Colosseum full submission.** Long description drafted (docs/hackathon/COLOSSEUM-SUBMISSION-FULL.md). Vercel UI + Cloudflare tunnel live ✓. Pending: video demo (record when rested). Deadline: May 10 23:59 PDT.
-- [ ] **Video demo.** **Falsify:** 2-3 min narration + kernel logs visible, q_score + dog_scores visible.
+- [ ] **Colosseum full submission.** Thesis: K15-complete epistemic engine with single-Dog reliability proven (deterministic-dog). Honest about Soma gap. Long description to update: `docs/hackathon/COLOSSEUM-SUBMISSION-FULL.md`. Vercel UI + tunnel live. Deadline: May 10 23:59 PDT.
+- [ ] **Video demo (deterministic-dog focus).** Scene 1: kernel logs + `/health` (circuit breaker state visible). Scene 2: curl `/judge` chess → deterministic-dog responds q_score. Scene 3: UI rendering verdict + axiom chart. Scene 4: B&C integration OR recovery endpoint. **No multi-Dog pressure.** Record when rested.
 - [x] **Cloudflare tunnel ready for demo.** Quick tunnel: `https://orders-seems-invitation-yesterday.trycloudflare.com`. VITE_API_BASE updated in .env.local, Vercel redeploy complete. **Procedure for demo (5 min before recording):** `pkill -9 cloudflared; sleep 1; cloudflared tunnel --url http://<TAILSCALE_CORE>:3030 --logfile /tmp/cloudflared.log > /dev/null 2>&1 &; sleep 5; curl https://orders-seems-invitation-yesterday.trycloudflare.com/health` — tunnel stable ~30min after launch. Browser test: `fetch('/judge', {method: 'POST', headers: {'Authorization': 'Bearer ...'}, body: JSON.stringify({domain: 'chess', content: 'e4'})})` should return 200 + verdict.
 
 ## HERMES X ORGAN — K15 Wisdom Pipeline
@@ -45,9 +45,9 @@ Last updated: 2026-04-28 18:00 | **K15 COMPLETE (Phases 2c-2d)** — Full produc
 - [x] **Hermes health probe fixed (1b5b08b).** Was measuring file mtime (wrong signal). Now measures capture_ts from dataset.jsonl (production signal). Threshold: 8h = 2× cron interval. Test: falsification added.
 - [ ] **Hermes crons NOT running.** No systemd services found. Health probe is now honest: reports Degraded because capture_ts > 8h old. **Next:** start Hermes crons or wire systemd timers.
 
-## DEBT (fix when touching adjacent code)
+## SOMA ORCHESTRATOR (Deferred: Build When It Hurts)
 
-- [ ] **T6D: Soma orchestrator (deferred post-hackathon).** Budget=60h. Mandatory for multi-cortex, scale >1 organ, resource awareness. Temporary band-aids active 2026-04-26→2026-05-11: nightshift paused, --parallel 2 explicit. Design doc: `memory/project_orchestration_fractal.md` (fractal pattern + 4 levers). Root cause: GPU/kernel/DB/task layers all have single-point-of-failure (shared resource + no arbiter).
+- [ ] **Soma infrastructure (post-hackathon, organic emergence).** Root cause identified 2026-04-28: Dogs hardcoded (no discovery), llama-server silent death (status=0 exit doesn't restart), no fallback routing (if qwen35-9b-gpu down → all Dogs timeout). Three components for later: (1) Dog health probe returns model metadata, (2) Kernel dynamic Dog discovery (every 30s re-probe), (3) Fallback routing (qwen35→qwen7→deterministic). Defer until Hermes scales or organs compete for GPU. Design doc: `memory/project_orchestration_fractal.md`.
 - [ ] **Kernel monolith → composable.** MCP spawns full kernel per client. Nightshift not pausable. No resource awareness. Root blocker for multi-cortex + Soma. **Falsify:** MCP-to-REST proxy replaces MCP subprocess model.
 - [ ] **Nightshift rework.** Poorly designed, runs every 4h with no awareness of GPU contention or organism state. Should check resource availability before dispatching Dog evals.
 - [ ] **MCP poison input hardening.** Small models (9B) produce null/invalid tool args. Every MCP handler must validate defensively. **Falsify:** send garbage args to all 22 MCP tools → all return error, none crash.
