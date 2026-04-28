@@ -1,0 +1,27 @@
+[Unit]
+Description=Tailscale Fleet Introspection Probe — Infrastructure diagnostics
+Documentation=docs/fleet-probe.md
+After=network-online.target
+Wants=network-online.target
+
+# K15 compliance: producer (ts_introspect via MCP) → consumer (/inference/router)
+PartOf=tailscale-fleet-probe.timer
+
+[Service]
+Type=oneshot
+ExecStart=/home/user/Bureau/CYNIC/scripts/probe-fleet-introspect.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fleet-probe
+
+# Environment from ~/.cynic-env (for CYNIC_REST_ADDR, CYNIC_API_KEY)
+EnvironmentFile=-%{HOME}/.cynic-env
+
+# Timeout: 10s per probe (3 services × ~2s each + safety margin)
+TimeoutStartSec=15s
+
+# Fire-and-forget: failures don't stop the timer
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
