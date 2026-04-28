@@ -4,8 +4,10 @@ pub mod agent_tasks;
 pub mod coord;
 pub mod data;
 pub mod dogs;
+pub mod event;
 pub mod events;
 pub mod health;
+pub mod inference_router;
 pub mod judge;
 pub mod judge_job;
 pub mod middleware;
@@ -35,9 +37,13 @@ use self::data::{
     sessions_handler, usage_handler,
 };
 use self::dogs::{deregister_handler, dogs_handler, heartbeat_handler, register_dog_handler};
+use self::event::{event_handler, fleet_stats_handler};
 use self::health::{
     agents_handler, health_handler, liveness_handler, metrics_handler, readiness_handler,
     state_history_handler,
+};
+use self::inference_router::{
+    inference_candidates_handler, inference_route_handler, remediate_handler,
 };
 use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
 use self::judge_job::{judge_async_handler, judge_status_handler};
@@ -121,6 +127,11 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(agent_tasks::complete_task_handler),
         )
         .route("/observe", post(observe_handler))
+        .route("/event", post(event_handler))
+        .route("/fleet-stats", get(fleet_stats_handler))
+        .route("/inference/route", post(inference_route_handler))
+        .route("/inference/candidates", get(inference_candidates_handler))
+        .route("/inference/remediate", get(remediate_handler))
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))
         .route("/coord/claim-batch", post(coord_claim_batch_handler))

@@ -2,7 +2,10 @@
 #![allow(clippy::print_stdout)]
 
 use clap::Parser;
-use cynic_askesis::{Reflection, Verdict};
+use cynic_askesis::audit::gemini_wisdom::GeminiWisdomAudit;
+use cynic_askesis::audit::{AuditEngine, default_phase2_directives};
+use cynic_askesis::log::LogStore;
+use cynic_askesis::log::jsonl::JsonlLog;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -24,23 +27,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cmd {
         Command::Audit { logfile } => {
-            // Phase 1: Load log, audit, output verdict.
-            // Future: integrate with real LogStore backends and DomainTracker.
-
             let log_path = logfile
                 .canonicalize()
-                .map_err(|e| format!("Failed to resolve log path: {e}"))?;
+                .map_err(|e| format!("Failed to resolve log path {}: {e}", logfile.display()))?;
 
             println!("Auditing log: {}", log_path.display());
 
-            // Phase 1: Return placeholder reflection
-            let reflection = Reflection {
-                verdict: Verdict::Wag,
-                prose: "CLI skeleton operational — Phase 1 ready for integration".to_string(),
-                patterns_detected: vec!["cli-ready".to_string()],
-                kenosis_candidate: None,
-                confidence: 0.618,
-            };
+            // Initialize log store and load entries for the last 7 days
+            let store = JsonlLog::new(log_path)?;
+            let to = chrono::Utc::now();
+            let from = to - chrono::Duration::days(7);
+            let logs = store.range(from, to)?;
+
+            if logs.is_empty() {
+                println!("No log entries found in the last 7 days.");
+                return Ok(());
+            }
+
+            println!("Found {} entries. Running Gemini audit...", logs.len());
+
+            // Run audit using Gemini Wisdom
+            let engine = GeminiWisdomAudit::default();
+            let directives = default_phase2_directives();
+            let reflection = engine.audit(&logs, &directives).await?;
 
             println!("\n=== REFLECTION ===");
             println!("{}", serde_json::to_string_pretty(&reflection)?);

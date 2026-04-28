@@ -16,7 +16,7 @@ use crate::reflection::{Reflection, Verdict};
 /// changing this embedded text, which is committed to git under CODEOWNERS.
 const CYNIC_WISDOM_SKILL: &str = include_str!("../../../.agents/skills/cynic-wisdom/SKILL.md");
 
-const DEFAULT_MODEL: &str = "gemini-2.5-pro";
+const DEFAULT_MODEL: &str = "";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Debug)]
@@ -48,7 +48,7 @@ impl GeminiWisdomAudit {
         p.push_str("=== cynic-wisdom SKILL TEXT ===\n");
         p.push_str(CYNIC_WISDOM_SKILL);
         p.push_str("\n=== END SKILL ===\n\n");
-        p.push_str("Audit the following log entries against the questions.\n\n");
+        p.push_str("Audit the following log entries. Do not use generic questions; instead, let the specific tensions emerge from the context.\n\n");
         p.push_str("=== LOGS ===\n");
         for e in logs {
             p.push_str(&format!(
@@ -58,7 +58,8 @@ impl GeminiWisdomAudit {
                 e.content
             ));
         }
-        p.push_str("\n=== QUESTIONS ===\n");
+        p.push_str("\n=== DIRECTIVES ===\n");
+        p.push_str("Base your reflection on these axiomatic directives:\n");
         for q in questions {
             p.push_str(&format!("- {q}\n"));
         }
@@ -68,7 +69,7 @@ impl GeminiWisdomAudit {
         p.push_str("CONFIDENCE: <float ≤ 0.618>\n");
         p.push_str("KENOSIS_CANDIDATE: <short sentence or NONE>\n");
         p.push_str("PATTERNS:\n- <pattern1>\n- <pattern2>\n\n");
-        p.push_str("PROSE:\n<markdown narrative, honest but not shaming>\n");
+        p.push_str("PROSE:\n<markdown narrative: formulate the emergent questions, then provide the audit response>\n");
         p
     }
 
@@ -141,9 +142,13 @@ impl AuditEngine for GeminiWisdomAudit {
     async fn audit(&self, logs: &[LogEntry], questions: &[&str]) -> crate::Result<Reflection> {
         let prompt = Self::build_prompt(logs, questions);
 
-        let fut = Command::new("gemini")
-            .args(["-m", &self.model, "-p", &prompt])
-            .output();
+        let mut cmd = Command::new("gemini");
+        if !self.model.is_empty() {
+            cmd.args(["-m", &self.model]);
+        }
+        cmd.args(["-p", &prompt]);
+
+        let fut = cmd.output();
 
         let output = match timeout(self.timeout, fut).await {
             Ok(Ok(o)) => o,

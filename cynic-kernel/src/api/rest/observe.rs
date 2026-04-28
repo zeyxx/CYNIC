@@ -36,6 +36,7 @@ pub async fn observe_handler(
         ));
     }
 
+    let agent_id = req.agent_id.clone();
     let obs = build_observation(
         req.tool,
         req.target,
@@ -43,28 +44,61 @@ pub async fn observe_handler(
         req.status,
         req.context,
         req.project,
-        req.agent_id,
+        agent_id.clone(),
         req.session_id,
         req.tags,
     );
 
-    // Fire-and-forget — bounded (Semaphore) + tracked (TaskTracker) + timed out (5s)
+    // K15: Route observation to source organ if agent_id matches, else kernel storage
     let semaphore = Arc::clone(&state.bg_semaphore);
     match semaphore.try_acquire_owned() {
         Ok(permit) => {
             let storage = Arc::clone(&state.storage);
+            let senses = state.senses.clone();
             let obs_clone = obs;
+
             state.bg_tasks.spawn(async move {
-                let _permit = permit; // held until task completes
-                match tokio::time::timeout(
-                    std::time::Duration::from_secs(5),
-                    storage.store_observation(&obs_clone),
-                )
-                .await
-                {
-                    Ok(Err(e)) => tracing::warn!(error = %e, "store_observation failed"),
-                    Err(_) => tracing::warn!("store_observation timed out (5s)"),
-                    _ => {}
+                let _permit = permit;
+
+                // Try to route to organ by agent_id
+                let mut stored = false;
+                if let Some(agent) = &agent_id {
+                    tracing::debug!(agent = agent, "K15: checking if agent matches hermes-x");
+                    if agent.starts_with("hermes-x") || agent == "hermes-x" {
+                        tracing::debug!(agent = agent, senses_count = senses.len(), "K15: agent matches, searching senses");
+                        if let Some(organ) = senses.iter().find(|s| s.name() == "hermes-x") {
+                            tracing::info!(agent = agent, "K15: found hermes-x organ, calling store_observation");
+                            match organ.store_observation(obs_clone.clone()).await {
+                                Ok(()) => {
+                                    tracing::info!(agent = agent, "observation routed to hermes-x organ");
+                                    stored = true;
+                                }
+                                Err(e) => {
+                                    tracing::warn!(error = ?e, agent = agent, "organ store failed, falling back to kernel");
+                                }
+                            }
+                        } else {
+                            tracing::warn!(senses_count = senses.len(), "K15: hermes-x organ not found in senses");
+                        }
+                    } else {
+                        tracing::debug!(agent = agent, "K15: agent does not match hermes-x pattern");
+                    }
+                } else {
+                    tracing::debug!("K15: no agent_id provided");
+                }
+
+                // Fallback to kernel storage
+                if !stored {
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(5),
+                        storage.store_observation(&obs_clone),
+                    )
+                    .await
+                    {
+                        Ok(Err(e)) => tracing::warn!(error = %e, "kernel store_observation failed"),
+                        Err(_) => tracing::warn!("kernel store_observation timed out (5s)"),
+                        _ => {}
+                    }
                 }
             });
         }

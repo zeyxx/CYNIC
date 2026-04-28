@@ -1,7 +1,7 @@
 [Unit]
 Description=CYNIC OS V2 — Sovereign Kernel
 After=network.target surrealdb.service
-Wants=surrealdb.service
+Wants=surrealdb.service hermes-gateway.service
 
 [Service]
 Type=simple

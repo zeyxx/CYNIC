@@ -526,6 +526,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(infra::probes::FleetProbe::new(fleet_targets)),
     ];
 
+    // ── Domain curations (D1-D6) for wisdom enrichment ──
+    let curation_dir = std::env::var("CYNIC_CURATION_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from("cynic-python/curation"));
+    let domain_curations = match domain::wisdom::DomainCurations::load_from_path(&curation_dir) {
+        Ok(curations) => {
+            klog!(
+                "[Boot] Domain curations loaded from {:?} ({} domains)",
+                curation_dir,
+                curations.loaded_domains.len()
+            );
+            Arc::new(curations)
+        }
+        Err(e) => {
+            klog!(
+                "[Boot] Domain curations failed to load: {} — wisdom enrichment will be empty",
+                e
+            );
+            Arc::new(domain::wisdom::DomainCurations::new())
+        }
+    };
+
     // ── Token enricher (Helius) — optional, graceful degradation ──
     let enricher: Option<Arc<dyn domain::enrichment::TokenEnricherPort>> =
         match backends::helius::HeliusEnricher::from_env() {
@@ -577,6 +599,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         system_contract: system_contract.clone(),
         enricher: enricher.clone(),
         senses,
+        domain_curations: Arc::clone(&domain_curations),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 

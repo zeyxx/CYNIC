@@ -249,6 +249,17 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS created_at ON session_summary TYPE datetime;\
             DEFINE INDEX IF NOT EXISTS session_summary_session_idx ON session_summary FIELDS session_id UNIQUE;\
             DEFINE INDEX IF NOT EXISTS session_summary_created_idx ON session_summary FIELDS created_at;\
+            DEFINE FIELD IF NOT EXISTS tool ON event TYPE string;\
+            DEFINE FIELD IF NOT EXISTS node ON event TYPE string;\
+            DEFINE FIELD IF NOT EXISTS elapsed_ms ON event TYPE int;\
+            DEFINE FIELD IF NOT EXISTS output_bytes ON event TYPE int;\
+            DEFINE FIELD IF NOT EXISTS success ON event TYPE bool;\
+            DEFINE FIELD IF NOT EXISTS metadata ON event TYPE string;\
+            DEFINE FIELD IF NOT EXISTS agent_id ON event TYPE string;\
+            DEFINE FIELD IF NOT EXISTS created_at ON event TYPE datetime;\
+            DEFINE INDEX IF NOT EXISTS event_node_idx ON event FIELDS node;\
+            DEFINE INDEX IF NOT EXISTS event_tool_idx ON event FIELDS tool;\
+            DEFINE INDEX IF NOT EXISTS event_created_idx ON event FIELDS created_at;\
         ";
         if let Err(e) = storage.query(schema_sql).await {
             // CRITICAL, not WARNING: HNSW vector index (crystal_vec_idx) is in this batch.

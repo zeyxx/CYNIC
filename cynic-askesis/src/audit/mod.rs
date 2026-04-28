@@ -7,22 +7,22 @@ use crate::reflection::Reflection;
 
 #[async_trait]
 pub trait AuditEngine: Send + Sync {
-    /// Audit a corpus of logs against audit questions.
+    /// Audit a corpus of logs against audit questions or directives.
     ///
     /// Must return `Reflection::degraded(reason)` on engine unavailability
     /// (per K14: poison/missing = degraded, never optimistic).
     async fn audit(&self, logs: &[LogEntry], questions: &[&str]) -> crate::Result<Reflection>;
 }
 
-/// Default Phase 1 audit questions (generic, not domain-specific).
-/// Phase 2+ domains provide their own via DomainTracker::audit_questions.
-pub fn default_phase1_questions() -> Vec<&'static str> {
+pub mod gemini_wisdom;
+
+/// Default Phase 2 audit directives.
+/// These guide Gemini to generate emergent questions based on the 7 CYNIC axioms.
+pub fn default_phase2_directives() -> Vec<&'static str> {
     vec![
-        "What patterns of self-deception vs honest reporting?",
-        "What has Zey stopped doing? (KENOSIS check)",
-        "Where is authenticity strongest, where weakest?",
-        "Is the language concrete and grounded, or abstract and smoothing?",
+        "Analyze the logs through the lens of the 7 CYNIC axioms: FIDELITY, PHI, VERIFY, CULTURE, BURN, SOVEREIGNTY, and KENOSIS.",
+        "For each axiom, identify the specific tension or success that emerges from the entries.",
+        "Formulate the 'Question of the Week' that the context itself is posing.",
+        "Detect patterns of self-deception vs. grounded reporting.",
     ]
 }
-
-pub mod gemini_wisdom;

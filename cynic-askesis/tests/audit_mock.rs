@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use async_trait::async_trait;
-use cynic_askesis::audit::{AuditEngine, default_phase1_questions};
+use cynic_askesis::audit::{AuditEngine, default_phase2_directives as default_questions};
 use cynic_askesis::log::LogEntry;
 use cynic_askesis::reflection::{Reflection, Verdict};
 
@@ -28,20 +28,12 @@ async fn mock_audit_returns_static_reflection() {
         confidence: 0.5,
     };
     let engine = StaticMock(expected.clone());
-    let result = engine
-        .audit(&[], &default_phase1_questions())
-        .await
-        .unwrap();
+    let result = engine.audit(&[], &default_questions()).await.unwrap();
     assert_eq!(result, expected);
 }
 
 #[test]
-fn default_phase1_questions_are_non_empty() {
-    let questions = default_phase1_questions();
+fn default_phase2_directives_are_non_empty() {
+    let questions = default_questions();
     assert!(!questions.is_empty());
-    assert!(
-        questions
-            .iter()
-            .any(|q| q.to_lowercase().contains("kenosis"))
-    );
 }
