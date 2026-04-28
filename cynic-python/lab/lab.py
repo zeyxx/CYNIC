@@ -235,7 +235,8 @@ def analyze_disagreement_zones(tweets: list) -> dict:
 def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
     """Full analysis → briefing for Hermes/Claude.
 
-    Loads initial dataset + observations from organ.
+    Loads initial dataset + observations from both organ (hermes-x data-centric)
+    and kernel (general observations via /observe or MCP cynic_observe).
     K15: observations from /observe flow back into analysis.
     """
     print(f"Loading dataset: {dataset_path}")
@@ -251,6 +252,35 @@ def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
     organ_obs = load_observations_from_organ(organ_dir)
     print(f"Loading {len(organ_obs)} observations from organ...")
     tweets_raw.extend(organ_obs)
+
+    # K15: Load observations from kernel (REST /observe without hermes-x, MCP cynic_observe)
+    # Observations are stored in SurrealDB and accessed via REST /observations endpoint.
+    kernel_obs_count = 0
+    cynic_rest_addr = os.environ.get("CYNIC_REST_ADDR", "")
+    cynic_api_key = os.environ.get("CYNIC_API_KEY", "")
+    if cynic_rest_addr and cynic_api_key:
+        try:
+            import urllib.request
+            import urllib.error
+            # Ensure URL has protocol (CYNIC_REST_ADDR may omit http://)
+            if not cynic_rest_addr.startswith("http"):
+                cynic_rest_addr = f"http://{cynic_rest_addr}"
+
+            req = urllib.request.Request(
+                f"{cynic_rest_addr}/observations?limit=1000",
+                headers={"Authorization": f"Bearer {cynic_api_key}"}
+            )
+            with urllib.request.urlopen(req, timeout=5) as response:
+                kernel_obs_raw = json.loads(response.read().decode())
+                if isinstance(kernel_obs_raw, list):
+                    for obs in kernel_obs_raw:
+                        tweets_raw.append(obs)
+                        kernel_obs_count += 1
+        except (urllib.error.URLError, json.JSONDecodeError, Exception) as e:
+            print(f"Warning: Failed to load kernel observations: {e}")
+
+    if kernel_obs_count > 0:
+        print(f"Loading {kernel_obs_count} observations from kernel...")
 
     print(f"Standardizing {len(tweets_raw)} tweets...")
     tweets = [standardize_tweet(t) for t in tweets_raw]
