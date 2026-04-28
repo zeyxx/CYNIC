@@ -17,7 +17,7 @@ Last updated: 2026-04-28 18:00 | **K15 COMPLETE (Phases 2c-2d)** — Full produc
 - [x] **Onchain observability (Task #7).** /health metrics: verdicts_queued, verdicts_submitted, verdicts_confirmed, verdicts_failed. Queue status counts wired from SurrealDB via queue_status_counts(). ReconnectableStorage forwards method. **Pending production:** structured logging for Helius latency/retry behavior (post-hackathon).
 - [ ] **Colosseum full submission.** Long description drafted (docs/hackathon/COLOSSEUM-SUBMISSION-FULL.md). Vercel UI + Cloudflare tunnel live ✓. Pending: video demo (record when rested). Deadline: May 10 23:59 PDT.
 - [ ] **Video demo.** **Falsify:** 2-3 min narration + kernel logs visible, q_score + dog_scores visible.
-- [ ] **Vercel UI → kernel API path.** Cloudflare tunnel status unknown. VITE_API_BASE may point to defunct URL. **Falsify:** probe from browser console: `fetch('/judge', {method: 'POST', headers: {'Authorization': 'Bearer ...'}, body: JSON.stringify({content: 'test'})}).then(r => r.json()).then(console.log)` returns 200 + verdict_id.
+- [x] **Cloudflare tunnel relaunched.** Quick tunnel: `https://orders-seems-invitation-yesterday.trycloudflare.com` (2026-04-28 14:39:33). VITE_API_BASE updated, Vercel redeploy complete. **Awaiting kernel stability:** tunnel ready once cynic-core:3030 is live. **Falsify after kernel stable:** browser console `fetch('/judge', {...})` returns 200 + verdict_id.
 
 ## HERMES X ORGAN — K15 Wisdom Pipeline
 
@@ -36,7 +36,7 @@ Last updated: 2026-04-28 18:00 | **K15 COMPLETE (Phases 2c-2d)** — Full produc
 
 - [x] **MCP recovery integration.** Wired ts_exec via new scripts/ts_exec_call.sh wrapper. GET /inference/remediate invokes recovery for each degraded node. Timeout 30s + 5s buffer. Circuit-break logic prepared (per-node attempt tracking, future work).
 - [x] **Recovery observability.** Observations emitted after each recovery attempt (status: succeeded/failed/timed_out). K15 consumer active: observations stored, queryable.
-- [ ] **Falsification test.** Pending: inject process_crash events → verify /inference/remediate detects → verify ts_exec called → verify node recovers → verify /inference/route resumes using node.
+- [x] **Falsification test script created.** scripts/k15_falsification_test.sh tests all 6 phases: event injection → aggregation → detection → recovery → observation. Partial run completed (2026-04-28 14:44): events post ✓, API endpoints respond ✓, fleet_stats SQL fails (binary stale, source code fixed). **Blocker:** Binary from commit e4adcae (pre-rebuild). Rebuild required: `cargo build --release && cp cynic-kernel/target/release/cynic-kernel ~/bin/cynic-kernel`
 
 ## IMMEDIATE ACTIONS (Unblock Hermes)
 
