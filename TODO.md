@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-27 20:00 | **K15 COMPLETE** — Consumer functional (loads curations ✓, injects context ✓, improves D6 to 0.454 GROWL ✓). Root cause of D1/D4 floor-scoring is Dogs behavior, not wisdom. Hermes signal extraction improved (conservative patterns, 0.4-0.95 strength range, 100% pass K15 filter). Commit a41283b. **Now: Focus on hackathon — video demo, Colosseum submission, Vercel UI link (deadline May 10-11).**
+Last updated: 2026-04-28 00:30 | **K15 + Phase 2c COMPLETE** — Consumer loop fully wired: probe → store_event → fleet_stats + list_degraded_nodes → /inference/remediate acts. Auto-recovery detection identifies persistent failures (>80% fatal probes over 30m). Commit 8a5c1e9. Phase 2d (MCP execution) deferred. **Now: Focus on hackathon — video demo, Colosseum submission, Vercel UI link (deadline May 10-11).**
 
 ---
 
