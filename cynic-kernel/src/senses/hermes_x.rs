@@ -29,6 +29,37 @@ impl HermesXReader {
     fn captures_dir(&self) -> PathBuf {
         self.organ_dir.join("captures")
     }
+
+    /// Extract latest capture_ts from dataset.jsonl (production signal, not file mtime)
+    fn extract_latest_ts(dataset: &PathBuf) -> Result<String, String> {
+        let file = std::fs::File::open(dataset).map_err(|e| format!("open: {e}"))?;
+        let reader = BufReader::new(file);
+        let mut latest_ts = String::new();
+
+        for line in reader.lines() {
+            let line = line
+                .ok()
+                .and_then(|l| (!l.is_empty()).then_some(l))
+                .ok_or("read failed")?;
+            // WHY: nested if guards readability (separates JSON parse from field extraction)
+            #[allow(clippy::collapsible_if)]
+            if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&line) {
+                if let Some(ts) = obj
+                    .get("capture_ts")
+                    .and_then(|v| v.as_str())
+                    .filter(|ts| *ts > latest_ts.as_str())
+                {
+                    latest_ts = ts.to_string();
+                }
+            }
+        }
+
+        if latest_ts.is_empty() {
+            Err("no capture_ts found".to_string())
+        } else {
+            Ok(latest_ts)
+        }
+    }
 }
 
 #[async_trait]
@@ -51,25 +82,31 @@ impl OrganPort for HermesXReader {
                     reason: "dataset.jsonl missing".to_string(),
                 };
             }
-            // Check if dataset has been written to recently (< 24h)
-            match std::fs::metadata(&dataset) {
-                Ok(meta) => match meta.modified() {
-                    Ok(modified) => {
-                        let age = modified.elapsed().unwrap_or(Duration::from_secs(u64::MAX));
-                        if age > Duration::from_secs(24 * 3600) {
-                            OrganHealth::Degraded {
-                                reason: format!("dataset stale ({}h old)", age.as_secs() / 3600),
-                            }
-                        } else {
-                            OrganHealth::Alive
+
+            // Check if dataset has produced data recently (< 8h — 2× 4h cron interval)
+            let latest_ts = match Self::extract_latest_ts(&dataset) {
+                Ok(ts) => ts,
+                Err(e) => {
+                    return OrganHealth::Degraded {
+                        reason: format!("extract_latest_ts: {e}"),
+                    };
+                }
+            };
+
+            match chrono::DateTime::parse_from_rfc3339(&latest_ts) {
+                Ok(dt) => {
+                    let age = Utc::now().signed_duration_since(dt.with_timezone(&Utc));
+                    let age_secs = age.num_seconds().max(0) as u64;
+                    if age_secs > 8 * 3600 {
+                        OrganHealth::Degraded {
+                            reason: format!("dataset production stale ({}h old)", age_secs / 3600),
                         }
+                    } else {
+                        OrganHealth::Alive
                     }
-                    Err(e) => OrganHealth::Degraded {
-                        reason: format!("cannot read mtime: {e}"),
-                    },
-                },
-                Err(e) => OrganHealth::Dead {
-                    reason: format!("cannot stat dataset: {e}"),
+                }
+                Err(e) => OrganHealth::Degraded {
+                    reason: format!("parse latest_ts: {e}"),
                 },
             }
         })
@@ -84,12 +121,14 @@ impl OrganPort for HermesXReader {
     async fn freshness(&self) -> Result<Duration, OrganError> {
         let dataset = self.dataset_path();
         tokio::task::spawn_blocking(move || {
-            let meta = std::fs::metadata(&dataset)
-                .map_err(|e| OrganError::Unavailable(format!("dataset.jsonl: {e}")))?;
-            let modified = meta
-                .modified()
-                .map_err(|e| OrganError::ReadFailed(format!("mtime: {e}")))?;
-            Ok(modified.elapsed().unwrap_or(Duration::ZERO))
+            let latest_ts = Self::extract_latest_ts(&dataset)
+                .map_err(|e| OrganError::Unavailable(format!("extract_latest_ts: {e}")))?;
+
+            let dt = chrono::DateTime::parse_from_rfc3339(&latest_ts)
+                .map_err(|e| OrganError::ReadFailed(format!("parse latest_ts: {e}")))?;
+
+            let age = Utc::now().signed_duration_since(dt.with_timezone(&Utc));
+            Ok(Duration::from_secs(age.num_seconds().max(0) as u64))
         })
         .await
         .map_err(|e| OrganError::ReadFailed(format!("spawn_blocking: {e}")))?
@@ -202,6 +241,38 @@ impl OrganPort for HermesXReader {
         .await
         .map_err(|e| OrganError::ReadFailed(format!("spawn_blocking: {e}")))?
     }
+
+    async fn store_observation(
+        &self,
+        obs: crate::domain::storage::Observation,
+    ) -> Result<(), OrganError> {
+        let observations_dir = self.organ_dir.join("observations");
+
+        tokio::task::spawn_blocking(move || {
+            // Create observations dir if needed
+            std::fs::create_dir_all(&observations_dir)
+                .map_err(|e| OrganError::ReadFailed(format!("create_dir: {e}")))?;
+
+            // Write observation as JSON file (timestamp + tool as filename for uniqueness)
+            let safe_tool = obs.tool.to_lowercase().replace(' ', "_");
+            let filename = format!(
+                "{}_{}.json",
+                obs.timestamp.split('T').next().unwrap_or("unknown"),
+                safe_tool
+            );
+            let filepath = observations_dir.join(filename);
+
+            let json = serde_json::to_string_pretty(&obs)
+                .map_err(|e| OrganError::ReadFailed(format!("json_serialize: {e}")))?;
+
+            std::fs::write(&filepath, json)
+                .map_err(|e| OrganError::ReadFailed(format!("write_file: {e}")))?;
+
+            Ok(())
+        })
+        .await
+        .map_err(|e| OrganError::ReadFailed(format!("spawn_blocking: {e}")))?
+    }
 }
 
 #[cfg(test)]
@@ -224,5 +295,38 @@ mod tests {
     async fn snapshot_fails_when_dir_missing() {
         let reader = HermesXReader::new(PathBuf::from("/tmp/nonexistent_hermes_x_test"));
         assert!(reader.snapshot().await.is_err());
+    }
+
+    #[tokio::test]
+    async fn health_degraded_when_dataset_stale() {
+        let temp_dir =
+            std::path::PathBuf::from(format!("/tmp/hermes_x_stale_test_{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        // Write dataset.jsonl with capture_ts from 10 hours ago
+        let now = Utc::now();
+        let stale_ts = now - chrono::Duration::hours(10);
+        let old_line = format!(
+            r#"{{"capture_ts":"{}","signal_score":0.5}}"#,
+            stale_ts.to_rfc3339()
+        );
+
+        std::fs::write(temp_dir.join("dataset.jsonl"), old_line).unwrap();
+
+        let reader = HermesXReader::new(temp_dir.clone());
+        let health = reader.health().await;
+
+        // Should be Degraded with stale message
+        match health {
+            OrganHealth::Degraded { reason } => {
+                assert!(
+                    reason.contains("stale"),
+                    "Reason should mention stale: {reason}"
+                );
+            }
+            _ => panic!("Expected Degraded, got {health:?}"),
+        }
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

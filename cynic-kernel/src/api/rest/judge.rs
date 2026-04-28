@@ -103,6 +103,7 @@ pub async fn judge_handler(
         on_dog: None,
         expected_dog_count: judge.dog_ids().len(),
         enricher: state.enricher.as_deref(),
+        domain_curations: state.domain_curations.as_ref(),
     };
     let result = crate::pipeline::run(
         req.content,

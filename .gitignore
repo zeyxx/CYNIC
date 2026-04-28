@@ -107,3 +107,4 @@ cynic-python/research_gpu_capabilities.py
 .claude-research/
 .cynic-explorer-*.md
 observations/
+__pycache__/

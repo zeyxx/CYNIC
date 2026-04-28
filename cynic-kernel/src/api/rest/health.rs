@@ -279,6 +279,29 @@ pub async fn health_handler(
                 "verdicts_confirmed": verdicts_confirmed,
                 "verdicts_failed": verdicts_failed,
             },
+            // K15: Seam 3 — Pipeline pressure signal for Soma emergence
+            // Soma (resource orchestrator) reads this to auto-scale compute allocation
+            "pipeline_pressure": {
+                "pending_verdicts": verdicts_queued,
+                "failed_verdicts": verdicts_failed,
+                "success_rate": if verdicts_submitted > 0 {
+                    ((verdicts_submitted - verdicts_failed) as f64 / verdicts_submitted as f64 * 100.0).round() / 100.0
+                } else {
+                    100.0
+                },
+                "bottleneck": match (storage_ok, healthy_dogs > 0, probes_degraded) {
+                    (false, _, _) => "storage",
+                    (true, false, _) => "no_healthy_dogs",
+                    (true, true, true) => "environment_degraded",
+                    _ => "healthy",
+                },
+                "pressure_level": match verdicts_queued {
+                    0..=5 => "low",
+                    6..=20 => "moderate",
+                    21..=50 => "high",
+                    _ => "critical",
+                },
+            },
             "senses": senses_report,
         })),
     )

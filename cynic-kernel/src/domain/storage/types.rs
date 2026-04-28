@@ -95,3 +95,39 @@ pub struct AgentTask {
     pub agent_id: Option<String>,
     pub error: Option<String>,
 }
+
+/// Infrastructure event: node latency, output size, success/fail.
+/// Fire-and-forget — consumed by fleet_stats for routing intelligence.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Event {
+    pub tool: String,      // "mcp_tailscale" | "kernel_snapshot" | etc.
+    pub node: String,      // target node: "cynic-gpu", "cynic-core", "kairos"
+    pub elapsed_ms: u64,   // latency
+    pub output_bytes: u64, // response size
+    pub success: bool,     // operation succeeded
+    pub metadata: String,  // optional context (error reason, command, etc.)
+    pub agent_id: String,  // who triggered this
+    pub timestamp: String, // RFC3339
+    #[serde(default)]
+    pub failure_reason: String, // from ts_introspect: "none" | "port_conflict" | "process_crash" | "config_error" | etc.
+}
+
+/// Raw event row — used by list_events and fleet_stats aggregation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RawEvent {
+    #[serde(default)]
+    pub id: String,
+    pub tool: String,
+    pub node: String,
+    pub elapsed_ms: u64,
+    pub output_bytes: u64,
+    pub success: bool,
+    #[serde(default)]
+    pub metadata: String,
+    #[serde(default)]
+    pub agent_id: String,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub failure_reason: String,
+}

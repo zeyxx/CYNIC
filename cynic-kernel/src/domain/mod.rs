@@ -24,3 +24,4 @@ pub mod verdict_cache;
 pub mod verdict_queue;
 pub mod wallet_enrichment;
 pub mod wallet_judgment;
+pub mod wisdom;

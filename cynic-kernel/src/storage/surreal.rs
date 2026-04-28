@@ -14,7 +14,7 @@ use super::{SurrealHttpStorage, safe_limit};
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
 use crate::domain::storage::{
-    AgentTask, Observation, RawObservation, StorageError, StoragePort, UsageRow,
+    AgentTask, Event, Observation, RawEvent, RawObservation, StorageError, StoragePort, UsageRow,
 };
 use crate::domain::verdict_queue::QueuedVerdict;
 
@@ -185,6 +185,39 @@ impl StoragePort for SurrealHttpStorage {
     #[tracing::instrument(skip(self), err)]
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
         activity::store_observation(self, obs).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn store_event(&self, event: &Event) -> Result<(), StorageError> {
+        activity::store_event(self, event).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn fleet_stats(
+        &self,
+        window_secs: u64,
+        limit: u32,
+    ) -> Result<Vec<(String, u64, f64, u64, String)>, StorageError> {
+        activity::fleet_stats(self, window_secs, limit).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn list_degraded_nodes(
+        &self,
+        window_secs: u64,
+        fatal_threshold: f64,
+    ) -> Result<Vec<(String, String, u64, u64)>, StorageError> {
+        activity::list_degraded_nodes(self, window_secs, fatal_threshold).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn list_events(
+        &self,
+        node: Option<&str>,
+        tool: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<RawEvent>, StorageError> {
+        activity::list_events(self, node, tool, limit).await
     }
 
     #[tracing::instrument(skip(self), err)]

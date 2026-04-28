@@ -460,6 +460,61 @@ Compliance trend across recent sessions. Query param: `limit` (default 20, max 1
 
 ---
 
+## Inference & Routing
+
+### GET /fleet-stats
+
+Node health and routing intelligence for inference work distribution.
+
+| Query Param | Type | Default | Description |
+|---|---|---|---|
+| `window_secs` | int | 3600 | Time window for stats aggregation |
+| `limit` | int | 20 | Max nodes to return |
+
+**Response (200):**
+
+Returns array of nodes with:
+- `node`: Node identifier
+- `avg_latency_ms`: Mean inference latency
+- `success_rate`: Fraction of successful inferences (0–1)
+- `last_seen_secs`: Seconds since last activity
+- `quality`: `"excellent"` \| `"good"` \| `"degraded"` \| `"dead"`
+- `failure_reason`: Human-readable failure mode (or `"none"`)
+
+Used internally to rank nodes by latency + success rate for load balancing.
+
+### POST /inference/route
+
+Select the best node for a specific inference task.
+
+**Request:**
+
+| Field | Type | Description |
+|---|---|---|
+| `task_type` | string | `"judge"` \| `"calibrate"` \| `"score"` |
+| `domain` | string | Domain hint (`"token-analysis"`, `"trading"`, etc.) |
+| `content_size` | int | Content bytes (helps predict latency) |
+
+**Response (200):** `{ "node": "qwen35-9b-gpu", "quality": "excellent" }`
+
+### GET /inference/candidates
+
+List candidate nodes ranked by health for a given domain.
+
+| Query Param | Type | Default | Description |
+|---|---|---|---|
+| `domain` | string | "general" | Domain hint |
+
+**Response (200):** Array of candidate nodes with health/quality metadata.
+
+### GET /inference/remediate
+
+Detect degraded nodes and attempt recovery. Runs node-specific remediation (restart services, flush caches, rebalance load).
+
+**Response (200):** `{ "remediated": ["qwen35-9b-gpu"], "recovered": 1, "still_degraded": ["..."] }`
+
+---
+
 ## System Info
 
 ### GET /dogs

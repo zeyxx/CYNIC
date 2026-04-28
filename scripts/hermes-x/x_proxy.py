@@ -66,25 +66,77 @@ _NARRATIVES = [
 
 
 def _signal_score(text: str, tweet: dict) -> int:
+    """v2: Improved signal scoring with author-tier and engagement awareness.
+
+    Baseline heuristics from v1, enhanced with:
+    - Author tier weighting (whale +2, bot -1)
+    - Engagement-aware (>5% ratio +2, >2% +1, +absolute >1000 +1)
+    - Domain-aware (cashtags +1, narratives +1)
+    - Harsher retweet penalty (-2 vs -1)
+    """
     score = 0
+
+    # Negative signals
     if _SPAM.search(text):
         score -= 3
     if tweet.get("is_retweet"):
-        score -= 1
+        score -= 2  # v2: harsher penalty for retweets
+
+    # Positive signals - quality
     if _QUALITY.search(text):
         score += 2
-    if tweet.get("author_followers", 0) > 10000:
-        score += 1
+
+    # Author tier weighting (NEW in v2)
+    # Note: author_tier is calculated from tweet metadata, not yet in tweet dict
+    tier = _author_tier(tweet)
+    if tier == "whale":
+        score += 2
+    elif tier == "bot":
+        score -= 1
+    # "influencer"/"active"/"unknown" get no bonus
+
+    # Verification (keep from v1)
     if tweet.get("author_verified"):
         score += 1
+
+    # Engagement: ratio + absolute (IMPROVED in v2)
     views = tweet.get("view_count", 0)
     likes = tweet.get("favorite_count", 0)
-    if views > 0 and likes / views > 0.02:
+    engagement_sum = likes + tweet.get("reply_count", 0) + tweet.get("bookmark_count", 0)
+
+    if views > 0:
+        engagement_ratio = engagement_sum / views
+        # v2: scale engagement ratio more aggressively
+        if engagement_ratio > 0.05:  # 5% engagement is excellent
+            score += 2
+        elif engagement_ratio > 0.02:  # 2% engagement is good
+            score += 1
+
+    # Absolute engagement bonus (NEW in v2)
+    if engagement_sum > 1000:
         score += 1
+
+    # Text quality (v2: higher bar for length bonus)
     if len(text) > 200 and not tweet.get("is_retweet"):
         score += 1
-    if any(tweet.get(k, 0) > 0 for k in ("reply_count", "bookmark_count")):
-        score += 1
+
+    # Discussion signals
+    replies = tweet.get("reply_count", 0)
+    bookmarks = tweet.get("bookmark_count", 0)
+    if replies > bookmarks and replies > 0:
+        score += 1  # Discussion > saving
+    elif bookmarks > 0:
+        score += 1  # Some engagement
+
+    # Domain signals (NEW in v2)
+    cashtags = tweet.get("cashtags", [])
+    if cashtags:
+        score += 1  # Token mentions are domain-relevant
+
+    narratives = _narratives(text)
+    if narratives:
+        score += 1  # Hermes already detected relevant pattern
+
     return max(-5, min(7, score))
 
 
