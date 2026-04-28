@@ -42,7 +42,9 @@ use self::health::{
     agents_handler, health_handler, liveness_handler, metrics_handler, readiness_handler,
     state_history_handler,
 };
-use self::inference_router::{inference_candidates_handler, inference_route_handler};
+use self::inference_router::{
+    inference_candidates_handler, inference_route_handler, remediate_handler,
+};
 use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
 use self::judge_job::{judge_async_handler, judge_status_handler};
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
@@ -129,6 +131,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/fleet-stats", get(fleet_stats_handler))
         .route("/inference/route", post(inference_route_handler))
         .route("/inference/candidates", get(inference_candidates_handler))
+        .route("/inference/remediate", get(remediate_handler))
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))
         .route("/coord/claim-batch", post(coord_claim_batch_handler))

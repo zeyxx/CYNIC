@@ -392,6 +392,15 @@ impl StoragePort for ReconnectableStorage {
     ) -> Result<Vec<(String, u64, f64, u64, String)>, StorageError> {
         self.current().fleet_stats(window_secs, limit).await
     }
+    async fn list_degraded_nodes(
+        &self,
+        window_secs: u64,
+        fatal_threshold: f64,
+    ) -> Result<Vec<(String, String, u64, u64)>, StorageError> {
+        self.current()
+            .list_degraded_nodes(window_secs, fatal_threshold)
+            .await
+    }
     async fn list_events(
         &self,
         node: Option<&str>,

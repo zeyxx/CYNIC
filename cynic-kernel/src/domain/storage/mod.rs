@@ -113,6 +113,17 @@ pub trait StoragePort: Send + Sync {
         Ok(vec![])
     }
 
+    /// Detect nodes with persistent fatal failures (process_crash, not_started).
+    /// Returns (node, failure_reason, fatal_count, last_fatal_secs).
+    /// Used by auto-recovery system to trigger restarts.
+    async fn list_degraded_nodes(
+        &self,
+        _window_secs: u64,
+        _fatal_threshold: f64,
+    ) -> Result<Vec<(String, String, u64, u64)>, StorageError> {
+        Ok(vec![])
+    }
+
     /// List crystals that have no embedding vector stored.
     /// Used by the backfill task to retroactively embed orphan crystals.
     async fn list_crystals_missing_embedding(

@@ -202,6 +202,15 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     #[tracing::instrument(skip(self), err)]
+    async fn list_degraded_nodes(
+        &self,
+        window_secs: u64,
+        fatal_threshold: f64,
+    ) -> Result<Vec<(String, String, u64, u64)>, StorageError> {
+        activity::list_degraded_nodes(self, window_secs, fatal_threshold).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
     async fn list_events(
         &self,
         node: Option<&str>,

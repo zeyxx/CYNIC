@@ -383,3 +383,43 @@ pub(super) async fn list_events(
     let rows = storage.query_one(&sql).await?;
     Ok(rows.iter().map(row_to_raw_event).collect())
 }
+
+/// Detect nodes with persistent fatal failures (process_crash, not_started).
+/// Returns (node, failure_reason, recent_failure_count, last_fatal_seen_secs).
+/// Used by auto-recovery system to trigger restarts.
+pub(super) async fn list_degraded_nodes(
+    storage: &SurrealHttpStorage,
+    window_secs: u64,
+    fatal_threshold: f64, // e.g., 0.8 = 80% of recent probes show fatal failure
+) -> Result<Vec<(String, String, u64, u64)>, StorageError> {
+    let sql = format!(
+        "SELECT node, \
+                failure_reason, \
+                count(failure_reason IN ['process_crash', 'not_started']) AS fatal_count, \
+                count() AS total_count \
+         FROM event \
+         WHERE created_at > time::now() - {}s AND failure_reason != 'none' \
+         GROUP BY node \
+         HAVING fatal_count > 0 AND (fatal_count / total_count) > {} \
+         ORDER BY fatal_count DESC;",
+        window_secs, fatal_threshold
+    );
+    let rows = storage
+        .query_one(&sql)
+        .await
+        .map_err(|e| StorageError::QueryFailed(format!("list_degraded_nodes: {e}")))?;
+
+    Ok(rows
+        .iter()
+        .filter_map(|r| {
+            let node = r["node"].as_str()?.to_string();
+            let failure_reason = r["failure_reason"]
+                .as_str()
+                .unwrap_or("unknown")
+                .to_string();
+            let fatal_count = r["fatal_count"].as_u64().unwrap_or(0);
+            let last_fatal_secs = 0u64; // TODO: compute from max(created_at) where failure_reason is fatal
+            Some((node, failure_reason, fatal_count, last_fatal_secs))
+        })
+        .collect())
+}
