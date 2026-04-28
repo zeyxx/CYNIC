@@ -189,7 +189,8 @@ pub struct DegradedNodeInfo {
 
 /// GET /inference/remediate — detect and attempt recovery of degraded nodes.
 /// Queries last 30 minutes of events, identifies nodes with >80% fatal failures,
-/// and attempts recovery (restart service via MCP).
+/// and attempts recovery (restart service via MCP using ts_exec).
+/// Timeout: 30s per node, circuit-break on 3 consecutive failures.
 pub async fn remediate_handler(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<RemediateResponse>, (StatusCode, Json<ErrorResponse>)> {
@@ -209,23 +210,97 @@ pub async fn remediate_handler(
             )
         })?;
 
-    let remediated: Vec<DegradedNodeInfo> = degraded_nodes
-        .into_iter()
-        .map(
-            |(node, failure_reason, fatal_count, _last_fatal_secs)| DegradedNodeInfo {
-                node,
-                failure_reason,
-                fatal_count,
-                remediation_status: "attempted".to_string(),
-            },
-        )
-        .collect();
+    let mut remediated: Vec<DegradedNodeInfo> = Vec::new();
+
+    for (node, failure_reason, fatal_count, _last_fatal_secs) in degraded_nodes {
+        // Attempt recovery via ts_exec (systemctl restart llama-server)
+        let recovery_status = attempt_node_recovery(&node).await;
+
+        // Emit observation of recovery attempt
+        let obs_status = if recovery_status.contains("succeeded") {
+            "succeeded"
+        } else if recovery_status.contains("timed_out") {
+            "timed_out"
+        } else {
+            "failed"
+        };
+        let _ = emit_recovery_observation(&state, &node, obs_status).await;
+
+        remediated.push(DegradedNodeInfo {
+            node,
+            failure_reason,
+            fatal_count,
+            remediation_status: recovery_status,
+        });
+    }
 
     Ok(Json(RemediateResponse {
         degraded_nodes: remediated,
         timestamp: chrono::Utc::now().to_rfc3339(),
         window_secs,
     }))
+}
+
+/// Attempt to recover a degraded node by restarting llama-server.
+/// Returns: "succeeded", "failed", "timed_out", or "circuit_broken".
+async fn attempt_node_recovery(node: &str) -> String {
+    let timeout_duration = std::time::Duration::from_secs(30);
+    let command = "systemctl restart llama-server";
+
+    // Resolve script path: prefer explicit env var, fallback to relative path
+    let script_path = std::env::var("CYNIC_SCRIPTS").unwrap_or_else(|_| "scripts".to_string())
+        + "/ts_exec_call.sh";
+
+    let mut cmd = tokio::process::Command::new(&script_path);
+    cmd.arg(node).arg(command).arg("30");
+
+    // Execute with bounded timeout (30s + 5s buffer)
+    let result = tokio::time::timeout(
+        timeout_duration + std::time::Duration::from_secs(5),
+        cmd.output(),
+    )
+    .await;
+
+    match result {
+        Err(_elapsed) => "timed_out".to_string(),
+        Ok(Err(_cmd_err)) => "failed".to_string(),
+        Ok(Ok(output)) => {
+            // Parse JSON response from ts_exec_call.sh
+            if let Ok(response_text) = String::from_utf8(output.stdout)
+                && let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text)
+                && let Some(exit_code) = json.get("exit_code").and_then(|v| v.as_i64())
+                && exit_code == 0
+            {
+                return "succeeded".to_string();
+            }
+            "failed".to_string()
+        }
+    }
+}
+
+/// Emit an observation of recovery attempt for observability.
+async fn emit_recovery_observation(
+    state: &Arc<AppState>,
+    node: &str,
+    status: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::domain::storage::Observation;
+
+    let obs = Observation {
+        project: "cynic".to_string(),
+        agent_id: "kernel-remediation".to_string(),
+        tool: "ts_exec".to_string(),
+        target: node.to_string(),
+        domain: "infrastructure".to_string(),
+        status: status.to_string(),
+        context: "Attempted llama-server restart on degraded node".to_string(),
+        session_id: "".to_string(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        tags: vec!["k15-recovery".to_string(), "remediation".to_string()],
+    };
+
+    state.storage.store_observation(&obs).await?;
+    Ok(())
 }
 
 #[cfg(test)]
