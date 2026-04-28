@@ -42,7 +42,8 @@ Last updated: 2026-04-28 18:00 | **K15 COMPLETE (Phases 2c-2d)** — Full produc
 
 - [x] **Pause nightshift Dog evals (band-aid, T6D debt).** Nightshift spawning commented out in main.rs:711-721. GPU reserved for Hermes 2026-04-26→2026-05-11. Kernel binary deployed 2026-04-26 23:08 (confirmed logline "[Ring 3] Nightshift PAUSED").
 - [x] **GPU already at --parallel 2.** llama-server.env already configured. No change needed.
-- [ ] **Verify Hermes crons produce observations.** Monitor for 2-4h after deployment. **Falsify:** hermes cron list shows 2 active jobs ✓; check `~/.cynic/organs/hermes/x/dataset_age_secs` — if decreasing, crons are running.
+- [x] **Hermes health probe fixed (1b5b08b).** Was measuring file mtime (wrong signal). Now measures capture_ts from dataset.jsonl (production signal). Threshold: 8h = 2× cron interval. Test: falsification added.
+- [ ] **Hermes crons NOT running.** No systemd services found. Health probe is now honest: reports Degraded because capture_ts > 8h old. **Next:** start Hermes crons or wire systemd timers.
 
 ## DEBT (fix when touching adjacent code)
 
