@@ -63,8 +63,11 @@ pub async fn observe_handler(
                 // Try to route to organ by agent_id
                 let mut stored = false;
                 if let Some(agent) = &agent_id {
+                    tracing::debug!(agent = agent, "K15: checking if agent matches hermes-x");
                     if agent.starts_with("hermes-x") || agent == "hermes-x" {
+                        tracing::debug!(agent = agent, senses_count = senses.len(), "K15: agent matches, searching senses");
                         if let Some(organ) = senses.iter().find(|s| s.name() == "hermes-x") {
+                            tracing::info!(agent = agent, "K15: found hermes-x organ, calling store_observation");
                             match organ.store_observation(obs_clone.clone()).await {
                                 Ok(()) => {
                                     tracing::info!(agent = agent, "observation routed to hermes-x organ");
@@ -74,8 +77,14 @@ pub async fn observe_handler(
                                     tracing::warn!(error = ?e, agent = agent, "organ store failed, falling back to kernel");
                                 }
                             }
+                        } else {
+                            tracing::warn!(senses_count = senses.len(), "K15: hermes-x organ not found in senses");
                         }
+                    } else {
+                        tracing::debug!(agent = agent, "K15: agent does not match hermes-x pattern");
                     }
+                } else {
+                    tracing::debug!("K15: no agent_id provided");
                 }
 
                 // Fallback to kernel storage
