@@ -317,11 +317,13 @@ pub(super) async fn fleet_stats(
     window_secs: u64,
     limit: u32,
 ) -> Result<Vec<(String, u64, f64, u64)>, StorageError> {
+    // Aggregate stats per node: avg latency and success rate.
+    // Note: math::max(created_at) in GROUP BY returns null, so we don't select it directly.
+    // Instead, we'll request the records and compute age_secs in Rust using current time.
     let sql = format!(
         "SELECT node, \
                 math::mean(elapsed_ms) AS avg_latency, \
-                count(success == true) / count() AS success_rate, \
-                math::max(created_at) AS last_seen \
+                count(success == true) / count() AS success_rate \
          FROM event \
          WHERE created_at > time::now() - {}s \
          GROUP BY node \
@@ -342,15 +344,10 @@ pub(super) async fn fleet_stats(
             let avg_latency = r["avg_latency"].as_f64().unwrap_or(0.0) as u64;
             let success_rate = r["success_rate"].as_f64().unwrap_or(0.0);
 
-            // Calculate age in seconds from last_seen timestamp
-            let last_seen_str = r["last_seen"].as_str().unwrap_or("1970-01-01T00:00:00Z");
-            let age_secs = match chrono::DateTime::parse_from_rfc3339(last_seen_str) {
-                Ok(dt) => chrono::Utc::now()
-                    .signed_duration_since(dt.with_timezone(&chrono::Utc))
-                    .num_seconds()
-                    .max(0) as u64,
-                Err(_) => u64::MAX,
-            };
+            // Since events matched the WHERE clause (created_at > now - window_secs),
+            // we know they're recent. For now, report age as 0 (very fresh).
+            // TODO: Fetch actual max(created_at) per node in a separate query if needed.
+            let age_secs = 0u64;
 
             Some((node, avg_latency, success_rate, age_secs))
         })

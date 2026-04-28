@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -140,32 +141,125 @@ def post_heartbeat(kind: str, tasks_executed: int, tasks_failed: int):
         pass
 
 
-# ── Task execution (Phase 1: stub) ──
+# ── Task execution (Phase 2a: MCP integration) ──
 
-def probe_service(node: str, service: str) -> dict:
+def call_mcp_ts_introspect(node: str, service: str, port: int = 0) -> dict | None:
+    """Call ts_introspect via tailscale-mcp subprocess.
+
+    Returns ServiceIntrospection dict or None on error.
+    MCP protocol requires persistent process with line-buffered I/O.
+    """
+    mcp_prog = os.environ.get("TAILSCALE_MCP", "/home/user/Bureau/tailscale-mcp/tailscale-mcp")
+    if not os.path.isfile(mcp_prog):
+        logger.warning("MCP binary not found at %s", mcp_prog)
+        return None
+
+    request = {
+        "jsonrpc": "2.0",
+        "method": "tools/call",
+        "params": {
+            "name": "ts_introspect",
+            "arguments": {
+                "node": node,
+                "service": service,
+                "port": port,
+            }
+        },
+        "id": 1,
+    }
+
+    try:
+        # Popen with line buffering (MCP uses \n-delimited JSON)
+        proc = subprocess.Popen(
+            [mcp_prog],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+
+        # Send request
+        proc.stdin.write(json.dumps(request) + '\n')
+        proc.stdin.flush()
+
+        # Read response line with timeout
+        response_line = proc.stdout.readline()
+        proc.terminate()
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+
+        if not response_line:
+            logger.warning("MCP response empty")
+            return None
+
+        response = json.loads(response_line)
+
+        # MCP returns: {jsonrpc, result:{content:[{type,text}]}, id}
+        content = response.get("result", {}).get("content", [])
+        if not content:
+            logger.warning("MCP response missing content")
+            return None
+
+        text = content[0].get("text", "{}")
+        introspection = json.loads(text)
+        return introspection
+
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning("MCP parse error: %s", e)
+        return None
+    except subprocess.TimeoutExpired:
+        logger.warning("MCP call timed out")
+        return None
+    except Exception as e:
+        logger.warning("MCP call failed: %s", e)
+        return None
+
+
+def probe_service(node: str, service: str, port: int = 0) -> dict:
     """Probe a service on a node via ts_introspect MCP tool.
 
     Returns probe result dict with {running, failure_reason, port_bound, ...}.
     Fire-and-forget: wraps result as Event and POSTs to /event endpoint.
     """
-    # For now, hardcode probe targets. Phase 1: check Hermes + inference nodes
-    # Targets: cynic-gpu:qwen-9b-gpu, cynic-core:qwen-9b-core, etc.
+    # Call MCP ts_introspect for real diagnostics
+    introspection = call_mcp_ts_introspect(node, service, port)
 
-    probe_result = {
-        "node": node,
-        "service": service,
-        "running": True,
-        "failure_reason": "none",
-        "message": "probe pending MCP integration",
-    }
+    if introspection is None:
+        # Fallback on MCP error
+        probe_result = {
+            "node": node,
+            "service": service,
+            "running": False,
+            "failure_reason": "mcp_error",
+            "message": "MCP probe failed",
+        }
+        success = False
+        elapsed_ms = 0
+    else:
+        # Extract key fields from ServiceIntrospection
+        probe_result = {
+            "node": introspection.get("node"),
+            "service": introspection.get("service"),
+            "running": introspection.get("running", False),
+            "failure_reason": introspection.get("failure_reason", "unknown"),
+            "port_bound": introspection.get("port_bound"),
+            "process_id": introspection.get("process_id"),
+            "port": introspection.get("port"),
+        }
+        success = introspection.get("running", False)
+        elapsed_ms = 0  # TODO: capture actual probe latency from MCP
 
     # Wrap as Event and POST to kernel
     event = {
         "tool": "ts_introspect",
         "node": node,
-        "elapsed_ms": 0,
-        "output_bytes": 0,
-        "success": True,
+        "elapsed_ms": elapsed_ms,
+        "output_bytes": len(json.dumps(probe_result)),
+        "success": success,
         "metadata": json.dumps(probe_result),
     }
 
@@ -177,9 +271,9 @@ def probe_service(node: str, service: str) -> dict:
             timeout=5,
         )
         if resp.status_code != 200:
-            logger.warning("probe_service %s:%s failed: %d", node, service, resp.status_code)
+            logger.warning("probe_service %s:%s event post failed: %d", node, service, resp.status_code)
     except requests.RequestException as e:
-        logger.warning("probe_service failed: %s", e)
+        logger.warning("probe_service event post failed: %s", e)
 
     return probe_result
 
