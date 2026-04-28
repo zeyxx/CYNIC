@@ -392,24 +392,45 @@ pub(super) async fn list_degraded_nodes(
     window_secs: u64,
     fatal_threshold: f64, // e.g., 0.8 = 80% of recent probes show fatal failure
 ) -> Result<Vec<(String, String, u64, u64)>, StorageError> {
+    // K15: Identify nodes with persistent fatal failures.
+    // Two-pass approach: (1) fatal counts, (2) total counts, compute ratio client-side.
+    // This avoids SurrealDB SQL parsing issues with complex aggregations.
     let sql = format!(
-        "SELECT node, \
-                failure_reason, \
-                count(failure_reason IN ['process_crash', 'not_started']) AS fatal_count, \
-                count() AS total_count \
+        "SELECT node, failure_reason, count() AS fatal_count \
          FROM event \
-         WHERE created_at > time::now() - {}s AND failure_reason != 'none' \
-         GROUP BY node \
-         HAVING fatal_count > 0 AND (fatal_count / total_count) > {} \
-         ORDER BY fatal_count DESC;",
-        window_secs, fatal_threshold
+         WHERE created_at > time::now() - {}s AND failure_reason IN ['process_crash', 'not_started'] \
+         GROUP BY node, failure_reason;",
+        window_secs
     );
-    let rows = storage
+    let fatal_rows = storage
         .query_one(&sql)
         .await
-        .map_err(|e| StorageError::QueryFailed(format!("list_degraded_nodes: {e}")))?;
+        .map_err(|e| StorageError::QueryFailed(format!("list_degraded_nodes (fatal): {e}")))?;
 
-    Ok(rows
+    // Get total counts per node in the same window
+    let sql_total = format!(
+        "SELECT node, count() AS total_count \
+         FROM event \
+         WHERE created_at > time::now() - {}s \
+         GROUP BY node;",
+        window_secs
+    );
+    let total_rows = storage
+        .query_one(&sql_total)
+        .await
+        .map_err(|e| StorageError::QueryFailed(format!("list_degraded_nodes (total): {e}")))?;
+
+    // Build a map of node → total_count for quick lookup
+    let mut totals: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+    for row in total_rows {
+        if let Some(node) = row["node"].as_str() {
+            let count = row["total_count"].as_u64().unwrap_or(1);
+            totals.insert(node.to_string(), count);
+        }
+    }
+
+    // Filter: nodes where fatal_count/total_count > threshold
+    Ok(fatal_rows
         .iter()
         .filter_map(|r| {
             let node = r["node"].as_str()?.to_string();
@@ -418,8 +439,13 @@ pub(super) async fn list_degraded_nodes(
                 .unwrap_or("unknown")
                 .to_string();
             let fatal_count = r["fatal_count"].as_u64().unwrap_or(0);
-            let last_fatal_secs = 0u64; // TODO: compute from max(created_at) where failure_reason is fatal
-            Some((node, failure_reason, fatal_count, last_fatal_secs))
+            let total = totals.get(&node).copied().unwrap_or(1);
+            let ratio = fatal_count as f64 / total as f64;
+            if ratio > fatal_threshold {
+                Some((node, failure_reason, fatal_count, 0u64))
+            } else {
+                None
+            }
         })
         .collect())
 }
