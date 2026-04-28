@@ -47,9 +47,17 @@ pub async fn inference_route_handler(
         })?;
 
     // Filter for healthy nodes: quality != "dead", success_rate >= 0.7
+    // Skip nodes with fatal failures (process_crash, not_started)
     let mut candidates: Vec<_> = nodes
         .into_iter()
-        .filter(|(_, _, sr, _)| *sr >= 0.7) // 70%+ success rate
+        .filter(|(_, _, sr, _, failure_reason)| {
+            // Skip nodes that are dead (process crashed or never started)
+            if failure_reason == "process_crash" || failure_reason == "not_started" {
+                return false;
+            }
+            // Require minimum success rate
+            *sr >= 0.7
+        })
         .collect();
 
     if candidates.is_empty() {
@@ -70,14 +78,19 @@ pub async fn inference_route_handler(
         }
     });
 
-    let (node, avg_latency, sr, _age) = &candidates[0];
+    let (node, avg_latency, sr, _age, failure_reason) = &candidates[0];
 
-    // Compute quality tier (same logic as fleet_stats handler)
-    let quality = match (*_age, *sr) {
-        (0..=5, sr) if sr >= 0.95 => "excellent",
-        (0..=60, sr) if sr >= 0.9 => "good",
-        (_, sr) if sr >= 0.7 => "degraded",
-        _ => "dead",
+    // Compute quality tier based on failure_reason and success_rate
+    let quality = match failure_reason.as_str() {
+        "none" => match (*_age, *sr) {
+            (0..=5, sr) if sr >= 0.95 => "excellent",
+            (0..=60, sr) if sr >= 0.9 => "good",
+            (_, sr) if sr >= 0.7 => "degraded",
+            _ => "dead",
+        },
+        "port_conflict" | "config_error" | "firewall" => "degraded",
+        "unknown" => "degraded",
+        _ => "dead", // process_crash, not_started, others
     };
 
     Ok(Json(InferenceRouteResponse {
@@ -117,15 +130,26 @@ pub async fn inference_candidates_handler(
             )
         })?;
 
-    // Filter healthy + rank
+    // Filter healthy + rank (skip fatal failures)
     let mut candidates: Vec<_> = nodes
         .into_iter()
-        .filter(|(_, _, sr, _)| *sr >= 0.7)
-        .map(|(node, latency, sr, age)| {
-            let quality = match (age, sr) {
-                (0..=5, sr) if sr >= 0.95 => "excellent",
-                (0..=60, sr) if sr >= 0.9 => "good",
-                (_, sr) if sr >= 0.7 => "degraded",
+        .filter(|(_, _, sr, _, failure_reason)| {
+            // Skip nodes that are dead
+            if failure_reason == "process_crash" || failure_reason == "not_started" {
+                return false;
+            }
+            *sr >= 0.7
+        })
+        .map(|(node, latency, sr, age, failure_reason)| {
+            let quality = match failure_reason.as_str() {
+                "none" => match (age, sr) {
+                    (0..=5, sr) if sr >= 0.95 => "excellent",
+                    (0..=60, sr) if sr >= 0.9 => "good",
+                    (_, sr) if sr >= 0.7 => "degraded",
+                    _ => "dead",
+                },
+                "port_conflict" | "config_error" | "firewall" => "degraded",
+                "unknown" => "degraded",
                 _ => "dead",
             };
             serde_json::json!({
@@ -133,6 +157,7 @@ pub async fn inference_candidates_handler(
                 "avg_latency_ms": latency,
                 "success_rate": sr,
                 "quality": quality,
+                "failure_reason": failure_reason,
             })
         })
         .collect();

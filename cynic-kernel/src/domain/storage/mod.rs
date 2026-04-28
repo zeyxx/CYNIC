@@ -92,13 +92,13 @@ pub trait StoragePort: Send + Sync {
     }
 
     /// Fleet stats: aggregate latencies per node over a time window (secs).
-    /// Returns (node, avg_latency_ms, success_rate, last_seen_secs).
-    /// Consumer: inference router selects node by latency.
+    /// Returns (node, avg_latency_ms, success_rate, last_seen_secs, failure_reason).
+    /// Consumer: inference router selects node by latency and degrades based on failure_reason.
     async fn fleet_stats(
         &self,
         _window_secs: u64,
         _limit: u32,
-    ) -> Result<Vec<(String, u64, f64, u64)>, StorageError> {
+    ) -> Result<Vec<(String, u64, f64, u64, String)>, StorageError> {
         Ok(vec![])
     }
 

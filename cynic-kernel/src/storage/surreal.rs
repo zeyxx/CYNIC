@@ -197,7 +197,7 @@ impl StoragePort for SurrealHttpStorage {
         &self,
         window_secs: u64,
         limit: u32,
-    ) -> Result<Vec<(String, u64, f64, u64)>, StorageError> {
+    ) -> Result<Vec<(String, u64, f64, u64, String)>, StorageError> {
         activity::fleet_stats(self, window_secs, limit).await
     }
 

@@ -21,6 +21,7 @@ pub struct EventRequest {
     pub success: bool,
     pub metadata: Option<String>,
     pub agent_id: Option<String>,
+    pub failure_reason: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -72,6 +73,7 @@ pub async fn event_handler(
         metadata: req.metadata.unwrap_or_default(),
         agent_id: req.agent_id.unwrap_or_else(|| "unknown".to_string()),
         timestamp: chrono::Utc::now().to_rfc3339(),
+        failure_reason: req.failure_reason.unwrap_or_default(),
     };
 
     // Fire-and-forget — bounded + tracked + timed out (5s)
@@ -128,21 +130,28 @@ pub async fn fleet_stats_handler(
         Ok(stats) => {
             let nodes = stats
                 .into_iter()
-                .map(|(node, avg_latency, success_rate, last_seen_secs)| {
-                    let quality = match (last_seen_secs, success_rate) {
-                        (0..=5, sr) if sr >= 0.95 => "excellent",
-                        (0..=60, sr) if sr >= 0.9 => "good",
-                        (_, sr) if sr >= 0.7 => "degraded",
-                        _ => "dead",
-                    };
-                    NodeStats {
-                        node,
-                        avg_latency_ms: avg_latency,
-                        success_rate,
-                        last_seen_secs,
-                        quality: quality.to_string(),
-                    }
-                })
+                .map(
+                    |(node, avg_latency, success_rate, last_seen_secs, failure_reason)| {
+                        let quality = match failure_reason.as_str() {
+                            "none" => match (last_seen_secs, success_rate) {
+                                (0..=5, sr) if sr >= 0.95 => "excellent",
+                                (0..=60, sr) if sr >= 0.9 => "good",
+                                (_, sr) if sr >= 0.7 => "degraded",
+                                _ => "dead",
+                            },
+                            "port_conflict" | "config_error" | "firewall" => "degraded",
+                            "unknown" => "degraded",
+                            _ => "dead",
+                        };
+                        NodeStats {
+                            node,
+                            avg_latency_ms: avg_latency,
+                            success_rate,
+                            last_seen_secs,
+                            quality: quality.to_string(),
+                        }
+                    },
+                )
                 .collect();
 
             Ok(Json(FleetStatsResponse {

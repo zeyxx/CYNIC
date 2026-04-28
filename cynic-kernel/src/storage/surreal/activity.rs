@@ -278,6 +278,7 @@ fn row_to_raw_event(row: &serde_json::Value) -> RawEvent {
         metadata: row["metadata"].as_str().unwrap_or("").to_string(),
         agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
         created_at: row["created_at"].as_str().unwrap_or("").to_string(),
+        failure_reason: row["failure_reason"].as_str().unwrap_or("").to_string(),
     }
 }
 
@@ -295,6 +296,7 @@ pub(super) async fn store_event(
             output_bytes = {output_bytes}, \
             success = {success}, \
             metadata = '{metadata}', \
+            failure_reason = '{failure_reason}', \
             agent_id = '{agent_id}', \
             created_at = time::now();",
         tool = escape_surreal(&event.tool),
@@ -303,6 +305,7 @@ pub(super) async fn store_event(
         output_bytes = event.output_bytes,
         success = event.success,
         metadata = escape_surreal(&event.metadata),
+        failure_reason = escape_surreal(&event.failure_reason),
         agent_id = escape_surreal(&event.agent_id),
     );
     storage.query(&sql).await?;
@@ -310,25 +313,26 @@ pub(super) async fn store_event(
 }
 
 /// Fleet stats: aggregate latencies per node over a time window.
-/// Returns: (node, avg_latency_ms, success_rate, last_seen_secs).
-/// Used by inference router to select best node.
+/// Returns: (node, avg_latency_ms, success_rate, last_seen_secs, failure_reason).
+/// Used by inference router to select best node and degrade based on failure_reason.
 pub(super) async fn fleet_stats(
     storage: &SurrealHttpStorage,
     window_secs: u64,
     limit: u32,
-) -> Result<Vec<(String, u64, f64, u64)>, StorageError> {
-    // Aggregate stats per node: avg latency and success rate.
-    // Note: math::max(created_at) in GROUP BY returns null, so we don't select it directly.
-    // Instead, we'll request the records and compute age_secs in Rust using current time.
+) -> Result<Vec<(String, u64, f64, u64, String)>, StorageError> {
+    // Aggregate stats per node: avg latency, success rate, and latest failure_reason.
+    // Subquery gets the most recent failure_reason for each node in the time window.
     let sql = format!(
         "SELECT node, \
                 math::mean(elapsed_ms) AS avg_latency, \
-                count(success == true) / count() AS success_rate \
+                count(success == true) / count() AS success_rate, \
+                (SELECT VALUE failure_reason FROM event WHERE node = PARENT.node AND created_at > time::now() - {}s ORDER BY created_at DESC LIMIT 1) AS latest_failure \
          FROM event \
          WHERE created_at > time::now() - {}s \
          GROUP BY node \
          ORDER BY avg_latency ASC \
          LIMIT {};",
+        window_secs,
         window_secs,
         safe_limit(limit),
     );
@@ -343,13 +347,16 @@ pub(super) async fn fleet_stats(
             let node = r["node"].as_str()?.to_string();
             let avg_latency = r["avg_latency"].as_f64().unwrap_or(0.0) as u64;
             let success_rate = r["success_rate"].as_f64().unwrap_or(0.0);
+            let failure_reason = r["latest_failure"]
+                .as_str()
+                .unwrap_or("unknown")
+                .to_string();
 
             // Since events matched the WHERE clause (created_at > now - window_secs),
             // we know they're recent. For now, report age as 0 (very fresh).
-            // TODO: Fetch actual max(created_at) per node in a separate query if needed.
             let age_secs = 0u64;
 
-            Some((node, avg_latency, success_rate, age_secs))
+            Some((node, avg_latency, success_rate, age_secs, failure_reason))
         })
         .collect())
 }

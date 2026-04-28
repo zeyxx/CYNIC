@@ -108,6 +108,8 @@ pub struct Event {
     pub metadata: String,  // optional context (error reason, command, etc.)
     pub agent_id: String,  // who triggered this
     pub timestamp: String, // RFC3339
+    #[serde(default)]
+    pub failure_reason: String, // from ts_introspect: "none" | "port_conflict" | "process_crash" | "config_error" | etc.
 }
 
 /// Raw event row — used by list_events and fleet_stats aggregation.
@@ -126,4 +128,6 @@ pub struct RawEvent {
     pub agent_id: String,
     #[serde(default)]
     pub created_at: String,
+    #[serde(default)]
+    pub failure_reason: String,
 }

@@ -261,6 +261,7 @@ def probe_service(node: str, service: str, port: int = 0) -> dict:
         "output_bytes": len(json.dumps(probe_result)),
         "success": success,
         "metadata": json.dumps(probe_result),
+        "failure_reason": probe_result.get("failure_reason", "unknown"),
     }
 
     try:

@@ -389,7 +389,7 @@ impl StoragePort for ReconnectableStorage {
         &self,
         window_secs: u64,
         limit: u32,
-    ) -> Result<Vec<(String, u64, f64, u64)>, StorageError> {
+    ) -> Result<Vec<(String, u64, f64, u64, String)>, StorageError> {
         self.current().fleet_stats(window_secs, limit).await
     }
     async fn list_events(
