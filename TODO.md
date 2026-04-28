@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-28 00:30 | **K15 + Phase 2c COMPLETE** — Consumer loop fully wired: probe → store_event → fleet_stats + list_degraded_nodes → /inference/remediate acts. Auto-recovery detection identifies persistent failures (>80% fatal probes over 30m). Commit 8a5c1e9. Phase 2d (MCP execution) deferred. **Now: Focus on hackathon — video demo, Colosseum submission, Vercel UI link (deadline May 10-11).**
+Last updated: 2026-04-28 14:00 | **K15 Phase 2c VALIDATED** — Consumer loop end-to-end: probe → store_event(failure_reason) → fleet_stats + list_degraded_nodes → /inference/remediate detects. SQL fixed (commit e577b61): two-pass degradation detection working. Tested: 6 process_crash events detected → node marked degraded. Phase 2d (MCP recovery execution) deferred. **Now: Focus on hackathon — video demo, Colosseum submission, Vercel UI link (deadline May 10-11).**
 
 ---
 
