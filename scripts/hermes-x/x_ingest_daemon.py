@@ -34,6 +34,10 @@ DEFAULT_DATASET = Path(os.environ.get(
     "X_DATASET_PATH",
     Path.home() / ".cynic/organs/hermes/x/dataset.jsonl"
 ))
+DEFAULT_ORGAN_DIR = Path(os.environ.get(
+    "X_ORGAN_DIR",
+    Path.home() / ".cynic/organs/hermes/x"
+))
 KERNEL_ADDR = ""
 API_KEY = ""
 ORGAN_NAME = "x-proxy"
@@ -79,8 +83,11 @@ def _headers() -> dict:
     return {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
 
 
-def post_judge(row: dict) -> bool:
-    """POST high-signal tweet to /judge → Dogs evaluate → crystal accumulation."""
+def post_judge(row: dict) -> dict | None:
+    """POST high-signal tweet to /judge → Dogs evaluate → crystal accumulation.
+
+    Returns the verdict dict on success, None on failure.
+    """
     text = row.get("text", "")[:500]
     author = row.get("author_screen_name", "?")
     score = row.get("signal_score", 0)
@@ -102,12 +109,12 @@ def post_judge(row: dict) -> bool:
             logger.info("JUDGE @%s [%d]: %s Q=%.3f",
                         author, score, verdict.get("verdict", "?"),
                         verdict.get("q_score", {}).get("total", 0))
-            return True
+            return verdict
         logger.warning("POST /judge %d: %s", resp.status_code, resp.text[:100])
-        return False
+        return None
     except requests.RequestException as e:
         logger.warning("POST /judge failed: %s", e)
-        return False
+        return None
 
 
 def post_observe(row: dict, organ_name: str = ORGAN_NAME) -> bool:
@@ -140,11 +147,61 @@ def post_observe(row: dict, organ_name: str = ORGAN_NAME) -> bool:
         return False
 
 
-def ingest_row(row: dict, organ_name: str = ORGAN_NAME) -> bool:
-    """Route tweet: high-signal → /judge, low-signal → /observe."""
+def write_verdict_to_organ(row: dict, verdict: dict, organ_dir: Path) -> bool:
+    """Write verdict to organ disk (idempotent, skip if exists).
+
+    Schema:
+        verdicts/{tweet_id}.json
+        {
+            "tweet_id": "...",
+            "signal_score": N,
+            "captured_at": "...",
+            "verdict": {...},
+            "written_at": "ISO8601"
+        }
+    """
+    tweet_id = row.get("tweet_id", "")
+    if not tweet_id:
+        return False
+
+    verdict_dir = organ_dir / "verdicts"
+    try:
+        verdict_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        logger.warning("Failed to create verdicts directory: %s", e)
+        return False
+
+    verdict_file = verdict_dir / f"{tweet_id}.json"
+
+    # Idempotent: skip if already exists
+    if verdict_file.exists():
+        return True
+
+    try:
+        import datetime
+        payload = {
+            "tweet_id": tweet_id,
+            "signal_score": row.get("signal_score", 0),
+            "captured_at": row.get("capture_ts", ""),
+            "verdict": verdict,
+            "written_at": datetime.datetime.utcnow().isoformat() + "Z",
+        }
+        verdict_file.write_text(json.dumps(payload, indent=2))
+        return True
+    except OSError as e:
+        logger.warning("Failed to write verdict for %s: %s", tweet_id, e)
+        return False
+
+
+def ingest_row(row: dict, organ_name: str = ORGAN_NAME, organ_dir: Path = DEFAULT_ORGAN_DIR) -> bool:
+    """Route tweet: high-signal → /judge + write to organ, low-signal → /observe."""
     score = row.get("signal_score", 0)
     if score >= JUDGE_THRESHOLD:
-        return post_judge(row)
+        verdict = post_judge(row)
+        if verdict:
+            write_verdict_to_organ(row, verdict, organ_dir)
+            return True
+        return False
     return post_observe(row, organ_name)
 
 
@@ -248,8 +305,8 @@ def save_cursor(state_path: Path, offset: int):
 
 # ── Tail loop ──
 
-def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, replay: bool = False):
-    """Tail the dataset JSONL, POST new lines to /observe."""
+def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, organ_dir: Path = DEFAULT_ORGAN_DIR, replay: bool = False):
+    """Tail the dataset JSONL, POST new lines to /observe, write verdicts to organ."""
     if not dataset.exists():
         logger.info("Dataset not found: %s — waiting for creation", dataset)
         while not dataset.exists():
@@ -262,7 +319,7 @@ def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, 
         save_cursor(state_path, offset)
         logger.info("First run — seeking to end (offset %d)", offset)
 
-    logger.info("Tailing %s from offset %d (replay=%s)", dataset, offset, replay)
+    logger.info("Tailing %s from offset %d (replay=%s) — organ_dir=%s", dataset, offset, replay, organ_dir)
 
     global _heartbeat_sent, _heartbeat_errors
     sent = 0
@@ -302,7 +359,7 @@ def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, 
                     continue
                 if len(batch) >= BATCH_SIZE:
                     for row in batch:
-                        if ingest_row(row, organ_name):
+                        if ingest_row(row, organ_name, organ_dir):
                             sent += 1
                         else:
                             errors += 1
@@ -311,7 +368,7 @@ def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, 
 
         # Flush remaining
         for row in batch:
-            if ingest_row(row, organ_name):
+            if ingest_row(row, organ_name, organ_dir):
                 sent += 1
             else:
                 errors += 1
@@ -343,6 +400,8 @@ def main():
 
     parser = argparse.ArgumentParser(description="CYNIC ingest daemon")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
+    parser.add_argument("--organ-dir", type=Path, default=DEFAULT_ORGAN_DIR,
+                        help="Organ directory for verdict storage (X_ORGAN_DIR env var)")
     parser.add_argument("--replay", action="store_true",
                         help="Replay full dataset (one-shot, no tail)")
     parser.add_argument("--organ", default=ORGAN_NAME,
@@ -350,6 +409,7 @@ def main():
     args = parser.parse_args()
 
     organ = args.organ
+    organ_dir = args.organ_dir
 
     state_path = args.dataset.parent / "ingest_cursor.txt"
 
@@ -362,10 +422,10 @@ def main():
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
 
-    logger.info("Ingest daemon starting — organ=%s dataset=%s kernel=%s",
-                ORGAN_NAME, args.dataset, KERNEL_ADDR)
+    logger.info("Ingest daemon starting — organ=%s dataset=%s organ_dir=%s kernel=%s",
+                ORGAN_NAME, args.dataset, organ_dir, KERNEL_ADDR)
 
-    tail_dataset(args.dataset, state_path, organ_name=organ, replay=args.replay)
+    tail_dataset(args.dataset, state_path, organ_name=organ, organ_dir=organ_dir, replay=args.replay)
 
 
 if __name__ == "__main__":
