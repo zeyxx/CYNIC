@@ -24,6 +24,16 @@ pub trait OrganPort: Send + Sync {
     /// Timestamped bag of typed metrics. Caller can compute rates
     /// from consecutive Counter snapshots via delta/Δt.
     async fn snapshot(&self) -> Result<OrganSnapshot, OrganError>;
+
+    /// Store an observation to this organ's local storage.
+    /// K15: observations produced by /observe route to their source organ.
+    /// Default: no-op (organs can opt-in to write capability).
+    async fn store_observation(
+        &self,
+        _obs: crate::domain::storage::Observation,
+    ) -> Result<(), OrganError> {
+        Ok(())
+    }
 }
 
 #[derive(Debug)]

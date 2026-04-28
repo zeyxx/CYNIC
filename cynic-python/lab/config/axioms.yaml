@@ -1,0 +1,56 @@
+# 6 Axioms (versioned, measurable)
+version: "1.0"
+
+FIDELITY:
+  name: "Faithful to truth"
+  description: "Sound principles, honest signal scoring, no fabrication"
+  measurements:
+    - "signal_score_validation: do high-signal tweets actually have good Dogs verdicts?"
+    - "false_negative_rate: high-verdict tweets with low signal_score"
+    - "cross_source_agreement: same event, different sources, consistent signal?"
+  target: ">0.95 consistency"
+
+PHI:
+  name: "Structurally harmonious"
+  description: "Proportional, balanced, elegant architecture"
+  measurements:
+    - "domain_coverage: are all domains sampled fairly?"
+    - "axiom_symmetry: are all 6 axioms testable?"
+    - "layer_independence: can any layer be replaced?"
+  target: "coverage > 70% per domain, no single point of failure"
+
+VERIFY:
+  name: "Testable, refutable"
+  description: "Every claim falsifiable, no dogma"
+  measurements:
+    - "reproducibility: same data + code = same results?"
+    - "disagreement_rate: where Dogs disagree = uncertainty zones"
+    - "hypothesis_tracking: all hypotheses logged with falsification criteria"
+  target: "100% reproducible, <30% Dog disagreement on clear cases"
+
+CULTURE:
+  name: "Honors traditions and patterns"
+  description: "Respects known truths, builds on prior work"
+  measurements:
+    - "SKILL_md_coverage: how many SKILL.md patterns are detected?"
+    - "known_scam_detection: recovery scammers, KOL corruption in dataset?"
+    - "axiom_coherence: do findings align with CYNIC constitution?"
+  target: ">80% pattern detection"
+
+BURN:
+  name: "Efficient, minimal waste"
+  description: "Signal > noise, useful > cluttered"
+  measurements:
+    - "signal_entropy: how much noise in signal_score distribution?"
+    - "observation_quality: observations/hour * (avg_q_score / cost)"
+    - "lab_efficiency: insights_per_run / analysis_time"
+  target: "entropy < 1.0 (signal < noise is failure), quality > 0.1"
+
+SOVEREIGNTY:
+  name: "Preserves agency and freedom"
+  description: "Auditable, reversible, human-controlled"
+  measurements:
+    - "lineage_completeness: can trace every verdict back to source?"
+    - "decision_reversibility: can replay with old signal_version?"
+    - "agent_autonomy: Hermes' decisions override recommendations >10%?"
+  target: "100% traceable, >10% override rate"

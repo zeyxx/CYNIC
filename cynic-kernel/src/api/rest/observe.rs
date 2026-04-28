@@ -43,28 +43,53 @@ pub async fn observe_handler(
         req.status,
         req.context,
         req.project,
-        req.agent_id,
+        req.agent_id.clone(),
         req.session_id,
         req.tags,
     );
 
-    // Fire-and-forget — bounded (Semaphore) + tracked (TaskTracker) + timed out (5s)
+    // K15: Route observation to source organ if agent_id matches, else kernel storage
     let semaphore = Arc::clone(&state.bg_semaphore);
     match semaphore.try_acquire_owned() {
         Ok(permit) => {
             let storage = Arc::clone(&state.storage);
+            let senses = state.senses.clone();
             let obs_clone = obs;
+            let agent_id = req.agent_id.clone();
+
             state.bg_tasks.spawn(async move {
-                let _permit = permit; // held until task completes
-                match tokio::time::timeout(
-                    std::time::Duration::from_secs(5),
-                    storage.store_observation(&obs_clone),
-                )
-                .await
-                {
-                    Ok(Err(e)) => tracing::warn!(error = %e, "store_observation failed"),
-                    Err(_) => tracing::warn!("store_observation timed out (5s)"),
-                    _ => {}
+                let _permit = permit;
+
+                // Try to route to organ by agent_id
+                let mut stored = false;
+                if let Some(agent) = &agent_id {
+                    if agent.starts_with("hermes-x") || agent == "hermes-x" {
+                        if let Some(organ) = senses.iter().find(|s| s.name() == "hermes-x") {
+                            match organ.store_observation(obs_clone.clone()).await {
+                                Ok(()) => {
+                                    tracing::info!(agent = agent, "observation routed to hermes-x organ");
+                                    stored = true;
+                                }
+                                Err(e) => {
+                                    tracing::warn!(error = ?e, agent = agent, "organ store failed, falling back to kernel");
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Fallback to kernel storage
+                if !stored {
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(5),
+                        storage.store_observation(&obs_clone),
+                    )
+                    .await
+                    {
+                        Ok(Err(e)) => tracing::warn!(error = %e, "kernel store_observation failed"),
+                        Err(_) => tracing::warn!("kernel store_observation timed out (5s)"),
+                        _ => {}
+                    }
                 }
             });
         }

@@ -241,6 +241,38 @@ impl OrganPort for HermesXReader {
         .await
         .map_err(|e| OrganError::ReadFailed(format!("spawn_blocking: {e}")))?
     }
+
+    async fn store_observation(
+        &self,
+        obs: crate::domain::storage::Observation,
+    ) -> Result<(), OrganError> {
+        let observations_dir = self.organ_dir.join("observations");
+
+        tokio::task::spawn_blocking(move || {
+            // Create observations dir if needed
+            std::fs::create_dir_all(&observations_dir)
+                .map_err(|e| OrganError::ReadFailed(format!("create_dir: {e}")))?;
+
+            // Write observation as JSON file (timestamp + tool as filename for uniqueness)
+            let safe_tool = obs.tool.to_lowercase().replace(' ', "_");
+            let filename = format!(
+                "{}_{}.json",
+                obs.timestamp.split('T').next().unwrap_or("unknown"),
+                safe_tool
+            );
+            let filepath = observations_dir.join(filename);
+
+            let json = serde_json::to_string_pretty(&obs)
+                .map_err(|e| OrganError::ReadFailed(format!("json_serialize: {e}")))?;
+
+            std::fs::write(&filepath, json)
+                .map_err(|e| OrganError::ReadFailed(format!("write_file: {e}")))?;
+
+            Ok(())
+        })
+        .await
+        .map_err(|e| OrganError::ReadFailed(format!("spawn_blocking: {e}")))?
+    }
 }
 
 #[cfg(test)]

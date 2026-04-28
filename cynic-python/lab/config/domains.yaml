@@ -1,0 +1,44 @@
+# Domain definitions (versioned, can evolve)
+version: "1.0"
+
+D1:
+  name: "Solana/Tokens"
+  target: 500
+  priority: "HIGH"
+  keywords: ["token", "rug", "pump", "airdrop", "launch", "$SOL"]
+  description: "Recovery scammers, KOL corruption, rug warnings, community health"
+
+D2:
+  name: "Inference/LLM"
+  target: 200
+  priority: "MEDIUM"
+  keywords: ["model", "inference", "LLM", "agent", "AI"]
+  description: "Dog quality on twitter, inference latency patterns, model drift"
+
+D3:
+  name: "Sovereignty"
+  target: 100
+  priority: "MEDIUM"
+  keywords: ["sovereignty", "freedom", "control", "decentralization"]
+  description: "Emergence domain, reactive to real needs"
+
+D4:
+  name: "Security/Scams"
+  target: 200
+  priority: "HIGH"
+  keywords: ["scam", "honeypot", "fraud", "dev sold", "exploit", "hack"]
+  description: "Fraud patterns, honeypots, dev wallet exits"
+
+D5:
+  name: "Macro/Politics"
+  target: 100
+  priority: "HIGH"
+  keywords: ["macro", "politics", "economy", "regulation", "policy"]
+  description: "Market structure, regulation impact, geopolitical signals"
+
+D6:
+  name: "Epistemology"
+  target: 50
+  priority: "HIGH"
+  keywords: ["knowledge", "truth", "axiom", "verify", "fidelity"]
+  description: "How we know what we know, calibration, epistemic frameworks"
