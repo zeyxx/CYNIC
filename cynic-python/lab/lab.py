@@ -23,6 +23,24 @@ from typing import Optional
 import yaml
 
 
+def pearson_correlation(x: list, y: list) -> float:
+    """Calculate Pearson correlation coefficient between two lists."""
+    if len(x) < 2 or len(y) < 2 or len(x) != len(y):
+        return 0.0
+
+    mean_x = sum(x) / len(x)
+    mean_y = sum(y) / len(y)
+
+    cov = sum((x[i] - mean_x) * (y[i] - mean_y) for i in range(len(x))) / (len(x) - 1)
+    var_x = sum((xi - mean_x) ** 2 for xi in x) / (len(x) - 1)
+    var_y = sum((yi - mean_y) ** 2 for yi in y) / (len(y) - 1)
+
+    if var_x == 0 or var_y == 0:
+        return 0.0
+
+    return cov / (var_x ** 0.5 * var_y ** 0.5)
+
+
 # ── CONFIG ──
 
 def load_config(config_dir: str = "config") -> dict:
@@ -34,6 +52,30 @@ def load_config(config_dir: str = "config") -> dict:
             with open(fpath) as f:
                 config[fname.replace(".yaml", "")] = yaml.safe_load(f)
     return config
+
+
+def load_verdicts_from_organ(organ_dir: str = None) -> list:
+    """Load verdicts from organ directory (verdicts/ subdir).
+
+    K15 consumer: reads verdicts written by daemon to measure signal_score quality.
+    Schema per file: {tweet_id, signal_score, verdict: {q_score, ...}, ...}
+    """
+    if organ_dir is None:
+        organ_dir = str(Path.home() / ".cynic" / "organs" / "hermes" / "x")
+
+    verdict_dir = Path(organ_dir) / "verdicts"
+    verdicts = []
+
+    if verdict_dir.exists():
+        for json_file in sorted(verdict_dir.glob("*.json")):
+            try:
+                with open(json_file) as f:
+                    verdict = json.load(f)
+                    verdicts.append(verdict)
+            except (json.JSONDecodeError, IOError):
+                continue
+
+    return verdicts
 
 
 def load_observations_from_organ(organ_dir: str = None) -> list:
@@ -182,6 +224,60 @@ def analyze_false_negatives(tweets: list) -> dict:
     }
 
 
+def analyze_calibration_heuristic(verdicts: list) -> dict:
+    """Measure signal_score quality via Pearson r vs q_score.total.
+
+    K15 consumer: joins on tweet_id, measures agreement.
+    Falsification: if r < 0.4 with N > 50, signal_score is a poor proxy for Dogs.
+    """
+    if not verdicts:
+        return {
+            "pairs_found": 0,
+            "status": "no_verdicts",
+            "r": None,
+            "confidence": 0.0,
+        }
+
+    signal_scores = []
+    q_scores = []
+
+    for v in verdicts:
+        signal = v.get("signal_score", 0)
+        q_score = v.get("verdict", {}).get("q_score", {})
+        q_total = q_score.get("total", 0) if isinstance(q_score, dict) else 0
+
+        if q_total is not None and q_total != "":
+            signal_scores.append(float(signal))
+            q_scores.append(float(q_total))
+
+    if len(signal_scores) < 2:
+        return {
+            "pairs_found": len(signal_scores),
+            "status": "insufficient_data",
+            "r": None,
+            "confidence": 0.0,
+        }
+
+    r = pearson_correlation(signal_scores, q_scores)
+
+    # Confidence in result: higher with more pairs
+    confidence = min(1.0, len(signal_scores) / 50.0)
+
+    # Falsification: r < 0.4 with N > 50 means signal_score is poor
+    is_valid = r >= 0.4 or len(signal_scores) <= 50
+    status = "valid" if is_valid else "signal_score_poor"
+
+    return {
+        "pairs_found": len(signal_scores),
+        "r": round(r, 3),
+        "status": status,
+        "confidence": round(confidence, 2),
+        "interpretation": (
+            f"signal_score is a {'good' if r >= 0.4 else 'poor'} proxy for Dog judgment (r={r:.3f})"
+        ),
+    }
+
+
 def analyze_disagreement_zones(tweets: list) -> dict:
     """Where Dogs would likely disagree (high uncertainty indicators)."""
     disagreement_tweets = []
@@ -235,9 +331,9 @@ def analyze_disagreement_zones(tweets: list) -> dict:
 def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
     """Full analysis → briefing for Hermes/Claude.
 
-    Loads initial dataset + observations from both organ (hermes-x data-centric)
+    Loads initial dataset + verdicts + observations from both organ (hermes-x data-centric)
     and kernel (general observations via /observe or MCP cynic_observe).
-    K15: observations from /observe flow back into analysis.
+    K15: verdicts and observations flow back into analysis.
     """
     print(f"Loading dataset: {dataset_path}")
     tweets_raw = []
@@ -247,6 +343,10 @@ def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
                 tweets_raw.append(json.loads(line.strip()))
             except json.JSONDecodeError:
                 continue
+
+    # K15: Load verdicts from organ (written by daemon after /judge)
+    verdicts = load_verdicts_from_organ(organ_dir)
+    print(f"Loading {len(verdicts)} verdicts from organ...")
 
     # K15: Load observations from organ (stored via /observe → HermesXReader)
     organ_obs = load_observations_from_organ(organ_dir)
@@ -289,6 +389,7 @@ def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
     distribution = analyze_distribution(tweets)
     false_negatives = analyze_false_negatives(tweets)
     disagreement = analyze_disagreement_zones(tweets)
+    calibration = analyze_calibration_heuristic(verdicts)
 
     # Generate recommendation
     config = load_config()
@@ -324,10 +425,12 @@ def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
         "timestamp": datetime.now().isoformat(),
         "dataset_id": Path(dataset_path).stem,
         "tweet_count": len(tweets),
+        "verdict_count": len(verdicts),
         "analyses": {
             "distribution": distribution,
             "false_negatives": false_negatives,
             "disagreement": disagreement,
+            "calibration": calibration,
         },
         "recommendation": {
             "domain": suggested_domain,
@@ -353,14 +456,19 @@ NEXT ACTIONS:
 4. Re-run lab after new observations
 """,
         "uncertainties": [
-            "Dogs not yet benchmarked on these tweets (need /judge responses)",
-            "Signal_score heuristic quality unknown without verdicts",
             "Domain assignment is keyword-based; may misclassify borderline tweets",
+            "Calibration: " + (
+                f"signal_score appears valid (r={calibration.get('r')}, N={calibration.get('pairs_found')})"
+                if calibration.get("status") == "valid"
+                else f"insufficient verdict data (N={calibration.get('pairs_found')})"
+            ),
         ],
         "_meta": {
-            "lab_version": "0.1.0",
+            "lab_version": "0.2.0",
             "signal_version": "2",
-            "reproducibility_token": f"lab-0.1.0-signal-2-tweets-{len(tweets)}",
+            "verdict_consumer": "enabled",
+            "verdicts_loaded": len(verdicts),
+            "reproducibility_token": f"lab-0.2.0-signal-2-tweets-{len(tweets)}-verdicts-{len(verdicts)}",
         },
     }
 
