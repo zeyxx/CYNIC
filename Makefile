@@ -864,3 +864,11 @@ agents:  ## Show active agents and work claims (requires kernel running)
 	@$(source_env)
 	@curl -sf -H "Authorization: Bearer $${CYNIC_API_KEY}" "http://$${CYNIC_REST_ADDR}/agents" | python3 -m json.tool 2>/dev/null || { [ -n "$${CYNIC_REST_ADDR:-}" ] && echo "ERROR: kernel not responding at $${CYNIC_REST_ADDR}" || echo "ERROR: CYNIC_REST_ADDR not set — source ~/.cynic-env first"; }
 
+	if [ $$FAIL -eq 0 ]; then echo "✓ All lint-drift checks pass"; fi; \
+	exit $$FAIL
+
+.PHONY: calibrate-token-conviction-only
+calibrate-token-conviction-only: ## Validate conviction-only token baseline (100% accuracy on 28 tokens)
+	@echo ""
+	@echo "▶ Measuring token conviction→verdict mapping accuracy..."
+	@python3 $(PROJECT_DIR)/cynic-python/heuristics/measure_conviction_only.py
