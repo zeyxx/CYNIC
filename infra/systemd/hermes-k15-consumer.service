@@ -12,7 +12,8 @@ WorkingDirectory=/home/user/Bureau/CYNIC
 # Instead, source the file in ExecStart via shell
 
 # Run the K15 consumer with 5-minute poll interval
-ExecStart=/bin/bash -c 'source /home/user/.cynic-env && exec /usr/bin/python3 cynic-python/consumers/k15_observation_consumer.py --kernel-url http://localhost:3030 --api-key "$CYNIC_API_KEY" --domain twitter --poll-interval 300'
+# Note: Use $$ to escape $ so systemd doesn't expand variables before bash sees them
+ExecStart=/bin/bash -c 'source /home/user/.cynic-env && exec /usr/bin/python3 cynic-python/consumers/k15_observation_consumer.py --kernel-url http://localhost:3030 --api-key "$$CYNIC_API_KEY" --domain twitter --poll-interval 300'
 
 # Restart on failure with 30s backoff
 Restart=on-failure
