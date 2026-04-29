@@ -93,9 +93,8 @@ class GroundTruthMeasure:
             twitter_obj = TwitterSignals(**twitter_signals) if twitter_signals else None
 
             # Score on token domain (on-chain only)
-            # Reconstruct TokenMetrics from wallet_signals (hack: we don't have original token metrics)
-            # For now, estimate based on wallet signals
-            token_metrics = self._estimate_token_metrics(wallet_signals)
+            # Reconstruct TokenMetrics from wallet_signals + any hints in token_data
+            token_metrics = self._estimate_token_metrics(wallet_signals, token_data)
             token_scores = self.token_scorer.score(token_metrics)
             token_verdict = self._score_to_verdict(token_scores.q_score)
 
@@ -145,24 +144,47 @@ class GroundTruthMeasure:
             print(f"Error scoring {symbol} ({mint[:8]}): {e}")
             return None
 
-    def _estimate_token_metrics(self, wallet_signals: Dict) -> TokenMetrics:
-        """Estimate TokenMetrics from wallet signals (hack for ground truth measurement).
+    def _estimate_token_metrics(self, wallet_signals: Dict, token_data: Dict) -> TokenMetrics:
+        """Estimate TokenMetrics from wallet signals + token_data hints.
 
-        In real usage, we'd have actual token metrics. Here we infer from holder behavior.
+        If token_data has 'token_metrics' key, use that. Otherwise estimate from wallet behavior.
         """
+        # If full token metrics are available, use them
+        if "token_metrics" in token_data and token_data["token_metrics"]:
+            tm = token_data["token_metrics"]
+            return TokenMetrics(
+                holders=tm.get("holders", 100),
+                top1_pct=tm.get("top1_pct", 0),
+                top10_pct=tm.get("top10_pct", 0),
+                herfindahl=tm.get("herfindahl", 0),
+                age_hours=tm.get("age_hours", 24),
+                mint_authority_active=tm.get("mint_authority_active", False),
+                freeze_authority_active=tm.get("freeze_authority_active", False),
+                lp_burned=tm.get("lp_burned", False),
+                lp_locked=tm.get("lp_locked", False),
+                supply_burned_pct=tm.get("supply_burned_pct"),
+                origin_pump_fun=tm.get("origin_pump_fun", False),
+                exchange_listed=tm.get("exchange_listed", False),
+            )
+
+        # Otherwise estimate from wallet signals
         ws = wallet_signals
+        # Infer authority status from bot score + concentration
+        high_bot_or_concentration = ws.get("bot_score", 0) > 0.3 or ws.get("top_10_hold_pct", 0) > 70
+        lp_burned = ws.get("retail_held_pct", 0) > 60  # High retail % suggests LP burned
+
         return TokenMetrics(
             holders=max(10, int(1000 / (1.0 + ws.get("top_10_hold_pct", 0) / 10))),
-            top1_pct=ws.get("top_10_hold_pct", 0) / 3,  # Rough estimate
+            top1_pct=ws.get("top_10_hold_pct", 0) / 3,
             top10_pct=ws.get("top_10_hold_pct", 0),
             herfindahl=min(1.0, ws.get("top_10_hold_pct", 0) / 100),
             age_hours=max(24, int(ws.get("avg_hold_duration_days", 7) * 24)),
-            mint_authority_active=ws.get("bot_score", 0) > 0.3,
-            freeze_authority_active=ws.get("bot_score", 0) > 0.3,
-            lp_burned=ws.get("retail_held_pct", 0) > 50,
+            mint_authority_active=high_bot_or_concentration,
+            freeze_authority_active=high_bot_or_concentration,
+            lp_burned=lp_burned,
             lp_locked=False,
             supply_burned_pct=None,
-            origin_pump_fun=False,  # Unknown from wallet data
+            origin_pump_fun=ws.get("bot_score", 0) > 0.15,  # Estimate from bot %
             exchange_listed=ws.get("exchange_held_pct", 0) < 15,
         )
 
