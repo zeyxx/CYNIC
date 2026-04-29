@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-28 19:00 | **HACKATHON PIVOT: K15-HONEST SUBMISSION** — Deterministic-dog proven (0ms, 100% reliable). K15 loop complete (verdict → storage → consumer → event). Circuit breaker + degradation probes exist (Soma emerging organically, not designed). **Demo strategy:** deterministic-dog + K15 proof + B&C flow. No multi-Dog pressure. May 10 submission thesis: "Epistemic engine proven, single-Dog consensus reliable, production requires Soma (orchestrator resource discovery, GGUF registry, fallback routing)." Infrastructure gap is honest roadmap, not failure. **Soma blocker identified:** Dogs hardcoded, no discovery, no fallback routing. Defer to operational friction (when Hermes scales, when organs compete). Build it when it hurts.
+Last updated: 2026-04-29 12:00 | **ARCHIMEDES CONVERGENCE TEST — Test 1 COMPLETE.** Dogs under-confident on legitimate tokens (BONK: 70% underestimate), not convergence failure. Hypothesis REVISED: partial match. Method Props 1-5 analyzed (two-tier epistemology + K15 pattern confirmed, channels NOT independent like CYNIC Dogs). **Next session:** calibrate deterministic-dog for token-judgment domain (HOWL accuracy 0→70%), measure Test 2 stability. **Hackathon on track:** May 10 deadline firm. Deterministic-dog demo ready. Nightshift paused (GPU for Hermes).
 
 ---
 
