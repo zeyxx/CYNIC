@@ -1,0 +1,58 @@
+# Narrative-to-domain mapping v0.1
+# Maps narrative tags (from tweets) to domain IDs.
+# Used in analyze_distribution() for primary domain assignment (before keyword fallback).
+# Falsifiable: curated domains should align with this mapping.
+
+narrative_mappings:
+  # D1: Solana/Tokens
+  D1:
+    - "rug_pull"
+    - "rug_warning"
+    - "pump_hype"
+    - "meme_token"
+    - "solana_token"
+    - "token_launch"
+
+  # D2: Inference/LLM
+  D2:
+    - "ai_crypto"
+    - "inference"
+    - "model"
+    - "llm"
+    - "agent"
+    - "open_weights"
+
+  # D3: Sovereignty
+  D3:
+    - "sovereignty"
+    - "self_hosted"
+    - "decentralization"
+    - "censorship_resistant"
+    - "self_custody"
+
+  # D4: Security/Exploits
+  D4:
+    - "security"
+    - "exploit"
+    - "vulnerability"
+    - "rug_warning"  # overlaps D1, but security-focused
+    - "honeypot"
+    - "scam"
+
+  # D5: Macro/Markets
+  D5:
+    - "market"
+    - "macro"
+    - "macro_signal"
+    - "institutional"
+    - "etf"
+    - "regulation"
+
+  # D6: Epistemology
+  D6:
+    - "epistemology"
+    - "verifiable"
+    - "epistemic"
+    - "falsifiable"
+    - "calibration"
+    - "bounded_judgment"
