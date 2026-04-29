@@ -1530,6 +1530,93 @@ mod tests {
         assert_eq!(verdict.dog_scores.len(), 1);
         assert_eq!(verdict.dog_scores[0].dog_id, "good");
     }
+
+    #[tokio::test]
+    async fn filter_excludes_deterministic_dog_when_not_requested() {
+        // Regression test for forced consensus removal (commit d0dd481).
+        // Verifies that deterministic-dog is NOT forced-included when filtering dogs.
+        // Previously, the filter logic was: d.id() == "deterministic-dog" || ids.iter().any(...)
+        // Now it should only include dogs explicitly requested in the filter.
+        let judge = test_judge(vec![
+            Arc::new(FixedDog {
+                name: "deterministic-dog".into(),
+                scores: AxiomScores {
+                    fidelity: 0.9,
+                    phi: 0.9,
+                    verify: 0.9,
+                    culture: 0.9,
+                    burn: 0.9,
+                    sovereignty: 0.9,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+            Arc::new(FixedDog {
+                name: "test-dog-1".into(),
+                scores: AxiomScores {
+                    fidelity: 0.5,
+                    phi: 0.5,
+                    verify: 0.5,
+                    culture: 0.5,
+                    burn: 0.5,
+                    sovereignty: 0.5,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+            Arc::new(FixedDog {
+                name: "test-dog-2".into(),
+                scores: AxiomScores {
+                    fidelity: 0.4,
+                    phi: 0.4,
+                    verify: 0.4,
+                    culture: 0.4,
+                    burn: 0.4,
+                    sovereignty: 0.4,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+        ]);
+
+        // Filter requesting ONLY test-dog-1 and test-dog-2 (explicitly exclude deterministic-dog)
+        let filter = vec!["test-dog-1".to_string(), "test-dog-2".to_string()];
+        let verdict = judge
+            .evaluate(&test_stimulus(), Some(&filter), &test_metrics())
+            .await
+            .unwrap();
+
+        // Assert: only 2 dogs scored (not 3)
+        assert_eq!(
+            verdict.dog_scores.len(),
+            2,
+            "Expected 2 dogs to be evaluated, but got {}",
+            verdict.dog_scores.len()
+        );
+
+        // Assert: deterministic-dog is NOT in the result
+        for dog_score in &verdict.dog_scores {
+            assert_ne!(
+                dog_score.dog_id, "deterministic-dog",
+                "deterministic-dog should not be force-included when not explicitly requested"
+            );
+        }
+
+        // Assert: the returned dogs are the ones we requested
+        let dog_ids: Vec<&str> = verdict
+            .dog_scores
+            .iter()
+            .map(|s| s.dog_id.as_str())
+            .collect();
+        assert!(
+            dog_ids.contains(&"test-dog-1"),
+            "test-dog-1 should be in the result"
+        );
+        assert!(
+            dog_ids.contains(&"test-dog-2"),
+            "test-dog-2 should be in the result"
+        );
+    }
 }
 
 #[cfg(test)]
