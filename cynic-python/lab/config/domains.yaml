@@ -1,44 +1,48 @@
 # Domain definitions (versioned, can evolve)
-version: "1.0"
-
-D1:
-  name: "Solana/Tokens"
-  target: 500
-  priority: "HIGH"
-  keywords: ["token", "rug", "pump", "airdrop", "launch", "$SOL"]
-  description: "Recovery scammers, KOL corruption, rug warnings, community health"
+# v1.1 — 2026-04-29
+# BREAKING CHANGE from v1.0: domain ordering now matters for keyword matching.
+# Lab matches first-wins; D1 is last (catch-all for rug/token content after other domains checked).
+# Falsifiable: after update, curated D2/D4/D5/D6 assignment should approach curated counts.
+version: "1.1"
 
 D2:
   name: "Inference/LLM"
   target: 200
   priority: "MEDIUM"
-  keywords: ["model", "inference", "LLM", "agent", "AI"]
-  description: "Dog quality on twitter, inference latency patterns, model drift"
-
-D3:
-  name: "Sovereignty"
-  target: 100
-  priority: "MEDIUM"
-  keywords: ["sovereignty", "freedom", "control", "decentralization"]
-  description: "Emergence domain, reactive to real needs"
+  keywords: ["Qwen", "llama.cpp", "vLLM", "SGLang", "GGUF", "tok/s", "local LLM", "local AI", "open-source model", "OpenClaw", "Claude Code", "DeepSeek", "Kimi K", "fine-tun", "LoRA", "quantization", "RTX 3090", "RTX 4090", "RTX 5090", "inference engine", "model release", "open weights", "context window", "GPU benchmark"]
+  description: "Local inference, model releases, agent frameworks, AI hardware"
 
 D4:
-  name: "Security/Scams"
+  name: "Security/Exploits"
   target: 200
   priority: "HIGH"
-  keywords: ["scam", "honeypot", "fraud", "dev sold", "exploit", "hack"]
-  description: "Fraud patterns, honeypots, dev wallet exits"
+  keywords: ["bridge exploit", "cross-chain attack", "false state", "reentrancy", "smart contract vuln", "honeypot contract", "drain", "chainalysis", "certik", "peckshield", "slow rug", "bundled scam", "Solana Syndicate", "top wallet controls", "dev wallet", "liquidity unlocked", "commit hash", "CVE-", "zero-day", "bug bounty"]
+  description: "Protocol exploits, bridge attacks, on-chain fraud patterns (distinct from pump/dump D1)"
 
 D5:
-  name: "Macro/Politics"
+  name: "Macro/Markets"
   target: 100
   priority: "HIGH"
-  keywords: ["macro", "politics", "economy", "regulation", "policy"]
-  description: "Market structure, regulation impact, geopolitical signals"
+  keywords: ["bullrun", "market cap", "market structure", "macro", "regulation", "geopolitics", "institutional", "ETF", "interest rate", "tariff", "sanctions", "M2", "global liquidity", "fiscal", "monetary policy", "on-chain activity", "stablecoin volume", "tokenized", "tokens per second", "firedancer"]
+  description: "Market structure, macro signals, Solana infrastructure adoption"
 
 D6:
   name: "Epistemology"
   target: 50
   priority: "HIGH"
-  keywords: ["knowledge", "truth", "axiom", "verify", "fidelity"]
-  description: "How we know what we know, calibration, epistemic frameworks"
+  keywords: ["manipulation de marché", "I can't be sure", "nothing is sure", "verifiable", "calibration", "epistemic", "falsifiable", "ground truth", "what would falsify", "I cannot verify", "unverifiable", "narrative vs reality", "signal vs noise", "how do we know", "CYNIC", "bounded judgment"]
+  description: "Claims about knowledge, verification, market manipulation of truth"
+
+D3:
+  name: "Sovereignty"
+  target: 100
+  priority: "MEDIUM"
+  keywords: ["sovereignty", "self-hosted", "self-custody", "own your", "decentralization", "censorship-resistant", "no API key", "open source", "permissionless", "trustless", "local-first", "data privacy", "your data"]
+  description: "Sovereignty signals: self-hosting, custody, censorship resistance"
+
+D1:
+  name: "Solana/Tokens"
+  target: 500
+  priority: "HIGH"
+  keywords: ["rug pull", "rug warning", "bundled", "meme token", "pump.fun", "pumpfun", "memecoin", "cabal", "dev sold", "airdrop", "$BONK", "$WIF", "$FARTCOIN", "Solana Syndicate", "100x", "stealth launch", "bonded", "dexscreener", "liquidity pool", "LP locked", "holders", "market cap", "$pump"]
+  description: "Rug warnings, meme tokens, pump.fun ecosystem, Solana token launches"
