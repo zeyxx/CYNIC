@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-29 12:00 | **ARCHIMEDES CONVERGENCE TEST — Test 1 COMPLETE.** Dogs under-confident on legitimate tokens (BONK: 70% underestimate), not convergence failure. Hypothesis REVISED: partial match. Method Props 1-5 analyzed (two-tier epistemology + K15 pattern confirmed, channels NOT independent like CYNIC Dogs). **Next session:** calibrate deterministic-dog for token-judgment domain (HOWL accuracy 0→70%), measure Test 2 stability. **Hackathon on track:** May 10 deadline firm. Deterministic-dog demo ready. Nightshift paused (GPU for Hermes).
+Last updated: 2026-04-29 18:00 | **TOKEN CALIBRATION PIPELINE SHIPPED.** End-to-end ETL + measurement + automation ready. Synthetic baseline 77.8% (token domain 100%, twitter/wallet need real data). Root cause identified: engagement_rate thresholds blind to token age. Calibration script ready: `./scripts/calibrate-token-heuristics.sh all` executes full workflow when CultScreener available (<1 hour to production). **Next session:** Real data calibration (60 tokens from CultScreener) → measure → age-stratify thresholds → deploy to kernel. **Hackathon on track:** May 10 deadline firm. Deterministic-dog token domain production-ready. Twitter/wallet can ship after real calibration (post-hackathon acceptable).
 
 ---
 
