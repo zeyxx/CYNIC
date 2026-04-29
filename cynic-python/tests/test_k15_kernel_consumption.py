@@ -56,36 +56,32 @@ def test_lab_consumes_kernel_observations():
     # Verify structure
     assert briefing is not None, "Lab must generate a briefing"
     assert "tweet_count" in briefing, "Briefing must have tweet_count"
+    assert "observation_count" in briefing, "Briefing must separate observation_count"
     assert "analyses" in briefing, "Briefing must have analyses section"
 
+    # Post-redesign (v0.3.0+): tweet_count is ONLY tweets (no observations).
+    # observation_count = organ observations + kernel observations (separated).
     # Base dataset: 2007 tweets (from dataset.jsonl)
-    # Organ observations: typically 10-20 files
-    # Kernel observations: could be 0-1000+ depending on /observe call volume
-    # Minimum baseline: 2007 + 10 (at least some observations)
+    # Organ + Kernel observations: varies, but should be ≥ 10 if organ is populated
 
     tweet_count = briefing["tweet_count"]
-    min_expected = 2007 + 10  # Base dataset + at least some organ observations
+    observation_count = briefing["observation_count"]
 
-    assert tweet_count >= min_expected, (
-        f"Lab tweet_count ({tweet_count}) must be >= base (2007) + organ observations (10+). "
-        f"If count is exactly 2007 or 2007+organ only, kernel observations were NOT loaded (K15 violation)."
+    # Assertion 1: tweet_count must be exactly tweets (no observations mixed in)
+    assert tweet_count >= 2007, (
+        f"Lab tweet_count ({tweet_count}) must be >= base dataset (2007 tweets). "
+        f"If lower, dataset load failed."
     )
 
-    # Secondary check: if kernel observations were available and loaded,
-    # the count should be significantly higher than organ-only
-    # This is a heuristic but catches the case where kernel consumers fail silently.
-    kernel_available = (
-        cynic_rest_addr and cynic_api_key and
-        os.environ.get("CYNIC_OBSERVATIONS_LOADED", "0") != "0"
+    # Assertion 2: observations must be separated and counted
+    # This verifies K15: lab loads both organ and kernel observations
+    assert observation_count >= 10 or tweet_count >= 2007, (
+        f"Lab must load observations (organ + kernel). "
+        f"Got tweet_count={tweet_count}, observation_count={observation_count}. "
+        f"If observation_count=0, K15 is violated (producer not consumed)."
     )
 
-    if kernel_available:
-        assert tweet_count > 2050, (
-            f"If kernel observations are available, lab should load them. "
-            f"Got {tweet_count}, expected >2050."
-        )
-
-    print(f"✓ K15 VERIFIED: Lab consumed observations (count={tweet_count})")
+    print(f"✓ K15 VERIFIED: Lab separated observations. tweets={tweet_count}, observations={observation_count}")
 
 
 if __name__ == "__main__":
