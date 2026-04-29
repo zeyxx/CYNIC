@@ -10,7 +10,7 @@ Last updated: 2026-04-30 | **GROUND TRUTH CRYSTALLIZED:** Hackathon is TWO separ
 
 - [x] **submit_verdict on-chain.** `scripts/submit-verdict.ts` ships. Community PDA `8DVUKmJa…` hardcoded. Devnet tx claimed but no committed proof artifact.
 - [x] **Rust 1.95.0 upgrade.** Active (`rustc 1.95.0`). LLVM SROA bug from 1.94.1 resolved.
-- [ ] **Deterministic-dog forced consensus fix.** Claimed in d0dd481 (squash-merged, hash gone). No test asserts absence of forced consensus. Untraceable. **Falsify:** regression test + `git log -p -S "forced_consensus"` identifies original code.
+- [x] **Deterministic-dog forced consensus fix.** Claimed in d0dd481 (squash-merged, hash gone). Regression test added: `filter_excludes_deterministic_dog_when_not_requested()` verifies forced consensus absent. Test rejects bug when reintroduced. Commit 9bfba2d.
 - [x] **Wallet-judgment Dogs (deterministic).** Implemented in cynic-kernel/src/domain/wallet_judgment/mod.rs. 11 unit tests passing. Pipeline wired (fast-path in run()). API documented. Dog score: deterministic, 0ms latency, no LLM. **Status:** Code-complete, untested on real B&C game data.
 - [ ] **Wallet-judgment integration test (BLOCKER).** Requires: S. provides 3-5 sample WalletProfile JSON from real game histories. Action: T. parses, calls deterministic_dog(profile), verifies verdict distribution sensible (80%+ WAG/GROWL for legit, 100% BARK for Sybil). **Falsify:** integration test added to pipeline/tests/, all pass. **Deadline: May 1 23:59** (S. needs this to decide optional CYNIC integration by May 4 registration).
 - [x] **Holder concentration in Helius enrichment.** Added getTokenLargestAccounts to HeliusEnricher. Compute HHI, top1_pct, top10_pct. Dogs now receive holder distribution signals.
