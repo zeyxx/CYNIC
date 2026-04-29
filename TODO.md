@@ -19,6 +19,13 @@ Last updated: 2026-04-29 18:00 | **TOKEN CALIBRATION PIPELINE SHIPPED.** End-to-
 - [ ] **Video demo (deterministic-dog focus).** Scene 1: kernel logs + `/health` (circuit breaker state visible). Scene 2: curl `/judge` chess → deterministic-dog responds q_score. Scene 3: UI rendering verdict + axiom chart. Scene 4: B&C integration OR recovery endpoint. **No multi-Dog pressure.** Record when rested.
 - [x] **Cloudflare tunnel ready for demo.** Quick tunnel: `https://orders-seems-invitation-yesterday.trycloudflare.com`. VITE_API_BASE updated in .env.local, Vercel redeploy complete. **Procedure for demo (5 min before recording):** `pkill -9 cloudflared; sleep 1; cloudflared tunnel --url http://<TAILSCALE_CORE>:3030 --logfile /tmp/cloudflared.log > /dev/null 2>&1 &; sleep 5; curl https://orders-seems-invitation-yesterday.trycloudflare.com/health` — tunnel stable ~30min after launch. Browser test: `fetch('/judge', {method: 'POST', headers: {'Authorization': 'Bearer ...'}, body: JSON.stringify({domain: 'chess', content: 'e4'})})` should return 200 + verdict.
 
+## TOKEN CALIBRATION — Ground Truth Pipeline
+
+- [x] **Populate .env with CULTSCREENER_API_KEY.** ✓ Done. 64-char API key loaded.
+- [x] **Mock calibration pipeline (77.8% accuracy).** ✓ Measurement runs end-to-end. Token domain 100%, GROWL 33.3% (WAG confusion on young high-engagement tokens). Root cause confirmed: age-blind thresholds.
+- [ ] **CultScreener API live data.** BLOCKED: API endpoint `https://cultscreener.com/api/v1/leaderboard` returns 404. Service may be down or endpoint changed. Fallback: use mock dataset for now. **When API resolves:** run `token_dataset_ingester.py` to fetch 60 tokens (20 per conviction tier), measure, age-stratify thresholds per CALIBRATION-ANALYSIS.md Phase 3.
+- [ ] **SSOT config debt.** Identified: config scattered (5 sources). Fixed: unified .env loader in cultscreener_client.py + token_dataset_ingester.py (parses .env manually, no external dependency). **Phase 2:** create config_loader.py module for app-wide usage. **Memory:** `project_ssot_config_debt.md`.
+
 ## HERMES X ORGAN — K15 Wisdom Pipeline
 
 - [x] **Organ X infrastructure.** 3 systemd services active. Dataset: 2007 tweets (reloaded).

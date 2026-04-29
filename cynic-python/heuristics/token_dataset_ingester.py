@@ -30,7 +30,25 @@ from typing import List, Optional, Dict
 from dataclasses import asdict
 import os
 
-from cultscreener_client import CultScreenerClient, TokenRiskAssessment, RiskLevel
+# Load .env file manually (no external dependency required)
+def _load_env_file():
+    """Load .env file from heuristics/ directory."""
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        if key not in os.environ:  # Don't override existing env vars
+                            os.environ[key] = value
+        except Exception:
+            pass  # Silently skip if .env file is malformed
+
+_load_env_file()
+
+from cultscreener_client import CultScreenerClient
 from real_data_loader import RealDataLoader
 from dataset_builder import TwitterSignals, WalletSignals
 
@@ -45,28 +63,46 @@ class TokenDatasetIngester:
 
     def ingest_cultscreener(
         self,
-        risk_levels: Optional[List[str]] = None,
-        count_per_level: int = 20,
+        conviction_tiers: Optional[List[str]] = None,
+        count_per_tier: int = 20,
     ) -> List[Dict]:
-        """Ingest tokens from CultScreener with ground-truth risk labels.
+        """Ingest tokens from CultScreener with conviction-based verdicts.
 
         Args:
-            risk_levels: Which risk levels to fetch (default: ["high", "low", "medium"])
-            count_per_level: How many tokens per risk level (for balanced dataset)
+            conviction_tiers: Which conviction tiers to fetch (default: ["strong", "mixed", "weak"])
+                - "strong": conviction ≥ 0.7 → HOWL (legitimate)
+                - "mixed": conviction 0.4-0.7 → GROWL (ambiguous)
+                - "weak": conviction < 0.4 → BARK (suspicious)
+            count_per_tier: How many tokens per conviction tier (for balanced dataset)
 
         Returns:
             List of enriched token dicts with labels
         """
-        if risk_levels is None:
-            risk_levels = ["high", "low", "medium"]
+        if conviction_tiers is None:
+            conviction_tiers = ["strong", "mixed", "weak"]
 
         all_tokens = []
 
-        for risk_level in risk_levels:
-            print(f"Fetching {count_per_level} {risk_level}-risk tokens from CultScreener...")
-            tokens = self.cultscreener.search_tokens(
-                risk_level=risk_level,
-                limit=count_per_level,
+        # Conviction thresholds for each tier
+        tier_filters = {
+            "strong": {"min_conviction": 0.7},
+            "mixed": {"min_conviction": 0.4, "max_conviction": 0.7},
+            "weak": {"max_conviction": 0.4},
+        }
+
+        for tier in conviction_tiers:
+            if tier not in tier_filters:
+                print(f"Unknown conviction tier: {tier}. Skipping.")
+                continue
+
+            filters = tier_filters[tier]
+            print(f"Fetching {count_per_tier} {tier}-conviction tokens from CultScreener...")
+
+            # Fetch from leaderboard with conviction filters
+            tokens = self.cultscreener.get_leaderboard(
+                limit=count_per_tier,
+                min_conviction=filters.get("min_conviction"),
+                max_conviction=filters.get("max_conviction"),
             )
 
             for cult_token in tokens:
@@ -74,7 +110,7 @@ class TokenDatasetIngester:
                 if enriched:
                     all_tokens.append(enriched)
                     print(f"  ✓ {cult_token.symbol or cult_token.mint[:8]} → {enriched['verdict']} "
-                          f"(cultscreener_risk={cult_token.risk_level.value})")
+                          f"(conviction={cult_token.conviction:.2f})")
                 else:
                     print(f"  ✗ {cult_token.symbol or cult_token.mint[:8]} (enrichment failed)")
 
@@ -82,11 +118,11 @@ class TokenDatasetIngester:
         print(f"\nIngested {len(all_tokens)} tokens from CultScreener")
         return all_tokens
 
-    def _enrich_token(self, cult_token: TokenRiskAssessment) -> Optional[Dict]:
+    def _enrich_token(self, cult_token) -> Optional[Dict]:  # TokenConvictionData
         """Enrich a CultScreener token with on-chain and twitter data.
 
         Args:
-            cult_token: Token from CultScreener
+            cult_token: Token from CultScreener (TokenConvictionData)
 
         Returns:
             Enriched dict with all signals, or None if enrichment fails
@@ -105,13 +141,12 @@ class TokenDatasetIngester:
             "mint": cult_token.mint,
             "name": cult_token.name,
             "symbol": cult_token.symbol,
-            "cultscreener_risk": cult_token.risk_level.value,
-            "cultscreener_confidence": cult_token.confidence,
-            "cultscreener_reasons": cult_token.reasons,
+            "cultscreener_conviction": cult_token.conviction,
+            "cultscreener_conviction_tier": cult_token.conviction_tier.value,
             "verdict": cult_token.to_verdict(),  # Ground truth label
             "wallet_signals": asdict(wallet_signals) if wallet_signals else None,
             "twitter_signals": asdict(twitter_signals) if twitter_signals else None,
-            "timestamp": cult_token.last_updated,
+            "timestamp": cult_token.timestamp,
         }
 
     def save_json(self, dataset: List[Dict], output_path: str) -> str:
@@ -149,8 +184,8 @@ class TokenDatasetIngester:
             "symbol",
             "name",
             "verdict",  # Ground truth
-            "cultscreener_risk",
-            "cultscreener_confidence",
+            "cultscreener_conviction",
+            "cultscreener_conviction_tier",
             "wallet_whale_count",
             "wallet_top10_pct",
             "wallet_bot_score",
@@ -171,8 +206,8 @@ class TokenDatasetIngester:
                     "symbol": token["symbol"],
                     "name": token["name"],
                     "verdict": token["verdict"],
-                    "cultscreener_risk": token["cultscreener_risk"],
-                    "cultscreener_confidence": token["cultscreener_confidence"],
+                    "cultscreener_conviction": token.get("cultscreener_conviction"),
+                    "cultscreener_conviction_tier": token.get("cultscreener_conviction_tier"),
                 }
 
                 # Wallet signals (if available)
@@ -206,33 +241,33 @@ class TokenDatasetIngester:
             return {"total": 0}
 
         by_verdict = {}
-        by_cultscreener_risk = {}
+        by_conviction_tier = {}
 
         for token in self.enriched_tokens:
             verdict = token["verdict"]
             by_verdict[verdict] = by_verdict.get(verdict, 0) + 1
 
-            risk = token["cultscreener_risk"]
-            by_cultscreener_risk[risk] = by_cultscreener_risk.get(risk, 0) + 1
+            tier = token.get("cultscreener_conviction_tier", "unknown")
+            by_conviction_tier[tier] = by_conviction_tier.get(tier, 0) + 1
 
         return {
             "total": len(self.enriched_tokens),
             "by_verdict": by_verdict,
-            "by_cultscreener_risk": by_cultscreener_risk,
+            "by_conviction_tier": by_conviction_tier,
         }
 
 
 if __name__ == "__main__":
     ingester = TokenDatasetIngester()
 
-    # Ingest balanced dataset (10 tokens per risk level)
+    # Ingest balanced dataset (20 tokens per conviction tier)
     print("=" * 70)
     print("INGESTING GROUND TRUTH DATASET FROM CULTSCREENER")
     print("=" * 70)
 
     dataset = ingester.ingest_cultscreener(
-        risk_levels=["high", "low", "medium"],
-        count_per_level=10,
+        conviction_tiers=["strong", "mixed", "weak"],
+        count_per_tier=20,
     )
 
     # Show statistics
@@ -240,7 +275,6 @@ if __name__ == "__main__":
     print("\nDataset Statistics:")
     print(f"  Total tokens: {stats['total']}")
     print(f"  By verdict: {stats['by_verdict']}")
-    print(f"  By CultScreener risk: {stats['by_cultscreener_risk']}")
 
     # Export
     if dataset:
