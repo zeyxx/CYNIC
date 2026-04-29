@@ -35,6 +35,7 @@ Last updated: 2026-04-30 | **GROUND TRUTH CRYSTALLIZED:** Hackathon is TWO separ
   - `~/.cynic/organs/hermes/x/MANIFEST.json` — canonical execution state (services, PIDs, data counts, missing crons, K15 gaps)
   - `~/.cynic/organs/hermes/x/HERMES_ARCHITECTURE.md` — design philosophy, 5-layer arch, K15 violation explicit, blockers, hackathon readiness
   - Ground truth documented: capture ALIVE (4,088 tweets), ingest ALIVE, judgment works (noisy on twitter), aggregation ALIVE, meta-agent STUB, feedback MANUAL
+- [ ] **@CynicOracle posting (CHAOS-MATRIX Phase 1).** Curator ready: 42 verdicts filtered (HOWL + high-signal BARK). **Option 1 (human):** T. posts 5-10 daily (5/1-5/7), tracks engagement. **Option 2 (agent):** Hermes posts autonomously (post-May 10). **Falsify:** verdicts_to_post.json has 40+ entries, posted_tracker.json updates per post, engagement metrics captured by May 7.
 - [ ] **Unify dataset paths.** Scripts read from two locations (stale + canonical). **Fix:** all use MANIFEST.canonical_paths. **Falsify:** grep returns only canonical path.
 - [ ] **Install cron infrastructure.** Three missing crons: gemini-briefing (4h), feedback-loop (1h), hermes-agent-executor (service). **Falsify:** systemctl list-timers shows 3 active, all running.
 - [ ] **K15 consumer: circuit-breaker.** Kernel watches observations, triggers learning/recovery. **Falsify:** POST /observe → 1h → SKILL.md updated → new patterns applied.
