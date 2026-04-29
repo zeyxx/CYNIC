@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-30 | **PYTHON LAB INFRASTRUCTURE SHIPPED:** Versioning system (MANIFEST.yaml), versioned artifacts (token_gates_v1.3, twitter_gates_v1.0), measurement framework (measure_domain_quality.py), K15 consumer (k15_observation_consumer.py), VERSIONING.md guide. Fast iteration framework ready for multi-domain development. **IMMEDIATE BLOCKER:** Wire K15 consumer into systemd + test on live observations. **HACKATHON STATUS:** Conviction-only baseline ready (100% accuracy, 28/28), Twitter calibration measured (3/4 ground truth passed), video demo Friday.
+Last updated: 2026-04-30 | **K15 LOOP CLOSED:** Producer (live node probing) + Consumer (routing) LIVE. hermes-k15-consumer.service wired to Tailscale. 100+ infrastructure observations fetched, 5+ tasks dispatched. Domain-aware consumer created (failure_type routing). **NEXT:** Deploy infrastructure consumer + wire remediate execution (T7). **BLOCKED:** llama-servers offline on both nodes, K11 hardcoding debt, video demo. **HACKATHON:** Conviction-only baseline ready (100% accuracy, 28/28), registration May 4, submit May 10 23:59 PDT.
 
 ---
 
@@ -35,7 +35,10 @@ Last updated: 2026-04-30 | **PYTHON LAB INFRASTRUCTURE SHIPPED:** Versioning sys
 - [x] **Measurement framework.** measure_domain_quality.py computes confusion matrix, sensitivity, specificity, Pearson r before/after heuristic changes. Supports baseline + comparison workflow. **Status:** Ready to use.
 - [x] **K15 consumer (k15_observation_consumer.py).** Polls /observations, scores with TwitterDog (signal≥6 or BARK always), filters high-signal, dispatches to /agent-tasks. Wires observation → TwitterDog → agent-task dispatch. **Status:** Code complete + tested offline (3/4 tests pass, established-token gap known). **Thresholds:** BARK always dispatch, signal≥6 general heuristic, @gcrtrd pattern override. **Commit:** 0574ec0 + follow-up with tests.
 - [x] **Test K15 consumer on live data (VALIDATED).** Kernel running at `<TAILSCALE_CORE>:3030`. Consumer fetched 100 observations, scored all as high-signal, dispatched 22 tasks before rate limiting. **Status:** K15 Seam 2 operational ✓. Task: `/observations` → K15Consumer → `/agent-tasks` confirmed working. **Commit:** 6d6922b.
-- [ ] **Deploy K15 consumer to systemd.** hermes-k15-consumer.service created (infra/systemd/, commit 6d6922b). Requires: `sudo cp` to `/etc/systemd/system/` + `daemon-reload` + `enable` + `start`. Poll interval: 5 min. **Deadline: May 1 23:59** (K15 Seam 2 completion).
+- [x] **Deploy K15 consumer to systemd.** hermes-k15-consumer.service wired (fixed: localhost→Tailscale addr). Polling /observations (infrastructure domain), dispatching high-signal to /agent-tasks. Status: LIVE 2026-04-30 01:54. **Next:** infrastructure-monitor.service (domain-aware failure routing).
+- [ ] **Deploy infrastructure-monitor consumer.** k15_infrastructure_consumer.py (commit 5837b8a) ready. Routes probe failures: timeout→remediate, unreachable→alert, mismatch→alert. Create hermes-infrastructure-monitor.service (5min cron). **Deadline: May 2** (unblock T7).
+- [ ] **Wire /inference/remediate-dog execution (T7).** Currently returns status without acting. Needs ts_exec_call.sh bridge. Routes to recovery: systemctl restart on degraded nodes. **Blocked:** Need to implement /scripts/ts_exec_call.sh (MCP wrapper).
+- [ ] **Extract K11 hardcoding (port 8080, dog_config).** When remediate_handler becomes 2nd consumer of probe_node(), move to backends.toml. **Falsify:** no hardcoded IPs/ports in inference_router.rs.
 - [ ] **Measurement workflow validation.** Manual test: baseline → change heuristic → compare before/after. Verify deltas computed correctly on real dataset (4,146 tweets). **Falsify:** sensitivity/specificity/Pearson r deltas match manual calculations.
 
 ## HERMES X ORGAN — Data-Centric Organ Lab
