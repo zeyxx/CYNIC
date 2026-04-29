@@ -565,8 +565,11 @@ pub async fn list_models_handler(
             };
 
         // Emit observation if degraded
-        let _ =
-            emit_probe_observation(&state, dog, node, reachable, &failure_reason, latency_ms).await;
+        if let Err(e) =
+            emit_probe_observation(&state, dog, node, reachable, &failure_reason, latency_ms).await
+        {
+            tracing::warn!("probe observation emit failed for {}/{}: {}", node, dog, e);
+        }
 
         let mismatch = expected != actual_model
             && expected != "N/A"
