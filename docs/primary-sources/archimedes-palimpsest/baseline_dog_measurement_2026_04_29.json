@@ -1,0 +1,380 @@
+[
+  {
+    "label": "BARK_classic_rug",
+    "expected": "Bark",
+    "verdict": "Bark",
+    "q_score": 0.13462495594759874,
+    "voter_count": 3,
+    "anomaly_detected": true,
+    "max_disagreement": 0.568,
+    "dog_scores": {
+      "deterministic-dog": {
+        "score": 0.3961751638541404,
+        "fidelity": 0.3090169943749475,
+        "phi": 0.6000000000000001,
+        "verify": 0.3090169943749475,
+        "culture": 0.3090169943749475,
+        "burn": 0.44999999999999996,
+        "sovereignty": 0.4,
+        "latency_ms": 0
+      },
+      "qwen35-9b-gpu": {
+        "score": 0.1446666666666667,
+        "fidelity": 0.05,
+        "phi": 0.05,
+        "verify": 0.618,
+        "culture": 0.05,
+        "burn": 0.05,
+        "sovereignty": 0.05,
+        "latency_ms": 7780
+      },
+      "qwen-9b-core": {
+        "score": 0.049999999999999996,
+        "fidelity": 0.05,
+        "phi": 0.05,
+        "verify": 0.05,
+        "culture": 0.05,
+        "burn": 0.05,
+        "sovereignty": 0.05,
+        "latency_ms": 45502
+      }
+    },
+    "match": true
+  },
+  {
+    "label": "BARK_freeze_trap",
+    "expected": "Bark",
+    "verdict": "Bark",
+    "q_score": 0.21774597417967598,
+    "voter_count": 3,
+    "anomaly_detected": true,
+    "max_disagreement": 0.530952380952381,
+    "dog_scores": {
+      "deterministic-dog": {
+        "score": 0.39300056067953726,
+        "fidelity": 0.3090169943749475,
+        "phi": 0.580952380952381,
+        "verify": 0.3090169943749475,
+        "culture": 0.3090169943749475,
+        "burn": 0.44999999999999996,
+        "sovereignty": 0.4,
+        "latency_ms": 0
+      },
+      "qwen-7b-hf": {
+        "score": 0.24999999999999997,
+        "fidelity": 0.3,
+        "phi": 0.4,
+        "verify": 0.2,
+        "culture": 0.1,
+        "burn": 0.3,
+        "sovereignty": 0.2,
+        "latency_ms": 3638
+      },
+      "qwen35-9b-gpu": {
+        "score": 0.1446666666666667,
+        "fidelity": 0.05,
+        "phi": 0.05,
+        "verify": 0.618,
+        "culture": 0.05,
+        "burn": 0.05,
+        "sovereignty": 0.05,
+        "latency_ms": 7000
+      }
+    },
+    "match": true
+  },
+  {
+    "label": "BARK_copycat",
+    "expected": "Bark",
+    "verdict": "Bark",
+    "q_score": 0.15248811919832803,
+    "voter_count": 3,
+    "anomaly_detected": true,
+    "max_disagreement": 0.5404761904761904,
+    "dog_scores": {
+      "deterministic-dog": {
+        "score": 0.39458786226683884,
+        "fidelity": 0.3090169943749475,
+        "phi": 0.5904761904761905,
+        "verify": 0.3090169943749475,
+        "culture": 0.3090169943749475,
+        "burn": 0.44999999999999996,
+        "sovereignty": 0.4,
+        "latency_ms": 0
+      },
+      "qwen-7b-hf": {
+        "score": 0.17500000000000002,
+        "fidelity": 0.2,
+        "phi": 0.3,
+        "verify": 0.15,
+        "culture": 0.1,
+        "burn": 0.2,
+        "sovereignty": 0.1,
+        "latency_ms": 6917
+      },
+      "qwen35-9b-gpu": {
+        "score": 0.049999999999999996,
+        "fidelity": 0.05,
+        "phi": 0.05,
+        "verify": 0.05,
+        "culture": 0.05,
+        "burn": 0.05,
+        "sovereignty": 0.05,
+        "latency_ms": 8220
+      }
+    },
+    "match": true
+  },
+  {
+    "label": "HOWL_jup",
+    "expected": "Howl",
+    "verdict": "Growl",
+    "q_score": 0.3949231334080166,
+    "voter_count": 3,
+    "anomaly_detected": true,
+    "max_disagreement": 0.418,
+    "dog_scores": {
+      "deterministic-dog": {
+        "score": 0.36284183052080704,
+        "fidelity": 0.3090169943749475,
+        "phi": 0.49999999999999994,
+        "verify": 0.3090169943749475,
+        "culture": 0.3090169943749475,
+        "burn": 0.35,
+        "sovereignty": 0.4,
+        "latency_ms": 0
+      },
+      "qwen-7b-hf": {
+        "score": 0.2833333333333333,
+        "fidelity": 0.4,
+        "phi": 0.3,
+        "verify": 0.3,
+        "culture": 0.2,
+        "burn": 0.3,
+        "sovereignty": 0.2,
+        "latency_ms": 3938
+      },
+      "qwen35-9b-gpu": {
+        "score": 0.5006666666666666,
+        "fidelity": 0.45,
+        "phi": 0.55,
+        "verify": 0.618,
+        "culture": 0.618,
+        "burn": 0.618,
+        "sovereignty": 0.15,
+        "latency_ms": 9087
+      }
+    },
+    "match": false
+  },
+  {
+    "label": "HOWL_bonk",
+    "expected": "Howl",
+    "verdict": "Bark",
+    "q_score": 0.22084194753813363,
+    "voter_count": 3,
+    "anomaly_detected": true,
+    "max_disagreement": 0.42,
+    "dog_scores": {
+      "deterministic-dog": {
+        "score": 0.36284183052080704,
+        "fidelity": 0.3090169943749475,
+        "phi": 0.49999999999999994,
+        "verify": 0.3090169943749475,
+        "culture": 0.3090169943749475,
+        "burn": 0.35,
+        "sovereignty": 0.4,
+        "latency_ms": 0
+      },
+      "qwen-7b-hf": {
+        "score": 0.31666666666666665,
+        "fidelity": 0.3,
+        "phi": 0.4,
+        "verify": 0.2,
+        "culture": 0.3,
+        "burn": 0.5,
+        "sovereignty": 0.2,
+        "latency_ms": 6292
+      },
+      "qwen-9b-core": {
+        "score": 0.08,
+        "fidelity": 0.08,
+        "phi": 0.08,
+        "verify": 0.08,
+        "culture": 0.08,
+        "burn": 0.08,
+        "sovereignty": 0.08,
+        "latency_ms": 50130
+      }
+    },
+    "match": false
+  },
+  {
+    "label": "HOWL_defi",
+    "expected": "Howl",
+    "verdict": "Growl",
+    "q_score": 0.433454486881586,
+    "voter_count": 3,
+    "anomaly_detected": false,
+    "max_disagreement": 0.35000000000000003,
+    "dog_scores": {
+      "deterministic-dog": {
+        "score": 0.36284183052080704,
+        "fidelity": 0.3090169943749475,
+        "phi": 0.49999999999999994,
+        "verify": 0.3090169943749475,
+        "culture": 0.3090169943749475,
+        "burn": 0.35,
+        "sovereignty": 0.4,
+        "latency_ms": 0
+      },
+      "qwen-7b-hf": {
+        "score": 0.31666666666666665,
+        "fidelity": 0.3,
+        "phi": 0.4,
+        "verify": 0.2,
+        "culture": 0.3,
+        "burn": 0.5,
+        "sovereignty": 0.2,
+        "latency_ms": 3593
+      },
+      "qwen35-9b-gpu": {
+        "score": 0.5726666666666667,
+        "fidelity": 0.55,
+        "phi": 0.55,
+        "verify": 0.55,
+        "culture": 0.618,
+        "burn": 0.618,
+        "sovereignty": 0.55,
+        "latency_ms": 8746
+      }
+    },
+    "match": false
+  },
+  {
+    "label": "GROWL_pumpfun_legit",
+    "expected": "Growl",
+    "verdict": "Growl",
+    "q_score": 0.42330494860210444,
+    "voter_count": 3,
+    "anomaly_detected": false,
+    "max_disagreement": 0.3423076923076924,
+    "dog_scores": {
+      "deterministic-dog": {
+        "score": 0.3782264459054225,
+        "fidelity": 0.3090169943749475,
+        "phi": 0.5923076923076924,
+        "verify": 0.3090169943749475,
+        "culture": 0.3090169943749475,
+        "burn": 0.35,
+        "sovereignty": 0.4,
+        "latency_ms": 0
+      },
+      "qwen-7b-hf": {
+        "score": 0.3166666666666667,
+        "fidelity": 0.4,
+        "phi": 0.3,
+        "verify": 0.3,
+        "culture": 0.3,
+        "burn": 0.3,
+        "sovereignty": 0.3,
+        "latency_ms": 6450
+      },
+      "qwen35-9b-gpu": {
+        "score": 0.5113333333333334,
+        "fidelity": 0.55,
+        "phi": 0.25,
+        "verify": 0.55,
+        "culture": 0.55,
+        "burn": 0.618,
+        "sovereignty": 0.55,
+        "latency_ms": 9019
+      }
+    },
+    "match": true
+  },
+  {
+    "label": "GROWL_new_clean",
+    "expected": "Growl",
+    "verdict": "Growl",
+    "q_score": 0.4592741517207755,
+    "voter_count": 3,
+    "anomaly_detected": true,
+    "max_disagreement": 0.468033988749895,
+    "dog_scores": {
+      "deterministic-dog": {
+        "score": 0.37950849718747376,
+        "fidelity": 0.3090169943749475,
+        "phi": 0.6000000000000001,
+        "verify": 0.3090169943749475,
+        "culture": 0.3090169943749475,
+        "burn": 0.35,
+        "sovereignty": 0.4,
+        "latency_ms": 0
+      },
+      "qwen-7b-hf": {
+        "score": 0.5423503277082808,
+        "fidelity": 0.618033988749895,
+        "phi": 0.618033988749895,
+        "verify": 0.3,
+        "culture": 0.6,
+        "burn": 0.618033988749895,
+        "sovereignty": 0.5,
+        "latency_ms": 3961
+      },
+      "qwen35-9b-gpu": {
+        "score": 0.42500000000000004,
+        "fidelity": 0.15,
+        "phi": 0.45,
+        "verify": 0.35,
+        "culture": 0.55,
+        "burn": 0.6,
+        "sovereignty": 0.45,
+        "latency_ms": 7321
+      }
+    },
+    "match": true
+  },
+  {
+    "label": "GROWL_concentrated",
+    "expected": "Growl",
+    "verdict": "Bark",
+    "q_score": 0.3066687672417668,
+    "voter_count": 3,
+    "anomaly_detected": true,
+    "max_disagreement": 0.55,
+    "dog_scores": {
+      "deterministic-dog": {
+        "score": 0.37950849718747376,
+        "fidelity": 0.3090169943749475,
+        "phi": 0.6000000000000001,
+        "verify": 0.3090169943749475,
+        "culture": 0.3090169943749475,
+        "burn": 0.35,
+        "sovereignty": 0.4,
+        "latency_ms": 0
+      },
+      "qwen-7b-hf": {
+        "score": 0.3,
+        "fidelity": 0.3,
+        "phi": 0.4,
+        "verify": 0.2,
+        "culture": 0.3,
+        "burn": 0.3,
+        "sovereignty": 0.3,
+        "latency_ms": 6781
+      },
+      "qwen35-9b-gpu": {
+        "score": 0.26666666666666666,
+        "fidelity": 0.15,
+        "phi": 0.05,
+        "verify": 0.45,
+        "culture": 0.35,
+        "burn": 0.55,
+        "sovereignty": 0.05,
+        "latency_ms": 8558
+      }
+    },
+    "match": false
+  }
+]
