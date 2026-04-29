@@ -43,11 +43,22 @@ def pearson_correlation(x: list, y: list) -> float:
 
 # ── CONFIG ──
 
-def load_config(config_dir: str = "config") -> dict:
-    """Load domains, axioms, Dogs from YAML."""
+def load_config(config_dir: str = None) -> dict:
+    """Load domains, axioms, Dogs from YAML.
+
+    config_dir: optional override. If not provided, uses the config/ subdirectory
+                relative to this lab.py file's location.
+    """
+    if config_dir is None:
+        # Find config/ relative to this script's location
+        script_dir = Path(__file__).parent
+        config_dir = script_dir / "config"
+    else:
+        config_dir = Path(config_dir)
+
     config = {}
     for fname in ["domains.yaml", "axioms.yaml"]:
-        fpath = Path(config_dir) / fname
+        fpath = config_dir / fname
         if fpath.exists():
             with open(fpath) as f:
                 config[fname.replace(".yaml", "")] = yaml.safe_load(f)
@@ -166,12 +177,60 @@ def standardize_tweet(raw: dict) -> dict:
     }
 
 
+# ── DOMAIN ASSIGNMENT ──
+
+def load_narrative_mappings(config_dir: str = None) -> dict:
+    """Load narrative → domain mappings for primary assignment."""
+    if config_dir is None:
+        script_dir = Path(__file__).parent
+        config_dir = script_dir / "config"
+    else:
+        config_dir = Path(config_dir)
+
+    narratives_file = config_dir / "narrative_domains.yaml"
+    if not narratives_file.exists():
+        return {}
+
+    with open(narratives_file) as f:
+        data = yaml.safe_load(f)
+        return data.get("narrative_mappings", {})
+
+
+def assign_domain(tweet: dict, domains: dict, narrative_mappings: dict) -> str:
+    """Assign domain to tweet: narrative-first, then keyword, then default D1.
+
+    Priority:
+    1. Check tweet narratives against narrative_mappings
+    2. Check tweet text against domain keywords
+    3. Default to D1 (catch-all)
+    """
+    # Priority 1: Narrative-first assignment
+    narratives = tweet.get("narratives", []) or []
+    for narrative in narratives:
+        for domain_id, narrative_list in narrative_mappings.items():
+            if narrative in narrative_list:
+                return domain_id
+
+    # Priority 2: Keyword-based assignment (first match wins)
+    text = tweet.get("text", "").lower()
+    for domain_id, domain_info in domains.items():
+        if not isinstance(domain_info, dict):
+            continue
+        keywords = domain_info.get("keywords", [])
+        if any(kw.lower() in text for kw in keywords):
+            return domain_id
+
+    # Priority 3: Default fallback
+    return "D1"
+
+
 # ── ANALYSES ──
 
 def analyze_distribution(tweets: list) -> dict:
-    """Signal score distribution per domain (inferred from keywords)."""
+    """Signal score distribution per domain (narrative-first, then keyword-based)."""
     config = load_config()
     domains = config.get("domains", {})
+    narrative_mappings = load_narrative_mappings()
 
     # Filter out non-domain keys (e.g., "version")
     domain_signals = {d: [] for d in domains.keys() if isinstance(domains[d], dict)}
@@ -181,23 +240,9 @@ def analyze_distribution(tweets: list) -> dict:
         domain_signals["D1"] = []
 
     for tweet in tweets:
-        text = tweet.get("text", "").lower()
         score = tweet.get("signal", {}).get("score", 0)
-
-        # Simple domain mapping (keyword-based)
-        found = False
-        for domain_id, domain_info in domains.items():
-            if not isinstance(domain_info, dict):
-                continue
-            keywords = domain_info.get("keywords", [])
-            if any(kw.lower() in text for kw in keywords):
-                domain_signals[domain_id].append(score)
-                found = True
-                break
-
-        if not found:
-            # Default to D1 (tokens)
-            domain_signals["D1"].append(score)
+        domain_id = assign_domain(tweet, domains, narrative_mappings)
+        domain_signals[domain_id].append(score)
 
     result = {}
     for domain_id, scores in domain_signals.items():
@@ -390,6 +435,7 @@ def analyze_signal_patterns(verdicts: list, tweets_raw: list) -> dict:
 def analyze_coverage_vs_ground_truth(tweets: list, curated: dict) -> dict:
     """Compare lab's domain assignment against curated ground truth.
 
+    Uses narrative-first assignment (same as analyze_distribution).
     Identifies misalignment: where does lab assign vs curated ground truth.
     """
     if not curated:
@@ -397,25 +443,16 @@ def analyze_coverage_vs_ground_truth(tweets: list, curated: dict) -> dict:
 
     config = load_config()
     domains = config.get("domains", {})
+    narrative_mappings = load_narrative_mappings()
 
-    # Count lab's assignments
+    # Count lab's assignments (using same logic as analyze_distribution)
     lab_assignments = {d: 0 for d in domains.keys() if isinstance(domains[d], dict)}
     if "D1" not in lab_assignments:
         lab_assignments["D1"] = 0
 
     for tweet in tweets:
-        text = tweet.get("text", "").lower()
-        found = False
-        for domain_id, domain_info in domains.items():
-            if not isinstance(domain_info, dict):
-                continue
-            keywords = domain_info.get("keywords", [])
-            if any(kw.lower() in text for kw in keywords):
-                lab_assignments[domain_id] += 1
-                found = True
-                break
-        if not found:
-            lab_assignments["D1"] += 1
+        domain_id = assign_domain(tweet, domains, narrative_mappings)
+        lab_assignments[domain_id] += 1
 
     # Curated ground truth counts
     curated_counts = {d: len(tweets) for d, tweets in curated.items()}
@@ -522,13 +559,15 @@ def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
         print(f"Loading {curated_total} curated tweets ({len(curated)} domains)...")
 
     # K15: Load observations from organ (stored via /observe → HermesXReader)
+    # NOTE: observations are agent findings (different data type from tweets), kept separate
     organ_obs = load_observations_from_organ(organ_dir)
     print(f"Loading {len(organ_obs)} observations from organ...")
-    tweets_raw.extend(organ_obs)
 
     # K15: Load observations from kernel (REST /observe without hermes-x, MCP cynic_observe)
     # Observations are stored in SurrealDB and accessed via REST /observations endpoint.
+    # NOTE: observations are NOT mixed into tweets analysis (different ontology)
     kernel_obs_count = 0
+    kernel_obs = []
     cynic_rest_addr = os.environ.get("CYNIC_REST_ADDR", "")
     cynic_api_key = os.environ.get("CYNIC_API_KEY", "")
     if cynic_rest_addr and cynic_api_key:
@@ -546,16 +585,15 @@ def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
             with urllib.request.urlopen(req, timeout=5) as response:
                 kernel_obs_raw = json.loads(response.read().decode())
                 if isinstance(kernel_obs_raw, list):
-                    for obs in kernel_obs_raw:
-                        tweets_raw.append(obs)
-                        kernel_obs_count += 1
+                    kernel_obs = kernel_obs_raw
+                    kernel_obs_count = len(kernel_obs_raw)
         except (urllib.error.URLError, json.JSONDecodeError, Exception) as e:
             print(f"Warning: Failed to load kernel observations: {e}")
 
     if kernel_obs_count > 0:
         print(f"Loading {kernel_obs_count} observations from kernel...")
 
-    print(f"Standardizing {len(tweets_raw)} tweets...")
+    print(f"Standardizing {len(tweets_raw)} tweets (observations separated)...")
     tweets = [standardize_tweet(t) for t in tweets_raw]
 
     print("Running analyses...")
@@ -574,12 +612,12 @@ def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
     for domain_id, domain_info in domains.items():
         if not isinstance(domain_info, dict):
             continue
-        curated = distribution.get(domain_id, {}).get("count", 0)
+        assigned_count = distribution.get(domain_id, {}).get("count", 0)
         target = domain_info.get("target", 100)
         domain_coverage[domain_id] = {
-            "curated": curated,
+            "assigned": assigned_count,
             "target": target,
-            "deficit": max(0, target - curated),
+            "deficit": max(0, target - assigned_count),
         }
 
     # Pick domain with highest deficit + HIGH priority
@@ -599,7 +637,8 @@ def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
     briefing = {
         "timestamp": datetime.now().isoformat(),
         "dataset_id": Path(dataset_path).stem,
-        "tweet_count": len(tweets),
+        "tweet_count": len(tweets_raw),  # tweets only (observations separated)
+        "observation_count": len(organ_obs) + kernel_obs_count,
         "verdict_count": len(verdicts),
         "curated_domains": len(curated),
         "analyses": {
@@ -616,7 +655,7 @@ def generate_briefing(dataset_path: str, organ_dir: str = None) -> dict:
             "reason": f"{deficit_reason}, Priority: {suggested_info.get('priority')}",
         },
         "briefing": f"""
-Dataset Analysis: {len(tweets)} tweets
+Dataset Analysis: {len(tweets_raw)} tweets + {len(organ_obs) + kernel_obs_count} observations (separated)
 
 KEY FINDINGS:
 - Signal distribution by domain: D1={distribution.get('D1', {}).get('mean')} avg, D4={distribution.get('D4', {}).get('mean')} avg
@@ -647,14 +686,15 @@ NEXT ACTIONS:
             f"Calibration status: {calibration.get('interpretation')}",
         ] if signal_patterns.get("status") == "ok" else [],
         "_meta": {
-            "lab_version": "0.3.0",
+            "lab_version": "0.3.1",
             "signal_version": "2",
             "verdict_consumer": "enabled",
             "verdicts_loaded": len(verdicts),
             "curated_loaded": len(curated),
             "ground_truth_comparison": "enabled",
             "signal_patterns_enabled": True,
-            "reproducibility_token": f"lab-0.3.0-signal-2-tweets-{len(tweets)}-verdicts-{len(verdicts)}-curated-{len(curated)}",
+            "observations_separated": True,
+            "reproducibility_token": f"lab-0.3.1-signal-2-tweets-{len(tweets_raw)}-obs-{len(organ_obs)+kernel_obs_count}-verdicts-{len(verdicts)}-curated-{len(curated)}",
         },
     }
 
