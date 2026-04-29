@@ -1,0 +1,12 @@
+[Unit]
+Description=CYNIC Hermes Feedback Loop — ingests verdicts and updates domain wisdom every 1 hour
+Documentation=https://github.com/zeyxx/CYNIC/docs/hermes-architecture.md
+After=cynic-kernel.service
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
