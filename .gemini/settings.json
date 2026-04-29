@@ -15,6 +15,21 @@
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$GEMINI_PROJECT_DIR/.gemini/hooks/askesis-session-end.sh"
+          }
+        ]
+      }
     ]
+  },
+  "hooksConfig": {
+    "enabled": true,
+    "notifications": true
   }
 }

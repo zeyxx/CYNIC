@@ -92,6 +92,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/askesis-claude-end.sh",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-stop.sh",
             "timeout": 10000
           }

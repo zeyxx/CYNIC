@@ -19,6 +19,18 @@ enum Command {
         #[arg(value_name = "FILE")]
         logfile: PathBuf,
     },
+    /// Ingest a text file (like cortex-history.md) into the log store
+    Ingest {
+        /// Path to the text file to ingest
+        #[arg(value_name = "INPUT_FILE")]
+        input_file: PathBuf,
+        /// Path to the target JSONL log file
+        #[arg(short, long, value_name = "LOG_FILE")]
+        logfile: PathBuf,
+        /// Optional domain for the ingested entry (default: conversation)
+        #[arg(short, long, default_value = "conversation")]
+        domain: String,
+    },
 }
 
 #[tokio::main]
@@ -55,6 +67,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", serde_json::to_string_pretty(&reflection)?);
             println!("\n=== MARKDOWN ===");
             println!("{}", reflection.to_markdown());
+
+            Ok(())
+        }
+        Command::Ingest {
+            input_file,
+            logfile,
+            domain,
+        } => {
+            let content = std::fs::read_to_string(&input_file)
+                .map_err(|e| format!("Failed to read input file {}: {e}", input_file.display()))?;
+
+            println!("Ingesting file: {}", input_file.display());
+
+            let mut store = JsonlLog::new(logfile)?;
+            let entry = cynic_askesis::log::LogEntry::new(content).with_domain(&domain);
+
+            store.append(entry)?;
+            println!("Successfully ingested as domain: {}", domain);
 
             Ok(())
         }

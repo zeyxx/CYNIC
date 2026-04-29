@@ -90,7 +90,21 @@ Every session follows this lifecycle:
 | Start | Register, read handoff, inspect active work | `cynic_coord_register(...)` → `cynic_handoff(action="read")` → `cynic_coord_who()` |
 | Before edit | Claim explicitly when in doubt | `cynic_coord_claim(agent_id, target-file)` |
 | During | Record discoveries, decisions, blockers | `cynic_observe(...)` |
-| End | Append handoff, release all claims | `cynic_handoff(action="append", ...)` → `cynic_coord_release(agent_id)` |
+| End | Append handoff, release all claims, seal session | `cynic_handoff(action="append", ...)` → `cynic_coord_release(agent_id)` → `SessionEnd` Hook (Askesis) |
+
+## The 3rd Pillar — Askesis (Human Augmentation)
+
+Gemini is the primary interlocutor for Zey's **Askesis** (discipline through reflection). The system is a lamp, not a hammer.
+
+**1. Automated Proof-of-History (v0.3.0):**
+- **Session Capture:** Every session summary is written to `.cynic/memory/cortex-history.md`.
+- **Sealing:** Upon exit, a `SessionEnd` hook automatically triggers `cynic-askesis ingest` to seal the session into the JSONL Proof-of-History (`.cynic/memory/logs/human-kernel.jsonl`).
+- **Isolation:** Human logs are protected by `.geminiignore` and `.gitignore`. They are never sent to the LLM during broad codebase scans.
+
+**2. Emergent Audit Protocol:**
+- Gemini must not use hardcoded questions for Askesis audits.
+- It uses **Axiomatic Directives** (Fidelity, Phi, Verify, Culture, Burn, Sovereignty, Kenosis) to let the "Question of the Week" emerge from the context.
+- Priority: Distinguish between *Verticalité Native* (autonomous hardware) and *Verticalité Défensive* (performative theatre).
 
 The repo does **not** currently configure Gemini with the full kernel MCP surface by default.
 Do not assume `cynic_auth`, `cynic_validate`, or `cynic_git` exist unless you explicitly added a second MCP server that exposes them.
