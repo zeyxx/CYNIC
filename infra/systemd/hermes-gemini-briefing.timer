@@ -1,0 +1,12 @@
+[Unit]
+Description=CYNIC Hermes Gemini Briefing — synthesizes domain wisdom every 4 hours
+Documentation=https://github.com/zeyxx/CYNIC/docs/hermes-architecture.md
+After=cynic-kernel.service
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=4h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
