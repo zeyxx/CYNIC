@@ -303,6 +303,22 @@ pub async fn compliance_handler(
         tracing::warn!(error = %e, "compliance: failed to persist score");
     }
 
+    // K15: Hard gate — reject critically non-compliant sessions (Rule 6).
+    // Threshold: PHI_INV3 (0.236).
+    if result.score < crate::domain::dog::PHI_INV3 {
+        tracing::error!(agent_id = %agent_id, score = %result.score, "compliance: REJECTED");
+        return Err((
+            StatusCode::PRECONDITION_FAILED,
+            Json(ErrorResponse {
+                error: format!(
+                    "CRITICAL NON-COMPLIANCE (score={:.3}). Action REJECTED. Warnings: {}",
+                    result.score,
+                    result.warnings.join("; ")
+                ),
+            }),
+        ));
+    }
+
     // K15: emit Anomaly when compliance drops below φ⁻² (acting consumer → Slack alert)
     if result.score < crate::domain::dog::PHI_INV2 {
         let _ = state

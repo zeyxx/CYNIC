@@ -20,7 +20,8 @@ Usage:
     token = client.get_token_conviction(mint_address)
 
 Note: Requires API key (free tier available, sign up at cultscreener.com/api-keys).
-API endpoint: https://cultscreener.com/api/v1/leaderboard
+API endpoint: https://cultscreener-api.onrender.com/api/tokens/leaderboard/conviction
+Conviction scores are normalized from 0-100 to 0-1 range (1m = most recent).
 """
 
 import requests
@@ -98,9 +99,13 @@ class TokenConvictionData:
 
 
 class CultScreenerClient:
-    """CultScreener API client for conviction-based token scoring."""
+    """CultScreener API client for conviction-based token scoring.
 
-    BASE_URL = "https://cultscreener.com/api/v1"
+    Uses sollama58/CultScreener API running on Render.
+    Conviction scores: time-weighted holder retention metrics (1m, 1w, 3d, 3m, 6h, 6m, 9m, 24h).
+    """
+
+    BASE_URL = "https://cultscreener-api.onrender.com/api/tokens"
     TIMEOUT = 30
 
     def __init__(self, api_key: Optional[str] = None):
@@ -119,7 +124,8 @@ class CultScreenerClient:
             )
 
         self.session = requests.Session()
-        self.session.headers.update({"Authorization": f"Bearer {self.api_key}"})
+        if self.api_key:  # Only add auth header if API key exists
+            self.session.headers.update({"Authorization": f"Bearer {self.api_key}"})
 
     def get_token_conviction(self, mint: str) -> Optional[TokenConvictionData]:
         """Fetch conviction data for a single token.
@@ -132,7 +138,7 @@ class CultScreenerClient:
         """
         try:
             response = self.session.get(
-                f"{self.BASE_URL}/leaderboard/{mint}",
+                f"{self.BASE_URL}/{mint}",
                 timeout=self.TIMEOUT,
             )
             if response.status_code == 404:
@@ -143,21 +149,33 @@ class CultScreenerClient:
                 print(f"CultScreener error: {response.status_code} {response.text}")
                 return None
 
-            data = response.json().get("data", {})
-            if not data:
+            # Single token endpoint returns token directly (not wrapped in "data")
+            data = response.json()
+            if not data or not isinstance(data, dict):
                 return None
 
-            conviction = data.get("conviction", 0.0)
+            # Use 1m conviction score (most recent), normalized to 0-1 range (API returns 0-100)
+            # Note: single token endpoint may not include conviction data; fallback to 0 if missing
+            conviction_raw = data.get("conviction1m", None)
+            if conviction_raw is None:
+                # If conviction1m not available, try getting from conviction object
+                conviction_obj = data.get("conviction", {})
+                if isinstance(conviction_obj, dict):
+                    conviction_raw = conviction_obj.get("1m", 0.0)
+                else:
+                    conviction_raw = 0.0
+
+            conviction = conviction_raw / 100.0 if conviction_raw else 0.0
             return TokenConvictionData(
-                mint=data.get("mint_address", mint),
+                mint=data.get("mintAddress", data.get("mint_address", mint)),
                 name=data.get("name"),
                 symbol=data.get("symbol"),
                 conviction=conviction,
                 conviction_tier=ConvictionTier.from_conviction_score(conviction),
-                market_cap=data.get("market_cap"),
+                market_cap=data.get("marketCap", data.get("market_cap")),
                 holders=data.get("holders"),
                 rank=data.get("rank"),
-                timestamp=data.get("updated_at", ""),
+                timestamp=data.get("convictionUpdatedAt", data.get("updated_at", "")),
             )
         except requests.exceptions.Timeout:
             print(f"Timeout fetching conviction for {mint}")
@@ -201,7 +219,7 @@ class CultScreenerClient:
                 params["maxMcap"] = max_mcap
 
             response = self.session.get(
-                f"{self.BASE_URL}/leaderboard",
+                f"{self.BASE_URL}/leaderboard/conviction",
                 params=params,
                 timeout=self.TIMEOUT,
             )
@@ -213,8 +231,14 @@ class CultScreenerClient:
 
             data = response.json()
             tokens = []
-            for item in data.get("data", []):
-                conviction = item.get("conviction", 0.0)
+            for item in data.get("tokens", []):
+                # Use 1m conviction score (most recent), normalized to 0-1 range (API returns 0-100)
+                conviction_raw = item.get("conviction1m", 0.0)
+                conviction = conviction_raw / 100.0 if conviction_raw else 0.0
+
+                # Apply min_conviction filter (client-side)
+                if min_conviction is not None and conviction < min_conviction:
+                    continue
 
                 # Apply max_conviction filter (client-side, since API doesn't support it)
                 if max_conviction is not None and conviction > max_conviction:
@@ -222,15 +246,15 @@ class CultScreenerClient:
 
                 tokens.append(
                     TokenConvictionData(
-                        mint=item.get("mint_address"),
+                        mint=item.get("mintAddress", item.get("mint_address")),
                         name=item.get("name"),
                         symbol=item.get("symbol"),
                         conviction=conviction,
                         conviction_tier=ConvictionTier.from_conviction_score(conviction),
-                        market_cap=item.get("market_cap"),
+                        market_cap=item.get("marketCap", item.get("market_cap")),
                         holders=item.get("holders"),
                         rank=item.get("rank"),
-                        timestamp=item.get("updated_at", ""),
+                        timestamp=item.get("convictionUpdatedAt", item.get("updated_at", "")),
                     )
                 )
             return tokens
