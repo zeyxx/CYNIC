@@ -29,14 +29,14 @@ Last updated: 2026-04-30 | **PYTHON LAB INFRASTRUCTURE SHIPPED:** Versioning sys
 - [x] **Ship conviction-only baseline.** Commit token_dataset_ingester_conviction_only.py + measure_conviction_only.py. Add to CI/CD or calibration pipeline. Measurement wired: `make calibrate-token-conviction-only` validates 100% accuracy (28/28 tokens). **Next:** Measure Dogs agreement on live token verdicts. **Falsify:** conviction-only model ships; next session measures Dogs q_score vs conviction correlation on real token set.
 - [ ] **SSOT config debt.** Identified: config scattered (5 sources). Fixed: unified .env loader in cultscreener_client.py + token_dataset_ingester.py (parses .env manually, no external dependency). **Phase 2:** create config_loader.py module for app-wide usage. **Memory:** `project_ssot_config_debt.md`.
 
-## PYTHON LAB — Versioning & Fast Iteration (NEW 2026-04-30)
+## PYTHON LAB — Versioning & Fast Iteration (SHIPPED 2026-04-30)
 
-- [x] **Lab versioning infrastructure.** Created: versions/MANIFEST.yaml (SSOT for all Dogs, thresholds, baselines), artifacts/ (token_gates_v1.3.json, twitter_gates_v1.0.json), VERSIONING.md guide. **Status:** Production-ready for multi-domain iteration.
+- [x] **Lab versioning infrastructure.** Created: versions/MANIFEST.yaml (SSOT for all Dogs, thresholds, baselines), artifacts/ (token_gates_v1.3.json, twitter_gates_v1.0.json), VERSIONING.md guide. **Status:** Production-ready for multi-domain iteration. **Commit:** 0574ec0.
 - [x] **Measurement framework.** measure_domain_quality.py computes confusion matrix, sensitivity, specificity, Pearson r before/after heuristic changes. Supports baseline + comparison workflow. **Status:** Ready to use.
-- [x] **K15 consumer (k15_observation_consumer.py).** Polls /observations, scores with TwitterDog, filters high-signal (≥3), dispatches to /agent-tasks. Wires observation → TwitterDog → agent-task dispatch. **Status:** Code complete, not yet wired to systemd.
-- [ ] **Wire K15 consumer to systemd.** Create hermes-k15-consumer.service + timer. Poll interval: 5 min. Falsify: /health.observations_consumed increments, agent-tasks created for high-signal observations. **Deadline: May 1 23:59** (K15 Seam 2 completion).
-- [ ] **Measurement workflow validation.** Test: baseline → change heuristic → compare before/after. Verify deltas computed correctly. **Falsify:** sensitivity/specificity/Pearson r deltas match manual calculations.
-- [ ] **Test K15 consumer on live data.** Feed 14 pending observations through consumer, verify task dispatch to agent queue. **Falsify:** observe_counter in /health shows +14, agent-tasks shows 8-10 new high-signal tasks.
+- [x] **K15 consumer (k15_observation_consumer.py).** Polls /observations, scores with TwitterDog (signal≥6 or BARK always), filters high-signal, dispatches to /agent-tasks. Wires observation → TwitterDog → agent-task dispatch. **Status:** Code complete + tested offline (3/4 tests pass, established-token gap known). **Thresholds:** BARK always dispatch, signal≥6 general heuristic, @gcrtrd pattern override. **Commit:** 0574ec0 + follow-up with tests.
+- [ ] **Wire K15 consumer to systemd.** hermes-k15-consumer.service created (infra/systemd/, not yet deployed to /etc/systemd/system/). Poll interval: 5 min. Falsify: /health.observations_consumed increments, agent-tasks created for high-signal observations. **Deadline: May 1 23:59** (K15 Seam 2 completion).
+- [ ] **Test K15 consumer on live data.** Feed 14 pending observations through consumer, verify task dispatch to agent queue. **Falsify:** observe_counter in /health shows +14, agent-tasks shows 8+ new high-signal tasks. Requires: kernel running, /observations endpoint live.
+- [ ] **Measurement workflow validation.** Manual test: baseline → change heuristic → compare before/after. Verify deltas computed correctly on real dataset (4,146 tweets). **Falsify:** sensitivity/specificity/Pearson r deltas match manual calculations.
 
 ## HERMES X ORGAN — Data-Centric Organ Lab
 
