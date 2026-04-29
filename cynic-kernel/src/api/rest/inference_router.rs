@@ -433,7 +433,7 @@ async fn attempt_node_start(node: &str) -> String {
 /// Returns: (actual_model, reachable, latency_ms, failure_reason).
 /// Failure reasons: "none", "timeout", "unreachable", "parse_error", "mismatch".
 async fn probe_node(node: &str, expected_model: &str) -> (String, bool, u64, String) {
-    // Hardcode llama-server port (standard)
+    // K11: Hardcoded port 8080. Extract to config on 2nd consumer (remediate_handler).
     let url = format!("http://{}:8080/health", node);
     let timeout = std::time::Duration::from_secs(5);
 
