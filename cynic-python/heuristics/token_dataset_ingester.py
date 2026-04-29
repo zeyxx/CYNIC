@@ -32,7 +32,7 @@ import os
 
 from cultscreener_client import CultScreenerClient, TokenRiskAssessment, RiskLevel
 from real_data_loader import RealDataLoader
-from dataset_builder import TokenMetrics, TwitterSignals, WalletSignals
+from dataset_builder import TwitterSignals, WalletSignals
 
 
 class TokenDatasetIngester:
