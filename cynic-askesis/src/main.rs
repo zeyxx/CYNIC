@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let entry = cynic_askesis::log::LogEntry::new(content).with_domain(&domain);
 
             store.append(entry)?;
-            println!("Successfully ingested as domain: {}", domain);
+            println!("Successfully ingested as domain: {domain}");
 
             Ok(())
         }

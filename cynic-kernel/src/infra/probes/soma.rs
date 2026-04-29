@@ -62,10 +62,16 @@ impl SomaProbe {
 
     /// Ports that are legitimately wild-bound (0.0.0.0 / [::]) by design.
     /// WireGuard needs 0.0.0.0 for mesh. mDNS/DHCP are OS-level.
+    /// RustDesk uses multiple ports for relay/discovery.
     const WILD_BIND_WHITELIST: &[u16] = &[
         41641, // WireGuard (Tailscale mesh)
         5353,  // mDNS (service discovery)
         67,    // DHCP (libvirt VM bridge)
+        21115, // RustDesk (NAT type test)
+        21116, // RustDesk (ID server / heartbeat)
+        21117, // RustDesk (Relay server)
+        21118, // RustDesk (Web support)
+        21119, // RustDesk (Web support)
     ];
 
     /// Detect wild binds — ports listening on 0.0.0.0 or [::], excluding whitelisted.
@@ -101,9 +107,11 @@ impl SomaProbe {
                     .lines()
                     .filter(|l| {
                         let trimmed = l.trim();
-                        trimmed.contains(" accept")
-                            || trimmed.contains(" drop")
-                            || trimmed.contains(" reject")
+                        // nft actions can follow a space or a semicolon.
+                        // Examples: "accept", "drop;", "reject", "policy accept"
+                        trimmed.contains("accept")
+                            || trimmed.contains("drop")
+                            || trimmed.contains("reject")
                     })
                     .count() as u32;
                 (rule_count > 0, rule_count)
