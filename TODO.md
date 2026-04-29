@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-30 | **HACKATHON PHASE 1 LOCKED:** CYNIC conviction-only shipped (make calibrate-token-conviction-only), submission description finalized (K15 status + φ-bounded confidence). Video demo flex (record Friday). B&C awaits S. decision: registration by May 4, integration Option A/B by May 1 00:00 UTC. Message posted to #hackathon-solana 2026-04-30 14:39 UTC. See `docs/hackathon/*` for full context.
+Last updated: 2026-04-30 | **PYTHON LAB INFRASTRUCTURE SHIPPED:** Versioning system (MANIFEST.yaml), versioned artifacts (token_gates_v1.3, twitter_gates_v1.0), measurement framework (measure_domain_quality.py), K15 consumer (k15_observation_consumer.py), VERSIONING.md guide. Fast iteration framework ready for multi-domain development. **IMMEDIATE BLOCKER:** Wire K15 consumer into systemd + test on live observations. **HACKATHON STATUS:** Conviction-only baseline ready (100% accuracy, 28/28), Twitter calibration measured (3/4 ground truth passed), video demo Friday.
 
 ---
 
@@ -29,6 +29,15 @@ Last updated: 2026-04-30 | **HACKATHON PHASE 1 LOCKED:** CYNIC conviction-only s
 - [x] **Ship conviction-only baseline.** Commit token_dataset_ingester_conviction_only.py + measure_conviction_only.py. Add to CI/CD or calibration pipeline. Measurement wired: `make calibrate-token-conviction-only` validates 100% accuracy (28/28 tokens). **Next:** Measure Dogs agreement on live token verdicts. **Falsify:** conviction-only model ships; next session measures Dogs q_score vs conviction correlation on real token set.
 - [ ] **SSOT config debt.** Identified: config scattered (5 sources). Fixed: unified .env loader in cultscreener_client.py + token_dataset_ingester.py (parses .env manually, no external dependency). **Phase 2:** create config_loader.py module for app-wide usage. **Memory:** `project_ssot_config_debt.md`.
 
+## PYTHON LAB — Versioning & Fast Iteration (NEW 2026-04-30)
+
+- [x] **Lab versioning infrastructure.** Created: versions/MANIFEST.yaml (SSOT for all Dogs, thresholds, baselines), artifacts/ (token_gates_v1.3.json, twitter_gates_v1.0.json), VERSIONING.md guide. **Status:** Production-ready for multi-domain iteration.
+- [x] **Measurement framework.** measure_domain_quality.py computes confusion matrix, sensitivity, specificity, Pearson r before/after heuristic changes. Supports baseline + comparison workflow. **Status:** Ready to use.
+- [x] **K15 consumer (k15_observation_consumer.py).** Polls /observations, scores with TwitterDog, filters high-signal (≥3), dispatches to /agent-tasks. Wires observation → TwitterDog → agent-task dispatch. **Status:** Code complete, not yet wired to systemd.
+- [ ] **Wire K15 consumer to systemd.** Create hermes-k15-consumer.service + timer. Poll interval: 5 min. Falsify: /health.observations_consumed increments, agent-tasks created for high-signal observations. **Deadline: May 1 23:59** (K15 Seam 2 completion).
+- [ ] **Measurement workflow validation.** Test: baseline → change heuristic → compare before/after. Verify deltas computed correctly. **Falsify:** sensitivity/specificity/Pearson r deltas match manual calculations.
+- [ ] **Test K15 consumer on live data.** Feed 14 pending observations through consumer, verify task dispatch to agent queue. **Falsify:** observe_counter in /health shows +14, agent-tasks shows 8-10 new high-signal tasks.
+
 ## HERMES X ORGAN — Data-Centric Organ Lab
 
 - [x] **SSOT Established (2026-04-30).** Created:
@@ -44,7 +53,7 @@ Last updated: 2026-04-30 | **HACKATHON PHASE 1 LOCKED:** CYNIC conviction-only s
   - **Status:** Ready to wire into kernel judgment or run as standalone Hermes observer (eda3153)
 - [ ] **@CynicOracle posting (CHAOS-MATRIX Phase 1).** Curator ready: 42 verdicts filtered (HOWL + high-signal BARK). **Option 1 (human):** T. posts 5-10 daily (5/1-5/7), tracks engagement. **Option 2 (agent):** Hermes posts autonomously (post-May 10). **Falsify:** verdicts_to_post.json has 40+ entries, posted_tracker.json updates per post, engagement metrics captured by May 7.
 - [ ] **Unify dataset paths.** Scripts read from two locations (stale + canonical). **Fix:** all use MANIFEST.canonical_paths. **Falsify:** grep returns only canonical path.
-- [ ] **K15 consumer: circuit-breaker.** Kernel watches observations, triggers learning/recovery. **Falsify:** POST /observe → 1h → SKILL.md updated → new patterns applied.
+- [ ] **K15 consumer: observation → task dispatch (Seam 2).** Consumer polls /observations, scores with TwitterDog, dispatches high-signal to /agent-tasks. Hermes agent processes tasks, validates patterns, updates SKILL.md. **Falsify:** 14 pending observations → 8-10 tasks → agent-tasks queue shows new work. **Deadline: May 1 23:59** (Lab infrastructure + consumer integration).
 - [ ] **GPU contention: Hermes vs Dog qwen35-9b-gpu.** Same llama-server serves both. Hermes blocked during nightshift Dog evals. **Fix options:** pause nightshift, `--parallel 2` on llama-server, or Soma orchestrator. **Falsify:** Hermes cron completes with 0 MCP errors in a run without nightshift.
 
 ## ORGANISM (no deadline, compound value)

@@ -1,0 +1,30 @@
+[Unit]
+Description=K15 Consumer — Score observations and dispatch high-signal tasks
+Requires=network.target
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/user/Bureau/CYNIC
+
+# Load environment variables (CYNIC_REST_ADDR, CYNIC_API_KEY)
+EnvironmentFile=-~/.cynic-env
+
+# Run the K15 consumer with 5-minute poll interval
+ExecStart=/usr/bin/python3 cynic-python/consumers/k15_observation_consumer.py \
+  --kernel-url http://localhost:3030 \
+  --api-key ${CYNIC_API_KEY} \
+  --domain twitter \
+  --poll-interval 300
+
+# Restart on failure with 30s backoff
+Restart=on-failure
+RestartSec=30
+
+# Output to journal
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

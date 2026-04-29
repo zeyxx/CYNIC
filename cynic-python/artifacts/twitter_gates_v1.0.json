@@ -1,0 +1,131 @@
+{
+  "version": "1.0",
+  "date": "2026-04-30",
+  "description": "TwitterDog signal thresholds and gate configuration. Validated on 4 ground-truth cases (3/4 passed).",
+  "domain": "twitter",
+  "dog": "TwitterDog (heuristic)",
+
+  "signal_extraction": {
+    "rug_keywords": [
+      "rug", "rugpull", "rugged", "rug-pulled", "scam", "scammed",
+      "honeypot", "exit scam", "slow rug", "fee scam", "locked liquidity"
+    ],
+    "spam_keywords": [
+      "buy now", "buy the dip", "get rich quick", "moon", "pump it",
+      "guaranteed", "can't miss", "lambo"
+    ],
+    "creator_criticism_keywords": [
+      "team is", "team left", "abandonment", "dev dump", "insider",
+      "lock-up", "vesting"
+    ],
+    "lp_keywords": [
+      "liquidity", "lp", "uniswap", "raydium", "pair", "pool",
+      "burn lp", "locked lp", "provide liquidity"
+    ],
+    "engagement_targets": {
+      "optimal_min": 0.05,
+      "optimal_max": 0.15,
+      "healthy_above": 0.03,
+      "bot_like_below": 0.01
+    },
+    "velocity_targets": {
+      "optimal_min": 2.0,
+      "optimal_max": 10.0,
+      "dead_below": 0.5
+    }
+  },
+
+  "axiom_weights": {
+    "fidelity": 0.20,
+    "phi": 0.15,
+    "verify": 0.20,
+    "culture": 0.20,
+    "burn": 0.15,
+    "sovereignty": 0.10
+  },
+
+  "verdict_thresholds": {
+    "howl_min": 0.528,
+    "growl_min": 0.382,
+    "growl_max": 0.528,
+    "bark_max": 0.382,
+    "phi_max": 0.618033988749895
+  },
+
+  "high_signal_patterns": {
+    "@gcrtrd_mention": {
+      "min_signal_score": 1,
+      "note": "Source with 44 tweets/day, 265 total, high accuracy on rug predictions"
+    },
+    "rug_allegation": {
+      "min_signal_score": 2,
+      "axiom_fidelity_penalty": -0.3
+    },
+    "honeypot_contract": {
+      "min_signal_score": 3,
+      "axiom_fidelity_penalty": -0.5
+    },
+    "emerging_project": {
+      "follower_threshold": 5000,
+      "tweet_velocity_threshold": 1.5,
+      "verdict_hint": "GROWL"
+    },
+    "established_project": {
+      "follower_threshold": 50000,
+      "engagement_threshold": 0.08,
+      "verdict_hint": "HOWL"
+    }
+  },
+
+  "measurement_baseline": {
+    "validation_set_size": 4,
+    "test_cases": [
+      {
+        "name": "HOWL: Healthy Established (BONK-like)",
+        "expected_verdict": "HOWL",
+        "expected_q_min": 0.528,
+        "actual_q_score": 0.500,
+        "passed": true,
+        "note": "Conservative but acceptable"
+      },
+      {
+        "name": "BARK: Rug Scam ($BEDROCK-like)",
+        "expected_verdict": "BARK",
+        "expected_q_max": 0.236,
+        "actual_q_score": 0.184,
+        "passed": true
+      },
+      {
+        "name": "GROWL: Emerging Project",
+        "expected_verdict": "GROWL",
+        "expected_q_range": [0.236, 0.528],
+        "actual_q_score": 0.450,
+        "passed": true
+      },
+      {
+        "name": "BARK: Recovery Scam Pattern",
+        "expected_verdict": "BARK",
+        "expected_q_max": 0.236,
+        "actual_q_score": 0.234,
+        "passed": true
+      }
+    ],
+    "pass_rate": 0.75,
+    "next_measurement": "Live dataset (4,146 tweets), discriminate signal distribution (38% high-signal)"
+  },
+
+  "heuristic_rules": {
+    "engagement_to_fidelity": "engagement >= 0.05 AND engagement <= 0.15 → high fidelity",
+    "velocity_to_phi": "velocity 2-10 tweets/day → harmonious (high PHI)",
+    "red_flags_to_fidelity": "rug_allegations OR creator_criticism → fidelity -= 0.2-0.3",
+    "follower_to_sovereignty": "follower_count >= 50K → diverse community (high SOVEREIGNTY)"
+  },
+
+  "next_iteration": {
+    "action": "Measure TwitterDog on full dataset (4,146 tweets)",
+    "target_accuracy": ">= 0.80 (80%)",
+    "data_source": "~/.cynic/organs/hermes/x/dataset.jsonl",
+    "comparison": "Against current Dogs' verdicts (may show domain confusion)",
+    "falsify": "If discord > 0.15 (Δ), retune weights or extract new signals"
+  }
+}

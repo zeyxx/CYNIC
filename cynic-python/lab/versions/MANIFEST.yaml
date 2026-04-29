@@ -1,0 +1,130 @@
+# CYNIC Heuristics Versioning Manifest
+# This is the SSOT for all domain Dogs, thresholds, and measurement baselines.
+# Before changing any heuristic: bump version, record before/after metrics, commit artifact.
+#
+# Format:
+#   domain:
+#     current_version: "v1.X"
+#     artifacts:
+#       vX.Y: { date, commit_hash, metric_baseline, description }
+
+version_schema: "1.0"
+last_updated: "2026-04-30T14:30:00Z"
+
+domains:
+  twitter:
+    current_version: "v1.0"
+    dog: "TwitterDog (heuristic)"
+    description: "6-axiom scoring for social domain (rug allegations, velocity, engagement, LP discussion)"
+    artifacts:
+      v1.0:
+        date: "2026-04-30"
+        commit_hash: "eda3153"
+        description: "Initial TwitterDog: validated on 4 ground-truth cases (HOWL, BARK, GROWL, recovery-scam). 3/4 passed."
+        metrics:
+          test_howl_score: 0.500
+          test_bark_score: 0.184
+          test_growl_score: 0.450
+          test_recovery_score: 0.234
+          validation_pass_rate: 0.75
+        reference_signals:
+          high_signal: ">0.450 (velocity+LP discussion+no red flags)"
+          low_signal: "<=0.236 (rug allegations OR dead account)"
+          neutral: "0.236-0.450 (emerging, unverified)"
+
+  tokens:
+    current_version: "v1.3"
+    dog: "deterministic-dog + conviction-only baseline"
+    description: "Token rug detection + CultScreener conviction scores. Conviction-only = 100% accuracy (28/28)."
+    artifacts:
+      v1.3:
+        date: "2026-04-30"
+        commit_hash: "HEAD"
+        description: "Conviction-only baseline shipped for hackathon. CultScreener API working (convict 0-100 → 0-1)."
+        metrics:
+          conviction_only_accuracy: 1.00
+          test_tokens: 28
+          howl_count: 20
+          growl_count: 6
+          bark_count: 2
+      v1.2:
+        date: "2026-04-29"
+        commit_hash: "a2db1f8"
+        description: "Synthetic calibration: token 100%, twitter/wallet age-blind (77.8% overall)."
+        metrics:
+          token_domain_accuracy: 1.00
+          twitter_domain_accuracy: 0.333
+          wallet_domain_accuracy: 0.364
+          overall_accuracy: 0.778
+          root_cause: "age-blind thresholds (young high-engagement = GROWL, not HOWL)"
+      v1.1:
+        date: "2026-04-25"
+        description: "Deterministic-dog: token-aware scoring, 0.367 Δ vs crystal ceiling."
+        metrics:
+          delta_from_ceiling: 0.367
+          abstention_rate: 0.0
+      v1.0:
+        date: "2026-04-20"
+        description: "Initial deterministic heuristics (engagement, volume, red flags)."
+
+  wallet:
+    current_version: "v0.0"
+    dog: "NOT YET IMPLEMENTED (Option C: anti-Sybil gate)"
+    description: "Passive human/bot scoring via Helius holder concentration + behavior patterns."
+    status: "DESIGN PHASE"
+    design_ref: "project_wallet_judgment_option_c.md"
+    artifacts:
+      v1.0_planned:
+        date: "TBD (post-hackathon)"
+        description: "Holder concentration (HHI, top1%, top10%) + archetype consistency (N>=5 games)."
+        threshold: ">= 0.618 (φ⁻¹) for authenticity"
+
+  chess:
+    current_version: "v0.0"
+    dog: "NOT YET IMPLEMENTED"
+    status: "DORMANT"
+    description: "Game theory judgment (position evaluation, move legality)."
+
+  behavior:
+    current_version: "v0.0"
+    dog: "NOT YET IMPLEMENTED (0 events recorded)"
+    status: "NO CONSUMER (K15 violation)"
+    description: "User interaction patterns (scroll velocity, click distribution, deliberation time)."
+    note: "Organic data exists in ~/.cynic/organs/hermes/x/behavior_log/ but not scoring yet."
+
+measurement_baselines:
+  # Before any heuristic change, measure these:
+  #   1. confusion_matrix (TP/FP/TN/FN vs ground truth)
+  #   2. sensitivity (recall on BARK) and specificity (rejection of false BARK)
+  #   3. before/after q_score distribution
+  #   4. latency_ms (deterministic must stay <10ms, qwen models <3000ms)
+
+  token_rug_detection:
+    before:
+      sensitivity: 0.976  # 97.6% of rugs detected (from paper)
+      specificity: 0.95   # 95% of legit tokens pass
+      latency_ms: 0.5     # deterministic heuristic
+    after: null           # Update after tuning
+
+  twitter_spam_detection:
+    before:
+      sensitivity: 0.75   # 3/4 ground truth cases correct
+      specificity: null   # Not measured yet (need larger dataset)
+      latency_ms: 2.0     # heuristic, no inference
+
+versioning_rules:
+  - "Bump version BEFORE measuring, not after"
+  - "Every heuristic change: measure confusion_matrix before/after on 30+ samples"
+  - "Track Pearson r between new heuristic and ground truth"
+  - "If sensitivity drops >5% relative: revert and discuss"
+  - "Artifacts committed to git-tracked JSON files in cynic-python/artifacts/"
+  - "Kernel reads artifacts via include_str!() at compile time (not at runtime)"
+  - "Every 3 months: re-measure all Dogs against latest ground truth"
+
+next_actions:
+  - "Wire K15 consumer: TwitterDog scores observations, dispatches high-signal as agent-tasks"
+  - "Create twitter_gates_v1.0.json with signal thresholds (moved from code to data)"
+  - "Measure twitter_signal_extractor on full dataset (4,146 tweets, 38% high-signal)"
+  - "Setup automated before/after measurement on /judge responses"
+  - "Implement wallet_judgment v1.0 (after hackathon May 10)"
+  - "Delete D2-D6 stub datasets, replace with agent-discovered patterns"
