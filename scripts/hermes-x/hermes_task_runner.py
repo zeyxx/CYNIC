@@ -1,22 +1,23 @@
 """
-CYNIC Hermes Task Runner — polls kernel for pending tasks and executes them.
+CYNIC Hermes Task Runner — reads organ-local tasks and executes them.
 
-The nerve connecting the brain (task dispatcher) to the organ (Hermes X).
-Polls GET /agent-tasks?kind=hermes every 10s. Executes tasks, reports results.
+The nerve connecting the meta-agent (Gemini) to the executor (Hermes X).
+Reads agent-tasks/ directory every 10s. Claims tasks atomically. Executes. Reports to kernel.
 
-Phase 1: stub executor (marks tasks complete with acknowledgment).
+Phase 1: stub executor (acknowledges and probes infrastructure).
 Phase 2: real execution (browse X via CDP, capture, enrich).
 
 Usage:
-    python hermes_task_runner.py
-    python hermes_task_runner.py --kind hermes --interval 10
+    python hermes_task_runner.py --organ-dir ~/.cynic/organs/hermes/x
+    python hermes_task_runner.py --organ-dir ~/.cynic/organs/hermes/x --interval 10
 
 Environment:
-    CYNIC_REST_ADDR  — kernel address
-    CYNIC_API_KEY    — kernel auth token
+    CYNIC_REST_ADDR  — kernel address (optional, for reporting)
+    CYNIC_API_KEY    — kernel auth token (optional)
+    X_ORGAN_DIR      — organ directory (fallback if --organ-dir not provided)
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"  # Switched from kernel polling to organ-local filesystem
 
 import argparse
 import json
@@ -26,6 +27,7 @@ import signal
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -36,14 +38,17 @@ logger = logging.getLogger("hermes-task-runner")
 
 KERNEL_ADDR = ""
 API_KEY = ""
+ORGAN_DIR = ""
 TASK_KIND = "hermes"
 POLL_INTERVAL = 10.0
 
 
 def load_env():
-    global KERNEL_ADDR, API_KEY
+    global KERNEL_ADDR, API_KEY, ORGAN_DIR
     KERNEL_ADDR = os.environ.get("CYNIC_REST_ADDR", "")
     API_KEY = os.environ.get("CYNIC_API_KEY", "")
+    ORGAN_DIR = os.environ.get("X_ORGAN_DIR", str(Path.home() / ".cynic" / "organs" / "hermes" / "x"))
+
     if KERNEL_ADDR and API_KEY:
         return
     env_file = Path.home() / ".cynic-env"
@@ -62,6 +67,8 @@ def load_env():
             KERNEL_ADDR = val
         elif key.strip() == "CYNIC_API_KEY" and not API_KEY:
             API_KEY = val
+        elif key.strip() == "X_ORGAN_DIR" and not ORGAN_DIR:
+            ORGAN_DIR = val
 
 
 def _kernel_url() -> str:
@@ -73,25 +80,98 @@ def _headers() -> dict:
     return {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
 
 
-# ── Task polling ──
+# ── Task polling (organ-local) ──
 
-def poll_tasks(kind: str, limit: int = 5) -> list[dict]:
-    """Poll kernel for pending tasks."""
+def poll_tasks(organ_dir: str, limit: int = 5) -> list[dict]:
+    """Read pending tasks from organ-local agent-tasks/ directory.
+
+    Returns list of unclaimed tasks (where .lock file doesn't exist).
+    Task files should not be locked by another hermes instance.
+    """
+    tasks_dir = Path(organ_dir) / "agent-tasks"
+    if not tasks_dir.exists():
+        logger.debug("agent-tasks directory not found: %s", tasks_dir)
+        return []
+
+    tasks = []
     try:
-        resp = requests.get(
-            f"{_kernel_url()}/agent-tasks",
-            params={"kind": kind, "limit": limit},
-            headers=_headers(),
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get("tasks", [])
-        logger.warning("poll_tasks %d: %s", resp.status_code, resp.text[:100])
-        return []
-    except requests.RequestException as e:
-        logger.warning("poll_tasks failed: %s", e)
-        return []
+        for task_file in sorted(tasks_dir.glob("*.json"))[:limit]:
+            lock_file = tasks_dir / f".{task_file.stem}.lock"
+
+            # Skip if already claimed by another process
+            if lock_file.exists():
+                continue
+
+            try:
+                with open(task_file) as f:
+                    task = json.load(f)
+                    # Store filename for later claim/release
+                    task["_file"] = str(task_file)
+                    # Normalize ID field for compatibility with execute_task
+                    task["id"] = task.get("task_id", task.get("id", ""))
+                    tasks.append(task)
+            except json.JSONDecodeError as e:
+                logger.warning("Failed to parse task file %s: %s", task_file, e)
+                continue
+
+    except OSError as e:
+        logger.warning("Failed to scan agent-tasks directory: %s", e)
+
+    return tasks
+
+
+def claim_task(task: dict, organ_dir: str) -> bool:
+    """Atomically claim a task by creating a .lock file.
+
+    Returns True if lock was created successfully, False if already locked.
+    """
+    task_file = Path(task.get("_file", ""))
+    if not task_file.exists():
+        return False
+
+    lock_file = task_file.parent / f".{task_file.stem}.lock"
+
+    try:
+        # Write lock file with PID and timestamp
+        lock_file.write_text(json.dumps({
+            "pid": os.getpid(),
+            "claimed_at": datetime.now().isoformat() + "Z",
+        }))
+        logger.info("claimed task %s (lock: %s)", task.get("id"), lock_file.name)
+        return True
+    except OSError as e:
+        logger.warning("Failed to claim task %s: %s", task.get("id"), e)
+        return False
+
+
+def release_task(task: dict, organ_dir: str, success: bool = True):
+    """Release a task by deleting lock and optionally the task file.
+
+    If success=True: delete both task file and lock (task completed).
+    If success=False: delete only lock file (task will be retried).
+    """
+    task_file = Path(task.get("_file", ""))
+    if not task_file.exists():
+        return
+
+    lock_file = task_file.parent / f".{task_file.stem}.lock"
+
+    try:
+        if success:
+            # Task executed successfully, delete both files
+            if task_file.exists():
+                task_file.unlink()
+                logger.info("deleted task file: %s", task_file.name)
+            if lock_file.exists():
+                lock_file.unlink()
+                logger.info("deleted lock file: %s", lock_file.name)
+        else:
+            # Task failed, release lock for retry but keep task file
+            if lock_file.exists():
+                lock_file.unlink()
+                logger.info("released lock (task file kept for retry): %s", task_file.name)
+    except OSError as e:
+        logger.warning("Failed to release task %s: %s", task.get("id"), e)
 
 
 def complete_task(task_id: str, result: str | None = None, error: str | None = None) -> bool:
@@ -282,37 +362,42 @@ def probe_service(node: str, service: str, port: int = 0) -> dict:
 def execute_task(task: dict) -> tuple[str | None, str | None]:
     """Execute a task. Returns (result, error).
 
-    Phase 1: stub — acknowledges the task without real execution.
-           Probes Hermes X infrastructure before execution (K15 producer).
-    Phase 2: will browse X via CDP based on task content.
+    Phase 1: stub — acknowledges the task, probes infrastructure, logs what would execute.
+    Phase 2: will browse X via CDP based on task actions.
     """
     task_id = task.get("id", "?")
-    content = task.get("content", "")
-    domain = task.get("domain", "")
+    objective = task.get("objective", task.get("content", ""))
+    domain = task.get("domain", "unknown")
+    actions = task.get("actions", [])
+    context = task.get("context", "")
 
-    logger.info("executing task %s: domain=%s content=%s", task_id, domain, content[:80])
+    logger.info("executing task %s: domain=%s objective=%s", task_id, domain, objective[:60])
 
     # Phase 1a: probe Hermes X infrastructure (fire-and-forget to /event)
-    # Domain-specific probes (e.g., "social-signal" → Hermes X browser)
-    if domain == "social-signal" or domain == "hermes-x":
-        # Probe mitmproxy/ingest daemon
+    # Domain-specific probes for hermes-x tasks
+    if domain.startswith("D") or domain == "hermes-x":
+        # Probe mitmproxy/ingest daemon/browser
         probe_service("cynic-core", "hermes-x-ingest")
         probe_service("cynic-core", "mitmproxy")
+        probe_service("cynic-core", "hermes-browser")
 
-    # Phase 1b: report what we would do
+    # Phase 1b: acknowledge and describe what Phase 2 will do
     result = json.dumps({
-        "phase": "stub",
-        "acknowledged": True,
-        "content_received": content[:200],
+        "phase": "1_stub",
+        "task_id": task_id,
         "domain": domain,
-        "message": "Task received by Hermes task runner. Real execution pending Phase 2 (CDP browse).",
+        "objective": objective[:200],
+        "actions_to_execute": actions[:3],  # First 3 actions
+        "context": context[:200],
+        "message": "Task acknowledged by Hermes 9B. Phase 2 (real execution) pending: browse X, search keywords, capture tweets, post observations.",
+        "deadline": task.get("deadline", "unknown"),
     })
     return result, None
 
 
 # ── Main loop ──
 
-def run(kind: str, interval: float):
+def run(organ_dir: str, interval: float):
     tasks_executed = 0
     tasks_failed = 0
     last_heartbeat = 0.0
@@ -325,34 +410,43 @@ def run(kind: str, interval: float):
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
 
-    logger.info("hermes_task_runner v%s starting — kind=%s interval=%.0fs kernel=%s",
-                __version__, kind, interval, KERNEL_ADDR)
+    logger.info("hermes_task_runner v%s starting — organ=%s interval=%.0fs",
+                __version__, organ_dir, interval)
 
     while running:
-        # Heartbeat every 60s
+        # Heartbeat every 60s (optional, report to kernel if available)
         now = time.time()
         if now - last_heartbeat >= 60.0:
-            post_heartbeat(kind, tasks_executed, tasks_failed)
+            post_heartbeat("hermes", tasks_executed, tasks_failed)
             last_heartbeat = now
 
-        # Poll for tasks
-        tasks = poll_tasks(kind)
+        # Poll for unclaimed tasks from organ-local directory
+        tasks = poll_tasks(organ_dir)
         if tasks:
             logger.info("found %d pending task(s)", len(tasks))
 
         for task in tasks:
             task_id = task.get("id", "")
             if not task_id:
+                logger.warning("task without id, skipping")
                 continue
 
+            # Claim the task atomically
+            if not claim_task(task, organ_dir):
+                logger.warning("failed to claim task %s, skipping", task_id)
+                continue
+
+            # Execute the task
             result, error = execute_task(task)
-            if complete_task(task_id, result=result, error=error):
-                if error:
-                    tasks_failed += 1
-                else:
-                    tasks_executed += 1
-            else:
+
+            if error:
+                logger.error("task %s failed: %s", task_id, error)
+                release_task(task, organ_dir, success=False)
                 tasks_failed += 1
+            else:
+                logger.info("task %s completed successfully", task_id)
+                release_task(task, organ_dir, success=True)
+                tasks_executed += 1
 
         time.sleep(interval)
 
@@ -366,16 +460,24 @@ def main():
         datefmt="%H:%M:%S",
     )
     load_env()
-    if not KERNEL_ADDR:
-        logger.error("CYNIC_REST_ADDR not set")
-        sys.exit(1)
 
-    parser = argparse.ArgumentParser(description="Hermes Task Runner")
-    parser.add_argument("--kind", default=TASK_KIND, help="Task kind to poll")
+    parser = argparse.ArgumentParser(description="Hermes Task Runner — reads organ-local tasks")
+    parser.add_argument("--organ-dir", default=ORGAN_DIR, help="Organ directory containing agent-tasks/")
     parser.add_argument("--interval", type=float, default=POLL_INTERVAL, help="Poll interval (seconds)")
     args = parser.parse_args()
 
-    run(args.kind, args.interval)
+    organ_dir = args.organ_dir or ORGAN_DIR
+    if not organ_dir:
+        logger.error("Organ directory not set. Use --organ-dir or set X_ORGAN_DIR")
+        sys.exit(1)
+
+    organ_dir = str(Path(organ_dir).expanduser())
+    if not Path(organ_dir).exists():
+        logger.error("Organ directory not found: %s", organ_dir)
+        sys.exit(1)
+
+    logger.info("Organ directory: %s", organ_dir)
+    run(organ_dir, args.interval)
 
 
 if __name__ == "__main__":
