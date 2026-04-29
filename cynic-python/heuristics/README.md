@@ -39,13 +39,21 @@ python3 measure_against_ground_truth.py
 
 ### Option 2: Real Data (CultScreener Live)
 When CultScreener API is available:
+
+**Step 1: Get API Key**
+Visit cultscreener.com/api-keys and sign with your Solana wallet to get an API key. Add it to `.env`:
+```
+CULTSCREENER_API_KEY=<your_64_char_hex_key>
+```
+
+**Step 2: Run Calibration Workflow**
 ```bash
 cd /home/user/Bureau/CYNIC
 ./scripts/calibrate-token-heuristics.sh all
 ```
 
 This runs:
-1. **Ingest phase:** Fetch 20 high/medium/low-risk tokens from CultScreener, enrich with Helius + Hermes
+1. **Ingest phase:** Fetch 60 tokens from CultScreener (20 per conviction tier), enrich with Helius + Hermes
 2. **Measure phase:** Score on all 3 domains, compare predicted vs ground truth
 3. **Analyze phase:** Report accuracy, identify weak signals
 4. **Deploy phase:** Translate calibrated thresholds to Rust, ship in kernel
@@ -83,7 +91,20 @@ This runs:
 | **Token domain** | BARK/HOWL accuracy | 90%+ | ✓ 100% (baseline) |
 | **Twitter domain** | GROWL identification | 70%+ | ⚠ Needs real data |
 | **Wallet domain** | GROWL identification | 70%+ | ⚠ Needs real data |
-| **Fused verdict** | Overall accuracy | 75%+ | ⚠ 77.8% on mock (GROWL weak) |
+| **Fused verdict** | Overall accuracy | 75%+ | ⏳ Real data ingestion ready |
+
+## CultScreener Conviction Scoring
+
+CultScreener measures **holder conviction**: how long large holders have held the token.
+
+**Conviction Tiers (mapped to verdicts):**
+- **Strong** (conviction ≥ 0.7) → **HOWL** — legitimate projects with true believers
+- **Mixed** (conviction 0.4-0.7) → **GROWL** — ambiguous, need more data
+- **Weak** (conviction < 0.4) → **BARK** — suspicious, likely rugs or pump-and-dumps
+
+**Why conviction matters:**
+High conviction = diamond hands = real community = legitimate token.
+Low conviction = paper hands / early exit = potential rug = risky token.
 
 ## Key Findings (Mock Data Analysis)
 
