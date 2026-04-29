@@ -8,15 +8,11 @@ Type=simple
 User=root
 WorkingDirectory=/home/user/Bureau/CYNIC
 
-# Load environment variables (CYNIC_REST_ADDR, CYNIC_API_KEY)
-EnvironmentFile=-~/.cynic-env
+# Note: .cynic-env uses 'export' prefixes incompatible with EnvironmentFile=
+# Instead, source the file in ExecStart via shell
 
 # Run the K15 consumer with 5-minute poll interval
-ExecStart=/usr/bin/python3 cynic-python/consumers/k15_observation_consumer.py \
-  --kernel-url http://localhost:3030 \
-  --api-key ${CYNIC_API_KEY} \
-  --domain twitter \
-  --poll-interval 300
+ExecStart=/bin/sh -c 'source /home/user/.cynic-env && exec /usr/bin/python3 cynic-python/consumers/k15_observation_consumer.py --kernel-url http://localhost:3030 --api-key "$CYNIC_API_KEY" --domain twitter --poll-interval 300'
 
 # Restart on failure with 30s backoff
 Restart=on-failure
