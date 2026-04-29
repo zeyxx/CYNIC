@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-30 | **GROUND TRUTH CRYSTALLIZED:** Hackathon is TWO separate competitions on Colosseum. B&C has May 4 registration hard gate (no extensions). CYNIC has May 10 submission window. Wallet-judgment code ready, untested on real B&C data. Added integration test blocker (May 1 deadline). Token calibration conviction-only validated 100% (28/28 tokens). See `docs/hackathon/HACKATHON-GROUND-TRUTH-2026-04-30.md`.
+Last updated: 2026-04-30 | **HACKATHON PHASE 1 LOCKED:** CYNIC conviction-only shipped (make calibrate-token-conviction-only), submission description finalized (K15 status + φ-bounded confidence). Video demo flex (record Friday). B&C awaits S. decision: registration by May 4, integration Option A/B by May 1 00:00 UTC. Message posted to #hackathon-solana 2026-04-30 14:39 UTC. See `docs/hackathon/*` for full context.
 
 ---
 
