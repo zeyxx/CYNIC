@@ -23,8 +23,10 @@ import signal
 import sys
 import time
 from pathlib import Path
+from datetime import datetime
 
 import requests
+import yaml
 
 logger = logging.getLogger("x-ingest")
 
@@ -74,6 +76,63 @@ def load_env():
 # Low-signal tweets go to /observe (stored, no Dog evaluation).
 JUDGE_THRESHOLD = 3
 
+# ── Domain Assignment (narrative-first routing) ──
+
+def load_domains_config(lab_config_dir: str = None) -> dict:
+    """Load domains.yaml from lab config."""
+    if lab_config_dir is None:
+        lab_config_dir = Path(__file__).parent.parent.parent / "cynic-python" / "lab" / "config"
+    else:
+        lab_config_dir = Path(lab_config_dir)
+
+    domains_file = lab_config_dir / "domains.yaml"
+    if not domains_file.exists():
+        return {}
+
+    with open(domains_file) as f:
+        return yaml.safe_load(f) or {}
+
+
+def load_narrative_mappings(lab_config_dir: str = None) -> dict:
+    """Load narrative_domains.yaml for narrative-first domain assignment."""
+    if lab_config_dir is None:
+        lab_config_dir = Path(__file__).parent.parent.parent / "cynic-python" / "lab" / "config"
+    else:
+        lab_config_dir = Path(lab_config_dir)
+
+    narratives_file = lab_config_dir / "narrative_domains.yaml"
+    if not narratives_file.exists():
+        return {}
+
+    with open(narratives_file) as f:
+        data = yaml.safe_load(f) or {}
+        return data.get("narrative_mappings", {})
+
+
+def assign_domain(tweet: dict, domains: dict, narrative_mappings: dict) -> str:
+    """Assign domain to tweet: narrative-first, then keyword, then default D1.
+
+    Returns domain ID like 'D1', 'D2', 'D4', etc.
+    """
+    # Priority 1: Narrative-first assignment
+    narratives = tweet.get("narratives", []) or []
+    for narrative in narratives:
+        for domain_id, narrative_list in narrative_mappings.items():
+            if narrative in narrative_list:
+                return domain_id
+
+    # Priority 2: Keyword-based assignment (first match wins)
+    text = tweet.get("text", "").lower()
+    for domain_id, domain_info in domains.items():
+        if not isinstance(domain_info, dict):
+            continue
+        keywords = domain_info.get("keywords", [])
+        if any(kw.lower() in text for kw in keywords):
+            return domain_id
+
+    # Priority 3: Default fallback
+    return "D1"
+
 
 def _kernel_addr() -> str:
     return KERNEL_ADDR if KERNEL_ADDR.startswith("http") else f"http://{KERNEL_ADDR}"
@@ -83,8 +142,12 @@ def _headers() -> dict:
     return {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
 
 
-def post_judge(row: dict) -> dict | None:
+def post_judge(row: dict, domain: str = "D1") -> dict | None:
     """POST high-signal tweet to /judge → Dogs evaluate → crystal accumulation.
+
+    Args:
+        row: tweet dict
+        domain: domain ID (D1, D2, D4, D6, etc.) from assign_domain()
 
     Returns the verdict dict on success, None on failure.
     """
@@ -100,7 +163,7 @@ def post_judge(row: dict) -> dict | None:
     try:
         resp = requests.post(
             f"{_kernel_addr()}/judge",
-            json={"content": content, "context": context, "domain": "twitter"},
+            json={"content": content, "context": context, "domain": domain},
             headers=_headers(),
             timeout=120,
         )
@@ -193,11 +256,17 @@ def write_verdict_to_organ(row: dict, verdict: dict, organ_dir: Path) -> bool:
         return False
 
 
-def ingest_row(row: dict, organ_name: str = ORGAN_NAME, organ_dir: Path = DEFAULT_ORGAN_DIR) -> bool:
-    """Route tweet: high-signal → /judge + write to organ, low-signal → /observe."""
+def ingest_row(row: dict, organ_name: str = ORGAN_NAME, organ_dir: Path = DEFAULT_ORGAN_DIR,
+               domains: dict = None, narrative_mappings: dict = None) -> bool:
+    """Route tweet: high-signal → /judge + write to organ, low-signal → /observe.
+
+    High-signal tweets are routed to /judge with narrative-first domain assignment.
+    """
     score = row.get("signal_score", 0)
     if score >= JUDGE_THRESHOLD:
-        verdict = post_judge(row)
+        # Assign domain (narrative-first, then keyword, then D1 fallback)
+        domain = assign_domain(row, domains or {}, narrative_mappings or {})
+        verdict = post_judge(row, domain)
         if verdict:
             write_verdict_to_organ(row, verdict, organ_dir)
             return True
@@ -306,11 +375,22 @@ def save_cursor(state_path: Path, offset: int):
 # ── Tail loop ──
 
 def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, organ_dir: Path = DEFAULT_ORGAN_DIR, replay: bool = False):
-    """Tail the dataset JSONL, POST new lines to /observe, write verdicts to organ."""
+    """Tail the dataset JSONL, POST new lines to /observe, write verdicts to organ.
+
+    High-signal tweets are routed to /judge with narrative-first domain assignment.
+    """
     if not dataset.exists():
         logger.info("Dataset not found: %s — waiting for creation", dataset)
         while not dataset.exists():
             time.sleep(POLL_INTERVAL)
+
+    # Load domain assignment config
+    domains = load_domains_config()
+    narrative_mappings = load_narrative_mappings()
+    if domains:
+        logger.info("Loaded %d domains from narrative_domains.yaml", len(narrative_mappings))
+    else:
+        logger.warning("No domains config found; will default to D1 for all high-signal tweets")
 
     offset = 0 if replay else load_cursor(state_path)
     if not replay and offset == 0:
@@ -359,7 +439,7 @@ def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, 
                     continue
                 if len(batch) >= BATCH_SIZE:
                     for row in batch:
-                        if ingest_row(row, organ_name, organ_dir):
+                        if ingest_row(row, organ_name, organ_dir, domains, narrative_mappings):
                             sent += 1
                         else:
                             errors += 1
@@ -368,7 +448,7 @@ def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, 
 
         # Flush remaining
         for row in batch:
-            if ingest_row(row, organ_name, organ_dir):
+            if ingest_row(row, organ_name, organ_dir, domains, narrative_mappings):
                 sent += 1
             else:
                 errors += 1
