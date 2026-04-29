@@ -38,14 +38,18 @@ def main():
         print("   ❌ Failed to fetch leaderboard")
         sys.exit(1)
 
-    # Test 2: Get specific token
-    print("\n2. Fetching specific token (BONK)...")
-    bonk_mint = "DezXAZ8z7PnrnRJjz3wXBoRgixVqXaSo1S1zceA85q"
-    bonk = client.get_token_conviction(bonk_mint)
-    if bonk:
-        print(f"   ✓ Fetched {bonk.symbol} conviction={bonk.conviction:.2f} verdict={bonk.to_verdict()}")
+    # Test 2: Get specific token from leaderboard
+    if leaderboard:
+        test_token = leaderboard[0]
+        print(f"\n2. Fetching specific token ({test_token.symbol})...")
+        token = client.get_token_conviction(test_token.mint)
+        if token:
+            print(f"   ✓ Fetched {token.symbol} conviction={token.conviction:.2f} verdict={token.to_verdict()}")
+        else:
+            print(f"   ❌ Failed to fetch {test_token.symbol}")
+            sys.exit(1)
     else:
-        print(f"   ❌ Token not found or API error")
+        print("   ⚠ Skipping (no leaderboard data)")
         sys.exit(1)
 
     print("\n✅ All tests passed! API is working correctly.")

@@ -185,23 +185,44 @@ pub fn spawn_probe_scheduler(
                     // K6: per-probe timeouts inside scheduler.tick() satisfy K6.
                     // No outer timeout needed — each probe's .await is bounded.
                     if let Some(snapshot) = scheduler.tick().await {
-                        if let Ok(mut env) = environment.write() {
-                            *env = Some(snapshot.clone());
+                        if let Ok(mut env_guard) = environment.write() {
+                            match env_guard.as_mut() {
+                                Some(existing) => {
+                                    // Merge new probe results into existing snapshot.
+                                    // Probes with longer intervals stay visible until their next tick.
+                                    for new_probe in snapshot.probes {
+                                        if let Some(pos) = existing.probes.iter().position(|p| p.name == new_probe.name) {
+                                            existing.probes[pos] = new_probe;
+                                        } else {
+                                            existing.probes.push(new_probe);
+                                        }
+                                    }
+                                    existing.timestamp = snapshot.timestamp;
+                                    existing.overall = EnvironmentSnapshot::worst_status(&existing.probes);
+                                }
+                                None => {
+                                    *env_guard = Some(snapshot.clone());
+                                }
+                            }
                         }
 
-                        for probe in &snapshot.probes {
-                            if let ProbeDetails::Fleet(ref fleet) = probe.details {
-                                for dog in &fleet.dogs {
-                                    if dog.model_mismatch {
-                                        organ.degrade_backend(
-                                            &dog.dog_name,
-                                            format!(
-                                                "model mismatch: expected {:?}, actual {:?}",
-                                                dog.expected_model, dog.actual_model
-                                            ),
-                                        );
-                                    } else {
-                                        organ.promote_if_gate_clear(&dog.dog_name);
+                        // Use the combined snapshot for organ degradation logic
+                        let current_snapshot = environment.read().ok().and_then(|g| g.clone());
+                        if let Some(snap) = current_snapshot {
+                            for probe in &snap.probes {
+                                if let ProbeDetails::Fleet(ref fleet) = probe.details {
+                                    for dog in &fleet.dogs {
+                                        if dog.model_mismatch {
+                                            organ.degrade_backend(
+                                                &dog.dog_name,
+                                                format!(
+                                                    "model mismatch: expected {:?}, actual {:?}",
+                                                    dog.expected_model, dog.actual_model
+                                                ),
+                                            );
+                                        } else {
+                                            organ.promote_if_gate_clear(&dog.dog_name);
+                                        }
                                     }
                                 }
                             }
