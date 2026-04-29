@@ -2,12 +2,13 @@
 # Empêche l'envoi de données privées du Kernel Humain au modèle lors des scans de codebase.
 
 # Logs Askesis (Données brutes de session)
-.gemini/memory/logs/
+.cynic/memory/logs/
 *.jsonl
 
 # Mémoire Cortex (Synthèse de souveraineté)
-.gemini/memory/HUMAN_KERNEL.md
-.gemini/memory/cortex-history.md
+.cynic/memory/HUMAN_KERNEL.md
+.cynic/memory/cortex-history.md
 
 # Fichiers de session temporaires
 .gemini/tmp/
+.cynic/tmp/

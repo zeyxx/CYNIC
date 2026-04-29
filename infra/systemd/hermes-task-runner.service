@@ -1,13 +1,14 @@
 [Unit]
-Description=CYNIC Hermes task runner — polls kernel for missions and executes
-After=cynic-kernel.service
+Description=CYNIC Hermes task runner — claims organ-local tasks and executes
+After=network-online.target
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Service]
 Type=simple
 EnvironmentFile=%h/.config/cynic/env
-ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/hermes_task_runner.py --kind hermes --interval 10
+Environment="X_ORGAN_DIR=%h/.cynic/organs/hermes/x"
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/hermes_task_runner.py --organ-dir $X_ORGAN_DIR --interval 10
 Restart=on-failure
 RestartSec=15
 

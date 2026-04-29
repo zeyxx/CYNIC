@@ -172,6 +172,11 @@ def _coordination(tweets: list[dict]) -> dict[str, int]:
 def _extract_tweets(data: dict) -> list[dict]:
     resp = data.get("response", data)
     for path in [
+        # New TweetDetail endpoint (April 2026+)
+        ["data", "threaded_conversation_with_injections_v2", "instructions"],
+        # Updated UserTweets (timeline_v2 removed, nested timeline added)
+        ["data", "user", "result", "timeline", "timeline", "instructions"],
+        # Old paths (fallback)
         ["data", "search_by_raw_query", "search_timeline", "timeline", "instructions"],
         ["data", "user", "result", "timeline_v2", "timeline", "instructions"],
         ["data", "home", "home_timeline_urt", "instructions"],

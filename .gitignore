@@ -46,6 +46,7 @@ cynic-python/observations/
 .replit
 .mcp.json
 .gemini/
+.cynic/
 
 # Go build artifacts
 mcp-coord/cynic-coord
