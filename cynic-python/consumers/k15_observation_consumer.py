@@ -166,14 +166,25 @@ class K15ObservationConsumer:
         return max(0.0, min(10.0, score))
 
     def _is_high_signal(self, content: str, signal_score: float, verdict) -> bool:
-        """Determine if observation should trigger a task."""
+        """Determine if observation should trigger a task.
+
+        Thresholds:
+          - Pattern match (e.g., @gcrtrd): min_signal from config
+          - BARK verdict (q_score ≤0.382): always high signal
+          - General heuristic: signal ≥6.0 (high confidence)
+        """
         # Pattern matching for known sources
         for pattern, config in self.known_high_signal_patterns.items():
             if pattern.lower() in content.lower():
                 return signal_score >= config.get("min_signal", 5)
 
-        # Heuristic: signal ≥3 is worth investigating
-        return signal_score >= 3.0 or verdict.q_score <= 0.382  # BARK or GROWL
+        # BARK is always worth investigating (rug allegations, exploits, etc.)
+        if verdict.q_score <= 0.382:
+            return True
+
+        # General heuristic: signal ≥6.0 for non-BARK tweets (high confidence)
+        # This filters out neutral market analysis (signal ≈5.0)
+        return signal_score >= 6.0
 
     def dispatch_task(self, observation: dict, score: dict) -> Optional[str]:
         """Dispatch high-signal observation as agent task.
