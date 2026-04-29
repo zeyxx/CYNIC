@@ -29,16 +29,13 @@ Dogs vote independently. Consensus emerges as **φ-bounded confidence** (max 0.6
 
 ## Differentiation
 
-**Reproducible:** Deterministic Dog logic is pure heuristics—no proprietary black box. Every decision is auditable.
+**Reproducible:** Deterministic Dog logic is pure heuristics—no proprietary black box. Every decision is auditable. Regression test (commit 9bfba2d) validates forced consensus architectural bias was removed; filter respects explicit requests only.
 
-**Wisdom-Injected:** Hermes sensor extracts 225+ domain signals (D1–D6: Tokens, Inference, Security, Macro, Epistemology) from high-signal tweets. Dogs receive falsifiable claims alongside token data (e.g., "if liquidity permanently locked, rug probability <10%").
+**Wisdom-Injected (Phase 1):** Hermes sensor captures 4,088 tweets via passive proxy. High-signal tweets (score ≥3) route to Dogs; observations stored via K15 producer. Cross-session learning via SKILL.md. Dogs receive falsifiable claims alongside token data.
 
 **On-Chain Proofs:** `submit_verdict.ts` encodes verdicts to Solana community PDA `8DVUKmJa…`. Every judge call produces an immutable record.
 
-**K15 Validated:** Empirical testing (April 2026) shows:
-- D1 (token rugs): 0.090 BARK — correct low confidence on confirmed rugs
-- D6 (predictions): 0.454 GROWL — stronger confidence on empirical, falsifiable claims
-- Dogs floor-score confirmed negatives conservatively; improve precision on positive signals
+**K15 Status:** Producer operational (observations created via /observe endpoint). Consumer infrastructure documented but post-hackathon (circuit-breaker to act on degraded signals). Honest about gap: we produce signals, acting consumer pending.
 
 ## Why This Matters
 
@@ -56,7 +53,7 @@ On Solana's 50K+ tokens, this is the difference between noise and signal.
 
 **On-Chain Contract:** Community PDA `8DVUKmJa…` stores verdict hash + timestamp + Dog votes
 
-**Data:** 2,007 high-signal tweets, 225+ curated domain signals, 141 crystallized observations
+**Data:** 4,088 captured tweets (6.6MB), 124 verdicts, 14 observations, 10 crystallized (SSOT: ~/.cynic/organs/hermes/x/MANIFEST.json)
 
 ---
 
@@ -74,4 +71,4 @@ On Solana's 50K+ tokens, this is the difference between noise and signal.
 
 ---
 
-**Status:** Live. 5/5 Dogs online. K15 validation complete. Ready for production use.
+**Status:** Live. 5/5 Dogs online. K15 producer validated (April 30). Falsification tests pass: deterministic-dog forced consensus regression, circuit-breaker skip on degraded Dogs, filter respects explicit requests. Hackathon Phase 1 (stub) ready for May 10 demo. Phase 2 (autonomous meta-agent) post-May 11.
