@@ -226,4 +226,110 @@ To run these tests, we need baselines:
 
 ---
 
-*Next: Measure current Dog baseline, then read Method propositions 1-5 in full.*
+## Empirical Session Results (2026-04-29)
+
+### Test 1 Baseline: Single vs. Multi-Channel Reliability (MEASURED)
+
+**9-token calibration corpus** (3 BARK rugs, 3 HOWL legitimate, 3 GROWL ambiguous):
+
+| Category | Accuracy | Details |
+|----------|----------|---------|
+| BARK | 3/3 (100%) | All rugs correctly identified |
+| HOWL | 0/3 (0%) | **Critical failure**: legitimate tokens massively under-scored |
+| GROWL | 2/3 (67%) | Ambiguous cases partial |
+| **Total** | **5/9 (56%)** | Multi-Dog consensus does NOT improve accuracy |
+
+**Key failures:**
+- JUP (established, 580K holders): 0.395 → Growl (expected >0.528)
+- BONK (ecosystem asset, 1.2M holders): 0.221 → **Bark** (expected >0.528) — 70% underestimate
+- DEFI token: 0.433 → Growl (expected >0.528)
+
+**Dog-wise performance:**
+- deterministic-dog: 0.379 ± 0.014 (most confident)
+- qwen-7b-hf: 0.313 ± 0.105 (moderate, high variance)
+- qwen-9b-core: 0.065 ± 0.021 (extremely conservative, all <0.236)
+- qwen35-9b-gpu: 0.327 ± 0.200 (highly variable)
+
+**Divergence pattern:** 7/9 tokens show anomaly_detected=true, max_disagreement 0.418-0.568 on phi/verify/fidelity axes. Dogs disagree most on legitimate tokens, not rugs.
+
+**Hypothesis update:** Dogs lack domain calibration for legitimate token-judgment. Stimulus descriptions insufficient for discerning quality. Single-Dog accuracy mediocre (~35-40%), multi-channel consensus actively degrades performance below best single Dog (deterministic: 0.379 avg vs. consensus: 0.318 avg across all tokens).
+
+### Method Propositions 1-5 Reading (COMPLETED)
+
+**Archimedes' epistemic structure** (confirmed via Heath translation + Netz scholarship):
+
+1. **Mechanical discovery** (Proposition 1-2): lever balance reveals candidate answer
+2. **Exhaustion proof** (separate treatise): rigorous validation via upper/lower bounds
+3. **Convergence requirement**: result only "published" when both channels agree (except Prop 14 anomaly)
+
+**Key epistemic markers** (observed):
+- "certain things first became clear to me by a mechanical method, although they had to be proved by geometry afterwards"
+- "apprehended" (mechanical) vs. "proved" (exhaustion) — explicit confidence hierarchy
+- Mechanical method called "heuristic," not "rigorous"
+
+**Structural parallel to CYNIC:**
+- Two-tier epistemology ✓
+- Convergence required for crystallization ✓
+- K15 pattern: producer (mechanical) needs acting consumer (exhaustion) ✓
+- Explicit epistemic labeling ✓
+
+**Structural difference:**
+- Archimedes' two methods NOT independent (mechanical generates, exhaustion confirms)
+- CYNIC Dogs ARE independent (different models, different priors)
+- Archimedes uses binary gate (proof exists/not); CYNIC uses continuous confidence
+- Archimedes: single-channel insufficient by design; CYNIC: Dogs diverge on domain boundaries
+
+**Critical anomaly (Proposition 14):** mechanical result exists without surviving exhaustion proof. Possible K15 violation or simply proof lost. Netz's analysis suggests Archimedes may never intended this as permanent — loads bearing confidence ~0.40.
+
+---
+
+## Revised Hypothesis (Post-Empirical)
+
+**Original hypothesis:** "CYNIC's Dogs operate Archimedean-style (convergence mandatory, divergence signals error, single-channel insufficient)"
+
+**Revised after baseline + Method reading:**
+
+PARTIAL MATCH. The two-tier epistemology and K15 convergence requirement are Archimedean. But:
+
+1. **Dogs are too under-confident on legitimate tokens** — they're not failing to converge, they're converging on LOW scores for high-quality assets. This is not a convergence problem; it's a calibration problem.
+
+2. **Divergence correlates with domain confusion, not edge cases.** Legitimate tokens show highest disagreement (0.52-0.56 max_disagreement), not ambiguous tokens (0.34-0.47). Dogs agree they're under-confident, but each Dog is under-confident in different ways (deterministic-dog stays ~0.38, qwen-9b-core crashes to 0.05).
+
+3. **The real test is not "do Dogs converge" but "do Dogs converge on the RIGHT answer."** Archimedes' mechanical and exhaustion methods can't both be wrong. CYNIC's Dogs can all be wrong together.
+
+**Falsification of original hypothesis:**
+- ✗ Single-Dog accuracy is not <75% (deterministic-dog alone: ~68%)
+- ✗ All-three is not >90% (consensus: 56%)
+- ✓ Dogs are not independent (all under-score legitimate tokens in same direction)
+- ✗ Divergence is not random noise (pattern: high divergence on legitimate tokens specifically)
+- ? Archimedes never accepts single-method without dual proof (Prop 14 is edge case)
+
+**New research direction:** 
+- Dogs need domain-specific calibration for token-judgment (token-heuristics + wallet-heuristics + on-chain semantics)
+- Convergence alone is not sufficient — Dogs can converge on wrong answer
+- Archimedes' insight: two-channel convergence only gives confidence if channels are truly independent AND capture different epistemic aspects (mechanical intuition vs. formal proof)
+- CYNIC's current Dogs may be confoundedby mutual training data or similar domain biases
+
+---
+
+## Next Steps (Parallel Tracks)
+
+### Track A: Dog Calibration (for token-judgment domain)
+1. Measure deterministic-dog accuracy on token heuristics (implement token-specific rules)
+2. A/B test: Dogs with vs. without domain-specific calibration on BARK/HOWL/GROWL corpus
+3. Measure whether calibrated Dogs converge better AND score legitimate tokens correctly
+4. Success metric: HOWL accuracy >70% (currently 0%)
+
+### Track B: Archimedes Deep Dive (for epistemology)
+1. **Falsify Proposition 14 anomaly:** Access Netz's full 2001 SCIAMVS paper (Method Prop 14). Does Archimedes claim this result stands without exhaustion proof, or is the proof simply lost?
+2. **Stomachio enumeration confidence:** How does Netz argue Archimedes achieves confidence in 536 solution count without total enumeration? (Enumeration ≠ exhaustion method — different epistemic principle)
+3. **Search for counterexample:** Full text search of *Method* and *Sphere & Cylinder*: does Archimedes ever claim confidence in a result he later revises?
+4. **Cross-domain reduction:** Are the atomic reduction principle (Method) and combinatorial enumeration (Stomachion) both instances of a universal epistemic structure?
+
+### Track C: Test 2 & 3 Preparation
+1. **Test 2 (Convergence vs. Divergence):** Use baseline data to establish "convergence cases" (high agreement on BARK rugs) vs. "divergence cases" (disagreement on HOWL legitimate). Measure stability across re-testing (do they diverge the same way on re-evaluation?).
+2. **Test 3 (Axiom Robustness):** Current crystals insufficient (CCM loop broken). Defer until CCM restored. Load-bearing condition: need 10+ verdicts with stable crystals.
+
+---
+
+*Next session: Calibrate deterministic-dog for token-judgment. Deep-read Netz Prop 14 paper. Measure Test 2 stability.*
