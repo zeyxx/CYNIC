@@ -1,0 +1,18 @@
+[Unit]
+Description=CYNIC Hermes Agent Executor — autonomous meta-agent task runner
+After=cynic-kernel.service hermes-x-ingest.service
+Wants=hermes-x-ingest.service
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/cynic/env
+EnvironmentFile=%h/.cynic-env
+Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/hermes_agent_task_executor.py --organ-dir %h/.cynic/organs/hermes/x
+Restart=on-failure
+RestartSec=30s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
