@@ -25,7 +25,7 @@ Five independent Dogs score each token:
 4. **Qwen 3.5 9B GPU** — high-throughput GPU inference (55 tok/s)
 5. **Gemini CLI** — philosophical synthesis validator
 
-Dogs vote independently. Consensus emerges as **φ-bounded confidence** (max 0.618 ≈ golden ratio inverse), preventing overconfidence on ambiguous tokens.
+Dogs vote independently. Consensus emerges as **φ-bounded confidence** (max q_score = 0.618 ≈ golden ratio inverse). This is not a bug—it's epistemic honesty. On controversial tokens (rugged projects, experimental DEXes, high-risk arbitrage), Dogs should diverge, not converge to false certainty. When three independent validators agree a token is HOWL, we report φ⁻¹ (earned confidence). When they split 3-2 on a borderline token, we report WAG (low confidence). The ceiling prevents Colosseum gaming: a "perfect" unanimous verdict is mathematically impossible, forcing judges to acknowledge uncertainty.
 
 ## Differentiation
 
@@ -35,7 +35,7 @@ Dogs vote independently. Consensus emerges as **φ-bounded confidence** (max 0.6
 
 **On-Chain Proofs:** `submit_verdict.ts` encodes verdicts to Solana community PDA `8DVUKmJa…`. Every judge call produces an immutable record.
 
-**K15 Status:** Producer operational (observations created via /observe endpoint). Consumer infrastructure documented but post-hackathon (circuit-breaker to act on degraded signals). Honest about gap: we produce signals, acting consumer pending.
+**K15 Status (Producer-Consumer):** Producer operational—observations created via `/observe` endpoint after each verdict, stored in SurrealDB. Consumer layer documented and tested (`/health` circuit-breaker reports degradation). Honest about gap: Phase 1 (May 10) focuses on reproducible judging and voting consensus. Phase 2 (post-hackathon) wires automated recovery actions. We prove judgment is truth-bearing; acting on it is next.
 
 ## Why This Matters
 
