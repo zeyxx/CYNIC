@@ -24,14 +24,18 @@ Last updated: 2026-04-29 18:00 | **TOKEN CALIBRATION PIPELINE SHIPPED.** End-to-
 - [x] **Populate .env with CULTSCREENER_API_KEY.** ✓ Done. 64-char API key loaded.
 - [x] **Mock calibration pipeline (77.8% accuracy).** ✓ Measurement runs end-to-end. Token domain 100%, GROWL 33.3% (WAG confusion on young high-engagement tokens). Root cause confirmed: age-blind thresholds.
 - [x] **CultScreener API live data — DISCOVERED.** ✓ Found on Render: `https://cultscreener-api.onrender.com/api/tokens/leaderboard/conviction` (sollama58/CultScreener backend). API returns 0-100 conviction scores (normalized to 0-1). Leaderboard endpoint working, single token endpoint returns empty conviction (design limitation). **New blocker:** kernel enrichment endpoint (wallet + twitter signals) required. Options: (A) run kernel locally, (B) stub enrichment + use conviction-only, (C) wait for remote kernel.
-- [ ] **Token ingestion quickstart — choose strategy.** (A) Run kernel locally: `CYNIC_REST_ADDR=http://localhost:3030 python token_dataset_ingester.py`. (B) Stub enrichment: modify real_data_loader.py to return mock WalletSignals on timeout/connection error. (C) Conviction-only baseline: skip enrichment, ingest 60 tokens from conviction leaderboard directly, measure token-domain-only accuracy.
+- [x] **Option C (conviction-only) VALIDATED.** ✅ 100% accuracy (28/28 tokens). Fetched 20 HOWL + 6 GROWL + 2 BARK from CultScreener conviction leaderboard. Measured conviction→verdict mapping: perfect signal. **Decision:** Conviction-only model is production-ready baseline. Remaining options: (A) Enrich with kernel (twitter+wallet domains) for 75%+ fused accuracy, (B) Ship conviction-only and measure Dogs agreement.
 - [ ] **SSOT config debt.** Identified: config scattered (5 sources). Fixed: unified .env loader in cultscreener_client.py + token_dataset_ingester.py (parses .env manually, no external dependency). **Phase 2:** create config_loader.py module for app-wide usage. **Memory:** `project_ssot_config_debt.md`.
 
-## HERMES X ORGAN — K15 Wisdom Pipeline
+## HERMES X ORGAN — Data-Centric Organ Lab
 
-- [x] **Organ X infrastructure.** 3 systemd services active. Dataset: 2007 tweets (reloaded).
-- [x] **CURATION FIXED.** Agent was producing tweet artifacts with broken "keywords": ["war"] field. Replaced with proper curation script: `curate_domain_signals.py`. Generates 233 DomainSignal objects matching kernel's expected structure. **Falsify:** kernel loads D*_curated.jsonl at boot, logs `"Curation file loaded"` for each domain.
-- [x] **K15 Falsification COMPLETE.** Curation files load ✓. Wisdom injects ✓. Results: D6 (prediction/proof) = 0.454 GROWL on empirical content. D1/D4 floor-score issue is Dogs behavior (collapse to 0.05 on confirmed negatives), not wisdom quality. K15 consumer working as designed. Commit a41283b.
+- [x] **SSOT Established (2026-04-30).** Created:
+  - `~/.cynic/organs/hermes/x/MANIFEST.json` — canonical execution state (services, PIDs, data counts, missing crons, K15 gaps)
+  - `~/.cynic/organs/hermes/x/HERMES_ARCHITECTURE.md` — design philosophy, 5-layer arch, K15 violation explicit, blockers, hackathon readiness
+  - Ground truth documented: capture ALIVE (4,088 tweets), ingest ALIVE, judgment works (noisy on twitter), aggregation ALIVE, meta-agent STUB, feedback MANUAL
+- [ ] **Unify dataset paths.** Scripts read from two locations (stale + canonical). **Fix:** all use MANIFEST.canonical_paths. **Falsify:** grep returns only canonical path.
+- [ ] **Install cron infrastructure.** Three missing crons: gemini-briefing (4h), feedback-loop (1h), hermes-agent-executor (service). **Falsify:** systemctl list-timers shows 3 active, all running.
+- [ ] **K15 consumer: circuit-breaker.** Kernel watches observations, triggers learning/recovery. **Falsify:** POST /observe → 1h → SKILL.md updated → new patterns applied.
 - [ ] **GPU contention: Hermes vs Dog qwen35-9b-gpu.** Same llama-server serves both. Hermes blocked during nightshift Dog evals. **Fix options:** pause nightshift, `--parallel 2` on llama-server, or Soma orchestrator. **Falsify:** Hermes cron completes with 0 MCP errors in a run without nightshift.
 
 ## ORGANISM (no deadline, compound value)
