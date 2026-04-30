@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-30 08:35 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merged, commit 6a1f09a). 109 commits merged cleanly via surgical approach (file count 586, zero data loss). PR#47+#46 closed. All stale branches deleted. **READY FOR:** Hackathon May 4 registration, May 10 submission. Hermes X organism + K15 infrastructure LIVE on main.
+Last updated: 2026-04-30 15:42 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merged, commit 6a1f09a). 109 commits merged cleanly via surgical approach (file count 586, zero data loss). PR#47+#46 closed. All stale branches deleted. **READY FOR:** Hackathon May 4 registration, May 10 submission. Hermes X organism + K15 infrastructure LIVE on main. **NEW:** May 1-10 three-voice organic launch STAGED (philosophy thread finalized, checklist ready, kernel running).
 
 ---
 
@@ -37,8 +37,8 @@ Last updated: 2026-04-30 08:35 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 - [x] **Test K15 consumer on live data (VALIDATED).** Kernel running at `<TAILSCALE_CORE>:3030`. Consumer fetched 100 observations, scored all as high-signal, dispatched 22 tasks before rate limiting. **Status:** K15 Seam 2 operational ✓. Task: `/observations` → K15Consumer → `/agent-tasks` confirmed working. **Commit:** 6d6922b.
 - [x] **Deploy K15 consumer to systemd.** hermes-k15-consumer.service wired (fixed: localhost→Tailscale addr). Polling /observations (infrastructure domain), dispatching high-signal to /agent-tasks. Status: LIVE 2026-04-30 01:54. **Next:** infrastructure-monitor.service (domain-aware failure routing).
 - [x] **Deploy infrastructure-monitor consumer.** k15_infrastructure_consumer.py deployed via hermes-infrastructure-monitor.service. Routes probe failures: timeout→remediate, unreachable→alert, mismatch→alert. Live 2026-04-30 02:36. **Status:** K15 Seam 3 operational ✓. Tested: 8/8 degraded observations correctly routed to actions.
-- [ ] **Wire /inference/remediate-dog execution (T7).** Currently returns status without acting. Needs ts_exec_call.sh bridge. Routes to recovery: systemctl restart on degraded nodes. **Blocked:** Need to implement /scripts/ts_exec_call.sh (MCP wrapper).
-- [ ] **Extract K11 hardcoding (port 8080, dog_config).** When remediate_handler becomes 2nd consumer of probe_node(), move to backends.toml. **Falsify:** no hardcoded IPs/ports in inference_router.rs.
+- [x] **Wire /inference/remediate-dog execution (T7).** Implemented ts_exec_call.sh bridge (direct SSH to Tailscale nodes). Returns JSON {exit_code} as expected by kernel. Supports systemctl restart/start on degraded nodes. Endpoint operational 2026-04-30 11:35. **Status:** K15 Seam 3 complete ✓. Recovery routing: timeout→remediate, unreachable→alert, mismatch→alert.
+- [ ] **Extract K11 hardcoding (port 8080, dog_config).** Hardcoded in inference_router.rs (line 283: "systemctl restart llama-server"), node_probe.rs (port 8080). When remediate_handler becomes 2nd consumer of probe_node(), move to backends.toml. **Falsify:** no hardcoded IPs/ports in inference_router.rs or backends.rs. **Deadline: May 2** (unblock dynamic Dog discovery).
 - [ ] **Measurement workflow validation.** Manual test: baseline → change heuristic → compare before/after. Verify deltas computed correctly on real dataset (4,146 tweets). **Falsify:** sensitivity/specificity/Pearson r deltas match manual calculations.
 
 ## HERMES X ORGAN — Data-Centric Organ Lab
