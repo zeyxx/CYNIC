@@ -304,3 +304,23 @@ if [[ "$KERNEL_STATUS" != "down" ]]; then
         echo "$CRYSTALS" | jq -r '.[] | select(.state == "crystallized" or .state == "canonical") | "  [\(.state)] \(.content) (confidence: \(.confidence | tostring | .[0:4]), \(.observations) obs)"' 2>/dev/null | head -5 || true
     fi
 fi
+
+# ── Domain wisdom injection (high-strength curated signals) ──
+CURATION_DIR="${PROJECT_DIR}/cynic-python/curation"
+if [[ -d "$CURATION_DIR" ]]; then
+    WISDOM_COUNT=0
+    WISDOM_OUT=""
+    for f in "$CURATION_DIR"/D*_curated.jsonl; do
+        [[ -f "$f" ]] || continue
+        SIGNAL=$(jq -r 'select(.strength >= 0.8) |
+            "[" + .domain + "] " + (.pattern[:80] | gsub("\n";" ")) + " (s=" + (.strength|tostring) + ")"' \
+            "$f" 2>/dev/null | head -1 || true)
+        [[ -n "$SIGNAL" ]] && WISDOM_OUT="${WISDOM_OUT}  ${SIGNAL}\n" && WISDOM_COUNT=$((WISDOM_COUNT+1))
+        [[ $WISDOM_COUNT -ge 3 ]] && break
+    done
+    if [[ $WISDOM_COUNT -gt 0 ]]; then
+        echo ""
+        echo "DOMAIN WISDOM (${WISDOM_COUNT} high-strength signals):"
+        printf "%b" "$WISDOM_OUT"
+    fi
+fi

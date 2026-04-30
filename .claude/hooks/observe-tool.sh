@@ -12,6 +12,7 @@ API_KEY="${CYNIC_API_KEY:-}"
 
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+TOOL_USE_ID=$(echo "$INPUT" | jq -r '.tool_use_id // empty')
 AGENT_ID="claude-${SESSION_ID:0:12}"
 [[ "$SESSION_ID" == "" ]] && AGENT_ID="unknown"
 
@@ -39,6 +40,42 @@ case "$TOOL_NAME" in
         ;;
 esac
 
+# ── Derive domain from file path or command ──
+DOMAIN="general"
+case "$TARGET" in
+    */cynic-kernel/*) DOMAIN="rust" ;;
+    */cynic-python/*) DOMAIN="python" ;;
+    */.claude/*) DOMAIN="harness" ;;
+    */docs/*) DOMAIN="docs" ;;
+    */scripts/*) DOMAIN="ops" ;;
+esac
+if [[ "$TOOL_NAME" == "Bash" ]]; then
+    case "$TARGET" in
+        cargo*|make*) DOMAIN="rust" ;;
+        python3*|pip*) DOMAIN="python" ;;
+        git*|gh*) DOMAIN="git" ;;
+        curl*|systemctl*) DOMAIN="ops" ;;
+    esac
+fi
+
+# ── Derive action tags ──
+TAGS='[]'
+case "$TOOL_NAME" in
+    Edit) TAGS='["edit"]' ;;
+    Write) TAGS='["write"]' ;;
+    Read) TAGS='["read"]' ;;
+    Bash)
+        case "$TARGET" in
+            cargo\ build*|cargo\ check*|make*) TAGS='["build"]' ;;
+            cargo\ test*|pytest*) TAGS='["test"]' ;;
+            cargo\ clippy*) TAGS='["lint"]' ;;
+            git\ commit*|git\ push*|gh\ pr*) TAGS='["ship"]' ;;
+            curl*) TAGS='["probe"]' ;;
+            *) TAGS='["bash"]' ;;
+        esac ;;
+    Grep|Glob) TAGS='["search"]' ;;
+esac
+
 # Determine status from tool output (heuristic: check if error/blocked)
 STATUS="success"
 TOOL_OUTPUT=$(echo "$INPUT" | jq -r '.tool_output // empty' 2>/dev/null | head -c 200 || true)
@@ -52,9 +89,14 @@ PAYLOAD=$(jq -n \
     --arg target "$TARGET" \
     --arg status "$STATUS" \
     --arg context "${TOOL_OUTPUT:0:200}" \
+    --arg domain "$DOMAIN" \
     --arg agent_id "$AGENT_ID" \
     --arg session_id "$SESSION_ID" \
-    '{tool: $tool, target: $target, status: $status, context: $context, agent_id: $agent_id, session_id: $session_id}')
+    --arg tool_use_id "$TOOL_USE_ID" \
+    --argjson tags "$TAGS" \
+    '{tool: $tool, target: $target, status: $status, context: $context,
+      domain: $domain, agent_id: $agent_id, session_id: $session_id,
+      tool_use_id: $tool_use_id, tags: $tags}')
 
 # Fire-and-forget — POST in background, ignore result
 AUTH_HEADER=""
