@@ -73,8 +73,9 @@ ORIGIN_COMMIT=$(git -C "$PROJECT_DIR" rev-parse --short origin/main 2>/dev/null 
 ORIGIN_AHEAD=$(git -C "$PROJECT_DIR" rev-list HEAD..origin/main --count 2>/dev/null || echo 0)
 ORIGIN_BEHIND=$(git -C "$PROJECT_DIR" rev-list origin/main..HEAD --count 2>/dev/null || echo 0)
 
-# Collect open branches (exclude HEAD)
-OPEN_BRANCHES=$(git -C "$PROJECT_DIR" branch --list 2>/dev/null | grep -v '^\*' | sed 's/^[[:space:]]*//' | jq -R -s -c 'split("\n") | map(select(length > 0))' || echo "[]")
+# Collect open LOCAL branches only (exclude HEAD, exclude remote branches)
+# Filter: only lines that DON'T start with 'remotes/' (git branch --list shows local only, but be explicit)
+OPEN_BRANCHES=$(git -C "$PROJECT_DIR" branch --list 2>/dev/null | grep -v '^\*' | sed 's/^[[:space:]]*//' | grep -v '^remotes/' | jq -R -s -c 'split("\n") | map(select(length > 0))' || echo "[]")
 
 # Collect open PRs (if gh is available)
 OPEN_PRS="[]"
@@ -85,11 +86,22 @@ fi
 # Collect stashes
 STASHES=$(git -C "$PROJECT_DIR" stash list 2>/dev/null | jq -R -s -c 'split("\n") | map(select(length > 0))' || echo "[]")
 
-# Write AT_START proof
+# K15: Collect claimed modules from active agents (MC4 constraint detection)
+# If kernel is down, skip — don't block session start on kernel availability
+CLAIMED_MODULES="[]"
+if [[ "$KERNEL_STATUS" != "down" ]]; then
+    WHO_JSON=$(curl -s --max-time 2 \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        "http://${KERNEL_ADDR}/coord/who" 2>/dev/null || echo '{}')
+    # Extract all claims from all active agents and flatten into single array
+    CLAIMED_MODULES=$(echo "$WHO_JSON" | jq -c '[.agents[]? | select(.active == true) | .claims[]? // empty] | unique' 2>/dev/null || echo "[]")
+fi
+
+# Write AT_START proof (includes coordination state for MC4 blocking)
 cat > "$PROOF_FILE" << PROOF_EOF
 {
   "session_id": "${AGENT_ID}",
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "recorded_at": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
   "AT_START": {
     "branch_name": "${GIT_BRANCH}",
@@ -101,6 +113,7 @@ cat > "$PROOF_FILE" << PROOF_EOF
     "open_branches": ${OPEN_BRANCHES},
     "open_prs": ${OPEN_PRS},
     "stashes": ${STASHES},
+    "claimed_by_active_agents": ${CLAIMED_MODULES},
     "kernel_status": "${KERNEL_STATUS}",
     "dogs_active": ${ACTIVE_DOGS}
   }
@@ -108,16 +121,23 @@ cat > "$PROOF_FILE" << PROOF_EOF
 PROOF_EOF
 
 # Check for violations from last session (AT_END that became AT_START of this session)
-# Weakness: this heuristic is simple — open_branches > 1 or origin_ahead > 0 = violation
+# Rule: violation = work that could be lost or coordination debt from previous session
 GIT_VIOLATIONS=""
-if [[ ${ORIGIN_BEHIND} -gt 0 ]]; then
-    GIT_VIOLATIONS="LOCAL ${ORIGIN_BEHIND} commits not pushed to origin/main"
+
+# V1: If on main AND have unpushed commits → violation (could lose work on main)
+if [[ "${GIT_BRANCH}" == "main" && ${ORIGIN_BEHIND} -gt 0 ]]; then
+    GIT_VIOLATIONS="On main with ${ORIGIN_BEHIND} unpushed commits (risk: could be lost)"
 fi
-if [[ $(echo "$OPEN_BRANCHES" | jq 'length') -gt 1 ]]; then
-    GIT_VIOLATIONS="${GIT_VIOLATIONS:+$GIT_VIOLATIONS; }$(echo "$OPEN_BRANCHES" | jq 'length') branches remain open (review MC2)"
+
+# V2: Multiple open branches → coordination debt (MC2 violation: PR before new work)
+OPEN_BRANCH_COUNT=$(echo "$OPEN_BRANCHES" | jq 'length')
+if [[ ${OPEN_BRANCH_COUNT} -gt 1 ]]; then
+    GIT_VIOLATIONS="${GIT_VIOLATIONS:+$GIT_VIOLATIONS; }${OPEN_BRANCH_COUNT} branches remain open (MC2: review if PRs are merged)"
 fi
+
+# V3: Stale stashes → incomplete work from previous session
 if [[ $(echo "$STASHES" | jq 'length') -gt 0 ]]; then
-    GIT_VIOLATIONS="${GIT_VIOLATIONS:+$GIT_VIOLATIONS; }$(echo "$STASHES" | jq 'length') stashes exist (previous session incomplete?)"
+    GIT_VIOLATIONS="${GIT_VIOLATIONS:+$GIT_VIOLATIONS; }$(echo "$STASHES" | jq 'length') stashes exist (previous session work not completed)"
 fi
 
 # Agent ID from Claude session_id (stable across compactions) ──
@@ -175,6 +195,15 @@ if [[ -n "$GIT_VIOLATIONS" ]]; then
     echo "⚠ GIT STATE VIOLATIONS (Rule MC2/MC5 — coordinate before proceeding):"
     echo "  $GIT_VIOLATIONS"
     echo "  → Review .claude/session-proof.json for previous session state"
+fi
+
+# K15: MC4 — Warn about module claims from other active agents
+CLAIMED_COUNT=$(echo "$CLAIMED_MODULES" | jq 'length')
+if [[ ${CLAIMED_COUNT} -gt 0 ]]; then
+    echo ""
+    echo "⚠ ACTIVE MODULE CLAIMS (Rule MC4 — other cortices are editing):"
+    echo "$CLAIMED_MODULES" | jq -r '.[] | "  → \(.)"' 2>/dev/null | head -10 || true
+    echo "  Before editing these modules, verify other sessions are done (check /coord/who)."
 fi
 
 # ── Last session compliance (K15: session-stop produces, this consumes) ──

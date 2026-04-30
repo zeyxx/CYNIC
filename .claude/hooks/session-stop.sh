@@ -94,6 +94,36 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
     fi
 fi
 
+# ── K15: Update AT_END proof in .claude/session-proof.json (immutable record) ──
+# Read the AT_START proof that session-init.sh created, append AT_END fields.
+# This creates a complete proof record for next session to audit.
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROOF_FILE="${PROJECT_DIR}/.claude/session-proof.json"
+
+if [[ -f "$PROOF_FILE" ]]; then
+    # Add AT_END fields to existing proof (uses jq to merge safely)
+    END_COMMIT=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    BRANCHES_DELETED=$(git -C "$PROJECT_DIR" branch -vv 2>/dev/null | grep '\[gone\]' | wc -l || echo 0)
+
+    # Tentative: has any staged/unstaged changes? (Would be lost if not committed)
+    WORK_LOST=""
+    DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | grep -v '^??' | head -3)
+    if [[ -n "$DIRTY" ]]; then
+        WORK_LOST="uncommitted changes present (review git status)"
+    fi
+
+    # Use jq to append AT_END to the proof JSON (safe merge)
+    jq ".AT_END = {
+      \"final_commit_hash\": \"${END_COMMIT}\",
+      \"branches_deleted\": ${BRANCHES_DELETED},
+      \"duration_minutes\": ${SESSION_MINUTES:-0},
+      \"commits_produced\": ${COMMITS_THIS_SESSION:-0},
+      \"compliance_score\": ${SCORE:-\"unknown\"},
+      \"work_lost\": $(jq -R -s -c . <<< "${WORK_LOST:-none}"),
+      \"completed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"
+    }" "$PROOF_FILE" > "${PROOF_FILE}.tmp" && mv "${PROOF_FILE}.tmp" "$PROOF_FILE"
+fi
+
 # ── Inter-agent bus: POST session summary to /observe (domain=session) ──
 # This is the structured handover channel. Other agents (Claude, Gemini, nightshift)
 # read domain="session" observations at session start to understand prior work.
