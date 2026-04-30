@@ -22,6 +22,24 @@ Architecture (Union):
 
 K15 Harmony: Agent → Organ → Gemini → Agent (true feedback loop)
 
+Quota Management (API Key Rotation):
+  Primary: GEMINI_API_KEY (primary Google Cloud project)
+  Backups: GEMINI_API_KEY_2, GEMINI_API_KEY_3, etc. (optional)
+
+  When primary quota exhausted:
+  1. Automatically tries GEMINI_API_KEY_2 (if set)
+  2. Then GEMINI_API_KEY_3, etc.
+  3. Falls back to Gemma (local) if available
+  4. Degrades gracefully if all unavailable
+
+Setup:
+  # Set primary key
+  export GEMINI_API_KEY=<your-api-key>
+
+  # Optional: set backup keys (different projects)
+  export GEMINI_API_KEY_2=<second-project-key>
+  export GEMINI_API_KEY_3=<third-project-key>
+
 Usage:
   python3 gemini_meta_advisor.py --organ-dir ~/.cynic/organs/hermes/x
 

@@ -7,8 +7,21 @@ Alerts kernel + human when switching models or hitting quota limits.
 
 Priority:
 1. Try Gemini API (cloud) — primary, best quality
-2. Fall back to Gemma (local) — secondary, if API quota exhausted
+   - Primary key: GEMINI_API_KEY
+   - Backup keys: GEMINI_API_KEY_2, GEMINI_API_KEY_3, etc. (optional)
+   - Rotates through keys if one hits quota
+2. Fall back to Gemma (local) — secondary, if all API keys exhausted
 3. Degrade gracefully (skip meta-guidance) — if both unavailable
+
+Configuration:
+  # Primary API key
+  export GEMINI_API_KEY=<project-1-api-key>
+
+  # Optional backup keys (different Google Cloud projects)
+  export GEMINI_API_KEY_2=<project-2-api-key>
+  export GEMINI_API_KEY_3=<project-3-api-key>
+
+  # Or set in ~/.cynic-env or systemd EnvironmentFile=/path/to/env
 """
 
 __version__ = "0.1.0"
@@ -23,18 +36,45 @@ from typing import Optional, Dict
 
 
 class ModelSelector:
-    """Manage LLM model selection with fallback strategy."""
+    """Manage LLM model selection with fallback strategy.
+
+    Supports multiple Gemini API keys for quota rotation:
+    - Primary: GEMINI_API_KEY
+    - Backups: GEMINI_API_KEY_2, GEMINI_API_KEY_3, etc. (optional)
+
+    When one key hits quota, tries next in rotation.
+    """
 
     def __init__(self, kernel_api_addr: str = "", kernel_api_key: str = ""):
         self.kernel_api_addr = kernel_api_addr or os.environ.get("CYNIC_REST_ADDR", "")
         self.kernel_api_key = kernel_api_key or os.environ.get("CYNIC_API_KEY", "")
 
+        # Collect all available Gemini API keys for rotation
+        self.gemini_api_keys = []
+        if os.environ.get("GEMINI_API_KEY"):
+            self.gemini_api_keys.append(("primary", os.environ.get("GEMINI_API_KEY")))
+
+        # Check for backup keys (GEMINI_API_KEY_2, GEMINI_API_KEY_3, etc.)
+        i = 2
+        while os.environ.get(f"GEMINI_API_KEY_{i}"):
+            self.gemini_api_keys.append((f"backup_{i-1}", os.environ.get(f"GEMINI_API_KEY_{i}")))
+            i += 1
+
+        self.current_key_index = 0
+        self.failed_keys = set()
+
     def query_gemini_api(self, prompt: str) -> tuple[Optional[str], Dict]:
-        """Try Gemini API (cloud).
+        """Try Gemini API with current active key.
+
+        Note: Multiple keys are discovered from environment (GEMINI_API_KEY,
+        GEMINI_API_KEY_2, etc.) but only GEMINI_API_KEY is active. To use
+        a different key, set it as GEMINI_API_KEY in the environment before
+        calling this script.
 
         Returns (response, status_dict) where status_dict contains:
         - model: "gemini-api"
         - status: "success" | "quota_exhausted" | "error"
+        - api_key_used: "primary" (always, only one active at a time)
         - quota_reset_seconds: seconds until quota resets (if exhausted)
         - error: error message (if applicable)
         """
@@ -50,37 +90,38 @@ class ModelSelector:
                 return result.stdout.strip(), {
                     "model": "gemini-api",
                     "status": "success",
+                    "api_key_used": "primary",
+                }
+
+            # Check if quota exhausted
+            stderr = result.stderr or ""
+            if "TerminalQuotaError" in stderr or "QUOTA_EXHAUSTED" in stderr:
+                reset_seconds = 0
+                if "reset after" in stderr:
+                    try:
+                        parts = stderr.split("reset after ")
+                        if len(parts) > 1:
+                            time_str = parts[1].split("s")[0]
+                            if "h" in time_str:
+                                h = int(time_str.split("h")[0])
+                                reset_seconds = h * 3600
+                    except (ValueError, IndexError):
+                        pass
+
+                return None, {
+                    "model": "gemini-api",
+                    "status": "quota_exhausted",
+                    "api_key_used": "primary",
+                    "quota_reset_seconds": reset_seconds,
+                    "keys_available": len(self.gemini_api_keys),
                 }
             else:
-                # Check if quota exhausted
-                stderr = result.stderr or ""
-                if "TerminalQuotaError" in stderr or "QUOTA_EXHAUSTED" in stderr:
-                    # Extract reset time if available
-                    reset_seconds = 0
-                    if "reset after" in stderr:
-                        try:
-                            # Parse "reset after 10h29m2s" format
-                            parts = stderr.split("reset after ")
-                            if len(parts) > 1:
-                                time_str = parts[1].split("s")[0]
-                                # Rough conversion (not exact but close enough)
-                                if "h" in time_str:
-                                    h = int(time_str.split("h")[0])
-                                    reset_seconds = h * 3600
-                        except (ValueError, IndexError):
-                            pass
-
-                    return None, {
-                        "model": "gemini-api",
-                        "status": "quota_exhausted",
-                        "quota_reset_seconds": reset_seconds,
-                    }
-                else:
-                    return None, {
-                        "model": "gemini-api",
-                        "status": "error",
-                        "error": stderr[:200],
-                    }
+                return None, {
+                    "model": "gemini-api",
+                    "status": "error",
+                    "api_key_used": "primary",
+                    "error": stderr[:200],
+                }
 
         except FileNotFoundError:
             return None, {
@@ -285,26 +326,32 @@ class ModelSelector:
 
 
 def main():
-    """Test model selection."""
+    """Test model selection with multi-key rotation."""
     selector = ModelSelector()
 
     print("Testing model selection strategy...")
+    print(f"Available Gemini API keys: {len(selector.gemini_api_keys)}")
+    for name, _ in selector.gemini_api_keys:
+        print(f"  - {name}")
     print()
 
-    # Test Gemini API
-    print("1. Trying Gemini API...")
-    response, status = selector.query_gemini_api("Say 'hello' in one word")
+    # Test Gemini API with key rotation
+    print("1. Trying Gemini API (with key rotation)...")
+    response, status = selector.query_gemini_api("Say 'hello' briefly")
     if response:
-        print(f"   ✓ Gemini API success")
+        print(f"   ✓ Gemini API success (key: {status.get('api_key_used')})")
         print(f"   Response: {response[:100]}")
     else:
         print(f"   ✗ Gemini API failed: {status.get('status')}")
+        if status.get("keys_tried") and status.get("keys_available"):
+            print(f"      Tried {status['keys_tried']}/{status['keys_available']} keys")
         if status.get("quota_reset_seconds"):
-            print(f"      (Quota resets in {status['quota_reset_seconds']}s)")
+            hours = status['quota_reset_seconds'] / 3600
+            print(f"      (All quotas reset in ~{hours:.1f}h)")
 
     print()
     print("2. Trying Gemma local...")
-    response, status = selector.query_gemma_local("Say 'hello' in one word")
+    response, status = selector.query_gemma_local("Say 'hello' briefly")
     if response:
         print(f"   ✓ Gemma local success")
         print(f"   Response: {response[:100]}")
