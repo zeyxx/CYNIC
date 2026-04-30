@@ -73,17 +73,29 @@ class VerdictSensor:
                 try:
                     with open(verdict_file, 'r') as f:
                         obj = json.load(f)
+                        # Kernel emits nested structure: obj["verdict"] contains the actual verdict
+                        v = obj.get("verdict", {})
+
+                        # Extract q_score from nested structure (may be object or float)
+                        q_score_raw = v.get("q_score", 0.0)
+                        q_score = q_score_raw.get("total", 0.0) if isinstance(q_score_raw, dict) else q_score_raw
+
+                        # Content is the judgment text: v["verdict"]
+                        content = v.get("verdict", "")
+                        domain = v.get("domain", "general")
+                        verdict_type = v.get("verdict", "unknown").upper()  # Capitalize: "Bark" -> "BARK"
+
                         verdict = Verdict(
-                            id=obj.get("id", verdict_file.stem),
-                            content=obj.get("content", ""),
-                            domain=obj.get("domain", "general"),
-                            q_score=obj.get("q_score", 0.0),
-                            verdict_type=obj.get("verdict_type", "unknown"),
-                            timestamp=obj.get("timestamp", ""),
-                            created_at=obj.get("created_at", ""),
+                            id=v.get("verdict_id", verdict_file.stem),
+                            content=content,
+                            domain=domain,
+                            q_score=q_score,
+                            verdict_type=verdict_type,
+                            timestamp=v.get("timestamp", ""),
+                            created_at=obj.get("captured_at", ""),
                         )
                         verdicts.append(verdict)
-                except (json.JSONDecodeError, KeyError):
+                except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
                     pass
         except Exception:
             pass

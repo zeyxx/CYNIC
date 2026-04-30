@@ -54,7 +54,7 @@ class DataTransformer:
 
         return valid, dropped
 
-    def clean_verdicts(self, verdicts: list) -> tuple[list, int]:
+    def clean_verdicts(self, verdicts: list) -> tuple[list, int, dict]:
         """
         Validate and clean verdicts.
 
@@ -64,28 +64,32 @@ class DataTransformer:
         - verdict_type must be one of known types
 
         Returns:
-            (valid_verdicts, dropped_count)
+            (valid_verdicts, dropped_count, drop_reasons dict)
         """
         valid_types = {"HOWL", "BARK", "GROWL", "WAG", "unknown"}
         valid = []
-        dropped = 0
+        drop_reasons = {
+            "missing_content_or_domain": 0,
+            "q_score_out_of_range": 0,
+            "invalid_verdict_type": 0,
+        }
 
         for verdict in verdicts:
             if not verdict.content or not verdict.domain:
-                dropped += 1
+                drop_reasons["missing_content_or_domain"] += 1
                 continue
 
             if not (0.0 <= verdict.q_score <= 1.0):
-                dropped += 1
+                drop_reasons["q_score_out_of_range"] += 1
                 continue
 
             if verdict.verdict_type not in valid_types:
-                dropped += 1
+                drop_reasons["invalid_verdict_type"] += 1
                 continue
 
             valid.append(verdict)
 
-        return valid, dropped
+        return valid, sum(drop_reasons.values()), drop_reasons
 
     def clean_sessions(self, sessions: list) -> tuple[list, int]:
         """
@@ -132,10 +136,10 @@ class DataTransformer:
         """
         # Clean each source
         tweets_valid, tweets_dropped = self.clean_tweets(perception.tweets)
-        verdicts_valid, verdicts_dropped = self.clean_verdicts(perception.verdicts)
+        verdicts_valid, verdicts_dropped, verdict_drop_reasons = self.clean_verdicts(perception.verdicts)
         sessions_valid, sessions_dropped = self.clean_sessions(perception.sessions)
 
-        return CleanedData(
+        cleaned_data = CleanedData(
             timestamp=perception.timestamp,
             tweets_valid=tweets_valid,
             tweets_dropped=tweets_dropped,
@@ -144,3 +148,8 @@ class DataTransformer:
             sessions_valid=sessions_valid,
             sessions_dropped=sessions_dropped,
         )
+
+        # Store drop_reasons as metadata
+        cleaned_data.verdict_drop_reasons = verdict_drop_reasons
+
+        return cleaned_data
