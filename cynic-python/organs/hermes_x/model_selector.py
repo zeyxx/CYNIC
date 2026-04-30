@@ -1,30 +1,35 @@
 #!/usr/bin/env python3
 """
-Model Selection Strategy for Hermes Meta-Agent
+Advanced Model Selection for Hermes Meta-Agent
 
-Manages Gemini API + local Gemma fallback based on quota exhaustion.
-Alerts kernel + human when switching models or hitting quota limits.
-
-Priority:
-1. Try Gemini API (cloud) — primary, best quality
-   - Primary key: GEMINI_API_KEY
-   - Backup keys: GEMINI_API_KEY_2, GEMINI_API_KEY_3, etc. (optional)
-   - Rotates through keys if one hits quota
-2. Fall back to Gemma (local) — secondary, if all API keys exhausted
-3. Degrade gracefully (skip meta-guidance) — if both unavailable
+Multi-account + multi-model discovery and routing:
+1. Discover all available accounts (GEMINI_API_KEY, GEMINI_API_KEY_2, etc.)
+2. Per account, discover available models + quota status
+3. Select best model by cost/speed trade-off
+4. Route: Account1-Pro → Account1-Flash → Account2-Pro → Gemma → Degraded
 
 Configuration:
-  # Primary API key
-  export GEMINI_API_KEY=<project-1-api-key>
+  export GEMINI_API_KEY=<google-cloud-project-1-key>
+  export GEMINI_API_KEY_2=<google-cloud-project-2-key>
+  export GEMINI_API_KEY_3=<google-cloud-project-3-key>
 
-  # Optional backup keys (different Google Cloud projects)
-  export GEMINI_API_KEY_2=<project-2-api-key>
-  export GEMINI_API_KEY_3=<project-3-api-key>
-
-  # Or set in ~/.cynic-env or systemd EnvironmentFile=/path/to/env
+Architecture:
+  ModelSelector
+  ├─ Discover Accounts (scan env for GEMINI_API_KEY_N)
+  │  └─ Per account: test models + quota status
+  │
+  ├─ Model Tiers (priority order)
+  │  ├─ Tier 1: gemini-2.0-flash (fastest, lowest quota cost)
+  │  ├─ Tier 2: gemini-1.5-flash (balanced)
+  │  ├─ Tier 3: gemini-1.5-pro (slowest, highest quality)
+  │  └─ Fallback: gemma-local (no quota)
+  │
+  └─ Select Best Available
+     ├─ Try each account in order: Pro → Flash
+     └─ When account exhausted: skip to next account
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 import json
 import os
@@ -32,342 +37,266 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Tuple
+
+
+class Account:
+    """Represents a Google Cloud project with Gemini API access."""
+
+    def __init__(self, name: str, api_key: str):
+        self.name = name  # "primary", "backup_1", "backup_2", etc.
+        self.api_key = api_key
+        self.available_models = []  # Discovered models
+        self.quota_status = {}  # Per-model quota info
+        self.discovered = False
+
+    def discover_models(self) -> bool:
+        """Test which models are available in this account.
+
+        Returns True if discovery successful, False if account is invalid/inaccessible.
+        """
+        models_to_try = [
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+        ]
+
+        for model in models_to_try:
+            try:
+                result = subprocess.run(
+                    ["gemini", "-m", model, "-p", "test"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    env={**os.environ, "GEMINI_API_KEY": self.api_key},
+                )
+
+                if result.returncode == 0:
+                    # Model available in this account
+                    self.available_models.append(model)
+                    self.quota_status[model] = {"status": "available"}
+                elif "QUOTA_EXHAUSTED" in result.stderr or "TerminalQuotaError" in result.stderr:
+                    # Model available but quota exhausted
+                    reset_seconds = 0
+                    if "reset after" in result.stderr:
+                        try:
+                            parts = result.stderr.split("reset after ")
+                            if len(parts) > 1:
+                                time_str = parts[1].split("s")[0]
+                                if "h" in time_str:
+                                    h = int(time_str.split("h")[0])
+                                    reset_seconds = h * 3600
+                        except (ValueError, IndexError):
+                            pass
+                    self.quota_status[model] = {
+                        "status": "quota_exhausted",
+                        "reset_seconds": reset_seconds,
+                    }
+                elif "ModelNotFoundError" in result.stderr or "Requested entity was not found" in result.stderr:
+                    # Model not available in this account
+                    self.quota_status[model] = {"status": "not_available"}
+                else:
+                    # Other error
+                    self.quota_status[model] = {
+                        "status": "error",
+                        "error": result.stderr[:100],
+                    }
+
+            except subprocess.TimeoutExpired:
+                self.quota_status[model] = {"status": "timeout"}
+            except Exception as e:
+                self.quota_status[model] = {"status": "error", "error": str(e)}
+
+        self.discovered = True
+        return len(self.available_models) > 0 or any(
+            s.get("status") == "quota_exhausted"
+            for s in self.quota_status.values()
+        )
 
 
 class ModelSelector:
-    """Manage LLM model selection with fallback strategy.
+    """Intelligent multi-account, multi-model selector with fallback strategy."""
 
-    Supports multiple Gemini API keys for quota rotation:
-    - Primary: GEMINI_API_KEY
-    - Backups: GEMINI_API_KEY_2, GEMINI_API_KEY_3, etc. (optional)
+    def __init__(self):
+        self.accounts: List[Account] = []
+        self.kernel_api_addr = os.environ.get("CYNIC_REST_ADDR", "")
+        self.kernel_api_key = os.environ.get("CYNIC_API_KEY", "")
+        self._discover_accounts()
 
-    When one key hits quota, tries next in rotation.
-    """
-
-    def __init__(self, kernel_api_addr: str = "", kernel_api_key: str = ""):
-        self.kernel_api_addr = kernel_api_addr or os.environ.get("CYNIC_REST_ADDR", "")
-        self.kernel_api_key = kernel_api_key or os.environ.get("CYNIC_API_KEY", "")
-
-        # Collect all available Gemini API keys for rotation
-        self.gemini_api_keys = []
+    def _discover_accounts(self):
+        """Scan environment for all available Gemini API keys."""
+        # Primary account
         if os.environ.get("GEMINI_API_KEY"):
-            self.gemini_api_keys.append(("primary", os.environ.get("GEMINI_API_KEY")))
+            self.accounts.append(
+                Account("primary", os.environ.get("GEMINI_API_KEY"))
+            )
 
-        # Check for backup keys (GEMINI_API_KEY_2, GEMINI_API_KEY_3, etc.)
+        # Backup accounts
         i = 2
         while os.environ.get(f"GEMINI_API_KEY_{i}"):
-            self.gemini_api_keys.append((f"backup_{i-1}", os.environ.get(f"GEMINI_API_KEY_{i}")))
+            self.accounts.append(
+                Account(f"backup_{i-1}", os.environ.get(f"GEMINI_API_KEY_{i}"))
+            )
             i += 1
 
-        self.current_key_index = 0
-        self.failed_keys = set()
+    def discover_all_models(self) -> Dict:
+        """Discover available models across all accounts.
 
-    def query_gemini_api(self, prompt: str) -> tuple[Optional[str], Dict]:
-        """Try Gemini API with current active key.
-
-        Note: Multiple keys are discovered from environment (GEMINI_API_KEY,
-        GEMINI_API_KEY_2, etc.) but only GEMINI_API_KEY is active. To use
-        a different key, set it as GEMINI_API_KEY in the environment before
-        calling this script.
-
-        Returns (response, status_dict) where status_dict contains:
-        - model: "gemini-api"
-        - status: "success" | "quota_exhausted" | "error"
-        - api_key_used: "primary" (always, only one active at a time)
-        - quota_reset_seconds: seconds until quota resets (if exhausted)
-        - error: error message (if applicable)
+        Returns dict: {account_name: {model: quota_status}}
         """
-        try:
-            result = subprocess.run(
-                ["gemini", "-p", prompt],
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-
-            if result.returncode == 0:
-                return result.stdout.strip(), {
-                    "model": "gemini-api",
-                    "status": "success",
-                    "api_key_used": "primary",
-                }
-
-            # Check if quota exhausted
-            stderr = result.stderr or ""
-            if "TerminalQuotaError" in stderr or "QUOTA_EXHAUSTED" in stderr:
-                reset_seconds = 0
-                if "reset after" in stderr:
-                    try:
-                        parts = stderr.split("reset after ")
-                        if len(parts) > 1:
-                            time_str = parts[1].split("s")[0]
-                            if "h" in time_str:
-                                h = int(time_str.split("h")[0])
-                                reset_seconds = h * 3600
-                    except (ValueError, IndexError):
-                        pass
-
-                return None, {
-                    "model": "gemini-api",
-                    "status": "quota_exhausted",
-                    "api_key_used": "primary",
-                    "quota_reset_seconds": reset_seconds,
-                    "keys_available": len(self.gemini_api_keys),
-                }
-            else:
-                return None, {
-                    "model": "gemini-api",
-                    "status": "error",
-                    "api_key_used": "primary",
-                    "error": stderr[:200],
-                }
-
-        except FileNotFoundError:
-            return None, {
-                "model": "gemini-api",
-                "status": "error",
-                "error": "gemini CLI not found",
+        result = {}
+        for account in self.accounts:
+            account.discover_models()
+            result[account.name] = {
+                "available": account.available_models,
+                "quota_status": account.quota_status,
             }
-        except subprocess.TimeoutExpired:
-            return None, {
-                "model": "gemini-api",
-                "status": "error",
-                "error": "timeout",
-            }
-        except Exception as e:
-            return None, {
-                "model": "gemini-api",
-                "status": "error",
-                "error": str(e),
-            }
+        return result
 
-    def query_gemma_local(self, prompt: str) -> tuple[Optional[str], Dict]:
-        """Try local Gemma model.
+    def select_best_model(self) -> Tuple[Optional[str], Optional[str], Dict]:
+        """Select the best available model across all accounts.
 
-        Returns (response, status_dict) where status_dict contains:
-        - model: "gemma-local"
-        - status: "success" | "not_available" | "error"
-        - error: error message (if applicable)
+        Returns: (model_name, account_name, status_dict)
+
+        Priority order (per account):
+        1. gemini-2.0-flash (fastest, cheapest)
+        2. gemini-1.5-flash (balanced)
+        3. gemini-1.5-pro (slowest, best quality)
+
+        Then moves to next account if current exhausted.
         """
-        try:
-            # Test if Gemma server is running
-            result = subprocess.run(
-                ["gemini", "-m", "gemma", "-p", prompt],
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
+        # Discover all models first if not already done
+        for account in self.accounts:
+            if not account.discovered:
+                account.discover_models()
 
-            if result.returncode == 0:
-                return result.stdout.strip(), {
-                    "model": "gemma-local",
-                    "status": "success",
-                }
-            else:
-                stderr = result.stderr or ""
-                if "not installed" in stderr or "not running" in stderr or "not found" in stderr:
-                    return None, {
-                        "model": "gemma-local",
-                        "status": "not_available",
-                        "error": "Gemma not set up. Run: gemini gemma setup",
-                    }
-                else:
-                    return None, {
-                        "model": "gemma-local",
-                        "status": "error",
-                        "error": stderr[:200],
+        # Try each account
+        for account in self.accounts:
+            # Try models in priority order
+            for model in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
+                if model in account.available_models:
+                    return model, account.name, {
+                        "selected_model": model,
+                        "selected_account": account.name,
+                        "status": "available",
                     }
 
-        except FileNotFoundError:
-            return None, {
-                "model": "gemma-local",
-                "status": "error",
-                "error": "gemini CLI not found",
-            }
-        except subprocess.TimeoutExpired:
-            return None, {
-                "model": "gemma-local",
-                "status": "error",
-                "error": "timeout",
-            }
-        except Exception as e:
-            return None, {
-                "model": "gemma-local",
-                "status": "error",
-                "error": str(e),
-            }
+        # No cloud model available, check Gemma local
+        try:
+            result = subprocess.run(
+                ["gemini", "gemma", "status"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and "Running" in result.stdout:
+                return "gemma-local", "local", {
+                    "selected_model": "gemma-local",
+                    "selected_account": "local",
+                    "status": "available",
+                }
+        except Exception:
+            pass
 
-    def select_and_query(self, prompt: str) -> tuple[Optional[str], Dict]:
-        """Select best available model and query.
-
-        Priority: Gemini API → Gemma local → None (degraded)
-
-        Returns (response, status_dict) where status_dict tracks model choices + alerts.
-        """
-        response, api_status = self.query_gemini_api(prompt)
-
-        if response:
-            return response, {
-                "selected_model": "gemini-api",
-                "status": "success",
-                "model_choice_reason": "primary (cloud)",
-            }
-
-        # API failed or quota exhausted
-        if api_status.get("status") == "quota_exhausted":
-            # Alert kernel about quota
-            self.alert_kernel_quota_exhausted(api_status)
-
-        # Try Gemma fallback
-        response, gemma_status = self.query_gemma_local(prompt)
-
-        if response:
-            # Successful fallback
-            reason = "API quota exhausted, using local Gemma"
-            self.alert_kernel_model_switch("gemini-api", "gemma-local", reason)
-            return response, {
-                "selected_model": "gemma-local",
-                "status": "success",
-                "model_choice_reason": reason,
-                "primary_failure": api_status,
-            }
-
-        # Both failed
-        reason = "Gemini API quota exhausted, Gemma unavailable"
-        self.alert_kernel_degraded(api_status, gemma_status, reason)
-        return None, {
+        # All exhausted
+        return None, None, {
             "selected_model": None,
             "status": "degraded",
-            "model_choice_reason": reason,
-            "api_failure": api_status,
-            "gemma_failure": gemma_status,
+            "reason": "All models exhausted",
+            "accounts_tried": len(self.accounts),
+            "accounts_available": len(self.accounts),
         }
 
-    def alert_kernel_quota_exhausted(self, api_status: Dict):
-        """Alert kernel that Gemini API quota is exhausted."""
-        if not self.kernel_api_addr or not self.kernel_api_key:
-            return
+    def query_with_fallback(self, prompt: str) -> Tuple[Optional[str], Dict]:
+        """Query with intelligent fallback across accounts/models.
 
-        alert = {
-            "tool": "model_quota_alert",
-            "target": "hermes-meta-agent",
-            "severity": "warning",
-            "context": f"Gemini API quota exhausted. Reset in {api_status.get('quota_reset_seconds', '?')}s. Falling back to local Gemma if available.",
-            "timestamp": datetime.now().isoformat(),
-            "tags": ["quota-exhausted", "gemini-api"],
-        }
+        Returns: (response, status_dict)
+        """
+        model, account_name, selection = self.select_best_model()
+
+        if not model:
+            return None, selection
 
         try:
-            import requests
+            env = os.environ.copy()
 
-            requests.post(
-                f"{self.kernel_api_addr}/observe",
-                headers={"Authorization": f"Bearer {self.kernel_api_key}"},
-                json=alert,
-                timeout=5,
+            # Set account if it's a cloud model
+            if account_name != "local":
+                account = next(a for a in self.accounts if a.name == account_name)
+                env["GEMINI_API_KEY"] = account.api_key
+
+            result = subprocess.run(
+                ["gemini", "-m", model, "-p", prompt],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=env,
             )
-        except Exception:
-            pass
 
-    def alert_kernel_model_switch(self, from_model: str, to_model: str, reason: str):
-        """Alert kernel that model was switched due to quota/failure."""
-        if not self.kernel_api_addr or not self.kernel_api_key:
-            return
+            if result.returncode == 0:
+                return result.stdout.strip(), {
+                    "selected_model": model,
+                    "selected_account": account_name,
+                    "status": "success",
+                }
+            else:
+                return None, {
+                    "selected_model": model,
+                    "selected_account": account_name,
+                    "status": "error",
+                    "error": result.stderr[:200],
+                }
 
-        alert = {
-            "tool": "model_switch_alert",
-            "target": "hermes-meta-agent",
-            "severity": "info",
-            "context": f"Switched from {from_model} to {to_model}: {reason}",
-            "timestamp": datetime.now().isoformat(),
-            "tags": ["model-switch", from_model, to_model],
-        }
-
-        try:
-            import requests
-
-            requests.post(
-                f"{self.kernel_api_addr}/observe",
-                headers={"Authorization": f"Bearer {self.kernel_api_key}"},
-                json=alert,
-                timeout=5,
-            )
-        except Exception:
-            pass
-
-    def alert_kernel_degraded(self, api_status: Dict, gemma_status: Dict, reason: str):
-        """Alert kernel that meta-agent is degraded (no LLM available)."""
-        if not self.kernel_api_addr or not self.kernel_api_key:
-            return
-
-        alert = {
-            "tool": "meta_agent_degraded",
-            "target": "hermes-meta-agent",
-            "severity": "warning",
-            "context": f"Meta-agent degraded: {reason}. Skipping Gemini synthesis.",
-            "timestamp": datetime.now().isoformat(),
-            "api_failure": api_status,
-            "gemma_failure": gemma_status,
-            "tags": ["degraded", "no-llm"],
-        }
-
-        try:
-            import requests
-
-            requests.post(
-                f"{self.kernel_api_addr}/observe",
-                headers={"Authorization": f"Bearer {self.kernel_api_key}"},
-                json=alert,
-                timeout=5,
-            )
-        except Exception:
-            pass
+        except subprocess.TimeoutExpired:
+            return None, {
+                "selected_model": model,
+                "selected_account": account_name,
+                "status": "timeout",
+            }
+        except Exception as e:
+            return None, {
+                "selected_model": model,
+                "selected_account": account_name,
+                "status": "error",
+                "error": str(e),
+            }
 
 
 def main():
-    """Test model selection with multi-key rotation."""
+    """Test multi-account discovery and selection."""
+    print("Advanced Model Selector v0.2.0")
+    print("=" * 60)
+    print()
+
     selector = ModelSelector()
 
-    print("Testing model selection strategy...")
-    print(f"Available Gemini API keys: {len(selector.gemini_api_keys)}")
-    for name, _ in selector.gemini_api_keys:
-        print(f"  - {name}")
+    print(f"Discovered {len(selector.accounts)} account(s):")
+    for account in selector.accounts:
+        print(f"  - {account.name}")
     print()
 
-    # Test Gemini API with key rotation
-    print("1. Trying Gemini API (with key rotation)...")
-    response, status = selector.query_gemini_api("Say 'hello' briefly")
-    if response:
-        print(f"   ✓ Gemini API success (key: {status.get('api_key_used')})")
-        print(f"   Response: {response[:100]}")
-    else:
-        print(f"   ✗ Gemini API failed: {status.get('status')}")
-        if status.get("keys_tried") and status.get("keys_available"):
-            print(f"      Tried {status['keys_tried']}/{status['keys_available']} keys")
-        if status.get("quota_reset_seconds"):
-            hours = status['quota_reset_seconds'] / 3600
-            print(f"      (All quotas reset in ~{hours:.1f}h)")
+    print("Discovering available models per account...")
+    discovery = selector.discover_all_models()
+    for account_name, info in discovery.items():
+        print(f"\n{account_name}:")
+        print(f"  Available: {info['available']}")
+        for model, status in info["quota_status"].items():
+            print(f"    {model}: {status.get('status', 'unknown')}")
 
     print()
-    print("2. Trying Gemma local...")
-    response, status = selector.query_gemma_local("Say 'hello' briefly")
-    if response:
-        print(f"   ✓ Gemma local success")
-        print(f"   Response: {response[:100]}")
-    else:
-        print(f"   ✗ Gemma local failed: {status.get('status')}")
-        if "not_available" in status.get("status", ""):
-            print(f"      {status.get('error')}")
+    print("Selecting best available model...")
+    model, account, status = selector.select_best_model()
+    print(f"  Selected: {model} (account: {account})")
+    print(f"  Status: {status.get('status')}")
 
-    print()
-    print("3. Full fallback selection...")
-    response, status = selector.select_and_query("Respond with your model name only")
-    print(f"   Selected model: {status.get('selected_model')}")
-    print(f"   Status: {status.get('status')}")
-    print(f"   Reason: {status.get('model_choice_reason')}")
-    if response:
-        print(f"   Response: {response[:100]}")
+    if model:
+        print()
+        print("Testing query...")
+        response, query_status = selector.query_with_fallback("Say 'hello' briefly")
+        if response:
+            print(f"  ✓ Success: {response[:100]}")
+        else:
+            print(f"  ✗ Failed: {query_status.get('status')}")
 
 
 if __name__ == "__main__":

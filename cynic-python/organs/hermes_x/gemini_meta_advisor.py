@@ -177,14 +177,14 @@ Provide concise, actionable guidance that the agent can use to adapt its explora
 Keep response under 500 chars."""
 
         selector = ModelSelector()
-        response, status = selector.select_and_query(prompt)
+        response, status = selector.query_with_fallback(prompt)
 
         if response:
             print(f"Received guidance from {status.get('selected_model')} ({len(response)} chars): {response[:100]}...")
             return response, status
         else:
             # Degraded: both API and Gemma unavailable
-            print(f"Gemini meta-guidance unavailable: {status.get('model_choice_reason')}")
+            print(f"Gemini meta-guidance unavailable: {status.get('status')}")
             print("Falling back to no synthesis (organism will use SKILL.md alone)")
             return None, status
 
