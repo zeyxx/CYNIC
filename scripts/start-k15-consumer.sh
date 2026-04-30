@@ -5,7 +5,11 @@
 set -e
 
 # Get project root (R1: no hardcoded paths)
-PROJECT_ROOT="${CYNIC_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo /home/user/Bureau/CYNIC)}"
+PROJECT_ROOT="${CYNIC_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+if [ -z "$PROJECT_ROOT" ]; then
+    echo "ERROR: CYNIC_ROOT not set and git rev-parse failed" >&2
+    exit 1
+fi
 
 # Source environment variables
 source "$HOME/.cynic-env"

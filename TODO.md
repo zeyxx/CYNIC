@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-30 | **K15 LOOP CLOSED:** Producer (live node probing) + Consumer (routing) LIVE. hermes-k15-consumer.service wired to Tailscale. 100+ infrastructure observations fetched, 5+ tasks dispatched. Domain-aware consumer created (failure_type routing). **NEXT:** Deploy infrastructure consumer + wire remediate execution (T7). **BLOCKED:** llama-servers offline on both nodes, K11 hardcoding debt, video demo. **HACKATHON:** Conviction-only baseline ready (100% accuracy, 28/28), registration May 4, submit May 10 23:59 PDT.
+Last updated: 2026-04-30 22:15 | **K15 LINT GATES CLOSED:** K2 + R1 violations resolved. probe_node() moved to backends/ layer ✅. Script paths fixed to use CYNIC_ROOT env var ✅. API.md updated with /inference/list-models + /inference/start ✅. **STATUS:** 3 commits staged, all linting passed (cargo check, clippy, lint-drift, lint-rules). **BLOCKED:** Pre-push hook runs cargo build which hits LLVM SIGSEGV due to memory pressure + complex DWARF (rmcp, reqwest, blake3 monomorphization). Known issue: rustc 1.95.0 stable + 27GB system with 21GB used + 7.8GB swap full = compilation OOM. **NEXT:** Memory pressure remediation OR test flow with existing binary. **HACKATHON:** Conviction-only baseline ready (100% accuracy, 28/28), registration May 4, submit May 10 23:59 PDT.
 
 ---
 
