@@ -4,6 +4,7 @@ pub mod compliance;
 pub mod constants;
 pub mod contract;
 pub mod coord;
+pub mod dispatch;
 pub mod dog;
 pub mod embedding;
 pub mod enrichment;

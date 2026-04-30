@@ -19,12 +19,12 @@ Domains are scattered across three inconsistent taxonomies:
    - D5: Macro/Politics
    - D6: Epistemology/Philosophy
 
-2. **Hermes X Organ (observed behavior)**:
-   - D1_curated.jsonl: Token (97.3K)
-   - D2_curated.jsonl: Twitter/Social (311.6K) ← **mismatch D2**
-   - D4_curated.jsonl: Chess (7.5K) ← **mismatch D4**
-   - D5_curated.jsonl: Wallet (56.3K) ← **mismatch D5**
-   - D6_curated.jsonl: Other (4.8K) ← **mismatch D6**
+2. **Hermes X Organ (RELABELED 2026-04-30)**:
+   - D1_curated.jsonl: Token (97.3K) ✓
+   - HERMES_TWITTER_curated.jsonl: Twitter/Social (311.6K) (was D2)
+   - HERMES_CHESS_curated.jsonl: Chess (7.5K) (was D4)
+   - HERMES_WALLET_curated.jsonl: Wallet (56.3K) (was D5)
+   - D6_curated.jsonl: Other (4.8K) ✓ (kept — epistemology placeholder)
 
 3. **Kernel routing**:
    - Domain is optional hint, NOT routing dispatcher
