@@ -36,13 +36,30 @@ class TweetSensor:
                 for line in f:
                     try:
                         obj = json.loads(line)
+                        # Classify source stream from query_name
+                        qn = obj.get("query_name", obj.get("source_file", "unknown")) or "unknown"
+                        if qn in ("home-feed", "profile-visit", "tweet-thread", "notification"):
+                            source_stream = "passive"
+                        elif qn.startswith("search:"):
+                            source_stream = "autonomous"
+                        else:
+                            source_stream = "unknown"
+
                         tweet = Tweet(
-                            id=obj.get("id", "unknown"),
+                            id=obj.get("tweet_id", obj.get("id", "unknown")),
                             text=obj.get("text", ""),
-                            author=obj.get("author", "unknown"),
+                            author=obj.get("author_screen_name", obj.get("author", "unknown")),
                             created_at=obj.get("created_at", ""),
                             signal_score=obj.get("signal_score"),
-                            narrative=obj.get("narrative"),
+                            narratives=obj.get("narratives", []),
+                            source_stream=source_stream,
+                            query_name=qn,
+                            engaged=bool(obj.get("viewer_favorited") or obj.get("viewer_retweeted") or obj.get("viewer_bookmarked")),
+                            viewer_favorited=bool(obj.get("viewer_favorited")),
+                            viewer_retweeted=bool(obj.get("viewer_retweeted")),
+                            viewer_bookmarked=bool(obj.get("viewer_bookmarked")),
+                            author_tier=obj.get("author_tier", "unknown"),
+                            author_followers=obj.get("author_followers_count", 0) or 0,
                         )
                         tweets.append(tweet)
                     except (json.JSONDecodeError, KeyError):

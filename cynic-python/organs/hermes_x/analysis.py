@@ -90,20 +90,45 @@ class DataAnalyzer:
     @staticmethod
     def analyze_tweets(tweets: list) -> dict:
         """
-        Analyze tweet patterns.
-
-        Metrics:
-        - Count of high-signal tweets (score > 0)
-        - Average signal score
+        Analyze tweet patterns: signal quality, source streams, T.'s engagement.
         """
+        from collections import Counter
+
         high_signal = [t for t in tweets if t.signal_score is not None and t.signal_score > 0]
         scores = [t.signal_score for t in tweets if t.signal_score is not None]
         avg_score = sum(scores) / len(scores) if scores else 0.0
+
+        # Source stream breakdown
+        streams = Counter(t.source_stream for t in tweets)
+
+        # T.'s engagement as ground truth
+        engaged = [t for t in tweets if t.engaged]
+        engaged_narratives = Counter()
+        for t in engaged:
+            for n in (t.narratives or []):
+                engaged_narratives[n] += 1
+
+        # Engagement rate by stream
+        engagement_by_stream = {}
+        for stream in ("passive", "autonomous", "unknown"):
+            in_stream = [t for t in tweets if t.source_stream == stream]
+            engaged_in = [t for t in in_stream if t.engaged]
+            if in_stream:
+                engagement_by_stream[stream] = {
+                    "total": len(in_stream),
+                    "engaged": len(engaged_in),
+                    "rate": len(engaged_in) / len(in_stream),
+                }
 
         return {
             "tweet_count": len(tweets),
             "high_signal_count": len(high_signal),
             "avg_signal_score": avg_score,
+            "source_streams": dict(streams),
+            "engaged_count": len(engaged),
+            "engagement_rate": len(engaged) / len(tweets) if tweets else 0,
+            "engaged_narratives": dict(engaged_narratives.most_common(5)),
+            "engagement_by_stream": engagement_by_stream,
         }
 
     @staticmethod

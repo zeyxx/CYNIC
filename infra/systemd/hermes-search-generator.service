@@ -5,7 +5,7 @@ PartOf=hermes-search-generator.timer
 
 [Service]
 Type=oneshot
-WorkingDirectory=/home/user/.cynic/organs/hermes/x
+WorkingDirectory=/home/user/.cynic/organs/hermes/x/core
 ExecStart=/usr/bin/python3 search_generation.py
 StandardOutput=journal
 StandardError=journal

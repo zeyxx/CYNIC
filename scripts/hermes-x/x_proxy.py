@@ -286,6 +286,13 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict) -> di
         "capture_ts": datetime.now(timezone.utc).isoformat(),
         "operation": operation,
         "search_query": variables.get("rawQuery", ""),
+        "query_name": (
+            f"search:{variables.get('rawQuery', 'unknown')}" if operation == "SearchTimeline"
+            else "home-feed" if operation == "HomeTimeline"
+            else "tweet-thread" if operation == "TweetDetail"
+            else "profile-visit" if operation == "UserTweets"
+            else operation
+        ),
         "interaction_type": (
             "retweet" if tweet.get("is_retweet") else
             "reply" if tweet.get("is_reply") else "original"
