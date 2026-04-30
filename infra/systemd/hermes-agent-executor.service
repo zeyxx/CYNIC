@@ -5,10 +5,9 @@ Wants=hermes-x-ingest.service
 
 [Service]
 Type=simple
-EnvironmentFile=%h/.config/cynic/env
-EnvironmentFile=%h/.cynic-env
-Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x
-ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/hermes_agent_task_executor.py --organ-dir %h/.cynic/organs/hermes/x
+EnvironmentFile=-/root/.config/cynic/env
+EnvironmentFile=-/root/.cynic-env
+ExecStart=/usr/bin/python3 /root/Bureau/CYNIC/scripts/hermes-x/hermes_agent_task_executor.py --organ-dir /root/.cynic/organs/hermes/x
 Restart=on-failure
 RestartSec=30s
 StandardOutput=journal

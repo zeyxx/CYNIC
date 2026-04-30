@@ -1,0 +1,23 @@
+[Unit]
+Description=Hermes Data Organism — Continuous perception, analysis, reflection
+After=network.target
+
+[Service]
+Type=oneshot
+User=user
+WorkingDirectory=/home/user/Bureau/CYNIC
+
+# Perception cycle: ingest session logs, kernel observations, node data
+ExecStart=/usr/bin/python3 scripts/hermes_data_organism.py
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hermes-data-organism
+
+# Resource limits
+MemoryLimit=256M
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

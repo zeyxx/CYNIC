@@ -122,13 +122,61 @@ def release_task(task: dict, organ_dir: str, success: bool = True):
 
 def load_skill(organ_dir: str) -> str:
     """Load SKILL.md to inject into prompt."""
-    skill_path = Path(organ_dir) / "agent" / "SKILL.md"
+    # Try root SKILL.md first (updated by organ cycle), fall back to agent/SKILL.md
+    skill_path = Path(organ_dir) / "SKILL.md"
+    if not skill_path.exists():
+        skill_path = Path(organ_dir) / "agent" / "SKILL.md"
     if not skill_path.exists():
         return ""
     try:
         return skill_path.read_text()
     except IOError:
         return ""
+
+
+def extract_domain_guidance(skill_content: str) -> str:
+    """Extract domain confidence scores and weights from SKILL.md.
+
+    Looks for patterns like:
+      - **D1 Domain:** 530 verdicts, avg confidence 0.273
+
+    Returns formatted guidance for agent.
+    """
+    if not skill_content:
+        return ""
+
+    domain_weights = []
+
+    # Parse lines containing domain metrics
+    for line in skill_content.split('\n'):
+        if "avg confidence" in line and "Domain:" in line:
+            try:
+                # Extract domain name and confidence
+                parts = line.split("Domain:")
+                if len(parts) > 1:
+                    domain_part = parts[0].split("**")[-1].strip()  # e.g., "D1"
+                    confidence_parts = parts[1].split("avg confidence ")
+                    if len(confidence_parts) > 1:
+                        conf_str = confidence_parts[1].split(',')[0].strip()
+                        confidence = float(conf_str)
+                        domain_weights.append((domain_part, confidence))
+            except (ValueError, IndexError):
+                pass
+
+    if not domain_weights:
+        return ""
+
+    # Sort by confidence descending
+    domain_weights.sort(key=lambda x: x[1], reverse=True)
+
+    # Format as guidance
+    guidance = "\nDOMAIN EXPLORATION WEIGHTS (based on learned confidence):\n"
+    for domain, conf in domain_weights:
+        weight = conf / max(w[1] for w in domain_weights) if domain_weights else 0
+        guidance += f"  {domain}: confidence={conf:.3f}, weight={weight:.2%}\n"
+
+    guidance += "\nPrioritize domains with higher confidence — they show consistent patterns.\n"
+    return guidance
 
 
 def execute_task(task: dict, organ_dir: str) -> tuple[str | None, str | None]:
@@ -145,10 +193,14 @@ def execute_task(task: dict, organ_dir: str) -> tuple[str | None, str | None]:
 
     # Build prompt for Hermes Agent
     action_str = "\n".join(f"  - {a}" for a in actions)
+
+    # Load SKILL.md to inject domain insights and guidance
+    skill_context = load_skill(organ_dir)
+
     prompt = f"""
 TASK: {objective}
 
-Domain: {domain}
+Domain focus: {domain}
 Task ID: {task_id}
 
 Actions to execute:
@@ -159,14 +211,26 @@ Success criteria:
 - Post observations to /observe endpoint
 - Include narratives and signal_score in observations
 
-Current skills are loaded — use them if relevant.
-Use the browser and code execution tools to complete this task.
+GUIDANCE:
+- Focus your exploration on the domain specified above
+- Use learned domain patterns from SKILL.md (below) to prioritize signal detection
+- Extract high-confidence signals (prefer domains with avg_confidence > 0.30)
+- Track domain patterns: consistency matters more than novelty for emerging trends
 """
 
-    # Inject SKILL.md as context
-    skill_context = load_skill(organ_dir)
+    # Add domain weight guidance
     if skill_context:
-        prompt = f"SKILL CONTEXT:\n{skill_context}\n\n{prompt}"
+        domain_guidance = extract_domain_guidance(skill_context)
+        prompt += domain_guidance
+        prompt += "\nCURRENT ORGANISM KNOWLEDGE:\n"
+        prompt += f"\n{skill_context}\n"
+    else:
+        prompt += "\n(No learned patterns yet — establish baseline observations)\n"
+
+    prompt += f"""
+Your domain ({domain}) and the patterns above should guide your exploration.
+Use the browser and code execution tools to complete this task.
+"""
 
     logger.debug("prompt: %s", prompt[:200])
 

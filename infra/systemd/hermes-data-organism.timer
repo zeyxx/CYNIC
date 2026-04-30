@@ -1,0 +1,16 @@
+[Unit]
+Description=Hermes Data Organism Hourly Perception Cycle
+Requires=hermes-data-organism.service
+
+[Timer]
+# Run every hour at 17 minutes past (avoid :00 and :30 busy times)
+OnCalendar=*-*-* *:17:00
+
+# Randomize by 5 minutes to avoid thundering herd
+RandomizedDelaySec=5min
+
+# Run immediately if missed (e.g., system was asleep)
+Persistent=true
+
+[Install]
+WantedBy=timers.target
