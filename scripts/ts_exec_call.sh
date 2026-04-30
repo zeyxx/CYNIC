@@ -1,47 +1,25 @@
 #!/bin/bash
-# ts_exec_call.sh — Call ts_exec via JSON-RPC on tailscale-mcp subprocess.
-# Usage: ts_exec_call.sh <node> <command> [timeout_secs]
-# Returns JSON: {stdout, stderr, exit_code} or {error}
+# Bridge script: execute commands on Tailscale nodes via SSH
+# Called by kernel's attempt_node_recovery() for remote remediation
+#
+# Usage: ts_exec_call.sh <node> <command> <timeout_secs>
+# Example: ts_exec_call.sh cynic-core "systemctl restart llama-server" 30
+#
+# Returns JSON with exit_code field (0=success, 1=failure)
+# Expected by: cynic-kernel/src/api/rest/inference_router.rs lines 305-307
 
-set -euo pipefail
+set -e
 
-NODE="${1:?node required}"
-COMMAND="${2:?command required}"
-TIMEOUT="${3:-30}"  # Default 30 seconds
+NODE="${1:?ERROR: node name required}"
+COMMAND="${2:?ERROR: command required}"
+TIMEOUT="${3:-30}"
 
-# MCP server config (stdio-based, spawned on-demand)
-# Fallback: derive from git root if TAILSCALE_MCP not set
-_GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
-MCP_PROG="${TAILSCALE_MCP:-${_GIT_ROOT}/../tailscale-mcp/tailscale-mcp}"
+# Execute command on node via SSH (Tailscale resolves node names)
+# Capture exit code without exiting script on failure
+OUTPUT=$(ssh -o ConnectTimeout=5 -o BatchMode=yes root@"$NODE" "$COMMAND" 2>&1)
+EXIT_CODE=$?
 
-if [[ ! -f "$MCP_PROG" ]]; then
-    echo '{"error":"MCP binary not found at '"$MCP_PROG"'"}' >&2
-    exit 1
-fi
-
-# JSON-RPC 2.0 call to ts_exec
-# See: tailscale-mcp/mcp/exec.go execHandler
-read -r -d '' CALL << 'EOF' || true
-{
-  "jsonrpc": "2.0",
-  "method": "tools/call",
-  "params": {
-    "name": "ts_exec",
-    "arguments": {
-      "node": "%s",
-      "command": "%s",
-      "timeout": %d
-    }
-  },
-  "id": 1
-}
-EOF
-
-REQUEST=$(printf "$CALL" "$NODE" "$COMMAND" "$TIMEOUT")
-
-# Spawn MCP, send request, capture response
-RESPONSE=$("$MCP_PROG" <<< "$REQUEST" 2>/dev/null || echo '{"error":"MCP call failed"}')
-
-# Extract result text (MCP returns {jsonrpc, result:{content:[{type,text}]}, id})
-# Parse the nested JSON from result.content[0].text
-echo "$RESPONSE" | jq -r '.result.content[0].text // .error // "null"' 2>/dev/null || echo '{"error":"JSON parse failed"}'
+# Return JSON response (matches kernel's expected format)
+cat <<RESPONSE
+{"exit_code": $EXIT_CODE}
+RESPONSE
