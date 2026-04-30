@@ -1,0 +1,17 @@
+[Unit]
+Description=Hermes X Search Generator — Autonomous search from SKILL.md wisdom
+After=hermes-data-organism.service
+PartOf=hermes-search-generator.timer
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/user/.cynic/organs/hermes/x
+ExecStart=/usr/bin/python3 search_generation.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hermes-search-generator
+MemoryMax=256M
+TimeoutStartSec=60
+
+[Install]
+WantedBy=hermes-search-generator.timer
