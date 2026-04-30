@@ -497,6 +497,55 @@ Select the best node for a specific inference task.
 
 **Response (200):** `{ "node": "qwen35-9b-gpu", "quality": "excellent" }`
 
+### GET /inference/list-models
+
+List all available LLMs across the fleet with live probing and model verification.
+
+Queries actual llama-server on each node, detects model mismatches, and emits K15 observations for degraded nodes.
+
+**Response (200):**
+
+```json
+{
+  "models": [
+    {
+      "dog": "qwen35-9b-gpu",
+      "node": "cynic-gpu",
+      "expected_model": "Qwen3.5-9B-Q4_K_M.gguf",
+      "actual_model": "Qwen3.5-9B-Q4_K_M.gguf",
+      "mismatch": false,
+      "reachable": true,
+      "latency_ms": 42,
+      "capabilities": {
+        "context_size": 131072,
+        "thinking_mode": true,
+        "json_mode": true
+      },
+      "performance": {
+        "success_count": 0,
+        "failures": 0,
+        "json_valid_rate": 0.0
+      }
+    }
+  ],
+  "timestamp": "2026-04-30T12:34:56Z"
+}
+```
+
+### POST /inference/start
+
+Start a Dog (spawn llama-server subprocess, register model).
+
+**Request:**
+
+```json
+{ "dog": "qwen35-9b-gpu" }
+```
+
+**Response (200):** `{ "dog": "qwen35-9b-gpu", "operation": "start", "status": "succeeded", "timestamp": "..." }`
+
+**Response (408):** Timeout during startup.
+
 ### GET /inference/candidates
 
 List candidate nodes ranked by health for a given domain.
