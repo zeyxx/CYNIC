@@ -63,6 +63,18 @@ Last updated: 2026-04-30 15:42 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 
 - [ ] **Hermes-X identity binding.** Load `$CYNIC_AGENT_EMAIL` + `$CYNIC_AGENT_TWITTER` at daemon-reload. All crons (gemini-briefing, feedback-loop, search-executor) inherit identity. Tasks tagged with agent=CYNIC.
 
+## HERMES ORGANIC AGENT — Autonomous Framing with Behavioral Mimicry
+
+**Foundation:** Organism learns YOUR behavioral patterns (typing, mouse, scroll, timing) to avoid bot detection while developing autonomous intent/framing about domains.
+
+- [ ] **Extract behavioral profile from behavior_log.jsonl.** Analyze 144K events: typing WPM distribution, keystroke pauses, mouse click locations, scroll velocity, burst frequency (82%), deliberation pauses (4.1s), temporal pattern (peak 19-22h). Output: `behavioral_profile.json` with statistical signatures per metric. **Falsify:** profile used in phase 2 produces Playwright actions indistinguishable from keystroke log.
+
+- [ ] **Build framing layer (domain understanding).** Parse behavior_log.jsonl + kernel verdicts to extract: what domains you engage with, what observation signals matter, temporal patterns per domain. Output: `framing.json` with domain priorities and search intent. **Falsify:** framing used by agent produces coherent search strategy (not random).
+
+- [ ] **Behavioral simulator (Playwright integration).** Inject behavioral profiles into search_executor: type search queries with your typing fingerprint (keystroke delays), move mouse with your velocity, scroll with your burst patterns, think-pause with your deliberation timing. Output: search actions that pass bot-detection. **Falsify:** X.com does not flag as bot; comparison with behavior_log shows typing/scroll/click similarity > 0.95.
+
+- [ ] **Autonomous agent loop.** Agent consults framing for what domains need signal, respects behavioral patterns for frequency/timing, executes searches with behavioral mimicry, learns from kernel feedback to refine framing next cycle. **Falsify:** agent makes search decisions autonomously (not copying hardcoded tasks); kernel judges search quality; correlation > φ⁻¹ (0.618) after 14 days.
+
 ---
 
 ## HERMES X ORGAN — Data-Centric Organ Lab
