@@ -14,12 +14,12 @@ After=network.target
 [Service]
 Type=simple
 User=user
-WorkingDirectory=/home/user/.surrealdb
+WorkingDirectory=%h/.surrealdb
 ExecStart=/usr/local/bin/surreal start \
   --bind 127.0.0.1:8000 \
   --transaction-timeout 10s \
   --query-timeout 30s \
-  surrealkv:///home/user/.surrealdb/data
+  surrealkv://%h/.surrealdb/data
 
 Restart=on-failure
 RestartSec=5
@@ -31,7 +31,7 @@ SyslogIdentifier=surreal
 # Hardening — modeled on llama-server.service
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/home/user/.surrealdb
+ReadWritePaths=%h/.surrealdb
 ProtectHome=read-only
 PrivateTmp=true
 RestrictAddressFamilies=AF_INET AF_INET6

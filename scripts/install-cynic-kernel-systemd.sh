@@ -15,9 +15,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=user
-WorkingDirectory=/home/user/Bureau/CYNIC
-EnvironmentFile=/home/user/.config/cynic/env
-ExecStart=/home/user/bin/cynic-kernel --bind <TAILSCALE_CORE>:3030
+WorkingDirectory=%h/Bureau/CYNIC
+EnvironmentFile=%h/.config/cynic/env
+ExecStart=%h/bin/cynic-kernel --bind <TAILSCALE_CORE>:3030
 
 Restart=on-failure
 RestartSec=5
@@ -28,7 +28,7 @@ SyslogIdentifier=cynic-kernel
 # Hardening per llama-server.service model
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/home/user/Bureau/CYNIC/.cynic /home/user/.cynic
+ReadWritePaths=%h/Bureau/CYNIC/.cynic %h/.cynic
 ProtectHome=read-only
 PrivateTmp=true
 RestrictAddressFamilies=AF_INET AF_INET6
