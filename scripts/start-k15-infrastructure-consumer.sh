@@ -1,6 +1,7 @@
 #!/bin/bash
-# Wrapper script for K15 consumer with environment loading
-# Sources ~/.cynic-env and runs the consumer
+# Wrapper script for K15 infrastructure consumer with environment loading
+# Sources ~/.cynic-env and runs the infrastructure consumer
+# Routes probe failures to recovery decisions
 
 set -e
 
@@ -11,8 +12,8 @@ if [ -z "$PROJECT_ROOT" ]; then
     exit 1
 fi
 
-# Source environment variables
-source "$HOME/.cynic-env"
+# Source environment variables (use /root/.cynic-env since this runs as root in systemd)
+source /root/.cynic-env
 
 # Get kernel URL from env (CYNIC_REST_ADDR should be set in ~/.cynic-env)
 KERNEL_URL="${CYNIC_REST_ADDR}"
@@ -26,8 +27,8 @@ if [[ ! "$KERNEL_URL" =~ ^http ]]; then
     KERNEL_URL="http://$KERNEL_URL"
 fi
 
-# Run the consumer (CYNIC_API_KEY from environment, not CLI args — prevents ps aux leakage)
-exec /usr/bin/python3 "$PROJECT_ROOT/cynic-python/consumers/k15_observation_consumer.py" \
+# Run the infrastructure consumer (polls /observations, routes failures to /inference/remediate)
+# CYNIC_API_KEY from environment, not CLI args — prevents ps aux leakage
+exec /usr/bin/python3 "$PROJECT_ROOT/cynic-python/consumers/k15_infrastructure_consumer.py" \
   --kernel-url "$KERNEL_URL" \
-  --domain twitter \
-  --poll-interval 300
+  --poll-interval 60
