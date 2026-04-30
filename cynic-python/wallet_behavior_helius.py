@@ -130,6 +130,39 @@ class HeliusWalletCollector:
         result = self._rpc_call("getAccountInfo", wallet, {"encoding": "jsonParsed"})
         return result
 
+    def get_token_authority(self, mint: str) -> Optional[str]:
+        """
+        Extract mint authority from a token mint address.
+
+        Args:
+            mint: Token mint address (base58)
+
+        Returns:
+            Mint authority wallet address, or None if cannot extract
+        """
+        try:
+            info = self.get_account_info(mint)
+            if not info:
+                return None
+
+            # Token mint format: parsed.info.mintAuthority for token authority
+            parsed = info.get("data", {}).get("parsed", {})
+            if not parsed:
+                return None
+
+            mint_info = parsed.get("info", {})
+            authority = mint_info.get("mintAuthority")
+
+            if authority:
+                logger.debug(f"Extracted authority from {mint}: {authority}")
+                return authority
+
+            logger.warning(f"No mint authority found in {mint}")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to extract authority from {mint}: {e}")
+            return None
+
     def collect_wallet_profile(self, wallet: str) -> Optional[WalletProfile]:
         """
         Collect all data for a wallet and build WalletProfile.
