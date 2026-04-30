@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use super::response::coordination_error;
 use super::types::{AppState, DogHealthResponse, ErrorResponse};
+use crate::domain::dispatch::Domain;
 use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
 use crate::domain::health_gate::count_healthy_dogs;
 
@@ -304,6 +305,41 @@ pub async fn health_handler(
                 },
             },
             "senses": senses_report,
+            // Domain routing (K15 transparency: which Dogs per domain?)
+            "domain_routing": {
+                "token": {
+                    "dogs": Domain::Token.dog_set().dogs,
+                    "description": Domain::Token.dog_set().description,
+                },
+                "security": {
+                    "dogs": Domain::Security.dog_set().dogs,
+                    "description": Domain::Security.dog_set().description,
+                },
+                "macro": {
+                    "dogs": Domain::Macro.dog_set().dogs,
+                    "description": Domain::Macro.dog_set().description,
+                },
+                "chess": {
+                    "dogs": Domain::Chess.dog_set().dogs,
+                    "description": Domain::Chess.dog_set().description,
+                },
+                "wallet": {
+                    "dogs": Domain::Wallet.dog_set().dogs,
+                    "description": Domain::Wallet.dog_set().description,
+                },
+                "inference": {
+                    "dogs": Domain::Inference.dog_set().dogs,
+                    "description": Domain::Inference.dog_set().description,
+                },
+                "sovereignty": {
+                    "dogs": Domain::Sovereignty.dog_set().dogs,
+                    "description": Domain::Sovereignty.dog_set().description,
+                },
+                "philosophy": {
+                    "dogs": Domain::Philosophy.dog_set().dogs,
+                    "description": Domain::Philosophy.dog_set().description,
+                },
+            },
         })),
     )
 }
