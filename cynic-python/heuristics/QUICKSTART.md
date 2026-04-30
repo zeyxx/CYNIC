@@ -7,9 +7,8 @@ Get from synthetic data (100% on baseline) to real data (ground truth validation
 1. **Environment variables** (optional, APIs are public):
 ```bash
 export CYNIC_REST_ADDR="http://localhost:3030"  # Kernel (for Helius proxy)
-export CYNIC_API_KEY="your-key"                  # If using kernel proxy
-export HELIUS_API_KEY="your-key"                 # Direct Helius (optional)
 export HERMES_ADDR="http://localhost:9999"       # Hermes (twitter signals)
+# Load API keys from secure location if needed
 ```
 
 If these are unset, the system will:
