@@ -109,11 +109,11 @@ Last updated: 2026-04-30 08:35 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 - [ ] **Soma config activation L3:** Verify cynic-kernel.service has `Restart=always` and `RestartSec=5`.
 - [ ] **Falsification test:** Kill qwen35-9b-gpu llama-server, verify circuit opens within 30s, restart logged within 120s, circuit closes post-recovery.
 
-**H3 (Secrets leakage) — CRITICAL FIXED, FOLLOW-UP PENDING:**
+**H3 (Secrets leakage) — COMPLETE ✅**
 - [x] **CRITICAL:** Removed CYNIC_API_KEY from CLI args in both wrapper scripts (b00fb9d). Secrets now via EnvironmentFile=/root/.cynic-env.
 - [x] **Updated systemd services:** Added EnvironmentFile=/root/.cynic-env, systemd redacts secrets from unprivileged systemctl show.
-- [ ] **DEPLOY:** Run `sudo systemctl daemon-reload && sudo systemctl restart hermes-k15-consumer.service hermes-infrastructure-monitor.service` to pick up new wrapper scripts.
-- [ ] **VERIFY:** `ps aux | grep k15` should NOT show CYNIC_API_KEY in cmdline (only PID, user, wrapper script path).
+- [x] **DEPLOYED:** Ran H3 deployment script (deploy-h3-secrets-fixes.sh). Both K15 consumers restarted with wrapper scripts.
+- [x] **VERIFIED:** Both consumers now run without CYNIC_API_KEY in process list. Infrastructure monitor correctly connects to <TAILSCALE_CORE>:3030 (not localhost). Commit message: docs(ops) + harden(deploy).
 
 ## SOMA ORCHESTRATOR (Deferred: Build When It Hurts)
 
