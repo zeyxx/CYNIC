@@ -4,8 +4,11 @@
 
 set -e
 
+# Get project root
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+
 # Source environment variables
-source /home/user/.cynic-env
+source "$HOME/.cynic-env"
 
 # Get kernel URL from env or use default (CYNIC_REST_ADDR should be set in ~/.cynic-env)
 KERNEL_URL="${CYNIC_REST_ADDR}"
@@ -19,7 +22,7 @@ if [[ ! "$KERNEL_URL" =~ ^http ]]; then
 fi
 
 # Run the consumer
-exec /usr/bin/python3 /home/user/Bureau/CYNIC/cynic-python/consumers/k15_observation_consumer.py \
+exec /usr/bin/python3 "$PROJECT_ROOT/cynic-python/consumers/k15_observation_consumer.py" \
   --kernel-url "$KERNEL_URL" \
   --api-key "$CYNIC_API_KEY" \
   --domain twitter \
