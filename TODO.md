@@ -41,6 +41,13 @@ Last updated: 2026-04-30 08:35 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 - [ ] **Extract K11 hardcoding (port 8080, dog_config).** When remediate_handler becomes 2nd consumer of probe_node(), move to backends.toml. **Falsify:** no hardcoded IPs/ports in inference_router.rs.
 - [ ] **Measurement workflow validation.** Manual test: baseline → change heuristic → compare before/after. Verify deltas computed correctly on real dataset (4,146 tweets). **Falsify:** sensitivity/specificity/Pearson r deltas match manual calculations.
 
+## HERMES ORGANIC AGENT (Phases 1-3) — COMPLETE
+
+- [x] **Phase 1: Behavioral Profile.** Extracted from 435K behavior_log.jsonl events (170K keystrokes, 18K clicks, 42K scrolls). User fingerprint: 93 WPM typing, 218ms keystroke mean (σ=384ms), 489 px/s mouse velocity, 82% scroll-down bias, 4.1s deliberation pauses, peak activity 19-22h. Output: ~/.cynic/organs/hermes/x/behavioral_profile.json. **Status:** LIVE ✓
+- [x] **Phase 2: Framing (Data-Driven).** Verdict correlation analysis: 11/13 verdicts linked to observations via (signal, domain, narratives). Key finding: kernel validates PATTERNS (structural threats), skeptical of predictions. Narrative confidence: ecosystem 0.688 (HIGH), rug_warning 0.300, hype 0.150. Domain→narrative mapping for D1-D6. Output: ~/.cynic/organs/hermes/x/framing_narrative_real.json. **Status:** LIVE ✓
+- [x] **Phase 3: Behavioral Simulator (Architecture).** hermes_behavioral_simulator.py: type_like_user(), scroll_like_user(), deliberate(), select_search_topics_from_framing(). Injection system ready. **Status:** Deferred execution (Playwright CDP blocker, post-hackathon P1/P2 solutions documented). **PR#53 created.** ✓
+- [ ] **Phase 3 Execution (Post-Hackathon).** P1: HTTP CDP wrapper (1-2 days). P2: Xvfb + virtual display (3 days). Unblocks Phase 4 (autonomous loop) and Phase 5 (multi-domain wisdom).
+
 ## HERMES X ORGAN — Data-Centric Organ Lab
 
 - [x] **SSOT Established (2026-04-30).** Created:
