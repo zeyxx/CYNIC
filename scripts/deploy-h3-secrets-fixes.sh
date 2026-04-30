@@ -10,7 +10,7 @@ echo ""
 
 # 1. Update hermes-infrastructure-monitor.service
 echo "[1] Updating hermes-infrastructure-monitor.service to use wrapper script..."
-CYNIC_ROOT_PATH=$(git rev-parse --show-toplevel 2>/dev/null || echo "/home/user/Bureau/CYNIC")
+CYNIC_ROOT_PATH=$(git rev-parse --show-toplevel)
 cat > /etc/systemd/system/hermes-infrastructure-monitor.service << EOF
 [Unit]
 Description=K15 Infrastructure Consumer — Route probe failures to recovery
