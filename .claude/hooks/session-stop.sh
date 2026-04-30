@@ -94,9 +94,40 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
     fi
 fi
 
+# ── K15: Update AT_END proof in .claude/session-proof.json (immutable record) ──
+# Read the AT_START proof that session-init.sh created, append AT_END fields.
+# This creates a complete proof record for next session to audit.
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROOF_FILE="${PROJECT_DIR}/.claude/session-proof.json"
+
+if [[ -f "$PROOF_FILE" ]]; then
+    # Add AT_END fields to existing proof (uses jq to merge safely)
+    END_COMMIT=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    BRANCHES_DELETED=$(git -C "$PROJECT_DIR" branch -vv 2>/dev/null | grep '\[gone\]' | wc -l || echo 0)
+
+    # Tentative: has any staged/unstaged changes? (Would be lost if not committed)
+    WORK_LOST=""
+    DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | grep -v '^??' | head -3)
+    if [[ -n "$DIRTY" ]]; then
+        WORK_LOST="uncommitted changes present (review git status)"
+    fi
+
+    # Use jq to append AT_END to the proof JSON (safe merge)
+    jq ".AT_END = {
+      \"final_commit_hash\": \"${END_COMMIT}\",
+      \"branches_deleted\": ${BRANCHES_DELETED},
+      \"duration_minutes\": ${SESSION_MINUTES:-0},
+      \"commits_produced\": ${COMMITS_THIS_SESSION:-0},
+      \"compliance_score\": ${SCORE:-\"unknown\"},
+      \"work_lost\": $(jq -R -s -c . <<< "${WORK_LOST:-none}"),
+      \"completed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"
+    }" "$PROOF_FILE" > "${PROOF_FILE}.tmp" && mv "${PROOF_FILE}.tmp" "$PROOF_FILE"
+fi
+
 # ── Inter-agent bus: POST session summary to /observe (domain=session) ──
 # This is the structured handover channel. Other agents (Claude, Gemini, nightshift)
 # read domain="session" observations at session start to understand prior work.
+# K15: Proof-of-History schema — includes cortex proof (5 fields) + session metadata
 KERNEL_STATUS=$(curl -s --connect-timeout 2 --max-time 3 "http://${KERNEL_ADDR}/health" 2>/dev/null | jq -r '.status // "down"' 2>/dev/null || echo "down")
 if [[ "$KERNEL_STATUS" != "down" ]]; then
     # Collect session metadata
@@ -104,13 +135,26 @@ if [[ "$KERNEL_STATUS" != "down" ]]; then
     DURATION_MIN="${SESSION_MINUTES:-0}"
     COMPLIANCE_SCORE="${SCORE:-unknown}"
 
-    # Build a structured summary (context field, 200 char max enforced by kernel)
-    SUMMARY="dur=${DURATION_MIN}m commits=${COMMITS_COUNT} compliance=${COMPLIANCE_SCORE}"
+    # K15: Cortex proof (5-field minimal schema for multi-cortex coordination)
+    PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    BRANCH_NAME=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    BASE_SHA=$(git -C "$PROJECT_DIR" merge-base HEAD origin/main 2>/dev/null | cut -c1-7 || echo "unknown")
+    HEAD_SHA=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    GATES_PASSED="false"
+    # Check gates: compliance > 0.5 = gates passed (awk avoids bc dependency)
+    if [[ "${COMPLIANCE_SCORE}" != "unknown" ]]; then
+        GATES_PASSED=$(awk "BEGIN {print (${COMPLIANCE_SCORE} > 0.5) ? \"true\" : \"false\"}" 2>/dev/null || echo "false")
+    fi
+    PROOF_TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "unknown")
+
+    # Build a structured summary (context field, 2000 char max in kernel)
+    # Format: key=value pairs, space-separated
+    SUMMARY="dur=${DURATION_MIN}m commits=${COMMITS_COUNT} compliance=${COMPLIANCE_SCORE} branch=${BRANCH_NAME} base_sha=${BASE_SHA} head_sha=${HEAD_SHA} gates=${GATES_PASSED} timestamp=${PROOF_TIMESTAMP}"
 
     curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
         -H "Content-Type: application/json" \
         ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-        -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"session_summary\",\"target\":\"handover\",\"domain\":\"session\",\"tags\":[\"session-summary\"],\"context\":\"${SUMMARY}\"}" \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"session_summary\",\"target\":\"handover\",\"domain\":\"session\",\"tags\":[\"session-summary\",\"cortex-proof\"],\"context\":\"${SUMMARY}\"}" \
         > /dev/null 2>&1 || true
 fi
 
