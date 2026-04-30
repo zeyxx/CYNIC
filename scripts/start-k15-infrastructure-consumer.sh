@@ -28,7 +28,7 @@ if [[ ! "$KERNEL_URL" =~ ^http ]]; then
 fi
 
 # Run the infrastructure consumer (polls /observations, routes failures to /inference/remediate)
+# CYNIC_API_KEY from environment, not CLI args — prevents ps aux leakage
 exec /usr/bin/python3 "$PROJECT_ROOT/cynic-python/consumers/k15_infrastructure_consumer.py" \
   --kernel-url "$KERNEL_URL" \
-  --api-key "$CYNIC_API_KEY" \
   --poll-interval 60
