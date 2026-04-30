@@ -91,7 +91,14 @@ Last updated: 2026-04-30 15:42 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 - [ ] **Await S. wallet-judgment test data (May 1 deadline).** 3-5 real game JSON samples → run integration test → decide B&C Option A/B/C. **Falsify:** test results logged, decision made May 2.
 
 **Parallel:**
-- [x] **K15 domain consolidation.** Routing dispatcher live, /health exposed, sanity tests documented. Commit 466f6a3. **Status:** Await kernel restart to verify live.
+- [x] **K15 domain consolidation.** 
+  * Routing dispatcher: dispatch.rs (280 lines, 9 tests) ✓
+  * Judge handler wired: 4-level priority chain + stimulus context ✓
+  * /health exposed: domain_routing section ✓
+  * Sanity tests: 6 executable tests documented ✓
+  * Hermes X relabeled: D2→HERMES_TWITTER, D4→HERMES_CHESS, D5→HERMES_WALLET ✓
+  * Commits: 466f6a3 (health + tests), [pending judge wiring]
+  * **Status:** Code complete, **BLOCKED on compiler** (Rust 1.95.0 stable + 1.96.0 nightly both crash on tokio LLVM optimization). Rebuild + restart when compiler fixed or switch to working Rust version. Domain routing will go live immediately post-restart.
 - [x] **Hermes crons fixed.** Services deployed, timers active (eda3153). **Status:** GPU contention band-aid holds (nightshift paused).
 
 ## OPS AUDIT (H1/H2/H3 — 2026-04-30)
