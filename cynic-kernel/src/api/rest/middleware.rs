@@ -21,41 +21,52 @@ pub(crate) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
         == 0
 }
 
-/// Bearer token authentication. Skipped for /health. Skipped if no CYNIC_API_KEY.
+/// Bearer token authentication. Mandatory for /metrics, /events.
+/// Skipped for /health, /live, /ready (safe public endpoints).
+///
+/// Fail-secure: if CYNIC_API_KEY is not set, protected endpoints return 401 rather than opening.
+/// This prevents accidental exposure if env var is missing.
 pub async fn auth_middleware(
     State(state): State<Arc<AppState>>,
     request: Request,
     next: Next,
 ) -> Response {
-    // /health, /live, /ready are public — no auth required.
+    // /health, /live, /ready are explicitly public — no auth required.
     // /metrics and /events require auth (KC3: leak Dog roster + operational state).
     let path = request.uri().path();
     if path == "/health" || path == "/live" || path == "/ready" {
         return next.run(request).await;
     }
 
-    if let Some(ref key) = state.api_key {
-        let token = request
-            .headers()
-            .get("authorization")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "))
-            .map(|s| s.to_string());
+    // All other endpoints require CYNIC_API_KEY to be set AND valid token to be provided.
+    let Some(ref key) = state.api_key else {
+        // Fail-secure: no key configured → reject all protected endpoints
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "API key not configured (CYNIC_API_KEY missing)".into(),
+            }),
+        )
+            .into_response();
+    };
 
-        match token {
-            Some(t) if constant_time_eq(t.as_bytes(), key.as_bytes()) => {}
-            _ => {
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    Json(ErrorResponse {
-                        error: "Invalid or missing Bearer token".into(),
-                    }),
-                )
-                    .into_response();
-            }
-        }
+    let token = request
+        .headers()
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(|s| s.to_string());
+
+    match token {
+        Some(t) if constant_time_eq(t.as_bytes(), key.as_bytes()) => next.run(request).await,
+        _ => (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "Invalid or missing Bearer token".into(),
+            }),
+        )
+            .into_response(),
     }
-    next.run(request).await
 }
 
 /// Rate limiter — per-IP token bucket. Exempt: health probes, observe, coord.
