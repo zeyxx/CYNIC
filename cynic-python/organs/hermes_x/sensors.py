@@ -104,55 +104,59 @@ class VerdictSensor:
 
 
 class HermesAgentSensor:
-    """Perceive Hermes agent logs: domains explored, routing, confidence, skill evolution"""
+    """Perceive Hermes agent decisions from feedback logs"""
 
-    def __init__(self, logs_dir: Path = None):
-        self.logs_dir = logs_dir or (
-            Path.home() / ".cynic" / "organs" / "hermes" / "logs"
+    def __init__(self, feedback_log: Path = None):
+        self.feedback_log = feedback_log or (
+            Path.home() / ".cynic" / "organs" / "hermes" / "x" / "feedback_decision_log.jsonl"
         )
 
     def perceive(self) -> List[SessionTurn]:
-        """Read Hermes agent logs, return typed SessionTurn objects representing agent decisions"""
+        """
+        Read agent feedback log, return typed SessionTurn objects representing agent decisions.
+
+        Format: {timestamp, decision (domain), reason, action}
+        Maps decision to domain intent for analysis.
+        """
         sessions = []
 
-        if not self.logs_dir.exists():
+        if not self.feedback_log.exists():
             return sessions
 
         try:
-            # Look for Hermes agent decision logs (future: from /observe endpoint)
-            # For now, gracefully return empty if logs don't exist
-            for log_file in self.logs_dir.glob("*.jsonl"):
-                try:
-                    with open(log_file, 'r') as f:
-                        decision_count = 0
-                        for line in f:
-                            try:
-                                obj = json.loads(line)
-                                # Expected structure: domain, action, confidence
-                                domain = obj.get("domain", "mixed")
-                                action = obj.get("action", "mixed")
-                                confidence = obj.get("confidence", 0.0)
+            with open(self.feedback_log, 'r') as f:
+                decision_count = 0
+                for line in f:
+                    try:
+                        obj = json.loads(line)
+                        # Extract decision (domain): D1, D2, D3, social, wallet, security, etc.
+                        decision = obj.get("decision", "mixed")
+                        timestamp = obj.get("timestamp", "")
+                        action = obj.get("action", "accepted")
 
-                                # Map domain to analysis intent
-                                intent = "mixed"
-                                if domain == "social":
-                                    intent = "feature"
-                                elif domain in ["wallet", "security"]:
-                                    intent = "debug"
+                        # Map decision to domain intent
+                        intent = "mixed"
+                        if decision.startswith("D"):
+                            intent = "feature"  # Domain judgment
+                        elif decision in ["social"]:
+                            intent = "feature"
+                        elif decision in ["wallet", "security", "infrastructure"]:
+                            intent = "debug"
 
-                                decision_count += 1
-                                turn = SessionTurn(
-                                    session_id=log_file.stem,
-                                    turn_count=decision_count,
-                                    timestamp=obj.get("timestamp", ""),
-                                    intent=intent,
-                                    message_length=int(confidence * 100),  # Normalize confidence to [0,100]
-                                )
-                                sessions.append(turn)
-                            except (json.JSONDecodeError, KeyError, TypeError):
-                                pass
-                except Exception:
-                    pass
+                        # Confidence proxy: infer from action (accepted=0.8, other=0.5)
+                        confidence = 0.8 if action == "accepted" else 0.5
+
+                        decision_count += 1
+                        turn = SessionTurn(
+                            session_id="hermes-feedback",
+                            turn_count=decision_count,
+                            timestamp=timestamp,
+                            intent=intent,
+                            message_length=int(confidence * 100),
+                        )
+                        sessions.append(turn)
+                    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+                        pass
         except Exception:
             pass
 
