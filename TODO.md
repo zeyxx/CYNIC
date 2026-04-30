@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-30 03:02 | **K15 PRODUCER-CONSUMER LOOP COMPLETE & LIVE** ✅. K2 + R1 lint violations resolved. probe_node() in backends/ ✅. Scripts use CYNIC_ROOT ✅. API.md documented ✅. hermes-infrastructure-monitor.service deployed ✅. Consumer routing: unreachable→alert, timeout→remediate, mismatch→alert. Tested: 8/8 degraded observations correctly routed. **SECURITY HARDENED:** CYNIC_API_KEY removed from CLI args (b00fb9d), secrets now via EnvironmentFile=/root/.cynic-env. Systemd services require daemon-reload + restart. **NEXT:** Wire /inference/remediate-dog execution for timeout recovery (T7). Extract K11 hardcoding (port 8080) when remediate becomes 2nd consumer. **HACKATHON:** Conviction-only baseline ready (100% accuracy, 28/28), registration May 4, submit May 10 23:59 PDT.
+Last updated: 2026-04-30 04:45 | **PR#47 MERGED TO MAIN** ✅ (commit b4340b3). Proof-of-history + Hermes X organism LIVE on main. **REMAINING K15 WORK:** 5 branches with 109 unique commits waiting consolidation (fix/k15-seams: 35, backup/feat-k15: 64, feat/k15-loop: 5, merge/k15-harden: 4, fix/qwen: 1). **NEXT PHASE:** Option A Part 2 → Merge K15 branches. **HACKATHON:** Conviction-only baseline ready (100% accuracy, 28/28), registration May 4, submit May 10 23:59 PDT.
 
 ---
 
