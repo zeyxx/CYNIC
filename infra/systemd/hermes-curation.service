@@ -1,0 +1,17 @@
+[Unit]
+Description=Hermes X Curation — Transform high-signal tweets to domain signals
+After=hermes-x-ingest.service
+PartOf=hermes-curation.timer
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/user/.cynic/organs/hermes/x
+ExecStart=/usr/bin/python3 curate_domain_signals.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hermes-curation
+MemoryMax=512M
+TimeoutStartSec=120
+
+[Install]
+WantedBy=hermes-curation.timer

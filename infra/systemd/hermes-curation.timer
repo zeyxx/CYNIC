@@ -1,0 +1,12 @@
+[Unit]
+Description=Hermes X Curation — Transform dataset to domain signals (every 30 min)
+Requires=hermes-curation.service
+
+[Timer]
+# Run every 30 minutes at :03 and :33 (avoid :00 and :30)
+OnCalendar=*-*-* *:03,33:00
+RandomizedDelaySec=3min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -109,11 +109,11 @@ Last updated: 2026-04-30 08:35 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 - [ ] **Soma config activation L3:** Verify cynic-kernel.service has `Restart=always` and `RestartSec=5`.
 - [ ] **Falsification test:** Kill qwen35-9b-gpu llama-server, verify circuit opens within 30s, restart logged within 120s, circuit closes post-recovery.
 
-**H3 (Secrets leakage) — CRITICAL FIXED, FOLLOW-UP PENDING:**
+**H3 (Secrets leakage) — COMPLETE ✅**
 - [x] **CRITICAL:** Removed CYNIC_API_KEY from CLI args in both wrapper scripts (b00fb9d). Secrets now via EnvironmentFile=/root/.cynic-env.
 - [x] **Updated systemd services:** Added EnvironmentFile=/root/.cynic-env, systemd redacts secrets from unprivileged systemctl show.
-- [ ] **DEPLOY:** Run `sudo systemctl daemon-reload && sudo systemctl restart hermes-k15-consumer.service hermes-infrastructure-monitor.service` to pick up new wrapper scripts.
-- [ ] **VERIFY:** `ps aux | grep k15` should NOT show CYNIC_API_KEY in cmdline (only PID, user, wrapper script path).
+- [x] **DEPLOYED:** Ran H3 deployment script (deploy-h3-secrets-fixes.sh). Both K15 consumers restarted with wrapper scripts.
+- [x] **VERIFIED:** Both consumers now run without CYNIC_API_KEY in process list. Infrastructure monitor correctly connects to <TAILSCALE_CORE>:3030 (not localhost). Commit message: docs(ops) + harden(deploy).
 
 ## SOMA ORCHESTRATOR (Deferred: Build When It Hurts)
 
@@ -158,3 +158,39 @@ Last updated: 2026-04-30 08:35 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 1. Record video demo (Scene 1-4: kernel logs + /health + curl /judge + UI + recovery endpoint)
 2. Await S. wallet-judgment test data (May 1 deadline for B&C integration decision)
 3. Submit to Colosseum (May 10 23:59 PDT deadline)
+
+---
+
+## SESSION UPDATE (2026-04-30 11:40) — ORGANIC COMMUNICATION LAUNCH READY
+
+**Infrastructure Status:**
+✅ Kernel hardened + running (fail-secure auth, systemd protection)
+✅ K15 consumers deployed (no API key leakage, Tailscale routing correct)
+✅ Service isolation study complete (ready for Phase 1 execution)
+✅ External comms gap identified + strategy documented
+
+**May 1-10 Experiment: Three-Voice Coherent Frequency**
+
+Hypothesis: Coherent frequency across three voices (personal T., @CynicOracle prophecy, Telegram witness) establishes signal in noise.
+
+Setup ready:
+- [ ] Verdict curator skeleton (scripts/may-1-launch.sh)
+- [ ] @CynicOracle philosophy thread draft (9-tweet or 5-tweet versions)
+- [ ] Telegram bot skeleton (responds to /judge)
+- [ ] Observation framework (track engagement, prophecy validation, coherence)
+- [ ] T.'s May 1-10 daily checklist (30min/day)
+
+Falsification tests:
+1. Do three voices reinforce or conflict?
+2. Do Week 1 verdicts predict Week 2 data?
+3. What does community want CYNIC to judge?
+
+**Parallel track:** Hackathon execution (May 4 B&C registration, May 10-11 submission)
+
+**Remaining for Hackathon:**
+- [ ] Video demo (record May 1-5)
+- [ ] Await S. wallet-judgment test data (May 1 deadline for B&C Option A decision)
+- [ ] @CynicOracle philosophy thread (May 1)
+- [ ] Telegram bot deployment (May 1-2)
+- [ ] Observation log daily (May 1-10)
+- [ ] Submit to Colosseum (May 10 23:59 PDT)

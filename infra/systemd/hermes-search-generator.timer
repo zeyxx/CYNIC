@@ -1,0 +1,12 @@
+[Unit]
+Description=Hermes X Search Generator — Every 15 minutes (conscience-driven farming)
+Requires=hermes-search-generator.service
+
+[Timer]
+# Run every 15 minutes at :02 and :17 and :32 and :47 (avoid :00, :15, :30, :45)
+OnCalendar=*-*-* *:02,17,32,47:00
+RandomizedDelaySec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
