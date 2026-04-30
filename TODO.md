@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-30 02:39 | **K15 PRODUCER-CONSUMER LOOP COMPLETE & LIVE** ✅. K2 + R1 lint violations resolved. probe_node() in backends/ ✅. Scripts use CYNIC_ROOT ✅. API.md documented ✅. hermes-infrastructure-monitor.service deployed ✅. Consumer routing: unreachable→alert, timeout→remediate, mismatch→alert. Tested: 8/8 degraded observations correctly routed. **NEXT:** Wire /inference/remediate-dog execution for timeout recovery (T7). Extract K11 hardcoding (port 8080) when remediate becomes 2nd consumer. **HACKATHON:** Conviction-only baseline ready (100% accuracy, 28/28), registration May 4, submit May 10 23:59 PDT.
+Last updated: 2026-04-30 03:02 | **K15 PRODUCER-CONSUMER LOOP COMPLETE & LIVE** ✅. K2 + R1 lint violations resolved. probe_node() in backends/ ✅. Scripts use CYNIC_ROOT ✅. API.md documented ✅. hermes-infrastructure-monitor.service deployed ✅. Consumer routing: unreachable→alert, timeout→remediate, mismatch→alert. Tested: 8/8 degraded observations correctly routed. **SECURITY HARDENED:** CYNIC_API_KEY removed from CLI args (b00fb9d), secrets now via EnvironmentFile=/root/.cynic-env. Systemd services require daemon-reload + restart. **NEXT:** Wire /inference/remediate-dog execution for timeout recovery (T7). Extract K11 hardcoding (port 8080) when remediate becomes 2nd consumer. **HACKATHON:** Conviction-only baseline ready (100% accuracy, 28/28), registration May 4, submit May 10 23:59 PDT.
 
 ---
 
@@ -77,6 +77,24 @@ Last updated: 2026-04-30 02:39 | **K15 PRODUCER-CONSUMER LOOP COMPLETE & LIVE** 
 - [x] **GPU already at --parallel 2.** llama-server.env already configured. No change needed.
 - [x] **Hermes health probe fixed (1b5b08b).** Was measuring file mtime (wrong signal). Now measures capture_ts from dataset.jsonl (production signal). Threshold: 8h = 2× cron interval. Test: falsification added.
 - [ ] **Hermes crons NOT running.** No systemd services found. Health probe is now honest: reports Degraded because capture_ts > 8h old. **Next:** start Hermes crons or wire systemd timers.
+
+## OPS AUDIT (H1/H2/H3 — 2026-04-30)
+
+**H1 (Funnel topology exposure) — FALSIFIED:**
+- [x] Verified: /health returns only `{status, phi_max}` without auth
+- [ ] **K16 violation:** /events.rs docstring says "public (no auth)" but code requires auth (line 24). **Action:** Update docstring to "Auth required (KC3)".
+
+**H2 (Cascade failure isolation) — CONFIRMED READY:**
+- [ ] **Soma config activation L1:** Populate `[backend.NAME.remediation]` blocks in backends.toml for each sovereign Dog (qwen-7b-hf, qwen35-9b-gpu, qwen-9b-core).
+- [ ] **Soma config activation L2:** Uncomment spawn_nightshift_loop (main.rs:752) with compute budget gate: check if GPU breaker closed AND last verdict used it.
+- [ ] **Soma config activation L3:** Verify cynic-kernel.service has `Restart=always` and `RestartSec=5`.
+- [ ] **Falsification test:** Kill qwen35-9b-gpu llama-server, verify circuit opens within 30s, restart logged within 120s, circuit closes post-recovery.
+
+**H3 (Secrets leakage) — CRITICAL FIXED, FOLLOW-UP PENDING:**
+- [x] **CRITICAL:** Removed CYNIC_API_KEY from CLI args in both wrapper scripts (b00fb9d). Secrets now via EnvironmentFile=/root/.cynic-env.
+- [x] **Updated systemd services:** Added EnvironmentFile=/root/.cynic-env, systemd redacts secrets from unprivileged systemctl show.
+- [ ] **DEPLOY:** Run `sudo systemctl daemon-reload && sudo systemctl restart hermes-k15-consumer.service hermes-infrastructure-monitor.service` to pick up new wrapper scripts.
+- [ ] **VERIFY:** `ps aux | grep k15` should NOT show CYNIC_API_KEY in cmdline (only PID, user, wrapper script path).
 
 ## SOMA ORCHESTRATOR (Deferred: Build When It Hurts)
 
