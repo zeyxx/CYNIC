@@ -6,6 +6,7 @@
 
 mod crystal_observer;
 pub mod maintenance;
+mod verdict_observer;
 use crate::domain::ccm;
 use crate::domain::dog::{Stimulus, Verdict};
 use crate::domain::embedding::{Embedding, EmbeddingPort};
@@ -26,6 +27,7 @@ use tokio::sync::Mutex;
 use tracing::Instrument;
 
 use crystal_observer::observe_crystal_for_verdict;
+use verdict_observer::post_verdict_observation;
 
 /// Result of the judge pipeline — everything a handler needs to build its response.
 #[derive(Debug)]
@@ -562,6 +564,10 @@ async fn side_effects(
     // CCM: observe crystal + embed
     let domain = stimulus.domain.as_deref().unwrap_or("general");
     observe_crystal_for_verdict(verdict, stimulus_embedding, domain, deps).await;
+
+    // K15 Forward loop: post verdict observation back to CCM intake
+    // This completes the compound loop: observation → judge → verdict → observation
+    post_verdict_observation(verdict, stimulus.domain.as_deref(), deps).await;
 
     // Cache verdict embedding (clone verdict since cache takes ownership of embedding)
     // T6: store with CacheContext from actual verdict (domain + Dogs that contributed)
