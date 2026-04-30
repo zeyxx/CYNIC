@@ -18,7 +18,8 @@ def run_cycle():
     raw = sensors.perceive()
     print(f"  Tweets: {len(raw.tweets)}")
     print(f"  Verdicts: {len(raw.verdicts)}")
-    print(f"  Sessions: {len(raw.sessions)}")
+    print(f"  Agent logs: {len(raw.sessions)}")
+    print(f"  Behavior events: {len(raw.behavior)}")
 
     # Layer 2: Transformation
     print("\n═ Layer 2: TRANSFORMATION")
@@ -33,6 +34,8 @@ def run_cycle():
     cycle = 1
     patterns = analyzer.analyze(cleaned, cycle)
     print(f"  High-signal tweets: {patterns.high_signal_tweets}/{patterns.tweets_analyzed}")
+    print(f"  Verdicts: {patterns.verdicts_analyzed} across {len(patterns.domain_metrics)} domains")
+    print(f"  User engagement: {patterns.behaviors_analyzed} events, dominant: {patterns.dominant_engagement}")
     print(f"  Anomalies: {patterns.anomalies}")
 
     # Layer 5: Learning

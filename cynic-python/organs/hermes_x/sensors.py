@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from typing import List
-from .schema import Tweet, Verdict, SessionTurn, RawPerception
+from .schema import Tweet, Verdict, SessionTurn, BehaviorEvent, RawPerception
 
 
 class TweetSensor:
@@ -159,17 +159,82 @@ class HermesAgentSensor:
         return sessions
 
 
+class BehaviorSensor:
+    """Perceive user behavior events from behavior_logger and aggregate by domain"""
+
+    def __init__(self, behavior_path: Path = None):
+        self.behavior_path = behavior_path or (
+            Path.home() / ".cynic" / "organs" / "hermes" / "behavior" / "behavior_log.jsonl"
+        )
+
+    def perceive(self) -> List[BehaviorEvent]:
+        """
+        Read behavior log and aggregate events by domain/window.
+
+        Raw log has: type (mouse_move, click, etc), window_name (context), ts
+        Maps to: event_type, target (from window_name), duration_ms (event frequency as proxy for dwell)
+        """
+        events = []
+        window_event_count = {}
+
+        if not self.behavior_path.exists():
+            return events
+
+        try:
+            with open(self.behavior_path, 'r') as f:
+                for line in f:
+                    try:
+                        obj = json.loads(line)
+                        event_type = obj.get("type", "unknown")
+                        window_name = obj.get("window_name", "unknown")
+                        timestamp = obj.get("ts", "")
+
+                        # Extract domain/target from window_name (last word, lowercased)
+                        target = window_name.split()[-1].lower() if window_name and window_name != "unknown" else "unknown"
+
+                        # Count events per window
+                        window_key = window_name
+                        window_event_count[window_key] = window_event_count.get(window_key, 0) + 1
+
+                        # Emit on significant events
+                        if event_type in ["click", "scroll", "key"]:
+                            event = BehaviorEvent(
+                                event_type=event_type,
+                                target=target,
+                                duration_ms=1,
+                                timestamp=timestamp,
+                            )
+                            events.append(event)
+                        elif event_type == "mouse_move" and window_event_count[window_key] % 100 == 0:
+                            # Sample mouse moves
+                            event = BehaviorEvent(
+                                event_type="dwell",
+                                target=target,
+                                duration_ms=100,
+                                timestamp=timestamp,
+                            )
+                            events.append(event)
+
+                    except (json.JSONDecodeError, KeyError, ValueError, TypeError, AttributeError):
+                        pass
+        except Exception:
+            pass
+
+        return events
+
+
 class HermesXSensors:
-    """Composite sensor: perceives X tweets, kernel verdicts, and Hermes agent logs"""
+    """Composite sensor: perceives X tweets, kernel verdicts, Hermes agent logs, user behavior"""
 
     def __init__(self):
         self.tweet_sensor = TweetSensor()
         self.verdict_sensor = VerdictSensor()
         self.hermes_sensor = HermesAgentSensor()
+        self.behavior_sensor = BehaviorSensor()
 
     def perceive(self, observation_count: int = 0) -> RawPerception:
         """
-        Perceive all data sources: X tweets, kernel verdicts, Hermes agent decisions.
+        Perceive all data sources: X tweets, kernel verdicts, Hermes agent decisions, user behavior.
 
         Args:
             observation_count: number of kernel observations (for reference)
@@ -181,6 +246,7 @@ class HermesXSensors:
             timestamp=datetime.now().isoformat(),
             tweets=self.tweet_sensor.perceive(),
             verdicts=self.verdict_sensor.perceive(),
-            sessions=self.hermes_sensor.perceive(),  # Now Hermes agent logs, not Claude Code sessions
+            sessions=self.hermes_sensor.perceive(),  # Hermes agent logs
+            behavior=self.behavior_sensor.perceive(),  # User behavior events
             observation_count=observation_count,
         )

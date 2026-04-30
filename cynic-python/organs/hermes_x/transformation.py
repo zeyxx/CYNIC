@@ -10,7 +10,7 @@ Inputs: RawPerception
 Outputs: CleanedData (typed contract)
 """
 
-from .schema import RawPerception, CleanedData, Tweet, Verdict, SessionTurn
+from .schema import RawPerception, CleanedData, Tweet, Verdict, SessionTurn, BehaviorEvent
 
 
 class DataTransformer:
@@ -124,6 +124,34 @@ class DataTransformer:
 
         return valid, dropped
 
+    def clean_behavior(self, behaviors: list) -> tuple[list, int]:
+        """
+        Validate and clean behavior events.
+
+        Rules:
+        - Must have event_type
+        - Must have target (domain or UI element)
+        - duration_ms must be non-negative
+
+        Returns:
+            (valid_behaviors, dropped_count)
+        """
+        valid = []
+        dropped = 0
+
+        for behavior in behaviors:
+            if not behavior.event_type or not behavior.target:
+                dropped += 1
+                continue
+
+            if behavior.duration_ms < 0:
+                dropped += 1
+                continue
+
+            valid.append(behavior)
+
+        return valid, dropped
+
     def transform(self, perception: RawPerception) -> CleanedData:
         """
         Transform raw perception into cleaned data.
@@ -138,6 +166,7 @@ class DataTransformer:
         tweets_valid, tweets_dropped = self.clean_tweets(perception.tweets)
         verdicts_valid, verdicts_dropped, verdict_drop_reasons = self.clean_verdicts(perception.verdicts)
         sessions_valid, sessions_dropped = self.clean_sessions(perception.sessions)
+        behavior_valid, behavior_dropped = self.clean_behavior(perception.behavior)
 
         cleaned_data = CleanedData(
             timestamp=perception.timestamp,
@@ -147,6 +176,8 @@ class DataTransformer:
             verdicts_dropped=verdicts_dropped,
             sessions_valid=sessions_valid,
             sessions_dropped=sessions_dropped,
+            behavior_valid=behavior_valid,
+            behavior_dropped=behavior_dropped,
         )
 
         # Store drop_reasons as metadata

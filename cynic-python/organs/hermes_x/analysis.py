@@ -107,6 +107,32 @@ class DataAnalyzer:
         }
 
     @staticmethod
+    def analyze_behavior(behaviors: list) -> dict:
+        """
+        Analyze user behavior patterns.
+
+        Metrics:
+        - Event count by type (click, scroll, dwell)
+        - Engagement by domain (dwell time, click count)
+        - Most engaged domain
+        """
+        if not behaviors:
+            return {"behavior_count": 0, "dominant_engagement": "mixed", "total_engagement_ms": 0, "event_types": {}}
+
+        event_types = Counter(b.event_type for b in behaviors)
+        targets = Counter(b.target for b in behaviors)
+        total_dwell = sum(b.duration_ms for b in behaviors)
+
+        dominant_target = targets.most_common(1)[0][0] if targets else "mixed"
+
+        return {
+            "behavior_count": len(behaviors),
+            "event_types": dict(event_types),
+            "dominant_engagement": dominant_target,
+            "total_engagement_ms": total_dwell,
+        }
+
+    @staticmethod
     def analyze_sessions(sessions: list) -> dict:
         """
         Analyze Hermes agent behavior patterns.
@@ -133,6 +159,7 @@ class DataAnalyzer:
         tweet_analysis = self.analyze_tweets(cleaned_data.tweets_valid)
         verdict_analysis = self.analyze_verdicts(cleaned_data.verdicts_valid, cycle)
         session_analysis = self.analyze_sessions(cleaned_data.sessions_valid)
+        behavior_analysis = self.analyze_behavior(cleaned_data.behavior_valid)
 
         # Detect anomalies
         anomalies = []
@@ -165,6 +192,9 @@ class DataAnalyzer:
             dominant_verdict_type=verdict_analysis["dominant_type"],
             sessions_analyzed=session_analysis["session_count"],
             dominant_intent=session_analysis["dominant_intent"],
+            behaviors_analyzed=behavior_analysis["behavior_count"],
+            dominant_engagement=behavior_analysis["dominant_engagement"],
+            total_engagement_ms=behavior_analysis["total_engagement_ms"],
             anomalies=anomalies,
             opportunities=opportunities,
             recommendation=recommendation,

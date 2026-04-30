@@ -44,12 +44,22 @@ class SessionTurn:
 
 
 @dataclass
+class BehaviorEvent:
+    """User behavior event from behavior_logger (keyboard, mouse, dwell)"""
+    event_type: str  # click, scroll, dwell, keystroke, etc.
+    target: str  # domain/UI element targeted
+    duration_ms: int  # dwell time or event duration
+    timestamp: str
+
+
+@dataclass
 class RawPerception:
     """Layer 1 output: raw data from all sources, unprocessed"""
     timestamp: str
     tweets: List[Tweet]
     verdicts: List[Verdict]
     sessions: List[SessionTurn]
+    behavior: List[BehaviorEvent]
     observation_count: int
 
     def to_dict(self) -> Dict:
@@ -72,6 +82,8 @@ class CleanedData:
     verdicts_dropped: int
     sessions_valid: List[SessionTurn]
     sessions_dropped: int
+    behavior_valid: List[BehaviorEvent]
+    behavior_dropped: int
 
     def quality_score(self) -> float:
         """Data quality: valid / (valid + dropped)"""
@@ -116,6 +128,11 @@ class PatternAnalysis:
     # Session patterns
     sessions_analyzed: int
     dominant_intent: str
+
+    # Behavior patterns (user engagement)
+    behaviors_analyzed: int
+    dominant_engagement: str  # Most clicked/dwell domain
+    total_engagement_ms: int
 
     # Anomalies detected
     anomalies: List[str]
