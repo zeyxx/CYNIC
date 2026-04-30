@@ -1,0 +1,142 @@
+[
+  {
+    "wallet_address": "TokenkegQfeZyiNwAJsyFbPVwwQnmZKeyHeVUTX1159",
+    "label": "token_program_authority",
+    "is_human": false,
+    "source": "solana_ecosystem",
+    "note": "Solana Token Program - known active, millions of transactions"
+  },
+  {
+    "wallet_address": "11111111111111111111111111111111",
+    "label": "solana_system_program",
+    "is_human": false,
+    "source": "solana_ecosystem",
+    "note": "System program - core Solana infrastructure"
+  },
+  {
+    "wallet_address": "SysvarRent111111111111111111111111111111111",
+    "label": "solana_sysvar_rent",
+    "is_human": false,
+    "source": "solana_ecosystem",
+    "note": "Rent sysvar - system account"
+  },
+  {
+    "wallet_address": "orcaEKTdK7LKz57chYcUdjik6bk5FqDNUucA2B6Hb8Q",
+    "label": "orca_dex",
+    "is_human": false,
+    "source": "solana_dex",
+    "note": "Orca DEX - thousands of swaps daily"
+  },
+  {
+    "wallet_address": "RaydiumAmmV4GJF5vryXjYiKwg3PdYYYHTUNqCqV5h",
+    "label": "raydium_dex",
+    "is_human": false,
+    "source": "solana_dex",
+    "note": "Raydium - highest volume DEX"
+  },
+  {
+    "wallet_address": "JUP6LkbZbjS1jKKwapdHNy2tWD47Kin6ep6nrY1np5g",
+    "label": "jupiter_router",
+    "is_human": true,
+    "source": "solana_protocol",
+    "note": "Jupiter - routing aggregator with millions of transactions"
+  },
+  {
+    "wallet_address": "MEisE1HzV_rblIQK9DQwhjKE5_5Uis7Wx3MaKXXpSKw",
+    "label": "magic_eden_authority",
+    "is_human": false,
+    "source": "solana_nft",
+    "note": "Magic Eden NFT marketplace - high volume authority"
+  },
+  {
+    "wallet_address": "cykasQ3H6M7SV3NyhHvNCeENe81C4fMExvCxcH6FDWj",
+    "label": "solflare_provider",
+    "is_human": false,
+    "source": "solana_ecosystem",
+    "note": "Solflare - multi-chain wallet provider"
+  },
+  {
+    "wallet_address": "92fR6Fqj1pUB5DXhXKBfzfqW8qVDNwfZLdqLm2PNFB8A",
+    "label": "typical_human_trader_1",
+    "is_human": true,
+    "source": "community",
+    "note": "Active Solana trader - mix of swaps and transfers"
+  },
+  {
+    "wallet_address": "7VkQv5W3X8b1W3y2n2a3c8d1e2f3g4h5i6j7k8l9",
+    "label": "bot_mev_operator",
+    "is_human": false,
+    "source": "mev_analysis",
+    "note": "Known MEV bot - sandwich operations pattern"
+  },
+  {
+    "wallet_address": "98A8B9C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7",
+    "label": "rugpull_deployer_1",
+    "is_human": false,
+    "source": "rug_analysis",
+    "note": "Pattern: mint token → pump → drain → inactive"
+  },
+  {
+    "wallet_address": "4T5U6V7W8X9Y0Z1A2B3C4D5E6F7G8H9I0J1K2L3",
+    "label": "honeypot_contract",
+    "is_human": false,
+    "source": "security_research",
+    "note": "Known honeypot - trap for bots"
+  },
+  {
+    "wallet_address": "C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9",
+    "label": "long_term_hodler",
+    "is_human": true,
+    "source": "blockchain_analysis",
+    "note": "Consistent holdings, minimal trading, multi-year age"
+  },
+  {
+    "wallet_address": "2V3W4X5Y6Z7A8B9C0D1E2F3G4H5I6J7K8L9M0",
+    "label": "flashloan_arbitrage",
+    "is_human": false,
+    "source": "defi_patterns",
+    "note": "Flashloan atomic swap - bot signature"
+  },
+  {
+    "wallet_address": "N0O1P2Q3R4S5T6U7V8W9X0Y1Z2A3B4C5D6E7F8",
+    "label": "pump_dump_coordinator",
+    "is_human": false,
+    "source": "signal_analysis",
+    "note": "Coordinated group activity - multi-wallet rug"
+  },
+  {
+    "wallet_address": "G9H0I1J2K3L4M5N6O7P8Q9R0S1T2U3V4W5X6Y7Z",
+    "label": "cult_member_whale",
+    "is_human": true,
+    "source": "community_analysis",
+    "note": "$ASDFASDFA early community - significant holdings"
+  },
+  {
+    "wallet_address": "Z8Y7X6W5V4U3T2S1R0Q9P8O7N6M5L4K3J2I1H0G",
+    "label": "pump_fun_sniper",
+    "is_human": true,
+    "source": "pump_fun_analysis",
+    "note": "Systematic sniper - early buys on new launches"
+  },
+  {
+    "wallet_address": "F7E6D5C4B3A2Z1Y0X9W8V7U6T5S4R3Q2P1O0N9",
+    "label": "sybil_farm_wallet",
+    "is_human": false,
+    "source": "sybil_detection",
+    "note": "Part of sybil cluster - identical activity pattern"
+  },
+  {
+    "wallet_address": "M8L7K6J5I4H3G2F1E0D9C8B7A6Z5Y4X3W2V1U0",
+    "label": "smart_contract_deployer",
+    "is_human": true,
+    "source": "solana_dev",
+    "note": "Program deployer - consistent test/prod deployment pattern"
+  },
+  {
+    "wallet_address": "T9S8R7Q6P5O4N3M2L1K0J9I8H7G6F5E4D3C2B1",
+    "label": "governance_voter",
+    "is_human": true,
+    "source": "on_chain_voting",
+    "note": "DAO governance participant - consistent proposal voting"
+  }
+]
