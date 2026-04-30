@@ -53,16 +53,17 @@ pub async fn health_handler(
         StatusCode::SERVICE_UNAVAILABLE
     };
 
-    // Public: minimal info only — no version, no dog count, no topology.
-    // HTTP status code tells the story: 200 = healthy, 503 = degraded/critical.
-    // Any monitoring tool can check without parsing JSON: curl -sf URL || alert
-    // KC3: version removed — leaks git SHA + commit count to unauthenticated callers.
+    // Public: boolean only — no version, no status string, no phi_max.
+    // T1 hardening: Paranoid threat model (motivated attacker).
+    // Status string "degraded" = operational detail (system under stress).
+    // phi_max = algorithm constant (leaks implementation details).
+    // HTTP status code sufficient: 200 = healthy, 503 = unhealthy.
+    // Attacker learns nothing from body: 200 + {"healthy":true} ≠ 200 + topology leak.
     if !authenticated {
         return (
             http_code,
             Json(serde_json::json!({
-                "status": readiness.status,
-                "phi_max": PHI_INV,
+                "healthy": readiness.healthy,
             })),
         );
     }
