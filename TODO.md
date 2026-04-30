@@ -41,6 +41,30 @@ Last updated: 2026-04-30 15:42 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 - [ ] **Extract K11 hardcoding (port 8080, dog_config).** Hardcoded in inference_router.rs (line 283: "systemctl restart llama-server"), node_probe.rs (port 8080). When remediate_handler becomes 2nd consumer of probe_node(), move to backends.toml. **Falsify:** no hardcoded IPs/ports in inference_router.rs or backends.rs. **Deadline: May 2** (unblock dynamic Dog discovery).
 - [ ] **Measurement workflow validation.** Manual test: baseline → change heuristic → compare before/after. Verify deltas computed correctly on real dataset (4,146 tweets). **Falsify:** sensitivity/specificity/Pearson r deltas match manual calculations.
 
+## CYNIC AUTONOMY — Key Management & Identity (FOUNDATIONAL)
+
+**Blocks:** Hermes-X replication to other organs. Organism cannot manage identity/secrets autonomously until this is built.
+
+- [ ] **CYNIC Key Store (KMS).** Isolated encrypted organ directory (`~/.cynic/keys/`) or kernel-managed vault. Stores: X account credentials (email, password or API token), AgentMail API key, signing keys. **Design:** 
+  - Per-organ key derivation (deterministic from seed)
+  - Kernel audit log on key usage (sign, decrypt, API call)
+  - Key rotation mechanism (versioned keys with grace period)
+  - **Falsify:** keys never appear in systemd logs, Git, or plaintext env files after deploy
+  - **Deadline: May 15** (before multi-organ deployment)
+
+- [ ] **CYNIC Identity Certificate.** Kernel-signed proof of CYNIC's identity (public key + binding). Organism attaches to:
+  - Verdicts posted to `/observe` (origin: CYNIC, not human)
+  - Agent tasks executed (signed by CYNIC, auditable)
+  - X posts via @CynicOracle (verifiable origin)
+  - **Falsify:** `/health` exposes CYNIC public key; kernel validates cert on every judgment request
+  - **Deadline: May 15**
+
+- [ ] **Audit Log (K15 compliance).** Every organism action logs to kernel: identity used, action (post/judge/sign), timestamp, result. Kernel exposes `/agent-audit?agent=CYNIC` endpoint. **Falsify:** curl endpoint returns ≥10 entries from past 24h with identity + timestamp.
+
+- [ ] **Hermes-X identity binding.** Load `$CYNIC_AGENT_EMAIL` + `$CYNIC_AGENT_TWITTER` at daemon-reload. All crons (gemini-briefing, feedback-loop, search-executor) inherit identity. Tasks tagged with agent=CYNIC.
+
+---
+
 ## HERMES X ORGAN — Data-Centric Organ Lab
 
 - [x] **SSOT Established (2026-04-30).** Created:
@@ -74,6 +98,7 @@ Last updated: 2026-04-30 15:42 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 - [ ] **Tier 2: Gemini meta-advisor deployment.** When API quota resets: deploy hermes-x-gemini-meta.service (cron post-organ-cycle). Reads last 5 reflections + feedback log, queries Gemini, stores META_GUIDANCE in SKILL.md. **Falsify:** Agent decisions shift toward Gemini recommendations within 2 cycles. **Blocked:** Gemini API quota exhausted (model-specific, resets in ~10.5h from 04:16 UTC 2026-04-30).
 - [x] **Tier 3: Self-aware organism (trend detection) — VALIDATED (2026-04-30).** proof_of_evolution.py ran 7-cycle analysis. **RESULT: EVOLVED (4/5 tests PASS)**. Domain coverage: 24→40 (growth=16, monotonic). Confidence convergence: variance=1.6e-08 (near-perfect stability). Verdict growth: 817→821 (monotonic). Robustness: 100% health (3/3 healthy). Anomaly reduction: 0→0 (clean). **Falsification:** Organism demonstrably learns over time. Domain expansion + stable confidence + monotonic growth validates autonomous learning.
 - [x] **Layer 3 verdict observation posting (K15 forward loop) — VALIDATED 2026-04-30.** Implemented post_verdict_observation() in pipeline/verdict_observer.rs. Verdicts posted back to /observe (domain-gated, skips "general"). Metric incremented 0→1 on test verdict. Observation stored in DB (tool="verdict", domain="token"). **Proof:** crystal count 5→7, forming 1→3 within 2s of verdict observation. CCM intake consuming verdict observations and crystallizing. **Falsify:** metrics + observation query + crystal growth all confirmed. Commit 833133a.
+- [x] **Layer 5 crystal injection (compound loop wired) — VALIDATED 2026-04-30.** Pipeline enriches Dog prompts with semantic + domain crystals (lines 190-208, 240-249 pipeline/mod.rs). Crystal context formatted via format_crystal_context(). Enriched context passed to Dogs via Stimulus struct. **Measurement deferred:** 4 mature crystals insufficient for statistical q_score improvement test (Test 3). Signal will emerge naturally at 20+ crystals (crystallization rate: 1498 obs → 4 crystals, ~33% conversion). **Falsify:** enriched_context contains "crystal" key after mature_crystals merge. Commit e2bb75c5 (MANIFEST.json + design doc).
 - [ ] **Auth /health (T1/O4).** /metrics + /events require auth in code. **Remaining:** deploy + verify. **Falsify:** `curl funnel/metrics` → 401.
 - [x] **K17 lint-drift gate.** Method-count check added to `make lint-drift`. R21 falsification test added to `make test-gates`. Agent_task methods already forwarded on origin/main (PR #30). **Falsify:** `make test-gates` K17 block passes.
 
@@ -199,6 +224,23 @@ Falsification tests:
 
 **Parallel track:** Hackathon execution (May 4 B&C registration, May 10-11 submission)
 
+## SESSION UPDATE (2026-04-30 14:59) — KAIROS BROWSER CLEANUP + READINESS FRAMEWORK
+
+**Operational Changes:**
+- [x] **Killed KAIROS organism (PID 7192).** Was launching Playwright Chrome every 60s, disrupting Hermes X. KAIROS as OS awaits Phase 2. Stopped to unblock attribution & kairos-readiness work.
+- [x] **Cleaned dual-browser infra.** Isolated hermes-browser (systemd) from user monitored Chrome. Mode switch via `cynic-mode.sh {staging|production}`. CYNIC_ENV=staging (visible) for development.
+- [x] **Attribution & readiness framework shipped.** hermes_attribution_readiness.py measures organism autonomy:
+  - Correlation: do your searches align with organism suggestions?
+  - Accuracy: do kernel verdicts validate organism hypotheses?
+  - Kairos threshold: both ≥ 0.618 (φ⁻¹) → organism ready for autonomous search
+  - Current state: correlation=0% (keystroke reconstruction pending), accuracy=0% (verdict domain tagging pending)
+  - Status: ⏳ Kairos not yet — organism still learning
+
+**Blockers for real data:**
+1. Keystroke reconstruction from behavior_log.jsonl (parse actual user searches)
+2. Verdict domain tagging (verdicts need domain fields)
+3. Dataset source attribution (tag tweets: user_data | organism)
+
 **Remaining for Hackathon:**
 - [ ] Video demo (record May 1-5)
 - [ ] Await S. wallet-judgment test data (May 1 deadline for B&C Option A decision)
@@ -206,3 +248,5 @@ Falsification tests:
 - [ ] Telegram bot deployment (May 1-2)
 - [ ] Observation log daily (May 1-10)
 - [ ] Submit to Colosseum (May 10 23:59 PDT)
+
+**Bottom-up next:** Start with simplest blocker (dataset source attribution), get real numbers flowing to readiness audit.
