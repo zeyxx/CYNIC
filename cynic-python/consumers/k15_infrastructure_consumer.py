@@ -34,6 +34,11 @@ from typing import Optional
 
 import requests
 
+# Exponential backoff for rate limiting (429)
+INITIAL_BACKOFF = 2  # seconds
+MAX_BACKOFF = 60  # seconds
+BACKOFF_MULTIPLIER = 1.5
+
 
 class K15InfrastructureConsumer:
     """Consume infrastructure observations, route failures to recovery."""
@@ -53,8 +58,11 @@ class K15InfrastructureConsumer:
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
 
-    def fetch_observations(self, domain: str = "infrastructure", limit: int = 50) -> list:
-        """Fetch recent infrastructure observations from kernel."""
+    def fetch_observations(self, domain: str = "infrastructure", limit: int = 50) -> tuple:
+        """Fetch recent infrastructure observations from kernel.
+
+        Returns (obs_list, should_backoff) where should_backoff=True if 429 rate limit hit.
+        """
         try:
             # Filter by domain via query (future: add to API)
             url = f"{self.kernel_url}/observations?limit={limit}"
@@ -62,13 +70,16 @@ class K15InfrastructureConsumer:
             if resp.status_code == 200:
                 obs_list = resp.json() or []
                 # Client-side filter: only infrastructure domain
-                return [o for o in obs_list if o.get("domain") == domain]
+                return [o for o in obs_list if o.get("domain") == domain], False
+            elif resp.status_code == 429:
+                print(f"Rate limit (429): kernel at capacity, backing off")
+                return [], True
             else:
                 print(f"Error fetching observations: {resp.status_code}")
-                return []
+                return [], False
         except Exception as e:
             print(f"Exception fetching observations: {e}")
-            return []
+            return [], False
 
     def classify_failure(self, obs: dict) -> Optional[dict]:
         """Extract failure type and target from observation.
@@ -163,10 +174,10 @@ class K15InfrastructureConsumer:
 
         return None
 
-    def execute_recovery(self, recovery: dict) -> bool:
+    def execute_recovery(self, recovery: dict) -> tuple:
         """Execute recovery action.
 
-        Returns True on success, False on failure.
+        Returns (success: bool, should_backoff: bool) where should_backoff=True if 429 rate limit.
         """
         action = recovery["action"]
 
@@ -178,13 +189,16 @@ class K15InfrastructureConsumer:
                 resp = requests.post(url, json=body, headers=self.headers(), timeout=15)
                 if resp.status_code in [200, 201]:
                     print(f"✓ Remediate {recovery['target']}: {resp.status_code}")
-                    return True
+                    return True, False
+                elif resp.status_code == 429:
+                    print(f"✗ Remediate {recovery['target']}: 429 (rate limit, backing off)")
+                    return False, True
                 else:
                     print(f"✗ Remediate {recovery['target']}: {resp.status_code}")
-                    return False
+                    return False, False
             except Exception as e:
                 print(f"✗ Remediate {recovery['target']}: {e}")
-                return False
+                return False, False
 
         elif action == "alert":
             # Log with severity
@@ -192,21 +206,22 @@ class K15InfrastructureConsumer:
             print(
                 f"[ALERT] {severity.upper()}: {recovery['target']} — {recovery['reason']}"
             )
-            return True
+            return True, False
 
         elif action == "log":
             # Just log
             print(f"[LOG] {recovery['target']} — {recovery['reason']}")
-            return True
+            return True, False
 
-        return False
+        return False, False
 
     def run(self, poll_interval: int = 60, max_iterations: int = None):
-        """Run consumer loop."""
+        """Run consumer loop with exponential backoff on 429 rate limits."""
         iteration = 0
         total_obs = 0
         total_degraded = 0
         total_recovery = 0
+        current_backoff = INITIAL_BACKOFF
 
         print(f"K15 Infrastructure Consumer starting (interval={poll_interval}s)")
 
@@ -217,7 +232,19 @@ class K15InfrastructureConsumer:
 
             try:
                 # Fetch observations
-                observations = self.fetch_observations(domain="infrastructure", limit=50)
+                observations, fetch_rate_limited = self.fetch_observations(domain="infrastructure", limit=50)
+
+                # If we got rate limited on fetch, back off
+                if fetch_rate_limited:
+                    print(f"[{iteration}] Rate limited (429), backing off {current_backoff}s")
+                    time.sleep(current_backoff)
+                    current_backoff = min(current_backoff * BACKOFF_MULTIPLIER, MAX_BACKOFF)
+                    continue
+
+                # Reset backoff on successful fetch
+                if observations:
+                    current_backoff = INITIAL_BACKOFF
+
                 if not observations:
                     print(f"[{iteration}] No infrastructure observations")
                     time.sleep(poll_interval)
@@ -226,6 +253,7 @@ class K15InfrastructureConsumer:
                 print(f"[{iteration}] Fetched {len(observations)} infrastructure observations")
 
                 # Classify and route
+                rate_limited_on_recovery = False
                 for obs in observations:
                     total_obs += 1
                     failure = self.classify_failure(obs)
@@ -236,7 +264,16 @@ class K15InfrastructureConsumer:
 
                         if recovery:
                             total_recovery += 1
-                            self.execute_recovery(recovery)
+                            success, rate_limited = self.execute_recovery(recovery)
+                            if rate_limited:
+                                rate_limited_on_recovery = True
+
+                # If any recovery hit 429, back off
+                if rate_limited_on_recovery:
+                    print(f"[{iteration}] Recovery rate limited, backing off {current_backoff}s")
+                    time.sleep(current_backoff)
+                    current_backoff = min(current_backoff * BACKOFF_MULTIPLIER, MAX_BACKOFF)
+                    continue
 
                 # Log progress
                 print(
