@@ -4,18 +4,19 @@
 
 set -e
 
-# Get project root
-PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+# Get project root (R1: no hardcoded paths)
+PROJECT_ROOT="${CYNIC_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo /home/user/Bureau/CYNIC)}"
 
 # Source environment variables
 source "$HOME/.cynic-env"
 
-# Get kernel URL from env or use default (CYNIC_REST_ADDR should be set in ~/.cynic-env)
+# Get kernel URL from env (CYNIC_REST_ADDR should be set in ~/.cynic-env)
 KERNEL_URL="${CYNIC_REST_ADDR}"
 if [ -z "$KERNEL_URL" ]; then
     echo "ERROR: CYNIC_REST_ADDR not set in ~/.cynic-env" >&2
     exit 1
 fi
+
 # Convert host:port to http://host:port if needed
 if [[ ! "$KERNEL_URL" =~ ^http ]]; then
     KERNEL_URL="http://$KERNEL_URL"
