@@ -1,30 +1,39 @@
 #!/usr/bin/env python3
 """
-Behavioral Simulator — injects user interaction patterns into Playwright.
+Behavioral Simulator — injects user interaction patterns into Hermes browser via CDP.
 
-Takes a search intent + behavioral profile, executes as if the user did it:
+Connects to CYNIC's hermes-browser service (persistent X.com login) and executes
+searches with behavioral mimicry:
   - Types with user's WPM and keystroke timing distribution
   - Moves mouse with user's velocity patterns
   - Scrolls with user's burst frequency and direction bias
   - Deliberates with user's pause distribution
 
-Purpose: Avoid bot detection by matching user's actual interaction style.
+Architecture:
+  - hermes-browser.service (CDP on :40769, persistent profile, mitmproxy-routed)
+  - Behavioral Simulator connects via CDP (no new browser launched)
+  - All searches logged to /observe via X ingest daemon
+
+Purpose: Organism searches autonomously (from framing) while appearing human (from profile).
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0-cdp"
 
 import json
 import logging
 import random
 import statistics
 import asyncio
+import os
+import urllib.request
+import urllib.error
 from argparse import ArgumentParser
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
 try:
-    from playwright.async_api import async_playwright, Page
+    from playwright.async_api import async_playwright, Page, Browser
 except ImportError:
     raise ImportError("playwright required: pip install playwright")
 
@@ -124,46 +133,160 @@ class BehavioralSimulator:
         logger.debug(f"clicked {selector}")
 
 
+async def find_x_com_page_cdp() -> Optional[str]:
+    """Find X.com page in browser and get its CDP WebSocket URL."""
+    state_file = Path.home() / ".cynic" / "organs" / "hermes" / "browser-state.json"
+
+    if not state_file.exists():
+        logger.warning(f"browser state not found: {state_file}")
+        logger.warning("Is hermes-browser.service running?")
+        return None
+
+    try:
+        with open(state_file) as f:
+            state = json.load(f)
+            cdp_port = state.get("cdp_port", 40769)
+
+        # Query /json/list to find open pages
+        http_url = f"http://localhost:{cdp_port}/json/list"
+        logger.debug(f"listing browser pages: {http_url}")
+
+        try:
+            response = urllib.request.urlopen(http_url, timeout=2)
+            pages = json.loads(response.read().decode())
+
+            # Find X.com page (prefer the X.com page if multiple exist)
+            x_page = None
+            for page in pages:
+                if page.get("type") == "page":  # Only regular pages, not workers
+                    url = page.get("url", "")
+                    if "x.com" in url or "twitter.com" in url:
+                        x_page = page
+                        logger.info(f"found X.com page: {url}")
+                        break
+
+            if not x_page:
+                # Fallback: use first page if no X.com page found
+                for page in pages:
+                    if page.get("type") == "page":
+                        x_page = page
+                        logger.warning(f"no X.com page found, using: {page.get('url')}")
+                        break
+
+            if x_page:
+                cdp_url = x_page.get("webSocketDebuggerUrl")
+                if cdp_url:
+                    logger.info(f"using page: {cdp_url}")
+                    return cdp_url
+
+            logger.error("no pages found in browser")
+            return None
+
+        except (urllib.error.URLError, urllib.error.HTTPError) as e:
+            logger.error(f"CDP endpoint not accessible: {e}")
+            logger.error("Is hermes-browser.service running?")
+            return None
+
+    except Exception as e:
+        logger.error(f"failed to find CDP page: {e}")
+        return None
+
+
 async def search_x_com(
     query: str,
     profile_path: Path,
-    headless: bool = True,
 ) -> Dict:
-    """Execute search on X.com with behavioral mimicry."""
+    """Execute search on X.com via CYNIC's hermes-browser (CDP).
+
+    Connects to the running hermes-browser.service (persistent X.com login)
+    and executes the search with behavioral mimicry.
+
+    Args:
+        query: Search query to execute
+        profile_path: Path to behavioral_profile.json
+
+    Returns:
+        Dict with status, query, result_count, timestamp
+    """
 
     simulator = BehavioralSimulator(profile_path)
 
+    # Find X.com page in running browser
+    cdp_url = await find_x_com_page_cdp()
+    if not cdp_url:
+        return {
+            "status": "error",
+            "query": query,
+            "error": "hermes-browser not running. Start with: systemctl --user start hermes-browser.service",
+            "timestamp": datetime.now().isoformat(),
+        }
+
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=headless,
-            args=["--disable-blink-features=AutomationControlled"]
-        )
-
-        page = await browser.new_page(
-            user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
-        )
-
         try:
+            # Connect to existing browser via CDP (no new launch)
+            logger.info("connecting to CYNIC browser via CDP...")
+            browser = await p.chromium.connect_over_cdp(cdp_url)
+
+            # Get or create context
+            contexts = await browser.contexts
+            if contexts:
+                context = contexts[0]
+                logger.info(f"reusing existing context (login may persist)")
+            else:
+                context = await browser.new_context()
+                logger.info(f"created new context")
+
+            # Create page in context
+            page = await context.new_page()
+
             logger.info(f"navigating to x.com/search...")
             await page.goto("https://x.com/search", wait_until="domcontentloaded", timeout=10000)
 
-            # Wait for search box
-            await page.wait_for_selector('input[placeholder*="search"]', timeout=5000)
+            # Wait for search input (try multiple selectors)
+            search_selector = None
+            for selector in [
+                'input[aria-label*="search"]',
+                'input[placeholder*="search"]',
+                'input[role="searchbox"]',
+                'div[role="search"] input',
+            ]:
+                try:
+                    element = await page.query_selector(selector)
+                    if element and await element.is_visible():
+                        search_selector = selector
+                        logger.debug(f"found search input: {selector}")
+                        break
+                except:
+                    pass
+
+            if not search_selector:
+                logger.error("search input not found")
+                return {
+                    "status": "error",
+                    "query": query,
+                    "error": "could not find search input on page",
+                    "timestamp": datetime.now().isoformat(),
+                }
 
             logger.info(f"executing search query: {query}")
 
             # Type search with behavioral profile
-            await simulator.type_like_user(page, 'input[placeholder*="search"]', query)
+            await simulator.type_like_user(page, search_selector, query)
 
             # Deliberate before pressing enter
             await simulator.deliberate(2.0)
 
             # Press enter
-            await page.press('input[placeholder*="search"]', "Enter")
+            await page.press(search_selector, "Enter")
 
             # Wait for results
             await page.wait_for_timeout(3000)
-            await page.wait_for_selector('article', timeout=10000)
+
+            # Try to find results
+            try:
+                await page.wait_for_selector('article', timeout=5000)
+            except:
+                logger.warning("no article elements found, continuing anyway")
 
             logger.info("search completed, scrolling results...")
 
@@ -175,6 +298,8 @@ async def search_x_com(
             # Capture result count
             result_text = await page.text_content()
             result_count = result_text.count("article") if result_text else 0
+
+            await page.close()
 
             return {
                 "status": "success",
@@ -193,29 +318,21 @@ async def search_x_com(
                 "timestamp": datetime.now().isoformat(),
             }
 
-        finally:
-            await page.close()
-            await browser.close()
-
 
 def main():
-    parser = ArgumentParser(description="Execute search with behavioral mimicry")
+    parser = ArgumentParser(
+        description="Execute search via CYNIC's hermes-browser with behavioral mimicry"
+    )
     parser.add_argument(
         "--query",
         required=True,
-        help="Search query to execute"
+        help="Search query to execute (e.g., 'recovery scammer crypto')"
     )
     parser.add_argument(
         "--profile",
         type=Path,
         default=Path.home() / ".cynic" / "organs" / "hermes" / "x" / "behavioral_profile.json",
-        help="Behavioral profile JSON"
-    )
-    parser.add_argument(
-        "--headless",
-        action="store_true",
-        default=True,
-        help="Run headless (default: true)"
+        help="Behavioral profile JSON (default: behavioral_profile.json)"
     )
     args = parser.parse_args()
 
@@ -224,14 +341,18 @@ def main():
         return 1
 
     logger.info(f"behavioral simulator v{__version__}")
-    logger.info(f"executing with profile: {args.profile.name}")
+    logger.info(f"connecting to CYNIC hermes-browser service...")
+    logger.info(f"using profile: {args.profile.name}")
 
-    result = asyncio.run(search_x_com(args.query, args.profile, headless=args.headless))
+    result = asyncio.run(search_x_com(args.query, args.profile))
 
-    logger.info(f"result: {result['status']}")
+    logger.info(f"\nRESULT: {result['status']}")
     if result["status"] == "success":
         logger.info(f"  query: {result['query']}")
-        logger.info(f"  results: {result.get('result_count', 0)}")
+        logger.info(f"  result_count: {result.get('result_count', 0)}")
+        logger.info(f"  timestamp: {result.get('timestamp')}")
+    else:
+        logger.error(f"  error: {result.get('error', 'unknown')}")
 
     return 0 if result["status"] == "success" else 1
 
