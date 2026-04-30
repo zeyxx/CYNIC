@@ -64,7 +64,63 @@ fi
 GIT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | wc -l)
 
-# ── Agent ID from Claude session_id (stable across compactions) ──
+# ── K15: Capture AT_START cortex proof (multi-cortex coordination) ──
+# Prevents divergence: captures git state at session start for next session to verify continuity.
+# Stored in .claude/session-proof.json (git-tracked), also sent to kernel /observe as fallback.
+PROOF_FILE="${PROJECT_DIR}/.claude/session-proof.json"
+LAST_COMMIT=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+ORIGIN_COMMIT=$(git -C "$PROJECT_DIR" rev-parse --short origin/main 2>/dev/null || echo "unknown")
+ORIGIN_AHEAD=$(git -C "$PROJECT_DIR" rev-list HEAD..origin/main --count 2>/dev/null || echo 0)
+ORIGIN_BEHIND=$(git -C "$PROJECT_DIR" rev-list origin/main..HEAD --count 2>/dev/null || echo 0)
+
+# Collect open branches (exclude HEAD)
+OPEN_BRANCHES=$(git -C "$PROJECT_DIR" branch --list 2>/dev/null | grep -v '^\*' | sed 's/^[[:space:]]*//' | jq -R -s -c 'split("\n") | map(select(length > 0))' || echo "[]")
+
+# Collect open PRs (if gh is available)
+OPEN_PRS="[]"
+if command -v gh &>/dev/null && [[ "$KERNEL_STATUS" != "down" ]]; then
+    OPEN_PRS=$(gh pr list --json number,title,headRefName 2>/dev/null | jq -c '.' || echo "[]")
+fi
+
+# Collect stashes
+STASHES=$(git -C "$PROJECT_DIR" stash list 2>/dev/null | jq -R -s -c 'split("\n") | map(select(length > 0))' || echo "[]")
+
+# Write AT_START proof
+cat > "$PROOF_FILE" << PROOF_EOF
+{
+  "session_id": "${AGENT_ID}",
+  "schema_version": "1.0",
+  "recorded_at": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+  "AT_START": {
+    "branch_name": "${GIT_BRANCH}",
+    "last_commit_hash": "${LAST_COMMIT}",
+    "origin_commit_hash": "${ORIGIN_COMMIT}",
+    "local_behind_origin": ${ORIGIN_AHEAD},
+    "local_ahead_of_origin": ${ORIGIN_BEHIND},
+    "dirty_files": ${GIT_DIRTY},
+    "open_branches": ${OPEN_BRANCHES},
+    "open_prs": ${OPEN_PRS},
+    "stashes": ${STASHES},
+    "kernel_status": "${KERNEL_STATUS}",
+    "dogs_active": ${ACTIVE_DOGS}
+  }
+}
+PROOF_EOF
+
+# Check for violations from last session (AT_END that became AT_START of this session)
+# Weakness: this heuristic is simple — open_branches > 1 or origin_ahead > 0 = violation
+GIT_VIOLATIONS=""
+if [[ ${ORIGIN_BEHIND} -gt 0 ]]; then
+    GIT_VIOLATIONS="LOCAL ${ORIGIN_BEHIND} commits not pushed to origin/main"
+fi
+if [[ $(echo "$OPEN_BRANCHES" | jq 'length') -gt 1 ]]; then
+    GIT_VIOLATIONS="${GIT_VIOLATIONS:+$GIT_VIOLATIONS; }$(echo "$OPEN_BRANCHES" | jq 'length') branches remain open (review MC2)"
+fi
+if [[ $(echo "$STASHES" | jq 'length') -gt 0 ]]; then
+    GIT_VIOLATIONS="${GIT_VIOLATIONS:+$GIT_VIOLATIONS; }$(echo "$STASHES" | jq 'length') stashes exist (previous session incomplete?)"
+fi
+
+# Agent ID from Claude session_id (stable across compactions) ──
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
 if [[ -n "$SESSION_ID" ]]; then
     AGENT_ID="claude-${SESSION_ID:0:12}"
@@ -112,6 +168,14 @@ WORKFLOW: Use /build after edits, /deploy for production, /status for full dashb
 COORD: Agent auto-registered. Claim → cynic_coord_who + cynic_coord_claim | Release → cynic_coord_release
 RULES: Public repo — no secrets, no real IPs, no names. Use skills before acting.
 EOF
+
+# K15: Warn about git state violations from previous session
+if [[ -n "$GIT_VIOLATIONS" ]]; then
+    echo ""
+    echo "⚠ GIT STATE VIOLATIONS (Rule MC2/MC5 — coordinate before proceeding):"
+    echo "  $GIT_VIOLATIONS"
+    echo "  → Review .claude/session-proof.json for previous session state"
+fi
 
 # ── Last session compliance (K15: session-stop produces, this consumes) ──
 if [[ "$KERNEL_STATUS" != "down" ]]; then
