@@ -109,3 +109,13 @@ cynic-python/research_gpu_capabilities.py
 .cynic-explorer-*.md
 observations/
 __pycache__/
+
+# Accidental root-level artifacts (PostScript, dumps, stdlib-named files)
+# R26: ImageMagick/debug dumps polluted git history (+157K lines, 2026-04-30)
+/json
+/os
+/sys
+/csv
+/re
+/io
+*.ps
