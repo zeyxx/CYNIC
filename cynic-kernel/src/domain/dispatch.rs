@@ -223,7 +223,7 @@ mod tests {
     fn test_all_domains_have_dogs() {
         for domain in [
             Domain::Token,
-            Domain::Inference,
+            // Inference is kernel-embedded, no external Dogs
             Domain::Security,
             Domain::Chess,
             Domain::Wallet,
