@@ -5,9 +5,9 @@
 set -e
 
 # Get project root (use CYNIC_ROOT from systemd, fallback to git)
-PROJECT_ROOT="${CYNIC_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo /home/user/Bureau/CYNIC)}"
+PROJECT_ROOT="${CYNIC_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 if [ -z "$PROJECT_ROOT" ]; then
-    echo "ERROR: CYNIC_ROOT not set and all fallbacks failed" >&2
+    echo "ERROR: CYNIC_ROOT not set and git rev-parse failed" >&2
     exit 1
 fi
 
