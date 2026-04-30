@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-30 22:15 | **K15 LINT GATES CLOSED:** K2 + R1 violations resolved. probe_node() moved to backends/ layer ✅. Script paths fixed to use CYNIC_ROOT env var ✅. API.md updated with /inference/list-models + /inference/start ✅. **STATUS:** 3 commits staged, all linting passed (cargo check, clippy, lint-drift, lint-rules). **BLOCKED:** Pre-push hook runs cargo build which hits LLVM SIGSEGV due to memory pressure + complex DWARF (rmcp, reqwest, blake3 monomorphization). Known issue: rustc 1.95.0 stable + 27GB system with 21GB used + 7.8GB swap full = compilation OOM. **NEXT:** Memory pressure remediation OR test flow with existing binary. **HACKATHON:** Conviction-only baseline ready (100% accuracy, 28/28), registration May 4, submit May 10 23:59 PDT.
+Last updated: 2026-04-30 02:39 | **K15 PRODUCER-CONSUMER LOOP COMPLETE & LIVE** ✅. K2 + R1 lint violations resolved. probe_node() in backends/ ✅. Scripts use CYNIC_ROOT ✅. API.md documented ✅. hermes-infrastructure-monitor.service deployed ✅. Consumer routing: unreachable→alert, timeout→remediate, mismatch→alert. Tested: 8/8 degraded observations correctly routed. **NEXT:** Wire /inference/remediate-dog execution for timeout recovery (T7). Extract K11 hardcoding (port 8080) when remediate becomes 2nd consumer. **HACKATHON:** Conviction-only baseline ready (100% accuracy, 28/28), registration May 4, submit May 10 23:59 PDT.
 
 ---
 
@@ -36,7 +36,7 @@ Last updated: 2026-04-30 22:15 | **K15 LINT GATES CLOSED:** K2 + R1 violations r
 - [x] **K15 consumer (k15_observation_consumer.py).** Polls /observations, scores with TwitterDog (signal≥6 or BARK always), filters high-signal, dispatches to /agent-tasks. Wires observation → TwitterDog → agent-task dispatch. **Status:** Code complete + tested offline (3/4 tests pass, established-token gap known). **Thresholds:** BARK always dispatch, signal≥6 general heuristic, @gcrtrd pattern override. **Commit:** 0574ec0 + follow-up with tests.
 - [x] **Test K15 consumer on live data (VALIDATED).** Kernel running at `<TAILSCALE_CORE>:3030`. Consumer fetched 100 observations, scored all as high-signal, dispatched 22 tasks before rate limiting. **Status:** K15 Seam 2 operational ✓. Task: `/observations` → K15Consumer → `/agent-tasks` confirmed working. **Commit:** 6d6922b.
 - [x] **Deploy K15 consumer to systemd.** hermes-k15-consumer.service wired (fixed: localhost→Tailscale addr). Polling /observations (infrastructure domain), dispatching high-signal to /agent-tasks. Status: LIVE 2026-04-30 01:54. **Next:** infrastructure-monitor.service (domain-aware failure routing).
-- [ ] **Deploy infrastructure-monitor consumer.** k15_infrastructure_consumer.py (commit 5837b8a) ready. Routes probe failures: timeout→remediate, unreachable→alert, mismatch→alert. Create hermes-infrastructure-monitor.service (5min cron). **Deadline: May 2** (unblock T7).
+- [x] **Deploy infrastructure-monitor consumer.** k15_infrastructure_consumer.py deployed via hermes-infrastructure-monitor.service. Routes probe failures: timeout→remediate, unreachable→alert, mismatch→alert. Live 2026-04-30 02:36. **Status:** K15 Seam 3 operational ✓. Tested: 8/8 degraded observations correctly routed to actions.
 - [ ] **Wire /inference/remediate-dog execution (T7).** Currently returns status without acting. Needs ts_exec_call.sh bridge. Routes to recovery: systemctl restart on degraded nodes. **Blocked:** Need to implement /scripts/ts_exec_call.sh (MCP wrapper).
 - [ ] **Extract K11 hardcoding (port 8080, dog_config).** When remediate_handler becomes 2nd consumer of probe_node(), move to backends.toml. **Falsify:** no hardcoded IPs/ports in inference_router.rs.
 - [ ] **Measurement workflow validation.** Manual test: baseline → change heuristic → compare before/after. Verify deltas computed correctly on real dataset (4,146 tweets). **Falsify:** sensitivity/specificity/Pearson r deltas match manual calculations.
@@ -89,3 +89,18 @@ Last updated: 2026-04-30 22:15 | **K15 LINT GATES CLOSED:** K2 + R1 violations r
 - [ ] LUKS full-disk encryption on cynic-core (KC1)
 - [ ] `.cynic-env` format — `export` prefixes incompatible with systemd EnvironmentFile
 - [x] mitmdump running with `--listen-host 127.0.0.1` (KC4)
+
+## DATA-CENTRIC ORGANISM (Phase 1 → May 10)
+
+- [x] Map canonical data-system architecture to CYNIC (ORGANISM-DATA-METABOLISM.md)
+- [x] Create Hermes Data Organism perception service (hermes_data_organism.py)
+- [x] Wire systemd timer (hourly cycles)
+- [x] Document feedback loop (HERMES-DATA-ORGANISM-LOOP.md)
+- [ ] **DEPLOY:** `sudo systemctl enable --now hermes-data-organism.timer`
+- [ ] **MONITOR:** Let it run 1 week, accumulate reflections
+- [ ] **Stage 2:** Wire Hermes polling (reads reflection, creates tasks)
+- [ ] **Stage 3:** Verify feedback loop closes (human acts, system improves, Hermes detects)
+
+**Blocked:** Nothing. Ready to deploy immediately.
+
+**Why this matters:** System now sees its own patterns without human intervention. Askesis becomes operational (Layer 1-3), organisms learn from data.
