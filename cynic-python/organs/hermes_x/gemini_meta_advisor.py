@@ -159,8 +159,11 @@ ORGANISM STATE SUMMARY (for meta-analysis):
         """Query Gemini with intelligent model fallback.
 
         Returns (response, status) where status tracks model choice + quota alerts.
+        Uses model_selector_config to load available models from discovery JSON.
         """
-        from model_selector import ModelSelector
+        import subprocess
+        import os
+        from model_selector_config import get_model_priority
 
         prompt = f"""You are analyzing an autonomous organism that learns about domains (D1, D2, D3, etc.)
 through analyzing social signals, making decisions, and compounding observations.
@@ -176,17 +179,48 @@ Based on this organism state:
 Provide concise, actionable guidance that the agent can use to adapt its exploration strategy.
 Keep response under 500 chars."""
 
-        selector = ModelSelector()
-        response, status = selector.query_with_fallback(prompt)
+        # Get available models from discovery (sorted by priority)
+        available_models = get_model_priority()
 
-        if response:
-            print(f"Received guidance from {status.get('selected_model')} ({len(response)} chars): {response[:100]}...")
-            return response, status
-        else:
-            # Degraded: both API and Gemma unavailable
-            print(f"Gemini meta-guidance unavailable: {status.get('status')}")
-            print("Falling back to no synthesis (organism will use SKILL.md alone)")
-            return None, status
+        if not available_models:
+            return None, {
+                "status": "degraded",
+                "reason": "No models available",
+                "selected_model": None
+            }
+
+        # Try each available model
+        for model in available_models:
+            try:
+                result = subprocess.run(
+                    ["gemini", "-m", model, "-p", prompt],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    env=os.environ.copy(),
+                )
+
+                if result.returncode == 0:
+                    response = result.stdout.strip()
+                    print(f"Received guidance from {model} ({len(response)} chars): {response[:100]}...")
+                    return response, {
+                        "status": "success",
+                        "selected_model": model,
+                    }
+            except subprocess.TimeoutExpired:
+                continue
+            except Exception as e:
+                continue
+
+        # All models failed
+        print(f"Gemini meta-guidance unavailable: all models failed")
+        print("Falling back to no synthesis (organism will use SKILL.md alone)")
+        return None, {
+            "status": "degraded",
+            "reason": "All models failed",
+            "models_tried": available_models,
+            "selected_model": None
+        }
 
     def store_meta_guidance(self, guidance: str) -> bool:
         """Append meta-guidance to SKILL.md under [META_GUIDANCE] section"""

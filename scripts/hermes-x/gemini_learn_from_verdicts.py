@@ -119,7 +119,7 @@ def update_skill_md(organ_dir: str, patterns: dict) -> bool:
 
     Appends a "Learned Patterns" section with extracted rules.
     """
-    skill_path = Path(organ_dir) / "SKILL.md"
+    skill_path = Path(organ_dir) / "config" / "SKILL.md"
     if not skill_path.exists():
         logger.warning("SKILL.md not found at %s", skill_path)
         return False

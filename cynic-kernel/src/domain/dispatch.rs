@@ -182,7 +182,7 @@ pub fn load_dog_sets() -> HashMap<String, DogSet> {
         Domain::Wallet,
         Domain::Unknown,
     ] {
-        sets.insert(format!("{:?}", domain).to_lowercase(), domain.dog_set());
+        sets.insert(format!("{domain:?}").to_lowercase(), domain.dog_set());
     }
 
     sets

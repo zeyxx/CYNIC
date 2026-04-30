@@ -175,3 +175,24 @@ if [[ -n "$DIRTY" ]]; then
     echo "WARNING: Uncommitted changes (Rule 4):"
     echo "$DIRTY"
 fi
+
+# ── Distill enforcement (K15: verify session reasoning was captured) ──
+# The /distill skill Step 8 is optional by convention. If skipped, no session_distill POST occurs.
+# This check makes distill completion visible at session end. Non-blocking (always exit 0).
+if [[ "$KERNEL_STATUS" != "down" ]]; then
+    DISTILL_CHECK=$(curl -s --connect-timeout 2 --max-time 4 \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        "http://${KERNEL_ADDR}/observations?agent_id=${AGENT_ID}&domain=session&limit=20" \
+        2>/dev/null || echo "[]")
+    DISTILL_FOUND=$(echo "$DISTILL_CHECK" | jq -r \
+        '[.[] | select(.tool == "session_distill")] | length' 2>/dev/null || echo "0")
+    if [[ "$DISTILL_FOUND" == "0" ]]; then
+        echo ""
+        echo "DISTILL MISSING — organism cannot learn from this session."
+        echo "Run before closing:"
+        echo "  source ~/.cynic-env && curl -s -X POST \"\${CYNIC_REST_ADDR}/observe\" \\"
+        echo "    -H \"Authorization: Bearer \${CYNIC_API_KEY}\" \\"
+        echo "    -H \"Content-Type: application/json\" \\"
+        echo "    -d '{\"tool\":\"session_distill\",\"target\":\"handover\",\"domain\":\"session\",\"agent_id\":\"${AGENT_ID}\",\"tags\":[\"session-distill\"],\"context\":\"WHAT: <done> WHY: <decisions> NEXT: <next> BLOCKED: <stuck>\"}'"
+    fi
+fi

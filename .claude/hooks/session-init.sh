@@ -304,3 +304,29 @@ if [[ "$KERNEL_STATUS" != "down" ]]; then
         echo "$CRYSTALS" | jq -r '.[] | select(.state == "crystallized" or .state == "canonical") | "  [\(.state)] \(.content) (confidence: \(.confidence | tostring | .[0:4]), \(.observations) obs)"' 2>/dev/null | head -5 || true
     fi
 fi
+
+# ── Domain wisdom injection (D1-D6 curated signals, high-confidence only) ──
+# No REST endpoint for wisdom — read curation files directly from disk.
+# Budget: 3 signals max, ~400 chars total. Strength threshold >= 0.8.
+CURATION_DIR="${PROJECT_DIR}/cynic-python/curation"
+if [[ -d "$CURATION_DIR" ]]; then
+    WISDOM_COUNT=0
+    WISDOM_OUT=""
+    for f in "$CURATION_DIR"/D*_curated.jsonl; do
+        [[ -f "$f" ]] || continue
+        # Stream each line (JSONL format), filter by strength >= 0.8, take first match
+        SIGNAL=$(jq -r 'select(.strength >= 0.8) |
+            "[" + .domain + "] " + (.pattern[:80] | gsub("\n"; " ")) + " (strength: " + (.strength | tostring | .[0:4]) + ")"' \
+            "$f" 2>/dev/null | head -1 || true)
+        if [[ -n "$SIGNAL" ]]; then
+            WISDOM_OUT="${WISDOM_OUT}  ${SIGNAL}\n"
+            WISDOM_COUNT=$((WISDOM_COUNT + 1))
+        fi
+        [[ $WISDOM_COUNT -ge 3 ]] && break
+    done
+    if [[ $WISDOM_COUNT -gt 0 ]]; then
+        echo ""
+        echo "DOMAIN WISDOM (${WISDOM_COUNT} high-strength signals from D1-D6):"
+        printf "%b" "$WISDOM_OUT"
+    fi
+fi

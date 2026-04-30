@@ -47,7 +47,9 @@ if [ -n "${PROXY_FLAG:-}" ]; then
     CHROME_FLAGS+=("${PROXY_FLAG}")
 fi
 
-if [[ "${1:-}" == "--headless" ]]; then
+# Control headless mode via environment or CLI
+HEADLESS_MODE="${CYNIC_ENV:-staging}"
+if [[ "${1:-}" == "--headless" ]] || [[ "${HEADLESS_MODE}" == "production" ]]; then
     CHROME_FLAGS+=("--headless=new")
 fi
 

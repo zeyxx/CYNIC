@@ -6,7 +6,18 @@ set -e
 
 SERVICE_FILE="/etc/systemd/system/cynic-kernel.service"
 
-cat > "$SERVICE_FILE" << 'EOF'
+# Source env to get CYNIC_REST_ADDR
+source /home/user/.config/cynic/env 2>/dev/null || source /root/.cynic-env 2>/dev/null || true
+
+# Extract Tailscale IP from CYNIC_REST_ADDR (format: IP:PORT)
+if [ -n "$CYNIC_REST_ADDR" ]; then
+  KERNEL_IP="${CYNIC_REST_ADDR%%:*}"
+  KERNEL_ADDR="$KERNEL_IP:3030"
+else
+  KERNEL_ADDR="<TAILSCALE_CORE>:3030"
+fi
+
+cat > "$SERVICE_FILE" << EOF
 [Unit]
 Description=CYNIC Kernel — Judgment Engine
 After=network.target
@@ -17,7 +28,7 @@ Type=simple
 User=user
 WorkingDirectory=/home/user/Bureau/CYNIC
 EnvironmentFile=/home/user/.config/cynic/env
-ExecStart=/home/user/bin/cynic-kernel --bind <TAILSCALE_CORE>:3030
+ExecStart=/home/user/bin/cynic-kernel --bind $KERNEL_ADDR
 
 Restart=on-failure
 RestartSec=5
@@ -37,7 +48,7 @@ RestrictAddressFamilies=AF_INET AF_INET6
 WantedBy=multi-user.target
 EOF
 
-echo "✓ Created $SERVICE_FILE"
+echo "✓ Created $SERVICE_FILE with address: $KERNEL_ADDR"
 
 systemctl daemon-reload
 echo "✓ Reloaded systemd"
