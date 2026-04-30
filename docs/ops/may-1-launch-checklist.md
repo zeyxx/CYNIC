@@ -4,31 +4,38 @@
 
 ---
 
-## DAY 1 (May 1)
+## DAY 1 (May 1) — Path A: Personal Frame → @CynicOracle Proof
 
-### Morning Setup (30 min)
-- [ ] Review philosophy thread draft: `scripts/cynic-oracle-philosophy-thread.md`
-- [ ] Edit ruthlessly. Delete anything that doesn't feel true to you.
+### Morning Setup (15 min)
+- [ ] Verify personal T. Twitter access. Test posting.
 - [ ] Verify @CynicOracle Twitter access. Test posting.
-- [ ] Verify Telegram access (or decide: build bot or skip Telegram for now?)
+- [ ] Review `scripts/cynic-oracle-philosophy-thread.md` (READY: 4 tweets, links filled)
+- [ ] Edit ruthlessly if needed. Delete anything that doesn't feel true.
 
-### Afternoon: Voice 1 (@CynicOracle Prophecy)
-- [ ] Post edited philosophy thread on @CynicOracle Twitter (9 tweets or 5, your call)
-- [ ] Pin the first tweet
+### Morning (09:00-09:30): Voice 2 (Personal T. Frame)
+**Post companion dataset observation.** Choose one:
+
+- **Option A (primary):** "Just measured: 847 solana tokens, 3 bundler patterns, 1 rug vector. Watched the Dogs judge 53. Signal compounds."
+- **Option B:** "Chess teaches: movement patterns predict outcomes. Bundlers move for MEV. Deployers move for rugs. CYNIC watches moves."
+- **Option C:** "Why I'm doing this: Solana has the most transparent attack surface in crypto. If prophecy works anywhere, it works here."
+
+Posting:
+- [ ] Post chosen companion tweet from personal T. account
+- [ ] Use your natural voice (not marketing)
 - [ ] Note timestamp: ___
-- [ ] Wait for first replies, engage with 1-2 thoughtful ones
 
-### Evening: Voice 2 (Personal T. Observation)
-- [ ] Post personal insight tweet from dataset work (separate from @CynicOracle)
-- [ ] Share one truth from what you've observed about tokens/domains
-- [ ] Use your personal voice, not organization voice
+### Afternoon (14:00-14:15): Voice 1 (@CynicOracle Prophecy)
+- [ ] Post edited 4-tweet philosophy thread on @CynicOracle Twitter
+- [ ] Post as 4 separate tweets (not threaded)
+- [ ] Pin Tweet 1 (bundlers/bots/KOLs framing)
 - [ ] Note timestamp: ___
 
-### Before Bed: Logging
-- [ ] Update `.cynic/may-1-10-experiment/OBSERVATION_LOG.md`
-  - Tweets posted (times, engagement so far)
-  - Observations: Which felt more natural to write? Which got faster response?
-  - Hypothesis so far: Is coherence forming?
+### Evening (20:00-20:30): Logging & Coherence Check
+- [ ] Update `.cynic/may-1-10-experiment/OBSERVATION_LOG.md` → May 1 section:
+  - Personal T. tweet: time, initial engagement
+  - @CynicOracle thread: time, initial engagement
+  - Coherence observation: Do they reinforce each other? Do replies reference both?
+  - Domain discovery: Did anyone ask about domains not in D1-D6?
 
 ---
 
