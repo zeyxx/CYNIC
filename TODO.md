@@ -2,11 +2,34 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-30 08:35 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merged, commit 6a1f09a). 109 commits merged cleanly via surgical approach (file count 586, zero data loss). PR#47+#46 closed. All stale branches deleted. **READY FOR:** Hackathon May 4 registration, May 10 submission. Hermes X organism + K15 infrastructure LIVE on main.
+Last updated: 2026-04-30 18:45 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merged). **OFFICIAL DEADLINE CORRECTED:** Colosseum submission May 10 11:59 PM PT (not May 11). 10-day critical path + co-submit strategy decision (May 1 gate) active.
 
 ---
 
-## HACKATHON (registration May 4, submission May 11)
+## HACKATHON CRITICAL PATH (May 10 11:59 PM PT Hard Deadline)
+
+**Strategy: Co-Submit System (Verified Humans + Verified Wallets + Token Judgment)**
+
+- [ ] **Decision Gate: May 1 EOD.** S. confirms: (1) co-own narrative? (2) integrate wallet behavior score? (3) registration structure? **Falsify:** all 3 yes → proceed co-submit path (Phase 1b integration). Any no → go separate CYNIC-only path (Phase 1 still validates, Phase 2-4 measure CYNIC impact independently).
+- [x] **Phase 1: Wallet Behavior Analysis (COMPLETE 2026-04-30).** Independent work (no B&C blocker). 1,300+ LOC, 4 unit tests PASS, ROC-AUC=1.0 synthetic.
+  - [x] Design ✓: `docs/hackathon/WALLET-BEHAVIOR-ANALYSIS-PHASE-1.md` (500+ lines, full spec)
+  - [x] Reference ✓: `docs/hackathon/WALLET-BEHAVIOR-ANALYSIS-REFERENCE.md` (quick lookup)
+  - [x] Scorer ✓: `cynic-python/wallet_behavior_scorer.py` (475 lines, pure function)
+  - [x] Helius collector ✓: `cynic-python/wallet_behavior_helius.py` (400 lines, live data fetcher)
+  - [x] Validator ✓: `cynic-python/wallet_behavior_validator.py` (380 lines, ROC-AUC + confusion matrix)
+  - [x] README ✓: `cynic-python/WALLET_BEHAVIOR_README.md` (integration guide)
+  - [x] B&C integration spec ✓: `docs/hackathon/B2C-INTEGRATION-GUIDE.md` (step-by-step for S.)
+  - [ ] **Falsification Test 2: Real corpus collection (May 2-3).** CYNIC collects own data (data-centric). Sources: Marinade, Orca, B&C game API, CultScreener rugs, MEV bots from Jito. Target: 10H + 10S wallets. Script ready: `cynic-python/wallet_corpus_builder.py`. **Falsify:** ROC-AUC > 0.7 on real corpus.
+  - [ ] **Falsification Test 3: CYNIC impact (May 5-6).** Measure Dogs on 20-30 tokens, baseline vs human-filtered. **Falsify:** Δ > 5% in verdict distribution.
+- [ ] **Phase 2: Measure Human-Filtering Impact (May 5-6).** Run CYNIC Dogs on 20-30 tokens (baseline). Filter by verified humans. Re-score. Measure Δ in verdict distribution. **Falsify:** Δ > 5% demonstrates measurable signal. Independent of B&C co-submit decision. Decision point May 6 EOD: proceed to Phase 3 or revise heuristic?
+- [ ] **Phase 3: CultScreener Integration (May 7-8).** Add metrics display: Conviction | Verified Humans %. Test on 6+ tokens. **Falsify:** metrics render live on cultscreener-api.onrender.com. (Verified Wallets % optional if B&C co-submit agreed). Decision point May 8 EOD: integration working?
+- [ ] **Phase 4: Final Assembly & Recording (May 9-10).** 
+  - **If co-submit YES:** Record unified demo (chess → card → verified_human_pct → CYNIC Dogs reweighted). Write joint description. Submit May 10 23:59 PT.
+  - **If co-submit NO:** Record CYNIC standalone demo (verified_human_pct metric → Dogs reweighted → CultScreener display). Write CYNIC description. Submit May 10 23:59 PT (B&C submits separately May 11).
+
+---
+
+## HACKATHON (original, pre-corrected deadline)
 
 - [x] **submit_verdict on-chain.** `scripts/submit-verdict.ts` ships. Community PDA `8DVUKmJa…` hardcoded. Devnet tx claimed but no committed proof artifact.
 - [x] **Rust 1.95.0 upgrade.** Active (`rustc 1.95.0`). LLVM SROA bug from 1.94.1 resolved.
