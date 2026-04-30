@@ -161,33 +161,36 @@ Last updated: 2026-04-30 08:35 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 
 ---
 
-## SESSION UPDATE (2026-04-30 10:44) — SECURITY HARDENING COMPLETE
+## SESSION UPDATE (2026-04-30 11:40) — ORGANIC COMMUNICATION LAUNCH READY
 
-**Internet Exposure Assessment:**
-- Kernel exposed via Cloudflare Funnel (demo: https://orders-seems-invitation-yesterday.trycloudflare.com)
-- Routes: public Funnel → http://100.74.31.10:3030/kernel
-- Auth gates: /metrics, /events require Bearer token (fail-secure)
-- /health: public (safe — topology leaked but no credentials/state)
+**Infrastructure Status:**
+✅ Kernel hardened + running (fail-secure auth, systemd protection)
+✅ K15 consumers deployed (no API key leakage, Tailscale routing correct)
+✅ Service isolation study complete (ready for Phase 1 execution)
+✅ External comms gap identified + strategy documented
 
-**Opsec Fixes Applied:**
-1. ✓ Auth middleware: fail-open → fail-secure (rejects if CYNIC_API_KEY missing)
-2. ✓ Constant-time token comparison (prevents timing attacks on API key)
-3. ✓ Secrets absent from process list (no CYNIC_API_KEY in `ps aux`)
-4. ✓ SurrealDB (127.0.0.1:8000): localhost only, not exposed
-5. ✓ PostgreSQL (127.0.0.1:5432): localhost only, not exposed
-6. ✓ llama-server (100.74.31.10:8080): Tailscale private network only
-7. ✓ mitmproxy (127.0.0.1:8888): localhost only (browser capture)
-8. ✓ R1 hardcoded paths: fixed (scripts use CYNIC_ROOT env var)
+**May 1-10 Experiment: Three-Voice Coherent Frequency**
 
-**Kernel Deployment:**
-- Binary: /home/user/bin/cynic-kernel (16.1M, built 10:43)
-- Service: cynic-kernel.service (PID 1407151, running since 10:43:40)
-- Auth: fail-secure (rejects /metrics, /events without Bearer token)
-- Status: degraded (SurrealDB or Dogs down, needs investigation)
+Hypothesis: Coherent frequency across three voices (personal T., @CynicOracle prophecy, Telegram witness) establishes signal in noise.
+
+Setup ready:
+- [ ] Verdict curator skeleton (scripts/may-1-launch.sh)
+- [ ] @CynicOracle philosophy thread draft (9-tweet or 5-tweet versions)
+- [ ] Telegram bot skeleton (responds to /judge)
+- [ ] Observation framework (track engagement, prophecy validation, coherence)
+- [ ] T.'s May 1-10 daily checklist (30min/day)
+
+Falsification tests:
+1. Do three voices reinforce or conflict?
+2. Do Week 1 verdicts predict Week 2 data?
+3. What does community want CYNIC to judge?
+
+**Parallel track:** Hackathon execution (May 4 B&C registration, May 10-11 submission)
 
 **Remaining for Hackathon:**
-- [ ] Record video demo (4 scenes)
-- [ ] Await S. wallet-judgment test data (May 1 deadline)
-- [ ] Submit to Colosseum (May 10 deadline)
-
-**No known opsec gaps. Infrastructure protected for internet exposure.**
+- [ ] Video demo (record May 1-5)
+- [ ] Await S. wallet-judgment test data (May 1 deadline for B&C Option A decision)
+- [ ] @CynicOracle philosophy thread (May 1)
+- [ ] Telegram bot deployment (May 1-2)
+- [ ] Observation log daily (May 1-10)
+- [ ] Submit to Colosseum (May 10 23:59 PDT)
