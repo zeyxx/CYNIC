@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-30 04:45 | **PR#47 MERGED TO MAIN** ✅ (commit b4340b3). Proof-of-history + Hermes X organism LIVE on main. **REMAINING K15 WORK:** 5 branches with 109 unique commits waiting consolidation (fix/k15-seams: 35, backup/feat-k15: 64, feat/k15-loop: 5, merge/k15-harden: 4, fix/qwen: 1). **NEXT PHASE:** Option A Part 2 → Merge K15 branches. **HACKATHON:** Conviction-only baseline ready (100% accuracy, 28/28), registration May 4, submit May 10 23:59 PDT.
+Last updated: 2026-04-30 08:35 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merged, commit 6a1f09a). 109 commits merged cleanly via surgical approach (file count 586, zero data loss). PR#47+#46 closed. All stale branches deleted. **READY FOR:** Hackathon May 4 registration, May 10 submission. Hermes X organism + K15 infrastructure LIVE on main.
 
 ---
 
@@ -134,3 +134,20 @@ Last updated: 2026-04-30 04:45 | **PR#47 MERGED TO MAIN** ✅ (commit b4340b3). 
 **Blocked:** Nothing. Ready to deploy immediately.
 
 **Why this matters:** System now sees its own patterns without human intervention. Askesis becomes operational (Layer 1-3), organisms learn from data.
+
+---
+
+## SESSION UPDATE (2026-04-30 10:24)
+
+**Infrastructure Deployment Complete:**
+- [x] Kernel running (PID 4107251, http://<TAILSCALE_CORE>:3030, status=degraded)
+- [x] Hermes X ingest active (7h uptime, actively judging tweets)
+- [x] K15 consumers live (hermes-k15-consumer, hermes-infrastructure-monitor)
+- [x] Feedback loop executed (10 observations judged, SKILL.md updated)
+- [x] Dataset capturing (last: 2026-04-30T02:37)
+- [x] Stop hooks fixed (plugin hooks disabled, all 4 project-level hooks exit 0)
+
+**Immediate Next:**
+1. Record video demo (Scene 1-4: kernel logs + /health + curl /judge + UI + recovery endpoint)
+2. Await S. wallet-judgment test data (May 1 deadline for B&C integration decision)
+3. Submit to Colosseum (May 10 23:59 PDT deadline)
