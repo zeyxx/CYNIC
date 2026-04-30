@@ -151,3 +151,36 @@ Last updated: 2026-04-30 08:35 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 1. Record video demo (Scene 1-4: kernel logs + /health + curl /judge + UI + recovery endpoint)
 2. Await S. wallet-judgment test data (May 1 deadline for B&C integration decision)
 3. Submit to Colosseum (May 10 23:59 PDT deadline)
+
+---
+
+## SESSION UPDATE (2026-04-30 10:44) — SECURITY HARDENING COMPLETE
+
+**Internet Exposure Assessment:**
+- Kernel exposed via Cloudflare Funnel (demo: https://orders-seems-invitation-yesterday.trycloudflare.com)
+- Routes: public Funnel → http://100.74.31.10:3030/kernel
+- Auth gates: /metrics, /events require Bearer token (fail-secure)
+- /health: public (safe — topology leaked but no credentials/state)
+
+**Opsec Fixes Applied:**
+1. ✓ Auth middleware: fail-open → fail-secure (rejects if CYNIC_API_KEY missing)
+2. ✓ Constant-time token comparison (prevents timing attacks on API key)
+3. ✓ Secrets absent from process list (no CYNIC_API_KEY in `ps aux`)
+4. ✓ SurrealDB (127.0.0.1:8000): localhost only, not exposed
+5. ✓ PostgreSQL (127.0.0.1:5432): localhost only, not exposed
+6. ✓ llama-server (100.74.31.10:8080): Tailscale private network only
+7. ✓ mitmproxy (127.0.0.1:8888): localhost only (browser capture)
+8. ✓ R1 hardcoded paths: fixed (scripts use CYNIC_ROOT env var)
+
+**Kernel Deployment:**
+- Binary: /home/user/bin/cynic-kernel (16.1M, built 10:43)
+- Service: cynic-kernel.service (PID 1407151, running since 10:43:40)
+- Auth: fail-secure (rejects /metrics, /events without Bearer token)
+- Status: degraded (SurrealDB or Dogs down, needs investigation)
+
+**Remaining for Hackathon:**
+- [ ] Record video demo (4 scenes)
+- [ ] Await S. wallet-judgment test data (May 1 deadline)
+- [ ] Submit to Colosseum (May 10 deadline)
+
+**No known opsec gaps. Infrastructure protected for internet exposure.**
