@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-CYNIC Hermes Search Executor — Layer -1 conscious automation.
+CYNIC Hermes Search Executor — autonomous search automation.
 
-Reads search_tasks.jsonl and executes searches on X/Twitter via shared hermes-browser CDP.
-Respects behavioral patterns: timing, frequency, interaction style from behavior_log.jsonl.
+Reads search_tasks.jsonl and executes X.com searches via headless Playwright.
+Respects behavioral patterns: timing, frequency from behavior_log.jsonl.
 
 Architecture:
   search_generation.py → search_tasks.jsonl (conscience-driven keywords)
                       ↓
-        search_executor.py (this script) ← connects to hermes-browser CDP
+        search_executor.py (this script) ← headless browser automation
                       ↓
-           hermes-proxy captures results
+           hermes-proxy captures results (if configured)
                       ↓
               dataset.jsonl grows
                       ↓
@@ -19,11 +19,11 @@ Architecture:
     search_generation.py updates weights (Phase 2)
 
 Execution model:
-  - Connects to shared hermes-browser CDP (port 40769)
-  - Reuses browser identity and session state (already logged in)
-  - Searches via X.com/search endpoint (not API, to avoid rate limits)
-  - Respects timing: delays between searches, honors user's sleep schedule
-  - Logs search outcomes: results, visibility, engagement
+  - Launches headless Playwright browser
+  - Executes searches via X.com/search endpoint
+  - Respects timing: delays between searches, honors behavioral patterns
+  - Logs search outcomes with agent identity
+  - Produces search_execution_log.jsonl for accountability
 
 Usage:
     python3 search_executor.py --organ-dir ~/.cynic/organs/hermes/x
@@ -31,8 +31,7 @@ Usage:
 Environment:
     X_ORGAN_DIR — organ directory
     X_PROXY_ADDR — optional: Hermes proxy address (default: localhost:8888)
-    HERMES_CDP_PORT — hermes-browser CDP port (default: 40769)
-    CYNIC_AGENT_EMAIL — identity (for audit logging)
+    CYNIC_AGENT_EMAIL — organism identity (for audit logging)
 """
 
 __version__ = "0.1.0"
@@ -47,9 +46,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-# Optional: Playwright for CDP execution
+# Playwright required for search execution
 try:
-    from playwright.async_api import async_playwright, Browser
+    from playwright.async_api import async_playwright
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
@@ -68,7 +67,7 @@ BEHAVIOR_LOG = "behavior_log.jsonl"
 
 
 class SearchExecutor:
-    """Execute farming searches via Playwright CDP."""
+    """Execute X.com searches via headless Playwright browser."""
 
     def __init__(self, organ_dir: Path, proxy_addr: Optional[str] = None):
         self.organ_dir = Path(organ_dir)
@@ -134,8 +133,8 @@ class SearchExecutor:
 
         return pattern
 
-    async def execute_search(self, task: dict, context) -> dict:
-        """Execute a single search query via X/Twitter using shared hermes-browser context.
+    async def execute_search(self, task: dict, page) -> dict:
+        """Execute a single search query via X.com.
 
         Returns {
             "query": str,
@@ -143,7 +142,8 @@ class SearchExecutor:
             "status": "success" | "error",
             "results_count": int,
             "timestamp": str,
-            "agent": str (identity used),
+            "url": str (search URL used),
+            "agent": str (identity from CYNIC_AGENT_EMAIL),
             "error": str (if status=="error")
         }
         """
@@ -163,18 +163,15 @@ class SearchExecutor:
             }
 
         try:
-            # Create page in shared context (reuses hermes-browser session)
-            page = await context.new_page()
-
             # Navigate to X search
             search_url = f"https://x.com/search?q={query}&f=live"
             logger.info("searching: %s (%s) [agent=%s]", query, domain, agent)
-            await page.goto(search_url, wait_until="networkidle", timeout=15000)
+            await page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
 
-            # Wait for results to load
-            await page.wait_for_selector('[role="article"]', timeout=5000)
+            # Wait for dynamic content to load
+            await page.wait_for_timeout(2000)
 
-            # Count visible results (simplified: count tweet articles)
+            # Count visible tweet articles
             results = await page.locator('[role="article"]').count()
 
             result = {
@@ -189,7 +186,6 @@ class SearchExecutor:
 
             logger.info("✓ search complete: %d results", results)
 
-            await page.close()
             return result
 
         except Exception as e:
@@ -213,7 +209,11 @@ class SearchExecutor:
             logger.error("failed to log execution: %s", e)
 
     async def run_cycle(self, max_searches: int = 10) -> None:
-        """Execute pending searches (up to max_searches per cycle) using shared hermes-browser CDP."""
+        """Execute pending searches (up to max_searches per cycle).
+
+        Launches headless Playwright browser for X.com searches.
+        Runs silent (headless=True) to avoid visible windows.
+        """
         if not PLAYWRIGHT_AVAILABLE:
             logger.error("Playwright not installed. Install: pip install playwright")
             logger.info("Alternatively: run searches manually from search_tasks.jsonl")
@@ -224,35 +224,40 @@ class SearchExecutor:
             logger.info("no pending searches")
             return
 
-        # Get CDP port from env (hermes-browser service sets this)
-        cdp_port = os.environ.get("HERMES_CDP_PORT", "40769")
-        cdp_url = f"ws://127.0.0.1:{cdp_port}/devtools/browser"
-
         pattern = self.extract_behavior_pattern()
         interval = pattern["search_interval_secs"]
 
-        logger.info("executing up to %d searches (interval: %ds) via CDP %s", max_searches, interval, cdp_url)
+        logger.info("executing up to %d searches (interval: %ds)", max_searches, interval)
 
         try:
             async with async_playwright() as p:
-                # Connect to shared hermes-browser via CDP (don't launch our own)
-                browser = await p.chromium.connect_over_cdp(cdp_url)
+                # Launch headless browser for X.com searches
+                browser = await p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--no-first-run",
+                        "--no-default-browser-check",
+                    ]
+                )
+
                 context = await browser.new_context()
+                page = await context.new_page()
 
                 for i, task in enumerate(tasks[:max_searches]):
                     if i > 0:
                         logger.info("waiting %ds before next search...", interval)
                         time.sleep(interval)
 
-                    result = await self.execute_search(task, context)
+                    result = await self.execute_search(task, page)
                     self.log_execution(result)
                     self.search_count += 1
 
+                await page.close()
                 await context.close()
+                await browser.close()
 
         except Exception as e:
-            logger.error("failed to connect to hermes-browser CDP at %s: %s", cdp_url, str(e))
-            logger.info("ensure hermes-browser.service is running: systemctl --user status hermes-browser.service")
+            logger.error("failed to execute searches: %s", str(e)[:150])
             return 1
 
         logger.info("cycle complete: %d searches, %d errors", self.search_count, self.search_errors)
@@ -277,7 +282,7 @@ class SearchExecutor:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="CYNIC Hermes Search Executor (shared hermes-browser CDP)")
+    parser = argparse.ArgumentParser(description="CYNIC Hermes Search Executor — automated X.com searches")
     parser.add_argument(
         "--organ-dir",
         type=Path,
@@ -307,7 +312,6 @@ def main():
     logger.info("Hermes Search Executor v%s starting...", __version__)
     logger.info("Organ directory: %s", organ_dir)
     logger.info("Proxy: %s", executor.proxy_addr)
-    logger.info("Note: connects to shared hermes-browser.service (port 40769)")
 
     executor.run_sync(max_searches=args.max_searches)
     return 0
