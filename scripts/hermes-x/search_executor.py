@@ -158,12 +158,14 @@ class SearchExecutor:
             }
 
         try:
-            # Open a new context with proxy
+            # Open context reusing Chrome cookies and profile
+            chrome_profile = os.path.expanduser("~/.config/google-chrome/Default")
             context = await browser.new_context(
-                proxy={"server": f"http://{self.proxy_addr}"}
-                if self.proxy_addr not in ["localhost:8888", "127.0.0.1:8888"]
-                else None
+                storage_state=None,  # Will inherit from Chrome profile
+                user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             )
+
+            # Copy cookies from Chrome if available (Phase 2 enhancement)
             page = await context.new_page()
 
             # Navigate to X search
@@ -228,7 +230,11 @@ class SearchExecutor:
         logger.info("executing up to %d searches (interval: %ds)", max_searches, interval)
 
         async with async_playwright() as p:
-            browser = await p.firefox.launch(headless=self.headless)
+            # Use Chrome with existing cookies and profile
+            browser = await p.chromium.launch(
+                headless=self.headless,
+                args=["--disable-blink-features=AutomationControlled"]  # Reduce bot-detection
+            )
 
             for i, task in enumerate(tasks[:max_searches]):
                 if i > 0:
