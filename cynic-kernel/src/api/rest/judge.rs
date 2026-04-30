@@ -11,6 +11,7 @@ use super::response::{storage_error, verdict_response_cached, verdict_to_respons
 use super::types::*;
 
 use crate::domain::constants::{MAX_CONTENT_LEN, MAX_CONTEXT_LEN};
+use crate::domain::dispatch::Domain;
 
 #[derive(Debug)]
 pub(super) struct ValidatedJudgeRequest {
@@ -84,11 +85,44 @@ pub async fn judge_handler(
     // Shared pipeline: embed → cache → crystals → sessions → evaluate → store → CCM
     let judge = state.judge.load_full();
 
-    // Expand dog presets: "sovereign" → live sovereign Dog IDs from Judge.
-    // Alive: reads is_sovereign() from each Dog, not a hardcoded list.
+    // Domain-aware Dog routing (K15 pattern):
+    // 1. If dogs explicitly specified → use those (highest priority)
+    // 2. If domain specified → route to Dogs for that domain (K15 consumer pattern)
+    // 3. If "sovereign" preset → use sovereign Dogs (backwards compat)
+    // 4. Otherwise → use all Dogs (default)
     let dogs = match req.dogs {
-        Some(ref d) if d.len() == 1 && d[0] == "sovereign" => Some(judge.sovereign_dog_ids()),
-        other => other,
+        Some(ref d) if d.len() == 1 && d[0] == "sovereign" => {
+            // Preset: "sovereign" → live sovereign Dog IDs
+            Some(judge.sovereign_dog_ids())
+        }
+        Some(d) => {
+            // Explicit dog list provided → use it
+            Some(d)
+        }
+        None => {
+            // No explicit dogs; route by domain if provided
+            if let Some(ref domain_str) = req.domain {
+                let domain = Domain::parse(Some(domain_str.as_str()));
+                let dog_set = domain.dog_set();
+                if !dog_set.dogs.is_empty() {
+                    Some(dog_set.dogs)
+                } else {
+                    // Domain mapped to empty set → use default (all Dogs)
+                    None
+                }
+            } else {
+                // No domain, no dogs → use all Dogs
+                None
+            }
+        }
+    };
+
+    // Inject domain-specific stimulus context if domain provided and no explicit context
+    let enriched_context = if req.context.is_none() && req.domain.is_some() {
+        let domain = Domain::parse(req.domain.as_deref());
+        Some(domain.stimulus_context())
+    } else {
+        req.context
     };
 
     let deps = crate::pipeline::PipelineDeps {
@@ -107,7 +141,7 @@ pub async fn judge_handler(
     };
     let result = crate::pipeline::run(
         req.content,
-        req.context,
+        enriched_context,
         req.domain,
         dogs.as_deref(),
         req.crystals,
