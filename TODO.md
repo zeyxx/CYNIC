@@ -67,6 +67,7 @@ Last updated: 2026-04-30 03:02 | **K15 PRODUCER-CONSUMER LOOP COMPLETE & LIVE** 
 - [ ] **K15 consumer: observation → task dispatch (Seam 2).** Consumer polls /observations, scores with TwitterDog, dispatches high-signal to /agent-tasks. Hermes agent processes tasks, validates patterns, updates SKILL.md. **Falsify:** 14 pending observations → 8-10 tasks → agent-tasks queue shows new work. **Deadline: May 1 23:59** (Lab infrastructure + consumer integration).
 - [ ] **GPU contention: Hermes vs Dog qwen35-9b-gpu.** Same llama-server serves both. Hermes blocked during nightshift Dog evals. **Fix options:** pause nightshift, `--parallel 2` on llama-server, or Soma orchestrator. **Falsify:** Hermes cron completes with 0 MCP errors in a run without nightshift.
 - [ ] **Deploy Hermes organ infrastructure (systemd services).** Wire hermes-x-organ.service, hermes-x-gemini-meta.service, hermes-agent-decision.service. Test 7-cycle evolution proof. **Falsify:** 7-cycle run shows monotonic improvement in ≥2 metrics (domain_count, avg_confidence, verdict_analyzed).
+- [x] **Tier 1: Agent reads SKILL.md + domain weights (2026-04-30).** Agent executor wired to load SKILL.md, extract domain confidences, compute relative weights, inject into prompt. Systemd service fixed (%h expansion). Tier 1 falsification test created (Pearson r > 0.6 target). Baseline: D1=33%, D3=67% vs SKILL confidence D1=0.27, D3=0.38. **Next:** Run 3 cycles, measure if agent maintains/increases D3 focus → confirms adaptation.
 
 ## ORGANISM (no deadline, compound value)
 
