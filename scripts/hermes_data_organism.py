@@ -125,6 +125,10 @@ class HermesDataOrganism:
                 "error": "CYNIC_REST_ADDR or CYNIC_API_KEY not set"
             }
 
+        # Ensure URL has scheme
+        if not cynic_addr.startswith(("http://", "https://")):
+            cynic_addr = f"http://{cynic_addr}"
+
         try:
             resp = requests.get(
                 f"{cynic_addr}/observations",

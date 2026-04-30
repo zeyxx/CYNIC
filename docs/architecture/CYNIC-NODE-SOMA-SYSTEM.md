@@ -10,10 +10,9 @@
 ┌─────────────────────────────────────────────────────────────┐
 │ CLIENT LAYER (REST + MCP)                                   │
 │ - POST /judge {token, domain, context}                      │
-│ - POST /dogs/register {name, base_url, model}               │
-│ - POST /dogs/{id}/heartbeat                                 │
-│ - DELETE /dogs/{id}                                          │
-│ - GET /health                                               │
+│ - GET /dogs (all registered Dogs, including from nodes)     │
+│ - GET /nodes (all registered nodes, hardware, models)       │
+│ - GET /health (circuit breaker, Dog quality, node status)   │
 └──────────────────────┬──────────────────────────────────────┘
                        │
 ┌──────────────────────v──────────────────────────────────────┐
@@ -22,10 +21,24 @@
 │ - filter_dogs_by_request() (explicit only, no forced)       │
 │ - evaluate() (3-way consensus, φ-bounded)                   │
 │ - HealthGate per Dog (circuit breaker)                       │
+│ - Dogs registered by: config + nodes (dynamic)              │
 └──────────────────────┬──────────────────────────────────────┘
                        │
 ┌──────────────────────v──────────────────────────────────────┐
-│ ROSTER MANAGEMENT LAYER (This Session — Phase A)            │
+│ ORCHESTRATOR LAYER (Soma — Phase C)                         │
+│ - registered_nodes: RwLock<Map<String, RegisteredNode>>     │
+│ - hardware_map: {node_id → GPU/CPU/RAM snapshot}             │
+│ - model_allocation: {model → [node_ids]}                     │
+│ - Decision loop: every 5 min                                │
+│   1. Measure: Dog latencies, node hardware, failures         │
+│   2. Decide: which models to load where                      │
+│   3. Command: POST /nodes/{id}/pending_commands              │
+│   4. Wait: ACK from nodes (timeout 30s)                      │
+│   5. Update Judge: add new Dogs from nodes                   │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+┌──────────────────────v──────────────────────────────────────┐
+│ ROSTER MANAGEMENT LAYER (Phase A — TTL Janitor)            │
 │                                                              │
 │ ┌────────────────────────────────────────────────────────┐  │
 │ │ registered_dogs: RwLock<Map<String, RegisteredDog>>   │  │
@@ -200,22 +213,106 @@ This creates a **feedback loop:**
 
 ---
 
+---
+
+## Scalability: Centralized vs Distributed Soma
+
+**User Question: If Soma runs without kernel on individual machines, what are the implications?**
+
+We designed TWO topologies. We're deploying CENTRALIZED (Soma on kernel). Here's why:
+
+**CENTRALIZED SOMA (Production):**
+```
+                   ┌─────────────────────────────┐
+                   │ CYNIC KERNEL                │
+                   │ - Soma orchestrator (Ring 2)│
+                   │ - registered_nodes state    │
+                   │ - hardware_map (all nodes)  │
+                   │ - Judge (all Dogs)          │
+                   │ - K15 observations          │
+                   └────────────┬────────────────┘
+                                │ Tailscale (5-20ms)
+                   ┌────────────┼────────────────┐
+                   │            │                │
+                ┌──v──┐      ┌──v──┐          ┌─v──┐
+                │GPU-1│      │Node2│ ··· ····  │N100│
+                │(cmd)│      │(cmd)│          │(cmd)│
+                │(hb) │      │(hb) │          │(hb) │
+                └─────┘      └─────┘          └─────┘
+
+Soma Decision: "GPU has 6GB free, load Qwen"
+  → POST /nodes/GPU-1/pending_commands {action, model}
+  ← All nodes heartbeat (3.3 req/s at N=100)
+  → K15 obs: "Qwen loaded, GPU 5.2GB"
+  → Update Judge with new Dog
+```
+
+**Scalability at N nodes:**
+- Heartbeats: O(N) per 30s
+- Command overhead: O(1) per 5min (batched to all nodes)
+- Decision time: O(N) (wait for slowest heartbeat)
+- Bottleneck: **not the network**, but **when to make decisions** (Soma batches every 5min)
+
+**Example at N=100:**
+- 100 heartbeats / 30s = 3.3 req/s (well within kernel capacity)
+- Soma decision: "load on 10 nodes in parallel"
+- ACK wait: max 30s per command (with timeout)
+- New Dogs appear in Judge within 1 min
+- Total latency: heartbeat + decision + command + Dog registration = ~2 min
+
+**DISTRIBUTED SOMA (Anti-pattern, avoided):**
+```
+Each machine autonomous (no kernel):
+  ┌──────────┐ ┌──────────┐ ┌──────────┐
+  │GPU-1     │ │Node2     │ │Node3     │
+  │Soma(local)│ │Soma(local)│ │Soma(local)│
+  │ "load"   │ │ "load"   │ │ "load"   │
+  │ Qwen ✓   │ │ Qwen ✓   │ │ Qwen ✓   │  ← ALL load same model!
+  │ 5.2GB GPU│ │ GPU OOM! │ │ 3.1GB GPU│  ← GPU-2 crashes
+  └──────────┘ └──────────┘ └──────────┘
+
+Problems:
+  1. Independent decisions → resource conflicts (GPU OOM)
+  2. No global truth → "where is Qwen?" requires asking all nodes
+  3. Failure invisible → GPU-2 dies, no central observer detects
+  4. Knowledge scattered → recovery is manual per node
+  5. Impossible to reason about → 100 nodes × independent decisions
+```
+
+**Why Centralized Wins:**
+- Soma is the SSOT (single source of truth)
+- Conflicts resolved by one orchestrator
+- K15 observations close the loop (node → kernel → Soma)
+- Resilience: node dies → TTL expires → Soma reruns allocation
+- Observability: all hardware snapshots visible to Soma
+- Testing: reproducible decisions (same inputs → same command)
+
+**Cost of Centralization:**
+- Kernel becomes a bottleneck IF Soma can't keep up (mitigated by batching)
+- Kernel downtime = no new commands (mitigation: caching commands locally, fallback to last known state)
+- Tailscale dependency (but you already have it)
+
+**When to Reconsider Distributed:**
+- Private fleet <5 machines (autonomous is simpler, no coordination cost)
+- Isolated labs with no shared resources (no conflict risk)
+- **NOT for production >10 machines**
+
+---
+
 ## Timeline
 
-**Phase A (This Session, ~150 lines):**
-- TTL background task in main kernel startup
-- Integration test: register Dog, don't heartbeat, verify expiration after TTL
+**Phase A (Done):** TTL background task + integration test
 
-**Phase B (Next: cynic-node binary, ~500 lines, 2-3 sessions):**
-- New crate, zero kernel deps (except HTTP)
-- Supervise local Dog subprocess, heartbeat loop, auto-respawn
+**Phase B (Next: 2-3 sessions):**
+- cynic-node binary: hardware probing, command reception, Dog supervision
+- Integration tests: load model, switch model, hardware monitoring
 
-**Phase C (Soma Orchestrator, TBD):**
-- Decision engine: watch /health, emit /dogs/{id} lifecycle commands
-- Resource pool management
-- Cache warming + fallback routing
+**Phase C (Post-May 10):**
+- Soma orchestrator on kernel (decision engine, command broadcaster)
+- Node discovery endpoint (GET /nodes with hardware)
+- Dynamic Dog registration from node commands
 
-**Phase 0 (Concurrent, ongoing):**
-- Soma sketches (design doc)
-- Hardware constraints analysis (GPU vram, CPU%, memory)
-- Org tree (kernel > Dogs > Node instances)
+**Phase D (Post-hackathon):**
+- Fallback routing (if Qwen times out, try Gemini)
+- Cache warming (preload models on GPU startup)
+- Multi-tenant isolation (resource quotas per client)
