@@ -434,22 +434,19 @@ async fn attempt_node_start(node: &str) -> String {
 /// Failure reasons: "none", "timeout", "unreachable", "parse_error", "mismatch".
 async fn probe_node(node: &str, expected_model: &str) -> (String, bool, u64, String) {
     // K11: Hardcoded port 8080. Extract to config on 2nd consumer (remediate_handler).
-    let url = format!("http://{}:8080/health", node);
+    let url = format!("http://{node}:8080/health");
     let timeout = std::time::Duration::from_secs(5);
 
     let start = Instant::now();
 
     // Create HTTP client with timeout
-    let client = match reqwest::Client::builder().timeout(timeout).build() {
-        Ok(c) => c,
-        Err(_) => {
-            return (
-                "N/A".to_string(),
-                false,
-                0,
-                "client_init_failed".to_string(),
-            );
-        }
+    let Ok(client) = reqwest::Client::builder().timeout(timeout).build() else {
+        return (
+            "N/A".to_string(),
+            false,
+            0,
+            "client_init_failed".to_string(),
+        );
     };
 
     // GET /health
@@ -462,16 +459,13 @@ async fn probe_node(node: &str, expected_model: &str) -> (String, bool, u64, Str
     let latency_ms = start.elapsed().as_millis() as u64;
 
     // Parse response body to extract model name
-    let body = match response.text().await {
-        Ok(b) => b,
-        Err(_) => {
-            return (
-                "N/A".to_string(),
-                true,
-                latency_ms,
-                "parse_error".to_string(),
-            );
-        }
+    let Ok(body) = response.text().await else {
+        return (
+            "N/A".to_string(),
+            true,
+            latency_ms,
+            "parse_error".to_string(),
+        );
     };
 
     let actual_model: String = match serde_json::from_str::<serde_json::Value>(&body) {
@@ -518,18 +512,17 @@ async fn emit_probe_observation(
         project: "cynic".to_string(),
         agent_id: "kernel-probe".to_string(),
         tool: "llama_server_probe".to_string(),
-        target: format!("{}/{}", node, dog),
+        target: format!("{node}/{dog}"),
         domain: "infrastructure".to_string(),
         status: if reachable { "degraded" } else { "unreachable" }.to_string(),
         context: format!(
-            "Dog probe failed: failure_type={}, latency_ms={}",
-            failure_reason, latency_ms
+            "Dog probe failed: failure_type={failure_reason}, latency_ms={latency_ms}"
         ),
         session_id: "".to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         tags: vec![
             "k15-observability".to_string(),
-            format!("failure_type:{}", failure_reason),
+            format!("failure_type:{failure_reason}"),
         ],
     };
 
