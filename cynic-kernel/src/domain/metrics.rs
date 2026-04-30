@@ -17,6 +17,8 @@ pub struct Metrics {
     pub crystal_gate_contested: AtomicU64,
     pub crystal_gate_disputed: AtomicU64,
     pub crystal_observe_failed: AtomicU64,
+    pub observation_post_success_total: AtomicU64,
+    pub observation_post_failed: AtomicU64,
     pub embedding_successes_total: AtomicU64,
     pub embedding_failures_total: AtomicU64,
 }
@@ -40,6 +42,8 @@ impl Metrics {
             crystal_gate_contested: AtomicU64::new(0),
             crystal_gate_disputed: AtomicU64::new(0),
             crystal_observe_failed: AtomicU64::new(0),
+            observation_post_success_total: AtomicU64::new(0),
+            observation_post_failed: AtomicU64::new(0),
             embedding_successes_total: AtomicU64::new(0),
             embedding_failures_total: AtomicU64::new(0),
         }
@@ -76,6 +80,13 @@ impl Metrics {
     }
     pub fn inc_crystal_observe_failed(&self) {
         self.crystal_observe_failed.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_observation_post_success(&self) {
+        self.observation_post_success_total
+            .fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_observation_post_failed(&self) {
+        self.observation_post_failed.fetch_add(1, Ordering::Relaxed);
     }
     pub fn inc_embed_ok(&self) {
         self.embedding_successes_total
@@ -149,6 +160,18 @@ impl Metrics {
             "cynic_crystal_observe_failed",
             "Crystal observation storage failures",
             self.crystal_observe_failed.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_observation_post_success_total",
+            "Verdict observations posted successfully (K15 forward loop)",
+            self.observation_post_success_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_observation_post_failed",
+            "Verdict observation post failures (K15 forward loop broken)",
+            self.observation_post_failed.load(Ordering::Relaxed),
         );
         prom_counter(
             &mut out,
