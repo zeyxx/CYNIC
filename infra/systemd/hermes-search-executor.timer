@@ -1,0 +1,11 @@
+[Unit]
+Description=Hermes Search Executor Timer — autonomously execute farming searches
+PartOf=hermes-organism.target
+
+[Timer]
+OnCalendar=*-*-* *:07,22,37,52:00
+Persistent=true
+RandomizedDelaySec=90s
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,23 @@
+[Unit]
+Description=CYNIC Hermes Search Executor — runs farming searches via CDP
+After=hermes-search-generator.service hermes-proxy.service
+PartOf=hermes-organism.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/cynic/env
+EnvironmentFile=%h/.cynic-env
+Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x
+Environment=X_PROXY_ADDR=localhost:8888
+WorkingDirectory=%h/Bureau/CYNIC/scripts/hermes-x
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/search_executor.py \
+    --organ-dir %h/.cynic/organs/hermes/x \
+    --max-searches 5 \
+    --proxy-addr localhost:8888
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hermes-search-executor
+
+[Install]
+WantedBy=default.target
