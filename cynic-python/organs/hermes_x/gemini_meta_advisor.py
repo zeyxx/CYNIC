@@ -37,7 +37,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 
 class GeminiMetaAdvisor:
@@ -49,6 +49,8 @@ class GeminiMetaAdvisor:
         self.reflection_path = self.organ_dir / ".reflections.jsonl"
         self.feedback_log_path = self.organ_dir / "feedback_decision_log.jsonl"
         self.behavior_path = Path.home() / ".cynic" / "organs" / "hermes" / "behavior" / "behavior_log.jsonl"
+        self.kernel_api_addr = os.environ.get("CYNIC_REST_ADDR", "")
+        self.kernel_api_key = os.environ.get("CYNIC_API_KEY", "")
 
     def read_recent_reflections(self, count: int = 5) -> list:
         """Read last N reflections from JSONL"""
@@ -135,8 +137,13 @@ ORGANISM STATE SUMMARY (for meta-analysis):
 {skills_text}
 """
 
-    def query_gemini(self, context: str) -> Optional[str]:
-        """Query Gemini CLI for meta-guidance using subprocess"""
+    def query_gemini(self, context: str) -> Tuple[Optional[str], dict]:
+        """Query Gemini with intelligent model fallback.
+
+        Returns (response, status) where status tracks model choice + quota alerts.
+        """
+        from model_selector import ModelSelector
+
         prompt = f"""You are analyzing an autonomous organism that learns about domains (D1, D2, D3, etc.)
 through analyzing social signals, making decisions, and compounding observations.
 
@@ -151,29 +158,17 @@ Based on this organism state:
 Provide concise, actionable guidance that the agent can use to adapt its exploration strategy.
 Keep response under 500 chars."""
 
-        try:
-            result = subprocess.run(
-                ["gemini", "-p", prompt],
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
+        selector = ModelSelector()
+        response, status = selector.select_and_query(prompt)
 
-            if result.returncode == 0:
-                return result.stdout.strip()
-            else:
-                print(f"Gemini error: {result.stderr}")
-                return None
-
-        except FileNotFoundError:
-            print("Gemini CLI not found. Install with: npm install -g @anthropic-ai/gemini-cli")
-            return None
-        except subprocess.TimeoutExpired:
-            print("Gemini query timed out")
-            return None
-        except Exception as e:
-            print(f"Gemini query failed: {e}")
-            return None
+        if response:
+            print(f"Received guidance from {status.get('selected_model')} ({len(response)} chars): {response[:100]}...")
+            return response, status
+        else:
+            # Degraded: both API and Gemma unavailable
+            print(f"Gemini meta-guidance unavailable: {status.get('model_choice_reason')}")
+            print("Falling back to no synthesis (organism will use SKILL.md alone)")
+            return None, status
 
     def store_meta_guidance(self, guidance: str) -> bool:
         """Append meta-guidance to SKILL.md under [META_GUIDANCE] section"""
@@ -202,22 +197,42 @@ Keep response under 500 chars."""
             return False
 
     def run(self):
-        """Execute the full meta-advisory cycle"""
+        """Execute the full meta-advisory cycle with intelligent fallback"""
         print(f"Gemini Meta-Advisor v{__version__} starting...")
 
         # Build context
         context = self.build_organism_summary()
         print(f"Organism context summary ({len(context)} chars)")
 
-        # Query Gemini
-        print("Querying Gemini for meta-guidance...")
-        guidance = self.query_gemini(context)
+        # Query Gemini with fallback strategy
+        print("Querying LLM for meta-guidance...")
+        guidance, status = self.query_gemini(context)
+
+        # Log model selection to kernel
+        if self.kernel_api_addr and self.kernel_api_key:
+            try:
+                import requests
+
+                requests.post(
+                    f"{self.kernel_api_addr}/observe",
+                    headers={"Authorization": f"Bearer {self.kernel_api_key}"},
+                    json={
+                        "tool": "meta_advisor_cycle",
+                        "status": status.get("status"),
+                        "selected_model": status.get("selected_model"),
+                        "reason": status.get("model_choice_reason"),
+                        "timestamp": datetime.now().isoformat(),
+                        "tags": ["meta-advisor", status.get("selected_model", "none")],
+                    },
+                    timeout=5,
+                )
+            except Exception:
+                pass
 
         if not guidance:
-            print("No guidance received from Gemini")
+            print(f"⚠ No guidance: {status.get('model_choice_reason')}")
+            print("Organism will use SKILL.md patterns alone (no synthesis)")
             return 1
-
-        print(f"Received guidance ({len(guidance)} chars): {guidance[:100]}...")
 
         # Store guidance
         if self.store_meta_guidance(guidance):
