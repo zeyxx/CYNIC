@@ -41,15 +41,17 @@ class HeliusWalletCollector:
                 "Helius API key not provided. "
                 "Set HELIUS_API_KEY env var or pass api_key parameter."
             )
-        self.base_url = "https://api.helius.xyz/v0"
+        self.rpc_url = "https://mainnet.helius-rpc.com"
+        self.rest_url = "https://api.helius.xyz/v1"
         self.timeout = timeout
 
-    def _call(self, method: str, **params) -> dict:
+    def _rpc_call(self, method: str, *args, **kwargs) -> dict:
         """Call Helius JSON-RPC API.
 
         Args:
             method: JSON-RPC method name (e.g., "getBalance")
-            **params: Method parameters
+            *args: Positional parameters for the RPC method
+            **kwargs: Named parameters (converted to config object if needed)
 
         Returns:
             API response as dict
@@ -57,12 +59,17 @@ class HeliusWalletCollector:
         Raises:
             requests.RequestException: On API error
         """
-        url = f"{self.base_url}?api-key={self.api_key}"
+        url = f"{self.rpc_url}?api-key={self.api_key}"
+        # Build params: positional args first, then config dict if kwargs exist
+        params = list(args)
+        if kwargs:
+            params.append(kwargs)
+
         payload = {
             "jsonrpc": "2.0",
             "id": 1,
             "method": method,
-            "params": [params] if params else [],
+            "params": params,
         }
         try:
             response = requests.post(url, json=payload, timeout=self.timeout)
@@ -72,33 +79,55 @@ class HeliusWalletCollector:
                 raise ValueError(f"Helius error: {data['error']}")
             return data.get("result", {})
         except requests.RequestException as e:
-            logger.error(f"Helius API error calling {method}: {e}")
+            logger.error(f"Helius RPC error calling {method}: {e}")
+            raise
+
+    def _rest_call(self, endpoint: str, params: Optional[dict] = None) -> dict:
+        """Call Helius REST API.
+
+        Args:
+            endpoint: REST endpoint path (e.g., "/wallet/ABC123/balances")
+            params: Query parameters dict
+
+        Returns:
+            API response as dict
+
+        Raises:
+            requests.RequestException: On API error
+        """
+        url = f"{self.rest_url}{endpoint}"
+        query_params = {"api-key": self.api_key}
+        if params:
+            query_params.update(params)
+
+        try:
+            response = requests.get(url, params=query_params, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Helius REST error calling {endpoint}: {e}")
             raise
 
     def get_balance(self, wallet: str) -> int:
         """Get native SOL balance in lamports."""
-        result = self._call("getBalance", address=wallet)
+        result = self._rpc_call("getBalance", wallet)
         return result.get("value", 0)
 
     def get_token_balances(self, wallet: str) -> list:
         """Get SPL token balances."""
-        result = self._call("getTokenBalances", address=wallet)
+        result = self._rest_call(f"/wallet/{wallet}/balances")
         return result.get("tokens", [])
 
     def get_transaction_history(
         self, wallet: str, limit: int = 100
     ) -> list:
         """Get transaction history (parsed mode)."""
-        result = self._call(
-            "getTransactionHistory",
-            address=wallet,
-            limit=limit,
-        )
+        result = self._rest_call(f"/wallet/{wallet}/history", {"limit": limit})
         return result.get("transactions", [])
 
     def get_account_info(self, wallet: str) -> dict:
         """Get account metadata."""
-        result = self._call("getAccountInfo", address=wallet)
+        result = self._rpc_call("getAccountInfo", wallet, {"encoding": "jsonParsed"})
         return result
 
     def collect_wallet_profile(self, wallet: str) -> Optional[WalletProfile]:
