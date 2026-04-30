@@ -4,7 +4,6 @@ After=network.target
 
 [Service]
 Type=oneshot
-User=user
 WorkingDirectory=/home/user/Bureau/CYNIC
 
 # Perception cycle: ingest session logs, kernel observations, node data
@@ -16,7 +15,7 @@ StandardError=journal
 SyslogIdentifier=hermes-data-organism
 
 # Resource limits
-MemoryLimit=256M
+MemoryMax=256M
 TimeoutStartSec=60
 
 [Install]

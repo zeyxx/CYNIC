@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Hermes Data Organism — Continuous perception, analysis, reflection.
+Hermes Data Organism — Continuous perception, analysis, reflection, synthesis.
 
 Runs on systemd timer (hourly ingestion, daily reflection).
 Compounds on datasets: each cycle builds on the last.
@@ -9,7 +9,8 @@ Looks for: self-diagnosis, anomalies, opportunities, causality.
 LAYER 1: PERCEPTION (ingestion of deltas)
 LAYER 2: ANALYSIS (pattern extraction from deltas)
 LAYER 3: REFLECTION (compound patterns into wisdom)
-LAYER 4: FEEDBACK (emit signals for human/system action)
+LAYER 4: SYNTHESIS (generate meta-guidance via Gemini)
+LAYER 5: FEEDBACK (emit signals for human/system action)
 """
 
 import json
@@ -242,8 +243,39 @@ class HermesDataOrganism:
 
         return reflection
 
+    def _synthesize_guidance(self) -> None:
+        """LAYER 4: Generate meta-guidance via Gemini meta-advisor"""
+        try:
+            import subprocess
+
+            # Find the project root
+            script_dir = Path(__file__).parent
+            project_root = script_dir.parent
+            synthesis_script = project_root / "cynic-python" / "organs" / "hermes_x" / "gemini_meta_advisor.py"
+
+            if not synthesis_script.exists():
+                print(f"  Synthesis: Script not found at {synthesis_script}", file=sys.stderr)
+                return
+
+            organ_dir = str(self.data_dir)
+            result = subprocess.run(
+                ["python3", str(synthesis_script), "--organ-dir", organ_dir],
+                capture_output=True,
+                text=True,
+                timeout=90,
+            )
+
+            if result.returncode == 0:
+                print(f"  Synthesis: Guidance generated successfully", file=sys.stderr)
+            else:
+                print(f"  Synthesis: Failed (code {result.returncode}): {result.stderr[:200]}", file=sys.stderr)
+        except subprocess.TimeoutExpired:
+            print(f"  Synthesis: Timeout (90s)", file=sys.stderr)
+        except Exception as e:
+            print(f"  Synthesis: Error — {str(e)[:100]}", file=sys.stderr)
+
     def compound(self, reflection: Dict) -> None:
-        """LAYER 4: Output signals and persist for next cycle"""
+        """LAYER 5: Output signals and persist for next cycle"""
         # Write reflection
         with open(self.datasets_dir / "reflection_latest.json", 'w') as f:
             json.dump(reflection, f, indent=2, default=str)
@@ -258,7 +290,7 @@ class HermesDataOrganism:
         self._save_state()
 
     def run_cycle(self) -> Dict:
-        """Execute one full cycle: perceive → analyze → reflect → compound"""
+        """Execute one full cycle: perceive → analyze → reflect → synthesize → compound"""
         print(f"[Hermes Data Organism] Cycle {self.state.get('cycle_count', 0) + 1}", file=sys.stderr)
 
         # LAYER 1: Perceive (2 real data sources: sessions, kernel observations)
@@ -282,7 +314,10 @@ class HermesDataOrganism:
         reflection = self.reflect(analysis)
         print(f"  Diagnosis: {reflection['diagnosis']}", file=sys.stderr)
 
-        # LAYER 4: Compound
+        # LAYER 4: Synthesize (generate meta-guidance via Gemini)
+        self._synthesize_guidance()
+
+        # LAYER 5: Compound
         self.compound(reflection)
         print(f"  Compounded to {self.datasets_dir}", file=sys.stderr)
 
