@@ -1,0 +1,124 @@
+{
+  "organ": "judge",
+  "description": "Truth synthesis loop — Judge orchestrates Dogs, CCM consolidates verdicts into learnings",
+  "status": "operational (Layer 3 wired 2026-04-30)",
+  "layers": {
+    "1_observation_intake": {
+      "status": "LIVE",
+      "observations_total": 100,
+      "domains": ["general", "kernel-lifecycle", "organ-health", "docs", "config", "rust"],
+      "k15_producer": "observe-tool.sh (hooks)",
+      "metric": "cynic_observations_total"
+    },
+    "2_judgment": {
+      "status": "LIVE",
+      "verdicts_total": 20,
+      "dogs": ["qwen-7b-hf", "qwen-35-9b-gpu", "deterministic-dog"],
+      "cache_hits": 0,
+      "cache_misses": 20,
+      "k15_producer": "Judge.evaluate()"
+    },
+    "3_verdict_observation": {
+      "status": "JUST_WIRED",
+      "description": "Verdicts posted back to /observe (K15 forward loop)",
+      "verdicts_posted": 0,
+      "verdicts_post_failed": 0,
+      "k15_producer": "post_verdict_observation() in pipeline/verdict_observer.rs",
+      "k15_consumer": "CCM intake",
+      "gate": "domain != 'general'",
+      "metric": "cynic_observation_post_success_total"
+    },
+    "4_ccm_intake_crystallization": {
+      "status": "LIVE_BUT_STARVED",
+      "description": "Processing metadata observations only (not verdicts yet)",
+      "crystals_total": 5,
+      "crystals_canonical": 2,
+      "crystals_crystallized": 2,
+      "crystals_forming": 1,
+      "epistemologic_gates": ["domain_gate", "quorum_gate", "epistemic_gate"],
+      "k15_consumer": "crystal_observer.rs observes verdicts"
+    },
+    "5_crystal_injection": {
+      "status": "NOT_WIRED",
+      "description": "Judge reads crystals and injects context into Dog prompts",
+      "implementation_plan": "Wire search_crystals_semantic() in judge.evaluate()",
+      "falsification": "Measure q_score improvement on repeated stimuli"
+    }
+  },
+  "k15_gaps": [
+    {
+      "gap": "Layer 3: Verdicts not posted to /observe",
+      "severity": "CRITICAL",
+      "blocked": ["crystal formation from verdict content", "compound loop"],
+      "remediation": "post_verdict_observation() wired in side_effects() [2026-04-30]",
+      "falsification": "curl /judge + check /metrics observation_post_success_total"
+    },
+    {
+      "gap": "Layer 4: CCM processes metadata, starved of verdicts",
+      "severity": "HIGH",
+      "blocked": ["verdict-based crystal growth"],
+      "remediation": "Wait for Layer 3 flow, measure crystal growth",
+      "falsification": "Compare observation sources before/after Layer 3 wiring"
+    },
+    {
+      "gap": "Layer 5: Judge never reads crystals",
+      "severity": "CRITICAL",
+      "blocked": ["compound loop closing", "crystal context injection"],
+      "remediation": "Add search_crystals_semantic() to judge.evaluate()",
+      "falsification": "Measure q_score improvement on cache hits vs fresh"
+    }
+  ],
+  "health": {
+    "kernel_healthy": false,
+    "kernel_status_code": 503,
+    "nightshift_paused": true,
+    "nightshift_pause_reason": "GPU reserved for Hermes hackathon (2026-04-26→05-11)",
+    "nightshift_status": "can_unpause_post_hackathon"
+  },
+  "metrics_exposed": [
+    "cynic_verdicts_total",
+    "cynic_cache_hits_total",
+    "cynic_cache_misses_total",
+    "cynic_dog_evaluations_total",
+    "cynic_dog_failures_total",
+    "cynic_crystal_observations_total",
+    "cynic_crystal_gate_quorum_blocked",
+    "cynic_crystal_gate_contested",
+    "cynic_crystal_gate_disputed",
+    "cynic_crystal_observe_failed",
+    "cynic_observation_post_success_total",
+    "cynic_observation_post_failed"
+  ],
+  "falsification_tests": {
+    "test_1_verdict_observation_flow": {
+      "hypothesis": "When judge produces verdict, post_verdict_observation fires and increments metrics",
+      "command": "curl -X POST ${CYNIC_REST_ADDR}/judge -H 'Content-Type: application/json' -d '{\"content\":\"test\",\"domain\":\"token\"}' -H 'Authorization: Bearer ${CYNIC_API_KEY}' && curl -s ${CYNIC_REST_ADDR}/metrics | grep observation_post_success",
+      "expected": "Counter > 0",
+      "status": "pending"
+    },
+    "test_2_crystal_formation_from_verdicts": {
+      "hypothesis": "After verdict observations flow, crystal count grows with verdict content",
+      "steps": [
+        "measure crystal count before",
+        "send 50 verdicts via /judge",
+        "wait 2 min",
+        "measure crystal count after",
+        "inspect new crystal content"
+      ],
+      "expected": "crystal_count_after > crystal_count_before",
+      "status": "pending"
+    },
+    "test_3_judge_reads_crystals": {
+      "hypothesis": "Judge reads crystals; q_score improves on repeated stimuli",
+      "steps": [
+        "call /judge token1 → q_score_v1",
+        "call /judge same_token → q_score_v2",
+        "measure Pearson r between crystal_strength and q_score_improvement"
+      ],
+      "expected": "r > 0.6 (crystals improve verdict quality)",
+      "status": "pending"
+    }
+  },
+  "created_at": "2026-04-30T11:45:00Z",
+  "updated_at": "2026-04-30T11:45:00Z"
+}
