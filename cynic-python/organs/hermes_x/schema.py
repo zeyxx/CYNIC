@@ -35,12 +35,12 @@ class Verdict:
 
 @dataclass
 class SessionTurn:
-    """Claude Code session turn"""
+    """Hermes agent decision or action"""
     session_id: str
     turn_count: int
     timestamp: str
-    intent: str  # refactor, debug, feature, etc.
-    message_length: int
+    intent: str  # domain: token, wallet, social, security, mixed
+    message_length: int  # confidence score (0-100) or action cost
 
 
 @dataclass

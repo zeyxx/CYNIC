@@ -109,18 +109,18 @@ class DataAnalyzer:
     @staticmethod
     def analyze_sessions(sessions: list) -> dict:
         """
-        Analyze session patterns.
+        Analyze Hermes agent behavior patterns.
 
         Metrics:
-        - Session count
-        - Dominant intent
+        - Agent decision count
+        - Dominant domain focus
         """
         intents = Counter(s.intent for s in sessions)
         dominant = intents.most_common(1)[0][0] if intents else "mixed"
 
         return {
-            "session_count": len(sessions),
-            "dominant_intent": dominant,
+            "session_count": len(sessions),  # Now agent decisions, not sessions
+            "dominant_intent": dominant,  # Now dominant domain (token/wallet/social/security)
         }
 
     def analyze(self, cleaned_data: CleanedData, cycle: int) -> PatternAnalysis:

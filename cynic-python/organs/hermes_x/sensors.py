@@ -103,50 +103,52 @@ class VerdictSensor:
         return verdicts
 
 
-class SessionSensor:
-    """Perceive Claude Code sessions"""
+class HermesAgentSensor:
+    """Perceive Hermes agent logs: domains explored, routing, confidence, skill evolution"""
 
-    def __init__(self, sessions_dir: Path = None):
-        self.sessions_dir = sessions_dir or (
-            Path.home() / ".claude" / "projects" / "-home-user-Bureau-CYNIC"
+    def __init__(self, logs_dir: Path = None):
+        self.logs_dir = logs_dir or (
+            Path.home() / ".cynic" / "organs" / "hermes" / "logs"
         )
 
     def perceive(self) -> List[SessionTurn]:
-        """Read session files, return typed SessionTurn objects"""
+        """Read Hermes agent logs, return typed SessionTurn objects representing agent decisions"""
         sessions = []
 
-        if not self.sessions_dir.exists():
+        if not self.logs_dir.exists():
             return sessions
 
         try:
-            for session_file in self.sessions_dir.glob("*.jsonl"):
+            # Look for Hermes agent decision logs (future: from /observe endpoint)
+            # For now, gracefully return empty if logs don't exist
+            for log_file in self.logs_dir.glob("*.jsonl"):
                 try:
-                    with open(session_file, 'r') as f:
-                        turn_count = 0
+                    with open(log_file, 'r') as f:
+                        decision_count = 0
                         for line in f:
                             try:
                                 obj = json.loads(line)
-                                if obj.get('type') in ['user', 'assistant']:
-                                    turn_count += 1
-                                    msg = str(obj.get('message', ''))[:100].lower()
+                                # Expected structure: domain, action, confidence
+                                domain = obj.get("domain", "mixed")
+                                action = obj.get("action", "mixed")
+                                confidence = obj.get("confidence", 0.0)
 
-                                    # Infer intent
-                                    intent = "mixed"
-                                    if 'refactor' in msg:
-                                        intent = "refactor"
-                                    elif 'debug' in msg or 'error' in msg:
-                                        intent = "debug"
-                                    elif 'feature' in msg or 'add' in msg:
-                                        intent = "feature"
+                                # Map domain to analysis intent
+                                intent = "mixed"
+                                if domain == "social":
+                                    intent = "feature"
+                                elif domain in ["wallet", "security"]:
+                                    intent = "debug"
 
-                                    turn = SessionTurn(
-                                        session_id=session_file.stem,
-                                        turn_count=turn_count,
-                                        timestamp=obj.get('timestamp', ''),
-                                        intent=intent,
-                                        message_length=len(msg),
-                                    )
-                                    sessions.append(turn)
+                                decision_count += 1
+                                turn = SessionTurn(
+                                    session_id=log_file.stem,
+                                    turn_count=decision_count,
+                                    timestamp=obj.get("timestamp", ""),
+                                    intent=intent,
+                                    message_length=int(confidence * 100),  # Normalize confidence to [0,100]
+                                )
+                                sessions.append(turn)
                             except (json.JSONDecodeError, KeyError, TypeError):
                                 pass
                 except Exception:
@@ -158,16 +160,16 @@ class SessionSensor:
 
 
 class HermesXSensors:
-    """Composite sensor: perceives all data sources"""
+    """Composite sensor: perceives X tweets, kernel verdicts, and Hermes agent logs"""
 
     def __init__(self):
         self.tweet_sensor = TweetSensor()
         self.verdict_sensor = VerdictSensor()
-        self.session_sensor = SessionSensor()
+        self.hermes_sensor = HermesAgentSensor()
 
     def perceive(self, observation_count: int = 0) -> RawPerception:
         """
-        Perceive all data sources.
+        Perceive all data sources: X tweets, kernel verdicts, Hermes agent decisions.
 
         Args:
             observation_count: number of kernel observations (for reference)
@@ -179,6 +181,6 @@ class HermesXSensors:
             timestamp=datetime.now().isoformat(),
             tweets=self.tweet_sensor.perceive(),
             verdicts=self.verdict_sensor.perceive(),
-            sessions=self.session_sensor.perceive(),
+            sessions=self.hermes_sensor.perceive(),  # Now Hermes agent logs, not Claude Code sessions
             observation_count=observation_count,
         )

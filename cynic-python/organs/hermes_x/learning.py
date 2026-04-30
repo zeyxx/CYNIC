@@ -40,6 +40,8 @@ class SkillUpdater:
         """
         Extract new skills from pattern analysis.
 
+        Hermes learns: signal quality per domain, agent domain focus, verdict agreement patterns.
+
         Returns:
             List of new skill entries to add to SKILL.md
         """
@@ -49,8 +51,8 @@ class SkillUpdater:
         if analysis.high_signal_tweets > 0:
             pct = 100 * analysis.high_signal_tweets / analysis.tweets_analyzed if analysis.tweets_analyzed > 0 else 0
             updates.append(
-                f"- **High-Signal Detection:** {pct:.1f}% of tweets are high-signal (score > 0). "
-                f"Average signal score: {analysis.avg_signal_score:.2f}"
+                f"- **Signal Quality:** {pct:.1f}% of observable tweets are high-signal (score > 0). "
+                f"Median signal: {analysis.avg_signal_score:.2f}"
             )
 
         # Skill: domain expertise

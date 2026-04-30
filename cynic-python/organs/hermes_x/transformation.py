@@ -93,17 +93,17 @@ class DataTransformer:
 
     def clean_sessions(self, sessions: list) -> tuple[list, int]:
         """
-        Validate and clean session turns.
+        Validate and clean Hermes agent decisions.
 
         Rules:
-        - Must have session_id
+        - Must have session_id (agent log identifier)
         - turn_count must be positive
-        - intent must be recognized
+        - intent must be recognized domain
 
         Returns:
             (valid_sessions, dropped_count)
         """
-        valid_intents = {"refactor", "debug", "feature", "mixed"}
+        valid_intents = {"token", "wallet", "social", "security", "mixed", "feature", "debug"}  # Support both old and new intent names
         valid = []
         dropped = 0
 
