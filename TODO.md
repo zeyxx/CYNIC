@@ -41,6 +41,18 @@ Last updated: 2026-04-30 15:42 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 - [ ] **Extract K11 hardcoding (port 8080, dog_config).** Hardcoded in inference_router.rs (line 283: "systemctl restart llama-server"), node_probe.rs (port 8080). When remediate_handler becomes 2nd consumer of probe_node(), move to backends.toml. **Falsify:** no hardcoded IPs/ports in inference_router.rs or backends.rs. **Deadline: May 2** (unblock dynamic Dog discovery).
 - [ ] **Measurement workflow validation.** Manual test: baseline → change heuristic → compare before/after. Verify deltas computed correctly on real dataset (4,146 tweets). **Falsify:** sensitivity/specificity/Pearson r deltas match manual calculations.
 
+## HERMES ORGANIC AGENT — Behavioral Mimicry + Autonomous Framing (IN PROGRESS)
+
+Organism learns user patterns (behavioral profile) + domain understanding (framing from verdicts) + executes searches autonomously while appearing human.
+
+- [x] **Phase 1: Behavioral Profile Extraction.** ✅ Extracted from 435K behavior_log events. Metrics: 93 WPM typing, 218ms keystroke mean, 82% scroll-down bias, 4.1s deliberation, peak activity 19-22h. Output: `behavioral_profile.json` (confirmed via 170K keystroke events, 18K clicks, 42K scrolls).
+- [x] **Phase 2: Real Framing from Verdict Correlation.** ✅ Correlated 11/13 verdicts to observations via (signal_score, domain, narratives). Found: ecosystem patterns (0.688 φ-confidence, HOWL=1 WAG=1) >> speculative hype (0.150 confidence, all BARK). Output: `framing_narrative_real.json` with domain priorities. **Key insight:** kernel validates PATTERNS (recovery scammers) not predictions (price rugs).
+- [x] **Phase 3: Behavioral Simulator.** ✅ `hermes_behavioral_simulator.py` injects keystroke timing, mouse velocity, scroll patterns, deliberation pauses into Playwright. Architecture validates; X.com headless detection still blocks actual execution (known limitation from search_executor refactor).
+- [ ] **Phase 4: Framing-Driven Search Executor.** Generate search terms autonomously from framing (e.g., "recovery scammer ecosystem patterns") instead of hardcoded queries. Wire to behavioral_simulator. **Blocker:** X.com headless detection (requires CDP to running browser or account login with session persistence).
+- [ ] **Phase 5: Feedback Loop.** Verdicts from searches feed back into framing. Organism learns: "ecosystem patterns get HOWL → prioritize ecosystem searches next cycle". Wired via kernel observations consumer.
+
+---
+
 ## CYNIC AUTONOMY — Key Management & Identity (FOUNDATIONAL)
 
 **Blocks:** Hermes-X replication to other organs. Organism cannot manage identity/secrets autonomously until this is built.
