@@ -54,10 +54,19 @@ Last updated: 2026-04-30 03:02 | **K15 PRODUCER-CONSUMER LOOP COMPLETE & LIVE** 
   - TwitterDog: 6th Dog specialized for social content (0ms latency, heuristic)
   - Validated: BARK (rug scams) 0.184 ✓, GROWL (emerging) 0.450 ✓, BARK (recovery scams) 0.234 ✓
   - **Status:** Ready to wire into kernel judgment or run as standalone Hermes observer (eda3153)
+- [x] **Organism autonomy & learning proof (PR#47, 2026-04-30).** Wire Hermes agent feedback logs → real data source. Implement 5-layer cycle (perceive→transform→analyze→learn→reflect). Add behavior stream (195K+ events). Create proof-of-evolution with falsification tests. **Completed:**
+  - VerdictSensor: fixed nested kernel structure parsing
+  - HermesAgentSensor: reads real agent decisions (feedback_decision_log.jsonl)
+  - BehaviorSensor: analyzes user engagement (195K clicks/scrolls)
+  - proof_of_evolution.py: Scientific Protocol with 5 falsification tests (domain_coverage, confidence_convergence, verdict_growth, robustness, anomaly_reduction)
+  - ORGANISM_HARMONY.md: Agent-Organ-Gemini union design
+  - ORGANISM_GAPS.md: 5 critical gaps, falsification per gap, 3-tier roadmap
+  - **Status:** Code complete, PR#47 open, initial 1-cycle run: 4/5 tests PASS (verdict: EVOLVED)
 - [ ] **@CynicOracle posting (CHAOS-MATRIX Phase 1).** Curator ready: 42 verdicts filtered (HOWL + high-signal BARK). **Option 1 (human):** T. posts 5-10 daily (5/1-5/7), tracks engagement. **Option 2 (agent):** Hermes posts autonomously (post-May 10). **Falsify:** verdicts_to_post.json has 40+ entries, posted_tracker.json updates per post, engagement metrics captured by May 7.
 - [ ] **Unify dataset paths.** Scripts read from two locations (stale + canonical). **Fix:** all use MANIFEST.canonical_paths. **Falsify:** grep returns only canonical path.
 - [ ] **K15 consumer: observation → task dispatch (Seam 2).** Consumer polls /observations, scores with TwitterDog, dispatches high-signal to /agent-tasks. Hermes agent processes tasks, validates patterns, updates SKILL.md. **Falsify:** 14 pending observations → 8-10 tasks → agent-tasks queue shows new work. **Deadline: May 1 23:59** (Lab infrastructure + consumer integration).
 - [ ] **GPU contention: Hermes vs Dog qwen35-9b-gpu.** Same llama-server serves both. Hermes blocked during nightshift Dog evals. **Fix options:** pause nightshift, `--parallel 2` on llama-server, or Soma orchestrator. **Falsify:** Hermes cron completes with 0 MCP errors in a run without nightshift.
+- [ ] **Deploy Hermes organ infrastructure (systemd services).** Wire hermes-x-organ.service, hermes-x-gemini-meta.service, hermes-agent-decision.service. Test 7-cycle evolution proof. **Falsify:** 7-cycle run shows monotonic improvement in ≥2 metrics (domain_count, avg_confidence, verdict_analyzed).
 
 ## ORGANISM (no deadline, compound value)
 
