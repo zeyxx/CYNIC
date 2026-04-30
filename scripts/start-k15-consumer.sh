@@ -26,9 +26,8 @@ if [[ ! "$KERNEL_URL" =~ ^http ]]; then
     KERNEL_URL="http://$KERNEL_URL"
 fi
 
-# Run the consumer
+# Run the consumer (CYNIC_API_KEY from environment, not CLI args — prevents ps aux leakage)
 exec /usr/bin/python3 "$PROJECT_ROOT/cynic-python/consumers/k15_observation_consumer.py" \
   --kernel-url "$KERNEL_URL" \
-  --api-key "$CYNIC_API_KEY" \
   --domain twitter \
   --poll-interval 300

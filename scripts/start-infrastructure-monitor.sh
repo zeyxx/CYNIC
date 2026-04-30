@@ -1,19 +1,18 @@
 #!/bin/bash
-# Wrapper script for K15 infrastructure consumer with environment loading
+# Wrapper script for infrastructure monitor with environment loading
 # Sources ~/.cynic-env and runs the infrastructure consumer
-# Routes probe failures to recovery decisions
 
 set -e
 
-# Get project root (R1: no hardcoded paths)
-PROJECT_ROOT="${CYNIC_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+# Get project root (use CYNIC_ROOT from systemd, fallback to git)
+PROJECT_ROOT="${CYNIC_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo /home/user/Bureau/CYNIC)}"
 if [ -z "$PROJECT_ROOT" ]; then
-    echo "ERROR: CYNIC_ROOT not set and git rev-parse failed" >&2
+    echo "ERROR: CYNIC_ROOT not set and all fallbacks failed" >&2
     exit 1
 fi
 
-# Source environment variables (use /root/.cynic-env since this runs as root in systemd)
-source /root/.cynic-env
+# Source environment variables
+source "$HOME/.cynic-env"
 
 # Get kernel URL from env (CYNIC_REST_ADDR should be set in ~/.cynic-env)
 KERNEL_URL="${CYNIC_REST_ADDR}"
@@ -27,8 +26,8 @@ if [[ ! "$KERNEL_URL" =~ ^http ]]; then
     KERNEL_URL="http://$KERNEL_URL"
 fi
 
-# Run the infrastructure consumer (polls /observations, routes failures to /inference/remediate)
-# CYNIC_API_KEY from environment, not CLI args — prevents ps aux leakage
+# Run the infrastructure monitor (polls infrastructure observations every 60s)
 exec /usr/bin/python3 "$PROJECT_ROOT/cynic-python/consumers/k15_infrastructure_consumer.py" \
   --kernel-url "$KERNEL_URL" \
+  --api-key "$CYNIC_API_KEY" \
   --poll-interval 60

@@ -1,0 +1,24 @@
+[Unit]
+Description=K15 Infrastructure Consumer — Route probe failures to recovery
+Requires=network.target
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/user/Bureau/CYNIC
+Environment="CYNIC_ROOT=/home/user/Bureau/CYNIC"
+
+# Run the infrastructure consumer via wrapper
+ExecStart=/home/user/Bureau/CYNIC/scripts/start-infrastructure-monitor.sh
+
+# Restart on failure with 30s backoff
+Restart=on-failure
+RestartSec=30
+
+# Output to journal
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
