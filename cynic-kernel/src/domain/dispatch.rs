@@ -230,7 +230,7 @@ mod tests {
         ] {
             let dogs = domain.dog_set();
             // At minimum, fallback or deterministic-dog should be present
-            assert!(!dogs.dogs.is_empty(), "{:?} has no dogs", domain);
+            assert!(!dogs.dogs.is_empty(), "{domain:?} has no dogs");
         }
     }
 
