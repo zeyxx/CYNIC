@@ -83,12 +83,16 @@ Last updated: 2026-04-30 15:42 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 - [x] **Recovery observability.** Observations emitted after each recovery attempt (status: succeeded/failed/timed_out). K15 consumer active: observations stored, queryable.
 - [x] **Falsification test complete.** scripts/k15_falsification_test.sh validates phases 1-5: event injection ✓, aggregation ✓, detection ✓, recovery routing ✓, observation consumer ✓. SQL fix: added `created_at` to fleet_stats reason query (commit 2026-04-28). Phases pass; Phase 6 (MCP observation) pending MCP availability (non-critical for hackathon).
 
-## IMMEDIATE ACTIONS (Unblock Hermes)
+## IMMOVABLE DEADLINES (May 1-10)
 
-- [x] **Pause nightshift Dog evals (band-aid, T6D debt).** Nightshift spawning commented out in main.rs:711-721. GPU reserved for Hermes 2026-04-26→2026-05-11. Kernel binary deployed 2026-04-26 23:08 (confirmed logline "[Ring 3] Nightshift PAUSED").
-- [x] **GPU already at --parallel 2.** llama-server.env already configured. No change needed.
-- [x] **Hermes health probe fixed (1b5b08b).** Was measuring file mtime (wrong signal). Now measures capture_ts from dataset.jsonl (production signal). Threshold: 8h = 2× cron interval. Test: falsification added.
-- [ ] **Hermes crons NOT running.** No systemd services found. Health probe is now honest: reports Degraded because capture_ts > 8h old. **Next:** start Hermes crons or wire systemd timers.
+- [ ] **Video demo (Scene 1-4).** Kernel logs + /health (circuit state) + curl /judge chess + UI verdict + recovery endpoint. Record May 1-5 (film when rested, edit in 1h). **Falsify:** uploaded to Vercel, playable link in submission.
+- [ ] **@CynicOracle May 1 philosophy thread (09:00 UTC).** 4-tweet solana attack surface (bundlers/bots/KOLs). Finalized in `scripts/cynic-oracle-philosophy-thread.md`. Scheduled pin. **Falsify:** tweet ID logged in OBSERVATION_LOG.md.
+- [ ] **May 1-10 observation log.** Daily 5min note in `docs/ops/may-1-10-OBSERVATION-LOG.md`: engagement (likes/replies), coherence (voices reinforce?), prophecy validation (Week 1 verdicts hold?). **Falsify:** 10 days of entries, pattern analysis on May 11.
+- [ ] **Await S. wallet-judgment test data (May 1 deadline).** 3-5 real game JSON samples → run integration test → decide B&C Option A/B/C. **Falsify:** test results logged, decision made May 2.
+
+**Parallel:**
+- [x] **K15 domain consolidation.** Routing dispatcher live, /health exposed, sanity tests documented. Commit 466f6a3. **Status:** Await kernel restart to verify live.
+- [x] **Hermes crons fixed.** Services deployed, timers active (eda3153). **Status:** GPU contention band-aid holds (nightshift paused).
 
 ## OPS AUDIT (H1/H2/H3 — 2026-04-30)
 
@@ -108,17 +112,25 @@ Last updated: 2026-04-30 15:42 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 - [x] **DEPLOYED:** Ran H3 deployment script (deploy-h3-secrets-fixes.sh). Both K15 consumers restarted with wrapper scripts.
 - [x] **VERIFIED:** Both consumers now run without CYNIC_API_KEY in process list. Infrastructure monitor correctly connects to <TAILSCALE_CORE>:3030 (not localhost). Commit message: docs(ops) + harden(deploy).
 
-## SOMA ORCHESTRATOR (Deferred: Build When It Hurts)
+## TECH DEBT (Operational, Non-Critical)
 
-- [ ] **Soma infrastructure (post-hackathon, organic emergence).** Root cause identified 2026-04-28: Dogs hardcoded (no discovery), llama-server silent death (status=0 exit doesn't restart), no fallback routing (if qwen35-9b-gpu down → all Dogs timeout). Three components for later: (1) Dog health probe returns model metadata, (2) Kernel dynamic Dog discovery (every 30s re-probe), (3) Fallback routing (qwen35→qwen7→deterministic). Defer until Hermes scales or organs compete for GPU. Design doc: `memory/project_orchestration_fractal.md`.
-- [ ] **Kernel monolith → composable.** MCP spawns full kernel per client. Nightshift not pausable. No resource awareness. Root blocker for multi-cortex + Soma. **Falsify:** MCP-to-REST proxy replaces MCP subprocess model.
-- [ ] **Nightshift rework.** Poorly designed, runs every 4h with no awareness of GPU contention or organism state. Should check resource availability before dispatching Dog evals.
 - [ ] **MCP poison input hardening.** Small models (9B) produce null/invalid tool args. Every MCP handler must validate defensively. **Falsify:** send garbage args to all 22 MCP tools → all return error, none crash.
 - [ ] NaN filter in judge/math.rs (trimmed_mean lets NaN through)
 - [ ] Two TokenData structs (enrichment.rs vs stimulus.rs)
 - [ ] LUKS full-disk encryption on cynic-core (KC1)
 - [ ] `.cynic-env` format — `export` prefixes incompatible with systemd EnvironmentFile
 - [x] mitmdump running with `--listen-host 127.0.0.1` (KC4)
+
+---
+
+## SOMA ORCHESTRATOR (Emergent — No Pre-Build)
+
+**No TODO items.** Soma emerges when the system needs it:
+- When Hermes + Dogs compete for GPU → fallback routing appears
+- When nightshift can't run during peak load → resource awareness appears
+- When Dog discovery fails → health probe metadata appears
+
+Until then: band-aids work (nightshift paused, llama-server --parallel 2). Design groundwork exists (`memory/project_orchestration_fractal.md`). Ship when it hurts, not before.
 
 ## DATA-CENTRIC ORGANISM (Phase 1 → May 10)
 
