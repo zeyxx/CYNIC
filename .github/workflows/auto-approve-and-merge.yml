@@ -1,0 +1,43 @@
+name: Auto-Approve & Auto-Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  auto-approve-and-merge:
+    if: github.actor == 'zeyxx'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - name: Approve PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Only author zeyxx's PRs get auto-approved
+            // This prevents approval of external contributions
+            github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              event: 'APPROVE',
+            });
+
+      - name: Enable auto-merge (squash)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.pulls.enableAutoMerge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              merge_method: 'squash',
+            });
+
+      - name: Confirm approval
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "✓ PR #${PR_NUMBER} approved and auto-merge enabled (squash strategy)"

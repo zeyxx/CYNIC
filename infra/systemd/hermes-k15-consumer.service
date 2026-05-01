@@ -1,23 +1,18 @@
 [Unit]
-Description=K15 Consumer — Score observations and dispatch high-signal tasks
-Requires=network.target
-After=network.target
+Description=CYNIC K15 Observation Consumer — Score observations, dispatch hermes tasks
+After=cynic-kernel.service
+PartOf=hermes-k15-consumer.timer
 
 [Service]
-Type=simple
-User=root
-WorkingDirectory=/home/user/Bureau/CYNIC
-
-# Run the K15 consumer via wrapper script that sources ~/.cynic-env
-ExecStart=/home/user/Bureau/CYNIC/scripts/start-k15-consumer.sh
-
-# Restart on failure with 30s backoff
-Restart=on-failure
-RestartSec=30
-
-# Output to journal
+Type=oneshot
+Environment="HOME=/home/user"
+EnvironmentFile=%h/.config/cynic/env
+EnvironmentFile=%h/.cynic-env
+WorkingDirectory=%h/Bureau/CYNIC
+ExecStart=/usr/bin/python3 cynic-python/consumers/k15_observation_consumer.py --kernel-url http://<TAILSCALE_CORE>:3030 --poll-interval 10 --max-iter 1
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=hermes-k15-consumer
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=hermes-k15-consumer.timer
