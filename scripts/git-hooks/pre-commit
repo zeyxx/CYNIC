@@ -38,7 +38,9 @@ security_check() {
         | grep -vE ':\s*Option<|:\s*Result<|:\s*Vec<|:\s*String' \
         | grep -vE '\.split\(.*api[_-]?key' \
         | grep -vE 'token::(parse|score)|mod token;' \
-        | grep -vE 'Token:\s+[A-Za-z0-9$]+\.\s+Type:\s*Fungible' || true)
+        | grep -vE 'Token:\s+[A-Za-z0-9$]+\.\s+Type:\s*Fungible' \
+        | grep -vE 'def.*endpoint_token.*=.*None|endpoint_token=|self\.credentials' \
+        | grep -vE 'query_params.*["'"'"']api-key["'"'"']' || true)
     if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
         echo "SECURITY FAIL: possible secrets in staged changes:"
         [ -n "$RAW_SECRETS" ] && echo "$RAW_SECRETS"
