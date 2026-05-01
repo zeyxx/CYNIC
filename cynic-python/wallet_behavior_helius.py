@@ -7,6 +7,7 @@ Fetches on-chain wallet data from Helius API and converts to WalletProfile.
 
 import os
 import logging
+from pathlib import Path
 from typing import Optional, Set, Dict
 from datetime import datetime
 import requests
@@ -28,22 +29,34 @@ if not logger.handlers:
 class HeliusWalletCollector:
     """Collect wallet behavior data from Helius API."""
 
-    def __init__(self, api_key: Optional[str] = None, timeout: int = 30):
+    def __init__(self, endpoint_credentials: Optional[str] = None, timeout: int = 30):
         """Initialize Helius client.
 
         Args:
-            api_key: Helius API key. If None, reads from HELIUS_API_KEY env var.
+            endpoint_credentials: Helius endpoint credentials. If None, reads from HELIUS_API_KEY env var.
             timeout: Request timeout in seconds.
         """
-        self.api_key = api_key or os.getenv("HELIUS_API_KEY")
-        if not self.api_key:
+        self.credentials = endpoint_credentials or os.getenv("HELIUS_API_KEY") or self._load_from_cynic_env()
+        if not self.credentials:
             raise ValueError(
-                "Helius API key not provided. "
-                "Set HELIUS_API_KEY env var or pass api_key parameter."
+                "Helius endpoint credentials not provided. "
+                "Set HELIUS_API_KEY env var, add to ~/.cynic-env, or pass endpoint_credentials parameter."
             )
         self.rpc_url = "https://mainnet.helius-rpc.com"
         self.rest_url = "https://api.helius.xyz/v1"
         self.timeout = timeout
+
+    @staticmethod
+    def _load_from_cynic_env() -> Optional[str]:
+        """Fallback: read HELIUS_API_KEY from ~/.cynic-env (R12: one value, one source)."""
+        env_path = Path.home() / ".cynic-env"
+        if not env_path.exists():
+            return None
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("HELIUS_API_KEY=") and not line.startswith("#"):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+        return None
 
     def _rpc_call(self, method: str, *args, **kwargs) -> dict:
         """Call Helius JSON-RPC API.
@@ -59,7 +72,7 @@ class HeliusWalletCollector:
         Raises:
             requests.RequestException: On API error
         """
-        url = f"{self.rpc_url}?api-key={self.api_key}"
+        url = f"{self.rpc_url}?api-key={self.credentials}"
         # Build params: positional args first, then config dict if kwargs exist
         params = list(args)
         if kwargs:
@@ -96,7 +109,7 @@ class HeliusWalletCollector:
             requests.RequestException: On API error
         """
         url = f"{self.rest_url}{endpoint}"
-        query_params = {"api-key": self.api_key}
+        query_params = {"api-key": self.credentials}
         if params:
             query_params.update(params)
 
@@ -130,37 +143,36 @@ class HeliusWalletCollector:
         result = self._rpc_call("getAccountInfo", wallet, {"encoding": "jsonParsed"})
         return result
 
-    def get_token_authority(self, mint: str) -> Optional[str]:
+    def get_token_largest_accounts(self, mint: str, limit: int = 10) -> Optional[str]:
         """
-        Extract mint authority from a token mint address.
+        Get largest token holder (likely original deployer).
 
         Args:
             mint: Token mint address (base58)
+            limit: Number of top holders to query
 
         Returns:
-            Mint authority wallet address, or None if cannot extract
+            First (largest) holder address, or None on error
         """
         try:
-            info = self.get_account_info(mint)
-            if not info:
+            # getTokenLargestAccounts returns top holders by balance
+            result = self._rpc_call("getTokenLargestAccounts", mint)
+
+            if not result or "value" not in result:
+                logger.warning(f"No token holders found for {mint}")
                 return None
 
-            # Token mint format: parsed.info.mintAuthority for token authority
-            parsed = info.get("data", {}).get("parsed", {})
-            if not parsed:
-                return None
+            holders = result.get("value", [])
+            if holders:
+                largest_holder = holders[0].get("address")
+                if largest_holder:
+                    logger.debug(f"Largest holder of {mint}: {largest_holder}")
+                    return largest_holder
 
-            mint_info = parsed.get("info", {})
-            authority = mint_info.get("mintAuthority")
-
-            if authority:
-                logger.debug(f"Extracted authority from {mint}: {authority}")
-                return authority
-
-            logger.warning(f"No mint authority found in {mint}")
+            logger.warning(f"No holders in response for {mint}")
             return None
         except Exception as e:
-            logger.warning(f"Failed to extract authority from {mint}: {e}")
+            logger.warning(f"Failed to get token holders for {mint}: {e}")
             return None
 
     def collect_wallet_profile(self, wallet: str) -> Optional[WalletProfile]:

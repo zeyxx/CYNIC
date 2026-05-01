@@ -31,6 +31,8 @@ logger = logging.getLogger("x-proxy")
 CAPTURE_OPS = {
     "SearchTimeline", "UserTweets", "TweetDetail",
     "HomeTimeline", "HomeLatestTimeline", "ListLatestTweetsTimeline",
+    "Likes",       # T.'s liked tweets — ground truth
+    "Bookmarks",   # T.'s bookmarked tweets — ground truth
 }
 
 # Env vars set by systemd service; fallback to local for dev
@@ -261,6 +263,10 @@ def _parse_result(result: dict) -> dict | None:
         "is_retweet": "retweeted_status_result" in legacy or legacy.get("full_text", "").startswith("RT @"),
         "is_reply": bool(legacy.get("in_reply_to_status_id_str")),
         "lang": legacy.get("lang", ""),
+        # Viewer engagement — ground truth from GraphQL
+        "favorited": legacy.get("favorited", False),
+        "retweeted": legacy.get("retweeted", False),
+        "bookmarked": legacy.get("bookmarked", False),
     }
 
 
@@ -291,6 +297,8 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict) -> di
             else "home-feed" if operation == "HomeTimeline"
             else "tweet-thread" if operation == "TweetDetail"
             else "profile-visit" if operation == "UserTweets"
+            else "likes" if operation == "Likes"
+            else "bookmarks" if operation == "Bookmarks"
             else operation
         ),
         "interaction_type": (
@@ -324,9 +332,9 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict) -> di
         "quotes": tweet.get("quote_count", 0),
         "bookmarks": tweet.get("bookmark_count", 0),
         "engagement_rate": round(engagement, 6),
-        "viewer_favorited": False,
-        "viewer_retweeted": False,
-        "viewer_bookmarked": False,
+        "viewer_favorited": tweet.get("favorited", False),
+        "viewer_retweeted": tweet.get("retweeted", False),
+        "viewer_bookmarked": tweet.get("bookmarked", False),
         # Entities
         "cashtags": tweet.get("cashtags", []),
         "hashtags": tweet.get("hashtags", []),
@@ -348,19 +356,44 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict) -> di
 # ── Dedup cache ──
 
 class _DedupeCache:
+    """Dedup with state reconciliation.
+
+    Tracks dedupe_key → engagement state hash. When a known tweet reappears
+    with changed viewer_* fields, it's treated as an update (not a duplicate).
+    Dataset is append-only: consumers take the latest entry per tweet_id.
+    """
     def __init__(self, max_size: int = 50000):
-        self._seen: set[str] = set()
+        self._state: dict[str, str] = {}  # dedupe_key → engagement hash
         self._max = max_size
 
+    @staticmethod
+    def _engagement_hash(row: dict) -> str:
+        """Hash of mutable fields — changes when engagement state changes."""
+        return f"{row.get('viewer_favorited', False)}" \
+               f"|{row.get('viewer_retweeted', False)}" \
+               f"|{row.get('viewer_bookmarked', False)}"
+
+    def check(self, key: str, row: dict) -> str:
+        """Check if tweet is new or updated.
+
+        Returns: 'new', 'updated', or 'duplicate'.
+        """
+        eh = self._engagement_hash(row)
+        if key not in self._state:
+            if len(self._state) >= self._max:
+                evict = len(self._state) // 4
+                for k in list(self._state)[:evict]:
+                    del self._state[k]
+            self._state[key] = eh
+            return "new"
+        if self._state[key] != eh:
+            self._state[key] = eh
+            return "updated"
+        return "duplicate"
+
+    # Backward compat
     def is_new(self, key: str) -> bool:
-        if key in self._seen:
-            return False
-        if len(self._seen) >= self._max:
-            evict = len(self._seen) // 4
-            for k in list(self._seen)[:evict]:
-                self._seen.discard(k)
-        self._seen.add(key)
-        return True
+        return key not in self._state
 
     def load(self, path: Path):
         if not path.exists():
@@ -369,10 +402,11 @@ class _DedupeCache:
             with open(path) as f:
                 for line in f:
                     try:
-                        self._seen.add(json.loads(line)["dedupe_key"])
+                        row = json.loads(line)
+                        self._state[row["dedupe_key"]] = self._engagement_hash(row)
                     except (json.JSONDecodeError, KeyError):
                         continue
-            logger.info("dedup: loaded %d existing keys", len(self._seen))
+            logger.info("dedup: loaded %d existing keys", len(self._state))
         except OSError:
             pass
 
@@ -389,7 +423,7 @@ class XProxy:
         self._dedup.load(DATASET_PATH)
         self._stats = {"captured": 0, "enriched": 0, "deduped": 0}
         logger.info("x-proxy loaded — %d existing tweets, dataset: %s",
-                     len(self._dedup._seen), DATASET_PATH)
+                     len(self._dedup._state), DATASET_PATH)
 
     def response(self, flow: http.HTTPFlow) -> None:
         url = flow.request.url
@@ -426,21 +460,30 @@ class XProxy:
 
         coord_map = _coordination(raw_tweets)
         new = []
+        updated = []
         for t in raw_tweets:
             enriched = _enrich(t, op_name, variables, coord_map)
-            if self._dedup.is_new(enriched["dedupe_key"]):
+            status = self._dedup.check(enriched["dedupe_key"], enriched)
+            if status == "new":
                 new.append(enriched)
+            elif status == "updated":
+                updated.append(enriched)
             else:
                 self._stats["deduped"] += 1
 
-        if new:
+        # Append new + updated (consumers take latest per tweet_id)
+        writes = new + updated
+        if writes:
             with open(DATASET_PATH, "a") as f:
-                for row in new:
+                for row in writes:
                     f.write(json.dumps(row, ensure_ascii=False) + "\n")
             self._stats["enriched"] += len(new)
 
-        logger.info("x-proxy: %s +%d new (%d total, %d dedup)",
-                     op_name, len(new), self._stats["enriched"], self._stats["deduped"])
+        self._stats["enriched"] += len(new)
+        self._stats["updated"] = self._stats.get("updated", 0) + len(updated)
+        logger.info("x-proxy: %s +%d new +%d updated (%d total, %d dedup)",
+                     op_name, len(new), len(updated),
+                     self._stats["enriched"], self._stats["deduped"])
 
     @staticmethod
     def _extract_op(url: str) -> str | None:

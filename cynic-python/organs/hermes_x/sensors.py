@@ -25,11 +25,15 @@ class TweetSensor:
         )
 
     def perceive(self) -> List[Tweet]:
-        """Read tweet dataset, return typed Tweet objects"""
-        tweets = []
+        """Read tweet dataset, return typed Tweet objects.
+
+        Dataset is append-only with updates: later entries supersede earlier
+        ones for the same tweet_id (engagement state reconciliation).
+        """
+        by_id: dict[str, dict] = {}
 
         if not self.dataset_path.exists():
-            return tweets
+            return []
 
         try:
             with open(self.dataset_path, 'r') as f:
@@ -45,8 +49,9 @@ class TweetSensor:
                         else:
                             source_stream = "unknown"
 
+                        tid = obj.get("tweet_id", obj.get("id", "unknown"))
                         tweet = Tweet(
-                            id=obj.get("tweet_id", obj.get("id", "unknown")),
+                            id=tid,
                             text=obj.get("text", ""),
                             author=obj.get("author_screen_name", obj.get("author", "unknown")),
                             created_at=obj.get("created_at", ""),
@@ -61,13 +66,14 @@ class TweetSensor:
                             author_tier=obj.get("author_tier", "unknown"),
                             author_followers=obj.get("author_followers_count", 0) or 0,
                         )
-                        tweets.append(tweet)
+                        # Last entry per tweet_id wins (append-only with updates)
+                        by_id[tid] = tweet
                     except (json.JSONDecodeError, KeyError):
                         pass
         except Exception:
             pass
 
-        return tweets
+        return list(by_id.values())
 
 
 class VerdictSensor:
