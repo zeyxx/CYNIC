@@ -5,11 +5,8 @@
 set -e
 
 SERVICE_FILE="/etc/systemd/system/cynic-kernel.service"
-CYNIC_ROOT="${HOME}/Bureau/CYNIC"
-CYNIC_BIN="${HOME}/bin/cynic-kernel"
-CYNIC_ENV="${HOME}/.config/cynic/env"
 
-cat > "$SERVICE_FILE" << EOF
+cat > "$SERVICE_FILE" << 'EOF'
 [Unit]
 Description=CYNIC Kernel — Judgment Engine
 After=network.target
@@ -18,9 +15,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=user
-WorkingDirectory=${CYNIC_ROOT}
-EnvironmentFile=${CYNIC_ENV}
-ExecStart=${CYNIC_BIN} --bind <TAILSCALE_CORE>:3030
+WorkingDirectory=%h/Bureau/CYNIC
+EnvironmentFile=%h/.config/cynic/env
+ExecStart=%h/bin/cynic-kernel --bind <TAILSCALE_CORE>:3030
 
 Restart=on-failure
 RestartSec=5
@@ -31,7 +28,7 @@ SyslogIdentifier=cynic-kernel
 # Hardening per llama-server.service model
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=${CYNIC_ROOT}/.cynic ${HOME}/.cynic
+ReadWritePaths=%h/Bureau/CYNIC/.cynic %h/.cynic
 ProtectHome=read-only
 PrivateTmp=true
 RestrictAddressFamilies=AF_INET AF_INET6
