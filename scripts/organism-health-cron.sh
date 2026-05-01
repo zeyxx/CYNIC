@@ -1,6 +1,6 @@
 #!/bin/bash
 # Organism Health Cron — Run every 30min, trigger Haiku only on real divergence
-# Install: `*/30 * * * * /home/user/Bureau/CYNIC/scripts/organism-health-cron.sh >> /var/log/organism-health.log 2>&1`
+# Install: `*/30 * * * * $(git rev-parse --show-toplevel)/scripts/organism-health-cron.sh >> /var/log/organism-health.log 2>&1`
 
 set -e
 

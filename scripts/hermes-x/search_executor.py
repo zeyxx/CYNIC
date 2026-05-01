@@ -2,6 +2,7 @@
 """
 Hermes X Search Executor — Executes farming/exploration searches via Chrome DevTools Protocol
 Reads search tasks from search_tasks.jsonl and navigates X.com with passive capture
+Behavioral simulation: Uses trained LSTM to generate human-like pauses/movements between searches
 """
 
 import json
@@ -13,6 +14,7 @@ from pathlib import Path
 from datetime import datetime
 import logging
 import httpx
+import numpy as np
 
 # Setup logging
 logging.basicConfig(
@@ -22,12 +24,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger("search-executor")
 
+# Import BehaviorSimulator (will be in same parent dir or site-packages)
+try:
+    from behavior_simulator import BehaviorSimulator
+except ImportError:
+    BehaviorSimulator = None
+    logger.warning("BehaviorSimulator not available, will use static inter-request delays")
+
 class SearchExecutor:
     def __init__(
         self,
         cdp_url: str = "http://localhost:40769",
         task_file: str = None,
-        timeout_sec: int = 30
+        timeout_sec: int = 30,
+        behavior_model_path: str = None
     ):
         """Initialize search executor.
 
@@ -35,6 +45,7 @@ class SearchExecutor:
             cdp_url: Chrome DevTools Protocol endpoint
             task_file: Path to search_tasks.jsonl
             timeout_sec: Per-search timeout
+            behavior_model_path: Path to behavior_model.pt (LSTM weights)
         """
         self.cdp_url = cdp_url.rstrip("/")
         self.task_file = Path(task_file) if task_file else (
@@ -43,6 +54,23 @@ class SearchExecutor:
         self.execution_log = Path.home() / ".cynic/organs/hermes/x/search_execution_log.jsonl"
         self.timeout_sec = timeout_sec
         self.base_url = "https://x.com"
+
+        # Behavior simulation (LSTM-based)
+        self.behavior_model_path = Path(behavior_model_path) if behavior_model_path else (
+            Path.home() / ".cynic/organs/hermes/x/behavior_model.pt"
+        )
+        self.simulator = None
+        if BehaviorSimulator and self.behavior_model_path.exists():
+            try:
+                self.simulator = BehaviorSimulator(model_path=self.behavior_model_path)
+                self.simulator.load_model()
+                logger.info(f"✓ Behavior simulator loaded")
+            except Exception as e:
+                logger.warning(f"Failed to load behavior model: {e}")
+                self.simulator = None
+
+        # Event context (for behavior conditioning)
+        self.event_context = []
 
     async def get_available_pages(self) -> list:
         """Fetch list of open pages from Chrome via HTTP endpoint."""
@@ -54,6 +82,31 @@ class SearchExecutor:
         except Exception as e:
             logger.error(f"Failed to fetch pages: {e}")
             return []
+
+    async def simulate_human_behavior(self):
+        """Generate human-like pauses and movements (LSTM-based)."""
+        if not self.simulator:
+            return
+
+        try:
+            # Sample next event from LSTM (conditioned on context)
+            next_event = self.simulator.sample_next_event(self.event_context)
+
+            # Pause for the sampled event
+            pause_ms = next_event.get("pause_ms", 500)
+            pause_sec = pause_ms / 1000.0
+
+            logger.debug(f"Behavior: {next_event['type']} at ({next_event['x']}, {next_event['y']}), pause={pause_ms}ms")
+
+            # Add to context (maintain 20-event window)
+            self.event_context.append(next_event)
+            if len(self.event_context) > 20:
+                self.event_context.pop(0)
+
+            # Wait for the simulated pause
+            await asyncio.sleep(pause_sec)
+        except Exception as e:
+            logger.debug(f"Behavior simulation error (non-blocking): {e}")
 
     async def navigate_to_search(self, query: str) -> dict:
         """Navigate to search URL using an existing page.
@@ -157,11 +210,19 @@ class SearchExecutor:
             result = await self.navigate_to_search(query)
             results.append(result)
 
-            # Stagger requests (rate limiting, human-like behavior)
+            # Stagger requests: use LSTM behavior simulation if available
             if i < len(tasks) - 1:
-                inter_request_delay = 8  # seconds
-                logger.debug(f"Waiting {inter_request_delay}s before next search...")
-                await asyncio.sleep(inter_request_delay)
+                if self.simulator:
+                    logger.debug("Simulating human behavior before next search...")
+                    # Simulate 3-5 events (mouse moves, scrolls) with learned timing
+                    num_events = np.random.randint(3, 6)
+                    for _ in range(num_events):
+                        await self.simulate_human_behavior()
+                else:
+                    # Fallback: static delay
+                    inter_request_delay = 8  # seconds
+                    logger.debug(f"Waiting {inter_request_delay}s before next search...")
+                    await asyncio.sleep(inter_request_delay)
 
         # Log all results
         try:
