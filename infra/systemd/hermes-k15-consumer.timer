@@ -1,0 +1,11 @@
+[Unit]
+Description=CYNIC K15 Observation Consumer — Poll kernel observations, score, dispatch tasks
+Documentation=https://github.com/zeyxx/CYNIC/docs/k15-loop.md
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

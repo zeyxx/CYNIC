@@ -260,7 +260,7 @@ Reasoning:
 
                 print(f"[{iteration}] Fetched {len(observations)} observations")
 
-                # Score and dispatch
+                # Score and dispatch (with rate limiting: 1 task every 2 seconds = 30/min)
                 for obs in observations:
                     score = self.score_observation(obs)
                     total_observed += 1
@@ -270,6 +270,9 @@ Reasoning:
                         task_id = self.dispatch_task(obs, score)
                         if task_id:
                             total_tasks += 1
+                        # Rate limit: wait 2s between task dispatches (30 tasks/min max)
+                        if score["high_signal"]:
+                            time.sleep(2)
 
                 # Log progress
                 print(

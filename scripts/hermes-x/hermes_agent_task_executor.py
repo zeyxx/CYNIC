@@ -244,7 +244,7 @@ Use the browser and code execution tools to complete this task.
             ["hermes", "chat", "-q", prompt, "--quiet"],
             capture_output=True,
             text=True,
-            timeout=300,  # 5 min timeout per task
+            timeout=600,  # 10 min timeout per task (hermes setup + git can be slow)
         )
 
         if result.returncode == 0:

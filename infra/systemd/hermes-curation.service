@@ -5,8 +5,9 @@ PartOf=hermes-curation.timer
 
 [Service]
 Type=oneshot
+Environment="HOME=/home/user"
 WorkingDirectory=/home/user/.cynic/organs/hermes/x
-ExecStart=/usr/bin/python3 curate_domain_signals.py
+ExecStart=/usr/bin/python3 core/curate_domain_signals.py
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=hermes-curation
