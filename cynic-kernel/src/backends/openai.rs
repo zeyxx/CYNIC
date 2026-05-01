@@ -98,6 +98,18 @@ struct Usage {
     completion_tokens: u32,
 }
 
+/// OpenAI-compatible /models endpoint response
+#[derive(Deserialize)]
+struct ModelsListResponse {
+    #[serde(default)]
+    data: Vec<ModelInfo>,
+}
+
+#[derive(Deserialize)]
+struct ModelInfo {
+    id: String,
+}
+
 impl OpenAiCompatBackend {
     /// Create a new backend from config. Does NOT health-check — call health() after.
     pub fn new(config: BackendConfig) -> Result<Self, crate::domain::inference::BackendInitError> {
@@ -232,6 +244,28 @@ impl BackendPort for OpenAiCompatBackend {
         match req.send().await {
             Ok(resp) if resp.status().is_success() => {
                 let latency = start.elapsed().as_millis() as f64;
+
+                // Discover actual loaded model
+                if let Ok(models_resp) = resp.json::<ModelsListResponse>().await
+                    && let Some(first_model) = models_resp.data.first()
+                {
+                    let discovered_model = &first_model.id;
+                    if discovered_model != &self.config.model {
+                        tracing::warn!(
+                            backend = %self.config.name,
+                            config_model = %self.config.model,
+                            discovered_model = %discovered_model,
+                            "model mismatch: config != reality"
+                        );
+                    } else {
+                        tracing::info!(
+                            backend = %self.config.name,
+                            model = %discovered_model,
+                            "model discovery verified"
+                        );
+                    }
+                }
+
                 if latency > 2000.0 {
                     BackendStatus::Degraded {
                         latency_ms: latency,

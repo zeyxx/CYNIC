@@ -2,15 +2,35 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-04-30 21:30 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merged). **OFFICIAL DEADLINE:** May 10 11:59 PM PT. **S. confirmed Option B** (Ed25519 only, no /judge integration) — soumissions séparées. R24-R27 commit hygiene rules added from 120-commit audit.
+Last updated: 2026-04-30 18:45 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merged). **OFFICIAL DEADLINE CORRECTED:** Colosseum submission May 10 11:59 PM PT (not May 11). 10-day critical path + co-submit strategy decision (May 1 gate) active.
+
+---
+
+## SUNDAY MAY 3 — AUDIT + WEEK 4 VIDEO
+
+**AUDIT: Judges & Dogs (Skeptical Prism)**
+- [ ] **Test dataset:** Collect 10-15 known rugs (BEDROCK, Vanille, etc.) + 10-15 legit projects
+- [ ] **Run conviction scorer:** conviction_only.py on test corpus
+- [ ] **Check Dog agreement:** Do deterministic_dog + conviction align? Any conflicts?
+- [ ] **Measure accuracy:** How many rugs caught? False positives? Document per-token results
+- [ ] **Document failures:** What did it miss and why? Calibration gaps?
+- [ ] **Output:** judges_audit_may_3.json (token → conviction → deterministic_dog_verdict → match/conflict)
+
+**WEEK 4 VIDEO (1 min)**
+- [ ] Record: "CYNIC is a sovereign judge on Solana. We detect rugged tokens and analyze wallet behavior using multiple independent validators."
+- [ ] Demo: Show conviction score output (3 Dogs voted, they agreed)
+- [ ] Explain: "We use heuristics + ML to catch patterns: supply concentration, holder behavior, social signals."
+- [ ] Progress: "Conviction-only is live. Locking scope with collaborators this week on domain-aware explanations and wallet authenticity."
+- [ ] Close: "CYNIC: the cost of lying made visible. Submission May 10."
+- [ ] Upload to Loom/YouTube, save link for submission
 
 ---
 
 ## HACKATHON CRITICAL PATH (May 10 11:59 PM PT Hard Deadline)
 
-**Strategy: CYNIC standalone (S. confirmed Option B 2026-04-30 14:20 — Ed25519 only, no /judge integration). Roadmap v2: rebranche /judge quand CYNIC a endpoint public ou B&C self-hosted derrière Tailscale.**
+**Strategy: Co-Submit System (Verified Humans + Verified Wallets + Token Judgment)**
 
-- [x] **Decision Gate: May 1 EOD.** S. confirmed Option B (Slack 2026-04-30 14:20). Separate submissions. No blocker on either side.
+- [ ] **Decision Gate: May 4 (class with S.).** S. confirms: (1) co-own narrative? (2) integrate wallet behavior score? (3) registration structure? **Falsify:** all 3 yes → proceed co-submit path (Phase 1b integration). Any no → go separate CYNIC-only path (Phase 1 still validates, Phase 2-4 measure CYNIC impact independently).
 - [x] **Phase 1: Wallet Behavior Analysis (COMPLETE 2026-04-30).** Independent work (no B&C blocker). 1,300+ LOC, 4 unit tests PASS, ROC-AUC=1.0 synthetic.
   - [x] Design ✓: `docs/hackathon/WALLET-BEHAVIOR-ANALYSIS-PHASE-1.md` (500+ lines, full spec)
   - [x] Reference ✓: `docs/hackathon/WALLET-BEHAVIOR-ANALYSIS-REFERENCE.md` (quick lookup)
@@ -23,7 +43,9 @@ Last updated: 2026-04-30 21:30 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
   - [ ] **Falsification Test 3: CYNIC impact (May 5-6).** Measure Dogs on 20-30 tokens, baseline vs human-filtered. **Falsify:** Δ > 5% in verdict distribution.
 - [ ] **Phase 2: Measure Human-Filtering Impact (May 5-6).** Run CYNIC Dogs on 20-30 tokens (baseline). Filter by verified humans. Re-score. Measure Δ in verdict distribution. **Falsify:** Δ > 5% demonstrates measurable signal. Independent of B&C co-submit decision. Decision point May 6 EOD: proceed to Phase 3 or revise heuristic?
 - [ ] **Phase 3: CultScreener Integration (May 7-8).** Add metrics display: Conviction | Verified Humans %. Test on 6+ tokens. **Falsify:** metrics render live on cultscreener-api.onrender.com. (Verified Wallets % optional if B&C co-submit agreed). Decision point May 8 EOD: integration working?
-- [ ] **Phase 4: Final Assembly & Recording (May 9-10).** CYNIC standalone demo (verified_human_pct metric → Dogs reweighted → CultScreener display). Write CYNIC description. Submit May 10 23:59 PT.
+- [ ] **Phase 4: Final Assembly & Recording (May 9-10).** 
+  - **If co-submit YES:** Record unified demo (chess → card → verified_human_pct → CYNIC Dogs reweighted). Write joint description. Submit May 10 23:59 PT.
+  - **If co-submit NO:** Record CYNIC standalone demo (verified_human_pct metric → Dogs reweighted → CultScreener display). Write CYNIC description. Submit May 10 23:59 PT (B&C submits separately May 11).
 
 ---
 
@@ -206,7 +228,26 @@ Falsification tests:
 2. Do Week 1 verdicts predict Week 2 data?
 3. What does community want CYNIC to judge?
 
-**Parallel track:** Hackathon execution (May 4 B&C registration, May 10-11 submission)
+**Parallel track:** Hackathon execution (May 4 B&C registration with S., May 10-11 submission)
+
+## SESSION UPDATE (2026-05-02) — TELEGRAM ORG MVP + SUNDAY AUDIT PLAN
+
+**Telegram Bot Status:**
+✅ Telegram bot built + tested (@cynic_alerts_bot, conviction-only ready)
+✅ Security hardened (no IP leakage in error messages)
+✅ Systemd service ready for deployment (infra/systemd/telegram-organ-bot.service)
+✅ Observation logging (observation_log.jsonl K15-compatible)
+
+**Hackathon Timeline Clarified:**
+- Registration deadline: OPEN (no specific cutoff stated)
+- Submission deadline: May 10 23:59 PDT (confirmed)
+- Week 4 video: Due May 4 around noon (highly recommended by judges)
+- Scope decision: May 4 class with S. (co-submit vs CYNIC-only)
+
+**Next 48 Hours:**
+- Sunday May 3: Audit judges + record Week 4 video (1 min, generic progress)
+- Monday May 4: Class with S., clarify submission scope + co-submit decision
+- May 4-10: Record final demo + pitch, submit by May 10 23:59 PDT
 
 **Remaining for Hackathon:**
 - [ ] Video demo (record May 1-5)
