@@ -10,7 +10,10 @@ echo ""
 
 # 1. Update hermes-infrastructure-monitor.service
 echo "[1] Updating hermes-infrastructure-monitor.service to use wrapper script..."
-cat > /etc/systemd/system/hermes-infrastructure-monitor.service << 'EOF'
+CYNIC_ROOT="${HOME}/Bureau/CYNIC"
+CYNIC_ENV_FILE="${HOME}/.cynic-env"
+
+cat > /etc/systemd/system/hermes-infrastructure-monitor.service << EOF
 [Unit]
 Description=K15 Infrastructure Consumer — Route probe failures to recovery
 After=network-online.target
@@ -19,17 +22,17 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/user/Bureau/CYNIC
+WorkingDirectory=${CYNIC_ROOT}
 
 # Environment: set CYNIC_ROOT for script
-Environment="CYNIC_ROOT=/home/user/Bureau/CYNIC"
+Environment="CYNIC_ROOT=${CYNIC_ROOT}"
 Environment="HOME=/root"
 
 # Load secrets from .cynic-env (systemd redacts from unprivileged systemctl show)
-EnvironmentFile=/root/.cynic-env
+EnvironmentFile=${CYNIC_ENV_FILE}
 
 # Run via wrapper script (routes probe failures to recovery, uses Tailscale endpoint)
-ExecStart=/home/user/Bureau/CYNIC/scripts/start-k15-infrastructure-consumer.sh
+ExecStart=${CYNIC_ROOT}/scripts/start-k15-infrastructure-consumer.sh
 
 Restart=on-failure
 RestartSec=30

@@ -5,8 +5,9 @@
 set -e
 
 SERVICE_FILE="/etc/systemd/system/surreal.service"
+SURREAL_HOME="${HOME}/.surrealdb"
 
-cat > "$SERVICE_FILE" << 'EOF'
+cat > "$SERVICE_FILE" << EOF
 [Unit]
 Description=SurrealDB — CYNIC Knowledge Store
 After=network.target
@@ -14,12 +15,12 @@ After=network.target
 [Service]
 Type=simple
 User=user
-WorkingDirectory=/home/user/.surrealdb
+WorkingDirectory=${SURREAL_HOME}
 ExecStart=/usr/local/bin/surreal start \
   --bind 127.0.0.1:8000 \
   --transaction-timeout 10s \
   --query-timeout 30s \
-  surrealkv:///home/user/.surrealdb/data
+  surrealkv://${SURREAL_HOME}/data
 
 Restart=on-failure
 RestartSec=5
@@ -31,7 +32,7 @@ SyslogIdentifier=surreal
 # Hardening — modeled on llama-server.service
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/home/user/.surrealdb
+ReadWritePaths=${SURREAL_HOME}
 ProtectHome=read-only
 PrivateTmp=true
 RestrictAddressFamilies=AF_INET AF_INET6
