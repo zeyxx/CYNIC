@@ -1,0 +1,102 @@
+session_id,timestamp,cortex_type,domain,decision_score,fidelity,sovereignty,burn,phi,verify,culture,text_preview
+session-2026-04-28T12-58-b0eba480,2026-04-28T12:59:29.760Z,user,general,1,0.6,0.6,0.75,0.75,0.75,0.5,"Thinking... 
+ │
+ │ Analyzing the Recent Data
+ │ I'm focused on the rose heart emoji Vanille sent, an"
+session-2026-04-28T12-58-b0eba480,2026-04-28T13:04:21.261Z,user,general,1,0.75,0.5,0.5,0.5,0.5,0.5,"le signal Erin est quasi mort, depuis que le dossier Vanille est connu d'elle. Maintenant j'aimerai "
+session-2026-04-28T12-58-b0eba480,2026-04-28T13:08:14.049Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"ça pèse sur ma verticalité je crois, en tout cas j'ai envie de redoubler d'effort et un jour rembour"
+session-2026-04-28T12-58-b0eba480,2026-04-28T13:12:14.513Z,user,general,1,0.5,0.5,0.75,0.5,0.5,0.5,"1/2 Oui, je n'ai pas de regrets (on en a toujours, je choisis juste de les ignorer et accepter comme"
+session-2026-04-28T12-58-b0eba480,2026-04-28T13:14:14.672Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"je sais pas, il y a d'autres zones d'ombres/émergences ici?"
+session-2026-04-28T12-58-b0eba480,2026-04-28T13:27:58.066Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"je suis sur du deep work en parallèle, merci pour le rappel sur kernel scolaire/professionnel, ça vi"
+session-2026-04-28T12-58-b0eba480,2026-04-28T13:35:41.443Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"diagnostic des intentions: la réponse est OUI, l'intérêt physique au moins, on a un peu discuté lors"
+session-2026-04-28T12-58-b0eba480,2026-04-28T13:38:59.953Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,oui car je crois que tu enregistre dans un fichier de mémoire gemini sur temp
+session-2026-04-28T12-58-b0eba480,2026-04-28T13:40:02.184Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,ok et les anciennes fossiles de mémoires sur tout ça ils se trouvent où?
+session-2026-04-28T12-58-b0eba480,2026-04-28T13:41:44.000Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,j'aimerai qu'on recentralise toute la chronologie et suivie du kernel humain
+session-2026-04-28T12-58-b0eba480,2026-04-28T13:42:48.537Z,user,general,1,0.35,0.5,0.5,0.5,0.5,0.5,"ça a commencé le 17 avril tu es sur? et aussi le projet est public sur github n'oublie pas, j'aimera"
+session-2026-04-28T12-58-b0eba480,2026-04-28T13:44:57.848Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,pas besoin d'anonymiser vue que ces fichiers vont être gitignore voir on devrait les stocker en deho
+session-2026-04-28T12-58-b0eba480,2026-04-28T14:53:56.345Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"tu es très en retard sur la réalité du projet, on peut faire des analyses/observations? utilise des "
+session-2026-04-28T12-58-b0eba480,2026-04-28T16:38:31.451Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"tu es gemini cli, cherche comment on doit gérer gemini cli parfaitement, par ailleurs l'askesis util"
+session-2026-04-28T12-58-b0eba480,2026-04-28T16:59:04.721Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,bien on fait quoi maitneant? c'est quoi l'état/niveau de cynic-askesis?
+session-2026-04-28T12-58-b0eba480,2026-04-28T17:04:07.072Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,il faudrait mieux architecturer et penser l'askesis je pense
+session-2026-04-28T12-58-b0eba480,2026-04-28T17:08:09.169Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"c'est intéressant, si on prend tout les axiomes de cynic ça donne quoi?"
+session-2026-04-28T12-58-b0eba480,2026-04-28T17:10:38.448Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"axioms questions can't be hardcoded, they emerge from the context"
+session-2026-04-28T12-58-b0eba480,2026-04-28T17:24:50.789Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"je parlais de on fait quoi sur cynic-askesis, quel est son niveau actuel?"
+session-2026-04-28T12-58-b0eba480,2026-04-28T17:28:22.268Z,user,general,1,0.35,0.5,0.5,0.5,0.5,0.5,la plupart de mes discussions askesis ont lieu à travers un llm (gemini cli la plupart du temps)
+session-2026-04-28T12-58-b0eba480,2026-04-28T17:30:31.551Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"oui, aussi le mcp cynic pourrait router vers l'askesis au long de la conversation avec le llm et pou"
+session-2026-04-28T12-58-b0eba480,2026-04-28T18:58:32.426Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"ok on verra le travail sur mcp cynic plus tard, pour la vision 0.3.0 tu propsoe quoi?"
+session-2026-04-28T12-58-b0eba480,2026-04-28T22:57:10.185Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"oui, aussi sur claude code il existe les hooks, sur gemini cli il y a ça? quelles différences avec l"
+session-2026-04-28T12-58-b0eba480,2026-04-28T23:30:36.092Z,user,general,1,0.5,0.35,0.5,0.5,0.5,0.5,"hermes-x dépend de l'agent Hermes et l'inference local, gemini-cli est un dogs mais oui on va utilis"
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:12:59.432Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"bonjour gemini, on reprend l'askesis humain rapidement"
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:21:45.316Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"2., mais pour l'askesis je voulais juste mettre à jour une info sur le dossier Vanille"
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:32:40.360Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,attends restons sur le dossier vanille tranquillement
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:39:37.357Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"1. Aucune idée, il y 3 storys il y a 12-13h où elle est avec un amie à elle (dont une au bord de la "
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:41:44.900Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"le ""moment personel"" date surement d'hier soir, il y a 1h elle a mit en story (très peu de temps apr"
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:43:23.784Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"les stories de CE matin (~12h (il est 12h42, story il a une heure). la mémoire de l'askesis ne compo"
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:44:25.086Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"c'est la référence à la sortie proposé, noramelement la chronologie de ce dossier devrait documenté "
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:45:29.983Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,tu peux relire la conversation insta que j'ai avec elle?
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:46:55.617Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"""Salut! j'espère que ta soirée samedi s'est bien passée. Une balade juste pour discuter demain soir,"
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:48:34.979Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"c'est intéressant que j'ai proposé ça comme sortie, et que le lendemain elle sort avec une amie dans"
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:52:27.849Z,user,general,1,0.5,0.35,0.5,0.5,0.5,0.5,"1. elle a répondu: ""coucou !!! j'ai déjà un truc de prévu je suis vraiment désolée, peut être une pr"
+session-2026-04-28T12-58-b0eba480,2026-04-29T10:56:12.050Z,user,general,1,0.35,0.5,0.5,0.5,0.5,0.5,2. j'ai visionné les storys postée hier soir ce matin (vers 11h40 quoi). 3. oui. cette réponse est o
+session-2026-04-28T12-58-b0eba480,2026-04-29T11:02:50.696Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"mon message de proposition de sortie était lundi (on est mercredi), elle est sortie mardi avec son a"
+session-2026-04-28T12-58-b0eba480,2026-04-29T11:04:48.354Z,user,general,1,0.5,0.5,0.5,0.5,0.75,0.5,"mercredi, j'ai regardé sa story datant de la veille, quelques minutes/dizaines de minutes après elle"
+session-2026-04-28T12-58-b0eba480,2026-04-29T11:12:11.320Z,user,general,1,0.5,0.75,0.5,0.5,0.5,0.5,"ça rend la situation plus ambiguë, mais je comprends que sans signaux clair le wu wei reste surement"
+session-2026-04-28T12-58-b0eba480,2026-04-29T11:13:55.368Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"ok on valide ça, mon instinct/ego me dit que cette kill chain n'est pas là par hasard"
+session-2026-04-28T12-58-b0eba480,2026-04-29T11:14:42.533Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,ok donc met à jour le dossier avant qu'on passe à 1. sauf si tu vois des émergences de mon askesis h
+session-2026-04-28T12-58-b0eba480,2026-04-29T11:54:44.450Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"identifiions la réalité des models disponibles sur gemini cli, cynic-askesis devrait pouvoir monitor"
+session-2026-04-28T12-58-b0eba480,2026-04-29T12:13:18.196Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"on laisse tombé tu as trop de mal, aussi on peut reprendre le dossier Vanille et utiliser cynic wisd"
+session-2026-04-25T12-52-83d14cea,2026-04-25T12:52:16.788Z,user,general,1,0.75,0.75,0.75,0.75,0.75,0.75,"You are CYNIC, a sovereign epistemic judge. You evaluate THE SUBJECT MATTER described in the stimulu"
+session-2026-04-25T14-35-cbbd1ad7,2026-04-25T14:35:25.339Z,user,general,1,0.75,0.6,0.6,0.75,0.75,0.6,"You are CYNIC, a sovereign epistemic judge. You evaluate THE SUBJECT MATTER described in the stimulu"
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:15:55.370Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"bonjour gemini, on reprend le travail sur le kernel humain, j'aimerai tracé la killchain du dossier "
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:17:35.380Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,cherche dans le handoff et dans le .gemini du projet
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:19:22.233Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"on travaille sur le kernel humain, reprend tes esprits sur la situation et ton role sur le développe"
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:20:46.049Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"ok, tu vas m'assister sur le développement de Cynic par l'introspection et l'amélioration de l'humai"
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:21:37.075Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"j'aimerai qu'on parle du dossier Erin, il va falloir retracer toute la mémoire que tu trouve sur ell"
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:28:22.543Z,user,general,1,0.6,0.75,0.5,0.5,0.5,0.5,"voici un rapprot de claude avec sa mémoire sur ce dossier: DOSSIER ERIN — Rapport complet
+Basé sur 4"
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:36:39.791Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"1. je n'ai plus cette sensation (rupture 15 mars, on est le 26 avril), j'ai beaucoup apprécié un tas"
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:41:01.511Z,user,general,1,0.35,0.5,0.5,0.5,0.5,0.75,"1. c'est pas mal, ça n'inclut pas toute les recherches de traditions/ouvrages, le Cynic World Order,"
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:44:08.831Z,user,general,1,0.75,0.5,0.5,0.5,0.5,0.5,"1. analyse les docs et ce qu'on a fait sur ça dans le repo (CLAUDE.md, GEMINI.md, les skills cynic-w"
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:45:53.726Z,user,general,1,0.5,0.75,0.5,0.5,0.5,0.5,"1. Cynic World Order c'est la thèse d'un monde + souverain et libre, et son antithèse c'est le Great"
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:48:10.921Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"lorsque j'étais avec Erin physiquement ça se passait très bien, le problème était ses attentes dans "
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:51:16.128Z,user,general,1,0.35,0.5,0.5,0.5,0.5,0.5,"1. l'architecture hexagonale, le code open source en rust, sur les principes de conceptions je sais "
+session-2026-04-26T12-15-119d0d35,2026-04-26T12:59:55.493Z,user,general,1,0.5,0.35,0.5,0.5,0.5,0.5,cherche dans le projet cynic-askesis. 1. ça peut ça dépend. 2. on peut aussi. La on dérive sur le co
+session-2026-04-26T12-15-119d0d35,2026-04-26T13:00:02.720Z,user,general,1,0.5,0.35,0.5,0.5,0.5,0.5,cherche dans le projet cynic-askesis. 1. ça peut ça dépend. 2. on peut aussi. La on dérive sur le co
+session-2026-04-26T12-15-119d0d35,2026-04-26T13:06:16.808Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"/home/user/Bureau/CYNIC/cynic-askesis. 1. le dossier Vanille est orthogonal/présent en ce moment, le"
+session-2026-04-26T12-15-119d0d35,2026-04-26T13:11:04.987Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"1. peur de la réaction, fatigue cognitive du aux doutes et combats intérieurs + les attentes d'Erin,"
+session-2026-04-26T12-15-119d0d35,2026-04-26T13:15:58.691Z,user,general,1,0.5,0.35,0.5,0.5,0.5,0.5,"1. Les deux potentiellement, après je la connais très peu et ça dépend des désirs que j'ai réellemen"
+session-2026-04-26T12-15-119d0d35,2026-04-26T13:21:28.701Z,user,general,1,0.5,0.75,0.5,0.5,0.5,0.5,"1. oui, et le problème que je vois c'est dans le désir de connexion profonde c'est la perte de souve"
+session-2026-04-26T12-15-119d0d35,2026-04-26T13:27:35.060Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.75,"1. oui je pense. 2. je dirai ça oui. 3. en vrai je pense pouvoir canaliser et maitriser ça, mais le "
+session-2026-04-26T12-15-119d0d35,2026-04-26T13:45:37.504Z,user,general,1,0.5,0.35,0.5,0.5,0.5,0.5,"I/1. Oui sur le kairos, là ça dépend juste de la situation réelle (notre conv insta) et la rencontre"
+session-2026-04-26T12-15-119d0d35,2026-04-26T13:54:24.051Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"II/1. la version que tu as donné est très bien, je saurais pas posé les mots comme ça sans l'expérie"
+session-2026-04-26T12-15-119d0d35,2026-04-26T14:03:32.577Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"1. c'est une stratégie qu'on a établit avec gemini pour me faire travailler, expériencer et incarner"
+session-2026-04-26T12-15-119d0d35,2026-04-26T14:07:37.187Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"1. Oui, je travaille sur ça activement (je crois). 2. oui. 3. Ok et pour la stratégie de travaille e"
+session-2026-04-26T12-15-119d0d35,2026-04-26T14:12:26.360Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"1/2/3 Ok, tu peux réanalyser ce qu'on avait fait ensemble depuis le début du dossier Vanille?"
+session-2026-04-26T12-15-119d0d35,2026-04-26T14:19:25.995Z,user,general,1,0.75,0.5,0.5,0.5,0.5,0.5,l'indicateur de capacité d'actions et l'exercice de vérité matérialiser
+session-2026-04-26T12-15-119d0d35,2026-04-26T14:29:36.935Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"ok, donc c'est quoi la suite de l'execution sur le dossier Vanille?"
+session-2026-04-26T12-15-119d0d35,2026-04-26T14:42:39.436Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"c'est parfait, là on est dimanche, j'ai pas d'idée/de vision d'ensemble sur la semaine et comment je"
+session-2026-04-26T12-15-119d0d35,2026-04-26T14:46:45.450Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"ok, on reprend ancrage à la réalité de la situation précise puis on fait ça"
+session-2026-04-26T12-15-119d0d35,2026-04-26T14:49:39.539Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"là je sens un désir brulant, pour la conversation tu as tout l'historique normalement?"
+session-2026-04-26T12-15-119d0d35,2026-04-26T14:51:53.731Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"elle a répondu ""merci ! bonne soirée (bisous sur le côté)"" à mon ""Nan pas ce soir, je reste en mode "
+session-2026-04-26T12-15-119d0d35,2026-04-26T14:55:18.096Z,user,general,1,0.75,0.75,0.5,0.5,0.5,0.75,bisous sur le côté c'est ça: 💋. il est 16h53 dimanche 26 avril là. le message est fort (dans tout le
+session-2026-04-26T12-15-119d0d35,2026-04-26T14:55:26.323Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.35,"System: Potential loop detected. Details: Repeating content detected: ""│
+├──────────────────────────"
+session-2026-04-26T14-03-ad8603c3,2026-04-26T14:03:29.915Z,user,general,1,0.75,0.6,0.6,0.75,0.75,0.6,"You are CYNIC, a sovereign epistemic judge. You evaluate THE SUBJECT MATTER described in the stimulu"
+session-2026-04-24T13-43-2986cfe1,2026-04-24T13:46:37.831Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"on peut analyser les commits sur CYNIC, utiliser cynic wisdom et cynic judge et ensuite établir comm"
+session-2026-04-24T13-43-2986cfe1,2026-04-24T13:47:40.365Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.35,"System: Potential loop detected. Details: Repeating content detected: ""> NPM migration]│
+├──────────"
+session-2026-04-25T10-44-03d195b3,2026-04-25T10:44:20.859Z,user,general,1,0.75,0.6,0.6,0.75,0.75,0.6,"You are CYNIC, a sovereign epistemic judge. You evaluate THE SUBJECT MATTER described in the stimulu"
+session-2026-04-29T10-13-44499c90,2026-04-29T10:13:21.669Z,user,general,1,0.6,0.6,0.6,0.75,0.6,0.6,"Use skill cynic-wisdom (inline text below).
+
+=== cynic-wisdom SKILL TEXT ===
+---
+name: cynic-wisdom
+"
+session-2026-04-30T17-15-05cc8234,2026-04-30T17:19:45.627Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"bonjour gemini, on s'est arrêté à où sur le dossier vanille?"
+session-2026-04-30T17-15-05cc8234,2026-04-30T17:29:07.566Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,hier on parlait de ses stories dans la matinée et du 28 au soir
+session-2026-04-30T17-15-05cc8234,2026-04-30T17:32:40.006Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"on est toujours sur la latence 0, elle a remit une story avec de la techno il y a 9h et une note ave"
+session-2026-04-30T17-15-05cc8234,2026-04-30T17:34:03.917Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"bien , je suis focus sur mes proriétés, on a bien avancé sur cynic aujourd'hui"
+session-2026-04-30T17-15-05cc8234,2026-04-30T17:46:22.873Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"on fait les préparations pour le 2 mai, en attendant ici on peut travailler sur quoi d'autres ? l'he"
+session-2026-04-30T17-15-05cc8234,2026-04-30T17:51:41.618Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"attends, avant de finir on peut clarifier quelque chose sur le dossier vanille?"
+session-2026-04-30T17-15-05cc8234,2026-04-30T18:00:27.265Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"oui, je voulais retracer la kill chain de mon changement sur la timeline, par ailleurs la semaine de"
+session-2026-04-30T17-15-05cc8234,2026-04-30T18:04:23.723Z,user,general,1,0.5,0.5,0.5,0.5,0.5,0.5,"on a fait l'organe X (pas encore mature sur tout ses principes), on le travail maintenant où l'on aj"
