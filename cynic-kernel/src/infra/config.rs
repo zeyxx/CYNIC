@@ -98,6 +98,12 @@ pub struct BackendConfig {
     /// Extra CLI arguments passed before --prompt (CLI backends only).
     /// Parsed by splitting on whitespace. Example: "-o json --approval-mode plan"
     pub cli_extra_args: Vec<String>,
+    /// Observed latency in milliseconds (informational, used for scheduling).
+    /// 0 = unknown/unmeasured. Used by domain-aware Dog selection.
+    pub latency_ms: u32,
+    /// Domains this Dog is suitable for. Empty = suitable for all (default).
+    /// If not empty, this Dog is only queried when one of these domains is active.
+    pub suitable_for_domains: Vec<String>,
 }
 
 /// Remediation config for a backend — how to restart it when the circuit breaker opens.
@@ -167,6 +173,11 @@ struct BackendEntry {
     fleet_node: Option<String>,
     /// Extra CLI arguments (space-separated string, parsed at load time).
     cli_extra_args: Option<String>,
+    /// Observed latency in milliseconds (informational, used for scheduling).
+    latency_ms: Option<u32>,
+    /// Domains this Dog is suitable for. Empty = suitable for all domains (default).
+    /// Example: ["token", "general"] for fast Dogs, ["chess", "reasoning"] for powerful Dogs.
+    suitable_for_domains: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -296,6 +307,8 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                     .cli_extra_args
                     .map(|s| s.split_whitespace().map(String::from).collect())
                     .unwrap_or_default(),
+                latency_ms: entry.latency_ms.unwrap_or(0),
+                suitable_for_domains: entry.suitable_for_domains.unwrap_or_default(),
             })
         })
         .collect()
@@ -390,6 +403,8 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             remediation: None,
             fleet_node: None,
             cli_extra_args: vec![],
+            latency_ms: 0,
+            suitable_for_domains: vec![],
         });
     }
 

@@ -66,6 +66,9 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         enricher: None,
         senses: vec![],
         domain_curations: std::sync::Arc::new(cynic_kernel::domain::wisdom::DomainCurations::new()),
+        domain_router: std::sync::Arc::new(
+            cynic_kernel::infra::domain_router::DomainRouter::from_backends(&[]),
+        ),
     })
 }
 
@@ -988,6 +991,9 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         enricher: None,
         senses: vec![],
         domain_curations: std::sync::Arc::new(cynic_kernel::domain::wisdom::DomainCurations::new()),
+        domain_router: std::sync::Arc::new(
+            cynic_kernel::infra::domain_router::DomainRouter::from_backends(&[]),
+        ),
     });
     let app = rest::router(state);
 

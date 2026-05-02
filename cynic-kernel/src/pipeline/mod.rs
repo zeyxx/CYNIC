@@ -73,6 +73,9 @@ pub struct PipelineDeps<'a> {
     /// Domain curations (D1-D6 signals) for wisdom enrichment.
     /// K15: Dogs query patterns matching stimulus keywords to ground judgment in domain knowledge.
     pub domain_curations: &'a DomainCurations,
+    /// Domain-aware Dog router — selects suitable Dogs based on domain hint.
+    /// Initialized from backend_configs at boot. If None, all Dogs are used (fallback).
+    pub domain_router: Option<&'a crate::infra::domain_router::DomainRouter>,
 }
 
 impl std::fmt::Debug for PipelineDeps<'_> {
@@ -446,19 +449,22 @@ async fn pipeline_inner(
     let on_dog_ref: Option<&OnDogCallback> = deps.on_dog.as_ref().map(|b| b.as_ref());
 
     // ── DOMAIN-AWARE DOG SELECTION ──
-    // Token domain requires <5s latency (hackathon requirement).
-    // Skip qwen35-9b-gpu for tokens (10.3s) — use fast path: deterministic-dog (0ms) + qwen-7b-hf (3.1s).
+    // Data-centric: domain-suitable Dogs configured in backends.toml (suitable_for_domains field).
+    // Priority: caller filter > domain_router > all Dogs (default).
     let dogs_filter_optimized: Option<Vec<String>>;
-    let dogs_filter_final = if domain_hint == "token" && dogs_filter.is_none() {
-        // Auto-select fast Dogs for token domain
-        dogs_filter_optimized = Some(vec![
-            "deterministic-dog".to_string(),
-            "qwen-7b-hf".to_string(),
-        ]);
-        dogs_filter_optimized.as_ref().map(|v| v.as_slice())
-    } else {
-        // Use caller-provided filter or all Dogs
+    let dogs_filter_final = if dogs_filter.is_some() {
+        // Caller-provided filter always takes precedence
         dogs_filter
+    } else {
+        // Try data-driven selection from backends.toml
+        let from_router = deps.domain_router.map(|r| r.dogs_for_domain(domain_hint));
+        if let Some(router_dogs) = from_router {
+            dogs_filter_optimized = Some(router_dogs);
+            dogs_filter_optimized.as_deref()
+        } else {
+            // No router and no filter: use all Dogs (fallback)
+            dogs_filter
+        }
     };
 
     let mut verdict = judge
@@ -676,6 +682,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         let result = run(
@@ -741,6 +748,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
         let _ = run("test content".into(), None, None, None, true, &deps).await;
 
@@ -781,6 +789,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         // First call: should evaluate (cache miss) and embed successfully
@@ -877,6 +886,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         let result = run(
@@ -954,6 +964,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         let result = run(
@@ -1025,6 +1036,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         let result = run(
@@ -1079,6 +1091,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         let result = run(

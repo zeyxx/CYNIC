@@ -455,6 +455,8 @@ mod tests {
             remediation: None,
             fleet_node: None,
             cli_extra_args: vec![],
+            latency_ms: 0,
+            suitable_for_domains: vec![],
         })
         .unwrap();
         assert_eq!(
@@ -485,6 +487,8 @@ mod tests {
             remediation: None,
             fleet_node: None,
             cli_extra_args: vec![],
+            latency_ms: 0,
+            suitable_for_domains: vec![],
         })
         .unwrap();
         assert_eq!(
@@ -515,6 +519,8 @@ mod tests {
             remediation: None,
             fleet_node: None,
             cli_extra_args: vec![],
+            latency_ms: 0,
+            suitable_for_domains: vec![],
         })
         .unwrap();
         assert_eq!(
@@ -545,6 +551,8 @@ mod tests {
             remediation: None,
             fleet_node: None,
             cli_extra_args: vec![],
+            latency_ms: 0,
+            suitable_for_domains: vec![],
         })
         .unwrap();
         assert_eq!(

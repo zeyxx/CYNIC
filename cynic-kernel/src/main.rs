@@ -314,7 +314,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         fleet_meta,
         remediation_configs,
         dog_to_fleet_node,
-    } = infra::boot::build_dogs_and_organ(backend_configs, &domain_prompts, &storage_port).await;
+    } = infra::boot::build_dogs_and_organ(backend_configs.clone(), &domain_prompts, &storage_port)
+        .await;
 
     // ─── RING 2: Health Loop + Remediation ──────────────────────
     // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
@@ -563,6 +564,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
+    // ─── Domain router — data-centric Dog selection ──────────────────
+    // Initialized from backend_configs. Maps domain → suitable Dogs.
+    let domain_router = Arc::new(infra::domain_router::DomainRouter::from_backends(
+        &backend_configs,
+    ));
+
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
@@ -600,6 +607,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         enricher: enricher.clone(),
         senses,
         domain_curations: Arc::clone(&domain_curations),
+        domain_router: Arc::clone(&domain_router),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 

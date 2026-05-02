@@ -278,6 +278,8 @@ mod tests {
             remediation: None,
             fleet_node: None,
             cli_extra_args: vec![],
+            latency_ms: 0,
+            suitable_for_domains: vec![],
         };
 
         let summarizer = SovereignSummarizer::from_backend_config(&cfg).expect("init summarizer");

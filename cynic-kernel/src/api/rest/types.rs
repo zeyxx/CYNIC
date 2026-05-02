@@ -81,6 +81,9 @@ pub struct AppState {
     /// Curated domain signals (D1-D6) loaded at boot for wisdom enrichment.
     /// K15 consumer: dogs fetch matching patterns from curations to enrich stimulus.
     pub domain_curations: Arc<DomainCurations>,
+    /// Domain-aware Dog router — selects suitable Dogs based on domain hint.
+    /// Initialized from backend_configs at boot. Enables data-centric Dog selection.
+    pub domain_router: Arc<crate::infra::domain_router::DomainRouter>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.

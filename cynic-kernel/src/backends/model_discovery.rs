@@ -95,7 +95,7 @@ mod tests {
 
     #[test]
     fn test_model_registry() {
-        let mut registry = ModelRegistry::new();
+        let registry = ModelRegistry::new();
         assert_eq!(registry.models.len(), 0);
     }
 }

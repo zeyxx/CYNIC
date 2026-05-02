@@ -752,6 +752,7 @@ mod tests {
             enricher: None,
             senses: vec![],
             domain_curations: Arc::new(crate::domain::wisdom::DomainCurations::new()),
+            domain_router: Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[])),
         })
     }
 

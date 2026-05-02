@@ -277,6 +277,7 @@ pub async fn judge_async_handler(
     let event_tx = state.event_tx.clone();
     let enricher = state.enricher.clone();
     let domain_curations = Arc::clone(&state.domain_curations);
+    let domain_router = Arc::clone(&state.domain_router);
 
     state.bg_tasks.spawn(async move {
         let _permit = permit;
@@ -318,6 +319,7 @@ pub async fn judge_async_handler(
             expected_dog_count: judge.dog_ids().len(),
             enricher: enricher.as_deref(),
             domain_curations: domain_curations.as_ref(),
+            domain_router: Some(domain_router.as_ref()),
         };
 
         let result = crate::pipeline::run(
