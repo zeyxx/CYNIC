@@ -718,7 +718,7 @@ async fn side_effects(
             failure_reason: "process_crash".to_string(),
             agent_id: "kernel-pipeline".to_string(),
             timestamp: chrono::Utc::now().to_rfc3339(),
-            metadata: format!("dog={} error={}", dog_id, error_detail),
+            metadata: format!("dog={dog_id} error={error_detail}"),
         };
         let _ = deps.storage.store_event(&event).await;
     }
@@ -1355,8 +1355,7 @@ mod tests {
             };
             assert_eq!(
                 actual, expected,
-                "VerdictKind::{:?} should map to {}",
-                kind, expected
+                "VerdictKind::{kind:?} should map to {expected}"
             );
         }
     }

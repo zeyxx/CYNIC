@@ -283,17 +283,14 @@ async fn process_submitted_verdicts(storage: &Arc<dyn StoragePort>) -> Result<()
             "method": "getSignatureStatuses",
             "params": [[tx_sig], {"searchTransactionHistory": true}]
         });
-        let resp = match tokio::time::timeout(
+        let Ok(Ok(resp)) = tokio::time::timeout(
             std::time::Duration::from_secs(10),
             client.post(&rpc_url).json(&body).send(),
         )
         .await
-        {
-            Ok(Ok(r)) => r,
-            _ => {
-                klog!("getSignatureStatuses timed out for {}", verdict.verdict_id);
-                continue;
-            }
+        else {
+            klog!("getSignatureStatuses timed out for {}", verdict.verdict_id);
+            continue;
         };
         let json: serde_json::Value = match resp.json().await {
             Ok(j) => j,
@@ -325,7 +322,7 @@ async fn process_submitted_verdicts(storage: &Arc<dyn StoragePort>) -> Result<()
             );
         } else if let Some(err) = status["err"].as_object() {
             let _ = storage
-                .update_verdict_failed(&verdict.verdict_id, &format!("onchain_error: {:?}", err))
+                .update_verdict_failed(&verdict.verdict_id, &format!("onchain_error: {err:?}"))
                 .await;
         }
     }

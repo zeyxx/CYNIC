@@ -485,6 +485,18 @@ impl TaskHealth {
                 now,
                 None,
             ),
+            TaskSnapshot::new(
+                SUBMISSION_QUEUE,
+                self.submission_queue.load(Ordering::Relaxed),
+                now,
+                None,
+            ),
+            TaskSnapshot::new(
+                AUTO_REMEDIATION,
+                self.auto_remediation.load(Ordering::Relaxed),
+                now,
+                None,
+            ),
         ]
     }
 }

@@ -277,6 +277,9 @@ pub fn build_observation(
 
 /// Extended build_observation with ledger system support.
 /// Populates hash chain, observers, and consensus fields.
+#[allow(clippy::too_many_arguments)]
+// WHY: Ledger observations require 15 fields to populate (domain, status, ledger fields).
+// Consolidating into a struct would add indirection without improving clarity.
 pub fn build_observation_with_ledger(
     tool: String,
     target: Option<String>,
