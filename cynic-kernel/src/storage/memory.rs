@@ -273,6 +273,16 @@ impl StoragePort for InMemoryStorage {
             agent_id: obs.agent_id.clone(),
             session_id: obs.session_id.clone(),
             tags: obs.tags.clone(),
+            value: obs.value.clone(),
+            confidence: obs.confidence.clone(),
+            consumer: obs.consumer.clone(),
+            action: obs.action.clone(),
+            depends_on: obs.depends_on.clone(),
+            maturity: obs.maturity,
+            hash: obs.hash.clone(),
+            prev_hash: obs.prev_hash.clone(),
+            observers: obs.observers.clone(),
+            consensus_score: obs.consensus_score,
         });
         Ok(())
     }

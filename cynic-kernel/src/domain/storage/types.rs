@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// A development workflow observation — tool usage, file edits, errors.
 /// Captured automatically by hooks, stored with TTL, feeds CCM.
+/// Extended: ledger system with hash chain, consensus, multi-observer support.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Observation {
     pub project: String,
@@ -16,6 +17,28 @@ pub struct Observation {
     pub session_id: String,
     pub timestamp: String,
     pub tags: Vec<String>,
+
+    // ── Ledger system ──
+    #[serde(default)]
+    pub value: Option<serde_json::Value>, // The fact being observed
+    #[serde(default)]
+    pub confidence: Option<String>, // observed|deduced|inferred|conjecture
+    #[serde(default)]
+    pub consumer: Option<String>, // K15: who must act on this
+    #[serde(default)]
+    pub action: Option<String>, // K15: what changes if true
+    #[serde(default)]
+    pub depends_on: Vec<String>, // Kairos: dependencies for ripeness
+    #[serde(default)]
+    pub maturity: Option<f64>, // Kairos: is it ripe (≥φ⁻¹)?
+    #[serde(default)]
+    pub hash: String, // SHA256 hash of this observation
+    #[serde(default)]
+    pub prev_hash: String, // Hash of previous observation (chain)
+    #[serde(default)]
+    pub observers: Vec<String>, // Observer agent_ids (for consensus)
+    #[serde(default)]
+    pub consensus_score: Option<f64>, // Weighted average of observer confidence
 }
 
 /// Raw observation row — used by list_observations_raw and get_session_observations.
@@ -40,6 +63,28 @@ pub struct RawObservation {
     pub session_id: String,
     #[serde(default)]
     pub tags: Vec<String>,
+
+    // ── Ledger system ──
+    #[serde(default)]
+    pub value: Option<serde_json::Value>,
+    #[serde(default)]
+    pub confidence: Option<String>,
+    #[serde(default)]
+    pub consumer: Option<String>,
+    #[serde(default)]
+    pub action: Option<String>,
+    #[serde(default)]
+    pub depends_on: Vec<String>,
+    #[serde(default)]
+    pub maturity: Option<f64>,
+    #[serde(default)]
+    pub hash: String,
+    #[serde(default)]
+    pub prev_hash: String,
+    #[serde(default)]
+    pub observers: Vec<String>,
+    #[serde(default)]
+    pub consensus_score: Option<f64>,
 }
 
 /// Historical usage row loaded at boot.

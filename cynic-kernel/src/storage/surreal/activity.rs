@@ -13,6 +13,22 @@ fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
                 .collect()
         })
         .unwrap_or_default();
+    let depends_on = row["depends_on"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    let observers = row["observers"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
     RawObservation {
         id: row["id"].as_str().unwrap_or("").to_string(),
         tool: row["tool"].as_str().unwrap_or("").to_string(),
@@ -25,6 +41,20 @@ fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
         agent_id: row["agent_id"].as_str().unwrap_or("").to_string(),
         session_id: row["session_id"].as_str().unwrap_or("").to_string(),
         tags,
+        value: if row["value"].is_null() {
+            None
+        } else {
+            Some(row["value"].clone())
+        },
+        confidence: row["confidence"].as_str().map(String::from),
+        consumer: row["consumer"].as_str().map(String::from),
+        action: row["action"].as_str().map(String::from),
+        depends_on,
+        maturity: row["maturity"].as_f64(),
+        hash: row["hash"].as_str().unwrap_or("").to_string(),
+        prev_hash: row["prev_hash"].as_str().unwrap_or("").to_string(),
+        observers,
+        consensus_score: row["consensus_score"].as_f64(),
     }
 }
 

@@ -7,7 +7,6 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use super::types::{AppState, ErrorResponse};
-use crate::domain::ccm::build_observation;
 
 #[derive(Debug, Deserialize)]
 pub struct ObserveRequest {
@@ -61,7 +60,7 @@ pub async fn observe_handler(
     }
 
     let agent_id = req.agent_id.clone();
-    let obs = build_observation(
+    let obs = crate::domain::ccm::build_observation_with_ledger(
         req.tool,
         req.target,
         req.domain,
@@ -71,6 +70,12 @@ pub async fn observe_handler(
         agent_id.clone(),
         req.session_id,
         req.tags,
+        req.value,      // Ledger: the fact value
+        req.confidence, // Ledger: epistemic label
+        req.consumer,   // Ledger: K15 consumer
+        req.action,     // Ledger: K15 action
+        req.depends_on, // Ledger: Kairos dependencies
+        req.maturity,   // Ledger: Kairos maturity
     );
 
     // K15: Route observation to source organ if agent_id matches, else kernel storage

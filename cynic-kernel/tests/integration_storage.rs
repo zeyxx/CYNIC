@@ -72,6 +72,16 @@ fn test_obs(agent: &str, tool: &str, target: &str) -> Observation {
         session_id: agent.to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         tags: vec![],
+        value: None,
+        confidence: None,
+        consumer: None,
+        action: None,
+        depends_on: vec![],
+        maturity: None,
+        hash: String::new(),
+        prev_hash: String::new(),
+        observers: vec![],
+        consensus_score: None,
     }
 }
 

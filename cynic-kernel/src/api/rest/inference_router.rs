@@ -332,6 +332,16 @@ async fn emit_recovery_observation(
         session_id: "".to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         tags: vec!["k15-recovery".to_string(), "remediation".to_string()],
+        value: None,
+        confidence: None,
+        consumer: None,
+        action: None,
+        depends_on: vec![],
+        maturity: None,
+        hash: String::new(),
+        prev_hash: String::new(),
+        observers: vec![],
+        consensus_score: None,
     };
 
     state.storage.store_observation(&obs).await?;
@@ -460,6 +470,16 @@ async fn emit_probe_observation(
             "k15-observability".to_string(),
             format!("failure_type:{failure_reason}"),
         ],
+        value: None,
+        confidence: None,
+        consumer: None,
+        action: None,
+        depends_on: vec![],
+        maturity: None,
+        hash: String::new(),
+        prev_hash: String::new(),
+        observers: vec![],
+        consensus_score: None,
     };
 
     state.storage.store_observation(&obs).await?;

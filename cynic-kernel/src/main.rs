@@ -833,6 +833,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             session_id: String::new(),
             timestamp: chrono::Utc::now().to_rfc3339(),
             tags: vec!["kernel-self-obs".into()],
+            value: None,
+            confidence: None,
+            consumer: None,
+            action: None,
+            depends_on: vec![],
+            maturity: None,
+            hash: String::new(),
+            prev_hash: String::new(),
+            observers: vec![],
+            consensus_score: None,
         };
         let _ = storage.store_observation(&obs).await;
     }
