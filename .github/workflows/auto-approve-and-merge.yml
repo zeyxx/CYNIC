@@ -29,11 +29,33 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.pulls.enableAutoMerge({
+            // enableAutoMerge is a GraphQL mutation, not a REST endpoint
+            const prNumber = context.issue.number;
+            const { repository } = await github.graphql(`
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    id
+                  }
+                }
+              }
+            `, {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.issue.number,
-              merge_method: 'squash',
+              number: prNumber,
+            });
+            await github.graphql(`
+              mutation($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod!) {
+                enablePullRequestAutoMerge(input: {
+                  pullRequestId: $pullRequestId,
+                  mergeMethod: $mergeMethod
+                }) {
+                  pullRequest { autoMergeRequest { enabledAt } }
+                }
+              }
+            `, {
+              pullRequestId: repository.pullRequest.id,
+              mergeMethod: 'SQUASH',
             });
 
       - name: Confirm approval
