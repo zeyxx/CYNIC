@@ -703,6 +703,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Verdict submission queue task started (every 5min)");
 
+        // ─── Auto-remediation loop (K15: background node recovery, every 5min) ────
+        infra::tasks::spawn_auto_remediation(
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Auto-remediation task started (every 5min)");
+
         // ─── Event consumer + K15 alerting (ContractDelta → Slack) ────
         let slack = SlackAlerter::from_env();
         if slack.is_some() {
