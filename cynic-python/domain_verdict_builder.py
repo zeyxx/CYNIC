@@ -21,6 +21,14 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict, field
 from enum import Enum
 
+# K15 real-time emission (live kernel consumption)
+try:
+    from k15_emitter import emit_domain_verdicts
+except ImportError:
+    def emit_domain_verdicts(*args, **kwargs):
+        """Stub if k15_emitter not available."""
+        return False
+
 
 class SentimentTier(Enum):
     """Sentiment classification from social signals."""
@@ -477,6 +485,30 @@ def main():
         json.dump(serializable, f, indent=2)
 
     print(f"✓ Domain verdicts saved to: {output_file}")
+
+    # K15: Emit verdicts to kernel for real-time consumption → organism learning
+    print(f"\n📡 Emitting verdicts to kernel (K15 producer)...")
+    serializable_dicts = []
+    for r in records:
+        record_dict = {
+            "mint": r.mint,
+            "symbol": r.symbol,
+            "conviction_verdict": r.conviction_verdict,
+            "domain_sentiment": r.domain_sentiment.value,
+            "domain_verdict": r.domain_verdict,
+            "alignment": r.alignment,
+            "alignment_confidence": r.alignment_confidence,
+            "personalized_sentiment": r.personalized_sentiment.value if r.personalized_sentiment else None,
+            "personalized_verdict": r.personalized_verdict,
+            "personalized_alignment": r.personalized_alignment,
+            "personalized_alignment_confidence": r.personalized_alignment_confidence,
+        }
+        serializable_dicts.append(record_dict)
+
+    if emit_domain_verdicts(serializable_dicts):
+        print("✓ Verdicts emitted to kernel")
+    else:
+        print("⚠️  Kernel unreachable (data saved locally, will retry on next run)")
 
     return 0
 
