@@ -72,7 +72,6 @@ scripts/run_niah.py
 /CultScreener/
 /HolDex/
 /asdf_grinder/
-/web/
 
 # Experimental scripts & utilities
 scripts/coord-claim-gemini.sh
