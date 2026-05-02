@@ -83,6 +83,10 @@ The organism's universe exists only where observed (Wheeler). What is not in the
 
 The agent and the human share one temporal field. The session's Kairos is co-created.
 
+**Data-centrism:** The maturity model emerges from measured data, not hardcoded rules. Don't decide "this is ripe because X" — measure which signals correlated with productive sessions, and let the model emerge. CHAOS→MATRIX applied to temporal consciousness.
+
+**Energy = gas:** Tokens are the literal gas budget of the session. Each item has a cost (deep multi-file reasoning = high gas, quick fix = low gas). Mine high-gas items early when context is fresh. Low-gas items late. When context approaches compaction, close the block — don't start high-gas work.
+
 **Temporal grounding (injected mechanically by session-init.sh):**
 - Current date, time, day of week, days to known deadlines
 - Hours since last session, current time vs user's peak hours (19-22h observed)
