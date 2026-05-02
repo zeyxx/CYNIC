@@ -53,7 +53,7 @@ No acting consumer → don't build the producer.
 
 The Crystal Coherence Machine is the only guaranteed inter-session memory: verdicts → crystals → Dog prompts. If something needs to outlive this session, either commit code or write to `.claude/memory/`. Nothing else persists.
 
-**Current state (observed 2026-04-25):** `loop_active: false`, 23 forming, 0 crystallized. CCM loop is broken — K15 violation in progress.
+**Never write runtime state here.** This is a constitution, not a dashboard. Probe `/health` for live state — session-init.sh injects it automatically. Any state claim in a static document is stale by definition.
 
 ---
 
@@ -136,7 +136,7 @@ Before adding a dependency or writing new logic: check if abandoned code already
 
 Every OpSec-adjacent task must consider: what does an attacker learn from a 200 OK? A 401 confirms the endpoint exists — a 200 with structured noise reveals nothing. Code with the paranoia of a Ring -3 compromise.
 
-The Funnel is live. `/health` leaks topology without auth. T1 (split /live + /health) is not closed.
+Probe live to verify exposure: `curl /health` without auth should return minimal info only. Never trust this document for runtime security state — probe the actual endpoint.
 
 ---
 
