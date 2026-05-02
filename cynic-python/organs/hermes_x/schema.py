@@ -18,7 +18,18 @@ class Tweet:
     author: str
     created_at: str
     signal_score: Optional[float] = None  # -5 to +7
-    narrative: Optional[str] = None  # brief categorization
+    narratives: Optional[List[str]] = None
+    # Source stream: passive (T.'s timeline), autonomous (CYNIC search), unknown
+    source_stream: str = "unknown"
+    query_name: str = "unknown"
+    # T.'s ground truth — engagement signals
+    engaged: bool = False
+    viewer_favorited: bool = False
+    viewer_retweeted: bool = False
+    viewer_bookmarked: bool = False
+    # Author context
+    author_tier: str = "unknown"
+    author_followers: int = 0
 
 
 @dataclass

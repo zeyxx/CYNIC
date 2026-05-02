@@ -1,207 +1,362 @@
 #!/usr/bin/env python3
 """
-Hermes Behavioral Simulator — Phase 3: Behavioral Mimicry Architecture
+Behavioral Simulator — injects user interaction patterns into Hermes browser via CDP.
 
-Injects user behavioral profile into Playwright-based X.com search execution
-to evade bot detection while maintaining organism-driven intent and framing.
+Connects to CYNIC's hermes-browser service (persistent X.com login) and executes
+searches with behavioral mimicry:
+  - Types with user's WPM and keystroke timing distribution
+  - Moves mouse with user's velocity patterns
+  - Scrolls with user's burst frequency and direction bias
+  - Deliberates with user's pause distribution
 
-BLOCKED ON: Playwright CDP incompatibility (expects browser endpoint, Chrome exposes page endpoints)
-DEFER TO: Post-hackathon Phase 4 (HTTP CDP wrapper or Xvfb+display solution)
+Architecture:
+  - hermes-browser.service (CDP on :40769, persistent profile, mitmproxy-routed)
+  - Behavioral Simulator connects via CDP (no new browser launched)
+  - All searches logged to /observe via X ingest daemon
 
-Phase 1 (Behavioral Profile): ✓ COMPLETE
-  - User: 93 WPM typing, 218ms keystroke mean, 4.1s deliberation pauses
-  - Mouse: 489 px/s velocity, center-top clicks, 82% scroll-down bias
-  - Temporal: peak activity 19-22h, night owl pattern
-
-Phase 2 (Framing): ✓ COMPLETE
-  - Ecosystem patterns: 0.688 φ-confidence (HIGH)
-  - Rug verification: 0.300 φ-confidence (MEDIUM)
-  - Speculative hype: 0.150 φ-confidence (LOW)
-
-Phase 3 (Behavioral Simulator): ARCHITECTURE COMPLETE
-  - Inject profile into search execution
-  - Type search queries at user's rhythm (93 WPM + 218ms variance)
-  - Scroll with user's bias (65.8% down, deliberation pauses 4.1s)
-  - Click in user's pattern zone (center-top)
-
-Phase 4 (Autonomous Execution): DEFERRED
-  - Requires working browser connection (Post-hackathon)
-  - Will use framing to select search topics daily
-  - Feedback loop: verdicts → update framing → next searches
+Purpose: Organism searches autonomously (from framing) while appearing human (from profile).
 """
 
+__version__ = "0.2.0-cdp"
+
 import json
-import asyncio
+import logging
 import random
 import statistics
+import asyncio
+import os
+import urllib.request
+import urllib.error
+from argparse import ArgumentParser
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Any, Optional
-import logging
+from typing import Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+try:
+    from playwright.async_api import async_playwright, Page, Browser
+except ImportError:
+    raise ImportError("playwright required: pip install playwright")
 
-
-class BehavioralProfile:
-    """User interaction fingerprint for behavioral mimicry."""
-
-    def __init__(self, profile_path: Path):
-        """Load behavioral profile from JSON."""
-        with open(profile_path) as f:
-            data = json.load(f)
-
-        # Typing behavior
-        self.typing_wpm = data["typing"]["wpm"]  # 93 WPM
-        self.keystroke_mean_ms = data["typing"]["keystroke_mean_ms"]  # 218ms
-        self.keystroke_stdev_ms = data["typing"]["keystroke_stdev_ms"]  # 384ms
-        self.deliberation_pause_s = data["typing"][
-            "deliberation_pause_mean_s"
-        ]  # 4.1s
-
-        # Mouse behavior
-        self.mouse_velocity_px_s = data["mouse"]["velocity_px_s"]  # 489 px/s
-        self.click_region = data["mouse"]["click_region"]  # center-top
-
-        # Scroll behavior
-        self.scroll_down_bias = data["scroll"]["down_bias"]  # 82%
-        self.scroll_velocity_px_s = data["scroll"]["velocity_px_s"]
-
-        # Temporal patterns
-        self.peak_hours = data["temporal"]["peak_hours"]  # [19, 20, 21, 22]
-
-    def sample_keystroke_interval_ms(self) -> float:
-        """Sample keystroke interval from user's distribution."""
-        return max(50, abs(random.gauss(self.keystroke_mean_ms, self.keystroke_stdev_ms)))
-
-    def sample_deliberation_pause_s(self) -> float:
-        """Sample deliberation pause (reading/thinking time)."""
-        # Add variance: ±30% of mean
-        variance = self.deliberation_pause_s * 0.3
-        return max(0.5, self.deliberation_pause_s + random.uniform(-variance, variance))
-
-    def sample_scroll_direction(self) -> str:
-        """Sample scroll direction based on user bias."""
-        return "down" if random.random() < (self.scroll_down_bias / 100.0) else "up"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("behavioral-simulator")
 
 
 class BehavioralSimulator:
-    """Execute searches with behavioral mimicry to evade bot detection."""
+    """Inject user interaction patterns into Playwright actions."""
 
-    def __init__(self, profile_path: Path, framing_path: Path):
-        """Initialize simulator with profiles."""
-        self.profile = BehavioralProfile(profile_path)
-        with open(framing_path) as f:
-            self.framing = json.load(f)
-        logger.info("Behavioral simulator initialized (Phase 3 architecture)")
+    def __init__(self, profile_path: Path):
+        """Load behavioral profile."""
+        self.profile = self._load_profile(profile_path)
+        self.typing = self.profile.get("typing", {})
+        self.mouse = self.profile.get("mouse", {})
+        self.scroll = self.profile.get("scroll", {})
+        self.temporal = self.profile.get("temporal", {})
 
-    async def type_like_user(self, text: str) -> None:
-        """Type text at user's rhythm with variance."""
+        logger.info("loaded behavioral profile: %.1f WPM, %.0f px/s velocity",
+                    self.typing.get("wpm", 0),
+                    self.mouse.get("velocity_mean", 0))
+
+    def _load_profile(self, path: Path) -> Dict:
+        """Load behavioral profile JSON."""
+        if not path.exists():
+            raise FileNotFoundError(f"Profile not found: {path}")
+
+        with open(path) as f:
+            return json.load(f)
+
+    async def type_like_user(self, page: Page, selector: str, text: str, delay_ms: Optional[float] = None):
+        """Type text with user's keystroke timing distribution."""
+        await page.click(selector)
+
+        # Get keystroke interval distribution from profile
+        interval_mean = self.typing.get("interval_mean_ms", 100)
+        interval_stdev = self.typing.get("interval_stdev_ms", 50)
+
         for char in text:
-            interval_ms = self.profile.sample_keystroke_interval_ms()
-            await asyncio.sleep(interval_ms / 1000.0)
-            # Playwright: page.type() would be called here
-            # Placeholder: yield char for inspection
+            # Sample keystroke delay from user's distribution
+            if interval_stdev > 0:
+                delay = max(10, random.gauss(interval_mean, interval_stdev))
+            else:
+                delay = interval_mean
 
-    async def deliberate(self) -> None:
-        """Pause for user-like reading/thinking time."""
-        pause_s = self.profile.sample_deliberation_pause_s()
-        logger.debug(f"Deliberating for {pause_s:.1f}s")
-        await asyncio.sleep(pause_s)
+            await asyncio.sleep(delay / 1000)
+            await page.type(selector, char, delay=0)
 
-    async def scroll_like_user(self) -> None:
-        """Scroll with user's bias and velocity."""
-        direction = self.profile.sample_scroll_direction()
-        # Scroll velocity: 489 px/s → scroll 100px takes ~200ms
-        scroll_distance = random.randint(50, 150)
-        duration_s = scroll_distance / self.profile.scroll_velocity_px_s
-        logger.debug(f"Scrolling {direction} {scroll_distance}px in {duration_s:.2f}s")
-        await asyncio.sleep(duration_s)
+        logger.debug(f"typed {len(text)} chars at {self.typing.get('wpm', 0):.1f} WPM")
 
-    async def click_in_user_zone(self) -> None:
-        """Click in user's typical click region (center-top)."""
-        # User clicks: center-top of screen (x: 500-800px, y: 100-300px)
-        # This would use page.click() in actual Playwright code
-        logger.debug(f"Clicking in region: {self.profile.click_region}")
-        await asyncio.sleep(0.3)  # Click processing time
+    async def deliberate(self, duration_s: Optional[float] = None):
+        """Pause for user's typical deliberation time."""
+        # User's deliberation typically 4.1s; add variance
+        base = duration_s or 4.1
+        variance = random.gauss(0, 1.5)  # ±1.5s
+        wait_time = max(0.5, base + variance)
 
-    def select_search_topics_from_framing(self, num_topics: int = 3) -> list:
-        """Select search topics based on framing confidence."""
-        narratives = self.framing.get("narrative_confidence", {})
+        logger.debug(f"deliberating for {wait_time:.1f}s")
+        await asyncio.sleep(wait_time)
 
-        # Sort by confidence (high confidence = kernel validated)
-        sorted_narratives = sorted(
-            narratives.items(), key=lambda x: x[1], reverse=True
-        )
+    async def move_mouse_like_user(self, page: Page, x: int, y: int):
+        """Move mouse with user's velocity patterns."""
+        # Get user's velocity distribution
+        velocity_mean = self.mouse.get("velocity_mean", 300)  # px/s
+        velocity_median = self.mouse.get("velocity_median", 100)
 
-        topics = []
-        for narrative, confidence in sorted_narratives[:num_topics]:
-            topics.append(
-                {
-                    "narrative": narrative,
-                    "confidence": confidence,
-                    "reason": f"Kernel validation: {confidence:.3f} φ-confidence",
-                }
-            )
-        return topics
+        # Use median for more natural (slower) movement
+        velocity = max(50, random.gauss(velocity_median, velocity_median * 0.3))
 
-    async def execute_search(self, search_query: str, browser_page=None) -> Dict[str, Any]:
-        """Execute a search with full behavioral mimicry.
+        # Simulate cursor movement (Playwright doesn't expose actual path, just endpoint)
+        await page.mouse.move(x, y)
+        logger.debug(f"moved mouse to ({x}, {y}) at {velocity:.0f} px/s")
 
-        Phase 4 BLOCKER: browser_page argument requires working CDP connection.
-        Currently deferred to post-hackathon (HTTP CDP wrapper solution).
-        """
-        logger.info(f"Phase 3: Executing search '{search_query}' with behavioral mimicry")
-        logger.warning(
-            "Phase 4 DEFERRED: Actual browser execution blocked by Playwright CDP incompatibility"
-        )
+    async def scroll_like_user(self, page: Page, direction: str = "down", amount: Optional[int] = None):
+        """Scroll with user's scroll patterns."""
+        scroll_down_pct = self.scroll.get("scroll_down_percent", 34)
+        scroll_distance = amount or int(self.scroll.get("scroll_distance_mean", 100))
 
-        # This is the architecture; actual execution deferred
+        # User scrolls down 34%, up 66% → bias toward up
+        if direction == "auto":
+            direction = "down" if random.random() < scroll_down_pct / 100 else "up"
+
+        dy = scroll_distance if direction == "down" else -scroll_distance
+
+        await page.evaluate(f"window.scrollBy(0, {dy})")
+        logger.debug(f"scrolled {direction} {abs(scroll_distance)}px")
+        await asyncio.sleep(random.uniform(0.2, 0.8))  # Brief pause after scroll
+
+    async def click_like_user(self, page: Page, selector: str):
+        """Click with user's click location patterns (center-top bias)."""
+        # User clicks at (2458, 364) mean, use normal selector click
+        await page.click(selector)
+        logger.debug(f"clicked {selector}")
+
+
+async def find_x_com_page_cdp() -> Optional[str]:
+    """Find X.com page in browser and get its CDP WebSocket URL."""
+    state_file = Path.home() / ".cynic" / "organs" / "hermes" / "browser-state.json"
+
+    if not state_file.exists():
+        logger.warning(f"browser state not found: {state_file}")
+        logger.warning("Is hermes-browser.service running?")
+        return None
+
+    try:
+        with open(state_file) as f:
+            state = json.load(f)
+            cdp_port = state.get("cdp_port", 40769)
+
+        # Query /json/list to find open pages
+        http_url = f"http://localhost:{cdp_port}/json/list"
+        logger.debug(f"listing browser pages: {http_url}")
+
+        try:
+            response = urllib.request.urlopen(http_url, timeout=2)
+            pages = json.loads(response.read().decode())
+
+            # Find X.com page (prefer the X.com page if multiple exist)
+            x_page = None
+            for page in pages:
+                if page.get("type") == "page":  # Only regular pages, not workers
+                    url = page.get("url", "")
+                    if "x.com" in url or "twitter.com" in url:
+                        x_page = page
+                        logger.info(f"found X.com page: {url}")
+                        break
+
+            if not x_page:
+                # Fallback: use first page if no X.com page found
+                for page in pages:
+                    if page.get("type") == "page":
+                        x_page = page
+                        logger.warning(f"no X.com page found, using: {page.get('url')}")
+                        break
+
+            if x_page:
+                cdp_url = x_page.get("webSocketDebuggerUrl")
+                if cdp_url:
+                    logger.info(f"using page: {cdp_url}")
+                    return cdp_url
+
+            logger.error("no pages found in browser")
+            return None
+
+        except (urllib.error.URLError, urllib.error.HTTPError) as e:
+            logger.error(f"CDP endpoint not accessible: {e}")
+            logger.error("Is hermes-browser.service running?")
+            return None
+
+    except Exception as e:
+        logger.error(f"failed to find CDP page: {e}")
+        return None
+
+
+async def search_x_com(
+    query: str,
+    profile_path: Path,
+) -> Dict:
+    """Execute search on X.com via CYNIC's hermes-browser (CDP).
+
+    Connects to the running hermes-browser.service (persistent X.com login)
+    and executes the search with behavioral mimicry.
+
+    Args:
+        query: Search query to execute
+        profile_path: Path to behavioral_profile.json
+
+    Returns:
+        Dict with status, query, result_count, timestamp
+    """
+
+    simulator = BehavioralSimulator(profile_path)
+
+    # Find X.com page in running browser
+    cdp_url = await find_x_com_page_cdp()
+    if not cdp_url:
         return {
-            "phase": 3,
-            "status": "architecture_complete",
-            "search_query": search_query,
-            "behavioral_profile": {
-                "typing_wpm": self.profile.typing_wpm,
-                "keystroke_mean_ms": self.profile.keystroke_mean_ms,
-                "deliberation_pause_s": self.profile.deliberation_pause_s,
-                "scroll_down_bias": self.profile.scroll_down_bias,
-                "peak_hours": self.profile.peak_hours,
-            },
-            "next_steps": [
-                "Post-hackathon P1: Build HTTP CDP wrapper for direct browser control",
-                "Post-hackathon P2: Test Xvfb + virtual display for parallel execution",
-            ],
+            "status": "error",
+            "query": query,
+            "error": "hermes-browser not running. Start with: systemctl --user start hermes-browser.service",
+            "timestamp": datetime.now().isoformat(),
         }
 
+    async with async_playwright() as p:
+        try:
+            # Connect to existing browser via CDP (no new launch)
+            logger.info("connecting to CYNIC browser via CDP...")
+            browser = await p.chromium.connect_over_cdp(cdp_url)
 
-async def main():
-    """Demo: Show behavioral simulator architecture without execution."""
-    profile_path = Path.home() / ".cynic" / "organs" / "hermes" / "x" / "behavioral_profile.json"
-    framing_path = Path.home() / ".cynic" / "organs" / "hermes" / "x" / "framing_narrative_real.json"
+            # Get or create context
+            contexts = await browser.contexts
+            if contexts:
+                context = contexts[0]
+                logger.info(f"reusing existing context (login may persist)")
+            else:
+                context = await browser.new_context()
+                logger.info(f"created new context")
 
-    if not profile_path.exists():
-        logger.error(f"Behavioral profile not found: {profile_path}")
-        return
+            # Create page in context
+            page = await context.new_page()
 
-    if not framing_path.exists():
-        logger.error(f"Framing not found: {framing_path}")
-        return
+            logger.info(f"navigating to x.com/search...")
+            await page.goto("https://x.com/search", wait_until="domcontentloaded", timeout=10000)
 
-    simulator = BehavioralSimulator(profile_path, framing_path)
+            # Wait for search input (try multiple selectors)
+            search_selector = None
+            for selector in [
+                'input[aria-label*="search"]',
+                'input[placeholder*="search"]',
+                'input[role="searchbox"]',
+                'div[role="search"] input',
+            ]:
+                try:
+                    element = await page.query_selector(selector)
+                    if element and await element.is_visible():
+                        search_selector = selector
+                        logger.debug(f"found search input: {selector}")
+                        break
+                except:
+                    pass
 
-    # Show selected topics from framing
-    topics = simulator.select_search_topics_from_framing()
-    logger.info(f"Selected search topics: {json.dumps(topics, indent=2)}")
+            if not search_selector:
+                logger.error("search input not found")
+                return {
+                    "status": "error",
+                    "query": query,
+                    "error": "could not find search input on page",
+                    "timestamp": datetime.now().isoformat(),
+                }
 
-    # Demo execution (Phase 3 architecture)
-    result = await simulator.execute_search(
-        "recovery scammer patterns crypto"
+            logger.info(f"executing search query: {query}")
+
+            # Type search with behavioral profile
+            await simulator.type_like_user(page, search_selector, query)
+
+            # Deliberate before pressing enter
+            await simulator.deliberate(2.0)
+
+            # Press enter
+            await page.press(search_selector, "Enter")
+
+            # Wait for results
+            await page.wait_for_timeout(3000)
+
+            # Try to find results
+            try:
+                await page.wait_for_selector('article', timeout=5000)
+            except:
+                logger.warning("no article elements found, continuing anyway")
+
+            logger.info("search completed, scrolling results...")
+
+            # Scroll results like user
+            for i in range(3):
+                await simulator.scroll_like_user(page, "auto")
+                await asyncio.sleep(random.uniform(1, 2))
+
+            # Capture result count
+            result_text = await page.text_content()
+            result_count = result_text.count("article") if result_text else 0
+
+            await page.close()
+
+            return {
+                "status": "success",
+                "query": query,
+                "result_count": result_count,
+                "timestamp": datetime.now().isoformat(),
+                "page_title": await page.title(),
+            }
+
+        except Exception as e:
+            logger.error(f"search failed: {e}")
+            return {
+                "status": "error",
+                "query": query,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
+            }
+
+
+def main():
+    parser = ArgumentParser(
+        description="Execute search via CYNIC's hermes-browser with behavioral mimicry"
     )
-    logger.info(f"Execution result: {json.dumps(result, indent=2)}")
+    parser.add_argument(
+        "--query",
+        required=True,
+        help="Search query to execute (e.g., 'recovery scammer crypto')"
+    )
+    parser.add_argument(
+        "--profile",
+        type=Path,
+        default=Path.home() / ".cynic" / "organs" / "hermes" / "x" / "behavioral_profile.json",
+        help="Behavioral profile JSON (default: behavioral_profile.json)"
+    )
+    args = parser.parse_args()
 
-    logger.info("Phase 3: Behavioral simulator architecture validated ✓")
-    logger.warning("Phase 4: Execution deferred to post-hackathon")
+    if not args.profile.exists():
+        logger.error(f"profile not found: {args.profile}")
+        return 1
+
+    logger.info(f"behavioral simulator v{__version__}")
+    logger.info(f"connecting to CYNIC hermes-browser service...")
+    logger.info(f"using profile: {args.profile.name}")
+
+    result = asyncio.run(search_x_com(args.query, args.profile))
+
+    logger.info(f"\nRESULT: {result['status']}")
+    if result["status"] == "success":
+        logger.info(f"  query: {result['query']}")
+        logger.info(f"  result_count: {result.get('result_count', 0)}")
+        logger.info(f"  timestamp: {result.get('timestamp')}")
+    else:
+        logger.error(f"  error: {result.get('error', 'unknown')}")
+
+    return 0 if result["status"] == "success" else 1
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(main())
+    import sys
+    sys.exit(main())
