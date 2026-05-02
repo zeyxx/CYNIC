@@ -104,6 +104,10 @@ pub struct BackendConfig {
     /// Domains this Dog is suitable for. Empty = suitable for all (default).
     /// If not empty, this Dog is only queried when one of these domains is active.
     pub suitable_for_domains: Vec<String>,
+    /// Is this backend sovereign (local, no cloud APIs)? True for local Dogs.
+    /// Used for Layer 4 of the sensitivity filter: sensitive content routes to sovereign Dogs only.
+    /// Default: inferred from is_sovereign_url(base_url). Explicit config overrides inference.
+    pub sovereign: bool,
 }
 
 /// Remediation config for a backend — how to restart it when the circuit breaker opens.
@@ -178,6 +182,9 @@ struct BackendEntry {
     /// Domains this Dog is suitable for. Empty = suitable for all domains (default).
     /// Example: ["token", "general"] for fast Dogs, ["chess", "reasoning"] for powerful Dogs.
     suitable_for_domains: Option<Vec<String>>,
+    /// Optional: explicitly mark this backend as sovereign (local).
+    /// If omitted, inferred from is_sovereign_url(base_url). Used for sensitivity filter.
+    sovereign: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -309,6 +316,9 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                     .unwrap_or_default(),
                 latency_ms: entry.latency_ms.unwrap_or(0),
                 suitable_for_domains: entry.suitable_for_domains.unwrap_or_default(),
+                // Layer 4: sovereign field defaults to inference from base_url (http://)
+                // Can be overridden explicitly via TOML config
+                sovereign: entry.sovereign.unwrap_or(is_sovereign),
             })
         })
         .collect()
@@ -405,6 +415,7 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             cli_extra_args: vec![],
             latency_ms: 0,
             suitable_for_domains: vec![],
+            sovereign: false, // Gemini is cloud-based, not sovereign
         });
     }
 

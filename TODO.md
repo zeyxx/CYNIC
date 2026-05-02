@@ -115,6 +115,7 @@ Last updated: 2026-04-30 18:45 | **K15 CONSOLIDATION COMPLETE** ✅ (PR#50 merge
 
 ## IMMEDIATE ACTIONS (Unblock Hermes)
 
+- [ ] **Debug stop hooks (non-blocking, low-priority debt).** Session exit hook running 4 stop hooks, one returns non-zero with no stderr. Unclear which hook fails or why. Action: add `2>&1` to hook script or check .claude/hooks/, identify failure. **Falsify:** all stop hooks exit 0 on next session.
 - [x] **Pause nightshift Dog evals (band-aid, T6D debt).** Nightshift spawning commented out in main.rs:711-721. GPU reserved for Hermes 2026-04-26→2026-05-11. Kernel binary deployed 2026-04-26 23:08 (confirmed logline "[Ring 3] Nightshift PAUSED").
 - [x] **GPU already at --parallel 2.** llama-server.env already configured. No change needed.
 - [x] **Hermes health probe fixed (1b5b08b).** Was measuring file mtime (wrong signal). Now measures capture_ts from dataset.jsonl (production signal). Threshold: 8h = 2× cron interval. Test: falsification added.

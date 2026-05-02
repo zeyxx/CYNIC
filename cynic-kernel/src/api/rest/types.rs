@@ -339,6 +339,9 @@ pub struct JudgeRequest {
         deserialize_with = "deserialize_bool_or_null"
     )]
     pub crystals: bool,
+    /// Optional: sensitivity level. "high" forces routing to sovereign (local) Dogs only.
+    /// Use for private content: DMs, wallet seeds, API keys. Default: none (auto-detected).
+    pub sensitivity: Option<String>,
 }
 
 fn default_true() -> bool {

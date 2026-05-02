@@ -95,6 +95,7 @@ mod tests {
             cli_extra_args: vec![],
             latency_ms: 0,
             suitable_for_domains: domains,
+            sovereign: true,
         }
     }
 

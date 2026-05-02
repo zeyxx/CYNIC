@@ -30,6 +30,11 @@ use tracing::Instrument;
 use crystal_observer::observe_crystal_for_verdict;
 use verdict_observer::post_verdict_observation;
 
+/// Layer 3 of sensitivity filter: domains that must always route to sovereign (local) backends.
+/// Content in these domains is private by design (DMs, private financial data, wallet analysis).
+/// If no sovereign Dogs are available, return 503 Service Unavailable.
+const SOVEREIGN_DOMAINS: &[&str] = &["social-dm", "private", "wallet-judgment"];
+
 /// Result of the judge pipeline — everything a handler needs to build its response.
 #[derive(Debug)]
 pub enum PipelineResult {
@@ -481,11 +486,28 @@ async fn pipeline_inner(
     let on_dog_ref: Option<&OnDogCallback> = deps.on_dog.as_ref().map(|b| b.as_ref());
 
     // ── DOMAIN-AWARE DOG SELECTION ──
+    // Layer 3: Domain constraint check — private domains route to sovereign backends only.
+    let domain_requires_sovereign = SOVEREIGN_DOMAINS.contains(&domain_hint);
+
     // Data-centric: domain-suitable Dogs configured in backends.toml (suitable_for_domains field).
-    // Priority: caller filter > domain_router > all Dogs (default).
+    // Priority: sovereign constraint > caller filter > domain_router > all Dogs (default).
     let dogs_filter_optimized: Option<Vec<String>>;
-    let dogs_filter_final = if dogs_filter.is_some() {
-        // Caller-provided filter always takes precedence
+    let dogs_filter_final = if domain_requires_sovereign {
+        // Layer 3 triggered: force sovereign-only routing.
+        let sovereign = judge.sovereign_dog_ids();
+        if sovereign.is_empty() {
+            return Err(JudgeError::InvalidInput(
+                "Sensitive domain requires sovereign backend but none available".into(),
+            ));
+        }
+        tracing::info!(
+            domain = domain_hint,
+            "Layer 3 (domain constraint) fired — routing to sovereign Dogs only"
+        );
+        dogs_filter_optimized = Some(sovereign);
+        dogs_filter_optimized.as_deref()
+    } else if dogs_filter.is_some() {
+        // Caller-provided filter takes precedence (Layer 2 already handled in handlers)
         dogs_filter
     } else {
         // Try data-driven selection from backends.toml

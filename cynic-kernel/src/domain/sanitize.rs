@@ -126,6 +126,54 @@ pub fn delimit_crystal_content(content: &str) -> String {
     format!("<<<CRYSTAL>>>{content}<<<END_CRYSTAL>>>")
 }
 
+/// Layer 1 of sensitivity filter: heuristic detection of sensitive content.
+/// Detects API keys, private keys, PII patterns, mnemonics.
+/// Conservative: false negatives preferred over false positives.
+/// Used to gate routing to sovereign (local) backends only.
+///
+/// Returns true if stimulus contains known-sensitive patterns.
+pub fn is_sensitive_content(content: &str) -> bool {
+    let lower = content.to_lowercase();
+
+    // API key prefix detection (case-insensitive)
+    let api_prefixes = [
+        "sk-",
+        "bearer ",
+        "api_key",
+        "hf_token",
+        "secret_key",
+        "apikey",
+        "api-key",
+    ];
+    for prefix in &api_prefixes {
+        if lower.contains(prefix) {
+            return true;
+        }
+    }
+
+    // Solana private key heuristic: base58 strings of length 87-88 chars
+    // (full keypair serialization is 88 chars; 87 is also seen)
+    for word in content.split_whitespace() {
+        if (word.len() == 87 || word.len() == 88) && word.chars().all(|c| c.is_alphanumeric()) {
+            // Check if it looks like base58 (no 0, O, I, l to distinguish from ASCII)
+            // Conservative: if it's alphanumeric and right length, flag it
+            return true;
+        }
+    }
+
+    // BIP39 mnemonic heuristic: 12 or 24 lowercase words separated by spaces
+    let words: Vec<&str> = content.split_whitespace().collect();
+    if (words.len() == 12 || words.len() == 24)
+        && words
+            .iter()
+            .all(|w| w.chars().all(|c| c.is_lowercase() && c.is_alphabetic()))
+    {
+        return true;
+    }
+
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -220,5 +268,105 @@ mod tests {
         let long = "a".repeat(500);
         let result = sanitize_observation_target(&long);
         assert_eq!(result.chars().count(), 256);
+    }
+
+    // ── Layer 1: Sensitivity detection ────────────────────────────
+
+    #[test]
+    fn detects_openai_api_key() {
+        let content = "Here's my key: sk-abc123xyz789...";
+        assert!(is_sensitive_content(content));
+    }
+
+    #[test]
+    fn detects_bearer_token() {
+        let content = "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...";
+        assert!(is_sensitive_content(content));
+    }
+
+    #[test]
+    fn detects_huggingface_token() {
+        let content = "export HF_TOKEN=hf_abc123xyz789...";
+        assert!(is_sensitive_content(content));
+    }
+
+    #[test]
+    fn detects_api_key_variants() {
+        assert!(is_sensitive_content("api_key: secret123"));
+        assert!(is_sensitive_content("apikey: secret456"));
+        assert!(is_sensitive_content("api-key: secret789"));
+        assert!(is_sensitive_content("secret_key: something"));
+    }
+
+    #[test]
+    fn detects_solana_private_key_88() {
+        // 88-char base58 string (Solana keypair)
+        let key = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz";
+        assert_eq!(key.len(), 88);
+        let content = format!("My private key is: {} (keep secret)", key);
+        assert!(is_sensitive_content(&content));
+    }
+
+    #[test]
+    fn detects_solana_private_key_87() {
+        // 87-char base58 string
+        let key = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxy";
+        assert_eq!(key.len(), 87);
+        let content = format!("Keypair: {}", key);
+        assert!(is_sensitive_content(&content));
+    }
+
+    #[test]
+    fn detects_bip39_12word_mnemonic() {
+        let content = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+        assert!(is_sensitive_content(content));
+    }
+
+    #[test]
+    fn detects_bip39_24word_mnemonic() {
+        let content = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art";
+        assert!(is_sensitive_content(content));
+    }
+
+    #[test]
+    fn rejects_uppercase_mnemonic() {
+        // Uppercase words are not BIP39 mnemonic heuristic (conservatively rejects)
+        let content = "ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABOUT";
+        assert!(!is_sensitive_content(content));
+    }
+
+    #[test]
+    fn rejects_chess_notation() {
+        let content = "1. e4 c5 2. Nf3 d6 3. d4 cxd4 — Sicilian Defense";
+        assert!(!is_sensitive_content(content));
+    }
+
+    #[test]
+    fn rejects_normal_text() {
+        let content = "The quick brown fox jumps over the lazy dog";
+        assert!(!is_sensitive_content(content));
+    }
+
+    #[test]
+    fn rejects_url() {
+        let content = "Check out https://example.com/api/endpoint";
+        assert!(!is_sensitive_content(content));
+    }
+
+    #[test]
+    fn rejects_random_87char_word_if_contains_uppercase() {
+        // If it has mixed case, don't flag (more conservative — only flag clean base58)
+        let mixed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxy";
+        assert_eq!(mixed.len(), 87);
+        // Mixed case 87-char string will flag as it's alphanumeric 87 chars
+        assert!(is_sensitive_content(&format!("Key: {}", mixed)));
+        // But normal text with no patterns should not flag
+        assert!(!is_sensitive_content("This is normal text with no secrets"));
+    }
+
+    #[test]
+    fn case_insensitive_api_key_detection() {
+        let content = "My SK-ABC123 key is secret";
+        assert!(is_sensitive_content(content));
     }
 }

@@ -82,7 +82,34 @@ impl CynicMcp {
             return Err(McpError::invalid_params("domain exceeds 64 chars", None));
         }
 
+        // ── Layers 1+2: Sensitivity filter fallback chain ──
+        // Layer 1: heuristic detection on stimulus content
+        // Layer 2: caller-explicit sensitivity tag
+        // Layer 3+4 handled in pipeline (domain constraint + backend metadata)
+        let layer1_triggered = crate::domain::sanitize::is_sensitive_content(&p.content);
+        let layer2_triggered = p.sensitivity.as_deref() == Some("high");
+
         let judge = self.judge.load_full();
+
+        let mut dogs_filter = p.dogs;
+        if layer1_triggered || layer2_triggered {
+            let sovereign = judge.sovereign_dog_ids();
+            if sovereign.is_empty() {
+                return Err(McpError::new(
+                    rmcp::model::ErrorCode(-32503),
+                    "Sensitive content requires sovereign backend but none available",
+                    None,
+                ));
+            }
+            tracing::info!(
+                agent_id = agent_id,
+                layer1 = layer1_triggered,
+                layer2 = layer2_triggered,
+                "Sensitivity gate fired — routing to sovereign Dogs only"
+            );
+            dogs_filter = Some(sovereign);
+        }
+
         let deps = crate::pipeline::PipelineDeps {
             judge: &judge,
             storage: self.storage.as_ref(),
@@ -102,7 +129,7 @@ impl CynicMcp {
             p.content.clone(),
             p.context,
             p.domain.clone(),
-            p.dogs.as_deref(),
+            dogs_filter.as_deref(),
             p.crystals.unwrap_or(true),
             &deps,
         )

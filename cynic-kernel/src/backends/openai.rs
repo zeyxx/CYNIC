@@ -457,6 +457,7 @@ mod tests {
             cli_extra_args: vec![],
             latency_ms: 0,
             suitable_for_domains: vec![],
+            sovereign: false,
         })
         .unwrap();
         assert_eq!(
@@ -489,6 +490,7 @@ mod tests {
             cli_extra_args: vec![],
             latency_ms: 0,
             suitable_for_domains: vec![],
+            sovereign: false,
         })
         .unwrap();
         assert_eq!(
@@ -521,6 +523,7 @@ mod tests {
             cli_extra_args: vec![],
             latency_ms: 0,
             suitable_for_domains: vec![],
+            sovereign: true,
         })
         .unwrap();
         assert_eq!(
@@ -553,6 +556,7 @@ mod tests {
             cli_extra_args: vec![],
             latency_ms: 0,
             suitable_for_domains: vec![],
+            sovereign: false,
         })
         .unwrap();
         assert_eq!(
