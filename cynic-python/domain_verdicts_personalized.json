@@ -1,0 +1,673 @@
+[
+  {
+    "mint": "6MQpbiTC2YcogidTmKqMLK82qvE9z5QEm7EP3AEDpump",
+    "symbol": "MASK",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $MASK in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+    "symbol": "Fartcoin",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "hype",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": "hype",
+    "personalized_verdict": "Growl",
+    "personalized_alignment": false,
+    "personalized_alignment_confidence": 0.4,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "hype",
+        "mentions_count": 1,
+        "confidence": 1.0,
+        "sample_text": "[1 tweets mentioning $Fartcoin]"
+      }
+    ]
+  },
+  {
+    "mint": "463SK47VkB7uE7XenTHKiVcMtxRsfNE2X4Q9wByaURVA",
+    "symbol": "TSUKI",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $TSUKI in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "8DKgjd6zAYuP9fVmMHBBtygPqkJ111LrMCT7tDyPhE55",
+    "symbol": "Domo",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $Domo in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump",
+    "symbol": "asdfasdfa",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "hype",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.7,
+    "personalized_sentiment": "hype",
+    "personalized_verdict": "Growl",
+    "personalized_alignment": false,
+    "personalized_alignment_confidence": 0.7,
+    "weighted_authors": {
+      "gcrtrd": 0.5
+    },
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "safe",
+        "mentions_count": 15,
+        "confidence": 0.12903225806451613,
+        "sample_text": "[15 tweets mentioning $asdfasdfa]"
+      },
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "hype",
+        "mentions_count": 15,
+        "confidence": 0.6774193548387096,
+        "sample_text": "[15 tweets mentioning $asdfasdfa]"
+      },
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "rug_warned",
+        "mentions_count": 15,
+        "confidence": 0.06451612903225806,
+        "sample_text": "[15 tweets mentioning $asdfasdfa]"
+      },
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 15,
+        "confidence": 0.12903225806451613,
+        "sample_text": "[15 tweets mentioning $asdfasdfa]"
+      }
+    ]
+  },
+  {
+    "mint": "zGh48JtNHVBb5evgoZLXwgPD2Qu4MhkWdJLGDAupump",
+    "symbol": "retire",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "hype",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": "hype",
+    "personalized_verdict": "Growl",
+    "personalized_alignment": false,
+    "personalized_alignment_confidence": 0.4,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "hype",
+        "mentions_count": 2,
+        "confidence": 1.0,
+        "sample_text": "[2 tweets mentioning $retire]"
+      }
+    ]
+  },
+  {
+    "mint": "38PgzpJYu2HkiYvV8qePFakB8tuobPdGm2FFEn7Dpump",
+    "symbol": "gork",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $gork in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "GkyPYa7NnCFbduLknCfBfP7p8564X1VZhwZYJ6CZpump",
+    "symbol": "CHILLHOUSE",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $CHILLHOUSE in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "69G8CpUVZAxbPMiEBrfCCCH445NwFxH6PzVL693Xpump",
+    "symbol": "xavier",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $xavier in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "5UUH9RTDiSpq6HKS6bp4NdU9PNJpXRXuiw6ShBTBhgH2",
+    "symbol": "TROLL",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $TROLL in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "8ncucXv6U6epZKHPbgaEBcEK399TpHGKCquSt4RnmX4f",
+    "symbol": "TRENCHER",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "hype",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": "hype",
+    "personalized_verdict": "Growl",
+    "personalized_alignment": false,
+    "personalized_alignment_confidence": 0.4,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "hype",
+        "mentions_count": 1,
+        "confidence": 1.0,
+        "sample_text": "[1 tweets mentioning $TRENCHER]"
+      }
+    ]
+  },
+  {
+    "mint": "CB9dDufT3ZuQXqqSfa1c5kY935TEreyBw9XJXxHKpump",
+    "symbol": "USDUC",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $USDUC in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "76EDL5qNcte2ZH29quTaFzagXjWAEY83CATEjyA6pump",
+    "symbol": "gork",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $gork in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "3B1ijcocM5EDga6XxQ7JLW7weocQPWWjuhBYG8Vepump",
+    "symbol": "BP",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $BP in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump",
+    "symbol": "neet",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $neet in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "Cm6fNnMk7NfzStP9CZpsQA2v3jjzbcYGAxdJySmHpump",
+    "symbol": "Buttcoin",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "hype",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": "hype",
+    "personalized_verdict": "Growl",
+    "personalized_alignment": false,
+    "personalized_alignment_confidence": 0.4,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "hype",
+        "mentions_count": 1,
+        "confidence": 1.0,
+        "sample_text": "[1 tweets mentioning $Buttcoin]"
+      }
+    ]
+  },
+  {
+    "mint": "CFYhdWXsYfS7swnJgHRwb5toTHMEQD7Ljd5gGwKLpump",
+    "symbol": "KILROY",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $KILROY in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "H74CYmXgMkYHYuSRsZt6RJb4NYp2u72Vw8BS5huApump",
+    "symbol": "LMAO!",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $LMAO! in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "8J69rbLTzWWgUJziFY8jeu5tDwEPBwUz4pKBMr5rpump",
+    "symbol": "WOJAK",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $WOJAK in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "NV2RYH954cTJ3ckFUpvfqaQXU4ARqqDH3562nFSpump",
+    "symbol": "Punch",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $Punch in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "4TyZGqRLG3VcHTGMcLBoPUmqYitMVojXinAmkL8xpump",
+    "symbol": "testicle",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "hype",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": "hype",
+    "personalized_verdict": "Growl",
+    "personalized_alignment": false,
+    "personalized_alignment_confidence": 0.4,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "hype",
+        "mentions_count": 1,
+        "confidence": 1.0,
+        "sample_text": "[1 tweets mentioning $testicle]"
+      }
+    ]
+  },
+  {
+    "mint": "4fSWEw2wbYEUCcMtitzmeGUfqinoafXxkhqZrA9Gpump",
+    "symbol": "Pigeon",
+    "conviction_verdict": "Howl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $Pigeon in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu",
+    "symbol": "PUMPCADE",
+    "conviction_verdict": "Growl",
+    "domain_sentiment": "hype",
+    "domain_verdict": "Growl",
+    "alignment": true,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": "hype",
+    "personalized_verdict": "Growl",
+    "personalized_alignment": true,
+    "personalized_alignment_confidence": 0.4,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "hype",
+        "mentions_count": 1,
+        "confidence": 1.0,
+        "sample_text": "[1 tweets mentioning $PUMPCADE]"
+      }
+    ]
+  },
+  {
+    "mint": "4yDSFNMitxy6waXPTkPyyVvbbQSiqe7zD1VxnzEypump",
+    "symbol": "motion",
+    "conviction_verdict": "Growl",
+    "domain_sentiment": "hype",
+    "domain_verdict": "Growl",
+    "alignment": true,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": "hype",
+    "personalized_verdict": "Growl",
+    "personalized_alignment": true,
+    "personalized_alignment_confidence": 0.4,
+    "weighted_authors": {
+      "gcrtrd": 0.5
+    },
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "hype",
+        "mentions_count": 1,
+        "confidence": 1.0,
+        "sample_text": "[1 tweets mentioning $motion]"
+      }
+    ]
+  },
+  {
+    "mint": "32CdQdBUxbCsLy5AUHWmyidfwhgGUr9N573NBUrDpump",
+    "symbol": "maxxing",
+    "conviction_verdict": "Growl",
+    "domain_sentiment": "hype",
+    "domain_verdict": "Growl",
+    "alignment": true,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": "hype",
+    "personalized_verdict": "Growl",
+    "personalized_alignment": true,
+    "personalized_alignment_confidence": 0.4,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "hype",
+        "mentions_count": 2,
+        "confidence": 1.0,
+        "sample_text": "[2 tweets mentioning $maxxing]"
+      }
+    ]
+  },
+  {
+    "mint": "6iA73gWCKkLWKbVr8rgibV57MMRxzsaqS9cWpgKBpump",
+    "symbol": "\u6211\u7684\u5200\u76fe",
+    "conviction_verdict": "Growl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": true,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $\u6211\u7684\u5200\u76fe in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "89S7oVB4hui8ceJqhHreWB7fcxdthfvoB7z2pfJtpump",
+    "symbol": "abcdefg",
+    "conviction_verdict": "Growl",
+    "domain_sentiment": "unknown",
+    "domain_verdict": "Growl",
+    "alignment": true,
+    "alignment_confidence": 0.4,
+    "personalized_sentiment": null,
+    "personalized_verdict": null,
+    "personalized_alignment": null,
+    "personalized_alignment_confidence": null,
+    "weighted_authors": {},
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "unknown",
+        "mentions_count": 0,
+        "confidence": 0.0,
+        "sample_text": "[No mentions of $abcdefg in Organ X]"
+      }
+    ]
+  },
+  {
+    "mint": "ACtfUWtgvaXrQGNMiohTusi5jcx5RJf5zwu9aAxkpump",
+    "symbol": "unc",
+    "conviction_verdict": "Bark",
+    "domain_sentiment": "hype",
+    "domain_verdict": "Growl",
+    "alignment": false,
+    "alignment_confidence": 0.7,
+    "personalized_sentiment": "hype",
+    "personalized_verdict": "Growl",
+    "personalized_alignment": false,
+    "personalized_alignment_confidence": 0.7,
+    "weighted_authors": {
+      "gcrtrd": 0.5
+    },
+    "domain_signals": [
+      {
+        "source": "organ_x_twitter",
+        "sentiment": "hype",
+        "mentions_count": 3,
+        "confidence": 1.0,
+        "sample_text": "[3 tweets mentioning $unc]"
+      }
+    ]
+  }
+]
