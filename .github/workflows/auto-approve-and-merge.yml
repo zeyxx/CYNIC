@@ -26,10 +26,13 @@ jobs:
             });
 
       - name: Enable auto-merge (squash)
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
-            // enableAutoMerge is a GraphQL mutation, not a REST endpoint
+            // enableAutoMerge is a GraphQL mutation, not a REST endpoint.
+            // continue-on-error: if PR is in unstable status (this workflow
+            // is its own check), the approve still landed. Non-fatal.
             const prNumber = context.issue.number;
             const { repository } = await github.graphql(`
               query($owner: String!, $repo: String!, $number: Int!) {
@@ -58,8 +61,8 @@ jobs:
               mergeMethod: 'SQUASH',
             });
 
-      - name: Confirm approval
+      - name: Confirm
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "✓ PR #${PR_NUMBER} approved and auto-merge enabled (squash strategy)"
+          echo "✓ PR #${PR_NUMBER} approved. Auto-merge enabled if status allows."

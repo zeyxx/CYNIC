@@ -13,10 +13,17 @@
 # through the gate only to be rejected by GitHub.
 set -euo pipefail
 
-# Detect pushes to main and fail fast with remediation instructions.
 # Git passes refs via stdin: "<local_ref> <local_sha> <remote_ref> <remote_sha>\n".
+# Read all lines, check for main pushes, detect deletions.
+ZERO_SHA="0000000000000000000000000000000000000000"
+IS_DELETE=true  # assume delete until we see a non-zero local SHA
 while IFS= read -r line; do
+    local_sha=$(printf '%s\n' "$line" | awk '{print $2}')
     remote_ref=$(printf '%s\n' "$line" | awk '{print $3}')
+    # If any ref has a non-zero local SHA, it's not a pure delete
+    if [ "$local_sha" != "$ZERO_SHA" ]; then
+        IS_DELETE=false
+    fi
     if [ "$remote_ref" = "refs/heads/main" ]; then
         echo ""
         echo "✗ Direct push to main is blocked — protected branch workflow."
@@ -30,6 +37,11 @@ while IFS= read -r line; do
         exit 1
     fi
 done
+
+# Skip CI gate for branch deletions (git push --delete)
+if [ "$IS_DELETE" = "true" ]; then
+    exit 0
+fi
 
 source ~/.cargo/env 2>/dev/null || true
 export RUST_MIN_STACK=${RUST_MIN_STACK:-67108864}
