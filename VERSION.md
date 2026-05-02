@@ -50,10 +50,13 @@ confiance mathématiquement bornée + apprentissage par cristallisation + infér
 242 tests. 5 Dogs. Crystal loop validé (Δ=+0.02-0.04 chess). SSE event bus.
 Architecture hexagonale. SurrealDB. Graceful degradation.
 
-## v0.7 — "Le Socle Architectural" — COMPLETE (2026-03-22)
+## v0.7 — "Le Socle Architectural" — COMPLETE (2026-03-22 → 0.7.7/2026-05-02)
 
 5 gates vérifiés. KernelEvent en domain. MCP émet des events. StoragePort typé.
-0 expect() en production. main.rs < 400 lignes. 242 tests, 0 clippy warnings.
+0 expect() en production. main.rs < 400 lignes. 242+ tests, 0 clippy warnings.
+Phase 2 expansion: BURN audit completed, external projects organized, SSOT enforcement added.
+
+**v0.7.7 (2026-05-02):** Root directory SoC enforced, 160K+ dead scripts removed, CHANGELOG.md synchronized.
 
 ---
 
@@ -62,10 +65,10 @@ Architecture hexagonale. SurrealDB. Graceful degradation.
 **Thème :** La fondation est mécaniquement vérifiée. Sécurité assurée. StoragePort
 prouvé agnostique. Workflow aligné. Les organes ont des contrats testés.
 
-**Réalité actuelle (2026-03-29) :** 338 tests (255 unit + 57 contract + 26 integration). 43/90 findings fixed.
-28 méthodes StoragePort (was 30 — dead path removed). InMemory adapter passes all 13 contract tests.
-Cargo.toml = 0.7.5, tag = v0.7.5 (faa3a13). `make check` green (build + test + clippy + 3 lint gates + audit).
-BURN cleanup: CCM aggregator disabled (Rule 3), event consumer stripped (double-counting), dead endpoint removed.
+**Réalité actuelle (2026-05-02) :** 340+ tests. 43/90 findings fixed.
+28 méthodes StoragePort. InMemory adapter passes all 13 contract tests.
+Cargo.toml = 0.7.7, tag = v0.7.7 (8a874d53). `make check` green (build + test + clippy + 4 lint gates + audit).
+SSOT gate added: VERSION.md/CHANGELOG.md must sync with Cargo.toml on release.
 
 | Gate | Vérification | État |
 |------|-------------|------|

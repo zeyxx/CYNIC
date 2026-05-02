@@ -144,6 +144,15 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	@echo ""
 	@echo "▶ Checking for drift..."
 	@set +e; FAIL=0; \
+	KERNEL_VERSION=$$(grep '^version' $(PROJECT_DIR)/cynic-kernel/Cargo.toml | head -1 | sed 's/.*"\([^"]*\)".*/\1/'); \
+	CHANGELOG_HAS_VERSION=$$(grep -c "^\## \[$$KERNEL_VERSION\]" $(PROJECT_DIR)/CHANGELOG.md 2>/dev/null || true); \
+	VERSION_MD_HAS_VERSION=$$(grep -c "$$KERNEL_VERSION" $(PROJECT_DIR)/VERSION.md 2>/dev/null || true); \
+	if [ "$$CHANGELOG_HAS_VERSION" -eq 0 ]; then \
+		echo "FAIL SSOT: Cargo.toml version $$KERNEL_VERSION not in CHANGELOG.md"; FAIL=1; \
+	fi; \
+	if [ "$$VERSION_MD_HAS_VERSION" -eq 0 ]; then \
+		echo "FAIL SSOT: Cargo.toml version $$KERNEL_VERSION not in VERSION.md"; FAIL=1; \
+	fi; \
 	BACKENDS="$${HOME}/.config/cynic/backends.toml"; \
 	if [ -f "$$BACKENDS" ]; then \
 		while IFS= read -r line; do \
