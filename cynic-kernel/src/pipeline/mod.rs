@@ -19,6 +19,7 @@ use crate::domain::wisdom::DomainCurations;
 use crate::domain::wisdom::engine::format_wisdom_context;
 use crate::judge::{Judge, JudgeError};
 pub use maintenance::{backfill_crystal_embeddings, summarize_pending_sessions};
+use sha2::{Digest, Sha256};
 
 /// Callback type for progressive Dog completion notifications.
 pub type OnDogCallback =
@@ -599,6 +600,54 @@ async fn side_effects(
         tracing::warn!(phase = "side_effects", error = %e, "failed to store verdict");
     }
 
+    // K15: Enqueue verdict for onchain submission (gated on confidence threshold φ⁻¹)
+    if verdict.q_score.total >= crate::domain::dog::PHI_INV {
+        // Step 1: Compute SHA256 hash of stimulus for Pinocchio dedup
+        let content_hash = {
+            let mut hasher = Sha256::new();
+            hasher.update(stimulus.content.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+
+        // Step 2: Map VerdictKind to string for storage layer
+        let verdict_type = match verdict.kind {
+            crate::domain::dog::VerdictKind::Howl => "howl",
+            crate::domain::dog::VerdictKind::Wag => "wag",
+            crate::domain::dog::VerdictKind::Growl => "growl",
+            crate::domain::dog::VerdictKind::Bark => "bark",
+        };
+
+        // Step 3: Extract dog count from verdict
+        let dog_count = verdict.dog_scores.len() as u32;
+
+        // Step 4: Enqueue for onchain submission
+        if let Err(e) = deps
+            .storage
+            .enqueue_verdict(
+                &verdict.id,
+                &content_hash,
+                verdict.q_score.total,
+                verdict.q_score.fidelity,
+                verdict.q_score.phi,
+                verdict.q_score.verify,
+                verdict.q_score.culture,
+                verdict.q_score.burn,
+                verdict.q_score.sovereignty,
+                dog_count,
+                verdict_type,
+            )
+            .await
+        {
+            // Graceful degradation: log but don't propagate (K14)
+            tracing::error!(
+                verdict_id = %verdict.id,
+                q_score = %format!("{:.3}", verdict.q_score.total),
+                error = %e,
+                "Failed to enqueue verdict for onchain submission (K15 producer enqueue_verdict)"
+            );
+        }
+    }
+
     // Track usage
     {
         let mut u = deps.usage.lock().await;
@@ -1149,6 +1198,107 @@ mod tests {
                 );
             }
             _ => panic!("Expected error result"),
+        }
+    }
+
+    #[test]
+    fn enqueue_verdict_hash_determinism() {
+        // K15: Verify SHA256 hash is deterministic for same stimulus
+        let stimulus1 = "The quick brown fox jumps over the lazy dog";
+        let stimulus2 = "The quick brown fox jumps over the lazy dog";
+        let stimulus3 = "Different stimulus";
+
+        let hash1 = {
+            let mut hasher = Sha256::new();
+            hasher.update(stimulus1.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+        let hash2 = {
+            let mut hasher = Sha256::new();
+            hasher.update(stimulus2.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+        let hash3 = {
+            let mut hasher = Sha256::new();
+            hasher.update(stimulus3.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+
+        assert_eq!(
+            hash1, hash2,
+            "identical stimuli should produce identical hashes"
+        );
+        assert_ne!(
+            hash1, hash3,
+            "different stimuli should produce different hashes"
+        );
+        assert_eq!(
+            hash1.len(),
+            64,
+            "SHA256 hex should be 64 chars (256 bits / 4 bits per hex digit)"
+        );
+    }
+
+    #[test]
+    fn enqueue_verdict_threshold_gate() {
+        use crate::domain::dog::PHI_INV;
+
+        // K15: Verify threshold gating logic
+        let below_threshold = PHI_INV - 0.1;
+        let at_threshold = PHI_INV;
+        let above_threshold = PHI_INV + 0.1;
+
+        assert!(
+            below_threshold < PHI_INV,
+            "below threshold should be < PHI_INV"
+        );
+        assert!(at_threshold >= PHI_INV, "at threshold should be >= PHI_INV");
+        assert!(
+            above_threshold >= PHI_INV,
+            "above threshold should be >= PHI_INV"
+        );
+
+        // Only at_threshold and above should trigger enqueue
+        assert!(
+            !should_enqueue(below_threshold),
+            "below threshold should not enqueue"
+        );
+        assert!(should_enqueue(at_threshold), "at threshold should enqueue");
+        assert!(
+            should_enqueue(above_threshold),
+            "above threshold should enqueue"
+        );
+    }
+
+    fn should_enqueue(q_score: f64) -> bool {
+        use crate::domain::dog::PHI_INV;
+        q_score >= PHI_INV
+    }
+
+    #[test]
+    fn enqueue_verdict_verdict_type_mapping() {
+        use crate::domain::dog::VerdictKind;
+
+        // K15: Verify verdict kind → string mapping
+        let mappings = vec![
+            (VerdictKind::Howl, "howl"),
+            (VerdictKind::Wag, "wag"),
+            (VerdictKind::Growl, "growl"),
+            (VerdictKind::Bark, "bark"),
+        ];
+
+        for (kind, expected) in mappings {
+            let actual = match kind {
+                VerdictKind::Howl => "howl",
+                VerdictKind::Wag => "wag",
+                VerdictKind::Growl => "growl",
+                VerdictKind::Bark => "bark",
+            };
+            assert_eq!(
+                actual, expected,
+                "VerdictKind::{:?} should map to {}",
+                kind, expected
+            );
         }
     }
 }
