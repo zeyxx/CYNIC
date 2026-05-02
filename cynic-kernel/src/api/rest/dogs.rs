@@ -44,6 +44,9 @@ pub async fn register_dog_handler(
         ));
     }
 
+    // Infer sovereignty from base_url: http:// = local/sovereign, https:// = cloud
+    let sovereign = req.base_url.starts_with("http://");
+
     let cfg = crate::infra::config::BackendConfig {
         name: name.clone(),
         backend_type: crate::infra::config::BackendType::OpenAi,
@@ -64,6 +67,9 @@ pub async fn register_dog_handler(
         remediation: None,
         fleet_node: None,
         cli_extra_args: vec![],
+        latency_ms: 0,
+        suitable_for_domains: vec![],
+        sovereign,
     };
 
     let backend = match crate::backends::openai::OpenAiCompatBackend::new(cfg.clone()) {

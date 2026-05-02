@@ -160,6 +160,13 @@ const SUBMISSION_QUEUE: TaskContract = TaskContract {
     consumer: "pinocchio verdicts",
     failure_effect: "verdicts stop being anchored onchain, submission queue backs up",
 };
+const DOG_PERF_FLUSH: TaskContract = TaskContract {
+    name: "dog_perf_flush",
+    expected_interval: 120, // 60s interval + 60s grace
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "routing calculator",
+    failure_effect: "dog performance metrics stop updating, routing stagnates",
+};
 
 fn task_contract(name: &str) -> TaskContract {
     match name {
@@ -180,6 +187,7 @@ fn task_contract(name: &str) -> TaskContract {
         "nightshift" => NIGHTSHIFT,
         "state_log" => STATE_LOG,
         "submission_queue" => SUBMISSION_QUEUE,
+        "dog_perf_flush" => DOG_PERF_FLUSH,
         other => panic!("task contract missing for '{other}'"),
     }
 }
@@ -212,6 +220,7 @@ pub struct TaskHealth {
     nightshift: AtomicU64,
     state_log: AtomicU64,
     submission_queue: AtomicU64,
+    dog_perf_flush: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -243,6 +252,7 @@ impl TaskHealth {
             nightshift: AtomicU64::new(0),
             state_log: AtomicU64::new(0),
             submission_queue: AtomicU64::new(0),
+            dog_perf_flush: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -305,6 +315,10 @@ impl TaskHealth {
     }
     pub fn touch_submission_queue(&self) {
         self.submission_queue
+            .store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_dog_perf_flush(&self) {
+        self.dog_perf_flush
             .store(Self::now_secs(), Ordering::Relaxed);
     }
 
@@ -451,6 +465,12 @@ impl TaskHealth {
                 None,
             ),
             TaskSnapshot::new(STATE_LOG, self.state_log.load(Ordering::Relaxed), now, None),
+            TaskSnapshot::new(
+                DOG_PERF_FLUSH,
+                self.dog_perf_flush.load(Ordering::Relaxed),
+                now,
+                None,
+            ),
         ]
     }
 }

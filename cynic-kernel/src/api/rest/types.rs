@@ -81,6 +81,16 @@ pub struct AppState {
     /// Curated domain signals (D1-D6) loaded at boot for wisdom enrichment.
     /// K15 consumer: dogs fetch matching patterns from curations to enrich stimulus.
     pub domain_curations: Arc<DomainCurations>,
+    /// Domain-aware Dog router — selects suitable Dogs based on domain hint.
+    /// Initialized from backend_configs at boot. Enables data-centric Dog selection.
+    pub domain_router: Arc<crate::infra::domain_router::DomainRouter>,
+    /// Dynamic routing calculator — selects Dogs based on observed latencies.
+    /// Consumes dog_performance observations and adapts routing in real-time.
+    pub routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
+    /// Dog performance collector — aggregates latency/success metrics per Dog.
+    /// K15 seam 3 producer: on_dog callbacks feed observations here.
+    /// Periodically flushed to routing_calc for live routing adaptation.
+    pub dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
@@ -329,6 +339,9 @@ pub struct JudgeRequest {
         deserialize_with = "deserialize_bool_or_null"
     )]
     pub crystals: bool,
+    /// Optional: sensitivity level. "high" forces routing to sovereign (local) Dogs only.
+    /// Use for private content: DMs, wallet seeds, API keys. Default: none (auto-detected).
+    pub sensitivity: Option<String>,
 }
 
 fn default_true() -> bool {

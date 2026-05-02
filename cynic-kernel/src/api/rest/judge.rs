@@ -19,6 +19,7 @@ pub(super) struct ValidatedJudgeRequest {
     pub domain: Option<String>,
     pub dogs: Option<Vec<String>>,
     pub crystals: bool,
+    pub sensitivity: Option<String>,
 }
 
 pub(super) fn validate_judge_request(
@@ -72,6 +73,7 @@ pub(super) fn validate_judge_request(
         domain: req.domain,
         dogs: req.dogs,
         crystals: req.crystals,
+        sensitivity: req.sensitivity,
     })
 }
 
@@ -86,10 +88,35 @@ pub async fn judge_handler(
 
     // Expand dog presets: "sovereign" → live sovereign Dog IDs from Judge.
     // Alive: reads is_sovereign() from each Dog, not a hardcoded list.
-    let dogs = match req.dogs {
+    let mut dogs = match req.dogs {
         Some(ref d) if d.len() == 1 && d[0] == "sovereign" => Some(judge.sovereign_dog_ids()),
         other => other,
     };
+
+    // ── Layers 1+2: Sensitivity filter fallback chain ──
+    // Layer 1: heuristic detection on stimulus content
+    // Layer 2: caller-explicit sensitivity tag
+    // Layer 3+4 handled in pipeline (domain constraint + backend metadata)
+    let layer1_triggered = crate::domain::sanitize::is_sensitive_content(&req.content);
+    let layer2_triggered = req.sensitivity.as_deref() == Some("high");
+
+    if layer1_triggered || layer2_triggered {
+        let sovereign = judge.sovereign_dog_ids();
+        if sovereign.is_empty() {
+            return Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: "Sensitive content requires sovereign backend but none available".into(),
+                }),
+            ));
+        }
+        tracing::info!(
+            layer1 = layer1_triggered,
+            layer2 = layer2_triggered,
+            "Sensitivity gate fired — routing to sovereign Dogs only"
+        );
+        dogs = Some(sovereign);
+    }
 
     let deps = crate::pipeline::PipelineDeps {
         judge: &judge,
@@ -104,6 +131,7 @@ pub async fn judge_handler(
         expected_dog_count: judge.dog_ids().len(),
         enricher: state.enricher.as_deref(),
         domain_curations: state.domain_curations.as_ref(),
+        domain_router: Some(state.domain_router.as_ref()),
     };
     let result = crate::pipeline::run(
         req.content,

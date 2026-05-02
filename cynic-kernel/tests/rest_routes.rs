@@ -66,6 +66,15 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         enricher: None,
         senses: vec![],
         domain_curations: std::sync::Arc::new(cynic_kernel::domain::wisdom::DomainCurations::new()),
+        domain_router: std::sync::Arc::new(
+            cynic_kernel::infra::domain_router::DomainRouter::from_backends(&[]),
+        ),
+        routing_calc: std::sync::Arc::new(
+            cynic_kernel::infra::routing_calc::RoutingCalculator::new(),
+        ),
+        dog_perf_collector: std::sync::Arc::new(
+            cynic_kernel::infra::dog_performance::DogPerformanceCollector::new(),
+        ),
     })
 }
 
@@ -988,6 +997,15 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         enricher: None,
         senses: vec![],
         domain_curations: std::sync::Arc::new(cynic_kernel::domain::wisdom::DomainCurations::new()),
+        domain_router: std::sync::Arc::new(
+            cynic_kernel::infra::domain_router::DomainRouter::from_backends(&[]),
+        ),
+        routing_calc: std::sync::Arc::new(
+            cynic_kernel::infra::routing_calc::RoutingCalculator::new(),
+        ),
+        dog_perf_collector: std::sync::Arc::new(
+            cynic_kernel::infra::dog_performance::DogPerformanceCollector::new(),
+        ),
     });
     let app = rest::router(state);
 

@@ -499,6 +499,41 @@ pub fn spawn_discovery_loop(
     })
 }
 
+/// Dog performance flush loop — K15 seam 3 flush from producer to consumer.
+/// Every 60s, aggregates and flushes Dog performance observations (latency, success_rate)
+/// from the collector into the routing calculator for adaptive Dog selection.
+///
+/// K15 seam 3: pipeline.on_dog → DogPerformanceCollector → RoutingCalculator
+/// This loop closes the loop: aggregator.observe() → flush_all() → routing_calc.dogs_for_domain()
+pub fn spawn_dog_perf_flush_loop(
+    rest_state: Arc<crate::api::rest::AppState>,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(constants::DOG_PERF_FLUSH_INTERVAL);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.tick().await; // skip first tick
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Dog performance flush loop stopped");
+                    break;
+                }
+                _ = interval.tick() => {
+                    // Flush all aggregated Dog performance metrics to routing calculator
+                    rest_state
+                        .dog_perf_collector
+                        .flush_all(&rest_state.routing_calc);
+
+                    tracing::debug!("Dog performance metrics flushed to routing calculator");
+                    task_health.touch_dog_perf_flush();
+                }
+            }
+        }
+    })
+}
+
 /// Heartbeat loop — K15 consumer for Dog registration producer.
 /// Every 40s, refreshes TTL for all registered Dogs to keep them alive.
 /// Runs on the same interval as cynic-node's heartbeat sender (40s), ensuring
@@ -752,6 +787,11 @@ mod tests {
             enricher: None,
             senses: vec![],
             domain_curations: Arc::new(crate::domain::wisdom::DomainCurations::new()),
+            domain_router: Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[])),
+            routing_calc: Arc::new(crate::infra::routing_calc::RoutingCalculator::new()),
+            dog_perf_collector: Arc::new(
+                crate::infra::dog_performance::DogPerformanceCollector::new(),
+            ),
         })
     }
 

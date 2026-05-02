@@ -116,6 +116,9 @@ pub struct JudgeParams {
     pub dogs: Option<Vec<String>>,
     pub agent_id: Option<String>,
     pub crystals: Option<bool>,
+    /// Optional: sensitivity level. "high" forces routing to sovereign (local) Dogs only.
+    /// Use for private content: DMs, wallet seeds, API keys. Default: none (auto-detected).
+    pub sensitivity: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -248,6 +251,11 @@ pub struct CynicMcp {
     pub(crate) project_root: String,
     pub(crate) enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
     pub(crate) domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
+    pub(crate) domain_router: Arc<crate::infra::domain_router::DomainRouter>,
+    // WHY: routing_calc populated at boot, read by observer consumer (K15 seam 3).
+    // Disabled warning until observer wired.
+    #[allow(dead_code)]
+    pub(crate) routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -259,7 +267,7 @@ impl std::fmt::Debug for CynicMcp {
 
 impl CynicMcp {
     #[allow(clippy::too_many_arguments)]
-    // WHY: Constructor receives 9 kernel dependencies — each is a distinct port required at the MCP
+    // WHY: Constructor receives many kernel dependencies — each is a distinct port required at the MCP
     // surface. A builder pattern would only rename the argument list; called in exactly one place.
     pub fn new(
         judge: Arc<Judge>,
@@ -277,6 +285,8 @@ impl CynicMcp {
         project_root: String,
         enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
         domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
+        domain_router: Arc<crate::infra::domain_router::DomainRouter>,
+        routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
     ) -> Self {
         Self {
             judge: Arc::new(arc_swap::ArcSwap::from(judge)),
@@ -293,6 +303,8 @@ impl CynicMcp {
             event_tx,
             enricher,
             domain_curations,
+            domain_router,
+            routing_calc,
             rate_limit: Arc::new(McpRateLimit::new()),
             bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
                 crate::domain::constants::BG_SEMAPHORE_PERMITS,
@@ -449,6 +461,8 @@ mod tests {
         let infer = Arc::new(crate::domain::inference::NullInfer)
             as Arc<dyn crate::domain::inference::InferPort>;
         let metrics = Arc::new(crate::domain::metrics::Metrics::new());
+        let domain_router = Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[]));
+        let routing_calc = Arc::new(crate::infra::routing_calc::RoutingCalculator::new());
         let mcp = CynicMcp::new(
             judge,
             storage,
@@ -465,6 +479,8 @@ mod tests {
             "/tmp".to_string(),
             None,
             Arc::new(crate::domain::wisdom::DomainCurations::new()),
+            domain_router,
+            routing_calc,
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
         mcp
@@ -499,6 +515,7 @@ mod tests {
             dogs: None,
             agent_id: Some("test-agent".into()),
             crystals: None,
+            sensitivity: None,
         });
         let result = mcp.cynic_judge(params).await.unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
@@ -605,6 +622,7 @@ mod tests {
             dogs: None,
             agent_id: Some("usage-test".into()),
             crystals: None,
+            sensitivity: None,
         });
         let _ = mcp.cynic_judge(params).await.unwrap();
         let usage = mcp.usage.lock().await;
@@ -634,6 +652,8 @@ mod tests {
         let infer = Arc::new(crate::domain::inference::NullInfer)
             as Arc<dyn crate::domain::inference::InferPort>;
         let metrics = Arc::new(crate::domain::metrics::Metrics::new());
+        let domain_router = Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[]));
+        let routing_calc = Arc::new(crate::infra::routing_calc::RoutingCalculator::new());
         let mcp = CynicMcp::new(
             judge,
             storage,
@@ -650,6 +670,8 @@ mod tests {
             "/tmp".to_string(),
             None,
             Arc::new(crate::domain::wisdom::DomainCurations::new()),
+            domain_router,
+            routing_calc,
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
 
