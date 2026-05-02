@@ -20,6 +20,14 @@ pub struct ObserveRequest {
     pub agent_id: Option<String>,
     pub session_id: Option<String>,
     pub tags: Option<Vec<String>>,
+
+    // ── Ledger system (observation consensus) ──
+    pub value: Option<serde_json::Value>, // The fact value
+    pub confidence: Option<String>,       // observed|deduced|inferred|conjecture
+    pub consumer: Option<String>,         // K15: who must act
+    pub action: Option<String>,           // K15: what changes if true
+    pub depends_on: Option<Vec<String>>,  // Graph: what this depends on
+    pub maturity: Option<f64>,            // Kairos: is it ripe?
 }
 
 pub async fn observe_handler(
@@ -32,6 +40,22 @@ pub async fn observe_handler(
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
                 error: "tool must be 1-64 characters".into(),
+            }),
+        ));
+    }
+
+    // K15 gate: if posting to mempool/hackathon or status=critical, consumer is required
+    let is_critical = req
+        .domain
+        .as_deref()
+        .map(|d| d.contains("mempool") || d.contains("hackathon"))
+        .unwrap_or(false)
+        || req.status.as_deref() == Some("critical");
+    if is_critical && req.consumer.is_none() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "K15: consumer field is required for critical observations".into(),
             }),
         ));
     }
