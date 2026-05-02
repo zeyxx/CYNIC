@@ -5,7 +5,7 @@
 //! degrade gracefully rather than failing catastrophically.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tokio::fs;
 
 /// Discovered model metadata
@@ -16,8 +16,15 @@ pub struct DiscoveredModel {
 }
 
 /// Model registry — maps model names to their filesystem paths
+#[derive(Debug)]
 pub struct ModelRegistry {
     pub models: HashMap<String, DiscoveredModel>,
+}
+
+impl Default for ModelRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ModelRegistry {
@@ -36,23 +43,21 @@ impl ModelRegistry {
             if let Ok(entries) = fs::read_dir(search_path).await {
                 let mut dir_entries = entries;
                 while let Ok(Some(entry)) = dir_entries.next_entry().await {
-                    if let Ok(path) = entry.path() {
-                        if let Some(filename) = path.file_name() {
-                            if let Some(name_str) = filename.to_str() {
-                                if name_str.ends_with(".gguf") {
-                                    let model_key = name_str.to_string();
-                                    self.models.insert(
-                                        model_key.clone(),
-                                        DiscoveredModel {
-                                            filename: name_str.to_string(),
-                                            path: path.clone(),
-                                        },
-                                    );
-                                    tracing::info!("discovered model: {}", path.display());
-                                    count += 1;
-                                }
-                            }
-                        }
+                    let path = entry.path();
+                    if let Some(filename) = path.file_name()
+                        && let Some(name_str) = filename.to_str()
+                        && name_str.ends_with(".gguf")
+                    {
+                        let model_key = name_str.to_string();
+                        self.models.insert(
+                            model_key.clone(),
+                            DiscoveredModel {
+                                filename: name_str.to_string(),
+                                path: path.clone(),
+                            },
+                        );
+                        tracing::info!("discovered model: {}", path.display());
+                        count += 1;
                     }
                 }
             }

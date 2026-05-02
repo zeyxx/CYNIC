@@ -246,23 +246,23 @@ impl BackendPort for OpenAiCompatBackend {
                 let latency = start.elapsed().as_millis() as f64;
 
                 // Discover actual loaded model
-                if let Ok(models_resp) = resp.json::<ModelsListResponse>().await {
-                    if let Some(first_model) = models_resp.data.first() {
-                        let discovered_model = &first_model.id;
-                        if discovered_model != &self.config.model {
-                            tracing::warn!(
-                                backend = %self.config.name,
-                                config_model = %self.config.model,
-                                discovered_model = %discovered_model,
-                                "model mismatch: config != reality"
-                            );
-                        } else {
-                            tracing::info!(
-                                backend = %self.config.name,
-                                model = %discovered_model,
-                                "model discovery verified"
-                            );
-                        }
+                if let Ok(models_resp) = resp.json::<ModelsListResponse>().await
+                    && let Some(first_model) = models_resp.data.first()
+                {
+                    let discovered_model = &first_model.id;
+                    if discovered_model != &self.config.model {
+                        tracing::warn!(
+                            backend = %self.config.name,
+                            config_model = %self.config.model,
+                            discovered_model = %discovered_model,
+                            "model mismatch: config != reality"
+                        );
+                    } else {
+                        tracing::info!(
+                            backend = %self.config.name,
+                            model = %discovered_model,
+                            "model discovery verified"
+                        );
                     }
                 }
 
