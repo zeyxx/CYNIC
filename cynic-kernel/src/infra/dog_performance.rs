@@ -60,11 +60,6 @@ impl DogAggregator {
         successes as f64 / self.samples.len() as f64
     }
 
-    /// Get sample count.
-    fn sample_count(&self) -> usize {
-        self.samples.len()
-    }
-
     /// Snapshot for export to RoutingCalculator.
     fn snapshot(&self, dog_id: String) -> crate::infra::routing_calc::DogPerformance {
         crate::infra::routing_calc::DogPerformance {
@@ -84,6 +79,7 @@ impl DogAggregator {
 ///
 /// WINDOW_SIZE=100: Each Dog retains last 100 evaluations. After 100 more judgments,
 /// older samples decay out. This gives ~5-10min of history at typical QPS.
+#[derive(Debug)]
 pub struct DogPerformanceCollector {
     // domain -> (dog_id -> aggregator)
     aggregators: Arc<RwLock<HashMap<String, HashMap<String, DogAggregator>>>>,
@@ -171,7 +167,7 @@ mod tests {
 
         assert_eq!(agg.avg_latency_ms(), 100); // (100 + 150 + 50) / 3 = 100
         assert!((agg.success_rate() - 2.0 / 3.0).abs() < 0.01); // 2/3 ≈ 0.667
-        assert_eq!(agg.sample_count(), 3);
+        assert_eq!(agg.samples.len(), 3);
     }
 
     #[test]

@@ -753,6 +753,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Dog heartbeat loop started (every 40s, K15 consumer)");
 
+        infra::tasks::spawn_dog_perf_flush_loop(
+            Arc::clone(&rest_state),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Dog performance flush loop started (every 60s, K15 seam 3 producer)");
+
         infra::tasks::spawn_discovery_loop(
             Arc::clone(&rest_state),
             fleet_meta,
