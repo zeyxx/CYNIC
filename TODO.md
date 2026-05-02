@@ -2,7 +2,7 @@
 
 > ≤15 active items. Actionable, time-bounded, falsifiable. History → memory/. Design → docs/. Rules → .claude/rules/.
 
-Last updated: 2026-05-02 03:52 | **K15 ARCHITECTURE VERIFIED (2026-05-02):** (1) Producer LIVE (k15_emitter, 3 test batches confirmed in /observations). (2) Consumer LIVE (k15_token_analysis_consumer.py, correctly identifies high-signal batches). (3) Routing BLOCKED: kernel storage degraded (status=degraded), /agent-tasks returns 500 on POST. Once kernel recovers, loop will route automatically. Multi-cortex coordination fixed (SESSION fallback). Hackathon: May 1 decision gate (S. awaiting), Phase 2-4 on track (May 5-10).
+Last updated: 2026-05-02 06:05 | **K15 ARCHITECTURE VERIFIED** (1) Producer LIVE, 3 test batches in /observations. (2) Consumer LIVE, routing BLOCKED on kernel degradation. (3) Coordination fixed (SESSION fallback). **WALLET FALSIFICATION TEST 2 BLOCKER: Helius API key invalid (401).** Synthetic test validates framework (ROC-AUC=1.0). Robust corpus ready (100 wallets cached). Phase 2 measurement blocked pending valid API key.
 
 ---
 
@@ -19,7 +19,7 @@ Last updated: 2026-05-02 03:52 | **K15 ARCHITECTURE VERIFIED (2026-05-02):** (1)
   - [x] Validator ✓: `cynic-python/wallet_behavior_validator.py` (380 lines, ROC-AUC + confusion matrix)
   - [x] README ✓: `cynic-python/WALLET_BEHAVIOR_README.md` (integration guide)
   - [x] B&C integration spec ✓: `docs/hackathon/B2C-INTEGRATION-GUIDE.md` (step-by-step for S.)
-  - [ ] **Falsification Test 2: Real corpus collection (May 2-3).** CYNIC collects own data (data-centric). Sources: Marinade, Orca, B&C game API, CultScreener rugs, MEV bots from Jito. Target: 10H + 10S wallets. Script ready: `cynic-python/wallet_corpus_builder.py`. **Falsify:** ROC-AUC > 0.7 on real corpus.
+  - [ ] **Falsification Test 2: Real corpus collection (May 2-3).** BLOCKER: Helius API key invalid (401). Synthetic test validates framework (ROC-AUC=1.0 perfect separation, 4 wallets: 2H+2S). Test script fixed (commit 5ea61f9): imports corrected, validation API working. Robust cached corpus available (100 wallets, validation_corpus_robust.json). **Action:** T. provides valid Helius API key (or declare deferred post-demo).
   - [ ] **Falsification Test 3: CYNIC impact (May 5-6).** Measure Dogs on 20-30 tokens, baseline vs human-filtered. **Falsify:** Δ > 5% in verdict distribution.
 - [ ] **Phase 2: Measure Human-Filtering Impact (May 5-6).** Run CYNIC Dogs on 20-30 tokens (baseline). Filter by verified humans. Re-score. Measure Δ in verdict distribution. **Falsify:** Δ > 5% demonstrates measurable signal. Independent of B&C co-submit decision. Decision point May 6 EOD: proceed to Phase 3 or revise heuristic?
 - [ ] **Phase 3: CultScreener Integration (May 7-8).** Add metrics display: Conviction | Verified Humans %. Test on 6+ tokens. **Falsify:** metrics render live on cultscreener-api.onrender.com. (Verified Wallets % optional if B&C co-submit agreed). Decision point May 8 EOD: integration working?
