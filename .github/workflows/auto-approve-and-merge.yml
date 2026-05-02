@@ -24,7 +24,7 @@ jobs:
               event: 'APPROVE',
             });
 
-      - name: Merge PR (squash)
+      - name: Merge PR (squash) + delete branch
         uses: actions/github-script@v7
         with:
           script: |
@@ -35,4 +35,5 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.issue.number,
               merge_method: 'squash',
+              delete_head_branch: true,
             });
