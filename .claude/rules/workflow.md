@@ -12,9 +12,9 @@ At session start, after reading injected context:
 4. **Dream auto-dispatch** — if session-init outputs `DREAM_REQUIRED`, dispatch the `dream-consolidator` agent in background (`run_in_background: true`) before starting any work. Non-blocking: the dream runs while you work on the human's request.
 
 At session end:
-- Update TODO.md if any items were completed or discovered.
-- session-stop.sh will warn if TODO.md was not touched.
-- **Self-distill to kernel** (T1 — crystallize-truth 2026-04-27): POST a rich handoff observation before ending. The LLM has the context; the bash hook doesn't. This is the ONLY moment the session's reasoning can be captured.
+- Note new items to mempool (`POST /observe domain=mempool`) if gaps/emergences discovered.
+- **Self-distill to kernel** — POST a rich handoff observation before ending. The LLM has the context; the bash hook doesn't. This is the ONLY moment the session's reasoning can be captured.
+- **Do NOT append to `.handoff.md`** — kernel `/observations?domain=session` is the SSOT. `.handoff.md` exists for Gemini CLI compatibility only.
 
 ```bash
 # POST via curl (the LLM composes this, not the hook):

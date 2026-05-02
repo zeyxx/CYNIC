@@ -1,3 +1,4 @@
+# DORMANT: Point-in-time observation — not live state. Probe /health for current reality.
 # Agent Orchestration Design — Closing the Organ X Loop
 
 ## Pipeline State (Observed 2026-05-01 18:52)
