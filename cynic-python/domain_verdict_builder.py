@@ -160,6 +160,57 @@ def narrative_to_sentiment(narrative: str) -> SentimentTier:
     return SentimentTier.UNKNOWN
 
 
+def metrics_to_sentiment(tweet: Dict) -> SentimentTier:
+    """Compute sentiment from raw engagement metrics (no narrative bias).
+
+    Strategy: Use engagement patterns + author authority (follower count) + text signals.
+
+    Rules (in priority order):
+    1. Text rug warning keywords → RUG_WARNED (highest veto)
+    2. Major KOL (>500k followers) + high retweet ratio → SAFE (trusted amplification)
+    3. High reply ratio (>25%) → HYPE (speculative discussion)
+    4. Quote tweets → HYPE (discussion/commentary, not endorsement)
+    5. KOL (>100k followers) + high retweet ratio → SAFE (authority signal)
+    6. Default → HYPE (for all other mentions, assume market discussion)
+    """
+    metrics = tweet.get("public_metrics", {})
+    author = tweet.get("author", {})
+
+    likes = metrics.get("like_count", 0) or 1  # Avoid division by zero
+    retweets = metrics.get("retweet_count", 0)
+    replies = metrics.get("reply_count", 0)
+    followers = author.get("followers_count", 0)
+    is_quote = tweet.get("is_quote", False)
+
+    reply_ratio = replies / likes if likes > 0 else 0
+    retweet_ratio = retweets / likes if likes > 0 else 0
+
+    # Rule 1: Rug warning text patterns (highest veto)
+    text = tweet.get("text", "").lower()
+    rug_keywords = ["rug", "scam", "honeypot", "exit scam", "exit_scam", "fake", "fraud", "dump"]
+    if any(kw in text for kw in rug_keywords):
+        return SentimentTier.RUG_WARNED
+
+    # Rule 2: Major KOL (>500k followers) + high retweet = trusted amplification
+    if followers > 500000 and retweet_ratio > 0.10:
+        return SentimentTier.SAFE
+
+    # Rule 3: High reply ratio suggests community discussion/concern
+    if reply_ratio > 0.25:
+        return SentimentTier.HYPE
+
+    # Rule 4: Quote tweets are commentary/discussion, not direct endorsement
+    if is_quote:
+        return SentimentTier.HYPE
+
+    # Rule 5: KOL (>100k followers) + high retweet = authority signal
+    if followers > 100000 and retweet_ratio > 0.12:
+        return SentimentTier.SAFE
+
+    # Rule 6: Default to HYPE for all other mentions
+    return SentimentTier.HYPE
+
+
 def load_author_trust_weights() -> Dict[str, float]:
     """Load engagement profile to get author trust weights.
 
@@ -187,31 +238,32 @@ def load_author_trust_weights() -> Dict[str, float]:
 
 
 def load_organ_x_twitter_data(tokens: List[Dict]) -> Dict[str, List[Dict]]:
-    """Load Organ X Twitter analysis data and map mentions to tokens.
+    """Load raw extracted tweets and map mentions to tokens.
 
-    Returns dict: {symbol: [list of relevant tweets with narratives and author info]}
+    Returns dict: {symbol: [list of relevant tweets with raw metrics]}
     """
-    organ_x_path = Path.home() / ".cynic" / "organs" / "hermes" / "x" / "analysis_findings.json"
+    # Try raw extracted tweets first (precision data)
+    extracted_path = Path("cynic-python/organ_x_tweets_extracted.jsonl")
 
-    if not organ_x_path.exists():
-        print(f"⚠️  Organ X data not found at {organ_x_path}")
+    if not extracted_path.exists():
+        print(f"⚠️  Extracted tweets not found at {extracted_path}")
         return {}
-
-    with open(organ_x_path) as f:
-        findings = json.load(f)
 
     # Build symbol lookup
     token_symbols = {t["symbol"].strip(): t for t in tokens}
     token_mentions = {symbol: [] for symbol in token_symbols}
 
-    # Search through high-signal tweets for token mentions
-    for tweet in findings.get("high_signal_tweets", []):
-        text = tweet["text"].lower()
-        for symbol in token_symbols:
-            symbol_lower = symbol.lower()
-            # Search for $SYMBOL pattern
-            if f"${symbol_lower}" in text:
-                token_mentions[symbol].append(tweet)
+    # Load and parse raw extracted tweets
+    with open(extracted_path) as f:
+        for line in f:
+            tweet = json.loads(line)
+            text = tweet["text"].lower()
+
+            for symbol in token_symbols:
+                symbol_lower = symbol.lower()
+                # Search for $SYMBOL pattern
+                if f"${symbol_lower}" in text:
+                    token_mentions[symbol].append(tweet)
 
     return token_mentions
 
@@ -234,24 +286,17 @@ def build_domain_verdicts_from_organ_x(tokens: List[Dict]) -> List[Dict]:
 
         # Get tweets mentioning this token
         mentions = token_mentions.get(symbol, [])
-        tweet_authors = [t.get("author", "unknown") for t in mentions]
+        tweet_authors = [t.get("author", {}).get("screen_name", "unknown") if isinstance(t.get("author"), dict) else str(t.get("author", "unknown")) for t in mentions]
 
-        # Build signals from tweet narratives
+        # Build signals from raw engagement metrics (no narrative bias)
         signals: List[DomainSignal] = []
         sentiment_counts = {tier: 0.0 for tier in SentimentTier}
 
         if mentions:
             for tweet in mentions:
-                narratives = tweet.get("narratives", [])
-
-                if narratives:
-                    # Map narratives to sentiments
-                    for narrative in narratives:
-                        sentiment = narrative_to_sentiment(narrative)
-                        sentiment_counts[sentiment] += 1
-                else:
-                    # No narratives — treat as neutral/hype (observed mentions)
-                    sentiment_counts[SentimentTier.HYPE] += 0.5
+                # Compute sentiment from raw metrics
+                sentiment = metrics_to_sentiment(tweet)
+                sentiment_counts[sentiment] += 1
 
             # Create signals from aggregated counts
             total = sum(sentiment_counts.values())
@@ -260,18 +305,18 @@ def build_domain_verdicts_from_organ_x(tokens: List[Dict]) -> List[Dict]:
                     confidence = min(count / total, 1.0)  # Normalize confidence
                     signals.append(
                         DomainSignal(
-                            source="organ_x_twitter",
+                            source="organ_x_twitter_raw",
                             sentiment=sentiment,
                             mentions_count=len(mentions),
                             confidence=confidence,
-                            sample_text=f"[{len(mentions)} tweets mentioning ${symbol}]",
+                            sample_text=f"[{len(mentions)} tweets mentioning ${symbol}, {int(count)} with {sentiment.value} signal]",
                         )
                     )
         else:
             # No mentions — unknown
             signals.append(
                 DomainSignal(
-                    source="organ_x_twitter",
+                    source="organ_x_twitter_raw",
                     sentiment=SentimentTier.UNKNOWN,
                     mentions_count=0,
                     confidence=0.0,

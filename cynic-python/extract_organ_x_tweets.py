@@ -83,6 +83,10 @@ def extract_tweets_from_captures(captures_dir: Path) -> List[Tweet]:
             _extract_from_timeline(response, tweets, seen_ids)
         elif operation == "UserTweets":
             _extract_from_timeline(response, tweets, seen_ids)
+        elif operation == "Likes":
+            _extract_from_likes(response, tweets, seen_ids)
+        elif operation == "Bookmarks":
+            _extract_from_likes(response, tweets, seen_ids)
 
     print(f"✓ Extracted {len(tweets)} unique tweets", file=sys.stderr)
     return tweets
@@ -92,16 +96,7 @@ def _extract_from_tweet_detail(response: Dict, tweets: List[Tweet], seen_ids: se
     """Extract tweets from TweetDetail response."""
     instructions = response.get("data", {}).get("threaded_conversation_with_injections_v2", {}).get("instructions", [])
 
-    for instr in instructions:
-        if instr.get("type") == "TimelineAddEntries":
-            entries = instr.get("entries", [])
-            for entry in entries:
-                content = entry.get("content", {})
-                if content.get("__typename") == "TimelineTimelineItem":
-                    tweet_obj = _extract_tweet_object(content)
-                    if tweet_obj and tweet_obj.id not in seen_ids:
-                        tweets.append(tweet_obj)
-                        seen_ids.add(tweet_obj.id)
+    _process_instructions(instructions, tweets, seen_ids)
 
 
 def _extract_from_timeline(response: Dict, tweets: List[Tweet], seen_ids: set) -> None:
@@ -115,6 +110,21 @@ def _extract_from_timeline(response: Dict, tweets: List[Tweet], seen_ids: set) -
         or data.get("user", {}).get("result", {}).get("timeline_v2", {}).get("timeline", {}).get("instructions", [])
     )
 
+    _process_instructions(instructions, tweets, seen_ids)
+
+
+def _extract_from_likes(response: Dict, tweets: List[Tweet], seen_ids: set) -> None:
+    """Extract tweets from Likes/Bookmarks responses."""
+    data = response.get("data", {})
+
+    # Likes and Bookmarks use nested timeline structure
+    instructions = data.get("user", {}).get("result", {}).get("timeline", {}).get("timeline", {}).get("instructions", [])
+
+    _process_instructions(instructions, tweets, seen_ids)
+
+
+def _process_instructions(instructions: List[Dict], tweets: List[Tweet], seen_ids: set) -> None:
+    """Process timeline instructions and extract tweets."""
     for instr in instructions:
         if instr.get("type") not in ["TimelineAddEntries", "TimelineShowMoreItem"]:
             continue
@@ -142,8 +152,9 @@ def _extract_tweet_object(content: Dict) -> Optional[Tweet]:
 
     # Tweet metadata
     tweet_id = tweet_result.get("rest_id")
-    created_at = tweet_result.get("core", {}).get("created_at")
-    text = tweet_result.get("legacy", {}).get("full_text", "")
+    legacy = tweet_result.get("legacy", {})
+    created_at = legacy.get("created_at")
+    text = legacy.get("full_text", "")
 
     if not tweet_id or not created_at:
         return None
@@ -155,7 +166,6 @@ def _extract_tweet_object(content: Dict) -> Optional[Tweet]:
         return None
 
     # Engagement metrics
-    legacy = tweet_result.get("legacy", {})
     metrics = PublicMetrics(
         like_count=legacy.get("favorite_count", 0),
         retweet_count=legacy.get("retweet_count", 0),
@@ -202,7 +212,7 @@ def _extract_author(user_result: Dict) -> Optional[AuthorProfile]:
         screen_name=screen_name,
         name=core.get("name", ""),
         followers_count=legacy.get("followers_count", 0),
-        verified=legacy.get("is_blue_verified", False),
+        verified=legacy.get("is_blue_verified", False),  # X API may not include this field
         created_at=legacy.get("created_at", ""),
         description=legacy.get("description"),
         is_bot=is_bot,
