@@ -34,8 +34,15 @@ if not logger.handlers:
 
 
 def get_kernel_address() -> str:
-    """Get kernel REST address from environment or default."""
-    return os.environ.get("CYNIC_REST_ADDR", "http://localhost:3030")
+    """Get kernel REST address from environment or default.
+
+    Ensures the address includes a protocol (http://), even if environment
+    variable only contains the host:port (e.g., <TAILSCALE_CORE>:3030).
+    """
+    addr = os.environ.get("CYNIC_REST_ADDR", "localhost:3030")
+    if not addr.startswith(("http://", "https://")):
+        addr = f"http://{addr}"
+    return addr
 
 
 def get_api_key() -> Optional[str]:
@@ -116,7 +123,7 @@ def emit_observation(
     try:
         resp = requests.post(url, json=payload, headers=headers, timeout=5)
 
-        if resp.status_code == 202:
+        if resp.status_code in (200, 202):
             logger.info(f"✓ Emitted observation: {tool} @ {domain}")
             return True
         else:
