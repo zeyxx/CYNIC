@@ -1,0 +1,15 @@
+{
+  "corpus_size": 16,
+  "human_count": 8,
+  "sybil_count": 8,
+  "human_avg_score": 0.443296875,
+  "sybil_avg_score": 0.4050625,
+  "score_separation": 0.03823437499999999,
+  "roc_auc": 0.703125,
+  "accuracy": 0.4375,
+  "threshold": 0.618,
+  "true_positives": 1,
+  "true_negatives": 6,
+  "false_positives": 2,
+  "false_negatives": 7
+}

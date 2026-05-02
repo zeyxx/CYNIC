@@ -277,18 +277,27 @@ pub async fn judge_async_handler(
     let event_tx = state.event_tx.clone();
     let enricher = state.enricher.clone();
     let domain_curations = Arc::clone(&state.domain_curations);
+    let domain_router = Arc::clone(&state.domain_router);
+    let dog_perf_collector = Arc::clone(&state.dog_perf_collector);
+    let req_domain = req.domain.clone().unwrap_or_else(|| "general".into());
 
     state.bg_tasks.spawn(async move {
         let _permit = permit;
         let on_dog = {
             let job_store = Arc::clone(&job_store);
             let request_id = request_id_for_task.clone();
+            let collector = Arc::clone(&dog_perf_collector);
+            let domain = req_domain.clone();
             Box::new(
                 move |dog_id: &str,
                       success: bool,
                       elapsed_ms: u64,
                       score: Option<&crate::domain::dog::DogScore>,
                       error: Option<String>| {
+                    // K15 seam 3: Record Dog performance for routing adaptation
+                    collector.observe(&domain, dog_id, elapsed_ms, success);
+
+                    // D4: Progressive callback — track Dog arrival for async polling
                     job_store.record_arrival(
                         &request_id,
                         DogArrival {
@@ -318,6 +327,7 @@ pub async fn judge_async_handler(
             expected_dog_count: judge.dog_ids().len(),
             enricher: enricher.as_deref(),
             domain_curations: domain_curations.as_ref(),
+            domain_router: Some(domain_router.as_ref()),
         };
 
         let result = crate::pipeline::run(

@@ -314,7 +314,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         fleet_meta,
         remediation_configs,
         dog_to_fleet_node,
-    } = infra::boot::build_dogs_and_organ(backend_configs, &domain_prompts, &storage_port).await;
+    } = infra::boot::build_dogs_and_organ(backend_configs.clone(), &domain_prompts, &storage_port)
+        .await;
 
     // ─── RING 2: Health Loop + Remediation ──────────────────────
     // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
@@ -563,9 +564,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
+    // ─── Domain router — data-centric Dog selection ──────────────────
+    // Initialized from backend_configs. Maps domain → suitable Dogs.
+    let domain_router = Arc::new(infra::domain_router::DomainRouter::from_backends(
+        &backend_configs,
+    ));
+
+    // ─── Routing calculator — dynamic Dog selection based on observed latencies ──
+    // Consumes dog_performance observations and adapts routing in real-time.
+    // Data-centric: routing reflects current performance, not static config.
+    let routing_calc = Arc::new(infra::routing_calc::RoutingCalculator::new());
+
+    // ─── Dog performance collector — K15 seam 3 producer ──
+    // Aggregates latency/success observations from pipeline.on_dog callbacks.
+    // Periodically flushes to routing_calc for live routing adaptation.
+    let dog_perf_collector = Arc::new(infra::dog_performance::DogPerformanceCollector::new());
+
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
+
+    // DORMANT: Organism recovery (K15 consumer: state history → crystal cache)
+    // state history consumer not yet complete — deferred to next phase
+
     let rest_state = Arc::new(api::rest::AppState {
         judge: judge_swap,
         storage: Arc::clone(&storage_port),
@@ -600,6 +621,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         enricher: enricher.clone(),
         senses,
         domain_curations: Arc::clone(&domain_curations),
+        domain_router: Arc::clone(&domain_router),
+        routing_calc: Arc::clone(&routing_calc),
+        dog_perf_collector: Arc::clone(&dog_perf_collector),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
@@ -728,6 +752,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             shutdown.clone(),
         );
         klog!("[Ring 2] Dog heartbeat loop started (every 40s, K15 consumer)");
+
+        infra::tasks::spawn_dog_perf_flush_loop(
+            Arc::clone(&rest_state),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Dog performance flush loop started (every 60s, K15 seam 3 producer)");
 
         infra::tasks::spawn_discovery_loop(
             Arc::clone(&rest_state),

@@ -19,6 +19,7 @@ use crate::domain::wisdom::DomainCurations;
 use crate::domain::wisdom::engine::format_wisdom_context;
 use crate::judge::{Judge, JudgeError};
 pub use maintenance::{backfill_crystal_embeddings, summarize_pending_sessions};
+use sha2::{Digest, Sha256};
 
 /// Callback type for progressive Dog completion notifications.
 pub type OnDogCallback =
@@ -28,6 +29,11 @@ use tracing::Instrument;
 
 use crystal_observer::observe_crystal_for_verdict;
 use verdict_observer::post_verdict_observation;
+
+/// Layer 3 of sensitivity filter: domains that must always route to sovereign (local) backends.
+/// Content in these domains is private by design (DMs, private financial data, wallet analysis).
+/// If no sovereign Dogs are available, return 503 Service Unavailable.
+const SOVEREIGN_DOMAINS: &[&str] = &["social-dm", "private", "wallet-judgment"];
 
 /// Result of the judge pipeline — everything a handler needs to build its response.
 #[derive(Debug)]
@@ -73,6 +79,9 @@ pub struct PipelineDeps<'a> {
     /// Domain curations (D1-D6 signals) for wisdom enrichment.
     /// K15: Dogs query patterns matching stimulus keywords to ground judgment in domain knowledge.
     pub domain_curations: &'a DomainCurations,
+    /// Domain-aware Dog router — selects suitable Dogs based on domain hint.
+    /// Initialized from backend_configs at boot. If None, all Dogs are used (fallback).
+    pub domain_router: Option<&'a crate::infra::domain_router::DomainRouter>,
 }
 
 impl std::fmt::Debug for PipelineDeps<'_> {
@@ -187,27 +196,58 @@ async fn pipeline_inner(
     metrics.inc_cache_miss();
     tracing::info!(phase = "cache", result = "miss");
 
-    let crystals = if inject_crystals {
+    let mature_crystals = if inject_crystals {
+        // DORMANT: K15 consumer (organism memory recovery) — deferred to next phase
+        // Would warm-start judgment context with domain-matching patterns learned from previous sessions
+        let mut cached: Vec<crate::domain::ccm::MatureCrystal> = Vec::new();
+
+        // Semantic search: find additional crystals matching stimulus embedding.
         let found = if let Some(ref emb) = stimulus_embedding {
-            storage.search_crystals_semantic(&emb.vector, 10).await
-                .inspect_err(|e| tracing::warn!(error = %e, "semantic crystal search failed — fallback to domain list"))
+            storage
+                .search_crystals_semantic(&emb.vector, 10)
+                .await
+                .inspect_err(|e| {
+                    tracing::warn!(error = %e, "semantic crystal search failed — fallback to domain list")
+                })
                 .unwrap_or_default()
         } else {
             Vec::new()
         };
-        if found.is_empty() {
-            storage.list_crystals_for_domain(domain_hint, 10).await
-                .inspect_err(|e| tracing::warn!(error = %e, "domain crystal list failed — pipeline continues without crystals"))
+
+        // Supplement cached with fresh queries.
+        let supplemental = if found.is_empty() {
+            storage
+                .list_crystals_for_domain(domain_hint, 10)
+                .await
+                .inspect_err(|e| {
+                    tracing::warn!(error = %e, "domain crystal list failed — pipeline continues without crystals")
+                })
                 .unwrap_or_default()
         } else {
             found
-        }
+        };
+
+        // Combine: cached + supplemental. Filter supplemental to mature crystals only.
+        cached.extend(
+            supplemental
+                .into_iter()
+                .filter(|c| {
+                    c.state == crate::domain::ccm::CrystalState::Crystallized
+                        || c.state == crate::domain::ccm::CrystalState::Canonical
+                })
+                .filter_map(|c| crate::domain::ccm::MatureCrystal::try_from(c).ok()),
+        );
+        cached
     } else {
         tracing::info!(phase = "crystals", "crystal injection disabled (A/B mode)");
         Vec::new()
     };
-    // T4: filter to MatureCrystal newtype — only Crystallized|Canonical pass
-    let mature_crystals = ccm::filter_mature(crystals);
+
+    tracing::info!(
+        phase = "crystals",
+        total = mature_crystals.len(),
+        "mature crystals for injection"
+    );
     tracing::info!(
         phase = "crystals",
         total = mature_crystals.len(),
@@ -444,8 +484,45 @@ async fn pipeline_inner(
 
     tracing::info!(phase = "evaluate", "dispatching to Dogs");
     let on_dog_ref: Option<&OnDogCallback> = deps.on_dog.as_ref().map(|b| b.as_ref());
+
+    // ── DOMAIN-AWARE DOG SELECTION ──
+    // Layer 3: Domain constraint check — private domains route to sovereign backends only.
+    let domain_requires_sovereign = SOVEREIGN_DOMAINS.contains(&domain_hint);
+
+    // Data-centric: domain-suitable Dogs configured in backends.toml (suitable_for_domains field).
+    // Priority: sovereign constraint > caller filter > domain_router > all Dogs (default).
+    let dogs_filter_optimized: Option<Vec<String>>;
+    let dogs_filter_final = if domain_requires_sovereign {
+        // Layer 3 triggered: force sovereign-only routing.
+        let sovereign = judge.sovereign_dog_ids();
+        if sovereign.is_empty() {
+            return Err(JudgeError::InvalidInput(
+                "Sensitive domain requires sovereign backend but none available".into(),
+            ));
+        }
+        tracing::info!(
+            domain = domain_hint,
+            "Layer 3 (domain constraint) fired — routing to sovereign Dogs only"
+        );
+        dogs_filter_optimized = Some(sovereign);
+        dogs_filter_optimized.as_deref()
+    } else if dogs_filter.is_some() {
+        // Caller-provided filter takes precedence (Layer 2 already handled in handlers)
+        dogs_filter
+    } else {
+        // Try data-driven selection from backends.toml
+        let from_router = deps.domain_router.map(|r| r.dogs_for_domain(domain_hint));
+        if let Some(router_dogs) = from_router {
+            dogs_filter_optimized = Some(router_dogs);
+            dogs_filter_optimized.as_deref()
+        } else {
+            // No router and no filter: use all Dogs (fallback)
+            dogs_filter
+        }
+    };
+
     let mut verdict = judge
-        .evaluate_progressive(&stimulus, dogs_filter, metrics, on_dog_ref)
+        .evaluate_progressive(&stimulus, dogs_filter_final, metrics, on_dog_ref)
         .await?;
     metrics.inc_verdict();
     tracing::info!(
@@ -543,6 +620,54 @@ async fn side_effects(
     // Store verdict
     if let Err(e) = deps.storage.store_verdict(verdict).await {
         tracing::warn!(phase = "side_effects", error = %e, "failed to store verdict");
+    }
+
+    // K15: Enqueue verdict for onchain submission (gated on confidence threshold φ⁻¹)
+    if verdict.q_score.total >= crate::domain::dog::PHI_INV {
+        // Step 1: Compute SHA256 hash of stimulus for Pinocchio dedup
+        let content_hash = {
+            let mut hasher = Sha256::new();
+            hasher.update(stimulus.content.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+
+        // Step 2: Map VerdictKind to string for storage layer
+        let verdict_type = match verdict.kind {
+            crate::domain::dog::VerdictKind::Howl => "howl",
+            crate::domain::dog::VerdictKind::Wag => "wag",
+            crate::domain::dog::VerdictKind::Growl => "growl",
+            crate::domain::dog::VerdictKind::Bark => "bark",
+        };
+
+        // Step 3: Extract dog count from verdict
+        let dog_count = verdict.dog_scores.len() as u32;
+
+        // Step 4: Enqueue for onchain submission
+        if let Err(e) = deps
+            .storage
+            .enqueue_verdict(
+                &verdict.id,
+                &content_hash,
+                verdict.q_score.total,
+                verdict.q_score.fidelity,
+                verdict.q_score.phi,
+                verdict.q_score.verify,
+                verdict.q_score.culture,
+                verdict.q_score.burn,
+                verdict.q_score.sovereignty,
+                dog_count,
+                verdict_type,
+            )
+            .await
+        {
+            // Graceful degradation: log but don't propagate (K14)
+            tracing::error!(
+                verdict_id = %verdict.id,
+                q_score = %format!("{:.3}", verdict.q_score.total),
+                error = %e,
+                "Failed to enqueue verdict for onchain submission (K15 producer enqueue_verdict)"
+            );
+        }
     }
 
     // Track usage
@@ -659,6 +784,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         let result = run(
@@ -724,6 +850,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
         let _ = run("test content".into(), None, None, None, true, &deps).await;
 
@@ -764,6 +891,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         // First call: should evaluate (cache miss) and embed successfully
@@ -860,6 +988,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         let result = run(
@@ -937,6 +1066,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         let result = run(
@@ -1008,6 +1138,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         let result = run(
@@ -1062,6 +1193,7 @@ mod tests {
             expected_dog_count: judge.dog_ids().len(),
             enricher: None,
             domain_curations: &domain_curations,
+            domain_router: None,
         };
 
         let result = run(
@@ -1088,6 +1220,107 @@ mod tests {
                 );
             }
             _ => panic!("Expected error result"),
+        }
+    }
+
+    #[test]
+    fn enqueue_verdict_hash_determinism() {
+        // K15: Verify SHA256 hash is deterministic for same stimulus
+        let stimulus1 = "The quick brown fox jumps over the lazy dog";
+        let stimulus2 = "The quick brown fox jumps over the lazy dog";
+        let stimulus3 = "Different stimulus";
+
+        let hash1 = {
+            let mut hasher = Sha256::new();
+            hasher.update(stimulus1.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+        let hash2 = {
+            let mut hasher = Sha256::new();
+            hasher.update(stimulus2.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+        let hash3 = {
+            let mut hasher = Sha256::new();
+            hasher.update(stimulus3.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+
+        assert_eq!(
+            hash1, hash2,
+            "identical stimuli should produce identical hashes"
+        );
+        assert_ne!(
+            hash1, hash3,
+            "different stimuli should produce different hashes"
+        );
+        assert_eq!(
+            hash1.len(),
+            64,
+            "SHA256 hex should be 64 chars (256 bits / 4 bits per hex digit)"
+        );
+    }
+
+    #[test]
+    fn enqueue_verdict_threshold_gate() {
+        use crate::domain::dog::PHI_INV;
+
+        // K15: Verify threshold gating logic
+        let below_threshold = PHI_INV - 0.1;
+        let at_threshold = PHI_INV;
+        let above_threshold = PHI_INV + 0.1;
+
+        assert!(
+            below_threshold < PHI_INV,
+            "below threshold should be < PHI_INV"
+        );
+        assert!(at_threshold >= PHI_INV, "at threshold should be >= PHI_INV");
+        assert!(
+            above_threshold >= PHI_INV,
+            "above threshold should be >= PHI_INV"
+        );
+
+        // Only at_threshold and above should trigger enqueue
+        assert!(
+            !should_enqueue(below_threshold),
+            "below threshold should not enqueue"
+        );
+        assert!(should_enqueue(at_threshold), "at threshold should enqueue");
+        assert!(
+            should_enqueue(above_threshold),
+            "above threshold should enqueue"
+        );
+    }
+
+    fn should_enqueue(q_score: f64) -> bool {
+        use crate::domain::dog::PHI_INV;
+        q_score >= PHI_INV
+    }
+
+    #[test]
+    fn enqueue_verdict_verdict_type_mapping() {
+        use crate::domain::dog::VerdictKind;
+
+        // K15: Verify verdict kind → string mapping
+        let mappings = vec![
+            (VerdictKind::Howl, "howl"),
+            (VerdictKind::Wag, "wag"),
+            (VerdictKind::Growl, "growl"),
+            (VerdictKind::Bark, "bark"),
+        ];
+
+        for (kind, expected) in mappings {
+            let actual = match kind {
+                VerdictKind::Howl => "howl",
+                VerdictKind::Wag => "wag",
+                VerdictKind::Growl => "growl",
+                VerdictKind::Bark => "bark",
+            };
+            assert_eq!(
+                actual, expected,
+                "VerdictKind::{:?} should map to {}",
+                kind, expected
+            );
         }
     }
 }

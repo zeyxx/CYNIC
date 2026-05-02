@@ -46,6 +46,10 @@ pub const EVENT_LIVENESS_INTERVAL: Duration = Duration::from_secs(60);
 /// Probe scheduler polling interval.
 pub const PROBE_SCHEDULER_INTERVAL: Duration = Duration::from_secs(10);
 
+/// Dog performance metric flush — push aggregated observations to routing_calc.
+/// K15 seam 3: every 60s, export Dog latency/success metrics for adaptive routing.
+pub const DOG_PERF_FLUSH_INTERVAL: Duration = Duration::from_secs(60);
+
 // ── Capacity limits ───────────────────────────────────────────
 
 /// Max stimulus content length (bytes).
