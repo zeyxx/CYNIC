@@ -116,52 +116,122 @@ def check_alignment(conviction_verdict: str, domain_verdict: str) -> bool:
     return conviction_verdict == domain_verdict
 
 
-def build_domain_verdicts_stub(tokens: List[Dict]) -> List[Dict]:
-    """Build domain verdicts (currently stub — no real social data yet).
+def narrative_to_sentiment(narrative: str) -> SentimentTier:
+    """Map tweet narrative tags to sentiment tiers."""
+    narrative_lower = narrative.lower()
 
-    STUB BEHAVIOR:
-    - If token symbol in known_safe list → SAFE
-    - If token symbol in known_rug_warned list → RUG_WARNED
-    - Otherwise → UNKNOWN (will be filled by real data)
+    # Rug warning indicators (highest priority)
+    if any(x in narrative_lower for x in ["rug", "scam", "warning", "honeypot", "exit_scam"]):
+        return SentimentTier.RUG_WARNED
 
-    Next step: Replace with real Twitter/pump.fun API calls.
+    # Hype indicators
+    if any(x in narrative_lower for x in ["hype", "pump", "trend", "moon"]):
+        return SentimentTier.HYPE
+
+    # Safe/positive indicators (community, analysis, ecosystem)
+    if any(x in narrative_lower for x in ["analysis", "ecosystem", "community", "onchain"]):
+        return SentimentTier.SAFE
+
+    return SentimentTier.UNKNOWN
+
+
+def load_organ_x_twitter_data(tokens: List[Dict]) -> Dict[str, List[Dict]]:
+    """Load Organ X Twitter analysis data and map mentions to tokens.
+
+    Returns dict: {symbol: [list of relevant tweets with narratives]}
     """
-    # Stub data — these are observations from public data
-    known_safe = {"MASK", "TSUKI", "TROLL"}  # High conviction + no rug warnings observed
-    known_rug_warned = {"unc"}  # Known problematic token
+    organ_x_path = Path.home() / ".cynic" / "organs" / "hermes" / "x" / "analysis_findings.json"
+
+    if not organ_x_path.exists():
+        print(f"⚠️  Organ X data not found at {organ_x_path}")
+        return {}
+
+    with open(organ_x_path) as f:
+        findings = json.load(f)
+
+    # Build symbol lookup
+    token_symbols = {t["symbol"].strip(): t for t in tokens}
+    token_mentions = {symbol: [] for symbol in token_symbols}
+
+    # Search through high-signal tweets for token mentions
+    for tweet in findings.get("high_signal_tweets", []):
+        text = tweet["text"].lower()
+        for symbol in token_symbols:
+            symbol_lower = symbol.lower()
+            # Search for $SYMBOL pattern
+            if f"${symbol_lower}" in text:
+                token_mentions[symbol].append(tweet)
+
+    return token_mentions
+
+
+def build_domain_verdicts_from_organ_x(tokens: List[Dict]) -> List[Dict]:
+    """Build domain verdicts using Organ X Twitter data.
+
+    Processes real tweet mentions from Organ X with narrative classifications.
+    """
+    # Load Twitter mention data for each token
+    token_mentions = load_organ_x_twitter_data(tokens)
 
     records = []
 
     for token in tokens:
-        symbol = token["symbol"]
+        symbol = token["symbol"].strip()
         conviction_verdict = token["verdict"]
 
-        # Determine stub sentiment
-        if symbol in known_safe:
-            domain_sentiment = SentimentTier.SAFE
-        elif symbol in known_rug_warned:
-            domain_sentiment = SentimentTier.RUG_WARNED
+        # Get tweets mentioning this token
+        mentions = token_mentions.get(symbol, [])
+
+        # Build signals from tweet narratives
+        signals: List[DomainSignal] = []
+        sentiment_counts = {tier: 0.0 for tier in SentimentTier}
+
+        if mentions:
+            for tweet in mentions:
+                narratives = tweet.get("narratives", [])
+
+                if narratives:
+                    # Map narratives to sentiments
+                    for narrative in narratives:
+                        sentiment = narrative_to_sentiment(narrative)
+                        sentiment_counts[sentiment] += 1
+                else:
+                    # No narratives — treat as neutral/hype (observed mentions)
+                    sentiment_counts[SentimentTier.HYPE] += 0.5
+
+            # Create signals from aggregated counts
+            total = sum(sentiment_counts.values())
+            for sentiment, count in sentiment_counts.items():
+                if count > 0:
+                    confidence = min(count / total, 1.0)  # Normalize confidence
+                    signals.append(
+                        DomainSignal(
+                            source="organ_x_twitter",
+                            sentiment=sentiment,
+                            mentions_count=len(mentions),
+                            confidence=confidence,
+                            sample_text=f"[{len(mentions)} tweets mentioning ${symbol}]",
+                        )
+                    )
         else:
-            domain_sentiment = SentimentTier.UNKNOWN
-
-        # Create a stub signal
-        signals = [
-            DomainSignal(
-                source="stub_data",
-                sentiment=domain_sentiment,
-                mentions_count=0,
-                confidence=0.5,  # Low confidence — awaiting real data
-                sample_text="[Awaiting real social data scrape]",
+            # No mentions — unknown
+            signals.append(
+                DomainSignal(
+                    source="organ_x_twitter",
+                    sentiment=SentimentTier.UNKNOWN,
+                    mentions_count=0,
+                    confidence=0.0,
+                    sample_text=f"[No mentions of ${symbol} in Organ X]",
+                )
             )
-        ]
 
-        # Aggregate and map to verdict
+        # Aggregate sentiment
         aggregated_sentiment = aggregate_sentiment(signals)
         domain_verdict = sentiment_to_verdict(aggregated_sentiment)
 
         # Check alignment
         alignment = check_alignment(conviction_verdict, domain_verdict)
-        alignment_confidence = 0.5 if domain_sentiment == SentimentTier.UNKNOWN else 0.8
+        alignment_confidence = 0.7 if len(mentions) >= 3 else 0.4
 
         record = TokenDomainVerdictRecord(
             mint=token["mint"],
@@ -184,7 +254,7 @@ def print_summary(records: List[TokenDomainVerdictRecord]) -> None:
     misaligned = len(records) - aligned
 
     print("=" * 80)
-    print("DOMAIN VERDICT ANALYSIS (Stub Phase)")
+    print("DOMAIN VERDICT ANALYSIS (Organ X Twitter Integration)")
     print("=" * 80)
     print()
 
@@ -212,11 +282,10 @@ def print_summary(records: List[TokenDomainVerdictRecord]) -> None:
     print()
 
     print("=" * 80)
-    print("⏳ NEXT STEP: Replace stub with real social data scrape")
-    print("   - Query Twitter API for mentions + sentiment (tweepy/tweeter-api)")
-    print("   - Query pump.fun API for activity + community feedback")
-    print("   - Classify each mention as SAFE/HYPE/RUG_WARNED")
-    print("   - Re-run aggregation with real data")
+    print("📊 NEXT STEP: Compound with on-chain signals")
+    print("   - Layer Helius wallet authenticity scoring (getTokenLargestAccounts)")
+    print("   - Add pump.fun holder concentration metrics")
+    print("   - Fuse conviction + domain + on-chain into final verdict")
     print("=" * 80)
 
 
@@ -228,8 +297,8 @@ def main():
 
     print(f"✓ Loaded {len(tokens)} tokens\n")
 
-    print(f"🔍 Building domain verdicts (stub phase)...")
-    records = build_domain_verdicts_stub(tokens)
+    print(f"🔍 Building domain verdicts (Organ X Twitter layer)...")
+    records = build_domain_verdicts_from_organ_x(tokens)
     print(f"✓ Built {len(records)} domain verdict records\n")
 
     print_summary(records)
