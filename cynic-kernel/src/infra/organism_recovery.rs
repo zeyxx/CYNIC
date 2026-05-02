@@ -56,18 +56,18 @@ pub async fn restore_organism_consciousness(
 
     for crystal in all_crystals {
         // Only process Canonical and Crystallized crystals (defensive filter).
-        if crystal.state == CrystalState::Canonical || crystal.state == CrystalState::Crystallized {
-            if let Ok(mature) = MatureCrystal::try_from(crystal) {
-                let id = mature.id().to_string();
-                deduped
-                    .entry(id)
-                    .and_modify(|existing| {
-                        if mature.confidence() > existing.confidence() {
-                            *existing = mature.clone();
-                        }
-                    })
-                    .or_insert(mature);
-            }
+        if (crystal.state == CrystalState::Canonical || crystal.state == CrystalState::Crystallized)
+            && let Ok(mature) = MatureCrystal::try_from(crystal)
+        {
+            let id = mature.id().to_string();
+            deduped
+                .entry(id)
+                .and_modify(|existing| {
+                    if mature.confidence() > existing.confidence() {
+                        *existing = mature.clone();
+                    }
+                })
+                .or_insert(mature);
         }
     }
 

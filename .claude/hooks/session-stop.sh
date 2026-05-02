@@ -12,11 +12,24 @@ source ~/.cynic-env 2>/dev/null || true
 
 # Agent ID from Claude session_id (same derivation as session-init.sh)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+AGENT_ID=""
+
 if [[ -n "$SESSION_ID" ]]; then
     AGENT_ID="claude-${SESSION_ID:0:12}"
 else
-    # Fallback: try timestamp-based ID (mirrors session-init.sh fallback)
-    # Without a stable ID we can't release — but expire_stale will clean up in 5min
+    # Fallback: read from most recent session state file (set by session-init.sh)
+    SESSION_STATE_DIR="/tmp/cynic-sessions"
+    if [[ -d "$SESSION_STATE_DIR" ]]; then
+        RECENT_STATE=$(ls -t "$SESSION_STATE_DIR"/*.state 2>/dev/null | head -1)
+        if [[ -n "$RECENT_STATE" ]]; then
+            AGENT_ID=$(grep -oP 'agent_id=\K[^ ]+' "$RECENT_STATE" 2>/dev/null || true)
+        fi
+    fi
+fi
+
+if [[ -z "$AGENT_ID" ]]; then
+    # Without a stable ID we can't release — kernel's expire_stale will clean up in 5min
+    echo "Warning: could not determine AGENT_ID for coordination release" >&2
     exit 0
 fi
 
@@ -93,6 +106,35 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
         rm -f "$SESSION_STATE_FILE"  # Clean up after measuring
     fi
 fi
+
+# ── Temporal compliance measurement (Kairos consciousness) ──
+# Measures whether the mempool was used during this session.
+# K15 consumer: compound loop accumulates these for maturity model calibration.
+TEMPORAL_COMPLIANCE="unknown"
+MEMPOOL_ACTIVITY=0
+KERNEL_CHECK=$(curl -s --connect-timeout 2 --max-time 3 -o /dev/null -w '%{http_code}' \
+    ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+    "http://${KERNEL_ADDR}/health" 2>/dev/null || echo "000")
+if [[ "$KERNEL_CHECK" =~ ^(200|503)$ ]]; then
+    MEMPOOL_ACTIVITY=$(curl -s --connect-timeout 2 --max-time 3 \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        "http://${KERNEL_ADDR}/observations?domain=mempool&limit=20" 2>/dev/null \
+        | jq "[.[]? | select(.agent_id == \"${AGENT_ID}\")] | length" 2>/dev/null || echo 0)
+
+    if [[ "$MEMPOOL_ACTIVITY" -gt 0 ]]; then
+        TEMPORAL_COMPLIANCE="active"
+    else
+        TEMPORAL_COMPLIANCE="inactive"
+    fi
+
+    # Store temporal metrics for compound loop
+    curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+        -H "Content-Type: application/json" \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"session_temporal\",\"target\":\"compliance\",\"domain\":\"temporal-meta\",\"context\":\"mempool_activity=${MEMPOOL_ACTIVITY} compliance=${TEMPORAL_COMPLIANCE}\",\"tags\":[\"temporal-meta\"]}" \
+        > /dev/null 2>&1 || true
+fi
+echo "Temporal: ${TEMPORAL_COMPLIANCE} (${MEMPOOL_ACTIVITY} mempool observations)"
 
 # ── K15: Update AT_END proof in .claude/session-proof.json (immutable record) ──
 # Read the AT_START proof that session-init.sh created, append AT_END fields.

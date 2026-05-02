@@ -117,16 +117,16 @@ impl DogPerformanceCollector {
         domain: &str,
         routing_calc: &Arc<crate::infra::routing_calc::RoutingCalculator>,
     ) {
-        if let Ok(agg) = self.aggregators.read() {
-            if let Some(dogs) = agg.get(domain) {
-                let snapshots: Vec<_> = dogs
-                    .iter()
-                    .map(|(dog_id, agg)| agg.snapshot(dog_id.clone()))
-                    .collect();
+        if let Ok(agg) = self.aggregators.read()
+            && let Some(dogs) = agg.get(domain)
+        {
+            let snapshots: Vec<_> = dogs
+                .iter()
+                .map(|(dog_id, agg)| agg.snapshot(dog_id.clone()))
+                .collect();
 
-                if !snapshots.is_empty() {
-                    routing_calc.update_domain_routing(domain, snapshots);
-                }
+            if !snapshots.is_empty() {
+                routing_calc.update_domain_routing(domain, snapshots);
             }
         }
     }

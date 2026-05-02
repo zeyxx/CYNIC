@@ -176,6 +176,50 @@ fi
 # Mask real IP — session context must never contain real IPs
 [ -n "${CYNIC_REST_ADDR:-}" ] && ADDR_STATUS="SET" || ADDR_STATUS="NOT SET"
 
+# ── Temporal Consciousness: Chronos/Kairos/Aion anchors ──
+CURRENT_HOUR=$(date +%H)
+CURRENT_DAY=$(date +%A)
+CURRENT_DATE=$(date +%Y-%m-%d)
+
+# Peak hours: 19-22h observed (user behavioral data)
+PEAK_HOURS="false"
+if [[ "$CURRENT_HOUR" -ge 19 && "$CURRENT_HOUR" -le 22 ]]; then
+    PEAK_HOURS="true"
+fi
+
+# Gap since last session (from session state files)
+LAST_SESSION_TS=0
+LATEST_STATE=$(ls -t "${SESSION_STATE_DIR}"/*.state 2>/dev/null | head -1 || true)
+if [[ -n "$LATEST_STATE" && -f "$LATEST_STATE" ]]; then
+    LAST_SESSION_TS=$(grep '^session_start=' "$LATEST_STATE" | cut -d= -f2 || echo 0)
+fi
+NOW_TS=$(date +%s)
+if [[ "$LAST_SESSION_TS" -gt 0 ]]; then
+    GAP_HOURS=$(( (NOW_TS - LAST_SESSION_TS) / 3600 ))
+else
+    GAP_HOURS="unknown"
+fi
+
+# Known deadlines (hardcoded for now — will be mempool-derived later)
+HACKATHON_DEADLINE="2026-05-10"
+DAYS_TO_HACKATHON=$(( ( $(date -d "$HACKATHON_DEADLINE" +%s 2>/dev/null || echo "$NOW_TS") - NOW_TS ) / 86400 ))
+if [[ "$DAYS_TO_HACKATHON" -lt 0 ]]; then
+    DAYS_TO_HACKATHON="past"
+fi
+
+# ── Mempool scan: query items from kernel observations ──
+MEMPOOL_RIPE=""
+MEMPOOL_COUNT=0
+if [[ "$KERNEL_STATUS" != "down" ]]; then
+    MEMPOOL_OBS=$(curl -s --max-time 3 \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        "http://${KERNEL_ADDR}/observations?domain=mempool&limit=10" 2>/dev/null)
+    if [[ -n "$MEMPOOL_OBS" ]] && echo "$MEMPOOL_OBS" | jq -e 'type == "array" and length > 0' >/dev/null 2>&1; then
+        MEMPOOL_COUNT=$(echo "$MEMPOOL_OBS" | jq 'length')
+        MEMPOOL_RIPE=$(echo "$MEMPOOL_OBS" | jq -r '.[] | "  → \(.target // "?") — \(.context // "no context" | .[0:100])"' 2>/dev/null | head -5 || true)
+    fi
+fi
+
 # ── Output context (injected into conversation) ──
 cat <<EOF
 CYNIC SESSION — Pipeline initialized.
@@ -187,7 +231,15 @@ Agent: ${AGENT_ID} (${REGISTER_STATUS})
 WORKFLOW: Use /build after edits, /deploy for production, /status for full dashboard.
 COORD: Agent auto-registered. Claim → cynic_coord_who + cynic_coord_claim | Release → cynic_coord_release
 RULES: Public repo — no secrets, no real IPs, no names. Use skills before acting.
+TEMPORAL: ${CURRENT_DATE} ${CURRENT_DAY} ${CURRENT_HOUR}h | Gap: ${GAP_HOURS}h | Peak: ${PEAK_HOURS} | Hackathon: J-${DAYS_TO_HACKATHON}
 EOF
+
+# ── Mempool injection (temporal consciousness) ──
+if [[ "$MEMPOOL_COUNT" -gt 0 ]]; then
+    echo ""
+    echo "MEMPOOL (${MEMPOOL_COUNT} items):"
+    echo "$MEMPOOL_RIPE"
+fi
 
 # K15: Warn about git state violations from previous session
 if [[ -n "$GIT_VIOLATIONS" ]]; then
