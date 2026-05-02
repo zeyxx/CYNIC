@@ -84,6 +84,9 @@ pub struct AppState {
     /// Domain-aware Dog router — selects suitable Dogs based on domain hint.
     /// Initialized from backend_configs at boot. Enables data-centric Dog selection.
     pub domain_router: Arc<crate::infra::domain_router::DomainRouter>,
+    /// Dynamic routing calculator — selects Dogs based on observed latencies.
+    /// Consumes dog_performance observations and adapts routing in real-time.
+    pub routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.

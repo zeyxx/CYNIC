@@ -753,6 +753,7 @@ mod tests {
             senses: vec![],
             domain_curations: Arc::new(crate::domain::wisdom::DomainCurations::new()),
             domain_router: Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[])),
+            routing_calc: Arc::new(crate::infra::routing_calc::RoutingCalculator::new()),
         })
     }
 

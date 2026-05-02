@@ -249,6 +249,10 @@ pub struct CynicMcp {
     pub(crate) enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
     pub(crate) domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
     pub(crate) domain_router: Arc<crate::infra::domain_router::DomainRouter>,
+    // WHY: routing_calc populated at boot, read by observer consumer (K15 seam 3).
+    // Disabled warning until observer wired.
+    #[allow(dead_code)]
+    pub(crate) routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -279,6 +283,7 @@ impl CynicMcp {
         enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
         domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
         domain_router: Arc<crate::infra::domain_router::DomainRouter>,
+        routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
     ) -> Self {
         Self {
             judge: Arc::new(arc_swap::ArcSwap::from(judge)),
@@ -296,6 +301,7 @@ impl CynicMcp {
             enricher,
             domain_curations,
             domain_router,
+            routing_calc,
             rate_limit: Arc::new(McpRateLimit::new()),
             bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
                 crate::domain::constants::BG_SEMAPHORE_PERMITS,
@@ -453,6 +459,7 @@ mod tests {
             as Arc<dyn crate::domain::inference::InferPort>;
         let metrics = Arc::new(crate::domain::metrics::Metrics::new());
         let domain_router = Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[]));
+        let routing_calc = Arc::new(crate::infra::routing_calc::RoutingCalculator::new());
         let mcp = CynicMcp::new(
             judge,
             storage,
@@ -470,6 +477,7 @@ mod tests {
             None,
             Arc::new(crate::domain::wisdom::DomainCurations::new()),
             domain_router,
+            routing_calc,
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
         mcp
@@ -640,6 +648,7 @@ mod tests {
             as Arc<dyn crate::domain::inference::InferPort>;
         let metrics = Arc::new(crate::domain::metrics::Metrics::new());
         let domain_router = Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[]));
+        let routing_calc = Arc::new(crate::infra::routing_calc::RoutingCalculator::new());
         let mcp = CynicMcp::new(
             judge,
             storage,
@@ -657,6 +666,7 @@ mod tests {
             None,
             Arc::new(crate::domain::wisdom::DomainCurations::new()),
             domain_router,
+            routing_calc,
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
 

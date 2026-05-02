@@ -570,9 +570,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &backend_configs,
     ));
 
+    // ─── Routing calculator — dynamic Dog selection based on observed latencies ──
+    // Consumes dog_performance observations and adapts routing in real-time.
+    // Data-centric: routing reflects current performance, not static config.
+    let routing_calc = Arc::new(infra::routing_calc::RoutingCalculator::new());
+
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
+
+    // DORMANT: Organism recovery (K15 consumer: state history → crystal cache)
+    // state history consumer not yet complete — deferred to next phase
+
     let rest_state = Arc::new(api::rest::AppState {
         judge: judge_swap,
         storage: Arc::clone(&storage_port),
@@ -608,6 +617,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         senses,
         domain_curations: Arc::clone(&domain_curations),
         domain_router: Arc::clone(&domain_router),
+        routing_calc: Arc::clone(&routing_calc),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 

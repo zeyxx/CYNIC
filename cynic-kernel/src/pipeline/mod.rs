@@ -190,27 +190,58 @@ async fn pipeline_inner(
     metrics.inc_cache_miss();
     tracing::info!(phase = "cache", result = "miss");
 
-    let crystals = if inject_crystals {
+    let mature_crystals = if inject_crystals {
+        // DORMANT: K15 consumer (organism memory recovery) — deferred to next phase
+        // Would warm-start judgment context with domain-matching patterns learned from previous sessions
+        let mut cached: Vec<crate::domain::ccm::MatureCrystal> = Vec::new();
+
+        // Semantic search: find additional crystals matching stimulus embedding.
         let found = if let Some(ref emb) = stimulus_embedding {
-            storage.search_crystals_semantic(&emb.vector, 10).await
-                .inspect_err(|e| tracing::warn!(error = %e, "semantic crystal search failed — fallback to domain list"))
+            storage
+                .search_crystals_semantic(&emb.vector, 10)
+                .await
+                .inspect_err(|e| {
+                    tracing::warn!(error = %e, "semantic crystal search failed — fallback to domain list")
+                })
                 .unwrap_or_default()
         } else {
             Vec::new()
         };
-        if found.is_empty() {
-            storage.list_crystals_for_domain(domain_hint, 10).await
-                .inspect_err(|e| tracing::warn!(error = %e, "domain crystal list failed — pipeline continues without crystals"))
+
+        // Supplement cached with fresh queries.
+        let supplemental = if found.is_empty() {
+            storage
+                .list_crystals_for_domain(domain_hint, 10)
+                .await
+                .inspect_err(|e| {
+                    tracing::warn!(error = %e, "domain crystal list failed — pipeline continues without crystals")
+                })
                 .unwrap_or_default()
         } else {
             found
-        }
+        };
+
+        // Combine: cached + supplemental. Filter supplemental to mature crystals only.
+        cached.extend(
+            supplemental
+                .into_iter()
+                .filter(|c| {
+                    c.state == crate::domain::ccm::CrystalState::Crystallized
+                        || c.state == crate::domain::ccm::CrystalState::Canonical
+                })
+                .filter_map(|c| crate::domain::ccm::MatureCrystal::try_from(c).ok()),
+        );
+        cached
     } else {
         tracing::info!(phase = "crystals", "crystal injection disabled (A/B mode)");
         Vec::new()
     };
-    // T4: filter to MatureCrystal newtype — only Crystallized|Canonical pass
-    let mature_crystals = ccm::filter_mature(crystals);
+
+    tracing::info!(
+        phase = "crystals",
+        total = mature_crystals.len(),
+        "mature crystals for injection"
+    );
     tracing::info!(
         phase = "crystals",
         total = mature_crystals.len(),
