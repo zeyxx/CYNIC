@@ -64,6 +64,17 @@ fi
 GIT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | wc -l)
 
+# ── Auto-prune: clean up local branches whose remote was deleted (post-merge) ──
+git -C "$PROJECT_DIR" fetch --prune origin 2>/dev/null || true
+GONE_BRANCHES=$(git -C "$PROJECT_DIR" branch -vv 2>/dev/null | grep '\[gone\]' | awk '{print $1}' || true)
+PRUNED_COUNT=0
+if [[ -n "$GONE_BRANCHES" ]]; then
+    while IFS= read -r gone; do
+        [[ -z "$gone" ]] && continue
+        git -C "$PROJECT_DIR" branch -D "$gone" 2>/dev/null && PRUNED_COUNT=$((PRUNED_COUNT+1)) || true
+    done <<< "$GONE_BRANCHES"
+fi
+
 # ── K15: Capture AT_START cortex proof (multi-cortex coordination) ──
 # Prevents divergence: captures git state at session start for next session to verify continuity.
 # Stored in .claude/session-proof.json (git-tracked), also sent to kernel /observe as fallback.
