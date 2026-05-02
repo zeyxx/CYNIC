@@ -7,7 +7,6 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use super::types::{AppState, ErrorResponse};
-use crate::domain::ccm::build_observation;
 
 #[derive(Debug, Deserialize)]
 pub struct ObserveRequest {
@@ -20,6 +19,14 @@ pub struct ObserveRequest {
     pub agent_id: Option<String>,
     pub session_id: Option<String>,
     pub tags: Option<Vec<String>>,
+
+    // ── Ledger system (observation consensus) ──
+    pub value: Option<serde_json::Value>, // The fact value
+    pub confidence: Option<String>,       // observed|deduced|inferred|conjecture
+    pub consumer: Option<String>,         // K15: who must act
+    pub action: Option<String>,           // K15: what changes if true
+    pub depends_on: Option<Vec<String>>,  // Graph: what this depends on
+    pub maturity: Option<f64>,            // Kairos: is it ripe?
 }
 
 pub async fn observe_handler(
@@ -36,8 +43,24 @@ pub async fn observe_handler(
         ));
     }
 
+    // K15 gate: if posting to mempool/hackathon or status=critical, consumer is required
+    let is_critical = req
+        .domain
+        .as_deref()
+        .map(|d| d.contains("mempool") || d.contains("hackathon"))
+        .unwrap_or(false)
+        || req.status.as_deref() == Some("critical");
+    if is_critical && req.consumer.is_none() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "K15: consumer field is required for critical observations".into(),
+            }),
+        ));
+    }
+
     let agent_id = req.agent_id.clone();
-    let obs = build_observation(
+    let obs = crate::domain::ccm::build_observation_with_ledger(
         req.tool,
         req.target,
         req.domain,
@@ -47,6 +70,12 @@ pub async fn observe_handler(
         agent_id.clone(),
         req.session_id,
         req.tags,
+        req.value,      // Ledger: the fact value
+        req.confidence, // Ledger: epistemic label
+        req.consumer,   // Ledger: K15 consumer
+        req.action,     // Ledger: K15 action
+        req.depends_on, // Ledger: Kairos dependencies
+        req.maturity,   // Ledger: Kairos maturity
     );
 
     // K15: Route observation to source organ if agent_id matches, else kernel storage

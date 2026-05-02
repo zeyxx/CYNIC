@@ -707,6 +707,16 @@ fn raw_observation_json_shape() {
         agent_id: "agent-1".into(),
         session_id: "sess-1".into(),
         tags: vec!["test-tag".into()],
+        value: None,
+        confidence: None,
+        consumer: None,
+        action: None,
+        depends_on: vec![],
+        maturity: None,
+        hash: String::new(),
+        prev_hash: String::new(),
+        observers: vec![],
+        consensus_score: None,
     };
     let v: serde_json::Value = serde_json::to_value(&obs).unwrap();
     // CONTRACT: these fields must exist with these exact names

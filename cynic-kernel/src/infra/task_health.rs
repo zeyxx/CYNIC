@@ -167,6 +167,13 @@ const DOG_PERF_FLUSH: TaskContract = TaskContract {
     consumer: "routing calculator",
     failure_effect: "dog performance metrics stop updating, routing stagnates",
 };
+const AUTO_REMEDIATION: TaskContract = TaskContract {
+    name: "auto_remediation",
+    expected_interval: 600, // 5min interval + grace
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "node recovery",
+    failure_effect: "nodes stay crashed indefinitely, fleet degrades",
+};
 
 fn task_contract(name: &str) -> TaskContract {
     match name {
@@ -188,6 +195,7 @@ fn task_contract(name: &str) -> TaskContract {
         "state_log" => STATE_LOG,
         "submission_queue" => SUBMISSION_QUEUE,
         "dog_perf_flush" => DOG_PERF_FLUSH,
+        "auto_remediation" => AUTO_REMEDIATION,
         other => panic!("task contract missing for '{other}'"),
     }
 }
@@ -221,6 +229,7 @@ pub struct TaskHealth {
     state_log: AtomicU64,
     submission_queue: AtomicU64,
     dog_perf_flush: AtomicU64,
+    auto_remediation: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -253,6 +262,7 @@ impl TaskHealth {
             state_log: AtomicU64::new(0),
             submission_queue: AtomicU64::new(0),
             dog_perf_flush: AtomicU64::new(0),
+            auto_remediation: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -319,6 +329,10 @@ impl TaskHealth {
     }
     pub fn touch_dog_perf_flush(&self) {
         self.dog_perf_flush
+            .store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_auto_remediation(&self) {
+        self.auto_remediation
             .store(Self::now_secs(), Ordering::Relaxed);
     }
 
@@ -468,6 +482,18 @@ impl TaskHealth {
             TaskSnapshot::new(
                 DOG_PERF_FLUSH,
                 self.dog_perf_flush.load(Ordering::Relaxed),
+                now,
+                None,
+            ),
+            TaskSnapshot::new(
+                SUBMISSION_QUEUE,
+                self.submission_queue.load(Ordering::Relaxed),
+                now,
+                None,
+            ),
+            TaskSnapshot::new(
+                AUTO_REMEDIATION,
+                self.auto_remediation.load(Ordering::Relaxed),
                 now,
                 None,
             ),

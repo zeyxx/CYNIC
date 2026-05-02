@@ -440,6 +440,14 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     #[tracing::instrument(skip(self), err)]
+    async fn list_submitted_verdicts(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<QueuedVerdict>, StorageError> {
+        verdict_queue::list_submitted_verdicts(self, limit).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
     async fn get_queued_verdict(
         &self,
         verdict_id: &str,

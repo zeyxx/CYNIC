@@ -29,6 +29,11 @@ pub trait StoragePort: Send + Sync {
     async fn store_verdict(&self, verdict: &Verdict) -> Result<(), StorageError>;
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError>;
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError>;
+    /// Bootstrap write for Forming-state crystals only.
+    ///
+    /// **K15 CONTRACT**: This path bypasses Dog quorum enforcement.
+    /// Any crystal above Forming state MUST be created via `observe_crystal`,
+    /// which enforces `voter_count >= MIN_QUORUM` before state promotion.
     async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError>;
     async fn get_crystal(&self, id: &str) -> Result<Option<Crystal>, StorageError>;
     async fn list_crystals(&self, limit: u32) -> Result<Vec<Crystal>, StorageError>;
@@ -380,6 +385,15 @@ pub trait StoragePort: Send + Sync {
 
     /// List verdicts pending submission (status = "pending"), ordered by created_at ASC.
     async fn list_pending_verdicts(&self, _limit: u32) -> Result<Vec<QueuedVerdict>, StorageError> {
+        Ok(vec![])
+    }
+
+    /// List verdicts submitted but not yet confirmed (status = "submitted"), ordered by submitted_at ASC.
+    /// K15 consumer: confirmation_polling loop checks these for on-chain finality.
+    async fn list_submitted_verdicts(
+        &self,
+        _limit: u32,
+    ) -> Result<Vec<QueuedVerdict>, StorageError> {
         Ok(vec![])
     }
 

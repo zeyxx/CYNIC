@@ -278,7 +278,7 @@ pub async fn remediate_handler(
 
 /// Attempt to recover a degraded node by restarting llama-server.
 /// Returns: "succeeded", "failed", "timed_out", or "circuit_broken".
-async fn attempt_node_recovery(node: &str) -> String {
+pub(crate) async fn attempt_node_recovery(node: &str) -> String {
     let timeout_duration = std::time::Duration::from_secs(30);
     let command = "systemctl restart llama-server";
 
@@ -332,6 +332,16 @@ async fn emit_recovery_observation(
         session_id: "".to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         tags: vec!["k15-recovery".to_string(), "remediation".to_string()],
+        value: None,
+        confidence: None,
+        consumer: None,
+        action: None,
+        depends_on: vec![],
+        maturity: None,
+        hash: String::new(),
+        prev_hash: String::new(),
+        observers: vec![],
+        consensus_score: None,
     };
 
     state.storage.store_observation(&obs).await?;
@@ -384,7 +394,7 @@ pub async fn inference_remediate_handler(
 
 /// Map dog name to Tailscale node name.
 /// E.g., "qwen-9b-core" → "cynic-core", "qwen35-9b-gpu" → "cynic-gpu"
-fn dog_to_node(dog: &str) -> String {
+pub(crate) fn dog_to_node(dog: &str) -> String {
     if dog.contains("gpu") {
         "cynic-gpu".to_string()
     } else if dog.contains("core") || dog.contains("9b-core") {
@@ -460,6 +470,16 @@ async fn emit_probe_observation(
             "k15-observability".to_string(),
             format!("failure_type:{failure_reason}"),
         ],
+        value: None,
+        confidence: None,
+        consumer: None,
+        action: None,
+        depends_on: vec![],
+        maturity: None,
+        hash: String::new(),
+        prev_hash: String::new(),
+        observers: vec![],
+        consensus_score: None,
     };
 
     state.storage.store_observation(&obs).await?;
