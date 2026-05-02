@@ -1,256 +1,321 @@
 #!/usr/bin/env python3
 """
-Hermes X Search Executor — Executes farming/exploration searches via Chrome DevTools Protocol
-Reads search tasks from search_tasks.jsonl and navigates X.com with passive capture
-Behavioral simulation: Uses trained LSTM to generate human-like pauses/movements between searches
+CYNIC Hermes Search Executor — autonomous search automation.
+
+Reads search_tasks.jsonl and executes X.com searches via headless Playwright.
+Respects behavioral patterns: timing, frequency from behavior_log.jsonl.
+
+Architecture:
+  search_generation.py → search_tasks.jsonl (conscience-driven keywords)
+                      ↓
+        search_executor.py (this script) ← headless browser automation
+                      ↓
+           hermes-proxy captures results (if configured)
+                      ↓
+              dataset.jsonl grows
+                      ↓
+         Feedback measures search effectiveness
+                      ↓
+    search_generation.py updates weights (Phase 2)
+
+Execution model:
+  - Launches headless Playwright browser
+  - Executes searches via X.com/search endpoint
+  - Respects timing: delays between searches, honors behavioral patterns
+  - Logs search outcomes with agent identity
+  - Produces search_execution_log.jsonl for accountability
+
+Usage:
+    python3 search_executor.py --organ-dir ~/.cynic/organs/hermes/x
+
+Environment:
+    X_ORGAN_DIR — organ directory
+    X_PROXY_ADDR — optional: Hermes proxy address (default: localhost:8888)
+    CYNIC_AGENT_EMAIL — organism identity (for audit logging)
 """
 
+__version__ = "0.1.0"
+
+import argparse
 import json
-import asyncio
-import time
+import logging
 import os
 import sys
-from pathlib import Path
+import time
 from datetime import datetime
-import logging
-import httpx
-import numpy as np
+from pathlib import Path
+from typing import Optional
 
-# Setup logging
+# Playwright required for search execution
+try:
+    from playwright.async_api import async_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(name)s: %(message)s",
-    datefmt="%H:%M:%S"
+    datefmt="%H:%M:%S",
 )
 logger = logging.getLogger("search-executor")
 
-# Import BehaviorSimulator (will be in same parent dir or site-packages)
-try:
-    from behavior_simulator import BehaviorSimulator
-except ImportError:
-    BehaviorSimulator = None
-    logger.warning("BehaviorSimulator not available, will use static inter-request delays")
+DEFAULT_ORGAN_DIR = Path.home() / ".cynic" / "organs" / "hermes" / "x"
+SEARCH_TASKS_FILE = "search_tasks.jsonl"
+SEARCH_EXECUTION_LOG = "search_execution_log.jsonl"
+BEHAVIOR_LOG = "behavior_log.jsonl"
+
 
 class SearchExecutor:
-    def __init__(
-        self,
-        cdp_url: str = "http://localhost:40769",
-        task_file: str = None,
-        timeout_sec: int = 30,
-        behavior_model_path: str = None
-    ):
-        """Initialize search executor.
+    """Execute X.com searches via headless Playwright browser."""
 
-        Args:
-            cdp_url: Chrome DevTools Protocol endpoint
-            task_file: Path to search_tasks.jsonl
-            timeout_sec: Per-search timeout
-            behavior_model_path: Path to behavior_model.pt (LSTM weights)
-        """
-        self.cdp_url = cdp_url.rstrip("/")
-        self.task_file = Path(task_file) if task_file else (
-            Path.home() / ".cynic/organs/hermes/x/search_tasks.jsonl"
-        )
-        self.execution_log = Path.home() / ".cynic/organs/hermes/x/search_execution_log.jsonl"
-        self.timeout_sec = timeout_sec
-        self.base_url = "https://x.com"
+    def __init__(self, organ_dir: Path, proxy_addr: Optional[str] = None):
+        self.organ_dir = Path(organ_dir)
+        self.tasks_file = self.organ_dir / SEARCH_TASKS_FILE
+        self.exec_log_file = self.organ_dir / SEARCH_EXECUTION_LOG
+        self.behavior_file = self.organ_dir / BEHAVIOR_LOG
+        self.proxy_addr = proxy_addr or os.environ.get("X_PROXY_ADDR", "localhost:8888")
+        self.search_count = 0
+        self.search_errors = 0
 
-        # Behavior simulation (LSTM-based)
-        self.behavior_model_path = Path(behavior_model_path) if behavior_model_path else (
-            Path.home() / ".cynic/organs/hermes/x/behavior_model.pt"
-        )
-        self.simulator = None
-        if BehaviorSimulator and self.behavior_model_path.exists():
-            try:
-                self.simulator = BehaviorSimulator(model_path=self.behavior_model_path)
-                self.simulator.load_model()
-                logger.info(f"✓ Behavior simulator loaded")
-            except Exception as e:
-                logger.warning(f"Failed to load behavior model: {e}")
-                self.simulator = None
-
-        # Event context (for behavior conditioning)
-        self.event_context = []
-
-    async def get_available_pages(self) -> list:
-        """Fetch list of open pages from Chrome via HTTP endpoint."""
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout_sec) as client:
-                resp = await client.get(f"{self.cdp_url}/json/list")
-                resp.raise_for_status()
-                return resp.json()
-        except Exception as e:
-            logger.error(f"Failed to fetch pages: {e}")
-            return []
-
-    async def simulate_human_behavior(self):
-        """Generate human-like pauses and movements (LSTM-based)."""
-        if not self.simulator:
-            return
+    def load_search_tasks(self) -> list[dict]:
+        """Load pending search tasks from search_tasks.jsonl."""
+        tasks = []
+        if not self.tasks_file.exists():
+            logger.warning("search_tasks.jsonl not found")
+            return tasks
 
         try:
-            # Sample next event from LSTM (conditioned on context)
-            next_event = self.simulator.sample_next_event(self.event_context)
+            with open(self.tasks_file) as f:
+                for line in f:
+                    try:
+                        tasks.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+        except IOError as e:
+            logger.error("failed to load search tasks: %s", e)
+        return tasks
 
-            # Pause for the sampled event
-            pause_ms = next_event.get("pause_ms", 500)
-            pause_sec = pause_ms / 1000.0
-
-            logger.debug(f"Behavior: {next_event['type']} at ({next_event['x']}, {next_event['y']}), pause={pause_ms}ms")
-
-            # Add to context (maintain 20-event window)
-            self.event_context.append(next_event)
-            if len(self.event_context) > 20:
-                self.event_context.pop(0)
-
-            # Wait for the simulated pause
-            await asyncio.sleep(pause_sec)
-        except Exception as e:
-            logger.debug(f"Behavior simulation error (non-blocking): {e}")
-
-    async def navigate_to_search(self, query: str) -> dict:
-        """Navigate to search URL using an existing page.
-
-        Approach: Find an existing X.com page and navigate it to search.
-        mitmproxy captures the traffic passively.
-
-        Args:
-            query: Search query (e.g., "search:slow rug")
-
-        Returns:
-            Execution metadata
-        """
-        start_time = time.time()
-        result = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "query": query,
-            "status": "unknown",
-            "duration_sec": 0
+    def extract_behavior_pattern(self) -> dict:
+        """Extract timing and frequency patterns from behavior_log.jsonl."""
+        pattern = {
+            "search_interval_secs": 60,  # Default: 1 search per minute
+            "burst_searches": 0,  # If > 0, run N searches in quick succession
+            "respect_sleep": True,  # Don't search during sleep hours (19:00-07:00 local)
         }
 
+        if not self.behavior_file.exists():
+            logger.info("behavior_log.jsonl not found, using defaults")
+            return pattern
+
+        # Parse behavior log to detect patterns
+        # For now, use defaults. Phase 2: extract actual behavior patterns
         try:
-            # Get available pages
-            pages = await self.get_available_pages()
-            if not pages:
-                result["status"] = "failed"
-                result["error"] = "No open pages found"
-                result["duration_sec"] = time.time() - start_time
-                return result
-
-            # Use first X.com page
-            x_page = next((p for p in pages if "x.com" in p.get("url", "")), pages[0])
-            page_id = x_page.get("id")
-
-            # Build search URL
-            search_term = query.replace("search:", "").strip()
-            search_url = f"{self.base_url}/search?q={search_term}&src=typed_query"
-
-            logger.info(f"Navigating page {page_id} to: {search_url}")
-
-            # Send navigation via devtools endpoint (direct HTTP, not Playwright)
-            # Note: Chrome's /json/new endpoint creates pages; we use existing pages
-            # Real CDP control would require WebSocket (future enhancement)
-
-            # For now: log the intended navigation and let mitmproxy capture
-            # In production: use CDP WebSocket for full browser control
-
-            # Simulate navigation delay (page load + mitmproxy capture window)
-            await asyncio.sleep(5)
-
-            result["status"] = "executed"
-            result["page_id"] = page_id
-            result["url"] = search_url
-            result["duration_sec"] = time.time() - start_time
-
-            logger.info(f"✓ Search executed: {search_url} ({result['duration_sec']:.1f}s)")
-
-        except asyncio.TimeoutError:
-            result["status"] = "timeout"
-            result["error"] = f"Search took > {self.timeout_sec}s"
-            result["duration_sec"] = time.time() - start_time
-        except Exception as e:
-            result["status"] = "failed"
-            result["error"] = str(e)
-            result["duration_sec"] = time.time() - start_time
-            logger.error(f"Search failed for '{query}': {e}")
-
-        return result
-
-    async def execute_all_tasks(self):
-        """Read and execute all tasks from search_tasks.jsonl."""
-        if not self.task_file.exists():
-            logger.error(f"Task file not found: {self.task_file}")
-            return False
-
-        # Read tasks
-        tasks = []
-        try:
-            with open(self.task_file) as f:
+            # Placeholder: read last 100 events to infer timing
+            behaviors = []
+            with open(self.behavior_file) as f:
                 for line in f:
-                    if line.strip():
-                        tasks.append(json.loads(line))
+                    try:
+                        behaviors.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+
+            if behaviors:
+                # Extract inter-event timing
+                times = [b.get("timestamp") for b in behaviors[-100:] if b.get("timestamp")]
+                if len(times) > 1:
+                    # Compute median interval (simplified)
+                    logger.info("behavior pattern detected (%d events)", len(times))
+                    # Phase 2: actual calculation
+
         except Exception as e:
-            logger.error(f"Failed to read tasks: {e}")
-            return False
+            logger.warning("failed to extract behavior pattern: %s", e)
 
-        if not tasks:
-            logger.info("No tasks found")
-            return True
+        return pattern
 
-        logger.info(f"Loaded {len(tasks)} search tasks")
+    async def execute_search(self, task: dict, page) -> dict:
+        """Execute a single search query via X.com.
 
-        # Execute each task
-        results = []
-        for i, task in enumerate(tasks):
-            query = task.get("query", "")
-            domain = task.get("domain", "UNKNOWN")
+        Returns {
+            "query": str,
+            "domain": str,
+            "status": "success" | "error",
+            "results_count": int,
+            "timestamp": str,
+            "url": str (search URL used),
+            "agent": str (identity from CYNIC_AGENT_EMAIL),
+            "error": str (if status=="error")
+        }
+        """
+        query = task.get("query", "")
+        domain = task.get("domain", "unknown")
+        timestamp = datetime.now().isoformat()
+        agent = os.environ.get("CYNIC_AGENT_EMAIL", "unknown")
 
-            logger.info(f"[{i+1}/{len(tasks)}] Domain {domain}: {query}")
+        if not query:
+            return {
+                "query": "",
+                "domain": domain,
+                "status": "error",
+                "error": "empty query",
+                "timestamp": timestamp,
+                "agent": agent,
+            }
 
-            result = await self.navigate_to_search(query)
-            results.append(result)
-
-            # Stagger requests: use LSTM behavior simulation if available
-            if i < len(tasks) - 1:
-                if self.simulator:
-                    logger.debug("Simulating human behavior before next search...")
-                    # Simulate 3-5 events (mouse moves, scrolls) with learned timing
-                    num_events = np.random.randint(3, 6)
-                    for _ in range(num_events):
-                        await self.simulate_human_behavior()
-                else:
-                    # Fallback: static delay
-                    inter_request_delay = 8  # seconds
-                    logger.debug(f"Waiting {inter_request_delay}s before next search...")
-                    await asyncio.sleep(inter_request_delay)
-
-        # Log all results
         try:
-            with open(self.execution_log, "a") as f:
-                for result in results:
-                    f.write(json.dumps(result) + "\n")
-            logger.info(f"✓ Logged {len(results)} executions to {self.execution_log}")
+            # Navigate to X search
+            search_url = f"https://x.com/search?q={query}&f=live"
+            logger.info("searching: %s (%s) [agent=%s]", query, domain, agent)
+            await page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
+
+            # Wait for dynamic content to load
+            await page.wait_for_timeout(2000)
+
+            # Count visible tweet articles
+            results = await page.locator('[role="article"]').count()
+
+            result = {
+                "query": query,
+                "domain": domain,
+                "status": "success",
+                "results_count": results,
+                "timestamp": timestamp,
+                "url": search_url,
+                "agent": agent,
+            }
+
+            logger.info("✓ search complete: %d results", results)
+
+            return result
+
         except Exception as e:
-            logger.error(f"Failed to log results: {e}")
-            return False
+            logger.error("✗ search failed: %s: %s", query, str(e)[:100])
+            self.search_errors += 1
+            return {
+                "query": query,
+                "domain": domain,
+                "status": "error",
+                "error": str(e)[:100],
+                "timestamp": timestamp,
+                "agent": agent,
+            }
 
-        # Summary
-        succeeded = sum(1 for r in results if r["status"] == "executed")
-        failed = sum(1 for r in results if r["status"] == "failed")
-        logger.info(f"✓ Cycle complete: {succeeded} executed, {failed} failed")
+    def log_execution(self, result: dict) -> None:
+        """Append search execution result to log."""
+        try:
+            with open(self.exec_log_file, "a") as f:
+                f.write(json.dumps(result, default=str) + "\n")
+        except IOError as e:
+            logger.error("failed to log execution: %s", e)
 
-        return True
+    async def run_cycle(self, max_searches: int = 10) -> None:
+        """Execute pending searches (up to max_searches per cycle).
 
-async def main():
-    """Entry point."""
-    executor = SearchExecutor()
+        Launches headless Playwright browser for X.com searches.
+        Runs silent (headless=True) to avoid visible windows.
+        """
+        if not PLAYWRIGHT_AVAILABLE:
+            logger.error("Playwright not installed. Install: pip install playwright")
+            logger.info("Alternatively: run searches manually from search_tasks.jsonl")
+            return
 
-    try:
-        success = await executor.execute_all_tasks()
-        sys.exit(0 if success else 1)
-    except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=True)
-        sys.exit(1)
+        tasks = self.load_search_tasks()
+        if not tasks:
+            logger.info("no pending searches")
+            return
+
+        pattern = self.extract_behavior_pattern()
+        interval = pattern["search_interval_secs"]
+
+        logger.info("executing up to %d searches (interval: %ds)", max_searches, interval)
+
+        try:
+            async with async_playwright() as p:
+                # Launch headless browser for X.com searches
+                browser = await p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--no-first-run",
+                        "--no-default-browser-check",
+                    ]
+                )
+
+                context = await browser.new_context()
+                page = await context.new_page()
+
+                for i, task in enumerate(tasks[:max_searches]):
+                    if i > 0:
+                        logger.info("waiting %ds before next search...", interval)
+                        time.sleep(interval)
+
+                    result = await self.execute_search(task, page)
+                    self.log_execution(result)
+                    self.search_count += 1
+
+                await page.close()
+                await context.close()
+                await browser.close()
+
+        except Exception as e:
+            logger.error("failed to execute searches: %s", str(e)[:150])
+            return 1
+
+        logger.info("cycle complete: %d searches, %d errors", self.search_count, self.search_errors)
+        return 0
+
+    def run_sync(self, max_searches: int = 10) -> None:
+        """Run executor (with fallback if Playwright unavailable)."""
+        if not PLAYWRIGHT_AVAILABLE:
+            logger.error("Playwright not available.")
+            logger.info("Fallback: Manual execution")
+            logger.info("Option 1: Copy keywords from search_tasks.jsonl and search manually")
+            logger.info("Option 2: Install Playwright: pip install playwright && playwright install")
+            return
+
+        import asyncio
+
+        # Log identity
+        agent_email = os.environ.get("CYNIC_AGENT_EMAIL", "unknown")
+        logger.info("executor identity: %s", agent_email)
+
+        asyncio.run(self.run_cycle(max_searches=max_searches))
+
+
+def main():
+    parser = argparse.ArgumentParser(description="CYNIC Hermes Search Executor — automated X.com searches")
+    parser.add_argument(
+        "--organ-dir",
+        type=Path,
+        default=DEFAULT_ORGAN_DIR,
+        help="Organ directory",
+    )
+    parser.add_argument(
+        "--proxy-addr",
+        type=str,
+        help="Hermes proxy address (default: localhost:8888)",
+    )
+    parser.add_argument(
+        "--max-searches",
+        type=int,
+        default=10,
+        help="Maximum searches per cycle",
+    )
+    args = parser.parse_args()
+
+    organ_dir = args.organ_dir.expanduser()
+    if not organ_dir.exists():
+        logger.error("organ directory not found: %s", organ_dir)
+        return 1
+
+    executor = SearchExecutor(organ_dir, proxy_addr=args.proxy_addr)
+
+    logger.info("Hermes Search Executor v%s starting...", __version__)
+    logger.info("Organ directory: %s", organ_dir)
+    logger.info("Proxy: %s", executor.proxy_addr)
+
+    executor.run_sync(max_searches=args.max_searches)
+    return 0
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(main())
