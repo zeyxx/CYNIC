@@ -1,3 +1,4 @@
+# DORMANT: Point-in-time observation — not live state. Probe /health for current reality.
 # Agent Lifecycle — Layer 1 Complete, Validation Chain Mapped
 
 **Session:** 2026-04-25  

@@ -1,3 +1,4 @@
+# DORMANT: Point-in-time observation — not live state. Probe /health for current reality.
 # Organ X Diagnosis — 2026-05-01 Post-Reboot
 
 **Status:** 95% infrastructure OK, curation pipeline offline, K15 loop broken.

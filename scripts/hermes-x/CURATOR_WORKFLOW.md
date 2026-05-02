@@ -1,3 +1,4 @@
+# DORMANT: Point-in-time observation — not live state. Probe /health for current reality.
 # @CynicOracle Curator Workflow
 
 **Goal:** Format Hermes X verdicts for manual posting to @CynicOracle. Filters high-confidence judgments + high-signal observations.
