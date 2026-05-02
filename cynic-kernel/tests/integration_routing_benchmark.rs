@@ -1,3 +1,8 @@
+#![allow(
+    clippy::print_stderr,
+    clippy::literal_string_with_formatting_args,
+    clippy::expect_used
+)]
 //! E2E routing benchmark — proves routing-filtered Dog selection improves judgment quality
 //!
 //! Hypothesis: By filtering Dogs based on observed performance (latency SLA + success rate),
@@ -152,7 +157,7 @@ async fn benchmark_routing_improves_dog_selection() {
     // Select representative subset: 2 easy, 2 medium, 2 hard per domain
     let mut representative = Vec::new();
     for domain in &["chess", "general"] {
-        for difficulty in &["easy", "medium", "hard"] {
+        for _difficulty in &["easy", "medium", "hard"] {
             let matches: Vec<_> = stimuli
                 .iter()
                 .filter(|s| s.domain == *domain && s.expected_verdict != "Bark")
@@ -190,7 +195,7 @@ async fn benchmark_routing_improves_dog_selection() {
     // Run each stimulus through pipeline twice: with and without routing filter
     for stimulus in &representative {
         for use_filter in &[false, true] {
-            let filtered_dogs = if *use_filter {
+            let _filtered_dogs = if *use_filter {
                 get_filtered_dogs(&routing_calc, &stimulus.domain)
             } else {
                 // All Dogs (simulated — for now we'll just use the filtered list)
