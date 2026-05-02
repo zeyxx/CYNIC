@@ -8,6 +8,15 @@ pub(super) async fn store_crystal(
     storage: &SurrealHttpStorage,
     crystal: &Crystal,
 ) -> Result<(), StorageError> {
+    // K15 guard: store_crystal is for Forming-state bootstrap only.
+    // Any non-Forming state requires Dog quorum → use observe_crystal instead.
+    if crystal.state != CrystalState::Forming {
+        return Err(StorageError::QueryFailed(format!(
+            "store_crystal: only Forming state allowed (got {:?}). Use observe_crystal for state transitions.",
+            crystal.state
+        )));
+    }
+
     let escape = |s: &str| escape_surreal(s);
     let safe_id = sanitize_id(&crystal.id)?;
     let sql = format!(

@@ -303,7 +303,7 @@ mod tests {
         // 88-char base58 string (Solana keypair)
         let key = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz";
         assert_eq!(key.len(), 88);
-        let content = format!("My private key is: {} (keep secret)", key);
+        let content = format!("My private key is: {key} (keep secret)");
         assert!(is_sensitive_content(&content));
     }
 
@@ -312,7 +312,7 @@ mod tests {
         // 87-char base58 string
         let key = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxy";
         assert_eq!(key.len(), 87);
-        let content = format!("Keypair: {}", key);
+        let content = format!("Keypair: {key}");
         assert!(is_sensitive_content(&content));
     }
 
@@ -359,7 +359,7 @@ mod tests {
         let mixed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxy";
         assert_eq!(mixed.len(), 87);
         // Mixed case 87-char string will flag as it's alphanumeric 87 chars
-        assert!(is_sensitive_content(&format!("Key: {}", mixed)));
+        assert!(is_sensitive_content(&format!("Key: {mixed}")));
         // But normal text with no patterns should not flag
         assert!(!is_sensitive_content("This is normal text with no secrets"));
     }

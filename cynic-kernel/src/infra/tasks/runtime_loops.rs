@@ -88,6 +88,16 @@ fn spawn_event_consumer_with_liveness(
                                     session_id: String::new(),
                                     timestamp: chrono::Utc::now().to_rfc3339(),
                                     tags: vec!["kernel-self-obs".into()],
+                                    value: None,
+                                    confidence: None,
+                                    consumer: None,
+                                    action: None,
+                                    depends_on: vec![],
+                                    maturity: None,
+                                    hash: String::new(),
+                                    prev_hash: String::new(),
+                                    observers: vec![],
+                                    consensus_score: None,
                                 };
                                 // Fire-and-forget — don't block event processing.
                                 let storage = Arc::clone(&rest_state.storage);

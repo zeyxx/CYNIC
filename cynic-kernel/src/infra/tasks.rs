@@ -555,6 +555,70 @@ pub fn spawn_remediation_watcher(
     handle
 }
 
+// ── Auto-remediation loop (K15: background recovery for degraded nodes, every 5min) ────
+
+pub fn spawn_auto_remediation(
+    storage: Arc<dyn StoragePort>,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.tick().await;
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Auto-remediation loop stopped");
+                    break;
+                }
+                _ = interval.tick() => {
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(60),
+                        run_auto_remediation(&storage),
+                    ).await {
+                        Ok(()) => {}
+                        Err(_) => klog!("[AutoRemediation] tick timed out"),
+                    }
+                    task_health.touch_auto_remediation();
+                }
+            }
+        }
+    })
+}
+
+async fn run_auto_remediation(storage: &Arc<dyn StoragePort>) {
+    // List degraded nodes: fatal_probe_count ≥ 2 in last 30min, or degradation score > 0.8
+    let degraded = match storage.list_degraded_nodes(1800, 0.8).await {
+        Ok(nodes) => nodes,
+        Err(e) => {
+            klog!("[AutoRemediation] list_degraded_nodes failed: {}", e);
+            return;
+        }
+    };
+    if degraded.is_empty() {
+        return;
+    }
+    klog!(
+        "[AutoRemediation] {} degraded nodes detected",
+        degraded.len()
+    );
+    for (node, failure_reason, fatal_count, _) in degraded {
+        klog!(
+            "[AutoRemediation] attempting recovery: node={} reason={} fatal={}",
+            node,
+            failure_reason,
+            fatal_count
+        );
+        let result = crate::api::rest::inference_router::attempt_node_recovery(&node).await;
+        klog!(
+            "[AutoRemediation] recovery result: node={} status={}",
+            node,
+            result
+        );
+    }
+}
+
 // Rate limiter eviction moved to main.rs — REST delivery concern, not infra.
 
 #[cfg(test)]

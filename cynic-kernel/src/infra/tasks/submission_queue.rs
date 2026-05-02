@@ -36,6 +36,10 @@ pub fn spawn_submission_queue(
                         klog!("submission_queue error: {}", e);
                         // Continue on error — don't crash the background task
                     }
+                    if let Err(e) = process_submitted_verdicts(&storage).await {
+                        klog!("confirmation_polling error: {}", e);
+                        // Continue on error — don't crash the background task
+                    }
                     task_health.touch_submission_queue();
                 }
             }
@@ -231,4 +235,96 @@ async fn submit_via_helius(instruction_data: &[u8], content_hash: &str) -> Resul
         chrono::Utc::now().timestamp(),
         encoded.chars().take(8).collect::<String>()
     ))
+}
+
+/// Poll submitted verdicts for on-chain confirmation via Helius getSignatureStatuses.
+/// Transitions: submitted → confirmed (if finalized) or failed (if error or timeout).
+/// K15 consumer: this closes the onchain lifecycle loop for submitted verdicts.
+async fn process_submitted_verdicts(storage: &Arc<dyn StoragePort>) -> Result<(), String> {
+    let submitted = storage
+        .list_submitted_verdicts(10)
+        .await
+        .map_err(|e| format!("list_submitted_verdicts failed: {e}"))?;
+
+    if submitted.is_empty() {
+        return Ok(());
+    }
+
+    let rpc_url = std::env::var("HELIUS_RPC_URL")
+        .unwrap_or_else(|_| "https://mainnet.helius-rpc.com".to_string());
+
+    let client = reqwest::Client::new();
+
+    for verdict in submitted {
+        let Some(ref tx_sig) = verdict.tx_signature else {
+            continue;
+        };
+
+        // Mock signatures (no '5' prefix typical of base58 Solana sigs) — skip confirmation, timeout after 24h
+        if tx_sig.starts_with("submit-") {
+            if let Ok(submitted_at) =
+                chrono::DateTime::parse_from_rfc3339(verdict.submitted_at.as_deref().unwrap_or(""))
+            {
+                let age_hours =
+                    (chrono::Utc::now() - submitted_at.with_timezone(&chrono::Utc)).num_hours();
+                if age_hours > 24 {
+                    let _ = storage
+                        .update_verdict_failed(&verdict.verdict_id, "mock_signature_timeout")
+                        .await;
+                }
+            }
+            continue;
+        }
+
+        // Call Helius getSignatureStatuses
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getSignatureStatuses",
+            "params": [[tx_sig], {"searchTransactionHistory": true}]
+        });
+        let Ok(Ok(resp)) = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            client.post(&rpc_url).json(&body).send(),
+        )
+        .await
+        else {
+            klog!("getSignatureStatuses timed out for {}", verdict.verdict_id);
+            continue;
+        };
+        let json: serde_json::Value = match resp.json().await {
+            Ok(j) => j,
+            Err(e) => {
+                klog!("getSignatureStatuses parse failed: {e}");
+                continue;
+            }
+        };
+        let status = &json["result"]["value"][0];
+        if status.is_null() {
+            // Not yet on chain — check age, fail if too old
+            if let Ok(submitted_at) =
+                chrono::DateTime::parse_from_rfc3339(verdict.submitted_at.as_deref().unwrap_or(""))
+            {
+                let age_hours =
+                    (chrono::Utc::now() - submitted_at.with_timezone(&chrono::Utc)).num_hours();
+                if age_hours > 24 {
+                    let _ = storage
+                        .update_verdict_failed(&verdict.verdict_id, "confirmation_timeout_24h")
+                        .await;
+                }
+            }
+        } else if status["confirmationStatus"] == "finalized" {
+            let _ = storage.update_verdict_confirmed(&verdict.verdict_id).await;
+            klog!(
+                "verdict {} confirmed on chain (sig={})",
+                verdict.verdict_id,
+                tx_sig
+            );
+        } else if let Some(err) = status["err"].as_object() {
+            let _ = storage
+                .update_verdict_failed(&verdict.verdict_id, &format!("onchain_error: {err:?}"))
+                .await;
+        }
+    }
+    Ok(())
 }

@@ -12,7 +12,7 @@ use crate::domain::dog::{Stimulus, Verdict};
 use crate::domain::embedding::{Embedding, EmbeddingPort};
 use crate::domain::events::KernelEvent;
 use crate::domain::metrics::Metrics;
-use crate::domain::storage::StoragePort;
+use crate::domain::storage::{Event, StoragePort};
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::{CacheContext, CacheLookup, VerdictCache};
 use crate::domain::wisdom::DomainCurations;
@@ -686,6 +686,43 @@ async fn side_effects(
         }
     }
 
+    // K15: Emit fleet events for each Dog evaluation — feeds fleet_stats + list_degraded_nodes
+    for ds in &verdict.dog_scores {
+        let event = Event {
+            tool: "dog_evaluation".to_string(),
+            node: crate::api::rest::inference_router::dog_to_node(&ds.dog_id),
+            elapsed_ms: ds.latency_ms,
+            output_bytes: 0,
+            success: true,
+            failure_reason: "none".to_string(),
+            agent_id: "kernel-pipeline".to_string(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            metadata: format!("dog={}", ds.dog_id),
+        };
+        let _ = deps.storage.store_event(&event).await;
+    }
+
+    // Emit failure events for failed Dogs
+    for dog_id in &verdict.failed_dogs {
+        let error_detail = verdict
+            .failed_dog_errors
+            .get(dog_id)
+            .cloned()
+            .unwrap_or_else(|| "unknown".to_string());
+        let event = Event {
+            tool: "dog_evaluation".to_string(),
+            node: crate::api::rest::inference_router::dog_to_node(dog_id),
+            elapsed_ms: 0,
+            output_bytes: 0,
+            success: false,
+            failure_reason: "process_crash".to_string(),
+            agent_id: "kernel-pipeline".to_string(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            metadata: format!("dog={dog_id} error={error_detail}"),
+        };
+        let _ = deps.storage.store_event(&event).await;
+    }
+
     // CCM: observe crystal + embed
     let domain = stimulus.domain.as_deref().unwrap_or("general");
     observe_crystal_for_verdict(verdict, stimulus_embedding, domain, deps).await;
@@ -1318,8 +1355,7 @@ mod tests {
             };
             assert_eq!(
                 actual, expected,
-                "VerdictKind::{:?} should map to {}",
-                kind, expected
+                "VerdictKind::{kind:?} should map to {expected}"
             );
         }
     }

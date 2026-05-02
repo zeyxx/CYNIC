@@ -349,6 +349,12 @@ impl StoragePort for ReconnectableStorage {
     ) -> Result<Vec<crate::domain::verdict_queue::QueuedVerdict>, StorageError> {
         self.current().list_pending_verdicts(limit).await
     }
+    async fn list_submitted_verdicts(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<crate::domain::verdict_queue::QueuedVerdict>, StorageError> {
+        self.current().list_submitted_verdicts(limit).await
+    }
     async fn get_queued_verdict(
         &self,
         verdict_id: &str,

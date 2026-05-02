@@ -198,6 +198,16 @@ mod tests {
             agent_id: String::new(),
             session_id: String::new(),
             tags: vec![],
+            value: None,
+            confidence: None,
+            consumer: None,
+            action: None,
+            depends_on: vec![],
+            maturity: None,
+            hash: String::new(),
+            prev_hash: String::new(),
+            observers: vec![],
+            consensus_score: None,
         }
     }
 

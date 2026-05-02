@@ -177,12 +177,13 @@ mod tests {
         collector.observe("chess", "qwen-7b-hf", 250, true);
 
         // Verify they're tracked separately
-        if let Ok(agg) = collector.aggregators.read() {
-            if let Some(dogs) = agg.get("chess") {
-                assert_eq!(dogs.len(), 2);
-                assert!(dogs.contains_key("deterministic-dog"));
-                assert!(dogs.contains_key("qwen-7b-hf"));
-            }
+        let Ok(agg) = collector.aggregators.read() else {
+            return;
+        };
+        if let Some(dogs) = agg.get("chess") {
+            assert_eq!(dogs.len(), 2);
+            assert!(dogs.contains_key("deterministic-dog"));
+            assert!(dogs.contains_key("qwen-7b-hf"));
         }
     }
 
@@ -194,14 +195,16 @@ mod tests {
         collector.observe("chess", "dog1", 30, true);
         collector.observe("chess", "dog1", 100, true); // Should evict first sample (10)
 
-        if let Ok(agg) = collector.aggregators.read() {
-            if let Some(dogs) = agg.get("chess") {
-                if let Some(dog1) = dogs.get("dog1") {
-                    // Now has [20, 30, 100]. Avg should be (20+30+100)/3 ≈ 50
-                    assert_eq!(dog1.avg_latency_ms(), 50);
-                    assert_eq!(dog1.samples.len(), 3);
-                }
-            }
+        let Ok(agg) = collector.aggregators.read() else {
+            return;
+        };
+        let Some(dogs) = agg.get("chess") else {
+            return;
+        };
+        if let Some(dog1) = dogs.get("dog1") {
+            // Now has [20, 30, 100]. Avg should be (20+30+100)/3 ≈ 50
+            assert_eq!(dog1.avg_latency_ms(), 50);
+            assert_eq!(dog1.samples.len(), 3);
         }
     }
 }

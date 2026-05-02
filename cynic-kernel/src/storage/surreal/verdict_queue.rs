@@ -68,6 +68,18 @@ pub(super) async fn list_pending_verdicts(
     Ok(rows.iter().map(row_to_queued_verdict).collect())
 }
 
+pub(super) async fn list_submitted_verdicts(
+    storage: &SurrealHttpStorage,
+    limit: u32,
+) -> Result<Vec<QueuedVerdict>, StorageError> {
+    let sql = format!(
+        "SELECT * FROM queued_verdict WHERE status = 'submitted' ORDER BY submitted_at ASC LIMIT {}",
+        limit.min(100)
+    );
+    let rows = storage.query_one(&sql).await?;
+    Ok(rows.iter().map(row_to_queued_verdict).collect())
+}
+
 pub(super) async fn get_queued_verdict(
     storage: &SurrealHttpStorage,
     verdict_id: &str,

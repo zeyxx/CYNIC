@@ -105,6 +105,16 @@ fn make_obs(agent: &str, tool: &str, target: &str) -> Observation {
         session_id: agent.to_string(),
         timestamp: "2026-01-01T00:00:00Z".to_string(),
         tags: vec![],
+        value: None,
+        confidence: None,
+        consumer: None,
+        action: None,
+        depends_on: vec![],
+        maturity: None,
+        hash: String::new(),
+        prev_hash: String::new(),
+        observers: vec![],
+        consensus_score: None,
     }
 }
 
