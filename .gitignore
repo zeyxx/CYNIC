@@ -66,12 +66,11 @@ rustc-ice-*.txt
 .claude/session-convention-*.md
 scripts/run_niah.py
 
-# Untracked projects & exploratory directories
-/ASDFBurnTracker/
-/ASDev/
-/CultScreener/
-/HolDex/
-/asdf_grinder/
+# External projects (T.'s repos + ASDFASDFA's, planned absorption into core)
+# See EXTERNAL_CONTEXT.md for absorption roadmap and fork status
+/external/
+
+# Untracked exploratory directories
 /web/
 
 # Experimental scripts & utilities
