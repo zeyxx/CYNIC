@@ -178,7 +178,7 @@ async fn benchmark_routing_improves_dog_selection() {
 
     eprintln!("\n=== ROUTING BENCHMARK ===\n");
     eprintln!(
-        "{:<15} {:<10} {:<8} {:<10} {:<8} {:<10} {:<12} {}",
+        "{:<15} {:<10} {:<8} {:<10} {:<8} {:<10} {:<12} {:<10}",
         "Stimulus",
         "Domain",
         "Filter",
