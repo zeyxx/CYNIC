@@ -444,8 +444,25 @@ async fn pipeline_inner(
 
     tracing::info!(phase = "evaluate", "dispatching to Dogs");
     let on_dog_ref: Option<&OnDogCallback> = deps.on_dog.as_ref().map(|b| b.as_ref());
+
+    // ── DOMAIN-AWARE DOG SELECTION ──
+    // Token domain requires <5s latency (hackathon requirement).
+    // Skip qwen35-9b-gpu for tokens (10.3s) — use fast path: deterministic-dog (0ms) + qwen-7b-hf (3.1s).
+    let dogs_filter_optimized: Option<Vec<String>>;
+    let dogs_filter_final = if domain_hint == "token" && dogs_filter.is_none() {
+        // Auto-select fast Dogs for token domain
+        dogs_filter_optimized = Some(vec![
+            "deterministic-dog".to_string(),
+            "qwen-7b-hf".to_string(),
+        ]);
+        dogs_filter_optimized.as_ref().map(|v| v.as_slice())
+    } else {
+        // Use caller-provided filter or all Dogs
+        dogs_filter
+    };
+
     let mut verdict = judge
-        .evaluate_progressive(&stimulus, dogs_filter, metrics, on_dog_ref)
+        .evaluate_progressive(&stimulus, dogs_filter_final, metrics, on_dog_ref)
         .await?;
     metrics.inc_verdict();
     tracing::info!(
