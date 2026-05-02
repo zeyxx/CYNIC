@@ -17,6 +17,14 @@ import os
 from typing import List, Dict, Optional
 from datetime import datetime
 
+# K15 real-time emission (live kernel consumption)
+try:
+    from k15_emitter import emit_wallet_corpus
+except ImportError:
+    def emit_wallet_corpus(*args, **kwargs):
+        """Stub if k15_emitter not available."""
+        return False
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 if not logger.handlers:
@@ -195,6 +203,13 @@ def build_corpus(
 
     logger.info(f"\n✓ Corpus saved: {output_file}")
     logger.info(f"  Total wallets: {len(corpus)} ({sum(1 for c in corpus if c['is_human'])}H + {sum(1 for c in corpus if not c['is_human'])}S)")
+
+    # K15: Emit corpus to kernel for real-time consumption → organism learning
+    logger.info(f"\n📡 Emitting corpus to kernel (K15 producer)...")
+    if emit_wallet_corpus(corpus):
+        logger.info("✓ Corpus emitted to kernel")
+    else:
+        logger.warning("⚠️  Kernel unreachable (data saved locally, will retry on next run)")
 
     return output_file
 

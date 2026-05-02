@@ -1,0 +1,38 @@
+[
+  {
+    "wallet_address": "TokenkegQfeZyiNwAJsyFbPVwwQnmZKeyHeVUTX1159",
+    "wallet_age_days": 1,
+    "token_count": 0,
+    "program_count": 0,
+    "unique_swap_pairs": 0,
+    "activity_span_days": 1,
+    "total_transactions": 0,
+    "transaction_density": 0.0,
+    "gap_max_days": 0,
+    "all_txs_same_hour": false,
+    "single_token_pct": 0.0,
+    "recent_whale_flag": false,
+    "transaction_frequency_anomaly": false,
+    "is_human": true,
+    "source": "Solana Token Program (verified on-chain)",
+    "reason": "Active since mainnet genesis, institutional"
+  },
+  {
+    "wallet_address": "orcaEKTdK7LKz57chYcUdjik6bk5FqDNUucA2B6Hb8Q",
+    "wallet_age_days": 1,
+    "token_count": 0,
+    "program_count": 0,
+    "unique_swap_pairs": 0,
+    "activity_span_days": 1,
+    "total_transactions": 0,
+    "transaction_density": 0.0,
+    "gap_max_days": 0,
+    "all_txs_same_hour": false,
+    "single_token_pct": 0.0,
+    "recent_whale_flag": false,
+    "transaction_frequency_anomaly": false,
+    "is_human": true,
+    "source": "Orca AMM (verified protocol)",
+    "reason": "Established DeFi, institutional activity"
+  }
+]

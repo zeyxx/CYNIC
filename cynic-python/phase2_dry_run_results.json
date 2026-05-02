@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-05-02T13:48:00Z",
+  "test_status": "PARTIAL_SUCCESS",
+  "symbol": "MASK",
+  "mint_address": "6MQpbiTC2YcogidTmKqMLK82qvE9z5QEm7EP3AEDpump",
+  "results": {
+    "helius_api": {
+      "status": "working",
+      "test": "getTokenLargestAccounts",
+      "result": "Fetched 20 holders successfully",
+      "holders_fetched": 20,
+      "api_status": "verified_valid_via_environment"
+    },
+    "wallet_scorer": {
+      "status": "needs_api_key_fix",
+      "test": "score_wallets(holders)",
+      "result": "HeliusWalletCollector initialization needs API key parameter",
+      "fallback_used": "Synthetic scores (5 humans at phi_inv, 15 sybils)"
+    },
+    "kernel_judge": {
+      "status": "blocked_on_infrastructure",
+      "test": "/judge endpoint",
+      "result": "HTTP timeout after 10 seconds",
+      "kernel_health": false,
+      "kernel_address": "<TAILSCALE_CORE>:3030"
+    }
+  },
+  "phase2_readiness": {
+    "helius_integration": "ready",
+    "wallet_scoring": "needs_fix",
+    "kernel_integration": "blocked_infrastructure"
+  }
+}

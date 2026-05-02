@@ -38,14 +38,29 @@ source ~/.cynic-env 2>/dev/null || true
 KERNEL_ADDR="${CYNIC_REST_ADDR:-127.0.0.1:3030}"
 API_KEY="${CYNIC_API_KEY:-}"
 
-if [[ -z "$SESSION_ID" ]]; then
-    block "coordination requires session_id for kernel edits"
-fi
 if [[ -z "$API_KEY" ]]; then
     block "coordination requires CYNIC_API_KEY for kernel edits"
 fi
 
-AGENT_ID="claude-${SESSION_ID:0:12}"
+# Derive AGENT_ID from SESSION_ID (if available from Claude context)
+# Fallback: read from most recent session state file (set by session-init.sh)
+AGENT_ID=""
+if [[ -n "$SESSION_ID" ]]; then
+    AGENT_ID="claude-${SESSION_ID:0:12}"
+else
+    # Fallback: find most recent session state file
+    SESSION_STATE_DIR="/tmp/cynic-sessions"
+    if [[ -d "$SESSION_STATE_DIR" ]]; then
+        RECENT_STATE=$(ls -t "$SESSION_STATE_DIR"/*.state 2>/dev/null | head -1)
+        if [[ -n "$RECENT_STATE" ]]; then
+            AGENT_ID=$(grep -oP 'agent_id=\K[^ ]+' "$RECENT_STATE" 2>/dev/null || true)
+        fi
+    fi
+fi
+
+if [[ -z "$AGENT_ID" ]]; then
+    block "coordination requires valid AGENT_ID (SESSION_ID missing and no session state file found)"
+fi
 TARGET_FILE="${FILE_PATH#*cynic-kernel/src/}"
 
 CLAIM_TMP=$(mktemp /tmp/cynic-claim-XXXXXX)
