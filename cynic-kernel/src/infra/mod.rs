@@ -2,6 +2,7 @@ pub mod alerts;
 pub mod boot;
 pub mod circuit_breaker;
 pub mod config;
+pub mod dog_performance;
 pub mod domain_router;
 pub mod embedded_domains;
 pub mod health_loop;

@@ -87,6 +87,10 @@ pub struct AppState {
     /// Dynamic routing calculator — selects Dogs based on observed latencies.
     /// Consumes dog_performance observations and adapts routing in real-time.
     pub routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
+    /// Dog performance collector — aggregates latency/success metrics per Dog.
+    /// K15 seam 3 producer: on_dog callbacks feed observations here.
+    /// Periodically flushed to routing_calc for live routing adaptation.
+    pub dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.

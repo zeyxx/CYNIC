@@ -575,6 +575,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Data-centric: routing reflects current performance, not static config.
     let routing_calc = Arc::new(infra::routing_calc::RoutingCalculator::new());
 
+    // ─── Dog performance collector — K15 seam 3 producer ──
+    // Aggregates latency/success observations from pipeline.on_dog callbacks.
+    // Periodically flushes to routing_calc for live routing adaptation.
+    let dog_perf_collector = Arc::new(infra::dog_performance::DogPerformanceCollector::new());
+
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
@@ -618,6 +623,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         domain_curations: Arc::clone(&domain_curations),
         domain_router: Arc::clone(&domain_router),
         routing_calc: Arc::clone(&routing_calc),
+        dog_perf_collector: Arc::clone(&dog_perf_collector),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
