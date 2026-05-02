@@ -2,6 +2,27 @@
 
 All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.7] — 2026-05-02
+
+### Added
+
+- **burn:** SSOT enforcement on runtime state (/health mutable, docs immutable) — lint gate + hook validation
+- **burn:** external project cohabitation documentation (EXTERNAL_CONTEXT.md)
+- **burn:** Phase 2 empirical script deletion (6 confirmed dead scripts, zero system failures)
+- **infra:** Separation of Concerns on root directories — 5 external projects organized, web/ verified unused and removed
+
+### Removed
+
+- **scripts:** 12 total Phase 1 + Phase 2 scripts (80K) — empirically validated dead code
+- **root:** 11.7M junk files (json, os, sys artifacts)
+- **root:** web/ directory (16K, untracked duplicates of cynic-ui/)
+- **session:** 13 orphaned session artifacts
+
+### Changed
+
+- **docs:** moved 8 design documents from root to docs/ directory
+- **git:** Cargo.toml, VERSION.md, CHANGELOG.md now SSOT-synchronized (gate enforced)
+
 ## [0.7.6] — 2026-03-31
 
 ### Added
