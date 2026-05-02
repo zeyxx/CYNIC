@@ -12,11 +12,24 @@ source ~/.cynic-env 2>/dev/null || true
 
 # Agent ID from Claude session_id (same derivation as session-init.sh)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+AGENT_ID=""
+
 if [[ -n "$SESSION_ID" ]]; then
     AGENT_ID="claude-${SESSION_ID:0:12}"
 else
-    # Fallback: try timestamp-based ID (mirrors session-init.sh fallback)
-    # Without a stable ID we can't release — but expire_stale will clean up in 5min
+    # Fallback: read from most recent session state file (set by session-init.sh)
+    SESSION_STATE_DIR="/tmp/cynic-sessions"
+    if [[ -d "$SESSION_STATE_DIR" ]]; then
+        RECENT_STATE=$(ls -t "$SESSION_STATE_DIR"/*.state 2>/dev/null | head -1)
+        if [[ -n "$RECENT_STATE" ]]; then
+            AGENT_ID=$(grep -oP 'agent_id=\K[^ ]+' "$RECENT_STATE" 2>/dev/null || true)
+        fi
+    fi
+fi
+
+if [[ -z "$AGENT_ID" ]]; then
+    # Without a stable ID we can't release — kernel's expire_stale will clean up in 5min
+    echo "Warning: could not determine AGENT_ID for coordination release" >&2
     exit 0
 fi
 
