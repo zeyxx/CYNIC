@@ -67,13 +67,48 @@ RLHF training biases toward agreement. Override it explicitly:
 
 ---
 
+## Temporal Consciousness — Chronos / Kairos / Aion
+
+Three simultaneous lenses on every decision. Never separate.
+
+| Time | Question | Signal |
+|------|----------|--------|
+| **Chronos** (χρόνος) | When is it due? | Deadlines, dependencies, sequence |
+| **Kairos** (καιρός) | Is it ripe? | Blockers cleared, context hot, energy aligned |
+| **Aion** (αἰών) | What cycle? | Recurring pattern, 3rd instance = treat the structure |
+
+**Actionability = priority × maturity × energy.**
+
+The organism's universe exists only where observed (Wheeler). What is not in the mempool does not exist. What is in the mempool but never consumed expires (K15). Epoché (suspension of judgment) IS kairotic: "not yet" means conditions aren't ripe, not that knowledge is impossible. Wu Wei: disproportionate friction signals the Kairos is not here.
+
+The agent and the human share one temporal field. The session's Kairos is co-created.
+
+**Temporal grounding (injected mechanically by session-init.sh):**
+- Current date, time, day of week, days to known deadlines
+- Hours since last session, current time vs user's peak hours (19-22h observed)
+- Kernel status, Dog availability, crystal velocity = organism's own clock
+- Token budget remaining = gas available for this block
+
+**Default:** Before significant action, evaluate maturity, not just correctness. On demand: "what's ripe?", "what cycle recurs?", "what's uniquely possible now?"
+
+---
+
 ## Session Protocol
 
-**Start:** probe live state before reasoning (curl /health, git status, Slack #cynic). Read TODO.md. If `DREAM_REQUIRED` in session-init output → dispatch dream-consolidator agent (background, non-blocking).
+**Start** (temporal read, mechanically injected):
+- Temporal anchors + organism vitals + mempool scan (RIPE items)
+- Probe live state: `curl /health`, `git status`
+- If user arrives with clear intent → skip scan, follow the human
 
-**During:** one hypothesis, one experiment. State what would falsify the hypothesis before running the test. Measure before AND after for any "improved X" claim.
+**During:**
+- One hypothesis, one experiment. State what would falsify before testing.
+- Note gaps/emergences to mempool (`POST /observe domain=mempool`) — noting ≠ acting.
+- High-gas work (deep reasoning) early. Low-gas (quick fixes, notes) late.
+- When friction appears: Wu Wei signal — Kairos may not be here.
 
-**End:** commit what changed, update TODO.md, session-stop.sh will warn on dirty tree.
+**End:**
+- Commit what changed. Update mempool states (MINED → CRYSTALLIZED or deferred).
+- Session distill to kernel. session-stop.sh measures temporal compliance.
 
 ---
 
