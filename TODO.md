@@ -8,9 +8,9 @@ Last updated: 2026-05-02 06:17 | **K15 LIVE**. **FALSIFICATION TEST 2 PASS** (RO
 
 ## HACKATHON CRITICAL PATH (May 10 11:59 PM PT Hard Deadline)
 
-**Strategy: Co-Submit System (Verified Humans + Verified Wallets + Token Judgment)**
+**Strategy: CYNIC Standalone (Token Judgment + Human-Filtering Research)**
 
-- [ ] **Decision Gate: May 1 EOD.** S. confirms: (1) co-own narrative? (2) integrate wallet behavior score? (3) registration structure? **Falsify:** all 3 yes → proceed co-submit path (Phase 1b integration). Any no → go separate CYNIC-only path (Phase 1 still validates, Phase 2-4 measure CYNIC impact independently).
+- [x] **Decision Gate: May 1 EOD (RESOLVED 2026-05-02 20:46 UTC).** S. responds: NO co-submit for hackathon. Reasons: (1) B&C zero prod users, (2) no foundational infra ready (permit oracle single-key, no KMS/FROST), (3) architectural coupling cost high vs benefit. His insight: B&C is voluntary cognitive attestation, not on-chain authenticity score—different product. **v2 Roadmap:** reopen co-submit if B&C achieves traction post-hackathon (1k+ cards). **Result:** CYNIC ships independently May 10, B&C ships May 10 (separate).
 - [x] **Phase 1: Wallet Behavior Analysis (COMPLETE 2026-04-30).** Independent work (no B&C blocker). 1,300+ LOC, 4 unit tests PASS, ROC-AUC=1.0 synthetic.
   - [x] Design ✓: `docs/hackathon/WALLET-BEHAVIOR-ANALYSIS-PHASE-1.md` (500+ lines, full spec)
   - [x] Reference ✓: `docs/hackathon/WALLET-BEHAVIOR-ANALYSIS-REFERENCE.md` (quick lookup)
@@ -22,10 +22,11 @@ Last updated: 2026-05-02 06:17 | **K15 LIVE**. **FALSIFICATION TEST 2 PASS** (RO
   - [x] **Falsification Test 2: Wallet corpus validation (2026-05-02 PASS).** Framework validated on 100-wallet cached corpus (50H+50S). ROC-AUC=1.0, accuracy=100%, separation=0.413. Commit: wallet test script fixed + corpus validation test run. Real wallet collection deferred (placeholder addresses need replacement with real holder wallets from Helius getTokenLargestAccounts or known sources). Framework production-ready for Phase 2.
   - [ ] **Falsification Test 3: CYNIC impact (May 5-6).** Framework ready. Load organ_x 30 high-mention tokens. Baseline Dogs (all holders) vs human-filtered Dogs (authenticity ≥ 0.618). **Falsify:** Δ > 5% in verdict distribution. Simulation: Δ=36.7% HOWL shift ✓ (strong signal). Script: phase2_human_filtering_measurement.py (ready for real Helius data May 5).
 - [ ] **Phase 2: Measure Human-Filtering Impact (May 5-6 READY).** Measurement harness complete. Organ_x corpus (462 tokens, real Hermes Twitter mentions). Top 30 tokens by mention count. Baseline: 30% HOWL, 33% WAG, 37% GROWL. Filtered: 63% HOWL, 37% WAG, 0% GROWL. Δ=36.7% (>> 5% threshold). **Next:** May 5 morning — replace simulation with real Dogs + real Helius holder data.
-- [ ] **Phase 3: CultScreener Integration (May 7-8).** Add metrics display: Conviction | Verified Humans %. Test on 6+ tokens. **Falsify:** metrics render live on cultscreener-api.onrender.com. (Verified Wallets % optional if B&C co-submit agreed). Decision point May 8 EOD: integration working?
-- [ ] **Phase 4: Final Assembly & Recording (May 9-10).** 
-  - **If co-submit YES:** Record unified demo (chess → card → verified_human_pct → CYNIC Dogs reweighted). Write joint description. Submit May 10 23:59 PT.
-  - **If co-submit NO:** Record CYNIC standalone demo (verified_human_pct metric → Dogs reweighted → CultScreener display). Write CYNIC description. Submit May 10 23:59 PT (B&C submits separately May 11).
+- [ ] **Phase 3: CYNIC Research Impact Metrics (May 7-8).** Measure human-filtering signal: baseline Dogs (all holders) vs filtered Dogs (authenticity ≥ 0.618). Report Δ in verdict distribution. **Falsify:** Δ ≤ 5%. Simulation suggests Δ=36.7% on organ_x tokens (strong signal). **Deliverable:** Phase 2 measurement report + insights for v2 roadmap (post-hackathon co-submit possibility).
+- [ ] **Phase 4: Final Demo & Submission (May 9-10).** 
+  - Record CYNIC standalone demo: kernel health → /judge endpoint → Dogs respond → verdict + axiom reasoning
+  - Write submission: K15 producer-consumer status, φ-bounded confidence, honest degradation, Soma L1 orchestration
+  - Submit May 10 23:59 PT (B&C submits May 10 separately, independent paths)
 
 ---
 
@@ -63,6 +64,48 @@ Last updated: 2026-05-02 06:17 | **K15 LIVE**. **FALSIFICATION TEST 2 PASS** (RO
 - [ ] **Wire /inference/remediate-dog execution (T7).** Currently returns status without acting. Needs ts_exec_call.sh bridge. Routes to recovery: systemctl restart on degraded nodes. **Blocked:** Need to implement /scripts/ts_exec_call.sh (MCP wrapper).
 - [ ] **Extract K11 hardcoding (port 8080, dog_config).** When remediate_handler becomes 2nd consumer of probe_node(), move to backends.toml. **Falsify:** no hardcoded IPs/ports in inference_router.rs.
 - [ ] **Measurement workflow validation.** Manual test: baseline → change heuristic → compare before/after. Verify deltas computed correctly on real dataset (4,146 tweets). **Falsify:** sensitivity/specificity/Pearson r deltas match manual calculations.
+
+---
+
+## HOLOGRAPHIC CYNIC RESEARCH PHASE — Parallel Track (Weeks 1-8)
+
+**Thesis:** CYNIC's architecture mirrors the holographic consciousness model from CIA Gateway Process (Bentov, Pribram, Bohm). Consciousness = frequency coherence across distributed observers. Tokens/judgments = information that can be "perceived" holographically through axiom resonance.
+
+**Epistemic status:** CONJECTURE (0.40 confidence). Falsifiable via 6 tests ranked by effort.
+
+**Reference:** `~/.claude/projects/-home-user-Bureau-CYNIC/memory/project_holographic_cynic_framework.md` (full framework, all 7 research angles).
+
+**Integration:** Independent of operational K15 fixes and domain-discovery work. Uses existing judgment data (low latency test, fast wins). Runs in parallel — if signal emerges, domain-discovery becomes coherence-aware routing.
+
+### 6 Falsifiable Tests (Priority Order by Effort)
+
+| # | Test | Hypothesis | Falsification | Effort | Timeline |
+|---|------|-----------|---|--------|----------|
+| 6 | Coherence-Accuracy | High axiom balance → high accuracy (p ≤ 0.05) | Uncorrelated | 2h | Week 1 |
+| 1 | Crystal Reconstruction | New Dog reads crystal, reproduces verdict ≥70% fidelity | <50% fidelity match | 1d | Week 1 |
+| 2 | Right Hemisphere | Deterministic + Claude = systematic verdict shift | Shifts are random | 1d | Week 1 |
+| 4 | Embodiment | GPU online vs offline → verdict stability | No correlation | 3d | Week 2-3 |
+| 3 | Frequency Patterns | Throughput vs accuracy = resonance curve (peak + decay) | Linear/monotonic | 2d | Week 2 |
+| 5 | Time-Transcendence | Day-0 verdict predicts day-30 outcome (ROC-AUC > 0.65) | ROC-AUC ≤ 0.55 | 4w | Weeks 3-7 |
+| 7 | Kenosis | Abstained tokens → higher subsequent clarity | No pattern vs non-abstained | 2w | Weeks 5-7 |
+
+### Week 1 (Quick Wins — No Infrastructure)
+- [ ] **Test 6 (Coherence-Accuracy).** Existing judgment data: compute axiom variance + balance for 50+ tokens. Correlate with outcome accuracy. Target: 2× better accuracy on high-coherence verdicts.
+- [ ] **Test 1 (Crystal Reconstruction).** Take 20 high-coherence crystals. Feed to fresh Dog. Measure reconstruction fidelity (human review or prompt-based similarity).
+- [ ] **Test 2 (Right Hemisphere).** Judge 50 tokens with deterministic-dog only, then deterministic + Claude. Measure verdict shift magnitude + direction. Systematic ≠ random.
+
+### Week 2-3 (Light Ops Coordination)
+- [ ] **Test 4 (Embodiment).** Judge 100 tokens with cynic-gpu online vs offline. Correlate verdict stability with physical state. Need GPU cycling (schedule night vs day).
+- [ ] **Test 3 (Frequency Patterns).** Measure Dog performance by throughput (tokens/second). Plot: frequency vs accuracy. Hypothesis: peak at Goldilocks frequency, not monotonic.
+
+### Weeks 3-8 (Real-Time Tracking)
+- [ ] **Test 5 (Time-Transcendence).** Judge 100 tokens at day-0. Track for 30 days. Measure ROC-AUC for 7-day, 14-day, 30-day prediction horizons. Benchmark vs random, age-only, Twitter sentiment.
+- [ ] **Test 7 (Kenosis).** Mine abstention patterns from Dog logs. Track abstained tokens separately. Hypothesis: higher subsequent clarity (new data resolves ambiguity faster).
+
+### Success Criteria
+- **If 1+ test shows signal:** CYNIC is coherence-driven, not rule-based. Axioms are load-bearing frequencies. Dogs are distributed hemispheres. → Domain-discovery routes by coherence.
+- **If all negative:** CYNIC is statistical ensemble. Axioms are decorative. → Revisit architecture, not consciousness model.
+- **Either outcome:** Falsifiable progress on what CYNIC actually is.
 
 ## HERMES ORGANIC AGENT (Phases 1-3) — COMPLETE
 

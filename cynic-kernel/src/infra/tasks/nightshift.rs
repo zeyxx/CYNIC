@@ -10,6 +10,7 @@ use crate::domain::ccm;
 use crate::domain::constants;
 use crate::domain::dog::{MIN_QUORUM, Stimulus};
 use crate::domain::metrics::Metrics;
+use crate::domain::orchestrator::{Priority, ResourceGate, ResourceRequest};
 use crate::domain::storage::StoragePort;
 use crate::infra::task_health::TaskHealth;
 
@@ -120,7 +121,26 @@ async fn judge_commit(
     commit: &GitCommit,
     judge: &Arc<crate::judge::Judge>,
     storage: &Arc<dyn StoragePort>,
+    soma_gate: &Arc<ResourceGate>,
+    llama_url: &str,
 ) -> Result<(), String> {
+    // Soma L1 Alpha: Check GPU utilization before committing evaluation resources.
+    // Nightshift has lower priority (15s backoff if saturated).
+    let gate_req = ResourceRequest {
+        task_name: format!("nightshift-commit-{}", &commit.hash[..7]),
+        priority: Priority::Nightshift,
+        estimated_duration_secs: 120,
+        llama_url: llama_url.to_string(),
+    };
+
+    let decision = soma_gate.request(gate_req).await;
+    if let crate::domain::orchestrator::GateDecision::Queue { wait_secs } = decision {
+        return Err(format!(
+            "GPU saturated — skipping {}. Retry in {}s",
+            commit.hash, wait_secs
+        ));
+    }
+
     let stimulus = Stimulus {
         content: format!("{}: {}", commit.hash, commit.message),
         context: None,
@@ -165,12 +185,15 @@ async fn judge_commit(
 /// - Ticks every `NIGHTSHIFT_INTERVAL` (4h)
 /// - Each tick: git log --since=24h → judge each commit → observe dev crystal
 /// - Each commit judgment is bounded by `NIGHTSHIFT_COMMIT_TIMEOUT` (5min)
+/// - Soma L1 Alpha: consults resource gate before each judgment (Nightshift priority, 15s backoff if saturated)
 pub fn spawn_nightshift_loop(
     judge: Arc<crate::judge::Judge>,
     storage: Arc<dyn StoragePort>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
     repo_path: String,
+    soma_gate: Arc<ResourceGate>,
+    llama_url: String,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         // Warmup: wait 60s before first cycle so the rest of the kernel is fully booted.
@@ -246,7 +269,7 @@ pub fn spawn_nightshift_loop(
                     for commit in &commits {
                         match tokio::time::timeout(
                             constants::NIGHTSHIFT_COMMIT_TIMEOUT,
-                            judge_commit(commit, &judge, &storage),
+                            judge_commit(commit, &judge, &storage, &soma_gate, &llama_url),
                         )
                         .await
                         {
@@ -342,6 +365,7 @@ mod tests {
         let storage: Arc<dyn StoragePort> = Arc::new(crate::domain::storage::NullStorage);
         let task_health = Arc::new(TaskHealth::new());
         let shutdown = CancellationToken::new();
+        let soma_gate = Arc::new(ResourceGate::new());
 
         let handle = spawn_nightshift_loop(
             judge,
@@ -349,6 +373,8 @@ mod tests {
             task_health,
             shutdown.clone(),
             "/tmp".to_string(),
+            soma_gate,
+            "http://127.0.0.1:8080".to_string(),
         );
         shutdown.cancel();
         tokio::time::timeout(std::time::Duration::from_secs(3), handle)

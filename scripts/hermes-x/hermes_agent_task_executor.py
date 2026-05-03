@@ -227,6 +227,50 @@ def load_skill(organ_dir: str) -> str:
         return ""
 
 
+def consult_soma_gate(task_id: str) -> dict:
+    """Consult Soma L1 Alpha resource gate before task execution.
+
+    Returns:
+      {"decision": "allocate", "data": {"slot_id": "..."}} if GPU available
+      {"decision": "queue", "data": {"wait_secs": N}} if saturated
+
+    Falls back to allocation if gate unreachable (conservative: assume available).
+    """
+    if not KERNEL_ADDR or not KERNEL_API_KEY:
+        logger.debug("soma gate skipped (kernel not configured)")
+        return {"decision": "allocate", "data": {"slot_id": f"{task_id}-{int(time.time())}"}}
+
+    try:
+        headers = {"Authorization": f"Bearer {KERNEL_API_KEY}"}
+        soma_req = {
+            "task_name": task_id,
+            "priority": "hermes",  # Hermes = priority 2
+            "estimated_duration_secs": 300,  # typical chat execution
+            "llama_url": os.environ.get("LLAMA_SERVER_URL", "http://127.0.0.1:8080"),
+        }
+        url = f"{KERNEL_ADDR}/soma/request"
+        response = requests.post(url, json=soma_req, headers=headers, timeout=2)
+
+        if response.status_code == 200:
+            decision = response.json()
+            if decision.get("decision") == "queue":
+                wait_secs = decision.get("data", {}).get("wait_secs", 5)
+                logger.warning("GPU saturated for task %s — will retry in %ds", task_id, wait_secs)
+            else:
+                slot_id = decision.get("data", {}).get("slot_id", "unknown")
+                logger.info("soma gate allocated slot %s for task %s", slot_id, task_id)
+            return decision
+        else:
+            logger.warning("soma gate returned status %d, proceeding cautiously", response.status_code)
+            return {"decision": "allocate", "data": {"slot_id": f"{task_id}-{int(time.time())}"}}
+    except requests.RequestException as e:
+        logger.warning("soma gate unreachable: %s, proceeding with caution", e)
+        return {"decision": "allocate", "data": {"slot_id": f"{task_id}-{int(time.time())}"}}
+    except Exception as e:
+        logger.error("soma gate check failed: %s", e)
+        return {"decision": "allocate", "data": {"slot_id": f"{task_id}-{int(time.time())}"}}
+
+
 def extract_domain_guidance(skill_content: str) -> str:
     """Extract domain confidence scores and weights from SKILL.md.
 
@@ -326,6 +370,14 @@ Use the browser and code execution tools to complete this task.
 """
 
     logger.debug("prompt: %s", prompt[:200])
+
+    # Consult Soma L1 Alpha gate before execution (prevent GPU starvation)
+    gate_decision = consult_soma_gate(task_id)
+    if gate_decision.get("decision") == "queue":
+        wait_secs = gate_decision.get("data", {}).get("wait_secs", 5)
+        logger.warning("GPU saturated for task %s, queueing with %ds backoff", task_id, wait_secs)
+        # For now, fail with retry signal. In production, could re-queue to kernel
+        return None, f"GPU saturated (Hermes priority 5s backoff) — task {task_id} needs retry"
 
     # Spawn hermes agent
     try:

@@ -1,0 +1,451 @@
+{
+  "total_events": 44170,
+  "total_unique_clicks": 1430,
+  "by_domain": {
+    "llm": {
+      "weighted_count": 4964.4299688148785,
+      "percent": 24.034016803345487,
+      "raw_count": 11101,
+      "top_authors": [
+        [
+          "vllm_project",
+          "268.9"
+        ],
+        [
+          "leftcurvedev_",
+          "228.4"
+        ],
+        [
+          "RoundtableSpace",
+          "224.9"
+        ],
+        [
+          "sudoingX",
+          "213.2"
+        ],
+        [
+          "ZakShark",
+          "163.7"
+        ]
+      ],
+      "top_narratives": [
+        [
+          "analysis",
+          "701.7"
+        ],
+        [
+          "hype",
+          "376.1"
+        ],
+        [
+          "launch",
+          "128.3"
+        ],
+        [
+          "community",
+          "9.1"
+        ]
+      ],
+      "top_combinations": [
+        [
+          "vllm_project:analysis",
+          "186.3"
+        ],
+        [
+          "cgeorgiaw:analysis",
+          "112.9"
+        ],
+        [
+          "RoundtableSpace:analysis",
+          "75.0"
+        ],
+        [
+          "ihtesham2005:hype",
+          "53.5"
+        ],
+        [
+          "stainlu:analysis",
+          "53.2"
+        ],
+        [
+          "vanstriendaniel:hype",
+          "43.0"
+        ],
+        [
+          "keennay:hype",
+          "39.1"
+        ],
+        [
+          "om_patel5:analysis",
+          "35.3"
+        ]
+      ]
+    },
+    "token": {
+      "weighted_count": 1876.4006291628477,
+      "percent": 9.084113288816058,
+      "raw_count": 3679,
+      "top_authors": [
+        [
+          "ValsAI",
+          "99.2"
+        ],
+        [
+          "Capetlevrai",
+          "83.7"
+        ],
+        [
+          "0xSero",
+          "73.6"
+        ],
+        [
+          "om_patel5",
+          "70.5"
+        ],
+        [
+          "VivekIntel",
+          "66.9"
+        ]
+      ],
+      "top_narratives": [
+        [
+          "hype",
+          "306.6"
+        ],
+        [
+          "launch",
+          "155.0"
+        ],
+        [
+          "warning",
+          "102.6"
+        ],
+        [
+          "analysis",
+          "46.8"
+        ]
+      ],
+      "top_combinations": [
+        [
+          "tonysimons_:hype",
+          "63.7"
+        ],
+        [
+          "NewsyJohnson:hype",
+          "44.3"
+        ],
+        [
+          "defipro:warning",
+          "41.9"
+        ],
+        [
+          "VivekIntel:hype",
+          "39.0"
+        ],
+        [
+          "FouPoule54206:hype",
+          "31.8"
+        ],
+        [
+          "AntLingAGI:launch",
+          "31.5"
+        ],
+        [
+          "jeanterre552:hype",
+          "29.7"
+        ],
+        [
+          "jonjonclark:analysis",
+          "26.4"
+        ]
+      ]
+    },
+    "general": {
+      "weighted_count": 12825.907510118179,
+      "percent": 62.093347786699375,
+      "raw_count": 27393,
+      "top_authors": [
+        [
+          "gcrtrd",
+          "384.4"
+        ],
+        [
+          "elonmusk",
+          "333.4"
+        ],
+        [
+          "basilda_a",
+          "270.5"
+        ],
+        [
+          "GauHi_FDB",
+          "221.0"
+        ],
+        [
+          "mattpocockuk",
+          "207.5"
+        ]
+      ],
+      "top_narratives": [
+        [
+          "hype",
+          "884.1"
+        ],
+        [
+          "analysis",
+          "738.5"
+        ],
+        [
+          "launch",
+          "622.0"
+        ],
+        [
+          "community",
+          "120.9"
+        ]
+      ],
+      "top_combinations": [
+        [
+          "GauHi_FDB:hype",
+          "112.3"
+        ],
+        [
+          "derekmeegan:analysis",
+          "79.0"
+        ],
+        [
+          "googlegemma:hype",
+          "76.2"
+        ],
+        [
+          "0xSero:analysis",
+          "75.2"
+        ],
+        [
+          "imbabybrooklyn:analysis",
+          "71.0"
+        ],
+        [
+          "simplifyinAI:launch",
+          "64.0"
+        ],
+        [
+          "JovanieLac7350:hype",
+          "57.0"
+        ],
+        [
+          "_Shadow36:hype",
+          "54.5"
+        ]
+      ]
+    },
+    "security": {
+      "weighted_count": 699.628480976853,
+      "percent": 3.3870721862374977,
+      "raw_count": 1432,
+      "top_authors": [
+        [
+          "M0chifn",
+          "124.3"
+        ],
+        [
+          "basilda_a",
+          "118.4"
+        ],
+        [
+          "elonmusk",
+          "93.0"
+        ],
+        [
+          "gcrtrd",
+          "39.9"
+        ],
+        [
+          "DarkWebInformer",
+          "39.6"
+        ]
+      ],
+      "top_narratives": [
+        [
+          "warning",
+          "436.6"
+        ],
+        [
+          "hype",
+          "80.2"
+        ],
+        [
+          "analysis",
+          "50.0"
+        ],
+        [
+          "launch",
+          "14.1"
+        ]
+      ],
+      "top_combinations": [
+        [
+          "M0chifn:warning",
+          "124.3"
+        ],
+        [
+          "basilda_a:warning",
+          "118.4"
+        ],
+        [
+          "elonmusk:warning",
+          "93.0"
+        ],
+        [
+          "basilda_a:hype",
+          "76.6"
+        ],
+        [
+          "gcrtrd:warning",
+          "39.9"
+        ],
+        [
+          "gcr_shader:warning",
+          "21.8"
+        ],
+        [
+          "Dinosn:analysis",
+          "21.6"
+        ],
+        [
+          "VivekIntel:analysis",
+          "16.7"
+        ]
+      ]
+    },
+    "macro": {
+      "weighted_count": 86.90273222857113,
+      "percent": 0.4207173310446986,
+      "raw_count": 194,
+      "top_authors": [
+        [
+          "heygurisingh",
+          "20.1"
+        ],
+        [
+          "OAK_Res_FR",
+          "17.1"
+        ],
+        [
+          "AutismCapital",
+          "15.0"
+        ],
+        [
+          "RoundtableSpace",
+          "14.7"
+        ],
+        [
+          "usePolyArb",
+          "10.8"
+        ]
+      ],
+      "top_narratives": [
+        [
+          "hype",
+          "1.3"
+        ],
+        [
+          "analysis",
+          "1.3"
+        ],
+        [
+          "launch",
+          "1.3"
+        ]
+      ],
+      "top_combinations": [
+        [
+          "ieatjeets:hype",
+          "1.3"
+        ],
+        [
+          "virattt:analysis",
+          "1.3"
+        ],
+        [
+          "virattt:launch",
+          "1.3"
+        ]
+      ]
+    },
+    "sovereignty": {
+      "weighted_count": 185.507431739054,
+      "percent": 0.8980867409891637,
+      "raw_count": 312,
+      "top_authors": [
+        [
+          "BlackboxAIhost",
+          "93.7"
+        ],
+        [
+          "NousResearch",
+          "66.0"
+        ],
+        [
+          "tetsuoai",
+          "11.3"
+        ],
+        [
+          "brianlong",
+          "8.5"
+        ],
+        [
+          "BurnieSendersX",
+          "2.9"
+        ]
+      ],
+      "top_narratives": [
+        [
+          "launch",
+          "66.0"
+        ],
+        [
+          "community",
+          "8.5"
+        ]
+      ],
+      "top_combinations": [
+        [
+          "NousResearch:launch",
+          "66.0"
+        ],
+        [
+          "brianlong:community",
+          "8.5"
+        ]
+      ]
+    },
+    "epistemology": {
+      "weighted_count": 17.071203776553894,
+      "percent": 0.0826458628677114,
+      "raw_count": 59,
+      "top_authors": [
+        [
+          "JatevoId",
+          "10.2"
+        ],
+        [
+          "RohOnChain",
+          "6.8"
+        ]
+      ],
+      "top_narratives": [
+        [
+          "analysis",
+          "10.2"
+        ]
+      ],
+      "top_combinations": [
+        [
+          "JatevoId:analysis",
+          "10.2"
+        ]
+      ]
+    }
+  }
+}
