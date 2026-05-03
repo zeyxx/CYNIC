@@ -334,9 +334,10 @@ pub fn spawn_pattern_healing_executor(
                     };
 
                     // Process observations: rank and log decisions
-                    if let Ok(Ok(resp)) = obs_result {
-                        if let Ok(observations) = resp.json::<Vec<serde_json::Value>>().await {
-                            for obs_val in observations {
+                    if let Ok(Ok(resp)) = obs_result
+                        && let Ok(observations) = resp.json::<Vec<serde_json::Value>>().await
+                    {
+                        for obs_val in observations {
                                 let obs_id = obs_val
                                     .get("id")
                                     .and_then(|v| v.as_str())
@@ -489,7 +490,6 @@ pub fn spawn_pattern_healing_executor(
                                     });
                                 }
                             }
-                        }
                     }
 
                     task_health.touch_pattern_healing_alerter();
@@ -540,17 +540,16 @@ pub fn spawn_pattern_healing_verifier(
                         client.get(&url_decisions).headers(headers.clone()).send(),
                     )
                     .await
+                        && let Ok(decisions) = resp.json::<Vec<serde_json::Value>>().await
                     {
-                        if let Ok(decisions) = resp.json::<Vec<serde_json::Value>>().await {
-                            for decision_val in decisions {
-                                if let Some(decision_id) = decision_val.get("id").and_then(|v| v.as_str()) {
-                                    if let Some(anomaly_domain) = decision_val.get("domain").and_then(|v| v.as_str()) {
-                                        // Track new decision for verification (will verify at now + 300s)
-                                        pending_verifications
-                                            .entry(decision_id.to_string())
-                                            .or_insert((std::time::Instant::now(), anomaly_domain.to_string()));
-                                    }
-                                }
+                        for decision_val in decisions {
+                            if let Some(decision_id) = decision_val.get("id").and_then(|v| v.as_str())
+                                && let Some(anomaly_domain) = decision_val.get("domain").and_then(|v| v.as_str())
+                            {
+                                // Track new decision for verification (will verify at now + 300s)
+                                pending_verifications
+                                    .entry(decision_id.to_string())
+                                    .or_insert((std::time::Instant::now(), anomaly_domain.to_string()));
                             }
                         }
                     }
@@ -558,7 +557,7 @@ pub fn spawn_pattern_healing_verifier(
                     // Check if any verifications are due (300s elapsed)
                     let now = std::time::Instant::now();
                     let verification_window = std::time::Duration::from_secs(300);
-                    let mut decisions_to_verify: Vec<(String, String)> = pending_verifications
+                    let decisions_to_verify: Vec<(String, String)> = pending_verifications
                         .iter()
                         .filter(|(_, (timestamp, _))| now.duration_since(*timestamp) >= verification_window)
                         .map(|(id, (_, domain))| (id.clone(), domain.clone()))
