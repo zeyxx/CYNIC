@@ -327,22 +327,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ─── RING 2: Embedding backend (sovereign, auto-recovery) ────
-    // Always wire the real backend — if down at boot, embed() returns Err (same as NullEmbedding).
-    // When the server comes back, calls start succeeding automatically. No manual recovery needed.
+    // Health check gates whether to use real backend or NullEmbedding at boot.
+    // If down at boot, use NullEmbedding. When server comes back, embed() calls auto-succeed.
+    // Background probe will detect recovery and signal via /observe for organic awareness.
     let embedding: Arc<dyn domain::embedding::EmbeddingPort> =
         match backends::embedding::EmbeddingBackend::from_env() {
-            Ok(embed_backend) => {
-                let embed_health = embed_backend.health().await;
-                if embed_health.is_available() {
-                    klog!("[Ring 2] Embedding: {:?} (sovereign)", embed_health);
-                } else {
-                    klog!(
-                        "[Ring 2] Embedding: {:?} — will auto-recover when server is available",
-                        embed_health
-                    );
+            Ok(embed_backend) => match embed_backend.health().await {
+                status if status.is_available() => {
+                    klog!("[Ring 2] Embedding: {:?} (sovereign)", status);
+                    Arc::new(embed_backend)
                 }
-                Arc::new(embed_backend)
-            }
+                status => {
+                    klog!(
+                        "[Ring 2] Embedding: {:?} (unavailable) — using NullEmbedding, will auto-recover",
+                        status
+                    );
+                    Arc::new(domain::embedding::NullEmbedding)
+                }
+            },
             Err(e) => {
                 klog!(
                     "[Ring 2] Embedding: HTTP client init failed ({}) — using NullEmbedding",
