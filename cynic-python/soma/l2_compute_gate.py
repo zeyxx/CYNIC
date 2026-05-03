@@ -16,6 +16,7 @@ Falsifiable: Phase 2 measurement delta should be <20% (no ensemble shift confoun
 import asyncio
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass, asdict
 from typing import List, Dict, Optional, Tuple
@@ -33,6 +34,7 @@ class DogStatus:
     last_seen_timestamp: float  # when we last verified this Dog was alive
     failure_count: int = 0
     consecutive_failures: int = 0
+    last_failure_reason: Optional[str] = None  # Why the Dog failed (timeout, api_error, etc)
 
 
 class SomaL2ComputeGate:
@@ -43,7 +45,11 @@ class SomaL2ComputeGate:
     and gates Phase 2 measurements to ensure stable ensemble composition.
     """
 
-    def __init__(self, kernel_url: str = "http://localhost:3030"):
+    def __init__(self, kernel_url: str = None):
+        if kernel_url is None:
+            kernel_url = os.environ.get("CYNIC_REST_ADDR", "http://localhost:3030")
+            if not kernel_url.startswith("http"):
+                kernel_url = f"http://{kernel_url}"
         self.kernel_url = kernel_url
         self.dog_status: Dict[str, DogStatus] = {}
         self.last_kernel_check = 0.0
@@ -54,30 +60,42 @@ class SomaL2ComputeGate:
         self.measurement_sessions: Dict[str, Dict] = {}
 
     async def refresh_dog_status(self) -> None:
-        """Fetch Dog availability from kernel /health."""
+        """Fetch Dog availability from kernel /health with auth for detailed response."""
         now = time.time()
         if now - self.last_kernel_check < self.check_interval_sec:
             return  # Skip if too recent
 
         try:
+            auth_key = os.environ.get("CYNIC_API_KEY", "")
+            headers = {}
+            if auth_key:
+                headers["Authorization"] = f"Bearer {auth_key}"
+
             async with httpx.AsyncClient(timeout=5) as client:
-                resp = await client.get(f"{self.kernel_url}/health")
-                if resp.status_code != 200:
+                resp = await client.get(
+                    f"{self.kernel_url}/health",
+                    headers=headers
+                )
+                if resp.status_code not in [200, 503]:
                     log.warning(f"/health returned {resp.status_code}")
                     return
 
                 data = resp.json()
-                dogs = data.get("dogs", {})
+                # Authenticated response returns "dogs" as array of {id, circuit, failures, last_failure_reason, open_since_secs}
+                dogs = data.get("dogs", [])
 
-                for dog_name, dog_info in dogs.items():
-                    is_alive = dog_info.get("alive", False)
-                    timestamp = dog_info.get("last_success_timestamp", 0)
+                for dog_info in dogs:
+                    dog_name = dog_info.get("id", "unknown")
+                    is_alive = dog_info.get("circuit") == "closed"  # circuit closed = healthy
+                    failure_reason = dog_info.get("last_failure_reason")
+                    timestamp = now  # Use current time since kernel doesn't expose last_success_timestamp
 
                     if dog_name not in self.dog_status:
                         self.dog_status[dog_name] = DogStatus(
                             name=dog_name,
                             is_alive=is_alive,
-                            last_seen_timestamp=timestamp or now
+                            last_seen_timestamp=timestamp,
+                            last_failure_reason=failure_reason
                         )
                     else:
                         status = self.dog_status[dog_name]
@@ -85,16 +103,18 @@ class SomaL2ComputeGate:
                         # Update status
                         old_alive = status.is_alive
                         status.is_alive = is_alive
-                        status.last_seen_timestamp = timestamp or now
+                        status.last_seen_timestamp = timestamp
+                        status.last_failure_reason = failure_reason
 
                         if is_alive:
                             status.consecutive_failures = 0
                         else:
                             status.consecutive_failures += 1
 
-                        # Log state changes
+                        # Log state changes with reason
                         if old_alive and not is_alive:
-                            log.warning(f"Dog {dog_name} transitioned to DEAD")
+                            reason_str = f" ({failure_reason})" if failure_reason else ""
+                            log.warning(f"Dog {dog_name} transitioned to DEAD{reason_str}")
                         elif not old_alive and is_alive:
                             log.info(f"Dog {dog_name} transitioned to ALIVE")
 
