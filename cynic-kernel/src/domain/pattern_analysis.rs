@@ -38,51 +38,33 @@ pub struct HealingObservation {
     pub confidence: Option<String>, // epistemic label
 }
 
-impl HealingObservation {
-    fn to_json(&self) -> serde_json::Value {
-        serde_json::json!({
-            "tool": self.tool,
-            "domain": self.domain,
-            "status": self.status,
-            "context": self.context,
-            "consumer": self.consumer,
-            "action": self.action,
-            "confidence": self.confidence.as_deref().unwrap_or("observed"),
-        })
-    }
-}
-
 /// Analyze health alerts and return detected patterns.
 pub fn detect_patterns(health_alerts: Vec<(String, String, String)>) -> Vec<DetectedPattern> {
     let mut patterns = vec![];
 
     for (kind, message, _severity) in health_alerts {
         match kind.as_str() {
-            "embedding_failure_rate" => {
+            "embedding_failure_rate" if message.contains("100") || message.contains("100.0") => {
                 // Example: "Embedding failure rate 100.0% (45/45 calls)"
-                if message.contains("100") || message.contains("100.0") {
-                    patterns.push(DetectedPattern {
-                        kind: "embedding_crash_loop".to_string(),
-                        severity: "critical".to_string(),
-                        signal: message.clone(),
-                        reasoning: "All embedding requests failing — likely service crash loop or missing model file".to_string(),
-                        recommended_action: "Disable llama-embed service (systemctl --user disable llama-embed), verify NullEmbedding fallback active".to_string(),
-                        is_actionable: false, // requires systemd interaction
-                    });
-                }
+                patterns.push(DetectedPattern {
+                    kind: "embedding_crash_loop".to_string(),
+                    severity: "critical".to_string(),
+                    signal: message.clone(),
+                    reasoning: "All embedding requests failing — likely service crash loop or missing model file".to_string(),
+                    recommended_action: "Disable llama-embed service (systemctl --user disable llama-embed), verify NullEmbedding fallback active".to_string(),
+                    is_actionable: false, // requires systemd interaction
+                });
             }
-            "organ_silence" => {
+            "organ_silence" if message.contains("silent for") && message.contains("h") => {
                 // Example: "Organ 'hermes-x-organ' silent for 1h"
-                if message.contains("silent for") && message.contains("h") {
-                    patterns.push(DetectedPattern {
-                        kind: "organ_silence".to_string(),
-                        severity: "warning".to_string(),
-                        signal: message.clone(),
-                        reasoning: "Organ stopped emitting observations — either crashed or observation pipeline blocked".to_string(),
-                        recommended_action: "Check organ health: verify cron jobs running, check network connectivity, review organ logs".to_string(),
-                        is_actionable: false, // requires investigation
-                    });
-                }
+                patterns.push(DetectedPattern {
+                    kind: "organ_silence".to_string(),
+                    severity: "warning".to_string(),
+                    signal: message.clone(),
+                    reasoning: "Organ stopped emitting observations — either crashed or observation pipeline blocked".to_string(),
+                    recommended_action: "Check organ health: verify cron jobs running, check network connectivity, review organ logs".to_string(),
+                    is_actionable: false, // requires investigation
+                });
             }
             "metabolism_anomaly" => {
                 // Example: "RTK savings 31.0% below threshold 38.2%"
@@ -95,81 +77,22 @@ pub fn detect_patterns(health_alerts: Vec<(String, String, String)>) -> Vec<Dete
                     is_actionable: false, // observation only
                 });
             }
-            "fleet_drift" => {
+            "fleet_drift" if message.contains("offline") => {
                 // Example: "Fleet node 'kairos' offline"
-                if message.contains("offline") {
-                    patterns.push(DetectedPattern {
-                        kind: "fleet_drift".to_string(),
-                        severity: "warning".to_string(),
-                        signal: message.clone(),
-                        reasoning: "Infrastructure node offline — may impact multi-node deployments".to_string(),
-                        recommended_action: "Check node status via Tailscale; if persistent >10min, may need manual recovery".to_string(),
-                        is_actionable: false, // infrastructure concern
-                    });
-                }
+                patterns.push(DetectedPattern {
+                    kind: "fleet_drift".to_string(),
+                    severity: "warning".to_string(),
+                    signal: message.clone(),
+                    reasoning: "Infrastructure node offline — may impact multi-node deployments".to_string(),
+                    recommended_action: "Check node status via Tailscale; if persistent >10min, may need manual recovery".to_string(),
+                    is_actionable: false, // infrastructure concern
+                });
             }
             _ => {}
         }
     }
 
     patterns
-}
-
-/// Emit a healing observation via HTTP POST to kernel /observe endpoint.
-///
-/// Must be called from async context. Uses a blocking HTTP client internally.
-pub async fn emit_healing_observation(
-    kernel_addr: &str,
-    api_key: &str,
-    pattern: &DetectedPattern,
-) -> Result<(), String> {
-    let obs = HealingObservation {
-        tool: "pattern_analyzer".to_string(),
-        domain: "organism_health".to_string(),
-        status: pattern.severity.clone(),
-        context: format!(
-            "{}\n\nRecommended action: {}",
-            pattern.reasoning, pattern.recommended_action
-        ),
-        consumer: Some("pattern_healing".to_string()),
-        action: Some(pattern.recommended_action.clone()),
-        confidence: Some("observed".to_string()),
-    };
-
-    let client = reqwest::Client::new();
-    let url = format!("http://{}/observe", kernel_addr);
-    let headers = {
-        let mut h = reqwest::header::HeaderMap::new();
-        h.insert(
-            "Authorization",
-            format!("Bearer {}", api_key)
-                .parse()
-                .map_err(|_| "Invalid auth header".to_string())?,
-        );
-        h.insert(
-            "Content-Type",
-            "application/json"
-                .parse()
-                .map_err(|_| "Invalid content-type".to_string())?,
-        );
-        h
-    };
-
-    tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        match client
-            .post(&url)
-            .headers(headers)
-            .json(&obs.to_json())
-            .send()
-            .await
-        {
-            Ok(resp) if resp.status().is_success() => Ok(()),
-            Ok(resp) => Err(format!("POST /observe returned {}", resp.status())),
-            Err(e) => Err(format!("HTTP request failed: {}", e)),
-        }
-    })
-    .await
-    .map_err(|_| "POST /observe timed out (5s)".to_string())?
 }
 
 #[cfg(test)]
