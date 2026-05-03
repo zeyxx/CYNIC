@@ -178,12 +178,11 @@ pub fn spawn_pattern_healing_alerter(
     slack: Option<SlackAlerter>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        if slack.is_none() {
+        let Some(slack) = slack else {
             klog!("[PatternHealing] Slack not configured — alerter disabled");
             return;
-        }
+        };
 
-        let slack = slack.unwrap();
         let mut processed_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut poll_interval = tokio::time::interval(std::time::Duration::from_secs(5));
         poll_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -191,12 +190,9 @@ pub fn spawn_pattern_healing_alerter(
 
         let client = reqwest::Client::new();
         let mut headers = reqwest::header::HeaderMap::new();
-        let _ = format!("Bearer {}", api_key)
+        let _ = format!("Bearer {api_key}")
             .parse::<reqwest::header::HeaderValue>()
-            .and_then(|h| {
-                headers.insert("Authorization", h);
-                Ok(())
-            });
+            .map(|h| headers.insert("Authorization", h));
 
         loop {
             tokio::select! {
@@ -245,15 +241,11 @@ pub fn spawn_pattern_healing_alerter(
 
                                         // Alert only on critical patterns
                                         if obs_status == "critical" {
-                                            let alert_msg = format!(
-                                                "🔺 **CYNIC Healing** [{domain}]\n{context}",
-                                                domain = obs_domain,
-                                                context = obs_context
-                                            );
+                                            let alert_msg = format!("🔺 **CYNIC Healing** [{obs_domain}]\n{obs_context}");
 
                                             match slack.send(&alert_msg).await {
                                                 Ok(_) => {
-                                                    klog!("[PatternHealing] Alert sent ({})", obs_domain);
+                                                    klog!("[PatternHealing] Alert sent ({obs_domain})");
                                                     task_health.touch_pattern_healing_alerter();
                                                 }
                                                 Err(e) => {
