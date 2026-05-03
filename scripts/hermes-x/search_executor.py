@@ -42,6 +42,7 @@ import logging
 import os
 import sys
 import time
+import urllib.parse
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -163,8 +164,9 @@ class SearchExecutor:
             }
 
         try:
-            # Navigate to X search
-            search_url = f"https://x.com/search?q={query}&f=live"
+            # Navigate to X search with proper URL encoding
+            encoded_query = urllib.parse.quote(query)
+            search_url = f"https://x.com/search?q={encoded_query}&f=live"
             logger.info("searching: %s (%s) [agent=%s]", query, domain, agent)
             await page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
 

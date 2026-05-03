@@ -633,6 +633,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Periodically flushes to routing_calc for live routing adaptation.
     let dog_perf_collector = Arc::new(infra::dog_performance::DogPerformanceCollector::new());
 
+    // Soma L1 Alpha: Resource gate for GPU utilization-aware task dispatch.
+    // Prevents Hermes agent + nightshift Dog evaluations from starving each other.
+    let soma_gate = Arc::new(domain::orchestrator::ResourceGate::new());
+
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
@@ -677,6 +681,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         domain_router: Arc::clone(&domain_router),
         routing_calc: Arc::clone(&routing_calc),
         dog_perf_collector: Arc::clone(&dog_perf_collector),
+        soma_gate: Arc::clone(&soma_gate),
         project_root: project_root.display().to_string(),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));

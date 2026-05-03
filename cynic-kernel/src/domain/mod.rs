@@ -12,6 +12,7 @@ pub mod health_gate;
 pub mod helius_credit;
 pub mod inference;
 pub mod metrics;
+pub mod orchestrator;
 pub mod organ;
 pub mod probe;
 pub mod sanitize;

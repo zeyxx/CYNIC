@@ -13,6 +13,7 @@ pub mod judge_job;
 pub mod middleware;
 pub mod observe;
 pub mod response;
+pub mod soma;
 pub mod types;
 
 pub use types::*;
@@ -50,6 +51,7 @@ use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
 use self::judge_job::{judge_async_handler, judge_status_handler};
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
 use self::observe::observe_handler;
+use self::soma::soma_request_handler;
 
 // ── ROUTER ─────────────────────────────────────────────────
 
@@ -144,6 +146,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/claim-batch", post(coord_claim_batch_handler))
         .route("/coord/release", post(coord_release_handler))
         .route("/coord/heartbeat", post(coord_heartbeat_handler))
+        .route("/soma/request", post(soma_request_handler))
         .layer(axum_mw::from_fn_with_state(state.clone(), audit_middleware))
         .layer(axum_mw::from_fn_with_state(state.clone(), auth_middleware))
         .layer(axum_mw::from_fn_with_state(

@@ -75,6 +75,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         dog_perf_collector: std::sync::Arc::new(
             cynic_kernel::infra::dog_performance::DogPerformanceCollector::new(),
         ),
+        soma_gate: std::sync::Arc::new(cynic_kernel::domain::orchestrator::ResourceGate::new()),
         project_root: ".".to_string(),
     })
 }
@@ -1017,6 +1018,7 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         dog_perf_collector: std::sync::Arc::new(
             cynic_kernel::infra::dog_performance::DogPerformanceCollector::new(),
         ),
+        soma_gate: std::sync::Arc::new(cynic_kernel::domain::orchestrator::ResourceGate::new()),
         project_root: ".".to_string(),
     });
     let app = rest::router(state);
