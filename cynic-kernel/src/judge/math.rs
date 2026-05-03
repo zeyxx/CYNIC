@@ -152,6 +152,129 @@ pub(super) fn aggregate_scores(dog_scores: &[DogScore]) -> AxiomScores {
     }
 }
 
+/// Soma gate: confidence-weighted aggregation (PATH 2 research).
+///
+/// Each Dog is weighted by its axiom confidence: `1.0 / (axiom_spread + ε)`.
+/// Dogs with tighter axiom distributions (lower spread) contribute more to the consensus.
+/// This is the hypothesis: removing "noisy" Dogs is actually a calibration problem — all Dogs
+/// are valid oscillators at different frequencies, and we should weight by coherence.
+// WHY: Reserved for Phase 2 (May 5-6) Soma gate measurement; will be called when soma_gate flag is set.
+#[allow(dead_code)]
+pub(super) fn aggregate_scores_soma_gate(dog_scores: &[DogScore]) -> (AxiomScores, Vec<f64>) {
+    const EPSILON: f64 = 0.01; // Avoid division by zero
+
+    // Compute per-Dog axiom spreads (max - min across the 6 axioms)
+    let mut dog_spreads: Vec<(usize, f64)> = dog_scores
+        .iter()
+        .enumerate()
+        .map(|(i, dog)| {
+            let values = [
+                dog.fidelity,
+                dog.phi,
+                dog.verify,
+                dog.culture,
+                dog.burn,
+                dog.sovereignty,
+            ];
+            let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
+            let spread = (max - min).max(0.0);
+            (i, spread)
+        })
+        .collect();
+
+    // Compute confidence weights: 1.0 / (spread + epsilon)
+    let mut weights: Vec<f64> = dog_spreads
+        .iter()
+        .map(|(_, spread)| 1.0 / (spread + EPSILON))
+        .collect();
+
+    // Normalize weights to sum to 1.0
+    let total_weight: f64 = weights.iter().sum();
+    if total_weight > 0.0 {
+        weights.iter_mut().for_each(|w| *w /= total_weight);
+    } else {
+        // Fallback: equal weights
+        let weight = 1.0 / dog_scores.len() as f64;
+        weights = vec![weight; dog_scores.len()];
+    }
+
+    // Weighted mean per axiom
+    let mut weighted_fidelity = 0.0;
+    let mut weighted_phi = 0.0;
+    let mut weighted_verify = 0.0;
+    let mut weighted_culture = 0.0;
+    let mut weighted_burn = 0.0;
+    let mut weighted_sovereignty = 0.0;
+
+    for (i, dog) in dog_scores.iter().enumerate() {
+        let w = weights[i];
+        if !dog.abstentions.iter().any(|a| a == "fidelity") {
+            weighted_fidelity += dog.fidelity * w;
+        }
+        if !dog.abstentions.iter().any(|a| a == "phi") {
+            weighted_phi += dog.phi * w;
+        }
+        if !dog.abstentions.iter().any(|a| a == "verify") {
+            weighted_verify += dog.verify * w;
+        }
+        if !dog.abstentions.iter().any(|a| a == "culture") {
+            weighted_culture += dog.culture * w;
+        }
+        if !dog.abstentions.iter().any(|a| a == "burn") {
+            weighted_burn += dog.burn * w;
+        }
+        if !dog.abstentions.iter().any(|a| a == "sovereignty") {
+            weighted_sovereignty += dog.sovereignty * w;
+        }
+    }
+
+    // Use median Dog's reasoning (same as baseline)
+    let mut sorted_by_q: Vec<&DogScore> = dog_scores.iter().collect();
+    sorted_by_q.sort_by(|a, b| {
+        let qa = compute_qscore(&AxiomScores {
+            fidelity: a.fidelity,
+            phi: a.phi,
+            verify: a.verify,
+            culture: a.culture,
+            burn: a.burn,
+            sovereignty: a.sovereignty,
+            reasoning: AxiomReasoning::default(),
+            ..Default::default()
+        })
+        .total;
+        let qb = compute_qscore(&AxiomScores {
+            fidelity: b.fidelity,
+            phi: b.phi,
+            verify: b.verify,
+            culture: b.culture,
+            burn: b.burn,
+            sovereignty: b.sovereignty,
+            reasoning: AxiomReasoning::default(),
+            ..Default::default()
+        })
+        .total;
+        qa.partial_cmp(&qb).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let median_reasoning = sorted_by_q
+        .get(sorted_by_q.len() / 2)
+        .map(|s| s.reasoning.clone())
+        .unwrap_or_default();
+
+    let axiom_scores = AxiomScores {
+        fidelity: weighted_fidelity,
+        phi: weighted_phi,
+        verify: weighted_verify,
+        culture: weighted_culture,
+        burn: weighted_burn,
+        sovereignty: weighted_sovereignty,
+        reasoning: median_reasoning,
+        ..Default::default()
+    };
+
+    (axiom_scores, weights)
+}
+
 /// Residual detection: find max per-axiom spread across Dogs.
 ///
 /// Catches cases where Dogs agree on Q-score total but disagree on individual axioms.
