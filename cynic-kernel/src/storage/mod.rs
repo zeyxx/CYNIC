@@ -400,7 +400,7 @@ pub(crate) fn escape_surreal(s: &str) -> String {
 
 /// Clamp query limit to prevent resource exhaustion.
 pub(crate) fn safe_limit(limit: u32) -> u32 {
-    limit.min(100)
+    limit.min(10000)
 }
 
 #[cfg(test)]

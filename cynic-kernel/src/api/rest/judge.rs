@@ -201,7 +201,7 @@ pub async fn get_verdict_handler(
 
 #[derive(Debug, Deserialize, Default)]
 pub struct VerdictsQuery {
-    /// Max results (default 20, max 1000)
+    /// Max results (default 20, max 10000)
     pub limit: Option<u32>,
 }
 
@@ -209,7 +209,7 @@ pub async fn list_verdicts_handler(
     State(state): State<Arc<AppState>>,
     Query(q): Query<VerdictsQuery>,
 ) -> Result<Json<Vec<JudgeResponse>>, (StatusCode, Json<ErrorResponse>)> {
-    let limit = q.limit.unwrap_or(20).min(1000);
+    let limit = q.limit.unwrap_or(20).min(10000);
     match state.storage.list_verdicts(limit).await {
         Ok(verdicts) => Ok(Json(verdicts.iter().map(verdict_to_response).collect())),
         Err(e) => {
