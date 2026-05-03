@@ -802,6 +802,8 @@ mod tests {
             dog_perf_collector: Arc::new(
                 crate::infra::dog_performance::DogPerformanceCollector::new(),
             ),
+            soma_gate: Arc::new(crate::domain::orchestrator::ResourceGate::new()),
+            project_root: ".".to_string(),
         })
     }
 

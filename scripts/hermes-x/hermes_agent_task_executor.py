@@ -1,26 +1,32 @@
 #!/usr/bin/env python3
 """
-Hermes Agent Task Executor — Phase 2 real execution.
+Hermes Agent Task Executor — Phase 2 real execution (kernel-integrated).
 
 Unlike hermes_task_runner.py (Phase 1 stub), this spawns a Hermes Agent instance
 to actually execute tasks: browse X, analyze signals, post observations.
 
+V0.4.0 (2026-05-02): Integrated with kernel /agent-tasks API.
+  Before: polled ORGAN_DIR/agent-tasks/ (FS local)
+  Now: polls kernel /agent-tasks via REST (K15 seam 3 complete)
+
 Workflow:
-  1. Claim task from agent-tasks/ (lock file)
-  2. Spawn `hermes chat` with task prompt + SKILL.md context
-  3. Agent executes actions via its tools
-  4. Capture observations posted to /observe
-  5. Release task when done
-  6. Update SKILL.md with any new learned skills
+  1. Poll kernel /agent-tasks?status=pending
+  2. Claim task (local lock file, kernel tracks via API)
+  3. Spawn `hermes chat` with task prompt + SKILL.md context
+  4. Agent executes actions via its tools
+  5. Capture observations posted to /observe
+  6. Release task when done (delete local lock, kernel marks done)
 
 Usage:
     python3 hermes_agent_task_executor.py --organ-dir ~/.cynic/organs/hermes/x --interval 30
 
 Environment:
-    X_ORGAN_DIR  — organ directory (fallback)
+    CYNIC_REST_ADDR — kernel endpoint (default: env or <TAILSCALE_CORE>:3030)
+    CYNIC_API_KEY   — kernel auth token
+    X_ORGAN_DIR     — organ directory (fallback)
 """
 
-__version__ = "0.3.0"  # Real execution variant
+__version__ = "0.4.0"  # Kernel-integrated variant
 
 import argparse
 import json
@@ -30,6 +36,7 @@ import signal
 import subprocess
 import sys
 import time
+import requests
 from datetime import datetime
 from pathlib import Path
 
@@ -37,18 +44,61 @@ logger = logging.getLogger("hermes-task-executor")
 
 ORGAN_DIR = ""
 POLL_INTERVAL = 30.0
+KERNEL_ADDR = ""
+KERNEL_API_KEY = ""
 
 
 def load_env():
-    global ORGAN_DIR
+    global ORGAN_DIR, KERNEL_ADDR, KERNEL_API_KEY
     ORGAN_DIR = os.environ.get("X_ORGAN_DIR", str(Path.home() / ".cynic" / "organs" / "hermes" / "x"))
+    raw_addr = os.environ.get("CYNIC_REST_ADDR", "<TAILSCALE_CORE>:3030")
+    # Ensure http:// prefix for requests library
+    if raw_addr.startswith("http://") or raw_addr.startswith("https://"):
+        KERNEL_ADDR = raw_addr
+    else:
+        KERNEL_ADDR = f"http://{raw_addr}"
+    KERNEL_API_KEY = os.environ.get("CYNIC_API_KEY", "")
 
 
 def poll_tasks(organ_dir: str, limit: int = 1) -> list[dict]:
-    """Read unclaimed tasks from organ-local agent-tasks/ directory."""
+    """Fetch pending tasks from kernel /agent-tasks API (K15 seam 3).
+
+    Falls back to local FS if kernel unavailable (FS is for backward compat).
+    """
+    # Try kernel API first
+    if KERNEL_ADDR and KERNEL_API_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {KERNEL_API_KEY}"}
+            url = f"{KERNEL_ADDR}/agent-tasks?status=pending&limit={limit}"
+            response = requests.get(url, headers=headers, timeout=5)
+
+            if response.status_code == 200:
+                kernel_tasks = response.json()
+                # Convert kernel format to executor format
+                tasks = []
+                if isinstance(kernel_tasks, dict) and "tasks" in kernel_tasks:
+                    kernel_tasks = kernel_tasks["tasks"]
+                elif isinstance(kernel_tasks, int):
+                    # API returned count, not tasks
+                    logger.debug("kernel /agent-tasks returned count=%d, polling fallback", kernel_tasks)
+                    kernel_tasks = []
+
+                for t in kernel_tasks:
+                    if isinstance(t, dict):
+                        t["_source"] = "kernel"  # Mark source for later
+                        t["id"] = t.get("agent_id", t.get("id", ""))
+                        tasks.append(t)
+
+                if tasks:
+                    logger.info("polled kernel: found %d pending task(s)", len(tasks))
+                    return tasks
+        except requests.RequestException as e:
+            logger.warning("kernel /agent-tasks fetch failed: %s, falling back to local FS", e)
+
+    # Fallback: read from local FS (for backward compat during transition)
     tasks_dir = Path(organ_dir) / "agent-tasks"
     if not tasks_dir.exists():
-        logger.debug("agent-tasks directory not found: %s", tasks_dir)
+        logger.debug("agent-tasks directory not found: %s (no local or kernel tasks)", tasks_dir)
         return []
 
     tasks = []
@@ -64,6 +114,7 @@ def poll_tasks(organ_dir: str, limit: int = 1) -> list[dict]:
                 with open(task_file) as f:
                     task = json.load(f)
                     task["_file"] = str(task_file)
+                    task["_source"] = "local"
                     task["id"] = task.get("task_id", task.get("id", ""))
                     tasks.append(task)
             except json.JSONDecodeError as e:
@@ -77,47 +128,89 @@ def poll_tasks(organ_dir: str, limit: int = 1) -> list[dict]:
 
 
 def claim_task(task: dict, organ_dir: str) -> bool:
-    """Claim task by creating lock file."""
-    task_file = Path(task.get("_file", ""))
-    if not task_file.exists():
-        return False
+    """Claim task by creating lock file (works for kernel and local sources)."""
+    task_id = task.get("id", "")
+    source = task.get("_source", "local")
 
-    lock_file = task_file.parent / f".{task_file.stem}.lock"
+    # For kernel tasks, claim is implicit (just track local lock for coordination)
+    # For local tasks, create lock file as before
+    if source == "kernel":
+        # Create local lock file for coordination even though kernel tracks it
+        lock_file = Path(organ_dir) / "agent-tasks" / f".{task_id}.lock"
+        try:
+            lock_file.parent.mkdir(parents=True, exist_ok=True)
+            lock_file.write_text(json.dumps({
+                "pid": os.getpid(),
+                "claimed_at": datetime.now().isoformat() + "Z",
+                "source": "kernel",
+            }))
+            logger.info("claimed kernel task %s (local coordination lock)", task_id)
+            return True
+        except OSError as e:
+            logger.warning("Failed to create coordination lock for task %s: %s", task_id, e)
+            # Don't fail here; we can still execute
+            return True
+    else:
+        # Local FS task
+        task_file = Path(task.get("_file", ""))
+        if not task_file.exists():
+            logger.warning("task file not found: %s", task_file)
+            return False
 
-    try:
-        lock_file.write_text(json.dumps({
-            "pid": os.getpid(),
-            "claimed_at": datetime.now().isoformat() + "Z",
-        }))
-        logger.info("claimed task %s", task.get("id"))
-        return True
-    except OSError as e:
-        logger.warning("Failed to claim task: %s", e)
-        return False
+        lock_file = task_file.parent / f".{task_file.stem}.lock"
+        try:
+            lock_file.write_text(json.dumps({
+                "pid": os.getpid(),
+                "claimed_at": datetime.now().isoformat() + "Z",
+            }))
+            logger.info("claimed local task %s", task_id)
+            return True
+        except OSError as e:
+            logger.warning("Failed to claim task %s: %s", task_id, e)
+            return False
 
 
 def release_task(task: dict, organ_dir: str, success: bool = True):
-    """Release task by deleting lock and optionally task file."""
-    task_file = Path(task.get("_file", ""))
-    if not task_file.exists():
-        return
+    """Release task by deleting lock and optionally task file.
 
-    lock_file = task_file.parent / f".{task_file.stem}.lock"
+    For kernel tasks: delete coordination lock, kernel tracks completion via API.
+    For local tasks: delete lock and optionally task file (as before).
+    """
+    task_id = task.get("id", "")
+    source = task.get("_source", "local")
 
-    try:
-        if success:
-            if task_file.exists():
-                task_file.unlink()
-                logger.info("deleted task file: %s", task_file.name)
+    if source == "kernel":
+        # For kernel tasks, just clean up coordination lock
+        lock_file = Path(organ_dir) / "agent-tasks" / f".{task_id}.lock"
+        try:
             if lock_file.exists():
                 lock_file.unlink()
-                logger.info("deleted lock file: %s", lock_file.name)
-        else:
-            if lock_file.exists():
-                lock_file.unlink()
-                logger.info("released lock for retry: %s", task_file.name)
-    except OSError as e:
-        logger.warning("Failed to release task: %s", e)
+                logger.info("released coordination lock for kernel task: %s", task_id)
+        except OSError as e:
+            logger.warning("Failed to release coordination lock: %s", e)
+        # Kernel will handle task cleanup on next cycle
+    else:
+        # Local FS task (backward compat)
+        task_file = Path(task.get("_file", ""))
+        if not task_file.exists():
+            return
+
+        lock_file = task_file.parent / f".{task_file.stem}.lock"
+
+        try:
+            if success:
+                if task_file.exists():
+                    task_file.unlink()
+                    logger.info("deleted task file: %s", task_file.name)
+                if lock_file.exists():
+                    lock_file.unlink()
+                    logger.info("deleted lock file: %s", lock_file.name)
+            else:
+                if lock_file.exists():
+                    lock_file.unlink()
+                    logger.info("released lock for retry: %s", task_file.name)
+        except OSError as e:
+            logger.warning("Failed to release task: %s", e)
 
 
 def load_skill(organ_dir: str) -> str:

@@ -242,6 +242,52 @@ Get verdict by UUID. Returns single verdict object. 404 if not found.
 
 ---
 
+## Soma — Resource Orchestration
+
+### POST /soma/request
+
+Query the Soma L1 Alpha resource gate for GPU utilization-aware task allocation. Use this before dispatching high-contention tasks (Hermes agent chat, nightshift Dog evaluations) to prevent GPU starvation.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `task_name` | string | yes | Task identifier (e.g., `"hermes-chat-1"`, `"nightshift-eval-dog-2"`) |
+| `priority` | string | yes | Priority level: `"background"` (0), `"nightshift"` (1), `"hermes"` (2) |
+| `estimated_duration_secs` | number | yes | Expected task duration in seconds |
+| `llama_url` | string | yes | llama-server URL (e.g., `"http://127.0.0.1:8080"`) |
+
+**Response (200) — Allocate:**
+```json
+{
+  "decision": "allocate",
+  "data": {
+    "slot_id": "hermes-chat-1-1714878456789"
+  }
+}
+```
+
+**Response (200) — Queue:**
+```json
+{
+  "decision": "queue",
+  "data": {
+    "wait_secs": 5
+  }
+}
+```
+
+**Behavior:**
+- If GPU utilization is **below 80%**: Returns `allocate` immediately with a unique `slot_id`.
+- If GPU utilization is **above 80%**: Returns `queue` with a wait time based on priority:
+  - Hermes: 5 seconds (highest priority)
+  - Nightshift: 15 seconds
+  - Background: 30 seconds (lowest priority)
+
+**Implementation note:** Utilization is determined by probing llama-server's `/health` endpoint. Current alpha implementation uses a conservative 0.5 (50%) estimate if the backend is reachable; production version will parse actual queue depth metrics.
+
+---
+
 ## Crystals
 
 ### GET /crystals

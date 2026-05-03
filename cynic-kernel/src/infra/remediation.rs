@@ -169,37 +169,62 @@ impl Default for RecoveryTracker {
     }
 }
 
-// ── SSH executor ──────────────────────────────────────────────────────────────
+// ── local + SSH executor ──────────────────────────────────────────────────────
 
-/// Execute a remote command via SSH using BatchMode (no interactive prompts).
+/// Execute a command locally or via SSH depending on the node address.
 ///
 /// Uses `std::process::Command` — must be called from a blocking context
 /// (e.g., `tokio::task::spawn_blocking`).
 ///
 /// Returns `Ok(stdout)` on success (exit 0), `Err(stderr)` otherwise.
 pub fn ssh_restart(node: &str, command: &str) -> Result<String, String> {
-    let output = Command::new("ssh")
-        .args([
-            "-o",
-            "ConnectTimeout=5",
-            "-o",
-            "ServerAliveInterval=5",
-            "-o",
-            "ServerAliveCountMax=2",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "StrictHostKeyChecking=accept-new", // Acceptable in Tailscale mesh (nodes auth'd by WireGuard)
-            node,
-            command,
-        ])
-        .output()
-        .map_err(|e| format!("Failed to spawn ssh: {e}"))?;
+    // Check if this is a local service (localhost or 127.0.0.1)
+    if node == "localhost" || node == "127.0.0.1" {
+        // Execute locally: parse "systemctl restart foo" → ["systemctl", "restart", "foo"]
+        let parts: Vec<&str> = command.split_whitespace().collect();
+        if parts.is_empty() {
+            return Err("empty command".to_string());
+        }
 
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+        let mut cmd = Command::new(parts[0]);
+        for arg in &parts[1..] {
+            cmd.arg(arg);
+        }
+
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to spawn local command: {e}"))?;
+
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).into_owned())
+        }
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).into_owned())
+        // Remote execution via SSH
+        let output = Command::new("ssh")
+            .args([
+                "-o",
+                "ConnectTimeout=5",
+                "-o",
+                "ServerAliveInterval=5",
+                "-o",
+                "ServerAliveCountMax=2",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=accept-new", // Acceptable in Tailscale mesh (nodes auth'd by WireGuard)
+                node,
+                command,
+            ])
+            .output()
+            .map_err(|e| format!("Failed to spawn ssh: {e}"))?;
+
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).into_owned())
+        }
     }
 }
 
