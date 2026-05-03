@@ -800,8 +800,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // ─── Layer 4 Slack alerter: polls /observations?consumer=pattern_healing ────
         // K15 feedback loop: anomaly detected → observation emitted → alerter sends Slack
         infra::tasks::spawn_pattern_healing_alerter(
-            kernel_addr.clone(),
-            api_key.clone(),
+            kernel_addr,
+            api_key,
             Arc::clone(&task_health),
             shutdown.clone(),
             slack,

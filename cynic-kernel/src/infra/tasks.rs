@@ -666,12 +666,9 @@ async fn subscribe_to_events(
     let events_url = format!("http://{kernel_addr}/events");
     let client = reqwest::Client::new();
     let mut headers = reqwest::header::HeaderMap::new();
-    let _ = format!("Bearer {}", _api_key)
+    let _ = format!("Bearer {_api_key}")
         .parse::<reqwest::header::HeaderValue>()
-        .and_then(|h| {
-            headers.insert("Authorization", h);
-            Ok(())
-        });
+        .map(|h| headers.insert("Authorization", h));
 
     match tokio::time::timeout(
         std::time::Duration::from_secs(30),
