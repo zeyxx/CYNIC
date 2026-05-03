@@ -108,3 +108,4 @@ cynic-python/research_gpu_capabilities.py
 .cynic-explorer-*.md
 observations/
 __pycache__/
+.cynic/memory/
