@@ -840,6 +840,7 @@ mod tests {
             Some("chess".into()),
             None,
             true,
+            false,
             &deps,
         )
         .await;
