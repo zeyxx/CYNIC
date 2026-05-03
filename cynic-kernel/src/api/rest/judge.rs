@@ -21,6 +21,7 @@ pub(super) struct ValidatedJudgeRequest {
     pub dogs: Option<Vec<String>>,
     pub crystals: bool,
     pub sensitivity: Option<String>,
+    pub soma_gate: bool,
 }
 
 pub(super) fn validate_judge_request(
@@ -75,6 +76,7 @@ pub(super) fn validate_judge_request(
         dogs: req.dogs,
         crystals: req.crystals,
         sensitivity: req.sensitivity,
+        soma_gate: req.soma_gate,
     })
 }
 
@@ -140,6 +142,7 @@ pub async fn judge_handler(
         req.domain,
         dogs.as_deref(),
         req.crystals,
+        req.soma_gate,
         &deps,
     )
     .await

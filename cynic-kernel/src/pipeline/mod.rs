@@ -101,6 +101,7 @@ pub async fn run(
     domain: Option<String>,
     dogs_filter: Option<&[String]>,
     inject_crystals: bool,
+    soma_gate: bool,
     deps: &PipelineDeps<'_>,
 ) -> Result<PipelineResult, JudgeError> {
     let domain_hint = domain.as_deref().unwrap_or("general");
@@ -129,9 +130,17 @@ pub async fn run(
 
     // K6 fix: wrap entire future with .instrument() so span propagates through all .awaits.
     // CRITICAL: Do NOT use span.enter() before .await — sync guards don't propagate.
-    pipeline_inner(content, context, domain, dogs_filter, inject_crystals, deps)
-        .instrument(pipeline_span)
-        .await
+    pipeline_inner(
+        content,
+        context,
+        domain,
+        dogs_filter,
+        inject_crystals,
+        soma_gate,
+        deps,
+    )
+    .instrument(pipeline_span)
+    .await
 }
 
 async fn pipeline_inner(
@@ -140,6 +149,7 @@ async fn pipeline_inner(
     domain: Option<String>,
     dogs_filter: Option<&[String]>,
     inject_crystals: bool,
+    soma_gate: bool,
     deps: &PipelineDeps<'_>,
 ) -> Result<PipelineResult, JudgeError> {
     tracing::info!(content_len = content.len(), "pipeline_inner() started");
@@ -522,7 +532,7 @@ async fn pipeline_inner(
     };
 
     let mut verdict = judge
-        .evaluate_progressive(&stimulus, dogs_filter_final, metrics, on_dog_ref)
+        .evaluate_progressive(&stimulus, dogs_filter_final, metrics, on_dog_ref, soma_gate)
         .await?;
     metrics.inc_verdict();
     tracing::info!(

@@ -350,6 +350,10 @@ pub struct JudgeRequest {
     /// Optional: sensitivity level. "high" forces routing to sovereign (local) Dogs only.
     /// Use for private content: DMs, wallet seeds, API keys. Default: none (auto-detected).
     pub sensitivity: Option<String>,
+    /// Optional: use Soma gate (confidence-weighted aggregation) instead of baseline trimmed mean.
+    /// Research flag for PATH 2 measurement (May 2026). Default: false (baseline).
+    #[serde(default)]
+    pub soma_gate: bool,
 }
 
 fn default_true() -> bool {

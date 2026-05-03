@@ -131,6 +131,7 @@ impl CynicMcp {
             p.domain.clone(),
             dogs_filter.as_deref(),
             p.crystals.unwrap_or(true),
+            false, // soma_gate: default to baseline for MCP
             &deps,
         )
         .await

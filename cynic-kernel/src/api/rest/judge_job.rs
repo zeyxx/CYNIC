@@ -336,6 +336,7 @@ pub async fn judge_async_handler(
             req.domain,
             req.dogs.as_deref(),
             req.crystals,
+            false, // soma_gate: default to baseline for async jobs
             &deps,
         )
         .await;

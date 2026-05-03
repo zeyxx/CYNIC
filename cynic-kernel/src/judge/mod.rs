@@ -344,7 +344,7 @@ impl Judge {
         filter: Option<&[String]>,
         metrics: &Metrics,
     ) -> Result<Verdict, JudgeError> {
-        self.evaluate_progressive(stimulus, filter, metrics, None)
+        self.evaluate_progressive(stimulus, filter, metrics, None, false)
             .await
     }
 
@@ -473,6 +473,7 @@ impl Judge {
         filter: Option<&[String]>,
         metrics: &Metrics,
         on_dog: Option<&crate::pipeline::OnDogCallback>,
+        soma_gate: bool,
     ) -> Result<Verdict, JudgeError> {
         let candidate_indices = self.selected_candidate_indices(stimulus, filter)?;
         let runnable_dogs = self.runnable_dogs(&candidate_indices);
@@ -567,7 +568,14 @@ impl Judge {
 
         // Aggregate (trimmed mean per axiom + median reasoning) and detect anomalies.
         // Rejects outlier LLM scores (Olympic scoring), catches axiom disagreement.
-        let aggregated = aggregate_scores(&dog_scores);
+        // PATH 2: Use Soma gate (confidence-weighted) if flag is set; otherwise baseline.
+        let aggregated = if soma_gate {
+            use crate::judge::math::aggregate_scores_soma_gate;
+            let (scores, _weights) = aggregate_scores_soma_gate(&dog_scores);
+            scores
+        } else {
+            aggregate_scores(&dog_scores)
+        };
         let q_score = compute_qscore(&aggregated);
         let kind = verdict_kind(q_score.total);
         let (max_disagreement, anomaly_axiom) = detect_residuals(&dog_scores);

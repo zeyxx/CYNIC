@@ -164,7 +164,7 @@ pub(super) fn aggregate_scores_soma_gate(dog_scores: &[DogScore]) -> (AxiomScore
     const EPSILON: f64 = 0.01; // Avoid division by zero
 
     // Compute per-Dog axiom spreads (max - min across the 6 axioms)
-    let mut dog_spreads: Vec<(usize, f64)> = dog_scores
+    let dog_spreads: Vec<(usize, f64)> = dog_scores
         .iter()
         .enumerate()
         .map(|(i, dog)| {
