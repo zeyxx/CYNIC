@@ -20,7 +20,7 @@ pub struct Observation {
 
     // ── Ledger system ──
     #[serde(default)]
-    pub value: Option<serde_json::Value>, // The fact being observed
+    pub value: Option<serde_json::Value>, // K5-exempt: arbitrary JSON for heterogeneous observation facts; unavoidable for generic observation storage
     #[serde(default)]
     pub confidence: Option<String>, // observed|deduced|inferred|conjecture
     #[serde(default)]
@@ -66,7 +66,7 @@ pub struct RawObservation {
 
     // ── Ledger system ──
     #[serde(default)]
-    pub value: Option<serde_json::Value>,
+    pub value: Option<serde_json::Value>, // K5-exempt: arbitrary JSON for heterogeneous observation facts; unavoidable for generic observation storage
     #[serde(default)]
     pub confidence: Option<String>,
     #[serde(default)]

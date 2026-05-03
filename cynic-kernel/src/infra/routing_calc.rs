@@ -47,7 +47,7 @@ impl RoutingCalculator {
     pub fn dogs_for_domain(&self, domain: &str, latency_sla_ms: u32) -> Vec<String> {
         self.cache
             .read()
-            .ok()
+            .ok() // Lock poisoning → empty Vec (cache miss, will recompute on next refresh)
             .and_then(|cache| {
                 cache.get(domain).map(|dogs| {
                     let mut suitable: Vec<_> = dogs

@@ -200,6 +200,25 @@ if [[ "$KERNEL_STATUS" != "down" ]]; then
         > /dev/null 2>&1 || true
 fi
 
+# ── K15: Git ledger — link commits to observation chain (blockchain prism) ──
+# Records HEAD commit hash and parent for hash-chain linkage.
+# Next session can detect if HEAD moved (cortex did work) or was reset (rebase).
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+CURRENT_HASH=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+PARENT_HASH=$(git -C "$PROJECT_DIR" rev-parse --short HEAD^ 2>/dev/null || echo "root")
+
+if [[ "$KERNEL_STATUS" != "down" ]] && [[ "$CURRENT_HASH" != "unknown" ]]; then
+    # List files changed this session (for ledger audit trail)
+    FILES_CHANGED=$(git -C "$PROJECT_DIR" diff --name-only origin/main...HEAD 2>/dev/null | jq -R -s -c 'split("\n")[:-1]' 2>/dev/null || echo '[]')
+
+    # POST to kernel ledger — domain=git enables multi-cortex divergence detection
+    curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+        -H "Content-Type: application/json" \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"session_git_proof\",\"target\":\"${BRANCH_NAME:-HEAD}\",\"domain\":\"git\",\"hash\":\"${CURRENT_HASH}\",\"prev_hash\":\"${PARENT_HASH}\",\"consumer\":\"coord\",\"action\":\"git state link\",\"tags\":[\"git-ledger\"],\"context\":\"files=${FILES_CHANGED}\"}" \
+        > /dev/null 2>&1 || true
+fi
+
 # ── TODO staleness check (continuity: did this session update the TODO?) ──
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 TODO_FILE="${PROJECT_DIR}/TODO.md"

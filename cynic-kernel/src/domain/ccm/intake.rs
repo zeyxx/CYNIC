@@ -280,6 +280,7 @@ pub fn build_observation(
 #[allow(clippy::too_many_arguments)]
 // WHY: Ledger observations require 15 fields to populate (domain, status, ledger fields).
 // Consolidating into a struct would add indirection without improving clarity.
+// K5-exempt: serde_json::Value parameter for heterogeneous observation facts; unavoidable for generic observation storage
 pub fn build_observation_with_ledger(
     tool: String,
     target: Option<String>,
@@ -290,7 +291,7 @@ pub fn build_observation_with_ledger(
     agent_id: Option<String>,
     session_id: Option<String>,
     tags: Option<Vec<String>>,
-    value: Option<serde_json::Value>,
+    value: Option<serde_json::Value>, // K5-exempt: heterogeneous observation facts, unavoidable for generic storage
     confidence: Option<String>,
     consumer: Option<String>,
     action: Option<String>,

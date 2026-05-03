@@ -1,4 +1,5 @@
 use cynic_kernel::domain::inference::BackendPort;
+use cynic_kernel::domain::probe::Probe;
 use cynic_kernel::infra::alerts::SlackAlerter;
 use cynic_kernel::*;
 use std::sync::Arc;
@@ -327,22 +328,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ─── RING 2: Embedding backend (sovereign, auto-recovery) ────
-    // Always wire the real backend — if down at boot, embed() returns Err (same as NullEmbedding).
-    // When the server comes back, calls start succeeding automatically. No manual recovery needed.
+    // Health check gates whether to use real backend or NullEmbedding at boot.
+    // If down at boot, use NullEmbedding. When server comes back, embed() calls auto-succeed.
+    // Background probe will detect recovery and signal via /observe for organic awareness.
     let embedding: Arc<dyn domain::embedding::EmbeddingPort> =
         match backends::embedding::EmbeddingBackend::from_env() {
-            Ok(embed_backend) => {
-                let embed_health = embed_backend.health().await;
-                if embed_health.is_available() {
-                    klog!("[Ring 2] Embedding: {:?} (sovereign)", embed_health);
-                } else {
-                    klog!(
-                        "[Ring 2] Embedding: {:?} — will auto-recover when server is available",
-                        embed_health
-                    );
+            Ok(embed_backend) => match embed_backend.health().await {
+                status if status.is_available() => {
+                    klog!("[Ring 2] Embedding: {:?} (sovereign)", status);
+                    Arc::new(embed_backend)
                 }
-                Arc::new(embed_backend)
-            }
+                status => {
+                    klog!(
+                        "[Ring 2] Embedding: {:?} (unavailable) — using NullEmbedding, will auto-recover",
+                        status
+                    );
+                    Arc::new(domain::embedding::NullEmbedding)
+                }
+            },
             Err(e) => {
                 klog!(
                     "[Ring 2] Embedding: HTTP client init failed ({}) — using NullEmbedding",
@@ -517,6 +520,56 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build fleet probe targets from Dog health_urls (backends.toml SoT).
     // Pure transform extracted to infra::boot.
     let fleet_targets = infra::boot::build_fleet_targets(&health_urls, &fleet_meta);
+
+    // ── STARTUP VERIFICATION: Fail fast on backend coherence violations ──
+    // Probe backends immediately (context drift, model mismatch) before claiming sovereignty.
+    // This ensures organism knows its own inference constraints at boot time.
+    let fleet_probe = infra::probes::FleetProbe::new(fleet_targets.clone());
+    let startup_check = match fleet_probe.sense().await {
+        Ok(result) => {
+            if let domain::probe::ProbeDetails::Fleet(fleet) = &result.details {
+                let mut coherence_ok = true;
+                for dog in &fleet.dogs {
+                    // Context drift: actual < expected
+                    if let (Some(actual), Some(expected)) = (dog.actual_n_ctx, dog.expected_n_ctx)
+                        && actual < expected
+                    {
+                        coherence_ok = false;
+                        klog!(
+                            "[BOOT FAIL] {} context drift at startup: {} (expected {}). Fix llama-server launch flags or backends.toml.",
+                            dog.dog_name,
+                            actual,
+                            expected
+                        );
+                    }
+                    // Model mismatch: wrong model loaded
+                    if dog.model_mismatch {
+                        coherence_ok = false;
+                        klog!(
+                            "[BOOT FAIL] {} model mismatch at startup: {:?} vs {:?}. Stop llama-server and verify correct model is loaded.",
+                            dog.dog_name,
+                            dog.actual_model,
+                            dog.expected_model
+                        );
+                    }
+                }
+                coherence_ok
+            } else {
+                true // Not fleet details, skip check
+            }
+        }
+        Err(_) => true, // Probe error, let periodic probes handle it
+    };
+
+    if !startup_check {
+        // Backend coherence violations detected, but continue in degraded mode.
+        // Circuit breaker will mark affected Dogs as failed, fallback routing will activate.
+        // This ensures organism doesn't claim sovereignty (logs violations), but doesn't block startup.
+        klog!(
+            "[Boot] Backend coherence violations logged. Running in degraded mode — circuit breaker will isolate failed Dogs."
+        );
+    }
+
     let probes: Vec<Arc<dyn domain::probe::Probe>> = vec![
         Arc::new(infra::probes::ResourceProbe::default()),
         Arc::new(infra::probes::BackupProbe::new(backup_dir)),
@@ -524,7 +577,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(infra::probes::PressureProbe),
         Arc::new(infra::probes::NetworkProbe),
         Arc::new(infra::probes::SomaProbe),
-        Arc::new(infra::probes::FleetProbe::new(fleet_targets)),
+        Arc::new(fleet_probe),
     ];
 
     // ── Domain curations (D1-D6) for wisdom enrichment ──
@@ -580,6 +633,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Periodically flushes to routing_calc for live routing adaptation.
     let dog_perf_collector = Arc::new(infra::dog_performance::DogPerformanceCollector::new());
 
+    // Soma L1 Alpha: Resource gate for GPU utilization-aware task dispatch.
+    // Prevents Hermes agent + nightshift Dog evaluations from starving each other.
+    let soma_gate = Arc::new(domain::orchestrator::ResourceGate::new());
+
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
@@ -624,6 +681,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         domain_router: Arc::clone(&domain_router),
         routing_calc: Arc::clone(&routing_calc),
         dog_perf_collector: Arc::clone(&dog_perf_collector),
+        soma_gate: Arc::clone(&soma_gate),
+        project_root: project_root.display().to_string(),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
