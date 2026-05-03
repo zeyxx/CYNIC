@@ -14,6 +14,7 @@ pub mod inference;
 pub mod metrics;
 pub mod orchestrator;
 pub mod organ;
+pub mod pattern_analysis;
 pub mod probe;
 pub mod sanitize;
 pub mod state_log;

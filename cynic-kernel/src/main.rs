@@ -770,6 +770,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Auto-remediation task started (every 5min)");
 
+        // ─── Pattern analyzer (K15: self-healing via pattern detection, every 30s) ────
+        let kernel_addr =
+            std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".into());
+        let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+        infra::tasks::spawn_pattern_analyzer(
+            kernel_addr,
+            api_key,
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+
         // ─── Event consumer + K15 alerting (ContractDelta → Slack) ────
         let slack = SlackAlerter::from_env();
         if slack.is_some() {

@@ -621,6 +621,85 @@ async fn run_auto_remediation(storage: &Arc<dyn StoragePort>) {
 
 // Rate limiter eviction moved to main.rs — REST delivery concern, not infra.
 
+// ── Pattern Analysis Loop (K15: self-healing via pattern detection, every 30s) ────
+
+pub fn spawn_pattern_analyzer(
+    kernel_addr: String,
+    api_key: String,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    let handle = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.tick().await;
+
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Pattern analyzer stopped");
+                    break;
+                }
+                _ = interval.tick() => {
+                    let health_url = format!("http://{}/health", kernel_addr);
+                    let client = reqwest::Client::new();
+                    let auth_header = format!("Bearer {}", api_key);
+                    let mut headers = reqwest::header::HeaderMap::new();
+                    let _ = auth_header.parse::<reqwest::header::HeaderValue>().and_then(|h| {
+                        headers.insert("Authorization", h);
+                        Ok(())
+                    });
+
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(5),
+                        client.get(&health_url).headers(headers).send(),
+                    )
+                    .await
+                    {
+                        Ok(Ok(resp)) => {
+                            match resp.json::<serde_json::Value>().await {
+                                Ok(health_json) => {
+                                    if let Some(alerts) = health_json.get("alerts").and_then(|a| a.as_array()) {
+                                        let alert_tuples: Vec<(String, String, String)> = alerts
+                                            .iter()
+                                            .filter_map(|alert| {
+                                                let kind = alert.get("kind")?.as_str()?.to_string();
+                                                let message = alert.get("message")?.as_str()?.to_string();
+                                                let severity = alert.get("severity")?.as_str()?.to_string();
+                                                Some((kind, message, severity))
+                                            })
+                                            .collect();
+
+                                        let patterns = crate::domain::pattern_analysis::detect_patterns(alert_tuples);
+                                        for pattern in patterns {
+                                            let kernel = kernel_addr.clone();
+                                            let key = api_key.clone();
+                                            tokio::spawn(async move {
+                                                if let Err(e) = crate::domain::pattern_analysis::emit_healing_observation(
+                                                    &kernel, &key, &pattern
+                                                ).await {
+                                                    klog!("[PatternAnalyzer] emit failed: {}", e);
+                                                }
+                                            });
+                                        }
+                                    }
+                                }
+                                Err(e) => klog!("[PatternAnalyzer] parse /health failed: {}", e),
+                            }
+                        }
+                        Ok(Err(e)) => klog!("[PatternAnalyzer] fetch /health failed: {}", e),
+                        Err(_) => klog!("[PatternAnalyzer] /health timeout (5s)"),
+                    }
+
+                    task_health.touch_pattern_analyzer();
+                }
+            }
+        }
+    });
+    klog!("[Ring 2] Pattern analyzer started (30s interval, K15 healing)");
+    handle
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
