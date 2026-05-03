@@ -1,0 +1,4 @@
+# Soma Integrity Hashes (DO NOT MODIFY)
+# Format: SHA256_HASH  filename
+646777fc072bb9b1b4ad51ff90eb23cc238f5f3ca6d1f0f22a3212ba7858e3ae  soma_manifest.toml
+898a22e3e28e2e2b24ee95c7878cdf4878cfec609ec4f9e5cb877e071dc9c3da  soma_orchestrator.py

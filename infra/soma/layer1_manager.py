@@ -74,7 +74,9 @@ class SomaLayer1:
 
     def __init__(self):
         # GPU backend configured for 131K context (verify it matches actual)
+        # IPs are internal Tailscale infrastructure (private network, not public)
         self.gpu = BackendProbe("GPU (qwen35-9b)", "http://<TAILSCALE_GPU>:8080", expected_context=131072)
+        # Embedding backend on TAILSCALE_CORE (internal network)
         self.embedding = BackendProbe("Embedding (8081)", "http://<TAILSCALE_CORE>:8081")
         self.probes = [self.gpu, self.embedding]
         self.ready = False
@@ -98,21 +100,42 @@ class SomaLayer1:
         return False
 
     async def recover_gpu(self) -> bool:
-        """Attempt to recover GPU backend (Windows remote restart)."""
+        """Attempt to recover GPU backend (Windows process kill + task restart).
+
+        Strategy: Kill the old process entirely, then restart via task scheduler.
+        This ensures the process starts fresh from the latest task configuration.
+        Rationale: schtasks /run alone may not kill the old process (SYS4 lesson).
+        """
         log.info("Attempting to recover GPU backend...")
         try:
-            # This assumes SSH key is configured
-            result = subprocess.run(
-                ["ssh", "titou@<TAILSCALE_GPU>", "schtasks", "/run", "/tn", "CynicSovereign"],
+            # Step 1: Force kill llama-server process (TAILSCALE_GPU: internal Tailscale IP)
+            log.info("Killing llama-server.exe process...")
+            kill_result = subprocess.run(
+                ["ssh", "S.@<TAILSCALE_GPU>", "taskkill", "/IM", "llama-server.exe", "/F"],
                 capture_output=True,
                 timeout=30
             )
-            if result.returncode == 0:
-                log.info("GPU backend restart command sent")
-                await asyncio.sleep(10)  # Wait for service to come up
+            if kill_result.returncode not in [0, 128]:  # 0=success, 128=process not found (already dead)
+                log.warning(f"taskkill returned {kill_result.returncode}, may not have killed process")
+
+            await asyncio.sleep(2)  # Wait for process to fully die
+
+            # Step 2: Restart via task scheduler (will start fresh from config)
+            # The CynicSovereign task is configured with -c 131072 in schtasks
+            log.info("Restarting via Windows task scheduler...")
+            restart_result = subprocess.run(
+                ["ssh", "S.@<TAILSCALE_GPU>", "schtasks", "/run", "/tn", "CynicSovereign"],
+                capture_output=True,
+                timeout=30
+            )
+            if restart_result.returncode == 0:
+                log.info("GPU backend process killed and restart triggered")
+                await asyncio.sleep(15)  # Wait for new process to start and load model
                 return await self.gpu.check()
+            else:
+                log.error(f"schtasks /run failed: {restart_result.stderr.decode() if restart_result.stderr else 'unknown error'}")
         except Exception as e:
-            log.error(f"Failed to restart GPU: {e}")
+            log.error(f"Failed to recover GPU: {e}")
         return False
 
     async def probe_loop(self):

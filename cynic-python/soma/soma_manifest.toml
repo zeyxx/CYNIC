@@ -1,0 +1,136 @@
+# Soma Manifest — Resource Allocation & Backend Configuration
+# Phase 1: 3 backends (llama.cpp inference orchestration)
+#
+# Generated: 2026-05-03
+# Last applied: (empty on first run)
+# Version: 1.0.0
+
+[metadata]
+created_at = "2026-05-03T00:00:00Z"
+version = "1.0.0"
+description = "Minimal orchestrator for cynic-core (APU 8GB) and cynic-gpu (RTX 8GB)"
+
+[infrastructure.cynic_core]
+location = "ubuntu-apu"
+address = "<TAILSCALE_CORE>"
+total_vram_mb = 8192
+cpu_cores = 8
+notes = "APU: 2 backends contending (reasoning 8080 + embedding 8081)"
+
+[infrastructure.cynic_gpu]
+location = "windows-rtx4060ti"
+address = "<TAILSCALE_GPU>"
+total_vram_mb = 8192
+gpu_vram_mb = 8192
+notes = "RTX 4060 Ti: reasoning only (8080)"
+
+# ============================================================================
+# BACKENDS: Declarative state (what SHOULD be running)
+# ============================================================================
+
+[[backends]]
+name = "reasoning_core"
+enabled = true
+host = "<TAILSCALE_CORE>"
+port = 8080
+location = "cynic-core"
+model = "Qwen3.5-9B-Q4_K_M"
+model_path = "unsloth/Qwen3.5-9B-Q4_K_M-GGUF"
+quantization = "Q4_K_M"
+context_size = 4096
+vram_budget_mb = 6000
+flags = "--parallel 1 --threads 8"
+service_name = "llama-server"
+health_check_url = "http://<TAILSCALE_CORE>:8080/health"
+description = "Reasoning backend on APU (CPU-bound)"
+
+[[backends]]
+name = "embedding_core"
+enabled = true
+host = "<TAILSCALE_CORE>"
+port = 8081
+location = "cynic-core"
+model = "Qwen3-Embedding-0.6B-Q8_0"
+model_path = "Qwen/Qwen3-Embedding-0.6B-Q8_0-GGUF"
+quantization = "Q8_0"
+context_size = 512
+vram_budget_mb = 1500
+flags = "--pooling last --parallel 1"
+service_name = "llama-embed"
+health_check_url = "http://<TAILSCALE_CORE>:8081/health"
+description = "Embedding backend on APU (supports behavioral analytics)"
+
+[[backends]]
+name = "reasoning_gpu"
+enabled = true
+host = "<TAILSCALE_GPU>"
+port = 8080
+location = "cynic-gpu"
+model = "Qwen3.5-9B-Q4_K_M"
+model_path = "unsloth/Qwen3.5-9B-Q4_K_M-GGUF"
+quantization = "Q4_K_M"
+context_size = 131072
+vram_budget_mb = 7500
+flags = "-ngl 99"
+service_name = "llama-server (schtasks)"
+health_check_url = "http://<TAILSCALE_GPU>:8080/health"
+description = "Reasoning backend on GPU (long context, 131K window)"
+windows_schtasks_name = "CynicSovereign"
+windows_schtasks_user = "S."
+
+# ============================================================================
+# RECOVERY STRATEGY: How to recover each backend
+# ============================================================================
+
+[[recovery_strategies]]
+backend_name = "reasoning_core"
+restart_method = "systemctl"
+systemd_service = "llama-server@8080.service"
+kill_timeout_seconds = 5
+post_restart_wait_seconds = 10
+notes = "User-level systemd service on cynic-core"
+
+[[recovery_strategies]]
+backend_name = "embedding_core"
+restart_method = "systemctl"
+systemd_service = "llama-embed.service"
+kill_timeout_seconds = 5
+post_restart_wait_seconds = 10
+notes = "User-level systemd service on cynic-core"
+
+[[recovery_strategies]]
+backend_name = "reasoning_gpu"
+restart_method = "windows_schtasks"
+kill_cmd = "ssh S.@<TAILSCALE_GPU> taskkill /IM llama-server.exe /F /T /TIMEOUT:5"
+start_cmd = "ssh S.@<TAILSCALE_GPU> schtasks /run /tn CynicSovereign /I"
+kill_timeout_seconds = 10
+post_restart_wait_seconds = 15
+notes = "Windows schtask: SYS4 rule requires verification of actual state after restart"
+
+# ============================================================================
+# MONITORING & GATES
+# ============================================================================
+
+[monitoring]
+probe_interval_seconds = 30
+probe_timeout_seconds = 5
+max_consecutive_failures = 3
+failure_threshold_pct = 50
+log_level = "info"
+
+[gates]
+vram_contention_threshold_pct = 85
+cpu_throttle_threshold_pct = 90
+network_timeout_seconds = 10
+max_restarts_per_hour = 6
+escalation_threshold_hours = 1
+
+# ============================================================================
+# OBSERVABILITY: What gets reported to kernel /observe
+# ============================================================================
+
+[observability]
+enabled = true
+domain = "soma"
+observation_interval_seconds = 300
+fields = ["backend_health", "vram_utilization", "recovery_actions", "alerts"]
