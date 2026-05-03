@@ -27,7 +27,8 @@ use crate::infra::task_health::TaskHealth;
 pub use nightshift::spawn_nightshift_loop;
 pub use runtime_loops::{
     spawn_crystal_challenge_loop, spawn_discovery_loop, spawn_dog_heartbeat_loop,
-    spawn_dog_perf_flush_loop, spawn_dog_ttl_checker, spawn_event_consumer, spawn_probe_scheduler,
+    spawn_dog_perf_flush_loop, spawn_dog_ttl_checker, spawn_event_consumer,
+    spawn_pattern_healing_alerter, spawn_probe_scheduler,
 };
 pub use state_log::spawn_state_log;
 pub use submission_queue::spawn_submission_queue;
@@ -620,6 +621,170 @@ async fn run_auto_remediation(storage: &Arc<dyn StoragePort>) {
 }
 
 // Rate limiter eviction moved to main.rs — REST delivery concern, not infra.
+
+// ── Pattern Analysis Loop (K15: self-healing via pattern detection, every 30s) ────
+
+pub fn spawn_pattern_analyzer(
+    kernel_addr: String,
+    api_key: String,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    let handle = tokio::spawn(async move {
+        let mut backoff = std::time::Duration::from_secs(3);
+        let max_backoff = std::time::Duration::from_secs(30);
+
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[SHUTDOWN] Pattern analyzer stopped");
+                    break;
+                }
+                _ = subscribe_to_events(&kernel_addr, &api_key, task_health.clone(), shutdown.clone()) => {
+                    // Connection lost, exponential backoff before reconnect
+                    klog!("[PatternAnalyzer] reconnecting in {}s", backoff.as_secs());
+                    tokio::time::sleep(backoff).await;
+                    backoff = std::cmp::min(backoff.mul_f32(1.5), max_backoff);
+                }
+            }
+        }
+    });
+    klog!("[Ring 2] Pattern analyzer started (event-driven /events subscription, K15 healing)");
+    handle
+}
+
+/// Subscribe to /events SSE stream and emit healing observations for Anomaly events.
+/// Returns when connection is lost or shutdown is signalled.
+async fn subscribe_to_events(
+    kernel_addr: &str,
+    _api_key: &str,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) {
+    use futures_util::stream::StreamExt;
+
+    let events_url = format!("http://{kernel_addr}/events");
+    let client = reqwest::Client::new();
+    let mut headers = reqwest::header::HeaderMap::new();
+    let _ = format!("Bearer {_api_key}")
+        .parse::<reqwest::header::HeaderValue>()
+        .map(|h| headers.insert("Authorization", h));
+
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        client.get(&events_url).headers(headers).send(),
+    )
+    .await
+    {
+        Ok(Ok(resp)) => {
+            let mut stream = resp.bytes_stream();
+            let mut buffer = String::new();
+
+            loop {
+                tokio::select! {
+                    _ = shutdown.cancelled() => {
+                        klog!("[PatternAnalyzer] /events shutdown");
+                        return;
+                    }
+                    chunk_result = stream.next() => {
+                        match chunk_result {
+                            Some(Ok(bytes)) => {
+                                buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+                                // Parse complete lines from buffer
+                                while let Some(newline_pos) = buffer.find('\n') {
+                                    let line = buffer.drain(..=newline_pos).collect::<String>();
+                                    let line = line.trim();
+
+                                    // SSE format: "data: {json}"
+                                    if let Some(json_str) = line.strip_prefix("data: ")
+                                        && let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
+                                        // Check if this is an Anomaly event
+                                        if let Some("Anomaly") =
+                                            json.get("type").and_then(|v| v.as_str())
+                                        {
+                                            let kind = json
+                                                .get("kind")
+                                                .and_then(|v| v.as_str())
+                                                .unwrap_or("unknown")
+                                                .to_string();
+                                            let message = json
+                                                .get("message")
+                                                .and_then(|v| v.as_str())
+                                                .unwrap_or("")
+                                                .to_string();
+                                            let severity = json
+                                                .get("severity")
+                                                .and_then(|v| v.as_str())
+                                                .unwrap_or("info")
+                                                .to_string();
+
+                                            let patterns =
+                                                crate::domain::pattern_analysis::detect_patterns(
+                                                    vec![(kind, message, severity)],
+                                                );
+
+                                            for pattern in patterns {
+                                                let kernel_addr = kernel_addr.to_string();
+                                                tokio::spawn(async move {
+                                                    // Emit healing observation via HTTP (K2: HTTP clients in infra layer)
+                                                    let obs = crate::domain::pattern_analysis::HealingObservation {
+                                                        tool: "pattern_analyzer".to_string(),
+                                                        domain: "organism_health".to_string(),
+                                                        status: pattern.severity.clone(),
+                                                        context: format!(
+                                                            "{}\n\nRecommended action: {}",
+                                                            pattern.reasoning, pattern.recommended_action
+                                                        ),
+                                                        consumer: Some("pattern_healing".to_string()),
+                                                        action: Some(pattern.recommended_action.clone()),
+                                                        confidence: Some("observed".to_string()),
+                                                    };
+
+                                                    let client = reqwest::Client::new();
+                                                    let url = format!("http://{kernel_addr}/observe");
+                                                    match tokio::time::timeout(
+                                                        std::time::Duration::from_secs(5),
+                                                        client.post(&url).json(&obs).send(),
+                                                    ).await {
+                                                        Ok(Ok(resp)) if resp.status().is_success() => {
+                                                            klog!("[PatternAnalyzer] observation emitted ({})", obs.status);
+                                                        }
+                                                        Ok(Ok(resp)) => {
+                                                            klog!("[PatternAnalyzer] emit failed: {}", resp.status());
+                                                        }
+                                                        Ok(Err(e)) => {
+                                                            klog!("[PatternAnalyzer] emit failed: {}", e);
+                                                        }
+                                                        Err(_) => {
+                                                            klog!("[PatternAnalyzer] emit timeout");
+                                                        }
+                                                    }
+                                                });
+                                            }
+
+                                            task_health.touch_pattern_analyzer();
+                                        }
+                                    }
+                                }
+                            }
+                            Some(Err(e)) => {
+                                klog!("[PatternAnalyzer] /events stream error: {}", e);
+                                return;
+                            }
+                            None => {
+                                klog!("[PatternAnalyzer] /events stream closed");
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(Err(e)) => klog!("[PatternAnalyzer] /events connection failed: {}", e),
+        Err(_) => klog!("[PatternAnalyzer] /events connection timeout (30s)"),
+    }
+}
 
 #[cfg(test)]
 mod tests {

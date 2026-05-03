@@ -174,6 +174,13 @@ const AUTO_REMEDIATION: TaskContract = TaskContract {
     consumer: "node recovery",
     failure_effect: "nodes stay crashed indefinitely, fleet degrades",
 };
+const PATTERN_ANALYZER: TaskContract = TaskContract {
+    name: "pattern_analyzer",
+    expected_interval: 60, // 30s interval + 30s grace
+    criticality: TaskCriticality::Housekeeping,
+    consumer: "self-healing via pattern detection",
+    failure_effect: "failure patterns go undetected, healing observations not emitted",
+};
 
 fn task_contract(name: &str) -> TaskContract {
     match name {
@@ -196,6 +203,7 @@ fn task_contract(name: &str) -> TaskContract {
         "submission_queue" => SUBMISSION_QUEUE,
         "dog_perf_flush" => DOG_PERF_FLUSH,
         "auto_remediation" => AUTO_REMEDIATION,
+        "pattern_analyzer" => PATTERN_ANALYZER,
         other => panic!("task contract missing for '{other}'"),
     }
 }
@@ -230,6 +238,8 @@ pub struct TaskHealth {
     submission_queue: AtomicU64,
     dog_perf_flush: AtomicU64,
     auto_remediation: AtomicU64,
+    pattern_analyzer: AtomicU64,
+    pattern_healing_alerter: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -263,6 +273,8 @@ impl TaskHealth {
             submission_queue: AtomicU64::new(0),
             dog_perf_flush: AtomicU64::new(0),
             auto_remediation: AtomicU64::new(0),
+            pattern_analyzer: AtomicU64::new(0),
+            pattern_healing_alerter: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -333,6 +345,15 @@ impl TaskHealth {
     }
     pub fn touch_auto_remediation(&self) {
         self.auto_remediation
+            .store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_pattern_analyzer(&self) {
+        self.pattern_analyzer
+            .store(Self::now_secs(), Ordering::Relaxed);
+    }
+
+    pub fn touch_pattern_healing_alerter(&self) {
+        self.pattern_healing_alerter
             .store(Self::now_secs(), Ordering::Relaxed);
     }
 

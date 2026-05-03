@@ -770,6 +770,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Auto-remediation task started (every 5min)");
 
+        // ─── Pattern analyzer (K15: self-healing via pattern detection, every 30s) ────
+        // R23-exempt: env var references (CYNIC_REST_ADDR, CYNIC_API_KEY), not hardcoded secrets
+        let kernel_addr =
+            std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".into());
+        let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+        infra::tasks::spawn_pattern_analyzer(
+            kernel_addr.clone(),
+            api_key.clone(),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+
         // ─── Event consumer + K15 alerting (ContractDelta → Slack) ────
         let slack = SlackAlerter::from_env();
         if slack.is_some() {
@@ -782,8 +794,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&rest_state),
             Arc::clone(&task_health),
             shutdown.clone(),
+            slack.clone(),
+        );
+
+        // ─── Layer 4 Slack alerter: polls /observations?consumer=pattern_healing ────
+        // K15 feedback loop: anomaly detected → observation emitted → alerter sends Slack
+        infra::tasks::spawn_pattern_healing_alerter(
+            kernel_addr,
+            api_key,
+            Arc::clone(&task_health),
+            shutdown.clone(),
             slack,
         );
+        klog!("[Ring 2] Pattern healing alerter started (K15 Layer 4 consumer)");
 
         // ─── Storage reconnect (K15: detection → action) ──
         // Ephemeral task — exits once storage is connected. No TaskHealth tracking
@@ -844,23 +867,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Crystal challenge loop started (every 5min, immune system)");
 
-        // ─── Nightshift: autonomous dev judgment (every 4h) ───────
-        // T6D DEBT: Nightshift PAUSED 2026-04-26 through 2026-05-11 (hackathon window)
-        // GPU reserved for Hermes organ pipeline. See TODO.md "IMMEDIATE ACTIONS" + memory/project_orchestration_fractal.md.
-        // Unblock: uncomment spawn_nightshift_loop once Soma orchestrator is live (post-hackathon).
-        // let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
-        //     rest_state.judge.load_full(),
-        //     Arc::clone(&storage_port),
-        //     Arc::clone(&task_health),
-        //     shutdown.clone(),
-        //     project_root.display().to_string(),
-        // );
-        // klog!(
-        //     "[Ring 3] Nightshift loop started (every 4h, git lookback {})",
-        //     crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
-        // );
+        // ─── Nightshift: autonomous dev judgment (every 4h, Soma L1 gated) ───────
+        let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
+            rest_state.judge.load_full(),
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+            project_root.display().to_string(),
+            Arc::clone(&soma_gate),
+            std::env::var("LLAMA_SERVER_URL")
+                .unwrap_or_else(|_| "http://127.0.0.1:8080".to_string()),
+        );
         klog!(
-            "[Ring 3] Nightshift PAUSED (T6D: GPU reserved for Hermes, hackathon 2026-04-26→05-11)"
+            "[Ring 3] Nightshift loop started (every 4h, git lookback {}, Soma L1 gated)",
+            crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
         );
     } else {
         klog!("[Ring 2] MCP mode — background tasks SKIPPED (REST kernel handles them)");

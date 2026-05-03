@@ -59,11 +59,14 @@ pub(super) async fn store_agent_task(
     let agent_id = task
         .agent_id
         .as_ref()
-        .map(|id| format!("'{id}'"))
+        .map(|id| format!("'{}'", crate::storage::escape_surreal(id)))
         .unwrap_or_else(|| "null".to_string());
     let query = format!(
         "INSERT INTO agent_tasks {{ kind: '{}', domain: '{}', content: '{}', status: 'pending', created_at: '{}', agent_id: {agent_id} }} RETURN id;",
-        task.kind, task.domain, task.content, task.created_at
+        crate::storage::escape_surreal(&task.kind),
+        crate::storage::escape_surreal(&task.domain),
+        crate::storage::escape_surreal(&task.content),
+        task.created_at
     );
     storage.query_one(&query).await?;
     Ok(task.id.clone())
@@ -75,8 +78,9 @@ pub(super) async fn list_pending_agent_tasks(
     kind: &str,
     limit: u32,
 ) -> Result<Vec<AgentTask>, StorageError> {
+    let escaped_kind = crate::storage::escape_surreal(kind);
     let query = format!(
-        "SELECT * FROM agent_tasks WHERE kind = '{kind}' AND status = 'pending' ORDER BY created_at ASC LIMIT {limit};"
+        "SELECT * FROM agent_tasks WHERE kind = '{escaped_kind}' AND status = 'pending' ORDER BY created_at ASC LIMIT {limit};"
     );
     let rows = storage.query_one(&query).await?;
     Ok(rows.iter().filter_map(row_to_agent_task).collect())

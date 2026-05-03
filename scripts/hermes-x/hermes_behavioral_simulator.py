@@ -223,21 +223,12 @@ async def search_x_com(
 
     async with async_playwright() as p:
         try:
-            # Connect to existing browser via CDP (no new launch)
-            logger.info("connecting to CYNIC browser via CDP...")
-            browser = await p.chromium.connect_over_cdp(cdp_url)
-
-            # Get or create context
-            contexts = await browser.contexts
-            if contexts:
-                context = contexts[0]
-                logger.info(f"reusing existing context (login may persist)")
-            else:
-                context = await browser.new_context()
-                logger.info(f"created new context")
-
-            # Create page in context
-            page = await context.new_page()
+            # Connect directly to the page via its WebSocket URL (CDP)
+            logger.info("connecting to CYNIC page via CDP...")
+            # Use connect() with the page's WebSocket URL
+            browser = await p.chromium.connect(cdp_url)
+            page = await browser.new_page()
+            logger.info("connected and created new page")
 
             logger.info(f"navigating to x.com/search...")
             await page.goto("https://x.com/search", wait_until="domcontentloaded", timeout=10000)
@@ -299,7 +290,9 @@ async def search_x_com(
             result_text = await page.text_content()
             result_count = result_text.count("article") if result_text else 0
 
-            await page.close()
+            # Don't close page if we're reusing existing page (CDP)
+            # Only close if we created a new one
+            # For now, don't close to preserve session
 
             return {
                 "status": "success",
