@@ -68,6 +68,16 @@ class ABTestMeasurement:
         self.test_period_start = datetime.fromisoformat("2026-05-05T00:00:00")  # Day 1
         self.test_period_mid = datetime.fromisoformat("2026-05-08T00:00:00")     # Day 4 (switch)
         self.test_period_end = datetime.fromisoformat("2026-05-12T23:59:59")     # Day 7
+        # Domain mapping: observation domain strings (twitter, token-analysis, etc) → D1-D6
+        self.domain_map = {
+            "token-analysis": "D1",
+            "token": "D1",
+            "security": "D2",
+            "general": "D3",
+            "social": "D4",
+            "llm": "D5",
+            "twitter": "D6",  # fallback for unclassified twitter observations
+        }
 
     def load_observations(self) -> int:
         """Load observations from test period."""
@@ -103,6 +113,10 @@ class ABTestMeasurement:
         except:
             return None
 
+    def _map_domain_to_letter(self, domain: str) -> str:
+        """Map observation domain string to D1-D6 label. Default to D1."""
+        return self.domain_map.get(domain.lower(), "D1")
+
     def segment_observations(self) -> Dict[str, List[Dict]]:
         """Segment observations into test periods."""
         segments = {"hardcoded": [], "data_driven": []}
@@ -131,7 +145,10 @@ class ABTestMeasurement:
         domain_engagement = defaultdict(list)
 
         for obs in segment:
-            domain = obs.get('inferred_domain', 'D1')
+            # Map domain field (twitter, token-analysis, etc) to D1-D6 if available, else default D1.
+            # (inferred_domain field added by domain router; observations may not have it yet)
+            domain_str = obs.get('inferred_domain') or obs.get('domain', 'D1')
+            domain = self._map_domain_to_letter(domain_str) if isinstance(domain_str, str) else 'D1'
             signal = obs.get('signal_score', 0)
             engagement = obs.get('source', 'unknown')  # Source as proxy for engagement
 

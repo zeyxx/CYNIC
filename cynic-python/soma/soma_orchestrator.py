@@ -127,7 +127,12 @@ class SomaOrchestrator:
 
         start_ms = time.time() * 1000
         try:
-            resp = requests.get(url, timeout=5)
+            # Support both GET and POST health checks
+            method = cfg.get("health_check_method", "GET").upper()
+            if method == "POST":
+                resp = requests.post(url, timeout=5)
+            else:
+                resp = requests.get(url, timeout=5)
             latency_ms = time.time() * 1000 - start_ms
 
             if resp.status_code == 200:
@@ -417,6 +422,7 @@ class SomaOrchestrator:
                 await self.probe_all()
                 await self.enforce_manifest()
                 await self._publish_observation()
+                await self.write_status_file()
                 await asyncio.sleep(check_interval_sec)
             except Exception as e:
                 self.logger.error(f"Error in monitor loop: {e}", exc_info=True)
@@ -485,6 +491,32 @@ class SomaOrchestrator:
                 else None
             ),
         }
+
+    async def write_status_file(self, path: Optional[Path] = None) -> None:
+        """Write current status to file for kernel /health to read (K15 feedback)."""
+        if path is None:
+            path = Path.home() / ".cynic" / "soma_status.json"
+
+        status = {
+            "timestamp": time.time(),
+            "healthy": all(s.is_alive for s in self.state.values() if self.backends[s.name].get("enabled", True)),
+            "backends": {
+                name: {
+                    "is_alive": state.is_alive,
+                    "latency_ms": state.latency_ms,
+                    "error": state.error,
+                }
+                for name, state in self.state.items()
+            },
+        }
+
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, "w") as f:
+                json.dump(status, f)
+            self.logger.debug(f"Wrote status to {path}")
+        except Exception as e:
+            self.logger.error(f"Failed to write status file: {e}")
 
 
 async def main():

@@ -78,6 +78,17 @@ description = "Reasoning backend on GPU (long context, 131K window)"
 windows_schtasks_name = "CynicSovereign"
 windows_schtasks_user = "S."
 
+[[backends]]
+name = "storage_kernel"
+enabled = true
+host = "127.0.0.1"
+port = 8000
+location = "cynic-core"
+service_name = "surrealdb"
+health_check_url = "http://127.0.0.1:8000/sql"
+health_check_method = "POST"
+description = "SurrealDB — persistent storage for kernel"
+
 # ============================================================================
 # RECOVERY STRATEGY: How to recover each backend
 # ============================================================================
@@ -101,11 +112,19 @@ notes = "User-level systemd service on cynic-core"
 [[recovery_strategies]]
 backend_name = "reasoning_gpu"
 restart_method = "windows_schtasks"
-kill_cmd = "ssh S.@<TAILSCALE_GPU> taskkill /IM llama-server.exe /F /T /TIMEOUT:5"
+kill_cmd = "ssh S.@<TAILSCALE_GPU> taskkill /IM llama-server.exe /F /T"
 start_cmd = "ssh S.@<TAILSCALE_GPU> schtasks /run /tn CynicSovereign /I"
 kill_timeout_seconds = 10
 post_restart_wait_seconds = 15
 notes = "Windows schtask: SYS4 rule requires verification of actual state after restart"
+
+[[recovery_strategies]]
+backend_name = "storage_kernel"
+restart_method = "systemctl"
+systemd_service = "surrealdb.service"
+kill_timeout_seconds = 5
+post_restart_wait_seconds = 10
+notes = "Storage is critical: K15 producer needs acting consumer"
 
 # ============================================================================
 # MONITORING & GATES
