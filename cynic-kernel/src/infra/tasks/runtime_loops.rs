@@ -326,7 +326,8 @@ pub fn spawn_pattern_healing_executor(
                     );
 
                     // Parse health snapshot for resource state
-                    let health_snapshot: Option<serde_json::Value> = if let Ok(Ok(resp)) = health_result {
+                    // WHY: health_snapshot reserved for future resource monitoring (Phase 3); currently collected but not consumed.
+                    let _health_snapshot: Option<serde_json::Value> = if let Ok(Ok(resp)) = health_result {
                         resp.json().await.ok()
                     } else {
                         None
@@ -428,7 +429,8 @@ pub fn spawn_pattern_healing_executor(
                                     _ => None,
                                 };
 
-                                if let Some((action_name, action_desc, rank, reversibility, cost, risk)) = remediation {
+                                // WHY: cost and risk are remediation metadata reserved for future prioritization (Phase 4); currently extracted but not consumed.
+                                if let Some((action_name, action_desc, rank, reversibility, _cost, _risk)) = remediation {
                                     let timestamp = chrono::Utc::now().to_rfc3339();
 
                                     klog!(
