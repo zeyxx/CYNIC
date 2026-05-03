@@ -800,13 +800,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // ─── Layer 4 Slack alerter: polls /observations?consumer=pattern_healing ────
         // K15 feedback loop: anomaly detected → observation emitted → alerter sends Slack
         infra::tasks::spawn_pattern_healing_alerter(
-            kernel_addr,
-            api_key,
+            kernel_addr.clone(),
+            api_key.clone(),
             Arc::clone(&task_health),
             shutdown.clone(),
             slack,
         );
         klog!("[Ring 2] Pattern healing alerter started (K15 Layer 4 consumer)");
+
+        // ─── Layer 5a Healing executor: ranks and logs remediation decisions ────
+        // Empirical seed: observes anomalies, ranks by (severity * reversibility) / (cost * risk),
+        // logs structured decisions for Phase 5b measurement. Does NOT execute yet.
+        infra::tasks::spawn_pattern_healing_executor(
+            kernel_addr.clone(),
+            api_key.clone(),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Pattern healing executor started (K15 Layer 5a empirical seed)");
+
+        // ─── Layer 5b Healing verifier: outcome measurement ────
+        // Listens for decision observations, waits 300s, re-probes /health,
+        // emits outcome observation (recovered/persistent) for Phase 5b confusion matrix.
+        infra::tasks::spawn_pattern_healing_verifier(
+            kernel_addr,
+            api_key,
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Pattern healing verifier started (K15 Layer 5b outcome measurement)");
 
         // ─── Storage reconnect (K15: detection → action) ──
         // Ephemeral task — exits once storage is connected. No TaskHealth tracking

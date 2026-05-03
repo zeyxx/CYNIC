@@ -281,6 +281,371 @@ pub fn spawn_pattern_healing_alerter(
     })
 }
 
+/// Layer 5a: Pattern healing executor — empirical seed.
+/// Observes anomalies, ranks remediation by (severity * reversibility) / (cost * risk),
+/// logs structured decisions. Does NOT execute yet — Phase 5b will measure efficacy.
+pub fn spawn_pattern_healing_executor(
+    kernel_addr: String,
+    api_key: String,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut processed_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut poll_interval = tokio::time::interval(std::time::Duration::from_secs(15));
+        poll_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        poll_interval.tick().await;
+
+        let client = reqwest::Client::new();
+        let mut headers = reqwest::header::HeaderMap::new();
+        // R1-exempt: api_key is a parameter (passed in at startup from env), not hardcoded
+        let _ = format!("Bearer {api_key}")
+            .parse::<reqwest::header::HeaderValue>()
+            .map(|h| headers.insert("Authorization", h));
+
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[PatternHealing] Executor stopped");
+                    break;
+                }
+                _ = poll_interval.tick() => {
+                    // Query /observations and /health in parallel for remediation decisions
+                    let url_obs = format!("http://{kernel_addr}/observations?consumer=pattern_healing_executor&limit=20");
+                    let url_health = format!("http://{kernel_addr}/health");
+
+                    let (obs_result, health_result) = tokio::join!(
+                        tokio::time::timeout(
+                            std::time::Duration::from_secs(5),
+                            client.get(&url_obs).headers(headers.clone()).send()
+                        ),
+                        tokio::time::timeout(
+                            std::time::Duration::from_secs(5),
+                            client.get(&url_health).headers(headers.clone()).send()
+                        )
+                    );
+
+                    // Parse health snapshot for resource state
+                    let health_snapshot: Option<serde_json::Value> = if let Ok(Ok(resp)) = health_result {
+                        resp.json().await.ok()
+                    } else {
+                        None
+                    };
+
+                    // Process observations: rank and log decisions
+                    if let Ok(Ok(resp)) = obs_result {
+                        if let Ok(observations) = resp.json::<Vec<serde_json::Value>>().await {
+                            for obs_val in observations {
+                                let obs_id = obs_val
+                                    .get("id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("unknown")
+                                    .to_string();
+
+                                // Idempotency
+                                if !processed_ids.insert(obs_id.clone()) {
+                                    continue;
+                                }
+
+                                let obs_domain = obs_val
+                                    .get("domain")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("unknown")
+                                    .to_string();
+                                let obs_status = obs_val
+                                    .get("status")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("info")
+                                    .to_string();
+                                let obs_context = obs_val
+                                    .get("context")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string();
+
+                                // Severity score: critical=1.0, warn=0.5, info=0.25
+                                let severity = match obs_status.as_str() {
+                                    "critical" => 1.0,
+                                    "warn" => 0.5,
+                                    _ => 0.25,
+                                };
+
+                                // Map observation domain to remediation action + rank
+                                // Rank = (severity * reversibility) / (resource_cost * risk)
+                                let remediation = match obs_domain.as_str() {
+                                    "dog_inference_context_drift" => {
+                                        // Action 1: Lower GPU context_size (131072 → 65536)
+                                        // reversibility=0.95 (config revert), cost=0.15 (reload), risk=0.1 (safe)
+                                        let rank = (severity * 0.95) / (0.15 * 0.1);
+                                        Some((
+                                            "lower_gpu_context",
+                                            "lower GPU context_size from 131072 to 65536",
+                                            rank,
+                                            0.95,
+                                            0.15,
+                                            0.1,
+                                        ))
+                                    },
+                                    "dog_inference_json_parse" => {
+                                        // Action 4: Bump max_tokens (12288 → 16384)
+                                        // reversibility=0.95, cost=0.1, risk=0.1
+                                        let rank = (severity * 0.95) / (0.1 * 0.1);
+                                        Some((
+                                            "bump_max_tokens",
+                                            "increase max_tokens from 12288 to 16384",
+                                            rank,
+                                            0.95,
+                                            0.1,
+                                            0.1,
+                                        ))
+                                    },
+                                    "dog_inference_quota_exceeded" => {
+                                        // Action 2: Disable gemini-cli
+                                        // reversibility=0.98, cost=0.2 (jury size), risk=0.25 (conditional on other dogs)
+                                        let rank = (severity * 0.98) / (0.2 * 0.25);
+                                        Some((
+                                            "disable_gemini_cli",
+                                            "comment out gemini-cli from backends.toml, decrement expected_count",
+                                            rank,
+                                            0.98,
+                                            0.2,
+                                            0.25,
+                                        ))
+                                    },
+                                    "storage_slow_queries" => {
+                                        // Action 3: Add SurrealDB index on state_log.seq
+                                        // reversibility=0.95 (drop index), cost=0.2 (migration), risk=0.1 (safe)
+                                        let rank = (severity * 0.95) / (0.2 * 0.1);
+                                        Some((
+                                            "add_state_log_index",
+                                            "DEFINE INDEX state_log_seq ON state_log FIELDS seq;",
+                                            rank,
+                                            0.95,
+                                            0.2,
+                                            0.1,
+                                        ))
+                                    },
+                                    _ => None,
+                                };
+
+                                if let Some((action_name, action_desc, rank, reversibility, cost, risk)) = remediation {
+                                    let timestamp = chrono::Utc::now().to_rfc3339();
+
+                                    klog!(
+                                        "[PatternHealing] Executor ranked: {} → {} (rank={:.2}, context: {})",
+                                        obs_domain,
+                                        action_name,
+                                        rank,
+                                        obs_context.chars().take(50).collect::<String>()
+                                    );
+
+                                    // Emit decision observation to /observe for Phase 5b measurement
+                                    // K15 closure: anomaly → decision logged → decision observation emitted → (later) outcome measured
+                                    let decision_obs = serde_json::json!({
+                                        "project": "CYNIC",
+                                        "agent_id": "kernel",
+                                        "tool": "pattern_healing_executor",
+                                        "target": "remediation_decision",
+                                        "domain": obs_domain.clone(),
+                                        "status": "decision",
+                                        "context": format!("{} — severity={:.2}, rank={:.2}, reversibility={:.2}", action_desc, severity, rank, reversibility),
+                                        "session_id": "",
+                                        "timestamp": timestamp,
+                                        "tags": vec!["pattern-healing", "decision", "phase-5b"],
+                                        "value": rank,
+                                        "confidence": (rank / 100.0_f64).min(1.0), // normalize rank (0-100+) to confidence (0-1)
+                                        "action": action_name,
+                                        "depends_on": vec![obs_id.clone()],
+                                        "observers": vec!["pattern_healing_verifier"],
+                                    });
+
+                                    // Fire-and-forget: POST decision observation to /observe
+                                    let client_clone = client.clone();
+                                    let headers_clone = headers.clone();
+                                    let url_obs_post = format!("http://{kernel_addr}/observe?consumer=pattern_healing_verifier");
+                                    tokio::spawn(async move {
+                                        match tokio::time::timeout(
+                                            std::time::Duration::from_secs(5),
+                                            client_clone
+                                                .post(&url_obs_post)
+                                                .headers(headers_clone)
+                                                .json(&decision_obs)
+                                                .send(),
+                                        )
+                                        .await
+                                        {
+                                            Ok(Ok(_)) => {
+                                                // Success — decision observation recorded
+                                            }
+                                            Ok(Err(e)) => {
+                                                tracing::warn!(error = %e, "Failed to emit decision observation");
+                                            }
+                                            Err(_) => {
+                                                tracing::warn!("Decision observation POST timeout");
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    task_health.touch_pattern_healing_alerter();
+                }
+            }
+        }
+    })
+}
+
+/// Layer 5b: Pattern healing verifier — outcome measurement for Phase 5b empirical loop.
+/// Listens for decision observations, waits 300s, re-probes /health,
+/// emits outcome observation (recovered/persistent) linked to decision via depends_on.
+pub fn spawn_pattern_healing_verifier(
+    kernel_addr: String,
+    api_key: String,
+    task_health: Arc<TaskHealth>,
+    shutdown: CancellationToken,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let client = reqwest::Client::new();
+        let mut headers = reqwest::header::HeaderMap::new();
+        // R1-exempt: api_key is a parameter (passed in at startup from env), not hardcoded
+        let _ = format!("Bearer {api_key}")
+            .parse::<reqwest::header::HeaderValue>()
+            .map(|h| headers.insert("Authorization", h));
+
+        // Track in-flight decisions awaiting verification: (decision_obs_id, timestamp, anomaly_domain)
+        let mut pending_verifications: std::collections::HashMap<
+            String,
+            (std::time::Instant, String),
+        > = std::collections::HashMap::new();
+
+        let mut poll_interval = tokio::time::interval(std::time::Duration::from_secs(15));
+        poll_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        poll_interval.tick().await;
+
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => {
+                    klog!("[PatternHealing] Verifier stopped");
+                    break;
+                }
+                _ = poll_interval.tick() => {
+                    // Query for new decision observations
+                    let url_decisions = format!("http://{kernel_addr}/observations?consumer=pattern_healing_verifier&status=decision&limit=20");
+                    if let Ok(Ok(resp)) = tokio::time::timeout(
+                        std::time::Duration::from_secs(5),
+                        client.get(&url_decisions).headers(headers.clone()).send(),
+                    )
+                    .await
+                    {
+                        if let Ok(decisions) = resp.json::<Vec<serde_json::Value>>().await {
+                            for decision_val in decisions {
+                                if let Some(decision_id) = decision_val.get("id").and_then(|v| v.as_str()) {
+                                    if let Some(anomaly_domain) = decision_val.get("domain").and_then(|v| v.as_str()) {
+                                        // Track new decision for verification (will verify at now + 300s)
+                                        pending_verifications
+                                            .entry(decision_id.to_string())
+                                            .or_insert((std::time::Instant::now(), anomaly_domain.to_string()));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Check if any verifications are due (300s elapsed)
+                    let now = std::time::Instant::now();
+                    let verification_window = std::time::Duration::from_secs(300);
+                    let mut decisions_to_verify: Vec<(String, String)> = pending_verifications
+                        .iter()
+                        .filter(|(_, (timestamp, _))| now.duration_since(*timestamp) >= verification_window)
+                        .map(|(id, (_, domain))| (id.clone(), domain.clone()))
+                        .collect();
+
+                    for (decision_id, anomaly_domain) in decisions_to_verify.iter() {
+                        // Re-probe /health to check if anomaly resolved
+                        let url_health = format!("http://{kernel_addr}/health");
+                        let recovered = match tokio::time::timeout(
+                            std::time::Duration::from_secs(5),
+                            client.get(&url_health).headers(headers.clone()).send(),
+                        )
+                        .await
+                        {
+                            Ok(Ok(resp)) => {
+                                match resp.json::<serde_json::Value>().await {
+                                    Ok(health) => {
+                                        // Check if anomaly domain is still failing
+                                        // Look for component_health[anomaly_domain].status != "critical"
+                                        let is_critical = health
+                                            .get("component_health")
+                                            .and_then(|ch| ch.get(anomaly_domain))
+                                            .and_then(|c| c.get("status"))
+                                            .and_then(|s| s.as_str())
+                                            .map(|s| s == "critical" || s == "warn")
+                                            .unwrap_or(false);
+                                        !is_critical // recovered if no longer critical/warn
+                                    }
+                                    Err(_) => false, // parsing failed, assume not recovered
+                                }
+                            }
+                            _ => false, // timeout or request failed, assume not recovered
+                        };
+
+                        // Emit outcome observation
+                        let outcome_status = if recovered { "recovered" } else { "persistent" };
+                        let outcome_confidence = if recovered { 1.0 } else { 0.0 };
+
+                        let outcome_obs = serde_json::json!({
+                            "project": "CYNIC",
+                            "agent_id": "kernel",
+                            "tool": "pattern_healing_verifier",
+                            "target": "verification_outcome",
+                            "domain": anomaly_domain,
+                            "status": outcome_status,
+                            "context": format!("300s re-probe: anomaly {} after decision", if recovered { "resolved" } else { "persists" }),
+                            "session_id": "",
+                            "timestamp": chrono::Utc::now().to_rfc3339(),
+                            "tags": vec!["pattern-healing", "outcome", "phase-5b"],
+                            "value": if recovered { 1.0 } else { 0.0 },
+                            "confidence": outcome_confidence,
+                            "action": "verify",
+                            "depends_on": vec![decision_id.clone()],
+                            "observers": vec!["pattern_healing_analyzer"],
+                        });
+
+                        // Fire-and-forget: POST outcome observation
+                        let client_clone = client.clone();
+                        let headers_clone = headers.clone();
+                        let url_obs_post = format!("http://{kernel_addr}/observe?consumer=pattern_healing_analyzer");
+                        tokio::spawn(async move {
+                            let _ = tokio::time::timeout(
+                                std::time::Duration::from_secs(5),
+                                client_clone
+                                    .post(&url_obs_post)
+                                    .headers(headers_clone)
+                                    .json(&outcome_obs)
+                                    .send(),
+                            )
+                            .await;
+                        });
+
+                        klog!(
+                            "[PatternHealing] Verifier: {} → {} (300s re-probe)",
+                            anomaly_domain,
+                            outcome_status
+                        );
+
+                        // Remove from pending (verified)
+                        pending_verifications.remove(decision_id);
+                    }
+
+                    task_health.touch_pattern_healing_alerter();
+                }
+            }
+        }
+    })
+}
+
 pub fn spawn_probe_scheduler(
     probes: Vec<Arc<dyn Probe>>,
     _storage: Arc<dyn StoragePort>,

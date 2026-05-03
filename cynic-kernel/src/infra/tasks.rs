@@ -28,7 +28,8 @@ pub use nightshift::spawn_nightshift_loop;
 pub use runtime_loops::{
     spawn_crystal_challenge_loop, spawn_discovery_loop, spawn_dog_heartbeat_loop,
     spawn_dog_perf_flush_loop, spawn_dog_ttl_checker, spawn_event_consumer,
-    spawn_pattern_healing_alerter, spawn_probe_scheduler,
+    spawn_pattern_healing_alerter, spawn_pattern_healing_executor, spawn_pattern_healing_verifier,
+    spawn_probe_scheduler,
 };
 pub use state_log::spawn_state_log;
 pub use submission_queue::spawn_submission_queue;
@@ -726,6 +727,7 @@ async fn subscribe_to_events(
 
                                             for pattern in patterns {
                                                 let kernel_addr = kernel_addr.to_string();
+                                                let api_key = _api_key.to_string();
                                                 tokio::spawn(async move {
                                                     // Emit healing observation via HTTP (K2: HTTP clients in infra layer)
                                                     let obs = crate::domain::pattern_analysis::HealingObservation {
@@ -743,9 +745,13 @@ async fn subscribe_to_events(
 
                                                     let client = reqwest::Client::new();
                                                     let url = format!("http://{kernel_addr}/observe");
+                                                    let mut headers = reqwest::header::HeaderMap::new();
+                                                    let _ = format!("Bearer {api_key}")
+                                                        .parse::<reqwest::header::HeaderValue>()
+                                                        .map(|h| headers.insert("Authorization", h));
                                                     match tokio::time::timeout(
                                                         std::time::Duration::from_secs(5),
-                                                        client.post(&url).json(&obs).send(),
+                                                        client.post(&url).headers(headers).json(&obs).send(),
                                                     ).await {
                                                         Ok(Ok(resp)) if resp.status().is_success() => {
                                                             klog!("[PatternAnalyzer] observation emitted ({})", obs.status);
