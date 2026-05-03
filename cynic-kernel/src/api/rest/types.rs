@@ -91,6 +91,9 @@ pub struct AppState {
     /// K15 seam 3 producer: on_dog callbacks feed observations here.
     /// Periodically flushed to routing_calc for live routing adaptation.
     pub dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
+    /// Project root (repository root — resolved at boot).
+    /// Used by `/git/state` endpoint to run git commands in the correct context.
+    pub project_root: String,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.

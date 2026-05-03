@@ -802,6 +802,7 @@ mod tests {
             dog_perf_collector: Arc::new(
                 crate::infra::dog_performance::DogPerformanceCollector::new(),
             ),
+            project_root: ".".to_string(),
         })
     }
 

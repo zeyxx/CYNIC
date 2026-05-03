@@ -626,6 +626,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         domain_router: Arc::clone(&domain_router),
         routing_calc: Arc::clone(&routing_calc),
         dog_perf_collector: Arc::clone(&dog_perf_collector),
+        project_root: project_root.display().to_string(),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
