@@ -1,0 +1,18 @@
+{
+  "silhouette": null,
+  "silhouette_note": "Not measured (clustering timeout on full silhouette computation)",
+  "n_clusters": 7,
+  "n_tweets": 6361,
+  "vocabulary_size": 24473,
+  "cluster_distribution": {
+    "5": 2674,
+    "4": 1336,
+    "0": 1172,
+    "6": 259,
+    "2": 301,
+    "3": 86,
+    "1": 533
+  },
+  "hhi": 0.266,
+  "hhi_note": "Cluster imbalance metric (lower = more balanced)"
+}
