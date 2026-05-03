@@ -80,7 +80,7 @@ def score_wallets(holders: List[str]) -> Dict[str, float]:
         from wallet_behavior_helius import HeliusWalletCollector
         from wallet_behavior_validator import WalletValidator
 
-        collector = HeliusWalletCollector()
+        collector = HeliusWalletCollector(api_key=helius_key)
         scores = {}
 
         for i, holder in enumerate(holders):
