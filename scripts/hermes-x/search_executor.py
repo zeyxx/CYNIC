@@ -47,6 +47,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+# For reading browser state
+import shutil
+
 # Playwright required for search execution
 try:
     from playwright.async_api import async_playwright
@@ -75,9 +78,29 @@ class SearchExecutor:
         self.tasks_file = self.organ_dir / SEARCH_TASKS_FILE
         self.exec_log_file = self.organ_dir / SEARCH_EXECUTION_LOG
         self.behavior_file = self.organ_dir / BEHAVIOR_LOG
+        # browser-state.json is written to parent hermes/ directory by launch-browser.sh
+        self.browser_state_file = self.organ_dir.parent / "browser-state.json"
         self.proxy_addr = proxy_addr or os.environ.get("X_PROXY_ADDR", "localhost:8888")
         self.search_count = 0
         self.search_errors = 0
+
+    def get_cdp_endpoint(self) -> Optional[str]:
+        """Read CDP endpoint from browser-state.json written by launch-browser.sh."""
+        if not self.browser_state_file.exists():
+            logger.warning("browser-state.json not found at %s", self.browser_state_file)
+            return None
+
+        try:
+            with open(self.browser_state_file) as f:
+                state = json.load(f)
+                cdp_url = state.get("cdp_url")
+                if cdp_url:
+                    logger.info("Found CDP endpoint: %s", cdp_url)
+                    return cdp_url
+        except Exception as e:
+            logger.error("failed to read browser state: %s", e)
+
+        return None
 
     def load_search_tasks(self) -> list[dict]:
         """Load pending search tasks from search_tasks.jsonl."""
@@ -213,8 +236,8 @@ class SearchExecutor:
     async def run_cycle(self, max_searches: int = 10) -> None:
         """Execute pending searches (up to max_searches per cycle).
 
-        Launches headless Playwright browser for X.com searches.
-        Runs silent (headless=True) to avoid visible windows.
+        Connects to hermes-browser (real Chrome with proxy + user profile).
+        Falls back to headless Playwright if hermes-browser unavailable.
         """
         if not PLAYWRIGHT_AVAILABLE:
             logger.error("Playwright not installed. Install: pip install playwright")
@@ -233,16 +256,47 @@ class SearchExecutor:
 
         try:
             async with async_playwright() as p:
-                # Launch headless browser for X.com searches
-                browser = await p.chromium.launch(
-                    headless=True,
-                    args=[
-                        "--no-first-run",
-                        "--no-default-browser-check",
-                    ]
-                )
+                # Try to connect to hermes-browser (real Chrome instance)
+                cdp_endpoint = self.get_cdp_endpoint()
+                browser = None
+                use_real_browser = False
 
-                context = await browser.new_context()
+                if cdp_endpoint:
+                    try:
+                        logger.info("Connecting to hermes-browser via CDP...")
+                        # Convert ws://127.0.0.1:40769 to http://127.0.0.1:40769 for connect_over_cdp
+                        http_endpoint = cdp_endpoint.replace("ws://", "http://")
+                        browser = await p.chromium.connect_over_cdp(http_endpoint)
+                        use_real_browser = True
+                        logger.info("✓ Connected to hermes-browser (real Chrome, not headless)")
+                    except Exception as e:
+                        logger.warning("Failed to connect via CDP: %s. Falling back to headless.", str(e)[:100])
+                        browser = None
+
+                # Fall back to headless if CDP failed
+                if not browser:
+                    logger.info("Launching headless Playwright browser (X.com may block this)")
+                    browser = await p.chromium.launch(
+                        headless=True,
+                        args=[
+                            "--no-first-run",
+                            "--no-default-browser-check",
+                        ]
+                    )
+                    use_real_browser = False
+
+                # Create context and page (reuse existing context if via CDP)
+                if use_real_browser:
+                    # Use the existing context from hermes-browser
+                    contexts = browser.contexts
+                    if contexts:
+                        context = contexts[0]
+                        logger.info("Reusing existing browser context")
+                    else:
+                        context = await browser.new_context()
+                else:
+                    context = await browser.new_context()
+
                 page = await context.new_page()
 
                 for i, task in enumerate(tasks[:max_searches]):
@@ -255,7 +309,9 @@ class SearchExecutor:
                     self.search_count += 1
 
                 await page.close()
-                await context.close()
+                if not use_real_browser:
+                    # Only close context if we created it (not via CDP)
+                    await context.close()
                 await browser.close()
 
         except Exception as e:
