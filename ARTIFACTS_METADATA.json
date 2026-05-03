@@ -1,0 +1,216 @@
+{
+  "__version__": "1.0",
+  "__description__": "Metadata registry for all protocol documents (repo + external)",
+
+  "artifacts": [
+    {
+      "artifact_id": "organism-protocol-ssot",
+      "file_path": "ORGANISM_PROTOCOL.md",
+      "external_path": "~/.cynic/organisms/artifacts/validated/protocol/ORGANISM_PROTOCOL.md",
+      "artifact_type": "protocol",
+      "maturity": "validated",
+      "confidence": 0.618,
+      "confidence_label": "φ⁻¹",
+      "created_date": "2026-05-03T18:45:00Z",
+      "created_by_session": "phase1-finalization-2026-05-03",
+      "created_by_agent": "claude-haiku-4-5",
+
+      "content": {
+        "question": "How should the organism store and consume artifacts across sessions?",
+        "hypothesis": "Deterministic schema (maturity, consumer, lifecycle) reduces metabolic waste (re-parsing)",
+        "method": "Designed from K15 law + empirical observation of artifact accumulation",
+        "result": "7-section protocol with maturity model, consumer registry, cleanup cadence"
+      },
+
+      "falsification": {
+        "test": "Phase 2 + Phase 3 gates (May 5-7 and TBD)",
+        "success_criterion": "All falsification gates execute correctly; no artifact re-parsing; consumers activate as planned",
+        "failure_criterion": "Any gate fails; session context time > 30s; artifacts re-parsed > 2x per session",
+        "what_fails_hypothesis": "If gates fail, protocol is incomplete or assumptions are wrong → redesign for v1.1"
+      },
+
+      "lifecycle": {
+        "status": "VALIDATED",
+        "blocker": "None (deployed)",
+        "phase_dependent": "phase2_falsification + phase3_falsification",
+        "decision_gate": "2026-05-07 (Phase 2) and post-phase3 (TBD)",
+        "auto_delete_if": {
+          "reason": "Protocol v2.0 complete (complete redesign); v1.0 superseded",
+          "date_threshold": "2026-12-31 (6 months, allow 2 full cycles)",
+          "action": "Archive ORGANISM_PROTOCOL v1.0 to dead/archive/, commit v2.0"
+        }
+      },
+
+      "consumer_registry": {
+        "primary_consumer": "session_init",
+        "trigger": "At every session start",
+        "action": "Load consumer_registry.json, report WAITING consumers and blockers",
+        "secondary_consumers": ["protocol_auditor"]
+      },
+
+      "references": {
+        "related_artifacts": [
+          "ORGANISM_ARTIFACT_PROTOCOL.md (technical spec)",
+          "ARTIFACT_AUDIT_2026_05_03.md (state analysis)",
+          "PROTOCOL_ACTIVATION_LOG_2026_05_03.md (implementation log)"
+        ],
+        "external_storage": "~/.cynic/organisms/artifacts/validated/protocol/",
+        "notes": "SSOT for protocol design + implementation status. Versioning via protocol_version.json in external storage."
+      }
+    },
+
+    {
+      "artifact_id": "organism-protocol-technical-spec",
+      "file_path": "cynic-python/ORGANISM_ARTIFACT_PROTOCOL.md",
+      "artifact_type": "protocol_specification",
+      "maturity": "validated",
+      "confidence": 0.618,
+      "confidence_label": "φ⁻¹",
+      "created_date": "2026-05-03T18:00:00Z",
+
+      "content": {
+        "question": "What is the formal specification for organism artifacts?",
+        "method": "7-section detailed design covering schema, storage, consumers, lifecycle, session injection, debt, versioning",
+        "result": "Complete specification ready for implementation"
+      },
+
+      "lifecycle": {
+        "status": "VALIDATED",
+        "blocker": "None (deployed)",
+        "auto_delete_if": {
+          "reason": "v1.0 superseded by v2.0",
+          "date_threshold": "2026-12-31",
+          "action": "Archive to dead/archive/"
+        }
+      },
+
+      "consumer_registry": {
+        "primary_consumer": "protocol_auditor",
+        "action": "Reference for verifying artifact compliance"
+      }
+    },
+
+    {
+      "artifact_id": "artifact-audit-2026-05-03",
+      "file_path": "ARTIFACT_AUDIT_2026_05_03.md",
+      "artifact_type": "analysis",
+      "maturity": "dead",
+      "confidence": 0.618,
+      "confidence_label": "φ⁻¹",
+      "created_date": "2026-05-03T18:00:00Z",
+
+      "content": {
+        "question": "What is the current state of organism artifacts?",
+        "method": "Inventory + classification against protocol",
+        "result": "30+ orphaned artifacts, 9 VALIDATED with zero consumers, R5 violations identified"
+      },
+
+      "lifecycle": {
+        "status": "DEAD",
+        "reason": "Purpose complete (audit done, artifacts migrated, protocol implemented)",
+        "auto_delete_if": {
+          "reason": "Transient analysis document, no permanent value after implementation",
+          "date_threshold": "2026-05-07 (one week after creation, after Phase 2 cleanup)",
+          "action": "Delete from repo, keep in git history"
+        }
+      },
+
+      "consumer_registry": {
+        "primary_consumer": "None (analysis only, not acted upon)",
+        "status": "DEAD"
+      },
+
+      "notes": "Can be referenced if audit questions arise, but protocol is now live and this doc is superseded by actual implementation."
+    },
+
+    {
+      "artifact_id": "protocol-activation-log-2026-05-03",
+      "file_path": "PROTOCOL_ACTIVATION_LOG_2026_05_03.md",
+      "artifact_type": "implementation_log",
+      "maturity": "validated",
+      "confidence": 0.618,
+      "confidence_label": "φ⁻¹",
+      "created_date": "2026-05-03T18:45:00Z",
+
+      "content": {
+        "question": "What was done to implement the protocol?",
+        "method": "Logged each infrastructure, migration, wiring step with cost-benefit",
+        "result": "Phase 1 infrastructure complete, 8 artifacts migrated, 4 consumers registered"
+      },
+
+      "lifecycle": {
+        "status": "VALIDATED",
+        "reason": "Historical record of implementation, never deleted",
+        "auto_delete_if": null
+      },
+
+      "consumer_registry": {
+        "primary_consumer": "session_history",
+        "action": "Reference for understanding what was implemented and cost-benefit"
+      },
+
+      "notes": "Permanent historical artifact. Keep indefinitely."
+    },
+
+    {
+      "artifact_id": "session-work-2026-05-03",
+      "file_path": "SESSION_WORK_2026_05_03.md",
+      "artifact_type": "session_summary",
+      "maturity": "validated",
+      "confidence": 0.618,
+      "confidence_label": "φ⁻¹",
+      "created_date": "2026-05-03T19:00:00Z",
+
+      "content": {
+        "question": "What work was completed in this session?",
+        "method": "Summarized scope + execution + blockers + next steps",
+        "result": "Phase 1 complete, protocol live, ready for Phase 2 gate"
+      },
+
+      "lifecycle": {
+        "status": "VALIDATED",
+        "reason": "Historical record of session work, never deleted",
+        "auto_delete_if": null
+      },
+
+      "consumer_registry": {
+        "primary_consumer": "session_history",
+        "action": "Reference for tracking session progress and handoff"
+      },
+
+      "notes": "Permanent historical artifact. Keep indefinitely."
+    }
+  ],
+
+  "consumer_manifest": {
+    "session_init": {
+      "description": "Loads ORGANISM_PROTOCOL.md at session start, reports blockers",
+      "inputs": ["ORGANISM_PROTOCOL.md"],
+      "action": "Report consumer status (WAITING, READY, BLOCKED)"
+    },
+    "protocol_auditor": {
+      "description": "Verifies all artifacts meet protocol compliance",
+      "inputs": ["ORGANISM_ARTIFACT_PROTOCOL.md", "ARTIFACTS_METADATA.json"],
+      "action": "Check for orphaned artifacts, missing metadata, violated cleanup cadence"
+    },
+    "session_history": {
+      "description": "Records of what was done and why",
+      "inputs": ["PROTOCOL_ACTIVATION_LOG_2026_05_03.md", "SESSION_WORK_2026_05_03.md"],
+      "action": "Reference for future sessions"
+    }
+  },
+
+  "cleanup_schedule": {
+    "2026-05-07": "Delete ARTIFACT_AUDIT_2026_05_03.md (one week after creation, purpose complete)",
+    "phase2_completion": "Validate all VALIDATED consumers are wired and active",
+    "phase3_completion": "Validate all phase 3 gates executed correctly; confirm protocol hypothesis",
+    "2026-12-31": "Archive ORGANISM_PROTOCOL.md v1.0 if v2.0 exists; keep historical copy"
+  },
+
+  "falsification": {
+    "protocol_hypothesis": "Mechanized artifact lifecycle reduces session metabolic cost while maintaining correctness",
+    "success_criterion": "Session context time < 10s AND zero artifact re-parsing AND Phase 2/3 gates execute correctly",
+    "failure_criterion": "Context time > 30s OR artifacts re-parsed > 2x per session OR gates fail > 20% of time",
+    "test_window": "May 5 to June 30 (2 full cycles)"
+  }
+}
