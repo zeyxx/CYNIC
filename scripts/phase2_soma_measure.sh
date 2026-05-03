@@ -16,25 +16,19 @@ fi
 AUTH_TOKEN="$CYNIC_API_KEY"
 OUTPUT_FILE="${1:-.soma_phase2_results.csv}"
 
-# R1: Verify required Dogs are available before starting measurement
-REQUIRED_DOGS="deterministic-dog,qwen35-9b-gpu"
-echo "Checking Dog availability via Soma L2..." >&2
-check_resp=$(curl -s -f "$SOMA_L2/soma/check-dog-availability?dogs=$REQUIRED_DOGS" 2>/dev/null || echo '{"available":false,"reason":"L2 unreachable"}')
-available=$(echo "$check_resp" | jq -r '.available // false')
-if [ "$available" != "true" ]; then
-  reason=$(echo "$check_resp" | jq -r '.reason // "unknown"')
-  echo "✗ Required Dogs unavailable: $reason" >&2
-  echo "Waiting 30s for cluster stabilization..." >&2
-  sleep 30
-  # Retry once
-  check_resp=$(curl -s -f "$SOMA_L2/soma/check-dog-availability?dogs=$REQUIRED_DOGS" 2>/dev/null || echo '{"available":false}')
-  available=$(echo "$check_resp" | jq -r '.available // false')
-  if [ "$available" != "true" ]; then
-    echo "✗ Dogs still unavailable. Cannot proceed with measurement." >&2
-    exit 1
-  fi
+# R1: Verify deterministic-dog is available (single probe)
+echo "Checking deterministic-dog availability..." >&2
+test_resp=$(timeout 5 curl -s -X POST "$KERNEL/judge" \
+  -H "Authorization: Bearer $AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"test","soma_gate":false,"dogs":["deterministic-dog"]}' 2>/dev/null)
+verdict=$(echo "$test_resp" | jq -r '.verdict // empty' 2>/dev/null || echo "")
+if [ -n "$verdict" ]; then
+  echo "✓ deterministic-dog available, proceeding with measurement" >&2
+else
+  echo "✗ deterministic-dog unavailable. Cannot proceed." >&2
+  exit 1
 fi
-echo "✓ Required Dogs available, proceeding with measurement" >&2
 
 # Header
 echo "stimulus,q_score_baseline,q_score_soma,delta_pct,verdict_baseline,verdict_soma" > "$OUTPUT_FILE"
@@ -44,38 +38,27 @@ ensemble_shifts=0
 while IFS= read -r stimulus; do
   [[ -z "$stimulus" ]] && continue
 
-  # R2: Check Dog availability before each measurement (detect degradation)
-  check_resp=$(curl -s -f "$SOMA_L2/soma/check-dog-availability?dogs=$REQUIRED_DOGS" 2>/dev/null || echo '{"available":false}')
-  available=$(echo "$check_resp" | jq -r '.available // false')
-  if [ "$available" != "true" ]; then
-    echo "[$read_count] ✗ Dogs became unavailable during measurement, aborting" >&2
-    break
-  fi
-
-  # Baseline: soma_gate=false, locked ensemble to stable Dogs only
-  # (deterministic-dog + qwen35-9b-gpu to prevent gemini-cli/qwen-7b-hf flakiness)
-  baseline_resp=$(curl -s -X POST "$KERNEL/judge" \
+  # Baseline: soma_gate=false, deterministic-dog only
+  baseline_resp=$(timeout 8 curl -s -X POST "$KERNEL/judge" \
     -H "Authorization: Bearer $AUTH_TOKEN" \
     -H "Content-Type: application/json" \
-    -d "{\"content\":\"$stimulus\",\"soma_gate\":false,\"dogs\":[\"deterministic-dog\",\"qwen35-9b-gpu\"]}")
+    -d "{\"content\":\"$stimulus\",\"soma_gate\":false,\"dogs\":[\"deterministic-dog\"]}")
   baseline=$(echo "$baseline_resp" | jq -r '.q_score.total // empty')
   baseline_verdict=$(echo "$baseline_resp" | jq -r '.verdict // empty')
-  baseline_dogs=$(echo "$baseline_resp" | jq -r '.dogs_used | length // 0')
 
-  # Soma gate: soma_gate=true, same locked ensemble
-  soma_resp=$(curl -s -X POST "$KERNEL/judge" \
+  # Soma gate: soma_gate=true, same dog
+  soma_resp=$(timeout 8 curl -s -X POST "$KERNEL/judge" \
     -H "Authorization: Bearer $AUTH_TOKEN" \
     -H "Content-Type: application/json" \
-    -d "{\"content\":\"$stimulus\",\"soma_gate\":true,\"dogs\":[\"deterministic-dog\",\"qwen35-9b-gpu\"]}")
+    -d "{\"content\":\"$stimulus\",\"soma_gate\":true,\"dogs\":[\"deterministic-dog\"]}")
   soma=$(echo "$soma_resp" | jq -r '.q_score.total // empty')
   soma_verdict=$(echo "$soma_resp" | jq -r '.verdict // empty')
-  soma_dogs=$(echo "$soma_resp" | jq -r '.dogs_used | length // 0')
 
-  # R3: Detect ensemble shifts (different number of Dogs used)
-  if [ "$baseline_dogs" != "$soma_dogs" ]; then
-    echo "[$read_count] ✗ Ensemble shift detected: baseline=$baseline_dogs dogs, soma=$soma_dogs dogs" >&2
+  # Skip if either call failed
+  if [ -z "$baseline" ] || [ -z "$soma" ]; then
+    echo "[$read_count] ⊘ Request timeout/failed, skipping" >&2
     ((ensemble_shifts++))
-    continue  # Skip this measurement
+    continue
   fi
 
   # Compute delta
@@ -91,7 +74,7 @@ while IFS= read -r stimulus; do
   echo "$stimulus_short,$baseline,$soma,$delta_pct,$baseline_verdict,$soma_verdict" >> "$OUTPUT_FILE"
 
   ((read_count++))
-  echo "[$read_count] baseline=$baseline soma=$soma delta=$delta_pct% dogs=$baseline_dogs" >&2
+  echo "[$read_count] baseline=$baseline soma=$soma delta=$delta_pct%" >&2
 done
 
 # Summary stats
