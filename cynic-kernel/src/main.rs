@@ -844,23 +844,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Crystal challenge loop started (every 5min, immune system)");
 
-        // ─── Nightshift: autonomous dev judgment (every 4h) ───────
-        // T6D DEBT: Nightshift PAUSED 2026-04-26 through 2026-05-11 (hackathon window)
-        // GPU reserved for Hermes organ pipeline. See TODO.md "IMMEDIATE ACTIONS" + memory/project_orchestration_fractal.md.
-        // Unblock: uncomment spawn_nightshift_loop once Soma orchestrator is live (post-hackathon).
-        // let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
-        //     rest_state.judge.load_full(),
-        //     Arc::clone(&storage_port),
-        //     Arc::clone(&task_health),
-        //     shutdown.clone(),
-        //     project_root.display().to_string(),
-        // );
-        // klog!(
-        //     "[Ring 3] Nightshift loop started (every 4h, git lookback {})",
-        //     crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
-        // );
+        // ─── Nightshift: autonomous dev judgment (every 4h, Soma L1 gated) ───────
+        let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
+            rest_state.judge.load_full(),
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+            project_root.display().to_string(),
+            Arc::clone(&soma_gate),
+            std::env::var("LLAMA_SERVER_URL")
+                .unwrap_or_else(|_| "http://127.0.0.1:8080".to_string()),
+        );
         klog!(
-            "[Ring 3] Nightshift PAUSED (T6D: GPU reserved for Hermes, hackathon 2026-04-26→05-11)"
+            "[Ring 3] Nightshift loop started (every 4h, git lookback {}, Soma L1 gated)",
+            crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
         );
     } else {
         klog!("[Ring 2] MCP mode — background tasks SKIPPED (REST kernel handles them)");
