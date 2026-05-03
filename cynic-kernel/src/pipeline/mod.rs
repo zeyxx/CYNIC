@@ -900,7 +900,7 @@ mod tests {
             domain_curations: &domain_curations,
             domain_router: None,
         };
-        let _ = run("test content".into(), None, None, None, true, &deps).await;
+        let _ = run("test content".into(), None, None, None, true, false, &deps).await;
 
         let u = usage.lock().await;
         assert!(
@@ -949,6 +949,7 @@ mod tests {
             Some("chess".into()),
             None,
             true,
+            false,
             &deps,
         )
         .await
@@ -976,6 +977,7 @@ mod tests {
             Some("chess".into()),
             None,
             true,
+            false,
             &deps,
         )
         .await
@@ -1045,6 +1047,7 @@ mod tests {
             Some("chess".into()),
             None,
             true,
+            false,
             &deps,
         )
         .await
@@ -1123,6 +1126,7 @@ mod tests {
             Some("wallet-judgment".into()),
             None,
             true,
+            false,
             &deps,
         )
         .await
@@ -1195,6 +1199,7 @@ mod tests {
             Some("wallet-judgment".into()),
             None,
             true,
+            false,
             &deps,
         )
         .await
@@ -1250,6 +1255,7 @@ mod tests {
             Some("wallet-judgment".into()),
             None,
             true,
+            false,
             &deps,
         )
         .await;
