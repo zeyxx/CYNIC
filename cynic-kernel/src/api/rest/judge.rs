@@ -1,10 +1,11 @@
 //! REST API handlers for judgment — /judge, /verdict/{id}, /verdicts.
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
 };
+use serde::Deserialize;
 use std::sync::Arc;
 
 use super::response::{storage_error, verdict_response_cached, verdict_to_response};
@@ -198,10 +199,18 @@ pub async fn get_verdict_handler(
     }
 }
 
+#[derive(Debug, Deserialize, Default)]
+pub struct VerdictsQuery {
+    /// Max results (default 20, max 1000)
+    pub limit: Option<u32>,
+}
+
 pub async fn list_verdicts_handler(
     State(state): State<Arc<AppState>>,
+    Query(q): Query<VerdictsQuery>,
 ) -> Result<Json<Vec<JudgeResponse>>, (StatusCode, Json<ErrorResponse>)> {
-    match state.storage.list_verdicts(20).await {
+    let limit = q.limit.unwrap_or(20).min(1000);
+    match state.storage.list_verdicts(limit).await {
         Ok(verdicts) => Ok(Json(verdicts.iter().map(verdict_to_response).collect())),
         Err(e) => {
             tracing::warn!(error = %e, "verdicts list failed");
