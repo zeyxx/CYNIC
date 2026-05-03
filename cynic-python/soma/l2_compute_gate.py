@@ -162,73 +162,95 @@ class SomaL2ComputeGate:
 
         return (True, None)
 
-    async def serve_http(self, host: str = "127.0.0.1", port: int = 5555) -> None:
+    def serve_http(self, host: str = "127.0.0.1", port: int = 5555) -> None:
         """
-        Minimal HTTP server for L2 endpoints.
+        Minimal HTTP server for L2 endpoints using stdlib.
 
         Endpoints:
         - GET /soma/check-dog-availability?dogs=dog1,dog2
         - GET /soma/status
         """
-        from aiohttp import web
+        import http.server
+        import socketserver
+        from urllib.parse import urlparse, parse_qs
 
-        async def check_availability(request):
-            """Check if dogs are available."""
-            dogs_str = request.query.get("dogs", "")
-            dogs = [d.strip() for d in dogs_str.split(",") if d.strip()]
+        gate = self
 
-            available, reason = await self.check_dogs_available(dogs)
+        class L2Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, format, *args):
+                """Suppress default HTTP logging."""
+                pass
 
-            return web.json_response({
-                "available": available,
-                "dogs": dogs,
-                "reason": reason,
-                "timestamp": time.time()
-            })
+            def do_GET(self):
+                """Handle GET requests."""
+                parsed = urlparse(self.path)
+                path = parsed.path
+                query_params = parse_qs(parsed.query)
 
-        async def status(request):
-            """Return current Dog status."""
-            await self.refresh_dog_status()
-            dogs_info = {
-                name: {
-                    "alive": status.is_alive,
-                    "last_seen": status.last_seen_timestamp,
-                    "consecutive_failures": status.consecutive_failures
-                }
-                for name, status in self.dog_status.items()
-            }
+                if path == "/soma/check-dog-availability":
+                    dogs_str = query_params.get("dogs", [""])[0]
+                    dogs = [d.strip() for d in dogs_str.split(",") if d.strip()]
 
-            return web.json_response({
-                "timestamp": time.time(),
-                "dogs": dogs_info,
-                "last_refresh": self.last_kernel_check
-            })
+                    # Run async check synchronously
+                    loop = asyncio.new_event_loop()
+                    available, reason = loop.run_until_complete(gate.check_dogs_available(dogs))
+                    loop.close()
 
-        app = web.Application()
-        app.router.add_get("/soma/check-dog-availability", check_availability)
-        app.router.add_get("/soma/status", status)
+                    response = {
+                        "available": available,
+                        "dogs": dogs,
+                        "reason": reason,
+                        "timestamp": time.time()
+                    }
 
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, host, port)
-        await site.start()
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps(response).encode())
 
-        log.info(f"L2 HTTP server listening on {host}:{port}")
+                elif path == "/soma/status":
+                    loop = asyncio.new_event_loop()
+                    loop.run_until_complete(gate.refresh_dog_status())
+                    loop.close()
 
-        # Keep running
-        try:
-            await asyncio.Event().wait()
-        except KeyboardInterrupt:
-            await runner.cleanup()
+                    dogs_info = {
+                        name: {
+                            "alive": st.is_alive,
+                            "last_seen": st.last_seen_timestamp,
+                            "consecutive_failures": st.consecutive_failures
+                        }
+                        for name, st in gate.dog_status.items()
+                    }
+
+                    response = {
+                        "timestamp": time.time(),
+                        "dogs": dogs_info,
+                        "last_refresh": gate.last_kernel_check
+                    }
+
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps(response).encode())
+
+                else:
+                    self.send_response(404)
+                    self.send_header("Content-type", "text/plain")
+                    self.end_headers()
+                    self.wfile.write(b"Not Found")
+
+        with socketserver.TCPServer((host, port), L2Handler) as httpd:
+            log.info(f"L2 HTTP server listening on {host}:{port}")
+            httpd.serve_forever()
 
 
-async def main():
+def main():
     """Start Soma L2 compute gate."""
     gate = SomaL2ComputeGate()
 
     # Start HTTP server
-    await gate.serve_http()
+    gate.serve_http()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
