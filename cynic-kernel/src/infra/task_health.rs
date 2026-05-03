@@ -239,6 +239,7 @@ pub struct TaskHealth {
     dog_perf_flush: AtomicU64,
     auto_remediation: AtomicU64,
     pattern_analyzer: AtomicU64,
+    pattern_healing_alerter: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -273,6 +274,7 @@ impl TaskHealth {
             dog_perf_flush: AtomicU64::new(0),
             auto_remediation: AtomicU64::new(0),
             pattern_analyzer: AtomicU64::new(0),
+            pattern_healing_alerter: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -347,6 +349,11 @@ impl TaskHealth {
     }
     pub fn touch_pattern_analyzer(&self) {
         self.pattern_analyzer
+            .store(Self::now_secs(), Ordering::Relaxed);
+    }
+
+    pub fn touch_pattern_healing_alerter(&self) {
+        self.pattern_healing_alerter
             .store(Self::now_secs(), Ordering::Relaxed);
     }
 

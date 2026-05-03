@@ -771,12 +771,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] Auto-remediation task started (every 5min)");
 
         // ─── Pattern analyzer (K15: self-healing via pattern detection, every 30s) ────
+        // R23-exempt: env var references (CYNIC_REST_ADDR, CYNIC_API_KEY), not hardcoded secrets
         let kernel_addr =
             std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".into());
         let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
         infra::tasks::spawn_pattern_analyzer(
-            kernel_addr,
-            api_key,
+            kernel_addr.clone(),
+            api_key.clone(),
             Arc::clone(&task_health),
             shutdown.clone(),
         );
@@ -793,8 +794,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&rest_state),
             Arc::clone(&task_health),
             shutdown.clone(),
+            slack.clone(),
+        );
+
+        // ─── Layer 4 Slack alerter: polls /observations?consumer=pattern_healing ────
+        // K15 feedback loop: anomaly detected → observation emitted → alerter sends Slack
+        infra::tasks::spawn_pattern_healing_alerter(
+            kernel_addr.clone(),
+            api_key.clone(),
+            Arc::clone(&task_health),
+            shutdown.clone(),
             slack,
         );
+        klog!("[Ring 2] Pattern healing alerter started (K15 Layer 4 consumer)");
 
         // ─── Storage reconnect (K15: detection → action) ──
         // Ephemeral task — exits once storage is connected. No TaskHealth tracking

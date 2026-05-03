@@ -14,7 +14,7 @@ pub enum AlertError {
 }
 
 /// Slack alerter — sends messages to a webhook.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SlackAlerter {
     client: reqwest::Client,
     webhook_url: String,

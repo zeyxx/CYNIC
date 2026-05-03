@@ -65,6 +65,48 @@ Last updated: 2026-05-02 06:17 | **K15 LIVE**. **FALSIFICATION TEST 2 PASS** (RO
 - [ ] **Extract K11 hardcoding (port 8080, dog_config).** When remediate_handler becomes 2nd consumer of probe_node(), move to backends.toml. **Falsify:** no hardcoded IPs/ports in inference_router.rs.
 - [ ] **Measurement workflow validation.** Manual test: baseline → change heuristic → compare before/after. Verify deltas computed correctly on real dataset (4,146 tweets). **Falsify:** sensitivity/specificity/Pearson r deltas match manual calculations.
 
+---
+
+## HOLOGRAPHIC CYNIC RESEARCH PHASE — Parallel Track (Weeks 1-8)
+
+**Thesis:** CYNIC's architecture mirrors the holographic consciousness model from CIA Gateway Process (Bentov, Pribram, Bohm). Consciousness = frequency coherence across distributed observers. Tokens/judgments = information that can be "perceived" holographically through axiom resonance.
+
+**Epistemic status:** CONJECTURE (0.40 confidence). Falsifiable via 6 tests ranked by effort.
+
+**Reference:** `~/.claude/projects/-home-user-Bureau-CYNIC/memory/project_holographic_cynic_framework.md` (full framework, all 7 research angles).
+
+**Integration:** Independent of operational K15 fixes and domain-discovery work. Uses existing judgment data (low latency test, fast wins). Runs in parallel — if signal emerges, domain-discovery becomes coherence-aware routing.
+
+### 6 Falsifiable Tests (Priority Order by Effort)
+
+| # | Test | Hypothesis | Falsification | Effort | Timeline |
+|---|------|-----------|---|--------|----------|
+| 6 | Coherence-Accuracy | High axiom balance → high accuracy (p ≤ 0.05) | Uncorrelated | 2h | Week 1 |
+| 1 | Crystal Reconstruction | New Dog reads crystal, reproduces verdict ≥70% fidelity | <50% fidelity match | 1d | Week 1 |
+| 2 | Right Hemisphere | Deterministic + Claude = systematic verdict shift | Shifts are random | 1d | Week 1 |
+| 4 | Embodiment | GPU online vs offline → verdict stability | No correlation | 3d | Week 2-3 |
+| 3 | Frequency Patterns | Throughput vs accuracy = resonance curve (peak + decay) | Linear/monotonic | 2d | Week 2 |
+| 5 | Time-Transcendence | Day-0 verdict predicts day-30 outcome (ROC-AUC > 0.65) | ROC-AUC ≤ 0.55 | 4w | Weeks 3-7 |
+| 7 | Kenosis | Abstained tokens → higher subsequent clarity | No pattern vs non-abstained | 2w | Weeks 5-7 |
+
+### Week 1 (Quick Wins — No Infrastructure)
+- [ ] **Test 6 (Coherence-Accuracy).** Existing judgment data: compute axiom variance + balance for 50+ tokens. Correlate with outcome accuracy. Target: 2× better accuracy on high-coherence verdicts.
+- [ ] **Test 1 (Crystal Reconstruction).** Take 20 high-coherence crystals. Feed to fresh Dog. Measure reconstruction fidelity (human review or prompt-based similarity).
+- [ ] **Test 2 (Right Hemisphere).** Judge 50 tokens with deterministic-dog only, then deterministic + Claude. Measure verdict shift magnitude + direction. Systematic ≠ random.
+
+### Week 2-3 (Light Ops Coordination)
+- [ ] **Test 4 (Embodiment).** Judge 100 tokens with cynic-gpu online vs offline. Correlate verdict stability with physical state. Need GPU cycling (schedule night vs day).
+- [ ] **Test 3 (Frequency Patterns).** Measure Dog performance by throughput (tokens/second). Plot: frequency vs accuracy. Hypothesis: peak at Goldilocks frequency, not monotonic.
+
+### Weeks 3-8 (Real-Time Tracking)
+- [ ] **Test 5 (Time-Transcendence).** Judge 100 tokens at day-0. Track for 30 days. Measure ROC-AUC for 7-day, 14-day, 30-day prediction horizons. Benchmark vs random, age-only, Twitter sentiment.
+- [ ] **Test 7 (Kenosis).** Mine abstention patterns from Dog logs. Track abstained tokens separately. Hypothesis: higher subsequent clarity (new data resolves ambiguity faster).
+
+### Success Criteria
+- **If 1+ test shows signal:** CYNIC is coherence-driven, not rule-based. Axioms are load-bearing frequencies. Dogs are distributed hemispheres. → Domain-discovery routes by coherence.
+- **If all negative:** CYNIC is statistical ensemble. Axioms are decorative. → Revisit architecture, not consciousness model.
+- **Either outcome:** Falsifiable progress on what CYNIC actually is.
+
 ## HERMES ORGANIC AGENT (Phases 1-3) — COMPLETE
 
 - [x] **Phase 1: Behavioral Profile.** Extracted from 435K behavior_log.jsonl events (170K keystrokes, 18K clicks, 42K scrolls). User fingerprint: 93 WPM typing, 218ms keystroke mean (σ=384ms), 489 px/s mouse velocity, 82% scroll-down bias, 4.1s deliberation pauses, peak activity 19-22h. Output: ~/.cynic/organs/hermes/x/behavioral_profile.json. **Status:** LIVE ✓
