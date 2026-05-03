@@ -80,7 +80,8 @@
 
 | Domain | Version | Phase | Timeline | K15Consumer | Blocker |
 |--------|---------|-------|----------|------------|---------|
-| domain-discovery | v1 | Validated | d3a300ad-now (2026-05-03) | domain_router.rs (coming) | Kernel unreachable |
+| domain-discovery | v1 | Validated | d3a300ad-now (2026-05-03) | domain_router_v1.py (designed) | Kernel unreachable |
+| k15-routing | v1 | Validated | 2026-05-03-now | (ready for Phase 2 wiring) | Kernel unhealthy |
 | behavioral-analysis | v1 | Validated | 2026-04-27-now | (pending Phase 2) | None identified |
 | token-calibration | v1 | Integrated | 2026-04-29-now | phase2_token_scorer | Kernel unreachable |
 | inference-lab | v1 | Integrated | 2026-04-27-now | hermes_agent | Works (llama offline) |
@@ -119,19 +120,25 @@
 | **Integrated** | 1-12 weeks | "Is this valuable enough to crystallize?" |
 | **Crystallized** | Permanent | "Rust port stable + tested" |
 
-## Current Blocker: Kernel Unreachable
+## Current Blocker: Kernel Unhealthy
 
-Both domain-discovery and behavioral-analysis v1 are **Validated**, ready for Phase 2 (K15 integration), but blocked:
+Domain-discovery v1, k15-routing v1, behavioral-analysis v1 are all **Validated** and ready for Phase 2 (K15 integration), but blocked by kernel health:
 
 ```
-K15 Consumer Needed:
-  domain_router.py → called by kernel on each observation
-  Blocked by: Kernel storage status = degraded (2026-05-02 notes)
+Status (2026-05-03):
+  Kernel health: {"healthy": false}
+  Last probe: curl -s http://<TAILSCALE_CORE>:3030/health
+  Status since: 2026-05-02 (degraded → unhealthy over 24h)
   
-Next step: Verify kernel health
-  curl http://cynic-core:3030/health
-  If ready: Implement domain_router.py (2-3h) → Phase 2
-  If not: Pin Phase 2 until kernel recovers
+Phase 2 Readiness:
+  ✓ domain-discovery v1: Clustering validated (F0-F3 pass)
+  ✓ k15-routing v1: Domain router designed + coded (domain_router_v1.py)
+  ✓ behavioral-analysis v1: Analysis complete (pending measurement phase)
+  
+Next step: Verify kernel recovery
+  curl http://<TAILSCALE_CORE>:3030/health
+  If {"healthy": true}: Wire K15 consumers immediately (all code ready)
+  If {"healthy": false}: Continue Phase 1 refinement (silhouette validation, v2 planning)
 ```
 
 ## Approval Gate (Org-Level Decision)
