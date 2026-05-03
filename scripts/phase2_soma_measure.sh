@@ -1,10 +1,11 @@
 #!/bin/bash
 # Phase 2 Soma Gate Measurement
-# Usage: <token-list.json jq '.[] | .content'> | phase2_soma_measure.sh
+# Usage: cat stimuli.txt | phase2_soma_measure.sh [output.csv]
+# Input: Plain text, one stimulus per line
 # Output: CSV with baseline, soma_gate, delta_pct per token
 # R23-exempt: Script naturally needs to reference CYNIC_API_KEY env var (not embedding secret)
 
-set -euo pipefail
+set -eo pipefail
 
 KERNEL="${CYNIC_REST_ADDR:-http://localhost:3030}"
 SOMA_L2="${SOMA_L2_ADDR:-http://127.0.0.1:5555}"
@@ -35,7 +36,7 @@ echo "stimulus,q_score_baseline,q_score_soma,delta_pct,verdict_baseline,verdict_
 
 read_count=0
 ensemble_shifts=0
-while IFS= read -r stimulus; do
+while IFS= read -r stimulus || [[ -n "$stimulus" ]]; do
   [[ -z "$stimulus" ]] && continue
 
   # Baseline: soma_gate=false, deterministic-dog only
@@ -43,21 +44,21 @@ while IFS= read -r stimulus; do
     -H "Authorization: Bearer $AUTH_TOKEN" \
     -H "Content-Type: application/json" \
     -d "{\"content\":\"$stimulus\",\"soma_gate\":false,\"dogs\":[\"deterministic-dog\"]}")
-  baseline=$(echo "$baseline_resp" | jq -r '.q_score.total // empty')
-  baseline_verdict=$(echo "$baseline_resp" | jq -r '.verdict // empty')
+  baseline=$(echo "$baseline_resp" | jq -r '.q_score.total // empty' 2>/dev/null || echo "")
+  baseline_verdict=$(echo "$baseline_resp" | jq -r '.verdict // empty' 2>/dev/null || echo "")
 
   # Soma gate: soma_gate=true, same dog
   soma_resp=$(timeout 8 curl -s -X POST "$KERNEL/judge" \
     -H "Authorization: Bearer $AUTH_TOKEN" \
     -H "Content-Type: application/json" \
     -d "{\"content\":\"$stimulus\",\"soma_gate\":true,\"dogs\":[\"deterministic-dog\"]}")
-  soma=$(echo "$soma_resp" | jq -r '.q_score.total // empty')
-  soma_verdict=$(echo "$soma_resp" | jq -r '.verdict // empty')
+  soma=$(echo "$soma_resp" | jq -r '.q_score.total // empty' 2>/dev/null || echo "")
+  soma_verdict=$(echo "$soma_resp" | jq -r '.verdict // empty' 2>/dev/null || echo "")
 
   # Skip if either call failed
   if [ -z "$baseline" ] || [ -z "$soma" ]; then
     echo "[$read_count] ⊘ Request timeout/failed, skipping" >&2
-    ((ensemble_shifts++))
+    ((ensemble_shifts++)) || true
     continue
   fi
 
@@ -73,7 +74,7 @@ while IFS= read -r stimulus; do
 
   echo "$stimulus_short,$baseline,$soma,$delta_pct,$baseline_verdict,$soma_verdict" >> "$OUTPUT_FILE"
 
-  ((read_count++))
+  ((read_count++)) || true
   echo "[$read_count] baseline=$baseline soma=$soma delta=$delta_pct%" >&2
 done
 
