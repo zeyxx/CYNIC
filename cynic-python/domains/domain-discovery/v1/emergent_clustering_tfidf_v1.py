@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Emergent Domain Discovery (TF-IDF + K-Means) — Pure NumPy.
+Emergent Domain Discovery v1 (TF-IDF + K-Means) — PHASE 1 LOCKED
+
+🔒 IMMUTABLE UNTIL PHASE 3 MEASUREMENT
+   Consumer: K15 router (Phase 2 kernel integration)
+   Falsification: If Phase 3 signal yield < 2% improvement, consider alternative
 
 Upgrade from binary keywords to TF-IDF vectorization.
 TF-IDF captures term frequency + inverse document frequency.
@@ -323,7 +327,7 @@ def measure_silhouette(tweet_ids: List[str], vectors: Dict[str, Dict[int, float]
     return avg_silhouette
 
 
-def analyze_clusters(dataset: Dict, tweet_ids: List[str], clusters: List[int], click_weights: Dict[str, float], vocab: Dict[str, int]):
+def analyze_clusters(dataset: Dict, tweet_ids: List[str], clusters: List[int], click_weights: Dict[str, float], vocab: Dict[str, int], silhouette: float = 0.0):
     """Analyze cluster structure and quality."""
 
     print("=" * 100)
@@ -401,6 +405,7 @@ def analyze_clusters(dataset: Dict, tweet_ids: List[str], clusters: List[int], c
         "method": "TF-IDF + K-Means",
         "n_clusters": len(cluster_info),
         "n_tweets": len(dataset),
+        "silhouette": silhouette,  # Quality metric (target > 0.5)
         "cluster_info": {
             str(k): {
                 "weight": v["weight"],
@@ -417,7 +422,23 @@ def analyze_clusters(dataset: Dict, tweet_ids: List[str], clusters: List[int], c
     with open("emergent_clusters_tfidf.json", "w") as f:
         json.dump(results, f, indent=2)
 
-    print(f"✓ Saved to emergent_clusters_tfidf.json\n")
+    # Save assignments separately (for behavioral grounding)
+    with open("results_v1/assignments_v1.json", "w") as f:
+        json.dump(assignments, f, indent=2)
+
+    # Save metrics separately
+    metrics = {
+        "silhouette": silhouette,
+        "n_clusters": len(cluster_info),
+        "n_tweets": len(dataset),
+        "vocabulary_size": len(set(w for tweet in dataset.values() for w in tweet.get("text", "").lower().split())),
+        "timestamp": str(__import__("datetime").datetime.now().isoformat()),
+    }
+    with open("results_v1/metrics_v1.json", "w") as f:
+        json.dump(metrics, f, indent=2)
+
+    print(f"✓ Saved to emergent_clusters_tfidf.json")
+    print(f"✓ Saved metrics to results_v1/metrics_v1.json\n")
 
     return cluster_info
 
@@ -444,8 +465,8 @@ def main():
     silhouette = measure_silhouette(tweet_ids, vectors, assignments)
     print(f"  Silhouette score: {silhouette:.3f} (target > 0.5)\n")
 
-    # Analyze
-    analyze_clusters(dataset, tweet_ids, clusters, click_weights, vocab)
+    # Analyze (pass silhouette for saving)
+    analyze_clusters(dataset, tweet_ids, clusters, click_weights, vocab, silhouette)
 
 
 if __name__ == "__main__":
