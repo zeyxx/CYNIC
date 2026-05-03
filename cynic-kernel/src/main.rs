@@ -1,4 +1,5 @@
 use cynic_kernel::domain::inference::BackendPort;
+use cynic_kernel::domain::probe::Probe;
 use cynic_kernel::infra::alerts::SlackAlerter;
 use cynic_kernel::*;
 use std::sync::Arc;
@@ -519,6 +520,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build fleet probe targets from Dog health_urls (backends.toml SoT).
     // Pure transform extracted to infra::boot.
     let fleet_targets = infra::boot::build_fleet_targets(&health_urls, &fleet_meta);
+
+    // ── STARTUP VERIFICATION: Fail fast on backend coherence violations ──
+    // Probe backends immediately (context drift, model mismatch) before claiming sovereignty.
+    // This ensures organism knows its own inference constraints at boot time.
+    let fleet_probe = infra::probes::FleetProbe::new(fleet_targets.clone());
+    let startup_check = match fleet_probe.sense().await {
+        Ok(result) => {
+            if let domain::probe::ProbeDetails::Fleet(fleet) = &result.details {
+                let mut coherence_ok = true;
+                for dog in &fleet.dogs {
+                    // Context drift: actual < expected
+                    if let (Some(actual), Some(expected)) = (dog.actual_n_ctx, dog.expected_n_ctx) {
+                        if actual < expected {
+                            coherence_ok = false;
+                            klog!(
+                                "[BOOT FAIL] {} context drift at startup: {} (expected {}). Fix llama-server launch flags or backends.toml.",
+                                dog.dog_name,
+                                actual,
+                                expected
+                            );
+                        }
+                    }
+                    // Model mismatch: wrong model loaded
+                    if dog.model_mismatch {
+                        coherence_ok = false;
+                        klog!(
+                            "[BOOT FAIL] {} model mismatch at startup: {:?} vs {:?}. Stop llama-server and verify correct model is loaded.",
+                            dog.dog_name,
+                            dog.actual_model,
+                            dog.expected_model
+                        );
+                    }
+                }
+                coherence_ok
+            } else {
+                true // Not fleet details, skip check
+            }
+        }
+        Err(_) => true, // Probe error, let periodic probes handle it
+    };
+
+    if !startup_check {
+        eprintln!("[BOOT FAIL] Backend coherence violations detected. Exiting.");
+        std::process::exit(1);
+    }
+
     let probes: Vec<Arc<dyn domain::probe::Probe>> = vec![
         Arc::new(infra::probes::ResourceProbe::default()),
         Arc::new(infra::probes::BackupProbe::new(backup_dir)),
@@ -526,7 +573,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(infra::probes::PressureProbe),
         Arc::new(infra::probes::NetworkProbe),
         Arc::new(infra::probes::SomaProbe),
-        Arc::new(infra::probes::FleetProbe::new(fleet_targets)),
+        Arc::new(fleet_probe),
     ];
 
     // ── Domain curations (D1-D6) for wisdom enrichment ──
