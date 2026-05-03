@@ -531,16 +531,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut coherence_ok = true;
                 for dog in &fleet.dogs {
                     // Context drift: actual < expected
-                    if let (Some(actual), Some(expected)) = (dog.actual_n_ctx, dog.expected_n_ctx) {
-                        if actual < expected {
-                            coherence_ok = false;
-                            klog!(
-                                "[BOOT FAIL] {} context drift at startup: {} (expected {}). Fix llama-server launch flags or backends.toml.",
-                                dog.dog_name,
-                                actual,
-                                expected
-                            );
-                        }
+                    if let (Some(actual), Some(expected)) = (dog.actual_n_ctx, dog.expected_n_ctx)
+                        && actual < expected
+                    {
+                        coherence_ok = false;
+                        klog!(
+                            "[BOOT FAIL] {} context drift at startup: {} (expected {}). Fix llama-server launch flags or backends.toml.",
+                            dog.dog_name,
+                            actual,
+                            expected
+                        );
                     }
                     // Model mismatch: wrong model loaded
                     if dog.model_mismatch {
@@ -562,8 +562,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     if !startup_check {
-        eprintln!("[BOOT FAIL] Backend coherence violations detected. Exiting.");
-        std::process::exit(1);
+        // Backend coherence violations detected, but continue in degraded mode.
+        // Circuit breaker will mark affected Dogs as failed, fallback routing will activate.
+        // This ensures organism doesn't claim sovereignty (logs violations), but doesn't block startup.
+        klog!(
+            "[Boot] Backend coherence violations logged. Running in degraded mode — circuit breaker will isolate failed Dogs."
+        );
     }
 
     let probes: Vec<Arc<dyn domain::probe::Probe>> = vec![
