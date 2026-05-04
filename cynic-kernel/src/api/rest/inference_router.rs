@@ -280,7 +280,7 @@ pub async fn remediate_handler(
 /// Returns: "succeeded", "failed", "timed_out", or "circuit_broken".
 pub(crate) async fn attempt_node_recovery(node: &str) -> String {
     let timeout_duration = std::time::Duration::from_secs(30);
-    let command = "systemctl restart llama-server";
+    let command = "systemctl --user restart llama-server";
 
     // Resolve script path: prefer explicit env var, fallback to relative path
     let script_path = std::env::var("CYNIC_SCRIPTS").unwrap_or_else(|_| "scripts".to_string())

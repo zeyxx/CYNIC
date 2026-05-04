@@ -186,9 +186,44 @@ class BehaviorLogger:
 
         logger.info("Listening for mouse + keyboard events (flush every %.0fs)", FLUSH_INTERVAL)
 
+        last_event_time = time.time()
+        last_health_check = time.time()
+
         while self.running:
             time.sleep(FLUSH_INTERVAL)
             self.flush()
+
+            # Listener health check: if no events for 120s, restart (indicates listener crash)
+            now = time.time()
+            if now - last_event_time > 120:
+                logger.warning("No events for 120s — restarting listeners")
+                mouse_listener.stop()
+                key_listener.stop()
+                mouse_listener = mouse.Listener(
+                    on_move=self.on_mouse_move,
+                    on_click=self.on_mouse_click,
+                    on_scroll=self.on_mouse_scroll,
+                )
+                key_listener = keyboard.Listener(on_press=self.on_key_press)
+                mouse_listener.start()
+                key_listener.start()
+                last_event_time = now
+
+            # Health checkpoint every 60s (K15 producer signal)
+            if now - last_health_check > 60:
+                health = {
+                    "type": "health_checkpoint",
+                    "events_captured": self.events_total,
+                    "listeners_alive": mouse_listener.is_alive() and key_listener.is_alive(),
+                }
+                self._emit(health)
+                last_health_check = now
+
+            # Track latest event time (detect listener silence)
+            with self.lock:
+                if self.buffer:
+                    last_event_time = now
+
             if self.events_total > 0 and self.events_total % 1000 == 0:
                 logger.info("Events captured: %d", self.events_total)
 
