@@ -63,6 +63,7 @@ impl SomaProbe {
     /// Ports that are legitimately wild-bound (0.0.0.0 / [::]) by design.
     /// WireGuard needs 0.0.0.0 for mesh. mDNS/DHCP are OS-level.
     /// RustDesk uses multiple ports for relay/discovery.
+    /// qemu/libvirt use ephemeral UDP ports for VM networking.
     const WILD_BIND_WHITELIST: &[u16] = &[
         41641, // WireGuard (Tailscale mesh)
         5353,  // mDNS (service discovery)
@@ -72,6 +73,9 @@ impl SomaProbe {
         21117, // RustDesk (Relay server)
         21118, // RustDesk (Web support)
         21119, // RustDesk (Web support)
+        47156, // RustDesk (UDP service discovery)
+        54151, // qemu/libvirt VM networking
+        55123, // qemu/libvirt VM networking
     ];
 
     /// Detect wild binds — ports listening on 0.0.0.0 or [::], excluding whitelisted.
