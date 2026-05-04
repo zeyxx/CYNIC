@@ -20,7 +20,7 @@ use super::types::AppState;
 use crate::domain::events::KernelEvent;
 
 /// GET /events — SSE stream of kernel events.
-/// Public endpoint (no auth) — events are operational data.
+/// Auth required (KC3) — events expose Dog roster, circuit states, operational signals.
 /// F23: Limited to 32 concurrent connections (sse_semaphore) to prevent FD exhaustion.
 /// Rate: ~1-10 events/minute under normal load. Keepalive every 15s.
 pub async fn events_handler(State(state): State<Arc<AppState>>) -> Response {

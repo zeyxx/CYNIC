@@ -8,13 +8,13 @@ Burn audit complete. Hackathon May 10 deadline.
 
 ## HACKATHON (May 10 11:59 PM PT)
 
-- [ ] **Phase 2: Human-Filtering Impact (May 5-6).** Replace simulation with real Dogs + real Helius holder data on top 30 organ_x tokens. **Falsify:** Δ > 5% in verdict distribution. Simulation: Δ=36.7%.
+- [ ] **Phase 2: Human-Filtering Impact (May 5-6).** Test framework built; infrastructure blocker: GPU Dog consensus failing on 28/30 tokens (2.2% verdict success rate). Results: BARK=75% (fails <25% target). **BLOCKER:** Fix GPU Dog (qwen35-9b-gpu) availability or use deterministic-dog alone (too weak). **Falsify:** Δ > 5% in verdict distribution. Simulation: Δ=36.7%.
 - [ ] **Phase 3: Research Impact Report (May 7-8).** Baseline vs filtered Dogs. Report Δ in verdict distribution. **Deliverable:** measurement report for submission.
 - [ ] **Phase 4: Demo + Submission (May 9-10).** Record demo (kernel health → /judge → Dogs → verdict + axioms). Write submission. Submit May 10 23:59 PT.
 
 ## KERNEL
 
-- [ ] **NaN filter in judge/math.rs.** `trimmed_mean` lets NaN through. **Falsify:** unit test with NaN input passes.
+- [x] **NaN filter in judge/math.rs.** Already guarded: `values.retain(|v| v.is_finite())` + `phi_bound` floors NaN to SCORE_FLOOR. Tests exist.
 - [ ] **Two TokenData structs.** `enrichment.rs` vs `stimulus.rs`. Merge to single source. **Falsify:** grep returns 1 TokenData definition.
 - [ ] **Auth /health (T1).** Split `/live` (open, boolean) from `/health` (auth'd, full topology). **Falsify:** `curl /health` without Bearer → 401.
 - [ ] **MCP poison input hardening.** Small models produce null/invalid tool args. **Falsify:** garbage args to all 22 MCP tools → all return error, none crash.
@@ -29,7 +29,7 @@ Burn audit complete. Hackathon May 10 deadline.
 
 - [ ] **Soma config activation.** Populate `[backend.NAME.remediation]` in backends.toml. Uncomment nightshift with compute budget gate. **Falsify:** kill llama-server → circuit opens <30s → restart <120s → circuit closes.
 - [ ] **Deploy hermes-data-organism.** `systemctl enable --now hermes-data-organism.timer`. Run 1 week, accumulate reflections. **Falsify:** 7 reflection files after 1 week.
-- [ ] **K16 docstring fix.** /events.rs says "public (no auth)" but code requires auth. **Falsify:** docstring matches code.
+- [x] **K16 docstring fix.** /events.rs docstring updated: "Auth required (KC3)" matches middleware behavior.
 
 ## DEBT (no deadline)
 
