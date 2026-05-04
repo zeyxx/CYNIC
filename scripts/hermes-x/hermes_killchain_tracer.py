@@ -92,10 +92,12 @@ class KillChainTracer:
         self.behavior_log = Path(behavior_log)
         self.max_window_sec = max_window_sec
         self.captures_dir = self.organ_dir / "captures"
+        self.dataset_path = self.organ_dir / "dataset.jsonl"
 
         self.clicks: List[ClickEvent] = []
         self.capture_files: Dict[str, Path] = {}  # ts_str -> filepath
         self.learned_weights: Dict[str, Any] = {}
+        self.tweet_enrichments: Dict[str, dict] = {}  # tweet_id -> enrichment from dataset.jsonl
 
     def load_clicks(self) -> bool:
         """Load clicks from behavior_log.jsonl."""
@@ -150,6 +152,43 @@ class KillChainTracer:
 
         logger.info("✓ Indexed %d capture files", len(self.capture_files))
         return len(self.capture_files) > 0
+
+    def load_enrichments(self) -> bool:
+        """Load pre-computed enrichments from dataset.jsonl (x_proxy output).
+
+        This replaces naive signal_score computation with x_proxy's sophisticated
+        analysis including author_tier, narratives, coordination_count.
+        """
+        if not self.dataset_path.exists():
+            logger.warning("dataset.jsonl not found; will recompute signal scores from scratch")
+            return False
+
+        try:
+            deduped = {}  # tweet_id -> enrichment (last occurrence wins)
+            count = 0
+            with open(self.dataset_path) as f:
+                for line in f:
+                    try:
+                        row = json.loads(line)
+                        tweet_id = row.get("tweet_id", "")
+                        if tweet_id:
+                            deduped[tweet_id] = {
+                                "signal_score": row.get("signal_score", 0),
+                                "narratives": row.get("narratives", []),
+                                "author_tier": row.get("author_tier", "unknown"),
+                                "coordination_count": row.get("coordination_count", 0),
+                            }
+                            count += 1
+                    except json.JSONDecodeError:
+                        pass
+
+            self.tweet_enrichments = deduped
+            logger.info("✓ Loaded %d enrichments from dataset.jsonl (deduped to %d unique tweets)",
+                       count, len(deduped))
+            return len(deduped) > 0
+        except Exception as e:
+            logger.error("Failed to load enrichments: %s", e)
+            return False
 
     def load_learned_weights(self) -> bool:
         """Load learned_weights.json."""
@@ -253,8 +292,12 @@ class KillChainTracer:
             engagement_replies = legacy.get("reply_count", 0)
             engagement_bookmarks = legacy.get("bookmark_count", 0)
 
-            # Compute signal score (matching x_proxy.py logic)
-            signal_score = self._compute_signal_score(text, author_followers, engagement_likes)
+            # Use pre-computed signal score from x_proxy enrichment if available,
+            # otherwise fall back to local computation
+            if tweet_id in self.tweet_enrichments:
+                signal_score = self.tweet_enrichments[tweet_id]["signal_score"]
+            else:
+                signal_score = self._compute_signal_score(text, author_followers, engagement_likes)
 
             if not tweet_id:
                 return None
@@ -485,6 +528,7 @@ async def main():
         return 1
     if not tracer.load_captures():
         return 1
+    tracer.load_enrichments()  # Optional: use pre-computed enrichments from x_proxy
     if not tracer.load_learned_weights():
         return 1
 
