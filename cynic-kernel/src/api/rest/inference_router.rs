@@ -10,6 +10,20 @@ use std::sync::Arc;
 use super::types::{AppState, ErrorResponse};
 use crate::backends::node_probe;
 
+/// Compute quality tier from failure reason, probe age, and success rate (K3/K11: single source).
+fn node_quality(failure_reason: &str, age: u64, sr: f64) -> &'static str {
+    match failure_reason {
+        "none" => match (age, sr) {
+            (0..=5, sr) if sr >= 0.95 => "excellent",
+            (0..=60, sr) if sr >= 0.9 => "good",
+            (_, sr) if sr >= 0.7 => "degraded",
+            _ => "dead",
+        },
+        "port_conflict" | "config_error" | "firewall" | "unknown" => "degraded",
+        _ => "dead", // process_crash, not_started, others
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct DogOperationRequest {
     pub dog: String, // dog name: "qwen-9b-core", "qwen35-9b-gpu", etc.
@@ -115,18 +129,7 @@ pub async fn inference_route_handler(
 
     let (node, avg_latency, sr, _age, failure_reason) = &candidates[0];
 
-    // Compute quality tier based on failure_reason and success_rate
-    let quality = match failure_reason.as_str() {
-        "none" => match (*_age, *sr) {
-            (0..=5, sr) if sr >= 0.95 => "excellent",
-            (0..=60, sr) if sr >= 0.9 => "good",
-            (_, sr) if sr >= 0.7 => "degraded",
-            _ => "dead",
-        },
-        "port_conflict" | "config_error" | "firewall" => "degraded",
-        "unknown" => "degraded",
-        _ => "dead", // process_crash, not_started, others
-    };
+    let quality = node_quality(failure_reason.as_str(), *_age, *sr);
 
     Ok(Json(InferenceRouteResponse {
         selected_node: node.clone(),
@@ -176,17 +179,7 @@ pub async fn inference_candidates_handler(
             *sr >= 0.7
         })
         .map(|(node, latency, sr, age, failure_reason)| {
-            let quality = match failure_reason.as_str() {
-                "none" => match (age, sr) {
-                    (0..=5, sr) if sr >= 0.95 => "excellent",
-                    (0..=60, sr) if sr >= 0.9 => "good",
-                    (_, sr) if sr >= 0.7 => "degraded",
-                    _ => "dead",
-                },
-                "port_conflict" | "config_error" | "firewall" => "degraded",
-                "unknown" => "degraded",
-                _ => "dead",
-            };
+            let quality = node_quality(failure_reason.as_str(), age, sr);
             serde_json::json!({
                 "node": node,
                 "avg_latency_ms": latency,

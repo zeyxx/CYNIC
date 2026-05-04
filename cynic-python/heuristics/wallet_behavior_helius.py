@@ -223,20 +223,19 @@ class HeliusWalletCollector:
         """
         now = datetime.utcnow().timestamp()
 
-        # Try account info
-        if "executable" in account_info:
-            # Fallback: assume ~4 days per transaction as proxy
-            age_estimate = len(transactions) * 4 / 30  # rough
-            return max(1, int(age_estimate))
-
-        # Try transactions
+        # Try transaction history first (most accurate)
         if transactions:
             first_tx_timestamp = transactions[-1].get("timestamp", now)
             age_seconds = now - first_tx_timestamp
             age_days = age_seconds / 86400
             return max(1, int(age_days))
 
-        # Fallback: assume 1 day (unknown)
+        # Fallback: rough estimate from transaction count
+        if transactions:
+            age_estimate = len(transactions) * 4 / 30
+            return max(1, int(age_estimate))
+
+        # No data: assume 1 day (unknown)
         return 1
 
     @staticmethod

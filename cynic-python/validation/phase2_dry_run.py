@@ -77,8 +77,9 @@ def score_wallets(holders: List[str]) -> Dict[str, float]:
 
     try:
         # Import locally to avoid early error if module missing
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "heuristics"))
         from wallet_behavior_helius import HeliusWalletCollector
-        from wallet_behavior_validator import WalletValidator
+        from wallet_behavior_scorer import score_wallet
 
         collector = HeliusWalletCollector(api_key=helius_key)
         scores = {}
@@ -88,23 +89,12 @@ def score_wallets(holders: List[str]) -> Dict[str, float]:
                 logger.info(f"  Progress: {i}/{len(holders)}")
 
             try:
-                # Collect wallet data
-                profile = collector.collect_wallet(holder)
+                profile = collector.collect_wallet_profile(holder)
                 if not profile:
                     scores[holder] = 0.0
                     continue
 
-                # Score the profile
-                # The validator expects a list of profiles and labels
-                # For now, score based on profile directly via a heuristic
-                # (wallet_behavior_scorer.score_wallet is the actual method)
-
-                # Simpler approach: just assign a synthetic score for dry-run
-                # In production, this would be: from wallet_behavior_helius import score_wallet
-                # score = score_wallet(profile)
-
-                # For now, use a simple heuristic from profile
-                score = 0.5  # Placeholder
+                score = score_wallet(profile)
                 scores[holder] = score
 
             except Exception as e:
@@ -157,10 +147,11 @@ def call_judge(holders: List[str], label: str = "") -> Dict:
 def run_dry_run():
     """Execute dry run."""
     # Validate environment
-    if not HELIUS_API_KEY:
+    if not helius_key:
         logger.error("HELIUS_API_KEY not set. Set via: export HELIUS_API_KEY=...")
         return 1
-    if not CYNIC_API_KEY:
+    cynic_key = get_env("CYNIC_API_KEY")
+    if not cynic_key:
         logger.error("CYNIC_API_KEY not set. Set via: export CYNIC_API_KEY=...")
         return 1
 
