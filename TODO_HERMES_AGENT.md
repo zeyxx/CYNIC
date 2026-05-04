@@ -1,44 +1,41 @@
 # Hermes Organic Agent — Learning Roadmap
 
-## What We Have (✓ DONE)
-- Behavioral profiler: Extracts T.'s patterns from 761K events
-- Organic agent: Navigates X.com feed, reasons about tweets
-- Real Chrome: Connects via CDP (not headless)
-- Observation storage: Records decisions + confidence + signals
+## Progress (2026-05-04)
 
-## What's Needed (48-72h work)
+**✓ Phase 1: COMPLETE** (extracted learned_weights.json)
+- Keywords: code (14.7%), architecture (10.3%), python (8.8%), rust (7.4%), api (5.9%), algorithm (5.2%)
+- Temporal: Peak hours at 7h (5.99%), 22-23h (4.5%)
+- Depth: 11.1 keystrokes/click (deep reader), 2.7 scrolls/click (selective)
 
-### Phase 1: Learn from Behavior (24h)
-**Goal:** Extract reasoning weights from behavior_log.jsonl
+**✓ Phase 2: COMPLETE** (hermes_organic_agent.py uses learned_weights.json)
+- Navigates X.com feed with scrolling
+- Scores tweets using learned keyword weights + temporal peaks + author tier
+- Acts on decisions (read_thread, like, visit_author)
+- Stores observations to hermes_observations.jsonl
 
-Current naive heuristic:
-```
-if "code" in text: score += 0.15
-if len(text) > 200: score += 0.10
-decision = "engage" if score > 0.65 else "scroll"
-```
+**✓ Kill-Chain Foundation: COMPLETE** (hermes_killchain_tracer.py maps clicks to tweets)
+- 29,327 clicks analyzed
+- 1,293 matches found (4.4% coverage with ±5s window)
+- Coverage is low but expected: behavior_log is CYNIC work, not X.com browsing
+- Only 6 clicks (0.02%) in X.com windows — organic agent doesn't rely on temporal correlation
 
-**What we should learn:**
-1. **Content signals** — What keywords appear in tweets T. clicks on vs scrolls past?
-   - Extract tweets from kill-chain (clicks → captured URLs → tweet IDs)
-   - Measure: "Which keywords → T. engagement?"
-   - Output: weight_dict = {keyword: engagement_rate}
+## What's Needed (Phase 3 Blocker)
 
-2. **Temporal signals** — When does T. browse each domain?
-   - Peak hours for general content: 21h (T. does personal browsing then)
-   - Peak hours for tech: might be different (work breaks)
-   - Output: domain_hours = {domain: [peak_hours]}
+### Phase 3: Measure Learning Quality (BLOCKED)
+**Blocker:** T.'s actual X.com engagement data (likes, bookmarks, replies)
 
-3. **Depth patterns** — How much does T. read before deciding?
-   - 11.1 keystrokes/click = T. reads responses/threads
-   - Scroll-to-click = 2.7 = selective, not reactive
-   - Output: engagement_threshold = measure how long before T. clicks
+**What we need:**
+1. **Ground truth for agent predictions** — When agent predicts "engage", does T. actually engage?
+   - Required: T.'s actual likes/bookmarks/replies on X.com
+   - Source: Browser extension, X API, or manual logging
+   - Cost: Enable engagement tracking (2h setup)
 
-4. **Author signals** — Does T. follow/engage with specific authors?
-   - Track which authors T. clicks from behavior_log
-   - Output: followed_authors = [list]
+2. **Test setup** — Run agent and measure against baseline
+   - Agent observes: "predict engagement on N tweets"
+   - Compare: precision (% predicted tweets T. engages with)
+   - Target: > 60% precision (baseline: ~15% random)
 
-### Phase 2: Implement Learned Reasoning (24h)
+### Phase 2 Details (Reference Only)
 Update `HermesOrganicAgent.reason_about_tweet()` to use learned weights:
 
 ```python
@@ -100,24 +97,33 @@ Agent observes T.'s actual behavior during test window:
 
 Pattern: `observation → T's actual behavior → match/mismatch → refine weights`
 
-## Implementation Sequence
+## Implementation Sequence (Updated 2026-05-04)
 
-**Day 1 (Today):**
+**Day 1 (May 4):**
 - [x] Build agent foundation + behavioral profiler
-- [ ] Extract learning data from behavior_log + kill-chain
-- [ ] Implement keyword weight learning
+- [x] Extract learning data from behavior_log + kill-chain
+- [x] Implement keyword weight learning
+- [x] Kill-chain tracer: Map clicks to tweets, measure coverage
+- [x] Document gap: Temporal correlation is weak, but domain correlation works
 
-**Day 2:**
-- [ ] Add temporal signal learning (peak hours per domain)
-- [ ] Add author signal learning (followed authors)
-- [ ] Refactor `reason_about_tweet()` to use learned weights
+**Day 2 (Ready when blocked issue resolved):**
+- [x] Add temporal signal learning (peak hours)
+- [x] Refactor `reason_about_tweet()` to use learned weights
 - [ ] Run agent for 10 cycles, collect observations
+- [ ] **BLOCKED:** Need T.'s actual X.com engagement data to measure quality
 
-**Day 3:**
-- [ ] Compare agent observations vs T.'s actual engagement
+**Phase 3 (Measurement):**
+- [ ] Enable engagement tracking on X.com (browser extension or API)
+- [ ] Run agent live, compare predictions vs actual engagement
 - [ ] Measure precision/recall
 - [ ] vs baseline (keyword search) comparison
 - [ ] Document findings
+
+**Why we're blocked:**
+The agent is ready to run. The kill-chain analysis shows why temporal correlation doesn't work
+(CYNIC clicks ≠ X.com browsing). But we can't measure learning quality without ground truth:
+T.'s actual engagement on X.com (likes, bookmarks, etc.). This requires enabling engagement
+tracking, which is a separate project (browser extension or X API integration).
 
 ## Falsifiability
 
