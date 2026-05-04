@@ -57,6 +57,35 @@ The Crystal Coherence Machine is the only guaranteed inter-session memory: verdi
 
 ---
 
+## Multi-Cortex Isolation (Inviolable)
+
+Multiple Claude Code sessions run simultaneously. Without isolation, they pick the same TODO item and edit the same files.
+
+**Rule 1 — Branch before ANY edit:**
+```bash
+git checkout -b <type>/<scope>-$(date +%Y-%m-%d)-$(head -c4 /dev/urandom | xxd -p)
+```
+The random suffix prevents branch name collision between sessions. Do this BEFORE the first Edit/Write, not at push time.
+
+**Rule 2 — The user's first message IS the dispatch.**
+Your scope = what the user asked you to do. Do not expand beyond it. If the user said "fix the NaN filter," don't also restructure hermes.
+
+**Rule 3 — Hot files are last-merger-wins.**
+TODO.md, CLAUDE.md, GEMINI.md, shared types — accept that parallel sessions will conflict on these. Resolve at merge time (rebase onto main). Budget 5 min. Do not try to prevent it.
+
+**Rule 4 — Check origin before branching.**
+```bash
+git fetch origin && git log --oneline origin/main..HEAD
+```
+If another session pushed while you worked, rebase before PR. Never force-push.
+
+**Rule 5 — Module-level ownership per session.**
+If you see another branch on origin touching the same module you're about to edit → STOP. Tell the human. Don't race.
+
+**Anti-pattern:** Two sessions both read TODO.md, both pick the top item, both implement it differently. The fix is Rule 2 — scope comes from the human, not from TODO.md.
+
+---
+
 ## Anti-Sycophancy
 
 RLHF training biases toward agreement. Override it explicitly:
