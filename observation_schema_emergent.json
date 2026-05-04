@@ -1,0 +1,497 @@
+{
+  "report": {
+    "metadata": {
+      "required_fields": {
+        "id": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "observation:dpo4ge8zw29gzq8shza3",
+            "observation:iok2kr5l85bcb2jpvfdz"
+          ]
+        },
+        "tool": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "Edit",
+            "Bash"
+          ]
+        },
+        "target": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "/home/user/Bureau/CYNIC/scripts/observation_archaeology.py",
+            "wc -l TODO.md"
+          ]
+        },
+        "domain": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "ops",
+            "general"
+          ]
+        },
+        "status": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "success",
+            "success"
+          ]
+        },
+        "context": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "",
+            ""
+          ]
+        },
+        "created_at": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "2026-05-04T19:51:44.580646982Z",
+            "2026-05-04T19:51:42.079276324Z"
+          ]
+        },
+        "project": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "CYNIC",
+            "CYNIC"
+          ]
+        },
+        "agent_id": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "claude-6a981e1d-015",
+            "claude-6de48486-2d9"
+          ]
+        },
+        "session_id": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "6a981e1d-0159-4fb7-8c22-773aecbfde31",
+            "6de48486-2d90-47a1-b01b-9b01d4480e4b"
+          ]
+        },
+        "tags": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "list"
+          ],
+          "samples": [
+            [
+              "edit"
+            ],
+            [
+              "bash"
+            ]
+          ]
+        },
+        "value": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "NoneType"
+          ],
+          "samples": []
+        },
+        "confidence": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "NoneType"
+          ],
+          "samples": []
+        },
+        "consumer": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "NoneType"
+          ],
+          "samples": []
+        },
+        "action": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "NoneType"
+          ],
+          "samples": []
+        },
+        "depends_on": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "list"
+          ],
+          "samples": [
+            [],
+            []
+          ]
+        },
+        "maturity": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "NoneType"
+          ],
+          "samples": []
+        },
+        "hash": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "",
+            ""
+          ]
+        },
+        "prev_hash": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "str"
+          ],
+          "samples": [
+            "",
+            ""
+          ]
+        },
+        "observers": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "list"
+          ],
+          "samples": [
+            [],
+            []
+          ]
+        },
+        "consensus_score": {
+          "frequency": 1.0,
+          "count": 1000,
+          "types": [
+            "NoneType"
+          ],
+          "samples": []
+        }
+      },
+      "common_fields": {},
+      "optional_fields": {},
+      "noise_fields": {}
+    },
+    "signal_types": {
+      "operation": 470,
+      "session": 40,
+      "unknown": 420,
+      "observation": 70
+    },
+    "categories": {
+      "operation": {
+        "count": 470,
+        "fields": [
+          "agent_id",
+          "consumer",
+          "maturity",
+          "hash",
+          "target",
+          "confidence",
+          "status",
+          "tags",
+          "observers",
+          "domain",
+          "value",
+          "context",
+          "created_at",
+          "session_id",
+          "depends_on",
+          "project",
+          "action",
+          "tool",
+          "consensus_score",
+          "prev_hash",
+          "id"
+        ]
+      },
+      "session": {
+        "count": 40,
+        "fields": [
+          "agent_id",
+          "consumer",
+          "maturity",
+          "hash",
+          "target",
+          "confidence",
+          "status",
+          "tags",
+          "observers",
+          "domain",
+          "value",
+          "context",
+          "created_at",
+          "session_id",
+          "depends_on",
+          "project",
+          "action",
+          "tool",
+          "consensus_score",
+          "prev_hash",
+          "id"
+        ]
+      },
+      "unknown": {
+        "count": 420,
+        "fields": [
+          "agent_id",
+          "consumer",
+          "maturity",
+          "hash",
+          "target",
+          "confidence",
+          "status",
+          "tags",
+          "observers",
+          "domain",
+          "value",
+          "context",
+          "created_at",
+          "session_id",
+          "depends_on",
+          "project",
+          "action",
+          "tool",
+          "consensus_score",
+          "prev_hash",
+          "id"
+        ]
+      },
+      "observation": {
+        "count": 70,
+        "fields": [
+          "agent_id",
+          "consumer",
+          "maturity",
+          "hash",
+          "target",
+          "confidence",
+          "status",
+          "tags",
+          "observers",
+          "domain",
+          "value",
+          "context",
+          "created_at",
+          "session_id",
+          "depends_on",
+          "project",
+          "action",
+          "tool",
+          "consensus_score",
+          "prev_hash",
+          "id"
+        ]
+      }
+    },
+    "statistics": {
+      "total_observations": 1000,
+      "unique_fields": 21,
+      "unique_signal_types": 4,
+      "unique_categories": 4
+    }
+  },
+  "hypergraph": {
+    "vertices": {
+      "observation_types": [
+        "operation",
+        "session",
+        "unknown",
+        "observation"
+      ],
+      "metadata_dimensions": [
+        "id",
+        "tool",
+        "target",
+        "domain",
+        "status",
+        "context",
+        "created_at",
+        "project",
+        "agent_id",
+        "session_id",
+        "tags",
+        "value",
+        "confidence",
+        "consumer",
+        "action",
+        "depends_on",
+        "maturity",
+        "hash",
+        "prev_hash",
+        "observers",
+        "consensus_score"
+      ]
+    },
+    "edges": {
+      "signal_type": "What kind of signal (verdict, session, behavioral, metric)",
+      "consumer_contract": "Which consumer reads this (if present)",
+      "routing_hint": "Which Dogs/subsystems care (if present)",
+      "source": "Which producer created it",
+      "quality_score": "Metadata completeness / signal confidence",
+      "timestamp": "When it was created"
+    },
+    "k15_contracts": {
+      "operation": {
+        "producer": "Bash",
+        "consumer": null,
+        "required_metadata": [
+          "id",
+          "tool",
+          "target",
+          "domain",
+          "status",
+          "context",
+          "created_at",
+          "project",
+          "agent_id",
+          "session_id",
+          "tags",
+          "value",
+          "confidence",
+          "consumer",
+          "action",
+          "depends_on",
+          "maturity",
+          "hash",
+          "prev_hash",
+          "observers",
+          "consensus_score"
+        ]
+      },
+      "session": {
+        "producer": "user_prompt",
+        "consumer": null,
+        "required_metadata": [
+          "id",
+          "tool",
+          "target",
+          "domain",
+          "status",
+          "context",
+          "created_at",
+          "project",
+          "agent_id",
+          "session_id",
+          "tags",
+          "value",
+          "confidence",
+          "consumer",
+          "action",
+          "depends_on",
+          "maturity",
+          "hash",
+          "prev_hash",
+          "observers",
+          "consensus_score"
+        ]
+      },
+      "unknown": {
+        "producer": "verdict",
+        "consumer": null,
+        "required_metadata": [
+          "id",
+          "tool",
+          "target",
+          "domain",
+          "status",
+          "context",
+          "created_at",
+          "project",
+          "agent_id",
+          "session_id",
+          "tags",
+          "value",
+          "confidence",
+          "consumer",
+          "action",
+          "depends_on",
+          "maturity",
+          "hash",
+          "prev_hash",
+          "observers",
+          "consensus_score"
+        ]
+      },
+      "observation": {
+        "producer": "cynic_observe",
+        "consumer": null,
+        "required_metadata": [
+          "id",
+          "tool",
+          "target",
+          "domain",
+          "status",
+          "context",
+          "created_at",
+          "project",
+          "agent_id",
+          "session_id",
+          "tags",
+          "value",
+          "confidence",
+          "consumer",
+          "action",
+          "depends_on",
+          "maturity",
+          "hash",
+          "prev_hash",
+          "observers",
+          "consensus_score"
+        ]
+      }
+    }
+  }
+}

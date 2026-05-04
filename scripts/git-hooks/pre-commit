@@ -20,7 +20,8 @@ security_check() {
         | grep -v 'grep -iE .*api\[_-\]?key' \
         | grep -v 'grep -iE .*AIza' \
         | grep -v 'grep -E .*100\\\.' \
-        | grep -v 'grep -vE.*Fungible' || true)
+        | grep -v 'grep -vE.*Fungible' \
+        | grep -v 'grep -vE.*api.key' || true)
     [ -z "$FILTERED_ADDED" ] && return 0
 
     RAW_SECRETS=$(printf '%s\n' "$FILTERED_ADDED" \
@@ -31,10 +32,12 @@ security_check() {
         | grep -vE '"\$\{[0-9]+:-|"\$\{[A-Z_]+:-' \
         | grep -vE 'format!\(.*\{api_key\}' \
         | grep -vE 'f".*\{api_key\}' \
-        | grep -vE 'os\.environ\.get\(' \
+        | grep -vE 'os\.(environ\.get|getenv)\(' \
         | grep -vE 'process\.env\.' \
         | grep -vE 'std::env::var' \
         | grep -vE 'load_helius_key\(\)' \
+        | grep -vE 'api_key[=:]\s*[a-z_]+[,)]' \
+        | grep -vE 'api-key=\{[a-z_]+\}' \
         | grep -vE 'healthy_token:|moderate_risk:|high_risk_rug:' \
         | grep -vE ':\s*Option<|:\s*Result<|:\s*Vec<|:\s*String' \
         | grep -vE '\.split\(.*api[_-]?key' \
