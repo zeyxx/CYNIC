@@ -10,7 +10,7 @@ COMMAND="${2:?command required}"
 TIMEOUT="${3:-30}"  # Default 30 seconds
 
 # MCP server config (stdio-based, spawned on-demand)
-# Derive from env or git root (fallback handles subprocess contexts)
+# Use env override or git-root-relative path as fallback
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 MCP_PROG="${TAILSCALE_MCP:-$REPO_ROOT/../tailscale-mcp/tailscale-mcp}"
 
