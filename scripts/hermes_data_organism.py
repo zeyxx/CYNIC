@@ -106,7 +106,7 @@ class HermesDataOrganism:
         }
 
     def perceive_observations(self) -> Dict:
-        """LAYER 1: Query kernel observations since last cycle (FIXED: real kernel call)"""
+        """LAYER 1: Query kernel health for Dog metrics (fixed: uses /health not /observations)"""
         if not requests:
             return {
                 "observations_queried": 0,
@@ -132,26 +132,31 @@ class HermesDataOrganism:
 
         try:
             resp = requests.get(
-                f"{cynic_addr}/observations",
+                f"{cynic_addr}/health",
                 headers={"Authorization": f"Bearer {cynic_key}"},
                 timeout=10,
             )
             resp.raise_for_status()
-            observations = resp.json()
+            health = resp.json()
 
-            # Extract real metrics from observations
-            dog_agreement_samples = []
-            failure_count = 0
+            # Extract Dog metrics from health endpoint
+            dogs = health.get("dogs", [])
+            total_failures = 0
+            total_dogs = len(dogs)
 
-            for obs in observations:
-                if obs.get("dog_agreement") is not None:
-                    dog_agreement_samples.append(obs.get("dog_agreement"))
-                if obs.get("is_failure"):
-                    failure_count += 1
+            # Compute dog_agreement from circuit states and failure counts
+            # High agreement = all circuits closed + low failure counts
+            # dog_agreement = 1 - (total_failures / max(total_dogs, 1))
+            for dog in dogs:
+                total_failures += dog.get("failures", 0)
+
+            # Normalize: if no failures, agreement = 1.0; if all failed, agreement = 0.0
+            dog_agreement = 1.0 - (total_failures / max(total_dogs, 1)) if total_dogs > 0 else None
+            dog_agreement_samples = [dog_agreement] if dog_agreement is not None else []
 
             return {
-                "observations_queried": len(observations),
-                "failure_count": failure_count,
+                "observations_queried": total_dogs,  # number of dogs evaluated
+                "failure_count": total_failures,
                 "dog_agreement_samples": dog_agreement_samples,
             }
         except Exception as e:
