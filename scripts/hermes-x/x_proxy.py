@@ -232,6 +232,7 @@ def _parse_result(result: dict) -> dict | None:
     ucore = uroot.get("core", {})
     uleg = uroot.get("legacy", {})
     views = result.get("views", {})
+    entities = legacy.get("entities", {})
 
     def safe_int(v):
         try:
@@ -240,27 +241,51 @@ def _parse_result(result: dict) -> dict | None:
             return 0
 
     return {
+        # Core
         "id": legacy.get("id_str"),
         "text": legacy.get("full_text", ""),
         "created_at": legacy.get("created_at", ""),
+        "lang": legacy.get("lang", ""),
+        "possibly_sensitive": legacy.get("possibly_sensitive", False),
+
+        # Author (full extraction)
         "author": ucore.get("screen_name", "") or uleg.get("screen_name", ""),
         "author_name": ucore.get("name", "") or uleg.get("name", ""),
         "author_followers": uleg.get("followers_count", 0),
         "author_statuses_count": uleg.get("statuses_count", 0),
         "author_favourites_count": uleg.get("favourites_count", 0),
+        "author_bio": uleg.get("description", ""),  # Author biography
         "author_verified": uroot.get("is_blue_verified", False),
+        "author_default_profile": uleg.get("default_profile", False),
+        "author_default_profile_image": uleg.get("default_profile_image", False),
+        "author_profile_banner_url": uleg.get("profile_banner_url", ""),
+
+        # Engagement metrics
         "retweet_count": legacy.get("retweet_count", 0),
         "favorite_count": legacy.get("favorite_count", 0),
         "reply_count": legacy.get("reply_count", 0),
         "bookmark_count": legacy.get("bookmark_count", 0),
         "quote_count": legacy.get("quote_count", 0),
         "view_count": safe_int(views.get("count", 0)),
-        "cashtags": [s["text"] for s in legacy.get("entities", {}).get("symbols", [])],
-        "hashtags": [h["text"] for h in legacy.get("entities", {}).get("hashtags", [])],
-        "mentions": [m["screen_name"] for m in legacy.get("entities", {}).get("user_mentions", [])],
+
+        # Content entities
+        "cashtags": [s["text"] for s in entities.get("symbols", [])],
+        "hashtags": [h["text"] for h in entities.get("hashtags", [])],
+        "mentions": [m["screen_name"] for m in entities.get("user_mentions", [])],
+        "urls": [u["expanded_url"] for u in entities.get("urls", [])],
+
+        # Media
+        "has_media": "media" in entities or "extended_entities" in legacy,
+        "media": [m.get("media_url_https", "") for m in entities.get("media", [])],
+
+        # Conversation references
         "is_retweet": "retweeted_status_result" in legacy or legacy.get("full_text", "").startswith("RT @"),
         "is_reply": bool(legacy.get("in_reply_to_status_id_str")),
-        "lang": legacy.get("lang", ""),
+        "in_reply_to_screen_name": legacy.get("in_reply_to_screen_name", ""),
+        "quoted_status_id": legacy.get("quoted_status_id_str", ""),
+
+        # Edit control (if available)
+        "edit_control": result.get("edit_control", {}) or None,
     }
 
 
@@ -277,6 +302,7 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict) -> di
     engagement = (likes + rts + replies) / views if views > 0 else 0.0
 
     return {
+        # Core tweet
         "tweet_id": tweet.get("id", ""),
         "dedupe_key": hashlib.blake2b(
             f"{tweet.get('id', '')}{tweet.get('author', '')}".encode(), digest_size=8,
@@ -290,26 +316,24 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict) -> di
             "retweet" if tweet.get("is_retweet") else
             "reply" if tweet.get("is_reply") else "original"
         ),
-        "is_self_thread": False,
         "lang": tweet.get("lang", ""),
-        "possibly_sensitive": False,
-        # Author
+        "possibly_sensitive": tweet.get("possibly_sensitive", False),
+
+        # Author (full extraction)
         "author_screen_name": tweet.get("author", ""),
         "author_display_name": tweet.get("author_name", ""),
-        "author_user_id": "",
         "author_followers_count": tweet.get("author_followers", 0),
-        "author_following_count": 0,
         "author_statuses_count": tweet.get("author_statuses_count", 0),
         "author_favourites_count": tweet.get("author_favourites_count", 0),
-        "author_account_created_at": "",
-        "author_bio": "",
+        "author_bio": tweet.get("author_bio", ""),  # NOW EXTRACTED
         "author_is_blue_verified": tweet.get("author_verified", False),
         "author_verified": tweet.get("author_verified", False),
-        "author_default_profile": False,
-        "author_default_profile_image": False,
-        "author_profile_banner": "",
+        "author_default_profile": tweet.get("author_default_profile", False),  # NOW EXTRACTED
+        "author_default_profile_image": tweet.get("author_default_profile_image", False),  # NOW EXTRACTED
+        "author_profile_banner": tweet.get("author_profile_banner_url", ""),  # NOW EXTRACTED
         "author_tier": _author_tier(tweet),
-        # Metrics
+
+        # Engagement metrics
         "views": views,
         "likes": likes,
         "retweets": rts,
@@ -317,18 +341,26 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict) -> di
         "quotes": tweet.get("quote_count", 0),
         "bookmarks": tweet.get("bookmark_count", 0),
         "engagement_rate": round(engagement, 6),
-        "viewer_favorited": False,
-        "viewer_retweeted": False,
-        "viewer_bookmarked": False,
-        # Entities
+
+        # Viewer engagement (not available: passive proxy)
+        "viewer_favorited": False,  # No auth in mitmproxy
+        "viewer_retweeted": False,  # No auth in mitmproxy
+        "viewer_bookmarked": False,  # No auth in mitmproxy
+
+        # Entities (full extraction)
         "cashtags": tweet.get("cashtags", []),
         "hashtags": tweet.get("hashtags", []),
         "mentions": tweet.get("mentions", []),
-        "urls": [],
-        "media": [],
-        "has_media": False,
-        "quoted_tweet": None,
-        "retweeted_tweet": None,
+        "urls": tweet.get("urls", []),  # NOW EXTRACTED
+        "media": tweet.get("media", []),  # NOW EXTRACTED
+        "has_media": tweet.get("has_media", False),  # NOW EXTRACTED
+
+        # Conversation references
+        "quoted_tweet": tweet.get("quoted_status_id", ""),  # NOW EXTRACTED (was None)
+        "retweeted_tweet": None,  # Not in legacy for retweets
+        "in_reply_to_screen_name": tweet.get("in_reply_to_screen_name", ""),  # NOW EXTRACTED
+        "is_self_thread": False,  # Would need reply chain analysis
+
         # Enrichment
         "signal_score": _signal_score(text, tweet),
         "narratives": _narratives(text),
