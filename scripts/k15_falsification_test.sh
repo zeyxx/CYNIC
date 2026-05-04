@@ -17,9 +17,9 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "K15 Phase 2d Falsification Test"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Test 1: Verify API is up
-echo -e "\n${YELLOW}[1/6] Verify /health endpoint${NC}"
-if ! curl -s "${API_BASE}/health" > /dev/null; then
+# Test 1: Verify API is up (use /ready — public, no auth needed)
+echo -e "\n${YELLOW}[1/6] Verify /ready endpoint${NC}"
+if ! curl -sf "${API_BASE}/ready" > /dev/null; then
     echo -e "${RED}✗ API not responding at ${API_BASE}${NC}"
     exit 1
 fi

@@ -13,7 +13,8 @@ TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 # Helper: safe curl with timeout
 probe_kernel() {
   local endpoint="$1"
-  curl -s -m 3 "${KERNEL_ADDR}${endpoint}" 2>/dev/null || echo "{\"error\":\"unreachable\"}"
+  curl -s -m 3 ${CYNIC_API_KEY:+-H "Authorization: Bearer ${CYNIC_API_KEY}"} \
+    "${KERNEL_ADDR}${endpoint}" 2>/dev/null || echo "{\"error\":\"unreachable\"}"
 }
 
 # Helper: JSON encode string

@@ -12,11 +12,11 @@ echo "CYNIC Phase 4: Demo — Weak Dogs Produce BARK, No Silent Failures"
 echo "=================================================================="
 echo ""
 
-# Step 1: Kernel Health
+# Step 1: Kernel Health (auth required — T1)
 echo "[STEP 1] Kernel Health Check"
-echo "Command: curl -s \$CYNIC_REST/health | jq"
+echo "Command: curl -s -H 'Authorization: Bearer \$CYNIC_API_KEY' \$CYNIC_REST/health | jq"
 echo ""
-curl -s "$CYNIC_REST/health" | python3 -m json.tool
+curl -s -H "Authorization: Bearer ${CYNIC_API_KEY}" "$CYNIC_REST/health" | python3 -m json.tool
 echo ""
 echo "← Kernel is running. Dogs online or degraded."
 echo ""

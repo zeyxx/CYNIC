@@ -1,10 +1,6 @@
 //! REST API handlers for liveness, readiness, health, agents and metrics — read-only observability.
 
-use axum::{
-    extract::{Request, State},
-    http::StatusCode,
-    response::Json,
-};
+use axum::{extract::State, http::StatusCode, response::Json};
 use std::sync::Arc;
 
 use super::response::coordination_error;
@@ -30,43 +26,19 @@ pub async fn readiness_handler(State(state): State<Arc<AppState>>) -> StatusCode
     }
 }
 
+/// GET /health — Full system topology and diagnostics.
+/// Auth required (T1, KC3) — leaks Dog roster, circuit states, version, token counts.
+/// Unauthenticated callers get 401 from middleware (never reach this handler).
+/// For unauthenticated probes, use /live (200) or /ready (200/503).
 pub async fn health_handler(
     State(state): State<Arc<AppState>>,
-    request: Request,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    // Check if caller has valid auth — return full details only if authenticated.
-    // Uses constant_time_eq to prevent timing oracle (same as auth_middleware).
-    let authenticated = match &state.api_key {
-        Some(key) => request
-            .headers()
-            .get("authorization")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "))
-            .is_some_and(|t| super::middleware::constant_time_eq(t.as_bytes(), key.as_bytes())),
-        None => true, // No auth configured → everyone gets full details
-    };
-
     let readiness = state.system_health().await;
     let http_code = if readiness.healthy {
         StatusCode::OK
     } else {
         StatusCode::SERVICE_UNAVAILABLE
     };
-
-    // Public: boolean only — no version, no status string, no phi_max.
-    // T1 hardening: Paranoid threat model (motivated attacker).
-    // Status string "degraded" = operational detail (system under stress).
-    // phi_max = algorithm constant (leaks implementation details).
-    // HTTP status code sufficient: 200 = healthy, 503 = unhealthy.
-    // Attacker learns nothing from body: 200 + {"healthy":true} ≠ 200 + topology leak.
-    if !authenticated {
-        return (
-            http_code,
-            Json(serde_json::json!({
-                "healthy": readiness.healthy,
-            })),
-        );
-    }
 
     // Authenticated: full details
     let judge = state.judge.load_full();
