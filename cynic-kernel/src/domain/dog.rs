@@ -190,14 +190,17 @@ const MIN_SCORE_VARIANCE: f64 = 0.0001;
 /// 4 out of 6 axioms at exactly 0.0 = the model failed to score, not a real judgment.
 const MAX_ZERO_SCORES: usize = 3;
 
-/// Validate raw axiom scores BEFORE phi_bound. Catches pathological LLM outputs
-/// that would otherwise be silently masked by phi_bound (0.0 → 0.05).
+/// Validate raw axiom scores BEFORE phi_bound. Catches parse failures only.
 ///
-/// Conservative thresholds — only rejects clearly degenerate outputs:
-/// - Zero flood: ≥4 axioms at exactly 0.0
-/// - Degenerate variance: all scores within ε (model collapsed)
+/// Rejects only:
+/// - Zero flood: ≥4 axioms at exactly 0.0 = parsing/generation failure
 ///
-/// Returns `Ok(())` for usable scores, even imperfect ones.
+/// OBSERVES but ACCEPTS:
+/// - Degenerate variance (uniform scores): Dog is confused/collapsed/poisoned.
+///   These become BARK verdicts, not silent failures.
+///
+/// All other outputs are valid judgments that will aggregate to VerdictKind.
+/// The signal is in the verdict, not lost in error logs.
 pub fn validate_scores(scores: &AxiomScores) -> Result<(), DogError> {
     let raw = [
         scores.fidelity,
@@ -214,18 +217,20 @@ pub fn validate_scores(scores: &AxiomScores) -> Result<(), DogError> {
         return Err(DogError::ZeroFlood(zero_count));
     }
 
-    // Degenerate variance: all scores nearly identical = model collapsed.
-    // Exception: uniform scores near the floor (mean ≤ 0.10) are a valid signal —
-    // "everything is terrible" is a legitimate judgment on genuinely bad content.
-    // Without this exception, models that correctly identify rug pulls (all axioms
-    // at minimum) are rejected as collapsed, and their valid reasoning is lost.
+    // Degenerate variance: all scores nearly identical = model collapsed/confused.
+    // NO LONGER REJECTED. Instead, observed and logged.
+    // A Dog that produces uniform low scores (0.05-0.15 across all axioms) is making
+    // a valid BARK judgment: "everything here is terrible." This signal must flow to
+    // the verdict, not be silenced. We log it for observability so we can track which
+    // Dogs are struggling, confused, or encountering "the unnamable" (extreme poison input).
     let mean = raw.iter().sum::<f64>() / 6.0;
     let variance = raw.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / 6.0;
-    if variance < MIN_SCORE_VARIANCE && mean > 0.10 {
-        return Err(DogError::DegenerateScores {
-            variance,
-            min_variance: MIN_SCORE_VARIANCE,
-        });
+    if variance < MIN_SCORE_VARIANCE {
+        tracing::warn!(
+            variance = %format!("{:.6}", variance),
+            mean = %format!("{:.3}", mean),
+            "Degenerate variance: Dog produced uniform scores across all axioms. Confused, collapsed, or confronted with poison input. Signal will become BARK verdict."
+        );
     }
 
     Ok(())
