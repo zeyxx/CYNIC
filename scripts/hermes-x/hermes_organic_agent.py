@@ -91,84 +91,139 @@ class HermesOrganicAgent:
             return False
 
     async def navigate_feed(self, page, max_tweets: int = 10) -> list:
-        """Navigate X.com feed organically, return tweets encountered."""
+        """Navigate X.com feed organically: scroll, read, understand structure."""
         tweets = []
 
         logger.info("Navigating X.com/home (organic feed)...")
         await page.goto("https://x.com/home", wait_until="domcontentloaded")
         await page.wait_for_timeout(2000)
 
-        # Get visible tweets
-        article_locator = page.locator('[role="article"]')
-        count = await article_locator.count()
-        logger.info("Found %d tweets on screen", count)
+        # Scroll through feed and collect tweets
+        seen_tweets = set()
+        scroll_count = 0
+        max_scrolls = 5  # Scroll 5 times to find max_tweets
 
-        # Extract tweet metadata
-        for i in range(min(count, max_tweets)):
-            try:
-                article = article_locator.nth(i)
-                # Tweet text: usually in a div with text content
-                text_element = article.locator("div:has-text('')").first
-                text = await text_element.inner_text() if text_element else ""
+        while len(tweets) < max_tweets and scroll_count < max_scrolls:
+            # Get all visible articles
+            article_locator = page.locator('[role="article"]')
+            count = await article_locator.count()
+            logger.info("Scroll %d: Found %d articles on screen", scroll_count, count)
 
-                # Fallback: get any text from article
-                if not text:
-                    text = await article.inner_text()
+            # Extract tweets from visible articles
+            for i in range(count):
+                try:
+                    article = article_locator.nth(i)
 
-                tweets.append({
-                    "index": i,
-                    "text": (text[:140] if text else "")[:140],
-                    "author": "x.com",  # Would need deeper parsing to extract real author
-                    "position": i,
-                })
-            except Exception as e:
-                logger.debug("Could not extract tweet %d: %s", i, str(e)[:80])
-                # Still count it, just with no text
-                tweets.append({
-                    "index": i,
-                    "text": "(tweet content unavailable)",
-                    "author": "x.com",
-                    "position": i,
-                })
+                    # Extract author (usually in a span with data-testid="UserName")
+                    author_elem = article.locator("[data-testid='UserName']").first
+                    author = (await author_elem.inner_text()).strip() if author_elem else "unknown"
 
-        logger.info("Extracted %d tweets from feed", len(tweets))
+                    # Extract tweet ID from article's data attribute if available
+                    article_html = await article.evaluate("el => el.outerHTML")
+                    tweet_id_match = article_html.find("/status/") if article_html else -1
+
+                    # Extract full tweet text (traverse tweet container)
+                    text_parts = []
+                    text_divs = article.locator("div[lang]")
+                    text_count = await text_divs.count()
+
+                    if text_count > 0:
+                        # Get the main tweet text (usually first div[lang])
+                        main_text = await text_divs.nth(0).inner_text()
+                        text_parts.append(main_text)
+                    else:
+                        # Fallback: get any text from article
+                        full_text = await article.inner_text()
+                        text_parts.append(full_text[:300])  # Cap at 300 chars
+
+                    tweet_text = " ".join(text_parts)[:400]  # Cap final text at 400 chars
+
+                    # Skip if we've seen this content already
+                    text_hash = hash(tweet_text)
+                    if text_hash in seen_tweets:
+                        continue
+
+                    seen_tweets.add(text_hash)
+
+                    tweets.append({
+                        "index": len(tweets),
+                        "text": tweet_text if tweet_text else "(empty tweet)",
+                        "author": author,
+                        "position": i,
+                        "scroll_level": scroll_count,
+                    })
+
+                    if len(tweets) >= max_tweets:
+                        break
+
+                except Exception as e:
+                    logger.debug("Could not extract tweet: %s", str(e)[:80])
+
+            # Scroll down to load more tweets
+            if len(tweets) < max_tweets:
+                logger.info("Scrolling feed...")
+                await page.evaluate("window.scrollBy(0, 500)")
+                await page.wait_for_timeout(1500)  # Wait for dynamic content to load
+                scroll_count += 1
+
+        logger.info("Extracted %d tweets from feed across %d scrolls", len(tweets), scroll_count)
         return tweets
 
     def reason_about_tweet(self, tweet: dict) -> BehavioralDecision:
         """
         Use behavioral profile to decide: should T. engage with this?
 
-        Simple heuristics for now (will learn from observations):
-        - T. types a lot (11.1 keystrokes/click) → deep reader, probably reads threads
-        - T. clicks moderately (2.7 scrolls/click) → selective, not all tweets catch attention
-        - T. browses during breaks (peak 21h UTC, 16-17h) → not always available
-        - T. works on CYNIC heavily (70% of clicks) → probably interested in tech/dev content
+        Signals from behavior_log:
+        - T. types 11.1 keystrokes/click → deep reader, reads threads fully
+        - T. clicks 2.7× for every scroll → selective, deliberate (not reactive)
+        - T. works on CYNIC/code (70% clicks) → tech/dev content likely
+        - T. browses peak hours: 21h (personal), 16-17h (work breaks)
         """
         signals = []
         score = 0.5
 
-        # Heuristic 1: Does tweet mention tech/development keywords?
-        tech_keywords = ["code", "python", "rust", "api", "algorithm", "data", "inference", "model", "llm"]
-        text_lower = tweet.get("text", "").lower()
-        if any(kw in text_lower for kw in tech_keywords):
+        # Signal 1: Author credibility (would be learned from followed_authors)
+        # For now, check if author name suggests expertise
+        author = tweet.get("author", "").lower()
+        if any(word in author for word in ["dev", "engineer", "researcher", "founder", "architect"]):
             score += 0.15
-            signals.append("tech_keyword_match")
+            signals.append(f"author:{author}")
 
-        # Heuristic 2: Is it a thread (longer text suggests it)?
-        if len(tweet.get("text", "")) > 200:
+        # Signal 2: Content signals (tech keywords T. engages with)
+        tech_keywords = ["code", "python", "rust", "api", "algorithm", "data", "inference", "model", "llm", "architecture"]
+        text_lower = tweet.get("text", "").lower()
+        keyword_hits = [kw for kw in tech_keywords if kw in text_lower]
+        if keyword_hits:
+            score += 0.15 * min(1.0, len(keyword_hits) / 3)  # Scale by keyword density
+            signals.append(f"keywords:{','.join(keyword_hits[:2])}")
+
+        # Signal 3: Thread depth (longer text = likely thread or detailed take)
+        text_len = len(tweet.get("text", ""))
+        if text_len > 300:
+            score += 0.15
+            signals.append("long_form_content")
+        elif text_len > 150:
+            score += 0.08
+            signals.append("medium_form")
+
+        # Signal 4: Temporal signal (is this posted during T's peak hours?)
+        # This would use self.profile["temporal_rhythm"] when learned
+        # For now, assume browsing time = engagement time
+
+        # Signal 5: Conversation indicator (mentions, quotes, replies)
+        if any(word in text_lower for word in ["@", "reply", "thread", "question", "why", "how", "what"]):
             score += 0.1
-            signals.append("thread_candidate")
+            signals.append("conversational")
 
-        # Heuristic 3: Is it conversational (replies, quotes)?
-        # (Would need to check tweet structure, skipping for now)
-
-        # Decision threshold
-        if score > 0.65:
-            decision = "read_thread"
-        elif score > 0.55:
-            decision = "engage"
+        # Decision based on behavioral profile
+        # T. is selective (2.7 scrolls/click) = high threshold
+        # T. is deep reader (11.1 keys/click) = reads full threads when interested
+        if score > 0.75:
+            decision = "read_thread"  # Click in, read responses, maybe like
+        elif score > 0.60:
+            decision = "engage"  # Like or quick read
         else:
-            decision = "scroll"
+            decision = "scroll"  # Keep scrolling
 
         return BehavioralDecision(
             tweet_id=f"tweet_{tweet.get('index', 0)}",
@@ -177,6 +232,65 @@ class HermesOrganicAgent:
             reasoning=signals,
             timestamp=datetime.now(datetime.now().astimezone().tzinfo).isoformat(),
         )
+
+    async def read_thread(self, page, tweet: dict) -> dict:
+        """Click on a tweet and read the thread deeply."""
+        logger.info("Reading thread: %s...", tweet["text"][:60])
+        try:
+            # Click on the tweet article to open full thread view
+            article_locator = page.locator('[role="article"]').nth(tweet.get("position", 0))
+            await article_locator.click()
+            await page.wait_for_timeout(2000)  # Wait for thread to load
+
+            # Extract thread context (original tweet + responses)
+            thread_text = await page.evaluate("""
+                () => {
+                    const tweets = document.querySelectorAll('[role="article"]');
+                    return Array.from(tweets).slice(0, 3).map(t => t.innerText).join('\\n---\\n');
+                }
+            """)
+
+            logger.info("Thread depth: %d chars read", len(thread_text))
+            return {
+                "depth_chars": len(thread_text),
+                "thread_preview": thread_text[:300],
+                "success": True,
+            }
+
+        except Exception as e:
+            logger.debug("Failed to read thread: %s", str(e)[:80])
+            return {"success": False, "error": str(e)[:80]}
+
+    async def like_tweet(self, page, tweet: dict) -> bool:
+        """Like a tweet (signal of engagement)."""
+        try:
+            article_locator = page.locator('[role="article"]').nth(tweet.get("position", 0))
+            like_button = article_locator.locator('[aria-label*="Like"]').first
+            if like_button:
+                await like_button.click()
+                await page.wait_for_timeout(500)
+                logger.info("Liked tweet by %s", tweet.get("author", "unknown"))
+                return True
+        except Exception as e:
+            logger.debug("Failed to like: %s", str(e)[:80])
+        return False
+
+    async def visit_author(self, page, tweet: dict) -> dict:
+        """Click on author name to visit their profile."""
+        logger.info("Visiting author: %s", tweet.get("author", "unknown"))
+        try:
+            article_locator = page.locator('[role="article"]').nth(tweet.get("position", 0))
+            author_link = article_locator.locator("[data-testid='UserName']").first
+            if author_link:
+                await author_link.click()
+                await page.wait_for_timeout(1500)
+                # Get author profile info
+                bio = await page.evaluate("() => document.body.innerText").then(lambda x: x[:200])
+                logger.info("Visited author profile")
+                return {"visited": True, "preview": bio}
+        except Exception as e:
+            logger.debug("Failed to visit author: %s", str(e)[:80])
+        return {"visited": False}
 
     async def run_cycle(self, page, max_tweets: int = 10) -> int:
         """Run one browsing cycle: navigate → reason → act."""
@@ -189,27 +303,53 @@ class HermesOrganicAgent:
             logger.warning("No tweets found")
             return 0
 
-        # Reason about each tweet
+        # Reason about each tweet and ACT
         decisions = []
-        for tweet in tweets:
+        engaged_count = 0
+
+        for i, tweet in enumerate(tweets):
             decision = self.reason_about_tweet(tweet)
             decisions.append(decision)
+
             logger.info(
-                "[%d] %s (conf=%.2f) %s",
+                "[%d] %s (conf=%.2f) %s | %s",
                 tweet["index"],
                 decision.decision.upper(),
                 decision.confidence,
                 " + ".join(decision.reasoning),
+                tweet["author"],
             )
 
-        # Store observations
-        self.observations.extend([asdict(d) for d in decisions])
+            # ACT on the decision
+            if decision.decision == "read_thread":
+                # Deeply engage: click into thread, read responses
+                result = await self.read_thread(page, tweet)
+                decision_dict = asdict(decision)
+                decision_dict["action"] = "read_thread"
+                decision_dict["thread_depth"] = result.get("depth_chars", 0)
+                self.observations.append(decision_dict)
+                engaged_count += 1
 
-        # Act on decisions (for now, just log)
-        engage_count = sum(1 for d in decisions if d.decision != "scroll")
-        logger.info("Cycle %d: %d tweets, %d engaged", self.cycle_count, len(tweets), engage_count)
+                # Go back to feed
+                await page.go_back()
+                await page.wait_for_timeout(1000)
 
-        return engage_count
+            elif decision.decision == "engage":
+                # Light engagement: like, maybe visit author
+                await self.like_tweet(page, tweet)
+                decision_dict = asdict(decision)
+                decision_dict["action"] = "like"
+                self.observations.append(decision_dict)
+                engaged_count += 1
+
+            else:  # scroll
+                # Just log the observation (continue scrolling)
+                decision_dict = asdict(decision)
+                decision_dict["action"] = "scroll"
+                self.observations.append(decision_dict)
+
+        logger.info("Cycle %d: %d tweets, %d engaged", self.cycle_count, len(tweets), engaged_count)
+        return engaged_count
 
     def save_observations(self) -> None:
         """Write observations to disk."""
