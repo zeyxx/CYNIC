@@ -74,9 +74,10 @@ class HermesOrganicAgent:
         self.profile = {}
         self.observations = []
         self.cycle_count = 0
+        self.learned_weights = {}
 
     def load_profile(self) -> bool:
-        """Load behavioral profile."""
+        """Load behavioral profile and learned weights."""
         if not self.profile_file.exists():
             logger.error("Profile not found: %s", self.profile_file)
             return False
@@ -85,6 +86,17 @@ class HermesOrganicAgent:
             with open(self.profile_file) as f:
                 self.profile = json.load(f)
             logger.info("Loaded behavioral profile")
+
+            # Also load learned weights if available
+            weights_file = self.organ_dir / "learned_weights.json"
+            if weights_file.exists():
+                with open(weights_file) as f:
+                    weights_data = json.load(f)
+                    self.learned_weights = weights_data
+                    logger.info("Loaded learned weights (v%s)", weights_data.get("version", "unknown"))
+            else:
+                logger.warning("learned_weights.json not found; using naive heuristics")
+
             return True
         except Exception as e:
             logger.error("Failed to load profile: %s", e)
@@ -171,59 +183,78 @@ class HermesOrganicAgent:
 
     def reason_about_tweet(self, tweet: dict) -> BehavioralDecision:
         """
-        Use behavioral profile to decide: should T. engage with this?
+        Use learned behavioral profile to decide: should T. engage with this?
 
-        Signals from behavior_log:
-        - T. types 11.1 keystrokes/click → deep reader, reads threads fully
-        - T. clicks 2.7× for every scroll → selective, deliberate (not reactive)
-        - T. works on CYNIC/code (70% clicks) → tech/dev content likely
-        - T. browses peak hours: 21h (personal), 16-17h (work breaks)
+        Learned signals from 762K behavior events:
+        - Keywords: code (14.7%), architecture (10.3%), python (8.8%), rust (7.4%), api (5.9%), algorithm (5.2%)
+        - Temporal: Peak at 7h UTC (5.99%), 22-23h (4.5%), Low at 21h (1.31%)
+        - Depth: 11.1 keystrokes/click (deep reader), 2.7 scrolls/click (selective)
+        - Selectivity: Clicks ~3.8% of all events
         """
         signals = []
         score = 0.5
 
-        # Signal 1: Author credibility (would be learned from followed_authors)
-        # For now, check if author name suggests expertise
-        author = tweet.get("author", "").lower()
-        if any(word in author for word in ["dev", "engineer", "researcher", "founder", "architect"]):
-            score += 0.15
-            signals.append(f"author:{author}")
+        # Get learned keyword weights
+        keyword_weights = self.learned_weights.get("keyword_weights", {})
+        temporal_peaks = self.learned_weights.get("temporal_peaks", {})
 
-        # Signal 2: Content signals (tech keywords T. engages with)
-        tech_keywords = ["code", "python", "rust", "api", "algorithm", "data", "inference", "model", "llm", "architecture"]
+        # Signal 1: LEARNED Keyword signals
         text_lower = tweet.get("text", "").lower()
-        keyword_hits = [kw for kw in tech_keywords if kw in text_lower]
-        if keyword_hits:
-            score += 0.15 * min(1.0, len(keyword_hits) / 3)  # Scale by keyword density
-            signals.append(f"keywords:{','.join(keyword_hits[:2])}")
+        for keyword, weight in keyword_weights.items():
+            if keyword in text_lower:
+                score += weight
+                signals.append(f"kw:{keyword}")
 
-        # Signal 3: Thread depth (longer text = likely thread or detailed take)
+        # Signal 2: LEARNED Temporal signal (current hour)
+        # If browsing during peak engagement hour, boost confidence
+        try:
+            now = datetime.now(datetime.now().astimezone().tzinfo)
+            current_hour = str(now.hour)
+            temporal_rate = float(temporal_peaks.get(current_hour, 0.038))  # 3.8% default
+            if temporal_rate > 0.045:  # Above average
+                score += 0.05
+                signals.append(f"peak_hour:{current_hour}")
+        except:
+            pass
+
+        # Signal 3: Structural signals (thread depth, conversation)
         text_len = len(tweet.get("text", ""))
         if text_len > 300:
-            score += 0.15
-            signals.append("long_form_content")
+            score += 0.12
+            signals.append("long_form")
         elif text_len > 150:
-            score += 0.08
+            score += 0.06
             signals.append("medium_form")
 
-        # Signal 4: Temporal signal (is this posted during T's peak hours?)
-        # This would use self.profile["temporal_rhythm"] when learned
-        # For now, assume browsing time = engagement time
+        # Signal 4: Conversation signals (T. engages with discussions)
+        conversational_markers = ["@", "reply", "thread", "question", "how", "why", "what", "discuss"]
+        if any(marker in text_lower for marker in conversational_markers):
+            score += 0.08
+            signals.append("discussion")
 
-        # Signal 5: Conversation indicator (mentions, quotes, replies)
-        if any(word in text_lower for word in ["@", "reply", "thread", "question", "why", "how", "what"]):
-            score += 0.1
-            signals.append("conversational")
+        # Signal 5: Author credibility (learned: would track followed_authors)
+        # Placeholder for future author learning
+        author = tweet.get("author", "").lower()
+        if any(role in author for role in ["dev", "engineer", "researcher", "founder", "architect"]):
+            score += 0.08
+            signals.append(f"expert:{author[:20]}")
 
-        # Decision based on behavioral profile
-        # T. is selective (2.7 scrolls/click) = high threshold
-        # T. is deep reader (11.1 keys/click) = reads full threads when interested
+        # Decision thresholds calibrated from behavior:
+        # T. is selective (2.7 scrolls/click = 27% engagement rate among scrolls)
+        # T. is deep reader (11.1 keys/click = thinks before clicking)
+        # Base engagement rate: 3.8% of all events are clicks
+        #
+        # Interpretation: Set thresholds such that:
+        # - read_thread: high confidence signals align with expertise
+        # - engage: moderate signals, worth interacting with
+        # - scroll: low signals, keep scrolling (what T. does 96% of the time)
+
         if score > 0.75:
-            decision = "read_thread"  # Click in, read responses, maybe like
-        elif score > 0.60:
+            decision = "read_thread"  # Click into thread, read responses
+        elif score > 0.55:
             decision = "engage"  # Like or quick read
         else:
-            decision = "scroll"  # Keep scrolling
+            decision = "scroll"  # Keep scrolling (the default)
 
         return BehavioralDecision(
             tweet_id=f"tweet_{tweet.get('index', 0)}",
