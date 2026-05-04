@@ -576,6 +576,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(infra::probes::ProcessProbe),
         Arc::new(infra::probes::PressureProbe),
         Arc::new(infra::probes::NetworkProbe),
+        Arc::new(infra::probes::ProxyProbe::default()),
         Arc::new(infra::probes::SomaProbe),
         Arc::new(fleet_probe),
     ];
