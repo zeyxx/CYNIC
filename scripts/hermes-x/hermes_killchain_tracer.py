@@ -71,13 +71,26 @@ class CapturedTweet:
     cashtags: list  # Token mentions
     hashtags: list  # Topic mentions
     mentions: list  # User mentions
+    urls: list  # Links in tweet
+    media: list  # Media URLs
+    has_media: bool
+
+    # Conversation
     is_retweet: bool
     is_reply: bool
+    in_reply_to_screen_name: str  # Who is this reply to
+    quoted_tweet_id: str  # Quote target
+
+    # Author credibility
+    author_bio: str
+    author_default_profile: bool
+    author_profile_banner: str
 
     # Enrichment
     signal_score: float  # From x_proxy.py enrichment
     narratives: list  # From x_proxy.py enrichment
     author_tier: str  # From x_proxy.py enrichment
+    possibly_sensitive: bool
 
 
 @dataclass
@@ -329,8 +342,22 @@ class KillChainTracer:
             cashtags = [s.get("text", "") for s in entities.get("symbols", [])]
             hashtags = [h.get("text", "") for h in entities.get("hashtags", [])]
             mentions = [m.get("screen_name", "") for m in entities.get("user_mentions", [])]
+            urls = [u.get("expanded_url", "") for u in entities.get("urls", [])]
+            media = [m.get("media_url_https", "") for m in entities.get("media", [])]
+            has_media = "media" in entities or "extended_entities" in legacy
+
+            # Conversation
             is_retweet = "retweeted_status_result" in legacy or legacy.get("full_text", "").startswith("RT @")
             is_reply = bool(legacy.get("in_reply_to_status_id_str"))
+            in_reply_to_screen_name = legacy.get("in_reply_to_screen_name", "")
+            quoted_tweet_id = legacy.get("quoted_status_id_str", "")
+
+            # Author credibility
+            author_bio = user_legacy.get("description", "")
+            author_default_profile = user_legacy.get("default_profile", False)
+            author_profile_banner = user_legacy.get("profile_banner_url", "")
+
+            possibly_sensitive = legacy.get("possibly_sensitive", False)
 
             # Use pre-computed enrichments if available
             if tweet_id in self.tweet_enrichments:
@@ -365,11 +392,20 @@ class KillChainTracer:
                 cashtags=cashtags,
                 hashtags=hashtags,
                 mentions=mentions,
+                urls=urls,
+                media=media,
+                has_media=has_media,
                 is_retweet=is_retweet,
                 is_reply=is_reply,
+                in_reply_to_screen_name=in_reply_to_screen_name,
+                quoted_tweet_id=quoted_tweet_id,
+                author_bio=author_bio,
+                author_default_profile=author_default_profile,
+                author_profile_banner=author_profile_banner,
                 signal_score=signal_score,
                 narratives=narratives,
-                author_tier=author_tier
+                author_tier=author_tier,
+                possibly_sensitive=possibly_sensitive
             )
         except Exception as e:
             logger.debug("Failed to parse tweet fields: %s", str(e)[:80])
