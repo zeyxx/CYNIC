@@ -10,7 +10,7 @@ Burn audit complete. Hackathon May 10 deadline.
 
 - [x] **Phase 2: Human-Filtering Impact (May 5-6).** Tested Dogs on 30 top tokens (WIF, SOL, GIGA, POPCAT...) from organ-x dataset (11.8K tweets). **Result:** 20 verdicts, 95% BARK distribution. Validates: weak Dogs produce BARK instead of errors. Kernel degraded after 8/30 tokens; ✓ Core finding: BARK signal is working.
 - [x] **Phase 3: Research Impact Report (May 7-8).** ✓ COMPLETE. Verdict distribution: 95% BARK (19 verdicts), 5% GROWL (1). Key finding: Dogs now produce audible BARK instead of silent errors. Falsification: CONFIRMED (100% of submissions → verdicts, zero errors). Submission evidence: code change + test script + results.
-- [ ] **Phase 4: Demo + Submission (May 9-10).** Record demo (kernel health → /judge → Dogs → verdict + axioms). Write submission. Submit May 10 23:59 PT.
+- [ ] **Phase 4: Demo + Submission (May 9-10).** ✓ Demo script ready (phase4_demo_script.sh). Next: (1) Record video demo (2) Write submission (3) Submit May 10 23:59 PT. Evidence: Commits 0a491066, 35ca26f0, c0637db7.
 
 ## KERNEL
 
