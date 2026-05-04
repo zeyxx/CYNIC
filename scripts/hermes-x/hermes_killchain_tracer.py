@@ -51,15 +51,33 @@ class CapturedTweet:
     """A tweet extracted from a capture file."""
     tweet_id: str
     text: str
+    created_at: str  # When tweet was created (temporal source)
+    lang: str  # Language
     author_handle: str
     author_name: str
     author_followers: int
     author_verified: bool
+
+    # Engagement metrics (the data source)
+    engagement_views: int
     engagement_likes: int
     engagement_retweets: int
     engagement_replies: int
+    engagement_quotes: int
     engagement_bookmarks: int
+    engagement_rate: float  # Pre-computed by x_proxy
+
+    # Domain signals
+    cashtags: list  # Token mentions
+    hashtags: list  # Topic mentions
+    mentions: list  # User mentions
+    is_retweet: bool
+    is_reply: bool
+
+    # Enrichment
     signal_score: float  # From x_proxy.py enrichment
+    narratives: list  # From x_proxy.py enrichment
+    author_tier: str  # From x_proxy.py enrichment
 
 
 @dataclass
@@ -274,30 +292,56 @@ class KillChainTracer:
         return tweets
 
     def _parse_tweet(self, tweet_data: dict) -> Optional[CapturedTweet]:
-        """Parse a single tweet from X.com GraphQL response."""
+        """Parse a single tweet from X.com GraphQL response (full extraction)."""
         try:
             legacy = tweet_data.get("legacy", {})
             user_info = tweet_data.get("core", {}).get("user_results", {}).get("result", {})
             user_legacy = user_info.get("legacy", {})
+            views = tweet_data.get("views", {})
+            entities = legacy.get("entities", {})
 
             tweet_id = legacy.get("id_str", "")
             text = legacy.get("full_text", "")
+            created_at = legacy.get("created_at", "")
+            lang = legacy.get("lang", "")
+
             author_handle = user_legacy.get("screen_name", "unknown")
             author_name = user_legacy.get("name", "")
             author_followers = user_legacy.get("followers_count", 0)
             author_verified = user_legacy.get("verified", False)
 
+            # Engagement data (the data source)
+            def safe_int(v):
+                try:
+                    return int(v)
+                except (ValueError, TypeError):
+                    return 0
+
+            engagement_views = safe_int(views.get("count", 0))
             engagement_likes = legacy.get("favorite_count", 0)
             engagement_retweets = legacy.get("retweet_count", 0)
             engagement_replies = legacy.get("reply_count", 0)
+            engagement_quotes = legacy.get("quote_count", 0)
             engagement_bookmarks = legacy.get("bookmark_count", 0)
+            engagement_rate = (engagement_likes + engagement_retweets + engagement_replies) / engagement_views if engagement_views > 0 else 0.0
 
-            # Use pre-computed signal score from x_proxy enrichment if available,
-            # otherwise fall back to local computation
+            # Domain signals
+            cashtags = [s.get("text", "") for s in entities.get("symbols", [])]
+            hashtags = [h.get("text", "") for h in entities.get("hashtags", [])]
+            mentions = [m.get("screen_name", "") for m in entities.get("user_mentions", [])]
+            is_retweet = "retweeted_status_result" in legacy or legacy.get("full_text", "").startswith("RT @")
+            is_reply = bool(legacy.get("in_reply_to_status_id_str"))
+
+            # Use pre-computed enrichments if available
             if tweet_id in self.tweet_enrichments:
-                signal_score = self.tweet_enrichments[tweet_id]["signal_score"]
+                enrich = self.tweet_enrichments[tweet_id]
+                signal_score = enrich["signal_score"]
+                narratives = enrich.get("narratives", [])
+                author_tier = enrich.get("author_tier", "unknown")
             else:
                 signal_score = self._compute_signal_score(text, author_followers, engagement_likes)
+                narratives = []
+                author_tier = "unknown"
 
             if not tweet_id:
                 return None
@@ -305,15 +349,27 @@ class KillChainTracer:
             return CapturedTweet(
                 tweet_id=tweet_id,
                 text=text,
+                created_at=created_at,
+                lang=lang,
                 author_handle=author_handle,
                 author_name=author_name,
                 author_followers=author_followers,
                 author_verified=author_verified,
+                engagement_views=engagement_views,
                 engagement_likes=engagement_likes,
                 engagement_retweets=engagement_retweets,
                 engagement_replies=engagement_replies,
+                engagement_quotes=engagement_quotes,
                 engagement_bookmarks=engagement_bookmarks,
-                signal_score=signal_score
+                engagement_rate=engagement_rate,
+                cashtags=cashtags,
+                hashtags=hashtags,
+                mentions=mentions,
+                is_retweet=is_retweet,
+                is_reply=is_reply,
+                signal_score=signal_score,
+                narratives=narratives,
+                author_tier=author_tier
             )
         except Exception as e:
             logger.debug("Failed to parse tweet fields: %s", str(e)[:80])
@@ -393,12 +449,35 @@ class KillChainTracer:
         for tweet in all_tweets:
             predicted_engagement = self._predict_engagement(tweet)
             scored_tweets.append({
+                # Core
                 "tweet_id": tweet.tweet_id,
                 "text": tweet.text[:100],
+                "created_at": tweet.created_at,
+                "lang": tweet.lang,
+                # Author
                 "author": tweet.author_handle,
+                "author_name": tweet.author_name,
                 "followers": tweet.author_followers,
+                "verified": tweet.author_verified,
+                "author_tier": tweet.author_tier,
+                # Engagement data (the source)
+                "views": tweet.engagement_views,
+                "likes": tweet.engagement_likes,
+                "retweets": tweet.engagement_retweets,
+                "replies": tweet.engagement_replies,
+                "quotes": tweet.engagement_quotes,
+                "bookmarks": tweet.engagement_bookmarks,
+                "engagement_rate": round(tweet.engagement_rate, 4),
+                # Domain signals
+                "cashtags": tweet.cashtags,
+                "hashtags": tweet.hashtags,
+                "mentions": tweet.mentions[:3],  # Top 3
+                "is_retweet": tweet.is_retweet,
+                "is_reply": tweet.is_reply,
+                # Enrichment
                 "signal_score": tweet.signal_score,
-                "engagement_likes": tweet.engagement_likes,
+                "narratives": tweet.narratives,
+                # Prediction
                 "predicted_engagement": predicted_engagement,
             })
 
@@ -428,33 +507,64 @@ class KillChainTracer:
     def _predict_engagement(self, tweet: CapturedTweet) -> float:
         """
         Predict likelihood T. will engage with this tweet.
-        Combines: signal_score + keyword_match + author_tier + temporal
+        Uses: signal_score + engagement_metrics + author_tier + keyword_match + domain_signals
         Range: 0.0 (unlikely) to 1.0 (very likely)
         """
         score = 0.5
         text_lower = tweet.text.lower()
 
-        # Keyword signals from learned_weights
+        # ENGAGEMENT DATA (the source)
+        # T. is selective: only engages with 3.8% of tweets
+        # Use engagement_rate as quality proxy
+        if tweet.engagement_rate > 0.05:  # 5% engagement is excellent
+            score += 0.15
+        elif tweet.engagement_rate > 0.02:  # 2% engagement is good
+            score += 0.08
+
+        # High absolute engagement is rare
+        if tweet.engagement_views > 10000 and tweet.engagement_likes > 500:
+            score += 0.1
+
+        # SIGNAL SCORE (x_proxy computed)
+        # Normalize from [-5, 7] to [0, 1]
+        normalized_signal = (tweet.signal_score + 5) / 12
+        score += normalized_signal * 0.25
+
+        # NARRATIVES (x_proxy detected patterns)
+        if "analysis" in tweet.narratives or "research" in tweet.narratives:
+            score += 0.1
+        if "warning" in tweet.narratives:
+            score += 0.08  # T. engages with risk signals
+
+        # DOMAIN SIGNALS
+        # Token mentions: T. browses token-analysis domain
+        if tweet.cashtags:
+            score += 0.12
+
+        # Mentions: T. engages with discussions
+        if len(tweet.mentions) > 0:
+            score += 0.05
+
+        # KEYWORD SIGNALS (learned behavioral weights)
         keyword_weights = self.learned_weights.get("keyword_weights", {})
         for keyword, weight in keyword_weights.items():
             if keyword in text_lower:
                 score += weight * 0.5  # Scale to 0.0-1.0 range
 
-        # Author tier: T. engages more with technical authors
-        if "dev" in tweet.author_handle.lower() or "engineer" in tweet.author_name.lower():
-            score += 0.2
-
-        if tweet.author_followers > 100000:
-            score += 0.15  # Whale
-
-        # Signal score contribution
-        # Normalize from [-5, 7] to [0, 1]
-        normalized_signal = (tweet.signal_score + 5) / 12
-        score += normalized_signal * 0.3
-
-        # Engagement boost
-        if tweet.engagement_likes > 500:
+        # AUTHOR TIER (x_proxy computed)
+        if tweet.author_tier == "whale" or tweet.author_followers > 100000:
             score += 0.1
+        elif tweet.author_tier == "influencer":
+            score += 0.08
+        elif tweet.author_tier == "bot":
+            score -= 0.1  # T. avoids bots
+
+        # STRUCTURE SIGNALS
+        # T. is deep reader: likes longer-form and discussions
+        if len(tweet.text) > 300:
+            score += 0.08
+        if not tweet.is_retweet and not tweet.is_reply:
+            score += 0.05  # Original content preferred
 
         return min(1.0, max(0.0, score))
 
