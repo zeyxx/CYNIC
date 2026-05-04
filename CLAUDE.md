@@ -70,8 +70,13 @@ The random suffix prevents branch name collision between sessions. Do this BEFOR
 **Rule 2 — The user's first message IS the dispatch.**
 Your scope = what the user asked you to do. Do not expand beyond it. If the user said "fix the NaN filter," don't also restructure hermes.
 
-**Rule 3 — Hot files are last-merger-wins.**
-TODO.md, CLAUDE.md, GEMINI.md, shared types — accept that parallel sessions will conflict on these. Resolve at merge time (rebase onto main). Budget 5 min. Do not try to prevent it.
+**Rule 3 — TODO.md is read-only for cortex.**
+TODO.md is a DAG written by the human only. Cortex read it for scope/context but NEVER edit it.
+Mid-session discoveries → `POST /observe domain=mempool`. The human curates mempool → TODO.md.
+Taxonomy: `docs/architecture/AGENT-TAXONOMY.md`.
+
+**Rule 3b — Hot files are last-merger-wins.**
+CLAUDE.md, GEMINI.md, shared types — accept that parallel sessions will conflict. Resolve at merge time (rebase onto main). Budget 5 min.
 
 **Rule 4 — Check origin before branching.**
 ```bash
