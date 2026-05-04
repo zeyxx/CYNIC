@@ -14,7 +14,7 @@ Burn audit complete. Hackathon May 10 deadline.
 
 ## KERNEL
 
-- [ ] **NaN filter in judge/math.rs.** `trimmed_mean` lets NaN through. **Falsify:** unit test with NaN input passes.
+- [x] **NaN filter in judge/math.rs.** Already guarded: `values.retain(|v| v.is_finite())` + `phi_bound` floors NaN to SCORE_FLOOR. Tests exist.
 - [ ] **Two TokenData structs.** `enrichment.rs` vs `stimulus.rs`. Merge to single source. **Falsify:** grep returns 1 TokenData definition.
 - [ ] **Auth /health (T1).** Split `/live` (open, boolean) from `/health` (auth'd, full topology). **Falsify:** `curl /health` without Bearer → 401.
 - [ ] **MCP poison input hardening.** Small models produce null/invalid tool args. **Falsify:** garbage args to all 22 MCP tools → all return error, none crash.
@@ -29,7 +29,7 @@ Burn audit complete. Hackathon May 10 deadline.
 
 - [ ] **Soma config activation.** Populate `[backend.NAME.remediation]` in backends.toml. Uncomment nightshift with compute budget gate. **Falsify:** kill llama-server → circuit opens <30s → restart <120s → circuit closes.
 - [ ] **Deploy hermes-data-organism.** `systemctl enable --now hermes-data-organism.timer`. Run 1 week, accumulate reflections. **Falsify:** 7 reflection files after 1 week.
-- [ ] **K16 docstring fix.** /events.rs says "public (no auth)" but code requires auth. **Falsify:** docstring matches code.
+- [x] **K16 docstring fix.** /events.rs docstring updated: "Auth required (KC3)" matches middleware behavior.
 
 ## DEBT (no deadline)
 
