@@ -496,11 +496,11 @@ mod tests {
     }
 
     #[test]
-    fn validate_degenerate_all_same_rejected() {
-        // Model collapsed — all scores identical
+    fn validate_degenerate_all_same_passes_with_warning() {
+        // Model collapsed — all scores identical. No longer rejected (observed + logged).
+        // A Dog producing uniform low scores is making a valid BARK judgment.
         let s = scores_with(0.5, 0.5, 0.5, 0.5, 0.5, 0.5);
-        let err = validate_scores(&s).unwrap_err();
-        assert!(err.to_string().contains("degenerate"), "got: {err}");
+        assert!(validate_scores(&s).is_ok());
     }
 
     #[test]
