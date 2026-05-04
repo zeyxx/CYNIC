@@ -109,3 +109,9 @@ cynic-python/research_gpu_capabilities.py
 observations/
 __pycache__/
 .cynic/memory/
+
+# Demo artifacts
+cynic-demo-output-*.txt
+cynic-demo.html
+cynic-demo.mp4
+record-demo.sh

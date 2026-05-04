@@ -16,7 +16,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime
 from collections import defaultdict
 
@@ -68,7 +68,7 @@ def extract_tweets_from_captures(captures_dir: Path) -> List[Tweet]:
         try:
             with open(capture_file) as f:
                 data = json.load(f)
-        except:
+        except (json.JSONDecodeError, OSError):
             continue
 
         operation = data.get("operation", "unknown")

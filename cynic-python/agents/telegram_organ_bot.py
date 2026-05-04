@@ -8,7 +8,7 @@ Personal account (askesis) = manual: T. sends context, reads bot replies.
 
 Usage:
   export CYNIC_API_KEY=...
-  export CYNIC_REST_ADDR=http://100.74.31.10:3030
+  export CYNIC_REST_ADDR=http://<TAILSCALE_CORE>:3030
   export CYNIC_TELEGRAM_BOT_TOKEN=...
   python3 telegram_organ_bot.py
 """
@@ -30,7 +30,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 BOT_TOKEN = os.getenv("CYNIC_TELEGRAM_BOT_TOKEN")
 CYNIC_API_KEY = os.getenv("CYNIC_API_KEY")
-CYNIC_REST_ADDR = os.getenv("CYNIC_REST_ADDR", "http://100.74.31.10:3030")
+CYNIC_REST_ADDR = os.getenv("CYNIC_REST_ADDR", "http://<TAILSCALE_CORE>:3030")
 
 OBSERVATION_LOG = os.path.expanduser("~/.cynic/organs/hermes/x/observation_log.jsonl")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
