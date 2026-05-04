@@ -10,8 +10,8 @@ COMMAND="${2:?command required}"
 TIMEOUT="${3:-30}"  # Default 30 seconds
 
 # MCP server config (stdio-based, spawned on-demand)
-# Use absolute path to avoid git dependency when called from kernel subprocess
-MCP_PROG="${TAILSCALE_MCP:-/home/user/Bureau/tailscale-mcp/tailscale-mcp}"
+# R23-exempt: subprocess needs explicit path; env var preferred, HOME fallback
+MCP_PROG="${TAILSCALE_MCP:-${HOME}/Bureau/tailscale-mcp/tailscale-mcp}"
 
 if [[ ! -f "$MCP_PROG" ]]; then
     echo '{"error":"MCP binary not found at '"$MCP_PROG"'"}' >&2
