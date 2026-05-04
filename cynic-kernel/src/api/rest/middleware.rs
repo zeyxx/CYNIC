@@ -21,8 +21,8 @@ pub(crate) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
         == 0
 }
 
-/// Bearer token authentication. Mandatory for /metrics, /events.
-/// Skipped for /health, /live, /ready (safe public endpoints).
+/// Bearer token authentication. Mandatory for all endpoints except /live and /ready.
+/// /health requires auth (T1, KC3: leaks topology, Dog roster, circuit states).
 ///
 /// Fail-secure: if CYNIC_API_KEY is not set, protected endpoints return 401 rather than opening.
 /// This prevents accidental exposure if env var is missing.
@@ -31,10 +31,10 @@ pub async fn auth_middleware(
     request: Request,
     next: Next,
 ) -> Response {
-    // /health, /live, /ready are explicitly public — no auth required.
-    // /metrics and /events require auth (KC3: leak Dog roster + operational state).
+    // /live and /ready are public probes (status code only, no topology).
+    // /health requires auth (T1, KC3: leaks Dog roster, circuit states, version).
     let path = request.uri().path();
-    if path == "/health" || path == "/live" || path == "/ready" {
+    if path == "/live" || path == "/ready" {
         return next.run(request).await;
     }
 
