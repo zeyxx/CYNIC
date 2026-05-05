@@ -10,6 +10,7 @@ pub mod health;
 pub mod inference_router;
 pub mod judge;
 pub mod judge_job;
+pub mod mail;
 pub mod middleware;
 pub mod observe;
 pub mod response;
@@ -49,6 +50,9 @@ use self::inference_router::{
 };
 use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
 use self::judge_job::{judge_async_handler, judge_status_handler};
+use self::mail::{
+    fetch_message, health as mail_health, inbox, mark_read, search, send, sync, unread,
+};
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
 use self::observe::observe_handler;
 use self::soma::soma_request_handler;
@@ -147,6 +151,14 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/release", post(coord_release_handler))
         .route("/coord/heartbeat", post(coord_heartbeat_handler))
         .route("/soma/request", post(soma_request_handler))
+        .route("/mail/health", get(mail_health))
+        .route("/mail/inbox", get(inbox))
+        .route("/mail/messages/{id}", get(fetch_message))
+        .route("/mail/send", post(send))
+        .route("/mail/sync", post(sync))
+        .route("/mail/mark-read/{id}", post(mark_read))
+        .route("/mail/search", post(search))
+        .route("/mail/unread", get(unread))
         .layer(axum_mw::from_fn_with_state(state.clone(), audit_middleware))
         .layer(axum_mw::from_fn_with_state(state.clone(), auth_middleware))
         .layer(axum_mw::from_fn_with_state(

@@ -923,6 +923,7 @@ mod tests {
             ),
             soma_gate: Arc::new(crate::domain::orchestrator::ResourceGate::new()),
             project_root: ".".to_string(),
+            mail: None,
         })
     }
 
