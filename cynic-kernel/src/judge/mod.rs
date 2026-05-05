@@ -69,29 +69,34 @@ impl Judge {
         self
     }
 
-    /// Attach daily call budgets (one per dog, same index). 0 = unlimited.
-    pub fn with_budgets(mut self, limits: &[(String, u32)]) -> Self {
-        for (dog_id, limit) in limits {
-            if *limit == 0 {
-                continue;
-            }
-            if let Some(idx) = self.dogs.iter().position(|d| d.id() == dog_id) {
+    /// Give every Dog a reactive daily budget (limit=0 = unlimited).
+    /// Budget exhausts only when the backend returns a quota error (429).
+    /// No config needed — the organism learns from reality.
+    pub fn with_reactive_budgets(mut self, dog_names: &[String]) -> Self {
+        for name in dog_names {
+            if let Some(idx) = self.dogs.iter().position(|d| d.id() == name) {
                 self.budgets[idx] = Some(Arc::new(crate::domain::daily_budget::DailyBudget::new(
-                    dog_id, *limit,
+                    name, 0,
                 )));
             }
         }
         self
     }
 
-    /// Get budget status for a Dog (for /health exposure).
-    pub fn budget_status(&self) -> Vec<(String, u32, u32)> {
+    /// Get budget status for all Dogs (for /health exposure).
+    /// Returns: (dog_id, used_today, is_quota_exhausted).
+    pub fn budget_status(&self) -> Vec<(String, u32, bool)> {
         self.budgets
             .iter()
             .zip(self.dogs.iter())
             .filter_map(|(b, dog)| {
-                b.as_ref()
-                    .map(|budget| (dog.id().to_string(), budget.remaining(), budget.limit()))
+                b.as_ref().map(|budget| {
+                    (
+                        dog.id().to_string(),
+                        budget.used_today(),
+                        budget.is_quota_exhausted(),
+                    )
+                })
             })
             .collect()
     }

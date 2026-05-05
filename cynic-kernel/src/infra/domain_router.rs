@@ -96,7 +96,6 @@ mod tests {
             latency_ms: 0,
             suitable_for_domains: domains,
             sovereign: true,
-            daily_budget: 0,
         }
     }
 

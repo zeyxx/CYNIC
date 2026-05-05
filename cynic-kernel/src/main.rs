@@ -364,15 +364,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )) as Arc<dyn domain::health_gate::HealthGate>
         })
         .collect();
-    // Daily budgets from backends.toml: restrict quota-constrained Dogs
-    let budget_limits: Vec<(String, u32)> = backend_configs
-        .iter()
-        .filter(|c| c.daily_budget > 0)
-        .map(|c| (c.name.clone(), c.daily_budget))
-        .collect();
+    // Every Dog gets a reactive daily budget (limit=0 = unlimited).
+    // Budget exhausts only when the backend returns a 429/quota error.
+    // The organism learns its limits from reality, not from config.
+    let all_dog_names: Vec<String> = backend_configs.iter().map(|c| c.name.clone()).collect();
     let judge = judge::Judge::new(dogs, breakers)
         .with_organ_handles(organ_handles)
-        .with_budgets(&budget_limits);
+        .with_reactive_budgets(&all_dog_names);
     // Background task health tracker — updated by each spawned task, exposed in /health
     let task_health = Arc::new(infra::task_health::TaskHealth::new());
     // Lifecycle orchestration — all background tasks select! on this token.
@@ -669,17 +667,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // DORMANT: Organism recovery (K15 consumer: state history → crystal cache)
     // state history consumer not yet complete — deferred to next phase
 
-    // ─── Mail service: IMAP/SMTP for organism identity (agentmail.to) ──
-    // Load configuration from environment (AGENTMAIL_USERNAME, AGENTMAIL_PASSWORD)
-    // K15 consumer syncs inbox and emits recovery email observations
-    let mail_backend: Option<Arc<dyn domain::mail::MailPort>> =
-        if let Some(backend) = backends::mail::AgentmailBackend::from_env() {
-            klog!("[Ring 1] Mail service initialized (agentmail.to)");
-            Some(Arc::new(backend))
-        } else {
-            klog!("[Ring 1] Mail service not configured (AGENTMAIL_USERNAME/PASSWORD env vars)");
-            None
-        };
+    // DORMANT: Mail service — backends::mail not yet built.
+    // Port trait exists (domain/mail.rs), backend deferred.
 
     let rest_state = Arc::new(api::rest::AppState {
         judge: judge_swap,
@@ -721,7 +710,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         dog_perf_collector: Arc::clone(&dog_perf_collector),
         soma_gate: Arc::clone(&soma_gate),
         project_root: project_root.display().to_string(),
-        mail: mail_backend,
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
@@ -809,11 +797,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Auto-remediation task started (every 5min)");
 
-        // ─── Mail consumer (K15: organism identity, recovery email detection, every 5min) ────
-        if let Some(mail) = &mail_backend {
-            infra::tasks::spawn_mail_consumer(Arc::clone(mail), event_tx.clone(), shutdown.clone());
-            klog!("[Ring 2] Mail consumer task started (every 5min)");
-        }
+        // DORMANT: Mail consumer — will activate when backends::mail exists.
 
         // ─── Pattern analyzer (K15: self-healing via pattern detection, every 30s) ────
         // R23-exempt: env var references (CYNIC_REST_ADDR, CYNIC_API_KEY), not hardcoded secrets
