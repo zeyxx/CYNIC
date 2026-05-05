@@ -428,6 +428,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 probe_configs,
                 probe_breakers,
                 Arc::clone(&task_health),
+                Arc::clone(&storage_port),
                 senses.clone(),
                 dog_to_fleet_node.clone(),
                 shutdown.clone(),

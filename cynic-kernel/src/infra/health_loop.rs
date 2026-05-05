@@ -16,6 +16,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::domain::health_gate::HealthGate;
 use crate::domain::organ::OrganPort;
+use crate::domain::storage::StoragePort;
 use crate::infra::circuit_breaker::PROBE_INTERVAL;
 use crate::infra::task_health::TaskHealth;
 
@@ -117,12 +118,15 @@ pub fn spawn_health_loop(
     configs: Vec<DogProbeConfig>,
     breakers: Vec<Arc<dyn HealthGate>>,
     task_health: Arc<TaskHealth>,
+    storage: Arc<dyn StoragePort>,
     senses: Vec<Arc<dyn OrganPort>>,
     dog_to_fleet_node: HashMap<String, String>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut fleet_awareness = FleetAwareness::new(dog_to_fleet_node);
+        // Track previous probe state per Dog for transition detection
+        let mut prev_healthy: HashMap<String, bool> = HashMap::new();
 
         let client = match Client::builder().timeout(Duration::from_secs(5)).build() {
             Ok(c) => c,
@@ -151,8 +155,12 @@ pub fn spawn_health_loop(
                     let results: Vec<bool> = join_all(futures).await;
 
                     let mut failure_count = 0usize;
+                    let dogs_total = results.len();
+                    let dogs_healthy = results.iter().filter(|ok| **ok).count();
+
                     for (i, ok) in results.iter().enumerate() {
                         let cb = &breakers[i];
+                        let dog_id = cb.dog_id();
                         if *ok {
                             cb.record_success();
                         } else {
@@ -160,17 +168,50 @@ pub fn spawn_health_loop(
                             failure_count += 1;
                             klog!(
                                 "[health_loop] Dog '{}' probe failed ({})",
-                                cb.dog_id(),
+                                dog_id,
                                 configs[i].health_url
                             );
                         }
+
+                        // Detect state transitions → emit observations
+                        let was_healthy = prev_healthy.get(dog_id).copied();
+                        if was_healthy.is_some() && was_healthy != Some(*ok) {
+                            let transition = if *ok { "recovered" } else { "degraded" };
+                            let context = format!(
+                                "{{\"transition\":\"{transition}\",\"dog_id\":\"{dog_id}\",\"healthy\":{ok},\"dogs_healthy\":{dogs_healthy},\"dogs_total\":{dogs_total}}}"
+                            );
+                            let obs = crate::domain::ccm::build_observation_with_ledger(
+                                "health_loop".to_string(),
+                                Some(dog_id.to_string()),
+                                Some("kernel-lifecycle".to_string()),
+                                Some(transition.to_string()),
+                                Some(context),
+                                None, None, None, None,
+                                None, Some("observed".to_string()),
+                                Some("organism".to_string()),
+                                Some("self-healing signal".to_string()),
+                                None, None,
+                            );
+                            // Fire-and-forget — don't block the health loop
+                            let s = Arc::clone(&storage);
+                            tokio::spawn(async move {
+                                let _ = s.store_observation(&obs).await;
+                            });
+                            klog!(
+                                "[health_loop] Dog '{}' transition: {} ({}→{})",
+                                dog_id, transition,
+                                if was_healthy == Some(true) { "healthy" } else { "unhealthy" },
+                                if *ok { "healthy" } else { "unhealthy" }
+                            );
+                        }
+                        prev_healthy.insert(dog_id.to_string(), *ok);
                     }
 
                     if failure_count > 0 {
                         klog!(
                             "[health_loop] probe tick: {}/{} dogs healthy",
-                            results.len() - failure_count,
-                            results.len()
+                            dogs_healthy,
+                            dogs_total
                         );
                     }
                     // Fleet awareness: preemptive circuit breaking via Tailscale sense

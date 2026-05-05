@@ -306,3 +306,22 @@ pub async fn coord_heartbeat_handler(
         "agent_id": req.agent_id,
     })))
 }
+
+/// GET /coord/who — show all active agents and their claims.
+/// Optional query param: ?agent_id=xxx to filter by agent.
+pub async fn coord_who_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::BTreeMap<String, String>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let agent_filter = params.get("agent_id").map(|s| s.as_str());
+
+    let snapshot = state.coord.who(agent_filter).await.map_err(|e| {
+        tracing::warn!(error = %e, "coord who failed");
+        coordination_error()
+    })?;
+
+    Ok(Json(serde_json::json!({
+        "agents": snapshot.agents,
+        "claims": snapshot.claims,
+    })))
+}

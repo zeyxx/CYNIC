@@ -110,6 +110,11 @@ observations/
 __pycache__/
 .cynic/memory/
 
+# Personal data (public repo — never track)
+.askesis/datasets/reflections.jsonl
+.askesis/datasets/session_summaries.jsonl
+cynic-python/domains/behavioral-analysis/
+
 # Demo artifacts
 cynic-demo-output-*.txt
 cynic-demo.html
