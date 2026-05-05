@@ -21,15 +21,18 @@ import argparse
 import json
 import logging
 import os
+import re
 import signal
+import sqlite3
 import subprocess
 import sys
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from pynput import mouse, keyboard
+import requests
 
 logger = logging.getLogger("behavior-logger")
 
@@ -85,6 +88,156 @@ def get_chrome_url() -> str:
     return ""
 
 
+def get_tweet_id_from_index(timestamp_str: str, url: str = "") -> str:
+    """Fallback: look up tweet_id from mitmproxy index using temporal proximity.
+
+    Strategy:
+    1. If URL contains /status/{id}, extract directly
+    2. Otherwise, query mitmproxy index for tweets returned within ±30s
+    3. Return first tweet_id from nearest operation
+    """
+    # Direct extraction from URL
+    if url:
+        match = re.search(r'/status/(\d+)', url)
+        if match:
+            return match.group(1)
+
+    # Query mitmproxy index
+    index_db = Path.home() / ".cynic/organs/hermes/x/tweet_id_index.db"
+    if not index_db.exists():
+        return ""
+
+    try:
+        dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        start_time = (dt - timedelta(seconds=30)).isoformat()
+        end_time = (dt + timedelta(seconds=30)).isoformat()
+
+        conn = sqlite3.connect(str(index_db))
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT tweet_ids FROM tweet_operations
+            WHERE timestamp BETWEEN ? AND ?
+            ORDER BY ABS(julianday(timestamp) - julianday(?)) ASC
+            LIMIT 1
+        """, (start_time, end_time, timestamp_str))
+
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            tweet_ids = json.loads(row[0])
+            if tweet_ids:
+                return tweet_ids[0]
+    except Exception as e:
+        logger.debug(f"Index lookup failed: {e}")
+
+    return ""
+
+
+def get_tweet_id_from_click(x: int, y: int) -> str:
+    """Query Chrome DOM via CDP WebSocket to extract tweet_id at click position.
+
+    Uses DevTools Protocol Runtime.evaluate to run JavaScript that finds the tweet element
+    at (x, y) and extracts its ID from data attributes or parent containers.
+    Returns '' on failure or if not on a tweet.
+    """
+    try:
+        import json as stdlib_json
+        import websocket
+
+        # Get the X.com page tab and its WebSocket URL
+        resp = requests.get("http://127.0.0.1:40769/json", timeout=1)
+        if resp.status_code != 200:
+            return ""
+
+        tabs = resp.json()
+        page_tab = None
+        for tab in tabs:
+            if tab.get("type") == "page" and "x.com" in tab.get("url", "").lower():
+                page_tab = tab
+                break
+
+        if not page_tab or not page_tab.get("webSocketDebuggerUrl"):
+            return ""
+
+        ws_url = page_tab["webSocketDebuggerUrl"]
+
+        # Connect to Chrome DevTools WebSocket
+        ws = websocket.create_connection(ws_url, timeout=2)
+
+        # JavaScript to find tweet element at (x, y) and extract tweet_id
+        js_code = f"""
+        (function() {{
+            const elem = document.elementFromPoint({x}, {y});
+            if (!elem) return "";
+
+            // Walk up tree to find tweet container
+            let node = elem;
+            for (let i = 0; i < 10; i++) {{
+                if (!node) break;
+
+                // Check data attributes
+                const testId = node.getAttribute("data-testid");
+                if (testId && testId.includes("tweet")) {{
+                    // Look for tweet ID in various places
+                    const tweetId = node.getAttribute("data-tweet-id") ||
+                                   node.getAttribute("data-status-id") ||
+                                   node.getAttribute("aria-label")?.match(/\\d{{15,}}/)?.[0];
+                    if (tweetId && tweetId.match(/^\\d{{15,}}$/)) return tweetId;
+                }}
+
+                // Check aria-label for tweet IDs (common pattern)
+                const ariaLabel = node.getAttribute("aria-label");
+                if (ariaLabel) {{
+                    const match = ariaLabel.match(/\\b(\\d{{15,}})\\b/);
+                    if (match) return match[1];
+                }}
+
+                // Check for tweet ID in various attributes
+                for (const attr of node.attributes || []) {{
+                    if (attr.value && attr.value.match(/^\\d{{15,}}$/)) {{
+                        return attr.value;
+                    }}
+                }}
+
+                node = node.parentElement;
+            }}
+            return "";
+        }})()
+        """
+
+        # Send Runtime.evaluate command
+        msg = {
+            "id": 1,
+            "method": "Runtime.evaluate",
+            "params": {
+                "expression": js_code,
+                "returnByValue": True,
+            }
+        }
+
+        ws.send(json.dumps(msg))
+
+        # Read response (should come back quickly)
+        response_str = ws.recv()
+        response = json.loads(response_str)
+
+        ws.close()
+
+        # Extract result
+        if "result" in response and "result" in response["result"]:
+            tweet_id = response["result"]["result"].get("value", "")
+            if tweet_id and len(tweet_id) > 15 and tweet_id.isdigit():
+                return tweet_id
+
+        return ""
+
+    except Exception as e:
+        logger.debug(f"CDP tweet extraction failed: {e}")
+        return ""
+
+
 # ── Logger core ──
 
 class BehaviorLogger:
@@ -111,11 +264,9 @@ class BehaviorLogger:
         now = time.time()
         if now - self.last_window_check > 0.5:
             self.cached_window = get_active_window()
-            # Only query Chrome URL if active window looks like Chrome
-            if "chrome" in self.cached_window.get("window_name", "").lower():
-                self.cached_url = get_chrome_url()
-            else:
-                self.cached_url = ""
+            # Try to get Chrome URL; always query CDP (it's available or fails gracefully)
+            # Remove the window_name check — CDP connection is the gate, not window title
+            self.cached_url = get_chrome_url()
             self.last_window_check = now
         ctx = dict(self.cached_window)
         if self.cached_url:
@@ -153,11 +304,34 @@ class BehaviorLogger:
 
     def on_mouse_click(self, x: int, y: int, button, pressed: bool):
         if pressed:
-            self._emit({
+            event = {
                 "type": "click",
                 "x": x, "y": y,
                 "button": button.name,
-            })
+            }
+
+            # Try to extract tweet_id: CDP first (real-time), then index fallback (reliable)
+            if self.cached_url and "x.com" in self.cached_url:
+                tweet_id = ""
+                source = ""
+
+                # Approach 1: CDP WebSocket (real-time DOM extraction)
+                tweet_id = get_tweet_id_from_click(x, y)
+                if tweet_id:
+                    source = "cdp"
+
+                # Approach 2: mitmproxy index (temporal proximity lookup)
+                if not tweet_id:
+                    ts = self._now()
+                    tweet_id = get_tweet_id_from_index(ts, self.cached_url)
+                    if tweet_id:
+                        source = "index"
+
+                if tweet_id:
+                    event["tweet_id"] = tweet_id
+                    event["tweet_id_source"] = source
+
+            self._emit(event)
 
     def on_mouse_scroll(self, x: int, y: int, dx: int, dy: int):
         self._emit({"type": "scroll", "x": x, "y": y, "dx": dx, "dy": dy})

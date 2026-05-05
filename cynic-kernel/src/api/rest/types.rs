@@ -24,6 +24,95 @@ use crate::infra::task_health::TaskHealth;
 use crate::introspection::Alert;
 use crate::judge::Judge;
 
+// ── ROLE-SCOPED AUTH ──────────────────────────────────────
+// Three roles match the organism's communication patterns:
+// - CORTEX: human reasoning sessions (Claude, Gemini) — can judge
+// - ORGAN: sensors and limbs (Hermes, organ-X) — can observe, not judge
+// - INTERNAL: kernel↔kernel (Nightshift, MCP proxy) — unrestricted
+
+/// Organism role — attached to every authenticated request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Role {
+    /// Human reasoning sessions — can /judge, /observe, read everything
+    Cortex,
+    /// Organs and sensors — can /observe and /coord only
+    Organ,
+    /// Kernel-to-kernel — unrestricted (Nightshift, MCP proxy, admin)
+    Internal,
+}
+
+impl std::fmt::Display for Role {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Cortex => write!(f, "cortex"),
+            Self::Organ => write!(f, "organ"),
+            Self::Internal => write!(f, "internal"),
+        }
+    }
+}
+
+/// Three bearer tokens, one per role. Loaded from env at boot.
+/// `legacy` holds the old CYNIC_API_KEY for backward-compat (grants Cortex).
+#[derive(Debug)]
+pub struct RoleKeyMap {
+    pub cortex: Option<String>,
+    pub organ: Option<String>,
+    pub internal: Option<String>,
+    pub legacy: Option<String>,
+}
+
+impl RoleKeyMap {
+    /// Match a bearer token to a role. Returns None if no match.
+    /// Checks all slots with constant-time comparison — no early exit on match
+    /// to prevent timing leaks about which role a token belongs to.
+    pub fn resolve(&self, token: &str) -> Option<Role> {
+        let token_bytes = token.as_bytes();
+        let mut result: Option<Role> = None;
+
+        // Check each slot — constant-time per slot, but we check all slots
+        // regardless of match to avoid timing side-channels.
+        if self
+            .internal
+            .as_ref()
+            .is_some_and(|k| super::middleware::constant_time_eq(token_bytes, k.as_bytes()))
+        {
+            result = Some(Role::Internal);
+        }
+        if self
+            .cortex
+            .as_ref()
+            .is_some_and(|k| super::middleware::constant_time_eq(token_bytes, k.as_bytes()))
+        {
+            result = Some(Role::Cortex);
+        }
+        if self
+            .organ
+            .as_ref()
+            .is_some_and(|k| super::middleware::constant_time_eq(token_bytes, k.as_bytes()))
+        {
+            result = Some(Role::Organ);
+        }
+        // Legacy fallback: old CYNIC_API_KEY grants Cortex role
+        if result.is_none()
+            && self
+                .legacy
+                .as_ref()
+                .is_some_and(|k| super::middleware::constant_time_eq(token_bytes, k.as_bytes()))
+        {
+            result = Some(Role::Cortex);
+        }
+        result
+    }
+
+    /// True if at least one key is configured.
+    pub fn has_any_key(&self) -> bool {
+        self.cortex.is_some()
+            || self.organ.is_some()
+            || self.internal.is_some()
+            || self.legacy.is_some()
+    }
+}
+
 // ── SHARED STATE ───────────────────────────────────────────
 
 pub struct AppState {
@@ -36,6 +125,7 @@ pub struct AppState {
     pub task_health: Arc<TaskHealth>,
     pub metrics: Arc<Metrics>,
     pub api_key: Option<String>,
+    pub role_keys: RoleKeyMap,
     pub storage_info: StorageInfo,
     pub rate_limiter: PerIpRateLimiter,
     pub judge_limiter: PerIpRateLimiter,

@@ -470,6 +470,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => {}
     }
     let api_key = load_rest_api_key().map_err(std::io::Error::other)?;
+
+    // Role-scoped authentication: three tokens, three roles.
+    // Legacy CYNIC_API_KEY grants Cortex (backward-compat).
+    let role_keys = api::rest::types::RoleKeyMap {
+        cortex: std::env::var("CYNIC_API_KEY_CORTEX")
+            .ok()
+            .filter(|s| !s.is_empty()),
+        organ: std::env::var("CYNIC_API_KEY_ORGAN")
+            .ok()
+            .filter(|s| !s.is_empty()),
+        internal: std::env::var("CYNIC_API_KEY_INTERNAL")
+            .ok()
+            .filter(|s| !s.is_empty()),
+        legacy: api_key.clone(),
+    };
+
     // Single VerdictCache shared by REST and MCP — avoids duplicate caches (T4 fix)
     let verdict_cache = Arc::new(domain::verdict_cache::VerdictCache::new());
     // Pipeline metrics — shared by REST and MCP, exposed via /metrics
@@ -655,6 +671,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         task_health: Arc::clone(&task_health),
         metrics: Arc::clone(&metrics),
         api_key,
+        role_keys,
         storage_info: api::rest::StorageInfo {
             namespace: storage_config.namespace.clone(),
             database: storage_config.database.clone(),

@@ -21,34 +21,36 @@ pub(crate) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
         == 0
 }
 
-/// Bearer token authentication. Mandatory for all endpoints except /live and /ready.
+/// Bearer token authentication with role resolution.
+/// Mandatory for all endpoints except /live and /ready.
 /// /health requires auth (T1, KC3: leaks topology, Dog roster, circuit states).
 ///
-/// Fail-secure: if CYNIC_API_KEY is not set, protected endpoints return 401 rather than opening.
-/// This prevents accidental exposure if env var is missing.
+/// Resolves token → Role (Cortex/Organ/Internal) via RoleKeyMap.
+/// Falls back to legacy single-key check for backward compatibility.
+/// Attaches Role to request extensions — downstream handlers can check it.
+///
+/// Fail-secure: if no keys configured, protected endpoints return 401.
 pub async fn auth_middleware(
     State(state): State<Arc<AppState>>,
-    request: Request,
+    mut request: Request,
     next: Next,
 ) -> Response {
     // /live and /ready are public probes (status code only, no topology).
-    // /health requires auth (T1, KC3: leaks Dog roster, circuit states, version).
     let path = request.uri().path();
     if path == "/live" || path == "/ready" {
         return next.run(request).await;
     }
 
-    // All other endpoints require CYNIC_API_KEY to be set AND valid token to be provided.
-    let Some(ref key) = state.api_key else {
-        // Fail-secure: no key configured → reject all protected endpoints
+    // Fail-secure: no keys configured → reject all protected endpoints
+    if !state.role_keys.has_any_key() {
         return (
             StatusCode::UNAUTHORIZED,
             Json(ErrorResponse {
-                error: "API key not configured (CYNIC_API_KEY missing)".into(),
+                error: "API keys not configured".into(),
             }),
         )
             .into_response();
-    };
+    }
 
     let token = request
         .headers()
@@ -57,16 +59,53 @@ pub async fn auth_middleware(
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(|s| s.to_string());
 
-    match token {
-        Some(t) if constant_time_eq(t.as_bytes(), key.as_bytes()) => next.run(request).await,
-        _ => (
+    let Some(token) = token else {
+        return (
             StatusCode::UNAUTHORIZED,
             Json(ErrorResponse {
-                error: "Invalid or missing Bearer token".into(),
+                error: "Missing Bearer token".into(),
             }),
         )
-            .into_response(),
+            .into_response();
+    };
+
+    // Resolve token → role
+    let Some(role) = state.role_keys.resolve(&token) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "Invalid Bearer token".into(),
+            }),
+        )
+            .into_response();
+    };
+
+    // Role-based endpoint gating
+    match role {
+        super::types::Role::Organ => {
+            // Organs can only: /observe, /coord/*, /health, /events
+            let allowed = path == "/observe"
+                || path.starts_with("/coord/")
+                || path == "/health"
+                || path == "/events";
+            if !allowed {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(ErrorResponse {
+                        error: format!("ORGAN role cannot access {path}"),
+                    }),
+                )
+                    .into_response();
+            }
+        }
+        super::types::Role::Cortex | super::types::Role::Internal => {
+            // Cortex and Internal can access everything
+        }
     }
+
+    // Attach role to request extensions for downstream handlers + audit
+    request.extensions_mut().insert(role);
+    next.run(request).await
 }
 
 /// Rate limiter — per-IP token bucket. Exempt: health probes, observe, coord.
@@ -134,6 +173,11 @@ pub async fn audit_middleware(
     }
 
     let method = request.method().to_string();
+    let role = request
+        .extensions()
+        .get::<super::types::Role>()
+        .map(|r| r.to_string())
+        .unwrap_or_else(|| "anon".to_string());
     let start = std::time::Instant::now();
     let response = next.run(request).await;
     let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -149,6 +193,7 @@ pub async fn audit_middleware(
                 "path": path,
                 "status": status,
                 "latency_ms": elapsed_ms,
+                "role": role,
             })
             .to_string();
             state.bg_tasks.spawn(async move {

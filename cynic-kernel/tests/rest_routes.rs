@@ -42,6 +42,12 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         task_health: Arc::new(TaskHealth::new()),
         metrics: Arc::new(Metrics::new()),
         api_key: api_key.map(|s| s.to_string()),
+        role_keys: cynic_kernel::api::rest::types::RoleKeyMap {
+            cortex: None,
+            organ: None,
+            internal: None,
+            legacy: api_key.map(|s| s.to_string()),
+        },
         storage_info: StorageInfo {
             namespace: "test".into(),
             database: "test".into(),
@@ -985,6 +991,12 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         task_health: Arc::new(TaskHealth::new()),
         metrics: Arc::new(Metrics::new()),
         api_key: None,
+        role_keys: cynic_kernel::api::rest::types::RoleKeyMap {
+            cortex: None,
+            organ: None,
+            internal: None,
+            legacy: None,
+        },
         storage_info: StorageInfo {
             namespace: "test".into(),
             database: "test".into(),
