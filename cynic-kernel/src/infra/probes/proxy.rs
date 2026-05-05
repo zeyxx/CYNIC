@@ -49,6 +49,7 @@ impl crate::domain::probe::Probe for ProxyProbe {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::probe::Probe;
 
     #[tokio::test]
     async fn proxy_probe_returns_result() {

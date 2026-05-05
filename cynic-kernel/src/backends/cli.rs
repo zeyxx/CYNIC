@@ -129,15 +129,25 @@ impl ChatPort for CliBackend {
             cmd.arg(arg);
         }
         cmd.arg("--prompt").arg(&prompt);
+        // Kill child process when the Child handle is dropped (timeout or cancellation).
+        // Without this, timed-out gemini processes become zombies in the systemd cgroup,
+        // surviving SIGTERM and polluting subsequent kernel boots.
+        cmd.kill_on_drop(true);
 
-        let run = tokio::time::timeout(self.timeout, cmd.output()).await;
+        let child = cmd
+            .spawn()
+            .map_err(|e| ChatError::Unreachable(format!("{}: spawn failed: {}", self.name, e)))?;
+
+        // wait_with_output() consumes the Child. On timeout, the future is dropped,
+        // which drops the Child, which fires kill_on_drop → SIGKILL to the subprocess.
+        let run = tokio::time::timeout(self.timeout, child.wait_with_output()).await;
 
         match run {
             Err(_elapsed) => Err(ChatError::Timeout {
                 ms: self.timeout.as_millis() as u64,
             }),
             Ok(Err(e)) => Err(ChatError::Unreachable(format!(
-                "{}: spawn failed: {}",
+                "{}: wait failed: {}",
                 self.name, e
             ))),
             Ok(Ok(out)) => {
