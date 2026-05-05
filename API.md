@@ -458,6 +458,16 @@ Claim multiple targets atomically.
 
 **Response (200):** `{ "agent_id": "...", "claimed": [...], "conflicts": [{"target": "...", "held_by": [...]}] }`
 
+### GET /coord/who
+
+Show all active agents and their claims. Used for multi-cortex visibility (MC4).
+
+| Query Param | Type | Default | Description |
+|---|---|---|---|
+| `agent_id` | string | all | Filter by specific agent |
+
+**Response (200):** `{ "agents": [...], "claims": [...], "summary": {...} }`
+
 ### POST /coord/release
 
 Release claims. If `target` omitted, releases all claims for the agent.
@@ -478,6 +488,90 @@ Keep an agent session alive. Resets the TTL expiry timer.
 | `agent_id` | string (1-64) | yes | Agent to keep alive |
 
 **Response (200):** `{ "status": "heartbeat_accepted", "agent_id": "..." }`
+
+---
+
+## Mail
+
+Agent mail service backed by agentmail.to (or other MailPort adapters). Returns 503 if mail is not configured.
+
+### GET /mail/health
+
+Mail connection status. No auth required for minimal info.
+
+**Response (200):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `connected` | bool | Backend reachable |
+| `unread_count` | u32 | Unread message count |
+| `error` | string? | Error description if unhealthy |
+
+**Response (503):** Mail service not configured or unreachable.
+
+### GET /mail/inbox
+
+Fetch inbox messages.
+
+| Query Param | Type | Default | Description |
+|---|---|---|---|
+| `folder` | string | `"INBOX"` | Mailbox folder |
+| `limit` | int | 20 | Max messages to return |
+
+**Response (200):** `{ "messages": [MessageSummary], "count": N }`
+
+### GET /mail/messages/{id}
+
+Fetch a single message by ID.
+
+**Response (200):** Full `Message` object.
+**Response (503):** Mail not configured.
+
+### POST /mail/send
+
+Send an email.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `to` | string | yes | Recipient address |
+| `subject` | string | yes | Subject line |
+| `body` | string | yes | Message body |
+
+**Response (200):** `{ "message_id": "...", "sent": "RFC3339" }`
+
+### POST /mail/sync
+
+Sync mailbox with backend. Returns sync stats + quota health.
+
+**Response (200):** `{ "new_messages": N, "deleted_messages": N, ...MailHealth }`
+
+### POST /mail/mark-read/{id}
+
+Mark a message as read.
+
+**Response (200):** 200 OK (no body).
+**Response (503):** Mail not configured.
+
+### POST /mail/search
+
+Search messages with filters.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `subject` | string | no | Subject filter |
+| `from` | string | no | Sender filter |
+| `to` | string | no | Recipient filter |
+| `folder` | string | no | Folder filter |
+| `is_unread` | bool | no | Unread-only filter |
+| `limit` | int | no | Max results |
+
+**Response (200):** `{ "results": [MessageSummary], "count": N }`
+
+### GET /mail/unread
+
+Unread message count.
+
+**Response (200):** `{ "unread": N }`
 
 ---
 
