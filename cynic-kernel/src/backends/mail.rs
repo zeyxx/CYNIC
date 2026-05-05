@@ -11,7 +11,7 @@ use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, warn};
+use tracing::warn;
 
 const AGENTMAIL_BASE_URL: &str = "https://api.agentmail.to/v1";
 const DEFAULT_TIMEOUT_SECS: u64 = 10;
@@ -124,8 +124,8 @@ impl AgentmailBackend {
             .send()
             .await
             .map_err(|e| {
-                warn!("Agentmail list failed: {}", e);
-                MailError::ConnectionFailed(format!("HTTP error: {}", e))
+                warn!("Agentmail list failed: {e}");
+                MailError::ConnectionFailed(format!("HTTP error: {e}"))
             })?;
 
         match response.status() {
@@ -133,7 +133,7 @@ impl AgentmailBackend {
                 let body = response
                     .json::<AgentmailListResponse>()
                     .await
-                    .map_err(|e| MailError::ParseError(format!("Invalid JSON response: {}", e)))?;
+                    .map_err(|e| MailError::ParseError(format!("Invalid JSON response: {e}")))?;
                 Ok(body.messages)
             }
             StatusCode::UNAUTHORIZED => Err(MailError::AuthenticationFailed),
@@ -167,8 +167,8 @@ impl AgentmailBackend {
             .send()
             .await
             .map_err(|e| {
-                warn!("Agentmail send failed: {}", e);
-                MailError::ConnectionFailed(format!("HTTP error: {}", e))
+                warn!("Agentmail send failed: {e}");
+                MailError::ConnectionFailed(format!("HTTP error: {e}"))
             })?;
 
         match response.status() {
@@ -176,7 +176,7 @@ impl AgentmailBackend {
                 let body = response
                     .json::<SendMessageResponse>()
                     .await
-                    .map_err(|e| MailError::ParseError(format!("Invalid JSON response: {}", e)))?;
+                    .map_err(|e| MailError::ParseError(format!("Invalid JSON response: {e}")))?;
                 Ok(body.id)
             }
             StatusCode::UNAUTHORIZED => Err(MailError::AuthenticationFailed),
@@ -206,7 +206,7 @@ impl AgentmailBackend {
             .json(&update)
             .send()
             .await
-            .map_err(|e| MailError::ConnectionFailed(format!("HTTP error: {}", e)))?;
+            .map_err(|e| MailError::ConnectionFailed(format!("HTTP error: {e}")))?;
 
         match response.status() {
             StatusCode::OK => Ok(()),

@@ -2,6 +2,7 @@ pub mod cli;
 pub mod embedding;
 pub mod health_probe;
 pub mod helius;
+pub mod mail;
 pub mod model_discovery;
 pub mod node_probe;
 pub mod openai;

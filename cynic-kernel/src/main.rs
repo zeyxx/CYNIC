@@ -669,11 +669,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // DORMANT: Organism recovery (K15 consumer: state history → crystal cache)
     // state history consumer not yet complete — deferred to next phase
 
-    // DORMANT: Mail service (agentmail.to) — backends::mail module not yet created.
-    // Another session declared the port trait but didn't build the backend.
-    // Stubbed to None until the feature is complete.
-    #[allow(unused_variables)]
-    let mail_backend: Option<Arc<dyn domain::mail::MailPort>> = None;
+    // ─── RING 2: Mail service (agentmail.to REST API) ──────────────────
+    // K15 producer: syncs inbox every 5 minutes, emits observations for recovery emails
+    let mail_backend: Option<Arc<dyn domain::mail::MailPort>> = {
+        // Try to load agentmail config from env
+        match backends::mail::AgentmailConfig::from_env("MAIL_USERNAME") {
+            Some(config) => {
+                let backend = backends::mail::AgentmailBackend::new(config);
+                klog!("[Ring 2] Mail service: agentmail.to configured");
+                Some(Arc::new(backend) as Arc<dyn domain::mail::MailPort>)
+            }
+            None => {
+                klog!(
+                    "[Ring 2] Mail service: AGENTMAIL_API_KEY or MAIL_USERNAME not configured — disabled"
+                );
+                None
+            }
+        }
+    };
 
     let rest_state = Arc::new(api::rest::AppState {
         judge: judge_swap,
@@ -715,6 +728,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         dog_perf_collector: Arc::clone(&dog_perf_collector),
         soma_gate: Arc::clone(&soma_gate),
         project_root: project_root.display().to_string(),
+        mail: mail_backend.clone(),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 

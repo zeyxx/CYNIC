@@ -13,6 +13,7 @@ use super::judge_job::JudgeJobStore;
 use crate::domain::coord::CoordPort;
 use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
+use crate::domain::mail::MailPort;
 use crate::domain::metrics::Metrics;
 use crate::domain::orchestrator::ResourceGate;
 use crate::domain::organ::OrganPort;
@@ -189,6 +190,9 @@ pub struct AppState {
     /// Project root (repository root — resolved at boot).
     /// Used by `/git/state` endpoint to run git commands in the correct context.
     pub project_root: String,
+    /// Mail service — organis email operations (inbox, send, sync).
+    /// None if mail backend not configured.
+    pub mail: Option<Arc<dyn MailPort>>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
