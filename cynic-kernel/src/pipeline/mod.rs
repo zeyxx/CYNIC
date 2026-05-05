@@ -444,7 +444,7 @@ async fn pipeline_inner(
                 max_disagreement: 0.0,
                 anomaly_axiom: None,
                 failed_dogs: vec![],
-                failed_dog_errors: std::collections::HashMap::new(),
+                failed_dog_errors: std::collections::BTreeMap::new(),
                 integrity_hash: None, // MVP: wallet verdicts start fresh chain post-hackathon
                 prev_hash: None,
             }

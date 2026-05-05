@@ -3,6 +3,7 @@ pub mod fleet;
 pub mod network;
 pub mod pressure;
 pub mod process;
+pub mod proxy;
 pub mod resource;
 pub mod soma;
 
@@ -11,6 +12,7 @@ pub use fleet::{FleetProbe, FleetTarget};
 pub use network::NetworkProbe;
 pub use pressure::PressureProbe;
 pub use process::ProcessProbe;
+pub use proxy::ProxyProbe;
 pub use resource::ResourceProbe;
 pub use soma::SomaProbe;
 

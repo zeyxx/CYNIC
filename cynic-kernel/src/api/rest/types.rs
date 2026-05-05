@@ -402,8 +402,8 @@ pub struct JudgeResponse {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub failed_dogs: Vec<String>,
     /// Error reason per failed Dog (dog_id → error string).
-    #[serde(skip_serializing_if = "std::collections::HashMap::is_empty")]
-    pub failed_dog_errors: std::collections::HashMap<String, String>,
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub failed_dog_errors: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
