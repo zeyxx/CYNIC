@@ -458,6 +458,7 @@ mod tests {
             latency_ms: 0,
             suitable_for_domains: vec![],
             sovereign: false,
+            daily_budget: 0,
         })
         .unwrap();
         assert_eq!(
@@ -491,6 +492,7 @@ mod tests {
             latency_ms: 0,
             suitable_for_domains: vec![],
             sovereign: false,
+            daily_budget: 0,
         })
         .unwrap();
         assert_eq!(
@@ -524,6 +526,7 @@ mod tests {
             latency_ms: 0,
             suitable_for_domains: vec![],
             sovereign: true,
+            daily_budget: 0,
         })
         .unwrap();
         assert_eq!(
@@ -557,6 +560,7 @@ mod tests {
             latency_ms: 0,
             suitable_for_domains: vec![],
             sovereign: false,
+            daily_budget: 0,
         })
         .unwrap();
         assert_eq!(

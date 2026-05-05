@@ -26,6 +26,8 @@ pub struct Judge {
     breakers: Vec<Arc<dyn HealthGate>>,
     /// Organ handles — one per dog (same index). None for dogs without organ tracking.
     organ_handles: Vec<Option<BackendHandle>>,
+    /// Daily call budgets — one per dog (same index). None = unlimited.
+    budgets: Vec<Option<Arc<crate::domain::daily_budget::DailyBudget>>>,
     /// Hash of the last verdict — forms the chain. Protected by Mutex for concurrent access.
     last_hash: Mutex<Option<String>>,
 }
@@ -50,6 +52,7 @@ impl Judge {
             dogs,
             breakers,
             organ_handles: vec![None; n],
+            budgets: vec![None; n],
             last_hash: Mutex::new(None),
         }
     }
@@ -64,6 +67,33 @@ impl Judge {
         );
         self.organ_handles = handles;
         self
+    }
+
+    /// Attach daily call budgets (one per dog, same index). 0 = unlimited.
+    pub fn with_budgets(mut self, limits: &[(String, u32)]) -> Self {
+        for (dog_id, limit) in limits {
+            if *limit == 0 {
+                continue;
+            }
+            if let Some(idx) = self.dogs.iter().position(|d| d.id() == dog_id) {
+                self.budgets[idx] = Some(Arc::new(crate::domain::daily_budget::DailyBudget::new(
+                    dog_id, *limit,
+                )));
+            }
+        }
+        self
+    }
+
+    /// Get budget status for a Dog (for /health exposure).
+    pub fn budget_status(&self) -> Vec<(String, u32, u32)> {
+        self.budgets
+            .iter()
+            .zip(self.dogs.iter())
+            .filter_map(|(b, dog)| {
+                b.as_ref()
+                    .map(|budget| (dog.id().to_string(), budget.remaining(), budget.limit()))
+            })
+            .collect()
     }
 
     /// Seed the hash chain from the last stored verdict (call at boot).
@@ -311,6 +341,18 @@ impl Judge {
                         dog_id = %dog.id(),
                         circuit_state = %breaker.state(),
                         "Dog skipped — circuit breaker open"
+                    );
+                    return None;
+                }
+                // Daily budget gate: skip if quota exhausted for this UTC day
+                if let Some(budget) = &self.budgets[idx]
+                    && !budget.try_consume()
+                {
+                    tracing::info!(
+                        dog_id = %dog.id(),
+                        remaining = 0,
+                        limit = budget.limit(),
+                        "Dog skipped — daily budget exhausted"
                     );
                     return None;
                 }
