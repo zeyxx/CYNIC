@@ -102,7 +102,7 @@ pub async fn health(State(app_state): State<Arc<AppState>>) -> (StatusCode, Json
                 Json(HealthResponse {
                     connected: false,
                     unread_count: 0,
-                    error: Some(format!("{:?}", e)),
+                    error: Some(format!("{e:?}")),
                 }),
             ),
         },
@@ -136,7 +136,7 @@ pub async fn inbox(
     let messages = mail
         .fetch_inbox(filter)
         .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+        .map_err(|_err| StatusCode::SERVICE_UNAVAILABLE)?;
 
     let count = messages.len();
     Ok(Json(InboxResponse { messages, count }))
@@ -155,7 +155,7 @@ pub async fn fetch_message(
     mail.fetch_message(msg_id)
         .await
         .map(Json)
-        .map_err(|_| StatusCode::NOT_FOUND)
+        .map_err(|_err| StatusCode::NOT_FOUND)
 }
 
 /// POST /mail/send — Send an email
@@ -171,7 +171,7 @@ pub async fn send(
     let message_id = mail
         .send_message(req.to, req.subject, req.body)
         .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+        .map_err(|_err| StatusCode::SERVICE_UNAVAILABLE)?;
 
     Ok(Json(SendResponse {
         message_id,
@@ -191,7 +191,7 @@ pub async fn sync(
     let stats = mail
         .sync()
         .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+        .map_err(|_err| StatusCode::SERVICE_UNAVAILABLE)?;
 
     Ok(Json(SyncResponse {
         new_messages: stats.new_messages,
@@ -212,7 +212,7 @@ pub async fn mark_read(
 
     mail.mark_read(msg_id)
         .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+        .map_err(|_err| StatusCode::SERVICE_UNAVAILABLE)?;
 
     Ok(StatusCode::OK)
 }
@@ -229,7 +229,7 @@ pub async fn unread(
     let health = mail
         .health()
         .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+        .map_err(|_err| StatusCode::SERVICE_UNAVAILABLE)?;
 
     Ok(Json(UnreadResponse {
         unread: health.unread_count,
@@ -259,7 +259,7 @@ pub async fn search(
     let results = mail
         .search(query)
         .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+        .map_err(|_err| StatusCode::SERVICE_UNAVAILABLE)?;
 
     let count = results.len();
     Ok(Json(SearchResponse { results, count }))
