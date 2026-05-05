@@ -11,21 +11,30 @@ import sys
 import time
 from pathlib import Path
 
+# Persistent Chrome user-data-dir (preserves cookies, cache, etc. across restarts)
+CHROME_DATA_DIR = Path.home() / ".cynic/organs/hermes/x/chrome-profile"
+
 # Chrome flags for remote debugging
-CHROME_FLAGS = [
-    "--enable-automation",
-    "--remote-debugging-port=40769",
-    "--remote-allow-origins=http://127.0.0.1:40769,http://localhost:40769",
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--disable-default-apps",
-    "--disable-popup-blocking",
-    "--disable-extensions",
-]
+def get_chrome_flags():
+    """Get Chrome flags with persistent user-data-dir."""
+    return [
+        f"--user-data-dir={CHROME_DATA_DIR}",
+        "--enable-automation",
+        "--remote-debugging-port=40769",
+        "--remote-allow-origins=http://127.0.0.1:40769,http://localhost:40769",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-default-apps",
+        "--disable-popup-blocking",
+        "--disable-extensions",
+    ]
 
 
 def launch_chrome():
     """Launch Chrome with DevTools Protocol support."""
+    # Ensure Chrome profile directory exists
+    CHROME_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
     # Try to find Chrome executable
     chrome_paths = [
         "/usr/bin/google-chrome",
@@ -46,8 +55,9 @@ def launch_chrome():
         print(f"ERROR: Chrome not found. Tried: {chrome_paths}", file=sys.stderr)
         return 1
 
-    cmd = [chrome_bin] + CHROME_FLAGS
-    print(f"Launching: {' '.join(cmd)}")
+    cmd = [chrome_bin] + get_chrome_flags()
+    print(f"Launching Chrome with persistent profile: {CHROME_DATA_DIR}")
+    print(f"Command: {' '.join(cmd)}")
 
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
