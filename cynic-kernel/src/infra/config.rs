@@ -108,6 +108,9 @@ pub struct BackendConfig {
     /// Used for Layer 4 of the sensitivity filter: sensitive content routes to sovereign Dogs only.
     /// Default: inferred from is_sovereign_url(base_url). Explicit config overrides inference.
     pub sovereign: bool,
+    /// Daily call budget (0 = unlimited). When exhausted, Dog is skipped until UTC midnight.
+    /// Designed for quota-constrained backends (e.g. Gemini free tier: ~1500 RPD).
+    pub daily_budget: u32,
 }
 
 /// Remediation config for a backend — how to restart it when the circuit breaker opens.
@@ -185,6 +188,8 @@ struct BackendEntry {
     /// Optional: explicitly mark this backend as sovereign (local).
     /// If omitted, inferred from is_sovereign_url(base_url). Used for sensitivity filter.
     sovereign: Option<bool>,
+    /// Daily call budget (0 or absent = unlimited). Exhausted Dogs are skipped until UTC midnight.
+    daily_budget: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -319,6 +324,7 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                 // Layer 4: sovereign field defaults to inference from base_url (http://)
                 // Can be overridden explicitly via TOML config
                 sovereign: entry.sovereign.unwrap_or(is_sovereign),
+                daily_budget: entry.daily_budget.unwrap_or(0),
             })
         })
         .collect()
@@ -416,6 +422,7 @@ pub fn load_backends_from_env() -> Vec<BackendConfig> {
             latency_ms: 0,
             suitable_for_domains: vec![],
             sovereign: false, // Gemini is cloud-based, not sovereign
+            daily_budget: 0,
         });
     }
 

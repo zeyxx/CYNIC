@@ -70,6 +70,7 @@ pub async fn register_dog_handler(
         latency_ms: 0,
         suitable_for_domains: vec![],
         sovereign,
+        daily_budget: 0,
     };
 
     let backend = match crate::backends::openai::OpenAiCompatBackend::new(cfg.clone()) {

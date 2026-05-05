@@ -281,6 +281,7 @@ mod tests {
             latency_ms: 0,
             suitable_for_domains: vec![],
             sovereign: true,
+            daily_budget: 0,
         };
 
         let summarizer = SovereignSummarizer::from_backend_config(&cfg).expect("init summarizer");
