@@ -888,6 +888,12 @@ mod tests {
             task_health: Arc::new(TaskHealth::new()),
             metrics: Arc::new(crate::domain::metrics::Metrics::new()),
             api_key: None,
+            role_keys: crate::api::rest::types::RoleKeyMap {
+                cortex: None,
+                organ: None,
+                internal: None,
+                legacy: None,
+            },
             storage_info: StorageInfo {
                 namespace: "test".into(),
                 database: "test".into(),
