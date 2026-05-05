@@ -4,10 +4,11 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Message summary (lightweight) — for inbox listing and search results.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageSummary {
     pub id: String,
     pub from: String,
@@ -18,7 +19,7 @@ pub struct MessageSummary {
 }
 
 /// Full message with headers and body.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub id: String,
     pub from: String,
@@ -34,7 +35,7 @@ pub struct Message {
 }
 
 /// Search filter for inbox queries.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MailFilter {
     pub folder: Option<String>,
     pub is_unread: Option<bool>,
@@ -42,7 +43,7 @@ pub struct MailFilter {
 }
 
 /// Health status of mail connection.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MailHealth {
     pub connected: bool,
     pub last_sync: Option<DateTime<Utc>>,
@@ -53,7 +54,7 @@ pub struct MailHealth {
 }
 
 /// Sync operation statistics.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncStats {
     pub new_messages: usize,
     pub deleted_messages: usize,
@@ -61,7 +62,7 @@ pub struct SyncStats {
 }
 
 /// Search query for filtering messages.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchQuery {
     pub subject: Option<String>,
     pub from: Option<String>,
