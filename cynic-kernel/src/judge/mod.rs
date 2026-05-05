@@ -516,7 +516,7 @@ impl Judge {
         let mut dog_scores: Vec<DogScore> = Vec::new();
         let mut failures: Vec<DogFailure> = Vec::new();
         let mut failed_dogs: Vec<String> = Vec::new();
-        let mut failed_dog_errors: std::collections::HashMap<String, String> = Default::default();
+        let mut failed_dog_errors: std::collections::BTreeMap<String, String> = Default::default();
 
         // Process Dogs as they arrive (progressive) instead of waiting for all (join_all).
         // O5: Return early once quorum_count Dogs have completed successfully.
