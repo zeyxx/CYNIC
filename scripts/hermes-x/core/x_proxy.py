@@ -40,6 +40,9 @@ CAPTURE_DIR = Path(os.environ.get(
 DATASET_PATH = Path(os.environ.get(
     "X_DATASET_PATH", CAPTURE_DIR / "dataset.jsonl"
 ))
+SEARCH_RESULTS_LOG = Path(os.environ.get(
+    "X_SEARCH_RESULTS_LOG", CAPTURE_DIR.parent / "search_results.jsonl"
+))
 
 # ── Signal scoring: -5 (noise) to +7 (strong signal) ──
 
@@ -463,6 +466,22 @@ class XProxy:
                 for row in new:
                     f.write(json.dumps(row, ensure_ascii=False) + "\n")
             self._stats["enriched"] += len(new)
+
+        # Log search results for click-to-tweet linkage (Phase 1A)
+        tweet_ids = [row["tweet_id"] for row in new if row.get("tweet_id")]
+        if tweet_ids:
+            search_result = {
+                "operation": op_name,
+                "query": variables.get("rawQuery", "") or op_name.lower(),
+                "returned_tweet_ids": tweet_ids,
+                "tweet_count": len(tweet_ids),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            try:
+                with open(SEARCH_RESULTS_LOG, "a") as f:
+                    f.write(json.dumps(search_result) + "\n")
+            except Exception as e:
+                logger.warning("Failed to log search results: %s", e)
 
         logger.info("x-proxy: %s +%d new (%d total, %d dedup)",
                      op_name, len(new), self._stats["enriched"], self._stats["deduped"])
