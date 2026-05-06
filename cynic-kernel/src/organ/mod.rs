@@ -9,7 +9,8 @@
 pub mod health;
 pub mod registry;
 
-use crate::organ::health::{DogStats, ParseFailureGate, ScoreFailureKind};
+use crate::domain::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
+use crate::organ::health::ParseFailureGate;
 use crate::organ::registry::{Backend, BackendHealth, BackendId};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -81,6 +82,55 @@ impl BackendHandle {
     /// Snapshot DogStats from this handle. Returns None if Mutex is poisoned.
     pub fn stats_snapshot(&self) -> Option<DogStats> {
         self.0.lock().ok().map(|guard| guard.stats.clone())
+    }
+
+    /// Record an evaluation outcome. Self-contained — caller doesn't need InferenceOrgan.
+    /// Moved here from InferenceOrgan::update_stats_entry to break judge→organ coupling.
+    pub fn record_outcome(&self, kind: ScoreOutcome) {
+        let Ok(mut guard) = self.0.lock() else {
+            return;
+        };
+        match kind {
+            ScoreOutcome::Success {
+                elapsed_ms,
+                completion_tokens,
+                thinking_tokens,
+            } => {
+                guard.stats.record_success_with_latency(elapsed_ms);
+                guard
+                    .stats
+                    .record_completion_tokens(completion_tokens, thinking_tokens);
+                guard.gate.record_success();
+                if let (Some(budget_val), Some(bh)) =
+                    (guard.stats.completion_budget(), &guard.budget_handle)
+                {
+                    bh.store(budget_val, Ordering::Relaxed);
+                }
+            }
+            ScoreOutcome::Failure(failure_kind) => {
+                guard.stats.record_failure(failure_kind);
+                match failure_kind {
+                    ScoreFailureKind::Timeout | ScoreFailureKind::ApiError => {}
+                    _ => guard.gate.record_failure(),
+                }
+            }
+        }
+
+        // Read the Dog's observed thinking_max (written by InferenceDog after every chat response).
+        if let Some(th) = &guard.thinking_handle {
+            let observed_thinking = th.load(Ordering::Relaxed);
+            if observed_thinking > guard.stats.max_thinking_tokens {
+                guard.stats.max_thinking_tokens = observed_thinking;
+            }
+        }
+        // Re-push calibrated budget (may have changed from new thinking data)
+        if let (Some(budget_val), Some(bh)) =
+            (guard.stats.completion_budget(), &guard.budget_handle)
+        {
+            bh.store(budget_val, Ordering::Relaxed);
+        }
+
+        InferenceOrgan::sync_parse_gate_health(&mut guard);
     }
 }
 
@@ -202,57 +252,10 @@ impl InferenceOrgan {
     }
 
     /// Update stats for a backend after a Dog evaluation.
-    /// Uses the pre-obtained handle to avoid a HashMap lookup on the hot path.
+    /// Delegates to `BackendHandle::record_outcome()`.
+    /// Kept for backward compat — prefer calling `handle.record_outcome()` directly.
     pub fn update_stats_entry(handle: &BackendHandle, kind: ScoreOutcome) {
-        let Ok(mut guard) = handle.0.lock() else {
-            return;
-        };
-        match kind {
-            ScoreOutcome::Success {
-                elapsed_ms,
-                completion_tokens,
-                thinking_tokens,
-            } => {
-                guard.stats.record_success_with_latency(elapsed_ms);
-                guard
-                    .stats
-                    .record_completion_tokens(completion_tokens, thinking_tokens);
-                guard.gate.record_success();
-                // Push calibrated budget to the Dog's AtomicU32 if available.
-                if let (Some(budget_val), Some(bh)) =
-                    (guard.stats.completion_budget(), &guard.budget_handle)
-                {
-                    bh.store(budget_val, Ordering::Relaxed);
-                }
-            }
-            ScoreOutcome::Failure(failure_kind) => {
-                guard.stats.record_failure(failure_kind);
-                // Only model-quality failures (parse/zero/collapse) feed the ParseFailureGate.
-                // Infra failures (timeout/api_error) are tracked in DogStats but don't degrade
-                // model quality assessment — the model may be fine, just unreachable.
-                match failure_kind {
-                    ScoreFailureKind::Timeout | ScoreFailureKind::ApiError => {}
-                    _ => guard.gate.record_failure(),
-                }
-            }
-        }
-
-        // Read the Dog's observed thinking_max (written by InferenceDog after every chat response).
-        // This feeds thinking-aware calibration even from parse failures — the key to self-calibration.
-        if let Some(th) = &guard.thinking_handle {
-            let observed_thinking = th.load(Ordering::Relaxed);
-            if observed_thinking > guard.stats.max_thinking_tokens {
-                guard.stats.max_thinking_tokens = observed_thinking;
-            }
-        }
-        // Re-push calibrated budget (may have changed from new thinking data)
-        if let (Some(budget_val), Some(bh)) =
-            (guard.stats.completion_budget(), &guard.budget_handle)
-        {
-            bh.store(budget_val, Ordering::Relaxed);
-        }
-
-        Self::sync_parse_gate_health(&mut guard);
+        handle.record_outcome(kind);
     }
 
     /// Snapshot all DogStats for persistence. Returns (dog_id, stats) pairs.
@@ -351,17 +354,6 @@ impl InferenceOrgan {
             }
         }
     }
-}
-
-/// Outcome of a single Dog evaluation, used to update organ health tracking.
-#[derive(Debug, Clone, Copy)]
-pub enum ScoreOutcome {
-    Success {
-        elapsed_ms: u64,
-        completion_tokens: u32,
-        thinking_tokens: u32,
-    },
-    Failure(ScoreFailureKind),
 }
 
 #[cfg(test)]

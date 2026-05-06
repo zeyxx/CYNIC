@@ -279,7 +279,7 @@ pub trait StoragePort: Send + Sync {
     /// Flush DogStats to persistent storage. One row per Dog.
     async fn flush_dog_stats(
         &self,
-        _stats: &[(String, crate::organ::health::DogStats)],
+        _stats: &[(String, crate::domain::dog_health::DogStats)],
     ) -> Result<(), StorageError> {
         Ok(()) // Default no-op for NullStorage
     }
@@ -287,7 +287,7 @@ pub trait StoragePort: Send + Sync {
     /// Load persisted DogStats at boot — restores quality knowledge across restarts.
     async fn load_dog_stats(
         &self,
-    ) -> Result<Vec<(String, crate::organ::health::DogStats)>, StorageError> {
+    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
         Ok(vec![]) // Default: no history (K14: starts pessimistic)
     }
 
