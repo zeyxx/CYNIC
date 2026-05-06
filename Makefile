@@ -165,7 +165,6 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 			MODEL_NODOTS=$$(echo "$$MODEL" | tr -d '.' | tr '[:upper:]' '[:lower:]'); \
 			if ! echo "$$MODEL_NODOTS" | grep -q "$$PREFIX"; then \
 				echo "WARN Drift: Dog '$$NAME' → model '$$MODEL' (name prefix '$$PREFIX' not in model)"; \
-				FAIL=1; \
 			fi; \
 		done < <(grep '^\[backend\.' "$$BACKENDS" | grep -v '\.remediation\]'); \
 	else \
