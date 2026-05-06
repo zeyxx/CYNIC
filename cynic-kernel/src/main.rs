@@ -6,66 +6,6 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
-fn select_summarizer_backend(
-    backend_configs: &[infra::config::BackendConfig],
-) -> Option<infra::config::BackendConfig> {
-    if let Ok(explicit_name) = std::env::var("CYNIC_SUMMARIZER_BACKEND")
-        && let Some(cfg) = backend_configs.iter().find(|cfg| cfg.name == explicit_name)
-    {
-        return Some(cfg.clone());
-    }
-
-    backend_configs
-        .iter()
-        .find(|cfg| cfg.name == "qwen35-9b-gpu")
-        .cloned()
-        .or_else(|| {
-            backend_configs
-                .iter()
-                .find(|cfg| cfg.name == "sovereign")
-                .cloned()
-        })
-        .or_else(|| {
-            backend_configs
-                .iter()
-                .find(|cfg| {
-                    cfg.backend_type != infra::config::BackendType::Cli
-                        && cfg.base_url.starts_with("http://")
-                })
-                .cloned()
-        })
-}
-
-fn build_summarizer(
-    cfg: Option<&infra::config::BackendConfig>,
-) -> Result<backends::summarizer::SovereignSummarizer, domain::inference::BackendInitError> {
-    if let Some(cfg) = cfg {
-        backends::summarizer::SovereignSummarizer::from_backend_config(cfg)
-    } else {
-        backends::summarizer::SovereignSummarizer::from_env()
-    }
-}
-
-fn load_rest_api_key() -> Result<Option<String>, String> {
-    match std::env::var("CYNIC_API_KEY") {
-        Ok(key) if !key.is_empty() => Ok(Some(key)),
-        Ok(_) | Err(std::env::VarError::NotPresent) => {
-            let allow_open = std::env::var("CYNIC_ALLOW_OPEN_API")
-                .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
-                .unwrap_or(false);
-            if allow_open {
-                Ok(None)
-            } else {
-                Err(
-                    "CYNIC_API_KEY is required for REST auth; set CYNIC_ALLOW_OPEN_API=1 only for explicit local development"
-                        .into(),
-                )
-            }
-        }
-        Err(std::env::VarError::NotUnicode(_)) => Err("CYNIC_API_KEY must be valid UTF-8".into()),
-    }
-}
-
 // ============================================================
 // BOOT SEQUENCE
 // ============================================================
@@ -241,7 +181,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] No backends.toml found, using env var fallback");
         infra::config::load_backends_from_env()
     };
-    let summarizer_backend_cfg = select_summarizer_backend(&backend_configs);
+    let summarizer_backend_cfg = infra::boot::select_summarizer_backend(&backend_configs);
     if let Some(cfg) = summarizer_backend_cfg.as_ref() {
         klog!(
             "[Ring 2] Sovereign summarizer backend: {} (timeout={}s)",
@@ -478,7 +418,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => klog!("[Ring 2] Usage: failed to load history (non-fatal): {}", e),
         _ => {}
     }
-    let api_key = load_rest_api_key().map_err(std::io::Error::other)?;
+    let api_key = infra::boot::load_rest_api_key().map_err(std::io::Error::other)?;
 
     // Role-scoped authentication: three tokens, three roles.
     // Legacy CYNIC_API_KEY grants Cortex (backward-compat).
@@ -759,7 +699,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         klog!("[Ring 2] Usage + organ stats flush task started (every 60s, TTL cleanup every 1h)");
 
         // ─── RING 2: Session summarizer (sovereign inference, background) ──
-        if let Ok(summarizer) = build_summarizer(summarizer_backend_cfg.as_ref()) {
+        if let Ok(summarizer) = infra::boot::build_summarizer(summarizer_backend_cfg.as_ref()) {
             infra::tasks::spawn_session_summarizer(
                 Arc::clone(&storage_port),
                 summarizer,
