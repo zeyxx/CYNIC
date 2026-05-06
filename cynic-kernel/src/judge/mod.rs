@@ -9,10 +9,10 @@ pub use math::verify_verdict_integrity;
 pub use types::{DogFailure, DogFailureKind, JudgeError};
 
 use crate::domain::dog::{estimate_tokens, *};
+use crate::domain::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
 use crate::domain::health_gate::{FailureReason, HealthGate};
 use crate::domain::metrics::Metrics;
-use crate::organ::health::{DogStats, ScoreFailureKind};
-use crate::organ::{BackendHandle, InferenceOrgan, ScoreOutcome};
+use crate::organ::BackendHandle;
 use chrono::Utc;
 use futures_util::StreamExt;
 #[cfg(test)]
@@ -410,14 +410,11 @@ impl Judge {
             Ok(scores) => {
                 cb.record_success();
                 if let Some(h) = organ_handle {
-                    InferenceOrgan::update_stats_entry(
-                        h,
-                        ScoreOutcome::Success {
-                            elapsed_ms,
-                            completion_tokens: scores.completion_tokens,
-                            thinking_tokens: scores.thinking_tokens,
-                        },
-                    );
+                    h.record_outcome(ScoreOutcome::Success {
+                        elapsed_ms,
+                        completion_tokens: scores.completion_tokens,
+                        thinking_tokens: scores.thinking_tokens,
+                    });
                 }
                 tracing::info!(
                     phase = "dog_eval", dog_id = %id, latency_ms = elapsed_ms,
@@ -490,7 +487,7 @@ impl Judge {
                         DogError::Timeout => ScoreOutcome::Failure(ScoreFailureKind::Timeout),
                         _ => ScoreOutcome::Failure(ScoreFailureKind::ApiError),
                     };
-                    InferenceOrgan::update_stats_entry(h, outcome);
+                    h.record_outcome(outcome);
                 }
                 metrics.inc_dog_failure();
                 let kind = DogFailureKind::from(&e);

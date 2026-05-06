@@ -315,3 +315,63 @@ pub fn build_fleet_targets(
         })
         .collect()
 }
+
+/// Select summarizer backend from config (preference order: env override → qwen35-9b-gpu → sovereign → any HTTP).
+pub fn select_summarizer_backend(backend_configs: &[BackendConfig]) -> Option<BackendConfig> {
+    if let Ok(explicit_name) = std::env::var("CYNIC_SUMMARIZER_BACKEND")
+        && let Some(cfg) = backend_configs.iter().find(|cfg| cfg.name == explicit_name)
+    {
+        return Some(cfg.clone());
+    }
+
+    backend_configs
+        .iter()
+        .find(|cfg| cfg.name == "qwen35-9b-gpu")
+        .cloned()
+        .or_else(|| {
+            backend_configs
+                .iter()
+                .find(|cfg| cfg.name == "sovereign")
+                .cloned()
+        })
+        .or_else(|| {
+            backend_configs
+                .iter()
+                .find(|cfg| {
+                    cfg.backend_type != BackendType::Cli && cfg.base_url.starts_with("http://")
+                })
+                .cloned()
+        })
+}
+
+/// Build sovereign summarizer from backend config or env fallback.
+pub fn build_summarizer(
+    cfg: Option<&BackendConfig>,
+) -> Result<backends::summarizer::SovereignSummarizer, domain::inference::BackendInitError> {
+    if let Some(cfg) = cfg {
+        backends::summarizer::SovereignSummarizer::from_backend_config(cfg)
+    } else {
+        backends::summarizer::SovereignSummarizer::from_env()
+    }
+}
+
+/// Load REST API key from env. Returns `Ok(None)` if explicitly open, `Err` if missing without override.
+pub fn load_rest_api_key() -> Result<Option<String>, String> {
+    match std::env::var("CYNIC_API_KEY") {
+        Ok(key) if !key.is_empty() => Ok(Some(key)),
+        Ok(_) | Err(std::env::VarError::NotPresent) => {
+            let allow_open = std::env::var("CYNIC_ALLOW_OPEN_API")
+                .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
+                .unwrap_or(false);
+            if allow_open {
+                Ok(None)
+            } else {
+                Err(
+                    "CYNIC_API_KEY is required for REST auth; set CYNIC_ALLOW_OPEN_API=1 only for explicit local development"
+                        .into(),
+                )
+            }
+        }
+        Err(std::env::VarError::NotUnicode(_)) => Err("CYNIC_API_KEY must be valid UTF-8".into()),
+    }
+}

@@ -1,6 +1,6 @@
 use super::sanitize_record_id;
+use crate::domain::dog_health::DogStats;
 use crate::domain::storage::{StorageError, UsageRow};
-use crate::organ::health::DogStats;
 use crate::storage::{SurrealHttpStorage, escape_surreal};
 
 pub(super) async fn flush_usage(

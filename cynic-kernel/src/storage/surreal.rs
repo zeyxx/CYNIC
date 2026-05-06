@@ -295,7 +295,7 @@ impl StoragePort for SurrealHttpStorage {
     #[tracing::instrument(skip(self), err)]
     async fn flush_dog_stats(
         &self,
-        stats: &[(String, crate::organ::health::DogStats)],
+        stats: &[(String, crate::domain::dog_health::DogStats)],
     ) -> Result<(), StorageError> {
         ops::flush_dog_stats(self, stats).await
     }
@@ -303,7 +303,7 @@ impl StoragePort for SurrealHttpStorage {
     #[tracing::instrument(skip(self), err)]
     async fn load_dog_stats(
         &self,
-    ) -> Result<Vec<(String, crate::organ::health::DogStats)>, StorageError> {
+    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
         ops::load_dog_stats(self).await
     }
 

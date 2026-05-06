@@ -248,13 +248,13 @@ impl StoragePort for ReconnectableStorage {
     }
     async fn flush_dog_stats(
         &self,
-        stats: &[(String, crate::organ::health::DogStats)],
+        stats: &[(String, crate::domain::dog_health::DogStats)],
     ) -> Result<(), StorageError> {
         self.current().flush_dog_stats(stats).await
     }
     async fn load_dog_stats(
         &self,
-    ) -> Result<Vec<(String, crate::organ::health::DogStats)>, StorageError> {
+    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
         self.current().load_dog_stats().await
     }
     async fn consolidate_duplicate_crystals(&self) -> Result<u64, StorageError> {
