@@ -690,6 +690,216 @@ mod tests {
         assert!(info.instructions.is_some());
     }
 
+    // ── Poison input regression tests ─────────────────────────
+    // Small LLMs produce null/empty/garbage args. Every tool must
+    // return an error, never panic. Tests cover:
+    //   (a) serde rejects {} for structs with required fields
+    //   (b) serde accepts {} for all-optional structs (safe defaults)
+    //   (c) handlers reject empty-string required fields
+
+    // -- (a) Required-field structs reject empty JSON --
+
+    #[test]
+    fn poison_judge_params_rejects_empty() {
+        let r = serde_json::from_value::<JudgeParams>(serde_json::json!({}));
+        assert!(r.is_err(), "JudgeParams should require 'content'");
+    }
+
+    #[test]
+    fn poison_auth_params_rejects_empty() {
+        let r = serde_json::from_value::<AuthParams>(serde_json::json!({}));
+        assert!(r.is_err(), "AuthParams should require 'api_key'");
+    }
+
+    #[test]
+    fn poison_infer_params_rejects_empty() {
+        let r = serde_json::from_value::<InferParams>(serde_json::json!({}));
+        assert!(r.is_err(), "InferParams should require 'prompt'");
+    }
+
+    #[test]
+    fn poison_register_params_rejects_empty() {
+        let r = serde_json::from_value::<RegisterParams>(serde_json::json!({}));
+        assert!(
+            r.is_err(),
+            "RegisterParams should require 'agent_id' + 'intent'"
+        );
+    }
+
+    #[test]
+    fn poison_claim_params_rejects_empty() {
+        let r = serde_json::from_value::<ClaimParams>(serde_json::json!({}));
+        assert!(
+            r.is_err(),
+            "ClaimParams should require 'agent_id' + 'target'"
+        );
+    }
+
+    #[test]
+    fn poison_batch_claim_params_rejects_empty() {
+        let r = serde_json::from_value::<BatchClaimParams>(serde_json::json!({}));
+        assert!(
+            r.is_err(),
+            "BatchClaimParams should require 'agent_id' + 'targets'"
+        );
+    }
+
+    #[test]
+    fn poison_release_params_rejects_empty() {
+        let r = serde_json::from_value::<ReleaseParams>(serde_json::json!({}));
+        assert!(r.is_err(), "ReleaseParams should require 'agent_id'");
+    }
+
+    #[test]
+    fn poison_observe_params_rejects_empty() {
+        let r = serde_json::from_value::<ObserveParams>(serde_json::json!({}));
+        assert!(r.is_err(), "ObserveParams should require 'tool'");
+    }
+
+    #[test]
+    fn poison_git_params_rejects_empty() {
+        let r = serde_json::from_value::<GitParams>(serde_json::json!({}));
+        assert!(r.is_err(), "GitParams should require 'op'");
+    }
+
+    #[test]
+    fn poison_dispatch_task_params_rejects_empty() {
+        let r = serde_json::from_value::<DispatchAgentTaskParams>(serde_json::json!({}));
+        assert!(
+            r.is_err(),
+            "DispatchAgentTaskParams should require 'kind' + 'domain' + 'content'"
+        );
+    }
+
+    #[test]
+    fn poison_list_pending_params_rejects_empty() {
+        let r = serde_json::from_value::<ListPendingAgentTasksParams>(serde_json::json!({}));
+        assert!(
+            r.is_err(),
+            "ListPendingAgentTasksParams should require 'kind'"
+        );
+    }
+
+    #[test]
+    fn poison_update_task_result_params_rejects_empty() {
+        let r = serde_json::from_value::<UpdateAgentTaskResultParams>(serde_json::json!({}));
+        assert!(
+            r.is_err(),
+            "UpdateAgentTaskResultParams should require 'task_id'"
+        );
+    }
+
+    // -- (b) All-optional structs accept empty JSON safely --
+
+    #[test]
+    fn poison_list_params_accepts_empty() {
+        let r = serde_json::from_value::<ListParams>(serde_json::json!({}));
+        assert!(r.is_ok(), "ListParams (all optional) should accept {{}}");
+    }
+
+    #[test]
+    fn poison_audit_query_params_accepts_empty() {
+        let r = serde_json::from_value::<AuditQueryParams>(serde_json::json!({}));
+        assert!(
+            r.is_ok(),
+            "AuditQueryParams (all optional) should accept {{}}"
+        );
+    }
+
+    #[test]
+    fn poison_who_params_accepts_empty() {
+        let r = serde_json::from_value::<WhoParams>(serde_json::json!({}));
+        assert!(r.is_ok(), "WhoParams (all optional) should accept {{}}");
+    }
+
+    #[test]
+    fn poison_validate_params_accepts_empty() {
+        let r = serde_json::from_value::<ValidateParams>(serde_json::json!({}));
+        assert!(
+            r.is_ok(),
+            "ValidateParams (all optional) should accept {{}}"
+        );
+    }
+
+    // -- (c) Handler-level: empty-string required fields --
+
+    #[tokio::test]
+    async fn poison_judge_empty_content_rejected() {
+        let mcp = test_mcp();
+        let params = Parameters(JudgeParams {
+            content: "   ".into(),
+            context: None,
+            domain: None,
+            dogs: None,
+            agent_id: None,
+            crystals: None,
+            sensitivity: None,
+        });
+        let result = mcp.cynic_judge(params).await;
+        assert!(
+            result.is_err(),
+            "empty/whitespace content should be rejected"
+        );
+    }
+
+    #[tokio::test]
+    async fn poison_infer_empty_prompt_rejected() {
+        let mcp = test_mcp();
+        let params = Parameters(InferParams {
+            prompt: "".into(),
+            system: None,
+            agent_id: None,
+            temperature: None,
+            max_tokens: None,
+        });
+        let result = mcp.cynic_infer(params).await;
+        assert!(result.is_err(), "empty prompt should be rejected");
+    }
+
+    #[tokio::test]
+    async fn poison_infer_whitespace_prompt_rejected() {
+        let mcp = test_mcp();
+        let params = Parameters(InferParams {
+            prompt: "   \n\t  ".into(),
+            system: None,
+            agent_id: None,
+            temperature: None,
+            max_tokens: None,
+        });
+        let result = mcp.cynic_infer(params).await;
+        assert!(result.is_err(), "whitespace-only prompt should be rejected");
+    }
+
+    #[tokio::test]
+    async fn poison_batch_claim_empty_targets_rejected() {
+        let mcp = test_mcp();
+        let params = Parameters(BatchClaimParams {
+            agent_id: "test".into(),
+            targets: vec![],
+            claim_type: None,
+        });
+        let result = mcp.cynic_coord_claim_batch(params).await;
+        assert!(result.is_err(), "empty targets vec should be rejected");
+    }
+
+    // -- (d) Null arguments via serde (simulates rmcp unwrap_or_default) --
+
+    #[test]
+    fn poison_null_arguments_become_empty_object() {
+        // rmcp does: arguments.take().unwrap_or_default()
+        // null → empty JsonObject. Verify required-field structs still fail.
+        let empty = serde_json::Value::Object(serde_json::Map::new());
+        assert!(serde_json::from_value::<JudgeParams>(empty.clone()).is_err());
+        assert!(serde_json::from_value::<InferParams>(empty.clone()).is_err());
+        assert!(serde_json::from_value::<RegisterParams>(empty.clone()).is_err());
+        assert!(serde_json::from_value::<ObserveParams>(empty.clone()).is_err());
+        assert!(serde_json::from_value::<GitParams>(empty.clone()).is_err());
+        assert!(serde_json::from_value::<DispatchAgentTaskParams>(empty.clone()).is_err());
+        // All-optional structs succeed
+        assert!(serde_json::from_value::<ListParams>(empty.clone()).is_ok());
+        assert!(serde_json::from_value::<WhoParams>(empty).is_ok());
+    }
+
     #[test]
     fn observe_params_deserialize_minimal() {
         let json = r#"{"tool":"Read"}"#;

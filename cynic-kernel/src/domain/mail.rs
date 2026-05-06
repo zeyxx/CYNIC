@@ -35,7 +35,7 @@ pub struct Message {
 }
 
 /// Search filter for inbox queries.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MailFilter {
     pub folder: Option<String>,
     pub is_unread: Option<bool>,
@@ -84,6 +84,22 @@ pub enum MailError {
     ParseError(String),
     QuotaExceeded,
 }
+
+impl std::fmt::Display for MailError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MailError::ConnectionFailed(msg) => write!(f, "Mail connection failed: {msg}"),
+            MailError::AuthenticationFailed => write!(f, "Mail authentication failed"),
+            MailError::MessageNotFound => write!(f, "Message not found"),
+            MailError::InvalidQuery => write!(f, "Invalid search query"),
+            MailError::IOError(msg) => write!(f, "Mail I/O error: {msg}"),
+            MailError::ParseError(msg) => write!(f, "Mail parse error: {msg}"),
+            MailError::QuotaExceeded => write!(f, "Quota exceeded"),
+        }
+    }
+}
+
+impl std::error::Error for MailError {}
 
 /// Domain port for email operations (send, receive, check inbox).
 /// Implemented by providers: agentmail.to, Gmail, Outlook, etc.

@@ -351,6 +351,9 @@ impl CynicMcp {
         validate_agent_id(&p.agent_id)?;
         let agent_id = p.agent_id.unwrap_or_else(|| "unknown".into());
 
+        if p.prompt.trim().is_empty() {
+            return Err(McpError::invalid_params("prompt must not be empty", None));
+        }
         if p.prompt.chars().count() > 8_000 {
             return Err(McpError::invalid_params("prompt exceeds 8000 chars", None));
         }
