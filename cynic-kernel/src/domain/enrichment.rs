@@ -52,6 +52,71 @@ pub struct TokenData {
     pub description: Option<String>,
     /// Creation date if available
     pub created_at: Option<String>,
+    /// K-Score behavioral composite (None if behavioral analysis unavailable).
+    pub kscore: Option<KScore>,
+    /// Per-wallet behavioral breakdown (top-N holders).
+    pub wallet_behaviors: Vec<WalletBehavior>,
+}
+
+/// Classification of a token holder based on buy/sell behavior.
+/// Derived from retention_ratio = current_balance / total_bought.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HolderClass {
+    /// Bought more since initial purchase (retention >= accumulator_threshold, default 1.5)
+    Accumulator,
+    /// Holding all or most (retention >= holder_threshold, default 1.0)
+    Holder,
+    /// Sold some (retention >= reducer_threshold, default 0.5)
+    Reducer,
+    /// Sold most or all (retention < reducer_threshold)
+    Extractor,
+}
+
+impl std::fmt::Display for HolderClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Accumulator => write!(f, "accumulator"),
+            Self::Holder => write!(f, "holder"),
+            Self::Reducer => write!(f, "reducer"),
+            Self::Extractor => write!(f, "extractor"),
+        }
+    }
+}
+
+/// Per-wallet behavioral analysis from SWAP transaction history.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalletBehavior {
+    pub class: HolderClass,
+    /// current_balance / total_bought (> 1.0 = bought more via DCA, < 1.0 = sold some)
+    pub retention_ratio: f64,
+    /// Number of SWAP transactions found for this wallet+token
+    pub swap_count: u32,
+}
+
+/// K-Score composite — behavioral health metric for a token.
+/// Formula: K = DiamondHands^w_dh × OrganicGrowth^w_og × Longevity^w_lon
+/// Weights configurable via backends.toml [kscore].
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct KScore {
+    /// Final composite score (0.0 to 1.0)
+    pub score: f64,
+    /// DiamondHands pillar: sqrt(conviction × retention_signal)
+    /// conviction = (accumulators + holders) / analyzed
+    /// retention_signal = tanh(accumulators / max(extractors,1) / 2)
+    ///   tanh saturates to 1.0 when acc >> ext (strong diamond hands)
+    ///   tanh → 0 when ext >> acc (everyone selling)
+    pub diamond_hands: f64,
+    /// OrganicGrowth pillar: sqrt(holder_norm × inverse_concentration)
+    pub organic_growth: f64,
+    /// Longevity pillar: 1 - e^(-age_days/21)
+    pub longevity: f64,
+    /// Wallets analyzed
+    pub wallets_analyzed: u32,
+    /// Breakdown: how many of each class
+    pub accumulators: u32,
+    pub holders: u32,
+    pub reducers: u32,
+    pub extractors: u32,
 }
 
 impl TokenData {

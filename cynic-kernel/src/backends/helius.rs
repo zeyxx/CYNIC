@@ -409,6 +409,215 @@ impl HeliusEnricher {
 
         "unsecured".into()
     }
+
+    /// Fetch SWAP transactions for a wallet, filtered to a specific token mint.
+    /// Returns total_bought (tokens flowing IN to wallet) for retention calculation.
+    /// Cost: 50 credits per call (Enhanced Transactions API).
+    async fn get_wallet_total_bought(
+        &self,
+        wallet_owner: &str,
+        target_mint: &str,
+        limit: usize,
+    ) -> Result<(f64, u32), EnrichmentError> {
+        let api_key = self.rpc_url.split("api-key=").nth(1).unwrap_or_default();
+        let url = format!(
+            "https://api.helius.xyz/v0/addresses/{}/transactions?api-key={}&limit={}&type=SWAP",
+            wallet_owner, api_key, limit
+        );
+
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+
+        if !resp.status().is_success() {
+            return Ok((0.0, 0));
+        }
+
+        self.credits.record_call(0, true, 50); // Enhanced Transactions: 50 credits
+
+        let txs: Vec<serde_json::Value> = resp
+            .json()
+            .await
+            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+
+        let mut total_bought = 0.0_f64;
+        let mut swap_count = 0_u32;
+
+        for tx in &txs {
+            let Some(transfers) = tx.get("tokenTransfers").and_then(|v| v.as_array()) else {
+                continue;
+            };
+
+            for transfer in transfers {
+                let mint = transfer.get("mint").and_then(|v| v.as_str()).unwrap_or("");
+                if mint != target_mint {
+                    continue;
+                }
+
+                let amount = transfer
+                    .get("tokenAmount")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                let to = transfer
+                    .get("toUserAccount")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                if to == wallet_owner {
+                    total_bought += amount;
+                }
+                swap_count += 1;
+            }
+        }
+
+        Ok((total_bought, swap_count))
+    }
+
+    /// Analyze top-N holders' SWAP behavior for a token.
+    /// Returns per-wallet classifications and K-Score composite.
+    /// Cost: ~N×51 credits (1 resolve + 50 enhanced transactions per wallet).
+    ///
+    /// Fix C2: retention = current_balance / total_bought (not (bought-sold)/bought).
+    /// current_balance comes from getTokenLargestAccounts (already fetched).
+    /// total_bought comes from Enhanced Transactions SWAP history.
+    pub async fn analyze_behaviors(
+        &self,
+        mint: &str,
+        holder_addresses: &[String],
+        holder_balances: &[f64],
+        config: &crate::infra::config::KScoreConfig,
+        holder_count: u64,
+        top10_pct: f64,
+        age_hours: u64,
+    ) -> (
+        Vec<crate::domain::enrichment::WalletBehavior>,
+        crate::domain::enrichment::KScore,
+    ) {
+        use crate::domain::enrichment::{HolderClass, KScore, WalletBehavior};
+
+        let n = holder_addresses.len().min(config.top_n_wallets);
+        let mut behaviors = Vec::with_capacity(n);
+
+        for (i, addr) in holder_addresses[..n].iter().enumerate() {
+            let current_balance = holder_balances.get(i).copied().unwrap_or(0.0);
+            if current_balance <= 0.0 {
+                continue;
+            }
+
+            // Resolve token account → wallet owner
+            let Some(owner) = self.resolve_owner(addr).await else {
+                continue;
+            };
+
+            // Fetch SWAP history for this wallet
+            let Ok((total_bought, swaps)) = self
+                .get_wallet_total_bought(&owner, mint, config.swap_history_limit)
+                .await
+            else {
+                continue;
+            };
+
+            // Fix C2: retention = current_balance / total_bought
+            // If total_bought is 0 (no SWAP history found), wallet may have received tokens
+            // via transfer, airdrop, etc. — classify as Holder (conservative).
+            let retention = if total_bought > 0.0 {
+                current_balance / total_bought
+            } else {
+                1.0 // No SWAP data = assume holding
+            };
+
+            let class = if retention >= config.accumulator_threshold {
+                HolderClass::Accumulator
+            } else if retention >= config.holder_threshold {
+                HolderClass::Holder
+            } else if retention >= config.reducer_threshold {
+                HolderClass::Reducer
+            } else {
+                HolderClass::Extractor
+            };
+
+            behaviors.push(WalletBehavior {
+                class,
+                retention_ratio: retention,
+                swap_count: swaps,
+            });
+        }
+
+        // Compute K-Score from behaviors
+        let total = behaviors.len() as f64;
+        if total == 0.0 {
+            return (behaviors, KScore::default());
+        }
+
+        let acc = behaviors
+            .iter()
+            .filter(|b| b.class == HolderClass::Accumulator)
+            .count() as f64;
+        let hld = behaviors
+            .iter()
+            .filter(|b| b.class == HolderClass::Holder)
+            .count() as f64;
+        let ext = behaviors
+            .iter()
+            .filter(|b| b.class == HolderClass::Extractor)
+            .count() as f64;
+        let red = behaviors
+            .iter()
+            .filter(|b| b.class == HolderClass::Reducer)
+            .count() as f64;
+
+        // DiamondHands = sqrt(conviction × retention_signal)
+        // conviction: fraction of analyzed wallets that are accumulating or holding
+        // retention_signal: tanh(acc/ext ratio / 2)
+        //   Fix C3 documentation: tanh maps [0,∞) → [0,1).
+        //   When acc >> ext: tanh → 1.0 (strong diamond hands signal).
+        //   When ext >> acc: tanh → 0.0 (everyone selling).
+        //   Division by 2 normalizes so 1:1 ratio → tanh(0.5) ≈ 0.46 (neutral).
+        let conviction = (acc + hld) / total;
+        let retention_signal = (acc / ext.max(1.0) / 2.0).tanh();
+        let diamond_hands = (conviction * retention_signal).sqrt();
+
+        // OrganicGrowth = sqrt(holder_norm × inv_concentration)
+        let holder_norm = 1.0 - 1.0 / (1.0 + (1.0 + holder_count as f64 / 100.0).ln());
+        let inv_concentration = (1.0 - top10_pct / 100.0).max(0.0);
+        let organic_growth = (holder_norm * inv_concentration).sqrt();
+
+        // Longevity = 1 - e^(-age_days/21)
+        let age_days = age_hours as f64 / 24.0;
+        let longevity = 1.0 - (-age_days / 21.0).exp();
+
+        // K = DH^w1 × OG^w2 × L^w3
+        let score = diamond_hands.powf(config.weight_diamond_hands)
+            * organic_growth.powf(config.weight_organic_growth)
+            * longevity.powf(config.weight_longevity);
+
+        let kscore = KScore {
+            score,
+            diamond_hands,
+            organic_growth,
+            longevity,
+            wallets_analyzed: total as u32,
+            accumulators: acc as u32,
+            holders: hld as u32,
+            reducers: red as u32,
+            extractors: ext as u32,
+        };
+
+        tracing::info!(
+            mint = %mint,
+            k_score = format!("{:.3}", kscore.score),
+            diamond_hands = format!("{:.3}", kscore.diamond_hands),
+            organic_growth = format!("{:.3}", kscore.organic_growth),
+            longevity = format!("{:.3}", kscore.longevity),
+            wallets = kscore.wallets_analyzed,
+            "K-Score computed"
+        );
+
+        (behaviors, kscore)
+    }
 }
 
 #[async_trait]
@@ -521,6 +730,8 @@ impl TokenEnricherPort for HeliusEnricher {
             token_standard,
             description,
             created_at: None,
+            kscore: None,
+            wallet_behaviors: vec![],
         }))
     }
 }
