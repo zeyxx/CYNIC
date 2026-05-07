@@ -198,6 +198,7 @@ mod tests {
             token_standard: Some("Fungible".into()),
             description: Some("JUP is the governance token for Jupiter.".into()),
             created_at: None,
+            ..Default::default()
         };
         let stim = data.to_stimulus();
         assert!(stim.contains("Jupiter"));

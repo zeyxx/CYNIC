@@ -16,6 +16,7 @@ pub struct HeliusEnricher {
     client: Client,
     rpc_url: String,
     credits: Arc<HeliumsCreditTracker>,
+    kscore_config: crate::infra::config::KScoreConfig,
 }
 
 impl HeliusEnricher {
@@ -27,7 +28,14 @@ impl HeliusEnricher {
                 .unwrap_or_default(),
             rpc_url: format!("https://mainnet.helius-rpc.com/?api-key={api_key}"),
             credits: Arc::new(HeliumsCreditTracker::new(chrono::Utc::now().to_rfc3339())),
+            kscore_config: crate::infra::config::KScoreConfig::default(),
         }
+    }
+
+    /// Set K-Score config (from backends.toml [kscore]).
+    pub fn with_kscore_config(mut self, config: crate::infra::config::KScoreConfig) -> Self {
+        self.kscore_config = config;
+        self
     }
 
     /// Get a snapshot of credit usage for /health reporting.
@@ -229,6 +237,10 @@ impl HeliusEnricher {
         );
 
         let holder_addresses: Vec<String> = accounts.iter().map(|a| a.address.clone()).collect();
+        let holder_balances: Vec<f64> = accounts
+            .iter()
+            .map(|a| a.ui_amount.unwrap_or(0.0))
+            .collect();
 
         Ok(Some(HolderConcentration {
             accounts_seen: accounts.len() as u64,
@@ -236,6 +248,7 @@ impl HeliusEnricher {
             top10_pct,
             herfindahl: hhi,
             holder_addresses,
+            holder_balances,
         }))
     }
 
@@ -673,7 +686,7 @@ impl TokenEnricherPort for HeliusEnricher {
         };
 
         // Get concentration metrics from top-20 accounts, using real supply as denominator
-        let (holder_count, top1_pct, top10_pct, herfindahl, holder_addresses) =
+        let (holder_count, top1_pct, top10_pct, herfindahl, holder_addresses, holder_balances) =
             if let Ok(Some(conc)) = self.get_largest_accounts(mint_address, real_supply).await {
                 (
                     conc.accounts_seen,
@@ -681,9 +694,10 @@ impl TokenEnricherPort for HeliusEnricher {
                     conc.top10_pct,
                     Some(conc.herfindahl),
                     conc.holder_addresses,
+                    conc.holder_balances,
                 )
             } else {
-                (0, 0.0, 0.0, None, vec![])
+                (0, 0.0, 0.0, None, vec![], vec![])
             };
 
         // Detect LP status from holder account owners (burn address = burned, locker = locked)
@@ -708,6 +722,27 @@ impl TokenEnricherPort for HeliusEnricher {
             .await
             .unwrap_or(None);
 
+        // Behavioral analysis (K-Score) — top-N holder SWAP history
+        let (wallet_behaviors, kscore) = if !holder_addresses.is_empty() {
+            self.analyze_behaviors(
+                mint_address,
+                &holder_addresses,
+                &holder_balances,
+                &self.kscore_config,
+                holder_count,
+                top10_pct,
+                age_hours,
+            )
+            .await
+        } else {
+            (vec![], crate::domain::enrichment::KScore::default())
+        };
+        let kscore = if kscore.wallets_analyzed > 0 {
+            Some(kscore)
+        } else {
+            None
+        };
+
         Ok(Some(TokenData {
             mint: mint_address.to_string(),
             name,
@@ -730,8 +765,8 @@ impl TokenEnricherPort for HeliusEnricher {
             token_standard,
             description,
             created_at: None,
-            kscore: None,
-            wallet_behaviors: vec![],
+            kscore,
+            wallet_behaviors,
         }))
     }
 }
@@ -807,6 +842,8 @@ struct HolderConcentration {
     top1_pct: f64,
     top10_pct: f64,
     herfindahl: f64,
-    /// Token account addresses of top holders (for LP burn detection).
+    /// Token account addresses of top holders (for LP burn detection + behavioral).
     holder_addresses: Vec<String>,
+    /// ui_amounts per holder (parallel to holder_addresses, for retention calculation).
+    holder_balances: Vec<f64>,
 }

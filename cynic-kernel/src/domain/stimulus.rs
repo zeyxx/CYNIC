@@ -324,6 +324,7 @@ mod tests {
             token_standard: None,
             description: None,
             created_at: None,
+            ..Default::default()
         };
 
         let stimulus = build_token_stimulus(&data);
@@ -363,6 +364,7 @@ mod tests {
             token_standard: None,
             description: None,
             created_at: None,
+            ..Default::default()
         };
 
         let stimulus = build_token_stimulus(&data);
@@ -419,6 +421,7 @@ mod tests {
             token_standard: None,
             description: None,
             created_at: None,
+            ..Default::default()
         };
 
         let stimulus = build_token_stimulus(&data);
