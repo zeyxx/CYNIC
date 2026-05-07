@@ -12,6 +12,8 @@ use crate::domain::dog::{estimate_tokens, *};
 use crate::domain::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
 use crate::domain::health_gate::{FailureReason, HealthGate};
 use crate::domain::metrics::Metrics;
+use crate::infra::config::ErrorDetection;
+use crate::infra::error_classifier::ErrorCategory;
 use crate::organ::BackendHandle;
 use chrono::Utc;
 use futures_util::StreamExt;
@@ -451,16 +453,31 @@ impl Judge {
             Err(e) => {
                 match &e {
                     DogError::ApiError(msg) => {
-                        // Detect quota exhaustion from error message (gemini-cli, HF, etc.)
-                        let reason = if msg.to_lowercase().contains("quota")
-                            || msg.to_lowercase().contains("exhausted")
-                            || msg.to_lowercase().contains("rate limit")
-                        {
-                            FailureReason::QuotaExhausted
-                        } else {
-                            FailureReason::ApiError
-                        };
-                        cb.record_failure(reason);
+                        // K15: Use data-driven error classification from backends.toml [error_detection]
+                        // This enables smart routing: quota→skip, transient→retry, critical→circuit-open
+                        let error_category =
+                            ErrorCategory::classify(msg, &ErrorDetection::default());
+                        match error_category {
+                            ErrorCategory::Quota => {
+                                // Quota exhaustion is graceful—don't penalize circuit breaker
+                                tracing::info!(dog_id = %id, error = %msg, "Quota exhausted — skipping gracefully");
+                                cb.record_success(); // Don't count against failure threshold
+                            }
+                            ErrorCategory::Transient => {
+                                // Transient errors: log but don't open circuit yet (may recover)
+                                tracing::warn!(dog_id = %id, error = %msg, "Transient error — may retry");
+                                cb.record_failure(FailureReason::ApiError);
+                            }
+                            ErrorCategory::Critical => {
+                                // Critical errors: open circuit immediately
+                                tracing::error!(dog_id = %id, error = %msg, "Critical error — opening circuit");
+                                cb.record_failure(FailureReason::ApiError);
+                            }
+                            ErrorCategory::Unknown => {
+                                // Unknown: conservative default (record failure but don't assume it's critical)
+                                cb.record_failure(FailureReason::ApiError);
+                            }
+                        }
                     }
                     DogError::ParseError(_) => cb.record_failure(FailureReason::ParseError),
                     DogError::ZeroFlood(_) | DogError::DegenerateScores { .. } => {
