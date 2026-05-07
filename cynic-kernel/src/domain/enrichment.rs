@@ -34,6 +34,8 @@ pub struct TokenData {
     pub herfindahl: Option<f64>,
     /// Token age in hours
     pub age_hours: u64,
+    /// True if age_hours is exact (creation tx found). False = lower bound estimate.
+    pub age_is_exact: bool,
     /// Whether the mint authority is active
     pub mint_authority_active: bool,
     /// Whether the freeze authority is active

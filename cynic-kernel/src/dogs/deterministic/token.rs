@@ -232,14 +232,18 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
         }
     }
     let phi = phi.clamp(ADJUST_SMALL, PHI_INV);
-    let phi_reason = format!(
-        "holders={}, top1={:.1}%, HHI={}.",
-        m.holders,
-        m.top1_pct,
-        m.herfindahl
-            .map(|h| format!("{h:.3}"))
-            .unwrap_or_else(|| "n/a".into()),
-    );
+    let phi_reason = if m.holder_data_available {
+        format!(
+            "holders={}+, top1={:.1}%, HHI={}.",
+            m.holders,
+            m.top1_pct,
+            m.herfindahl
+                .map(|h| format!("{h:.3}"))
+                .unwrap_or_else(|| "n/a".into()),
+        )
+    } else {
+        "holder data unavailable (RPC degraded) — scoring at neutral base.".into()
+    };
 
     // ── VERIFY: Can metrics be independently verified on-chain? ──
     // Base above NEUTRAL: on-chain data IS verifiable by definition.
@@ -378,14 +382,17 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     }
     let sovereignty = sovereignty.clamp(ADJUST_SMALL, PHI_INV);
     let sovereignty_reason = format!(
-        "top1={:.1}%, freeze={}, holders={}, extractors_vs_acc={}/{}.",
-        m.top1_pct,
+        "{}freeze={}, extractors_vs_acc={}/{}.",
+        if m.holder_data_available {
+            format!("top1={:.1}%, holders={}+, ", m.top1_pct, m.holders)
+        } else {
+            "holders=unavailable, ".into()
+        },
         if m.freeze_authority_active {
             "ACTIVE (restricts freedom)"
         } else {
             "revoked"
         },
-        m.holders,
         m.k_extractors,
         m.k_accumulators,
     );
