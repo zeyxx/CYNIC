@@ -292,49 +292,78 @@ impl HeliusEnricher {
         Ok(desc)
     }
 
-    /// Estimate token age from transaction history. 1 credit.
+    /// Estimate token age from transaction history via backward pagination.
     ///
-    /// Calls getSignaturesForAddress (newest-first, limit=1000).
-    /// - If < 1000 results: last result = creation tx → exact age.
-    /// - If = 1000 results: token has >1000 txs → mature (≥ oldest in batch).
+    /// Strategy: paginate getSignaturesForAddress backward (max 5 pages × 1000 sigs = 5000 txs).
+    /// - If < 1000 on any page: found creation tx → exact age.
+    /// - If still 1000 after 5 pages: token has >5000 txs. Any token with 5000+ txs is
+    ///   clearly established — use a floor of 720h (30 days) for longevity if the measured
+    ///   window is shorter. This prevents active tokens getting longevity=0.004.
     ///
-    /// This is exact for young/pump.fun tokens (the critical case for scoring)
-    /// and conservative for established tokens.
+    /// Cost: 1-5 credits (10 credits each on Helius, paginated).
+    /// Exact for tokens with <5000 txs (covers all pump.fun rugs and most new tokens).
     async fn get_token_age_hours(&self, mint: &str) -> Result<u64, EnrichmentError> {
-        let body = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getSignaturesForAddress",
-            "params": [mint, {"limit": 1000}]
-        });
+        const MAX_PAGES: usize = 5;
+        let mut oldest_block_time: i64 = 0;
+        let mut before_sig: Option<String> = None;
+        let mut total_sigs: usize = 0;
+        let mut found_creation = false;
 
-        let resp = self
-            .client
-            .post(&self.rpc_url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+        for page in 0..MAX_PAGES {
+            let mut params = serde_json::json!([mint, {"limit": 1000}]);
+            if let Some(ref sig) = before_sig {
+                params[1]["before"] = serde_json::json!(sig);
+            }
+            let body = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getSignaturesForAddress",
+                "params": params
+            });
 
-        if !resp.status().is_success() {
-            return Ok(0);
+            let resp = self
+                .client
+                .post(&self.rpc_url)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+
+            if !resp.status().is_success() {
+                break;
+            }
+
+            let rpc: RpcResponse<Vec<SignatureInfo>> = resp
+                .json()
+                .await
+                .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+
+            let Some(sigs) = rpc.result else { break };
+            let batch_len = sigs.len();
+            if batch_len == 0 {
+                break;
+            }
+
+            total_sigs += batch_len;
+
+            // Track oldest blockTime and cursor for next page
+            if let Some(last) = sigs.last() {
+                if let Some(bt) = last.block_time {
+                    oldest_block_time = bt;
+                }
+                before_sig = last.signature.clone();
+            }
+
+            if batch_len < 1000 {
+                found_creation = true;
+                break;
+            }
+
+            // Don't paginate further if we're already deep enough
+            if page >= MAX_PAGES - 1 {
+                break;
+            }
         }
-
-        let rpc: RpcResponse<Vec<SignatureInfo>> = resp
-            .json()
-            .await
-            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
-
-        let Some(sigs) = rpc.result else {
-            return Ok(0);
-        };
-
-        if sigs.is_empty() {
-            return Ok(0);
-        }
-
-        // Last item in the array = oldest in this batch (newest-first ordering)
-        let oldest_block_time = sigs.last().and_then(|s| s.block_time).unwrap_or(0);
 
         if oldest_block_time == 0 {
             return Ok(0);
@@ -345,17 +374,24 @@ impl HeliusEnricher {
             .map(|d| d.as_secs())
             .unwrap_or(0) as i64;
 
-        let age_secs = (now - oldest_block_time).max(0) as u64;
-        let age_hours = age_secs / 3600;
+        let measured_age_hours = ((now - oldest_block_time).max(0) as u64) / 3600;
 
-        tracing::debug!(
+        // If we couldn't reach creation and measured age < 30 days,
+        // the token is clearly established (>5000 txs). Apply floor.
+        let age_hours = if !found_creation && measured_age_hours < 720 {
+            720 // 30-day floor for tokens with >5000 txs
+        } else {
+            measured_age_hours
+        };
+
+        tracing::info!(
             method = "getSignaturesForAddress",
             mint = %mint,
-            sigs_returned = sigs.len(),
+            total_sigs,
             oldest_block_time,
+            measured_age_hours,
             age_hours,
-            exact = sigs.len() < 1000,
-            credits_cost = 1,
+            found_creation,
             "Token age estimated"
         );
 
@@ -846,6 +882,7 @@ struct LargestAccount {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SignatureInfo {
+    signature: Option<String>,
     block_time: Option<i64>,
 }
 
