@@ -136,7 +136,9 @@ class HermesDataOrganism:
                 headers={"Authorization": f"Bearer {cynic_key}"},
                 timeout=10,
             )
-            resp.raise_for_status()
+            # 200 = sovereign, 503 = degraded — both return valid Dog metrics
+            if resp.status_code not in (200, 503):
+                resp.raise_for_status()
             health = resp.json()
 
             # Extract Dog metrics from health endpoint
