@@ -41,6 +41,14 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
         s.push_str(&format!("symbol: {symbol}\n"));
     }
     s.push_str(&format!("holders: {}\n", data.holder_count));
+    s.push_str(&format!(
+        "holder_count_type: {}\n",
+        if data.holder_count_is_exact {
+            "exact"
+        } else {
+            "lower_bound (likely more exist)"
+        }
+    ));
     s.push_str(&format!("top_1_wallet_pct: {:.2}%\n", data.top1_pct));
     s.push_str(&format!("top_10_wallets_pct: {:.2}%\n", data.top10_pct));
     if let Some(hhi) = data.herfindahl {
@@ -85,6 +93,28 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
         s.push_str(&format!("standard: {std}\n"));
     }
 
+    // ── Behavioral signals (K-Score) ──
+    if let Some(ref ks) = data.kscore {
+        s.push_str("\n[BEHAVIORAL]\n");
+        s.push_str(&format!("k_score: {:.3}\n", ks.score));
+        s.push_str(&format!(
+            "diamond_hands: {:.3} (conviction of top holders)\n",
+            ks.diamond_hands
+        ));
+        s.push_str(&format!(
+            "organic_growth: {:.3} (distribution quality)\n",
+            ks.organic_growth
+        ));
+        s.push_str(&format!(
+            "longevity: {:.3} (age-adjusted survival)\n",
+            ks.longevity
+        ));
+        s.push_str(&format!(
+            "wallet_breakdown: {} analyzed \u{2014} {} accumulators, {} holders, {} reducers, {} extractors\n",
+            ks.wallets_analyzed, ks.accumulators, ks.holders, ks.reducers, ks.extractors
+        ));
+    }
+
     // ── Baselines: what "normal" looks like ──
     s.push_str("\n[BASELINES]\n");
     s.push_str("healthy_token: holders>100, top_1<15%, herfindahl<0.15, age>30d, mint_authority=revoked, lp=burned\n");
@@ -92,6 +122,7 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
     s.push_str(
         "high_risk_rug: holders<20, top_1>50%, age<24h, mint_authority=active, lp=unsecured\n",
     );
+    s.push_str("k_score_baseline: healthy>0.5, moderate 0.3-0.5, rug<0.3. diamond_hands dominates (retention).\n");
     s.push_str("note: 98.6% of pump.fun tokens are rug pulls (Solidus Labs 2025). Baseline for new tokens is skepticism, not trust.\n");
 
     // ── Axiom evidence: what to evaluate per axiom ──
@@ -316,6 +347,7 @@ mod tests {
             token_standard: None,
             description: None,
             created_at: None,
+            ..Default::default()
         };
 
         let stimulus = build_token_stimulus(&data);
@@ -355,6 +387,7 @@ mod tests {
             token_standard: None,
             description: None,
             created_at: None,
+            ..Default::default()
         };
 
         let stimulus = build_token_stimulus(&data);
@@ -411,6 +444,7 @@ mod tests {
             token_standard: None,
             description: None,
             created_at: None,
+            ..Default::default()
         };
 
         let stimulus = build_token_stimulus(&data);

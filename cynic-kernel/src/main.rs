@@ -605,7 +605,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let enricher: Option<Arc<dyn domain::enrichment::TokenEnricherPort>> =
         match backends::helius::HeliusEnricher::from_env() {
             Some(h) => {
-                klog!("[Boot] Helius enricher configured — token-analysis will use on-chain data");
+                let h = h.with_kscore_config(dog_thresholds.kscore.clone());
+                klog!(
+                    "[Boot] Helius enricher configured — token-analysis with K-Score behavioral analysis"
+                );
                 Some(Arc::new(h))
             }
             None => {

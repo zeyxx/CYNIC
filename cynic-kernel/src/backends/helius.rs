@@ -16,6 +16,7 @@ pub struct HeliusEnricher {
     client: Client,
     rpc_url: String,
     credits: Arc<HeliumsCreditTracker>,
+    kscore_config: crate::infra::config::KScoreConfig,
 }
 
 impl HeliusEnricher {
@@ -27,7 +28,14 @@ impl HeliusEnricher {
                 .unwrap_or_default(),
             rpc_url: format!("https://mainnet.helius-rpc.com/?api-key={api_key}"),
             credits: Arc::new(HeliumsCreditTracker::new(chrono::Utc::now().to_rfc3339())),
+            kscore_config: crate::infra::config::KScoreConfig::default(),
         }
+    }
+
+    /// Set K-Score config (from backends.toml [kscore]).
+    pub fn with_kscore_config(mut self, config: crate::infra::config::KScoreConfig) -> Self {
+        self.kscore_config = config;
+        self
     }
 
     /// Get a snapshot of credit usage for /health reporting.
@@ -228,11 +236,19 @@ impl HeliusEnricher {
             "Helius getTokenLargestAccounts succeeded"
         );
 
+        let holder_addresses: Vec<String> = accounts.iter().map(|a| a.address.clone()).collect();
+        let holder_balances: Vec<f64> = accounts
+            .iter()
+            .map(|a| a.ui_amount.unwrap_or(0.0))
+            .collect();
+
         Ok(Some(HolderConcentration {
             accounts_seen: accounts.len() as u64,
             top1_pct,
             top10_pct,
             herfindahl: hhi,
+            holder_addresses,
+            holder_balances,
         }))
     }
 
@@ -343,6 +359,289 @@ impl HeliusEnricher {
 
         Ok(age_hours)
     }
+
+    /// Resolve a token account address to its owner wallet address.
+    /// Cost: 1 credit (getAccountInfo).
+    async fn resolve_owner(&self, token_account: &str) -> Option<String> {
+        let body = serde_json::json!({
+            "jsonrpc": "2.0", "id": 1,
+            "method": "getAccountInfo",
+            "params": [token_account, {"encoding": "jsonParsed"}]
+        });
+        let resp = self
+            .client
+            .post(&self.rpc_url)
+            .json(&body)
+            .send()
+            .await
+            .inspect_err(
+                |e| tracing::debug!(token_account, error = %e, "resolve_owner request failed"),
+            )
+            .ok()?;
+        if !resp.status().is_success() {
+            return None;
+        }
+        let rpc: serde_json::Value = resp
+            .json()
+            .await
+            .inspect_err(
+                |e| tracing::debug!(token_account, error = %e, "resolve_owner parse failed"),
+            )
+            .ok()?;
+        self.credits.record_call(0, true, 1);
+        rpc.pointer("/result/value/data/parsed/info/owner")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    }
+
+    /// Detect LP status by checking if top holder token accounts are owned by burn/locker addresses.
+    /// Returns "burned" | "locked" | "unsecured".
+    /// Cost: 1-5 credits (1 getAccountInfo per holder checked).
+    async fn detect_lp_status(&self, holder_addresses: &[String]) -> String {
+        /// Known Solana burn addresses — tokens sent here are irrecoverable.
+        const BURN_ADDRESSES: &[&str] = &[
+            "1nc1nerator11111111111111111111111111111111",
+            "1111111111111111111111111111111111111111111",
+            // Raydium burn vault
+            "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1",
+        ];
+        /// Known locker programs — LP tokens held by these are locked, not burned.
+        const LOCKER_PROGRAMS: &[&str] = &[
+            // Streamflow
+            "8e72pYCDaxu3GqMfeQ5r8wFgoZSYk6oua1Qo9XpsZjX",
+            // Team.finance / Uncx
+            "2r5VekMNiWPzi1pWwvJczrdPaZnJG59u91unSrTunwJg",
+        ];
+
+        let check_count = holder_addresses.len().min(5);
+        for addr in &holder_addresses[..check_count] {
+            let Some(owner) = self.resolve_owner(addr).await else {
+                continue;
+            };
+
+            if BURN_ADDRESSES.contains(&owner.as_str()) {
+                tracing::debug!(token_account = %addr, owner = %owner, "LP detected: burned");
+                return "burned".into();
+            }
+            if LOCKER_PROGRAMS.contains(&owner.as_str()) {
+                tracing::debug!(token_account = %addr, owner = %owner, "LP detected: locked");
+                return "locked".into();
+            }
+        }
+
+        "unsecured".into()
+    }
+
+    /// Fetch SWAP transactions for a wallet, filtered to a specific token mint.
+    /// Returns total_bought (tokens flowing IN to wallet) for retention calculation.
+    /// Cost: 50 credits per call (Enhanced Transactions API).
+    async fn get_wallet_total_bought(
+        &self,
+        wallet_owner: &str,
+        target_mint: &str,
+        limit: usize,
+    ) -> Result<(f64, u32), EnrichmentError> {
+        let api_key = self.rpc_url.split("api-key=").nth(1).unwrap_or_default();
+        let url = format!(
+            "https://api.helius.xyz/v0/addresses/{wallet_owner}/transactions?api-key={api_key}&limit={limit}&type=SWAP"
+        );
+
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+
+        if !resp.status().is_success() {
+            return Ok((0.0, 0));
+        }
+
+        self.credits.record_call(0, true, 50); // Enhanced Transactions: 50 credits
+
+        let txs: Vec<serde_json::Value> = resp
+            .json()
+            .await
+            .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
+
+        let mut total_bought = 0.0_f64;
+        let mut swap_count = 0_u32;
+
+        for tx in &txs {
+            let Some(transfers) = tx.get("tokenTransfers").and_then(|v| v.as_array()) else {
+                continue;
+            };
+
+            for transfer in transfers {
+                let mint = transfer.get("mint").and_then(|v| v.as_str()).unwrap_or("");
+                if mint != target_mint {
+                    continue;
+                }
+
+                let amount = transfer
+                    .get("tokenAmount")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                let to = transfer
+                    .get("toUserAccount")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                if to == wallet_owner {
+                    total_bought += amount;
+                }
+                swap_count += 1;
+            }
+        }
+
+        Ok((total_bought, swap_count))
+    }
+
+    /// Analyze top-N holders' SWAP behavior for a token.
+    /// Returns per-wallet classifications and K-Score composite.
+    /// Cost: ~N×51 credits (1 resolve + 50 enhanced transactions per wallet).
+    ///
+    /// Fix C2: retention = current_balance / total_bought (not (bought-sold)/bought).
+    /// current_balance comes from getTokenLargestAccounts (already fetched).
+    /// total_bought comes from Enhanced Transactions SWAP history.
+    // WHY: args are logically distinct (mint, holders, config, metrics) — grouping into
+    // a struct would add indirection without simplifying the single call site in enrich().
+    #[allow(clippy::too_many_arguments)]
+    pub async fn analyze_behaviors(
+        &self,
+        mint: &str,
+        holder_addresses: &[String],
+        holder_balances: &[f64],
+        config: &crate::infra::config::KScoreConfig,
+        holder_count: u64,
+        top10_pct: f64,
+        age_hours: u64,
+    ) -> (
+        Vec<crate::domain::enrichment::WalletBehavior>,
+        crate::domain::enrichment::KScore,
+    ) {
+        use crate::domain::enrichment::{HolderClass, KScore, WalletBehavior};
+
+        let n = holder_addresses.len().min(config.top_n_wallets);
+        let mut behaviors = Vec::with_capacity(n);
+
+        for (i, addr) in holder_addresses[..n].iter().enumerate() {
+            let current_balance = holder_balances.get(i).copied().unwrap_or(0.0);
+            if current_balance <= 0.0 {
+                continue;
+            }
+
+            // Resolve token account → wallet owner
+            let Some(owner) = self.resolve_owner(addr).await else {
+                continue;
+            };
+
+            // Fetch SWAP history for this wallet
+            let Ok((total_bought, swaps)) = self
+                .get_wallet_total_bought(&owner, mint, config.swap_history_limit)
+                .await
+            else {
+                continue;
+            };
+
+            // Fix C2: retention = current_balance / total_bought
+            // If total_bought is 0 (no SWAP history found), wallet may have received tokens
+            // via transfer, airdrop, etc. — classify as Holder (conservative).
+            let retention = if total_bought > 0.0 {
+                current_balance / total_bought
+            } else {
+                1.0 // No SWAP data = assume holding
+            };
+
+            let class = if retention >= config.accumulator_threshold {
+                HolderClass::Accumulator
+            } else if retention >= config.holder_threshold {
+                HolderClass::Holder
+            } else if retention >= config.reducer_threshold {
+                HolderClass::Reducer
+            } else {
+                HolderClass::Extractor
+            };
+
+            behaviors.push(WalletBehavior {
+                class,
+                retention_ratio: retention,
+                swap_count: swaps,
+            });
+        }
+
+        // Compute K-Score from behaviors
+        let total = behaviors.len() as f64;
+        if total == 0.0 {
+            return (behaviors, KScore::default());
+        }
+
+        let acc = behaviors
+            .iter()
+            .filter(|b| b.class == HolderClass::Accumulator)
+            .count() as f64;
+        let hld = behaviors
+            .iter()
+            .filter(|b| b.class == HolderClass::Holder)
+            .count() as f64;
+        let ext = behaviors
+            .iter()
+            .filter(|b| b.class == HolderClass::Extractor)
+            .count() as f64;
+        let red = behaviors
+            .iter()
+            .filter(|b| b.class == HolderClass::Reducer)
+            .count() as f64;
+
+        // DiamondHands = sqrt(conviction × retention_signal)
+        // conviction: fraction of analyzed wallets that are accumulating or holding
+        // retention_signal: tanh(acc/ext ratio / 2)
+        //   Fix C3 documentation: tanh maps [0,∞) → [0,1).
+        //   When acc >> ext: tanh → 1.0 (strong diamond hands signal).
+        //   When ext >> acc: tanh → 0.0 (everyone selling).
+        //   Division by 2 normalizes so 1:1 ratio → tanh(0.5) ≈ 0.46 (neutral).
+        let conviction = (acc + hld) / total;
+        let retention_signal = (acc / ext.max(1.0) / 2.0).tanh();
+        let diamond_hands = (conviction * retention_signal).sqrt();
+
+        // OrganicGrowth = sqrt(holder_norm × inv_concentration)
+        let holder_norm = 1.0 - 1.0 / (1.0 + (1.0 + holder_count as f64 / 100.0).ln());
+        let inv_concentration = (1.0 - top10_pct / 100.0).max(0.0);
+        let organic_growth = (holder_norm * inv_concentration).sqrt();
+
+        // Longevity = 1 - e^(-age_days/21)
+        let age_days = age_hours as f64 / 24.0;
+        let longevity = 1.0 - (-age_days / 21.0).exp();
+
+        // K = DH^w1 × OG^w2 × L^w3
+        let score = diamond_hands.powf(config.weight_diamond_hands)
+            * organic_growth.powf(config.weight_organic_growth)
+            * longevity.powf(config.weight_longevity);
+
+        let kscore = KScore {
+            score,
+            diamond_hands,
+            organic_growth,
+            longevity,
+            wallets_analyzed: total as u32,
+            accumulators: acc as u32,
+            holders: hld as u32,
+            reducers: red as u32,
+            extractors: ext as u32,
+        };
+
+        tracing::info!(
+            mint = %mint,
+            k_score = format!("{:.3}", kscore.score),
+            diamond_hands = format!("{:.3}", kscore.diamond_hands),
+            organic_growth = format!("{:.3}", kscore.organic_growth),
+            longevity = format!("{:.3}", kscore.longevity),
+            wallets = kscore.wallets_analyzed,
+            "K-Score computed"
+        );
+
+        (behaviors, kscore)
+    }
 }
 
 #[async_trait]
@@ -398,17 +697,28 @@ impl TokenEnricherPort for HeliusEnricher {
         };
 
         // Get concentration metrics from top-20 accounts, using real supply as denominator
-        let (holder_count, top1_pct, top10_pct, herfindahl) =
+        let (holder_count, top1_pct, top10_pct, herfindahl, holder_addresses, holder_balances) =
             if let Ok(Some(conc)) = self.get_largest_accounts(mint_address, real_supply).await {
                 (
                     conc.accounts_seen,
                     conc.top1_pct,
                     conc.top10_pct,
                     Some(conc.herfindahl),
+                    conc.holder_addresses,
+                    conc.holder_balances,
                 )
             } else {
-                (0, 0.0, 0.0, None)
+                (0, 0.0, 0.0, None, vec![], vec![])
             };
+
+        // Detect LP status from holder account owners (burn address = burned, locker = locked)
+        let lp_status = if !holder_addresses.is_empty() {
+            self.detect_lp_status(&holder_addresses).await
+        } else {
+            "unsecured".into()
+        };
+
+        let age_hours = self.get_token_age_hours(mint_address).await.unwrap_or(0);
 
         // Detect pump.fun origin from mint suffix
         let origin = if mint_address.ends_with("pump") {
@@ -423,6 +733,27 @@ impl TokenEnricherPort for HeliusEnricher {
             .await
             .unwrap_or(None);
 
+        // Behavioral analysis (K-Score) — top-N holder SWAP history
+        let (wallet_behaviors, kscore) = if !holder_addresses.is_empty() {
+            self.analyze_behaviors(
+                mint_address,
+                &holder_addresses,
+                &holder_balances,
+                &self.kscore_config,
+                holder_count,
+                top10_pct,
+                age_hours,
+            )
+            .await
+        } else {
+            (vec![], crate::domain::enrichment::KScore::default())
+        };
+        let kscore = if kscore.wallets_analyzed > 0 {
+            Some(kscore)
+        } else {
+            None
+        };
+
         Ok(Some(TokenData {
             mint: mint_address.to_string(),
             name,
@@ -431,19 +762,22 @@ impl TokenEnricherPort for HeliusEnricher {
             decimals,
             price_usd,
             holder_count,
+            holder_count_is_exact: holder_count < 20,
             top1_pct,
             top10_pct,
             herfindahl,
-            age_hours: self.get_token_age_hours(mint_address).await.unwrap_or(0),
+            age_hours,
             mint_authority_active,
             freeze_authority_active,
-            lp_status: "unsecured".into(), // TODO: check Raydium/Jupiter LP state
+            lp_status,
             supply_burned_pct: None,
             supply_locked_pct: None,
             origin,
             token_standard,
             description,
             created_at: None,
+            kscore,
+            wallet_behaviors,
         }))
     }
 }
@@ -501,6 +835,7 @@ struct RpcContext<T> {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LargestAccount {
+    address: String,
     ui_amount: Option<f64>,
 }
 
@@ -518,4 +853,8 @@ struct HolderConcentration {
     top1_pct: f64,
     top10_pct: f64,
     herfindahl: f64,
+    /// Token account addresses of top holders (for LP burn detection + behavioral).
+    holder_addresses: Vec<String>,
+    /// ui_amounts per holder (parallel to holder_addresses, for retention calculation).
+    holder_balances: Vec<f64>,
 }
