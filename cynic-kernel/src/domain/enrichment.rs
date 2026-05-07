@@ -52,6 +52,9 @@ pub struct TokenData {
     pub description: Option<String>,
     /// Creation date if available
     pub created_at: Option<String>,
+    /// True if holder/concentration data was available from RPC.
+    /// False = RPC degraded, holders/top1/top10/herfindahl are zero (not real).
+    pub holder_data_available: bool,
     /// K-Score behavioral composite (None if behavioral analysis unavailable).
     pub kscore: Option<KScore>,
     /// Per-wallet behavioral breakdown (top-N holders).
@@ -185,6 +188,7 @@ mod tests {
             decimals: Some(6),
             price_usd: Some(0.178),
             holder_count: 250_000,
+            holder_data_available: true,
             top1_pct: 12.5,
             top10_pct: 45.2,
             herfindahl: Some(0.08),

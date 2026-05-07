@@ -310,10 +310,10 @@ async fn pipeline_inner(
         && crate::domain::enrichment::looks_like_solana_address(&content)
     {
         if let Some(enricher) = deps.enricher {
-            // 60s: behavioral analysis does N×2 sequential HTTP calls per wallet.
-            // Enhanced Transactions API hangs 10s+ on wallets with no SWAP history.
+            // 30s: basic enrichment (getAsset+getLargest+getAge+LP) takes ~5-10s.
+            // Behavioral analysis has its own 20s timeout inside enrich().
             match tokio::time::timeout(
-                std::time::Duration::from_secs(60),
+                std::time::Duration::from_secs(30),
                 enricher.enrich(&content),
             )
             .await
@@ -343,7 +343,7 @@ async fn pipeline_inner(
                 Err(_) => {
                     tracing::warn!(
                         phase = "enrich",
-                        "enrichment timed out (60s) — using raw address"
+                        "enrichment timed out (30s) — using raw address"
                     );
                     content
                 }
@@ -476,7 +476,7 @@ async fn pipeline_inner(
         }
 
         // Side effects (store + usage tracking + CCM)
-        side_effects(&stimulus, &verdict, &stimulus_embedding, deps).await;
+        side_effects(&stimulus, &verdict, &stimulus_embedding, deps, false).await;
 
         return Ok(PipelineResult::Evaluated {
             verdict: Box::new(verdict),
@@ -603,7 +603,18 @@ async fn pipeline_inner(
     }
 
     // ── SIDE EFFECTS (all best-effort) ──
-    side_effects(&stimulus, &verdict, &stimulus_embedding, deps).await;
+    // Don't cache degraded enrichments — stale cache blocks fresh enrichment on retry
+    let enrichment_degraded = captured_token_data
+        .as_ref()
+        .is_some_and(|td| !td.holder_data_available);
+    side_effects(
+        &stimulus,
+        &verdict,
+        &stimulus_embedding,
+        deps,
+        enrichment_degraded,
+    )
+    .await;
 
     Ok(PipelineResult::Evaluated {
         verdict: Box::new(verdict),
@@ -619,6 +630,7 @@ async fn side_effects(
     verdict: &Verdict,
     stimulus_embedding: &Option<Embedding>,
     deps: &PipelineDeps<'_>,
+    enrichment_degraded: bool,
 ) {
     // Store verdict
     if let Err(e) = deps.storage.store_verdict(verdict).await {
@@ -734,9 +746,15 @@ async fn side_effects(
     // This completes the compound loop: observation → judge → verdict → observation
     post_verdict_observation(verdict, stimulus.domain.as_deref(), deps).await;
 
-    // Cache verdict embedding (clone verdict since cache takes ownership of embedding)
-    // T6: store with CacheContext from actual verdict (domain + Dogs that contributed)
-    if let Some(emb) = &stimulus_embedding {
+    // Cache verdict embedding — but NOT degraded enrichments (holder data unavailable).
+    // A degraded verdict cached at similarity 0.999 blocks fresh enrichment on retry.
+    if enrichment_degraded {
+        tracing::info!(
+            phase = "cache",
+            "skipping cache store — enrichment was degraded"
+        );
+    }
+    if !enrichment_degraded && let Some(emb) = &stimulus_embedding {
         let cache_emb = Embedding {
             vector: emb.vector.clone(),
             dimensions: emb.dimensions,
