@@ -8,6 +8,9 @@ publish = false
 name = "cynic-node"
 path = "src/main.rs"
 
+[features]
+mcp = ["dep:cynic-mcp", "dep:rmcp"]
+
 [dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "signal"] }
 tokio-util = "0.7"
@@ -19,6 +22,8 @@ toml = "0.8"
 clap = { version = "4", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+cynic-mcp = { path = "../cynic-mcp", optional = true }
+rmcp = { version = "1.2", features = ["server", "transport-io"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

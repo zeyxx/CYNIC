@@ -25,6 +25,10 @@ struct Cli {
     /// Path to node config file
     #[arg(short, long)]
     config: String,
+
+    /// Also serve MCP proxy on stdio (requires --features mcp)
+    #[arg(long)]
+    mcp: bool,
 }
 
 // ── ExitReason ────────────────────────────────────────────────────────────────
@@ -517,6 +521,44 @@ async fn main() -> ExitCode {
 
     let shutdown = CancellationToken::new();
     install_signal_handler(shutdown.clone());
+
+    // ── Optional MCP proxy (--mcp flag, requires `mcp` feature) ──
+    #[cfg(feature = "mcp")]
+    if cli.mcp {
+        let rest_addr = cfg.kernel.url.clone();
+        let api_key = cfg.kernel.api_key.clone();
+        let project_root = std::env::current_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .display()
+            .to_string();
+
+        tracing::info!("MCP proxy enabled — serving on stdio alongside supervision");
+
+        let proxy = cynic_mcp::proxy::CynicMcpProxy::new(rest_addr, api_key, project_root);
+        let sd = shutdown.clone();
+
+        tokio::spawn(async move {
+            use rmcp::ServiceExt;
+            let transport = rmcp::transport::io::stdio();
+            match proxy.serve(transport).await {
+                Ok(server) => {
+                    tokio::select! {
+                        _ = server.waiting() => {}
+                        _ = sd.cancelled() => {
+                            tracing::info!("MCP proxy shutting down");
+                        }
+                    }
+                }
+                Err(e) => tracing::error!("MCP proxy failed to start: {e}"),
+            }
+        });
+    }
+
+    #[cfg(not(feature = "mcp"))]
+    if cli.mcp {
+        tracing::error!("--mcp requires building with --features mcp");
+        return ExitCode::FAILURE;
+    }
 
     run_node(&client, &cfg, &shutdown).await
 }
