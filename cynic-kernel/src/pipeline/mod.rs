@@ -310,8 +310,10 @@ async fn pipeline_inner(
         && crate::domain::enrichment::looks_like_solana_address(&content)
     {
         if let Some(enricher) = deps.enricher {
+            // 60s budget: getAsset + getLargestAccounts + getSignatures + LP detection (5 calls)
+            // + behavioral analysis (N×2 calls). Enhanced Transactions API hangs 10s on empty wallets.
             match tokio::time::timeout(
-                std::time::Duration::from_secs(12),
+                std::time::Duration::from_secs(60),
                 enricher.enrich(&content),
             )
             .await
@@ -324,6 +326,7 @@ async fn pipeline_inner(
                         name = ?token_data.name,
                         symbol = ?token_data.symbol,
                         holders = ?token_data.holder_count,
+                        kscore = ?token_data.kscore.as_ref().map(|k| format!("{:.3}", k.score)),
                         "token enriched via Helius"
                     );
                     captured_token_data = Some(token_data);
@@ -340,7 +343,7 @@ async fn pipeline_inner(
                 Err(_) => {
                     tracing::warn!(
                         phase = "enrich",
-                        "enrichment timed out (12s) — using raw address"
+                        "enrichment timed out (60s) — using raw address"
                     );
                     content
                 }

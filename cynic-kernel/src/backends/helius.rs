@@ -10,6 +10,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 const HELIUS_TIMEOUT: Duration = Duration::from_secs(10);
+/// Shorter timeout for Enhanced Transactions API — hangs for 10s+ on wallets with no SWAP history.
+const HELIUS_BEHAVIORAL_TIMEOUT: Duration = Duration::from_secs(4);
 
 #[derive(Debug)]
 pub struct HeliusEnricher {
@@ -446,9 +448,11 @@ impl HeliusEnricher {
             "https://api.helius.xyz/v0/addresses/{wallet_owner}/transactions?api-key={api_key}&limit={limit}&type=SWAP"
         );
 
+        // Use shorter timeout — Enhanced Transactions API hangs 10s+ on wallets with no SWAP history
         let resp = self
             .client
             .get(&url)
+            .timeout(HELIUS_BEHAVIORAL_TIMEOUT)
             .send()
             .await
             .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;

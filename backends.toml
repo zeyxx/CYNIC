@@ -137,5 +137,5 @@ accumulator_threshold = 1.5     # >= 1.5x initial buy = actively accumulating
 holder_threshold = 1.0          # >= 1.0x = holding all purchased
 reducer_threshold = 0.5         # >= 0.5x = sold some but still in
 # extractor = below reducer_threshold (sold most/all)
-top_n_wallets = 10              # How many top holders to analyze (10 × ~51 credits = ~510 credits)
+top_n_wallets = 5               # How many top holders to analyze (5 × ~51 credits = ~255 credits)
 swap_history_limit = 100        # Max SWAP transactions to fetch per wallet
