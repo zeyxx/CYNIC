@@ -3,6 +3,8 @@ use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[tokio::main]
+#[allow(clippy::print_stderr)]
+// WHY: MCP binary must write to stderr for --version/--help; stdout is the JSON-RPC channel.
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::args().any(|a| a == "--version") {
         eprintln!("cynic-mcp {}", env!("CYNIC_VERSION"));
