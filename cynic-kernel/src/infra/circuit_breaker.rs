@@ -2,17 +2,19 @@
 //! Tracks failures, opens circuit after threshold, auto-recovers via probe.
 //!
 //! States: Closed (healthy) → Open (skip) → HalfOpen (one probe) → Closed
-//! Thresholds are φ-derived: open after 3 consecutive failures,
-//! cooldown = 30 seconds before half-open probe.
+//! Thresholds are data-derived from backends.toml: open after N consecutive failures,
+//! cooldown = M seconds before half-open probe. Configuration-driven, not hardcoded.
 
 use crate::domain::health_gate::FailureReason;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-/// φ-derived: 3 consecutive failures before opening (Fibonacci F(4))
-pub const FAILURE_THRESHOLD: u32 = 3;
-/// Cooldown before half-open probe attempt
-pub const COOLDOWN: Duration = Duration::from_secs(30);
+/// Default: 10 consecutive failures before opening (data-derived, not φ).
+/// Can be overridden via CircuitBreaker::with_thresholds().
+pub const DEFAULT_FAILURE_THRESHOLD: u32 = 10;
+/// Default: 300 seconds (5 min) cooldown before half-open probe.
+/// Can be overridden via CircuitBreaker::with_thresholds().
+pub const DEFAULT_COOLDOWN_SECS: u64 = 300;
 /// How often to re-probe healthy backends
 pub const PROBE_INTERVAL: Duration = Duration::from_secs(30);
 
@@ -38,6 +40,8 @@ struct Inner {
 pub struct CircuitBreaker {
     inner: Mutex<Inner>,
     dog_id: String,
+    failure_threshold: u32,
+    cooldown: Duration,
 }
 
 impl CircuitBreaker {
@@ -49,7 +53,16 @@ impl CircuitBreaker {
                 last_failure_reason: None,
             }),
             dog_id,
+            failure_threshold: DEFAULT_FAILURE_THRESHOLD,
+            cooldown: Duration::from_secs(DEFAULT_COOLDOWN_SECS),
         }
+    }
+
+    /// Override default thresholds with data-derived values from backends.toml.
+    pub fn with_thresholds(mut self, failure_threshold: u32, cooldown_secs: u64) -> Self {
+        self.failure_threshold = failure_threshold;
+        self.cooldown = Duration::from_secs(cooldown_secs);
+        self
     }
 
     /// Should we allow a request through?
@@ -58,9 +71,9 @@ impl CircuitBreaker {
         match inner.state {
             CircuitState::Closed => true,
             CircuitState::Open { since } => {
-                if since.elapsed() >= COOLDOWN {
+                if since.elapsed() >= self.cooldown {
                     inner.state = CircuitState::HalfOpen;
-                    tracing::info!(dog_id = %self.dog_id, transition = "Open → HalfOpen", "circuit breaker probing");
+                    tracing::info!(dog_id = %self.dog_id, transition = "Open → HalfOpen", cooldown_secs = self.cooldown.as_secs(), "circuit breaker probing");
                     true // allow one probe
                 } else {
                     false // still cooling down
@@ -86,11 +99,13 @@ impl CircuitBreaker {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.consecutive_failures += 1;
         inner.last_failure_reason = Some(reason);
-        if inner.consecutive_failures >= FAILURE_THRESHOLD && inner.state == CircuitState::Closed {
+        if inner.consecutive_failures >= self.failure_threshold
+            && inner.state == CircuitState::Closed
+        {
             inner.state = CircuitState::Open {
                 since: Instant::now(),
             };
-            tracing::warn!(dog_id = %self.dog_id, failures = inner.consecutive_failures, reason = %reason, "circuit breaker OPENED");
+            tracing::warn!(dog_id = %self.dog_id, failures = inner.consecutive_failures, threshold = self.failure_threshold, reason = %reason, "circuit breaker OPENED");
         } else if matches!(inner.state, CircuitState::HalfOpen) {
             inner.state = CircuitState::Open {
                 since: Instant::now(),

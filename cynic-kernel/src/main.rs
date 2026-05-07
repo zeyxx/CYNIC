@@ -206,6 +206,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         expected_dogs
     );
 
+    // Load Dog thresholds and error detection patterns from backends.toml.
+    // These drive circuit breaker behavior, error classification, and monitoring alerts.
+    let dog_thresholds = Arc::new(infra::config::load_dog_thresholds(&backends_path));
+    klog!(
+        "[Ring 2] Dog thresholds: circuit open={} failure_threshold={} error patterns: quota({}) transient({}) critical({})",
+        dog_thresholds.circuit.open_duration_secs,
+        dog_thresholds.circuit.open_on_consecutive_failures,
+        dog_thresholds.error_detection.quota_patterns.len(),
+        dog_thresholds.error_detection.transient_patterns.len(),
+        dog_thresholds.error_detection.critical_patterns.len()
+    );
+
     // Validate config — probe health URLs, log warnings.
     // Spawned as background task (not awaited) so boot isn't delayed by network.
     // Health loop will catch any unhealthy backends within ~60s.
@@ -302,9 +314,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = dogs
         .iter()
         .map(|d| {
-            Arc::new(infra::circuit_breaker::CircuitBreaker::new(
-                d.id().to_string(),
-            )) as Arc<dyn domain::health_gate::HealthGate>
+            let dog_name = d.id().to_string();
+            let mut breaker = infra::circuit_breaker::CircuitBreaker::new(dog_name.clone());
+
+            // Apply data-driven thresholds from backends.toml if configured for this Dog
+            if let Some(threshold_cfg) = dog_thresholds.dogs.get(&dog_name) {
+                if !threshold_cfg.enabled {
+                    tracing::info!(dog = %dog_name, "Dog disabled in backends.toml");
+                }
+                breaker = breaker.with_thresholds(
+                    dog_thresholds.circuit.open_on_consecutive_failures,
+                    dog_thresholds.circuit.open_duration_secs,
+                );
+            } else {
+                // Use global defaults from backends.toml
+                breaker = breaker.with_thresholds(
+                    dog_thresholds.circuit.open_on_consecutive_failures,
+                    dog_thresholds.circuit.open_duration_secs,
+                );
+            }
+
+            Arc::new(breaker) as Arc<dyn domain::health_gate::HealthGate>
         })
         .collect();
     // Daily budgets from backends.toml: restrict quota-constrained Dogs

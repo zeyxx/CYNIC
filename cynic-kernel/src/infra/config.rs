@@ -113,6 +113,164 @@ pub struct BackendConfig {
     pub daily_budget: u32,
 }
 
+// ── DOG THRESHOLDS (from backends.toml [defaults], [dog.*], [error_detection], etc.) ──
+
+/// Global default thresholds for all Dogs — can be overridden per-dog.
+#[derive(Debug, Clone)]
+pub struct DogDefaults {
+    pub failure_rate_threshold: f64,
+    pub api_error_threshold: u32,
+    pub transient_error_max: u32,
+    pub quota_grace_period_secs: u64,
+    pub evaluation_timeout_secs: u64,
+}
+
+impl Default for DogDefaults {
+    fn default() -> Self {
+        Self {
+            failure_rate_threshold: 0.15,
+            api_error_threshold: 300,
+            transient_error_max: 5,
+            quota_grace_period_secs: 600,
+            evaluation_timeout_secs: 30,
+        }
+    }
+}
+
+/// Per-Dog threshold overrides. Empty = use DogDefaults.
+#[derive(Debug, Clone)]
+pub struct DogThreshold {
+    pub dog_name: String,
+    pub kind: String, // "heuristic" or "inference"
+    pub enabled: bool,
+    pub failure_rate_threshold: Option<f64>,
+    pub collapse_threshold: Option<u32>,
+    pub api_error_threshold: Option<u32>,
+    pub evaluation_timeout_secs: Option<u64>,
+    pub priority: Option<String>, // "backup" or "primary" (default)
+    pub quota_status: Option<String>,
+    pub quota_pattern: Option<String>,
+    pub skip_reason: Option<String>,
+    pub skip_until: Option<String>,
+}
+
+/// Error pattern matching — classifies errors into quota/transient/critical.
+#[derive(Debug, Clone)]
+pub struct ErrorDetection {
+    pub quota_patterns: Vec<String>,
+    pub transient_patterns: Vec<String>,
+    pub critical_patterns: Vec<String>,
+}
+
+impl Default for ErrorDetection {
+    fn default() -> Self {
+        Self {
+            quota_patterns: vec![
+                "TerminalQuotaError".to_string(),
+                "You have exhausted your capacity".to_string(),
+                "Rate limit exceeded".to_string(),
+                "Quota".to_string(),
+            ],
+            transient_patterns: vec![
+                "Timeout".to_string(),
+                "temporarily unavailable".to_string(),
+                "temporarily_unavailable".to_string(),
+            ],
+            critical_patterns: vec![
+                "command not found".to_string(),
+                "exit 1".to_string(),
+                "permission denied".to_string(),
+            ],
+        }
+    }
+}
+
+/// Verdict quorum settings — used by judge to determine confidence.
+#[derive(Debug, Clone)]
+pub struct VerdictSettings {
+    pub min_voters: u32,
+    pub min_confident_voters: u32,
+    pub contested_threshold: f64,
+}
+
+impl Default for VerdictSettings {
+    fn default() -> Self {
+        Self {
+            min_voters: 2,
+            min_confident_voters: 2,
+            contested_threshold: 0.618,
+        }
+    }
+}
+
+/// Circuit breaker behavior configuration.
+#[derive(Debug, Clone)]
+pub struct CircuitBreakerConfig {
+    pub open_on_consecutive_failures: u32,
+    pub open_on_failure_rate: bool,
+    pub open_duration_secs: u64,
+    pub half_open_eval_budget: u32,
+    pub failure_rate_recovery_window_secs: u64,
+}
+
+impl Default for CircuitBreakerConfig {
+    fn default() -> Self {
+        Self {
+            open_on_consecutive_failures: 10,
+            open_on_failure_rate: true,
+            open_duration_secs: 300,
+            half_open_eval_budget: 2,
+            failure_rate_recovery_window_secs: 3600,
+        }
+    }
+}
+
+/// Monitoring configuration.
+#[derive(Debug, Clone)]
+pub struct MonitoringConfig {
+    pub failure_rate_check_interval_secs: u64,
+    pub alert_threshold_critical: f64,
+    pub alert_threshold_warning: f64,
+    pub quota_exhaustion_alert: bool,
+    pub circuit_breaker_alert: bool,
+}
+
+impl Default for MonitoringConfig {
+    fn default() -> Self {
+        Self {
+            failure_rate_check_interval_secs: 300,
+            alert_threshold_critical: 0.70,
+            alert_threshold_warning: 0.40,
+            quota_exhaustion_alert: true,
+            circuit_breaker_alert: true,
+        }
+    }
+}
+
+/// Complete Dog thresholds configuration — loaded from backends.toml.
+#[derive(Debug, Clone)]
+pub struct DogThresholds {
+    pub defaults: DogDefaults,
+    pub dogs: std::collections::HashMap<String, DogThreshold>,
+    pub error_detection: ErrorDetection,
+    pub verdict: VerdictSettings,
+    pub circuit: CircuitBreakerConfig,
+    pub monitoring: MonitoringConfig,
+}
+
+impl Default for DogThresholds {
+    fn default() -> Self {
+        Self {
+            defaults: DogDefaults::default(),
+            dogs: std::collections::HashMap::new(),
+            error_detection: ErrorDetection::default(),
+            verdict: VerdictSettings::default(),
+            circuit: CircuitBreakerConfig::default(),
+            monitoring: MonitoringConfig::default(),
+        }
+    }
+}
+
 /// Remediation config for a backend — how to restart it when the circuit breaker opens.
 #[derive(Debug, Clone)]
 pub struct BackendRemediation {
@@ -147,6 +305,68 @@ pub enum AuthStyle {
 struct BackendsFile {
     backend: std::collections::HashMap<String, BackendEntry>,
     storage: Option<StorageEntry>,
+    defaults: Option<DefaultsEntry>,
+    dog: Option<std::collections::HashMap<String, DogEntry>>,
+    error_detection: Option<ErrorDetectionEntry>,
+    verdict: Option<VerdictEntry>,
+    circuit: Option<CircuitEntry>,
+    monitoring: Option<MonitoringEntry>,
+}
+
+#[derive(Deserialize)]
+struct DefaultsEntry {
+    failure_rate_threshold: Option<f64>,
+    api_error_threshold: Option<u32>,
+    transient_error_max: Option<u32>,
+    quota_grace_period_secs: Option<u64>,
+    evaluation_timeout_secs: Option<u64>,
+}
+
+#[derive(Deserialize)]
+struct DogEntry {
+    kind: Option<String>,
+    enabled: Option<bool>,
+    failure_rate_threshold: Option<f64>,
+    collapse_threshold: Option<u32>,
+    api_error_threshold: Option<u32>,
+    evaluation_timeout_secs: Option<u64>,
+    priority: Option<String>,
+    quota_status: Option<String>,
+    quota_pattern: Option<String>,
+    skip_reason: Option<String>,
+    skip_until: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ErrorDetectionEntry {
+    quota_patterns: Option<Vec<String>>,
+    transient_patterns: Option<Vec<String>>,
+    critical_patterns: Option<Vec<String>>,
+}
+
+#[derive(Deserialize)]
+struct VerdictEntry {
+    min_voters: Option<u32>,
+    min_confident_voters: Option<u32>,
+    contested_threshold: Option<f64>,
+}
+
+#[derive(Deserialize)]
+struct CircuitEntry {
+    open_on_consecutive_failures: Option<u32>,
+    open_on_failure_rate: Option<bool>,
+    open_duration_secs: Option<u64>,
+    half_open_eval_budget: Option<u32>,
+    failure_rate_recovery_window_secs: Option<u64>,
+}
+
+#[derive(Deserialize)]
+struct MonitoringEntry {
+    failure_rate_check_interval_secs: Option<u64>,
+    alert_threshold_critical: Option<f64>,
+    alert_threshold_warning: Option<f64>,
+    quota_exhaustion_alert: Option<bool>,
+    circuit_breaker_alert: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -389,6 +609,142 @@ pub fn load_system_contract(path: &Path) -> crate::domain::contract::SystemContr
 
     let storage_required = true; // SurrealDB is required for CYNIC to function
     crate::domain::contract::SystemContract::new(expected_dogs, storage_required)
+}
+
+/// Load Dog thresholds and error detection config from backends.toml.
+/// Returns DogThresholds with all configured settings — defaults can be overridden per-dog.
+pub fn load_dog_thresholds(path: &Path) -> DogThresholds {
+    let mut result = DogThresholds::default();
+
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!(path = %path.display(), error = %e, "cannot read dog thresholds from backends.toml");
+            return result;
+        }
+    };
+
+    let file: BackendsFile = match toml::from_str(&content) {
+        Ok(f) => f,
+        Err(e) => {
+            tracing::warn!(path = %path.display(), error = %e, "invalid TOML in dog thresholds");
+            return result;
+        }
+    };
+
+    // Load defaults
+    if let Some(defaults_entry) = file.defaults {
+        if let Some(v) = defaults_entry.failure_rate_threshold {
+            result.defaults.failure_rate_threshold = v;
+        }
+        if let Some(v) = defaults_entry.api_error_threshold {
+            result.defaults.api_error_threshold = v;
+        }
+        if let Some(v) = defaults_entry.transient_error_max {
+            result.defaults.transient_error_max = v;
+        }
+        if let Some(v) = defaults_entry.quota_grace_period_secs {
+            result.defaults.quota_grace_period_secs = v;
+        }
+        if let Some(v) = defaults_entry.evaluation_timeout_secs {
+            result.defaults.evaluation_timeout_secs = v;
+        }
+    }
+
+    // Load per-dog overrides
+    if let Some(dogs_entries) = file.dog {
+        for (dog_name, entry) in dogs_entries {
+            let threshold = DogThreshold {
+                dog_name: dog_name.clone(),
+                kind: entry.kind.unwrap_or_else(|| "inference".to_string()),
+                enabled: entry.enabled.unwrap_or(true),
+                failure_rate_threshold: entry.failure_rate_threshold,
+                collapse_threshold: entry.collapse_threshold,
+                api_error_threshold: entry.api_error_threshold,
+                evaluation_timeout_secs: entry.evaluation_timeout_secs,
+                priority: entry.priority,
+                quota_status: entry.quota_status,
+                quota_pattern: entry.quota_pattern,
+                skip_reason: entry.skip_reason,
+                skip_until: entry.skip_until,
+            };
+            result.dogs.insert(dog_name, threshold);
+        }
+    }
+
+    // Load error detection patterns
+    if let Some(error_entry) = file.error_detection {
+        if let Some(patterns) = error_entry.quota_patterns {
+            result.error_detection.quota_patterns = patterns;
+        }
+        if let Some(patterns) = error_entry.transient_patterns {
+            result.error_detection.transient_patterns = patterns;
+        }
+        if let Some(patterns) = error_entry.critical_patterns {
+            result.error_detection.critical_patterns = patterns;
+        }
+    }
+
+    // Load verdict settings
+    if let Some(verdict_entry) = file.verdict {
+        if let Some(v) = verdict_entry.min_voters {
+            result.verdict.min_voters = v;
+        }
+        if let Some(v) = verdict_entry.min_confident_voters {
+            result.verdict.min_confident_voters = v;
+        }
+        if let Some(v) = verdict_entry.contested_threshold {
+            result.verdict.contested_threshold = v;
+        }
+    }
+
+    // Load circuit breaker config
+    if let Some(circuit_entry) = file.circuit {
+        if let Some(v) = circuit_entry.open_on_consecutive_failures {
+            result.circuit.open_on_consecutive_failures = v;
+        }
+        if let Some(v) = circuit_entry.open_on_failure_rate {
+            result.circuit.open_on_failure_rate = v;
+        }
+        if let Some(v) = circuit_entry.open_duration_secs {
+            result.circuit.open_duration_secs = v;
+        }
+        if let Some(v) = circuit_entry.half_open_eval_budget {
+            result.circuit.half_open_eval_budget = v;
+        }
+        if let Some(v) = circuit_entry.failure_rate_recovery_window_secs {
+            result.circuit.failure_rate_recovery_window_secs = v;
+        }
+    }
+
+    // Load monitoring config
+    if let Some(monitoring_entry) = file.monitoring {
+        if let Some(v) = monitoring_entry.failure_rate_check_interval_secs {
+            result.monitoring.failure_rate_check_interval_secs = v;
+        }
+        if let Some(v) = monitoring_entry.alert_threshold_critical {
+            result.monitoring.alert_threshold_critical = v;
+        }
+        if let Some(v) = monitoring_entry.alert_threshold_warning {
+            result.monitoring.alert_threshold_warning = v;
+        }
+        if let Some(v) = monitoring_entry.quota_exhaustion_alert {
+            result.monitoring.quota_exhaustion_alert = v;
+        }
+        if let Some(v) = monitoring_entry.circuit_breaker_alert {
+            result.monitoring.circuit_breaker_alert = v;
+        }
+    }
+
+    klog!(
+        "[config] Dog thresholds loaded: {} dogs configured, error patterns: quota({}) transient({}) critical({})",
+        result.dogs.len(),
+        result.error_detection.quota_patterns.len(),
+        result.error_detection.transient_patterns.len(),
+        result.error_detection.critical_patterns.len()
+    );
+
+    result
 }
 
 /// Fallback: build configs from legacy env vars (backward compat).
