@@ -55,6 +55,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Forward all tool calls to the running REST kernel via HTTP.
     // This is the monolith fix: MCP clients get zero local state.
     if mcp_mode {
+        tracing::warn!(
+            "DEPRECATED: --mcp flag will be removed. Use the standalone cynic-mcp binary instead."
+        );
         use rmcp::ServiceExt;
 
         let raw_addr =

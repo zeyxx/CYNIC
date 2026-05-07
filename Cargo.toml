@@ -3,6 +3,7 @@ members = [
     "cynic-kernel",
     "cynic-node",
     "cynic-askesis",
+    "cynic-mcp",
 ]
 resolver = "2"
 
