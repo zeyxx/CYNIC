@@ -737,19 +737,27 @@ impl TokenEnricherPort for HeliusEnricher {
         };
 
         // Get concentration metrics from top-20 accounts, using real supply as denominator
-        let (holder_count, top1_pct, top10_pct, herfindahl, holder_addresses, holder_balances) =
-            if let Ok(Some(conc)) = self.get_largest_accounts(mint_address, real_supply).await {
-                (
-                    conc.accounts_seen,
-                    conc.top1_pct,
-                    conc.top10_pct,
-                    Some(conc.herfindahl),
-                    conc.holder_addresses,
-                    conc.holder_balances,
-                )
-            } else {
-                (0, 0.0, 0.0, None, vec![], vec![])
-            };
+        let (
+            holder_count,
+            top1_pct,
+            top10_pct,
+            herfindahl,
+            holder_addresses,
+            holder_balances,
+            holder_data_available,
+        ) = if let Ok(Some(conc)) = self.get_largest_accounts(mint_address, real_supply).await {
+            (
+                conc.accounts_seen,
+                conc.top1_pct,
+                conc.top10_pct,
+                Some(conc.herfindahl),
+                conc.holder_addresses,
+                conc.holder_balances,
+                true,
+            )
+        } else {
+            (0, 0.0, 0.0, None, vec![], vec![], false)
+        };
 
         // Detect LP status from holder account owners (burn address = burned, locker = locked)
         let lp_status = if !holder_addresses.is_empty() {
@@ -773,18 +781,33 @@ impl TokenEnricherPort for HeliusEnricher {
             .await
             .unwrap_or(None);
 
-        // Behavioral analysis (K-Score) — top-N holder SWAP history
+        // Behavioral analysis (K-Score) — own timeout so basic enrichment isn't blocked.
+        // 20s budget: N wallets × (resolve 1s + SWAP 4s) at ~5s/wallet × 5 wallets.
+        // If timeout: return enriched data WITHOUT K-Score (deterministic dog still scores).
         let (wallet_behaviors, kscore) = if !holder_addresses.is_empty() {
-            self.analyze_behaviors(
-                mint_address,
-                &holder_addresses,
-                &holder_balances,
-                &self.kscore_config,
-                holder_count,
-                top10_pct,
-                age_hours,
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(20),
+                self.analyze_behaviors(
+                    mint_address,
+                    &holder_addresses,
+                    &holder_balances,
+                    &self.kscore_config,
+                    holder_count,
+                    top10_pct,
+                    age_hours,
+                ),
             )
             .await
+            {
+                Ok(result) => result,
+                Err(_) => {
+                    tracing::warn!(
+                        mint = %mint_address,
+                        "behavioral analysis timed out (20s) — returning enrichment without K-Score"
+                    );
+                    (vec![], crate::domain::enrichment::KScore::default())
+                }
+            }
         } else {
             (vec![], crate::domain::enrichment::KScore::default())
         };
@@ -803,6 +826,7 @@ impl TokenEnricherPort for HeliusEnricher {
             price_usd,
             holder_count,
             holder_count_is_exact: holder_count < 20,
+            holder_data_available,
             top1_pct,
             top10_pct,
             herfindahl,

@@ -11,6 +11,7 @@ use super::{ADJUST_MEDIUM, ADJUST_SMALL, PHI_BASE, SOVEREIGNTY_BASE};
 /// Parsed metrics from a token-analysis stimulus.
 #[derive(Debug)]
 pub(super) struct TokenMetrics {
+    holder_data_available: bool,
     holders: u64,
     top1_pct: f64,
     top10_pct: f64,
@@ -47,6 +48,7 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
     let section = &content[metrics_start..metrics_end];
 
     let mut m = TokenMetrics {
+        holder_data_available: true,
         holders: 0,
         top1_pct: 0.0,
         top10_pct: 0.0,
@@ -68,7 +70,11 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
     for line in section.lines() {
         let line = line.trim();
         if let Some(v) = line.strip_prefix("holders: ") {
-            m.holders = v.parse().unwrap_or(0);
+            if v.starts_with("UNAVAILABLE") {
+                m.holder_data_available = false;
+            } else {
+                m.holders = v.parse().unwrap_or(0);
+            }
         } else if let Some(v) = line.strip_prefix("top_1_wallet_pct: ") {
             m.top1_pct = v.trim_end_matches('%').parse().unwrap_or(0.0);
         } else if let Some(v) = line.strip_prefix("top_10_wallets_pct: ") {
@@ -195,25 +201,28 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     // ── PHI: Structural harmony of holder distribution ──
     // Falsify: exchange cold wallet inflates top1% without real concentration.
     let mut phi: f64 = PHI_BASE;
-    if let Some(h) = m.herfindahl {
-        if h < 0.15 {
-            phi += ADJUST_MEDIUM;
-        } else if h > 0.50 {
+    if m.holder_data_available {
+        if let Some(h) = m.herfindahl {
+            if h < 0.15 {
+                phi += ADJUST_MEDIUM;
+            } else if h > 0.50 {
+                phi -= ADJUST_MEDIUM;
+            }
+        }
+        if m.top1_pct < 15.0 {
+            phi += ADJUST_SMALL;
+        } else if m.top1_pct > 50.0 {
             phi -= ADJUST_MEDIUM;
         }
+        if m.holders > 1000 {
+            phi += ADJUST_MEDIUM;
+        } else if m.holders > 100 {
+            phi += ADJUST_SMALL;
+        } else if m.holders < 20 {
+            phi -= ADJUST_SMALL;
+        }
     }
-    if m.top1_pct < 15.0 {
-        phi += ADJUST_SMALL;
-    } else if m.top1_pct > 50.0 {
-        phi -= ADJUST_MEDIUM;
-    }
-    if m.holders > 1000 {
-        phi += ADJUST_MEDIUM;
-    } else if m.holders > 100 {
-        phi += ADJUST_SMALL;
-    } else if m.holders < 20 {
-        phi -= ADJUST_SMALL;
-    }
+    // else: holder data unavailable — PHI stays at neutral base
     // K-Score: organic growth reflects distribution quality beyond static HHI
     if let Some(ks) = m.k_score {
         if ks > 0.5 {
@@ -339,26 +348,29 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     // ── SOVEREIGNTY: Distributed control, holder freedom ──
     // Falsify: legitimate DAO with top1% held by treasury multisig.
     let mut sovereignty: f64 = SOVEREIGNTY_BASE;
-    if m.top1_pct < 15.0 {
-        sovereignty += ADJUST_MEDIUM; // distributed control
-    } else if m.top1_pct > 50.0 {
-        sovereignty -= ADJUST_MEDIUM; // concentrated control
+    if m.holder_data_available {
+        if m.top1_pct < 15.0 {
+            sovereignty += ADJUST_MEDIUM;
+        } else if m.top1_pct > 50.0 {
+            sovereignty -= ADJUST_MEDIUM;
+        }
+        if m.holders > 100 {
+            sovereignty += ADJUST_SMALL;
+        }
+        if let Some(h) = m.herfindahl {
+            if h < 0.15 {
+                sovereignty += ADJUST_SMALL;
+            } else if h > 0.50 {
+                sovereignty -= ADJUST_SMALL;
+            }
+        }
     }
+    // Authority checks always apply (from getAsset, not holder data)
     if m.freeze_authority_active {
-        sovereignty -= ADJUST_MEDIUM; // can restrict freedom
+        sovereignty -= ADJUST_MEDIUM;
     }
     if m.mint_authority_active {
-        sovereignty -= ADJUST_SMALL; // can dilute holdings
-    }
-    if m.holders > 100 {
-        sovereignty += ADJUST_SMALL;
-    }
-    if let Some(h) = m.herfindahl {
-        if h < 0.15 {
-            sovereignty += ADJUST_SMALL;
-        } else if h > 0.50 {
-            sovereignty -= ADJUST_SMALL;
-        }
+        sovereignty -= ADJUST_SMALL;
     }
     // K-Score: extractor dominance = centralized exit
     if m.k_wallets_analyzed > 0 && m.k_extractors > m.k_accumulators {

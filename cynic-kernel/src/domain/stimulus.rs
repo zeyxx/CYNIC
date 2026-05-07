@@ -40,19 +40,23 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
     if let Some(ref symbol) = data.symbol {
         s.push_str(&format!("symbol: {symbol}\n"));
     }
-    s.push_str(&format!("holders: {}\n", data.holder_count));
-    s.push_str(&format!(
-        "holder_count_type: {}\n",
-        if data.holder_count_is_exact {
-            "exact"
-        } else {
-            "lower_bound (likely more exist)"
+    if data.holder_data_available {
+        s.push_str(&format!("holders: {}\n", data.holder_count));
+        s.push_str(&format!(
+            "holder_count_type: {}\n",
+            if data.holder_count_is_exact {
+                "exact"
+            } else {
+                "lower_bound (likely more exist)"
+            }
+        ));
+        s.push_str(&format!("top_1_wallet_pct: {:.2}%\n", data.top1_pct));
+        s.push_str(&format!("top_10_wallets_pct: {:.2}%\n", data.top10_pct));
+        if let Some(hhi) = data.herfindahl {
+            s.push_str(&format!("herfindahl_index: {hhi:.3}\n"));
         }
-    ));
-    s.push_str(&format!("top_1_wallet_pct: {:.2}%\n", data.top1_pct));
-    s.push_str(&format!("top_10_wallets_pct: {:.2}%\n", data.top10_pct));
-    if let Some(hhi) = data.herfindahl {
-        s.push_str(&format!("herfindahl_index: {hhi:.3}\n"));
+    } else {
+        s.push_str("holders: UNAVAILABLE (RPC degraded — concentration metrics omitted)\n");
     }
     s.push_str(&format!("age_hours: {}\n", data.age_hours));
     s.push_str(&format!(
@@ -334,6 +338,7 @@ mod tests {
             decimals: None,
             price_usd: None,
             holder_count: 20,
+            holder_data_available: true,
             top1_pct: 94.0,
             top10_pct: 99.0,
             herfindahl: Some(0.88),
@@ -431,6 +436,7 @@ mod tests {
             decimals: None,
             price_usd: None,
             holder_count: 3,
+            holder_data_available: true,
             top1_pct: 99.0,
             top10_pct: 100.0,
             herfindahl: Some(0.98),
