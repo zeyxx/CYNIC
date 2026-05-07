@@ -73,7 +73,13 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
             if v.starts_with("UNAVAILABLE") {
                 m.holder_data_available = false;
             } else {
-                m.holders = v.parse().unwrap_or(0);
+                // Parse "20" or "20+" or "20+ (top accounts...)" — strip non-digit suffix
+                m.holders = v
+                    .trim_start()
+                    .split(|c: char| !c.is_ascii_digit())
+                    .next()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
             }
         } else if let Some(v) = line.strip_prefix("top_1_wallet_pct: ") {
             m.top1_pct = v.trim_end_matches('%').parse().unwrap_or(0.0);
@@ -82,7 +88,13 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
         } else if let Some(v) = line.strip_prefix("herfindahl_index: ") {
             m.herfindahl = v.parse().ok();
         } else if let Some(v) = line.strip_prefix("age_hours: ") {
-            m.age_hours = v.parse().unwrap_or(0);
+            // Parse "720" or ">=720 (estimated...)" — strip prefix/suffix
+            let digits = v.trim_start_matches(|c: char| !c.is_ascii_digit());
+            m.age_hours = digits
+                .split(|c: char| !c.is_ascii_digit())
+                .next()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
         } else if let Some(v) = line.strip_prefix("mint_authority: ") {
             m.mint_authority_active = v.starts_with("ACTIVE");
         } else if let Some(v) = line.strip_prefix("freeze_authority: ") {
