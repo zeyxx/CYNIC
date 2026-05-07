@@ -310,8 +310,8 @@ async fn pipeline_inner(
         && crate::domain::enrichment::looks_like_solana_address(&content)
     {
         if let Some(enricher) = deps.enricher {
-            // 60s budget: getAsset + getLargestAccounts + getSignatures + LP detection (5 calls)
-            // + behavioral analysis (N×2 calls). Enhanced Transactions API hangs 10s on empty wallets.
+            // 60s: behavioral analysis does N×2 sequential HTTP calls per wallet.
+            // Enhanced Transactions API hangs 10s+ on wallets with no SWAP history.
             match tokio::time::timeout(
                 std::time::Duration::from_secs(60),
                 enricher.enrich(&content),
