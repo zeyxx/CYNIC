@@ -95,7 +95,7 @@ pub(super) fn parse(content: &str, context: Option<&str>) -> Option<TwitterSigna
                 ctx[start + 13..]
                     .split_whitespace()
                     .next()
-                    .and_then(|s| s.parse::<i32>().ok())
+                    .and_then(|s| s.parse::<i32>().ok()) // R2-exempt: filter_map
             })
         })
         .unwrap_or(0);
