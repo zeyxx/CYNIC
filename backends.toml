@@ -123,3 +123,19 @@ open_on_failure_rate = true
 open_duration_secs = 300             # 5 min before retrying
 half_open_eval_budget = 2            # Try 2 evals before deciding to close
 failure_rate_recovery_window_secs = 3600  # Use last 1h of data for recovery decision
+
+# K-Score behavioral composite weights (configurable, not magic numbers)
+# Source: HolDex K-Score formula, adapted for CYNIC pipeline.
+# K = DiamondHands^w_dh × OrganicGrowth^w_og × Longevity^w_lon
+# Weights MUST sum to 1.0. Tune via measurement, not intuition.
+[kscore]
+weight_diamond_hands = 0.50     # Retention is strongest rug-detection signal
+weight_organic_growth = 0.35    # Distribution quality
+weight_longevity = 0.15         # Age alone is weak (easily faked by waiting)
+# Wallet classification thresholds (retention = current_balance / total_bought)
+accumulator_threshold = 1.5     # >= 1.5x initial buy = actively accumulating
+holder_threshold = 1.0          # >= 1.0x = holding all purchased
+reducer_threshold = 0.5         # >= 0.5x = sold some but still in
+# extractor = below reducer_threshold (sold most/all)
+top_n_wallets = 10              # How many top holders to analyze (10 × ~51 credits = ~510 credits)
+swap_history_limit = 100        # Max SWAP transactions to fetch per wallet

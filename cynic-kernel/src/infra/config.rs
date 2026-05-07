@@ -247,6 +247,35 @@ impl Default for MonitoringConfig {
     }
 }
 
+/// K-Score behavioral composite weights — loaded from backends.toml [kscore].
+/// No magic numbers: all weights configurable, tuned via measurement.
+#[derive(Debug, Clone)]
+pub struct KScoreConfig {
+    pub weight_diamond_hands: f64,
+    pub weight_organic_growth: f64,
+    pub weight_longevity: f64,
+    pub accumulator_threshold: f64,
+    pub holder_threshold: f64,
+    pub reducer_threshold: f64,
+    pub top_n_wallets: usize,
+    pub swap_history_limit: usize,
+}
+
+impl Default for KScoreConfig {
+    fn default() -> Self {
+        Self {
+            weight_diamond_hands: 0.50,
+            weight_organic_growth: 0.35,
+            weight_longevity: 0.15,
+            accumulator_threshold: 1.5,
+            holder_threshold: 1.0,
+            reducer_threshold: 0.5,
+            top_n_wallets: 10,
+            swap_history_limit: 100,
+        }
+    }
+}
+
 /// Complete Dog thresholds configuration — loaded from backends.toml.
 #[derive(Debug, Clone, Default)]
 pub struct DogThresholds {
@@ -256,6 +285,7 @@ pub struct DogThresholds {
     pub verdict: VerdictSettings,
     pub circuit: CircuitBreakerConfig,
     pub monitoring: MonitoringConfig,
+    pub kscore: KScoreConfig,
 }
 
 /// Remediation config for a backend — how to restart it when the circuit breaker opens.
@@ -300,6 +330,20 @@ struct BackendsFile {
     verdict: Option<VerdictEntry>,
     circuit: Option<CircuitEntry>,
     monitoring: Option<MonitoringEntry>,
+    /// K-Score behavioral analysis weights — loaded from [kscore] section.
+    kscore: Option<KScoreEntry>,
+}
+
+#[derive(Deserialize)]
+struct KScoreEntry {
+    weight_diamond_hands: Option<f64>,
+    weight_organic_growth: Option<f64>,
+    weight_longevity: Option<f64>,
+    accumulator_threshold: Option<f64>,
+    holder_threshold: Option<f64>,
+    reducer_threshold: Option<f64>,
+    top_n_wallets: Option<u64>,
+    swap_history_limit: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -723,9 +767,40 @@ pub fn load_dog_thresholds(path: &Path) -> DogThresholds {
         }
     }
 
+    // ── K-Score config ──
+    if let Some(ks) = &file.kscore {
+        if let Some(v) = ks.weight_diamond_hands {
+            result.kscore.weight_diamond_hands = v;
+        }
+        if let Some(v) = ks.weight_organic_growth {
+            result.kscore.weight_organic_growth = v;
+        }
+        if let Some(v) = ks.weight_longevity {
+            result.kscore.weight_longevity = v;
+        }
+        if let Some(v) = ks.accumulator_threshold {
+            result.kscore.accumulator_threshold = v;
+        }
+        if let Some(v) = ks.holder_threshold {
+            result.kscore.holder_threshold = v;
+        }
+        if let Some(v) = ks.reducer_threshold {
+            result.kscore.reducer_threshold = v;
+        }
+        if let Some(v) = ks.top_n_wallets {
+            result.kscore.top_n_wallets = v as usize;
+        }
+        if let Some(v) = ks.swap_history_limit {
+            result.kscore.swap_history_limit = v as usize;
+        }
+    }
+
     klog!(
-        "[config] Dog thresholds loaded: {} dogs configured, error patterns: quota({}) transient({}) critical({})",
+        "[config] Dog thresholds loaded: {} dogs configured, kscore weights: DH={:.2}/OG={:.2}/L={:.2}, error patterns: quota({}) transient({}) critical({})",
         result.dogs.len(),
+        result.kscore.weight_diamond_hands,
+        result.kscore.weight_organic_growth,
+        result.kscore.weight_longevity,
         result.error_detection.quota_patterns.len(),
         result.error_detection.transient_patterns.len(),
         result.error_detection.critical_patterns.len()
