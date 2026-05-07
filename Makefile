@@ -211,7 +211,8 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	REF_DOGS=$$(sed -n '/^## Dogs/,/^##/p' $(PROJECT_DIR)/.claude/rules/reference.md | grep -oP '(?<=\| )[a-z][-a-z0-9]+(?= +\|)' | sort -u); \
 	LIVE_DOGS="deterministic-dog"; \
 	if [ -f "$$BACKENDS" ]; then \
-		LIVE_DOGS=$$(printf '%s\n' "$$LIVE_DOGS" $$(grep -oP '(?<=\[backend\.)[^]]+' "$$BACKENDS" | grep -v '\.remediation') | sort -u); \
+		BACKEND_DOGS=$$(grep -E '^\[(backend|dog)\.' "$$BACKENDS" | sed -E 's/^\[(backend|dog)\.//;s/\].*//' | grep -v 'remediation'); \
+		LIVE_DOGS=$$(printf '%s\n' "$$LIVE_DOGS" $$BACKEND_DOGS | sort -u); \
 	fi; \
 	REF_ONLY=$$(comm -23 <(echo "$$REF_DOGS") <(echo "$$LIVE_DOGS")); \
 	LIVE_ONLY=$$(comm -13 <(echo "$$REF_DOGS") <(echo "$$LIVE_DOGS")); \

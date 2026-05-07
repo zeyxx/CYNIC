@@ -293,7 +293,9 @@ struct BackendsFile {
     backend: std::collections::HashMap<String, BackendEntry>,
     storage: Option<StorageEntry>,
     defaults: Option<DefaultsEntry>,
-    dog: Option<std::collections::HashMap<String, DogEntry>>,
+    /// Dog threshold configuration — loaded from [dog.*] sections in backends.toml
+    #[serde(default)]
+    dog: std::collections::HashMap<String, DogEntry>,
     error_detection: Option<ErrorDetectionEntry>,
     verdict: Option<VerdictEntry>,
     circuit: Option<CircuitEntry>,
@@ -638,25 +640,23 @@ pub fn load_dog_thresholds(path: &Path) -> DogThresholds {
         }
     }
 
-    // Load per-dog overrides
-    if let Some(dogs_entries) = file.dog {
-        for (dog_name, entry) in dogs_entries {
-            let threshold = DogThreshold {
-                dog_name: dog_name.clone(),
-                kind: entry.kind.unwrap_or_else(|| "inference".to_string()),
-                enabled: entry.enabled.unwrap_or(true),
-                failure_rate_threshold: entry.failure_rate_threshold,
-                collapse_threshold: entry.collapse_threshold,
-                api_error_threshold: entry.api_error_threshold,
-                evaluation_timeout_secs: entry.evaluation_timeout_secs,
-                priority: entry.priority,
-                quota_status: entry.quota_status,
-                quota_pattern: entry.quota_pattern,
-                skip_reason: entry.skip_reason,
-                skip_until: entry.skip_until,
-            };
-            result.dogs.insert(dog_name, threshold);
-        }
+    // Load per-dog overrides from [dog.*] sections
+    for (dog_name, entry) in file.dog {
+        let threshold = DogThreshold {
+            dog_name: dog_name.clone(),
+            kind: entry.kind.unwrap_or_else(|| "inference".to_string()),
+            enabled: entry.enabled.unwrap_or(true),
+            failure_rate_threshold: entry.failure_rate_threshold,
+            collapse_threshold: entry.collapse_threshold,
+            api_error_threshold: entry.api_error_threshold,
+            evaluation_timeout_secs: entry.evaluation_timeout_secs,
+            priority: entry.priority,
+            quota_status: entry.quota_status,
+            quota_pattern: entry.quota_pattern,
+            skip_reason: entry.skip_reason,
+            skip_until: entry.skip_until,
+        };
+        result.dogs.insert(dog_name, threshold);
     }
 
     // Load error detection patterns

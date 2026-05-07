@@ -10,13 +10,15 @@ HOWL > 0.528 (φ⁻²+φ⁻⁴) | WAG > 0.382 | GROWL > 0.236 | BARK ≤ 0.236
 
 ## Dogs (Independent Validators)
 
-| Dog | Model | Where |
-|---|---|---|
-| deterministic-dog | Heuristics | In-kernel |
-| qwen-7b-hf | Qwen 2.5 7B | HF Inference |
-| qwen35-9b-gpu | Qwen 3.5 9B Q4 | cynic-gpu (RTX 4060 Ti, 131K ctx) |
-| qwen-9b-core | Qwen 3.5 9B Q4 | cynic-core (CPU + Vulkan iGPU) |
-| gemini-cli | Gemini (auto) | CLI subprocess (Google subscription) |
+Declared in `~/.config/cynic/backends.toml` — loaded at kernel boot if env vars resolve.
+
+| Dog | Model | Where | Activation |
+|---|---|---|---|
+| deterministic-dog | Heuristics | In-kernel | Always (no config required) |
+| qwen-7b-hf | Qwen 2.5 7B | HF Inference | If HUGGINGFACE_API_KEY set |
+| qwen35-9b-gpu | Qwen 3.5 9B Q4 | cynic-gpu (RTX 4060 Ti) | If <TAILSCALE_GPU> reachable |
+| qwen-9b-core | Qwen 3.5 9B Q4 | cynic-core (CPU + Vulkan) | If <TAILSCALE_CORE> reachable |
+| gemini-cli | Gemini (auto) | CLI subprocess | If GEMINI_API_KEY set + gemini-cli on PATH |
 
 ## Infrastructure
 
