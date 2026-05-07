@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="#0a0a0f"/>
+
+  <!-- Outer hexagon — 6 axioms -->
+  <polygon points="256,80 400,152 400,296 256,368 112,296 112,152"
+           fill="none" stroke="#00ffa3" stroke-width="2.5" opacity="0.5"/>
+
+  <!-- Inner hexagon — phi zone -->
+  <polygon points="256,125 365,175 365,275 256,325 147,275 147,175"
+           fill="none" stroke="#00ffa3" stroke-width="1.5" opacity="0.35"/>
+
+  <!-- Cross lines — adversarial tension -->
+  <line x1="256" y1="80" x2="256" y2="368" stroke="#00ffa3" stroke-width="0.7" opacity="0.2"/>
+  <line x1="112" y1="152" x2="400" y2="296" stroke="#00ffa3" stroke-width="0.7" opacity="0.2"/>
+  <line x1="400" y1="152" x2="112" y2="296" stroke="#00ffa3" stroke-width="0.7" opacity="0.2"/>
+
+  <!-- 6 axiom nodes -->
+  <circle cx="256" cy="80" r="7" fill="#00ffa3"/>
+  <circle cx="400" cy="152" r="7" fill="#00ffa3"/>
+  <circle cx="400" cy="296" r="7" fill="#00ffa3"/>
+  <circle cx="256" cy="368" r="7" fill="#00ffa3"/>
+  <circle cx="112" cy="296" r="7" fill="#00ffa3"/>
+  <circle cx="112" cy="152" r="7" fill="#00ffa3"/>
+
+  <!-- Center eye — the Dog -->
+  <ellipse cx="256" cy="224" rx="40" ry="26" fill="none" stroke="#00ffa3" stroke-width="2.5"/>
+  <circle cx="256" cy="224" r="11" fill="#00ffa3"/>
+  <circle cx="256" cy="224" r="4.5" fill="#0a0a0f"/>
+
+  <!-- CYNIC -->
+  <text x="256" y="438" text-anchor="middle" font-family="monospace" font-weight="bold"
+        font-size="52" fill="#e0e0e8" letter-spacing="6">CYNIC</text>
+
+  <!-- phi bound -->
+  <text x="256" y="464" text-anchor="middle" font-family="monospace" font-size="13"
+        fill="#00ffa3" opacity="0.6">0.618</text>
+</svg>
