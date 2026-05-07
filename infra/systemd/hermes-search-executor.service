@@ -1,18 +1,28 @@
 [Unit]
-Description=Hermes X Search Executor — stochastic behavioral search
-After=hermes-browser.service
-Wants=hermes-browser.service
-PartOf=hermes-search-executor.timer
+Description=CYNIC Hermes Search Executor — automated X.com searches
+After=hermes-search-generator.service mitmproxy.service
+Requires=mitmproxy.service
+PartOf=hermes-organism.target
 
 [Service]
+EnvironmentFile=%h/.config/cynic/env
+EnvironmentFile=%h/.config/cynic/env.organ
 Type=oneshot
-EnvironmentFile=-%h/.config/cynic/env
-WorkingDirectory=/home/user/Bureau/CYNIC/scripts/hermes-x
-ExecStart=/usr/bin/python3 search_executor.py \
-    --organ-dir /home/user/.cynic/organs/hermes/x \
-    --max-searches 5
+Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x
+Environment=X_PROXY_ADDR=localhost:8888
+WorkingDirectory=%h/Bureau/CYNIC/scripts/hermes-x
+Environment="CYNIC_REST_ADDR=<TAILSCALE_CORE>:3030"
+ExecStart=/usr/bin/python3 core/search_executor.py \
+    --organ-dir %h/.cynic/organs/hermes/x \
+    --max-searches 5 \
+    --proxy-addr localhost:8888
+TimeoutStartSec=600
+TimeoutStopSec=30
+MemoryMax=512M
+
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=hermes-search-executor
-MemoryMax=512M
-TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target
