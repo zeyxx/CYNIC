@@ -6,7 +6,6 @@ After=cynic-kernel.service hermes-proxy.service
 Type=simple
 Environment=X_DATASET_PATH=%h/.cynic/organs/hermes/x/dataset.jsonl
 EnvironmentFile=-%h/.config/cynic/env
-EnvironmentFile=-%h/.config/cynic/env.organ
 ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/core/x_ingest_daemon.py
 Restart=on-failure
 RestartSec=15

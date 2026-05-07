@@ -6,7 +6,6 @@ PartOf=hermes-organism.target
 
 [Service]
 EnvironmentFile=%h/.config/cynic/env
-EnvironmentFile=%h/.config/cynic/env.organ
 Type=oneshot
 Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x
 Environment=X_PROXY_ADDR=localhost:8888
