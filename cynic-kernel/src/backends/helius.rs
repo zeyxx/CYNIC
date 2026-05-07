@@ -228,11 +228,19 @@ impl HeliusEnricher {
             "Helius getTokenLargestAccounts succeeded"
         );
 
+        let holder_addresses: Vec<String> = accounts.iter().map(|a| a.address.clone()).collect();
+        let holder_balances: Vec<f64> = accounts
+            .iter()
+            .map(|a| a.ui_amount.unwrap_or(0.0))
+            .collect();
+
         Ok(Some(HolderConcentration {
             accounts_seen: accounts.len() as u64,
             top1_pct,
             top10_pct,
             herfindahl: hhi,
+            holder_addresses,
+            holder_balances,
         }))
     }
 
@@ -398,16 +406,18 @@ impl TokenEnricherPort for HeliusEnricher {
         };
 
         // Get concentration metrics from top-20 accounts, using real supply as denominator
-        let (holder_count, top1_pct, top10_pct, herfindahl) =
+        let (holder_count, top1_pct, top10_pct, herfindahl, holder_addresses, holder_balances) =
             if let Ok(Some(conc)) = self.get_largest_accounts(mint_address, real_supply).await {
                 (
                     conc.accounts_seen,
                     conc.top1_pct,
                     conc.top10_pct,
                     Some(conc.herfindahl),
+                    conc.holder_addresses,
+                    conc.holder_balances,
                 )
             } else {
-                (0, 0.0, 0.0, None)
+                (0, 0.0, 0.0, None, vec![], vec![])
             };
 
         // Detect pump.fun origin from mint suffix
@@ -501,6 +511,7 @@ struct RpcContext<T> {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LargestAccount {
+    address: String,
     ui_amount: Option<f64>,
 }
 
@@ -518,4 +529,8 @@ struct HolderConcentration {
     top1_pct: f64,
     top10_pct: f64,
     herfindahl: f64,
+    /// Token account addresses of top holders (for LP burn detection + behavioral analysis).
+    holder_addresses: Vec<String>,
+    /// ui_amounts per holder (parallel to holder_addresses, for retention calculation).
+    holder_balances: Vec<f64>,
 }
