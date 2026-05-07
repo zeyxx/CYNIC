@@ -22,6 +22,12 @@ pub(super) struct TokenMetrics {
     lp_locked: bool,
     supply_burned_pct: Option<f64>,
     origin_pump_fun: bool,
+    // K-Score behavioral fields (from [BEHAVIORAL] section)
+    k_score: Option<f64>,
+    k_diamond_hands: Option<f64>,
+    k_wallets_analyzed: u32,
+    k_accumulators: u32,
+    k_extractors: u32,
 }
 
 /// Extract token metrics from a formatted stimulus string.
@@ -52,6 +58,11 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
         lp_locked: false,
         supply_burned_pct: None,
         origin_pump_fun: false,
+        k_score: None,
+        k_diamond_hands: None,
+        k_wallets_analyzed: 0,
+        k_accumulators: 0,
+        k_extractors: 0,
     };
 
     for line in section.lines() {
@@ -77,6 +88,54 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
             m.supply_burned_pct = v.trim_end_matches('%').parse().ok();
         } else if let Some(v) = line.strip_prefix("origin: ") {
             m.origin_pump_fun = v.eq_ignore_ascii_case("pump.fun");
+        }
+    }
+
+    // Parse [BEHAVIORAL] section if present
+    if let Some(beh_start) = content.find("[BEHAVIORAL]") {
+        let beh_rest = &content[beh_start..];
+        let beh_end = beh_rest[12..]
+            .find("\n[")
+            .map(|i| beh_start + 12 + i)
+            .unwrap_or(content.len());
+        let beh_section = &content[beh_start..beh_end];
+
+        for line in beh_section.lines() {
+            let line = line.trim();
+            if let Some(v) = line.strip_prefix("k_score: ") {
+                m.k_score = v.split_whitespace().next().and_then(|s| s.parse().ok());
+            } else if let Some(v) = line.strip_prefix("diamond_hands: ") {
+                m.k_diamond_hands = v.split_whitespace().next().and_then(|s| s.parse().ok());
+            } else if let Some(v) = line.strip_prefix("wallet_breakdown: ") {
+                // "N analyzed — X accumulators, Y holders, Z reducers, W extractors"
+                m.k_wallets_analyzed = v
+                    .split_whitespace()
+                    .next()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+                // Split on em-dash to separate "N analyzed" from class breakdown
+                let classes = v
+                    .split('\u{2014}')
+                    .nth(1)
+                    .or_else(|| v.split("--").nth(1))
+                    .unwrap_or("");
+                for part in classes.split(',') {
+                    let part = part.trim();
+                    if part.ends_with("accumulators") {
+                        m.k_accumulators = part
+                            .split_whitespace()
+                            .next()
+                            .and_then(|s| s.parse().ok())
+                            .unwrap_or(0);
+                    } else if part.ends_with("extractors") {
+                        m.k_extractors = part
+                            .split_whitespace()
+                            .next()
+                            .and_then(|s| s.parse().ok())
+                            .unwrap_or(0);
+                    }
+                }
+            }
         }
     }
 
@@ -107,9 +166,17 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     } else {
         fidelity -= ADJUST_MEDIUM; // can freeze = deceptive control
     }
+    // K-Score: diamond hands = genuine conviction
+    if let Some(dh) = m.k_diamond_hands {
+        if dh > 0.6 {
+            fidelity += ADJUST_MEDIUM;
+        } else if dh < 0.2 {
+            fidelity -= ADJUST_SMALL;
+        }
+    }
     let fidelity = fidelity.clamp(ADJUST_SMALL, PHI_INV);
     let fidelity_reason = format!(
-        "mint_authority={}, freeze_authority={}.",
+        "mint_authority={}, freeze_authority={}, diamond_hands={}.",
         if m.mint_authority_active {
             "ACTIVE (red flag)"
         } else {
@@ -120,6 +187,9 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
         } else {
             "revoked"
         },
+        m.k_diamond_hands
+            .map(|d| format!("{d:.3}"))
+            .unwrap_or_else(|| "n/a".into()),
     );
 
     // ── PHI: Structural harmony of holder distribution ──
@@ -143,6 +213,14 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
         phi += ADJUST_SMALL;
     } else if m.holders < 20 {
         phi -= ADJUST_SMALL;
+    }
+    // K-Score: organic growth reflects distribution quality beyond static HHI
+    if let Some(ks) = m.k_score {
+        if ks > 0.5 {
+            phi += ADJUST_MEDIUM;
+        } else if ks < 0.3 {
+            phi -= ADJUST_SMALL;
+        }
     }
     let phi = phi.clamp(ADJUST_SMALL, PHI_INV);
     let phi_reason = format!(
@@ -282,9 +360,13 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             sovereignty -= ADJUST_SMALL;
         }
     }
+    // K-Score: extractor dominance = centralized exit
+    if m.k_wallets_analyzed > 0 && m.k_extractors > m.k_accumulators {
+        sovereignty -= ADJUST_SMALL;
+    }
     let sovereignty = sovereignty.clamp(ADJUST_SMALL, PHI_INV);
     let sovereignty_reason = format!(
-        "top1={:.1}%, freeze={}, holders={}.",
+        "top1={:.1}%, freeze={}, holders={}, extractors_vs_acc={}/{}.",
         m.top1_pct,
         if m.freeze_authority_active {
             "ACTIVE (restricts freedom)"
@@ -292,6 +374,8 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             "revoked"
         },
         m.holders,
+        m.k_extractors,
+        m.k_accumulators,
     );
 
     AxiomScores {
@@ -612,5 +696,77 @@ mod tests {
     async fn token_fallback_to_form_for_non_token() {
         // Non-token content: parse returns None
         assert!(parse("A simple neutral statement about the world.").is_none());
+    }
+
+    #[test]
+    fn parse_token_with_behavioral_section() {
+        let mut content = make_token_stimulus(&HEALTHY_MINT);
+        let baselines_pos = content.find("\n[BASELINES]").unwrap();
+        let behavioral = "\n[BEHAVIORAL]\nk_score: 0.650\ndiamond_hands: 0.720 (conviction of top holders)\norganic_growth: 0.580 (distribution quality)\nlongevity: 0.900 (age-adjusted survival)\nwallet_breakdown: 10 analyzed \u{2014} 4 accumulators, 3 holders, 2 reducers, 1 extractors\n";
+        content.insert_str(baselines_pos, behavioral);
+
+        let m = parse(&content).expect("should parse with behavioral");
+        assert!((m.k_score.unwrap() - 0.65).abs() < 0.01);
+        assert!((m.k_diamond_hands.unwrap() - 0.72).abs() < 0.01);
+        assert_eq!(m.k_wallets_analyzed, 10);
+        assert_eq!(m.k_accumulators, 4);
+        assert_eq!(m.k_extractors, 1);
+    }
+
+    #[test]
+    fn parse_token_without_behavioral_section() {
+        let content = make_token_stimulus(&HEALTHY_MINT);
+        let m = parse(&content).expect("should parse without behavioral");
+        assert!(m.k_score.is_none());
+        assert!(m.k_diamond_hands.is_none());
+        assert_eq!(m.k_wallets_analyzed, 0);
+    }
+
+    #[tokio::test]
+    async fn kscore_boosts_healthy_token() {
+        let mut with_ks = make_token_stimulus(&HEALTHY_MINT);
+        let baselines_pos = with_ks.find("\n[BASELINES]").unwrap();
+        let behavioral = "\n[BEHAVIORAL]\nk_score: 0.700\ndiamond_hands: 0.800 (conviction)\nwallet_breakdown: 10 analyzed \u{2014} 5 accumulators, 3 holders, 1 reducers, 1 extractors\n";
+        with_ks.insert_str(baselines_pos, behavioral);
+        let m_with = parse(&with_ks).unwrap();
+        let scores_with = score(&m_with);
+
+        let without = make_token_stimulus(&HEALTHY_MINT);
+        let m_without = parse(&without).unwrap();
+        let scores_without = score(&m_without);
+
+        assert!(
+            scores_with.fidelity >= scores_without.fidelity,
+            "diamond_hands should boost fidelity: with={}, without={}",
+            scores_with.fidelity,
+            scores_without.fidelity
+        );
+        assert!(
+            scores_with.phi >= scores_without.phi,
+            "K-Score should boost phi: with={}, without={}",
+            scores_with.phi,
+            scores_without.phi
+        );
+    }
+
+    #[tokio::test]
+    async fn extractor_dominance_penalizes_sovereignty() {
+        let mut content = make_token_stimulus(&MODERATE_MINT);
+        let baselines_pos = content.find("\n[BASELINES]").unwrap();
+        let behavioral = "\n[BEHAVIORAL]\nk_score: 0.200\ndiamond_hands: 0.150 (conviction)\nwallet_breakdown: 8 analyzed \u{2014} 1 accumulators, 1 holders, 1 reducers, 5 extractors\n";
+        content.insert_str(baselines_pos, behavioral);
+        let m_ext = parse(&content).unwrap();
+        let scores_ext = score(&m_ext);
+
+        let without = make_token_stimulus(&MODERATE_MINT);
+        let m_without = parse(&without).unwrap();
+        let scores_without = score(&m_without);
+
+        assert!(
+            scores_ext.sovereignty <= scores_without.sovereignty,
+            "Extractor dominance should penalize sovereignty: ext={}, base={}",
+            scores_ext.sovereignty,
+            scores_without.sovereignty
+        );
     }
 }
