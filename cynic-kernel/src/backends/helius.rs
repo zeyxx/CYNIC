@@ -374,11 +374,20 @@ impl HeliusEnricher {
             .json(&body)
             .send()
             .await
+            .inspect_err(
+                |e| tracing::debug!(token_account, error = %e, "resolve_owner request failed"),
+            )
             .ok()?;
         if !resp.status().is_success() {
             return None;
         }
-        let rpc: serde_json::Value = resp.json().await.ok()?;
+        let rpc: serde_json::Value = resp
+            .json()
+            .await
+            .inspect_err(
+                |e| tracing::debug!(token_account, error = %e, "resolve_owner parse failed"),
+            )
+            .ok()?;
         self.credits.record_call(0, true, 1);
         rpc.pointer("/result/value/data/parsed/info/owner")
             .and_then(|v| v.as_str())
