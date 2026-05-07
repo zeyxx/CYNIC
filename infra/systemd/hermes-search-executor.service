@@ -25,4 +25,4 @@ StandardError=journal
 SyslogIdentifier=hermes-search-executor
 
 [Install]
-WantedBy=default.target
+WantedBy=timers.target
