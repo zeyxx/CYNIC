@@ -229,10 +229,6 @@ impl HeliusEnricher {
         );
 
         let holder_addresses: Vec<String> = accounts.iter().map(|a| a.address.clone()).collect();
-        let holder_balances: Vec<f64> = accounts
-            .iter()
-            .map(|a| a.ui_amount.unwrap_or(0.0))
-            .collect();
 
         Ok(Some(HolderConcentration {
             accounts_seen: accounts.len() as u64,
@@ -240,7 +236,6 @@ impl HeliusEnricher {
             top10_pct,
             herfindahl: hhi,
             holder_addresses,
-            holder_balances,
         }))
     }
 
@@ -351,6 +346,69 @@ impl HeliusEnricher {
 
         Ok(age_hours)
     }
+
+    /// Resolve a token account address to its owner wallet address.
+    /// Cost: 1 credit (getAccountInfo).
+    async fn resolve_owner(&self, token_account: &str) -> Option<String> {
+        let body = serde_json::json!({
+            "jsonrpc": "2.0", "id": 1,
+            "method": "getAccountInfo",
+            "params": [token_account, {"encoding": "jsonParsed"}]
+        });
+        let resp = self
+            .client
+            .post(&self.rpc_url)
+            .json(&body)
+            .send()
+            .await
+            .ok()?;
+        if !resp.status().is_success() {
+            return None;
+        }
+        let rpc: serde_json::Value = resp.json().await.ok()?;
+        self.credits.record_call(0, true, 1);
+        rpc.pointer("/result/value/data/parsed/info/owner")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    }
+
+    /// Detect LP status by checking if top holder token accounts are owned by burn/locker addresses.
+    /// Returns "burned" | "locked" | "unsecured".
+    /// Cost: 1-5 credits (1 getAccountInfo per holder checked).
+    async fn detect_lp_status(&self, holder_addresses: &[String]) -> String {
+        /// Known Solana burn addresses — tokens sent here are irrecoverable.
+        const BURN_ADDRESSES: &[&str] = &[
+            "1nc1nerator11111111111111111111111111111111",
+            "1111111111111111111111111111111111111111111",
+            // Raydium burn vault
+            "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1",
+        ];
+        /// Known locker programs — LP tokens held by these are locked, not burned.
+        const LOCKER_PROGRAMS: &[&str] = &[
+            // Streamflow
+            "8e72pYCDaxu3GqMfeQ5r8wFgoZSYk6oua1Qo9XpsZjX",
+            // Team.finance / Uncx
+            "2r5VekMNiWPzi1pWwvJczrdPaZnJG59u91unSrTunwJg",
+        ];
+
+        let check_count = holder_addresses.len().min(5);
+        for addr in &holder_addresses[..check_count] {
+            let Some(owner) = self.resolve_owner(addr).await else {
+                continue;
+            };
+
+            if BURN_ADDRESSES.contains(&owner.as_str()) {
+                tracing::debug!(token_account = %addr, owner = %owner, "LP detected: burned");
+                return "burned".into();
+            }
+            if LOCKER_PROGRAMS.contains(&owner.as_str()) {
+                tracing::debug!(token_account = %addr, owner = %owner, "LP detected: locked");
+                return "locked".into();
+            }
+        }
+
+        "unsecured".into()
+    }
 }
 
 #[async_trait]
@@ -406,7 +464,7 @@ impl TokenEnricherPort for HeliusEnricher {
         };
 
         // Get concentration metrics from top-20 accounts, using real supply as denominator
-        let (holder_count, top1_pct, top10_pct, herfindahl, holder_addresses, holder_balances) =
+        let (holder_count, top1_pct, top10_pct, herfindahl, holder_addresses) =
             if let Ok(Some(conc)) = self.get_largest_accounts(mint_address, real_supply).await {
                 (
                     conc.accounts_seen,
@@ -414,11 +472,19 @@ impl TokenEnricherPort for HeliusEnricher {
                     conc.top10_pct,
                     Some(conc.herfindahl),
                     conc.holder_addresses,
-                    conc.holder_balances,
                 )
             } else {
-                (0, 0.0, 0.0, None, vec![], vec![])
+                (0, 0.0, 0.0, None, vec![])
             };
+
+        // Detect LP status from holder account owners (burn address = burned, locker = locked)
+        let lp_status = if !holder_addresses.is_empty() {
+            self.detect_lp_status(&holder_addresses).await
+        } else {
+            "unsecured".into()
+        };
+
+        let age_hours = self.get_token_age_hours(mint_address).await.unwrap_or(0);
 
         // Detect pump.fun origin from mint suffix
         let origin = if mint_address.ends_with("pump") {
@@ -444,10 +510,10 @@ impl TokenEnricherPort for HeliusEnricher {
             top1_pct,
             top10_pct,
             herfindahl,
-            age_hours: self.get_token_age_hours(mint_address).await.unwrap_or(0),
+            age_hours,
             mint_authority_active,
             freeze_authority_active,
-            lp_status: "unsecured".into(), // TODO: check Raydium/Jupiter LP state
+            lp_status,
             supply_burned_pct: None,
             supply_locked_pct: None,
             origin,
@@ -529,8 +595,6 @@ struct HolderConcentration {
     top1_pct: f64,
     top10_pct: f64,
     herfindahl: f64,
-    /// Token account addresses of top holders (for LP burn detection + behavioral analysis).
+    /// Token account addresses of top holders (for LP burn detection).
     holder_addresses: Vec<String>,
-    /// ui_amounts per holder (parallel to holder_addresses, for retention calculation).
-    holder_balances: Vec<f64>,
 }
