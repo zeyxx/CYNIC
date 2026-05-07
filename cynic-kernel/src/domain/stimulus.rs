@@ -41,15 +41,14 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
         s.push_str(&format!("symbol: {symbol}\n"));
     }
     if data.holder_data_available {
-        s.push_str(&format!("holders: {}\n", data.holder_count));
-        s.push_str(&format!(
-            "holder_count_type: {}\n",
-            if data.holder_count_is_exact {
-                "exact"
-            } else {
-                "lower_bound (likely more exist)"
-            }
-        ));
+        if data.holder_count_is_exact {
+            s.push_str(&format!("holders: {} (exact)\n", data.holder_count));
+        } else {
+            s.push_str(&format!(
+                "holders: {}+ (top accounts analyzed, real count likely higher)\n",
+                data.holder_count
+            ));
+        }
         s.push_str(&format!("top_1_wallet_pct: {:.2}%\n", data.top1_pct));
         s.push_str(&format!("top_10_wallets_pct: {:.2}%\n", data.top10_pct));
         if let Some(hhi) = data.herfindahl {
@@ -58,7 +57,14 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
     } else {
         s.push_str("holders: UNAVAILABLE (RPC degraded — concentration metrics omitted)\n");
     }
-    s.push_str(&format!("age_hours: {}\n", data.age_hours));
+    if data.age_is_exact {
+        s.push_str(&format!("age_hours: {}\n", data.age_hours));
+    } else {
+        s.push_str(&format!(
+            "age_hours: >={} (estimated, active token with >5000 txs)\n",
+            data.age_hours
+        ));
+    }
     s.push_str(&format!(
         "mint_authority: {}\n",
         if data.mint_authority_active {

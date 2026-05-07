@@ -302,7 +302,8 @@ impl HeliusEnricher {
     ///
     /// Cost: 1-5 credits (10 credits each on Helius, paginated).
     /// Exact for tokens with <5000 txs (covers all pump.fun rugs and most new tokens).
-    async fn get_token_age_hours(&self, mint: &str) -> Result<u64, EnrichmentError> {
+    /// Returns (age_hours, is_exact).
+    async fn get_token_age_hours(&self, mint: &str) -> Result<(u64, bool), EnrichmentError> {
         const MAX_PAGES: usize = 5;
         let mut oldest_block_time: i64 = 0;
         let mut before_sig: Option<String> = None;
@@ -366,7 +367,7 @@ impl HeliusEnricher {
         }
 
         if oldest_block_time == 0 {
-            return Ok(0);
+            return Ok((0, false));
         }
 
         let now = std::time::SystemTime::now()
@@ -395,7 +396,7 @@ impl HeliusEnricher {
             "Token age estimated"
         );
 
-        Ok(age_hours)
+        Ok((age_hours, found_creation))
     }
 
     /// Resolve a token account address to its owner wallet address.
@@ -766,7 +767,10 @@ impl TokenEnricherPort for HeliusEnricher {
             "unsecured".into()
         };
 
-        let age_hours = self.get_token_age_hours(mint_address).await.unwrap_or(0);
+        let (age_hours, age_is_exact) = self
+            .get_token_age_hours(mint_address)
+            .await
+            .unwrap_or((0, false));
 
         // Detect pump.fun origin from mint suffix
         let origin = if mint_address.ends_with("pump") {
@@ -831,6 +835,7 @@ impl TokenEnricherPort for HeliusEnricher {
             top10_pct,
             herfindahl,
             age_hours,
+            age_is_exact,
             mint_authority_active,
             freeze_authority_active,
             lp_status,
