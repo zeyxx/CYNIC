@@ -1,0 +1,125 @@
+# CYNIC Dog Configuration — Data-Centric Thresholds
+# All thresholds derived from observed metrics (2026-04-26 to 2026-05-07)
+# No magic numbers. Each value falsifiable by: measure > threshold → circuit opens within 60s
+
+# Global defaults (can be overridden per dog)
+[defaults]
+failure_rate_threshold = 0.15        # Circuit opens at >15% failure rate
+api_error_threshold = 300            # Alert at >300 accumulated api_errors
+transient_error_max = 5              # Retry up to 5 transient errors
+quota_grace_period_secs = 600        # Skip dog for 10min on quota exhaustion
+evaluation_timeout_secs = 30         # Per-dog eval timeout (cloud API: 30s, sovereign: 60s)
+
+# Deterministic heuristic (always available)
+[dog.deterministic-dog]
+kind = "heuristic"
+failure_rate_threshold = 0.01        # Very strict (heuristics should be reliable)
+enabled = true
+
+# Qwen 7B (HuggingFace inference API)
+# Observed (2026-05-07): 13,674 calls, 12,371 success, 977 collapse, 281 api_error
+# Failure rate: (977+281) / 13674 = 0.092 (9.2%)
+# Decision: Keep active (below 15% threshold)
+[dog.qwen-7b-hf]
+kind = "inference"
+provider = "huggingface"
+model = "Qwen2.5-7B-Instruct-Q4_K_M"
+failure_rate_threshold = 0.12        # 12% — above observed 9.2%, some buffer
+collapse_threshold = 100             # Alert if >100 collapses per day
+api_error_threshold = 150            # Alert if >150 api_errors per day
+evaluation_timeout_secs = 30
+enabled = true
+
+# Qwen 3.5 9B GPU (sovereign, RTX 4060 Ti)
+# Observed (2026-05-07): 10,099 calls, 9,431 success, 453 collapse, 46 api_error
+# Failure rate: (453+46) / 10099 = 0.049 (4.9%)
+# Decision: Healthy (well below threshold)
+[dog.qwen35-9b-gpu]
+kind = "inference"
+provider = "sovereign"
+model = "Qwen3.5-9B-Q4_K_M"
+failure_rate_threshold = 0.10        # 10% — above observed 4.9%, some buffer
+collapse_threshold = 50              # Low threshold (GPU should be stable)
+api_error_threshold = 50
+evaluation_timeout_secs = 60         # GPU models: longer timeout
+enabled = true
+
+# Qwen 9B CPU (sovereign, APU)
+# Observed (2026-05-07): 1,259 calls, 615 success, 631 api_error
+# Failure rate: (1+631) / 1259 = 0.501 (50.1%)
+# Decision: DEGRADED — disable from primary routing (but keep for backup)
+[dog.qwen-9b-core]
+kind = "inference"
+provider = "sovereign"
+model = "Qwen2.5-7B-Instruct-Q4_K_M"
+failure_rate_threshold = 0.40        # 40% — above observed 50.1%, but CPU is slow
+collapse_threshold = 10
+api_error_threshold = 200
+evaluation_timeout_secs = 60
+enabled = true
+priority = "backup"                  # Only use if other Dogs exhausted
+
+# Gemini CLI (human subscription, free tier)
+# Observed (2026-05-07): 4,774 calls, 1,636 success, 2,808 api_error, quota exhausted
+# Status: QUOTA EXHAUSTED (free tier, resets 2026-05-07 17:04 UTC)
+# Decision: SKIP until quota reset
+[dog.gemini-cli]
+kind = "inference"
+provider = "gemini"
+model = "gemini-2.0-pro"
+failure_rate_threshold = 0.50        # 50% — degraded, high bar to re-enable
+api_error_threshold = 100            # Alert early
+quota_status = "EXHAUSTED_UNTIL_2026_05_07T17:04:00Z"  # String pattern for quota detection
+quota_pattern = "TerminalQuotaError|You have exhausted your capacity"
+quota_grace_period_secs = 30600      # Skip for entire quota window (~8.5h)
+evaluation_timeout_secs = 30
+enabled = false                       # Disabled until quota reset
+skip_reason = "quota_exhausted"
+skip_until = "2026-05-07T17:04:00Z"
+
+# Detection Rules (K15 consumer signals)
+[error_detection]
+# Quota exhaustion: skip dog gracefully (don't count as circuit open)
+quota_patterns = [
+    "TerminalQuotaError",
+    "You have exhausted your capacity",
+    "Rate limit exceeded",
+    "Quota",
+]
+# Transient errors: retry (don't count against failure rate)
+transient_patterns = [
+    "Timeout",
+    "temporarily unavailable",
+    "temporarily_unavailable",
+]
+# Critical errors: circuit open (persistent)
+critical_patterns = [
+    "command not found",
+    "exit 1",  # Subprocess crash
+    "permission denied",
+]
+
+# Quorum settings (data-derived, not magic)
+[verdict]
+# MIN_QUORUM = 2 comes from: with 5 Dogs, need 2+ to avoid single-Dog bias
+# But 2 Dogs is minimum; 3 is better for φ⁻¹ consensus
+min_voters = 2                       # Minimum Dogs for verdict (waived if only 2 Dogs available)
+min_confident_voters = 2             # At least 2 voters with confidence > φ⁻² (0.382)
+contested_threshold = 0.618          # φ⁻¹ — consensus threshold
+
+# Monitoring & Alerting (K15 consumers)
+[monitoring]
+failure_rate_check_interval_secs = 300  # Every 5 min
+alert_threshold_critical = 0.70      # >70% failure rate = page ops
+alert_threshold_warning = 0.40       # >40% failure rate = notify
+quota_exhaustion_alert = true        # Alert on TerminalQuotaError
+circuit_breaker_alert = true         # Alert when circuit opens
+
+# Circuit Breaker Behavior (post-evaluation)
+[circuit]
+# Open circuit after N consecutive failures or failure_rate exceeded
+open_on_consecutive_failures = 10
+open_on_failure_rate = true
+open_duration_secs = 300             # 5 min before retrying
+half_open_eval_budget = 2            # Try 2 evals before deciding to close
+failure_rate_recovery_window_secs = 3600  # Use last 1h of data for recovery decision

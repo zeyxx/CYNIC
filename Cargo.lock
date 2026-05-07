@@ -444,9 +444,11 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "clap",
+ "cynic-mcp",
  "libc",
  "process-wrap",
  "reqwest 0.13.2",
+ "rmcp",
  "serde",
  "serde_json",
  "tempfile",
