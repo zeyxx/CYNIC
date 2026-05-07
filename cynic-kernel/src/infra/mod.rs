@@ -5,6 +5,7 @@ pub mod config;
 pub mod dog_performance;
 pub mod domain_router;
 pub mod embedded_domains;
+pub mod error_classifier;
 pub mod health_loop;
 pub mod organism_recovery;
 pub mod probes;

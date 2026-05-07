@@ -248,7 +248,7 @@ impl Default for MonitoringConfig {
 }
 
 /// Complete Dog thresholds configuration — loaded from backends.toml.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DogThresholds {
     pub defaults: DogDefaults,
     pub dogs: std::collections::HashMap<String, DogThreshold>,
@@ -256,19 +256,6 @@ pub struct DogThresholds {
     pub verdict: VerdictSettings,
     pub circuit: CircuitBreakerConfig,
     pub monitoring: MonitoringConfig,
-}
-
-impl Default for DogThresholds {
-    fn default() -> Self {
-        Self {
-            defaults: DogDefaults::default(),
-            dogs: std::collections::HashMap::new(),
-            error_detection: ErrorDetection::default(),
-            verdict: VerdictSettings::default(),
-            circuit: CircuitBreakerConfig::default(),
-            monitoring: MonitoringConfig::default(),
-        }
-    }
 }
 
 /// Remediation config for a backend — how to restart it when the circuit breaker opens.

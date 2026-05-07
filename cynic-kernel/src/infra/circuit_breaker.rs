@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn opens_after_threshold_failures() {
         let cb = CircuitBreaker::new("test".into());
-        for _ in 0..FAILURE_THRESHOLD {
+        for _ in 0..DEFAULT_FAILURE_THRESHOLD {
             cb.record_failure(FailureReason::Timeout);
         }
         assert!(!cb.should_allow());
@@ -226,7 +226,7 @@ mod tests {
     #[test]
     fn recovers_on_half_open_success() {
         let cb = CircuitBreaker::new("test".into());
-        for _ in 0..FAILURE_THRESHOLD {
+        for _ in 0..DEFAULT_FAILURE_THRESHOLD {
             cb.record_failure(FailureReason::Timeout);
         }
         // Manually set to HalfOpen for testing
@@ -250,7 +250,7 @@ mod tests {
     #[test]
     fn is_open_returns_true_when_open() {
         let cb = CircuitBreaker::new("test".into());
-        for _ in 0..FAILURE_THRESHOLD {
+        for _ in 0..DEFAULT_FAILURE_THRESHOLD {
             cb.record_failure(FailureReason::ApiError);
         }
         assert!(cb.is_open());
@@ -265,7 +265,7 @@ mod tests {
     #[test]
     fn opened_since_returns_duration_when_open() {
         let cb = CircuitBreaker::new("test".into());
-        for _ in 0..FAILURE_THRESHOLD {
+        for _ in 0..DEFAULT_FAILURE_THRESHOLD {
             cb.record_failure(FailureReason::Timeout);
         }
         let d = cb.opened_since();
