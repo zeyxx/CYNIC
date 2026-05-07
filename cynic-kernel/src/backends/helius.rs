@@ -434,8 +434,7 @@ impl HeliusEnricher {
     ) -> Result<(f64, u32), EnrichmentError> {
         let api_key = self.rpc_url.split("api-key=").nth(1).unwrap_or_default();
         let url = format!(
-            "https://api.helius.xyz/v0/addresses/{}/transactions?api-key={}&limit={}&type=SWAP",
-            wallet_owner, api_key, limit
+            "https://api.helius.xyz/v0/addresses/{wallet_owner}/transactions?api-key={api_key}&limit={limit}&type=SWAP"
         );
 
         let resp = self
@@ -496,6 +495,9 @@ impl HeliusEnricher {
     /// Fix C2: retention = current_balance / total_bought (not (bought-sold)/bought).
     /// current_balance comes from getTokenLargestAccounts (already fetched).
     /// total_bought comes from Enhanced Transactions SWAP history.
+    // WHY: args are logically distinct (mint, holders, config, metrics) — grouping into
+    // a struct would add indirection without simplifying the single call site in enrich().
+    #[allow(clippy::too_many_arguments)]
     pub async fn analyze_behaviors(
         &self,
         mint: &str,
