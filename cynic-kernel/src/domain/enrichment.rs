@@ -21,8 +21,11 @@ pub struct TokenData {
     pub decimals: Option<u8>,
     /// Price per token in USD
     pub price_usd: Option<f64>,
-    /// Number of unique token holders
+    /// Number of unique token holders (may be lower bound if > 20 exist).
     pub holder_count: u64,
+    /// True if holder_count is exact (< 20 accounts returned from RPC).
+    /// False = lower bound (20 accounts returned, likely more exist).
+    pub holder_count_is_exact: bool,
     /// Percentage held by the largest wallet
     pub top1_pct: f64,
     /// Percentage held by the top 10 wallets

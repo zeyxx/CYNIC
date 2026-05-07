@@ -41,6 +41,14 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
         s.push_str(&format!("symbol: {symbol}\n"));
     }
     s.push_str(&format!("holders: {}\n", data.holder_count));
+    s.push_str(&format!(
+        "holder_count_type: {}\n",
+        if data.holder_count_is_exact {
+            "exact"
+        } else {
+            "lower_bound (likely more exist)"
+        }
+    ));
     s.push_str(&format!("top_1_wallet_pct: {:.2}%\n", data.top1_pct));
     s.push_str(&format!("top_10_wallets_pct: {:.2}%\n", data.top10_pct));
     if let Some(hhi) = data.herfindahl {

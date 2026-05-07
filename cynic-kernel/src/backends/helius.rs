@@ -507,6 +507,7 @@ impl TokenEnricherPort for HeliusEnricher {
             decimals,
             price_usd,
             holder_count,
+            holder_count_is_exact: holder_count < 20,
             top1_pct,
             top10_pct,
             herfindahl,
