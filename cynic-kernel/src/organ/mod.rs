@@ -794,9 +794,11 @@ mod tests {
             .get(&BackendId("reviving-dog".to_string()))
             .unwrap();
 
-        // Stats are loaded (for observability)
+        // Gate counters are reset at boot (quality gate starts fresh) — only
+        // calibration fields (max_content_tokens, max_thinking_tokens, last_success)
+        // are restored. success_count=0 is correct: Dogs rebuild reputation from requests.
         let guard = handle.0.lock().unwrap();
-        assert_eq!(guard.stats.success_count, 2, "stats should be restored");
+        assert_eq!(guard.stats.success_count, 0, "gate counters reset at boot");
 
         // But gate stays empty — doesn't replay failures
         assert!(
