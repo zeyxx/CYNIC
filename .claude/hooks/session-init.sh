@@ -131,6 +131,36 @@ cat > "$PROOF_FILE" << PROOF_EOF
 }
 PROOF_EOF
 
+# ── Git Hygiene Sense: emit raw metrics to /observe (data-centric, no thresholds) ──
+# K15 consumer: CCM crystallization pipeline learns git hygiene patterns over time.
+# All values are integers; all derived from data already collected above.
+BRANCHES_LOCAL=$(echo "$OPEN_BRANCHES" | jq 'length')
+BRANCHES_MERGED=$(git -C "$PROJECT_DIR" branch --merged main 2>/dev/null | grep -v '^\*' | grep -v 'main' | wc -l || echo 0)
+BRANCHES_UNPUSHED=$(git -C "$PROJECT_DIR" branch -vv 2>/dev/null | grep -v '\[origin/' | grep -v '^\*' | wc -l || echo 0)
+STASHES_TOTAL=$(echo "$STASHES" | jq 'length')
+OPEN_PRS_COUNT=$(echo "$OPEN_PRS" | jq 'length')
+
+# Stash max age: parse oldest stash timestamp
+STASH_MAX_AGE_DAYS=0
+if [[ "$STASHES_TOTAL" -gt 0 ]]; then
+    OLDEST_STASH_TS=$(git -C "$PROJECT_DIR" stash list --date=unix 2>/dev/null | tail -1 | grep -oP '@\{\K[0-9]+' || echo 0)
+    if [[ "$OLDEST_STASH_TS" -gt 0 ]]; then
+        STASH_MAX_AGE_DAYS=$(( (NOW_TS - OLDEST_STASH_TS) / 86400 ))
+    fi
+fi
+
+# Stale PRs: open PRs with no update in >3 days
+STALE_PRS=0
+if [[ "$OPEN_PRS_COUNT" -gt 0 ]]; then
+    THREE_DAYS_AGO=$(date -u -d '3 days ago' +'%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "")
+    if [[ -n "$THREE_DAYS_AGO" ]]; then
+        STALE_PRS=$(gh pr list --json updatedAt 2>/dev/null | jq "[.[] | select(.updatedAt < \"${THREE_DAYS_AGO}\")] | length" 2>/dev/null || echo 0)
+    fi
+fi
+
+# Git hygiene context string (POST deferred until after AGENT_ID is computed)
+GIT_HYGIENE_CTX="branches_local=${BRANCHES_LOCAL} branches_merged=${BRANCHES_MERGED} branches_unpushed=${BRANCHES_UNPUSHED} stashes_total=${STASHES_TOTAL} stash_max_age_days=${STASH_MAX_AGE_DAYS} open_prs=${OPEN_PRS_COUNT} stale_prs=${STALE_PRS} pruned=${PRUNED_COUNT}"
+
 # Check for violations from last session (AT_END that became AT_START of this session)
 # Rule: violation = work that could be lost or coordination debt from previous session
 GIT_VIOLATIONS=""
@@ -157,6 +187,16 @@ if [[ -n "$SESSION_ID" ]]; then
     AGENT_ID="claude-${SESSION_ID:0:12}"
 else
     AGENT_ID="claude-$(date +%s)"
+fi
+
+# ── Git Hygiene Sense: POST to /observe (fire-and-forget, non-blocking) ──
+# Deferred from metric computation above — needs AGENT_ID which is derived from session_id.
+if [[ "$KERNEL_STATUS" != "down" ]]; then
+    curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+        -H "Content-Type: application/json" \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"git_hygiene_sense\",\"target\":\"session_start\",\"domain\":\"git-hygiene\",\"context\":\"${GIT_HYGIENE_CTX}\",\"tags\":[\"git-hygiene\",\"sense\"],\"consumer\":\"ccm\",\"action\":\"crystallize git hygiene patterns\"}" \
+        > /dev/null 2>&1 &
 fi
 
 # ── Session cost tracking (Rule 3: measure baseline) ──
