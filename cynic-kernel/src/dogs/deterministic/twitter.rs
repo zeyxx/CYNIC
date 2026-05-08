@@ -63,8 +63,8 @@ pub(super) struct TwitterSignals {
 /// Parse twitter signals from stimulus content + context.
 /// Returns None if this doesn't look like a twitter social signal.
 pub(super) fn parse(content: &str, context: Option<&str>) -> Option<TwitterSignals> {
-    // Gate: only match content that looks like ingest daemon output
-    if !content.starts_with("X social signal") {
+    // Gate: match content from ingest daemon or manual twitter signals
+    if !content.starts_with("X social signal") && !content.starts_with("[Twitter signal") {
         return None;
     }
 
@@ -72,23 +72,31 @@ pub(super) fn parse(content: &str, context: Option<&str>) -> Option<TwitterSigna
     let content_lower = content.to_lowercase();
     let ctx_lower = ctx.to_lowercase();
 
-    // Extract author from content: "X social signal — @author (signal N):"
+    // Extract author from content: "X social signal — @author (signal N):" or "[Twitter signal from D1]: ..."
     let author_name = content
         .find('@')
         .and_then(|start| {
             content[start + 1..]
-                .find(|c: char| c.is_whitespace() || c == '(')
+                .find(|c: char| c.is_whitespace() || c == '(' || c == ']' || c == ':')
                 .map(|end| content[start + 1..start + 1 + end].to_lowercase())
         })
         .unwrap_or_default();
 
-    // Extract signal score from content: "(signal N)"
+    // Extract signal score from content: "(signal N)" or from context "signal_score=N"
     let signal_score = content
         .find("(signal ")
         .and_then(|start| {
             content[start + 8..]
                 .find(')')
                 .and_then(|end| content[start + 8..start + 8 + end].parse::<i32>().ok()) // R2-exempt: filter_map
+        })
+        .or_else(|| {
+            ctx.find("signal_score=").and_then(|start| {
+                ctx[start + 13..]
+                    .split_whitespace()
+                    .next()
+                    .and_then(|s| s.parse::<i32>().ok()) // R2-exempt: filter_map
+            })
         })
         .unwrap_or(0);
 
@@ -490,6 +498,18 @@ mod tests {
             "address reference should boost verify, got {}",
             scores.verify
         );
+    }
+
+    #[test]
+    fn parse_bracket_format() {
+        let s = parse(
+            "[Twitter signal from D1]: $BEDROCK slow rugged, every token that assigned fees is dead.",
+            Some("signal_score=7 Cashtags: $BEDROCK. Narratives: rug_warning."),
+        )
+        .expect("should parse bracket format");
+        assert_eq!(s.signal_score, 7);
+        assert!(s.has_rug_warning);
+        assert!(s.has_cashtags);
     }
 
     #[test]
