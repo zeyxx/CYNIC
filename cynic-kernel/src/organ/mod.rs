@@ -331,25 +331,30 @@ impl InferenceOrgan {
             if let Some(handle) = self.entries.get(&key)
                 && let Ok(mut guard) = handle.0.lock()
             {
-                guard.stats = stats.clone();
-                // Push calibrated budget to Dog's AtomicU32 so it doesn't fall back
+                // Compute calibrated budget from full historical stats BEFORE resetting
+                // counters, so we can push it to the Dog's budget handle.
+                let preserved_budget = stats.completion_budget();
+
+                // Restore calibration-relevant fields only. Quality-gate counters
+                // (total_calls, success_count, failure counts) are reset so the
+                // json_valid_rate gate and is_baseline_established() start fresh.
+                // Without this, stale 0% success rates from pre-boot failures
+                // immediately trip the quality gate and lock out inference Dogs.
+                guard.stats.max_content_tokens = stats.max_content_tokens;
+                guard.stats.max_thinking_tokens = stats.max_thinking_tokens;
+                guard.stats.last_success = stats.last_success.clone();
+
+                // Push preserved budget to Dog's AtomicU32 so it doesn't fall back
                 // to the bootstrap formula.
-                if let (Some(budget_val), Some(bh)) =
-                    (guard.stats.completion_budget(), &guard.budget_handle)
-                {
+                if let (Some(budget_val), Some(bh)) = (preserved_budget, &guard.budget_handle) {
                     bh.store(budget_val, Ordering::Relaxed);
                 }
-                // NOTE: Do NOT replay gate state at boot. K14 penalty: we marked Dogs as
-                // quality_degraded before they had a chance to recover, which blocked all
-                // /judge requests on first boot after a failure. Instead, let Dogs rebuild
-                // their gate reputation naturally from requests after boot. Stats are restored
-                // for observability/history, but gates start fresh each boot (B5 amnesia fix).
                 tracing::info!(
                     backend = %dog_id,
-                    total_calls = stats.total_calls,
-                    success_rate = format!("{:.1}%", (stats.success_count as f64 / (stats.total_calls.max(1) as f64)) * 100.0),
-                    budget = guard.stats.completion_budget().unwrap_or(0),
-                    "organ: restored DogStats (gates reset — no replay at boot)"
+                    historical_calls = stats.total_calls,
+                    historical_success_rate = format!("{:.1}%", (stats.success_count as f64 / (stats.total_calls.max(1) as f64)) * 100.0),
+                    budget = preserved_budget.unwrap_or(0),
+                    "organ: restored calibration (quality counters reset at boot)"
                 );
             }
         }

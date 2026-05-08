@@ -1,0 +1,10 @@
+[Unit]
+Description=Hermes Navigator Timer — UCB1-guided organic browsing cycles
+PartOf=hermes-organism.target
+
+[Timer]
+OnCalendar=*-*-* *:00,30:00
+RandomizedDelaySec=120s
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,25 @@
+[Unit]
+Description=CYNIC Hermes Navigator — UCB1-guided organic browsing
+After=hermes-proxy.service hermes-browser.service
+Requires=hermes-proxy.service
+Wants=hermes-browser.service
+PartOf=hermes-organism.target
+
+[Service]
+EnvironmentFile=%h/.config/cynic/env
+Type=oneshot
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONPATH=%h/Bureau/CYNIC"
+WorkingDirectory=%h/.cynic/organs/hermes/x
+ExecStart=/usr/bin/python3 core/organic_navigator.py \
+    --organ-dir %h/.cynic/organs/hermes/x \
+    --budget 5
+TimeoutStartSec=300
+TimeoutStopSec=30
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hermes-navigator
+
+[Install]
+WantedBy=timers.target
