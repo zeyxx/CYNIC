@@ -291,12 +291,23 @@ pub fn spawn_nightshift_loop(
                     klog!("[Nightshift] Commits: {} judged, {} errors", judged, errors);
 
                     // Phase 2: judge recent observations across domains (temporal compounding).
+                    // Skip verdict-feedback observations (tagged "compound-loop") — they are
+                    // metadata about verdicts, not content to judge. Re-judging them wastes
+                    // sovereign Dog slots and produces degenerate scores (K20 format mismatch).
                     match storage.list_observations_raw(None, None, 30).await {
                         Ok(observations) if !observations.is_empty() => {
-                            klog!("[Nightshift] {} observation(s) to review", observations.len());
+                            let judgeable: Vec<_> = observations.iter()
+                                .filter(|o| !o.tags.contains(&"compound-loop".to_string()))
+                                .collect();
+                            let skipped = observations.len() - judgeable.len();
+                            if skipped > 0 {
+                                klog!("[Nightshift] {} observation(s) to review ({} compound-loop skipped)", judgeable.len(), skipped);
+                            } else {
+                                klog!("[Nightshift] {} observation(s) to review", judgeable.len());
+                            }
                             let mut s_judged = 0usize;
                             let mut s_errors = 0usize;
-                            for obs in &observations {
+                            for obs in &judgeable {
                                 match tokio::time::timeout(
                                     constants::NIGHTSHIFT_COMMIT_TIMEOUT,
                                     judge_observation(obs, &judge, &storage),
