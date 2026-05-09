@@ -83,11 +83,12 @@ pub async fn auth_middleware(
     // Role-based endpoint gating
     match role {
         super::types::Role::Organ => {
-            // Organs can only: /observe, /coord/*, /health, /events
+            // Organs can only: /observe, /coord/*, /health, /events, /v1/* (inference proxy)
             let allowed = path == "/observe"
                 || path.starts_with("/coord/")
                 || path == "/health"
-                || path == "/events";
+                || path == "/events"
+                || path.starts_with("/v1/");
             if !allowed {
                 return (
                     StatusCode::FORBIDDEN,
