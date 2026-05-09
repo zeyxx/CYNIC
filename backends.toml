@@ -148,6 +148,13 @@ disable_thinking = true
 timeout_secs = 60
 api_key_env = "CYNIC_SOVEREIGN_KEY"
 
+[backend.qwen35-9b-gpu.remediation]
+# Windows schtask — restarts llama-server via SSH
+node = "cynic-gpu"
+restart_command = "schtasks /Run /TN llama-server-9b"
+max_retries = 3
+cooldown_secs = 120
+
 [backend.qwen-9b-core]
 base_url = "http://<TAILSCALE_CORE>:8080/v1"
 model = "Qwen2.5-7B-Instruct-Q4_K_M.gguf"
@@ -156,3 +163,10 @@ json_mode = false
 disable_thinking = true
 timeout_secs = 120
 api_key_env = "CYNIC_SOVEREIGN_KEY"
+
+[backend.qwen-9b-core.remediation]
+# Local service — kernel and llama-server on same machine
+node = "localhost"
+restart_command = "systemctl --user restart llama-server"
+max_retries = 3
+cooldown_secs = 60
