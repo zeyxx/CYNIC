@@ -1,4 +1,4 @@
-//! REST API handler for Soma L1 — resource orchestration and GPU utilization-aware dispatch.
+//! REST API handler for Soma L3 — slot-aware resource orchestration with priority thresholds.
 
 use axum::{extract::State, http::StatusCode, response::Json};
 use serde::{Deserialize, Serialize};
@@ -16,8 +16,8 @@ pub struct SomaRequestPayload {
     pub priority: String,
     /// Estimated duration in seconds
     pub estimated_duration_secs: u64,
-    /// URL to llama-server (e.g., "http://127.0.0.1:8080")
-    pub llama_url: String,
+    /// Dog ID to check utilization for (optional — if absent, uses aggregate)
+    pub dog_id: Option<String>,
 }
 
 /// Response payload — the gate's decision.
@@ -43,14 +43,13 @@ impl From<GateDecision> for SomaDecisionResponse {
 
 /// POST /soma/request — Query the resource gate for allocation decision.
 ///
-/// Request: { "task_name": "hermes-1", "priority": "hermes", "estimated_duration_secs": 300, "llama_url": "http://..." }
+/// Request: { "task_name": "hermes-1", "priority": "hermes", "estimated_duration_secs": 300, "dog_id": "qwen-9b-core" }
 /// Response (200): { "decision": "allocate", "data": { "slot_id": "hermes-1-1714878456789" } }
 ///             or: { "decision": "queue", "data": { "wait_secs": 5 } }
 pub async fn soma_request_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SomaRequestPayload>,
 ) -> Result<(StatusCode, Json<SomaDecisionResponse>), (StatusCode, Json<ErrorResponse>)> {
-    // Parse priority from string to enum
     let priority = match payload.priority.to_lowercase().as_str() {
         "background" => Priority::Background,
         "nightshift" => Priority::Nightshift,
@@ -65,20 +64,14 @@ pub async fn soma_request_handler(
         }
     };
 
-    // Get or create the resource gate (singleton per state)
-    let gate = state.soma_gate.clone();
-
-    // Build the request and query the gate
     let request = ResourceRequest {
         task_name: payload.task_name,
         priority,
         estimated_duration_secs: payload.estimated_duration_secs,
-        llama_url: payload.llama_url,
+        dog_id: payload.dog_id,
     };
 
-    let decision = gate.request(request).await;
-
-    // Return the decision
+    let decision = state.soma_gate.request(&request);
     let response = SomaDecisionResponse::from(decision);
     Ok((StatusCode::OK, Json(response)))
 }

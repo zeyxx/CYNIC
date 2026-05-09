@@ -318,10 +318,24 @@ impl Judge {
                         max_context = max,
                         "Dog skipped — context too large"
                     );
-                    false
-                } else {
-                    true
+                    return false;
                 }
+                // Soma L3: check per-slot context (total_ctx / parallel).
+                // A Dog may advertise 64K total but with --parallel 4, each slot
+                // only has 16K. If the stimulus needs 20K, it will crash.
+                if let Some(tracker) = &self.slot_tracker {
+                    let slot_ctx = tracker.per_slot_ctx(dog.id());
+                    if slot_ctx > 0 && estimated > slot_ctx {
+                        tracing::info!(
+                            dog_id = %dog.id(),
+                            estimated_tokens = estimated,
+                            per_slot_ctx = slot_ctx,
+                            "Dog skipped — stimulus exceeds per-slot context (Soma L3)"
+                        );
+                        return false;
+                    }
+                }
+                true
             })
             .collect();
 

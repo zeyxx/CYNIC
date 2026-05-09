@@ -91,6 +91,19 @@ impl SlotTracker {
         }
     }
 
+    /// Per-slot context size for a Dog's backend. Returns 0 if unknown/stale.
+    /// Used by Judge for context routing: if per_slot_ctx < estimated tokens,
+    /// the Dog will crash with context overflow even though total context is large.
+    pub fn per_slot_ctx(&self, dog_id: &str) -> u32 {
+        let Ok(guard) = self.state.read() else {
+            return 0;
+        };
+        match guard.get(dog_id) {
+            Some(slots) if slots.updated_at.elapsed() < STALE_THRESHOLD => slots.per_slot_ctx,
+            _ => 0, // Unknown → 0 (don't restrict)
+        }
+    }
+
     /// Full snapshot for REST exposure. Filters out stale entries.
     pub fn snapshot(&self) -> BTreeMap<String, BackendSlots> {
         let guard = match self.state.read() {

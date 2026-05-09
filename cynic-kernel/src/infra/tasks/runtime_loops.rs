@@ -921,8 +921,10 @@ mod tests {
             dog_perf_collector: Arc::new(
                 crate::infra::dog_performance::DogPerformanceCollector::new(),
             ),
-            soma_gate: Arc::new(crate::domain::orchestrator::ResourceGate::new()),
             slot_tracker: Arc::new(crate::domain::slot_tracker::SlotTracker::new()),
+            soma_gate: Arc::new(crate::domain::orchestrator::ResourceGate::new(Arc::new(
+                crate::domain::slot_tracker::SlotTracker::new(),
+            ))),
             project_root: ".".to_string(),
             mail: None,
         })

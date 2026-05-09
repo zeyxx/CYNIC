@@ -642,9 +642,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Periodically flushes to routing_calc for live routing adaptation.
     let dog_perf_collector = Arc::new(infra::dog_performance::DogPerformanceCollector::new());
 
-    // Soma L1 Alpha: Resource gate for GPU utilization-aware task dispatch.
-    // Prevents Hermes agent + nightshift Dog evaluations from starving each other.
-    let soma_gate = Arc::new(domain::orchestrator::ResourceGate::new());
+    // Soma L3: Resource gate reads real slot utilization via SlotTracker.
+    // Priority-aware: Hermes blocked at 100%, nightshift at 50%, background at 25%.
+    let soma_gate = Arc::new(domain::orchestrator::ResourceGate::new(Arc::clone(
+        &slot_tracker,
+    )));
 
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
