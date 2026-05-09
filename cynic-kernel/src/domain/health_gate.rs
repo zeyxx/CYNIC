@@ -30,6 +30,8 @@ pub enum FailureReason {
     QuotaExhausted,
     /// Fleet node offline — preemptive marking via Tailscale sense.
     FleetOffline,
+    /// Inference slot stuck at 100% for multiple consecutive probe ticks.
+    SlotSaturation,
 }
 
 impl FailureReason {
@@ -44,6 +46,7 @@ impl FailureReason {
             Self::HealthProbe => "health_probe",
             Self::QuotaExhausted => "quota_exhausted",
             Self::FleetOffline => "fleet_offline",
+            Self::SlotSaturation => "slot_saturation",
         }
     }
 }

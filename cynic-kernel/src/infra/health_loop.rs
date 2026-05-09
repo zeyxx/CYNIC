@@ -293,6 +293,20 @@ pub fn spawn_health_loop(
                                 );
                                 slot_tracker.update(&dog_id, slots);
                             }
+                            // Soma L2+: tick saturation counter for this Dog
+                            slot_tracker.tick_saturation(&dog_id);
+                        }
+                        // After the loop: check for stuck slots
+                        for dog_id in slot_tracker.saturated_dogs(3) {
+                            klog!(
+                                "[health_loop] Dog '{}' slots saturated for 3+ ticks — signaling remediation",
+                                dog_id
+                            );
+                            if let Some(idx) = configs.iter().position(|c| c.dog_id == dog_id) {
+                                breakers[idx].record_failure(
+                                    crate::domain::health_gate::FailureReason::SlotSaturation
+                                );
+                            }
                         }
                     }
 
