@@ -46,7 +46,7 @@ use self::health::{
 };
 use self::inference_router::{
     inference_candidates_handler, inference_remediate_handler, inference_route_handler,
-    inference_start_handler, list_models_handler, remediate_handler,
+    inference_slots_handler, inference_start_handler, list_models_handler, remediate_handler,
 };
 use self::judge::{get_verdict_handler, judge_handler, list_verdicts_handler};
 use self::judge_job::{judge_async_handler, judge_status_handler};
@@ -145,6 +145,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(inference_remediate_handler),
         )
         .route("/inference/list-models", get(list_models_handler))
+        .route("/inference/slots", get(inference_slots_handler))
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))
         .route("/coord/claim-batch", post(coord_claim_batch_handler))

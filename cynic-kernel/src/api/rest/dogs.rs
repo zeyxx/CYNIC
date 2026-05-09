@@ -150,7 +150,8 @@ pub async fn register_dog_handler(
     breakers.push(new_breaker);
     handles.push(None);
 
-    let new_judge = crate::judge::Judge::new(dogs, breakers).with_organ_handles(handles);
+    let mut new_judge = crate::judge::Judge::new(dogs, breakers).with_organ_handles(handles);
+    new_judge = new_judge.with_slot_tracker(Arc::clone(&state.slot_tracker));
     let chain_hash = current.last_hash_snapshot();
     new_judge.seed_chain(chain_hash);
 

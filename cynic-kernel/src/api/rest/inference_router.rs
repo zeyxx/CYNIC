@@ -555,6 +555,34 @@ pub async fn list_models_handler(
     }))
 }
 
+/// GET /inference/slots — aggregated slot state per sovereign backend.
+/// Soma L2: external dispatchers (Hermes, nightshift) query this before spawning.
+/// Returns per-dog slot counts, utilization, per-slot context, and freshness.
+pub async fn inference_slots_handler(
+    State(state): State<Arc<AppState>>,
+) -> Json<serde_json::Value> {
+    let snapshot = state.slot_tracker.snapshot();
+    let backends: Vec<serde_json::Value> = snapshot
+        .into_iter()
+        .map(|(dog_id, slots)| {
+            serde_json::json!({
+                "dog_id": dog_id,
+                "total_slots": slots.total,
+                "busy_slots": slots.busy,
+                "free_slots": slots.total.saturating_sub(slots.busy),
+                "utilization": (slots.utilization() * 100.0).round() / 100.0,
+                "per_slot_ctx": slots.per_slot_ctx,
+                "slots": slots.slots,
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({
+        "backends": backends,
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

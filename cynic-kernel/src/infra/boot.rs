@@ -37,6 +37,8 @@ pub struct DogsAndOrgan {
     pub organ: Arc<organ::InferenceOrgan>,
     pub cost_rates: Vec<(String, f64, f64)>,
     pub health_urls: HashMap<String, Option<String>>,
+    /// Soma L2: Dog ID → llama-server /slots URL. Only sovereign backends.
+    pub slots_urls: HashMap<String, Option<String>>,
     /// `(base_url, context_size, model, api_key)` per backend — feeds fleet probes
     /// and the discovery loop. CLI backends are intentionally absent (no HTTP URL).
     pub fleet_meta: HashMap<String, (String, u32, String, Option<String>)>,
@@ -78,6 +80,7 @@ pub async fn build_dogs_and_organ(
     let mut cost_rates: Vec<(String, f64, f64)> = Vec::new();
     let mut remediation_configs: HashMap<String, BackendRemediation> = HashMap::new();
     let mut health_urls: HashMap<String, Option<String>> = HashMap::new();
+    let mut slots_urls: HashMap<String, Option<String>> = HashMap::new();
     let mut dog_to_fleet_node: HashMap<String, String> = HashMap::new();
     // Fleet probe needs base_url (for /props + /v1/models), context_size, model name, api_key
     let mut fleet_meta: HashMap<String, (String, u32, String, Option<String>)> = HashMap::new();
@@ -131,6 +134,13 @@ pub async fn build_dogs_and_organ(
             cfg.cost_output_per_mtok,
         ));
         health_urls.insert(cfg.name.clone(), cfg.health_url.clone());
+        // Soma L2: derive /slots URL for sovereign non-CLI backends
+        let slots_url = if cfg.backend_type != BackendType::Cli && cfg.sovereign {
+            Some(super::config::derive_slots_url(&cfg.base_url))
+        } else {
+            None
+        };
+        slots_urls.insert(cfg.name.clone(), slots_url);
         // CLI backends have no HTTP URL to probe — skip fleet_meta insertion
         if cfg.backend_type != BackendType::Cli {
             fleet_meta.insert(
@@ -215,6 +225,7 @@ pub async fn build_dogs_and_organ(
         organ,
         cost_rates,
         health_urls,
+        slots_urls,
         fleet_meta,
         remediation_configs,
         dog_to_fleet_node,

@@ -187,6 +187,10 @@ pub struct AppState {
     /// Prevents Hermes + nightshift Dog evaluations from starving each other.
     /// Consulted before spawning high-contention tasks (hermes chat, dog evals).
     pub soma_gate: Arc<ResourceGate>,
+    /// Soma L2: Slot utilization tracker — updated by health loop every 30s.
+    /// Consumers: /judge (skip saturated Dogs), /health (expose utilization),
+    /// GET /inference/slots (external dispatch query).
+    pub slot_tracker: Arc<crate::domain::slot_tracker::SlotTracker>,
     /// Project root (repository root — resolved at boot).
     /// Used by `/git/state` endpoint to run git commands in the correct context.
     pub project_root: String,
