@@ -24,12 +24,36 @@ pub(super) struct TokenMetrics {
     lp_locked: bool,
     supply_burned_pct: Option<f64>,
     origin_pump_fun: bool,
+    // Market data fields (from stimulus [METRICS])
+    price_usd: Option<f64>,
+    market_cap_usd: Option<f64>,
+    volume_24h_usd: Option<f64>,
+    liquidity_usd: Option<f64>,
     // K-Score behavioral fields (from [BEHAVIORAL] section)
     k_score: Option<f64>,
     k_diamond_hands: Option<f64>,
     k_wallets_analyzed: u32,
     k_accumulators: u32,
     k_extractors: u32,
+}
+
+/// Parse human-readable USD values like "1.23B", "45.67M", "890K", "123.45".
+/// Returns None for malformed input — caller treats absence as "no market data".
+fn parse_human_usd(s: &str) -> Option<f64> {
+    let s = s.trim();
+    let (num_str, multiplier) = if let Some(num) = s.strip_suffix('B') {
+        (num, 1e9)
+    } else if let Some(num) = s.strip_suffix('M') {
+        (num, 1e6)
+    } else if let Some(num) = s.strip_suffix('K') {
+        (num, 1e3)
+    } else {
+        (s, 1.0)
+    };
+    match num_str.parse::<f64>() {
+        Ok(n) => Some(n * multiplier),
+        Err(_) => None, // malformed stimulus field — scored without market data
+    }
 }
 
 /// Extract token metrics from a formatted stimulus string.
@@ -62,6 +86,10 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
         lp_locked: false,
         supply_burned_pct: None,
         origin_pump_fun: false,
+        price_usd: None,
+        market_cap_usd: None,
+        volume_24h_usd: None,
+        liquidity_usd: None,
         k_score: None,
         k_diamond_hands: None,
         k_wallets_analyzed: 0,
@@ -110,6 +138,15 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
             m.supply_burned_pct = v.trim_end_matches('%').parse().ok();
         } else if let Some(v) = line.strip_prefix("origin: ") {
             m.origin_pump_fun = v.eq_ignore_ascii_case("pump.fun");
+        } else if let Some(v) = line.strip_prefix("price_usd: $") {
+            m.price_usd = v.parse().ok();
+        } else if let Some(v) = line.strip_prefix("market_cap_usd: $") {
+            // Parse "$1.23B" / "$45.67M" / "$890K" / "$123.45"
+            m.market_cap_usd = parse_human_usd(v);
+        } else if let Some(v) = line.strip_prefix("volume_24h_usd: $") {
+            m.volume_24h_usd = parse_human_usd(v);
+        } else if let Some(v) = line.strip_prefix("liquidity_usd: $") {
+            m.liquidity_usd = parse_human_usd(v);
         }
     }
 
@@ -196,9 +233,18 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             fidelity -= ADJUST_SMALL;
         }
     }
+    // Market cap: high mcap = token fulfills its claimed purpose at scale
+    // Falsify: legitimate small-cap token penalized for being early-stage.
+    if let Some(mcap) = m.market_cap_usd {
+        if mcap >= 100_000_000.0 {
+            fidelity += ADJUST_MEDIUM; // $100M+ = established project
+        } else if mcap >= 1_000_000.0 {
+            fidelity += ADJUST_SMALL; // $1M+ = real traction
+        }
+    }
     let fidelity = fidelity.clamp(ADJUST_SMALL, PHI_INV);
     let fidelity_reason = format!(
-        "mint_authority={}, freeze_authority={}, diamond_hands={}.",
+        "mint_authority={}, freeze_authority={}, diamond_hands={}, mcap={}.",
         if m.mint_authority_active {
             "ACTIVE (red flag)"
         } else {
@@ -211,6 +257,9 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
         },
         m.k_diamond_hands
             .map(|d| format!("{d:.3}"))
+            .unwrap_or_else(|| "n/a".into()),
+        m.market_cap_usd
+            .map(|mc| format!("${mc:.0}"))
             .unwrap_or_else(|| "n/a".into()),
     );
 
@@ -248,14 +297,28 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             phi -= ADJUST_SMALL;
         }
     }
+    // Liquidity: deep liquidity = healthy market structure, easy entry/exit
+    // Falsify: wash trading inflates liquidity without real depth.
+    if let Some(liq) = m.liquidity_usd {
+        if liq >= 100_000.0 {
+            phi += ADJUST_MEDIUM; // $100K+ liquidity = healthy market
+        } else if liq >= 10_000.0 {
+            phi += ADJUST_SMALL;
+        } else if liq < 1_000.0 {
+            phi -= ADJUST_SMALL; // near-zero liquidity = structural concern
+        }
+    }
     let phi = phi.clamp(ADJUST_SMALL, PHI_INV);
     let phi_reason = if m.holder_data_available {
         format!(
-            "holders={}+, top1={:.1}%, HHI={}.",
+            "holders={}+, top1={:.1}%, HHI={}, liquidity={}.",
             m.holders,
             m.top1_pct,
             m.herfindahl
                 .map(|h| format!("{h:.3}"))
+                .unwrap_or_else(|| "n/a".into()),
+            m.liquidity_usd
+                .map(|l| format!("${l:.0}"))
                 .unwrap_or_else(|| "n/a".into()),
         )
     } else {
@@ -276,9 +339,18 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     } else if m.age_hours < 24 {
         verify -= ADJUST_SMALL; // unproven
     }
+    // Volume: real trading activity = market-verified existence
+    // Falsify: wash trading inflates volume without real price discovery.
+    if let Some(vol) = m.volume_24h_usd {
+        if vol >= 1_000_000.0 {
+            verify += ADJUST_MEDIUM; // $1M+ daily volume = market-validated
+        } else if vol >= 10_000.0 {
+            verify += ADJUST_SMALL; // measurable activity
+        }
+    }
     let verify = verify.clamp(ADJUST_SMALL, PHI_INV);
     let verify_reason = format!(
-        "On-chain verifiable. LP={}, age={}h.",
+        "On-chain verifiable. LP={}, age={}h, volume_24h={}.",
         if m.lp_burned {
             "burned"
         } else if m.lp_locked {
@@ -287,6 +359,9 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             "unsecured"
         },
         m.age_hours,
+        m.volume_24h_usd
+            .map(|v| format!("${v:.0}"))
+            .unwrap_or_else(|| "n/a".into()),
     );
 
     // ── CULTURE: Does it follow established token standards? ──

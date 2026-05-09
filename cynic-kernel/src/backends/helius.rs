@@ -254,6 +254,60 @@ impl HeliusEnricher {
         }))
     }
 
+    /// Estimate real holder count via DAS getTokenAccounts pagination probing.
+    /// Uses exponential page probing (2→10→100→1000) with limit=1 per probe.
+    /// Cost: 10-40 credits (1-4 DAS calls). Only called when getTokenLargestAccounts
+    /// returned exactly 20 accounts (holder_count_is_exact=false).
+    /// Returns estimated lower bound of holder count.
+    async fn estimate_holder_count(&self, mint: &str) -> u64 {
+        let api_key = self.rpc_url.split("api-key=").nth(1).unwrap_or_default();
+        let probe_pages: &[u64] = &[2, 10, 100, 1000];
+        let mut estimated = 20_u64; // we already know there are >= 20
+
+        for &page in probe_pages {
+            let body = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getTokenAccounts",
+                "params": {
+                    "mint": mint,
+                    "page": page,
+                    "limit": 1
+                }
+            });
+
+            let url = format!("https://mainnet.helius-rpc.com/?api-key={api_key}");
+            let resp = match self.client.post(&url).json(&body).send().await {
+                Ok(r) if r.status().is_success() => r,
+                _ => break,
+            };
+
+            let rpc: serde_json::Value = match resp.json().await {
+                Ok(v) => v,
+                Err(_) => break,
+            };
+
+            self.credits.record_call(0, true, 10); // DAS: 10 credits
+
+            let has_results = rpc
+                .pointer("/result/token_accounts")
+                .and_then(|v| v.as_array())
+                .is_some_and(|a| !a.is_empty());
+
+            if has_results {
+                // page N with default page size of 1000 means at least N*1000 holders
+                estimated = page * 1000;
+                tracing::debug!(mint = %mint, page, estimated, "holder count probe: page has results");
+            } else {
+                tracing::debug!(mint = %mint, page, estimated, "holder count probe: page empty, stopping");
+                break;
+            }
+        }
+
+        tracing::info!(mint = %mint, estimated_holders = estimated, "holder count estimated via DAS pagination");
+        estimated
+    }
+
     async fn get_offchain_metadata(&self, mint: &str) -> Result<Option<String>, EnrichmentError> {
         // Extract API key from RPC URL
         let api_key = self.rpc_url.split("api-key=").nth(1).unwrap_or_default();
@@ -433,10 +487,16 @@ impl HeliusEnricher {
             .map(|s| s.to_string())
     }
 
-    /// Detect LP status by checking if top holder token accounts are owned by burn/locker addresses.
-    /// Returns "burned" | "locked" | "unsecured".
+    /// Detect LP status and compute supply burned/locked percentages.
+    /// Checks top holder token accounts' owners against known burn/locker addresses.
+    /// Returns (lp_status, burned_pct, locked_pct).
     /// Cost: 1-5 credits (1 getAccountInfo per holder checked).
-    async fn detect_lp_status(&self, holder_addresses: &[String]) -> String {
+    async fn detect_lp_and_supply_status(
+        &self,
+        holder_addresses: &[String],
+        holder_balances: &[f64],
+        total_supply: Option<f64>,
+    ) -> (String, Option<f64>, Option<f64>) {
         /// Known Solana burn addresses — tokens sent here are irrecoverable.
         const BURN_ADDRESSES: &[&str] = &[
             "1nc1nerator11111111111111111111111111111111",
@@ -453,22 +513,51 @@ impl HeliusEnricher {
         ];
 
         let check_count = holder_addresses.len().min(5);
-        for addr in &holder_addresses[..check_count] {
+        let mut lp_status = "unsecured".to_string();
+        let mut burned_balance = 0.0_f64;
+        let mut locked_balance = 0.0_f64;
+
+        for (i, addr) in holder_addresses[..check_count].iter().enumerate() {
             let Some(owner) = self.resolve_owner(addr).await else {
                 continue;
             };
+            let balance = holder_balances.get(i).copied().unwrap_or(0.0);
 
             if BURN_ADDRESSES.contains(&owner.as_str()) {
-                tracing::debug!(token_account = %addr, owner = %owner, "LP detected: burned");
-                return "burned".into();
-            }
-            if LOCKER_PROGRAMS.contains(&owner.as_str()) {
-                tracing::debug!(token_account = %addr, owner = %owner, "LP detected: locked");
-                return "locked".into();
+                burned_balance += balance;
+                if lp_status == "unsecured" {
+                    tracing::debug!(token_account = %addr, owner = %owner, "LP detected: burned");
+                    lp_status = "burned".into();
+                }
+            } else if LOCKER_PROGRAMS.contains(&owner.as_str()) {
+                locked_balance += balance;
+                if lp_status == "unsecured" {
+                    tracing::debug!(token_account = %addr, owner = %owner, "LP detected: locked");
+                    lp_status = "locked".into();
+                }
             }
         }
 
-        "unsecured".into()
+        let (burned_pct, locked_pct) = if let Some(supply) = total_supply
+            && supply > 0.0
+        {
+            (
+                if burned_balance > 0.0 {
+                    Some(burned_balance / supply * 100.0)
+                } else {
+                    None
+                },
+                if locked_balance > 0.0 {
+                    Some(locked_balance / supply * 100.0)
+                } else {
+                    None
+                },
+            )
+        } else {
+            (None, None)
+        };
+
+        (lp_status, burned_pct, locked_pct)
     }
 
     /// Classify a token account holder by resolving its owner program.
@@ -484,6 +573,7 @@ impl HeliusEnricher {
             "Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB", // Meteora pools
             "9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP", // Orca v1
             "DjVE6JNiYqPL2QXyCUUh8rNjHrbz9hXHNYt99MQ59qw1", // Orca v2 (aquafarm)
+            "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",  // PumpSwap AMM
         ];
 
         let Some(owner) = self.resolve_owner(token_account).await else {
@@ -800,11 +890,20 @@ impl TokenEnricherPort for HeliusEnricher {
             (0, 0.0, 0.0, None, vec![], vec![], false)
         };
 
-        // Detect LP status from holder account owners (burn address = burned, locker = locked)
-        let lp_status = if !holder_addresses.is_empty() {
-            self.detect_lp_status(&holder_addresses).await
+        // Estimate real holder count via DAS pagination when getTokenLargestAccounts hit the 20-cap.
+        // This replaces "20+" with "~100000+" for established tokens like JUP.
+        let holder_count = if holder_data_available && holder_count >= 20 {
+            self.estimate_holder_count(mint_address).await
         } else {
-            "unsecured".into()
+            holder_count
+        };
+
+        // Detect LP status + supply burned/locked from holder account owners
+        let (lp_status, supply_burned_pct, supply_locked_pct) = if !holder_addresses.is_empty() {
+            self.detect_lp_and_supply_status(&holder_addresses, &holder_balances, real_supply)
+                .await
+        } else {
+            ("unsecured".into(), None, None)
         };
 
         // Classify top1 holder type (LP pool, burn, locker, or wallet)
@@ -887,8 +986,10 @@ impl TokenEnricherPort for HeliusEnricher {
             mint_authority_active,
             freeze_authority_active,
             lp_status,
-            supply_burned_pct: None,
-            supply_locked_pct: None,
+            supply_burned_pct,
+            supply_locked_pct,
+            volume_24h_usd: None, // populated by Jupiter adapter when available
+            liquidity_usd: None,  // populated by Jupiter adapter when available
             origin,
             token_standard,
             description,
