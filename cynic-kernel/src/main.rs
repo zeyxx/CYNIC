@@ -386,10 +386,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 health_urls
                     .get(id.as_str())
                     .and_then(|opt| opt.as_ref())
-                    .map(|url| infra::health_loop::DogProbeConfig {
-                        dog_id: id.clone(),
-                        health_url: url.clone(),
-                        slots_url: slots_urls.get(id.as_str()).and_then(|opt| opt.clone()),
+                    .map(|url| {
+                        let api_key = backend_configs
+                            .iter()
+                            .find(|c| c.name == *id)
+                            .and_then(|c| c.api_key.clone());
+                        infra::health_loop::DogProbeConfig {
+                            dog_id: id.clone(),
+                            health_url: url.clone(),
+                            slots_url: slots_urls.get(id.as_str()).and_then(|opt| opt.clone()),
+                            api_key,
+                        }
                     })
             })
             .collect();

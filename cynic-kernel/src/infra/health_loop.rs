@@ -28,6 +28,9 @@ pub struct DogProbeConfig {
     pub health_url: String,
     /// llama-server `/slots` URL — derived from health_url. None for cloud APIs.
     pub slots_url: Option<String>,
+    /// API key for llama-server auth. Sent as `Authorization: Bearer` on `/slots`.
+    /// Without this, llama-server returns 401 and SlotTracker stays empty.
+    pub api_key: Option<String>,
 }
 
 /// GET the health URL, returning true if the response is a 2xx status.
@@ -136,9 +139,14 @@ fn parse_slots_json(json: &serde_json::Value) -> Option<Vec<(u32, bool, u32)>> {
 async fn probe_slots(
     client: &Client,
     slots_url: &str,
+    api_key: Option<&str>,
 ) -> Option<crate::domain::slot_tracker::BackendSlots> {
     let timeout = Duration::from_secs(3);
-    let resp = tokio::time::timeout(timeout, client.get(slots_url).send())
+    let mut req = client.get(slots_url);
+    if let Some(key) = api_key {
+        req = req.header("Authorization", format!("Bearer {key}"));
+    }
+    let resp = tokio::time::timeout(timeout, req.send())
         .await
         .ok()? // R2-exempt: timeout → None (skip slot update)
         .ok()?; // R2-exempt: connection error → None
@@ -267,8 +275,9 @@ pub fn spawn_health_loop(
                             cfg.slots_url.as_ref().map(|url| {
                                 let dog_id = cfg.dog_id.clone();
                                 let url = url.clone();
+                                let api_key = cfg.api_key.clone();
                                 let client = &client;
-                                async move { (dog_id, probe_slots(client, &url).await) }
+                                async move { (dog_id, probe_slots(client, &url, api_key.as_deref()).await) }
                             })
                         })
                         .collect();
@@ -396,6 +405,7 @@ mod tests {
             dog_id: "test-dog".to_string(),
             health_url: "http://localhost:9999/health".to_string(),
             slots_url: None,
+            api_key: None,
         };
         assert_eq!(cfg.dog_id, "test-dog");
         assert_eq!(cfg.health_url, "http://localhost:9999/health");
@@ -409,6 +419,7 @@ mod tests {
             // Port chosen to be unreachable — nothing listens on 19999.
             health_url: "http://127.0.0.1:19999/health".to_string(),
             slots_url: None,
+            api_key: None,
         };
         let result = probe_dog(&client, &cfg).await;
         assert!(!result, "expected false for unreachable port");
