@@ -114,7 +114,7 @@ TEMPORAL_COMPLIANCE="unknown"
 MEMPOOL_ACTIVITY=0
 KERNEL_CHECK=$(curl -s --connect-timeout 2 --max-time 3 -o /dev/null -w '%{http_code}' \
     ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-    "http://${KERNEL_ADDR}/health" 2>/dev/null || echo "000")
+    "http://${KERNEL_ADDR}/health" 2>/dev/null) || KERNEL_CHECK="000"
 if [[ "$KERNEL_CHECK" =~ ^(200|503)$ ]]; then
     MEMPOOL_ACTIVITY=$(curl -s --connect-timeout 2 --max-time 3 \
         ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
@@ -145,7 +145,7 @@ PROOF_FILE="${PROJECT_DIR}/.claude/session-proof.json"
 if [[ -f "$PROOF_FILE" ]]; then
     # Add AT_END fields to existing proof (uses jq to merge safely)
     END_COMMIT=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
-    BRANCHES_DELETED=$(git -C "$PROJECT_DIR" branch -vv 2>/dev/null | grep '\[gone\]' | wc -l || echo 0)
+    BRANCHES_DELETED=$(git -C "$PROJECT_DIR" branch -vv 2>/dev/null | grep -c '\[gone\]' || true)
 
     # Tentative: has any staged/unstaged changes? (Would be lost if not committed)
     WORK_LOST=""

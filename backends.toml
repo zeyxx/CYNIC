@@ -10,6 +10,17 @@ transient_error_max = 5              # Retry up to 5 transient errors
 quota_grace_period_secs = 600        # Skip dog for 10min on quota exhaustion
 evaluation_timeout_secs = 30         # Per-dog eval timeout (cloud API: 30s, sovereign: 60s)
 
+
+# ── Backend definitions (required for Dog initialization) ──
+[backend.qwen-7b-hf]
+# Migrated 2026-05-08: old api-inference.huggingface.co → router.huggingface.co/featherless-ai
+# $0.10/day free tier via HF Inference Providers
+base_url = "https://router.huggingface.co/featherless-ai/v1"
+api_key_env = "HF_TOKEN"
+model = "Qwen/Qwen2.5-7B-Instruct"
+context_size = 4096
+json_mode = false
+disable_thinking = true
 # Deterministic heuristic (always available)
 [dog.deterministic-dog]
 kind = "heuristic"
@@ -23,12 +34,14 @@ enabled = true
 [dog.qwen-7b-hf]
 kind = "inference"
 provider = "huggingface"
-model = "Qwen2.5-7B-Instruct-Q4_K_M"
+model = "Qwen/Qwen2.5-7B-Instruct"
 failure_rate_threshold = 0.12        # 12% — above observed 9.2%, some buffer
 collapse_threshold = 100             # Alert if >100 collapses per day
 api_error_threshold = 150            # Alert if >150 api_errors per day
 evaluation_timeout_secs = 30
 enabled = true
+base_url = "https://router.huggingface.co/featherless-ai/v1"
+api_key_env = "HF_TOKEN"
 
 # Qwen 3.5 9B GPU (sovereign, RTX 4060 Ti)
 # Observed (2026-05-07): 10,099 calls, 9,431 success, 453 collapse, 46 api_error
@@ -44,10 +57,11 @@ api_error_threshold = 50
 evaluation_timeout_secs = 60         # GPU models: longer timeout
 enabled = true
 
-# Qwen 9B CPU (sovereign, APU)
+# Qwen 2.5 7B CPU (sovereign, APU — RADV RENOIR Vulkan)
+# ACTUAL MODEL: Qwen2.5-7B-Instruct-Q4_K_M.gguf (7.6B params, NOT 9B)
+# Dog name "qwen-9b-core" is legacy — renaming would break DB history.
+# --parallel 1 only (--parallel 2 SEGVs on RADV RENOIR, observed 2026-05-08)
 # Observed (2026-05-07): 1,259 calls, 615 success, 631 api_error
-# Failure rate: (1+631) / 1259 = 0.501 (50.1%)
-# Decision: DEGRADED — disable from primary routing (but keep for backup)
 [dog.qwen-9b-core]
 kind = "inference"
 provider = "sovereign"
@@ -124,18 +138,21 @@ open_duration_secs = 300             # 5 min before retrying
 half_open_eval_budget = 2            # Try 2 evals before deciding to close
 failure_rate_recovery_window_secs = 3600  # Use last 1h of data for recovery decision
 
-# K-Score behavioral composite weights (configurable, not magic numbers)
-# Source: HolDex K-Score formula, adapted for CYNIC pipeline.
-# K = DiamondHands^w_dh × OrganicGrowth^w_og × Longevity^w_lon
-# Weights MUST sum to 1.0. Tune via measurement, not intuition.
-[kscore]
-weight_diamond_hands = 0.50     # Retention is strongest rug-detection signal
-weight_organic_growth = 0.35    # Distribution quality
-weight_longevity = 0.15         # Age alone is weak (easily faked by waiting)
-# Wallet classification thresholds (retention = current_balance / total_bought)
-accumulator_threshold = 1.5     # >= 1.5x initial buy = actively accumulating
-holder_threshold = 1.0          # >= 1.0x = holding all purchased
-reducer_threshold = 0.5         # >= 0.5x = sold some but still in
-# extractor = below reducer_threshold (sold most/all)
-top_n_wallets = 5               # How many top holders to analyze (5 × ~51 credits = ~255 credits)
-swap_history_limit = 100        # Max SWAP transactions to fetch per wallet
+[backend.qwen35-9b-gpu]
+# RTX 4060 Ti (cynic-gpu / windows-desktop), 45 tok/s generation
+base_url = "http://<TAILSCALE_GPU>:8080/v1"
+model = "Qwen3.5-9B-Q4_K_M.gguf"
+context_size = 4096
+json_mode = false
+disable_thinking = true
+timeout_secs = 60
+api_key_env = "CYNIC_SOVEREIGN_KEY"
+
+[backend.qwen-9b-core]
+base_url = "http://<TAILSCALE_CORE>:8080/v1"
+model = "Qwen2.5-7B-Instruct-Q4_K_M.gguf"
+context_size = 4096
+json_mode = false
+disable_thinking = true
+timeout_secs = 120
+api_key_env = "CYNIC_SOVEREIGN_KEY"
