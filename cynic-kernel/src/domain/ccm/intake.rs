@@ -98,22 +98,56 @@ fn slug_dev(content: &str) -> String {
     first_n_words(stripped, 3)
 }
 
-/// Token analysis: extract mint address (base58, 32-44 chars) or token name.
+/// Token analysis: extract structural risk profile from enriched stimulus.
+///
+/// Crystals learn PATTERNS ("tokens with active freeze authority are BARK"),
+/// not individual tokens ("USDC was judged"). Each unique token is judged 1-3 times —
+/// not enough to crystallize. But the structural profile (authority status, freeze,
+/// metadata mutability) repeats across hundreds of tokens.
+///
+/// Historical data: 1,861 verdicts → 9 unique profiles → 6 would crystallize (67%).
+/// Previous slug (mint address): 49 unique → 0 crystallized (0%).
 fn slug_token(content: &str) -> String {
-    // Look for a Solana address (base58: 32-44 chars of alphanumeric, no 0/O/I/l)
-    for word in content.split_whitespace() {
-        let clean = word.trim_matches(|c: char| !c.is_alphanumeric());
-        if clean.len() >= 32
-            && clean.len() <= 44
-            && clean
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() && c != '0' && c != 'O' && c != 'I' && c != 'l')
-        {
-            return clean.to_string();
-        }
+    let mint_auth = extract_field_status(content, "mint_authority");
+    let freeze = extract_field_status(content, "freeze_authority");
+    let meta = if content.contains("metadata_mutable: YES")
+        || content.contains("metadata_mutable: true")
+    {
+        "mutable"
+    } else if content.contains("metadata_mutable: NO")
+        || content.contains("metadata_mutable: false")
+    {
+        "immutable"
+    } else {
+        "unk"
+    };
+
+    let profile = format!("{mint_auth}:{freeze}:{meta}");
+
+    // If all fields are unknown, the stimulus is unstructured — fall back to first words
+    if profile == "unk:unk:unk" {
+        return first_n_words(content, 3);
     }
-    // No address found — use first 3 words
-    first_n_words(content, 3)
+
+    profile
+}
+
+/// Extract REVOKED/ACTIVE/unk from a field like "mint_authority: REVOKED" or
+/// "freeze_authority: ACTIVE (can freeze wallets)".
+fn extract_field_status(content: &str, field: &str) -> &'static str {
+    if let Some(pos) = content.find(field) {
+        let after = &content[pos + field.len()..];
+        let window = &after[..after.len().min(40)];
+        if window.contains("REVOKED") {
+            "revoked"
+        } else if window.contains("ACTIVE") {
+            "active"
+        } else {
+            "unk"
+        }
+    } else {
+        "unk"
+    }
 }
 
 /// Session: collapse to agent type only.
@@ -397,59 +431,65 @@ mod tests {
     }
 
     #[test]
-    fn slug_token_extracts_address() {
-        let content = "Token analysis: 9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump has 20 holders";
-        let slug = semantic_slug("token", content);
-        assert!(slug.contains("9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump"));
+    fn slug_token_extracts_profile_from_enriched_stimulus() {
+        let content = "[DOMAIN: token-analysis]\n\n[METRICS]\nmint: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v\nname: USD Coin\nmint_authority: ACTIVE (can mint more tokens)\nfreeze_authority: ACTIVE (can freeze wallets)\nmetadata_mutable: YES";
+        let slug = semantic_slug("token-analysis", content);
+        assert_eq!(slug, "token-analysis:active:active:mutable", "got: {slug}");
     }
 
     #[test]
-    fn slug_token_analysis_domain_routes_to_slug_token() {
-        // The screener sends domain="token-analysis", not "token"
-        let a = semantic_slug(
-            "token-analysis",
-            "mint: JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN name: Jupiter",
-        );
-        let b = semantic_slug(
-            "token",
-            "mint: JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN name: Jupiter",
-        );
-        assert!(
-            a.contains("JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"),
-            "token-analysis should extract mint address, got: {a}"
-        );
-        // Both domains should produce the same slug content (mint address)
-        assert_eq!(
-            a.split(':').skip(1).collect::<Vec<_>>().join(":"),
-            b.split(':').skip(1).collect::<Vec<_>>().join(":"),
-            "token-analysis and token should extract the same mint"
+    fn slug_token_revoked_profile() {
+        let content = "mint_authority: REVOKED (supply is fixed)\nfreeze_authority: REVOKED\nmetadata_mutable: NO";
+        let slug = semantic_slug("token", content);
+        assert_eq!(slug, "token:revoked:revoked:immutable", "got: {slug}");
+    }
+
+    #[test]
+    fn slug_token_analysis_same_profile_different_tokens_coalesce() {
+        let usdc = "[METRICS]\nmint: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v\nname: USD Coin\nmint_authority: ACTIVE\nfreeze_authority: ACTIVE\nmetadata_mutable: YES";
+        let other = "[METRICS]\nmint: 7kbnvuGBxxj8AG9qp8Scn56muWGaRaFqxg1FsRp3PaFT\nname: UXD Stablecoin\nmint_authority: ACTIVE\nfreeze_authority: ACTIVE\nmetadata_mutable: YES";
+        let a = semantic_slug("token-analysis", usdc);
+        let b = semantic_slug("token-analysis", other);
+        assert_eq!(a, b, "tokens with same authority profile should coalesce");
+    }
+
+    #[test]
+    fn slug_token_different_profiles_differ() {
+        let active = "mint_authority: ACTIVE\nfreeze_authority: ACTIVE\nmetadata_mutable: YES";
+        let revoked = "mint_authority: REVOKED\nfreeze_authority: REVOKED\nmetadata_mutable: NO";
+        let a = semantic_slug("token", active);
+        let b = semantic_slug("token", revoked);
+        assert_ne!(
+            a, b,
+            "different authority profiles should produce different slugs"
         );
     }
 
     #[test]
     fn slug_token_analysis_enriched_stimulus_coalesces() {
-        // Enriched stimulus from screener — different prices but same token
-        let stim_a = "[DOMAIN: token-analysis]\n\n[METRICS]\nmint: 9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump\nname: asdf\nprice: $0.001";
-        let stim_b = "[DOMAIN: token-analysis]\n\n[METRICS]\nmint: 9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump\nname: asdf\nprice: $0.002";
+        let stim_a = "[METRICS]\nmint: 9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump\nname: asdf\nmint_authority: REVOKED\nfreeze_authority: REVOKED\nmetadata_mutable: YES\nprice: $0.001";
+        let stim_b = "[METRICS]\nmint: 9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump\nname: asdf\nmint_authority: REVOKED\nfreeze_authority: REVOKED\nmetadata_mutable: YES\nprice: $0.002";
         let a = semantic_slug("token-analysis", stim_a);
         let b = semantic_slug("token-analysis", stim_b);
-        assert_eq!(
-            a, b,
-            "same token with different prices should produce same slug"
+        assert_eq!(a, b, "same profile with different prices should coalesce");
+    }
+
+    #[test]
+    fn slug_token_unstructured_falls_back_to_words() {
+        let content = "POCKS token looks suspicious";
+        let slug = semantic_slug("token", content);
+        assert!(slug.starts_with("token:"), "got: {slug}");
+        assert!(
+            slug.contains("pocks"),
+            "should fall back to first words, got: {slug}"
         );
     }
 
     #[test]
-    fn slug_token_same_mint_coalesces() {
-        let a = semantic_slug(
-            "token",
-            "Token 9zB5wRarXMj has 20 holders, 98% concentration",
-        );
-        let b = semantic_slug(
-            "token",
-            "Token 9zB5wRarXMj has 25 holders, 95% concentration",
-        );
-        assert_eq!(a, b, "same token name should produce same slug");
+    fn slug_token_partial_fields_still_profile() {
+        let content = "mint_authority: REVOKED\nname: Jupiter";
+        let slug = semantic_slug("token", content);
+        assert_eq!(slug, "token:revoked:unk:unk", "got: {slug}");
     }
 
     #[test]

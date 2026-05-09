@@ -50,6 +50,12 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
             ));
         }
         s.push_str(&format!("top_1_wallet_pct: {:.2}%\n", data.top1_pct));
+        if data.top1_type != "unknown" && data.top1_type != "wallet" {
+            s.push_str(&format!(
+                "top_1_wallet_type: {} (not a retail whale)\n",
+                data.top1_type
+            ));
+        }
         s.push_str(&format!("top_10_wallets_pct: {:.2}%\n", data.top10_pct));
         if let Some(hhi) = data.herfindahl {
             s.push_str(&format!("herfindahl_index: {hhi:.3}\n"));
