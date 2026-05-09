@@ -449,6 +449,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
+    // ─── RING 2: Organ remediation (C4/E1 — silence → auto-restart) ──
+    {
+        let organ_remediations = infra::config::load_organ_remediations(&backends_path);
+        if !organ_remediations.is_empty() {
+            klog!(
+                "[Ring 2] Organ remediation: {} organs configured for auto-restart",
+                organ_remediations.len()
+            );
+            infra::tasks::spawn_organ_remediation(
+                organ_remediations,
+                Arc::clone(&storage_port),
+                Arc::clone(&task_health),
+                shutdown.clone(),
+            );
+        }
+    }
+
     // ─── RING 3: REST API (for React/external clients) ────────
     let judge = Arc::new(judge);
     let judge_swap = arc_swap::ArcSwap::from(Arc::clone(&judge));

@@ -301,6 +301,62 @@ pub struct BackendRemediation {
     pub cooldown_secs: u64,
 }
 
+// ── ORGAN REMEDIATION CONFIG ──────────────────────────────────
+
+fn default_silence_threshold() -> u64 {
+    3600
+}
+fn default_organ_max_retries() -> u32 {
+    3
+}
+fn default_organ_cooldown() -> u64 {
+    300
+}
+
+/// Remediation config for organs (services outside the Dog pipeline).
+/// Triggers on silence (no observations) rather than circuit-breaker open.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct OrganRemediation {
+    /// observation source name matching `last_observation_per_source()` rows
+    pub source: String,
+    /// command to restart the organ (local or remote)
+    pub restart_command: String,
+    /// SSH target or `"localhost"`
+    pub node: String,
+    /// seconds of silence before triggering restart (default: 3600)
+    #[serde(default = "default_silence_threshold")]
+    pub silence_threshold_secs: u64,
+    /// maximum restart attempts before giving up (default: 3)
+    #[serde(default = "default_organ_max_retries")]
+    pub max_retries: u32,
+    /// minimum seconds between restart attempts (default: 300)
+    #[serde(default = "default_organ_cooldown")]
+    pub cooldown_secs: u64,
+}
+
+/// Load organ remediation configs from `[[organs]]` sections in backends.toml.
+/// Returns an empty Vec if the file is missing or has no [[organs]] entries.
+pub fn load_organ_remediations(path: &std::path::Path) -> Vec<OrganRemediation> {
+    // Re-parse the file through a thin wrapper that only captures [[organs]]
+    #[derive(serde::Deserialize)]
+    struct OrgansFile {
+        #[serde(default)]
+        organs: Vec<OrganRemediation>,
+    }
+
+    let Ok(content) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
+
+    match toml::from_str::<OrgansFile>(&content) {
+        Ok(f) => f.organs,
+        Err(e) => {
+            tracing::warn!(path = %path.display(), error = %e, "organ remediation: parse failed");
+            Vec::new()
+        }
+    }
+}
+
 /// Selects the adapter used to communicate with a backend.
 /// - `OpenAi` (default): HTTP/OpenAI-compatible REST API.
 /// - `Cli`: subprocess (`binary --prompt "..."`) — for CLI tools like `gemini`.
