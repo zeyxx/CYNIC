@@ -122,18 +122,18 @@ async fn judge_commit(
     judge: &Arc<crate::judge::Judge>,
     storage: &Arc<dyn StoragePort>,
     soma_gate: &Arc<ResourceGate>,
-    llama_url: &str,
+    _llama_url: &str,
 ) -> Result<(), String> {
-    // Soma L1 Alpha: Check GPU utilization before committing evaluation resources.
-    // Nightshift has lower priority (15s backoff if saturated).
+    // Soma L3: Check slot utilization before committing evaluation resources.
+    // Nightshift blocked at 50% utilization (priority threshold).
     let gate_req = ResourceRequest {
         task_name: format!("nightshift-commit-{}", &commit.hash[..7]),
         priority: Priority::Nightshift,
         estimated_duration_secs: 120,
-        llama_url: llama_url.to_string(),
+        dog_id: None, // aggregate utilization
     };
 
-    let decision = soma_gate.request(gate_req).await;
+    let decision = soma_gate.request(&gate_req);
     if let crate::domain::orchestrator::GateDecision::Queue { wait_secs } = decision {
         return Err(format!(
             "GPU saturated — skipping {}. Retry in {}s",
@@ -376,7 +376,9 @@ mod tests {
         let storage: Arc<dyn StoragePort> = Arc::new(crate::domain::storage::NullStorage);
         let task_health = Arc::new(TaskHealth::new());
         let shutdown = CancellationToken::new();
-        let soma_gate = Arc::new(ResourceGate::new());
+        let soma_gate = Arc::new(ResourceGate::new(Arc::new(
+            crate::domain::slot_tracker::SlotTracker::new(),
+        )));
 
         let handle = spawn_nightshift_loop(
             judge,

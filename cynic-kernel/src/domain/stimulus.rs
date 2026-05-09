@@ -105,6 +105,48 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
     if let Some(ref origin) = data.origin {
         s.push_str(&format!("origin: {origin}\n"));
     }
+    // ── Market data: price and derived metrics ──
+    if let Some(price) = data.price_usd
+        && price > 0.0
+    {
+        s.push_str(&format!("price_usd: ${price:.6}\n"));
+        // Compute market cap if supply available
+        if let (Some(supply), Some(decimals)) = (data.supply, data.decimals) {
+            let human_supply = supply as f64 / 10_f64.powi(decimals as i32);
+            let mcap = human_supply * price;
+            if mcap >= 1_000_000_000.0 {
+                s.push_str(&format!("market_cap_usd: ${:.2}B\n", mcap / 1e9));
+            } else if mcap >= 1_000_000.0 {
+                s.push_str(&format!("market_cap_usd: ${:.2}M\n", mcap / 1e6));
+            } else if mcap >= 1_000.0 {
+                s.push_str(&format!("market_cap_usd: ${:.0}K\n", mcap / 1e3));
+            } else {
+                s.push_str(&format!("market_cap_usd: ${mcap:.2}\n"));
+            }
+        }
+    }
+    if let Some(volume) = data.volume_24h_usd
+        && volume > 0.0
+    {
+        if volume >= 1_000_000.0 {
+            s.push_str(&format!("volume_24h_usd: ${:.2}M\n", volume / 1e6));
+        } else if volume >= 1_000.0 {
+            s.push_str(&format!("volume_24h_usd: ${:.0}K\n", volume / 1e3));
+        } else {
+            s.push_str(&format!("volume_24h_usd: ${volume:.2}\n"));
+        }
+    }
+    if let Some(liq) = data.liquidity_usd
+        && liq > 0.0
+    {
+        if liq >= 1_000_000.0 {
+            s.push_str(&format!("liquidity_usd: ${:.2}M\n", liq / 1e6));
+        } else if liq >= 1_000.0 {
+            s.push_str(&format!("liquidity_usd: ${:.0}K\n", liq / 1e3));
+        } else {
+            s.push_str(&format!("liquidity_usd: ${liq:.2}\n"));
+        }
+    }
     if let Some(ref std) = data.token_standard {
         s.push_str(&format!("standard: {std}\n"));
     }
@@ -133,10 +175,12 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
 
     // ── Baselines: what "normal" looks like ──
     s.push_str("\n[BASELINES]\n");
-    s.push_str("healthy_token: holders>100, top_1<15%, herfindahl<0.15, age>30d, mint_authority=revoked, lp=burned\n");
-    s.push_str("moderate_risk: holders 20-100, top_1 15-40%, age 1-30d, lp=locked\n");
+    s.push_str("healthy_token: holders>100, top_1<15%, herfindahl<0.15, age>30d, mint_authority=revoked, lp=burned, market_cap>$1M, liquidity>$100K\n");
     s.push_str(
-        "high_risk_rug: holders<20, top_1>50%, age<24h, mint_authority=active, lp=unsecured\n",
+        "moderate_risk: holders 20-100, top_1 15-40%, age 1-30d, lp=locked, market_cap $10K-$1M\n",
+    );
+    s.push_str(
+        "high_risk_rug: holders<20, top_1>50%, age<24h, mint_authority=active, lp=unsecured, liquidity<$1K\n",
     );
     s.push_str("k_score_baseline: healthy>0.5, moderate 0.3-0.5, rug<0.3. diamond_hands dominates (retention).\n");
     s.push_str("note: 98.6% of pump.fun tokens are rug pulls (Solidus Labs 2025). Baseline for new tokens is skepticism, not trust.\n");
