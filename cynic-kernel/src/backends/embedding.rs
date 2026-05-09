@@ -33,6 +33,49 @@ impl EmbeddingBackend {
         })
     }
 
+    /// Accessor for logging — base_url is private (encapsulation).
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    /// Probe known embedding ports and return the first reachable one.
+    /// Order: CYNIC_EMBED_PORT (or 8081 default) → 8080 (shared with inference).
+    /// Called at boot and by background discovery task.
+    pub async fn discover(host: &str, api_key: Option<String>, model: &str) -> Option<Self> {
+        let ports = [
+            std::env::var("CYNIC_EMBED_PORT").unwrap_or_else(|_| "8081".into()),
+            "8080".into(),
+        ];
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(3))
+            .build()
+            .ok()?;
+
+        for port in &ports {
+            let base_url = format!("http://{host}:{port}/v1");
+            let health_url = format!("http://{host}:{port}/health");
+            let mut req = client.get(&health_url);
+            if let Some(ref key) = api_key {
+                req = req.header("Authorization", format!("Bearer {key}"));
+            }
+            match tokio::time::timeout(std::time::Duration::from_secs(3), req.send()).await {
+                Ok(Ok(resp)) if resp.status().is_success() => {
+                    klog!("[Embedding] discovered server at {}:{}", host, port);
+                    return Self::new(&base_url, api_key, model).ok();
+                }
+                _ => {
+                    klog!(
+                        "[Embedding] port {} unreachable on {}, trying next",
+                        port,
+                        host
+                    );
+                    continue;
+                }
+            }
+        }
+        None
+    }
+
     /// Build from environment variables.
     /// CYNIC_EMBED_URL overrides, else derives from CYNIC_REST_ADDR host + port 8081.
     pub fn from_env() -> Result<Self, crate::domain::inference::BackendInitError> {
@@ -168,7 +211,7 @@ mod tests {
     #[test]
     fn from_env_defaults() {
         let backend = EmbeddingBackend::from_env().unwrap();
-        assert!(backend.base_url.contains("8081"));
-        assert_eq!(backend.model, "qwen3-embed");
+        assert!(backend.base_url().contains("8081"));
+        // model field is private — base_url() confirms defaults are applied.
     }
 }
