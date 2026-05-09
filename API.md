@@ -729,6 +729,28 @@ Detect degraded nodes and attempt recovery. Runs node-specific remediation (rest
 
 ---
 
+## Inference Proxy (Soma L4)
+
+### POST /v1/chat/completions
+
+OpenAI-compatible inference proxy. Gates requests through SlotTracker before forwarding to the actual llama-server. Hermes and external consumers point their `base_url` here instead of directly at llama-server.
+
+**Query params:** `?backend=qwen-9b-core` (optional — selects specific backend, defaults to first available sovereign)
+
+**Request body:** Standard OpenAI chat completion request (forwarded verbatim).
+
+**Response:** Upstream llama-server response (forwarded verbatim), or:
+- `503 + Retry-After: 5` if all slots busy
+- `502` if upstream unreachable
+- `504` if upstream timeout
+- `404` if backend not found
+
+### GET /v1/models
+
+Forward to upstream llama-server's `/v1/models` endpoint. Supports `?backend=` query param.
+
+---
+
 ## System Info
 
 ### GET /dogs
