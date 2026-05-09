@@ -14,8 +14,8 @@
 
 ## TRACK: KERNEL [tier: opus]
 
-- [ ] **MCP poison input hardening.** Small models produce null/invalid tool args. → enables: safe multi-model dispatch. **Falsify:** garbage args to all 22 MCP tools → all return error, none crash.
-- [ ] **Two TokenData structs.** `enrichment.rs` vs `stimulus.rs` → merge. **Falsify:** grep returns 1 TokenData definition.
+- [ ] **MCP poison input hardening.** ~~Small models produce null/invalid tool args.~~ **STALE (2026-05-09):** 21 poison tests + null handler tests already pass. Grep shows 1 TokenData. Residual: end-to-end handler fuzzing (low priority).
+- [ ] **Supply chain / config drift detection.** 21 config sources, 3 active duplications. `config-sync.sh` deployed (PR#120). Remaining: fleet.toml placeholder convention mismatch, Hermes config not linked. **Falsify:** `config-sync.sh check` in pre-push hook catches drift.
 
 ---
 
@@ -29,9 +29,9 @@
 
 ## TRACK: INFRASTRUCTURE [tier: haiku]
 
-- [ ] **Soma config activation.** Populate `[backend.NAME.remediation]` in backends.toml. Uncomment nightshift with compute budget gate. **Falsify:** kill llama-server → circuit opens <30s → restart <120s → circuit closes.
-- [ ] **GPU contention fix.** Hermes vs Dog on same llama-server. **Falsify:** Hermes cron completes with 0 MCP errors alongside nightshift.
-- [ ] **`.cynic-env` format.** Remove `export` prefixes for systemd EnvironmentFile compatibility. **Falsify:** same file works for both `source` and systemd.
+- [ ] **Soma config activation.** ~~Populate remediation in backends.toml.~~ **PARTIAL (2026-05-09):** `[backend.*.remediation]` added for both sovereign Dogs (GPU schtask, core systemd). Remaining: test kill→restart→close cycle live. **Falsify:** kill llama-server → circuit opens <30s → restart <120s → circuit closes.
+- [ ] **GPU contention fix.** Hermes vs Dog on same llama-server. No slot awareness in any consumer. **Falsify:** Hermes cron completes with 0 MCP errors alongside nightshift.
+- [x] **`.cynic-env` format.** `config-sync.sh sync-env` derives systemd env from cynic-env (PR#120).
 
 ---
 
