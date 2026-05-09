@@ -7,6 +7,7 @@ pub mod dogs;
 pub mod event;
 pub mod events;
 pub mod health;
+pub mod inference_proxy;
 pub mod inference_router;
 pub mod judge;
 pub mod judge_job;
@@ -44,6 +45,7 @@ use self::health::{
     agents_handler, health_handler, liveness_handler, metrics_handler, readiness_handler,
     state_history_handler,
 };
+use self::inference_proxy::{proxy_chat_completions, proxy_models};
 use self::inference_router::{
     inference_candidates_handler, inference_remediate_handler, inference_route_handler,
     inference_slots_handler, inference_start_handler, list_models_handler, remediate_handler,
@@ -146,6 +148,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         )
         .route("/inference/list-models", get(list_models_handler))
         .route("/inference/slots", get(inference_slots_handler))
+        .route("/v1/chat/completions", post(proxy_chat_completions))
+        .route("/v1/models", get(proxy_models))
         .route("/coord/register", post(coord_register_handler))
         .route("/coord/claim", post(coord_claim_handler))
         .route("/coord/claim-batch", post(coord_claim_batch_handler))
