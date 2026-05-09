@@ -29,7 +29,8 @@
 
 ## TRACK: INFRASTRUCTURE [tier: haiku]
 
-- [ ] **Soma config activation.** ~~Populate remediation in backends.toml.~~ **PARTIAL (2026-05-09):** `[backend.*.remediation]` added for both sovereign Dogs (GPU schtask, core systemd). Remaining: test kill→restart→close cycle live. **Falsify:** kill llama-server → circuit opens <30s → restart <120s → circuit closes.
+- [x] **Soma L1 validated (2026-05-09).** Remediation config + live test: kill→circuit critical (50s)→restart (110s)→closed (130s). PR#121. Next: L2 slot awareness.
+- [ ] **Soma L2: slot awareness.** Consumers (Hermes, Dogs, Colosseum) need priority/queuing on sovereign inference slots. **Falsify:** 2 concurrent consumers complete without timeout starvation.
 - [ ] **GPU contention fix.** Hermes vs Dog on same llama-server. No slot awareness in any consumer. **Falsify:** Hermes cron completes with 0 MCP errors alongside nightshift.
 - [x] **`.cynic-env` format.** `config-sync.sh sync-env` derives systemd env from cynic-env (PR#120).
 
