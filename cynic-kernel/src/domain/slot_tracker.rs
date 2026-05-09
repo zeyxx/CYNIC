@@ -58,12 +58,15 @@ const STALE_THRESHOLD: Duration = Duration::from_secs(90);
 pub struct SlotTracker {
     /// dog_id → slot snapshot. BTreeMap for deterministic serialization (K19).
     state: RwLock<BTreeMap<String, BackendSlots>>,
+    /// dog_id → consecutive ticks at 100% utilization. Resets to 0 when a free slot appears.
+    saturation_ticks: RwLock<BTreeMap<String, u32>>,
 }
 
 impl SlotTracker {
     pub fn new() -> Self {
         Self {
             state: RwLock::new(BTreeMap::new()),
+            saturation_ticks: RwLock::new(BTreeMap::new()),
         }
     }
 
@@ -114,6 +117,32 @@ impl SlotTracker {
             .iter()
             .filter(|(_, slots)| slots.updated_at.elapsed() < STALE_THRESHOLD)
             .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
+    }
+
+    /// Called by health loop after each slot probe tick.
+    /// Increments counter if all slots busy (fresh data), resets to 0 otherwise.
+    pub fn tick_saturation(&self, dog_id: &str) {
+        let is_saturated = self.all_slots_busy(dog_id);
+        if let Ok(mut guard) = self.saturation_ticks.write() {
+            let counter = guard.entry(dog_id.to_string()).or_insert(0);
+            if is_saturated {
+                *counter += 1;
+            } else {
+                *counter = 0;
+            }
+        }
+    }
+
+    /// Returns Dog IDs continuously saturated for >= threshold consecutive ticks.
+    pub fn saturated_dogs(&self, threshold: u32) -> Vec<String> {
+        let Ok(guard) = self.saturation_ticks.read() else {
+            return vec![];
+        };
+        guard
+            .iter()
+            .filter(|(_, count)| **count >= threshold)
+            .map(|(dog_id, _)| dog_id.clone())
             .collect()
     }
 
@@ -278,6 +307,59 @@ mod tests {
         let snap = tracker.snapshot();
         assert_eq!(snap.len(), 1);
         assert!(snap.contains_key("fresh"));
+    }
+
+    #[test]
+    fn consecutive_saturation_tracked() {
+        let tracker = SlotTracker::new();
+        let dog = "stuck-dog";
+        for _ in 0..3 {
+            tracker.update(
+                dog,
+                BackendSlots {
+                    total: 1,
+                    busy: 1,
+                    per_slot_ctx: 32768,
+                    updated_at: Instant::now(),
+                    slots: vec![],
+                },
+            );
+            tracker.tick_saturation(dog);
+        }
+        let saturated = tracker.saturated_dogs(3);
+        assert_eq!(saturated, vec!["stuck-dog"]);
+    }
+
+    #[test]
+    fn saturation_resets_on_free_slot() {
+        let tracker = SlotTracker::new();
+        let dog = "recover-dog";
+        for _ in 0..2 {
+            tracker.update(
+                dog,
+                BackendSlots {
+                    total: 1,
+                    busy: 1,
+                    per_slot_ctx: 32768,
+                    updated_at: Instant::now(),
+                    slots: vec![],
+                },
+            );
+            tracker.tick_saturation(dog);
+        }
+        tracker.update(
+            dog,
+            BackendSlots {
+                total: 1,
+                busy: 0,
+                per_slot_ctx: 32768,
+                updated_at: Instant::now(),
+                slots: vec![],
+            },
+        );
+        tracker.tick_saturation(dog);
+        let saturated = tracker.saturated_dogs(3);
+        assert!(saturated.is_empty());
     }
 
     #[test]

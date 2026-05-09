@@ -33,6 +33,10 @@ pub use runtime_loops::{
 pub use state_log::spawn_state_log;
 pub use submission_queue::spawn_submission_queue;
 
+pub use self::organ_remediation::spawn_organ_remediation;
+
+mod organ_remediation;
+
 // ── Shutdown flush — used by both REST and MCP exit paths ────
 
 pub async fn flush_usage_on_shutdown(

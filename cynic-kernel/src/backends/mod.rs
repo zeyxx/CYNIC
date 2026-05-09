@@ -1,3 +1,4 @@
+pub mod auto_embed;
 pub mod cli;
 pub mod dexscreener;
 pub mod embedding;

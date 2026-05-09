@@ -287,32 +287,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ─── RING 2: Embedding backend (sovereign, auto-recovery) ────
-    // Health check gates whether to use real backend or NullEmbedding at boot.
-    // If down at boot, use NullEmbedding. When server comes back, embed() calls auto-succeed.
-    // Background probe will detect recovery and signal via /observe for organic awareness.
-    let embedding: Arc<dyn domain::embedding::EmbeddingPort> =
-        match backends::embedding::EmbeddingBackend::from_env() {
-            Ok(embed_backend) => match embed_backend.health().await {
-                status if status.is_available() => {
-                    klog!("[Ring 2] Embedding: {:?} (sovereign)", status);
-                    Arc::new(embed_backend)
+    let initial_embed: Arc<dyn domain::embedding::EmbeddingPort> = {
+        if let Ok(url) = std::env::var("CYNIC_EMBED_URL") {
+            let api_key = std::env::var("SOVEREIGN_API_KEY").ok();
+            let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());
+            match backends::embedding::EmbeddingBackend::new(&url, api_key, &model) {
+                Ok(b) if b.health().await.is_available() => {
+                    klog!("[Ring 2] Embedding: explicit URL {} (sovereign)", url);
+                    Arc::new(b)
                 }
-                status => {
+                _ => {
+                    klog!("[Ring 2] Embedding: explicit URL {} unavailable", url);
+                    Arc::new(domain::embedding::NullEmbedding)
+                }
+            }
+        } else {
+            let host = std::env::var("CYNIC_REST_ADDR")
+                .unwrap_or_else(|_| domain::constants::DEFAULT_REST_ADDR.into())
+                .split(':')
+                .next()
+                .unwrap_or("127.0.0.1")
+                .to_string();
+            let api_key = std::env::var("SOVEREIGN_API_KEY").ok();
+            let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());
+            match backends::embedding::EmbeddingBackend::discover(&host, api_key, &model).await {
+                Some(b) => {
+                    klog!("[Ring 2] Embedding: discovered at {}", b.base_url());
+                    Arc::new(b)
+                }
+                None => {
                     klog!(
-                        "[Ring 2] Embedding: {:?} (unavailable) — using NullEmbedding, will auto-recover",
-                        status
+                        "[Ring 2] Embedding: no server found — NullEmbedding, will auto-discover"
                     );
                     Arc::new(domain::embedding::NullEmbedding)
                 }
-            },
-            Err(e) => {
-                klog!(
-                    "[Ring 2] Embedding: HTTP client init failed ({}) — using NullEmbedding",
-                    e
-                );
-                Arc::new(domain::embedding::NullEmbedding)
             }
-        };
+        }
+    };
+    let embedding: Arc<backends::auto_embed::AutoRecoveryEmbedding> = Arc::new(
+        backends::auto_embed::AutoRecoveryEmbedding::new(initial_embed),
+    );
 
     // ─── RING 2: Build Judge ──────────────────────────────────
     let breakers: Vec<Arc<dyn domain::health_gate::HealthGate>> = dogs
@@ -433,6 +447,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&task_health),
             shutdown.clone(),
         );
+    }
+
+    // ─── RING 2: Organ remediation (C4/E1 — silence → auto-restart) ──
+    {
+        let organ_remediations = infra::config::load_organ_remediations(&backends_path);
+        if !organ_remediations.is_empty() {
+            klog!(
+                "[Ring 2] Organ remediation: {} organs configured for auto-restart",
+                organ_remediations.len()
+            );
+            infra::tasks::spawn_organ_remediation(
+                organ_remediations,
+                Arc::clone(&storage_port),
+                Arc::clone(&task_health),
+                shutdown.clone(),
+            );
+        }
     }
 
     // ─── RING 3: REST API (for React/external clients) ────────
@@ -702,7 +733,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         judge: judge_swap,
         storage: Arc::clone(&storage_port),
         coord: Arc::clone(&coord),
-        embedding: Arc::clone(&embedding),
+        embedding: Arc::clone(&embedding) as Arc<dyn domain::embedding::EmbeddingPort>,
         usage: Arc::clone(&usage_tracker),
         verdict_cache: Arc::clone(&verdict_cache),
         task_health: Arc::clone(&task_health),
@@ -749,6 +780,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Spawning duplicates causes SurrealDB contention, double nightshifts,
     // and 60s+ MCP startup delay that kills Hermes sessions.
     if !mcp_mode {
+        // Background embedding discovery — retries every 60s if currently NullEmbedding
+        {
+            // Cast to dyn EmbeddingPort so the trait method is in scope inside the async block.
+            let embed_ref: Arc<backends::auto_embed::AutoRecoveryEmbedding> =
+                Arc::clone(&embedding);
+            let embed_probe: Arc<dyn domain::embedding::EmbeddingPort> =
+                Arc::clone(&embedding) as Arc<dyn domain::embedding::EmbeddingPort>;
+            let host = std::env::var("CYNIC_REST_ADDR")
+                .unwrap_or_else(|_| domain::constants::DEFAULT_REST_ADDR.into())
+                .split(':')
+                .next()
+                .unwrap_or("127.0.0.1")
+                .to_string();
+            let api_key = std::env::var("SOVEREIGN_API_KEY").ok();
+            let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());
+            let shutdown = shutdown.clone();
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+                interval.tick().await; // skip first tick
+                loop {
+                    tokio::select! {
+                        _ = shutdown.cancelled() => break,
+                        _ = interval.tick() => {
+                            if embed_probe.embed("health-probe").await.is_err()
+                                && let Some(backend) =
+                                    backends::embedding::EmbeddingBackend::discover(
+                                        &host,
+                                        api_key.clone(),
+                                        &model,
+                                    )
+                                    .await
+                            {
+                                klog!(
+                                    "[Ring 2] Embedding: auto-discovered backend, hot-swapping"
+                                );
+                                embed_ref.upgrade(Arc::new(backend)).await;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         // Coordination expiry (every 60s)
         infra::tasks::spawn_coord_expiry(
             Arc::clone(&coord),
@@ -786,7 +860,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // After reconnect, backfill runs against the live DB.
         infra::tasks::spawn_backfill(
             Arc::clone(&storage_port),
-            Arc::clone(&embedding),
+            Arc::clone(&embedding) as Arc<dyn domain::embedding::EmbeddingPort>,
             Arc::clone(&metrics),
             Arc::clone(&task_health),
             event_tx.clone(),
