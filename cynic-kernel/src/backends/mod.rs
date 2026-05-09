@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod dexscreener;
 pub mod embedding;
 pub mod health_probe;
 pub mod helius;

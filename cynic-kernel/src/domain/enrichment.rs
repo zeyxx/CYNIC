@@ -19,8 +19,12 @@ pub struct TokenData {
     pub supply: Option<u64>,
     /// Decimal places
     pub decimals: Option<u8>,
-    /// Price per token in USD
+    /// Price per token in USD (from Helius getAsset or Jupiter)
     pub price_usd: Option<f64>,
+    /// 24h trading volume in USD (from Jupiter Price API)
+    pub volume_24h_usd: Option<f64>,
+    /// Total liquidity in USD across DEX pools (from Jupiter Price API)
+    pub liquidity_usd: Option<f64>,
     /// Number of unique token holders (may be lower bound if > 20 exist).
     pub holder_count: u64,
     /// True if holder_count is exact (< 20 accounts returned from RPC).

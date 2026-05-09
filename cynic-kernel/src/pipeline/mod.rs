@@ -318,7 +318,23 @@ async fn pipeline_inner(
             )
             .await
             {
-                Ok(Ok(Some(token_data))) => {
+                Ok(Ok(Some(mut token_data))) => {
+                    // Complement with DexScreener market data (volume, liquidity).
+                    // Best-effort: if it fails, we still have Helius data.
+                    let dex_client = crate::backends::dexscreener::DexScreenerClient::new();
+                    if let Some(market) = dex_client.get_market_data(&content).await {
+                        if token_data.volume_24h_usd.is_none() {
+                            token_data.volume_24h_usd = market.volume_24h_usd;
+                        }
+                        if token_data.liquidity_usd.is_none() {
+                            token_data.liquidity_usd = market.liquidity_usd;
+                        }
+                        // Cross-validate price: if Helius price is missing, use DexScreener
+                        if token_data.price_usd.is_none() {
+                            token_data.price_usd = market.price_usd;
+                        }
+                    }
+
                     let enriched = token_data.to_stimulus();
                     tracing::info!(
                         phase = "enrich",
@@ -326,8 +342,10 @@ async fn pipeline_inner(
                         name = ?token_data.name,
                         symbol = ?token_data.symbol,
                         holders = ?token_data.holder_count,
+                        volume_24h = ?token_data.volume_24h_usd,
+                        liquidity = ?token_data.liquidity_usd,
                         kscore = ?token_data.kscore.as_ref().map(|k| format!("{:.3}", k.score)),
-                        "token enriched via Helius"
+                        "token enriched via Helius+DexScreener"
                     );
                     captured_token_data = Some(token_data);
                     enriched
