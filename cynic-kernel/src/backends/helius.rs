@@ -471,6 +471,46 @@ impl HeliusEnricher {
         "unsecured".into()
     }
 
+    /// Classify a token account holder by resolving its owner program.
+    /// Known AMM/DEX programs → "lp_pool". Burn addresses → "burn". Lockers → "locker".
+    /// Everything else → "wallet". Cost: 1 credit (getAccountInfo).
+    async fn classify_holder(&self, token_account: &str) -> String {
+        /// Known AMM/DEX program IDs — token accounts owned by these are LP positions.
+        const AMM_PROGRAMS: &[&str] = &[
+            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8", // Raydium AMM v4
+            "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", // Raydium CLMM
+            "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",  // Orca Whirlpool
+            "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",  // Meteora DLMM
+            "Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB", // Meteora pools
+            "9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP", // Orca v1
+            "DjVE6JNiYqPL2QXyCUUh8rNjHrbz9hXHNYt99MQ59qw1", // Orca v2 (aquafarm)
+        ];
+
+        let Some(owner) = self.resolve_owner(token_account).await else {
+            return "unknown".into();
+        };
+
+        if AMM_PROGRAMS.contains(&owner.as_str()) {
+            return "lp_pool".into();
+        }
+
+        // Reuse burn/locker constants from detect_lp_status
+        if owner == "1nc1nerator11111111111111111111111111111111"
+            || owner == "1111111111111111111111111111111111111111111"
+            || owner == "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1"
+        {
+            return "burn".into();
+        }
+
+        if owner == "8e72pYCDaxu3GqMfeQ5r8wFgoZSYk6oua1Qo9XpsZjX"
+            || owner == "2r5VekMNiWPzi1pWwvJczrdPaZnJG59u91unSrTunwJg"
+        {
+            return "locker".into();
+        }
+
+        "wallet".into()
+    }
+
     /// Fetch SWAP transactions for a wallet, filtered to a specific token mint.
     /// Returns total_bought (tokens flowing IN to wallet) for retention calculation.
     /// Cost: 50 credits per call (Enhanced Transactions API).
@@ -767,6 +807,13 @@ impl TokenEnricherPort for HeliusEnricher {
             "unsecured".into()
         };
 
+        // Classify top1 holder type (LP pool, burn, locker, or wallet)
+        let top1_type = if let Some(addr) = holder_addresses.first() {
+            self.classify_holder(addr).await
+        } else {
+            "unknown".into()
+        };
+
         let (age_hours, age_is_exact) = self
             .get_token_age_hours(mint_address)
             .await
@@ -832,6 +879,7 @@ impl TokenEnricherPort for HeliusEnricher {
             holder_count_is_exact: holder_count < 20,
             holder_data_available,
             top1_pct,
+            top1_type,
             top10_pct,
             herfindahl,
             age_hours,

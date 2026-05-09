@@ -14,6 +14,7 @@ pub(super) struct TokenMetrics {
     holder_data_available: bool,
     holders: u64,
     top1_pct: f64,
+    top1_is_lp: bool,
     top10_pct: f64,
     herfindahl: Option<f64>,
     age_hours: u64,
@@ -51,6 +52,7 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
         holder_data_available: true,
         holders: 0,
         top1_pct: 0.0,
+        top1_is_lp: false,
         top10_pct: 0.0,
         herfindahl: None,
         age_hours: 0,
@@ -83,6 +85,8 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
             }
         } else if let Some(v) = line.strip_prefix("top_1_wallet_pct: ") {
             m.top1_pct = v.trim_end_matches('%').parse().unwrap_or(0.0);
+        } else if let Some(v) = line.strip_prefix("top_1_wallet_type: ") {
+            m.top1_is_lp = v.starts_with("lp_pool") || v.starts_with("burn");
         } else if let Some(v) = line.strip_prefix("top_10_wallets_pct: ") {
             m.top10_pct = v.trim_end_matches('%').parse().unwrap_or(0.0);
         } else if let Some(v) = line.strip_prefix("herfindahl_index: ") {
@@ -223,7 +227,8 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
         }
         if m.top1_pct < 15.0 {
             phi += ADJUST_SMALL;
-        } else if m.top1_pct > 50.0 {
+        } else if m.top1_pct > 50.0 && !m.top1_is_lp {
+            // Only penalize high concentration if top1 is a retail whale, not LP/burn
             phi -= ADJUST_MEDIUM;
         }
         if m.holders > 1000 {
@@ -367,7 +372,7 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     if m.holder_data_available {
         if m.top1_pct < 15.0 {
             sovereignty += ADJUST_MEDIUM;
-        } else if m.top1_pct > 50.0 {
+        } else if m.top1_pct > 50.0 && !m.top1_is_lp {
             sovereignty -= ADJUST_MEDIUM;
         }
         if m.holders > 100 {

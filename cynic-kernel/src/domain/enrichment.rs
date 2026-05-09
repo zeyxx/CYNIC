@@ -28,6 +28,8 @@ pub struct TokenData {
     pub holder_count_is_exact: bool,
     /// Percentage held by the largest wallet
     pub top1_pct: f64,
+    /// Type of largest holder: "lp_pool", "burn", "locker", "wallet", "unknown"
+    pub top1_type: String,
     /// Percentage held by the top 10 wallets
     pub top10_pct: f64,
     /// Herfindahl-Hirschman Index for holder concentration (0.0 to 1.0)
