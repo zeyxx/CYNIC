@@ -925,6 +925,12 @@ mod tests {
             soma_gate: Arc::new(crate::domain::orchestrator::ResourceGate::new(Arc::new(
                 crate::domain::slot_tracker::SlotTracker::new(),
             ))),
+            proxy_targets: Arc::new(
+                crate::api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
+                    &std::collections::HashMap::new(),
+                    &std::collections::HashMap::new(),
+                ),
+            ),
             project_root: ".".to_string(),
             mail: None,
         })

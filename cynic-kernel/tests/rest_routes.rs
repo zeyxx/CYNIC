@@ -85,6 +85,12 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         soma_gate: std::sync::Arc::new(cynic_kernel::domain::orchestrator::ResourceGate::new(
             std::sync::Arc::new(cynic_kernel::domain::slot_tracker::SlotTracker::new()),
         )),
+        proxy_targets: std::sync::Arc::new(
+            cynic_kernel::api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
+                &std::collections::HashMap::new(),
+                &std::collections::HashMap::new(),
+            ),
+        ),
         project_root: ".".to_string(),
         mail: None,
     })
@@ -1038,6 +1044,12 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         soma_gate: std::sync::Arc::new(cynic_kernel::domain::orchestrator::ResourceGate::new(
             std::sync::Arc::new(cynic_kernel::domain::slot_tracker::SlotTracker::new()),
         )),
+        proxy_targets: std::sync::Arc::new(
+            cynic_kernel::api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
+                &std::collections::HashMap::new(),
+                &std::collections::HashMap::new(),
+            ),
+        ),
         project_root: ".".to_string(),
         mail: None,
     });

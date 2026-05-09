@@ -191,6 +191,8 @@ pub struct AppState {
     /// Consumers: /judge (skip saturated Dogs), /health (expose utilization),
     /// GET /inference/slots (external dispatch query).
     pub slot_tracker: Arc<crate::domain::slot_tracker::SlotTracker>,
+    /// Soma L4: Inference proxy routing table — maps dog_id → upstream llama-server URL.
+    pub proxy_targets: Arc<super::inference_proxy::ProxyTargets>,
     /// Project root (repository root — resolved at boot).
     /// Used by `/git/state` endpoint to run git commands in the correct context.
     pub project_root: String,

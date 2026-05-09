@@ -648,6 +648,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &slot_tracker,
     )));
 
+    // Soma L4: Inference proxy routing table — sovereign backends only.
+    let sovereign_flags: std::collections::HashMap<String, bool> = backend_configs
+        .iter()
+        .map(|c| (c.name.clone(), c.sovereign))
+        .collect();
+    let proxy_targets = Arc::new(api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
+        &fleet_meta,
+        &sovereign_flags,
+    ));
+    if !proxy_targets.available().is_empty() {
+        klog!(
+            "[Ring 2] Soma L4 proxy: {} sovereign backend(s): {:?}",
+            proxy_targets.available().len(),
+            proxy_targets.available()
+        );
+    }
+
     // Event bus — broadcast channel for SSE/WebSocket subscribers.
     // Capacity 256: events are small JSON, subscribers should keep up.
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
@@ -714,6 +731,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         dog_perf_collector: Arc::clone(&dog_perf_collector),
         soma_gate: Arc::clone(&soma_gate),
         slot_tracker: Arc::clone(&slot_tracker),
+        proxy_targets: Arc::clone(&proxy_targets),
         project_root: project_root.display().to_string(),
         mail: mail_backend.clone(),
     });
