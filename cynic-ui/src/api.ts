@@ -14,8 +14,9 @@ function authHeaders(): Record<string, string> {
 }
 
 export async function checkHealth(): Promise<HealthResponse> {
-  const res = await fetch(`${base()}/health`);
-  if (!res.ok) throw new Error('Health check failed');
+  const res = await fetch(`${base()}/health`, { headers: authHeaders() });
+  // 503 = degraded but functional — kernel returns full health JSON with 503
+  if (!res.ok && res.status !== 503) throw new Error(`Health check failed: ${res.status}`);
   return res.json();
 }
 
