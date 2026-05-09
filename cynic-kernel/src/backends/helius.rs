@@ -261,7 +261,8 @@ impl HeliusEnricher {
     /// Returns estimated lower bound of holder count.
     async fn estimate_holder_count(&self, mint: &str) -> u64 {
         let api_key = self.rpc_url.split("api-key=").nth(1).unwrap_or_default();
-        let probe_pages: &[u64] = &[2, 10, 100, 1000];
+        // 3 probes: gives us <2K, 2K-100K, 100K-1M, 1M+ — sufficient for scoring tiers
+        let probe_pages: &[u64] = &[2, 100, 1000];
         let mut estimated = 20_u64; // we already know there are >= 20
 
         for &page in probe_pages {

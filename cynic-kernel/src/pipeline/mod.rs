@@ -310,10 +310,10 @@ async fn pipeline_inner(
         && crate::domain::enrichment::looks_like_solana_address(&content)
     {
         if let Some(enricher) = deps.enricher {
-            // 30s: basic enrichment (getAsset+getLargest+getAge+LP) takes ~5-10s.
-            // Behavioral analysis has its own 20s timeout inside enrich().
+            // 60s: basic enrichment (~10s) + holder estimation (~12s) + behavioral (20s timeout)
+            // + DexScreener (~2s). Was 30s before holder estimation addition.
             match tokio::time::timeout(
-                std::time::Duration::from_secs(30),
+                std::time::Duration::from_secs(60),
                 enricher.enrich(&content),
             )
             .await
