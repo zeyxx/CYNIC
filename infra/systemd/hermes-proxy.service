@@ -1,6 +1,7 @@
 [Unit]
 Description=CYNIC Hermes proxy — passive X/Twitter capture (mitmdump)
 After=cynic-kernel.service
+Conflicts=mitmproxy.service
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
