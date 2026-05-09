@@ -267,11 +267,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         organ,
         cost_rates,
         health_urls,
+        slots_urls,
         fleet_meta,
         remediation_configs,
         dog_to_fleet_node,
     } = infra::boot::build_dogs_and_organ(backend_configs.clone(), &domain_prompts, &storage_port)
         .await;
+
+    // Soma L2: Slot tracker — shared between health loop (writer) and Judge + REST (readers).
+    let slot_tracker = Arc::new(domain::slot_tracker::SlotTracker::new());
 
     // ─── RING 2: Health Loop + Remediation ──────────────────────
     // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
@@ -345,7 +349,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect();
     let judge = judge::Judge::new(dogs, breakers)
         .with_organ_handles(organ_handles)
-        .with_budgets(&budget_limits);
+        .with_budgets(&budget_limits)
+        .with_slot_tracker(Arc::clone(&slot_tracker));
     // Background task health tracker — updated by each spawned task, exposed in /health
     let task_health = Arc::new(infra::task_health::TaskHealth::new());
     // Lifecycle orchestration — all background tasks select! on this token.
@@ -384,6 +389,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .map(|url| infra::health_loop::DogProbeConfig {
                         dog_id: id.clone(),
                         health_url: url.clone(),
+                        slots_url: slots_urls.get(id.as_str()).and_then(|opt| opt.clone()),
                     })
             })
             .collect();
@@ -404,6 +410,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Arc::clone(&storage_port),
                 senses.clone(),
                 dog_to_fleet_node.clone(),
+                Arc::clone(&slot_tracker),
                 shutdown.clone(),
             );
             klog!(
@@ -704,6 +711,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         routing_calc: Arc::clone(&routing_calc),
         dog_perf_collector: Arc::clone(&dog_perf_collector),
         soma_gate: Arc::clone(&soma_gate),
+        slot_tracker: Arc::clone(&slot_tracker),
         project_root: project_root.display().to_string(),
         mail: mail_backend.clone(),
     });

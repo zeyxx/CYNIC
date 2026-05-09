@@ -16,6 +16,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::domain::health_gate::HealthGate;
 use crate::domain::organ::OrganPort;
+use crate::domain::slot_tracker::SlotTracker;
 use crate::domain::storage::StoragePort;
 use crate::infra::circuit_breaker::PROBE_INTERVAL;
 use crate::infra::task_health::TaskHealth;
@@ -25,6 +26,8 @@ use crate::infra::task_health::TaskHealth;
 pub struct DogProbeConfig {
     pub dog_id: String,
     pub health_url: String,
+    /// llama-server `/slots` URL — derived from health_url. None for cloud APIs.
+    pub slots_url: Option<String>,
 }
 
 /// GET the health URL, returning true if the response is a 2xx status.
@@ -110,10 +113,52 @@ impl FleetAwareness {
     }
 }
 
+/// Parse llama-server `/slots` JSON into domain slot descriptors.
+/// Infra responsibility: JSON parsing stays out of domain (K5).
+/// Expected format: `[{"id":0,"is_processing":false,"n_ctx":32768,...}, ...]`
+fn parse_slots_json(json: &serde_json::Value) -> Option<Vec<(u32, bool, u32)>> {
+    let arr = json.as_array()?;
+    let mut descriptors = Vec::with_capacity(arr.len());
+    for entry in arr {
+        let id = entry.get("id")?.as_u64()? as u32;
+        let is_processing = entry
+            .get("is_processing")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let n_ctx = entry.get("n_ctx").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+        descriptors.push((id, is_processing, n_ctx));
+    }
+    Some(descriptors)
+}
+
+/// Probe llama-server `/slots` endpoint. Returns parsed slot data or None.
+/// Times out after 3 seconds (shorter than health probe — slots is lightweight).
+async fn probe_slots(
+    client: &Client,
+    slots_url: &str,
+) -> Option<crate::domain::slot_tracker::BackendSlots> {
+    let timeout = Duration::from_secs(3);
+    let resp = tokio::time::timeout(timeout, client.get(slots_url).send())
+        .await
+        .ok()? // R2-exempt: timeout → None (skip slot update)
+        .ok()?; // R2-exempt: connection error → None
+    if !resp.status().is_success() {
+        return None;
+    }
+    let json: serde_json::Value = resp.json().await.ok()?; // R2-exempt: parse error → None
+    let descriptors = parse_slots_json(&json)?;
+    Some(crate::domain::slot_tracker::build_backend_slots(
+        descriptors,
+    ))
+}
+
 /// Spawn a background Tokio task that probes all dogs every `PROBE_INTERVAL`.
 ///
 /// `configs` and `breakers` are parallel — index `i` in configs corresponds
 /// to index `i` in breakers (same dog).
+#[allow(clippy::too_many_arguments)]
+// WHY: 8 args (1 over limit). Each is a distinct Arc/Vec with no natural grouping.
+// A HealthLoopConfig struct would just move the problem — callers still pass 8 values.
 pub fn spawn_health_loop(
     configs: Vec<DogProbeConfig>,
     breakers: Vec<Arc<dyn HealthGate>>,
@@ -121,6 +166,7 @@ pub fn spawn_health_loop(
     storage: Arc<dyn StoragePort>,
     senses: Vec<Arc<dyn OrganPort>>,
     dog_to_fleet_node: HashMap<String, String>,
+    slot_tracker: Arc<SlotTracker>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
@@ -214,6 +260,33 @@ pub fn spawn_health_loop(
                             dogs_total
                         );
                     }
+
+                    // Soma L2: probe /slots on sovereign backends (parallel, fire-and-forget timing)
+                    let slot_futures: Vec<_> = configs.iter()
+                        .filter_map(|cfg| {
+                            cfg.slots_url.as_ref().map(|url| {
+                                let dog_id = cfg.dog_id.clone();
+                                let url = url.clone();
+                                let client = &client;
+                                async move { (dog_id, probe_slots(client, &url).await) }
+                            })
+                        })
+                        .collect();
+                    if !slot_futures.is_empty() {
+                        let slot_results = join_all(slot_futures).await;
+                        for (dog_id, maybe_slots) in slot_results {
+                            if let Some(slots) = maybe_slots {
+                                tracing::debug!(
+                                    dog_id = %dog_id,
+                                    total = slots.total,
+                                    busy = slots.busy,
+                                    "slot probe update"
+                                );
+                                slot_tracker.update(&dog_id, slots);
+                            }
+                        }
+                    }
+
                     // Fleet awareness: preemptive circuit breaking via Tailscale sense
                     if let Some(ts_sense) = senses.iter().find(|s| s.name() == "tailscale") {
                         match tokio::time::timeout(Duration::from_secs(5), ts_sense.snapshot()).await {
@@ -322,6 +395,7 @@ mod tests {
         let cfg = DogProbeConfig {
             dog_id: "test-dog".to_string(),
             health_url: "http://localhost:9999/health".to_string(),
+            slots_url: None,
         };
         assert_eq!(cfg.dog_id, "test-dog");
         assert_eq!(cfg.health_url, "http://localhost:9999/health");
@@ -334,8 +408,33 @@ mod tests {
             dog_id: "dead-dog".to_string(),
             // Port chosen to be unreachable — nothing listens on 19999.
             health_url: "http://127.0.0.1:19999/health".to_string(),
+            slots_url: None,
         };
         let result = probe_dog(&client, &cfg).await;
         assert!(!result, "expected false for unreachable port");
+    }
+
+    #[test]
+    fn parse_slots_json_valid() {
+        let json = serde_json::json!([
+            {"id": 0, "is_processing": false, "n_ctx": 32768},
+            {"id": 1, "is_processing": true, "n_ctx": 32768}
+        ]);
+        let result = parse_slots_json(&json).unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], (0, false, 32768));
+        assert_eq!(result[1], (1, true, 32768));
+    }
+
+    #[test]
+    fn parse_slots_json_not_array() {
+        let json = serde_json::json!({"error": "not slots"});
+        assert!(parse_slots_json(&json).is_none());
+    }
+
+    #[test]
+    fn parse_slots_json_missing_id() {
+        let json = serde_json::json!([{"is_processing": false, "n_ctx": 32768}]);
+        assert!(parse_slots_json(&json).is_none());
     }
 }

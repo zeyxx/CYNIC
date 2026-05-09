@@ -275,6 +275,7 @@ pub async fn health_handler(
                     _ => "critical",
                 },
             },
+            "slot_utilization": state.slot_tracker.health_summary(),
             "senses": senses_report,
         })),
     )

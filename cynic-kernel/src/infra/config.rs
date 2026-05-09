@@ -463,6 +463,17 @@ fn derive_health_url(base_url: &str) -> String {
     format!("{base}/health")
 }
 
+/// Derive llama-server slots URL from base_url: strip "/v1" suffix, append "/slots".
+/// Same pattern as derive_health_url — only sovereign backends expose this.
+pub fn derive_slots_url(base_url: &str) -> String {
+    let base = if let Some(stripped) = base_url.strip_suffix("/v1") {
+        stripped
+    } else {
+        base_url.trim_end_matches('/')
+    };
+    format!("{base}/slots")
+}
+
 /// Load backend configs from TOML file. Resolves api_key_env to actual env var values.
 pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
     let content = match std::fs::read_to_string(path) {

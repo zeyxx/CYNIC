@@ -696,6 +696,31 @@ List candidate nodes ranked by health for a given domain.
 
 **Response (200):** Array of candidate nodes with health/quality metadata.
 
+### GET /inference/slots
+
+Soma L2: aggregated slot utilization per sovereign backend. External dispatchers (Hermes, nightshift) query this before spawning inference work. Only returns fresh data (< 90s old).
+
+**Response (200):**
+```json
+{
+  "backends": [
+    {
+      "dog_id": "qwen-9b-core",
+      "total_slots": 2,
+      "busy_slots": 1,
+      "free_slots": 1,
+      "utilization": 0.5,
+      "per_slot_ctx": 32768,
+      "slots": [
+        { "id": 0, "is_processing": false, "n_ctx": 32768 },
+        { "id": 1, "is_processing": true, "n_ctx": 32768 }
+      ]
+    }
+  ],
+  "timestamp": "2026-05-09T..."
+}
+```
+
 ### GET /inference/remediate
 
 Detect degraded nodes and attempt recovery. Runs node-specific remediation (restart services, flush caches, rebalance load).

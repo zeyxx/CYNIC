@@ -32,6 +32,8 @@ pub struct Judge {
     budgets: Vec<Option<Arc<crate::domain::daily_budget::DailyBudget>>>,
     /// Hash of the last verdict — forms the chain. Protected by Mutex for concurrent access.
     last_hash: Mutex<Option<String>>,
+    /// Soma L2: slot awareness — if set, Dogs with all slots busy are skipped.
+    slot_tracker: Option<Arc<crate::domain::slot_tracker::SlotTracker>>,
 }
 
 impl std::fmt::Debug for Judge {
@@ -56,6 +58,7 @@ impl Judge {
             organ_handles: vec![None; n],
             budgets: vec![None; n],
             last_hash: Mutex::new(None),
+            slot_tracker: None,
         }
     }
 
@@ -68,6 +71,15 @@ impl Judge {
             "organ_handles must be 1:1 with dogs"
         );
         self.organ_handles = handles;
+        self
+    }
+
+    /// Attach Soma L2 slot tracker — Dogs with all slots busy will be skipped.
+    pub fn with_slot_tracker(
+        mut self,
+        tracker: Arc<crate::domain::slot_tracker::SlotTracker>,
+    ) -> Self {
+        self.slot_tracker = Some(tracker);
         self
     }
 
@@ -131,7 +143,10 @@ impl Judge {
         dogs.remove(idx);
         breakers.remove(idx);
         handles.remove(idx);
-        let new_judge = Judge::new(dogs, breakers).with_organ_handles(handles);
+        let mut new_judge = Judge::new(dogs, breakers).with_organ_handles(handles);
+        if let Some(tracker) = &current.slot_tracker {
+            new_judge = new_judge.with_slot_tracker(Arc::clone(tracker));
+        }
         let chain = current.last_hash_snapshot();
         new_judge.seed_chain(chain);
         Some(new_judge)
@@ -373,6 +388,18 @@ impl Judge {
                         );
                         return None;
                     }
+                }
+                // Soma L2: skip Dogs whose backend slots are all busy.
+                // Not a circuit-open — the backend is healthy, just saturated.
+                // The Dog will be available again on the next tick when a slot frees.
+                if let Some(tracker) = &self.slot_tracker
+                    && tracker.all_slots_busy(dog.id())
+                {
+                    tracing::info!(
+                        dog_id = %dog.id(),
+                        "Dog skipped — all inference slots busy (Soma L2)"
+                    );
+                    return None;
                 }
                 Some(RunnableDog { idx, dog })
             })

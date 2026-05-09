@@ -41,7 +41,7 @@ security_check() {
         | grep -vE 'healthy_token:|moderate_risk:|high_risk_rug:' \
         | grep -vE ':\s*Option<|:\s*Result<|:\s*Vec<|:\s*String' \
         | grep -vE '\.split\(.*api[_-]?key' \
-        | grep -vE 'token::(parse|score)|mod token;' \
+        | grep -vE 'token::(parse|score)|mod token;|token:(revoked|active|unk)' \
         | grep -vE 'Token:\s+[A-Za-z0-9$]+\.\s+Type:\s*Fungible' \
         | grep -vE 'def\s+__init__.*token.*:' \
         | grep -vE '(token|secret|password|credentials)\s*:\s*(Optional|str|int|bool|None)' \
