@@ -181,5 +181,19 @@ pub fn router(state: Arc<AppState>) -> Router {
             axum::http::StatusCode::GATEWAY_TIMEOUT,
             std::time::Duration::from_secs(120),
         ))
+        // Private Network Access: MUST be outermost layer (wraps CORS preflight).
+        // Chrome blocks HTTPS-public → local-network requests without this header
+        // on BOTH the preflight OPTIONS response AND the actual response.
+        // Tailscale Funnel resolves to a local address; Vercel UI needs this.
+        .layer(axum::middleware::from_fn(
+            |request: axum::extract::Request, next: axum::middleware::Next| async move {
+                let mut response = next.run(request).await;
+                response.headers_mut().insert(
+                    axum::http::HeaderName::from_static("access-control-allow-private-network"),
+                    axum::http::HeaderValue::from_static("true"),
+                );
+                response
+            },
+        ))
         .with_state(state)
 }

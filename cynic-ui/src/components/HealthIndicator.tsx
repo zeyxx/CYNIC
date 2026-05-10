@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { checkHealth } from '../api';
+import { getKernelUrl } from '../utils';
 
 
 export function HealthIndicator() {
@@ -11,6 +12,7 @@ export function HealthIndicator() {
     let cancelled = false;
     const check = async () => {
       try {
+        // Try authenticated /health first (full status + version)
         const h = await checkHealth();
         if (!cancelled) {
           setStatus('online');
@@ -18,7 +20,17 @@ export function HealthIndicator() {
           setVersion(h.version || '');
         }
       } catch {
-        if (!cancelled) setStatus('offline');
+        // Fallback: /ready is public — confirms kernel is alive without auth
+        try {
+          const base = getKernelUrl().replace(/\/$/, '');
+          const res = await fetch(`${base}/ready`);
+          if (!cancelled) {
+            setStatus(res.ok ? 'online' : 'offline');
+            setKernelStatus(res.ok ? 'ready' : '');
+          }
+        } catch {
+          if (!cancelled) setStatus('offline');
+        }
       }
     };
     check();
