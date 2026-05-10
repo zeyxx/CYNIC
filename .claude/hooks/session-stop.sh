@@ -149,7 +149,7 @@ if [[ -f "$PROOF_FILE" ]]; then
 
     # Tentative: has any staged/unstaged changes? (Would be lost if not committed)
     WORK_LOST=""
-    DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | grep -v '^??' | head -3)
+    DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | grep -v '^??' | head -3 || true)
     if [[ -n "$DIRTY" ]]; then
         WORK_LOST="uncommitted changes present (review git status)"
     fi
