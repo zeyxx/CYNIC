@@ -26,7 +26,8 @@ pub(super) async fn probe_llm_resources(env: &EnvInfo, compute: &ComputeInfo) ->
         }
     };
 
-    // Deduplicate by path
+    // Deduplicate by path (sort by path first so dedup_by sees adjacent dupes)
+    gguf_models.sort_by(|a, b| a.path.cmp(&b.path));
     gguf_models.dedup_by(|a, b| a.path == b.path);
     gguf_models.sort_by(|a, b| {
         b.size_gb
