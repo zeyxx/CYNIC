@@ -63,7 +63,7 @@ impl EmbeddingBackend {
                     klog!("[Embedding] discovered server at {}:{}", host, port);
                     return Self::new(&base_url, api_key, model)
                         .map_err(|e| klog!("[Embedding] init failed on {}:{}: {}", host, port, e))
-                        .ok();
+                        .ok(); // R2: error logged in map_err above
                 }
                 _ => {
                     klog!(
