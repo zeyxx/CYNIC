@@ -60,7 +60,9 @@ pub fn spawn_organ_remediation(
                             .iter()
                             .find(|(source, _, _)| source == &organ_config.source)
                             .and_then(|(_, last_at, _)| {
-                                chrono::DateTime::parse_from_rfc3339(last_at).ok()
+                                chrono::DateTime::parse_from_rfc3339(last_at)
+                                    .map_err(|e| tracing::debug!(error = %e, last_at, "organ remediation: bad timestamp"))
+                                    .ok()
                             })
                             .map(|t| {
                                 (now - t.with_timezone(&chrono::Utc))
