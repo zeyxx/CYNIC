@@ -9,11 +9,11 @@
 ## Scene 2: Dogs Deliberate (~45s)
 **Narration:** "Five independent Dogs score the token on six axioms: Fidelity, Phi (structure), Verify (verifiability), Culture (tradition), Burn (efficiency), Sovereignty (agency)."
 - Show kernel logs as each Dog responds
-- qwen-7b-hf (HF Inference)
-- qwen35-9b-gpu (GPU Dog, 55 tok/s, most thorough)
-- gemma-4-e4b-core (CPU Dog)
 - deterministic-dog (heuristic baseline, instant)
-- gemini-cli (optional, may be skipped)
+- qwen-7b-hf (HuggingFace Inference, ~6s)
+- qwen25-7b-core (CPU + Vulkan, sovereign)
+- qwen35-9b-gpu (RTX 4060 Ti, 55 tok/s, most thorough)
+- gemma-4-e4b-gpu (Gemma 4 E4B, sovereign, slow ~87s)
 - Display scoring in real time (axiom scores 0.0-1.0 per Dog)
 
 ## Scene 3: Crystal Coherence & Verdict (~40s)
@@ -30,6 +30,8 @@
 
 ## Key Stats for Narration
 - Detection rate: 75.5% on 53 confirmed rug-pulls (baseline)
-- Latency: ~10-15 seconds (3-4 Dogs respond before verdict)
-- Dogs working: 5/5 (qwen7b, qwen35-gpu, gemma-core, deterministic, gemini)
+- Latency: 6-18 seconds (3 Dogs respond before verdict)
+- Dogs working: 5/5 (deterministic, qwen7b-hf, qwen25-core, qwen35-gpu, gemma-e4b)
 - Axioms: 6 (FIDELITY, PHI, VERIFY, CULTURE, BURN, SOVEREIGNTY)
+- 10,500+ requests served, 6.3M+ tokens processed
+- Self-healing: auto-restart on stuck slots, silent organs, port conflicts (PR#130)
