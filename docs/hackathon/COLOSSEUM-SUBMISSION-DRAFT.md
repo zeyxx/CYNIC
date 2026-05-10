@@ -24,16 +24,18 @@ CYNIC deploys five independent Dogs (LLMs + heuristics) to score every token ind
 
 ### Key Achievement
 - **Detection Rate:** 75.5% on 53 confirmed rug-pulls (baseline)
-- **Latency:** 10-15 seconds (3-4 Dogs respond before verdict issued)
-- **Infrastructure:** Sovereign (Tailscale mesh, no external APIs for judgment)
-- **Transparency:** Every verdict shows which Dogs voted, their scores, their reasoning
+- **Latency:** 6-18 seconds (3 Dogs respond before verdict issued)
+- **Scale:** 10,500+ requests served, 6.3M+ tokens processed, 130 PRs merged
+- **Self-Healing:** Organism auto-remediates stuck slots, silent organs, and embedding failures — no human SSH required (PR#130)
+- **Infrastructure:** 4/5 Dogs sovereign (Tailscale mesh, on-prem GPU + CPU), 19 background tasks, 71 crystals formed
+- **Transparency:** Every verdict shows which Dogs voted, their scores, their written reasoning per axiom
 
-### Dogs (Independent Validators)
-- qwen-7b-hf (HuggingFace Inference)
-- qwen35-9b-gpu (RTX 4060 Ti, 55 tok/s)
-- gemma-4-e4b-core (CPU + Vulkan iGPU)
-- deterministic-dog (instant heuristic baseline)
-- gemini-cli (Google/Gemini, optional fallback)
+### Dogs (Independent Validators) — 5/5 Active
+- deterministic-dog (instant heuristic baseline, sovereign)
+- qwen-7b-hf (HuggingFace Inference, cloud)
+- qwen25-7b-core (Qwen 2.5 7B, CPU + Vulkan, sovereign)
+- qwen35-9b-gpu (Qwen 3.5 9B, RTX 4060 Ti 55 tok/s, sovereign)
+- gemma-4-e4b-gpu (Gemma 4 E4B, CPU, sovereign)
 
 ### On-Chain
 - **Program:** Pinocchio (A4QK3jj2kDx6w3da7FF3wxiBMnD2NrDsL1F7RCJA5NXx)
@@ -52,9 +54,9 @@ See `/tmp/video-demo-script.md`
 https://github.com/zeyxx/CYNIC (public repo, code + docs)
 
 ## Deployed URL
-REST API: https://residents-administrator-temperature-boc.trycloudflare.com (temporary tunnel)
+REST API: https://ubuntu-desktop-titouan.tail7ec70e.ts.net (Tailscale Funnel, auth required)
 UI: https://cynic-ui.vercel.app
 
 ---
 
-**Status:** Devnet ready. Mainnet deployment pending on May 10 post-hackathon.
+**Status (May 10, 2026):** Kernel v0.7.7-429 live. 5/5 Dogs active. Self-healing deployed. Devnet verdicts on-chain.

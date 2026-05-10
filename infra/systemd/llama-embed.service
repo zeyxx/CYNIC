@@ -1,0 +1,16 @@
+[Unit]
+Description=llama-server — CYNIC sovereign embedding backend
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/cynic/llama-embed.env
+ExecStart=/bin/bash -lc 'exec "${LLAMA_SERVER_BIN:?Set LLAMA_SERVER_BIN in ~/.config/cynic/llama-embed.env}" -m "${LLAMA_EMBED_MODEL_PATH:?Set LLAMA_EMBED_MODEL_PATH}" --host "${LLAMA_HOST:-127.0.0.1}" --port "${LLAMA_EMBED_PORT:-8081}" --threads "${LLAMA_EMBED_THREADS:-4}" --ctx-size "${LLAMA_EMBED_CTX_SIZE:-8192}" --parallel 4 --n-gpu-layers 0 --embedding --pooling last --api-key-file %h/.config/cynic/llama-api-key'
+Restart=always
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target
