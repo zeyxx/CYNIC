@@ -61,7 +61,9 @@ impl EmbeddingBackend {
             match tokio::time::timeout(std::time::Duration::from_secs(3), req.send()).await {
                 Ok(Ok(resp)) if resp.status().is_success() => {
                     klog!("[Embedding] discovered server at {}:{}", host, port);
-                    return Self::new(&base_url, api_key, model).ok();
+                    return Self::new(&base_url, api_key, model)
+                        .map_err(|e| klog!("[Embedding] init failed on {}:{}: {}", host, port, e))
+                        .ok();
                 }
                 _ => {
                     klog!(
