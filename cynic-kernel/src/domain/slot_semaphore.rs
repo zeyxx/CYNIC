@@ -378,4 +378,62 @@ mod tests {
         map.remove("dog-c");
         assert!(map.get("dog-c").is_none());
     }
+
+    // F3 — Concurrent user + nightshift, no starvation.
+    // 4 slots: nightshift takes 3, user must still get the 4th.
+    #[tokio::test]
+    async fn f3_concurrent_user_and_nightshift_no_starvation() {
+        let sem = Arc::new(SlotSemaphore::new("gpu-dog", 4));
+        // Nightshift takes 3 slots (sequential in practice, parallel here for stress)
+        let _n1 = sem.try_acquire(SlotPriority::Nightshift).unwrap();
+        let _n2 = sem.try_acquire(SlotPriority::Nightshift).unwrap();
+        let _n3 = sem.try_acquire(SlotPriority::Nightshift).unwrap();
+        // User still gets the 4th slot — no starvation
+        let user = sem.try_acquire(SlotPriority::User);
+        assert!(user.is_some(), "User must get a slot when 1/4 is free");
+    }
+
+    // F5 — No deadlock under fan-out.
+    // 3 dogs, 1 slot each. Blocking user evaluate + non-blocking nightshift must both complete.
+    #[tokio::test]
+    async fn f5_fanout_no_deadlock() {
+        // 3 dogs, 1 slot each. Two concurrent "evaluates".
+        let map = Arc::new(SlotSemaphoreMap::new());
+        map.upsert("dog-a", 1);
+        map.upsert("dog-b", 1);
+        map.upsert("dog-c", 1);
+
+        // User evaluate: acquires all 3 dogs (blocking)
+        let map2 = Arc::clone(&map);
+        let h1 = tokio::spawn(async move {
+            let _a = map2.get("dog-a").unwrap().acquire(SlotPriority::User).await;
+            let _b = map2.get("dog-b").unwrap().acquire(SlotPriority::User).await;
+            let _c = map2.get("dog-c").unwrap().acquire(SlotPriority::User).await;
+        });
+
+        // Nightshift evaluate: try_acquire all 3 dogs (non-blocking, may skip)
+        let map3 = Arc::clone(&map);
+        let h2 = tokio::spawn(async move {
+            let _a = map3
+                .get("dog-a")
+                .unwrap()
+                .try_acquire(SlotPriority::Nightshift);
+            let _b = map3
+                .get("dog-b")
+                .unwrap()
+                .try_acquire(SlotPriority::Nightshift);
+            let _c = map3
+                .get("dog-c")
+                .unwrap()
+                .try_acquire(SlotPriority::Nightshift);
+        });
+
+        // Both must complete within 5s (no deadlock)
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            h1.await.unwrap();
+            h2.await.unwrap();
+        })
+        .await
+        .expect("must not deadlock");
+    }
 }
