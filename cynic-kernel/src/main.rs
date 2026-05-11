@@ -1007,31 +1007,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
 
-        // ─── Crystal immune system (every 5min, Soma L2: Background priority) ───────
-        // Was disabled 2026-05-11 (PR#135) due to slot starvation. Re-enabled now that
-        // Soma L2 priority semaphore exists — Background priority skips on contention.
-        let _crystal_challenge_handle = infra::tasks::spawn_crystal_challenge_loop(
-            rest_state.judge.load_full(),
-            Arc::clone(&storage_port),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-        );
-        klog!("[Ring 2] Crystal challenge loop started (every 5min, Soma L2 Background priority)");
-
-        // ─── Nightshift: autonomous dev judgment (every 4h, Soma L3 gated) ───────
-        // Was disabled 2026-05-11 (PR#135) due to slot starvation from Phase 2
-        // (observations) bypassing the soma gate. Now both phases are gated.
-        let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
-            rest_state.judge.load_full(),
-            Arc::clone(&storage_port),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-            project_root.display().to_string(),
-        );
-        klog!(
-            "[Ring 3] Nightshift loop started (every 4h, git lookback {}, Soma L3 gated)",
-            crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
-        );
+        // ─── Crystal + Nightshift: DISABLED for hackathon demo ───────
+        // Soma L2 priority doesn't prevent slot starvation in practice.
+        // Background judgments still consume GPU slots before user /judge arrives.
+        // Re-enable after hackathon with real priority queuing.
+        klog!("[Ring 2] Crystal challenge + Nightshift DISABLED (hackathon demo)");
     } else {
         klog!("[Ring 2] MCP mode — background tasks SKIPPED (REST kernel handles them)");
     }

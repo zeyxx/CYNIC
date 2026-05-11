@@ -152,6 +152,12 @@ async fn probe_slots(
         .ok()? // R2-exempt: timeout → None (skip slot update)
         .ok()?; // R2-exempt: connection error → None
     if !resp.status().is_success() {
+        tracing::warn!(
+            slots_url,
+            status = %resp.status(),
+            has_key = api_key.is_some(),
+            "slot probe failed — SlotTracker will report stale data"
+        );
         return None;
     }
     let json: serde_json::Value = resp.json().await.ok()?; // R2-exempt: parse error → None
