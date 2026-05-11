@@ -224,15 +224,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let backend_configs: Vec<_> = backend_configs
         .into_iter()
         .filter(|c| {
-            if let Some(threshold) = dog_thresholds.dogs.get(&c.name) {
-                if !threshold.enabled {
-                    klog!(
-                        "[Ring 2] Backend '{}' DISABLED — skipping (reason: {:?})",
-                        c.name,
-                        threshold.skip_reason
-                    );
-                    return false;
-                }
+            if let Some(threshold) = dog_thresholds.dogs.get(&c.name).filter(|t| !t.enabled) {
+                klog!(
+                    "[Ring 2] Backend '{}' DISABLED — skipping (reason: {:?})",
+                    c.name,
+                    threshold.skip_reason
+                );
+                return false;
             }
             true
         })
@@ -1015,11 +1013,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Re-enable when Soma L2 has priority queuing.
         klog!("[Ring 2] Crystal challenge loop DISABLED — GPU slots reserved for user requests");
 
-        // ─── Nightshift: DISABLED ───────
-        // Nightshift re-judged 30 observations per cycle, saturating GPU slots
-        // and starving user /judge requests (only 1 dog available during cycles).
-        // Net value: near-zero crystals, high slot cost. Disabled 2026-05-11.
-        klog!("[Ring 3] Nightshift DISABLED — GPU slots reserved for user requests");
+        // ─── Nightshift: autonomous dev judgment (every 4h, Soma L3 gated) ───────
+        // Was disabled 2026-05-11 (PR#135) due to slot starvation from Phase 2
+        // (observations) bypassing the soma gate. Now both phases are gated.
+        let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
+            rest_state.judge.load_full(),
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+            project_root.display().to_string(),
+            Arc::clone(&soma_gate),
+            std::env::var("LLAMA_SERVER_URL")
+                .unwrap_or_else(|_| "http://127.0.0.1:8080".to_string()),
+        );
+        klog!(
+            "[Ring 3] Nightshift loop started (every 4h, git lookback {}, Soma L3 gated)",
+            crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
+        );
     } else {
         klog!("[Ring 2] MCP mode — background tasks SKIPPED (REST kernel handles them)");
     }

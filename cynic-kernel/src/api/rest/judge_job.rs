@@ -19,7 +19,6 @@ use std::time::Instant;
 use super::judge::validate_judge_request;
 use super::response::{dog_score_to_response, verdict_response_cached, verdict_to_response};
 use super::types::{AppState, DogScoreResponse, ErrorResponse, JudgeRequest, JudgeResponse};
-use crate::domain::dog::Stimulus;
 
 use crate::domain::constants;
 
@@ -233,12 +232,6 @@ pub async fn judge_async_handler(
     let req = validate_judge_request(req)?;
 
     let request_id = uuid::Uuid::new_v4().to_string();
-    let stimulus = Stimulus {
-        content: req.content.clone(),
-        context: req.context.clone(),
-        domain: req.domain.clone(),
-        request_id: None,
-    };
     let judge = state.judge.load_full();
     // Use registered dog count, not runnable_dog_count (which checks transient slot state).
     // Slot state is stale by the time the pipeline runs — the pipeline re-checks at dispatch.

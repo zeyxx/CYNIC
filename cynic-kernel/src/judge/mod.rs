@@ -1630,6 +1630,12 @@ mod tests {
             },
         });
 
+        // K22: total_calls must be > 0, otherwise the quality gate is bypassed
+        // (0 calls = no baseline to judge, so the dog gets a free pass).
+        handle.record_outcome(crate::domain::dog_health::ScoreOutcome::Failure(
+            crate::domain::dog_health::ScoreFailureKind::Timeout,
+        ));
+
         let judge = test_judge(vec![Arc::new(good_dog), Arc::new(bad_dog)])
             .with_organ_handles(vec![None, Some(handle)]);
 
@@ -1639,7 +1645,7 @@ mod tests {
             .await
             .unwrap();
 
-        // bad dog is quality-degraded → should be skipped, only good dog scored
+        // bad dog is quality-degraded + has call history → should be skipped
         assert_eq!(verdict.dog_scores.len(), 1);
         assert_eq!(verdict.dog_scores[0].dog_id, "good");
     }

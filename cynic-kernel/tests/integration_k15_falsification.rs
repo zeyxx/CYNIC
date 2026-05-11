@@ -64,8 +64,15 @@ mod k15_e2e_falsification {
 
         let ctx = formatted.unwrap();
         assert!(ctx.contains("CRYSTALLIZED"), "context should label state");
-        assert!(ctx.contains("0.99"), "context should show high certainty");
-        assert!(ctx.contains("141"), "context should show observation count");
+        // certainty 0.999 is formatted as {:.2} → "1.00"
+        assert!(
+            ctx.contains("certainty: 1.00"),
+            "context should show high certainty"
+        );
+        assert!(
+            ctx.contains("141 obs"),
+            "context should show observation count"
+        );
 
         println!("✓ Step 1: Crystal formats correctly");
         println!("  Context:\n{ctx}\n");
