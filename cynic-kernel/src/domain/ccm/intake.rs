@@ -45,7 +45,7 @@ pub fn semantic_slug(domain: &str, content: &str) -> String {
         "session" => slug_session(content),
         "trading" => slug_trading(content),
         "chess" => return format!("chess:{content}"), // chess: keep exact (already repetitive)
-        _ => first_n_words(content, 3),
+        _ => slug_general(content),
     };
     format!("{domain}:{slug}")
 }
@@ -212,6 +212,56 @@ fn slug_trading(content: &str) -> String {
         .unwrap_or_else(|| "unknown".to_string());
 
     format!("{side}:{symbol}")
+}
+
+/// General domain: detect tool observations vs semantic content.
+///
+/// Tool observations from observe-tool.sh have the pattern `[agent_id] ToolName target: context`.
+/// These are operational metadata — the CCM should learn patterns about types of activity
+/// (all Bash commands, all Write operations), not individual commands.
+///
+/// Kernel self-observations have pattern `[kernel] event_type target: context`.
+///
+/// Everything else falls back to first_n_words (semantic content).
+fn slug_general(content: &str) -> String {
+    // Tool observations: "[agent_id] ToolName ..."
+    // The agent_id is in brackets, followed by a known tool name.
+    if let Some(after_bracket) = content.strip_prefix('[').and_then(|s| s.split_once("] ")) {
+        let rest = after_bracket.1;
+        let tool = rest.split_whitespace().next().unwrap_or("");
+        let tool_lower = tool.to_lowercase();
+
+        // Known tool names from observe-tool.sh and kernel self-observation
+        let known_tools = [
+            "bash",
+            "read",
+            "write",
+            "edit",
+            "grep",
+            "glob",
+            "boot",
+            "dog_failed",
+            "dog_expired",
+            "dog_discovered",
+            "storage_reconnected",
+            "anomaly",
+            "session_distill",
+            "session_compliance",
+            "session_temporal",
+            "user_prompt",
+        ];
+
+        for known in known_tools {
+            if tool_lower == known || tool_lower.starts_with(known) {
+                return format!("tool:{known}");
+            }
+        }
+
+        // Agent bracket detected but unknown tool — collapse to agent type + first tool word
+        return format!("tool:{tool_lower}");
+    }
+
+    first_n_words(content, 3)
 }
 
 /// Generic: first N significant words, lowercased.
@@ -523,6 +573,73 @@ mod tests {
             "should contain 'earth', got: {slug}"
         );
         assert!(slug.contains("flat"), "should contain 'flat', got: {slug}");
+    }
+
+    // ── Tool observation slug tests ────────────────────────────
+
+    #[test]
+    fn slug_general_bash_observations_coalesce() {
+        let a = semantic_slug("general", "[claude-abc123] Bash rtk cargo build --release");
+        let b = semantic_slug(
+            "general",
+            "[claude-def456] Bash curl -s http://localhost:3030/health",
+        );
+        let c = semantic_slug(
+            "general",
+            "[claude-abc123] Bash sleep 3 && systemctl status",
+        );
+        assert_eq!(a, b, "all Bash observations must coalesce: a={a}, b={b}");
+        assert_eq!(b, c, "all Bash observations must coalesce: b={b}, c={c}");
+        assert_eq!(a, "general:tool:bash");
+    }
+
+    #[test]
+    fn slug_general_write_observations_coalesce() {
+        let a = semantic_slug("general", "[claude-abc123] Write src/main.rs");
+        let b = semantic_slug("general", "[claude-xyz789] Write /tmp/test.txt");
+        assert_eq!(a, b, "all Write observations must coalesce");
+        assert_eq!(a, "general:tool:write");
+    }
+
+    #[test]
+    fn slug_general_different_tools_differ() {
+        let bash = semantic_slug("general", "[claude-abc] Bash echo hello");
+        let write = semantic_slug("general", "[claude-abc] Write /tmp/file");
+        let read = semantic_slug("general", "[claude-abc] Read /tmp/file");
+        assert_ne!(bash, write, "Bash and Write should differ");
+        assert_ne!(write, read, "Write and Read should differ");
+    }
+
+    #[test]
+    fn slug_general_kernel_self_obs_coalesce() {
+        let a = semantic_slug("general", "[kernel] boot self: version=0.7.7 dogs=4");
+        let b = semantic_slug("general", "[kernel] boot self: version=0.7.8 dogs=5");
+        assert_eq!(a, b, "kernel boot observations must coalesce");
+        assert_eq!(a, "general:tool:boot");
+    }
+
+    #[test]
+    fn slug_general_session_compliance_coalesces() {
+        let a = semantic_slug(
+            "general",
+            "[claude-aaa] session_compliance session_end: score=0.54",
+        );
+        let b = semantic_slug(
+            "general",
+            "[claude-bbb] session_compliance session_end: score=0.88",
+        );
+        assert_eq!(a, b, "session compliance must coalesce");
+        assert_eq!(a, "general:tool:session_compliance");
+    }
+
+    #[test]
+    fn slug_general_non_tool_falls_back_to_words() {
+        let slug = semantic_slug("general", "The quick brown fox jumps over the lazy dog");
+        assert!(slug.starts_with("general:"), "got: {slug}");
+        assert!(
+            slug.contains("quick"),
+            "should fall back to first_n_words: {slug}"
+        );
     }
 
     #[test]
