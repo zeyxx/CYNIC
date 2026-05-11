@@ -1,6 +1,6 @@
 [Unit]
 Description=CYNIC Hermes proxy — passive X/Twitter capture (mitmdump)
-After=cynic-kernel.service
+After=cynic-kernel.service hermes-browser-hub.service
 Conflicts=mitmproxy.service
 StartLimitIntervalSec=300
 StartLimitBurst=5
@@ -14,7 +14,7 @@ Environment=X_CAPTURE_DIR=%h/.cynic/organs/hermes/x/captures
 Environment=X_DATASET_PATH=%h/.cynic/organs/hermes/x/dataset.jsonl
 # SoC: only decrypt X/Twitter traffic. All other HTTPS passes through opaque.
 ExecStart=%h/.local/bin/mitmdump \
-    -s x_proxy.py \
+    -s core/x_proxy.py \
     --listen-host 127.0.0.1 -p 8888 \
     --set stream_large_bodies=1m \
     --set ssl_insecure=true \
