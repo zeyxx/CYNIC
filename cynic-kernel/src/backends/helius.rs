@@ -904,7 +904,9 @@ impl TokenEnricherPort for HeliusEnricher {
             self.detect_lp_and_supply_status(&holder_addresses, &holder_balances, real_supply)
                 .await
         } else {
-            ("unsecured".into(), None, None)
+            // No holder data → can't determine LP status. "unknown" not "unsecured".
+            // BONK LP is 100% burned but showed "unsecured" when RPC degraded.
+            ("unknown".into(), None, None)
         };
 
         // Classify top1 holder type (LP pool, burn, locker, or wallet)

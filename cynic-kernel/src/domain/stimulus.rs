@@ -93,6 +93,7 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
             "burned" => "YES — LP tokens burned (permanent liquidity)",
             "locked" => "PARTIAL — LP tokens locked (temporary)",
             "unsecured" => "NO — LP tokens in creator wallet (can rug)",
+            "unknown" => "UNKNOWN — holder data unavailable (RPC degraded)",
             other => other,
         }
     ));
