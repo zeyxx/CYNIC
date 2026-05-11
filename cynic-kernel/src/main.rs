@@ -383,7 +383,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let judge = judge::Judge::new(dogs, breakers)
         .with_organ_handles(organ_handles)
         .with_budgets(&budget_limits)
-        .with_slot_tracker(Arc::clone(&slot_tracker));
+        .with_slot_tracker(Arc::clone(&slot_tracker))
+        .with_slot_semaphores(Arc::clone(&slot_semaphores));
     // Background task health tracker — updated by each spawned task, exposed in /health
     let task_health = Arc::new(infra::task_health::TaskHealth::new());
     // Lifecycle orchestration — all background tasks select! on this token.
