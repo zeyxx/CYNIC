@@ -10,7 +10,7 @@ use crate::domain::ccm;
 use crate::domain::constants;
 use crate::domain::dog::{MIN_QUORUM, Stimulus};
 use crate::domain::metrics::Metrics;
-use crate::domain::orchestrator::{Priority, ResourceGate, ResourceRequest};
+use crate::domain::slot_semaphore::SlotPriority;
 use crate::domain::storage::StoragePort;
 use crate::infra::task_health::TaskHealth;
 
@@ -70,28 +70,12 @@ fn ccm_domain_for_observation(raw_domain: &str) -> &'static str {
 }
 
 /// Judge an observation and observe the result as a CCM crystal.
-/// Soma-gated: checks slot utilization before consuming inference resources.
+/// Slot-gated: SlotSemaphore inside Judge::evaluate handles resource coordination.
 async fn judge_observation(
     obs: &crate::domain::storage::RawObservation,
     judge: &Arc<crate::judge::Judge>,
     storage: &Arc<dyn StoragePort>,
-    soma_gate: &Arc<ResourceGate>,
 ) -> Result<(), String> {
-    // Soma L3: same gate as judge_commit — Nightshift priority, 15s backoff.
-    let gate_req = ResourceRequest {
-        task_name: format!("nightshift-obs-{}", &obs.id[..obs.id.len().min(12)]),
-        priority: Priority::Nightshift,
-        estimated_duration_secs: 120,
-        dog_id: None,
-    };
-    let decision = soma_gate.request(&gate_req);
-    if let crate::domain::orchestrator::GateDecision::Queue { wait_secs } = decision {
-        return Err(format!(
-            "GPU saturated — skipping observation {}. Retry in {}s",
-            obs.id, wait_secs
-        ));
-    }
-
     let domain = ccm_domain_for_observation(&obs.domain);
     let stimulus = Stimulus {
         content: format!(
@@ -105,7 +89,7 @@ async fn judge_observation(
 
     let metrics = Metrics::new();
     let verdict = judge
-        .evaluate(&stimulus, None, &metrics)
+        .evaluate(&stimulus, None, &metrics, SlotPriority::Nightshift)
         .await
         .map_err(|e| format!("judge failed for observation {}: {e}", obs.id))?;
 
@@ -134,30 +118,12 @@ async fn judge_observation(
 }
 
 /// Judge a single commit and observe the result as a dev crystal.
+/// Slot-gated: SlotSemaphore inside Judge::evaluate handles resource coordination.
 async fn judge_commit(
     commit: &GitCommit,
     judge: &Arc<crate::judge::Judge>,
     storage: &Arc<dyn StoragePort>,
-    soma_gate: &Arc<ResourceGate>,
-    _llama_url: &str,
 ) -> Result<(), String> {
-    // Soma L3: Check slot utilization before committing evaluation resources.
-    // Nightshift blocked at 50% utilization (priority threshold).
-    let gate_req = ResourceRequest {
-        task_name: format!("nightshift-commit-{}", &commit.hash[..7]),
-        priority: Priority::Nightshift,
-        estimated_duration_secs: 120,
-        dog_id: None, // aggregate utilization
-    };
-
-    let decision = soma_gate.request(&gate_req);
-    if let crate::domain::orchestrator::GateDecision::Queue { wait_secs } = decision {
-        return Err(format!(
-            "GPU saturated — skipping {}. Retry in {}s",
-            commit.hash, wait_secs
-        ));
-    }
-
     let stimulus = Stimulus {
         content: format!("{}: {}", commit.hash, commit.message),
         context: None,
@@ -167,7 +133,7 @@ async fn judge_commit(
 
     let metrics = Metrics::new();
     let verdict = judge
-        .evaluate(&stimulus, None, &metrics)
+        .evaluate(&stimulus, None, &metrics, SlotPriority::Nightshift)
         .await
         .map_err(|e| format!("judge failed for {}: {e}", commit.hash))?;
 
@@ -202,15 +168,13 @@ async fn judge_commit(
 /// - Ticks every `NIGHTSHIFT_INTERVAL` (4h)
 /// - Each tick: git log --since=24h → judge each commit → observe dev crystal
 /// - Each commit judgment is bounded by `NIGHTSHIFT_COMMIT_TIMEOUT` (5min)
-/// - Soma L1 Alpha: consults resource gate before each judgment (Nightshift priority, 15s backoff if saturated)
+/// - Slot coordination is handled inside Judge::evaluate via SlotSemaphore (Nightshift priority)
 pub fn spawn_nightshift_loop(
     judge: Arc<crate::judge::Judge>,
     storage: Arc<dyn StoragePort>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
     repo_path: String,
-    soma_gate: Arc<ResourceGate>,
-    llama_url: String,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         // Warmup: wait 60s before first cycle so the rest of the kernel is fully booted.
@@ -262,7 +226,7 @@ pub fn spawn_nightshift_loop(
                         request_id: None,
                     };
                     let probe_metrics = Metrics::new();
-                    match judge.evaluate(&probe, None, &probe_metrics).await {
+                    match judge.evaluate(&probe, None, &probe_metrics, SlotPriority::Nightshift).await {
                         Ok(v) if v.voter_count < MIN_QUORUM => {
                             tracing::warn!(
                                 voter_count = v.voter_count,
@@ -286,7 +250,7 @@ pub fn spawn_nightshift_loop(
                     for commit in &commits {
                         match tokio::time::timeout(
                             constants::NIGHTSHIFT_COMMIT_TIMEOUT,
-                            judge_commit(commit, &judge, &storage, &soma_gate, &llama_url),
+                            judge_commit(commit, &judge, &storage),
                         )
                         .await
                         {
@@ -327,7 +291,7 @@ pub fn spawn_nightshift_loop(
                             for obs in &judgeable {
                                 match tokio::time::timeout(
                                     constants::NIGHTSHIFT_COMMIT_TIMEOUT,
-                                    judge_observation(obs, &judge, &storage, &soma_gate),
+                                    judge_observation(obs, &judge, &storage),
                                 ).await {
                                     Ok(Ok(())) => s_judged += 1,
                                     Ok(Err(e)) => {
@@ -393,9 +357,6 @@ mod tests {
         let storage: Arc<dyn StoragePort> = Arc::new(crate::domain::storage::NullStorage);
         let task_health = Arc::new(TaskHealth::new());
         let shutdown = CancellationToken::new();
-        let soma_gate = Arc::new(ResourceGate::new(Arc::new(
-            crate::domain::slot_tracker::SlotTracker::new(),
-        )));
 
         let handle = spawn_nightshift_loop(
             judge,
@@ -403,8 +364,6 @@ mod tests {
             task_health,
             shutdown.clone(),
             "/tmp".to_string(),
-            soma_gate,
-            "http://127.0.0.1:8080".to_string(),
         );
         shutdown.cancel();
         tokio::time::timeout(std::time::Duration::from_secs(3), handle)

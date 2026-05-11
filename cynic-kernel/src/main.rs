@@ -295,6 +295,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Soma L2: Slot tracker — shared between health loop (writer) and Judge + REST (readers).
     let slot_tracker = Arc::new(domain::slot_tracker::SlotTracker::new());
 
+    // Soma L2: Slot semaphore map — per-Dog permit coordination.
+    // Created here (before health loop) so health loop can upsert slot counts at boot.
+    let slot_semaphores = Arc::new(domain::slot_semaphore::SlotSemaphoreMap::new());
+
     // ─── RING 2: Health Loop + Remediation ──────────────────────
     // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
     if !remediation_configs.is_empty() {
@@ -379,7 +383,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let judge = judge::Judge::new(dogs, breakers)
         .with_organ_handles(organ_handles)
         .with_budgets(&budget_limits)
-        .with_slot_tracker(Arc::clone(&slot_tracker));
+        .with_slot_tracker(Arc::clone(&slot_tracker))
+        .with_slot_semaphores(Arc::clone(&slot_semaphores));
     // Background task health tracker — updated by each spawned task, exposed in /health
     let task_health = Arc::new(infra::task_health::TaskHealth::new());
     // Lifecycle orchestration — all background tasks select! on this token.
@@ -447,6 +452,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 senses.clone(),
                 dog_to_fleet_node.clone(),
                 Arc::clone(&slot_tracker),
+                Arc::clone(&slot_semaphores),
                 shutdown.clone(),
             );
             klog!(
@@ -695,12 +701,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Periodically flushes to routing_calc for live routing adaptation.
     let dog_perf_collector = Arc::new(infra::dog_performance::DogPerformanceCollector::new());
 
-    // Soma L3: Resource gate reads real slot utilization via SlotTracker.
-    // Priority-aware: Hermes blocked at 100%, nightshift at 50%, background at 25%.
-    let soma_gate = Arc::new(domain::orchestrator::ResourceGate::new(Arc::clone(
-        &slot_tracker,
-    )));
-
     // Soma L4: Inference proxy routing table — sovereign backends only.
     let sovereign_flags: std::collections::HashMap<String, bool> = backend_configs
         .iter()
@@ -782,7 +782,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         domain_router: Arc::clone(&domain_router),
         routing_calc: Arc::clone(&routing_calc),
         dog_perf_collector: Arc::clone(&dog_perf_collector),
-        soma_gate: Arc::clone(&soma_gate),
+        slot_semaphores: Arc::clone(&slot_semaphores),
         slot_tracker: Arc::clone(&slot_tracker),
         proxy_targets: Arc::clone(&proxy_targets),
         project_root: project_root.display().to_string(),
@@ -1007,11 +1007,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
 
-        // ─── Crystal immune system: DISABLED ──
-        // Runs every 5min, re-judges crystals — same slot starvation as nightshift.
-        // With only 1 CPU slot on qwen25-7b-core, any background loop blocks user /judge.
-        // Re-enable when Soma L2 has priority queuing.
-        klog!("[Ring 2] Crystal challenge loop DISABLED — GPU slots reserved for user requests");
+        // ─── Crystal immune system (every 5min, Soma L2: Background priority) ───────
+        // Was disabled 2026-05-11 (PR#135) due to slot starvation. Re-enabled now that
+        // Soma L2 priority semaphore exists — Background priority skips on contention.
+        let _crystal_challenge_handle = infra::tasks::spawn_crystal_challenge_loop(
+            rest_state.judge.load_full(),
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Crystal challenge loop started (every 5min, Soma L2 Background priority)");
 
         // ─── Nightshift: autonomous dev judgment (every 4h, Soma L3 gated) ───────
         // Was disabled 2026-05-11 (PR#135) due to slot starvation from Phase 2
@@ -1022,9 +1027,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&task_health),
             shutdown.clone(),
             project_root.display().to_string(),
-            Arc::clone(&soma_gate),
-            std::env::var("LLAMA_SERVER_URL")
-                .unwrap_or_else(|_| "http://127.0.0.1:8080".to_string()),
         );
         klog!(
             "[Ring 3] Nightshift loop started (every 4h, git lookback {}, Soma L3 gated)",

@@ -124,6 +124,7 @@ impl CynicMcp {
             enricher: self.enricher.as_deref(),
             domain_curations: self.domain_curations.as_ref(),
             domain_router: Some(self.domain_router.as_ref()),
+            priority: crate::domain::slot_semaphore::SlotPriority::User,
         };
         let result = crate::pipeline::run(
             p.content.clone(),

@@ -24,6 +24,8 @@ pub enum DogFailureKind {
     ParseError,
     RateLimited,
     Timeout,
+    /// Inference slot unavailable (Soma L2 — all slots busy, non-blocking priority skipped).
+    SlotUnavailable,
 }
 
 impl DogFailureKind {
@@ -33,6 +35,7 @@ impl DogFailureKind {
             Self::ParseError => "parse_error",
             Self::RateLimited => "rate_limited",
             Self::Timeout => "timeout",
+            Self::SlotUnavailable => "slot_unavailable",
         }
     }
 }
@@ -47,6 +50,7 @@ impl From<&DogError> for DogFailureKind {
             DogError::RateLimited(_) => Self::RateLimited,
             DogError::Timeout => Self::Timeout,
             DogError::ContextOverflow { .. } => Self::ApiError,
+            DogError::SlotUnavailable => Self::SlotUnavailable,
         }
     }
 }

@@ -12,6 +12,7 @@ use crate::domain::dog::{Stimulus, Verdict};
 use crate::domain::embedding::{Embedding, EmbeddingPort};
 use crate::domain::events::KernelEvent;
 use crate::domain::metrics::Metrics;
+use crate::domain::slot_semaphore::SlotPriority;
 use crate::domain::storage::{Event, StoragePort};
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::{CacheContext, CacheLookup, VerdictCache};
@@ -28,8 +29,7 @@ use tokio::sync::Mutex;
 use tracing::Instrument;
 
 use crystal_observer::observe_crystal_for_verdict;
-// DORMANT: disabled 2026-05-11 — K21 feedback loop
-// use verdict_observer::post_verdict_observation;
+use verdict_observer::post_verdict_observation;
 
 /// Layer 3 of sensitivity filter: domains that must always route to sovereign (local) backends.
 /// Content in these domains is private by design (DMs, private financial data, wallet analysis).
@@ -83,6 +83,9 @@ pub struct PipelineDeps<'a> {
     /// Domain-aware Dog router — selects suitable Dogs based on domain hint.
     /// Initialized from backend_configs at boot. If None, all Dogs are used (fallback).
     pub domain_router: Option<&'a crate::infra::domain_router::DomainRouter>,
+    /// Priority tier for slot acquisition — determines wait behaviour per caller.
+    /// REST/MCP handlers pass User; nightshift passes Nightshift; background passes Background.
+    pub priority: SlotPriority,
 }
 
 impl std::fmt::Debug for PipelineDeps<'_> {
@@ -544,7 +547,13 @@ async fn pipeline_inner(
     };
 
     let mut verdict = judge
-        .evaluate_progressive(&stimulus, dogs_filter_final, metrics, on_dog_ref)
+        .evaluate_progressive(
+            &stimulus,
+            dogs_filter_final,
+            metrics,
+            on_dog_ref,
+            deps.priority,
+        )
         .await?;
     metrics.inc_verdict();
     tracing::info!(
@@ -762,10 +771,10 @@ async fn side_effects(
     observe_crystal_for_verdict(verdict, stimulus_embedding, domain, deps).await;
 
     // K15 Forward loop: DISABLED 2026-05-11
-    // verdict → observation → background judge → eats GPU slot → blocks user /judge.
-    // K21 violation: output fed back as input without priority gating.
-    // Re-enable when Soma has user-priority slot queuing.
-    // post_verdict_observation(verdict, stimulus.domain.as_deref(), deps).await;
+    // Compound loop forward flow: verdict → observation → CCM → crystals → Dog prompts.
+    // Was disabled 2026-05-11 (K21 feedback loop ate GPU slots). Re-enabled with Soma L2:
+    // verdict_observer stores the observation, nightshift picks it up with Background priority.
+    post_verdict_observation(verdict, stimulus.domain.as_deref(), deps).await;
 
     // Cache verdict embedding — but NOT degraded enrichments (holder data unavailable).
     // A degraded verdict cached at similarity 0.999 blocks fresh enrichment on retry.
@@ -864,6 +873,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         let result = run(
@@ -930,6 +940,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
         let _ = run("test content".into(), None, None, None, true, &deps).await;
 
@@ -971,6 +982,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         // First call: should evaluate (cache miss) and embed successfully
@@ -1068,6 +1080,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         let result = run(
@@ -1146,6 +1159,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         let result = run(
@@ -1218,6 +1232,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         let result = run(
@@ -1273,6 +1288,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         let result = run(

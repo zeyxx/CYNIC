@@ -6,6 +6,7 @@ use tokio_util::sync::CancellationToken;
 use crate::domain::constants;
 use crate::domain::events::KernelEvent;
 use crate::domain::probe::{EnvironmentSnapshot, Probe, ProbeDetails};
+use crate::domain::slot_semaphore::SlotPriority;
 use crate::domain::storage::StoragePort;
 use crate::infra::alerts::SlackAlerter;
 use crate::infra::task_health::TaskHealth;
@@ -820,7 +821,10 @@ async fn challenge_one_crystal(
     };
 
     let metrics = Metrics::new();
-    let verdict = match judge.evaluate(&stimulus, None, &metrics).await {
+    let verdict = match judge
+        .evaluate(&stimulus, None, &metrics, SlotPriority::Background)
+        .await
+    {
         Ok(v) => v,
         Err(e) => return Err(format!("failed to re-judge crystal: {e}")),
     };
@@ -922,9 +926,7 @@ mod tests {
                 crate::infra::dog_performance::DogPerformanceCollector::new(),
             ),
             slot_tracker: Arc::new(crate::domain::slot_tracker::SlotTracker::new()),
-            soma_gate: Arc::new(crate::domain::orchestrator::ResourceGate::new(Arc::new(
-                crate::domain::slot_tracker::SlotTracker::new(),
-            ))),
+            slot_semaphores: Arc::new(crate::domain::slot_semaphore::SlotSemaphoreMap::new()),
             proxy_targets: Arc::new(
                 crate::api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
                     &std::collections::HashMap::new(),

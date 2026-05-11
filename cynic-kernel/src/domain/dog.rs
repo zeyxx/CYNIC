@@ -358,6 +358,9 @@ pub enum DogError {
         total: u32,
         context_size: u32,
     },
+    /// All inference slots for this Dog are busy and the caller's priority did not wait.
+    #[error("inference slot unavailable (all slots busy)")]
+    SlotUnavailable,
 }
 
 #[cfg(test)]
