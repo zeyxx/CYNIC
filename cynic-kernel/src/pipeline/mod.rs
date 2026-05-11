@@ -28,7 +28,8 @@ use tokio::sync::Mutex;
 use tracing::Instrument;
 
 use crystal_observer::observe_crystal_for_verdict;
-use verdict_observer::post_verdict_observation;
+// DORMANT: disabled 2026-05-11 — K21 feedback loop
+// use verdict_observer::post_verdict_observation;
 
 /// Layer 3 of sensitivity filter: domains that must always route to sovereign (local) backends.
 /// Content in these domains is private by design (DMs, private financial data, wallet analysis).
@@ -760,9 +761,11 @@ async fn side_effects(
     let domain = stimulus.domain.as_deref().unwrap_or("general");
     observe_crystal_for_verdict(verdict, stimulus_embedding, domain, deps).await;
 
-    // K15 Forward loop: post verdict observation back to CCM intake
-    // This completes the compound loop: observation → judge → verdict → observation
-    post_verdict_observation(verdict, stimulus.domain.as_deref(), deps).await;
+    // K15 Forward loop: DISABLED 2026-05-11
+    // verdict → observation → background judge → eats GPU slot → blocks user /judge.
+    // K21 violation: output fed back as input without priority gating.
+    // Re-enable when Soma has user-priority slot queuing.
+    // post_verdict_observation(verdict, stimulus.domain.as_deref(), deps).await;
 
     // Cache verdict embedding — but NOT degraded enrichments (holder data unavailable).
     // A degraded verdict cached at similarity 0.999 blocks fresh enrichment on retry.

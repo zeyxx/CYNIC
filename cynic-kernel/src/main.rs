@@ -218,6 +218,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         dog_thresholds.error_detection.critical_patterns.len()
     );
 
+    // Filter out disabled backends — don't register Dogs that are disabled in backends.toml.
+    // Before this fix, disabled Dogs were still registered, counted in expected_dog_count,
+    // and caused permanent jury gate downgrades (expected=5, actual=3).
+    let backend_configs: Vec<_> = backend_configs
+        .into_iter()
+        .filter(|c| {
+            if let Some(threshold) = dog_thresholds.dogs.get(&c.name) {
+                if !threshold.enabled {
+                    klog!(
+                        "[Ring 2] Backend '{}' DISABLED — skipping (reason: {:?})",
+                        c.name,
+                        threshold.skip_reason
+                    );
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+
     // Validate config — probe health URLs, log warnings.
     // Spawned as background task (not awaited) so boot isn't delayed by network.
     // Health loop will catch any unhealthy backends within ~60s.
@@ -336,10 +356,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut breaker = infra::circuit_breaker::CircuitBreaker::new(dog_name.clone());
 
             // Apply data-driven thresholds from backends.toml if configured for this Dog
-            if let Some(threshold_cfg) = dog_thresholds.dogs.get(&dog_name) {
-                if !threshold_cfg.enabled {
-                    tracing::info!(dog = %dog_name, "Dog disabled in backends.toml");
-                }
+            if let Some(_threshold_cfg) = dog_thresholds.dogs.get(&dog_name) {
                 breaker = breaker.with_thresholds(
                     dog_thresholds.circuit.open_on_consecutive_failures,
                     dog_thresholds.circuit.open_duration_secs,
@@ -992,30 +1009,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
 
-        // ─── Crystal immune system (re-judge oldest crystals, dissolve if degraded) ──
-        infra::tasks::spawn_crystal_challenge_loop(
-            rest_state.judge.load_full(),
-            Arc::clone(&storage_port),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-        );
-        klog!("[Ring 2] Crystal challenge loop started (every 5min, immune system)");
+        // ─── Crystal immune system: DISABLED ──
+        // Runs every 5min, re-judges crystals — same slot starvation as nightshift.
+        // With only 1 CPU slot on qwen25-7b-core, any background loop blocks user /judge.
+        // Re-enable when Soma L2 has priority queuing.
+        klog!("[Ring 2] Crystal challenge loop DISABLED — GPU slots reserved for user requests");
 
-        // ─── Nightshift: autonomous dev judgment (every 4h, Soma L1 gated) ───────
-        let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
-            rest_state.judge.load_full(),
-            Arc::clone(&storage_port),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-            project_root.display().to_string(),
-            Arc::clone(&soma_gate),
-            std::env::var("LLAMA_SERVER_URL")
-                .unwrap_or_else(|_| "http://127.0.0.1:8080".to_string()),
-        );
-        klog!(
-            "[Ring 3] Nightshift loop started (every 4h, git lookback {}, Soma L1 gated)",
-            crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
-        );
+        // ─── Nightshift: DISABLED ───────
+        // Nightshift re-judged 30 observations per cycle, saturating GPU slots
+        // and starving user /judge requests (only 1 dog available during cycles).
+        // Net value: near-zero crystals, high slot cost. Disabled 2026-05-11.
+        klog!("[Ring 3] Nightshift DISABLED — GPU slots reserved for user requests");
     } else {
         klog!("[Ring 2] MCP mode — background tasks SKIPPED (REST kernel handles them)");
     }

@@ -17,6 +17,9 @@ use super::PipelineDeps;
 ///
 /// This is the FORWARD flow completing the compound loop:
 ///   Observation → Judge → Verdict → Observation (here) → CCM intake → Crystals
+// DORMANT: disabled 2026-05-11 — K21 feedback loop eats GPU slots.
+// Re-enable when Soma has user-priority slot queuing.
+#[allow(dead_code)]
 pub(crate) async fn post_verdict_observation(
     verdict: &Verdict,
     stimulus_domain: Option<&str>,

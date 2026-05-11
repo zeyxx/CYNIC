@@ -358,20 +358,26 @@ pub fn analyze_state_log_trends(prev: &StateBlock, curr: &StateBlock) -> Vec<Ale
         });
     }
 
-    // Organ silence: only permanent sources trigger alerts
+    // Organ silence: recalculate from last_observation timestamp against now,
+    // not from the frozen silence_secs in the state_log block (which goes stale
+    // between kernel reboots — reported 31h when reality was 371h).
+    let now = chrono::Utc::now();
     for organ in &curr.organs {
         if !is_permanent_source(&organ.source) {
             continue;
         }
-        if organ.silence_secs > 3600 {
-            let hours = organ.silence_secs / 3600;
+        let silence_secs = chrono::DateTime::parse_from_rfc3339(&organ.last_observation)
+            .map(|t| (now - t.with_timezone(&chrono::Utc)).num_seconds().max(0) as u64)
+            .unwrap_or(organ.silence_secs); // fallback to stored value if parse fails
+        if silence_secs > 3600 {
+            let hours = silence_secs / 3600;
             alerts.push(Alert {
                 kind: "organ_silence",
                 message: format!(
                     "Organ '{}' silent for {}h (last obs: {}, total: {})",
                     organ.source, hours, organ.last_observation, organ.total_observations,
                 ),
-                severity: if organ.silence_secs > 86400 {
+                severity: if silence_secs > 86400 {
                     "critical"
                 } else {
                     "warning"
@@ -575,9 +581,12 @@ mod tests {
     }
 
     fn make_organ(source: &str, silence_secs: u64) -> OrganSnapshot {
+        // Use a real timestamp so the live recalculation in analyze_state_log_trends
+        // produces the expected silence duration (within a few seconds).
+        let last_obs = chrono::Utc::now() - chrono::Duration::seconds(silence_secs as i64);
         OrganSnapshot {
             source: source.into(),
-            last_observation: "2026-04-26T12:00:00Z".into(),
+            last_observation: last_obs.to_rfc3339(),
             total_observations: 100,
             silence_secs,
         }
