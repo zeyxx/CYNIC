@@ -39,9 +39,9 @@ pub(crate) fn epistemic_gate(max_disagreement: f64) -> (&'static str, f64) {
 
 /// Observe a crystal from a verdict — the critical link in the compound loop.
 ///
-/// Called on BOTH cache hits and full evaluations. Without this on cache hits,
-/// repeated stimuli (which are the MOST common in real usage) never accumulate
-/// crystal observations → crystals never mature → never inject → no compound.
+/// Called from BOTH the pipeline (user /judge) and nightshift (background).
+/// Unifying these paths ensures all crystal observations go through the same
+/// gates (quorum, epistemic, KNN merge) regardless of origin.
 ///
 /// Uses semantic merge (cosine ≥ 0.75) to accumulate on existing crystals
 /// instead of creating fragmented duplicates.
@@ -52,14 +52,34 @@ pub(crate) fn epistemic_gate(max_disagreement: f64) -> (&'static str, f64) {
 ///   - Agreed   (disagree < φ⁻²): full weight (1.0)
 ///   - Disputed (φ⁻² ≤ disagree < φ⁻¹): linear decay 1.0→0.0
 ///   - Contested (disagree ≥ φ⁻¹): quarantined — zero crystal update
-///
-/// Research: noisy-label learning (Northcutt JAIR 2022),
-/// recommender feedback bias (FAccT 2024), QBC active learning.
 pub(crate) async fn observe_crystal_for_verdict(
     verdict: &crate::domain::dog::Verdict,
     stimulus_embedding: &Option<Embedding>,
     domain: &str,
     deps: &PipelineDeps<'_>,
+) {
+    observe_crystal_for_verdict_core(
+        verdict,
+        stimulus_embedding,
+        domain,
+        deps.storage,
+        deps.metrics,
+        deps.event_tx,
+    )
+    .await;
+}
+
+/// Core crystal observation logic — usable by both pipeline and nightshift.
+///
+/// Separated from PipelineDeps so nightshift can call it directly with
+/// its own storage/metrics/event_tx, without constructing a full PipelineDeps.
+pub async fn observe_crystal_for_verdict_core(
+    verdict: &crate::domain::dog::Verdict,
+    stimulus_embedding: &Option<Embedding>,
+    domain: &str,
+    storage: &dyn crate::domain::storage::StoragePort,
+    metrics: &crate::domain::metrics::Metrics,
+    event_tx: Option<&tokio::sync::broadcast::Sender<KernelEvent>>,
 ) {
     // ── Domain gate: "general" is a poison domain (KC poison fix) ──
     // Verdicts without an explicit domain default to "general" in the pipeline.
@@ -82,7 +102,7 @@ pub(crate) async fn observe_crystal_for_verdict(
             min_quorum = crate::domain::dog::MIN_QUORUM,
             "quorum not met — crystal observation skipped (verdict still served)"
         );
-        deps.metrics.inc_crystal_quorum_blocked();
+        metrics.inc_crystal_quorum_blocked();
         return;
     }
 
@@ -96,7 +116,7 @@ pub(crate) async fn observe_crystal_for_verdict(
             disagreement = %format!("{:.3}", verdict.max_disagreement),
             "contested verdict — crystal observation quarantined"
         );
-        deps.metrics.inc_crystal_contested();
+        metrics.inc_crystal_contested();
         return;
     }
 
@@ -108,15 +128,14 @@ pub(crate) async fn observe_crystal_for_verdict(
             disagreement = %format!("{:.3}", verdict.max_disagreement),
             "disputed verdict — crystal observation weight reduced"
         );
-        deps.metrics.inc_crystal_disputed();
+        metrics.inc_crystal_disputed();
     }
     // Semantic merge: find existing crystal or create new via FNV hash.
     // Track `needs_embedding`: existing crystals already have a working embedding
     // in the HNSW index — re-writing it on every observation is pure waste and the
     // primary cause of SurrealKV compaction conflicts on IX:2 (176/24h).
     let (crystal_id, needs_embedding) = if let Some(emb) = stimulus_embedding {
-        match deps
-            .storage
+        match storage
             .find_similar_crystal(&emb.vector, domain, 0.75)
             .await
         {
@@ -172,8 +191,7 @@ pub(crate) async fn observe_crystal_for_verdict(
         crate::domain::dog::VerdictKind::Growl => "growl",
         crate::domain::dog::VerdictKind::Bark => "bark",
     };
-    if let Err(e) = deps
-        .storage
+    if let Err(e) = storage
         .observe_crystal(
             &crystal_id,
             &verdict.stimulus_summary,
@@ -187,7 +205,7 @@ pub(crate) async fn observe_crystal_for_verdict(
         .await
     {
         tracing::warn!(phase = "crystal_observe", crystal_id = %crystal_id, error = %e, "failed to observe crystal");
-        deps.metrics.inc_crystal_observe_failed();
+        metrics.inc_crystal_observe_failed();
     } else {
         tracing::info!(
             organ = "crystal",
@@ -200,8 +218,8 @@ pub(crate) async fn observe_crystal_for_verdict(
             epistemic = %epistemic_tag,
             "crystal observation recorded"
         );
-        deps.metrics.inc_crystal_obs();
-        if let Some(tx) = deps.event_tx {
+        metrics.inc_crystal_obs();
+        if let Some(tx) = event_tx {
             let _ = tx.send(KernelEvent::CrystalObserved {
                 crystal_id: crystal_id.clone(),
                 domain: domain.to_string(),
@@ -215,8 +233,7 @@ pub(crate) async fn observe_crystal_for_verdict(
     let content_evolved = !needs_embedding && crystal_confidence > 0.5;
     if (needs_embedding || content_evolved)
         && let Some(emb) = stimulus_embedding
-        && let Err(e) = deps
-            .storage
+        && let Err(e) = storage
             .store_crystal_embedding(&crystal_id, &emb.vector)
             .await
     {
