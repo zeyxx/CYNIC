@@ -12,6 +12,7 @@ use crate::domain::dog::{Stimulus, Verdict};
 use crate::domain::embedding::{Embedding, EmbeddingPort};
 use crate::domain::events::KernelEvent;
 use crate::domain::metrics::Metrics;
+use crate::domain::slot_semaphore::SlotPriority;
 use crate::domain::storage::{Event, StoragePort};
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::{CacheContext, CacheLookup, VerdictCache};
@@ -544,7 +545,13 @@ async fn pipeline_inner(
     };
 
     let mut verdict = judge
-        .evaluate_progressive(&stimulus, dogs_filter_final, metrics, on_dog_ref)
+        .evaluate_progressive(
+            &stimulus,
+            dogs_filter_final,
+            metrics,
+            on_dog_ref,
+            SlotPriority::User,
+        )
         .await?;
     metrics.inc_verdict();
     tracing::info!(

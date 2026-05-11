@@ -6,6 +6,7 @@ use cynic_kernel::dogs::deterministic::DeterministicDog;
 use cynic_kernel::domain::dog::*;
 use cynic_kernel::domain::health_gate::HealthGate;
 use cynic_kernel::domain::metrics::Metrics;
+use cynic_kernel::domain::slot_semaphore::SlotPriority;
 use cynic_kernel::infra::circuit_breaker::CircuitBreaker;
 use cynic_kernel::judge::Judge;
 use std::sync::Arc;
@@ -31,7 +32,7 @@ async fn deterministic_dog_produces_valid_verdict() {
     };
 
     let verdict = judge
-        .evaluate(&stimulus, None, &Metrics::new())
+        .evaluate(&stimulus, None, &Metrics::new(), SlotPriority::User)
         .await
         .unwrap();
 
@@ -81,11 +82,11 @@ async fn absolute_claim_scores_lower() {
     };
 
     let v_humble = judge
-        .evaluate(&humble, None, &Metrics::new())
+        .evaluate(&humble, None, &Metrics::new(), SlotPriority::User)
         .await
         .unwrap();
     let v_absolute = judge
-        .evaluate(&absolute, None, &Metrics::new())
+        .evaluate(&absolute, None, &Metrics::new(), SlotPriority::User)
         .await
         .unwrap();
 

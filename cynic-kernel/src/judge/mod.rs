@@ -12,6 +12,7 @@ use crate::domain::dog::{estimate_tokens, *};
 use crate::domain::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
 use crate::domain::health_gate::{FailureReason, HealthGate};
 use crate::domain::metrics::Metrics;
+use crate::domain::slot_semaphore::{SlotPriority, SlotSemaphoreMap};
 use crate::infra::config::ErrorDetection;
 use crate::infra::error_classifier::ErrorCategory;
 use crate::organ::BackendHandle;
@@ -34,6 +35,8 @@ pub struct Judge {
     last_hash: Mutex<Option<String>>,
     /// Soma L2: slot awareness — if set, Dogs with all slots busy are skipped.
     slot_tracker: Option<Arc<crate::domain::slot_tracker::SlotTracker>>,
+    /// Soma L2: priority-aware slot semaphores — if set, each Dog acquires a permit before inference.
+    slot_semaphores: Option<Arc<SlotSemaphoreMap>>,
 }
 
 impl std::fmt::Debug for Judge {
@@ -59,6 +62,7 @@ impl Judge {
             budgets: vec![None; n],
             last_hash: Mutex::new(None),
             slot_tracker: None,
+            slot_semaphores: None,
         }
     }
 
@@ -80,6 +84,15 @@ impl Judge {
         tracker: Arc<crate::domain::slot_tracker::SlotTracker>,
     ) -> Self {
         self.slot_tracker = Some(tracker);
+        self
+    }
+
+    /// Attach Soma L2 slot semaphores — each Dog acquires a permit before inference.
+    /// Non-blocking priorities (Nightshift, Background) skip if no slot is available.
+    /// Blocking priorities (User, Hermes) wait up to their timeout for a slot.
+    /// K14: if no semaphore registered for a Dog, the Dog proceeds without restriction.
+    pub fn with_slot_semaphores(mut self, sem: Arc<SlotSemaphoreMap>) -> Self {
+        self.slot_semaphores = Some(sem);
         self
     }
 
@@ -146,6 +159,9 @@ impl Judge {
         let mut new_judge = Judge::new(dogs, breakers).with_organ_handles(handles);
         if let Some(tracker) = &current.slot_tracker {
             new_judge = new_judge.with_slot_tracker(Arc::clone(tracker));
+        }
+        if let Some(sem) = &current.slot_semaphores {
+            new_judge = new_judge.with_slot_semaphores(Arc::clone(sem));
         }
         let chain = current.last_hash_snapshot();
         new_judge.seed_chain(chain);
@@ -431,14 +447,16 @@ impl Judge {
 
     /// Evaluate a stimulus through Dogs in parallel, aggregate, produce Verdict.
     /// If `filter` is provided, only use Dogs whose IDs match.
+    /// `priority` controls slot acquisition behaviour (blocking vs. skip-on-contention).
     #[tracing::instrument(skip(self, metrics), err)]
     pub async fn evaluate(
         &self,
         stimulus: &Stimulus,
         filter: Option<&[String]>,
         metrics: &Metrics,
+        priority: SlotPriority,
     ) -> Result<Verdict, JudgeError> {
-        self.evaluate_progressive(stimulus, filter, metrics, None)
+        self.evaluate_progressive(stimulus, filter, metrics, None, priority)
             .await
     }
 
@@ -501,6 +519,20 @@ impl Judge {
                 })
             }
             Err(e) => {
+                // SlotUnavailable: Soma L2 slot contention — backend healthy, just saturated.
+                // Early-return: don't penalize circuit breaker, don't record organ failure,
+                // don't increment dog_failure metric (not a quality signal).
+                if matches!(e, DogError::SlotUnavailable) {
+                    tracing::info!(
+                        phase = "dog_eval", dog_id = %id,
+                        "Dog skipped — Soma L2 slot unavailable (non-blocking priority)"
+                    );
+                    return Err(DogFailure {
+                        dog_id: id,
+                        kind: DogFailureKind::SlotUnavailable,
+                        detail: e.to_string(),
+                    });
+                }
                 match &e {
                     DogError::ApiError(msg) => {
                         // K15: Use data-driven error classification from backends.toml [error_detection]
@@ -539,6 +571,8 @@ impl Judge {
                     DogError::ContextOverflow { .. } => {}
                     // RateLimited = backend healthy but busy — don't open circuit.
                     DogError::RateLimited(_) => cb.record_success(),
+                    // SlotUnavailable handled above — unreachable here.
+                    DogError::SlotUnavailable => {}
                 }
                 if let Some(h) = organ_handle {
                     let outcome = match &e {
@@ -579,6 +613,7 @@ impl Judge {
         filter: Option<&[String]>,
         metrics: &Metrics,
         on_dog: Option<&crate::pipeline::OnDogCallback>,
+        priority: SlotPriority,
     ) -> Result<Verdict, JudgeError> {
         let candidate_indices = self.selected_candidate_indices(stimulus, filter)?;
         let runnable_dogs = self.runnable_dogs(&candidate_indices);
@@ -594,7 +629,35 @@ impl Judge {
             let dog = entry.dog;
             let id = dog.id().to_string();
             let dog_timeout = std::time::Duration::from_secs(dog.timeout_secs());
+            // Soma L2: look up per-dog semaphore for slot-aware acquisition.
+            // Clone Arc outside the async block so the future owns it.
+            // K14: if no semaphore registered for this Dog, proceed without restriction (optimistic).
+            let maybe_sem = self
+                .slot_semaphores
+                .as_ref()
+                .and_then(|map| map.get(dog.id()));
             futs.push(async move {
+                // Acquire slot permit before dispatching to the Dog's backend.
+                // Non-blocking priorities (Nightshift, Background) return None immediately
+                // when all slots are busy. Blocking priorities (User, Hermes) wait up to
+                // their timeout. If no semaphore is registered -> optimistic (no gate).
+                let _permit = if let Some(sem) = maybe_sem {
+                    match sem.acquire(priority).await {
+                        Some(permit) => Some(permit),
+                        None => {
+                            tracing::info!(
+                                dog_id = %id,
+                                priority = ?priority,
+                                "Soma L2: slot unavailable — skipping Dog (non-blocking priority)"
+                            );
+                            return (idx, id, Err(DogError::SlotUnavailable), 0u64);
+                        }
+                    }
+                } else {
+                    // K14: no semaphore registered for this Dog -> optimistic, proceed.
+                    None
+                };
+                // _permit is held across dog.evaluate() — released when this future completes.
                 let start = std::time::Instant::now();
                 let result = tokio::time::timeout(dog_timeout, dog.evaluate(stimulus)).await;
                 let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -810,7 +873,7 @@ mod tests {
         })]);
 
         let verdict = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         assert!(verdict.q_score.total <= PHI_INV + 1e-10);
@@ -852,7 +915,7 @@ mod tests {
         ]);
 
         let verdict = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         assert!(verdict.dog_id.contains("high"));
@@ -882,7 +945,7 @@ mod tests {
         ]);
 
         let verdict = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         assert_eq!(verdict.dog_id, "survivor");
@@ -892,7 +955,7 @@ mod tests {
     async fn all_dogs_fail_returns_error() {
         let judge = test_judge(vec![Arc::new(FailDog)]);
         let result = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await;
         assert!(result.is_err());
     }
@@ -901,7 +964,7 @@ mod tests {
     async fn no_dogs_returns_error() {
         let judge = test_judge(vec![]);
         let result = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await;
         assert!(result.is_err());
     }
@@ -938,7 +1001,7 @@ mod tests {
         ]);
 
         let verdict = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         assert!(
@@ -982,7 +1045,7 @@ mod tests {
         ]);
 
         let verdict = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         assert!(
@@ -1025,7 +1088,12 @@ mod tests {
 
         let filter = vec!["alpha".to_string()];
         let verdict = judge
-            .evaluate(&test_stimulus(), Some(&filter), &test_metrics())
+            .evaluate(
+                &test_stimulus(),
+                Some(&filter),
+                &test_metrics(),
+                SlotPriority::User,
+            )
             .await
             .unwrap();
         assert_eq!(verdict.dog_id, "alpha");
@@ -1041,7 +1109,12 @@ mod tests {
 
         let filter = vec!["nonexistent".to_string()];
         let result = judge
-            .evaluate(&test_stimulus(), Some(&filter), &test_metrics())
+            .evaluate(
+                &test_stimulus(),
+                Some(&filter),
+                &test_metrics(),
+                SlotPriority::User,
+            )
             .await;
         assert!(result.is_err());
     }
@@ -1069,7 +1142,7 @@ mod tests {
             request_id: None,
         };
         let verdict = judge
-            .evaluate(&long_stimulus, None, &test_metrics())
+            .evaluate(&long_stimulus, None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         assert_eq!(verdict.stimulus_summary.len(), 300);
@@ -1097,13 +1170,13 @@ mod tests {
         // Trip the circuit breaker on FailDog: 3 failures → Open
         for _ in 0..3 {
             let _ = judge
-                .evaluate(&test_stimulus(), None, &test_metrics())
+                .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
                 .await;
         }
 
         // Now FailDog's circuit should be open — only healthy responds
         let verdict = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         assert_eq!(
@@ -1167,7 +1240,7 @@ mod tests {
         ]);
 
         let verdict = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         // Median of 3 sorted by Q → picks index 1 (mid)
@@ -1227,7 +1300,7 @@ mod tests {
         })]);
 
         let verdict = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         // UUID v4 format: 8-4-4-4-12
@@ -1411,11 +1484,11 @@ mod tests {
         })]);
 
         let v1 = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         let v2 = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
 
@@ -1459,7 +1532,7 @@ mod tests {
         })]);
 
         let verdict = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         assert!(
@@ -1485,7 +1558,7 @@ mod tests {
         })]);
 
         let mut verdict = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         // Tamper: modify a score after hash was computed
@@ -1513,7 +1586,7 @@ mod tests {
         })]);
 
         let mut verdict = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         verdict.stimulus_summary = "TAMPERED".into();
@@ -1575,11 +1648,11 @@ mod tests {
         })]);
 
         let v1 = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
         let v2 = judge
-            .evaluate(&test_stimulus(), None, &test_metrics())
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
             .await
             .unwrap();
 
@@ -1641,7 +1714,7 @@ mod tests {
 
         let metrics = Arc::new(test_metrics());
         let verdict = judge
-            .evaluate(&test_stimulus(), None, &metrics)
+            .evaluate(&test_stimulus(), None, &metrics, SlotPriority::User)
             .await
             .unwrap();
 
@@ -1701,7 +1774,12 @@ mod tests {
         // Filter requesting ONLY test-dog-1 and test-dog-2 (explicitly exclude deterministic-dog)
         let filter = vec!["test-dog-1".to_string(), "test-dog-2".to_string()];
         let verdict = judge
-            .evaluate(&test_stimulus(), Some(&filter), &test_metrics())
+            .evaluate(
+                &test_stimulus(),
+                Some(&filter),
+                &test_metrics(),
+                SlotPriority::User,
+            )
             .await
             .unwrap();
 
@@ -1875,7 +1953,7 @@ mod roster_tests {
         };
         let verdict = swap
             .load_full()
-            .evaluate(&stimulus, None, &Metrics::new())
+            .evaluate(&stimulus, None, &Metrics::new(), SlotPriority::User)
             .await
             .unwrap();
         assert_eq!(verdict.dog_scores.len(), 2);
@@ -1913,6 +1991,7 @@ mod roster_tests {
                 },
                 None,
                 &Metrics::new(),
+                SlotPriority::User,
             )
             .await
             .unwrap();
@@ -1949,7 +2028,7 @@ mod roster_tests {
         };
 
         let verdict = judge
-            .evaluate(&stimulus, None, &Metrics::new())
+            .evaluate(&stimulus, None, &Metrics::new(), SlotPriority::User)
             .await
             .unwrap();
 
@@ -2042,7 +2121,7 @@ mod roster_tests {
 
         let start = std::time::Instant::now();
         let verdict = judge
-            .evaluate(&stimulus, None, &Metrics::new())
+            .evaluate(&stimulus, None, &Metrics::new(), SlotPriority::User)
             .await
             .unwrap();
         let elapsed = start.elapsed();

@@ -11,6 +11,7 @@ use crate::domain::constants;
 use crate::domain::dog::{MIN_QUORUM, Stimulus};
 use crate::domain::metrics::Metrics;
 use crate::domain::orchestrator::{Priority, ResourceGate, ResourceRequest};
+use crate::domain::slot_semaphore::SlotPriority;
 use crate::domain::storage::StoragePort;
 use crate::infra::task_health::TaskHealth;
 
@@ -105,7 +106,7 @@ async fn judge_observation(
 
     let metrics = Metrics::new();
     let verdict = judge
-        .evaluate(&stimulus, None, &metrics)
+        .evaluate(&stimulus, None, &metrics, SlotPriority::Nightshift)
         .await
         .map_err(|e| format!("judge failed for observation {}: {e}", obs.id))?;
 
@@ -167,7 +168,7 @@ async fn judge_commit(
 
     let metrics = Metrics::new();
     let verdict = judge
-        .evaluate(&stimulus, None, &metrics)
+        .evaluate(&stimulus, None, &metrics, SlotPriority::Nightshift)
         .await
         .map_err(|e| format!("judge failed for {}: {e}", commit.hash))?;
 
@@ -262,7 +263,7 @@ pub fn spawn_nightshift_loop(
                         request_id: None,
                     };
                     let probe_metrics = Metrics::new();
-                    match judge.evaluate(&probe, None, &probe_metrics).await {
+                    match judge.evaluate(&probe, None, &probe_metrics, SlotPriority::Nightshift).await {
                         Ok(v) if v.voter_count < MIN_QUORUM => {
                             tracing::warn!(
                                 voter_count = v.voter_count,

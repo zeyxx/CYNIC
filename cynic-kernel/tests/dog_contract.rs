@@ -45,6 +45,9 @@ async fn dog_contract(dog: &dyn Dog) {
         Err(DogError::RateLimited(_)) => {}          // acceptable
         Err(DogError::Timeout) => {}                 // acceptable
         Err(DogError::ContextOverflow { .. }) => {}  // acceptable
+        // SlotUnavailable: emitted by Judge fan-out, not directly by Dog::evaluate.
+        // Included for exhaustiveness — Dog implementations never return this.
+        Err(DogError::SlotUnavailable) => {}
     }
 }
 
