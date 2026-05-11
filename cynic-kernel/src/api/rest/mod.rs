@@ -66,6 +66,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     // Default: localhost dev servers only.
     let mut origins: Vec<axum::http::HeaderValue> = vec![
         axum::http::HeaderValue::from_static("http://localhost:5173"),
+        axum::http::HeaderValue::from_static("http://localhost:5002"),
         axum::http::HeaderValue::from_static("http://localhost:5000"),
         axum::http::HeaderValue::from_static("http://localhost:3000"),
     ];

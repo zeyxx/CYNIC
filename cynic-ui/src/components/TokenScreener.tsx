@@ -16,7 +16,7 @@ export function TokenScreener() {
     setRequest({
       content: trimmed,
       domain: 'token-analysis',
-      dogs: getSelectedDogs(),
+      dogs: getSelectedDogs().length > 0 ? getSelectedDogs() : undefined,
     });
   }, [input]);
 
