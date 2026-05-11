@@ -20,6 +20,7 @@ pub mod organ;
 pub mod pattern_analysis;
 pub mod probe;
 pub mod sanitize;
+pub mod slot_semaphore;
 pub mod slot_tracker;
 pub mod state_log;
 pub mod stimulus;
