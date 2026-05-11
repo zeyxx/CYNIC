@@ -1007,11 +1007,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
 
-        // ─── Crystal immune system: DISABLED ──
-        // Runs every 5min, re-judges crystals — same slot starvation as nightshift.
-        // With only 1 CPU slot on qwen25-7b-core, any background loop blocks user /judge.
-        // Re-enable when Soma L2 has priority queuing.
-        klog!("[Ring 2] Crystal challenge loop DISABLED — GPU slots reserved for user requests");
+        // ─── Crystal immune system (every 5min, Soma L2: Background priority) ───────
+        // Was disabled 2026-05-11 (PR#135) due to slot starvation. Re-enabled now that
+        // Soma L2 priority semaphore exists — Background priority skips on contention.
+        let _crystal_challenge_handle = infra::tasks::spawn_crystal_challenge_loop(
+            rest_state.judge.load_full(),
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!("[Ring 2] Crystal challenge loop started (every 5min, Soma L2 Background priority)");
 
         // ─── Nightshift: autonomous dev judgment (every 4h, Soma L3 gated) ───────
         // Was disabled 2026-05-11 (PR#135) due to slot starvation from Phase 2
