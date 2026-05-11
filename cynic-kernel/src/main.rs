@@ -295,6 +295,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Soma L2: Slot tracker — shared between health loop (writer) and Judge + REST (readers).
     let slot_tracker = Arc::new(domain::slot_tracker::SlotTracker::new());
 
+    // Soma L2: Slot semaphore map — per-Dog permit coordination.
+    // Created here (before health loop) so health loop can upsert slot counts at boot.
+    let slot_semaphores = Arc::new(domain::slot_semaphore::SlotSemaphoreMap::new());
+
     // ─── RING 2: Health Loop + Remediation ──────────────────────
     // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
     if !remediation_configs.is_empty() {
@@ -447,6 +451,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 senses.clone(),
                 dog_to_fleet_node.clone(),
                 Arc::clone(&slot_tracker),
+                Arc::clone(&slot_semaphores),
                 shutdown.clone(),
             );
             klog!(
@@ -694,10 +699,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Aggregates latency/success observations from pipeline.on_dog callbacks.
     // Periodically flushes to routing_calc for live routing adaptation.
     let dog_perf_collector = Arc::new(infra::dog_performance::DogPerformanceCollector::new());
-
-    // Soma L2: Slot semaphore map — per-Dog permit coordination.
-    // Initialized with zero permits at boot; health loop upserts real slot counts.
-    let slot_semaphores = Arc::new(domain::slot_semaphore::SlotSemaphoreMap::new());
 
     // Soma L4: Inference proxy routing table — sovereign backends only.
     let sovereign_flags: std::collections::HashMap<String, bool> = backend_configs

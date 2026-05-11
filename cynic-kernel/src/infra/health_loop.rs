@@ -16,6 +16,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::domain::health_gate::HealthGate;
 use crate::domain::organ::OrganPort;
+use crate::domain::slot_semaphore::SlotSemaphoreMap;
 use crate::domain::slot_tracker::SlotTracker;
 use crate::domain::storage::StoragePort;
 use crate::infra::circuit_breaker::PROBE_INTERVAL;
@@ -165,8 +166,8 @@ async fn probe_slots(
 /// `configs` and `breakers` are parallel — index `i` in configs corresponds
 /// to index `i` in breakers (same dog).
 #[allow(clippy::too_many_arguments)]
-// WHY: 8 args (1 over limit). Each is a distinct Arc/Vec with no natural grouping.
-// A HealthLoopConfig struct would just move the problem — callers still pass 8 values.
+// WHY: 9 args (2 over limit). Each is a distinct Arc/Vec with no natural grouping.
+// A HealthLoopConfig struct would just move the problem — callers still pass 9 values.
 pub fn spawn_health_loop(
     configs: Vec<DogProbeConfig>,
     breakers: Vec<Arc<dyn HealthGate>>,
@@ -175,6 +176,7 @@ pub fn spawn_health_loop(
     senses: Vec<Arc<dyn OrganPort>>,
     dog_to_fleet_node: HashMap<String, String>,
     slot_tracker: Arc<SlotTracker>,
+    slot_semaphores: Arc<SlotSemaphoreMap>,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
@@ -291,7 +293,9 @@ pub fn spawn_health_loop(
                                     busy = slots.busy,
                                     "slot probe update"
                                 );
+                                let total_slots = slots.total;
                                 slot_tracker.update(&dog_id, slots);
+                                slot_semaphores.upsert(&dog_id, total_slots);
                             }
                             // Soma L2+: tick saturation counter for this Dog
                             slot_tracker.tick_saturation(&dog_id);
