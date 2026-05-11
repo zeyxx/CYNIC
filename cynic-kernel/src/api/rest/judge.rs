@@ -132,6 +132,7 @@ pub async fn judge_handler(
         enricher: state.enricher.as_deref(),
         domain_curations: state.domain_curations.as_ref(),
         domain_router: Some(state.domain_router.as_ref()),
+        priority: crate::domain::slot_semaphore::SlotPriority::User,
     };
     let result = crate::pipeline::run(
         req.content,

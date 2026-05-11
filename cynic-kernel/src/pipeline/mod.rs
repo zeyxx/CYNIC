@@ -84,6 +84,9 @@ pub struct PipelineDeps<'a> {
     /// Domain-aware Dog router — selects suitable Dogs based on domain hint.
     /// Initialized from backend_configs at boot. If None, all Dogs are used (fallback).
     pub domain_router: Option<&'a crate::infra::domain_router::DomainRouter>,
+    /// Priority tier for slot acquisition — determines wait behaviour per caller.
+    /// REST/MCP handlers pass User; nightshift passes Nightshift; background passes Background.
+    pub priority: SlotPriority,
 }
 
 impl std::fmt::Debug for PipelineDeps<'_> {
@@ -550,7 +553,7 @@ async fn pipeline_inner(
             dogs_filter_final,
             metrics,
             on_dog_ref,
-            SlotPriority::User,
+            deps.priority,
         )
         .await?;
     metrics.inc_verdict();
@@ -871,6 +874,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         let result = run(
@@ -937,6 +941,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
         let _ = run("test content".into(), None, None, None, true, &deps).await;
 
@@ -978,6 +983,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         // First call: should evaluate (cache miss) and embed successfully
@@ -1075,6 +1081,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         let result = run(
@@ -1153,6 +1160,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         let result = run(
@@ -1225,6 +1233,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         let result = run(
@@ -1280,6 +1289,7 @@ mod tests {
             enricher: None,
             domain_curations: &domain_curations,
             domain_router: None,
+            priority: SlotPriority::User,
         };
 
         let result = run(
