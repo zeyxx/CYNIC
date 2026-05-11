@@ -6,7 +6,6 @@ use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
-use crate::domain::ccm;
 use crate::domain::constants;
 use crate::domain::dog::{MIN_QUORUM, Stimulus};
 use crate::domain::metrics::Metrics;
@@ -70,11 +69,13 @@ fn ccm_domain_for_observation(raw_domain: &str) -> &'static str {
 }
 
 /// Judge an observation and observe the result as a CCM crystal.
-/// Slot-gated: SlotSemaphore inside Judge::evaluate handles resource coordination.
+/// Uses the same crystal observation path as the pipeline (KNN merge, epistemic
+/// gate, Q-score normalization) — unifying CHAOS→MATRIX for all crystal sources.
 async fn judge_observation(
     obs: &crate::domain::storage::RawObservation,
     judge: &Arc<crate::judge::Judge>,
     storage: &Arc<dyn StoragePort>,
+    metrics: &Metrics,
 ) -> Result<(), String> {
     let domain = ccm_domain_for_observation(&obs.domain);
     let stimulus = Stimulus {
@@ -87,42 +88,34 @@ async fn judge_observation(
         request_id: None,
     };
 
-    let metrics = Metrics::new();
     let verdict = judge
-        .evaluate(&stimulus, None, &metrics, SlotPriority::Nightshift)
+        .evaluate(&stimulus, None, metrics, SlotPriority::Nightshift)
         .await
         .map_err(|e| format!("judge failed for observation {}: {e}", obs.id))?;
 
-    let timestamp = chrono::Utc::now().to_rfc3339();
-    let verdict_kind = format!("{:?}", verdict.kind).to_lowercase();
-
-    // Use semantic slug for crystal ID — not per-observation ID.
-    let slug = ccm::semantic_slug(domain, &stimulus.content);
-    let crystal_id = format!("{:x}", ccm::content_hash(&ccm::normalize_for_hash(&slug)));
-
-    storage
-        .observe_crystal(
-            &crystal_id,
-            &stimulus.content,
-            domain,
-            verdict.q_score.total,
-            &timestamp,
-            verdict.voter_count,
-            &verdict.id,
-            &verdict_kind,
-        )
-        .await
-        .map_err(|e| format!("observe_crystal failed for observation {}: {e}", obs.id))?;
+    // Unified crystal path: same gates (quorum, epistemic, KNN merge) as pipeline.
+    // No embedding available here (nightshift doesn't embed stimuli), so falls
+    // back to semantic_slug — but goes through Q-score normalization and domain gate.
+    crate::pipeline::observe_crystal_for_verdict_core(
+        &verdict,
+        &None, // no stimulus embedding in nightshift (yet)
+        domain,
+        storage.as_ref(),
+        metrics,
+        None, // no event_tx in nightshift
+    )
+    .await;
 
     Ok(())
 }
 
 /// Judge a single commit and observe the result as a dev crystal.
-/// Slot-gated: SlotSemaphore inside Judge::evaluate handles resource coordination.
+/// Uses unified crystal path (same as pipeline: KNN merge, epistemic gate).
 async fn judge_commit(
     commit: &GitCommit,
     judge: &Arc<crate::judge::Judge>,
     storage: &Arc<dyn StoragePort>,
+    metrics: &Metrics,
 ) -> Result<(), String> {
     let stimulus = Stimulus {
         content: format!("{}: {}", commit.hash, commit.message),
@@ -131,34 +124,21 @@ async fn judge_commit(
         request_id: None,
     };
 
-    let metrics = Metrics::new();
     let verdict = judge
-        .evaluate(&stimulus, None, &metrics, SlotPriority::Nightshift)
+        .evaluate(&stimulus, None, metrics, SlotPriority::Nightshift)
         .await
         .map_err(|e| format!("judge failed for {}: {e}", commit.hash))?;
 
-    let timestamp = chrono::Utc::now().to_rfc3339();
-    let verdict_kind = format!("{:?}", verdict.kind).to_lowercase();
-
-    // Use semantic slug for crystal ID — not per-commit hash.
-    // "nightshift-{hash}" guarantees fragmentation (1 crystal per commit, never reaches 21 obs).
-    // semantic_slug("dev", message) → "dev:feat:inference" → same crystal for similar commits.
-    let slug = ccm::semantic_slug("dev", &commit.message);
-    let crystal_id = format!("{:x}", ccm::content_hash(&ccm::normalize_for_hash(&slug)));
-
-    storage
-        .observe_crystal(
-            &crystal_id,
-            &stimulus.content,
-            "dev",
-            verdict.q_score.total,
-            &timestamp,
-            verdict.voter_count,
-            &verdict.id,
-            &verdict_kind,
-        )
-        .await
-        .map_err(|e| format!("observe_crystal failed for {}: {e}", commit.hash))?;
+    // Unified crystal path: same gates as pipeline.
+    crate::pipeline::observe_crystal_for_verdict_core(
+        &verdict,
+        &None,
+        "dev",
+        storage.as_ref(),
+        metrics,
+        None,
+    )
+    .await;
 
     Ok(())
 }
@@ -217,6 +197,8 @@ pub fn spawn_nightshift_loop(
 
                     klog!("[Nightshift] {} commit(s) to judge", commits.len());
 
+                    let cycle_metrics = Metrics::new();
+
                     // Quorum guard: check that at least MIN_QUORUM Dogs respond
                     // before burning cycles on commits that will all fail at storage level.
                     let probe = Stimulus {
@@ -225,8 +207,7 @@ pub fn spawn_nightshift_loop(
                         domain: Some("dev".to_string()),
                         request_id: None,
                     };
-                    let probe_metrics = Metrics::new();
-                    match judge.evaluate(&probe, None, &probe_metrics, SlotPriority::Nightshift).await {
+                    match judge.evaluate(&probe, None, &cycle_metrics, SlotPriority::Nightshift).await {
                         Ok(v) if v.voter_count < MIN_QUORUM => {
                             tracing::warn!(
                                 voter_count = v.voter_count,
@@ -250,7 +231,7 @@ pub fn spawn_nightshift_loop(
                     for commit in &commits {
                         match tokio::time::timeout(
                             constants::NIGHTSHIFT_COMMIT_TIMEOUT,
-                            judge_commit(commit, &judge, &storage),
+                            judge_commit(commit, &judge, &storage, &cycle_metrics),
                         )
                         .await
                         {
@@ -291,7 +272,7 @@ pub fn spawn_nightshift_loop(
                             for obs in &judgeable {
                                 match tokio::time::timeout(
                                     constants::NIGHTSHIFT_COMMIT_TIMEOUT,
-                                    judge_observation(obs, &judge, &storage),
+                                    judge_observation(obs, &judge, &storage, &cycle_metrics),
                                 ).await {
                                     Ok(Ok(())) => s_judged += 1,
                                     Ok(Err(e)) => {

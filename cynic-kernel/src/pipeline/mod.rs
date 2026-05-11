@@ -5,6 +5,7 @@
 //! Handlers call this, then format the response for their transport.
 
 mod crystal_observer;
+pub use crystal_observer::observe_crystal_for_verdict_core;
 pub mod maintenance;
 mod verdict_observer;
 use crate::domain::ccm;
