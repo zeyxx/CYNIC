@@ -70,11 +70,28 @@ fn ccm_domain_for_observation(raw_domain: &str) -> &'static str {
 }
 
 /// Judge an observation and observe the result as a CCM crystal.
+/// Soma-gated: checks slot utilization before consuming inference resources.
 async fn judge_observation(
     obs: &crate::domain::storage::RawObservation,
     judge: &Arc<crate::judge::Judge>,
     storage: &Arc<dyn StoragePort>,
+    soma_gate: &Arc<ResourceGate>,
 ) -> Result<(), String> {
+    // Soma L3: same gate as judge_commit — Nightshift priority, 15s backoff.
+    let gate_req = ResourceRequest {
+        task_name: format!("nightshift-obs-{}", &obs.id[..obs.id.len().min(12)]),
+        priority: Priority::Nightshift,
+        estimated_duration_secs: 120,
+        dog_id: None,
+    };
+    let decision = soma_gate.request(&gate_req);
+    if let crate::domain::orchestrator::GateDecision::Queue { wait_secs } = decision {
+        return Err(format!(
+            "GPU saturated — skipping observation {}. Retry in {}s",
+            obs.id, wait_secs
+        ));
+    }
+
     let domain = ccm_domain_for_observation(&obs.domain);
     let stimulus = Stimulus {
         content: format!(
@@ -310,7 +327,7 @@ pub fn spawn_nightshift_loop(
                             for obs in &judgeable {
                                 match tokio::time::timeout(
                                     constants::NIGHTSHIFT_COMMIT_TIMEOUT,
-                                    judge_observation(obs, &judge, &storage),
+                                    judge_observation(obs, &judge, &storage, &soma_gate),
                                 ).await {
                                     Ok(Ok(())) => s_judged += 1,
                                     Ok(Err(e)) => {
