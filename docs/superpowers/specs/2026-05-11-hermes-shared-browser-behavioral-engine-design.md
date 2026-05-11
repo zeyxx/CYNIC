@@ -95,6 +95,7 @@ GET  /tabs                      → [{ tab_id, owner, url, created_at, window }]
 GET  /tabs/:tab_id/owner        → "agent:navigator" | "human"
 POST /tabs/:tab_id/navigate     → { url } (L2: replay pilots via Hub)
 GET  /attribution?url=&ts=      → { source, owner_detail, tab_id }
+POST /events/extension          → { type, tweet_id, action, dwell_ms, tab_id } (L1: extension events)
 WS   /events                    → stream: tab_created, tab_closed, tab_navigated, focus_changed
 ```
 
@@ -128,7 +129,7 @@ TabEntry {
 ### 4.5 Resilience
 
 - **Chrome crash:** Hub detects CDP disconnect → `degraded` mode. Consumers get 503. Chrome restarts (on-failure), Hub reconnects.
-- **Hub crash:** Proxy loses tagging → fallback `source: "unknown"`. Chrome survives. Hub restart re-scans existing tabs (all pre-existing = `human`).
+- **Hub crash:** Proxy loses tagging → fallback `source: "unknown"`. Chrome survives. Hub restart re-scans existing tabs (all pre-existing = `human`). **Known trade-off:** if an agent consumer held a tab before Hub crash, that tab will be re-attributed as `human` on Hub restart. Accepted: brief mis-attribution window is preferable to blocking recovery. Agent consumers should re-request their tabs from Hub after reconnect.
 - **Proxy crash:** No impact on Hub or Chrome. dataset.jsonl stops growing temporarily.
 
 ### 4.6 Language
@@ -299,6 +300,8 @@ Behavioral Model → Decision Engine → Action Generator → Browser Hub → Ch
 - **Decision Engine:** for each visible tweet, computes `P(action)` for each possible action (scroll-past, dwell, like, bookmark, reply, profile-visit, cross-domain). Samples according to learned probabilities.
 - **Action Generator:** produces physical actions via Fitts' law mouse movement, human typing rhythm, natural scroll patterns.
 - **Behavioral Model:** trained exclusively on T.'s data. Architecture TBD post-L1 (data-driven choice: logistic regression baseline, upgrade if justified).
+- **Trigger:** generative sessions are started via `POST /hub/agent/start-session` (human-initiated) or by cron during T.'s inactive hours (0100-0700, configurable). Never auto-triggered during active human browsing.
+- **Model Trainer:** `train_mimicry.py` is a manual one-shot script, run by T. after sufficient L1 data (>10 sessions). Not a daemon, not a cron. Produces versioned model artifacts in `replay/model/`.
 
 ### 7.3 Accuracy Measurement
 
@@ -308,7 +311,7 @@ Behavioral Model → Decision Engine → Action Generator → Browser Hub → Ch
 2. Replay same stimuli (same tweets, same order) for the agent
 3. Compare action sequences
 4. Score = `1 - normalized_DTW`
-5. Target: > phi-inverse (0.618)
+5. Target: > phi-inverse (0.618). Expected naive random agent score: ~0.1-0.2, establishing 0.618 as a meaningful stretch target.
 
 **Dimensions measured:**
 - Mouse trajectory (DTW on xy curves)
@@ -373,19 +376,21 @@ Agent browse X ─────────────────────�
 
 ### Perception Layer (browser + proxy + behavioral)
 
+All `$ORGAN/` paths resolve to `~/.cynic/organs/hermes/x/` (the organ root).
+
 | Artifact | Path | Writer | Readers | Contract |
 |---|---|---|---|---|
-| browser-state | `browser-state.json` | browser-hub | nav, search-exec, behavior | CDP port, window IDs, PID |
+| browser-state | `$ORGAN/browser-state.json` | browser-hub | nav, search-exec, behavior | CDP port, window IDs, PID |
 | tab-registry | in-memory (Hub API) | browser-hub | proxy, behavior, replay | SSOT for agent vs human |
-| dataset.jsonl | `dataset.jsonl` | x-proxy | curation, ingest, keyword-discovery | Append-only, `source` field tagged |
-| behavior_raw | `behavior/raw.jsonl` | behavior-logger-v2 L0 | correlator, replay-engine, model-trainer | 30Hz mouse, tab-correlated. 30-day retention. |
-| behavior_semantic | `behavior/semantic.jsonl` | behavior-logger-v2 L1 | correlator, scheduler, briefing | tweet_visible, tweet_engaged, cross_domain |
-| attention_map | `behavior/attention_map.jsonl` | correlator | effectiveness, briefing, scheduler | One row per tweet, funnel stage |
-| viewport_events | `behavior/viewport_events.jsonl` | browser-hub CDP | behavior-logger-v2 | 2Hz poll, tweet enter/leave viewport |
-| navigation_context | `behavior/navigation_context.jsonl` | browser-hub CDP | killchain, behavior-logger | tab_switch, url_transition, focus |
-| cross_domain_exits | `behavior/cross_domain_exits.jsonl` | chrome-extension | killchain, correlator | from_url, to_url, trigger_tweet_id |
-| engagement | `behavior/engagement.jsonl` | chrome-extension | engagement-correlator, correlator | like, bookmark, reply via DOM mutation |
-| session_boundaries | `behavior/sessions.jsonl` | behavior-logger-v2 | temporal-analysis, replay | session_start/end, active/idle duration |
+| dataset.jsonl | `$ORGAN/dataset.jsonl` | x-proxy | curation, ingest, keyword-discovery | Append-only, `source` field tagged |
+| behavior_raw | `$ORGAN/behavior/raw.jsonl` | behavior-logger-v2 L0 | correlator, replay-engine, model-trainer (manual) | Compressed key-points (segment boundaries, direction changes) + feature summaries, from 30Hz source. ~30MB/day. 30-day retention. |
+| behavior_semantic | `$ORGAN/behavior/semantic.jsonl` | behavior-logger-v2 L1 | correlator, scheduler, briefing | tweet_visible, tweet_engaged, cross_domain |
+| attention_map | `$ORGAN/behavior/attention_map.jsonl` | correlator | effectiveness, briefing, scheduler | One row per tweet, funnel stage |
+| viewport_events | `$ORGAN/behavior/viewport_events.jsonl` | browser-hub CDP | behavior-logger-v2 | 2Hz poll, tweet enter/leave viewport |
+| navigation_context | `$ORGAN/behavior/navigation_context.jsonl` | browser-hub CDP | killchain, behavior-logger | tab_switch, url_transition, focus |
+| cross_domain_exits | `$ORGAN/behavior/cross_domain_exits.jsonl` | chrome-extension | killchain, correlator | from_url, to_url, trigger_tweet_id |
+| engagement | `$ORGAN/behavior/engagement.jsonl` | chrome-extension (via Hub) | engagement-correlator, correlator | like, bookmark, reply via DOM mutation |
+| session_boundaries | `$ORGAN/behavior/sessions.jsonl` | behavior-logger-v2 | replay-engine, stochastic-scheduler | session_start/end, active/idle duration |
 
 ### Cognition Layer (existing, unchanged)
 
@@ -438,14 +443,18 @@ Rule 8: BEHAVIORAL DATA IS T.'s PROPERTY. Raw behavior never leaves the
 
 **Scope:** make data flow. Zero intelligence, zero analysis.
 
-| Component | File | New/Modified | ~Lines |
-|---|---|---|---|
-| Chrome service fix | `infra/systemd/hermes-browser.service` | Modified | 10 |
-| Browser Hub | `scripts/hermes-x/core/browser_hub.py` | New | 300 |
-| Hub service | `infra/systemd/hermes-browser-hub.service` | New | 20 |
-| Proxy tagging | `scripts/hermes-x/core/x_proxy.py` | Modified | +30 |
-| Hub client lib | `scripts/hermes-x/core/hub_client.py` | New | 50 |
-| Nav/Search via Hub | `organic_navigator.py`, `search_executor.py` | Modified | +20 each |
+| Component | File | New/Modified | ~Lines | Notes |
+|---|---|---|---|---|
+| Chrome service fix | `infra/systemd/hermes-browser.service` | Modified | 10 | DISPLAY=:0, remove `After=hermes-proxy.service` (Hub is now the dependency anchor), add two-window launch |
+| Browser Hub | `scripts/hermes-x/core/browser_hub.py` | New | 300 | |
+| Hub service | `infra/systemd/hermes-browser-hub.service` | New | 20 | |
+| Proxy tagging | `scripts/hermes-x/core/x_proxy.py` | Modified | +30 | |
+| Hub client lib | `scripts/hermes-x/core/hub_client.py` | New | 50 | Thin sync wrapper: `get_attribution(url, ts) → str`, `create_tab(owner, url) → dict`, `release_tab(tab_id)`. Used by x_proxy.py, organic_navigator.py, search_executor.py. |
+| Nav via Hub | `~/.cynic/organs/hermes/x/core/organic_navigator.py` | Modified | +20 | Organ runtime file, not scripts dir |
+| Search via Hub | `~/.cynic/organs/hermes/x/core/search_executor.py` | Modified | +20 | Organ runtime file |
+| Retire engagement_tracker_server | `scripts/hermes-x/core/engagement_tracker_server.py` | RETIRE | — | Hub absorbs this role via `POST /events/extension`. Remove to prevent dual-writer on engagement.jsonl. |
+
+**Rollback:** if L0 proves unstable, revert `hermes-browser.service` to remove Hub dependency. Hub is additive — proxy can run independently with `source: "unknown"` fallback.
 
 **Exit criteria (all required for L1):**
 - 7 days without crash of Chrome + Hub + Proxy trio
@@ -461,7 +470,7 @@ Rule 8: BEHAVIORAL DATA IS T.'s PROPERTY. Raw behavior never leaves the
 |---|---|---|---|
 | Behavior Logger v2 | `scripts/hermes-x/core/behavior_logger_v2.py` | New | 500 |
 | Viewport tracker | `scripts/hermes-x/core/viewport_tracker.py` | New | 200 |
-| Chrome extension v2 | `scripts/hermes-x/x-engagement-extension/` | Modified | +100 |
+| Chrome extension v2 | `scripts/hermes-x/x-engagement-extension/` | Modified | +100 | Update `manifest.json` host_permissions: add `http://localhost:40770/*`, remove port 8888. POST to Hub, not engagement_tracker_server. Verify MV2 vs MV3 — if MV3, use `chrome.alarms` keepalive for continuous DOM observation. |
 | Behavior service | `infra/systemd/hermes-behavior.service` | Modified | 10 |
 | Scheduler wiring | `stochastic_scheduler.py` | Modified | +30 |
 | Killchain tracer v2 | `hermes_killchain_tracer.py` | Modified | +50 |
@@ -483,7 +492,7 @@ Rule 8: BEHAVIORAL DATA IS T.'s PROPERTY. Raw behavior never leaves the
 | Action generator | `scripts/hermes-x/core/replay/action_generator.py` | New | 400 |
 | Replay engine | `scripts/hermes-x/core/replay/engine.py` | New | 300 |
 | Decision engine | `scripts/hermes-x/core/replay/decision_engine.py` | New | 300 |
-| Model trainer | `scripts/hermes-x/core/replay/train_mimicry.py` | New | 400 |
+| Model trainer | `scripts/hermes-x/core/replay/train_mimicry.py` | New | 400 | Manual one-shot script. Run by T. after >10 sessions of L1 data. Not a daemon, not a cron. |
 | Mimicry benchmark | `scripts/hermes-x/core/replay/benchmark.py` | New | 200 |
 | Replay service | `infra/systemd/hermes-replay.service` | New | 20 |
 
