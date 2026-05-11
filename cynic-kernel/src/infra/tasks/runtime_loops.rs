@@ -926,9 +926,7 @@ mod tests {
                 crate::infra::dog_performance::DogPerformanceCollector::new(),
             ),
             slot_tracker: Arc::new(crate::domain::slot_tracker::SlotTracker::new()),
-            soma_gate: Arc::new(crate::domain::orchestrator::ResourceGate::new(Arc::new(
-                crate::domain::slot_tracker::SlotTracker::new(),
-            ))),
+            slot_semaphores: Arc::new(crate::domain::slot_semaphore::SlotSemaphoreMap::new()),
             proxy_targets: Arc::new(
                 crate::api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
                     &std::collections::HashMap::new(),

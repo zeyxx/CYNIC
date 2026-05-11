@@ -1,4 +1,7 @@
-//! ResourceGate — Soma L3: slot-aware GPU allocation with priority thresholds.
+//! DORMANT: ResourceGate — superseded by SlotSemaphore (Task 4, Soma L2).
+//! All slot coordination now happens inside Judge::evaluate via SlotSemaphoreMap.
+//! This module is kept for git history. Can be deleted after 2026-06-01.
+// Original doc: ResourceGate — Soma L3: slot-aware GPU allocation with priority thresholds.
 //!
 //! Before dispatching high-contention tasks (Hermes agent, nightshift Dog evals),
 //! consult the gate. Decision based on real slot utilization from SlotTracker

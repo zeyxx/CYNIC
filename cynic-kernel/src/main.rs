@@ -695,11 +695,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Periodically flushes to routing_calc for live routing adaptation.
     let dog_perf_collector = Arc::new(infra::dog_performance::DogPerformanceCollector::new());
 
-    // Soma L3: Resource gate reads real slot utilization via SlotTracker.
-    // Priority-aware: Hermes blocked at 100%, nightshift at 50%, background at 25%.
-    let soma_gate = Arc::new(domain::orchestrator::ResourceGate::new(Arc::clone(
-        &slot_tracker,
-    )));
+    // Soma L2: Slot semaphore map — per-Dog permit coordination.
+    // Initialized with zero permits at boot; health loop upserts real slot counts.
+    let slot_semaphores = Arc::new(domain::slot_semaphore::SlotSemaphoreMap::new());
 
     // Soma L4: Inference proxy routing table — sovereign backends only.
     let sovereign_flags: std::collections::HashMap<String, bool> = backend_configs
@@ -782,7 +780,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         domain_router: Arc::clone(&domain_router),
         routing_calc: Arc::clone(&routing_calc),
         dog_perf_collector: Arc::clone(&dog_perf_collector),
-        soma_gate: Arc::clone(&soma_gate),
+        slot_semaphores: Arc::clone(&slot_semaphores),
         slot_tracker: Arc::clone(&slot_tracker),
         proxy_targets: Arc::clone(&proxy_targets),
         project_root: project_root.display().to_string(),
@@ -1022,9 +1020,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&task_health),
             shutdown.clone(),
             project_root.display().to_string(),
-            Arc::clone(&soma_gate),
-            std::env::var("LLAMA_SERVER_URL")
-                .unwrap_or_else(|_| "http://127.0.0.1:8080".to_string()),
         );
         klog!(
             "[Ring 3] Nightshift loop started (every 4h, git lookback {}, Soma L3 gated)",

@@ -1,77 +1,47 @@
-//! REST API handler for Soma L3 — slot-aware resource orchestration with priority thresholds.
+//! REST API handler for Soma — slot semaphore status query.
 
 use axum::{extract::State, http::StatusCode, response::Json};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
 
 use super::types::{AppState, ErrorResponse};
-use crate::domain::orchestrator::{GateDecision, Priority, ResourceRequest};
 
-/// Request payload for /soma/request — ask the gate if a task can be allocated now.
-#[derive(Debug, Clone, Deserialize)]
-pub struct SomaRequestPayload {
-    /// Task identifier (e.g., "hermes-chat-1", "nightshift-eval-dog-2")
-    pub task_name: String,
-    /// Priority: "background" (0), "nightshift" (1), "hermes" (2)
-    pub priority: String,
-    /// Estimated duration in seconds
-    pub estimated_duration_secs: u64,
-    /// Dog ID to check utilization for (optional — if absent, uses aggregate)
-    pub dog_id: Option<String>,
-}
-
-/// Response payload — the gate's decision.
+/// Response payload — slot availability status per Dog.
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "decision", content = "data")]
-pub enum SomaDecisionResponse {
-    /// Allocate: task can start immediately. slot_id is a unique allocation token.
-    #[serde(rename = "allocate")]
-    Allocate { slot_id: String },
-    /// Queue: utilization too high. Retry after wait_secs.
-    #[serde(rename = "queue")]
-    Queue { wait_secs: u64 },
+pub struct SomaStatusResponse {
+    /// dog_id → slot info
+    pub dogs: Vec<DogSlotStatus>,
 }
 
-impl From<GateDecision> for SomaDecisionResponse {
-    fn from(decision: GateDecision) -> Self {
-        match decision {
-            GateDecision::Allocate { slot_id } => SomaDecisionResponse::Allocate { slot_id },
-            GateDecision::Queue { wait_secs } => SomaDecisionResponse::Queue { wait_secs },
-        }
-    }
+#[derive(Debug, Clone, Serialize)]
+pub struct DogSlotStatus {
+    pub dog_id: String,
+    pub total_slots: u32,
+    pub available_slots: u32,
 }
 
-/// POST /soma/request — Query the resource gate for allocation decision.
+/// GET /soma/status — Query slot semaphore availability across all Dogs.
 ///
-/// Request: { "task_name": "hermes-1", "priority": "hermes", "estimated_duration_secs": 300, "dog_id": "qwen-9b-core" }
-/// Response (200): { "decision": "allocate", "data": { "slot_id": "hermes-1-1714878456789" } }
-///             or: { "decision": "queue", "data": { "wait_secs": 5 } }
+/// Response (200): { "dogs": [ { "dog_id": "...", "total_slots": 4, "available_slots": 3 }, ... ] }
 pub async fn soma_request_handler(
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<SomaRequestPayload>,
-) -> Result<(StatusCode, Json<SomaDecisionResponse>), (StatusCode, Json<ErrorResponse>)> {
-    let priority = match payload.priority.to_lowercase().as_str() {
-        "background" => Priority::Background,
-        "nightshift" => Priority::Nightshift,
-        "hermes" => Priority::Hermes,
-        _ => {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "invalid priority — valid values: background, nightshift, hermes".into(),
-                }),
-            ));
-        }
-    };
+    // NOTE: body is ignored — this endpoint is now a status query, not a gate request.
+    // The SlotSemaphore system inside Judge::evaluate handles all slot coordination.
+    _body: axum::body::Body,
+) -> Result<(StatusCode, Json<SomaStatusResponse>), (StatusCode, Json<ErrorResponse>)> {
+    let judge = state.judge.load_full();
+    let dog_ids = judge.dog_ids();
 
-    let request = ResourceRequest {
-        task_name: payload.task_name,
-        priority,
-        estimated_duration_secs: payload.estimated_duration_secs,
-        dog_id: payload.dog_id,
-    };
+    let dogs: Vec<DogSlotStatus> = dog_ids
+        .iter()
+        .filter_map(|dog_id| {
+            state.slot_semaphores.get(dog_id).map(|sem| DogSlotStatus {
+                dog_id: dog_id.clone(),
+                total_slots: sem.total_slots(),
+                available_slots: sem.available(),
+            })
+        })
+        .collect();
 
-    let decision = state.soma_gate.request(&request);
-    let response = SomaDecisionResponse::from(decision);
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::OK, Json(SomaStatusResponse { dogs })))
 }

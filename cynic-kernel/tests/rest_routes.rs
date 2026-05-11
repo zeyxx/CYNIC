@@ -82,9 +82,9 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
             cynic_kernel::infra::dog_performance::DogPerformanceCollector::new(),
         ),
         slot_tracker: std::sync::Arc::new(cynic_kernel::domain::slot_tracker::SlotTracker::new()),
-        soma_gate: std::sync::Arc::new(cynic_kernel::domain::orchestrator::ResourceGate::new(
-            std::sync::Arc::new(cynic_kernel::domain::slot_tracker::SlotTracker::new()),
-        )),
+        slot_semaphores: std::sync::Arc::new(
+            cynic_kernel::domain::slot_semaphore::SlotSemaphoreMap::new(),
+        ),
         proxy_targets: std::sync::Arc::new(
             cynic_kernel::api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
                 &std::collections::HashMap::new(),
@@ -1041,9 +1041,9 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
             cynic_kernel::infra::dog_performance::DogPerformanceCollector::new(),
         ),
         slot_tracker: std::sync::Arc::new(cynic_kernel::domain::slot_tracker::SlotTracker::new()),
-        soma_gate: std::sync::Arc::new(cynic_kernel::domain::orchestrator::ResourceGate::new(
-            std::sync::Arc::new(cynic_kernel::domain::slot_tracker::SlotTracker::new()),
-        )),
+        slot_semaphores: std::sync::Arc::new(
+            cynic_kernel::domain::slot_semaphore::SlotSemaphoreMap::new(),
+        ),
         proxy_targets: std::sync::Arc::new(
             cynic_kernel::api::rest::inference_proxy::ProxyTargets::from_fleet_meta(
                 &std::collections::HashMap::new(),

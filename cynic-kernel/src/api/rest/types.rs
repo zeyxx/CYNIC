@@ -15,7 +15,6 @@ use crate::domain::embedding::EmbeddingPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::mail::MailPort;
 use crate::domain::metrics::Metrics;
-use crate::domain::orchestrator::ResourceGate;
 use crate::domain::organ::OrganPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
@@ -183,10 +182,9 @@ pub struct AppState {
     /// K15 seam 3 producer: on_dog callbacks feed observations here.
     /// Periodically flushed to routing_calc for live routing adaptation.
     pub dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
-    /// Soma L1 Alpha: Resource gate for GPU utilization-aware task dispatch.
-    /// Prevents Hermes + nightshift Dog evaluations from starving each other.
-    /// Consulted before spawning high-contention tasks (hermes chat, dog evals).
-    pub soma_gate: Arc<ResourceGate>,
+    /// Soma L2: Slot semaphore map — per-Dog permit tracking for slot coordination.
+    /// Initialized by the health loop at boot; Judge::evaluate acquires/releases permits.
+    pub slot_semaphores: Arc<crate::domain::slot_semaphore::SlotSemaphoreMap>,
     /// Soma L2: Slot utilization tracker — updated by health loop every 30s.
     /// Consumers: /judge (skip saturated Dogs), /health (expose utilization),
     /// GET /inference/slots (external dispatch query).
