@@ -26,7 +26,7 @@ from pathlib import Path
 
 def load_briefing(organ_dir: str) -> dict:
     """Load lab_briefing_latest.json."""
-    briefing_path = Path(organ_dir) / "lab_briefing_latest.json"
+    briefing_path = Path(organ_dir) / "analysis" / "lab_briefing_latest.json"
     if not briefing_path.exists():
         print(f"ERROR: Briefing not found: {briefing_path}")
         return {}
