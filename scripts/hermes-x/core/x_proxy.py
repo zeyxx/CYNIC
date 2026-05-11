@@ -294,7 +294,7 @@ def _parse_result(result: dict) -> dict | None:
 
 # ── Enrichment: raw tweet → dataset row ──
 
-def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict) -> dict:
+def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict, source: str = "unknown") -> dict:
     text = tweet.get("text", "")
     norm = re.sub(r"\s+", " ", text.strip().lower())
     coord_count = coord_map.get(norm, 0) if len(norm) > 30 else 0
@@ -370,6 +370,7 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict) -> di
         "is_coordinated": coord_count >= 3,
         "coordination_count": coord_count,
         "sampling_bias": "proxy-passive",
+        "source": source,
     }
 
 
@@ -416,8 +417,9 @@ class XProxy:
         self._dedup = _DedupeCache()
         self._dedup.load(DATASET_PATH)
         self._stats = {"captured": 0, "enriched": 0, "deduped": 0}
-        logger.info("x-proxy loaded — %d existing tweets, dataset: %s",
-                     len(self._dedup._seen), DATASET_PATH)
+        self._hub_url = os.environ.get("BROWSER_HUB_URL", "http://127.0.0.1:40770")
+        logger.info("x-proxy loaded — %d existing tweets, dataset: %s, hub: %s",
+                     len(self._dedup._seen), DATASET_PATH, self._hub_url)
 
     def response(self, flow: http.HTTPFlow) -> None:
         url = flow.request.url
@@ -436,6 +438,7 @@ class XProxy:
             return
 
         variables = self._extract_vars(url)
+        source = self._get_attribution(flow.request.url, flow.request.timestamp_start)
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
         # Raw capture
@@ -455,7 +458,7 @@ class XProxy:
         coord_map = _coordination(raw_tweets)
         new = []
         for t in raw_tweets:
-            enriched = _enrich(t, op_name, variables, coord_map)
+            enriched = _enrich(t, op_name, variables, coord_map, source)
             if self._dedup.is_new(enriched["dedupe_key"]):
                 new.append(enriched)
             else:
@@ -500,6 +503,18 @@ class XProxy:
             return json.loads(parse_qs(urlparse(url).query).get("variables", ["{}"])[0])
         except (json.JSONDecodeError, KeyError):
             return {}
+
+    def _get_attribution(self, url: str, timestamp: float) -> str:
+        """Query Hub for source attribution. Returns 'unknown' on failure."""
+        try:
+            import urllib.request
+            from urllib.parse import urlencode
+            req_url = f"{self._hub_url}/attribution?{urlencode({'url': url, 'ts': timestamp})}"
+            with urllib.request.urlopen(req_url, timeout=0.5) as resp:
+                data = json.loads(resp.read())
+                return data.get("source", "unknown")
+        except Exception:
+            return "unknown"
 
 
 addons = [XProxy()]
