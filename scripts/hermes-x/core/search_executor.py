@@ -47,6 +47,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+try:
+    from hub_client import HubClient
+    HUB_AVAILABLE = True
+except ImportError:
+    HUB_AVAILABLE = False
+
 # For reading browser state
 import shutil
 
@@ -254,6 +260,13 @@ class SearchExecutor:
 
         logger.info("executing up to %d searches (interval: %ds)", max_searches, interval)
 
+        hub_tab = None
+        if HUB_AVAILABLE:
+            hub = HubClient()
+            hub_tab = hub.create_tab("agent:search-executor", "https://x.com/search")
+            if hub_tab:
+                logger.info("Tab created via Hub: %s", hub_tab.get("tab_id", "?"))
+
         try:
             async with async_playwright() as p:
                 # Try to connect to hermes-browser (real Chrome instance)
@@ -317,6 +330,9 @@ class SearchExecutor:
         except Exception as e:
             logger.error("failed to execute searches: %s", str(e)[:150])
             return 1
+        finally:
+            if hub_tab and HUB_AVAILABLE:
+                hub.release_tab(hub_tab["tab_id"])
 
         logger.info("cycle complete: %d searches, %d errors", self.search_count, self.search_errors)
         return 0
