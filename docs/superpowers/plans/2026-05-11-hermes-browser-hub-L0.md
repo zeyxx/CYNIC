@@ -10,6 +10,22 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-11-hermes-shared-browser-behavioral-engine-design.md`
 
+**Dependencies to install:** `pip install websockets aiohttp pytest-aiohttp requests`
+
+---
+
+## Review Fixes Applied
+
+Fixes from plan review (2026-05-11):
+- B1: CDP `Network.enable` via `Target.attachToTarget` per target + session→target map
+- B2: URL encoding in `_get_attribution()` via `urllib.parse.urlencode`
+- B3: Mock mitmproxy import in proxy attribution tests
+- B4: Lazy `websockets` import in CDPListener (+ dependency declaration above)
+- W1: Added Task 10 — retire `engagement_tracker_server.py`
+- W2: Update `hermes-proxy.service` to depend on Hub (in Task 5)
+- W3: Two-window launch via Hub `Target.createTarget` at boot (in Task 4)
+- W6: `mkdir -p tests/` step added to Task 2
+
 ---
 
 ## File Map
@@ -124,6 +140,13 @@ git commit -m "fix(hermes): browser service DISPLAY=:0, remove proxy dependency"
 - Create: `scripts/hermes-x/tests/test_browser_hub.py`
 
 Build the Hub's core data structures and HTTP API first, tested without a real Chrome.
+
+- [ ] **Step 0: Create tests directory**
+
+```bash
+mkdir -p scripts/hermes-x/tests
+touch scripts/hermes-x/tests/__init__.py
+```
 
 - [ ] **Step 1: Write failing tests for TabRegistry**
 
@@ -558,9 +581,6 @@ Add the CDP WebSocket listener that connects to Chrome, subscribes to `Target.*`
 Append to `scripts/hermes-x/core/browser_hub.py`:
 
 ```python
-import websockets
-
-
 class CDPListener:
     """Connects to Chrome CDP, listens for target and network events."""
 
@@ -573,9 +593,11 @@ class CDPListener:
         self._msg_id = 0
         self._agent_window_id: Optional[str] = None
         self._human_window_id: Optional[str] = None
+        self._session_to_target: dict[str, str] = {}  # CDP sessionId → targetId
 
     async def connect(self) -> None:
         """Connect to Chrome CDP and subscribe to events."""
+        import websockets as _ws  # lazy import (B4: may not be installed at import time)
         # Get the WebSocket URL from Chrome's JSON endpoint
         import aiohttp as _aiohttp
         async with _aiohttp.ClientSession() as session:
@@ -583,16 +605,29 @@ class CDPListener:
                 info = await resp.json()
                 ws_url = info["webSocketDebuggerUrl"]
 
-        self._ws = await websockets.connect(ws_url, max_size=10 * 1024 * 1024)
+        self._ws = await _ws.connect(ws_url, max_size=10 * 1024 * 1024)
         logger.info("Connected to Chrome CDP: %s", ws_url)
 
-        # Enable target discovery
+        # Enable flat-mode auto-attach: multiplexes all target sessions on this WebSocket.
+        # This gives us Network events per-target with sessionId for attribution (B1 fix).
+        await self._send("Target.setAutoAttach", {
+            "autoAttach": True,
+            "waitForDebuggerOnStart": False,
+            "flatten": True,
+        })
+        # Also discover targets for create/destroy events
         await self._send("Target.setDiscoverTargets", {"discover": True})
-        # We'll enable Network per-target when targets appear
 
     async def _send(self, method: str, params: dict = None) -> int:
         self._msg_id += 1
         msg = {"id": self._msg_id, "method": method, "params": params or {}}
+        await self._ws.send(json.dumps(msg))
+        return self._msg_id
+
+    async def _send_to_session(self, method: str, params: dict, session_id: str) -> int:
+        """Send a CDP command to a specific target session (flat mode)."""
+        self._msg_id += 1
+        msg = {"id": self._msg_id, "method": method, "params": params or {}, "sessionId": session_id}
         await self._ws.send(json.dumps(msg))
         return self._msg_id
 
@@ -611,6 +646,17 @@ class CDPListener:
                 if info["type"] == "page":
                     self._on_target_created(info)
 
+            elif method == "Target.attachedToTarget":
+                # B1 fix: flat-mode auto-attach gives us a sessionId per target.
+                # Enable Network on this session to get requestWillBeSent events.
+                session_id = msg["params"]["sessionId"]
+                target_info = msg["params"]["targetInfo"]
+                target_id = target_info["targetId"]
+                self._session_to_target[session_id] = target_id
+                # Enable Network events for this session
+                await self._send_to_session("Network.enable", {}, session_id)
+                logger.info("Attached to target %s (session %s)", target_id[:12], session_id[:12])
+
             elif method == "Target.targetDestroyed":
                 target_id = msg["params"]["targetId"]
                 self._on_target_destroyed(target_id)
@@ -621,8 +667,9 @@ class CDPListener:
                     self._on_target_changed(info)
 
             elif method == "Network.requestWillBeSent":
-                self._on_network_request(msg.get("params", {}),
-                                         msg.get("sessionId", ""))
+                # B1 fix: sessionId maps to targetId via _session_to_target
+                session_id = msg.get("sessionId", "")
+                self._on_network_request(msg.get("params", {}), session_id)
 
     def _on_target_created(self, info: dict) -> None:
         target_id = info["targetId"]
@@ -652,10 +699,10 @@ class CDPListener:
         url = params.get("request", {}).get("url", "")
         if "/i/api/graphql/" not in url:
             return
-        frame_id = params.get("frameId", "")
         timestamp = params.get("wallTime", time.time())
-        # Resolve frame → target → owner
-        owner = self._registry.resolve_target(session_id) if session_id else "unknown"
+        # B1 fix: resolve sessionId → targetId → TabEntry.owner
+        target_id = self._session_to_target.get(session_id, "")
+        owner = self._registry.resolve_target(target_id) if target_id else "unknown"
         self._attribution.record(url, timestamp, owner)
 
 
@@ -679,6 +726,15 @@ async def main():
         logger.error("Failed to connect to Chrome CDP: %s", e)
         logger.error("Is hermes-browser.service running?")
         raise SystemExit(1)
+
+    # W3 fix: create agent window via CDP (human window = Chrome's default)
+    # The existing Chrome window is the human window.
+    # Create a second window for agent tabs.
+    agent_target_id = await cdp._send("Target.createTarget", {
+        "url": "about:blank",
+        "newWindow": True,
+    })
+    logger.info("Agent window created")
 
     # Write state file
     state_path = os.path.join(organ_dir, "browser-state.json")
@@ -783,6 +839,18 @@ systemctl --user status hermes-browser-hub.service
 ```
 
 Expected: `Active: active (running)`.
+
+- [ ] **Step 2b: Update proxy service to depend on Hub (W2)**
+
+Add `After=hermes-browser-hub.service` to `infra/systemd/hermes-proxy.service` (if not already present):
+
+```bash
+grep -q "hermes-browser-hub" infra/systemd/hermes-proxy.service || \
+  sed -i '/^\[Unit\]/a After=hermes-browser-hub.service' infra/systemd/hermes-proxy.service
+cp infra/systemd/hermes-proxy.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user restart hermes-proxy.service
+```
 
 - [ ] **Step 3: Verify Hub is responding**
 
@@ -985,9 +1053,15 @@ Create `scripts/hermes-x/tests/test_proxy_attribution.py`:
 
 ```python
 """Test that x_proxy enrichment includes source attribution."""
+import sys
+from unittest.mock import MagicMock
+
+# B3 fix: mock mitmproxy before importing x_proxy (not in test PYTHONPATH)
+sys.modules['mitmproxy'] = MagicMock()
+sys.modules['mitmproxy.http'] = MagicMock()
+
 import json
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 def test_enrich_includes_source_field():
@@ -1096,7 +1170,8 @@ To:
         """Query Hub for source attribution. Returns 'unknown' on failure."""
         try:
             import urllib.request
-            req_url = f"{self._hub_url}/attribution?url={url}&ts={timestamp}"
+            from urllib.parse import urlencode  # B2 fix: encode URL params
+            req_url = f"{self._hub_url}/attribution?{urlencode({'url': url, 'ts': timestamp})}"
             with urllib.request.urlopen(req_url, timeout=0.5) as resp:
                 data = json.loads(resp.read())
                 return data.get("source", "unknown")
@@ -1309,6 +1384,37 @@ git status
 
 ---
 
+## Task 10: Retire engagement_tracker_server.py (W1)
+
+**Files:**
+- Retire: `scripts/hermes-x/core/engagement_tracker_server.py`
+
+The Hub's `POST /events/extension` absorbs this role. Keeping both = dual-writer on `engagement.jsonl`.
+
+- [ ] **Step 1: Check if engagement_tracker_server has a systemd service**
+
+```bash
+grep -rl "engagement_tracker" ~/.config/systemd/user/ infra/systemd/ 2>/dev/null
+```
+
+If found, stop and disable it.
+
+- [ ] **Step 2: Move to archive**
+
+```bash
+mkdir -p scripts/hermes-x/archive
+git mv scripts/hermes-x/core/engagement_tracker_server.py scripts/hermes-x/archive/
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add scripts/hermes-x/archive/engagement_tracker_server.py
+git commit -m "chore(hermes): retire engagement_tracker_server — Hub absorbs via /events/extension"
+```
+
+---
+
 ## Summary
 
 | Task | What | ~Time |
@@ -1316,13 +1422,14 @@ git status
 | 1 | Fix Chrome service (DISPLAY, deps) | 5 min |
 | 2 | Hub TabRegistry + AttributionBuffer (TDD) | 15 min |
 | 3 | Hub HTTP API (TDD) | 15 min |
-| 4 | Hub CDP listener + main | 10 min |
-| 5 | Hub systemd service | 5 min |
+| 4 | Hub CDP listener + two-window + main | 15 min |
+| 5 | Hub systemd service + proxy dependency | 5 min |
 | 6 | Hub client library (TDD) | 10 min |
 | 7 | Proxy attribution tagging (TDD) | 10 min |
 | 8 | Wire navigator + search-executor | 10 min |
 | 9 | End-to-end smoke test | 10 min |
+| 10 | Retire engagement_tracker_server | 3 min |
 
-**Total: ~90 minutes of implementation**
+**Total: ~100 minutes of implementation**
 
 After L0 is stable for 7 days: write L1 plan (behavioral capture).
