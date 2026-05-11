@@ -390,7 +390,15 @@ impl Judge {
                 if let Some(handle) = self.organ_handles[idx].as_ref()
                     && handle.is_quality_degraded()
                 {
-                    if handle.should_allow_quality_probe() {
+                    // K22: Don't exclude dogs that have never been called — 0 calls means
+                    // no data to judge quality, not "quality is bad". Allow them through
+                    // so they can establish a baseline.
+                    if handle.total_calls() == 0 {
+                        tracing::info!(
+                            dog_id = %dog.id(),
+                            "K22: quality gate bypassed — 0 calls, no baseline to judge"
+                        );
+                    } else if handle.should_allow_quality_probe() {
                         tracing::info!(
                             dog_id = %dog.id(),
                             "quality probe — degradation TTL expired, allowing one evaluation"
@@ -415,6 +423,7 @@ impl Judge {
                     );
                     return None;
                 }
+                tracing::info!(dog_id = %dog.id(), "Dog PASSED all gates → runnable");
                 Some(RunnableDog { idx, dog })
             })
             .collect()
@@ -606,9 +615,16 @@ impl Judge {
         let deadline = tokio::time::Instant::now() + wall_clock;
 
         // O5: Early verdict on quorum arrival
-        // Quorum = majority (⌈n/2⌉ for n Dogs). Return as soon as we have it.
+        // Quorum = majority (⌊n/2⌋+1 for n Dogs). Return as soon as we have it.
         // Prevents waiting for slow Dogs (e.g., qwen35-gpu @8.8s) if 3/5 Dogs are ready @5s.
-        let quorum_count = (runnable_dogs.len() / 2) + 1;
+        // Exception: token-analysis waits for ALL runnable dogs — user-facing judgments need full jury.
+        // This means waiting for gemma (~45s) but shows all sovereign Dogs in the UI.
+        let is_user_facing = stimulus.domain.as_deref() == Some("token-analysis");
+        let quorum_count = if is_user_facing {
+            runnable_dogs.len()
+        } else {
+            (runnable_dogs.len() / 2) + 1
+        };
 
         let mut dog_scores: Vec<DogScore> = Vec::new();
         let mut failures: Vec<DogFailure> = Vec::new();

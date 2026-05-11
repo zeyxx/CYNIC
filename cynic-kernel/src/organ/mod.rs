@@ -53,6 +53,11 @@ impl BackendHandle {
         })
     }
 
+    /// Total calls this boot cycle (K22: 0 means no baseline to judge quality).
+    pub fn total_calls(&self) -> u64 {
+        self.0.lock().ok().map(|g| g.stats.total_calls).unwrap_or(0)
+    }
+
     /// Allow one quality probe per TTL period for degraded Dogs.
     /// Mirrors CircuitBreaker HalfOpen: after TTL expires since degradation,
     /// allow one evaluation so `update_stats_entry → sync_parse_gate_health`

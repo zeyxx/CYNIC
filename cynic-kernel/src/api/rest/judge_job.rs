@@ -161,6 +161,17 @@ impl JudgeJobStore {
         true
     }
 
+    /// Update dogs_total after the pipeline determines actual runnable count.
+    /// The pre-computed count from runnable_dog_count is stale (slot state changes).
+    pub fn update_dogs_total(&self, request_id: &str, dogs_total: usize) {
+        let Ok(mut jobs) = self.jobs.write() else {
+            return;
+        };
+        if let Some(job) = jobs.get_mut(request_id) {
+            job.dogs_total = dogs_total;
+        }
+    }
+
     /// Record a Dog arrival (success or failure). Updates job status.
     pub fn record_arrival(&self, request_id: &str, arrival: DogArrival) {
         let Ok(mut jobs) = self.jobs.write() else {
@@ -229,20 +240,10 @@ pub async fn judge_async_handler(
         request_id: None,
     };
     let judge = state.judge.load_full();
-    let dogs_total = judge
-        .runnable_dog_count(&stimulus, req.dogs.as_deref())
-        .map_err(|e| {
-            let status = match &e {
-                crate::judge::JudgeError::InvalidInput(_) => StatusCode::BAD_REQUEST,
-                _ => StatusCode::INTERNAL_SERVER_ERROR,
-            };
-            (
-                status,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
-            )
-        })?;
+    // Use registered dog count, not runnable_dog_count (which checks transient slot state).
+    // Slot state is stale by the time the pipeline runs — the pipeline re-checks at dispatch.
+    // This prevents the UI from showing "1/1 DOGS" when 3 dogs will actually participate.
+    let dogs_total = judge.dog_ids().len();
 
     if !state.judge_jobs.create(&request_id, dogs_total) {
         return Err((
