@@ -36,19 +36,12 @@ pub async fn auth_middleware(
     next: Next,
 ) -> Response {
     // Public endpoints — no auth required.
-    // /live, /ready: status probes (no topology)
-    // /verdicts, /verdict/*, /crystals, /dogs: read-only public data for UI
-    // These expose judgment outputs, not infrastructure. Aegis: verdict data
-    // is the product, not a secret. Topology stays behind auth (/health).
+    // ONLY /live and /ready: status probes (no topology, no data).
+    // OpSec audit 2026-05-12: /verdicts, /crystals, /dogs were public — exposed
+    // per-dog scores, reasoning, and crystal memory via Cloudflare tunnel.
+    // An adversary could reverse-engineer scoring heuristics. Now auth-gated.
     let path = request.uri().path();
-    if path == "/live"
-        || path == "/ready"
-        || path == "/verdicts"
-        || path.starts_with("/verdict/")
-        || path == "/crystals"
-        || path.starts_with("/crystal/")
-        || path == "/dogs"
-    {
+    if path == "/live" || path == "/ready" {
         return next.run(request).await;
     }
 
