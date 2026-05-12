@@ -174,6 +174,51 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
         ));
     }
 
+    // ── Holder identities (from Helius Wallet API) ──
+    if !data.holder_identities.is_empty() {
+        s.push_str("\n[HOLDER IDENTITIES]\n");
+        for id in &data.holder_identities {
+            let name = id.name.as_deref().unwrap_or("?");
+            let cat = id.category.as_deref().unwrap_or("unknown");
+            s.push_str(&format!("{}: {} ({})\n", &id.address[..8], name, cat));
+        }
+        let total = data.holder_identities.len();
+        s.push_str(&format!(
+            "identified: {total} of top holders. Unknown holders not listed.\n"
+        ));
+        // Signal summary for Dogs
+        let exchanges: Vec<_> = data
+            .holder_identities
+            .iter()
+            .filter(|i| {
+                i.category
+                    .as_deref()
+                    .is_some_and(|c| c.contains("Exchange"))
+            })
+            .collect();
+        let scammers: Vec<_> = data
+            .holder_identities
+            .iter()
+            .filter(|i| {
+                i.category.as_deref().is_some_and(|c| {
+                    c.contains("Rugger") || c.contains("Scam") || c.contains("Exploit")
+                })
+            })
+            .collect();
+        if !exchanges.is_empty() {
+            s.push_str(&format!(
+                "exchanges_in_holders: {} (institutional backing signal)\n",
+                exchanges.len()
+            ));
+        }
+        if !scammers.is_empty() {
+            s.push_str(&format!(
+                "WARNING: {} known scammer/rugger in holders\n",
+                scammers.len()
+            ));
+        }
+    }
+
     // ── Baselines: what "normal" looks like ──
     s.push_str("\n[BASELINES]\n");
     s.push_str("healthy_token: holders>100, top_1<15%, herfindahl<0.15, age>30d, mint_authority=revoked, lp=burned, market_cap>$1M, liquidity>$100K\n");

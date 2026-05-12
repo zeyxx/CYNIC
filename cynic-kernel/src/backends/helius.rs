@@ -140,7 +140,6 @@ impl HeliusEnricher {
         mint: &str,
         total_supply: Option<f64>,
     ) -> Result<Option<HolderConcentration>, EnrichmentError> {
-        let start = std::time::Instant::now();
         let body = serde_json::json!({
             "jsonrpc": "2.0",
             "id": 1,
@@ -148,45 +147,91 @@ impl HeliusEnricher {
             "params": [mint]
         });
 
-        let resp = self
-            .client
-            .post(&self.rpc_url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| {
+        // Retry up to 3 times on transient "account index service overloaded" errors.
+        // Backoff: 1s, 2s, 4s. Total worst-case: 7s additional latency.
+        let outer_start = std::time::Instant::now();
+        let max_retries = 3u32;
+        let mut rpc: RpcResponseWithContext<Vec<LargestAccount>> = RpcResponseWithContext {
+            result: None,
+            error: None,
+        };
+
+        for attempt in 0..=max_retries {
+            let start = std::time::Instant::now();
+            let resp = self
+                .client
+                .post(&self.rpc_url)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| {
+                    tracing::warn!(
+                        method = "getTokenLargestAccounts",
+                        mint = %mint,
+                        error = %e,
+                        attempt,
+                        latency_ms = start.elapsed().as_millis(),
+                        "Helius RPC call failed"
+                    );
+                    EnrichmentError::RequestFailed(e.to_string())
+                })?;
+
+            let status_code = resp.status().as_u16();
+            if !resp.status().is_success() {
+                tracing::warn!(
+                    method = "getTokenLargestAccounts",
+                    mint = %mint,
+                    status = status_code,
+                    attempt,
+                    latency_ms = start.elapsed().as_millis(),
+                    "Helius returned error status — holder concentration unavailable"
+                );
+                return Ok(None);
+            }
+
+            rpc = resp.json().await.map_err(|e| {
                 tracing::warn!(
                     method = "getTokenLargestAccounts",
                     mint = %mint,
                     error = %e,
+                    attempt,
                     latency_ms = start.elapsed().as_millis(),
-                    "Helius RPC call failed"
+                    "Helius response deserialize failed"
                 );
                 EnrichmentError::RequestFailed(e.to_string())
             })?;
 
-        let status_code = resp.status().as_u16();
-        if !resp.status().is_success() {
-            tracing::warn!(
-                method = "getTokenLargestAccounts",
-                mint = %mint,
-                status = status_code,
-                latency_ms = start.elapsed().as_millis(),
-                "Helius returned error status — holder concentration unavailable"
-            );
-            return Ok(None);
-        }
+            // Check for JSON-RPC error (returned with HTTP 200)
+            if let Some(ref err) = rpc.error {
+                let is_overloaded =
+                    err.message.contains("overloaded") || err.message.contains("try again");
+                if is_overloaded && attempt < max_retries {
+                    let backoff = std::time::Duration::from_secs(1 << attempt);
+                    tracing::info!(
+                        method = "getTokenLargestAccounts",
+                        mint = %mint,
+                        attempt,
+                        rpc_error = %err.message,
+                        backoff_ms = backoff.as_millis(),
+                        "Account index overloaded — retrying"
+                    );
+                    tokio::time::sleep(backoff).await;
+                    continue;
+                }
+                tracing::warn!(
+                    method = "getTokenLargestAccounts",
+                    mint = %mint,
+                    rpc_error_code = err.code,
+                    rpc_error = %err.message,
+                    attempt,
+                    "Helius RPC returned JSON-RPC error — holder data unavailable"
+                );
+                return Ok(None);
+            }
 
-        let rpc: RpcResponseWithContext<Vec<LargestAccount>> = resp.json().await.map_err(|e| {
-            tracing::warn!(
-                method = "getTokenLargestAccounts",
-                mint = %mint,
-                error = %e,
-                latency_ms = start.elapsed().as_millis(),
-                "Helius response deserialize failed"
-            );
-            EnrichmentError::RequestFailed(e.to_string())
-        })?;
+            // Success — break out of retry loop
+            break;
+        }
 
         let Some(ctx) = rpc.result else {
             return Ok(None);
@@ -226,7 +271,7 @@ impl HeliusEnricher {
             }
         }
 
-        let latency = start.elapsed().as_millis();
+        let latency = outer_start.elapsed().as_millis();
         self.credits.record_call(latency, true, 1); // Standard RPC: 1 credit
         tracing::debug!(
             method = "getTokenLargestAccounts",
@@ -252,6 +297,102 @@ impl HeliusEnricher {
             holder_addresses,
             holder_balances,
         }))
+    }
+
+    /// DAS fallback for holder concentration when `getTokenLargestAccounts` fails
+    /// (e.g., "account index service overloaded"). Uses `getTokenAccounts` (10 credits)
+    /// to fetch holders, then sorts by balance locally.
+    /// Returns None if DAS also fails. Less precise than RPC (unsorted, needs decimals).
+    async fn get_holders_via_das(
+        &self,
+        mint: &str,
+        total_supply: Option<f64>,
+        decimals: Option<u8>,
+    ) -> Option<HolderConcentration> {
+        let api_key = self.rpc_url.split("api-key=").nth(1).unwrap_or_default();
+        let url = format!("https://mainnet.helius-rpc.com/?api-key={api_key}");
+        let start = std::time::Instant::now();
+
+        // Fetch up to 100 token accounts (covers top holders for most tokens)
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getTokenAccounts",
+            "params": {
+                "mint": mint,
+                "page": 1,
+                "limit": 100
+            }
+        });
+
+        let resp = self.client.post(&url).json(&body).send().await.ok()?;
+        if !resp.status().is_success() {
+            return None;
+        }
+
+        let rpc: serde_json::Value = resp.json().await.ok()?;
+        self.credits
+            .record_call(start.elapsed().as_millis(), true, 10);
+
+        let accounts = rpc
+            .pointer("/result/token_accounts")
+            .and_then(|v| v.as_array())?;
+
+        if accounts.is_empty() {
+            return None;
+        }
+
+        let dec_factor = 10_f64.powi(decimals.unwrap_or(0) as i32);
+
+        // Parse and sort by balance descending
+        let mut holders: Vec<(String, f64)> = accounts
+            .iter()
+            .filter_map(|a| {
+                let owner = a.get("owner")?.as_str()?.to_string();
+                let raw_amount = a.get("amount")?.as_u64()? as f64;
+                Some((owner, raw_amount / dec_factor))
+            })
+            .collect();
+        holders.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        let supply_f64 = total_supply
+            .filter(|&s| s > 0.0)
+            .unwrap_or_else(|| holders.iter().map(|(_, b)| *b).sum::<f64>().max(1.0));
+
+        let mut hhi = 0.0;
+        let mut top1_pct = 0.0;
+        let mut top10_pct = 0.0;
+
+        for (idx, (_, balance)) in holders.iter().enumerate() {
+            let share = balance / supply_f64;
+            hhi += share * share;
+            if idx == 0 {
+                top1_pct = share * 100.0;
+            }
+            if idx < 10 {
+                top10_pct += share * 100.0;
+            }
+        }
+
+        let holder_addresses: Vec<String> = holders.iter().map(|(a, _)| a.clone()).collect();
+        let holder_balances: Vec<f64> = holders.iter().map(|(_, b)| *b).collect();
+
+        tracing::info!(
+            mint = %mint,
+            holders_fetched = holders.len(),
+            top1_pct = format!("{:.2}", top1_pct),
+            latency_ms = start.elapsed().as_millis(),
+            "DAS getTokenAccounts fallback succeeded"
+        );
+
+        Some(HolderConcentration {
+            accounts_seen: holders.len() as u64,
+            top1_pct,
+            top10_pct,
+            herfindahl: hhi,
+            holder_addresses,
+            holder_balances,
+        })
     }
 
     /// Estimate real holder count via DAS getTokenAccounts pagination probing.
@@ -814,6 +955,165 @@ impl HeliusEnricher {
 
         (behaviors, kscore)
     }
+
+    /// Resolve token account addresses to their owner wallet addresses.
+    /// Uses getMultipleAccounts (1 credit) with jsonParsed encoding.
+    /// If addresses are already wallet addresses (from DAS fallback), returns them as-is.
+    async fn resolve_owners(&self, addresses: &[String]) -> Vec<String> {
+        let start = std::time::Instant::now();
+        let addrs: Vec<&str> = addresses.iter().take(20).map(|s| s.as_str()).collect();
+
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getMultipleAccounts",
+            "params": [addrs, {"encoding": "jsonParsed"}]
+        });
+
+        let resp = match self.client.post(&self.rpc_url).json(&body).send().await {
+            Ok(r) if r.status().is_success() => r,
+            _ => return addresses.iter().take(20).cloned().collect(),
+        };
+
+        let rpc: serde_json::Value = match resp.json().await {
+            Ok(v) => v,
+            Err(_) => return addresses.iter().take(20).cloned().collect(),
+        };
+
+        self.credits
+            .record_call(start.elapsed().as_millis(), true, 1);
+
+        let accounts = rpc.pointer("/result/value").and_then(|v| v.as_array());
+
+        let Some(accounts) = accounts else {
+            return addresses.iter().take(20).cloned().collect();
+        };
+
+        let mut owners = Vec::with_capacity(accounts.len());
+        for (i, acct) in accounts.iter().enumerate() {
+            // Try to extract owner from parsed token account data
+            let owner = acct
+                .pointer("/data/parsed/info/owner")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+
+            if let Some(owner) = owner {
+                owners.push(owner);
+            } else if let Some(addr) = addresses.get(i) {
+                // Not a token account (maybe already a wallet) — use as-is
+                owners.push(addr.clone());
+            }
+        }
+
+        // Deduplicate (multiple ATAs can belong to same owner)
+        owners.sort();
+        owners.dedup();
+
+        tracing::debug!(
+            input = addresses.len().min(20),
+            resolved = owners.len(),
+            latency_ms = start.elapsed().as_millis(),
+            "resolved token accounts to owners"
+        );
+
+        owners
+    }
+
+    /// Resolve identities for holder addresses via Helius Wallet API batch-identity.
+    /// Returns identified holders only (unknowns filtered out).
+    /// Cost: 100 credits per call (up to 100 addresses).
+    async fn batch_identity(
+        &self,
+        addresses: &[String],
+    ) -> Vec<crate::domain::enrichment::HolderIdentity> {
+        let api_key = self.rpc_url.split("api-key=").nth(1).unwrap_or_default();
+        let url = format!("https://api.helius.xyz/v1/wallet/batch-identity?api-key={api_key}");
+        let start = std::time::Instant::now();
+
+        let batch: Vec<&str> = addresses.iter().take(20).map(|s| s.as_str()).collect();
+        let body = serde_json::json!({ "addresses": batch });
+
+        let resp = match self.client.post(&url).json(&body).send().await {
+            Ok(r) if r.status().is_success() => r,
+            Ok(r) => {
+                tracing::warn!(
+                    status = r.status().as_u16(),
+                    latency_ms = start.elapsed().as_millis(),
+                    "batch-identity HTTP error"
+                );
+                return vec![];
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "batch-identity request failed");
+                return vec![];
+            }
+        };
+
+        let items: Vec<serde_json::Value> = match resp.json().await {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(error = %e, "batch-identity deserialize failed");
+                return vec![];
+            }
+        };
+
+        self.credits
+            .record_call(start.elapsed().as_millis(), true, 100);
+
+        let mut identified = Vec::new();
+        let mut exchange_count = 0u32;
+        let mut protocol_count = 0u32;
+        let mut scammer_count = 0u32;
+        let mut unknown_count = 0u32;
+
+        for item in &items {
+            let address = item
+                .get("address")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string();
+            let name = item.get("name").and_then(|v| v.as_str()).map(String::from);
+            let category = item
+                .get("category")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let entity_type = item.get("type").and_then(|v| v.as_str()).map(String::from);
+
+            if name.is_some() {
+                let cat = category.as_deref().unwrap_or("unknown");
+                match cat {
+                    c if c.contains("Exchange") => exchange_count += 1,
+                    c if c.contains("DeFi") || c.contains("Swap") => protocol_count += 1,
+                    c if c.contains("Rugger") || c.contains("Scam") || c.contains("Exploit") => {
+                        scammer_count += 1;
+                    }
+                    _ => {}
+                }
+                identified.push(crate::domain::enrichment::HolderIdentity {
+                    address,
+                    name,
+                    category,
+                    entity_type,
+                });
+            } else {
+                unknown_count += 1;
+            }
+        }
+
+        tracing::info!(
+            total = items.len(),
+            identified = identified.len(),
+            unknown = unknown_count,
+            exchanges = exchange_count,
+            protocols = protocol_count,
+            scammers = scammer_count,
+            latency_ms = start.elapsed().as_millis(),
+            credits = 100,
+            "batch-identity resolved"
+        );
+
+        identified
+    }
 }
 
 #[async_trait]
@@ -887,6 +1187,26 @@ impl TokenEnricherPort for HeliusEnricher {
                 conc.holder_balances,
                 true,
             )
+        } else if let Some(conc) = self
+            .get_holders_via_das(mint_address, real_supply, decimals)
+            .await
+        {
+            // DAS fallback: getTokenAccounts when getTokenLargestAccounts overloaded.
+            // Less precise (unsorted sample) but provides holder data vs nothing.
+            tracing::info!(
+                mint = %mint_address,
+                holders = conc.accounts_seen,
+                "Using DAS getTokenAccounts fallback for holder concentration"
+            );
+            (
+                conc.accounts_seen,
+                conc.top1_pct,
+                conc.top10_pct,
+                Some(conc.herfindahl),
+                conc.holder_addresses,
+                conc.holder_balances,
+                true,
+            )
         } else {
             (0, 0.0, 0.0, None, vec![], vec![], false)
         };
@@ -933,6 +1253,37 @@ impl TokenEnricherPort for HeliusEnricher {
             .get_offchain_metadata(mint_address)
             .await
             .unwrap_or(None);
+
+        // Resolve token accounts to owner wallets for identity lookup.
+        // getTokenLargestAccounts returns ATA addresses, not wallet addresses.
+        // DAS fallback already returns owner addresses directly.
+        let owner_addresses = if !holder_addresses.is_empty() {
+            self.resolve_owners(&holder_addresses).await
+        } else {
+            vec![]
+        };
+
+        // Identity resolution for top holders (Helius Wallet API batch-identity).
+        // Cost: 100 credits per batch of up to 100 addresses. Timeout: 5s.
+        let holder_identities = if !owner_addresses.is_empty() {
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                self.batch_identity(&owner_addresses),
+            )
+            .await
+            {
+                Ok(ids) => ids,
+                Err(_) => {
+                    tracing::warn!(
+                        mint = %mint_address,
+                        "batch-identity timed out (5s) — proceeding without identity data"
+                    );
+                    vec![]
+                }
+            }
+        } else {
+            vec![]
+        };
 
         // Behavioral analysis (K-Score) — own timeout so basic enrichment isn't blocked.
         // 20s budget: N wallets × (resolve 1s + SWAP 4s) at ~5s/wallet × 5 wallets.
@@ -999,6 +1350,7 @@ impl TokenEnricherPort for HeliusEnricher {
             created_at: None,
             kscore,
             wallet_behaviors,
+            holder_identities,
         }))
     }
 }
@@ -1046,6 +1398,14 @@ struct PriceInfo {
 #[derive(Debug, Deserialize)]
 struct RpcResponseWithContext<T> {
     result: Option<RpcContext<T>>,
+    error: Option<RpcError>,
+}
+
+/// JSON-RPC error object returned by Solana RPC on failure.
+#[derive(Debug, Deserialize)]
+struct RpcError {
+    code: i64,
+    message: String,
 }
 
 #[derive(Debug, Deserialize)]

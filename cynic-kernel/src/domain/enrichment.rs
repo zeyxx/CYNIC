@@ -67,6 +67,22 @@ pub struct TokenData {
     pub kscore: Option<KScore>,
     /// Per-wallet behavioral breakdown (top-N holders).
     pub wallet_behaviors: Vec<WalletBehavior>,
+    /// Identity resolution for top holders (from Helius Wallet API).
+    /// Empty if identity lookup was not performed or failed.
+    pub holder_identities: Vec<HolderIdentity>,
+}
+
+/// Identity resolution result for a token holder address.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HolderIdentity {
+    /// Wallet address
+    pub address: String,
+    /// Human-readable name (e.g., "Binance 1", "Jupiter")
+    pub name: Option<String>,
+    /// Category (e.g., "Centralized Exchange", "DeFi", "Rugger")
+    pub category: Option<String>,
+    /// Account type tag
+    pub entity_type: Option<String>,
 }
 
 /// Classification of a token holder based on buy/sell behavior.
