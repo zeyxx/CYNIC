@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Headless X.com login via Playwright.
+Headless X.com login via Playwright — multi-account aware.
 
-Authenticates Chrome browser with CYNIC X credentials before behavior_logger starts.
-Uses persistent profile at ~/.cynic/organs/hermes/x/chrome-profile so cookies survive restarts.
+Authenticates Chrome browser with X credentials (from accounts.toml or env).
+Uses account-specific Chrome profile so cookies survive restarts.
 
 Usage:
-    python3 hermes_x_login.py                          # Interactive prompt if no env var
-    CYNIC_X_PASSWORD="..." python3 hermes_x_login.py   # Use env var (no prompt)
+    python3 hermes_x_login.py                                        # Uses HERMES_ACCOUNT or defaults to cynic
+    HERMES_ACCOUNT=personal python3 hermes_x_login.py               # Specific account
+    CYNIC_X_PASSWORD="..." python3 hermes_x_login.py                # Legacy env var
 
 Exit codes:
     0 - Success (authenticated)
@@ -16,7 +17,9 @@ Exit codes:
 """
 
 import sys
+import os
 import logging
+import tomllib
 from pathlib import Path
 
 logging.basicConfig(
@@ -28,7 +31,7 @@ logger = logging.getLogger("hermes-x-login")
 
 # Import get_x_credentials after adding scripts to path
 sys.path.insert(0, str(Path(__file__).parent))
-from get_x_credentials import get_x_credentials
+from get_x_credentials import get_x_credentials, load_accounts_config
 
 # Playwright import
 try:
@@ -38,7 +41,23 @@ except ImportError:
     sys.exit(2)
 
 
-CHROME_PROFILE = Path.home() / ".cynic/organs/hermes/x/chrome-profile"
+def get_chrome_profile() -> Path:
+    """Derive Chrome profile path from HERMES_ACCOUNT or accounts.toml."""
+    account_id = os.getenv("HERMES_ACCOUNT", "").strip()
+
+    if account_id:
+        accounts = load_accounts_config()
+        if "accounts" in accounts and account_id in accounts["accounts"]:
+            account = accounts["accounts"][account_id]
+            profile = account.get("profile")
+            if profile:
+                return Path(profile).expanduser()
+
+    # Fallback to default (CYNIC) profile
+    return Path.home() / ".cynic/organs/hermes/x/chrome-profiles/cynic"
+
+
+CHROME_PROFILE = get_chrome_profile()
 X_URL = "https://x.com"
 TIMEOUT_MS = 30000
 

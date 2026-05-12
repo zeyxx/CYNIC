@@ -1,39 +1,88 @@
 #!/usr/bin/env python3
 """
-Get CYNIC X.com credentials (environment variable or interactive prompt).
+Get X.com credentials from accounts.toml or environment variables.
 
-Stores encrypted password via GPG. Decrypts at runtime — credentials never
-touch plaintext disk files.
+Multi-account aware: reads HERMES_ACCOUNT env var to select account from
+~/.config/cynic/accounts.toml. Falls back to CYNIC_X_USERNAME/CYNIC_X_PASSWORD
+for backward compatibility.
 
 Usage:
     creds = get_x_credentials()  # Returns (username, password)
 
-Environment variables (take precedence):
-    CYNIC_X_USERNAME  - X account username (default: @CynicOracle)
-    CYNIC_X_PASSWORD  - X account password (in memory only, runtime only)
+Environment variables (in order of precedence):
+    HERMES_ACCOUNT        - Account ID (cynic, personal, etc.) — selects account from accounts.toml
+    CYNIC_X_USERNAME      - X account username (fallback if no accounts.toml)
+    CYNIC_X_PASSWORD      - X account password (fallback, in memory only)
 """
 
 import os
 import getpass
 import subprocess
+import tomllib
 from pathlib import Path
+
+
+def load_accounts_config() -> dict:
+    """Load accounts.toml from ~/.config/cynic/."""
+    config_path = Path.home() / ".config/cynic/accounts.toml"
+    if not config_path.exists():
+        return {}
+    try:
+        with open(config_path, "rb") as f:
+            return tomllib.load(f)
+    except Exception as e:
+        raise RuntimeError(f"Failed to load accounts.toml: {e}")
 
 
 def get_x_credentials():
     """
-    Get X credentials from environment or interactive prompt.
+    Get X credentials from accounts.toml or environment.
+
+    Priority:
+    1. HERMES_ACCOUNT → accounts.toml[accounts.HERMES_ACCOUNT]
+    2. CYNIC_X_USERNAME/CYNIC_X_PASSWORD env vars (legacy)
+    3. Interactive prompt
 
     Returns:
         tuple: (username, password)
     """
-    username = os.getenv("CYNIC_X_USERNAME", "@CynicOracle")
+    account_id = os.getenv("HERMES_ACCOUNT", "").strip()
 
-    # Check environment variable first (highest priority)
+    # Try accounts.toml first
+    if account_id:
+        accounts = load_accounts_config()
+        if "accounts" in accounts and account_id in accounts["accounts"]:
+            account = accounts["accounts"][account_id]
+            username = account.get("username", "")
+            password_env = account.get("password_env", "")
+
+            if not username:
+                raise RuntimeError(f"Account {account_id} has no username in accounts.toml")
+
+            # Get password from env var specified in config
+            password = ""
+            if password_env:
+                password = os.getenv(password_env, "")
+
+            if password:
+                return username, password
+
+            # For read-only accounts (like personal with OAuth), prompt for password
+            # or fail gracefully if no password available
+            print(f"X credentials required for {username} ({account_id})")
+            password = getpass.getpass("X.com password (leave blank for OAuth): ")  # HARDCODED_CREDS=safe-prompt
+            if password:
+                return username, password
+            # No password — may be OAuth (personal account)
+            return username, ""
+
+    # Fallback to legacy env vars
+    username = os.getenv("CYNIC_X_USERNAME", "@CynicOracle")
     password = os.getenv("CYNIC_X_PASSWORD")
     if password:
         return username, password
 
-    # Fall back to interactive prompt
+    # Interactive prompt (legacy)
     print(f"X credentials required for {username}")
     password = getpass.getpass("X.com password: ")
 

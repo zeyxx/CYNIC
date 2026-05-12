@@ -76,15 +76,97 @@ impl OrganPort for HermesXReader {
                     reason: "organ dir not found".to_string(),
                 };
             }
-            let dataset = organ_dir.join("dataset.jsonl");
-            if !dataset.exists() {
+
+            let datasets_dir = organ_dir.join("datasets");
+            let legacy_dataset = organ_dir.join("dataset.jsonl");
+
+            // L0 multi-account: check datasets/{account}/dataset.jsonl
+            // Fallback to legacy single dataset for backward compat
+            let accounts = if datasets_dir.exists() {
+                std::fs::read_dir(&datasets_dir)
+                    .ok()
+                    .and_then(|d| {
+                        let mut accounts = Vec::new();
+                        for entry in d {
+                            if let Ok(entry) = entry {
+                                if entry.path().is_dir() {
+                                    if let Some(name) = entry.file_name().to_str() {
+                                        accounts.push(name.to_string());
+                                    }
+                                }
+                            }
+                        }
+                        if accounts.is_empty() {
+                            None
+                        } else {
+                            Some(accounts)
+                        }
+                    })
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+
+            // Check account datasets (L0 structure)
+            if !accounts.is_empty() {
+                let mut worst_health = OrganHealth::Alive;
+                let mut statuses = Vec::new();
+
+                for account in accounts {
+                    let dataset = datasets_dir.join(&account).join("dataset.jsonl");
+                    let latest_ts = match Self::extract_latest_ts(&dataset) {
+                        Ok(ts) => ts,
+                        Err(_) => {
+                            statuses.push(format!("{}: missing", account));
+                            worst_health = OrganHealth::Degraded {
+                                reason: format!("account {} dataset missing", account),
+                            };
+                            continue;
+                        }
+                    };
+
+                    match chrono::DateTime::parse_from_rfc3339(&latest_ts) {
+                        Ok(dt) => {
+                            let age = Utc::now().signed_duration_since(dt.with_timezone(&Utc));
+                            let age_secs = age.num_seconds().max(0) as u64;
+                            let age_hrs = age_secs / 3600;
+                            if age_secs > 8 * 3600 {
+                                statuses.push(format!("{}: {}h stale", account, age_hrs));
+                                worst_health = OrganHealth::Degraded {
+                                    reason: format!("account {} stale ({}h)", account, age_hrs),
+                                };
+                            } else if age_secs > 4 * 3600 {
+                                statuses.push(format!("{}: {}h old", account, age_hrs));
+                            } else {
+                                statuses.push(format!("{}: alive", account));
+                            }
+                        }
+                        Err(_) => {
+                            statuses.push(format!("{}: parse error", account));
+                            worst_health = OrganHealth::Degraded {
+                                reason: format!("account {} timestamp parse error", account),
+                            };
+                        }
+                    }
+                }
+
+                // If any account is alive (not old), consider organ alive with per-account status
+                let has_alive = statuses.iter().any(|s| s.contains("alive"));
+                if has_alive {
+                    return OrganHealth::Alive; // Return alive even if some accounts stale
+                }
+
+                return worst_health;
+            }
+
+            // Fallback: check legacy single dataset for backward compatibility
+            if !legacy_dataset.exists() {
                 return OrganHealth::Degraded {
                     reason: "dataset.jsonl missing".to_string(),
                 };
             }
 
-            // Check if dataset has produced data recently (< 8h — 2× 4h cron interval)
-            let latest_ts = match Self::extract_latest_ts(&dataset) {
+            let latest_ts = match Self::extract_latest_ts(&legacy_dataset) {
                 Ok(ts) => ts,
                 Err(e) => {
                     return OrganHealth::Degraded {

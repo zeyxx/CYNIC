@@ -1,0 +1,24 @@
+[Unit]
+Description=CYNIC Hermes Browser Hub — %i account — tab registry + CDP attribution
+After=hermes-browser@%i.service
+Wants=hermes-browser@%i.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/cynic/env
+Environment=HERMES_ACCOUNT=%i
+Environment=HERMES_CDP_PORT=40769
+Environment=BROWSER_HUB_PORT=40770
+# Account-specific organ directory
+Environment=ORGAN_DIR=%h/.cynic/organs/hermes/x/datasets/%i
+WorkingDirectory=%h/Bureau/CYNIC/scripts/hermes-x
+ExecStart=%h/.cynic-venvs/hermes-x/bin/python3 core/browser_hub.py
+Restart=on-failure
+RestartSec=10
+MemoryMax=128M
+TimeoutStartSec=30
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,20 @@
+[Unit]
+Description=CYNIC Hermes X ingest — %i account — tails dataset.jsonl → POST /observe
+After=cynic-kernel.service hermes-proxy@%i.service
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/cynic/env
+Environment=HERMES_ACCOUNT=%i
+Environment=PYTHONUNBUFFERED=1
+# Account-specific dataset and organ paths
+Environment=X_DATASET_PATH=%h/.cynic/organs/hermes/x/datasets/%i/dataset.jsonl
+Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x/datasets/%i
+ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/core/x_ingest_daemon.py
+Restart=on-failure
+RestartSec=15
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Install]
+WantedBy=default.target

@@ -43,6 +43,7 @@ DATASET_PATH = Path(os.environ.get(
 SEARCH_RESULTS_LOG = Path(os.environ.get(
     "X_SEARCH_RESULTS_LOG", CAPTURE_DIR.parent / "search_results.jsonl"
 ))
+ACCOUNT_ID = os.environ.get("HERMES_ACCOUNT", "cynic")
 
 # ── Signal scoring: -5 (noise) to +7 (strong signal) ──
 
@@ -305,10 +306,12 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict, sourc
     engagement = (likes + rts + replies) / views if views > 0 else 0.0
 
     return {
+        # Account & source
+        "account_id": ACCOUNT_ID,
         # Core tweet
         "tweet_id": tweet.get("id", ""),
         "dedupe_key": hashlib.blake2b(
-            f"{tweet.get('id', '')}{tweet.get('author', '')}".encode(), digest_size=8,
+            f"{tweet.get('id', '')}{tweet.get('author', '')}{ACCOUNT_ID}".encode(), digest_size=8,
         ).hexdigest(),
         "text": text,
         "created_at": tweet.get("created_at", ""),

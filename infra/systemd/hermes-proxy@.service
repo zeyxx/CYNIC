@@ -1,0 +1,28 @@
+[Unit]
+Description=CYNIC Hermes proxy — %i account — passive X/Twitter capture (mitmdump)
+After=cynic-kernel.service hermes-browser-hub@%i.service
+Conflicts=mitmproxy.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/cynic/env
+Environment=HERMES_ACCOUNT=%i
+WorkingDirectory=%h/Bureau/CYNIC/scripts/hermes-x
+# Account-specific capture and dataset paths
+Environment=X_CAPTURE_DIR=%h/.cynic/organs/hermes/x/captures
+Environment=X_DATASET_PATH=%h/.cynic/organs/hermes/x/datasets/%i/dataset.jsonl
+# SoC: only decrypt X/Twitter traffic. All other HTTPS passes through opaque.
+ExecStart=%h/.local/bin/mitmdump \
+    -s core/x_proxy.py \
+    --listen-host 127.0.0.1 -p 8888 \
+    --set stream_large_bodies=1m \
+    --set ssl_insecure=true \
+    --set allow_hosts="(?:.*\\.)?x\\.com|(?:.*\\.)?twitter\\.com" \
+    -q
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

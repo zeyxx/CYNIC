@@ -16,8 +16,9 @@ set -euo pipefail
 CHROME="${CHROME_BIN:-/opt/google/chrome/chrome}"
 CDP_PORT="${HERMES_CDP_PORT:-40769}"
 PROXY_PORT="${HERMES_PROXY_PORT:-8888}"
+ACCOUNT="${HERMES_ACCOUNT:-cynic}"
 PROFILE_DIR="${HERMES_CHROME_PROFILE:-${HOME}/.cache/ms-playwright/mcp-chrome-cc49c36}"
-STATE_DIR="${CYNIC_ORGANS_DIR:-${HOME}/.cynic/organs}/hermes"
+STATE_DIR="${CYNIC_ORGANS_DIR:-${HOME}/.cynic/organs}/hermes/x"
 STATE_FILE="${STATE_DIR}/browser-state.json"
 START_URL="${HERMES_START_URL:-https://x.com/home}"
 
@@ -54,6 +55,7 @@ fi
 # Write state before launch
 cat > "${STATE_FILE}" <<EOF
 {
+  "account_id": "${ACCOUNT}",
   "cdp_port": ${CDP_PORT},
   "cdp_url": "ws://127.0.0.1:${CDP_PORT}",
   "proxy_port": ${PROXY_PORT},
