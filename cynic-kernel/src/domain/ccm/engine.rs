@@ -199,11 +199,23 @@ pub fn format_crystal_context(
             "CRYSTALLIZED"
         };
         let polarity = c.dominant_polarity();
+        // Polarity qualifier: tell the Dog what this pattern represents.
+        // Without this, BARK-dominant crystals bias Dogs toward universal suspicion.
+        // The qualifier reminds the Dog that this is a LEARNED PATTERN from past
+        // judgments, not ground truth — preserving epistemic humility.
+        let qualifier = match polarity {
+            "HOWL" => "high-quality pattern",
+            "WAG" => "positive-leaning pattern",
+            "GROWL" => "mixed-signal pattern",
+            "BARK" => "negative pattern (historically suspicious)",
+            _ => "pattern",
+        };
         let delimited = crate::domain::sanitize::delimit_crystal_content(c.content());
         let line = format!(
-            "- [{} {}] (certainty: {:.2}, quality: {:.2}, {} obs): {}",
+            "- [{} {} — {}] (certainty: {:.2}, quality: {:.2}, {} obs): {}",
             state_label,
             polarity,
+            qualifier,
             c.certainty(),
             c.confidence(),
             c.observations(),

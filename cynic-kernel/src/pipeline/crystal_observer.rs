@@ -184,7 +184,19 @@ pub async fn observe_crystal_for_verdict_core(
     // Normalize Q-Score: raw scores are φ-bounded (max ≈ 0.618).
     // Without normalization, no crystal can ever reach the 0.618 crystallization threshold.
     // Apply epistemic weight: disputed verdicts contribute less to crystal confidence.
-    let crystal_confidence = ((verdict.q_score.total / PHI_INV) * injection_weight).min(1.0);
+    let raw_q = verdict.q_score.total;
+    let crystal_confidence = ((raw_q / PHI_INV) * injection_weight).min(1.0);
+    // Organism audit 2026-05-12: Q-score is NOT calibrated across domains.
+    // chess p50=0.549, twitter p50=0.249 — same threshold applied to both.
+    // Log raw_q alongside normalized confidence for future domain-relative calibration.
+    tracing::debug!(
+        phase = "crystal_calibration",
+        %domain,
+        raw_q = %format!("{:.4}", raw_q),
+        normalized = %format!("{:.4}", crystal_confidence),
+        weight = %format!("{:.3}", injection_weight),
+        "crystal confidence: raw → normalized (domain-relative calibration pending)"
+    );
     let verdict_kind = match verdict.kind {
         crate::domain::dog::VerdictKind::Howl => "howl",
         crate::domain::dog::VerdictKind::Wag => "wag",
