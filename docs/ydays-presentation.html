@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ydays 2026 — CYNIC, B&C, GASdf</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --text: #e8e6e3;
+    --dim: #8a8a8a;
+    --gold: #c9a84c;
+    --blue: #4a9eff;
+    --red: #e74c3c;
+    --green: #2ecc71;
+    --orange: #ff9800;
+    --card: #141420;
+    --border: #2a2a3a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .slide {
+    display: none;
+    min-height: 100vh;
+    padding: 5vh 8vw;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .slide.active { display: flex; }
+  h1 { font-size: clamp(2rem, 5vw, 3.5rem); color: var(--gold); margin-bottom: 0.5em; font-weight: 700; }
+  h2 { font-size: clamp(1.4rem, 3vw, 2.2rem); color: var(--text); margin-bottom: 0.6em; font-weight: 600; }
+  h3 { font-size: clamp(1rem, 2vw, 1.4rem); color: var(--dim); margin-bottom: 1em; font-weight: 400; }
+  p, li { font-size: clamp(0.9rem, 1.8vw, 1.2rem); line-height: 1.7; color: var(--text); }
+  ul { list-style: none; padding-left: 0; }
+  ul li::before { content: "→ "; color: var(--gold); font-weight: bold; }
+  .quote {
+    border-left: 3px solid var(--gold);
+    padding: 0.8em 1.2em;
+    margin: 1.2em 0;
+    font-style: italic;
+    color: var(--dim);
+    font-size: clamp(1rem, 2vw, 1.3rem);
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2em; margin: 1.5em 0; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5em; margin: 1.5em 0; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5em;
+  }
+  .card h4 { color: var(--gold); font-size: 1.1em; margin-bottom: 0.5em; }
+  .card p { font-size: 0.95em; color: var(--dim); }
+  .stat { text-align: center; padding: 1em; }
+  .stat .num { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; color: var(--gold); }
+  .stat .label { font-size: 0.9em; color: var(--dim); margin-top: 0.3em; }
+  .timeline {
+    display: flex;
+    gap: 0;
+    margin: 2em 0;
+    flex-wrap: wrap;
+  }
+  .timeline .phase {
+    flex: 1;
+    min-width: 120px;
+    padding: 1em 0.8em;
+    border-bottom: 3px solid var(--border);
+    text-align: center;
+    transition: border-color 0.3s;
+  }
+  .timeline .phase.active-phase { border-bottom-color: var(--gold); }
+  .timeline .phase .date { font-size: 0.75em; color: var(--dim); }
+  .timeline .phase .name { font-size: 0.9em; color: var(--text); margin-top: 0.3em; font-weight: 600; }
+  pre {
+    background: #0d0d18;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2em;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: clamp(0.7rem, 1.3vw, 0.95rem);
+    overflow-x: auto;
+    color: var(--dim);
+    margin: 1em 0;
+    line-height: 1.6;
+  }
+  .tag {
+    display: inline-block;
+    padding: 0.2em 0.6em;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 600;
+  }
+  .tag-exchange { background: #1a3a2a; color: var(--green); }
+  .tag-defi { background: #1a2a3a; color: var(--blue); }
+  .tag-scam { background: #3a1a1a; color: var(--red); }
+  .accent { color: var(--gold); }
+  .dim { color: var(--dim); }
+  table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+  th { text-align: left; padding: 0.6em; color: var(--gold); border-bottom: 1px solid var(--border); font-size: 0.9em; }
+  td { padding: 0.6em; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+  .progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: var(--gold);
+    transition: width 0.3s;
+    z-index: 100;
+  }
+  .nav {
+    position: fixed;
+    bottom: 2vh;
+    right: 4vw;
+    font-size: 0.8em;
+    color: var(--dim);
+    z-index: 100;
+  }
+  .flow-diagram {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    flex-wrap: wrap;
+    margin: 1.5em 0;
+    justify-content: center;
+  }
+  .flow-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1em 1.2em;
+    text-align: center;
+    min-width: 140px;
+  }
+  .flow-box h5 { color: var(--gold); font-size: 0.9em; margin-bottom: 0.3em; }
+  .flow-box p { font-size: 0.8em; color: var(--dim); }
+  .flow-arrow { font-size: 1.5em; color: var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="nav" id="nav"></div>
+
+<!-- SLIDE 1: TITRE -->
+<div class="slide active" id="s1">
+  <h1>CYNIC &middot; Blitz & Chill &middot; GASdf</h1>
+  <h3>Comment une communaut&eacute; crypto est devenue un laboratoire d'infrastructure</h3>
+  <div style="margin-top: 2em;">
+    <p>T. &amp; S. &mdash; Ydays 2025-2026</p>
+    <p class="dim" style="margin-top: 1em;">30 repos &middot; 82 000 lignes &middot; 8 mois</p>
+  </div>
+</div>
+
+<!-- SLIDE 2: LE POINT DE DÉPART -->
+<div class="slide" id="s2">
+  <h2>Juillet 2025 : une communaut&eacute;, une question</h2>
+  <h3>T. &amp; S. racontent</h3>
+  <ul>
+    <li>Communaut&eacute; form&eacute;e le <span class="accent">7 juillet 2025</span> sur Solana</li>
+    <li>Septembre : premier code &mdash; un tracker de burns</li>
+    <li>On ne connaissait rien &agrave; la blockchain</li>
+  </ul>
+  <div class="quote">"On n'a pas planifi&eacute; de construire un syst&egrave;me de jugement IA.<br>On a suivi les questions, une par une."</div>
+  <div class="timeline">
+    <div class="phase active-phase"><div class="date">sept 25</div><div class="name">Observer</div></div>
+    <div class="phase"><div class="date">d&eacute;c 25</div><div class="name">Construire</div></div>
+    <div class="phase"><div class="date">jan 26</div><div class="name">Abstraire</div></div>
+    <div class="phase"><div class="date">f&eacute;v 26</div><div class="name">Juger</div></div>
+    <div class="phase"><div class="date">mars 26</div><div class="name">Souverainet&eacute;</div></div>
+    <div class="phase"><div class="date">avr-mai</div><div class="name">Organisme</div></div>
+  </div>
+</div>
+
+<!-- SLIDE 3: OBSERVER & CONSTRUIRE -->
+<div class="slide" id="s3">
+  <h2>De spectateur &agrave; b&acirc;tisseur</h2>
+  <h3>septembre &rarr; d&eacute;cembre 2025 &mdash; T. &amp; S. racontent</h3>
+  <div class="grid2">
+    <div>
+      <p><span class="accent">Septembre</span> : 1 repo. Un tracker de burns.</p>
+      <p class="dim" style="margin-top:0.5em">On apprend JavaScript, APIs, Solana RPC.</p>
+    </div>
+    <div>
+      <p><span class="accent">D&eacute;cembre</span> : <strong>explosion &mdash; 10+ repos originaux en un mois.</strong></p>
+      <p class="dim" style="margin-top:0.5em">Oracle, validator, gasless, outils communautaires...</p>
+    </div>
+  </div>
+  <table>
+    <tr><th>T. (zeyxx)</th><th>S. (ragnar-no-sleep)</th></tr>
+    <tr><td>asdf-validator, asdf-oracle, GASdf, asdf-vanity-grinder</td><td>ASDF-Ecosystem, Discord bot, HolDex-App, ASDF-Web</td></tr>
+  </table>
+  <div class="quote">Quantit&eacute; &gt; qualit&eacute;. La plupart sont morts. C'est normal &mdash; c'est l&agrave; qu'on apprend le plus vite.</div>
+</div>
+
+<!-- SLIDE 4: ABSTRAIRE & JUGER -->
+<div class="slide" id="s4">
+  <h2>La question change</h2>
+  <h3>janvier &rarr; f&eacute;vrier 2026</h3>
+  <div class="grid2">
+    <div class="card">
+      <h4>Janvier &mdash; Abstraire</h4>
+      <ul>
+        <li>solana-keychain &mdash; framework de signing</li>
+        <li>gasdf-sdk &mdash; publi&eacute; sur npm</li>
+        <li>CYNIC-legacy &mdash; 1er essai de jugement IA</li>
+      </ul>
+      <p style="margin-top:1em" class="dim">On code pour que d'autres puissent utiliser.</p>
+    </div>
+    <div class="card">
+      <h4>F&eacute;vrier &mdash; Juger</h4>
+      <ul>
+        <li><strong>CYNIC rena&icirc;t en Rust</strong> (23 f&eacute;vrier)</li>
+        <li>Plusieurs mod&egrave;les IA ind&eacute;pendants ("Dogs")</li>
+        <li>Confiance born&eacute;e &agrave; 61.8% (nombre d'or)</li>
+      </ul>
+      <p style="margin-top:1em" class="dim">JS &rarr; Rust. Scripts &rarr; Kernel. Opinion &rarr; Consensus.</p>
+    </div>
+  </div>
+  <div class="quote">"La v&eacute;rit&eacute; sort du d&eacute;saccord."</div>
+</div>
+
+<!-- SLIDE 5: CYNIC -->
+<div class="slide" id="s5">
+  <h2>CYNIC : le syst&egrave;me de jugement</h2>
+  <h3>"La confiance ne se d&eacute;cr&egrave;te pas &mdash; elle se mesure."</h3>
+  <pre>
+         Token Solana entre
+                │
+         ┌──────▼──────┐
+         │ Domain Layer │  Logique pure, z&eacute;ro I/O
+         │ (6 axiomes)  │
+         └──────┬───────┘
+                │
+    ┌───────────┼───────────┐
+    ▼           ▼           ▼
+[Dog GPU]   [Dog CPU]  [Dog D&eacute;terministe]
+ Qwen 3.5   Qwen 2.5   Heuristiques
+ RTX 4060Ti AMD APU    In-kernel &lt;1ms
+    │           │           │
+    └───────────┼───────────┘
+                │
+         ┌──────▼──────┐
+         │  Consensus   │  Trimmed-mean
+         │  &phi;-bounded  │  max 61.8%
+         └──────┬───────┘
+                ▼
+   HOWL / WAG / GROWL / BARK</pre>
+  <div class="grid3">
+    <div class="stat"><div class="num">49K</div><div class="label">lignes Rust</div></div>
+    <div class="stat"><div class="num">340+</div><div class="label">tests</div></div>
+    <div class="stat"><div class="num">20K+</div><div class="label">verdicts</div></div>
+  </div>
+</div>
+
+<!-- SLIDE 6: SOUVERAINETÉ -->
+<div class="slide" id="s6">
+  <h2>Souverainet&eacute;</h2>
+  <h3>mars 2026 &mdash; "Tout sur notre hardware"</h3>
+  <table>
+    <tr><th>Machine</th><th>Specs</th><th>R&ocirc;le</th></tr>
+    <tr><td>cynic-core</td><td>AMD APU</td><td>Kernel + Dog CPU</td></tr>
+    <tr><td>cynic-gpu</td><td>RTX 4060 Ti</td><td>Dog GPU (55 tok/s)</td></tr>
+  </table>
+  <ul style="margin-top:1.5em">
+    <li><strong>Tailscale mesh</strong> : r&eacute;seau priv&eacute; entre machines</li>
+    <li><strong>Z&eacute;ro API cloud</strong> pour l'inf&eacute;rence IA</li>
+    <li><strong>systemd</strong> : tout red&eacute;marre automatiquement</li>
+  </ul>
+  <div class="quote">Si OpenAI coupe l'acc&egrave;s demain, CYNIC continue de tourner.</div>
+</div>
+
+<!-- SLIDE 7: B&C (S.) -->
+<div class="slide" id="s7">
+  <h2>Blitz &amp; Chill</h2>
+  <h3>"The chess game you send to your friend who's never played"</h3>
+  <div class="flow-diagram">
+    <div class="flow-box"><h5>Jouer</h5><p>Partie d'&eacute;checs</p></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box"><h5>6 signaux</h5><p>Temps, agressivit&eacute;, variance...</p></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box"><h5>Archetype</h5><p>9 personnalit&eacute;s</p></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box"><h5>NFT</h5><p>Soulbound, Solana</p></div>
+  </div>
+  <p><strong>Prouver qu'on est humain par le comportement, pas par un CAPTCHA.</strong></p>
+  <div class="grid3" style="margin-top:1.5em">
+    <div class="stat"><div class="num">29K</div><div class="label">lignes TS</div></div>
+    <div class="stat"><div class="num">792+</div><div class="label">tests</div></div>
+    <div class="stat"><div class="num">9</div><div class="label">archetypes</div></div>
+  </div>
+  <p class="dim" style="margin-top:1em">Next.js 16 &middot; Socket.IO (Fly.io Paris) &middot; Stockfish WASM &middot; Metaplex Core</p>
+</div>
+
+<!-- SLIDE 8: INTÉGRATION -->
+<div class="slide" id="s8">
+  <h2>Tout se connecte</h2>
+  <h3>Trois projets, un flux de confiance</h3>
+  <div class="flow-diagram">
+    <div class="flow-box" style="border-color: var(--blue)">
+      <h5 style="color:var(--blue)">B&amp;C</h5>
+      <p>Proof-of-Humanity</p>
+      <p class="dim">"Tu es humain"</p>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box" style="border-color: var(--gold)">
+      <h5>CYNIC</h5>
+      <p>Proof-of-Intelligence</p>
+      <p class="dim">"Ce token est fiable"</p>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box" style="border-color: var(--green)">
+      <h5 style="color:var(--green)">GASdf</h5>
+      <p>Trust &rarr; Access</p>
+      <p class="dim">"Pas de SOL requis"</p>
+    </div>
+  </div>
+  <div class="grid3" style="margin-top:2em">
+    <div class="card">
+      <h4>&phi; (nombre d'or)</h4>
+      <p>Confiance born&eacute;e, ratios &eacute;conomiques, scoring &mdash; dans les 3 projets</p>
+    </div>
+    <div class="card">
+      <h4>Souverainet&eacute;</h4>
+      <p>Hardware propre, z&eacute;ro cloud, aucune d&eacute;pendance</p>
+    </div>
+    <div class="card">
+      <h4>Anti-sybil</h4>
+      <p>Chaque couche v&eacute;rifie quelque chose de diff&eacute;rent</p>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 9: DÉMO -->
+<div class="slide" id="s9">
+  <h2>D&eacute;mo live</h2>
+  <div class="grid2">
+    <div class="card">
+      <h4>1. B&amp;C &mdash; La plateforme (S.)</h4>
+      <p>blitz-and-chill-web.vercel.app</p>
+      <p class="dim" style="margin-top:0.5em">Partie contre Stockfish + profil</p>
+    </div>
+    <div class="card">
+      <h4>2. CYNIC &mdash; Jugement chess</h4>
+      <p>cynic-ui &rarr; onglet CHESS</p>
+      <p class="dim" style="margin-top:0.5em">Ruy Lopez &rarr; Wag (0.566)</p>
+    </div>
+    <div class="card" style="grid-column: span 2">
+      <h4>3. CYNIC &mdash; Token WIF (curl live)</h4>
+      <p>Enrichissement Helius + identit&eacute; des holders</p>
+      <p style="margin-top:0.8em">R&eacute;sultat : <span class="tag tag-exchange">Binance</span> <span class="tag tag-exchange">Kraken</span> <span class="tag tag-exchange">Robinhood</span> <span class="tag tag-exchange">OKX</span> <span class="tag tag-exchange">Crypto.com</span> <span class="tag tag-exchange">Bybit</span> <span class="tag tag-defi">Raydium</span></p>
+      <p class="dim" style="margin-top:0.5em">13/20 holders identifi&eacute;s &mdash; signal invisible ailleurs</p>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 10: PROBLÈMES RÉELS -->
+<div class="slide" id="s10">
+  <h2>Pourquoi tout &ccedil;a compte</h2>
+  <h3>T. &amp; S.</h3>
+  <div class="grid3">
+    <div class="card">
+      <h4>Scam tokens <span class="dim">(T.)</span></h4>
+      <p><span class="accent">50 000</span> nouveaux tokens/jour</p>
+      <p><span class="accent">98%</span> des pump.fun = rugs</p>
+      <p class="dim" style="margin-top:0.5em">CYNIC juge et donne un verdict, pas un tableau de bord.</p>
+    </div>
+    <div class="card">
+      <h4>Bots &amp; Sybil <span class="dim">(S.)</span></h4>
+      <p>1 humain = 1000 wallets</p>
+      <p>CAPTCHAs cass&eacute;s, KYC centralis&eacute;</p>
+      <p class="dim" style="margin-top:0.5em">B&amp;C prouve l'humanit&eacute; par le comportement, pas un formulaire.</p>
+    </div>
+    <div class="card">
+      <h4>D&eacute;pendance cloud <span class="dim">(T.)</span></h4>
+      <p>Si l'API coupe &rarr; syst&egrave;me mort</p>
+      <p class="dim" style="margin-top:0.5em">3 mod&egrave;les sur hardware propre, z&eacute;ro cloud.</p>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 11: CHIFFRES -->
+<div class="slide" id="s11">
+  <h2>8 mois, 2 personnes</h2>
+  <div class="grid3">
+    <div class="stat"><div class="num">82K</div><div class="label">lignes de code</div></div>
+    <div class="stat"><div class="num">1 265+</div><div class="label">tests passants</div></div>
+    <div class="stat"><div class="num">30</div><div class="label">repos originaux</div></div>
+  </div>
+  <table>
+    <tr><th></th><th>B&amp;C (S.)</th><th>CYNIC (T.)</th><th>GASdf (T.)</th></tr>
+    <tr><td>Lignes</td><td>29 475</td><td>49 204</td><td>3 568</td></tr>
+    <tr><td>Tests</td><td>792+</td><td>340+</td><td>741</td></tr>
+    <tr><td>Langage</td><td>TypeScript</td><td>Rust</td><td>JavaScript</td></tr>
+    <tr><td>D&eacute;ploy&eacute;</td><td>Vercel + Fly.io</td><td>Tailscale mesh</td><td>SDK npm</td></tr>
+  </table>
+</div>
+
+<!-- SLIDE 12: LEÇONS -->
+<div class="slide" id="s12">
+  <h2>Ce qu'on a appris</h2>
+  <ul>
+    <li><strong>Commencer par la curiosit&eacute;</strong> &mdash; un tracker de burns, pas un business plan</li>
+    <li><strong>Accepter que la plupart meurent</strong> &mdash; 10+ repos en d&eacute;cembre, la plupart abandonn&eacute;s</li>
+    <li><strong>Changer d'outil quand le probl&egrave;me l'exige</strong> &mdash; JS &rarr; Rust</li>
+    <li><strong>La souverainet&eacute; a un co&ucirc;t</strong> &mdash; maintenir son hardware &gt; payer un cloud</li>
+  </ul>
+  <h3 style="margin-top:1.5em">Ce qu'on ferait diff&eacute;remment</h3>
+  <ul>
+    <li>Moins de repos, plus de profondeur plus t&ocirc;t</li>
+    <li>Tester sur des vrais utilisateurs avant l'infrastructure</li>
+    <li>&Eacute;crire les tests avant le code</li>
+  </ul>
+</div>
+
+<!-- SLIDE 13: QUESTIONS -->
+<div class="slide" id="s13">
+  <h1>Questions ?</h1>
+  <div style="margin-top:2em">
+    <p><span class="accent">Code</span> : github.com/zeyxx &middot; github.com/ragnar-no-sleep</p>
+    <p><span class="accent">Live</span> : blitz-and-chill-web.vercel.app</p>
+    <p><span class="accent">CYNIC</span> : cynic-ui.vercel.app</p>
+  </div>
+  <p class="dim" style="margin-top:3em">La confiance ne se d&eacute;cr&egrave;te pas &mdash; elle se mesure.</p>
+</div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+let current = 0;
+const total = slides.length;
+
+function show(n) {
+  slides[current].classList.remove('active');
+  current = Math.max(0, Math.min(n, total - 1));
+  slides[current].classList.add('active');
+  document.getElementById('progress').style.width = ((current + 1) / total * 100) + '%';
+  document.getElementById('nav').textContent = (current + 1) + ' / ' + total;
+  // Highlight active timeline phase if on slide 2
+  document.querySelectorAll('.timeline .phase').forEach((p, i) => {
+    p.classList.toggle('active-phase', i <= current - 1);
+  });
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); show(current + 1); }
+  if (e.key === 'ArrowLeft' || e.key === 'Backspace') { e.preventDefault(); show(current - 1); }
+  if (e.key === 'Home') show(0);
+  if (e.key === 'End') show(total - 1);
+  if (e.key === 'f' || e.key === 'F') {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+  }
+});
+
+// Touch support
+let touchX = 0;
+document.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (dx < -50) show(current + 1);
+  if (dx > 50) show(current - 1);
+});
+
+show(0);
+</script>
+</body>
+</html>
