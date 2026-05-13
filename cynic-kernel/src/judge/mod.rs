@@ -516,6 +516,7 @@ impl Judge {
                     raw_sovereignty: scores.sovereignty,
                     abstentions: scores.abstentions,
                     reasoning: scores.reasoning,
+                    reasoning_trace: scores.reasoning_trace,
                 })
             }
             Err(e) => {

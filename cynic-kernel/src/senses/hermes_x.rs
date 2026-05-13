@@ -84,16 +84,16 @@ impl OrganPort for HermesXReader {
             // Fallback to legacy single dataset for backward compat
             let accounts = if datasets_dir.exists() {
                 std::fs::read_dir(&datasets_dir)
+                    .inspect_err(|e| tracing::warn!(error = %e, dir = %datasets_dir.display(), "failed to read datasets dir"))
                     .ok()
                     .and_then(|d| {
                         let mut accounts = Vec::new();
                         for entry in d {
-                            if let Ok(entry) = entry {
-                                if entry.path().is_dir() {
-                                    if let Some(name) = entry.file_name().to_str() {
-                                        accounts.push(name.to_string());
-                                    }
-                                }
+                            if let Ok(entry) = entry
+                                && entry.path().is_dir()
+                                && let Some(name) = entry.file_name().to_str()
+                            {
+                                accounts.push(name.to_string());
                             }
                         }
                         if accounts.is_empty() {
@@ -114,15 +114,12 @@ impl OrganPort for HermesXReader {
 
                 for account in accounts {
                     let dataset = datasets_dir.join(&account).join("dataset.jsonl");
-                    let latest_ts = match Self::extract_latest_ts(&dataset) {
-                        Ok(ts) => ts,
-                        Err(_) => {
-                            statuses.push(format!("{}: missing", account));
-                            worst_health = OrganHealth::Degraded {
-                                reason: format!("account {} dataset missing", account),
-                            };
-                            continue;
-                        }
+                    let Ok(latest_ts) = Self::extract_latest_ts(&dataset) else {
+                        statuses.push(format!("{account}: missing"));
+                        worst_health = OrganHealth::Degraded {
+                            reason: format!("account {account} dataset missing"),
+                        };
+                        continue;
                     };
 
                     match chrono::DateTime::parse_from_rfc3339(&latest_ts) {
@@ -131,20 +128,20 @@ impl OrganPort for HermesXReader {
                             let age_secs = age.num_seconds().max(0) as u64;
                             let age_hrs = age_secs / 3600;
                             if age_secs > 8 * 3600 {
-                                statuses.push(format!("{}: {}h stale", account, age_hrs));
+                                statuses.push(format!("{account}: {age_hrs}h stale"));
                                 worst_health = OrganHealth::Degraded {
-                                    reason: format!("account {} stale ({}h)", account, age_hrs),
+                                    reason: format!("account {account} stale ({age_hrs}h)"),
                                 };
                             } else if age_secs > 4 * 3600 {
-                                statuses.push(format!("{}: {}h old", account, age_hrs));
+                                statuses.push(format!("{account}: {age_hrs}h old"));
                             } else {
-                                statuses.push(format!("{}: alive", account));
+                                statuses.push(format!("{account}: alive"));
                             }
                         }
                         Err(_) => {
-                            statuses.push(format!("{}: parse error", account));
+                            statuses.push(format!("{account}: parse error"));
                             worst_health = OrganHealth::Degraded {
-                                reason: format!("account {} timestamp parse error", account),
+                                reason: format!("account {account} timestamp parse error"),
                             };
                         }
                     }

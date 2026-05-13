@@ -93,6 +93,9 @@ impl InferenceProfile {
 #[derive(Debug, Clone)]
 pub struct ChatResponse {
     pub text: String,
+    /// Raw reasoning content/Chain-of-Thought (CoT).
+    /// Extracted from `reasoning_content` (OpenAI/Qwen) or `thinking` blocks.
+    pub reasoning: Option<String>,
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
     /// Estimated thinking tokens (0 for non-thinking models/CLI backends).
@@ -131,6 +134,7 @@ pub trait ChatPort: BackendPort {
 #[derive(Debug)]
 pub struct MockChatBackend {
     pub response: String,
+    pub reasoning: Option<String>,
     pub name: String,
     pub force_error: Option<ChatError>,
 }
@@ -139,9 +143,15 @@ impl MockChatBackend {
     pub fn new(name: &str, response: &str) -> Self {
         Self {
             response: response.to_string(),
+            reasoning: None,
             name: name.to_string(),
             force_error: None,
         }
+    }
+
+    pub fn with_reasoning(mut self, reasoning: &str) -> Self {
+        self.reasoning = Some(reasoning.to_string());
+        self
     }
 }
 
@@ -174,6 +184,7 @@ impl ChatPort for MockChatBackend {
         }
         Ok(ChatResponse {
             text: self.response.clone(),
+            reasoning: self.reasoning.clone(),
             prompt_tokens: 0,
             completion_tokens: 0,
             thinking_tokens: 0,

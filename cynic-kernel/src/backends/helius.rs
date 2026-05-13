@@ -325,12 +325,23 @@ impl HeliusEnricher {
             }
         });
 
-        let resp = self.client.post(&url).json(&body).send().await.ok()?;
+        let resp = self
+            .client
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .inspect_err(|e| tracing::warn!(error = %e, "Helius request failed"))
+            .ok()?;
         if !resp.status().is_success() {
             return None;
         }
 
-        let rpc: serde_json::Value = resp.json().await.ok()?;
+        let rpc: serde_json::Value = resp
+            .json()
+            .await
+            .inspect_err(|e| tracing::warn!(error = %e, "Helius JSON parse failed"))
+            .ok()?;
         self.credits
             .record_call(start.elapsed().as_millis(), true, 10);
 

@@ -9,12 +9,28 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use crate::domain::storage::{Event, StoragePort};
+
 /// Live routing calculator — selects suitable Dogs based on recent performance.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RoutingCalculator {
     /// Domain -> Vec<DogPerformance> (Dogs sorted by latency)
     /// Refreshed every N observations or on-demand
     cache: Arc<RwLock<HashMap<String, Vec<DogPerformance>>>>,
+    /// Persistent storage for observations
+    storage: Option<Arc<dyn StoragePort>>,
+}
+
+impl std::fmt::Debug for RoutingCalculator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RoutingCalculator")
+            .field("cache", &self.cache)
+            .field(
+                "storage",
+                &self.storage.as_ref().map(|_| "Arc<dyn StoragePort>"),
+            )
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -29,16 +45,40 @@ impl RoutingCalculator {
     pub fn new() -> Self {
         Self {
             cache: Arc::new(RwLock::new(HashMap::new())),
+            storage: None,
+        }
+    }
+
+    pub fn with_storage(storage: Arc<dyn StoragePort>) -> Self {
+        Self {
+            cache: Arc::new(RwLock::new(HashMap::new())),
+            storage: Some(storage),
         }
     }
 
     /// Record a dog performance observation.
     /// Called after each dog evaluation in the judge.
     pub fn record_observation(&self, dog_id: &str, domain: &str, latency_ms: u32, success: bool) {
-        // For MVP: just store raw observations in an in-memory Vec per domain
-        // Future: persist to storage, compute stats asynchronously
-        let _ = (dog_id, domain, latency_ms, success);
-        // Placeholder for now — will implement with storage backend
+        // Persist to storage as an infrastructure event.
+        // Consumed by fleet_stats query to compute live routing.
+        if let Some(storage) = &self.storage {
+            let event = Event {
+                tool: "dog_evaluation".to_string(),
+                node: crate::api::rest::inference_router::dog_to_node(dog_id),
+                elapsed_ms: latency_ms as u64,
+                output_bytes: 0,
+                success,
+                failure_reason: if success { "none" } else { "unknown" }.to_string(),
+                agent_id: "kernel-routing".to_string(),
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                metadata: format!("dog={dog_id} domain={domain}"),
+            };
+
+            let storage = Arc::clone(storage);
+            tokio::spawn(async move {
+                let _ = storage.store_event(&event).await;
+            });
+        }
     }
 
     /// Get suitable Dogs for a domain, filtered by latency SLA.

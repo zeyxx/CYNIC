@@ -359,7 +359,7 @@ impl ChatPort for OpenAiCompatBackend {
             .map(|u| (u.prompt_tokens, u.completion_tokens))
             .unwrap_or((0, 0));
 
-        let (text, thinking_chars) = resp
+        let (text, reasoning, thinking_chars) = resp
             .choices
             .into_iter()
             .next()
@@ -392,6 +392,8 @@ impl ChatPort for OpenAiCompatBackend {
                 }
 
                 let content = c.message.content;
+                let reasoning = c.message.reasoning_content.clone();
+
                 // If content is empty but reasoning_content has JSON (thinking models like Qwen3.5),
                 // extract the JSON object from reasoning_content as fallback.
                 if content.trim().is_empty()
@@ -402,16 +404,17 @@ impl ChatPort for OpenAiCompatBackend {
                         .and_then(|r| Some((r.find('{')?, r.rfind('}')?)))
                     && let Some(r) = c.message.reasoning_content.as_deref()
                 {
-                    return (r[start..=end].to_string(), thinking_chars);
+                    return (r[start..=end].to_string(), reasoning, thinking_chars);
                 }
-                // If content has a </think> preamble (reasoning-format=none), strip it.
+                // If content has a </think> preamble (reasoning-format=none), strip it and treat as reasoning.
                 if let Some(pos) = content.find("</think>") {
+                    let pre = &content[..pos].trim_start_matches("<think>").trim();
                     let after = content[pos + 8..].trim_start();
                     if !after.is_empty() {
-                        return (after.to_string(), thinking_chars);
+                        return (after.to_string(), Some(pre.to_string()), thinking_chars);
                     }
                 }
-                (content, thinking_chars)
+                (content, reasoning, thinking_chars)
             })
             .ok_or_else(|| ChatError::Protocol(format!("{}: empty response", self.config.name)))?;
 
@@ -421,6 +424,7 @@ impl ChatPort for OpenAiCompatBackend {
 
         Ok(ChatResponse {
             text,
+            reasoning,
             prompt_tokens,
             completion_tokens,
             thinking_tokens,

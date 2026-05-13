@@ -46,6 +46,7 @@ fn test_verdict(id: &str) -> Verdict {
             raw_burn: 0.5,
             raw_sovereignty: 0.6,
             reasoning: AxiomReasoning::default(),
+            reasoning_trace: None,
             abstentions: vec![],
         }],
         timestamp: chrono::Utc::now().to_rfc3339(),

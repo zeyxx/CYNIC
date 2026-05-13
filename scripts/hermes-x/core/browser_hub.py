@@ -165,9 +165,33 @@ def create_app(registry: TabRegistry, attribution: AttributionBuffer) -> web.App
         return web.json_response({"source": source, "url": url})
 
     async def handle_extension_event(request: web.Request) -> web.Response:
-        body = await request.json()
-        logger.info("Extension event: %s", body.get("type", "unknown"))
-        return web.json_response({"ok": True})
+        # Simple CORS handling
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+        }
+        
+        if request.method == "OPTIONS":
+            return web.Response(status=200, headers=headers)
+            
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid json"}, status=400, headers=headers)
+            
+        event_type = body.get("type", "unknown")
+        logger.info("Extension event: %s", event_type)
+        
+        # Persistent logging for behavioral analysis
+        log_dir = Path(organ_dir) / "behavior"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / "engagement.jsonl"
+        
+        with open(log_file, "a") as f:
+            f.write(json.dumps(body) + "\n")
+            
+        return web.json_response({"ok": True}, headers=headers)
 
     app = web.Application()
     app.router.add_get("/status", handle_status)
@@ -177,6 +201,7 @@ def create_app(registry: TabRegistry, attribution: AttributionBuffer) -> web.App
     app.router.add_delete("/tabs/{tab_id}", handle_delete_tab)
     app.router.add_get("/attribution", handle_attribution)
     app.router.add_post("/events/extension", handle_extension_event)
+    app.router.add_options("/events/extension", handle_extension_event)
     return app
 
 

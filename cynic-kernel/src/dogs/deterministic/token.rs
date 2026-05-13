@@ -567,6 +567,7 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             burn: burn_reason,
             sovereignty: sovereignty_reason,
         },
+        reasoning_trace: None,
         abstentions: vec![], // All 6 axioms judged from on-chain data
     }
 }
