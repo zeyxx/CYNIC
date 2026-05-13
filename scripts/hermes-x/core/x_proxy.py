@@ -308,6 +308,7 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict, sourc
     return {
         # Account & source
         "account_id": ACCOUNT_ID,
+
         # Core tweet
         "tweet_id": tweet.get("id", ""),
         "dedupe_key": hashlib.blake2b(

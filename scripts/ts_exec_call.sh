@@ -10,9 +10,9 @@ COMMAND="${2:?command required}"
 TIMEOUT="${3:-30}"  # Default 30 seconds
 
 # MCP server config (stdio-based, spawned on-demand)
-# Use env override or git-root-relative path as fallback
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-MCP_PROG="${TAILSCALE_MCP:-$REPO_ROOT/../tailscale-mcp/tailscale-mcp}"
+# Use absolute path to avoid git dependency when called from kernel subprocess
+MCP_PROG="${TAILSCALE_MCP:-/home/user/Bureau/tailscale-mcp/tailscale-mcp}"
+
 
 if [[ ! -f "$MCP_PROG" ]]; then
     echo '{"error":"MCP binary not found at '"$MCP_PROG"'"}' >&2
