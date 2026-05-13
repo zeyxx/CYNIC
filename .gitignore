@@ -121,3 +121,7 @@ cynic-demo.html
 cynic-demo.mp4
 record-demo.sh
 cynic-python/lab/ccm_chaos_clusters.json
+.archive/
+demo-video/
+.cortex-session
+skills-lock.json

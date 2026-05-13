@@ -1,0 +1,874 @@
+{
+  "verdicts": {
+    "domain_kind": [
+      {
+        "avg_q": null,
+        "c": 5789,
+        "domain": "D1",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 2182,
+        "domain": "D1",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 1584,
+        "domain": "token-analysis",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 634,
+        "domain": "token-analysis",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 552,
+        "domain": "twitter",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 250,
+        "domain": null,
+        "kind": "Howl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 179,
+        "domain": "D2",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 139,
+        "domain": null,
+        "kind": "Wag",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 130,
+        "domain": "cynic-internal",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 123,
+        "domain": "D5",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 119,
+        "domain": null,
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 110,
+        "domain": null,
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 101,
+        "domain": "chess",
+        "kind": "Howl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 93,
+        "domain": "D4",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 88,
+        "domain": "D2",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 85,
+        "domain": "general",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 81,
+        "domain": "twitter",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 80,
+        "domain": "general",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 76,
+        "domain": "social-signal",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 51,
+        "domain": "token",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 51,
+        "domain": "token-analysis",
+        "kind": "Wag",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 50,
+        "domain": "general",
+        "kind": "Howl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 49,
+        "domain": "chess",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 47,
+        "domain": "chess",
+        "kind": "Wag",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 40,
+        "domain": "social-signal",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 38,
+        "domain": "trading",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 38,
+        "domain": "trading",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 28,
+        "domain": "general",
+        "kind": "Wag",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 25,
+        "domain": "D5",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 21,
+        "domain": "D3",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 20,
+        "domain": "D3",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 19,
+        "domain": "D6",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 19,
+        "domain": "trading",
+        "kind": "Wag",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 13,
+        "domain": "chess",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 10,
+        "domain": "code",
+        "kind": "Howl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 10,
+        "domain": "observation_twitter",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 8,
+        "domain": "twitter",
+        "kind": "Wag",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 7,
+        "domain": "D6",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 7,
+        "domain": "dev",
+        "kind": "Wag",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 7,
+        "domain": "social-signal",
+        "kind": "Wag",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 6,
+        "domain": "cynic-internal",
+        "kind": "Wag",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 5,
+        "domain": "D4",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 5,
+        "domain": "engineering",
+        "kind": "Howl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 5,
+        "domain": "test",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 4,
+        "domain": "D1",
+        "kind": "Wag",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 4,
+        "domain": "code",
+        "kind": "Wag",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 4,
+        "domain": "cynic-internal",
+        "kind": "Howl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 4,
+        "domain": "dev",
+        "kind": "Growl",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 4,
+        "domain": "human-social-hardware",
+        "kind": "Bark",
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "c": 4,
+        "domain": "token-analysis",
+        "kind": "Howl",
+        "std_q": 0.0
+      }
+    ],
+    "dog_stats": [],
+    "voter_dist": [
+      {
+        "c": 611,
+        "voter_count": null
+      },
+      {
+        "c": 1244,
+        "voter_count": 1
+      },
+      {
+        "c": 7723,
+        "voter_count": 2
+      },
+      {
+        "c": 3113,
+        "voter_count": 3
+      },
+      {
+        "c": 311,
+        "voter_count": 4
+      },
+      {
+        "c": 82,
+        "voter_count": 5
+      },
+      {
+        "c": 6,
+        "voter_count": 6
+      }
+    ],
+    "agreement": [
+      {
+        "agreed": 10476,
+        "contested": 0,
+        "disputed": 2614
+      }
+    ],
+    "q_by_domain": [
+      {
+        "avg_q": null,
+        "domain": "D1",
+        "max_q": null,
+        "min_q": null,
+        "n": 7975,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "token-analysis",
+        "max_q": null,
+        "min_q": null,
+        "n": 2273,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "twitter",
+        "max_q": null,
+        "min_q": null,
+        "n": 642,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "D2",
+        "max_q": null,
+        "min_q": null,
+        "n": 267,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "general",
+        "max_q": null,
+        "min_q": null,
+        "n": 243,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "chess",
+        "max_q": null,
+        "min_q": null,
+        "n": 210,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "D5",
+        "max_q": null,
+        "min_q": null,
+        "n": 148,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "cynic-internal",
+        "max_q": null,
+        "min_q": null,
+        "n": 143,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "social-signal",
+        "max_q": null,
+        "min_q": null,
+        "n": 123,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "D4",
+        "max_q": null,
+        "min_q": null,
+        "n": 98,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "trading",
+        "max_q": null,
+        "min_q": null,
+        "n": 96,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "token",
+        "max_q": null,
+        "min_q": null,
+        "n": 53,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "D3",
+        "max_q": null,
+        "min_q": null,
+        "n": 41,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "D6",
+        "max_q": null,
+        "min_q": null,
+        "n": 26,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "dev",
+        "max_q": null,
+        "min_q": null,
+        "n": 16,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "code",
+        "max_q": null,
+        "min_q": null,
+        "n": 14,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "observation_twitter",
+        "max_q": null,
+        "min_q": null,
+        "n": 10,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "test",
+        "max_q": null,
+        "min_q": null,
+        "n": 10,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "human-social-hardware",
+        "max_q": null,
+        "min_q": null,
+        "n": 7,
+        "std_q": 0.0
+      },
+      {
+        "avg_q": null,
+        "domain": "wallet-judgment",
+        "max_q": null,
+        "min_q": null,
+        "n": 7,
+        "std_q": 0.0
+      }
+    ]
+  },
+  "dog_agreement": {
+    "axiom_spreads": {},
+    "domain_agreement": {},
+    "dog_pair_agreement": {},
+    "sample_size": 2000
+  },
+  "crystals": [
+    {
+      "id": "crystal:dcac794ef076",
+      "domain": "D1",
+      "state": "canonical",
+      "observations": 807,
+      "confidence": 0.5115,
+      "certainty": 0.6605,
+      "variance_m2": 23.0826,
+      "mean_quorum": 2.08,
+      "polarity": {
+        "howl": 0,
+        "wag": 0,
+        "growl": 283,
+        "bark": 524
+      },
+      "polarity_consistency": 0.5327
+    },
+    {
+      "id": "crystal:dcac794ef076",
+      "domain": "D1",
+      "state": "canonical",
+      "observations": 807,
+      "confidence": 0.5115,
+      "certainty": 0.6605,
+      "variance_m2": 23.0826,
+      "mean_quorum": 2.08,
+      "polarity": {
+        "howl": 0,
+        "wag": 0,
+        "growl": 283,
+        "bark": 524
+      },
+      "polarity_consistency": 0.5327
+    },
+    {
+      "id": "crystal:4fbf0bc49ce2",
+      "domain": "general",
+      "state": "canonical",
+      "observations": 293,
+      "confidence": 0.2326,
+      "certainty": 0.9441,
+      "variance_m2": 0.9638,
+      "mean_quorum": 2.96,
+      "polarity": {
+        "howl": 0,
+        "wag": 5,
+        "growl": 86,
+        "bark": 202
+      },
+      "polarity_consistency": 0.5054
+    },
+    {
+      "id": "crystal:1e2ba9ff0cfc",
+      "domain": "dev",
+      "state": "crystallized",
+      "observations": 67,
+      "confidence": 0.4332,
+      "certainty": 0.694,
+      "variance_m2": 1.6215,
+      "mean_quorum": 2.51,
+      "polarity": {
+        "howl": 6,
+        "wag": 33,
+        "growl": 23,
+        "bark": 5
+      },
+      "polarity_consistency": 0.188
+    },
+    {
+      "id": "crystal:39170450ca58",
+      "domain": "general",
+      "state": "crystallized",
+      "observations": 28,
+      "confidence": 0.2529,
+      "certainty": 0.9499,
+      "variance_m2": 0.0794,
+      "mean_quorum": 2.0,
+      "polarity": {
+        "howl": 0,
+        "wag": 1,
+        "growl": 13,
+        "bark": 14
+      },
+      "polarity_consistency": 0.4072
+    }
+  ],
+  "temporal": {
+    "hourly_distribution": [
+      {
+        "c": 5697,
+        "hour": 0
+      },
+      {
+        "c": 6762,
+        "hour": 1
+      },
+      {
+        "c": 3688,
+        "hour": 2
+      },
+      {
+        "c": 3014,
+        "hour": 3
+      },
+      {
+        "c": 2932,
+        "hour": 4
+      },
+      {
+        "c": 2238,
+        "hour": 5
+      },
+      {
+        "c": 2651,
+        "hour": 6
+      },
+      {
+        "c": 3684,
+        "hour": 7
+      },
+      {
+        "c": 4813,
+        "hour": 8
+      },
+      {
+        "c": 4830,
+        "hour": 9
+      },
+      {
+        "c": 5692,
+        "hour": 10
+      },
+      {
+        "c": 4554,
+        "hour": 11
+      },
+      {
+        "c": 5296,
+        "hour": 12
+      },
+      {
+        "c": 4380,
+        "hour": 13
+      },
+      {
+        "c": 6788,
+        "hour": 14
+      },
+      {
+        "c": 5595,
+        "hour": 15
+      },
+      {
+        "c": 6482,
+        "hour": 16
+      },
+      {
+        "c": 6556,
+        "hour": 17
+      },
+      {
+        "c": 4759,
+        "hour": 18
+      },
+      {
+        "c": 5088,
+        "hour": 19
+      },
+      {
+        "c": 5887,
+        "hour": 20
+      },
+      {
+        "c": 6787,
+        "hour": 21
+      },
+      {
+        "c": 6625,
+        "hour": 22
+      },
+      {
+        "c": 5959,
+        "hour": 23
+      }
+    ],
+    "daily_verdicts": [
+      {
+        "c": 1,
+        "day": "2026-05-12"
+      },
+      {
+        "c": 198,
+        "day": "2026-05-11"
+      },
+      {
+        "c": 9,
+        "day": "2026-05-10"
+      },
+      {
+        "c": 1696,
+        "day": "2026-05-09"
+      },
+      {
+        "c": 3080,
+        "day": "2026-05-08"
+      },
+      {
+        "c": 107,
+        "day": "2026-05-07"
+      },
+      {
+        "c": 31,
+        "day": "2026-05-06"
+      },
+      {
+        "c": 16,
+        "day": "2026-05-05"
+      },
+      {
+        "c": 2018,
+        "day": "2026-05-04"
+      },
+      {
+        "c": 602,
+        "day": "2026-05-03"
+      },
+      {
+        "c": 244,
+        "day": "2026-05-02"
+      },
+      {
+        "c": 255,
+        "day": "2026-05-01"
+      },
+      {
+        "c": 941,
+        "day": "2026-04-30"
+      },
+      {
+        "c": 938,
+        "day": "2026-04-29"
+      },
+      {
+        "c": 538,
+        "day": "2026-04-28"
+      },
+      {
+        "c": 475,
+        "day": "2026-04-27"
+      },
+      {
+        "c": 107,
+        "day": "2026-04-26"
+      },
+      {
+        "c": 321,
+        "day": "2026-04-25"
+      },
+      {
+        "c": 144,
+        "day": "2026-04-24"
+      },
+      {
+        "c": 51,
+        "day": "2026-04-23"
+      },
+      {
+        "c": 35,
+        "day": "2026-04-22"
+      },
+      {
+        "c": 18,
+        "day": "2026-04-21"
+      },
+      {
+        "c": 10,
+        "day": "2026-04-20"
+      },
+      {
+        "c": 8,
+        "day": "2026-04-19"
+      },
+      {
+        "c": 23,
+        "day": "2026-04-18"
+      },
+      {
+        "c": 48,
+        "day": "2026-04-17"
+      },
+      {
+        "c": 12,
+        "day": "2026-04-16"
+      },
+      {
+        "c": 12,
+        "day": "2026-04-15"
+      },
+      {
+        "c": 6,
+        "day": "2026-04-14"
+      },
+      {
+        "c": 24,
+        "day": "2026-04-13"
+      }
+    ]
+  },
+  "meta": {
+    "elapsed_secs": 1.3
+  }
+}
