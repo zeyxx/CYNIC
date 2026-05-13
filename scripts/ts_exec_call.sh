@@ -10,8 +10,9 @@ COMMAND="${2:?command required}"
 TIMEOUT="${3:-30}"  # Default 30 seconds
 
 # MCP server config (stdio-based, spawned on-demand)
-# Use absolute path to avoid git dependency when called from kernel subprocess
-MCP_PROG="${TAILSCALE_MCP:-/home/user/Bureau/tailscale-mcp/tailscale-mcp}"
+# R1: no hardcoded paths — use env var or resolve relative to repo root
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MCP_PROG="${TAILSCALE_MCP:-${REPO_ROOT}/../tailscale-mcp/tailscale-mcp}"
 
 
 if [[ ! -f "$MCP_PROG" ]]; then
