@@ -68,7 +68,7 @@ pub const JUDGE_JOB_TTL: Duration = Duration::from_secs(300);
 pub const CRYSTAL_CHALLENGE_BATCH: u32 = 100;
 
 /// Nightshift — autonomous dev judgment loop.
-pub const NIGHTSHIFT_INTERVAL: Duration = Duration::from_secs(4 * 3600); // 4 hours
+pub const NIGHTSHIFT_INTERVAL: Duration = Duration::from_secs(3600); // 1 hour (was 4h — digestion starvation)
 /// Per-commit judgment timeout (includes all Dogs).
 pub const NIGHTSHIFT_COMMIT_TIMEOUT: Duration = Duration::from_secs(300); // 5 min
 /// Git lookback window for nightshift commit discovery.

@@ -60,10 +60,13 @@ async fn git_commits_since(lookback: &str, repo_path: &str) -> Result<Vec<GitCom
 /// Keeps temporal accumulation coherent instead of fragmenting by file extension.
 fn ccm_domain_for_observation(raw_domain: &str) -> &'static str {
     match raw_domain {
-        "session" => "session",
-        "token" => "token",
+        "session" | "session-metrics" | "temporal-meta" => "session",
+        "token" | "token-analysis" => "token",
         "chess" => "chess",
-        "rust" | "typescript" | "javascript" | "python" | "docs" | "config" | "infra" => "dev",
+        "rust" | "typescript" | "javascript" | "python" | "docs" | "config" => "dev",
+        "kernel" | "kernel-lifecycle" | "infra" | "ops" | "git" | "harness" => "ops",
+        "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "twitter" => "twitter",
+        "hermes-cycle" | "organ-health" => "hermes",
         _ => "general",
     }
 }
@@ -257,7 +260,7 @@ pub fn spawn_nightshift_loop(
                     // Skip verdict-feedback observations (tagged "compound-loop") — they are
                     // metadata about verdicts, not content to judge. Re-judging them wastes
                     // sovereign Dog slots and produces degenerate scores (K20 format mismatch).
-                    match storage.list_observations_raw(None, None, 30).await {
+                    match storage.list_observations_raw(None, None, 500).await {
                         Ok(observations) if !observations.is_empty() => {
                             let judgeable: Vec<_> = observations.iter()
                                 .filter(|o| !o.tags.contains(&"compound-loop".to_string()))

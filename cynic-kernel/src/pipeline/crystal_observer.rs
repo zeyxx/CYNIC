@@ -60,7 +60,10 @@ fn domain_specific_q_normalization(raw_q: f64, domain: &str) -> f64 {
         "token" | "token-analysis" => 0.333,
         "twitter" => 0.249,
         "dev" => 0.380,
-        _ => 0.300, // general fallback
+        "ops" => 0.300,     // kernel/infra observations — new domain, estimate
+        "session" => 0.350, // session compliance/metrics — estimate
+        "hermes" => 0.280,  // hermes organ health/cycles — estimate
+        _ => 0.300,         // general fallback
     };
     (raw_q / domain_p50).min(1.0)
 }
