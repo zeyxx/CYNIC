@@ -5,12 +5,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/home/user/Bureau/CYNIC
-Environment="CYNIC_ROOT=/home/user/Bureau/CYNIC"
+WorkingDirectory=%h/Bureau/CYNIC
+Environment="CYNIC_ROOT=%h/Bureau/CYNIC"
 
 # Run the infrastructure consumer via wrapper
-ExecStart=/home/user/Bureau/CYNIC/scripts/start-infrastructure-monitor.sh
+ExecStart=%h/Bureau/CYNIC/scripts/start-infrastructure-monitor.sh
 
 # Restart on failure with 30s backoff
 Restart=on-failure

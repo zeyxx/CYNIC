@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=/home/user/Bureau/CYNIC
+WorkingDirectory=%h/Bureau/CYNIC
 EnvironmentFile=%h/.config/cynic/env
 
 # Perception cycle: ingest session logs, kernel observations, node data
