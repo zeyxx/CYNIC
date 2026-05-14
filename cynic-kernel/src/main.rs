@@ -115,16 +115,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         node_config.compute.vram_gb
     );
 
-    // ─── RING 1: Load config (single source of truth) ─────────
-    let backends_path = dirs::config_dir()
-        .unwrap_or_else(|| {
-            klog!("[Ring 1] dirs::config_dir() unavailable — falling back to current directory");
-            std::path::PathBuf::from(".")
-        })
-        .join("cynic")
-        .join("backends.toml");
-    let storage_config = infra::config::load_storage_config(&backends_path);
-    klog!("[Ring 1] Config: {}", backends_path.display());
+    // ─── RING 1: Load unified kernel config (single source of truth) ─────────
+    let kernel_config = infra::config::KernelConfig::load(force_reprobe)
+        .map_err(|e| format!("Failed to load kernel config: {e}"))?;
+
+    let storage_config = infra::config::StorageConfig {
+        url: kernel_config.storage_url.clone(),
+        namespace: kernel_config.storage_namespace.clone(),
+        database: kernel_config.storage_database.clone(),
+    };
+
+    klog!(
+        "[Ring 1] Config: {}",
+        kernel_config.backends_toml_path.display()
+    );
     klog!(
         "[Ring 1] Storage: url={} ns={} db={}",
         storage_config.url,
@@ -176,14 +180,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // ─── RING 2: Load Backend Configs ──────────────────────────
-
-    let backend_configs = if backends_path.exists() {
-        klog!("[Ring 2] Loading backends from {}", backends_path.display());
-        infra::config::load_backends(&backends_path)
-    } else {
-        klog!("[Ring 2] No backends.toml found, using env var fallback");
-        infra::config::load_backends_from_env()
-    };
+    let backend_configs = kernel_config.backend_configs.clone();
+    klog!(
+        "[Ring 2] Loaded {} backend configs from unified kernel config",
+        backend_configs.len()
+    );
     let summarizer_backend_cfg = infra::boot::select_summarizer_backend(&backend_configs);
     if let Some(cfg) = summarizer_backend_cfg.as_ref() {
         klog!(
@@ -195,7 +196,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Self-model: load SystemContract from backends.toml — ALL declared Dogs,
     // regardless of whether their env vars resolve right now.
-    let system_contract = infra::config::load_system_contract(&backends_path);
+    let system_contract = infra::config::load_system_contract(&kernel_config.backends_toml_path);
     let expected_count = system_contract.expected_count();
     let expected_dogs = system_contract.expected_dogs().to_vec();
     let system_contract = Arc::new(std::sync::RwLock::new(system_contract));
@@ -206,9 +207,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         expected_dogs
     );
 
-    // Load Dog thresholds and error detection patterns from backends.toml.
+    // Load Dog thresholds and error detection patterns from unified kernel config.
     // These drive circuit breaker behavior, error classification, and monitoring alerts.
-    let dog_thresholds = Arc::new(infra::config::load_dog_thresholds(&backends_path));
+    let dog_thresholds = Arc::new(kernel_config.dog_thresholds.clone());
     klog!(
         "[Ring 2] Dog thresholds: circuit open={} failure_threshold={} error patterns: quota({}) transient({}) critical({})",
         dog_thresholds.circuit.open_duration_secs,
@@ -247,27 +248,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ─── RING 1: Load domain prompts (chess.md, trading.md, etc.) ──
-    // RC3: use runtime path discovery, not compile-time CARGO_MANIFEST_DIR
-    let project_root = std::env::var("CYNIC_PROJECT_ROOT")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| {
-            // Try git discovery, fall back to binary's parent dir
-            std::process::Command::new("git")
-                .args(["rev-parse", "--show-toplevel"])
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
-                .map(|s| std::path::PathBuf::from(s.trim()))
-                .unwrap_or_else(|| {
-                    let fallback =
-                        std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-                    klog!(
-                        "[Ring 1] No CYNIC_PROJECT_ROOT and git not available — using cwd: {}",
-                        fallback.display()
-                    );
-                    fallback
-                })
-        });
+    // Discovered and loaded via unified kernel config.
+    let project_root = kernel_config.project_root.clone();
+
     // Validate project_root has a .git directory — nightshift depends on this
     if !project_root.join(".git").exists() {
         tracing::error!(
@@ -275,7 +258,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "project_root has no .git/ — nightshift git log will fail silently. Set CYNIC_PROJECT_ROOT or start from repo root."
         );
     }
-    let domain_prompts = Arc::new(infra::config::load_domain_prompts(&project_root));
+    let domain_prompts = Arc::new(kernel_config.domain_prompts.clone());
 
     // ─── RING 2: Build Dogs + organ from backend_configs ──────
     // Factory loop lives in infra::boot so main stays a composition root.
@@ -472,7 +455,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ─── RING 2: Organ remediation (C4/E1 — silence → auto-restart) ──
     {
-        let organ_remediations = infra::config::load_organ_remediations(&backends_path);
+        let organ_remediations =
+            infra::config::load_organ_remediations(&kernel_config.backends_toml_path);
         if !organ_remediations.is_empty() {
             klog!(
                 "[Ring 2] Organ remediation: {} organs configured for auto-restart",
