@@ -115,6 +115,8 @@ lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, whi
 	if [ -n "$$RAW_SECRETS$$HARDCODED_CREDS" ]; then echo "FAIL Security: possible hardcoded secrets in staged changes:"; echo "$$RAW_SECRETS"; echo "$$HARDCODED_CREDS"; FAIL=1; fi; \
 	REAL_INFRA=$$(printf '%s\n' "$$ADDED" | grep -E '100\.(74|75|119)\.[0-9]{1,3}\.[0-9]{1,3}'); \
 	if [ -n "$$REAL_INFRA" ]; then echo "FAIL Security: real Tailscale IPs in staged changes:"; echo "$$REAL_INFRA"; FAIL=1; fi; \
+	BACKEND_IPS=$$(grep -E '100\.(74|75|119)\.[0-9]{1,3}\.[0-9]{1,3}' backends.toml 2>/dev/null); \
+	if [ -n "$$BACKEND_IPS" ]; then echo "FAIL Rule 12: resolved Tailscale IPs in git backends.toml (use <TAILSCALE_*> placeholders):"; echo "$$BACKEND_IPS"; FAIL=1; fi; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ All grep-enforceable rules pass"; fi; \
 	exit $$FAIL
 
