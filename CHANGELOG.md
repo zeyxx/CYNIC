@@ -2,6 +2,16 @@
 
 All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [26.5.14] — 2026-05-14
+
+### Changed
+
+- **versioning:** Switched to date-based YY.M.DD versioning scheme
+- **infra:** Replace hardcoded paths in bump-version.sh with git root relative paths (R1 compliance)
+- **hermes-x:** Replace engagement-rate auth detection with structural field checks (tweet_id + text presence)
+- **hermes-x:** Add schema change detection via labeled extraction paths and SCHEMA_MISS logging  
+- **hermes-x:** Add extraction_path field to dataset rows for pipeline observability
+
 ## [0.7.7] — 2026-05-02
 
 ### Added
