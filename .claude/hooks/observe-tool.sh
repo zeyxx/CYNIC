@@ -13,6 +13,7 @@ API_KEY="${CYNIC_API_KEY:-}"
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
 TOOL_USE_ID=$(echo "$INPUT" | jq -r '.tool_use_id // empty')
+DURATION_MS=$(echo "$INPUT" | jq -r '.duration_ms // 0')
 AGENT_ID="claude-${SESSION_ID:0:12}"
 [[ "$SESSION_ID" == "" ]] && AGENT_ID="unknown"
 
@@ -94,9 +95,10 @@ PAYLOAD=$(jq -n \
     --arg session_id "$SESSION_ID" \
     --arg tool_use_id "$TOOL_USE_ID" \
     --argjson tags "$TAGS" \
+    --argjson duration_ms "${DURATION_MS:-0}" \
     '{tool: $tool, target: $target, status: $status, context: $context,
       domain: $domain, agent_id: $agent_id, session_id: $session_id,
-      tool_use_id: $tool_use_id, tags: $tags}')
+      tool_use_id: $tool_use_id, tags: $tags, value: ($duration_ms | tostring)}')
 
 # Fire-and-forget — POST in background, ignore result
 AUTH_HEADER=""

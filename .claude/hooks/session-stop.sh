@@ -219,6 +219,19 @@ if [[ "$KERNEL_STATUS" != "down" ]] && [[ "$CURRENT_HASH" != "unknown" ]]; then
         > /dev/null 2>&1 || true
 fi
 
+# ── Session metrics: dispatch agent task for adaptive extraction ──
+# Level 1: a haiku agent reads the transcript and extracts metrics.
+# No hardcoded JSONL parser — the agent adapts to format changes.
+# K15 consumer: CCM crystallizes session quality patterns over time.
+TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
+if [[ -n "$TRANSCRIPT_PATH" ]] && [[ -f "$TRANSCRIPT_PATH" ]] && [[ "$KERNEL_STATUS" != "down" ]]; then
+    curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/agent-tasks" \
+        -H "Content-Type: application/json" \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        -d "{\"kind\":\"session-metrics\",\"domain\":\"session\",\"content\":\"Extract session metrics from transcript at ${TRANSCRIPT_PATH}. Post results to /observe with domain=session-metrics. Metrics: model routing (which models, how many turns each), token cost (input/output/cache), tool distribution, read-before-edit ratio, branch discipline, session duration. Agent: ${AGENT_ID}\",\"agent_id\":\"${AGENT_ID}\"}" \
+        > /dev/null 2>&1 || true
+fi
+
 # ── TODO staleness check (continuity: did this session update the TODO?) ──
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 TODO_FILE="${PROJECT_DIR}/TODO.md"
