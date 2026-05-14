@@ -52,6 +52,25 @@ if [[ -n "${CYNIC_REST_ADDR:-}" ]]; then
         -H "Content-Type: application/json" \
         ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
         -d "$SCOPE_PAYLOAD" > /dev/null 2>&1 &
+
+    # Phase 1 measurement: detect scope overlap and observe to mempool
+    WHO_JSON=$(curl -s -H "Authorization: Bearer ${API_KEY}" "http://${KERNEL_ADDR}/coord/who" 2>/dev/null || echo '{}')
+    OVERLAP_COUNT=$(echo "$WHO_JSON" | jq '[.agents[]? | select(.active == true) | .scope // "" | select(length > 10)] | length' 2>/dev/null || echo 0)
+    if [[ "$OVERLAP_COUNT" -ge 2 ]]; then
+        OVERLAP_LIST=$(echo "$WHO_JSON" | jq -r '.agents[]? | select(.active == true and (.scope // "" | length > 10)) | .agent_id + ": " + (.scope | .[0:50]) + "..."' | paste -sd '|' - 2>/dev/null || echo "")
+        MEAS_PAYLOAD=$(jq -n \
+            --arg tool "phase1_overlap" \
+            --arg target "coordination" \
+            --arg status "detected" \
+            --arg context "Active: $OVERLAP_COUNT agents | $OVERLAP_LIST" \
+            --arg domain "coordination" \
+            --arg agent_id "$AGENT_ID" \
+            '{tool: $tool, target: $target, status: $status, context: $context, domain: $domain, agent_id: $agent_id, tags: ["phase1-measurement"]}')
+        curl -s --max-time 2 -X POST "http://${KERNEL_ADDR}/observe" \
+            -H "Content-Type: application/json" \
+            ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+            -d "$MEAS_PAYLOAD" > /dev/null 2>&1 &
+    fi
 fi
 
 exit 0
