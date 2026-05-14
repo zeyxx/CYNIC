@@ -69,6 +69,8 @@ paths = [
     '''\.git/''',
     '''target/''',
     '''\.playwright-mcp/''',
+    # Config templates use ${VAR} placeholders (not real secrets)
+    '''\.tpl$''',
 ]
 # Domain terms containing "token" that are not secrets (LLM usage tracking)
 regexTarget = "match"
