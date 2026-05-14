@@ -148,6 +148,15 @@ pub trait StoragePort: Send + Sync {
         Ok(0)
     }
 
+    /// Get per-table operation metrics for data-centric measurement.
+    /// Returns snapshots of (table, operation, latency stats) for all queries.
+    /// K15 consumer: storage_metrics_emitter → observations → dashboards.
+    async fn get_table_op_metrics(
+        &self,
+    ) -> Result<Vec<crate::storage::TableOpMetrics>, StorageError> {
+        Ok(vec![])
+    }
+
     /// List raw observations with optional filters — used by /observations endpoint.
     async fn list_observations_raw(
         &self,

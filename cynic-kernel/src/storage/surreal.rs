@@ -498,6 +498,14 @@ impl StoragePort for SurrealHttpStorage {
             failed as u32,
         ))
     }
+
+    #[tracing::instrument(skip(self))]
+    async fn get_table_op_metrics(
+        &self,
+    ) -> Result<Vec<crate::storage::TableOpMetrics>, StorageError> {
+        // Return per-table metrics snapshot for data-centric measurement
+        Ok(self.metrics.snapshot_table_ops())
+    }
 }
 
 // ── TESTS ────────────────────────────────────────────────────

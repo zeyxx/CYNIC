@@ -1009,6 +1009,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
 
+        // ─── Storage metrics emitter (every 60s, CHAOS→MATRIX data-centric measurement) ────
+        let _storage_metrics_handle = infra::tasks::spawn_storage_metrics_emitter(
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!(
+            "[Ring 2] Storage metrics emitter started (every 60s, data-centric bottleneck detection)"
+        );
+
         // ─── Crystal immune system (every 5min, Soma L2: Background priority) ───────
         let _crystal_challenge_handle = infra::tasks::spawn_crystal_challenge_loop(
             rest_state.judge.load_full(),

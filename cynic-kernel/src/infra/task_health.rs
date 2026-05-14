@@ -181,6 +181,13 @@ const PATTERN_ANALYZER: TaskContract = TaskContract {
     consumer: "self-healing via pattern detection",
     failure_effect: "failure patterns go undetected, healing observations not emitted",
 };
+const STORAGE_METRICS: TaskContract = TaskContract {
+    name: "storage_metrics",
+    expected_interval: 120, // 60s interval + 60s grace
+    criticality: TaskCriticality::DiagnosticOnly,
+    consumer: "data-centric storage bottleneck detection",
+    failure_effect: "per-table latency metrics stop flowing, storage slowness invisible",
+};
 
 fn task_contract(name: &str) -> TaskContract {
     match name {
@@ -204,6 +211,7 @@ fn task_contract(name: &str) -> TaskContract {
         "dog_perf_flush" => DOG_PERF_FLUSH,
         "auto_remediation" => AUTO_REMEDIATION,
         "pattern_analyzer" => PATTERN_ANALYZER,
+        "storage_metrics" => STORAGE_METRICS,
         other => panic!("task contract missing for '{other}'"),
     }
 }
@@ -240,6 +248,7 @@ pub struct TaskHealth {
     auto_remediation: AtomicU64,
     pattern_analyzer: AtomicU64,
     pattern_healing_alerter: AtomicU64,
+    storage_metrics: AtomicU64,
     // Honest details — explain WHAT happened, not just WHEN
     summarizer_detail: RwLock<&'static str>,
     backfill_detail: RwLock<&'static str>,
@@ -275,6 +284,7 @@ impl TaskHealth {
             auto_remediation: AtomicU64::new(0),
             pattern_analyzer: AtomicU64::new(0),
             pattern_healing_alerter: AtomicU64::new(0),
+            storage_metrics: AtomicU64::new(0),
             summarizer_detail: RwLock::new("waiting"),
             backfill_detail: RwLock::new("scheduled"),
         }
@@ -345,6 +355,10 @@ impl TaskHealth {
     }
     pub fn touch_auto_remediation(&self) {
         self.auto_remediation
+            .store(Self::now_secs(), Ordering::Relaxed);
+    }
+    pub fn touch_storage_metrics(&self) {
+        self.storage_metrics
             .store(Self::now_secs(), Ordering::Relaxed);
     }
     pub fn touch_pattern_analyzer(&self) {
@@ -515,6 +529,12 @@ impl TaskHealth {
             TaskSnapshot::new(
                 AUTO_REMEDIATION,
                 self.auto_remediation.load(Ordering::Relaxed),
+                now,
+                None,
+            ),
+            TaskSnapshot::new(
+                STORAGE_METRICS,
+                self.storage_metrics.load(Ordering::Relaxed),
                 now,
                 None,
             ),

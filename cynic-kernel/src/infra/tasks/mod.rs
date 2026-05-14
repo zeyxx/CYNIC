@@ -28,7 +28,7 @@ pub use nightshift::spawn_nightshift_loop;
 pub use runtime_loops::{
     spawn_crystal_challenge_loop, spawn_discovery_loop, spawn_dog_heartbeat_loop,
     spawn_dog_perf_flush_loop, spawn_dog_ttl_checker, spawn_event_consumer,
-    spawn_pattern_healing_alerter, spawn_probe_scheduler,
+    spawn_pattern_healing_alerter, spawn_probe_scheduler, spawn_storage_metrics_emitter,
 };
 pub use state_log::spawn_state_log;
 pub use submission_queue::spawn_submission_queue;
