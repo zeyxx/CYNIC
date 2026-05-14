@@ -119,9 +119,7 @@ impl FleetResolver {
                     // Find the IP in the next few lines
                     let rest = content
                         .split_once(&format!("[machine.{machine_name}]"))
-                        .and_then(|(_, after)| {
-                            after.split_once("[machine.").or_else(|| Some((after, "")))
-                        })
+                        .and_then(|(_, after)| after.split_once("[machine.").or(Some((after, ""))))
                         .map(|(section, _)| section)
                         .unwrap_or("");
 
@@ -171,8 +169,8 @@ impl KernelConfigLoader {
 
     fn load(self) -> Result<KernelConfig, String> {
         // 1. Discover paths (env var > git > cwd)
-        let project_root = self.discover_project_root();
-        let config_dir = self.discover_config_dir();
+        let project_root = Self::discover_project_root();
+        let config_dir = Self::discover_config_dir();
         let backends_toml_path = config_dir.join("backends.toml");
 
         // 2. Load fleet.toml for placeholder resolution (KERNEL Phase 2)
@@ -197,15 +195,10 @@ impl KernelConfigLoader {
         let _organ_remediations = super::load_organ_remediations(backends_path_ref);
 
         // 3. Load environment variables (source 2) — override TOML values
-        let rest_addr = std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| {
-            if backends_toml_path.exists() {
-                "127.0.0.1:3030".to_string()
-            } else {
-                "127.0.0.1:3030".to_string()
-            }
-        });
+        let rest_addr =
+            std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "127.0.0.1:3030".to_string());
 
-        let (_rest_host, rest_port) = self.parse_addr(&rest_addr)?;
+        let (_rest_host, rest_port) = Self::parse_addr(&rest_addr)?;
 
         // 4. Load domain prompts (source 4: filesystem > embedded)
         let domain_prompts = super::load_domain_prompts(&project_root);
@@ -291,7 +284,7 @@ impl KernelConfigLoader {
         })
     }
 
-    fn discover_project_root(&self) -> PathBuf {
+    fn discover_project_root() -> PathBuf {
         std::env::var("CYNIC_PROJECT_ROOT")
             .map(PathBuf::from)
             .ok()
@@ -306,17 +299,17 @@ impl KernelConfigLoader {
             .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
     }
 
-    fn discover_config_dir(&self) -> PathBuf {
+    fn discover_config_dir() -> PathBuf {
         dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join("cynic")
     }
 
-    fn parse_addr(&self, addr: &str) -> Result<(String, u16), String> {
+    fn parse_addr(addr: &str) -> Result<(String, u16), String> {
         if let Some((host, port_str)) = addr.rsplit_once(':') {
             let port = port_str
                 .parse::<u16>()
-                .map_err(|_| format!("invalid port in REST_ADDR: {}", addr))?;
+                .map_err(|e| format!("invalid port in REST_ADDR: {addr}: {e}"))?;
             Ok((host.to_string(), port))
         } else {
             Ok((addr.to_string(), 3030))
@@ -330,39 +323,34 @@ mod tests {
 
     #[test]
     fn parse_addr_with_port() {
-        let loader = KernelConfigLoader::new(false);
-        let (host, port) = loader.parse_addr("127.0.0.1:3030").unwrap();
+        let (host, port) = KernelConfigLoader::parse_addr("127.0.0.1:3030").unwrap();
         assert_eq!(host, "127.0.0.1");
         assert_eq!(port, 3030);
     }
 
     #[test]
     fn parse_addr_hostname_with_port() {
-        let loader = KernelConfigLoader::new(false);
-        let (host, port) = loader.parse_addr("localhost:8080").unwrap();
+        let (host, port) = KernelConfigLoader::parse_addr("localhost:8080").unwrap();
         assert_eq!(host, "localhost");
         assert_eq!(port, 8080);
     }
 
     #[test]
     fn parse_addr_ipv6() {
-        let loader = KernelConfigLoader::new(false);
-        let (host, port) = loader.parse_addr("[::1]:3030").unwrap();
+        let (host, port) = KernelConfigLoader::parse_addr("[::1]:3030").unwrap();
         assert_eq!(host, "[::1]");
         assert_eq!(port, 3030);
     }
 
     #[test]
     fn parse_addr_no_port() {
-        let loader = KernelConfigLoader::new(false);
-        let (host, port) = loader.parse_addr("127.0.0.1").unwrap();
+        let (host, port) = KernelConfigLoader::parse_addr("127.0.0.1").unwrap();
         assert_eq!(host, "127.0.0.1");
         assert_eq!(port, 3030);
     }
 
     #[test]
     fn parse_addr_invalid_port() {
-        let loader = KernelConfigLoader::new(false);
-        assert!(loader.parse_addr("127.0.0.1:invalid").is_err());
+        assert!(KernelConfigLoader::parse_addr("127.0.0.1:invalid").is_err());
     }
 }
