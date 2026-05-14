@@ -15,7 +15,6 @@ pub mod helius_credit;
 pub mod inference;
 pub mod mail;
 pub mod metrics;
-pub mod orchestrator;
 pub mod organ;
 pub mod pattern_analysis;
 pub mod probe;
