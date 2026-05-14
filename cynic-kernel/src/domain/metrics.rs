@@ -21,6 +21,12 @@ pub struct Metrics {
     pub observation_post_failed: AtomicU64,
     pub embedding_successes_total: AtomicU64,
     pub embedding_failures_total: AtomicU64,
+    // ── Metabolism: the organism sensing its own data flow ──
+    pub observations_ingested_total: AtomicU64,
+    pub observations_dropped_total: AtomicU64,
+    pub nightshift_digested_total: AtomicU64,
+    pub nightshift_errors_total: AtomicU64,
+    pub domain_gate_skipped_total: AtomicU64,
 }
 
 impl Default for Metrics {
@@ -46,6 +52,11 @@ impl Metrics {
             observation_post_failed: AtomicU64::new(0),
             embedding_successes_total: AtomicU64::new(0),
             embedding_failures_total: AtomicU64::new(0),
+            observations_ingested_total: AtomicU64::new(0),
+            observations_dropped_total: AtomicU64::new(0),
+            nightshift_digested_total: AtomicU64::new(0),
+            nightshift_errors_total: AtomicU64::new(0),
+            domain_gate_skipped_total: AtomicU64::new(0),
         }
     }
 
@@ -94,6 +105,26 @@ impl Metrics {
     }
     pub fn inc_embed_fail(&self) {
         self.embedding_failures_total
+            .fetch_add(1, Ordering::Relaxed);
+    }
+    // ── Metabolism ──
+    pub fn inc_observation_ingested(&self) {
+        self.observations_ingested_total
+            .fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_observation_dropped(&self) {
+        self.observations_dropped_total
+            .fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn add_nightshift_digested(&self, n: u64) {
+        self.nightshift_digested_total
+            .fetch_add(n, Ordering::Relaxed);
+    }
+    pub fn add_nightshift_errors(&self, n: u64) {
+        self.nightshift_errors_total.fetch_add(n, Ordering::Relaxed);
+    }
+    pub fn inc_domain_gate_skipped(&self) {
+        self.domain_gate_skipped_total
             .fetch_add(1, Ordering::Relaxed);
     }
 
@@ -184,6 +215,68 @@ impl Metrics {
             "cynic_embedding_failures_total",
             "Failed embedding calls",
             self.embedding_failures_total.load(Ordering::Relaxed),
+        );
+
+        // ── Metabolism ──
+        prom_counter(
+            &mut out,
+            "cynic_observations_ingested_total",
+            "Observations accepted by /observe endpoint",
+            self.observations_ingested_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_observations_dropped_total",
+            "Observations dropped (503 semaphore exhaustion)",
+            self.observations_dropped_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_nightshift_digested_total",
+            "Observations judged by nightshift (Phase 2)",
+            self.nightshift_digested_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_nightshift_errors_total",
+            "Nightshift judgment failures",
+            self.nightshift_errors_total.load(Ordering::Relaxed),
+        );
+        prom_counter(
+            &mut out,
+            "cynic_domain_gate_skipped_total",
+            "Crystal observations skipped by domain gate (general domain)",
+            self.domain_gate_skipped_total.load(Ordering::Relaxed),
+        );
+
+        // Derived: digestion ratio
+        let ingested = self.observations_ingested_total.load(Ordering::Relaxed);
+        let digested = self.nightshift_digested_total.load(Ordering::Relaxed);
+        let digestion_ratio = if ingested > 0 {
+            digested as f64 / ingested as f64
+        } else {
+            0.0
+        };
+        prom_gauge(
+            &mut out,
+            "cynic_digestion_ratio",
+            "Fraction of observations digested by nightshift (digested/ingested)",
+            digestion_ratio,
+        );
+
+        // Derived: crystallization rate
+        let crystal_obs = self.crystal_observations_total.load(Ordering::Relaxed);
+        let verdicts = self.verdicts_total.load(Ordering::Relaxed);
+        let crystal_rate = if verdicts > 0 {
+            crystal_obs as f64 / verdicts as f64
+        } else {
+            0.0
+        };
+        prom_gauge(
+            &mut out,
+            "cynic_crystallization_rate",
+            "Fraction of verdicts that produced crystal observations",
+            crystal_rate,
         );
 
         // Derived: cache hit rate

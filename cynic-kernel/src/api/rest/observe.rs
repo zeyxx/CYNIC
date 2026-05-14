@@ -132,6 +132,7 @@ pub async fn observe_handler(
             });
         }
         Err(_) => {
+            state.metrics.inc_observation_dropped();
             tracing::warn!("background task limit reached, observation dropped");
             return Err((
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -142,6 +143,7 @@ pub async fn observe_handler(
         }
     }
 
+    state.metrics.inc_observation_ingested();
     Ok(Json(serde_json::json!({ "status": "observed" })))
 }
 

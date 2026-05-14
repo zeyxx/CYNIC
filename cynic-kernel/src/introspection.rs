@@ -165,6 +165,16 @@ pub async fn analyze(
         // failure rate increases, generating more alerts. See commit message.
     }
 
+    // ── Metabolism: the organism sensing its own data flow ──
+    let metabolic_state = crate::domain::metabolism::snapshot(metrics);
+    for ma in crate::domain::metabolism::diagnose(&metabolic_state) {
+        alerts.push(Alert {
+            kind: ma.kind,
+            message: ma.message,
+            severity: ma.severity,
+        });
+    }
+
     alerts
 }
 

@@ -569,6 +569,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 e
             ),
         }
+        match storage_port.count_observations().await {
+            Ok(o_count) => {
+                metrics
+                    .observations_ingested_total
+                    .store(o_count, std::sync::atomic::Ordering::Relaxed);
+                klog!(
+                    "[Ring 2] Metrics: hydrated observations_ingested_total = {}",
+                    o_count
+                );
+            }
+            Err(e) => klog!(
+                "[Ring 2] Metrics: failed to hydrate observations (counters start at 0): {}",
+                e
+            ),
+        }
     }
     // ── Probe system (proprioception) ──
     let environment: Arc<std::sync::RwLock<Option<domain::probe::EnvironmentSnapshot>>> =
@@ -1009,6 +1024,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Discovery loop started (every 60s, organism-agnostic)");
 
+        // ─── Storage metrics emitter (every 60s, CHAOS→MATRIX data-centric measurement) ────
+        let _storage_metrics_handle = infra::tasks::spawn_storage_metrics_emitter(
+            Arc::clone(&storage_port),
+            Arc::clone(&task_health),
+            shutdown.clone(),
+        );
+        klog!(
+            "[Ring 2] Storage metrics emitter started (every 60s, data-centric bottleneck detection)"
+        );
+
         // ─── Crystal immune system (every 5min, Soma L2: Background priority) ───────
         let _crystal_challenge_handle = infra::tasks::spawn_crystal_challenge_loop(
             rest_state.judge.load_full(),
@@ -1025,6 +1050,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&task_health),
             shutdown.clone(),
             project_root.display().to_string(),
+            Arc::clone(&rest_state.metrics),
         );
         klog!(
             "[Ring 3] Nightshift loop started (every 4h, git lookback {}, Soma L2 Nightshift priority)",

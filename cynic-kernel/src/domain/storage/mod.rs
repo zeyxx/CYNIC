@@ -148,6 +148,27 @@ pub trait StoragePort: Send + Sync {
         Ok(0)
     }
 
+    /// Count total observations — used to hydrate metabolic metrics on boot.
+    async fn count_observations(&self) -> Result<u64, StorageError> {
+        Ok(0)
+    }
+
+    /// Count verdicts grouped by kind (Bark/Growl/Wag/Howl) — metabolic signal.
+    async fn count_verdicts_by_kind(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u64>, StorageError> {
+        Ok(std::collections::HashMap::new())
+    }
+
+    /// Get per-table operation metrics for data-centric measurement.
+    /// Returns snapshots of (table, operation, latency stats) for all queries.
+    /// K15 consumer: storage_metrics_emitter → observations → dashboards.
+    async fn get_table_op_metrics(
+        &self,
+    ) -> Result<Vec<crate::storage::TableOpMetrics>, StorageError> {
+        Ok(vec![])
+    }
+
     /// List raw observations with optional filters — used by /observations endpoint.
     async fn list_observations_raw(
         &self,

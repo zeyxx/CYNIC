@@ -156,6 +156,19 @@ impl StoragePort for ReconnectableStorage {
     async fn count_crystal_observations(&self) -> Result<u64, StorageError> {
         self.current().count_crystal_observations().await
     }
+    async fn count_observations(&self) -> Result<u64, StorageError> {
+        self.current().count_observations().await
+    }
+    async fn get_table_op_metrics(
+        &self,
+    ) -> Result<Vec<crate::storage::TableOpMetrics>, StorageError> {
+        self.current().get_table_op_metrics().await
+    }
+    async fn count_verdicts_by_kind(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u64>, StorageError> {
+        self.current().count_verdicts_by_kind().await
+    }
     async fn list_observations_raw(
         &self,
         domain: Option<&str>,

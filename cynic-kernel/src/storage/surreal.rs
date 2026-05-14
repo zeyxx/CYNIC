@@ -326,6 +326,18 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     #[tracing::instrument(skip(self), err)]
+    async fn count_observations(&self) -> Result<u64, StorageError> {
+        maintenance::count_observations(self).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn count_verdicts_by_kind(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u64>, StorageError> {
+        maintenance::count_verdicts_by_kind(self).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
     async fn list_observations_raw(
         &self,
         domain: Option<&str>,
@@ -497,6 +509,14 @@ impl StoragePort for SurrealHttpStorage {
             confirmed as u32,
             failed as u32,
         ))
+    }
+
+    #[tracing::instrument(skip(self))]
+    async fn get_table_op_metrics(
+        &self,
+    ) -> Result<Vec<crate::storage::TableOpMetrics>, StorageError> {
+        // Return per-table metrics snapshot for data-centric measurement
+        Ok(self.metrics.snapshot_table_ops())
     }
 }
 

@@ -114,6 +114,7 @@ pub async fn observe_crystal_for_verdict_core(
     // These are noise (test probes, unclassified requests). Crystallizing them
     // contaminates all domain queries. Skip.
     if domain == "general" {
+        metrics.inc_domain_gate_skipped();
         tracing::debug!(
             phase = "crystal_gate",
             "domain='general' — crystal observation skipped (noise, not knowledge)"

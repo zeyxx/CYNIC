@@ -13,7 +13,9 @@ pub mod surreal;
 use crate::domain::storage::StorageError;
 use reqwest::Client;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
 
 /// Slow query threshold — anything above this logs a warning.
 const SLOW_QUERY_MS: u64 = 100;
@@ -30,6 +32,19 @@ pub struct SurrealHttpStorage {
     pub(crate) metrics: StorageMetrics,
 }
 
+/// Per-table operation metrics for data-centric observation.
+#[derive(Debug, Clone)]
+pub struct TableOpMetrics {
+    pub table: String,
+    pub operation: String,
+    pub count: u64,
+    pub errors: u64,
+    pub total_latency_us: u64,
+    pub slow_count: u64,
+    pub min_latency_us: u64,
+    pub max_latency_us: u64,
+}
+
 /// Atomic counters for storage observability. Zero-cost when not read.
 #[derive(Debug)]
 pub struct StorageMetrics {
@@ -38,6 +53,8 @@ pub struct StorageMetrics {
     pub total_latency_us: AtomicU64,
     pub slow_queries: AtomicU64,
     pub started_at: std::time::Instant,
+    // ── Per-table metrics for CHAOS→MATRIX data-centric measurement ──
+    pub table_op_metrics: Arc<RwLock<HashMap<String, TableOpMetrics>>>,
 }
 
 impl StorageMetrics {
@@ -48,6 +65,35 @@ impl StorageMetrics {
             total_latency_us: AtomicU64::new(0),
             slow_queries: AtomicU64::new(0),
             started_at: std::time::Instant::now(),
+            table_op_metrics: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Record per-table metrics for data-centric measurement.
+    pub(crate) fn record_table_op(&self, table: &str, op: &str, latency_us: u64, is_error: bool) {
+        let key = format!("{table}#{op}");
+        if let Ok(mut metrics) = self.table_op_metrics.write() {
+            let entry = metrics.entry(key).or_insert_with(|| TableOpMetrics {
+                table: table.to_string(),
+                operation: op.to_string(),
+                count: 0,
+                errors: 0,
+                total_latency_us: 0,
+                slow_count: 0,
+                min_latency_us: u64::MAX,
+                max_latency_us: 0,
+            });
+
+            entry.count += 1;
+            if is_error {
+                entry.errors += 1;
+            }
+            entry.total_latency_us += latency_us;
+            if latency_us > (SLOW_QUERY_MS * 1000) {
+                entry.slow_count += 1;
+            }
+            entry.min_latency_us = entry.min_latency_us.min(latency_us);
+            entry.max_latency_us = entry.max_latency_us.max(latency_us);
         }
     }
 
@@ -63,6 +109,23 @@ impl StorageMetrics {
                 .checked_div(queries)
                 .map_or(0.0, |avg| avg as f64 / 1000.0),
             uptime_secs: self.started_at.elapsed().as_secs(),
+        }
+    }
+
+    /// Snapshot of per-table metrics for observation emission.
+    /// Returns a clone of all accumulated metrics.
+    pub fn snapshot_table_ops(&self) -> Vec<TableOpMetrics> {
+        self.table_op_metrics
+            .read()
+            .ok() // K14: RwLock poisoned = degraded, return empty
+            .map(|m| m.values().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    /// Reset per-table metrics (called after emission to avoid duplication).
+    pub fn reset_table_ops(&self) {
+        if let Ok(mut m) = self.table_op_metrics.write() {
+            m.clear();
         }
     }
 }
@@ -292,8 +355,15 @@ impl SurrealHttpStorage {
             tracing::warn!(latency_ms = elapsed_ms, query = %preview, "slow query");
         }
 
-        if result.is_err() {
+        let is_err = result.is_err();
+        if is_err {
             self.metrics.errors.fetch_add(1, Ordering::Relaxed);
+        }
+
+        // Record per-table metrics for CHAOS→MATRIX measurement
+        if let Some((table, op)) = parse_sql_table_op(sql) {
+            self.metrics
+                .record_table_op(&table, &op, elapsed_us, is_err);
         }
 
         result
@@ -401,6 +471,45 @@ pub(crate) fn escape_surreal(s: &str) -> String {
 /// Clamp query limit to prevent resource exhaustion.
 pub(crate) fn safe_limit(limit: u32) -> u32 {
     limit.min(100)
+}
+
+/// Parse SQL to extract table name and operation type for per-table metrics.
+/// Returns (table, operation) or None if parsing fails.
+/// Handles: CREATE, SELECT, UPDATE, DELETE, INSERT, REMOVE, DEFINE, UPSERT
+fn parse_sql_table_op(sql: &str) -> Option<(String, String)> {
+    let normalized = sql.trim().to_uppercase();
+
+    // Extract operation keyword
+    let ops = [
+        "CREATE", "SELECT", "UPDATE", "DELETE", "INSERT", "UPSERT", "REMOVE", "DEFINE",
+    ];
+    let (operation, rest) = match ops.iter().find(|op| normalized.starts_with(*op)) {
+        Some(op) => (*op, normalized[op.len()..].trim_start().to_string()),
+        None => return None,
+    };
+    let rest = &rest;
+
+    // Extract table name (alphanumeric, underscore, backtick)
+    let mut table_chars = Vec::new();
+    let mut in_backtick = false;
+    for ch in rest.chars() {
+        if ch == '`' {
+            in_backtick = !in_backtick;
+        } else if in_backtick || ch.is_ascii_alphanumeric() || ch == '_' {
+            table_chars.push(ch);
+        } else if !ch.is_whitespace() || table_chars.is_empty() {
+            continue;
+        } else {
+            break;
+        }
+    }
+
+    let table = table_chars.iter().collect::<String>();
+    if table.is_empty() {
+        return None;
+    }
+
+    Some((table, operation.to_string()))
 }
 
 #[cfg(test)]
