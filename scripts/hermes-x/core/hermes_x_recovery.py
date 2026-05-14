@@ -83,25 +83,17 @@ def check_heartbeat() -> Optional[Dict[str, Any]]:
     """
     dataset_path_str = os.getenv("X_DATASET_PATH")
     if not dataset_path_str:
-        try:
-            from hermes_paths import DATASET
-            dataset_path_str = str(DATASET)
-        except ImportError:
-            return {"status": "critical", "failure_reason": "dataset_path_unknown"}
-
+        from hermes_paths import DATASET
+        dataset_path_str = str(DATASET)
     dataset = Path(dataset_path_str)
 
     if not dataset.exists():
         return {"status": "critical", "failure_reason": "dataset_missing"}
 
     # Stale check: not modified in last 5 min
-    try:
-        age_secs = time.time() - dataset.stat().st_mtime
-        if age_secs < 300:
-            return {"status": "ok", "failure_reason": None}
-    except OSError as e:
-        logger.warning(f"Failed to stat dataset: {e}")
-        return {"status": "degraded", "failure_reason": "dataset_stat_error"}
+    age_secs = time.time() - dataset.stat().st_mtime
+    if age_secs < 300:
+        return {"status": "ok", "failure_reason": None}
 
     # Auth failure: recent rows all have zero engagement_rate
     zero_engagement = 0
@@ -112,8 +104,7 @@ def check_heartbeat() -> Optional[Dict[str, Any]]:
             f.seek(max(0, dataset.stat().st_size - 65536))
             raw = f.read().decode("utf-8", errors="replace")
             lines = [l for l in raw.splitlines() if l.strip()][-10:]
-    except OSError as e:
-        logger.warning(f"Failed to read dataset: {e}")
+    except OSError:
         return {"status": "degraded", "failure_reason": "dataset_read_error"}
 
     for line in lines:
@@ -259,7 +250,6 @@ def layer4_alert_kernel():
             "consumer": f"human@{ACCOUNT_ID}",
             "agent_id": f"hermes-x-recovery-{ACCOUNT_ID}",
             "tags": ["recovery-failed", f"account-{ACCOUNT_ID}"],
-            "timestamp": datetime.utcnow().isoformat() + "Z",
         }
 
         url = f"{REST_ADDR}/observe"
