@@ -48,8 +48,26 @@ def _resolve(key: str, default: Path) -> Path:
     return default
 
 
+# --- Account-aware paths (L0: multi-account support) ---
+ACCOUNT_ID = os.environ.get("HERMES_ACCOUNT", "cynic")
+
+# DATASET: Per-account via X_DATASET_PATH env var (set by systemd) or symlink
+_dataset_path = os.environ.get("X_DATASET_PATH")
+if _dataset_path:
+    DATASET = Path(_dataset_path)
+else:
+    # Fallback: use symlink (backward compat)
+    DATASET = _resolve("dataset", HERMES_X_DIR / "dataset.jsonl")
+
+# CHROME_PROFILE: Account-specific profile directory
+_chrome_profile = os.environ.get("HERMES_CHROME_PROFILE")
+if _chrome_profile:
+    CHROME_PROFILE = Path(os.path.expanduser(_chrome_profile))
+else:
+    # Fallback: use account-aware default
+    CHROME_PROFILE = HERMES_X_DIR / "chrome-profiles" / ACCOUNT_ID
+
 # --- Canonical paths (match MANIFEST.json canonical_paths keys) ---
-DATASET = _resolve("dataset", HERMES_X_DIR / "dataset.jsonl")
 VERDICTS_DIR = _resolve("verdicts", HERMES_X_DIR / "verdicts")
 OBSERVATIONS_DIR = _resolve("observations", HERMES_X_DIR / "observations")
 AGENT_TASKS_DIR = _resolve("agent_tasks", HERMES_X_DIR / "agent-tasks")
@@ -68,6 +86,5 @@ TWEET_ID_INDEX = HERMES_X_DIR / "tweet_id_index.db"
 RECOVERY_LOG = HERMES_X_DIR / "recovery.log"
 STATE_DIR = HERMES_X_DIR / ".state"
 CONFIG_DIR = HERMES_X_DIR / "config"
-CHROME_PROFILE = HERMES_X_DIR / "chrome-profiles" / "cynic"
 BEHAVIOR_LOG = HERMES_DIR / "behavior" / "behavior_log.jsonl"
 CRON_REPORTS_DIR = HERMES_X_DIR / "cron_reports"

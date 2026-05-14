@@ -214,6 +214,7 @@ impl OrganPort for HermesXReader {
     }
 
     async fn snapshot(&self) -> Result<OrganSnapshot, OrganError> {
+        let organ_dir = self.organ_dir.clone();
         let dataset = self.dataset_path();
         let captures_dir = self.captures_dir();
 
@@ -222,6 +223,41 @@ impl OrganPort for HermesXReader {
             let captures_count = std::fs::read_dir(&captures_dir)
                 .map(|entries| entries.count() as i64)
                 .unwrap_or(0);
+
+            let mut metrics = Vec::new();
+
+            // Check for L0 multi-account structure
+            let datasets_dir = organ_dir.join("datasets");
+            if datasets_dir.exists() {
+                if let Ok(entries) = std::fs::read_dir(&datasets_dir) {
+                    for entry in entries {
+                        if let Ok(entry) = entry {
+                            if entry.path().is_dir() {
+                                if let Some(account_name) = entry.file_name().to_str() {
+                                    let account_dataset = entry.path().join("dataset.jsonl");
+                                    if let Ok(ts) = Self::extract_latest_ts(&account_dataset) {
+                                        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&ts) {
+                                            let age = Utc::now()
+                                                .signed_duration_since(dt.with_timezone(&Utc));
+                                            let age_secs = age.num_seconds().max(0) as u64;
+                                            // Expose per-account staleness in hours
+                                            metrics.push(Metric {
+                                                key: format!(
+                                                    "account_{}_staleness_hours",
+                                                    account_name
+                                                ),
+                                                value: MetricValue::I64((age_secs / 3600) as i64),
+                                                kind: MetricKind::Gauge,
+                                                unit: Some("hours".into()),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             // Parse dataset.jsonl — line-by-line, extract aggregate metrics
             let file = std::fs::File::open(&dataset)
@@ -275,46 +311,49 @@ impl OrganPort for HermesXReader {
                 .map(|m| m.len() as i64)
                 .unwrap_or(0);
 
+            // Add aggregate metrics
+            metrics.extend(vec![
+                Metric {
+                    key: "tweets_total".into(),
+                    value: MetricValue::I64(tweets_total),
+                    kind: MetricKind::Counter,
+                    unit: Some("count".into()),
+                },
+                Metric {
+                    key: "unique_authors".into(),
+                    value: MetricValue::I64(authors.len() as i64),
+                    kind: MetricKind::Gauge,
+                    unit: Some("count".into()),
+                },
+                Metric {
+                    key: "avg_signal_score".into(),
+                    value: MetricValue::F64((avg_signal * 100.0).round() / 100.0),
+                    kind: MetricKind::Gauge,
+                    unit: None,
+                },
+                Metric {
+                    key: "coordinated_count".into(),
+                    value: MetricValue::I64(coordinated_count),
+                    kind: MetricKind::Counter,
+                    unit: Some("count".into()),
+                },
+                Metric {
+                    key: "captures_total".into(),
+                    value: MetricValue::I64(captures_count),
+                    kind: MetricKind::Counter,
+                    unit: Some("count".into()),
+                },
+                Metric {
+                    key: "dataset_bytes".into(),
+                    value: MetricValue::I64(dataset_bytes),
+                    kind: MetricKind::Gauge,
+                    unit: Some("bytes".into()),
+                },
+            ]);
+
             Ok(OrganSnapshot {
                 taken_at: Utc::now(),
-                metrics: vec![
-                    Metric {
-                        key: "tweets_total".into(),
-                        value: MetricValue::I64(tweets_total),
-                        kind: MetricKind::Counter,
-                        unit: Some("count".into()),
-                    },
-                    Metric {
-                        key: "unique_authors".into(),
-                        value: MetricValue::I64(authors.len() as i64),
-                        kind: MetricKind::Gauge,
-                        unit: Some("count".into()),
-                    },
-                    Metric {
-                        key: "avg_signal_score".into(),
-                        value: MetricValue::F64((avg_signal * 100.0).round() / 100.0),
-                        kind: MetricKind::Gauge,
-                        unit: None,
-                    },
-                    Metric {
-                        key: "coordinated_count".into(),
-                        value: MetricValue::I64(coordinated_count),
-                        kind: MetricKind::Counter,
-                        unit: Some("count".into()),
-                    },
-                    Metric {
-                        key: "captures_total".into(),
-                        value: MetricValue::I64(captures_count),
-                        kind: MetricKind::Counter,
-                        unit: Some("count".into()),
-                    },
-                    Metric {
-                        key: "dataset_bytes".into(),
-                        value: MetricValue::I64(dataset_bytes),
-                        kind: MetricKind::Gauge,
-                        unit: Some("bytes".into()),
-                    },
-                ],
+                metrics,
             })
         })
         .await

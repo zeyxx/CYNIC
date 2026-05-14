@@ -19,6 +19,7 @@ import json
 import os
 import logging
 import re
+import tomllib
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,6 +34,19 @@ from hermes_paths import (
 )
 
 logger = logging.getLogger("x-proxy")
+
+
+def _load_account_config() -> dict:
+    """Load account configuration from accounts.toml."""
+    config_path = Path.home() / ".config" / "cynic" / "accounts.toml"
+    if not config_path.exists():
+        return {}
+    try:
+        with open(config_path, "rb") as f:
+            return tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError) as e:
+        logger.warning("Failed to load accounts.toml: %s", e)
+        return {}
 
 CAPTURE_OPS = {
     "SearchTimeline", "UserTweets", "TweetDetail",
@@ -417,8 +431,40 @@ class XProxy:
         self._dedup.load(DATASET_PATH)
         self._stats = {"captured": 0, "enriched": 0, "deduped": 0}
         self._hub_url = os.environ.get("BROWSER_HUB_URL", "http://127.0.0.1:40770")
-        logger.info("x-proxy loaded — %d existing tweets, dataset: %s, hub: %s",
-                     len(self._dedup._seen), DATASET_PATH, self._hub_url)
+
+        # Load account config for read-only enforcement
+        self._account_config = _load_account_config()
+        self._account_role = self._get_account_role()
+
+        logger.info("x-proxy loaded — %d existing tweets, dataset: %s, hub: %s, account: %s (role: %s)",
+                     len(self._dedup._seen), DATASET_PATH, self._hub_url, ACCOUNT_ID, self._account_role)
+
+    def _get_account_role(self) -> str:
+        """Get the current account's role from accounts.toml."""
+        try:
+            accounts = self._account_config.get("accounts", {})
+            account = accounts.get(ACCOUNT_ID, {})
+            return account.get("role", "primary")
+        except Exception:
+            return "primary"
+
+    def request(self, flow: http.HTTPFlow) -> None:
+        """Intercept requests; block write operations for read_only accounts."""
+        if self._account_role != "read_only":
+            return  # No enforcement for non-read_only accounts
+
+        url = flow.request.url
+        if "/i/api/graphql/" not in url:
+            return  # Not a GraphQL request
+
+        # Block POST/PUT/DELETE on GraphQL endpoint for read-only accounts
+        if flow.request.method in ("POST", "PUT", "DELETE"):
+            logger.warning("Blocked action on read-only account: %s %s", flow.request.method, url)
+            flow.response = http.Response.make(
+                403,
+                b"Forbidden: Read-only account cannot perform write operations",
+                {"Content-Type": "text/plain"},
+            )
 
     def response(self, flow: http.HTTPFlow) -> None:
         url = flow.request.url
