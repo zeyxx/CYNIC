@@ -59,6 +59,14 @@ def get_x_credentials():
             if not username:
                 raise RuntimeError(f"Account {account_id} has no username in accounts.toml")
 
+            # Enforce: username must not be a template placeholder
+            if username == "your_handle_here":
+                raise RuntimeError(
+                    f"Account {account_id} has template placeholder username ('your_handle_here').\n"
+                    f"Configure ~/.config/cynic/accounts.toml with real X.com handles.\n"
+                    f"Copy template from .hermes_ouroboros/accounts.toml.tpl and fill in your account(s)."
+                )
+
             # Get password from env var specified in config
             password = ""
             if password_env:
