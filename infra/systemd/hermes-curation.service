@@ -5,6 +5,7 @@ PartOf=hermes-curation.timer
 
 [Service]
 Type=oneshot
+EnvironmentFile=%h/.config/cynic/env
 Environment="HOME=/home/user"
 WorkingDirectory=/home/user/.cynic/organs/hermes/x
 ExecStart=/usr/bin/python3 core/curate_domain_signals.py
