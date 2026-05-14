@@ -77,53 +77,57 @@ def get_accounts_config() -> Dict[str, Any]:
 
 def check_heartbeat() -> Optional[Dict[str, Any]]:
     """
-    Fetch the latest heartbeat observation for this account.
-
-    Returns dict with keys: status, failure_reason, timestamp
-    Returns None if no heartbeat found or API error.
+    Check auth health by reading the dataset directly.
+    Mirrors x_ingest_daemon.detect_auth_failure() logic.
+    Returns dict: {status, failure_reason} or None if dataset missing.
     """
+    dataset_path_str = os.getenv("X_DATASET_PATH")
+    if not dataset_path_str:
+        try:
+            from hermes_paths import DATASET
+            dataset_path_str = str(DATASET)
+        except ImportError:
+            return {"status": "critical", "failure_reason": "dataset_path_unknown"}
+
+    dataset = Path(dataset_path_str)
+
+    if not dataset.exists():
+        return {"status": "critical", "failure_reason": "dataset_missing"}
+
+    # Stale check: not modified in last 5 min
     try:
-        import requests
+        age_secs = time.time() - dataset.stat().st_mtime
+        if age_secs < 300:
+            return {"status": "ok", "failure_reason": None}
+    except OSError as e:
+        logger.warning(f"Failed to stat dataset: {e}")
+        return {"status": "degraded", "failure_reason": "dataset_stat_error"}
 
-        headers = {}
-        if API_KEY:
-            headers["Authorization"] = f"Bearer {API_KEY}"
+    # Auth failure: recent rows all have zero engagement_rate
+    zero_engagement = 0
+    lines = []
+    try:
+        with open(dataset, "rb") as f:
+            # Read last 64KB
+            f.seek(max(0, dataset.stat().st_size - 65536))
+            raw = f.read().decode("utf-8", errors="replace")
+            lines = [l for l in raw.splitlines() if l.strip()][-10:]
+    except OSError as e:
+        logger.warning(f"Failed to read dataset: {e}")
+        return {"status": "degraded", "failure_reason": "dataset_read_error"}
 
-        # Query /observations?domain=hermes-heartbeat&tags=account:{account_id}
-        # Filter for most recent heartbeat
-        url = f"{REST_ADDR}/observations"
-        params = {
-            "domain": "hermes-heartbeat",
-            "tags": f"account:{ACCOUNT_ID}",
-        }
+    for line in lines:
+        try:
+            row = json.loads(line)
+            if row.get("engagement_rate") in (0, 0.0, None):
+                zero_engagement += 1
+        except json.JSONDecodeError:
+            continue
 
-        resp = requests.get(url, params=params, headers=headers, timeout=5)
-        if resp.status_code != 200:
-            logger.warning(f"Heartbeat API error: {resp.status_code}")
-            return None
+    if lines and zero_engagement >= len(lines) // 2:
+        return {"status": "critical", "failure_reason": "x_auth_expired"}
 
-        data = resp.json()
-        if not data or "observations" not in data:
-            return None
-
-        # Get most recent observation
-        observations = data["observations"]
-        if not observations:
-            return None
-
-        latest = observations[-1]  # Last one is most recent
-        return {
-            "status": latest.get("context", {}).get("status", "unknown"),
-            "failure_reason": latest.get("context", {}).get("failure_reason"),
-            "timestamp": latest.get("timestamp"),
-        }
-
-    except ImportError:
-        logger.error("requests library not available")
-        return None
-    except Exception as e:
-        logger.warning(f"Failed to fetch heartbeat: {e}")
-        return None
+    return {"status": "degraded", "failure_reason": "dataset_stale"}
 
 
 def layer2_retry_login() -> bool:
@@ -248,17 +252,14 @@ def layer4_alert_kernel():
 
         payload = {
             "tool": "hermes-x-recovery",
-            "domain": "hermes-x",
+            "domain": "organ-health",
             "target": ACCOUNT_ID,
-            "context": {
-                "severity": "critical",
-                "reason": "x_auth_expired",
-                "description": f"Authentication failed for account {ACCOUNT_ID}. All recovery layers exhausted. Manual intervention required.",
-                "layer2_retries": LAYER2_RETRY_COUNT,
-                "layer3_retries": LAYER3_RETRY_COUNT,
-            },
+            "status": "critical",
+            "context": f"account={ACCOUNT_ID} layer2_retries={LAYER2_RETRY_COUNT} layer3_retries={LAYER3_RETRY_COUNT} reason=x_auth_expired manual_intervention_required=true",
+            "consumer": f"human@{ACCOUNT_ID}",
+            "agent_id": f"hermes-x-recovery-{ACCOUNT_ID}",
+            "tags": ["recovery-failed", f"account-{ACCOUNT_ID}"],
             "timestamp": datetime.utcnow().isoformat() + "Z",
-            "tags": [f"account:{ACCOUNT_ID}", "recovery-failed"],
         }
 
         url = f"{REST_ADDR}/observe"

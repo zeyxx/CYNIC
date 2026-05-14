@@ -384,6 +384,8 @@ def post_heartbeat(organ_name: str, dataset: Path) -> bool:
     }
     if failure_reason:
         payload["failure_reason"] = failure_reason
+    if status == "critical":
+        payload["consumer"] = f"hermes-x-recovery@{ACCOUNT_ID}"
 
     try:
         resp = requests.post(
