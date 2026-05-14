@@ -325,8 +325,9 @@ def main():
     logger.info(f"Check interval: {CHECK_INTERVAL}s")
 
     # Validate account configuration (Phase 2a.3 — fail-fast on misconfiguration)
+    # Use interactive=False for systemd mode — no TTY available, fail cleanly if credentials missing
     try:
-        username, _ = get_x_credentials()  # Discard password; validation only
+        username, _ = get_x_credentials(interactive=False)  # Discard password; validation only
         logger.info(f"Account validation passed: {username}")
     except RuntimeError as e:
         logger.error(f"Account configuration invalid: {e}")

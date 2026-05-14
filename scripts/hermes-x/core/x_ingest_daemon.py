@@ -530,8 +530,9 @@ def main():
         sys.exit(1)
 
     # Validate account configuration (Phase 2a.3 — fail-fast on misconfiguration)
+    # Use interactive=False for systemd mode — no TTY available, fail cleanly if credentials missing
     try:
-        username, _ = get_x_credentials()  # Discard password; validation only
+        username, _ = get_x_credentials(interactive=False)  # Discard password; validation only
         logger.info("Account validation passed: %s", username)
     except RuntimeError as e:
         logger.error("Account configuration invalid: %s", e)

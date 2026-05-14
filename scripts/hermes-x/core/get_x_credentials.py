@@ -34,17 +34,24 @@ def load_accounts_config() -> dict:
         raise RuntimeError(f"Failed to load accounts.toml: {e}")
 
 
-def get_x_credentials():
+def get_x_credentials(interactive: bool = True):
     """
     Get X credentials from accounts.toml or environment.
+
+    Args:
+        interactive: If True, prompt for password when not in env. If False, fail instead.
+                     Use False for systemd services (non-interactive mode).
 
     Priority:
     1. HERMES_ACCOUNT → accounts.toml[accounts.HERMES_ACCOUNT]
     2. CYNIC_X_USERNAME/CYNIC_X_PASSWORD env vars (legacy)
-    3. Interactive prompt
+    3. Interactive prompt (only if interactive=True)
 
     Returns:
         tuple: (username, password)
+
+    Raises:
+        RuntimeError: If config is invalid or password required but not available (non-interactive)
     """
     account_id = os.getenv("HERMES_ACCOUNT", "").strip()
 
@@ -75,6 +82,14 @@ def get_x_credentials():
             if password:
                 return username, password
 
+            # Password not in env — check if we should prompt or fail
+            if not interactive:
+                # Non-interactive mode (systemd): fail instead of prompting
+                raise RuntimeError(
+                    f"Password for account {account_id} not found in environment variable {password_env}.\n"
+                    f"Set {password_env}=<password> in systemd EnvironmentFile or ~/.cynic-env"
+                )
+
             # For read-only accounts (like personal with OAuth), prompt for password
             # or fail gracefully if no password available
             print(f"X credentials required for {username} ({account_id})")
@@ -89,6 +104,13 @@ def get_x_credentials():
     password = os.getenv("CYNIC_X_PASSWORD")
     if password:
         return username, password
+
+    # Password not found — check if we should prompt or fail
+    if not interactive:
+        raise RuntimeError(
+            f"Password for {username} not found in CYNIC_X_PASSWORD environment variable.\n"
+            f"Set CYNIC_X_PASSWORD in systemd EnvironmentFile or ~/.cynic-env"
+        )
 
     # Interactive prompt (legacy)
     print(f"X credentials required for {username}")
