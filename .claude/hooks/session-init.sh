@@ -378,7 +378,19 @@ if [[ "$KERNEL_STATUS" != "down" ]]; then
         echo ""
         echo "⚠ CONCURRENT SESSIONS: ${ACTIVE_AGENTS} active cortex detected."
         echo "  Rule MC4: check /coord/who before touching shared files."
-        echo "$WHO_JSON" | jq -r '.agents[]? | select(.active == true) | "  → \(.agent_id) claiming: \(.claims // [] | join(", "))"' 2>/dev/null | head -5 || true
+        echo "$WHO_JSON" | jq -r '.agents[]? | select(.active == true) |
+            "  → " + .agent_id +
+            (if (.scope // "") != "" then " [scope: " + .scope[0:80] + "]" else "" end) +
+            (if (.intent // "") != "" then " (intent: " + .intent[0:40] + ")" else "" end)
+        ' 2>/dev/null | head -5 || true
+
+        # Scope overlap warning: if 2+ agents have non-trivial scopes, alert the human
+        SCOPE_COUNT=$(echo "$WHO_JSON" | jq '[.agents[]? | select(.active == true) | .scope // "" | select(length > 10)] | length' 2>/dev/null || echo 0)
+        if [[ "$SCOPE_COUNT" -ge 2 ]]; then
+            echo ""
+            echo "  ⚠ SCOPE WARNING: Multiple agents have active task scopes — verify tasks are distinct."
+            echo "  Check: curl -s http://${KERNEL_ADDR}/coord/who | jq '.agents[] | {agent_id, scope}'"
+        fi
     fi
 fi
 

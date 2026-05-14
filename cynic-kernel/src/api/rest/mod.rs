@@ -32,7 +32,7 @@ use tower_http::services::ServeDir;
 
 use self::coord::{
     coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
-    coord_register_handler, coord_release_handler, coord_who_handler,
+    coord_register_handler, coord_release_handler, coord_scope_handler, coord_who_handler,
 };
 use self::data::{
     audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
@@ -156,6 +156,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/claim-batch", post(coord_claim_batch_handler))
         .route("/coord/release", post(coord_release_handler))
         .route("/coord/heartbeat", post(coord_heartbeat_handler))
+        .route("/coord/scope", post(coord_scope_handler))
         .route("/coord/who", get(coord_who_handler))
         .route("/soma/request", post(soma_request_handler))
         .route("/mail/health", get(mail_health))

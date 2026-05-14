@@ -8,7 +8,7 @@ use crate::domain::coord::ClaimResult;
 use crate::domain::events::KernelEvent;
 
 use super::{
-    BatchClaimParams, ClaimParams, CynicMcp, RegisterParams, ReleaseParams, WhoParams,
+    BatchClaimParams, ClaimParams, CynicMcp, RegisterParams, ReleaseParams, ScopeParams, WhoParams,
     sanitize_error, validate_agent_id,
 };
 
@@ -278,5 +278,42 @@ impl CynicMcp {
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&summary).unwrap_or_else(|_| "{}".into()),
         )]))
+    }
+
+    #[tool(
+        name = "cynic_coord_scope",
+        description = "Update the task scope for your agent session. Call after the user's first message. Shows in /coord/who to help detect overlap between concurrent cortex."
+    )]
+    pub(crate) async fn cynic_coord_scope(
+        &self,
+        params: Parameters<ScopeParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        validate_agent_id(&Some(p.agent_id.clone()))?;
+        if p.scope.is_empty() || p.scope.chars().count() > 500 {
+            return Err(McpError::invalid_params(
+                "scope must be 1-500 characters",
+                None,
+            ));
+        }
+        self.coord
+            .scope_update(&p.agent_id, &p.scope)
+            .await
+            .map_err(|e| {
+                tracing::warn!(error = %e, "MCP scope update failed");
+                sanitize_error("Coordination")
+            })?;
+        self.audit(
+            "cynic_coord_scope",
+            &p.agent_id,
+            &serde_json::json!({ "scope": p.scope }),
+        )
+        .await;
+        Ok(CallToolResult::success(vec![Content::text(format!(
+            "Scope updated for '{}': {}",
+            p.agent_id, p.scope
+        ))]))
     }
 }

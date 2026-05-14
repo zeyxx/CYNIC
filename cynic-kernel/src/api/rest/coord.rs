@@ -53,6 +53,12 @@ pub struct CoordHeartbeatRequest {
     pub agent_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ScopeRequest {
+    pub agent_id: String,
+    pub scope: String,
+}
+
 // ── Handlers ──────────────────────────────────────────────
 
 pub async fn coord_register_handler(
@@ -303,6 +309,35 @@ pub async fn coord_heartbeat_handler(
 
     Ok(Json(serde_json::json!({
         "status": "heartbeat_accepted",
+        "agent_id": req.agent_id,
+    })))
+}
+
+pub async fn coord_scope_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ScopeRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    validate_agent_id(&req.agent_id)?;
+    if req.scope.is_empty() || req.scope.chars().count() > 500 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "scope must be 1-500 characters".into(),
+            }),
+        ));
+    }
+
+    state
+        .coord
+        .scope_update(&req.agent_id, &req.scope)
+        .await
+        .map_err(|e| {
+            tracing::warn!(error = %e, "coord scope update failed");
+            coordination_error()
+        })?;
+
+    Ok(Json(serde_json::json!({
+        "status": "scope_updated",
         "agent_id": req.agent_id,
     })))
 }

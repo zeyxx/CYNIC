@@ -489,6 +489,20 @@ Keep an agent session alive. Resets the TTL expiry timer.
 
 **Response (200):** `{ "status": "heartbeat_accepted", "agent_id": "..." }`
 
+### POST /coord/scope
+
+Update the task scope for an active agent session. Used by session-init.sh to auto-register scope from first user message. Helps detect task-level duplication in multi-cortex workflows (MC6).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `agent_id` | string (1-64) | yes | Agent updating scope |
+| `scope` | string (1-500) | yes | Task description (first user message) |
+
+**Response (200):** `{ "status": "scope_updated", "agent_id": "..." }`
+**Response (400):** `{ "error": "scope must be 1-500 characters" }`
+
+**Note:** Scope updates preserve `registered_at` (session age); they only refresh `last_seen` for heartbeat purposes.
+
 ---
 
 ## Mail

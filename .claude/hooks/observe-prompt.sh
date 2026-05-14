@@ -42,4 +42,16 @@ curl -s --max-time 2 -X POST "http://${KERNEL_ADDR}/observe" \
     ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
     -d "$PAYLOAD" > /dev/null 2>&1 &
 
+# Update coordination scope — preserves registered_at, fire-and-forget
+if [[ -n "${CYNIC_REST_ADDR:-}" ]]; then
+    SCOPE_PAYLOAD=$(jq -n \
+        --arg agent_id "$AGENT_ID" \
+        --arg scope "$PROMPT_TRUNC" \
+        '{agent_id: $agent_id, scope: $scope}')
+    curl -s --max-time 2 -X POST "http://${KERNEL_ADDR}/coord/scope" \
+        -H "Content-Type: application/json" \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        -d "$SCOPE_PAYLOAD" > /dev/null 2>&1 &
+fi
+
 exit 0
