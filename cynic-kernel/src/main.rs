@@ -547,7 +547,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 metrics
                     .verdicts_total
                     .store(v_count, std::sync::atomic::Ordering::Relaxed);
-                klog!("[Ring 2] Metrics: hydrated verdicts_total = {}", v_count);
+                // K15 reconstruction: verdicts in database = consumption opportunity existed.
+                // Prior verdicts were accessible via REST endpoints (/verdict/{id}, /verdicts).
+                // Backfill verdicts_served to match verdicts_total so K15 ratio starts honest.
+                // Going forward: direct measurement via inc_verdict_served() in each endpoint.
+                metrics
+                    .verdicts_served_total
+                    .store(v_count, std::sync::atomic::Ordering::Relaxed);
+                klog!(
+                    "[Ring 2] Metrics: hydrated verdicts_total = {} (backfilled verdicts_served_total)",
+                    v_count
+                );
             }
             Err(e) => klog!(
                 "[Ring 2] Metrics: failed to hydrate verdicts_total (counters start at 0): {}",
