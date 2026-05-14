@@ -170,3 +170,4 @@ node = "localhost"
 restart_command = "systemctl --user restart llama-server"
 max_retries = 3
 cooldown_secs = 60
+
