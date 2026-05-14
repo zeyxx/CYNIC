@@ -548,9 +548,33 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
         }
     };
 
+    // Gap 6: Validate no unresolved placeholders in backends (K15 supply-chain gate)
+    // Rejects backends.toml with <TAILSCALE_*> placeholders that fleet-gen.py didn't resolve
+    // If any backend has unresolved placeholders, that backend is skipped (fail-fast).
+
     file.backend
         .into_iter()
         .filter_map(|(name, entry)| {
+            // K15 validation: skip backends with unresolved placeholders
+            if entry.base_url.contains('<') && entry.base_url.contains('>') {
+                if entry.base_url.contains("TAILSCALE_") {
+                    tracing::error!(
+                        backend = %name,
+                        base_url = %entry.base_url,
+                        "Unresolved placeholder in backend config. \
+                         Run: scripts/config-sync.sh deploy (to substitute placeholders)"
+                    );
+                    return None;  // Skip this backend (fail-fast)
+                } else {
+                    tracing::warn!(
+                        backend = %name,
+                        base_url = %entry.base_url,
+                        "Unknown placeholder in backend URL — review manually"
+                    );
+                    return None;  // Skip this backend as well
+                }
+            }
+
             let api_key = entry.api_key_env.as_ref().and_then(|env_name| {
                 match std::env::var(env_name) {
                     Ok(val) if !val.is_empty() => Some(val),
