@@ -20,6 +20,7 @@ pub(super) struct ValidatedJudgeRequest {
     pub dogs: Option<Vec<String>>,
     pub crystals: bool,
     pub sensitivity: Option<String>,
+    pub priority: Option<String>,
 }
 
 pub(super) fn validate_judge_request(
@@ -74,6 +75,7 @@ pub(super) fn validate_judge_request(
         dogs: req.dogs,
         crystals: req.crystals,
         sensitivity: req.sensitivity,
+        priority: req.priority,
     })
 }
 
@@ -139,7 +141,11 @@ pub async fn judge_handler(
         enricher: state.enricher.as_deref(),
         domain_curations: state.domain_curations.as_ref(),
         domain_router: Some(state.domain_router.as_ref()),
-        priority: crate::domain::slot_semaphore::SlotPriority::User,
+        priority: req
+            .priority
+            .as_deref()
+            .and_then(crate::domain::slot_semaphore::SlotPriority::from_str_opt)
+            .unwrap_or(crate::domain::slot_semaphore::SlotPriority::User),
     };
     let result = crate::pipeline::run(
         req.content,

@@ -322,7 +322,10 @@ pub async fn judge_async_handler(
             enricher: enricher.as_deref(),
             domain_curations: domain_curations.as_ref(),
             domain_router: Some(domain_router.as_ref()),
-            priority: crate::domain::slot_semaphore::SlotPriority::User,
+            priority: req.priority
+                .as_deref()
+                .and_then(crate::domain::slot_semaphore::SlotPriority::from_str_opt)
+                .unwrap_or(crate::domain::slot_semaphore::SlotPriority::User),
         };
 
         let result = crate::pipeline::run(

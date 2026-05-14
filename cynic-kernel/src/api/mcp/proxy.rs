@@ -169,6 +169,7 @@ impl CynicMcpProxy {
                 "domain": p.domain,
                 "dogs": p.dogs,
                 "crystals": p.crystals,
+                "priority": p.priority,
             }),
         )
         .await

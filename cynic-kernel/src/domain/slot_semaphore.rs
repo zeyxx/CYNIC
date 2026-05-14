@@ -35,6 +35,20 @@ pub enum SlotPriority {
 }
 
 impl SlotPriority {
+    /// Parse from string (API input). Case-insensitive.
+    /// Returns `None` for unrecognized values — caller decides the default.
+    pub fn from_str_opt(s: &str) -> Option<Self> {
+        match s.to_ascii_lowercase().as_str() {
+            "user" => Some(Self::User),
+            "hermes" => Some(Self::Hermes),
+            "nightshift" => Some(Self::Nightshift),
+            "background" => Some(Self::Background),
+            _ => None,
+        }
+    }
+}
+
+impl SlotPriority {
     /// Whether this priority waits for a slot (true) or skips on contention (false).
     pub fn is_blocking(&self) -> bool {
         matches!(self, SlotPriority::User | SlotPriority::Hermes)
@@ -435,5 +449,74 @@ mod tests {
         })
         .await
         .expect("must not deadlock");
+    }
+
+    // from_str_opt: case-insensitive string → SlotPriority.
+    #[test]
+    fn from_str_opt_valid_values() {
+        assert_eq!(SlotPriority::from_str_opt("user"), Some(SlotPriority::User));
+        assert_eq!(SlotPriority::from_str_opt("User"), Some(SlotPriority::User));
+        assert_eq!(SlotPriority::from_str_opt("USER"), Some(SlotPriority::User));
+        assert_eq!(
+            SlotPriority::from_str_opt("hermes"),
+            Some(SlotPriority::Hermes)
+        );
+        assert_eq!(
+            SlotPriority::from_str_opt("nightshift"),
+            Some(SlotPriority::Nightshift)
+        );
+        assert_eq!(
+            SlotPriority::from_str_opt("background"),
+            Some(SlotPriority::Background)
+        );
+    }
+
+    #[test]
+    fn from_str_opt_rejects_unknown() {
+        assert_eq!(SlotPriority::from_str_opt("admin"), None);
+        assert_eq!(SlotPriority::from_str_opt(""), None);
+        assert_eq!(SlotPriority::from_str_opt("high"), None);
+    }
+
+    // F6 — TODO falsification: 2 concurrent consumers, both complete, no starvation.
+    // Simulates User + Hermes hitting a single-slot Dog simultaneously.
+    // User blocks 30s, Hermes blocks 15s. First caller holds slot briefly,
+    // second caller must acquire after release — both complete.
+    #[tokio::test]
+    async fn f6_two_concurrent_consumers_no_starvation() {
+        let sem = Arc::new(SlotSemaphore::new("single-slot-dog", 1));
+
+        let sem_user = Arc::clone(&sem);
+        let user_handle = tokio::spawn(async move {
+            let permit = sem_user.acquire(SlotPriority::User).await;
+            assert!(permit.is_some(), "User must acquire slot");
+            // Simulate inference work
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            drop(permit);
+            true
+        });
+
+        // Small delay so User grabs first (deterministic ordering)
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let sem_hermes = Arc::clone(&sem);
+        let hermes_handle = tokio::spawn(async move {
+            let permit = sem_hermes.acquire(SlotPriority::Hermes).await;
+            assert!(
+                permit.is_some(),
+                "Hermes must acquire slot after User releases"
+            );
+            drop(permit);
+            true
+        });
+
+        let (user_ok, hermes_ok) = tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::join!(user_handle, hermes_handle)
+        })
+        .await
+        .expect("must complete within 5s");
+
+        assert!(user_ok.unwrap(), "User consumer completed");
+        assert!(hermes_ok.unwrap(), "Hermes consumer completed");
     }
 }
