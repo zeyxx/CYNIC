@@ -65,10 +65,11 @@ Phase 2 expansion: BURN audit completed, external projects organized, SSOT enfor
 **Thème :** La fondation est mécaniquement vérifiée. Sécurité assurée. StoragePort
 prouvé agnostique. Workflow aligné. Les organes ont des contrats testés.
 
-**Réalité actuelle (2026-05-02) :** 340+ tests. 43/90 findings fixed.
+**Réalité actuelle (2026-05-14) :** 340+ tests. 43/90 findings fixed.
 28 méthodes StoragePort. InMemory adapter passes all 13 contract tests.
-Cargo.toml = 0.7.7, tag = v0.7.7 (8a874d53). `make check` green (build + test + clippy + 4 lint gates + audit).
+Cargo.toml = 26.5.14 (date-based YY.M.DD versioning), tag = v0.7.7 (8a874d53). `make check` green (build + test + clippy + 4 lint gates + audit).
 SSOT gate added: VERSION.md/CHANGELOG.md must sync with Cargo.toml on release.
+Hermes-X robust parsing pipeline: engagement detection fixed, schema drift observable.
 
 | Gate | Vérification | État |
 |------|-------------|------|

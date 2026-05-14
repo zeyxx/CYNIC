@@ -215,6 +215,26 @@ cargo build
 ```
 Remove explicit exports once a session confirms build succeeds without them.
 
+## Versioning — Date-Based
+
+CYNIC uses **YY.M.DD** versioning (semver-compatible date format):
+- **Cargo.toml `version`** — Always reflects deployment date (e.g., `26.5.14` = 2026-05-14)
+- **Git tags** — `prod-YY-MM-DD` (e.g., `prod-26-05-14`, `prod-26-05-14-phase1`)
+- **Bump on merge** — When merging Phase N to main, run `scripts/bump-version.sh`
+
+**Workflow:**
+```bash
+scripts/bump-version.sh
+# Updates cynic-kernel/Cargo.toml to today's date, creates git tag prod-YY-MM-DD
+```
+
+**Why date-based?**
+- Ops clarity: version = deployment date (no ambiguity about when kernel went live)
+- Measurement-aligned: 2-week Phase cycles fit date granularity
+- No semver debate: MAJOR.MINOR.PATCH deferred until architecture stabilizes
+- Falsifiable: if Phase 2 blocks 2+ months, versioning needs revision
+- Semver compatible: YY.M.DD is valid per spec (MAJOR.MINOR.PATCH integers, no leading zeros)
+
 ---
 
 ## Sources

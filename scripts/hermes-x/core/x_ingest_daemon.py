@@ -274,10 +274,11 @@ _heartbeat_errors = 0
 
 
 def detect_auth_failure(dataset: Path, rows_to_check: int = 10) -> bool:
-    """Detect auth failure if recent tweets lack engagement data.
+    """Detect extraction failure if recent tweets lack structural data.
 
     X.com returns auth error page when session expires → proxy can't parse tweets.
-    Symptom: tweets with zero engagement_rate (missing field or zero value).
+    Symptom: tweets with empty tweet_id or text (not low engagement_rate).
+    (Engagement is data quality, not health. Low engagement on fresh tweets is normal.)
     """
     if not dataset.exists():
         return False
@@ -297,19 +298,18 @@ def detect_auth_failure(dataset: Path, rows_to_check: int = 10) -> bool:
         if not lines:
             return False
 
-        # Check if recent tweets have engagement_rate
-        zero_engagement = 0
+        # Check if recent tweets have valid identity fields
+        zero_identity = 0
         for line in lines:
             try:
                 row = json.loads(line)
-                engagement = row.get("engagement_rate")
-                if engagement is None or engagement == 0:
-                    zero_engagement += 1
+                if not row.get("tweet_id") or not row.get("text"):
+                    zero_identity += 1
             except json.JSONDecodeError:
                 continue
 
-        # If >50% of recent tweets lack engagement, suspect auth failure
-        return zero_engagement >= len(lines) // 2
+        # If >50% of recent tweets lack identity, suspect extraction/auth failure
+        return zero_identity >= len(lines) // 2
     except Exception as e:
         logger.warning("detect_auth_failure error: %s", e)
         return False

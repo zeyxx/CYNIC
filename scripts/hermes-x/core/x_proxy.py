@@ -182,21 +182,24 @@ def _coordination(tweets: list[dict]) -> dict[str, int]:
 
 # ── Tweet extraction from GraphQL responses ──
 
-def _extract_tweets(data: dict) -> list[dict]:
+# Labelled extraction paths for schema observability
+EXTRACTION_PATHS = [
+    # (label, path_keys)
+    ("tweetdetail_v2",   ["data", "threaded_conversation_with_injections_v2", "instructions"]),  # New TweetDetail endpoint (April 2026+)
+    ("user_timeline_v2", ["data", "user", "result", "timeline", "timeline", "instructions"]),     # Updated UserTweets (timeline_v2 removed)
+    ("search_v1",        ["data", "search_by_raw_query", "search_timeline", "timeline", "instructions"]),  # Old search path
+    ("user_timeline_v1", ["data", "user", "result", "timeline_v2", "timeline", "instructions"]),  # Old user path
+    ("home_timeline",    ["data", "home", "home_timeline_urt", "instructions"]),                  # Old home path
+    ("list_timeline",    ["data", "list", "tweets_timeline", "timeline", "instructions"]),       # Old list path
+]
+
+def _extract_tweets(data: dict) -> tuple[list[dict], str]:
+    """Extract tweets from GraphQL response, return (tweets, path_label)."""
     resp = data.get("response", data)
-    for path in [
-        # New TweetDetail endpoint (April 2026+)
-        ["data", "threaded_conversation_with_injections_v2", "instructions"],
-        # Updated UserTweets (timeline_v2 removed, nested timeline added)
-        ["data", "user", "result", "timeline", "timeline", "instructions"],
-        # Old paths (fallback)
-        ["data", "search_by_raw_query", "search_timeline", "timeline", "instructions"],
-        ["data", "user", "result", "timeline_v2", "timeline", "instructions"],
-        ["data", "home", "home_timeline_urt", "instructions"],
-        ["data", "list", "tweets_timeline", "timeline", "instructions"],
-    ]:
+
+    for path_label, path_keys in EXTRACTION_PATHS:
         node = resp
-        for key in path:
+        for key in path_keys:
             node = node.get(key, {}) if isinstance(node, dict) else {}
         if isinstance(node, list) and node:
             tweets = []
@@ -207,8 +210,14 @@ def _extract_tweets(data: dict) -> list[dict]:
                     t = _parse_entry(entry)
                     if t:
                         tweets.append(t)
-            return tweets
-    return []
+            return tweets, path_label
+
+    # No path matched — log schema change signal
+    data_keys = list(resp.get("data", {}).keys()) if isinstance(resp.get("data"), dict) else []
+    if data_keys:
+        logger.warning("SCHEMA_MISS: no extraction path matched. data.keys=%s", data_keys[:8])
+
+    return [], "schema_miss"
 
 
 def _parse_entry(entry: dict) -> dict | None:
@@ -304,7 +313,7 @@ def _parse_result(result: dict) -> dict | None:
 
 # ── Enrichment: raw tweet → dataset row ──
 
-def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict, source: str = "unknown") -> dict:
+def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict, source: str = "unknown", extraction_path: str = "unknown") -> dict:
     text = tweet.get("text", "")
     norm = re.sub(r"\s+", " ", text.strip().lower())
     coord_count = coord_map.get(norm, 0) if len(norm) > 30 else 0
@@ -384,6 +393,7 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict, sourc
         "coordination_count": coord_count,
         "sampling_bias": "proxy-passive",
         "source": source,
+        "extraction_path": extraction_path,
     }
 
 
@@ -496,14 +506,14 @@ class XProxy:
         self._stats["captured"] += 1
 
         # Extract + enrich
-        raw_tweets = _extract_tweets(data)
+        raw_tweets, extraction_path = _extract_tweets(data)
         if not raw_tweets:
             return
 
         coord_map = _coordination(raw_tweets)
         new = []
         for t in raw_tweets:
-            enriched = _enrich(t, op_name, variables, coord_map, source)
+            enriched = _enrich(t, op_name, variables, coord_map, source, extraction_path)
             if self._dedup.is_new(enriched["dedupe_key"]):
                 new.append(enriched)
             else:

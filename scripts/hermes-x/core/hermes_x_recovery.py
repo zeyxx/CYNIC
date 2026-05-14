@@ -95,8 +95,10 @@ def check_heartbeat() -> Optional[Dict[str, Any]]:
     if age_secs < 300:
         return {"status": "ok", "failure_reason": None}
 
-    # Auth failure: recent rows all have zero engagement_rate
-    zero_engagement = 0
+    # Extraction quality: recent rows must have valid tweet_id and text
+    # (NOT engagement_rate — low engagement is normal for fresh tweets, not a health signal)
+    # Real auth failure = X returns error page → no tweet_legacy object → empty tweet_id/text
+    zero_identity = 0
     lines = []
     try:
         with open(dataset, "rb") as f:
@@ -110,13 +112,13 @@ def check_heartbeat() -> Optional[Dict[str, Any]]:
     for line in lines:
         try:
             row = json.loads(line)
-            if row.get("engagement_rate") in (0, 0.0, None):
-                zero_engagement += 1
+            if not row.get("tweet_id") or not row.get("text"):
+                zero_identity += 1
         except json.JSONDecodeError:
             continue
 
-    if lines and zero_engagement >= len(lines) // 2:
-        return {"status": "critical", "failure_reason": "x_auth_expired"}
+    if lines and zero_identity >= len(lines) // 2:
+        return {"status": "critical", "failure_reason": "x_extraction_broken"}
 
     return {"status": "degraded", "failure_reason": "dataset_stale"}
 
