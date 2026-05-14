@@ -51,6 +51,7 @@ check:
 	@$(MAKE) --no-print-directory lint-drift
 	@$(MAKE) --no-print-directory lint-subprocess-env
 	@$(MAKE) --no-print-directory lint-security
+	@$(MAKE) --no-print-directory lint-python-tiers
 	@echo ""; echo "▶ Security audit (cargo audit)..."
 	cargo audit --deny warnings
 	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
