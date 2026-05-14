@@ -155,7 +155,7 @@ def post_judge(row: dict, domain: str = "D1") -> dict | None:
     try:
         resp = requests.post(
             f"{_kernel_addr()}/judge",
-            json={"content": content, "context": context, "domain": domain, "account_id": ACCOUNT_ID},
+            json={"content": content, "context": context, "domain": domain, "account_id": ACCOUNT_ID, "priority": "hermes"},
             headers=_headers(),
             timeout=120,
         )
