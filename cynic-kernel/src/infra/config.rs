@@ -1235,3 +1235,9 @@ timeout_secs = 60
         std::fs::remove_file(&path).ok();
     }
 }
+
+// ── SSOT Kernel Config Loader ──────────────────────────────
+/// Unified kernel configuration from all 5 sources.
+/// Re-exported for use in main.rs boot sequence.
+pub mod loader;
+pub use loader::KernelConfig;
