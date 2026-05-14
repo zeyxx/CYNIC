@@ -238,6 +238,7 @@ impl Dog for InferenceDog {
                 other => DogError::ApiError(other.to_string()),
             })?;
         let text = &chat_resp.text;
+        let reasoning_trace = chat_resp.reasoning.clone();
         let prompt_tokens = chat_resp.prompt_tokens;
         let completion_tokens = chat_resp.completion_tokens;
 
@@ -268,12 +269,17 @@ impl Dog for InferenceDog {
                     burn: parsed.burn_reason,
                     sovereignty: parsed.sovereignty_reason,
                 },
+                reasoning_trace,
                 prompt_tokens: 0,
                 completion_tokens: 0,
                 thinking_tokens: 0,
                 abstentions: vec![],
             },
-            Err(_) => extract_scores_lenient(json_str)?,
+            Err(_) => {
+                let mut s = extract_scores_lenient(json_str)?;
+                s.reasoning_trace = reasoning_trace;
+                s
+            }
         };
         scores.prompt_tokens = prompt_tokens;
         scores.completion_tokens = completion_tokens;
@@ -426,6 +432,7 @@ fn extract_scores_lenient(json_str: &str) -> Result<AxiomScores, DogError> {
             burn: get_r("burn"),
             sovereignty: get_r("sovereignty"),
         },
+        reasoning_trace: None,
         prompt_tokens: 0,
         completion_tokens: 0,
         thinking_tokens: 0,

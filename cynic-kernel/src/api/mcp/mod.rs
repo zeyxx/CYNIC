@@ -252,6 +252,7 @@ pub struct CynicMcp {
     pub(crate) enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
     pub(crate) domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
     pub(crate) domain_router: Arc<crate::infra::domain_router::DomainRouter>,
+    pub(crate) dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
     // WHY: routing_calc populated at boot, read by observer consumer (K15 seam 3).
     // Disabled warning until observer wired.
     #[allow(dead_code)]
@@ -286,6 +287,7 @@ impl CynicMcp {
         enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
         domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
         domain_router: Arc<crate::infra::domain_router::DomainRouter>,
+        dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
         routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
     ) -> Self {
         Self {
@@ -304,6 +306,7 @@ impl CynicMcp {
             enricher,
             domain_curations,
             domain_router,
+            dog_perf_collector,
             routing_calc,
             rate_limit: Arc::new(McpRateLimit::new()),
             bg_semaphore: Arc::new(tokio::sync::Semaphore::new(
@@ -463,6 +466,8 @@ mod tests {
         let metrics = Arc::new(crate::domain::metrics::Metrics::new());
         let domain_router = Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[]));
         let routing_calc = Arc::new(crate::infra::routing_calc::RoutingCalculator::new());
+        let dog_perf_collector =
+            Arc::new(crate::infra::dog_performance::DogPerformanceCollector::new());
         let mcp = CynicMcp::new(
             judge,
             storage,
@@ -480,6 +485,7 @@ mod tests {
             None,
             Arc::new(crate::domain::wisdom::DomainCurations::new()),
             domain_router,
+            dog_perf_collector,
             routing_calc,
         );
         mcp.authenticated.store(true, Ordering::Relaxed);
@@ -654,6 +660,8 @@ mod tests {
         let metrics = Arc::new(crate::domain::metrics::Metrics::new());
         let domain_router = Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[]));
         let routing_calc = Arc::new(crate::infra::routing_calc::RoutingCalculator::new());
+        let dog_perf_collector =
+            Arc::new(crate::infra::dog_performance::DogPerformanceCollector::new());
         let mcp = CynicMcp::new(
             judge,
             storage,
@@ -671,6 +679,7 @@ mod tests {
             None,
             Arc::new(crate::domain::wisdom::DomainCurations::new()),
             domain_router,
+            dog_perf_collector,
             routing_calc,
         );
         mcp.authenticated.store(true, Ordering::Relaxed);

@@ -501,6 +501,7 @@ impl Dog for DeterministicDog {
                 burn: burn_reason,
                 sovereignty: sovereignty_reason,
             },
+            reasoning_trace: None,
             abstentions,
         })
     }

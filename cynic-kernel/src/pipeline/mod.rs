@@ -453,6 +453,7 @@ async fn pipeline_inner(
                 raw_burn: axiom_scores.burn,
                 raw_sovereignty: axiom_scores.sovereignty,
                 reasoning: axiom_scores.reasoning.clone(),
+                reasoning_trace: None,
                 abstentions: axiom_scores.abstentions.clone(),
             };
             Verdict {

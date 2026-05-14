@@ -325,6 +325,7 @@ pub(super) fn score(s: &TwitterSignals) -> AxiomScores {
         prompt_tokens: 0,
         completion_tokens: 0,
         thinking_tokens: 0,
+        reasoning_trace: None,
         reasoning: AxiomReasoning {
             fidelity: fidelity_reason,
             phi: phi_reason,
@@ -357,6 +358,7 @@ fn score_known_bad(s: &TwitterSignals) -> AxiomScores {
         prompt_tokens: 0,
         completion_tokens: 0,
         thinking_tokens: 0,
+        reasoning_trace: None,
         reasoning: AxiomReasoning {
             fidelity: reason.into(),
             phi: reason.into(),

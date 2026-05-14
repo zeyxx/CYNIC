@@ -2,6 +2,9 @@
   "mcpServers": {
     "cynic": {
       "command": "/home/user/bin/cynic-kernel-mcp"
+    },
+    "tailscale": {
+      "command": "/home/user/bin/tailscale-mcp"
     }
   },
   "hooks": {

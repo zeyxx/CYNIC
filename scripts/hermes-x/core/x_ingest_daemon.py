@@ -40,9 +40,10 @@ DEFAULT_ORGAN_DIR = Path(os.environ.get(
     "X_ORGAN_DIR",
     Path.home() / ".cynic/organs/hermes/x"
 ))
+ACCOUNT_ID = os.environ.get("HERMES_ACCOUNT", "cynic")
 KERNEL_ADDR = ""
 API_KEY = ""
-ORGAN_NAME = "x-proxy"
+ORGAN_NAME = f"x-proxy-{ACCOUNT_ID}"
 DOMAIN = "twitter"
 POLL_INTERVAL = 2.0
 BATCH_SIZE = 20
@@ -158,12 +159,12 @@ def post_judge(row: dict, domain: str = "D1") -> dict | None:
     narratives = ", ".join(row.get("narratives", []))
 
     content = f"X social signal — @{author} (signal {score}): {text}"
-    context = f"Passive capture via x-organ. Cashtags: {cashtags or 'none'}. Narratives: {narratives or 'none'}. Author tier: {row.get('author_tier', '?')}."
+    context = f"Passive capture via x-organ [{ACCOUNT_ID}]. Cashtags: {cashtags or 'none'}. Narratives: {narratives or 'none'}. Author tier: {row.get('author_tier', '?')}."
 
     try:
         resp = requests.post(
             f"{_kernel_addr()}/judge",
-            json={"content": content, "context": context, "domain": domain},
+            json={"content": content, "context": context, "domain": domain, "account_id": ACCOUNT_ID},
             headers=_headers(),
             timeout=120,
         )
@@ -194,7 +195,8 @@ def post_observe(row: dict, organ_name: str = ORGAN_NAME) -> bool:
         "status": "captured",
         "context": f"@{author} [{score}]: {text}",
         "tags": tags[:10],
-        "agent_id": "hermes-x",
+        "agent_id": f"hermes-x-{ACCOUNT_ID}",
+        "account_id": ACCOUNT_ID,
     }
 
     try:
@@ -280,6 +282,48 @@ _heartbeat_sent = 0
 _heartbeat_errors = 0
 
 
+def detect_auth_failure(dataset: Path, rows_to_check: int = 10) -> bool:
+    """Detect auth failure if recent tweets lack engagement data.
+
+    X.com returns auth error page when session expires → proxy can't parse tweets.
+    Symptom: tweets with zero engagement_rate (missing field or zero value).
+    """
+    if not dataset.exists():
+        return False
+    try:
+        with open(dataset, "r") as f:
+            # Seek to near end and read last N lines
+            f.seek(0, 2)  # Go to end
+            file_size = f.tell()
+            if file_size == 0:
+                return False
+            # Read last chunk
+            chunk_size = min(file_size, 65536)  # Read last 64KB
+            f.seek(max(0, file_size - chunk_size))
+            content = f.read()
+
+        lines = [l.strip() for l in content.split('\n') if l.strip()][-rows_to_check:]
+        if not lines:
+            return False
+
+        # Check if recent tweets have engagement_rate
+        zero_engagement = 0
+        for line in lines:
+            try:
+                row = json.loads(line)
+                engagement = row.get("engagement_rate")
+                if engagement is None or engagement == 0:
+                    zero_engagement += 1
+            except json.JSONDecodeError:
+                continue
+
+        # If >50% of recent tweets lack engagement, suspect auth failure
+        return zero_engagement >= len(lines) // 2
+    except Exception as e:
+        logger.warning("detect_auth_failure error: %s", e)
+        return False
+
+
 def post_heartbeat(organ_name: str, dataset: Path) -> bool:
     """POST organ heartbeat to /observe — tells the kernel this organ is alive."""
     global _heartbeat_sent, _heartbeat_errors
@@ -312,19 +356,29 @@ def post_heartbeat(organ_name: str, dataset: Path) -> bool:
     except requests.RequestException:
         pass
 
+    # Check for auth failure
+    auth_failed = not dataset_growing and detect_auth_failure(dataset)
+
     status = "ok"
+    failure_reason = None
     if not proxy_up:
         status = "critical"
+        failure_reason = "proxy_down"
     elif not cdp_up:
         status = "degraded"
+        failure_reason = "cdp_down"
+    elif auth_failed:
+        status = "critical"
+        failure_reason = "x_auth_expired"
     elif not dataset_growing:
         status = "degraded"
+        failure_reason = "dataset_stale"
 
     context = (
         f"sent={_heartbeat_sent} errors={_heartbeat_errors} "
         f"dataset_bytes={size} dataset_age_secs={int(age_secs)} "
         f"dataset_growing={dataset_growing} "
-        f"proxy_up={proxy_up} cdp_up={cdp_up}"
+        f"proxy_up={proxy_up} cdp_up={cdp_up} auth_failed={auth_failed}"
     )
 
     payload = {
@@ -333,9 +387,12 @@ def post_heartbeat(organ_name: str, dataset: Path) -> bool:
         "domain": "organ-health",
         "status": status,
         "context": context,
-        "tags": ["heartbeat", organ_name],
+        "tags": ["heartbeat", organ_name, f"account-{ACCOUNT_ID}"],
         "agent_id": f"hermes-{organ_name}",
+        "account_id": ACCOUNT_ID,
     }
+    if failure_reason:
+        payload["failure_reason"] = failure_reason
 
     try:
         resp = requests.post(

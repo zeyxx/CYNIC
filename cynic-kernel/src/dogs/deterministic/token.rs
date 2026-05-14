@@ -35,6 +35,11 @@ pub(super) struct TokenMetrics {
     k_wallets_analyzed: u32,
     k_accumulators: u32,
     k_extractors: u32,
+    // Holder identity fields (from [HOLDER IDENTITIES] section)
+    identity_exchanges: u32,
+    identity_protocols: u32,
+    identity_scammers: u32,
+    identity_total: u32,
 }
 
 /// Parse human-readable USD values like "1.23B", "45.67M", "890K", "123.45".
@@ -95,6 +100,10 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
         k_wallets_analyzed: 0,
         k_accumulators: 0,
         k_extractors: 0,
+        identity_exchanges: 0,
+        identity_protocols: 0,
+        identity_scammers: 0,
+        identity_total: 0,
     };
 
     for line in section.lines() {
@@ -194,6 +203,40 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
                             .unwrap_or(0);
                     }
                 }
+            }
+        }
+    }
+
+    // Parse [HOLDER IDENTITIES] section if present
+    if let Some(id_start) = content.find("[HOLDER IDENTITIES]") {
+        let id_rest = &content[id_start..];
+        let id_end = id_rest[19..]
+            .find("\n[")
+            .map(|i| id_start + 19 + i)
+            .unwrap_or(content.len());
+        let id_section = &content[id_start..id_end];
+
+        for line in id_section.lines() {
+            let line = line.trim();
+            if line.contains("(Centralized Exchange)") {
+                m.identity_exchanges += 1;
+                m.identity_total += 1;
+            } else if line.contains("(DeFi)") || line.contains("(Swap)") {
+                m.identity_protocols += 1;
+                m.identity_total += 1;
+            } else if line.contains("(Rugger)")
+                || line.contains("(Scam")
+                || line.contains("(Exploit")
+            {
+                m.identity_scammers += 1;
+                m.identity_total += 1;
+            } else if line.starts_with("exchanges_in_holders:") {
+                // Summary line — already counted individually above
+            } else if line.starts_with("WARNING:") && line.contains("scammer") {
+                // Summary warning — already counted
+            } else if line.contains('(') && line.contains(')') && !line.starts_with("identified:") {
+                // Other identified entity (not exchange/defi/scammer)
+                m.identity_total += 1;
             }
         }
     }
@@ -472,9 +515,26 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     if m.k_wallets_analyzed > 0 && m.k_extractors > m.k_accumulators {
         sovereignty -= ADJUST_SMALL;
     }
+    // Holder identity signals (from Helius batch-identity)
+    if m.identity_exchanges >= 3 {
+        sovereignty += ADJUST_MEDIUM; // 3+ exchanges = strong institutional backing
+    } else if m.identity_exchanges >= 1 {
+        sovereignty += ADJUST_SMALL;
+    }
+    if m.identity_scammers > 0 {
+        sovereignty -= ADJUST_MEDIUM * 2.0; // Any known scammer = critical red flag
+    }
     let sovereignty = sovereignty.clamp(ADJUST_SMALL, PHI_INV);
+    let identity_note = if m.identity_total > 0 {
+        format!(
+            " Known holders: {} exchanges, {} protocols, {} scammers.",
+            m.identity_exchanges, m.identity_protocols, m.identity_scammers
+        )
+    } else {
+        String::new()
+    };
     let sovereignty_reason = format!(
-        "{}freeze={}, extractors_vs_acc={}/{}.",
+        "{}freeze={}, extractors_vs_acc={}/{}.{identity_note}",
         if m.holder_data_available {
             format!("top1={:.1}%, holders={}+, ", m.top1_pct, m.holders)
         } else {
@@ -507,6 +567,7 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             burn: burn_reason,
             sovereignty: sovereignty_reason,
         },
+        reasoning_trace: None,
         abstentions: vec![], // All 6 axioms judged from on-chain data
     }
 }

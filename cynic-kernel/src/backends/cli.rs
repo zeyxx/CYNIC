@@ -180,6 +180,12 @@ impl ChatPort for CliBackend {
                         .unwrap_or(&raw)
                         .to_string();
 
+                    let reasoning = v
+                        .get("thinking")
+                        .or_else(|| v.get("thought"))
+                        .and_then(|r| r.as_str())
+                        .map(|s| s.to_string());
+
                     // Extract token counts from .stats.models.<model>.tokens
                     let (prompt_tokens, completion_tokens, thinking_tokens) = v
                         .get("stats")
@@ -198,6 +204,7 @@ impl ChatPort for CliBackend {
 
                     return Ok(ChatResponse {
                         text,
+                        reasoning,
                         prompt_tokens,
                         completion_tokens,
                         thinking_tokens,
@@ -207,6 +214,7 @@ impl ChatPort for CliBackend {
                 // Fallback: plain text output
                 Ok(ChatResponse {
                     text: raw,
+                    reasoning: None,
                     prompt_tokens: 0,
                     completion_tokens: 0,
                     thinking_tokens: 0,

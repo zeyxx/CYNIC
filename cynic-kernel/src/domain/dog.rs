@@ -60,8 +60,11 @@ pub struct AxiomScores {
     pub burn: f64,
     /// Individual agency: does this preserve sovereignty? (the soul of CYNIC)
     pub sovereignty: f64,
-    /// Optional reasoning per axiom
+    /// Optional reasoning per axiom (structured JSON from model)
     pub reasoning: AxiomReasoning,
+    /// Raw reasoning trace/Chain-of-Thought (CoT) before JSON extraction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_trace: Option<String>,
     /// Token usage from inference (0 for deterministic/local)
     #[serde(default)]
     pub prompt_tokens: u32,
@@ -112,6 +115,9 @@ pub struct DogScore {
     #[serde(default)]
     pub raw_sovereignty: f64,
     pub reasoning: AxiomReasoning,
+    /// Raw reasoning trace/Chain-of-Thought (CoT).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_trace: Option<String>,
     /// Axioms where this Dog abstained (returned NEUTRAL, not an active evaluation).
     /// Excluded from disagreement calculation — abstention ≠ disagreement.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

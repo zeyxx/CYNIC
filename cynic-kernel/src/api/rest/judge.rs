@@ -118,6 +118,10 @@ pub async fn judge_handler(
         dogs = Some(sovereign);
     }
 
+    let rc = Arc::clone(&state.routing_calc);
+    let dpc = Arc::clone(&state.dog_perf_collector);
+    let domain_for_callback = req.domain.clone().unwrap_or_else(|| "general".to_string());
+
     let deps = crate::pipeline::PipelineDeps {
         judge: &judge,
         storage: state.storage.as_ref(),
@@ -127,7 +131,10 @@ pub async fn judge_handler(
         metrics: &state.metrics,
         event_tx: Some(&state.event_tx),
         request_id: Some(uuid::Uuid::new_v4().to_string()),
-        on_dog: None,
+        on_dog: Some(Box::new(move |dog_id, success, elapsed_ms, _, _| {
+            rc.record_observation(dog_id, &domain_for_callback, elapsed_ms as u32, success);
+            dpc.observe(&domain_for_callback, dog_id, elapsed_ms, success);
+        })),
         expected_dog_count: judge.dog_ids().len(),
         enricher: state.enricher.as_deref(),
         domain_curations: state.domain_curations.as_ref(),

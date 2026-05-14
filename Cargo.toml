@@ -54,13 +54,9 @@ unused_self = "warn"
 # #122357, #138561.
 [profile.release]
 opt-level = 1
-# WHY: nightly-2026-04-06 still SIGSEGVs intermittently in LLVM/codegen during
-# pre-push `make check` on cynic-kernel. Single codegen unit reduces the
-# monomorphization/codegen fan-out and has proven to be the most reliable
-# mitigation short of changing toolchains mid-sprint.
-codegen-units = 1
-
-[profile.release-safe]
-inherits = "release"
-opt-level = 0
-codegen-units = 256
+# WHY: codegen-units=1 was a mitigation for nightly-2026-04-06 LLVM fan-out SIGSEGV.
+# As of Rust 1.95.0 / LLVM 22.1.2, codegen-units=1 itself triggers non-deterministic
+# SIGSEGV in FastISel::selectInstruction on random crates (yoke-derive, zerovec,
+# regex-syntax, serde_json). codegen-units=16 (default) passes 685 tests reliably.
+# See: docs/bugs/LLVM-SIGSEGV-codegen-units-1.md
+codegen-units = 16

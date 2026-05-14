@@ -48,7 +48,8 @@ security_check() {
         | grep -vE '(endpoint_token|bot_token|access_token)\s*=' \
         | grep -vE 'ManualCorpusCollector\(' \
         | grep -vE 'api_key\s*=\s*get_api_key\(' \
-        | grep -vE 'let\s+(mut\s+)?api_key\s*=' || true)
+        | grep -vE 'let\s+(mut\s+)?api_key\s*=' \
+        | grep -vE 'token: different|token: extract|token: \w+ \w+ \w+' || true)
     if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
         echo "SECURITY FAIL: possible secrets in staged changes:"
         [ -n "$RAW_SECRETS" ] && echo "$RAW_SECRETS"

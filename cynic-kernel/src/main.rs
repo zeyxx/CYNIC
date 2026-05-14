@@ -694,7 +694,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ─── Routing calculator — dynamic Dog selection based on observed latencies ──
     // Consumes dog_performance observations and adapts routing in real-time.
     // Data-centric: routing reflects current performance, not static config.
-    let routing_calc = Arc::new(infra::routing_calc::RoutingCalculator::new());
+    let routing_calc = Arc::new(infra::routing_calc::RoutingCalculator::with_storage(
+        Arc::clone(&storage_port),
+    ));
 
     // ─── Dog performance collector — K15 seam 3 producer ──
     // Aggregates latency/success observations from pipeline.on_dog callbacks.

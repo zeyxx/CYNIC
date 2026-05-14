@@ -1,5 +1,7 @@
 //! MCP Judge tools — auth, judge, health, verdicts, crystals, infer, audit.
 
+use std::sync::Arc;
+
 use rmcp::{
     ErrorData as McpError, handler::server::wrapper::Parameters, model::*, tool, tool_router,
 };
@@ -110,6 +112,10 @@ impl CynicMcp {
             dogs_filter = Some(sovereign);
         }
 
+        let rc = Arc::clone(&self.routing_calc);
+        let dpc = Arc::clone(&self.dog_perf_collector);
+        let domain_for_callback = p.domain.clone().unwrap_or_else(|| "general".to_string());
+
         let deps = crate::pipeline::PipelineDeps {
             judge: &judge,
             storage: self.storage.as_ref(),
@@ -119,7 +125,10 @@ impl CynicMcp {
             metrics: &self.metrics,
             event_tx: self.event_tx.as_ref(),
             request_id: Some(uuid::Uuid::new_v4().to_string()),
-            on_dog: None,
+            on_dog: Some(Box::new(move |dog_id, success, elapsed_ms, _, _| {
+                rc.record_observation(dog_id, &domain_for_callback, elapsed_ms as u32, success);
+                dpc.observe(&domain_for_callback, dog_id, elapsed_ms, success);
+            })),
             expected_dog_count: judge.dog_ids().len(),
             enricher: self.enricher.as_deref(),
             domain_curations: self.domain_curations.as_ref(),
