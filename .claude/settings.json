@@ -64,6 +64,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/branch-guard.sh"
+          },
+          {
+            "type": "command",
             "if": "Edit(/cynic-kernel/src/**)",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/coord-claim.sh"
           },
