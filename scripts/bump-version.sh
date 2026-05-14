@@ -3,8 +3,8 @@
 set -euo pipefail
 
 TODAY=$(date +%y.%m.%d)
+KERNEL_TOML="/home/user/Bureau/CYNIC/cynic-kernel/Cargo.toml"
 GIT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
-KERNEL_TOML="${GIT_ROOT}/cynic-kernel/Cargo.toml"
 
 [[ -f "$KERNEL_TOML" ]] || { echo "Error: $KERNEL_TOML not found"; exit 1; }
 
