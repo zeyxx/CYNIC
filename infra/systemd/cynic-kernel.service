@@ -5,8 +5,8 @@ Wants=surrealdb.service hermes-gateway.service
 
 [Service]
 Type=simple
-WorkingDirectory=/home/user/Bureau/CYNIC
-ExecStart=/home/user/bin/cynic-kernel
+WorkingDirectory=%h/Bureau/CYNIC
+ExecStart=%h/bin/cynic-kernel
 # Keep boot simple and authoritative: the kernel already reports storage
 # readiness through /ready and degrades honestly if SurrealDB is unavailable.
 # Keep this user unit minimally sandboxed until a compatible hardening profile
@@ -20,7 +20,7 @@ RestartSec=5
 # Generated from ~/.cynic-env: sed 's/^export //' ~/.cynic-env > ~/.config/cynic/env
 # systemd does NOT support `export` prefix — Rule 12 maintained via generation.
 EnvironmentFile=%h/.config/cynic/env
-Environment="CYNIC_SCRIPTS=/home/user/Bureau/CYNIC/scripts"
+Environment="CYNIC_SCRIPTS=%h/Bureau/CYNIC/scripts"
 LimitNOFILE=65535
 MemoryMax=2G
 

@@ -7,7 +7,7 @@ Type=simple
 # Separate env file — no SURREAL_USER/SURREAL_PASS (causes "root user not created" warning).
 # Only surrealkv tuning vars.
 EnvironmentFile=%h/.config/cynic/surrealdb.env
-ExecStart=/usr/local/bin/surreal start --bind 127.0.0.1:8000 --transaction-timeout 10s --query-timeout 30s surrealkv:///home/user/.surrealdb/data
+ExecStart=/usr/local/bin/surreal start --bind 127.0.0.1:8000 --transaction-timeout 10s --query-timeout 30s surrealkv://%h/.surrealdb/data
 NoNewPrivileges=true
 PrivateTmp=true
 Restart=always
