@@ -53,7 +53,17 @@ KERNEL_API_KEY = ""
 def load_env():
     global ORGAN_DIR, KERNEL_ADDR, KERNEL_API_KEY
     ORGAN_DIR = os.environ.get("X_ORGAN_DIR", str(HERMES_X_DIR))
-    raw_addr = os.environ.get("CYNIC_REST_ADDR", "<TAILSCALE_CORE>:3030")
+
+    # CYNIC_REST_ADDR is required and must be injected by systemd EnvironmentFile
+    # Fail fast if missing (don't silently use a placeholder string like "<TAILSCALE_CORE>:3030")
+    raw_addr = os.environ.get("CYNIC_REST_ADDR", "")
+    if not raw_addr:
+        raise ValueError(
+            "CYNIC_REST_ADDR not set in environment. "
+            "Hermes Agent requires systemd EnvironmentFile injection from ~/.config/cynic/env. "
+            "Verify: config-sync.sh hermes-config && systemctl --user daemon-reload"
+        )
+
     # Ensure http:// prefix for requests library
     if raw_addr.startswith("http://") or raw_addr.startswith("https://"):
         KERNEL_ADDR = raw_addr

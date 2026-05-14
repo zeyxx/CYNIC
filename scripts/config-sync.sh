@@ -12,6 +12,7 @@
 #   config-sync.sh collect  — runtime → repo (before git push, strips secrets)
 #   config-sync.sh collect --no-secrets — collect with real IP masking
 #   config-sync.sh substitute — resolve placeholders in repo backends.toml
+#   config-sync.sh hermes-config — resolve placeholders in Hermes ouroboros config
 #   config-sync.sh diff     — show drift between repo and runtime
 #   config-sync.sh check    — exit 1 if diverged (for CI/hooks)
 set -euo pipefail
@@ -37,6 +38,37 @@ case "$cmd" in
       exit 1
     fi
     python3 "$FLEET_GEN" "$REPO_BACKENDS"
+    ;;
+
+  hermes-config)
+    # Substitute <TAILSCALE_*> placeholders in Hermes ouroboros config template
+    # Reads: .hermes_ouroboros/config.yaml.tpl (repo template)
+    # Outputs: ~/.config/cynic/hermes-ouroboros-config.yaml (runtime)
+    echo "Resolving placeholders in Hermes ouroboros config..."
+    HERMES_TEMPLATE="${PROJECT_ROOT}/.hermes_ouroboros/config.yaml.tpl"
+    HERMES_RUNTIME="${RUNTIME_DIR}/hermes-ouroboros-config.yaml"
+
+    if [[ ! -f "$HERMES_TEMPLATE" ]]; then
+      echo "Error: Hermes config template not found at ${HERMES_TEMPLATE}" >&2
+      exit 1
+    fi
+    if [[ ! -f "$FLEET_GEN" ]]; then
+      echo "Error: fleet-gen.py not found at ${FLEET_GEN}" >&2
+      exit 1
+    fi
+
+    # Use fleet-gen.py to substitute all <TAILSCALE_*> placeholders
+    python3 "$FLEET_GEN" "$HERMES_TEMPLATE" > "$HERMES_RUNTIME"
+
+    # Verify no unresolved placeholders remain
+    if grep -q '<TAILSCALE_' "$HERMES_RUNTIME"; then
+      echo "ERROR: Unresolved <TAILSCALE_*> placeholders remain in ${HERMES_RUNTIME}:" >&2
+      grep '<TAILSCALE_' "$HERMES_RUNTIME" >&2
+      exit 1
+    fi
+
+    echo "  .hermes_ouroboros/config.yaml.tpl (resolved) → ${HERMES_RUNTIME}"
+    echo "Done. Note: API keys are injected from ~/.cynic-env by systemd EnvironmentFile."
     ;;
 
   deploy)
@@ -107,7 +139,7 @@ case "$cmd" in
     ;;
 
   *)
-    echo "Usage: config-sync.sh {deploy|collect|substitute|sync-env|diff|check}" >&2
+    echo "Usage: config-sync.sh {deploy|collect|substitute|hermes-config|sync-env|diff|check}" >&2
     echo "       config-sync.sh collect [--no-secrets]" >&2
     exit 1
     ;;

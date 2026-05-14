@@ -9,7 +9,7 @@ Type=oneshot
 Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x
 Environment=X_PROXY_ADDR=localhost:8888
 WorkingDirectory=%h/Bureau/CYNIC/scripts/hermes-x
-Environment="CYNIC_REST_ADDR=<TAILSCALE_CORE>:3030"
+# CYNIC_REST_ADDR is injected from EnvironmentFile (should be substituted by config-sync.sh hermes-config)
 ExecStart=/usr/bin/python3 core/search_executor.py \
     --organ-dir %h/.cynic/organs/hermes/x \
     --max-searches 5 \

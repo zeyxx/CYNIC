@@ -40,7 +40,9 @@ benchmarks/
 cynic-python/observations/
 
 # Hermes agent state (contains .env + local DB)
-.hermes_ouroboros/
+# Exception: .tpl template files are safe (no secrets, only <TAILSCALE_*> placeholders)
+.hermes_ouroboros/*
+!.hermes_ouroboros/*.tpl
 
 # Platform configs
 .replit
