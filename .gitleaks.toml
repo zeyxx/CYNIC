@@ -45,6 +45,13 @@ paths = [
 ]
 
 [[rules]]
+id = "cynic-real-ip-in-backends"
+description = "Real Tailscale IP (100.x.y.z) committed in backends.toml — use <TAILSCALE_*> placeholders"
+regex = '''backends\.toml.*\b(100\.\d{1,3}\.\d{1,3}\.\d{1,3})\b'''
+keywords = ["100.", "backends"]
+severity = "HIGH"
+
+[[rules]]
 id = "surreal-default-creds"
 description = "SurrealDB default credentials in code"
 regex = '''--pass\s+root|SURREALDB_PASS\s*=\s*root'''
