@@ -28,18 +28,9 @@ from datetime import datetime
 import requests
 import yaml
 
+from hermes_paths import DATASET as DEFAULT_DATASET, HERMES_X_DIR as DEFAULT_ORGAN_DIR
+
 logger = logging.getLogger("x-ingest")
-
-# ── Config ──
-
-DEFAULT_DATASET = Path(os.environ.get(
-    "X_DATASET_PATH",
-    Path.home() / ".cynic/organs/hermes/x/dataset.jsonl"
-))
-DEFAULT_ORGAN_DIR = Path(os.environ.get(
-    "X_ORGAN_DIR",
-    Path.home() / ".cynic/organs/hermes/x"
-))
 ACCOUNT_ID = os.environ.get("HERMES_ACCOUNT", "cynic")
 KERNEL_ADDR = ""
 API_KEY = ""

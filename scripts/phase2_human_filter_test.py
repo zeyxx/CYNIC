@@ -21,8 +21,8 @@ from collections import Counter
 from typing import Dict, List, Set
 import re
 
-ORGAN_X = Path.home() / ".cynic" / "organs" / "hermes" / "x"
-CAPTURES_DIR = ORGAN_X / "captures"
+sys.path.insert(0, str(Path(__file__).resolve().parent / "hermes-x" / "core"))
+from hermes_paths import HERMES_X_DIR as ORGAN_X, CAPTURES_DIR
 CYNIC_REST = os.getenv("CYNIC_REST_ADDR", "")
 CYNIC_KEY = os.getenv("CYNIC_API_KEY", "")
 

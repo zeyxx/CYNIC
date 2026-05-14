@@ -34,14 +34,9 @@ from pathlib import Path
 from pynput import mouse, keyboard
 import requests
 
+from hermes_paths import BEHAVIOR_LOG as DEFAULT_OUTPUT, TWEET_ID_INDEX
+
 logger = logging.getLogger("behavior-logger")
-
-# ── Config ──
-
-DEFAULT_OUTPUT = Path(os.environ.get(
-    "BEHAVIOR_LOG_PATH",
-    Path.home() / ".cynic/organs/hermes/behavior/behavior_log.jsonl"
-))
 MOUSE_MOVE_INTERVAL = 0.2  # min seconds between mouse move events (rate limit)
 FLUSH_INTERVAL = 5.0  # flush to disk every N seconds
 
@@ -103,7 +98,7 @@ def get_tweet_id_from_index(timestamp_str: str, url: str = "") -> str:
             return match.group(1)
 
     # Query mitmproxy index
-    index_db = Path.home() / ".cynic/organs/hermes/x/tweet_id_index.db"
+    index_db = TWEET_ID_INDEX
     if not index_db.exists():
         return ""
 

@@ -40,6 +40,8 @@ import requests
 from datetime import datetime
 from pathlib import Path
 
+from hermes_paths import HERMES_X_DIR
+
 logger = logging.getLogger("hermes-task-executor")
 
 ORGAN_DIR = ""
@@ -50,7 +52,7 @@ KERNEL_API_KEY = ""
 
 def load_env():
     global ORGAN_DIR, KERNEL_ADDR, KERNEL_API_KEY
-    ORGAN_DIR = os.environ.get("X_ORGAN_DIR", str(Path.home() / ".cynic" / "organs" / "hermes" / "x"))
+    ORGAN_DIR = os.environ.get("X_ORGAN_DIR", str(HERMES_X_DIR))
     raw_addr = os.environ.get("CYNIC_REST_ADDR", "<TAILSCALE_CORE>:3030")
     # Ensure http:// prefix for requests library
     if raw_addr.startswith("http://") or raw_addr.startswith("https://"):

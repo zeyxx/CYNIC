@@ -17,7 +17,10 @@ def load_available_models() -> List[str]:
     Returns list of model names with "available" status.
     Falls back to hardcoded list if file not found.
     """
-    discovery_file = Path.home() / ".cynic" / "organs" / "hermes" / "x" / "gemini_models.json"
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+    from hermes_paths import HERMES_X_DIR
+    discovery_file = HERMES_X_DIR / "gemini_models.json"
 
     if discovery_file.exists():
         try:

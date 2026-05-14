@@ -15,12 +15,13 @@ This script:
 import json
 import subprocess
 import os
+import sys
 from pathlib import Path
 from collections import Counter, defaultdict
 from typing import Dict, List
 
-ORGAN_X = Path.home() / ".cynic" / "organs" / "hermes" / "x"
-DATASET = ORGAN_X / "dataset.jsonl"
+sys.path.insert(0, str(Path(__file__).resolve().parent / "hermes-x" / "core"))
+from hermes_paths import HERMES_X_DIR as ORGAN_X, DATASET
 CYNIC_REST = os.getenv("CYNIC_REST_ADDR", "http://localhost:3030")
 CYNIC_KEY = os.getenv("CYNIC_API_KEY", "")
 

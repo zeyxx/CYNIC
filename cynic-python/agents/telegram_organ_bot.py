@@ -32,7 +32,10 @@ BOT_TOKEN = os.getenv("CYNIC_TELEGRAM_BOT_TOKEN")
 CYNIC_API_KEY = os.getenv("CYNIC_API_KEY")
 CYNIC_REST_ADDR = os.getenv("CYNIC_REST_ADDR", "http://<TAILSCALE_CORE>:3030")
 
-OBSERVATION_LOG = os.path.expanduser("~/.cynic/organs/hermes/x/observation_log.jsonl")
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hermes_paths import HERMES_X_DIR
+OBSERVATION_LOG = str(HERMES_X_DIR / "observation_log.jsonl")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 logging.basicConfig(

@@ -14,10 +14,14 @@ Usage:
 
 import json
 import os
+import sys
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from statistics import mean, stdev, median
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hermes_paths import HERMES_X_DIR, DATASET
 from typing import Optional
 
 import yaml
@@ -71,7 +75,7 @@ def load_curated_ground_truth(organ_dir: str = None) -> dict:
     Returns: {domain_id: [curated_tweet_dicts]}
     """
     if organ_dir is None:
-        organ_dir = str(Path.home() / ".cynic" / "organs" / "hermes" / "x")
+        organ_dir = str(HERMES_X_DIR)
 
     curated_dir = Path(organ_dir) / "curated"
     curated = {}
@@ -103,7 +107,7 @@ def load_verdicts_from_organ(organ_dir: str = None) -> list:
     Schema per file: {tweet_id, signal_score, verdict: {q_score, ...}, ...}
     """
     if organ_dir is None:
-        organ_dir = str(Path.home() / ".cynic" / "organs" / "hermes" / "x")
+        organ_dir = str(HERMES_X_DIR)
 
     verdict_dir = Path(organ_dir) / "verdicts"
     verdicts = []
@@ -126,7 +130,7 @@ def load_observations_from_organ(organ_dir: str = None) -> list:
     also attempt to load from kernel via REST fallback.
     """
     if organ_dir is None:
-        organ_dir = str(Path.home() / ".cynic" / "organs" / "hermes" / "x")
+        organ_dir = str(HERMES_X_DIR)
 
     obs_dir = Path(organ_dir) / "observations"
     observations = []
@@ -702,10 +706,7 @@ NEXT ACTIONS:
 
 
 def main():
-    dataset_path = os.environ.get(
-        "X_DATASET_PATH",
-        Path.home() / ".cynic" / "organs" / "hermes" / "x" / "dataset.jsonl",
-    )
+    dataset_path = os.environ.get("X_DATASET_PATH", str(DATASET))
 
     if not Path(dataset_path).exists():
         print(f"ERROR: Dataset not found: {dataset_path}")
@@ -714,14 +715,7 @@ def main():
     briefing = generate_briefing(str(dataset_path))
 
     # Save
-    output_path = (
-        Path.home()
-        / ".cynic"
-        / "organs"
-        / "hermes"
-        / "x"
-        / "lab_briefing_latest.json"
-    )
+    output_path = HERMES_X_DIR / "lab_briefing_latest.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_path, "w") as f:

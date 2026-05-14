@@ -100,7 +100,8 @@ def store_x_password_encrypted(password: str):
         store_x_password_encrypted(getpass.getpass())
         # Then read via: gpg --decrypt ~/.cynic/organs/hermes/x/.x_password.gpg
     """
-    creds_dir = Path.home() / ".cynic/organs/hermes/x"
+    from hermes_paths import HERMES_X_DIR
+    creds_dir = HERMES_X_DIR
     creds_dir.mkdir(parents=True, exist_ok=True)
 
     password_file = creds_dir / ".x_password.gpg"

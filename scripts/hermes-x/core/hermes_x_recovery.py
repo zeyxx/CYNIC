@@ -38,8 +38,8 @@ ACCOUNT_ID = os.getenv("HERMES_ACCOUNT", "cynic")
 REST_ADDR = os.getenv("CYNIC_REST_ADDR", "http://127.0.0.1:3030")
 API_KEY = os.getenv("CYNIC_API_KEY", "")
 CHECK_INTERVAL = int(os.getenv("RECOVERY_CHECK_INTERVAL", "30"))
-ORGAN_DIR = Path.home() / ".cynic/organs/hermes/x"
-LOG_PATH = Path(os.getenv("RECOVERY_LOG_PATH", ORGAN_DIR / "recovery.log"))
+from hermes_paths import HERMES_X_DIR as ORGAN_DIR, RECOVERY_LOG
+LOG_PATH = Path(os.getenv("RECOVERY_LOG_PATH", str(RECOVERY_LOG)))
 
 # Recovery state
 FAILURE_COUNT = 0

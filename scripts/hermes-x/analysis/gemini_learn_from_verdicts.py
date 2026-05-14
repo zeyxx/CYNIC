@@ -31,6 +31,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
+from hermes_paths import HERMES_X_DIR
+
 logger = logging.getLogger("gemini-learn")
 
 
@@ -194,7 +198,7 @@ def main():
     parser = argparse.ArgumentParser(description="Learn from observation verdicts and update SKILL.md")
     parser.add_argument(
         "--organ-dir",
-        default=str(Path.home() / ".cynic" / "organs" / "hermes" / "x"),
+        default=str(HERMES_X_DIR),
         help="Organ directory containing observation-verdicts/",
     )
     args = parser.parse_args()

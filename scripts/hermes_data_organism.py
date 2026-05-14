@@ -28,6 +28,9 @@ try:
 except ImportError:
     requests = None
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "hermes-x" / "core"))
+from hermes_paths import HERMES_X_DIR, STATE_DIR
+
 
 @dataclass
 class DatasetState:
@@ -43,11 +46,11 @@ class HermesDataOrganism:
     """Continuous data processing organism"""
 
     def __init__(self, data_dir: Path = None, state_dir: Path = None):
-        self.data_dir = data_dir or Path.home() / ".cynic" / "organs" / "hermes" / "x"
+        self.data_dir = data_dir or HERMES_X_DIR
         # FIX: Output path aligned with X organ directory structure
         self.datasets_dir = self.data_dir / "datasets"
         # State persisted separately for cycle tracking
-        self.state_dir = state_dir or Path.home() / ".cynic" / "organs" / "hermes" / "x" / ".state"
+        self.state_dir = state_dir or STATE_DIR
         self.state_file = self.state_dir / "organism_state.json"
 
         self.datasets_dir.mkdir(parents=True, exist_ok=True)

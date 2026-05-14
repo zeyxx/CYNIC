@@ -6,8 +6,12 @@ Can be called alongside token-domain Dogs for multi-dog consensus.
 
 from dataclasses import dataclass
 import json
+import sys
 from pathlib import Path
 from typing import Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hermes_paths import DATASET, VERDICTS_DIR
 
 from twitter_heuristics import TwitterScorer
 from twitter_signal_extractor import TwitterSignalExtractor
@@ -112,7 +116,7 @@ class TwitterDog:
         Returns summary of differences.
         """
         if token_verdicts_dir is None:
-            token_verdicts_dir = Path.home() / ".cynic/organs/hermes/x/verdicts"
+            token_verdicts_dir = VERDICTS_DIR
 
         twitter_verdicts = self.judge_from_dataset(dataset_path, limit=limit)
 
@@ -146,7 +150,7 @@ class TwitterDog:
 
 if __name__ == "__main__":
     dog = TwitterDog()
-    dataset_path = Path.home() / ".cynic/organs/hermes/x/dataset.jsonl"
+    dataset_path = DATASET
 
     print("Scoring first 10 tweets with Twitter-Dog...")
     print("-" * 80)

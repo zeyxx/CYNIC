@@ -32,6 +32,8 @@ from pathlib import Path
 
 import requests
 
+from hermes_paths import HERMES_X_DIR
+
 logger = logging.getLogger("hermes-task-runner")
 
 # ── Config ──
@@ -47,7 +49,7 @@ def load_env():
     global KERNEL_ADDR, API_KEY, ORGAN_DIR
     KERNEL_ADDR = os.environ.get("CYNIC_REST_ADDR", "")
     API_KEY = os.environ.get("CYNIC_API_KEY", "")
-    ORGAN_DIR = os.environ.get("X_ORGAN_DIR", str(Path.home() / ".cynic" / "organs" / "hermes" / "x"))
+    ORGAN_DIR = os.environ.get("X_ORGAN_DIR", str(HERMES_X_DIR))
 
     if KERNEL_ADDR and API_KEY:
         return

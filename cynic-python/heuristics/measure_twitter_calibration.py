@@ -5,8 +5,12 @@ Measure: does twitter-aware scoring discriminate signal better?
 """
 
 import json
+import sys
 from pathlib import Path
 from typing import Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hermes_paths import DATASET, VERDICTS_DIR
 
 from twitter_heuristics import TwitterScorer
 from twitter_signal_extractor import extract_signals_from_dataset
@@ -32,9 +36,9 @@ def measure_twitter_calibration(
     """Compare twitter-domain vs token-domain scoring."""
 
     if dataset_path is None:
-        dataset_path = Path.home() / ".cynic/organs/hermes/x/dataset.jsonl"
+        dataset_path = DATASET
     if verdicts_dir is None:
-        verdicts_dir = Path.home() / ".cynic/organs/hermes/x/verdicts"
+        verdicts_dir = VERDICTS_DIR
 
     scorer = TwitterScorer()
     tweets_and_signals = extract_signals_from_dataset(dataset_path, limit=limit)

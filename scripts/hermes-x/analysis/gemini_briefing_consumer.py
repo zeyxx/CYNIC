@@ -23,6 +23,9 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
+from hermes_paths import HERMES_X_DIR
+
 
 def load_briefing(organ_dir: str) -> dict:
     """Load lab_briefing_latest.json."""
@@ -195,10 +198,7 @@ def update_skill(briefing: dict, organ_dir: str):
 
 
 def main():
-    organ_dir = os.environ.get(
-        "X_ORGAN_DIR",
-        str(Path.home() / ".cynic" / "organs" / "hermes" / "x")
-    )
+    organ_dir = os.environ.get("X_ORGAN_DIR", str(HERMES_X_DIR))
 
     print(f"Loading briefing from {organ_dir}...")
     briefing = load_briefing(organ_dir)
