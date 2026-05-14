@@ -1,0 +1,58 @@
+[
+  {
+    "id": "D3-P1-LOCAL-FIRST",
+    "name": "Local-First Execution",
+    "description": "Does the system function without external API calls or cloud dependencies?",
+    "signal_sources": ["SurrealDB", "Local-LLM-Benchmarks", "Club-3090"],
+    "judgment_weight": 0.9
+  },
+  {
+    "id": "D3-P2-HARDWARE-OWNERSHIP",
+    "name": "Hardware Ownership",
+    "description": "Can the system run on consumer-grade high-end hardware (RTX 3090/4090) owned by the user?",
+    "signal_sources": ["Club-3090"],
+    "judgment_weight": 0.85
+  },
+  {
+    "id": "D3-P3-STEALTH-AGENCY",
+    "name": "Stealth Agency",
+    "description": "Does the agent use anti-capture technologies to avoid detection and censorship?",
+    "signal_sources": ["CloakBrowser"],
+    "judgment_weight": 0.95
+  },
+  {
+    "id": "D3-P4-AGENT-BOUNDARIES",
+    "name": "Trust Boundaries",
+    "description": "Does the architecture enforce strict isolation between sensitive user data and LLM reasoning layers?",
+    "signal_sources": ["Hermes-Agent-Camel", "Maestro"],
+    "judgment_weight": 0.9
+  },
+  {
+    "id": "D3-P5-EMPIRICAL-TRUTH",
+    "name": "Empirical Prediction Markets",
+    "description": "Does the system value decentralized betting/skin-in-the-game (Polymarket) over centralized narratives?",
+    "signal_sources": ["PMXT", "Polybench"],
+    "judgment_weight": 0.8
+  },
+  {
+    "id": "D3-P6-SELF-MANAGED-IO",
+    "name": "Self-Managed I/O",
+    "description": "Is the control interface self-hosted and private?",
+    "signal_sources": ["Hermes-Control-Interface"],
+    "judgment_weight": 0.75
+  },
+  {
+    "id": "D3-P7-SOUL-DRIVEN-AUTONOMY",
+    "name": "Persistent Autonomy",
+    "description": "Can the agent operate 24/7 with its own budget and permissions without human hand-holding?",
+    "signal_sources": ["Mercury-Agent"],
+    "judgment_weight": 0.9
+  },
+  {
+    "id": "D3-P8-ON-CHAIN-VERIFIABILITY",
+    "name": "On-Chain Verifiability",
+    "description": "Is the state or inference verifiable on a high-performance decentralized network (Solana)?",
+    "signal_sources": ["Firedancer", "Octra"],
+    "judgment_weight": 0.85
+  }
+]
