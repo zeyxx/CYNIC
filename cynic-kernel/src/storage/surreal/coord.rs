@@ -149,6 +149,7 @@ impl CoordPort for SurrealHttpStorage {
                 agent_id: r["agent_id"].as_str().unwrap_or("").to_string(),
                 agent_type: r["agent_type"].as_str().unwrap_or("").to_string(),
                 intent: r["intent"].as_str().unwrap_or("").to_string(),
+                scope: r["scope"].as_str().unwrap_or("").to_string(),
                 active: r["active"].as_bool().unwrap_or(false),
                 registered_at: r["registered_at"].as_str().unwrap_or("").to_string(),
                 last_seen: r["last_seen"].as_str().unwrap_or("").to_string(),
@@ -245,6 +246,19 @@ impl CoordPort for SurrealHttpStorage {
             tracing::warn!(error = %e, agent_id, "heartbeat query failed");
             CoordError::StorageFailed(format!("Heartbeat: {e}"))
         })?;
+        Ok(())
+    }
+
+    async fn scope_update(&self, agent_id: &str, scope: &str) -> Result<(), CoordError> {
+        let sql = format!(
+            "UPDATE agent_session:`{id_key}` SET scope = '{scope}', last_seen = time::now() \
+             WHERE active = true;",
+            id_key = sanitize_record_id(agent_id),
+            scope = escape_surreal(scope),
+        );
+        self.query_one(&sql)
+            .await
+            .map_err(|e| CoordError::StorageFailed(format!("ScopeUpdate: {e}")))?;
         Ok(())
     }
 
@@ -463,5 +477,22 @@ mod tests {
         let result = sanitize_record_id("file/path.rs");
         assert!(result.contains("%2f"), "slash should be percent-encoded");
         assert!(result.contains("%2e"), "dot should be percent-encoded");
+    }
+
+    #[test]
+    fn scope_update_sql_preserves_registered_at() {
+        let sql = format!(
+            "UPDATE agent_session:`{id_key}` SET scope = '{scope}', last_seen = time::now() \
+             WHERE active = true;",
+            id_key = "test_agent",
+            scope = "implement coord scope feature",
+        );
+        assert!(sql.contains("scope ="));
+        assert!(sql.contains("last_seen = time::now()"));
+        assert!(
+            !sql.contains("registered_at"),
+            "registered_at must NOT be touched"
+        );
+        assert!(sql.contains("WHERE active = true"));
     }
 }

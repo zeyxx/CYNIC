@@ -493,6 +493,9 @@ impl CoordPort for ReconnectableCoord {
     async fn heartbeat(&self, agent_id: &str) -> Result<(), CoordError> {
         self.current().heartbeat(agent_id).await
     }
+    async fn scope_update(&self, agent_id: &str, scope: &str) -> Result<(), CoordError> {
+        self.current().scope_update(agent_id, scope).await
+    }
     async fn deactivate_agent(&self, agent_id: &str) -> Result<(), CoordError> {
         self.current().deactivate_agent(agent_id).await
     }

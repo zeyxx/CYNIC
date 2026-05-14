@@ -87,6 +87,16 @@ If another session pushed while you worked, rebase before PR. Never force-push.
 **Rule 5 — Module-level ownership per session.**
 If you see another branch on origin touching the same module you're about to edit → STOP. Tell the human. Don't race.
 
+**Rule 6 — Scope before launching a second cortex.**
+Each cortex auto-registers its scope from the first user message (observe-prompt.sh → /coord/scope).
+Before dispatching a second concurrent cortex: check `/coord/who` to see active scopes.
+If two scopes describe the same feature → assign sub-scope or serialize the work.
+
+Pre-dispatch check:
+```bash
+curl -s "http://${CYNIC_REST_ADDR}/coord/who" | jq '.agents[] | {agent_id, scope}'
+```
+
 **Anti-pattern:** Two sessions both read TODO.md, both pick the top item, both implement it differently. The fix is Rule 2 — scope comes from the human, not from TODO.md.
 
 ---

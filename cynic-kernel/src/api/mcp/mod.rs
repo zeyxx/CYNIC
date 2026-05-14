@@ -196,6 +196,12 @@ pub struct WhoParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct ScopeParams {
+    pub agent_id: String,
+    pub scope: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct ObserveParams {
     pub tool: String,
     pub target: Option<String>,
@@ -910,6 +916,7 @@ mod tests {
         assert!(serde_json::from_value::<ObserveParams>(empty.clone()).is_err());
         assert!(serde_json::from_value::<GitParams>(empty.clone()).is_err());
         assert!(serde_json::from_value::<DispatchAgentTaskParams>(empty.clone()).is_err());
+        assert!(serde_json::from_value::<ScopeParams>(empty.clone()).is_err());
         // All-optional structs succeed
         assert!(serde_json::from_value::<ListParams>(empty.clone()).is_ok());
         assert!(serde_json::from_value::<WhoParams>(empty).is_ok());

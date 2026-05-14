@@ -41,6 +41,8 @@ pub struct AgentInfo {
     #[serde(default)]
     pub intent: String,
     #[serde(default)]
+    pub scope: String,
+    #[serde(default)]
     pub active: bool,
     #[serde(default)]
     pub registered_at: String,
@@ -151,6 +153,9 @@ pub trait CoordPort: Send + Sync {
     /// Expire stale sessions (>5 min no heartbeat) and their orphaned claims.
     /// Lighter than who() — no SELECT, just the two UPDATEs.
     async fn expire_stale(&self) -> Result<(), CoordError>;
+    /// Update the task scope for an existing active session.
+    /// Preserves registered_at — does NOT reset the session clock.
+    async fn scope_update(&self, agent_id: &str, scope: &str) -> Result<(), CoordError>;
 
     /// Claim multiple targets at once. Default impl calls claim() in a loop.
     /// SurrealHttpStorage overrides with a single SQL transaction.
@@ -212,6 +217,9 @@ impl CoordPort for NullCoord {
         Ok(())
     }
     async fn expire_stale(&self) -> Result<(), CoordError> {
+        Ok(())
+    }
+    async fn scope_update(&self, _: &str, _: &str) -> Result<(), CoordError> {
         Ok(())
     }
 }
