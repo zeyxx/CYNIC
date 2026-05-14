@@ -29,6 +29,7 @@ import requests
 import yaml
 
 from hermes_paths import DATASET as DEFAULT_DATASET, HERMES_X_DIR as DEFAULT_ORGAN_DIR
+from get_x_credentials import get_x_credentials
 
 logger = logging.getLogger("x-ingest")
 ACCOUNT_ID = os.environ.get("HERMES_ACCOUNT", "cynic")
@@ -526,6 +527,14 @@ def main():
     load_env()
     if not KERNEL_ADDR:
         logger.error("CYNIC_REST_ADDR not set")
+        sys.exit(1)
+
+    # Validate account configuration (Phase 2a.3 — fail-fast on misconfiguration)
+    try:
+        username, _ = get_x_credentials()  # Discard password; validation only
+        logger.info("Account validation passed: %s", username)
+    except RuntimeError as e:
+        logger.error("Account configuration invalid: %s", e)
         sys.exit(1)
 
     parser = argparse.ArgumentParser(description="CYNIC ingest daemon")
