@@ -1,7 +1,6 @@
 [Unit]
 Description=CYNIC Hermes Search Executor — automated X.com searches
-After=hermes-proxy.service
-Requires=hermes-proxy.service
+After=cynic-kernel.service
 PartOf=hermes-organism.target
 
 [Service]

@@ -1,7 +1,6 @@
 [Unit]
 Description=CYNIC Hermes Navigator — UCB1-guided organic browsing
-After=hermes-proxy.service hermes-browser.service
-Requires=hermes-proxy.service
+After=hermes-browser.service
 Wants=hermes-browser.service
 PartOf=hermes-organism.target
 
