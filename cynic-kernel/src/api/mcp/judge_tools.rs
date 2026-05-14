@@ -10,8 +10,8 @@ use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
 use crate::domain::health_gate::count_healthy_dogs;
 
 use super::{
-    AuditQueryParams, AuthParams, CynicMcp, InferParams, JudgeParams, ListParams, sanitize_error,
-    validate_agent_id,
+    AuditQueryParams, AuthParams, ComplianceParams, CynicMcp, InferParams, JudgeParams, ListParams,
+    MetabolismParams, sanitize_error, validate_agent_id,
 };
 
 #[tool_router(router = tool_router_judge, vis = "pub(super)")]
@@ -441,6 +441,112 @@ impl CynicMcp {
             Err(e) => {
                 tracing::warn!(error = %e, "MCP audit query failed");
                 Err(sanitize_error("Audit"))
+            }
+        }
+    }
+
+    #[tool(
+        name = "cynic_metabolism",
+        description = "Get the organism's metabolic state: observation intake, digestion ratio, crystallization rate, backlog, drops, verdict production. Zero-I/O snapshot of data flow health. Use to check if the organism is digesting its observations or starving."
+    )]
+    pub(crate) async fn cynic_metabolism(
+        &self,
+        _params: Parameters<MetabolismParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+
+        let metabolism = crate::domain::metabolism::snapshot(&self.metrics);
+        let alerts = crate::domain::metabolism::diagnose(&metabolism);
+
+        let crystal_summary = {
+            let crystals = self.storage.list_crystals(100).await.unwrap_or_default();
+            let mut states = std::collections::HashMap::new();
+            for c in &crystals {
+                let key = format!("{:?}", c.state);
+                *states.entry(key).or_insert(0u32) += 1;
+            }
+            serde_json::json!({
+                "total": crystals.len(),
+                "states": states,
+            })
+        };
+
+        // dog_health() returns Vec<(id, kind, failures)>
+        let judge = self.judge.load_full();
+        let dog_summary: Vec<_> = judge
+            .dog_health()
+            .iter()
+            .map(|(id, kind, failures)| {
+                serde_json::json!({
+                    "id": id,
+                    "kind": kind,
+                    "failures": failures,
+                })
+            })
+            .collect();
+
+        let result = serde_json::json!({
+            "metabolism": metabolism,
+            "crystals": crystal_summary,
+            "alerts": alerts.iter().map(|a| serde_json::json!({
+                "kind": a.kind,
+                "message": a.message,
+                "severity": a.severity,
+            })).collect::<Vec<_>>(),
+            "dogs": dog_summary,
+        });
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_compliance",
+        description = "Query session compliance scores. With agent_id: score a specific agent's session (read-before-edit %, branch discipline, rule violations). Without: return recent compliance trend (last N sessions). Use to check if the organism is following its own rules."
+    )]
+    pub(crate) async fn cynic_compliance(
+        &self,
+        params: Parameters<ComplianceParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+
+        if let Some(agent_id) = p.agent_id {
+            // Per-session compliance
+            let observations = self
+                .storage
+                .list_observations_raw(None, Some(&agent_id), 500)
+                .await
+                .map_err(|e| {
+                    tracing::warn!(error = %e, "compliance: observation query failed");
+                    sanitize_error("Compliance")
+                })?;
+
+            let result =
+                crate::domain::compliance::score_session(&agent_id, &agent_id, &observations);
+
+            // Best-effort persist
+            if let Err(e) = self.storage.store_session_compliance(&result).await {
+                tracing::warn!(error = %e, "compliance: persist failed");
+            }
+
+            Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_default(),
+            )]))
+        } else {
+            // Trend mode
+            let limit = p.limit.unwrap_or(20).min(100);
+            match self.storage.list_session_compliance(limit).await {
+                Ok(reports) => Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&reports).unwrap_or_default(),
+                )])),
+                Err(e) => {
+                    tracing::warn!(error = %e, "compliance trend query failed");
+                    Err(sanitize_error("Compliance"))
+                }
             }
         }
     }

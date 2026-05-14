@@ -178,6 +178,7 @@ pub async fn judge_handler(
             similarity,
         } => {
             tracing::info!(similarity = %format!("{:.4}", similarity), "verdict cache HIT");
+            state.metrics.inc_verdict_served();
             Ok(Json(verdict_response_cached(&verdict, similarity)))
         }
         crate::pipeline::PipelineResult::Evaluated {
@@ -188,6 +189,7 @@ pub async fn judge_handler(
             let mut resp = verdict_to_response(verdict.as_ref());
             resp.token_data = token_data.map(|b| *b);
             resp.stimulus_content = enriched_content;
+            state.metrics.inc_verdict_served();
             Ok(Json(resp))
         }
     }
@@ -198,7 +200,10 @@ pub async fn get_verdict_handler(
     Path(id): Path<String>,
 ) -> Result<Json<JudgeResponse>, (StatusCode, Json<ErrorResponse>)> {
     match state.storage.get_verdict(&id).await {
-        Ok(Some(v)) => Ok(Json(verdict_to_response(&v))),
+        Ok(Some(v)) => {
+            state.metrics.inc_verdict_served();
+            Ok(Json(verdict_to_response(&v)))
+        }
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
@@ -216,7 +221,13 @@ pub async fn list_verdicts_handler(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<JudgeResponse>>, (StatusCode, Json<ErrorResponse>)> {
     match state.storage.list_verdicts(20).await {
-        Ok(verdicts) => Ok(Json(verdicts.iter().map(verdict_to_response).collect())),
+        Ok(verdicts) => {
+            let count = verdicts.len() as u64;
+            for _ in 0..count {
+                state.metrics.inc_verdict_served();
+            }
+            Ok(Json(verdicts.iter().map(verdict_to_response).collect()))
+        }
         Err(e) => {
             tracing::warn!(error = %e, "verdicts list failed");
             Err(storage_error())

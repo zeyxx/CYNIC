@@ -15,10 +15,10 @@ use rmcp::{
 };
 
 use crate::types::{
-    AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, DispatchAgentTaskParams,
-    GitParams, JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit, ObserveParams,
-    RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, ValidateParams, WhoParams,
-    validate_agent_id,
+    AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
+    DispatchAgentTaskParams, GitParams, InferParams, JudgeParams, ListParams,
+    ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams, RegisterParams,
+    ReleaseParams, UpdateAgentTaskResultParams, ValidateParams, WhoParams, validate_agent_id,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -169,6 +169,7 @@ impl CynicMcpProxy {
                 "domain": p.domain,
                 "dogs": p.dogs,
                 "crystals": p.crystals,
+                "priority": p.priority,
             }),
         )
         .await
@@ -234,6 +235,112 @@ impl CynicMcpProxy {
         let limit = p.limit.unwrap_or(20).to_string();
         q.push(("limit", limit));
         self.get_query("/audit", &q).await
+    }
+
+    #[tool(
+        name = "cynic_metabolism",
+        description = "Get the organism's metabolic state: observation intake, digestion ratio, crystallization rate, backlog, drops, verdict production. Zero-I/O snapshot of data flow health. Use to check if the organism is digesting its observations or starving."
+    )]
+    async fn cynic_metabolism(
+        &self,
+        _params: Parameters<MetabolismParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        // Metabolism is embedded in /health — extract it server-side.
+        // We call /health and extract the metabolism + crystals + alerts subset.
+        let resp = self
+            .client
+            .get(format!("{}/health", self.base_url))
+            .bearer_auth(&self.api_key)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("REST kernel unreachable: {e}"), None))?;
+        let body = resp
+            .text()
+            .await
+            .unwrap_or_else(|_| r#"{"error":"response read failed"}"#.into());
+
+        // Extract metabolism subset from full health response
+        let extracted = match serde_json::from_str::<serde_json::Value>(&body) {
+            Ok(health) => {
+                serde_json::json!({
+                    "metabolism": health.get("metabolism"),
+                    "crystals": health.get("crystals"),
+                    "alerts": health.get("alerts"),
+                    "dogs": health.get("dogs").and_then(|d| d.as_array()).map(|dogs| {
+                        dogs.iter().map(|d| serde_json::json!({
+                            "id": d.get("id"),
+                            "kind": d.get("kind"),
+                            "circuit": d.get("circuit"),
+                        })).collect::<Vec<_>>()
+                    }),
+                    "status": health.get("status"),
+                    "uptime_seconds": health.get("uptime_seconds"),
+                })
+            }
+            Err(_) => serde_json::json!({"raw": body}),
+        };
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&extracted).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_compliance",
+        description = "Query session compliance scores. With agent_id: score a specific agent's session (read-before-edit %, branch discipline, rule violations). Without: return recent compliance trend (last N sessions). Use to check if the organism is following its own rules."
+    )]
+    async fn cynic_compliance(
+        &self,
+        params: Parameters<ComplianceParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+
+        if let Some(agent_id) = p.agent_id {
+            // Per-session compliance
+            self.get(&format!("/session/{agent_id}/compliance")).await
+        } else {
+            // Trend mode
+            let limit = p.limit.unwrap_or(20).to_string();
+            self.get_query("/compliance", &[("limit", limit)]).await
+        }
+    }
+
+    #[tool(
+        name = "cynic_infer",
+        description = "Run sovereign local inference via llama-server (no cloud API, no quota). Forwarded to kernel's OpenAI-compatible endpoint. Use for tasks that should stay local: summarization, classification, extraction."
+    )]
+    async fn cynic_infer(
+        &self,
+        params: Parameters<InferParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_judge()?;
+        let p = params.0;
+        validate_agent_id(&p.agent_id)?;
+
+        if p.prompt.trim().is_empty() {
+            return Err(McpError::invalid_params("prompt must not be empty", None));
+        }
+
+        // Build OpenAI-compatible chat completion request
+        let mut messages = Vec::new();
+        if let Some(sys) = &p.system {
+            messages.push(serde_json::json!({"role": "system", "content": sys}));
+        }
+        messages.push(serde_json::json!({"role": "user", "content": p.prompt}));
+
+        self.post(
+            "/v1/chat/completions",
+            &serde_json::json!({
+                "messages": messages,
+                "temperature": p.temperature.unwrap_or(0.7),
+                "max_tokens": p.max_tokens.unwrap_or(512),
+            }),
+        )
+        .await
     }
 
     #[tool(
@@ -419,13 +526,14 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_coord_who",
-        description = "Query active agents and their claims."
+        description = "Query active agents and their claims. No auth required (aligns with kernel)."
     )]
     async fn cynic_coord_who(
         &self,
         params: Parameters<WhoParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
+        // No auth required — matches kernel behavior (coord_tools.rs:264).
+        // Coordination visibility helps all agents avoid conflicts.
         self.rate_limit.check_other()?;
         let p = params.0;
         let mut q: Vec<(&str, String)> = Vec::new();

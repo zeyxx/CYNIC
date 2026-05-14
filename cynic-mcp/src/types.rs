@@ -112,6 +112,9 @@ pub struct JudgeParams {
     /// Optional: sensitivity level. "high" forces routing to sovereign (local) Dogs only.
     /// Use for private content: DMs, wallet seeds, API keys. Default: none (auto-detected).
     pub sensitivity: Option<String>,
+    /// Optional: slot acquisition priority. Controls queuing on sovereign inference.
+    /// Values: "user" (30s wait, default), "hermes" (15s), "nightshift" (skip if busy), "background" (skip).
+    pub priority: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -127,6 +130,19 @@ pub struct InferParams {
     pub agent_id: Option<String>,
     pub temperature: Option<f64>,
     pub max_tokens: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct MetabolismParams {
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ComplianceParams {
+    /// Agent ID to score compliance for. If omitted, returns recent trend.
+    pub agent_id: Option<String>,
+    /// Number of recent compliance records to return (trend mode). Default: 20.
+    pub limit: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

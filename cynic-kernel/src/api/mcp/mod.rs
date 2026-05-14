@@ -202,6 +202,17 @@ pub struct ScopeParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct MetabolismParams {
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ComplianceParams {
+    pub agent_id: Option<String>,
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct ObserveParams {
     pub tool: String,
     pub target: Option<String>,
