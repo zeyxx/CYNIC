@@ -185,15 +185,17 @@ mod tests {
     #[test]
     fn digestion_ratio_computed() {
         let m = Metrics::new();
+        // digestion_ratio is now verdicts_served / verdicts (K15 consumption metric)
         for _ in 0..100 {
-            m.inc_observation_ingested();
+            m.inc_verdict();
         }
-        m.add_nightshift_digested(30);
+        for _ in 0..30 {
+            m.inc_verdict_served();
+        }
         let s = snapshot(&m);
-        assert_eq!(s.ingested, 100);
-        assert_eq!(s.digested, 30);
+        assert_eq!(s.verdicts, 100);
+        assert_eq!(s.verdicts_served, 30);
         assert!((s.digestion_ratio - 0.3).abs() < 0.001);
-        assert_eq!(s.backlog, 70);
     }
 
     #[test]
