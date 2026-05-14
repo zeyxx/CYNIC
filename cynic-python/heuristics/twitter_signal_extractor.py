@@ -8,7 +8,11 @@ from dataclasses import dataclass
 from typing import Optional
 import json
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hermes_paths import DATASET
 
 
 @dataclass
@@ -150,7 +154,7 @@ def extract_signals_from_dataset(
 
 
 if __name__ == "__main__":
-    dataset_path = Path.home() / ".cynic/organs/hermes/x/dataset.jsonl"
+    dataset_path = DATASET
 
     print(f"Loading tweets from {dataset_path}...")
     tweets_and_signals = extract_signals_from_dataset(dataset_path, limit=100)

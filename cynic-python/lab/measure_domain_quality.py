@@ -211,7 +211,9 @@ def main():
     args = parser.parse_args()
 
     if args.dataset is None:
-        args.dataset = Path.home() / ".cynic/organs/hermes/x/dataset.jsonl"
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        from hermes_paths import DATASET
+        args.dataset = DATASET
 
     if not Path(args.dataset).exists():
         print(f"Dataset not found: {args.dataset}")

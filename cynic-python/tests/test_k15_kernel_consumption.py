@@ -13,6 +13,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hermes_paths import DATASET, HERMES_X_DIR
+
 # Add lab to path
 LAB_DIR = Path(__file__).parent.parent / "lab"
 sys.path.insert(0, str(LAB_DIR))
@@ -44,8 +47,8 @@ def test_lab_consumes_kernel_observations():
         return
 
     # Run lab with both kernel and organ observations available
-    dataset_path = Path.home() / ".cynic" / "organs" / "hermes" / "x" / "dataset.jsonl"
-    organ_dir = Path.home() / ".cynic" / "organs" / "hermes" / "x"
+    dataset_path = DATASET
+    organ_dir = HERMES_X_DIR
 
     if not dataset_path.exists():
         print(f"SKIP: Dataset not found at {dataset_path}")

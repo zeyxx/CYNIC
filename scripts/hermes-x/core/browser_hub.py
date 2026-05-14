@@ -337,8 +337,8 @@ async def main():
     """Production entrypoint: connect CDP + start HTTP server."""
     cdp_port = int(os.environ.get("HERMES_CDP_PORT", "40769"))
     hub_port = int(os.environ.get("BROWSER_HUB_PORT", "40770"))
-    organ_dir = os.environ.get("ORGAN_DIR",
-                               os.path.expanduser("~/.cynic/organs/hermes/x"))
+    from hermes_paths import HERMES_X_DIR
+    organ_dir = os.environ.get("ORGAN_DIR", str(HERMES_X_DIR))
 
     registry = TabRegistry()
     attribution = AttributionBuffer(ttl_seconds=5.0, max_size=1000)

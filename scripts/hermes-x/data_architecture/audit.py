@@ -27,13 +27,12 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-HERMES_DIR = Path.home() / ".cynic/organs/hermes"
-HERMES_X_DIR = HERMES_DIR / "x"
-BEHAVIOR_LOG = HERMES_DIR / "behavior" / "behavior_log.jsonl"
-DATASET = HERMES_X_DIR / "dataset.jsonl"
-FARMING_LOG = HERMES_X_DIR / "farming_log.jsonl"
-SEARCH_EXECUTION_LOG = HERMES_X_DIR / "search_execution_log.jsonl"
-OBSERVATIONS = HERMES_X_DIR / "observations"
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
+from hermes_paths import (
+    HERMES_DIR, HERMES_X_DIR, BEHAVIOR_LOG, DATASET,
+    FARMING_LOG, SEARCH_EXECUTION_LOG, OBSERVATIONS_DIR as OBSERVATIONS,
+)
 
 
 def load_jsonl(path: Path) -> list[dict]:

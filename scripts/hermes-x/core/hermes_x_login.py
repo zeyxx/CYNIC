@@ -32,6 +32,7 @@ logger = logging.getLogger("hermes-x-login")
 # Import get_x_credentials after adding scripts to path
 sys.path.insert(0, str(Path(__file__).parent))
 from get_x_credentials import get_x_credentials, load_accounts_config
+from hermes_paths import CHROME_PROFILE as DEFAULT_CHROME_PROFILE
 
 # Playwright import
 try:
@@ -54,7 +55,7 @@ def get_chrome_profile() -> Path:
                 return Path(profile).expanduser()
 
     # Fallback to default (CYNIC) profile
-    return Path.home() / ".cynic/organs/hermes/x/chrome-profiles/cynic"
+    return DEFAULT_CHROME_PROFILE
 
 
 CHROME_PROFILE = get_chrome_profile()

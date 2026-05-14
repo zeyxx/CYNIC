@@ -26,23 +26,18 @@ from urllib.parse import urlparse, parse_qs
 
 from mitmproxy import http
 
+from hermes_paths import (
+    CAPTURES_DIR as CAPTURE_DIR,
+    DATASET as DATASET_PATH,
+    SEARCH_RESULTS_LOG,
+)
+
 logger = logging.getLogger("x-proxy")
 
 CAPTURE_OPS = {
     "SearchTimeline", "UserTweets", "TweetDetail",
     "HomeTimeline", "HomeLatestTimeline", "ListLatestTweetsTimeline",
 }
-
-# Env vars set by systemd service; fallback to local for dev
-CAPTURE_DIR = Path(os.environ.get(
-    "X_CAPTURE_DIR", Path(__file__).parent / "captures"
-))
-DATASET_PATH = Path(os.environ.get(
-    "X_DATASET_PATH", CAPTURE_DIR / "dataset.jsonl"
-))
-SEARCH_RESULTS_LOG = Path(os.environ.get(
-    "X_SEARCH_RESULTS_LOG", CAPTURE_DIR.parent / "search_results.jsonl"
-))
 ACCOUNT_ID = os.environ.get("HERMES_ACCOUNT", "cynic")
 
 # ── Signal scoring: -5 (noise) to +7 (strong signal) ──

@@ -68,9 +68,11 @@ logging.basicConfig(
     format="%(asctime)s %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
+from hermes_paths import HERMES_X_DIR
+
 logger = logging.getLogger("search-executor")
 
-DEFAULT_ORGAN_DIR = Path.home() / ".cynic" / "organs" / "hermes" / "x"
+DEFAULT_ORGAN_DIR = HERMES_X_DIR
 SEARCH_TASKS_FILE = "search_tasks.jsonl"
 SEARCH_EXECUTION_LOG = "search_execution_log.jsonl"
 BEHAVIOR_LOG = "behavior_log.jsonl"

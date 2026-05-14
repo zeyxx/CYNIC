@@ -10,10 +10,12 @@ Compares:
 """
 
 import json
+import sys
 from pathlib import Path
 from datetime import datetime
 
-ORGAN_X = Path.home() / ".cynic" / "organs" / "hermes" / "x"
+sys.path.insert(0, str(Path(__file__).resolve().parent / "hermes-x" / "core"))
+from hermes_paths import HERMES_X_DIR as ORGAN_X
 PHASE2_REPORT = ORGAN_X / "reports" / "phase2_results.json"
 REPORTS_DIR = ORGAN_X / "reports"
 
