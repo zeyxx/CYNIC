@@ -228,32 +228,26 @@ impl OrganPort for HermesXReader {
 
             // Check for L0 multi-account structure
             let datasets_dir = organ_dir.join("datasets");
-            if datasets_dir.exists() {
-                if let Ok(entries) = std::fs::read_dir(&datasets_dir) {
-                    for entry in entries {
-                        if let Ok(entry) = entry {
-                            if entry.path().is_dir() {
-                                if let Some(account_name) = entry.file_name().to_str() {
-                                    let account_dataset = entry.path().join("dataset.jsonl");
-                                    if let Ok(ts) = Self::extract_latest_ts(&account_dataset) {
-                                        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&ts) {
-                                            let age = Utc::now()
-                                                .signed_duration_since(dt.with_timezone(&Utc));
-                                            let age_secs = age.num_seconds().max(0) as u64;
-                                            // Expose per-account staleness in hours
-                                            metrics.push(Metric {
-                                                key: format!(
-                                                    "account_{}_staleness_hours",
-                                                    account_name
-                                                ),
-                                                value: MetricValue::I64((age_secs / 3600) as i64),
-                                                kind: MetricKind::Gauge,
-                                                unit: Some("hours".into()),
-                                            });
-                                        }
-                                    }
-                                }
-                            }
+            if datasets_dir.exists()
+                && let Ok(entries) = std::fs::read_dir(&datasets_dir)
+            {
+                for entry in entries.flatten() {
+                    if entry.path().is_dir()
+                        && let Some(account_name) = entry.file_name().to_str()
+                    {
+                        let account_dataset = entry.path().join("dataset.jsonl");
+                        if let Ok(ts) = Self::extract_latest_ts(&account_dataset)
+                            && let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&ts)
+                        {
+                            let age = Utc::now().signed_duration_since(dt.with_timezone(&Utc));
+                            let age_secs = age.num_seconds().max(0) as u64;
+                            // Expose per-account staleness in hours
+                            metrics.push(Metric {
+                                key: format!("account_{account_name}_staleness_hours"),
+                                value: MetricValue::I64((age_secs / 3600) as i64),
+                                kind: MetricKind::Gauge,
+                                unit: Some("hours".into()),
+                            });
                         }
                     }
                 }
