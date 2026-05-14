@@ -119,6 +119,9 @@ pub struct JudgeParams {
     /// Optional: sensitivity level. "high" forces routing to sovereign (local) Dogs only.
     /// Use for private content: DMs, wallet seeds, API keys. Default: none (auto-detected).
     pub sensitivity: Option<String>,
+    /// Optional: slot acquisition priority. Controls queuing behavior on sovereign inference.
+    /// Values: "user" (30s wait, default), "hermes" (15s), "nightshift" (skip if busy), "background" (skip).
+    pub priority: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -522,6 +525,7 @@ mod tests {
             agent_id: Some("test-agent".into()),
             crystals: None,
             sensitivity: None,
+            priority: None,
         });
         let result = mcp.cynic_judge(params).await.unwrap();
         let v: serde_json::Value = serde_json::from_str(text_of(&result)).unwrap();
@@ -629,6 +633,7 @@ mod tests {
             agent_id: Some("usage-test".into()),
             crystals: None,
             sensitivity: None,
+            priority: None,
         });
         let _ = mcp.cynic_judge(params).await.unwrap();
         let usage = mcp.usage.lock().await;
@@ -843,6 +848,7 @@ mod tests {
             agent_id: None,
             crystals: None,
             sensitivity: None,
+            priority: None,
         });
         let result = mcp.cynic_judge(params).await;
         assert!(
