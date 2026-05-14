@@ -6,7 +6,6 @@ PartOf=hermes-feedback-loop.timer
 [Service]
 Type=oneshot
 EnvironmentFile=%h/.config/cynic/env
-EnvironmentFile=%h/.cynic-env
 Environment=X_ORGAN_DIR=%h/.cynic/organs/hermes/x
 ExecStart=/usr/bin/python3 %h/Bureau/CYNIC/scripts/hermes-x/analysis/gemini_learn_from_verdicts.py --organ-dir %h/.cynic/organs/hermes/x
 StandardOutput=journal
