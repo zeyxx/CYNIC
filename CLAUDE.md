@@ -205,6 +205,58 @@ Never commit: real IPs, API keys/tokens/passwords, real names (use T./S.).
 Secrets: `~/.cynic-env`. Systemd: `~/.config/cynic/env`.
 Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`, `/live`, `/ready`.
 
+## Configuration — Single Source of Truth (SSOT)
+
+The kernel has a **unified configuration loader** (`infra::config::KernelConfig`) that consolidates config from five sources with explicit priority. All kernel boot state comes through this single entry point — no scattered config discovery.
+
+### Config Priority (highest to lowest)
+
+1. **CLI arguments / systemd config** — `CYNIC_REST_ADDR=192.168.1.1:9999`, etc.
+2. **Environment variables** — `export GEMINI_API_KEY=...`, `export CYNIC_API_KEY=...`
+3. **TOML file** — `~/.config/cynic/backends.toml` (Dogs, storage, domain gates)
+4. **Filesystem discovery** — `git rev-parse --show-toplevel`, `dirs::config_dir()`
+5. **Embedded defaults** — Hardcoded in code (gemini-2.5-flash, 127.0.0.1:3030, etc.)
+
+**Location**: `cynic-kernel/src/infra/config/loader.rs` (KernelConfigLoader::load)
+
+### Kernel Boot Config
+
+At startup, main.rs calls:
+```rust
+let kernel_config = infra::config::KernelConfig::load(force_reprobe)?;
+```
+
+This returns a complete KernelConfig struct with 40+ fields:
+- **Paths**: project_root, backends_toml_path, config_dir
+- **Storage**: url, namespace, database, user, pass
+- **Backends**: backend_configs (Dogs), dog_thresholds
+- **REST API**: rest_addr, rest_port, api_key, cors_origins
+- **External APIs**: gemini, helius, sovereign, agentmail keys
+- **Inference**: summarizer, embedding config
+- **Directories**: models, scripts, curation, backup
+- **Alerts**: slack_webhook
+
+### Placeholder Resolution (Fleet Integration)
+
+Fleet.toml contains Tailscale machine definitions:
+```toml
+[machine.cynic-core]
+tailscale_ip = "100.x.x.x"
+
+[machine.cynic-gpu]
+tailscale_ip = "100.y.y.y"
+```
+
+During config load, backends.toml URLs with `<TAILSCALE_GPU>`, `<TAILSCALE_CORE>` are resolved to actual IPs via FleetResolver. This allows static config files to reference hardware by name.
+
+### Testing Config Priority
+
+To verify env vars override TOML defaults:
+```bash
+export CYNIC_REST_ADDR=192.168.1.100:9999
+cargo run -- cynic-kernel  # Should bind to 192.168.1.100:9999, not 127.0.0.1:3030
+```
+
 ## Build
 
 Rust 1.95.0 active (LLVM SROA bug from 1.94.1 resolved). Stack/debuginfo kept as safety net in `.cargo/config.toml`:
