@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-14T14:35:36.196032+00:00",
+  "generated_at": "2026-05-14T14:38:25.246841+00:00",
   "epistemic_status": "observed \u2014 all values probed from live data, no inference",
   "compliance_dimensions": {
     "constitutional": {
@@ -13,24 +13,72 @@
       "tokens_per_session_p50": 91337,
       "tokens_per_session_p90": 265296,
       "cache_hit_ratio": 0.9752,
-      "rtk_avg_savings_pct": 31.18,
+      "rtk_avg_savings_pct": 31.17,
       "rtk_release_builds_KC3": 1358,
       "rtk_max_consecutive_KC2": 15,
       "tools_per_session_p50": 222,
       "tools_per_session_p90": 715
     },
-    "axiomatique": {},
+    "axiomatique": {
+      "returned": 20,
+      "total_all_time": 0,
+      "q_score_mean": 0.278,
+      "q_score_p50": 0.227,
+      "q_score_max": 0.478,
+      "verdict_distribution": {
+        "Bark": 16,
+        "Growl": 4
+      },
+      "axiom_stats": {
+        "fidelity": {
+          "mean": 0.27,
+          "min": 0.175,
+          "max": 0.484,
+          "p50": 0.205
+        },
+        "phi": {
+          "mean": 0.282,
+          "min": 0.2,
+          "max": 0.465,
+          "p50": 0.25
+        },
+        "verify": {
+          "mean": 0.268,
+          "min": 0.18,
+          "max": 0.489,
+          "p50": 0.205
+        },
+        "culture": {
+          "mean": 0.272,
+          "min": 0.175,
+          "max": 0.484,
+          "p50": 0.237
+        },
+        "burn": {
+          "mean": 0.27,
+          "min": 0.2,
+          "max": 0.484,
+          "p50": 0.215
+        },
+        "sovereignty": {
+          "mean": 0.324,
+          "min": 0.225,
+          "max": 0.509,
+          "p50": 0.26
+        }
+      }
+    },
     "temporal": {
-      "session_duration_p50_min": 239.2,
+      "session_duration_p50_min": 242.4,
       "session_duration_p90_min": 1418.4,
       "short_sessions_under_10min": 17,
       "long_sessions_over_2h": 103,
-      "digestion_ratio": 0
+      "digestion_ratio": 0.0
     },
     "learning": {
-      "crystals_total": 0,
-      "crystals_canonical": 0,
-      "crystals_certainty_mean": 0,
+      "crystals_total": 54,
+      "crystals_canonical": 4,
+      "crystals_certainty_mean": 0.383,
       "observations_ingested": 0,
       "observations_digested": 0,
       "verdicts_created": 0,
@@ -43,36 +91,36 @@
       "gemini_substantive": 2282,
       "hermes_tweet_verdicts": 7376,
       "hermes_farming_cycles": 309,
-      "hermes_behavior_entries": 67883
+      "hermes_behavior_entries": 67978
     }
   },
   "sources": {
     "claude_code": {
       "source": "claude_code_sessions",
       "total_sessions": 150,
-      "total_records": 164192,
+      "total_records": 164228,
       "parse_errors": 1,
       "aggregate": {
-        "total_input_tokens": 1095269,
-        "total_output_tokens": 19452214,
-        "total_cache_create_tokens": 377816224,
-        "total_cache_read_tokens": 14871857253,
+        "total_input_tokens": 1095290,
+        "total_output_tokens": 19454317,
+        "total_cache_create_tokens": 378233313,
+        "total_cache_read_tokens": 14874253002,
         "cache_hit_ratio": 0.9752,
-        "output_input_ratio": 17.7602,
+        "output_input_ratio": 17.7618,
         "models": {
-          "claude-haiku-4-5-20251001": 51566,
-          "claude-opus-4-6": 38187,
+          "claude-haiku-4-5-20251001": 51572,
+          "claude-opus-4-6": 38200,
           "claude-sonnet-4-6": 1768,
           "<synthetic>": 49
         },
         "tool_calls": {
-          "Bash": 25436,
+          "Bash": 25447,
           "Read": 6687,
           "Edit": 4866,
           "Grep": 1708,
           "mcp__tailscale__ts_exec": 1681,
           "Write": 1252,
-          "TaskUpdate": 972,
+          "TaskUpdate": 973,
           "TaskCreate": 534,
           "mcp__plugin_slack_slack__slack_read_channel": 531,
           "Agent": 380,
@@ -97,7 +145,7 @@
           "mcp__plugin_playwright_playwright__browser_evaluate": 36,
           "mcp__helius__getWalletBalances": 36
         },
-        "session_duration_p50": 239.2,
+        "session_duration_p50": 242.4,
         "session_duration_p90": 1418.4,
         "session_duration_max": 4409.6
       },
@@ -111,18 +159,18 @@
     },
     "rtk": {
       "source": "rtk",
-      "total_commands": 28688,
+      "total_commands": 28693,
       "date_range": {
         "first": "2026-03-18T21:53:47.756878906+00:00",
-        "last": "2026-05-14T14:34:15.322912713+00:00"
+        "last": "2026-05-14T14:36:41.227766278+00:00"
       },
       "tokens": {
-        "total_input": 1411564618,
-        "total_output": 25284757,
-        "total_saved": 1386336477,
-        "avg_savings_pct": 31.18
+        "total_input": 1411564855,
+        "total_output": 25285005,
+        "total_saved": 1386336479,
+        "avg_savings_pct": 31.17
       },
-      "avg_exec_time_ms": 6979.4,
+      "avg_exec_time_ms": 6978.2,
       "anti_patterns": {
         "release_builds_KC3": 1358,
         "max_consecutive_identical_KC2": 15,
@@ -130,14 +178,14 @@
         "commands_with_3plus_repeats": 384
       },
       "cynic_project": {
-        "cnt": 26901,
-        "saved": 1307141415
+        "cnt": 26906,
+        "saved": 1307141417
       },
       "top_commands": [
         {
           "original_cmd": "git status --short",
-          "cnt": 907,
-          "avg_savings": 0.5664509240957524,
+          "cnt": 908,
+          "avg_savings": 0.5658270794656909,
           "total_saved": 170
         },
         {
@@ -154,8 +202,8 @@
         },
         {
           "original_cmd": "git log --oneline -5",
-          "cnt": 281,
-          "avg_savings": 0.30949043054729714,
+          "cnt": 282,
+          "avg_savings": 0.30839294675103013,
           "total_saved": 80
         },
         {
@@ -220,7 +268,7 @@
         },
         {
           "original_cmd": "git diff --stat",
-          "cnt": 158,
+          "cnt": 159,
           "avg_savings": 0.0,
           "total_saved": 0
         }
@@ -228,7 +276,171 @@
     },
     "kernel": {
       "source": "kernel",
-      "error": "kernel unreachable"
+      "health": {
+        "status": "degraded",
+        "uptime_seconds": 20,
+        "total_requests": 20228,
+        "total_tokens_processed": null
+      },
+      "metabolism": {
+        "observations_ingested": 0,
+        "observations_digested": 0,
+        "digestion_ratio": 0.0,
+        "crystal_observations": 5591,
+        "verdicts_created": 0,
+        "verdicts_served": 0,
+        "rtk_savings_pct": null
+      },
+      "dogs": {
+        "count": 3,
+        "details": [
+          {
+            "id": "deterministic-dog",
+            "kind": "heuristic",
+            "circuit": null,
+            "calls": null,
+            "json_valid_rate": null,
+            "mean_latency_ms": null
+          },
+          {
+            "id": "qwen25-7b-core",
+            "kind": "inference",
+            "circuit": null,
+            "calls": null,
+            "json_valid_rate": null,
+            "mean_latency_ms": null
+          },
+          {
+            "id": "qwen35-9b-gpu",
+            "kind": "inference",
+            "circuit": null,
+            "calls": null,
+            "json_valid_rate": null,
+            "mean_latency_ms": null
+          }
+        ]
+      },
+      "alerts": [],
+      "observations_sample": {
+        "returned": 100,
+        "domains": {
+          "general": 41,
+          "kernel-lifecycle": 22,
+          "kernel": 14,
+          "python": 7,
+          "ops": 6,
+          "rust": 3,
+          "D1": 2,
+          "session": 2,
+          "temporal-meta": 2,
+          "git": 1
+        },
+        "tools": {
+          "Bash": 37,
+          "anomaly": 20,
+          "storage_metrics_emitter": 14,
+          "Edit": 9,
+          "Grep": 6,
+          "Read": 4,
+          "boot": 2,
+          "verdict": 2,
+          "user_prompt": 2,
+          "session_temporal": 2,
+          "session_compliance": 2
+        },
+        "agents": {
+          "claude-ce0319f5-599": 39,
+          "kernel": 38,
+          "claude-044bb07d-107": 23
+        },
+        "tags": {
+          "bash": 33,
+          "kernel-self-obs": 22,
+          "storage": 14,
+          "metrics": 14,
+          "slowness": 14,
+          "edit": 9,
+          "search": 6,
+          "read": 4,
+          "probe": 4,
+          "verdict": 2,
+          "compound-loop": 2,
+          "user-prompt": 2,
+          "reasoning-trail": 2,
+          "temporal-meta": 2
+        }
+      },
+      "verdicts": {
+        "returned": 20,
+        "total_all_time": 0,
+        "q_score_mean": 0.278,
+        "q_score_p50": 0.227,
+        "q_score_max": 0.478,
+        "verdict_distribution": {
+          "Bark": 16,
+          "Growl": 4
+        },
+        "axiom_stats": {
+          "fidelity": {
+            "mean": 0.27,
+            "min": 0.175,
+            "max": 0.484,
+            "p50": 0.205
+          },
+          "phi": {
+            "mean": 0.282,
+            "min": 0.2,
+            "max": 0.465,
+            "p50": 0.25
+          },
+          "verify": {
+            "mean": 0.268,
+            "min": 0.18,
+            "max": 0.489,
+            "p50": 0.205
+          },
+          "culture": {
+            "mean": 0.272,
+            "min": 0.175,
+            "max": 0.484,
+            "p50": 0.237
+          },
+          "burn": {
+            "mean": 0.27,
+            "min": 0.2,
+            "max": 0.484,
+            "p50": 0.215
+          },
+          "sovereignty": {
+            "mean": 0.324,
+            "min": 0.225,
+            "max": 0.509,
+            "p50": 0.26
+          }
+        }
+      },
+      "crystals": {
+        "total": 54,
+        "states": {
+          "canonical": 4,
+          "crystallized": 14,
+          "forming": 36
+        },
+        "domains": {
+          "dev": 42,
+          "general": 3,
+          "token-analysis": 3,
+          "D2": 1,
+          "D1": 1,
+          "twitter": 1,
+          "D5": 1,
+          "D4": 1,
+          "session": 1
+        },
+        "certainty_mean": 0.383,
+        "certainty_p50": 0.292,
+        "canonical_count": 4
+      }
     },
     "gemini": {
       "source": "gemini_cli",
@@ -272,7 +484,7 @@
         }
       },
       "tweet_dataset": {
-        "total_tweets": 4887
+        "total_tweets": 4899
       },
       "farming": {
         "total_cycles": 309,
@@ -285,13 +497,13 @@
         }
       },
       "behavior_log": {
-        "total_entries": 67883,
+        "total_entries": 67978,
         "action_types": {
-          "mouse_move": 39966,
-          "key": 16780,
+          "mouse_move": 40003,
+          "key": 16828,
           "scroll": 5987,
-          "click": 2693,
-          "health_checkpoint": 2455,
+          "click": 2700,
+          "health_checkpoint": 2458,
           "offline_dataset_analysis": 1
         }
       }

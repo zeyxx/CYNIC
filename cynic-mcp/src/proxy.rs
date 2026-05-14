@@ -15,10 +15,10 @@ use rmcp::{
 };
 
 use crate::types::{
-    AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, DispatchAgentTaskParams,
-    GitParams, InferParams, JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit,
-    ObserveParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, ValidateParams,
-    WhoParams, validate_agent_id,
+    AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
+    DispatchAgentTaskParams, GitParams, InferParams, JudgeParams, ListParams,
+    ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams, RegisterParams,
+    ReleaseParams, UpdateAgentTaskResultParams, ValidateParams, WhoParams, validate_agent_id,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -235,6 +235,77 @@ impl CynicMcpProxy {
         let limit = p.limit.unwrap_or(20).to_string();
         q.push(("limit", limit));
         self.get_query("/audit", &q).await
+    }
+
+    #[tool(
+        name = "cynic_metabolism",
+        description = "Get the organism's metabolic state: observation intake, digestion ratio, crystallization rate, backlog, drops, verdict production. Zero-I/O snapshot of data flow health. Use to check if the organism is digesting its observations or starving."
+    )]
+    async fn cynic_metabolism(
+        &self,
+        _params: Parameters<MetabolismParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        // Metabolism is embedded in /health — extract it server-side.
+        // We call /health and extract the metabolism + crystals + alerts subset.
+        let resp = self
+            .client
+            .get(format!("{}/health", self.base_url))
+            .bearer_auth(&self.api_key)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("REST kernel unreachable: {e}"), None))?;
+        let body = resp
+            .text()
+            .await
+            .unwrap_or_else(|_| r#"{"error":"response read failed"}"#.into());
+
+        // Extract metabolism subset from full health response
+        let extracted = match serde_json::from_str::<serde_json::Value>(&body) {
+            Ok(health) => {
+                serde_json::json!({
+                    "metabolism": health.get("metabolism"),
+                    "crystals": health.get("crystals"),
+                    "alerts": health.get("alerts"),
+                    "dogs": health.get("dogs").and_then(|d| d.as_array()).map(|dogs| {
+                        dogs.iter().map(|d| serde_json::json!({
+                            "id": d.get("id"),
+                            "kind": d.get("kind"),
+                            "circuit": d.get("circuit"),
+                        })).collect::<Vec<_>>()
+                    }),
+                    "status": health.get("status"),
+                    "uptime_seconds": health.get("uptime_seconds"),
+                })
+            }
+            Err(_) => serde_json::json!({"raw": body}),
+        };
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&extracted).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_compliance",
+        description = "Query session compliance scores. With agent_id: score a specific agent's session (read-before-edit %, branch discipline, rule violations). Without: return recent compliance trend (last N sessions). Use to check if the organism is following its own rules."
+    )]
+    async fn cynic_compliance(
+        &self,
+        params: Parameters<ComplianceParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+
+        if let Some(agent_id) = p.agent_id {
+            // Per-session compliance
+            self.get(&format!("/session/{agent_id}/compliance")).await
+        } else {
+            // Trend mode
+            let limit = p.limit.unwrap_or(20).to_string();
+            self.get_query("/compliance", &[("limit", limit)]).await
+        }
     }
 
     #[tool(

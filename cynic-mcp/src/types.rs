@@ -133,6 +133,19 @@ pub struct InferParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct MetabolismParams {
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ComplianceParams {
+    /// Agent ID to score compliance for. If omitted, returns recent trend.
+    pub agent_id: Option<String>,
+    /// Number of recent compliance records to return (trend mode). Default: 20.
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct AuditQueryParams {
     pub tool: Option<String>,
     pub agent_id: Option<String>,

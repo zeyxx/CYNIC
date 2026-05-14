@@ -15,10 +15,10 @@ use rmcp::{
 };
 
 use super::{
-    AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, DispatchAgentTaskParams,
-    GitParams, JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit, ObserveParams,
-    RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, ValidateParams, WhoParams,
-    validate_agent_id,
+    AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
+    DispatchAgentTaskParams, GitParams, JudgeParams, ListParams, ListPendingAgentTasksParams,
+    McpRateLimit, MetabolismParams, ObserveParams, RegisterParams, ReleaseParams,
+    UpdateAgentTaskResultParams, ValidateParams, WhoParams, validate_agent_id,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -235,6 +235,70 @@ impl CynicMcpProxy {
         let limit = p.limit.unwrap_or(20).to_string();
         q.push(("limit", limit));
         self.get_query("/audit", &q).await
+    }
+
+    #[tool(
+        name = "cynic_metabolism",
+        description = "Get the organism's metabolic state: observation intake, digestion ratio, crystallization rate, backlog, drops, verdict production. Zero-I/O snapshot of data flow health."
+    )]
+    async fn cynic_metabolism(
+        &self,
+        _params: Parameters<MetabolismParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let resp = self
+            .client
+            .get(format!("{}/health", self.base_url))
+            .bearer_auth(&self.api_key)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("REST kernel unreachable: {e}"), None))?;
+        let body = resp
+            .text()
+            .await
+            .unwrap_or_else(|_| r#"{"error":"response read failed"}"#.into());
+        let extracted = match serde_json::from_str::<serde_json::Value>(&body) {
+            Ok(health) => {
+                serde_json::json!({
+                    "metabolism": health.get("metabolism"),
+                    "crystals": health.get("crystals"),
+                    "alerts": health.get("alerts"),
+                    "dogs": health.get("dogs").and_then(|d| d.as_array()).map(|dogs| {
+                        dogs.iter().map(|d| serde_json::json!({
+                            "id": d.get("id"),
+                            "kind": d.get("kind"),
+                            "circuit": d.get("circuit"),
+                        })).collect::<Vec<_>>()
+                    }),
+                    "status": health.get("status"),
+                    "uptime_seconds": health.get("uptime_seconds"),
+                })
+            }
+            Err(_) => serde_json::json!({"raw": body}),
+        };
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&extracted).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_compliance",
+        description = "Query session compliance scores. With agent_id: score a specific session. Without: return recent compliance trend."
+    )]
+    async fn cynic_compliance(
+        &self,
+        params: Parameters<ComplianceParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        if let Some(agent_id) = p.agent_id {
+            self.get(&format!("/session/{agent_id}/compliance")).await
+        } else {
+            let limit = p.limit.unwrap_or(20).to_string();
+            self.get_query("/compliance", &[("limit", limit)]).await
+        }
     }
 
     #[tool(
