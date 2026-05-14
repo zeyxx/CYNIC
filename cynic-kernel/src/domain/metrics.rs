@@ -27,6 +27,7 @@ pub struct Metrics {
     pub nightshift_digested_total: AtomicU64,
     pub nightshift_errors_total: AtomicU64,
     pub domain_gate_skipped_total: AtomicU64,
+    pub verdicts_served_total: AtomicU64, // K15: verdicts returned to clients (potential consumers)
 }
 
 impl Default for Metrics {
@@ -39,6 +40,7 @@ impl Metrics {
     pub fn new() -> Self {
         Self {
             verdicts_total: AtomicU64::new(0),
+            verdicts_served_total: AtomicU64::new(0),
             cache_hits_total: AtomicU64::new(0),
             cache_misses_total: AtomicU64::new(0),
             dog_evaluations_total: AtomicU64::new(0),
@@ -126,6 +128,9 @@ impl Metrics {
     pub fn inc_domain_gate_skipped(&self) {
         self.domain_gate_skipped_total
             .fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_verdict_served(&self) {
+        self.verdicts_served_total.fetch_add(1, Ordering::Relaxed);
     }
 
     /// Render Prometheus text exposition format (global counters only).
@@ -248,19 +253,25 @@ impl Metrics {
             "Crystal observations skipped by domain gate (general domain)",
             self.domain_gate_skipped_total.load(Ordering::Relaxed),
         );
+        prom_counter(
+            &mut out,
+            "cynic_verdicts_served_total",
+            "Verdicts returned to clients (K15 consumption opportunity)",
+            self.verdicts_served_total.load(Ordering::Relaxed),
+        );
 
-        // Derived: digestion ratio
-        let ingested = self.observations_ingested_total.load(Ordering::Relaxed);
-        let digested = self.nightshift_digested_total.load(Ordering::Relaxed);
-        let digestion_ratio = if ingested > 0 {
-            digested as f64 / ingested as f64
+        // Derived: K15 digestion ratio (verdicts served to consumers vs created)
+        let verdicts_created = self.verdicts_total.load(Ordering::Relaxed);
+        let verdicts_served = self.verdicts_served_total.load(Ordering::Relaxed);
+        let digestion_ratio = if verdicts_created > 0 {
+            verdicts_served as f64 / verdicts_created as f64
         } else {
             0.0
         };
         prom_gauge(
             &mut out,
             "cynic_digestion_ratio",
-            "Fraction of observations digested by nightshift (digested/ingested)",
+            "K15 ratio: verdicts served to clients / verdicts created (consumption opportunity)",
             digestion_ratio,
         );
 

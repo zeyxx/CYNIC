@@ -27,12 +27,14 @@ pub struct MetabolicState {
     pub domain_gate_skipped: u64,
     /// Total verdicts issued.
     pub verdicts: u64,
+    /// Total verdicts served to clients (K15 consumption opportunity).
+    pub verdicts_served: u64,
     /// Total crystal observations recorded.
     pub crystal_observations: u64,
 
     // ── Derived ratios (the organism's vital signs) ──
-    /// Fraction of observations digested (digested / ingested).
-    /// Healthy: > φ⁻² (0.382). Critical: < 0.10.
+    /// K15 ratio: fraction of verdicts served to consumers (verdicts_served / verdicts).
+    /// Healthy: > 0.90. This represents consumption opportunity, not actual consumption.
     pub digestion_ratio: f64,
     /// Fraction of verdicts that produced crystals (crystal_obs / verdicts).
     /// Healthy: > 0.01. Low: < 0.005.
@@ -52,10 +54,13 @@ pub fn snapshot(metrics: &Metrics) -> MetabolicState {
     let digestion_errors = metrics.nightshift_errors_total.load(Ordering::Relaxed);
     let domain_gate_skipped = metrics.domain_gate_skipped_total.load(Ordering::Relaxed);
     let verdicts = metrics.verdicts_total.load(Ordering::Relaxed);
+    let verdicts_served = metrics.verdicts_served_total.load(Ordering::Relaxed);
     let crystal_observations = metrics.crystal_observations_total.load(Ordering::Relaxed);
 
-    let digestion_ratio = if ingested > 0 {
-        digested as f64 / ingested as f64
+    // K15 digestion ratio: verdicts served to clients / verdicts created
+    // Represents consumption opportunity (serving verdicts to potential consumers)
+    let digestion_ratio = if verdicts > 0 {
+        verdicts_served as f64 / verdicts as f64
     } else {
         0.0
     };
@@ -82,6 +87,7 @@ pub fn snapshot(metrics: &Metrics) -> MetabolicState {
         digestion_errors,
         domain_gate_skipped,
         verdicts,
+        verdicts_served,
         crystal_observations,
         digestion_ratio,
         crystallization_rate,
