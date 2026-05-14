@@ -10,6 +10,35 @@ use crate::domain::events::KernelEvent;
 
 use super::PipelineDeps;
 
+/// Whitelist of domains whose content should crystallize.
+///
+/// Only domains containing EXTERNAL content (tokens, tweets, game positions)
+/// crystallize. Internal domains (dev commits, session logs, kernel ops) are
+/// judged by nightshift (verdicts count for metrics) but do NOT form crystals.
+///
+/// CHAOS: start strict, loosen with measurement.
+/// Falsify: if crystal A/B test shows dev-domain crystals improve judgment,
+/// add "dev" here. Until measured, the principle of precaution applies.
+fn is_crystallizable_domain(domain: &str) -> bool {
+    matches!(
+        domain,
+        "chess"
+            | "token-analysis"
+            | "token"
+            | "twitter"
+            | "D1"
+            | "D2"
+            | "D3"
+            | "D4"
+            | "D5"
+            | "D6"
+            | "D7"
+            | "D8"
+            | "D9"
+            | "hermes"
+    )
+}
+
 /// Compute epistemic injection weight from Dog disagreement level.
 ///
 /// Returns `(tag, weight)` where tag is "agreed"/"disputed"/"contested"
@@ -112,15 +141,22 @@ pub async fn observe_crystal_for_verdict_core(
     metrics: &crate::domain::metrics::Metrics,
     event_tx: Option<&tokio::sync::broadcast::Sender<KernelEvent>>,
 ) {
-    // ── Domain gate: "general" is a poison domain (KC poison fix) ──
-    // Verdicts without an explicit domain default to "general" in the pipeline.
-    // These are noise (test probes, unclassified requests). Crystallizing them
-    // contaminates all domain queries. Skip.
-    if domain == "general" {
+    // ── Source gate: only crystallize domains with external content ──
+    // Crystals are the organism's long-term memory. Only domain-relevant
+    // content that helps Dogs judge future stimuli should crystallize.
+    // Audit (2026-05-14): 70% of crystals were noise — commit messages (47%),
+    // session logs (13%), kernel anomalies (10%). None help Dogs judge tokens
+    // or chess positions. Nightshift still JUDGES all observations (verdicts
+    // remain for metrics), but only external-content domains CRYSTALLIZE.
+    //
+    // CHAOS approach: strict whitelist now, loosen when crystal A/B test
+    // shows domain X improves judgment. Filtering too much > crystallizing poison.
+    if !is_crystallizable_domain(domain) {
         metrics.inc_domain_gate_skipped();
         tracing::debug!(
             phase = "crystal_gate",
-            "domain='general' — crystal observation skipped (noise, not knowledge)"
+            %domain,
+            "non-crystallizable domain — verdict recorded, crystal skipped"
         );
         return;
     }
@@ -437,5 +473,28 @@ mod tests {
         let weight = 1.0;
         let conf = ((total / PHI_INV) * weight).min(1.0);
         assert!(conf <= 1.0, "crystal_confidence must be ≤ 1.0, got {conf}");
+    }
+
+    // ── Source gate tests ────────────────────────────────────
+
+    #[test]
+    fn crystallizable_domain_allows_external_content() {
+        assert!(is_crystallizable_domain("chess"));
+        assert!(is_crystallizable_domain("token-analysis"));
+        assert!(is_crystallizable_domain("token"));
+        assert!(is_crystallizable_domain("twitter"));
+        assert!(is_crystallizable_domain("D1"));
+        assert!(is_crystallizable_domain("D5"));
+        assert!(is_crystallizable_domain("hermes"));
+    }
+
+    #[test]
+    fn crystallizable_domain_blocks_internal_noise() {
+        assert!(!is_crystallizable_domain("dev"));
+        assert!(!is_crystallizable_domain("ops"));
+        assert!(!is_crystallizable_domain("session"));
+        assert!(!is_crystallizable_domain("general"));
+        assert!(!is_crystallizable_domain(""));
+        assert!(!is_crystallizable_domain("unknown-new-domain"));
     }
 }
