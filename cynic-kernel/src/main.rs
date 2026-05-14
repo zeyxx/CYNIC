@@ -1057,6 +1057,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
             rest_state.judge.load_full(),
             Arc::clone(&storage_port),
+            Arc::clone(&embedding) as Arc<dyn domain::embedding::EmbeddingPort>,
             Arc::clone(&task_health),
             shutdown.clone(),
             project_root.display().to_string(),

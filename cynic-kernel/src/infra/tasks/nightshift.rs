@@ -78,6 +78,7 @@ async fn judge_observation(
     obs: &crate::domain::storage::RawObservation,
     judge: &Arc<crate::judge::Judge>,
     storage: &Arc<dyn StoragePort>,
+    embedding: &dyn crate::domain::embedding::EmbeddingPort,
     metrics: &Metrics,
 ) -> Result<(), String> {
     let domain = ccm_domain_for_observation(&obs.domain);
@@ -96,12 +97,14 @@ async fn judge_observation(
         .await
         .map_err(|e| format!("judge failed for observation {}: {e}", obs.id))?;
 
+    // Embed stimulus for KNN crystal merge (Phase 2: closes the slug fragmentation gap).
+    // If embedding fails, falls back to semantic_slug (same as before).
+    let stimulus_embedding = embedding.embed(&stimulus.content).await.ok();
+
     // Unified crystal path: same gates (quorum, epistemic, KNN merge) as pipeline.
-    // No embedding available here (nightshift doesn't embed stimuli), so falls
-    // back to semantic_slug — but goes through Q-score normalization and domain gate.
     crate::pipeline::observe_crystal_for_verdict_core(
         &verdict,
-        &None, // no stimulus embedding in nightshift (yet)
+        &stimulus_embedding,
         domain,
         storage.as_ref(),
         metrics,
@@ -118,10 +121,12 @@ async fn judge_commit(
     commit: &GitCommit,
     judge: &Arc<crate::judge::Judge>,
     storage: &Arc<dyn StoragePort>,
+    embedding: &dyn crate::domain::embedding::EmbeddingPort,
     metrics: &Metrics,
 ) -> Result<(), String> {
+    let stimulus_content = format!("{}: {}", commit.hash, commit.message);
     let stimulus = Stimulus {
-        content: format!("{}: {}", commit.hash, commit.message),
+        content: stimulus_content.clone(),
         context: None,
         domain: Some("dev".to_string()),
         request_id: None,
@@ -132,10 +137,11 @@ async fn judge_commit(
         .await
         .map_err(|e| format!("judge failed for {}: {e}", commit.hash))?;
 
-    // Unified crystal path: same gates as pipeline.
+    let stimulus_embedding = embedding.embed(&stimulus_content).await.ok();
+
     crate::pipeline::observe_crystal_for_verdict_core(
         &verdict,
-        &None,
+        &stimulus_embedding,
         "dev",
         storage.as_ref(),
         metrics,
@@ -155,6 +161,7 @@ async fn judge_commit(
 pub fn spawn_nightshift_loop(
     judge: Arc<crate::judge::Judge>,
     storage: Arc<dyn StoragePort>,
+    embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
     repo_path: String,
@@ -235,7 +242,7 @@ pub fn spawn_nightshift_loop(
                     for commit in &commits {
                         match tokio::time::timeout(
                             constants::NIGHTSHIFT_COMMIT_TIMEOUT,
-                            judge_commit(commit, &judge, &storage, &cycle_metrics),
+                            judge_commit(commit, &judge, &storage, embedding.as_ref(), &cycle_metrics),
                         )
                         .await
                         {
@@ -276,7 +283,7 @@ pub fn spawn_nightshift_loop(
                             for obs in &judgeable {
                                 match tokio::time::timeout(
                                     constants::NIGHTSHIFT_COMMIT_TIMEOUT,
-                                    judge_observation(obs, &judge, &storage, &cycle_metrics),
+                                    judge_observation(obs, &judge, &storage, embedding.as_ref(), &cycle_metrics),
                                 ).await {
                                     Ok(Ok(())) => s_judged += 1,
                                     Ok(Err(e)) => {
@@ -335,7 +342,15 @@ mod tests {
     fn maps_observation_domains_to_stable_ccm_domains() {
         assert_eq!(ccm_domain_for_observation("rust"), "dev");
         assert_eq!(ccm_domain_for_observation("session"), "session");
+        assert_eq!(ccm_domain_for_observation("session-metrics"), "session");
         assert_eq!(ccm_domain_for_observation("token"), "token");
+        assert_eq!(ccm_domain_for_observation("token-analysis"), "token");
+        assert_eq!(ccm_domain_for_observation("kernel"), "ops");
+        assert_eq!(ccm_domain_for_observation("kernel-lifecycle"), "ops");
+        assert_eq!(ccm_domain_for_observation("infra"), "ops");
+        assert_eq!(ccm_domain_for_observation("D1"), "twitter");
+        assert_eq!(ccm_domain_for_observation("D6"), "twitter");
+        assert_eq!(ccm_domain_for_observation("hermes-cycle"), "hermes");
         assert_eq!(ccm_domain_for_observation("unknown"), "general");
     }
 
@@ -347,9 +362,12 @@ mod tests {
         let shutdown = CancellationToken::new();
 
         let metrics = Arc::new(Metrics::new());
+        let embedding: Arc<dyn crate::domain::embedding::EmbeddingPort> =
+            Arc::new(crate::domain::embedding::NullEmbedding);
         let handle = spawn_nightshift_loop(
             judge,
             storage,
+            embedding,
             task_health,
             shutdown.clone(),
             "/tmp".to_string(),
