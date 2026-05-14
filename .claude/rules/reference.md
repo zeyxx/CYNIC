@@ -16,9 +16,8 @@ Declared in `~/.config/cynic/backends.toml` — loaded at kernel boot if env var
 |---|---|---|---|
 | deterministic-dog | Heuristics | In-kernel | Always (no config required) |
 | qwen-7b-hf | Qwen 2.5 7B | HF Inference | If HUGGINGFACE_API_KEY set |
-| qwen25-7b-core | Qwen 2.5 7B | cynic-core (CPU + Vulkan) | If <TAILSCALE_CORE> reachable |
+| qwen-9b-core | Qwen 2.5 7B Q4 | cynic-core (CPU + Vulkan) | If <TAILSCALE_CORE> reachable |
 | qwen35-9b-gpu | Qwen 3.5 9B Q4 | cynic-gpu (RTX 4060 Ti) | If <TAILSCALE_GPU> reachable |
-| gemma-4-e4b-gpu | Gemma 4 E4B | cynic-gpu (CPU) | If <TAILSCALE_GPU> reachable |
 | gemini-cli | Gemini (auto) | CLI subprocess | If GEMINI_API_KEY set + gemini-cli on PATH |
 
 ## Infrastructure
