@@ -39,6 +39,7 @@ REST_ADDR = os.getenv("CYNIC_REST_ADDR", "http://127.0.0.1:3030")
 API_KEY = os.getenv("CYNIC_API_KEY", "")
 CHECK_INTERVAL = int(os.getenv("RECOVERY_CHECK_INTERVAL", "30"))
 from hermes_paths import HERMES_X_DIR as ORGAN_DIR, RECOVERY_LOG
+from get_x_credentials import get_x_credentials
 LOG_PATH = Path(os.getenv("RECOVERY_LOG_PATH", str(RECOVERY_LOG)))
 
 # Recovery state
@@ -322,6 +323,14 @@ def main():
     logger.info(f"Hermes X Recovery Daemon started for account: {ACCOUNT_ID}")
     logger.info(f"Kernel: {REST_ADDR}")
     logger.info(f"Check interval: {CHECK_INTERVAL}s")
+
+    # Validate account configuration (Phase 2a.3 — fail-fast on misconfiguration)
+    try:
+        username, _ = get_x_credentials()  # Discard password; validation only
+        logger.info(f"Account validation passed: {username}")
+    except RuntimeError as e:
+        logger.error(f"Account configuration invalid: {e}")
+        sys.exit(1)
 
     try:
         while True:
