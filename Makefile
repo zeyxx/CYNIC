@@ -51,6 +51,7 @@ check:
 	@$(MAKE) --no-print-directory lint-drift
 	@$(MAKE) --no-print-directory lint-subprocess-env
 	@$(MAKE) --no-print-directory lint-security
+	@$(MAKE) --no-print-directory lint-python-tiers
 	@echo ""; echo "▶ Security audit (cargo audit)..."
 	cargo audit --deny warnings
 	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
@@ -255,6 +256,36 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	done; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ No drift detected"; fi; \
 	exit $$FAIL
+
+.PHONY: lint-python-tiers
+lint-python-tiers: ## P1-P6: Python code lifecycle governance — every file must have explicit tier + consumer
+	@echo ""
+	@echo "▶ Checking Python tier governance..."
+	@set +e; FAIL=0; \
+	PY_FILES=$$(find cynic-python scripts -name '*.py' -type f 2>/dev/null); \
+	UNTAGGED=0; TIER1_NO_EXPERIMENT=0; \
+	for PYFILE in $$PY_FILES; do \
+		CONTENT=$$(cat "$$PYFILE" 2>/dev/null); \
+		HAS_TIER=$$(echo "$$CONTENT" | grep -E 'EXPERIMENT|Tier [123]|INFRASTRUCTURE' | head -1); \
+		if [ -z "$$HAS_TIER" ]; then \
+			echo "FAIL P1-P6: '$$PYFILE' has no tier tag (EXPERIMENT, Tier 1, Tier 2, or Tier 3)"; \
+			UNTAGGED=$$((UNTAGGED + 1)); FAIL=1; \
+		else \
+			IS_TIER1=$$(echo "$$CONTENT" | grep -c 'Tier 1 EXPERIMENTAL\|EXPERIMENT:'); \
+			if [ $$IS_TIER1 -gt 0 ]; then \
+				HAS_EXPERIMENT=$$(echo "$$CONTENT" | grep -c 'EXPERIMENT:'); \
+				if [ $$HAS_EXPERIMENT -eq 0 ]; then \
+					echo "WARN P1: Tier 1 file '$$PYFILE' lacks 'EXPERIMENT:' docstring tag"; \
+				fi; \
+			fi; \
+		fi; \
+	done; \
+	if [ $$UNTAGGED -gt 0 ]; then \
+		echo ""; echo "WARN: $$UNTAGGED untagged Python files. Each must be tagged with Tier comment."; \
+		echo "  Tagging is required for new .py files; existing files should be tagged by 2026-06-01."; \
+	fi; \
+	if [ $$FAIL -eq 0 ]; then echo "✓ Python tier governance OK"; fi; \
+	exit 0
 
 .PHONY: lint-subprocess-env
 lint-subprocess-env: ## R23 gate: hooks/scripts/Rust subprocess env is explicit (RUST_MIN_STACK, --edition)
