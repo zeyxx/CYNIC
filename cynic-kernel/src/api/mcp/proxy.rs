@@ -52,15 +52,17 @@ impl CynicMcpProxy {
             .build()
             .expect("HTTP client init failed");
 
+        let auto_auth = !api_key.is_empty()
+            || std::env::var("CYNIC_ALLOW_OPEN_API")
+                .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
+                .unwrap_or(false);
+
         Self {
             client,
             base_url,
             api_key,
-            authenticated: Arc::new(AtomicBool::new(
-                std::env::var("CYNIC_ALLOW_OPEN_API")
-                    .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
-                    .unwrap_or(false),
-            )),
+            // Auto-auth when proxy has a valid API key. LLM echoing key = theater.
+            authenticated: Arc::new(AtomicBool::new(auto_auth)),
             rate_limit: Arc::new(McpRateLimit::new()),
             project_root,
             tool_router: Self::tool_router_forward()

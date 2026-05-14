@@ -99,7 +99,7 @@ async fn judge_observation(
 
     // Embed stimulus for KNN crystal merge (Phase 2: closes the slug fragmentation gap).
     // If embedding fails, falls back to semantic_slug (same as before).
-    let stimulus_embedding = embedding.embed(&stimulus.content).await.ok();
+    let stimulus_embedding = embedding.embed(&stimulus.content).await.ok(); // R2-exempt: intentional fallback to semantic_slug
 
     // Unified crystal path: same gates (quorum, epistemic, KNN merge) as pipeline.
     crate::pipeline::observe_crystal_for_verdict_core(
@@ -137,7 +137,7 @@ async fn judge_commit(
         .await
         .map_err(|e| format!("judge failed for {}: {e}", commit.hash))?;
 
-    let stimulus_embedding = embedding.embed(&stimulus_content).await.ok();
+    let stimulus_embedding = embedding.embed(&stimulus_content).await.ok(); // R2-exempt: intentional fallback to semantic_slug
 
     crate::pipeline::observe_crystal_for_verdict_core(
         &verdict,

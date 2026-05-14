@@ -616,6 +616,16 @@ pub fn load_backends(path: &Path) -> Vec<BackendConfig> {
                     })
             };
 
+            // Validate no unresolved placeholders in base_url
+            if entry.base_url.contains('<') && entry.base_url.contains('>') {
+                tracing::error!(
+                    backend = %name,
+                    base_url = %entry.base_url,
+                    "unresolved placeholder in backend URL — run `scripts/fleet-gen.py backends.toml > ~/.config/cynic/backends.toml`"
+                );
+                return None;
+            }
+
             Some(BackendConfig {
                 name,
                 backend_type,
