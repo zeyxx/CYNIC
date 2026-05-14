@@ -8,7 +8,7 @@ Type=oneshot
 EnvironmentFile=%h/.config/cynic/env
 Environment="PYTHONPATH=%h/Bureau/CYNIC/cynic-python/heuristics:%h/Bureau/CYNIC/cynic-python:%h/Bureau/CYNIC/scripts/hermes-x/consumers"
 WorkingDirectory=%h/Bureau/CYNIC
-ExecStart=/usr/bin/python3 scripts/hermes-x/consumers/k15_observation_consumer.py --kernel-url ${CYNIC_REST_ADDR} --poll-interval 10 --max-iter 1
+ExecStart=/usr/bin/python3 scripts/hermes-x/consumers/k15_observation_consumer.py --kernel-url "http://${CYNIC_REST_ADDR}" --poll-interval 10 --max-iter 1
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=hermes-k15-consumer
