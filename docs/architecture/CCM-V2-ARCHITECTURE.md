@@ -87,7 +87,11 @@ Jury::evaluate(stimulus) -> Verdict {
 
 **Problem it solves:** The organism must remember verified knowledge across sessions without poisoning itself.
 
-**What v1 gets wrong:** No source filter (fixed today), no anchor corpus, no measurement of injection effect, no structured forgetting.
+**What v1 gets wrong:**
+- No source filter (fixed today), no anchor corpus, no measurement of injection effect
+- No data treatment layer between raw observation and crystal accumulation
+- Flat storage — crystals are isolated documents with no relations between them
+- Metadata lost — which Dogs scored, per-axiom patterns, agreement topology discarded
 
 **Research basis:**
 - Model collapse (Nature 2024): never train exclusively on own outputs
@@ -95,8 +99,89 @@ Jury::evaluate(stimulus) -> Verdict {
 - AMA (2026): judge-gated writes
 - D-MEM (2026): dopamine-gated (surprise + utility)
 - Agent drift (arXiv 2601): critical threshold at ~300 interactions
+- Data system architecture: Perception → Treatment → Structuration → Analysis → Learning
 
-**v2 design:**
+#### The Missing Layer: Treatment (Nettoyage)
+
+v1 jumps from Perception (observation) directly to Structuration (crystal accumulation).
+There is no cleaning/transformation layer. The source gate is a binary pass/fail, not a
+transformation. What should exist between verdict and crystal:
+
+```
+Verdict (raw)
+    │
+    ▼
+TREATMENT (missing in v1)
+    ├── Anomaly detection: reject score vectors with degenerate patterns
+    │   (all zeros, all phi-inv, variance < epsilon)
+    ├── Metadata preservation: record per-Dog scores, not just aggregate
+    │   (which Dogs, which axioms diverged, agreement topology)
+    ├── Cross-domain normalization: calibrate scores to domain baselines
+    │   (exists as hardcoded domain_specific_q_normalization, should be data-driven)
+    ├── Deduplication: semantic merge BEFORE crystal write, not during
+    │   (current KNN merge at write-time creates race conditions)
+    ├── Surprise scoring: how novel is this verdict relative to existing crystals?
+    │   (D-MEM dopamine gate: high surprise = high write priority)
+    │
+    ▼
+Crystal accumulation (Structuration)
+```
+
+#### Hypergraph: Crystals as Hyperaretes
+
+A verdict is NOT a binary relation. It connects N entities simultaneously:
+
+```
+Hyperarete (one verdict) = {
+    stimulus,
+    Dog_A(fidelity=0.4, verify=0.6),
+    Dog_B(phi=0.3, burn=0.5),
+    Dog_C(culture=0.2, sovereignty=0.7),
+    domain="token-analysis",
+    time=2026-05-15T01:30:00Z
+}
+```
+
+A **crystal** is a cluster of hyperaretes — multiple verdicts that converged on a
+shared region of the judgment space. The crystal's content is the centroid; its
+metadata is the full topology of the verdicts that formed it.
+
+**What the hypergraph preserves that v1 loses:**
+
+| Signal | v1 (flat) | v2 (hypergraph) |
+|--------|-----------|-----------------|
+| Per-Dog contribution | Lost (only aggregate Q-score stored) | Each Dog's axiom scores preserved per verdict |
+| Agreement topology | Lost (max_disagreement scalar) | Which axioms agreed, which diverged, and between which Dogs |
+| Temporal evolution | Two timestamps (created_at, updated_at) | Full trajectory: confidence(t), agreement(t), polarity(t) |
+| Inter-crystal relations | None (isolated documents) | Entity links: crystals about same token/entity are connected |
+| Provenance | contributing_verdicts (ID list, max 500) | Full verdict metadata accessible via hyperarete |
+
+**Why this matters for Distillation (System 3):** LoRA training needs rich signal, not
+scalar labels. A training example of "this token scored 0.45" is weak. A training example
+of "Dog_A scored fidelity=0.1 (scam keywords detected) but Dog_B scored verify=0.8
+(on-chain metrics clean) — GROWL with contested fidelity axis" is 10x richer.
+
+**Implementation path:** SurrealDB already supports graph relations. The hyperarete
+can be modeled as:
+
+```
+                  ┌─────────┐
+            ┌─────┤ Crystal  ├─────┐
+            │     └────┬────┘     │
+            │          │          │
+      ┌─────┴──┐  ┌───┴───┐  ┌──┴─────┐
+      │Verdict1│  │Verdict2│  │Verdict3│   (hyperaretes)
+      └───┬────┘  └───┬───┘  └───┬────┘
+          │           │           │
+    ┌─────┼─────┐   ┌─┴──┐    ┌──┼─────┐
+    │     │     │   │    │    │  │     │
+   DogA DogB DogC  ...  ...  ... ...  ...   (per-Dog axiom scores)
+```
+
+The crystal is the cluster. Verdicts are the hyperaretes. Dogs are the nodes.
+Retrieval queries the crystal level; training queries the verdict level.
+
+#### v2 Design (updated)
 
 ```
                     ┌─────────────────────────────────┐
@@ -105,32 +190,34 @@ Jury::evaluate(stimulus) -> Verdict {
                     │   human-curated, immutable)       │
                     └──────────┬──────────────────────┘
                                │
-Verdict ──► Source gate ──► Write gate ──► Crystal DB
-            (domain          (consensus       │
-             whitelist)       > phi-inv)       │
-                                              │
-                              ┌───────────────┤
-                              │               │
-                         KNN search      Anchor mix
-                              │               │
-                              └───────┬───────┘
-                                      │
-                              Crystal context
-                              (injected into
-                               Dog prompts)
-                                      │
-                              ┌───────┴───────┐
-                              │  A/B MEASURE   │
-                              │  (with vs      │
-                              │   without)     │
-                              └───────────────┘
+Verdict ──► Source gate ──► Treatment ──► Write gate ──► Crystal Hypergraph
+            (domain          (clean,       (consensus       │
+             whitelist)       enrich,       > phi-inv)       │
+                              metadata)                     │
+                                              ┌─────────────┤
+                                              │             │
+                                         KNN search    Anchor mix
+                                              │             │
+                                              └──────┬──────┘
+                                                     │
+                                             Crystal context
+                                             (with metadata:
+                                              agreement topology,
+                                              per-Dog signals)
+                                                     │
+                                             ┌───────┴───────┐
+                                             │  A/B MEASURE   │
+                                             │  (with vs      │
+                                             │   without)     │
+                                             └───────────────┘
 ```
 
-**Anti-collapse mechanisms (3 layers):**
+**Anti-collapse mechanisms (4 layers):**
 
 1. **Source gate** (implemented today): only external-content domains crystallize
-2. **Anchor corpus**: fixed set of known-good verdicts mixed into retrieval (prevents tail truncation). Ratio: at least 20% anchor, 80% organic crystals.
-3. **A/B measurement**: every Nth request runs without crystal injection. Track Q-score delta. If delta <= 0, crystals are not helping — STOP injection until diagnosed.
+2. **Treatment layer** (NEW): anomaly detection, metadata preservation, surprise scoring
+3. **Anchor corpus**: known-good verdicts mixed into retrieval (20% floor)
+4. **A/B measurement**: every Nth request without injection, track Q-score delta
 
 **Structured forgetting:**
 - Crystals carry `valid_at` / `challenged_at` timestamps
@@ -141,15 +228,52 @@ Verdict ──► Source gate ──► Write gate ──► Crystal DB
 **Interface:**
 ```
 Memory::retrieve(stimulus_embedding, domain) -> CrystalContext {
-    organic_crystals: Vec<Crystal>,    // from DB, KNN matched
+    organic_crystals: Vec<Crystal>,    // from hypergraph, KNN matched
     anchor_crystals: Vec<Crystal>,     // from corpus, always present
     injection_enabled: bool,           // A/B flag
+    metadata: Vec<VerdictTopology>,    // NEW: per-Dog axiom signals for rich injection
 }
 
 Memory::observe(verdict, domain) -> Result<(), GateRejection> {
-    // Source gate + consensus gate + diversity check
+    // Source gate → Treatment (clean, enrich, metadata) → consensus gate → write
 }
+
+// Treatment sub-operations (cours: nettoyage)
+Treatment::clean(verdict) -> Result<CleanVerdict, AnomalyRejection>;
+Treatment::enrich(verdict) -> EnrichedVerdict;  // add provenance, surprise score
+Treatment::deduplicate(verdict, existing_crystals) -> MergeDecision;
 ```
+
+### System 2b: ANALYSIS (Crystal Observatory)
+
+**Problem it solves:** The organism must UNDERSTAND its own crystal state, not just count.
+
+**What v1 has:** `/health` shows crystal counts (forming/crystallized/canonical). metabolism
+shows backlog, crystallization_rate. That's counting, not analysis (cours: §5).
+
+**What should exist:**
+- Score distribution histograms per domain (detect collapse toward single mode)
+- Temporal drift detection (weekly Q-score moving average per domain)
+- Dog contribution analysis (which Dog drives which crystal's score)
+- Cluster topology (UMAP/HDBSCAN on crystal embeddings — the audit did this ONCE manually,
+  should be continuous)
+- Anomaly detection on the hypergraph (crystals with unusually high agreement = possible echo)
+
+**This is NOT a new system** — it's an analytical layer on top of Memory (System 2).
+The audit of 2026-05-12 (CCM-ORGANISM-AUDIT) proved this is possible and valuable.
+The gap: it was a one-shot manual analysis, not a continuous organ.
+
+**Interface:**
+```
+Analysis::score_distribution(domain) -> Histogram;
+Analysis::drift_report(window_days: u32) -> DriftReport;
+Analysis::cluster_topology() -> Vec<Cluster>;  // UMAP on crystal embeddings
+Analysis::echo_detector() -> Vec<EchoWarning>;  // crystals too similar
+```
+
+**Build phase:** After Phase 1 (clean data). Analysis on dirty data is meaningless.
+
+---
 
 ### System 3: DISTILLATION (Learning Pipeline)
 
