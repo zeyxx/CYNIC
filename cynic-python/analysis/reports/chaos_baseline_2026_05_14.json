@@ -1,0 +1,300 @@
+{
+  "generated_at": "2026-05-14T14:35:36.196032+00:00",
+  "epistemic_status": "observed \u2014 all values probed from live data, no inference",
+  "compliance_dimensions": {
+    "constitutional": {
+      "read_before_edit_avg": 0.725,
+      "branch_before_edit_pct": 0.512,
+      "edits_on_main_total": 2513,
+      "sessions_editing_main": 94
+    },
+    "metabolic": {
+      "total_sessions": 150,
+      "tokens_per_session_p50": 91337,
+      "tokens_per_session_p90": 265296,
+      "cache_hit_ratio": 0.9752,
+      "rtk_avg_savings_pct": 31.18,
+      "rtk_release_builds_KC3": 1358,
+      "rtk_max_consecutive_KC2": 15,
+      "tools_per_session_p50": 222,
+      "tools_per_session_p90": 715
+    },
+    "axiomatique": {},
+    "temporal": {
+      "session_duration_p50_min": 239.2,
+      "session_duration_p90_min": 1418.4,
+      "short_sessions_under_10min": 17,
+      "long_sessions_over_2h": 103,
+      "digestion_ratio": 0
+    },
+    "learning": {
+      "crystals_total": 0,
+      "crystals_canonical": 0,
+      "crystals_certainty_mean": 0,
+      "observations_ingested": 0,
+      "observations_digested": 0,
+      "verdicts_created": 0,
+      "verdicts_served": 0,
+      "verdict_serve_ratio": 0.0
+    },
+    "cross_agent": {
+      "claude_sessions": 150,
+      "gemini_sessions": 5573,
+      "gemini_substantive": 2282,
+      "hermes_tweet_verdicts": 7376,
+      "hermes_farming_cycles": 309,
+      "hermes_behavior_entries": 67883
+    }
+  },
+  "sources": {
+    "claude_code": {
+      "source": "claude_code_sessions",
+      "total_sessions": 150,
+      "total_records": 164192,
+      "parse_errors": 1,
+      "aggregate": {
+        "total_input_tokens": 1095269,
+        "total_output_tokens": 19452214,
+        "total_cache_create_tokens": 377816224,
+        "total_cache_read_tokens": 14871857253,
+        "cache_hit_ratio": 0.9752,
+        "output_input_ratio": 17.7602,
+        "models": {
+          "claude-haiku-4-5-20251001": 51566,
+          "claude-opus-4-6": 38187,
+          "claude-sonnet-4-6": 1768,
+          "<synthetic>": 49
+        },
+        "tool_calls": {
+          "Bash": 25436,
+          "Read": 6687,
+          "Edit": 4866,
+          "Grep": 1708,
+          "mcp__tailscale__ts_exec": 1681,
+          "Write": 1252,
+          "TaskUpdate": 972,
+          "TaskCreate": 534,
+          "mcp__plugin_slack_slack__slack_read_channel": 531,
+          "Agent": 380,
+          "ToolSearch": 379,
+          "Glob": 272,
+          "mcp__plugin_playwright_playwright__browser_snapshot": 268,
+          "mcp__plugin_playwright_playwright__browser_click": 227,
+          "Skill": 217,
+          "WebSearch": 180,
+          "WebFetch": 137,
+          "AskUserQuestion": 103,
+          "mcp__plugin_playwright_playwright__browser_navigate": 99,
+          "mcp__plugin_playwright_playwright__browser_take_screenshot": 98,
+          "mcp__tailscale__ts_send": 88,
+          "mcp__tailscale__ts_transfer": 63,
+          "mcp__tailscale__ts_logs": 57,
+          "mcp__plugin_playwright_playwright__browser_fill_form": 55,
+          "mcp__tailscale__ts_service": 52,
+          "mcp__plugin_playwright_playwright__browser_type": 45,
+          "mcp__plugin_slack_slack__slack_search_channels": 42,
+          "TaskOutput": 37,
+          "mcp__plugin_playwright_playwright__browser_evaluate": 36,
+          "mcp__helius__getWalletBalances": 36
+        },
+        "session_duration_p50": 239.2,
+        "session_duration_p90": 1418.4,
+        "session_duration_max": 4409.6
+      },
+      "compliance": {
+        "sessions_with_edit_on_main": 94,
+        "total_edits_on_main": 2513,
+        "avg_read_before_edit_ratio": 0.725,
+        "sessions_branched_before_first_edit": 63,
+        "sessions_with_edits": 123
+      }
+    },
+    "rtk": {
+      "source": "rtk",
+      "total_commands": 28688,
+      "date_range": {
+        "first": "2026-03-18T21:53:47.756878906+00:00",
+        "last": "2026-05-14T14:34:15.322912713+00:00"
+      },
+      "tokens": {
+        "total_input": 1411564618,
+        "total_output": 25284757,
+        "total_saved": 1386336477,
+        "avg_savings_pct": 31.18
+      },
+      "avg_exec_time_ms": 6979.4,
+      "anti_patterns": {
+        "release_builds_KC3": 1358,
+        "max_consecutive_identical_KC2": 15,
+        "max_consecutive_cmd": "cat /tmp/claude-1000/-home-user-Bureau-CYNIC/8df0c2cb-84bb-4684-87ef-9f4dc9754d4",
+        "commands_with_3plus_repeats": 384
+      },
+      "cynic_project": {
+        "cnt": 26901,
+        "saved": 1307141415
+      },
+      "top_commands": [
+        {
+          "original_cmd": "git status --short",
+          "cnt": 907,
+          "avg_savings": 0.5664509240957524,
+          "total_saved": 170
+        },
+        {
+          "original_cmd": "make check",
+          "cnt": 588,
+          "avg_savings": 57.08381520925246,
+          "total_saved": 3002543
+        },
+        {
+          "original_cmd": "ps aux",
+          "cnt": 478,
+          "avg_savings": 97.11775981700686,
+          "total_saved": 12298548
+        },
+        {
+          "original_cmd": "git log --oneline -5",
+          "cnt": 281,
+          "avg_savings": 0.30949043054729714,
+          "total_saved": 80
+        },
+        {
+          "original_cmd": "cargo test -p cynic-kernel --release",
+          "cnt": 263,
+          "avg_savings": 92.21204630002482,
+          "total_saved": 996639
+        },
+        {
+          "original_cmd": "cargo build -p cynic-kernel --release",
+          "cnt": 255,
+          "avg_savings": 60.17584974947669,
+          "total_saved": 24626
+        },
+        {
+          "original_cmd": "cargo check --workspace --all-targets",
+          "cnt": 253,
+          "avg_savings": 44.89923232410818,
+          "total_saved": 24399
+        },
+        {
+          "original_cmd": "cargo build --release",
+          "cnt": 249,
+          "avg_savings": 70.44222896044154,
+          "total_saved": 75462
+        },
+        {
+          "original_cmd": "cargo clippy --workspace --all-targets -- -D warnings",
+          "cnt": 218,
+          "avg_savings": 78.19450010953398,
+          "total_saved": 90228
+        },
+        {
+          "original_cmd": "git log --oneline -3",
+          "cnt": 205,
+          "avg_savings": 0.5334149906532828,
+          "total_saved": 62
+        },
+        {
+          "original_cmd": "git status",
+          "cnt": 194,
+          "avg_savings": 56.42747553214683,
+          "total_saved": 16689
+        },
+        {
+          "original_cmd": "git diff --cached --stat",
+          "cnt": 191,
+          "avg_savings": 0.0,
+          "total_saved": 0
+        },
+        {
+          "original_cmd": "cargo clippy -p cynic-kernel --release -- -D warnings",
+          "cnt": 167,
+          "avg_savings": 72.00057857252897,
+          "total_saved": 36905
+        },
+        {
+          "original_cmd": "gh pr merge",
+          "cnt": 161,
+          "avg_savings": 15.270896756762474,
+          "total_saved": 9003
+        },
+        {
+          "original_cmd": "git diff --stat",
+          "cnt": 158,
+          "avg_savings": 0.0,
+          "total_saved": 0
+        }
+      ]
+    },
+    "kernel": {
+      "source": "kernel",
+      "error": "kernel unreachable"
+    },
+    "gemini": {
+      "source": "gemini_cli",
+      "sessions": {
+        "total_files": 5573,
+        "substantive": 2282,
+        "total_user_turns": 2712,
+        "total_assistant_turns": 0,
+        "total_tool_calls": 0,
+        "session_duration_p50_min": 0.3,
+        "session_duration_p90_min": 5.2,
+        "models": {},
+        "tool_calls": {},
+        "date_range": {
+          "first": "2026-04-24T13:46:37.831000+00:00",
+          "last": "2026-05-13T22:17:49.487000+00:00"
+        }
+      }
+    },
+    "hermes": {
+      "source": "hermes",
+      "tweet_verdicts": {
+        "total": 7376,
+        "q_score_mean": 0.299,
+        "q_score_p50": 0.295,
+        "q_score_p90": 0.43,
+        "verdict_distribution": {
+          "Bark": 5828,
+          "Growl": 1546,
+          "Wag": 2
+        },
+        "domains": {
+          "D1": 6670,
+          "D2": 261,
+          "D5": 143,
+          "twitter": 143,
+          "D4": 93,
+          "D3": 43,
+          "D6": 22,
+          "trading": 1
+        }
+      },
+      "tweet_dataset": {
+        "total_tweets": 4887
+      },
+      "farming": {
+        "total_cycles": 309,
+        "domains_farmed": {
+          "D2": 585,
+          "D1": 499,
+          "D4": 309,
+          "D5": 309,
+          "D6": 309
+        }
+      },
+      "behavior_log": {
+        "total_entries": 67883,
+        "action_types": {
+          "mouse_move": 39966,
+          "key": 16780,
+          "scroll": 5987,
+          "click": 2693,
+          "health_checkpoint": 2455,
+          "offline_dataset_analysis": 1
+        }
+      }
+    }
+  }
+}

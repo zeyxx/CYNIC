@@ -16,9 +16,9 @@ use rmcp::{
 
 use crate::types::{
     AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, DispatchAgentTaskParams,
-    GitParams, JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit, ObserveParams,
-    RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, ValidateParams, WhoParams,
-    validate_agent_id,
+    GitParams, InferParams, JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit,
+    ObserveParams, RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, ValidateParams,
+    WhoParams, validate_agent_id,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -169,6 +169,7 @@ impl CynicMcpProxy {
                 "domain": p.domain,
                 "dogs": p.dogs,
                 "crystals": p.crystals,
+                "priority": p.priority,
             }),
         )
         .await
@@ -234,6 +235,41 @@ impl CynicMcpProxy {
         let limit = p.limit.unwrap_or(20).to_string();
         q.push(("limit", limit));
         self.get_query("/audit", &q).await
+    }
+
+    #[tool(
+        name = "cynic_infer",
+        description = "Run sovereign local inference via llama-server (no cloud API, no quota). Forwarded to kernel's OpenAI-compatible endpoint. Use for tasks that should stay local: summarization, classification, extraction."
+    )]
+    async fn cynic_infer(
+        &self,
+        params: Parameters<InferParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_judge()?;
+        let p = params.0;
+        validate_agent_id(&p.agent_id)?;
+
+        if p.prompt.trim().is_empty() {
+            return Err(McpError::invalid_params("prompt must not be empty", None));
+        }
+
+        // Build OpenAI-compatible chat completion request
+        let mut messages = Vec::new();
+        if let Some(sys) = &p.system {
+            messages.push(serde_json::json!({"role": "system", "content": sys}));
+        }
+        messages.push(serde_json::json!({"role": "user", "content": p.prompt}));
+
+        self.post(
+            "/v1/chat/completions",
+            &serde_json::json!({
+                "messages": messages,
+                "temperature": p.temperature.unwrap_or(0.7),
+                "max_tokens": p.max_tokens.unwrap_or(512),
+            }),
+        )
+        .await
     }
 
     #[tool(
@@ -419,13 +455,14 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_coord_who",
-        description = "Query active agents and their claims."
+        description = "Query active agents and their claims. No auth required (aligns with kernel)."
     )]
     async fn cynic_coord_who(
         &self,
         params: Parameters<WhoParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
+        // No auth required — matches kernel behavior (coord_tools.rs:264).
+        // Coordination visibility helps all agents avoid conflicts.
         self.rate_limit.check_other()?;
         let p = params.0;
         let mut q: Vec<(&str, String)> = Vec::new();

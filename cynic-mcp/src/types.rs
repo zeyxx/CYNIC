@@ -112,6 +112,9 @@ pub struct JudgeParams {
     /// Optional: sensitivity level. "high" forces routing to sovereign (local) Dogs only.
     /// Use for private content: DMs, wallet seeds, API keys. Default: none (auto-detected).
     pub sensitivity: Option<String>,
+    /// Optional: slot acquisition priority. Controls queuing on sovereign inference.
+    /// Values: "user" (30s wait, default), "hermes" (15s), "nightshift" (skip if busy), "background" (skip).
+    pub priority: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

@@ -420,13 +420,13 @@ impl CynicMcpProxy {
 
     #[tool(
         name = "cynic_coord_who",
-        description = "Query active agents and their claims."
+        description = "Query active agents and their claims. No auth required (aligns with kernel)."
     )]
     async fn cynic_coord_who(
         &self,
         params: Parameters<WhoParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.require_auth()?;
+        // No auth required — matches kernel coord_tools.rs:264
         self.rate_limit.check_other()?;
         let p = params.0;
         let mut q: Vec<(&str, String)> = Vec::new();
