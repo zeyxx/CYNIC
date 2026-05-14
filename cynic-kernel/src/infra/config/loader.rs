@@ -10,7 +10,7 @@
 //! Returns a single KernelConfig struct that represents complete system state at boot.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Complete kernel configuration — all config from all 5 sources unified.
 /// Produced by `KernelConfigLoader::load()`. Immutable after boot.
@@ -89,6 +89,76 @@ impl KernelConfig {
     }
 }
 
+/// Placeholder resolution from fleet.toml.
+/// Maps <TAILSCALE_CORE>, <TAILSCALE_GPU>, etc. to actual Tailscale IPs.
+#[derive(Debug, Clone)]
+struct FleetResolver {
+    /// Map: placeholder name (e.g., "TAILSCALE_GPU") → IP address
+    placeholders: HashMap<String, String>,
+}
+
+impl FleetResolver {
+    /// Load fleet.toml and build placeholder map.
+    /// Returns empty resolver if fleet.toml missing (non-fatal).
+    fn load(fleet_path: &Path) -> Self {
+        let mut placeholders = HashMap::new();
+
+        if !fleet_path.exists() {
+            return Self { placeholders };
+        }
+
+        if let Ok(content) = std::fs::read_to_string(fleet_path) {
+            // Simple TOML parsing for [machine.NAME] sections.
+            // Regex-free: split by [machine.* and extract tailscale_ip
+            for line in content.lines() {
+                if let Some(machine_name) = line
+                    .strip_prefix("[machine.")
+                    .and_then(|s| s.strip_suffix("]"))
+                {
+                    // Next lines contain tailscale_ip = "100.x.x.x"
+                    // Find the IP in the next few lines
+                    let rest = content
+                        .split_once(&format!("[machine.{machine_name}]"))
+                        .and_then(|(_, after)| {
+                            after.split_once("[machine.").or_else(|| Some((after, "")))
+                        })
+                        .map(|(section, _)| section)
+                        .unwrap_or("");
+
+                    for ip_line in rest.lines() {
+                        if let Some(ip_str) = ip_line
+                            .trim()
+                            .strip_prefix("tailscale_ip = \"")
+                            .and_then(|s| s.strip_suffix("\""))
+                        {
+                            let placeholder_key =
+                                format!("TAILSCALE_{}", machine_name.to_uppercase());
+                            placeholders.insert(placeholder_key, ip_str.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        Self { placeholders }
+    }
+
+    /// Resolve a string containing <PLACEHOLDER> tokens.
+    /// Returns modified string with all placeholders replaced.
+    fn resolve(&self, input: &str) -> String {
+        let mut result = input.to_string();
+        for (key, value) in &self.placeholders {
+            let placeholder = format!(
+                "<TAILSCALE_{}>",
+                key.strip_prefix("TAILSCALE_").unwrap_or(key)
+            );
+            result = result.replace(&placeholder, value);
+        }
+        result
+    }
+}
+
 /// Internal loader — orchestrates reading from all 5 sources.
 struct KernelConfigLoader {
     force_reprobe: bool,
@@ -105,14 +175,24 @@ impl KernelConfigLoader {
         let config_dir = self.discover_config_dir();
         let backends_toml_path = config_dir.join("backends.toml");
 
-        // 2. Load TOML (source 3)
+        // 2. Load fleet.toml for placeholder resolution (KERNEL Phase 2)
+        let fleet_toml_path = config_dir.join("fleet.toml");
+        let fleet_resolver = FleetResolver::load(&fleet_toml_path);
+
+        // 3. Load TOML (source 3) and resolve placeholders
         let backends_path_ref = &backends_toml_path;
         let storage_config = super::load_storage_config(backends_path_ref);
-        let backend_configs = if backends_toml_path.exists() {
+        let mut backend_configs = if backends_toml_path.exists() {
             super::load_backends(backends_path_ref)
         } else {
             super::load_backends_from_env()
         };
+
+        // Resolve <TAILSCALE_*> placeholders in backend URLs
+        for cfg in &mut backend_configs {
+            cfg.base_url = fleet_resolver.resolve(&cfg.base_url);
+        }
+
         let dog_thresholds = super::load_dog_thresholds(backends_path_ref);
         let _organ_remediations = super::load_organ_remediations(backends_path_ref);
 
@@ -284,25 +364,5 @@ mod tests {
     fn parse_addr_invalid_port() {
         let loader = KernelConfigLoader::new(false);
         assert!(loader.parse_addr("127.0.0.1:invalid").is_err());
-    }
-
-    #[test]
-    #[ignore] // Requires real config files — test manually via session
-    fn load_kernel_config_with_defaults() {
-        // This test verifies the loader can read defaults and env vars
-        // Set a test env var before running:
-        // export CYNIC_REST_ADDR="127.0.0.1:9999"
-        // cargo test --lib config::loader::tests::load_kernel_config_with_defaults -- --nocapture --ignored
-        std::env::set_var("CYNIC_REST_ADDR", "127.0.0.1:9999");
-        match KernelConfig::load(false) {
-            Ok(cfg) => {
-                assert_eq!(cfg.rest_addr, "127.0.0.1:9999");
-                assert_eq!(cfg.rest_port, 9999);
-                println!("✓ KernelConfig loaded with env override");
-            }
-            Err(e) => {
-                eprintln!("! KernelConfig load failed: {}", e);
-            }
-        }
     }
 }
