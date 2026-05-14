@@ -228,7 +228,19 @@ impl SurrealHttpStorage {
         })?;
 
         // Bootstrap schema + indexes (idempotent — IF NOT EXISTS)
+        // SurrealDB 3.x requires explicit DEFINE TABLE before table-scan queries
+        // (SELECT * FROM table WHERE ...) work. Record-ID queries bypass this,
+        // but claim_batch/expire_stale/get_unsummarized_sessions need table scans.
         let schema_sql = "\
+            DEFINE TABLE IF NOT EXISTS verdict;\
+            DEFINE TABLE IF NOT EXISTS crystal;\
+            DEFINE TABLE IF NOT EXISTS observation;\
+            DEFINE TABLE IF NOT EXISTS agent_session;\
+            DEFINE TABLE IF NOT EXISTS work_claim;\
+            DEFINE TABLE IF NOT EXISTS mcp_audit;\
+            DEFINE TABLE IF NOT EXISTS dog_usage;\
+            DEFINE TABLE IF NOT EXISTS session_summary;\
+            DEFINE TABLE IF NOT EXISTS event;\
             DEFINE FIELD IF NOT EXISTS verdict_id ON verdict TYPE string;\
             DEFINE FIELD IF NOT EXISTS kind ON verdict TYPE string;\
             DEFINE FIELD IF NOT EXISTS total ON verdict TYPE float;\
