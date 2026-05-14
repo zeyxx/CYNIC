@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-14
 **Status**: Workaround applied (codegen-units=16)
-**Upstream**: To be filed at https://github.com/rust-lang/rust
+**Upstream**: https://github.com/rust-lang/rust/issues/156563
 
 ## Environment
 
