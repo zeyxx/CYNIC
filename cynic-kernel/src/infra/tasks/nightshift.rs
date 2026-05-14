@@ -155,6 +155,7 @@ pub fn spawn_nightshift_loop(
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
     repo_path: String,
+    metrics: Arc<Metrics>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         // Warmup: wait 60s before first cycle so the rest of the kernel is fully booted.
@@ -286,6 +287,9 @@ pub fn spawn_nightshift_loop(
                                 }
                             }
                             klog!("[Nightshift] Observations: {} judged, {} errors", s_judged, s_errors);
+                            // Persist digestion counters — the organism remembers how much it digested
+                            metrics.add_nightshift_digested(s_judged as u64);
+                            metrics.add_nightshift_errors(s_errors as u64);
                         }
                         Ok(_) => klog!("[Nightshift] No observations to review"),
                         Err(e) => tracing::warn!(error = %e, "[Nightshift] Failed to fetch observations"),
@@ -339,12 +343,14 @@ mod tests {
         let task_health = Arc::new(TaskHealth::new());
         let shutdown = CancellationToken::new();
 
+        let metrics = Arc::new(Metrics::new());
         let handle = spawn_nightshift_loop(
             judge,
             storage,
             task_health,
             shutdown.clone(),
             "/tmp".to_string(),
+            metrics,
         );
         shutdown.cancel();
         tokio::time::timeout(std::time::Duration::from_secs(3), handle)

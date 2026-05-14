@@ -79,6 +79,28 @@ pub(super) async fn count_crystal_observations(
     Ok(rows.first().and_then(|r| r["total"].as_u64()).unwrap_or(0))
 }
 
+pub(super) async fn count_observations(storage: &SurrealHttpStorage) -> Result<u64, StorageError> {
+    let rows = storage
+        .query_one("SELECT count() AS total FROM observation GROUP ALL;")
+        .await?;
+    Ok(rows.first().and_then(|r| r["total"].as_u64()).unwrap_or(0))
+}
+
+pub(super) async fn count_verdicts_by_kind(
+    storage: &SurrealHttpStorage,
+) -> Result<std::collections::HashMap<String, u64>, StorageError> {
+    let rows = storage
+        .query_one("SELECT kind, count() AS n FROM verdict GROUP BY kind;")
+        .await?;
+    let mut map = std::collections::HashMap::new();
+    for row in &rows {
+        if let (Some(kind), Some(n)) = (row["kind"].as_str(), row["n"].as_u64()) {
+            map.insert(kind.to_string(), n);
+        }
+    }
+    Ok(map)
+}
+
 pub(super) async fn consolidate_duplicate_crystals(
     storage: &SurrealHttpStorage,
 ) -> Result<u64, StorageError> {

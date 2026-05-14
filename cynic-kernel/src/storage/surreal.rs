@@ -326,6 +326,18 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     #[tracing::instrument(skip(self), err)]
+    async fn count_observations(&self) -> Result<u64, StorageError> {
+        maintenance::count_observations(self).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn count_verdicts_by_kind(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u64>, StorageError> {
+        maintenance::count_verdicts_by_kind(self).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
     async fn list_observations_raw(
         &self,
         domain: Option<&str>,

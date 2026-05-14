@@ -394,4 +394,20 @@ impl StoragePort for InMemoryStorage {
         let s = self.state.lock().await;
         Ok(s.crystals.values().map(|c| u64::from(c.observations)).sum())
     }
+
+    async fn count_observations(&self) -> Result<u64, StorageError> {
+        let s = self.state.lock().await;
+        Ok(s.observations.len() as u64)
+    }
+
+    async fn count_verdicts_by_kind(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u64>, StorageError> {
+        let s = self.state.lock().await;
+        let mut map = std::collections::HashMap::new();
+        for v in &s.verdicts {
+            *map.entry(format!("{:?}", v.kind)).or_insert(0) += 1;
+        }
+        Ok(map)
+    }
 }

@@ -71,7 +71,7 @@ impl StorageMetrics {
 
     /// Record per-table metrics for data-centric measurement.
     pub(crate) fn record_table_op(&self, table: &str, op: &str, latency_us: u64, is_error: bool) {
-        let key = format!("{}#{}", table, op);
+        let key = format!("{table}#{op}");
         if let Ok(mut metrics) = self.table_op_metrics.write() {
             let entry = metrics.entry(key).or_insert_with(|| TableOpMetrics {
                 table: table.to_string(),
@@ -117,7 +117,7 @@ impl StorageMetrics {
     pub fn snapshot_table_ops(&self) -> Vec<TableOpMetrics> {
         self.table_op_metrics
             .read()
-            .ok()
+            .ok() // K14: RwLock poisoned = degraded, return empty
             .map(|m| m.values().cloned().collect())
             .unwrap_or_default()
     }
@@ -480,25 +480,14 @@ fn parse_sql_table_op(sql: &str) -> Option<(String, String)> {
     let normalized = sql.trim().to_uppercase();
 
     // Extract operation keyword
-    let (operation, rest) = if normalized.starts_with("CREATE") {
-        ("CREATE", &normalized[6..].trim_start())
-    } else if normalized.starts_with("SELECT") {
-        ("SELECT", &normalized[6..].trim_start())
-    } else if normalized.starts_with("UPDATE") {
-        ("UPDATE", &normalized[6..].trim_start())
-    } else if normalized.starts_with("DELETE") {
-        ("DELETE", &normalized[6..].trim_start())
-    } else if normalized.starts_with("INSERT") {
-        ("INSERT", &normalized[6..].trim_start())
-    } else if normalized.starts_with("UPSERT") {
-        ("UPSERT", &normalized[6..].trim_start())
-    } else if normalized.starts_with("REMOVE") {
-        ("REMOVE", &normalized[6..].trim_start())
-    } else if normalized.starts_with("DEFINE") {
-        ("DEFINE", &normalized[6..].trim_start())
-    } else {
-        return None;
+    let ops = [
+        "CREATE", "SELECT", "UPDATE", "DELETE", "INSERT", "UPSERT", "REMOVE", "DEFINE",
+    ];
+    let (operation, rest) = match ops.iter().find(|op| normalized.starts_with(*op)) {
+        Some(op) => (*op, normalized[op.len()..].trim_start().to_string()),
+        None => return None,
     };
+    let rest = &rest;
 
     // Extract table name (alphanumeric, underscore, backtick)
     let mut table_chars = Vec::new();

@@ -72,27 +72,21 @@ pub(super) async fn store_observation(
             .collect();
         format!("[{}]", escaped.join(", "))
     };
+
     let sql = format!(
-        "CREATE observation SET \
-            project = '{project}', \
-            agent_id = '{agent_id}', \
-            tool = '{tool}', \
-            target = '{target}', \
-            domain = '{domain}', \
-            status = '{status}', \
-            context = '{context}', \
-            session_id = '{session_id}', \
-            tags = {tags}, \
-            created_at = time::now();",
-        project = escape_surreal(&obs.project),
-        agent_id = escape_surreal(&obs.agent_id),
-        tool = escape_surreal(&obs.tool),
-        target = escape_surreal(&obs.target),
-        domain = escape_surreal(&obs.domain),
-        status = escape_surreal(&obs.status),
-        context = escape_surreal(&obs.context),
-        session_id = escape_surreal(&obs.session_id),
-        tags = tags_sql,
+        "CREATE observation SET project = '{}', agent_id = '{}', tool = '{}', target = '{}', \
+         domain = '{}', status = '{}', context = '{}', session_id = '{}', timestamp = '{}', \
+         tags = {}, created_at = time::now();",
+        escape_surreal(&obs.project),
+        escape_surreal(&obs.agent_id),
+        escape_surreal(&obs.tool),
+        escape_surreal(&obs.target),
+        escape_surreal(&obs.domain),
+        escape_surreal(&obs.status),
+        escape_surreal(&obs.context),
+        escape_surreal(&obs.session_id),
+        escape_surreal(&obs.timestamp),
+        tags_sql,
     );
     storage.query(&sql).await?;
     Ok(())

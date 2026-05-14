@@ -14,6 +14,7 @@ pub mod health_gate;
 pub mod helius_credit;
 pub mod inference;
 pub mod mail;
+pub mod metabolism;
 pub mod metrics;
 pub mod organ;
 pub mod pattern_analysis;

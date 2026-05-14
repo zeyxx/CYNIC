@@ -276,6 +276,7 @@ pub async fn health_handler(
                 },
             },
             "slot_utilization": state.slot_tracker.health_summary(),
+            "metabolism": crate::domain::metabolism::snapshot(&state.metrics),
             "senses": senses_report,
         })),
     )

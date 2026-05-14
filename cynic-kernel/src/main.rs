@@ -569,6 +569,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 e
             ),
         }
+        match storage_port.count_observations().await {
+            Ok(o_count) => {
+                metrics
+                    .observations_ingested_total
+                    .store(o_count, std::sync::atomic::Ordering::Relaxed);
+                klog!(
+                    "[Ring 2] Metrics: hydrated observations_ingested_total = {}",
+                    o_count
+                );
+            }
+            Err(e) => klog!(
+                "[Ring 2] Metrics: failed to hydrate observations (counters start at 0): {}",
+                e
+            ),
+        }
     }
     // ── Probe system (proprioception) ──
     let environment: Arc<std::sync::RwLock<Option<domain::probe::EnvironmentSnapshot>>> =
@@ -1035,6 +1050,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::clone(&task_health),
             shutdown.clone(),
             project_root.display().to_string(),
+            Arc::clone(&rest_state.metrics),
         );
         klog!(
             "[Ring 3] Nightshift loop started (every 4h, git lookback {}, Soma L2 Nightshift priority)",
