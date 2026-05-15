@@ -246,6 +246,7 @@ impl SurrealHttpStorage {
             DEFINE TABLE IF NOT EXISTS dog_usage;\
             DEFINE TABLE IF NOT EXISTS session_summary;\
             DEFINE TABLE IF NOT EXISTS event;\
+            DEFINE TABLE IF NOT EXISTS agent_dispatch;\
             DEFINE FIELD IF NOT EXISTS verdict_id ON verdict TYPE string;\
             DEFINE FIELD IF NOT EXISTS kind ON verdict TYPE string;\
             DEFINE FIELD IF NOT EXISTS total ON verdict TYPE float;\

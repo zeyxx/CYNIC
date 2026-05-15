@@ -604,3 +604,143 @@ surreal_contract!(
     contract_crystal_canonical_at_233_obs,
     "c13"
 );
+
+// ── Agent Dispatch Contract Tests ──────────────────────────────
+
+/// K8: Every SQL query has an integration test.
+/// Dispatch store/query operations must roundtrip correctly.
+#[tokio::test]
+async fn contract_dispatch_store_and_query() {
+    let storage = common::inmem_storage();
+
+    let dispatch = cynic_kernel::domain::storage::AgentDispatch {
+        id: "dispatch:test-001".into(),
+        scope: "phase-3-stimulus".into(),
+        zone: "api".into(),
+        claimed_by: "claude-abc123".into(),
+        branch: "feat/dispatch-2026-05-16".into(),
+        status: "CLAIMED".into(),
+        created_at: "2026-05-16T12:00:00Z".into(),
+        completed_at: None,
+        pr_number: None,
+        hash: "abc123def456".into(),
+        prev_hash: String::new(),
+    };
+
+    // Store dispatch
+    let stored_id = storage
+        .store_agent_dispatch(&dispatch)
+        .await
+        .expect("store dispatch failed");
+    assert_eq!(stored_id, "dispatch:test-001");
+
+    // Query by ID
+    let retrieved = storage
+        .get_dispatch("dispatch:test-001")
+        .await
+        .expect("get dispatch failed");
+    assert!(retrieved.is_some(), "dispatch should exist");
+    let d = retrieved.unwrap();
+    assert_eq!(d.scope, "phase-3-stimulus");
+    assert_eq!(d.status, "CLAIMED");
+
+    // Query active dispatches for agent
+    let agent_dispatches = storage
+        .get_active_dispatches_for_agent("claude-abc123")
+        .await
+        .expect("get agent dispatches failed");
+    assert!(
+        !agent_dispatches.is_empty(),
+        "agent should have active dispatch"
+    );
+
+    // Verify chain (should pass for fresh record)
+    let verification = storage
+        .verify_dispatch_chain("dispatch:test-001")
+        .await
+        .expect("verify chain failed");
+    assert!(
+        verification.verified,
+        "chain should be valid for new dispatch"
+    );
+}
+
+#[tokio::test]
+async fn contract_dispatch_status_update() {
+    let storage = common::inmem_storage();
+
+    let dispatch = cynic_kernel::domain::storage::AgentDispatch {
+        id: "dispatch:test-002".into(),
+        scope: "test-scope".into(),
+        zone: "api".into(),
+        claimed_by: "agent-1".into(),
+        branch: "fix/test".into(),
+        status: "CLAIMED".into(),
+        created_at: "2026-05-16T12:00:00Z".into(),
+        completed_at: None,
+        pr_number: None,
+        hash: "hash1".into(),
+        prev_hash: String::new(),
+    };
+
+    storage
+        .store_agent_dispatch(&dispatch)
+        .await
+        .expect("store failed");
+
+    // Update status to WORKING
+    storage
+        .update_dispatch_status("dispatch:test-002", "WORKING")
+        .await
+        .expect("update status failed");
+
+    let updated = storage
+        .get_dispatch("dispatch:test-002")
+        .await
+        .expect("get failed")
+        .expect("dispatch should exist");
+    assert_eq!(updated.status, "WORKING");
+
+    // Update status to PROPOSED with PR number
+    storage
+        .update_dispatch_pr("dispatch:test-002", 42)
+        .await
+        .expect("update pr failed");
+
+    let proposed = storage
+        .get_dispatch("dispatch:test-002")
+        .await
+        .expect("get failed")
+        .expect("dispatch should exist");
+    assert_eq!(proposed.status, "PROPOSED");
+    assert_eq!(proposed.pr_number, Some(42));
+
+    // Update to COMPLETED
+    storage
+        .update_dispatch_status("dispatch:test-002", "COMPLETED")
+        .await
+        .expect("update failed");
+
+    let completed = storage
+        .get_dispatch("dispatch:test-002")
+        .await
+        .expect("get failed")
+        .expect("dispatch should exist");
+    assert_eq!(completed.status, "COMPLETED");
+    assert!(
+        completed.completed_at.is_some(),
+        "should have completed_at timestamp"
+    );
+}
+
+// SurrealDB dispatch contract tests (skipped if DB unavailable)
+surreal_contract!(
+    surreal_d01_dispatch_store_and_query,
+    contract_dispatch_store_and_query,
+    "d01"
+);
+surreal_contract!(
+    surreal_d02_dispatch_status_update,
+    contract_dispatch_status_update,
+    "d02"
+);

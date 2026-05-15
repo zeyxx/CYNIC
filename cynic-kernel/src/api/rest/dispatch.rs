@@ -79,7 +79,7 @@ pub async fn create_dispatch_handler(
     let dispatch_id = format!("dispatch:{}", uuid::Uuid::new_v4());
     let now = chrono::Utc::now().to_rfc3339();
     let dispatch = AgentDispatch {
-        id: dispatch_id,
+        id: dispatch_id.clone(),
         scope: req.scope,
         zone: req.zone,
         claimed_by: req.claimed_by,
@@ -93,7 +93,24 @@ pub async fn create_dispatch_handler(
     };
 
     match state.storage.store_agent_dispatch(&dispatch).await {
-        Ok(_) => Ok(Json(DispatchResponse { dispatch })),
+        Ok(_) => {
+            // Re-fetch to get computed hash and prev_hash
+            match state.storage.get_dispatch(&dispatch_id).await {
+                Ok(Some(stored)) => Ok(Json(DispatchResponse { dispatch: stored })),
+                Ok(None) => Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: "dispatch not found after store (storage layer error)".into(),
+                    }),
+                )),
+                Err(err) => Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to retrieve stored dispatch: {err}"),
+                    }),
+                )),
+            }
+        }
         Err(err) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {

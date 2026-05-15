@@ -425,6 +425,58 @@ impl StoragePort for ReconnectableStorage {
         Ok((p, s, c, f))
     }
 
+    // ── Agent Dispatch (multi-cortex coordination) ──────────────
+    async fn store_agent_dispatch(
+        &self,
+        dispatch: &crate::domain::storage::AgentDispatch,
+    ) -> Result<String, StorageError> {
+        self.current().store_agent_dispatch(dispatch).await
+    }
+    async fn get_active_dispatch_for_scope(
+        &self,
+        scope: &str,
+    ) -> Result<Option<crate::domain::storage::AgentDispatch>, StorageError> {
+        self.current().get_active_dispatch_for_scope(scope).await
+    }
+    async fn get_dispatch(
+        &self,
+        dispatch_id: &str,
+    ) -> Result<Option<crate::domain::storage::AgentDispatch>, StorageError> {
+        self.current().get_dispatch(dispatch_id).await
+    }
+    async fn get_active_dispatches_for_agent(
+        &self,
+        agent_id: &str,
+    ) -> Result<Vec<crate::domain::storage::AgentDispatch>, StorageError> {
+        self.current()
+            .get_active_dispatches_for_agent(agent_id)
+            .await
+    }
+    async fn update_dispatch_status(
+        &self,
+        dispatch_id: &str,
+        new_status: &str,
+    ) -> Result<(), StorageError> {
+        self.current()
+            .update_dispatch_status(dispatch_id, new_status)
+            .await
+    }
+    async fn update_dispatch_pr(
+        &self,
+        dispatch_id: &str,
+        pr_number: u32,
+    ) -> Result<(), StorageError> {
+        self.current()
+            .update_dispatch_pr(dispatch_id, pr_number)
+            .await
+    }
+    async fn verify_dispatch_chain(
+        &self,
+        dispatch_id: &str,
+    ) -> Result<crate::domain::storage::DispatchChainVerification, StorageError> {
+        self.current().verify_dispatch_chain(dispatch_id).await
+    }
+
     // ── Events (infrastructure observability) ──────────────────
     async fn store_event(&self, event: &crate::domain::storage::Event) -> Result<(), StorageError> {
         self.current().store_event(event).await

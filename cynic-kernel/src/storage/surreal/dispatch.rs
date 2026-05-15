@@ -136,7 +136,8 @@ pub(super) async fn get_dispatch(
     storage: &SurrealHttpStorage,
     dispatch_id: &str,
 ) -> Result<Option<AgentDispatch>, StorageError> {
-    let query = format!("SELECT * FROM agent_dispatch WHERE id = {dispatch_id};");
+    let escaped_id = crate::storage::escape_surreal(dispatch_id);
+    let query = format!("SELECT * FROM agent_dispatch WHERE id = '{escaped_id}';");
     let rows = storage.query_one(&query).await?;
     Ok(rows.first().and_then(row_to_agent_dispatch))
 }
@@ -184,16 +185,19 @@ pub(super) async fn update_dispatch_status(
     };
 
     // Fetch current dispatch to recompute hash
-    if let Ok(Some(mut dispatch)) = get_dispatch(storage, dispatch_id).await {
-        dispatch.status = new_status.to_string();
-        let new_hash = compute_dispatch_hash(&dispatch);
+    let mut dispatch = get_dispatch(storage, dispatch_id)
+        .await?
+        .ok_or_else(|| StorageError::QueryFailed("dispatch not found".into()))?;
 
-        let query = format!(
-            "UPDATE agent_dispatch SET status = '{}', hash = '{new_hash}', {completed_at} updated_at = '{now}' WHERE id = {dispatch_id};",
-            crate::storage::escape_surreal(new_status),
-        );
-        storage.query_one(&query).await?;
-    }
+    dispatch.status = new_status.to_string();
+    let new_hash = compute_dispatch_hash(&dispatch);
+
+    let escaped_id = crate::storage::escape_surreal(dispatch_id);
+    let query = format!(
+        "UPDATE agent_dispatch SET status = '{}', hash = '{new_hash}', {completed_at} updated_at = '{now}' WHERE id = '{escaped_id}';",
+        crate::storage::escape_surreal(new_status),
+    );
+    storage.query_one(&query).await?;
 
     Ok(())
 }
@@ -204,8 +208,9 @@ pub(super) async fn update_dispatch_pr(
     dispatch_id: &str,
     pr_number: u32,
 ) -> Result<(), StorageError> {
+    let escaped_id = crate::storage::escape_surreal(dispatch_id);
     let query = format!(
-        "UPDATE agent_dispatch SET status = 'PROPOSED', pr_number = {pr_number} WHERE id = {dispatch_id};"
+        "UPDATE agent_dispatch SET status = 'PROPOSED', pr_number = {pr_number} WHERE id = '{escaped_id}';"
     );
     storage.query_one(&query).await?;
     Ok(())
