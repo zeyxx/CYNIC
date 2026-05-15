@@ -142,17 +142,21 @@ pub(super) async fn get_unsummarized_sessions(
 ) -> Result<Vec<(String, String, u32)>, StorageError> {
     // Bound to 7d window — observations older than that are not worth summarizing,
     // and the time filter uses obs_created_idx to avoid full-table scan (was 8.9s unbounded).
+    // LET pre-binding: SurrealDB query planner uses indexes on LET-bound subqueries
+    // but not on inline subqueries (issue #5439).
     let sql = format!(
-        "SELECT agent_id, count() AS obs_count \
+        "LET $summarized = (SELECT VALUE session_id FROM session_summary); \
+         SELECT agent_id, count() AS obs_count \
          FROM observation \
          WHERE agent_id != '' AND agent_id != 'unknown' \
          AND created_at > time::now() - 7d \
-         AND agent_id NOT IN (SELECT VALUE session_id FROM session_summary) \
+         AND agent_id NOT IN $summarized \
          GROUP BY agent_id \
          ORDER BY obs_count DESC \
          LIMIT {};",
         safe_limit(limit),
     );
+    // query_one pops the last result set (the SELECT), skipping the LET result
     let rows = storage.query_one(&sql).await?;
     Ok(rows
         .iter()

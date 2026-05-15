@@ -126,7 +126,9 @@ impl CoordPort for SurrealHttpStorage {
         if let Err(e) = self.query_one("UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;").await {
             tracing::warn!(error = %e, "coord TTL expiry (sessions) failed");
         }
-        if let Err(e) = self.query_one("UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await {
+        // LET pre-binding: SurrealDB query planner uses indexes on LET-bound subqueries
+        // but not on inline subqueries (issue #5439).
+        if let Err(e) = self.query_one("LET $active = (SELECT VALUE agent_id FROM agent_session WHERE active = true); UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN $active;").await {
             tracing::warn!(error = %e, "coord TTL expiry (claims) failed");
         }
         let session_sql = match agent_id_filter {
@@ -398,7 +400,7 @@ impl CoordPort for SurrealHttpStorage {
     async fn expire_stale(&self) -> Result<(), CoordError> {
         self.query_one("UPDATE agent_session SET active = false WHERE active = true AND (time::now() - last_seen) > 5m;").await
             .map_err(|e| CoordError::StorageFailed(format!("expire sessions: {e}")))?;
-        self.query_one("UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);").await
+        self.query_one("LET $active = (SELECT VALUE agent_id FROM agent_session WHERE active = true); UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN $active;").await
             .map_err(|e| CoordError::StorageFailed(format!("expire claims: {e}")))?;
         // K15: audit trail TTL — prevent unbounded growth (was 11K+ rows, never pruned)
         self.query_one("DELETE FROM mcp_audit WHERE ts < time::now() - 7d;")
@@ -418,9 +420,10 @@ mod tests {
         assert!(expiry_sql.contains("time::now()"));
         assert!(expiry_sql.contains("> 5m"));
         assert!(expiry_sql.contains("active = true"));
-        let cascade_sql = "UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN (SELECT VALUE agent_id FROM agent_session WHERE active = true);";
-        assert!(cascade_sql.contains("NOT IN"));
-        assert!(cascade_sql.contains("SELECT VALUE agent_id"));
+        // LET-bound subquery for index usage (SurrealDB issue #5439)
+        let cascade_sql = "LET $active = (SELECT VALUE agent_id FROM agent_session WHERE active = true); UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN $active;";
+        assert!(cascade_sql.contains("NOT IN $active"));
+        assert!(cascade_sql.contains("LET $active"));
     }
 
     #[test]
