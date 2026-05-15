@@ -6,9 +6,9 @@
 
 ---
 
-## TRACK: HACKATHON (deadline: May 10 23:59 PT) [tier: opus]
+## TRACK: HACKATHON (deadline: May 10 23:59 PT) [tier: opus] — CLOSED
 
-- [ ] **Phase 4: Demo + Submission.** Record video demo, write submission, submit. ← needs: Phase 3 results (done). Evidence: commits 0a491066, 35ca26f0, c0637db7.
+- [x] **Phase 4: Demo + Submission.** Submitted 2026-05-10. Evidence: commits 0a491066, 35ca26f0, c0637db7.
 
 ---
 
@@ -30,15 +30,15 @@
 ## TRACK: INFRASTRUCTURE [tier: haiku]
 
 - [x] **Soma L1 validated (2026-05-09).** Remediation config + live test: kill→circuit critical (50s)→restart (110s)→closed (130s). PR#121. Next: L2 slot awareness.
-- [ ] **Soma L2: slot awareness.** Consumers (Hermes, Dogs, Colosseum) need priority/queuing on sovereign inference slots. **Falsify:** 2 concurrent consumers complete without timeout starvation.
-- [ ] **GPU contention fix.** Hermes vs Dog on same llama-server. No slot awareness in any consumer. **Falsify:** Hermes cron completes with 0 MCP errors alongside nightshift.
+- [x] **Soma L2: slot awareness (2026-05-14).** Priority routing live. PR#153.
+- [x] **GPU contention fix (2026-05-14).** Hermes priority routing. PR#160. Validated: concurrent crons + nightshift.
 - [x] **`.cynic-env` format.** `config-sync.sh sync-env` derives systemd env from cynic-env (PR#120).
 
 ---
 
 ## TRACK: DEBT [tier: haiku, no deadline]
 
-- [ ] **SSOT config debt.** Config scattered (5 sources). Create `config_loader.py`. **Falsify:** single import loads all config.
+- [x] **SSOT config debt (2026-05-14).** 3-layer SSOT wired. PRs #172-175. K15 validation active.
 - [ ] **Python tier governance enforcement.** 54 modules archived, 57 salvageable. Wire `make lint-python-tiers` to CI. **Falsify:** CI rejects new untiered .py file.
 
 ---
