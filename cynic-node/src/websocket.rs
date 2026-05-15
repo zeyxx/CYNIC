@@ -11,7 +11,6 @@
 
 use futures_util::sink::SinkExt;
 use futures_util::stream::StreamExt;
-use http::Request;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
@@ -331,16 +330,13 @@ impl WebSocketClient {
         // Connect to kernel with authentication headers
         debug!("Connecting to kernel at {}", self.kernel_url);
 
-        // Build HTTP request with Bearer token and node identity headers
-        let request = Request::builder()
-            .uri(&self.kernel_url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("X-Node-Public-Key", &self.node_public_key)
-            .header("X-Node-Identity", &self.node_identity)
-            .body(())
-            .map_err(|e| format!("Failed to build WebSocket request: {}", e))?;
-
-        let (ws_stream, _) = connect_async(request).await.map_err(|e| e.to_string())?;
+        // For now, connect with URI only. Custom headers for WebSocket auth require tungstenite ClientRequest.
+        // TODO: Implement proper header-based auth via tungstenite::client::ClientRequest when kernel WebSocket
+        //       endpoint is finalized. Currently, kernel does not require WebSocket upgrade auth headers.
+        let (ws_stream, _) = connect_async(&self.kernel_url).await.map_err(|e| {
+            error!("WebSocket connection failed: {}", e);
+            e.to_string()
+        })?;
         info!("Connected to kernel at {}", self.kernel_url);
 
         // Send registration

@@ -146,7 +146,9 @@ async fn watch(
             _ = stimulus_tick.tick() => {
                 // Phase 3.2: Process queued stimuli from WebSocket client.
                 // Dequeue, send to backend judge, queue verdict for transmission.
+                tracing::debug!("stimulus_tick fired");
                 if let Some(pending) = ws_client.dequeue_stimulus().await {
+                    tracing::debug!(stimulus_id = %pending.stimulus_id, "dequeued stimulus");
                     if let Err(e) = process_stimulus(client, cfg, &ws_client, pending).await {
                         tracing::error!("stimulus processing error: {e}");
                     }
