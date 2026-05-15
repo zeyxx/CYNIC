@@ -57,11 +57,13 @@ EXIT              →  kernel releases claims, cleans worktree (or on crash/time
 
 ```
 UNBORN → REGISTERED → CLAIMED → WORKING → PROPOSED → EXITED
-                                    ↓
-                                  DEAD (crash/timeout → auto-cleanup)
+                                    ↓          ↓
+                                  DEAD    ABANDONED (TTL 2h)
+                           (crash/timeout   (PR not merged
+                            → auto-cleanup)  → claims released)
 ```
 
-Invalid transitions are rejected. An agent cannot PROPOSE without having CLAIMED. An agent cannot CLAIM if its workspace is dirty. These are kernel-enforced, not LLM-requested.
+Invalid transitions are rejected. An agent cannot PROPOSE without having CLAIMED. An agent cannot CLAIM if its workspace has dirty tracked files. These are mechanically enforced — by the wrapper script (Component 1), hooks (Component 2), and pre-push gate (Component 3).
 
 ### Component Map
 
@@ -86,8 +88,8 @@ Invalid transitions are rejected. An agent cannot PROPOSE without having CLAIMED
 │  POST /coord/propose   →  validate freshness + scope  │
 │  POST /coord/release   →  release claims              │
 │                                                       │
-│  SurrealDB: agent_session, work_claim (existing)      │
-│             mempool_item (new: scope as hyperedge)     │
+│  SurrealDB: agent_session, work_claim (extended)       │
+│             (status + intent fields added to existing) │
 └───────────────────────────────────────────────────────┘
 ```
 
@@ -95,88 +97,135 @@ Invalid transitions are rejected. An agent cannot PROPOSE without having CLAIMED
 
 ## V1 Implementation — 3 Components
 
-### Component 1: Auto-Worktree on Session Start
+### Component 1: Auto-Worktree via Wrapper Script
 
-**What:** `session-init.sh` creates an isolated git worktree for each session instead of working in the shared checkout.
+**What:** A wrapper script creates an isolated git worktree BEFORE launching Claude Code. The session runs entirely inside the worktree.
 
-**How:**
-1. Session starts on `main` (or any branch)
-2. `session-init.sh` detects dirty tree → **BLOCK** (don't clean it — that's another cortex's work)
-3. If clean: create worktree at `/tmp/cynic-worktrees/<session-id>/` with a new branch
-4. Set `CLAUDE_PROJECT_DIR` (or equivalent) to the worktree path
-5. All subsequent tool calls operate in the worktree, not the shared checkout
+**Why wrapper, not hook:** Claude Code sets `CLAUDE_PROJECT_DIR` at launch time. `session-init.sh` runs AFTER the session starts — it cannot change the working directory. The worktree must exist before Claude Code launches.
+
+**Wrapper script (`cynic-cortex.sh`):**
+```bash
+#!/bin/bash
+# Usage: cynic-cortex.sh [optional-scope-hint]
+SESSION_ID=$(head -c4 /dev/urandom | xxd -p)
+WORKTREE_DIR="/tmp/cynic-worktrees/$SESSION_ID"
+BRANCH="cortex/$SESSION_ID-$(date +%Y-%m-%d)"
+
+# Gate: shared checkout must be clean (dirty = another cortex's uncommitted work)
+# "Dirty" = tracked files modified relative to HEAD. Untracked files are ignored
+# (they may be legitimate artifacts). This blocks the cortex from inheriting
+# another session's uncommitted edits — not from starting entirely.
+if [ -n "$(git -C "$CYNIC_ROOT" diff --name-only HEAD)" ]; then
+    echo "BLOCKED: shared checkout has uncommitted tracked changes."
+    echo "Another cortex left dirty files. Resolve before starting."
+    exit 1
+fi
+
+git -C "$CYNIC_ROOT" worktree add "$WORKTREE_DIR" -b "$BRANCH" origin/main
+cd "$WORKTREE_DIR"
+claude  # launches Claude Code with CWD = worktree
+```
 
 **Worktree lifecycle:**
-- Created at REGISTER
-- Agent works entirely inside it
-- On EXIT: if changes committed and pushed → delete worktree. If uncommitted → warn, preserve for 24h, then auto-delete.
-- On crash: TTL-based cleanup (session-stop or cron)
+- Created by wrapper BEFORE session starts
+- Agent works entirely inside it (all tools resolve relative to worktree)
+- `session-init.sh` still runs inside the worktree — handles REGISTER, health probe, context injection
+- On EXIT (`session-stop.sh`): if changes committed and pushed → delete worktree. If uncommitted → warn, preserve for 24h.
+- On crash/timeout: cron cleans worktrees older than 24h with no commits ahead of main.
 
 **Why worktree, not clone:**
 - Worktrees share `.git/objects` — no disk/network cost
-- `git worktree add` is instant
+- `git worktree add` is instant (<100ms)
 - Branch is automatically created and isolated
+- `git worktree list` shows all active cortex workspaces
 
-**Edge case — shared checkout for read-only:**
-The shared `main` checkout remains for tools that only READ (Grep, Glob, Read). Write operations (Edit, Write) are redirected to the worktree. This prevents "I need to read the whole project to understand context" from requiring a full copy.
+**Known limitation (v1):** Gemini CLI and Codex don't use this wrapper. They still operate in the shared checkout. V1 protects Claude Code sessions only. Concurrent Gemini sessions can still contaminate the shared checkout.
 
-**Constraint:** Claude Code's `CLAUDE_PROJECT_DIR` is set at session start. Changing the working directory mid-session requires the hook to output a `cwd` directive. If Claude Code doesn't support this, the worktree must be created BEFORE the session starts (wrapper script).
+### Component 2: Extended Coord Claims
 
-### Component 2: Mempool Claim API (Extended Coord)
+**What:** Extend `/coord/claim` from kernel-src-only to all files. Add intent + status tracking to existing `work_claim` table.
 
-**What:** Extend `/coord/claim` from kernel-src-only to all files. Add scope-as-hyperedge storage.
-
-**Current state:** `coord-claim.sh` fires on `Edit|Write` matching `/cynic-kernel/src/**`. Claims stored in `work_claim` table.
+**Current state:** `coord-claim.sh` fires on `Edit|Write` matching `/cynic-kernel/src/**`. Claims stored in `work_claim` table with fields: `agent_id`, `target`, `claim_type`, `active`, `claimed_at`.
 
 **Changes:**
-1. Remove the `if` scope restriction in `settings.json` — claim ALL Edit/Write targets
-2. Add `mempool_item` table in SurrealDB for scope tracking:
+
+1. **Remove `if` scope restriction** in `settings.json` — claim ALL Edit/Write targets, not just `cynic-kernel/src/*`.
+
+2. **Extend `work_claim` table** (no new table — avoids violating R12 "one value, one source"):
+   - Add `status` field: `claimed | working | proposed | merged | abandoned`
+   - Add `intent` field: free-text scope description (from user's first message)
+   - Add `session_id` field: links claims to the agent's session for batch operations
+   - Existing `active` field becomes derived: `active = status IN ['claimed', 'working']`
+
+3. **On REGISTER:** `session-init.sh` records the agent's intent via `/coord/register` (already exists, add `intent` param).
+
+4. **On each CLAIM:** `coord-claim.sh` records the file target. `/coord/who` aggregates all targets per agent to show scope.
+
+5. **PROPOSED state TTL:** When an agent pushes (PROPOSE), claims move to `proposed` status. A TTL of 2h applies — if the PR is not merged within 2h, claims auto-release to `abandoned`. This prevents orphan claims from blocking other agents indefinitely. The existing `expire_stale()` function handles this (extend with status-aware expiry).
+
+**Conflict detection (scope overlap query):**
 
 ```sql
-DEFINE TABLE IF NOT EXISTS mempool_item;
--- Fields: agent_id, intent (text), targets (array of file paths),
---         status (claimed|working|proposed|merged|abandoned),
---         created_at, updated_at
-```
-
-3. On REGISTER: agent declares intent (from user's first message, via `observe-prompt.sh`)
-4. On first CLAIM: kernel creates `mempool_item` with the agent's targets
-5. Subsequent CLAIMs add targets to the same `mempool_item`
-6. `/coord/who` returns active agents WITH their scope (list of claimed targets)
-
-**Conflict detection (hyperedge intersection):**
-
-```sql
-LET $my_targets = (SELECT VALUE targets FROM mempool_item WHERE agent_id = $me AND status = 'working');
-SELECT agent_id, targets FROM mempool_item 
+LET $my_targets = (SELECT VALUE target FROM work_claim 
+  WHERE agent_id = $me AND status IN ['claimed', 'working']);
+SELECT agent_id, target FROM work_claim 
   WHERE agent_id != $me 
   AND status IN ['claimed', 'working']
-  AND targets ANYINSIDE $my_targets;
+  AND target INSIDE $my_targets;
 ```
 
-**Conflict response:** Return the conflict info to the agent. The agent (or human) decides whether to proceed. The claim is NOT blocked — it's flagged. This is T1: claim as signal, not lock.
+**Conflict response — signal, not lock:**
+
+The current REST handler returns HTTP 409 on conflict, which `coord-claim.sh` treats as a block (exit 2). V1 changes this:
+- HTTP 200 with `{"status": "claimed", "conflicts": [...]}` — claim succeeds, conflicts reported
+- The hook outputs a WARNING to stderr (visible to the agent) but does NOT block
+- The agent (or human) decides whether to proceed
+- This implements T1: claim as signal. The cost of ignoring the signal (wasted tokens if rejected at PROPOSE) is the natural incentive.
 
 ### Component 3: Pre-Push Kernel Validation (PROPOSE)
 
 **What:** The pre-push hook validates the proposed changes against kernel state before allowing push.
 
-**Checks:**
-1. **Scope match:** Files in the push diff must be a subset of the agent's claimed targets. Unclaimed files = scope violation → WARN (not block in v1, block in v2).
-2. **Freshness:** The branch must be rebased on current `origin/main`. Stale base = rejection.
-3. **CI gate:** `make check` must pass (already enforced by pre-push hook).
-4. **PR status:** If a PR exists for this branch and is already merged → BLOCK push (prevents the orphan commit problem from today).
+**Checks (all BLOCK, not warn — v1 must solve the problem, not report it):**
+1. **Scope match:** Files in the push diff must be a subset of the agent's claimed targets. Unclaimed files → BLOCK with list of unclaimed files. The agent must claim them first (re-run the edit to trigger `coord-claim.sh`, or explicit `curl /coord/claim`).
+2. **Freshness:** `git merge-base --is-ancestor origin/main HEAD` must be true. Stale base → BLOCK with "rebase onto origin/main first."
+3. **CI gate:** `make check` must pass (already enforced by existing pre-push hook).
+4. **PR status:** Check via `gh pr list --head <branch> --state merged`. If merged → BLOCK with "PR already merged, create new branch for new work."
 
-**Implementation:** Add kernel call to existing `scripts/git-hooks/pre-push`:
+**Implementation — client-side only (no new kernel endpoint in v1):**
+
+The `/coord/propose` endpoint is deferred. The pre-push hook performs all checks client-side using existing tools — this avoids a new kernel endpoint that would need GitHub API access or server-side git operations:
 
 ```bash
 # After make check passes:
+
+# Check 1: Scope match (query kernel for agent's claims)
 DIFF_FILES=$(git diff --name-only origin/main..HEAD)
-HTTP_CODE=$(curl -s -o /tmp/propose.json -w '%{http_code}' \
-  -X POST "http://${KERNEL_ADDR}/coord/propose" \
-  -H "Authorization: Bearer $API_KEY" \
-  -d "{\"agent_id\":\"$AGENT_ID\",\"files\":$DIFF_FILES_JSON,\"base_sha\":\"$BASE_SHA\"}")
-# 200 = proceed, 409 = scope conflict, 412 = stale base
+CLAIMED=$(curl -s -H "Authorization: Bearer $API_KEY" \
+  "http://${KERNEL_ADDR}/coord/who?agent_id=$AGENT_ID" \
+  | jq -r '.claims[].target')
+UNCLAIMED=$(comm -23 <(echo "$DIFF_FILES" | sort) <(echo "$CLAIMED" | sort))
+if [ -n "$UNCLAIMED" ]; then
+    echo "SCOPE VIOLATION: files not claimed: $UNCLAIMED"
+    exit 1
+fi
+
+# Check 2: Freshness
+if ! git merge-base --is-ancestor origin/main HEAD; then
+    echo "STALE BASE: rebase onto origin/main first"
+    exit 1
+fi
+
+# Check 3: PR not already merged
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+MERGED_PR=$(gh pr list --head "$BRANCH" --state merged --json number --jq '.[0].number' 2>/dev/null)
+if [ -n "$MERGED_PR" ]; then
+    echo "PR #$MERGED_PR already merged. Create new branch for new work."
+    exit 1
+fi
 ```
+
+**Why client-side:** Keeps v1 simple. The pre-push hook already runs `make check` (2+ min). Adding 3 quick checks (curl + git merge-base + gh pr) adds <5s. No kernel changes needed for Component 3. The `/coord/propose` endpoint becomes a v2 optimization (server-side validation for federation scenarios where the client can't be trusted).
 
 ---
 
@@ -195,12 +244,13 @@ HTTP_CODE=$(curl -s -o /tmp/propose.json -w '%{http_code}' \
 
 ### From current state to v1:
 
-1. `session-init.sh` — add worktree creation (or wrapper script if CWD can't change)
-2. `settings.json` — remove `if` scope restriction on coord-claim
-3. Kernel — add `mempool_item` table to bootstrap schema
-4. Kernel — add `POST /coord/propose` endpoint
-5. `pre-push` hook — add kernel validation call
-6. `session-stop.sh` — add worktree cleanup
+1. `cynic-cortex.sh` — wrapper script: clean check → worktree create → launch Claude Code
+2. `settings.json` — remove `if` scope restriction on coord-claim (all files)
+3. Kernel — extend `work_claim` table with `status`, `intent`, `session_id` fields
+4. Kernel — extend `expire_stale()` with status-aware TTL (PROPOSED → ABANDONED after 2h)
+5. `coord-claim.sh` — change conflict from 409-block to 200-with-warning
+6. `pre-push` hook — add scope match + freshness + merged-PR checks (client-side)
+7. `session-stop.sh` — add worktree cleanup + claim release
 
 ### From v1 to v2 (future):
 
@@ -226,10 +276,10 @@ HTTP_CODE=$(curl -s -o /tmp/propose.json -w '%{http_code}' \
 
 ## Open Questions
 
-1. **Can Claude Code change CWD mid-session?** If not, the worktree must be created by a wrapper script that launches Claude Code inside the worktree. This is a blocker for Component 1.
-2. **Should claims be per-file or per-module?** Per-file is precise but noisy (100+ claims). Per-module is coarse but practical. V1: per-file, with aggregation in `/coord/who` display.
-3. **What happens when the kernel is down?** Current behavior: `CYNIC_COORD_ALLOW_DEGRADED=1` bypasses claims. V1 keeps this but logs degraded sessions for post-hoc audit.
-4. **Gemini CLI / Codex integration:** The hooks are Claude Code-specific. Gemini has its own hook system (`BeforeTool`). Codex has none. V1 covers Claude Code only. V2 abstracts the hook layer.
+1. **Should claims be per-file or per-module?** Per-file is precise but noisy (100+ claims per session). Per-module is coarse but practical. V1: per-file (hooks already fire per-file), with aggregation in `/coord/who` display.
+2. **What happens when the kernel is down?** Current behavior: `CYNIC_COORD_ALLOW_DEGRADED=1` bypasses claims. V1 keeps this but logs degraded sessions for post-hoc audit.
+3. **Gemini CLI / Codex in same workspace:** V1 only protects Claude Code sessions (wrapper script). Concurrent Gemini sessions can still dirty the shared checkout. Mitigation: the wrapper's clean-check at launch detects Gemini contamination and blocks until resolved. Full Gemini integration is v2.
+4. **Worktree disk usage:** Each worktree is a lightweight checkout (~50MB for CYNIC). 5 concurrent cortex = ~250MB in `/tmp`. Acceptable. Cron cleanup prevents accumulation.
 
 ---
 
