@@ -205,6 +205,18 @@ Never commit: real IPs, API keys/tokens/passwords, real names (use T./S.).
 Secrets: `~/.cynic-env`. Systemd: `~/.config/cynic/env`.
 Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`, `/live`, `/ready`.
 
+## SurrealDB — Probe Before Assuming
+
+SurrealDB 3.x changed implicit behavior silently. Rules derived from 3 incidents (2026-05-15):
+
+1. **`SELECT * FROM table WHERE ...` requires `DEFINE TABLE`.** Record-ID queries bypass this. Always bootstrap tables explicitly.
+2. **Basic auth = Argon2id per query.** Use Bearer JWT (`POST /signin` at init). Refresh on 401.
+3. **Indexes not used in inline subqueries.** Bind to `LET` variable first: `LET $v = (SELECT ...); ... NOT IN $v`.
+
+When SurrealDB behavior surprises you, check the 3.x migration guide before debugging the code. Research: `memory/research_surrealdb_3x_2026_05_15.md`.
+
+---
+
 ## Build
 
 Rust 1.95.0 active (LLVM SROA bug from 1.94.1 resolved). Stack/debuginfo kept as safety net in `.cargo/config.toml`:
