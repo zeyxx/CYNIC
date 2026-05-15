@@ -16,9 +16,10 @@ use rmcp::{
 
 use super::{
     AuditQueryParams, AuthParams, BatchClaimParams, ClaimParams, ComplianceParams,
-    DispatchAgentTaskParams, GitParams, JudgeParams, ListParams, ListPendingAgentTasksParams,
-    McpRateLimit, MetabolismParams, ObserveParams, RegisterParams, ReleaseParams,
-    UpdateAgentTaskResultParams, ValidateParams, WhoParams, validate_agent_id,
+    CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams, GitParams, JudgeParams,
+    ListParams, ListPendingAgentTasksParams, McpRateLimit, MetabolismParams, ObserveParams,
+    RegisterParams, ReleaseParams, UpdateAgentTaskResultParams, ValidateParams, WhoParams,
+    validate_agent_id,
 };
 
 // ── Proxy struct ────────────────────────────────────────────
@@ -214,6 +215,59 @@ impl CynicMcpProxy {
         let p = params.0;
         let limit = p.limit.unwrap_or(20).to_string();
         self.get_query("/crystals", &[("limit", limit)]).await
+    }
+
+    #[tool(
+        name = "cynic_crystal_observe",
+        description = "Record a non-verdict observation on a crystal (mycelium hypha path). Creates the crystal if it does not exist (auto-generates ID from content hash)."
+    )]
+    async fn cynic_crystal_observe(
+        &self,
+        params: Parameters<CrystalObserveParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let crystal_id = p.crystal_id.unwrap_or_else(|| {
+            let hash = crate::domain::ccm::content_hash(&crate::domain::ccm::normalize_for_hash(
+                &p.content,
+            ));
+            format!("{hash:x}")
+        });
+        self.post(
+            &format!("/crystal/{crystal_id}/observe"),
+            &serde_json::json!({
+                "content": p.content,
+                "domain": p.domain,
+                "score": p.score,
+                "source": p.source,
+                "sentiment": p.sentiment,
+                "agent_id": p.agent_id,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_crystal_shatter",
+        description = "Instantly dissolve a crystal — transitions it to Dissolved state with a recorded reason. Idempotent on already-dissolved crystals."
+    )]
+    async fn cynic_crystal_shatter(
+        &self,
+        params: Parameters<CrystalShatterParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            &format!("/crystal/{}/shatter", p.crystal_id),
+            &serde_json::json!({
+                "reason": p.reason,
+                "source": p.source,
+                "agent_id": p.agent_id,
+            }),
+        )
+        .await
     }
 
     #[tool(
