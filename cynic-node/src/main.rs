@@ -77,6 +77,11 @@ async fn watch(
     let node_public_key = std::env::var("CYNIC_NODE_PUBLIC_KEY")
         .unwrap_or_else(|_| "stub-public-key-phase-3-4-pending".to_string());
 
+    let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_else(|_| {
+        tracing::warn!("CYNIC_API_KEY not set; WebSocket authentication will fail");
+        String::new()
+    });
+
     let kernel_ws_url = cfg
         .kernel
         .url
@@ -91,6 +96,7 @@ async fn watch(
 
     let ws_client = std::sync::Arc::new(websocket::WebSocketClient::new(
         kernel_ws_url,
+        api_key,
         node_public_key,
         cfg.dog.name.clone(),
         queue_dir.clone(),

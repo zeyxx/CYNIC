@@ -11,6 +11,7 @@
 
 use futures_util::sink::SinkExt;
 use futures_util::stream::StreamExt;
+use http::Request;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
@@ -134,6 +135,8 @@ pub struct PendingVerdict {
 pub struct WebSocketClient {
     /// Kernel WebSocket URL (e.g., "ws://100.64.0.1:3030/node/ws")
     kernel_url: String,
+    /// API key for Bearer token authentication
+    api_key: String,
     /// Node's Ed25519 public key (base64)
     node_public_key: String,
     /// Node identity (name/id)
@@ -154,12 +157,14 @@ impl WebSocketClient {
     /// Create a new WebSocket client (not yet connected).
     pub fn new(
         kernel_url: String,
+        api_key: String,
         node_public_key: String,
         node_identity: String,
         queue_dir: PathBuf,
     ) -> Self {
         Self {
             kernel_url,
+            api_key,
             node_public_key,
             node_identity,
             node_id: Arc::new(RwLock::new(None)),
@@ -323,11 +328,19 @@ impl WebSocketClient {
 
     /// Connect to kernel and run the main multiplexing loop.
     async fn connect_and_run(&self) -> Result<(), String> {
-        // Connect to kernel
+        // Connect to kernel with authentication headers
         debug!("Connecting to kernel at {}", self.kernel_url);
-        let (ws_stream, _) = connect_async(&self.kernel_url)
-            .await
-            .map_err(|e| e.to_string())?;
+
+        // Build HTTP request with Bearer token and node identity headers
+        let request = Request::builder()
+            .uri(&self.kernel_url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("X-Node-Public-Key", &self.node_public_key)
+            .header("X-Node-Identity", &self.node_identity)
+            .body(())
+            .map_err(|e| format!("Failed to build WebSocket request: {}", e))?;
+
+        let (ws_stream, _) = connect_async(request).await.map_err(|e| e.to_string())?;
         info!("Connected to kernel at {}", self.kernel_url);
 
         // Send registration
