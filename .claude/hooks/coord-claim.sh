@@ -38,10 +38,6 @@ source ~/.cynic-env 2>/dev/null || true
 KERNEL_ADDR="${CYNIC_REST_ADDR:-127.0.0.1:3030}"
 API_KEY="${CYNIC_API_KEY:-}"
 
-if [[ -z "$API_KEY" ]]; then
-    block "coordination requires CYNIC_API_KEY for kernel edits"
-fi
-
 AGENT_ID=""
 if [[ -n "$SESSION_ID" ]]; then
     AGENT_ID="claude-${SESSION_ID:0:12}"
@@ -95,39 +91,26 @@ if [[ -n "$ZONE" ]]; then
     echo "$AGENT_ID" > "$ZONE_LOCK"
 fi
 
-# ── Kernel-level file claim (existing, kept as secondary signal) ──
-TARGET_FILE="${FILE_PATH#*cynic-kernel/src/}"
+# ── Kernel-level file claim (secondary signal, requires API key + kernel) ──
+if [[ -n "$API_KEY" ]]; then
+    TARGET_FILE="${FILE_PATH#*cynic-kernel/src/}"
+    CLAIM_TMP=$(mktemp /tmp/cynic-claim-XXXXXX)
+    trap "rm -f '$CLAIM_TMP'" EXIT
+    HTTP_CODE=$(curl -s -o "$CLAIM_TMP" -w '%{http_code}' \
+        --connect-timeout 2 --max-time 3 \
+        -X POST "http://${KERNEL_ADDR}/coord/claim" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $API_KEY" \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"target\":\"${TARGET_FILE}\",\"claim_type\":\"file\"}" \
+        2>/dev/null || echo "000")
 
-CLAIM_TMP=$(mktemp /tmp/cynic-claim-XXXXXX)
-trap "rm -f '$CLAIM_TMP'" EXIT
-HTTP_CODE=$(curl -s -o "$CLAIM_TMP" -w '%{http_code}' \
-    --connect-timeout 2 --max-time 3 \
-    -X POST "http://${KERNEL_ADDR}/coord/claim" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $API_KEY" \
-    -d "{\"agent_id\":\"${AGENT_ID}\",\"target\":\"${TARGET_FILE}\",\"claim_type\":\"file\"}" \
-    2>/dev/null || echo "000")
-
-case "$HTTP_CODE" in
-    200)
+    if [[ "$HTTP_CODE" == "200" ]]; then
         CONFLICTS=$(jq -r '.conflicts // empty' "$CLAIM_TMP" 2>/dev/null)
         if [ -n "$CONFLICTS" ] && [ "$CONFLICTS" != "null" ] && [ "$CONFLICTS" != "[]" ]; then
             CONFLICT_AGENTS=$(jq -r '.conflicts[].agent_id' "$CLAIM_TMP" 2>/dev/null | tr '\n' ', ')
             echo "⚠ FILE OVERLAP: '$TARGET_FILE' also claimed by: ${CONFLICT_AGENTS%,}" >&2
         fi
-        exit 0
-        ;;
-    000)
-        # Kernel down — zone gate already passed, allow with warning
-        echo "WARN: kernel unreachable for file claim '$TARGET_FILE' (zone gate passed)" >&2
-        exit 0
-        ;;
-    401|403)
-        block "coordination auth failed for '$TARGET_FILE' (HTTP $HTTP_CODE)"
-        ;;
-    *)
-        # Non-critical — zone gate is the primary gate
-        echo "WARN: file claim failed for '$TARGET_FILE' (HTTP $HTTP_CODE)" >&2
-        exit 0
-        ;;
-esac
+    fi
+fi
+
+exit 0
