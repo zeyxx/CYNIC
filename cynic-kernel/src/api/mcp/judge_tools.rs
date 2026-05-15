@@ -10,8 +10,9 @@ use crate::domain::dog::{AXIOM_NAMES, PHI_INV};
 use crate::domain::health_gate::count_healthy_dogs;
 
 use super::{
-    AuditQueryParams, AuthParams, ComplianceParams, CynicMcp, InferParams, JudgeParams, ListParams,
-    MetabolismParams, sanitize_error, validate_agent_id,
+    AuditQueryParams, AuthParams, ComplianceParams, CrystalObserveParams, CrystalShatterParams,
+    CynicMcp, InferParams, JudgeParams, ListParams, MetabolismParams, sanitize_error,
+    validate_agent_id,
 };
 
 #[tool_router(router = tool_router_judge, vis = "pub(super)")]
@@ -348,6 +349,113 @@ impl CynicMcp {
 
         Ok(CallToolResult::success(vec![Content::text(
             serde_json::to_string_pretty(&items).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_crystal_observe",
+        description = "Record a non-verdict observation on a crystal (mycelium hypha path). Updates Welford mean/variance without requiring a full judge pipeline. Creates the crystal if it does not exist (auto-generates ID from content hash). Use when Hermes, nightshift, or external agents want to reinforce or weaken a crystal from domain knowledge."
+    )]
+    pub(crate) async fn cynic_crystal_observe(
+        &self,
+        params: Parameters<CrystalObserveParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+
+        if p.content.trim().is_empty() {
+            return Err(McpError::invalid_params("content must not be empty", None));
+        }
+        if p.domain.trim().is_empty() {
+            return Err(McpError::invalid_params("domain must not be empty", None));
+        }
+        if !(0.0..=1.0).contains(&p.score) {
+            return Err(McpError::invalid_params(
+                "score must be in [0.0, 1.0]",
+                None,
+            ));
+        }
+
+        let crystal_id = p.crystal_id.unwrap_or_else(|| {
+            let hash = crate::domain::ccm::content_hash(&crate::domain::ccm::normalize_for_hash(
+                &p.content,
+            ));
+            format!("{hash:x}")
+        });
+
+        let timestamp = chrono::Utc::now().to_rfc3339();
+
+        self.storage
+            .observe_crystal_hypha(
+                &crystal_id,
+                &p.content,
+                &p.domain,
+                p.score,
+                &timestamp,
+                &p.source,
+                p.sentiment.as_deref(),
+            )
+            .await
+            .map_err(|e| {
+                tracing::warn!(error = %e, crystal_id, "MCP crystal observe failed");
+                sanitize_error("Crystal")
+            })?;
+
+        let response = serde_json::json!({
+            "crystal_id": crystal_id,
+            "observed": true,
+            "domain": p.domain,
+            "score": p.score,
+            "source": p.source,
+        });
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&response).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_crystal_shatter",
+        description = "Instantly dissolve a crystal — transitions it to Dissolved state with a recorded reason. Idempotent on already-dissolved crystals. Use when a crystal is found to encode false or harmful knowledge and must be permanently retired."
+    )]
+    pub(crate) async fn cynic_crystal_shatter(
+        &self,
+        params: Parameters<CrystalShatterParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+
+        if p.crystal_id.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "crystal_id must not be empty",
+                None,
+            ));
+        }
+        if p.reason.trim().is_empty() {
+            return Err(McpError::invalid_params("reason must not be empty", None));
+        }
+
+        let timestamp = chrono::Utc::now().to_rfc3339();
+
+        self.storage
+            .shatter_crystal(&p.crystal_id, &p.reason, &p.source, &timestamp)
+            .await
+            .map_err(|e| {
+                tracing::warn!(error = %e, crystal_id = p.crystal_id, "MCP crystal shatter failed");
+                sanitize_error("Crystal")
+            })?;
+
+        let response = serde_json::json!({
+            "crystal_id": p.crystal_id,
+            "shattered": true,
+            "reason": p.reason,
+            "source": p.source,
+        });
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&response).unwrap_or_default(),
         )]))
     }
 

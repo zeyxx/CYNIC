@@ -196,6 +196,10 @@ impl StoragePort for InMemoryStorage {
             wag_count: 0,
             growl_count: 0,
             bark_count: 0,
+            contributing_sources: std::collections::BTreeMap::new(),
+            shattered_at: None,
+            shatter_reason: None,
+            shatter_source: None,
         });
 
         // KC12 fix: update content when new observation has higher confidence than running mean.
@@ -256,6 +260,123 @@ impl StoragePort for InMemoryStorage {
         }
 
         Ok(())
+    }
+
+    async fn observe_crystal_hypha(
+        &self,
+        id: &str,
+        content: &str,
+        domain: &str,
+        score: f64,
+        timestamp: &str,
+        source: &str,
+        sentiment: Option<&str>,
+    ) -> Result<(), StorageError> {
+        let sanitized = sanitize_crystal_content(content);
+        let mut s = self.state.lock().await;
+
+        // Dissolved guard: reject observations on shattered crystals
+        if let Some(existing) = s.crystals.get(id) {
+            if existing.state == CrystalState::Dissolved {
+                return Err(StorageError::QueryFailed(format!(
+                    "crystal {id} is dissolved — hypha observation rejected"
+                )));
+            }
+        }
+
+        let crystal = s.crystals.entry(id.to_string()).or_insert_with(|| Crystal {
+            id: id.to_string(),
+            content: sanitized.clone(),
+            domain: domain.to_string(),
+            confidence: 0.0,
+            observations: 0,
+            state: CrystalState::Forming,
+            created_at: timestamp.to_string(),
+            updated_at: timestamp.to_string(),
+            contributing_verdicts: vec![],
+            certainty: 0.0,
+            variance_m2: 0.0,
+            mean_quorum: 0.0,
+            howl_count: 0,
+            wag_count: 0,
+            growl_count: 0,
+            bark_count: 0,
+            contributing_sources: std::collections::BTreeMap::new(),
+            shattered_at: None,
+            shatter_reason: None,
+            shatter_source: None,
+        });
+
+        // Content mutation: evolve toward best expression
+        let old_mean = crystal.confidence;
+        if score > old_mean && !content.is_empty() {
+            crystal.content = sanitized;
+        }
+
+        // Welford online variance + running mean
+        let old_obs = crystal.observations as f64;
+        let new_conf = if crystal.observations > 0 {
+            (old_mean * old_obs + score) / (old_obs + 1.0)
+        } else {
+            score
+        };
+        let delta = score - old_mean;
+        let delta2 = score - new_conf;
+        crystal.variance_m2 = if crystal.observations > 0 {
+            crystal.variance_m2 + delta * delta2
+        } else {
+            0.0
+        };
+        crystal.confidence = new_conf;
+        crystal.observations += 1;
+
+        // Polarity from sentiment
+        match sentiment {
+            Some("positive") => crystal.wag_count += 1,
+            Some("negative") => crystal.growl_count += 1,
+            _ => {}
+        }
+
+        // Source tracking
+        *crystal
+            .contributing_sources
+            .entry(source.to_string())
+            .or_insert(0) += 1;
+
+        crystal.updated_at = timestamp.to_string();
+
+        // 4D certainty + state transition
+        crystal.certainty =
+            crate::domain::ccm::compute_certainty(crystal.variance_m2, crystal.observations);
+        crystal.state = crate::domain::ccm::classify(crystal.certainty, crystal.observations);
+
+        Ok(())
+    }
+
+    async fn shatter_crystal(
+        &self,
+        id: &str,
+        reason: &str,
+        source: &str,
+        timestamp: &str,
+    ) -> Result<(), StorageError> {
+        let mut s = self.state.lock().await;
+        match s.crystals.get_mut(id) {
+            Some(crystal) => {
+                if crystal.state == CrystalState::Dissolved {
+                    return Ok(()); // Idempotent
+                }
+                crystal.state = CrystalState::Dissolved;
+                crystal.shattered_at = Some(timestamp.to_string());
+                crystal.shatter_reason = Some(reason.to_string());
+                crystal.shatter_source = Some(source.to_string());
+                crystal.updated_at = timestamp.to_string();
+                Ok(())
+            }
+            None => Err(StorageError::QueryFailed(format!(
+                "shatter_crystal: crystal {id} not found"
+            ))),
+        }
     }
 
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
@@ -409,5 +530,314 @@ impl StoragePort for InMemoryStorage {
             *map.entry(format!("{:?}", v.kind)).or_insert(0) += 1;
         }
         Ok(map)
+    }
+}
+
+#[cfg(test)]
+mod crystal_hypha_tests {
+    use super::*;
+    use crate::domain::ccm::CrystalState;
+
+    #[tokio::test]
+    async fn hypha_observe_creates_forming_crystal() {
+        let s = InMemoryStorage::new();
+        s.observe_crystal_hypha(
+            "test-1",
+            "insight",
+            "hermes-skill",
+            0.5,
+            "2026-05-15T00:00:00Z",
+            "hermes-agent",
+            None,
+        )
+        .await
+        .unwrap();
+        let c = s.get_crystal("test-1").await.unwrap().unwrap();
+        assert_eq!(c.state, CrystalState::Forming);
+        assert_eq!(c.observations, 1);
+        assert_eq!(c.source_diversity(), 1);
+    }
+
+    #[tokio::test]
+    async fn hypha_observe_feeds_existing_crystal() {
+        let s = InMemoryStorage::new();
+        s.observe_crystal_hypha(
+            "test-1",
+            "insight",
+            "hermes-skill",
+            0.5,
+            "2026-05-15T00:00:00Z",
+            "hermes-agent",
+            None,
+        )
+        .await
+        .unwrap();
+        s.observe_crystal_hypha(
+            "test-1",
+            "",
+            "hermes-skill",
+            0.6,
+            "2026-05-15T01:00:00Z",
+            "hermes-agent",
+            None,
+        )
+        .await
+        .unwrap();
+        let c = s.get_crystal("test-1").await.unwrap().unwrap();
+        assert_eq!(c.observations, 2);
+        assert!(
+            (c.confidence - 0.55).abs() < 0.01,
+            "confidence should be ~0.55, got {}",
+            c.confidence
+        );
+    }
+
+    #[tokio::test]
+    async fn hypha_observe_tracks_multiple_sources() {
+        let s = InMemoryStorage::new();
+        s.observe_crystal_hypha(
+            "test-1",
+            "insight",
+            "skill",
+            0.5,
+            "2026-05-15T00:00:00Z",
+            "hermes",
+            None,
+        )
+        .await
+        .unwrap();
+        s.observe_crystal_hypha(
+            "test-1",
+            "",
+            "skill",
+            0.6,
+            "2026-05-15T01:00:00Z",
+            "claude",
+            None,
+        )
+        .await
+        .unwrap();
+        s.observe_crystal_hypha(
+            "test-1",
+            "",
+            "skill",
+            0.55,
+            "2026-05-15T02:00:00Z",
+            "gemini",
+            None,
+        )
+        .await
+        .unwrap();
+        let c = s.get_crystal("test-1").await.unwrap().unwrap();
+        assert_eq!(c.source_diversity(), 3);
+        assert_eq!(c.contributing_sources["hermes"], 1);
+        assert_eq!(c.contributing_sources["claude"], 1);
+        assert_eq!(c.contributing_sources["gemini"], 1);
+    }
+
+    #[tokio::test]
+    async fn hypha_observe_rejected_on_dissolved() {
+        let s = InMemoryStorage::new();
+        s.observe_crystal_hypha(
+            "test-1",
+            "insight",
+            "skill",
+            0.5,
+            "2026-05-15T00:00:00Z",
+            "hermes",
+            None,
+        )
+        .await
+        .unwrap();
+        s.shatter_crystal(
+            "test-1",
+            "contract exploited",
+            "admin",
+            "2026-05-15T01:00:00Z",
+        )
+        .await
+        .unwrap();
+        let result = s
+            .observe_crystal_hypha(
+                "test-1",
+                "",
+                "skill",
+                0.6,
+                "2026-05-15T02:00:00Z",
+                "hermes",
+                None,
+            )
+            .await;
+        assert!(result.is_err(), "observe on dissolved crystal should fail");
+    }
+
+    #[tokio::test]
+    async fn shatter_transitions_to_dissolved() {
+        let s = InMemoryStorage::new();
+        s.observe_crystal_hypha(
+            "test-1",
+            "insight",
+            "skill",
+            0.5,
+            "2026-05-15T00:00:00Z",
+            "hermes",
+            None,
+        )
+        .await
+        .unwrap();
+        s.shatter_crystal("test-1", "rugpull", "watchdog", "2026-05-15T01:00:00Z")
+            .await
+            .unwrap();
+        let c = s.get_crystal("test-1").await.unwrap().unwrap();
+        assert_eq!(c.state, CrystalState::Dissolved);
+        assert_eq!(c.shatter_reason.as_deref(), Some("rugpull"));
+        assert_eq!(c.shatter_source.as_deref(), Some("watchdog"));
+        assert!(c.shattered_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn shatter_is_idempotent() {
+        let s = InMemoryStorage::new();
+        s.observe_crystal_hypha(
+            "test-1",
+            "insight",
+            "skill",
+            0.5,
+            "2026-05-15T00:00:00Z",
+            "hermes",
+            None,
+        )
+        .await
+        .unwrap();
+        s.shatter_crystal("test-1", "reason1", "admin", "2026-05-15T01:00:00Z")
+            .await
+            .unwrap();
+        // Second shatter should succeed (idempotent)
+        s.shatter_crystal("test-1", "reason2", "admin", "2026-05-15T02:00:00Z")
+            .await
+            .unwrap();
+        let c = s.get_crystal("test-1").await.unwrap().unwrap();
+        // First shatter's provenance preserved
+        assert_eq!(c.shatter_reason.as_deref(), Some("reason1"));
+    }
+
+    #[tokio::test]
+    async fn sentiment_maps_to_polarity() {
+        let s = InMemoryStorage::new();
+        s.observe_crystal_hypha(
+            "test-1",
+            "good pattern",
+            "skill",
+            0.7,
+            "2026-05-15T00:00:00Z",
+            "hermes",
+            Some("positive"),
+        )
+        .await
+        .unwrap();
+        s.observe_crystal_hypha(
+            "test-1",
+            "",
+            "skill",
+            0.3,
+            "2026-05-15T01:00:00Z",
+            "hermes",
+            Some("negative"),
+        )
+        .await
+        .unwrap();
+        s.observe_crystal_hypha(
+            "test-1",
+            "",
+            "skill",
+            0.5,
+            "2026-05-15T02:00:00Z",
+            "hermes",
+            Some("neutral"),
+        )
+        .await
+        .unwrap();
+        let c = s.get_crystal("test-1").await.unwrap().unwrap();
+        assert_eq!(c.wag_count, 1, "positive → wag_count");
+        assert_eq!(c.growl_count, 1, "negative → growl_count");
+        // neutral doesn't increment any polarity counter
+        assert_eq!(c.howl_count, 0);
+        assert_eq!(c.bark_count, 0);
+    }
+
+    #[tokio::test]
+    async fn content_updates_on_higher_score() {
+        let s = InMemoryStorage::new();
+        s.observe_crystal_hypha(
+            "test-1",
+            "first version",
+            "skill",
+            0.5,
+            "2026-05-15T00:00:00Z",
+            "hermes",
+            None,
+        )
+        .await
+        .unwrap();
+        s.observe_crystal_hypha(
+            "test-1",
+            "better version",
+            "skill",
+            0.8,
+            "2026-05-15T01:00:00Z",
+            "hermes",
+            None,
+        )
+        .await
+        .unwrap();
+        let c = s.get_crystal("test-1").await.unwrap().unwrap();
+        assert_eq!(
+            c.content, "better version",
+            "higher score should update content"
+        );
+    }
+
+    #[tokio::test]
+    async fn content_does_not_update_on_lower_score() {
+        let s = InMemoryStorage::new();
+        s.observe_crystal_hypha(
+            "test-1",
+            "original",
+            "skill",
+            0.8,
+            "2026-05-15T00:00:00Z",
+            "hermes",
+            None,
+        )
+        .await
+        .unwrap();
+        s.observe_crystal_hypha(
+            "test-1",
+            "worse version",
+            "skill",
+            0.3,
+            "2026-05-15T01:00:00Z",
+            "hermes",
+            None,
+        )
+        .await
+        .unwrap();
+        let c = s.get_crystal("test-1").await.unwrap().unwrap();
+        assert_eq!(
+            c.content, "original",
+            "lower score should not update content"
+        );
+    }
+
+    #[tokio::test]
+    async fn shatter_nonexistent_crystal_errors() {
+        let s = InMemoryStorage::new();
+        let result = s
+            .shatter_crystal("nonexistent", "reason", "admin", "2026-05-15T00:00:00Z")
+            .await;
+        assert!(
+            result.is_err(),
+            "shattering nonexistent crystal should fail"
+        );
     }
 }

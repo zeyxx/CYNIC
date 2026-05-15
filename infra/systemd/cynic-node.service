@@ -1,0 +1,24 @@
+[Unit]
+Description=CYNIC Node — WebSocket Federation Client
+After=network.target
+Wants=cynic-kernel.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Bureau/CYNIC
+# Generate node_kernels.toml from fleet.toml at startup
+ExecStartPre=%h/Bureau/CYNIC/scripts/fleet-gen.py --mode node-kernels
+ExecStart=%h/bin/cynic-node
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+# Environment from ~/.cynic-env (Bearer token, REST addr, API key)
+EnvironmentFile=%h/.config/cynic/env
+Environment="CYNIC_SCRIPTS=%h/Bureau/CYNIC/scripts"
+LimitNOFILE=65535
+MemoryMax=1G
+
+[Install]
+WantedBy=default.target

@@ -42,6 +42,10 @@ mod k15_e2e_falsification {
             wag_count: 41,
             growl_count: 0,
             bark_count: 0,
+            contributing_sources: std::collections::BTreeMap::new(),
+            shattered_at: None,
+            shatter_reason: None,
+            shatter_source: None,
         };
 
         MatureCrystal::try_from(crystal).expect("test crystal must be mature")

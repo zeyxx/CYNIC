@@ -141,6 +141,31 @@ impl StoragePort for ReconnectableStorage {
             )
             .await
     }
+    async fn observe_crystal_hypha(
+        &self,
+        id: &str,
+        content: &str,
+        domain: &str,
+        score: f64,
+        timestamp: &str,
+        source: &str,
+        sentiment: Option<&str>,
+    ) -> Result<(), StorageError> {
+        self.current()
+            .observe_crystal_hypha(id, content, domain, score, timestamp, source, sentiment)
+            .await
+    }
+    async fn shatter_crystal(
+        &self,
+        id: &str,
+        reason: &str,
+        source: &str,
+        timestamp: &str,
+    ) -> Result<(), StorageError> {
+        self.current()
+            .shatter_crystal(id, reason, source, timestamp)
+            .await
+    }
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
         self.current().store_observation(obs).await
     }

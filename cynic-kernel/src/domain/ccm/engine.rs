@@ -92,6 +92,10 @@ pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Cry
         wag_count: crystal.wag_count,
         growl_count: crystal.growl_count,
         bark_count: crystal.bark_count,
+        contributing_sources: crystal.contributing_sources.clone(),
+        shattered_at: crystal.shattered_at.clone(),
+        shatter_reason: crystal.shatter_reason.clone(),
+        shatter_source: crystal.shatter_source.clone(),
     }
 }
 
@@ -122,6 +126,10 @@ pub fn new_crystal(
         wag_count: 0,
         growl_count: 0,
         bark_count: 0,
+        contributing_sources: std::collections::BTreeMap::new(),
+        shattered_at: None,
+        shatter_reason: None,
+        shatter_source: None,
     }
 }
 
@@ -136,13 +144,23 @@ fn running_mean(current_mean: f64, count: u32, new_value: f64) -> f64 {
 }
 
 // ── DECAY RELEVANCE ───────────────────────────────────────
-/// Decay constant: 90 days. At 90 days, factor = e^(-1) ~ 0.368.
-const DECAY_DAYS: f64 = 90.0;
 
-/// Compute decay relevance: `confidence * e^(-age_days / DECAY_DAYS)`.
-/// Pure function — caller provides `now` for testability.
+/// Domain-specific decay constant (days). Crypto moves faster than chess.
+/// Values are conjecture (phi-inverse-squared confidence) — derive from data in Phase 2.
+pub fn decay_days(domain: &str) -> f64 {
+    match domain {
+        "chess" => 180.0,
+        "token" | "token-analysis" => 14.0,
+        "twitter" | "hermes" => 30.0,
+        "hermes-skill" => 90.0,
+        _ => 90.0,
+    }
+}
+
+/// Compute decay relevance: confidence * e^(-age_days / decay_days(domain)).
+/// Pure function — caller provides now for testability.
 /// Returns 0.0 on unparseable timestamps (defensive, not silent).
-pub fn decay_relevance(confidence: f64, updated_at: &str, now: &str) -> f64 {
+pub fn decay_relevance(confidence: f64, updated_at: &str, now: &str, domain: &str) -> f64 {
     let Ok(updated) = chrono::DateTime::parse_from_rfc3339(updated_at) else {
         return 0.0;
     };
@@ -150,7 +168,7 @@ pub fn decay_relevance(confidence: f64, updated_at: &str, now: &str) -> f64 {
         return 0.0;
     };
     let age_days = (now_dt - updated).num_seconds().max(0) as f64 / 86400.0;
-    confidence * (-age_days / DECAY_DAYS).exp()
+    confidence * (-age_days / decay_days(domain)).exp()
 }
 
 // ── CCM FEEDBACK — inject crystallized wisdom into stimulus context ──
@@ -177,8 +195,8 @@ pub fn format_crystal_context(
     let now = chrono::Utc::now().to_rfc3339();
     let mut sorted = domain_filtered;
     sorted.sort_by(|a, b| {
-        let ra = decay_relevance(a.confidence(), a.updated_at(), &now);
-        let rb = decay_relevance(b.confidence(), b.updated_at(), &now);
+        let ra = decay_relevance(a.confidence(), a.updated_at(), &now, domain);
+        let rb = decay_relevance(b.confidence(), b.updated_at(), &now, domain);
         rb.partial_cmp(&ra).unwrap_or(std::cmp::Ordering::Equal)
     });
 
@@ -326,6 +344,10 @@ mod tests {
             wag_count: 0,
             growl_count: 0,
             bark_count: 0,
+            contributing_sources: std::collections::BTreeMap::new(),
+            shattered_at: None,
+            shatter_reason: None,
+            shatter_source: None,
         }
     }
 
@@ -450,7 +472,7 @@ mod tests {
     fn decay_relevance_no_decay_for_today() {
         let now = "2026-03-21T12:00:00Z";
         let updated = "2026-03-21T12:00:00Z";
-        let rel = decay_relevance(0.7, updated, now);
+        let rel = decay_relevance(0.7, updated, now, "test");
         assert!(
             (rel - 0.7).abs() < 0.01,
             "same-day crystal should have ~no decay, got {rel}"
@@ -461,7 +483,7 @@ mod tests {
     fn decay_relevance_decays_old_crystals() {
         let now = "2026-03-21T12:00:00Z";
         let updated_90d_ago = "2025-12-21T12:00:00Z";
-        let rel = decay_relevance(0.7, updated_90d_ago, now);
+        let rel = decay_relevance(0.7, updated_90d_ago, now, "test");
         assert!(
             rel < 0.3,
             "90-day-old crystal should decay significantly, got {rel}"
@@ -475,8 +497,8 @@ mod tests {
     #[test]
     fn decay_relevance_recent_beats_old_high_confidence() {
         let now = "2026-03-21T12:00:00Z";
-        let recent = decay_relevance(0.65, "2026-03-20T12:00:00Z", now);
-        let old = decay_relevance(0.70, "2025-09-21T12:00:00Z", now);
+        let recent = decay_relevance(0.65, "2026-03-20T12:00:00Z", now, "test");
+        let old = decay_relevance(0.70, "2025-09-21T12:00:00Z", now, "test");
         assert!(
             recent > old,
             "recent crystal ({recent}) should outrank old one ({old})"
@@ -485,10 +507,33 @@ mod tests {
 
     #[test]
     fn decay_relevance_bad_timestamp_returns_zero() {
-        let rel = decay_relevance(0.7, "not-a-date", "2026-03-21T12:00:00Z");
+        let rel = decay_relevance(0.7, "not-a-date", "2026-03-21T12:00:00Z", "test");
         assert!(
             (rel - 0.0).abs() < 1e-10,
             "bad timestamp should return 0, got {rel}"
+        );
+    }
+
+    #[test]
+    fn decay_days_returns_domain_specific_values() {
+        assert!((decay_days("chess") - 180.0).abs() < 0.1);
+        assert!((decay_days("token") - 14.0).abs() < 0.1);
+        assert!((decay_days("token-analysis") - 14.0).abs() < 0.1);
+        assert!((decay_days("twitter") - 30.0).abs() < 0.1);
+        assert!((decay_days("hermes") - 30.0).abs() < 0.1);
+        assert!((decay_days("hermes-skill") - 90.0).abs() < 0.1);
+        assert!((decay_days("unknown-domain") - 90.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn token_crystal_decays_faster_than_chess() {
+        let now = "2026-04-15T12:00:00Z";
+        let updated_30d = "2026-03-16T12:00:00Z";
+        let token_rel = decay_relevance(0.6, updated_30d, now, "token");
+        let chess_rel = decay_relevance(0.6, updated_30d, now, "chess");
+        assert!(
+            token_rel < chess_rel,
+            "token ({token_rel}) should decay faster than chess ({chess_rel})"
         );
     }
 

@@ -248,6 +248,34 @@ pub struct UpdateAgentTaskResultParams {
     pub agent_id: Option<String>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CrystalObserveParams {
+    /// Crystal ID to observe. If omitted, auto-generated from content hash.
+    pub crystal_id: Option<String>,
+    /// The content being crystallized.
+    pub content: String,
+    /// Domain label (e.g. "chess", "token", "general").
+    pub domain: String,
+    /// φ-bounded score [0.0, 0.618].
+    pub score: f64,
+    /// Source identifier (e.g. "hermes", "nightshift", "claude-mcp").
+    pub source: String,
+    /// Optional sentiment: "positive" | "negative" | "neutral".
+    pub sentiment: Option<String>,
+    pub agent_id: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CrystalShatterParams {
+    /// Crystal ID to shatter (instant dissolution).
+    pub crystal_id: String,
+    /// Human-readable reason for shattering.
+    pub reason: String,
+    /// Source identifier (e.g. "cortex", "hermes", "maintenance").
+    pub source: String,
+    pub agent_id: String,
+}
+
 // ── MCP Server ───────────────────────────────────────────────
 
 #[derive(Clone)]
@@ -454,6 +482,27 @@ mod tests {
         async fn store_observation(
             &self,
             _: &crate::domain::storage::Observation,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn observe_crystal_hypha(
+            &self,
+            _: &str,
+            _: &str,
+            _: &str,
+            _: f64,
+            _: &str,
+            _: &str,
+            _: Option<&str>,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn shatter_crystal(
+            &self,
+            _: &str,
+            _: &str,
+            _: &str,
+            _: &str,
         ) -> Result<(), StorageError> {
             Ok(())
         }

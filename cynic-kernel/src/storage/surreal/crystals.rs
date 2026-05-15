@@ -193,6 +193,106 @@ pub(super) async fn observe_crystal(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)] // WHY: matches SurrealDB INSERT parameter list 1:1 for hypha observation
+pub(super) async fn observe_crystal_hypha(
+    storage: &SurrealHttpStorage,
+    id: &str,
+    content: &str,
+    domain: &str,
+    score: f64,
+    timestamp: &str,
+    source: &str,
+    sentiment: Option<&str>,
+) -> Result<(), StorageError> {
+    let safe_id = sanitize_id(id)?;
+    let sanitized_content = crate::domain::sanitize::sanitize_crystal_content(content);
+    let score = if score.is_finite() { score } else { 0.0 };
+    let safe_source = crate::storage::escape_surreal(source);
+
+    // Polarity counter field from sentiment
+    let polarity_increment = match sentiment {
+        Some("positive") => format!("wag_count = (wag_count ?? 0) + 1,"),
+        Some("negative") => format!("growl_count = (growl_count ?? 0) + 1,"),
+        _ => String::new(),
+    };
+
+    let sql = format!(
+        "BEGIN TRANSACTION; \
+         LET $cur_state = (SELECT VALUE state FROM crystal:`{id}`)[0]; \
+         IF $cur_state = 'dissolved' THEN THROW 'crystal is dissolved' END; \
+         LET $prev_obs = (SELECT VALUE observations FROM crystal:`{id}`)[0] ?? 0; \
+         LET $prev_conf = (SELECT VALUE confidence FROM crystal:`{id}`)[0] ?? 0.0; \
+         LET $prev_m2 = (SELECT VALUE variance_m2 FROM crystal:`{id}`)[0] ?? 0.0; \
+         LET $new_obs = $prev_obs + 1; \
+         LET $new_conf = IF $prev_obs > 0 THEN ($prev_conf * $prev_obs + {score}) / $new_obs ELSE {score} END; \
+         LET $delta = {score} - $prev_conf; \
+         LET $delta2 = {score} - $new_conf; \
+         LET $new_m2 = IF $prev_obs > 0 THEN $prev_m2 + $delta * $delta2 ELSE 0.0 END; \
+         LET $stddev = IF $new_obs > 1 THEN math::sqrt($new_m2 / ($new_obs - 1)) ELSE 0.0 END; \
+         LET $ratio = $stddev / {phi_inv3}; \
+         LET $concordance = 1.0 / (1.0 + $ratio * $ratio); \
+         LET $volume = IF $new_obs >= {t_cryst} THEN 1.0 ELSE <float> $new_obs / {t_cryst}.0 END; \
+         LET $certainty = $concordance * $volume; \
+         LET $new_state = IF $new_obs >= {t_canon} AND $certainty >= {c_high} THEN 'canonical' \
+             ELSE IF $new_obs >= {t_cryst} AND $certainty >= {c_high} THEN 'crystallized' \
+             ELSE IF $new_obs >= {t_cryst} AND $certainty < {c_low} THEN 'decaying' \
+             ELSE 'forming' END; \
+         UPSERT crystal:`{id}` SET \
+             content = IF {score} > $prev_conf OR content IS NONE THEN '{content}' ELSE content END, \
+             domain = domain ?? '{domain}', \
+             observations = $new_obs, \
+             confidence = $new_conf, \
+             certainty = $certainty, \
+             variance_m2 = $new_m2, \
+             {polarity_increment} \
+             contributing_sources.`{source}` = (contributing_sources.`{source}` ?? 0) + 1, \
+             state = $new_state, \
+             created_at = created_at ?? '{ts}', \
+             updated_at = '{ts}'; \
+         COMMIT TRANSACTION;",
+        id = safe_id,
+        content = crate::storage::escape_surreal(&sanitized_content),
+        domain = crate::storage::escape_surreal(domain),
+        source = safe_source,
+        score = score,
+        polarity_increment = polarity_increment,
+        phi_inv3 = crate::domain::dog::PHI_INV3,
+        t_canon = CANONICAL_CYCLES,
+        t_cryst = MIN_CRYSTALLIZATION_CYCLES,
+        c_high = PHI_INV,
+        c_low = PHI_INV2,
+        ts = crate::storage::escape_surreal(timestamp),
+    );
+    storage.query(&sql).await?;
+    Ok(())
+}
+
+pub(super) async fn shatter_crystal(
+    storage: &SurrealHttpStorage,
+    id: &str,
+    reason: &str,
+    source: &str,
+    timestamp: &str,
+) -> Result<(), StorageError> {
+    let safe_id = sanitize_id(id)?;
+    let sql = format!(
+        "UPDATE crystal:`{id}` SET \
+             state = 'dissolved', \
+             shattered_at = shattered_at ?? '{ts}', \
+             shatter_reason = shatter_reason ?? '{reason}', \
+             shatter_source = shatter_source ?? '{source}', \
+             updated_at = '{ts}'",
+        id = safe_id,
+        ts = crate::storage::escape_surreal(timestamp),
+        reason = crate::storage::escape_surreal(reason),
+        source = crate::storage::escape_surreal(source),
+    );
+    // Use query() not query_one() — UPDATE on non-existent record returns empty,
+    // and query_one treats empty result as an error.
+    storage.query(&sql).await?;
+    Ok(())
+}
+
 pub(super) async fn store_crystal_embedding(
     storage: &SurrealHttpStorage,
     id: &str,
@@ -283,6 +383,14 @@ pub(super) fn row_to_crystal(row: &serde_json::Value) -> Crystal {
                 .collect()
         })
         .unwrap_or_default();
+    let contributing_sources = row["contributing_sources"]
+        .as_object()
+        .map(|obj| {
+            obj.iter()
+                .filter_map(|(k, v)| v.as_u64().map(|n| (k.clone(), n as u32)))
+                .collect()
+        })
+        .unwrap_or_default();
     Crystal {
         id,
         content: row["content"].as_str().unwrap_or("").to_string(),
@@ -300,6 +408,10 @@ pub(super) fn row_to_crystal(row: &serde_json::Value) -> Crystal {
         wag_count: row["wag_count"].as_u64().unwrap_or(0) as u32,
         growl_count: row["growl_count"].as_u64().unwrap_or(0) as u32,
         bark_count: row["bark_count"].as_u64().unwrap_or(0) as u32,
+        contributing_sources,
+        shattered_at: row["shattered_at"].as_str().map(String::from),
+        shatter_reason: row["shatter_reason"].as_str().map(String::from),
+        shatter_source: row["shatter_source"].as_str().map(String::from),
     }
 }
 

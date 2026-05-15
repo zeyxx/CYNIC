@@ -70,6 +70,31 @@ impl StoragePort for NullStorage {
             "NullStorage: observation not persisted (DEGRADED mode)".into(),
         ))
     }
+    async fn observe_crystal_hypha(
+        &self,
+        _id: &str,
+        _content: &str,
+        _domain: &str,
+        _score: f64,
+        _timestamp: &str,
+        _source: &str,
+        _sentiment: Option<&str>,
+    ) -> Result<(), StorageError> {
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: hypha observation not persisted (DEGRADED mode)".into(),
+        ))
+    }
+    async fn shatter_crystal(
+        &self,
+        _id: &str,
+        _reason: &str,
+        _source: &str,
+        _timestamp: &str,
+    ) -> Result<(), StorageError> {
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: shatter not persisted (DEGRADED mode)".into(),
+        ))
+    }
     async fn store_observation(&self, _obs: &Observation) -> Result<(), StorageError> {
         Err(StorageError::ConnectionFailed(
             "NullStorage: observation not persisted (DEGRADED mode)".into(),

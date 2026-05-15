@@ -197,6 +197,9 @@ pub struct AppState {
     /// Mail service — organis email operations (inbox, send, sync).
     /// None if mail backend not configured.
     pub mail: Option<Arc<dyn MailPort>>,
+    /// Phase 3: Node registry for WebSocket federation.
+    /// Tracks connected nodes with TTL-based eviction (120s default).
+    pub node_registry: Arc<crate::api::websocket::NodeRegistry>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.

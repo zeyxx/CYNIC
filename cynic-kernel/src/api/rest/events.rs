@@ -80,6 +80,7 @@ fn event_type_name(event: &KernelEvent) -> &'static str {
         KernelEvent::DogExpired { .. } => "dog_expired",
         KernelEvent::DogDiscovered { .. } => "dog_discovered",
         KernelEvent::ContractDelta { .. } => "contract_delta",
+        KernelEvent::CrystalShattered { .. } => "crystal_shattered",
         KernelEvent::StorageReconnected => "storage_reconnected",
     }
 }
