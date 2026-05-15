@@ -417,6 +417,52 @@ impl StoragePort for SurrealHttpStorage {
         agent_tasks::update_agent_task_result(self, task_id, result_ref, error_ref).await
     }
 
+    // ── Agent Dispatch (multi-cortex coordination) ──────────
+
+    #[tracing::instrument(skip(self, dispatch), err)]
+    async fn store_agent_dispatch(&self, dispatch: &AgentDispatch) -> Result<String, StorageError> {
+        dispatch::store_agent_dispatch(self, dispatch).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn get_active_dispatch_for_scope(
+        &self,
+        scope: &str,
+    ) -> Result<Option<AgentDispatch>, StorageError> {
+        dispatch::get_active_dispatch_for_scope(self, scope).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn get_dispatch(&self, dispatch_id: &str) -> Result<Option<AgentDispatch>, StorageError> {
+        dispatch::get_dispatch(self, dispatch_id).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn get_active_dispatches_for_agent(
+        &self,
+        agent_id: &str,
+    ) -> Result<Vec<AgentDispatch>, StorageError> {
+        dispatch::get_active_dispatches_for_agent(self, agent_id).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn update_dispatch_status(
+        &self,
+        dispatch_id: &str,
+        new_status: &str,
+    ) -> Result<(), StorageError> {
+        dispatch::update_dispatch_status(self, dispatch_id, new_status).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn update_dispatch_pr(
+        &self,
+        dispatch_id: &str,
+        pr_number: u32,
+    ) -> Result<(), StorageError> {
+        dispatch::update_dispatch_pr(self, dispatch_id, pr_number).await
+    }
+
     // ── State Log ──────────────────────────────────
 
     async fn store_state_block(
