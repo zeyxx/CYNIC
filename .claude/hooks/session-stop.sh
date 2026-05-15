@@ -268,3 +268,28 @@ if [[ "$KERNEL_STATUS" != "down" ]]; then
         echo "    -d '{\"tool\":\"session_distill\",\"target\":\"handover\",\"domain\":\"session\",\"agent_id\":\"${AGENT_ID}\",\"tags\":[\"session-distill\"],\"context\":\"WHAT: <done> WHY: <decisions> NEXT: <next> BLOCKED: <stuck>\"}'"
     fi
 fi
+
+# ── Agent Protocol v1: worktree cleanup ──
+WORKTREE_DIR=$(pwd)
+if [[ "$WORKTREE_DIR" == /tmp/cynic-worktrees/* ]]; then
+    CYNIC_ROOT="${CYNIC_ROOT:-$HOME/Bureau/CYNIC}"
+    WT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+    DIRTY_WT=$(git diff --name-only HEAD 2>/dev/null)
+    if [ -n "$DIRTY_WT" ]; then
+        echo "⚠ Worktree has uncommitted changes — preserving for 24h:" >&2
+        echo "$DIRTY_WT" >&2
+    else
+        if [ -n "$WT_BRANCH" ] && git rev-parse "origin/$WT_BRANCH" &>/dev/null; then
+            echo "Worktree cleanup: branch '$WT_BRANCH' pushed, removing worktree." >&2
+            cd "$CYNIC_ROOT" 2>/dev/null && git worktree remove "$WORKTREE_DIR" --force 2>/dev/null || true
+        else
+            AHEAD_WT=$(git log --oneline "origin/main..$WT_BRANCH" 2>/dev/null | wc -l)
+            if [ "$AHEAD_WT" -eq 0 ]; then
+                echo "Worktree cleanup: no commits ahead, removing." >&2
+                cd "$CYNIC_ROOT" 2>/dev/null && git worktree remove "$WORKTREE_DIR" --force 2>/dev/null || true
+            else
+                echo "⚠ Worktree has $AHEAD_WT unpushed commits — preserving." >&2
+            fi
+        fi
+    fi
+fi

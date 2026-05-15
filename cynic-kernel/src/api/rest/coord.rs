@@ -159,20 +159,25 @@ pub async fn coord_claim_handler(
                 "target": req.target,
             })))
         }
-        Ok(ClaimResult::Conflict(conflicts)) => Err((
-            StatusCode::CONFLICT,
-            Json(ErrorResponse {
-                error: format!(
-                    "CONFLICT: '{}' already claimed by: {}",
-                    req.target,
-                    conflicts
-                        .iter()
-                        .map(|c| c.agent_id.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ),
-            }),
-        )),
+        // Agent Protocol v1 (T1): claim as signal, not lock.
+        // Claim succeeds, conflicts reported. The cost of ignoring
+        // (wasted tokens at PROPOSE) is the natural incentive.
+        Ok(ClaimResult::Conflict(conflicts)) => {
+            let conflict_list: Vec<_> = conflicts
+                .iter()
+                .map(|c| serde_json::json!({"agent_id": &c.agent_id, "claimed_at": &c.claimed_at}))
+                .collect();
+            let _ = state.coord.store_audit(
+                "cynic_coord_claim", &req.agent_id,
+                &serde_json::json!({"target": req.target, "claim_type": claim_type, "conflicts": &conflict_list, "source": "rest"}).to_string(),
+            ).await;
+            Ok(Json(serde_json::json!({
+                "status": "claimed_with_conflicts",
+                "agent_id": req.agent_id,
+                "target": req.target,
+                "conflicts": conflict_list,
+            })))
+        }
         Err(e) => {
             tracing::warn!(error = %e, "coord claim failed");
             Err((

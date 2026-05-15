@@ -29,7 +29,7 @@ security_check() {
     HARDCODED_CREDS=$(printf '%s\n' "$FILTERED_ADDED" \
         | grep -iE '(api[_-]?key|token|password|secret)[^[:alnum:]]*[:=][[:space:]]*["'"'"']?[^$<[:space:]][^"'"'"'[:space:]]{6,}' \
         | grep -viE 'change-me|your-api-key-here|example|placeholder|dummy|fake|test-key|redacted|CancellationToken|\.api_key|ApplicationSecret|read_application_secret|\.token\(\)|client_secret:\s*PathBuf|let\s+token\s*=\s*self\.' \
-        | grep -vE '\$\{[A-Z0-9_]+\}' \
+        | grep -vE '\$\{[A-Z0-9_]+[^}]*\}' \
         | grep -vE 'format!\(.*\{api_key\}' \
         | grep -vE 'f".*\{api_key\}' \
         | grep -vE 'os\.(environ\.get|getenv)\(' \

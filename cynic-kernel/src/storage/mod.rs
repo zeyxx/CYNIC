@@ -307,6 +307,9 @@ impl SurrealHttpStorage {
             DEFINE FIELD IF NOT EXISTS active ON work_claim TYPE bool;\
             DEFINE INDEX IF NOT EXISTS work_claim_active_idx ON work_claim FIELDS active;\
             DEFINE INDEX IF NOT EXISTS work_claim_target_idx ON work_claim FIELDS target;\
+            DEFINE FIELD IF NOT EXISTS status ON work_claim TYPE string DEFAULT 'claimed';\
+            DEFINE FIELD IF NOT EXISTS intent ON work_claim TYPE string DEFAULT '';\
+            DEFINE FIELD IF NOT EXISTS session_id ON work_claim TYPE string DEFAULT '';\
             DEFINE FIELD IF NOT EXISTS ts ON mcp_audit TYPE datetime;\
             DEFINE FIELD IF NOT EXISTS tool ON mcp_audit TYPE string;\
             DEFINE FIELD IF NOT EXISTS agent_id ON mcp_audit TYPE string;\
