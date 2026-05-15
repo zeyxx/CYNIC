@@ -296,7 +296,7 @@ impl WebSocketClient {
     /// Exits only on explicit close or unrecoverable error. Reconnects with exponential backoff
     /// on network partition. Queues stimuli/verdicts locally during offline partition.
     /// On reconnect, flushes queues with dedup via stimulus_id.
-    pub async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(&self) -> Result<(), String> {
         let mut backoff_ms = 100u64;
         let max_backoff_ms = 30000u64; // 30s max backoff
 
@@ -321,10 +321,12 @@ impl WebSocketClient {
     }
 
     /// Connect to kernel and run the main multiplexing loop.
-    async fn connect_and_run(&self) -> Result<(), Box<dyn std::error::Error>> {
+    async fn connect_and_run(&self) -> Result<(), String> {
         // Connect to kernel
         debug!("Connecting to kernel at {}", self.kernel_url);
-        let (ws_stream, _) = connect_async(&self.kernel_url).await?;
+        let (ws_stream, _) = connect_async(&self.kernel_url)
+            .await
+            .map_err(|e| e.to_string())?;
         info!("Connected to kernel at {}", self.kernel_url);
 
         // Send registration
@@ -332,15 +334,18 @@ impl WebSocketClient {
             node_public_key: self.node_public_key.clone(),
             node_identity: self.node_identity.clone(),
         };
-        let register_json = serde_json::to_string(&register_msg)?;
+        let register_json = serde_json::to_string(&register_msg).map_err(|e| e.to_string())?;
         let (mut write, mut read) = ws_stream.split();
-        write.send(Message::Text(register_json.into())).await?;
+        write
+            .send(Message::Text(register_json.into()))
+            .await
+            .map_err(|e| e.to_string())?;
         debug!("Sent registration to kernel");
 
         // Wait for RegisterResponse
         let register_response = loop {
             if let Some(msg_result) = read.next().await {
-                match msg_result? {
+                match msg_result.map_err(|e| e.to_string())? {
                     Message::Text(text) => {
                         if let Ok(NodeMessage::RegisterResponse {
                             node_id,
@@ -383,15 +388,17 @@ impl WebSocketClient {
                     let ping = NodeMessage::Ping {
                         timestamp: now,
                     };
-                    let ping_json = serde_json::to_string(&ping)?;
-                    write.send(Message::Text(ping_json.into())).await?;
+                    let ping_json = serde_json::to_string(&ping)
+                        .map_err(|e| e.to_string())?;
+                    write.send(Message::Text(ping_json.into())).await
+                        .map_err(|e| e.to_string())?;
                     debug!("Sent heartbeat ping");
                 }
 
                 // Receive messages from kernel
                 msg_result = read.next() => {
                     if let Some(result) = msg_result {
-                        match result? {
+                        match result.map_err(|e| e.to_string())? {
                             Message::Text(text) => {
                                 if let Ok(msg) = serde_json::from_str::<NodeMessage>(&text) {
                                     match msg {
@@ -412,8 +419,10 @@ impl WebSocketClient {
                                                     status: "already_processed".to_string(),
                                                     verdict_id: format!("verd_{}", stimulus_id),
                                                 };
-                                                let ack_json = serde_json::to_string(&ack)?;
-                                                write.send(Message::Text(ack_json.into())).await?;
+                                                let ack_json = serde_json::to_string(&ack)
+                                                    .map_err(|e| e.to_string())?;
+                                                write.send(Message::Text(ack_json.into())).await
+                                                    .map_err(|e| e.to_string())?;
                                             } else {
                                                 // Mark as processed in dedup cache
                                                 self.mark_stimulus_processed(stimulus_id.clone()).await;
@@ -502,8 +511,10 @@ impl WebSocketClient {
                             signature: pending.signature.clone(),
                             node_public_key: self.node_public_key.clone(),
                         };
-                        let verdict_json = serde_json::to_string(&verdict)?;
-                        write.send(Message::Text(verdict_json.into())).await?;
+                        let verdict_json = serde_json::to_string(&verdict)
+                            .map_err(|e| e.to_string())?;
+                        write.send(Message::Text(verdict_json.into())).await
+                            .map_err(|e| e.to_string())?;
                         info!(stimulus_id = %pending.stimulus_id, "Sent pending verdict to kernel");
                     }
                 }

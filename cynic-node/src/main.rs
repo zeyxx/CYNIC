@@ -51,6 +51,7 @@ enum ExitReason {
 // ── watch ─────────────────────────────────────────────────────────────────────
 
 /// Main supervision loop: heartbeat, health, identity, child-exit, shutdown.
+/// Phase 3.2c: Integrated WebSocket federation alongside REST heartbeat.
 ///
 /// The `child.wait()` future is recreated on each iteration and pinned BEFORE
 /// the `select!` call.  When any other branch wins, Rust drops `child_wait` and
@@ -70,6 +71,48 @@ async fn watch(
     let mut verify_tick =
         tokio::time::interval(Duration::from_secs(cfg.health.verify_interval_secs));
     let mut health_failures: u32 = 0;
+
+    // Phase 3.2c: Initialize WebSocket client for federation.
+    // TODO: Phase 3.4 — Replace stub keys with proper Ed25519 keypair from config.
+    let node_public_key = std::env::var("CYNIC_NODE_PUBLIC_KEY")
+        .unwrap_or_else(|_| "stub-public-key-phase-3-4-pending".to_string());
+
+    let kernel_ws_url = cfg
+        .kernel
+        .url
+        .replace("http://", "ws://")
+        .replace("https://", "wss://")
+        + "/node/ws";
+
+    let queue_dir = std::env::var("HOME")
+        .ok()
+        .map(|h| std::path::PathBuf::from(h).join(".cynic/node"))
+        .unwrap_or_else(|| std::path::PathBuf::from(".cynic/node"));
+
+    let ws_client = std::sync::Arc::new(websocket::WebSocketClient::new(
+        kernel_ws_url,
+        node_public_key,
+        cfg.dog.name.clone(),
+        queue_dir.clone(),
+    ));
+
+    // Load persistent queues from previous session
+    if let Err(e) = ws_client.load_persistent_queues().await {
+        tracing::warn!("failed to load persistent queues: {e}");
+    }
+
+    // Spawn WebSocket client task (Phase 3.2c integration point).
+    // The WebSocket client runs independently and handles stimulus dispatch.
+    let ws_client_clone = ws_client.clone();
+    let mut ws_handle = tokio::spawn({
+        let ws = ws_client_clone.clone();
+        async move {
+            match ws.run().await {
+                Ok(_) => tracing::info!("WebSocket client exited cleanly"),
+                Err(e) => tracing::error!("WebSocket client error: {e}"),
+            }
+        }
+    });
 
     loop {
         // Pin child.wait() OUTSIDE select! so the &mut borrow is released when
@@ -97,7 +140,14 @@ async fn watch(
                 tracing::error!("backend process exited unexpectedly: {status:?}");
                 return ExitReason::Crashed;
             }
-            _ = shutdown.cancelled() => return ExitReason::Shutdown,
+            _ = shutdown.cancelled() => {
+                let _ = ws_handle.await; // Wait for clean WebSocket shutdown
+                return ExitReason::Shutdown;
+            }
+            _ = &mut ws_handle => {
+                // WebSocket client exited (shouldn't happen unless error)
+                tracing::warn!("WebSocket client task exited unexpectedly");
+            }
         }
     }
 }
