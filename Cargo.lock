@@ -476,6 +476,7 @@ dependencies = [
  "clap",
  "cynic-mcp",
  "futures-util",
+ "http",
  "libc",
  "process-wrap",
  "reqwest 0.13.2",
