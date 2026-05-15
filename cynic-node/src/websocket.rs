@@ -19,6 +19,7 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, error, info, warn};
+use tungstenite::http::Request;
 
 // ── Message Types ──────────────────────────────────────────────────────────
 
@@ -330,10 +331,15 @@ impl WebSocketClient {
         // Connect to kernel with authentication headers
         debug!("Connecting to kernel at {}", self.kernel_url);
 
-        // For now, connect with URI only. Custom headers for WebSocket auth require tungstenite ClientRequest.
-        // TODO: Implement proper header-based auth via tungstenite::client::ClientRequest when kernel WebSocket
-        //       endpoint is finalized. Currently, kernel does not require WebSocket upgrade auth headers.
-        let (ws_stream, _) = connect_async(&self.kernel_url).await.map_err(|e| {
+        // Build WebSocket upgrade request with Bearer token authentication.
+        // The kernel's /node/ws endpoint requires Authorization header in the WebSocket upgrade handshake.
+        let request = Request::builder()
+            .uri(&self.kernel_url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .body(())
+            .map_err(|e| format!("Failed to build WebSocket request: {}", e))?;
+
+        let (ws_stream, _) = connect_async(request).await.map_err(|e| {
             error!("WebSocket connection failed: {}", e);
             e.to_string()
         })?;
