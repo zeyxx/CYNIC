@@ -224,7 +224,6 @@ async fn on_verify_tick(client: &Client, cfg: &Config, models_url: &str) -> Opti
     }
 }
 
-
 /// Process a single stimulus: send to backend, receive verdict, queue it.
 ///
 /// Phase 3.2: Dequeue stimulus → Backend judgment → Queue verdict.
