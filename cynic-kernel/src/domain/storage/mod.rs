@@ -9,7 +9,8 @@ mod types;
 
 pub use null::NullStorage;
 pub use types::{
-    AgentTask, Event, Observation, RawEvent, RawObservation, StorageError, StorageMetrics, UsageRow,
+    AgentDispatch, AgentTask, Event, Observation, RawEvent, RawObservation, StorageError,
+    StorageMetrics, UsageRow,
 };
 
 use crate::domain::ccm::Crystal;
@@ -377,6 +378,61 @@ pub trait StoragePort: Send + Sync {
 
     /// Mark agent task as processing (status = "processing").
     async fn mark_agent_task_processing(&self, _task_id: &str) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    // ── Agent Dispatch (multi-cortex coordination) ──────────
+
+    /// Store a new dispatch record. Automatically computes hash and prev_hash chain.
+    /// Returns the dispatch ID.
+    async fn store_agent_dispatch(
+        &self,
+        _dispatch: &AgentDispatch,
+    ) -> Result<String, StorageError> {
+        Err(StorageError::QueryFailed(
+            "agent_dispatch not supported".to_string(),
+        ))
+    }
+
+    /// Get active dispatch for a scope (where status != "COMPLETED").
+    async fn get_active_dispatch_for_scope(
+        &self,
+        _scope: &str,
+    ) -> Result<Option<AgentDispatch>, StorageError> {
+        Ok(None)
+    }
+
+    /// Get dispatch by ID.
+    async fn get_dispatch(
+        &self,
+        _dispatch_id: &str,
+    ) -> Result<Option<AgentDispatch>, StorageError> {
+        Ok(None)
+    }
+
+    /// Get all active dispatches for a specific agent (claimed_by).
+    async fn get_active_dispatches_for_agent(
+        &self,
+        _agent_id: &str,
+    ) -> Result<Vec<AgentDispatch>, StorageError> {
+        Ok(vec![])
+    }
+
+    /// Update dispatch status and recompute hash. If COMPLETED, sets completed_at.
+    async fn update_dispatch_status(
+        &self,
+        _dispatch_id: &str,
+        _new_status: &str,
+    ) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    /// Update dispatch with PR number and transition to PROPOSED.
+    async fn update_dispatch_pr(
+        &self,
+        _dispatch_id: &str,
+        _pr_number: u32,
+    ) -> Result<(), StorageError> {
         Ok(())
     }
 
