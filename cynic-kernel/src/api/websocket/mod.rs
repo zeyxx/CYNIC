@@ -55,7 +55,7 @@ impl NodeRegistry {
         let node_id = format!(
             "{}-{}",
             node_identity,
-            uuid::Uuid::new_v4().to_string()[..8].to_string()
+            &uuid::Uuid::new_v4().to_string()[..8]
         );
 
         let record = NodeRecord {
@@ -249,10 +249,10 @@ pub async fn ws_handler(
     }
 
     let bearer = &auth_header[7..];
-    if let Some(api_key) = &state.api_key {
-        if bearer != api_key {
-            return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
-        }
+    if let Some(api_key) = &state.api_key
+        && bearer != api_key
+    {
+        return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
     }
 
     // Get public key from header
@@ -387,10 +387,10 @@ async fn handle_node_connection(
                 let ping = NodeMessage::Ping {
                     timestamp: chrono::Utc::now().timestamp(),
                 };
-                if let Ok(json) = serde_json::to_string(&ping) {
-                    if sender.send(axum::extract::ws::Message::Text(json.into())).await.is_err() {
-                        break;
-                    }
+                if let Ok(json) = serde_json::to_string(&ping)
+                    && sender.send(axum::extract::ws::Message::Text(json.into())).await.is_err()
+                {
+                    break;
                 }
             }
 
