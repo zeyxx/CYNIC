@@ -15,6 +15,14 @@ managed_units=(
     "infra/systemd/llama-server.service"
     "infra/systemd/hermes-proxy.service"
     "infra/systemd/hermes-x-ingest.service"
+    "infra/systemd/hermes-curation.timer"
+    "infra/systemd/hermes-data-organism.timer"
+    "infra/systemd/hermes-feedback-loop.timer"
+    "infra/systemd/hermes-gemini-briefing.timer"
+    "infra/systemd/hermes-k15-consumer.timer"
+    "infra/systemd/hermes-navigator.timer"
+    "infra/systemd/hermes-search-executor.timer"
+    "infra/systemd/hermes-search-generator.timer"
 )
 
 mkdir -p "$SYSTEMD_USER_DIR"
