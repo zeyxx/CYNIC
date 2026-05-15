@@ -4,6 +4,7 @@ mod activity;
 mod agent_tasks;
 mod coord;
 mod crystals;
+mod dispatch;
 mod maintenance;
 mod ops;
 mod state_log;
@@ -14,7 +15,8 @@ use super::{SurrealHttpStorage, safe_limit};
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
 use crate::domain::storage::{
-    AgentTask, Event, Observation, RawEvent, RawObservation, StorageError, StoragePort, UsageRow,
+    AgentDispatch, AgentTask, Event, Observation, RawEvent, RawObservation, StorageError,
+    StoragePort, UsageRow,
 };
 use crate::domain::verdict_queue::QueuedVerdict;
 

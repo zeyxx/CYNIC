@@ -141,6 +141,27 @@ pub struct AgentTask {
     pub error: Option<String>,
 }
 
+/// Multi-cortex dispatch tracking — coordinates Claude/Gemini work across zones.
+/// Records who's claiming what scope/zone, tracks state through PR merge.
+/// K15 consumer: branch-guard.sh reads to block edits on merged branches.
+/// Chain integrity (hash/prev_hash) prevents out-of-order merges and replay.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentDispatch {
+    pub id: String,                   // "dispatch:abc123"
+    pub scope: String,                // Human-facing scope: "supply-chain", "websocket-auth"
+    pub zone: String,                 // CYNIC zone: "docs", "node", "api"
+    pub claimed_by: String,           // Agent ID: "claude-supply-chain-222"
+    pub branch: String,               // Git branch: "fix/supply-chain-config-..."
+    pub status: String,               // "CLAIMED" | "WORKING" | "PROPOSED" | "COMPLETED"
+    pub created_at: String,           // RFC3339 timestamp
+    pub completed_at: Option<String>, // RFC3339 timestamp when marked COMPLETED
+    pub pr_number: Option<u32>,       // PR number when merged
+    #[serde(default)]
+    pub hash: String, // SHA256 hash of this dispatch record
+    #[serde(default)]
+    pub prev_hash: String, // Hash of previous dispatch for same scope (chain)
+}
+
 /// Infrastructure event: node latency, output size, success/fail.
 /// Fire-and-forget — consumed by fleet_stats for routing intelligence.
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -3,7 +3,6 @@
 
 use super::SurrealHttpStorage;
 use crate::domain::storage::{AgentDispatch, StorageError};
-use serde_json::json;
 use sha2::{Digest, Sha256};
 
 fn row_to_agent_dispatch(row: &serde_json::Value) -> Option<AgentDispatch> {
@@ -73,7 +72,9 @@ fn compute_dispatch_hash(dispatch: &AgentDispatch) -> String {
     );
     let mut hasher = Sha256::new();
     hasher.update(data.as_bytes());
-    format!("{:x}", hasher.finalize())
+    let result = hasher.finalize();
+    // Convert bytes to hex string
+    result.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 /// Store a new dispatch record. Returns dispatch ID.

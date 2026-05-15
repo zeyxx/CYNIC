@@ -3,6 +3,7 @@
 pub mod agent_tasks;
 pub mod coord;
 pub mod data;
+pub mod dispatch;
 pub mod dogs;
 pub mod event;
 pub mod events;
@@ -139,6 +140,12 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route(
             "/agent-tasks/{id}/result",
             post(agent_tasks::complete_task_handler),
+        )
+        .route("/agent-dispatch", post(dispatch::create_dispatch_handler))
+        .route("/agent-dispatch", get(dispatch::get_dispatch_handler))
+        .route(
+            "/agent-dispatch/:id/status",
+            axum::routing::put(dispatch::update_dispatch_status_handler),
         )
         .route("/observe", post(observe_handler))
         .route("/event", post(event_handler))
