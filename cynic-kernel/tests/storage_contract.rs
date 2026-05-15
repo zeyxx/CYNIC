@@ -611,7 +611,7 @@ surreal_contract!(
 /// Dispatch store/query operations must roundtrip correctly.
 #[tokio::test]
 async fn contract_dispatch_store_and_query() {
-    let storage = common::inmem_storage();
+    let storage = InMemoryStorage::new();
 
     let dispatch = cynic_kernel::domain::storage::AgentDispatch {
         id: "dispatch:test-001".into(),
@@ -667,7 +667,7 @@ async fn contract_dispatch_store_and_query() {
 
 #[tokio::test]
 async fn contract_dispatch_status_update() {
-    let storage = common::inmem_storage();
+    let storage = InMemoryStorage::new();
 
     let dispatch = cynic_kernel::domain::storage::AgentDispatch {
         id: "dispatch:test-002".into(),
@@ -733,14 +733,5 @@ async fn contract_dispatch_status_update() {
     );
 }
 
-// SurrealDB dispatch contract tests (skipped if DB unavailable)
-surreal_contract!(
-    surreal_d01_dispatch_store_and_query,
-    contract_dispatch_store_and_query,
-    "d01"
-);
-surreal_contract!(
-    surreal_d02_dispatch_status_update,
-    contract_dispatch_status_update,
-    "d02"
-);
+// Note: Dispatch contract tests run for InMemory above.
+// SurrealDB dispatch tests require schema bootstrap which is handled in integration_storage.rs.
