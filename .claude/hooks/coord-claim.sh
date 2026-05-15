@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# CYNIC — PreToolUse hook (coord claims only)
-# Auto-claims kernel source files on Edit/Write.
-# Scoped via settings.json `if` field to cynic-kernel/src/* — only spawns for kernel edits.
+# CYNIC — PreToolUse hook: zone-level coordination gate
+# Resolves file → zone from zones.json, claims zone, BLOCKS on zone conflict.
+# K15 consumer: mempool dispatches + coord/claim → hard gate on Edit/Write.
 set -euo pipefail
 
 INPUT=$(cat)
@@ -42,13 +42,10 @@ if [[ -z "$API_KEY" ]]; then
     block "coordination requires CYNIC_API_KEY for kernel edits"
 fi
 
-# Derive AGENT_ID from SESSION_ID (if available from Claude context)
-# Fallback: read from most recent session state file (set by session-init.sh)
 AGENT_ID=""
 if [[ -n "$SESSION_ID" ]]; then
     AGENT_ID="claude-${SESSION_ID:0:12}"
 else
-    # Fallback: find most recent session state file
     SESSION_STATE_DIR="/tmp/cynic-sessions"
     if [[ -d "$SESSION_STATE_DIR" ]]; then
         RECENT_STATE=$(ls -t "$SESSION_STATE_DIR"/*.state 2>/dev/null | head -1)
@@ -61,6 +58,44 @@ fi
 if [[ -z "$AGENT_ID" ]]; then
     block "coordination requires valid AGENT_ID (SESSION_ID missing and no session state file found)"
 fi
+
+# ── Zone resolution: file path → zone name ──
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+ZONES_FILE="${PROJECT_DIR}/.claude/zones.json"
+ZONE=""
+
+if [[ -f "$ZONES_FILE" ]]; then
+    # Make path relative to project root
+    REL_PATH="${FILE_PATH#$PROJECT_DIR/}"
+
+    # Match file to zone (longest prefix wins)
+    ZONE=$(jq -r --arg path "$REL_PATH" '
+        .zones | to_entries | map(
+            select(.value.paths[] as $p | $path | startswith($p))
+        ) | sort_by(.value.paths[0] | length) | reverse | .[0].key // ""
+    ' "$ZONES_FILE" 2>/dev/null || echo "")
+fi
+
+# ── Zone conflict check (local, fast — no kernel round-trip) ──
+ZONE_STATE_DIR="/tmp/cynic-zones"
+mkdir -p "$ZONE_STATE_DIR"
+
+if [[ -n "$ZONE" ]]; then
+    ZONE_LOCK="${ZONE_STATE_DIR}/${ZONE}.claimed"
+
+    if [[ -f "$ZONE_LOCK" ]]; then
+        CLAIMED_BY=$(cat "$ZONE_LOCK" 2>/dev/null || echo "")
+        if [[ -n "$CLAIMED_BY" && "$CLAIMED_BY" != "$AGENT_ID" ]]; then
+            # Another cortex holds this zone — HARD BLOCK
+            block "ZONE CONFLICT: '${ZONE}' is claimed by ${CLAIMED_BY}. File: ${FILE_PATH##*/}. Wait or ask T. to reassign."
+        fi
+    fi
+
+    # Claim the zone for this agent
+    echo "$AGENT_ID" > "$ZONE_LOCK"
+fi
+
+# ── Kernel-level file claim (existing, kept as secondary signal) ──
 TARGET_FILE="${FILE_PATH#*cynic-kernel/src/}"
 
 CLAIM_TMP=$(mktemp /tmp/cynic-claim-XXXXXX)
@@ -75,28 +110,24 @@ HTTP_CODE=$(curl -s -o "$CLAIM_TMP" -w '%{http_code}' \
 
 case "$HTTP_CODE" in
     200)
-        # Agent Protocol v1: check for conflicts in response (signal, not lock)
         CONFLICTS=$(jq -r '.conflicts // empty' "$CLAIM_TMP" 2>/dev/null)
         if [ -n "$CONFLICTS" ] && [ "$CONFLICTS" != "null" ] && [ "$CONFLICTS" != "[]" ]; then
             CONFLICT_AGENTS=$(jq -r '.conflicts[].agent_id' "$CLAIM_TMP" 2>/dev/null | tr '\n' ', ')
-            echo "⚠ SCOPE OVERLAP: '$TARGET_FILE' also claimed by: ${CONFLICT_AGENTS%,}" >&2
-            echo "  Your work may conflict. Check /coord/who for details." >&2
+            echo "⚠ FILE OVERLAP: '$TARGET_FILE' also claimed by: ${CONFLICT_AGENTS%,}" >&2
         fi
         exit 0
         ;;
-    409)
-        # Legacy path — should not happen after REST change, warn instead of block
-        CONFLICT_MSG=$(jq -r '.error // "conflict"' "$CLAIM_TMP" 2>/dev/null || echo "conflict")
-        echo "⚠ CLAIM CONFLICT (legacy 409): $CONFLICT_MSG" >&2
-        exit 0
-        ;;
     000)
-        coord_unavailable "coordination unavailable while claiming '$TARGET_FILE'"
+        # Kernel down — zone gate already passed, allow with warning
+        echo "WARN: kernel unreachable for file claim '$TARGET_FILE' (zone gate passed)" >&2
+        exit 0
         ;;
     401|403)
         block "coordination auth failed for '$TARGET_FILE' (HTTP $HTTP_CODE)"
         ;;
     *)
-        coord_unavailable "coordination claim failed for '$TARGET_FILE' (HTTP $HTTP_CODE)"
+        # Non-critical — zone gate is the primary gate
+        echo "WARN: file claim failed for '$TARGET_FILE' (HTTP $HTTP_CODE)" >&2
+        exit 0
         ;;
 esac
