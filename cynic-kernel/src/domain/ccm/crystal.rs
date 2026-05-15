@@ -62,6 +62,23 @@ pub struct Crystal {
     /// BARK verdict count.
     #[serde(default)]
     pub bark_count: u32,
+
+    // ── Mycelium transport ───────────────────────────────────
+    /// Sources that have contributed observations to this crystal.
+    /// Key = source identifier (e.g. "deterministic-dog", "hermes-agent")
+    /// Value = observation count from that source.
+    /// BTreeMap for deterministic serialization (K19).
+    #[serde(default)]
+    pub contributing_sources: std::collections::BTreeMap<String, u32>,
+    /// Timestamp when this crystal was shattered (if applicable).
+    #[serde(default)]
+    pub shattered_at: Option<String>,
+    /// Reason for shattering — the catastrophic event.
+    #[serde(default)]
+    pub shatter_reason: Option<String>,
+    /// Source that triggered the shatter.
+    #[serde(default)]
+    pub shatter_source: Option<String>,
 }
 
 impl Crystal {
@@ -80,6 +97,11 @@ impl Crystal {
             .filter(|(count, _)| *count > 0)
             .map(|(_, name)| *name)
             .unwrap_or("UNKNOWN")
+    }
+
+    /// Number of distinct sources that have contributed observations.
+    pub fn source_diversity(&self) -> u32 {
+        self.contributing_sources.len() as u32
     }
 }
 
@@ -240,6 +262,10 @@ mod tests {
             wag_count: 0,
             growl_count: 0,
             bark_count: 0,
+            contributing_sources: std::collections::BTreeMap::new(),
+            shattered_at: None,
+            shatter_reason: None,
+            shatter_source: None,
         }
     }
 
@@ -308,5 +334,20 @@ mod tests {
             phi_inv > phi_inv2,
             "PHI_INV ({phi_inv}) must be > PHI_INV2 ({phi_inv2})"
         );
+    }
+
+    #[test]
+    fn source_diversity_counts_distinct_sources() {
+        let mut c = make_crystal(0.5, 10, CrystalState::Forming);
+        c.contributing_sources.insert("dog-a".into(), 5);
+        c.contributing_sources.insert("dog-b".into(), 3);
+        c.contributing_sources.insert("hermes".into(), 2);
+        assert_eq!(c.source_diversity(), 3);
+    }
+
+    #[test]
+    fn source_diversity_zero_when_empty() {
+        let c = make_crystal(0.5, 10, CrystalState::Forming);
+        assert_eq!(c.source_diversity(), 0);
     }
 }

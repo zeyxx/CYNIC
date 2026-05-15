@@ -92,6 +92,10 @@ pub fn update_crystal(crystal: &Crystal, new_score: f64, timestamp: &str) -> Cry
         wag_count: crystal.wag_count,
         growl_count: crystal.growl_count,
         bark_count: crystal.bark_count,
+        contributing_sources: crystal.contributing_sources.clone(),
+        shattered_at: crystal.shattered_at.clone(),
+        shatter_reason: crystal.shatter_reason.clone(),
+        shatter_source: crystal.shatter_source.clone(),
     }
 }
 
@@ -122,6 +126,10 @@ pub fn new_crystal(
         wag_count: 0,
         growl_count: 0,
         bark_count: 0,
+        contributing_sources: std::collections::BTreeMap::new(),
+        shattered_at: None,
+        shatter_reason: None,
+        shatter_source: None,
     }
 }
 
@@ -326,6 +334,10 @@ mod tests {
             wag_count: 0,
             growl_count: 0,
             bark_count: 0,
+            contributing_sources: std::collections::BTreeMap::new(),
+            shattered_at: None,
+            shatter_reason: None,
+            shatter_source: None,
         }
     }
 

@@ -196,6 +196,10 @@ impl StoragePort for InMemoryStorage {
             wag_count: 0,
             growl_count: 0,
             bark_count: 0,
+            contributing_sources: std::collections::BTreeMap::new(),
+            shattered_at: None,
+            shatter_reason: None,
+            shatter_source: None,
         });
 
         // KC12 fix: update content when new observation has higher confidence than running mean.

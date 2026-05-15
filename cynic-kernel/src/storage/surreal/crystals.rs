@@ -283,6 +283,14 @@ pub(super) fn row_to_crystal(row: &serde_json::Value) -> Crystal {
                 .collect()
         })
         .unwrap_or_default();
+    let contributing_sources = row["contributing_sources"]
+        .as_object()
+        .map(|obj| {
+            obj.iter()
+                .filter_map(|(k, v)| v.as_u64().map(|n| (k.clone(), n as u32)))
+                .collect()
+        })
+        .unwrap_or_default();
     Crystal {
         id,
         content: row["content"].as_str().unwrap_or("").to_string(),
@@ -300,6 +308,10 @@ pub(super) fn row_to_crystal(row: &serde_json::Value) -> Crystal {
         wag_count: row["wag_count"].as_u64().unwrap_or(0) as u32,
         growl_count: row["growl_count"].as_u64().unwrap_or(0) as u32,
         bark_count: row["bark_count"].as_u64().unwrap_or(0) as u32,
+        contributing_sources,
+        shattered_at: row["shattered_at"].as_str().map(String::from),
+        shatter_reason: row["shatter_reason"].as_str().map(String::from),
+        shatter_source: row["shatter_source"].as_str().map(String::from),
     }
 }
 
