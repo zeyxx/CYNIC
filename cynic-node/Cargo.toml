@@ -12,8 +12,11 @@ path = "src/main.rs"
 mcp = ["dep:cynic-mcp", "dep:rmcp"]
 
 [dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "signal"] }
+tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread", "process", "time", "signal", "sync"] }
 tokio-util = "0.7"
+tokio-tungstenite = "0.24"
+tokio-stream = { version = "0.1", features = ["sync"] }
+futures-util = "0.3"
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls"] }
 process-wrap = { version = "9.1", features = ["tokio1"] }
 serde = { version = "1", features = ["derive"] }
@@ -22,6 +25,7 @@ toml = "0.8"
 clap = { version = "4", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = "0.4"
 cynic-mcp = { path = "../cynic-mcp", optional = true }
 rmcp = { version = "1.2", features = ["server", "transport-io"], optional = true }
 

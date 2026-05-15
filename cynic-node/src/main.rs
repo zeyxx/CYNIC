@@ -5,6 +5,7 @@ mod announce;
 mod config;
 mod supervise;
 mod verify;
+mod websocket;
 
 use std::process::ExitCode;
 use std::time::Duration;
