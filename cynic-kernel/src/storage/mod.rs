@@ -21,13 +21,16 @@ use std::sync::{Arc, RwLock};
 const SLOW_QUERY_MS: u64 = 100;
 
 /// HTTP-based SurrealDB client. No surrealdb crate needed.
+/// Auth: Bearer JWT (obtained via POST /signin at init, refreshed on 401).
+/// Prior approach used Basic auth which triggered Argon2id hashing on every query.
 #[derive(Debug)]
 pub struct SurrealHttpStorage {
     pub(crate) client: Client,
     pub(crate) url: String,
     pub(crate) ns: String,
     pub(crate) db: String,
-    pub(crate) auth: String, // "Basic base64(user:pass)"
+    pub(crate) auth: std::sync::RwLock<String>, // "Bearer <jwt>" — refreshed on 401
+    basic_auth: String,                         // "Basic base64(user:pass)" — for /signin only
     // ── Storage observability (T1/T4 from crystallization) ──
     pub(crate) metrics: StorageMetrics,
 }
@@ -168,46 +171,26 @@ impl SurrealHttpStorage {
 
         use base64::Engine;
         let credentials = format!("{user}:{pass}");
-        let auth = format!(
+        let basic_auth = format!(
             "Basic {}",
             base64::engine::general_purpose::STANDARD.encode(&credentials)
         );
 
-        let storage = Self {
-            client: Client::builder()
-                .timeout(std::time::Duration::from_secs(10))
-                .build()
-                .map_err(|e| StorageError::ConnectionFailed(format!("HTTP client: {e}")))?,
-            url: url.trim_end_matches('/').to_string(),
-            ns: ns.to_string(),
-            db: db.to_string(),
-            auth,
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|e| StorageError::ConnectionFailed(format!("HTTP client: {e}")))?;
+        let url = url.trim_end_matches('/').to_string();
 
-            metrics: StorageMetrics::new(),
-        };
-
-        // Bootstrap namespace and database (SurrealDB 3.x doesn't auto-create)
-        let bootstrap = Self {
-            client: Client::builder()
-                .timeout(std::time::Duration::from_secs(5))
-                .build()
-                .map_err(|e| StorageError::ConnectionFailed(format!("HTTP client: {e}")))?,
-            url: storage.url.clone(),
-            ns: String::new(),
-            db: String::new(),
-            auth: storage.auth.clone(),
-
-            metrics: StorageMetrics::new(),
-        };
-        // Use root-level query to define ns/db
+        // Bootstrap namespace and database (SurrealDB 3.x doesn't auto-create).
+        // Uses Basic auth directly — this runs once at init, before we have a JWT.
         let bootstrap_sql = format!(
             "DEFINE NAMESPACE IF NOT EXISTS `{ns}`; USE NS `{ns}`; DEFINE DATABASE IF NOT EXISTS `{db}`;"
         );
-        let resp = bootstrap
-            .client
-            .post(format!("{}/sql", bootstrap.url))
+        let resp = client
+            .post(format!("{url}/sql"))
             .header("Accept", "application/json")
-            .header("Authorization", &bootstrap.auth)
+            .header("Authorization", &basic_auth)
             .body(bootstrap_sql)
             .send()
             .await
@@ -222,9 +205,29 @@ impl SurrealHttpStorage {
             )));
         }
 
+        // Obtain JWT via /signin — eliminates Argon2id hashing on every query.
+        // Token expires after ~1h; refresh handled in query_inner on 401.
+        let bearer_auth = Self::signin(&client, &url, &user, &pass)
+            .await
+            .map_err(|e| {
+                tracing::warn!(error = %e, "JWT signin failed, falling back to Basic auth");
+                e
+            })
+            .unwrap_or_else(|_| basic_auth.clone());
+
+        let storage = Self {
+            client,
+            url,
+            ns: ns.to_string(),
+            db: db.to_string(),
+            auth: std::sync::RwLock::new(bearer_auth),
+            basic_auth,
+            metrics: StorageMetrics::new(),
+        };
+
         // Health check on the actual ns/db
         storage.query("RETURN true").await.map_err(|e| {
-            StorageError::ConnectionFailed(format!("SurrealDB unreachable at {url}: {e}"))
+            StorageError::ConnectionFailed(format!("SurrealDB unreachable at {}: {e}", storage.url))
         })?;
 
         // Bootstrap schema + indexes (idempotent — IF NOT EXISTS)
@@ -344,8 +347,77 @@ impl SurrealHttpStorage {
             tracing::error!(error = %e, "schema bootstrap failed — vector search may not work");
         }
 
-        klog!("[Ring 1 / UAL] Linked to SurrealDB (HTTP) at {}", url);
+        klog!(
+            "[Ring 1 / UAL] Linked to SurrealDB (HTTP) at {}",
+            storage.url
+        );
         Ok(storage)
+    }
+
+    /// POST /signin to obtain a JWT Bearer token.
+    async fn signin(
+        client: &Client,
+        url: &str,
+        user: &str,
+        pass: &str,
+    ) -> Result<String, StorageError> {
+        let body = serde_json::json!({"user": user, "pass": pass});
+        let resp = client
+            .post(format!("{url}/signin"))
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| StorageError::ConnectionFailed(format!("/signin failed: {e}")))?;
+
+        let status = resp.status();
+        let json: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| StorageError::ConnectionFailed(format!("/signin parse: {e}")))?;
+
+        if !status.is_success() {
+            return Err(StorageError::ConnectionFailed(format!(
+                "/signin returned {status}: {}",
+                json.get("details")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+            )));
+        }
+
+        let token = json.get("token").and_then(|v| v.as_str()).ok_or_else(|| {
+            StorageError::ConnectionFailed("/signin: no token in response".into())
+        })?;
+
+        Ok(format!("Bearer {token}"))
+    }
+
+    /// Refresh the JWT token using stored Basic credentials.
+    /// Called from query_inner on 401 (token expired).
+    async fn refresh_token(&self) -> Result<(), StorageError> {
+        // Extract user:pass from basic_auth header
+        use base64::Engine;
+        let encoded = self
+            .basic_auth
+            .strip_prefix("Basic ")
+            .ok_or_else(|| StorageError::ConnectionFailed("corrupt basic_auth".into()))?;
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .map_err(|e| StorageError::ConnectionFailed(format!("base64 decode: {e}")))?;
+        let cred_str = String::from_utf8(decoded)
+            .map_err(|e| StorageError::ConnectionFailed(format!("utf8: {e}")))?;
+        let (user, pass) = cred_str
+            .split_once(':')
+            .ok_or_else(|| StorageError::ConnectionFailed("bad credentials format".into()))?;
+
+        let new_auth = Self::signin(&self.client, &self.url, user, pass).await?;
+        // K14: write lock — safe default is to keep old auth on failure (handled above via ?)
+        if let Ok(mut guard) = self.auth.write() {
+            *guard = new_auth;
+        }
+        tracing::info!("SurrealDB JWT refreshed");
+        Ok(())
     }
 
     /// Execute raw SurrealQL and return results.
@@ -381,26 +453,40 @@ impl SurrealHttpStorage {
         result
     }
 
-    /// Inner query with retry on transient 401 (SurrealDB 3.x bug under rapid sequential writes).
+    /// Inner query with retry on 401 (JWT expired or transient SurrealDB 3.x issue).
+    /// On first 401: refresh JWT via /signin, then retry. On second 401: backoff + retry.
     async fn query_inner(&self, sql: &str) -> Result<Vec<Vec<serde_json::Value>>, StorageError> {
         let mut last_err = String::new();
         for attempt in 0..3u64 {
+            // Read current auth token (Bearer JWT or fallback Basic)
+            let current_auth = self
+                .auth
+                .read()
+                .map(|g| g.clone())
+                .unwrap_or_else(|_| self.basic_auth.clone());
+
             let resp = self
                 .client
                 .post(format!("{}/sql", self.url))
                 .header("Accept", "application/json")
                 .header("surreal-ns", &self.ns)
                 .header("surreal-db", &self.db)
-                .header("Authorization", &self.auth)
+                .header("Authorization", &current_auth)
                 .body(sql.to_string())
                 .send()
                 .await
                 .map_err(|e| StorageError::ConnectionFailed(e.to_string()))?;
 
             if resp.status().as_u16() == 401 && attempt < 2 {
-                // SurrealDB 3.x intermittent 401 under rapid writes — retry with backoff
                 last_err = resp.text().await.unwrap_or_default();
-                tokio::time::sleep(std::time::Duration::from_millis(50 * (attempt + 1))).await;
+                // First 401: try refreshing JWT (token likely expired after ~1h)
+                if attempt == 0 {
+                    if let Err(e) = self.refresh_token().await {
+                        tracing::warn!(error = %e, "JWT refresh failed, retrying with current auth");
+                    }
+                } else {
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                }
                 continue;
             }
 
