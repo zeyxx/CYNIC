@@ -75,11 +75,20 @@ HTTP_CODE=$(curl -s -o "$CLAIM_TMP" -w '%{http_code}' \
 
 case "$HTTP_CODE" in
     200)
+        # Agent Protocol v1: check for conflicts in response (signal, not lock)
+        CONFLICTS=$(jq -r '.conflicts // empty' "$CLAIM_TMP" 2>/dev/null)
+        if [ -n "$CONFLICTS" ] && [ "$CONFLICTS" != "null" ] && [ "$CONFLICTS" != "[]" ]; then
+            CONFLICT_AGENTS=$(jq -r '.conflicts[].agent_id' "$CLAIM_TMP" 2>/dev/null | tr '\n' ', ')
+            echo "⚠ SCOPE OVERLAP: '$TARGET_FILE' also claimed by: ${CONFLICT_AGENTS%,}" >&2
+            echo "  Your work may conflict. Check /coord/who for details." >&2
+        fi
         exit 0
         ;;
     409)
+        # Legacy path — should not happen after REST change, warn instead of block
         CONFLICT_MSG=$(jq -r '.error // "conflict"' "$CLAIM_TMP" 2>/dev/null || echo "conflict")
-        block "$CONFLICT_MSG"
+        echo "⚠ CLAIM CONFLICT (legacy 409): $CONFLICT_MSG" >&2
+        exit 0
         ;;
     000)
         coord_unavailable "coordination unavailable while claiming '$TARGET_FILE'"

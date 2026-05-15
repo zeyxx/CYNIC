@@ -92,6 +92,66 @@ echo ""
 echo "▶ Config drift check..."
 scripts/config-sync.sh check
 
+# ── Agent Protocol v1: PROPOSE validation ──
+echo ""
+echo "▶ Agent Protocol checks..."
+
+source ~/.cynic-env 2>/dev/null || true
+KERNEL_ADDR="${CYNIC_REST_ADDR:-localhost:3030}"
+AP_KEY="${CYNIC_API_KEY:-}"
+
+# Derive agent_id from session state (same logic as coord-claim.sh)
+AP_AGENT_ID=""
+SESSION_STATE_DIR="/tmp/cynic-sessions"
+if [ -d "$SESSION_STATE_DIR" ]; then
+    RECENT_STATE=$(ls -t "$SESSION_STATE_DIR"/*.state 2>/dev/null | head -1)
+    [ -n "$RECENT_STATE" ] && AP_AGENT_ID=$(grep -oP 'agent_id=\K[^ ]+' "$RECENT_STATE" 2>/dev/null || true)
+fi
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Check 1: PR not already merged (prevents orphan commits — observed 2026-05-15)
+MERGED_PR=$(gh pr list --head "$BRANCH" --state merged --json number --jq '.[0].number' 2>/dev/null || true)
+if [ -n "$MERGED_PR" ]; then
+    echo ""
+    echo "✗ PR #$MERGED_PR already merged for branch '$BRANCH'."
+    echo "  Create a new branch for new work:"
+    echo "    git checkout -b <type>/<scope>-$(date +%Y-%m-%d)-$(head -c4 /dev/urandom | xxd -p)"
+    exit 1
+fi
+
+# Check 2: Freshness (branch must include origin/main)
+git fetch origin main --quiet 2>/dev/null || true
+if ! git merge-base --is-ancestor origin/main HEAD 2>/dev/null; then
+    echo ""
+    echo "✗ Branch is not rebased on origin/main."
+    echo "  Run: git rebase origin/main"
+    exit 1
+fi
+
+# Check 3: Scope match (files in diff ⊆ claimed targets) — requires kernel + agent_id
+if [ -n "$AP_KEY" ] && [ -n "$AP_AGENT_ID" ]; then
+    DIFF_FILES=$(git diff --name-only origin/main..HEAD | sort)
+    CLAIMED_JSON=$(curl -s --max-time 3 \
+        -H "Authorization: Bearer $AP_KEY" \
+        "http://${KERNEL_ADDR}/coord/who?agent_id=$AP_AGENT_ID" 2>/dev/null || echo '{}')
+    CLAIMED=$(echo "$CLAIMED_JSON" | jq -r '.claims[]?.target // empty' 2>/dev/null | sort)
+
+    if [ -n "$DIFF_FILES" ] && [ -n "$CLAIMED" ]; then
+        UNCLAIMED=$(comm -23 <(echo "$DIFF_FILES") <(echo "$CLAIMED"))
+        if [ -n "$UNCLAIMED" ]; then
+            echo ""
+            echo "✗ SCOPE VIOLATION: files modified but not claimed:"
+            echo "$UNCLAIMED" | sed 's/^/    /'
+            echo "  Edit these files to trigger coord-claim, or claim manually."
+            exit 1
+        fi
+    fi
+    echo "  ✓ Scope, freshness, PR status verified"
+else
+    echo "  ⚠ Scope check skipped (no CYNIC_API_KEY or AGENT_ID)"
+fi
+
 echo ""
 echo "══════════════════════════════════════════"
 echo "  ✓ All gates passed — push allowed"
