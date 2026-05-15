@@ -70,6 +70,7 @@ async fn watch(
     let mut health_tick = tokio::time::interval(Duration::from_secs(cfg.health.interval_secs));
     let mut verify_tick =
         tokio::time::interval(Duration::from_secs(cfg.health.verify_interval_secs));
+    let mut stimulus_tick = tokio::time::interval(Duration::from_millis(100)); // Phase 3.2: Process queued stimuli
     let mut health_failures: u32 = 0;
 
     // Phase 3.2c: Initialize WebSocket client for federation.
@@ -142,6 +143,15 @@ async fn watch(
                     return r;
                 }
             }
+            _ = stimulus_tick.tick() => {
+                // Phase 3.2: Process queued stimuli from WebSocket client.
+                // Dequeue, send to backend judge, queue verdict for transmission.
+                if let Some(pending) = ws_client.dequeue_stimulus().await {
+                    if let Err(e) = process_stimulus(client, cfg, &ws_client, pending).await {
+                        tracing::error!("stimulus processing error: {e}");
+                    }
+                }
+            }
             status = &mut child_wait => {
                 tracing::error!("backend process exited unexpectedly: {status:?}");
                 return ExitReason::Crashed;
@@ -212,6 +222,80 @@ async fn on_verify_tick(client: &Client, cfg: &Config, models_url: &str) -> Opti
         // Unreachable / Unknown are transient — health check will catch persistent failure
         _ => None,
     }
+}
+
+
+/// Process a single stimulus: send to backend, receive verdict, queue it.
+///
+/// Phase 3.2: Dequeue stimulus → Backend judgment → Queue verdict.
+/// If backend is unavailable, fall back to deterministic judgment.
+///
+/// Errors are logged but do not exit; stimuli can be lost if the judgment
+/// fails, and the kernel will retry on next heartbeat.
+async fn process_stimulus(
+    _client: &Client,
+    _cfg: &Config,
+    ws_client: &std::sync::Arc<websocket::WebSocketClient>,
+    stimulus: websocket::PendingStimulus,
+) -> Result<(), String> {
+    let stimulus_id = stimulus.stimulus_id.clone();
+
+    // Extract stimulus message details
+    let (_domain, _content, _context) = match &stimulus.stimulus {
+        websocket::NodeMessage::Stimulus {
+            domain,
+            content,
+            context,
+            ..
+        } => (domain.clone(), content.clone(), context.clone()),
+        _ => {
+            return Err(format!(
+                "stimulus {stimulus_id}: message is not a Stimulus variant"
+            ));
+        }
+    };
+
+    // Phase 3.2: Attempt to send to local backend judge endpoint.
+    // TODO: Phase 3.3 — Wire this to actual backend communication (HTTP POST to cfg.dog.base_url/judge).
+    // For now, use deterministic fallback.
+
+    let verdict = serde_json::json!({
+        "id": format!("verd_{}", stimulus_id),
+        "domain": "unknown",
+        "kind": "DETERMINISTIC_FALLBACK",
+        "q_score": 0.5,
+        "axiom_scores": {
+            "FIDELITY": 0.5,
+            "PHI": 0.5,
+            "VERIFY": 0.5,
+            "CULTURE": 0.5,
+            "BURN": 0.5,
+            "SOVEREIGNTY": 0.5
+        },
+        "dog_id": "deterministic-fallback-phase-3-2",
+        "dog_scores": [0.5],
+        "timestamp": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+    });
+
+    // Phase 3.4: Replace this stub signature with actual Ed25519 signing.
+    let signature = "stub-signature-phase-3-4-pending".to_string();
+
+    let pending_verdict = websocket::PendingVerdict {
+        stimulus_id,
+        verdict,
+        signature,
+        queued_at: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0),
+    };
+
+    ws_client.queue_verdict(pending_verdict).await;
+    tracing::debug!("stimulus processed and verdict queued");
+    Ok(())
 }
 
 // ── wait_healthy ──────────────────────────────────────────────────────────────
