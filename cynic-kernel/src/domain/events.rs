@@ -46,5 +46,11 @@ pub enum KernelEvent {
         expected: usize,
         fulfilled: bool,
     },
+    /// Crystal shattered — instant dissolution due to catastrophic event.
+    CrystalShattered {
+        crystal_id: String,
+        domain: String,
+        reason: String,
+    },
     StorageReconnected,
 }
