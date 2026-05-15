@@ -276,12 +276,12 @@ impl StoragePort for InMemoryStorage {
         let mut s = self.state.lock().await;
 
         // Dissolved guard: reject observations on shattered crystals
-        if let Some(existing) = s.crystals.get(id) {
-            if existing.state == CrystalState::Dissolved {
-                return Err(StorageError::QueryFailed(format!(
-                    "crystal {id} is dissolved — hypha observation rejected"
-                )));
-            }
+        if let Some(existing) = s.crystals.get(id)
+            && existing.state == CrystalState::Dissolved
+        {
+            return Err(StorageError::QueryFailed(format!(
+                "crystal {id} is dissolved — hypha observation rejected"
+            )));
         }
 
         let crystal = s.crystals.entry(id.to_string()).or_insert_with(|| Crystal {

@@ -32,11 +32,11 @@ pub struct NodeRegistry {
 #[derive(Clone, Debug)]
 pub struct NodeRecord {
     node_id: String,
-    #[allow(dead_code)] // Used in Phase 3.4 (signature verification) and for audit logging
+    #[allow(dead_code)] // WHY: Used in Phase 3.4 (signature verification) and for audit logging
     public_key: String,
-    #[allow(dead_code)] // Used for node identity reporting and diagnostics
+    #[allow(dead_code)] // WHY: Used for node identity reporting and diagnostics
     node_identity: String,
-    #[allow(dead_code)] // Used for node age tracking and diagnostics
+    #[allow(dead_code)] // WHY: Used for node age tracking and diagnostics
     registered_at: i64,
     last_heartbeat: i64,
 }

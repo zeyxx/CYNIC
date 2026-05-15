@@ -211,8 +211,8 @@ pub(super) async fn observe_crystal_hypha(
 
     // Polarity counter field from sentiment
     let polarity_increment = match sentiment {
-        Some("positive") => format!("wag_count = (wag_count ?? 0) + 1,"),
-        Some("negative") => format!("growl_count = (growl_count ?? 0) + 1,"),
+        Some("positive") => "wag_count = (wag_count ?? 0) + 1,".to_string(),
+        Some("negative") => "growl_count = (growl_count ?? 0) + 1,".to_string(),
         _ => String::new(),
     };
 

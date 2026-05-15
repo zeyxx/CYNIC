@@ -22,6 +22,9 @@ AGENT_ID="claude-${SESSION_ID:0:12}"
 # Truncate prompt to budget (400 chars — enough for intent, not full text)
 PROMPT_TRUNC="${PROMPT:0:400}"
 
+AUTH_HEADER=""
+[ -n "$API_KEY" ] && AUTH_HEADER="Authorization: Bearer $API_KEY"
+
 PAYLOAD=$(jq -n \
     --arg tool "user_prompt" \
     --arg target "session" \
@@ -34,13 +37,39 @@ PAYLOAD=$(jq -n \
       domain: $domain, agent_id: $agent_id, session_id: $session_id,
       tags: ["user-prompt","reasoning-trail"]}')
 
-AUTH_HEADER=""
-[ -n "$API_KEY" ] && AUTH_HEADER="Authorization: Bearer $API_KEY"
-
 curl -s --max-time 2 -X POST "http://${KERNEL_ADDR}/observe" \
     -H "Content-Type: application/json" \
     ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
     -d "$PAYLOAD" > /dev/null 2>&1 &
+
+# ── L0→L1 Bridge: first prompt = human dispatch → mempool item ──
+# K15 consumer: session-init.sh reads domain=mempool and injects into next session.
+# Other cortex sessions see what's being worked on before picking tasks.
+DISPATCH_MARKER="/tmp/cynic-sessions/${AGENT_ID}.dispatched"
+if [[ ! -f "$DISPATCH_MARKER" ]]; then
+    # First prompt of session — this IS the human dispatch (CLAUDE.md Rule 2)
+    DISPATCH_PAYLOAD=$(jq -n \
+        --arg tool "human_dispatch" \
+        --arg target "$AGENT_ID" \
+        --arg status "claimed" \
+        --arg context "$PROMPT_TRUNC" \
+        --arg domain "mempool" \
+        --arg agent_id "$AGENT_ID" \
+        --arg session_id "$SESSION_ID" \
+        '{tool: $tool, target: $target, status: $status, context: $context,
+          domain: $domain, agent_id: $agent_id, session_id: $session_id,
+          tags: ["dispatch","l0-bridge"],
+          consumer: "session-init", action: "inject active dispatches into next cortex session"}')
+
+    curl -s --max-time 2 -X POST "http://${KERNEL_ADDR}/observe" \
+        -H "Content-Type: application/json" \
+        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+        -d "$DISPATCH_PAYLOAD" > /dev/null 2>&1 &
+
+    # Mark dispatched — subsequent prompts skip this block
+    mkdir -p /tmp/cynic-sessions
+    touch "$DISPATCH_MARKER"
+fi
 
 # Update coordination scope — preserves registered_at, fire-and-forget
 if [[ -n "${CYNIC_REST_ADDR:-}" ]]; then

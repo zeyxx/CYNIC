@@ -328,6 +328,41 @@ Create a new crystal (starts at Forming, confidence 0.0).
 
 Delete crystal. Idempotent. **Response (204):** No content.
 
+### POST /crystal/{id}/observe
+
+Hypha observation — non-verdict feedback on a crystal (e.g., from an organ or cortex).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `score` | float (0.0-1.0) | yes | Observation score |
+| `source` | string (1-100 chars) | yes | Observer identity |
+| `domain` | string (1-100 chars) | yes | Domain context |
+| `content` | string | no | Optional observation detail |
+| `sentiment` | string | no | `"positive"`, `"negative"`, or `"neutral"` |
+
+**Response (200):** `{ "status": "observed", "crystal_id": "...", "hypha_count": N }`
+
+### POST /crystal/{id}/shatter
+
+Instant crystal dissolution. Cortex/Internal only — ORGAN role forbidden.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `reason` | string (1-500 chars) | yes | Why this crystal is being shattered |
+| `source` | string | yes | Who is shattering |
+
+**Response (200):** `{ "status": "shattered", "crystal_id": "..." }`
+
+---
+
+## WebSocket
+
+### GET /node/ws
+
+WebSocket endpoint for node-kernel bidirectional communication (Phase 3). Nodes register with Ed25519 public key, receive stimuli (PUSH mode) or request them (PULL mode), and submit verdicts. Heartbeat every 30s. Reconnects with exponential backoff.
+
+Protocol messages: `register`, `register_response`, `stimulus`, `stimulus_request`, `stimulus_unavailable`, `verdict`, `ack`, `ping`, `pong`, `backpressure`, `eviction`, `error`.
+
 ---
 
 ## Analytics
