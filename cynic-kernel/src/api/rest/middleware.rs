@@ -92,7 +92,8 @@ pub async fn auth_middleware(
                 || path.starts_with("/coord/")
                 || path == "/health"
                 || path == "/events"
-                || path.starts_with("/v1/");
+                || path.starts_with("/v1/")
+                || (path.starts_with("/crystal/") && path.ends_with("/observe"));
             if !allowed {
                 return (
                     StatusCode::FORBIDDEN,

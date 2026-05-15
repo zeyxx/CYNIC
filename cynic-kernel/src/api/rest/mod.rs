@@ -37,7 +37,7 @@ use self::coord::{
 use self::data::{
     audit_handler, compliance_handler, compliance_trend_handler, create_crystal_handler,
     crystal_handler, crystals_handler, delete_crystal_handler, observations_handler,
-    sessions_handler, usage_handler,
+    observe_crystal_hypha_handler, sessions_handler, shatter_crystal_handler, usage_handler,
 };
 use self::dogs::{deregister_handler, dogs_handler, heartbeat_handler, register_dog_handler};
 use self::event::{event_handler, fleet_stats_handler};
@@ -58,6 +58,7 @@ use self::mail::{
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
 use self::observe::observe_handler;
 use self::soma::soma_request_handler;
+use crate::api::websocket::ws_handler;
 
 // ── ROUTER ─────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     }
 
     Router::new()
+        .route("/node/ws", axum::routing::get(ws_handler))
         .route("/health", get(health_handler))
         .route("/live", get(liveness_handler))
         .route("/ready", get(readiness_handler))
@@ -120,6 +122,8 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/crystal/{id}",
             get(crystal_handler).delete(delete_crystal_handler),
         )
+        .route("/crystal/{id}/observe", post(observe_crystal_hypha_handler))
+        .route("/crystal/{id}/shatter", post(shatter_crystal_handler))
         .route("/usage", get(usage_handler))
         .route("/verdict/{id}", get(get_verdict_handler))
         .route("/verdicts", get(list_verdicts_handler))

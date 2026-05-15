@@ -139,6 +139,23 @@ pub struct CreateCrystalRequest {
     pub domain: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ObserveCrystalHyphaRequest {
+    pub score: f64,
+    pub source: String,
+    pub domain: String,
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub sentiment: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ShatterCrystalRequest {
+    pub reason: String,
+    pub source: String,
+}
+
 /// POST /crystal — create a new crystal directly (not via judge pipeline).
 /// Returns 201 with the crystal ID, domain, and initial state.
 pub async fn create_crystal_handler(
@@ -216,6 +233,149 @@ pub async fn delete_crystal_handler(
         ));
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// POST /crystal/{id}/observe — hypha observation (non-verdict source).
+pub async fn observe_crystal_hypha_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(req): Json<ObserveCrystalHyphaRequest>,
+) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorResponse>)> {
+    // Validate source: 1-100 chars
+    if req.source.trim().is_empty() || req.source.len() > 100 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "source must be 1-100 characters".into(),
+            }),
+        ));
+    }
+    // Validate domain: 1-100 chars
+    if req.domain.trim().is_empty() || req.domain.len() > 100 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "domain must be 1-100 characters".into(),
+            }),
+        ));
+    }
+    // Validate score: 0.0-1.0
+    if !req.score.is_finite() || req.score < 0.0 || req.score > 1.0 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "score must be between 0.0 and 1.0".into(),
+            }),
+        ));
+    }
+    // Validate content: <= 2000 chars
+    let content = req.content.as_deref().unwrap_or("");
+    if content.chars().count() > 2000 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "content must be <= 2000 characters".into(),
+            }),
+        ));
+    }
+    // Validate sentiment
+    let sentiment = req.sentiment.as_deref();
+    if let Some(s) = sentiment {
+        if !matches!(s, "positive" | "negative" | "neutral") {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "sentiment must be positive, negative, or neutral".into(),
+                }),
+            ));
+        }
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    match state
+        .storage
+        .observe_crystal_hypha(
+            &id,
+            content,
+            &req.domain,
+            req.score,
+            &now,
+            &req.source,
+            sentiment,
+        )
+        .await
+    {
+        Ok(()) => Ok((
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "crystal_id": id,
+                "observed": true,
+                "source": req.source,
+            })),
+        )),
+        Err(ref e) if e.to_string().contains("dissolved") => Err((
+            StatusCode::CONFLICT,
+            Json(ErrorResponse {
+                error: "crystal is dissolved — cannot observe".into(),
+            }),
+        )),
+        Err(e) => {
+            tracing::warn!(error = %e, "observe_crystal_hypha failed");
+            Err(storage_error())
+        }
+    }
+}
+
+/// POST /crystal/{id}/shatter — instant dissolution. Cortex/Internal only.
+pub async fn shatter_crystal_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    role: Option<axum::Extension<super::types::Role>>,
+    Json(body): Json<ShatterCrystalRequest>,
+) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorResponse>)> {
+    // RBAC: Organ role cannot shatter
+    if role.as_ref().map(|r| &r.0) == Some(&super::types::Role::Organ) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "ORGAN role cannot shatter crystals".into(),
+            }),
+        ));
+    }
+    if body.reason.trim().is_empty() || body.reason.len() > 500 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "reason must be 1-500 characters".into(),
+            }),
+        ));
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    match state
+        .storage
+        .shatter_crystal(&id, &body.reason, &body.source, &now)
+        .await
+    {
+        Ok(()) => {
+            let _ = state
+                .event_tx
+                .send(crate::domain::events::KernelEvent::CrystalShattered {
+                    crystal_id: id.clone(),
+                    domain: String::new(),
+                    reason: body.reason.clone(),
+                });
+            Ok((
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "crystal_id": id,
+                    "shattered": true,
+                })),
+            ))
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "shatter_crystal failed");
+            Err(storage_error())
+        }
+    }
 }
 
 // ── Dark table endpoints ─────────────────────────────────────
