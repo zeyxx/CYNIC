@@ -13,6 +13,9 @@ pub use types::{
     StorageMetrics, UsageRow,
 };
 
+// Re-export from storage backend for convenience
+pub use crate::storage::DispatchChainVerification;
+
 use crate::domain::ccm::Crystal;
 use crate::domain::dog::Verdict;
 use crate::domain::verdict_queue::QueuedVerdict;
@@ -434,6 +437,20 @@ pub trait StoragePort: Send + Sync {
         _pr_number: u32,
     ) -> Result<(), StorageError> {
         Ok(())
+    }
+
+    /// Verify dispatch hash chain integrity. Returns verification status.
+    /// Walks dispatch history for the scope, confirming prev_hash links and hash values.
+    async fn verify_dispatch_chain(
+        &self,
+        _dispatch_id: &str,
+    ) -> Result<crate::storage::DispatchChainVerification, StorageError> {
+        Ok(crate::storage::DispatchChainVerification {
+            verified: false,
+            chain_length: 0,
+            broken_at: Some(0),
+            reason: Some("verify_dispatch_chain not supported".into()),
+        })
     }
 
     // ── State Log (hash-chained organism state) ──────────

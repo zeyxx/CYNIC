@@ -10,6 +10,8 @@ pub mod memory;
 pub mod reconnectable;
 pub mod surreal;
 
+pub use surreal::dispatch::DispatchChainVerification;
+
 use crate::domain::storage::StorageError;
 use reqwest::Client;
 use serde::Deserialize;

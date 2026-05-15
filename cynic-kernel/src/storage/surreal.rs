@@ -4,7 +4,7 @@ mod activity;
 mod agent_tasks;
 mod coord;
 mod crystals;
-mod dispatch;
+pub mod dispatch;
 mod maintenance;
 mod ops;
 mod state_log;
@@ -19,6 +19,7 @@ use crate::domain::storage::{
     StoragePort, UsageRow,
 };
 use crate::domain::verdict_queue::QueuedVerdict;
+use crate::storage::surreal::dispatch::DispatchChainVerification;
 
 // ── SHARED HELPERS ─────────────────────────────────────────────
 
@@ -463,6 +464,14 @@ impl StoragePort for SurrealHttpStorage {
         pr_number: u32,
     ) -> Result<(), StorageError> {
         dispatch::update_dispatch_pr(self, dispatch_id, pr_number).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn verify_dispatch_chain(
+        &self,
+        dispatch_id: &str,
+    ) -> Result<DispatchChainVerification, StorageError> {
+        dispatch::verify_dispatch_chain(self, dispatch_id).await
     }
 
     // ── State Log ──────────────────────────────────

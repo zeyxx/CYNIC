@@ -147,6 +147,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/agent-dispatch/:id/status",
             axum::routing::put(dispatch::update_dispatch_status_handler),
         )
+        .route(
+            "/agent-dispatch/:id/verify-chain",
+            get(dispatch::verify_dispatch_chain_handler),
+        )
         .route("/observe", post(observe_handler))
         .route("/event", post(event_handler))
         .route("/fleet-stats", get(fleet_stats_handler))

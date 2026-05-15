@@ -5,6 +5,14 @@ use super::SurrealHttpStorage;
 use crate::domain::storage::{AgentDispatch, StorageError};
 use sha2::{Digest, Sha256};
 
+#[derive(Debug, serde::Serialize)]
+pub struct DispatchChainVerification {
+    pub verified: bool,
+    pub chain_length: usize,
+    pub broken_at: Option<usize>,
+    pub reason: Option<String>,
+}
+
 fn row_to_agent_dispatch(row: &serde_json::Value) -> Option<AgentDispatch> {
     row.as_object().map(|obj| AgentDispatch {
         id: obj
@@ -201,4 +209,74 @@ pub(super) async fn update_dispatch_pr(
     );
     storage.query_one(&query).await?;
     Ok(())
+}
+
+/// Verify hash chain integrity for a dispatch record.
+/// Walks backwards through the scope's dispatch history, confirming each prev_hash matches.
+pub(super) async fn verify_dispatch_chain(
+    storage: &SurrealHttpStorage,
+    dispatch_id: &str,
+) -> Result<DispatchChainVerification, StorageError> {
+    // Get the dispatch to verify
+    if let Ok(Some(dispatch)) = get_dispatch(storage, dispatch_id).await {
+        let scope = &dispatch.scope;
+
+        // Query all dispatches for this scope, ordered by created_at
+        let escaped_scope = crate::storage::escape_surreal(scope);
+        let query = format!(
+            "SELECT * FROM agent_dispatch WHERE scope = '{escaped_scope}' ORDER BY created_at ASC;"
+        );
+        let rows = storage.query_one(&query).await?;
+        let records: Vec<AgentDispatch> = rows.iter().filter_map(row_to_agent_dispatch).collect();
+
+        let mut chain_length = 0;
+        let mut prev_hash = String::new();
+
+        for (idx, record) in records.iter().enumerate() {
+            chain_length = idx + 1;
+
+            // Verify prev_hash chain
+            if record.prev_hash != prev_hash {
+                return Ok(DispatchChainVerification {
+                    verified: false,
+                    chain_length,
+                    broken_at: Some(idx),
+                    reason: Some(format!(
+                        "prev_hash mismatch at record {}: expected '{}', got '{}'",
+                        idx, prev_hash, record.prev_hash
+                    )),
+                });
+            }
+
+            // Verify computed hash matches stored hash
+            let computed = compute_dispatch_hash(record);
+            if computed != record.hash {
+                return Ok(DispatchChainVerification {
+                    verified: false,
+                    chain_length,
+                    broken_at: Some(idx),
+                    reason: Some(format!(
+                        "hash corruption at record {}: computed '{}', stored '{}'",
+                        idx, computed, record.hash
+                    )),
+                });
+            }
+
+            prev_hash = record.hash.clone();
+        }
+
+        return Ok(DispatchChainVerification {
+            verified: true,
+            chain_length,
+            broken_at: None,
+            reason: None,
+        });
+    }
+
+    Ok(DispatchChainVerification {
+        verified: false,
+        chain_length: 0,
+        broken_at: Some(0),
+        reason: Some("dispatch not found".into()),
+    })
 }

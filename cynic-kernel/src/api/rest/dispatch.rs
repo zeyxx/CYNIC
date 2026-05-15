@@ -211,3 +211,26 @@ pub async fn update_dispatch_status_handler(
         )),
     }
 }
+
+/// GET /agent-dispatch/:id/verify-chain — verify hash chain integrity.
+pub async fn verify_dispatch_chain_handler(
+    State(state): State<Arc<AppState>>,
+    Path(dispatch_id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    match state.storage.verify_dispatch_chain(&dispatch_id).await {
+        Ok(result) => Ok(Json(serde_json::to_value(result).unwrap_or_else(|_| {
+            serde_json::json!({
+                "verified": false,
+                "chain_length": 0,
+                "broken_at": null,
+                "reason": "serialization error"
+            })
+        }))),
+        Err(err) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to verify dispatch chain: {err}"),
+            }),
+        )),
+    }
+}
