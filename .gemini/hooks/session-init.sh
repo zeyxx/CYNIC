@@ -103,6 +103,34 @@ ${AGENTS}"
     fi
 fi
 
+# ── Zone awareness (shared with Claude/Codex via /tmp/cynic-zones/) ──
+ZONE_STATE_DIR="/tmp/cynic-zones"
+ZONES_FILE="${PROJECT_DIR}/.claude/zones.json"
+if [[ -d "$ZONE_STATE_DIR" ]] && ls "$ZONE_STATE_DIR"/*.claimed &>/dev/null; then
+    ZONE_INFO="Zone claims (Edit/Write BLOCKED on conflict):"
+    for lock in "$ZONE_STATE_DIR"/*.claimed; do
+        [[ -f "$lock" ]] || continue
+        ZONE_NAME=$(basename "$lock" .claimed)
+        CLAIMED_BY=$(cat "$lock" 2>/dev/null || echo "?")
+        if [[ "$CLAIMED_BY" == "$AGENT_ID" ]]; then
+            ZONE_INFO="${ZONE_INFO}
+  ${ZONE_NAME} → ${CLAIMED_BY} (YOU)"
+        else
+            ZONE_INFO="${ZONE_INFO}
+  ${ZONE_NAME} → ${CLAIMED_BY} ← BLOCKED"
+        fi
+    done
+    if [[ -f "$ZONES_FILE" ]]; then
+        FREE=$(jq -r '.zones | keys[]' "$ZONES_FILE" 2>/dev/null | while read z; do
+            [[ ! -f "$ZONE_STATE_DIR/${z}.claimed" ]] && echo -n "$z "
+        done)
+        [[ -n "$FREE" ]] && ZONE_INFO="${ZONE_INFO}
+  FREE: ${FREE}"
+    fi
+    CONTEXT="${CONTEXT}
+${ZONE_INFO}"
+fi
+
 # ── Session state file (for session-stop metrics) ──
 SESSION_STATE_DIR="/tmp/cynic-sessions"
 mkdir -p "$SESSION_STATE_DIR" 2>/dev/null || true

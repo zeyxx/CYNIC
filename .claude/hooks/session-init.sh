@@ -309,6 +309,33 @@ if [[ ${CLAIMED_COUNT} -gt 0 ]]; then
     echo "  Before editing these modules, verify other sessions are done (check /coord/who)."
 fi
 
+# ── Zone awareness: inject claimed zones so cortex self-partitions ──
+# Agnostic: reads /tmp/cynic-zones/ (shared across Claude/Gemini/Codex).
+# The cortex sees what's taken and avoids it. Hard gate in coord-claim.sh catches mistakes.
+ZONE_STATE_DIR="/tmp/cynic-zones"
+ZONES_FILE="${PROJECT_DIR}/.claude/zones.json"
+if [[ -d "$ZONE_STATE_DIR" ]] && ls "$ZONE_STATE_DIR"/*.claimed &>/dev/null; then
+    echo ""
+    echo "ZONE CLAIMS (hard gate — Edit/Write blocked on conflict):"
+    for lock in "$ZONE_STATE_DIR"/*.claimed; do
+        [[ -f "$lock" ]] || continue
+        ZONE_NAME=$(basename "$lock" .claimed)
+        CLAIMED_BY=$(cat "$lock" 2>/dev/null || echo "?")
+        if [[ "$CLAIMED_BY" == "$AGENT_ID" ]]; then
+            printf "  %-20s → %s (YOU)\n" "$ZONE_NAME" "$CLAIMED_BY"
+        else
+            printf "  %-20s → %s ← BLOCKED for you\n" "$ZONE_NAME" "$CLAIMED_BY"
+        fi
+    done
+    # Show free zones
+    if [[ -f "$ZONES_FILE" ]]; then
+        FREE_ZONES=$(jq -r '.zones | keys[]' "$ZONES_FILE" 2>/dev/null | while read z; do
+            [[ ! -f "$ZONE_STATE_DIR/${z}.claimed" ]] && echo -n "$z "
+        done)
+        [[ -n "$FREE_ZONES" ]] && echo "  FREE: $FREE_ZONES"
+    fi
+fi
+
 # ── Last session compliance (K15: session-stop produces, this consumes) ──
 if [[ "$KERNEL_STATUS" != "down" ]]; then
     LAST_COMPLIANCE=$(curl -s --max-time 3 \
