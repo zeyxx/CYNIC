@@ -21,10 +21,11 @@ base64 = "0.22"
 toml = "0.8"
 walkdir = "2"
 async-trait = "0.1"
-axum = "0.8"
+axum = { version = "0.8", features = ["ws"] }
 tower-http = { version = "0.6", features = ["cors", "fs", "timeout", "trace"] }
 uuid = { version = "1", features = ["v4"] }
 futures-util = "0.3"
+tokio-tungstenite = "0.24"
 dirs = "6"
 rmcp = { version = "1.2", features = ["server", "transport-io", "macros"] }
 schemars = "1"

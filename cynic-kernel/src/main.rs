@@ -814,6 +814,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         proxy_targets: Arc::clone(&proxy_targets),
         project_root: project_root.display().to_string(),
         mail: mail_backend.clone(),
+        node_registry: Arc::new(api::websocket::NodeRegistry::new(120)),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
