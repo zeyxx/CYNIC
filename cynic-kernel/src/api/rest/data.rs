@@ -280,15 +280,15 @@ pub async fn observe_crystal_hypha_handler(
     }
     // Validate sentiment
     let sentiment = req.sentiment.as_deref();
-    if let Some(s) = sentiment {
-        if !matches!(s, "positive" | "negative" | "neutral") {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: "sentiment must be positive, negative, or neutral".into(),
-                }),
-            ));
-        }
+    if let Some(s) = sentiment
+        && !matches!(s, "positive" | "negative" | "neutral")
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "sentiment must be positive, negative, or neutral".into(),
+            }),
+        ));
     }
     let now = chrono::Utc::now().to_rfc3339();
     match state

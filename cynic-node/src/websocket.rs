@@ -6,7 +6,8 @@
 //! WHY: This module is not yet integrated with the main watch() loop. Until Phase 3.2
 //! integration is complete, the structures and methods appear unused. When wired into
 //! main.rs, these allows will be removed.
-#![allow(dead_code)]
+// WHY: Module not yet wired into main.rs — see Phase 3.2 comment above.
+#![allow(dead_code, unreachable_pub)]
 
 use futures_util::sink::SinkExt;
 use futures_util::stream::StreamExt;
@@ -337,7 +338,7 @@ impl WebSocketClient {
         let register_json = serde_json::to_string(&register_msg).map_err(|e| e.to_string())?;
         let (mut write, mut read) = ws_stream.split();
         write
-            .send(Message::Text(register_json.into()))
+            .send(Message::Text(register_json))
             .await
             .map_err(|e| e.to_string())?;
         debug!("Sent registration to kernel");
@@ -390,7 +391,7 @@ impl WebSocketClient {
                     };
                     let ping_json = serde_json::to_string(&ping)
                         .map_err(|e| e.to_string())?;
-                    write.send(Message::Text(ping_json.into())).await
+                    write.send(Message::Text(ping_json)).await
                         .map_err(|e| e.to_string())?;
                     debug!("Sent heartbeat ping");
                 }
@@ -417,11 +418,11 @@ impl WebSocketClient {
                                                 let ack = NodeMessage::Ack {
                                                     stimulus_id: stimulus_id.clone(),
                                                     status: "already_processed".to_string(),
-                                                    verdict_id: format!("verd_{}", stimulus_id),
+                                                    verdict_id: format!("verd_{stimulus_id}"),
                                                 };
                                                 let ack_json = serde_json::to_string(&ack)
                                                     .map_err(|e| e.to_string())?;
-                                                write.send(Message::Text(ack_json.into())).await
+                                                write.send(Message::Text(ack_json)).await
                                                     .map_err(|e| e.to_string())?;
                                             } else {
                                                 // Mark as processed in dedup cache
@@ -470,7 +471,7 @@ impl WebSocketClient {
                                                 message = %message,
                                                 "Kernel evicted node, reconnecting..."
                                             );
-                                            return Err(format!("Evicted by kernel: {}", message).into());
+                                            return Err(format!("Evicted by kernel: {message}"));
                                         }
                                         NodeMessage::Error {
                                             error_code,
@@ -513,7 +514,7 @@ impl WebSocketClient {
                         };
                         let verdict_json = serde_json::to_string(&verdict)
                             .map_err(|e| e.to_string())?;
-                        write.send(Message::Text(verdict_json.into())).await
+                        write.send(Message::Text(verdict_json)).await
                             .map_err(|e| e.to_string())?;
                         info!(stimulus_id = %pending.stimulus_id, "Sent pending verdict to kernel");
                     }
