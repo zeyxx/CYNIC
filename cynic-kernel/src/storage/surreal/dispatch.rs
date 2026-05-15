@@ -74,7 +74,7 @@ fn compute_dispatch_hash(dispatch: &AgentDispatch) -> String {
     hasher.update(data.as_bytes());
     let result = hasher.finalize();
     // Convert bytes to hex string
-    result.iter().map(|b| format!("{:02x}", b)).collect()
+    result.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// Store a new dispatch record. Returns dispatch ID.
@@ -170,7 +170,7 @@ pub(super) async fn update_dispatch_status(
     let now = chrono::Utc::now().to_rfc3339();
 
     let completed_at = if new_status == "COMPLETED" {
-        format!("completed_at: '{}',", now)
+        format!("completed_at: '{now}',")
     } else {
         String::new()
     };
@@ -181,12 +181,8 @@ pub(super) async fn update_dispatch_status(
         let new_hash = compute_dispatch_hash(&dispatch);
 
         let query = format!(
-            "UPDATE agent_dispatch SET status = '{}', hash = '{}', {} updated_at = '{}' WHERE id = {};",
+            "UPDATE agent_dispatch SET status = '{}', hash = '{new_hash}', {completed_at} updated_at = '{now}' WHERE id = {dispatch_id};",
             crate::storage::escape_surreal(new_status),
-            new_hash,
-            completed_at,
-            now,
-            dispatch_id
         );
         storage.query_one(&query).await?;
     }
@@ -201,8 +197,7 @@ pub(super) async fn update_dispatch_pr(
     pr_number: u32,
 ) -> Result<(), StorageError> {
     let query = format!(
-        "UPDATE agent_dispatch SET status = 'PROPOSED', pr_number = {} WHERE id = {};",
-        pr_number, dispatch_id
+        "UPDATE agent_dispatch SET status = 'PROPOSED', pr_number = {pr_number} WHERE id = {dispatch_id};"
     );
     storage.query_one(&query).await?;
     Ok(())

@@ -97,7 +97,7 @@ pub async fn create_dispatch_handler(
         Err(err) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
-                error: format!("Failed to store dispatch: {}", err),
+                error: format!("Failed to store dispatch: {err}"),
             }),
         )),
     }
@@ -134,7 +134,7 @@ pub async fn get_dispatch_handler(
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse {
-                        error: format!("Failed to query dispatch: {}", err),
+                        error: format!("Failed to query dispatch: {err}"),
                     }),
                 ));
             }
@@ -157,7 +157,7 @@ pub async fn get_dispatch_handler(
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse {
-                        error: format!("Failed to query dispatches: {}", err),
+                        error: format!("Failed to query dispatches: {err}"),
                     }),
                 ));
             }
@@ -206,7 +206,7 @@ pub async fn update_dispatch_status_handler(
         Err(err) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
-                error: format!("Failed to update dispatch: {}", err),
+                error: format!("Failed to update dispatch: {err}"),
             }),
         )),
     }
