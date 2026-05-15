@@ -402,6 +402,9 @@ impl CoordPort for SurrealHttpStorage {
             .map_err(|e| CoordError::StorageFailed(format!("expire sessions: {e}")))?;
         self.query_one("LET $active = (SELECT VALUE agent_id FROM agent_session WHERE active = true); UPDATE work_claim SET active = false WHERE active = true AND agent_id NOT IN $active;").await
             .map_err(|e| CoordError::StorageFailed(format!("expire claims: {e}")))?;
+        // Agent Protocol v1: expire proposed claims after 2h (prevents orphan claims)
+        self.query_one("UPDATE work_claim SET active = false, status = 'abandoned' WHERE status = 'proposed' AND active = true AND (time::now() - claimed_at) > 2h;").await
+            .map_err(|e| CoordError::StorageFailed(format!("expire proposed: {e}")))?;
         // K15: audit trail TTL — prevent unbounded growth (was 11K+ rows, never pruned)
         self.query_one("DELETE FROM mcp_audit WHERE ts < time::now() - 7d;")
             .await
