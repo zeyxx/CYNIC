@@ -457,6 +457,27 @@ mod tests {
         ) -> Result<(), StorageError> {
             Ok(())
         }
+        async fn observe_crystal_hypha(
+            &self,
+            _: &str,
+            _: &str,
+            _: &str,
+            _: f64,
+            _: &str,
+            _: &str,
+            _: Option<&str>,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
+        async fn shatter_crystal(
+            &self,
+            _: &str,
+            _: &str,
+            _: &str,
+            _: &str,
+        ) -> Result<(), StorageError> {
+            Ok(())
+        }
         async fn flush_usage(
             &self,
             _: &[(String, crate::domain::usage::DogUsage)],

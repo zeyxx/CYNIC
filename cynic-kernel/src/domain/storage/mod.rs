@@ -85,6 +85,33 @@ pub trait StoragePort: Send + Sync {
         verdict_kind: &str,
     ) -> Result<(), StorageError>;
 
+    /// Observe a crystal from a mycelium hypha (non-verdict source).
+    /// Same Welford math as observe_crystal, but without verdict coupling.
+    /// Rejects observation on Dissolved crystals (returns error).
+    #[allow(clippy::too_many_arguments)]
+    // WHY: observe_crystal_hypha carries 7 primitive/scalar arguments mirroring the
+    // observe_crystal signature minus verdict-specific fields (voter_count, verdict_id, verdict_kind).
+    async fn observe_crystal_hypha(
+        &self,
+        id: &str,
+        content: &str,
+        domain: &str,
+        score: f64,
+        timestamp: &str,
+        source: &str,
+        sentiment: Option<&str>,
+    ) -> Result<(), StorageError>;
+
+    /// Shatter a crystal — instant transition to Dissolved state.
+    /// Records reason and source for provenance. Idempotent on Dissolved.
+    async fn shatter_crystal(
+        &self,
+        id: &str,
+        reason: &str,
+        source: &str,
+        timestamp: &str,
+    ) -> Result<(), StorageError>;
+
     /// Store a development workflow observation (tool usage, file edit, error).
     /// Fire-and-forget — callers should not block on this.
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError>;

@@ -262,6 +262,123 @@ impl StoragePort for InMemoryStorage {
         Ok(())
     }
 
+    async fn observe_crystal_hypha(
+        &self,
+        id: &str,
+        content: &str,
+        domain: &str,
+        score: f64,
+        timestamp: &str,
+        source: &str,
+        sentiment: Option<&str>,
+    ) -> Result<(), StorageError> {
+        let sanitized = sanitize_crystal_content(content);
+        let mut s = self.state.lock().await;
+
+        // Dissolved guard: reject observations on shattered crystals
+        if let Some(existing) = s.crystals.get(id) {
+            if existing.state == CrystalState::Dissolved {
+                return Err(StorageError::QueryFailed(format!(
+                    "crystal {id} is dissolved — hypha observation rejected"
+                )));
+            }
+        }
+
+        let crystal = s.crystals.entry(id.to_string()).or_insert_with(|| Crystal {
+            id: id.to_string(),
+            content: sanitized.clone(),
+            domain: domain.to_string(),
+            confidence: 0.0,
+            observations: 0,
+            state: CrystalState::Forming,
+            created_at: timestamp.to_string(),
+            updated_at: timestamp.to_string(),
+            contributing_verdicts: vec![],
+            certainty: 0.0,
+            variance_m2: 0.0,
+            mean_quorum: 0.0,
+            howl_count: 0,
+            wag_count: 0,
+            growl_count: 0,
+            bark_count: 0,
+            contributing_sources: std::collections::BTreeMap::new(),
+            shattered_at: None,
+            shatter_reason: None,
+            shatter_source: None,
+        });
+
+        // Content mutation: evolve toward best expression
+        let old_mean = crystal.confidence;
+        if score > old_mean && !content.is_empty() {
+            crystal.content = sanitized;
+        }
+
+        // Welford online variance + running mean
+        let old_obs = crystal.observations as f64;
+        let new_conf = if crystal.observations > 0 {
+            (old_mean * old_obs + score) / (old_obs + 1.0)
+        } else {
+            score
+        };
+        let delta = score - old_mean;
+        let delta2 = score - new_conf;
+        crystal.variance_m2 = if crystal.observations > 0 {
+            crystal.variance_m2 + delta * delta2
+        } else {
+            0.0
+        };
+        crystal.confidence = new_conf;
+        crystal.observations += 1;
+
+        // Polarity from sentiment
+        match sentiment {
+            Some("positive") => crystal.wag_count += 1,
+            Some("negative") => crystal.growl_count += 1,
+            _ => {}
+        }
+
+        // Source tracking
+        *crystal
+            .contributing_sources
+            .entry(source.to_string())
+            .or_insert(0) += 1;
+
+        crystal.updated_at = timestamp.to_string();
+
+        // 4D certainty + state transition
+        crystal.certainty =
+            crate::domain::ccm::compute_certainty(crystal.variance_m2, crystal.observations);
+        crystal.state = crate::domain::ccm::classify(crystal.certainty, crystal.observations);
+
+        Ok(())
+    }
+
+    async fn shatter_crystal(
+        &self,
+        id: &str,
+        reason: &str,
+        source: &str,
+        timestamp: &str,
+    ) -> Result<(), StorageError> {
+        let mut s = self.state.lock().await;
+        match s.crystals.get_mut(id) {
+            Some(crystal) => {
+                if crystal.state == CrystalState::Dissolved {
+                    return Ok(()); // Idempotent
+                }
+                crystal.state = CrystalState::Dissolved;
+                crystal.shattered_at = Some(timestamp.to_string());
+                crystal.shatter_reason = Some(reason.to_string());
+                crystal.shatter_source = Some(source.to_string());
+                crystal.updated_at = timestamp.to_string();
+                Ok(())
+            }
+            None => Err(StorageError::QueryFailed(format!(
+                "shatter_crystal: crystal {id} not found"
+            ))),
+        }
+    }
+
     async fn store_observation(&self, obs: &Observation) -> Result<(), StorageError> {
         let mut s = self.state.lock().await;
         let obs_id = format!("observation:{}", s.observations.len());
