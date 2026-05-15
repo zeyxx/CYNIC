@@ -135,6 +135,16 @@ case "$cmd" in
     else
       echo "env files: in sync"
     fi
+    HERMES_TEMPLATE="${PROJECT_ROOT}/.hermes_ouroboros/config.yaml.tpl"
+    HERMES_RUNTIME="${RUNTIME_DIR}/hermes-ouroboros-config.yaml"
+    if [[ -f "$HERMES_RUNTIME" ]]; then
+      if grep -q '<TAILSCALE_' "$HERMES_RUNTIME"; then
+        echo "DRIFT: ${HERMES_RUNTIME} has unresolved placeholders — run: config-sync.sh hermes-config" >&2
+        FAIL=1
+      else
+        echo "hermes-ouroboros-config.yaml: resolved"
+      fi
+    fi
     exit $FAIL
     ;;
 

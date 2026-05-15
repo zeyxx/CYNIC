@@ -1,30 +1,36 @@
 # CYNIC Fleet Topology — copy to ~/.config/cynic/fleet.toml and fill in values.
 # Source of truth for machine topology. Never commit real IPs.
 #
-# This file is READ by humans and scripts, not (yet) by the kernel.
-# Structure mirrors the actual fleet — one [node.X] per machine.
+# Convention: [machine.X] sections are read by scripts/fleet-gen.py.
+# Placeholder mapping: machine key suffix (after last hyphen) → <TAILSCALE_{SUFFIX}>
+#   machine.cynic-core → <TAILSCALE_CORE>
+#   machine.cynic-gpu  → <TAILSCALE_GPU>
+#   machine.kairos     → <TAILSCALE_KAIROS>
 
-[node.cynic-core]
-role = "kernel"               # kernel + DB + CPU inference + embedding
+[machine.cynic-core]
 tailscale_ip = "<TAILSCALE_CORE>"
 os = "linux"
-services = ["cynic-kernel:3030", "surrealdb:8000", "llama-server:8080", "llama-embed:8081"]
-hardware = "Ryzen 7 5700G, 32GB, Vega 8 (skip)"
+ssh_user = "user"
+ssh_key = "~/.ssh/id_ed25519"
+role = "kernel, db, cpu-inference"
+status = "active"
 
-[node.cynic-gpu]
-role = "inference"            # GPU inference only
+[machine.cynic-gpu]
 tailscale_ip = "<TAILSCALE_GPU>"
 os = "windows"
-services = ["llama-server:8080"]
-hardware = "RTX 4060 Ti 16GB, 55 tok/s"
+ssh_user = "your-windows-user"
+ssh_key = "~/.ssh/id_ed25519"
+role = "gpu-inference"
+status = "active"
 
-# Offline nodes — uncomment when brought back online.
-# [node.kairos]
-# role = "research"
+# Offline machines — uncomment when brought back online.
+# [machine.kairos]
 # tailscale_ip = "<TAILSCALE_KAIROS>"
 # os = "linux"
-# services = []
-# hardware = "project-kairos"
+# ssh_user = "kairos"
+# ssh_key = "~/.ssh/kairos_proxmox"
+# role = "project-kairos"
+# status = "offline"
 
 # ── Port Map ───────────────────────────────────────────────────
 # 3030  cynic-kernel REST API (Tailscale only)
