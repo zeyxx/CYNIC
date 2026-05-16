@@ -1,0 +1,257 @@
+{
+  "count": 36,
+  "tokens": [
+    {
+      "mint": "6MQpbiTC2YcogidTmKqMLK82qvE9z5QEm7EP3AEDpump",
+      "symbol": "MASK",
+      "conviction": 0.98,
+      "holders": 28200,
+      "market_cap": 1987454.30982177
+    },
+    {
+      "mint": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+      "symbol": "Fartcoin ",
+      "conviction": 0.9670000000000001,
+      "holders": 160121,
+      "market_cap": 235395509.572566
+    },
+    {
+      "mint": "GPwwihLa1w9Qsz27SmNrj7aLVnE7pr2cAvHe6aVVpump",
+      "symbol": "DANK",
+      "conviction": 0.9640000000000001,
+      "holders": 3713,
+      "market_cap": 286037.366882613
+    },
+    {
+      "mint": "8DKgjd6zAYuP9fVmMHBBtygPqkJ111LrMCT7tDyPhE55",
+      "symbol": "Domo",
+      "conviction": 0.956,
+      "holders": 1100,
+      "market_cap": 52984.1015629709
+    },
+    {
+      "mint": "9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump",
+      "symbol": "asdfasdfa",
+      "conviction": 0.956,
+      "holders": 523,
+      "market_cap": 79909.2259178632
+    },
+    {
+      "mint": "38PgzpJYu2HkiYvV8qePFakB8tuobPdGm2FFEn7Dpump",
+      "symbol": "gork",
+      "conviction": 0.9520000000000001,
+      "holders": 18196,
+      "market_cap": 1655233.66859194
+    },
+    {
+      "mint": "3WPep4ufaToK1aS5s8BL9inzeUrt4DYaQCiic6ZkkC1U",
+      "symbol": "GIKO",
+      "conviction": 0.937,
+      "holders": 6581,
+      "market_cap": 989416.16257792
+    },
+    {
+      "mint": "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9",
+      "symbol": "GIGA",
+      "conviction": 0.9359999999999999,
+      "holders": 81548,
+      "market_cap": 46586651.9148974
+    },
+    {
+      "mint": "8ncucXv6U6epZKHPbgaEBcEK399TpHGKCquSt4RnmX4f",
+      "symbol": "TRENCHER",
+      "conviction": 0.9359999999999999,
+      "holders": 7388,
+      "market_cap": 853928.441704162
+    },
+    {
+      "mint": "DitHyRMQiSDhn5cnKMJV2CDDt6sVct96YrECiM49pump",
+      "symbol": "House",
+      "conviction": 0.9179999999999999,
+      "holders": 23256,
+      "market_cap": 4303128.97101493
+    },
+    {
+      "mint": "zGh48JtNHVBb5evgoZLXwgPD2Qu4MhkWdJLGDAupump",
+      "symbol": "retire",
+      "conviction": 0.917,
+      "holders": 15115,
+      "market_cap": 5688549.20550296
+    },
+    {
+      "mint": "76EDL5qNcte2ZH29quTaFzagXjWAEY83CATEjyA6pump",
+      "symbol": "gork",
+      "conviction": 0.912,
+      "holders": 2717,
+      "market_cap": 1582436.16160334
+    },
+    {
+      "mint": "69G8CpUVZAxbPMiEBrfCCCH445NwFxH6PzVL693Xpump",
+      "symbol": "xavier",
+      "conviction": 0.909,
+      "holders": 2821,
+      "market_cap": 1250097.6766792
+    },
+    {
+      "mint": "GkyPYa7NnCFbduLknCfBfP7p8564X1VZhwZYJ6CZpump",
+      "symbol": "CHILLHOUSE",
+      "conviction": 0.904,
+      "holders": 16167,
+      "market_cap": 3047321.56883426
+    },
+    {
+      "mint": "463SK47VkB7uE7XenTHKiVcMtxRsfNE2X4Q9wByaURVA",
+      "symbol": "TSUKI",
+      "conviction": 0.904,
+      "holders": 4790,
+      "market_cap": 2313865.80074489
+    },
+    {
+      "mint": "NV2RYH954cTJ3ckFUpvfqaQXU4ARqqDH3562nFSpump",
+      "symbol": "Punch",
+      "conviction": 0.866,
+      "holders": 25246,
+      "market_cap": 3067948.38242143
+    },
+    {
+      "mint": "Cm6fNnMk7NfzStP9CZpsQA2v3jjzbcYGAxdJySmHpump",
+      "symbol": "Buttcoin",
+      "conviction": 0.84,
+      "holders": 15913,
+      "market_cap": 11966129.7826248
+    },
+    {
+      "mint": "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump",
+      "symbol": "neet",
+      "conviction": 0.8240000000000001,
+      "holders": 17402,
+      "market_cap": 34087943.693894
+    },
+    {
+      "mint": "CFYhdWXsYfS7swnJgHRwb5toTHMEQD7Ljd5gGwKLpump",
+      "symbol": "KILROY",
+      "conviction": 0.82,
+      "holders": 1297,
+      "market_cap": 208846.988776375
+    },
+    {
+      "mint": "3B1ijcocM5EDga6XxQ7JLW7weocQPWWjuhBYG8Vepump",
+      "symbol": "BP",
+      "conviction": 0.792,
+      "holders": 7702,
+      "market_cap": 4222074.45547097
+    },
+    {
+      "mint": "4TyZGqRLG3VcHTGMcLBoPUmqYitMVojXinAmkL8xpump",
+      "symbol": "testicle",
+      "conviction": 0.773,
+      "holders": 13473,
+      "market_cap": 6970328.85900336
+    },
+    {
+      "mint": "H74CYmXgMkYHYuSRsZt6RJb4NYp2u72Vw8BS5huApump",
+      "symbol": "LMAO!",
+      "conviction": 0.765,
+      "holders": 3848,
+      "market_cap": 3177757.75753413
+    },
+    {
+      "mint": "4fSWEw2wbYEUCcMtitzmeGUfqinoafXxkhqZrA9Gpump",
+      "symbol": "Pigeon",
+      "conviction": 0.752,
+      "holders": 6306,
+      "market_cap": 714351.991522434
+    },
+    {
+      "mint": "8J69rbLTzWWgUJziFY8jeu5tDwEPBwUz4pKBMr5rpump",
+      "symbol": "WOJAK",
+      "conviction": 0.695,
+      "holders": 16723,
+      "market_cap": 7187587.83768094
+    },
+    {
+      "mint": "5UUH9RTDiSpq6HKS6bp4NdU9PNJpXRXuiw6ShBTBhgH2",
+      "symbol": "TROLL",
+      "conviction": 0.688,
+      "holders": 61005,
+      "market_cap": 116764057.657202
+    },
+    {
+      "mint": "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu",
+      "symbol": "PUMPCADE",
+      "conviction": 0.6759999999999999,
+      "holders": 3756,
+      "market_cap": 19259383.0140092
+    },
+    {
+      "mint": "4yDSFNMitxy6waXPTkPyyVvbbQSiqe7zD1VxnzEypump",
+      "symbol": "motion",
+      "conviction": 0.6679999999999999,
+      "holders": 654,
+      "market_cap": 261441.1561
+    },
+    {
+      "mint": "6iA73gWCKkLWKbVr8rgibV57MMRxzsaqS9cWpgKBpump",
+      "symbol": "\u6211\u7684\u5200\u76fe",
+      "conviction": 0.612,
+      "holders": 5456,
+      "market_cap": 1430461.82498445
+    },
+    {
+      "mint": "89S7oVB4hui8ceJqhHreWB7fcxdthfvoB7z2pfJtpump",
+      "symbol": "abcdefg",
+      "conviction": 0.5579999999999999,
+      "holders": 2441,
+      "market_cap": 141301.6163
+    },
+    {
+      "mint": "CB9dDufT3ZuQXqqSfa1c5kY935TEreyBw9XJXxHKpump",
+      "symbol": "USDUC",
+      "conviction": 0.556,
+      "holders": 15496,
+      "market_cap": 6172371.83486289
+    },
+    {
+      "mint": "J8PSdNP3QewKq2Z1JJJFDMaqF7KcaiJhR7gbr5KZpump",
+      "symbol": "TripleT",
+      "conviction": 0.536,
+      "holders": 8106,
+      "market_cap": 9280361.60904703
+    },
+    {
+      "mint": "32CdQdBUxbCsLy5AUHWmyidfwhgGUr9N573NBUrDpump",
+      "symbol": "maxxing",
+      "conviction": 0.47200000000000003,
+      "holders": 6223,
+      "market_cap": 5642941.69829247
+    },
+    {
+      "mint": "EsLb2XdNWVezNnhEsRVKYZ7BymiKUabzh4tdVhz4pump",
+      "symbol": "Twin",
+      "conviction": 0.424,
+      "holders": 731,
+      "market_cap": 226145.5309
+    },
+    {
+      "mint": "CGEDT9QZDvvH5GmVkWJH2BXiMJqMJySC9ihWyr7Spump",
+      "symbol": "BURNIE",
+      "conviction": 0.332,
+      "holders": 10549,
+      "market_cap": 10873490.6029491
+    },
+    {
+      "mint": "ACtfUWtgvaXrQGNMiohTusi5jcx5RJf5zwu9aAxkpump",
+      "symbol": "unc",
+      "conviction": 0.096,
+      "holders": 14636,
+      "market_cap": 3686147.58966202
+    },
+    {
+      "mint": "sGzragYKDrmRgCGvJUn9WKwrmnUZwfmkNQLTSPfdMNq",
+      "symbol": "MOJO",
+      "conviction": 0.008,
+      "holders": 893,
+      "market_cap": 182830.97724102
+    }
+  ]
+}

@@ -1,0 +1,578 @@
+[
+  {
+    "symbol": "MASK",
+    "mint": "6MQpbiTC2YcogidTmKqMLK82qvE9z5QEm7EP3AEDpump",
+    "age_days": 351.8641435185186,
+    "conv_cs": 0.98,
+    "conv_buysell": 0.8,
+    "divergence": -0.17999999999999994,
+    "buy_sell_ratio": 0.926829268292683,
+    "classifications": {
+      "accumulator": 4,
+      "holder": 0,
+      "reducer": 0,
+      "extractor": 1
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "Fartcoin ",
+    "mint": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+    "age_days": 575.2108217592593,
+    "conv_cs": 0.9670000000000001,
+    "conv_buysell": 0.4,
+    "divergence": -0.5670000000000001,
+    "buy_sell_ratio": 0.0,
+    "classifications": {
+      "accumulator": 0,
+      "holder": 2,
+      "reducer": 0,
+      "extractor": 3
+    },
+    "signal": "DISTRIBUTION"
+  },
+  {
+    "symbol": "DANK",
+    "mint": "GPwwihLa1w9Qsz27SmNrj7aLVnE7pr2cAvHe6aVVpump",
+    "age_days": 493.63564814814816,
+    "conv_cs": 0.9640000000000001,
+    "conv_buysell": 0.6,
+    "divergence": -0.3640000000000001,
+    "buy_sell_ratio": 2.5,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 1,
+      "reducer": 1,
+      "extractor": 1
+    },
+    "signal": "DISTRIBUTION"
+  },
+  {
+    "symbol": "Domo",
+    "mint": "8DKgjd6zAYuP9fVmMHBBtygPqkJ111LrMCT7tDyPhE55",
+    "age_days": 790.5671527777778,
+    "conv_cs": 0.956,
+    "conv_buysell": 1.0,
+    "divergence": 0.04400000000000004,
+    "buy_sell_ratio": 1.44,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 3,
+      "reducer": 0,
+      "extractor": 0
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "asdfasdfa",
+    "mint": "9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump",
+    "age_days": 331.64075231481485,
+    "conv_cs": 0.956,
+    "conv_buysell": 0.8,
+    "divergence": -0.15599999999999992,
+    "buy_sell_ratio": 1.4864864864864864,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 2,
+      "reducer": 1,
+      "extractor": 0
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "gork",
+    "mint": "38PgzpJYu2HkiYvV8qePFakB8tuobPdGm2FFEn7Dpump",
+    "age_days": 380.6137847222222,
+    "conv_cs": 0.9520000000000001,
+    "conv_buysell": 0.8,
+    "divergence": -0.15200000000000002,
+    "buy_sell_ratio": 0.05,
+    "classifications": {
+      "accumulator": 0,
+      "holder": 4,
+      "reducer": 0,
+      "extractor": 1
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "GIKO",
+    "mint": "3WPep4ufaToK1aS5s8BL9inzeUrt4DYaQCiic6ZkkC1U",
+    "age_days": 765.3835069444444,
+    "conv_cs": 0.937,
+    "conv_buysell": 1.0,
+    "divergence": 0.06299999999999994,
+    "buy_sell_ratio": 23.0,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 3,
+      "reducer": 0,
+      "extractor": 0
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "GIGA",
+    "mint": "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9",
+    "age_days": 862.5792361111112,
+    "conv_cs": 0.9359999999999999,
+    "conv_buysell": 0.4,
+    "divergence": -0.5359999999999999,
+    "buy_sell_ratio": 0.14583333333333334,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 0,
+      "reducer": 1,
+      "extractor": 2
+    },
+    "signal": "DISTRIBUTION"
+  },
+  {
+    "symbol": "TRENCHER",
+    "mint": "8ncucXv6U6epZKHPbgaEBcEK399TpHGKCquSt4RnmX4f",
+    "age_days": 387.08248842592593,
+    "conv_cs": 0.9359999999999999,
+    "conv_buysell": 0.8,
+    "divergence": -0.1359999999999999,
+    "buy_sell_ratio": 1.0,
+    "classifications": {
+      "accumulator": 0,
+      "holder": 4,
+      "reducer": 1,
+      "extractor": 0
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "House",
+    "mint": "DitHyRMQiSDhn5cnKMJV2CDDt6sVct96YrECiM49pump",
+    "age_days": 417.76685185185187,
+    "conv_cs": 0.9179999999999999,
+    "conv_buysell": 0.8,
+    "divergence": -0.11799999999999988,
+    "buy_sell_ratio": 0.8571428571428571,
+    "classifications": {
+      "accumulator": 0,
+      "holder": 4,
+      "reducer": 0,
+      "extractor": 1
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "retire",
+    "mint": "zGh48JtNHVBb5evgoZLXwgPD2Qu4MhkWdJLGDAupump",
+    "age_days": 579.4688078703704,
+    "conv_cs": 0.917,
+    "conv_buysell": 1.0,
+    "divergence": 0.08299999999999996,
+    "buy_sell_ratio": 2.5,
+    "classifications": {
+      "accumulator": 3,
+      "holder": 2,
+      "reducer": 0,
+      "extractor": 0
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "gork",
+    "mint": "76EDL5qNcte2ZH29quTaFzagXjWAEY83CATEjyA6pump",
+    "age_days": 403.58001157407404,
+    "conv_cs": 0.912,
+    "conv_buysell": 0.8,
+    "divergence": -0.11199999999999999,
+    "buy_sell_ratio": 1.3142857142857143,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 2,
+      "reducer": 1,
+      "extractor": 0
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "xavier",
+    "mint": "69G8CpUVZAxbPMiEBrfCCCH445NwFxH6PzVL693Xpump",
+    "age_days": 565.6366435185186,
+    "conv_cs": 0.909,
+    "conv_buysell": 0.6,
+    "divergence": -0.30900000000000005,
+    "buy_sell_ratio": 0.3076923076923077,
+    "classifications": {
+      "accumulator": 0,
+      "holder": 3,
+      "reducer": 1,
+      "extractor": 1
+    },
+    "signal": "DISTRIBUTION"
+  },
+  {
+    "symbol": "CHILLHOUSE",
+    "mint": "GkyPYa7NnCFbduLknCfBfP7p8564X1VZhwZYJ6CZpump",
+    "age_days": 385.5543171296296,
+    "conv_cs": 0.904,
+    "conv_buysell": 0.8,
+    "divergence": -0.10399999999999998,
+    "buy_sell_ratio": 0.4230769230769231,
+    "classifications": {
+      "accumulator": 1,
+      "holder": 3,
+      "reducer": 1,
+      "extractor": 0
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "TSUKI",
+    "mint": "463SK47VkB7uE7XenTHKiVcMtxRsfNE2X4Q9wByaURVA",
+    "age_days": 737.5583101851852,
+    "conv_cs": 0.904,
+    "conv_buysell": 1.0,
+    "divergence": 0.09599999999999997,
+    "buy_sell_ratio": 1.5,
+    "classifications": {
+      "accumulator": 1,
+      "holder": 4,
+      "reducer": 0,
+      "extractor": 0
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "Punch",
+    "mint": "NV2RYH954cTJ3ckFUpvfqaQXU4ARqqDH3562nFSpump",
+    "age_days": 100.09850694444445,
+    "conv_cs": 0.866,
+    "conv_buysell": 1.0,
+    "divergence": 0.134,
+    "buy_sell_ratio": 0.85,
+    "classifications": {
+      "accumulator": 0,
+      "holder": 5,
+      "reducer": 0,
+      "extractor": 0
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "Buttcoin",
+    "mint": "Cm6fNnMk7NfzStP9CZpsQA2v3jjzbcYGAxdJySmHpump",
+    "age_days": 126.91195601851852,
+    "conv_cs": 0.84,
+    "conv_buysell": 0.4,
+    "divergence": -0.43999999999999995,
+    "buy_sell_ratio": 0.43243243243243246,
+    "classifications": {
+      "accumulator": 0,
+      "holder": 2,
+      "reducer": 2,
+      "extractor": 1
+    },
+    "signal": "DISTRIBUTION"
+  },
+  {
+    "symbol": "neet",
+    "mint": "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump",
+    "age_days": 384.44255787037036,
+    "conv_cs": 0.8240000000000001,
+    "conv_buysell": 0.4,
+    "divergence": -0.42400000000000004,
+    "buy_sell_ratio": 0.10869565217391304,
+    "classifications": {
+      "accumulator": 1,
+      "holder": 1,
+      "reducer": 0,
+      "extractor": 3
+    },
+    "signal": "DISTRIBUTION"
+  },
+  {
+    "symbol": "KILROY",
+    "mint": "CFYhdWXsYfS7swnJgHRwb5toTHMEQD7Ljd5gGwKLpump",
+    "age_days": 185.71306712962962,
+    "conv_cs": 0.82,
+    "conv_buysell": 0.8,
+    "divergence": -0.019999999999999907,
+    "buy_sell_ratio": 0.8846153846153846,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 2,
+      "reducer": 1,
+      "extractor": 0
+    },
+    "signal": "STRONG_HOLD"
+  },
+  {
+    "symbol": "BP",
+    "mint": "3B1ijcocM5EDga6XxQ7JLW7weocQPWWjuhBYG8Vepump",
+    "age_days": 118.4825,
+    "conv_cs": 0.792,
+    "conv_buysell": 0.8,
+    "divergence": 0.008000000000000007,
+    "buy_sell_ratio": 3.423076923076923,
+    "classifications": {
+      "accumulator": 4,
+      "holder": 0,
+      "reducer": 1,
+      "extractor": 0
+    },
+    "signal": ""
+  },
+  {
+    "symbol": "testicle",
+    "mint": "4TyZGqRLG3VcHTGMcLBoPUmqYitMVojXinAmkL8xpump",
+    "age_days": 146.4161689814815,
+    "conv_cs": 0.773,
+    "conv_buysell": 0.6,
+    "divergence": -0.17300000000000004,
+    "buy_sell_ratio": 0.5454545454545454,
+    "classifications": {
+      "accumulator": 1,
+      "holder": 2,
+      "reducer": 0,
+      "extractor": 2
+    },
+    "signal": ""
+  },
+  {
+    "symbol": "LMAO!",
+    "mint": "H74CYmXgMkYHYuSRsZt6RJb4NYp2u72Vw8BS5huApump",
+    "age_days": 210.87965277777778,
+    "conv_cs": 0.765,
+    "conv_buysell": 1.0,
+    "divergence": 0.235,
+    "buy_sell_ratio": 1.9444444444444444,
+    "classifications": {
+      "accumulator": 3,
+      "holder": 2,
+      "reducer": 0,
+      "extractor": 0
+    },
+    "signal": ""
+  },
+  {
+    "symbol": "Pigeon",
+    "mint": "4fSWEw2wbYEUCcMtitzmeGUfqinoafXxkhqZrA9Gpump",
+    "age_days": 99.27972222222222,
+    "conv_cs": 0.752,
+    "conv_buysell": 0.4,
+    "divergence": -0.352,
+    "buy_sell_ratio": 2.5714285714285716,
+    "classifications": {
+      "accumulator": 1,
+      "holder": 1,
+      "reducer": 2,
+      "extractor": 1
+    },
+    "signal": "DISTRIBUTION"
+  },
+  {
+    "symbol": "WOJAK",
+    "mint": "8J69rbLTzWWgUJziFY8jeu5tDwEPBwUz4pKBMr5rpump",
+    "age_days": 194.45693287037037,
+    "conv_cs": 0.695,
+    "conv_buysell": 0.8,
+    "divergence": 0.1050000000000001,
+    "buy_sell_ratio": 0.8846153846153846,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 2,
+      "reducer": 1,
+      "extractor": 0
+    },
+    "signal": ""
+  },
+  {
+    "symbol": "TROLL",
+    "mint": "5UUH9RTDiSpq6HKS6bp4NdU9PNJpXRXuiw6ShBTBhgH2",
+    "age_days": 796.6361921296296,
+    "conv_cs": 0.688,
+    "conv_buysell": 0.8,
+    "divergence": 0.1120000000000001,
+    "buy_sell_ratio": 0.8888888888888888,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 2,
+      "reducer": 0,
+      "extractor": 1
+    },
+    "signal": ""
+  },
+  {
+    "symbol": "PUMPCADE",
+    "mint": "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu",
+    "age_days": 237.46063657407407,
+    "conv_cs": 0.6759999999999999,
+    "conv_buysell": 0.8,
+    "divergence": 0.12400000000000011,
+    "buy_sell_ratio": 4.333333333333333,
+    "classifications": {
+      "accumulator": 3,
+      "holder": 1,
+      "reducer": 1,
+      "extractor": 0
+    },
+    "signal": ""
+  },
+  {
+    "symbol": "motion",
+    "mint": "4yDSFNMitxy6waXPTkPyyVvbbQSiqe7zD1VxnzEypump",
+    "age_days": 87.63537037037037,
+    "conv_cs": 0.6679999999999999,
+    "conv_buysell": 0.8,
+    "divergence": 0.13200000000000012,
+    "buy_sell_ratio": 1.2903225806451613,
+    "classifications": {
+      "accumulator": 4,
+      "holder": 0,
+      "reducer": 1,
+      "extractor": 0
+    },
+    "signal": ""
+  },
+  {
+    "symbol": "\u6211\u7684\u5200\u76fe",
+    "mint": "6iA73gWCKkLWKbVr8rgibV57MMRxzsaqS9cWpgKBpump",
+    "age_days": 79.8694212962963,
+    "conv_cs": 0.612,
+    "conv_buysell": 0.6,
+    "divergence": -0.01200000000000001,
+    "buy_sell_ratio": 1.25,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 1,
+      "reducer": 1,
+      "extractor": 1
+    },
+    "signal": ""
+  },
+  {
+    "symbol": "abcdefg",
+    "mint": "89S7oVB4hui8ceJqhHreWB7fcxdthfvoB7z2pfJtpump",
+    "age_days": 70.29778935185185,
+    "conv_cs": 0.5579999999999999,
+    "conv_buysell": 0.6,
+    "divergence": 0.04200000000000004,
+    "buy_sell_ratio": 0.9090909090909091,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 1,
+      "reducer": 2,
+      "extractor": 0
+    },
+    "signal": ""
+  },
+  {
+    "symbol": "USDUC",
+    "mint": "CB9dDufT3ZuQXqqSfa1c5kY935TEreyBw9XJXxHKpump",
+    "age_days": 362.5385532407408,
+    "conv_cs": 0.556,
+    "conv_buysell": 0.8,
+    "divergence": 0.244,
+    "buy_sell_ratio": 1.0,
+    "classifications": {
+      "accumulator": 1,
+      "holder": 3,
+      "reducer": 0,
+      "extractor": 1
+    },
+    "signal": ""
+  },
+  {
+    "symbol": "TripleT",
+    "mint": "J8PSdNP3QewKq2Z1JJJFDMaqF7KcaiJhR7gbr5KZpump",
+    "age_days": 81.11168981481482,
+    "conv_cs": 0.536,
+    "conv_buysell": 1.0,
+    "divergence": 0.46399999999999997,
+    "buy_sell_ratio": 5.0,
+    "classifications": {
+      "accumulator": 3,
+      "holder": 2,
+      "reducer": 0,
+      "extractor": 0
+    },
+    "signal": "EARLY_ACCUM"
+  },
+  {
+    "symbol": "maxxing",
+    "mint": "32CdQdBUxbCsLy5AUHWmyidfwhgGUr9N573NBUrDpump",
+    "age_days": 165.64703703703705,
+    "conv_cs": 0.47200000000000003,
+    "conv_buysell": 0.8,
+    "divergence": 0.328,
+    "buy_sell_ratio": 1.5555555555555556,
+    "classifications": {
+      "accumulator": 1,
+      "holder": 3,
+      "reducer": 0,
+      "extractor": 1
+    },
+    "signal": "EARLY_ACCUM"
+  },
+  {
+    "symbol": "Twin",
+    "mint": "EsLb2XdNWVezNnhEsRVKYZ7BymiKUabzh4tdVhz4pump",
+    "age_days": 64.75400462962963,
+    "conv_cs": 0.424,
+    "conv_buysell": 1.0,
+    "divergence": 0.5760000000000001,
+    "buy_sell_ratio": 3.142857142857143,
+    "classifications": {
+      "accumulator": 5,
+      "holder": 0,
+      "reducer": 0,
+      "extractor": 0
+    },
+    "signal": "EARLY_ACCUM"
+  },
+  {
+    "symbol": "BURNIE",
+    "mint": "CGEDT9QZDvvH5GmVkWJH2BXiMJqMJySC9ihWyr7Spump",
+    "age_days": 44.735289351851854,
+    "conv_cs": 0.332,
+    "conv_buysell": 1.0,
+    "divergence": 0.6679999999999999,
+    "buy_sell_ratio": 2.5,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 3,
+      "reducer": 0,
+      "extractor": 0
+    },
+    "signal": "EARLY_ACCUM"
+  },
+  {
+    "symbol": "unc",
+    "mint": "ACtfUWtgvaXrQGNMiohTusi5jcx5RJf5zwu9aAxkpump",
+    "age_days": 35.13625,
+    "conv_cs": 0.096,
+    "conv_buysell": 1.0,
+    "divergence": 0.904,
+    "buy_sell_ratio": 4.083333333333333,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 3,
+      "reducer": 0,
+      "extractor": 0
+    },
+    "signal": "EARLY_ACCUM"
+  },
+  {
+    "symbol": "MOJO",
+    "mint": "sGzragYKDrmRgCGvJUn9WKwrmnUZwfmkNQLTSPfdMNq",
+    "age_days": 772.3574189814814,
+    "conv_cs": 0.008,
+    "conv_buysell": 1.0,
+    "divergence": 0.992,
+    "buy_sell_ratio": 1.2903225806451613,
+    "classifications": {
+      "accumulator": 2,
+      "holder": 3,
+      "reducer": 0,
+      "extractor": 0
+    },
+    "signal": "EARLY_ACCUM"
+  }
+]
