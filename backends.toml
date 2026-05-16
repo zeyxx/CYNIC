@@ -58,11 +58,10 @@ evaluation_timeout_secs = 60         # GPU models: longer timeout
 enabled = true
 
 # Qwen 2.5 7B CPU (sovereign, APU — RADV RENOIR Vulkan)
-# ACTUAL MODEL: Qwen2.5-7B-Instruct-Q4_K_M.gguf (7.6B params, NOT 9B)
-# Dog name "qwen-9b-core" is legacy — renaming would break DB history.
 # --parallel 1 only (--parallel 2 SEGVs on RADV RENOIR, observed 2026-05-08)
 # Observed (2026-05-07): 1,259 calls, 615 success, 631 api_error
-[dog.qwen-9b-core]
+# Renamed from qwen-9b-core → qwen25-7b-core (2026-05-16). Old DB records archived.
+[dog.qwen25-7b-core]
 kind = "inference"
 provider = "sovereign"
 model = "Qwen2.5-7B-Instruct-Q4_K_M"
@@ -155,7 +154,7 @@ restart_command = "schtasks /Run /TN llama-server-9b"
 max_retries = 3
 cooldown_secs = 120
 
-[backend.qwen-9b-core]
+[backend.qwen25-7b-core]
 base_url = "http://<TAILSCALE_CORE>:8080/v1"
 model = "Qwen2.5-7B-Instruct-Q4_K_M.gguf"
 context_size = 4096
@@ -164,7 +163,7 @@ disable_thinking = true
 timeout_secs = 120
 api_key_env = "CYNIC_SOVEREIGN_KEY"
 
-[backend.qwen-9b-core.remediation]
+[backend.qwen25-7b-core.remediation]
 # Local service — kernel and llama-server on same machine
 node = "localhost"
 restart_command = "systemctl --user restart llama-server"

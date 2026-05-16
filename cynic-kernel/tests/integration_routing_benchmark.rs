@@ -89,7 +89,7 @@ fn inject_dog_performance(
                 sample_count: 92,
             },
             DogPerformance {
-                dog_id: "qwen-9b-core".to_string(),
+                dog_id: "qwen25-7b-core".to_string(),
                 avg_latency_ms: 480,
                 success_rate: 0.91,
                 sample_count: 34,
@@ -121,7 +121,7 @@ fn inject_dog_performance(
                 sample_count: 156,
             },
             DogPerformance {
-                dog_id: "qwen-9b-core".to_string(),
+                dog_id: "qwen25-7b-core".to_string(),
                 avg_latency_ms: 510,
                 success_rate: 0.89,
                 sample_count: 67,
@@ -204,7 +204,7 @@ async fn benchmark_routing_improves_dog_selection() {
                     "deterministic-dog".to_string(),
                     "qwen-7b-hf".to_string(),
                     "qwen35-9b-gpu".to_string(),
-                    "qwen-9b-core".to_string(),
+                    "qwen25-7b-core".to_string(),
                     "gemini-cli".to_string(),
                 ]
             };

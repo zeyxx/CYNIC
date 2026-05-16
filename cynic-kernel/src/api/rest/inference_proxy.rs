@@ -80,7 +80,7 @@ pub struct ProxyQueryParams {
 /// POST /v1/chat/completions — OpenAI-compatible proxy with Soma L4 gating.
 ///
 /// Query params:
-///   ?backend=qwen-9b-core  — select specific backend
+///   ?backend=qwen25-7b-core  — select specific backend
 ///
 /// Returns:
 ///   200 + llama-server response (forwarded verbatim)
@@ -325,11 +325,11 @@ mod tests {
     fn proxy_targets_from_fleet_meta() {
         let mut fleet = std::collections::HashMap::new();
         fleet.insert(
-            "qwen-9b-core".to_string(),
+            "qwen25-7b-core".to_string(),
             (
                 "http://10.0.0.1:8080/v1".to_string(),
                 32768u32,
-                "Qwen3.5-9B".to_string(),
+                "Qwen2.5-7B-Instruct".to_string(),
                 None,
             ),
         );
@@ -344,11 +344,11 @@ mod tests {
         );
 
         let mut sovereign = std::collections::HashMap::new();
-        sovereign.insert("qwen-9b-core".to_string(), true);
+        sovereign.insert("qwen25-7b-core".to_string(), true);
         sovereign.insert("cloud-dog".to_string(), false);
 
         let targets = ProxyTargets::from_fleet_meta(&fleet, &sovereign);
-        assert_eq!(targets.available(), vec!["qwen-9b-core"]);
+        assert_eq!(targets.available(), vec!["qwen25-7b-core"]);
         assert!(targets.get("cloud-dog").is_none());
     }
 

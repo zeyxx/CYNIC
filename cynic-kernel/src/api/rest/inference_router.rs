@@ -26,7 +26,7 @@ fn node_quality(failure_reason: &str, age: u64, sr: f64) -> &'static str {
 
 #[derive(Debug, Deserialize)]
 pub struct DogOperationRequest {
-    pub dog: String, // dog name: "qwen-9b-core", "qwen35-9b-gpu", etc.
+    pub dog: String, // dog name: "qwen25-7b-core", "qwen35-9b-gpu", etc.
 }
 
 #[derive(Debug, Serialize)]
@@ -342,13 +342,13 @@ async fn emit_recovery_observation(
 }
 
 /// POST /inference/start — start a specific dog (llama-server service).
-/// body: {"dog": "qwen-9b-core"}
+/// body: {"dog": "qwen25-7b-core"}
 /// Returns: operation status (succeeded, failed, timed_out).
 pub async fn inference_start_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<DogOperationRequest>,
 ) -> Result<Json<DogOperationResponse>, (StatusCode, Json<ErrorResponse>)> {
-    // Map dog name to node name (e.g., "qwen-9b-core" → "cynic-core")
+    // Map dog name to node name (e.g., "qwen25-7b-core" → "cynic-core")
     let node = dog_to_node(&req.dog);
 
     // Execute: systemctl start llama-server
@@ -366,7 +366,7 @@ pub async fn inference_start_handler(
 }
 
 /// POST /inference/remediate — remediate (restart) a specific dog.
-/// body: {"dog": "qwen-9b-core"}
+/// body: {"dog": "qwen25-7b-core"}
 /// Returns: operation status (succeeded, failed, timed_out).
 pub async fn inference_remediate_handler(
     State(state): State<Arc<AppState>>,
@@ -386,7 +386,7 @@ pub async fn inference_remediate_handler(
 }
 
 /// Map dog name to Tailscale node name.
-/// E.g., "qwen-9b-core" → "cynic-core", "qwen35-9b-gpu" → "cynic-gpu"
+/// E.g., "qwen25-7b-core" → "cynic-core", "qwen35-9b-gpu" → "cynic-gpu"
 pub(crate) fn dog_to_node(dog: &str) -> String {
     if dog.contains("gpu") {
         "cynic-gpu".to_string()
@@ -489,7 +489,11 @@ pub async fn list_models_handler(
     let dog_config = vec![
         ("deterministic-dog", "deterministic", "deterministic"),
         ("qwen-7b-hf", "qwen-7b-hf", "Qwen/Qwen2.5-Coder-7B-Instruct"),
-        ("qwen-9b-core", "cynic-core", "Qwen3.5-9B-Q4_K_M.gguf"),
+        (
+            "qwen25-7b-core",
+            "cynic-core",
+            "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+        ),
         ("qwen35-9b-gpu", "cynic-gpu", "Qwen3.5-9B-Q4_K_M.gguf"),
         ("gemini-cli", "gemini-cli", "auto"),
     ];
@@ -521,7 +525,7 @@ pub async fn list_models_handler(
 
         let capabilities = serde_json::json!({
             "context_size": match dog {
-                "qwen-9b-core" => 4096,
+                "qwen25-7b-core" => 4096,
                 "qwen35-9b-gpu" => 131072,
                 "qwen-7b-hf" => 32768,
                 _ => 0,

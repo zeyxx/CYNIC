@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tracing::warn;
 
-const AGENTMAIL_BASE_URL: &str = "https://api.agentmail.to/v1";
+const AGENTMAIL_BASE_URL: &str = "https://api.agentmail.to/v0";
 const DEFAULT_TIMEOUT_SECS: u64 = 10;
 
 /// Agentmail REST API backend configuration.
@@ -54,16 +54,27 @@ pub struct AgentmailBackend {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AgentmailMessage {
-    id: String,
     #[serde(default)]
     message_id: String,
+    #[serde(default)]
+    inbox_id: String,
+    #[serde(default)]
+    thread_id: String,
+    #[serde(default)]
     from: String,
+    #[serde(default)]
     to: Vec<String>,
+    #[serde(default)]
     subject: String,
+    #[serde(default)]
+    preview: String,
     #[serde(default)]
     text: String,
     #[serde(default)]
     html: Option<String>,
+    #[serde(default)]
+    timestamp: String,
+    #[serde(default)]
     created_at: String,
     #[serde(default)]
     labels: Vec<String>,
@@ -73,7 +84,7 @@ struct AgentmailMessage {
 struct AgentmailListResponse {
     messages: Vec<AgentmailMessage>,
     #[serde(default)]
-    total: usize,
+    count: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -257,12 +268,17 @@ impl MailPort for AgentmailBackend {
         Ok(messages
             .into_iter()
             .map(|msg| {
-                let date = DateTime::parse_from_rfc3339(&msg.created_at)
+                let ts = if msg.timestamp.is_empty() {
+                    &msg.created_at
+                } else {
+                    &msg.timestamp
+                };
+                let date = DateTime::parse_from_rfc3339(ts)
                     .map(|dt| dt.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now());
 
                 MessageSummary {
-                    id: msg.id,
+                    id: msg.message_id,
                     from: msg.from,
                     subject: msg.subject,
                     date,
