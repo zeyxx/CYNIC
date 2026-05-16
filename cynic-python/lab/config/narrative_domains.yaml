@@ -1,58 +1,49 @@
-# Narrative-to-domain mapping v0.1
-# Maps narrative tags (from tweets) to domain IDs.
-# Used in analyze_distribution() for primary domain assignment (before keyword fallback).
-# Falsifiable: curated domains should align with this mapping.
+# Narrative-to-domain mapping v0.2
+# Maps narrative tags (from x_proxy.py _NARRATIVES) to domain IDs.
+# Used in assign_domain() for primary domain assignment (before keyword fallback).
+#
+# CONTRACT: every tag produced by x_proxy.py _NARRATIVES must appear here.
+# Falsifiable: grep _NARRATIVES x_proxy.py tags vs this file — zero orphans.
 
 narrative_mappings:
   # D1: Solana/Tokens
   D1:
-    - "rug_pull"
     - "rug_warning"
-    - "pump_hype"
-    - "meme_token"
-    - "solana_token"
     - "token_launch"
+    - "meme_token"
+    - "pump_hype"
+    - "solana_token"
 
   # D2: Inference/LLM
   D2:
-    - "ai_crypto"
     - "inference"
-    - "model"
     - "llm"
     - "agent"
     - "open_weights"
+    - "ai_crypto"
 
   # D3: Sovereignty
   D3:
-    - "sovereignty"
-    - "self_hosted"
-    - "decentralization"
-    - "censorship_resistant"
     - "self_custody"
+    - "sovereignty"
+    - "decentralization"
 
   # D4: Security/Exploits
   D4:
-    - "security"
-    - "exploit"
-    - "vulnerability"
-    - "rug_warning"  # overlaps D1, but security-focused
+    - "rug_pull"
     - "honeypot"
+    - "exploit"
     - "scam"
+    - "vulnerability"
 
   # D5: Macro/Markets
   D5:
-    - "market"
     - "macro"
-    - "macro_signal"
     - "institutional"
-    - "etf"
+    - "market"
     - "regulation"
 
   # D6: Epistemology
   D6:
     - "epistemology"
-    - "verifiable"
-    - "epistemic"
-    - "falsifiable"
-    - "calibration"
     - "bounded_judgment"

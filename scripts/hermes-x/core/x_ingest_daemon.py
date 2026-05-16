@@ -40,6 +40,7 @@ DOMAIN = "twitter"
 POLL_INTERVAL = 2.0
 BATCH_SIZE = 20
 HEARTBEAT_INTERVAL = 60.0  # seconds between heartbeat /observe posts
+JUDGE_THROTTLE = 2.0  # seconds between /judge calls (Dogs need inference time)
 
 
 def load_env():
@@ -135,13 +136,10 @@ def _headers() -> dict:
     return {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
 
 
-def post_judge(row: dict, domain: str = "D1") -> dict | None:
+def post_judge(row: dict, domain: str = "D1", max_retries: int = 3) -> dict | None:
     """POST high-signal tweet to /judge → Dogs evaluate → crystal accumulation.
 
-    Args:
-        row: tweet dict
-        domain: domain ID (D1, D2, D4, D6, etc.) from assign_domain()
-
+    Backs off on 429 (rate limit) with exponential delay. Retries up to max_retries.
     Returns the verdict dict on success, None on failure.
     """
     text = row.get("text", "")[:500]
@@ -153,24 +151,36 @@ def post_judge(row: dict, domain: str = "D1") -> dict | None:
     content = f"X social signal — @{author} (signal {score}): {text}"
     context = f"Passive capture via x-organ [{ACCOUNT_ID}]. Cashtags: {cashtags or 'none'}. Narratives: {narratives or 'none'}. Author tier: {row.get('author_tier', '?')}."
 
-    try:
-        resp = requests.post(
-            f"{_kernel_addr()}/judge",
-            json={"content": content, "context": context, "domain": domain, "account_id": ACCOUNT_ID, "priority": "hermes"},
-            headers=_headers(),
-            timeout=120,
-        )
-        if resp.status_code == 200:
-            verdict = resp.json()
-            logger.info("JUDGE @%s [%d]: %s Q=%.3f",
-                        author, score, verdict.get("verdict", "?"),
-                        verdict.get("q_score", {}).get("total", 0))
-            return verdict
-        logger.warning("POST /judge %d: %s", resp.status_code, resp.text[:100])
-        return None
-    except requests.RequestException as e:
-        logger.warning("POST /judge failed: %s", e)
-        return None
+    payload = {"content": content, "context": context, "domain": domain, "account_id": ACCOUNT_ID, "priority": "hermes"}
+
+    for attempt in range(max_retries + 1):
+        try:
+            resp = requests.post(
+                f"{_kernel_addr()}/judge",
+                json=payload,
+                headers=_headers(),
+                timeout=120,
+            )
+            if resp.status_code == 200:
+                verdict = resp.json()
+                logger.info("JUDGE @%s [%d]: %s Q=%.3f",
+                            author, score, verdict.get("verdict", "?"),
+                            verdict.get("q_score", {}).get("total", 0))
+                return verdict
+            if resp.status_code == 429:
+                delay = 2 ** attempt * 5  # 5s, 10s, 20s, 40s
+                logger.warning("POST /judge 429 rate-limited — backoff %ds (attempt %d/%d)",
+                               delay, attempt + 1, max_retries + 1)
+                time.sleep(delay)
+                continue
+            logger.warning("POST /judge %d: %s", resp.status_code, resp.text[:100])
+            return None
+        except requests.RequestException as e:
+            logger.warning("POST /judge failed: %s", e)
+            return None
+
+    logger.warning("POST /judge exhausted %d retries for @%s", max_retries + 1, author)
+    return None
 
 
 def post_observe(row: dict, organ_name: str = ORGAN_NAME) -> bool:
@@ -255,11 +265,13 @@ def ingest_row(row: dict, organ_name: str = ORGAN_NAME, organ_dir: Path = DEFAUL
     """Route tweet: high-signal → /judge + write to organ, low-signal → /observe.
 
     High-signal tweets are routed to /judge with narrative-first domain assignment.
+    Throttles /judge calls to avoid rate limiting (Dogs need inference time).
     """
     score = row.get("signal_score", 0)
     if score >= JUDGE_THRESHOLD:
         # Assign domain (narrative-first, then keyword, then D1 fallback)
         domain = assign_domain(row, domains or {}, narrative_mappings or {})
+        time.sleep(JUDGE_THROTTLE)  # Respect inference capacity
         verdict = post_judge(row, domain)
         if verdict:
             write_verdict_to_organ(row, verdict, organ_dir)
