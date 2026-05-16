@@ -338,7 +338,7 @@ impl WebSocketClient {
             .header("X-Node-Public-Key", &self.node_public_key)
             .header("X-Node-Identity", &self.node_identity)
             .body(())
-            .map_err(|e| format!("Failed to build WebSocket request: {}", e))?;
+            .map_err(|e| format!("Failed to build WebSocket request: {e}"))?;
 
         let (ws_stream, _) = connect_async(request).await.map_err(|e| e.to_string())?;
         info!("Connected to kernel at {}", self.kernel_url);

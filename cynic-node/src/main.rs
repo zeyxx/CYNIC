@@ -146,10 +146,10 @@ async fn watch(
             _ = stimulus_tick.tick() => {
                 // Phase 3.2: Process queued stimuli from WebSocket client.
                 // Dequeue, send to backend judge, queue verdict for transmission.
-                if let Some(pending) = ws_client.dequeue_stimulus().await {
-                    if let Err(e) = process_stimulus(client, cfg, &ws_client, pending).await {
-                        tracing::error!("stimulus processing error: {e}");
-                    }
+                if let Some(pending) = ws_client.dequeue_stimulus().await
+                    && let Err(e) = process_stimulus(client, cfg, &ws_client, pending).await
+                {
+                    tracing::error!("stimulus processing error: {e}");
                 }
             }
             status = &mut child_wait => {
