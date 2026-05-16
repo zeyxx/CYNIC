@@ -1,6 +1,6 @@
 [Unit]
 Description=CYNIC Hermes Feedback Loop — ingests verdicts and updates domain wisdom (1h cron)
-After=cynic-kernel.service hermes-x-ingest.service
+After=hermes-x-ingest.service
 PartOf=hermes-feedback-loop.timer
 
 [Service]
