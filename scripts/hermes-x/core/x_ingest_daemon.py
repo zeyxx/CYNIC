@@ -617,14 +617,14 @@ def main():
         logger.error("CYNIC_REST_ADDR not set")
         sys.exit(1)
 
-    # Validate account configuration (Phase 2a.3 — fail-fast on misconfiguration)
-    # Use interactive=False for systemd mode — no TTY available, fail cleanly if credentials missing
+    # Account validation: best-effort, not blocking.
+    # The ingest daemon POSTs to the kernel, not to X.com — it doesn't need X credentials.
+    # The proxy (x_proxy.py) handles X auth. Guard removed after restart crash (2026-05-16).
     try:
-        username, _ = get_x_credentials(interactive=False)  # Discard password; validation only
+        username, _ = get_x_credentials(interactive=False)
         logger.info("Account validation passed: %s", username)
     except RuntimeError as e:
-        logger.error("Account configuration invalid: %s", e)
-        sys.exit(1)
+        logger.warning("Account config not available (non-blocking): %s", e)
 
     parser = argparse.ArgumentParser(description="CYNIC ingest daemon")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
