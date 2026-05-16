@@ -207,11 +207,14 @@ Auth: `Bearer $CYNIC_API_KEY` on all endpoints except `/health`, `/live`, `/read
 
 ## SurrealDB — Probe Before Assuming
 
-SurrealDB 3.x changed implicit behavior silently. Rules derived from 3 incidents (2026-05-15):
+SurrealDB 3.x changed implicit behavior silently. Rules derived from 4 incidents (2026-05-15/16):
 
 1. **`SELECT * FROM table WHERE ...` requires `DEFINE TABLE`.** Record-ID queries bypass this. Always bootstrap tables explicitly.
 2. **Basic auth = Argon2id per query.** Use Bearer JWT (`POST /signin` at init). Refresh on 401.
 3. **Indexes not used in inline subqueries.** Bind to `LET` variable first: `LET $v = (SELECT ...); ... NOT IN $v`.
+4. **Aggregate functions fail on string-typed datetimes.** `math::max(created_at)` returns null when `created_at` is stored as string (even ISO format). Use `ORDER BY field DESC LIMIT N` + application-side dedup. `array::first()` in GROUP BY also returns null arrays.
+
+**Health checks must round-trip.** A health check that only verifies config presence (key exists, URL set) without making an actual API call will report "connected: true" indefinitely while the backend is broken. Agentmail reported healthy for weeks while v1 routes returned 404. Every MailPort/StoragePort/ExternalPort health() MUST attempt a real operation (list 1 message, ping, GET /). — Falsify: mock the network layer, verify health() returns unhealthy.
 
 When SurrealDB behavior surprises you, check the 3.x migration guide before debugging the code. Research: `memory/research_surrealdb_3x_2026_05_15.md`.
 
