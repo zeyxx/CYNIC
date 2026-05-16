@@ -3,6 +3,7 @@
 pub mod agent_tasks;
 pub mod coord;
 pub mod data;
+pub mod dispatch;
 pub mod dogs;
 pub mod event;
 pub mod events;
@@ -162,6 +163,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/coord/heartbeat", post(coord_heartbeat_handler))
         .route("/coord/scope", post(coord_scope_handler))
         .route("/coord/who", get(coord_who_handler))
+        .route(
+            "/dispatch/zone-activity",
+            get(dispatch::zone_activity_handler),
+        )
         .route("/soma/request", post(soma_request_handler))
         .route("/mail/health", get(mail_health))
         .route("/mail/inbox", get(inbox))

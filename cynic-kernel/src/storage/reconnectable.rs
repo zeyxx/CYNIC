@@ -304,6 +304,18 @@ impl StoragePort for ReconnectableStorage {
         self.current().last_observation_per_source().await
     }
 
+    // ── Zone Activity ──────────────────────────────────
+    async fn zone_activity(
+        &self,
+        path_prefixes: &[String],
+        exclude_agent: &str,
+        project_root: &str,
+    ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
+        self.current()
+            .zone_activity(path_prefixes, exclude_agent, project_root)
+            .await
+    }
+
     // ── State Log ──────────────────────────────────
     async fn store_state_block(
         &self,
