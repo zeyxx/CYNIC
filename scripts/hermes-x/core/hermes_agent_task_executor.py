@@ -364,56 +364,37 @@ def execute_task(task: dict, organ_dir: str) -> tuple[str | None, str | None]:
     Returns (result, error).
     """
     task_id = task.get("id", "?")
-    objective = task.get("objective", "")
-    actions = task.get("actions", [])
+    # K15 consumer sends 'content' (the task description), not 'objective'/'actions'
+    content = task.get("content", "") or task.get("objective", "")
     domain = task.get("domain", "unknown")
 
-    logger.info("executing task %s: domain=%s objective=%s", task_id, domain, objective[:60])
+    if not content:
+        logger.warning("task %s has no content or objective — skipping", task_id)
+        return None, "task has no content"
 
-    # Build prompt for Hermes Agent
-    action_str = "\n".join(f"  - {a}" for a in actions)
+    logger.info("executing task %s: domain=%s content=%s", task_id, domain, content[:80])
 
     # Load SKILL.md to inject domain insights and guidance
     skill_context = load_skill(organ_dir)
 
-    prompt = f"""
-TASK: {objective}
+    prompt = f"""You are CYNIC's sense organ. Analyze this signal and act on it.
 
-Domain focus: {domain}
+{content}
+
+Domain: {domain}
 Task ID: {task_id}
 
-Actions to execute:
-{action_str}
-
-Success criteria:
-- Complete the actions listed above
-- Post observations to /observe endpoint
-- Include narratives and signal_score in observations
-
-GUIDANCE:
-- Focus your exploration on the domain specified above
-- Use learned domain patterns from SKILL.md (below) to prioritize signal detection
-- Extract high-confidence signals (prefer domains with avg_confidence > 0.30)
-- Track domain patterns: consistency matters more than novelty for emerging trends
+Instructions:
+1. Use cynic_observe to record your findings (include domain, narratives, signal_score)
+2. If you have browser access, verify claims against live data
+3. Be concise — one observation per finding
 """
 
-    # Add domain weight guidance (truncated to avoid context overflow on small models)
-    max_skill_chars = 2000
+    # Inject only domain weights from SKILL.md (not the full file)
     if skill_context:
         domain_guidance = extract_domain_guidance(skill_context)
-        prompt += domain_guidance
-        truncated = skill_context[:max_skill_chars]
-        if len(skill_context) > max_skill_chars:
-            truncated += f"\n\n(... truncated from {len(skill_context)} chars to {max_skill_chars})\n"
-        prompt += "\nCURRENT ORGANISM KNOWLEDGE:\n"
-        prompt += f"\n{truncated}\n"
-    else:
-        prompt += "\n(No learned patterns yet — establish baseline observations)\n"
-
-    prompt += f"""
-Your domain ({domain}) and the patterns above should guide your exploration.
-Use the browser and code execution tools to complete this task.
-"""
+        if domain_guidance:
+            prompt += domain_guidance
 
     logger.debug("prompt: %s", prompt[:200])
 
@@ -450,7 +431,7 @@ Use the browser and code execution tools to complete this task.
             ["hermes", "chat", "-q", prompt, "--quiet", "--ignore-rules"],
             capture_output=True,
             text=True,
-            timeout=600,  # 10 min timeout per task (hermes setup + git can be slow)
+            timeout=1800,  # 30 min timeout (9B model at 45 tok/s needs time for multi-turn)
         )
 
         if result.returncode == 0:
@@ -468,7 +449,7 @@ Use the browser and code execution tools to complete this task.
         logger.error(error)
         return None, error
     except subprocess.TimeoutExpired:
-        error = "task execution timed out (10 min)"
+        error = "task execution timed out (30 min)"
         logger.error(error)
         return None, error
     except Exception as e:
