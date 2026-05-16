@@ -397,12 +397,16 @@ GUIDANCE:
 - Track domain patterns: consistency matters more than novelty for emerging trends
 """
 
-    # Add domain weight guidance
+    # Add domain weight guidance (truncated to avoid context overflow on small models)
+    max_skill_chars = 2000
     if skill_context:
         domain_guidance = extract_domain_guidance(skill_context)
         prompt += domain_guidance
+        truncated = skill_context[:max_skill_chars]
+        if len(skill_context) > max_skill_chars:
+            truncated += f"\n\n(... truncated from {len(skill_context)} chars to {max_skill_chars})\n"
         prompt += "\nCURRENT ORGANISM KNOWLEDGE:\n"
-        prompt += f"\n{skill_context}\n"
+        prompt += f"\n{truncated}\n"
     else:
         prompt += "\n(No learned patterns yet — establish baseline observations)\n"
 
