@@ -516,7 +516,7 @@ pub(crate) async fn zone_activity(
     let conditions: Vec<String> = path_prefixes
         .iter()
         .map(|p| {
-            let full = format!("{}/{}", project_root, p);
+            let full = format!("{project_root}/{p}");
             format!("string::starts_with(target, '{}')", escape_surreal(&full))
         })
         .collect();

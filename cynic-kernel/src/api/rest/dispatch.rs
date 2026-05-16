@@ -63,15 +63,12 @@ pub async fn zone_activity_handler(
         }
     };
 
-    let zone = match zone {
-        Some(z) => z,
-        None => {
-            return Ok(Json(ZoneActivityResponse {
-                zone: None,
-                active_agents: vec![],
-                observation_count: 0,
-            }));
-        }
+    let Some(zone) = zone else {
+        return Ok(Json(ZoneActivityResponse {
+            zone: None,
+            active_agents: vec![],
+            observation_count: 0,
+        }));
     };
 
     // 2. Get path prefixes for this zone
