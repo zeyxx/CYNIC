@@ -1,7 +1,8 @@
 [Unit]
 Description=CYNIC Hermes Gemini Briefing — synthesizes domain wisdom every 4 hours
 Documentation=https://github.com/zeyxx/CYNIC/docs/hermes-architecture.md
-After=cynic-kernel.service
+# After=cynic-kernel.service — REMOVED: causes ordering cycle (timers.target→timer→kernel→basic→timers.target)
+# The SERVICE has After=cynic-kernel.service which handles the dependency.
 
 [Timer]
 OnBootSec=10min
