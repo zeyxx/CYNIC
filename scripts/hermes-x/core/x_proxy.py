@@ -69,12 +69,40 @@ _QUALITY = re.compile(
     re.IGNORECASE,
 )
 
+# Narrative tags — vocabulary MUST match narrative_domains.yaml keys.
+# Each tag maps to a domain via narrative_domains.yaml (priority 1 in assign_domain).
+# Order matters: first match wins in _narratives(). Most specific patterns first.
 _NARRATIVES = [
-    (re.compile(r"rug|scam|honeypot|dev sold", re.I), "warning"),
-    (re.compile(r"bullish|moon|pump|gem|100x", re.I), "hype"),
-    (re.compile(r"analysis|thread|research|data", re.I), "analysis"),
-    (re.compile(r"community|dao|governance|vote", re.I), "community"),
-    (re.compile(r"launch|mint|deploy|live", re.I), "launch"),
+    # D4: Security/Exploits
+    (re.compile(r"rug\s*pull|rugged|dev\s+sold|dev\s+dumped|LP\s+removed", re.I), "rug_pull"),
+    (re.compile(r"honeypot|honey\s+pot", re.I), "honeypot"),
+    (re.compile(r"exploit|hack(?:ed)?|drain(?:ed)?|bridge\s+attack|reentrancy", re.I), "exploit"),
+    (re.compile(r"scam|fraud|fake\s+(?:token|project|team)", re.I), "scam"),
+    (re.compile(r"vuln(?:erability)?|CVE-|zero[- ]day|bug\s+bounty", re.I), "vulnerability"),
+    # D1: Solana/Tokens
+    (re.compile(r"rug\s+warning|bundled\s+scam|cabal", re.I), "rug_warning"),
+    (re.compile(r"pump\.fun|pumpfun|bonding\s+curve|graduated", re.I), "token_launch"),
+    (re.compile(r"memecoin|meme\s+coin|[$](?:BONK|WIF|FARTCOIN)", re.I), "meme_token"),
+    (re.compile(r"bullish|moon|pump(?!\.fun)|gem|100x|1000x", re.I), "pump_hype"),
+    (re.compile(r"solana\s+token|sol\s+ecosystem|SPL\s+token", re.I), "solana_token"),
+    # D2: Inference/LLM
+    (re.compile(r"local\s+(?:LLM|AI|model)|self[- ]hosted\s+(?:AI|model)", re.I), "inference"),
+    (re.compile(r"Qwen|llama\.cpp|vLLM|SGLang|GGUF|tok/s|LoRA|fine[- ]tun", re.I), "llm"),
+    (re.compile(r"(?:AI|LLM)\s+agent|agent\s+(?:framework|protocol)", re.I), "agent"),
+    (re.compile(r"open[- ](?:weights|source\s+model)|open[- ]model", re.I), "open_weights"),
+    (re.compile(r"AI\s+(?:crypto|token|depin)|crypto\s+AI|GPU\s+network", re.I), "ai_crypto"),
+    # D5: Macro/Markets
+    (re.compile(r"macro|interest\s+rate|monetary\s+policy|fiscal|M2\s+", re.I), "macro"),
+    (re.compile(r"ETF|institutional|blackrock|grayscale", re.I), "institutional"),
+    (re.compile(r"market\s+(?:cap|structure|crash|rally)|bear|bull\s+market", re.I), "market"),
+    (re.compile(r"regulat(?:ion|or)|SEC\s|MiCA|legislation", re.I), "regulation"),
+    # D3: Sovereignty
+    (re.compile(r"self[- ](?:custody|hosted|sovereign)|own\s+your\s+(?:data|keys)", re.I), "self_custody"),
+    (re.compile(r"sovereign(?:ty)?|censorship[- ]resist", re.I), "sovereignty"),
+    (re.compile(r"decentraliz(?:ed|ation)|permissionless|trustless", re.I), "decentralization"),
+    # D6: Epistemology
+    (re.compile(r"falsif(?:y|iable)|verif(?:y|iable)|calibrat(?:e|ion)|epistemic", re.I), "epistemology"),
+    (re.compile(r"bounded\s+judgment|signal\s+vs\s+noise|ground\s+truth", re.I), "bounded_judgment"),
 ]
 
 
@@ -324,7 +352,8 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict, sourc
     engagement = (likes + rts + replies) / views if views > 0 else 0.0
 
     return {
-        # Account & source
+        # Schema & account
+        "schema_version": 3,  # P17: bump on any field addition/removal
         "account_id": ACCOUNT_ID,
 
         # Core tweet

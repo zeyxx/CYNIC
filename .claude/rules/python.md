@@ -46,6 +46,12 @@ Production Python never calls kernel via REST (breaks sovereignty). Kernel consu
 
 **P15. Python → Rust is 1:1.** Rust code from Python must be line-for-line translatable. Avoid Python idioms that need cleverness to port.
 
+**P16. Vocabulary contract across producer-consumer.** When a Python producer emits tagged data (narrative labels, status codes, domain IDs) that a consumer uses for routing/gating, both sides MUST share a single vocabulary file. The producer imports from it; the consumer reads it. Zero orphan tags on either side. Incident: x_proxy.py emitted `"warning"/"hype"` while narrative_domains.yaml expected `"rug_pull"/"pump_hype"` — ZERO overlap, narrative routing was dead code for the entire dataset (2026-05-16). — Falsify: add a narrative tag to the producer without updating the YAML; the contract check script should fail.
+
+**P17. Append-only files need schema versioning.** JSONL datasets that grow by appending MUST include a `schema_version` field in every row. When the schema changes, the new producer writes a new version number. Consumers MUST filter by version or the dataset accumulates incompatible rows that pollute all metrics. Incident: dataset.v2.jsonl contained 2298 v1 rows (16 fields) mixed with 2890 v2 rows (49 fields) — 44% of the dataset was noise with no signal_score, no enrichment (2026-05-16). — Falsify: query `SELECT DISTINCT schema_version FROM dataset` — if >1 version exists, either migrate or split.
+
+**P18. Distinguish transient from permanent errors.** HTTP 429 (rate limit) and 503 (overloaded) are transient — retry with backoff. HTTP 400/404/422 are permanent — don't retry. A daemon that treats all non-200 as permanent errors silently drops data when the cursor advances past failed rows. Incident: ingest daemon treated 429 as failure, cursor advanced, 176 tweets lost irrecoverably (2026-05-16). — Falsify: mock a 429 response; verify the row is retried and eventually succeeds or is explicitly dead-lettered.
+
 ### Structure
 
 ```

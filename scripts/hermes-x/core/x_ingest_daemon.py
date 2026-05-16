@@ -40,6 +40,7 @@ DOMAIN = "twitter"
 POLL_INTERVAL = 2.0
 BATCH_SIZE = 20
 HEARTBEAT_INTERVAL = 60.0  # seconds between heartbeat /observe posts
+JUDGE_THROTTLE = 2.0  # seconds between /judge calls (Dogs need inference time)
 
 
 def load_env():
@@ -74,7 +75,7 @@ JUDGE_THRESHOLD = 3
 def load_domains_config(lab_config_dir: str = None) -> dict:
     """Load domains.yaml from lab config."""
     if lab_config_dir is None:
-        lab_config_dir = Path(__file__).parent.parent.parent / "cynic-python" / "lab" / "config"
+        lab_config_dir = Path(__file__).parent.parent.parent.parent / "cynic-python" / "lab" / "config"
     else:
         lab_config_dir = Path(lab_config_dir)
 
@@ -89,7 +90,7 @@ def load_domains_config(lab_config_dir: str = None) -> dict:
 def load_narrative_mappings(lab_config_dir: str = None) -> dict:
     """Load narrative_domains.yaml for narrative-first domain assignment."""
     if lab_config_dir is None:
-        lab_config_dir = Path(__file__).parent.parent.parent / "cynic-python" / "lab" / "config"
+        lab_config_dir = Path(__file__).parent.parent.parent.parent / "cynic-python" / "lab" / "config"
     else:
         lab_config_dir = Path(lab_config_dir)
 
@@ -135,42 +136,127 @@ def _headers() -> dict:
     return {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
 
 
-def post_judge(row: dict, domain: str = "D1") -> dict | None:
-    """POST high-signal tweet to /judge → Dogs evaluate → crystal accumulation.
+def build_social_stimulus(row: dict, domain: str) -> str:
+    """Build structured stimulus from tweet data — mirrors kernel stimulus format.
 
-    Args:
-        row: tweet dict
-        domain: domain ID (D1, D2, D4, D6, etc.) from assign_domain()
-
-    Returns the verdict dict on success, None on failure.
+    Dogs are calibrated on [DOMAIN]/[METRICS]/[BASELINES]/[AXIOM EVIDENCE]/[QUESTION] format.
+    Prose content scores BARK because Dogs can't map unstructured text to axioms.
+    K20: stimulus format = API contract with Dogs.
     """
     text = row.get("text", "")[:500]
     author = row.get("author_screen_name", "?")
     score = row.get("signal_score", 0)
-    cashtags = ", ".join(f"${c}" for c in row.get("cashtags", []))
-    narratives = ", ".join(row.get("narratives", []))
+    tier = row.get("author_tier", "unknown")
+    cashtags = row.get("cashtags", [])
+    narratives = row.get("narratives", [])
+    views = row.get("views", 0) or 0
+    likes = row.get("likes", 0) or 0
+    replies = row.get("replies", 0) or 0
+    bookmarks = row.get("bookmarks", 0) or 0
+    followers = row.get("author_followers_count", 0) or 0
+    engagement = row.get("engagement_rate", 0.0) or 0.0
+    interaction = row.get("interaction_type", "original")
+    is_coordinated = row.get("is_coordinated", False)
+    coord_count = row.get("coordination_count", 0)
 
-    content = f"X social signal — @{author} (signal {score}): {text}"
-    context = f"Passive capture via x-organ [{ACCOUNT_ID}]. Cashtags: {cashtags or 'none'}. Narratives: {narratives or 'none'}. Author tier: {row.get('author_tier', '?')}."
+    lines = []
+    lines.append(f"[DOMAIN: {domain}]")
+    lines.append("")
 
-    try:
-        resp = requests.post(
-            f"{_kernel_addr()}/judge",
-            json={"content": content, "context": context, "domain": domain, "account_id": ACCOUNT_ID, "priority": "hermes"},
-            headers=_headers(),
-            timeout=120,
-        )
-        if resp.status_code == 200:
-            verdict = resp.json()
-            logger.info("JUDGE @%s [%d]: %s Q=%.3f",
-                        author, score, verdict.get("verdict", "?"),
-                        verdict.get("q_score", {}).get("total", 0))
-            return verdict
-        logger.warning("POST /judge %d: %s", resp.status_code, resp.text[:100])
-        return None
-    except requests.RequestException as e:
-        logger.warning("POST /judge failed: %s", e)
-        return None
+    # Metrics — raw facts
+    lines.append("[METRICS]")
+    lines.append(f"author: @{author}")
+    lines.append(f"author_tier: {tier}")
+    lines.append(f"author_followers: {followers:,}")
+    lines.append(f"verified: {row.get('author_verified', False)}")
+    lines.append(f"signal_score: {score} (heuristic, range -5 to +7)")
+    lines.append(f"interaction_type: {interaction}")
+    lines.append(f"views: {views:,}")
+    lines.append(f"likes: {likes:,}")
+    lines.append(f"replies: {replies:,}")
+    lines.append(f"bookmarks: {bookmarks:,}")
+    lines.append(f"engagement_rate: {engagement:.4f}")
+    if cashtags:
+        lines.append(f"cashtags: {', '.join(cashtags)}")
+    if narratives:
+        lines.append(f"narratives: {', '.join(narratives)}")
+    if is_coordinated:
+        lines.append(f"COORDINATION_FLAG: {coord_count} identical texts detected")
+    lines.append(f"lang: {row.get('lang', '?')}")
+    lines.append("")
+
+    # Content — the actual tweet
+    lines.append("[CONTENT]")
+    lines.append(text)
+    lines.append("")
+
+    # Baselines
+    lines.append("[BASELINES]")
+    lines.append("high_signal: signal_score>=5, engagement>0.02, author_tier=whale/influencer, original content, narratives=analysis/warning")
+    lines.append("moderate_signal: signal_score 3-4, engagement 0.005-0.02, verified author, some discussion")
+    lines.append("noise: signal_score<3, engagement<0.005, bot tier, retweet, no cashtags/narratives")
+    lines.append("coordination_risk: coordination_count>=3, identical text from multiple authors")
+    lines.append("")
+
+    # Axiom evidence
+    lines.append("[AXIOM EVIDENCE]")
+    lines.append("FIDELITY: Is this author's claim genuine? Does the content match observable on-chain reality?")
+    lines.append("PHI: Is engagement proportional to content quality? Is follower-to-engagement ratio coherent?")
+    lines.append("VERIFY: Can the claims in this tweet be verified? Are cashtags/narratives checkable on-chain?")
+    lines.append("CULTURE: Does this follow established crypto discourse norms? Quality thread vs pump spam?")
+    lines.append("BURN: Is the signal efficient? Original content vs noise (retweet, bot, coordinated)?")
+    lines.append("SOVEREIGNTY: Is this independent analysis or coordinated shilling? Author tier vs content quality?")
+    lines.append("")
+
+    # Question
+    lines.append("[QUESTION]")
+    lines.append("Evaluate this social signal's reliability and information value. Score each axiom from 0.05 to 0.618.")
+
+    return "\n".join(lines)
+
+
+def post_judge(row: dict, domain: str = "D1", max_retries: int = 3) -> dict | None:
+    """POST high-signal tweet to /judge → Dogs evaluate → crystal accumulation.
+
+    Backs off on 429 (rate limit) with exponential delay. Retries up to max_retries.
+    Returns the verdict dict on success, None on failure.
+    """
+    author = row.get("author_screen_name", "?")
+    score = row.get("signal_score", 0)
+
+    content = build_social_stimulus(row, domain)
+    context = f"Passive capture via x-organ [{ACCOUNT_ID}]. Account: {ACCOUNT_ID}."
+
+    payload = {"content": content, "context": context, "domain": domain, "account_id": ACCOUNT_ID, "priority": "hermes"}
+
+    for attempt in range(max_retries + 1):
+        try:
+            resp = requests.post(
+                f"{_kernel_addr()}/judge",
+                json=payload,
+                headers=_headers(),
+                timeout=120,
+            )
+            if resp.status_code == 200:
+                verdict = resp.json()
+                logger.info("JUDGE @%s [%d]: %s Q=%.3f",
+                            author, score, verdict.get("verdict", "?"),
+                            verdict.get("q_score", {}).get("total", 0))
+                return verdict
+            if resp.status_code == 429:
+                delay = 2 ** attempt * 5  # 5s, 10s, 20s, 40s
+                logger.warning("POST /judge 429 rate-limited — backoff %ds (attempt %d/%d)",
+                               delay, attempt + 1, max_retries + 1)
+                time.sleep(delay)
+                continue
+            logger.warning("POST /judge %d: %s", resp.status_code, resp.text[:100])
+            return None
+        except requests.RequestException as e:
+            logger.warning("POST /judge failed: %s", e)
+            return None
+
+    logger.warning("POST /judge exhausted %d retries for @%s", max_retries + 1, author)
+    return None
 
 
 def post_observe(row: dict, organ_name: str = ORGAN_NAME) -> bool:
@@ -255,11 +341,13 @@ def ingest_row(row: dict, organ_name: str = ORGAN_NAME, organ_dir: Path = DEFAUL
     """Route tweet: high-signal → /judge + write to organ, low-signal → /observe.
 
     High-signal tweets are routed to /judge with narrative-first domain assignment.
+    Throttles /judge calls to avoid rate limiting (Dogs need inference time).
     """
     score = row.get("signal_score", 0)
     if score >= JUDGE_THRESHOLD:
         # Assign domain (narrative-first, then keyword, then D1 fallback)
         domain = assign_domain(row, domains or {}, narrative_mappings or {})
+        time.sleep(JUDGE_THROTTLE)  # Respect inference capacity
         verdict = post_judge(row, domain)
         if verdict:
             write_verdict_to_organ(row, verdict, organ_dir)
@@ -529,14 +617,14 @@ def main():
         logger.error("CYNIC_REST_ADDR not set")
         sys.exit(1)
 
-    # Validate account configuration (Phase 2a.3 — fail-fast on misconfiguration)
-    # Use interactive=False for systemd mode — no TTY available, fail cleanly if credentials missing
+    # Account validation: best-effort, not blocking.
+    # The ingest daemon POSTs to the kernel, not to X.com — it doesn't need X credentials.
+    # The proxy (x_proxy.py) handles X auth. Guard removed after restart crash (2026-05-16).
     try:
-        username, _ = get_x_credentials(interactive=False)  # Discard password; validation only
+        username, _ = get_x_credentials(interactive=False)
         logger.info("Account validation passed: %s", username)
     except RuntimeError as e:
-        logger.error("Account configuration invalid: %s", e)
-        sys.exit(1)
+        logger.warning("Account config not available (non-blocking): %s", e)
 
     parser = argparse.ArgumentParser(description="CYNIC ingest daemon")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
