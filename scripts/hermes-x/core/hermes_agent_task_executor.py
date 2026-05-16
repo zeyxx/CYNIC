@@ -441,12 +441,13 @@ Use the browser and code execution tools to complete this task.
 
     # Spawn hermes agent
     try:
-        # Run hermes with the task prompt
         # -q: single query (non-interactive)
         # --quiet: suppress banners
-        # Note: hermes will need proper credentials configured
+        # --ignore-rules: skip AGENTS.md/SOUL.md/skills auto-injection
+        #   (we inject SKILL.md content directly in the prompt, truncated;
+        #    without this, Hermes loads ~47K of CYNIC skills on top)
         result = subprocess.run(
-            ["hermes", "chat", "-q", prompt, "--quiet"],
+            ["hermes", "chat", "-q", prompt, "--quiet", "--ignore-rules"],
             capture_output=True,
             text=True,
             timeout=600,  # 10 min timeout per task (hermes setup + git can be slow)
