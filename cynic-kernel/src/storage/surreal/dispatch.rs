@@ -85,12 +85,17 @@ pub(super) async fn store_agent_dispatch(
     let hash = compute_dispatch_hash(dispatch);
 
     // Look up previous dispatch for same scope to chain hashes
-    let prev_hash = get_last_completed_dispatch_for_scope(storage, &dispatch.scope)
-        .await
-        .ok()
-        .flatten()
-        .map(|d| d.hash)
-        .unwrap_or_default();
+    let prev_hash = match get_last_completed_dispatch_for_scope(storage, &dispatch.scope).await {
+        Ok(Some(d)) => d.hash,
+        Ok(None) => String::new(),
+        Err(e) => {
+            tracing::warn!(
+                "failed to fetch previous dispatch for scope {}: {e}",
+                dispatch.scope
+            );
+            String::new()
+        }
+    };
 
     let query = format!(
         "INSERT INTO agent_dispatch {{ scope: '{}', zone: '{}', claimed_by: '{}', branch: '{}', status: 'CLAIMED', \
