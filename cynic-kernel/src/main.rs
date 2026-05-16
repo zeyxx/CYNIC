@@ -771,6 +771,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    // ─── RING 2: Zone config (dispatch visibility) ──────────────────
+    let zones = {
+        let zones_path = project_root.join(".claude").join("zones.json");
+        let zones_str = zones_path.display().to_string();
+        match domain::zones::ZoneConfig::from_file(&zones_str) {
+            Ok(z) => {
+                klog!("[Ring 2] Zones: loaded {} zone(s)", z.zone_count());
+                Arc::new(z)
+            }
+            Err(e) => {
+                klog!("[Ring 2] Zones: {e} — zone activity disabled");
+                Arc::new(domain::zones::ZoneConfig::default())
+            }
+        }
+    };
+
     let rest_state = Arc::new(api::rest::AppState {
         judge: judge_swap,
         storage: Arc::clone(&storage_port),
@@ -815,6 +831,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         project_root: project_root.display().to_string(),
         mail: mail_backend.clone(),
         node_registry: Arc::new(api::websocket::NodeRegistry::new(120)),
+        zones,
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 

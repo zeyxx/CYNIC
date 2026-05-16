@@ -200,6 +200,9 @@ pub struct AppState {
     /// Phase 3: Node registry for WebSocket federation.
     /// Tracks connected nodes with TTL-based eviction (120s default).
     pub node_registry: Arc<crate::api::websocket::NodeRegistry>,
+    /// Zone config — maps file paths to ownership zones for dispatch visibility.
+    /// Loaded from .claude/zones.json at boot. Read-only after init.
+    pub zones: Arc<crate::domain::zones::ZoneConfig>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.
