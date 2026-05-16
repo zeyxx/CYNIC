@@ -111,7 +111,7 @@ fi
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 # Check 1: PR not already merged (prevents orphan commits — observed 2026-05-15)
-MERGED_PR=$(gh pr list --head "$BRANCH" --state merged --json number --jq '.[0].number' 2>/dev/null || true)
+MERGED_PR=$(timeout 10 gh pr list --head "$BRANCH" --state merged --json number --jq '.[0].number' 2>/dev/null || true)
 if [ -n "$MERGED_PR" ]; then
     echo ""
     echo "✗ PR #$MERGED_PR already merged for branch '$BRANCH'."
@@ -121,7 +121,7 @@ if [ -n "$MERGED_PR" ]; then
 fi
 
 # Check 2: Freshness (branch must include origin/main)
-git fetch origin main --quiet 2>/dev/null || true
+timeout 10 git fetch origin main --quiet 2>/dev/null || true
 if ! git merge-base --is-ancestor origin/main HEAD 2>/dev/null; then
     echo ""
     echo "✗ Branch is not rebased on origin/main."
