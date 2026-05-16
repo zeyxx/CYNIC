@@ -3,7 +3,7 @@
 
 use super::SurrealHttpStorage;
 use crate::domain::storage::{AgentDispatch, StorageError};
-use serde_json::json;
+use hex;
 use sha2::{Digest, Sha256};
 
 fn row_to_agent_dispatch(row: &serde_json::Value) -> Option<AgentDispatch> {
@@ -73,7 +73,7 @@ fn compute_dispatch_hash(dispatch: &AgentDispatch) -> String {
     );
     let mut hasher = Sha256::new();
     hasher.update(data.as_bytes());
-    format!("{:x}", hasher.finalize())
+    hex::encode(hasher.finalize())
 }
 
 /// Store a new dispatch record. Returns dispatch ID.
@@ -169,7 +169,7 @@ pub(super) async fn update_dispatch_status(
     let now = chrono::Utc::now().to_rfc3339();
 
     let completed_at = if new_status == "COMPLETED" {
-        format!("completed_at: '{}',", now)
+        format!("completed_at: '{now}',")
     } else {
         String::new()
     };
@@ -200,8 +200,7 @@ pub(super) async fn update_dispatch_pr(
     pr_number: u32,
 ) -> Result<(), StorageError> {
     let query = format!(
-        "UPDATE agent_dispatch SET status = 'PROPOSED', pr_number = {} WHERE id = {};",
-        pr_number, dispatch_id
+        "UPDATE agent_dispatch SET status = 'PROPOSED', pr_number = {pr_number} WHERE id = {dispatch_id};"
     );
     storage.query_one(&query).await?;
     Ok(())

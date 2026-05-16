@@ -176,3 +176,23 @@ pub struct RawEvent {
     #[serde(default)]
     pub failure_reason: String,
 }
+
+/// Multi-cortex dispatch record — coordinates work across Claude Code, Gemini, and Hermes.
+/// Each cortex claims a scope and tracks status through the execution pipeline.
+/// Hash chained for integrity (COMPLETED dispatch) → CLAIMED → PROCESSING → PROPOSED → COMPLETED.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentDispatch {
+    pub id: String,         // SurrealDB record ID
+    pub scope: String,      // "auth" | "trading" | "validation" | etc.
+    pub zone: String,       // "l0" | "l1" | "l2" | etc.
+    pub claimed_by: String, // agent_id of executing cortex
+    pub branch: String,     // git branch name for isolation
+    pub status: String,     // "CLAIMED" | "PROCESSING" | "PROPOSED" | "COMPLETED"
+    pub created_at: String, // RFC3339 timestamp
+    #[serde(default)]
+    pub completed_at: Option<String>, // RFC3339 timestamp when COMPLETED
+    #[serde(default)]
+    pub pr_number: Option<u32>, // GitHub PR number after PROPOSED
+    pub hash: String,       // SHA256(scope|zone|claimed_by|branch|status)
+    pub prev_hash: String,  // Chain: hash of previous COMPLETED dispatch for scope
+}
