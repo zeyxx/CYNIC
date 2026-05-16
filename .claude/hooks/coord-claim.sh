@@ -82,8 +82,21 @@ if [[ -n "$ZONE" ]]; then
     if [[ -f "$ZONE_LOCK" ]]; then
         CLAIMED_BY=$(cat "$ZONE_LOCK" 2>/dev/null || echo "")
         if [[ -n "$CLAIMED_BY" && "$CLAIMED_BY" != "$AGENT_ID" ]]; then
-            # Another cortex holds this zone — HARD BLOCK
-            block "ZONE CONFLICT: '${ZONE}' is claimed by ${CLAIMED_BY}. File: ${FILE_PATH##*/}. Wait or ask T. to reassign."
+            # Ask kernel: is the claimant still alive?
+            ALIVE="false"
+            if [[ -n "$API_KEY" ]]; then
+                WHO_RESPONSE=$(curl -s --connect-timeout 2 --max-time 3 \
+                    "http://${KERNEL_ADDR}/coord/who" \
+                    -H "Authorization: Bearer $API_KEY" 2>/dev/null || echo "")
+                if echo "$WHO_RESPONSE" | jq -e --arg id "$CLAIMED_BY" '.agents[]? | select(.agent_id == $id)' > /dev/null 2>&1; then
+                    ALIVE="true"
+                fi
+            fi
+            if [[ "$ALIVE" == "true" ]]; then
+                block "ZONE CONFLICT: '${ZONE}' is claimed by ${CLAIMED_BY} (live). File: ${FILE_PATH##*/}. Wait or ask T. to reassign."
+            else
+                echo "WARN: zone '${ZONE}' claimed by dead session ${CLAIMED_BY} — reclaiming" >&2
+            fi
         fi
     fi
 
