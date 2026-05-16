@@ -524,32 +524,44 @@ pub(crate) async fn zone_activity(
 
     let exclude = escape_surreal(exclude_agent);
 
-    // Single query: group by agent_id, get latest activity + count
+    // Fetch recent edits in zone, ordered by time desc. No GROUP BY (SurrealDB 3.x
+    // math::max doesn't work on datetime strings). Deduplicate by agent_id in Rust.
     let query = format!(
-        "SELECT agent_id, \
-                math::max(created_at) AS last_active, \
-                count() AS activity_count, \
-                array::first(target) AS last_file \
+        "SELECT agent_id, created_at AS last_active, target AS last_file \
          FROM observation \
          WHERE ({path_filter}) \
            AND agent_id != '{exclude}' \
            AND agent_id != '' \
+           AND tool IN ['Edit', 'Write'] \
+           AND target != '' \
            AND created_at > time::now() - 1h \
-         GROUP BY agent_id \
-         ORDER BY last_active DESC \
-         LIMIT 10;"
+         ORDER BY created_at DESC \
+         LIMIT 50;"
     );
 
     let results = storage.query(&query).await?;
     let rows = results.into_iter().next().unwrap_or_default();
 
+    // Deduplicate: first occurrence per agent_id = most recent (query ordered DESC)
+    let mut seen = std::collections::HashSet::new();
+    let mut agent_counts: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+
+    for row in &rows {
+        if let Some(aid) = row["agent_id"].as_str() {
+            *agent_counts.entry(aid.to_string()).or_default() += 1;
+        }
+    }
+
     let agents = rows
         .iter()
         .filter_map(|row| {
             let agent_id = row["agent_id"].as_str()?.to_string();
+            if !seen.insert(agent_id.clone()) {
+                return None; // already seen — earlier row was more recent
+            }
             let last_active = row["last_active"].as_str().unwrap_or("").to_string();
             let last_file = row["last_file"].as_str().unwrap_or("").to_string();
-            let activity_count = row["activity_count"].as_u64().unwrap_or(0);
+            let activity_count = agent_counts.get(&agent_id).copied().unwrap_or(1);
 
             Some(crate::api::rest::dispatch::AgentActivity {
                 agent_id,
