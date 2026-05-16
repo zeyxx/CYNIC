@@ -1063,6 +1063,7 @@ mod tests {
             project_root: ".".to_string(),
             mail: None,
             node_registry: Arc::new(crate::api::websocket::NodeRegistry::new(120)),
+            zones: Arc::new(crate::domain::zones::ZoneConfig::default()),
         })
     }
 

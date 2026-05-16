@@ -31,3 +31,4 @@ pub mod verdict_cache;
 pub mod verdict_queue;
 pub mod wallet_judgment;
 pub mod wisdom;
+pub mod zones;

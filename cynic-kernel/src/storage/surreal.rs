@@ -465,6 +465,17 @@ impl StoragePort for SurrealHttpStorage {
         dispatch::update_dispatch_pr(self, dispatch_id, pr_number).await
     }
 
+    // ── Zone Activity (dispatch visibility) ──────────────────────
+
+    async fn zone_activity(
+        &self,
+        path_prefixes: &[String],
+        exclude_agent: &str,
+        project_root: &str,
+    ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
+        activity::zone_activity(self, path_prefixes, exclude_agent, project_root).await
+    }
+
     // ── State Log ──────────────────────────────────
 
     async fn store_state_block(

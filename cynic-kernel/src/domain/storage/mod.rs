@@ -436,6 +436,20 @@ pub trait StoragePort: Send + Sync {
         Ok(())
     }
 
+    // ── Zone Activity (data-centric dispatch visibility) ──────────
+
+    /// Query recent observation activity in a set of path prefixes.
+    /// Returns agents (excluding `exclude_agent`) active in the last hour.
+    /// Used by GET /dispatch/zone-activity — pure read, no state mutation.
+    async fn zone_activity(
+        &self,
+        _path_prefixes: &[String],
+        _exclude_agent: &str,
+        _project_root: &str,
+    ) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
+        Ok(vec![])
+    }
+
     // ── State Log (hash-chained organism state) ──────────
 
     /// Append a state block to the log. Blocks are append-only — never updated.

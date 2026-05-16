@@ -496,3 +496,69 @@ pub(super) async fn list_degraded_nodes(
         })
         .collect())
 }
+
+/// Query observation activity in a zone's path prefixes.
+/// Returns agents (excluding `exclude_agent`) active in the last hour,
+/// ordered by most recent activity.
+pub(crate) async fn zone_activity(
+    storage: &SurrealHttpStorage,
+    path_prefixes: &[String],
+    exclude_agent: &str,
+    project_root: &str,
+) -> Result<Vec<crate::api::rest::dispatch::AgentActivity>, StorageError> {
+    if path_prefixes.is_empty() {
+        return Ok(vec![]);
+    }
+
+    // Build CONTAINS conditions for path prefixes.
+    // Observations store full paths (/home/user/Bureau/CYNIC/scripts/foo.sh)
+    // Zone prefixes are relative (scripts/). Prepend project_root for matching.
+    let conditions: Vec<String> = path_prefixes
+        .iter()
+        .map(|p| {
+            let full = format!("{project_root}/{p}");
+            format!("string::starts_with(target, '{}')", escape_surreal(&full))
+        })
+        .collect();
+    let path_filter = conditions.join(" OR ");
+
+    let exclude = escape_surreal(exclude_agent);
+
+    // Single query: group by agent_id, get latest activity + count
+    let query = format!(
+        "SELECT agent_id, \
+                math::max(created_at) AS last_active, \
+                count() AS activity_count, \
+                array::first(target) AS last_file \
+         FROM observation \
+         WHERE ({path_filter}) \
+           AND agent_id != '{exclude}' \
+           AND agent_id != '' \
+           AND created_at > time::now() - 1h \
+         GROUP BY agent_id \
+         ORDER BY last_active DESC \
+         LIMIT 10;"
+    );
+
+    let results = storage.query(&query).await?;
+    let rows = results.into_iter().next().unwrap_or_default();
+
+    let agents = rows
+        .iter()
+        .filter_map(|row| {
+            let agent_id = row["agent_id"].as_str()?.to_string();
+            let last_active = row["last_active"].as_str().unwrap_or("").to_string();
+            let last_file = row["last_file"].as_str().unwrap_or("").to_string();
+            let activity_count = row["activity_count"].as_u64().unwrap_or(0);
+
+            Some(crate::api::rest::dispatch::AgentActivity {
+                agent_id,
+                last_active,
+                last_file,
+                activity_count,
+            })
+        })
+        .collect();
+
+    Ok(agents)
+}
