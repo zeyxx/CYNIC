@@ -1,0 +1,3985 @@
+[
+  {
+    "mint": "6MQpbiTC2YcogidTmKqMLK82qvE9z5QEm7EP3AEDpump",
+    "symbol": "MASK",
+    "total_holders": 28115,
+    "price_usd": 0.001951488,
+    "cs": {
+      "1m": 98,
+      "1w": 98.8,
+      "3d": 100,
+      "3m": 96.4,
+      "6h": 100,
+      "6m": 90.8,
+      "9m": 76.4,
+      "1yr": 0,
+      "24h": 100
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 190,
+          "left": 10,
+          "conviction": 0.95
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 711,
+          "left": 39,
+          "conviction": 0.948
+        },
+        "micro_1001+": {
+          "n": 27174,
+          "at_jn": 27174,
+          "retained": 27052,
+          "left": 122,
+          "conviction": 0.9955
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 240,
+          "left": 10,
+          "conviction": 0.96
+        },
+        "all_holders": {
+          "n": 28174,
+          "at_jn": 28174,
+          "retained": 28003,
+          "left": 171,
+          "conviction": 0.9939
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 37,
+          "left": 3,
+          "conviction": 0.925
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 172,
+          "left": 28,
+          "conviction": 0.86
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 661,
+          "left": 89,
+          "conviction": 0.8813
+        },
+        "micro_1001+": {
+          "n": 27186,
+          "at_jn": 27186,
+          "retained": 26915,
+          "left": 271,
+          "conviction": 0.99
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 219,
+          "left": 31,
+          "conviction": 0.876
+        },
+        "all_holders": {
+          "n": 28186,
+          "at_jn": 28186,
+          "retained": 27795,
+          "left": 391,
+          "conviction": 0.9861
+        }
+      }
+    }
+  },
+  {
+    "mint": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+    "symbol": "Fartcoin ",
+    "total_holders": 28953,
+    "price_usd": 0.19347577,
+    "cs": {
+      "1m": 95.9,
+      "1w": 98.1,
+      "3d": 98.9,
+      "3m": 88.1,
+      "6h": 100,
+      "6m": 80.4,
+      "9m": 71.9,
+      "1yr": 56.7,
+      "24h": 100
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 8,
+          "left": 2,
+          "conviction": 0.8
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 33,
+          "left": 7,
+          "conviction": 0.825
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 164,
+          "left": 36,
+          "conviction": 0.82
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 673,
+          "left": 77,
+          "conviction": 0.8973
+        },
+        "micro_1001+": {
+          "n": 28416,
+          "at_jn": 28416,
+          "retained": 28034,
+          "left": 382,
+          "conviction": 0.9866
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 205,
+          "left": 45,
+          "conviction": 0.82
+        },
+        "all_holders": {
+          "n": 29416,
+          "at_jn": 29416,
+          "retained": 28912,
+          "left": 504,
+          "conviction": 0.9829
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 8,
+          "left": 2,
+          "conviction": 0.8
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 33,
+          "left": 7,
+          "conviction": 0.825
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 164,
+          "left": 36,
+          "conviction": 0.82
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 674,
+          "left": 76,
+          "conviction": 0.8987
+        },
+        "micro_1001+": {
+          "n": 28414,
+          "at_jn": 28414,
+          "retained": 28033,
+          "left": 381,
+          "conviction": 0.9866
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 205,
+          "left": 45,
+          "conviction": 0.82
+        },
+        "all_holders": {
+          "n": 29414,
+          "at_jn": 29414,
+          "retained": 28912,
+          "left": 502,
+          "conviction": 0.9829
+        }
+      }
+    }
+  },
+  {
+    "mint": "GPwwihLa1w9Qsz27SmNrj7aLVnE7pr2cAvHe6aVVpump",
+    "symbol": "DANK",
+    "total_holders": 3706,
+    "price_usd": null,
+    "cs": {
+      "1m": 96.4,
+      "1w": 97.6,
+      "3d": 98,
+      "3m": 93.6,
+      "6h": 100,
+      "6m": 91.6,
+      "9m": 87.2,
+      "1yr": 73.6,
+      "24h": 98.8
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 192,
+          "left": 8,
+          "conviction": 0.96
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 741,
+          "left": 9,
+          "conviction": 0.988
+        },
+        "micro_1001+": {
+          "n": 2677,
+          "at_jn": 2677,
+          "retained": 2675,
+          "left": 2,
+          "conviction": 0.9993
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 241,
+          "left": 9,
+          "conviction": 0.964
+        },
+        "all_holders": {
+          "n": 3677,
+          "at_jn": 3677,
+          "retained": 3657,
+          "left": 20,
+          "conviction": 0.9946
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 190,
+          "left": 10,
+          "conviction": 0.95
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 734,
+          "left": 16,
+          "conviction": 0.9787
+        },
+        "micro_1001+": {
+          "n": 2673,
+          "at_jn": 2673,
+          "retained": 2660,
+          "left": 13,
+          "conviction": 0.9951
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 240,
+          "left": 10,
+          "conviction": 0.96
+        },
+        "all_holders": {
+          "n": 3673,
+          "at_jn": 3673,
+          "retained": 3634,
+          "left": 39,
+          "conviction": 0.9894
+        }
+      }
+    }
+  },
+  {
+    "mint": "8DKgjd6zAYuP9fVmMHBBtygPqkJ111LrMCT7tDyPhE55",
+    "symbol": "Domo",
+    "total_holders": 1092,
+    "price_usd": null,
+    "cs": {
+      "1m": 95.6,
+      "1w": 99.2,
+      "3d": 100,
+      "3m": 88.4,
+      "6h": 100,
+      "6m": 80.8,
+      "9m": 67.6,
+      "1yr": 8,
+      "24h": 100
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 195,
+          "left": 5,
+          "conviction": 0.975
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 745,
+          "left": 5,
+          "conviction": 0.9933
+        },
+        "micro_1001+": {
+          "n": 100,
+          "at_jn": 100,
+          "retained": 100,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 245,
+          "left": 5,
+          "conviction": 0.98
+        },
+        "all_holders": {
+          "n": 1100,
+          "at_jn": 1100,
+          "retained": 1090,
+          "left": 10,
+          "conviction": 0.9909
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 8,
+          "left": 2,
+          "conviction": 0.8
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 190,
+          "left": 10,
+          "conviction": 0.95
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 744,
+          "left": 6,
+          "conviction": 0.992
+        },
+        "micro_1001+": {
+          "n": 95,
+          "at_jn": 95,
+          "retained": 95,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 237,
+          "left": 13,
+          "conviction": 0.948
+        },
+        "all_holders": {
+          "n": 1095,
+          "at_jn": 1095,
+          "retained": 1076,
+          "left": 19,
+          "conviction": 0.9826
+        }
+      }
+    }
+  },
+  {
+    "mint": "9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump",
+    "symbol": "asdfasdfa",
+    "total_holders": 521,
+    "price_usd": null,
+    "cs": {
+      "1m": 95.6,
+      "1w": 98.8,
+      "3d": 99.6,
+      "3m": 86.8,
+      "6h": 100,
+      "6m": 64.4,
+      "9m": 53.2,
+      "1yr": 0,
+      "24h": 100
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 38,
+          "left": 2,
+          "conviction": 0.95
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 195,
+          "left": 5,
+          "conviction": 0.975
+        },
+        "retail_251_1000": {
+          "n": 268,
+          "at_jn": 268,
+          "retained": 266,
+          "left": 2,
+          "conviction": 0.9925
+        },
+        "micro_1001+": {
+          "n": 0,
+          "at_jn": 0,
+          "retained": 0,
+          "left": 0,
+          "conviction": null
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 243,
+          "left": 7,
+          "conviction": 0.972
+        },
+        "all_holders": {
+          "n": 518,
+          "at_jn": 518,
+          "retained": 509,
+          "left": 9,
+          "conviction": 0.9826
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 34,
+          "left": 6,
+          "conviction": 0.85
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 185,
+          "left": 15,
+          "conviction": 0.925
+        },
+        "retail_251_1000": {
+          "n": 277,
+          "at_jn": 277,
+          "retained": 273,
+          "left": 4,
+          "conviction": 0.9856
+        },
+        "micro_1001+": {
+          "n": 0,
+          "at_jn": 0,
+          "retained": 0,
+          "left": 0,
+          "conviction": null
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 229,
+          "left": 21,
+          "conviction": 0.916
+        },
+        "all_holders": {
+          "n": 527,
+          "at_jn": 527,
+          "retained": 502,
+          "left": 25,
+          "conviction": 0.9526
+        }
+      }
+    }
+  },
+  {
+    "mint": "38PgzpJYu2HkiYvV8qePFakB8tuobPdGm2FFEn7Dpump",
+    "symbol": "gork",
+    "total_holders": 18164,
+    "price_usd": 0.0014780002,
+    "cs": {
+      "1m": 95.2,
+      "1w": 98.4,
+      "3d": 98.4,
+      "3m": 70.8,
+      "6h": 100,
+      "6m": 67.6,
+      "9m": 61.6,
+      "1yr": 32.8,
+      "24h": 99.6
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 186,
+          "left": 14,
+          "conviction": 0.93
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 731,
+          "left": 19,
+          "conviction": 0.9747
+        },
+        "micro_1001+": {
+          "n": 17180,
+          "at_jn": 17180,
+          "retained": 17116,
+          "left": 64,
+          "conviction": 0.9963
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 236,
+          "left": 14,
+          "conviction": 0.944
+        },
+        "all_holders": {
+          "n": 18180,
+          "at_jn": 18180,
+          "retained": 18083,
+          "left": 97,
+          "conviction": 0.9947
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 34,
+          "left": 6,
+          "conviction": 0.85
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 148,
+          "left": 52,
+          "conviction": 0.74
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 691,
+          "left": 59,
+          "conviction": 0.9213
+        },
+        "micro_1001+": {
+          "n": 17249,
+          "at_jn": 17249,
+          "retained": 16998,
+          "left": 251,
+          "conviction": 0.9854
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 192,
+          "left": 58,
+          "conviction": 0.768
+        },
+        "all_holders": {
+          "n": 18249,
+          "at_jn": 18249,
+          "retained": 17881,
+          "left": 368,
+          "conviction": 0.9798
+        }
+      }
+    }
+  },
+  {
+    "mint": "3WPep4ufaToK1aS5s8BL9inzeUrt4DYaQCiic6ZkkC1U",
+    "symbol": "GIKO",
+    "total_holders": 6556,
+    "price_usd": 0.07135957,
+    "cs": {
+      "1m": 93.7,
+      "1w": 95.6,
+      "3d": 97.2,
+      "3m": 92.9,
+      "6h": 99.2,
+      "6m": 87.3,
+      "9m": 80.2,
+      "1yr": 67.9,
+      "24h": 98.8
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 200,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 750,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "micro_1001+": {
+          "n": 5604,
+          "at_jn": 5604,
+          "retained": 5553,
+          "left": 51,
+          "conviction": 0.9909
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 250,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "all_holders": {
+          "n": 6604,
+          "at_jn": 6604,
+          "retained": 6553,
+          "left": 51,
+          "conviction": 0.9923
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 200,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 750,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "micro_1001+": {
+          "n": 5645,
+          "at_jn": 5645,
+          "retained": 5551,
+          "left": 94,
+          "conviction": 0.9833
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 250,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "all_holders": {
+          "n": 6645,
+          "at_jn": 6645,
+          "retained": 6551,
+          "left": 94,
+          "conviction": 0.9859
+        }
+      }
+    }
+  },
+  {
+    "mint": "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9",
+    "symbol": "GIGA",
+    "total_holders": 28970,
+    "price_usd": 0.0048452127,
+    "cs": {
+      "1m": 93.6,
+      "1w": 95.5,
+      "3d": 96.3,
+      "3m": 91.8,
+      "6h": 99.6,
+      "6m": 89.1,
+      "9m": 81.3,
+      "1yr": 72.3,
+      "24h": 98.9
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 6,
+          "left": 4,
+          "conviction": 0.6
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 29,
+          "left": 11,
+          "conviction": 0.725
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 124,
+          "left": 76,
+          "conviction": 0.62
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 616,
+          "left": 134,
+          "conviction": 0.8213
+        },
+        "micro_1001+": {
+          "n": 28257,
+          "at_jn": 28257,
+          "retained": 27867,
+          "left": 390,
+          "conviction": 0.9862
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 159,
+          "left": 91,
+          "conviction": 0.636
+        },
+        "all_holders": {
+          "n": 29257,
+          "at_jn": 29257,
+          "retained": 28642,
+          "left": 615,
+          "conviction": 0.979
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 6,
+          "left": 4,
+          "conviction": 0.6
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 29,
+          "left": 11,
+          "conviction": 0.725
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 124,
+          "left": 76,
+          "conviction": 0.62
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 616,
+          "left": 134,
+          "conviction": 0.8213
+        },
+        "micro_1001+": {
+          "n": 28257,
+          "at_jn": 28257,
+          "retained": 27867,
+          "left": 390,
+          "conviction": 0.9862
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 159,
+          "left": 91,
+          "conviction": 0.636
+        },
+        "all_holders": {
+          "n": 29257,
+          "at_jn": 29257,
+          "retained": 28642,
+          "left": 615,
+          "conviction": 0.979
+        }
+      }
+    }
+  },
+  {
+    "mint": "8ncucXv6U6epZKHPbgaEBcEK399TpHGKCquSt4RnmX4f",
+    "symbol": "TRENCHER",
+    "total_holders": 7352,
+    "price_usd": 0.00063883344,
+    "cs": {
+      "1m": 93.6,
+      "1w": 96.8,
+      "3d": 98.8,
+      "3m": 91.6,
+      "6h": 100,
+      "6m": 86,
+      "9m": 49.6,
+      "24h": 99.6
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 192,
+          "left": 8,
+          "conviction": 0.96
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 697,
+          "left": 53,
+          "conviction": 0.9293
+        },
+        "micro_1001+": {
+          "n": 6397,
+          "at_jn": 6397,
+          "retained": 6359,
+          "left": 38,
+          "conviction": 0.9941
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 241,
+          "left": 9,
+          "conviction": 0.964
+        },
+        "all_holders": {
+          "n": 7397,
+          "at_jn": 7397,
+          "retained": 7297,
+          "left": 100,
+          "conviction": 0.9865
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 38,
+          "left": 2,
+          "conviction": 0.95
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 178,
+          "left": 22,
+          "conviction": 0.89
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 646,
+          "left": 104,
+          "conviction": 0.8613
+        },
+        "micro_1001+": {
+          "n": 6323,
+          "at_jn": 6323,
+          "retained": 6213,
+          "left": 110,
+          "conviction": 0.9826
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 226,
+          "left": 24,
+          "conviction": 0.904
+        },
+        "all_holders": {
+          "n": 7323,
+          "at_jn": 7323,
+          "retained": 7085,
+          "left": 238,
+          "conviction": 0.9675
+        }
+      }
+    }
+  },
+  {
+    "mint": "DitHyRMQiSDhn5cnKMJV2CDDt6sVct96YrECiM49pump",
+    "symbol": "House",
+    "total_holders": 23194,
+    "price_usd": 0.0032314318,
+    "cs": {
+      "1m": 91.8,
+      "1w": 98.9,
+      "3d": 98.9,
+      "3m": 82.5,
+      "6h": 99.6,
+      "6m": 78.4,
+      "9m": 65.7,
+      "1yr": 37.3,
+      "24h": 99.3
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 38,
+          "left": 2,
+          "conviction": 0.95
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 183,
+          "left": 17,
+          "conviction": 0.915
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 705,
+          "left": 45,
+          "conviction": 0.94
+        },
+        "micro_1001+": {
+          "n": 22205,
+          "at_jn": 22205,
+          "retained": 22002,
+          "left": 203,
+          "conviction": 0.9909
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 231,
+          "left": 19,
+          "conviction": 0.924
+        },
+        "all_holders": {
+          "n": 23205,
+          "at_jn": 23205,
+          "retained": 22938,
+          "left": 267,
+          "conviction": 0.9885
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 174,
+          "left": 26,
+          "conviction": 0.87
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 677,
+          "left": 73,
+          "conviction": 0.9027
+        },
+        "micro_1001+": {
+          "n": 22156,
+          "at_jn": 22156,
+          "retained": 21892,
+          "left": 264,
+          "conviction": 0.9881
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 224,
+          "left": 26,
+          "conviction": 0.896
+        },
+        "all_holders": {
+          "n": 23156,
+          "at_jn": 23156,
+          "retained": 22793,
+          "left": 363,
+          "conviction": 0.9843
+        }
+      }
+    }
+  },
+  {
+    "mint": "zGh48JtNHVBb5evgoZLXwgPD2Qu4MhkWdJLGDAupump",
+    "symbol": "retire",
+    "total_holders": 15084,
+    "price_usd": 0.00433838,
+    "cs": {
+      "1m": 92.9,
+      "1w": 96.6,
+      "3d": 99.6,
+      "3m": 88.3,
+      "6h": 100,
+      "6m": 82.3,
+      "9m": 63.9,
+      "1yr": 49.2,
+      "24h": 100
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 194,
+          "left": 6,
+          "conviction": 0.97
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 721,
+          "left": 29,
+          "conviction": 0.9613
+        },
+        "micro_1001+": {
+          "n": 13946,
+          "at_jn": 13946,
+          "retained": 13791,
+          "left": 155,
+          "conviction": 0.9889
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 243,
+          "left": 7,
+          "conviction": 0.972
+        },
+        "all_holders": {
+          "n": 14946,
+          "at_jn": 14946,
+          "retained": 14755,
+          "left": 191,
+          "conviction": 0.9872
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 8,
+          "left": 2,
+          "conviction": 0.8
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 193,
+          "left": 7,
+          "conviction": 0.965
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 699,
+          "left": 51,
+          "conviction": 0.932
+        },
+        "micro_1001+": {
+          "n": 13738,
+          "at_jn": 13738,
+          "retained": 13392,
+          "left": 346,
+          "conviction": 0.9748
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 240,
+          "left": 10,
+          "conviction": 0.96
+        },
+        "all_holders": {
+          "n": 14738,
+          "at_jn": 14738,
+          "retained": 14331,
+          "left": 407,
+          "conviction": 0.9724
+        }
+      }
+    }
+  },
+  {
+    "mint": "76EDL5qNcte2ZH29quTaFzagXjWAEY83CATEjyA6pump",
+    "symbol": "gork",
+    "total_holders": 2705,
+    "price_usd": null,
+    "cs": {
+      "1m": 91.2,
+      "1w": 99.2,
+      "3d": 100,
+      "3m": 64.8,
+      "6h": 100,
+      "6m": 33.6,
+      "9m": 27.2,
+      "24h": 100
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 199,
+          "left": 1,
+          "conviction": 0.995
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 735,
+          "left": 15,
+          "conviction": 0.98
+        },
+        "micro_1001+": {
+          "n": 1706,
+          "at_jn": 1706,
+          "retained": 1694,
+          "left": 12,
+          "conviction": 0.993
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 249,
+          "left": 1,
+          "conviction": 0.996
+        },
+        "all_holders": {
+          "n": 2706,
+          "at_jn": 2706,
+          "retained": 2678,
+          "left": 28,
+          "conviction": 0.9897
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 190,
+          "left": 10,
+          "conviction": 0.95
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 705,
+          "left": 45,
+          "conviction": 0.94
+        },
+        "micro_1001+": {
+          "n": 1703,
+          "at_jn": 1703,
+          "retained": 1642,
+          "left": 61,
+          "conviction": 0.9642
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 239,
+          "left": 11,
+          "conviction": 0.956
+        },
+        "all_holders": {
+          "n": 2703,
+          "at_jn": 2703,
+          "retained": 2586,
+          "left": 117,
+          "conviction": 0.9567
+        }
+      }
+    }
+  },
+  {
+    "mint": "69G8CpUVZAxbPMiEBrfCCCH445NwFxH6PzVL693Xpump",
+    "symbol": "xavier",
+    "total_holders": 2796,
+    "price_usd": 0.001197754,
+    "cs": {
+      "1m": 90.9,
+      "1w": 96.2,
+      "3d": 98.9,
+      "3m": 86.7,
+      "6h": 100,
+      "6m": 82.9,
+      "9m": 70,
+      "1yr": 49,
+      "24h": 100
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 198,
+          "left": 2,
+          "conviction": 0.99
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 736,
+          "left": 14,
+          "conviction": 0.9813
+        },
+        "micro_1001+": {
+          "n": 1785,
+          "at_jn": 1785,
+          "retained": 1771,
+          "left": 14,
+          "conviction": 0.9922
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 248,
+          "left": 2,
+          "conviction": 0.992
+        },
+        "all_holders": {
+          "n": 2785,
+          "at_jn": 2785,
+          "retained": 2755,
+          "left": 30,
+          "conviction": 0.9892
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 37,
+          "left": 3,
+          "conviction": 0.925
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 188,
+          "left": 12,
+          "conviction": 0.94
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 721,
+          "left": 29,
+          "conviction": 0.9613
+        },
+        "micro_1001+": {
+          "n": 1747,
+          "at_jn": 1747,
+          "retained": 1721,
+          "left": 26,
+          "conviction": 0.9851
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 235,
+          "left": 15,
+          "conviction": 0.94
+        },
+        "all_holders": {
+          "n": 2747,
+          "at_jn": 2747,
+          "retained": 2677,
+          "left": 70,
+          "conviction": 0.9745
+        }
+      }
+    }
+  },
+  {
+    "mint": "GkyPYa7NnCFbduLknCfBfP7p8564X1VZhwZYJ6CZpump",
+    "symbol": "CHILLHOUSE",
+    "total_holders": 16107,
+    "price_usd": 0.002651743,
+    "cs": {
+      "1m": 90.8,
+      "1w": 94.8,
+      "3d": 98,
+      "3m": 86,
+      "6h": 99.6,
+      "6m": 74.4,
+      "9m": 45.2,
+      "1yr": 16,
+      "24h": 99.2
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 37,
+          "left": 3,
+          "conviction": 0.925
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 187,
+          "left": 13,
+          "conviction": 0.935
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 683,
+          "left": 67,
+          "conviction": 0.9107
+        },
+        "micro_1001+": {
+          "n": 15037,
+          "at_jn": 15037,
+          "retained": 14897,
+          "left": 140,
+          "conviction": 0.9907
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 234,
+          "left": 16,
+          "conviction": 0.936
+        },
+        "all_holders": {
+          "n": 16037,
+          "at_jn": 16037,
+          "retained": 15814,
+          "left": 223,
+          "conviction": 0.9861
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 36,
+          "left": 4,
+          "conviction": 0.9
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 176,
+          "left": 24,
+          "conviction": 0.88
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 663,
+          "left": 87,
+          "conviction": 0.884
+        },
+        "micro_1001+": {
+          "n": 14919,
+          "at_jn": 14919,
+          "retained": 14716,
+          "left": 203,
+          "conviction": 0.9864
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 222,
+          "left": 28,
+          "conviction": 0.888
+        },
+        "all_holders": {
+          "n": 15919,
+          "at_jn": 15919,
+          "retained": 15601,
+          "left": 318,
+          "conviction": 0.98
+        }
+      }
+    }
+  },
+  {
+    "mint": "463SK47VkB7uE7XenTHKiVcMtxRsfNE2X4Q9wByaURVA",
+    "symbol": "TSUKI",
+    "total_holders": 4775,
+    "price_usd": 0.0023726383,
+    "cs": {
+      "1m": 90.4,
+      "1w": 96,
+      "3d": 99.2,
+      "3m": 82.4,
+      "6h": 100,
+      "6m": 71.6,
+      "9m": 67.6,
+      "1yr": 64.4,
+      "24h": 99.2
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 200,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 750,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "micro_1001+": {
+          "n": 3814,
+          "at_jn": 3814,
+          "retained": 3773,
+          "left": 41,
+          "conviction": 0.9893
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 250,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "all_holders": {
+          "n": 4814,
+          "at_jn": 4814,
+          "retained": 4773,
+          "left": 41,
+          "conviction": 0.9915
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 200,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 750,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "micro_1001+": {
+          "n": 3830,
+          "at_jn": 3830,
+          "retained": 3768,
+          "left": 62,
+          "conviction": 0.9838
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 250,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "all_holders": {
+          "n": 4830,
+          "at_jn": 4830,
+          "retained": 4768,
+          "left": 62,
+          "conviction": 0.9872
+        }
+      }
+    }
+  },
+  {
+    "mint": "NV2RYH954cTJ3ckFUpvfqaQXU4ARqqDH3562nFSpump",
+    "symbol": "Punch",
+    "total_holders": 25159,
+    "price_usd": 0.0020976136,
+    "cs": {
+      "1m": 86.6,
+      "1w": 95.9,
+      "3d": 98.5,
+      "3m": 1.9,
+      "6h": 100,
+      "6m": 0,
+      "9m": 0,
+      "1yr": 0,
+      "24h": 99.6
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 9,
+          "left": 1,
+          "conviction": 0.9
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 38,
+          "left": 2,
+          "conviction": 0.95
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 172,
+          "left": 28,
+          "conviction": 0.86
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 633,
+          "left": 117,
+          "conviction": 0.844
+        },
+        "micro_1001+": {
+          "n": 24335,
+          "at_jn": 24335,
+          "retained": 23784,
+          "left": 551,
+          "conviction": 0.9774
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 219,
+          "left": 31,
+          "conviction": 0.876
+        },
+        "all_holders": {
+          "n": 25335,
+          "at_jn": 25335,
+          "retained": 24636,
+          "left": 699,
+          "conviction": 0.9724
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 9,
+          "left": 1,
+          "conviction": 0.9
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 36,
+          "left": 4,
+          "conviction": 0.9
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 164,
+          "left": 36,
+          "conviction": 0.82
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 616,
+          "left": 134,
+          "conviction": 0.8213
+        },
+        "micro_1001+": {
+          "n": 24468,
+          "at_jn": 24468,
+          "retained": 23717,
+          "left": 751,
+          "conviction": 0.9693
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 209,
+          "left": 41,
+          "conviction": 0.836
+        },
+        "all_holders": {
+          "n": 25468,
+          "at_jn": 25468,
+          "retained": 24542,
+          "left": 926,
+          "conviction": 0.9636
+        }
+      }
+    }
+  },
+  {
+    "mint": "Cm6fNnMk7NfzStP9CZpsQA2v3jjzbcYGAxdJySmHpump",
+    "symbol": "Buttcoin",
+    "total_holders": 15863,
+    "price_usd": 0.014075013,
+    "cs": {
+      "1m": 84,
+      "1w": 93.2,
+      "3d": 96.8,
+      "3m": 55.2,
+      "6h": 99.6,
+      "6m": 0,
+      "9m": 0,
+      "24h": 99.2
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 199,
+          "left": 1,
+          "conviction": 0.995
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 726,
+          "left": 24,
+          "conviction": 0.968
+        },
+        "micro_1001+": {
+          "n": 14803,
+          "at_jn": 14803,
+          "retained": 14566,
+          "left": 237,
+          "conviction": 0.984
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 249,
+          "left": 1,
+          "conviction": 0.996
+        },
+        "all_holders": {
+          "n": 15803,
+          "at_jn": 15803,
+          "retained": 15541,
+          "left": 262,
+          "conviction": 0.9834
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 199,
+          "left": 1,
+          "conviction": 0.995
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 726,
+          "left": 24,
+          "conviction": 0.968
+        },
+        "micro_1001+": {
+          "n": 14803,
+          "at_jn": 14803,
+          "retained": 14566,
+          "left": 237,
+          "conviction": 0.984
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 249,
+          "left": 1,
+          "conviction": 0.996
+        },
+        "all_holders": {
+          "n": 15803,
+          "at_jn": 15803,
+          "retained": 15541,
+          "left": 262,
+          "conviction": 0.9834
+        }
+      }
+    }
+  },
+  {
+    "mint": "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump",
+    "symbol": "neet",
+    "total_holders": 17338,
+    "price_usd": 0.030463694,
+    "cs": {
+      "1m": 82.4,
+      "1w": 91.6,
+      "3d": 96.8,
+      "3m": 63.6,
+      "6h": 99.2,
+      "6m": 54,
+      "9m": 33.2,
+      "1yr": 13.2,
+      "24h": 97.6
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 191,
+          "left": 9,
+          "conviction": 0.955
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 727,
+          "left": 23,
+          "conviction": 0.9693
+        },
+        "micro_1001+": {
+          "n": 16222,
+          "at_jn": 16222,
+          "retained": 15973,
+          "left": 249,
+          "conviction": 0.9847
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 241,
+          "left": 9,
+          "conviction": 0.964
+        },
+        "all_holders": {
+          "n": 17222,
+          "at_jn": 17222,
+          "retained": 16941,
+          "left": 281,
+          "conviction": 0.9837
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 191,
+          "left": 9,
+          "conviction": 0.955
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 727,
+          "left": 23,
+          "conviction": 0.9693
+        },
+        "micro_1001+": {
+          "n": 16222,
+          "at_jn": 16222,
+          "retained": 15973,
+          "left": 249,
+          "conviction": 0.9847
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 241,
+          "left": 9,
+          "conviction": 0.964
+        },
+        "all_holders": {
+          "n": 17222,
+          "at_jn": 17222,
+          "retained": 16941,
+          "left": 281,
+          "conviction": 0.9837
+        }
+      }
+    }
+  },
+  {
+    "mint": "CFYhdWXsYfS7swnJgHRwb5toTHMEQD7Ljd5gGwKLpump",
+    "symbol": "KILROY",
+    "total_holders": 1288,
+    "price_usd": 0.00021810071,
+    "cs": {
+      "1m": 81.5,
+      "1w": 92.5,
+      "3d": 95.7,
+      "3m": 56.7,
+      "6h": 99.6,
+      "6m": 11.8,
+      "9m": 0,
+      "1yr": 0,
+      "24h": 98
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 38,
+          "left": 2,
+          "conviction": 0.95
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 178,
+          "left": 22,
+          "conviction": 0.89
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 730,
+          "left": 20,
+          "conviction": 0.9733
+        },
+        "micro_1001+": {
+          "n": 292,
+          "at_jn": 292,
+          "retained": 288,
+          "left": 4,
+          "conviction": 0.9863
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 226,
+          "left": 24,
+          "conviction": 0.904
+        },
+        "all_holders": {
+          "n": 1292,
+          "at_jn": 1292,
+          "retained": 1244,
+          "left": 48,
+          "conviction": 0.9628
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 33,
+          "left": 7,
+          "conviction": 0.825
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 134,
+          "left": 66,
+          "conviction": 0.67
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 636,
+          "left": 114,
+          "conviction": 0.848
+        },
+        "micro_1001+": {
+          "n": 377,
+          "at_jn": 377,
+          "retained": 361,
+          "left": 16,
+          "conviction": 0.9576
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 177,
+          "left": 73,
+          "conviction": 0.708
+        },
+        "all_holders": {
+          "n": 1377,
+          "at_jn": 1377,
+          "retained": 1174,
+          "left": 203,
+          "conviction": 0.8526
+        }
+      }
+    }
+  },
+  {
+    "mint": "3B1ijcocM5EDga6XxQ7JLW7weocQPWWjuhBYG8Vepump",
+    "symbol": "BP",
+    "total_holders": 7700,
+    "price_usd": 0.0043016463,
+    "cs": {
+      "1m": 79.2,
+      "1w": 85.2,
+      "3d": 95.6,
+      "3m": 46,
+      "6h": 99.2,
+      "6m": 0,
+      "9m": 0,
+      "24h": 98
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 37,
+          "left": 3,
+          "conviction": 0.925
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 187,
+          "left": 13,
+          "conviction": 0.935
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 655,
+          "left": 95,
+          "conviction": 0.8733
+        },
+        "micro_1001+": {
+          "n": 6715,
+          "at_jn": 6715,
+          "retained": 6488,
+          "left": 227,
+          "conviction": 0.9662
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 234,
+          "left": 16,
+          "conviction": 0.936
+        },
+        "all_holders": {
+          "n": 7715,
+          "at_jn": 7715,
+          "retained": 7377,
+          "left": 338,
+          "conviction": 0.9562
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 37,
+          "left": 3,
+          "conviction": 0.925
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 183,
+          "left": 17,
+          "conviction": 0.915
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 638,
+          "left": 112,
+          "conviction": 0.8507
+        },
+        "micro_1001+": {
+          "n": 6780,
+          "at_jn": 6780,
+          "retained": 6480,
+          "left": 300,
+          "conviction": 0.9558
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 230,
+          "left": 20,
+          "conviction": 0.92
+        },
+        "all_holders": {
+          "n": 7780,
+          "at_jn": 7780,
+          "retained": 7348,
+          "left": 432,
+          "conviction": 0.9445
+        }
+      }
+    }
+  },
+  {
+    "mint": "8J69rbLTzWWgUJziFY8jeu5tDwEPBwUz4pKBMr5rpump",
+    "symbol": "WOJAK",
+    "total_holders": 16666,
+    "price_usd": 0.0063905073,
+    "cs": {
+      "1m": 69.5,
+      "1w": 83.3,
+      "3d": 94.1,
+      "3m": 51.3,
+      "6h": 96.3,
+      "6m": 6.7,
+      "9m": 0,
+      "24h": 95.5
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 185,
+          "left": 15,
+          "conviction": 0.925
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 671,
+          "left": 79,
+          "conviction": 0.8947
+        },
+        "micro_1001+": {
+          "n": 15754,
+          "at_jn": 15754,
+          "retained": 15322,
+          "left": 432,
+          "conviction": 0.9726
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 234,
+          "left": 16,
+          "conviction": 0.936
+        },
+        "all_holders": {
+          "n": 16754,
+          "at_jn": 16754,
+          "retained": 16227,
+          "left": 527,
+          "conviction": 0.9685
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 185,
+          "left": 15,
+          "conviction": 0.925
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 671,
+          "left": 79,
+          "conviction": 0.8947
+        },
+        "micro_1001+": {
+          "n": 15756,
+          "at_jn": 15756,
+          "retained": 15324,
+          "left": 432,
+          "conviction": 0.9726
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 234,
+          "left": 16,
+          "conviction": 0.936
+        },
+        "all_holders": {
+          "n": 16756,
+          "at_jn": 16756,
+          "retained": 16229,
+          "left": 527,
+          "conviction": 0.9685
+        }
+      }
+    }
+  },
+  {
+    "mint": "5UUH9RTDiSpq6HKS6bp4NdU9PNJpXRXuiw6ShBTBhgH2",
+    "symbol": "TROLL",
+    "total_holders": 28920,
+    "price_usd": 0.11715887,
+    "cs": {
+      "1m": 68.8,
+      "1w": 77.6,
+      "3d": 92.4,
+      "3m": 65.6,
+      "6h": 99.2,
+      "6m": 58,
+      "9m": 40,
+      "1yr": 12,
+      "24h": 94.8
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 195,
+          "left": 5,
+          "conviction": 0.975
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 720,
+          "left": 30,
+          "conviction": 0.96
+        },
+        "micro_1001+": {
+          "n": 28339,
+          "at_jn": 28339,
+          "retained": 27758,
+          "left": 581,
+          "conviction": 0.9795
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 245,
+          "left": 5,
+          "conviction": 0.98
+        },
+        "all_holders": {
+          "n": 29339,
+          "at_jn": 29339,
+          "retained": 28723,
+          "left": 616,
+          "conviction": 0.979
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 195,
+          "left": 5,
+          "conviction": 0.975
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 720,
+          "left": 30,
+          "conviction": 0.96
+        },
+        "micro_1001+": {
+          "n": 28340,
+          "at_jn": 28340,
+          "retained": 27760,
+          "left": 580,
+          "conviction": 0.9795
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 245,
+          "left": 5,
+          "conviction": 0.98
+        },
+        "all_holders": {
+          "n": 29340,
+          "at_jn": 29340,
+          "retained": 28725,
+          "left": 615,
+          "conviction": 0.979
+        }
+      }
+    }
+  },
+  {
+    "mint": "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu",
+    "symbol": "PUMPCADE",
+    "total_holders": 3732,
+    "price_usd": 0.02227917,
+    "cs": {
+      "1m": 67.6,
+      "1w": 82,
+      "3d": 85.6,
+      "3m": 57.2,
+      "6h": 98.4,
+      "6m": 27.6,
+      "9m": 0,
+      "24h": 97.2
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 199,
+          "left": 1,
+          "conviction": 0.995
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 711,
+          "left": 39,
+          "conviction": 0.948
+        },
+        "micro_1001+": {
+          "n": 2781,
+          "at_jn": 2781,
+          "retained": 2658,
+          "left": 123,
+          "conviction": 0.9558
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 248,
+          "left": 2,
+          "conviction": 0.992
+        },
+        "all_holders": {
+          "n": 3781,
+          "at_jn": 3781,
+          "retained": 3617,
+          "left": 164,
+          "conviction": 0.9566
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 198,
+          "left": 2,
+          "conviction": 0.99
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 698,
+          "left": 52,
+          "conviction": 0.9307
+        },
+        "micro_1001+": {
+          "n": 2818,
+          "at_jn": 2818,
+          "retained": 2642,
+          "left": 176,
+          "conviction": 0.9375
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 247,
+          "left": 3,
+          "conviction": 0.988
+        },
+        "all_holders": {
+          "n": 3818,
+          "at_jn": 3818,
+          "retained": 3587,
+          "left": 231,
+          "conviction": 0.9395
+        }
+      }
+    }
+  },
+  {
+    "mint": "4yDSFNMitxy6waXPTkPyyVvbbQSiqe7zD1VxnzEypump",
+    "symbol": "motion",
+    "total_holders": 651,
+    "price_usd": null,
+    "cs": {
+      "1m": 66.8,
+      "1w": 92.4,
+      "3d": 96.4,
+      "3m": 0,
+      "6h": 100,
+      "6m": 0,
+      "9m": 0,
+      "24h": 96.8
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 38,
+          "left": 2,
+          "conviction": 0.95
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 176,
+          "left": 24,
+          "conviction": 0.88
+        },
+        "retail_251_1000": {
+          "n": 384,
+          "at_jn": 384,
+          "retained": 374,
+          "left": 10,
+          "conviction": 0.974
+        },
+        "micro_1001+": {
+          "n": 0,
+          "at_jn": 0,
+          "retained": 0,
+          "left": 0,
+          "conviction": null
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 224,
+          "left": 26,
+          "conviction": 0.896
+        },
+        "all_holders": {
+          "n": 634,
+          "at_jn": 634,
+          "retained": 598,
+          "left": 36,
+          "conviction": 0.9432
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 34,
+          "left": 6,
+          "conviction": 0.85
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 106,
+          "left": 94,
+          "conviction": 0.53
+        },
+        "retail_251_1000": {
+          "n": 469,
+          "at_jn": 469,
+          "retained": 387,
+          "left": 82,
+          "conviction": 0.8252
+        },
+        "micro_1001+": {
+          "n": 0,
+          "at_jn": 0,
+          "retained": 0,
+          "left": 0,
+          "conviction": null
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 150,
+          "left": 100,
+          "conviction": 0.6
+        },
+        "all_holders": {
+          "n": 719,
+          "at_jn": 719,
+          "retained": 537,
+          "left": 182,
+          "conviction": 0.7469
+        }
+      }
+    }
+  },
+  {
+    "mint": "6iA73gWCKkLWKbVr8rgibV57MMRxzsaqS9cWpgKBpump",
+    "symbol": "\u6211\u7684\u5200\u76fe",
+    "total_holders": 5416,
+    "price_usd": 0.0011441959,
+    "cs": {
+      "1m": 61.2,
+      "1w": 87.6,
+      "3d": 91.6,
+      "3m": 0,
+      "6h": 98.8,
+      "6m": 0,
+      "9m": 0,
+      "24h": 96.8
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 33,
+          "left": 7,
+          "conviction": 0.825
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 159,
+          "left": 41,
+          "conviction": 0.795
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 612,
+          "left": 138,
+          "conviction": 0.816
+        },
+        "micro_1001+": {
+          "n": 4469,
+          "at_jn": 4469,
+          "retained": 4302,
+          "left": 167,
+          "conviction": 0.9626
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 202,
+          "left": 48,
+          "conviction": 0.808
+        },
+        "all_holders": {
+          "n": 5469,
+          "at_jn": 5469,
+          "retained": 5116,
+          "left": 353,
+          "conviction": 0.9355
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 33,
+          "left": 7,
+          "conviction": 0.825
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 159,
+          "left": 41,
+          "conviction": 0.795
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 612,
+          "left": 138,
+          "conviction": 0.816
+        },
+        "micro_1001+": {
+          "n": 4469,
+          "at_jn": 4469,
+          "retained": 4302,
+          "left": 167,
+          "conviction": 0.9626
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 202,
+          "left": 48,
+          "conviction": 0.808
+        },
+        "all_holders": {
+          "n": 5469,
+          "at_jn": 5469,
+          "retained": 5116,
+          "left": 353,
+          "conviction": 0.9355
+        }
+      }
+    }
+  },
+  {
+    "mint": "89S7oVB4hui8ceJqhHreWB7fcxdthfvoB7z2pfJtpump",
+    "symbol": "abcdefg",
+    "total_holders": 2429,
+    "price_usd": 9.1296286e-05,
+    "cs": {
+      "1m": 55.8,
+      "1w": 86.5,
+      "3d": 91.2,
+      "3m": 0,
+      "6h": 99.2,
+      "6m": 0,
+      "9m": 0,
+      "1yr": 0,
+      "24h": 94.4
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 5,
+          "left": 5,
+          "conviction": 0.5
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 26,
+          "left": 14,
+          "conviction": 0.65
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 128,
+          "left": 72,
+          "conviction": 0.64
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 659,
+          "left": 91,
+          "conviction": 0.8787
+        },
+        "micro_1001+": {
+          "n": 1575,
+          "at_jn": 1575,
+          "retained": 1526,
+          "left": 49,
+          "conviction": 0.9689
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 159,
+          "left": 91,
+          "conviction": 0.636
+        },
+        "all_holders": {
+          "n": 2575,
+          "at_jn": 2575,
+          "retained": 2344,
+          "left": 231,
+          "conviction": 0.9103
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 5,
+          "left": 5,
+          "conviction": 0.5
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 22,
+          "left": 18,
+          "conviction": 0.55
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 120,
+          "left": 80,
+          "conviction": 0.6
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 607,
+          "left": 143,
+          "conviction": 0.8093
+        },
+        "micro_1001+": {
+          "n": 1628,
+          "at_jn": 1628,
+          "retained": 1550,
+          "left": 78,
+          "conviction": 0.9521
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 147,
+          "left": 103,
+          "conviction": 0.588
+        },
+        "all_holders": {
+          "n": 2628,
+          "at_jn": 2628,
+          "retained": 2304,
+          "left": 324,
+          "conviction": 0.8767
+        }
+      }
+    }
+  },
+  {
+    "mint": "CB9dDufT3ZuQXqqSfa1c5kY935TEreyBw9XJXxHKpump",
+    "symbol": "USDUC",
+    "total_holders": 15346,
+    "price_usd": 0.0060714893,
+    "cs": {
+      "1m": 55.6,
+      "1w": 59,
+      "3d": 83.6,
+      "3m": 51.1,
+      "6h": 98.1,
+      "6m": 45.5,
+      "9m": 25,
+      "24h": 95.1
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 185,
+          "left": 15,
+          "conviction": 0.925
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 661,
+          "left": 89,
+          "conviction": 0.8813
+        },
+        "micro_1001+": {
+          "n": 14643,
+          "at_jn": 14643,
+          "retained": 14126,
+          "left": 517,
+          "conviction": 0.9647
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 234,
+          "left": 16,
+          "conviction": 0.936
+        },
+        "all_holders": {
+          "n": 15643,
+          "at_jn": 15643,
+          "retained": 15021,
+          "left": 622,
+          "conviction": 0.9602
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 185,
+          "left": 15,
+          "conviction": 0.925
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 661,
+          "left": 89,
+          "conviction": 0.8813
+        },
+        "micro_1001+": {
+          "n": 14642,
+          "at_jn": 14642,
+          "retained": 14125,
+          "left": 517,
+          "conviction": 0.9647
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 234,
+          "left": 16,
+          "conviction": 0.936
+        },
+        "all_holders": {
+          "n": 15642,
+          "at_jn": 15642,
+          "retained": 15020,
+          "left": 622,
+          "conviction": 0.9602
+        }
+      }
+    }
+  },
+  {
+    "mint": "J8PSdNP3QewKq2Z1JJJFDMaqF7KcaiJhR7gbr5KZpump",
+    "symbol": "TripleT",
+    "total_holders": 8088,
+    "price_usd": 0.009147531,
+    "cs": {
+      "1m": 53.6,
+      "1w": 81.1,
+      "3d": 90.6,
+      "3m": 0,
+      "6h": 99.2,
+      "6m": 0,
+      "9m": 0,
+      "1yr": 0,
+      "24h": 98.1
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 9,
+          "left": 1,
+          "conviction": 0.9
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 190,
+          "left": 10,
+          "conviction": 0.95
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 693,
+          "left": 57,
+          "conviction": 0.924
+        },
+        "micro_1001+": {
+          "n": 7121,
+          "at_jn": 7121,
+          "retained": 6769,
+          "left": 352,
+          "conviction": 0.9506
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 239,
+          "left": 11,
+          "conviction": 0.956
+        },
+        "all_holders": {
+          "n": 8121,
+          "at_jn": 8121,
+          "retained": 7701,
+          "left": 420,
+          "conviction": 0.9483
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 9,
+          "left": 1,
+          "conviction": 0.9
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 40,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 190,
+          "left": 10,
+          "conviction": 0.95
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 693,
+          "left": 57,
+          "conviction": 0.924
+        },
+        "micro_1001+": {
+          "n": 7121,
+          "at_jn": 7121,
+          "retained": 6769,
+          "left": 352,
+          "conviction": 0.9506
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 239,
+          "left": 11,
+          "conviction": 0.956
+        },
+        "all_holders": {
+          "n": 8121,
+          "at_jn": 8121,
+          "retained": 7701,
+          "left": 420,
+          "conviction": 0.9483
+        }
+      }
+    }
+  },
+  {
+    "mint": "32CdQdBUxbCsLy5AUHWmyidfwhgGUr9N573NBUrDpump",
+    "symbol": "maxxing",
+    "total_holders": 6222,
+    "price_usd": 0.0030520589,
+    "cs": {
+      "1m": 47.2,
+      "1w": 76.4,
+      "3d": 83.2,
+      "3m": 9.6,
+      "6h": 95.6,
+      "6m": 0,
+      "9m": 0,
+      "24h": 86.8
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 38,
+          "left": 2,
+          "conviction": 0.95
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 185,
+          "left": 15,
+          "conviction": 0.925
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 629,
+          "left": 121,
+          "conviction": 0.8387
+        },
+        "micro_1001+": {
+          "n": 5365,
+          "at_jn": 5365,
+          "retained": 5029,
+          "left": 336,
+          "conviction": 0.9374
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 233,
+          "left": 17,
+          "conviction": 0.932
+        },
+        "all_holders": {
+          "n": 6365,
+          "at_jn": 6365,
+          "retained": 5891,
+          "left": 474,
+          "conviction": 0.9255
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 38,
+          "left": 2,
+          "conviction": 0.95
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 185,
+          "left": 15,
+          "conviction": 0.925
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 629,
+          "left": 121,
+          "conviction": 0.8387
+        },
+        "micro_1001+": {
+          "n": 5365,
+          "at_jn": 5365,
+          "retained": 5029,
+          "left": 336,
+          "conviction": 0.9374
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 233,
+          "left": 17,
+          "conviction": 0.932
+        },
+        "all_holders": {
+          "n": 6365,
+          "at_jn": 6365,
+          "retained": 5891,
+          "left": 474,
+          "conviction": 0.9255
+        }
+      }
+    }
+  },
+  {
+    "mint": "EsLb2XdNWVezNnhEsRVKYZ7BymiKUabzh4tdVhz4pump",
+    "symbol": "Twin",
+    "total_holders": 705,
+    "price_usd": 0.00019665036,
+    "cs": {
+      "1m": 42.4,
+      "1w": 77.2,
+      "3d": 90,
+      "3m": 0,
+      "6h": 98.4,
+      "6m": 0,
+      "9m": 0,
+      "1yr": 0,
+      "24h": 94.4
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 35,
+          "left": 5,
+          "conviction": 0.875
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 140,
+          "left": 60,
+          "conviction": 0.7
+        },
+        "retail_251_1000": {
+          "n": 451,
+          "at_jn": 451,
+          "retained": 381,
+          "left": 70,
+          "conviction": 0.8448
+        },
+        "micro_1001+": {
+          "n": 0,
+          "at_jn": 0,
+          "retained": 0,
+          "left": 0,
+          "conviction": null
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 185,
+          "left": 65,
+          "conviction": 0.74
+        },
+        "all_holders": {
+          "n": 701,
+          "at_jn": 701,
+          "retained": 566,
+          "left": 135,
+          "conviction": 0.8074
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 9,
+          "left": 1,
+          "conviction": 0.9
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 29,
+          "left": 11,
+          "conviction": 0.725
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 92,
+          "left": 108,
+          "conviction": 0.46
+        },
+        "retail_251_1000": {
+          "n": 329,
+          "at_jn": 329,
+          "retained": 229,
+          "left": 100,
+          "conviction": 0.696
+        },
+        "micro_1001+": {
+          "n": 0,
+          "at_jn": 0,
+          "retained": 0,
+          "left": 0,
+          "conviction": null
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 130,
+          "left": 120,
+          "conviction": 0.52
+        },
+        "all_holders": {
+          "n": 579,
+          "at_jn": 579,
+          "retained": 359,
+          "left": 220,
+          "conviction": 0.62
+        }
+      }
+    }
+  },
+  {
+    "mint": "CGEDT9QZDvvH5GmVkWJH2BXiMJqMJySC9ihWyr7Spump",
+    "symbol": "BURNIE",
+    "total_holders": 10489,
+    "price_usd": 0.008672298,
+    "cs": {
+      "1m": 33.2,
+      "1w": 74,
+      "3d": 81.6,
+      "3m": 0,
+      "6h": 98.8,
+      "6m": 0,
+      "9m": 0,
+      "1yr": 0,
+      "24h": 92
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 198,
+          "left": 2,
+          "conviction": 0.99
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 721,
+          "left": 29,
+          "conviction": 0.9613
+        },
+        "micro_1001+": {
+          "n": 9392,
+          "at_jn": 9392,
+          "retained": 9197,
+          "left": 195,
+          "conviction": 0.9792
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 247,
+          "left": 3,
+          "conviction": 0.988
+        },
+        "all_holders": {
+          "n": 10392,
+          "at_jn": 10392,
+          "retained": 10165,
+          "left": 227,
+          "conviction": 0.9782
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 198,
+          "left": 2,
+          "conviction": 0.99
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 721,
+          "left": 29,
+          "conviction": 0.9613
+        },
+        "micro_1001+": {
+          "n": 9391,
+          "at_jn": 9391,
+          "retained": 9197,
+          "left": 194,
+          "conviction": 0.9793
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 247,
+          "left": 3,
+          "conviction": 0.988
+        },
+        "all_holders": {
+          "n": 10391,
+          "at_jn": 10391,
+          "retained": 10165,
+          "left": 226,
+          "conviction": 0.9783
+        }
+      }
+    }
+  },
+  {
+    "mint": "ACtfUWtgvaXrQGNMiohTusi5jcx5RJf5zwu9aAxkpump",
+    "symbol": "unc",
+    "total_holders": 14596,
+    "price_usd": 0.0037389668,
+    "cs": {
+      "1m": 9.6,
+      "1w": 84,
+      "3d": 90.8,
+      "3m": 0,
+      "6h": 98.4,
+      "6m": 0,
+      "9m": 0,
+      "1yr": 0,
+      "24h": 96.8
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 190,
+          "left": 10,
+          "conviction": 0.95
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 655,
+          "left": 95,
+          "conviction": 0.8733
+        },
+        "micro_1001+": {
+          "n": 13494,
+          "at_jn": 13494,
+          "retained": 12999,
+          "left": 495,
+          "conviction": 0.9633
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 239,
+          "left": 11,
+          "conviction": 0.956
+        },
+        "all_holders": {
+          "n": 14494,
+          "at_jn": 14494,
+          "retained": 13893,
+          "left": 601,
+          "conviction": 0.9585
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 10,
+          "left": 0,
+          "conviction": 1.0
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 39,
+          "left": 1,
+          "conviction": 0.975
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 190,
+          "left": 10,
+          "conviction": 0.95
+        },
+        "retail_251_1000": {
+          "n": 750,
+          "at_jn": 750,
+          "retained": 655,
+          "left": 95,
+          "conviction": 0.8733
+        },
+        "micro_1001+": {
+          "n": 13495,
+          "at_jn": 13495,
+          "retained": 13000,
+          "left": 495,
+          "conviction": 0.9633
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 239,
+          "left": 11,
+          "conviction": 0.956
+        },
+        "all_holders": {
+          "n": 14495,
+          "at_jn": 14495,
+          "retained": 13894,
+          "left": 601,
+          "conviction": 0.9585
+        }
+      }
+    }
+  },
+  {
+    "mint": "sGzragYKDrmRgCGvJUn9WKwrmnUZwfmkNQLTSPfdMNq",
+    "symbol": "MOJO",
+    "total_holders": 895,
+    "price_usd": 0.000260716,
+    "cs": {
+      "1m": 0.8,
+      "1w": 81.6,
+      "3d": 88.4,
+      "3m": 0.8,
+      "6h": 98.8,
+      "6m": 0.4,
+      "9m": 0.4,
+      "1yr": 0.4,
+      "24h": 93.6
+    },
+    "windows": {
+      "7d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 9,
+          "left": 1,
+          "conviction": 0.9
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 32,
+          "left": 8,
+          "conviction": 0.8
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 165,
+          "left": 35,
+          "conviction": 0.825
+        },
+        "retail_251_1000": {
+          "n": 345,
+          "at_jn": 345,
+          "retained": 292,
+          "left": 53,
+          "conviction": 0.8464
+        },
+        "micro_1001+": {
+          "n": 0,
+          "at_jn": 0,
+          "retained": 0,
+          "left": 0,
+          "conviction": null
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 206,
+          "left": 44,
+          "conviction": 0.824
+        },
+        "all_holders": {
+          "n": 595,
+          "at_jn": 595,
+          "retained": 498,
+          "left": 97,
+          "conviction": 0.837
+        }
+      },
+      "30d": {
+        "whale_top10": {
+          "n": 10,
+          "at_jn": 10,
+          "retained": 2,
+          "left": 8,
+          "conviction": 0.2
+        },
+        "large_11_50": {
+          "n": 40,
+          "at_jn": 40,
+          "retained": 6,
+          "left": 34,
+          "conviction": 0.15
+        },
+        "mid_51_250": {
+          "n": 200,
+          "at_jn": 200,
+          "retained": 102,
+          "left": 98,
+          "conviction": 0.51
+        },
+        "retail_251_1000": {
+          "n": 9,
+          "at_jn": 9,
+          "retained": 6,
+          "left": 3,
+          "conviction": 0.6667
+        },
+        "micro_1001+": {
+          "n": 0,
+          "at_jn": 0,
+          "retained": 0,
+          "left": 0,
+          "conviction": null
+        },
+        "top250_aggregate": {
+          "n": 250,
+          "at_jn": 250,
+          "retained": 110,
+          "left": 140,
+          "conviction": 0.44
+        },
+        "all_holders": {
+          "n": 259,
+          "at_jn": 259,
+          "retained": 116,
+          "left": 143,
+          "conviction": 0.4479
+        }
+      }
+    }
+  }
+]

@@ -128,3 +128,7 @@ cynic-python/lab/ccm_chaos_clusters.json
 demo-video/
 .cortex-session
 skills-lock.json
+
+# Runtime data (holder snapshots, too large for git)
+cynic-python/heuristics/snapshots/
+cynic-python/heuristics/helius_cache/
