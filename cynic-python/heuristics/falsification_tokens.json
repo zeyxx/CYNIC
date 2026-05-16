@@ -1,0 +1,56 @@
+[
+  {
+    "mint": "4fSWEw2wbYEUCcMtitzmeGUfqinoafXxkhqZrA9Gpump",
+    "symbol": "Pigeon",
+    "decimals": 6,
+    "cs": {
+      "1m": 75.2,
+      "1w": 91.6,
+      "3d": 94.8,
+      "3m": 16,
+      "6h": 100,
+      "6m": 0,
+      "9m": 0,
+      "1yr": 0,
+      "24h": 98.4
+    },
+    "conviction_1m": 75.2,
+    "conviction_1w": 91.6
+  },
+  {
+    "mint": "4TyZGqRLG3VcHTGMcLBoPUmqYitMVojXinAmkL8xpump",
+    "symbol": "testicle",
+    "decimals": 6,
+    "cs": {
+      "1m": 77.3,
+      "1w": 89.2,
+      "3d": 95.2,
+      "3m": 39,
+      "6h": 99.2,
+      "6m": 0,
+      "9m": 0,
+      "1yr": 0,
+      "24h": 96.8
+    },
+    "conviction_1m": 77.3,
+    "conviction_1w": 89.2
+  },
+  {
+    "mint": "H74CYmXgMkYHYuSRsZt6RJb4NYp2u72Vw8BS5huApump",
+    "symbol": "LMAO!",
+    "decimals": 6,
+    "cs": {
+      "1m": 80.8,
+      "1w": 88.8,
+      "3d": 96.9,
+      "3m": 62.7,
+      "6h": 98.5,
+      "6m": 35,
+      "9m": 0,
+      "1yr": 0,
+      "24h": 97.7
+    },
+    "conviction_1m": 80.8,
+    "conviction_1w": 88.8
+  }
+]
