@@ -156,15 +156,6 @@ impl DogStats {
         (self.zero_flood_count + self.collapse_count) as f64 / self.total_calls as f64
     }
 
-    /// Mean completion tokens per successful call.
-    /// Returns 0 when no successful calls recorded.
-    pub fn mean_completion_tokens(&self) -> u32 {
-        if self.success_count == 0 {
-            return 0;
-        }
-        (self.total_completion_tokens / self.success_count) as u32
-    }
-
     /// Thinking-aware completion budget: content needs + thinking overhead.
     /// Returns None when baseline not yet established (< 20 calls).
     pub fn completion_budget(&self) -> Option<u32> {
