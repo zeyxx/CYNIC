@@ -148,11 +148,6 @@ impl MockChatBackend {
             force_error: None,
         }
     }
-
-    pub fn with_reasoning(mut self, reasoning: &str) -> Self {
-        self.reasoning = Some(reasoning.to_string());
-        self
-    }
 }
 
 #[async_trait]
