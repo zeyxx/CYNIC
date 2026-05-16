@@ -16,7 +16,7 @@ Declared in `~/.config/cynic/backends.toml` — loaded at kernel boot if env var
 |---|---|---|---|
 | deterministic-dog | Heuristics | In-kernel | Always (no config required) |
 | qwen-7b-hf | Qwen 2.5 7B | HF Inference | If HUGGINGFACE_API_KEY set |
-| qwen-9b-core | Qwen 2.5 7B Q4 | cynic-core (CPU + Vulkan) | If <TAILSCALE_CORE> reachable |
+| qwen25-7b-core | Qwen 2.5 7B Q4 | cynic-core (CPU + Vulkan) | If <TAILSCALE_CORE> reachable |
 | qwen35-9b-gpu | Qwen 3.5 9B Q4 | cynic-gpu (RTX 4060 Ti) | If <TAILSCALE_GPU> reachable |
 | gemini-cli | Gemini (auto) | CLI subprocess | If GEMINI_API_KEY set + gemini-cli on PATH |
 
@@ -27,7 +27,7 @@ Source of truth: `~/.config/cynic/fleet.toml`
 | Service | Location | What |
 |---|---|---|
 | CYNIC Kernel | `<TAILSCALE_CORE>`:3030 | REST API |
-| llama-server | `<TAILSCALE_CORE>`:8080 | Qwen 3.5 9B (CPU + Vulkan) |
+| llama-server | `<TAILSCALE_CORE>`:8080 | Qwen 2.5 7B (CPU + Vulkan) |
 | llama-server | `<TAILSCALE_GPU>`:8080 | Qwen 3.5 9B (GPU, 55 tok/s) |
 
 Full API contract: `API.md`. Env: `${CYNIC_REST_ADDR}`, `${CYNIC_API_KEY}` from `~/.cynic-env`.
