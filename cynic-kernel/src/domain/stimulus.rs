@@ -174,6 +174,27 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
         ));
     }
 
+    // ── Buy/Sell Divergence (from token profiler snapshot) ──
+    if let Some(ref div_class) = data.divergence_class {
+        s.push_str("\n[BUY/SELL DIVERGENCE]\n");
+        if let Some(ratio) = data.buy_sell_ratio {
+            s.push_str(&format!("buy_sell_ratio: {:.3}\n", ratio));
+        }
+        s.push_str(&format!("divergence_class: {div_class}\n"));
+        if let Some(pct) = data.percentile_divergence {
+            s.push_str(&format!(
+                "percentile: {}th (1-100, higher = more unusual)\n",
+                pct
+            ));
+        }
+        match div_class.as_str() {
+            "EARLY_ACCUM" => s.push_str("interpretation: Conviction declining but buy-side holders increasing — possible recovery phase\n"),
+            "DISTRIBUTION" => s.push_str("interpretation: Conviction high but sell-side dominates — possible exit phase\n"),
+            "STRONG_HOLD" => s.push_str("interpretation: Both conviction and buy-side high — consensus accumulation\n"),
+            _ => {}
+        }
+    }
+
     // ── Holder identities (from Helius Wallet API) ──
     if !data.holder_identities.is_empty() {
         s.push_str("\n[HOLDER IDENTITIES]\n");
@@ -469,6 +490,45 @@ mod tests {
         assert!(stimulus.contains("ACTIVE (can mint more tokens)"));
         assert!(stimulus.contains("NO — LP tokens in creator wallet"));
         assert!(stimulus.contains("98.6%"));
+    }
+
+    #[test]
+    fn token_stimulus_with_buy_sell_divergence() {
+        let data = TokenData {
+            mint: "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump".into(),
+            name: Some("Fartcoin".into()),
+            symbol: Some("FART".into()),
+            supply: Some(1_000_000_000),
+            decimals: Some(6),
+            price_usd: Some(0.00001),
+            holder_count: 320,
+            holder_data_available: true,
+            top1_pct: 5.2,
+            top10_pct: 12.1,
+            herfindahl: Some(0.045),
+            age_hours: 13800, // ~575 days
+            mint_authority_active: false,
+            freeze_authority_active: false,
+            lp_status: "burned".into(),
+            supply_burned_pct: Some(0.0),
+            supply_locked_pct: None,
+            origin: Some("pump.fun".into()),
+            token_standard: None,
+            description: None,
+            created_at: None,
+            buy_sell_ratio: Some(0.0),
+            divergence_class: Some("DISTRIBUTION".into()),
+            percentile_divergence: Some(67),
+            ..Default::default()
+        };
+
+        let stimulus = build_token_stimulus(&data);
+
+        assert!(stimulus.contains("[BUY/SELL DIVERGENCE]"));
+        assert!(stimulus.contains("buy_sell_ratio: 0.000"));
+        assert!(stimulus.contains("divergence_class: DISTRIBUTION"));
+        assert!(stimulus.contains("percentile: 67th"));
+        assert!(stimulus.contains("interpretation: Conviction high but sell-side dominates"));
     }
 
     #[test]

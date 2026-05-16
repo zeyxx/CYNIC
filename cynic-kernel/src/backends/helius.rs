@@ -1362,6 +1362,9 @@ impl TokenEnricherPort for HeliusEnricher {
             kscore,
             wallet_behaviors,
             holder_identities,
+            buy_sell_ratio: None, // populated by token profiler when available
+            divergence_class: None,
+            percentile_divergence: None,
         }))
     }
 }

@@ -70,6 +70,13 @@ pub struct TokenData {
     /// Identity resolution for top holders (from Helius Wallet API).
     /// Empty if identity lookup was not performed or failed.
     pub holder_identities: Vec<HolderIdentity>,
+    /// Buy/sell divergence signal: ratio of buy-side to sell-side holders.
+    /// From helius token profiler (on-chain txn analysis of top accounts).
+    pub buy_sell_ratio: Option<f64>,
+    /// Classification of buy/sell divergence: EARLY_ACCUM / DISTRIBUTION / STRONG_HOLD.
+    pub divergence_class: Option<String>,
+    /// Percentile of buy/sell divergence in population (0-100, higher = more unusual).
+    pub percentile_divergence: Option<u32>,
 }
 
 /// Identity resolution result for a token holder address.
