@@ -75,7 +75,7 @@ JUDGE_THRESHOLD = 3
 def load_domains_config(lab_config_dir: str = None) -> dict:
     """Load domains.yaml from lab config."""
     if lab_config_dir is None:
-        lab_config_dir = Path(__file__).parent.parent.parent / "cynic-python" / "lab" / "config"
+        lab_config_dir = Path(__file__).parent.parent.parent.parent / "cynic-python" / "lab" / "config"
     else:
         lab_config_dir = Path(lab_config_dir)
 
@@ -90,7 +90,7 @@ def load_domains_config(lab_config_dir: str = None) -> dict:
 def load_narrative_mappings(lab_config_dir: str = None) -> dict:
     """Load narrative_domains.yaml for narrative-first domain assignment."""
     if lab_config_dir is None:
-        lab_config_dir = Path(__file__).parent.parent.parent / "cynic-python" / "lab" / "config"
+        lab_config_dir = Path(__file__).parent.parent.parent.parent / "cynic-python" / "lab" / "config"
     else:
         lab_config_dir = Path(lab_config_dir)
 
