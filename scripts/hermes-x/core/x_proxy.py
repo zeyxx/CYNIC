@@ -352,7 +352,8 @@ def _enrich(tweet: dict, operation: str, variables: dict, coord_map: dict, sourc
     engagement = (likes + rts + replies) / views if views > 0 else 0.0
 
     return {
-        # Account & source
+        # Schema & account
+        "schema_version": 3,  # P17: bump on any field addition/removal
         "account_id": ACCOUNT_ID,
 
         # Core tweet
