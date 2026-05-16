@@ -120,8 +120,11 @@ case "$cmd" in
 
   check)
     FAIL=0
-    if ! diff -q "$REPO_BACKENDS" "$RUNTIME_BACKENDS" > /dev/null 2>&1; then
+    # Compare resolved repo against runtime (repo has placeholders, runtime has IPs)
+    # Pipe directly — variable capture strips trailing newline causing false drift
+    if ! diff -q <(python3 "$FLEET_GEN" "$REPO_BACKENDS" 2>/dev/null || cat "$REPO_BACKENDS") "$RUNTIME_BACKENDS" > /dev/null 2>&1; then
       echo "DRIFT: backends.toml diverged between repo and runtime" >&2
+      echo "  Run: scripts/config-sync.sh deploy" >&2
       FAIL=1
     else
       echo "backends.toml: in sync"

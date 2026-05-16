@@ -283,6 +283,36 @@ def consult_soma_gate(task_id: str) -> dict:
         return {"decision": "allocate", "data": {"slot_id": f"{task_id}-{int(time.time())}"}}
 
 
+def _requeue_task(task: dict):
+    """Clone and re-POST task to kernel as a new pending task.
+
+    The kernel's /agent-tasks/{id}/result endpoint hardcodes status='failed' when error is set.
+    There is no way to reset status to 'pending'. Instead, we create a fresh task with the
+    same content. The original task is left in 'processing' state (will be cleaned up by TTL).
+    """
+    if not KERNEL_ADDR or not KERNEL_API_KEY:
+        logger.warning("cannot requeue task: kernel not configured")
+        return
+    try:
+        headers = {
+            "Authorization": f"Bearer {KERNEL_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "kind": task.get("kind", "hermes"),
+            "domain": task.get("domain", "unknown"),
+            "content": task.get("content", task.get("objective", "")),
+        }
+        url = f"{KERNEL_ADDR}/agent-tasks"
+        response = requests.post(url, json=payload, headers=headers, timeout=5)
+        if response.status_code in (200, 201):
+            logger.info("requeued task as new pending (original: %s)", task.get("id", "?"))
+        else:
+            logger.warning("requeue failed: HTTP %d", response.status_code)
+    except requests.RequestException as e:
+        logger.warning("requeue failed: %s", e)
+
+
 def extract_domain_guidance(skill_content: str) -> str:
     """Extract domain confidence scores and weights from SKILL.md.
 
@@ -367,12 +397,16 @@ GUIDANCE:
 - Track domain patterns: consistency matters more than novelty for emerging trends
 """
 
-    # Add domain weight guidance
+    # Add domain weight guidance (truncated to avoid context overflow on small models)
+    max_skill_chars = 2000
     if skill_context:
         domain_guidance = extract_domain_guidance(skill_context)
         prompt += domain_guidance
+        truncated = skill_context[:max_skill_chars]
+        if len(skill_context) > max_skill_chars:
+            truncated += f"\n\n(... truncated from {len(skill_context)} chars to {max_skill_chars})\n"
         prompt += "\nCURRENT ORGANISM KNOWLEDGE:\n"
-        prompt += f"\n{skill_context}\n"
+        prompt += f"\n{truncated}\n"
     else:
         prompt += "\n(No learned patterns yet — establish baseline observations)\n"
 
@@ -384,12 +418,26 @@ Use the browser and code execution tools to complete this task.
     logger.debug("prompt: %s", prompt[:200])
 
     # Consult Soma L1 Alpha gate before execution (prevent GPU starvation)
-    gate_decision = consult_soma_gate(task_id)
-    if gate_decision.get("decision") == "queue":
+    # Bounded retry: max 3 attempts with Soma-provided backoff, then requeue
+    max_soma_retries = 3
+    for attempt in range(max_soma_retries):
+        gate_decision = consult_soma_gate(task_id)
+        if gate_decision.get("decision") != "queue":
+            break
         wait_secs = gate_decision.get("data", {}).get("wait_secs", 5)
-        logger.warning("GPU saturated for task %s, queueing with %ds backoff", task_id, wait_secs)
-        # For now, fail with retry signal. In production, could re-queue to kernel
-        return None, f"GPU saturated (Hermes priority 5s backoff) — task {task_id} needs retry"
+        if attempt < max_soma_retries - 1:
+            logger.warning(
+                "GPU saturated for task %s (attempt %d/%d), waiting %ds",
+                task_id, attempt + 1, max_soma_retries, wait_secs,
+            )
+            time.sleep(wait_secs)
+        else:
+            logger.error(
+                "GPU saturated after %d retries for task %s — requeuing",
+                max_soma_retries, task_id,
+            )
+            _requeue_task(task)
+            return None, f"GPU saturated after {max_soma_retries} retries — task requeued"
 
     # Spawn hermes agent
     try:
@@ -419,7 +467,7 @@ Use the browser and code execution tools to complete this task.
         logger.error(error)
         return None, error
     except subprocess.TimeoutExpired:
-        error = "task execution timed out (5 min)"
+        error = "task execution timed out (10 min)"
         logger.error(error)
         return None, error
     except Exception as e:
