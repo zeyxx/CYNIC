@@ -48,11 +48,30 @@ Is control distributed or concentrated? Can individual holders act freely withou
 - MEDIUM (0.25-0.45): freeze_authority revoked but moderate concentration. Some admin functions exist but governed by multisig or DAO. Token is partially creator-dependent. Example: Token with governance multisig, revoked freeze, but significant treasury allocation.
 - LOW (0.05-0.20): freeze_authority ACTIVE (any wallet can be frozen — most direct threat to individual sovereignty). Single wallet controls >50%. Token entirely dependent on creator's continued good behavior. Example: Token where freeze authority can lock any holder's wallet at any time, and one wallet dominates supply.
 
+## BUY/SELL DIVERGENCE
+
+Holder behavior reveals what insiders know. When buy/sell ratios diverge from conviction (ATA age), it signals a PHASE TRANSITION:
+
+- **EARLY_ACCUM**: Conviction is declining (older ATAs) but buy-side holders are increasing → insiders are ACCUMULATING despite sentiment downturn. Suggests value thesis hasn't peaked. Example: `unc`, `Twin` (conviction 0.35-0.50, buy/sell ratio 0.72+).
+- **DISTRIBUTION**: Conviction is high (newer ATAs) but sell-side holders dominate → insiders are EXITING despite bullish narrative. Suggests awareness of upcoming downside. Example: `Fartcoin`, `WOJAK` (conviction 0.65+, buy/sell ratio <0.45).
+- **STRONG_HOLD**: Both conviction AND buy-side holders are high → consensus accumulation. Genuine growth phase. Rarest signal.
+
+**Data**: Extracted from on-chain holder transaction history (Helius txn analysis). Buy = holder's last 5 txns are net buys. Sell = net sells. Divergence percentile captures how unusual this pattern is (1-100, higher = more divergent = more signal).
+
+**How to apply**:
+- EARLY_ACCUM holders are AHEAD of conviction — may suggest recovery incoming.
+- DISTRIBUTION holders are AHEAD of exit — raises red flag unless project has planned phase transition.
+- Divergence > 75th percentile is statistically unusual, warrants investigation into why insiders are acting contrary to stated age-based conviction.
+
+**Caveat**: buy/sell ratio is LOCAL to identified holders (Helius top accounts). Small holder count or RPC degradation makes this unreliable. Always cross-check with other metrics.
+
 ## PRIOR CALIBRATION
 
 The base rate for new tokens is skepticism, not trust:
 - 98.6% of pump.fun tokens fail (Solidus Labs 2025). Default prior for pump.fun: BARK until proven otherwise.
 - Evidence that OVERRIDES the prior: LP burned + authorities revoked + age >30d + growing holders = strong evidence of legitimacy, sufficient to upgrade verdict.
 - Exception awareness: legitimate pump.fun tokens exist (rare) — the prior is strong but not absolute.
+
+**Buy/sell divergence as context**: A high-conviction token (old ATAs) with DISTRIBUTION-class holders suggests insiders know something. This is NOT proof of legitimacy, but it IS a red flag that merits CLOSER scrutiny than the default prior would suggest. DISTRIBUTION may accelerate a BARK verdict if combined with other warning signs (mint authority active, LP unsecured).
 
 When metrics conflict (e.g., revoked authorities but high concentration), score the WEAKER signal. A single critical red flag (freeze_authority active, LP unsecured) should suppress the overall assessment regardless of other positive signals.
