@@ -814,11 +814,20 @@ impl HeliusEnricher {
             .json(&body)
             .send()
             .await
+            .inspect_err(
+                |e| tracing::debug!(error = %e, "classify_holders_batch phase1 request failed"),
+            )
             .ok()?;
         if !resp.status().is_success() {
             return None;
         }
-        let rpc: serde_json::Value = resp.json().await.ok()?;
+        let rpc: serde_json::Value = resp
+            .json()
+            .await
+            .inspect_err(
+                |e| tracing::debug!(error = %e, "classify_holders_batch phase1 parse failed"),
+            )
+            .ok()?;
         let start = std::time::Instant::now();
         self.credits
             .record_call(start.elapsed().as_millis(), true, 1);

@@ -1037,4 +1037,122 @@ mod tests {
             scores_without.sovereignty
         );
     }
+
+    #[test]
+    fn parse_holder_context_section() {
+        let mut content = make_token_stimulus(&HEALTHY_MINT);
+        let baselines_pos = content.find("\n[BASELINES]").unwrap();
+        let holder_ctx = "\n[HOLDER CONTEXT]\ntop_20_analyzed: 85.3% of supply\n  lp_pools: 15.2% \u{2014} DEX liquidity, market-making\n  contracts: 60.1% \u{2014} tokens held by smart contracts (vesting, DAO, protocol), not freely tradeable\n  wallets: 10.0% \u{2014} freely tradeable by individual holders\neffective_wallet_concentration: 10.0%\nnote: High raw concentration (85%) driven by institutional/programmatic holdings (75%). Effective retail concentration is 10.0%.\n";
+        content.insert_str(baselines_pos, holder_ctx);
+
+        let m = parse(&content).expect("should parse with holder context");
+        assert!(
+            (m.effective_concentration.unwrap() - 10.0).abs() < 0.1,
+            "effective_concentration should be 10.0%, got {:?}",
+            m.effective_concentration
+        );
+        assert!(
+            (m.contract_pct.unwrap() - 60.1).abs() < 0.1,
+            "contract_pct should be 60.1%, got {:?}",
+            m.contract_pct
+        );
+    }
+
+    #[test]
+    fn parse_holder_context_with_locker() {
+        let mut content = make_token_stimulus(&HEALTHY_MINT);
+        let baselines_pos = content.find("\n[BASELINES]").unwrap();
+        let holder_ctx = "\n[HOLDER CONTEXT]\ntop_20_analyzed: 70.0% of supply\n  locked: 40.0% \u{2014} tokens in lock/vesting contracts, not freely tradeable\n  wallets: 30.0% \u{2014} freely tradeable by individual holders\neffective_wallet_concentration: 30.0%\n";
+        content.insert_str(baselines_pos, holder_ctx);
+
+        let m = parse(&content).expect("should parse with locker");
+        assert!(
+            (m.locker_pct.unwrap() - 40.0).abs() < 0.1,
+            "locker_pct should be 40.0%, got {:?}",
+            m.locker_pct
+        );
+        assert!(
+            (m.effective_concentration.unwrap() - 30.0).abs() < 0.1,
+            "effective_concentration should be 30.0%"
+        );
+    }
+
+    #[tokio::test]
+    async fn holder_context_boosts_phi_for_institutional_concentration() {
+        // Token with 85% top-10 concentration — looks bad without context
+        let high_conc = TestMint {
+            holders: 250_000,
+            top1_pct: 60.0, // high raw concentration
+            top10_pct: 85.0,
+            herfindahl: Some(0.45),
+            age_hours: 2000,
+            mint_active: false,
+            freeze_active: false,
+            lp: "burned",
+            burned_pct: Some(0.0),
+            origin: None,
+        };
+
+        // Without holder context: raw concentration penalizes phi
+        let raw_stim = make_token_stimulus(&high_conc);
+        let m_raw = parse(&raw_stim).unwrap();
+        let scores_raw = score(&m_raw);
+
+        // With holder context: most is contracts, effective wallet concentration is low
+        let mut ctx_stim = make_token_stimulus(&high_conc);
+        let baselines_pos = ctx_stim.find("\n[BASELINES]").unwrap();
+        let holder_ctx = "\n[HOLDER CONTEXT]\ntop_20_analyzed: 85.0% of supply\n  contracts: 60.0% \u{2014} vesting\n  wallets: 10.0% \u{2014} retail\neffective_wallet_concentration: 10.0%\n";
+        ctx_stim.insert_str(baselines_pos, holder_ctx);
+        let m_ctx = parse(&ctx_stim).unwrap();
+        let scores_ctx = score(&m_ctx);
+
+        assert!(
+            scores_ctx.phi > scores_raw.phi,
+            "Holder context should boost phi when institutional concentration explains raw numbers: with_ctx={}, without={}",
+            scores_ctx.phi,
+            scores_raw.phi
+        );
+        assert!(
+            scores_ctx.sovereignty > scores_raw.sovereignty,
+            "Holder context should boost sovereignty: with_ctx={}, without={}",
+            scores_ctx.sovereignty,
+            scores_raw.sovereignty
+        );
+    }
+
+    #[tokio::test]
+    async fn holder_context_still_penalizes_real_whale_concentration() {
+        // Token where most concentration IS wallets — should still score low
+        let high_conc = TestMint {
+            holders: 50,
+            top1_pct: 70.0,
+            top10_pct: 90.0,
+            herfindahl: Some(0.55),
+            age_hours: 48,
+            mint_active: false,
+            freeze_active: false,
+            lp: "locked",
+            burned_pct: None,
+            origin: Some("pump.fun"),
+        };
+
+        let mut stim = make_token_stimulus(&high_conc);
+        let baselines_pos = stim.find("\n[BASELINES]").unwrap();
+        // Holder context shows most is wallets — real whale concentration
+        let holder_ctx = "\n[HOLDER CONTEXT]\ntop_20_analyzed: 90.0% of supply\n  wallets: 85.0% \u{2014} freely tradeable\n  lp_pools: 5.0% \u{2014} DEX\neffective_wallet_concentration: 85.0%\n";
+        stim.insert_str(baselines_pos, holder_ctx);
+        let m = parse(&stim).unwrap();
+        let scores = score(&m);
+
+        assert!(
+            scores.phi < 0.35,
+            "85% wallet concentration should keep phi low even with holder context: phi={}",
+            scores.phi
+        );
+        assert!(
+            scores.sovereignty < 0.35,
+            "85% wallet concentration should keep sovereignty low: sov={}",
+            scores.sovereignty
+        );
+    }
 }

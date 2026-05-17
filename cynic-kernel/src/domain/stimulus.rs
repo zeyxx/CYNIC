@@ -520,4 +520,62 @@ mod tests {
         assert!(stimulus.contains("ACTIVE (can freeze"));
         assert!(stimulus.contains("NO — LP tokens in creator wallet"));
     }
+
+    #[test]
+    fn token_stimulus_with_holder_context() {
+        use crate::domain::enrichment::HolderContext;
+
+        let data = TokenData {
+            mint: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN".into(),
+            name: Some("Jupiter".into()),
+            symbol: Some("JUP".into()),
+            supply: Some(6_863_982_190_903_847),
+            decimals: Some(6),
+            price_usd: Some(0.78),
+            holder_count: 250_000,
+            holder_data_available: true,
+            top1_pct: 60.0,
+            top10_pct: 85.0,
+            herfindahl: Some(0.45),
+            age_hours: 12000,
+            mint_authority_active: false,
+            freeze_authority_active: false,
+            lp_status: "burned".into(),
+            supply_burned_pct: Some(0.0),
+            supply_locked_pct: Some(0.0),
+            origin: None,
+            token_standard: Some("Fungible".into()),
+            description: None,
+            created_at: None,
+            holder_context: Some(HolderContext {
+                classified: 20,
+                lp_pct: 15.2,
+                burn_pct: 0.0,
+                locker_pct: 0.0,
+                contract_pct: 60.1,
+                wallet_pct: 9.7,
+                effective_concentration: 9.7,
+            }),
+            ..Default::default()
+        };
+
+        let stimulus = build_token_stimulus(&data);
+
+        assert!(
+            stimulus.contains("[HOLDER CONTEXT]"),
+            "stimulus should have holder context section"
+        );
+        assert!(
+            stimulus.contains("effective_wallet_concentration: 9.7%"),
+            "stimulus should show effective concentration"
+        );
+        assert!(
+            stimulus.contains("contracts: 60.1%"),
+            "stimulus should show contract percentage"
+        );
+        assert!(
+            stimulus.contains("institutional"),
+            "stimulus should have institutional note when >30%"
+        );
+    }
 }
