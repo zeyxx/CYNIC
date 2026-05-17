@@ -43,7 +43,11 @@ Key comparisons:
 - 10 `conviction_tier: "mixed"` → `expected_verdict: "Growl"`
 - 3 `conviction_tier: "weak"` → `expected_verdict: "Bark"`
 
-Ground truth: CultScreener `conviction_1m` (0.0–1.0) and `conviction_tier`.
+Ground truth: CultScreener `conviction` (0.0–1.0) and `conviction_tier`.
+
+**Known baseline (observed, 2026-05-16):** Current Dogs produce ρ=0.225 (p=0.21, not significant), adjacent_match=48.5%, discrimination gap=0.005. Dogs predict Growl for 30/33 tokens. This benchmark measures whether Claude arms do better, worse, or the same — a ρ<0.4 for all arms means "enrichment as currently implemented does not add value," which is a valid finding.
+
+**Statistical power note:** n=33 with 20/10/3 class split is underpowered. Results are directional (hypothesis-generating), not decisive. Bootstrap CIs on ρ should be computed in `analyze.py`.
 
 ### Output Schema
 
@@ -54,15 +58,15 @@ Ground truth: CultScreener `conviction_1m` (0.0–1.0) and `conviction_tier`.
   "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
   "symbol": "JUP",
   "arm": "cynic_dogs",
-  "q_score": 0.423,
+  "q_score": 0.423,           // from response.q_score.total (Dogs) or geo_mean(axioms) (Claude)
   "verdict": "Wag",
-  "axioms": {
+  "axioms": {                  // from response.q_score.{fidelity,...} (Dogs) or parsed JSON (Claude)
     "fidelity": 0.45, "phi": 0.38, "verify": 0.42,
     "culture": 0.40, "burn": 0.44, "sovereignty": 0.35
   },
   "ground_truth_tier": "strong",
   "ground_truth_verdict": "Howl",
-  "conviction_1m": 0.876,
+  "conviction": 0.876,
   "elapsed_ms": 2340,
   "timestamp": "2026-05-17T21:30:00Z"
 }
@@ -74,7 +78,7 @@ Ground truth: CultScreener `conviction_1m` (0.0–1.0) and `conviction_tier`.
 
 | Metric | Calculation | Decision impact |
 |--------|-------------|-----------------|
-| Spearman ρ(q_score, conviction_1m) | Rank correlation per arm | Core: does q_score track conviction? |
+| Spearman ρ(q_score, conviction) | Rank correlation per arm | Core: does q_score track conviction? |
 | Tier accuracy | % verdict == expected_verdict | Exact match rate |
 | Adjacent match | % verdict within ±1 ordinal step | Tolerance for WAG gap (4 CYNIC tiers vs 3 CultScreener tiers) |
 | Mean absolute tier error | Avg ordinal distance (HOWL=3, WAG=2, GROWL=1, BARK=0) | Magnitude of misses |
@@ -118,16 +122,21 @@ TOKEN TO EVALUATE:
 ```
 
 For naive arms: `{stimulus}` = mint address + symbol.
-For enriched arm: `{stimulus}` = full kernel-generated stimulus (from `/judge` response `enriched_content`).
+For enriched arm: `{stimulus}` = full kernel-generated stimulus (from `/judge` response `stimulus_content`).
 
 ### Execution
 
-Arm 1 (CYNIC Dogs) runs first per token — its `enriched_content` is reused for arm 4. This guarantees Dogs and Sonnet enriched judge the exact same data.
+Arm 1 (CYNIC Dogs) runs first per token — its `stimulus_content` is reused for arm 4. This guarantees Dogs and Sonnet enriched judge the exact same data.
+
+**Preflight:** Before the main loop, run `claude -p "Say hello" --model claude-haiku-4-5 --output-format json` to validate CLI flags and auth.
 
 ```
 for token in 33_tokens:
     arm1 = POST /judge {content: mint, domain: "token-analysis", crystals: true}
-    enriched_stimulus = arm1.enriched_content
+    enriched_stimulus = arm1["stimulus_content"]  # from JudgeResponse.stimulus_content
+    if enriched_stimulus is None:
+        log(f"SKIP {symbol}: enrichment failed")
+        continue  # don't silently downgrade arm 4
 
     arm2 = claude -p <naive_prompt(mint)> --model claude-haiku-4-5
     sleep(2)
@@ -163,10 +172,12 @@ cynic-python/heuristics/experiments/meta-question/
 ### Tier Classification
 
 **Tier 1 EXPERIMENTAL.** Research question with clear success condition.
-- Success condition: ρ(Dogs) > ρ(Sonnet naive)
+- Success condition: ρ(Dogs) > ρ(Sonnet naive) AND adjacent_match(Dogs) ≥ adjacent_match(Sonnet enriched)
+- Partial support: if only one clause holds, document which and why
 - Timeline: run within 7 days of spec approval
 - Death date: 2026-06-17 (30 days) — promote to Tier 2 or delete
-- Promotion path: if results are decisive, the benchmark becomes a regression gate (Tier 2) run on every enrichment pipeline change
+- Promotion path: if results are decisive, the benchmark becomes a CI gate on PRs touching `pipeline/enrichment.rs` or `dogs/deterministic/token.rs` — fails if ρ drops below the recorded baseline
+- n=3 weak tier caveat: treat weak-tier results as directional, not representative
 
 ### Dependencies
 
