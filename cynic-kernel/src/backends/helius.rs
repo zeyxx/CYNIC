@@ -767,6 +767,7 @@ impl HeliusEnricher {
         &self,
         holder_addresses: &[String],
         holder_balances: &[f64],
+        total_supply_ui: f64,
     ) -> Option<crate::domain::enrichment::HolderContext> {
         use crate::domain::enrichment::HolderType;
 
@@ -920,25 +921,39 @@ impl HeliusEnricher {
             }
         }
 
-        // Phase 3: Aggregate by type, weighted by balance
-        let mut lp_pct = 0.0_f64;
-        let mut burn_pct = 0.0_f64;
-        let mut locker_pct = 0.0_f64;
-        let mut contract_pct = 0.0_f64;
-        let mut wallet_pct = 0.0_f64;
+        // Phase 3: Aggregate by type, weighted by balance as % of supply
+        let mut lp_sum = 0.0_f64;
+        let mut burn_sum = 0.0_f64;
+        let mut locker_sum = 0.0_f64;
+        let mut contract_sum = 0.0_f64;
+        let mut wallet_sum = 0.0_f64;
         let mut classified = 0_u32;
 
         for (i, holder_type) in classifications.iter().enumerate() {
             let balance = holder_balances.get(i).copied().unwrap_or(0.0);
             classified += 1;
             match holder_type {
-                HolderType::LpPool => lp_pct += balance,
-                HolderType::Burn => burn_pct += balance,
-                HolderType::Locker => locker_pct += balance,
-                HolderType::Contract => contract_pct += balance,
-                HolderType::Wallet => wallet_pct += balance,
+                HolderType::LpPool => lp_sum += balance,
+                HolderType::Burn => burn_sum += balance,
+                HolderType::Locker => locker_sum += balance,
+                HolderType::Contract => contract_sum += balance,
+                HolderType::Wallet => wallet_sum += balance,
             }
         }
+
+        // Convert raw balances to % of total supply
+        let to_pct = |sum: f64| -> f64 {
+            if total_supply_ui > 0.0 {
+                (sum / total_supply_ui) * 100.0
+            } else {
+                0.0
+            }
+        };
+        let lp_pct = to_pct(lp_sum);
+        let burn_pct = to_pct(burn_sum);
+        let locker_pct = to_pct(locker_sum);
+        let contract_pct = to_pct(contract_sum);
+        let wallet_pct = to_pct(wallet_sum);
 
         let ctx = crate::domain::enrichment::HolderContext {
             classified,
@@ -1463,7 +1478,11 @@ impl TokenEnricherPort for HeliusEnricher {
         let holder_context = if !holder_addresses.is_empty() {
             match tokio::time::timeout(
                 std::time::Duration::from_secs(5),
-                self.classify_holders_batch(&holder_addresses, &holder_balances),
+                self.classify_holders_batch(
+                    &holder_addresses,
+                    &holder_balances,
+                    real_supply.unwrap_or(0.0),
+                ),
             )
             .await
             {
