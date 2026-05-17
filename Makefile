@@ -4,8 +4,9 @@
 #
 # Usage:
 #   make check    — build + test + clippy (validate before commit)
+#   make gate     — check + write marker (run BEFORE git push)
 #   make commit   — check + commit (validated commit)
-#   make ship     — commit + push (pre-push re-validates)
+#   make ship     — commit + push (pre-push verifies gate marker)
 #   make deploy   — ship + backup DB + restart kernel + verify
 #   make deploy-only — deploy existing binary WITHOUT commit/push/check (fast-path)
 #   make hotfix   — deploy WITHOUT push (emergency only — skips ship)
@@ -61,6 +62,19 @@ check:
 	else \
 		echo ""; echo "⚠ SurrealDB not running — skipping integration tests"; \
 	fi
+
+# ── Stage 1b: Gate (check + marker for pre-push) ──────────────
+# Decouples heavy CI from the SSH connection during git push.
+# Pre-push hook verifies the marker is fresh; this target creates it.
+# Usage: make gate && git push
+.PHONY: gate
+gate: check
+	@touch .gate-passed
+	@echo ""
+	@echo "══════════════════════════════════════════"
+	@echo "  ✓ Gate passed — .gate-passed marker written"
+	@echo "  Now run: git push"
+	@echo "══════════════════════════════════════════"
 
 .PHONY: lint-rules
 lint-rules: ## Grep-enforceable CLAUDE.md rules — uses grep (not rg alias, which is unavailable in Make subshells)
