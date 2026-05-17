@@ -157,8 +157,8 @@ async fn pipeline_inner(
     // (mint address) returns stale verdicts when data changes or bugs are fixed.
     let has_dynamic_enrichment =
         domain_hint == "token-analysis" || domain_hint == "wallet-judgment";
-    if !has_dynamic_enrichment {
-        if let Some(hit) = enrichment::check_cache(
+    if !has_dynamic_enrichment
+        && let Some(hit) = enrichment::check_cache(
             &stimulus_embedding,
             domain_hint,
             inject_crystals,
@@ -167,9 +167,8 @@ async fn pipeline_inner(
             deps,
         )
         .await
-        {
-            return Ok(hit);
-        }
+    {
+        return Ok(hit);
     }
 
     // ── Stage 3: Crystal loading ──

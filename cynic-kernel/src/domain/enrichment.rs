@@ -80,6 +80,11 @@ pub struct TokenData {
     pub divergence_class: Option<String>,
     /// Percentile of buy/sell divergence in population (0-100, higher = more unusual).
     pub percentile_divergence: Option<u32>,
+    /// Trajectory class from daily cron decay curve: DEAD / DYING / DECLINING / STABLE / UNKNOWN.
+    /// Conviction is temporal (T2) — this is the sovereign signal K-Score tried to capture.
+    pub trajectory_class: Option<String>,
+    /// Decay rate: conviction loss between shortest and longest window (0.0 to 1.0).
+    pub trajectory_decay: Option<f64>,
 }
 
 /// Classification of a token holder account by its on-chain program ownership.
