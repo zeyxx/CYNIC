@@ -34,7 +34,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Dict
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(SCRIPT_DIR, "webhook_data")
+DATA_DIR = os.path.join(SCRIPT_DIR, "..", "data", "webhook_data")
 METRICS_DIR = os.path.join(DATA_DIR, "_metrics")
 
 # ── CREDIT TRACKER ──
@@ -44,7 +44,10 @@ class CreditTracker:
 
     def __init__(self):
         self._lock = threading.Lock()
-        self._events_total = 0
+        self._events_total = 0       # per-mint event count (for data analysis)
+        self._deliveries_total = 0   # webhook deliveries = actual Helius credits
+        self._deliveries_today = 0
+        self._deliveries_this_hour = 0
         self._events_today = 0
         self._events_this_hour = 0
         self._events_this_minute = 0
@@ -73,20 +76,29 @@ class CreditTracker:
                 except (json.JSONDecodeError, IOError):
                     pass
 
+    def record_delivery(self, num_txs: int = 1) -> None:
+        """Record a webhook delivery (= 1 Helius credit per tx in the POST)."""
+        with self._lock:
+            self._deliveries_total += num_txs
+            self._deliveries_today += num_txs
+            self._deliveries_this_hour += num_txs
+
     def record_event(self, mint: str) -> None:
+        """Record a per-mint event (for data analysis, NOT credit counting)."""
         now = datetime.now(timezone.utc)
         day = now.strftime("%Y-%m-%d")
         hour = now.hour
         minute = now.minute
 
         with self._lock:
-            # Reset counters on rollover
             if day != self._current_day:
                 self._save_daily_metrics()
                 self._events_today = 0
+                self._deliveries_today = 0
                 self._current_day = day
             if hour != self._current_hour:
                 self._events_this_hour = 0
+                self._deliveries_this_hour = 0
                 self._current_hour = hour
             if minute != self._current_minute:
                 self._events_this_minute = 0
@@ -117,29 +129,31 @@ class CreditTracker:
         uptime_h = uptime_s / 3600
 
         with self._lock:
-            rate_per_s = self._events_this_minute / 60 if self._events_this_minute > 0 else 0
-            rate_per_h = self._events_this_hour
-            rate_per_day = self._events_today
-
-            # Project daily cost
+            # Credits = deliveries (what Helius actually charges)
             if uptime_h > 0:
-                projected_daily = (self._events_today / max(uptime_h, 0.01)) * 24
+                projected_daily = (self._deliveries_today / max(uptime_h, 0.01)) * 24
             else:
                 projected_daily = 0
 
-            # Monthly projection
             projected_monthly = projected_daily * 30
-            budget_pct = (projected_monthly / 10_000_000) * 100  # Developer plan = 10M/month
+            budget_pct = (projected_monthly / 10_000_000) * 100
+
+            rate_per_s = self._deliveries_this_hour / 3600 if self._deliveries_this_hour > 0 else 0
 
             return {
-                "credits_total": self._events_total,
-                "credits_today": self._events_today,
-                "credits_this_hour": self._events_this_hour,
+                # CREDITS = deliveries (1 per webhook POST per tx)
+                "credits_total": self._deliveries_total,
+                "credits_today": self._deliveries_today,
+                "credits_this_hour": self._deliveries_this_hour,
                 "rate_per_second": round(rate_per_s, 2),
-                "rate_per_hour": rate_per_h,
                 "projected_daily": int(projected_daily),
                 "projected_monthly": int(projected_monthly),
                 "budget_pct_monthly": round(budget_pct, 3),
+                # DATA = events persisted (for analysis, not billing)
+                "events_total": self._events_total,
+                "events_today": self._events_today,
+                "events_this_hour": self._events_this_hour,
+                # META
                 "uptime_hours": round(uptime_h, 2),
                 "mints_tracked": len(self._per_mint),
                 "top_mints": sorted(self._per_mint.items(), key=lambda x: -x[1])[:5],
@@ -214,12 +228,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
             body = self.rfile.read(content_length)
 
             try:
-                # Helius sends array of events
+                # Helius sends array of transactions (1 credit per tx)
                 events = json.loads(body)
                 if isinstance(events, list):
+                    tracker.record_delivery(len(events))
                     for event in events:
                         persist_event(event)
                 elif isinstance(events, dict):
+                    tracker.record_delivery(1)
                     persist_event(events)
 
                 self.send_response(200)

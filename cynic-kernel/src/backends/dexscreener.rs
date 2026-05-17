@@ -48,7 +48,9 @@ impl DexScreenerClient {
     /// Returns the best (highest liquidity) pair's data.
     /// Cost: 0 credits (free API, no key).
     pub async fn get_market_data(&self, mint: &str) -> Option<DexMarketData> {
-        let url = format!("https://api.dexscreener.com/tokens/v1/solana/{mint}");
+        // Use /latest/dex/tokens/ — returns all pairs across all DEXes.
+        // The /tokens/v1/solana/ endpoint returns only 1 obscure pool (wrong data).
+        let url = format!("https://api.dexscreener.com/latest/dex/tokens/{mint}");
 
         let resp = self
             .client
@@ -65,7 +67,8 @@ impl DexScreenerClient {
             return None;
         }
 
-        let pairs: Vec<DexPair> = resp
+        // /latest/dex/tokens/ returns {"pairs": [...]} not a bare array
+        let wrapper: DexResponse = resp
             .json()
             .await
             .inspect_err(|e| {
@@ -73,7 +76,17 @@ impl DexScreenerClient {
             })
             .ok()?;
 
-        // Take the first pair (DexScreener returns sorted by liquidity desc)
+        let mut pairs = wrapper.pairs.unwrap_or_default();
+
+        // Sort by liquidity descending — DexScreener does NOT guarantee sort order
+        pairs.sort_by(|a, b| {
+            let liq_a = a.liquidity.as_ref().and_then(|l| l.usd).unwrap_or(0.0);
+            let liq_b = b.liquidity.as_ref().and_then(|l| l.usd).unwrap_or(0.0);
+            liq_b
+                .partial_cmp(&liq_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         let best = pairs.first()?;
 
         let data = DexMarketData {
@@ -97,6 +110,12 @@ impl DexScreenerClient {
 }
 
 // ── DexScreener response types ──
+
+/// Wrapper for /latest/dex/tokens/ response: {"pairs": [...]}
+#[derive(Debug, Deserialize)]
+struct DexResponse {
+    pairs: Option<Vec<DexPair>>,
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,0 +1,865 @@
+{
+  "timestamp": "2026-05-16T12:29:32",
+  "total_tokens": 33,
+  "accuracy": 0.30303030303030304,
+  "results": [
+    {
+      "mint": "6MQpbiTC2YcogidTmKqMLK82qvE9z5QEm7EP3AEDpump",
+      "symbol": "MASK",
+      "conviction": 0.98,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 28200,
+        "top1_pct": 7.02,
+        "top10_pct": 21.72,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+      "symbol": "Fartcoin ",
+      "conviction": 0.9670000000000001,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.5
+      },
+      "metrics": {
+        "holders": 160121,
+        "top1_pct": 10.29,
+        "top10_pct": 36.51,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "GPwwihLa1w9Qsz27SmNrj7aLVnE7pr2cAvHe6aVVpump",
+      "symbol": "DANK",
+      "conviction": 0.9640000000000001,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3465,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 3713,
+        "top1_pct": 12.68,
+        "top10_pct": 35.08,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "8DKgjd6zAYuP9fVmMHBBtygPqkJ111LrMCT7tDyPhE55",
+      "symbol": "Domo",
+      "conviction": 0.956,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3215,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.35,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 1100,
+        "top1_pct": 27.87,
+        "top10_pct": 47.64,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "9zB5wRarXMj86MymwLumSKA1Dx35zPqqKfcZtK1Spump",
+      "symbol": "asdfasdfa",
+      "conviction": 0.956,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.309,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.3,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 523,
+        "top1_pct": 21.0,
+        "top10_pct": 45.3,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "38PgzpJYu2HkiYvV8qePFakB8tuobPdGm2FFEn7Dpump",
+      "symbol": "gork",
+      "conviction": 0.9520000000000001,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 18196,
+        "top1_pct": 14.66,
+        "top10_pct": 62.15,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "3WPep4ufaToK1aS5s8BL9inzeUrt4DYaQCiic6ZkkC1U",
+      "symbol": "GIKO",
+      "conviction": 0.937,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Wag",
+      "q_score": 0.39649999999999996,
+      "axioms": {
+        "fidelity": 0.45,
+        "phi": 0.44999999999999996,
+        "verify": 0.286,
+        "culture": 0.33599999999999997,
+        "burn": 0.35,
+        "sovereignty": 0.5
+      },
+      "metrics": {
+        "holders": 6581,
+        "top1_pct": 8.93,
+        "top10_pct": 26.31,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": false
+      },
+      "match": false
+    },
+    {
+      "mint": "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9",
+      "symbol": "GIGA",
+      "conviction": 0.9359999999999999,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Wag",
+      "q_score": 0.409,
+      "axioms": {
+        "fidelity": 0.45,
+        "phi": 0.44999999999999996,
+        "verify": 0.286,
+        "culture": 0.33599999999999997,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.5
+      },
+      "metrics": {
+        "holders": 81548,
+        "top1_pct": 12.29,
+        "top10_pct": 32.37,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": false
+      },
+      "match": false
+    },
+    {
+      "mint": "8ncucXv6U6epZKHPbgaEBcEK399TpHGKCquSt4RnmX4f",
+      "symbol": "TRENCHER",
+      "conviction": 0.9359999999999999,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3215,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.35,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 7388,
+        "top1_pct": 16.28,
+        "top10_pct": 31.48,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "DitHyRMQiSDhn5cnKMJV2CDDt6sVct96YrECiM49pump",
+      "symbol": "House",
+      "conviction": 0.9179999999999999,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 23256,
+        "top1_pct": 9.11,
+        "top10_pct": 37.17,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "zGh48JtNHVBb5evgoZLXwgPD2Qu4MhkWdJLGDAupump",
+      "symbol": "retire",
+      "conviction": 0.917,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 15115,
+        "top1_pct": 6.98,
+        "top10_pct": 18.51,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "76EDL5qNcte2ZH29quTaFzagXjWAEY83CATEjyA6pump",
+      "symbol": "gork",
+      "conviction": 0.912,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3465,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 2717,
+        "top1_pct": 6.05,
+        "top10_pct": 27.38,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "69G8CpUVZAxbPMiEBrfCCCH445NwFxH6PzVL693Xpump",
+      "symbol": "xavier",
+      "conviction": 0.909,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3465,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 2821,
+        "top1_pct": 6.45,
+        "top10_pct": 25.14,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "GkyPYa7NnCFbduLknCfBfP7p8564X1VZhwZYJ6CZpump",
+      "symbol": "CHILLHOUSE",
+      "conviction": 0.904,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 16167,
+        "top1_pct": 9.23,
+        "top10_pct": 31.61,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "463SK47VkB7uE7XenTHKiVcMtxRsfNE2X4Q9wByaURVA",
+      "symbol": "TSUKI",
+      "conviction": 0.904,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Wag",
+      "q_score": 0.39649999999999996,
+      "axioms": {
+        "fidelity": 0.45,
+        "phi": 0.44999999999999996,
+        "verify": 0.286,
+        "culture": 0.33599999999999997,
+        "burn": 0.35,
+        "sovereignty": 0.5
+      },
+      "metrics": {
+        "holders": 4790,
+        "top1_pct": 6.6,
+        "top10_pct": 24.68,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": false
+      },
+      "match": false
+    },
+    {
+      "mint": "NV2RYH954cTJ3ckFUpvfqaQXU4ARqqDH3562nFSpump",
+      "symbol": "Punch",
+      "conviction": 0.866,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 25246,
+        "top1_pct": 7.39,
+        "top10_pct": 24.57,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "Cm6fNnMk7NfzStP9CZpsQA2v3jjzbcYGAxdJySmHpump",
+      "symbol": "Buttcoin",
+      "conviction": 0.84,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 15913,
+        "top1_pct": 2.44,
+        "top10_pct": 15.47,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump",
+      "symbol": "neet",
+      "conviction": 0.8240000000000001,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 17402,
+        "top1_pct": 5.83,
+        "top10_pct": 19.71,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "CFYhdWXsYfS7swnJgHRwb5toTHMEQD7Ljd5gGwKLpump",
+      "symbol": "KILROY",
+      "conviction": 0.82,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3465,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 1297,
+        "top1_pct": 11.38,
+        "top10_pct": 34.32,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "3B1ijcocM5EDga6XxQ7JLW7weocQPWWjuhBYG8Vepump",
+      "symbol": "BP",
+      "conviction": 0.792,
+      "conviction_tier": "strong",
+      "expected_verdict": "Howl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3465,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 7702,
+        "top1_pct": 4.25,
+        "top10_pct": 18.17,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "8J69rbLTzWWgUJziFY8jeu5tDwEPBwUz4pKBMr5rpump",
+      "symbol": "WOJAK",
+      "conviction": 0.695,
+      "conviction_tier": "mixed",
+      "expected_verdict": "Growl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 16723,
+        "top1_pct": 4.06,
+        "top10_pct": 20.18,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": true
+    },
+    {
+      "mint": "5UUH9RTDiSpq6HKS6bp4NdU9PNJpXRXuiw6ShBTBhgH2",
+      "symbol": "TROLL",
+      "conviction": 0.688,
+      "conviction_tier": "mixed",
+      "expected_verdict": "Growl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 61005,
+        "top1_pct": 6.54,
+        "top10_pct": 23.73,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": true
+    },
+    {
+      "mint": "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu",
+      "symbol": "PUMPCADE",
+      "conviction": 0.6759999999999999,
+      "conviction_tier": "mixed",
+      "expected_verdict": "Growl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3465,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 3756,
+        "top1_pct": 10.01,
+        "top10_pct": 29.73,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": true
+    },
+    {
+      "mint": "4yDSFNMitxy6waXPTkPyyVvbbQSiqe7zD1VxnzEypump",
+      "symbol": "motion",
+      "conviction": 0.6679999999999999,
+      "conviction_tier": "mixed",
+      "expected_verdict": "Growl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.33399999999999996,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.39999999999999997,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 654,
+        "top1_pct": 9.22,
+        "top10_pct": 35.09,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": true
+    },
+    {
+      "mint": "6iA73gWCKkLWKbVr8rgibV57MMRxzsaqS9cWpgKBpump",
+      "symbol": "\u6211\u7684\u5200\u76fe",
+      "conviction": 0.612,
+      "conviction_tier": "mixed",
+      "expected_verdict": "Growl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3465,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 5456,
+        "top1_pct": 6.53,
+        "top10_pct": 22.74,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": true
+    },
+    {
+      "mint": "89S7oVB4hui8ceJqhHreWB7fcxdthfvoB7z2pfJtpump",
+      "symbol": "abcdefg",
+      "conviction": 0.5579999999999999,
+      "conviction_tier": "mixed",
+      "expected_verdict": "Growl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3215,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.35,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 2441,
+        "top1_pct": 21.81,
+        "top10_pct": 42.19,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": true
+    },
+    {
+      "mint": "CB9dDufT3ZuQXqqSfa1c5kY935TEreyBw9XJXxHKpump",
+      "symbol": "USDUC",
+      "conviction": 0.556,
+      "conviction_tier": "mixed",
+      "expected_verdict": "Growl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.33399999999999996,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.35,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 15496,
+        "top1_pct": 21.43,
+        "top10_pct": 43.74,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": true
+    },
+    {
+      "mint": "J8PSdNP3QewKq2Z1JJJFDMaqF7KcaiJhR7gbr5KZpump",
+      "symbol": "TripleT",
+      "conviction": 0.536,
+      "conviction_tier": "mixed",
+      "expected_verdict": "Growl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3465,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 8106,
+        "top1_pct": 2.45,
+        "top10_pct": 16.14,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": true
+    },
+    {
+      "mint": "32CdQdBUxbCsLy5AUHWmyidfwhgGUr9N573NBUrDpump",
+      "symbol": "maxxing",
+      "conviction": 0.47200000000000003,
+      "conviction_tier": "mixed",
+      "expected_verdict": "Growl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.3465,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 6223,
+        "top1_pct": 4.33,
+        "top10_pct": 19.51,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": true
+    },
+    {
+      "mint": "EsLb2XdNWVezNnhEsRVKYZ7BymiKUabzh4tdVhz4pump",
+      "symbol": "Twin",
+      "conviction": 0.424,
+      "conviction_tier": "mixed",
+      "expected_verdict": "Growl",
+      "predicted_verdict": "Growl",
+      "q_score": 0.33399999999999996,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.39999999999999997,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 731,
+        "top1_pct": 11.27,
+        "top10_pct": 38.37,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": true
+    },
+    {
+      "mint": "CGEDT9QZDvvH5GmVkWJH2BXiMJqMJySC9ihWyr7Spump",
+      "symbol": "BURNIE",
+      "conviction": 0.332,
+      "conviction_tier": "weak",
+      "expected_verdict": "Bark",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 10549,
+        "top1_pct": 3.93,
+        "top10_pct": 21.44,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "ACtfUWtgvaXrQGNMiohTusi5jcx5RJf5zwu9aAxkpump",
+      "symbol": "unc",
+      "conviction": 0.096,
+      "conviction_tier": "weak",
+      "expected_verdict": "Bark",
+      "predicted_verdict": "Growl",
+      "q_score": 0.359,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.44999999999999996,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.39999999999999997,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 14636,
+        "top1_pct": 3.32,
+        "top10_pct": 16.83,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    },
+    {
+      "mint": "sGzragYKDrmRgCGvJUn9WKwrmnUZwfmkNQLTSPfdMNq",
+      "symbol": "MOJO",
+      "conviction": 0.008,
+      "conviction_tier": "weak",
+      "expected_verdict": "Bark",
+      "predicted_verdict": "Growl",
+      "q_score": 0.33399999999999996,
+      "axioms": {
+        "fidelity": 0.35,
+        "phi": 0.39999999999999997,
+        "verify": 0.236,
+        "culture": 0.186,
+        "burn": 0.35,
+        "sovereignty": 0.45
+      },
+      "metrics": {
+        "holders": 893,
+        "top1_pct": 9.0,
+        "top10_pct": 28.13,
+        "mint_authority": false,
+        "freeze_authority": false,
+        "origin_pump_fun": true
+      },
+      "match": false
+    }
+  ]
+}

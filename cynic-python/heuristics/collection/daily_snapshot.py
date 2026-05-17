@@ -65,9 +65,10 @@ HELIUS_RPC = "https://mainnet.helius-rpc.com/"
 HELIUS_HEADERS = {"Content-Type": "application/json", "Authorization": f"Bearer {HELIUS_API_KEY}"}
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SNAPSHOTS_DIR = os.path.join(SCRIPT_DIR, "snapshots")
+DATA_DIR = os.path.join(SCRIPT_DIR, "..", "data")
+SNAPSHOTS_DIR = os.path.join(DATA_DIR, "snapshots")
 WATCHLIST_PATH = os.path.join(SCRIPT_DIR, "watchlist.json")
-CALIB_PATH = os.path.join(SCRIPT_DIR, "calibration_results_real.json")
+CALIB_PATH = os.path.join(DATA_DIR, "calibration_results_real.json")
 
 POOL_PROGRAMS: Set[str] = {
     "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8", "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
@@ -256,7 +257,7 @@ def backfill_from_cache(mint: str) -> int:
     This converts it to the daily snapshot format for continuity.
     Returns number of snapshots created.
     """
-    cache_dir = os.path.join(SCRIPT_DIR, "helius_cache")
+    cache_dir = os.path.join(DATA_DIR, "helius_cache")
     if not os.path.exists(cache_dir):
         return 0
 
@@ -411,10 +412,143 @@ def cmd_add_mint(mint: str) -> None:
     print(f"Added: {symbol} ({mint})")
 
 
+# ── TRAJECTORY CLASSIFICATION ──
+
+def classify_trajectory(windows: Dict[int, Optional[Dict]]) -> Dict:
+    """Classify token trajectory from multi-window conviction decay curve.
+
+    The decay curve shows how much conviction is LOST between short and long windows.
+    Short-term retention (3d) is always >= long-term (30d) — what matters is the RATE.
+
+    Classes:
+      DEAD:     30d conviction < 1% (no one stays)
+      DYING:    decay > 30% between shortest and longest window (steep churn)
+      DECLINING: decay 15-30% (moderate churn)
+      STABLE:   decay < 15% (diamond hands)
+      UNKNOWN:  insufficient data (<2 windows)
+    """
+    # Collect (window, conviction) pairs
+    points = []
+    for w in sorted(windows.keys()):
+        if windows[w] is not None:
+            points.append((w, windows[w]["conviction"]))
+
+    if len(points) < 2:
+        return {"class": "UNKNOWN", "points": len(points), "decay": 0.0, "conviction_30d": None}
+
+    short_conv = points[0][1]    # e.g. 3d conviction (highest)
+    long_conv = points[-1][1]    # e.g. 30d conviction (lowest)
+    decay = short_conv - long_conv  # how much is lost over the window span
+
+    # Decay rate per day
+    day_span = points[-1][0] - points[0][0]
+    decay_rate = decay / day_span if day_span > 0 else 0.0
+
+    if long_conv < 0.01:
+        traj_class = "DEAD"
+    elif decay > 0.30:
+        traj_class = "DYING"
+    elif decay > 0.15:
+        traj_class = "DECLINING"
+    else:
+        traj_class = "STABLE"
+
+    return {
+        "class": traj_class,
+        "decay": round(decay, 4),
+        "decay_rate": round(decay_rate, 5),
+        "conviction_3d": short_conv,
+        "conviction_30d": long_conv,
+        "points": len(points),
+    }
+
+
+def cmd_trajectory() -> None:
+    """Classify token trajectories and POST to kernel /observe."""
+    tokens = get_tracked_tokens()
+    windows = [3, 7, 14, 30]
+
+    print(f"{'='*70}")
+    print("TOKEN TRAJECTORY — decay curve classification")
+    print(f"{'='*70}")
+    print(f"\n{'Token':12s} {'Class':13s} {'3d':>5s} {'7d':>5s} {'14d':>5s} {'30d':>5s}  {'decay':>10s}")
+    print("-" * 70)
+
+    results = []
+    for token in tokens:
+        mint = token["mint"]
+        symbol = token["symbol"]
+
+        window_data: Dict[int, Optional[Dict]] = {}
+        for w in windows:
+            window_data[w] = compute_conviction_from_snapshots(mint, w)
+
+        traj = classify_trajectory(window_data)
+        traj["mint"] = mint
+        traj["symbol"] = symbol
+        results.append(traj)
+
+        # Format conviction values
+        conv_strs = []
+        for w in windows:
+            if window_data[w] is not None:
+                conv_strs.append(f"{window_data[w]['conviction']:.2f}")
+            else:
+                conv_strs.append("   - ")
+
+        class_icon = {"DYING": "!", "DEAD": "X", "DECLINING": "~", "STABLE": "=", "UNKNOWN": "?"}.get(traj["class"], "?")
+        print(f"{symbol:12s} [{class_icon}] {traj['class']:10s} {conv_strs[0]:>5s} {conv_strs[1]:>5s} {conv_strs[2]:>5s} {conv_strs[3]:>5s}  decay={traj['decay']:>+.3f}")
+
+    # Summary
+    classes = {}
+    for r in results:
+        classes[r["class"]] = classes.get(r["class"], 0) + 1
+    print(f"\nDistribution: {classes}")
+
+    # POST to kernel /observe
+    cynic_addr = os.getenv("CYNIC_REST_ADDR")
+    cynic_key = os.getenv("CYNIC_API_KEY")
+    if cynic_addr and cynic_key:
+        try:
+            observation = {
+                "tool": "trajectory_cron",
+                "target": "token-trajectory",
+                "domain": "token-analysis",
+                "status": "measured",
+                "context": json.dumps({
+                    "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                    "tokens": len(results),
+                    "distribution": classes,
+                    "trajectories": [
+                        {"symbol": r["symbol"], "mint": r["mint"], "class": r["class"],
+                         "decay": r["decay"], "conviction_30d": r["conviction_30d"]}
+                        for r in results
+                    ],
+                }),
+                "tags": ["trajectory", "cron", "sovereign"],
+                "consumer": "deterministic-dog",
+                "action": "token trajectory feeds conviction decay into judgment pipeline",
+                "confidence": "observed",
+            }
+            resp = requests.post(
+                f"http://{cynic_addr}/observe",
+                json=observation,
+                headers={"Authorization": f"Bearer {cynic_key}", "Content-Type": "application/json"},
+                timeout=5,
+            )
+            print(f"\nKernel POST: {resp.status_code}")
+        except Exception as e:
+            print(f"\nKernel POST failed (non-blocking): {e}")
+    else:
+        print("\nKernel POST skipped (CYNIC_REST_ADDR/CYNIC_API_KEY not set)")
+
+
 # ── MAIN ──
 
 def main() -> None:
-    if "--compute" in sys.argv:
+    if "--trajectory" in sys.argv:
+        cmd_trajectory()
+    elif "--compute" in sys.argv:
         cmd_compute()
     elif "--status" in sys.argv:
         cmd_status()

@@ -1,0 +1,44 @@
+id: conviction-temporal-2026-05-16
+hypothesis: "Conviction is temporal — no single on-chain snapshot captures holder commitment. Need 2+ snapshots separated by time."
+domain: token-analysis
+cortex: feat/ccm-quality-audit-2026-05-16-4032c419
+created: 2026-05-16
+status: CONSUMED
+
+method: |
+  1. Rewind holder list via getTransactionsForAddress (blockTime filter) to reconstruct J-7/J-14/J-21/J-30 states
+  2. Compute retention ratio per tranche (all_holders, retail_251_1000, whale_top10, top250)
+  3. Correlate with CultScreener conviction labels (n=33 calibration tokens)
+
+variables:
+  independent: [time_window, holder_tranche]
+  dependent: [retention_ratio, correlation_with_cultscreener]
+  controlled: [token_set_n33, helius_api_v1]
+
+findings:
+  - claim: "all_holders 7d retention rho=0.776 with CultScreener (bootstrap CI [0.668, 0.849])"
+    epistemic: observed
+    falsification: "rho < 0.5 on new token set not in calibration"
+  - claim: "Composite K-Score dilutes signal (0.524 vs 0.837 raw conviction)"
+    epistemic: observed
+    falsification: "composite outperforms raw on expanded dataset"
+  - claim: "retail_251_1000 tranche rho=0.521 — mass base carries signal, not whales (rho=0.322)"
+    epistemic: observed
+    falsification: "whale retention predicts better on different market regime"
+  - claim: "Static on-chain metrics (holders, gini, buy_sell_ratio) are noise (rho < 0.3)"
+    epistemic: observed
+
+consumed_by:
+  - "PR#207 — sovereign token conviction pipeline"
+  - "memory: project_token_conviction_ground_truth.md"
+
+next: "token-trajectory-L1 — daily cron accumulates real snapshots for decay curve prediction"
+
+files:
+  scripts:
+    - conviction_rewind.py
+    - conviction_by_tranche.py
+    - analyze_correlation.py
+  data:
+    - conviction_rewind_results.jsonl
+    - conviction_tranche_results.json

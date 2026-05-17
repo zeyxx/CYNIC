@@ -1,0 +1,41 @@
+id: ccm-discrimination-2026-05-17
+hypothesis: "Dogs CAN discriminate legit vs scam tokens IF given enriched on-chain stimuli (not raw tweets)."
+domain: token-analysis
+cortex: feat/ccm-quality-audit-2026-05-16-4032c419
+created: 2026-05-17
+status: CONSUMED
+
+method: |
+  1. Build enriched stimuli with on-chain data (metadata, holders, conviction, divergence)
+  2. Submit to /judge for known tokens (JUP=legit, BONK=legit, testicle=scam)
+  3. Compare q-scores and verdicts
+
+variables:
+  independent: [stimulus_enrichment_level]
+  dependent: [q_score, verdict, axiom_scores]
+  controlled: [dog_roster, token_identities]
+
+findings:
+  - claim: "Dogs discriminate with enriched stimuli — JUP=Growl q=0.402 vs scam=Bark q=0.175 (delta=0.227)"
+    epistemic: observed
+    falsification: "delta < 0.1 on expanded token set"
+  - claim: "phi/sovereignty penalty on vesting concentration is the blocker (phi=0.12 for JUP despite 4 good axioms)"
+    epistemic: observed
+    falsification: "fix dog prompts for vesting context, re-test — phi should rise"
+  - claim: "Nightshift verdicts (raw tweets -> BARK) are NOT discriminative for training"
+    epistemic: deduced
+    falsification: "nightshift produces varied verdicts without enrichment"
+
+consumed_by:
+  - "commit ec4bc35 — feat(ccm): discrimination test"
+  - "memory: project_ccm_discrimination_test_2026_05_17.md"
+
+next: "Fix dog prompts for vesting/institutional concentration context"
+
+files:
+  scripts:
+    - ccm_discrimination_test.py
+  data:
+    - ccm_discrimination_results.json
+    - enriched_stimuli.json
+    - enriched_experiment_results.json

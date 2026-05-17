@@ -1,0 +1,8 @@
+# Large data directories — keep on disk, don't commit
+webhook_data/
+helius_cache/
+snapshots/
+__pycache__/
+
+# Webhook state
+webhook_id.txt

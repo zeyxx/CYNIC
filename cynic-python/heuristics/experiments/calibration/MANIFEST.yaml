@@ -1,0 +1,36 @@
+id: calibration-pipeline-2026-05-16
+hypothesis: "CultScreener labels + Helius enrichment can calibrate the deterministic dog to >80% accuracy."
+domain: token-analysis
+cortex: feat/ccm-quality-audit-2026-05-16-4032c419
+created: 2026-05-16
+status: ACTIVE
+
+method: |
+  3 iterations of calibration:
+  v1 (calibrate_real): CultScreener conviction -> TokenScorer -> accuracy measurement
+  v2 (calibrate_v2): HeliusTokenProfiler -> enriched stimulus -> /judge -> spread
+  v3 (calibrate_with_conviction): inject sovereign conviction into TokenScorer
+
+variables:
+  independent: [calibration_source, enrichment_pipeline]
+  dependent: [accuracy, q_score_spread, false_positive_rate]
+  controlled: [token_set_n33, cultscreener_ground_truth]
+
+findings:
+  - claim: "81.8% accuracy with sovereign conviction threshold (up from 30% baseline)"
+    epistemic: observed
+    falsification: "accuracy < 70% on tokens outside calibration set"
+  - claim: "K-Score HolDex formula DILUTES signal (0.524 vs 0.837 raw conviction)"
+    epistemic: observed
+
+consumed_by:
+  - "PR#204 — feat(heuristics): token calibration pipeline"
+  - "Deterministic dog threshold tuning"
+
+next: "Validate on expanded token set (beyond 33 calibration tokens)"
+
+files:
+  scripts:
+    - calibrate_real.py
+    - calibrate_v2.py
+    - calibrate_with_conviction.py

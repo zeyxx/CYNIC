@@ -52,7 +52,8 @@ HELIUS_WEBHOOKS_API = "https://api-mainnet.helius-rpc.com/v0/webhooks"
 HEADERS = {"Authorization": f"Bearer {HELIUS_API_KEY}", "Content-Type": "application/json"}
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CALIB_PATH = os.path.join(SCRIPT_DIR, "calibration_results_real.json")
+DATA_DIR = os.path.join(SCRIPT_DIR, "..", "data")
+CALIB_PATH = os.path.join(DATA_DIR, "calibration_results_real.json")
 WATCHLIST_PATH = os.path.join(SCRIPT_DIR, "watchlist.json")
 
 
@@ -154,7 +155,7 @@ def main() -> None:
             wid = result.get("webhookID", "?")
             print(f"  Created! ID: {wid}")
             # Save webhook ID for reference
-            with open(os.path.join(SCRIPT_DIR, "webhook_id.txt"), "w") as f:
+            with open(os.path.join(DATA_DIR, "webhook_id.txt"), "w") as f:
                 f.write(wid)
         return
 

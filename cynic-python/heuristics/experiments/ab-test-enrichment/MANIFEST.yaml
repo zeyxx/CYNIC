@@ -1,0 +1,32 @@
+id: ab-test-enrichment-2026-05-16
+hypothesis: "Divergence enrichment (buy/sell ratio + class) improves token judgment accuracy."
+domain: token-analysis
+cortex: feat/ccm-quality-audit-2026-05-16-4032c419
+created: 2026-05-16
+status: CONSUMED
+
+method: |
+  A/B test: submit same tokens to /judge with (A) no enrichment vs (B) divergence enrichment.
+  Measure q-score spread and verdict distribution.
+
+variables:
+  independent: [enrichment_present]
+  dependent: [q_score_spread, verdict_accuracy]
+  controlled: [dog_roster, token_set]
+
+findings:
+  - claim: "Enrichment increases q-score spread from ~0.10 to ~0.26"
+    epistemic: observed
+    falsification: "spread doesn't change on larger token set"
+
+consumed_by:
+  - "PR#205 — feat(token-analysis): buy/sell divergence enrichment"
+  - "PR#206 — refactor(pipeline): split god function + burn dead code"
+
+files:
+  scripts:
+    - ab_test_simple.py
+    - ab_test_divergence_enrichment.py
+    - ab_test.sh
+  data:
+    - ab_test_results.json

@@ -40,6 +40,14 @@ pub(super) struct TokenMetrics {
     identity_protocols: u32,
     identity_scammers: u32,
     identity_total: u32,
+    // Holder context fields (from [HOLDER CONTEXT] section)
+    /// Effective wallet concentration: only freely-tradeable supply in top holders.
+    /// When present, use INSTEAD of top10_pct for phi/sovereignty scoring.
+    effective_concentration: Option<f64>,
+    /// Percentage held by smart contracts (vesting, DAO, protocol)
+    contract_pct: Option<f64>,
+    /// Percentage held by lock/vesting programs
+    locker_pct: Option<f64>,
 }
 
 /// Parse human-readable USD values like "1.23B", "45.67M", "890K", "123.45".
@@ -104,6 +112,9 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
         identity_protocols: 0,
         identity_scammers: 0,
         identity_total: 0,
+        effective_concentration: None,
+        contract_pct: None,
+        locker_pct: None,
     };
 
     for line in section.lines() {
@@ -241,6 +252,35 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
         }
     }
 
+    // Parse [HOLDER CONTEXT] section if present
+    if let Some(hc_start) = content.find("[HOLDER CONTEXT]") {
+        let hc_rest = &content[hc_start..];
+        let hc_end = hc_rest[16..]
+            .find("\n[")
+            .map(|i| hc_start + 16 + i)
+            .unwrap_or(content.len());
+        let hc_section = &content[hc_start..hc_end];
+
+        for line in hc_section.lines() {
+            let line = line.trim();
+            if let Some(v) = line.strip_prefix("effective_wallet_concentration: ") {
+                m.effective_concentration = v.trim_end_matches('%').parse().ok();
+            } else if let Some(v) = line.strip_prefix("contracts: ") {
+                m.contract_pct = v
+                    .trim_end_matches(|c: char| !c.is_ascii_digit() && c != '.')
+                    .split('%')
+                    .next()
+                    .and_then(|s| s.parse().ok());
+            } else if let Some(v) = line.strip_prefix("locked: ") {
+                m.locker_pct = v
+                    .trim_end_matches(|c: char| !c.is_ascii_digit() && c != '.')
+                    .split('%')
+                    .next()
+                    .and_then(|s| s.parse().ok());
+            }
+        }
+    }
+
     Some(m)
 }
 
@@ -307,6 +347,8 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     );
 
     // ── PHI: Structural harmony of holder distribution ──
+    // When holder context is available, use effective_wallet_concentration (wallet-only %)
+    // instead of raw top1/top10 — institutional holdings (vesting, LP) don't indicate manipulation.
     // Falsify: exchange cold wallet inflates top1% without real concentration.
     let mut phi: f64 = PHI_BASE;
     if m.holder_data_available {
@@ -317,11 +359,27 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
                 phi -= ADJUST_MEDIUM;
             }
         }
-        if m.top1_pct < 15.0 {
-            phi += ADJUST_SMALL;
-        } else if m.top1_pct > 50.0 && !m.top1_is_lp {
-            // Only penalize high concentration if top1 is a retail whale, not LP/burn
-            phi -= ADJUST_MEDIUM;
+        // Use effective concentration when holder context is available
+        if let Some(eff) = m.effective_concentration {
+            if eff < 15.0 {
+                phi += ADJUST_MEDIUM; // real retail distribution is healthy
+            } else if eff > 50.0 {
+                phi -= ADJUST_MEDIUM; // real retail concentration is concerning
+            } else if eff < 30.0 {
+                phi += ADJUST_SMALL; // moderate retail distribution
+            }
+            // Institutional commitment signal: contracts holding supply = planned distribution
+            let institutional = m.contract_pct.unwrap_or(0.0) + m.locker_pct.unwrap_or(0.0);
+            if institutional > 30.0 {
+                phi += ADJUST_SMALL;
+            }
+        } else {
+            // Fallback: raw concentration (no holder context available)
+            if m.top1_pct < 15.0 {
+                phi += ADJUST_SMALL;
+            } else if m.top1_pct > 50.0 && !m.top1_is_lp {
+                phi -= ADJUST_MEDIUM;
+            }
         }
         if m.holders > 1000 {
             phi += ADJUST_MEDIUM;
@@ -353,17 +411,30 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     }
     let phi = phi.clamp(ADJUST_SMALL, PHI_INV);
     let phi_reason = if m.holder_data_available {
-        format!(
-            "holders={}+, top1={:.1}%, HHI={}, liquidity={}.",
-            m.holders,
-            m.top1_pct,
-            m.herfindahl
-                .map(|h| format!("{h:.3}"))
-                .unwrap_or_else(|| "n/a".into()),
-            m.liquidity_usd
-                .map(|l| format!("${l:.0}"))
-                .unwrap_or_else(|| "n/a".into()),
-        )
+        if let Some(eff) = m.effective_concentration {
+            format!(
+                "holders={}+, effective_wallet_concentration={:.1}% (raw top1={:.1}%), contracts={:.1}%, liquidity={}.",
+                m.holders,
+                eff,
+                m.top1_pct,
+                m.contract_pct.unwrap_or(0.0) + m.locker_pct.unwrap_or(0.0),
+                m.liquidity_usd
+                    .map(|l| format!("${l:.0}"))
+                    .unwrap_or_else(|| "n/a".into()),
+            )
+        } else {
+            format!(
+                "holders={}+, top1={:.1}%, HHI={}, liquidity={}.",
+                m.holders,
+                m.top1_pct,
+                m.herfindahl
+                    .map(|h| format!("{h:.3}"))
+                    .unwrap_or_else(|| "n/a".into()),
+                m.liquidity_usd
+                    .map(|l| format!("${l:.0}"))
+                    .unwrap_or_else(|| "n/a".into()),
+            )
+        }
     } else {
         "holder data unavailable (RPC degraded) — scoring at neutral base.".into()
     };
@@ -485,13 +556,31 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     );
 
     // ── SOVEREIGNTY: Distributed control, holder freedom ──
+    // When holder context is available, use effective_wallet_concentration.
+    // Tokens in vesting/lock contracts are scheduled for release — not whale domination.
     // Falsify: legitimate DAO with top1% held by treasury multisig.
     let mut sovereignty: f64 = SOVEREIGNTY_BASE;
     if m.holder_data_available {
-        if m.top1_pct < 15.0 {
-            sovereignty += ADJUST_MEDIUM;
-        } else if m.top1_pct > 50.0 && !m.top1_is_lp {
-            sovereignty -= ADJUST_MEDIUM;
+        if let Some(eff) = m.effective_concentration {
+            if eff < 20.0 {
+                sovereignty += ADJUST_MEDIUM; // real retail control is distributed
+            } else if eff > 50.0 {
+                sovereignty -= ADJUST_MEDIUM; // real whale concentration
+            } else if eff < 35.0 {
+                sovereignty += ADJUST_SMALL;
+            }
+            // Vesting/lock contracts = path to eventual distribution
+            let locked = m.contract_pct.unwrap_or(0.0) + m.locker_pct.unwrap_or(0.0);
+            if locked > 30.0 {
+                sovereignty += ADJUST_SMALL; // controlled distribution pathway
+            }
+        } else {
+            // Fallback: raw concentration (no holder context)
+            if m.top1_pct < 15.0 {
+                sovereignty += ADJUST_MEDIUM;
+            } else if m.top1_pct > 50.0 && !m.top1_is_lp {
+                sovereignty -= ADJUST_MEDIUM;
+            }
         }
         if m.holders > 100 {
             sovereignty += ADJUST_SMALL;
@@ -536,7 +625,14 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     let sovereignty_reason = format!(
         "{}freeze={}, extractors_vs_acc={}/{}.{identity_note}",
         if m.holder_data_available {
-            format!("top1={:.1}%, holders={}+, ", m.top1_pct, m.holders)
+            if let Some(eff) = m.effective_concentration {
+                format!(
+                    "effective_wallet={:.1}% (raw top1={:.1}%), holders={}+, ",
+                    eff, m.top1_pct, m.holders
+                )
+            } else {
+                format!("top1={:.1}%, holders={}+, ", m.top1_pct, m.holders)
+            }
         } else {
             "holders=unavailable, ".into()
         },
@@ -939,6 +1035,124 @@ mod tests {
             "Extractor dominance should penalize sovereignty: ext={}, base={}",
             scores_ext.sovereignty,
             scores_without.sovereignty
+        );
+    }
+
+    #[test]
+    fn parse_holder_context_section() {
+        let mut content = make_token_stimulus(&HEALTHY_MINT);
+        let baselines_pos = content.find("\n[BASELINES]").unwrap();
+        let holder_ctx = "\n[HOLDER CONTEXT]\ntop_20_analyzed: 85.3% of supply\n  lp_pools: 15.2% \u{2014} DEX liquidity, market-making\n  contracts: 60.1% \u{2014} tokens held by smart contracts (vesting, DAO, protocol), not freely tradeable\n  wallets: 10.0% \u{2014} freely tradeable by individual holders\neffective_wallet_concentration: 10.0%\nnote: High raw concentration (85%) driven by institutional/programmatic holdings (75%). Effective retail concentration is 10.0%.\n";
+        content.insert_str(baselines_pos, holder_ctx);
+
+        let m = parse(&content).expect("should parse with holder context");
+        assert!(
+            (m.effective_concentration.unwrap() - 10.0).abs() < 0.1,
+            "effective_concentration should be 10.0%, got {:?}",
+            m.effective_concentration
+        );
+        assert!(
+            (m.contract_pct.unwrap() - 60.1).abs() < 0.1,
+            "contract_pct should be 60.1%, got {:?}",
+            m.contract_pct
+        );
+    }
+
+    #[test]
+    fn parse_holder_context_with_locker() {
+        let mut content = make_token_stimulus(&HEALTHY_MINT);
+        let baselines_pos = content.find("\n[BASELINES]").unwrap();
+        let holder_ctx = "\n[HOLDER CONTEXT]\ntop_20_analyzed: 70.0% of supply\n  locked: 40.0% \u{2014} tokens in lock/vesting contracts, not freely tradeable\n  wallets: 30.0% \u{2014} freely tradeable by individual holders\neffective_wallet_concentration: 30.0%\n";
+        content.insert_str(baselines_pos, holder_ctx);
+
+        let m = parse(&content).expect("should parse with locker");
+        assert!(
+            (m.locker_pct.unwrap() - 40.0).abs() < 0.1,
+            "locker_pct should be 40.0%, got {:?}",
+            m.locker_pct
+        );
+        assert!(
+            (m.effective_concentration.unwrap() - 30.0).abs() < 0.1,
+            "effective_concentration should be 30.0%"
+        );
+    }
+
+    #[tokio::test]
+    async fn holder_context_boosts_phi_for_institutional_concentration() {
+        // Token with 85% top-10 concentration — looks bad without context
+        let high_conc = TestMint {
+            holders: 250_000,
+            top1_pct: 60.0, // high raw concentration
+            top10_pct: 85.0,
+            herfindahl: Some(0.45),
+            age_hours: 2000,
+            mint_active: false,
+            freeze_active: false,
+            lp: "burned",
+            burned_pct: Some(0.0),
+            origin: None,
+        };
+
+        // Without holder context: raw concentration penalizes phi
+        let raw_stim = make_token_stimulus(&high_conc);
+        let m_raw = parse(&raw_stim).unwrap();
+        let scores_raw = score(&m_raw);
+
+        // With holder context: most is contracts, effective wallet concentration is low
+        let mut ctx_stim = make_token_stimulus(&high_conc);
+        let baselines_pos = ctx_stim.find("\n[BASELINES]").unwrap();
+        let holder_ctx = "\n[HOLDER CONTEXT]\ntop_20_analyzed: 85.0% of supply\n  contracts: 60.0% \u{2014} vesting\n  wallets: 10.0% \u{2014} retail\neffective_wallet_concentration: 10.0%\n";
+        ctx_stim.insert_str(baselines_pos, holder_ctx);
+        let m_ctx = parse(&ctx_stim).unwrap();
+        let scores_ctx = score(&m_ctx);
+
+        assert!(
+            scores_ctx.phi > scores_raw.phi,
+            "Holder context should boost phi when institutional concentration explains raw numbers: with_ctx={}, without={}",
+            scores_ctx.phi,
+            scores_raw.phi
+        );
+        assert!(
+            scores_ctx.sovereignty > scores_raw.sovereignty,
+            "Holder context should boost sovereignty: with_ctx={}, without={}",
+            scores_ctx.sovereignty,
+            scores_raw.sovereignty
+        );
+    }
+
+    #[tokio::test]
+    async fn holder_context_still_penalizes_real_whale_concentration() {
+        // Token where most concentration IS wallets — should still score low
+        let high_conc = TestMint {
+            holders: 50,
+            top1_pct: 70.0,
+            top10_pct: 90.0,
+            herfindahl: Some(0.55),
+            age_hours: 48,
+            mint_active: false,
+            freeze_active: false,
+            lp: "locked",
+            burned_pct: None,
+            origin: Some("pump.fun"),
+        };
+
+        let mut stim = make_token_stimulus(&high_conc);
+        let baselines_pos = stim.find("\n[BASELINES]").unwrap();
+        // Holder context shows most is wallets — real whale concentration
+        let holder_ctx = "\n[HOLDER CONTEXT]\ntop_20_analyzed: 90.0% of supply\n  wallets: 85.0% \u{2014} freely tradeable\n  lp_pools: 5.0% \u{2014} DEX\neffective_wallet_concentration: 85.0%\n";
+        stim.insert_str(baselines_pos, holder_ctx);
+        let m = parse(&stim).unwrap();
+        let scores = score(&m);
+
+        assert!(
+            scores.phi < 0.35,
+            "85% wallet concentration should keep phi low even with holder context: phi={}",
+            scores.phi
+        );
+        assert!(
+            scores.sovereignty < 0.35,
+            "85% wallet concentration should keep sovereignty low: sov={}",
+            scores.sovereignty
         );
     }
 }

@@ -1,0 +1,32 @@
+[
+  {
+    "symbol": "Fartcoin",
+    "conviction": 0.967,
+    "verdict": "Bark",
+    "q_score": 0.24505616050084644,
+    "axioms": {
+      "total": 0.24505616050084644,
+      "fidelity": 0.3,
+      "phi": 0.22716894977168947,
+      "verify": 0.2,
+      "culture": 0.275,
+      "burn": 0.21666666666666665,
+      "sovereignty": 0.26666666666666666
+    }
+  },
+  {
+    "symbol": "MOJO",
+    "conviction": 0.008,
+    "verdict": "Bark",
+    "q_score": 0.10952096759284191,
+    "axioms": {
+      "total": 0.10952096759284191,
+      "fidelity": 0.1,
+      "phi": 0.14344086021505376,
+      "verify": 0.07500000000000001,
+      "culture": 0.07500000000000001,
+      "burn": 0.11666666666666665,
+      "sovereignty": 0.18333333333333335
+    }
+  }
+]

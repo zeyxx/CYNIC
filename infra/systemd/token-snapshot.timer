@@ -1,0 +1,11 @@
+[Unit]
+Description=Token Snapshot — daily holder snapshot at 06:00 UTC
+Requires=token-snapshot.service
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
