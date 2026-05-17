@@ -65,9 +65,10 @@ HELIUS_RPC = "https://mainnet.helius-rpc.com/"
 HELIUS_HEADERS = {"Content-Type": "application/json", "Authorization": f"Bearer {HELIUS_API_KEY}"}
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SNAPSHOTS_DIR = os.path.join(SCRIPT_DIR, "snapshots")
+DATA_DIR = os.path.join(SCRIPT_DIR, "..", "data")
+SNAPSHOTS_DIR = os.path.join(DATA_DIR, "snapshots")
 WATCHLIST_PATH = os.path.join(SCRIPT_DIR, "watchlist.json")
-CALIB_PATH = os.path.join(SCRIPT_DIR, "calibration_results_real.json")
+CALIB_PATH = os.path.join(DATA_DIR, "calibration_results_real.json")
 
 POOL_PROGRAMS: Set[str] = {
     "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8", "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
@@ -256,7 +257,7 @@ def backfill_from_cache(mint: str) -> int:
     This converts it to the daily snapshot format for continuity.
     Returns number of snapshots created.
     """
-    cache_dir = os.path.join(SCRIPT_DIR, "helius_cache")
+    cache_dir = os.path.join(DATA_DIR, "helius_cache")
     if not os.path.exists(cache_dir):
         return 0
 

@@ -34,7 +34,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Dict
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(SCRIPT_DIR, "webhook_data")
+DATA_DIR = os.path.join(SCRIPT_DIR, "..", "data", "webhook_data")
 METRICS_DIR = os.path.join(DATA_DIR, "_metrics")
 
 # ── CREDIT TRACKER ──

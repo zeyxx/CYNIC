@@ -88,7 +88,7 @@ scripts/x-interceptor.py
 cynic-kernel/cynic-kernel.bin
 scripts/openclaude.sh
 apps/
-data/
+/data/
 .venv/
 plan-test.json
 report-test.json
@@ -130,6 +130,11 @@ demo-video/
 .cortex-session
 skills-lock.json
 
-# Runtime data (holder snapshots, too large for git)
-cynic-python/heuristics/snapshots/
-cynic-python/heuristics/helius_cache/
+# Runtime data (holder snapshots, webhook captures, API cache — too large for git)
+cynic-python/heuristics/data/snapshots/
+cynic-python/heuristics/data/helius_cache/
+cynic-python/heuristics/data/webhook_data/
+cynic-python/heuristics/data/webhook_id.txt
+
+# School deliverables (personal, not infrastructure)
+docs/ydays/

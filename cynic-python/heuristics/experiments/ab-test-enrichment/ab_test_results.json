@@ -1,0 +1,52 @@
+{
+  "n": 3,
+  "baseline_accuracy": 0.0,
+  "enriched_accuracy": 0.0,
+  "absolute_improvement_pct": 0.0,
+  "improvements": 0,
+  "regressions": 0,
+  "results": [
+    {
+      "mint": "6MQpbiTC2YcogidTmKqMLK82qvE9z5QEm7EP3AEDpump",
+      "symbol": "MASK",
+      "conviction": 0.98,
+      "tier": "strong",
+      "expected": "Howl",
+      "baseline_verdict": "Growl",
+      "baseline_q": 0.3585474169611182,
+      "baseline_match": false,
+      "enriched_verdict": "Wag",
+      "enriched_q": 0.46280355235801984,
+      "enriched_match": false,
+      "improvement": false
+    },
+    {
+      "mint": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+      "symbol": "Fartcoin",
+      "conviction": 0.9670000000000001,
+      "tier": "strong",
+      "expected": "Howl",
+      "baseline_verdict": "Growl",
+      "baseline_q": 0.3585474169611182,
+      "baseline_match": false,
+      "enriched_verdict": "Wag",
+      "enriched_q": 0.4411370768508498,
+      "enriched_match": false,
+      "improvement": false
+    },
+    {
+      "mint": "GPwwihLa1w9Qsz27SmNrj7aLVnE7pr2cAvHe6aVVpump",
+      "symbol": "DANK",
+      "conviction": 0.9640000000000001,
+      "tier": "strong",
+      "expected": "Howl",
+      "baseline_verdict": "Growl",
+      "baseline_q": 0.3585474169611182,
+      "baseline_match": false,
+      "enriched_verdict": "Wag",
+      "enriched_q": 0.517704118572545,
+      "enriched_match": false,
+      "improvement": false
+    }
+  ]
+}

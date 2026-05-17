@@ -1,0 +1,44 @@
+id: kscore-composite-2026-05-16
+hypothesis: "A composite K-Score combining multiple on-chain signals can predict token quality."
+domain: token-analysis
+cortex: feat/ccm-quality-audit-2026-05-16-4032c419
+created: 2026-05-16
+status: DEAD
+
+method: |
+  3 iterations of composite scoring:
+  v1: holders + concentration + organic_ratio + tx_per_hour (weighted sum)
+  v2: random holder sampling + gini + dust ratio (behavioral)
+  v3: buy/sell flow analysis from transaction parsing
+
+variables:
+  independent: [feature_weights, sampling_method, flow_window]
+  dependent: [kscore, correlation_with_cultscreener]
+  controlled: [token_set_n33]
+
+findings:
+  - claim: "All composite scores correlate rho < 0.3 with CultScreener — composites of noise = noise"
+    epistemic: observed
+    falsification: "N/A — finding is negative (approach abandoned)"
+  - claim: "kscore_v2 composite rho=-0.182 — worse than random"
+    epistemic: observed
+  - claim: "Individual signals that partially correlate are INVERTED (organic_ratio rho=-0.573, tx_per_hour rho=-0.477)"
+    epistemic: observed
+
+consumed_by:
+  - "Decision: abandon composite scoring, use raw conviction instead"
+  - "memory: project_token_conviction_ground_truth.md (What DOESN'T predict section)"
+
+why_dead: |
+  Root cause: conviction is temporal, not structural. No combination of snapshot metrics
+  can capture "% of holders who stayed." The finding from conviction-temporal supersedes
+  all K-Score iterations.
+
+files:
+  scripts:
+    - kscore_sovereign.py
+    - kscore_sovereign_v2.py
+    - kscore_v3_flow.py
+  data:
+    - kscore_calibration_results.json
+    - kscore_v2_results.json

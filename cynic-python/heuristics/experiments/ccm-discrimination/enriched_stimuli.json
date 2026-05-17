@@ -1,0 +1,26 @@
+[
+  {
+    "mint": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+    "symbol": "Fartcoin",
+    "conviction": 0.967,
+    "holders": 160121,
+    "mcap": 235395510,
+    "stimulus": "TOKEN ANALYSIS: Fartcoin\nMint: 9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump\n\nPOPULATION CONTEXT (vs CultScreener tracked tokens, n=36):\n- Holder conviction (1m): 96.7% \u2014 percentile 94.4 (median: 82.4%)\n- Holder count: 160,121 \u2014 percentile 100.0 (median: 7,702)\n- Market cap: $235,395,510 \u2014 percentile 100.0 (median: $3,067,948)\n\nON-CHAIN FACTS:\n- Origin: pump.fun (permissionless launch)\n- Mint authority: Revoked (supply immutable)\n- Freeze authority: Revoked (wallets free)\n- Top 1 holder: 10.3% of total supply\n- Top 10 holders: 36.5% of total supply\n- Total supply: 999,975,787 tokens\n\nHOLDER BEHAVIOR (CultScreener diamond hands metric):\n- 1-month conviction: 96.7% of holders held through the last month\n- Mid-range retention \u2014 moderate community strength\n\nWHAT THIS DATA DOES NOT TELL US:\n- Token age (creation date not fetched)\n- Trading volume / liquidity depth\n- Social media presence or community quality\n- Whether high conviction = genuine belief or illiquidity\n- Price trajectory (current snapshot only)\n"
+  },
+  {
+    "mint": "D4isXajuNQQsf1LuYid91EhADBzwaH5P3jAb9aaFpump",
+    "symbol": "WOJAK",
+    "conviction": 0.695,
+    "holders": 14063,
+    "mcap": 7187588,
+    "stimulus": "TOKEN ANALYSIS: WOJAK\nMint: D4isXajuNQQsf1LuYid91EhADBzwaH5P3jAb9aaFpump\n\nPOPULATION CONTEXT (vs CultScreener tracked tokens, n=36):\n- Holder conviction (1m): 69.5% \u2014 percentile 36.1 (median: 82.4%)\n- Holder count: 14,063 \u2014 percentile 61.1 (median: 7,702)\n- Market cap: $7,187,588 \u2014 percentile 77.8 (median: $3,067,948)\n\nON-CHAIN FACTS:\n- Origin: pump.fun (permissionless launch)\n- Mint authority: Revoked (supply immutable)\n- Freeze authority: Revoked (wallets free)\n- Top 1 holder: 0.0% of total supply\n- Top 10 holders: 0.0% of total supply\n- Total supply: 0 tokens\n\nHOLDER BEHAVIOR (CultScreener diamond hands metric):\n- 1-month conviction: 69.5% of holders held through the last month\n- Mid-range retention \u2014 moderate community strength\n\nWHAT THIS DATA DOES NOT TELL US:\n- Token age (creation date not fetched)\n- Trading volume / liquidity depth\n- Social media presence or community quality\n- Whether high conviction = genuine belief or illiquidity\n- Price trajectory (current snapshot only)\n"
+  },
+  {
+    "mint": "HNoVLHPMFZ5wjPqmiaSWdNHXVCxHPWFRiiGjAg3Fpump",
+    "symbol": "MOJO",
+    "conviction": 0.008,
+    "holders": 893,
+    "mcap": 182831,
+    "stimulus": "TOKEN ANALYSIS: MOJO\nMint: HNoVLHPMFZ5wjPqmiaSWdNHXVCxHPWFRiiGjAg3Fpump\n\nPOPULATION CONTEXT (vs CultScreener tracked tokens, n=36):\n- Holder conviction (1m): 0.8% \u2014 percentile 2.8 (median: 82.4%)\n- Holder count: 893 \u2014 percentile 11.1 (median: 7,702)\n- Market cap: $182,831 \u2014 percentile 11.1 (median: $3,067,948)\n\nON-CHAIN FACTS:\n- Origin: pump.fun (permissionless launch)\n- Mint authority: Revoked (supply immutable)\n- Freeze authority: Revoked (wallets free)\n- Top 1 holder: 0.0% of total supply\n- Top 10 holders: 0.0% of total supply\n- Total supply: 0 tokens\n\nHOLDER BEHAVIOR (CultScreener diamond hands metric):\n- 1-month conviction: 0.8% of holders held through the last month\n- This is in the bottom 25% \u2014 low retention, indicating weak community or active dumping\n\nWHAT THIS DATA DOES NOT TELL US:\n- Token age (creation date not fetched)\n- Trading volume / liquidity depth\n- Social media presence or community quality\n- Whether high conviction = genuine belief or illiquidity\n- Price trajectory (current snapshot only)\n"
+  }
+]
