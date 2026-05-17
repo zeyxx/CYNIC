@@ -194,6 +194,59 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
         }
     }
 
+    // ── Holder context: account type breakdown (wallet vs contract) ──
+    if let Some(ref ctx) = data.holder_context {
+        s.push_str("\n[HOLDER CONTEXT]\n");
+        let total_analyzed =
+            ctx.lp_pct + ctx.burn_pct + ctx.locker_pct + ctx.contract_pct + ctx.wallet_pct;
+        s.push_str(&format!(
+            "top_{}_analyzed: {:.1}% of supply\n",
+            ctx.classified, total_analyzed
+        ));
+        if ctx.lp_pct > 0.0 {
+            s.push_str(&format!(
+                "  lp_pools: {:.1}% — DEX liquidity, market-making\n",
+                ctx.lp_pct
+            ));
+        }
+        if ctx.burn_pct > 0.0 {
+            s.push_str(&format!(
+                "  burned: {:.1}% — supply permanently removed\n",
+                ctx.burn_pct
+            ));
+        }
+        if ctx.locker_pct > 0.0 {
+            s.push_str(&format!(
+                "  locked: {:.1}% — tokens in lock/vesting contracts, not freely tradeable\n",
+                ctx.locker_pct
+            ));
+        }
+        if ctx.contract_pct > 0.0 {
+            s.push_str(&format!(
+                "  contracts: {:.1}% — tokens held by smart contracts (vesting, DAO, protocol), not freely tradeable\n",
+                ctx.contract_pct
+            ));
+        }
+        if ctx.wallet_pct > 0.0 {
+            s.push_str(&format!(
+                "  wallets: {:.1}% — freely tradeable by individual holders\n",
+                ctx.wallet_pct
+            ));
+        }
+        s.push_str(&format!(
+            "effective_wallet_concentration: {:.1}%\n",
+            ctx.effective_concentration
+        ));
+        // Contextual note when institutional holdings are significant
+        let institutional = ctx.locker_pct + ctx.contract_pct + ctx.lp_pct + ctx.burn_pct;
+        if institutional > 30.0 {
+            s.push_str(&format!(
+                "note: High raw concentration ({:.0}%) driven by institutional/programmatic holdings ({:.0}%). Effective retail concentration is {:.1}%.\n",
+                total_analyzed, institutional, ctx.effective_concentration
+            ));
+        }
+    }
+
     // ── Holder identities (from Helius Wallet API) ──
     if !data.holder_identities.is_empty() {
         s.push_str("\n[HOLDER IDENTITIES]\n");
@@ -254,11 +307,11 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
     // ── Axiom evidence: what to evaluate per axiom ──
     s.push_str("\n[AXIOM EVIDENCE]\n");
     s.push_str("FIDELITY: Does the on-chain state match what a legitimate project would show? Is the token faithful to its claimed purpose?\n");
-    s.push_str("PHI: Is the holder distribution proportional? Is the tokenomics structure harmonious or concentrated?\n");
+    s.push_str("PHI: Is the holder distribution proportional? Use effective_wallet_concentration (from [HOLDER CONTEXT]) when available — institutional holdings (vesting, LP, locks) don't indicate manipulation.\n");
     s.push_str("VERIFY: Can these metrics be independently verified on-chain? Are there verifiable red flags or green flags?\n");
     s.push_str("CULTURE: Does this token follow established Solana token standards? Is the authority model consistent with good practices?\n");
     s.push_str("BURN: Is the token efficiently structured? Burned supply, minimal waste, no unnecessary authorities retained?\n");
-    s.push_str("SOVEREIGNTY: Is control distributed or concentrated? Can individual holders act freely without one wallet dominating?\n");
+    s.push_str("SOVEREIGNTY: Is control distributed or concentrated? Tokens in vesting/lock contracts are scheduled for release — concentration via contracts ≠ concentration via whales.\n");
 
     // ── Question ──
     s.push_str("\n[QUESTION]\n");

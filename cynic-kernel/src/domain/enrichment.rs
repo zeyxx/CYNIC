@@ -70,6 +70,9 @@ pub struct TokenData {
     /// Identity resolution for top holders (from Helius Wallet API).
     /// Empty if identity lookup was not performed or failed.
     pub holder_identities: Vec<HolderIdentity>,
+    /// Holder context: breakdown of top holders by account type (wallet vs contract).
+    /// Enables discrimination between institutional concentration (vesting, LP) and retail whales.
+    pub holder_context: Option<HolderContext>,
     /// Buy/sell divergence signal: ratio of buy-side to sell-side holders.
     /// From helius token profiler (on-chain txn analysis of top accounts).
     pub buy_sell_ratio: Option<f64>,
@@ -77,6 +80,56 @@ pub struct TokenData {
     pub divergence_class: Option<String>,
     /// Percentile of buy/sell divergence in population (0-100, higher = more unusual).
     pub percentile_divergence: Option<u32>,
+}
+
+/// Classification of a token holder account by its on-chain program ownership.
+/// Regular wallets (System Program) vs smart contracts (vesting, LP, locks, etc.).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HolderType {
+    /// Regular wallet (owned by System Program) — freely tradeable
+    Wallet,
+    /// AMM/DEX liquidity pool
+    LpPool,
+    /// Burn address — supply permanently removed
+    Burn,
+    /// Token lock or vesting contract
+    Locker,
+    /// Other smart contract (DAO treasury, protocol, unknown program)
+    Contract,
+}
+
+impl std::fmt::Display for HolderType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Wallet => write!(f, "wallet"),
+            Self::LpPool => write!(f, "lp_pool"),
+            Self::Burn => write!(f, "burn"),
+            Self::Locker => write!(f, "locker"),
+            Self::Contract => write!(f, "contract"),
+        }
+    }
+}
+
+/// Aggregated context about top token holders — breakdown by account type.
+/// Enables Dogs to distinguish institutional concentration (vesting, LP)
+/// from retail whale concentration (freely tradeable).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct HolderContext {
+    /// Number of top holders classified
+    pub classified: u32,
+    /// Percentage of analyzed supply held by LP pools
+    pub lp_pct: f64,
+    /// Percentage held by burn addresses
+    pub burn_pct: f64,
+    /// Percentage held by lock/vesting contracts
+    pub locker_pct: f64,
+    /// Percentage held by other smart contracts (DAO, protocol, unknown)
+    pub contract_pct: f64,
+    /// Percentage held by regular wallets
+    pub wallet_pct: f64,
+    /// Effective retail concentration: only wallet-held supply in top holders.
+    /// This is what matters for phi/sovereignty — contracts can't rug.
+    pub effective_concentration: f64,
 }
 
 /// Identity resolution result for a token holder address.
