@@ -571,7 +571,7 @@ class XProxy:
             "variables": variables,
             "response": data,
         }, indent=2, ensure_ascii=False))
-        self._stats["captured"] += 1
+        # ops_matched already incremented above; this is the raw JSON capture point
 
         # Extract + enrich
         raw_tweets, extraction_path = _extract_tweets(data)
