@@ -1,0 +1,18 @@
+[Unit]
+Description=Token Snapshot — daily holder snapshot + trajectory classification
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/cynic/env
+WorkingDirectory=%h/Bureau/CYNIC
+ExecStart=/usr/bin/python3 cynic-python/heuristics/collection/daily_snapshot.py
+ExecStartPost=/usr/bin/python3 cynic-python/heuristics/collection/daily_snapshot.py --trajectory
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=token-snapshot
+MemoryMax=256M
+TimeoutStartSec=300
+
+[Install]
+WantedBy=token-snapshot.timer
