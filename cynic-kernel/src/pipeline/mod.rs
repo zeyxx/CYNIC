@@ -152,17 +152,24 @@ async fn pipeline_inner(
     let stimulus_embedding = enrichment::embed_stimulus(&content, deps).await;
 
     // ── Stage 2: Cache check ──
-    if let Some(hit) = enrichment::check_cache(
-        &stimulus_embedding,
-        domain_hint,
-        inject_crystals,
-        deps.judge,
-        dogs_filter,
-        deps,
-    )
-    .await
-    {
-        return Ok(hit);
+    // Skip cache for domains with dynamic enrichment (token-analysis, wallet-judgment).
+    // These domains fetch live on-chain data per-request — caching on the raw content
+    // (mint address) returns stale verdicts when data changes or bugs are fixed.
+    let has_dynamic_enrichment =
+        domain_hint == "token-analysis" || domain_hint == "wallet-judgment";
+    if !has_dynamic_enrichment {
+        if let Some(hit) = enrichment::check_cache(
+            &stimulus_embedding,
+            domain_hint,
+            inject_crystals,
+            deps.judge,
+            dogs_filter,
+            deps,
+        )
+        .await
+        {
+            return Ok(hit);
+        }
     }
 
     // ── Stage 3: Crystal loading ──
