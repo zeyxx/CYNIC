@@ -1618,6 +1618,8 @@ impl TokenEnricherPort for HeliusEnricher {
             buy_sell_ratio: None, // populated by token profiler when available
             divergence_class: None,
             percentile_divergence: None,
+            trajectory_class: None, // populated from observation store during enrichment
+            trajectory_decay: None,
         }))
     }
 }

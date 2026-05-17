@@ -10,7 +10,9 @@
 
 use crate::domain::metrics::Metrics;
 use crate::domain::organ::{MetricValue, OrganSnapshot as SenseSnapshot};
-use crate::domain::probe::{EnvironmentSnapshot, FleetDetails, ProbeDetails, ResourceDetails};
+use crate::domain::probe::{
+    EnvironmentSnapshot, FleetDetails, PressureDetails, ProbeDetails, ResourceDetails,
+};
 use crate::domain::storage::StoragePort;
 use std::sync::atomic::Ordering;
 
@@ -128,6 +130,25 @@ pub async fn analyze(
                 }
             }
         }
+        // T4 gate: PSI pressure counter for LODController justification.
+        // If memory_some_avg10 > 25% (25% of time stalled on memory) → high pressure.
+        let pressure = extract_pressure(snap);
+        if let Some(p) = &pressure {
+            let high = p.memory_some_avg10.is_some_and(|v| v > 25.0)
+                || p.memory_full_avg10.is_some_and(|v| v > 10.0);
+            if high {
+                metrics.inc_psi_high_pressure();
+                alerts.push(Alert {
+                    kind: "psi_memory_pressure",
+                    message: format!(
+                        "PSI memory pressure: some_avg10={:.1}%, full_avg10={:.1}%",
+                        p.memory_some_avg10.unwrap_or(0.0),
+                        p.memory_full_avg10.unwrap_or(0.0),
+                    ),
+                    severity: "warning",
+                });
+            }
+        }
     } else {
         tracing::debug!("introspection: no EnvironmentSnapshot yet — skipping resource checks");
     }
@@ -182,6 +203,14 @@ pub async fn analyze(
 fn extract_resource(snap: &EnvironmentSnapshot) -> Option<ResourceDetails> {
     snap.probes.iter().find_map(|p| match &p.details {
         ProbeDetails::Resource(r) => Some(r.clone()),
+        _ => None,
+    })
+}
+
+/// Extract PressureDetails from an EnvironmentSnapshot's probes.
+fn extract_pressure(snap: &EnvironmentSnapshot) -> Option<PressureDetails> {
+    snap.probes.iter().find_map(|p| match &p.details {
+        ProbeDetails::Pressure(pr) => Some(pr.clone()),
         _ => None,
     })
 }

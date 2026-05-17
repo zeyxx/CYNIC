@@ -48,6 +48,11 @@ pub(super) struct TokenMetrics {
     contract_pct: Option<f64>,
     /// Percentage held by lock/vesting programs
     locker_pct: Option<f64>,
+    // Trajectory fields (from [TRAJECTORY] section — daily cron decay curve)
+    /// Trajectory class: DEAD, DYING, DECLINING, STABLE, UNKNOWN
+    trajectory_class: Option<String>,
+    /// Conviction decay between shortest and longest window (0.0 to 1.0)
+    trajectory_decay: Option<f64>,
 }
 
 /// Parse human-readable USD values like "1.23B", "45.67M", "890K", "123.45".
@@ -115,6 +120,8 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
         effective_concentration: None,
         contract_pct: None,
         locker_pct: None,
+        trajectory_class: None,
+        trajectory_decay: None,
     };
 
     for line in section.lines() {
@@ -281,6 +288,25 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
         }
     }
 
+    // Parse [TRAJECTORY] section if present
+    if let Some(tr_start) = content.find("[TRAJECTORY]") {
+        let tr_rest = &content[tr_start..];
+        let tr_end = tr_rest[12..]
+            .find("\n[")
+            .map(|i| tr_start + 12 + i)
+            .unwrap_or(content.len());
+        let tr_section = &content[tr_start..tr_end];
+
+        for line in tr_section.lines() {
+            let line = line.trim();
+            if let Some(v) = line.strip_prefix("class: ") {
+                m.trajectory_class = Some(v.trim().to_string());
+            } else if let Some(v) = line.strip_prefix("decay: ") {
+                m.trajectory_decay = v.parse().ok();
+            }
+        }
+    }
+
     Some(m)
 }
 
@@ -316,6 +342,16 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             fidelity -= ADJUST_SMALL;
         }
     }
+    // Trajectory: temporal conviction signal — holders leaving = broken promise.
+    // Falsify: token in legitimate migration phase shows DYING despite healthy fundamentals.
+    if let Some(ref tclass) = m.trajectory_class {
+        match tclass.as_str() {
+            "DEAD" => fidelity -= ADJUST_MEDIUM, // virtually no one stayed — promise broken
+            "DYING" => fidelity -= ADJUST_SMALL, // steep churn — holders losing faith
+            "STABLE" => fidelity += ADJUST_SMALL, // diamond hands — promise kept
+            _ => {}                              // DECLINING/UNKNOWN = no adjustment
+        }
+    }
     // Market cap: high mcap = token fulfills its claimed purpose at scale
     // Falsify: legitimate small-cap token penalized for being early-stage.
     if let Some(mcap) = m.market_cap_usd {
@@ -326,8 +362,9 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
         }
     }
     let fidelity = fidelity.clamp(ADJUST_SMALL, PHI_INV);
+    let traj_label = m.trajectory_class.as_deref().unwrap_or("n/a");
     let fidelity_reason = format!(
-        "mint_authority={}, freeze_authority={}, diamond_hands={}, mcap={}.",
+        "mint_authority={}, freeze_authority={}, diamond_hands={}, mcap={}, trajectory={traj_label}.",
         if m.mint_authority_active {
             "ACTIVE (red flag)"
         } else {
@@ -452,6 +489,12 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
         verify += ADJUST_SMALL; // time-tested, verified by survival
     } else if m.age_hours < 24 {
         verify -= ADJUST_SMALL; // unproven
+    }
+    // Trajectory: temporal verification = multi-day evidence, stronger than snapshot.
+    // Any trajectory class (even DYING) means we have temporal data = higher verifiability.
+    // Falsify: reconstructed trajectory from single fetch is less verified than real multi-day.
+    if m.trajectory_class.is_some() {
+        verify += ADJUST_SMALL; // temporal data available = independently verifiable over time
     }
     // Volume: real trading activity = market-verified existence
     // Falsify: wash trading inflates volume without real price discovery.
@@ -600,6 +643,16 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     if m.mint_authority_active {
         sovereignty -= ADJUST_SMALL;
     }
+    // Trajectory: STABLE conviction = holders exercise agency to STAY.
+    // DYING/DEAD = holders leaving (sovereignty intact — they chose to leave — but token is weakened).
+    // Falsify: STABLE trajectory on a token with frozen wallets (holders CAN'T leave, not WON'T).
+    if let Some(ref tclass) = m.trajectory_class {
+        match tclass.as_str() {
+            "STABLE" => sovereignty += ADJUST_SMALL, // holders freely choosing to hold
+            "DEAD" => sovereignty -= ADJUST_SMALL,   // mass exit = project lost mandate
+            _ => {}
+        }
+    }
     // K-Score: extractor dominance = centralized exit
     if m.k_wallets_analyzed > 0 && m.k_extractors > m.k_accumulators {
         sovereignty -= ADJUST_SMALL;
@@ -622,8 +675,13 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     } else {
         String::new()
     };
+    let traj_note = m
+        .trajectory_class
+        .as_deref()
+        .map(|t| format!(" trajectory={t}."))
+        .unwrap_or_default();
     let sovereignty_reason = format!(
-        "{}freeze={}, extractors_vs_acc={}/{}.{identity_note}",
+        "{}freeze={}, extractors_vs_acc={}/{}.{identity_note}{traj_note}",
         if m.holder_data_available {
             if let Some(eff) = m.effective_concentration {
                 format!(
@@ -1153,6 +1211,98 @@ mod tests {
             scores.sovereignty < 0.35,
             "85% wallet concentration should keep sovereignty low: sov={}",
             scores.sovereignty
+        );
+    }
+
+    #[test]
+    fn parse_trajectory_section() {
+        let mut content = make_token_stimulus(&HEALTHY_MINT);
+        let baselines_pos = content.find("\n[BASELINES]").unwrap();
+        let trajectory = "\n[TRAJECTORY]\nclass: DYING\ndecay: 0.3500\ninterpretation: Steep conviction decay (>30%) \u{2014} holders actively leaving\n";
+        content.insert_str(baselines_pos, trajectory);
+
+        let m = parse(&content).expect("should parse with trajectory");
+        assert_eq!(m.trajectory_class.as_deref(), Some("DYING"));
+        assert!((m.trajectory_decay.unwrap() - 0.35).abs() < 0.001);
+    }
+
+    #[test]
+    fn parse_without_trajectory_section() {
+        let content = make_token_stimulus(&HEALTHY_MINT);
+        let m = parse(&content).expect("should parse without trajectory");
+        assert!(m.trajectory_class.is_none());
+        assert!(m.trajectory_decay.is_none());
+    }
+
+    #[tokio::test]
+    async fn trajectory_dying_penalizes_fidelity() {
+        let base = make_token_stimulus(&MODERATE_MINT);
+        let m_base = parse(&base).unwrap();
+        let scores_base = score(&m_base);
+
+        let mut dying = make_token_stimulus(&MODERATE_MINT);
+        let pos = dying.find("\n[BASELINES]").unwrap();
+        dying.insert_str(pos, "\n[TRAJECTORY]\nclass: DYING\ndecay: 0.3500\n");
+        let m_dying = parse(&dying).unwrap();
+        let scores_dying = score(&m_dying);
+
+        assert!(
+            scores_dying.fidelity < scores_base.fidelity,
+            "DYING trajectory should penalize fidelity: dying={}, base={}",
+            scores_dying.fidelity,
+            scores_base.fidelity
+        );
+    }
+
+    #[tokio::test]
+    async fn trajectory_stable_boosts_sovereignty() {
+        let base = make_token_stimulus(&MODERATE_MINT);
+        let m_base = parse(&base).unwrap();
+        let scores_base = score(&m_base);
+
+        let mut stable = make_token_stimulus(&MODERATE_MINT);
+        let pos = stable.find("\n[BASELINES]").unwrap();
+        stable.insert_str(pos, "\n[TRAJECTORY]\nclass: STABLE\ndecay: 0.0800\n");
+        let m_stable = parse(&stable).unwrap();
+        let scores_stable = score(&m_stable);
+
+        assert!(
+            scores_stable.sovereignty > scores_base.sovereignty,
+            "STABLE trajectory should boost sovereignty: stable={}, base={}",
+            scores_stable.sovereignty,
+            scores_base.sovereignty
+        );
+        assert!(
+            scores_stable.fidelity > scores_base.fidelity,
+            "STABLE trajectory should boost fidelity: stable={}, base={}",
+            scores_stable.fidelity,
+            scores_base.fidelity
+        );
+    }
+
+    #[tokio::test]
+    async fn trajectory_dead_heavily_penalizes() {
+        let mut dead = make_token_stimulus(&MODERATE_MINT);
+        let pos = dead.find("\n[BASELINES]").unwrap();
+        dead.insert_str(pos, "\n[TRAJECTORY]\nclass: DEAD\ndecay: 0.9500\n");
+        let m_dead = parse(&dead).unwrap();
+        let scores_dead = score(&m_dead);
+
+        let base = make_token_stimulus(&MODERATE_MINT);
+        let m_base = parse(&base).unwrap();
+        let scores_base = score(&m_base);
+
+        assert!(
+            scores_dead.fidelity < scores_base.fidelity - 0.05,
+            "DEAD trajectory should strongly penalize fidelity: dead={}, base={}",
+            scores_dead.fidelity,
+            scores_base.fidelity
+        );
+        assert!(
+            scores_dead.sovereignty < scores_base.sovereignty,
+            "DEAD trajectory should penalize sovereignty: dead={}, base={}",
+            scores_dead.sovereignty,
+            scores_base.sovereignty
         );
     }
 }

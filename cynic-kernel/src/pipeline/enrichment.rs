@@ -209,6 +209,38 @@ pub(super) async fn enrich_token(
                 }
             }
 
+            // Look up trajectory from daily cron observations.
+            // The cron POSTs one observation with all tracked tokens' decay curves.
+            // Query recent observations and find the trajectory_cron entry for this mint.
+            if let Ok(obs_list) = deps
+                .storage
+                .list_observations_raw(Some("token-analysis"), None, 20)
+                .await
+            {
+                for obs in &obs_list {
+                    if obs.tool != "trajectory_cron" {
+                        continue;
+                    }
+                    if let Ok(ctx) = serde_json::from_str::<serde_json::Value>(&obs.context)
+                        && let Some(trajectories) =
+                            ctx.get("trajectories").and_then(|t| t.as_array())
+                    {
+                        for traj in trajectories {
+                            if traj.get("mint").and_then(|m| m.as_str()) == Some(&content) {
+                                token_data.trajectory_class = traj
+                                    .get("class")
+                                    .and_then(|c| c.as_str())
+                                    .map(|s| s.to_string());
+                                token_data.trajectory_decay =
+                                    traj.get("decay").and_then(|d| d.as_f64());
+                                break;
+                            }
+                        }
+                    }
+                    break; // only need the latest trajectory observation
+                }
+            }
+
             let enriched = token_data.to_stimulus();
             tracing::info!(
                 phase = "enrich",
@@ -219,6 +251,7 @@ pub(super) async fn enrich_token(
                 volume_24h = ?token_data.volume_24h_usd,
                 liquidity = ?token_data.liquidity_usd,
                 kscore = ?token_data.kscore.as_ref().map(|k| format!("{:.3}", k.score)),
+                trajectory = ?token_data.trajectory_class,
                 "token enriched via Helius+DexScreener"
             );
             TokenEnrichmentResult {

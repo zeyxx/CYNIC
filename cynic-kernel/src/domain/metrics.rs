@@ -28,6 +28,9 @@ pub struct Metrics {
     pub nightshift_errors_total: AtomicU64,
     pub domain_gate_skipped_total: AtomicU64,
     pub verdicts_served_total: AtomicU64, // K15: verdicts returned to clients (potential consumers)
+    /// T4 gate: counts introspection ticks where PSI memory pressure was high.
+    /// If >0 over 30 days → build LODController. If 0 → confirmed theoretical gap.
+    pub psi_high_pressure_ticks: AtomicU64,
 }
 
 impl Default for Metrics {
@@ -59,6 +62,7 @@ impl Metrics {
             nightshift_digested_total: AtomicU64::new(0),
             nightshift_errors_total: AtomicU64::new(0),
             domain_gate_skipped_total: AtomicU64::new(0),
+            psi_high_pressure_ticks: AtomicU64::new(0),
         }
     }
 
@@ -131,6 +135,9 @@ impl Metrics {
     }
     pub fn inc_verdict_served(&self) {
         self.verdicts_served_total.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn inc_psi_high_pressure(&self) {
+        self.psi_high_pressure_ticks.fetch_add(1, Ordering::Relaxed);
     }
 
     /// Render Prometheus text exposition format (global counters only).
@@ -258,6 +265,13 @@ impl Metrics {
             "cynic_verdicts_served_total",
             "Verdicts returned to clients (K15 consumption opportunity)",
             self.verdicts_served_total.load(Ordering::Relaxed),
+        );
+
+        prom_counter(
+            &mut out,
+            "cynic_psi_high_pressure_ticks",
+            "T4 gate: introspection ticks with high PSI memory pressure (LODController justification)",
+            self.psi_high_pressure_ticks.load(Ordering::Relaxed),
         );
 
         // Derived: K15 digestion ratio (verdicts served to consumers vs created)

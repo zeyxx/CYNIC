@@ -1,0 +1,33 @@
+id: meta-question-2026-05-17
+hypothesis: "CYNIC Dogs (Qwen 7B + enrichment + crystals) produce better token verdicts than Claude Sonnet without accumulated context."
+domain: token-analysis
+created: 2026-05-17
+status: ACTIVE
+
+method: |
+  4-arm comparison on 33 calibration tokens:
+  - cynic_dogs: kernel /judge with enrichment + crystals
+  - haiku_naive: Claude Haiku 4.5 with mint address only
+  - sonnet_naive: Claude Sonnet 4.6 with mint address only
+  - sonnet_enriched: Claude Sonnet 4.6 with same enriched stimulus as Dogs
+
+variables:
+  independent: [model, stimulus_richness]
+  dependent: [q_score, verdict_tier, axiom_scores]
+  controlled: [token_set_n33, prompt_template, scoring_range]
+
+success_condition: |
+  rho(Dogs) > rho(Sonnet naive) AND adjacent_match(Dogs) >= adjacent_match(Sonnet enriched)
+
+consumed_by:
+  - "Decision: validate or refute CYNIC thesis"
+  - "If validated: promote to Tier 2 CI gate on enrichment pipeline changes"
+
+death_date: 2026-06-17
+
+files:
+  scripts:
+    - collect.py
+    - analyze.py
+  data:
+    - benchmark_results.jsonl

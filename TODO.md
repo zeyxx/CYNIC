@@ -16,14 +16,15 @@
 
 - [ ] **MCP poison input hardening.** ~~Small models produce null/invalid tool args.~~ **STALE (2026-05-09):** 21 poison tests + null handler tests already pass. Grep shows 1 TokenData. Residual: end-to-end handler fuzzing (low priority).
 - [ ] **Supply chain / config drift detection.** 21 config sources, 3 active duplications. `config-sync.sh` deployed (PR#120). Remaining: fleet.toml placeholder convention mismatch, Hermes config not linked. **Falsify:** `config-sync.sh check` in pre-push hook catches drift.
+- [ ] **qwen35-9b-gpu prompt comprehension.** Scores 0.05 on all axioms for enriched token-analysis stimuli despite correct data (det-dog scores phi=0.62 on same stimulus). Not cache (PR#211 fixed). Prompt engineering or model change needed. **Falsify:** qwen35 produces varied scores (>0.15 spread) on enriched JUP stimulus.
 
 ---
 
 ## TRACK: HERMES [tier: haiku/gemini]
 
-- [ ] **Hermes crons running.** Start systemd timers. → enables: data-organism deploy. **Falsify:** `systemctl list-timers --user` shows active hermes timers.
-- [ ] **Unify dataset paths.** All scripts use MANIFEST.canonical_paths. → enables: clean data flow. **Falsify:** grep returns only canonical path.
-- [ ] **Deploy hermes-data-organism.** `systemctl enable --now hermes-data-organism.timer`. → enables: autonomous reflection cycle. **Falsify:** 7 reflection files after 1 week.
+- [x] **Hermes crons running (2026-05-17).** All 5 timers active + success: curation, search-generator, feedback-loop, k15-consumer, gemini-briefing.
+- [ ] **Unify dataset paths.** All scripts use MANIFEST.canonical_paths. → enables: clean data flow. **Falsify:** grep returns only canonical path. *Partially addressed by heuristics restructure (PR#209).*
+- [x] **Deploy hermes-data-organism (2026-05-17).** Timer active, last run success.
 
 ---
 
@@ -40,6 +41,16 @@
 
 - [x] **SSOT config debt (2026-05-14).** 3-layer SSOT wired. PRs #172-175. K15 validation active.
 - [ ] **Python tier governance enforcement.** 54 modules archived, 57 salvageable. Wire `make lint-python-tiers` to CI. **Falsify:** CI rejects new untiered .py file.
+
+---
+
+## TRACK: TOKEN INTELLIGENCE [tier: opus]
+
+- [x] **Sovereign conviction pipeline (2026-05-16).** ρ=0.776 with CultScreener, 81.8% accuracy. PRs #204-207.
+- [x] **Trajectory cron (2026-05-17).** daily_snapshot.py --trajectory classifies DYING/DECLINING/STABLE. Systemd timer 06:00 UTC. PR#209. Checkpoint: 2026-05-24 (T+7).
+- [x] **Holder context enrichment (2026-05-17).** HolderContext distinguishes vesting/LP from whale. DexScreener endpoint fixed ($2K→$1.26M). Verdict cache skip for enriched domains. PRs #210-211.
+- [x] **Heuristics restructure (2026-05-17).** SoC: collection/data/experiments/ with MANIFEST.yaml per experiment. PR#209.
+- [ ] **Trajectory validation (checkpoint 2026-05-24).** 7 days of daily snapshots → compare day-over-day conviction. **Falsify:** MOJO doesn't stay DYING (decay > 0.30) across 7 independent snapshots.
 
 ---
 

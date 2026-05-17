@@ -292,6 +292,30 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
         }
     }
 
+    // ── Trajectory: conviction decay curve from daily cron (temporal signal) ──
+    if let Some(ref tclass) = data.trajectory_class {
+        s.push_str("\n[TRAJECTORY]\n");
+        s.push_str(&format!("class: {tclass}\n"));
+        if let Some(decay) = data.trajectory_decay {
+            s.push_str(&format!("decay: {decay:.4}\n"));
+        }
+        match tclass.as_str() {
+            "DEAD" => {
+                s.push_str("interpretation: 30d conviction < 1% — virtually no holders stayed\n")
+            }
+            "DYING" => s.push_str(
+                "interpretation: Steep conviction decay (>30%) — holders actively leaving\n",
+            ),
+            "DECLINING" => s.push_str(
+                "interpretation: Moderate conviction decay (15-30%) — gradual holder attrition\n",
+            ),
+            "STABLE" => s.push_str(
+                "interpretation: Minimal conviction decay (<15%) — diamond hands dominant\n",
+            ),
+            _ => {}
+        }
+    }
+
     // ── Baselines: what "normal" looks like ──
     s.push_str("\n[BASELINES]\n");
     s.push_str("healthy_token: holders>100, top_1<15%, herfindahl<0.15, age>30d, mint_authority=revoked, lp=burned, market_cap>$1M, liquidity>$100K\n");
