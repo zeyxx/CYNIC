@@ -463,12 +463,25 @@ class _DedupeCache:
 class XProxy:
     """mitmproxy addon: capture → extract → enrich → append dataset."""
 
+    METRICS_FLUSH_INTERVAL = 300  # seconds between metric flushes
+
     def __init__(self):
         CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
         DATASET_PATH.parent.mkdir(parents=True, exist_ok=True)
         self._dedup = _DedupeCache()
         self._dedup.load(DATASET_PATH)
-        self._stats = {"captured": 0, "enriched": 0, "deduped": 0}
+        self._stats = {
+            "responses_seen": 0,       # All GraphQL responses
+            "ops_matched": 0,          # Matched CAPTURE_OPS
+            "non_200": 0,              # Non-200 responses skipped
+            "schema_miss": 0,          # Extraction path not found
+            "tweets_extracted": 0,     # Raw tweets from GraphQL
+            "tweets_written": 0,       # After dedup, written to dataset
+            "tweets_deduped": 0,       # Rejected by dedup
+        }
+        self._boot_ts = datetime.now(timezone.utc).isoformat()
+        self._last_flush = datetime.now(timezone.utc).timestamp()
+        self._metrics_path = DATASET_PATH.parent / "proxy_metrics.jsonl"
         self._hub_url = os.environ.get("BROWSER_HUB_URL", "http://127.0.0.1:40770")
 
         # Load account config for read-only enforcement
@@ -477,6 +490,7 @@ class XProxy:
 
         logger.info("x-proxy loaded — %d existing tweets, dataset: %s, hub: %s, account: %s (role: %s)",
                      len(self._dedup._seen), DATASET_PATH, self._hub_url, ACCOUNT_ID, self._account_role)
+        self._flush_metrics("boot")
 
     def _get_account_role(self) -> str:
         """Get the current account's role from accounts.toml."""
@@ -505,15 +519,40 @@ class XProxy:
                 {"Content-Type": "text/plain"},
             )
 
+    def _flush_metrics(self, event: str = "periodic") -> None:
+        """Persist stats to JSONL — the only way to trace proxy activity across restarts."""
+        row = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "event": event,
+            "boot_ts": self._boot_ts,
+            **self._stats,
+        }
+        try:
+            with open(self._metrics_path, "a") as f:
+                f.write(json.dumps(row) + "\n")
+        except OSError as e:
+            logger.warning("metrics flush failed: %s", e)
+        self._last_flush = datetime.now(timezone.utc).timestamp()
+
+    def _maybe_flush(self) -> None:
+        now = datetime.now(timezone.utc).timestamp()
+        if now - self._last_flush >= self.METRICS_FLUSH_INTERVAL:
+            self._flush_metrics("periodic")
+
     def response(self, flow: http.HTTPFlow) -> None:
         url = flow.request.url
         if "/i/api/graphql/" not in url:
             return
 
+        self._stats["responses_seen"] += 1
         op_name = self._extract_op(url)
         if not op_name or op_name not in CAPTURE_OPS:
+            self._maybe_flush()
             return
+        self._stats["ops_matched"] += 1
         if flow.response is None or flow.response.status_code != 200:
+            self._stats["non_200"] += 1
+            self._maybe_flush()
             return
 
         try:
@@ -537,7 +576,11 @@ class XProxy:
         # Extract + enrich
         raw_tweets, extraction_path = _extract_tweets(data)
         if not raw_tweets:
+            if extraction_path == "schema_miss":
+                self._stats["schema_miss"] += 1
+            self._maybe_flush()
             return
+        self._stats["tweets_extracted"] += len(raw_tweets)
 
         coord_map = _coordination(raw_tweets)
         new = []
@@ -546,13 +589,13 @@ class XProxy:
             if self._dedup.is_new(enriched["dedupe_key"]):
                 new.append(enriched)
             else:
-                self._stats["deduped"] += 1
+                self._stats["tweets_deduped"] += 1
 
         if new:
             with open(DATASET_PATH, "a") as f:
                 for row in new:
                     f.write(json.dumps(row, ensure_ascii=False) + "\n")
-            self._stats["enriched"] += len(new)
+            self._stats["tweets_written"] += len(new)
 
         # Log search results for click-to-tweet linkage (Phase 1A)
         tweet_ids = [row["tweet_id"] for row in new if row.get("tweet_id")]
@@ -571,7 +614,8 @@ class XProxy:
                 logger.warning("Failed to log search results: %s", e)
 
         logger.info("x-proxy: %s +%d new (%d total, %d dedup)",
-                     op_name, len(new), self._stats["enriched"], self._stats["deduped"])
+                     op_name, len(new), self._stats["tweets_written"], self._stats["tweets_deduped"])
+        self._maybe_flush()
 
     @staticmethod
     def _extract_op(url: str) -> str | None:
