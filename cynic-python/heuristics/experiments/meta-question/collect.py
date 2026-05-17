@@ -39,8 +39,9 @@ __version__ = "0.1.0"
 # Constants
 # ---------------------------------------------------------------------------
 
+# parents[2] = heuristics/ (meta-question → experiments → heuristics)
 CALIBRATION_PATH = (
-    Path(__file__).resolve().parents[3] / "data" / "calibration_results_real.json"
+    Path(__file__).resolve().parents[2] / "data" / "calibration_results_real.json"
 )
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "benchmark_results.jsonl"
@@ -116,12 +117,14 @@ def call_kernel_judge(mint: str) -> dict:
     req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
     t0 = time.monotonic()
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=120) as resp:
             body = resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         raise RuntimeError("kernel /judge HTTP " + str(exc.code) + ": " + exc.reason) from exc
     except urllib.error.URLError as exc:
         raise RuntimeError("kernel /judge unreachable: " + str(exc.reason)) from exc
+    except TimeoutError as exc:
+        raise RuntimeError("kernel /judge timeout (60s)") from exc
 
     elapsed_ms = int((time.monotonic() - t0) * 1000)
 
