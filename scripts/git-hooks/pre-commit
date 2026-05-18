@@ -33,6 +33,7 @@ security_check() {
         | grep -viE 'format!\(.*\{[a-z_]*api_key[a-z_]*\}' \
         | grep -viE 'f".*\{[a-z_]*api_key[a-z_]*\}' \
         | grep -vE 'os\.(environ\.get|getenv)\(' \
+        | grep -vE 'env_required\(' \
         | grep -vE 'process\.env\.' \
         | grep -vE 'std::env::var' \
         | grep -vE 'load_helius_key\(\)' \
