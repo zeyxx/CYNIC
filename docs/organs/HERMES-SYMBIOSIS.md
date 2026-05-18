@@ -39,10 +39,12 @@ This document tracks the measured state of the symbiosis between CYNIC (sovereig
 
 | Gap | Impact | Status |
 |---|---|---|
-| Kernel `/health` timeout | Cannot measure symbiosis data flows | 🔴 SurrealDB likely unresponsive (2026-05-18) |
-| No Hermes→Kernel observation flow measured | Cannot prove Hermes cron produces kernel-consumable data | 🟡 MCP wired but flow unverified |
+| Kernel `/health` timeout | Cannot measure symbiosis data flows | ✅ FIXED — SurrealDB hardened with watchdog (2026-05-18) |
+| Hermes→Kernel observation flow | Hermes observations reach kernel | ✅ VALIDATED — `hermes_browse` + `browser_navigate` stored (2026-05-18) |
+| Hermes agent_id in observations | Observations arrive as `agent_id=unknown` | 🟡 Cron doesn't pass its ID — tracking gap |
 | No bidirectional crystal injection | Hermes doesn't read crystals to improve its judgment | 🟡 Design exists, not measured |
 | No web rendering in agent | Hermes browser tools not connected to our web_render.py | 🟡 Parallel capabilities, not integrated |
+| 5 fossilized cron jobs | Hardcoded observations replaying in loop | ✅ CLEANED — only organic-agent + analyst + explorer remain |
 
 ---
 
@@ -52,7 +54,7 @@ This document tracks the measured state of the symbiosis between CYNIC (sovereig
 |---|---|---|---|---|
 | `rtk-hermes` | latest | ogallotti/rtk-hermes | ✅ installed `~/.hermes/plugins/rtk-hermes/` | BURN: 60-90% token savings on shell output |
 | `agenttrace` | latest | luoyuctl/agenttrace (skill) | ✅ installed `~/.hermes/skills/devops/agenttrace-session-audit/` | Observability: session cost/token audit |
-| `hermes-blockchain-oracle` | latest | gizdusum/hermes-blockchain-oracle | 📋 probed, 7 MCP tools (Solana) | Token intelligence: wallet/tx/whale detection |
+| `hermes-blockchain-oracle` | 0.1.0 | gizdusum/hermes-blockchain-oracle | ✅ installed + wired as MCP in Hermes config | Token intelligence: wallet/tx/whale/NFT (7 tools) |
 
 ### Ecosystem Tools Evaluated, Deferred
 
