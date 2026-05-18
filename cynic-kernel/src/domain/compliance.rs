@@ -198,6 +198,7 @@ mod tests {
             agent_id: String::new(),
             session_id: String::new(),
             tags: vec![],
+            source_tier: String::new(),
             value: None,
             confidence: None,
             consumer: None,

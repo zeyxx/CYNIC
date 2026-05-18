@@ -727,6 +727,7 @@ fn raw_observation_json_shape() {
         agent_id: "agent-1".into(),
         session_id: "sess-1".into(),
         tags: vec!["test-tag".into()],
+        source_tier: "session".into(),
         value: None,
         confidence: None,
         consumer: None,

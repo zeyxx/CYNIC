@@ -73,6 +73,7 @@ fn test_obs(agent: &str, tool: &str, target: &str) -> Observation {
         session_id: agent.to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         tags: vec![],
+        source_tier: cynic_kernel::introspection::classify_source_tier(agent).to_string(),
         value: None,
         confidence: None,
         consumer: None,

@@ -420,6 +420,7 @@ pub fn build_observation_with_ledger(
         session_id: session_id.unwrap_or_default(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         tags: tags.unwrap_or_default(),
+        source_tier: String::new(),
         value,
         confidence,
         consumer,

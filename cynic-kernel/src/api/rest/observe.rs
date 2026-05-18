@@ -60,7 +60,9 @@ pub async fn observe_handler(
     }
 
     let agent_id = req.agent_id.clone();
-    let obs = crate::domain::ccm::build_observation_with_ledger(
+    let source_tier =
+        crate::introspection::classify_source_tier(agent_id.as_deref().unwrap_or("unknown"));
+    let mut obs = crate::domain::ccm::build_observation_with_ledger(
         req.tool,
         req.target,
         req.domain,
@@ -77,6 +79,7 @@ pub async fn observe_handler(
         req.depends_on, // Ledger: Kairos dependencies
         req.maturity,   // Ledger: Kairos maturity
     );
+    obs.source_tier = source_tier.to_string();
 
     // K15: Route observation to source organ if agent_id matches, else kernel storage
     let semaphore = Arc::clone(&state.bg_semaphore);

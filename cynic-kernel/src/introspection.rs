@@ -350,12 +350,33 @@ use crate::domain::state_log::StateBlock;
 /// Whether a source name represents a permanent entity (organ/service) vs ephemeral session.
 /// Permanent sources generate alerts on silence. Ephemeral sessions don't.
 pub fn is_permanent_source(s: &str) -> bool {
-    s.starts_with("hermes")
-        || s.starts_with("x-")
-        || s == "kernel"
-        || s == "nightshift"
-        || s == "watchlist"
-        || s.starts_with("organ-")
+    classify_source_tier(s) == "permanent"
+}
+
+/// Classify an agent_id into a source tier at write time (E1).
+/// Single source of truth — called by POST /observe and by backfill.
+/// Returns: "permanent" (organs, services), "cron" (scheduled jobs), "session" (ephemeral).
+pub fn classify_source_tier(agent_id: &str) -> &'static str {
+    if agent_id.is_empty() || agent_id == "unknown" {
+        return "session";
+    }
+    if agent_id.starts_with("cron-") {
+        return "cron";
+    }
+    // Core permanent set: continuously running services expected to report.
+    // Matches the original is_permanent_source() set exactly.
+    // One-off kernel operations (kernel-probe, k15-test, etc.) are "session" —
+    // they run once and stop, so silence alerts would be false positives.
+    if agent_id.starts_with("hermes")
+        || agent_id.starts_with("x-")
+        || agent_id == "kernel"
+        || agent_id == "nightshift"
+        || agent_id == "watchlist"
+        || agent_id.starts_with("organ-")
+    {
+        return "permanent";
+    }
+    "session"
 }
 
 /// Analyze two consecutive state blocks for trends. Pure function — no I/O.
@@ -406,6 +427,12 @@ pub fn analyze_state_log_trends(prev: &StateBlock, curr: &StateBlock) -> Vec<Ale
     let now = chrono::Utc::now();
     for organ in &curr.organs {
         if !is_permanent_source(&organ.source) {
+            continue;
+        }
+        // Skip sources with < 10 total observations — likely one-off test runs,
+        // not continuously running services. Avoids false silence alerts on
+        // hermes-x-cron (2 obs), hermes-organic (5 obs), etc.
+        if organ.total_observations < 10 {
             continue;
         }
         let silence_secs = chrono::DateTime::parse_from_rfc3339(&organ.last_observation)
@@ -715,6 +742,29 @@ mod tests {
         assert!(!is_permanent_source("codex-20260415"));
         assert!(!is_permanent_source("unknown"));
         assert!(!is_permanent_source(""));
+    }
+
+    // ── E1: classify_source_tier ──
+
+    #[test]
+    fn e1_source_tier_classification() {
+        // Permanent: core services expected to continuously report
+        assert_eq!(classify_source_tier("kernel"), "permanent");
+        assert_eq!(classify_source_tier("hermes-x"), "permanent");
+        assert_eq!(classify_source_tier("x-proxy"), "permanent");
+        assert_eq!(classify_source_tier("nightshift"), "permanent");
+        assert_eq!(classify_source_tier("watchlist"), "permanent");
+        assert_eq!(classify_source_tier("organ-cultscreener"), "permanent");
+        // Cron: scheduled jobs
+        assert_eq!(classify_source_tier("cron-telemetry-digest"), "cron");
+        assert_eq!(classify_source_tier("cron-anything"), "cron");
+        // Session: ephemeral or one-off
+        assert_eq!(classify_source_tier("claude-abc123-def"), "session");
+        assert_eq!(classify_source_tier("gemini-xyz"), "session");
+        assert_eq!(classify_source_tier("kernel-probe"), "session");
+        assert_eq!(classify_source_tier("k15-consumer"), "session");
+        assert_eq!(classify_source_tier("unknown"), "session");
+        assert_eq!(classify_source_tier(""), "session");
     }
 
     // ── Dog degradation trend ──

@@ -141,7 +141,7 @@ case "$cmd" in
     HERMES_TEMPLATE="${PROJECT_ROOT}/.hermes_ouroboros/config.yaml.tpl"
     HERMES_RUNTIME="${RUNTIME_DIR}/hermes-ouroboros-config.yaml"
     if [[ -f "$HERMES_RUNTIME" ]]; then
-      if grep -q '<TAILSCALE_' "$HERMES_RUNTIME"; then
+      if grep -v '^#' "$HERMES_RUNTIME" | grep -q '<TAILSCALE_'; then
         echo "DRIFT: ${HERMES_RUNTIME} has unresolved placeholders — run: config-sync.sh hermes-config" >&2
         FAIL=1
       else

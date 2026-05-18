@@ -55,6 +55,7 @@ fn row_to_raw_observation(row: &serde_json::Value) -> RawObservation {
         prev_hash: row["prev_hash"].as_str().unwrap_or("").to_string(),
         observers,
         consensus_score: row["consensus_score"].as_f64(),
+        source_tier: row["source_tier"].as_str().unwrap_or("").to_string(),
     }
 }
 
@@ -76,7 +77,7 @@ pub(super) async fn store_observation(
     let sql = format!(
         "CREATE observation SET project = '{}', agent_id = '{}', tool = '{}', target = '{}', \
          domain = '{}', status = '{}', context = '{}', session_id = '{}', timestamp = '{}', \
-         tags = {}, created_at = time::now();",
+         tags = {}, source_tier = '{}', created_at = time::now();",
         escape_surreal(&obs.project),
         escape_surreal(&obs.agent_id),
         escape_surreal(&obs.tool),
@@ -87,6 +88,7 @@ pub(super) async fn store_observation(
         escape_surreal(&obs.session_id),
         escape_surreal(&obs.timestamp),
         tags_sql,
+        escape_surreal(&obs.source_tier),
     );
     storage.query(&sql).await?;
     Ok(())
@@ -273,8 +275,8 @@ pub(super) async fn last_observation_per_source(
     storage: &SurrealHttpStorage,
 ) -> Result<Vec<(String, String, u64)>, StorageError> {
     let sql = "SELECT agent_id, array::max(array::group(created_at)) AS last_at, count() AS total \
-               FROM observation WHERE agent_id != '' \
-               GROUP BY agent_id ORDER BY total DESC LIMIT 50;";
+               FROM observation WHERE agent_id != '' AND (source_tier = 'permanent' OR source_tier = 'cron') \
+               GROUP BY agent_id ORDER BY total DESC;";
     let rows = storage
         .query_one(sql)
         .await
