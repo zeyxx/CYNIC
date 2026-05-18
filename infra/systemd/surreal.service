@@ -1,0 +1,48 @@
+[Unit]
+Description=SurrealDB — CYNIC Knowledge Store
+Documentation=https://surrealdb.com/
+After=network.target
+
+[Service]
+Type=simple
+# SYS1: NO User=/Group= in user-level services (exit 216/GROUP)
+WorkingDirectory=%h/.surrealdb
+EnvironmentFile=%h/.config/cynic/env
+
+# Clean stale LOCK before start (incident 2026-05-18: kill -9 leaves LOCK, blocks restart)
+ExecStartPre=/bin/sh -c 'if [ -f %h/.surrealdb/data/LOCK ]; then \
+  if ! fuser %h/.surrealdb/data/LOCK >/dev/null 2>&1; then \
+    rm -f %h/.surrealdb/data/LOCK && echo "Removed stale LOCK file"; \
+  fi; \
+fi'
+
+ExecStart=/usr/local/bin/surreal start \
+  --bind 127.0.0.1:8000 \
+  --user root --pass ${SURREALDB_PASS} \
+  --transaction-timeout 30s \
+  --query-timeout 60s \
+  surrealkv://%h/.surrealdb/data
+
+# Restart: aggressive — 5s delay, unlimited restarts
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+# Watchdog: systemd kills if no WatchdogSignal within interval
+# SurrealDB doesn't support sd_notify natively, so we use a health check
+WatchdogSec=120
+# ExecCondition would be ideal but user-level systemd doesn't support it well
+# Instead: companion timer checks /health and restarts on failure
+
+# Resource limits
+MemoryMax=2G
+CPUQuota=50%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=surreal
+
+[Install]
+WantedBy=default.target

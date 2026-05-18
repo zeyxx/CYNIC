@@ -1,0 +1,17 @@
+[Unit]
+Description=SurrealDB watchdog — restart on /health timeout
+After=surreal.service
+Requires=surreal.service
+
+[Service]
+Type=oneshot
+# Probe /health with 10s timeout. If it fails, restart surreal.
+# The LOCK cleanup in surreal.service ExecStartPre handles stale locks.
+ExecStart=/bin/sh -c '\
+  if ! timeout 10 curl -sf http://127.0.0.1:8000/health >/dev/null 2>&1; then \
+    echo "SurrealDB health check FAILED — restarting"; \
+    systemctl --user restart surreal; \
+  fi'
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=surreal-watchdog
