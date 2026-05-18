@@ -88,3 +88,8 @@ STATE_DIR = HERMES_X_DIR / ".state"
 CONFIG_DIR = HERMES_X_DIR / "config"
 BEHAVIOR_LOG = HERMES_DIR / "behavior" / "behavior_log.jsonl"
 CRON_REPORTS_DIR = HERMES_X_DIR / "cron_reports"
+
+# Mirror agent paths
+MIRROR_DIR = HERMES_DIR.parent / "mirror"
+MIRROR_PROFILE = MIRROR_DIR / "behavioral_profile.json"
+MIRROR_PREDICTIONS = MIRROR_DIR / "predictions.jsonl"
