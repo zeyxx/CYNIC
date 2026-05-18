@@ -1,0 +1,11 @@
+[Unit]
+Description=CYNIC Daily Telemetry Digest — runs at 07:00 UTC daily
+Requires=cynic-telemetry-digest.service
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

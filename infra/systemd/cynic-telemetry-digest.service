@@ -1,0 +1,17 @@
+[Unit]
+Description=CYNIC Daily Telemetry Digest — 12 metrics → 1 kernel observation
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/cynic/env
+WorkingDirectory=%h/Bureau/CYNIC
+ExecStart=/usr/bin/python3 scripts/daily_telemetry_digest.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cynic-telemetry-digest
+MemoryMax=128M
+TimeoutStartSec=120
+
+[Install]
+WantedBy=cynic-telemetry-digest.timer
