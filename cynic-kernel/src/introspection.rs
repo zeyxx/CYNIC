@@ -424,9 +424,24 @@ pub fn analyze_state_log_trends(prev: &StateBlock, curr: &StateBlock) -> Vec<Ale
     // Organ silence: recalculate from last_observation timestamp against now,
     // not from the frozen silence_secs in the state_log block (which goes stale
     // between kernel reboots — reported 31h when reality was 371h).
+    //
+    // Retired sources: pre-restructure agent_ids that no longer have running code.
+    // Still classified as "permanent" (correct for historical data) but excluded
+    // from silence alerts to avoid 5 permanent false-positive criticals.
+    // Decommissioned 2026-05-18 after probing confirmed zero activity since April.
+    const RETIRED_SOURCES: &[&str] = &[
+        "hermes-hermes",  // old task-runner heartbeat loop (replaced by k15-consumer)
+        "hermes-x-proxy", // old x-proxy heartbeat loop (replaced by hermes-curation)
+        "hermes-x-organ", // old curation report emitter (replaced by hermes-curation)
+        "x-proxy",        // old raw tweet capture agent (replaced by search-generator)
+        "hermes-x",       // old K15 debug/tweet capture (replaced by k15-consumer)
+    ];
     let now = chrono::Utc::now();
     for organ in &curr.organs {
         if !is_permanent_source(&organ.source) {
+            continue;
+        }
+        if RETIRED_SOURCES.contains(&organ.source.as_str()) {
             continue;
         }
         // Skip sources with < 10 total observations — likely one-off test runs,
@@ -698,9 +713,9 @@ mod tests {
             5,
             vec![],
             vec![
-                make_organ("hermes-x", 7200), // 2h silent → should alert
-                make_organ("x-proxy", 86401), // >24h → should be critical
-                make_organ("kernel", 600),    // 10min → should NOT alert (< 1h)
+                make_organ("hermes-gateway", 7200), // 2h silent → should alert
+                make_organ("organ-cultscreener", 86401), // >24h → should be critical
+                make_organ("kernel", 600),          // 10min → should NOT alert (< 1h)
             ],
         );
         let alerts = analyze_state_log_trends(&prev, &curr);
@@ -708,18 +723,49 @@ mod tests {
             .iter()
             .filter(|a| a.kind == "organ_silence")
             .collect();
-        assert_eq!(silence_alerts.len(), 2, "hermes-x + x-proxy should alert");
-        assert!(
-            silence_alerts
-                .iter()
-                .any(|a| a.message.contains("hermes-x") && a.severity == "warning"),
-            "hermes-x should be warning"
+        assert_eq!(
+            silence_alerts.len(),
+            2,
+            "hermes-gateway + organ-cultscreener should alert"
         );
         assert!(
             silence_alerts
                 .iter()
-                .any(|a| a.message.contains("x-proxy") && a.severity == "critical"),
-            "x-proxy >24h should be critical"
+                .any(|a| a.message.contains("hermes-gateway") && a.severity == "warning"),
+            "hermes-gateway should be warning"
+        );
+        assert!(
+            silence_alerts
+                .iter()
+                .any(|a| a.message.contains("organ-cultscreener") && a.severity == "critical"),
+            "organ-cultscreener >24h should be critical"
+        );
+    }
+
+    // ── M1: Retired sources MUST NOT generate silence alert ──
+
+    #[test]
+    fn m1_retired_sources_no_silence_alert() {
+        let prev = make_block(0, GENESIS_HASH, "sovereign", 5, 5, vec![], vec![]);
+        let curr = make_block(
+            1,
+            &prev.hash,
+            "sovereign",
+            5,
+            5,
+            vec![],
+            vec![
+                make_organ("hermes-hermes", 999999),  // retired
+                make_organ("hermes-x-proxy", 999999), // retired
+                make_organ("hermes-x-organ", 999999), // retired
+                make_organ("x-proxy", 999999),        // retired
+                make_organ("hermes-x", 999999),       // retired
+            ],
+        );
+        let alerts = analyze_state_log_trends(&prev, &curr);
+        assert!(
+            alerts.iter().all(|a| a.kind != "organ_silence"),
+            "retired sources must not trigger organ_silence, got: {alerts:?}"
         );
     }
 
