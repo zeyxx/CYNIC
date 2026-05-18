@@ -1,0 +1,62 @@
+[
+  {
+    "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "symbol": "JUP",
+    "source": "blue_chip"
+  },
+  {
+    "mint": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+    "symbol": "WIF",
+    "source": "blue_chip"
+  },
+  {
+    "mint": "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
+    "symbol": "PENGU",
+    "source": "blue_chip"
+  },
+  {
+    "mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+    "symbol": "BONK",
+    "source": "blue_chip"
+  },
+  {
+    "mint": "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof",
+    "symbol": "RNDR",
+    "source": "blue_chip"
+  },
+  {
+    "mint": "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",
+    "symbol": "ORCA",
+    "source": "blue_chip"
+  },
+  {
+    "mint": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    "symbol": "RAY",
+    "source": "blue_chip"
+  },
+  {
+    "mint": "ukHH6c7mMyiWCf1b9pnWe25TSpkDDt3H5pQZgZ74J82",
+    "symbol": "BOME",
+    "source": "mid_meme"
+  },
+  {
+    "mint": "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+    "symbol": "JTO",
+    "source": "defi"
+  },
+  {
+    "mint": "nosXBVoaCTtYdLvKY6Csb4AC8JCdQKKAaWYtx2ZMoo7",
+    "symbol": "NOS",
+    "source": "low_cap"
+  },
+  {
+    "mint": "HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC",
+    "symbol": "AI16Z",
+    "source": "ai_agent"
+  },
+  {
+    "mint": "SHDWyBxihqiCj6YekG2GUr7wqKLeLAMK1gHZck9pL6y",
+    "symbol": "SHDW",
+    "source": "infra"
+  }
+]

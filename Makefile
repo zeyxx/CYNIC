@@ -272,18 +272,23 @@ lint-drift: ## Detect config/code/docs drift — names vs reality, dead modules,
 	exit $$FAIL
 
 .PHONY: lint-python-tiers
-lint-python-tiers: ## P1-P6: Python code lifecycle governance — every file must have explicit tier + consumer
+lint-python-tiers: ## P1-P6: Python code lifecycle governance — new/modified files MUST have tier tag
 	@echo ""
 	@echo "▶ Checking Python tier governance..."
-	@set +e; FAIL=0; \
-	PY_FILES=$$(find cynic-python scripts -name '*.py' -type f 2>/dev/null); \
-	UNTAGGED=0; TIER1_NO_EXPERIMENT=0; \
-	for PYFILE in $$PY_FILES; do \
+	@set +e; FAIL=0; WARN_COUNT=0; \
+	CHANGED=$$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null; git diff --name-only --diff-filter=ACM 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null); \
+	NEW_PY=$$(echo "$$CHANGED" | grep '\.py$$' | sort -u); \
+	ALL_PY=$$(find cynic-python scripts -name '*.py' -type f 2>/dev/null); \
+	for PYFILE in $$ALL_PY; do \
 		CONTENT=$$(cat "$$PYFILE" 2>/dev/null); \
 		HAS_TIER=$$(echo "$$CONTENT" | grep -E 'EXPERIMENT|Tier [123]|INFRASTRUCTURE' | head -1); \
 		if [ -z "$$HAS_TIER" ]; then \
-			echo "FAIL P1-P6: '$$PYFILE' has no tier tag (EXPERIMENT, Tier 1, Tier 2, or Tier 3)"; \
-			UNTAGGED=$$((UNTAGGED + 1)); FAIL=1; \
+			if echo "$$NEW_PY" | grep -qx "$$PYFILE" 2>/dev/null; then \
+				echo "FAIL P1-P6: new/modified '$$PYFILE' has no tier tag"; \
+				FAIL=1; \
+			else \
+				WARN_COUNT=$$((WARN_COUNT + 1)); \
+			fi; \
 		else \
 			IS_TIER1=$$(echo "$$CONTENT" | grep -c 'Tier 1 EXPERIMENTAL\|EXPERIMENT:'); \
 			if [ $$IS_TIER1 -gt 0 ]; then \
@@ -294,12 +299,11 @@ lint-python-tiers: ## P1-P6: Python code lifecycle governance — every file mus
 			fi; \
 		fi; \
 	done; \
-	if [ $$UNTAGGED -gt 0 ]; then \
-		echo ""; echo "WARN: $$UNTAGGED untagged Python files. Each must be tagged with Tier comment."; \
-		echo "  Tagging is required for new .py files; existing files should be tagged by 2026-06-01."; \
+	if [ $$WARN_COUNT -gt 0 ]; then \
+		echo "  $$WARN_COUNT existing files untagged (grace period until 2026-06-01)"; \
 	fi; \
 	if [ $$FAIL -eq 0 ]; then echo "✓ Python tier governance OK"; fi; \
-	exit 0
+	exit $$FAIL
 
 .PHONY: lint-subprocess-env
 lint-subprocess-env: ## R23 gate: hooks/scripts/Rust subprocess env is explicit (RUST_MIN_STACK, --edition)

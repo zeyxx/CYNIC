@@ -1,4 +1,5 @@
 use crate::domain::enrichment::TokenData;
+use crate::domain::sanitize::sanitize_stimulus_field;
 
 // INTEGRATION: B&C + CYNIC Personality Cards
 //
@@ -35,10 +36,12 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
     s.push_str("[METRICS]\n");
     s.push_str(&format!("mint: {}\n", data.mint));
     if let Some(ref name) = data.name {
-        s.push_str(&format!("name: {name}\n"));
+        let safe = sanitize_stimulus_field(name, 64);
+        s.push_str(&format!("name: {safe}\n"));
     }
     if let Some(ref symbol) = data.symbol {
-        s.push_str(&format!("symbol: {symbol}\n"));
+        let safe = sanitize_stimulus_field(symbol, 16);
+        s.push_str(&format!("symbol: {safe}\n"));
     }
     if data.holder_data_available {
         if data.holder_count_is_exact {
@@ -104,7 +107,8 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
         s.push_str(&format!("supply_locked_pct: {locked:.2}%\n"));
     }
     if let Some(ref origin) = data.origin {
-        s.push_str(&format!("origin: {origin}\n"));
+        let safe = sanitize_stimulus_field(origin, 32);
+        s.push_str(&format!("origin: {safe}\n"));
     }
     // ── Market data: price and derived metrics ──
     if let Some(price) = data.price_usd
