@@ -1,0 +1,178 @@
+{
+  "cynic_dogs": {
+    "n": 32,
+    "rho": 0.30635997067448684,
+    "rho_ci_lo": -0.053335777126099604,
+    "rho_ci_hi": 0.6148277126099706,
+    "tier_accuracy": 0.3125,
+    "adjacent_match": 0.46875,
+    "mae": 1.25,
+    "discrimination": 0.07038965361386185,
+    "per_axiom_rho": {
+      "fidelity": 0.009072580645161255,
+      "phi": 0.18163489736070382,
+      "verify": 0.16239002932551316,
+      "culture": 0.3155241935483871,
+      "burn": 0.565982404692082,
+      "sovereignty": 0.07184750733137835
+    },
+    "confusion": {
+      "Howl": {
+        "Howl": 0,
+        "Wag": 3,
+        "Growl": 16,
+        "Bark": 1
+      },
+      "Wag": {
+        "Howl": 0,
+        "Wag": 0,
+        "Growl": 0,
+        "Bark": 0
+      },
+      "Growl": {
+        "Howl": 0,
+        "Wag": 0,
+        "Growl": 9,
+        "Bark": 1
+      },
+      "Bark": {
+        "Howl": 0,
+        "Wag": 0,
+        "Growl": 1,
+        "Bark": 1
+      }
+    }
+  },
+  "haiku_naive": {
+    "n": 32,
+    "rho": -0.12710777126099715,
+    "rho_ci_lo": -0.4611436950146628,
+    "rho_ci_hi": 0.2427602639296188,
+    "tier_accuracy": 0.125,
+    "adjacent_match": 0.4375,
+    "mae": 1.6875,
+    "discrimination": -0.14551537869883063,
+    "per_axiom_rho": {
+      "fidelity": -0.0579178885630498,
+      "phi": -0.027309384164222905,
+      "verify": 0.2540322580645161,
+      "culture": -0.011180351906158403,
+      "burn": -0.2546737536656891,
+      "sovereignty": -0.15450879765395897
+    },
+    "confusion": {
+      "Howl": {
+        "Howl": 0,
+        "Wag": 3,
+        "Growl": 9,
+        "Bark": 8
+      },
+      "Wag": {
+        "Howl": 0,
+        "Wag": 0,
+        "Growl": 0,
+        "Bark": 0
+      },
+      "Growl": {
+        "Howl": 0,
+        "Wag": 1,
+        "Growl": 4,
+        "Bark": 5
+      },
+      "Bark": {
+        "Howl": 0,
+        "Wag": 1,
+        "Growl": 1,
+        "Bark": 0
+      }
+    }
+  },
+  "sonnet_enriched": {
+    "n": 31,
+    "rho": 0.11945564516129037,
+    "rho_ci_lo": -0.25110887096774204,
+    "rho_ci_hi": 0.5266129032258065,
+    "tier_accuracy": 0.1935483870967742,
+    "adjacent_match": 0.8387096774193549,
+    "mae": 0.967741935483871,
+    "discrimination": -0.02239360477653879,
+    "per_axiom_rho": {
+      "fidelity": 0.15625,
+      "phi": -0.1576612903225807,
+      "verify": 0.3232862903225806,
+      "culture": 0.17893145161290325,
+      "burn": 0.07590725806451615,
+      "sovereignty": 0.0058467741935483986
+    },
+    "confusion": {
+      "Howl": {
+        "Howl": 4,
+        "Wag": 12,
+        "Growl": 4,
+        "Bark": 0
+      },
+      "Wag": {
+        "Howl": 0,
+        "Wag": 0,
+        "Growl": 0,
+        "Bark": 0
+      },
+      "Growl": {
+        "Howl": 0,
+        "Wag": 8,
+        "Growl": 2,
+        "Bark": 0
+      },
+      "Bark": {
+        "Howl": 0,
+        "Wag": 1,
+        "Growl": 0,
+        "Bark": 0
+      }
+    }
+  },
+  "sonnet_naive": {
+    "n": 32,
+    "rho": 0.4359420821114369,
+    "rho_ci_lo": 0.10667155425219943,
+    "rho_ci_hi": 0.6921737536656891,
+    "tier_accuracy": 0.15625,
+    "adjacent_match": 0.4375,
+    "mae": 1.59375,
+    "discrimination": 0.08597054508365015,
+    "per_axiom_rho": {
+      "fidelity": 0.2647543988269795,
+      "phi": 0.3668438416422287,
+      "verify": 0.5778958944281525,
+      "culture": 0.31259164222873903,
+      "burn": 0.2977456011730205,
+      "sovereignty": 0.3864552785923754
+    },
+    "confusion": {
+      "Howl": {
+        "Howl": 0,
+        "Wag": 2,
+        "Growl": 12,
+        "Bark": 6
+      },
+      "Wag": {
+        "Howl": 0,
+        "Wag": 0,
+        "Growl": 0,
+        "Bark": 0
+      },
+      "Growl": {
+        "Howl": 0,
+        "Wag": 1,
+        "Growl": 3,
+        "Bark": 6
+      },
+      "Bark": {
+        "Howl": 0,
+        "Wag": 0,
+        "Growl": 0,
+        "Bark": 2
+      }
+    }
+  }
+}
