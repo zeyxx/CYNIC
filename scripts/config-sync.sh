@@ -60,10 +60,10 @@ case "$cmd" in
     # Use fleet-gen.py to substitute all <TAILSCALE_*> placeholders
     python3 "$FLEET_GEN" "$HERMES_TEMPLATE" > "$HERMES_RUNTIME"
 
-    # Verify no unresolved placeholders remain
-    if grep -q '<TAILSCALE_' "$HERMES_RUNTIME"; then
+    # Verify no unresolved placeholders remain (ignore comments)
+    if grep -v '^\s*#' "$HERMES_RUNTIME" | grep -q '<TAILSCALE_'; then
       echo "ERROR: Unresolved <TAILSCALE_*> placeholders remain in ${HERMES_RUNTIME}:" >&2
-      grep '<TAILSCALE_' "$HERMES_RUNTIME" >&2
+      grep -v '^\s*#' "$HERMES_RUNTIME" | grep '<TAILSCALE_' >&2
       exit 1
     fi
 
@@ -141,11 +141,44 @@ case "$cmd" in
     HERMES_TEMPLATE="${PROJECT_ROOT}/.hermes_ouroboros/config.yaml.tpl"
     HERMES_RUNTIME="${RUNTIME_DIR}/hermes-ouroboros-config.yaml"
     if [[ -f "$HERMES_RUNTIME" ]]; then
-      if grep -q '<TAILSCALE_' "$HERMES_RUNTIME"; then
+      if grep -v '^\s*#' "$HERMES_RUNTIME" | grep -q '<TAILSCALE_'; then
         echo "DRIFT: ${HERMES_RUNTIME} has unresolved placeholders — run: config-sync.sh hermes-config" >&2
         FAIL=1
       else
         echo "hermes-ouroboros-config.yaml: resolved"
+      fi
+    elif [[ -f "$HERMES_TEMPLATE" ]]; then
+      echo "DRIFT: hermes-ouroboros-config.yaml missing (template exists) — run: config-sync.sh hermes-config" >&2
+      FAIL=1
+    fi
+    # Check llama env files: LLAMA_HOST must match a fleet.toml IP
+    FLEET_FILE="${RUNTIME_DIR}/fleet.toml"
+    if [[ -f "$FLEET_FILE" ]]; then
+      FLEET_IPS=$(grep -oP 'tailscale_ip\s*=\s*"\K[^"]+' "$FLEET_FILE" | sort -u)
+      for envfile in "${RUNTIME_DIR}/llama-server.env" "${RUNTIME_DIR}/llama-embed.env"; do
+        if [[ -f "$envfile" ]]; then
+          HOST=$(grep -oP 'LLAMA_HOST=\K.*' "$envfile" 2>/dev/null || true)
+          if [[ -n "$HOST" ]] && ! echo "$FLEET_IPS" | grep -qx "$HOST"; then
+            echo "DRIFT: $(basename "$envfile") LLAMA_HOST=$HOST not in fleet.toml" >&2
+            FAIL=1
+          fi
+        fi
+      done
+    fi
+    # Check cynic-node.toml: all IPs must exist in fleet.toml (stale = drift)
+    NODE_CONF="${RUNTIME_DIR}/cynic-node.toml"
+    if [[ -f "$NODE_CONF" ]] && [[ -f "$FLEET_FILE" ]]; then
+      NODE_IPS=$(grep -oP '100\.\d+\.\d+\.\d+' "$NODE_CONF" 2>/dev/null | sort -u || true)
+      for ip in $NODE_IPS; do
+        if ! grep -q "$ip" "$FLEET_FILE"; then
+          echo "DRIFT: cynic-node.toml IP $ip not in fleet.toml — regenerate" >&2
+          FAIL=1
+        fi
+      done
+      if [[ -z "$NODE_IPS" ]]; then
+        echo "cynic-node.toml: no IPs (OK — may use placeholders)"
+      else
+        echo "cynic-node.toml: IPs match fleet"
       fi
     fi
     exit $FAIL

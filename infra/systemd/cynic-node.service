@@ -6,9 +6,10 @@ Wants=cynic-kernel.service
 [Service]
 Type=simple
 WorkingDirectory=%h/Bureau/CYNIC
-# Generate node_kernels.toml from fleet.toml at startup
+# Generate federation endpoints + resolve node config placeholders at startup
 ExecStartPre=%h/Bureau/CYNIC/scripts/fleet-gen.py --mode node-kernels
-ExecStart=%h/bin/cynic-node
+ExecStartPre=/bin/bash -c '%h/Bureau/CYNIC/scripts/fleet-gen.py %h/Bureau/CYNIC/cynic-node/node-qwen35-gpu.toml > %h/.config/cynic/cynic-node.toml'
+ExecStart=%h/bin/cynic-node --config %h/.config/cynic/cynic-node.toml
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30

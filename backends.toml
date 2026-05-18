@@ -141,9 +141,9 @@ failure_rate_recovery_window_secs = 3600  # Use last 1h of data for recovery dec
 # RTX 4060 Ti (cynic-gpu / windows-desktop), 45 tok/s generation
 base_url = "http://<TAILSCALE_GPU>:8080/v1"
 model = "Qwen3.5-9B-Q4_K_M.gguf"
-context_size = 4096
+context_size = 8192
 json_mode = false
-disable_thinking = true
+disable_thinking = false
 timeout_secs = 60
 api_key_env = "CYNIC_SOVEREIGN_KEY"
 
