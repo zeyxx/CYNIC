@@ -138,3 +138,4 @@ cynic-python/heuristics/data/webhook_id.txt
 
 # School deliverables (personal, not infrastructure)
 docs/ydays/
+cynic-python/heuristics/webhook_data/
