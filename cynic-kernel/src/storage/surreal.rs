@@ -499,6 +499,13 @@ impl StoragePort for SurrealHttpStorage {
         state_log::list_state_blocks(self, since, limit).await
     }
 
+    async fn latest_state_blocks(
+        &self,
+        n: u32,
+    ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
+        state_log::latest_state_blocks(self, n).await
+    }
+
     // ── Verdict Submission Queue ──────────────────────────────
 
     #[tracing::instrument(skip(self), err)]

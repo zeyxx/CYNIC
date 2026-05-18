@@ -335,6 +335,12 @@ impl StoragePort for ReconnectableStorage {
     ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
         self.current().list_state_blocks(since, limit).await
     }
+    async fn latest_state_blocks(
+        &self,
+        n: u32,
+    ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
+        self.current().latest_state_blocks(n).await
+    }
 
     // ── Agent Tasks (pre-existing, was missing from reconnectable) ──
     async fn store_agent_task(
