@@ -17,6 +17,10 @@ pub struct Observation {
     pub session_id: String,
     pub timestamp: String,
     pub tags: Vec<String>,
+    /// E1: Source tier — classified at write time via classify_source_tier().
+    /// "permanent" (organs/services), "cron" (scheduled), "session" (ephemeral).
+    #[serde(default)]
+    pub source_tier: String,
 
     // ── Ledger system ──
     #[serde(default)]
@@ -63,6 +67,8 @@ pub struct RawObservation {
     pub session_id: String,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub source_tier: String,
 
     // ── Ledger system ──
     #[serde(default)]

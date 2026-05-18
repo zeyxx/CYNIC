@@ -1115,6 +1115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             session_id: String::new(),
             timestamp: chrono::Utc::now().to_rfc3339(),
             tags: vec!["kernel-self-obs".into()],
+            source_tier: "permanent".to_string(),
             value: None,
             confidence: None,
             consumer: None,

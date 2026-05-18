@@ -404,6 +404,7 @@ impl StoragePort for InMemoryStorage {
             prev_hash: obs.prev_hash.clone(),
             observers: obs.observers.clone(),
             consensus_score: obs.consensus_score,
+            source_tier: obs.source_tier.clone(),
         });
         Ok(())
     }
