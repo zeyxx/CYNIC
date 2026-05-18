@@ -154,7 +154,10 @@ pub async fn analyze(
     }
 
     // ── State log trend detection (K15 consumer of state_log) ──
-    match storage.list_state_blocks("", 1000).await {
+    // Use latest_state_blocks(2) — queries DESC LIMIT 2 then reverses.
+    // Previous bug: list_state_blocks("", 1000) returned ASC order = oldest 1000,
+    // so with 19K+ blocks, introspection read stale data and missed fresh organs.
+    match storage.latest_state_blocks(2).await {
         Ok(blocks) if blocks.len() >= 2 => {
             let prev = &blocks[blocks.len() - 2];
             let curr = &blocks[blocks.len() - 1];

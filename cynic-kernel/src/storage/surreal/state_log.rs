@@ -96,6 +96,25 @@ pub(super) async fn list_state_blocks(
     rows.iter().map(row_to_state_block).collect()
 }
 
+pub(super) async fn latest_state_blocks(
+    storage: &SurrealHttpStorage,
+    n: u32,
+) -> Result<Vec<StateBlock>, StorageError> {
+    let safe_n = n.min(100);
+    // Query DESC then reverse to get chronological order (prev before curr)
+    let sql = format!("SELECT * FROM state_log ORDER BY seq DESC LIMIT {safe_n};");
+    let rows = storage
+        .query_one(&sql)
+        .await
+        .map_err(|e| StorageError::QueryFailed(format!("latest_state_blocks: {e}")))?;
+    let mut blocks: Vec<StateBlock> = rows
+        .iter()
+        .map(row_to_state_block)
+        .collect::<Result<_, _>>()?;
+    blocks.reverse(); // DESC → ASC so blocks[0] = prev, blocks[1] = curr
+    Ok(blocks)
+}
+
 fn row_to_state_block(row: &serde_json::Value) -> Result<StateBlock, StorageError> {
     use crate::domain::state_log::{DogSnapshot, OrganSnapshot, ResourceSnapshot, SystemSnapshot};
 

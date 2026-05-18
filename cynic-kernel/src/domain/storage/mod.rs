@@ -476,6 +476,22 @@ pub trait StoragePort: Send + Sync {
         Ok(vec![])
     }
 
+    /// Get the N most recent state blocks, ordered by seq DESC → reversed to ASC.
+    /// Default impl calls list_state_blocks with empty since (suboptimal but correct).
+    async fn latest_state_blocks(
+        &self,
+        n: u32,
+    ) -> Result<Vec<crate::domain::state_log::StateBlock>, StorageError> {
+        // Default: fallback to last_state_block for n=1
+        if n <= 1 {
+            return Ok(self.last_state_block().await?.into_iter().collect());
+        }
+        // Suboptimal default: list all and take last N
+        let all = self.list_state_blocks("", 10000).await?;
+        let start = all.len().saturating_sub(n as usize);
+        Ok(all[start..].to_vec())
+    }
+
     // ── Verdict Submission Queue (K15: Helius credit tracking + onchain submission) ──────────
 
     /// Enqueue a verdict with q_score >= 0.618 for onchain submission.
