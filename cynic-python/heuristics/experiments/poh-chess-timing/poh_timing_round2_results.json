@@ -1,0 +1,470 @@
+{
+  "round": 2,
+  "hypothesis": "Temporal structure (not distribution) separates human from bot",
+  "falsification": "AUC < 0.618 with structure-aware bot = timing insufficient",
+  "timestamp": "2026-05-18T01:37:37",
+  "human_games_count": 207,
+  "fitted_params": {
+    "ln_mu": 1.0218,
+    "ln_sigma": 0.9282,
+    "fast_frac": 0.0,
+    "min_time": 1.0,
+    "max_time": 93.0,
+    "median_time": 2.0,
+    "mean_autocorr": 0.158,
+    "std_autocorr": 0.18,
+    "mean_pressure": 1.3006,
+    "std_pressure": 2.0704
+  },
+  "features_used": [
+    "autocorr_lag1",
+    "cv",
+    "fast_move_frac",
+    "iqr",
+    "kurtosis",
+    "long_think_frac",
+    "max",
+    "mean",
+    "mean_abs_diff",
+    "median",
+    "min",
+    "pressure_ratio",
+    "range",
+    "runs_ratio",
+    "skew",
+    "std",
+    "timing_entropy"
+  ],
+  "per_model": {
+    "distribution_matched": {
+      "auc_mean": 0.9965,
+      "auc_std": 0.0043,
+      "auc_scores": [
+        1.0,
+        1.0,
+        0.9909,
+        0.9918,
+        1.0
+      ],
+      "passes_threshold": true,
+      "top_features": {
+        "fast_move_frac": 0.4048,
+        "min": 0.3117,
+        "median": 0.111,
+        "runs_ratio": 0.0468,
+        "cv": 0.0287
+      },
+      "matched_features": [
+        "long_think_frac",
+        "mean_abs_diff"
+      ],
+      "leaked_features": [
+        "autocorr_lag1",
+        "cv",
+        "fast_move_frac",
+        "kurtosis",
+        "max",
+        "mean",
+        "median",
+        "min",
+        "pressure_ratio",
+        "range",
+        "runs_ratio",
+        "skew",
+        "std"
+      ],
+      "feature_details": {
+        "autocorr_lag1": {
+          "human_mean": 0.158,
+          "bot_mean": -0.0128,
+          "ks_stat": 0.4028,
+          "ks_pval": 2.649571490530844e-15
+        },
+        "cv": {
+          "human_mean": 1.3166,
+          "bot_mean": 0.9849,
+          "ks_stat": 0.4813,
+          "ks_pval": 6.354695170725596e-22
+        },
+        "fast_move_frac": {
+          "human_mean": 0.1713,
+          "bot_mean": 0.0,
+          "ks_stat": 0.9903,
+          "ks_pval": 3.333548723266296e-117
+        },
+        "iqr": {
+          "human_mean": 3.9191,
+          "bot_mean": 3.6944,
+          "ks_stat": 0.1803,
+          "ks_pval": 0.0022283494048893084
+        },
+        "kurtosis": {
+          "human_mean": 8.8298,
+          "bot_mean": 5.4475,
+          "ks_stat": 0.2178,
+          "ks_pval": 9.964060510941593e-05
+        },
+        "long_think_frac": {
+          "human_mean": 0.0905,
+          "bot_mean": 0.0839,
+          "ks_stat": 0.0701,
+          "ks_pval": 0.662157093318658
+        },
+        "max": {
+          "human_mean": 27.8792,
+          "bot_mean": 21.6334,
+          "ks_stat": 0.3436,
+          "ks_pval": 3.4673007768208385e-11
+        },
+        "mean": {
+          "human_mean": 3.9471,
+          "bot_mean": 4.325,
+          "ks_stat": 0.2677,
+          "ks_pval": 6.327291529524057e-07
+        },
+        "mean_abs_diff": {
+          "human_mean": 4.0691,
+          "bot_mean": 4.0406,
+          "ks_stat": 0.0753,
+          "ks_pval": 0.5745138489091909
+        },
+        "median": {
+          "human_mean": 2.1643,
+          "bot_mean": 2.8943,
+          "ks_stat": 0.7183,
+          "ks_pval": 3.528758609990305e-51
+        },
+        "min": {
+          "human_mean": 0.0097,
+          "bot_mean": 1.0,
+          "ks_stat": 0.9903,
+          "ks_pval": 3.333548723266296e-117
+        },
+        "pressure_ratio": {
+          "human_mean": 1.2977,
+          "bot_mean": 1.1464,
+          "ks_stat": 0.4043,
+          "ks_pval": 2.0749876682329984e-15
+        },
+        "range": {
+          "human_mean": 27.8696,
+          "bot_mean": 20.6334,
+          "ks_stat": 0.3774,
+          "ks_pval": 1.874167680563357e-13
+        },
+        "runs_ratio": {
+          "human_mean": 0.3995,
+          "bot_mean": 0.5266,
+          "ks_stat": 0.5985,
+          "ks_pval": 1.6043723444164598e-34
+        },
+        "skew": {
+          "human_mean": 2.5354,
+          "bot_mean": 2.1154,
+          "ks_stat": 0.2331,
+          "ks_pval": 2.3559578382289693e-05
+        },
+        "std": {
+          "human_mean": 5.1235,
+          "bot_mean": 4.3743,
+          "ks_stat": 0.2733,
+          "ks_pval": 3.335719733923996e-07
+        },
+        "timing_entropy": {
+          "human_mean": 1.1308,
+          "bot_mean": 1.1677,
+          "ks_stat": 0.1558,
+          "ks_pval": 0.012311272335661686
+        }
+      }
+    },
+    "structure_aware": {
+      "auc_mean": 0.9999,
+      "auc_std": 0.0002,
+      "auc_scores": [
+        1.0,
+        1.0,
+        0.9994,
+        1.0,
+        1.0
+      ],
+      "passes_threshold": true,
+      "top_features": {
+        "fast_move_frac": 0.3853,
+        "min": 0.2871,
+        "pressure_ratio": 0.1206,
+        "median": 0.0953,
+        "cv": 0.0497
+      },
+      "matched_features": [
+        "long_think_frac",
+        "mean_abs_diff"
+      ],
+      "leaked_features": [
+        "autocorr_lag1",
+        "cv",
+        "fast_move_frac",
+        "kurtosis",
+        "max",
+        "mean",
+        "median",
+        "min",
+        "pressure_ratio",
+        "range",
+        "runs_ratio",
+        "skew",
+        "std",
+        "timing_entropy"
+      ],
+      "feature_details": {
+        "autocorr_lag1": {
+          "human_mean": 0.158,
+          "bot_mean": 0.042,
+          "ks_stat": 0.2888,
+          "ks_pval": 5.351486019393647e-08
+        },
+        "cv": {
+          "human_mean": 1.3166,
+          "bot_mean": 0.9422,
+          "ks_stat": 0.5705,
+          "ks_pval": 3.8981287315571934e-31
+        },
+        "fast_move_frac": {
+          "human_mean": 0.1713,
+          "bot_mean": 0.0,
+          "ks_stat": 0.9903,
+          "ks_pval": 3.333548723266296e-117
+        },
+        "iqr": {
+          "human_mean": 3.9191,
+          "bot_mean": 3.9903,
+          "ks_stat": 0.1443,
+          "ks_pval": 0.02524325303746416
+        },
+        "kurtosis": {
+          "human_mean": 8.8298,
+          "bot_mean": 4.8618,
+          "ks_stat": 0.2224,
+          "ks_pval": 6.528961552602386e-05
+        },
+        "long_think_frac": {
+          "human_mean": 0.0905,
+          "bot_mean": 0.0984,
+          "ks_stat": 0.1069,
+          "ks_pval": 0.17683202212409327
+        },
+        "max": {
+          "human_mean": 27.8792,
+          "bot_mean": 21.5606,
+          "ks_stat": 0.2998,
+          "ks_pval": 1.3658982866167985e-08
+        },
+        "mean": {
+          "human_mean": 3.9471,
+          "bot_mean": 4.6138,
+          "ks_stat": 0.2835,
+          "ks_pval": 1.0105769825891028e-07
+        },
+        "mean_abs_diff": {
+          "human_mean": 4.0691,
+          "bot_mean": 4.0217,
+          "ks_stat": 0.0441,
+          "ks_pval": 0.9814243413043175
+        },
+        "median": {
+          "human_mean": 2.1643,
+          "bot_mean": 3.1283,
+          "ks_stat": 0.7133,
+          "ks_pval": 2.141256482859202e-50
+        },
+        "min": {
+          "human_mean": 0.0097,
+          "bot_mean": 1.0184,
+          "ks_stat": 0.9903,
+          "ks_pval": 3.333548723266296e-117
+        },
+        "pressure_ratio": {
+          "human_mean": 1.2977,
+          "bot_mean": 1.3036,
+          "ks_stat": 0.7053,
+          "ks_pval": 3.412371141901593e-49
+        },
+        "range": {
+          "human_mean": 27.8696,
+          "bot_mean": 20.5422,
+          "ks_stat": 0.3398,
+          "ks_pval": 6.062176214305176e-11
+        },
+        "runs_ratio": {
+          "human_mean": 0.3995,
+          "bot_mean": 0.4865,
+          "ks_stat": 0.4403,
+          "ks_pval": 2.7223726664407877e-18
+        },
+        "skew": {
+          "human_mean": 2.5354,
+          "bot_mean": 2.0457,
+          "ks_stat": 0.2356,
+          "ks_pval": 1.8611677549049677e-05
+        },
+        "std": {
+          "human_mean": 5.1235,
+          "bot_mean": 4.4586,
+          "ks_stat": 0.2383,
+          "ks_pval": 1.4167243982836916e-05
+        },
+        "timing_entropy": {
+          "human_mean": 1.1308,
+          "bot_mean": 1.2237,
+          "ks_stat": 0.2044,
+          "ks_pval": 0.0003226261238908152
+        }
+      }
+    },
+    "replay": {
+      "auc_mean": 0.9999,
+      "auc_std": 0.0002,
+      "auc_scores": [
+        1.0,
+        1.0,
+        0.9994,
+        1.0,
+        1.0
+      ],
+      "passes_threshold": true,
+      "top_features": {
+        "min": 0.5179,
+        "fast_move_frac": 0.1759,
+        "median": 0.0825,
+        "pressure_ratio": 0.0799,
+        "runs_ratio": 0.0175
+      },
+      "matched_features": [
+        "cv",
+        "mean",
+        "mean_abs_diff"
+      ],
+      "leaked_features": [
+        "fast_move_frac",
+        "iqr",
+        "kurtosis",
+        "max",
+        "median",
+        "min",
+        "pressure_ratio",
+        "range",
+        "runs_ratio"
+      ],
+      "feature_details": {
+        "autocorr_lag1": {
+          "human_mean": 0.158,
+          "bot_mean": 0.1138,
+          "ks_stat": 0.1494,
+          "ks_pval": 0.01849465343618467
+        },
+        "cv": {
+          "human_mean": 1.3166,
+          "bot_mean": 1.2746,
+          "ks_stat": 0.1065,
+          "ks_pval": 0.18031973827500714
+        },
+        "fast_move_frac": {
+          "human_mean": 0.1713,
+          "bot_mean": 0.3058,
+          "ks_stat": 0.5561,
+          "ks_pval": 1.7177533321895305e-29
+        },
+        "iqr": {
+          "human_mean": 3.9191,
+          "bot_mean": 3.6198,
+          "ks_stat": 0.2118,
+          "ks_pval": 0.0001705418887458803
+        },
+        "kurtosis": {
+          "human_mean": 8.8298,
+          "bot_mean": 5.3392,
+          "ks_stat": 0.2367,
+          "ks_pval": 1.669235139414448e-05
+        },
+        "long_think_frac": {
+          "human_mean": 0.0905,
+          "bot_mean": 0.0952,
+          "ks_stat": 0.1426,
+          "ks_pval": 0.02782617702297824
+        },
+        "max": {
+          "human_mean": 27.8792,
+          "bot_mean": 22.1252,
+          "ks_stat": 0.2374,
+          "ks_pval": 1.539357683704057e-05
+        },
+        "mean": {
+          "human_mean": 3.9471,
+          "bot_mean": 3.7519,
+          "ks_stat": 0.1261,
+          "ks_pval": 0.06993055876926424
+        },
+        "mean_abs_diff": {
+          "human_mean": 4.0691,
+          "bot_mean": 3.9548,
+          "ks_stat": 0.0904,
+          "ks_pval": 0.3470122001834401
+        },
+        "median": {
+          "human_mean": 2.1643,
+          "bot_mean": 1.9806,
+          "ks_stat": 0.2885,
+          "ks_pval": 5.5661914209984826e-08
+        },
+        "min": {
+          "human_mean": 0.0097,
+          "bot_mean": 0.0146,
+          "ks_stat": 0.9903,
+          "ks_pval": 3.333548723266296e-117
+        },
+        "pressure_ratio": {
+          "human_mean": 1.2977,
+          "bot_mean": 2.7659,
+          "ks_stat": 0.4923,
+          "ks_pval": 6.173255488117431e-23
+        },
+        "range": {
+          "human_mean": 27.8696,
+          "bot_mean": 22.1106,
+          "ks_stat": 0.2374,
+          "ks_pval": 1.539357683704057e-05
+        },
+        "runs_ratio": {
+          "human_mean": 0.3995,
+          "bot_mean": 0.444,
+          "ks_stat": 0.225,
+          "ks_pval": 5.138847169018987e-05
+        },
+        "skew": {
+          "human_mean": 2.5354,
+          "bot_mean": 2.1377,
+          "ks_stat": 0.1894,
+          "ks_pval": 0.001109687598466577
+        },
+        "std": {
+          "human_mean": 5.1235,
+          "bot_mean": 4.8068,
+          "ks_stat": 0.1394,
+          "ks_pval": 0.033568217063370716
+        },
+        "timing_entropy": {
+          "human_mean": 1.1308,
+          "bot_mean": 1.0267,
+          "ks_stat": 0.1753,
+          "ks_pval": 0.003215202445181514
+        }
+      }
+    }
+  },
+  "verdict": {
+    "hardest_bot": "structure_aware",
+    "hardest_auc": 0.9999,
+    "timing_sufficient": true,
+    "interpretation": "Timing STILL sufficient (AUC=0.9999) \u2014 temporal structure leaks humanity"
+  }
+}
