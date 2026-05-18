@@ -71,6 +71,22 @@ def _clean_text(text: str) -> str:
     return "\n".join(cleaned).strip()
 
 
+def _wait_for_content(page, wait_ms: int) -> None:
+    """Wait for page content to render. Shared across engines.
+
+    Strategy: wait_ms base wait, then try ONE fast selector probe.
+    Avoids the 4×10s timeout cascade that dominated benchmarks.
+    """
+    page.wait_for_timeout(wait_ms)
+    # Single fast probe — if main content exists, great; if not, we already waited
+    for content_sel in _CONTENT_SELECTORS[:3]:
+        try:
+            page.wait_for_selector(content_sel, timeout=3_000)
+            return
+        except Exception:
+            continue
+
+
 def _render_camoufox(
     url: str,
     selector: Optional[str],
@@ -84,15 +100,7 @@ def _render_camoufox(
     with Camoufox(headless=True) as browser:
         page = browser.new_page()
         page.goto(url, timeout=timeout_ms)
-        page.wait_for_timeout(wait_ms)
-
-        # Wait for content to appear
-        for content_sel in _CONTENT_SELECTORS[:4]:
-            try:
-                page.wait_for_selector(content_sel, timeout=10_000)
-                break
-            except Exception:
-                continue
+        _wait_for_content(page, wait_ms)
 
         title = page.title()
         text = _extract_text(page, selector)
@@ -124,14 +132,7 @@ def _render_playwright(
         page.set_viewport_size({"width": 1280, "height": 900})
 
         page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
-        page.wait_for_timeout(wait_ms)
-
-        for content_sel in _CONTENT_SELECTORS[:4]:
-            try:
-                page.wait_for_selector(content_sel, timeout=10_000)
-                break
-            except Exception:
-                continue
+        _wait_for_content(page, wait_ms)
 
         title = page.title()
         text = _extract_text(page, selector)
