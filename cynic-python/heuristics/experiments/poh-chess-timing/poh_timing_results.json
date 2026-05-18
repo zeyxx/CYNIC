@@ -1,0 +1,96 @@
+{
+  "hypothesis": "Move timing distributions separate human from bot",
+  "falsification": "AUC < 0.618 means timing alone insufficient",
+  "timestamp": "2026-05-18T01:33:52",
+  "human_games_count": 200,
+  "human_data_source": "lichess_api",
+  "features_used": [
+    "autocorr_lag1",
+    "cv",
+    "fast_move_frac",
+    "iqr",
+    "kurtosis",
+    "long_think_frac",
+    "max",
+    "mean",
+    "mean_abs_diff",
+    "median",
+    "min",
+    "pressure_ratio",
+    "range",
+    "runs_ratio",
+    "skew",
+    "std",
+    "timing_entropy"
+  ],
+  "per_model": {
+    "uniform": {
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "auc_scores": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "passes_threshold": true,
+      "top_features": {
+        "cv": 0.2242,
+        "min": 0.177,
+        "range": 0.1473,
+        "skew": 0.1117,
+        "max": 0.1106
+      },
+      "ks_statistic": 0.4511,
+      "ks_pvalue": 0.0
+    },
+    "gaussian": {
+      "auc_mean": 1.0,
+      "auc_std": 0.0,
+      "auc_scores": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "passes_threshold": true,
+      "top_features": {
+        "cv": 0.2638,
+        "range": 0.1836,
+        "skew": 0.1553,
+        "std": 0.1091,
+        "max": 0.0986
+      },
+      "ks_statistic": 0.4944,
+      "ks_pvalue": 0.0
+    },
+    "smart": {
+      "auc_mean": 0.9999,
+      "auc_std": 0.0002,
+      "auc_scores": [
+        0.9994,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "passes_threshold": true,
+      "top_features": {
+        "min": 0.4106,
+        "range": 0.1172,
+        "cv": 0.0837,
+        "fast_move_frac": 0.078,
+        "median": 0.0549
+      },
+      "ks_statistic": 0.1931,
+      "ks_pvalue": 4.084186240430554e-171
+    }
+  },
+  "verdict": {
+    "timing_sufficient": true,
+    "smart_bot_auc": 0.9999,
+    "interpretation": "Move timing SUFFICIENT for PoH L0 \u2014 even smart bots distinguishable"
+  }
+}

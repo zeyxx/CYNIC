@@ -386,6 +386,9 @@ def run_collection(arms: list, output_path: Path) -> None:
             stimulus_content = None
 
             if "cynic_dogs" in arms:
+                # Rate limit: kernel allows 10 req/min on /judge
+                if idx > 1:
+                    time.sleep(7)
                 try:
                     dogs_res = call_kernel_judge(mint)
                     stimulus_content = dogs_res.get("stimulus_content")

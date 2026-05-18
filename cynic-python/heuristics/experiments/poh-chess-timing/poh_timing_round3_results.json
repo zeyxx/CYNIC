@@ -1,0 +1,110 @@
+{
+  "round": 3,
+  "hypothesis": "Temporal structure separates human from distribution-matched bot",
+  "falsification": "AUC < 0.618 = need game-content signals",
+  "artifact_controls": [
+    "All times quantized to integer seconds",
+    "No min/max/range/fast_move_frac features",
+    "Bot uses exact fitted human parameters"
+  ],
+  "timestamp": "2026-05-18T01:40:26",
+  "human_games_count": 200,
+  "fitted_params": {
+    "ln_mu": 0.8755,
+    "ln_sigma": 0.9672,
+    "mean_autocorr": 0.143,
+    "mean_pressure": 1.1954
+  },
+  "features_used": [
+    "autocorr_lag1",
+    "autocorr_lag2",
+    "autocorr_lag3",
+    "cv",
+    "diff_autocorr",
+    "diff_std",
+    "iqr",
+    "kurtosis",
+    "long_think_clustering",
+    "mean",
+    "mean_abs_diff",
+    "median",
+    "partial_autocorr_2",
+    "pressure_q4_h1",
+    "pressure_q4_q1",
+    "runs_ratio",
+    "runs_z",
+    "skew",
+    "std",
+    "timing_entropy",
+    "trend_slope"
+  ],
+  "n_features": 21,
+  "per_model": {
+    "iid_quantized": {
+      "auc_mean": 0.904,
+      "auc_std": 0.0325,
+      "auc_folds": [
+        0.9094,
+        0.9419,
+        0.9075,
+        0.8438,
+        0.9175
+      ],
+      "passes": true,
+      "top_features": {
+        "runs_z": 0.1441,
+        "runs_ratio": 0.0944,
+        "autocorr_lag2": 0.0791,
+        "autocorr_lag3": 0.0675,
+        "mean": 0.0647
+      }
+    },
+    "shuffle": {
+      "auc_mean": 0.8487,
+      "auc_std": 0.0698,
+      "auc_folds": [
+        0.9056,
+        0.9331,
+        0.865,
+        0.7956,
+        0.7444
+      ],
+      "passes": true,
+      "top_features": {
+        "runs_z": 0.1428,
+        "runs_ratio": 0.1093,
+        "autocorr_lag1": 0.0928,
+        "autocorr_lag2": 0.0921,
+        "partial_autocorr_2": 0.0752
+      }
+    },
+    "perfect_mimic": {
+      "auc_mean": 0.9754,
+      "auc_std": 0.0181,
+      "auc_folds": [
+        0.9512,
+        0.9862,
+        1.0,
+        0.9581,
+        0.9812
+      ],
+      "passes": true,
+      "top_features": {
+        "pressure_q4_h1": 0.3474,
+        "pressure_q4_q1": 0.1312,
+        "autocorr_lag3": 0.1037,
+        "autocorr_lag2": 0.082,
+        "trend_slope": 0.0438
+      }
+    }
+  },
+  "verdict": {
+    "hardest_bot": "shuffle",
+    "hardest_auc": 0.8487,
+    "timing_sufficient": true,
+    "shuffle_auc": 0.8487,
+    "perfect_mimic_auc": 0.9754,
+    "interpretation": "Structure SUFFICIENT (AUC=0.8487) \u2014 temporal patterns leak humanity even with matched distribution",
+    "key_insight": "Shuffle bot AUC=0.8487: temporal order matters. Perfect mimic AUC=0.9754: AR(1) structure still distinguishable"
+  }
+}

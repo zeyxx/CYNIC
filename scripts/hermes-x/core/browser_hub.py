@@ -20,6 +20,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field, asdict
+from pathlib import Path
 from typing import Optional
 from collections import deque
 
@@ -164,6 +165,39 @@ def create_app(registry: TabRegistry, attribution: AttributionBuffer) -> web.App
         source = attribution.match(url, ts)
         return web.json_response({"source": source, "url": url})
 
+    async def handle_render(request: web.Request) -> web.Response:
+        """Render a JS-heavy page via Playwright and return markdown content.
+
+        GET /render?url=https://example.com&selector=#main&wait=5000
+        """
+        url = request.query.get("url", "")
+        if not url:
+            return web.json_response({"error": "missing ?url= parameter"}, status=400)
+
+        selector = request.query.get("selector")
+        wait_ms = int(request.query.get("wait", "5000"))
+
+        try:
+            # Import the standalone render module
+            import sys as _sys
+            import importlib
+            scripts_dir = str(Path(__file__).resolve().parent.parent.parent)
+            if scripts_dir not in _sys.path:
+                _sys.path.insert(0, scripts_dir)
+            web_render = importlib.import_module("web_render")
+
+            # Run in executor to avoid blocking the event loop
+            import functools
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                functools.partial(web_render.render_url, url, selector=selector, wait_ms=wait_ms),
+            )
+            return web.json_response(result)
+        except Exception as e:
+            logger.error("Render failed for %s: %s", url, e)
+            return web.json_response({"error": str(e), "url": url}, status=500)
+
     async def handle_extension_event(request: web.Request) -> web.Response:
         # Simple CORS handling
         headers = {
@@ -200,6 +234,7 @@ def create_app(registry: TabRegistry, attribution: AttributionBuffer) -> web.App
     app.router.add_post("/tabs", handle_post_tab)
     app.router.add_delete("/tabs/{tab_id}", handle_delete_tab)
     app.router.add_get("/attribution", handle_attribution)
+    app.router.add_get("/render", handle_render)
     app.router.add_post("/events/extension", handle_extension_event)
     app.router.add_options("/events/extension", handle_extension_event)
     return app
