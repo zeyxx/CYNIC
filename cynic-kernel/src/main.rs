@@ -832,6 +832,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         mail: mail_backend.clone(),
         node_registry: Arc::new(api::websocket::NodeRegistry::new(120)),
         zones,
+        producer_heartbeats: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
     });
     let rest_app = api::rest::router(Arc::clone(&rest_state));
 
@@ -936,6 +937,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             event_tx.clone(),
             Arc::clone(&task_health),
             rest_state.senses.clone(),
+            Arc::clone(&rest_state.producer_heartbeats),
             shutdown.clone(),
         );
 
