@@ -31,7 +31,8 @@ pub use runtime_loops::{
     spawn_pattern_healing_alerter, spawn_probe_scheduler, spawn_storage_metrics_emitter,
 };
 pub use state_log::spawn_state_log;
-pub use submission_queue::spawn_submission_queue;
+// DORMANT: pinocchio submission queue disabled 2026-05-19 (0 verdicts onchain).
+// Rewire when onchain anchoring is needed.
 
 pub use self::organ_remediation::spawn_organ_remediation;
 

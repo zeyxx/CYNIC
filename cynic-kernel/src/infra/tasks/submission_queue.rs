@@ -1,10 +1,16 @@
 //! Verdict Submission Queue — background task that auto-submits verdicts to Pinocchio.
 //!
+//! DORMANT: disabled 2026-05-19. Queue ticked every 5min but submitted 0 verdicts
+//! onchain (0 confirmed, 1 failed). Rewire when onchain anchoring is needed.
+//!
 //! Every 5 minutes:
 //! 1. Poll pending verdicts (q_score >= 0.618)
 //! 2. Invoke TypeScript script for submission (proves transaction on Solana devnet)
 //! 3. Extract tx signature from script output
 //! 4. Update status: pending → submitted (or failed with retry counter)
+// WHY: K12 — module-level suppression to prevent dead_code from blocking build
+// while preserving DORMANT code for future rewiring.
+#![allow(dead_code)]
 
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -15,7 +21,7 @@ use crate::infra::task_health::TaskHealth;
 
 /// Poll verdicts and submit to Pinocchio every 5 minutes.
 /// Non-blocking: returns immediately, task runs in background.
-pub fn spawn_submission_queue(
+pub(crate) fn spawn_submission_queue(
     storage: Arc<dyn StoragePort>,
     task_health: Arc<TaskHealth>,
     shutdown: CancellationToken,
