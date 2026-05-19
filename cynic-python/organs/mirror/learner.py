@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from organs.mirror.profile import BehavioralProfile, PHI_INV_SQ, feature_confidence
+from organs.mirror.segmenter import Segment
 from organs.mirror.sources.base import Event
 
 # Slow adaptation: profile changes gradually over many observations.
@@ -97,10 +98,31 @@ class OnlineLearner:
 
         if event_type in _BEHAVIOR_EVENT_TYPES:
             self._handle_behavior(event, delta)
+        elif event_type == "focus_change":
+            self._handle_focus_change(event, delta)
+        elif event_type in {"idle_start", "idle_end"}:
+            pass  # Consumed by Segmenter at L1; no direct profile mutation.
         elif event_type in {"tweet_seen", "tweet_bookmarked"}:
             self._handle_tweet(event, delta)
         # Unknown event types: no mutation, empty delta returned.
 
+        return delta
+
+    def ingest_segment(self, segment: Segment) -> ProfileDelta:
+        """Process one completed L1 Segment and update the profile.
+
+        Segments carry richer features than raw events: duration-weighted
+        app time, production ratio, input velocity.
+        """
+        delta = ProfileDelta()
+
+        if segment.wm_class and segment.duration_seconds > 0:
+            weight = min(segment.duration_seconds / 60.0, 10.0)
+            old = self._profile.app_time_distribution.get(segment.wm_class, 0.0)
+            self._profile.app_time_distribution[segment.wm_class] = _ema_update(old, weight)
+            delta.changed_fields.add("app_time_distribution")
+
+        self._update_max_confidence_change(delta)
         return delta
 
     # ------------------------------------------------------------------
@@ -115,16 +137,29 @@ class OnlineLearner:
             self._profile.activity_hours[hour] = _ema_update(old, 1.0)
             delta.changed_fields.add("activity_hours")
 
-        window = event.data.get("window_name", "")
-        if window:
-            old = self._profile.app_time_distribution.get(window, 0.0)
-            self._profile.app_time_distribution[window] = _ema_update(old, 1.0)
+        # wm_class is the stable app identifier; falls back to window_name for old events.
+        app = event.data.get("wm_class") or event.data.get("window_name", "")
+        if app:
+            old = self._profile.app_time_distribution.get(app, 0.0)
+            self._profile.app_time_distribution[app] = _ema_update(old, 1.0)
             delta.changed_fields.add("app_time_distribution")
 
         self._profile.observation_count += 1
         delta.changed_fields.add("observation_count")
 
         self._update_max_confidence_change(delta)
+
+    def _handle_focus_change(self, event: Event, delta: ProfileDelta) -> None:
+        """Update context_switch_rate from a focus_change event."""
+        old = self._profile.context_switch_rate
+        self._profile.context_switch_rate = _ema_update(old, 1.0)
+        delta.changed_fields.add("context_switch_rate")
+
+        app = event.data.get("to_wm_class", "")
+        if app:
+            old_app = self._profile.app_time_distribution.get(app, 0.0)
+            self._profile.app_time_distribution[app] = _ema_update(old_app, 1.0)
+            delta.changed_fields.add("app_time_distribution")
 
     def _handle_tweet(self, event: Event, delta: ProfileDelta) -> None:
         """Update narrative_affinity and author_affinity from a tweet event."""
