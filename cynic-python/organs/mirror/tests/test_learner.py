@@ -41,12 +41,18 @@ def test_narrative_affinity_from_tweets() -> None:
 
 
 def test_bookmarked_tweets_boost_affinity() -> None:
+    # Two narratives: bookmark weight (5x) gives "agent" higher relative share
     learner = OnlineLearner(BehavioralProfile.empty())
     for _ in range(10):
         learner.ingest(_tweet_event("agent", "alice", bookmarked=False))
+    for _ in range(10):
+        learner.ingest(_tweet_event("defi", "bob", bookmarked=False))
     learner_bm = OnlineLearner(BehavioralProfile.empty())
     for _ in range(10):
         learner_bm.ingest(_tweet_event("agent", "alice", bookmarked=True))
+    for _ in range(10):
+        learner_bm.ingest(_tweet_event("defi", "bob", bookmarked=False))
+    # Bookmarked "agent" should have higher relative affinity than seen-only
     assert learner_bm.profile.narrative_affinity["agent"] > \
            learner.profile.narrative_affinity["agent"]
 

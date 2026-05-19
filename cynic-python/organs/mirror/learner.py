@@ -63,19 +63,32 @@ def _ema_update(current: float, weight: float, alpha: float = _EMA_ALPHA) -> flo
     return alpha * weight + (1.0 - alpha) * current
 
 
+def _normalize(d: dict[str | int, float]) -> None:
+    """Normalize dict values to sum to 1.0 in-place. No-op if sum is zero."""
+    total = sum(d.values())
+    if total > 0:
+        for k in d:
+            d[k] /= total
+
+
 class OnlineLearner:
     """Incrementally updates a BehavioralProfile from a stream of Events.
 
-    The learner owns one mutable BehavioralProfile. Each ingest() call:
-    1. Parses the event.
-    2. Applies EMA updates to the relevant profile fields.
-    3. Returns a ProfileDelta describing what changed.
+    Internal state: raw counters (frequency) and raw EMA accumulators (affinity).
+    Profile fields: normalized relative frequencies and proportional affinities.
+    Separation prevents EMA saturation on high-volume data (all values → 1.0).
 
     Thread-safety: NOT thread-safe. Single-threaded use only.
     """
 
     def __init__(self, profile: BehavioralProfile) -> None:
         self._profile = profile
+        # Raw counters for frequency distributions
+        self._hour_counts: dict[int, int] = {}
+        self._app_counts: dict[str, int] = {}
+        # Raw EMA accumulators for affinity (not normalized per-event)
+        self._narrative_raw: dict[str, float] = dict(profile.narrative_affinity)
+        self._author_raw: dict[str, float] = dict(profile.author_affinity)
         # Snapshot of feature confidences at the last askesis trigger.
         self._last_askesis_confidences: dict[str, float] = {}
 
@@ -111,14 +124,20 @@ class OnlineLearner:
         """Update activity_hours and app_time_distribution from a behavior event."""
         hour = _parse_hour(event.timestamp)
         if hour >= 0:
-            old = self._profile.activity_hours.get(hour, 0.0)
-            self._profile.activity_hours[hour] = _ema_update(old, 1.0)
+            self._hour_counts[hour] = self._hour_counts.get(hour, 0) + 1
+            total = sum(self._hour_counts.values())
+            self._profile.activity_hours = {
+                h: c / total for h, c in self._hour_counts.items()
+            }
             delta.changed_fields.add("activity_hours")
 
         window = event.data.get("window_name", "")
         if window:
-            old = self._profile.app_time_distribution.get(window, 0.0)
-            self._profile.app_time_distribution[window] = _ema_update(old, 1.0)
+            self._app_counts[window] = self._app_counts.get(window, 0) + 1
+            total = sum(self._app_counts.values())
+            self._profile.app_time_distribution = {
+                w: c / total for w, c in self._app_counts.items()
+            }
             delta.changed_fields.add("app_time_distribution")
 
         self._profile.observation_count += 1
@@ -134,15 +153,21 @@ class OnlineLearner:
         narratives: list[str] = event.data.get("narratives", [])
         for narrative in narratives:
             if narrative:
-                old = self._profile.narrative_affinity.get(narrative, 0.0)
-                self._profile.narrative_affinity[narrative] = _ema_update(old, weight)
+                old = self._narrative_raw.get(narrative, 0.0)
+                self._narrative_raw[narrative] = _ema_update(old, weight)
                 delta.changed_fields.add("narrative_affinity")
 
         author: str = event.data.get("author_screen_name", "")
         if author:
-            old = self._profile.author_affinity.get(author, 0.0)
-            self._profile.author_affinity[author] = _ema_update(old, weight)
+            old = self._author_raw.get(author, 0.0)
+            self._author_raw[author] = _ema_update(old, weight)
             delta.changed_fields.add("author_affinity")
+
+        # Normalize raw EMA accumulators → profile relative affinities
+        self._profile.narrative_affinity = dict(self._narrative_raw)
+        _normalize(self._profile.narrative_affinity)
+        self._profile.author_affinity = dict(self._author_raw)
+        _normalize(self._profile.author_affinity)
 
         self._profile.observation_count += 1
         delta.changed_fields.add("observation_count")
