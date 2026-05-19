@@ -1,0 +1,105 @@
+id: cynic-kernel
+tier: 1  # kernel
+domain: core
+status: ACTIVE
+
+description: |
+  CYNIC kernel — Rust REST/MCP server. Hosts the judgment pipeline,
+  Dog orchestration, crystal coherence machine, observation storage,
+  and agent coordination. The single source of truth for all state.
+
+inputs:
+  - source: REST /observe
+    data: observations from all organs (hermes, mirror, collection)
+  - source: REST /judge
+    data: judgment requests (token, twitter, wallet domains)
+  - source: backends.toml
+    data: Dog roster (deterministic, qwen-hf, qwen-core, qwen-gpu, gemini)
+  - source: ~/.config/cynic/env
+    data: API keys, addresses, secrets
+
+outputs:
+  - path: REST /health
+    format: json
+    frequency: on-demand
+    consumer: session-init.sh, health monitors, kairos
+  - path: REST /verdicts
+    format: json
+    frequency: per-judgment
+    consumer: feedback loop, crystal pipeline, experiments
+  - path: REST /crystals
+    format: json
+    frequency: per-crystallization
+    consumer: Dog prompts (CCM), domain wisdom
+  - path: REST /observations
+    format: json
+    frequency: continuous (written by organs)
+    consumer: K15 consumer, hermes data organism
+  - path: REST /agent-tasks
+    format: json
+    frequency: on-dispatch
+    consumer: hermes agent task executor
+  - path: REST /coord/*
+    format: json
+    frequency: per-session
+    consumer: multi-cortex isolation
+  - path: SurrealDB tables
+    format: structured
+    frequency: continuous
+    consumer: all kernel queries
+
+crons:
+  - name: cynic-kernel
+    timer: "daemon (continuous)"
+    systemd: cynic-kernel.service
+    type: long-running
+    steps:
+      - REST API on port 3030
+      - MCP server (stdio)
+      - Background tasks (nightshift, telemetry, introspection)
+
+  - name: kairos-health
+    timer: "every 15min"
+    systemd: kairos-health.service
+    steps:
+      - kernel /health probe + metrics
+
+  - name: kairos-backfill
+    timer: "every 1h"
+    systemd: kairos-backfill.service
+    steps:
+      - backfill missed health checks
+
+  - name: kairos-archive
+    timer: "daily at 03:00"
+    systemd: kairos-archive.service
+    steps:
+      - archive old health metrics
+
+  - name: surrealdb-backup
+    timer: "daily at 00:00"
+    systemd: surrealdb-backup.service
+    steps:
+      - backup SurrealDB data
+
+  - name: surreal-watchdog
+    timer: "every 1min"
+    systemd: surreal-watchdog.service
+    steps:
+      - verify SurrealDB is responsive
+
+  - name: cynic-telemetry-digest
+    timer: "daily at 07:00"
+    systemd: cynic-telemetry-digest.service
+    steps:
+      - digest telemetry observations
+
+scripts: []  # kernel is Rust binary, no scripts
+
+k15_consumers:
+  - consumer: CCM (crystal coherence machine)
+    acts_on: verdicts → crystals → Dog prompt injection
+  - consumer: nightshift
+    acts_on: observations → compound-loop re-judgment
+  - consumer: introspection
+    acts_on: Dog stats → quality gates → push-producer detection

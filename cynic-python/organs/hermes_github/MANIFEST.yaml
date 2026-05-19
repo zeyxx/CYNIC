@@ -1,0 +1,38 @@
+id: hermes-github-organ
+tier: 2  # infrastructure
+domain: social
+status: ACTIVE
+
+description: |
+  GitHub monitoring organ. Ingests starred repos, tracks ecosystem activity,
+  feeds social intelligence to kernel observations.
+
+inputs:
+  - source: github API
+    data: starred repos, repo metadata, activity
+  - source: kernel /observations
+    data: existing observations for dedup
+
+outputs:
+  - path: kernel /observe (domain=github)
+    format: REST POST
+    frequency: per-ingest
+    consumer: K15 observation consumer
+  - path: ~/.cynic/organs/hermes/github/
+    format: json
+    frequency: per-ingest
+    consumer: gemini briefing
+
+crons: []  # triggered by hermes agent tasks, not standalone timer
+
+scripts:
+  - name: ingest.py
+    description: Fetch and ingest GitHub starred repos + activity
+  - name: analysis.py
+    description: Analyze GitHub ecosystem patterns
+
+k15_consumers:
+  - consumer: K15 observation consumer
+    acts_on: github observations → task dispatch
+  - consumer: gemini briefing
+    acts_on: ecosystem patterns → domain wisdom

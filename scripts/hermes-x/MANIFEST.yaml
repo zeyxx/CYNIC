@@ -1,0 +1,107 @@
+id: hermes-x-scripts
+tier: 2  # infrastructure
+domain: social
+status: ACTIVE
+
+description: |
+  Hermes X operational scripts — curation, search generation, feedback loop,
+  K15 consumer, gemini briefing, ingest daemon. The wiring layer between
+  raw X data and kernel intelligence.
+
+inputs:
+  - source: ~/.cynic/organs/hermes/x/dataset.jsonl
+    data: raw tweets (appended by x_ingest_daemon)
+  - source: kernel /observations
+    data: observations for K15 consumer scoring
+  - source: kernel /verdicts
+    data: verdicts for feedback loop learning
+  - source: kernel /crystals
+    data: crystal context for domain wisdom
+
+outputs:
+  - path: kernel /observe (domain=twitter)
+    format: REST POST
+    frequency: per-ingest (continuous daemon)
+    consumer: K15 observation consumer, verdict pipeline
+  - path: ~/.cynic/organs/hermes/x/domain_signals/
+    format: json
+    frequency: every 30min (curation)
+    consumer: search generator, gemini briefing
+  - path: ~/.cynic/organs/hermes/x/SKILL.md
+    format: markdown
+    frequency: every 4h (gemini briefing)
+    consumer: search generator, agent task executor
+  - path: kernel /agent-tasks
+    format: REST POST
+    frequency: every 10min (K15 consumer)
+    consumer: hermes agent task executor
+
+crons:
+  - name: hermes-x-ingest
+    timer: "daemon (continuous)"
+    systemd: hermes-x-ingest.service
+    type: long-running
+    steps:
+      - x_ingest_daemon.py — tails dataset.jsonl → POST /observe
+
+  - name: hermes-curation
+    timer: "every 30min at :03/:33"
+    systemd: hermes-curation.service
+    steps:
+      - curate_domain_signals.py — tweets → domain signals
+
+  - name: hermes-search-generator
+    timer: "every 15min at :02/:17/:32/:47"
+    systemd: hermes-search-generator.service
+    steps:
+      - search_generation.py — SKILL.md wisdom → search queries
+
+  - name: hermes-feedback-loop
+    timer: "every 1h"
+    systemd: hermes-feedback-loop.service
+    steps:
+      - gemini_learn_from_verdicts.py — verdicts → domain wisdom update
+
+  - name: hermes-k15-consumer
+    timer: "every 10min"
+    systemd: hermes-k15-consumer.service
+    steps:
+      - k15_observation_consumer.py — observations → score → dispatch tasks
+
+  - name: hermes-gemini-briefing
+    timer: "every 4h"
+    systemd: hermes-gemini-briefing.service
+    steps:
+      - gemini_briefing_consumer.py — domain synthesis → SKILL.md update
+
+scripts:
+  - name: core/x_ingest_daemon.py
+    description: Tail dataset.jsonl, POST each tweet to kernel /observe
+  - name: core/curate_domain_signals.py
+    description: Transform high-signal tweets into domain signals
+  - name: core/search_executor.py
+    description: Execute search queries via browser proxy
+  - name: core/browser_hub.py
+    description: Browser Hub L0 — CDP-attributed browsing
+  - name: core/x_proxy.py
+    description: X proxy — handles auth, rate limits, 429 backoff
+  - name: core/hermes_agent_task_executor.py
+    description: Execute agent tasks dispatched by K15 consumer
+  - name: core/hermes_task_runner.py
+    description: Task runner for scheduled hermes operations
+  - name: consumers/k15_observation_consumer.py
+    description: K15 consumer — scores observations, dispatches tasks
+  - name: consumers/k15_emitter.py
+    description: Emits K15 observations to kernel
+  - name: analysis/gemini_learn_from_verdicts.py
+    description: Feedback loop — learns from verdict patterns
+  - name: analysis/gemini_briefing_consumer.py
+    description: 4h domain synthesis via Gemini
+
+k15_consumers:
+  - consumer: hermes-curation → search-generator → search-executor
+    acts_on: domain signals → autonomous search → new tweets
+  - consumer: K15 consumer → agent-tasks → task executor
+    acts_on: observations → scored tasks → executed actions
+  - consumer: feedback-loop → SKILL.md → search-generator
+    acts_on: verdicts → wisdom → better search queries

@@ -1,0 +1,63 @@
+id: token-data-store
+tier: 2  # infrastructure
+domain: token-analysis
+status: ACTIVE
+
+description: |
+  Persistent data store for token intelligence. Holds calibration results,
+  market snapshots, holder snapshots, and enriched profiles. Written by
+  collection scripts, consumed by experiments and outcome analysis.
+
+inputs:
+  - source: collection/daily_snapshot.py
+    data: holder snapshots, market snapshots, trajectory
+  - source: collection/helius_token_profiler.py
+    data: enriched token profiles
+  - source: collection/sovereign_profiler.py
+    data: conviction computation results
+  - source: experiments/calibration/
+    data: calibration results from Dog tuning sessions
+
+outputs:
+  - path: data/snapshots/
+    format: json (per-mint subdirectories)
+    frequency: daily
+    consumer: trajectory, conviction, experiments
+  - path: data/market_snapshots/
+    format: json
+    frequency: daily
+    consumer: outcome collector, benchmark
+  - path: data/token_profiles.jsonl
+    format: jsonl
+    frequency: on-demand (profiler runs)
+    consumer: unified profiles, Dog stimuli
+  - path: data/calibration_results_real.json
+    format: json
+    frequency: per calibration session
+    consumer: deterministic dog threshold tuning
+  - path: data/population_stats.json
+    format: json
+    frequency: per calibration session
+    consumer: statistical baseline for scoring
+  - path: data/unified/profiles_{date}.jsonl
+    format: jsonl
+    frequency: daily (via unify.py)
+    consumer: ground truth validation, Dog calibration
+  - path: data/outcomes/outcomes_{date}.jsonl
+    format: jsonl
+    frequency: daily (via outcome_collector.py, when T+7/14/30 due)
+    consumer: unified profiles, ground truth validation
+
+crons: []  # data store has no crons — written by collection crons
+
+scripts:
+  - name: test_mint_txs.py
+    description: Test Helius transaction parsing for specific mints
+
+k15_consumers:
+  - consumer: experiments (calibration, ab-test, ccm-discrimination)
+    acts_on: calibration data → tunes Dog thresholds
+  - consumer: daily_snapshot.py --trajectory
+    acts_on: snapshots → trajectory classification
+  - consumer: unify.py
+    acts_on: profiles + snapshots → unified view (data/unified/profiles_{date}.jsonl)
