@@ -95,6 +95,9 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
         mail: None,
         node_registry: std::sync::Arc::new(cynic_kernel::api::websocket::NodeRegistry::new(120)),
         zones: std::sync::Arc::new(cynic_kernel::domain::zones::ZoneConfig::default()),
+        producer_heartbeats: std::sync::Arc::new(std::sync::RwLock::new(
+            std::collections::HashMap::new(),
+        )),
     })
 }
 
@@ -1059,6 +1062,9 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         mail: None,
         node_registry: std::sync::Arc::new(cynic_kernel::api::websocket::NodeRegistry::new(120)),
         zones: std::sync::Arc::new(cynic_kernel::domain::zones::ZoneConfig::default()),
+        producer_heartbeats: std::sync::Arc::new(std::sync::RwLock::new(
+            std::collections::HashMap::new(),
+        )),
     });
     let app = rest::router(state);
 

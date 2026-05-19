@@ -32,6 +32,7 @@ import json
 import os
 import sys
 import time
+import urllib.request
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Set
 
@@ -543,10 +544,81 @@ def cmd_trajectory() -> None:
         print("\nKernel POST skipped (CYNIC_REST_ADDR/CYNIC_API_KEY not set)")
 
 
+# ── MARKET SNAPSHOT (GeckoTerminal) ──
+
+
+def cmd_market() -> None:
+    """Snapshot price/volume/mcap from GeckoTerminal for all tracked tokens.
+
+    Cost: 0 (free API, no key). Rate limit: 10 req/min.
+    Persists to data/market_snapshots/market_snapshot_{YYYY-MM-DD}.json.
+    """
+    tokens = get_tracked_tokens()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    out_dir = os.path.join(os.path.dirname(DATA_DIR), "data", "market_snapshots")
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, "market_snapshot_" + today + ".json")
+
+    if os.path.exists(out_path):
+        with open(out_path) as f:
+            existing = json.load(f)
+        if len(existing.get("tokens", [])) >= len(tokens) * 0.8:
+            print("Market snapshot already exists for " + today + ". Skip.")
+            return
+
+    results: list = []
+    errors: list = []
+
+    for i, tok in enumerate(tokens):
+        mint = tok["mint"]
+        symbol = tok.get("symbol", "?").strip()
+        print("[" + str(i + 1) + "/" + str(len(tokens)) + "] " + symbol + "...", end=" ", flush=True)
+
+        try:
+            url = "https://api.geckoterminal.com/api/v2/networks/solana/tokens/" + mint + "/pools?page=1"
+            req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "CYNIC/1.0"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+
+            pools = data.get("data", [])
+            if not pools:
+                print("no pool")
+                errors.append({"symbol": symbol, "mint": mint, "error": "no pool"})
+                time.sleep(7)
+                continue
+
+            attrs = pools[0]["attributes"]
+            snapshot = {
+                "mint": mint,
+                "symbol": symbol,
+                "date": today,
+                "price_usd": float(attrs.get("base_token_price_usd") or 0),
+                "volume_24h": float((attrs.get("volume_usd") or {}).get("h24") or 0),
+                "reserve_usd": float(attrs.get("reserve_in_usd") or 0),
+                "fdv_usd": float(attrs.get("fdv_usd") or 0),
+                "market_cap_usd": float(attrs.get("market_cap_usd") or 0),
+            }
+            results.append(snapshot)
+            print("$" + format(snapshot["price_usd"], ".6f") + " vol=$" + format(snapshot["volume_24h"], ".0f"))
+            time.sleep(7)
+
+        except Exception as e:
+            print("ERROR: " + str(e))
+            errors.append({"symbol": symbol, "mint": mint, "error": str(e)})
+            time.sleep(10)
+
+    with open(out_path, "w") as f:
+        json.dump({"date": today, "tokens": results, "errors": errors}, f, indent=2)
+    print("\nSaved " + str(len(results)) + " tokens to " + out_path)
+
+
 # ── MAIN ──
 
+
 def main() -> None:
-    if "--trajectory" in sys.argv:
+    if "--market" in sys.argv:
+        cmd_market()
+    elif "--trajectory" in sys.argv:
         cmd_trajectory()
     elif "--compute" in sys.argv:
         cmd_compute()

@@ -386,6 +386,11 @@ pub fn spawn_introspection(
     event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     task_health: Arc<TaskHealth>,
     senses: Vec<Arc<dyn crate::domain::organ::OrganPort>>,
+    producer_heartbeats: Arc<
+        std::sync::RwLock<
+            std::collections::HashMap<String, crate::api::rest::types::ProducerHeartbeat>,
+        >,
+    >,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     let handle = tokio::spawn(async move {
@@ -423,6 +428,10 @@ pub fn spawn_introspection(
                         }
                     }
 
+                    let heartbeat_snap = producer_heartbeats
+                        .read()
+                        .map(|g| g.clone())
+                        .unwrap_or_default();
                     match tokio::time::timeout(
                         std::time::Duration::from_secs(180),
                         crate::introspection::analyze(
@@ -430,6 +439,7 @@ pub fn spawn_introspection(
                             &metrics,
                             &env_snap,
                             &sense_snapshots,
+                            &heartbeat_snap,
                         ),
                     ).await {
                         Ok(alerts) => {

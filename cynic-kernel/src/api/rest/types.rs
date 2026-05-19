@@ -113,6 +113,17 @@ impl RoleKeyMap {
     }
 }
 
+// ── PUSH-PRODUCER HEARTBEAT ────────────────────────────────
+
+/// Tracks the last /observe POST from a push-based producer.
+/// Pull senses have OrganPort::freshness(). This covers push producers.
+/// K15 consumer: introspection alerts on silent permanent producers.
+#[derive(Debug, Clone)]
+pub struct ProducerHeartbeat {
+    pub last_seen: std::time::Instant,
+    pub count: u64,
+}
+
 // ── SHARED STATE ───────────────────────────────────────────
 
 pub struct AppState {
@@ -203,6 +214,10 @@ pub struct AppState {
     /// Zone config — maps file paths to ownership zones for dispatch visibility.
     /// Loaded from .claude/zones.json at boot. Read-only after init.
     pub zones: Arc<crate::domain::zones::ZoneConfig>,
+    /// Push-producer heartbeat registry — tracks last /observe POST per agent_id.
+    /// K15 consumer: introspection alerts when permanent producers go silent.
+    /// Absence of signal becomes signal of absence.
+    pub producer_heartbeats: Arc<std::sync::RwLock<HashMap<String, ProducerHeartbeat>>>,
 }
 
 /// Storage topology — exposed on authenticated /health for discoverability.

@@ -60,6 +60,23 @@ pub async fn observe_handler(
     }
 
     let agent_id = req.agent_id.clone();
+
+    // Track push-producer heartbeat — absence detection for permanent sources.
+    // Updated BEFORE background storage: we track the POST attempt, not storage success.
+    if let Some(agent) = &agent_id
+        && !agent.is_empty()
+        && let Ok(mut map) = state.producer_heartbeats.write()
+    {
+        let entry = map
+            .entry(agent.clone())
+            .or_insert(super::types::ProducerHeartbeat {
+                last_seen: std::time::Instant::now(),
+                count: 0,
+            });
+        entry.last_seen = std::time::Instant::now();
+        entry.count += 1;
+    }
+
     let source_tier =
         crate::introspection::classify_source_tier(agent_id.as_deref().unwrap_or("unknown"));
     let mut obs = crate::domain::ccm::build_observation_with_ledger(

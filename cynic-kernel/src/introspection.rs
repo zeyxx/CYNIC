@@ -37,6 +37,10 @@ pub async fn analyze(
     metrics: &Metrics,
     environment: &Option<EnvironmentSnapshot>,
     sense_snapshots: &[(String, SenseSnapshot)],
+    producer_heartbeats: &std::collections::HashMap<
+        String,
+        crate::api::rest::types::ProducerHeartbeat,
+    >,
 ) -> Vec<Alert> {
     let mut alerts = Vec::new();
 
@@ -197,6 +201,34 @@ pub async fn analyze(
             message: ma.message,
             severity: ma.severity,
         });
+    }
+
+    // ── Push-producer silence detection ──
+    // Permanent sources that stop POSTing to /observe = dead organ.
+    // 10min threshold: generous enough for cron jobs (longest cycle ~30min),
+    // tight enough to catch crashes within the introspection 5min tick.
+    const PRODUCER_SILENCE_SECS: u64 = 600;
+    for (agent_id, hb) in producer_heartbeats {
+        if !is_permanent_source(agent_id) || hb.count < 2 {
+            continue;
+        }
+        let age_secs = hb.last_seen.elapsed().as_secs();
+        if age_secs > PRODUCER_SILENCE_SECS {
+            alerts.push(Alert {
+                kind: "producer_silent",
+                message: format!(
+                    "Producer '{}' silent for {}m (was active: {} observations)",
+                    agent_id,
+                    age_secs / 60,
+                    hb.count
+                ),
+                severity: if age_secs > 3600 {
+                    "critical"
+                } else {
+                    "warning"
+                },
+            });
+        }
     }
 
     alerts
@@ -546,7 +578,14 @@ mod tests {
         metrics.inc_dog_eval();
         metrics.inc_dog_eval();
         metrics.inc_embed_ok();
-        let alerts = analyze(&NullStorage, &metrics, &None, &[]).await;
+        let alerts = analyze(
+            &NullStorage,
+            &metrics,
+            &None,
+            &[],
+            &std::collections::HashMap::new(),
+        )
+        .await;
         // NullStorage ping fails → storage_down alert, but no other anomalies
         assert!(alerts.iter().all(|a| a.kind == "storage_down"));
     }
@@ -561,7 +600,14 @@ mod tests {
         for _ in 0..10 {
             metrics.inc_dog_failure();
         }
-        let alerts = analyze(&NullStorage, &metrics, &None, &[]).await;
+        let alerts = analyze(
+            &NullStorage,
+            &metrics,
+            &None,
+            &[],
+            &std::collections::HashMap::new(),
+        )
+        .await;
         assert!(alerts.iter().any(|a| a.kind == "dog_failure_rate"));
     }
 
@@ -580,7 +626,14 @@ mod tests {
             metrics.inc_dog_failure();
         }
         // Even with 75% failure rate, analyze() just returns alerts — no side effects
-        let alerts = analyze(&NullStorage, &metrics, &None, &[]).await;
+        let alerts = analyze(
+            &NullStorage,
+            &metrics,
+            &None,
+            &[],
+            &std::collections::HashMap::new(),
+        )
+        .await;
         assert!(alerts.iter().any(|a| a.kind == "dog_failure_rate"));
         // If pipeline::run were called, it would need a Judge (which we don't have).
         // The fact this compiles and runs proves no pipeline call happens.
@@ -599,7 +652,14 @@ mod tests {
         for _ in 0..12 {
             metrics.inc_dog_failure(); // just the failures
         }
-        let alerts = analyze(&NullStorage, &metrics, &None, &[]).await;
+        let alerts = analyze(
+            &NullStorage,
+            &metrics,
+            &None,
+            &[],
+            &std::collections::HashMap::new(),
+        )
+        .await;
         let dog_alert = alerts.iter().find(|a| a.kind == "dog_failure_rate");
         assert!(dog_alert.is_some(), "should trigger failure rate alert");
         // Parse the rate from the message: "Dog failure rate 80.0% (12/15 evals)"

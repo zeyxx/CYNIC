@@ -200,6 +200,43 @@ pub async fn health_handler(
         senses_report.push(entry);
     }
 
+    // Push-producer heartbeat report — absence detection (K15).
+    // Only show agents with count >= 2 (filters one-shot POSTs).
+    let producer_report: Vec<serde_json::Value> = {
+        let map = state
+            .producer_heartbeats
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
+        let mut report: Vec<_> = map
+            .iter()
+            .filter(|(_, hb)| hb.count >= 2)
+            .map(|(agent_id, hb)| {
+                let age_secs = hb.last_seen.elapsed().as_secs();
+                let is_permanent = crate::introspection::is_permanent_source(agent_id);
+                let health = if !is_permanent {
+                    "ephemeral"
+                } else if age_secs > 600 {
+                    "silent"
+                } else {
+                    "alive"
+                };
+                serde_json::json!({
+                    "agent_id": agent_id,
+                    "last_seen_secs": age_secs,
+                    "observations": hb.count,
+                    "health": health,
+                })
+            })
+            .collect();
+        report.sort_by(|a, b| {
+            a["agent_id"]
+                .as_str()
+                .unwrap_or("")
+                .cmp(b["agent_id"].as_str().unwrap_or(""))
+        });
+        report
+    };
+
     (
         http_code,
         Json(serde_json::json!({
@@ -278,6 +315,7 @@ pub async fn health_handler(
             "slot_utilization": state.slot_tracker.health_summary(),
             "metabolism": crate::domain::metabolism::snapshot(&state.metrics),
             "senses": senses_report,
+            "producers": producer_report,
         })),
     )
 }
