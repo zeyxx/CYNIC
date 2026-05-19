@@ -16,20 +16,9 @@ KERNEL_ADDR="${CYNIC_REST_ADDR:-127.0.0.1:3030}"
 API_KEY="${CYNIC_API_KEY:-}"
 [[ -z "$API_KEY" ]] && exit 0
 
-# Derive agent_id from session
-AGENT_ID=""
-if [[ -n "$SESSION_ID" ]]; then
-    AGENT_ID="claude-${SESSION_ID:0:12}"
-else
-    SESSION_STATE_DIR="/tmp/cynic-sessions"
-    if [[ -d "$SESSION_STATE_DIR" ]]; then
-        RECENT_STATE=$(ls -t "$SESSION_STATE_DIR"/*.state 2>/dev/null | head -1)
-        if [[ -n "${RECENT_STATE:-}" ]]; then
-            AGENT_ID=$(grep -oP 'agent_id=\K[^ ]+' "$RECENT_STATE" 2>/dev/null || true)
-        fi
-    fi
-fi
-[[ -z "$AGENT_ID" ]] && exit 0
+# Derive agent_id from session (Claude Code always provides session_id)
+[[ -z "$SESSION_ID" ]] && exit 0
+AGENT_ID="claude-${SESSION_ID:0:12}"
 
 # Strip project root for relative path
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
