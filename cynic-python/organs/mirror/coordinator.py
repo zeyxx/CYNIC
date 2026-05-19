@@ -30,10 +30,11 @@ from organs.mirror.askesis import generate_insight
 from organs.mirror.checkpoint import ProfileCheckpoint
 from organs.mirror.learner import OnlineLearner, ProfileDelta  # noqa: F401 (re-export canonical)
 from organs.mirror.predictions import PredictionStore
+from organs.mirror.segmenter import Segmenter
 from organs.mirror.sources.behavior import BehaviorSource
 from organs.mirror.sources.x_signals import XSignalsSource
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,7 @@ class Coordinator:
         self._checkpoint_path = mirror_dir / "behavioral_profile.json"
         self._checkpoint = ProfileCheckpoint.load(self._checkpoint_path)
 
+        self._segmenter = Segmenter()
         self._learner = OnlineLearner(self._checkpoint.profile)
         self._gate = ActionGate()
         self._predictions = PredictionStore(mirror_dir / "predictions.jsonl")
@@ -108,6 +110,7 @@ class Coordinator:
 
     def shutdown(self) -> None:
         """Save final checkpoint before exit."""
+        self._segmenter.flush()
         self._checkpoint.save(self._checkpoint_path)
         logger.info("mirror coordinator shutdown — checkpoint saved")
 
@@ -129,10 +132,16 @@ class Coordinator:
         count = 0
 
         for event in source.read_from(cursor):
-            delta = self._learner.ingest(event)
-
             if is_x_signals:
+                delta = self._learner.ingest(event)
                 self._predictions.check_outcomes([event])
+            else:
+                self._segmenter.ingest(event)
+                delta = self._learner.ingest(event)
+
+            for segment in self._segmenter.completed_segments:
+                seg_delta = self._learner.ingest_segment(segment)
+                self._maybe_emit_askesis(seg_delta)
 
             self._maybe_emit_askesis(delta)
             self._maybe_dispatch_action()

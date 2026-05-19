@@ -6,7 +6,7 @@ K15 Consumer: MirrorCoordinator (event loop processes yielded Events)
 Systemd: mirror-agent.service (daemon calls read_from on each cycle)
 Promotion date: 2026-05-18
 
-Consumable types: click, key, mouse_move, scroll.
+Consumable types: click, key, mouse_move, scroll, focus_change, idle_start, idle_end.
 Skipped: health_checkpoint, entries without a "type" field.
 
 Input contract: path points to a JSONL file (may grow between calls).
@@ -22,7 +22,7 @@ from typing import Iterator
 
 from organs.mirror.sources.base import Event
 
-_CONSUMABLE = {"click", "key", "mouse_move", "scroll"}
+_CONSUMABLE = {"click", "key", "mouse_move", "scroll", "focus_change", "idle_start", "idle_end"}
 
 
 class BehaviorSource:

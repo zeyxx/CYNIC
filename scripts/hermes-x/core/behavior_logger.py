@@ -15,7 +15,7 @@ Environment:
     DISPLAY must be set (X11 required for window context).
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 import argparse
 import json
@@ -39,30 +39,60 @@ from hermes_paths import BEHAVIOR_LOG as DEFAULT_OUTPUT, TWEET_ID_INDEX
 logger = logging.getLogger("behavior-logger")
 MOUSE_MOVE_INTERVAL = 0.2  # min seconds between mouse move events (rate limit)
 FLUSH_INTERVAL = 5.0  # flush to disk every N seconds
+IDLE_THRESHOLD = 120.0  # seconds without input before emitting idle_start
 
 
 # ── Window context (X11) ──
 
 def get_active_window() -> dict:
-    """Get active window title via xprop (available on all X11 systems). Returns {} on failure."""
+    """Get active window context via xprop: WM_NAME, WM_CLASS, workspace.
+
+    Returns {} on failure. WM_CLASS is the app identifier (e.g. "Google-chrome",
+    "Gnome-terminal") -- stable across tab/title changes unlike WM_NAME.
+    """
     try:
-        # Get active window ID
         raw = subprocess.check_output(
             ["xprop", "-root", "_NET_ACTIVE_WINDOW"],
             timeout=1, stderr=subprocess.DEVNULL
         ).decode().strip()
-        # Parse: "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x2a0000a"
         wid = raw.split("#")[-1].strip() if "#" in raw else ""
         if not wid or wid == "0x0":
             return {}
-        # Get window name
-        name_raw = subprocess.check_output(
-            ["xprop", "-id", wid, "WM_NAME"],
+
+        # Batch: WM_NAME + WM_CLASS in one xprop call
+        props_raw = subprocess.check_output(
+            ["xprop", "-id", wid, "WM_NAME", "WM_CLASS"],
             timeout=1, stderr=subprocess.DEVNULL
         ).decode().strip()
-        # Parse: 'WM_NAME(STRING) = "Window Title"'
-        name = name_raw.split('"')[1] if '"' in name_raw else ""
-        return {"window_id": wid, "window_name": name}
+
+        name = ""
+        wm_class = ""
+        for line in props_raw.splitlines():
+            if line.startswith("WM_NAME"):
+                parts = line.split('"')
+                name = parts[1] if len(parts) >= 2 else ""
+            elif line.startswith("WM_CLASS"):
+                parts = line.split('"')
+                wm_class = parts[3] if len(parts) >= 4 else ""
+
+        # Workspace number
+        workspace = -1
+        try:
+            desk_raw = subprocess.check_output(
+                ["xprop", "-root", "_NET_CURRENT_DESKTOP"],
+                timeout=1, stderr=subprocess.DEVNULL
+            ).decode().strip()
+            val = desk_raw.split("=")[-1].strip()
+            workspace = int(val)
+        except (subprocess.SubprocessError, ValueError):
+            pass
+
+        result: dict = {"window_id": wid, "window_name": name}
+        if wm_class:
+            result["wm_class"] = wm_class
+        if workspace >= 0:
+            result["workspace"] = workspace
+        return result
     except (subprocess.SubprocessError, ValueError, FileNotFoundError, IndexError):
         return {}
 
@@ -248,6 +278,8 @@ class BehaviorLogger:
         self.cached_url = ""
         self.running = True
         self.events_total = 0
+        self.idle = False
+        self.last_input_time = time.time()
 
         logger.info("behavior_logger v%s starting — output=%s", __version__, output)
 
@@ -268,13 +300,15 @@ class BehaviorLogger:
             ctx["url"] = self.cached_url
         return ctx
 
-    def _emit(self, event: dict):
-        """Thread-safe append to buffer."""
+    def _emit(self, event: dict, is_input: bool = True):
+        """Thread-safe append to buffer. is_input=False for synthetic events (idle, focus)."""
         event["ts"] = self._now()
         event.update(self._context())
         with self.lock:
             self.buffer.append(event)
             self.events_total += 1
+            if is_input:
+                self.last_input_time = time.time()
 
     def flush(self):
         """Write buffered events to disk."""
@@ -357,13 +391,41 @@ class BehaviorLogger:
 
         last_event_time = time.time()
         last_health_check = time.time()
+        prev_window_id = ""
 
         while self.running:
             time.sleep(FLUSH_INTERVAL)
             self.flush()
 
-            # Listener health check: if no events for 120s, restart (indicates listener crash)
             now = time.time()
+
+            # -- Idle detection --
+            with self.lock:
+                time_since_input = now - self.last_input_time
+
+            if not self.idle and time_since_input >= IDLE_THRESHOLD:
+                self.idle = True
+                self._emit({"type": "idle_start", "idle_seconds": time_since_input}, is_input=False)
+                logger.debug("Idle started (%.0fs without input)", time_since_input)
+            elif self.idle and time_since_input < IDLE_THRESHOLD:
+                self._emit({"type": "idle_end", "idle_seconds": IDLE_THRESHOLD}, is_input=False)
+                self.idle = False
+                logger.debug("Idle ended")
+
+            # -- Focus change detection --
+            current_window = self.cached_window
+            current_wid = current_window.get("window_id", "")
+            if current_wid and current_wid != prev_window_id and prev_window_id:
+                self._emit({
+                    "type": "focus_change",
+                    "from_window_id": prev_window_id,
+                    "to_window_id": current_wid,
+                    "to_wm_class": current_window.get("wm_class", ""),
+                    "to_window_name": current_window.get("window_name", ""),
+                }, is_input=False)
+            prev_window_id = current_wid
+
+            # -- Listener health check --
             if now - last_event_time > 120:
                 logger.warning("No events for 120s — restarting listeners")
                 mouse_listener.stop()
@@ -385,7 +447,7 @@ class BehaviorLogger:
                     "events_captured": self.events_total,
                     "listeners_alive": mouse_listener.is_alive() and key_listener.is_alive(),
                 }
-                self._emit(health)
+                self._emit(health, is_input=False)
                 last_health_check = now
 
             # Track latest event time (detect listener silence)
