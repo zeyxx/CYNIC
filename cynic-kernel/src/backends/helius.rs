@@ -1584,6 +1584,25 @@ impl TokenEnricherPort for HeliusEnricher {
             None
         };
 
+        // Compute derived fields before struct init (kscore is moved into the struct).
+        let buy_sell_ratio = kscore.as_ref().and_then(|k| {
+            (k.wallets_analyzed > 0)
+                .then(|| (k.accumulators + k.holders) as f64 / k.wallets_analyzed as f64)
+        });
+        let divergence_class = kscore.as_ref().and_then(|k| {
+            (k.wallets_analyzed > 0).then(|| {
+                let r = (k.accumulators + k.holders) as f64 / k.wallets_analyzed as f64;
+                if r >= 0.7 {
+                    "STRONG_HOLD"
+                } else if r <= 0.3 {
+                    "DISTRIBUTION"
+                } else {
+                    "MIXED"
+                }
+                .to_string()
+            })
+        });
+
         Ok(Some(TokenData {
             mint: mint_address.to_string(),
             name,
@@ -1615,8 +1634,8 @@ impl TokenEnricherPort for HeliusEnricher {
             wallet_behaviors,
             holder_identities,
             holder_context,
-            buy_sell_ratio: None, // populated by token profiler when available
-            divergence_class: None,
+            buy_sell_ratio,
+            divergence_class,
             percentile_divergence: None,
             trajectory_class: None, // populated from observation store during enrichment
             trajectory_decay: None,
