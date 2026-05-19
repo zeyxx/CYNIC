@@ -53,6 +53,11 @@ pub(super) struct TokenMetrics {
     trajectory_class: Option<String>,
     /// Conviction decay between shortest and longest window (0.0 to 1.0)
     trajectory_decay: Option<f64>,
+    // K-Score sub-components (from [BEHAVIORAL] section)
+    /// Longevity pillar: 1 - e^(-age_days/21). Strongest K-Score sub-signal (rho=+0.632).
+    k_longevity: Option<f64>,
+    /// Organic growth pillar.
+    k_organic_growth: Option<f64>,
 }
 
 /// Parse human-readable USD values like "1.23B", "45.67M", "890K", "123.45".
@@ -122,6 +127,8 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
         locker_pct: None,
         trajectory_class: None,
         trajectory_decay: None,
+        k_longevity: None,
+        k_organic_growth: None,
     };
 
     for line in section.lines() {
@@ -192,6 +199,10 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
                 m.k_score = v.split_whitespace().next().and_then(|s| s.parse().ok());
             } else if let Some(v) = line.strip_prefix("diamond_hands: ") {
                 m.k_diamond_hands = v.split_whitespace().next().and_then(|s| s.parse().ok());
+            } else if let Some(v) = line.strip_prefix("organic_growth: ") {
+                m.k_organic_growth = v.split_whitespace().next().and_then(|s| s.parse().ok());
+            } else if let Some(v) = line.strip_prefix("longevity: ") {
+                m.k_longevity = v.split_whitespace().next().and_then(|s| s.parse().ok());
             } else if let Some(v) = line.strip_prefix("wallet_breakdown: ") {
                 // "N analyzed — X accumulators, Y holders, Z reducers, W extractors"
                 m.k_wallets_analyzed = v
@@ -334,12 +345,15 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     } else {
         fidelity -= ADJUST_MEDIUM; // can freeze = deceptive control
     }
-    // K-Score: diamond hands = genuine conviction
+    // K-Score diamond_hands: empirically INVERTED (rho=-0.396, n=30).
+    // High diamond_hands = FOMO buyers accumulating, not genuine conviction.
+    // Low diamond_hands = passive holders who stayed = actual fidelity.
+    // Corrected: invert the signal direction.
     if let Some(dh) = m.k_diamond_hands {
         if dh > 0.6 {
-            fidelity += ADJUST_MEDIUM;
-        } else if dh < 0.2 {
-            fidelity -= ADJUST_SMALL;
+            fidelity -= ADJUST_SMALL; // high DH = FOMO buying, not fidelity
+        } else if dh < 0.3 {
+            fidelity += ADJUST_SMALL; // low DH = passive holders staying = real conviction
         }
     }
     // Trajectory: temporal conviction signal — holders leaving = broken promise.
@@ -352,13 +366,14 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             _ => {}                              // DECLINING/UNKNOWN = no adjustment
         }
     }
-    // Market cap: high mcap = token fulfills its claimed purpose at scale
-    // Falsify: legitimate small-cap token penalized for being early-stage.
-    if let Some(mcap) = m.market_cap_usd {
-        if mcap >= 100_000_000.0 {
-            fidelity += ADJUST_MEDIUM; // $100M+ = established project
-        } else if mcap >= 1_000_000.0 {
-            fidelity += ADJUST_SMALL; // $1M+ = real traction
+    // Market cap: NOISE (rho=-0.083, n=30). Removed from scoring.
+    // Supply burned: strongest structural signal (rho=+0.672). Propagated beyond BURN.
+    // Burned supply = irrevocable commitment = fidelity to holders.
+    if let Some(bp) = m.supply_burned_pct {
+        if bp > 20.0 {
+            fidelity += ADJUST_MEDIUM;
+        } else if bp > 5.0 {
+            fidelity += ADJUST_SMALL;
         }
     }
     let fidelity = fidelity.clamp(ADJUST_SMALL, PHI_INV);
@@ -427,25 +442,20 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
         }
     }
     // else: holder data unavailable — PHI stays at neutral base
-    // K-Score: organic growth reflects distribution quality beyond static HHI
-    if let Some(ks) = m.k_score {
-        if ks > 0.5 {
-            phi += ADJUST_MEDIUM;
-        } else if ks < 0.3 {
-            phi -= ADJUST_SMALL;
+    // K-Score composite: REMOVED — empirically INVERTED (rho=-0.327, n=30).
+    // The composite DH*OG*L destroys longevity signal by multiplying with inverted components.
+    //
+    // Longevity sub-component: KEPT — strongest K-Score signal (rho=+0.632).
+    // Tokens that survived longer have better holder distribution (phi harmony).
+    if let Some(lon) = m.k_longevity {
+        if lon > 0.8 {
+            phi += ADJUST_MEDIUM; // age-proven distribution
+        } else if lon < 0.3 {
+            phi -= ADJUST_SMALL; // very new = distribution unproven
         }
     }
-    // Liquidity: deep liquidity = healthy market structure, easy entry/exit
-    // Falsify: wash trading inflates liquidity without real depth.
-    if let Some(liq) = m.liquidity_usd {
-        if liq >= 100_000.0 {
-            phi += ADJUST_MEDIUM; // $100K+ liquidity = healthy market
-        } else if liq >= 10_000.0 {
-            phi += ADJUST_SMALL;
-        } else if liq < 1_000.0 {
-            phi -= ADJUST_SMALL; // near-zero liquidity = structural concern
-        }
-    }
+    // Liquidity: REMOVED from scoring — NOISE (rho=+0.038, n=30).
+    // Previously scored with ADJUST_MEDIUM. Wash trading makes this unreliable.
     let phi = phi.clamp(ADJUST_SMALL, PHI_INV);
     let phi_reason = if m.holder_data_available {
         if let Some(eff) = m.effective_concentration {
@@ -490,11 +500,13 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     } else if m.age_hours < 24 {
         verify -= ADJUST_SMALL; // unproven
     }
+    // Supply burned: verifiable on-chain commitment (rho=+0.672).
+    if m.supply_burned_pct.is_some_and(|bp| bp > 10.0) {
+        verify += ADJUST_SMALL; // burned supply is independently verifiable forever
+    }
     // Trajectory: temporal verification = multi-day evidence, stronger than snapshot.
-    // Any trajectory class (even DYING) means we have temporal data = higher verifiability.
-    // Falsify: reconstructed trajectory from single fetch is less verified than real multi-day.
     if m.trajectory_class.is_some() {
-        verify += ADJUST_SMALL; // temporal data available = independently verifiable over time
+        verify += ADJUST_SMALL;
     }
     // Volume: real trading activity = market-verified existence
     // Falsify: wash trading inflates volume without real price discovery.
@@ -653,9 +665,12 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             _ => {}
         }
     }
-    // K-Score: extractor dominance = centralized exit
-    if m.k_wallets_analyzed > 0 && m.k_extractors > m.k_accumulators {
-        sovereignty -= ADJUST_SMALL;
+    // K-Score accumulators: empirically INVERTED (rho=-0.622, n=30).
+    // More accumulators = FOMO buying (weak tokens). More extractors = mature holders who already
+    // took profit but core holders stayed = stronger sovereignty signal.
+    // Corrected: extractor dominance is now POSITIVE (was negative).
+    if m.k_wallets_analyzed > 0 && m.k_accumulators > m.k_extractors {
+        sovereignty -= ADJUST_SMALL; // accumulator dominance = FOMO, not sovereignty
     }
     // Holder identity signals (from Helius batch-identity)
     if m.identity_exchanges >= 3 {
@@ -1049,12 +1064,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn kscore_boosts_healthy_token() {
-        let mut with_ks = make_token_stimulus(&HEALTHY_MINT);
-        let baselines_pos = with_ks.find("\n[BASELINES]").unwrap();
-        let behavioral = "\n[BEHAVIORAL]\nk_score: 0.700\ndiamond_hands: 0.800 (conviction)\nwallet_breakdown: 10 analyzed \u{2014} 5 accumulators, 3 holders, 1 reducers, 1 extractors\n";
-        with_ks.insert_str(baselines_pos, behavioral);
-        let m_with = parse(&with_ks).unwrap();
+    async fn longevity_boosts_phi() {
+        // Longevity (rho=+0.632) is the strongest K-Score sub-signal.
+        // K-Score composite was REMOVED (rho=-0.327, dilutes signal).
+        let mut with_lon = make_token_stimulus(&HEALTHY_MINT);
+        let baselines_pos = with_lon.find("\n[BASELINES]").unwrap();
+        let behavioral = "\n[BEHAVIORAL]\nk_score: 0.700\ndiamond_hands: 0.200 (conviction)\norganic_growth: 0.500 (distribution)\nlongevity: 0.950 (age-adjusted survival)\nwallet_breakdown: 10 analyzed \u{2014} 2 accumulators, 3 holders, 3 reducers, 2 extractors\n";
+        with_lon.insert_str(baselines_pos, behavioral);
+        let m_with = parse(&with_lon).unwrap();
         let scores_with = score(&m_with);
 
         let without = make_token_stimulus(&HEALTHY_MINT);
@@ -1062,36 +1079,53 @@ mod tests {
         let scores_without = score(&m_without);
 
         assert!(
-            scores_with.fidelity >= scores_without.fidelity,
-            "diamond_hands should boost fidelity: with={}, without={}",
-            scores_with.fidelity,
-            scores_without.fidelity
-        );
-        assert!(
             scores_with.phi >= scores_without.phi,
-            "K-Score should boost phi: with={}, without={}",
+            "longevity should boost phi: with={}, without={}",
             scores_with.phi,
             scores_without.phi
         );
     }
 
     #[tokio::test]
-    async fn extractor_dominance_penalizes_sovereignty() {
-        let mut content = make_token_stimulus(&MODERATE_MINT);
-        let baselines_pos = content.find("\n[BASELINES]").unwrap();
-        let behavioral = "\n[BEHAVIORAL]\nk_score: 0.200\ndiamond_hands: 0.150 (conviction)\nwallet_breakdown: 8 analyzed \u{2014} 1 accumulators, 1 holders, 1 reducers, 5 extractors\n";
-        content.insert_str(baselines_pos, behavioral);
-        let m_ext = parse(&content).unwrap();
-        let scores_ext = score(&m_ext);
+    async fn high_diamond_hands_penalizes_fidelity() {
+        // diamond_hands empirically INVERTED (rho=-0.396): high DH = FOMO buying.
+        let mut with_dh = make_token_stimulus(&MODERATE_MINT);
+        let baselines_pos = with_dh.find("\n[BASELINES]").unwrap();
+        let behavioral = "\n[BEHAVIORAL]\nk_score: 0.700\ndiamond_hands: 0.800 (conviction)\nwallet_breakdown: 10 analyzed \u{2014} 5 accumulators, 3 holders, 1 reducers, 1 extractors\n";
+        with_dh.insert_str(baselines_pos, behavioral);
+        let m_with = parse(&with_dh).unwrap();
+        let scores_with = score(&m_with);
 
         let without = make_token_stimulus(&MODERATE_MINT);
         let m_without = parse(&without).unwrap();
         let scores_without = score(&m_without);
 
         assert!(
-            scores_ext.sovereignty <= scores_without.sovereignty,
-            "Extractor dominance should penalize sovereignty: ext={}, base={}",
-            scores_ext.sovereignty,
+            scores_with.fidelity <= scores_without.fidelity,
+            "high diamond_hands should penalize fidelity (inverted signal): with={}, without={}",
+            scores_with.fidelity,
+            scores_without.fidelity
+        );
+    }
+
+    #[tokio::test]
+    async fn accumulator_dominance_penalizes_sovereignty() {
+        // Empirically INVERTED (rho=-0.622): accumulator dominance = FOMO buying.
+        let mut content = make_token_stimulus(&MODERATE_MINT);
+        let baselines_pos = content.find("\n[BASELINES]").unwrap();
+        let behavioral = "\n[BEHAVIORAL]\nk_score: 0.700\ndiamond_hands: 0.800 (conviction)\nwallet_breakdown: 8 analyzed \u{2014} 5 accumulators, 1 holders, 1 reducers, 1 extractors\n";
+        content.insert_str(baselines_pos, behavioral);
+        let m_acc = parse(&content).unwrap();
+        let scores_acc = score(&m_acc);
+
+        let without = make_token_stimulus(&MODERATE_MINT);
+        let m_without = parse(&without).unwrap();
+        let scores_without = score(&m_without);
+
+        assert!(
+            scores_acc.sovereignty <= scores_without.sovereignty,
+            "Accumulator dominance should penalize sovereignty (inverted signal): acc={}, base={}",
+            scores_acc.sovereignty,
             scores_without.sovereignty
         );
     }

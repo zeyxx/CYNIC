@@ -12,7 +12,7 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=token-snapshot
 MemoryMax=256M
-TimeoutStartSec=300
+TimeoutStartSec=900
 
 [Install]
 WantedBy=token-snapshot.timer
