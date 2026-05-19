@@ -109,7 +109,9 @@ async fn body_json(body: Body) -> serde_json::Value {
 // ── /health ─────────────────────────────────────────────────
 
 #[tokio::test]
-async fn health_no_auth_returns_public_info() {
+async fn health_no_auth_returns_401() {
+    // T1: /health is auth-gated (leaks topology, Dog roster, circuit states).
+    // Unauthenticated callers use /live (200) or /ready (200/503).
     let state = test_state(Some("secret-key"));
     let app = rest::router(state);
 
@@ -123,28 +125,10 @@ async fn health_no_auth_returns_public_info() {
         .await
         .unwrap();
 
-    // 503 expected: test state has 1 Dog + NullStorage (ping fails → critical)
-    // Industry standard: 503 = degraded/critical, 200 = sovereign
-    assert!(
-        resp.status() == 200 || resp.status() == 503,
-        "CONTRACT: health must return 200 or 503, got {}",
-        resp.status()
-    );
-    let v = body_json(resp.into_body()).await;
-    // Public: has status, phi_max — but NOT version (KC3: leaks git SHA), dog_count or dogs array
-    assert!(v["status"].is_string());
-    assert!(v["phi_max"].is_number());
-    assert!(
-        v.get("version").is_none(),
-        "Public health should not expose version (KC3)"
-    );
-    assert!(
-        v.get("dog_count").is_none(),
-        "Public health should not expose dog_count"
-    );
-    assert!(
-        v.get("dogs").is_none(),
-        "Public health should not expose dog details"
+    assert_eq!(
+        resp.status(),
+        401,
+        "CONTRACT: /health without auth must return 401 (T1, KC3)"
     );
 }
 
@@ -524,8 +508,10 @@ async fn judge_async_round_trip_exposes_status() {
 // ── /health without auth config (open API) ──────────────────
 
 #[tokio::test]
-async fn open_api_health_returns_full_details() {
-    let state = test_state(None); // No API key = open
+async fn open_api_no_keys_returns_401() {
+    // Fail-secure: no keys configured → reject all protected endpoints.
+    // There is no "open API" mode — /health always requires auth.
+    let state = test_state(None);
     let app = rest::router(state);
 
     let resp = app
@@ -538,13 +524,11 @@ async fn open_api_health_returns_full_details() {
         .await
         .unwrap();
 
-    assert!(
-        resp.status() == 200 || resp.status() == 503,
-        "CONTRACT: health must return 200 or 503"
+    assert_eq!(
+        resp.status(),
+        401,
+        "CONTRACT: no keys configured → fail-secure 401"
     );
-    let v = body_json(resp.into_body()).await;
-    // Open API: everyone gets full details
-    assert!(v["dogs"].is_array());
 }
 
 // ── /verdicts with null storage ─────────────────────────────
@@ -662,9 +646,9 @@ async fn delete_crystal_returns_500_with_null_storage() {
 }
 
 #[tokio::test]
-async fn observe_crystal_endpoint_removed() {
-    // Endpoint removed: crystal observations flow through the judge pipeline only.
-    // Direct REST observation always failed (voter_count=0 → quorum rejection).
+async fn observe_crystal_hypha_rejects_missing_source() {
+    // /crystal/{id}/observe exists as hypha handler — requires `source` field.
+    // Missing source → 422 (unprocessable entity from axum JSON extractor).
     let state = test_state(Some("key"));
     let app = rest::router(state);
     let resp = app
@@ -683,8 +667,8 @@ async fn observe_crystal_endpoint_removed() {
         .unwrap();
     assert_eq!(
         resp.status(),
-        405,
-        "POST /crystal/id/observe should be gone (method not allowed)"
+        422,
+        "POST /crystal/id/observe without source field → 422"
     );
 }
 
@@ -1008,12 +992,12 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         verdict_cache: Arc::new(VerdictCache::new()),
         task_health: Arc::new(TaskHealth::new()),
         metrics: Arc::new(Metrics::new()),
-        api_key: None,
+        api_key: Some("sse-test-key".to_string()),
         role_keys: cynic_kernel::api::rest::types::RoleKeyMap {
             cortex: None,
             organ: None,
             internal: None,
-            legacy: None,
+            legacy: Some("sse-test-key".to_string()),
         },
         storage_info: StorageInfo {
             namespace: "test".into(),
@@ -1072,6 +1056,7 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         .oneshot(
             axum::http::Request::builder()
                 .uri("/events")
+                .header("Authorization", "Bearer sse-test-key")
                 .body(Body::empty())
                 .unwrap(),
         )
