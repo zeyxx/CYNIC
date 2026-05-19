@@ -180,11 +180,13 @@ def compute_conviction_from_snapshots(mint: str, window_days: int = 7) -> Option
     if not os.path.exists(today_path):
         return None
 
-    # Find closest snapshot to target_date
+    # Find closest snapshot to target_date — search expanding radius up to ±7 days.
+    # Cron runs daily but gaps happen (timeouts, weekends). Accept the nearest snapshot
+    # within tolerance so trajectory classification works with sparse historical data.
     past_path = os.path.join(mint_dir, f"holders_{target_date.isoformat()}.json")
     if not os.path.exists(past_path):
-        # Try ±1 day
-        for offset in range(1, 3):
+        tolerance = min(window_days // 2, 7)  # up to half the window or 7 days max
+        for offset in range(1, tolerance + 1):
             for delta in [timedelta(days=offset), timedelta(days=-offset)]:
                 alt_date = target_date + delta
                 alt_path = os.path.join(mint_dir, f"holders_{alt_date.isoformat()}.json")
@@ -194,7 +196,7 @@ def compute_conviction_from_snapshots(mint: str, window_days: int = 7) -> Option
             if os.path.exists(past_path):
                 break
         else:
-            return None  # No past snapshot found
+            return None  # No past snapshot within tolerance
 
     # Load both snapshots
     with open(today_path) as f:
