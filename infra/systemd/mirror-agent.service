@@ -6,7 +6,6 @@ After=network-online.target
 Type=simple
 ExecStart=%h/.cynic/organs/mirror/.venv/bin/python -m organs.mirror.daemon
 WorkingDirectory=%h/Bureau/CYNIC/cynic-python
-Environment=CYNIC_REST_ADDR=<TAILSCALE_CORE>:3030
 EnvironmentFile=%h/.cynic-env
 Restart=on-failure
 RestartSec=10
