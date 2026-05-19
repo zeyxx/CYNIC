@@ -948,13 +948,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             shutdown.clone(),
         );
 
-        // ─── Verdict Submission Queue (K15: auto-anchor to Pinocchio, every 5min) ────
-        infra::tasks::spawn_submission_queue(
-            Arc::clone(&storage_port),
-            Arc::clone(&task_health),
-            shutdown.clone(),
-        );
-        klog!("[Ring 2] Verdict submission queue task started (every 5min)");
+        // ─── Verdict Submission Queue (Pinocchio onchain anchoring) ────
+        // DORMANT: disabled 2026-05-19. Queue ticked every 5min but submitted 0 verdicts
+        // onchain (0 confirmed, 1 failed). Rewire when onchain anchoring is needed.
+        // infra::tasks::spawn_submission_queue(
+        //     Arc::clone(&storage_port),
+        //     Arc::clone(&task_health),
+        //     shutdown.clone(),
+        // );
 
         // ─── Auto-remediation loop (K15: background node recovery, every 5min) ────
         infra::tasks::spawn_auto_remediation(
