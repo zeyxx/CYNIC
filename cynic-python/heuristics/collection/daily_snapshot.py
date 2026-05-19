@@ -435,7 +435,7 @@ def classify_trajectory(windows: Dict[int, Optional[Dict]]) -> Dict:
             points.append((w, windows[w]["conviction"]))
 
     if len(points) < 2:
-        return {"class": "UNKNOWN", "points": len(points), "decay": 0.0, "conviction_30d": None}
+        return {"class": "UNKNOWN", "points": len(points), "decay": 0.0, "conviction_delta": 0.0, "conviction_30d": None}
 
     short_conv = points[0][1]    # e.g. 3d conviction (highest)
     long_conv = points[-1][1]    # e.g. 30d conviction (lowest)
@@ -457,6 +457,7 @@ def classify_trajectory(windows: Dict[int, Optional[Dict]]) -> Dict:
     return {
         "class": traj_class,
         "decay": round(decay, 4),
+        "conviction_delta": round(decay, 4),  # alias for unify.py compatibility
         "decay_rate": round(decay_rate, 5),
         "conviction_3d": short_conv,
         "conviction_30d": long_conv,
@@ -475,6 +476,7 @@ def cmd_trajectory() -> None:
     print(f"\n{'Token':12s} {'Class':13s} {'3d':>5s} {'7d':>5s} {'14d':>5s} {'30d':>5s}  {'decay':>10s}")
     print("-" * 70)
 
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     results = []
     for token in tokens:
         mint = token["mint"]
@@ -487,6 +489,11 @@ def cmd_trajectory() -> None:
         traj = classify_trajectory(window_data)
         traj["mint"] = mint
         traj["symbol"] = symbol
+        # Persist trajectory file for unify.py (K15: producer→consumer contract)
+        traj_path = os.path.join(SNAPSHOTS_DIR, mint[:16], f"trajectory_{today}.json")
+        os.makedirs(os.path.dirname(traj_path), exist_ok=True)
+        with open(traj_path, "w") as f:
+            json.dump(traj, f)
         results.append(traj)
 
         # Format conviction values
