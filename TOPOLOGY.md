@@ -1,4 +1,4 @@
-# CYNIC Organism Topology (auto-generated 2026-05-19 15:40 UTC)
+# CYNIC Organism Topology (auto-generated 2026-05-19 15:51 UTC)
 
 ## Active Modules
 
@@ -27,19 +27,6 @@
 - **mirror-agent** -> kernel health monitoring, session analysis, zone dispatch, zone dispatch (L0→L1 bridge)
 - **token-data-collection** -> benchmark analysis, conviction computation, outcome collector, session analysis, trajectory classification, unified profiles
 - **token-data-store** -> Dog calibration, Dog stimuli, benchmark, conviction, deterministic dog threshold tuning, experiments, ground truth validation, outcome collector, statistical baseline for scoring, trajectory, unified profiles
-
-## Verification Issues
-
-- [warning] cynic-kernel: no files match SurrealDB tables
-- [warning] token-data-store: no files match data/snapshots/
-- [warning] token-data-store: no files match data/market_snapshots/
-- [warning] token-data-store: no files match data/token_profiles.jsonl
-- [warning] token-data-store: no files match data/calibration_results_real.json
-- [warning] token-data-store: no files match data/population_stats.json
-- [warning] hermes-x-organ: no files match ~/.cynic/organs/hermes/x/reflections/
-- [warning] mirror-agent: no files match ~/.cynic/organs/mirror/profiles/
-- [warning] mirror-agent: no files match ~/.cynic/organs/mirror/segments/
-- [warning] hermes-x-scripts: no files match ~/.cynic/organs/hermes/x/domain_signals/
 
 ## Experiments
 

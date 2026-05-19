@@ -1,5 +1,5 @@
 [Unit]
-Description=Token Snapshot — daily holder + market snapshot + trajectory classification
+Description=Token Snapshot — daily holder + market + trajectory + outcomes + unify
 After=network-online.target
 
 [Service]
@@ -9,6 +9,8 @@ WorkingDirectory=%h/Bureau/CYNIC
 ExecStart=/usr/bin/python3 cynic-python/heuristics/collection/daily_snapshot.py
 ExecStartPost=/usr/bin/python3 cynic-python/heuristics/collection/daily_snapshot.py --market
 ExecStartPost=/usr/bin/python3 cynic-python/heuristics/collection/daily_snapshot.py --trajectory
+ExecStartPost=/usr/bin/python3 cynic-python/heuristics/collection/outcome_collector.py
+ExecStartPost=/usr/bin/python3 cynic-python/heuristics/collection/unify.py
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=token-snapshot

@@ -43,6 +43,8 @@ crons:
       - daily_snapshot.py (holders + metadata)
       - daily_snapshot.py --market (prices from GeckoTerminal)
       - daily_snapshot.py --trajectory (DYING/DECLINING/STABLE/GROWING)
+      - outcome_collector.py (re-query T+7/14/30 prices)
+      - unify.py (merge all sources into unified profiles)
 
 scripts:
   - name: daily_snapshot.py
