@@ -447,6 +447,25 @@ if [[ "$KERNEL_STATUS" != "down" ]]; then
     fi
 fi
 
+# ── Organism topology injection (discoverable infrastructure) ──
+TOPOLOGY_FILE="${PROJECT_DIR}/TOPOLOGY.md"
+if [[ -f "$TOPOLOGY_FILE" ]]; then
+    TOPOLOGY_AGE_DAYS=$(( ( $(date +%s) - $(stat -c %Y "$TOPOLOGY_FILE") ) / 86400 ))
+    echo ""
+    echo "TOPOLOGY (organism map — ${TOPOLOGY_AGE_DAYS}d old):"
+    # Inject Active Modules table only (compact — full file available as TOPOLOGY.md)
+    awk '/^## Active Modules/{found=1; next} found && /^\|/{print "  "$0} found && /^$/{exit}' "$TOPOLOGY_FILE" | head -15
+    # Inject K15 unfulfilled
+    UNFULFILLED=$(awk '/^## Unfulfilled/{found=1; next} found && /^-/{print "  "$0} found && /^$/{exit}' "$TOPOLOGY_FILE")
+    if [[ -n "$UNFULFILLED" ]]; then
+        echo "  K15 UNFULFILLED:"
+        echo "$UNFULFILLED"
+    fi
+    if [[ "$TOPOLOGY_AGE_DAYS" -gt 7 ]]; then
+        echo "  WARNING: TOPOLOGY.md is ${TOPOLOGY_AGE_DAYS} days old — run 'python3 scripts/topology.py' to refresh"
+    fi
+fi
+
 # ── Domain wisdom injection (high-strength curated signals) ──
 CURATION_DIR="${PROJECT_DIR}/cynic-python/curation"
 if [[ -d "$CURATION_DIR" ]]; then

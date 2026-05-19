@@ -1,0 +1,66 @@
+id: token-data-collection
+tier: 2  # infrastructure
+domain: token-analysis
+status: ACTIVE
+
+description: |
+  Sovereign conviction accumulator. Daily holder snapshots + market data + trajectory
+  classification. Builds temporal conviction without transaction rewind.
+
+inputs:
+  - source: helius
+    data: holder lists, token metadata (getTokenHolders, getAsset)
+    cost: ~40 cr/token/day
+  - source: geckoterminal
+    data: price, volume, mcap, liquidity reserve
+    cost: free
+  - source: watchlist.json
+    data: tracked mints (calibration set + additions)
+
+outputs:
+  - path: data/snapshots/{mint_short}/holders_{date}.json
+    format: json
+    frequency: daily
+    consumer: conviction computation, trajectory classification
+  - path: data/snapshots/{mint_short}/metadata_{date}.json
+    format: json
+    frequency: daily
+    consumer: trajectory classification, outcome collector
+  - path: data/market_snapshots/market_snapshot_{date}.json
+    format: json
+    frequency: daily
+    consumer: outcome collector, benchmark analysis
+  - path: data/snapshots/{mint_short}/trajectory_{date}.json
+    format: json
+    frequency: daily
+    consumer: unified profiles, session analysis
+
+crons:
+  - name: token-snapshot
+    timer: "06:00 UTC daily"
+    systemd: token-snapshot.service
+    steps:
+      - daily_snapshot.py (holders + metadata)
+      - daily_snapshot.py --market (prices from GeckoTerminal)
+      - daily_snapshot.py --trajectory (DYING/DECLINING/STABLE/GROWING)
+
+scripts:
+  - name: daily_snapshot.py
+    commands: [default, --market, --trajectory, --compute, --status]
+    description: Main collection entry point — runs all 3 phases in sequence via systemd
+  - name: helius_token_profiler.py
+    description: Enriched token profiles via Helius (holder context, LP, vesting)
+  - name: sovereign_profiler.py
+    description: Sovereign conviction computation from holder snapshots
+  - name: webhook_receiver.py
+    description: Helius webhook listener for real-time holder changes
+  - name: webhook_setup.py
+    description: Configure Helius webhooks for tracked mints
+
+k15_consumers:
+  - consumer: trajectory classification (daily_snapshot.py --trajectory)
+    acts_on: holder snapshots → classifies token health
+  - consumer: outcome_collector.py
+    acts_on: market snapshots → re-queries at T+7/14/30
+  - consumer: unify.py
+    acts_on: all outputs → merged profiles (data/unified/profiles_{date}.jsonl)

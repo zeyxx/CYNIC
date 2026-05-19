@@ -1,0 +1,65 @@
+id: mirror-agent
+tier: 2  # infrastructure
+domain: behavior
+status: ACTIVE
+
+description: |
+  Behavioral model daemon. Observes user interactions (browser, CLI),
+  builds behavioral profiles, segments sessions. Long-running daemon
+  (not cron). L0 passive capture → L1 zone segmentation.
+
+inputs:
+  - source: ~/.cynic/organs/hermes/behavior/behavior_log.jsonl
+    data: browser behavior events (clicks, scrolls, navigation)
+  - source: ~/.cynic/organs/hermes/x/dataset.jsonl
+    data: tweet dataset for content correlation
+  - source: kernel /observations
+    data: session observations for temporal correlation
+
+outputs:
+  - path: ~/.cynic/organs/mirror/profiles/
+    format: json
+    frequency: continuous
+    consumer: zone dispatch, session analysis
+  - path: ~/.cynic/organs/mirror/segments/
+    format: json
+    frequency: per-session
+    consumer: zone dispatch (L0→L1 bridge)
+  - path: kernel /observe (domain=mirror-lifecycle)
+    format: REST POST
+    frequency: on start/stop
+    consumer: kernel health monitoring
+
+crons:
+  - name: mirror-agent
+    timer: "daemon (continuous)"
+    systemd: mirror-agent.service
+    type: long-running
+    steps:
+      - coordinator.run_forever() — perception/segmentation/prediction loop
+
+scripts:
+  - name: daemon.py
+    description: Entry point — starts coordinator, handles signals
+  - name: coordinator.py
+    description: Main loop — orchestrates perception/segmentation/action
+  - name: segmenter.py
+    description: L0→L1 behavioral segmentation (11 zones)
+  - name: learner.py
+    description: Pattern learning from behavioral data
+  - name: profile.py
+    description: User profile construction
+  - name: predictions.py
+    description: Behavioral predictions from profiles
+  - name: checkpoint.py
+    description: State persistence across restarts
+  - name: action.py
+    description: Action dispatch based on predictions
+  - name: askesis.py
+    description: Self-restraint module (sovereignty preservation)
+
+k15_consumers:
+  - consumer: zone dispatch (L0→L1)
+    acts_on: segments → contextual routing
+  - consumer: kernel observations
+    acts_on: lifecycle events → health monitoring

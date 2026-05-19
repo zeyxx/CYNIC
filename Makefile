@@ -53,6 +53,7 @@ check:
 	@$(MAKE) --no-print-directory lint-subprocess-env
 	@$(MAKE) --no-print-directory lint-security
 	@$(MAKE) --no-print-directory lint-python-tiers
+	@$(MAKE) --no-print-directory lint-topology
 	@echo ""; echo "▶ Security audit (cargo audit)..."
 	cargo audit --deny warnings
 	@if surreal is-ready --endpoint http://localhost:8000 2>/dev/null; then \
@@ -320,6 +321,19 @@ lint-security: ## G1 gate: 0 OPEN findings in CRITICAL or HIGH sections of findi
 		echo "FAIL G1: CRIT/HIGH findings still OPEN:"; echo "$$OPEN"; exit 1; \
 	else \
 		echo "✓ G1: 0 OPEN findings in CRITICAL/HIGH"; \
+	fi
+
+.PHONY: lint-topology
+lint-topology: ## Verify MANIFEST.yaml declarations vs live state (crons exist, outputs exist)
+	@echo ""
+	@echo "▶ Checking organism topology (MANIFESTs vs live state)..."
+	@python3 $(PROJECT_DIR)/scripts/topology.py --verify --output $(PROJECT_DIR)/TOPOLOGY.md 2>&1 | tail -1; \
+	EXIT_CODE=$$?; \
+	if [ $$EXIT_CODE -ne 0 ]; then \
+		echo "FAIL: MANIFEST verification found errors — run 'python3 scripts/topology.py --verify' for details"; \
+		exit 1; \
+	else \
+		echo "✓ Organism topology OK"; \
 	fi
 
 .PHONY: test-gates
