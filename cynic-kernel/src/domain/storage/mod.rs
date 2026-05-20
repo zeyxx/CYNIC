@@ -30,6 +30,26 @@ pub trait StoragePort: Send + Sync {
     async fn store_verdict(&self, verdict: &Verdict) -> Result<(), StorageError>;
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError>;
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError>;
+
+    /// List verdicts for a specific domain, sorted by sovereignty ASC (worst spam first).
+    /// Used by GET /phone-numbers/blocklist to populate the mobile app cache.
+    /// Default: falls back to list_verdicts + filter (suboptimal but correct for NullStorage).
+    async fn list_verdicts_by_domain(
+        &self,
+        domain: &str,
+        limit: u32,
+    ) -> Result<Vec<Verdict>, StorageError> {
+        let mut verdicts = self.list_verdicts(limit.max(1000)).await?;
+        verdicts.retain(|v| v.domain == domain);
+        verdicts.sort_by(|a, b| {
+            a.q_score
+                .sovereignty
+                .partial_cmp(&b.q_score.sovereignty)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        verdicts.truncate(limit as usize);
+        Ok(verdicts)
+    }
     /// Bootstrap write for Forming-state crystals only.
     ///
     /// **K15 CONTRACT**: This path bypasses Dog quorum enforcement.
