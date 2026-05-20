@@ -92,6 +92,15 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     #[tracing::instrument(skip(self), err)]
+    async fn list_verdicts_by_domain(
+        &self,
+        domain: &str,
+        limit: u32,
+    ) -> Result<Vec<Verdict>, StorageError> {
+        verdicts::list_verdicts_by_domain(self, domain, limit).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
     async fn store_crystal(&self, crystal: &Crystal) -> Result<(), StorageError> {
         crystals::store_crystal(self, crystal).await
     }

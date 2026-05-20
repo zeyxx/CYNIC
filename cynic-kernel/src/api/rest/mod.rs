@@ -15,6 +15,7 @@ pub mod judge_job;
 pub mod mail;
 pub mod middleware;
 pub mod observe;
+pub mod phone_numbers;
 pub mod response;
 pub mod soma;
 pub mod types;
@@ -166,6 +167,14 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route(
             "/dispatch/zone-activity",
             get(dispatch::zone_activity_handler),
+        )
+        .route(
+            "/phone-numbers/blocklist",
+            get(phone_numbers::blocklist_handler),
+        )
+        .route(
+            "/phone-numbers/reporter-stats",
+            get(phone_numbers::reporter_stats_handler),
         )
         .route("/soma/request", post(soma_request_handler))
         .route("/mail/health", get(mail_health))

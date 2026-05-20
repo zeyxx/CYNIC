@@ -396,6 +396,40 @@ impl PerIpRateLimiter {
 
 // ── REQUEST / RESPONSE TYPES ───────────────────────────────
 
+// ── PHONE-NUMBERS (CallShield) ─────────────────────────────
+
+/// One entry in the blocklist: phone number + worst-first ordering data.
+#[derive(Debug, Serialize)]
+pub struct BlocklistEntry {
+    /// E.164 format phone number as submitted to /judge.
+    pub number: String,
+    /// Sovereignty score (0.0 = worst spam, 1.0 = clean).
+    pub sovereignty: f64,
+    /// Composite Q-score across all six axioms.
+    pub q_score: f64,
+    /// Verdict kind: Bark | Growl | Wag | Howl.
+    pub verdict: String,
+}
+
+/// GET /phone-numbers/blocklist response.
+#[derive(Debug, Serialize)]
+pub struct BlocklistResponse {
+    pub numbers: Vec<BlocklistEntry>,
+    pub count: usize,
+    pub generated_at: String,
+}
+
+/// GET /phone-numbers/reporter-stats response (MVP placeholder).
+#[derive(Debug, Serialize)]
+pub struct ReporterStatsResponse {
+    /// Agreement rate with kernel verdicts — None until per-device tracking is wired.
+    pub agreement_rate: Option<f64>,
+    /// Total reports submitted by this device. Always 0 in MVP (no per-device tracking yet).
+    pub reports_total: u64,
+    /// Device tier: "anonymous" | "trusted" | "verified".
+    pub tier: String,
+}
+
 /// POST /dogs/register — register a new Dog at runtime.
 #[derive(Debug, Deserialize)]
 pub struct RegisterDogRequest {

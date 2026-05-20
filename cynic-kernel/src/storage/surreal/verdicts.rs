@@ -34,6 +34,21 @@ pub(super) async fn list_verdicts(
     Ok(rows.iter().map(row_to_verdict).collect())
 }
 
+pub(super) async fn list_verdicts_by_domain(
+    storage: &SurrealHttpStorage,
+    domain: &str,
+    limit: u32,
+) -> Result<Vec<Verdict>, StorageError> {
+    use crate::storage::escape_surreal;
+    let domain_esc = escape_surreal(domain);
+    let sql = format!(
+        "SELECT * FROM verdict WHERE domain = '{domain_esc}' ORDER BY sovereignty ASC LIMIT {}",
+        safe_limit(limit)
+    );
+    let rows = storage.query_one(&sql).await?;
+    Ok(rows.iter().map(row_to_verdict).collect())
+}
+
 fn verdict_to_sql(v: &Verdict) -> String {
     let escape = |s: &str| escape_surreal(s);
 
