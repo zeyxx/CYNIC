@@ -5,7 +5,7 @@ Tier 2 INFRASTRUCTURE: Mirror organ daemon coordinator.
 K15 Consumer: Kernel /observe (askesis) and /agent-tasks (action dispatch)
 Systemd: mirror-coordinator.service
 Promotion date: 2026-05-18 (initial wiring of full mirror pipeline).
-Stability: new.
+Stability: active (L3 pattern integration 2026-05-20).
 
 Input contract: valid paths for mirror_dir, behavior_log, dataset_path;
                reachable kernel at kernel_addr.
@@ -29,12 +29,13 @@ from organs.mirror.action import ActionDecision, ActionGate
 from organs.mirror.askesis import generate_insight
 from organs.mirror.checkpoint import ProfileCheckpoint
 from organs.mirror.learner import OnlineLearner, ProfileDelta  # noqa: F401 (re-export canonical)
+from organs.mirror.patterns import PatternDetector
 from organs.mirror.predictions import PredictionStore
 from organs.mirror.segmenter import Segmenter
 from organs.mirror.sources.behavior import BehaviorSource
 from organs.mirror.sources.x_signals import XSignalsSource
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 logger = logging.getLogger(__name__)
 
@@ -46,14 +47,8 @@ POLL_SLEEP_SECONDS: float = 5.0
 class Coordinator:
     """Wires all mirror modules into a single event-processing daemon.
 
-    Responsibilities:
-    - Boot from a persisted checkpoint (profile + cursors).
-    - Process events from BehaviorSource and XSignalsSource.
-    - Feed events into OnlineLearner for profile updates.
-    - Check outcomes of pending predictions on XSignalSource events.
-    - Emit askesis insights to kernel /observe (throttled).
-    - Dispatch agent tasks to kernel /agent-tasks when ActionGate decides ACT.
-    - Checkpoint state periodically (every 1000 events or 15 minutes).
+    Pipeline: L0 events → Segmenter (L1) → PatternDetector (L3) + Learner (L2)
+              → askesis → kernel /observe (max 3/day)
     """
 
     def __init__(
@@ -70,6 +65,7 @@ class Coordinator:
         self._checkpoint = ProfileCheckpoint.load(self._checkpoint_path)
 
         self._segmenter = Segmenter()
+        self._pattern_detector = PatternDetector()
         self._learner = OnlineLearner(self._checkpoint.profile)
         self._gate = ActionGate()
         self._predictions = PredictionStore(mirror_dir / "predictions.jsonl")
@@ -78,9 +74,8 @@ class Coordinator:
         self._x_signals_source = XSignalsSource(dataset_path)
 
         self._kernel_addr = kernel_addr
-        self._auth_key = api_key  # stored as _auth_key; never log or print
+        self._auth_key = api_key
 
-        # Internal counters for checkpoint interval tracking.
         self._events_since_checkpoint: int = 0
         self._last_checkpoint_time: float = time.monotonic()
 
@@ -89,10 +84,7 @@ class Coordinator:
     # ------------------------------------------------------------------
 
     def run_once(self) -> int:
-        """Process all currently available events across both sources.
-
-        Returns the total number of events processed in this cycle.
-        """
+        """Process all currently available events across both sources."""
         total = 0
         total += self._process_source(self._behavior_source, is_x_signals=False)
         total += self._process_source(self._x_signals_source, is_x_signals=True)
@@ -126,7 +118,8 @@ class Coordinator:
     ) -> int:
         """Read and process all new events from one source.
 
-        Returns count of events processed.
+        Behavior events flow: L0 → Segmenter → PatternDetector + Learner → askesis.
+        X signals bypass segmentation (already content-level events).
         """
         cursor = self._checkpoint.cursors.get(source.name, 0)
         count = 0
@@ -139,9 +132,32 @@ class Coordinator:
                 self._segmenter.ingest(event)
                 delta = self._learner.ingest(event)
 
+                # Feed focus_change to pattern detector for switch rate tracking
+                if event.event_type == "focus_change":
+                    self._pattern_detector.ingest_focus_change(event.timestamp)
+
+            # Drain completed L1 segments → L3 patterns + L2 learner
             for segment in self._segmenter.completed_segments:
+                self._pattern_detector.ingest_segment(segment)
                 seg_delta = self._learner.ingest_segment(segment)
                 self._maybe_emit_askesis(seg_delta)
+
+            # Drain completed sessions → L3 patterns
+            for session in self._segmenter.completed_sessions:
+                self._pattern_detector.ingest_session(session)
+
+            # L3: summarize patterns and update profile
+            if not is_x_signals:
+                summary = self._pattern_detector.summarize()
+                changed = self._pattern_detector.update_profile(
+                    self._learner.profile, summary
+                )
+                if changed:
+                    pattern_delta = ProfileDelta(
+                        changed_fields=changed,
+                        max_confidence_change=0.05,
+                    )
+                    self._maybe_emit_askesis(pattern_delta, force=True)
 
             self._maybe_emit_askesis(delta)
             self._maybe_dispatch_action()
@@ -152,25 +168,25 @@ class Coordinator:
             if self._events_since_checkpoint >= CHECKPOINT_INTERVAL_EVENTS:
                 self._save_checkpoint(source)
 
-        # Update cursor to source's current position after exhausting events.
         self._checkpoint.cursors[source.name] = source.current_offset
         return count
 
-    def _maybe_emit_askesis(self, delta: ProfileDelta) -> None:
+    def _maybe_emit_askesis(
+        self, delta: ProfileDelta, force: bool = False
+    ) -> None:
         """Emit an askesis insight to the kernel if conditions are met.
 
-        Conditions:
-        1. OnlineLearner signals a meaningful confidence crossing.
-        2. Checkpoint throttle permits another message today.
+        force=True bypasses the learner's confidence gate (for L3 pattern events)
+        but still respects the 3/day cap.
         """
-        if not self._learner.should_emit_askesis(delta):
+        if not force and not self._learner.should_emit_askesis(delta):
             return
 
         today = datetime.now(timezone.utc).date().isoformat()
         if not self._checkpoint.can_send_askesis(today):
             return
 
-        insight = generate_insight(self._learner.profile, delta)
+        insight = generate_insight(self._learner.profile, delta, force=force)
         if insight is None:
             return
 
@@ -190,9 +206,11 @@ class Coordinator:
             )
             self._checkpoint.record_askesis_sent(today)
             logger.info(
-                "askesis emitted: type=%s confidence=%.3f",
+                "askesis emitted: type=%s confidence=%.3f surprise=%.3f score=%.3f",
                 insight.insight_type.value,
                 insight.confidence,
+                insight.surprise,
+                insight.score,
             )
         except RequestException:
             logger.warning("askesis POST failed (kernel unreachable?)", exc_info=True)

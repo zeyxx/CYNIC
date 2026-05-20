@@ -82,7 +82,8 @@ def test_narrative_insight_ratio_in_message() -> None:
 
 
 def test_app_usage_insight() -> None:
-    """Changed app distribution → APP_USAGE insight."""
+    """app_time_distribution no longer triggers APP_USAGE (non-actionable).
+    L3 builders (flow, spinner, switch, prod) replaced it."""
     profile = BehavioralProfile.empty()
     profile.app_time_distribution = {"vscode": 0.55, "browser": 0.30, "slack": 0.15}
     profile.observation_count = 60
@@ -90,10 +91,8 @@ def test_app_usage_insight() -> None:
 
     insight = generate_insight(profile, delta)
 
-    assert insight is not None
-    assert insight.insight_type == InsightType.APP_USAGE
-    assert "vscode" in insight.message
-    assert "55" in insight.message
+    # No builder registered for app_time_distribution anymore
+    assert insight is None
 
 
 def test_no_insight_on_small_delta() -> None:

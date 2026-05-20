@@ -150,11 +150,10 @@ class OnlineLearner:
         self._update_max_confidence_change(delta)
 
     def _handle_focus_change(self, event: Event, delta: ProfileDelta) -> None:
-        """Update context_switch_rate from a focus_change event."""
-        old = self._profile.context_switch_rate
-        self._profile.context_switch_rate = _ema_update(old, 1.0)
-        delta.changed_fields.add("context_switch_rate")
+        """Update app_time_distribution from a focus_change event.
 
+        context_switch_rate is owned by PatternDetector (actual per-hour rate).
+        """
         app = event.data.get("to_wm_class", "")
         if app:
             old_app = self._profile.app_time_distribution.get(app, 0.0)
