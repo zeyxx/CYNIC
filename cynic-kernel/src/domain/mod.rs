@@ -18,6 +18,7 @@ pub mod metabolism;
 pub mod metrics;
 pub mod organ;
 pub mod pattern_analysis;
+pub mod phone_number;
 pub mod probe;
 pub mod sanitize;
 pub mod slot_semaphore;
