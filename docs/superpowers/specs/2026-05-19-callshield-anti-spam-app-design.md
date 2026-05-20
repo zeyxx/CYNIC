@@ -131,113 +131,210 @@ ReporterReputation {
 
 ## 2. Architecture
 
-### 2.1 System Overview
+### 2.1 System Overview — Kernel-Backed, Phone-Autonomous
+
+CallShield is NOT a separate system. The CYNIC kernel is the backend. The phone is an autonomous node with its own embedded Dog. No separate Gateway, no separate Score Engine, no separate Registry DB.
 
 ```
-CLIENTS (phones = infrastructure nodes)
-  Android App (Kotlin) ─────────┐
-    CallScreeningService        │
-    Local SQLite cache          │
-    Phone gossip (opt-in)       │     HTTPS/gRPC
-                                ├──────────────────┐
-  iOS App (Swift) ──────────────┘                   │
-    Live Caller ID (18.2+)                          v
-    Local SQLite cache                        GATEWAY API
-    Phone gossip (limited)                      (super-peer, not authority)
-                                          /lookup   (< 100ms SLA)
-                                          /report   (submit CallEvent)
-                                          /contest  (challenge a flag)
-                                          /sync     (federation inter-nodes)
-                                          /challenge (trigger voice proxy)
-
-                                          Auth: device attestation
-                                                + anonymous token
-                                          Rate limit: per hashed device_id
-                                                  |
-                            ┌───────────────────────┼──────────────────┐
-                            v                       v                  v
-                      SCORE ENGINE            REGISTRY STORE     VOICE PROXY
-                      Aggregates              CallEvents         (premium only)
-                      CallEvents ->           NumberReputations   SIP trunk
-                      weighted score          ReporterReps
-                      + confidence                                Challenge flow
-                            |                       |                  |
-                            v                       v                  v
-                                    FEDERATION LAYER
-                            Gossip protocol between nodes
-                            Ed25519 signed NumberReputations
-                            Merge by weighted consensus
-                            Nodes = servers + phones (super-peer model)
-                                          |
-                              ┌───────────┴────────────┐
-                              v                        v
-                           API B2B               SOLANA ANCHOR
-                    /api/v1/reputation/       Periodic Merkle root
-                    /api/v1/stats             (~hourly, ~0.000025 SOL)
-                    /api/v1/verify-self       Integrity verification
+┌─────────────────────────────────────────────────────────────┐
+│  PHONE (autonomous CWO node)                                 │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │  Layer 1 — Embedded Dog (TFLite, < 2ms, offline)       │  │
+│  │  Decision tree / small NN trained on:                   │  │
+│  │    call frequency, report count, time-of-day,           │  │
+│  │    number age, decay, challenge_pass_rate               │  │
+│  │  Output: local_score + local_confidence                 │  │
+│  │  Model size: < 1MB | Inference: < 2ms any phone 2019+  │  │
+│  └──────────────────────────┬─────────────────────────────┘  │
+│                             │                                │
+│  ┌──────────────────────────┴─────────────────────────────┐  │
+│  │  Local cache (SQLite)                                   │  │
+│  │  Top-N spam numbers + recently seen + crystals          │  │
+│  └──────────────────────────┬─────────────────────────────┘  │
+│                             │                                │
+│  Android: CallScreeningService    iOS: Live Caller ID 18.2+  │
+│  Post-call labeling UX           Post-call labeling UX       │
+│  Phone gossip (BLE, opt-in)      Phone gossip (limited)      │
+└──────────────────────────────┬───────────────────────────────┘
+                               │ HTTPS (when online)
+                               v
+┌─────────────────────────────────────────────────────────────┐
+│  CYNIC KERNEL (existing, gains domain "phone_number")        │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │  Layer 2 — Kernel Dogs (< 100ms, online)               │  │
+│  │  deterministic-dog: heuristic scoring (consensus,       │  │
+│  │    federation data, cross-domain signals)               │  │
+│  │  LLM Dogs: NOT used for phone_number (BURN)             │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│  /judge   domain="phone_number"  ← reporter verdicts         │
+│  /observe domain="phone_number"  ← CallEvents                │
+│  /crystals domain="phone_number" ← distilled wisdom          │
+│                                                              │
+│  Pipeline: stimulus -> Dogs -> verdict -> crystal             │
+│  DomainRouter: phone_number -> [deterministic-dog]            │
+│  CrystalStore: "this number is CPF telemarketing"             │
+│  ReporterReputation: human Dog quality tracking               │
+│                                                              │
+└──────────────────┬──────────────────────────────────────────┘
+                   │
+       ┌───────────┼────────────┐
+       v           v            v
+  Voice Proxy   Federation   Solana Anchor
+  (SIP/Twilio)  (gossip)     (integrity)
+  challenge     inter-nodes  periodic Merkle
+  vocal         multi-domain root
+       │
+       v
+    API B2B
+  /api/v1/reputation/{number}
+  /api/v1/stats
+  /api/v1/verify-self
 ```
 
-### 2.2 Phone-First Infrastructure (Super-Peer Model)
+### 2.2 Three-Layer Dog Architecture
 
-The server is not the authority. It's a highly-available peer in a network where phones are the primary nodes.
+The phone scores autonomously. The kernel enriches. Neither depends on the other.
 
 ```
-Lookup resolution order:
+Layer 1 — Embedded Dog (phone, always available)
+  Runtime: TFLite (Android) / Core ML (iOS)
+  Model: decision tree or small NN, < 1MB
+  Input: local cache + call metadata
+  Output: local_score (0-1) + local_confidence (0-0.95)
+  Latency: < 2ms on any phone since 2019
+  Trains on: anonymized, aggregated features pushed from kernel
+  Updates: model binary updated via app store or silent download (~monthly)
 
-  Tier 0 : Local cache (SQLite on phone)
-            Always available, offline-first, < 1ms
-            Contains: recently seen numbers + top-N spam numbers
+  Sufficient for:
+    - Blocking obvious spam (score > 0.7 from cache)
+    - Allowing known safe (score < 0.3 from cache)
+    - Flagging ambiguous for Layer 2 enrichment
+
+Layer 2 — Kernel Dog (server, when online)
+  Runtime: CYNIC kernel deterministic-dog
+  Input: Layer 1 score + community signals + federation data + crystals
+  Output: enriched_score + enriched_confidence + crystals
+  Latency: < 100ms
+  Adds: consensus across all reporters, federation data from other nodes,
+        temporal patterns (number lifecycle), cross-domain signals
+
+  NOT used: LLM Dogs — phone number scoring is tabular, not semantic.
+  BURN says: don't burn inference slots on what a decision tree handles.
+
+Layer 3 — On-Device NLP (Phase 3+, flagship only, DEFERRED)
+  Runtime: small transformer (~50-100MB) or Gemini Nano (~1.8GB)
+  Input: call audio stream (on-device, never uploaded)
+  Output: "this conversation sounds like a CPF scam"
+  Latency: 50-200ms
+  Phones: Pixel 9+, iPhone 15 Pro+, flagships with NPU
+  
+  Google already does this (Pixel scam detection, Nov 2024). [observed]
+  DO NOT build at MVP. Evaluate after Layers 1+2 prove product-market fit.
+```
+
+### 2.3 Coupling Rules
+
+The phone NEVER imports kernel code. It speaks HTTP. If the kernel is down, the phone operates autonomously.
+
+```
+Call arrives:
+  1. Embedded Dog scores from local cache    → 0 coupling, < 2ms
+  2. If cache miss → kernel /judge           → weak coupling, < 100ms
+  3. If kernel down → presomption innocence  → allow, log for later sync
+
+The phone is a judge. The kernel is an enrichment peer. Not a SPOF.
+```
+
+**API contract in degraded state:**
+
+```
+Normal:    { "score": 0.73, "confidence": 0.45, "status": "ok" }
+Degraded:  { "score": null, "status": "degraded", "action": "allow" }
+Unknown:   { "score": null, "status": "unknown", "action": "allow" }
+Insufficient: { "score": null, "confidence": 0.05, "status": "insufficient_data", "action": "allow" }
+
+Rule: app NEVER blocks when status != "ok". Embedded Dog handles the rest.
+```
+
+### 2.4 Phone-First Infrastructure
+
+```
+Resolution order for an incoming call:
+
+  Tier 0 : Embedded Dog + local cache (SQLite)
+            Always available, offline-first, < 2ms
+            Contains: recently seen numbers + top-N spam + crystals
 
   Tier 1 : Phone-to-phone gossip (opt-in, Android primarily)
-            Nearby phones exchange cache updates
-            Protocol: BLE discovery + WiFi Direct data transfer
-            Enriches local cache without server contact
-            Android 12+ constraint: requires BLUETOOTH_ADVERTISE + BLUETOOTH_SCAN
-              -> prompts deferred to post-onboarding (Screen 5, not Screen 2)
-              -> gossip is opt-in and non-blocking; app works without it
-            iOS constraint: no background BLE discovery allowed
-              -> iOS gossip limited to foreground-only, minimal value
-              -> iOS relies on Tier 2 (server) for cache enrichment
+            Nearby phones exchange cache updates via BLE + WiFi Direct
+            Android 12+: BLUETOOTH_ADVERTISE + BLUETOOTH_SCAN required
+              -> prompts deferred to post-onboarding (opt-in, non-blocking)
+            iOS: foreground-only, limited value. iOS relies on Tier 2.
 
-  Tier 2 : Server gateway (super-peer)
-            Fallback when local cache misses
-            Higher availability than any single phone
+  Tier 2 : CYNIC kernel (super-peer)
+            Fallback when Tier 0 has no data
+            Enriches with community consensus + federation + crystals
             < 100ms SLA
 
-  Tier 3 : Federation backbone (server-to-server)
-            Heavy sync between institutional nodes
-            Operators, associations, regulators
+  Tier 3 : Federation backbone (kernel-to-kernel)
+            Multi-node sync between institutional participants
+            Operators, consumer associations, regulators
 ```
 
-**What this means:**
-- If the server goes down, phones continue with their cache + local gossip
-- The server's role is bootstrap (seed data) + availability (always-on peer) + B2B API
-- Long-term, the server becomes optional for the core screening function
-- iOS constraints limit phone gossip (no background BLE discovery), so iOS relies more on Tier 2
+If the kernel goes down, phones continue with Tier 0 + Tier 1. The kernel's role is enrichment + federation + B2B API. The phone is the primary judge.
 
-### 2.3 Critical Flows
+### 2.5 Cache Strategy (Phone Tier 0)
 
-**Flow 1 — Incoming call (free tier, < 100ms)**
+```
+TTL by score category:
+  Confirmed spam (score > 0.7):     TTL = 24h   (stable)
+  Ambiguous (0.3-0.7):              TTL = 4h    (volatile, needs freshness)
+  Known safe (score < 0.3):         TTL = 12h   (stable)
+  Unknown (not in cache):           no entry    (Tier 2 on next call)
+
+Server push (optional, premium):
+  When a number crosses a threshold (e.g. 0.3 -> 0.8), kernel pushes
+  invalidation to devices that cached it. App deletes stale entry.
+  Protocol: FCM/APNs/ntfy.sh
+  Payload: { "invalidate": ["+33612345678"] }
+
+Cold start:
+  On first install, app downloads top-N known spam numbers (N = 10K-50K).
+  Embedded Dog is useful immediately, before any user reports.
+
+Model updates:
+  Embedded Dog model retrained monthly on anonymized aggregated features.
+  Pushed as app update or silent asset download (< 1MB).
+```
+
+### 2.6 Critical Flows
+
+**Flow 1 — Incoming call (< 2ms local, < 100ms enriched)**
 
 ```
 Call arrives -> OS triggers CallScreeningService / LiveCallerID
-  -> App queries Tier 0 (local SQLite cache)
-  -> Cache hit? -> score -> block/label/allow
-  -> Cache miss? -> query Tier 2 (Gateway /lookup, < 100ms SLA)
-  -> score -> decision -> log CallEvent locally
+  -> Embedded Dog queries local cache
+  -> Cache hit + high confidence -> block/label/allow (Tier 0 only, < 2ms)
+  -> Cache hit + low confidence -> enrich via kernel (Tier 2, < 100ms)
+  -> Cache miss -> query kernel /judge domain="phone_number"
+  -> Kernel returns enriched score OR degraded -> allow
+  -> Log CallEvent locally
   -> Post-call: notification "Label this call?"
-  -> If gossip active: share new data with nearby peers (Tier 1)
+  -> If gossip active: share with nearby peers (Tier 1)
 ```
 
-**Flow 2 — Report (free tier)**
+**Flow 2 — Report (user labels = human Dog verdict)**
 
 ```
 User labels call -> App stores CallEvent locally
-  -> App POST /report to Gateway (CallEvent + label)
-  -> Gateway verifies: device attestation OK? rate limit OK?
-  -> Score Engine recomputes NumberReputation
-  -> If score crosses threshold -> federation propagation
+  -> App POST /observe to kernel (domain="phone_number", CallEvent + label)
+  -> Kernel pipeline: stimulus -> deterministic-dog -> verdict
+  -> If score crosses threshold -> crystal created
   -> ReporterReputation updated (agreement_rate)
+  -> Federation propagation if confidence > 0.3
   -> If gossip active: push update to nearby peers
 ```
 
@@ -245,18 +342,38 @@ User labels call -> App stores CallEvent locally
 
 ```
 Unknown call + ambiguous score (0.3 < score < 0.7)
-  -> App detects -> redirects to Voice Proxy
+  -> Embedded Dog flags ambiguous -> redirect to Voice Proxy
   -> Proxy answers: "Your contact is screening calls. Please say your name."
   -> Timeout/silence -> reject
      + CallEvent(outcome: proxy_challenged, challenge: failed)
   -> Name spoken -> 3s recording -> push notification to user with audio
-  -> Caller hears hold music/tone while waiting (max 30s total round-trip budget)
-  -> User accepts (within 30s of call start) -> proxy forwards the live call
+  -> Caller hears hold music (max 30s total round-trip budget)
+  -> User accepts (within 30s) -> proxy forwards the live call
   -> User rejects OR timeout 30s -> proxy hangs up
      + CallEvent(label: nuisance/scam)
-  -> If caller hangs up during wait -> CallEvent(challenge: timeout)
-     Note: 30s is aggressive. Empirical data needed — if > 50% of legitimate
-     callers hang up before 30s, increase to 45s or add "please hold" message.
+  -> Note: 30s is aggressive. Calibrate empirically — if > 50% of legit
+     callers hang up, increase to 45s or add "please hold" message.
+```
+
+**Flow 4 — Contestation**
+
+```
+Number owner -> POST /contest (via app or web portal)
+  -> OTP verification (SMS sent to the contested number)
+  -> Contestation recorded -> score adjusted by -0.1
+  -> If >= 3 verified contestations -> moderator review
+  -> Moderator can temporary whitelist (90 days, renewable)
+```
+
+**Flow 5 — Solana anchor (automated, hourly)**
+
+```
+Every N hours:
+  -> Kernel computes Merkle tree of all verdicts (all domains)
+  -> Root hash (32 bytes) submitted as Solana transaction memo
+  -> Cost: ~0.000025 SOL per anchor (~$33/year at $150/SOL)
+  -> Anyone can verify: download verdict set + verify against on-chain root
+```
 ```
 
 **Flow 4 — Contestation**
@@ -280,85 +397,24 @@ Every N hours:
   -> Cost: ~0.000025 SOL per anchor (~0.004$/day at hourly rate, see section 4.3)
 ```
 
-### 2.4 Technical Stack
+### 2.7 Technical Stack
 
 | Decision | Choice | Why |
 |----------|--------|-----|
-| Server language | Rust | < 100ms on /lookup, single binary, no runtime, sovereign deploy |
-| HTTP framework | axum | Proven, tokio-native |
-| Async runtime | tokio | Standard |
-| Primary DB | Postgres (sqlx) | Reliable, good aggregation support |
-| Hot cache | Redis | Top 100K queried numbers in memory |
-| Local app cache | SQLite | Offline-first, no network required for lookup |
-| Voice proxy | Twilio -> OVH -> FreeSWITCH | Sovereignty progression (see section 6) |
-| Federation | libp2p gossipsub + ed25519-dalek | No heavy consensus, signed propagation |
-| Phone gossip | BLE + WiFi Direct (Android), limited on iOS | P2P cache enrichment |
-| Serialization | MessagePack (federation), JSON (external API) | Compact for P2P, readable for API |
+| Server backend | **CYNIC kernel (existing)** | Domain-agnostic judgment pipeline, already deployed |
+| Server language | Rust (axum/tokio) | Already built, < 100ms on /judge |
+| Primary DB | SurrealDB (existing kernel DB) | Already deployed, stores observations + verdicts |
+| Hot cache | Redis (existing) | Already deployed in kernel |
+| Local app cache | SQLite (Room/SwiftData) | Offline-first, embedded Dog input |
+| Embedded Dog | TFLite (Android) / Core ML (iOS) | < 1MB model, < 2ms inference |
+| Voice proxy | Twilio -> OVH -> FreeSWITCH | Sovereignty progression (see section 8) |
+| Federation | libp2p gossipsub + ed25519-dalek | Kernel feature, serves all domains |
+| Phone gossip | BLE + WiFi Direct (Android) | P2P cache enrichment, opt-in |
 | User auth | Anonymous device tokens | No account, no email, no phone stored |
 | Anti-bot | Play Integrity + DeviceCheck + velocity | 3 independent signals |
 | Android app | Kotlin native | Direct CallScreeningService access |
 | iOS app | Swift native | Direct CallKit / LiveCallerIDLookup access |
-| On-chain anchor | Solana (memo program) | Cheap, fast finality, existing tooling (Helius) |
-| Solana SDK | anchor-lang or solana-sdk | Merkle root submission only |
-
-### 2.5 Degraded State & API Contract
-
-When the Gateway or Score Engine is degraded, `/lookup` must still return a usable response. The app must make a binary decision (block/allow) regardless of backend state.
-
-```
-Normal response:
-  { "number": "+33612345678", "score": 0.73, "confidence": 0.45,
-    "label_distribution": {...}, "status": "ok" }
-
-Degraded responses:
-  Score Engine down:
-    { "score": null, "confidence": null, "status": "degraded",
-      "action": "allow" }
-    -> App follows presumption of innocence: let the call through
-
-  Registry DB unreachable:
-    { "score": null, "confidence": null, "status": "degraded",
-      "action": "allow" }
-
-  Number not in registry (cache miss + DB miss):
-    { "score": null, "confidence": null, "status": "unknown",
-      "action": "allow" }
-
-  Insufficient data (confidence < 0.1):
-    { "score": null, "confidence": 0.05, "status": "insufficient_data",
-      "action": "allow" }
-
-Rule: the app NEVER blocks when status != "ok".
-The "action" field is authoritative — the app follows it, not the score.
-```
-
-### 2.6 Cache Invalidation (Phone Tier 0)
-
-```
-Strategy: TTL-based + server push for high-impact changes
-
-TTL by score category:
-  Confirmed spam (score > 0.7):     TTL = 24h  (stable, rarely changes)
-  Ambiguous (0.3-0.7):              TTL = 4h   (volatile, needs freshness)
-  Known safe (score < 0.3):         TTL = 12h  (stable)
-  Unknown (not in cache):           no entry   (Tier 2 lookup on next call)
-
-Server push (optional, premium):
-  When a number's score crosses a threshold (e.g., 0.3 -> 0.8 = new spam),
-  push invalidation to all devices that cached it.
-  Protocol: lightweight push via FCM/APNs/ntfy.sh
-  Payload: { "invalidate": ["+33612345678", "+33698765432"] }
-  App deletes from local cache -> next call triggers fresh Tier 2 lookup.
-
-Gossip cache sync:
-  When phone gossip is active (Tier 1), peers exchange cache entries
-  with their TTL. Receiving phone takes the fresher entry.
-  Conflict: if peer has different score, take the one with higher confidence.
-
-Cold start cache:
-  On first install, app downloads top-N known spam numbers (N = 10K-50K).
-  This ensures Tier 0 is useful immediately, before the user reports anything.
-```
+| On-chain anchor | Solana memo program | Shared CWO integrity layer |
 
 ---
 
@@ -787,7 +843,7 @@ Infra + 2 devs + ops:
 
 | Item | Year 1 | Note |
 |------|--------|------|
-| Server infra | EUR 6-12K | Scales linearly |
+| Server infra (marginal on kernel) | EUR 2-6K | Kernel already deployed. Phone domain adds DB storage + bandwidth. |
 | SIP trunking | EUR 2.4-12K | Proxy-only for premium subscribers (~10% of calls per premium user). Lower bound: 500 premium x 2 proxy calls/month x EUR 0.20/call. Upper bound: 5000 premium x 2 calls/month x EUR 0.10/call (OVH rates). |
 | App stores | 15-20% of premium | Unavoidable |
 | Development | EUR 150-250K | Main cost |
@@ -898,95 +954,107 @@ Every component runs at zero marginal cost when idle.
 
 ```
 Component         Floor           At 100K users      Sovereign?
-Gateway API       EUR 0 (fly.io)  EUR 50-100/mo      Yes (Rust binary)
-Registry DB       EUR 0 (SQLite)  EUR 30-80/mo       Yes (Postgres)
-Cache             EUR 0 (embed)   EUR 20-50/mo       Yes
-Voice proxy       EUR 0 (off)     EUR 500-2K/mo      Phase S2+
-Federation        EUR 0 (P2P)     EUR 0               By design
-Phone gossip      EUR 0 (phones)  EUR 0               By design
-Solana anchor     EUR ~3/yr       EUR ~33/yr          Yes (public chain)
-Apps              EUR 0 (FOSS)    EUR 99/yr Apple     Partial
+CYNIC kernel      Already running Already running     Yes (Rust binary)
+  (phone domain)  (marginal: ~0)  (+EUR 20-50/mo DB)
+Embedded Dog      EUR 0 (in-app)  EUR 0               Yes (TFLite/CoreML)
+Voice proxy       EUR 0 (off)     EUR 500-2K/mo       Phase S2+
+Federation        EUR 0 (P2P)     EUR 0                By design
+Phone gossip      EUR 0 (phones)  EUR 0                By design
+Solana anchor     EUR ~3/yr       EUR ~33/yr           Yes (public chain)
+Apps              EUR 0 (FOSS)    EUR 99/yr Apple      Partial
 ```
+
+Note: the kernel already runs for token-analysis. Adding domain "phone_number" is marginal cost (DB storage for observations/verdicts). No new server to deploy.
 
 ### 8.3 Dependency Audit
 
 | Dependency | Sovereign? | Criticality | Exit |
 |-----------|-----------|-------------|------|
-| Rust/cargo | Yes | Core | No lock-in |
-| Postgres | Yes | High | Runs anywhere |
-| Redis | Yes (source-avail) | Medium | Embedded replacement |
+| CYNIC kernel | Yes (own code) | Medium | Embedded Dog operates without it |
+| SurrealDB | Yes (open source) | Medium | Kernel dep, already managed |
+| TFLite / Core ML | Yes (open source / Apple native) | High | On-device, no server dep |
 | Twilio | **No** | Medium | OVH -> FreeSWITCH |
 | Play Store | **No** | High | F-Droid parallel |
 | App Store | **No** | High | No iOS alt. Accepted. |
 | Play Integrity | **No** | Medium | 1 of 3 anti-bot signals |
 | Firebase/APNs | **No** | Low | ntfy.sh (Android) |
 | libp2p | Yes | High | Standard, multi-impl |
-| Solana | Yes (public chain) | Low | Shared CWO integrity layer. Can anchor elsewhere or drop. |
-| Helius | **No** | Very low | Direct RPC as fallback |
+| Solana | Yes (public chain) | Low | Shared CWO integrity. Can drop. |
 
 ### 8.4 Open Source Strategy
 
-- Registry protocol + federation spec: **open source**
-- Server implementation: **open source** (enables community nodes)
+- CYNIC kernel: **already open source** (enables community nodes running all domains)
 - Apps: **open source** (F-Droid, trust, contributions)
-- Premium features: server-side gate (proxy activation), not client-side
-- If the project dies, the protocol survives. Any community can fork.
+- Embedded Dog model: **open source** (TFLite weights published)
+- Federation protocol: **open source** (shared with all CWO domains)
+- Premium features: kernel-side gate (proxy activation), not client-side
+- If the project dies, the protocol and embedded Dog survive. Any community can fork.
 
 ---
 
 ## 9. Delivery Plan
 
 ```
-M0-M1   Foundation
-        - Gateway API (Rust/axum): /lookup, /report, /contest
-        - Registry DB (Postgres) + Score Engine
-        - Seed data (DGCCRF + signal-arnaques)
-        - Scoring integration tests
-        - Solana anchor prototype (memo program)
+M0-M1   Kernel Domain + Embedded Dog
+        - Add domain "phone_number" to CYNIC kernel:
+          domains/phone_number.md (domain prompt)
+          embedded_domains.rs (one-line addition)
+          build_phone_stimulus() in stimulus.rs
+          deterministic Dog for phone scoring (heuristics)
+        - Train v0 Embedded Dog (decision tree, TFLite export, < 1MB)
+          Features: call frequency, report count, number age, time-of-day
+          Training data: public spam databases + DGCCRF sanctions
+        - Seed data in kernel DB (DGCCRF + signal-arnaques.com)
+        - Integration tests: /judge domain="phone_number" round-trip
 
 M1-M3   Apps MVP
         - Android: CallScreeningService + post-call labeling
+          Embedded Dog (TFLite) for local scoring
+          SQLite cache (top-N spam + recent lookups)
+          HTTP client to kernel /judge, /observe
         - iOS: Call Directory Extension (batch, pre-18.2)
-        - Local SQLite cache
+          Embedded Dog (Core ML) for local scoring
+          SwiftData cache
         - Closed beta 100-500 testers
-        - Note: scoring is UNWEIGHTED in this phase (all reporters = NEW tier,
-          trust_weight 0.2). ReporterReputation bootstraps from M3 onward.
-          This is acceptable because beta testers are vetted + small population.
+        - Note: reporter scoring UNWEIGHTED in this phase (all = NEW tier,
+          trust_weight 0.2). Acceptable: beta testers are vetted.
 
 M3-M5   Live + Community
-        - iOS 18.2: LiveCallerIDLookupExtension
-        - Reporter reputation system
+        - iOS 18.2: LiveCallerIDLookupExtension (real-time)
+        - ReporterReputation system in kernel (human Dog quality tracking)
         - Anti-bot (Play Integrity + DeviceCheck)
-        - Community dashboard
-        - Solana anchoring live (hourly)
+        - Community dashboard in app
+        - Solana anchoring live (hourly, all domains)
+        - Embedded Dog v1 retrained on beta data
         - Open beta France
 
 M5-M7   Proxy + Premium
-        - Voice proxy (Twilio adapter)
-        - Challenge flow (/challenge endpoint goes live)
+        - Voice proxy (Twilio adapter, VoiceProxyPort trait in kernel)
+        - Challenge flow
         - Premium tier (in-app payment)
         - Public launch France
 
 M7-M10  Federation + Gossip
-        - Server federation (libp2p gossip)
+        - Federation layer in kernel (libp2p gossip, serves ALL domains)
         - Phone-to-phone gossip (Android, opt-in)
-        - First external node (association)
+        - First external node (consumer association)
         - B2B API v1
-        - CWO substrate assessment: compare shared patterns with CYNIC
-          If > 30% overlap -> extract cwo-core crate
-          If < 30% -> keep independent, philosophical kinship only
+        - CWO substrate assessment: what % of kernel is domain-agnostic?
+          If > 30% -> consider cwo-core extraction
+          If < 30% -> keep as-is
 
 M10-M14 Sovereignty + Expansion
         - SIP -> OVH (S1)
         - F-Droid build
         - Belgium + Swiss Romandie
+        - Layer 3 evaluation (on-device NLP, flagship only)
         - Infra self-sufficiency target
 
 M14+    Maturity
         - FreeSWITCH (S2)
         - EU expansion
-        - Full self-sufficiency (infra + devs)
-        - CWO protocol extraction (if substrate validated)
+        - Full self-sufficiency
+        - CWO protocol extraction (if validated across 2+ domains)
         - ARCEP declaration evaluation (S3)
         - Reporter incentive token evaluation (Phase 3+)
 ```
