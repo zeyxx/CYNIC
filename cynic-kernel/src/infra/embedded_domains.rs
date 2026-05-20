@@ -23,6 +23,10 @@ pub fn load_embedded_domain_prompts() -> HashMap<String, String> {
             include_str!("../../domains/wallet-judgment.md"),
         ),
         ("twitter", include_str!("../../domains/twitter.md")),
+        (
+            "phone-number",
+            include_str!("../../domains/phone-number.md"),
+        ),
     ];
 
     for (domain_name, content) in &domains {
@@ -84,6 +88,10 @@ mod tests {
         assert!(
             prompts.contains_key("wallet-judgment"),
             "should load wallet-judgment domain"
+        );
+        assert!(
+            prompts.contains_key("phone-number"),
+            "phone-number domain prompt missing"
         );
     }
 

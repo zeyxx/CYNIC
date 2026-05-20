@@ -494,6 +494,78 @@ async fn wallet_judgment_error_on_missing_profile() {
     }
 }
 
+#[tokio::test]
+async fn test_phone_number_domain_produces_verdict() {
+    use crate::domain::phone_number::{LabelDistribution, PhoneData};
+    use crate::domain::stimulus::build_phone_stimulus;
+
+    let data = PhoneData {
+        number: "+33612345678".to_string(),
+        country_code: "FR".to_string(),
+        total_events: 47,
+        label_distribution: LabelDistribution {
+            legitimate: 3,
+            nuisance: 30,
+            scam: 12,
+            unknown: 2,
+        },
+        reporter_count: 35,
+        mean_reporter_trust: 0.75,
+        age_days: 14,
+        days_since_last_report: 1,
+        challenge_pass_rate: Some(0.15),
+        contestation_count: 0,
+        owner_verified: false,
+    };
+
+    let stimulus = build_phone_stimulus(&data);
+
+    let dogs: Vec<Arc<dyn Dog>> = vec![Arc::new(crate::dogs::deterministic::DeterministicDog)];
+    let judge = test_judge(dogs);
+    let storage = NullStorage;
+    let embedding = NullEmbedding;
+    let usage = Mutex::new(DogUsageTracker::new());
+    let verdict_cache = VerdictCache::new();
+    let metrics = Metrics::new();
+
+    let domain_curations = crate::domain::wisdom::DomainCurations::new();
+    let deps = PipelineDeps {
+        judge: &judge,
+        storage: &storage,
+        embedding: &embedding,
+        usage: &usage,
+        verdict_cache: &verdict_cache,
+        metrics: &metrics,
+        event_tx: None,
+        request_id: None,
+        on_dog: None,
+        expected_dog_count: judge.dog_ids().len(),
+        enricher: None,
+        domain_curations: &domain_curations,
+        domain_router: None,
+        priority: SlotPriority::User,
+    };
+
+    let result = run(
+        stimulus,
+        None,
+        Some("phone-number".into()),
+        None,
+        true,
+        &deps,
+    )
+    .await;
+
+    match result {
+        Ok(PipelineResult::Evaluated { verdict, .. }) => {
+            assert!(verdict.q_score.total > 0.0, "Q-Score should be > 0");
+            assert!(!verdict.dog_scores.is_empty(), "should have dog scores");
+        }
+        Ok(PipelineResult::CacheHit { .. }) => panic!("expected evaluation, got cache hit"),
+        Err(e) => panic!("pipeline failed: {e}"),
+    }
+}
+
 #[test]
 fn enqueue_verdict_hash_determinism() {
     use sha2::{Digest, Sha256};

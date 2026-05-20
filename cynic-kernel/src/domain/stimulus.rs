@@ -396,6 +396,105 @@ pub fn build_wallet_stimulus(profile: &crate::domain::wallet_judgment::WalletPro
     s
 }
 
+/// Build a structured phone number judgment stimulus from community report metrics.
+///
+/// Used when CYNIC evaluates a phone number for CallShield spam/scam classification.
+/// The PhoneData contains aggregated community reports, label distributions, and
+/// temporal patterns. The score represents spam likelihood: 0.0 = safe, 1.0 = confirmed scam.
+pub fn build_phone_stimulus(data: &crate::domain::phone_number::PhoneData) -> String {
+    let mut s = String::with_capacity(800);
+
+    s.push_str("[DOMAIN: phone-number]\n\n");
+
+    // ── Metrics: raw facts, no interpretation ──
+    s.push_str("[METRICS]\n");
+    s.push_str(&format!("number: {}\n", data.number));
+    s.push_str(&format!("country_code: {}\n", data.country_code));
+    s.push_str(&format!("total_events: {}\n", data.total_events));
+    s.push_str(&format!("reporter_count: {}\n", data.reporter_count));
+    s.push_str(&format!(
+        "mean_reporter_trust: {:.3}\n",
+        data.mean_reporter_trust
+    ));
+    s.push_str(&format!("age_days: {}\n", data.age_days));
+    s.push_str(&format!(
+        "days_since_last_report: {}\n",
+        data.days_since_last_report
+    ));
+    s.push_str(&format!(
+        "contestation_count: {}\n",
+        data.contestation_count
+    ));
+    s.push_str(&format!(
+        "owner_verified: {}\n",
+        if data.owner_verified { "YES" } else { "NO" }
+    ));
+
+    // ── Label distribution ──
+    s.push_str(&format!(
+        "labels: legitimate={} nuisance={} scam={} unknown={}\n",
+        data.label_distribution.legitimate,
+        data.label_distribution.nuisance,
+        data.label_distribution.scam,
+        data.label_distribution.unknown,
+    ));
+    s.push_str(&format!(
+        "spam_score: {:.3}\n",
+        data.label_distribution.spam_score()
+    ));
+
+    // ── Challenge data ──
+    match data.challenge_pass_rate {
+        Some(rate) => s.push_str(&format!("challenge_pass_rate: {:.1}%\n", rate * 100.0)),
+        None => s.push_str("challenge_pass_rate: N/A (never challenged)\n"),
+    }
+
+    // ── Baselines ──
+    s.push_str("\n[BASELINES]\n");
+    s.push_str(
+        "safe: spam_score<0.2, reporter_count>5, mean_reporter_trust>0.7, contestations=0\n",
+    );
+    s.push_str("nuisance: spam_score 0.2-0.6, moderate reporter activity, low trust\n");
+    s.push_str("scam: spam_score>0.6, high reporter_count, low challenge_pass_rate\n");
+    s.push_str("note: Reporter count and trust are weighted — 1 trusted reporter outweighs 10 untrusted ones.\n");
+
+    // ── Axiom evidence ──
+    s.push_str("\n[AXIOM EVIDENCE]\n");
+
+    // FIDELITY: weighted trust signal from reporter pool
+    let fidelity_signal = if data.reporter_count == 0 {
+        "no reporters — no fidelity signal".to_string()
+    } else {
+        format!(
+            "{} reporters, mean trust {:.2} — {}",
+            data.reporter_count,
+            data.mean_reporter_trust,
+            if data.mean_reporter_trust >= 0.7 {
+                "high-confidence community signal"
+            } else if data.mean_reporter_trust >= 0.4 {
+                "moderate-confidence community signal"
+            } else {
+                "low-trust reporter pool"
+            }
+        )
+    };
+    s.push_str(&format!(
+        "FIDELITY: {fidelity_signal}. Owner verified: {}.\n",
+        if data.owner_verified { "YES" } else { "NO" }
+    ));
+    s.push_str("PHI: Is the label distribution proportional? Balanced reports across categories suggest genuine community signal.\n");
+    s.push_str("VERIFY: Are report counts consistent with phone age? High reports on a new number = coordinated campaign.\n");
+    s.push_str("CULTURE: Does the number match expected country-code patterns? Spoofed numbers often mismatch geography.\n");
+    s.push_str("BURN: Is activity efficient? Bursts of reports in short windows may indicate automated flooding.\n");
+    s.push_str("SOVEREIGNTY: Can the owner contest? Low contestation_count with high scam reports = no recourse.\n");
+
+    // ── Question ──
+    s.push_str("\n[QUESTION]\n");
+    s.push_str("Based on the community report metrics above, evaluate this phone number's spam/scam likelihood. Score each axiom from 0.05 to 0.618.\n");
+
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -547,6 +646,36 @@ mod tests {
         assert!(stimulus.contains("ACTIVE (can mint"));
         assert!(stimulus.contains("ACTIVE (can freeze"));
         assert!(stimulus.contains("NO — LP tokens in creator wallet"));
+    }
+
+    #[test]
+    fn test_build_phone_stimulus_structure() {
+        use crate::domain::phone_number::{LabelDistribution, PhoneData};
+        let data = PhoneData {
+            number: "+33612345678".to_string(),
+            country_code: "FR".to_string(),
+            total_events: 47,
+            label_distribution: LabelDistribution {
+                legitimate: 3,
+                nuisance: 30,
+                scam: 12,
+                unknown: 2,
+            },
+            reporter_count: 35,
+            mean_reporter_trust: 0.65,
+            age_days: 14,
+            days_since_last_report: 1,
+            challenge_pass_rate: Some(0.15),
+            contestation_count: 0,
+            owner_verified: false,
+        };
+        let stimulus = build_phone_stimulus(&data);
+        assert!(stimulus.contains("[DOMAIN: phone-number]"));
+        assert!(stimulus.contains("+33612345678"));
+        assert!(stimulus.contains("total_events: 47"));
+        assert!(stimulus.contains("spam_score:"));
+        assert!(stimulus.contains("challenge_pass_rate: 15.0%"));
+        assert!(stimulus.contains("[QUESTION]"));
     }
 
     #[test]

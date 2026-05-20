@@ -6,6 +6,7 @@
 //! Adding a new domain: create `<domain>.rs`, implement parse() + score(),
 //! add `mod <domain>;` here, add one line to the dispatch in evaluate().
 
+mod phone_number;
 mod token;
 mod twitter;
 
@@ -200,6 +201,9 @@ impl Dog for DeterministicDog {
         }
         if let Some(ref s) = twitter::parse(content, stimulus.context.as_deref()) {
             return Ok(twitter::score(s));
+        }
+        if let Some(ref p) = phone_number::parse(content) {
+            return Ok(phone_number::score(p));
         }
 
         // ── FORM scoring (fallback for unstructured / unknown domains) ──

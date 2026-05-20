@@ -322,3 +322,12 @@ pub(super) fn enrich_wallet(
         }
     }
 }
+
+/// Phone number enrichment — stub for Phase 1.
+/// Real enrichment (community consensus, federation lookup) added in Phase 2.
+pub(super) fn enrich_phone(_stimulus: &mut String, domain_hint: &str) {
+    if domain_hint != "phone-number" {
+        // Phase 1: no enrichment beyond build_phone_stimulus.
+        // Phase 2: aggregate CallEvents, compute live NumberReputation.
+    }
+}

@@ -37,7 +37,7 @@ pub type OnDogCallback =
 /// Layer 3 of sensitivity filter: domains that must always route to sovereign (local) backends.
 /// Content in these domains is private by design (DMs, private financial data, wallet analysis).
 /// If no sovereign Dogs are available, return 503 Service Unavailable.
-const SOVEREIGN_DOMAINS: &[&str] = &["social-dm", "private", "wallet-judgment"];
+const SOVEREIGN_DOMAINS: &[&str] = &["social-dm", "private", "wallet-judgment", "phone-number"];
 
 /// Result of the judge pipeline — everything a handler needs to build its response.
 #[derive(Debug)]
@@ -155,8 +155,9 @@ async fn pipeline_inner(
     // Skip cache for domains with dynamic enrichment (token-analysis, wallet-judgment).
     // These domains fetch live on-chain data per-request — caching on the raw content
     // (mint address) returns stale verdicts when data changes or bugs are fixed.
-    let has_dynamic_enrichment =
-        domain_hint == "token-analysis" || domain_hint == "wallet-judgment";
+    let has_dynamic_enrichment = domain_hint == "token-analysis"
+        || domain_hint == "wallet-judgment"
+        || domain_hint == "phone-number";
     if !has_dynamic_enrichment
         && let Some(hit) = enrichment::check_cache(
             &stimulus_embedding,
@@ -195,8 +196,11 @@ async fn pipeline_inner(
     };
 
     // ── Stage 6: Wallet enrichment ──
-    let (content, captured_wallet_profile) =
+    let (mut content, captured_wallet_profile) =
         enrichment::enrich_wallet(content, domain_hint, &wallet_context_json);
+
+    // ── Stage 6b: Phone-number enrichment ──
+    enrichment::enrich_phone(&mut content, domain_hint);
 
     // ── Stage 7: Build stimulus ──
     let stimulus = Stimulus {
