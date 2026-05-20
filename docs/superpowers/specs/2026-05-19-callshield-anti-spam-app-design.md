@@ -502,7 +502,7 @@ For a number N seen by nodes A, B, C:
 - Beyond threshold -> pushed to peer nodes (gossip)
 - Each node can reject inconsistent messages
 - Node injecting noise (false positives > 20%) downgraded by peers
-- Hourly Merkle root anchored on Solana for tamper detection
+- Hourly Merkle root anchored on Solana for tamper detection (see section 4.3)
 
 ### 3.4 Privacy by Design
 
@@ -515,151 +515,146 @@ For a number N seen by nodes A, B, C:
 | User labels | Aggregated anonymously | Nobody individually |
 | Voice recording (proxy) | Callee's device, 24h max | The callee only |
 | Device attestation | Verified in transit, not stored | Nobody |
-| Solana anchors | On-chain (Merkle roots only) | Public (hashes, no PII) |
 
 **GDPR compliance:**
 - No user account -> no personal data per Article 4
 - Caller number treated as "legitimate interest" (Article 6.1.f) — fraud protection
 - Right to object = contestation (Flow 4)
 - Right to erasure = temporal decay naturally erases data in ~6 months
-- Solana anchors contain only Merkle roots (32-byte hashes), no personal data
 
 ---
 
-## 4. Solana Integration
+## 4. CWO Integration — CallShield as a Domain
 
-### 4.1 Purpose
+### 4.1 The Core Insight
 
-Solana serves as an **integrity anchor**, not a database. The registry lives off-chain. Solana proves it hasn't been tampered with.
-
-### 4.2 Mechanism
+CWO's mission is "making the cost of lying visible." CYNIC does this for tokens. CallShield does this for phone numbers. They are **domains of the same judgment pattern**:
 
 ```
-Every N hours (configurable, default: 1 hour):
-
-1. Score Engine snapshots all NumberReputations
-2. Builds Merkle tree from sorted (number, score, confidence, event_count) tuples
-3. Submits Merkle root (32 bytes) as a Solana transaction memo
-4. Stores transaction signature in registry metadata
-
-Verification (anyone can do this):
-1. Download registry snapshot from any federation node
-2. Rebuild Merkle tree locally
-3. Compare root against on-chain value
-4. If match: registry is intact since last anchor
-5. If mismatch: tampering detected — alert network
+stimulus  ->  Dogs  ->  verdict  ->  crystal
 ```
 
-### 4.3 Cost Model
+| | CYNIC (tokens) | CallShield (phone) |
+|--|--|--|
+| **Stimulus** | Token metadata + on-chain data | Caller number + call metadata |
+| **Dogs** | LLM + heuristics (server) | Humans (reporters) + heuristics |
+| **Verdict** | HOWL/WAG/GROWL/BARK | legitimate/nuisance/scam |
+| **Crystal** | "this token is a rug pull because..." | "this number is CPF telemarketing" |
+| **Node** | Server (cynic-core, cynic-gpu) | **Phone** (phone-first) |
+
+CallShield is not "an app that optionally uses CYNIC." It is the **first deployment of CWO judgment on phones** — a new domain, new Dog type (human reporters), new node type (phones).
+
+### 4.2 What is Shared vs Domain-Specific
+
+**Shared (the proto-CWO substrate, emergent):**
+- Verdict format: q_score (0-1), confidence (capped 0.95), label
+- Federation transport: Ed25519 signed gossip between nodes
+- Node identity: Ed25519 keypair, same format regardless of device/OS
+- Crystal format: domain-tagged distilled wisdom, transportable
+- Integrity anchoring: periodic Merkle root on Solana
+
+**Domain-specific (CallShield only):**
+- CallScreeningService / CallKit integration
+- Voice proxy (SIP challenge flow)
+- Post-call labeling UX
+- Phone-as-node gossip (BLE/WiFi Direct)
+- Reporter reputation (human-specific trust tiers)
+
+### 4.3 The Protocol Emerges from Domains
+
+The CWO Judgment Protocol (CJP) is NOT designed upfront. It **emerges** from building real domains:
 
 ```
-Per anchor transaction:
-  Base fee: 5000 lamports = 0.000005 SOL
-  Memo program: ~0.00002 SOL (32 bytes of data)
-  Total: ~0.000025 SOL per anchor
+Phase 1: Build CallShield with its own scoring/federation
+         Build CYNIC with its own scoring/federation
+         -> Two working systems, similar patterns, different code
 
-At hourly anchoring:
-  24 anchors/day * 0.000025 SOL = 0.0006 SOL/day
-  ~0.22 SOL/year
-  At $150/SOL = ~$33/year
+Phase 2: Extract the common substrate
+         -> Verdict format, federation transport, node identity, crystal format
+         -> Shared Rust crate: cwo-core (lightweight, embeddable)
+         -> Both CYNIC and CallShield import cwo-core
 
-  Negligible. Even at 10x SOL price, still < $1/day.
+Phase 3: Third domain validates the protocol
+         -> If cwo-core works for domain #3 without modification: protocol is real
+         -> If cwo-core needs domain-specific hacks: protocol is premature, iterate
 ```
 
-### 4.4 What Solana Does NOT Do
+**Anti-pattern:** Designing CJP before two domains validate it. A protocol without two independent implementations is a wish, not a standard. *(confidence 0.55 — inferred from protocol design history: HTTP, ActivityPub, SMTP all emerged from implementations)*
 
-- **Does not store CallEvents** (too voluminous, too expensive)
-- **Does not run scoring logic** (latency: Solana ~400ms, we need < 100ms)
-- **Does not replace federation gossip** (complementary: gossip = real-time, Solana = periodic proof)
-- **Does not manage user identity** (anonymous device tokens, off-chain)
+### 4.4 Architectural Compatibility
 
-### 4.5 Optional Future: Reporter Incentives (Phase 3+)
-
-```
-Concept (CONJECTURE — not validated):
-  - SPL token rewarding reliable reporters
-  - Earned by: reports that align with consensus (agreement_rate > 0.75)
-  - Spent on: premium features or governance votes
-  - Risk: token incentives attract bots (gaming for rewards)
-  - Mitigation: rewards proportional to trust_tier, not volume
-  - Decision: evaluate empirically after 12 months of organic growth
-
-  DO NOT build this at MVP. The community must grow organically first.
-  Token incentives before product-market fit = death spiral.
-```
-
-### 4.6 Helius Integration
-
-Existing Helius tooling applies to the Solana anchor layer:
-- `getBalance`: monitor anchor wallet SOL balance
-- `parseTransactions`: audit anchor history
-- `getTransactionHistory`: verify anchor cadence
-- Not needed for core product functionality
-
----
-
-## 5. CYNIC Relationship
-
-### 5.1 Philosophical Alignment
-
-CYNIC's six axioms map directly to CallShield:
-
-| Axiom | CallShield Application |
-|-------|----------------------|
-| FIDELITY | Reports must be faithful — anti-gaming ensures signal integrity |
-| PHI | Scoring is proportional — weighted by trust, bounded by confidence |
-| VERIFY | Everything is falsifiable — scores are derived, testable, contestable |
-| CULTURE | Community-fed — the registry IS the culture of its reporters |
-| BURN | No bloat — selective proxy, phone-first, minimal infra |
-| SOVEREIGNTY | No single point of control — federated, open source, exit paths |
-
-### 5.2 Technical Integration Path
-
-```
-Phase MVP (standalone):
-  CallShield has its own Score Engine
-  Simple weighted average, no CYNIC dependency
-  Faster to ship, simpler to maintain
-
-Phase 2+ (CYNIC-compatible):
-  Score Engine can optionally delegate to CYNIC kernel
-  A phone number becomes a "stimulus" judged by "Dogs" (reporters)
-  NumberReputation maps to CYNIC verdict (HOWL/WAG/GROWL/BARK)
-  Crystals = registry memory (high-confidence learned patterns)
-
-  Mapping:
-    HOWL  (> 0.528) -> score < 0.2  (high confidence legitimate)
-    WAG   (> 0.382) -> score < 0.4  (probably legitimate)
-    GROWL (> 0.236) -> score 0.4-0.7 (ambiguous, proxy zone)
-    BARK  (<= 0.236) -> score > 0.7  (spam/scam)
-
-  Note: inverted because CYNIC scores quality (high = good)
-  while CallShield scores spam likelihood (high = bad).
-  The CynicPipelineScorer adapter MUST invert: callshield_score = 1.0 - cynic_score.
-  This inversion happens in the adapter, not in the Score Engine or storage layer.
-
-Phase 3+ (shared kernel):
-  cynic-kernel gains a `phone_number` domain
-  Deterministic-dog handles heuristic scoring
-  LLM Dogs NOT needed (BURN: numeric scoring doesn't need inference)
-  Federation layer reuses CYNIC's crystal transport
-```
-
-### 5.3 Architectural Compatibility
-
-CallShield's architecture is designed so CYNIC integration requires zero structural changes:
+CallShield's architecture is designed so the CWO substrate can be extracted later without rewriting:
 
 ```
 ScoreEngine trait
-  |-- SimpleWeightedScorer    (MVP, standalone)
-  |-- CynicPipelineScorer     (Phase 2+, delegates to CYNIC kernel)
+  |-- SimpleWeightedScorer    (MVP — CallShield-specific)
+  |-- CwoVerdictScorer        (Phase 2+ — delegates to shared cwo-core)
 
 FederationTransport trait
-  |-- LibP2PGossip            (MVP, standalone)
-  |-- CrystalMycelium         (Phase 3+, CYNIC crystal transport)
+  |-- LibP2PGossip            (MVP — CallShield-specific gossip)
+  |-- CwoFederationTransport  (Phase 2+ — shared protocol)
+
+CrystalStore trait
+  |-- LocalCrystalStore       (MVP — phone SQLite)
+  |-- CwoCrystalStore         (Phase 2+ — shared format, cross-domain)
 ```
 
-The trait boundary means CYNIC integration is an adapter swap, not a rewrite.
+The trait boundaries are the extraction points. When two domains exist, the shared implementation moves behind these traits into cwo-core. The CallShield and CYNIC codebases don't change — only the adapter behind the trait.
+
+### 4.5 Phone as CWO Node
+
+The phone is not a client. It's a **first-class CWO node** with the same citizenship as a server:
+
+```
+CWO Node capabilities (regardless of hardware):
+  - Hold an Ed25519 identity
+  - Receive stimuli for its domain(s)
+  - Apply local Dogs (heuristic or human)
+  - Emit signed verdicts
+  - Store and serve crystals
+  - Participate in federation gossip
+
+What differs by hardware:
+  - Server: always-on, can run LLM Dogs, high bandwidth gossip
+  - Phone: intermittent, human Dogs only, BLE/WiFi gossip
+  - RPi/embedded: always-on but resource-constrained, heuristic Dogs only
+```
+
+This means a phone running CallShield and a server running CYNIC are **peers in the same network**. They speak the same federation protocol. They can relay each other's signed verdicts (without understanding the domain content). A phone node that sees a token verdict passes it along — it validates the signature, not the judgment.
+
+### 4.6 Solana Integrity Layer
+
+Solana is the shared integrity anchor for all CWO domains. Not domain-specific — any domain's verdicts can be anchored.
+
+```
+Mechanism:
+  Every N hours (configurable, default: 1 hour):
+  1. Node computes Merkle tree of all verdicts since last anchor
+  2. Root hash (32 bytes) submitted as Solana transaction memo
+  3. Anyone can verify: download verdict set + verify against on-chain root
+
+Cost per anchor: ~0.000025 SOL (~$33/year at hourly rate, $150/SOL)
+
+What Solana does:
+  - Proves verdicts haven't been tampered with after the fact
+  - Shared across domains (token verdicts + phone verdicts in same tree)
+  - Public auditability for regulators/partners
+
+What Solana does NOT do:
+  - Store verdicts (too voluminous)
+  - Run scoring (too slow, ~400ms vs < 100ms requirement)
+  - Replace federation (complementary: gossip = real-time, Solana = periodic proof)
+  - Manage identity (Ed25519 keys are off-chain)
+```
+
+**Reporter incentives (DEFERRED, Phase 3+ at earliest):**
+SPL token for reliable reporters is conceptually aligned but must NOT be built before product-market fit. Token incentives before organic community = gaming. Evaluate after 12 months of organic growth and only if community health metrics are strong. *(conjecture — confidence 0.3)*
+
+### 4.7 What This Means for the Spec
+
+CallShield MVP is built **standalone** — no CYNIC dependency, no cwo-core import. But every architectural boundary (ScoreEngine, FederationTransport, CrystalStore, NodeIdentity) is a **future extraction point** for the CWO protocol. The protocol doesn't exist yet. It emerges when CallShield + CYNIC have enough shared structure to factor out.
+
+**Falsification:** If after building CallShield, the shared patterns with CYNIC are < 30% of the codebase, the CWO protocol is premature. Keep them as independent products with philosophical kinship only.
 
 ---
 
@@ -797,7 +792,7 @@ Infra + 2 devs + ops:
 | App stores | 15-20% of premium | Unavoidable |
 | Development | EUR 150-250K | Main cost |
 | Legal/GDPR | EUR 10-20K | DPO, DPIA |
-| Solana anchoring | EUR ~33 | Negligible |
+| Solana anchoring | EUR ~33 | Negligible (shared CWO infra) |
 | **Total** | **~EUR 200-300K** | |
 
 ### 7.4 Funding Strategy
@@ -857,7 +852,7 @@ Options:
 2. **Privacy by design** — Truecaller can't reverse their model
 3. **Neutrality** — Orange can't federate with Free. We can.
 4. **Community data** — harder to replicate than an algorithm
-5. **Solana anchor** — auditable integrity no centralized competitor can match
+5. **CWO protocol potential** — first phone domain of a multi-domain judgment network. As CYNIC covers tokens and CallShield covers phones, the shared substrate becomes a cross-domain moat no single-purpose competitor can replicate
 
 ---
 
@@ -926,7 +921,7 @@ Apps              EUR 0 (FOSS)    EUR 99/yr Apple     Partial
 | Play Integrity | **No** | Medium | 1 of 3 anti-bot signals |
 | Firebase/APNs | **No** | Low | ntfy.sh (Android) |
 | libp2p | Yes | High | Standard, multi-impl |
-| Solana | Yes (public chain) | Low | Can anchor elsewhere or drop |
+| Solana | Yes (public chain) | Low | Shared CWO integrity layer. Can anchor elsewhere or drop. |
 | Helius | **No** | Very low | Direct RPC as fallback |
 
 ### 8.4 Open Source Strategy
@@ -977,7 +972,9 @@ M7-M10  Federation + Gossip
         - Phone-to-phone gossip (Android, opt-in)
         - First external node (association)
         - B2B API v1
-        - CYNIC integration assessment (plug or skip?)
+        - CWO substrate assessment: compare shared patterns with CYNIC
+          If > 30% overlap -> extract cwo-core crate
+          If < 30% -> keep independent, philosophical kinship only
 
 M10-M14 Sovereignty + Expansion
         - SIP -> OVH (S1)
@@ -989,7 +986,7 @@ M14+    Maturity
         - FreeSWITCH (S2)
         - EU expansion
         - Full self-sufficiency (infra + devs)
-        - CYNIC kernel integration (if validated)
+        - CWO protocol extraction (if substrate validated)
         - ARCEP declaration evaluation (S3)
         - Reporter incentive token evaluation (Phase 3+)
 ```
@@ -1034,5 +1031,5 @@ M14+    Maturity
 | iOS 18.2 Live Caller ID sufficient | Apple restricts API or latency > 500ms |
 | Selective proxy controls costs | > 30% of calls route through proxy |
 | Phone gossip enriches cache | < 2% cache hit improvement from gossip after 6 months |
-| Solana anchor adds trust | Zero users/partners cite auditability as value |
-| CYNIC integration adds scoring quality | CYNIC-scored numbers have same false positive rate as simple scorer |
+| Solana anchor adds trust | Zero users/partners cite auditability as value after 12 months |
+| CWO protocol is extractable | Shared patterns between CallShield and CYNIC < 30% of codebase after both are built |
