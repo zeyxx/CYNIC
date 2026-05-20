@@ -327,8 +327,7 @@ pub(super) fn enrich_wallet(
 /// Real enrichment (community consensus, federation lookup) added in Phase 2.
 pub(super) fn enrich_phone(_stimulus: &mut String, domain_hint: &str) {
     if domain_hint != "phone-number" {
-        return;
+        // Phase 1: no enrichment beyond build_phone_stimulus.
+        // Phase 2: aggregate CallEvents, compute live NumberReputation.
     }
-    // Phase 1: no enrichment beyond build_phone_stimulus.
-    // Phase 2: aggregate CallEvents, compute live NumberReputation.
 }

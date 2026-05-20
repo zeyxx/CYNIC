@@ -89,12 +89,9 @@ pub(super) fn parse(content: &str) -> Option<PhoneMetrics> {
             let v = v.trim();
             if v != "N/A" {
                 // Parse "15.0%" → 0.15
-                m.challenge_pass_rate = v
-                    .trim_end_matches('%')
-                    .trim()
-                    .parse::<f64>()
-                    .ok()
-                    .map(|pct| pct / 100.0);
+                if let Ok(pct) = v.trim_end_matches('%').trim().parse::<f64>() {
+                    m.challenge_pass_rate = Some(pct / 100.0);
+                }
             }
         }
     }
