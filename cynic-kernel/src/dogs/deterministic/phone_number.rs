@@ -84,7 +84,7 @@ pub(super) fn parse(content: &str) -> Option<PhoneMetrics> {
         } else if let Some(v) = line.strip_prefix("contestation_count: ") {
             m.contestation_count = v.trim().parse().unwrap_or(0);
         } else if let Some(v) = line.strip_prefix("owner_verified: ") {
-            m.owner_verified = v.trim() == "true";
+            m.owner_verified = v.trim() == "YES";
         } else if let Some(v) = line.strip_prefix("challenge_pass_rate: ") {
             let v = v.trim();
             if v != "N/A" {
@@ -369,6 +369,41 @@ mod tests {
         assert_eq!(m.label_legitimate, 1);
         assert_eq!(m.label_unknown, 1);
         assert!(m.challenge_pass_rate.is_none());
+    }
+
+    #[test]
+    fn parse_verified_owner_round_trips() {
+        let data = PhoneData {
+            number: "+14155550001".to_string(),
+            country_code: "US".to_string(),
+            total_events: 10,
+            label_distribution: LabelDistribution {
+                legitimate: 8,
+                nuisance: 1,
+                scam: 0,
+                unknown: 1,
+            },
+            reporter_count: 10,
+            mean_reporter_trust: 0.80,
+            age_days: 60,
+            days_since_last_report: 5,
+            challenge_pass_rate: Some(0.95),
+            contestation_count: 3,
+            owner_verified: true,
+        };
+        let stimulus = build_phone_stimulus(&data);
+        let m = parse(&stimulus).expect("should parse verified-owner stimulus");
+        assert!(
+            m.owner_verified,
+            "owner_verified: true must survive stimulus->parse round-trip (K20)"
+        );
+        assert_eq!(m.contestation_count, 3);
+        assert!(
+            m.challenge_pass_rate
+                .is_some_and(|r| (r - 0.95).abs() < 0.001),
+            "challenge_pass_rate should be ~0.95, got {:?}",
+            m.challenge_pass_rate
+        );
     }
 
     #[tokio::test]
