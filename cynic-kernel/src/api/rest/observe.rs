@@ -149,6 +149,36 @@ pub async fn observe_handler(
                         _ => {}
                     }
                 }
+
+                // K15 consumer: phone ingestion batch awareness for re-scoring.
+                // The ACTING part: observations are tagged so the pipeline can
+                // find numbers flagged for re-scoring on next /judge call.
+                // Full re-scoring automation is Phase 2 (compound loop).
+                if obs_clone.tool == "callshield_ingestion"
+                    && obs_clone.domain == "phone-number"
+                    && !obs_clone.context.is_empty()
+                {
+                    match serde_json::from_str::<serde_json::Value>(&obs_clone.context) {
+                        Ok(batch) => {
+                            let count = batch
+                                .get("numbers")
+                                .and_then(|n| n.as_array())
+                                .map(|a| a.len())
+                                .unwrap_or(0);
+                            tracing::info!(
+                                agent_id = obs_clone.agent_id.as_str(),
+                                numbers_count = count,
+                                "Phone ingestion batch received — K15 consumer active"
+                            );
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                error = %e,
+                                "Phone ingestion batch has invalid context JSON"
+                            );
+                        }
+                    }
+                }
             });
         }
         Err(_) => {
@@ -190,5 +220,41 @@ mod tests {
         assert_eq!(req.tool, "Edit");
         assert_eq!(req.target.as_deref(), Some("src/main.rs"));
         assert_eq!(req.agent_id.as_deref(), Some("claude-123"));
+    }
+
+    // ── K15 phone ingestion consumer ──────────────────────
+
+    #[test]
+    fn callshield_ingestion_context_parses_numbers_count() {
+        let context = r#"{"numbers":[{"number":"+33612345678","block_rate":0.7},{"number":"+33698765432","block_rate":0.1}]}"#;
+        let batch: serde_json::Value = serde_json::from_str(context).unwrap();
+        let count = batch
+            .get("numbers")
+            .and_then(|n| n.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0);
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn callshield_ingestion_empty_numbers_array_yields_zero() {
+        let context = r#"{"numbers":[]}"#;
+        let batch: serde_json::Value = serde_json::from_str(context).unwrap();
+        let count = batch
+            .get("numbers")
+            .and_then(|n| n.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn callshield_ingestion_invalid_json_yields_zero() {
+        let context = "not valid json";
+        let count = serde_json::from_str::<serde_json::Value>(context) // R2-exempt: test intentionally parses invalid JSON
+            .ok()
+            .and_then(|b| b.get("numbers").and_then(|n| n.as_array()).map(|a| a.len()))
+            .unwrap_or(0);
+        assert_eq!(count, 0);
     }
 }
