@@ -46,7 +46,8 @@ class Segment:
     """
 
     wm_class: str
-    window_name: str  # last observed (informational, not for grouping)
+    sub_context: str  # segmentation sub-key: window_name (terminal) or url_domain (browser)
+    window_name: str  # last observed (informational)
     workspace: int
     start_ts: str  # ISO 8601
     end_ts: str  # ISO 8601
@@ -99,6 +100,7 @@ class Session:
     segment_count: int
     total_inputs: int
     dominant_app: str  # wm_class with most inputs in this session
+    dominant_context: str = ""
 
 
 def _parse_ts(ts_str: str) -> datetime | None:
@@ -127,6 +129,17 @@ def _extract_domain(url: str) -> str:
         return urlparse(url).netloc
     except Exception:
         return ""
+
+
+_BROWSER_CLASSES = {"Google-chrome", "Chromium-browser", "firefox", "Firefox"}
+
+
+def _derive_sub_context(wm_class: str, window_name: str, url: str) -> str:
+    """Derive segmentation sub-context: url_domain for browsers, window_name for terminal."""
+    if wm_class in _BROWSER_CLASSES:
+        domain = _extract_domain(url)
+        return domain if domain else window_name
+    return window_name
 
 
 class Segmenter:
@@ -187,11 +200,12 @@ class Segmenter:
 
         if event_type == "focus_change":
             self._close_current(ts, reason="focus_change")
-            # Open new segment for the target app
             wm_class = event.data.get("to_wm_class", "")
             window_name = event.data.get("to_window_name", "")
             workspace = event.data.get("workspace", -1)
-            self._open_new(wm_class, window_name, workspace, ts)
+            url = event.data.get("url", "")
+            sub_ctx = _derive_sub_context(wm_class, window_name, url)
+            self._open_new(wm_class, window_name, workspace, ts, sub_context=sub_ctx)
             return
 
         # Regular input event
@@ -201,12 +215,13 @@ class Segmenter:
             workspace = event.data.get("workspace", -1)
             url = event.data.get("url", "")
 
-            # If no open segment, or wm_class changed (no focus_change event for it)
+            sub_ctx = _derive_sub_context(wm_class, window_name, url)
+
             if self._current is None:
-                self._open_new(wm_class, window_name, workspace, ts)
-            elif wm_class and wm_class != self._current.wm_class:
-                self._close_current(ts, reason="implicit_focus_change")
-                self._open_new(wm_class, window_name, workspace, ts)
+                self._open_new(wm_class, window_name, workspace, ts, sub_context=sub_ctx)
+            elif (wm_class and wm_class != self._current.wm_class) or                  (sub_ctx and sub_ctx != self._current.sub_context):
+                self._close_current(ts, reason="context_change")
+                self._open_new(wm_class, window_name, workspace, ts, sub_context=sub_ctx)
 
             # Check max duration
             if self._current is not None:
@@ -215,9 +230,9 @@ class Segmenter:
                     self._close_current(ts, reason="max_duration")
                     self._open_new(wm_class, window_name, workspace, ts)
 
-            # Accumulate input
             if self._current is not None:
                 self._current.accumulate(event_type, ts, url)
+                self._current.window_name = window_name
 
             # Track session start
             if not self._session_start:
@@ -232,9 +247,11 @@ class Segmenter:
     # Private
     # ------------------------------------------------------------------
 
-    def _open_new(self, wm_class: str, window_name: str, workspace: int, ts: str) -> None:
+    def _open_new(self, wm_class: str, window_name: str, workspace: int, ts: str,
+                  sub_context: str = "") -> None:
         self._current = _OpenSegment(
             wm_class=wm_class,
+            sub_context=sub_context or window_name,
             window_name=window_name,
             workspace=workspace,
             start_ts=ts,
@@ -261,11 +278,13 @@ class Segmenter:
 
         duration = _seconds_between(self._session_start, end_ts)
 
-        # Find dominant app
         app_inputs: dict[str, int] = {}
+        ctx_inputs: dict[str, int] = {}
         for seg in self._session_segments:
             app_inputs[seg.wm_class] = app_inputs.get(seg.wm_class, 0) + seg.total_inputs
+            ctx_inputs[seg.sub_context] = ctx_inputs.get(seg.sub_context, 0) + seg.total_inputs
         dominant = max(app_inputs, key=app_inputs.get) if app_inputs else ""  # type: ignore[arg-type]
+        dominant_ctx = max(ctx_inputs, key=ctx_inputs.get) if ctx_inputs else ""  # type: ignore[arg-type]
 
         session = Session(
             start_ts=self._session_start,
@@ -274,6 +293,7 @@ class Segmenter:
             segment_count=len(self._session_segments),
             total_inputs=self._session_total_inputs,
             dominant_app=dominant,
+            dominant_context=dominant_ctx,
         )
         self._completed_sessions.append(session)
 
@@ -287,6 +307,7 @@ class _OpenSegment:
     """Mutable accumulator for a segment being built."""
 
     wm_class: str
+    sub_context: str
     window_name: str
     workspace: int
     start_ts: str
@@ -321,6 +342,7 @@ class _OpenSegment:
 
         seg = Segment(
             wm_class=self.wm_class,
+            sub_context=self.sub_context,
             window_name=self.window_name,
             workspace=self.workspace,
             start_ts=self.start_ts,
