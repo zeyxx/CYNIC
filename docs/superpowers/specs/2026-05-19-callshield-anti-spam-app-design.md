@@ -123,7 +123,8 @@ ReporterReputation {
 - `callee_id` is a hash — the user's phone number is never stored in the registry
 - `weighted_score` is computed by weighting each `user_label` by the reporter's `trust_tier`
 - `confidence` is bounded (never 1.0) — more independent reports = higher confidence, but never certainty
-- `ReporterReputation` is local to device + synchronized anonymously — no centralized user profile
+- `ReporterReputation` is local to device. Server holds a shadow copy keyed by `reporter_id` (anonymous hash). On reinstall, the device re-attests via Play Integrity/DeviceCheck — if the same physical device, the server restores the shadow copy. If new device, reporter starts as NEW. The server never knows who the reporter is — only that the hash matches a previously-attested device.
+- `weighted_score` is suppressed from API responses when `confidence < 0.1` — the gateway returns `{"score": null, "status": "insufficient_data"}` instead of a misleading low-confidence score
 - The user's contact book is **never uploaded, never accessed, never read** — the GDPR differentiator vs Truecaller
 
 ---
@@ -172,7 +173,7 @@ CLIENTS (phones = infrastructure nodes)
                               v                        v
                            API B2B               SOLANA ANCHOR
                     /api/v1/reputation/       Periodic Merkle root
-                    /api/v1/stats             (~hourly, ~0.00025 SOL)
+                    /api/v1/stats             (~hourly, ~0.000025 SOL)
                     /api/v1/verify-self       Integrity verification
 ```
 
@@ -191,6 +192,12 @@ Lookup resolution order:
             Nearby phones exchange cache updates
             Protocol: BLE discovery + WiFi Direct data transfer
             Enriches local cache without server contact
+            Android 12+ constraint: requires BLUETOOTH_ADVERTISE + BLUETOOTH_SCAN
+              -> prompts deferred to post-onboarding (Screen 5, not Screen 2)
+              -> gossip is opt-in and non-blocking; app works without it
+            iOS constraint: no background BLE discovery allowed
+              -> iOS gossip limited to foreground-only, minimal value
+              -> iOS relies on Tier 2 (server) for cache enrichment
 
   Tier 2 : Server gateway (super-peer)
             Fallback when local cache misses
@@ -243,9 +250,13 @@ Unknown call + ambiguous score (0.3 < score < 0.7)
   -> Timeout/silence -> reject
      + CallEvent(outcome: proxy_challenged, challenge: failed)
   -> Name spoken -> 3s recording -> push notification to user with audio
-  -> User accepts -> proxy forwards the live call
-  -> User rejects -> proxy hangs up
+  -> Caller hears hold music/tone while waiting (max 30s total round-trip budget)
+  -> User accepts (within 30s of call start) -> proxy forwards the live call
+  -> User rejects OR timeout 30s -> proxy hangs up
      + CallEvent(label: nuisance/scam)
+  -> If caller hangs up during wait -> CallEvent(challenge: timeout)
+     Note: 30s is aggressive. Empirical data needed — if > 50% of legitimate
+     callers hang up before 30s, increase to 45s or add "please hold" message.
 ```
 
 **Flow 4 — Contestation**
@@ -266,7 +277,7 @@ Every N hours:
   -> Root hash (32 bytes) submitted as Solana transaction memo
   -> Transaction signature stored in registry (merkle_anchor field)
   -> Anyone can verify: download registry snapshot + verify against on-chain root
-  -> Cost: ~0.00025 SOL per anchor = ~0.15$/day at hourly rate
+  -> Cost: ~0.000025 SOL per anchor (~0.004$/day at hourly rate, see section 4.3)
 ```
 
 ### 2.4 Technical Stack
@@ -289,6 +300,65 @@ Every N hours:
 | iOS app | Swift native | Direct CallKit / LiveCallerIDLookup access |
 | On-chain anchor | Solana (memo program) | Cheap, fast finality, existing tooling (Helius) |
 | Solana SDK | anchor-lang or solana-sdk | Merkle root submission only |
+
+### 2.5 Degraded State & API Contract
+
+When the Gateway or Score Engine is degraded, `/lookup` must still return a usable response. The app must make a binary decision (block/allow) regardless of backend state.
+
+```
+Normal response:
+  { "number": "+33612345678", "score": 0.73, "confidence": 0.45,
+    "label_distribution": {...}, "status": "ok" }
+
+Degraded responses:
+  Score Engine down:
+    { "score": null, "confidence": null, "status": "degraded",
+      "action": "allow" }
+    -> App follows presumption of innocence: let the call through
+
+  Registry DB unreachable:
+    { "score": null, "confidence": null, "status": "degraded",
+      "action": "allow" }
+
+  Number not in registry (cache miss + DB miss):
+    { "score": null, "confidence": null, "status": "unknown",
+      "action": "allow" }
+
+  Insufficient data (confidence < 0.1):
+    { "score": null, "confidence": 0.05, "status": "insufficient_data",
+      "action": "allow" }
+
+Rule: the app NEVER blocks when status != "ok".
+The "action" field is authoritative — the app follows it, not the score.
+```
+
+### 2.6 Cache Invalidation (Phone Tier 0)
+
+```
+Strategy: TTL-based + server push for high-impact changes
+
+TTL by score category:
+  Confirmed spam (score > 0.7):     TTL = 24h  (stable, rarely changes)
+  Ambiguous (0.3-0.7):              TTL = 4h   (volatile, needs freshness)
+  Known safe (score < 0.3):         TTL = 12h  (stable)
+  Unknown (not in cache):           no entry   (Tier 2 lookup on next call)
+
+Server push (optional, premium):
+  When a number's score crosses a threshold (e.g., 0.3 -> 0.8 = new spam),
+  push invalidation to all devices that cached it.
+  Protocol: lightweight push via FCM/APNs/ntfy.sh
+  Payload: { "invalidate": ["+33612345678", "+33698765432"] }
+  App deletes from local cache -> next call triggers fresh Tier 2 lookup.
+
+Gossip cache sync:
+  When phone gossip is active (Tier 1), peers exchange cache entries
+  with their TTL. Receiving phone takes the fresher entry.
+  Conflict: if peer has different score, take the one with higher confidence.
+
+Cold start cache:
+  On first install, app downloads top-N known spam numbers (N = 10K-50K).
+  This ensures Tier 0 is useful immediately, before the user reports anything.
+```
 
 ---
 
@@ -360,6 +430,8 @@ Trust tier progression:
 
 **Agreement rate:** Measures how a reporter's labels converge with final consensus. A reporter who flags everything as "scam" while consensus says "legitimate" sees their agreement_rate drop and weight decrease.
 
+**Bootstrap problem:** For numbers with < 5 total events, there is no stable consensus yet. In this case, `agreement_rate` is not updated for any reporter on that number. The number's score uses unweighted labels (all reporters treated as trust_weight 0.2 = NEW tier). Once the number reaches >= 5 events, consensus is computed retroactively and all reporters' `agreement_rate` is updated. This avoids division-by-zero and prevents early reporters from being penalized for labeling numbers that later get contradictory reports.
+
 **Anti-gaming:**
 - **Mass-flag bot** (1000 fake devices): each is NEW (trust 0.2), rate-limited to 5/day, Play Integrity/DeviceCheck filters emulators
 - **Telemarketer mass-contesting:** OTP verified per number. Contestation adjusts score marginally, not reset. 500 independent "scam" vs 1 contestation = marginal decrease.
@@ -406,8 +478,12 @@ For a number N seen by nodes A, B, C:
   merged_confidence = max(confidence_j)
 
   Conflict: if one node says 0.1 (safe) and another says 0.9 (scam)
-    -> conservative score wins (presumption of innocence)
-    -> BUT conflict flagged for moderator review
+    -> "conservative" = the LOWER score (toward safe/legitimate)
+    -> Rationale: presumption of innocence — false positive (blocking legit)
+       is worse than false negative (letting spam through)
+    -> Exception: if the higher-trust node says scam AND its confidence > 0.7,
+       use the higher-trust node's score (strong evidence overrides caution)
+    -> ALL conflicts flagged for moderator review regardless of resolution
 ```
 
 **Node trust:**
@@ -558,7 +634,9 @@ Phase 2+ (CYNIC-compatible):
     BARK  (<= 0.236) -> score > 0.7  (spam/scam)
 
   Note: inverted because CYNIC scores quality (high = good)
-  while CallShield scores spam likelihood (high = bad)
+  while CallShield scores spam likelihood (high = bad).
+  The CynicPipelineScorer adapter MUST invert: callshield_score = 1.0 - cynic_score.
+  This inversion happens in the adapter, not in the Score Engine or storage layer.
 
 Phase 3+ (shared kernel):
   cynic-kernel gains a `phone_number` domain
@@ -674,7 +752,7 @@ Minimal gamification: "Vigie" badge at 10 verified reports. Counter: "You helped
 2. OTP verification (SMS to contested number)
 3. Score display + breakdown
 4. "Contest" -> Who? [Individual / Business / Association] + Activity
-5. Score adjusted. If >= N verified contestations -> moderator review -> possible whitelist (90 days)
+5. Score adjusted (-0.1 per verified contestation). If >= 3 verified contestations -> moderator review -> possible whitelist (90 days). N=3 chosen because: 1 contestation could be the spammer themselves, 2 could be coordinated, 3 independent OTP-verified contestations is a meaningful signal. Calibrate empirically after launch.
 
 ---
 
@@ -715,7 +793,7 @@ Infra + 2 devs + ops:
 | Item | Year 1 | Note |
 |------|--------|------|
 | Server infra | EUR 6-12K | Scales linearly |
-| SIP trunking | EUR 2.4-24K | Depends on proxy usage |
+| SIP trunking | EUR 2.4-12K | Proxy-only for premium subscribers (~10% of calls per premium user). Lower bound: 500 premium x 2 proxy calls/month x EUR 0.20/call. Upper bound: 5000 premium x 2 calls/month x EUR 0.10/call (OVH rates). |
 | App stores | 15-20% of premium | Unavoidable |
 | Development | EUR 150-250K | Main cost |
 | Legal/GDPR | EUR 10-20K | DPO, DPIA |
@@ -876,6 +954,9 @@ M1-M3   Apps MVP
         - iOS: Call Directory Extension (batch, pre-18.2)
         - Local SQLite cache
         - Closed beta 100-500 testers
+        - Note: scoring is UNWEIGHTED in this phase (all reporters = NEW tier,
+          trust_weight 0.2). ReporterReputation bootstraps from M3 onward.
+          This is acceptable because beta testers are vetted + small population.
 
 M3-M5   Live + Community
         - iOS 18.2: LiveCallerIDLookupExtension
@@ -887,7 +968,7 @@ M3-M5   Live + Community
 
 M5-M7   Proxy + Premium
         - Voice proxy (Twilio adapter)
-        - Challenge flow
+        - Challenge flow (/challenge endpoint goes live)
         - Premium tier (in-app payment)
         - Public launch France
 
