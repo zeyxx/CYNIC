@@ -668,6 +668,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(infra::probes::ProxyProbe),
         Arc::new(infra::probes::SomaProbe),
         Arc::new(fleet_probe),
+        Arc::new(infra::probes::VersionProbe::new()),
     ];
 
     // ── Domain curations (D1-D6) for wisdom enrichment ──

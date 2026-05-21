@@ -119,6 +119,33 @@ pub struct ListeningPort {
     pub process: Option<String>,
 }
 
+/// A single tracked dependency's version state.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DependencyVersion {
+    /// Dependency name (e.g. "llama.cpp", "tailscale", "surrealdb").
+    pub name: String,
+    /// Version currently running (from binary --version or API).
+    pub running: Option<String>,
+    /// Latest available version (from GitHub Releases API).
+    pub latest: Option<String>,
+    /// True when running != latest (not necessarily bad — just awareness).
+    pub behind: bool,
+    /// Number of major/minor versions behind (0 = up to date or unknown).
+    pub versions_behind: u32,
+    /// GitHub repo for this dependency (e.g. "ggml-org/llama.cpp").
+    pub source: String,
+}
+
+/// Supply chain awareness: versions of all tracked dependencies.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VersionDetails {
+    pub dependencies: Vec<DependencyVersion>,
+    /// Count of dependencies that are behind latest.
+    pub behind_count: u32,
+    /// Count of dependencies whose running version couldn't be detected.
+    pub unknown_count: u32,
+}
+
 /// Body awareness: ports, firewall, process bindings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SomaDetails {
@@ -144,6 +171,7 @@ pub enum ProbeDetails {
     Pressure(PressureDetails),
     Fleet(FleetDetails),
     Soma(SomaDetails),
+    Version(VersionDetails),
     /// NullProbe and test doubles only. Real probes must use a typed variant.
     Empty,
 }
