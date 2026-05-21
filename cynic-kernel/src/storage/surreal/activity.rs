@@ -269,6 +269,23 @@ pub(super) async fn list_observations_raw(
     Ok(rows.iter().map(row_to_raw_observation).collect())
 }
 
+/// List observations filtered by domain + target — efficient single-target lookup.
+pub(super) async fn list_observations_by_target(
+    storage: &SurrealHttpStorage,
+    domain: &str,
+    target: &str,
+    limit: u32,
+) -> Result<Vec<RawObservation>, StorageError> {
+    let domain_esc = escape_surreal(domain);
+    let target_esc = escape_surreal(target);
+    let sql = format!(
+        "SELECT * FROM observation WHERE domain = '{domain_esc}' AND target = '{target_esc}' ORDER BY created_at DESC LIMIT {}",
+        safe_limit(limit),
+    );
+    let rows = storage.query_one(&sql).await?;
+    Ok(rows.iter().map(row_to_raw_observation).collect())
+}
+
 /// Last observation per source — GROUP BY agent_id, return last timestamp + count.
 /// Uses array::max instead of math::max (created_at is stored as string, not datetime).
 pub(super) async fn last_observation_per_source(
