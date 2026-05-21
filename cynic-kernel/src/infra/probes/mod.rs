@@ -6,6 +6,7 @@ pub mod process;
 pub mod proxy;
 pub mod resource;
 pub mod soma;
+pub mod version;
 
 pub use backup::BackupProbe;
 pub use fleet::{FleetProbe, FleetTarget};
@@ -15,6 +16,7 @@ pub use process::ProcessProbe;
 pub use proxy::ProxyProbe;
 pub use resource::ResourceProbe;
 pub use soma::SomaProbe;
+pub use version::VersionProbe;
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
