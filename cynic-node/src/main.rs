@@ -3,6 +3,7 @@
 
 mod announce;
 mod config;
+mod config_watch;
 mod supervise;
 mod verify;
 mod websocket;
@@ -44,6 +45,8 @@ enum ExitReason {
     Expired,
     /// Wrong model loaded — backend identity check failed.
     Mismatch,
+    /// L3: config file changed on disk — proactive reload.
+    ConfigChanged,
     /// Permanent error that cannot be recovered from.
     Fatal(String),
 }
@@ -62,6 +65,7 @@ async fn watch(
     child: &mut Box<dyn ChildWrapper>,
     dog_id: &str,
     shutdown: &CancellationToken,
+    config_rx: &mut tokio::sync::watch::Receiver<()>,
 ) -> ExitReason {
     let health_url = config::derive_health_url(&cfg.dog.base_url);
     let models_url = config::derive_models_url(&cfg.dog.base_url);
@@ -155,6 +159,10 @@ async fn watch(
             status = &mut child_wait => {
                 tracing::error!("backend process exited unexpectedly: {status:?}");
                 return ExitReason::Crashed;
+            }
+            Ok(()) = config_rx.changed() => {
+                tracing::info!("L3: config file changed on disk — triggering reload");
+                return ExitReason::ConfigChanged;
             }
             _ = shutdown.cancelled() => {
                 let _ = ws_handle.await; // Wait for clean WebSocket shutdown
@@ -380,10 +388,31 @@ async fn register_with_kernel(
                         return Ok(resp.dog_id);
                     }
                     Err(announce::RegisterError::Collision) => {
-                        return Err(ExitReason::Fatal(format!(
-                            "registration collision: a dog named '{}' is already registered",
-                            cfg.dog.name
-                        )));
+                        // The kernel already has a Dog with this name (from backends.toml boot).
+                        // Instead of dying, try heartbeating the existing Dog.
+                        // If alive → adopt its name and enter watch loop.
+                        tracing::info!(
+                            dog_name = %cfg.dog.name,
+                            "registration collision — Dog already in kernel roster, trying heartbeat"
+                        );
+                        match announce::send_heartbeat(client, &cfg.kernel.url, &cfg.kernel.api_key, &cfg.dog.name).await {
+                            announce::HeartbeatResult::Alive => {
+                                tracing::info!(
+                                    dog_id = %cfg.dog.name,
+                                    "heartbeat accepted — adopting existing Dog (kernel manages roster)"
+                                );
+                                return Ok(cfg.dog.name.clone());
+                            }
+                            announce::HeartbeatResult::Expired => {
+                                // Dog existed but expired — retry registration on next loop.
+                                tracing::warn!("Dog existed but TTL expired — retrying registration");
+                                tokio::time::sleep(Duration::from_secs(5)).await;
+                            }
+                            announce::HeartbeatResult::Error(e) => {
+                                tracing::warn!("heartbeat fallback failed: {e} — retrying registration");
+                                tokio::time::sleep(Duration::from_secs(5)).await;
+                            }
+                        }
                     }
                     Err(announce::RegisterError::CalibrationFail(body)) => {
                         calibration_attempts += 1;
@@ -437,6 +466,7 @@ async fn run_lifecycle(
     child: &mut Box<dyn ChildWrapper>,
     shutdown: &CancellationToken,
     backoff: &mut supervise::Backoff,
+    config_rx: &mut tokio::sync::watch::Receiver<()>,
 ) -> (ExitReason, Option<String>) {
     if let Err(reason) = wait_healthy(client, cfg, child, shutdown).await {
         return (reason, None);
@@ -445,7 +475,7 @@ async fn run_lifecycle(
     match register_with_kernel(client, cfg, child, shutdown).await {
         Ok(id) => {
             backoff.reset();
-            let reason = watch(client, cfg, child, &id, shutdown).await;
+            let reason = watch(client, cfg, child, &id, shutdown, config_rx).await;
             (reason, Some(id))
         }
         Err(reason) => (reason, None),
@@ -492,7 +522,28 @@ fn install_signal_handler(shutdown: CancellationToken) {
 
 /// The main supervision loop.  Returns `ExitCode::SUCCESS` on clean shutdown,
 /// `ExitCode::FAILURE` on unrecoverable errors.
-async fn run_node(client: &Client, cfg: &Config, shutdown: &CancellationToken) -> ExitCode {
+///
+/// Owns the config so it can be reloaded from disk on model mismatch (L2 auto-heal).
+async fn run_node(
+    client: &Client,
+    config_path: &str,
+    mut cfg: Config,
+    shutdown: &CancellationToken,
+) -> ExitCode {
+    // L3: file watcher — proactive config reload on TOML change.
+    // Degraded if watcher fails (L2 mismatch detection still works as fallback).
+    // _watcher must stay alive for the duration of run_node — dropping it kills inotify.
+    let (mut config_rx, _watcher) = match config_watch::spawn_config_watcher(config_path) {
+        Ok((rx, watcher)) => (rx, Some(watcher)),
+        Err(e) => {
+            tracing::warn!(
+                "L3 file watcher unavailable ({e}) — falling back to L2 mismatch detection"
+            );
+            let (_, rx) = tokio::sync::watch::channel(());
+            (rx, None)
+        }
+    };
+
     let mut state = NodeState {
         needs_spawn: true,
         child: None,
@@ -503,9 +554,9 @@ async fn run_node(client: &Client, cfg: &Config, shutdown: &CancellationToken) -
     let exit_code = loop {
         if state.needs_spawn {
             if let Some(id) = state.dog_id.take() {
-                deregister(client, cfg, &id).await;
+                deregister(client, &cfg, &id).await;
             }
-            match spawn_backend(cfg).await {
+            match spawn_backend(&cfg).await {
                 Ok(c) => {
                     state.child = Some(c);
                     state.backoff.record_start();
@@ -522,10 +573,49 @@ async fn run_node(client: &Client, cfg: &Config, shutdown: &CancellationToken) -
             break ExitCode::FAILURE;
         };
 
-        let (reason, id) = run_lifecycle(client, cfg, c, shutdown, &mut state.backoff).await;
+        let (reason, id) = run_lifecycle(
+            client,
+            &cfg,
+            c,
+            shutdown,
+            &mut state.backoff,
+            &mut config_rx,
+        )
+        .await;
         state.dog_id = id;
 
-        match handle_exit_reason(reason, cfg, &mut state, shutdown, client).await {
+        // L2/L3 auto-heal: on mismatch or config file change, re-read from disk.
+        // If the TOML was updated (new model, new command), adopt the new config
+        // before respawning. If unchanged, restart anyway (runtime mismatch).
+        if matches!(&reason, ExitReason::Mismatch | ExitReason::ConfigChanged) {
+            match config::load(config_path) {
+                Ok(new_cfg) => {
+                    let model_changed = new_cfg.dog.model != cfg.dog.model;
+                    let command_changed = new_cfg.process.command != cfg.process.command;
+                    let name_changed = new_cfg.dog.name != cfg.dog.name;
+                    if model_changed || command_changed || name_changed {
+                        tracing::info!(
+                            old_model = %cfg.dog.model,
+                            new_model = %new_cfg.dog.model,
+                            old_name = %cfg.dog.name,
+                            new_name = %new_cfg.dog.name,
+                            "L2 auto-heal: config changed on disk — adopting new config"
+                        );
+                        cfg = new_cfg;
+                        state.backoff.reset();
+                    } else {
+                        tracing::warn!(
+                            "L2: config unchanged on disk — runtime mismatch, restarting backend"
+                        );
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("L2: config reload failed ({e}) — using existing config");
+                }
+            }
+        }
+
+        match handle_exit_reason(reason, &cfg, &mut state, shutdown, client).await {
             LoopAction::Continue => {}
             LoopAction::Break(code) => break code,
         }
@@ -588,7 +678,7 @@ async fn handle_exit_reason(
             state.backoff.wait_or_shutdown(shutdown).await;
             LoopAction::Continue
         }
-        ExitReason::Mismatch => {
+        ExitReason::Mismatch | ExitReason::ConfigChanged => {
             if let Some(id) = state.dog_id.take() {
                 deregister(client, cfg, &id).await;
             }
@@ -700,5 +790,5 @@ async fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    run_node(&client, &cfg, &shutdown).await
+    run_node(&client, &cli.config, cfg, &shutdown).await
 }
