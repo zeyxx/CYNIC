@@ -6,7 +6,7 @@ use crate::domain::dog::{
 use crate::domain::events::KernelEvent;
 use crate::judge::{Judge, JudgeError};
 
-use super::{PipelineDeps, PipelineResult, SOVEREIGN_DOMAINS};
+use super::{DETERMINISTIC_ONLY_DOMAINS, PipelineDeps, PipelineResult, SOVEREIGN_DOMAINS};
 
 /// Build a deterministic wallet verdict without invoking LLM Dogs.
 /// Returns `Some(PipelineResult)` if domain is wallet-judgment and profile is available.
@@ -104,6 +104,16 @@ pub(super) fn select_dogs<'a>(
     judge: &Judge,
     deps: &PipelineDeps<'_>,
 ) -> Result<DogFilter<'a>, JudgeError> {
+    // Deterministic-only domains: skip LLM inference entirely.
+    // Returns only deterministic-dog — instant, free, no GPU slot consumed.
+    if DETERMINISTIC_ONLY_DOMAINS.contains(&domain_hint) {
+        tracing::info!(
+            domain = domain_hint,
+            "deterministic-only domain — skipping LLM Dogs"
+        );
+        return Ok((Some(vec!["deterministic-dog".to_string()]), None));
+    }
+
     let domain_requires_sovereign = SOVEREIGN_DOMAINS.contains(&domain_hint);
 
     if domain_requires_sovereign {
