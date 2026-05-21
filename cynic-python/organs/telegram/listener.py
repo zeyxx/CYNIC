@@ -375,7 +375,9 @@ async def backfill(cfg: TelegramConfig, channel: str, limit: int) -> None:
     conn = bootstrap_db(cfg.db_path)
     Path(cfg.media_dir).mkdir(parents=True, exist_ok=True)
 
-    entity = await client.get_entity(channel)
+    # Telethon needs int for numeric IDs, str for @usernames
+    target = int(channel) if channel.lstrip("-").isdigit() else channel
+    entity = await client.get_entity(target)
     ch_type = "channel" if getattr(entity, "broadcast", False) else "group"
     upsert_channel(
         conn, entity.id,

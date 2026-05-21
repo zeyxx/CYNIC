@@ -49,7 +49,10 @@ def load_config(yaml_path: str) -> TelegramConfig:
         for key in ("session_path", "db_path", "media_dir",
                      "buffer_window_seconds", "heartbeat_interval_seconds"):
             if key in data:
-                setattr(cfg, key, data[key])
+                val = data[key]
+                if key in ("session_path", "db_path", "media_dir") and isinstance(val, str):
+                    val = str(Path(val).expanduser())
+                setattr(cfg, key, val)
         if "retention" in data and isinstance(data["retention"], dict):
             cfg.retention = RetentionConfig(
                 raw_days=data["retention"].get("raw_days", 90),
