@@ -134,6 +134,7 @@ impl CynicMcp {
             enricher: self.enricher.as_deref(),
             domain_curations: self.domain_curations.as_ref(),
             domain_router: Some(self.domain_router.as_ref()),
+            routing_calc: Some(self.routing_calc.as_ref()),
             priority: p
                 .priority
                 .as_deref()

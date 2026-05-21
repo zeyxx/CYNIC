@@ -124,7 +124,29 @@ pub(super) fn select_dogs<'a>(
         return Ok((None, dogs_filter));
     }
 
-    let from_router = deps.domain_router.map(|r| r.dogs_for_domain(domain_hint));
+    let mut from_router = deps.domain_router.map(|r| r.dogs_for_domain(domain_hint));
+
+    // K15 consumer: refine by observed per-domain reliability.
+    // RoutingCalculator tracks success_rate per (domain, dog_id). If data exists and
+    // some Dogs are unreliable (<95% success, >=10 samples), exclude them.
+    if let Some(ref mut router_dogs) = from_router
+        && let Some(routing_calc) = deps.routing_calc
+        && let Some(reliable) = routing_calc.reliable_dogs(domain_hint)
+        && !reliable.is_empty()
+    {
+        let before = router_dogs.len();
+        router_dogs.retain(|d| reliable.contains(d));
+        let excluded = before - router_dogs.len();
+        if excluded > 0 {
+            tracing::info!(
+                domain = domain_hint,
+                excluded_count = excluded,
+                reliable_count = router_dogs.len(),
+                "RoutingCalculator excluded unreliable Dogs for this domain"
+            );
+        }
+    }
+
     if let Some(router_dogs) = from_router {
         Ok((Some(router_dogs), None))
     } else {

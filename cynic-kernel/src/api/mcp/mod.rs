@@ -301,9 +301,6 @@ pub struct CynicMcp {
     pub(crate) domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
     pub(crate) domain_router: Arc<crate::infra::domain_router::DomainRouter>,
     pub(crate) dog_perf_collector: Arc<crate::infra::dog_performance::DogPerformanceCollector>,
-    // WHY: routing_calc populated at boot, read by observer consumer (K15 seam 3).
-    // Disabled warning until observer wired.
-    #[allow(dead_code)]
     pub(crate) routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
     tool_router: ToolRouter<Self>,
 }

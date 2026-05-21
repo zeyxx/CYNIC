@@ -58,6 +58,7 @@ async fn pipeline_runs_with_null_storage_and_null_embedding() {
         enricher: None,
         domain_curations: &domain_curations,
         domain_router: None,
+        routing_calc: None,
         priority: SlotPriority::User,
     };
 
@@ -125,6 +126,7 @@ async fn pipeline_tracks_usage() {
         enricher: None,
         domain_curations: &domain_curations,
         domain_router: None,
+        routing_calc: None,
         priority: SlotPriority::User,
     };
     let _ = run("test content".into(), None, None, None, true, &deps).await;
@@ -167,6 +169,7 @@ async fn pipeline_with_embedding_populates_cache_and_hits() {
         enricher: None,
         domain_curations: &domain_curations,
         domain_router: None,
+        routing_calc: None,
         priority: SlotPriority::User,
     };
 
@@ -265,6 +268,7 @@ async fn pipeline_with_embedding_creates_crystal_with_provenance() {
         enricher: None,
         domain_curations: &domain_curations,
         domain_router: None,
+        routing_calc: None,
         priority: SlotPriority::User,
     };
 
@@ -342,6 +346,7 @@ async fn wallet_judgment_returns_verdict_from_deterministic_dog() {
         enricher: None,
         domain_curations: &domain_curations,
         domain_router: None,
+        routing_calc: None,
         priority: SlotPriority::User,
     };
 
@@ -412,6 +417,7 @@ async fn wallet_judgment_bark_on_insufficient_games() {
         enricher: None,
         domain_curations: &domain_curations,
         domain_router: None,
+        routing_calc: None,
         priority: SlotPriority::User,
     };
 
@@ -466,6 +472,7 @@ async fn wallet_judgment_error_on_missing_profile() {
         enricher: None,
         domain_curations: &domain_curations,
         domain_router: None,
+        routing_calc: None,
         priority: SlotPriority::User,
     };
 
@@ -543,6 +550,7 @@ async fn test_phone_number_domain_produces_verdict() {
         enricher: None,
         domain_curations: &domain_curations,
         domain_router: None,
+        routing_calc: None,
         priority: SlotPriority::User,
     };
 

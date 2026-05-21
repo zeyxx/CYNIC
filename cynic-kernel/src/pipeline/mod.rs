@@ -86,6 +86,8 @@ pub struct PipelineDeps<'a> {
     /// Domain-aware Dog router — selects suitable Dogs based on domain hint.
     /// Initialized from backend_configs at boot. If None, all Dogs are used (fallback).
     pub domain_router: Option<&'a crate::infra::domain_router::DomainRouter>,
+    /// Dynamic routing calculator — filters Dogs by observed per-domain success rate.
+    pub routing_calc: Option<&'a crate::infra::routing_calc::RoutingCalculator>,
     /// Priority tier for slot acquisition — determines wait behaviour per caller.
     /// REST/MCP handlers pass User; nightshift passes Nightshift; background passes Background.
     pub priority: SlotPriority,

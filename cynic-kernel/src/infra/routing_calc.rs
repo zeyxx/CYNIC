@@ -107,6 +107,19 @@ impl RoutingCalculator {
             .unwrap_or_default()
     }
 
+    /// Dogs with sufficient success rate (>=0.95) for a domain, minimum 10 samples.
+    /// Returns None if no performance data exists (domain never seen).
+    pub fn reliable_dogs(&self, domain: &str) -> Option<Vec<String>> {
+        self.cache.read().ok().and_then(|cache| {
+            cache.get(domain).map(|dogs| {
+                dogs.iter()
+                    .filter(|p| p.sample_count >= 10 && p.success_rate >= 0.95)
+                    .map(|p| p.dog_id.clone())
+                    .collect()
+            })
+        })
+    }
+
     /// Update routing table for a domain (called by observation consumer).
     pub fn update_domain_routing(&self, domain: &str, dogs: Vec<DogPerformance>) {
         if let Ok(mut cache) = self.cache.write() {

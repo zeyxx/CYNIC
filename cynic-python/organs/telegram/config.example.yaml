@@ -1,0 +1,13 @@
+# Telegram organ config — non-secret, tunable values only.
+# Secrets (API keys, tokens) come from env vars in ~/.config/cynic/env.
+#
+# Copy to: ~/.cynic/organs/telegram/config.yaml
+
+session_path: ~/.cynic/organs/telegram/session.session
+db_path: ~/.cynic/organs/telegram/messages.db
+media_dir: ~/.cynic/organs/telegram/media/
+buffer_window_seconds: 60
+heartbeat_interval_seconds: 300
+retention:
+  raw_days: 90
+  media_days: 30

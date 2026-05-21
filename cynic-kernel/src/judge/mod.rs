@@ -13,7 +13,6 @@ use crate::domain::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
 use crate::domain::health_gate::{FailureReason, HealthGate};
 use crate::domain::metrics::Metrics;
 use crate::domain::slot_semaphore::{SlotPriority, SlotSemaphoreMap};
-use crate::infra::config::ErrorDetection;
 use crate::infra::error_classifier::ErrorCategory;
 use crate::organ::BackendHandle;
 use chrono::Utc;
@@ -37,6 +36,10 @@ pub struct Judge {
     slot_tracker: Option<Arc<crate::domain::slot_tracker::SlotTracker>>,
     /// Soma L2: priority-aware slot semaphores — if set, each Dog acquires a permit before inference.
     slot_semaphores: Option<Arc<SlotSemaphoreMap>>,
+    /// Error classification patterns from backends.toml [error_detection].
+    error_detection: crate::infra::config::ErrorDetection,
+    /// IDs of Dogs marked as priority="backup" in backends.toml.
+    backup_dog_ids: std::collections::HashSet<String>,
 }
 
 impl std::fmt::Debug for Judge {
@@ -63,7 +66,21 @@ impl Judge {
             last_hash: Mutex::new(None),
             slot_tracker: None,
             slot_semaphores: None,
+            error_detection: crate::infra::config::ErrorDetection::default(),
+            backup_dog_ids: std::collections::HashSet::new(),
         }
+    }
+
+    /// Set error detection patterns from backends.toml config.
+    pub fn with_error_detection(mut self, ed: crate::infra::config::ErrorDetection) -> Self {
+        self.error_detection = ed;
+        self
+    }
+
+    /// Set backup Dog IDs — only dispatched when no primary Dogs are runnable.
+    pub fn with_backup_dogs(mut self, ids: std::collections::HashSet<String>) -> Self {
+        self.backup_dog_ids = ids;
+        self
     }
 
     /// Attach organ backend handles (one per dog, same index). Call after `new()`.
@@ -156,7 +173,10 @@ impl Judge {
         dogs.remove(idx);
         breakers.remove(idx);
         handles.remove(idx);
-        let mut new_judge = Judge::new(dogs, breakers).with_organ_handles(handles);
+        let mut new_judge = Judge::new(dogs, breakers)
+            .with_organ_handles(handles)
+            .with_error_detection(current.error_detection.clone())
+            .with_backup_dogs(current.backup_dog_ids.clone());
         if let Some(tracker) = &current.slot_tracker {
             new_judge = new_judge.with_slot_tracker(Arc::clone(tracker));
         }
@@ -377,7 +397,7 @@ impl Judge {
     }
 
     fn runnable_dogs<'a>(&'a self, candidate_indices: &[usize]) -> Vec<RunnableDog<'a>> {
-        candidate_indices
+        let all_runnable: Vec<RunnableDog<'a>> = candidate_indices
             .iter()
             .copied()
             .filter_map(|idx| {
@@ -442,7 +462,34 @@ impl Judge {
                 tracing::info!(dog_id = %dog.id(), "Dog PASSED all gates → runnable");
                 Some(RunnableDog { idx, dog })
             })
-            .collect()
+            .collect();
+
+        // Backup priority: if any primary Dogs are runnable, exclude backup Dogs.
+        // Backup Dogs only participate when all primary Dogs are down/busy/degraded.
+        if !self.backup_dog_ids.is_empty() {
+            let primary: Vec<RunnableDog<'a>> = all_runnable
+                .iter()
+                .copied()
+                .filter(|rd| !self.backup_dog_ids.contains(rd.dog.id()))
+                .collect();
+            if !primary.is_empty() {
+                let backup_count = all_runnable.len() - primary.len();
+                if backup_count > 0 {
+                    tracing::info!(
+                        primary_count = primary.len(),
+                        backup_skipped = backup_count,
+                        "Backup Dogs skipped — primary Dogs available"
+                    );
+                }
+                return primary;
+            }
+            tracing::warn!(
+                backup_count = all_runnable.len(),
+                "No primary Dogs runnable — falling back to backup Dogs"
+            );
+        }
+
+        all_runnable
     }
 
     /// Evaluate a stimulus through Dogs in parallel, aggregate, produce Verdict.
@@ -538,8 +585,7 @@ impl Judge {
                     DogError::ApiError(msg) => {
                         // K15: Use data-driven error classification from backends.toml [error_detection]
                         // This enables smart routing: quota→skip, transient→retry, critical→circuit-open
-                        let error_category =
-                            ErrorCategory::classify(msg, &ErrorDetection::default());
+                        let error_category = ErrorCategory::classify(msg, &self.error_detection);
                         match error_category {
                             ErrorCategory::Quota => {
                                 // Quota exhaustion is graceful—don't penalize circuit breaker

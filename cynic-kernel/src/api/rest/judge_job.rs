@@ -272,6 +272,7 @@ pub async fn judge_async_handler(
     let enricher = state.enricher.clone();
     let domain_curations = Arc::clone(&state.domain_curations);
     let domain_router = Arc::clone(&state.domain_router);
+    let routing_calc = Arc::clone(&state.routing_calc);
     let dog_perf_collector = Arc::clone(&state.dog_perf_collector);
     let req_domain = req.domain.clone().unwrap_or_else(|| "general".into());
 
@@ -322,6 +323,7 @@ pub async fn judge_async_handler(
             enricher: enricher.as_deref(),
             domain_curations: domain_curations.as_ref(),
             domain_router: Some(domain_router.as_ref()),
+            routing_calc: Some(routing_calc.as_ref()),
             priority: req.priority
                 .as_deref()
                 .and_then(crate::domain::slot_semaphore::SlotPriority::from_str_opt)

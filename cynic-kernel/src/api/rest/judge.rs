@@ -141,6 +141,7 @@ pub async fn judge_handler(
         enricher: state.enricher.as_deref(),
         domain_curations: state.domain_curations.as_ref(),
         domain_router: Some(state.domain_router.as_ref()),
+        routing_calc: Some(state.routing_calc.as_ref()),
         priority: req
             .priority
             .as_deref()
