@@ -1,6 +1,10 @@
 # cynic-node: qwen36-27b-gpu supervisor on <TAILSCALE_GPU>:8080
 # Qwen 3.6 27B IQ3_XXS — 19.7 tok/s gen, RTX 4060 Ti 16GB
 # Upgraded from 9B → 27B on 2026-05-19 (inference-lab-27b)
+# --parallel 1: -fit optimizer hardcaps at 1 slot on 16GB (tested 2026-05-21).
+# VRAM: model 13038 + KV Q4_0 448 = ~13586 / 16380 MiB. 2524 MiB free.
+# Slot contention → Soma L2 priority queue (kernel-side), not hardware parallel.
+# -ngl 999 -ctk q4_0 -ctv q4_0 match production schtask config.
 
 [kernel]
 url = "http://<TAILSCALE_CORE>:3030"
@@ -18,8 +22,8 @@ api_key_env = "CYNIC_LLAMA_API_KEY"
 
 [process]
 # Supervise llama-server on port 8080 (Windows, Tailscale-only binding)
-# IQ3_XXS @ 27B fits in 16GB VRAM with 33 GPU layers
-command = ["C:\\llama.cpp\\llama-server.exe", "--model", "C:\\llama.cpp\\Qwen3.6-27B-IQ3_XXS.gguf", "--n-gpu-layers", "33", "--ctx-size", "65536", "--threads", "6", "--port", "8080", "--host", "<TAILSCALE_GPU>", "--metrics", "--api-key", "${CYNIC_LLAMA_API_KEY}"]
+# Flags match production schtask (llama-server-27b ONSTART)
+command = ["C:\\llama.cpp\\llama-server.exe", "--model", "C:\\llama.cpp\\Qwen3.6-27B-IQ3_XXS.gguf", "--n-gpu-layers", "999", "--ctx-size", "65536", "--parallel", "1", "--threads", "6", "-ctk", "q4_0", "-ctv", "q4_0", "--reasoning-budget", "0", "--port", "8080", "--host", "<TAILSCALE_GPU>", "--metrics", "--api-key", "${CYNIC_LLAMA_API_KEY}"]
 working_dir = "C:\\llama.cpp"
 stop_timeout_secs = 10
 
