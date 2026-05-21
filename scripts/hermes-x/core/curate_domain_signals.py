@@ -261,6 +261,27 @@ def curate_tweets(dry_run=False):
                 f.write(json.dumps(signal) + '\n')
         print(f"✓ Wrote {len(signals)} signals to {filepath}")
 
+    # Sync curated signals to kernel's curation directory.
+    # The kernel loads curations from CYNIC_CURATION_DIR (default: cynic-python/curation/)
+    # at boot. This sync keeps the live curated data available for the next kernel restart.
+    project_root = os.environ.get("CYNIC_PROJECT_ROOT",
+                                  str(Path.home() / "Bureau/CYNIC"))
+    kernel_curation_dir = Path(os.environ.get("CYNIC_CURATION_DIR",
+                                              f"{project_root}/cynic-python/curation"))
+    if kernel_curation_dir.exists():
+        import shutil
+        synced = 0
+        for domain, signals in by_domain.items():
+            src = CURATED_DIR / f"{domain}_curated.jsonl"
+            dst = kernel_curation_dir / f"{domain}_curated.jsonl"
+            if src.exists():
+                shutil.copy2(str(src), str(dst))
+                synced += 1
+        if synced > 0:
+            print(f"✓ Synced {synced} curated files to {kernel_curation_dir}")
+    else:
+        print(f"⚠ Kernel curation dir not found: {kernel_curation_dir} — skipping sync")
+
     # Write curation yield summary — consumed by search_generation.py
     # to shift search budget toward domains producing high-signal content
     yield_path = Path.home() / ".cynic/organs/hermes/x/curation_yield.json"
@@ -316,7 +337,7 @@ def post_to_kernel(signals_by_domain: dict[str, list[dict]]) -> int:
             body = json.dumps({
                 "tool": "hermes-curation",
                 "target": signal.get("signal_id", "unknown"),
-                "domain": domain.lower(),
+                "domain": domain,
                 "context": signal.get("pattern", "")[:200],
                 "agent_id": "hermes-x-organ",
                 "tags": ["hermes-curated", f"domain-{domain}"],

@@ -44,6 +44,7 @@ pub fn semantic_slug(domain: &str, content: &str) -> String {
         "token" | "token-analysis" => slug_token(content),
         "session" => slug_session(content),
         "trading" => slug_trading(content),
+        "D2" => slug_inference(content),
         "chess" => return format!("chess:{content}"), // chess: keep exact (already repetitive)
         _ => slug_general(content),
     };
@@ -212,6 +213,77 @@ fn slug_trading(content: &str) -> String {
         .unwrap_or_else(|| "unknown".to_string());
 
     format!("{side}:{symbol}")
+}
+
+/// D2 inference domain: extract model family or engine from tweet content.
+fn slug_inference(content: &str) -> String {
+    let lower = content.to_lowercase();
+
+    let model = [
+        "qwen",
+        "llama",
+        "gemma",
+        "mistral",
+        "phi",
+        "claude",
+        "gpt",
+        "deepseek",
+        "command-r",
+    ]
+    .iter()
+    .find(|m| lower.contains(**m))
+    .copied();
+
+    let engine = [
+        ("vllm", "vllm"),
+        ("sglang", "sglang"),
+        ("llama.cpp", "llamacpp"),
+        ("llama-server", "llamacpp"),
+        ("exllama", "exllama"),
+        ("tensorrt", "tensorrt"),
+        ("mlx", "mlx"),
+        ("ollama", "ollama"),
+        ("gguf", "llamacpp"),
+    ]
+    .iter()
+    .find(|(pat, _)| lower.contains(pat))
+    .map(|(_, slug)| *slug);
+
+    let topic = [
+        ("benchmark", "bench"),
+        ("tok/s", "bench"),
+        ("tokens per second", "bench"),
+        ("quantiz", "quant"),
+        ("iq3", "quant"),
+        ("iq4", "quant"),
+        ("q4_k", "quant"),
+        ("q6_k", "quant"),
+        ("speculative", "spec"),
+        ("mtp", "spec"),
+        ("draft", "spec"),
+        ("serving", "serve"),
+        ("deploy", "serve"),
+        ("throughput", "serve"),
+        ("vram", "memory"),
+        ("bandwidth", "memory"),
+        ("gpu memory", "memory"),
+        ("fine-tun", "train"),
+        ("lora", "train"),
+        ("training", "train"),
+    ]
+    .iter()
+    .find(|(pat, _)| lower.contains(pat))
+    .map(|(_, slug)| *slug);
+
+    match (model, engine, topic) {
+        (Some(m), Some(e), _) => format!("{m}:{e}"),
+        (Some(m), None, Some(t)) => format!("{m}:{t}"),
+        (Some(m), None, None) => m.to_string(),
+        (None, Some(e), Some(t)) => format!("{e}:{t}"),
+        (None, Some(e), None) => e.to_string(),
+        (None, None, Some(t)) => t.to_string(),
+        (None, None, None) => first_n_words(content, 3),
+    }
 }
 
 /// General domain: detect tool observations vs semantic content.
@@ -557,6 +629,49 @@ mod tests {
             semantic_slug("session", "[gemini-xyz] Read: checked file"),
             "session:agent:gemini"
         );
+    }
+
+    // ── D2 inference slug tests ────────────────────────────
+
+    #[test]
+    fn slug_d2_model_and_engine() {
+        let slug = semantic_slug("D2", "Qwen 3.6 27B running on llama.cpp with MTP enabled");
+        assert_eq!(slug, "D2:qwen:llamacpp");
+    }
+
+    #[test]
+    fn slug_d2_model_and_topic() {
+        let slug = semantic_slug("D2", "Qwen3.6 27B quantization comparison IQ3 vs Q4_K");
+        assert_eq!(slug, "D2:qwen:quant");
+    }
+
+    #[test]
+    fn slug_d2_engine_and_topic() {
+        let slug = semantic_slug(
+            "D2",
+            "vLLM benchmark: 1200 tok/s on H100 with batched inference",
+        );
+        assert_eq!(slug, "D2:vllm:bench");
+    }
+
+    #[test]
+    fn slug_d2_speculative_decoding() {
+        let slug = semantic_slug("D2", "MTP speculative decoding gives 1.85x on RTX 3090");
+        assert_eq!(slug, "D2:spec");
+    }
+
+    #[test]
+    fn slug_d2_same_model_engine_coalesces() {
+        let a = semantic_slug("D2", "Qwen 3.6 on llama.cpp gets 19.7 tok/s");
+        let b = semantic_slug("D2", "Qwen 3.5 using llama-server with GGUF Q4");
+        assert_eq!(a, b, "same model+engine cluster should coalesce");
+    }
+
+    #[test]
+    fn slug_d2_different_models_differ() {
+        let a = semantic_slug("D2", "Qwen benchmark results on H100");
+        let b = semantic_slug("D2", "Llama benchmark results on H100");
+        assert_ne!(a, b);
     }
 
     #[test]

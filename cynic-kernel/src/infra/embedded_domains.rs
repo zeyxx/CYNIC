@@ -27,6 +27,7 @@ pub fn load_embedded_domain_prompts() -> HashMap<String, String> {
             "phone-number",
             include_str!("../../domains/phone-number.md"),
         ),
+        ("D2", include_str!("../../domains/D2.md")),
     ];
 
     for (domain_name, content) in &domains {
