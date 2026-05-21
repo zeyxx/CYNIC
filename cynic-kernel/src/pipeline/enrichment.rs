@@ -342,16 +342,13 @@ pub(super) async fn enrich_phone(
         return;
     }
 
-    // Query observations for this phone number
-    let Ok(observations) = storage
-        .list_observations_raw(Some("phone-number"), None, 500)
+    // Query observations for this specific phone number
+    let Ok(matching) = storage
+        .list_observations_by_target("phone-number", &number, 100)
         .await
     else {
         return; // Storage down — use raw content (presumption of innocence)
     };
-
-    // Filter observations matching this number
-    let matching: Vec<_> = observations.iter().filter(|o| o.target == number).collect();
 
     if matching.is_empty() {
         // No observations — build minimal PhoneData from the raw number

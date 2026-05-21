@@ -227,6 +227,18 @@ pub trait StoragePort: Send + Sync {
         Ok(vec![])
     }
 
+    /// List observations for a specific target within a domain.
+    /// Purpose-built for enrichment (phone-number, token) where we need
+    /// observations matching a single target, not the entire domain.
+    async fn list_observations_by_target(
+        &self,
+        _domain: &str,
+        _target: &str,
+        _limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError> {
+        Ok(vec![])
+    }
+
     /// Last observation timestamp per agent_id — used by state_log for organ liveness.
     /// Returns Vec<(agent_id, last_created_at, observation_count)>.
     async fn last_observation_per_source(

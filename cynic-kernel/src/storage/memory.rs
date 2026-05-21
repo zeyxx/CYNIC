@@ -428,6 +428,24 @@ impl StoragePort for InMemoryStorage {
         Ok(v)
     }
 
+    async fn list_observations_by_target(
+        &self,
+        domain: &str,
+        target: &str,
+        limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError> {
+        let s = self.state.lock().await;
+        let v: Vec<_> = s
+            .observations
+            .iter()
+            .rev()
+            .filter(|o| o.domain == domain && o.target == target)
+            .take(limit as usize)
+            .cloned()
+            .collect();
+        Ok(v)
+    }
+
     async fn store_session_summary(&self, summary: &SessionSummary) -> Result<(), StorageError> {
         let mut s = self.state.lock().await;
         s.summaries.push(summary.clone());

@@ -211,6 +211,16 @@ impl StoragePort for ReconnectableStorage {
             .list_observations_raw(domain, agent_id, limit)
             .await
     }
+    async fn list_observations_by_target(
+        &self,
+        domain: &str,
+        target: &str,
+        limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError> {
+        self.current()
+            .list_observations_by_target(domain, target, limit)
+            .await
+    }
     async fn store_crystal_embedding(
         &self,
         id: &str,

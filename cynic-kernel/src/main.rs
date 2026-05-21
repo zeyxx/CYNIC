@@ -299,6 +299,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Created here (before health loop) so health loop can upsert slot counts at boot.
     let slot_semaphores = Arc::new(domain::slot_semaphore::SlotSemaphoreMap::new());
 
+    // Soma L2+: Inference queues — priority-ordered slot access.
+    // Replaces binary pass/skip with bounded priority queue per Dog.
+    // Queue capacity = 8: enough to buffer a burst without unbounded growth.
+    let inference_queues = Arc::new(domain::inference_queue::InferenceQueueMap::new());
+    for cfg in &backend_configs {
+        if cfg.sovereign {
+            inference_queues.upsert(&cfg.name, 8);
+            klog!("[Ring 2] InferenceQueue: {} (capacity=8)", cfg.name);
+        }
+    }
+
     // ─── RING 2: Health Loop + Remediation ──────────────────────
     // Config comes from backends.toml (SoT) — no separate remediation.toml needed.
     if !remediation_configs.is_empty() {
@@ -384,7 +395,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_organ_handles(organ_handles)
         .with_budgets(&budget_limits)
         .with_slot_tracker(Arc::clone(&slot_tracker))
-        .with_slot_semaphores(Arc::clone(&slot_semaphores));
+        .with_slot_semaphores(Arc::clone(&slot_semaphores))
+        .with_inference_queues(Arc::clone(&inference_queues));
     // Background task health tracker — updated by each spawned task, exposed in /health
     let task_health = Arc::new(infra::task_health::TaskHealth::new());
     // Lifecycle orchestration — all background tasks select! on this token.

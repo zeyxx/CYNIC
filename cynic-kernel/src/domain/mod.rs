@@ -13,6 +13,7 @@ pub mod events;
 pub mod health_gate;
 pub mod helius_credit;
 pub mod inference;
+pub mod inference_queue;
 pub mod mail;
 pub mod metabolism;
 pub mod metrics;

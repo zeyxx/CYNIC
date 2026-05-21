@@ -11,6 +11,7 @@ pub use types::{DogFailure, DogFailureKind, JudgeError};
 use crate::domain::dog::{estimate_tokens, *};
 use crate::domain::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
 use crate::domain::health_gate::{FailureReason, HealthGate};
+use crate::domain::inference_queue::InferenceQueueMap;
 use crate::domain::metrics::Metrics;
 use crate::domain::slot_semaphore::{SlotPriority, SlotSemaphoreMap};
 use crate::infra::error_classifier::ErrorCategory;
@@ -36,6 +37,9 @@ pub struct Judge {
     slot_tracker: Option<Arc<crate::domain::slot_tracker::SlotTracker>>,
     /// Soma L2: priority-aware slot semaphores — if set, each Dog acquires a permit before inference.
     slot_semaphores: Option<Arc<SlotSemaphoreMap>>,
+    /// Soma L2+: priority-ordered inference queues — replaces binary pass/skip with bounded queue.
+    /// When set, requests wait in priority order instead of skipping when the slot is busy.
+    inference_queues: Option<Arc<InferenceQueueMap>>,
     /// Error classification patterns from backends.toml [error_detection].
     error_detection: crate::infra::config::ErrorDetection,
     /// IDs of Dogs marked as priority="backup" in backends.toml.
@@ -66,6 +70,7 @@ impl Judge {
             last_hash: Mutex::new(None),
             slot_tracker: None,
             slot_semaphores: None,
+            inference_queues: None,
             error_detection: crate::infra::config::ErrorDetection::default(),
             backup_dog_ids: std::collections::HashSet::new(),
         }
@@ -110,6 +115,13 @@ impl Judge {
     /// K14: if no semaphore registered for a Dog, the Dog proceeds without restriction.
     pub fn with_slot_semaphores(mut self, sem: Arc<SlotSemaphoreMap>) -> Self {
         self.slot_semaphores = Some(sem);
+        self
+    }
+
+    /// Attach inference queues — priority-ordered slot access.
+    /// When set, replaces the binary pass/skip semaphore with bounded priority queuing.
+    pub fn with_inference_queues(mut self, queues: Arc<InferenceQueueMap>) -> Self {
+        self.inference_queues = Some(queues);
         self
     }
 
@@ -182,6 +194,9 @@ impl Judge {
         }
         if let Some(sem) = &current.slot_semaphores {
             new_judge = new_judge.with_slot_semaphores(Arc::clone(sem));
+        }
+        if let Some(queues) = &current.inference_queues {
+            new_judge = new_judge.with_inference_queues(Arc::clone(queues));
         }
         let chain = current.last_hash_snapshot();
         new_judge.seed_chain(chain);
@@ -676,33 +691,56 @@ impl Judge {
             let dog = entry.dog;
             let id = dog.id().to_string();
             let dog_timeout = std::time::Duration::from_secs(dog.timeout_secs());
-            // Soma L2: look up per-dog semaphore for slot-aware acquisition.
-            // Clone Arc outside the async block so the future owns it.
-            // K14: if no semaphore registered for this Dog, proceed without restriction (optimistic).
+            // Soma L2+: look up inference queue (priority-ordered) first, fall back to semaphore.
+            // K14: if neither registered for this Dog, proceed without restriction (optimistic).
+            let maybe_queue = self
+                .inference_queues
+                .as_ref()
+                .and_then(|map| map.get(dog.id()));
             let maybe_sem = self
                 .slot_semaphores
                 .as_ref()
                 .and_then(|map| map.get(dog.id()));
             futs.push(async move {
-                // Acquire slot permit before dispatching to the Dog's backend.
-                // Non-blocking priorities (Nightshift, Background) return None immediately
-                // when all slots are busy. Blocking priorities (User, Hermes) wait up to
-                // their timeout. If no semaphore is registered -> optimistic (no gate).
-                let _permit = if let Some(sem) = maybe_sem {
-                    match sem.acquire(priority).await {
-                        Some(permit) => Some(permit),
+                // Acquire slot: prefer inference queue (priority-ordered) over semaphore (FIFO).
+                // Queue: all priorities wait in order — no skip, bounded backpressure.
+                // Semaphore (legacy): non-blocking skip, blocking wait.
+                let _queue_permit;
+                let _sem_permit;
+                if let Some(queue) = maybe_queue {
+                    match queue.acquire(priority).await {
+                        Some(permit) => {
+                            _queue_permit = Some(permit);
+                            _sem_permit = None;
+                        }
                         None => {
                             tracing::info!(
                                 dog_id = %id,
                                 priority = ?priority,
-                                "Soma L2: slot unavailable — skipping Dog (non-blocking priority)"
+                                "Soma L2+: inference queue full or timed out"
+                            );
+                            return (idx, id, Err(DogError::SlotUnavailable), 0u64);
+                        }
+                    }
+                } else if let Some(sem) = maybe_sem {
+                    match sem.acquire(priority).await {
+                        Some(permit) => {
+                            _queue_permit = None;
+                            _sem_permit = Some(permit);
+                        }
+                        None => {
+                            tracing::info!(
+                                dog_id = %id,
+                                priority = ?priority,
+                                "Soma L2: slot unavailable — skipping Dog"
                             );
                             return (idx, id, Err(DogError::SlotUnavailable), 0u64);
                         }
                     }
                 } else {
-                    // K14: no semaphore registered for this Dog -> optimistic, proceed.
-                    None
+                    // K14: no queue or semaphore registered → optimistic, proceed.
+                    _queue_permit = None;
+                    _sem_permit = None;
                 };
                 // _permit is held across dog.evaluate() — released when this future completes.
                 let start = std::time::Instant::now();
