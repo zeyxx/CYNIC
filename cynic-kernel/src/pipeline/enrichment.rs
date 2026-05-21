@@ -323,11 +323,132 @@ pub(super) fn enrich_wallet(
     }
 }
 
-/// Phone number enrichment — stub for Phase 1.
-/// Real enrichment (community consensus, federation lookup) added in Phase 2.
-pub(super) fn enrich_phone(_stimulus: &mut String, domain_hint: &str) {
+/// Phone number enrichment — aggregates observations into a structured stimulus.
+///
+/// When domain=phone-number and content looks like a phone number,
+/// queries storage for existing observations, aggregates them into PhoneData,
+/// and replaces the raw number with a structured stimulus that Dogs can evaluate.
+pub(super) async fn enrich_phone(
+    content: &mut String,
+    domain_hint: &str,
+    storage: &dyn crate::domain::storage::StoragePort,
+) {
     if domain_hint != "phone-number" {
-        // Phase 1: no enrichment beyond build_phone_stimulus.
-        // Phase 2: aggregate CallEvents, compute live NumberReputation.
+        return;
     }
+
+    let number = content.trim().to_string();
+    if number.is_empty() {
+        return;
+    }
+
+    // Query observations for this phone number
+    let Ok(observations) = storage
+        .list_observations_raw(Some("phone-number"), None, 500)
+        .await
+    else {
+        return; // Storage down — use raw content (presumption of innocence)
+    };
+
+    // Filter observations matching this number
+    let matching: Vec<_> = observations.iter().filter(|o| o.target == number).collect();
+
+    if matching.is_empty() {
+        // No observations — build minimal PhoneData from the raw number
+        let country = if number.starts_with("+33") {
+            "FR"
+        } else if number.starts_with("+1") {
+            "US"
+        } else {
+            "XX"
+        };
+        let data = crate::domain::phone_number::PhoneData {
+            number: number.clone(),
+            country_code: country.to_string(),
+            total_events: 0,
+            label_distribution: crate::domain::phone_number::LabelDistribution::default(),
+            reporter_count: 0,
+            mean_reporter_trust: 0.0,
+            age_days: 0,
+            days_since_last_report: 0,
+            challenge_pass_rate: None,
+            contestation_count: 0,
+            owner_verified: false,
+        };
+        *content = crate::domain::stimulus::build_phone_stimulus(&data);
+        return;
+    }
+
+    // Aggregate observations into PhoneData
+    let mut legit = 0u32;
+    let mut nuisance = 0u32;
+    let mut scam = 0u32;
+    let mut unknown = 0u32;
+    let mut reporter_count = 0u32;
+    let mut trust_sum = 0.0f32;
+    let mut trust_count = 0u32;
+
+    for obs in &matching {
+        // Parse context JSON for label + metadata
+        if let Ok(ctx) = serde_json::from_str::<serde_json::Value>(&obs.context) {
+            let label = ctx
+                .get("ground_truth")
+                .or_else(|| ctx.get("label"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            match label {
+                "legitimate" | "legit" => legit += 1,
+                "nuisance" => nuisance += 1,
+                "scam" | "spam" => scam += 1,
+                _ => unknown += 1,
+            }
+
+            if let Some(rc) = ctx.get("reporter_count").and_then(|v| v.as_u64()) {
+                reporter_count = reporter_count.max(rc as u32);
+            } else {
+                reporter_count += 1;
+            }
+
+            if let Some(trust) = ctx.get("mean_reporter_trust").and_then(|v| v.as_f64()) {
+                trust_sum += trust as f32;
+                trust_count += 1;
+            }
+        } else {
+            unknown += 1;
+            reporter_count += 1;
+        }
+    }
+
+    let country = if number.starts_with("+33") {
+        "FR"
+    } else if number.starts_with("+1") {
+        "US"
+    } else {
+        "XX"
+    };
+
+    let data = crate::domain::phone_number::PhoneData {
+        number: number.clone(),
+        country_code: country.to_string(),
+        total_events: matching.len() as u64,
+        label_distribution: crate::domain::phone_number::LabelDistribution {
+            legitimate: legit,
+            nuisance,
+            scam,
+            unknown,
+        },
+        reporter_count,
+        mean_reporter_trust: if trust_count > 0 {
+            trust_sum / trust_count as f32
+        } else {
+            0.5 // default moderate trust
+        },
+        age_days: 0, // TODO: compute from observation timestamps
+        days_since_last_report: 0,
+        challenge_pass_rate: None,
+        contestation_count: 0,
+        owner_verified: false,
+    };
+
+    *content = crate::domain::stimulus::build_phone_stimulus(&data);
 }

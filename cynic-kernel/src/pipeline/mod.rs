@@ -202,7 +202,7 @@ async fn pipeline_inner(
         enrichment::enrich_wallet(content, domain_hint, &wallet_context_json);
 
     // ── Stage 6b: Phone-number enrichment ──
-    enrichment::enrich_phone(&mut content, domain_hint);
+    enrichment::enrich_phone(&mut content, domain_hint, deps.storage).await;
 
     // ── Stage 7: Build stimulus ──
     let stimulus = Stimulus {
