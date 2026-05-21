@@ -251,7 +251,8 @@ mod tests {
     #[test]
     fn callshield_ingestion_invalid_json_yields_zero() {
         let context = "not valid json";
-        let count = serde_json::from_str::<serde_json::Value>(context) // R2-exempt: test intentionally parses invalid JSON
+        // WHY: test intentionally parses invalid JSON — .ok() is the correct pattern here
+        let count = serde_json::from_str::<serde_json::Value>(context)
             .ok()
             .and_then(|b| b.get("numbers").and_then(|n| n.as_array()).map(|a| a.len()))
             .unwrap_or(0);
