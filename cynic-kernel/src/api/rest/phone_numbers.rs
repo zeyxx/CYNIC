@@ -51,11 +51,26 @@ pub async fn blocklist_handler(
 
     let numbers: Vec<BlocklistEntry> = verdicts
         .into_iter()
-        .map(|v| BlocklistEntry {
-            number: v.stimulus_summary.clone(),
-            sovereignty: v.q_score.sovereignty,
-            q_score: v.q_score.total,
-            verdict: format!("{:?}", v.kind),
+        .filter_map(|v| {
+            // Extract phone number from stimulus_summary.
+            // Enriched: "[DOMAIN: phone-number]\n\n[METRICS]\nnumber: +33..."
+            // Raw: "+33612345678" or "+19832264167"
+            let number = if v.stimulus_summary.contains("number: ") {
+                v.stimulus_summary
+                    .lines()
+                    .find(|l| l.starts_with("number: "))
+                    .map(|l| l.trim_start_matches("number: ").trim().to_string())
+            } else if v.stimulus_summary.starts_with('+') {
+                Some(v.stimulus_summary.split_whitespace().next()?.to_string())
+            } else {
+                None
+            };
+            Some(BlocklistEntry {
+                number: number?,
+                sovereignty: v.q_score.sovereignty,
+                q_score: v.q_score.total,
+                verdict: format!("{:?}", v.kind),
+            })
         })
         .collect();
 
