@@ -380,10 +380,31 @@ async fn register_with_kernel(
                         return Ok(resp.dog_id);
                     }
                     Err(announce::RegisterError::Collision) => {
-                        return Err(ExitReason::Fatal(format!(
-                            "registration collision: a dog named '{}' is already registered",
-                            cfg.dog.name
-                        )));
+                        // The kernel already has a Dog with this name (from backends.toml boot).
+                        // Instead of dying, try heartbeating the existing Dog.
+                        // If alive → adopt its name and enter watch loop.
+                        tracing::info!(
+                            dog_name = %cfg.dog.name,
+                            "registration collision — Dog already in kernel roster, trying heartbeat"
+                        );
+                        match announce::send_heartbeat(client, &cfg.kernel.url, &cfg.kernel.api_key, &cfg.dog.name).await {
+                            announce::HeartbeatResult::Alive => {
+                                tracing::info!(
+                                    dog_id = %cfg.dog.name,
+                                    "heartbeat accepted — adopting existing Dog (kernel manages roster)"
+                                );
+                                return Ok(cfg.dog.name.clone());
+                            }
+                            announce::HeartbeatResult::Expired => {
+                                // Dog existed but expired — retry registration on next loop.
+                                tracing::warn!("Dog existed but TTL expired — retrying registration");
+                                tokio::time::sleep(Duration::from_secs(5)).await;
+                            }
+                            announce::HeartbeatResult::Error(e) => {
+                                tracing::warn!("heartbeat fallback failed: {e} — retrying registration");
+                                tokio::time::sleep(Duration::from_secs(5)).await;
+                            }
+                        }
                     }
                     Err(announce::RegisterError::CalibrationFail(body)) => {
                         calibration_attempts += 1;
@@ -492,7 +513,14 @@ fn install_signal_handler(shutdown: CancellationToken) {
 
 /// The main supervision loop.  Returns `ExitCode::SUCCESS` on clean shutdown,
 /// `ExitCode::FAILURE` on unrecoverable errors.
-async fn run_node(client: &Client, cfg: &Config, shutdown: &CancellationToken) -> ExitCode {
+///
+/// Owns the config so it can be reloaded from disk on model mismatch (L2 auto-heal).
+async fn run_node(
+    client: &Client,
+    config_path: &str,
+    mut cfg: Config,
+    shutdown: &CancellationToken,
+) -> ExitCode {
     let mut state = NodeState {
         needs_spawn: true,
         child: None,
@@ -503,9 +531,9 @@ async fn run_node(client: &Client, cfg: &Config, shutdown: &CancellationToken) -
     let exit_code = loop {
         if state.needs_spawn {
             if let Some(id) = state.dog_id.take() {
-                deregister(client, cfg, &id).await;
+                deregister(client, &cfg, &id).await;
             }
-            match spawn_backend(cfg).await {
+            match spawn_backend(&cfg).await {
                 Ok(c) => {
                     state.child = Some(c);
                     state.backoff.record_start();
@@ -522,10 +550,41 @@ async fn run_node(client: &Client, cfg: &Config, shutdown: &CancellationToken) -
             break ExitCode::FAILURE;
         };
 
-        let (reason, id) = run_lifecycle(client, cfg, c, shutdown, &mut state.backoff).await;
+        let (reason, id) = run_lifecycle(client, &cfg, c, shutdown, &mut state.backoff).await;
         state.dog_id = id;
 
-        match handle_exit_reason(reason, cfg, &mut state, shutdown, client).await {
+        // L2 auto-heal: on model mismatch, re-read config from disk.
+        // If the TOML was updated (new model, new command), adopt the new config
+        // before respawning. If unchanged, restart anyway (runtime mismatch).
+        if matches!(&reason, ExitReason::Mismatch) {
+            match config::load(config_path) {
+                Ok(new_cfg) => {
+                    let model_changed = new_cfg.dog.model != cfg.dog.model;
+                    let command_changed = new_cfg.process.command != cfg.process.command;
+                    let name_changed = new_cfg.dog.name != cfg.dog.name;
+                    if model_changed || command_changed || name_changed {
+                        tracing::info!(
+                            old_model = %cfg.dog.model,
+                            new_model = %new_cfg.dog.model,
+                            old_name = %cfg.dog.name,
+                            new_name = %new_cfg.dog.name,
+                            "L2 auto-heal: config changed on disk — adopting new config"
+                        );
+                        cfg = new_cfg;
+                        state.backoff.reset();
+                    } else {
+                        tracing::warn!(
+                            "L2: config unchanged on disk — runtime mismatch, restarting backend"
+                        );
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("L2: config reload failed ({e}) — using existing config");
+                }
+            }
+        }
+
+        match handle_exit_reason(reason, &cfg, &mut state, shutdown, client).await {
             LoopAction::Continue => {}
             LoopAction::Break(code) => break code,
         }
@@ -700,5 +759,5 @@ async fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    run_node(&client, &cfg, &shutdown).await
+    run_node(&client, &cli.config, cfg, &shutdown).await
 }

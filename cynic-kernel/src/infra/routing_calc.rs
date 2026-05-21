@@ -107,13 +107,18 @@ impl RoutingCalculator {
             .unwrap_or_default()
     }
 
-    /// Dogs with sufficient success rate (>=0.95) for a domain, minimum 10 samples.
+    /// Dogs suitable for a domain: proven reliable (>=10 samples, >=0.95 success)
+    /// OR too new to judge (<10 samples — benefit of doubt, K22 principle).
     /// Returns None if no performance data exists (domain never seen).
     pub fn reliable_dogs(&self, domain: &str) -> Option<Vec<String>> {
         self.cache.read().ok().and_then(|cache| {
             cache.get(domain).map(|dogs| {
                 dogs.iter()
-                    .filter(|p| p.sample_count >= 10 && p.success_rate >= 0.95)
+                    .filter(|p| {
+                        // K22: unknown ≠ unreliable. Dogs with < 10 samples get benefit
+                        // of doubt — exclude only Dogs with enough data to prove unreliable.
+                        p.sample_count < 10 || p.success_rate >= 0.95
+                    })
                     .map(|p| p.dog_id.clone())
                     .collect()
             })
@@ -197,6 +202,53 @@ mod tests {
         let calc = RoutingCalculator::new();
         let suitable = calc.dogs_for_domain("unknown", 5000);
         assert!(suitable.is_empty());
+    }
+
+    #[test]
+    fn test_reliable_dogs_includes_new_dogs() {
+        // K22: Dogs with < 10 samples get benefit of doubt (not excluded)
+        let calc = RoutingCalculator::new();
+        let dogs = vec![
+            DogPerformance {
+                dog_id: "proven".to_string(),
+                avg_latency_ms: 2000,
+                success_rate: 0.98,
+                sample_count: 50,
+            },
+            DogPerformance {
+                dog_id: "new-dog".to_string(),
+                avg_latency_ms: 3000,
+                success_rate: 0.0, // 0 successes out of 3 attempts — but < 10 samples
+                sample_count: 3,
+            },
+            DogPerformance {
+                dog_id: "proven-flaky".to_string(),
+                avg_latency_ms: 2000,
+                success_rate: 0.80, // Below 95% WITH enough data to prove it
+                sample_count: 50,
+            },
+        ];
+        calc.update_domain_routing("token", dogs);
+
+        let reliable = calc.reliable_dogs("token").unwrap();
+        assert!(
+            reliable.contains(&"proven".to_string()),
+            "proven Dog should be reliable"
+        );
+        assert!(
+            reliable.contains(&"new-dog".to_string()),
+            "new Dog should get benefit of doubt"
+        );
+        assert!(
+            !reliable.contains(&"proven-flaky".to_string()),
+            "proven-flaky should be excluded"
+        );
+    }
+
+    #[test]
+    fn test_reliable_dogs_none_for_unknown_domain() {
+        let calc = RoutingCalculator::new();
+        assert!(calc.reliable_dogs("never-seen").is_none());
     }
 
     #[test]
