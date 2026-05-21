@@ -43,14 +43,13 @@ enabled = true
 base_url = "https://router.huggingface.co/featherless-ai/v1"
 api_key_env = "HF_TOKEN"
 
-# Qwen 3.5 9B GPU (sovereign, RTX 4060 Ti)
-# Observed (2026-05-07): 10,099 calls, 9,431 success, 453 collapse, 46 api_error
-# Failure rate: (453+46) / 10099 = 0.049 (4.9%)
-# Decision: Healthy (well below threshold)
-[dog.qwen35-9b-gpu]
+# Qwen 3.6 27B GPU (sovereign, RTX 4060 Ti)
+# Upgraded from 9B → 27B IQ3_XXS on 2026-05-19 (inference-lab-27b).
+# 19.7 tok/s gen, 523 tok/s prompt, hybrid Mamba+Attn (16/64 attn layers).
+[dog.qwen36-27b-gpu]
 kind = "inference"
 provider = "sovereign"
-model = "Qwen3.5-9B-Q4_K_M"
+model = "Qwen3.6-27B-IQ3_XXS"
 failure_rate_threshold = 0.10        # 10% — above observed 4.9%, some buffer
 collapse_threshold = 50              # Low threshold (GPU should be stable)
 api_error_threshold = 50
@@ -137,20 +136,20 @@ open_duration_secs = 300             # 5 min before retrying
 half_open_eval_budget = 2            # Try 2 evals before deciding to close
 failure_rate_recovery_window_secs = 3600  # Use last 1h of data for recovery decision
 
-[backend.qwen35-9b-gpu]
-# RTX 4060 Ti (cynic-gpu / windows-desktop), 45 tok/s generation
+[backend.qwen36-27b-gpu]
+# RTX 4060 Ti (cynic-gpu / windows-desktop), 19.7 tok/s gen @ IQ3_XXS
 base_url = "http://<TAILSCALE_GPU>:8080/v1"
-model = "Qwen3.5-9B-Q4_K_M.gguf"
-context_size = 4096
+model = "Qwen3.6-27B-IQ3_XXS.gguf"
+context_size = 65536
 json_mode = false
 disable_thinking = true
 timeout_secs = 60
 api_key_env = "CYNIC_SOVEREIGN_KEY"
 
-[backend.qwen35-9b-gpu.remediation]
+[backend.qwen36-27b-gpu.remediation]
 # Windows schtask — restarts llama-server via SSH
 node = "cynic-gpu"
-restart_command = "schtasks /Run /TN llama-server-9b"
+restart_command = "schtasks /Run /TN llama-server-27b"
 max_retries = 3
 cooldown_secs = 120
 
