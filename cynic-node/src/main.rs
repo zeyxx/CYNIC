@@ -3,6 +3,7 @@
 
 mod announce;
 mod config;
+mod config_watch;
 mod supervise;
 mod verify;
 mod websocket;
@@ -44,6 +45,8 @@ enum ExitReason {
     Expired,
     /// Wrong model loaded — backend identity check failed.
     Mismatch,
+    /// L3: config file changed on disk — proactive reload.
+    ConfigChanged,
     /// Permanent error that cannot be recovered from.
     Fatal(String),
 }
@@ -62,6 +65,7 @@ async fn watch(
     child: &mut Box<dyn ChildWrapper>,
     dog_id: &str,
     shutdown: &CancellationToken,
+    config_rx: &mut tokio::sync::watch::Receiver<()>,
 ) -> ExitReason {
     let health_url = config::derive_health_url(&cfg.dog.base_url);
     let models_url = config::derive_models_url(&cfg.dog.base_url);
@@ -155,6 +159,10 @@ async fn watch(
             status = &mut child_wait => {
                 tracing::error!("backend process exited unexpectedly: {status:?}");
                 return ExitReason::Crashed;
+            }
+            Ok(()) = config_rx.changed() => {
+                tracing::info!("L3: config file changed on disk — triggering reload");
+                return ExitReason::ConfigChanged;
             }
             _ = shutdown.cancelled() => {
                 let _ = ws_handle.await; // Wait for clean WebSocket shutdown
@@ -458,6 +466,7 @@ async fn run_lifecycle(
     child: &mut Box<dyn ChildWrapper>,
     shutdown: &CancellationToken,
     backoff: &mut supervise::Backoff,
+    config_rx: &mut tokio::sync::watch::Receiver<()>,
 ) -> (ExitReason, Option<String>) {
     if let Err(reason) = wait_healthy(client, cfg, child, shutdown).await {
         return (reason, None);
@@ -466,7 +475,7 @@ async fn run_lifecycle(
     match register_with_kernel(client, cfg, child, shutdown).await {
         Ok(id) => {
             backoff.reset();
-            let reason = watch(client, cfg, child, &id, shutdown).await;
+            let reason = watch(client, cfg, child, &id, shutdown, config_rx).await;
             (reason, Some(id))
         }
         Err(reason) => (reason, None),
@@ -521,6 +530,20 @@ async fn run_node(
     mut cfg: Config,
     shutdown: &CancellationToken,
 ) -> ExitCode {
+    // L3: file watcher — proactive config reload on TOML change.
+    // Degraded if watcher fails (L2 mismatch detection still works as fallback).
+    // _watcher must stay alive for the duration of run_node — dropping it kills inotify.
+    let (mut config_rx, _watcher) = match config_watch::spawn_config_watcher(config_path) {
+        Ok((rx, watcher)) => (rx, Some(watcher)),
+        Err(e) => {
+            tracing::warn!(
+                "L3 file watcher unavailable ({e}) — falling back to L2 mismatch detection"
+            );
+            let (_, rx) = tokio::sync::watch::channel(());
+            (rx, None)
+        }
+    };
+
     let mut state = NodeState {
         needs_spawn: true,
         child: None,
@@ -550,13 +573,21 @@ async fn run_node(
             break ExitCode::FAILURE;
         };
 
-        let (reason, id) = run_lifecycle(client, &cfg, c, shutdown, &mut state.backoff).await;
+        let (reason, id) = run_lifecycle(
+            client,
+            &cfg,
+            c,
+            shutdown,
+            &mut state.backoff,
+            &mut config_rx,
+        )
+        .await;
         state.dog_id = id;
 
-        // L2 auto-heal: on model mismatch, re-read config from disk.
+        // L2/L3 auto-heal: on mismatch or config file change, re-read from disk.
         // If the TOML was updated (new model, new command), adopt the new config
         // before respawning. If unchanged, restart anyway (runtime mismatch).
-        if matches!(&reason, ExitReason::Mismatch) {
+        if matches!(&reason, ExitReason::Mismatch | ExitReason::ConfigChanged) {
             match config::load(config_path) {
                 Ok(new_cfg) => {
                     let model_changed = new_cfg.dog.model != cfg.dog.model;
@@ -647,7 +678,7 @@ async fn handle_exit_reason(
             state.backoff.wait_or_shutdown(shutdown).await;
             LoopAction::Continue
         }
-        ExitReason::Mismatch => {
+        ExitReason::Mismatch | ExitReason::ConfigChanged => {
             if let Some(id) = state.dog_id.take() {
                 deregister(client, cfg, &id).await;
             }
