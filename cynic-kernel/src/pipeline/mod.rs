@@ -39,6 +39,12 @@ pub type OnDogCallback =
 /// If no sovereign Dogs are available, return 503 Service Unavailable.
 const SOVEREIGN_DOMAINS: &[&str] = &["social-dm", "private", "wallet-judgment", "phone-number"];
 
+/// Domains where deterministic-dog is sufficient — skip LLM inference entirely.
+/// Phone-number: structured data (reporter counts, spam scores, labels). The deterministic
+/// heuristic produces clear verdicts (q=0.27-0.37). LLM adds 22s latency for marginal gain
+/// and saturates the single GPU slot, starving all other domains.
+const DETERMINISTIC_ONLY_DOMAINS: &[&str] = &["phone-number"];
+
 /// Result of the judge pipeline — everything a handler needs to build its response.
 #[derive(Debug)]
 pub enum PipelineResult {

@@ -41,9 +41,11 @@ pub(super) async fn list_verdicts_by_domain(
 ) -> Result<Vec<Verdict>, StorageError> {
     use crate::storage::escape_surreal;
     let domain_esc = escape_surreal(domain);
+    // Caller (phone_numbers::blocklist_handler) already caps at MAX_N=50_000.
+    // safe_limit(100) is too low for blocklist use case — use domain-specific cap.
+    let capped = limit.min(50_000);
     let sql = format!(
-        "SELECT * FROM verdict WHERE domain = '{domain_esc}' ORDER BY sovereignty ASC LIMIT {}",
-        safe_limit(limit)
+        "SELECT * FROM verdict WHERE domain = '{domain_esc}' ORDER BY sovereignty ASC LIMIT {capped}",
     );
     let rows = storage.query_one(&sql).await?;
     Ok(rows.iter().map(row_to_verdict).collect())
