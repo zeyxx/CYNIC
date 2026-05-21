@@ -25,6 +25,11 @@ dev = [
     "ipython>=8.15",
     "jupyter>=1.0",
 ]
+telegram = [
+    "telethon>=1.36",
+    "pyyaml>=6.0",
+    "requests>=2.31",
+]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
