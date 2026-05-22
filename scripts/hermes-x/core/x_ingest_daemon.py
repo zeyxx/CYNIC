@@ -30,6 +30,10 @@ import yaml
 
 from hermes_paths import DATASET as DEFAULT_DATASET, HERMES_X_DIR as DEFAULT_ORGAN_DIR
 from get_x_credentials import get_x_credentials
+from convergence_detector import detect_convergence
+# Add cynic-python/resolvers to path for cashtag resolver
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "cynic-python" / "resolvers"))
+from cashtag_mint import CashtagResolver
 
 logger = logging.getLogger("x-ingest")
 ACCOUNT_ID = os.environ.get("HERMES_ACCOUNT", "cynic")
@@ -41,6 +45,13 @@ POLL_INTERVAL = 2.0
 BATCH_SIZE = 20
 HEARTBEAT_INTERVAL = 60.0  # seconds between heartbeat /observe posts
 JUDGE_THROTTLE = 2.0  # seconds between /judge calls (Dogs need inference time)
+
+# Convergence detection state
+CONVERGENCE_INTERVAL = 50  # check every N tweets
+CONVERGENCE_COOLDOWN = 3600  # seconds between emits per cashtag
+_obs_buffer: list[dict] = []  # recent observations for convergence check
+_convergence_cooldown: dict[str, float] = {}  # cashtag → last_emit_time
+_resolver: CashtagResolver | None = None
 
 
 def load_env():
@@ -291,6 +302,71 @@ def post_observe(row: dict, organ_name: str = ORGAN_NAME, domain: str = DOMAIN) 
         return False
 
 
+def emit_convergence(signals: list, resolver: "CashtagResolver") -> int:
+    """POST convergence summaries to /observe. Returns count emitted."""
+    import json as _json
+    emitted = 0
+    now = time.time()
+
+    for signal in signals:
+        # Cooldown check (1h per cashtag)
+        if signal.cashtag in _convergence_cooldown:
+            if (now - _convergence_cooldown[signal.cashtag]) < CONVERGENCE_COOLDOWN:
+                continue
+
+        # Resolve mint
+        signal.resolved_mint = resolver.resolve(signal.cashtag)
+
+        # Build context (JSON string — K21 compliance)
+        context = _json.dumps({
+            "item": signal.cashtag,
+            "resolved_mint": signal.resolved_mint,
+            "author_count": signal.author_count,
+            "authors": signal.authors,
+            "tier_distribution": {},  # Phase C
+            "coordination_score": signal.coordination_score,
+            "sentiment": signal.sentiment,
+            "window_hours": signal.window_hours,
+            "key_quotes": signal.key_quotes,
+            "source_organ": "x",
+        })
+
+        target = signal.resolved_mint or f"${signal.cashtag}"
+        tags = [
+            "convergence",
+            signal.cashtag,
+            "compound-loop",  # K21: nightshift must filter this
+        ]
+        if signal.resolved_mint:
+            tags.append(f"mint:{signal.resolved_mint}")
+
+        payload = {
+            "tool": "x-convergence",
+            "target": target,
+            "domain": signal.domain,
+            "context": context,
+            "tags": tags,
+            "agent_id": f"hermes-x-{ACCOUNT_ID}",
+        }
+
+        try:
+            resp = requests.post(
+                f"{_kernel_addr()}/observe",
+                json=payload,
+                headers=_headers(),
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                _convergence_cooldown[signal.cashtag] = now
+                emitted += 1
+                logger.info("CONVERGENCE %s: %d authors → %s",
+                            signal.cashtag, signal.author_count, target)
+        except requests.RequestException as e:
+            logger.warning("convergence POST failed: %s", e)
+
+    return emitted
+
+
 def write_verdict_to_organ(row: dict, verdict: dict, organ_dir: Path) -> bool:
     """Write verdict to organ disk (idempotent, skip if exists).
 
@@ -347,6 +423,19 @@ def ingest_row(row: dict, organ_name: str = ORGAN_NAME, organ_dir: Path = DEFAUL
     """
     # Assign domain (narrative-first, then keyword, then D1 fallback)
     domain = assign_domain(row, domains or {}, narrative_mappings or {})
+
+    # Buffer for convergence detection
+    _obs_buffer.append({
+        "agent_id": f"hermes-x-{ACCOUNT_ID}",
+        "tags": (row.get("cashtags", []) or []) + (row.get("narratives", []) or []),
+        "context": f"@{row.get('author_screen_name', '?')} [{row.get('signal_score', 0)}]: {row.get('text', '')[:200]}",
+        "created_at": row.get("capture_ts", datetime.now().isoformat()),
+        "target": row.get("tweet_id", ""),
+    })
+    # Keep buffer bounded (last 500 observations — 6h window at 83 tweets/h)
+    if len(_obs_buffer) > 500:
+        _obs_buffer[:] = _obs_buffer[-500:]
+
     return post_observe(row, organ_name, domain)
 
 
@@ -526,6 +615,12 @@ def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, 
     else:
         logger.warning("No domains config found; will default to D1 for all high-signal tweets")
 
+    # Initialize cashtag resolver
+    global _resolver
+    cache_path = Path(__file__).parent / "cashtag_cache.json"
+    _resolver = CashtagResolver.load(cache_path)
+    logger.info("Loaded cashtag resolver (%d entries)", len(_resolver._cache))
+
     offset = 0 if replay else load_cursor(state_path)
     if not replay and offset == 0:
         # First run: seek to end (don't replay history)
@@ -589,6 +684,15 @@ def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, 
 
         offset = new_offset
         save_cursor(state_path, offset)
+
+        # Convergence detection: every CONVERGENCE_INTERVAL tweets
+        if sent > 0 and sent % CONVERGENCE_INTERVAL == 0 and not replay:
+            signals = detect_convergence(_obs_buffer, min_authors=3, window_hours=6)
+            if signals and _resolver:
+                n = emit_convergence(signals, _resolver)
+                if n > 0:
+                    logger.info("Convergence: %d signals emitted from %d observations",
+                                n, len(_obs_buffer))
 
         if replay:
             break
