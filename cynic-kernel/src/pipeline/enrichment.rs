@@ -241,7 +241,108 @@ pub(super) async fn enrich_token(
                 }
             }
 
-            let enriched = token_data.to_stimulus();
+            // Pull social convergence summaries for this mint (if any)
+            let enriched = {
+                let mut enriched_content = token_data.to_stimulus();
+                if let Ok(obs_list) = deps
+                    .storage
+                    .list_observations_by_target("D1", &content, 5)
+                    .await
+                {
+                    let convergence_obs: Vec<_> = obs_list
+                        .iter()
+                        .filter(|o| o.tool.ends_with("-convergence"))
+                        .collect();
+                    if !convergence_obs.is_empty() {
+                        enriched_content.push_str("\n\n[SOCIAL CONVERGENCE]\n");
+                        for obs in &convergence_obs {
+                            if let Ok(ctx) = serde_json::from_str::<serde_json::Value>(&obs.context)
+                            {
+                                if let Some(count) =
+                                    ctx.get("author_count").and_then(|v| v.as_u64())
+                                {
+                                    let source = ctx
+                                        .get("source_organ")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("unknown");
+                                    let window = ctx
+                                        .get("window_hours")
+                                        .and_then(|v| v.as_u64())
+                                        .unwrap_or(6);
+                                    enriched_content.push_str(&format!(
+                                        "- {source}: {count} authors in {window}h\n"
+                                    ));
+                                }
+                                if let Some(authors) = ctx.get("authors").and_then(|v| v.as_array())
+                                {
+                                    let names: Vec<&str> =
+                                        authors.iter().filter_map(|a| a.as_str()).collect();
+                                    enriched_content
+                                        .push_str(&format!("  authors: {}\n", names.join(", ")));
+                                }
+                                if let Some(quotes) =
+                                    ctx.get("key_quotes").and_then(|v| v.as_array())
+                                {
+                                    for q in quotes.iter().take(2) {
+                                        let author =
+                                            q.get("author").and_then(|v| v.as_str()).unwrap_or("?");
+                                        let text = q
+                                            .get("text")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("")
+                                            .chars()
+                                            .take(100)
+                                            .collect::<String>();
+                                        enriched_content
+                                            .push_str(&format!("  @{author}: \"{text}\"\n"));
+                                    }
+                                }
+                            }
+                        }
+                        tracing::info!(
+                            phase = "enrich",
+                            mint = %content,
+                            summaries = convergence_obs.len(),
+                            "social convergence data injected"
+                        );
+                    }
+                }
+                // Fallback: also try by tag (for signals stored with cashtag as target)
+                if !enriched_content.contains("[SOCIAL CONVERGENCE]")
+                    && let Ok(obs_list) = deps
+                        .storage
+                        .list_observations_by_tag("D1", &format!("mint:{content}"), 5)
+                        .await
+                {
+                    let convergence_obs: Vec<_> = obs_list
+                        .iter()
+                        .filter(|o| o.tool.ends_with("-convergence"))
+                        .collect();
+                    if !convergence_obs.is_empty() {
+                        enriched_content.push_str("\n\n[SOCIAL CONVERGENCE]\n");
+                        for obs in &convergence_obs {
+                            if let Ok(ctx) = serde_json::from_str::<serde_json::Value>(&obs.context)
+                                && let Some(count) =
+                                    ctx.get("author_count").and_then(|v| v.as_u64())
+                            {
+                                let source = ctx
+                                    .get("source_organ")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("unknown");
+                                enriched_content
+                                    .push_str(&format!("- {source}: {count} authors\n"));
+                            }
+                        }
+                        tracing::info!(
+                            phase = "enrich",
+                            mint = %content,
+                            summaries = convergence_obs.len(),
+                            "social convergence data injected (via tag)"
+                        );
+                    }
+                }
+                enriched_content
+            };
             tracing::info!(
                 phase = "enrich",
                 mint = %content,

@@ -5,6 +5,7 @@
 //! All tasks respect the CancellationToken for graceful shutdown.
 //! All `.await` inside spawns are wrapped in `tokio::time::timeout()` (Rule #10).
 
+mod convergence_consumer;
 mod nightshift;
 mod runtime_loops;
 mod state_log;
@@ -24,6 +25,7 @@ use crate::domain::usage::DogUsageTracker;
 use crate::infra::config::BackendRemediation;
 use crate::infra::task_health::TaskHealth;
 
+pub use convergence_consumer::spawn_convergence_consumer;
 pub use nightshift::spawn_nightshift_loop;
 pub use runtime_loops::{
     spawn_crystal_challenge_loop, spawn_discovery_loop, spawn_dog_heartbeat_loop,

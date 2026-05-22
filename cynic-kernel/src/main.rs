@@ -1101,6 +1101,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "[Ring 3] Nightshift loop started (every 4h, git lookback {}, Soma L2 Nightshift priority)",
             crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
         );
+
+        // ─── Convergence consumer: polls convergence signals, triggers multi-source /judge ──
+        let _convergence_consumer_handle = infra::tasks::spawn_convergence_consumer(
+            rest_state.judge.load_full(),
+            Arc::clone(&storage_port),
+            Arc::clone(&rest_state.metrics),
+            shutdown.clone(),
+        );
+        klog!("[Ring 3] Convergence consumer started (poll interval: 60s)");
     } else {
         klog!("[Ring 2] MCP mode — background tasks SKIPPED (REST kernel handles them)");
     }

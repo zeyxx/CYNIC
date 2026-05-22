@@ -293,6 +293,7 @@ impl SurrealHttpStorage {
             DEFINE INDEX IF NOT EXISTS obs_target_idx ON observation FIELDS target;\
             DEFINE INDEX IF NOT EXISTS obs_created_idx ON observation FIELDS created_at;\
             DEFINE INDEX IF NOT EXISTS obs_agent_idx ON observation FIELDS agent_id;\
+            DEFINE INDEX IF NOT EXISTS obs_tool_idx ON observation FIELDS tool;\
             DEFINE FIELD IF NOT EXISTS agent_id ON agent_session TYPE string;\
             DEFINE FIELD IF NOT EXISTS agent_type ON agent_session TYPE string;\
             DEFINE FIELD IF NOT EXISTS intent ON agent_session TYPE string;\

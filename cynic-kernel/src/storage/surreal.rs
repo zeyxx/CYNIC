@@ -396,6 +396,15 @@ impl StoragePort for SurrealHttpStorage {
         activity::list_observations_by_target(self, domain, target, limit).await
     }
 
+    async fn list_observations_by_tag(
+        &self,
+        domain: &str,
+        tag: &str,
+        limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError> {
+        activity::list_observations_by_tag(self, domain, tag, limit).await
+    }
+
     async fn last_observation_per_source(
         &self,
     ) -> Result<Vec<(String, String, u64)>, StorageError> {

@@ -446,6 +446,15 @@ impl StoragePort for InMemoryStorage {
         Ok(v)
     }
 
+    async fn list_observations_by_tag(
+        &self,
+        _domain: &str,
+        _tag: &str,
+        _limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError> {
+        Ok(vec![]) // Memory storage doesn't filter by tag
+    }
+
     async fn store_session_summary(&self, summary: &SessionSummary) -> Result<(), StorageError> {
         let mut s = self.state.lock().await;
         s.summaries.push(summary.clone());
