@@ -286,7 +286,7 @@ mod tests {
 
         // Enqueue: background first, then user.
         let q2 = Arc::clone(&q);
-        let bg_handle = tokio::spawn(async move {
+        let _bg_handle = tokio::spawn(async move {
             q2.acquire(SlotPriority::Background)
                 .await
                 .map(|p| p.priority)
@@ -351,7 +351,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(10)).await;
 
         let q3 = Arc::clone(&q);
-        let second = tokio::spawn(async move { q3.acquire(SlotPriority::Nightshift).await });
+        let _second = tokio::spawn(async move { q3.acquire(SlotPriority::Nightshift).await });
         tokio::time::sleep(Duration::from_millis(10)).await;
 
         // Release: first enqueued should get the slot first (FIFO within same priority).
