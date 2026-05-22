@@ -66,8 +66,9 @@ def load_env():
 
 # ── Kernel POST ──
 
-# High-signal tweets go to /judge (Dogs evaluate → crystal accumulation → CCM compounds).
-# Low-signal tweets go to /observe (stored, no Dog evaluation).
+# All tweets go to /observe with domain assignment (narrative-first).
+# The convergence emitter is the downstream consumer that calls /judge.
+# JUDGE_THRESHOLD is kept for the convergence emitter to use as a filter.
 JUDGE_THRESHOLD = 3
 
 # ── Domain Assignment (narrative-first routing) ──
@@ -259,8 +260,8 @@ def post_judge(row: dict, domain: str = "D1", max_retries: int = 3) -> dict | No
     return None
 
 
-def post_observe(row: dict, organ_name: str = ORGAN_NAME) -> bool:
-    """POST low-signal tweet to /observe (store only, no Dog evaluation)."""
+def post_observe(row: dict, organ_name: str = ORGAN_NAME, domain: str = DOMAIN) -> bool:
+    """POST tweet to /observe (store only, no Dog evaluation)."""
     text = row.get("text", "")[:200]
     author = row.get("author_screen_name", "?")
     score = row.get("signal_score", 0)
@@ -269,7 +270,7 @@ def post_observe(row: dict, organ_name: str = ORGAN_NAME) -> bool:
     payload = {
         "tool": organ_name,
         "target": row.get("tweet_id", ""),
-        "domain": DOMAIN,
+        "domain": domain,
         "status": "captured",
         "context": f"@{author} [{score}]: {text}",
         "tags": tags[:10],
@@ -338,22 +339,15 @@ def write_verdict_to_organ(row: dict, verdict: dict, organ_dir: Path) -> bool:
 
 def ingest_row(row: dict, organ_name: str = ORGAN_NAME, organ_dir: Path = DEFAULT_ORGAN_DIR,
                domains: dict = None, narrative_mappings: dict = None) -> bool:
-    """Route tweet: high-signal → /judge + write to organ, low-signal → /observe.
+    """Route tweet → /observe with narrative-first domain assignment.
 
-    High-signal tweets are routed to /judge with narrative-first domain assignment.
-    Throttles /judge calls to avoid rate limiting (Dogs need inference time).
+    All tweets go to /observe. The convergence emitter (downstream) decides what
+    reaches /judge — this daemon is a pure capture layer (K15: no flooding GPU slot).
+    post_judge() is kept for the convergence emitter; not called here.
     """
-    score = row.get("signal_score", 0)
-    if score >= JUDGE_THRESHOLD:
-        # Assign domain (narrative-first, then keyword, then D1 fallback)
-        domain = assign_domain(row, domains or {}, narrative_mappings or {})
-        time.sleep(JUDGE_THROTTLE)  # Respect inference capacity
-        verdict = post_judge(row, domain)
-        if verdict:
-            write_verdict_to_organ(row, verdict, organ_dir)
-            return True
-        return False
-    return post_observe(row, organ_name)
+    # Assign domain (narrative-first, then keyword, then D1 fallback)
+    domain = assign_domain(row, domains or {}, narrative_mappings or {})
+    return post_observe(row, organ_name, domain)
 
 
 # ── Organ heartbeat ──
@@ -514,9 +508,10 @@ def save_cursor(state_path: Path, offset: int):
 # ── Tail loop ──
 
 def tail_dataset(dataset: Path, state_path: Path, organ_name: str = ORGAN_NAME, organ_dir: Path = DEFAULT_ORGAN_DIR, replay: bool = False):
-    """Tail the dataset JSONL, POST new lines to /observe, write verdicts to organ.
+    """Tail the dataset JSONL, POST new lines to /observe with domain assignment.
 
-    High-signal tweets are routed to /judge with narrative-first domain assignment.
+    All tweets go to /observe (domain assigned via narrative-first logic).
+    The convergence emitter is the downstream consumer that decides what reaches /judge.
     """
     if not dataset.exists():
         logger.info("Dataset not found: %s — waiting for creation", dataset)
