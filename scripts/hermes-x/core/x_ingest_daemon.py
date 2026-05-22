@@ -346,7 +346,7 @@ def emit_convergence(signals: list, resolver: "CashtagResolver") -> int:
             "domain": signal.domain,
             "context": context,
             "tags": tags,
-            "agent_id": f"hermes-x-{ACCOUNT_ID}",
+            "agent_id": f"convergence-x-{ACCOUNT_ID}",
         }
 
         try:

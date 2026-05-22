@@ -59,10 +59,13 @@ async fn run_cycle(
     metrics: &Arc<Metrics>,
     judged_targets: &mut HashSet<String>,
 ) {
-    // Poll recent observations, filter to convergence signals
+    // Poll convergence-tagged observations directly (not list_observations_raw which
+    // buries convergence signals under tool/session observations from active sessions).
+    // Query multiple domains — convergence signals come from D1 (default) but also
+    // potentially other domains. Use "convergence" tag which the emitter always sets.
     let observations = match tokio::time::timeout(
         Duration::from_secs(10),
-        storage.list_observations_raw(None, None, 100),
+        storage.list_observations_by_tag("D1", "convergence", 20),
     )
     .await
     {
