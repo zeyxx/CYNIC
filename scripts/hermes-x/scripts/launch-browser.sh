@@ -34,6 +34,7 @@ mkdir -p "$PROFILE"
 exec /usr/bin/google-chrome \
     --user-data-dir="$PROFILE" \
     --remote-debugging-port=$CDP_PORT \
+    --remote-allow-origins="http://127.0.0.1:$CDP_PORT" \
     --proxy-server="127.0.0.1:$PROXY_PORT" \
     --no-first-run \
     --no-default-browser-check \
