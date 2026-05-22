@@ -286,6 +286,23 @@ pub(super) async fn list_observations_by_target(
     Ok(rows.iter().map(row_to_raw_observation).collect())
 }
 
+/// List observations filtered by domain + tag — uses CONTAINS on tags array.
+pub(super) async fn list_observations_by_tag(
+    storage: &SurrealHttpStorage,
+    domain: &str,
+    tag: &str,
+    limit: u32,
+) -> Result<Vec<RawObservation>, StorageError> {
+    let domain_esc = escape_surreal(domain);
+    let tag_esc = escape_surreal(tag);
+    let sql = format!(
+        "SELECT * FROM observation WHERE domain = '{domain_esc}' AND tags CONTAINS '{tag_esc}' ORDER BY created_at DESC LIMIT {}",
+        safe_limit(limit),
+    );
+    let rows = storage.query_one(&sql).await?;
+    Ok(rows.iter().map(row_to_raw_observation).collect())
+}
+
 /// Last observation per source — GROUP BY agent_id, return last timestamp + count.
 /// Uses array::max instead of math::max (created_at is stored as string, not datetime).
 pub(super) async fn last_observation_per_source(

@@ -239,6 +239,16 @@ pub trait StoragePort: Send + Sync {
         Ok(vec![])
     }
 
+    /// List observations filtered by domain + tag — for convergence consumer queries.
+    async fn list_observations_by_tag(
+        &self,
+        _domain: &str,
+        _tag: &str,
+        _limit: u32,
+    ) -> Result<Vec<RawObservation>, StorageError> {
+        Ok(vec![]) // default no-op
+    }
+
     /// Last observation timestamp per agent_id — used by state_log for organ liveness.
     /// Returns Vec<(agent_id, last_created_at, observation_count)>.
     async fn last_observation_per_source(
