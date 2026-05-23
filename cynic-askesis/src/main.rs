@@ -80,7 +80,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("Ingesting file: {}", input_file.display());
 
-            let mut store = JsonlLog::new(logfile)?;
+            let mut store = JsonlLog::new(&logfile)?;
+
+            // DE-DUPLICATION: Check if last entry is identical
+            let to = chrono::Utc::now();
+            let from = to - chrono::Duration::hours(1);
+            if let Ok(recent) = store.range(from, to) {
+                if let Some(last) = recent.last() {
+                    if last.content == content && last.domain.as_deref() == Some(&domain) {
+                        println!(
+                            "Skipping ingestion: Content is identical to last entry (domain: {domain})."
+                        );
+                        return Ok(());
+                    }
+                }
+            }
+
             let entry = cynic_askesis::log::LogEntry::new(content).with_domain(&domain);
 
             store.append(entry)?;
