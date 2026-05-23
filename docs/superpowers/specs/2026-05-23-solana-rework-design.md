@@ -78,7 +78,7 @@ cynic-kernel/src/
 | Current location (helius.rs) | Target | Lines |
 |---|---|---|
 | AMM program IDs, burn/locker addresses | `domain/solana_constants.rs` | 654-666, 721-729, 775-784 |
-| `classify_wallet()` thresholds | `domain/kscore.rs` | 1099-1113 |
+| HolderClass assignment from retention thresholds (inline in `analyze_behaviors`) | `domain/kscore.rs` (extracted to `fn classify_wallet`) | 1099-1113 |
 | `compute_kscore()` pure math | `domain/kscore.rs` | 1122-1193 |
 | `resolve_owner()`, `resolve_owners()` | `backends/helius/holders.rs` | 1195-1265 |
 | `get_wallet_total_bought()` | `backends/helius/rest.rs` | 985-1047 |
@@ -95,34 +95,49 @@ cynic-kernel/src/
 
 ### Problem
 
-X organ detects `$TICKER` convergence → resolves mint → stores observation → signal dies in DB. No automatic `/judge` trigger. Human or agent must manually POST to `/judge` with the mint address.
+X organ detects `$TICKER` convergence → resolves mint → stores observation. The existing `convergence_consumer.rs` (`infra/tasks/convergence_consumer.rs`) picks up these signals and judges them, but has two gaps:
+1. **No threshold gate** — any single convergence observation triggers a judgment (no minimum count)
+2. **Session-scoped dedup only** — `judged_targets: HashSet<String>` clears on restart, no persistent cooldown
+3. **No token-analysis routing** — judges as generic D1 social signal, doesn't trigger full Helius enrichment via `domain="token-analysis"`
 
 ### Design
 
-New event consumer in `infra/tasks/runtime_loops.rs` — subscribes to `KernelEvent::ObservationStored`.
+Extend the existing `convergence_consumer.rs` (poll-based, 60s interval) — not a new consumer. The poll model is already correctly designed for BURN (batch query of 20 per tick, lower DB pressure than event-per-observation).
+
+Changes to `run_cycle()`:
 
 ```
-Convergence observation arrives (POST /observe, domain="D1", tag="mint:{mint}")
+Existing: poll → filter *-convergence → dedup → judge immediately
+                                                    │
+Extended:                                           │
+    ├─ NEW: extract mint from tag "mint:{mint}"
     │
-    ├─ Stored in SurrealDB (existing path)
+    ├─ NEW: count observations for this mint in window (storage query)
+    │    Requires: StoragePort::count_observations_by_target_in_window(domain, target, hours) → u64
+    │    OR: client-side count from list_observations_by_tag (less efficient, works today)
     │
-    └─ KernelEvent::ObservationStored emitted (existing event)
-         │
-         └─ convergence_watcher (new consumer)
-              │
-              ├─ Filter: tag starts with "mint:" AND domain ∈ {"D1", "token-analysis"}
-              │
-              ├─ Aggregate: count observations for this mint in last window
-              │    (query storage — stateless consumer, no in-memory accumulation)
-              │
-              ├─ Gate: count >= CONVERGENCE_THRESHOLD
-              │    AND mint not judged in last COOLDOWN
-              │
-              ├─ Pass → dispatch judge(content=mint, domain="token-analysis",
-              │         tags=["auto-convergence"])
-              │
-              └─ Fail → no-op, observation stays for future aggregation
+    ├─ NEW: threshold gate (count >= CONVERGENCE_THRESHOLD)
+    │
+    ├─ NEW: persistent cooldown check (query latest verdict for this mint)
+    │    Requires: storage.list_verdicts_by_target(mint, limit=1) or similar
+    │    Replaces in-memory HashSet for cross-restart persistence
+    │
+    ├─ CHANGED: when threshold met, judge with domain="token-analysis"
+    │    (triggers full Helius enrichment via enrich_token())
+    │    Add tag "auto-convergence" to verdict for audit trail
+    │
+    └─ KEPT: social stimulus building (format_social_section) for non-mint signals
+         (D1 signals without mint: tag continue to be judged as before)
 ```
+
+### Storage Method Needed
+
+`StoragePort` currently has `list_observations_by_tag(domain, tag, limit)` which returns a flat list. Two options for the threshold count:
+
+- **Option A (simple, works today):** Client-side aggregation — call `list_observations_by_tag("D1", "mint:{mint}", 20)`, filter by timestamp > now - window, count. O(20) per mint per tick. Good enough for current volume.
+- **Option B (efficient, new method):** Add `count_observations_by_target_in_window(domain: &str, target: &str, window_hours: u64) → Result<u64>` to `StoragePort`. Single DB query. Better at scale.
+
+Start with Option A. Promote to Option B if convergence volume exceeds 100 observations/hour.
 
 ### Configuration
 
@@ -137,13 +152,13 @@ All values are **initial conjectures**. Calibrate after 2 weeks of production da
 ### Sovereignty Gates
 
 - **Threshold** — 3 mentions from distinct sources in 1h. One random tweet doesn't trigger enrichment.
-- **Cooldown** — 6h between re-judgments. Prevents buzz-driven credit drain.
+- **Cooldown** — 6h between re-judgments (persistent across restarts). Prevents buzz-driven credit drain.
 - **Tag** — Auto-triggered judgments carry `"auto-convergence"` tag for audit trail distinction.
 - **Config** — All parameters in `KernelConfig`, tunable at boot.
 
 ### Observability
 
-The watcher logs every decision with outcome:
+The consumer logs every decision with outcome:
 - `convergence_triggered{mint, count, window}` — threshold crossed, judgment dispatched
 - `convergence_below_threshold{mint, count, threshold}` — not enough signal yet
 - `convergence_cooldown{mint, last_judged, cooldown}` — recent judgment, skipped
@@ -152,7 +167,7 @@ This log data is the calibration input for threshold tuning.
 
 ### K15 Compliance
 
-Convergence observations (producer: x_ingest_daemon) now have an acting consumer (convergence_watcher) that changes system behavior (triggers judgment pipeline). The watcher's output (verdicts) is consumed by CCM.
+Convergence observations (producer: x_ingest_daemon) already have a consumer (`convergence_consumer.rs`). This phase adds the threshold gate and token-analysis routing — strengthening the existing K15 chain, not creating a new one.
 
 ---
 
@@ -184,6 +199,12 @@ enrich_token() returns TokenData
 
 `domain/rug_prefilter.rs` — pure function, no I/O, no async. Takes `&TokenData`, returns `PreFilterResult` enum.
 
+### Pipeline Integration Point
+
+Called in `pipeline/enrichment.rs::enrich_token()`, after DexScreener market data merge (~line 209), before returning `TokenEnrichmentResult`. The caller in `pipeline/mod.rs` checks the `PreFilterResult`:
+- `Pass` / `Inconclusive` → proceed to Dogs (existing path)
+- `Rug(reason)` → emit deterministic BARK, skip Dog dispatch
+
 ### Heuristics
 
 **Hard-fail signals** (any one = `Rug`):
@@ -198,11 +219,13 @@ enrich_token() returns TokenData
 
 | Signal | Condition | Weight (conjecture) |
 |---|---|---|
-| No commitment | `supply_burned_pct == 0 AND !lp_burned AND age_hours > 48` | +1 |
-| Dead trajectory | `trajectory_class == DEAD` | +1 |
+| No commitment | `supply_burned_pct == 0 AND lp_status != "burned" AND age_hours > 48` | +1 |
+| Dead trajectory | `trajectory_class == Some("DEAD")` | +1 |
 | No trading | `volume_24h_usd == 0 AND age_hours > 72` | +1 |
 
 Soft signals: if combined score >= 3 → `Rug`. Otherwise `Inconclusive`.
+
+Note: `trajectory_class` is `Option<String>` — `None` (token not tracked by cron) is treated as `Inconclusive`, not as `DEAD`. Only an explicit `"DEAD"` classification counts.
 
 All thresholds are **conjectures**. Validated retroactively against existing verdict corpus before going live.
 
@@ -212,8 +235,8 @@ Pre-filter is BURN optimization, not a safety gate. If it can't decide, Dogs jud
 
 **Calibration protocol:**
 1. Run pre-filter retroactively on all historical verdicts
-2. Compare: pre-filter result vs Dog consensus
-3. If pre-filter would have filtered a WAG/HOWL → false positive → loosen heuristic
+2. Compare: pre-filter result vs Dog consensus (>=2 Dogs agree on WAG/HOWL)
+3. If pre-filter would have filtered a consensus WAG/HOWL → false positive → loosen heuristic
 4. Target: **0 false positives**, accept false negatives (good tokens that look rugged)
 
 ### K15 Compliance
@@ -309,11 +332,14 @@ Total incremental Helius cost: ~10 credits/token at T+7d only.
 - **Auto-tune Dog weights.** This ships the data pipeline. Calibration is a future layer that reads outcome observations and adjusts deterministic Dog thresholds.
 - **Replace manual calibration.** The outcome data enriches the calibration corpus. A human (or calibration agent) still reviews rho correlations and decides weight changes.
 
-### K15 Compliance
+### K15 Exception (Explicit)
 
-Outcome observations (producer: outcome_collector) are consumed by calibration analysis (future consumer). Initially Tier 1 (manual analysis). Promotes to Tier 2 when a calibration agent consumes outcomes to propose Dog weight changes.
+Outcome observations (producer: outcome_collector) do NOT have an acting consumer at launch. This is a **conscious K15 exception** under `python-lifecycle.md` Tier 1 rules.
 
-Note: the Tier 1 → Tier 2 promotion path is intentional. Ship the producer first, prove the data is useful, then wire the consumer.
+- **Tier:** 1 EXPERIMENTAL
+- **Death date:** 2026-06-22 (30 days). If no acting consumer is wired by then, delete.
+- **Promotion condition:** A calibration script or agent reads outcome observations, computes rho between Dog scores and outcomes, and proposes Dog weight changes. That script becomes the acting K15 consumer, and outcome_collector promotes to Tier 2.
+- **Why ship without consumer:** The data pipeline must exist before calibration can begin. The 30-day death date prevents it from rotting.
 
 ---
 
@@ -323,7 +349,7 @@ Note: the Tier 1 → Tier 2 promotion path is intentional. Ship the producer fir
 Phase 1 (structural extraction)
     │
     ├─ Phase 2 (convergence auto-trigger) — independent of Phase 1
-    │    but benefits from cleaner code to integrate the watcher
+    │    extends existing convergence_consumer.rs
     │
     ├─ Phase 3 (rug pre-filter) — depends on Phase 1
     │    (rug_prefilter.rs in domain/ uses same TokenData)
@@ -350,7 +376,7 @@ Phases 2 and 4 can be parallelized (different languages, different layers).
 |---|---|
 | K-Score is separable from Helius | `compute_kscore()` can't compile without `reqwest` imports |
 | Convergence threshold 3 is reasonable | >50% of auto-triggered judgments are noise (token not worth judging) |
-| Rug pre-filter has 0 false positives | Any historical WAG/HOWL verdict would have been filtered |
+| Rug pre-filter has 0 false positives | Any historical consensus WAG/HOWL (>=2 Dogs agree) would have been filtered |
 | Outcome labels are meaningful | Outcome label has rho < 0.3 with verdict Q-score |
 | DexScreener is sufficient for price | DexScreener coverage < 80% of judged tokens |
 | T+7d is the right outcome window | Tokens that rug do so in <24h (T+7d is too late) OR >30d (T+7d is too early) |
@@ -366,7 +392,7 @@ Phases 2 and 4 can be parallelized (different languages, different layers).
 | Outcome T+7d | ~10 | per judged token, once | DexScreener free, Helius minimal |
 | Convergence auto-trigger | +200 | per auto-triggered token | New spend, gated by threshold |
 
-Net: if pre-filter catches >5% of tokens, the savings offset auto-trigger costs.
+Net (conjecture): if pre-filter catches >5% of tokens AND auto-triggered tokens are net-new (not already manually judged), the savings offset auto-trigger costs. Both assumptions need measurement.
 
 ---
 
