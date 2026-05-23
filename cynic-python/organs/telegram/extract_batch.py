@@ -141,12 +141,37 @@ def get_blocks(
     return blocks
 
 
-def extract_block(
-    text: str,
-    api_key: str,
-    timeout: int = 90,
-) -> tuple[str, int, int]:
-    """Send a block to Qwen 7B, return (json_str, signal_count, tokens_used)."""
+def extract_block_gemini(text: str, timeout: int = 300) -> tuple[str, int, int]:
+    """Send a block to Gemini CLI, return (json_str, signal_count, tokens_used)."""
+    import subprocess
+
+    prompt = SYSTEM_PROMPT + "\n\nMessages:\n" + text
+    result = subprocess.run(
+        ["gemini", "-m", "gemini-2.5-flash", "-p", prompt],
+        capture_output=True, text=True, timeout=timeout,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"gemini CLI error: {result.stderr[:200]}")
+
+    raw = result.stdout.strip()
+    if raw.startswith("```"):
+        lines = raw.split("\n")
+        lines = [l for l in lines if not l.startswith("```")]
+        raw = "\n".join(lines).strip()
+
+    try:
+        signals = json.loads(raw)
+        if not isinstance(signals, list):
+            signals = []
+    except json.JSONDecodeError:
+        signals = []
+        raw = "[]"
+
+    return raw, len(signals), 0
+
+
+def extract_block_llama(text: str, api_key: str, timeout: int = 90) -> tuple[str, int, int]:
+    """Send a block to local llama-server, return (json_str, signal_count, tokens_used)."""
     body = {
         "model": "qwen",
         "messages": [
@@ -154,7 +179,7 @@ def extract_block(
             {"role": "user", "content": text},
         ],
         "temperature": 0.1,
-        "max_tokens": 512,
+        "max_tokens": 1024,
     }
     resp = requests.post(
         LLAMA_URL,
@@ -171,7 +196,6 @@ def extract_block(
     content = data["choices"][0]["message"]["content"]
     tokens = data.get("usage", {}).get("total_tokens", 0)
 
-    # Parse to count signals
     try:
         signals = json.loads(content)
         if not isinstance(signals, list):
@@ -182,6 +206,17 @@ def extract_block(
     return content, len(signals), tokens
 
 
+# Backend selection: "gemini" uses gemini CLI, "llama" uses local llama-server
+EXTRACT_BACKEND = os.environ.get("EXTRACT_BACKEND", "gemini")
+
+
+def extract_block(text: str, api_key: str, timeout: int = 300) -> tuple[str, int, int]:
+    """Route to the configured backend."""
+    if EXTRACT_BACKEND == "gemini":
+        return extract_block_gemini(text, timeout)
+    return extract_block_llama(text, api_key, timeout)
+
+
 def run_batch(
     channel_id: Optional[int] = None,
     limit: Optional[int] = None,
@@ -189,8 +224,10 @@ def run_batch(
 ) -> None:
     """Run batch extraction on pending blocks."""
     cfg = load_config(str(_DEFAULT_CONFIG))
+    model_name = "gemini-2.5-flash" if EXTRACT_BACKEND == "gemini" else "qwen25-7b-core"
+    logger.info("backend: %s, model: %s", EXTRACT_BACKEND, model_name)
     api_key = os.environ.get("CYNIC_SOVEREIGN_KEY", "")
-    if not api_key and not dry_run:
+    if EXTRACT_BACKEND == "llama" and not api_key and not dry_run:
         logger.error("CYNIC_SOVEREIGN_KEY not set")
         return
 
@@ -224,7 +261,7 @@ def run_batch(
                    VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
                 (
                     block["block_id"], block["channel_id"], content,
-                    signal_count, "qwen25-7b-core", tokens,
+                    signal_count, model_name, tokens,
                     datetime.now(timezone.utc).isoformat(),
                 ),
             )

@@ -1,4 +1,4 @@
-# CYNIC Organism Topology (auto-generated 2026-05-19 17:17 UTC)
+# CYNIC Organism Topology (auto-generated 2026-05-23 10:43 UTC)
 
 ## Active Modules
 
@@ -9,6 +9,7 @@
 | hermes-github-organ | social | 2 | ACTIVE | none | kernel /observe (domain=github), github |
 | hermes-x-organ | social | 2 | ACTIVE | hermes-data-organism (hourly at :17) | reflections, kernel /observe (domain=hermes-x) |
 | hermes-x-scripts | social | 2 | ACTIVE | hermes-x-ingest (daemon), hermes-curation (every 30min at :03/:33), hermes-search-generator (every 15min at :02/:17/:32/:47), hermes-feedback-loop (every 1h), hermes-k15-consumer (every 10min), hermes-gemini-briefing (every 4h) | kernel /observe (domain=twitter), domain signals, SKILL (+1) |
+| telegram-organ | social | 2 | active | none | data,  |
 | token-data-collection | token-analysis | 2 | ACTIVE | token-snapshot (06:00 UTC daily) | holders date, metadata date, market snapshot date (+1) |
 | token-data-store | token-analysis | 2 | ACTIVE | none | snapshots, market snapshots, token profiles (+4) |
 | ab-test-enrichment-2026-05-16 | token-analysis | ? | CONSUMED | none |  |
@@ -39,6 +40,7 @@
 - [warning] hermes-x-organ: no files match ~/.cynic/organs/hermes/x/reflections/
 - [warning] mirror-agent: no files match ~/.cynic/organs/mirror/profiles/
 - [warning] mirror-agent: no files match ~/.cynic/organs/mirror/segments/
+- [warning] telegram-organ: no files match ~/.cynic/organs/telegram/data.db
 - [warning] hermes-x-scripts: no files match ~/.cynic/organs/hermes/x/domain_signals/
 
 ## Experiments
