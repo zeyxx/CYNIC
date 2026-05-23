@@ -157,9 +157,8 @@ impl AuditEngine for GeminiWisdomAudit {
             Err(e) => return Ok(Reflection::degraded(format!("gemini spawn failed: {e}"))),
         };
 
-        let mut stdin = match child.stdin.take() {
-            Some(s) => s,
-            None => return Ok(Reflection::degraded("failed to open stdin")),
+        let Some(mut stdin) = child.stdin.take() else {
+            return Ok(Reflection::degraded("failed to open stdin"));
         };
         tokio::io::AsyncWriteExt::write_all(&mut stdin, prompt.as_bytes()).await?;
         drop(stdin); // Close stdin so gemini knows input is finished
