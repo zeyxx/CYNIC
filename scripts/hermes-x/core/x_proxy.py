@@ -299,7 +299,9 @@ def _parse_result(result: dict) -> dict | None:
         "possibly_sensitive": legacy.get("possibly_sensitive", False),
 
         # Author (full extraction)
-        "author": ucore.get("screen_name", "") or uleg.get("screen_name", ""),
+        # Fallback: when X API withholds user_results (suspended/restricted accounts),
+        # use legacy.user_id_str as identifier. 18/21514 entries hit this (2026-05-17).
+        "author": ucore.get("screen_name", "") or uleg.get("screen_name", "") or f"uid:{legacy.get('user_id_str', 'unknown')}",
         "author_name": ucore.get("name", "") or uleg.get("name", ""),
         "author_followers": uleg.get("followers_count", 0),
         "author_statuses_count": uleg.get("statuses_count", 0),
