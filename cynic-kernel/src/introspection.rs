@@ -208,8 +208,21 @@ pub async fn analyze(
     // 10min threshold: generous enough for cron jobs (longest cycle ~30min),
     // tight enough to catch crashes within the introspection 5min tick.
     const PRODUCER_SILENCE_SECS: u64 = 600;
+    // Retired agent_ids: still classified as permanent but no longer have running code.
+    // Must mirror RETIRED_SOURCES in organ_silence below to avoid false positives.
+    const RETIRED_PRODUCERS: &[&str] = &[
+        "hermes-hermes",
+        "hermes-x-proxy",
+        "hermes-x-organ",
+        "x-proxy",
+        "hermes-x",
+        "hermes", // replaced by hermes-x-cynic + hermes-x-proxy-cynic (2026-05-22)
+    ];
     for (agent_id, hb) in producer_heartbeats {
         if !is_permanent_source(agent_id) || hb.count < 2 {
+            continue;
+        }
+        if RETIRED_PRODUCERS.contains(&agent_id.as_str()) {
             continue;
         }
         let age_secs = hb.last_seen.elapsed().as_secs();
@@ -360,6 +373,9 @@ pub fn check_sense_health(snapshots: &[(String, SenseSnapshot)]) -> Vec<Alert> {
                             .strip_prefix("node_")
                             .and_then(|s| s.strip_suffix("_online"))
                             .unwrap_or(key);
+                        // No hardcoded filter needed: TailscaleReader only tracks
+                        // fleet.toml nodes with status="active" (parsed at boot).
+                        // Offline nodes are never probed, so never emit metrics here.
                         alerts.push(Alert {
                             kind: "fleet_drift",
                             message: format!("Fleet node '{node}' offline"),
@@ -467,6 +483,7 @@ pub fn analyze_state_log_trends(prev: &StateBlock, curr: &StateBlock) -> Vec<Ale
         "hermes-x-organ", // old curation report emitter (replaced by hermes-curation)
         "x-proxy",        // old raw tweet capture agent (replaced by search-generator)
         "hermes-x",       // old K15 debug/tweet capture (replaced by k15-consumer)
+        "hermes",         // generic agent_id (4 obs) — replaced by hermes-x-cynic
     ];
     let now = chrono::Utc::now();
     for organ in &curr.organs {

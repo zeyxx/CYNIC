@@ -40,11 +40,6 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/subagent-context.sh"
-          },
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/observe-subagent.sh",
-            "async": true
           }
         ]
       }
@@ -74,16 +69,6 @@
       }
     ],
     "PostToolUse": [
-      {
-        "matcher": "Edit|Write|Bash|Read|Grep|Glob",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/observe-tool.sh",
-            "async": true
-          }
-        ]
-      },
       {
         "matcher": "Edit|Write",
         "hooks": [
