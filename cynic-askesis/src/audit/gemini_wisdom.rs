@@ -146,13 +146,26 @@ impl AuditEngine for GeminiWisdomAudit {
         if !self.model.is_empty() {
             cmd.args(["-m", &self.model]);
         }
-        cmd.args(["-p", &prompt]);
+        // Headless mode, no prompt arg, will read from stdin
+        cmd.arg("-p").arg("");
+        cmd.stdin(std::process::Stdio::piped());
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
 
-        let fut = cmd.output();
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(e) => return Ok(Reflection::degraded(format!("gemini spawn failed: {e}"))),
+        };
 
-        let output = match timeout(self.timeout, fut).await {
+        let Some(mut stdin) = child.stdin.take() else {
+            return Ok(Reflection::degraded("failed to open stdin"));
+        };
+        tokio::io::AsyncWriteExt::write_all(&mut stdin, prompt.as_bytes()).await?;
+        drop(stdin); // Close stdin so gemini knows input is finished
+
+        let output = match timeout(self.timeout, child.wait_with_output()).await {
             Ok(Ok(o)) => o,
-            Ok(Err(e)) => return Ok(Reflection::degraded(format!("gemini spawn failed: {e}"))),
+            Ok(Err(e)) => return Ok(Reflection::degraded(format!("gemini failed: {e}"))),
             Err(_) => return Ok(Reflection::degraded("gemini timed out")),
         };
 

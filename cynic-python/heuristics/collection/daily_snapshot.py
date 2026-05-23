@@ -181,25 +181,31 @@ def compute_conviction_from_snapshots(mint: str, window_days: int = 7) -> Option
     if not os.path.exists(today_path):
         return None
 
-    # Find closest snapshot to target_date
-    past_path = os.path.join(mint_dir, f"holders_{target_date.isoformat()}.json")
-    if not os.path.exists(past_path):
-        # Try ±1 day
+    # Find closest snapshot to target_date (skip empty snapshots — API failures)
+    def _find_valid_snapshot(target: "date") -> Optional[str]:
+        """Find a non-empty snapshot closest to target date, ±2 days."""
+        candidates = [target]
         for offset in range(1, 3):
-            for delta in [timedelta(days=offset), timedelta(days=-offset)]:
-                alt_date = target_date + delta
-                alt_path = os.path.join(mint_dir, f"holders_{alt_date.isoformat()}.json")
-                if os.path.exists(alt_path):
-                    past_path = alt_path
-                    break
-            if os.path.exists(past_path):
-                break
-        else:
-            return None  # No past snapshot found
+            candidates.append(target + timedelta(days=offset))
+            candidates.append(target - timedelta(days=offset))
+        for d in candidates:
+            path = os.path.join(mint_dir, f"holders_{d.isoformat()}.json")
+            if os.path.exists(path):
+                with open(path) as f:
+                    data = json.load(f)
+                if len(data) > 0:  # skip empty snapshots (API failure)
+                    return path
+        return None
+
+    past_path = _find_valid_snapshot(target_date)
+    if past_path is None:
+        return None
 
     # Load both snapshots
     with open(today_path) as f:
         today_holders = json.load(f)
+    if len(today_holders) == 0:
+        return None  # today's snapshot is also empty
     with open(past_path) as f:
         past_holders = json.load(f)
 
