@@ -122,7 +122,19 @@ impl SlotSemaphore {
     }
 
     /// Attempt a non-blocking acquire. Returns `None` if no slot is currently free.
+    ///
+    /// Priority reservation: low-priority callers (Background, Nightshift) refuse
+    /// the last available slot, reserving it for high-priority callers (User, Hermes).
+    /// This prevents bulk nightshift cycles from starving interactive requests.
+    /// Observed: nightshift saturates all slots for minutes, blocking /judge.
     pub fn try_acquire(&self, priority: SlotPriority) -> Option<SlotPermit> {
+        // Reserve the last slot for blocking (high-priority) callers.
+        // If total_slots > 1 and only 1 permit remains, non-blocking callers yield.
+        let total = self.total_slots.load(Ordering::Relaxed);
+        if !priority.is_blocking() && total > 1 && self.semaphore.available_permits() <= 1 {
+            return None;
+        }
+
         match Arc::clone(&self.semaphore).try_acquire_owned() {
             Ok(permit) => Some(SlotPermit {
                 _permit: permit,
@@ -275,17 +287,17 @@ mod tests {
     use std::sync::Arc;
 
     // F1 — permit exhaustion: semaphore blocks at exactly N permits.
+    // Uses User priority (blocking) to bypass reservation and test raw exhaustion.
     #[tokio::test]
     async fn f1_permits_exhaust_at_slot_count() {
         let sem = SlotSemaphore::new("test-dog", 4);
-        let p1 = sem.try_acquire(SlotPriority::Background).unwrap();
-        let p2 = sem.try_acquire(SlotPriority::Background).unwrap();
-        let p3 = sem.try_acquire(SlotPriority::Background).unwrap();
-        let p4 = sem.try_acquire(SlotPriority::Background).unwrap();
-        assert!(sem.try_acquire(SlotPriority::Background).is_none());
+        let p1 = sem.try_acquire(SlotPriority::User).unwrap();
+        let p2 = sem.try_acquire(SlotPriority::User).unwrap();
+        let p3 = sem.try_acquire(SlotPriority::User).unwrap();
+        let p4 = sem.try_acquire(SlotPriority::User).unwrap();
+        assert!(sem.try_acquire(SlotPriority::User).is_none());
         drop(p1);
-        assert!(sem.try_acquire(SlotPriority::Background).is_some());
-        // silence unused-variable warnings for held permits
+        assert!(sem.try_acquire(SlotPriority::User).is_some());
         drop(p2);
         drop(p3);
         drop(p4);
@@ -394,17 +406,21 @@ mod tests {
     }
 
     // F3 — Concurrent user + nightshift, no starvation.
-    // 4 slots: nightshift takes 3, user must still get the 4th.
+    // 4 slots: nightshift takes 2 (3rd refused by reservation), user gets slot.
     #[tokio::test]
     async fn f3_concurrent_user_and_nightshift_no_starvation() {
         let sem = Arc::new(SlotSemaphore::new("gpu-dog", 4));
-        // Nightshift takes 3 slots (sequential in practice, parallel here for stress)
+        // Nightshift takes slots until reservation kicks in
         let _n1 = sem.try_acquire(SlotPriority::Nightshift).unwrap();
         let _n2 = sem.try_acquire(SlotPriority::Nightshift).unwrap();
         let _n3 = sem.try_acquire(SlotPriority::Nightshift).unwrap();
-        // User still gets the 4th slot — no starvation
+        // 4th slot (last one): nightshift yields, user gets it
+        assert!(
+            sem.try_acquire(SlotPriority::Nightshift).is_none(),
+            "nightshift must yield last slot"
+        );
         let user = sem.try_acquire(SlotPriority::User);
-        assert!(user.is_some(), "User must get a slot when 1/4 is free");
+        assert!(user.is_some(), "User must get the reserved slot");
     }
 
     // F5 — No deadlock under fan-out.
@@ -449,6 +465,36 @@ mod tests {
         })
         .await
         .expect("must not deadlock");
+    }
+
+    // Priority reservation: non-blocking callers yield the last slot.
+    #[test]
+    fn priority_reservation_last_slot() {
+        let sem = SlotSemaphore::new("reserve-dog", 2);
+        // Take first slot as Background — succeeds (2 available → 1 remaining)
+        let _bg1 = sem.try_acquire(SlotPriority::Background).unwrap();
+        // Second Background attempt: only 1 slot left, total > 1 → reservation kicks in
+        assert!(
+            sem.try_acquire(SlotPriority::Nightshift).is_none(),
+            "non-blocking must yield last slot for interactive"
+        );
+        // But User can still take it
+        assert!(
+            sem.try_acquire(SlotPriority::User).is_some(),
+            "blocking caller must get the reserved slot"
+        );
+    }
+
+    // Single-slot dog: reservation doesn't apply (total_slots == 1).
+    #[test]
+    fn single_slot_no_reservation() {
+        let sem = SlotSemaphore::new("single-dog", 1);
+        // Background can take the only slot (total == 1, reservation only for total > 1)
+        let bg = sem.try_acquire(SlotPriority::Background);
+        assert!(
+            bg.is_some(),
+            "single-slot dog: Background must get the slot"
+        );
     }
 
     // from_str_opt: case-insensitive string → SlotPriority.
