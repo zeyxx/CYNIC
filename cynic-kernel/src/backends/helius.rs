@@ -1022,7 +1022,7 @@ impl HeliusEnricher {
         Vec<crate::domain::enrichment::WalletBehavior>,
         crate::domain::enrichment::KScore,
     ) {
-        use crate::domain::enrichment::{HolderClass, KScore, WalletBehavior};
+        use crate::domain::enrichment::WalletBehavior;
 
         let n = holder_addresses.len().min(config.top_n_wallets);
         let mut behaviors = Vec::with_capacity(n);
@@ -1055,15 +1055,7 @@ impl HeliusEnricher {
                 1.0 // No SWAP data = assume holding
             };
 
-            let class = if retention >= config.accumulator_threshold {
-                HolderClass::Accumulator
-            } else if retention >= config.holder_threshold {
-                HolderClass::Holder
-            } else if retention >= config.reducer_threshold {
-                HolderClass::Reducer
-            } else {
-                HolderClass::Extractor
-            };
+            let class = crate::domain::kscore::classify_wallet(retention, config);
 
             behaviors.push(WalletBehavior {
                 class,
@@ -1073,64 +1065,13 @@ impl HeliusEnricher {
         }
 
         // Compute K-Score from behaviors
-        let total = behaviors.len() as f64;
-        if total == 0.0 {
-            return (behaviors, KScore::default());
-        }
-
-        let acc = behaviors
-            .iter()
-            .filter(|b| b.class == HolderClass::Accumulator)
-            .count() as f64;
-        let hld = behaviors
-            .iter()
-            .filter(|b| b.class == HolderClass::Holder)
-            .count() as f64;
-        let ext = behaviors
-            .iter()
-            .filter(|b| b.class == HolderClass::Extractor)
-            .count() as f64;
-        let red = behaviors
-            .iter()
-            .filter(|b| b.class == HolderClass::Reducer)
-            .count() as f64;
-
-        // DiamondHands = sqrt(conviction × retention_signal)
-        // conviction: fraction of analyzed wallets that are accumulating or holding
-        // retention_signal: tanh(acc/ext ratio / 2)
-        //   Fix C3 documentation: tanh maps [0,∞) → [0,1).
-        //   When acc >> ext: tanh → 1.0 (strong diamond hands signal).
-        //   When ext >> acc: tanh → 0.0 (everyone selling).
-        //   Division by 2 normalizes so 1:1 ratio → tanh(0.5) ≈ 0.46 (neutral).
-        let conviction = (acc + hld) / total;
-        let retention_signal = (acc / ext.max(1.0) / 2.0).tanh();
-        let diamond_hands = (conviction * retention_signal).sqrt();
-
-        // OrganicGrowth = sqrt(holder_norm × inv_concentration)
-        let holder_norm = 1.0 - 1.0 / (1.0 + (1.0 + holder_count as f64 / 100.0).ln());
-        let inv_concentration = (1.0 - top10_pct / 100.0).max(0.0);
-        let organic_growth = (holder_norm * inv_concentration).sqrt();
-
-        // Longevity = 1 - e^(-age_days/21)
-        let age_days = age_hours as f64 / 24.0;
-        let longevity = 1.0 - (-age_days / 21.0).exp();
-
-        // K = DH^w1 × OG^w2 × L^w3
-        let score = diamond_hands.powf(config.weight_diamond_hands)
-            * organic_growth.powf(config.weight_organic_growth)
-            * longevity.powf(config.weight_longevity);
-
-        let kscore = KScore {
-            score,
-            diamond_hands,
-            organic_growth,
-            longevity,
-            wallets_analyzed: total as u32,
-            accumulators: acc as u32,
-            holders: hld as u32,
-            reducers: red as u32,
-            extractors: ext as u32,
-        };
+        let kscore = crate::domain::kscore::compute_kscore(
+            &behaviors,
+            holder_count,
+            top10_pct,
+            age_hours,
+            config,
+        );
 
         tracing::info!(
             mint = %mint,
