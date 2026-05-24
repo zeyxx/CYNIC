@@ -203,6 +203,101 @@ async fn pipeline_inner(
         None
     };
 
+    // ── Stage 5b: Rug pre-filter (BURN optimization — fail-open) ──
+    // Skips Dog dispatch for tokens that are obviously dead/rug.
+    // Inconclusive → falls through to Dogs. Pass → falls through to Dogs.
+    // Only Rug(reason) returns early with a synthetic BARK verdict.
+    if let Some(ref td) = captured_token_data {
+        use crate::domain::rug_prefilter::{PreFilterResult, rug_prefilter};
+        if let PreFilterResult::Rug(reason) = rug_prefilter(td) {
+            tracing::info!(
+                phase = "prefilter",
+                mint = %td.mint,
+                reason = %reason,
+                "rug pre-filter: BARK — skipping Dogs"
+            );
+            let bark_scores = crate::domain::dog::AxiomScores {
+                fidelity: crate::domain::dog::phi_bound(0.1),
+                phi: crate::domain::dog::phi_bound(0.1),
+                verify: crate::domain::dog::phi_bound(0.1),
+                culture: crate::domain::dog::phi_bound(0.1),
+                burn: crate::domain::dog::phi_bound(0.1),
+                sovereignty: crate::domain::dog::phi_bound(0.1),
+                reasoning: crate::domain::dog::AxiomReasoning {
+                    fidelity: reason.clone(),
+                    phi: reason.clone(),
+                    verify: reason.clone(),
+                    culture: reason.clone(),
+                    burn: reason.clone(),
+                    sovereignty: reason.clone(),
+                },
+                ..Default::default()
+            };
+            let q_score = crate::domain::dog::compute_qscore(&bark_scores);
+            let prefilter_dog_score = crate::domain::dog::DogScore {
+                dog_id: "rug-prefilter".to_string(),
+                latency_ms: 0,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                fidelity: q_score.fidelity,
+                phi: q_score.phi,
+                verify: q_score.verify,
+                culture: q_score.culture,
+                burn: q_score.burn,
+                sovereignty: q_score.sovereignty,
+                raw_fidelity: 0.1,
+                raw_phi: 0.1,
+                raw_verify: 0.1,
+                raw_culture: 0.1,
+                raw_burn: 0.1,
+                raw_sovereignty: 0.1,
+                reasoning: bark_scores.reasoning.clone(),
+                reasoning_trace: None,
+                abstentions: vec![],
+            };
+            let prefilter_verdict = crate::domain::dog::Verdict {
+                id: uuid::Uuid::new_v4().to_string(),
+                domain: domain_hint.to_string(),
+                kind: crate::domain::dog::VerdictKind::Bark,
+                q_score,
+                reasoning: bark_scores.reasoning,
+                dog_id: "rug-prefilter".to_string(),
+                stimulus_summary: format!("rug-prefilter: {reason}"),
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                voter_count: 1,
+                dog_scores: vec![prefilter_dog_score],
+                anomaly_detected: false,
+                max_disagreement: 0.0,
+                anomaly_axiom: None,
+                failed_dogs: vec![],
+                failed_dog_errors: std::collections::BTreeMap::new(),
+                integrity_hash: None,
+                prev_hash: None,
+            };
+            let prefilter_embedding = stimulus_embedding.clone();
+            let prefilter_stimulus = crate::domain::dog::Stimulus {
+                content: format!("rug-prefilter: {reason}"),
+                context: None,
+                domain: domain.clone(),
+                request_id: deps.request_id.clone(),
+            };
+            evaluation::emit_verdict_event(&prefilter_verdict, domain_hint, deps);
+            side_effects::run(
+                &prefilter_stimulus,
+                &prefilter_verdict,
+                &prefilter_embedding,
+                deps,
+                false,
+            )
+            .await;
+            return Ok(PipelineResult::Evaluated {
+                verdict: Box::new(prefilter_verdict),
+                token_data: Some(Box::new(td.clone())),
+                enriched_content,
+            });
+        }
+    }
+
     // ── Stage 6: Wallet enrichment ──
     let (mut content, captured_wallet_profile) =
         enrichment::enrich_wallet(content, domain_hint, &wallet_context_json);
