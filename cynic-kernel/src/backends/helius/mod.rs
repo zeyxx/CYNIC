@@ -146,21 +146,24 @@ impl TokenEnricherPort for HeliusEnricher {
             .get_holders_via_das(mint_address, real_supply, decimals)
             .await
         {
-            // DAS fallback: getTokenAccounts when getTokenLargestAccounts overloaded.
-            // Less precise (unsorted sample) but provides holder data vs nothing.
+            // DAS fallback: random sample when getTokenLargestAccounts overloaded.
+            // Holder count and basic stats are usable, but the sample is NOT sorted
+            // by balance — the "top holders" aren't the real top holders. This means
+            // LP/burn detection will fail (checking random wallets, not actual LP pools).
+            // Mark holder_data_available=false so lp_status → "unknown" (not false "unsecured").
             tracing::info!(
                 mint = %mint_address,
                 holders = conc.accounts_seen,
-                "Using DAS getTokenAccounts fallback for holder concentration"
+                "DAS fallback — holder count usable, LP detection unreliable"
             );
             (
                 conc.accounts_seen,
                 conc.top1_pct,
                 conc.top10_pct,
                 Some(conc.herfindahl),
-                conc.holder_addresses,
-                conc.holder_balances,
-                true,
+                vec![], // empty → detect_lp_and_supply_status returns "unknown"
+                vec![], // empty → no false burn/locker classifications
+                false,  // stimulus shows "holders: UNAVAILABLE" + lp="UNKNOWN"
             )
         } else {
             (0, 0.0, 0.0, None, vec![], vec![], false)
@@ -168,7 +171,8 @@ impl TokenEnricherPort for HeliusEnricher {
 
         // Estimate real holder count via DAS pagination when getTokenLargestAccounts hit the 20-cap.
         // This replaces "20+" with "~100000+" for established tokens like JUP.
-        let holder_count = if holder_data_available && holder_count >= 20 {
+        // Always estimate when sample is large enough — holder_data_available only guards LP detection.
+        let holder_count = if holder_count >= 20 {
             self.estimate_holder_count(mint_address).await
         } else {
             holder_count
