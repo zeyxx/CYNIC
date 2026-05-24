@@ -13,17 +13,15 @@
 //! After `cooldown_hours` the entry expires and the mint can be triggered again.
 //!
 //! ## Domain routing
-//! Mint-tagged signals → domain `"token-analysis"` (triggers Helius enrichment path).
-//! Non-mint signals → original domain from the observation (social stimulus, D1).
-//!
-//! NOTE: judgment still goes through `judge.evaluate()` which bypasses the full
-//! enrichment pipeline. A follow-up task will wire `pipeline::run()` once
-//! `PipelineDeps` can be passed to the consumer.
+//! Mint-tagged signals → `pipeline::run()` with domain `"token-analysis"`.
+//!   Full enrichment: Helius + DexScreener + rug prefilter + rug risk + crystals + Dogs.
+//! Non-mint signals → `judge.evaluate()` with original domain (social stimulus, D1).
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
@@ -33,6 +31,28 @@ use crate::domain::slot_semaphore::SlotPriority;
 use crate::domain::storage::StoragePort;
 use crate::infra::config::ConvergenceConfig;
 use crate::judge::Judge;
+use crate::pipeline::PipelineDeps;
+
+/// Pipeline-related deps for mint-tagged convergence signals.
+/// Enables full enrichment (Helius, rug risk, crystals) via `pipeline::run()`.
+pub struct ConvergencePipelineDeps {
+    pub embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,
+    pub usage: Arc<Mutex<crate::domain::usage::DogUsageTracker>>,
+    pub verdict_cache: Arc<crate::domain::verdict_cache::VerdictCache>,
+    pub enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
+    pub domain_curations: Arc<crate::domain::wisdom::DomainCurations>,
+    pub domain_router: Arc<crate::infra::domain_router::DomainRouter>,
+    pub routing_calc: Arc<crate::infra::routing_calc::RoutingCalculator>,
+    pub event_tx: Option<tokio::sync::broadcast::Sender<crate::domain::events::KernelEvent>>,
+}
+
+impl std::fmt::Debug for ConvergencePipelineDeps {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConvergencePipelineDeps")
+            .field("enricher", &self.enricher.is_some())
+            .finish_non_exhaustive()
+    }
+}
 
 const POLL_INTERVAL: Duration = Duration::from_secs(60);
 
@@ -41,6 +61,7 @@ pub fn spawn_convergence_consumer(
     storage: Arc<dyn StoragePort>,
     metrics: Arc<Metrics>,
     config: ConvergenceConfig,
+    pipeline: ConvergencePipelineDeps,
     shutdown: CancellationToken,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
@@ -68,7 +89,7 @@ pub fn spawn_convergence_consumer(
                     break;
                 }
                 _ = interval.tick() => {
-                    run_cycle(&judge, &storage, &metrics, &config, &mut judged_targets, &mut triggered_mints).await;
+                    run_cycle(&judge, &storage, &metrics, &config, &pipeline, &mut judged_targets, &mut triggered_mints).await;
                 }
             }
         }
@@ -80,6 +101,7 @@ async fn run_cycle(
     storage: &Arc<dyn StoragePort>,
     metrics: &Arc<Metrics>,
     config: &ConvergenceConfig,
+    pipeline: &ConvergencePipelineDeps,
     judged_targets: &mut HashSet<String>,
     triggered_mints: &mut HashMap<String, Instant>,
 ) {
@@ -185,41 +207,69 @@ async fn run_cycle(
                 "convergence_triggered"
             );
 
-            // Route as token-analysis domain — content = raw mint address so the
-            // pipeline's enrich_token() path recognises it.
-            // TODO: replace judge.evaluate() with pipeline::run() for full Helius
-            // enrichment. Currently bypasses the enrichment pipeline. Follow-up task
-            // will close this gap once PipelineDeps can be injected here.
-            let stimulus = Stimulus {
-                content: mint.clone(),
-                context: Some(obs.context.clone()),
-                domain: Some("token-analysis".to_string()),
+            // K25: rate-limit between iterations to avoid starving interactive slots.
+            tokio::time::sleep(Duration::from_secs(2)).await;
+
+            // Full pipeline: embed → cache → crystals → Helius enrichment → rug
+            // prefilter → rug risk scoring → Dogs → side effects (store + CCM).
+            let deps = PipelineDeps {
+                judge,
+                storage: storage.as_ref(),
+                embedding: pipeline.embedding.as_ref(),
+                usage: &pipeline.usage,
+                verdict_cache: &pipeline.verdict_cache,
+                metrics,
+                event_tx: pipeline.event_tx.as_ref(),
                 request_id: None,
+                on_dog: None,
+                expected_dog_count: judge.dog_ids().len(),
+                enricher: pipeline.enricher.as_deref(),
+                domain_curations: &pipeline.domain_curations,
+                domain_router: Some(&pipeline.domain_router),
+                routing_calc: Some(&pipeline.routing_calc),
+                priority: SlotPriority::Hermes,
             };
 
             match tokio::time::timeout(
                 Duration::from_secs(120),
-                judge.evaluate(&stimulus, None, metrics, SlotPriority::Hermes),
+                crate::pipeline::run(
+                    mint.clone(),
+                    Some(obs.context.clone()),
+                    Some("token-analysis".to_string()),
+                    None, // no dogs filter
+                    true, // inject crystals
+                    &deps,
+                ),
             )
             .await
             {
-                Ok(Ok(verdict)) => {
+                Ok(Ok(result)) => {
+                    let (q_score, kind) = match &result {
+                        crate::pipeline::PipelineResult::Evaluated { verdict, .. } => (
+                            format!("{:.3}", verdict.q_score.total),
+                            format!("{:?}", verdict.kind),
+                        ),
+                        crate::pipeline::PipelineResult::CacheHit { verdict, .. } => (
+                            format!("{:.3}", verdict.q_score.total),
+                            format!("{:?}", verdict.kind),
+                        ),
+                    };
                     tracing::info!(
                         mint = %mint,
-                        q_score = format!("{:.3}", verdict.q_score.total),
-                        kind = ?verdict.kind,
+                        q_score = %q_score,
+                        kind = %kind,
                         domain = "token-analysis",
                         tags = "auto-convergence",
-                        "convergence verdict issued"
+                        "convergence verdict issued (enriched pipeline)"
                     );
                     triggered_mints.insert(mint, Instant::now());
                     judged_targets.insert(target);
                 }
                 Ok(Err(e)) => {
-                    tracing::warn!(mint = %mint, "convergence judgment failed: {e}");
+                    tracing::warn!(mint = %mint, "convergence pipeline failed: {e}");
                 }
                 Err(_) => {
-                    tracing::warn!(mint = %mint, "convergence judgment timed out (120s)");
+                    tracing::warn!(mint = %mint, "convergence pipeline timed out (120s)");
                 }
             }
         } else {
@@ -350,7 +400,19 @@ mod tests {
         let config = ConvergenceConfig::default();
         let shutdown = CancellationToken::new();
 
-        let handle = spawn_convergence_consumer(judge, storage, metrics, config, shutdown.clone());
+        let pipeline = ConvergencePipelineDeps {
+            embedding: Arc::new(crate::domain::embedding::NullEmbedding),
+            usage: Arc::new(Mutex::new(crate::domain::usage::DogUsageTracker::new())),
+            verdict_cache: Arc::new(crate::domain::verdict_cache::VerdictCache::new()),
+            enricher: None,
+            domain_curations: Arc::new(crate::domain::wisdom::DomainCurations::new()),
+            domain_router: Arc::new(crate::infra::domain_router::DomainRouter::from_backends(&[])),
+            routing_calc: Arc::new(crate::infra::routing_calc::RoutingCalculator::new()),
+            event_tx: None,
+        };
+
+        let handle =
+            spawn_convergence_consumer(judge, storage, metrics, config, pipeline, shutdown.clone());
         shutdown.cancel();
         tokio::time::timeout(Duration::from_secs(3), handle)
             .await

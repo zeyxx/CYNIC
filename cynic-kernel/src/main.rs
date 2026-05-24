@@ -1102,15 +1102,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
         );
 
-        // ─── Convergence consumer: polls convergence signals, triggers multi-source /judge ──
+        // ─── Convergence consumer: polls convergence signals, triggers enriched pipeline ──
         let _convergence_consumer_handle = infra::tasks::spawn_convergence_consumer(
             rest_state.judge.load_full(),
             Arc::clone(&storage_port),
             Arc::clone(&rest_state.metrics),
             dog_thresholds.convergence.clone(),
+            infra::tasks::ConvergencePipelineDeps {
+                embedding: Arc::clone(&embedding) as Arc<dyn domain::embedding::EmbeddingPort>,
+                usage: Arc::clone(&usage_tracker),
+                verdict_cache: Arc::clone(&verdict_cache),
+                enricher: enricher.clone(),
+                domain_curations: Arc::clone(&domain_curations),
+                domain_router: Arc::clone(&domain_router),
+                routing_calc: Arc::clone(&routing_calc),
+                event_tx: Some(event_tx.clone()),
+            },
             shutdown.clone(),
         );
-        klog!("[Ring 3] Convergence consumer started (poll interval: 60s)");
+        klog!("[Ring 3] Convergence consumer started (poll interval: 60s, enriched pipeline)");
     } else {
         klog!("[Ring 2] MCP mode — background tasks SKIPPED (REST kernel handles them)");
     }
