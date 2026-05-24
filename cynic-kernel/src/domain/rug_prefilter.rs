@@ -15,7 +15,8 @@ pub enum PreFilterResult {
 ///
 /// Hard-fail signals (any one → Rug):
 ///   - holder_count == 0 OR liquidity_usd < $100
-///   - mint_authority_active AND age_hours > 168
+///   - mint_authority_active AND age_hours > 168 AND holder_count < 100_000
+///     (stablecoins/protocol tokens keep mint authority intentionally)
 ///   - top1_pct > 95 AND holder_count < 10
 ///
 /// Soft signals (score >= 3 → Rug, 1-2 → Inconclusive):
@@ -34,11 +35,13 @@ pub fn rug_prefilter(token: &TokenData) -> PreFilterResult {
         ));
     }
 
-    // Hard-fail: honeypot
-    if token.mint_authority_active && token.age_hours > 168 {
+    // Hard-fail: honeypot — but only for small tokens.
+    // Stablecoins (USDC, USDT) and protocol tokens keep mint authority
+    // intentionally. 100K+ holders = established, not a honeypot.
+    if token.mint_authority_active && token.age_hours > 168 && token.holder_count < 100_000 {
         return PreFilterResult::Rug(format!(
-            "mint authority active on {}-hour-old token",
-            token.age_hours
+            "mint authority active on {}-hour-old token ({} holders)",
+            token.age_hours, token.holder_count
         ));
     }
 
@@ -121,10 +124,11 @@ mod tests {
     }
 
     #[test]
-    fn rug_on_active_mint_old_token() {
+    fn rug_on_active_mint_old_small_token() {
         let mut t = healthy();
         t.mint_authority_active = true;
         t.age_hours = 200;
+        t.holder_count = 500; // small token — honeypot signal
         assert!(matches!(rug_prefilter(&t), PreFilterResult::Rug(_)));
     }
 
@@ -169,6 +173,30 @@ mod tests {
         t.volume_24h_usd = Some(1000.0);
         // Only 1 soft signal (no-commitment) → Inconclusive
         assert_eq!(rug_prefilter(&t), PreFilterResult::Inconclusive);
+    }
+
+    #[test]
+    fn stablecoin_active_mint_not_hard_fail() {
+        // USDC/USDT keep mint authority intentionally — 1M holders should bypass
+        let mut t = healthy();
+        t.mint_authority_active = true;
+        t.age_hours = 20_000; // years old
+        t.holder_count = 1_000_000;
+        t.liquidity_usd = Some(50_000_000.0);
+        assert_ne!(
+            std::mem::discriminant(&rug_prefilter(&t)),
+            std::mem::discriminant(&PreFilterResult::Rug(String::new()))
+        );
+    }
+
+    #[test]
+    fn small_token_active_mint_still_hard_fail() {
+        // Small token with active mint authority = honeypot signal
+        let mut t = healthy();
+        t.mint_authority_active = true;
+        t.age_hours = 200;
+        t.holder_count = 50;
+        assert!(matches!(rug_prefilter(&t), PreFilterResult::Rug(_)));
     }
 
     #[test]
