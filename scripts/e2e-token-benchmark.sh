@@ -100,8 +100,8 @@ for entry in "${TOKENS[@]}"; do
   }
 JSONEOF
 
-  # K25: rate-limit between calls
-  sleep 2
+  # K25: rate-limit between calls — 45s gap for LLM Dog inference (~20-30s)
+  sleep 45
 done
 
 echo ']' >> "$RESULTS_FILE"
