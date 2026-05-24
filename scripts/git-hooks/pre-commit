@@ -51,7 +51,8 @@ security_check() {
         | grep -vE 'api_key\s*=\s*get_api_key\(' \
         | grep -vE 'let\s+(mut\s+)?api_key\s*=' \
         | grep -vE 'let\s+(mut\s+)?token\s*=\s*(json|self|resp|response)' \
-        | grep -vE 'token: different|token: extract|token: \w+ \w+ \w+' || true)
+        | grep -vE 'token: different|token: extract|token: \w+ \w+ \w+' \
+        | grep -vE 'fn\s+\w+\(token' || true)
     if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
         echo "SECURITY FAIL: possible secrets in staged changes:"
         [ -n "$RAW_SECRETS" ] && echo "$RAW_SECRETS"

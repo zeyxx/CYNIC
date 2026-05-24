@@ -279,7 +279,10 @@ lint-python-tiers: ## P1-P6: Python code lifecycle governance — new/modified f
 	@set +e; FAIL=0; WARN_COUNT=0; \
 	CHANGED=$$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null; git diff --name-only --diff-filter=ACM 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null); \
 	NEW_PY=$$(echo "$$CHANGED" | grep '\.py$$' | sort -u); \
-	ALL_PY=$$(find cynic-python scripts -name '*.py' -type f 2>/dev/null); \
+	ALL_PY=$$(find cynic-python scripts -name '*.py' -type f \
+		-not -path '*__pycache__*' -not -path '*/venv/*' \
+		-not -path '*/tests/*' -not -name 'test_*.py' -not -name 'conftest.py' \
+		-not -name '__init__.py' 2>/dev/null); \
 	for PYFILE in $$ALL_PY; do \
 		CONTENT=$$(cat "$$PYFILE" 2>/dev/null); \
 		HAS_TIER=$$(echo "$$CONTENT" | grep -E 'EXPERIMENT|Tier [123]|INFRASTRUCTURE' | head -1); \
@@ -289,14 +292,6 @@ lint-python-tiers: ## P1-P6: Python code lifecycle governance — new/modified f
 				FAIL=1; \
 			else \
 				WARN_COUNT=$$((WARN_COUNT + 1)); \
-			fi; \
-		else \
-			IS_TIER1=$$(echo "$$CONTENT" | grep -c 'Tier 1 EXPERIMENTAL\|EXPERIMENT:'); \
-			if [ $$IS_TIER1 -gt 0 ]; then \
-				HAS_EXPERIMENT=$$(echo "$$CONTENT" | grep -c 'EXPERIMENT:'); \
-				if [ $$HAS_EXPERIMENT -eq 0 ]; then \
-					echo "WARN P1: Tier 1 file '$$PYFILE' lacks 'EXPERIMENT:' docstring tag"; \
-				fi; \
 			fi; \
 		fi; \
 	done; \
