@@ -23,6 +23,7 @@ pub mod pattern_analysis;
 pub mod phone_number;
 pub mod probe;
 pub mod rug_prefilter;
+pub mod rug_risk;
 pub mod sanitize;
 pub mod slot_semaphore;
 pub mod slot_tracker;
