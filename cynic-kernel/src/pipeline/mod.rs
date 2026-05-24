@@ -195,7 +195,7 @@ async fn pipeline_inner(
 
     // ── Stage 5: Token enrichment ──
     let token_result = enrichment::enrich_token(content, domain_hint, deps).await;
-    let content = token_result.content;
+    let mut content = token_result.content;
     let captured_token_data = token_result.token_data;
     let enriched_content = if captured_token_data.is_some() {
         Some(content.clone())
@@ -295,6 +295,22 @@ async fn pipeline_inner(
                 token_data: Some(Box::new(td.clone())),
                 enriched_content,
             });
+        }
+    }
+
+    // ── Stage 5c: Rug risk scoring (signal for Dogs — not a gate) ──
+    if let Some(ref td) = captured_token_data {
+        let risk = crate::domain::rug_risk::assess_rug_risk(td);
+        let section = crate::domain::rug_risk::format_rug_risk_section(&risk);
+        if !section.is_empty() {
+            content.push_str(&section);
+            tracing::info!(
+                phase = "rug_risk",
+                mint = %td.mint,
+                score = format!("{:.2}", risk.score),
+                signals = risk.signals.len(),
+                "rug risk assessed"
+            );
         }
     }
 
