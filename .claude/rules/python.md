@@ -24,27 +24,13 @@ Production Python never calls kernel via REST (breaks sovereignty). Kernel consu
 
 **P5. Structured logging only.** All logs use `logging.info(msg, extra={...})` or JSON format. No print().
 
-**P6. Entry points versioned.** Every script/module exports a `__version__` and announces it on startup.
-
 ### Design Principles (judgment guidance)
-
-**P7. Observability by design.** Every module must expose metrics (success count, error rate, timestamp). Silent Python = invisible failure.
-
-**P8. Never hold state.** Modules are stateless. Persist to kernel (SurrealDB) or disk (JSON, git-tracked). No in-memory caches beyond request lifetime.
 
 **P9. Fail loud and early.** Unexpected input → raise exception immediately. No `except: pass`.
 
-**P10. Document assumptions.** Every function docstring: input contract, output guarantees, failure modes, valid domains.
-
-**P11. Version artifacts, not code.** Commit rulesets/thresholds (JSON/YAML) to git. Don't commit generated artifacts.
-
 **P12. Test on real data.** Unit tests on synthetic data OK. Integration tests MUST use real samples (real tokens, real wallets).
 
-**P13. Measure before tuning.** Before any heuristic change, measure: before (confusion matrix vs LLM), after (same), accept only if specificity ↑ AND sensitivity drop ≤5%.
-
 **P14. Single source of truth per domain.** Token heuristics in `token.py`, wallet in `wallet.py`, chess in `chess.py`. Never duplicate.
-
-**P15. Python → Rust is 1:1.** Rust code from Python must be line-for-line translatable. Avoid Python idioms that need cleverness to port.
 
 **P16. Vocabulary contract across producer-consumer.** When a Python producer emits tagged data (narrative labels, status codes, domain IDs) that a consumer uses for routing/gating, both sides MUST share a single vocabulary file. The producer imports from it; the consumer reads it. Zero orphan tags on either side. Incident: x_proxy.py emitted `"warning"/"hype"` while narrative_domains.yaml expected `"rug_pull"/"pump_hype"` — ZERO overlap, narrative routing was dead code for the entire dataset (2026-05-16). — Falsify: add a narrative tag to the producer without updating the YAML; the contract check script should fail.
 
@@ -80,33 +66,4 @@ cynic-python/
 
 ### Exports to Kernel
 
-Python produces artifacts (JSON/YAML, git-tracked):
-
-```
-cynic-python/artifacts/
-├── token_gates_v1.2.json
-├── wallet_gates_v1.2.json
-├── agreement_report.json
-└── tuning_log.json
-```
-
-Rust kernel reads these:
-
-```rust
-const TOKEN_GATES: &str = include_str!("../../artifacts/token_gates_v1.2.json");
-const WALLET_GATES: &str = include_str!("../../artifacts/wallet_gates_v1.2.json");
-```
-
-### Long-term Maintenance
-
-**Every 3 months:**
-1. Run integration tests against latest Dogs
-2. Measure agreement (target ≥90%)
-3. If drift, spawn tuning session (measure → tune → commit)
-4. Update kernel artifact versions
-
-**Never ship Python code to production.** Ship Rust implementations of Python-derived rules.
-
----
-
-*P15 corollary: Python rules are FROZEN in Rust once written. Changes to Python heuristics require re-tuning + re-shipping Rust binary.*
+Python produces artifacts consumed by Rust via `include_str!()` or REST observation. No Python in production — ship Rust implementations of Python-derived rules.

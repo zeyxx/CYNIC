@@ -408,10 +408,14 @@ impl Judge {
         filter: Option<&[String]>,
     ) -> Result<usize, JudgeError> {
         let candidate_indices = self.selected_candidate_indices(stimulus, filter)?;
-        Ok(self.runnable_dogs(&candidate_indices).len())
+        Ok(self.runnable_dogs(&candidate_indices, false).len())
     }
 
-    fn runnable_dogs<'a>(&'a self, candidate_indices: &[usize]) -> Vec<RunnableDog<'a>> {
+    fn runnable_dogs<'a>(
+        &'a self,
+        candidate_indices: &[usize],
+        skip_slot_prefilter: bool,
+    ) -> Vec<RunnableDog<'a>> {
         let all_runnable: Vec<RunnableDog<'a>> = candidate_indices
             .iter()
             .copied()
@@ -465,7 +469,11 @@ impl Judge {
                 // Soma L2: skip Dogs whose backend slots are all busy.
                 // Not a circuit-open — the backend is healthy, just saturated.
                 // The Dog will be available again on the next tick when a slot frees.
-                if let Some(tracker) = &self.slot_tracker
+                // Exception: skip_slot_prefilter=true for domains where LLM Dogs are
+                // essential (token-analysis). Let the Dog enter the priority queue and
+                // wait for a slot instead of being excluded from the runnable set.
+                if !skip_slot_prefilter
+                    && let Some(tracker) = &self.slot_tracker
                     && tracker.all_slots_busy(dog.id())
                 {
                     tracing::info!(
@@ -678,7 +686,12 @@ impl Judge {
         priority: SlotPriority,
     ) -> Result<Verdict, JudgeError> {
         let candidate_indices = self.selected_candidate_indices(stimulus, filter)?;
-        let runnable_dogs = self.runnable_dogs(&candidate_indices);
+        // Token-analysis: bypass slot pre-filter so LLM Dogs enter the priority queue
+        // and wait for a slot. Without this, slot contention from nightshift/convergence
+        // causes deterministic-dog-only verdicts — heuristic can't understand token economics.
+        let needs_llm = stimulus.domain.as_deref() == Some("token-analysis")
+            || stimulus.domain.as_deref() == Some("wallet-judgment");
+        let runnable_dogs = self.runnable_dogs(&candidate_indices, needs_llm);
 
         // Per-Dog timeout: from config. Sovereign CPU models need 60s+, cloud APIs use 30s.
         // Aligned with HTTP client timeout in openai.rs (both read BackendConfig.timeout_secs).

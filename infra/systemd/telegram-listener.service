@@ -12,6 +12,7 @@ StartLimitIntervalSec=600
 StartLimitBurst=3
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=%h/.config/cynic/env
+EnvironmentFile=%h/.cynic/organs/telegram/env
 
 [Install]
 WantedBy=default.target

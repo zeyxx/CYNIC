@@ -9,25 +9,20 @@ globs: ["cynic-kernel/**"]
 
 K1. **Domain purity.** Zero `#[cfg]` in domain code (except `#[cfg(test)]`). — `make lint-rules`
 K2. **Every adapter through a port trait.** No raw `reqwest::Client` outside `backends/` and `storage/`. — `make lint-rules`
-K3. **No logic duplication across API surfaces.** Pipeline lives in `pipeline/mod.rs`. REST and MCP call it. — `make lint-rules` (protected function list: `format_crystal_context`, `compute_qscore`, `trimmed_mean`)
+K3. **No logic duplication across API surfaces.** Pipeline lives in `pipeline/mod.rs`. REST and MCP call it. Extract at 2nd occurrence, not 3rd — LLMs replicate patterns before humans notice. — `make lint-rules` (protected function list: `format_crystal_context`, `compute_qscore`, `trimmed_mean`; add new entries when duplication is found)
 K4. **No trait name collisions.** Each port trait name unique across `domain/`. — `make lint-rules`
 K5. **No cross-layer type leakage.** App services never import from `api/`. Domain never exposes infra types. — `make lint-rules` (checks `serde_json::Value`, `reqwest::`, `surrealdb::`, `axum::` in domain/)
 
 ### Design Principles
 
 K6. **Timeout every background `.await`.** Any `.await` inside `tokio::spawn` must use `tokio::time::timeout()`.
-K7. **`Display` implies `Error`.** Every Display for error reporting must also impl Error.
 K8. **Every SQL query has an integration test.** Round-trip: INSERT + SELECT + assert on shape. — `make check-storage` (when SurrealDB available)
-K9. **HTTP status codes are the contract.** Monitoring checks status codes, never parses JSON.
-K10. **Agents use the platform.** Agents delegate persistence/judgment/learning to the kernel. No agent-owned DBs.
 
 ### LLM Development Principles
 
 The codebase is the prompt. Every pattern in code will be replicated by future LLM sessions. Bad patterns spread exponentially — each copy reinforces the signal.
 
-K11. **Extract at 2, not 3.** LLMs replicate patterns before humans notice duplication. Extract into a function/method at the 2nd occurrence, not the 3rd. — `make lint-rules` (shares K3 protected function list; add new entries when duplication is found)
 K12. **`#[allow]` is an instruction.** Every lint suppression tells the next LLM "do this." Require adjacent `// WHY:` comment explaining the suppression. Suppress without justification = amplified debt. — `make lint-rules`
-K13. **Shared logic across API surfaces = one function.** REST and MCP must call the same computation (extends K3). If a health check, status computation, or data extraction appears in both → extract to domain or shared module. Never duplicate across api/rest/ and api/mcp/.
 K14. **Poison/missing = assume degraded.** When reading shared state (`RwLock`, `Option`), the fallback on error must be the SAFE default (degraded/unavailable), never the OPTIMISTIC default (ok/sovereign). `unwrap_or(true)` for degradation checks, never `unwrap_or(false)`.
 
 ## Build
@@ -54,5 +49,7 @@ K19. **Deterministic serialization.** Any struct serialized to DB or included in
 K21. **Pipeline output fed back as input = tag and filter.** When a pipeline's output (e.g. verdict) is stored as an observation for the compound loop, it MUST carry a distinguishing tag (e.g. `"compound-loop"`). Any consumer that re-processes observations (nightshift Phase 2, K15 consumers) MUST filter these tags to prevent amplification. Without filtering, each verdict generates a re-judgment which generates another verdict — bounded by domain gates but wasting compute proportional to verdict volume. Incident: nightshift re-judged 53% of observations as compound-loop feedback, saturating the sovereign Dog's single inference slot (2026-05-08). — Falsify: remove the tag filter from nightshift Phase 2; compound-loop observations should be re-judged and slot utilization should spike.
 
 K23. **New domain = 4 wiring items.** Adding a judgment domain requires: (1) `semantic_slug` case in `intake.rs` (prevents crystal collapse), (2) domain prompt in `domains/X.md` + registered in `embedded_domains.rs` (Dogs get correct axiom criteria), (3) curation sync path from live source to `cynic-python/curation/` (data reaches kernel), (4) verify `is_crystallizable_domain` includes the domain (crystals form). Omitting any one causes silent data loss — D2 had 4388 curated signals but 1 crystal for 9 days because all 4 were missing. Incident: D2 domain added to capture (2026-05-12) but never wired to consumption — 97% data loss until 2026-05-21 (PR#243). — Falsify: add a test domain without one of the 4 items; the corresponding pipeline stage should produce zero output for that domain.
+
+K25. **Sovereign inference dispatch is rate-limited.** Any consumer that calls `judge.evaluate()` in a loop (nightshift, convergence, background jobs) MUST include `tokio::time::sleep()` between iterations. Without rate-limiting, a batch of N judgments saturates all sovereign Dog slots for the entire batch, starving interactive `/judge` requests. The SlotSemaphore reserves the last slot for User/Hermes, but only if callers yield between iterations. Incident: Hermes kanban 5 workers on 2 slots = 100% timeout (2026-04); nightshift 300+ observations tight loop = dogs=1 for all interactive requests (2026-05-24). — Falsify: remove `sleep` from nightshift observation loop; `journalctl | grep "slots saturated"` should spike within 2 cycles.
 
 K22. **Restored state must not poison fresh gates.** When persisting component statistics across restarts (DogStats, circuit breaker counters), quality-gate counters (total_calls, success_count, failure counts) MUST reset to zero at boot. Only calibration data (token budgets, max observed tokens) should be restored. Without this, stale 0% success rates from a broken endpoint immediately trip the json_valid_rate gate and lock out recovering Dogs — a deadlock where recovery requires participation but participation requires recovery. Incident: 87 calls at 0% success (from dead HF endpoint) restored at boot locked all inference Dogs out of /judge indefinitely (2026-05-08). — Falsify: restore full DogStats at boot with a failing dog; the dog should be immediately excluded from /judge despite fresh boot.

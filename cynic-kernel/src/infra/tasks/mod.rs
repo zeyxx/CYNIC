@@ -25,7 +25,7 @@ use crate::domain::usage::DogUsageTracker;
 use crate::infra::config::BackendRemediation;
 use crate::infra::task_health::TaskHealth;
 
-pub use convergence_consumer::spawn_convergence_consumer;
+pub use convergence_consumer::{ConvergencePipelineDeps, spawn_convergence_consumer};
 pub use nightshift::spawn_nightshift_loop;
 pub use runtime_loops::{
     spawn_crystal_challenge_loop, spawn_discovery_loop, spawn_dog_heartbeat_loop,

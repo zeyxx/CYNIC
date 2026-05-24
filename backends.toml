@@ -12,36 +12,16 @@ evaluation_timeout_secs = 30         # Per-dog eval timeout (cloud API: 30s, sov
 
 
 # ── Backend definitions (required for Dog initialization) ──
-[backend.qwen-7b-hf]
-# Migrated 2026-05-08: old api-inference.huggingface.co → router.huggingface.co/featherless-ai
-# $0.10/day free tier via HF Inference Providers
-base_url = "https://router.huggingface.co/featherless-ai/v1"
-api_key_env = "HF_TOKEN"
-model = "Qwen/Qwen2.5-7B-Instruct"
-context_size = 4096
-json_mode = false
-disable_thinking = true
+
 # Deterministic heuristic (always available)
 [dog.deterministic-dog]
 kind = "heuristic"
 failure_rate_threshold = 0.01        # Very strict (heuristics should be reliable)
 enabled = true
 
-# Qwen 7B (HuggingFace inference API)
-# Observed (2026-05-07): 13,674 calls, 12,371 success, 977 collapse, 281 api_error
-# Failure rate: (977+281) / 13674 = 0.092 (9.2%)
-# Decision: Keep active (below 15% threshold)
-[dog.qwen-7b-hf]
-kind = "inference"
-provider = "huggingface"
-model = "Qwen/Qwen2.5-7B-Instruct"
-failure_rate_threshold = 0.12        # 12% — above observed 9.2%, some buffer
-collapse_threshold = 100             # Alert if >100 collapses per day
-api_error_threshold = 150            # Alert if >150 api_errors per day
-evaluation_timeout_secs = 30
-enabled = true
-base_url = "https://router.huggingface.co/featherless-ai/v1"
-api_key_env = "HF_TOKEN"
+# qwen-7b-hf REMOVED 2026-05-24: HF credits exhausted (0 balance), 402 in a loop.
+# Historical: 13,674 calls, 9.2% failure rate (2026-04-26 to 2026-05-07).
+# Re-add if HF credits are restored.
 
 # Qwen 3.6 27B GPU (sovereign, RTX 4060 Ti)
 # Upgraded from 9B → 27B IQ3_XXS on 2026-05-19 (inference-lab-27b).

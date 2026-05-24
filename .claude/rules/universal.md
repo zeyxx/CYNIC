@@ -13,7 +13,7 @@ globs: ["**"]
 2. **Handle all fallible I/O.** Propagate with `?` or log + retry/skip. No silent `.ok()`. — `make lint-rules` (full `src/` scope; exceptions: probes, `to_str()`, `from_utf8`, `filter_map`, `lock()`/`read()` per K14, `create_dir_all`/`remove_file`)
 3. **Every producer needs a consumer.** `store_*` without a read path = invisible waste. — `make lint-drift`
 4. **Commit before completing.** `git status --short` at session end must show 0 modified files. — `session-stop.sh` (warns)
-5. **No dead architecture.** Commented modules need `DORMANT:` tag. Skills in CLAUDE.md must exist on disk. Hooks on disk must be wired in settings. Crate deps in Cargo.toml must have ≥1 `use` in `src/` — dead deps rot silently until audit flags them (bincode 2026-04-27). — `make lint-drift`
+5. **No dead architecture.** Hooks on disk must be wired in settings. Crate deps in Cargo.toml must have ≥1 `use` in `src/`. — `make lint-drift`
 
 ## Design Principles (judgment guidance — no mechanical gate)
 
@@ -21,7 +21,7 @@ globs: ["**"]
 7. **Measure before AND after.** Every "improved X" claim needs before/after numbers. Part of the Scientific Protocol (workflow.md).
 8. **Port contracts first.** New dependency → trait → adapter → test.
 9. **Bounded everything.** Channels, retries, confidence. Unbounded = debt.
-10. **Wire or delete.** Every public symbol must have a caller AND a test. Zero-caller = delete.
+10. **Wire or delete.** Every public symbol must have a caller AND a test. Zero-caller = delete. Commented modules need `DORMANT:` tag or deletion. — `make lint-drift`
 11. **Fix the class, not the instance.** `grep` the entire codebase for the same pattern before closing a fix.
 12. **One value, one source.** `backends.toml` = Dogs. `~/.cynic-env` = secrets. Never duplicate config. Applies to sensing too: if two systems measure the same signal, delete one — dual sensing diverges silently.
 13. **Name things for what they ARE.** Code names match code behavior, not aspirations.
