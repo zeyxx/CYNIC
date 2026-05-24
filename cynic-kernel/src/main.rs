@@ -1107,6 +1107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             rest_state.judge.load_full(),
             Arc::clone(&storage_port),
             Arc::clone(&rest_state.metrics),
+            dog_thresholds.convergence.clone(),
             shutdown.clone(),
         );
         klog!("[Ring 3] Convergence consumer started (poll interval: 60s)");
