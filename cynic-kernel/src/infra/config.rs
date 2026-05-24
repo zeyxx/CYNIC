@@ -276,6 +276,28 @@ impl Default for KScoreConfig {
     }
 }
 
+/// Convergence auto-trigger configuration — loaded from backends.toml [convergence].
+/// Controls the threshold gate and cooldown for convergence → token-analysis routing.
+#[derive(Debug, Clone)]
+pub struct ConvergenceConfig {
+    /// Minimum number of convergence observations within `window_hours` to trigger judgment.
+    pub threshold: u32,
+    /// Rolling time window in hours for counting convergence observations.
+    pub window_hours: u64,
+    /// Hours to skip re-judging a mint that was already triggered (in-memory cooldown).
+    pub cooldown_hours: u64,
+}
+
+impl Default for ConvergenceConfig {
+    fn default() -> Self {
+        Self {
+            threshold: 3,
+            window_hours: 1,
+            cooldown_hours: 6,
+        }
+    }
+}
+
 /// Complete Dog thresholds configuration — loaded from backends.toml.
 #[derive(Debug, Clone, Default)]
 pub struct DogThresholds {
@@ -286,6 +308,7 @@ pub struct DogThresholds {
     pub circuit: CircuitBreakerConfig,
     pub monitoring: MonitoringConfig,
     pub kscore: KScoreConfig,
+    pub convergence: ConvergenceConfig,
 }
 
 /// Remediation config for a backend — how to restart it when the circuit breaker opens.
@@ -375,6 +398,13 @@ pub enum AuthStyle {
 }
 
 #[derive(Deserialize)]
+struct ConvergenceEntry {
+    threshold: Option<u32>,
+    window_hours: Option<u64>,
+    cooldown_hours: Option<u64>,
+}
+
+#[derive(Deserialize)]
 struct BackendsFile {
     backend: std::collections::HashMap<String, BackendEntry>,
     storage: Option<StorageEntry>,
@@ -388,6 +418,8 @@ struct BackendsFile {
     monitoring: Option<MonitoringEntry>,
     /// K-Score behavioral analysis weights — loaded from [kscore] section.
     kscore: Option<KScoreEntry>,
+    /// Convergence auto-trigger config — loaded from [convergence] section.
+    convergence: Option<ConvergenceEntry>,
 }
 
 #[derive(Deserialize)]
@@ -896,12 +928,28 @@ pub fn load_dog_thresholds(path: &Path) -> DogThresholds {
         }
     }
 
+    // ── Convergence config ──
+    if let Some(conv) = &file.convergence {
+        if let Some(v) = conv.threshold {
+            result.convergence.threshold = v;
+        }
+        if let Some(v) = conv.window_hours {
+            result.convergence.window_hours = v;
+        }
+        if let Some(v) = conv.cooldown_hours {
+            result.convergence.cooldown_hours = v;
+        }
+    }
+
     klog!(
-        "[config] Dog thresholds loaded: {} dogs configured, kscore weights: DH={:.2}/OG={:.2}/L={:.2}, error patterns: quota({}) transient({}) critical({})",
+        "[config] Dog thresholds loaded: {} dogs configured, kscore weights: DH={:.2}/OG={:.2}/L={:.2}, convergence: threshold={}/window={}h/cooldown={}h, error patterns: quota({}) transient({}) critical({})",
         result.dogs.len(),
         result.kscore.weight_diamond_hands,
         result.kscore.weight_organic_growth,
         result.kscore.weight_longevity,
+        result.convergence.threshold,
+        result.convergence.window_hours,
+        result.convergence.cooldown_hours,
         result.error_detection.quota_patterns.len(),
         result.error_detection.transient_patterns.len(),
         result.error_detection.critical_patterns.len()
