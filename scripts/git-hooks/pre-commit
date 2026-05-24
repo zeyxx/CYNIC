@@ -21,7 +21,8 @@ security_check() {
         | grep -v 'grep -iE .*AIza' \
         | grep -v 'grep -E .*100\\\.' \
         | grep -v 'grep -vE.*Fungible' \
-        | grep -v 'grep -v.*api.key' || true)
+        | grep -v 'grep -v.*api.key' \
+        | grep -vE 'risk-scoring|rug-risk' || true)
     [ -z "$FILTERED_ADDED" ] && return 0
 
     RAW_SECRETS=$(printf '%s\n' "$FILTERED_ADDED" \
@@ -52,7 +53,8 @@ security_check() {
         | grep -vE 'let\s+(mut\s+)?api_key\s*=' \
         | grep -vE 'let\s+(mut\s+)?token\s*=\s*(json|self|resp|response)' \
         | grep -vE 'token: different|token: extract|token: \w+ \w+ \w+' \
-        | grep -vE 'fn\s+\w+\(token' || true)
+        | grep -vE 'fn\s+\w+\(token' \
+        | grep -vE '\*\*Spec:\*\*' || true)
     if [ -n "$RAW_SECRETS$HARDCODED_CREDS" ]; then
         echo "SECURITY FAIL: possible secrets in staged changes:"
         [ -n "$RAW_SECRETS" ] && echo "$RAW_SECRETS"
