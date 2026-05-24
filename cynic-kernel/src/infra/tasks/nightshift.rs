@@ -240,6 +240,9 @@ pub fn spawn_nightshift_loop(
                     let mut errors = 0usize;
 
                     for commit in &commits {
+                        // Rate-limit commits too — same reasoning as observations.
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
                         match tokio::time::timeout(
                             constants::NIGHTSHIFT_COMMIT_TIMEOUT,
                             judge_commit(commit, &judge, &storage, embedding.as_ref(), &cycle_metrics),
@@ -281,6 +284,14 @@ pub fn spawn_nightshift_loop(
                             let mut s_judged = 0usize;
                             let mut s_errors = 0usize;
                             for obs in &judgeable {
+                                // Rate-limit: 2s pause between observations to avoid
+                                // saturating sovereign Dog slots for the entire cycle.
+                                // Without this, 300+ observations dispatch in a tight loop
+                                // and lock all inference slots for minutes. Observed: both
+                                // qwen25-7b-core and qwen36-27b-gpu report "slots saturated
+                                // for 3+ ticks" continuously during nightshift cycles.
+                                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
                                 match tokio::time::timeout(
                                     constants::NIGHTSHIFT_COMMIT_TIMEOUT,
                                     judge_observation(obs, &judge, &storage, embedding.as_ref(), &cycle_metrics),
