@@ -10,6 +10,7 @@ pub use types::{DogFailure, DogFailureKind, JudgeError};
 
 use crate::domain::dog::{estimate_tokens, *};
 use crate::domain::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
+use crate::domain::epoche::EpocheThreshold;
 use crate::domain::health_gate::{FailureReason, HealthGate};
 use crate::domain::inference_queue::InferenceQueueMap;
 use crate::domain::metrics::Metrics;
@@ -44,6 +45,9 @@ pub struct Judge {
     error_detection: crate::infra::config::ErrorDetection,
     /// IDs of Dogs marked as priority="backup" in backends.toml.
     backup_dog_ids: std::collections::HashSet<String>,
+    /// Adaptive EPOCHÉ threshold — P95 sliding window of max_disagreement.
+    /// Protected by Mutex (updated after each verdict).
+    epoche_threshold: Mutex<EpocheThreshold>,
 }
 
 impl std::fmt::Debug for Judge {
@@ -73,6 +77,7 @@ impl Judge {
             inference_queues: None,
             error_detection: crate::infra::config::ErrorDetection::default(),
             backup_dog_ids: std::collections::HashSet::new(),
+            epoche_threshold: Mutex::new(EpocheThreshold::new(1000)),
         }
     }
 
@@ -159,6 +164,20 @@ impl Judge {
         }
     }
 
+    /// Seed EPOCHÉ window from historical verdicts (call at boot).
+    pub fn seed_epoche_window(&self, disagreements: &[f64]) {
+        if let Ok(mut window) = self.epoche_threshold.lock() {
+            for &d in disagreements {
+                window.record(d);
+            }
+        }
+        tracing::info!(
+            phase = "boot",
+            samples = disagreements.len(),
+            "EPOCHÉ window seeded from historical verdicts"
+        );
+    }
+
     /// Clone internal Arcs for roster reconstruction (refcount++, not deep copy).
     pub fn dogs(&self) -> &[Arc<dyn Dog>] {
         &self.dogs
@@ -200,6 +219,10 @@ impl Judge {
         }
         let chain = current.last_hash_snapshot();
         new_judge.seed_chain(chain);
+        // Propagate EPOCHÉ calibration window — don't cold-start on Dog lifecycle events (BLOCKER 3).
+        if let Ok(source) = current.epoche_threshold.lock() {
+            new_judge.seed_epoche_window(&source.snapshot());
+        }
         Some(new_judge)
     }
 
@@ -843,9 +866,34 @@ impl Judge {
         // Rejects outlier LLM scores (Olympic scoring), catches axiom disagreement.
         let aggregated = aggregate_scores(&dog_scores);
         let q_score = compute_qscore(&aggregated);
-        let kind = verdict_kind(q_score.total);
         let (max_disagreement, anomaly_axiom) = detect_residuals(&dog_scores);
         let anomaly_detected = anomaly_axiom.is_some();
+
+        // Record disagreement in sliding window, then check suspension.
+        // Single lock acquisition — capture threshold for logging before releasing.
+        let (epoche_suspended, epoche_threshold_val) = {
+            let mut window = self
+                .epoche_threshold
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            window.record(max_disagreement);
+            let suspended = window.should_suspend(max_disagreement, dog_scores.len());
+            let threshold_val = window.threshold().unwrap_or(0.0);
+            (suspended, threshold_val)
+        };
+
+        let kind = if epoche_suspended {
+            tracing::info!(
+                phase = "epoche",
+                max_disagreement = %format!("{max_disagreement:.3}"),
+                threshold = %format!("{epoche_threshold_val:.3}"),
+                voter_count = dog_scores.len(),
+                "EPOCHÉ — Dogs in equipollence, suspending judgment"
+            );
+            VerdictKind::Epoche
+        } else {
+            verdict_kind(q_score.total)
+        };
 
         let mut dog_ids: Vec<&str> = dog_scores.iter().map(|s| s.dog_id.as_str()).collect();
         dog_ids.sort_unstable(); // Canonical order — deterministic regardless of response timing
@@ -1819,6 +1867,183 @@ mod tests {
         // bad dog is quality-degraded + has call history → should be skipped
         assert_eq!(verdict.dog_scores.len(), 1);
         assert_eq!(verdict.dog_scores[0].dog_id, "good");
+    }
+
+    // ── EPOCHÉ integration tests ─────────────────────────────
+
+    #[tokio::test]
+    async fn epoche_emitted_on_high_disagreement() {
+        // Two Dogs maximally opposed on BURN:
+        //   dog_a: burn=0.05 (floor after phi_bound), dog_b: burn=0.6
+        //   max_disagreement on burn ≈ 0.55 (after phi_bound: |0.05 - 0.618| capped ≈ 0.55)
+        // Seed window with 100 low values (0.01..=0.10) so P95 ≈ 0.095.
+        // 0.55 > 0.095 with 2 voters → EPOCHÉ.
+        let judge = test_judge(vec![
+            Arc::new(FixedDog {
+                name: "dog-a".into(),
+                scores: AxiomScores {
+                    fidelity: 0.4,
+                    phi: 0.4,
+                    verify: 0.4,
+                    culture: 0.4,
+                    burn: 0.05,
+                    sovereignty: 0.4,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+            Arc::new(FixedDog {
+                name: "dog-b".into(),
+                scores: AxiomScores {
+                    fidelity: 0.4,
+                    phi: 0.4,
+                    verify: 0.4,
+                    culture: 0.4,
+                    burn: 0.6,
+                    sovereignty: 0.4,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+        ]);
+
+        // Seed window with 100 low values so P95 is low (~0.095).
+        let low_disagreements: Vec<f64> = (1..=100).map(|i| i as f64 * 0.001).collect();
+        judge.seed_epoche_window(&low_disagreements);
+
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            verdict.kind,
+            VerdictKind::Epoche,
+            "High disagreement above P95 threshold must produce EPOCHÉ verdict"
+        );
+        // Q-score still computed for diagnostics
+        assert!(
+            verdict.q_score.total > 0.0,
+            "Q-score must be non-zero even on EPOCHÉ"
+        );
+    }
+
+    #[tokio::test]
+    async fn normal_verdict_when_below_threshold() {
+        // Two Dogs with close BURN scores → disagreement ≈ 0.05.
+        // Seed window with moderate values (0.3) so P95 ≈ 0.3.
+        // 0.05 < 0.3 → normal verdict (not Epoche).
+        let judge = test_judge(vec![
+            Arc::new(FixedDog {
+                name: "dog-c".into(),
+                scores: AxiomScores {
+                    fidelity: 0.45,
+                    phi: 0.45,
+                    verify: 0.45,
+                    culture: 0.45,
+                    burn: 0.40,
+                    sovereignty: 0.45,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+            Arc::new(FixedDog {
+                name: "dog-d".into(),
+                scores: AxiomScores {
+                    fidelity: 0.45,
+                    phi: 0.45,
+                    verify: 0.45,
+                    culture: 0.45,
+                    burn: 0.45,
+                    sovereignty: 0.45,
+                    reasoning: AxiomReasoning::default(),
+                    ..Default::default()
+                },
+            }),
+        ]);
+
+        // Seed window with 100 moderate values (0.3) so P95 ≈ 0.3.
+        let moderate_disagreements: Vec<f64> = (1..=100).map(|_| 0.3).collect();
+        judge.seed_epoche_window(&moderate_disagreements);
+
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
+            .await
+            .unwrap();
+
+        assert_ne!(
+            verdict.kind,
+            VerdictKind::Epoche,
+            "Low disagreement below P95 threshold must not produce EPOCHÉ verdict"
+        );
+    }
+
+    #[tokio::test]
+    async fn epoche_not_triggered_on_single_dog() {
+        // A single Dog can never disagree with itself — EPOCHÉ requires voter_count >= 2.
+        let judge = test_judge(vec![Arc::new(FixedDog {
+            name: "solo".into(),
+            scores: AxiomScores {
+                fidelity: 0.9,
+                phi: 0.9,
+                verify: 0.9,
+                culture: 0.9,
+                burn: 0.9,
+                sovereignty: 0.9,
+                reasoning: AxiomReasoning::default(),
+                ..Default::default()
+            },
+        })]);
+
+        // Seed with a tiny threshold so any non-zero disagreement would normally suspend.
+        let tiny_disagreements: Vec<f64> = (1..=100).map(|i| i as f64 * 0.00001).collect();
+        judge.seed_epoche_window(&tiny_disagreements);
+
+        let verdict = judge
+            .evaluate(&test_stimulus(), None, &test_metrics(), SlotPriority::User)
+            .await
+            .unwrap();
+
+        assert_ne!(
+            verdict.kind,
+            VerdictKind::Epoche,
+            "Single Dog must never produce EPOCHÉ (no disagreement possible)"
+        );
+    }
+
+    #[tokio::test]
+    async fn without_dog_propagates_epoche_window() {
+        // Verify that Judge::without_dog propagates the EPOCHÉ window.
+        let judge = test_judge(vec![
+            Arc::new(FixedDog {
+                name: "alpha".into(),
+                scores: AxiomScores::default(),
+            }),
+            Arc::new(FixedDog {
+                name: "beta".into(),
+                scores: AxiomScores::default(),
+            }),
+        ]);
+
+        // Seed with 50 values so window is not empty after propagation.
+        let values: Vec<f64> = (1..=50).map(|i| i as f64 * 0.01).collect();
+        judge.seed_epoche_window(&values);
+
+        // Remove one Dog — window must propagate.
+        let reduced = Judge::without_dog(&judge, "beta").expect("beta exists");
+
+        // Probe: threshold exists iff window has >= MIN_SAMPLES (10).
+        // We seeded 50 values — threshold must exist after propagation.
+        let threshold_exists = reduced
+            .epoche_threshold
+            .lock()
+            .unwrap()
+            .threshold()
+            .is_some();
+        assert!(
+            threshold_exists,
+            "EPOCHÉ window must propagate through Judge::without_dog (window must have >= MIN_SAMPLES)"
+        );
     }
 
     #[tokio::test]
