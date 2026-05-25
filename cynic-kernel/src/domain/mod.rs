@@ -9,6 +9,7 @@ pub mod dog;
 pub mod dog_health;
 pub mod embedding;
 pub mod enrichment;
+pub mod epoche;
 pub mod events;
 pub mod health_gate;
 pub mod helius_credit;
