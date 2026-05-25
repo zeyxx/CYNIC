@@ -326,14 +326,25 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
 /// These tokens have active mint/freeze authorities BY DESIGN — penalizing them
 /// inverts discrimination (USDC scores lower than dead memecoins with revoked authorities).
 ///
-/// Heuristic: market_cap > $500M AND age > 720h (30d) AND holders > 1000.
-/// Falsify: new scam token somehow reaches $500M market cap with 30d+ age.
-/// This is extremely unlikely — scams either rug quickly or never reach this size.
+/// Gate: at least one authority active (tokens with revoked authorities score fine already)
+/// PLUS scale proof via one of:
+/// - Path A: market_cap >= $500M (when enrichment provides it)
+/// - Path B: holders >= 100K + age >= 720h — covers CEX-primary tokens (USDC/USDT)
+///   where DexScreener/Helius don't return market_cap
+///
+/// Falsify: scam token reaches 100K holders + 30d age + active authorities.
+/// Extremely rare — 98.6% rug before day 7.
 fn is_established_infrastructure(m: &TokenMetrics) -> bool {
+    // Only applies when authorities would be penalized — tokens with revoked
+    // authorities already score well under standard rules.
+    let has_active_authority = m.mint_authority_active || m.freeze_authority_active;
+    if !has_active_authority {
+        return false;
+    }
     let has_large_mcap = m.market_cap_usd.is_some_and(|mc| mc >= 500_000_000.0);
+    let has_massive_holders = m.holders >= 100_000;
     let has_age = m.age_hours >= 720;
-    let has_holders = m.holders >= 1000;
-    has_large_mcap && has_age && has_holders
+    (has_large_mcap && has_age) || (has_massive_holders && has_age)
 }
 
 /// Score a token-analysis stimulus on all 6 axioms using on-chain metrics.
@@ -1446,8 +1457,20 @@ mod tests {
 
     #[tokio::test]
     async fn small_token_with_active_authorities_still_penalized() {
-        // Same profile but $1M market cap → NOT established, authorities penalized
-        let small = make_stablecoin_stimulus("1.00M");
+        // Small token: active authorities + low holders → NOT established
+        let small_mint = TestMint {
+            holders: 500, // below 100K threshold
+            top1_pct: 30.0,
+            top10_pct: 65.0,
+            herfindahl: Some(0.25),
+            age_hours: 168, // 1 week
+            mint_active: true,
+            freeze_active: true,
+            lp: "unsecured",
+            burned_pct: Some(0.0),
+            origin: Some("pump.fun"),
+        };
+        let small = make_token_stimulus(&small_mint);
         let m = parse(&small).unwrap();
         assert!(!is_established_infrastructure(&m));
         let scores = score(&m);
