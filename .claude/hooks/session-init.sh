@@ -97,16 +97,10 @@ fi
 # Collect stashes
 STASHES=$(git -C "$PROJECT_DIR" stash list 2>/dev/null | jq -R -s -c 'split("\n") | map(select(length > 0))' || echo "[]")
 
-# K15: Collect claimed modules from active agents (MC4 constraint detection)
-# If kernel is down, skip — don't block session start on kernel availability
+# MC4 claimed modules extraction: REMOVED (jq path was broken — .agents[]?.claims[]?
+# never resolved because claims are a separate array in CoordSnapshot, not nested in agents).
+# Branch isolation at session-init replaces edit-time claim checking.
 CLAIMED_MODULES="[]"
-if [[ "$KERNEL_STATUS" != "down" ]]; then
-    WHO_JSON=$(curl -s --max-time 2 \
-        ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-        "http://${KERNEL_ADDR}/coord/who" 2>/dev/null || echo '{}')
-    # Extract all claims from all active agents and flatten into single array
-    CLAIMED_MODULES=$(echo "$WHO_JSON" | jq -c '[.agents[]? | select(.active == true) | .claims[]? // empty] | unique' 2>/dev/null || echo "[]")
-fi
 
 # Write AT_START proof (includes coordination state for MC4 blocking)
 cat > "$PROOF_FILE" << PROOF_EOF
@@ -209,13 +203,27 @@ session_start=$(date +%s)
 project_dir=${PROJECT_DIR}
 STATE_EOF
 
-# ── Auto-register agent via REST (hard enforcement, not hope) ──
+# ── Tier 1: Mechanical branch isolation (local git, zero dependencies) ──
+# Creates a unique branch BEFORE the LLM receives its first message.
+# The LLM cannot forget to branch — it's already on one.
+CURRENT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+CORTEX_BRANCH="$CURRENT_BRANCH"
+
+if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then
+    CORTEX_BRANCH="cortex/${AGENT_ID}-$(date +%Y-%m-%d)-$(head -c4 /dev/urandom | xxd -p)"
+    git -C "$PROJECT_DIR" checkout -b "$CORTEX_BRANCH" 2>/dev/null || true
+    echo "AUTO-BRANCH: created ${CORTEX_BRANCH} (mechanical isolation)"
+fi
+
+# ── Auto-register agent via REST + branch collision check ──
+# Tier 2: kernel enrichment. If kernel is down, Tier 1 (auto-branch) already covers.
 REGISTER_STATUS="skipped"
 if [[ "$KERNEL_STATUS" != "down" ]]; then
+    # Register with branch in scope
     REGISTER_RESPONSE=$(curl -s --max-time 3 -X POST "http://${KERNEL_ADDR}/coord/register" \
         -H "Content-Type: application/json" \
         ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-        -d "{\"agent_id\":\"${AGENT_ID}\",\"intent\":\"claude-code session\",\"agent_type\":\"claude\"}" \
+        -d "{\"agent_id\":\"${AGENT_ID}\",\"intent\":\"claude-code session\",\"agent_type\":\"claude\",\"scope\":\"branch:${CORTEX_BRANCH}\"}" \
         2>/dev/null || echo '{}')
     if echo "$REGISTER_RESPONSE" | jq -e '.status == "registered"' > /dev/null 2>&1; then
         REGISTER_STATUS="registered"
@@ -395,29 +403,33 @@ if [[ -f "$DREAM_STATE" ]]; then
     fi
 fi
 
-# ── Active sessions check (MC4: auto-partition with escalade) ──
+# ── Active sessions + branch collision check (single /coord/who call) ──
 if [[ "$KERNEL_STATUS" != "down" ]]; then
     WHO_JSON=$(curl -s --max-time 3 \
         ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-        "http://${KERNEL_ADDR}/coord/who" 2>/dev/null)
+        "http://${KERNEL_ADDR}/coord/who" 2>/dev/null || echo '{}')
     ACTIVE_AGENTS=$(echo "$WHO_JSON" | jq '[.agents[]? | select(.active == true)] | length' 2>/dev/null || echo 0)
+
+    # Branch collision: if another active session is on the same branch, auto-branch away
+    if [[ "$CORTEX_BRANCH" != "unknown" ]]; then
+        BRANCH_COLLISION=$(echo "$WHO_JSON" | jq -r --arg branch "$CORTEX_BRANCH" --arg self "$AGENT_ID" \
+            '[.agents[]? | select(.active == true and .agent_id != $self and (.scope // "" | contains($branch)))] | length' \
+            2>/dev/null || echo "0")
+        if [[ "$BRANCH_COLLISION" -gt 0 ]]; then
+            OLD_BRANCH="$CORTEX_BRANCH"
+            CORTEX_BRANCH="cortex/${AGENT_ID}-$(date +%Y-%m-%d)-$(head -c4 /dev/urandom | xxd -p)"
+            git -C "$PROJECT_DIR" checkout -b "$CORTEX_BRANCH" 2>/dev/null || true
+            echo "BRANCH COLLISION on ${OLD_BRANCH}: switched to ${CORTEX_BRANCH}"
+        fi
+    fi
+
     if [[ "$ACTIVE_AGENTS" -gt 1 ]]; then
         echo ""
-        echo "⚠ CONCURRENT SESSIONS: ${ACTIVE_AGENTS} active cortex detected."
-        echo "  Rule MC4: check /coord/who before touching shared files."
+        echo "CONCURRENT SESSIONS: ${ACTIVE_AGENTS} active cortex (each on its own branch)."
         echo "$WHO_JSON" | jq -r '.agents[]? | select(.active == true) |
             "  → " + .agent_id +
-            (if (.scope // "") != "" then " [scope: " + .scope[0:80] + "]" else "" end) +
-            (if (.intent // "") != "" then " (intent: " + .intent[0:40] + ")" else "" end)
+            (if (.scope // "") != "" then " [" + .scope[0:80] + "]" else "" end)
         ' 2>/dev/null | head -5 || true
-
-        # Scope overlap warning: if 2+ agents have non-trivial scopes, alert the human
-        SCOPE_COUNT=$(echo "$WHO_JSON" | jq '[.agents[]? | select(.active == true) | .scope // "" | select(length > 10)] | length' 2>/dev/null || echo 0)
-        if [[ "$SCOPE_COUNT" -ge 2 ]]; then
-            echo ""
-            echo "  ⚠ SCOPE WARNING: Multiple agents have active task scopes — verify tasks are distinct."
-            echo "  Check: curl -s http://${KERNEL_ADDR}/coord/who | jq '.agents[] | {agent_id, scope}'"
-        fi
     fi
 fi
 

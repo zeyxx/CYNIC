@@ -59,13 +59,12 @@ The Crystal Coherence Machine is the only guaranteed inter-session memory: verdi
 
 ## Multi-Cortex Isolation (Inviolable)
 
-Multiple Claude Code sessions run simultaneously. Without isolation, they pick the same TODO item and edit the same files.
+Multiple Claude Code sessions run simultaneously. Isolation is **mechanical**, not convention.
 
-**Rule 1 — Branch before ANY edit:**
-```bash
-git checkout -b <type>/<scope>-$(date +%Y-%m-%d)-$(head -c4 /dev/urandom | xxd -p)
-```
-The random suffix prevents branch name collision between sessions. Do this BEFORE the first Edit/Write, not at push time.
+**Mechanical enforcement (session-init.sh — you don't need to act):**
+- On session start, if you're on `main`, session-init.sh auto-creates a unique branch (`cortex/<agent_id>-<date>-<random>`). You will already be on it when you receive your first message.
+- If the kernel detects another session on the same branch, session-init.sh auto-branches away.
+- `branch-guard.sh` blocks any Edit/Write to `main` as a safety net.
 
 **Rule 2 — The user's first message IS the dispatch.**
 Your scope = what the user asked you to do. Do not expand beyond it. If the user said "fix the NaN filter," don't also restructure hermes.
@@ -76,16 +75,7 @@ Mid-session discoveries → `POST /observe domain=mempool`. The human curates me
 Taxonomy: `docs/architecture/AGENT-TAXONOMY.md`.
 
 **Rule 3b — Hot files are last-merger-wins.**
-CLAUDE.md, GEMINI.md, shared types — accept that parallel sessions will conflict. Resolve at merge time (rebase onto main). Budget 5 min.
-
-**Rule 4 — Check origin before branching.**
-```bash
-git fetch origin && git log --oneline origin/main..HEAD
-```
-If another session pushed while you worked, rebase before PR. Never force-push.
-
-**Rule 5 — Module-level ownership per session.**
-If you see another branch on origin touching the same module you're about to edit → STOP. Tell the human. Don't race.
+CLAUDE.md, GEMINI.md, shared types — accept that parallel sessions will conflict. Resolve at merge time (rebase onto main). Budget 5 min. If another session pushed while you worked, rebase before PR. Never force-push.
 
 **Rule 6 — Scope before launching a second cortex.**
 Each cortex auto-registers its scope from the first user message (observe-prompt.sh → /coord/scope).
