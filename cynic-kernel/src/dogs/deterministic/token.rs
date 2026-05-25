@@ -344,7 +344,7 @@ fn is_established_infrastructure(m: &TokenMetrics) -> bool {
     let has_large_mcap = m.market_cap_usd.is_some_and(|mc| mc >= 500_000_000.0);
     let has_massive_holders = m.holders >= 100_000;
     let has_age = m.age_hours >= 720;
-    (has_large_mcap && has_age) || (has_massive_holders && has_age)
+    (has_large_mcap || has_massive_holders) && has_age
 }
 
 /// Score a token-analysis stimulus on all 6 axioms using on-chain metrics.
