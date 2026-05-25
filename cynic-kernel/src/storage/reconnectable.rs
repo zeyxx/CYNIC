@@ -79,6 +79,9 @@ impl StoragePort for ReconnectableStorage {
     ) -> Result<Vec<crate::domain::dog::Verdict>, StorageError> {
         self.current().list_verdicts(limit).await
     }
+    async fn recent_max_disagreements(&self, limit: usize) -> Result<Vec<f64>, StorageError> {
+        self.current().recent_max_disagreements(limit).await
+    }
     async fn list_verdicts_by_domain(
         &self,
         domain: &str,

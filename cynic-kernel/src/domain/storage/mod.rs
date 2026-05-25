@@ -31,6 +31,12 @@ pub trait StoragePort: Send + Sync {
     async fn get_verdict(&self, id: &str) -> Result<Option<Verdict>, StorageError>;
     async fn list_verdicts(&self, limit: u32) -> Result<Vec<Verdict>, StorageError>;
 
+    /// Recent max_disagreement values for EPOCHÉ window seeding at boot.
+    async fn recent_max_disagreements(&self, limit: usize) -> Result<Vec<f64>, StorageError> {
+        let _ = limit;
+        Ok(vec![])
+    }
+
     /// List verdicts for a specific domain, sorted by sovereignty ASC (worst spam first).
     /// Used by GET /phone-numbers/blocklist to populate the mobile app cache.
     /// Default: falls back to list_verdicts + filter (suboptimal but correct for NullStorage).

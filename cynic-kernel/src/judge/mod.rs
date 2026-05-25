@@ -164,6 +164,14 @@ impl Judge {
         }
     }
 
+    /// EPOCHÉ window stats for /health exposure.
+    pub fn epoche_stats(&self) -> (usize, Option<f64>) {
+        self.epoche_threshold
+            .lock()
+            .map(|w| (w.len(), w.threshold()))
+            .unwrap_or((0, None))
+    }
+
     /// Seed EPOCHÉ window from historical verdicts (call at boot).
     pub fn seed_epoche_window(&self, disagreements: &[f64]) {
         if let Ok(mut window) = self.epoche_threshold.lock() {
@@ -780,7 +788,49 @@ impl Judge {
                 };
                 // _permit is held across dog.evaluate() — released when this future completes.
                 let start = std::time::Instant::now();
-                let result = tokio::time::timeout(dog_timeout, dog.evaluate(stimulus)).await;
+
+                // G4: Stimulus truncation for small-context Dogs.
+                // If Dog has context limit, truncate stimulus.content to fit within available budget.
+                // Budget = max_context - estimated_system_prompt_tokens.
+                let max_ctx = dog.max_context();
+                let evaluation_stimulus = if max_ctx > 0 {
+                    let system_prompt_estimate = 1500u32;
+                    let available_for_stimulus = max_ctx.saturating_sub(system_prompt_estimate);
+                    let current_tokens = estimate_tokens(&stimulus.content);
+                    tracing::info!(
+                        dog_id = %id,
+                        max_context = max_ctx,
+                        available_for_stimulus = available_for_stimulus,
+                        current_tokens = current_tokens,
+                        "G4 stimulus check"
+                    );
+                    if current_tokens > available_for_stimulus {
+                        let target_chars = (available_for_stimulus as f64 * 4.0) as usize;
+                        let mut truncated_content = stimulus.content.clone();
+                        truncated_content.truncate(target_chars);
+                        truncated_content.push_str("\n[truncated due to context size]");
+                        let truncated_tokens = estimate_tokens(&truncated_content);
+                        tracing::info!(
+                            dog_id = %id,
+                            original_tokens = current_tokens,
+                            truncated_tokens = truncated_tokens,
+                            "stimulus truncated for small-context Dog"
+                        );
+                        Stimulus {
+                            content: truncated_content,
+                            context: stimulus.context.clone(),
+                            domain: stimulus.domain.clone(),
+                            request_id: stimulus.request_id.clone(),
+                        }
+                    } else {
+                        stimulus.clone()
+                    }
+                } else {
+                    stimulus.clone()
+                };
+
+                let result =
+                    tokio::time::timeout(dog_timeout, dog.evaluate(&evaluation_stimulus)).await;
                 let elapsed_ms = start.elapsed().as_millis() as u64;
                 match result {
                     Ok(inner) => (idx, id, inner, elapsed_ms),

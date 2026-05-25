@@ -91,6 +91,10 @@ impl StoragePort for SurrealHttpStorage {
         verdicts::list_verdicts(self, limit).await
     }
 
+    async fn recent_max_disagreements(&self, limit: usize) -> Result<Vec<f64>, StorageError> {
+        verdicts::recent_max_disagreements(self, limit).await
+    }
+
     #[tracing::instrument(skip(self), err)]
     async fn list_verdicts_by_domain(
         &self,
