@@ -140,6 +140,7 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
         "Howl" => VerdictKind::Howl,
         "Wag" => VerdictKind::Wag,
         "Growl" => VerdictKind::Growl,
+        "Epoche" => VerdictKind::Epoche,
         _ => VerdictKind::Bark,
     };
 

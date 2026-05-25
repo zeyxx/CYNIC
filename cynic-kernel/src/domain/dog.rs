@@ -140,10 +140,11 @@ pub struct QScore {
 // ── VERDICT ────────────────────────────────────────────────
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum VerdictKind {
-    Howl,  // > φ⁻² + φ⁻⁴ = 0.528 (golden subdivision of WAG→MAX)
-    Wag,   // > φ⁻²       = 0.382
-    Growl, // > φ⁻³       = 0.236
-    Bark,  // ≤ φ⁻³
+    Howl,   // > φ⁻² + φ⁻⁴ = 0.528 (golden subdivision of WAG→MAX)
+    Wag,    // > φ⁻²       = 0.382
+    Growl,  // > φ⁻³       = 0.236
+    Bark,   // ≤ φ⁻³
+    Epoche, // Pyrrhonist suspension — Dogs in equipollence (data-driven P95 threshold)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

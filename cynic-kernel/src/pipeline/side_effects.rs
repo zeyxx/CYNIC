@@ -41,6 +41,7 @@ pub(super) async fn run(
             crate::domain::dog::VerdictKind::Wag => "wag",
             crate::domain::dog::VerdictKind::Growl => "growl",
             crate::domain::dog::VerdictKind::Bark => "bark",
+            crate::domain::dog::VerdictKind::Epoche => "epoche",
         };
 
         let dog_count = verdict.dog_scores.len() as u32;

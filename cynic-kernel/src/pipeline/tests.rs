@@ -656,6 +656,7 @@ fn enqueue_verdict_verdict_type_mapping() {
         (VerdictKind::Wag, "wag"),
         (VerdictKind::Growl, "growl"),
         (VerdictKind::Bark, "bark"),
+        (VerdictKind::Epoche, "epoche"),
     ];
 
     for (kind, expected) in mappings {
@@ -664,6 +665,7 @@ fn enqueue_verdict_verdict_type_mapping() {
             VerdictKind::Wag => "wag",
             VerdictKind::Growl => "growl",
             VerdictKind::Bark => "bark",
+            VerdictKind::Epoche => "epoche",
         };
         assert_eq!(
             actual, expected,
