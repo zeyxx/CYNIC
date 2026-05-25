@@ -9,6 +9,8 @@ WorkingDirectory=%h/Bureau/CYNIC/cynic-python
 EnvironmentFile=%h/.config/cynic/env
 Restart=on-failure
 RestartSec=10
+# Cgroup limits — observed: 178MB.
+MemoryMax=512M
 
 [Install]
 WantedBy=default.target

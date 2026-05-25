@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # CYNIC — Hard verification that systemd user units resolve to repo-managed sources.
+# Scans infra/systemd/ dynamically — no hardcoded list.
 set -euo pipefail
 
 fail() {
     echo "FAIL Unit Drift: $*" >&2
-    exit 1
+    FAILURES=$((FAILURES + 1))
 }
 
 resolve_path() {
@@ -27,36 +28,46 @@ resolve_link_target() {
 
 PROJECT_DIR="${PROJECT_DIR_OVERRIDE:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 SYSTEMD_USER_DIR="${SYSTEMD_USER_DIR_OVERRIDE:-$HOME/.config/systemd/user}"
+SOURCE_DIR="$PROJECT_DIR/infra/systemd"
 
-managed_units=(
-    "infra/systemd/cynic-kernel.service"
-    "infra/systemd/surrealdb.service"
-    "infra/systemd/cynic-healthcheck.service"
-    "infra/systemd/cynic-healthcheck.timer"
-    "infra/systemd/surrealdb-backup.service"
-    "infra/systemd/surrealdb-backup.timer"
-    "infra/systemd/llama-server.service"
-    "infra/systemd/hermes-proxy.service"
-    "infra/systemd/hermes-x-ingest.service"
-    "infra/systemd/hermes-curation.timer"
-    "infra/systemd/hermes-data-organism.timer"
-    "infra/systemd/hermes-feedback-loop.timer"
-    "infra/systemd/hermes-gemini-briefing.timer"
-    "infra/systemd/hermes-k15-consumer.timer"
-    "infra/systemd/hermes-navigator.timer"
-    "infra/systemd/hermes-search-executor.timer"
-    "infra/systemd/hermes-search-generator.timer"
-)
+FAILURES=0
+CHECKED=0
 
-for rel in "${managed_units[@]}"; do
-    src="$PROJECT_DIR/$rel"
-    dst="$SYSTEMD_USER_DIR/$(basename "$rel")"
-    [ -e "$src" ] || fail "expected source missing: $src"
-    [ -L "$dst" ] || fail "$dst is not a symlink to $src"
+for src in "$SOURCE_DIR"/*.service "$SOURCE_DIR"/*.timer; do
+    [ -f "$src" ] || continue
+    name="$(basename "$src")"
 
-    resolved_actual="$(resolve_link_target "$dst")" || fail "cannot resolve symlink target: $dst"
+    # Skip template units (foo@.service) and scripts
+    case "$name" in *@.*|*.sh) continue ;; esac
+
+    dst="$SYSTEMD_USER_DIR/$name"
+    CHECKED=$((CHECKED + 1))
+
+    if [ ! -e "$dst" ]; then
+        fail "$name: not deployed (missing from $SYSTEMD_USER_DIR)"
+        continue
+    fi
+
+    if [ ! -L "$dst" ]; then
+        # Regular file, not symlink — check content drift
+        if ! diff -q "$dst" "$src" >/dev/null 2>&1; then
+            fail "$name: regular file with content drift (not a symlink, content differs from repo)"
+        else
+            echo "WARN $name: regular file (not a symlink) but content matches repo"
+        fi
+        continue
+    fi
+
+    resolved_actual="$(resolve_link_target "$dst")" || { fail "$name: cannot resolve symlink target"; continue; }
     resolved_expected="$(resolve_path "$src")"
-    [ "$resolved_actual" = "$resolved_expected" ] || fail "$dst resolves to $resolved_actual, expected $resolved_expected"
+    if [ "$resolved_actual" != "$resolved_expected" ]; then
+        fail "$name: resolves to $resolved_actual, expected $resolved_expected"
+    fi
 done
 
-echo "✓ Systemd user units verified"
+if [ "$FAILURES" -gt 0 ]; then
+    echo "✗ $FAILURES unit(s) drifted out of $CHECKED checked"
+    exit 1
+fi
+
+echo "✓ $CHECKED systemd units verified (0 drift)"

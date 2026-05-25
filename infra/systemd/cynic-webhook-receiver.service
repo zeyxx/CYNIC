@@ -1,0 +1,16 @@
+[Unit]
+Description=CYNIC Webhook Receiver (Helius events)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Bureau/CYNIC
+EnvironmentFile=%h/.config/cynic/env
+ExecStart=/usr/bin/python3 cynic-python/heuristics/collection/webhook_receiver.py --port 3031
+Restart=on-failure
+RestartSec=10
+# Cgroup limits — observed: 10MB.
+MemoryMax=128M
+
+[Install]
+WantedBy=default.target

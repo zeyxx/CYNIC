@@ -22,6 +22,8 @@ ExecStart=%h/.local/bin/mitmdump \
     -q
 Restart=on-failure
 RestartSec=10
+# Cgroup limits — observed: 82MB.
+MemoryMax=256M
 
 [Install]
 WantedBy=default.target

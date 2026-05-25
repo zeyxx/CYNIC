@@ -46,17 +46,8 @@ curl -s --connect-timeout 2 --max-time 5 -X POST "http://${KERNEL_ADDR}/coord/re
     -d "{\"agent_id\":\"${AGENT_ID}\"}" \
     > /dev/null 2>&1 || true
 
-# Release zone claims (local file locks from coord-claim.sh)
-ZONE_STATE_DIR="/tmp/cynic-zones"
-if [[ -d "$ZONE_STATE_DIR" ]]; then
-    for lock in "$ZONE_STATE_DIR"/*.claimed; do
-        [[ -f "$lock" ]] || continue
-        CLAIMED_BY=$(cat "$lock" 2>/dev/null || echo "")
-        if [[ "$CLAIMED_BY" == "$AGENT_ID" ]]; then
-            rm -f "$lock"
-        fi
-    done
-fi
+# Zone claim release: REMOVED — coord-claim.sh is no longer wired.
+# Branch isolation at session-init replaces edit-time claims.
 
 # Clean dispatch marker (observe-prompt.sh L0→L1 bridge)
 rm -f "/tmp/cynic-sessions/${AGENT_ID}.dispatched"
