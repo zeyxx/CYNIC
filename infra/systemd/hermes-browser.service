@@ -15,6 +15,8 @@ ExecStart=%h/Bureau/CYNIC/scripts/hermes-x/scripts/launch-browser.sh
 Restart=on-failure
 RestartSec=30
 TimeoutStopSec=10
+# Cgroup limits — observed: 265MB. Chrome can balloon with tabs.
+MemoryMax=1G
 
 [Install]
 WantedBy=default.target

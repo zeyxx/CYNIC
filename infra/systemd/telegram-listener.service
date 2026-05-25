@@ -13,6 +13,8 @@ StartLimitBurst=3
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=%h/.config/cynic/env
 EnvironmentFile=%h/.cynic/organs/telegram/env
+# Cgroup limits — observed: 268MB.
+MemoryMax=512M
 
 [Install]
 WantedBy=default.target

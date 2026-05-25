@@ -16,7 +16,8 @@
 #   make status   — full system dashboard
 #   make runtime-truth — PID/PPID/binary/version/state/port truth for critical processes
 #   make runtime-check — fail on runtime drift or duplicate critical processes; warn on minimal unit profiles
-#   make install-systemd-units — symlink repo-managed user units into ~/.config/systemd/user
+#   make deploy-systemd — idempotent symlink infra/systemd/* → ~/.config/systemd/user/
+#   make deploy-systemd-dry — dry-run: show what deploy-systemd would change
 #   make verify-systemd-units — fail if installed user units drift from the repo
 #   make backup   — manual DB backup
 #   make test-gates — R21: verify lint gates catch known violations
@@ -723,6 +724,15 @@ rollback:
 	@echo "▶ Verifying rollback..."
 	@HTTP=$$(curl -s -o /dev/null -w '%{http_code}' "http://$${CYNIC_REST_ADDR}/health"); \
 	[ "$$HTTP" = "200" ] && echo "Kernel: healthy (rolled back)" || echo "Kernel: DEGRADED (HTTP $$HTTP, rolled back)"
+
+# ── Systemd unit deployment ──────────────────────────────────
+.PHONY: deploy-systemd
+deploy-systemd:  ## Idempotent deploy: symlink infra/systemd/* → ~/.config/systemd/user/
+	@bash $(PROJECT_DIR)/scripts/deploy-systemd.sh
+
+.PHONY: deploy-systemd-dry
+deploy-systemd-dry:  ## Dry-run: show what deploy-systemd would change
+	@bash $(PROJECT_DIR)/scripts/deploy-systemd.sh --dry-run
 
 # ── Emergency: Hotfix deploy (skip push — for incidents) ──────
 .PHONY: hotfix

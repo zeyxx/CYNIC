@@ -37,6 +37,10 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "..", "data", "webhook_data")
 METRICS_DIR = os.path.join(DATA_DIR, "_metrics")
 
+# Auth: shared secret set as authHeader in Helius webhook config.
+# Helius sends this as "Authorization: <secret>" on every POST.
+WEBHOOK_SECRET = os.environ.get("HELIUS_WEBHOOK_SECRET", "")
+
 # ── CREDIT TRACKER ──
 
 class CreditTracker:
@@ -222,8 +226,21 @@ def persist_event(event: Dict) -> None:
 # ── HTTP SERVER ──
 
 class WebhookHandler(BaseHTTPRequestHandler):
+    def _check_auth(self) -> bool:
+        """Verify Helius webhook auth header. Rejects if secret is configured but missing/wrong."""
+        if not WEBHOOK_SECRET:
+            return True  # No secret configured — allow (dev mode)
+        auth = self.headers.get("Authorization", "")
+        return auth == WEBHOOK_SECRET
+
     def do_POST(self):
         if self.path == "/webhook/helius":
+            if not self._check_auth():
+                self.send_response(401)
+                self.end_headers()
+                self.wfile.write(b"Unauthorized")
+                return
+
             content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length)
 
@@ -251,6 +268,11 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/metrics":
+            if not self._check_auth():
+                self.send_response(401)
+                self.end_headers()
+                self.wfile.write(b"Unauthorized")
+                return
             metrics = tracker.get_metrics()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -303,8 +325,10 @@ def main() -> None:
 
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    server = HTTPServer(("0.0.0.0", port), WebhookHandler)
-    print(f"Webhook receiver listening on :{port}")
+    # Bind localhost only — Tailscale Funnel proxies from :8443 → 127.0.0.1:3031
+    bind_addr = os.environ.get("WEBHOOK_BIND_ADDR", "127.0.0.1")
+    server = HTTPServer((bind_addr, port), WebhookHandler)
+    print(f"Webhook receiver listening on {bind_addr}:{port}")
     print(f"  POST /webhook/helius  — receive events")
     print(f"  GET  /metrics         — credit consumption")
     print(f"  GET  /health          — liveness check")

@@ -4,6 +4,7 @@ PartOf=cynic.target
 
 [Timer]
 OnBootSec=10s
+OnActiveSec=0
 OnUnitActiveSec=30s
 Persistent=true
 

@@ -13,6 +13,9 @@ RestartSec=3
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30
+# Cgroup limits — observed: 5.1GB (model + KV cache). Headroom for ctx-size variance.
+MemoryMax=8G
+CPUQuota=400%
 
 [Install]
 WantedBy=default.target
