@@ -6,7 +6,7 @@
 
 use crate::domain::dog::*;
 
-use super::{ADJUST_MEDIUM, ADJUST_SMALL, PHI_BASE, SOVEREIGNTY_BASE};
+use super::{ADJUST_LARGE, ADJUST_MEDIUM, ADJUST_SMALL, PHI_BASE, SOVEREIGNTY_BASE};
 
 /// Parsed metrics from a token-analysis stimulus.
 #[derive(Debug)]
@@ -321,6 +321,21 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
     Some(m)
 }
 
+/// Detect established infrastructure tokens (stablecoins, wrapped assets).
+///
+/// These tokens have active mint/freeze authorities BY DESIGN — penalizing them
+/// inverts discrimination (USDC scores lower than dead memecoins with revoked authorities).
+///
+/// Heuristic: market_cap > $500M AND age > 720h (30d) AND holders > 1000.
+/// Falsify: new scam token somehow reaches $500M market cap with 30d+ age.
+/// This is extremely unlikely — scams either rug quickly or never reach this size.
+fn is_established_infrastructure(m: &TokenMetrics) -> bool {
+    let has_large_mcap = m.market_cap_usd.is_some_and(|mc| mc >= 500_000_000.0);
+    let has_age = m.age_hours >= 720;
+    let has_holders = m.holders >= 1000;
+    has_large_mcap && has_age && has_holders
+}
+
 /// Score a token-analysis stimulus on all 6 axioms using on-chain metrics.
 /// No abstentions — every axiom has deterministic signals from TokenData.
 ///
@@ -334,16 +349,23 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
 pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     // ── FIDELITY: Does the token faithfully represent what it claims? ──
     // Falsify: legitimate governance token with active mint for scheduled emissions.
+    let established = is_established_infrastructure(m);
     let mut fidelity: f64 = PHI_BASE;
-    if !m.mint_authority_active {
-        fidelity += ADJUST_MEDIUM; // supply locked = honest commitment
+    if established {
+        // Established infrastructure tokens (stablecoins, etc.) NEED active authorities.
+        // Active mint+freeze on a $500M+ token is faithful to its design, not dishonest.
+        fidelity += ADJUST_MEDIUM; // proven track record = fidelity
     } else {
-        fidelity -= ADJUST_MEDIUM; // can inflate = potential dishonesty
-    }
-    if !m.freeze_authority_active {
-        fidelity += ADJUST_SMALL; // wallets free
-    } else {
-        fidelity -= ADJUST_MEDIUM; // can freeze = deceptive control
+        if !m.mint_authority_active {
+            fidelity += ADJUST_MEDIUM; // supply locked = honest commitment
+        } else {
+            fidelity -= ADJUST_MEDIUM; // can inflate = potential dishonesty
+        }
+        if !m.freeze_authority_active {
+            fidelity += ADJUST_SMALL; // wallets free
+        } else {
+            fidelity -= ADJUST_MEDIUM; // can freeze = deceptive control
+        }
     }
     // K-Score diamond_hands: empirically INVERTED (rho=-0.396, n=30).
     // High diamond_hands = FOMO buyers accumulating, not genuine conviction.
@@ -351,9 +373,9 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     // Corrected: invert the signal direction.
     if let Some(dh) = m.k_diamond_hands {
         if dh > 0.6 {
-            fidelity -= ADJUST_SMALL; // high DH = FOMO buying, not fidelity
+            fidelity -= ADJUST_MEDIUM; // rho=-0.396 (diamond_hands, 2026-05) — FOMO signal
         } else if dh < 0.3 {
-            fidelity += ADJUST_SMALL; // low DH = passive holders staying = real conviction
+            fidelity += ADJUST_SMALL; // rho=-0.396 — low DH = passive holders = real conviction
         }
     }
     // Trajectory: temporal conviction signal — holders leaving = broken promise.
@@ -367,26 +389,39 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
         }
     }
     // Market cap: NOISE (rho=-0.083, n=30). Removed from scoring.
-    // Supply burned: strongest structural signal (rho=+0.672). Propagated beyond BURN.
+    // Supply burned: strongest structural signal (rho=+0.672, LARGE tier).
     // Burned supply = irrevocable commitment = fidelity to holders.
     if let Some(bp) = m.supply_burned_pct {
         if bp > 20.0 {
-            fidelity += ADJUST_MEDIUM;
+            fidelity += ADJUST_LARGE; // rho=+0.672 (supply_burned, 2026-05)
         } else if bp > 5.0 {
-            fidelity += ADJUST_SMALL;
+            fidelity += ADJUST_MEDIUM; // rho=+0.672 (supply_burned, 2026-05)
         }
     }
     let fidelity = fidelity.clamp(ADJUST_SMALL, PHI_INV);
     let traj_label = m.trajectory_class.as_deref().unwrap_or("n/a");
     let fidelity_reason = format!(
-        "mint_authority={}, freeze_authority={}, diamond_hands={}, mcap={}, trajectory={traj_label}.",
+        "{}mint_authority={}, freeze_authority={}, diamond_hands={}, mcap={}, trajectory={traj_label}.",
+        if established {
+            "ESTABLISHED INFRASTRUCTURE — "
+        } else {
+            ""
+        },
         if m.mint_authority_active {
-            "ACTIVE (red flag)"
+            if established {
+                "ACTIVE (expected for infrastructure)"
+            } else {
+                "ACTIVE (red flag)"
+            }
         } else {
             "revoked"
         },
         if m.freeze_authority_active {
-            "ACTIVE (red flag)"
+            if established {
+                "ACTIVE (expected for infrastructure)"
+            } else {
+                "ACTIVE (red flag)"
+            }
         } else {
             "revoked"
         },
@@ -449,7 +484,9 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     // Tokens that survived longer have better holder distribution (phi harmony).
     if let Some(lon) = m.k_longevity {
         if lon > 0.8 {
-            phi += ADJUST_MEDIUM; // age-proven distribution
+            phi += ADJUST_LARGE; // rho=+0.632 (longevity, 2026-05) — strongest positive predictor
+        } else if lon > 0.5 {
+            phi += ADJUST_MEDIUM; // rho=+0.632 — moderate age signal
         } else if lon < 0.3 {
             phi -= ADJUST_SMALL; // very new = distribution unproven
         }
@@ -500,9 +537,9 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     } else if m.age_hours < 24 {
         verify -= ADJUST_SMALL; // unproven
     }
-    // Supply burned: verifiable on-chain commitment (rho=+0.672).
+    // Supply burned: verifiable on-chain commitment. rho=+0.672 (supply_burned, 2026-05).
     if m.supply_burned_pct.is_some_and(|bp| bp > 10.0) {
-        verify += ADJUST_SMALL; // burned supply is independently verifiable forever
+        verify += ADJUST_MEDIUM; // rho=+0.672 — burned supply verifiable forever
     }
     // Trajectory: temporal verification = multi-day evidence, stronger than snapshot.
     if m.trajectory_class.is_some() {
@@ -541,43 +578,55 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     } else if !m.lp_locked {
         culture -= ADJUST_SMALL; // deviates from standard
     }
-    if !m.mint_authority_active {
-        culture += ADJUST_SMALL;
-    }
-    if !m.freeze_authority_active {
-        culture += ADJUST_SMALL;
-    }
-    if m.origin_pump_fun {
-        culture -= ADJUST_SMALL; // 98.6% rug rate baseline (Solidus Labs 2025)
+    if established {
+        culture += ADJUST_MEDIUM; // established ecosystem standard
+    } else {
+        if !m.mint_authority_active {
+            culture += ADJUST_SMALL;
+        }
+        if !m.freeze_authority_active {
+            culture += ADJUST_SMALL;
+        }
+        if m.origin_pump_fun {
+            culture -= ADJUST_SMALL; // 98.6% rug rate baseline (Solidus Labs 2025)
+        }
     }
     if m.holders > 100 {
         culture += ADJUST_SMALL;
     }
     let culture = culture.clamp(ADJUST_SMALL, PHI_INV);
-    let culture_reason = format!(
-        "LP={}, origin={}.",
-        if m.lp_burned {
-            "burned (standard)"
-        } else if m.lp_locked {
-            "locked"
-        } else {
-            "unsecured"
-        },
-        if m.origin_pump_fun {
-            "pump.fun (98.6% rug baseline)"
-        } else {
-            "other"
-        },
-    );
+    let culture_reason = if established {
+        "Established infrastructure token — ecosystem standard.".to_string()
+    } else {
+        format!(
+            "LP={}, origin={}.",
+            if m.lp_burned {
+                "burned (standard)"
+            } else if m.lp_locked {
+                "locked"
+            } else {
+                "unsecured"
+            },
+            if m.origin_pump_fun {
+                "pump.fun (98.6% rug baseline)"
+            } else {
+                "other"
+            },
+        )
+    };
 
     // ── BURN: Efficiency, minimal waste ──
     // Falsify: token with active mint for legitimate yield distribution.
     let mut burn: f64 = PHI_BASE;
     if let Some(burned_pct) = m.supply_burned_pct {
-        // Gradient: up to +ADJUST_SMALL for 50%+ supply burned
-        burn += ADJUST_SMALL * (burned_pct / 50.0).min(1.0);
+        // rho=+0.672 (supply_burned, 2026-05) — strongest structural signal
+        // Gradient: up to +ADJUST_MEDIUM for 50%+ supply burned
+        burn += ADJUST_MEDIUM * (burned_pct / 50.0).min(1.0);
     }
-    if !m.mint_authority_active && !m.freeze_authority_active {
+    if established {
+        // Established tokens: authorities are necessary infrastructure, not waste
+        burn += ADJUST_SMALL; // proven efficient design for its purpose
+    } else if !m.mint_authority_active && !m.freeze_authority_active {
         burn += ADJUST_MEDIUM; // no unnecessary authorities retained
     } else if m.mint_authority_active && m.freeze_authority_active {
         burn -= ADJUST_SMALL; // both retained = governance waste
@@ -593,7 +642,9 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     let burn = burn.clamp(ADJUST_SMALL, PHI_INV);
     let burn_reason = format!(
         "authorities={}, LP={}, burned_pct={}.",
-        if !m.mint_authority_active && !m.freeze_authority_active {
+        if established {
+            "active (infrastructure — expected)"
+        } else if !m.mint_authority_active && !m.freeze_authority_active {
             "both revoked (efficient)"
         } else {
             "active (waste)"
@@ -648,12 +699,14 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             }
         }
     }
-    // Authority checks always apply (from getAsset, not holder data)
-    if m.freeze_authority_active {
-        sovereignty -= ADJUST_MEDIUM;
-    }
-    if m.mint_authority_active {
-        sovereignty -= ADJUST_SMALL;
+    // Authority checks: skip for established infrastructure (stablecoins need freeze/mint)
+    if !established {
+        if m.freeze_authority_active {
+            sovereignty -= ADJUST_MEDIUM;
+        }
+        if m.mint_authority_active {
+            sovereignty -= ADJUST_SMALL;
+        }
     }
     // Trajectory: STABLE conviction = holders exercise agency to STAY.
     // DYING/DEAD = holders leaving (sovereignty intact — they chose to leave — but token is weakened).
@@ -670,7 +723,7 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
     // took profit but core holders stayed = stronger sovereignty signal.
     // Corrected: extractor dominance is now POSITIVE (was negative).
     if m.k_wallets_analyzed > 0 && m.k_accumulators > m.k_extractors {
-        sovereignty -= ADJUST_SMALL; // accumulator dominance = FOMO, not sovereignty
+        sovereignty -= ADJUST_LARGE; // rho=-0.622 (accumulator_ratio, 2026-05) — FOMO signal
     }
     // Holder identity signals (from Helius batch-identity)
     if m.identity_exchanges >= 3 {
@@ -1337,6 +1390,115 @@ mod tests {
             "DEAD trajectory should penalize sovereignty: dead={}, base={}",
             scores_dead.sovereignty,
             scores_base.sovereignty
+        );
+    }
+
+    /// Stablecoin-like token with active authorities should score HIGHER than
+    /// the same profile without market cap (i.e., not recognized as infrastructure).
+    /// This is the core discrimination fix: USDC/USDT with active freeze/mint
+    /// should not be penalized — active authorities are faithful to purpose.
+    const STABLECOIN_MINT: TestMint = TestMint {
+        holders: 250_000,
+        top1_pct: 30.0,
+        top10_pct: 65.0,
+        herfindahl: Some(0.12),
+        age_hours: 8760, // 365 days
+        mint_active: true,
+        freeze_active: true,
+        lp: "unsecured", // stablecoins don't have traditional LP
+        burned_pct: Some(0.0),
+        origin: None,
+    };
+
+    fn make_stablecoin_stimulus(mcap: &str) -> String {
+        let mut s = make_token_stimulus(&STABLECOIN_MINT);
+        // Insert market_cap line into [METRICS]
+        let age_line = s.find("age_hours:").unwrap();
+        s.insert_str(age_line, &format!("market_cap_usd: ${mcap}\n"));
+        s
+    }
+
+    #[tokio::test]
+    async fn established_infrastructure_not_penalized_for_active_authorities() {
+        // $1B market cap → established infrastructure
+        let stablecoin = make_stablecoin_stimulus("1.00B");
+        let m = parse(&stablecoin).unwrap();
+        assert!(is_established_infrastructure(&m));
+        let scores = score(&m);
+
+        // Should score well despite active mint+freeze
+        assert!(
+            scores.fidelity > 0.35,
+            "stablecoin fidelity should be decent (infrastructure), got {}",
+            scores.fidelity
+        );
+        assert!(
+            scores.sovereignty > 0.25,
+            "stablecoin sovereignty should not be crushed by active freeze, got {}",
+            scores.sovereignty
+        );
+        assert!(
+            scores.culture > 0.35,
+            "stablecoin culture should be positive (ecosystem standard), got {}",
+            scores.culture
+        );
+    }
+
+    #[tokio::test]
+    async fn small_token_with_active_authorities_still_penalized() {
+        // Same profile but $1M market cap → NOT established, authorities penalized
+        let small = make_stablecoin_stimulus("1.00M");
+        let m = parse(&small).unwrap();
+        assert!(!is_established_infrastructure(&m));
+        let scores = score(&m);
+
+        // Should score lower than the established version
+        let big = make_stablecoin_stimulus("1.00B");
+        let m_big = parse(&big).unwrap();
+        let scores_big = score(&m_big);
+
+        assert!(
+            scores.fidelity < scores_big.fidelity,
+            "small token with active authorities should score lower fidelity: small={}, big={}",
+            scores.fidelity,
+            scores_big.fidelity
+        );
+        assert!(
+            scores.sovereignty < scores_big.sovereignty,
+            "small token should have lower sovereignty: small={}, big={}",
+            scores.sovereignty,
+            scores_big.sovereignty
+        );
+    }
+
+    #[tokio::test]
+    async fn established_scores_higher_than_rug() {
+        // Core discrimination: stablecoin >> rug
+        let stablecoin = make_stablecoin_stimulus("1.00B");
+        let ms = parse(&stablecoin).unwrap();
+        let scores_s = score(&ms);
+        let q_stablecoin = (scores_s.fidelity
+            + scores_s.phi
+            + scores_s.verify
+            + scores_s.culture
+            + scores_s.burn
+            + scores_s.sovereignty)
+            / 6.0;
+
+        let rug = make_token_stimulus(&RUG_MINT);
+        let mr = parse(&rug).unwrap();
+        let scores_r = score(&mr);
+        let q_rug = (scores_r.fidelity
+            + scores_r.phi
+            + scores_r.verify
+            + scores_r.culture
+            + scores_r.burn
+            + scores_r.sovereignty)
+            / 6.0;
+
+        assert!(
+            q_stablecoin > q_rug + 0.10,
+            "stablecoin should score much higher than rug: stable={q_stablecoin:.3}, rug={q_rug:.3}",
         );
     }
 }

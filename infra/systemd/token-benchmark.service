@@ -1,0 +1,17 @@
+[Unit]
+Description=Token Benchmark — judge 45 tracked tokens, measure discrimination
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/cynic/env
+WorkingDirectory=%h/Bureau/CYNIC
+ExecStart=/usr/bin/bash scripts/daily_benchmark.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=token-benchmark
+MemoryMax=128M
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=token-benchmark.timer
