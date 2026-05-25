@@ -34,6 +34,20 @@ pub(super) async fn list_verdicts(
     Ok(rows.iter().map(row_to_verdict).collect())
 }
 
+pub(super) async fn recent_max_disagreements(
+    storage: &SurrealHttpStorage,
+    limit: usize,
+) -> Result<Vec<f64>, StorageError> {
+    let capped = limit.min(10_000);
+    let sql =
+        format!("SELECT max_disagreement FROM verdict ORDER BY created_at DESC LIMIT {capped}");
+    let rows = storage.query_one(&sql).await?;
+    Ok(rows
+        .iter()
+        .filter_map(|r| r.get("max_disagreement").and_then(|v| v.as_f64()))
+        .collect())
+}
+
 pub(super) async fn list_verdicts_by_domain(
     storage: &SurrealHttpStorage,
     domain: &str,
@@ -140,6 +154,7 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
         "Howl" => VerdictKind::Howl,
         "Wag" => VerdictKind::Wag,
         "Growl" => VerdictKind::Growl,
+        "Epoche" => VerdictKind::Epoche,
         _ => VerdictKind::Bark,
     };
 

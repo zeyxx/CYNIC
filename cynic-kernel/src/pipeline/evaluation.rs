@@ -180,6 +180,7 @@ pub(super) fn jury_gate(
             VerdictKind::Wag => VerdictKind::Growl,
             VerdictKind::Growl => VerdictKind::Bark,
             VerdictKind::Bark => VerdictKind::Bark,
+            VerdictKind::Epoche => VerdictKind::Epoche,
         };
         tracing::warn!(
             phase = "jury_gate",

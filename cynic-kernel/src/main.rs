@@ -406,6 +406,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Seed integrity hash chain from last stored verdict + verify integrity
     let chain_verified = infra::boot::seed_integrity_chain(&storage_port, &judge).await;
 
+    // Seed EPOCHÉ window from recent verdicts (data-driven suspension threshold)
+    match storage_port.recent_max_disagreements(1000).await {
+        Ok(recent) if !recent.is_empty() => judge.seed_epoche_window(&recent),
+        Ok(_) => tracing::info!(
+            phase = "boot",
+            "No historical verdicts for EPOCHÉ window — starting cold"
+        ),
+        Err(e) => {
+            tracing::warn!(phase = "boot", error = %e, "Failed to seed EPOCHÉ window — starting cold")
+        }
+    }
+
     // Sense registry — best-effort organ readers (RTK, Hermes X, Tailscale)
     // Built early so health_loop can use Tailscale sense for fleet awareness.
     let sense_root = match std::env::current_dir() {

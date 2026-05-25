@@ -95,11 +95,12 @@ class K15ObservationConsumer:
             target = obs.get("target", "")
 
             # Build synthetic tweet object for TwitterDog
+            # Default followers=50000: unknown != small account (avoids score inflation)
             synthetic_tweet = {
                 "tweet_id": obs.get("_id", "obs_" + str(time.time())),
                 "text": content,
-                "author_followers_count": obs.get("metadata", {}).get("followers", 100),
-                "author_statuses_count": obs.get("metadata", {}).get("tweet_count", 10),
+                "author_followers_count": obs.get("metadata", {}).get("followers", 50000),
+                "author_statuses_count": obs.get("metadata", {}).get("tweet_count", 1000),
                 "engagement_rate": obs.get("metadata", {}).get("engagement_rate", 0.02),
             }
 
@@ -142,7 +143,7 @@ class K15ObservationConsumer:
 
         High signal: rug allegations, exploits, creator criticism, low followers
         """
-        score = 5.0  # Neutral baseline
+        score = 3.0  # Conservative: observations lack tweet-native metadata
 
         # Red flags (positive signal)
         if signals.has_rug_allegations:

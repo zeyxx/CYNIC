@@ -118,62 +118,64 @@ def analyze_domain_priorities(briefing: dict) -> dict:
 
 
 def create_task(domain_id: str, briefing: dict, organ_dir: str) -> bool:
-    """Create a task JSON file for Hermes 9B to claim.
+    """POST a task to kernel /agent-tasks for Hermes to claim.
 
-    Task is written atomically (write to .tmp, then rename).
-    Returns: True if task created, False if already exists or error.
+    Returns: True if task created, False on error.
     """
-    task_queue_dir = Path(organ_dir) / "agent-tasks"
-    task_queue_dir.mkdir(parents=True, exist_ok=True)
+    import urllib.request
+    import urllib.error
 
-    task_id = f"{domain_id}_{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}"
-    task_file = task_queue_dir / f"{task_id}.json"
-
-    # Don't create if task for this domain already exists
-    existing = list(task_queue_dir.glob(f"{domain_id}_*.json"))
-    if existing:
-        print(f"Task for {domain_id} already exists, skipping")
+    addr = os.environ.get("CYNIC_REST_ADDR", "")
+    key = os.environ.get("CYNIC_API_KEY", "")
+    if not addr or not key:
+        print(f"CYNIC_REST_ADDR or CYNIC_API_KEY not set — task dispatch skipped")
         return False
 
-    # Extract domain info from briefing
     domain_info = briefing.get("recommendation", {})
     if domain_info.get("domain") == domain_id:
         context = f"Recommended by lab analysis: {domain_info.get('reason')}"
     else:
-        context = f"Under-assigned domain needing exploration"
+        context = "Under-assigned domain needing exploration"
 
     distribution = briefing.get("analyses", {}).get("distribution", {}).get(domain_id, {})
     avg_signal = distribution.get("mean", 0)
 
-    task = {
-        "task_id": task_id,
-        "created_at": datetime.now().isoformat() + "Z",
-        "created_by": "gemini-briefing-consumer",
-        "domain": domain_id,
-        "priority": "HIGH" if avg_signal > 3.5 else "MEDIUM",
-        "objective": f"Explore {domain_id} signals on X (current signal avg: {avg_signal:.2f})",
-        "context": context,
-        "actions": [
-            f"Browse X for {domain_id} domain signals",
-            "Look for patterns in high-engagement tweets",
-            "Post ≥3 observations to /observe",
-        ],
-        "success_criteria": "Post ≥3 observations with clear domain signals",
-        "deadline": (datetime.now() + timedelta(hours=24)).isoformat() + "Z",
-    }
+    content = (
+        f"Explore {domain_id} signals on X (current signal avg: {avg_signal:.2f})\n"
+        f"Context: {context}\n"
+        f"Actions:\n"
+        f"1. Browse X for {domain_id} domain signals\n"
+        f"2. Look for patterns in high-engagement tweets\n"
+        f"3. Post 3+ observations to /observe\n"
+        f"Success: 3+ observations with clear domain signals"
+    )
 
-    # Write atomically
-    tmp_file = task_queue_dir / f".{task_id}.tmp"
+    body = json.dumps({
+        "kind": "hermes",
+        "domain": domain_id,
+        "content": content,
+        "agent_id": "gemini-briefing-consumer",
+    }).encode("utf-8")
+
+    url = f"http://{addr}/agent-tasks"
+    req = urllib.request.Request(
+        url, data=body,
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+
     try:
-        with open(tmp_file, "w") as f:
-            json.dump(task, f, indent=2)
-        tmp_file.rename(task_file)
-        print(f"Created task: {task_id} for {domain_id}")
-        return True
-    except (IOError, OSError) as e:
-        print(f"ERROR: Failed to create task: {e}")
-        if tmp_file.exists():
-            tmp_file.unlink()
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status < 300:
+                result = json.loads(resp.read())
+                task_id = result.get("task_id", "unknown")
+                print(f"Created kernel task: {task_id} for {domain_id}")
+                return True
+            else:
+                print(f"Error creating task: {resp.status}")
+                return False
+    except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
+        print(f"ERROR: Failed to POST task for {domain_id}: {e}")
         return False
 
 

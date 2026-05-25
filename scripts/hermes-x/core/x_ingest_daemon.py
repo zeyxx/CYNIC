@@ -361,10 +361,52 @@ def emit_convergence(signals: list, resolver: "CashtagResolver") -> int:
                 emitted += 1
                 logger.info("CONVERGENCE %s: %d authors → %s",
                             signal.cashtag, signal.author_count, target)
+
+                # Bridge: trigger kernel enrichment + judgment for resolved mints.
+                # /judge with content=<mint> activates the enrichment pipeline
+                # which pulls Helius token data + this convergence observation.
+                if signal.resolved_mint:
+                    _trigger_token_judgment(signal)
+
         except requests.RequestException as e:
             logger.warning("convergence POST failed: %s", e)
 
     return emitted
+
+
+def _trigger_token_judgment(signal) -> None:
+    """POST /judge for a convergence signal with a resolved mint.
+
+    The kernel enrichment pipeline (enrichment.rs) will:
+    1. Fetch token data from Helius (holders, supply, liquidity)
+    2. Pull social convergence observations for this mint
+    3. Build structured stimulus with both
+    4. Dogs judge with full context
+    """
+    judge_payload = {
+        "content": signal.resolved_mint,
+        "context": f"Social convergence: ${signal.cashtag} mentioned by "
+                   f"{signal.author_count} authors in {signal.window_hours}h",
+        "domain": "D1",
+        "priority": "hermes",
+    }
+    try:
+        resp = requests.post(
+            f"{_kernel_addr()}/judge",
+            json=judge_payload,
+            headers=_headers(),
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            result = resp.json()
+            verdict = result.get("verdict", "?")
+            q_score = result.get("q_score", {}).get("total", 0)
+            logger.info("JUDGE %s ($%s): %s Q=%.3f",
+                        signal.resolved_mint[:8], signal.cashtag, verdict, q_score)
+        else:
+            logger.warning("judge POST for %s returned %d", signal.cashtag, resp.status_code)
+    except requests.RequestException as e:
+        logger.warning("judge POST failed for %s: %s", signal.cashtag, e)
 
 
 def write_verdict_to_organ(row: dict, verdict: dict, organ_dir: Path) -> bool:

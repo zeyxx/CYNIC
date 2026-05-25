@@ -161,6 +161,17 @@ pub async fn observe_crystal_for_verdict_core(
         return;
     }
 
+    // ── EPOCHÉ gate — suspension verdict must NOT crystallize ──
+    // Dogs are in equipollence: no crystallization until the disagreement resolves.
+    if matches!(verdict.kind, crate::domain::dog::VerdictKind::Epoche) {
+        tracing::info!(
+            phase = "crystal_skip",
+            reason = "epoche_suspension",
+            "EPOCHÉ verdict — Dogs in equipollence, skipping crystallization"
+        );
+        return;
+    }
+
     // ── T8+T9: Quorum gate — single-Dog verdicts must NOT crystallize ──
     // Verdict is still SERVED (availability), but only consensus crystallizes (integrity).
     if verdict.voter_count < crate::domain::dog::MIN_QUORUM {
@@ -275,6 +286,7 @@ pub async fn observe_crystal_for_verdict_core(
         crate::domain::dog::VerdictKind::Wag => "wag",
         crate::domain::dog::VerdictKind::Growl => "growl",
         crate::domain::dog::VerdictKind::Bark => "bark",
+        crate::domain::dog::VerdictKind::Epoche => "epoche",
     };
     if let Err(e) = storage
         .observe_crystal(

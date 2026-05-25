@@ -270,6 +270,10 @@ pub async fn health_handler(
                 "causes": readiness.causes,
             },
             "environment": state.environment.read().ok().and_then(|e| e.clone()),
+            "epoche": {
+                "window_size": judge.epoche_stats().0,
+                "threshold": judge.epoche_stats().1,
+            },
             "chain_verified": state.chain_verified.load(std::sync::atomic::Ordering::Relaxed),
             "verdict_cache_size": state.verdict_cache.len(),
             "background_tasks": state.task_health.snapshot(),
