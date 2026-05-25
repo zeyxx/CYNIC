@@ -23,30 +23,64 @@ DATASET_PATH = Path.home() / ".cynic/organs/hermes/x/dataset.jsonl"
 CURATED_DIR = Path.home() / ".cynic/organs/hermes/x/curated"
 MIN_SIGNAL_SCORE = 4
 
-# Domain assignment heuristics
+
+def _load_narrative_mappings() -> dict[str, list[str]]:
+    """Load narrative_domains.yaml — SSOT for narrative->domain (P16)."""
+    yaml_paths = [
+        Path.home() / ".cynic/organs/hermes/x/narrative_domains.yaml",
+        Path(__file__).parent.parent.parent.parent / "cynic-python/lab/config/narrative_domains.yaml",
+    ]
+    for p in yaml_paths:
+        if p.exists():
+            try:
+                import yaml
+                with open(p) as f:
+                    data = yaml.safe_load(f)
+                mappings = data.get("narrative_mappings", {})
+                if mappings:
+                    return mappings
+            except Exception:
+                pass
+    return {
+        "D1": ["rug_warning", "token_launch", "meme_token", "pump_hype", "solana_token"],
+        "D2": ["inference", "llm", "agent", "open_weights", "ai_crypto"],
+        "D3": ["self_custody", "sovereignty", "decentralization"],
+        "D4": ["rug_pull", "honeypot", "exploit", "scam", "vulnerability"],
+        "D5": ["macro", "institutional", "market", "regulation"],
+        "D6": ["epistemology", "bounded_judgment"],
+    }
+
+
+NARRATIVE_MAPPINGS = _load_narrative_mappings()
+
 DOMAIN_KEYWORDS = {
-    "D1": [  # Solana/Tokens - rug/scam/pump/dump
+    "D1": [
         "rug", "scam", "pump", "dump", "liquidity", "supply", "holders",
         "bundled", "rug pull", "slow rug", "fee assignment"
     ],
-    "D2": [  # Inference/LLM - model performance, optimization
+    "D2": [
         "inference", "llm", "vllm", "sglang", "quantization", "gguf", "tok/s",
         "throughput", "latency", "model", "gpu", "cuda", "kv cache", "attention",
         "tph", "tps", "agent", "thinking"
     ],
-    "D4": [  # Security - exploits, vulnerabilities, scams
+    "D3": [
+        "self custody", "self-custody", "sovereign", "censorship resist",
+        "decentraliz", "permissionless", "trustless", "own your keys"
+    ],
+    "D4": [
         "security", "exploit", "vulnerability", "hack", "phishing", "malware",
         "warning", "scam", "fraud", "bridge", "cross-chain"
     ],
-    "D5": [  # Macro/Market - trends, price action, ecosystem
+    "D5": [
         "market", "price", "bull", "bear", "trend", "volatility", "cycle",
         "adoption", "ecosystem", "regulation", "gmt", "sol", "eth", "btc"
     ],
-    "D6": [  # Epistemology - truth, calibration, proof
+    "D6": [
         "proof", "evidence", "verified", "confirmed", "predicted", "forecast",
         "accuracy", "epistemic", "truth", "certainty", "error"
     ]
 }
+
 
 def extract_keywords(text: str) -> list[str]:
     """Extract meaningful keywords from tweet text (not just "war")."""
@@ -78,33 +112,27 @@ def extract_keywords(text: str) -> list[str]:
     return list(set(keywords[:10]))  # Top 10 unique keywords
 
 def assign_domain(text: str, narratives: list[str], tier: str) -> str:
-    """Assign tweet to a domain D1-D6."""
+    """Assign tweet to domain D1-D6. Narrative-first from SSOT, then keyword fallback."""
     text_lower = text.lower()
 
-    # Priority: hard rules first (narratives are explicit tags)
-    if any(n in narratives for n in ['rug_warning', 'warning', 'scam']):
-        if 'security' in text_lower or 'exploit' in text_lower or 'vulnerability' in text_lower:
-            return "D4"  # Security
-        return "D1"  # Default to token scams
+    # Priority 1: narrative tags from SSOT (covers ALL domains including D3)
+    if narratives:
+        for domain_id, domain_narratives in NARRATIVE_MAPPINGS.items():
+            if any(n in narratives for n in domain_narratives):
+                return domain_id
 
-    if any(n in narratives for n in ['inference', 'ai_crypto', 'llm']):
-        return "D2"
-
-    if any(n in narratives for n in ['macro', 'market', 'trend']):
-        return "D5"
-
-    # Keyword matching
+    # Priority 2: keyword fallback
     for domain, keywords in DOMAIN_KEYWORDS.items():
         if any(kw in text_lower for kw in keywords):
             return domain
 
-    # Tier-based heuristic
+    # Priority 3: tier heuristic
     if tier == "curated":
-        return "D6"  # Curated sources often have epistemic/truth claims
+        return "D6"
     if tier in ["whale", "influencer"]:
-        return "D5"  # Whales/influencers talk macro
+        return "D5"
 
-    return "D1"  # Default to tokens
+    return "D1"
 
 def extract_falsifiable_claim(text: str, domain: str) -> str:
     """Extract or generate a falsifiable claim from tweet."""
@@ -136,6 +164,12 @@ def extract_falsifiable_claim(text: str, domain: str) -> str:
             return "If measured: latency within specified bounds"
         # Generic D2 fallback
         return "If verified: performance claim is testable"
+
+    # D3: Sovereignty — self-custody, decentralization claims
+    if domain == "D3":
+        if any(kw in text_lower for kw in ["self custody", "self-custody", "own your keys"]):
+            return "If verified: self-custody mechanism works as described"
+        return "If verified: sovereignty claim holds under examination"
 
     # D4: Security — only explicit vuln/exploit mentions
     if domain == "D4":

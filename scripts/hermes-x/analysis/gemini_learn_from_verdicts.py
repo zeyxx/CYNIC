@@ -38,25 +38,81 @@ from hermes_paths import HERMES_X_DIR
 logger = logging.getLogger("gemini-learn")
 
 
+def _load_narrative_index(organ_dir: str) -> dict[str, list[str]]:
+    """Build tweet_id->narratives index from dataset.jsonl for cross-ref."""
+    dataset_path = Path(organ_dir) / "dataset.jsonl"
+    index = {}
+    if not dataset_path.exists():
+        return index
+    try:
+        with open(dataset_path) as f:
+            for line in f:
+                try:
+                    row = json.loads(line)
+                    tid = row.get("tweet_id", "")
+                    narrs = row.get("narratives", [])
+                    if tid and narrs:
+                        index[str(tid)] = narrs
+                except json.JSONDecodeError:
+                    continue
+    except OSError:
+        pass
+    return index
+
+
 def load_observation_verdicts(organ_dir: str) -> list[dict]:
-    """Load all observation verdicts from organ-local observation-verdicts/ directory."""
-    verdict_dir = Path(organ_dir) / "observation-verdicts"
+    """Load verdicts from BOTH observation-verdicts/ and verdicts/ directories.
+
+    observation-verdicts/ has the native schema. verdicts/ (tweet-level) is
+    normalized to match, cross-referencing dataset.jsonl for narrative tags.
+    """
     verdicts = []
 
-    if not verdict_dir.exists():
-        logger.info("no observation-verdicts directory yet")
-        return verdicts
+    # Source 1: observation-verdicts/ (native schema)
+    obs_dir = Path(organ_dir) / "observation-verdicts"
+    if obs_dir.exists():
+        try:
+            for verdict_file in sorted(obs_dir.glob("*.json")):
+                try:
+                    with open(verdict_file) as f:
+                        verdicts.append(json.load(f))
+                except json.JSONDecodeError:
+                    logger.warning("failed to parse %s", verdict_file.name)
+        except OSError as e:
+            logger.warning("failed to scan observation-verdicts: %s", e)
 
-    try:
-        for verdict_file in sorted(verdict_dir.glob("*.json")):
-            try:
-                with open(verdict_file) as f:
-                    verdicts.append(json.load(f))
-            except json.JSONDecodeError:
-                logger.warning("failed to parse %s", verdict_file.name)
-                continue
-    except OSError as e:
-        logger.warning("failed to scan observation-verdicts: %s", e)
+    obs_count = len(verdicts)
+
+    # Source 2: verdicts/ (tweet-level -> normalize)
+    tweet_dir = Path(organ_dir) / "verdicts"
+    if tweet_dir.exists():
+        narr_index = _load_narrative_index(organ_dir)
+        tweet_count = 0
+        try:
+            for verdict_file in sorted(tweet_dir.glob("*.json")):
+                try:
+                    with open(verdict_file) as f:
+                        raw = json.load(f)
+                except json.JSONDecodeError:
+                    continue
+                tid = raw.get("tweet_id", "")
+                verdict_obj = raw.get("verdict", {})
+                domain = verdict_obj.get("domain", "D1") if isinstance(verdict_obj, dict) else "D1"
+                narratives = narr_index.get(str(tid), [])
+                verdicts.append({
+                    "observation_id": f"tweet_{tid}",
+                    "observation_domain": domain,
+                    "observation_narratives": narratives,
+                    "verdict": verdict_obj,
+                })
+                tweet_count += 1
+        except OSError as e:
+            logger.warning("failed to scan verdicts: %s", e)
+        if tweet_count:
+            logger.info("loaded %d tweet verdicts (+ %d observation verdicts)", tweet_count, obs_count)
+
+    if not verdicts:
+        logger.info("no verdicts found in either directory")
 
     return verdicts
 
@@ -156,7 +212,7 @@ def update_skill_md(organ_dir: str, patterns: dict) -> bool:
                 f"{verdicts_by_type.get('BARK', 0)} | {confidence:.0f}% |\n"
             )
 
-    learned_section += f"\n*Last updated: {datetime.utcnow().isoformat()}Z*\n"
+    learned_section += f"\n*Last updated: {datetime.now(tz=__import__('datetime').timezone.utc).isoformat()}*\n"
 
     # Read current SKILL.md
     try:
