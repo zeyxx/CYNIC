@@ -23,6 +23,7 @@ pub mod metrics;
 pub mod organ;
 pub mod pattern_analysis;
 pub mod phone_number;
+pub mod poih;
 pub mod probe;
 pub mod rug_prefilter;
 pub mod rug_risk;

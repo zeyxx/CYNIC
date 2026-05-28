@@ -14,6 +14,7 @@ pub mod judge;
 pub mod judge_job;
 pub mod mail;
 pub mod middleware;
+pub mod mint_permit;
 pub mod observe;
 pub mod phone_numbers;
 pub mod response;
@@ -58,6 +59,7 @@ use self::mail::{
     fetch_message, health as mail_health, inbox, mark_read, search, send, sync, unread,
 };
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
+use self::mint_permit::mint_permit_handler;
 use self::observe::observe_handler;
 use self::soma::soma_request_handler;
 use crate::api::websocket::ws_handler;
@@ -114,6 +116,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/judge", post(judge_handler))
         .route("/judge/async", post(judge_async_handler))
         .route("/judge/status/{id}", get(judge_status_handler))
+        .route("/mint-permit", post(mint_permit_handler))
         .route("/dogs", get(dogs_handler))
         .route("/dogs/register", post(register_dog_handler))
         .route("/dogs/{id}", axum::routing::delete(deregister_handler))

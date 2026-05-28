@@ -396,6 +396,32 @@ impl PerIpRateLimiter {
 
 // ── REQUEST / RESPONSE TYPES ───────────────────────────────
 
+// ── POIH (Proof of Intelligence on-chain) ─────────────────
+
+/// POST /mint-permit — request a behavioral wallet evaluation for PoIH attestation.
+#[derive(Debug, Deserialize)]
+pub struct MintPermitRequest {
+    /// Solana wallet address to evaluate (base58, 32-44 chars).
+    pub wallet_address: String,
+    /// Proof source the caller is declaring (behavioral history used for attestation).
+    pub proof_source: crate::domain::poih::ProofSource,
+}
+
+/// POST /mint-permit response.
+#[derive(Debug, Serialize)]
+pub struct MintPermitResponse {
+    /// Permit details — present only when approved (WAG or HOWL).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permit: Option<crate::domain::poih::MintPermit>,
+    /// Verdict kind: "wag", "howl", "growl", "bark", or "epoche".
+    pub verdict_kind: String,
+    /// Q-score from behavioral_dog (0.0–0.618).
+    pub q_score: f64,
+    /// Human-readable rejection reason — present only when not approved.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rejection_reason: Option<String>,
+}
+
 // ── PHONE-NUMBERS (CallShield) ─────────────────────────────
 
 /// One entry in the blocklist: phone number + worst-first ordering data.
