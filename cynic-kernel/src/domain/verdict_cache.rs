@@ -187,6 +187,7 @@ mod tests {
             voter_count: 0,
             failed_dogs: vec![],
             failed_dog_errors: Default::default(),
+            target: None,
             integrity_hash: None,
             prev_hash: None,
         }

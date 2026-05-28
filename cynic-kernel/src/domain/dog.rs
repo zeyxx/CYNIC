@@ -179,6 +179,11 @@ pub struct Verdict {
     /// Used by event bus to emit DogFailed events with the actual failure reason.
     #[serde(default)]
     pub failed_dog_errors: BTreeMap<String, String>,
+    /// Target identifier — the original content before enrichment.
+    /// For token-analysis: the mint address. For wallet-judgment: the wallet address.
+    /// For other domains: None (stimulus_summary is sufficient).
+    #[serde(default)]
+    pub target: Option<String>,
     /// BLAKE3 hash of this verdict's content (L1 integrity)
     #[serde(default)]
     pub integrity_hash: Option<String>,

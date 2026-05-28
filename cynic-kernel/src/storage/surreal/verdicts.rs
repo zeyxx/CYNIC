@@ -91,6 +91,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
             reasoning_sovereignty = '{}', \
             dog_id = '{}', \
             stimulus = '{}', \
+            target = '{}', \
             integrity_hash = '{}', \
             prev_hash = '{}', \
             anomaly_detected = {}, \
@@ -119,6 +120,7 @@ fn verdict_to_sql(v: &Verdict) -> String {
         escape(&v.reasoning.sovereignty),
         escape(&v.dog_id),
         escape(&v.stimulus_summary),
+        escape(v.target.as_deref().unwrap_or("")),
         escape(integrity),
         escape(prev),
         v.anomaly_detected,
@@ -237,6 +239,10 @@ fn row_to_verdict(row: &serde_json::Value) -> Verdict {
                     .ok()
             })
             .unwrap_or_default(),
+        target: row["target"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()),
         integrity_hash: row["integrity_hash"]
             .as_str()
             .filter(|s| !s.is_empty())
@@ -286,6 +292,7 @@ mod tests {
             voter_count: 0,
             failed_dogs: Vec::new(),
             failed_dog_errors: Default::default(),
+            target: None,
             integrity_hash: Some("deadbeef".into()),
             prev_hash: None,
         }
@@ -383,6 +390,71 @@ mod tests {
         v.stimulus_summary = "it's a \"test\"".into();
         let sql = verdict_to_sql(&v);
         assert!(sql.contains("it\\'s a "));
+    }
+
+    #[test]
+    fn verdict_sql_includes_target() {
+        let mut v = test_verdict();
+        v.target = Some("SomeMintAddress123".into());
+        let sql = verdict_to_sql(&v);
+        assert!(
+            sql.contains("target = 'SomeMintAddress123'"),
+            "SQL must include target field; got: {sql}"
+        );
+    }
+
+    #[test]
+    fn verdict_sql_target_empty_when_none() {
+        let v = test_verdict(); // target: None
+        let sql = verdict_to_sql(&v);
+        assert!(
+            sql.contains("target = ''"),
+            "NULL target must serialize to empty string; got: {sql}"
+        );
+    }
+
+    #[test]
+    fn row_to_verdict_reads_target() {
+        let row = serde_json::json!({
+            "verdict_id": "v-789",
+            "kind": "Wag",
+            "total": 0.5,
+            "fidelity": 0.5, "phi": 0.5, "verify": 0.5,
+            "culture": 0.5, "burn": 0.5, "sovereignty": 0.5,
+            "reasoning_fidelity": "", "reasoning_phi": "", "reasoning_verify": "",
+            "reasoning_culture": "", "reasoning_burn": "", "reasoning_sovereignty": "",
+            "dog_id": "test",
+            "stimulus": "test",
+            "target": "SomeMint123",
+            "created_at": "2026-05-28T00:00:00Z"
+        });
+        let v = row_to_verdict(&row);
+        assert_eq!(
+            v.target.as_deref(),
+            Some("SomeMint123"),
+            "target must round-trip from DB row"
+        );
+    }
+
+    #[test]
+    fn row_to_verdict_target_none_when_missing() {
+        let row = serde_json::json!({
+            "verdict_id": "v-789",
+            "kind": "Wag",
+            "total": 0.5,
+            "fidelity": 0.5, "phi": 0.5, "verify": 0.5,
+            "culture": 0.5, "burn": 0.5, "sovereignty": 0.5,
+            "reasoning_fidelity": "", "reasoning_phi": "", "reasoning_verify": "",
+            "reasoning_culture": "", "reasoning_burn": "", "reasoning_sovereignty": "",
+            "dog_id": "test",
+            "stimulus": "test",
+            "created_at": "2026-05-28T00:00:00Z"
+        });
+        let v = row_to_verdict(&row);
+        assert!(
+            v.target.is_none(),
+            "missing target field must deserialize to None"
+        );
     }
 
     #[tokio::test]
