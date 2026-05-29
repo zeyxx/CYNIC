@@ -26,7 +26,8 @@ use crate::infra::config::BackendRemediation;
 use crate::infra::task_health::TaskHealth;
 
 pub use convergence_consumer::{ConvergencePipelineDeps, spawn_convergence_consumer};
-pub use nightshift::spawn_nightshift_loop;
+// DORMANT: nightshift (K15 violation — no consumer for dev domain crystals)
+// Re-enable in Phase 2+ when temporal compounding has an acting consumer.
 pub use runtime_loops::{
     spawn_crystal_challenge_loop, spawn_discovery_loop, spawn_dog_heartbeat_loop,
     spawn_dog_perf_flush_loop, spawn_dog_ttl_checker, spawn_event_consumer,

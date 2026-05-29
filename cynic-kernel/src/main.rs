@@ -1099,20 +1099,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         klog!("[Ring 2] Crystal challenge loop started (every 5min, Soma L2 Background priority)");
 
-        // ─── Nightshift: autonomous dev judgment (every 4h, unified crystal path) ───────
-        let _nightshift_handle = infra::tasks::spawn_nightshift_loop(
-            rest_state.judge.load_full(),
-            Arc::clone(&storage_port),
-            Arc::clone(&embedding) as Arc<dyn domain::embedding::EmbeddingPort>,
-            Arc::clone(&task_health),
-            shutdown.clone(),
-            project_root.display().to_string(),
-            Arc::clone(&rest_state.metrics),
-        );
-        klog!(
-            "[Ring 3] Nightshift loop started (every 4h, git lookback {}, Soma L2 Nightshift priority)",
-            crate::domain::constants::NIGHTSHIFT_GIT_LOOKBACK
-        );
+        // ─── Nightshift: DISABLED (K15 violation: no consumer for dev domain crystals) ────
+        // Nightshift spawned every 1h to judge commits + observations → create dev crystals.
+        // Problem: no code reads these crystals (search_crystals never filters by domain=dev).
+        // Result: slots starved, memory pressure, embedding failures (100% failure rate).
+        // Revived in Phase 2+ when temporal compounding actually has a consumer that acts.
 
         // ─── Convergence consumer: polls convergence signals, triggers enriched pipeline ──
         let _convergence_consumer_handle = infra::tasks::spawn_convergence_consumer(
