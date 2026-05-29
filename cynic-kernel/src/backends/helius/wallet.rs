@@ -94,7 +94,7 @@ impl HeliusEnricher {
             self.client.post(&self.rpc_url).json(&body).send(),
         )
         .await
-        .map_err(|_| EnrichmentError::Timeout)?
+        .map_err(|_elapsed| EnrichmentError::Timeout)?
         .map_err(|e| EnrichmentError::RequestFailed(format!("getBalance: {e}")))?;
 
         let json: serde_json::Value = resp
@@ -129,7 +129,7 @@ impl HeliusEnricher {
         // Use HELIUS_BEHAVIORAL_TIMEOUT — Enhanced Transactions API hangs 10s+ on wallets with no SWAP history
         let resp = tokio::time::timeout(HELIUS_BEHAVIORAL_TIMEOUT, self.client.get(&url).send())
             .await
-            .map_err(|_| EnrichmentError::Timeout)?
+            .map_err(|_elapsed| EnrichmentError::Timeout)?
             .map_err(|e| EnrichmentError::RequestFailed(format!("Enhanced TX history: {e}")))?;
 
         if !resp.status().is_success() {
@@ -165,7 +165,7 @@ impl HeliusEnricher {
             self.client.post(&self.rpc_url).json(&body).send(),
         )
         .await
-        .map_err(|_| EnrichmentError::Timeout)?
+        .map_err(|_elapsed| EnrichmentError::Timeout)?
         .map_err(|e| EnrichmentError::RequestFailed(format!("getAssetsByOwner: {e}")))?;
 
         let json: serde_json::Value = resp
@@ -268,6 +268,7 @@ fn count_distinct_tokens(swaps: &[ParsedSwap]) -> u32 {
 /// Compute hold duration metrics from swap history.
 /// Tracks first/last seen timestamp per token as a proxy for buy→sell pairs.
 /// Returns (median_hold_hours, flip_count, long_hold_count).
+#[allow(clippy::manual_is_multiple_of)] // WHY: is_multiple_of(&2) is less readable for even-check
 fn compute_hold_metrics(swaps: &[ParsedSwap]) -> (f64, u32, u32) {
     if swaps.is_empty() {
         return (0.0, 0, 0);
@@ -338,7 +339,7 @@ mod tests {
 
     #[test]
     fn pump_fun_ratio_computed_correctly() {
-        let swaps = vec![
+        let swaps = [
             ParsedSwap {
                 timestamp: 1,
                 is_pump_fun: true,
@@ -424,7 +425,10 @@ mod tests {
             serde_json::json!({"timestamp": now}),              // now
         ];
         let age = compute_wallet_age(&history);
-        assert!(age >= 29 && age <= 31, "age should be ~30 days, got {age}");
+        assert!(
+            (29..=31).contains(&age),
+            "age should be ~30 days, got {age}"
+        );
     }
 
     #[test]

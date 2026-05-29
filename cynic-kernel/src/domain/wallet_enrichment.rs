@@ -195,8 +195,7 @@ mod tests {
 
     #[test]
     fn min_swaps_is_reasonable() {
-        assert!(MIN_SWAPS_FOR_ANALYSIS >= 2);
-        assert!(MIN_SWAPS_FOR_ANALYSIS <= 10);
+        assert!((2..=10).contains(&MIN_SWAPS_FOR_ANALYSIS));
     }
 
     #[test]
