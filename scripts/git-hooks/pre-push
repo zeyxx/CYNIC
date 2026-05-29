@@ -89,17 +89,34 @@ GATE_MARKER="$PROJECT_DIR/.gate-passed"
 
 if [ -f "$GATE_MARKER" ]; then
     GATE_TIME=$(stat -c '%Y' "$GATE_MARKER" 2>/dev/null || echo 0)
-    if [ -n "$NEWEST_SRC" ] && [ "$GATE_TIME" -gt "$NEWEST_SRC" ]; then
-        echo "  ⚡ Gate marker is fresh (make gate passed after last source change)."
-        echo "  Running lightweight checks only..."
-        echo ""
-        make lint-rules && make lint-drift
-        echo ""
-        echo "▶ Config drift check..."
-        scripts/config-sync.sh check
+
+    # Ignore auto-generated files that `make gate` produces (they don't invalidate the marker)
+    AUTO_GENERATED="TOPOLOGY.md target/ .gate-passed"
+    MODIFIED_REAL=$(git status --porcelain 2>/dev/null | grep -v '^ D' | awk '{print $NF}' | grep -v -E "^($AUTO_GENERATED|external/CultScreener)" || true)
+
+    if [ -z "$MODIFIED_REAL" ]; then
+        # No real source changes since last commit — gate marker freshness is what matters
+        if [ -n "$NEWEST_SRC" ] && [ "$GATE_TIME" -gt "$NEWEST_SRC" ]; then
+            echo "  ⚡ Gate marker is fresh (make gate passed, no real source changes)."
+            echo "  Running lightweight checks only..."
+            echo ""
+            make lint-rules && make lint-drift
+            echo ""
+            echo "▶ Config drift check..."
+            scripts/config-sync.sh check
+        else
+            echo ""
+            echo "  ✗ Gate marker is STALE (source changed after last make gate)."
+            echo "  Run: make gate"
+            echo "  Then: git push"
+            exit 1
+        fi
     else
+        # Real source changes detected (not just auto-generated files)
         echo ""
-        echo "  ✗ Gate marker is STALE (source changed after last make gate)."
+        echo "  ✗ Source changes detected since last gate:"
+        echo "$MODIFIED_REAL"
+        echo ""
         echo "  Run: make gate"
         echo "  Then: git push"
         exit 1
