@@ -72,16 +72,14 @@ fn classify_token(market_cap_usd: Option<f64>, age_days: u32, is_pump_fun: bool)
     }
 
     // Infrastructure: market_cap >$500M, age >365d, high holder count (proxy: >100k)
-    if let Some(cap) = market_cap_usd {
-        if cap > 500_000_000.0 && age_days > 365 {
-            return TokenClass::Infrastructure;
-        }
+    if market_cap_usd.is_some_and(|cap| cap > 500_000_000.0) && age_days > 365 {
+        return TokenClass::Infrastructure;
     }
 
     // Governance: might have active mint but with documented purpose
     if age_days > 180 {
         // Heuristic: if aged but not mega-cap, likely governance or growth
-        if market_cap_usd.map_or(false, |cap| cap < 500_000_000.0 && cap > 10_000_000.0) {
+        if market_cap_usd.is_some_and(|cap| cap < 500_000_000.0 && cap > 10_000_000.0) {
             return TokenClass::Governance;
         }
     }
@@ -153,7 +151,7 @@ fn apply_class_awareness(metadata: &TokenMetadata, scores: &mut AxiomScores) {
             // If market cap >$500M and age >365d, boost FIDELITY slightly (trust via scale).
             if metadata
                 .market_cap_usd
-                .map_or(false, |cap| cap > 500_000_000.0)
+                .is_some_and(|cap| cap > 500_000_000.0)
             {
                 scores.fidelity = (scores.fidelity + 0.05).min(0.618);
                 scores.sovereignty = (scores.sovereignty + 0.05).min(0.618); // Regulated entity = sovereign through accountability
@@ -301,27 +299,21 @@ fn extract_number(context: &str, key: &str) -> Option<f64> {
         let line_lower = line.to_lowercase();
         if line_lower.contains(&key_lower) {
             // Try to extract number: "key: 123", "key=456", "key=0.123"
-            if let Some(after_colon) = line.split(':').nth(1) {
-                if let Ok(num) = after_colon
-                    .trim()
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("")
-                    .parse()
-                {
-                    return Some(num);
-                }
+            let colon_result = line
+                .split(':')
+                .nth(1)
+                .and_then(|s| s.split_whitespace().next())
+                .and_then(|s| s.parse().ok());
+            if let Some(num) = colon_result {
+                return Some(num);
             }
-            if let Some(after_eq) = line.split('=').nth(1) {
-                if let Ok(num) = after_eq
-                    .trim()
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("")
-                    .parse()
-                {
-                    return Some(num);
-                }
+            let eq_result = line
+                .split('=')
+                .nth(1)
+                .and_then(|s| s.split_whitespace().next())
+                .and_then(|s| s.parse().ok());
+            if let Some(num) = eq_result {
+                return Some(num);
             }
         }
     }

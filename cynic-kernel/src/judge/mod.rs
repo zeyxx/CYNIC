@@ -951,7 +951,7 @@ impl Judge {
         // that cannot be expressed as prompt text without polluting the domain logic.
         let (aggregated, q_score) = if stimulus.domain.as_deref() == Some("token-analysis") {
             let (_mod_scores, new_q_score) =
-                token_postprocessor::postprocess_token_verdict(&stimulus, aggregated);
+                token_postprocessor::postprocess_token_verdict(stimulus, aggregated);
             (_mod_scores, new_q_score)
         } else {
             (aggregated, q_score)
