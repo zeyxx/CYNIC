@@ -11,7 +11,7 @@
 set -euo pipefail
 
 # ── Configuration ──
-CYNIC_REST="${CYNIC_REST_ADDR:-http://127.0.0.1:3030}"
+CYNIC_REST="http://${CYNIC_REST_ADDR:-127.0.0.1:3030}"
 API_KEY="${CYNIC_API_KEY:-$(grep CYNIC_API_KEY ~/.cynic-env | cut -d= -f2)}"
 OUTPUT_DIR="${OUTPUT_DIR:-.}"
 TIMESTAMP="$(date +%Y-%m-%d-%H%M%S)"
@@ -34,34 +34,105 @@ fetch_baseline_verdicts() {
         return 1
     fi
 
-    # Extract: mint, q_score_total (baseline), verdict_kind from JSONL files
-    # Some mints appear multiple times (re-evaluated); take latest timestamp
-    jq -r '[.mint, .q_score_total, .verdict_kind, .baseline_captured_at] | @tsv' \
+    # Extract: mint, q_score_total, verdict_kind, captured_at, holder_count,
+    #          concentration (0-1), mint_authority_active, freeze_authority_active
+    # Some mints appear multiple times (re-evaluated); take latest by captured_at (col 4)
+    jq -r '[
+        .mint,
+        .q_score_total,
+        .verdict_kind,
+        .baseline_captured_at,
+        (.baseline_holder_count // 0 | tostring),
+        (.baseline_concentration // 0 | tostring),
+        (.baseline_mint_authority_active // false | tostring),
+        (.baseline_freeze_authority_active // false | tostring)
+    ] | @tsv' \
         "$verdict_dir"/verdicts_2026-05-*.jsonl 2>/dev/null | \
         sort -t$'\t' -k4 -r | sort -t$'\t' -u -k1,1
 }
 
-# ── Helper: Build enriched stimulus from token mint ──
-# Constructs token-analysis domain stimulus with enrichment hints
+# ── Helper: Build enriched stimulus from baseline JSONL fields ──
+# Option A: Reconstruct from baseline data — isolates the postprocessor variable.
+# Same input data as 2026-05-25, only the pipeline (token_postprocessor) has changed.
+# Missing fields (age_hours, lp_status, name, symbol) use safe defaults.
+#
+# content → Dogs read [DOMAIN: token-analysis]\n[METRICS]\n...
+# context → token_postprocessor reads (age_days, mint_authority, freeze_authority, etc.)
 build_enriched_stimulus() {
     local mint="$1"
-    # Stimulus includes mint address, triggers enrichment pathway in judge
-    # token_postprocessor will apply class-aware adjustments
-    echo "MINT:${mint} token-analysis enriched stimulus"
+    local holder_count="$2"
+    local concentration_raw="$3"   # 0-1 decimal from baseline JSONL
+    local mint_auth="$4"           # "true" / "false"
+    local freeze_auth="$5"         # "true" / "false"
+
+    # Convert concentration 0-1 → percentage for stimulus format
+    local concentration_pct
+    concentration_pct=$(echo "scale=2; ${concentration_raw} * 100" | bc -l 2>/dev/null || echo "0.00")
+
+    local mint_auth_str="REVOKED (supply is fixed)"
+    local freeze_auth_str="REVOKED (wallets are free)"
+    [ "$mint_auth" = "true" ] && mint_auth_str="ACTIVE (can mint more tokens)"
+    [ "$freeze_auth" = "true" ] && freeze_auth_str="ACTIVE (can freeze wallets)"
+
+    cat <<EOF
+[DOMAIN: token-analysis]
+
+[METRICS]
+mint: ${mint}
+holders: ${holder_count}
+top_10_wallets_pct: ${concentration_pct}%
+mint_authority: ${mint_auth_str}
+freeze_authority: ${freeze_auth_str}
+lp_secured: UNKNOWN — baseline snapshot, LP data unavailable
+age_hours: UNKNOWN — baseline snapshot (age not recorded)
+
+[AXIOM EVIDENCE]
+FIDELITY: Holder count ${holder_count}, concentration data from 2026-05-25 baseline snapshot.
+BURN: Top-10 wallets hold ${concentration_pct}% of supply.
+SOVEREIGNTY: Mint authority ${mint_auth_str}. Freeze authority ${freeze_auth_str}.
+
+[QUESTION]
+Is this Solana token trustworthy based on available on-chain metrics?
+EOF
 }
 
-# ── Helper: Call /judge endpoint ──
-# Returns: verdict_id, q_score, verdict_kind, dog_scores
+# ── Helper: Call /judge endpoint with reconstructed stimulus ──
+# Returns: verdict_id, q_score, verdict_kind, dog_scores_count
 judge_token() {
     local mint="$1"
-    local stimulus=$(build_enriched_stimulus "$mint")
+    local holder_count="$2"
+    local concentration_raw="$3"
+    local mint_auth="$4"
+    local freeze_auth="$5"
 
-    local response=$(curl -s -X POST "${CYNIC_REST}/judge" \
+    local mint_auth_label="REVOKED"
+    local freeze_auth_label="REVOKED"
+    [ "$mint_auth" = "true" ] && mint_auth_label="ACTIVE"
+    [ "$freeze_auth" = "true" ] && freeze_auth_label="ACTIVE"
+
+    local concentration_pct
+    concentration_pct=$(echo "scale=2; ${concentration_raw} * 100" | bc -l 2>/dev/null || echo "0.00")
+
+    local content
+    content=$(build_enriched_stimulus "$mint" "$holder_count" "$concentration_raw" "$mint_auth" "$freeze_auth")
+
+    # context field: token_postprocessor reads this for class-aware caps
+    local context="mint: ${mint}
+holder_count: ${holder_count}
+top_10_wallets_pct: ${concentration_pct}
+mint_authority: ${mint_auth_label}
+freeze_authority: ${freeze_auth_label}"
+
+    local response
+    response=$(curl -s --max-time 120 -X POST "${CYNIC_REST}/judge" \
         -H "Authorization: Bearer ${API_KEY}" \
         -H "Content-Type: application/json" \
-        -d "{\"content\":\"${stimulus}\",\"domain\":\"token-analysis\"}" 2>/dev/null)
+        -d "$(jq -n \
+            --arg content "$content" \
+            --arg context "$context" \
+            --arg domain "token-analysis" \
+            '{content: $content, context: $context, domain: $domain}')" 2>/dev/null)
 
-    # Extract: verdict_id, q_score.total, verdict_kind
     echo "$response" | jq -r '.verdict_id, .q_score.total, .verdict_kind, (.dog_scores | length)' 2>/dev/null || echo "null null null 0"
 }
 
@@ -90,16 +161,23 @@ verdict_changes=0
 
 echo "[outcome_measurement_t7] Measuring enriched verdicts..."
 
-# Parse TSV lines: mint, q_score_total, verdict_kind, baseline_captured_at
-while IFS=$'\t' read -r baseline_mint baseline_q baseline_kind baseline_ts; do
+# Parse TSV lines: mint, q_score_total, verdict_kind, captured_at,
+#                  holder_count, concentration, mint_auth_active, freeze_auth_active
+while IFS=$'\t' read -r baseline_mint baseline_q baseline_kind baseline_ts \
+                         baseline_holders baseline_concentration baseline_mint_auth baseline_freeze_auth; do
     if [ -z "$baseline_mint" ] || [ "$baseline_mint" = "null" ]; then
         continue
     fi
 
     echo -ne "\r[outcome_measurement_t7] Token $((total+1))/${baseline_count}                "
 
-    # Measure enriched verdict for this mint
-    read enriched_verdict_id enriched_q enriched_kind dogs_voted < <(judge_token "$baseline_mint")
+    # Measure enriched verdict using reconstructed stimulus from baseline fields
+    read enriched_verdict_id enriched_q enriched_kind dogs_voted < <(judge_token \
+        "$baseline_mint" \
+        "${baseline_holders:-0}" \
+        "${baseline_concentration:-0}" \
+        "${baseline_mint_auth:-false}" \
+        "${baseline_freeze_auth:-false}")
 
     # Compute divergence (absolute change in Q-score)
     q_delta=$(echo "$enriched_q - $baseline_q" | bc -l 2>/dev/null || echo "0")
