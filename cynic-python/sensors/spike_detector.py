@@ -49,7 +49,10 @@ STATE_FILE: Path = Path(os.environ.get(
     str(Path.home() / ".cynic" / "spike_detector_seen.json"),
 ))
 
-CYNIC_REST_ADDR: str = os.environ.get("CYNIC_REST_ADDR", "")
+_raw_addr: str = os.environ.get("CYNIC_REST_ADDR", "")
+CYNIC_REST_ADDR: str = (
+    f"http://{_raw_addr}" if _raw_addr and not _raw_addr.startswith("http") else _raw_addr
+)
 CYNIC_API_KEY: str = os.environ.get("CYNIC_API_KEY", "")
 
 # ---------------------------------------------------------------------------
