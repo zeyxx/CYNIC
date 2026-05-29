@@ -201,6 +201,38 @@ Used to validate chess wallet authenticity for Personality Card minting. Dogs sc
 - `400` if context is missing or invalid JSON: `"wallet-judgment requires valid WalletProfile JSON in context field"`
 - `422` if context fails validation gates (e.g., `games_completed < 5`): returns `Bark` verdict
 
+### POST /mint-permit
+
+Request a PoIH mint permit for a wallet. Enriches the wallet with Helius behavioral data (temporal signals from SWAP history) and scores with the behavioral deterministic dog. Returns a permit if the verdict is WAG or HOWL.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `wallet_address` | string | yes | Solana wallet address (32-44 chars) |
+| `proof_source` | string | yes | `"on_chain_history"`, `"chess_profile"`, or `"combined"` |
+
+**Response (200):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `permit` | object or null | Mint permit if approved, null if rejected |
+| `permit.wallet_address` | string | Wallet that was evaluated |
+| `permit.proof_source` | string | Source of behavioral proof |
+| `permit.q_score` | number | Q-score (0.0-0.618) |
+| `permit.verdict_kind` | string | `"wag"` or `"howl"` |
+| `permit.approved` | boolean | Always `true` in permit |
+| `permit.verdict_id` | string (UUID) | Verdict reference |
+| `verdict_kind` | string | `"howl"`, `"wag"`, `"growl"`, `"bark"`, or `"epoche"` |
+| `q_score` | number | Q-score (0.0-0.618) |
+| `rejection_reason` | string or null | Human-readable reason if rejected |
+
+**Approval gate:** verdict must be WAG or HOWL with Q ≥ 0.382 (φ⁻²).
+
+**Cost:** ~121 Helius credits per call (1 balance + 110 parsed history + 10 assets).
+
+---
+
 ### POST /judge/async
 
 Spawn a background judgment job and return immediately with a polling handle.
