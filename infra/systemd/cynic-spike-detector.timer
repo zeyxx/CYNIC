@@ -1,0 +1,11 @@
+[Unit]
+Description=CYNIC Spike Detector Timer — poll GeckoTerminal trending pools every 5 minutes
+PartOf=cynic-spike-detector.service
+
+[Timer]
+OnCalendar=*-*-* *:00/5:00
+RandomizedDelaySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
