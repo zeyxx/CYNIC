@@ -335,7 +335,7 @@ impl HeliusEnricher {
             };
 
             // Fetch SWAP history for this wallet
-            let Ok((total_bought, swaps)) = self
+            let Ok((total_bought, swaps, hold_secs)) = self
                 .get_wallet_total_bought(&owner, mint, config.swap_history_limit)
                 .await
             else {
@@ -357,6 +357,7 @@ impl HeliusEnricher {
                 class,
                 retention_ratio: retention,
                 swap_count: swaps,
+                hold_time_hours: hold_secs.map(|s| s as f64 / 3600.0),
             });
         }
 
