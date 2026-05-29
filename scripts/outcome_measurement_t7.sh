@@ -22,18 +22,23 @@ echo "[outcome_measurement_t7] Starting K15 closure measurement..."
 echo "[outcome_measurement_t7] Output: ${DIVERGENCE_CSV}"
 echo "[outcome_measurement_t7] Report: ${REPORT_MD}"
 
-# ── Helper: Query baseline verdicts from SurrealDB ──
-# Expects observations tagged "k15-baseline" from 2026-05-25
-# Each observation contains: token mint, baseline verdict (verdict_id, q_score, verdict_kind)
+# ── Helper: Read baseline verdicts from local JSONL files ──
+# K15 baseline collected 2026-05-25 to 2026-05-26 and stored in git commit 133aadd
+# Each line is a JSON object with: mint, q_score_total, verdict_kind, baseline_captured_at
 fetch_baseline_verdicts() {
-    local query="SELECT verdict_id, mint, q_score, verdict_kind FROM observations WHERE tags CONTAINS 'k15-baseline' AND timestamp >= '2026-05-25T00:00:00Z' LIMIT 1000"
+    local verdict_dir="cynic-python/heuristics/data/verdicts"
 
-    # Use curl to POST to SurrealDB (or read from observations store via REST)
-    # For now, use REST endpoint to fetch observations
-    curl -s -X POST "${CYNIC_REST}/query" \
-        -H "Authorization: Bearer ${API_KEY}" \
-        -H "Content-Type: application/json" \
-        -d "{\"query\":\"${query}\"}" 2>/dev/null || echo "[]"
+    if [ ! -d "$verdict_dir" ]; then
+        echo "✗ Verdict baselines not found at $verdict_dir" >&2
+        echo "  (Restore from git: git show 133aadd:cynic-python/heuristics/data/verdicts/ > ...)" >&2
+        return 1
+    fi
+
+    # Extract: mint, q_score_total (baseline), verdict_kind from JSONL files
+    # Some mints appear multiple times (re-evaluated); take latest timestamp
+    jq -r '[.mint, .q_score_total, .verdict_kind, .baseline_captured_at] | @tsv' \
+        "$verdict_dir"/verdicts_2026-05-*.jsonl 2>/dev/null | \
+        sort -t$'\t' -k4 -r | sort -t$'\t' -u -k1,1
 }
 
 # ── Helper: Build enriched stimulus from token mint ──
@@ -65,12 +70,12 @@ judge_token() {
 # CSV header
 echo "mint,baseline_verdict_id,baseline_q_score,baseline_verdict_kind,enriched_verdict_id,enriched_q_score,enriched_verdict_kind,q_score_delta,verdict_changed,dogs_voted" > "${DIVERGENCE_CSV}"
 
-# Fetch baseline verdicts (mock for now, will be real data from 2026-05-25)
+# Fetch baseline verdicts from local JSONL files
 echo "[outcome_measurement_t7] Fetching baseline verdicts..."
 baselines=$(fetch_baseline_verdicts)
 
-# Count baselines
-baseline_count=$(echo "$baselines" | jq '. | length' 2>/dev/null || echo 0)
+# Count baselines (now TSV lines, not JSON array)
+baseline_count=$(echo "$baselines" | wc -l)
 echo "[outcome_measurement_t7] Found ${baseline_count} baseline verdicts (expected 45)"
 
 # If baseline count < 45, warn but continue (may be test run)
@@ -85,43 +90,36 @@ verdict_changes=0
 
 echo "[outcome_measurement_t7] Measuring enriched verdicts..."
 
-# For each baseline, measure enriched verdict
-# (Mock loop — real version reads from baselines array)
-for i in $(seq 1 ${baseline_count}); do
-    # Extract baseline record
-    baseline_verdict_id=$(echo "$baselines" | jq -r ".[$((i-1))].verdict_id" 2>/dev/null || echo "null")
-    baseline_mint=$(echo "$baselines" | jq -r ".[$((i-1))].mint" 2>/dev/null || echo "null")
-    baseline_q=$(echo "$baselines" | jq -r ".[$((i-1))].q_score" 2>/dev/null || echo "0.0")
-    baseline_kind=$(echo "$baselines" | jq -r ".[$((i-1))].verdict_kind" 2>/dev/null || echo "null")
-
-    if [ "$baseline_mint" = "null" ]; then
+# Parse TSV lines: mint, q_score_total, verdict_kind, baseline_captured_at
+while IFS=$'\t' read -r baseline_mint baseline_q baseline_kind baseline_ts; do
+    if [ -z "$baseline_mint" ] || [ "$baseline_mint" = "null" ]; then
         continue
     fi
 
-    echo -ne "\r[outcome_measurement_t7] Token $((i))/${baseline_count}                "
+    echo -ne "\r[outcome_measurement_t7] Token $((total+1))/${baseline_count}                "
 
-    # Measure enriched verdict
+    # Measure enriched verdict for this mint
     read enriched_verdict_id enriched_q enriched_kind dogs_voted < <(judge_token "$baseline_mint")
 
-    # Compute divergence
+    # Compute divergence (absolute change in Q-score)
     q_delta=$(echo "$enriched_q - $baseline_q" | bc -l 2>/dev/null || echo "0")
     q_delta_abs=$(echo "scale=6; if ($q_delta < 0) -1 * $q_delta else $q_delta" | bc -l 2>/dev/null || echo "0")
 
-    # Check verdict change
+    # Check verdict change (comparing verdict_kind strings)
     verdict_changed=0
     if [ "$baseline_kind" != "$enriched_kind" ] && [ "$baseline_kind" != "null" ]; then
         verdict_changed=1
         ((verdict_changes++)) || true
     fi
 
-    # Accumulate divergence
+    # Accumulate divergence sum
     divergence_sum=$(echo "$divergence_sum + $q_delta_abs" | bc -l 2>/dev/null || echo "$divergence_sum")
 
-    # Write row
-    echo "${baseline_mint},${baseline_verdict_id},${baseline_q},${baseline_kind},${enriched_verdict_id},${enriched_q},${enriched_kind},${q_delta},${verdict_changed},${dogs_voted}" >> "${DIVERGENCE_CSV}"
+    # Write CSV row (baseline_verdict_id = N/A since we don't have it from JSONL)
+    echo "${baseline_mint},N/A,${baseline_q},${baseline_kind},${enriched_verdict_id},${enriched_q},${enriched_kind},${q_delta},${verdict_changed},${dogs_voted}" >> "${DIVERGENCE_CSV}"
 
     ((total++)) || true
-done
+done <<< "$baselines"
 
 echo ""
 echo "[outcome_measurement_t7] Measurement complete. ${total} tokens measured."
