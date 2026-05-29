@@ -1,0 +1,22 @@
+[Unit]
+Description=CYNIC Phase 2.0 — K15 Outcome Measurement T+7
+After=cynic-kernel.service
+Wants=cynic-kernel.service
+
+[Service]
+EnvironmentFile=%h/.config/cynic/env
+Type=oneshot
+Environment="PYTHONUNBUFFERED=1"
+Environment="OUTPUT_DIR=%h/Bureau/CYNIC/reports/phase-2.0"
+WorkingDirectory=%h/Bureau/CYNIC
+ExecStartPre=/bin/mkdir -p %h/Bureau/CYNIC/reports/phase-2.0
+ExecStart=/bin/bash scripts/outcome_measurement_t7.sh
+TimeoutStartSec=3600
+TimeoutStopSec=60
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cynic-outcome-measurement
+
+[Install]
+WantedBy=timers.target

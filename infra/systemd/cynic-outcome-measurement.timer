@@ -1,0 +1,10 @@
+[Unit]
+Description=CYNIC Phase 2.0 — K15 Outcome Measurement T+7 (fires 2026-06-02 06:00 UTC)
+
+[Timer]
+OnCalendar=2026-06-02 06:00:00 UTC
+AccuracySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target
