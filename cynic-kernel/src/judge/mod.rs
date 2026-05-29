@@ -1039,12 +1039,7 @@ fn extract_target(stimulus: &Stimulus) -> Option<String> {
 
             // Fallback: if the content itself looks like a Solana address (32-44 base58 chars),
             // it's the raw mint before enrichment (enrichment may have failed or been skipped).
-            let trimmed = stimulus
-                .content
-                .trim()
-                .split_whitespace()
-                .next()
-                .unwrap_or("");
+            let trimmed = stimulus.content.split_whitespace().next().unwrap_or("");
             if crate::domain::enrichment::looks_like_solana_address(trimmed) {
                 Some(trimmed.to_string())
             } else {
