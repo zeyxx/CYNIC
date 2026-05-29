@@ -1,0 +1,10 @@
+[Unit]
+Description=CYNIC Spike Judge Consumer Timer — every 5 minutes, offset +2.5min after spike detector
+
+[Timer]
+OnCalendar=*-*-* *:02/5:30
+RandomizedDelaySec=15s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
