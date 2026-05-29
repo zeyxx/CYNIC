@@ -64,6 +64,7 @@ fn make_verdict(id: &str) -> Verdict {
         voter_count: 2,
         failed_dogs: vec![],
         failed_dog_errors: Default::default(),
+        target: None,
         integrity_hash: None,
         prev_hash: None,
     };

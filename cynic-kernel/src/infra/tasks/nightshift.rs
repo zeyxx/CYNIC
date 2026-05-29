@@ -1,6 +1,11 @@
 //! Nightshift — autonomous dev judgment loop.
+//! DORMANT: Disabled 2026-05-29 (K15 violation: no consumer for dev domain crystals).
+//! Revive in Phase 2+ when temporal compounding has an acting consumer.
+//!
 //! Every 4h: git log --since=24h → judge each commit in domain="dev" → observe patterns.
 //! Sovereign: runs inside the kernel process, no bash scripts.
+
+#![allow(dead_code)]
 
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -152,13 +157,13 @@ async fn judge_commit(
     Ok(())
 }
 
-/// Spawn the nightshift loop.
+/// Spawn the nightshift loop (dormant — see module doc).
 /// - 60s warmup sleep (respects shutdown)
 /// - Ticks every `NIGHTSHIFT_INTERVAL` (4h)
 /// - Each tick: git log --since=24h → judge each commit → observe dev crystal
 /// - Each commit judgment is bounded by `NIGHTSHIFT_COMMIT_TIMEOUT` (5min)
 /// - Slot coordination is handled inside Judge::evaluate via SlotSemaphore (Nightshift priority)
-pub fn spawn_nightshift_loop(
+pub(super) fn spawn_nightshift_loop(
     judge: Arc<crate::judge::Judge>,
     storage: Arc<dyn StoragePort>,
     embedding: Arc<dyn crate::domain::embedding::EmbeddingPort>,

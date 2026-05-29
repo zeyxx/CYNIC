@@ -12,6 +12,7 @@ use std::time::Duration;
 pub(crate) mod holders;
 pub(crate) mod rest;
 pub(crate) mod rpc;
+pub(crate) mod wallet;
 
 pub(crate) const HELIUS_TIMEOUT: Duration = Duration::from_secs(10);
 /// Shorter timeout for Enhanced Transactions API — hangs for 10s+ on wallets with no SWAP history.

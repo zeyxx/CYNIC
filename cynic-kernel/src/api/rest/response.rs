@@ -139,6 +139,7 @@ mod tests {
             voter_count: 0,
             failed_dogs: Vec::new(),
             failed_dog_errors: Default::default(),
+            target: None,
             integrity_hash: Some("abc123".into()),
             prev_hash: None,
         };

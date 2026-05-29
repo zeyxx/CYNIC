@@ -1,4 +1,4 @@
-# CYNIC Organism Topology (auto-generated 2026-05-25 18:42 UTC)
+# CYNIC Organism Topology (auto-generated 2026-05-29 09:47 UTC)
 
 ## Active Modules
 
@@ -41,6 +41,7 @@
 - [warning] mirror-agent: no files match ~/.cynic/organs/mirror/profiles/
 - [warning] mirror-agent: no files match ~/.cynic/organs/mirror/segments/
 - [warning] telegram-organ: no files match ~/.cynic/organs/telegram/data.db
+- [error] hermes-x-scripts: timer hermes-k15-consumer.timer not found in list-timers
 - [warning] hermes-x-scripts: no files match ~/.cynic/organs/hermes/x/domain_signals/
 
 ## Experiments

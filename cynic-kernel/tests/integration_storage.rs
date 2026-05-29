@@ -56,6 +56,7 @@ fn test_verdict(id: &str) -> Verdict {
         voter_count: 1,
         failed_dogs: vec![],
         failed_dog_errors: Default::default(),
+        target: None,
         integrity_hash: Some("test-hash".to_string()),
         prev_hash: None,
     }

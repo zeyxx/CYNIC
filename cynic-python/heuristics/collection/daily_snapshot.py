@@ -183,9 +183,9 @@ def compute_conviction_from_snapshots(mint: str, window_days: int = 7) -> Option
 
     # Find closest snapshot to target_date (skip empty snapshots — API failures)
     def _find_valid_snapshot(target: "date") -> Optional[str]:
-        """Find a non-empty snapshot closest to target date, ±2 days."""
+        """Find a non-empty snapshot closest to target date, ±7 days (was ±2, caused daily flip)."""
         candidates = [target]
-        for offset in range(1, 3):
+        for offset in range(1, 8):
             candidates.append(target + timedelta(days=offset))
             candidates.append(target - timedelta(days=offset))
         for d in candidates:

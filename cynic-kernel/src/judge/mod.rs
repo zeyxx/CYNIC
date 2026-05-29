@@ -15,6 +15,7 @@ use crate::domain::health_gate::{FailureReason, HealthGate};
 use crate::domain::inference_queue::InferenceQueueMap;
 use crate::domain::metrics::Metrics;
 use crate::domain::slot_semaphore::{SlotPriority, SlotSemaphoreMap};
+use crate::domain::token_postprocessor;
 use crate::infra::error_classifier::ErrorCategory;
 use crate::organ::BackendHandle;
 use chrono::Utc;
@@ -945,6 +946,26 @@ impl Judge {
             verdict_kind(q_score.total)
         };
 
+        // Apply token-specific post-processing if domain is token-analysis.
+        // This applies conditional logic (class-aware caps, signal inversions, priors)
+        // that cannot be expressed as prompt text without polluting the domain logic.
+        let (aggregated, q_score) = if stimulus.domain.as_deref() == Some("token-analysis") {
+            let (_mod_scores, new_q_score) =
+                token_postprocessor::postprocess_token_verdict(stimulus, aggregated);
+            (_mod_scores, new_q_score)
+        } else {
+            (aggregated, q_score)
+        };
+
+        // Re-compute verdict kind if q_score changed (and EPOCHÉ was not suspended).
+        let kind = if epoche_suspended {
+            kind // EPOCHÉ suppresses Q-score — keep EPOCHÉ verdict
+        } else if stimulus.domain.as_deref() == Some("token-analysis") {
+            verdict_kind(q_score.total) // Use post-processed Q-score for token-analysis
+        } else {
+            kind
+        };
+
         let mut dog_ids: Vec<&str> = dog_scores.iter().map(|s| s.dog_id.as_str()).collect();
         dog_ids.sort_unstable(); // Canonical order — deterministic regardless of response timing
 
@@ -988,9 +1009,35 @@ impl Judge {
             anomaly_axiom,
             failed_dogs,
             failed_dog_errors,
+            target: extract_target(stimulus),
             integrity_hash: Some(hash),
             prev_hash,
         })
+    }
+}
+
+/// Extract the target identifier from a stimulus.
+/// For token-analysis: the mint address from [METRICS] section.
+/// For wallet-judgment: the wallet address.
+/// Keeps K14: returns None (degraded/absent) rather than a fallback string.
+fn extract_target(stimulus: &Stimulus) -> Option<String> {
+    let domain = stimulus.domain.as_deref()?;
+    match domain {
+        "token-analysis" => stimulus
+            .content
+            .lines()
+            .find(|l| l.starts_with("mint:"))
+            .and_then(|l| l.split_once(':'))
+            .map(|(_, v)| v.trim().to_string())
+            .filter(|v| !v.is_empty()),
+        "wallet-judgment" => stimulus
+            .content
+            .lines()
+            .find(|l| l.starts_with("wallet:"))
+            .and_then(|l| l.split_once(':'))
+            .map(|(_, v)| v.trim().to_string())
+            .filter(|v| !v.is_empty()),
+        _ => None,
     }
 }
 
@@ -1818,6 +1865,7 @@ mod tests {
             voter_count: 1,
             failed_dogs: vec![],
             failed_dog_errors: Default::default(),
+            target: None,
             integrity_hash: None, // no hash
             prev_hash: None,
         };
@@ -2507,6 +2555,81 @@ mod roster_tests {
             verdict.dog_scores.len() >= 3,
             "expected at least quorum (3) scores, got {}",
             verdict.dog_scores.len()
+        );
+    }
+
+    #[test]
+    fn extract_target_parses_mint() {
+        let stimulus = Stimulus {
+            content: "[DOMAIN: token-analysis]\n\n[METRICS]\nmint: ABC123XYZ\nname: Test\n".into(),
+            context: None,
+            domain: Some("token-analysis".into()),
+            request_id: None,
+        };
+        assert_eq!(
+            extract_target(&stimulus),
+            Some("ABC123XYZ".into()),
+            "must extract mint address from token-analysis stimulus"
+        );
+    }
+
+    #[test]
+    fn extract_target_parses_wallet() {
+        let stimulus = Stimulus {
+            content: "[METRICS]\nwallet: WALLET456\ngames_completed: 5\n".into(),
+            context: None,
+            domain: Some("wallet-judgment".into()),
+            request_id: None,
+        };
+        assert_eq!(
+            extract_target(&stimulus),
+            Some("WALLET456".into()),
+            "must extract wallet address from wallet-judgment stimulus"
+        );
+    }
+
+    #[test]
+    fn extract_target_none_for_general_domain() {
+        let stimulus = Stimulus {
+            content: "some general content without mint".into(),
+            context: None,
+            domain: Some("general".into()),
+            request_id: None,
+        };
+        assert_eq!(
+            extract_target(&stimulus),
+            None,
+            "general domain must return None"
+        );
+    }
+
+    #[test]
+    fn extract_target_none_when_no_domain() {
+        let stimulus = Stimulus {
+            content: "mint: ABC123\n".into(),
+            context: None,
+            domain: None,
+            request_id: None,
+        };
+        assert_eq!(
+            extract_target(&stimulus),
+            None,
+            "no domain must return None"
+        );
+    }
+
+    #[test]
+    fn extract_target_none_when_mint_absent() {
+        let stimulus = Stimulus {
+            content: "[DOMAIN: token-analysis]\n\n[METRICS]\nname: Test\nholders: 100\n".into(),
+            context: None,
+            domain: Some("token-analysis".into()),
+            request_id: None,
+        };
+        assert_eq!(
+            extract_target(&stimulus),
+            None,
+            "token-analysis without mint line must return None"
         );
     }
 }
