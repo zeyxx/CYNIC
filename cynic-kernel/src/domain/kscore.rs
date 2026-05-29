@@ -79,6 +79,20 @@ pub fn compute_kscore(
         * organic_growth.powf(config.weight_organic_growth)
         * longevity.powf(config.weight_longevity);
 
+    // Median hold time across all analyzed wallets for this token.
+    let mut hold_times: Vec<f64> = behaviors.iter().filter_map(|b| b.hold_time_hours).collect();
+    hold_times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let median_hold_hours = if hold_times.is_empty() {
+        None
+    } else {
+        let mid = hold_times.len() / 2;
+        if hold_times.len() % 2 == 0 && hold_times.len() >= 2 {
+            Some((hold_times[mid - 1] + hold_times[mid]) / 2.0)
+        } else {
+            Some(hold_times[mid])
+        }
+    };
+
     KScore {
         score,
         diamond_hands,
@@ -89,6 +103,7 @@ pub fn compute_kscore(
         holders: hld as u32,
         reducers: red as u32,
         extractors: ext as u32,
+        median_hold_hours,
     }
 }
 
@@ -114,6 +129,7 @@ mod tests {
                 class: HolderClass::Accumulator,
                 retention_ratio: 2.0,
                 swap_count: 3,
+                hold_time_hours: None,
             })
             .collect();
         let score = compute_kscore(&behaviors, 5000, 20.0, 720, &cfg());
@@ -133,6 +149,7 @@ mod tests {
                 class: HolderClass::Extractor,
                 retention_ratio: 0.1,
                 swap_count: 5,
+                hold_time_hours: None,
             })
             .collect();
         let score = compute_kscore(&behaviors, 1000, 80.0, 48, &cfg());
@@ -159,6 +176,7 @@ mod tests {
             class: HolderClass::Holder,
             retention_ratio: 1.0,
             swap_count: 1,
+            hold_time_hours: None,
         }];
         let s1h = compute_kscore(&b, 100, 30.0, 1, &cfg());
         let s30d = compute_kscore(&b, 100, 30.0, 720, &cfg());
@@ -175,15 +193,56 @@ mod tests {
                 class: HolderClass::Holder,
                 retention_ratio: 1.1,
                 swap_count: 2,
+                hold_time_hours: None,
             },
             WalletBehavior {
                 class: HolderClass::Reducer,
                 retention_ratio: 0.6,
                 swap_count: 3,
+                hold_time_hours: None,
             },
         ];
         let s1 = compute_kscore(&b, 1000, 40.0, 200, &cfg());
         let s2 = compute_kscore(&b, 1000, 40.0, 200, &cfg());
         assert_eq!(s1.score, s2.score);
+    }
+
+    #[test]
+    fn median_hold_hours_computed_correctly() {
+        let behaviors = vec![
+            WalletBehavior {
+                class: HolderClass::Holder,
+                retention_ratio: 1.0,
+                swap_count: 2,
+                hold_time_hours: Some(48.0), // 2 days
+            },
+            WalletBehavior {
+                class: HolderClass::Holder,
+                retention_ratio: 1.0,
+                swap_count: 1,
+                hold_time_hours: Some(240.0), // 10 days
+            },
+            WalletBehavior {
+                class: HolderClass::Reducer,
+                retention_ratio: 0.7,
+                swap_count: 3,
+                hold_time_hours: None, // no buy found
+            },
+        ];
+        let score = compute_kscore(&behaviors, 500, 30.0, 200, &cfg());
+        // Median of [48.0, 240.0] (None excluded) = (48+240)/2 = 144.0
+        assert_eq!(score.median_hold_hours, Some(144.0));
+    }
+
+    #[test]
+    fn median_hold_hours_none_when_no_data() {
+        let behaviors = vec![WalletBehavior {
+            class: HolderClass::Holder,
+            retention_ratio: 1.0,
+            swap_count: 1,
+            hold_time_hours: None,
+        }];
+        let score = compute_kscore(&behaviors, 100, 30.0, 200, &cfg());
+        assert_eq!(score.median_hold_hours, None);
     }
 }

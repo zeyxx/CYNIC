@@ -183,6 +183,9 @@ pub struct WalletBehavior {
     pub retention_ratio: f64,
     /// Number of SWAP transactions found for this wallet+token
     pub swap_count: u32,
+    /// Time elapsed from first buy to last sell, or to now if still holding (hours).
+    /// None when no buy transaction was found in SWAP history.
+    pub hold_time_hours: Option<f64>,
 }
 
 /// K-Score composite — behavioral health metric for a token.
@@ -209,6 +212,9 @@ pub struct KScore {
     pub holders: u32,
     pub reducers: u32,
     pub extractors: u32,
+    /// Median hold duration in hours across analyzed wallets for this token.
+    /// None when fewer than half of wallets have hold time data.
+    pub median_hold_hours: Option<f64>,
 }
 
 impl TokenData {

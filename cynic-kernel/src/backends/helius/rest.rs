@@ -46,14 +46,15 @@ impl HeliusEnricher {
     }
 
     /// Fetch SWAP transactions for a wallet, filtered to a specific token mint.
-    /// Returns total_bought (tokens flowing IN to wallet) for retention calculation.
+    /// Returns (total_bought, swap_count, hold_secs) where hold_secs is the elapsed
+    /// time from first buy to last sell (or now if still holding). None if no buy found.
     /// Cost: 50 credits per call (Enhanced Transactions API).
     pub(super) async fn get_wallet_total_bought(
         &self,
         wallet_owner: &str,
         target_mint: &str,
         limit: usize,
-    ) -> Result<(f64, u32), EnrichmentError> {
+    ) -> Result<(f64, u32, Option<i64>), EnrichmentError> {
         let api_key = self.rpc_url.split("api-key=").nth(1).unwrap_or_default();
         let url = format!(
             "https://api.helius.xyz/v0/addresses/{wallet_owner}/transactions?api-key={api_key}&limit={limit}&type=SWAP"
@@ -69,7 +70,7 @@ impl HeliusEnricher {
             .map_err(|e| EnrichmentError::RequestFailed(e.to_string()))?;
 
         if !resp.status().is_success() {
-            return Ok((0.0, 0));
+            return Ok((0.0, 0, None));
         }
 
         self.credits.record_call(0, true, 50); // Enhanced Transactions: 50 credits
@@ -81,8 +82,13 @@ impl HeliusEnricher {
 
         let mut total_bought = 0.0_f64;
         let mut swap_count = 0_u32;
+        let mut first_buy_ts: Option<i64> = None;
+        let mut last_sell_ts: Option<i64> = None;
 
-        for tx in &txs {
+        // Transactions come newest-first from Helius — iterate in chronological order
+        // so first_buy_ts captures the actual first buy, not the most recent one.
+        for tx in txs.iter().rev() {
+            let ts = tx.get("timestamp").and_then(|v| v.as_i64()).unwrap_or(0);
             let Some(transfers) = tx.get("tokenTransfers").and_then(|v| v.as_array()) else {
                 continue;
             };
@@ -101,15 +107,32 @@ impl HeliusEnricher {
                     .get("toUserAccount")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
+                let from = transfer
+                    .get("fromUserAccount")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
 
                 if to == wallet_owner {
                     total_bought += amount;
+                    // First buy = chronologically first inflow
+                    if first_buy_ts.is_none() && ts > 0 {
+                        first_buy_ts = Some(ts);
+                    }
+                } else if from == wallet_owner && ts > 0 {
+                    // Last sell = chronologically last outflow
+                    last_sell_ts = Some(ts);
                 }
                 swap_count += 1;
             }
         }
 
-        Ok((total_bought, swap_count))
+        // Hold time: from first buy to last sell (closed) or to now (still holding).
+        let hold_secs = first_buy_ts.map(|buy| {
+            let end = last_sell_ts.unwrap_or_else(|| chrono::Utc::now().timestamp());
+            (end - buy).max(0)
+        });
+
+        Ok((total_bought, swap_count, hold_secs))
     }
 
     /// Resolve identities for holder addresses via Helius Wallet API batch-identity.

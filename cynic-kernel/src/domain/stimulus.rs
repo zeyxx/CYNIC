@@ -176,6 +176,13 @@ pub fn build_token_stimulus(data: &TokenData) -> String {
             "wallet_breakdown: {} analyzed \u{2014} {} accumulators, {} holders, {} reducers, {} extractors\n",
             ks.wallets_analyzed, ks.accumulators, ks.holders, ks.reducers, ks.extractors
         ));
+        if let Some(mh) = ks.median_hold_hours {
+            s.push_str(&format!(
+                "median_hold_hours: {:.1} ({:.1}d — time from first buy to last sell or now)\n",
+                mh,
+                mh / 24.0
+            ));
+        }
     }
 
     // ── Buy/Sell Divergence (from token profiler snapshot) ──

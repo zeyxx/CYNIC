@@ -58,6 +58,8 @@ pub(super) struct TokenMetrics {
     k_longevity: Option<f64>,
     /// Organic growth pillar.
     k_organic_growth: Option<f64>,
+    /// Median hold time in hours across analyzed wallets (time dimension — orthogonal to retention).
+    k_median_hold_hours: Option<f64>,
 }
 
 /// Parse human-readable USD values like "1.23B", "45.67M", "890K", "123.45".
@@ -129,6 +131,7 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
         trajectory_decay: None,
         k_longevity: None,
         k_organic_growth: None,
+        k_median_hold_hours: None,
     };
 
     for line in section.lines() {
@@ -203,6 +206,8 @@ pub(super) fn parse(content: &str) -> Option<TokenMetrics> {
                 m.k_organic_growth = v.split_whitespace().next().and_then(|s| s.parse().ok());
             } else if let Some(v) = line.strip_prefix("longevity: ") {
                 m.k_longevity = v.split_whitespace().next().and_then(|s| s.parse().ok());
+            } else if let Some(v) = line.strip_prefix("median_hold_hours: ") {
+                m.k_median_hold_hours = v.split_whitespace().next().and_then(|s| s.parse().ok());
             } else if let Some(v) = line.strip_prefix("wallet_breakdown: ") {
                 // "N analyzed — X accumulators, Y holders, Z reducers, W extractors"
                 m.k_wallets_analyzed = v
@@ -387,6 +392,21 @@ pub(super) fn score(m: &TokenMetrics) -> AxiomScores {
             fidelity -= ADJUST_MEDIUM; // rho=-0.396 (diamond_hands, 2026-05) — FOMO signal
         } else if dh < 0.3 {
             fidelity += ADJUST_SMALL; // rho=-0.396 — low DH = passive holders = real conviction
+        }
+    }
+    // Hold time: temporal dimension orthogonal to retention ratio.
+    // Retention (current_balance/total_bought) answers "how much remains".
+    // Hold time answers "how long did they stay". Both can disagree — a wallet that
+    // bought 2h ago and hasn't sold yet has retention=1.0 but hold_time=2h (flipper profile).
+    // >7d = committed holder. <24h = flipper pattern. Falsify: project in early phase
+    // should show short hold times without being penalized — add age gating if needed.
+    if let Some(mh) = m.k_median_hold_hours {
+        if mh > 168.0 {
+            // >7 days median — holders committed across the analyzed window
+            fidelity += ADJUST_SMALL;
+        } else if mh < 24.0 {
+            // <24h median — flipper-dominant holder base
+            fidelity -= ADJUST_SMALL;
         }
     }
     // Trajectory: temporal conviction signal — holders leaving = broken promise.
@@ -1116,6 +1136,54 @@ mod tests {
         assert_eq!(m.k_wallets_analyzed, 10);
         assert_eq!(m.k_accumulators, 4);
         assert_eq!(m.k_extractors, 1);
+        // median_hold_hours absent from this behavioral section — must be None
+        assert!(m.k_median_hold_hours.is_none());
+    }
+
+    #[test]
+    fn parse_median_hold_hours() {
+        // K20: new stimulus field must be parseable by deterministic dog.
+        let mut content = make_token_stimulus(&HEALTHY_MINT);
+        let baselines_pos = content.find("\n[BASELINES]").unwrap();
+        let behavioral = "\n[BEHAVIORAL]\nk_score: 0.600\ndiamond_hands: 0.500 (conviction of top holders)\norganic_growth: 0.500 (distribution quality)\nlongevity: 0.800 (age-adjusted survival)\nwallet_breakdown: 5 analyzed \u{2014} 2 accumulators, 2 holders, 1 reducers, 0 extractors\nmedian_hold_hours: 192.0 (8.0d — time from first buy to last sell or now)\n";
+        content.insert_str(baselines_pos, behavioral);
+
+        let m = parse(&content).expect("should parse median_hold_hours");
+        assert!(
+            m.k_median_hold_hours.is_some(),
+            "median_hold_hours should be parsed"
+        );
+        assert!(
+            (m.k_median_hold_hours.unwrap() - 192.0).abs() < 0.1,
+            "expected 192.0, got {:?}",
+            m.k_median_hold_hours
+        );
+    }
+
+    #[tokio::test]
+    async fn long_hold_time_boosts_fidelity() {
+        // Holders with median >7d signal committed base — should boost fidelity.
+        let mut with_hold = make_token_stimulus(&HEALTHY_MINT);
+        let baselines_pos = with_hold.find("\n[BASELINES]").unwrap();
+        let behavioral_long = "\n[BEHAVIORAL]\nk_score: 0.600\ndiamond_hands: 0.400 (conviction of top holders)\norganic_growth: 0.500 (distribution quality)\nlongevity: 0.800 (age-adjusted survival)\nwallet_breakdown: 5 analyzed \u{2014} 2 accumulators, 2 holders, 1 reducers, 0 extractors\nmedian_hold_hours: 336.0 (14.0d — time from first buy to last sell or now)\n";
+        with_hold.insert_str(baselines_pos, behavioral_long);
+
+        let mut without_hold = make_token_stimulus(&HEALTHY_MINT);
+        let baselines_pos2 = without_hold.find("\n[BASELINES]").unwrap();
+        let behavioral_none = "\n[BEHAVIORAL]\nk_score: 0.600\ndiamond_hands: 0.400 (conviction of top holders)\norganic_growth: 0.500 (distribution quality)\nlongevity: 0.800 (age-adjusted survival)\nwallet_breakdown: 5 analyzed \u{2014} 2 accumulators, 2 holders, 1 reducers, 0 extractors\n";
+        without_hold.insert_str(baselines_pos2, behavioral_none);
+
+        let m_with = parse(&with_hold).unwrap();
+        let m_without = parse(&without_hold).unwrap();
+        let scores_with = score(&m_with);
+        let scores_without = score(&m_without);
+
+        assert!(
+            scores_with.fidelity >= scores_without.fidelity,
+            "long hold_time should boost fidelity: with={}, without={}",
+            scores_with.fidelity,
+            scores_without.fidelity
+        );
     }
 
     #[test]
