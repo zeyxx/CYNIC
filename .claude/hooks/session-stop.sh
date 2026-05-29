@@ -239,23 +239,26 @@ if [[ -n "$TRANSCRIPT_PATH" ]] && [[ -f "$TRANSCRIPT_PATH" ]] && [[ "$KERNEL_STA
 fi
 
 # ── K15: Governance continuity — auto-queue next phase if current phase is active ──
-# Phase 2.0 (outcome measurement) due 2026-06-02.
-# If we're within the phase window, queue Phase 2.1 preparation to mempool.
-# Next session will read mempool and know to prepare for calibration if measurement shows divergence > 0.10.
+# Reads TODO.md to determine active phases and deadlines (SSOT).
+# Posts next-phase preparation tasks to mempool automatically.
+# This prevents spinning loops where phases complete but next phases aren't dispatched.
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 TODO_FILE="${PROJECT_DIR}/TODO.md"
-CURRENT_DATE=$(date -u +%Y-%m-%d)
-PHASE_2_0_DUE="2026-06-02"
-PHASE_2_0_START="2026-05-29"
 
-# Check if we're in Phase 2.0 window and measurement hasn't run yet
-if [[ "$CURRENT_DATE" > "$PHASE_2_0_START" ]] && [[ "$CURRENT_DATE" <= "$PHASE_2_0_DUE" ]]; then
-    # Queue Phase 2.1 preparation task to mempool
-    if [[ "$KERNEL_STATUS" != "down" ]]; then
+# Extract active phase and next phase from TODO.md
+# Parse "NOW" section to identify current phase and due date
+if [[ -f "$TODO_FILE" ]] && [[ "$KERNEL_STATUS" != "down" ]]; then
+    ACTIVE_PHASE=$(grep -A 20 "^## NOW" "$TODO_FILE" 2>/dev/null | grep "^**Phase" | head -1 | sed 's/.*\*\*Phase \([^:]*\).*/\1/' 2>/dev/null || true)
+    PHASE_DUE=$(grep -A 20 "^## NOW" "$TODO_FILE" 2>/dev/null | grep "Due:" | head -1 | sed 's/.*Due: \([^ ]*\).*/\1/' 2>/dev/null || true)
+    NEXT_PHASE=$(grep -A 30 "^## IMMEDIATE" "$TODO_FILE" 2>/dev/null | grep "^**Phase" | head -1 | sed 's/.*\*\*Phase \([^:]*\).*/\1/' 2>/dev/null || true)
+    NEXT_PHASE_DUE=$(grep -A 30 "^## IMMEDIATE" "$TODO_FILE" 2>/dev/null | grep "Due:" | head -1 | sed 's/.*Due: \([^ ]*\).*/\1/' 2>/dev/null || true)
+
+    # If active phase is Phase 2.0, post Phase 2.1 prep to mempool
+    if [[ "$ACTIVE_PHASE" == "2.0:" ]] && [[ -n "$NEXT_PHASE" ]] && [[ -n "$NEXT_PHASE_DUE" ]]; then
         curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
             -H "Content-Type: application/json" \
             ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
-            -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"governance\",\"target\":\"phase_queue\",\"domain\":\"mempool\",\"tags\":[\"phase-2.1-prep\",\"governance\"],\"context\":\"Phase 2.0 outcome measurement fires 2026-06-02 06:00 UTC. If divergence > 0.10, proceed to Phase 2.1 calibration loop. Owner: human + Dogs (training). Blocker: Phase 2.0 measurement complete. Falsify: Dogs still disagree equally (max_disagreement unchanged) after calibration. Action: await measurement report, validate divergence, retrain Dogs on outcome feedback.\"}" \
+            -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"governance\",\"target\":\"phase_queue\",\"domain\":\"mempool\",\"tags\":[\"phase-queue\",\"governance\"],\"context\":\"Active phase: ${ACTIVE_PHASE} due ${PHASE_DUE}. Next phase: ${NEXT_PHASE} due ${NEXT_PHASE_DUE}. Read TODO.md for full context. Blocker: ${ACTIVE_PHASE} completion. Action: await completion, validate falsification test, execute next phase.\"}" \
             > /dev/null 2>&1 || true
     fi
 fi
