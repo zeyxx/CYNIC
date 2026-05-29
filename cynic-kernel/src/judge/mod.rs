@@ -1023,13 +1023,29 @@ impl Judge {
 fn extract_target(stimulus: &Stimulus) -> Option<String> {
     let domain = stimulus.domain.as_deref()?;
     match domain {
-        "token-analysis" => stimulus
-            .content
-            .lines()
-            .find(|l| l.starts_with("mint:"))
-            .and_then(|l| l.split_once(':'))
-            .map(|(_, v)| v.trim().to_string())
-            .filter(|v| !v.is_empty()),
+        "token-analysis" => {
+            // Try enriched format: "mint: <address>" (lowercase, new) or "Mint: <address>" (uppercase, old)
+            let from_stimulus = stimulus
+                .content
+                .lines()
+                .find(|l| l.starts_with("mint:") || l.starts_with("Mint:"))
+                .and_then(|l| l.split_once(':'))
+                .map(|(_, v)| v.trim().to_string())
+                .filter(|v| !v.is_empty());
+
+            if from_stimulus.is_some() {
+                return from_stimulus;
+            }
+
+            // Fallback: if the content itself looks like a Solana address (32-44 base58 chars),
+            // it's the raw mint before enrichment (enrichment may have failed or been skipped).
+            let trimmed = stimulus.content.split_whitespace().next().unwrap_or("");
+            if crate::domain::enrichment::looks_like_solana_address(trimmed) {
+                Some(trimmed.to_string())
+            } else {
+                None
+            }
+        }
         "wallet-judgment" => stimulus
             .content
             .lines()
@@ -2630,6 +2646,51 @@ mod roster_tests {
             extract_target(&stimulus),
             None,
             "token-analysis without mint line must return None"
+        );
+    }
+
+    #[test]
+    fn extract_target_parses_uppercase_mint() {
+        let stimulus = Stimulus {
+            content: "TOKEN ANALYSIS: MOJO\nMint: HNoVLHPMFZ5wjPqmiaSWdNHXVCxHPWFRiiGjAg3Fpump\n\nPOPULATION CONTEXT".into(),
+            context: None,
+            domain: Some("token-analysis".into()),
+            request_id: None,
+        };
+        assert_eq!(
+            extract_target(&stimulus),
+            Some("HNoVLHPMFZ5wjPqmiaSWdNHXVCxHPWFRiiGjAg3Fpump".into()),
+            "must extract mint from old-format uppercase Mint: line"
+        );
+    }
+
+    #[test]
+    fn extract_target_fallback_raw_address() {
+        let stimulus = Stimulus {
+            content: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".into(),
+            context: None,
+            domain: Some("token-analysis".into()),
+            request_id: None,
+        };
+        assert_eq!(
+            extract_target(&stimulus),
+            Some("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".into()),
+            "must extract raw Solana address as fallback when no mint: line exists"
+        );
+    }
+
+    #[test]
+    fn extract_target_no_fallback_for_prose() {
+        let stimulus = Stimulus {
+            content: "test USDC stablecoin analysis".into(),
+            context: None,
+            domain: Some("token-analysis".into()),
+            request_id: None,
+        };
+        assert_eq!(
+            extract_target(&stimulus),
+            None,
+            "prose content must not be treated as a mint address"
         );
     }
 }

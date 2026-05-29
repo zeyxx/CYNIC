@@ -238,9 +238,32 @@ if [[ -n "$TRANSCRIPT_PATH" ]] && [[ -f "$TRANSCRIPT_PATH" ]] && [[ "$KERNEL_STA
         > /dev/null 2>&1 || true
 fi
 
-# ── TODO staleness check (continuity: did this session update the TODO?) ──
+# ── K15: Governance continuity — auto-queue next phase if current phase is active ──
+# Reads TODO.md to determine active phases and deadlines (SSOT).
+# Posts next-phase preparation tasks to mempool automatically.
+# This prevents spinning loops where phases complete but next phases aren't dispatched.
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 TODO_FILE="${PROJECT_DIR}/TODO.md"
+
+# Extract active phase and next phase from TODO.md
+# Parse "NOW" section to identify current phase and due date
+if [[ -f "$TODO_FILE" ]] && [[ "$KERNEL_STATUS" != "down" ]]; then
+    ACTIVE_PHASE=$(grep -A 20 "^## NOW" "$TODO_FILE" 2>/dev/null | grep "^**Phase" | head -1 | sed 's/.*\*\*Phase \([^:]*\).*/\1/' 2>/dev/null || true)
+    PHASE_DUE=$(grep -A 20 "^## NOW" "$TODO_FILE" 2>/dev/null | grep "Due:" | head -1 | sed 's/.*Due: \([^ ]*\).*/\1/' 2>/dev/null || true)
+    NEXT_PHASE=$(grep -A 30 "^## IMMEDIATE" "$TODO_FILE" 2>/dev/null | grep "^**Phase" | head -1 | sed 's/.*\*\*Phase \([^:]*\).*/\1/' 2>/dev/null || true)
+    NEXT_PHASE_DUE=$(grep -A 30 "^## IMMEDIATE" "$TODO_FILE" 2>/dev/null | grep "Due:" | head -1 | sed 's/.*Due: \([^ ]*\).*/\1/' 2>/dev/null || true)
+
+    # If active phase is Phase 2.0, post Phase 2.1 prep to mempool
+    if [[ "$ACTIVE_PHASE" == "2.0:" ]] && [[ -n "$NEXT_PHASE" ]] && [[ -n "$NEXT_PHASE_DUE" ]]; then
+        curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+            -H "Content-Type: application/json" \
+            ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+            -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"governance\",\"target\":\"phase_queue\",\"domain\":\"mempool\",\"tags\":[\"phase-queue\",\"governance\"],\"context\":\"Active phase: ${ACTIVE_PHASE} due ${PHASE_DUE}. Next phase: ${NEXT_PHASE} due ${NEXT_PHASE_DUE}. Read TODO.md for full context. Blocker: ${ACTIVE_PHASE} completion. Action: await completion, validate falsification test, execute next phase.\"}" \
+            > /dev/null 2>&1 || true
+    fi
+fi
+
+# ── TODO staleness check (continuity: did this session update the TODO?) ──
 if [[ -f "$TODO_FILE" ]]; then
     TODO_CHANGED=$(git -C "$PROJECT_DIR" diff --name-only -- TODO.md 2>/dev/null || true)
     if [[ -z "$TODO_CHANGED" ]]; then

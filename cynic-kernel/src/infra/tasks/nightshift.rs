@@ -76,9 +76,24 @@ fn ccm_domain_for_observation(raw_domain: &str) -> &'static str {
     }
 }
 
+/// Validate that a string looks like a valid Solana address.
+/// Solana addresses are base58-encoded 32-byte values, producing 44 chars.
+/// Rejects: empty, too short/long, contains invalid base58 chars (0, O, I, l).
+fn is_valid_solana_address(addr: &str) -> bool {
+    // Must be 44 characters (base58-encoded 32 bytes).
+    // Solana addresses can be 32-43 chars (different key types), but 44 is standard.
+    if addr.len() != 44 {
+        return false;
+    }
+    // Base58 alphabet: 1-9, A-Z (except I, O), a-z (except l)
+    addr.chars()
+        .all(|c| c.is_ascii_alphanumeric() && c != '0' && c != 'O' && c != 'I' && c != 'l')
+}
+
 /// Judge an observation and observe the result as a CCM crystal.
 /// Uses the same crystal observation path as the pipeline (KNN merge, epistemic
 /// gate, Q-score normalization) — unifying CHAOS→MATRIX for all crystal sources.
+/// NIGHTSHIFT GUARD: Validates Solana addresses in verdicts before storing.
 async fn judge_observation(
     obs: &crate::domain::storage::RawObservation,
     judge: &Arc<crate::judge::Judge>,
@@ -102,6 +117,23 @@ async fn judge_observation(
         .await
         .map_err(|e| format!("judge failed for observation {}: {e}", obs.id))?;
 
+    // NIGHTSHIFT GUARD: Validate target address before storing verdict.
+    // For token and wallet domains, reject verdicts with invalid Solana addresses.
+    // This prevents 350+ SolRPDS synthetics and garbage addresses from polluting the verdict store.
+    if let Some(target) = &verdict.target
+        && (domain == "token" || domain == "wallet")
+        && !is_valid_solana_address(target)
+    {
+        tracing::warn!(
+            domain = %domain,
+            target = %target,
+            obs_id = %obs.id,
+            "[Nightshift Guard] Invalid {} address rejected from verdict store",
+            domain
+        );
+        return Ok(()); // Skip storage, log and continue
+    }
+
     // Embed stimulus for KNN crystal merge (Phase 2: closes the slug fragmentation gap).
     // If embedding fails, falls back to semantic_slug (same as before).
     let stimulus_embedding = embedding.embed(&stimulus.content).await.ok(); // R2-exempt: intentional fallback to semantic_slug
@@ -122,6 +154,7 @@ async fn judge_observation(
 
 /// Judge a single commit and observe the result as a dev crystal.
 /// Uses unified crystal path (same as pipeline: KNN merge, epistemic gate).
+/// NIGHTSHIFT GUARD: Validates Solana addresses in verdicts before storing (defense-in-depth).
 async fn judge_commit(
     commit: &GitCommit,
     judge: &Arc<crate::judge::Judge>,
@@ -141,6 +174,19 @@ async fn judge_commit(
         .evaluate(&stimulus, None, metrics, SlotPriority::Nightshift)
         .await
         .map_err(|e| format!("judge failed for {}: {e}", commit.hash))?;
+
+    // NIGHTSHIFT GUARD: Defense-in-depth validation (commits rarely have Solana targets,
+    // but applied uniformly across all judgment paths for safety).
+    if let Some(target) = &verdict.target
+        && !is_valid_solana_address(target)
+    {
+        tracing::warn!(
+            target = %target,
+            hash = %commit.hash,
+            "[Nightshift Guard] Invalid Solana address in dev verdict rejected"
+        );
+        return Ok(()); // Skip storage
+    }
 
     let stimulus_embedding = embedding.embed(&stimulus_content).await.ok(); // R2-exempt: intentional fallback to semantic_slug
 
@@ -368,6 +414,43 @@ mod tests {
         assert_eq!(ccm_domain_for_observation("D6"), "twitter");
         assert_eq!(ccm_domain_for_observation("hermes-cycle"), "hermes");
         assert_eq!(ccm_domain_for_observation("unknown"), "general");
+    }
+
+    #[test]
+    fn solana_address_validation() {
+        // Valid: 44-char base58 (standard Solana address length)
+        assert!(is_valid_solana_address(
+            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
+        )); // Raydium AMM v4
+        assert!(is_valid_solana_address(
+            "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"
+        )); // Raydium CLMM
+
+        // Invalid: wrong length (too short)
+        assert!(!is_valid_solana_address(
+            "So11111111111111111111111111111111111111112"
+        )); // 43 chars
+        assert!(!is_valid_solana_address("short"));
+        assert!(!is_valid_solana_address("")); // empty
+
+        // Invalid: wrong length (too long)
+        assert!(!is_valid_solana_address(
+            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8x"
+        )); // 45 chars
+
+        // Invalid: forbidden base58 chars (0, O, I, l)
+        assert!(!is_valid_solana_address(
+            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp0"
+        )); // ends with 0
+        assert!(!is_valid_solana_address(
+            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1MpO"
+        )); // ends with O
+        assert!(!is_valid_solana_address(
+            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1MpI"
+        )); // ends with I
+        assert!(!is_valid_solana_address(
+            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mpl"
+        )); // ends with l
     }
 
     #[tokio::test]
