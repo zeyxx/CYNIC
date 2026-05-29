@@ -35,6 +35,7 @@ pub mod state_log;
 pub mod stimulus;
 pub mod storage;
 pub mod summarization;
+pub mod token_postprocessor;
 pub mod usage;
 pub mod verdict_cache;
 pub mod verdict_queue;

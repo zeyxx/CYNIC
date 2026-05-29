@@ -15,6 +15,7 @@ use crate::domain::health_gate::{FailureReason, HealthGate};
 use crate::domain::inference_queue::InferenceQueueMap;
 use crate::domain::metrics::Metrics;
 use crate::domain::slot_semaphore::{SlotPriority, SlotSemaphoreMap};
+use crate::domain::token_postprocessor;
 use crate::infra::error_classifier::ErrorCategory;
 use crate::organ::BackendHandle;
 use chrono::Utc;
@@ -943,6 +944,26 @@ impl Judge {
             VerdictKind::Epoche
         } else {
             verdict_kind(q_score.total)
+        };
+
+        // Apply token-specific post-processing if domain is token-analysis.
+        // This applies conditional logic (class-aware caps, signal inversions, priors)
+        // that cannot be expressed as prompt text without polluting the domain logic.
+        let (aggregated, q_score) = if stimulus.domain.as_deref() == Some("token-analysis") {
+            let (_mod_scores, new_q_score) =
+                token_postprocessor::postprocess_token_verdict(&stimulus, aggregated);
+            (_mod_scores, new_q_score)
+        } else {
+            (aggregated, q_score)
+        };
+
+        // Re-compute verdict kind if q_score changed (and EPOCHÉ was not suspended).
+        let kind = if epoche_suspended {
+            kind // EPOCHÉ suppresses Q-score — keep EPOCHÉ verdict
+        } else if stimulus.domain.as_deref() == Some("token-analysis") {
+            verdict_kind(q_score.total) // Use post-processed Q-score for token-analysis
+        } else {
+            kind
         };
 
         let mut dog_ids: Vec<&str> = dog_scores.iter().map(|s| s.dog_id.as_str()).collect();

@@ -24,24 +24,36 @@ impl HeliusEnricher {
         &self,
         wallet: &str,
     ) -> Result<Option<WalletBehavioralProfile>, EnrichmentError> {
-        // Step 1: Get SOL balance
-        let sol_balance = self.get_sol_balance(wallet).await.unwrap_or(0.0);
+        // Step 1: Get SOL balance + wallet age + fungible count in parallel
+        // These don't depend on swap history — a diamond hands wallet has age and tokens but 0 swaps.
+        let (sol_balance, wallet_age_days, fungible_count) = tokio::join!(
+            self.get_sol_balance(wallet),
+            self.get_wallet_age_days(wallet),
+            self.get_fungible_token_count(wallet),
+        );
+        let sol_balance = sol_balance.unwrap_or(0.0);
+        let wallet_age_days = wallet_age_days.unwrap_or(0);
+        let fungible_count = fungible_count.unwrap_or(0);
 
-        // Step 2: Get parsed transaction history (100 most recent SWAPs)
-        let history = self.get_parsed_tx_history(wallet, 100).await?;
-        if history.is_empty() {
+        // A wallet with no age AND no tokens is truly empty — nothing to evaluate
+        if wallet_age_days == 0 && fungible_count == 0 {
             return Ok(None);
         }
 
-        // Step 3: Get fungible token count
-        let fungible_count = self.get_fungible_token_count(wallet).await.unwrap_or(0);
+        // Step 2: Get parsed SWAP history (100 most recent)
+        // Empty history is valid — diamond hands wallets have 0 swaps.
+        let history = self.get_parsed_tx_history(wallet, 100).await?;
 
-        // Step 4: Parse swaps from history
+        // Step 3: Parse swaps from history
         let swaps = parse_swaps(&history);
         let total_swaps = swaps.len() as u32;
 
-        // Step 5: Compute temporal signals
-        let wallet_age_days = compute_wallet_age(&history);
+        // Step 4: Compute temporal signals
+        // Use wallet_age_days from getSignaturesForAddress (covers all tx types),
+        // NOT from swap history (which misses non-SWAP transactions).
+        let swap_age_days = compute_wallet_age(&history);
+        // Take the max — wallet may be older than its first swap
+        let wallet_age_days = wallet_age_days.max(swap_age_days);
         let swaps_per_day = if wallet_age_days > 0 {
             total_swaps as f64 / wallet_age_days as f64
         } else if total_swaps > 0 {
@@ -78,6 +90,47 @@ impl HeliusEnricher {
             fungible_token_count: fungible_count,
             chess_profile: None,
         }))
+    }
+
+    /// Estimate wallet age in days from oldest transaction via RPC getSignaturesForAddress.
+    /// This covers ALL transaction types (not just SWAPs) — critical for diamond hands wallets
+    /// whose only transaction is an INITIALIZE_ACCOUNT (receiving tokens).
+    /// ~1 credit per call.
+    async fn get_wallet_age_days(&self, wallet: &str) -> Result<u32, EnrichmentError> {
+        // getSignaturesForAddress with limit=1, oldest first would be ideal but API only supports
+        // newest-first. We use limit=1000 and take the oldest blockTime as a proxy.
+        // For most wallets, this covers the full history. For very active wallets, it's a lower bound.
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getSignaturesForAddress",
+            "params": [wallet, { "limit": 1000 }]
+        });
+
+        let resp = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            self.client.post(&self.rpc_url).json(&body).send(),
+        )
+        .await
+        .map_err(|_elapsed| EnrichmentError::Timeout)?
+        .map_err(|e| EnrichmentError::RequestFailed(format!("getSignaturesForAddress: {e}")))?;
+
+        let json: serde_json::Value = resp.json().await.map_err(|e| {
+            EnrichmentError::RequestFailed(format!("getSignaturesForAddress parse: {e}"))
+        })?;
+
+        let sigs = json["result"].as_array();
+        if let Some(sigs) = sigs {
+            // Find oldest blockTime in the batch
+            let oldest = sigs.iter().filter_map(|s| s["blockTime"].as_i64()).min();
+            if let Some(oldest_ts) = oldest {
+                let now = chrono::Utc::now().timestamp();
+                let age_secs = now - oldest_ts;
+                return Ok((age_secs / 86400).max(0) as u32);
+            }
+        }
+
+        Ok(0)
     }
 
     /// Get SOL balance for a wallet (in SOL, not lamports). ~1 credit.
