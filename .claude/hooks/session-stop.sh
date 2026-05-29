@@ -238,9 +238,29 @@ if [[ -n "$TRANSCRIPT_PATH" ]] && [[ -f "$TRANSCRIPT_PATH" ]] && [[ "$KERNEL_STA
         > /dev/null 2>&1 || true
 fi
 
-# ── TODO staleness check (continuity: did this session update the TODO?) ──
+# ── K15: Governance continuity — auto-queue next phase if current phase is active ──
+# Phase 2.0 (outcome measurement) due 2026-06-02.
+# If we're within the phase window, queue Phase 2.1 preparation to mempool.
+# Next session will read mempool and know to prepare for calibration if measurement shows divergence > 0.10.
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 TODO_FILE="${PROJECT_DIR}/TODO.md"
+CURRENT_DATE=$(date -u +%Y-%m-%d)
+PHASE_2_0_DUE="2026-06-02"
+PHASE_2_0_START="2026-05-29"
+
+# Check if we're in Phase 2.0 window and measurement hasn't run yet
+if [[ "$CURRENT_DATE" > "$PHASE_2_0_START" ]] && [[ "$CURRENT_DATE" <= "$PHASE_2_0_DUE" ]]; then
+    # Queue Phase 2.1 preparation task to mempool
+    if [[ "$KERNEL_STATUS" != "down" ]]; then
+        curl -s --connect-timeout 2 --max-time 3 -X POST "http://${KERNEL_ADDR}/observe" \
+            -H "Content-Type: application/json" \
+            ${AUTH_HEADER:+-H "$AUTH_HEADER"} \
+            -d "{\"agent_id\":\"${AGENT_ID}\",\"tool\":\"governance\",\"target\":\"phase_queue\",\"domain\":\"mempool\",\"tags\":[\"phase-2.1-prep\",\"governance\"],\"context\":\"Phase 2.0 outcome measurement fires 2026-06-02 06:00 UTC. If divergence > 0.10, proceed to Phase 2.1 calibration loop. Owner: human + Dogs (training). Blocker: Phase 2.0 measurement complete. Falsify: Dogs still disagree equally (max_disagreement unchanged) after calibration. Action: await measurement report, validate divergence, retrain Dogs on outcome feedback.\"}" \
+            > /dev/null 2>&1 || true
+    fi
+fi
+
+# ── TODO staleness check (continuity: did this session update the TODO?) ──
 if [[ -f "$TODO_FILE" ]]; then
     TODO_CHANGED=$(git -C "$PROJECT_DIR" diff --name-only -- TODO.md 2>/dev/null || true)
     if [[ -z "$TODO_CHANGED" ]]; then
