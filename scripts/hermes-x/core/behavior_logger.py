@@ -368,10 +368,27 @@ class BehaviorLogger:
     # ── Keyboard callbacks ──
 
     def on_key_press(self, key):
+        # Privacy: NEVER store the literal character. On a machine that handles crypto,
+        # a system-wide keylog of `key.char` captures seed phrases, private keys and
+        # passwords in plaintext. The only consumer (Mirror organ) uses keystroke
+        # *cadence*, *dwell* and *event type* — never the character — so printable keys
+        # are reduced to a category token and special/navigation keys keep their
+        # (non-sensitive) name. Verified: no consumer reads event["key"] as a char. (2026-05-30)
         try:
-            k = key.char if hasattr(key, "char") and key.char else str(key)
+            char = key.char if hasattr(key, "char") else None
         except AttributeError:
-            k = str(key)
+            char = None
+
+        if not char:
+            k = str(key)                      # Key.enter / Key.tab / modifiers — non-sensitive
+        elif char.isalpha():
+            k = "<alpha>"
+        elif char.isdigit():
+            k = "<digit>"
+        elif char.isspace():
+            k = "<space>"
+        else:
+            k = "<symbol>"
         self._emit({"type": "key", "key": k})
 
     # ── Run ──
