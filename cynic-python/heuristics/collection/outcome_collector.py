@@ -19,6 +19,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -140,33 +141,70 @@ def find_due_outcomes(snapshots: dict[str, dict[str, Any]],
     return due
 
 
-def query_geckoterminal(mint: str) -> Optional[dict[str, Any]]:
-    """Query GeckoTerminal for current price/volume/mcap of a Solana token."""
+def query_geckoterminal(mint: str, max_retries: int = 3) -> Optional[dict[str, Any]]:
+    """Query GeckoTerminal for current price/volume/mcap of a Solana token.
+
+    Distinguishes transient from permanent errors (P18). HTTP 429 (rate-limit)
+    and 503 (overloaded) are transient → retry with exponential backoff, honoring
+    Retry-After when present. Permanent errors (400/404/422) return None immediately.
+    On retry exhaustion the token stays 'due', so a later run re-attempts it — no
+    silent data loss. Incident: a 429 cascade truncated collection at 23/45 because
+    the caller's rate-limit sleep was skipped on the error path (2026-05-30).
+    """
     url = f"https://api.geckoterminal.com/api/v2/networks/solana/tokens/{mint}/pools?page=1"
     req = urllib.request.Request(url, headers={
         "Accept": "application/json",
         "User-Agent": "CYNIC/1.0",
     })
 
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read())
+    backoff = 15
+    for attempt in range(max_retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
 
-        pools = data.get("data", [])
-        if not pools:
+            pools = data.get("data", [])
+            if not pools:
+                # No pool = the token has no live liquidity = DEAD. This is a real outcome,
+                # NOT a fetch failure — return zeros so it is recorded as survived=false.
+                # Conflating this with API errors (returning None → skipped) biased the
+                # ground truth to survivors only (126/126 survived=true, 2026-05-30).
+                return {
+                    "price_usd": 0.0,
+                    "volume_24h": 0.0,
+                    "reserve_usd": 0.0,
+                    "fdv_usd": 0.0,
+                    "market_cap_usd": 0.0,
+                    "no_pool": True,
+                }
+
+            attrs = pools[0]["attributes"]
+            return {
+                "price_usd": float(attrs.get("base_token_price_usd") or 0),
+                "volume_24h": float((attrs.get("volume_usd") or {}).get("h24") or 0),
+                "reserve_usd": float(attrs.get("reserve_in_usd") or 0),
+                "fdv_usd": float(attrs.get("fdv_usd") or 0),
+                "market_cap_usd": float(attrs.get("market_cap_usd") or 0),
+            }
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 503) and attempt < max_retries:
+                retry_after = e.headers.get("Retry-After")
+                hinted = int(retry_after) if (retry_after and retry_after.isdigit()) else 0
+                # Never wait below the exponential floor — a `Retry-After: 0` must not
+                # defeat the backoff and re-trigger the 429 cascade (2026-05-30).
+                wait = max(hinted, backoff)
+                print(f"  {e.code} on {mint[:8]}..., backoff {wait}s "
+                      f"(attempt {attempt + 1}/{max_retries})", file=sys.stderr)
+                time.sleep(wait)
+                backoff *= 2
+                continue
+            # Permanent (400/404/422) or retries exhausted.
+            print(f"  ERROR querying {mint[:8]}...: {e}", file=sys.stderr)
             return None
-
-        attrs = pools[0]["attributes"]
-        return {
-            "price_usd": float(attrs.get("base_token_price_usd") or 0),
-            "volume_24h": float((attrs.get("volume_usd") or {}).get("h24") or 0),
-            "reserve_usd": float(attrs.get("reserve_in_usd") or 0),
-            "fdv_usd": float(attrs.get("fdv_usd") or 0),
-            "market_cap_usd": float(attrs.get("market_cap_usd") or 0),
-        }
-    except Exception as e:
-        print(f"  ERROR querying {mint[:8]}...: {e}", file=sys.stderr)
-        return None
+        except Exception as e:
+            print(f"  ERROR querying {mint[:8]}...: {e}", file=sys.stderr)
+            return None
+    return None
 
 
 def collect_outcomes(due: list[dict[str, Any]], outcomes_dir: Path,
@@ -201,6 +239,9 @@ def collect_outcomes(due: list[dict[str, Any]], outcomes_dir: Path,
         current = query_geckoterminal(mint)
         if current is None:
             print("no data")
+            # Hold the rate-limit cadence even on failure — skipping it here caused a
+            # 429 cascade that truncated collection at 23/45 (2026-05-30).
+            time.sleep(RATE_LIMIT_SECONDS)
             continue
 
         for item in items:
@@ -219,7 +260,9 @@ def collect_outcomes(due: list[dict[str, Any]], outcomes_dir: Path,
                 volume_change = (volume_now - volume_at_j) / volume_at_j
 
             outcome = {
-                "schema_version": 1,
+                # v2 (2026-05-30): added `no_pool` + dead tokens now recorded (survived=false).
+                # v1 rows omit `no_pool` and contain survivors only — consumers must filter by version (P17).
+                "schema_version": 2,
                 "collected_at": datetime.now(timezone.utc).isoformat(),
                 "mint": mint,
                 "symbol": symbol,
@@ -240,6 +283,7 @@ def collect_outcomes(due: list[dict[str, Any]], outcomes_dir: Path,
                 # Outcome metrics
                 "price_change_pct": round(price_change, 6),
                 "volume_change_pct": round(volume_change, 6),
+                "no_pool": bool(current.get("no_pool", False)),
                 "survived": price_now > 0 and current.get("reserve_usd", 0) > 100,
             }
 
