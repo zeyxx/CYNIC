@@ -113,10 +113,18 @@ impl HeliusEnricher {
         )
         .await
         .map_err(|_elapsed| EnrichmentError::Timeout)?
-        .map_err(|e| EnrichmentError::RequestFailed(format!("getSignaturesForAddress: {e}")))?;
+        .map_err(|e| {
+            EnrichmentError::RequestFailed(format!(
+                "getSignaturesForAddress: {}",
+                super::redact_secrets(&e)
+            ))
+        })?;
 
         let json: serde_json::Value = resp.json().await.map_err(|e| {
-            EnrichmentError::RequestFailed(format!("getSignaturesForAddress parse: {e}"))
+            EnrichmentError::RequestFailed(format!(
+                "getSignaturesForAddress parse: {}",
+                super::redact_secrets(&e)
+            ))
         })?;
 
         let sigs = json["result"].as_array();
@@ -148,12 +156,16 @@ impl HeliusEnricher {
         )
         .await
         .map_err(|_elapsed| EnrichmentError::Timeout)?
-        .map_err(|e| EnrichmentError::RequestFailed(format!("getBalance: {e}")))?;
+        .map_err(|e| {
+            EnrichmentError::RequestFailed(format!("getBalance: {}", super::redact_secrets(&e)))
+        })?;
 
-        let json: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| EnrichmentError::RequestFailed(format!("getBalance parse: {e}")))?;
+        let json: serde_json::Value = resp.json().await.map_err(|e| {
+            EnrichmentError::RequestFailed(format!(
+                "getBalance parse: {}",
+                super::redact_secrets(&e)
+            ))
+        })?;
 
         let lamports = json["result"]["value"].as_u64().unwrap_or(0);
         Ok(lamports as f64 / 1_000_000_000.0)
@@ -183,16 +195,23 @@ impl HeliusEnricher {
         let resp = tokio::time::timeout(HELIUS_BEHAVIORAL_TIMEOUT, self.client.get(&url).send())
             .await
             .map_err(|_elapsed| EnrichmentError::Timeout)?
-            .map_err(|e| EnrichmentError::RequestFailed(format!("Enhanced TX history: {e}")))?;
+            .map_err(|e| {
+                EnrichmentError::RequestFailed(format!(
+                    "Enhanced TX history: {}",
+                    super::redact_secrets(&e)
+                ))
+            })?;
 
         if !resp.status().is_success() {
             return Ok(vec![]);
         }
 
-        let json: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| EnrichmentError::RequestFailed(format!("Enhanced TX parse: {e}")))?;
+        let json: serde_json::Value = resp.json().await.map_err(|e| {
+            EnrichmentError::RequestFailed(format!(
+                "Enhanced TX parse: {}",
+                super::redact_secrets(&e)
+            ))
+        })?;
 
         match json.as_array() {
             Some(arr) => Ok(arr.clone()),
@@ -219,12 +238,19 @@ impl HeliusEnricher {
         )
         .await
         .map_err(|_elapsed| EnrichmentError::Timeout)?
-        .map_err(|e| EnrichmentError::RequestFailed(format!("getAssetsByOwner: {e}")))?;
+        .map_err(|e| {
+            EnrichmentError::RequestFailed(format!(
+                "getAssetsByOwner: {}",
+                super::redact_secrets(&e)
+            ))
+        })?;
 
-        let json: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| EnrichmentError::RequestFailed(format!("getAssetsByOwner parse: {e}")))?;
+        let json: serde_json::Value = resp.json().await.map_err(|e| {
+            EnrichmentError::RequestFailed(format!(
+                "getAssetsByOwner parse: {}",
+                super::redact_secrets(&e)
+            ))
+        })?;
 
         let items = json["result"]["items"].as_array();
         let count = items
@@ -363,7 +389,7 @@ fn compute_hold_metrics(swaps: &[ParsedSwap]) -> (f64, u32, u32) {
         0.0
     } else {
         let mid = hold_durations_hours.len() / 2;
-        if hold_durations_hours.len() % 2 == 0 && hold_durations_hours.len() >= 2 {
+        if hold_durations_hours.len().is_multiple_of(2) && hold_durations_hours.len() >= 2 {
             (hold_durations_hours[mid - 1] + hold_durations_hours[mid]) / 2.0
         } else {
             hold_durations_hours[mid]
