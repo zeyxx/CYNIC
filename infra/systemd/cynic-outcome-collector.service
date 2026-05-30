@@ -1,0 +1,24 @@
+[Unit]
+Description=CYNIC — Outcome Collector (re-query GeckoTerminal at T+7/14/30 for judged tokens)
+After=network-online.target
+# Runs AFTER token-snapshot so market snapshots exist as the baseline price reference.
+After=token-snapshot.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/cynic/env
+WorkingDirectory=%h/Bureau/CYNIC
+# Extracted from token-snapshot.service ExecStartPost (2026-05-30): rate-limited collection
+# (7s/request, dozens of mints due) exceeded the bundled 900s oneshot budget, so the
+# outcome stage — last of 5 — was killed every run → 0 outcomes ever persisted.
+# A dedicated unit with its own timeout gives the collector the runtime it needs.
+ExecStart=/usr/bin/python3 cynic-python/heuristics/collection/outcome_collector.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cynic-outcome-collector
+MemoryMax=256M
+# Headroom: GeckoTerminal rate limit is 7s/request; a full backlog can run ~20min.
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=cynic-outcome-collector.timer

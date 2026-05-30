@@ -68,6 +68,7 @@ DEFAULT_TARGETS = [
     {"url": "https://x.com/search?q=solana+meme+coin&f=live", "domain": "memecoin", "weight": 0.6},
     {"url": "https://x.com/search?q=jupiter+dex&f=live", "domain": "dex", "weight": 0.5},
     {"url": "https://x.com/explore", "domain": "trending", "weight": 0.4},
+    {"url": "https://x.com/cynicoracle", "domain": "cynicoracle", "weight": 0.3},
 ]
 
 # Human-like timing parameters (seconds)

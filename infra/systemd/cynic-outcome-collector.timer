@@ -1,0 +1,11 @@
+[Unit]
+Description=CYNIC — Outcome Collector daily run at 07:00 UTC (after token-snapshot at 06:00)
+Requires=cynic-outcome-collector.service
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
