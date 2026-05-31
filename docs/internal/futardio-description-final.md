@@ -119,13 +119,16 @@ No marketing budget. No agency. The flywheel is the marketing.
 
 ## Token Allocation
 
-| Bucket | Tokens | % |
-|--------|--------|---|
-| ICO (public raise) | 9,900,000 | 55% |
-| T. (6m cliff + 18m vest) | 3,600,000 | 20% |
-| S. (6m cliff + 18m vest) | 3,600,000 | 20% |
-| Protocol treasury | 900,000 | 5% |
-| **Total** | **18,000,000** | **100%** |
+| Bucket | Tokens | % | Unlock |
+|--------|--------|---|--------|
+| ICO (public raise) | 10,000,000 | ~39% | at raise close |
+| LP pool (auto-seeded) | 2,900,000 | ~11% | at raise close |
+| T. — performance package | 3,600,000 | ~14% | price-based: 2×/4×/8×/16×/32× ICO price, min 18 months |
+| S. — performance package | 3,600,000 | ~14% | price-based: 2×/4×/8×/16×/32× ICO price, min 18 months |
+| Protocol treasury | 900,000 | ~3% | governance-controlled |
+| **Total** | **~21,000,000** | **100%** | |
+
+*MetaDAO standard structure. Team tokens unlock only if the token performs — aligned incentives by design.*
 
 ## Why TALARIA?
 

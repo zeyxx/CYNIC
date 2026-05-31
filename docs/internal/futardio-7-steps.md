@@ -178,15 +178,16 @@ Réserve      : $13,700 (27%) — contingency + future hiring
 
 ---
 
-## Tokenomics (Option A — finalisée)
+## Tokenomics (MetaDAO standard — finalisée)
 
-| Bucket | Tokens | % | Valeur @ FDV |
-|--------|--------|---|--------------|
-| ICO (public raise) | 9,900,000 | 55% | $49,500 |
-| T. (vesting 6m cliff + 18m linéaire) | 3,600,000 | 20% | $18,000 |
-| S. (vesting 6m cliff + 18m linéaire) | 3,600,000 | 20% | $18,000 |
-| Protocol treasury | 900,000 | 5% | $4,500 |
-| **Total** | **18,000,000** | **100%** | **$90,000** |
+| Bucket | Tokens | % | Unlock |
+|--------|--------|---|--------|
+| ICO (public raise) | 10,000,000 | ~39% | à la clôture raise |
+| LP pool (auto-seeded) | 2,900,000 | ~11% | à la clôture raise |
+| T. — performance package | 3,600,000 | ~14% | price-based : 2×/4×/8×/16×/32× × $0.005, min 18 mois |
+| S. — performance package | 3,600,000 | ~14% | price-based : 2×/4×/8×/16×/32× × $0.005, min 18 mois |
+| Protocol treasury | 900,000 | ~3% | governance |
+| **Total** | **~21,000,000** | **100%** | |
 
 ---
 
