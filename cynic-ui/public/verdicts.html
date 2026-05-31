@@ -54,8 +54,8 @@
 
   <!-- STATS BAR -->
   <div id="stats-bar" class="border-b border-zinc-800 px-6 py-3 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-    <div><span class="text-zinc-500">verdicts</span> <span id="stat-verdicts" class="text-amber-400 font-bold ml-2">—</span></div>
-    <div><span class="text-zinc-500">observations</span> <span id="stat-obs" class="text-amber-400 font-bold ml-2">—</span></div>
+    <div><span class="text-zinc-500">verdicts (recent)</span> <span id="stat-verdicts" class="text-amber-400 font-bold ml-2">—</span></div>
+    <div><span class="text-zinc-500">observations (total)</span> <span id="stat-obs" class="text-amber-400 font-bold ml-2">—</span></div>
     <div><span class="text-zinc-500">crystals</span> <span id="stat-crystals" class="text-amber-400 font-bold ml-2">—</span></div>
     <div><span class="text-zinc-500">dogs</span> <span id="stat-dogs" class="text-amber-400 font-bold ml-2">—</span></div>
     <div><span class="text-zinc-500">uptime</span> <span id="stat-uptime" class="text-amber-400 font-bold ml-2">—</span></div>
@@ -123,16 +123,29 @@
       return r.json();
     }
 
+    async function apiHealth() {
+      const r = await fetch(config.url + '/health', {
+        headers: { 'Authorization': 'Bearer ' + config.key }
+      });
+      // Accept 200 (sovereign) and 503 (degraded) — both return useful JSON
+      if (r.status !== 200 && r.status !== 503) throw new Error(r.status);
+      return r.json();
+    }
+
     async function init() {
       try {
-        const health = await api('/health');
-        document.getElementById('kernel-status').textContent = '● live';
-        document.getElementById('kernel-status').className = 'text-xs px-2 py-1 rounded border border-green-800 text-green-400';
+        const health = await apiHealth();
+        const isDegraded = health.status === 'degraded';
+        document.getElementById('kernel-status').textContent = isDegraded ? '● degraded' : '● live';
+        document.getElementById('kernel-status').className = isDegraded
+          ? 'text-xs px-2 py-1 rounded border border-amber-800 text-amber-400'
+          : 'text-xs px-2 py-1 rounded border border-green-800 text-green-400';
 
         // Stats
         const m = health.storage_metrics || {};
-        document.getElementById('stat-verdicts').textContent = '—';
-        document.getElementById('stat-obs').textContent = '—';
+        // observations: sum across all producers
+        const totalObs = (health.producers || []).reduce((s, p) => s + (p.observations || 0), 0);
+        document.getElementById('stat-obs').textContent = totalObs > 0 ? totalObs.toLocaleString() : '—';
         document.getElementById('stat-crystals').textContent = (health.crystals || {}).total ?? '—';
         document.getElementById('stat-dogs').textContent = (health.dogs || []).filter(d => d.healthy !== false).length + '/' + (health.dogs || []).length;
         const upSecs = health.uptime_seconds;
