@@ -1,9 +1,3 @@
-# TALARIA — Futardio Project Description (final v3)
-
-> À coller dans le champ "Project Description" sur futard.io
-
----
-
 ## The Problem
 
 Futarchy lets markets decide. But who's in the market? Bots? Sybils? Nobody checks if voters are human or if proposals are sound before the vote starts. We do.
