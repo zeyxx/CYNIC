@@ -31,6 +31,18 @@ enum Command {
         #[arg(short, long, default_value = "conversation")]
         domain: String,
     },
+    /// Log a direct text entry to the log store
+    Log {
+        /// Content to log
+        #[arg(short, long)]
+        content: String,
+        /// Path to the target JSONL log file
+        #[arg(short, long, default_value = ".askesis/datasets/human-kernel.jsonl")]
+        logfile: PathBuf,
+        /// Domain for the entry
+        #[arg(short, long)]
+        domain: String,
+    },
 }
 
 #[tokio::main]
@@ -100,6 +112,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             store.append(entry)?;
             println!("Successfully ingested as domain: {domain}");
+
+            Ok(())
+        }
+        Command::Log {
+            content,
+            logfile,
+            domain,
+        } => {
+            let mut store = JsonlLog::new(&logfile)?;
+            let entry = cynic_askesis::log::LogEntry::new(content).with_domain(&domain);
+
+            store.append(entry)?;
+            println!("Successfully logged to domain: {domain}");
 
             Ok(())
         }
