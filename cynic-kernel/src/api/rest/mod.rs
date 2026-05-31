@@ -143,6 +143,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/agent-tasks", post(agent_tasks::dispatch_task_handler))
         .route("/agent-tasks", get(agent_tasks::list_tasks_handler))
         .route(
+            "/agent-tasks/completed",
+            get(agent_tasks::list_completed_tasks_handler),
+        )
+        .route(
             "/agent-tasks/{id}/result",
             post(agent_tasks::complete_task_handler),
         )

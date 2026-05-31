@@ -435,6 +435,15 @@ impl StoragePort for SurrealHttpStorage {
     }
 
     #[tracing::instrument(skip(self), err)]
+    async fn list_completed_agent_tasks(
+        &self,
+        kind: &str,
+        limit: u32,
+    ) -> Result<Vec<AgentTask>, StorageError> {
+        agent_tasks::list_completed_agent_tasks(self, kind, limit).await
+    }
+
+    #[tracing::instrument(skip(self), err)]
     async fn mark_agent_task_processing(&self, task_id: &str) -> Result<(), StorageError> {
         agent_tasks::mark_agent_task_processing(self, task_id).await
     }
