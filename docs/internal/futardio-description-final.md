@@ -97,7 +97,7 @@ No marketing budget. No agency. The flywheel is the marketing.
 **M1 (weeks 1–4)**
 - CYNIC: public judgment API with quota tiers + rate limiting
 - B&C: PoH gateway UI — QR → play 5-min game → 7-day human badge (backend already built)
-- $TALARIA: DEX listing (Raydium) + initial liquidity seeded from treasury
+- $TALARIA: liquidity pools seeded automatically at raise close (MetaDAO mechanism)
 
 **M2 (weeks 5–8)**
 - CYNIC: dog health stabilized (LLM validators back online), crystals pipeline active
@@ -107,7 +107,7 @@ No marketing budget. No agency. The flywheel is the marketing.
 **M3–4**
 - PoH on-chain mainnet — soulbound NFT on verified completion
 - Burn-as-a-service: tournament entry burns $TALARIA (1,000/player inter-community)
-- Oracle pricing: TWAP from Raydium pool replaces fixed token amount
+- Oracle pricing: TWAP from MetaDAO liquidity pool replaces fixed token amount
 - Checkers/dames as second game (PoH variant)
 - First external API client
 
