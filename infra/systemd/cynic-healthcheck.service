@@ -1,12 +1,11 @@
-# DORMANT: Superseded by kernel-native monitoring (planned).
-# cynic-health.timer (standalone in ~/.config/systemd/user/) was the more comprehensive
-# version but both are disabled — monitoring should move into the kernel itself.
 [Unit]
-Description=DORMANT — CYNIC Readiness Check (external timer, superseded)
+Description=CYNIC Health Check — Telegram alerting on kernel degradation
 After=cynic-kernel.service
 
 [Service]
 Type=oneshot
 EnvironmentFile=%h/.config/cynic/env
-# Rule #15: check HTTP status code, don't parse JSON. /ready returns 200 or 503.
-ExecStart=/usr/bin/curl -sf --max-time 10 http://${CYNIC_REST_ADDR}/ready
+ExecStart=%h/Bureau/CYNIC/scripts/cynic-healthcheck.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cynic-healthcheck
