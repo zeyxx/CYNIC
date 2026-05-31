@@ -25,15 +25,12 @@ Futarchy lets markets decide. But who's in the market? Bots? Sybils? Nobody chec
 - Post-game analysis, accuracy %, eval graph
 - Auth (Google/Discord), Glicko-2 rating, PWA offline play
 
-**PoH — backend complete, gateway shipping M1:**
-- Anti-Sybil classifier, Ed25519 permit signer, per-wallet rate limiter: ✅ built
-- Metaplex Core soulbound mint on devnet: ✅ end-to-end
-- Missing piece: PoH gateway UI — scan QR → play 5-min game → 7-day human badge
-- No KYC, no biometrics. Behavioral proof through play.
+**M1–2 (in development):**
+- PoH gateway — scan QR → play a 5-min game → verified human. No KYC, no biometrics. Behavioral proof through play.
 
-**M2+ (roadmap):**
+**M3+ (roadmap):**
 - Inter-community tournaments ("$TOKEN_A vs $TOKEN_B 7-3")
-- Soulbound NFT on verified completion (mainnet)
+- Soulbound NFT on verified completion
 - Tribe rivalries, leaderboards, Season 1
 
 ## By the Numbers
@@ -46,9 +43,8 @@ Futarchy lets markets decide. But who's in the market? Bots? Sybils? Nobody chec
 | Commits (CYNIC + B&C) | 1,400+ | ✅ verified |
 | Cloud dependency (AI engine) | 0% | ✅ live |
 | Multiplayer chess (B&C) | live | ✅ live |
-| PoH backend (anti-Sybil, permit, mint) | built | ✅ devnet |
-| PoH gateway (QR → game → badge) | M1 | 🔨 shipping |
-| Inter-community tournaments | M2+ | 📋 roadmap |
+| PoH gateway | M1–2 | 🔨 in dev |
+| Inter-community tournaments | M3+ | 📋 roadmap |
 
 ## Token Utility
 
@@ -92,30 +88,9 @@ No marketing budget. No agency. The flywheel is the marketing.
 
 ## Roadmap
 
-*Execution baseline: ~100 commits/week, 30+ features/week (3-month average). Two full-time engineers.*
-
-**M1 (weeks 1–4)**
-- CYNIC: public judgment API with quota tiers + rate limiting
-- B&C: PoH gateway UI — QR → play 5-min game → 7-day human badge (backend already built)
-- $TALARIA: liquidity pools seeded automatically at raise close (MetaDAO mechanism)
-
-**M2 (weeks 5–8)**
-- CYNIC: dog health stabilized (LLM validators back online), crystals pipeline active
-- B&C: PoH mainnet + first inter-community tournament (2 communities)
-- B&C: tournament leaderboard, tribe profiles
-
-**M3–4**
-- PoH on-chain mainnet — soulbound NFT on verified completion
-- Burn-as-a-service: tournament entry burns $TALARIA (1,000/player inter-community)
-- Oracle pricing: TWAP from MetaDAO liquidity pool replaces fixed token amount
-- Checkers/dames as second game (PoH variant)
-- First external API client
-
-**M5–6**
-- sBPF optimization (kernel performance)
-- Go SDK for judgment API
-- Season 1: prize pool funded from protocol fees
-- $TALARIA burn rate target: 1M tokens/month
+- **M1–2:** Public judgment API · PoH gateway (QR → chess → verified) · first inter-community tournament
+- **M3–4:** PoH on-chain mainnet · burn-as-a-service · checkers/dames · first external API client
+- **M5–6:** sBPF optimization · Go SDK · Season 1 with prize pool
 
 ## Token Allocation
 
