@@ -1,18 +1,57 @@
+# MetaDAO Submit — Step 1: Project Info
+
+> Colle chaque champ ci-dessous dans le formulaire. Un champ = une section.
+
+---
+
+## Project Name
+
+```
+Talaria
+```
+
+---
+
+## Ticker
+
+```
+TALARIA
+```
+
+---
+
+## Short Description
+
+```
+Is the proposal sound? Are the voters human? We answer both.
+```
+
+---
+
+## Project Description
+
+*(Remplace tout le contenu actuel par ce qui suit)*
+
+```markdown
 ## The Problem
 
-Futarchy lets markets decide. But who's in the market? Bots? Sybils? Nobody checks if voters are human or if proposals are sound before the vote starts. We do.
+On-chain governance is theater. One entity holds fifty wallets — it votes fifty times. One team runs twenty X and Telegram accounts — the "community" is a single actor. Governance proposals pass not because token holders deliberate, but because one player signals and others follow. Meanwhile, existing Proof of Humanity systems extract biometric data to sell it. Data is money — and today, protocols capture that value instead of users.
+
+Two primitives are missing. First, a Proof of Humanity that works without KYC, without biometrics, without surrendering data — that proves one human, one vote, and leaves the data with the user. Second, an independent judgment layer that evaluates whether a proposal is sound before capital moves.
+
+We built both. **CYNIC judges. Blitz & Chill proves humanity.** The AI Governance stack that connects them is the roadmap — both halves are live today.
 
 ## Why us
 
-Nobody ships both sides of the trust problem in one stack. Existing Proof of Humanity (WorldCoin) is biometric and friction-heavy. Existing judgment engines (GPT-4 APIs) are uncalibrated, cloud-dependent, single-validator. We built the intersection — game-native, sovereign, calibrated — and **both halves are already live**, not roadmap.
+Nobody ships both sides of the trust problem in one stack. Existing Proof of Humanity is biometric and friction-heavy. Existing AI judgment systems are uncalibrated, cloud-dependent, single-validator. We built the intersection — game-native, sovereign, calibrated — and **both halves are already live**, not roadmap. Architecture: off-chain compute, on-chain settlement — the foundation for a ZK trust layer on Solana.
 
 ## Two Products. One Trust Layer.
 
 ### CYNIC — AI Judgment Engine *(live)*
 
-- Heuristic validator + up to 3 independent LLM validators score proposals on 6 axioms: fidelity, logic, verifiability, culture, efficiency, sovereignty
-- Confidence architecturally capped at φ⁻¹ = 61.8% — the system refuses certainty beyond the evidence
-- EPOCHÉ: judgment suspended when validators disagree (no forced verdicts)
+- Heuristic validator + up to 3 independent LLM validators score proposals on 6 axioms: fidelity, phi (structural harmony), verify/falsify, culture, burn (efficiency), sovereignty
+- Confidence architecturally capped at φ⁻¹ = 61.8% — the inverse of the golden ratio, hard-coded into the scoring model. The system cannot exceed this certainty threshold by design, not configuration.
+- EPOCHÉ: when validators disagree beyond threshold, judgment is suspended — "I don't know" is a first-class output, not a failure state
 - 3,711 verdicts rendered · Rust kernel · sovereign hardware · zero cloud dependency
 
 ### Blitz & Chill — Social Chess Platform *(live)*
@@ -30,7 +69,7 @@ Nobody ships both sides of the trust problem in one stack. Existing Proof of Hum
 - **No KYC, no biometrics, no data stored. Privacy is the moat.**
 
 **Why privacy is the product, not a feature:**
-- Every KYC/biometric database is a honeypot. A single leak exposes holders to targeted attacks — in France, crypto data leaks have already led to physical kidnappings. We store zero personal data.
+- Every KYC/biometric database is a honeypot. In France alone, publicized crypto data leaks have already led to home invasions, kidnappings for ransom, and physical extortion targeting identified holders. The PoH verification requires no KYC, no biometrics, no identity documents. A wallet address and a chess game — nothing else. We don't know who you are, and we don't want to.
 - AI agents now defeat CAPTCHAs; the human-verification industry has degraded into sweatshops where workers in low-income countries solve them by hand. Neither proves humanity.
 - We verify humanity through *gameplay* — behavioral, unfakeable by bots, surrendering nothing. Sovereignty without surveillance, the way crypto was meant to work.
 
@@ -106,6 +145,7 @@ No marketing budget. No agency. The flywheel is the marketing.
 
 **M3–4**
 - PoH on-chain mainnet — soulbound NFT on verified completion
+- ZK proof of gameplay — prove "played like a human" without revealing the game (data stays with the user)
 - Burn-as-a-service: tournament entry burns $TALARIA (1,000/player inter-community)
 - Oracle pricing: TWAP from MetaDAO liquidity pool replaces fixed token amount
 - Checkers/dames as second game (PoH variant)
@@ -139,6 +179,14 @@ No team tokens unlock at TGE. Nothing vests on time alone — only on sustained 
 
 *Incentives aligned by design: if the token doesn't perform, the team earns nothing beyond the monthly allowance.*
 
+## Team
+
+**Titouan** — CYNIC kernel, judgment API, sovereign infrastructure. Cybersecurity student, shipping Rust daily since March 2026.
+
+**Ragnar-no-sleep** — Blitz & Chill, chess platform, community. 388 commits since March 2026.
+
+Two builders. No agency. No marketing budget. ~120 commits/week combined, measured over 3 months.
+
 ## Why TALARIA?
 
 Talaria — the winged sandals of Hermes. Speed, trust, and the messenger who never lies.
@@ -146,3 +194,4 @@ Talaria — the winged sandals of Hermes. Speed, trust, and the messenger who ne
 Public on day 1. Accountable on day 1. Code is open:
 - CYNIC: github.com/zeyxx/CYNIC
 - Blitz & Chill: github.com/Ragnar-no-sleep/blitz-and-chill
+```
