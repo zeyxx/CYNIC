@@ -13,7 +13,7 @@ Nobody ships both sides of the trust problem in one stack. Existing Proof of Hum
 - Heuristic validator + up to 3 independent LLM validators score proposals on 6 axioms: fidelity, logic, verifiability, culture, efficiency, sovereignty
 - Confidence architecturally capped at φ⁻¹ = 61.8% — the system refuses certainty beyond the evidence
 - EPOCHÉ: judgment suspended when validators disagree (no forced verdicts)
-- 2,195 verdicts rendered · Rust kernel · sovereign hardware · zero cloud dependency
+- 3,711 verdicts rendered · Rust kernel · sovereign hardware · zero cloud dependency
 
 ### Blitz & Chill — Social Chess Platform *(live)*
 
@@ -43,31 +43,31 @@ Nobody ships both sides of the trust problem in one stack. Existing Proof of Hum
 
 | Metric | Value | Status |
 |--------|-------|--------|
-| Verdicts rendered (CYNIC) | 2,195 | ✅ live |
+| Verdicts rendered (CYNIC) | 3,711 | ✅ live |
 | Cloud dependency (AI engine) | 0% | ✅ sovereign |
 | Tests (CYNIC + B&C) | 2,045 | ✅ verified |
-| Commits (CYNIC + B&C) | 1,404 | ✅ verified |
+| Commits (CYNIC + B&C) | 1,400+ | ✅ verified |
 | Multiplayer chess (B&C) | live | ✅ live |
 | PoH backend (anti-Sybil, permit, mint) | built | ✅ devnet |
 | PoH gateway (QR → game → badge) | M1 | 🔨 shipping |
 | Inter-community tournaments | M2+ | 📋 roadmap |
 
-## Token Utility
+## $TALARIA — Ownership, Not Access
 
-**$TALARIA** has two mechanisms:
+**$TALARIA is an ownership coin.** Holders own a share of a futarchy-governed treasury — value is the treasury NAV plus the market's expectation of future revenue flows. No artificial utility needed; MetaDAO's mechanism handles price discovery.
 
-1. **Access token** — hold $TALARIA to unlock judgment API tiers beyond free quota (free: 10/month · Standard: hold 1,000 · Pro: hold 10,000)
-2. **Tournament burn** — inter-community tournament entry burns $TALARIA (casual: 10 · ranked: 100 · inter-community: 1,000/player)
+**How value accrues:**
+- **Pay-per-use burn** — API fees accepted in USDC or $TALARIA. $TALARIA payers receive a 20% discount; tokens are burned on use. USDC payments flow to treasury. Usage in either currency creates protocol value — holders benefit from the discount, treasury grows regardless. Pricing is cost-plus (10× marginal inference cost): free tier (10 verdicts/month), standard per-verdict rate, volume negotiated above 1K/month. No pricing lock-in at launch — first design partners set the floor.
+- **Tournament burn** — inter-community event entry burns $TALARIA (1,000/player inter-community). Communities compete; supply contracts.
+- **Treasury growth** — unspent USDC stays in treasury, releasable only by market vote. The team draws a market-approved monthly allowance, not a lump sum.
+
+There is no "hold X to access Y" tier — that model penalizes adoption precisely when the token succeeds. Revenue flows in, tokens burn out, treasury grows.
 
 ## The Upside Case
 
-ICO price $0.005. The team package unlocks in tranches at 2× / 4× / 8× / 16× / 32× — the team is paid on exactly the price performance investors profit from. What drives demand toward those multiples?
+ICO price $0.005. The team package unlocks in tranches at 2× / 4× / 8× / 16× / 32× — the team is paid on exactly the price performance investors profit from.
 
-- 50 API clients × 10,000 $TALARIA held = 500K tokens locked
-- 10 inter-community events/month × 100 players × 1,000 $TALARIA = 1M tokens burned/month
-- At that burn rate: supply halved in ~12 months
-
-These multiples require no speculative leap — just product adoption in a space (futarchy, PoH) that is actively growing. Every governance protocol needs what we built.
+What drives demand? Real usage. Every API call burns $TALARIA. Every inter-community tournament burns $TALARIA. The team draws an allowance only while the market approves it. There is no projected timeline for "supply halved" — that depends on adoption we haven't proven yet. What we have proven: 3,711 verdicts rendered, two live products, zero cloud dependency, 1,400+ commits. The bet is on execution, not a model.
 
 ## Market
 
@@ -92,7 +92,7 @@ No marketing budget. No agency. The flywheel is the marketing.
 
 ## Roadmap
 
-*Execution baseline: ~120 commits/week combined (measured 3-month average — CYNIC 1,016 + B&C 388). Two builders, cybersecurity students, shipping daily.*
+*Execution baseline: ~120 commits/week combined (measured 3-month average — CYNIC 1,002 + B&C 388). Two builders, cybersecurity students, shipping daily.*
 
 **M1 (weeks 1–4)**
 - CYNIC: public judgment API with quota tiers + rate limiting
