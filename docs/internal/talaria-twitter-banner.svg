@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" width="1500" height="500">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#09090b"/>
+      <stop offset="100%" style="stop-color:#111113"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1500" height="500" fill="url(#bg)"/>
+
+  <!-- Subtle grid lines -->
+  <line x1="0" y1="166" x2="1500" y2="166" stroke="#fbbf24" stroke-width="0.3" opacity="0.08"/>
+  <line x1="0" y1="333" x2="1500" y2="333" stroke="#fbbf24" stroke-width="0.3" opacity="0.08"/>
+  <line x1="375" y1="0" x2="375" y2="500" stroke="#fbbf24" stroke-width="0.3" opacity="0.08"/>
+  <line x1="750" y1="0" x2="750" y2="500" stroke="#fbbf24" stroke-width="0.3" opacity="0.08"/>
+  <line x1="1125" y1="0" x2="1125" y2="500" stroke="#fbbf24" stroke-width="0.3" opacity="0.08"/>
+
+  <!-- Dog icon (scaled from token SVG, left side) -->
+  <g transform="translate(80, 100) scale(0.75)">
+    <!-- Left wing -->
+    <path d="M175 198 C150 178 112 168 72 173 C96 185 126 192 156 202Z" fill="#fbbf24"/>
+    <path d="M172 213 C144 200 106 200 68 213 C94 220 126 222 158 217Z" fill="#fbbf24" opacity="0.5"/>
+    <!-- Right wing -->
+    <path d="M225 198 C250 178 288 168 328 173 C304 185 274 192 244 202Z" fill="#fbbf24"/>
+    <path d="M228 213 C256 200 294 200 332 213 C306 220 274 222 242 217Z" fill="#fbbf24" opacity="0.5"/>
+    <!-- Ear -->
+    <path d="M182 162 C174 145 180 130 196 134 C205 136 208 148 204 162 C198 158 190 157 182 162Z" fill="#f59e0b"/>
+    <!-- Skull -->
+    <ellipse cx="202" cy="186" rx="36" ry="28" fill="#fef3c7"/>
+    <!-- Snout -->
+    <path d="M224 192 C240 190 252 196 251 207 C250 215 236 217 222 213 C216 208 218 197 224 192Z" fill="#fef3c7"/>
+    <path d="M224 213 C230 217 240 217 248 213" stroke="#e5c88a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <!-- Nose -->
+    <path d="M246 202 C242 199 250 199 254 202 C254 206 250 208 246 208 C242 208 238 206 238 203 C240 200 244 200 246 202Z" fill="#1c1917"/>
+    <!-- Eye -->
+    <circle cx="220" cy="184" r="5.5" fill="#09090b"/>
+    <circle cx="221.5" cy="182.5" r="2" fill="#fbbf24"/>
+    <!-- Chest -->
+    <path d="M172 210 C168 224 173 237 182 242 C192 247 216 247 226 242 C234 237 237 224 232 210Z" fill="#fef3c7"/>
+    <!-- Flames -->
+    <path d="M200 282 C196 263 187 253 191 238 C194 228 200 222 200 222 C200 222 206 228 209 238 C213 253 204 263 200 282Z" fill="#fbbf24"/>
+    <path d="M181 288 C178 273 172 265 175 253 C177 245 181 240 181 240 C181 240 185 245 186 253 C189 265 183 273 181 288Z" fill="#f97316" opacity="0.8"/>
+    <path d="M219 288 C222 273 228 265 225 253 C223 245 219 240 219 240 C219 240 215 245 214 253 C211 265 217 273 219 288Z" fill="#f97316" opacity="0.8"/>
+  </g>
+
+  <!-- TALARIA wordmark -->
+  <text x="400" y="220" font-family="'Courier New', monospace" font-size="110" font-weight="700" letter-spacing="18" fill="#fbbf24" filter="url(#glow)">TALARIA</text>
+
+  <!-- Tagline -->
+  <text x="402" y="285" font-family="'Courier New', monospace" font-size="26" letter-spacing="4" fill="#fef3c7" opacity="0.75">Is the proposal sound? Are the voters human?</text>
+
+  <!-- Separator line -->
+  <line x1="400" y1="315" x2="1060" y2="315" stroke="#fbbf24" stroke-width="0.8" opacity="0.4"/>
+
+  <!-- Two products -->
+  <text x="402" y="355" font-family="'Courier New', monospace" font-size="20" fill="#fbbf24" opacity="0.6">CYNIC · AI judgment</text>
+  <text x="402" y="383" font-family="'Courier New', monospace" font-size="20" fill="#fbbf24" opacity="0.6">Blitz &amp; Chill · Chess proof of humanity</text>
+
+  <!-- ICO badge -->
+  <rect x="1250" y="190" width="210" height="60" rx="4" fill="none" stroke="#fbbf24" stroke-width="1.5" opacity="0.6"/>
+  <text x="1355" y="226" font-family="'Courier New', monospace" font-size="18" font-weight="700" fill="#fbbf24" text-anchor="middle" letter-spacing="3">ICO LIVE</text>
+
+  <!-- futardio -->
+  <text x="1355" y="300" font-family="'Courier New', monospace" font-size="15" fill="#fef3c7" opacity="0.45" text-anchor="middle">futard.io</text>
+
+  <!-- φ⁻¹ signature subtile -->
+  <text x="1470" y="488" font-family="'Courier New', monospace" font-size="11" fill="#fbbf24" opacity="0.2" text-anchor="end">φ⁻¹ = 0.618</text>
+</svg>
