@@ -274,6 +274,8 @@ def main() -> None:
     parser.add_argument("--r-min", type=int, default=0)
     parser.add_argument("--r-max", type=int, default=20)
     parser.add_argument("--p-max", type=int, default=25)
+    parser.add_argument("--cb-min", type=int, default=55, help="compare_bits: min COMPARE_BITS")
+    parser.add_argument("--cb-max", type=int, default=65, help="compare_bits: max COMPARE_BITS (exclusive)")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -305,7 +307,11 @@ def main() -> None:
             args.r_min, args.r_max, args.p_max, len(combos),
         )
     elif args.mode == "compare_bits":
-        combos = compare_bits_search(range(55, 65), args.r_max, args.p_max)
+        combos = compare_bits_search(range(args.cb_min, args.cb_max), args.r_max, args.p_max)
+        logging.info(
+            "mode=compare_bits: CB [%d,%d) × REROLL [0,%d) × POST_SUB [0,%d) = %d combos",
+            args.cb_min, args.cb_max, args.r_max, args.p_max, len(combos),
+        )
     else:
         combos = width_margin_search(range(22, 33), args.r_max, args.p_max)
 
