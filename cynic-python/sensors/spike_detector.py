@@ -35,6 +35,14 @@ from typing import Optional
 import urllib.request
 import urllib.error
 
+# Metabolic cost tracking — imported at module level to avoid repeated sys.path mutation
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).parent.parent))
+try:
+    from metabolism.cost_tracker import emit as _cost_emit
+except ImportError:
+    _cost_emit = None  # type: ignore[assignment]
+
 # ---------------------------------------------------------------------------
 # Configuration (overridable via environment variables)
 # ---------------------------------------------------------------------------
@@ -165,13 +173,6 @@ def fetch_trending_pools() -> list[dict]:  # type: ignore[type-arg]
     Emits a metabolic cost event after each successful fetch.
     """
     import time as _time
-    import sys as _sys
-    _sys.path.insert(0, str(Path(__file__).parent.parent))
-    try:
-        from metabolism.cost_tracker import emit as _cost_emit
-    except ImportError:
-        _cost_emit = None  # type: ignore[assignment]
-
     req = urllib.request.Request(
         GECKO_URL,
         headers={"Accept": "application/json", "User-Agent": "cynic-spike-detector/1.0"},

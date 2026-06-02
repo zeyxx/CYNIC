@@ -81,3 +81,34 @@ def test_format_context_string():
     assert "tokens_in:4120" in ctx
     assert "geckoterminal:23" in ctx
     assert "p50_latency_ms:380" in ctx
+
+def test_cursor_not_advanced_on_post_failure(tmp_path):
+    """Cursor must NOT advance when kernel POST fails — prevents data loss."""
+    from metabolism.cost_aggregator import run_flush
+    import metabolism.cost_aggregator as agg
+
+    # Write one event to ledger
+    ledger = tmp_path / "cost_ledger.jsonl"
+    cursor_file = tmp_path / "cost_ledger_cursor.txt"
+    ledger.write_text(json.dumps({
+        "feature_id": "spike_detector", "compute_class": "external_api",
+        "provider": "geckoterminal", "latency_ms": 200,
+        "tokens_in": 0, "tokens_out": 0, "ts": "2026-06-02T14:00:00Z"
+    }) + "
+")
+
+    # Patch aggregator to use tmp paths
+    original_ledger = agg.LEDGER_PATH
+    original_cursor = agg.CURSOR_PATH
+    agg.LEDGER_PATH = ledger
+    agg.CURSOR_PATH = cursor_file
+
+    try:
+        with patch("metabolism.cost_aggregator.post_to_kernel", return_value=False):
+            with patch("metabolism.cost_aggregator.fetch_kernel_tokens", return_value=[]):
+                run_flush()
+    finally:
+        agg.LEDGER_PATH = original_ledger
+        agg.CURSOR_PATH = original_cursor
+
+    assert not cursor_file.exists(), "Cursor must NOT be written when POST fails"

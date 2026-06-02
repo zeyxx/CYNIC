@@ -18,9 +18,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys as _sys
+import os as _os
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+_sys.path.insert(0, str(Path(__file__).parent.parent))
+from metabolism.cost_tracker import percentile as _pct
 
 
 def parse_since(since: str) -> datetime:
@@ -84,9 +89,8 @@ def print_summary(events: list[dict], label: str) -> None:
             feature_sovereign[fid] += 1
 
     latencies.sort()
-    n = len(latencies)
-    p50 = latencies[n // 2] if n else 0
-    p99 = latencies[min(int(n * 0.99), n - 1)] if n else 0
+    p50 = _pct(latencies, 0.50)
+    p99 = _pct(latencies, 0.99)
 
     total_sovereign = sum(sovereign.values())
     total_tokens = tokens_in + tokens_out
