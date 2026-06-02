@@ -100,8 +100,8 @@ def commit_improvement(repo_dir: Path, lever: str, result: EvalResult) -> None:
 
 def run_loop(repo_dir: Path, max_iterations: int) -> None:
     """Main optimization loop."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise RuntimeError("ANTHROPIC_API_KEY not set")
+    if not os.environ.get("GEMINI_API_KEY"):
+        raise RuntimeError("GEMINI_API_KEY not set")
 
     lever_descriptions = load_lever_descriptions()
     state = load_state(STATE_FILE)

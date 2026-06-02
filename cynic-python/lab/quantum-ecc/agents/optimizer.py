@@ -1,16 +1,17 @@
 """
 Tier 1 EXPERIMENTAL: Quantum ECC harness — circuit optimizer agent.
 
-Calls Claude Sonnet to generate improved Rust circuit code.
+Calls Gemini 2.5 Pro to generate improved Rust circuit code.
 Status: ACTIVE (started 2026-06-02). Delete by 2026-07-02 if not promoted.
 """
 import logging
 import os
 from dataclasses import dataclass
 
-import anthropic
+from google import genai
+from google.genai import types as genai_types
 
-OPTIMIZER_MODEL = "claude-sonnet-4-6"
+OPTIMIZER_MODEL = "gemini-2.5-pro"
 
 KICKMIX_ISA_REFERENCE = """
 The kickmix ISA (Rust enum you must use):
@@ -34,14 +35,14 @@ pub enum Op {
 Rules:
 - All ops are reversible. Ancilla qubits MUST return to |0> after use.
 - CCX and CCZ dominate cost — minimize them.
-- Metric = total_ops_count x total_qubit_count. Both dimensions matter.
-- Correctness checked against P-256 test vectors — must not break it.
+- Score = avg_toffoli x peak_qubits. Both dimensions matter.
+- Correctness checked against secp256k1 test vectors — must not break it.
 - Return ONLY valid Rust code. No markdown fences. No prose outside comments.
 """
 
 OPTIMIZER_SYSTEM = f"""You are a quantum circuit optimizer working on the ecdsa.fail challenge.
-You will receive the current Rust source for point_add::build() -> Vec<Op> and a specific
-optimization lever to apply.
+You will receive the current Rust source implementing point_add::build() -> Vec<Op> and a
+specific optimization lever to apply.
 
 {KICKMIX_ISA_REFERENCE}
 
@@ -64,8 +65,8 @@ def generate_optimization(
     lever_name: str,
     lever_description: str,
 ) -> OptimizationResult:
-    """Call Claude Sonnet to generate improved Rust. Returns OptimizationResult."""
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    """Call Gemini 2.5 Pro to generate improved Rust. Returns OptimizationResult."""
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
     user_prompt = (
         f"Apply this optimization to the circuit:\n\n"
@@ -74,14 +75,17 @@ def generate_optimization(
         f"Return the complete modified Rust source."
     )
 
-    message = client.messages.create(
+    response = client.models.generate_content(
         model=OPTIMIZER_MODEL,
-        max_tokens=8192,
-        system=OPTIMIZER_SYSTEM,
-        messages=[{"role": "user", "content": user_prompt}],
+        contents=user_prompt,
+        config=genai_types.GenerateContentConfig(
+            system_instruction=OPTIMIZER_SYSTEM,
+            max_output_tokens=32768,
+            temperature=0.2,
+        ),
     )
 
-    new_content = message.content[0].text.strip()
+    new_content = response.text.strip()
 
     if new_content.startswith("```"):
         lines = new_content.split("\n")

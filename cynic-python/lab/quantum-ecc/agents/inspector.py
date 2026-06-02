@@ -1,7 +1,7 @@
 """
 Tier 1 EXPERIMENTAL: Quantum ECC harness — circuit structure inspector.
 
-Calls Claude Haiku to characterize src/point_add/mod.rs.
+Calls Gemini Flash to characterize src/point_add/mod.rs.
 Status: ACTIVE (started 2026-06-02). Delete by 2026-07-02 if not promoted.
 """
 import json
@@ -10,9 +10,10 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-import anthropic
+from google import genai
+from google.genai import types as genai_types
 
-INSPECTOR_MODEL = "claude-haiku-4-5-20251001"
+INSPECTOR_MODEL = "gemini-2.5-flash"
 
 INSPECTOR_SYSTEM = """You are a quantum circuit analyst. You will read Rust source code
 implementing a quantum ECDSA point addition circuit using the kickmix ISA (ops: CX, CCX,
@@ -48,22 +49,20 @@ class InspectionResult:
 
 
 def inspect_circuit(circuit_content: str) -> InspectionResult:
-    """Characterize circuit structure via Claude Haiku. Raises on API error."""
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    """Characterize circuit structure via Gemini Flash. Raises on API error."""
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-    message = client.messages.create(
+    response = client.models.generate_content(
         model=INSPECTOR_MODEL,
-        max_tokens=512,
-        system=INSPECTOR_SYSTEM,
-        messages=[
-            {
-                "role": "user",
-                "content": f"Analyze this quantum circuit implementation:\n\n```rust\n{circuit_content}\n```",
-            }
-        ],
+        contents=f"Analyze this quantum circuit implementation:\n\n```rust\n{circuit_content}\n```",
+        config=genai_types.GenerateContentConfig(
+            system_instruction=INSPECTOR_SYSTEM,
+            max_output_tokens=512,
+            temperature=0.1,
+        ),
     )
 
-    raw = message.content[0].text.strip()
+    raw = response.text.strip()
     logging.info("inspector_response", extra={"raw": raw[:200]})
 
     try:
