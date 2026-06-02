@@ -865,6 +865,8 @@ impl Judge {
         let mut failures: Vec<DogFailure> = Vec::new();
         let mut failed_dogs: Vec<String> = Vec::new();
         let mut failed_dog_errors: std::collections::BTreeMap<String, String> = Default::default();
+        let mut failed_dog_error_kinds: std::collections::BTreeMap<String, String> =
+            Default::default();
 
         // Process Dogs as they arrive (progressive) instead of waiting for all (join_all).
         // O5: Return early once quorum_count Dogs have completed successfully.
@@ -902,6 +904,7 @@ impl Judge {
                         cb(&id, false, elapsed_ms, None, Some(failure.detail.clone()));
                     }
                     failed_dog_errors.insert(id.clone(), failure.detail.clone());
+                    failed_dog_error_kinds.insert(id.clone(), failure.kind.as_str().to_string());
                     failed_dogs.push(id.clone());
                     failures.push(failure);
                     // Don't exit on failure — keep waiting for more Dogs to reach quorum
@@ -1009,7 +1012,7 @@ impl Judge {
             anomaly_axiom,
             failed_dogs,
             failed_dog_errors,
-            failed_dog_error_kinds: std::collections::BTreeMap::new(),
+            failed_dog_error_kinds,
             excluded_dogs: Vec::new(),
             target: extract_target(stimulus),
             integrity_hash: Some(hash),

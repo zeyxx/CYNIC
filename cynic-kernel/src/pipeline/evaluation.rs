@@ -70,6 +70,8 @@ pub(super) async fn wallet_judgment_fast_path(
         anomaly_axiom: None,
         failed_dogs: vec![],
         failed_dog_errors: std::collections::BTreeMap::new(),
+        failed_dog_error_kinds: std::collections::BTreeMap::new(),
+        excluded_dogs: Vec::new(),
         target: Some(profile.wallet_address.clone()),
         integrity_hash: None,
         prev_hash: None,
